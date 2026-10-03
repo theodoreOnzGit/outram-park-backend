@@ -33,6 +33,14 @@ exclude = ["verification_and_validation/*.csv", "docs", "upstream_source/CoolPro
 # into the system C libm (bn:op-chyp.6). PETIR is no_std with only `libm`.
 petir.workspace = true
 uom.workspace = true
+# The FvMesh, MeshError, 1-D mesher and tensor primitives of
+# `openfoam_algorithms::openfoam_source` are re-exported from here (deduped
+# 2026-10-03, GitHub #492; they were code-identical copies). This is the one
+# new heavy-ish edge in this crate: it brings thiserror and ndarray (with
+# matrixmultiply, num-complex, num-integer, rawpointer, ...) into a tree that
+# was petir + uom only. All pure Rust, Android- and wasm-clean; rayon/wgpu stay
+# off. Recorded on #492 so the maintainer can reverse it if the weight matters.
+outram-foam-basic-lib.workspace = true
 
 [dev-dependencies]
 approx.workspace = true

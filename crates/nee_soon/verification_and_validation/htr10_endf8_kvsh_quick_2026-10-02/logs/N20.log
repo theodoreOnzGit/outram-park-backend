@@ -1,0 +1,14 @@
+HTR-10 htr10_endf8_kvsh_quick: N = 20
+  geometry: 27350 tiles, 46731 cells, 1601 universes (assembled in 0.1 s)
+  bed 201.959 cm built, 27321 balls, reference read at 199.543 cm (equal ball count, gh:#472)
+  k_eff        = 1.165349 +/- 0.002819
+  RMC          = 1.158614   k - ref = +674 +/- 282 pcm
+  MCNP T3      = 1.168608   k - ref = -326 +/- 282 pcm
+  MCNP T4      = 1.166548   k - ref = -120 +/- 282 pcm
+  histories    = 200000 (planned 200000)
+  lost locate  = 0 (0.000 %)
+  stuck events = 0
+  neg distance = 0
+  leak vacuum  = 31 (0.015 %)
+  entropy trace: 5.736 5.718 5.689 5.678 5.705 5.680 5.730 5.698 5.694 5.697 5.664 5.683 5.720 5.683
+  transport    = 330.6 s on 8 threads (NVIDIA RTX A5000 / Vulkan, 10 cores, linux, 13th Gen Intel(R) Core(TM) i9-13900K, 62.5 GiB RAM)

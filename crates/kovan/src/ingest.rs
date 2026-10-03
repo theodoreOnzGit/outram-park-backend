@@ -8,17 +8,45 @@
 //! transaction once the caller (a GUI form, a CLI prompt) has the user's
 //! SOURCE/TOPICS/PROJECTS choice.
 //!
-//! # Duplicate detection, scoped
+//! # Duplicate detection
 //!
-//! §23 step 2 asks for "duplicate check". This pass implements the case
-//! that actually matters before anything is written — the *citekey*
-//! [`IngestPreview::already_exists`] would collide with — rather than a
-//! full content-fingerprint database (hashing every already-ingested PDF
-//! against the incoming one to catch the same paper re-added under a
-//! different generated key). That fuller check is real future work, not
-//! done here; a citekey collision is caught both at preview time and again
-//! at [`ingest`] time (the second check is what actually protects against
-//! a race, not the first).
+//! §23 step 2 asks for "duplicate check". Two checks run, both at preview
+//! time and again at [`ingest`] time (the second is what protects against a
+//! race):
+//!
+//! - **The citekey** [`IngestPreview::already_exists`] would collide with.
+//! - **The document itself** ([`find_existing`], since 2026-09-30): the
+//!   incoming PDF is compared, by path and then by SHA-256 content hash
+//!   ([`crate::fingerprint`], cached in `.kovan/`), with every downloaded
+//!   standard-corpus file ([`crate::standard_corpus`]), every paper's PDF
+//!   and, since GitHub issue #458, **every PDF in every corpus repository of
+//!   every tier** ([`crate::corpus_tiers`]), so a document already in any
+//!   standard, open or proprietary repository is caught even when no paper
+//!   records it. A match is [`IngestPreview::duplicate`] and [`IngestError::Duplicate`]:
+//!   nothing is written, and the caller opens the existing entry instead.
+//!   Only files of the same byte length are hashed, so the check reads
+//!   almost nothing when there is no duplicate.
+//!
+//!   ~~A full content-fingerprint check is real future work, not done
+//!   here.~~ **CORRECTED 2026-09-30**: its absence let WASH-1400 be ingested
+//!   a second time as `2008muffletwond`, byte-identical to its
+//!   standard-corpus file, because a standard-corpus document was never
+//!   "ingested" to begin with. Both halves are fixed; see
+//!   [`crate::standard_corpus`].
+//!
+//! # Which repository (GitHub issue #458)
+//!
+//! A tier may hold several repositories. [`IngestChoice::target`] names the
+//! tier and the repository; `None` means the tier's default
+//! ([`crate::root::KovanRoot::default_repo`]) of the tier the access implies
+//! (open for [`Access::Open`], proprietary otherwise). A restricted document
+//! may only go to a proprietary repository, and a standard repository only
+//! when it is configured `writable` ([`resolve_target`]). The repository is
+//! recorded in the paper's `[source] repo`.
+//!
+//! A file whose **name** matches a corpus document's or a paper's PDF, but
+//! whose content differs, is only a warning ([`IngestPreview::name_clash`]):
+//! it may be a different revision, and a name is weak evidence.
 //!
 //! # Reuse, not a second metadata pipeline
 //!
@@ -45,8 +73,10 @@ use std::path::{Path, PathBuf};
 use kovan_literature::{parse_bib_entries, render_entries, to_bibtex, BibEntry};
 
 use crate::entity::{Access, CiteKey, EntityConfig, EntityError, ENTITY_MARKER};
+use crate::fingerprint::HashCache;
 use crate::index::KnowledgeIndex;
 use crate::root::KovanRoot;
+use crate::standard_corpus::StandardCorpus;
 
 /// Errors from previewing or running an ingestion.
 #[derive(Debug)]
@@ -63,6 +93,12 @@ pub enum IngestError {
     },
     /// The bibliography file exists but is not valid BibTeX.
     Bib { path: PathBuf, message: String },
+    /// The PDF is already in the library ([`find_existing`]); nothing was
+    /// written. Open the existing entry instead.
+    Duplicate(ExistingEntry),
+    /// The chosen tier/repository cannot take this document
+    /// ([`resolve_target`]); nothing was written.
+    Target { reason: String },
 }
 
 impl std::fmt::Display for IngestError {
@@ -81,11 +117,364 @@ impl std::fmt::Display for IngestError {
             Self::Entity(e) => write!(f, "{e}"),
             Self::Io { path, source } => write!(f, "{}: {source}", path.display()),
             Self::Bib { path, message } => write!(f, "{}: {message}", path.display()),
+            Self::Duplicate(existing) => write!(f, "not ingested: {existing}"),
+            Self::Target { reason } => write!(f, "not ingested: {reason}"),
         }
     }
 }
 
 impl std::error::Error for IngestError {}
+
+/// How an incoming PDF matched something already in the library.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum MatchKind {
+    /// It is the same file.
+    SamePath,
+    /// Byte-identical content, with this SHA-256.
+    SameContent { sha256: String },
+    /// Same file name, different content: a warning, not a duplicate.
+    SameFileName,
+}
+
+/// An entry already in the library that an incoming PDF matches.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum ExistingEntry {
+    /// A standard-corpus document ([`crate::corpus::LITERATURE`]). `pdf` is
+    /// its corpus file, or `None` when it is not downloaded here.
+    StandardCorpus {
+        id: &'static str,
+        title: &'static str,
+        pdf: Option<PathBuf>,
+        matched: MatchKind,
+    },
+    /// A paper in this folder, with the PDF it records.
+    Paper {
+        citekey: String,
+        pdf: PathBuf,
+        matched: MatchKind,
+    },
+    /// A PDF in one of the folder's corpus repositories that no paper
+    /// records (GitHub issue #458).
+    RepoFile {
+        tier: crate::corpus_tiers::Tier,
+        repo: String,
+        pdf: PathBuf,
+        matched: MatchKind,
+    },
+}
+
+impl ExistingEntry {
+    /// How it matched.
+    pub fn matched(&self) -> &MatchKind {
+        match self {
+            Self::StandardCorpus { matched, .. }
+            | Self::Paper { matched, .. }
+            | Self::RepoFile { matched, .. } => matched,
+        }
+    }
+}
+
+impl std::fmt::Display for ExistingEntry {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let (what, pdf, matched) = match self {
+            Self::StandardCorpus {
+                id,
+                title,
+                pdf,
+                matched,
+            } => (
+                format!("standard-corpus document {id} ({title:?})"),
+                pdf.clone(),
+                matched,
+            ),
+            Self::Paper {
+                citekey,
+                pdf,
+                matched,
+            } => (format!("paper {citekey}"), Some(pdf.clone()), matched),
+            Self::RepoFile {
+                tier,
+                repo,
+                pdf,
+                matched,
+            } => (
+                format!("a file of the {} repository {repo:?}", tier.key()),
+                Some(pdf.clone()),
+                matched,
+            ),
+        };
+        let at = pdf
+            .map(|p| p.display().to_string())
+            .unwrap_or_else(|| "(not downloaded here)".to_string());
+        match matched {
+            MatchKind::SamePath => write!(f, "this PDF is already in Kovan as {what}: {at}"),
+            MatchKind::SameContent { sha256 } => write!(
+                f,
+                "this PDF is already in Kovan as {what}: identical content (SHA-256 {}...) to {at}",
+                &sha256[..sha256.len().min(16)]
+            ),
+            MatchKind::SameFileName => write!(
+                f,
+                "this PDF has the same file name as {what} ({at}) but different content; \
+                 check it is not the same document before ingesting"
+            ),
+        }
+    }
+}
+
+/// Every paper's PDF that exists here: its recorded `[source].pdf`, or its
+/// standard-corpus file ([`crate::standard_corpus::paper_pdf`]).
+fn paper_pdfs(root: &KovanRoot, corpus: &StandardCorpus) -> Vec<(String, PathBuf)> {
+    root.paper_dirs()
+        .into_iter()
+        .filter_map(|dir| {
+            let id = EntityConfig::load(&dir).ok()?.id;
+            let pdf = crate::standard_corpus::paper_pdf(root, corpus, &id)?;
+            Some((id, pdf))
+        })
+        .collect()
+}
+
+/// The library entry `pdf` duplicates, if any: the same file, or a
+/// byte-identical one, among the downloaded standard-corpus documents
+/// (checked first) and the papers' PDFs. Hashes only files of `pdf`'s
+/// length, through `cache`. See the module doc.
+pub fn find_existing(
+    root: &KovanRoot,
+    corpus: &StandardCorpus,
+    pdf: &Path,
+    cache: &mut HashCache,
+) -> Option<ExistingEntry> {
+    let target = pdf.canonicalize().ok()?;
+    if let Some(lit) = corpus.entry_for_path(&target) {
+        return Some(ExistingEntry::StandardCorpus {
+            id: lit.id,
+            title: lit.title,
+            pdf: Some(target),
+            matched: MatchKind::SamePath,
+        });
+    }
+    let papers = paper_pdfs(root, corpus);
+    let same = |p: &Path| p.canonicalize().ok().as_ref() == Some(&target);
+    if let Some((citekey, p)) = papers.iter().find(|(_, p)| same(p)) {
+        return Some(ExistingEntry::Paper {
+            citekey: citekey.clone(),
+            pdf: p.clone(),
+            matched: MatchKind::SamePath,
+        });
+    }
+    let len = |p: &Path| std::fs::metadata(p).ok().map(|m| m.len());
+    let size = len(&target)?;
+    let standard: Vec<_> = corpus
+        .downloaded()
+        .into_iter()
+        .filter(|(_, p)| len(p) == Some(size))
+        .collect();
+    let papers: Vec<_> = papers
+        .into_iter()
+        .filter(|(_, p)| len(p) == Some(size))
+        .collect();
+    let repo_files: Vec<_> = repo_pdfs(root)
+        .into_iter()
+        .filter(|(_, p)| len(p) == Some(size))
+        .collect();
+    // The incoming file itself being in a repository is not a duplicate:
+    // that is an ingest in place (`corpus_resident`).
+    let repo_files: Vec<_> = repo_files.into_iter().filter(|(_, p)| !same(p)).collect();
+    if standard.is_empty() && papers.is_empty() && repo_files.is_empty() {
+        return None;
+    }
+    let sha256 = cache.sha256(&target)?;
+    let content = MatchKind::SameContent {
+        sha256: sha256.clone(),
+    };
+    let mut found = None;
+    for (lit, p) in standard {
+        if cache.sha256(&p).as_ref() == Some(&sha256) {
+            found = Some(ExistingEntry::StandardCorpus {
+                id: lit.id,
+                title: lit.title,
+                pdf: Some(p),
+                matched: content.clone(),
+            });
+            break;
+        }
+    }
+    if found.is_none() {
+        for (citekey, p) in papers {
+            if cache.sha256(&p).as_ref() == Some(&sha256) {
+                found = Some(ExistingEntry::Paper {
+                    citekey,
+                    pdf: p,
+                    matched: content.clone(),
+                });
+                break;
+            }
+        }
+    }
+    if found.is_none() {
+        for (repo, p) in repo_files {
+            if cache.sha256(&p).as_ref() == Some(&sha256) {
+                found = Some(ExistingEntry::RepoFile {
+                    tier: repo.tier,
+                    repo: repo.name.clone(),
+                    pdf: p,
+                    matched: content.clone(),
+                });
+                break;
+            }
+        }
+    }
+    cache.save();
+    found
+}
+
+/// Every PDF in every corpus repository of `root` (all tiers, in order),
+/// with the repository it is in; Git's own folder skipped. A repository
+/// mounted in two tiers is walked once.
+fn repo_pdfs(root: &KovanRoot) -> Vec<(crate::corpus_tiers::CorpusRepo, PathBuf)> {
+    let mut seen: Vec<PathBuf> = Vec::new();
+    let mut out = Vec::new();
+    for repo in root.corpus_repos() {
+        let key = repo.dir.canonicalize().unwrap_or_else(|_| repo.dir.clone());
+        if seen.contains(&key) {
+            continue;
+        }
+        seen.push(key);
+        let files = crate::corpus_tiers::pdfs_in(&repo.dir);
+        out.extend(files.into_iter().map(|f| (repo.clone(), f)));
+    }
+    out
+}
+
+/// The repositories an ingest form may offer for a document with `access`
+/// (#458), in tier order: for a restricted document only the proprietary
+/// repositories; for an open one every writable repository (open,
+/// `writable` standard, and proprietary, where keeping an open document
+/// private is always safe). Each is accepted by [`resolve_target`].
+pub fn target_choices(root: &KovanRoot, access: Access) -> Vec<crate::corpus_tiers::CorpusRepo> {
+    use crate::corpus_tiers::Tier;
+    let all = root.corpus_repos();
+    let order: &[Tier] = if access.is_committable() {
+        &[Tier::Open, Tier::Standard, Tier::Proprietary]
+    } else {
+        &[Tier::Proprietary]
+    };
+    order
+        .iter()
+        .flat_map(|tier| {
+            all.iter()
+                .filter(move |r| r.tier == *tier && r.writable)
+                .cloned()
+        })
+        .collect()
+}
+
+/// The target an ingest form starts on: the default repository of the tier
+/// `access` implies ([`resolve_target`] with no target), as a
+/// [`crate::corpus_tiers::RepoRef`]. `None` when there is none.
+pub fn default_target(root: &KovanRoot, access: Access) -> Option<crate::corpus_tiers::RepoRef> {
+    resolve_target(root, access, None)
+        .ok()
+        .map(|r| crate::corpus_tiers::RepoRef {
+            tier: r.tier,
+            name: r.name,
+        })
+}
+
+/// The corpus repository an ingest of a document with `access` goes to:
+/// `target` when given, else the default repository of the tier `access`
+/// implies (open for a committable access, proprietary otherwise).
+///
+/// Refused ([`IngestError::Target`]) when `target` names no repository of
+/// that tier, when a restricted document would go anywhere but a
+/// proprietary repository (it would be published), or when a standard
+/// repository is not configured `writable` (the corpus maintainer maintains
+/// those).
+pub fn resolve_target(
+    root: &KovanRoot,
+    access: Access,
+    target: Option<&crate::corpus_tiers::RepoRef>,
+) -> Result<crate::corpus_tiers::CorpusRepo, IngestError> {
+    use crate::corpus_tiers::Tier;
+    let tier = match target {
+        Some(t) => t.tier,
+        None if access.is_committable() => Tier::Open,
+        None => Tier::Proprietary,
+    };
+    if !access.is_committable() && tier != Tier::Proprietary {
+        return Err(IngestError::Target {
+            reason: format!(
+                "a restricted document may only be stored in a proprietary repository, not the \
+                 {} tier, which is published",
+                tier.key()
+            ),
+        });
+    }
+    let repo = match target {
+        Some(t) => root
+            .tier_repos(tier)
+            .into_iter()
+            .find(|r| r.name == t.name)
+            .ok_or_else(|| IngestError::Target {
+                reason: format!("there is no {} repository named {:?}", tier.key(), t.name),
+            })?,
+        None => root.default_repo(tier).ok_or_else(|| IngestError::Target {
+            reason: format!("this folder has no {} repository", tier.key()),
+        })?,
+    };
+    if !repo.writable {
+        return Err(IngestError::Target {
+            reason: format!(
+                "the {} repository {:?} is read-only (standard repositories are maintained by \
+                 the corpus maintainer; set `writable = true` on its [[repos.standard]] entry to \
+                 file documents there)",
+                tier.key(),
+                repo.name
+            ),
+        });
+    }
+    Ok(repo)
+}
+
+/// A standard-corpus document (downloaded or not) or paper whose PDF has
+/// `pdf`'s file name, ignoring case: a possible duplicate to warn about.
+/// Call after [`find_existing`] found nothing.
+pub fn same_file_name(
+    root: &KovanRoot,
+    corpus: &StandardCorpus,
+    pdf: &Path,
+) -> Option<ExistingEntry> {
+    let name = pdf.file_name()?.to_string_lossy().to_lowercase();
+    let named = |p: &Path| {
+        p.file_name()
+            .is_some_and(|n| n.to_string_lossy().to_lowercase() == name)
+    };
+    if let Some(lit) = crate::corpus::LITERATURE
+        .iter()
+        .find(|l| l.corpus_file.is_some_and(|f| named(Path::new(f))))
+    {
+        return Some(ExistingEntry::StandardCorpus {
+            id: lit.id,
+            title: lit.title,
+            pdf: corpus.locate(lit),
+            matched: MatchKind::SameFileName,
+        });
+    }
+    paper_pdfs(root, corpus)
+        .into_iter()
+        .find(|(_, p)| named(p))
+        .map(|(citekey, pdf)| ExistingEntry::Paper {
+            citekey,
+            pdf,
+            matched: MatchKind::SameFileName,
+        })
+}
+
+/// The content-hash cache for `root` ([`crate::fingerprint`]).
+fn hash_cache(root: &KovanRoot) -> HashCache {
+    HashCache::load(&root.state_dir())
+}
 
 /// What was recovered automatically from a PDF, before the user is asked
 /// anything (§22's "before asking questions, attempt: fingerprint/duplicate
@@ -112,10 +501,32 @@ pub struct IngestPreview {
     /// citekey — but a caller that ingests anyway without changing it will
     /// hit [`IngestError::CiteKeyTaken`] from [`ingest`].
     pub already_exists: bool,
+    /// The library entry this PDF already is ([`find_existing`]). When set,
+    /// [`ingest`] refuses; open this entry instead.
+    pub duplicate: Option<ExistingEntry>,
+    /// A corpus document or paper with the same file name but different
+    /// content ([`same_file_name`]): shown as a warning, does not block.
+    pub name_clash: Option<ExistingEntry>,
 }
 
-/// Run the automatic-detection half of §22 over `pdf_path`. Writes nothing.
+/// Run the automatic-detection half of §22 over `pdf_path`. Writes nothing
+/// but the disposable hash cache. The standard corpus is searched wherever
+/// Kovan pulls it ([`StandardCorpus::for_root`]).
 pub fn preview(root: &KovanRoot, pdf_path: &Path) -> Result<IngestPreview, IngestError> {
+    preview_with(root, &StandardCorpus::for_root(Some(root)), pdf_path)
+}
+
+/// [`preview`], against the standard-corpus checkouts in `corpus`.
+pub fn preview_with(
+    root: &KovanRoot,
+    corpus: &StandardCorpus,
+    pdf_path: &Path,
+) -> Result<IngestPreview, IngestError> {
+    let duplicate = find_existing(root, corpus, pdf_path, &mut hash_cache(root));
+    let name_clash = match duplicate {
+        Some(_) => None,
+        None => same_file_name(root, corpus, pdf_path),
+    };
     let doc = kovan_literature::extract_metadata(pdf_path).map_err(|e| IngestError::Metadata {
         path: pdf_path.to_path_buf(),
         message: e.to_string(),
@@ -157,6 +568,8 @@ pub fn preview(root: &KovanRoot, pdf_path: &Path) -> Result<IngestPreview, Inges
         doi: doc.doi,
         bib_entry,
         already_exists,
+        duplicate,
+        name_clash,
     })
 }
 
@@ -172,6 +585,10 @@ pub struct IngestChoice {
     pub access: Access,
     pub topics: Vec<String>,
     pub projects: Vec<String>,
+    /// Which tier and repository to store the PDF in (GitHub issue #458);
+    /// `None` is the default repository of the tier `access` implies. See
+    /// [`resolve_target`].
+    pub target: Option<crate::corpus_tiers::RepoRef>,
 }
 
 /// Run §23's write transaction: store the PDF, create/update the
@@ -182,8 +599,21 @@ pub struct IngestChoice {
 /// function's job — it is GUI navigation, not a filesystem write, and the
 /// Research workspace itself is `op-9vo6.25`'s later step. A caller opens
 /// it itself once this returns `Ok`.
+///
+/// Refuses with [`IngestError::Duplicate`], writing nothing, when the PDF is
+/// already in the library ([`find_existing`], re-checked here).
 pub fn ingest(
     root: &KovanRoot,
+    preview: &IngestPreview,
+    choice: IngestChoice,
+) -> Result<(), IngestError> {
+    ingest_with(root, &StandardCorpus::for_root(Some(root)), preview, choice)
+}
+
+/// [`ingest`], against the standard-corpus checkouts in `corpus`.
+pub fn ingest_with(
+    root: &KovanRoot,
+    corpus: &StandardCorpus,
     preview: &IngestPreview,
     choice: IngestChoice,
 ) -> Result<(), IngestError> {
@@ -199,19 +629,24 @@ pub fn ingest(
         });
     }
 
-    // §23 step 3: store the PDF under open/restricted source storage. The
-    // open one is the user's open-corpus repository: into their own folder
-    // there, never the standard corpus's (#255).
-    let store_dir = if choice.access.is_committable() {
-        crate::corpus_repos::open_corpus_ingest_dir(&root.open_sources_dir())
-    } else {
-        root.restricted_sources_dir()
+    if let Some(existing) = find_existing(root, corpus, &preview.source_pdf, &mut hash_cache(root))
+    {
+        return Err(IngestError::Duplicate(existing));
+    }
+
+    // §23 step 3: store the PDF in the chosen repository (#458). In an
+    // open (or writable standard) one, into the user's own folder there,
+    // never the standard corpus's (#255).
+    let target = resolve_target(root, choice.access, choice.target.as_ref())?;
+    let store_dir = match target.tier {
+        crate::corpus_tiers::Tier::Proprietary => target.dir.clone(),
+        _ => crate::corpus_repos::open_corpus_ingest_dir(&target.dir),
     };
     // A PDF already in one of the folder's corpora is used where it is: a
     // copy would duplicate a corpus document, and copying a proprietary one
     // into the open corpus would publish it.
-    let dest_pdf = match corpus_resident(root, &preview.source_pdf) {
-        Some(in_place) => in_place,
+    let (dest_pdf, repo_name) = match corpus_resident(root, &preview.source_pdf) {
+        Some((in_place, repo)) => (in_place, repo),
         None => {
             std::fs::create_dir_all(&store_dir).map_err(|source| IngestError::Io {
                 path: store_dir.clone(),
@@ -222,7 +657,7 @@ pub fn ingest(
                 path: dest_pdf.clone(),
                 source,
             })?;
-            dest_pdf
+            (dest_pdf, Some(target.name.clone()))
         }
     };
 
@@ -251,7 +686,10 @@ pub fn ingest(
     // else: leave EntityConfig::paper's default Classification::unsorted()
     // in place — §7's inbox for rapid ingestion, and what keeps `validate`
     // satisfiable without forcing the user to classify before ingesting.
-    let config = config.with_pdf(relative_to(&paper_dir, &dest_pdf));
+    let mut config = config.with_pdf(relative_to(&paper_dir, &dest_pdf));
+    if let Some(repo) = repo_name {
+        config = config.with_repo(repo);
+    }
     config.save_paper(&paper_dir).map_err(IngestError::Entity)?;
 
     // §23 step 9: update the derived index/graph. Best-effort — a failure
@@ -262,22 +700,23 @@ pub fn ingest(
 }
 
 /// `pdf`, as a path inside `root`, when it is already in one of the
-/// folder's corpora (open, proprietary or standard); `None` otherwise.
-fn corpus_resident(root: &KovanRoot, pdf: &Path) -> Option<PathBuf> {
+/// folder's corpus repositories (any repository of any tier, #458), with
+/// that repository's name (`None` for the conventional standard-corpus
+/// mount when `[repos]` dropped it); `None` otherwise.
+fn corpus_resident(root: &KovanRoot, pdf: &Path) -> Option<(PathBuf, Option<String>)> {
     let pdf = pdf.canonicalize().ok()?;
     let root_dir = root.path().canonicalize().ok()?;
-    [
-        root.open_sources_dir(),
-        root.restricted_sources_dir(),
-        root.standard_corpus_dir(),
-    ]
-    .into_iter()
-    .filter_map(|d| d.canonicalize().ok())
-    .any(|d| pdf.starts_with(d))
-    .then(|| {
+    let inside = |d: &Path| d.canonicalize().is_ok_and(|d| pdf.starts_with(d));
+    let repo = match root.corpus_repos().into_iter().find(|r| inside(&r.dir)) {
+        Some(r) => Some(r.name),
+        None if inside(&root.standard_corpus_dir()) => None,
+        None => return None,
+    };
+    Some((
         root.path()
-            .join(pdf.strip_prefix(&root_dir).unwrap_or(&pdf))
-    })
+            .join(pdf.strip_prefix(&root_dir).unwrap_or(&pdf)),
+        repo,
+    ))
 }
 
 /// Append `entry` to `root`'s bibliography, creating the file if absent,
@@ -285,7 +724,7 @@ fn corpus_resident(root: &KovanRoot, pdf: &Path) -> Option<PathBuf> {
 /// as the entity-directory check in [`ingest`] — this one is what actually
 /// guards against a concurrent-write race, since it re-reads the file
 /// immediately before writing rather than trusting an earlier check.
-fn append_bib_entry(root: &KovanRoot, entry: BibEntry) -> Result<(), IngestError> {
+pub(crate) fn append_bib_entry(root: &KovanRoot, entry: BibEntry) -> Result<(), IngestError> {
     let bib_path = root.bibliography_path();
     let mut entries = if bib_path.is_file() {
         let text = std::fs::read_to_string(&bib_path).map_err(|source| IngestError::Io {
@@ -324,7 +763,7 @@ fn append_bib_entry(root: &KovanRoot, entry: BibEntry) -> Result<(), IngestError
 /// this is the only place in the crate that needs it. Assumes neither path
 /// contains `..` or a symlink hop, true of every path this module builds
 /// from [`KovanRoot`]'s own accessors.
-fn relative_to(base: &Path, target: &Path) -> PathBuf {
+pub(crate) fn relative_to(base: &Path, target: &Path) -> PathBuf {
     let base_comps: Vec<_> = base.components().collect();
     let target_comps: Vec<_> = target.components().collect();
     let common = base_comps
@@ -398,6 +837,7 @@ mod tests {
             access: Access::Open,
             topics: vec![],
             projects: vec![],
+            target: None,
         };
         ingest(&root, &p, choice).unwrap();
         let recorded = EntityConfig::load(&root.paper_dir(&citekey))
@@ -436,6 +876,7 @@ mod tests {
             access: Access::Open,
             topics: vec![],
             projects: vec![],
+            target: None,
         };
         ingest(&root, &p, choice).unwrap();
         let filed = root.papers_dir().join("2021").join(&citekey);
@@ -474,16 +915,15 @@ mod tests {
             access: Access::Open,
             topics: vec!["htgrs".to_string()],
             projects: vec![],
+            target: None,
         };
         ingest(&root, &p, choice).unwrap();
 
         let paper_dir = root.paper_dir(&p.suggested_citekey);
         assert!(paper_dir.join("kovan.toml").is_file());
-        assert!(
-            paper_dir
-                .join(format!("{}.md", p.suggested_citekey))
-                .is_file()
-        );
+        assert!(paper_dir
+            .join(format!("{}.md", p.suggested_citekey))
+            .is_file());
         let stored_pdf = root
             .open_sources_dir()
             .join(format!("{}.pdf", p.suggested_citekey));
@@ -508,6 +948,7 @@ mod tests {
             access: Access::Restricted,
             topics: topics.into_iter().map(String::from).collect(),
             projects: vec![],
+            target: None,
         };
         ingest(&root, &p, choice(vec!["htgrs"])).unwrap();
 
@@ -527,10 +968,150 @@ mod tests {
             access: Access::Restricted,
             topics: vec![],
             projects: vec![],
+            target: None,
         };
         ingest(&root, &p, choice).unwrap();
 
         let config = EntityConfig::load(&root.paper_dir(&p.suggested_citekey)).unwrap();
         assert_eq!(config.classification, Classification::unsorted());
+    }
+
+    // -------------------------------------------------------------------
+    // The duplicate guard (2026-09-30): a standard-corpus document, or a
+    // paper's PDF, is not ingested a second time. All PDFs are synthetic.
+    // -------------------------------------------------------------------
+
+    /// The WASH-1400 corpus entry, whose `corpus_file` the synthetic
+    /// stand-in is written to.
+    fn wash() -> &'static crate::corpus::CorpusLiterature {
+        crate::standard_corpus::entry("wash-1400").unwrap()
+    }
+
+    /// A folder whose standard-corpus checkout holds a synthetic PDF at
+    /// WASH-1400's corpus path, and the corpus searched only in the folder
+    /// (never the real application-data clone).
+    fn root_with_corpus_file() -> (tempfile::TempDir, KovanRoot, StandardCorpus, PathBuf) {
+        let (dir, root) = make_root();
+        let pdf = root.standard_corpus_dir().join(wash().corpus_file.unwrap());
+        std::fs::create_dir_all(pdf.parent().unwrap()).unwrap();
+        write_test_pdf(&pdf, "Synthetic Stand-in For A Corpus Report");
+        let corpus = StandardCorpus::with_checkouts(vec![
+            root.standard_corpus_dir(),
+            root.open_corpus_dir(),
+        ]);
+        (dir, root, corpus, pdf)
+    }
+
+    fn open_choice(p: &IngestPreview) -> IngestChoice {
+        IngestChoice {
+            citekey: p.suggested_citekey.clone(),
+            access: Access::Open,
+            topics: vec![],
+            projects: vec![],
+            target: None,
+        }
+    }
+
+    /// The bug: a byte-identical copy of a standard-corpus file, from
+    /// anywhere, is recognised by content and refused, writing nothing.
+    #[test]
+    fn a_copy_of_a_standard_corpus_file_is_refused_by_content() {
+        let (dir, root, corpus, corpus_pdf) = root_with_corpus_file();
+        let copy = dir.path().join("downloads").join("muffletwond.pdf");
+        std::fs::create_dir_all(copy.parent().unwrap()).unwrap();
+        std::fs::copy(&corpus_pdf, &copy).unwrap();
+
+        let p = preview_with(&root, &corpus, &copy).unwrap();
+        let dup = p
+            .duplicate
+            .clone()
+            .expect("recognised as the corpus document");
+        let expected = crate::fingerprint::sha256_file(&corpus_pdf).unwrap();
+        match &dup {
+            ExistingEntry::StandardCorpus { id, matched, .. } => {
+                assert_eq!(*id, "wash-1400");
+                assert_eq!(matched, &MatchKind::SameContent { sha256: expected });
+            }
+            other => panic!("expected the corpus entry, got {other:?}"),
+        }
+        assert!(dup.to_string().contains("wash-1400"), "{dup}");
+
+        let err = ingest_with(&root, &corpus, &p, open_choice(&p)).unwrap_err();
+        assert!(matches!(err, IngestError::Duplicate(_)), "{err}");
+        assert!(root.paper_dirs().is_empty(), "no paper written");
+        assert!(!root.bibliography_path().is_file(), "no bib entry written");
+        assert!(
+            root.state_dir()
+                .join(crate::fingerprint::CACHE_FILE)
+                .is_file(),
+            "hashes are cached"
+        );
+    }
+
+    /// The corpus file itself (same path) is the corpus document.
+    #[test]
+    fn the_standard_corpus_file_itself_is_refused_by_path() {
+        let (_dir, root, corpus, corpus_pdf) = root_with_corpus_file();
+        let p = preview_with(&root, &corpus, &corpus_pdf).unwrap();
+        assert!(matches!(
+            p.duplicate,
+            Some(ExistingEntry::StandardCorpus {
+                matched: MatchKind::SamePath,
+                ..
+            })
+        ));
+        assert!(ingest_with(&root, &corpus, &p, open_choice(&p)).is_err());
+    }
+
+    /// A copy of an already-ingested paper's PDF points at that paper.
+    #[test]
+    fn a_copy_of_a_papers_pdf_is_refused_and_names_the_paper() {
+        let (dir, root, corpus, _) = root_with_corpus_file();
+        let first = dir.path().join("first.pdf");
+        write_test_pdf(&first, "An Ordinary Paper");
+        let p = preview_with(&root, &corpus, &first).unwrap();
+        assert!(p.duplicate.is_none(), "{:?}", p.duplicate);
+        ingest_with(&root, &corpus, &p, open_choice(&p)).unwrap();
+
+        let copy = dir.path().join("renamed-copy.pdf");
+        std::fs::copy(&first, &copy).unwrap();
+        let again = preview_with(&root, &corpus, &copy).unwrap();
+        match again.duplicate {
+            Some(ExistingEntry::Paper {
+                citekey,
+                matched: MatchKind::SameContent { .. },
+                ..
+            }) => assert_eq!(citekey, p.suggested_citekey),
+            other => panic!("expected the paper, got {other:?}"),
+        }
+    }
+
+    /// Ordinary new PDFs still ingest when a corpus is present, including
+    /// one that shares a corpus file's name but not its content (a warning
+    /// only).
+    #[test]
+    fn new_pdfs_still_ingest_and_a_name_match_only_warns() {
+        let (dir, root, corpus, _) = root_with_corpus_file();
+        let fresh = dir.path().join("fresh.pdf");
+        write_test_pdf(&fresh, "A Genuinely New Study");
+        let p = preview_with(&root, &corpus, &fresh).unwrap();
+        assert!(p.duplicate.is_none() && p.name_clash.is_none());
+        ingest_with(&root, &corpus, &p, open_choice(&p)).unwrap();
+
+        let same_name = dir.path().join("dl").join("ML15334A199.pdf");
+        std::fs::create_dir_all(same_name.parent().unwrap()).unwrap();
+        write_test_pdf(&same_name, "Different Bytes Same Name");
+        let q = preview_with(&root, &corpus, &same_name).unwrap();
+        assert!(q.duplicate.is_none());
+        assert!(matches!(
+            q.name_clash,
+            Some(ExistingEntry::StandardCorpus {
+                id: "wash-1400",
+                matched: MatchKind::SameFileName,
+                ..
+            })
+        ));
+        ingest_with(&root, &corpus, &q, open_choice(&q)).unwrap();
+        assert_eq!(root.paper_dirs().len(), 2);
     }
 }

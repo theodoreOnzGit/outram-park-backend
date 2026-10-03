@@ -87,3 +87,19 @@ pub const RHO_WATER: f64 = 1000.0;
 /// `part0` splits a lognormal distribution into this many bins spanning
 /// ±3 geometric standard deviations about the mass median diameter.
 pub const NI: usize = 11;
+
+/// Von Kármán constant as used by `pbl_profile.f90` (`vonkarman=0.4`).
+///
+/// Numerically identical to [`KARMAN`]; kept as a separate name because
+/// upstream uses the two names in different routines and a reader comparing
+/// the port with `pbl_profile.f90` should find the same identifier.
+pub const VONKARMAN: f64 = 0.4;
+
+/// Factor converting the Brunt–Väisälä-limited convective kinetic energy into
+/// the `hmixplus` mixing-height increment (`convke=2.0`, `par_mod.f90:76`).
+pub const CONVKE: f64 = 2.0;
+
+/// Number of landuse classes in the dry-deposition tables (`numclass=13`,
+/// `par_mod.f90:222`). Class 12 (1-based) is the snow/ice class that
+/// `getvdep.f90` substitutes when the snow depth exceeds 1 mm.
+pub const NUMCLASS: usize = 13;

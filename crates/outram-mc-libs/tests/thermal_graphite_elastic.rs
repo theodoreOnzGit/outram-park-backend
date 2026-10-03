@@ -313,8 +313,11 @@ fn graphite_elastic_dominates_thermal_scattering() {
     }
 
     // Above the cutoff the S(α,β) treatment switches off entirely.
-    assert_eq!(g.elastic_xs(4.0), 0.0);
-    assert_eq!(g.total_xs(4.0), 0.0);
+    // ~~At 4.0 eV~~: the cutoff is the tape's own E_max since GitHub #459
+    // (2026-09-30), so the probe sits just above wherever that is.
+    let above = 1.01 * g.cutoff_ev();
+    assert_eq!(g.elastic_xs(above), 0.0);
+    assert_eq!(g.total_xs(above), 0.0);
 }
 
 /// Item 5: `Nuclide::xs_at_energy` substitutes σ_inel + σ_el, not σ_inel alone.
@@ -467,11 +470,20 @@ fn graphite_htr10_temperature_points() {
     // `terpq` on both axes, the liquid small-α branch, the `test2`-gated floor
     // test). The other three rows held inside 5e-4. These are self-pins on this
     // port's output, so a deliberate change to the evaluation has to move them.
+    //
+    // **2026-09-30 (GitHub #459):** σ_inel is now THERMR's `calcem` xsi at
+    // OpenMC's tolerance of 0.001 (it had been this crate's own integral at
+    // 0.05). The three interpolated-temperature rows moved: 393.15 K 0.6797 →
+    // 0.6790, 523.15 K 0.9471 → 0.9463, 1073.15 K 2.0451 → 2.0427 (−0.10 to
+    // −0.12 %). The tabulated 296 K row held (0.4864 against 0.4863). There
+    // is no NJOY oracle at these temperatures to say which is closer; the
+    // tabulated 600 K comparison in `vv::njoy_golden::GRAPHITE_XS_INELASTIC`
+    // is the external check, and it still passes. σ_el did not move.
     let cases = [
         (293.15, 296.00, 4.5514, 0.4863),
-        (393.15, 393.15, 4.3849, 0.6797),
-        (523.15, 523.15, 4.1672, 0.9471),
-        (1073.15, 1073.15, 3.3592, 2.0451),
+        (393.15, 393.15, 4.3849, 0.6790),
+        (523.15, 523.15, 4.1672, 0.9463),
+        (1073.15, 1073.15, 3.3592, 2.0427),
     ];
     let mut last_el = f64::INFINITY;
     let mut last_inel = 0.0f64;
@@ -483,6 +495,7 @@ fn graphite_htr10_temperature_points() {
             g.selected_temperature_k()
         );
         let (got_el, got_inel) = (g.elastic_xs(0.0253), g.inelastic_xs(0.0253));
+        println!("T {requested} K: σ_el {got_el:.4} σ_inel {got_inel:.4}");
         assert!(
             (got_el - el).abs() < 5.0e-4,
             "σ_el({requested} K) = {got_el:.4}, expected {el}"
@@ -552,10 +565,18 @@ fn light_water_has_no_elastic_channel_and_is_unchanged() {
     //
     // This is a **reproducibility pin, not an accuracy claim**: the tolerance is
     // 5e-4 b so any change at all trips it, which is what caught this one.
+    //
+    // **Re-pinned 2026-09-30 from 51.5964 b (GitHub #459).** σ_inel is now
+    // THERMR's own `calcem` xsi at OpenMC's tolerance of 0.001, the number
+    // NJOY writes to the library OpenMC reads. It is 51.6870 b against the
+    // committed NJOY2016 oracle's 51.68752 b (`vv::njoy_golden::H2O_XS`),
+    // i.e. -0.001 %. It is +0.50 % from the converged 51.4301 b above, which
+    // is NJOY's own quadrature residual at that tolerance: parity with the
+    // library OpenMC uses is the target, not the converged integral.
     let anchor = w.inelastic_xs(0.0253);
     assert!(
-        (anchor - 51.5964).abs() < 5.0e-4,
-        "σ_inel(0.0253 eV, 293.6 K) for H in H2O = {anchor:.4} b, expected 51.5964"
+        (anchor - 51.6870).abs() < 5.0e-4,
+        "σ_inel(0.0253 eV, 293.6 K) for H in H2O = {anchor:.4} b, expected 51.6870"
     );
 
     // Sampling must never return E_out == E_in from a channel that does not
@@ -604,9 +625,14 @@ fn zrh_incoherent_elastic_channel_is_forward_peaked() {
     let ie =
         IncoherentElasticScattering::from_endf_file(&path, 7, Temperature::new::<kelvin>(296.0))
             .unwrap();
+    // Up to the law's cutoff: the tape's E_max (2.02 eV for H in ZrH) since
+    // GitHub #459, 2026-09-30. ~~To 4 eV~~: above the cutoff the thermal
+    // treatment does not apply, and the channel reads zero there.
     let mut worst: f64 = 0.0;
     let mut e = 1.0e-4;
-    while e < 4.0 {
+    let top = z.cutoff_ev();
+    assert_eq!(z.elastic_xs(1.01 * top), 0.0, "no thermal elastic above the cutoff");
+    while e < top {
         let reference = ie
             .cross_section(NeutronEnergy::new::<electronvolt>(e))
             .get::<barn>();

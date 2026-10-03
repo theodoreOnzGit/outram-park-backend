@@ -429,7 +429,8 @@ fn the_target_motion_hook_ablates_exactly_the_target_velocity() {
 
     // 1: there was something to remove, asserted two ways.
     //
-    // (a) The bookkeeping: the kinematics temperature is the material's.
+    // (a) The bookkeeping: the kinematics temperature is the one the data were
+    // built at (GitHub #313; here the same TEMP_K).
     let kt_expected = 8.617_333_262e-5 * TEMP_K;
     assert!(
         (evaluated.free_gas_kt(TEMP_K) - kt_expected).abs() < 1.0e-18,

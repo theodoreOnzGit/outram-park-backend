@@ -176,7 +176,9 @@
 
 pub mod control_rods;
 pub mod atmospheric_dispersion;
+pub mod bounding_air_ingress;
 pub mod decay_heat_removal;
+pub mod depressurisation;
 pub mod dose_rate;
 pub mod fission_product_release;
 pub mod kinetics;
@@ -186,10 +188,15 @@ pub mod protection;
 pub mod reactor_model;
 pub mod secondary_loop;
 pub mod steam_generator;
+// Indicative accumulated dose at the receptors (gh:#470, 2026-10-01).
+pub mod tede_accumulator;
+/// Steady Gaussian-plume (buangkok/pyDOSEIA) chi/Q overlay for the Map tab (gh:#470).
+pub mod steady_plume_overlay;
 /// Remedies for a steam-generator temperature cross -- see the module docs for
 /// why they exist and why the default does nothing.
 pub mod temperature_cross;
 pub mod turbine_generator;
+pub mod water_ingress;
 
 /// The former `physics::pebble_bed` module, migrated 2026-08-16 into
 /// [`reactor_model::one_node`] -- now the geometry/correlation home for
@@ -320,7 +327,9 @@ use turbine_generator::TurbineGeneratorShaft;
 /// # maintainer's call, not a defect
 ///
 /// **CORRECTED 2026-09-22, again 2026-09-27.** The table below measured
-/// **0.780927**. The constant is now **0.30**, set by the maintainer so the
+/// **0.780927**. The constant is now ~~**0.30**~~ **0.45** (**CORRECTED
+/// 2026-10-01**: 0.45 since `76a83ca98a`, 2026-09-27; this sentence had
+/// still read 0.30), set by the maintainer so the
 /// simulator opens with enough bank withdrawn to demonstrate shutdown on an
 /// ATWS after a DLOFC or LOFC. (On 2026-09-22 it was 0.50, confirmed intended
 /// then; the commit that introduced it carried a note reading "i want 0.55"
@@ -339,14 +348,18 @@ use turbine_generator::TurbineGeneratorShaft;
 /// | ~~external reactivity~~ | ~~**-5.5186 $**~~ |
 /// | ~~helium flow~~ | ~~**1.290 kg/s** (30 % of rated)~~ -- the bisection above belongs to THIS flow |
 ///
-/// **And the flow it was bisected at is no longer the opening flow.**
-/// [`GUI_INITIAL_HELIUM_FLOW_KG_PER_S`] became `1.00` on 2026-09-27, so the
-/// plant opens at **4.300 kg/s**. Every number in the struck table, including
-/// the 3.0428 MW, belongs to 1.290 kg/s and **does not transfer to rated
-/// flow**. Re-running the bisection is a ~34-minute job and was deliberately
-/// not done here.
+/// ~~**And the flow it was bisected at is no longer the opening flow.**
+/// [`GUI_INITIAL_HELIUM_FLOW_FRACTION`] became `1.00` on 2026-09-27, so the
+/// plant opens at **4.300 kg/s**.~~ **CORRECTED 2026-10-01**: the opening
+/// flow is back at **1.290 kg/s** (maintainer direction), the flow this
+/// bisection was run at. The struck numbers still do not apply, because the
+/// insertion itself has moved (0.780927 -> 0.45), not because of the flow.
+/// Re-running the bisection is a ~34-minute job and was deliberately not
+/// done here.
 ///
 /// **The settled power at 0.30 is NOT 3 MW, and is not yet measured here.**
+/// (The same holds at the shipped 0.45 and the 1.29 kg/s opening flow of
+/// 2026-10-01: not measured; pending validation work.)
 /// Less insertion is more reactivity, so it settles higher; by how much
 /// depends on feedback and takes a long settle to find, which is why the
 /// commit introducing it said "awaiting steady state (it takes very long)".
@@ -367,24 +380,55 @@ use turbine_generator::TurbineGeneratorShaft;
 /// while the **prompt** layer uses HTR-10's published
 /// [`kinetics::HtgrKinetics::HTR10_EFFECTIVE_DELAYED_FRACTION`] of 7.26e-3.
 /// One physical quantity, two values, 11.7 % apart. Every dollar figure above
-/// depends on which one is used; the pcm figures do not. Not fixed here.
+/// depends on which one is used; the pcm figures do not. ~~Not fixed here.~~
+/// **FIXED 2026-09-29 (gh:#387):** one `beta_eff = 7.26e-3` everywhere. The
+/// dollar figures in this doc were taken at 0.0065 and are not re-measured
+/// since that change; pending validation work. The pcm figures stand.
 ///
 pub const GUI_INITIAL_ROD_INSERTION: f64 = 0.45;
 
 /// Fraction of rated helium flow the simulator opens at:
-/// ~~0.30~~ **1.00** **CHANGED 2026-09-27**.
+/// ~~0.30~~ ~~**1.00** **CHANGED 2026-09-27**~~ **0.30** **CHANGED BACK
+/// 2026-10-01**, i.e. **1.29 kg/s**.
 ///
-/// **Maintainer direction, 2026-09-27: the circulator default is the full
+/// **Maintainer direction, 2026-10-01: open at the experimental 1.2-1.3 kg/s
+/// of the HTR-10 test.** Rated-flow tracers were "a bit dizzying" to watch,
+/// and the experiment's own circulator flow is what the maintainer wants on
+/// screen. `0.30 * 4.3 = 1.29 kg/s`, the 15 October 2003 LOFC/ATWS test's
+/// part-load flow already recorded in this doc's history below.
+///
+/// - **[`GUI_INITIAL_ROD_INSERTION`] (0.45) was NOT re-bisected at this
+///   flow.** It holds no particular power here; the settled power at the
+///   opening state is unmeasured.
+/// - **Headless check, 2026-10-01** (`--headless 12000 250`, default
+///   commands: rods 0.45, 1.29 kg/s, feedwater MANUAL 10.0 kg/s, RPS off).
+///   A harness check, not validation: it ran clean to 1200 s, no panic, no
+///   IF97 273 K floor. Power peaks ~1.5 GW in the first 0.3 s (the +7 $
+///   opening), falls to 2.19 MW at 200 s and reads **6.078 MW** at 1000 s,
+///   still creeping up (6.084 MW at 1200 s). At 1000 s: core outlet
+///   1213.99 K, core inlet 402.80 K, bed 1279.32 K, SG helium outlet
+///   316.45 K, SG steam outlet 454.34 K at 4.0 MPa (below saturation:
+///   10 kg/s of feed for ~6 MW leaves it wet), turbine exhaust quality
+///   0.213, feedwater 168.7 kJ/kg (~40 degC). The published test began at
+///   3 MW with a 250 degC inlet, so neither the power nor the inlet matches;
+///   not a reproduction.
+/// - **The opening state is still a demonstration, not a validated
+///   reproduction of the test's initial condition.** Restoring the flow is
+///   half of the pair the validation run needs; the rod position is the
+///   other half and stays the maintainer's call.
+///
+/// ~~**Maintainer direction, 2026-09-27: the circulator default is the full
 /// published 4.3 kg/s.** Because this constant is a *fraction* (see below),
-/// that is expressed as **1.00**, not as 4.3.
+/// that is expressed as **1.00**, not as 4.3.~~ **SUPERSEDED 2026-10-01**
+/// (above).
 ///
-/// **The name lies about the units and the call site cannot tell.** This is a
-/// dimensionless *fraction*, not kg/s: it is consumed as
-/// `GUI_INITIAL_HELIUM_FLOW_KG_PER_S * nominal_helium_flow()`, and
-/// [`nominal_helium_flow`] is the published 4.3 kg/s. At the old 0.30 the
-/// plant opened at **1.290 kg/s**, not 0.30 kg/s; at **1.00** it opens at the
-/// full **4.300 kg/s**. Left named as-is rather than renamed in a change about
-/// something else; read the multiplication, not the suffix.
+/// **It is a dimensionless fraction, not kg/s.** It is consumed as
+/// `GUI_INITIAL_HELIUM_FLOW_FRACTION * nominal_helium_flow()`, and
+/// [`nominal_helium_flow`] is the published 4.3 kg/s. ~~The name lies about
+/// the units and the call site cannot tell ... Left named as-is rather than
+/// renamed in a change about something else; read the multiplication, not
+/// the suffix.~~ **RENAMED 2026-10-01** from `GUI_INITIAL_HELIUM_FLOW_KG_PER_S`
+/// to `GUI_INITIAL_HELIUM_FLOW_FRACTION`, so the name now says what it is.
 ///
 /// # What the opening state is FOR has changed, and the pairing is no longer the binding constraint
 ///
@@ -412,23 +456,30 @@ pub const GUI_INITIAL_ROD_INSERTION: f64 = 0.45;
 ///
 /// # Limitation, stated as a limitation
 ///
-/// - The opening state is a **rated-flow demonstration starting point, not the
-///   published LOFC initial condition.** Do not quote it as the latter.
-/// - A validation run reproducing the 2003 test **will need the part-load pair
-///   restored** -- this constant back to `0.30`, and
+/// - ~~The opening state is a **rated-flow demonstration starting point, not
+///   the published LOFC initial condition.**~~ **CORRECTED 2026-10-01**: the
+///   opening state is a **demonstration starting point at the test's 1.29
+///   kg/s flow**, still **not the published LOFC initial condition** (the rod
+///   position was not re-derived for it). Do not quote it as the latter.
+/// - A validation run reproducing the 2003 test ~~**will need the part-load
+///   pair restored** -- this constant back to `0.30`, and~~ has the flow
+///   (0.30, restored 2026-10-01) and **still needs**
 ///   [`GUI_INITIAL_ROD_INSERTION`] re-bisected at that flow.
-/// - [`GUI_INITIAL_ROD_INSERTION`] was bisected at the *old* 30 % flow, so it
-///   **no longer holds any particular power**; it was also independently moved
-///   to 0.30, a deliberately shallow, super-prompt opening state (maintainer's
-///   call, gh:#318). The settled power at the opening state is therefore
-///   unmeasured on both counts.
-/// - The direction of this change is the one the demonstration wants: more
+/// - [`GUI_INITIAL_ROD_INSERTION`] was bisected at the 30 % flow when it was
+///   0.780927, then independently moved (0.30, gh:#318; now 0.45) by the
+///   maintainer, so it **holds no particular power**. The settled power at
+///   the opening state is unmeasured.
+/// - ~~The direction of this change is the one the demonstration wants: more
 ///   helium mass flow removes more heat from the bed for a given power, so the
-///   core is better able to reject the heat the shallow bank admits.
+///   core is better able to reject the heat the shallow bank admits.~~
+///   **SUPERSEDED 2026-10-01**: the move back to 1.29 kg/s goes the other
+///   way -- less helium mass flow removes less heat from the bed for a given
+///   power, so the bed runs hotter and the temperature feedback settles the
+///   plant at a lower power for the same bank.
 ///
-/// Both values are the maintainer's call. Do not "restore the pair" on your
-/// own initiative -- restore it when the validation run is the task.
-pub const GUI_INITIAL_HELIUM_FLOW_KG_PER_S: f64 = 1.00;
+/// Both values are the maintainer's call. Do not change either on your own
+/// initiative.
+pub const GUI_INITIAL_HELIUM_FLOW_FRACTION: f64 = 0.30;
 
 /// **Every operator input the plant accepts, in one value.**
 ///
@@ -489,8 +540,9 @@ pub struct PlantCommands {
     /// poked into the dispersion channel directly, so a headless run and the
     /// GUI drive it identically.
     pub meteorology: atmospheric_dispersion::Meteorology,
-    /// What the Map tab wants of the dispersion **field**: a resolution (one
-    /// cell per screen pixel) and a plume-clock offset (the fast-forward).
+    /// What the Map tab wants of the dispersion **field**: a resolution (~~one
+    /// cell per screen pixel~~ a fixed count from the GUI since 2026-10-01)
+    /// and a plume-clock offset (the fast-forward).
     ///
     /// A command, for the same reason the meteorology is one: it reaches the
     /// plant through the single one-way path every other operator input takes,
@@ -529,6 +581,33 @@ pub enum Scenario {
     /// separate is the point -- folding a scram into the scenario would make
     /// the inherent-shutdown case unrepresentable.
     Lofc,
+    /// **Water ingress** (gh:#401): two steam-generator tubes rupture and the
+    /// secondary relief fails -- Gao & Shi (2002) s.5.4's case, with its
+    /// published protection sequence (scram 37.5 s, circulator 38.5 s,
+    /// secondary isolated 50 s) applied by the scenario. See
+    /// [`water_ingress`].
+    WaterIngress,
+    /// **DLOFC + ATWS + air ingress** (gh:#402): the DN65 fuel-loading tube
+    /// ruptures, the circulator stops, the rods stay where they are, the
+    /// primary and secondary isolate at 28.06 s (Gao & Shi 2002 s.5.3.1).
+    /// See [`depressurisation`]; ~~the air-ingress O2 supply is unpublished
+    /// and zero (gh:#420)~~ **since 2026-09-30:** air ingress via the Gao &
+    /// Shi cavity-ventilation rate, assumed to exchange the core gas (#420).
+    DlofcAtws,
+}
+
+/// The scenario an operator's accident switches select. DLOFC wins, then
+/// water ingress (each trips the circulator itself), then a plain LOFC.
+pub fn scenario_from(circulator_tripped: bool, water_ingress: bool, dlofc: bool) -> Scenario {
+    if dlofc {
+        Scenario::DlofcAtws
+    } else if water_ingress {
+        Scenario::WaterIngress
+    } else if circulator_tripped {
+        Scenario::Lofc
+    } else {
+        Scenario::Normal
+    }
 }
 
 /// Delay from a circulator trip to the protection system isolating the
@@ -559,7 +638,7 @@ impl Default for PlantCommands {
     /// design 7 kPa.
     ///
     /// The rod position is [`GUI_INITIAL_ROD_INSERTION`] and the flow is
-    /// [`GUI_INITIAL_HELIUM_FLOW_KG_PER_S`] of rated.
+    /// [`GUI_INITIAL_HELIUM_FLOW_FRACTION`] of rated.
     ///
     /// ~~The flow is 30 % of rated, the pair that holds the plant at the
     /// HTR-10 test's **3 MWth** initial condition. They are a PAIR: the
@@ -570,12 +649,18 @@ impl Default for PlantCommands {
     /// **demonstration starting point for LOFC self-shutdown**, not the HTR-10
     /// 3 MWth initial condition; the published initial condition is a deferred
     /// validation goal and the settled power here is unmeasured.
+    /// **CORRECTED 2026-10-01**: ~~100 % of rated (4.3 kg/s)~~ the flow is
+    /// back at **30 % of rated, 1.29 kg/s** -- the HTR-10 test's experimental
+    /// flow, by maintainer direction -- and the insertion is 0.45. The rod
+    /// was not re-bisected at this flow, so this is still a demonstration
+    /// starting point, not the test's initial condition.
     fn default() -> Self {
         Self {
             control_rod_insertion_fraction: GUI_INITIAL_ROD_INSERTION,
-            // A FRACTION of the published 4.3 kg/s, not kg/s: 1.00 since
-            // 2026-09-27 (maintainer direction), i.e. full rated flow.
-            helium_flow_setpoint: GUI_INITIAL_HELIUM_FLOW_KG_PER_S * nominal_helium_flow(),
+            // A FRACTION of the published 4.3 kg/s, not kg/s: 0.30 since
+            // 2026-10-01 (maintainer direction), i.e. the HTR-10 test's
+            // experimental 1.29 kg/s (it was 1.00, rated, from 2026-09-27).
+            helium_flow_setpoint: GUI_INITIAL_HELIUM_FLOW_FRACTION * nominal_helium_flow(),
             secondary: SecondaryCommands::default(),
             // The MAP's one puff-model configuration (maintainer direction
             // 2026-09-29; `map_puff_model`, gh:#384), so the plant's default
@@ -586,7 +671,15 @@ impl Default for PlantCommands {
                 map_puff_model::default_speed_m_per_s(),
                 0.0,
             ),
-            map_field: atmospheric_dispersion::MapFieldRequest::default(),
+            // The Map tab opens on the dose-rate basis (maintainer,
+            // 2026-10-01), so the plant's default command and the GUI's
+            // opening command sum the field in the same weighting. Display
+            // only: the receptor doses do not read the field's weighting.
+            // `MapFieldRequest::default()` stays the channel's own default.
+            map_field: atmospheric_dispersion::MapFieldRequest {
+                weighting: atmospheric_dispersion::FieldWeighting::DoseRateUsvPerH,
+                ..atmospheric_dispersion::MapFieldRequest::default()
+            },
             scenario: Scenario::Normal,
         }
     }
@@ -927,12 +1020,14 @@ pub fn nominal_helium_flow() -> MassRate {
 ///
 /// ```text
 /// residual = source + circulator_work
-///          - (fuel + bed_solid + bed_helium + hot_duct + cold_return + passive) storage
+///          - (fuel + bed_solid + bed_helium + hot_duct + cold_duct + rpv_annuli
+///             + passive) storage
 ///          - to_steam_generator - to_rccs
 /// ```
 ///
 /// **Boundary.** The fuel node, the bed's graphite and void helium, the
-/// primary loop's hot-duct and cold-return CVs and the passive path's
+/// primary loop's hot-duct, cold-duct and RPV-annuli CVs (~~cold-return CV~~,
+/// split 2026-10-01) and the passive path's
 /// reflector and RPV are inside; the steam generator is outside, and the
 /// boundary on that side is the helium stream, `m_dot (h_hot duct - h_SG,out)`
 /// -- the exchanger's hot-side duty. The exchanger's own three arrays are
@@ -943,9 +1038,10 @@ pub fn nominal_helium_flow() -> MassRate {
 /// check.
 ///
 /// Every internal seam -- fuel to bed, bed to passive path, bed to hot duct,
-/// hot duct to steam generator, steam generator to cold return, cold return
-/// to bed -- carries one flux used identically on both sides, so the residual
-/// is a statement about the seams and is expected at rounding level.
+/// hot duct to steam generator, steam generator to cold duct, cold duct to
+/// RPV annuli, RPV annuli to bed -- carries one flux used identically on both
+/// sides, so the residual is a statement about the seams and is expected at
+/// rounding level.
 #[derive(Clone, Copy, Debug, Default, PartialEq)]
 pub struct PlantEnergyLedger {
     /// Fission (prompt) and decay heat deposited in the fuel node.
@@ -958,8 +1054,11 @@ pub struct PlantEnergyLedger {
     pub bed_helium_storage: f64,
     /// Hot-duct CV enthalpy change.
     pub hot_duct_storage: f64,
-    /// Cold-return CV enthalpy change.
-    pub cold_return_storage: f64,
+    /// Cold-duct CV enthalpy change (the coaxial duct's annulus; split out
+    /// of ~~`cold_return_storage`~~ on 2026-10-01).
+    pub cold_duct_storage: f64,
+    /// RPV-annuli CV enthalpy change.
+    pub rpv_annuli_storage: f64,
     /// Reflector + RPV stored-energy change.
     pub passive_storage: f64,
     /// Enthalpy handed from the helium to the steam generator.
@@ -968,7 +1067,13 @@ pub struct PlantEnergyLedger {
     pub to_rccs: f64,
     /// Circulator work delivered to the helium.
     pub circulator_work: f64,
-    /// `source + circulator_work - storage - to_steam_generator - to_rccs`.
+    /// Net heat absorbed by chemistry in the bed graphite: the endothermic
+    /// graphite-steam reaction (water ingress, gh:#401) counts positive, the
+    /// exothermic graphite-air oxidation (DLOFC, gh:#402) negative; zero
+    /// otherwise.
+    pub chemistry_absorbed: f64,
+    /// `source + circulator_work - storage - to_steam_generator - to_rccs
+    /// - chemistry_absorbed`.
     pub residual: f64,
 }
 
@@ -979,7 +1084,8 @@ impl PlantEnergyLedger {
             + self.bed_solid_storage
             + self.bed_helium_storage
             + self.hot_duct_storage
-            + self.cold_return_storage
+            + self.cold_duct_storage
+            + self.rpv_annuli_storage
             + self.passive_storage
     }
 
@@ -989,11 +1095,13 @@ impl PlantEnergyLedger {
         self.bed_solid_storage += step.bed_solid_storage;
         self.bed_helium_storage += step.bed_helium_storage;
         self.hot_duct_storage += step.hot_duct_storage;
-        self.cold_return_storage += step.cold_return_storage;
+        self.cold_duct_storage += step.cold_duct_storage;
+        self.rpv_annuli_storage += step.rpv_annuli_storage;
         self.passive_storage += step.passive_storage;
         self.to_steam_generator += step.to_steam_generator;
         self.to_rccs += step.to_rccs;
         self.circulator_work += step.circulator_work;
+        self.chemistry_absorbed += step.chemistry_absorbed;
         self.residual += step.residual;
     }
 }
@@ -1077,10 +1185,19 @@ pub struct HtgrPlant {
     /// 2026-09-29 its output feeds the indicative dose rate in [`dose_rate`],
     /// never a dose to any real person) applies to everything it produces.
     pub dispersion: atmospheric_dispersion::AtmosphericDispersionChannel,
+    /// Indicative dose integrated at the dispersion receptors since plant
+    /// start (gh:#470, 2026-10-01) -- see [`tede_accumulator`], whose scope
+    /// limit (research/education only, not a dose to any real person) binds.
+    pub tede: tede_accumulator::TedeAccumulator,
     /// Sim time at which the current scenario was first commanded, `None`
     /// under [`Scenario::Normal`]. Drives the protection system's
     /// secondary-isolation delay.
     scenario_started_at: Option<Time>,
+    /// The water-ingress accident's state while [`Scenario::WaterIngress`]
+    /// runs (gh:#401).
+    water_ingress: Option<water_ingress::WaterIngress>,
+    /// The DLOFC accident's state while [`Scenario::DlofcAtws`] runs.
+    depressurisation: Option<depressurisation::Depressurisation>,
     /// Heat rate crossing the pebble surface into the helium on the most recent
     /// step -- the core's *thermal* output, which lags the fission power by the
     /// graphite time constant.
@@ -1126,7 +1243,10 @@ impl HtgrPlant {
             decay_heat_path,
             release: fission_product_release::TrisoAtopsReleaseChannel::new_htr10(),
             dispersion: atmospheric_dispersion::AtmosphericDispersionChannel::new(),
+            tede: tede_accumulator::TedeAccumulator::new(),
             scenario_started_at: None,
+            water_ingress: None,
+            depressurisation: None,
             core_heat_to_helium: Power::new::<watt>(0.0),
             passive_heat_loss: Power::new::<watt>(0.0),
             last_step_energy: PlantEnergyLedger::default(),
@@ -1216,10 +1336,12 @@ impl HtgrPlant {
     /// [`control_rods`] for the published HTR-10 bank worth and cold clean
     /// excess this is derived from, and for what remains illustrative about it.
     pub fn external_reactivity_dollars(&self, control_rod_insertion_fraction: f64) -> f64 {
+        // The kinetics' one beta_eff (gh:#387): the same beta the prompt
+        // layer converts these dollars back with.
         control_rods::external_reactivity_dollars(
             control_rod_insertion_fraction,
             self.kinetics
-                .delayed_neutron_fraction()
+                .kinetics_delayed_neutron_fraction()
                 .get::<uom::si::ratio::ratio>(),
         )
     }
@@ -1285,19 +1407,99 @@ impl HtgrPlant {
                 Some(self.sim_time)
             }
             (Scenario::Lofc, Some(t0)) => Some(t0),
+            (Scenario::WaterIngress, None) => {
+                // The tubes rupture. The primary gas the steam mixes into is
+                // the published inventory at the published pressure.
+                self.water_ingress = Some(water_ingress::WaterIngress::start(
+                    primary_loop::loop_pressure_pa(),
+                    fission_product_release::htr10_primary_helium_inventory_kg(),
+                    self.primary_gas_volume_over_temperature(),
+                ));
+                // Liquid water at the break washes the SG share of the
+                // plate-out back into the coolant (Liu & Cao s.4.1.2).
+                self.release
+                    .wash_off_plate_out(water_ingress::steam_generator_share_of_plate_out);
+                Some(self.sim_time)
+            }
+            (Scenario::WaterIngress, Some(t0)) => Some(t0),
+            (Scenario::DlofcAtws, None) => {
+                // The DN65 tube ruptures; the circulator stops; no scram.
+                self.primary.trip_circulator(true);
+                self.depressurisation = Some(depressurisation::Depressurisation::start(
+                    fission_product_release::htr10_primary_helium_inventory_kg(),
+                ));
+                self.release.depressurisation_lift_off();
+                Some(self.sim_time)
+            }
+            (Scenario::DlofcAtws, Some(t0)) => Some(t0),
             (Scenario::Normal, _) => {
                 // Scenario cleared: put the plant back to normal operation.
                 self.primary.trip_circulator(false);
                 self.primary.isolate_secondary(false);
+                self.water_ingress = None;
+                self.depressurisation = None;
                 None
             }
         };
         self.scenario_started_at = scenario_started_at;
 
+        // Water ingress (gh:#401): the accident's gas, chemistry and relief,
+        // advanced once per step on the start-of-step state (explicit; the
+        // chemistry heat is a source term of the bed, held over the
+        // correctors). Its published protection sequence acts here.
+        let ingress_step = match self.water_ingress.as_mut() {
+            Some(_) => {
+                let vt = self.primary_gas_volume_over_temperature();
+                let volume = self.primary_gas_volume().get::<uom::si::volume::cubic_meter>();
+                let bed = self.core.temperature();
+                let graphite = reactor_model::one_node::graphite_mass()
+                    .get::<uom::si::mass::kilogram>();
+                let w = self.water_ingress.as_mut().expect("matched Some");
+                let st = w.step(
+                    dt.get::<second>(),
+                    vt,
+                    volume,
+                    bed,
+                    graphite,
+                    protection::SCRAM_INSERTION_TIME_S,
+                );
+                self.primary.trip_circulator(st.circulator_tripped);
+                self.primary.isolate_secondary(st.secondary_isolated);
+                Some(st)
+            }
+            None => None,
+        };
+        // DLOFC + ATWS (gh:#402): blowdown and graphite oxidation. ~~Its O2
+        // supply is unpublished and zero (gh:#420).~~ Since 2026-09-30: air
+        // ingress via the Gao & Shi cavity-ventilation rate, assumed to
+        // exchange the core gas (#420) -- the bed void's gas, at 1 atm and the
+        // bed temperature, exchanged at 100 %/day for 72 h.
+        let dlofc_step = match self.depressurisation.as_mut() {
+            Some(d) => {
+                let bed = self.core.temperature();
+                let supply = d.ventilation_oxygen_supply_mol_per_s(
+                    dt.get::<second>(),
+                    reactor_model::one_node::bed_void_volume()
+                        .get::<uom::si::volume::cubic_meter>(),
+                    bed,
+                );
+                let st = d.step(
+                    dt.get::<second>(),
+                    bed,
+                    reactor_model::one_node::graphite_mass().get::<uom::si::mass::kilogram>(),
+                    supply,
+                );
+                self.primary.isolate_secondary(st.secondary_isolated);
+                Some(st)
+            }
+            None => None,
+        };
+
         // The protection system isolates the secondary a fixed delay after the
         // trip. This is the PLANT acting, not the operator, which is why it
-        // lives here rather than in a scenario script.
-        if let Some(t0) = scenario_started_at {
+        // lives here rather than in a scenario script. (Water ingress carries
+        // its own published isolation time, above.)
+        if let (Some(t0), Scenario::Lofc) = (scenario_started_at, scenario) {
             let elapsed = (self.sim_time - t0).get::<second>();
             if elapsed >= SECONDARY_ISOLATION_DELAY_S {
                 self.primary.isolate_secondary(true);
@@ -1308,6 +1510,11 @@ impl HtgrPlant {
         let helium_flow_setpoint = match scenario {
             Scenario::Normal => helium_flow_setpoint,
             Scenario::Lofc => MassRate::new::<kilogram_per_second>(0.0),
+            Scenario::WaterIngress => match ingress_step {
+                Some(st) if st.circulator_tripped => MassRate::new::<kilogram_per_second>(0.0),
+                _ => helium_flow_setpoint,
+            },
+            Scenario::DlofcAtws => MassRate::new::<kilogram_per_second>(0.0),
         };
 
         self.sim_time += dt;
@@ -1326,14 +1533,31 @@ impl HtgrPlant {
         );
         let control_rod_insertion_fraction = self
             .protection
-            .effective_rod_insertion(control_rod_insertion_fraction);
+            .effective_rod_insertion(control_rod_insertion_fraction)
+            // The water-ingress scram (published 37.5 s) can only deepen it.
+            .max(ingress_step.map_or(0.0, |st| st.scram_insertion));
 
         // Rod position is converted to reactivity here rather than in the GUI
         // so the physics owns the conversion and an OPC-UA write of a rod
         // position gets the same treatment as a slider drag. It is constant
         // over the step, so it is computed once outside the loop.
-        let external_reactivity_dollars =
-            self.external_reactivity_dollars(control_rod_insertion_fraction);
+        let external_reactivity_dollars = self
+            .external_reactivity_dollars(control_rod_insertion_fraction)
+            // Steam moderation (water ingress, gh:#401), in the kinetics' beta.
+            + ingress_step.map_or(0.0, |st| {
+                st.reactivity_dk_k
+                    / self
+                        .kinetics
+                        .kinetics_delayed_neutron_fraction()
+                        .get::<uom::si::ratio::ratio>()
+            });
+        // Heat the graphite-steam reaction draws from the bed this step.
+        // (Net: the endothermic steam reaction absorbs, graphite oxidation
+        // by air releases.)
+        let chemistry_heat = Power::new::<watt>(
+            ingress_step.map_or(0.0, |st| st.chemistry_heat_w)
+                - dlofc_step.map_or(0.0, |st| st.oxidation_heat_w),
+        );
 
         // Old-time snapshot of everything the corrector loop re-advances. All
         // of it is scalar, so this is cheap next to one exchanger substep.
@@ -1382,9 +1606,9 @@ impl HtgrPlant {
         // helium its own implicit thermal node against this same inlet
         // boundary condition, never an arithmetic mean.
         //
-        // CHANGED 2026-09-29 (gh:#393): an ENTHALPY, the cold-return CV's
-        // state. The same number is handed to the bed and, on the final
-        // corrector, discharged by the cold-return CV -- the seam's single
+        // CHANGED 2026-09-29 (gh:#393): an ENTHALPY, the ~~cold-return~~
+        // RPV-annuli (2026-10-01) CV's state. The same number is handed to the
+        // bed and, on the final corrector, discharged by that CV -- the seam's single
         // flux (see `primary_loop::HeliumPrimaryLoop::close_return_leg`).
         let mut core_inlet_enthalpy = self.primary.core_inlet_enthalpy();
         // Start-of-step readings for the global energy ledger.
@@ -1478,9 +1702,12 @@ impl HtgrPlant {
             //     `decay_heat_removal`). Under forced flow the path is a few
             //     hundred kW; under LOFC it is the ONLY path out of the core.
             //     It is rewound per corrector with the rest of the state.
+            // The endothermic graphite-steam reaction (water ingress) is a
+            // heat sink IN the bed graphite, so it enters the bed's own energy
+            // balance as a source term, not as a transfer to a neighbour.
             self.core_heat_to_helium = self.core.step(
                 dt,
-                heat_from_fuel,
+                heat_from_fuel - chemistry_heat,
                 heat_from_fuel,
                 core_inlet_enthalpy,
                 self.primary.mass_flow(),
@@ -1511,9 +1738,11 @@ impl HtgrPlant {
                     .advance_steam_generator(dt, feedwater_enthalpy, secondary_flow);
             }
 
-            // 3c. Primary cold-return CV: loop hydraulics and circulator
-            //     work, then the CV's enthalpy balance with the work as its
-            //     source. It discharges exactly the enthalpy the bed was
+            // 3c. Primary cold side (~~one cold-return CV~~, split
+            //     2026-10-01): loop hydraulics and circulator work, then the
+            //     cold-duct CV's enthalpy balance with the work as its source,
+            //     then the RPV-annuli CV's, fed by the duct. The latter
+            //     discharges exactly the enthalpy the bed was
             //     handed above, so the seam is one flux.
             //     ~~The core inlet relaxes toward the exchanger's helium-side
             //     outlet over an invented, flow-independent 8 s~~ -- deleted
@@ -1568,19 +1797,22 @@ impl HtgrPlant {
                 bed_solid_storage: bed.solid_storage,
                 bed_helium_storage: bed.fluid_storage,
                 hot_duct_storage: primary.hot_duct_storage,
-                cold_return_storage: primary.cold_return_storage,
+                cold_duct_storage: primary.cold_duct_storage,
+                rpv_annuli_storage: primary.rpv_annuli_storage,
                 passive_storage: (self.decay_heat_path.stored_energy()
                     - passive_stored_at_step_start)
                     .get::<joule>(),
                 to_steam_generator: primary.to_steam_generator,
                 to_rccs: self.decay_heat_path.heat_to_rccs().get::<watt>() * dt_s,
                 circulator_work: primary.circulator_work,
+                chemistry_absorbed: chemistry_heat.get::<watt>() * dt_s,
                 residual: 0.0,
             };
             step.residual = step.source + step.circulator_work
                 - step.stored()
                 - step.to_steam_generator
-                - step.to_rccs;
+                - step.to_rccs
+                - step.chemistry_absorbed;
             self.last_step_energy = step;
             self.energy.accumulate(&step);
         }
@@ -1616,6 +1848,47 @@ impl HtgrPlant {
         self.release.set_primary_flow(self.primary.mass_flow());
         self.release
             .update(self.sim_time.get::<second>(), self.fuel_stack_temperatures());
+        // Water ingress (gh:#401): what the relief vented goes up the stack,
+        // and steam reaching exposed kernels releases their stored noble gas
+        // (TECDOC-978 Eq. 5-2, at the fuel node's temperature).
+        if let Some(st) = dlofc_step {
+            if st.vented_fraction > 0.0 {
+                self.release.vent_circulating(st.vented_fraction);
+            }
+            // The air-ingress ventilation (#420) exchanges the remaining
+            // primary gas, and its circulating activity, with the same rate
+            // and 72 h window as `sembawang`'s Venting::Ventilation. Stepped
+            // here as a well-mixed exchange of the live pool, i.e. the
+            // convolution that sembawang's cumulative `frac(t)` over-states.
+            if st.exchanged_fraction > 0.0 {
+                self.release.vent_circulating(st.exchanged_fraction);
+            }
+        }
+        if let Some(st) = ingress_step {
+            if st.vented_fraction > 0.0 {
+                self.release.vent_circulating(st.vented_fraction);
+            }
+            let (f, validity) = boon_lay::chemistry::kernel_hydrolysis::stored_gas_fraction(
+                self.kinetics.fuel_temperature(),
+                uom::si::f64::Pressure::new::<uom::si::pressure::pascal>(
+                    st.steam_partial_pressure_pa,
+                ),
+            );
+            // Named validity check (gh:#401 review, gh:#418): Eq. 5-2 was
+            // fitted at <= 1051 Pa; flag, log once, never cap.
+            if let Some(w) = self.water_ingress.as_mut() {
+                if w.note_hydrolysis(validity) {
+                    eprintln!(
+                        "htgr_sim_v1 WARNING: kernel hydrolysis (TECDOC-978 Eq. 5-2) evaluated \
+                         at {:.0} Pa steam, outside its 2.8-1051 Pa fit ({validity:?}); the \
+                         noble-gas burst is an extrapolation (gh:#418).",
+                        st.steam_partial_pressure_pa
+                    );
+                }
+            }
+            self.release
+                .release_stored_noble_gas(f.get::<uom::si::ratio::ratio>());
+        }
 
         // 7. Atmospheric dispersion, driven by the release channel's
         // circulating pool. Last, and outside the corrector loop, for the same
@@ -1666,6 +1939,49 @@ impl HtgrPlant {
         }
         self.dispersion
             .update(self.sim_time.get::<second>(), &self.release);
+
+        // 8. Indicative dose at the receptors (gh:#470): the rate just
+        // published, held over this step. A pure consumer, like 7.
+        self.tede.accumulate(
+            dt.get::<second>(),
+            self.dispersion.latest().map(|r| r.receptors.as_slice()),
+        );
+    }
+
+    /// The primary gas's `sum V_i / T_i` \[m^3/K\] over its five volumes: the
+    /// bed void at the bed helium's outlet temperature, the hot-duct CV, the
+    /// steam generator's shell side at the mean of its two ends, the cold-duct
+    /// CV and the RPV-annuli CV (~~the cold-return CV~~ before 2026-10-01).
+    /// The water-ingress pressure is the ideal-gas mixture scaled by this
+    /// (see `water_ingress`).
+    fn primary_gas_volume_over_temperature(&self) -> f64 {
+        use uom::si::volume::cubic_meter;
+        let k = |t: ThermodynamicTemperature| t.get::<kelvin>();
+        let hot = k(self.primary.hot_duct_temperature());
+        let cold = k(self.primary.core_inlet_temperature());
+        pebble_bed::bed_void_volume().get::<cubic_meter>() / k(self.primary.core_outlet_temperature())
+            + primary_loop::hot_duct_volume().get::<cubic_meter>() / hot
+            + primary_loop::steam_generator_shell_volume().get::<cubic_meter>()
+                / (0.5 * (hot + cold))
+            + primary_loop::cold_duct_volume().get::<cubic_meter>()
+                / k(self.primary.cold_duct_temperature())
+            + primary_loop::rpv_annuli_volume().get::<cubic_meter>() / cold
+    }
+
+    /// The primary gas volume \[m^3\]: bed void + hot duct + SG shell side +
+    /// cold duct + RPV annuli (the #403 sizing, split 2026-10-01).
+    fn primary_gas_volume(&self) -> uom::si::f64::Volume {
+        pebble_bed::bed_void_volume()
+            + primary_loop::hot_duct_volume()
+            + primary_loop::steam_generator_shell_volume()
+            + primary_loop::cold_duct_volume()
+            + primary_loop::rpv_annuli_volume()
+    }
+
+    /// The water-ingress accident's state, `None` unless it is running.
+    #[cfg(test)] // read by the water-ingress tests
+    pub fn water_ingress(&self) -> Option<&water_ingress::WaterIngress> {
+        self.water_ingress.as_ref()
     }
 
     /// Project the current plant state onto the shared [`HtgrSnapshot`],
@@ -1761,6 +2077,9 @@ impl HtgrPlant {
             s.dispersion_grid_time_s = result.grid.plume_time_s;
         }
 
+        // Indicative accumulated dose (gh:#470) -- see `tede_accumulator`.
+        self.tede.write_snapshot(s);
+
         for (slot, release) in s.release.iter_mut().zip(self.release.latest()) {
             slot.name = release.name;
             slot.release_rate = release.activities.release_rate;
@@ -1803,6 +2122,20 @@ impl HtgrPlant {
             .steam_generator_duty_to_secondary()
             .get::<megawatt>();
         s.passive_heat_loss_mw = self.passive_heat_loss.get::<megawatt>();
+        // Water ingress (gh:#401); NAN when not running.
+        let w = self.water_ingress.as_ref();
+        s.ingress_pressure_mpa = w.map_or(f64::NAN, |w| w.pressure_pa / 1e6);
+        s.ingress_steam_kg = w.map_or(f64::NAN, |w| w.steam_mol * 18.015e-3);
+        s.ingress_graphite_corroded_kg = w.map_or(f64::NAN, |w| w.carbon_corroded_kg);
+        s.ingress_h2_percent = w.map_or(f64::NAN, |w| 100.0 * w.hydrogen_fraction());
+        s.ingress_co_percent = w.map_or(f64::NAN, |w| 100.0 * w.co_fraction());
+        s.ingress_vented_fraction = w.map_or(f64::NAN, |w| w.vented_fraction);
+        s.ingress_hydrolysis_out_of_range = w.is_some_and(|w| w.hydrolysis_out_of_range());
+        let d = self.depressurisation.as_ref();
+        s.dlofc_discharged_kg = d.map_or(f64::NAN, |d| d.discharged_kg);
+        s.dlofc_vented_fraction = d.map_or(f64::NAN, |d| d.vented_fraction);
+        s.dlofc_graphite_oxidised_kg = d.map_or(f64::NAN, |d| d.carbon_oxidised_kg);
+        s.dlofc_air_exchanged_fraction = d.map_or(f64::NAN, |d| d.exchanged_fraction);
         s.riser_heat_mw = self.decay_heat_path.heat_to_risers().get::<megawatt>();
         s.reflector_temp_k = self.decay_heat_path.reflector_temperature().get::<kelvin>();
         s.rpv_temp_k = self.decay_heat_path.rpv_temperature().get::<kelvin>();
@@ -1817,6 +2150,21 @@ impl HtgrPlant {
         s.helium_residence_time_s =
             residence_time_from_flow(self.primary.helium_inventory(), self.primary.mass_flow())
                 .get::<second>();
+        // Per-run tracer transit times (2026-10-01): each drawn run crosses in
+        // its own CV's or volume's `M/m_dot`, not the whole loop's (above,
+        // kept as the panel's "whole loop" readout).
+        s.hot_duct_residence_time_s = self.primary.hot_duct_residence_time().get::<second>();
+        s.cold_duct_residence_time_s = self.primary.cold_duct_residence_time().get::<second>();
+        s.rpv_annuli_residence_time_s = self.primary.rpv_annuli_residence_time().get::<second>();
+        s.riser_residence_time_s = self.primary.riser_residence_time().get::<second>();
+        s.sg_shell_residence_time_s = self
+            .primary
+            .steam_generator_shell_residence_time()
+            .get::<second>();
+        s.sg_tube_residence_time_s = self
+            .primary
+            .steam_generator_tube_residence_time(self.secondary.mass_flow())
+            .get::<second>();
         s.primary_pressure_drop_kpa = self.primary.pressure_drop().get::<kilopascal>();
         s.bed_pressure_drop_kpa = self.primary.bed_pressure_drop().get::<kilopascal>();
         s.circulator_power_mw = self.primary.circulator_power().get::<megawatt>();
@@ -1847,6 +2195,11 @@ impl HtgrPlant {
         )
         .get::<second>();
         s.secondary_piping_inventory_kg = self.secondary.piping_inventory().get::<kilogram>();
+        let runs = self.secondary.piping_run_inventories();
+        let run_tau = |m| residence_time_from_flow(m, self.secondary.mass_flow()).get::<second>();
+        s.main_steam_line_residence_time_s = run_tau(runs.main_steam);
+        s.exhaust_duct_residence_time_s = run_tau(runs.exhaust);
+        s.feedwater_line_residence_time_s = run_tau(runs.feedwater);
         s.feedwater_enthalpy_j_per_kg = self
             .secondary
             .feedwater_enthalpy()
@@ -2022,8 +2375,11 @@ mod tests {
     ///   *for*, and the one worth gating.
     ///
     /// The `beta` ambiguity documented on [`GUI_INITIAL_ROD_INSERTION`] applies
-    /// to every dollar figure here and not to the pcm ones; this test reads the
-    /// **delayed** layer, `beta = 0.00650`.
+    /// to every dollar figure here and not to the pcm ones; ~~this test reads
+    /// the **delayed** layer, `beta = 0.00650`~~ -- since 2026-09-29 (gh:#387)
+    /// the delayed layer's `beta` is 7.26e-3, so the dollar figures below
+    /// (taken at 0.0065) are not re-measured since that change; pending
+    /// validation work.
     ///
     /// # Results (measured 2026-09-27, `beta = 0.00650`)
     ///
@@ -2975,7 +3331,7 @@ mod tests {
             let fuel = ledger1.stored - ledger0.stored;
             let refl = refl1 - refl0;
             // The chain's exits: the RCCS and (gh:#397) the riser helium,
-            // which leaves this CV set for the primary loop's cold return.
+            // which leaves this CV set for the primary loop's RPV-annuli CV.
             let rccs = (plant.decay_heat_path.heat_to_rccs().get::<watt>()
                 + plant.decay_heat_path.heat_to_risers().get::<watt>())
                 * dt_s;
@@ -3025,7 +3381,8 @@ mod tests {
     ///
     /// ```text
     /// residual = [f_prompt P + P_decay] dt + W dt
-    ///          - dE_fuel - dE_bed,solid - dE_bed,helium - dE_hot duct - dE_cold return
+    ///          - dE_fuel - dE_bed,solid - dE_bed,helium - dE_hot duct
+    ///          - dE_cold duct - dE_RPV annuli   (~~dE_cold return~~ before 2026-10-01)
     ///          - dE_refl+RPV - m_dot (h_hot duct - h_SG,out) dt - Q_RCCS dt
     /// ```
     ///
@@ -3034,8 +3391,8 @@ mod tests {
     /// below 1e-9 of the accumulated source. Also asserted, per step: the bed
     /// -> hot-duct seam carries one flux (the bed's `throughflow_out` equals
     /// the primary loop's `from_bed` to 1e-12 relative); and after the trip
-    /// the cold-return residence time `M_c/m_dot` exceeds 100 s (it was a
-    /// fixed 8 s).
+    /// the ~~cold-return~~ RPV-annuli (2026-10-01) residence time `M_r/m_dot`
+    /// exceeds 100 s (it was a fixed 8 s).
     ///
     /// The opening state is a slow transient, not a steady state -- this
     /// model does not settle inside a test budget -- so "normal operation"
@@ -3075,6 +3432,11 @@ mod tests {
     /// | stage (b), 2026-09-29 (passive path in the bed's solve) | +1.5e-5 J = **3.1e-15** | 1.1e-11 / 9.0e-11 | 0 |
     /// | stage (c), 2026-09-29 (riser leg: reflector -> cold return) | +5.1e-4 J = **1.0e-13** | 1.2e-11 / 4.4e-11 | 0 |
     /// | loop inventory at Yao's 210 kg, 2026-09-29 (gh:#403) | -4.0e-4 J = **8.0e-14** | 1.1e-11 / 4.7e-11 | 0 |
+    /// | cold return split into cold-duct + RPV-annuli CVs, 2026-10-01 | -3.6e-4 J = **7.7e-14** of 4.618e9 J | 1.2e-11 / 4.1e-11 | 0 |
+    ///
+    /// 2026-10-01 split: storage cold duct 1.656e6 J, RPV annuli 1.554e7 J;
+    /// the trip's RPV-annuli residence reaches 19212.1 s at the 0.01 kg/s
+    /// floor.
     ///
     /// gh:#403: cold-return storage 1.856e7 J (it was ~2e6 J with the invented
     /// 6 m^3 allowance); the trip's cold-return residence reaches 19630.6 s at
@@ -3107,7 +3469,8 @@ mod tests {
                 + e.bed_solid_storage.abs()
                 + e.bed_helium_storage.abs()
                 + e.hot_duct_storage.abs()
-                + e.cold_return_storage.abs()
+                + e.cold_duct_storage.abs()
+                + e.rpv_annuli_storage.abs()
                 + e.passive_storage.abs()
                 + e.to_steam_generator.abs()
                 + e.to_rccs.abs();
@@ -3117,7 +3480,7 @@ mod tests {
             } else {
                 worst_trip = worst_trip.max(r);
                 max_residence_after_trip = max_residence_after_trip
-                    .max(plant.primary.cold_return_residence_time().get::<second>());
+                    .max(plant.primary.rpv_annuli_residence_time().get::<second>());
             }
             let bed = plant.core.last_step_energy();
             let primary = plant.primary.last_step_energy();
@@ -3129,10 +3492,10 @@ mod tests {
         println!(
             "WHOLE-PLANT ENERGY LEDGER, 60 s normal + 60 s LOFC (trip at 60 s, secondary \
              isolated at 72 s):\n  source {:.6e} J, circulator work {:.6e} J\n  storage: fuel \
-             {:.6e}, bed graphite {:.6e}, bed helium {:.6e}, hot duct {:.6e}, cold return \
-             {:.6e}, reflector+RPV {:.6e}\n  out: steam generator {:.6e}, RCCS {:.6e}\n  \
+             {:.6e}, bed graphite {:.6e}, bed helium {:.6e}, hot duct {:.6e}, cold duct \
+             {:.6e}, RPV annuli {:.6e}, reflector+RPV {:.6e}\n  out: steam generator {:.6e}, RCCS {:.6e}\n  \
              accumulated residual {:.3e} J = {:.3e} of the source; worst step {:.3e} (normal), \
-             {:.3e} (trip); bed->hot-duct seam worst {:.3e}; cold-return residence after trip \
+             {:.3e} (trip); bed->hot-duct seam worst {:.3e}; RPV-annuli residence after trip \
              up to {:.1} s (flow {:.3} kg/s)",
             total.source,
             total.circulator_work,
@@ -3140,7 +3503,8 @@ mod tests {
             total.bed_solid_storage,
             total.bed_helium_storage,
             total.hot_duct_storage,
-            total.cold_return_storage,
+            total.cold_duct_storage,
+            total.rpv_annuli_storage,
             total.passive_storage,
             total.to_steam_generator,
             total.to_rccs,
@@ -3162,8 +3526,120 @@ mod tests {
         assert!(worst_seam < 1e-12, "bed -> hot duct seam {worst_seam:e}");
         assert!(
             max_residence_after_trip > 100.0,
-            "the cold-return residence time must grow as the flow falls: {max_residence_after_trip} s"
+            "the RPV-annuli residence time must grow as the flow falls: {max_residence_after_trip} s"
         );
+    }
+
+    /// **The snapshot publishes each drawn run's own transit time** (2026-10-01,
+    /// the per-run tracer fix), and the whole-loop figure stays a separate
+    /// readout.
+    ///
+    /// Methodology: a fresh plant stepped 5 s at the design commands, then
+    /// `write_snapshot`. Every per-run field must equal the physics method it
+    /// is documented as (to 1e-12: same arithmetic), the three secondary runs
+    /// must be `M_run / m_dot` and sum to the whole-piping figure, and at
+    /// rated flow the hot pipe and the coaxial cold pipe must each be under
+    /// 5 % of the whole-loop residence time -- the ~49 s that was animating a
+    /// 3 m duct before this fix.
+    ///
+    /// Results (2026-10-01): printed below.
+    #[test]
+    fn the_snapshot_publishes_each_runs_own_transit_time() {
+        let mut plant = HtgrPlant::new();
+        let dt = Time::new::<second>(PLANT_TIMESTEP_S);
+        for _ in 0..50 {
+            plant.step(dt, design_commands());
+        }
+        let mut snap = HtgrSnapshot::default();
+        plant.write_snapshot(&mut snap);
+        let p = &plant.primary;
+        let rel = |a: f64, b: f64| (a - b).abs() / b.abs().max(1e-300);
+        let s = |t: Time| t.get::<second>();
+        for (name, published, physics) in [
+            (
+                "hot duct",
+                snap.hot_duct_residence_time_s,
+                s(p.hot_duct_residence_time()),
+            ),
+            (
+                "cold duct",
+                snap.cold_duct_residence_time_s,
+                s(p.cold_duct_residence_time()),
+            ),
+            (
+                "RPV annuli",
+                snap.rpv_annuli_residence_time_s,
+                s(p.rpv_annuli_residence_time()),
+            ),
+            (
+                "risers",
+                snap.riser_residence_time_s,
+                s(p.riser_residence_time()),
+            ),
+            (
+                "SG shell",
+                snap.sg_shell_residence_time_s,
+                s(p.steam_generator_shell_residence_time()),
+            ),
+            (
+                "SG tube",
+                snap.sg_tube_residence_time_s,
+                s(p.steam_generator_tube_residence_time(plant.secondary.mass_flow())),
+            ),
+        ] {
+            assert!(
+                published > 0.0 && published.is_finite(),
+                "{name}: {published}"
+            );
+            assert!(
+                rel(published, physics) < 1e-12,
+                "{name}: {published} vs {physics}"
+            );
+        }
+        let m_sec = plant.secondary.mass_flow().get::<kilogram_per_second>();
+        let runs = plant.secondary.piping_run_inventories();
+        let kg = |m: uom::si::f64::Mass| m.get::<uom::si::mass::kilogram>();
+        assert!(
+            rel(
+                snap.main_steam_line_residence_time_s,
+                kg(runs.main_steam) / m_sec
+            ) < 1e-12
+        );
+        assert!(rel(snap.exhaust_duct_residence_time_s, kg(runs.exhaust) / m_sec) < 1e-12);
+        assert!(
+            rel(
+                snap.feedwater_line_residence_time_s,
+                kg(runs.feedwater) / m_sec
+            ) < 1e-12
+        );
+        assert!(
+            rel(
+                snap.main_steam_line_residence_time_s
+                    + snap.exhaust_duct_residence_time_s
+                    + snap.feedwater_line_residence_time_s,
+                snap.secondary_residence_time_s
+            ) < 1e-12
+        );
+        let whole = snap.helium_residence_time_s;
+        println!(
+            "snapshot at {:.3} kg/s helium, {m_sec:.3} kg/s secondary: hot duct {:.4} s, cold duct \
+             {:.4} s, risers {:.4} s, RPV annuli {:.3} s, SG shell {:.4} s, SG tube {:.3} s; main \
+             steam {:.4} s, exhaust {:.4} s, feedwater line {:.3} s; WHOLE LOOP {whole:.3} s, \
+             whole piping {:.3} s",
+            snap.helium_mass_flow_kg_per_s,
+            snap.hot_duct_residence_time_s,
+            snap.cold_duct_residence_time_s,
+            snap.riser_residence_time_s,
+            snap.rpv_annuli_residence_time_s,
+            snap.sg_shell_residence_time_s,
+            snap.sg_tube_residence_time_s,
+            snap.main_steam_line_residence_time_s,
+            snap.exhaust_duct_residence_time_s,
+            snap.feedwater_line_residence_time_s,
+            snap.secondary_residence_time_s,
+        );
+        assert!(snap.hot_duct_residence_time_s < 0.05 * whole);
+        assert!(snap.cold_duct_residence_time_s < 0.05 * whole);
     }
 
     /// Run the circulator flow ramp-down transient at `dt` with `n_outer` plant
@@ -4681,6 +5157,13 @@ mod tests {
     /// | **riser leg (2026-09-29, gh:#397)** | 16.1377 MW | **NOT REACHED** | -- | 1343.5 K | 1.6886 MW / 1320.8 K / 1318.4 K |
     /// | **loop inventory at Yao's 210 kg (2026-09-29, gh:#403)** | 16.1277 MW | **NOT REACHED** | -- | 1344.2 K | 1.8491 MW / 1320.9 K / 1318.3 K |
     ///
+    /// Table not re-measured since af7991ca2a (cold return split into cold-duct + RPV-annuli CVs); pending validation work.
+    ///
+    /// Every row starts from `PlantCommands::default()` at 4.3 kg/s. The
+    /// default flow became 1.29 kg/s on 2026-10-01 (maintainer direction), so
+    /// this run now starts from a different state: not re-measured since that
+    /// change; pending validation work.
+    ///
     /// **gh:#403:** fission at 600 s rose 9.5 % (1.6886 -> 1.8491 MW). The
     /// cold-return CV now holds ~194 kg of helium, 20x more, so after the trip
     /// the core inlet follows the steam generator ~20x more slowly. The outcome
@@ -4982,8 +5465,9 @@ mod tests {
     /// (949.95 K), but [`GUI_INITIAL_ROD_INSERTION`] holds 3 MWth at 30 %
     /// flow, which sits far cooler.~~ **CORRECTED 2026-09-27**: the opening
     /// state is no longer the 3 MWth one. `GUI_INITIAL_ROD_INSERTION` is 0.30
-    /// (gh:#318) and [`GUI_INITIAL_HELIUM_FLOW_KG_PER_S`] is 1.00, i.e. full
-    /// 4.3 kg/s; neither was bisected against the other, so the settled power
+    /// (gh:#318) and [`GUI_INITIAL_HELIUM_FLOW_FRACTION`] is ~~1.00, i.e. full
+    /// 4.3 kg/s~~ 0.30, i.e. 1.29 kg/s (**CORRECTED 2026-10-01**, maintainer
+    /// direction; the rod is 0.45); neither was bisected against the other, so the settled power
     /// and bed temperature here are **unmeasured** and this test is the way to
     /// measure them. The seeding argument below still applies whichever
     /// direction the mismatch runs. Starting 300 K too hot makes the temperature feedback shut
@@ -5002,6 +5486,13 @@ mod tests {
     /// | **passive path in the bed's implicit solve, Achenbach legs, derived capacities (2026-09-29, gh:#395/#396)** | **16.0693 MW** | **1303.43 K** | 1323.34 K | 19.91 K |
     /// | **riser leg (2026-09-29, gh:#397)** | **15.8803 MW** | **1303.60 K** | 1323.28 K | 19.68 K |
     /// | **loop inventory at Yao's 210 kg (2026-09-29, gh:#403)** | **15.8813 MW** | **1303.60 K** | 1323.28 K | 19.68 K |
+    ///
+    /// Table not re-measured since af7991ca2a (cold return split into cold-duct + RPV-annuli CVs); pending validation work.
+    ///
+    /// **Every row is at 4.3 kg/s.** The opening flow moved to 1.29 kg/s on
+    /// 2026-10-01 (maintainer direction), so this table no longer describes
+    /// the opening condition at all: not re-measured since that change;
+    /// pending validation work.
     ///
     /// **Riser leg:** -1.18 % in power. The side reflector now hands about
     /// 0.33 MW to the helium rising through its channels, which re-enters the
@@ -5025,7 +5516,7 @@ mod tests {
     #[ignore = "over the 1-minute headless budget (maintainer direction, 2026-09-27): settles or sweeps the WHOLE plant, which runs at ~4.5x real time, so this is minutes to tens of minutes. Run explicitly with --ignored when the transient itself is the subject."]
     fn report_the_steady_state_bed_temperature_at_the_opening_condition() {
         let flow =
-            GUI_INITIAL_HELIUM_FLOW_KG_PER_S * nominal_helium_flow().get::<kilogram_per_second>();
+            GUI_INITIAL_HELIUM_FLOW_FRACTION * nominal_helium_flow().get::<kilogram_per_second>();
         println!(
             "\n=== settling at insertion {GUI_INITIAL_ROD_INSERTION}, flow {flow:.3} kg/s ==="
         );
@@ -5034,5 +5525,468 @@ mod tests {
         println!("  power {p:.4} MW   bed {bed:.4} K   fuel {fuel:.4} K");
         println!("  (seed the bed at {bed:.4} K)");
         assert!(p.is_finite() && bed.is_finite());
+    }
+
+    /// **Water ingress through the whole plant conserves energy, including
+    /// the reaction heat, and follows the published sequence** (gh:#401).
+    ///
+    /// # Methodology
+    ///
+    /// 30 s at the design commands, then [`Scenario::WaterIngress`] for 90 s
+    /// (0.1 s steps). Every step: the global ledger, now with the
+    /// graphite-steam heat as a sink (`chemistry_absorbed`), must close to
+    /// 1e-9 of the step's gross energy. At the end: 129.9 kg injected by 50 s;
+    /// the circulator stopped (published 38.5 s); the scram (37.5 s) has cut
+    /// the fission power below 10 % of its pre-accident value; the relief is
+    /// shut (the pressure is under 3.5 MPa this early). Correctness checks
+    /// only -- no published number is compared here (the maintainer's
+    /// no-validation rule; see `water_ingress_against_gao_shi_and_liu_cao`).
+    ///
+    /// # Results (2026-09-29)
+    ///
+    /// Printed below; pass.
+    #[test]
+    fn water_ingress_conserves_energy_and_follows_the_published_sequence() {
+        let mut plant = HtgrPlant::new();
+        let dt = Time::new::<second>(PLANT_TIMESTEP_S);
+        let mut worst = 0.0f64;
+        let mut p_before = 0.0;
+        for i in 0..1200 {
+            let mut commands = design_commands();
+            if i >= 300 {
+                commands.scenario = Scenario::WaterIngress;
+            } else {
+                p_before = plant.kinetics.total_power().get::<megawatt>();
+            }
+            plant.step(dt, commands);
+            let e = plant.last_step_energy();
+            let gross = e.source.abs()
+                + e.circulator_work.abs()
+                + e.fuel_storage.abs()
+                + e.bed_solid_storage.abs()
+                + e.bed_helium_storage.abs()
+                + e.hot_duct_storage.abs()
+                + e.cold_duct_storage.abs()
+                + e.rpv_annuli_storage.abs()
+                + e.passive_storage.abs()
+                + e.to_steam_generator.abs()
+                + e.to_rccs.abs()
+                + e.chemistry_absorbed.abs();
+            worst = worst.max(e.residual.abs() / gross);
+        }
+        let w = *plant.water_ingress().expect("running");
+        let p_after = plant.kinetics.total_power().get::<megawatt>();
+        let total = plant.energy_ledger();
+        println!(
+            "water ingress, 90 s: injected {:.2} kg, steam {:.1} mol, graphite gasified {:.4} kg, \
+             reaction heat {:.4e} J (ledger {:.4e} J), p {:.4} MPa (peak {:.4}), H2 {:.3} %, \
+             fission {p_before:.3} -> {p_after:.4} MW, flow {:.3} kg/s, worst step residual \
+             {worst:.3e}, rate extrapolated {}",
+            w.injected_kg,
+            w.steam_mol,
+            w.carbon_corroded_kg,
+            w.chemistry_heat_absorbed_j,
+            total.chemistry_absorbed,
+            w.pressure_pa / 1e6,
+            w.peak_pressure_pa / 1e6,
+            100.0 * w.hydrogen_fraction(),
+            plant.primary.mass_flow().get::<kilogram_per_second>(),
+            w.rate_extrapolated
+        );
+        assert!(worst < 1e-9, "{worst:e}");
+        assert!((w.injected_kg - water_ingress::TOTAL_INGRESS_KG).abs() < 1e-9);
+        assert!((total.chemistry_absorbed - w.chemistry_heat_absorbed_j).abs()
+            <= 1e-9 * w.chemistry_heat_absorbed_j.max(1.0));
+        assert!(p_after < 0.1 * p_before, "{p_before} -> {p_after}");
+        assert!(plant.primary.mass_flow().get::<kilogram_per_second>() < 0.5);
+    }
+
+    /// **V&V, first measurement (gh:#401): water ingress, uncalibrated,
+    /// against Gao & Shi (2002) s.5.4 and Liu & Cao (2002) Table 8.**
+    ///
+    /// # Methodology
+    ///
+    /// Default plant (building not credited, gh:#409), 60 s normal, then
+    /// [`Scenario::WaterIngress`] for 4 h at the 0.1 s plant step. Nothing is
+    /// fitted: the inputs are the published ones tabulated in
+    /// [`water_ingress`], with the two labelled assumptions there (uniform
+    /// ingress over 50 s; steam reactivity linear in the steam held).
+    /// Compared, reported, not gated:
+    ///
+    /// - graphite gasified vs Gao & Shi's **< 4.88 kg**;
+    /// - peak primary pressure and when the relief first opens vs **3.5 MPa
+    ///   at ~3 h, closing below 2.9 MPa at 3.07 h**;
+    /// - H2 and CO in the primary vs **0.64 %** each;
+    /// - the activity released up the stack over the accident, per tracked
+    ///   nuclide, vs **Table 8's water-ingress column** (Kr-85 9.0e5,
+    ///   Xe-133 6.5e8, I-131 2.2e8, Cs-137 3.1e8, Ag-110m 4.9e4 Bq). The
+    ///   pre-accident leak over the same 4 h is subtracted, so the figure is
+    ///   the accident's own release.
+    ///
+    /// The known reasons to expect disagreement are in `water_ingress`'s
+    /// module doc (kinetic-regime rate on the whole bed at an
+    /// outlet-referenced temperature; no purification removal; one-bank
+    /// scram; no corroded-graphite activity).
+    ///
+    /// # Results (2026-09-29, first and only run under the no-validation rule)
+    ///
+    /// | Quantity | Model | Published | Ratio / note |
+    /// |---|---|---|---|
+    /// | graphite gasified (4 h) | **3.02 kg** | < 4.88 kg (G&S) | inside the bound, despite the kinetic-regime rate being extrapolated (flagged) |
+    /// | relief first opens | **357 s** at 3.5 MPa | ~3 h (G&S) | **30x early** |
+    /// | peak pressure | 3.500 MPa (relief holds it) | 3.5 MPa | -- |
+    /// | H2, CO | 0.435 % each | 0.64 % each | 0.68 |
+    /// | primary gas vented | 32.5 % | ~23 % of the helium (Liu & Cao s.4.1.2) | 1.4 |
+    /// | Kr-85 to stack | 1.39e9 Bq | 9.0e5 | **1.5e3** |
+    /// | Xe-133 | 3.24e11 Bq | 6.5e8 | **5.0e2** |
+    /// | I-131 | 1.74e8 Bq | 2.2e8 | 0.79 |
+    /// | Cs-137 | 1.71e7 Bq | 3.1e8 | 0.055 |
+    /// | Ag-110m | 1.65e6 Bq | 4.9e4 | 34 |
+    ///
+    /// Fission power is ~0 by the first print (the scram, 37.5 s); the bed
+    /// cools from 1095 K (1 h) to 825 K (4 h).
+    ///
+    /// # Interpretation (not tuned; the disagreements are the finding)
+    ///
+    /// - **The noble gases are 500-1500x high because the kernel-hydrolysis
+    ///   burst is applied far outside its fit.** TECDOC-978 Eq. 5-2 was fitted
+    ///   at 2.8-1051 Pa of water vapour; the steam partial pressure here is
+    ///   hundreds of kPa, so the fraction clamps to the whole stored
+    ///   inventory of every exposed kernel (`f_hm + f_inc`), which then vents.
+    ///   Liu & Cao do not count a hydrolysis burst at all (their three
+    ///   sources: primary helium, SG wash-off, corroded-graphite activity).
+    ///   The burst is physical, but its magnitude here is an extrapolation.
+    /// - **The relief opens 30x early** because the model removes no water
+    ///   (the purification system's accident line has no published rate) and
+    ///   holds the gas at the plant's own CV temperatures; Gao & Shi's primary
+    ///   takes ~3 h to reach 3.5 MPa. The early venting also sends more of
+    ///   the circulating activity out.
+    /// - **I-131 agrees within 21 %**, the one nuclide whose release is
+    ///   dominated by the path both models share (SG wash-off into the
+    ///   coolant, then venting).
+    /// - **Cs-137 is 18x low**: its SG share (73 %) is washed off, but the
+    ///   plate-out pool it comes from is itself low at the design stack
+    ///   (gh:#378 records Cs-137 at 7e-3 of Liu & Cao's circulating value),
+    ///   and the corroded-graphite source Liu & Cao include is not modelled.
+    /// - **Ag-110m is 34x high**: Liu & Cao's wash-off gives silver no SG
+    ///   share, and this model washes none off either, so the excess is the
+    ///   circulating silver plus the extra venting.
+    #[test]
+    #[ignore = "over the 1-minute headless budget: a 4 h whole-plant transient. First measurement for the water-ingress V&V doc; not re-run under the no-validation rule."]
+    fn water_ingress_against_gao_shi_and_liu_cao() {
+        let dt = Time::new::<second>(PLANT_TIMESTEP_S);
+        let hours = 4.0;
+        let steps = (hours * 3600.0 / PLANT_TIMESTEP_S) as usize;
+        let lead = 600;
+        let run = |ingress: bool| {
+            let mut plant = HtgrPlant::new();
+            let mut first_open = None;
+            for i in 0..(lead + steps) {
+                let mut commands = design_commands();
+                if ingress && i >= lead {
+                    commands.scenario = Scenario::WaterIngress;
+                }
+                plant.step(dt, commands);
+                if let (None, Some(w)) = (first_open, plant.water_ingress()) {
+                    if w.relief_chains_open > 0 {
+                        first_open = Some(w.elapsed_s);
+                    }
+                }
+                if i % 36000 == 0 {
+                    if let Some(w) = plant.water_ingress() {
+                        println!(
+                            "  t {:>6.0} s: p {:.4} MPa, steam {:.2} kg, C {:.3} kg, H2 {:.3} %, \
+                             vented {:.4}, fission {:.4} MW, bed {:.1} K",
+                            w.elapsed_s,
+                            w.pressure_pa / 1e6,
+                            w.steam_mol * 18.015e-3,
+                            w.carbon_corroded_kg,
+                            100.0 * w.hydrogen_fraction(),
+                            w.vented_fraction,
+                            plant.kinetics.total_power().get::<megawatt>(),
+                            plant.core.temperature().get::<kelvin>()
+                        );
+                    }
+                }
+            }
+            let released: Vec<f64> = plant.release.cumulative_stack_release_bq().to_vec();
+            (plant.water_ingress().copied(), released, first_open)
+        };
+        // The two runs are independent: one core each.
+        let ((w, with, first_open), (_, without, _)) =
+            std::thread::scope(|scope| {
+                let a = scope.spawn(|| run(true));
+                let b = scope.spawn(|| run(false));
+                (a.join().expect("ingress run"), b.join().expect("reference run"))
+            });
+        let w = w.expect("ran");
+        println!(
+            "graphite gasified {:.3} kg (Gao & Shi < 4.88); peak p {:.4} MPa, relief first open at \
+             {:?} s (G&S: 3.5 MPa at ~3 h); H2 {:.3} %, CO {:.3} % (G&S 0.64 % each); vented \
+             {:.4} of the primary gas; rate extrapolated {}",
+            w.carbon_corroded_kg,
+            w.peak_pressure_pa / 1e6,
+            first_open,
+            100.0 * w.hydrogen_fraction(),
+            100.0 * w.co_fraction(),
+            w.vented_fraction,
+            w.rate_extrapolated
+        );
+        let table8 = [9.0e5, 6.5e8, 2.2e8, 3.1e8, 4.9e4];
+        for (k, name) in fission_product_release::TRACKED_NUCLIDES.iter().enumerate() {
+            let accident = with[k] - without[k];
+            println!(
+                "  {name:>8}: released {accident:.3e} Bq (with leak {:.3e}), Table 8 {:.1e}, \
+                 ratio {:.3e}",
+                with[k],
+                table8[k],
+                accident / table8[k]
+            );
+        }
+        assert!(w.carbon_corroded_kg.is_finite() && w.peak_pressure_pa.is_finite());
+    }
+
+    /// **DLOFC + ATWS through the whole plant conserves energy, vents the
+    /// published mass, and does not scram** (gh:#402, stage 4a).
+    ///
+    /// Methodology: 30 s normal, then [`Scenario::DlofcAtws`] for 150 s at
+    /// 0.1 s. Every step the global ledger (with the chemistry term) closes
+    /// to 1e-9 of the step's gross; at the end ~150 kg is discharged (5 tau
+    /// = 114 s), the circulator is stopped, the rods never moved (ATWS: the
+    /// effective insertion stays the operator's), the release channel's
+    /// cumulative stack release rose, and ~~-- with no published O2 supply --
+    /// no graphite has oxidised~~ **(since 2026-09-30, #420)** the
+    /// ventilation's O2 has oxidised graphite (> 0), the ventilation
+    /// exchanged a positive fraction, and the ledger still closes with the
+    /// oxidation heat in it. Correctness checks only.
+    ///
+    /// Results (2026-09-29): printed below; pass. Re-run 2026-09-30 with air
+    /// ingress: pass; printed below.
+    #[test]
+    fn dlofc_atws_conserves_energy_and_vents_the_published_mass() {
+        let mut plant = HtgrPlant::new();
+        let dt = Time::new::<second>(PLANT_TIMESTEP_S);
+        let mut worst = 0.0f64;
+        let mut released_at_trip = Vec::new();
+        for i in 0..1800 {
+            let mut commands = design_commands();
+            if i >= 300 {
+                commands.scenario = Scenario::DlofcAtws;
+            }
+            if i == 300 {
+                released_at_trip = plant.release.cumulative_stack_release_bq().to_vec();
+            }
+            plant.step(dt, commands);
+            let e = plant.last_step_energy();
+            let gross = e.source.abs()
+                + e.circulator_work.abs()
+                + e.fuel_storage.abs()
+                + e.bed_solid_storage.abs()
+                + e.bed_helium_storage.abs()
+                + e.hot_duct_storage.abs()
+                + e.cold_duct_storage.abs()
+                + e.rpv_annuli_storage.abs()
+                + e.passive_storage.abs()
+                + e.to_steam_generator.abs()
+                + e.to_rccs.abs()
+                + e.chemistry_absorbed.abs();
+            worst = worst.max(e.residual.abs() / gross);
+        }
+        let d = plant.depressurisation.expect("running");
+        let released = plant.release.cumulative_stack_release_bq().to_vec();
+        println!(
+            "DLOFC 150 s: discharged {:.2} kg, vented {:.4}, oxidised {:.3e} kg, fission {:.4} MW, \
+             flow {:.3} kg/s, worst step residual {worst:.3e}; stack release since the \
+             rupture: {:?}",
+            d.discharged_kg,
+            d.vented_fraction,
+            d.carbon_oxidised_kg,
+            plant.kinetics.total_power().get::<megawatt>(),
+            plant.primary.mass_flow().get::<kilogram_per_second>(),
+            released
+                .iter()
+                .zip(&released_at_trip)
+                .map(|(a, b)| format!("{:.3e}", a - b))
+                .collect::<Vec<_>>()
+        );
+        assert!(worst < 1e-9, "{worst:e}");
+        assert!((d.discharged_kg - 150.0).abs() < 0.5);
+        // Air ingress (#420): 150 s of ventilation at ~4.8e-5 mol O2/s.
+        assert!(d.carbon_oxidised_kg > 0.0, "the default DLOFC oxidises graphite (#420)");
+        assert!(d.oxygen_supplied_mol > 0.0 && d.exchanged_fraction > 0.0);
+        assert!(
+            (d.carbon_oxidised_kg - d.oxygen_supplied_mol * 12.011e-3).abs()
+                <= 1e-9 * d.carbon_oxidised_kg.max(1e-30),
+            "supply-limited: every O2 mol oxidises one C mol"
+        );
+        assert!(plant.primary.mass_flow().get::<kilogram_per_second>() < 0.5);
+        assert!(!plant.protection.is_tripped(), "ATWS: nothing drives the rods");
+        assert!(released.iter().zip(&released_at_trip).all(|(a, b)| a > b));
+    }
+
+    /// **INDICATIVE, NOT VALIDATED (#420): the default DLOFC with air
+    /// ingress, 30 min.** Methodology: 60 s normal, then
+    /// [`Scenario::DlofcAtws`] for 1800 s at 0.1 s; prints graphite oxidised,
+    /// O2 delivered, the exchanged fraction and the stack release since the
+    /// rupture per tracked nuclide. Asserts only that the ledger closes and
+    /// oxidation happened. Not a comparison with anything.
+    ///
+    /// Results: on #420 (2026-09-30).
+    #[test]
+    #[ignore = "indicative 30 min whole-plant DLOFC with air ingress (#420); minutes of wall time. Run with --ignored."]
+    fn dlofc_with_air_ingress_indicative_30_min() {
+        let mut plant = HtgrPlant::new();
+        let dt = Time::new::<second>(PLANT_TIMESTEP_S);
+        let lead = 600;
+        let mut at_trip = Vec::new();
+        let mut worst = 0.0f64;
+        for i in 0..(lead + 18_000) {
+            let mut commands = design_commands();
+            if i >= lead {
+                commands.scenario = Scenario::DlofcAtws;
+            }
+            if i == lead {
+                at_trip = plant.release.cumulative_stack_release_bq().to_vec();
+            }
+            plant.step(dt, commands);
+            let e = plant.last_step_energy();
+            let gross = e.source.abs()
+                + e.circulator_work.abs()
+                + e.fuel_storage.abs()
+                + e.bed_solid_storage.abs()
+                + e.bed_helium_storage.abs()
+                + e.hot_duct_storage.abs()
+                + e.cold_duct_storage.abs()
+                + e.rpv_annuli_storage.abs()
+                + e.passive_storage.abs()
+                + e.to_steam_generator.abs()
+                + e.to_rccs.abs()
+                + e.chemistry_absorbed.abs();
+            worst = worst.max(e.residual.abs() / gross);
+        }
+        let d = plant.depressurisation.expect("running");
+        let rel = plant.release.cumulative_stack_release_bq().to_vec();
+        println!(
+            "INDICATIVE DLOFC+air 1800 s: oxidised {:.4e} kg C, O2 {:.4} mol, exchanged {:.5}, \
+             oxidation heat {:.4e} J, bed {:.1} K, fission {:.4} MW, worst residual {worst:.3e}",
+            d.carbon_oxidised_kg,
+            d.oxygen_supplied_mol,
+            d.exchanged_fraction,
+            d.oxidation_heat_j,
+            plant.core.temperature().get::<kelvin>(),
+            plant.kinetics.total_power().get::<megawatt>()
+        );
+        for (k, name) in fission_product_release::TRACKED_NUCLIDES.iter().enumerate() {
+            println!("  {name:>8}: stack release since rupture {:.4e} Bq", rel[k] - at_trip[k]);
+        }
+        assert!(worst < 1e-9 && d.carbon_oxidised_kg > 0.0);
+    }
+
+    /// **V&V, first measurement (gh:#402): DLOFC + ATWS, uncalibrated,
+    /// against Liu & Cao (2002) Table 8's depressurisation column** and the
+    /// feedback-only shutdown.
+    ///
+    /// Methodology: default plant (building not credited), 60 s normal, then
+    /// [`Scenario::DlofcAtws`] for 2 h. Released activity per tracked nuclide
+    /// (accident minus a no-accident reference over the same time) against
+    /// Table 8: Kr-85 1.5e8, Xe-133 2.2e10, I-131 2.5e7, Cs-137 1.3e8,
+    /// Ag-110m 5.1e4 Bq. Also printed: the fission power's minimum and any
+    /// recriticality (ATWS; the reactivity bookkeeping is #387/#408's
+    /// demo-grade reference). Note the scenario difference: Liu & Cao's
+    /// depressurisation is a DBA WITH scram; this is ATWS, so the fission
+    /// source does not stop at 7 s. ~~Air ingress is off (gh:#420).~~
+    /// **Not re-measured since the #420 air-ingress change (2026-09-30);
+    /// pending validation work** -- the ventilation now exchanges the primary
+    /// gas and oxidises graphite, so the table below predates it.
+    ///
+    /// # Results (2026-09-29, first and only run under the no-validation rule)
+    ///
+    /// ATWS: fission falls to a minimum of 0.0005 MW at 910 s, recriticality
+    /// peaks at 3.34 MW at 1282 s, and it then sits at ~0.73 MW with fuel
+    /// 1285 K and bed 1284 K at 1 h and 2 h. The core does not heat up here
+    /// (the passive path holds it; demo-grade reactivity reference, gh:#408).
+    ///
+    /// | Nuclide | released \[Bq\] | Table 8 | ratio |
+    /// |---|---|---|---|
+    /// | Kr-85 | 3.04e8 | 1.5e8 | **2.0** |
+    /// | Xe-133 | 8.73e8 | 2.2e10 | 0.040 |
+    /// | I-131 | 1.80e6 | 2.5e7 | 0.072 |
+    /// | Cs-137 | 5.39e5 | 1.3e8 | 0.0041 |
+    /// | Ag-110m | 1.17e6 | 5.1e4 | 23 |
+    ///
+    /// # Interpretation (not tuned)
+    ///
+    /// - The released inventory is essentially **the primary pools at the
+    ///   rupture** plus Liu & Cao's lift-off terms, vented in ~2 min; the fuel
+    ///   does not heat up, so there is no heat-up release term here.
+    /// - **Kr-85 x2 and Xe-133 x0.04** mirror the pools' own ratios to Liu &
+    ///   Cao's circulating activity at the design stack (gh:#378: Kr-85
+    ///   2.7e-2, Xe-133 5.1e-2 of Table 3). The purification hold-up (100 %
+    ///   released, #399's 99 % clean-up) adds the long-lived Kr-85, so Kr
+    ///   comes out above Table 8 while the short-lived Xe does not.
+    /// - **Cs-137 and I-131 are low** for the same reason as #378 (their
+    ///   pools are low at the design stack) and because the capped desorption
+    ///   cannot move more than the plate-out holds.
+    /// - **Ag-110m x23**: the release channel's silver plate-out at the
+    ///   design stack exceeds what Liu & Cao carry; their Table 3 silver is
+    ///   26 Bq circulating.
+    /// - **Scenario difference, stated:** Liu & Cao's case scrams at 7 s;
+    ///   this is ATWS. No air ingress (gh:#420).
+    #[test]
+    #[ignore = "over the 1-minute headless budget: a 2 h whole-plant transient. First measurement for the DLOFC V&V; not re-run under the no-validation rule."]
+    fn dlofc_atws_against_liu_and_cao_table_8() {
+        let dt = Time::new::<second>(PLANT_TIMESTEP_S);
+        let steps = (2.0 * 3600.0 / PLANT_TIMESTEP_S) as usize;
+        let lead = 600;
+        let run = |accident: bool| {
+            let mut plant = HtgrPlant::new();
+            let (mut p_min, mut t_min, mut p_peak_after, mut t_peak) = (f64::MAX, 0.0, 0.0, 0.0);
+            for i in 0..(lead + steps) {
+                let mut commands = design_commands();
+                if accident && i >= lead {
+                    commands.scenario = Scenario::DlofcAtws;
+                }
+                plant.step(dt, commands);
+                if accident && i >= lead {
+                    let t = (i - lead) as f64 * PLANT_TIMESTEP_S;
+                    let p = plant.kinetics.total_power().get::<megawatt>();
+                    if p < p_min {
+                        (p_min, t_min, p_peak_after) = (p, t, 0.0);
+                    } else if p > p_peak_after {
+                        (p_peak_after, t_peak) = (p, t);
+                    }
+                    if i % 36000 == 0 {
+                        println!(
+                            "  t {t:>6.0} s: fission {p:.4} MW, fuel {:.1} K, bed {:.1} K",
+                            plant.kinetics.fuel_temperature().get::<kelvin>(),
+                            plant.core.temperature().get::<kelvin>()
+                        );
+                    }
+                }
+            }
+            (
+                plant.release.cumulative_stack_release_bq().to_vec(),
+                (p_min, t_min, p_peak_after, t_peak),
+            )
+        };
+        let ((with, (p_min, t_min, p_peak, t_peak)), (without, _)) = std::thread::scope(|scope| {
+            let a = scope.spawn(|| run(true));
+            let b = scope.spawn(|| run(false));
+            (a.join().expect("accident run"), b.join().expect("reference run"))
+        });
+        println!(
+            "ATWS: fission minimum {p_min:.4} MW at {t_min:.0} s; largest later peak {p_peak:.4} MW \
+             at {t_peak:.0} s"
+        );
+        let table8 = [1.5e8, 2.2e10, 2.5e7, 1.3e8, 5.1e4];
+        for (k, name) in fission_product_release::TRACKED_NUCLIDES.iter().enumerate() {
+            let accident = with[k] - without[k];
+            println!(
+                "  {name:>8}: released {accident:.3e} Bq, Table 8 {:.1e}, ratio {:.3e}",
+                table8[k],
+                accident / table8[k]
+            );
+        }
+        assert!(with.iter().all(|v| v.is_finite()));
     }
 }

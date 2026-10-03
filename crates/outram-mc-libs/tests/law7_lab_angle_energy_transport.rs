@@ -30,13 +30,20 @@
 //!
 //! | quantity | value |
 //! |---|---|
-//! | law's own `<mu>`, closed form | **+0.253844** |
-//! | evaluated arm, sampled | **+0.254104 +- 0.001210** (0.21 sigma from the oracle) |
+//! | law's own `<mu>`, closed form | ~~+0.253844~~ **+0.260589** (2026-09-29) |
+//! | evaluated arm, sampled | ~~+0.254104 +- 0.001210 (0.21 sigma)~~ **+0.261526 +- 0.001208** (0.78 sigma from the oracle, 2026-09-29) |
 //! | isotropic-ablation arm, sampled | **+0.001801 +- 0.001290** (1.4 sigma from zero) |
 //! | final RNG seed, both arms | identical |
 //!
 //! So a law carrying `<mu> = +0.25` in the laboratory was being emitted
 //! isotropically before this change.
+//!
+//! **Re-measured 2026-09-29 (GitHub #365 audit).** The row choice is now
+//! OpenMC's (the nearer cdf edge of the `E'` bin, not always the lower one) and
+//! the row's cosine inverse is OpenMC's quadratic one. The oracle follows the
+//! new rule. Under the old oracle the new sampler read 6.36 sigma, which shows
+//! the test can tell the two rules apart. Both struck values above were right
+//! for the sampler of their day.
 //!
 //! **One correction worth keeping.** The first version of this test weighted the
 //! oracle by `pdf[k]`, copying the older Legendre control, and read **3.30
@@ -88,11 +95,15 @@ fn sem(v: &[f64]) -> f64 {
 ///
 /// # This weights by CDF bin, not by pdf, and the difference is not cosmetic
 ///
-/// The sampler returns the **lower edge** of the CDF bin its uniform draw landed
-/// in (`sample_ct_table_indexed`), and uses *that* row's cosine law. So row `k`
-/// is selected with probability `cdf[k+1] - cdf[k]`, and the mean cosine a
-/// neutron actually experiences is that discrete weighting — not the continuous
-/// pdf-weighted average of `mubar` over `E'`.
+/// ~~The sampler returns the **lower edge** of the CDF bin its uniform draw
+/// landed in (`sample_ct_table_indexed`), and uses *that* row's cosine law. So
+/// row `k` is selected with probability `cdf[k+1] - cdf[k]`~~. **CORRECTED
+/// 2026-09-29 (GitHub #365 audit):** the sampler now picks the row as OpenMC's
+/// `CorrelatedAngleEnergy::sample_dist` does, the **nearer** cdf edge of the
+/// bin. On a lin-lin table the lower half of the bin's mass goes to row `k` and
+/// the upper half to row `k+1`; on a histogram table all of it goes to `k`. The
+/// mean cosine a neutron experiences is that discrete weighting, not the
+/// continuous pdf-weighted average of `mubar` over `E'`.
 ///
 /// Weighting by `pdf[k]` instead (as the older Legendre control does) is a
 /// different quantity. It happens to be close, but on Be-9 at 14 MeV the two
@@ -112,7 +123,13 @@ fn oracle_mubar(law: &ContinuumEmission, table: usize) -> f64 {
     // k runs over the bins the search can leave `k` on: 0 ..= n-2.
     for k in 0..n.saturating_sub(1) {
         let w = ce.cdf[k + 1] - ce.cdf[k];
-        num += w * t.rows[k].mubar;
+        if ce.linlin && k + 1 < t.rows.len() {
+            // Nearer cdf edge (OpenMC `CorrelatedAngleEnergy::sample_dist`):
+            // the lower half of the bin takes row k, the upper half row k+1.
+            num += 0.5 * w * (t.rows[k].mubar + t.rows[k + 1].mubar);
+        } else {
+            num += w * t.rows[k].mubar;
+        }
         den += w;
     }
     num / den

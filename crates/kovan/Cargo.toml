@@ -160,7 +160,11 @@ directories.workspace = true
 # (fixes the "unusually wide" IAEA TECDOC); JPX/JBIG2 images return pixels;
 # damaged files are repaired as MuPDF does and AES-256 files open. Same API
 # kovan uses; `PdfDocument::was_repaired()` is new and guards page rotation.
-kopitiam-pdf = { version = "0.4.2", default-features = false, features = ["egui"] }
+# 0.4.3 (2026-09-29, kopitiam gh-116): plain (non-inverted) CMYK JPEGs no
+# longer render solid black -- zune-jpeg's own CMYK->RGB assumed Adobe-inverted
+# storage; now MuPDF's DCT colour path (filter-dct.c) is ported. Found on the
+# Stoyer et al. TRISO-ATOPS paper's Fig. 5. Same API.
+kopitiam-pdf = { version = "0.4.3", default-features = false, features = ["egui"] }
 # `kovan-cli cost`: a real dependency-free BPE token-COST estimate (GitHub
 # issue #32, "wiring the api in directly") -- kopitiam_tokenizer::estimate's
 # per-Unicode-script character-weighted model, materially better than

@@ -185,6 +185,9 @@ pub struct Mf6Neutron {
     /// Neutron multiplicity (yield) vs incident energy `(E [eV], y)` — the
     /// subsection's TAB1. A constant `y` (e.g. 2 for (n,2n)) gives `TYR = ±y`.
     pub yield_pairs: Vec<(f64, f64)>,
+    /// The yield TAB1's interpolation regions `(NBT, INT)`, kept so transport
+    /// can honour them (GitHub #365 audit).
+    pub yield_interp: Vec<(u32, u32)>,
     /// The outgoing-energy distribution as an ACE Law 4.
     pub law4: Law4,
     /// What the angular numbers on each row mean (ENDF `LANG`).
@@ -604,6 +607,7 @@ fn parse_law1_neutron_body(
 
     Ok(Mf6Neutron {
         lct,
+        yield_interp: ymult.interp.clone(),
         yield_pairs: ymult.pairs,
         law4: Law4 {
             e_in_interp,
@@ -633,6 +637,9 @@ pub struct Mf6PhaseSpace {
     pub lct: i32,
     /// Neutron multiplicity (yield) vs incident energy `(E [eV], y)`.
     pub yield_pairs: Vec<(f64, f64)>,
+    /// The yield TAB1's interpolation regions `(NBT, INT)`, kept so transport
+    /// can honour them (GitHub #365 audit).
+    pub yield_interp: Vec<(u32, u32)>,
     /// Number of particles distributed via phase-space theory (ENDF `NPSX`).
     pub npsx: i32,
     /// Total mass of the particles sharing the phase space, in neutron masses
@@ -727,6 +734,7 @@ pub fn parse_mf6_law6_phase_space(section: &Section) -> Result<Mf6PhaseSpace, Nj
             let (x_frac, pdf, cdf) = law66_shape_table(npsx);
             return Ok(Mf6PhaseSpace {
                 lct,
+                yield_interp: ymult.interp.clone(),
                 yield_pairs: ymult.pairs,
                 npsx,
                 apsx,
@@ -798,6 +806,9 @@ pub struct Mf6LabAngleEnergy {
     pub lct: i32,
     /// Neutron multiplicity (yield) vs incident energy `(E [eV], y)`.
     pub yield_pairs: Vec<(f64, f64)>,
+    /// The yield TAB1's interpolation regions `(NBT, INT)`, kept so transport
+    /// can honour them (GitHub #365 audit).
+    pub yield_interp: Vec<(u32, u32)>,
     /// Interpolation regions over the incident-energy grid (empty ⇒ single
     /// lin-lin region).
     pub e_in_interp: Vec<(u32, u32)>,
@@ -879,6 +890,7 @@ fn parse_law7_lab_angle_energy_body(
 
     Ok(Mf6LabAngleEnergy {
         lct,
+        yield_interp: ymult.interp.clone(),
         yield_pairs: ymult.pairs,
         e_in_interp,
         incident,

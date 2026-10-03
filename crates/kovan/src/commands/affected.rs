@@ -88,7 +88,7 @@ impl std::error::Error for AffectedError {}
 /// segment. That holds throughout this workspace (`crates/<name>` is always
 /// the package `<name>`), and a mismatch would show up immediately as a
 /// selected crate `cargo` does not recognise rather than as a silent miss.
-fn members(root: &Path) -> Result<Vec<String>, AffectedError> {
+pub(crate) fn members(root: &Path) -> Result<Vec<String>, AffectedError> {
     let manifest = root.join("Cargo.toml");
     let text = std::fs::read_to_string(&manifest).map_err(|e| AffectedError::Manifest {
         path: manifest.clone(),
@@ -117,7 +117,15 @@ fn members(root: &Path) -> Result<Vec<String>, AffectedError> {
 ///
 /// Every dependency table is read — normal, dev and build — for the reason in
 /// the module docs: a dev edge is how a change reaches another crate's tests.
-fn reverse_edges(
+///
+/// ~~(Target-specific tables were not read.)~~ **CORRECTED 2026-09-29** — the
+/// sentence above claimed *every* table, but `[target.'cfg(..)'.*]` tables
+/// were skipped, so e.g. `dhoby-ghaut`'s off-Android dev edge to
+/// `outram-blender` was invisible and a change to `outram-blender` did not
+/// select `dhoby-ghaut`. They are read now, via [`dependency_names`]: a
+/// target-gated edge is still an edge on every target it is enabled for, and
+/// CI's desktop runners are such targets.
+pub(crate) fn reverse_edges(
     root: &Path,
     members: &[String],
 ) -> Result<BTreeMap<String, BTreeSet<String>>, AffectedError> {
@@ -135,18 +143,35 @@ fn reverse_edges(
                 message: e.to_string(),
             }
         })?;
-        for table in ["dependencies", "dev-dependencies", "build-dependencies"] {
-            let Some(t) = doc.get(table).and_then(|d| d.as_table()) else {
-                continue;
-            };
-            for dep in t.keys() {
-                if member_set.contains(dep.as_str()) && dep != name {
-                    rev.entry(dep.clone()).or_default().insert(name.clone());
-                }
+        for dep in dependency_names(&doc) {
+            if member_set.contains(dep.as_str()) && &dep != name {
+                rev.entry(dep).or_default().insert(name.clone());
             }
         }
     }
     Ok(rev)
+}
+
+/// Every dependency name a manifest declares: the normal, dev and build
+/// tables, and the same three under each `[target.'cfg(..)']` section.
+///
+/// Pure (a parsed manifest in, names out) so the target-table case is
+/// testable without a filesystem.
+pub(crate) fn dependency_names(doc: &toml::Value) -> BTreeSet<String> {
+    const TABLES: [&str; 3] = ["dependencies", "dev-dependencies", "build-dependencies"];
+    let mut sections: Vec<&toml::Value> = vec![doc];
+    if let Some(targets) = doc.get("target").and_then(|t| t.as_table()) {
+        sections.extend(targets.values());
+    }
+    let mut names = BTreeSet::new();
+    for section in sections {
+        for table in TABLES {
+            if let Some(t) = section.get(table).and_then(|d| d.as_table()) {
+                names.extend(t.keys().cloned());
+            }
+        }
+    }
+    names
 }
 
 /// The files `base...HEAD` changed, as repo-relative paths.
@@ -355,5 +380,30 @@ mod tests {
             panic!("expected a crate selection");
         };
         assert!(sel.is_empty());
+    }
+
+    /// A dependency declared only under `[target.'cfg(..)'.*]` is still an
+    /// edge. Before 2026-09-29 these tables were not read, so `dhoby-ghaut`'s
+    /// off-Android dev edge to `outram-blender` was invisible, while the doc
+    /// claimed every table was read.
+    #[test]
+    fn target_specific_tables_are_dependency_edges() {
+        let doc: toml::Value = r#"
+            [dependencies]
+            plain = "1"
+            [dev-dependencies]
+            dev = "1"
+            [target.'cfg(not(target_os = "android"))'.dev-dependencies]
+            gated_dev = "1"
+            [target.'cfg(unix)'.dependencies]
+            gated = "1"
+        "#
+        .parse()
+        .expect("fixture manifest parses");
+        let names = dependency_names(&doc);
+        for n in ["plain", "dev", "gated_dev", "gated"] {
+            assert!(names.contains(n), "{n} missing from {names:?}");
+        }
+        assert_eq!(names.len(), 4);
     }
 }

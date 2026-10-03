@@ -206,3 +206,40 @@ fn other_neutron_channels_are_applied_by_default() {
     assert!(!n.clone().without_other_neutron_channels().applies_other_neutron_channels());
     assert!(n.xs_at_energy(1.8e7, 293.6).other > 0.0);
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// S(α,β) equiprobable sampling (GitHub #407)
+// ─────────────────────────────────────────────────────────────────────────────
+
+/// An equiprobable (IFENG = 0) S(α,β) table is sampled with OpenMC's
+/// `IncoherentInelasticAEDiscrete` by default, on both routes. The legacy #188
+/// scheme is an explicit ablation (`with_legacy_equiprobable_sampling`), never
+/// the default. Pinned on the ENDF route with ENDF/B-VIII.0 `tsl-HinH2O`, and on
+/// the ACE route with the five-route NJOY2016 H in H2O table when it is present.
+#[test]
+fn thermal_equiprobable_sampling_is_openmc_by_default() {
+    use outram_mc_libs::material::thermal::ThermalScattering;
+    if let Some(p) = njoy_outram_park_fork::reference_data::reference_endf("tsl-HinH2O.endf") {
+        let th = ThermalScattering::from_endf_file(p.to_str().unwrap(), 1, 293.6, "H in H2O")
+            .expect("tsl-HinH2O loads");
+        assert!(
+            !th.uses_legacy_equiprobable_sampling(),
+            "the ENDF route must sample S(a,b) with OpenMC's scheme by default"
+        );
+        assert!(th.clone().with_legacy_equiprobable_sampling().uses_legacy_equiprobable_sampling());
+    } else {
+        println!("tsl-HinH2O.endf absent: ENDF half skipped");
+    }
+    let ace = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .join("../../target/five_route_keff/njoy/293.6K/HinH2O.ace");
+    if ace.is_file() {
+        let raw = njoy_outram_park_fork::acer::read::read(&ace).expect("read");
+        let th = ThermalScattering::from_ace(&raw, "H in H2O").expect("loads");
+        assert!(
+            !th.uses_legacy_equiprobable_sampling(),
+            "the ACE route must sample S(a,b) with OpenMC's scheme by default"
+        );
+    } else {
+        println!("{} absent: ACE half skipped", ace.display());
+    }
+}

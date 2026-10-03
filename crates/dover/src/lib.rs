@@ -1,50 +1,90 @@
-//! # DOVER
-//!
-//! **DOVER** — ***D**eck-based **O**pen-source **V**isualisation **E**ngine for
-//! **R**eactors*.
-//!
-//! # Role: the low-fidelity counterpart of DHOBY GHAUT
-//!
-//! **DOVER is the low-fidelity equivalent of `dhoby-ghaut`** (maintainer,
-//! 2026-09-25). DHOBY GHAUT is the GUI home that drives the *high-fidelity*
-//! solvers; DOVER plays the same role at *low fidelity*, visualising reactors
-//! from input decks. Which low-fidelity models it drives, what a deck is, and
-//! whether it carries a windowing GUI are **not yet decided**.
-//!
-//! **Direction (2026-09-25, tentative):** input decks are perhaps TOML files,
-//! read and written by a schema-checked reader, and DOVER runs steady-state
-//! simulations like DWSIM as well as dynamic ones. Reuse
-//! `outram-park-fork-dwsim-libs` (flowsheet, flowsheet solver, dynamics) and
-//! `chem-eng-real-time-process-control-simulator` rather than duplicate them.
-//! See the README.
-//!
-//! # STATUS: EMPTY SKELETON. Nothing is implemented.
-//!
-//! Created 2026-09-25 at the maintainer's direction as an empty member crate.
-//! No deck format, no visualisation engine and no physics exist here, and none
-//! should be inferred from the name or the role above.
-//!
-//! This crate has no dependencies, no public items and no behaviour. **Do not
-//! describe it as providing anything**, and do not cite it as the home of any
-//! capability until something has actually been written here.
-//!
-//! # Intended use
-//!
-//! Research, education, capability building and V&V only
-//! (`RESPONSIBLE_USE.md` at the workspace root). Whatever this crate acquires,
-//! it must not be presented as supporting nuclear facility operation, reactor
-//! control, licensing or safety-critical decisions.
+// SPDX-License-Identifier: GPL-3.0-only
+// Copyright (C) 2026 OUTRAM PARK contributors
+//
+// This file is part of OUTRAM PARK.
+//
+// OUTRAM PARK is free software: you can redistribute it and/or modify it
+// under the terms of the GNU General Public License as published by the
+// Free Software Foundation, either version 3 of the License, or (at your
+// option) any later version.
+//
+// OUTRAM PARK is distributed in the hope that it will be useful, but
+// WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+// General Public License for more details.
+//
+// You should have received a copy of the GNU General Public License along
+// with OUTRAM PARK.  If not, see <https://www.gnu.org/licenses/>.
 
-#![no_std]
+//! **DOVER** — *Deck-based Open-source Visualisation Engine for Reactors*, the
+//! low-fidelity counterpart of `dhoby-ghaut`.
+//!
+//! # What is here
+//!
+//! One worked low-fidelity case, run from a TOML deck, headless:
+//! **steam methane reforming in a continuous stirred-tank reactor.**
+//!
+//! ```text
+//!   TOML deck  ──►  deck::Deck (validated)  ──►  smr::SmrCase
+//!                                                     │
+//!                        dwsim-libs Cstr  ◄───────────┘
+//!                          (Newton on the reaction extents)
+//!                                │
+//!                                ▼
+//!                       headless::run_deck  ──►  CSV on stdout
+//! ```
+//!
+//! ```no_run
+//! use dover::headless::run_toml;
+//!
+//! let csv = run_toml(&std::fs::read_to_string("decks/smr_cstr.toml").unwrap()).unwrap();
+//! print!("{csv}");
+//! ```
+//!
+//! # What was reused rather than written
+//!
+//! Almost all of it. The workspace's "search before building" rule turned up
+//! a complete reactor stack in `outram-park-fork-dwsim-libs` that this crate
+//! composes rather than duplicates:
+//!
+//! | needed | already existed |
+//! |---|---|
+//! | the CSTR itself | `reactors::Cstr` — damped Newton on reaction extents, tested against `X = kτ/(1+kτ)` |
+//! | reversible rate law | `reactions::Reaction::net_rate` |
+//! | `K_eq(T)` from `ΔH°`/`ΔS°` | `reactions::EquilibriumConstant::GibbsVantHoff` |
+//! | feed/outcome plumbing | `reactors::{ReactorFeed, ReactorOutcome}` |
+//! | TOML + serde | already in the root `[workspace.dependencies]` |
+//!
+//! What is genuinely new here is the **deck reader** (DOVER's own
+//! `CLAUDE.md` identified it as the missing piece), the **species
+//! thermochemistry** ([`species`] — the workspace had critical constants for
+//! three of the five species and no formation data at all), and the
+//! **thermodynamic-consistency derivation** ([`smr::consistent_reverse`])
+//! that `net_rate`'s independent forward/reverse pairs leave to the caller.
+//!
+//! # Status
+//!
+//! **Untrusted AI-assisted draft. No human V&V. Not declared mature.**
+//! Education, research and V&V only per the workspace `RESPONSIBLE_USE.md` —
+//! never process design, plant operation or a safety case.
+//!
+//! The model's scope and its approximations are set out in [`smr`], and
+//! should be read before quoting any number it produces. In particular it is
+//! **isothermal** and holds volumetric flow constant, neither of which a real
+//! reformer does.
+
 #![forbid(unsafe_code)]
+
+pub mod deck;
+pub mod headless;
+pub mod smr;
+pub mod species;
 
 #[cfg(test)]
 mod tests {
-    /// The skeleton is a skeleton. This asserts only that the crate builds,
-    /// links and carries its own name, which is the only claim it is entitled
-    /// to make.
+    /// The crate builds and links.
     #[test]
-    fn the_crate_builds_and_links() {
-        assert_eq!(env!("CARGO_PKG_NAME"), "dover");
+    fn builds_and_links() {
+        assert_eq!(crate::deck::SCHEMA_VERSION, 1);
     }
 }

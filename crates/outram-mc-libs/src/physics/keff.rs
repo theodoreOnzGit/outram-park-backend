@@ -99,6 +99,7 @@
 use crate::geometry::position::{stream, Direction, Position};
 use crate::geometry::surface::{BoundaryType, Sphere, Surface};
 use crate::material::material::Material;
+use crate::material::nuclide::library_energy_max_ev;
 use crate::material::nuclide::{Inelastic, Nuclide};
 // `KeffSettings` has a `compute: ComputeType` field, so the same re-export
 // argument applies here as in pebble_beds::fhr_pebble: the same dogfood run
@@ -127,7 +128,21 @@ pub struct KeffSettings {
     pub n_inactive: usize,
     /// Active generations averaged into the reported eigenvalue.
     pub n_active: usize,
-    /// Material/data temperature \[K\] used for Doppler-broadened lookups.
+    /// Run temperature \[K\].
+    ///
+    /// **What it does depends on the driver** (see `docs/temperatures.md`):
+    /// - in the CSG drivers (`transport_csg`) it is **not read**. Cross
+    ///   sections are looked up at each material's own temperature, and the
+    ///   free-gas kinematics take the nuclide's data temperature (pointwise) or
+    ///   the collision material's (multipole), as OpenMC does
+    ///   (`Nuclide::free_gas_kt`). ~~It is the free-gas elastic kinematics
+    ///   temperature only~~ **CORRECTED 2026-09-30 (GitHub #313)**;
+    /// - in the simple drivers of this module it is the temperature cross
+    ///   sections are looked up at, and the multipole free-gas temperature.
+    ///
+    /// In neither does it re-broaden a pointwise nuclide. ~~Material/data
+    /// temperature used for Doppler-broadened lookups.~~ (Clarified
+    /// 2026-09-27.)
     pub temperature_k: f64,
     /// Master RNG seed. Fixed seed ⇒ bit-reproducible run.
     pub seed: u64,
@@ -1189,6 +1204,8 @@ fn bank_event_fission(
     nuclides: &[Nuclide],
     k_running: f64,
 ) -> (f64, Vec<Site>) {
+    // OpenMC's `data::energy_max[neutron]` (GitHub #463 item 2).
+    let e_cap_fission = library_energy_max_ev(nuclides);
     let n = batch.len();
     let mut production = 0.0_f64;
     let mut next_bank: Vec<Site> = Vec::new();
@@ -1213,7 +1230,7 @@ fn bank_event_fission(
             next_bank.push(Site {
                 r,
                 u: Direction::new(dx, dy, dz),
-                e: nuc.sample_fission_energy(e_in, &mut seed),
+                e: nuc.sample_fission_energy_below(e_in, e_cap_fission, &mut seed),
             });
         }
     }
@@ -1471,14 +1488,19 @@ fn collide_batched(
     next_bank: &mut Vec<Site>,
     seed: &mut u64,
 ) -> (f64, CollisionResult) {
+    // OpenMC's `data::energy_max[neutron]` (GitHub #463 item 2).
+    let e_cap_fission = library_energy_max_ev(nuclides);
     let ci = material.sample_nuclide(e, seed, nuclides);
     let nuc = &nuclides[material.components[ci].nuclide_idx];
     let x = if nuc.needs_urr_draw(e) {
-        // Unresolved-resonance self-shielding: draw one band. The
-        // `needs_urr_draw` gate is what keeps a run WITHOUT tables
-        // bit-identical to one from before they existed -- an
-        // unconditional draw would shift every RNG stream in the crate
-        // for no physical reason.
+        // Unresolved-resonance self-shielding: draw one band.
+        //
+        // **Not OpenMC's scheme here (GitHub #407).** The CPU kernels use one
+        // band per nuclide and energy for the flight, the nuclide choice and
+        // the reaction (`Material::macro_xs_total_urr`, `urr_xi`). This GPU
+        // path flies on a union-grid table of the smooth total and draws the
+        // band only at the collision, from the transport stream. Carrying the
+        // URR stream across the GPU flight is not ported.
         nuc.xs_at_energy_urr(e, temp, prn(seed))
     } else {
         nuc.xs_at_energy(e, temp)
@@ -1497,7 +1519,7 @@ fn collide_batched(
             next_bank.push(Site {
                 r,
                 u: Direction::new(dx, dy, dz),
-                e: nuc.sample_fission_energy(e, seed),
+                e: nuc.sample_fission_energy_below(e, e_cap_fission, seed),
             });
         }
         (nu_bar, CollisionResult::Dead)
@@ -1695,17 +1717,27 @@ fn transport_history(
     next_bank: &mut Vec<Site>,
     seed: &mut u64,
 ) -> f64 {
+    // OpenMC's `data::energy_max[neutron]` (GitHub #463 item 2).
+    let e_cap_fission = library_energy_max_ev(nuclides);
     let mut production = 0.0;
     // Same-generation work stack: the source neutron plus any (n,2n) secondaries.
     let mut stack: Vec<Site> = vec![site];
+    // The URR probability-table stream, OpenMC's `STREAM_URR_PTABLE`: see
+    // `transport_csg::transport_history_vr`, which this mirrors (GitHub #407).
+    let mut urr_seed = future_seed(5 * crate::rng::lcg::DEFAULT_STRIDE, *seed);
 
     while let Some(start) = stack.pop() {
         let mut r = start.r;
         let mut u = start.u;
         let mut e = start.e;
+        let mut urr_e_last = e;
 
         loop {
-            let sigma_t = material.macro_xs_total(e, nuclides);
+            if e != urr_e_last {
+                urr_seed = future_seed(nuclides.len() as u64, urr_seed);
+                urr_e_last = e;
+            }
+            let sigma_t = material.macro_xs_total_urr(e, nuclides, urr_seed);
             if !(sigma_t > 0.0) {
                 break; // no interaction possible; treat as escape
             }
@@ -1718,15 +1750,13 @@ fn transport_history(
 
             // Collide: advance to the collision site and pick the target nuclide.
             r = stream(r, u, d_col);
-            let ci = material.sample_nuclide(e, seed, nuclides);
-            let nuc = &nuclides[material.components[ci].nuclide_idx];
+            let ci = material.sample_nuclide_urr(e, seed, nuclides, urr_seed);
+            let nuc_idx = material.components[ci].nuclide_idx;
+            let nuc = &nuclides[nuc_idx];
             let x = if nuc.needs_urr_draw(e) {
-                // Unresolved-resonance self-shielding: draw one band. The
-                // `needs_urr_draw` gate is what keeps a run WITHOUT tables
-                // bit-identical to one from before they existed -- an
-                // unconditional draw would shift every RNG stream in the crate
-                // for no physical reason.
-                nuc.xs_at_energy_urr(e, temp, prn(seed))
+                // The same band the flight and the nuclide choice used
+                // (GitHub #407; OpenMC `calculate_urr_xs`).
+                nuc.xs_at_energy_urr(e, temp, crate::material::material::urr_xi(nuc_idx, urr_seed))
             } else {
                 nuc.xs_at_energy(e, temp)
             };
@@ -1755,7 +1785,7 @@ fn transport_history(
                         // Birth from the fissioning nuclide's χ at the incident
                         // energy `e` — the HIGH tier's energy-dependent ENDF MF=5
                         // spectrum, or the thermal-Watt stand-in for the LOW tier.
-                        e: nuc.sample_fission_energy(e, seed),
+                        e: nuc.sample_fission_energy_below(e, e_cap_fission, seed),
                     });
                 }
                 break; // fission is a terminal absorption for the incident neutron
@@ -1965,6 +1995,8 @@ fn transport_history_tabulated(
     next_bank: &mut Vec<Site>,
     seed: &mut u64,
 ) -> f64 {
+    // OpenMC's `data::energy_max[neutron]` (GitHub #463 item 2).
+    let e_cap_fission = library_energy_max_ev(nuclides);
     let mut production = 0.0;
     // Consumed once, on the very first Sigma_t lookup of the whole history (the
     // source neutron's first flight); `None` thereafter.
@@ -1998,11 +2030,9 @@ fn transport_history_tabulated(
             let ci = material.sample_nuclide(e, seed, nuclides);
             let nuc = &nuclides[material.components[ci].nuclide_idx];
             let x = if nuc.needs_urr_draw(e) {
-                // Unresolved-resonance self-shielding: draw one band. The
-                // `needs_urr_draw` gate is what keeps a run WITHOUT tables
-                // bit-identical to one from before they existed -- an
-                // unconditional draw would shift every RNG stream in the crate
-                // for no physical reason.
+                // Unresolved-resonance self-shielding: draw one band. As in
+                // `collide_batched`, this GPU path does not carry OpenMC's URR
+                // stream (GitHub #407): it flies on the smooth total.
                 nuc.xs_at_energy_urr(e, temp, prn(seed))
             } else {
                 nuc.xs_at_energy(e, temp)
@@ -2024,7 +2054,7 @@ fn transport_history_tabulated(
                     next_bank.push(Site {
                         r,
                         u: Direction::new(dx, dy, dz),
-                        e: nuc.sample_fission_energy(e, seed),
+                        e: nuc.sample_fission_energy_below(e, e_cap_fission, seed),
                     });
                 }
                 break;
@@ -2180,32 +2210,23 @@ fn transport_history_tabulated(
     production
 }
 
-/// Resample `n` sites uniformly with replacement from `bank` — the crude
-/// population control that renormalises the fission bank back to a fixed source
-/// size each generation.
+/// Resample `n` sites for the next generation by uniform combing
+/// ([`crate::physics::fission::comb_resample`], GitHub #460).
 fn resample(bank: &[Site], n: usize, seed: &mut u64) -> Vec<Site> {
-    let len = bank.len();
-    (0..n)
-        .map(|_| {
-            let idx = ((prn(seed) * len as f64) as usize).min(len - 1);
-            bank[idx]
-        })
-        .collect()
+    // Uniform combing, as OpenMC's `synchronize_bank` (GitHub #460). ~~Each of
+    // the `n` sites was drawn independently with replacement~~ until
+    // 2026-09-30.
+    crate::physics::fission::comb_resample(bank, n, seed)
 }
 
-/// Mean and standard error of the mean (1σ) of the active-generation eigenvalues.
-fn mean_and_stderr(k: &[f64]) -> (f64, f64) {
-    let n = k.len();
-    if n == 0 {
-        return (0.0, 0.0);
-    }
-    let mean = k.iter().sum::<f64>() / n as f64;
-    if n < 2 {
-        return (mean, 0.0);
-    }
-    let var = k.iter().map(|x| (x - mean).powi(2)).sum::<f64>() / (n as f64 - 1.0);
-    (mean, (var / n as f64).sqrt())
-}
+/// Mean and standard error of the mean (1σ) of the active-generation
+/// eigenvalues — [`raffles::estimators::mean_and_stderr`]. ~~Four identical
+/// private copies of this function lived in `physics::keff`,
+/// `physics::transport_csg`, `physics::physics_mg` and
+/// `pebble_beds::keff_delta`.~~ **MOVED 2026-10-02** (GitHub #500) after the
+/// four were diffed and found character-identical; this driver still decides
+/// which generations are active.
+use raffles::estimators::mean_and_stderr;
 
 #[cfg(test)]
 mod tests {

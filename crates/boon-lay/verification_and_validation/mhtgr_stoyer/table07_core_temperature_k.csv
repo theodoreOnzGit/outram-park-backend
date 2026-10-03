@@ -1,0 +1,18 @@
+# Stoyer, B., Raichart, A., Petti, D. et al., "TRISO-ATOPS: A Mechanistic Source Term Model for Gas-Cooled Reactors", Nuclear Technology (2026). Proprietary tier: values cited as a table, the PDF is NOT redistributed.
+# Extracted 2026-09-29 with `pdftotext -raw` (poppler) per page, parsed by a deterministic regex (mass-number line + symbol/value line); no value typed by hand. pdf_page = printed page + 1.
+# Table 7: core temperature profile [K] (RELAP5, Strydom 2015); the paper sets graphite = fuel temperature. Case B adds 250 degC (s.III.B.1).
+axial_segment,ring1_k,ring2_k,ring3_k,printed_page,pdf_page
+1,533,533,533,15,16
+2,533,533,534,15,16
+3,746,672,668,15,16
+4,864,758,758,15,16
+5,949,822,826,15,16
+6,1008,868,872,15,16
+7,1051,902,907,15,16
+8,1080,924,927,15,16
+9,1110,949,950,15,16
+10,1138,972,972,15,16
+11,1161,989,987,15,16
+12,1178,1001,997,15,16
+13,1100,946,942,15,16
+14,1103,944,940,15,16

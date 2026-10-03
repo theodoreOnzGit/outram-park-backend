@@ -1,7 +1,8 @@
 //! **MC Studio** — a Blender-inspired egui app to author geometry and set up +
 //! run a *basic* outram-mc Monte Carlo (k-eigenvalue / criticality) simulation.
 //!
-//! It drives the [`outram_blender::sim`] backend: pick a geometry, define a
+//! It drives the `nee_soon::sim` backend (~~`outram_blender::sim`~~, moved
+//! 2026-10-02, GitHub #486): pick a geometry, define a
 //! material, choose run settings, hit **Run**, and read `k_eff ± σ` with the
 //! per-generation eigenvalue plot. Geometry is shown as a rotatable 2D wireframe
 //! (orthographic, drag to orbit).
@@ -10,7 +11,9 @@
 //! `RESPONSIBLE_USE.md`. **Not** for reactor operation, licensing, or
 //! safety-critical decisions.
 //!
-//! Run (needs the `mc-export` feature → outram-mc-libs + the `sim` backend):
+//! Run (~~needs the `mc-export` feature → outram-mc-libs + the `sim` backend~~;
+//! that feature is retired, and `sim` is ungated in `nee_soon` since
+//! 2026-10-02, GitHub #486):
 //! ~~`cargo run -p outram-blender --example mc_studio --features mc-export --release`~~
 //! **CORRECTED 2026-09-25** — the studio moved to `dhoby-ghaut` on 2026-09-17
 //! and `outram-blender` no longer has an `mc_studio` example; the feature now
@@ -79,7 +82,7 @@ pub mod model {
     //! tests can drive exactly what the GUI drives.
 
     use outram_blender::primitives::{cube, cylinder, uv_sphere};
-    use outram_blender::sim::{
+    use nee_soon::sim::{
         csg_from_mesh, ComputeType, KeffSettings, MaterialSpec, McSimSetup, SimGeometry,
         ThreadCount,
     };

@@ -15,6 +15,10 @@ maintainer's source-term plan asked for a lumped reactor-building CV here, and
 stepping; atom-conservation tests). Nothing else in the scope is implemented.
 Do not add further code without the maintainer asking for it.
 
+**Deferred (gh:#409, 2026-09-29):** building work waits; `htgr_sim_v1` does not
+credit the building by default (conservative) and keeps this CV off its
+default path. Leave it unchanged until #409 is taken up.
+
 The building CV is **in-building** physics and so does not touch the open
 SEMBAWANG boundary question below, which concerns severe-accident progression.
 

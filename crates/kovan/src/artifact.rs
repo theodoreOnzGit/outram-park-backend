@@ -250,11 +250,28 @@ impl Region {
         if w <= 0.0 || h <= 0.0 {
             return None;
         }
+        Self::from_corners(
+            ((min.0 / w) as f64, (min.1 / h) as f64),
+            ((max.0 / w) as f64, (max.1 / h) as f64),
+        )
+    }
+
+    /// This rectangle from two opposite corners **already in normalised page
+    /// fractions**, given in any order — they are sorted here, so a box whose
+    /// corners were dragged past each other comes back as `x0 < x1`,
+    /// `y0 < y1`. `None` exactly when the result would fail
+    /// [`Region::is_valid`].
+    ///
+    /// [`Region::from_pixels`] divides by the page size and delegates here,
+    /// so the sort-then-validate step lives in one place; the PDF reader's
+    /// corner-drag edit (`app::box_handles`) builds its result through it
+    /// too.
+    pub fn from_corners(a: (f64, f64), b: (f64, f64)) -> Option<Self> {
         let r = Self {
-            x0: (min.0.min(max.0) / w) as f64,
-            y0: (min.1.min(max.1) / h) as f64,
-            x1: (min.0.max(max.0) / w) as f64,
-            y1: (min.1.max(max.1) / h) as f64,
+            x0: a.0.min(b.0),
+            y0: a.1.min(b.1),
+            x1: a.0.max(b.0),
+            y1: a.1.max(b.1),
         };
         r.is_valid().then_some(r)
     }

@@ -37,6 +37,7 @@ use crate::rng::distributions::isotropic_direction;
 use crate::rng::lcg::prn;
 use crate::source::source::SourceSite;
 use crate::tally::mesh::MeshKind;
+use crate::tally::mesh_unstructured::UnstructuredMeshExt;
 
 /// A source spread over mesh elements with per-element strengths —
 /// `MeshSource` (`include/openmc/source.h:222`) with `MeshElementSpatial`
@@ -126,14 +127,22 @@ impl MeshSource {
     /// Jacobians, and sampling those as if they were boxes would put the
     /// source in the wrong place while returning a point that is inside the
     /// element.
+    ///
+    /// An [`MeshKind::Unstructured`] element is sampled uniformly through its
+    /// tetrahedral decomposition (`UnstructuredMesh::sample_tet`,
+    /// OpenMC `src/mesh.cpp:992`; GitHub #492).
     pub fn sample(&self, seed: &mut u64) -> Result<SourceSite, String> {
         let element = self.sample_element(seed);
-        let (lo, hi) = self.element_bounds(element)?;
-        let r = Position::new(
-            lo[0] + (hi[0] - lo[0]) * prn(seed),
-            lo[1] + (hi[1] - lo[1]) * prn(seed),
-            lo[2] + (hi[2] - lo[2]) * prn(seed),
-        );
+        let r = if let MeshKind::Unstructured(m) = &self.mesh {
+            m.sample_in_cell(element, seed)
+        } else {
+            let (lo, hi) = self.element_bounds(element)?;
+            Position::new(
+                lo[0] + (hi[0] - lo[0]) * prn(seed),
+                lo[1] + (hi[1] - lo[1]) * prn(seed),
+                lo[2] + (hi[2] - lo[2]) * prn(seed),
+            )
+        };
         let (dx, dy, dz) = isotropic_direction(seed);
         Ok(SourceSite {
             r,
@@ -169,6 +178,11 @@ impl MeshSource {
                     [m.grid[0][i + 1], m.grid[1][j + 1], m.grid[2][k + 1]],
                 ))
             }
+            MeshKind::Unstructured(_) => Err(
+                "an unstructured element has no Cartesian bounds; MeshSource::sample \
+                 samples it through its tetrahedral decomposition instead"
+                    .to_string(),
+            ),
             other => Err(format!(
                 "a {} has no uniform point sampler in this port. Sampling it as if it \
                  were a box would return a point INSIDE the element and in the wrong \

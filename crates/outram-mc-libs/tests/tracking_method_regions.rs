@@ -42,6 +42,7 @@ use outram_mc_libs::geometry::universe::Universe;
 use outram_mc_libs::material::material::{Material, NuclideComponent};
 use outram_mc_libs::material::nuclide::Nuclide;
 use outram_mc_libs::pebble_beds::delta_tracking::Majorant;
+use outram_mc_libs::geometry::crossing::GeometryExt;
 
 const BOX_HALF: f64 = 3.0;
 const BED_R: f64 = 2.0;

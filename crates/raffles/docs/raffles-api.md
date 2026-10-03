@@ -2,7 +2,7 @@
 
 **Version:** 0.0.0
 
-**Format Version:** 61
+**Format Version:** 60
 
 # Module `raffles`
 
@@ -83,8 +83,14 @@ reasoning about the spread of their answers:
 - **Simulation drivers, job scheduling, file/XML input parsing, plotting,
   databases.** RAVEN is a whole workflow application; RAFFLES ports only
   its statistical core. A caller drives their own runs and hands RAFFLES
-  arrays of numbers. [`scram`] holds to the same line: it takes a fault
-  tree a caller has built in Rust, never a SCRAM input model.
+  arrays of numbers. ~~[`scram`] holds to the same line: it takes a fault
+  tree a caller has built in Rust, never a SCRAM input model.~~
+  **CORRECTED 2026-09-22** — [`scram`] no longer holds to that line: the
+  workspace maintainer directed that everything of SCRAM except its GUI be
+  translated, and [`scram::mef`] reads SCRAM's own Model Exchange Format
+  input models. Building a tree in Rust is still supported and is still
+  what the rest of the module takes. The line does hold for the
+  RAVEN-derived modules, where no such direction was given.
 - **Optimisation.** RAVEN's optimisers (gradient descent, genetic
   algorithms, Bayesian optimisation) are out of scope unless the crate
   owner decides otherwise.
@@ -376,10 +382,9 @@ Fields:
     fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
     ```
 
-- **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Self { /* ... */ }
+    fn clone(self: &Self) -> AbcKernel { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -391,11 +396,6 @@ Fields:
 - **Debug**
   - ```rust
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
-    ```
-
-- **Downcast**
-  - ```rust
-    fn downcast(self: &Self) -> &T { /* ... */ }
     ```
 
 - **Freeze**
@@ -411,30 +411,11 @@ Fields:
     ```
     Calls `U::from(self)`.
 
-- **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &AbcKernel) -> bool { /* ... */ }
     ```
 
-- **Pointable**
-  - ```rust
-    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
-    ```
-
-  - ```rust
-    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
-    ```
-
-  - ```rust
-    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
-    ```
-
-  - ```rust
-    unsafe fn drop(ptr: usize) { /* ... */ }
-    ```
-
-- **Read**
 - **RefUnwindSafe**
 - **Same**
 - **Send**
@@ -451,7 +432,7 @@ Fields:
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
     ```
 
 - **TryInto**
@@ -462,14 +443,6 @@ Fields:
 - **Unpin**
 - **UnsafeUnpin**
 - **UnwindSafe**
-- **Upcast**
-  - ```rust
-    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
-    ```
-
-- **WasmNotSend**
-- **WasmNotSendSync**
-- **WasmNotSync**
 #### Struct `AbcLikelihood`
 
 Everything needed to turn a simulator into an approximate log-likelihood.
@@ -533,10 +506,9 @@ pub struct AbcLikelihood {
     fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
     ```
 
-- **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Self { /* ... */ }
+    fn clone(self: &Self) -> AbcLikelihood { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -547,11 +519,6 @@ pub struct AbcLikelihood {
 - **Debug**
   - ```rust
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
-    ```
-
-- **Downcast**
-  - ```rust
-    fn downcast(self: &Self) -> &T { /* ... */ }
     ```
 
 - **Freeze**
@@ -567,30 +534,11 @@ pub struct AbcLikelihood {
     ```
     Calls `U::from(self)`.
 
-- **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &AbcLikelihood) -> bool { /* ... */ }
     ```
 
-- **Pointable**
-  - ```rust
-    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
-    ```
-
-  - ```rust
-    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
-    ```
-
-  - ```rust
-    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
-    ```
-
-  - ```rust
-    unsafe fn drop(ptr: usize) { /* ... */ }
-    ```
-
-- **Read**
 - **RefUnwindSafe**
 - **Same**
 - **Send**
@@ -607,7 +555,7 @@ pub struct AbcLikelihood {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
     ```
 
 - **TryInto**
@@ -618,14 +566,6 @@ pub struct AbcLikelihood {
 - **Unpin**
 - **UnsafeUnpin**
 - **UnwindSafe**
-- **Upcast**
-  - ```rust
-    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
-    ```
-
-- **WasmNotSend**
-- **WasmNotSendSync**
-- **WasmNotSync**
 #### Struct `RejectionAbcResult`
 
 The result of a rejection-ABC run.
@@ -667,10 +607,9 @@ pub struct RejectionAbcResult {
     fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
     ```
 
-- **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Self { /* ... */ }
+    fn clone(self: &Self) -> RejectionAbcResult { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -681,11 +620,6 @@ pub struct RejectionAbcResult {
 - **Debug**
   - ```rust
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
-    ```
-
-- **Downcast**
-  - ```rust
-    fn downcast(self: &Self) -> &T { /* ... */ }
     ```
 
 - **Freeze**
@@ -701,30 +635,11 @@ pub struct RejectionAbcResult {
     ```
     Calls `U::from(self)`.
 
-- **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &RejectionAbcResult) -> bool { /* ... */ }
     ```
 
-- **Pointable**
-  - ```rust
-    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
-    ```
-
-  - ```rust
-    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
-    ```
-
-  - ```rust
-    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
-    ```
-
-  - ```rust
-    unsafe fn drop(ptr: usize) { /* ... */ }
-    ```
-
-- **Read**
 - **RefUnwindSafe**
 - **Same**
 - **Send**
@@ -741,7 +656,7 @@ pub struct RejectionAbcResult {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
     ```
 
 - **TryInto**
@@ -752,14 +667,6 @@ pub struct RejectionAbcResult {
 - **Unpin**
 - **UnsafeUnpin**
 - **UnwindSafe**
-- **Upcast**
-  - ```rust
-    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
-    ```
-
-- **WasmNotSend**
-- **WasmNotSendSync**
-- **WasmNotSync**
 ### Functions
 
 #### Function `abc_ln_likelihood`
@@ -1191,10 +1098,9 @@ where
     fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
     ```
 
-- **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Self { /* ... */ }
+    fn clone(self: &Self) -> ChainState { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -1205,11 +1111,6 @@ where
 - **Debug**
   - ```rust
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
-    ```
-
-- **Downcast**
-  - ```rust
-    fn downcast(self: &Self) -> &T { /* ... */ }
     ```
 
 - **Freeze**
@@ -1225,30 +1126,11 @@ where
     ```
     Calls `U::from(self)`.
 
-- **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &ChainState) -> bool { /* ... */ }
     ```
 
-- **Pointable**
-  - ```rust
-    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
-    ```
-
-  - ```rust
-    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
-    ```
-
-  - ```rust
-    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
-    ```
-
-  - ```rust
-    unsafe fn drop(ptr: usize) { /* ... */ }
-    ```
-
-- **Read**
 - **RefUnwindSafe**
 - **Same**
 - **Send**
@@ -1265,7 +1147,7 @@ where
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
     ```
 
 - **TryInto**
@@ -1276,14 +1158,6 @@ where
 - **Unpin**
 - **UnsafeUnpin**
 - **UnwindSafe**
-- **Upcast**
-  - ```rust
-    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
-    ```
-
-- **WasmNotSend**
-- **WasmNotSendSync**
-- **WasmNotSync**
 #### Struct `MetropolisHastings`
 
 Random-walk Metropolis–Hastings with a multivariate-normal proposal.
@@ -1352,10 +1226,9 @@ where
     fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
     ```
 
-- **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Self { /* ... */ }
+    fn clone(self: &Self) -> MetropolisHastings { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -1366,11 +1239,6 @@ where
 - **Debug**
   - ```rust
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
-    ```
-
-- **Downcast**
-  - ```rust
-    fn downcast(self: &Self) -> &T { /* ... */ }
     ```
 
 - **Freeze**
@@ -1386,30 +1254,11 @@ where
     ```
     Calls `U::from(self)`.
 
-- **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &MetropolisHastings) -> bool { /* ... */ }
     ```
 
-- **Pointable**
-  - ```rust
-    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
-    ```
-
-  - ```rust
-    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
-    ```
-
-  - ```rust
-    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
-    ```
-
-  - ```rust
-    unsafe fn drop(ptr: usize) { /* ... */ }
-    ```
-
-- **Read**
 - **RefUnwindSafe**
 - **Same**
 - **Send**
@@ -1426,7 +1275,7 @@ where
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
     ```
 
 - **TryInto**
@@ -1437,14 +1286,6 @@ where
 - **Unpin**
 - **UnsafeUnpin**
 - **UnwindSafe**
-- **Upcast**
-  - ```rust
-    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
-    ```
-
-- **WasmNotSend**
-- **WasmNotSendSync**
-- **WasmNotSync**
 #### Struct `EnsembleMove`
 
 The affine-invariant ensemble ("stretch") move of Goodman and Weare (2010).
@@ -1538,10 +1379,9 @@ where
     fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
     ```
 
-- **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Self { /* ... */ }
+    fn clone(self: &Self) -> EnsembleMove { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -1553,11 +1393,6 @@ where
 - **Debug**
   - ```rust
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
-    ```
-
-- **Downcast**
-  - ```rust
-    fn downcast(self: &Self) -> &T { /* ... */ }
     ```
 
 - **Freeze**
@@ -1573,30 +1408,11 @@ where
     ```
     Calls `U::from(self)`.
 
-- **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &EnsembleMove) -> bool { /* ... */ }
     ```
 
-- **Pointable**
-  - ```rust
-    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
-    ```
-
-  - ```rust
-    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
-    ```
-
-  - ```rust
-    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
-    ```
-
-  - ```rust
-    unsafe fn drop(ptr: usize) { /* ... */ }
-    ```
-
-- **Read**
 - **RefUnwindSafe**
 - **Same**
 - **Send**
@@ -1613,7 +1429,7 @@ where
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
     ```
 
 - **TryInto**
@@ -1624,14 +1440,6 @@ where
 - **Unpin**
 - **UnsafeUnpin**
 - **UnwindSafe**
-- **Upcast**
-  - ```rust
-    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
-    ```
-
-- **WasmNotSend**
-- **WasmNotSendSync**
-- **WasmNotSync**
 ## Module `transitional`
 
 Transitional MCMC (TMCMC) and Transitional Ensemble MCMC (TEMCMC).
@@ -1781,10 +1589,9 @@ Fields:
     fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
     ```
 
-- **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Self { /* ... */ }
+    fn clone(self: &Self) -> TransitionKernel { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -1796,11 +1603,6 @@ Fields:
 - **Debug**
   - ```rust
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
-    ```
-
-- **Downcast**
-  - ```rust
-    fn downcast(self: &Self) -> &T { /* ... */ }
     ```
 
 - **Freeze**
@@ -1816,30 +1618,11 @@ Fields:
     ```
     Calls `U::from(self)`.
 
-- **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &TransitionKernel) -> bool { /* ... */ }
     ```
 
-- **Pointable**
-  - ```rust
-    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
-    ```
-
-  - ```rust
-    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
-    ```
-
-  - ```rust
-    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
-    ```
-
-  - ```rust
-    unsafe fn drop(ptr: usize) { /* ... */ }
-    ```
-
-- **Read**
 - **RefUnwindSafe**
 - **Same**
 - **Send**
@@ -1856,7 +1639,7 @@ Fields:
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
     ```
 
 - **TryInto**
@@ -1867,14 +1650,6 @@ Fields:
 - **Unpin**
 - **UnsafeUnpin**
 - **UnwindSafe**
-- **Upcast**
-  - ```rust
-    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
-    ```
-
-- **WasmNotSend**
-- **WasmNotSendSync**
-- **WasmNotSync**
 #### Enum `TemperingCriterion`
 
 The rule that decides how far each tempering stage may step.
@@ -2008,10 +1783,9 @@ Fields:
     fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
     ```
 
-- **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Self { /* ... */ }
+    fn clone(self: &Self) -> TemperingCriterion { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -2023,11 +1797,6 @@ Fields:
 - **Debug**
   - ```rust
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
-    ```
-
-- **Downcast**
-  - ```rust
-    fn downcast(self: &Self) -> &T { /* ... */ }
     ```
 
 - **Freeze**
@@ -2043,30 +1812,11 @@ Fields:
     ```
     Calls `U::from(self)`.
 
-- **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &TemperingCriterion) -> bool { /* ... */ }
     ```
 
-- **Pointable**
-  - ```rust
-    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
-    ```
-
-  - ```rust
-    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
-    ```
-
-  - ```rust
-    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
-    ```
-
-  - ```rust
-    unsafe fn drop(ptr: usize) { /* ... */ }
-    ```
-
-- **Read**
 - **RefUnwindSafe**
 - **Same**
 - **Send**
@@ -2083,7 +1833,7 @@ Fields:
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
     ```
 
 - **TryInto**
@@ -2094,14 +1844,6 @@ Fields:
 - **Unpin**
 - **UnsafeUnpin**
 - **UnwindSafe**
-- **Upcast**
-  - ```rust
-    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
-    ```
-
-- **WasmNotSend**
-- **WasmNotSendSync**
-- **WasmNotSync**
 #### Struct `TransitionalConfig`
 
 Configuration shared by both transitional samplers.
@@ -2174,10 +1916,9 @@ pub struct TransitionalConfig {
     fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
     ```
 
-- **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Self { /* ... */ }
+    fn clone(self: &Self) -> TransitionalConfig { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -2189,11 +1930,6 @@ pub struct TransitionalConfig {
 - **Debug**
   - ```rust
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
-    ```
-
-- **Downcast**
-  - ```rust
-    fn downcast(self: &Self) -> &T { /* ... */ }
     ```
 
 - **Freeze**
@@ -2209,30 +1945,11 @@ pub struct TransitionalConfig {
     ```
     Calls `U::from(self)`.
 
-- **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &TransitionalConfig) -> bool { /* ... */ }
     ```
 
-- **Pointable**
-  - ```rust
-    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
-    ```
-
-  - ```rust
-    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
-    ```
-
-  - ```rust
-    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
-    ```
-
-  - ```rust
-    unsafe fn drop(ptr: usize) { /* ... */ }
-    ```
-
-- **Read**
 - **RefUnwindSafe**
 - **Same**
 - **Send**
@@ -2249,7 +1966,7 @@ pub struct TransitionalConfig {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
     ```
 
 - **TryInto**
@@ -2260,14 +1977,6 @@ pub struct TransitionalConfig {
 - **Unpin**
 - **UnsafeUnpin**
 - **UnwindSafe**
-- **Upcast**
-  - ```rust
-    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
-    ```
-
-- **WasmNotSend**
-- **WasmNotSendSync**
-- **WasmNotSync**
 #### Struct `StageReport`
 
 What one tempering stage did.
@@ -2316,10 +2025,9 @@ pub struct StageReport {
     fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
     ```
 
-- **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Self { /* ... */ }
+    fn clone(self: &Self) -> StageReport { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -2331,11 +2039,6 @@ pub struct StageReport {
 - **Debug**
   - ```rust
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
-    ```
-
-- **Downcast**
-  - ```rust
-    fn downcast(self: &Self) -> &T { /* ... */ }
     ```
 
 - **Freeze**
@@ -2351,30 +2054,11 @@ pub struct StageReport {
     ```
     Calls `U::from(self)`.
 
-- **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &StageReport) -> bool { /* ... */ }
     ```
 
-- **Pointable**
-  - ```rust
-    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
-    ```
-
-  - ```rust
-    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
-    ```
-
-  - ```rust
-    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
-    ```
-
-  - ```rust
-    unsafe fn drop(ptr: usize) { /* ... */ }
-    ```
-
-- **Read**
 - **RefUnwindSafe**
 - **Same**
 - **Send**
@@ -2391,7 +2075,7 @@ pub struct StageReport {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
     ```
 
 - **TryInto**
@@ -2402,14 +2086,6 @@ pub struct StageReport {
 - **Unpin**
 - **UnsafeUnpin**
 - **UnwindSafe**
-- **Upcast**
-  - ```rust
-    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
-    ```
-
-- **WasmNotSend**
-- **WasmNotSendSync**
-- **WasmNotSync**
 #### Struct `TransitionalResult`
 
 The result of a transitional sampling run.
@@ -2465,10 +2141,9 @@ pub struct TransitionalResult {
     fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
     ```
 
-- **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Self { /* ... */ }
+    fn clone(self: &Self) -> TransitionalResult { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -2479,11 +2154,6 @@ pub struct TransitionalResult {
 - **Debug**
   - ```rust
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
-    ```
-
-- **Downcast**
-  - ```rust
-    fn downcast(self: &Self) -> &T { /* ... */ }
     ```
 
 - **Freeze**
@@ -2499,30 +2169,11 @@ pub struct TransitionalResult {
     ```
     Calls `U::from(self)`.
 
-- **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &TransitionalResult) -> bool { /* ... */ }
     ```
 
-- **Pointable**
-  - ```rust
-    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
-    ```
-
-  - ```rust
-    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
-    ```
-
-  - ```rust
-    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
-    ```
-
-  - ```rust
-    unsafe fn drop(ptr: usize) { /* ... */ }
-    ```
-
-- **Read**
 - **RefUnwindSafe**
 - **Same**
 - **Send**
@@ -2539,7 +2190,7 @@ pub struct TransitionalResult {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
     ```
 
 - **TryInto**
@@ -2550,14 +2201,6 @@ pub struct TransitionalResult {
 - **Unpin**
 - **UnsafeUnpin**
 - **UnwindSafe**
-- **Upcast**
-  - ```rust
-    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
-    ```
-
-- **WasmNotSend**
-- **WasmNotSendSync**
-- **WasmNotSync**
 ### Functions
 
 #### Function `tmcmc`
@@ -2738,10 +2381,9 @@ pub struct IndependentPrior {
     fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
     ```
 
-- **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Self { /* ... */ }
+    fn clone(self: &Self) -> IndependentPrior { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -2752,11 +2394,6 @@ pub struct IndependentPrior {
 - **Debug**
   - ```rust
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
-    ```
-
-- **Downcast**
-  - ```rust
-    fn downcast(self: &Self) -> &T { /* ... */ }
     ```
 
 - **Freeze**
@@ -2772,30 +2409,11 @@ pub struct IndependentPrior {
     ```
     Calls `U::from(self)`.
 
-- **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &IndependentPrior) -> bool { /* ... */ }
     ```
 
-- **Pointable**
-  - ```rust
-    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
-    ```
-
-  - ```rust
-    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
-    ```
-
-  - ```rust
-    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
-    ```
-
-  - ```rust
-    unsafe fn drop(ptr: usize) { /* ... */ }
-    ```
-
-- **Read**
 - **RefUnwindSafe**
 - **Same**
 - **Send**
@@ -2812,7 +2430,7 @@ pub struct IndependentPrior {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
     ```
 
 - **TryInto**
@@ -2823,14 +2441,6 @@ pub struct IndependentPrior {
 - **Unpin**
 - **UnsafeUnpin**
 - **UnwindSafe**
-- **Upcast**
-  - ```rust
-    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
-    ```
-
-- **WasmNotSend**
-- **WasmNotSendSync**
-- **WasmNotSync**
 #### Struct `SamplerDiagnostics`
 
 Counters a sampler keeps about numerical trouble it met and handled.
@@ -2873,10 +2483,9 @@ pub struct SamplerDiagnostics {
     fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
     ```
 
-- **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Self { /* ... */ }
+    fn clone(self: &Self) -> SamplerDiagnostics { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -2892,24 +2501,10 @@ pub struct SamplerDiagnostics {
 
 - **Default**
   - ```rust
-    fn default() -> Self { /* ... */ }
-    ```
-
-- **Downcast**
-  - ```rust
-    fn downcast(self: &Self) -> &T { /* ... */ }
+    fn default() -> SamplerDiagnostics { /* ... */ }
     ```
 
 - **Eq**
-- **Equivalent**
-  - ```rust
-    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
-    ```
-
-  - ```rust
-    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
-    ```
-
 - **Freeze**
 - **From**
   - ```rust
@@ -2923,30 +2518,11 @@ pub struct SamplerDiagnostics {
     ```
     Calls `U::from(self)`.
 
-- **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &SamplerDiagnostics) -> bool { /* ... */ }
     ```
 
-- **Pointable**
-  - ```rust
-    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
-    ```
-
-  - ```rust
-    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
-    ```
-
-  - ```rust
-    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
-    ```
-
-  - ```rust
-    unsafe fn drop(ptr: usize) { /* ... */ }
-    ```
-
-- **Read**
 - **RefUnwindSafe**
 - **Same**
 - **Send**
@@ -2963,7 +2539,7 @@ pub struct SamplerDiagnostics {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
     ```
 
 - **TryInto**
@@ -2974,14 +2550,6 @@ pub struct SamplerDiagnostics {
 - **Unpin**
 - **UnsafeUnpin**
 - **UnwindSafe**
-- **Upcast**
-  - ```rust
-    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
-    ```
-
-- **WasmNotSend**
-- **WasmNotSendSync**
-- **WasmNotSync**
 ### Re-exports
 
 #### Re-export `EnsembleMove`
@@ -3340,10 +2908,9 @@ more expensive object.
     fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
     ```
 
-- **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Self { /* ... */ }
+    fn clone(self: &Self) -> DistanceMetric { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -3355,11 +2922,6 @@ more expensive object.
 - **Debug**
   - ```rust
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
-    ```
-
-- **Downcast**
-  - ```rust
-    fn downcast(self: &Self) -> &T { /* ... */ }
     ```
 
 - **Freeze**
@@ -3375,30 +2937,11 @@ more expensive object.
     ```
     Calls `U::from(self)`.
 
-- **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &DistanceMetric) -> bool { /* ... */ }
     ```
 
-- **Pointable**
-  - ```rust
-    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
-    ```
-
-  - ```rust
-    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
-    ```
-
-  - ```rust
-    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
-    ```
-
-  - ```rust
-    unsafe fn drop(ptr: usize) { /* ... */ }
-    ```
-
-- **Read**
 - **RefUnwindSafe**
 - **Same**
 - **Send**
@@ -3415,7 +2958,7 @@ more expensive object.
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
     ```
 
 - **TryInto**
@@ -3426,14 +2969,6 @@ more expensive object.
 - **Unpin**
 - **UnsafeUnpin**
 - **UnwindSafe**
-- **Upcast**
-  - ```rust
-    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
-    ```
-
-- **WasmNotSend**
-- **WasmNotSendSync**
-- **WasmNotSync**
 ## Module `distributions`
 
 Continuous probability distributions — densities, CDFs, inverse CDFs and
@@ -3511,6 +3046,99 @@ changes.
 pub mod distributions { /* ... */ }
 ```
 
+### Modules
+
+## Module `seeded`
+
+Seed-driven generic samplers (uniform, Box-Muller normal, exponential) on
+the workspace LCG — moved from `outram-mc-libs` 2026-10-02 (GitHub #500).
+Not RAVEN-derived; see the module's own header.
+**Seed-driven generic samplers** on the workspace LCG
+([`petir::rng::lcg`]): a uniform on `[low, high)`, a standard normal by
+Box-Muller, and an exponential by inverse CDF.
+
+# How these relate to the rest of [`crate::distributions`]
+
+The RAVEN-derived distributions sample by **inverse CDF from a supplied
+uniform** (`Distribution::sample(u)`), so the caller owns the stream. These
+take the LCG **seed** and advance it themselves, which is what a Monte
+Carlo transport history does. They are not a second implementation of the
+same thing: `sample_normal` is Box-Muller (two draws per deviate), not the
+inverse normal CDF, and changing either into the other would change every
+stream that consumes them. Both shapes now live in one module tree, and
+there is one copy of each.
+
+# Exactly the stream they always drew
+
+Moved byte-for-byte from `outram_mc_libs::rng::distributions`, which
+re-exports them, so `outram-mc-libs`, `boon-lay` and `nee_soon` call sites
+see the same numbers. `ln` is always `petir::real::ln` (as it was through
+outram-mc's `RealMath::r_ln`). `cos` follows outram-mc's routing: the
+platform `f64::cos` by default, and [`petir::real::cos`] under this crate's
+**`deterministic-math`** feature, which `outram-mc-libs`' own
+`deterministic-math` feature forwards. Physics samplers (`maxwell`, `watt`,
+`isotropic_direction`) stay in `outram-mc-libs`.
+
+```rust
+pub mod seeded { /* ... */ }
+```
+
+### Functions
+
+#### Function `uniform`
+
+**Attributes:**
+
+- `Other("#[attr = Inline(Hint)]")`
+
+A uniform deviate on `[low, high)`, one LCG draw.
+
+```rust
+pub fn uniform(seed: &mut u64, low: f64, high: f64) -> f64 { /* ... */ }
+```
+
+#### Function `sample_normal`
+
+**Attributes:**
+
+- `Other("#[attr = Inline(Hint)]")`
+
+A standard normal deviate `N(0, 1)` by the Box-Muller transform: two draws
+`u1`, `u2`, returning `sqrt(-2 ln u1) · cos(2π u2)`. For `N(μ, σ²)` use
+`μ + σ · sample_normal(seed)`.
+
+`u1` is clamped to the smallest positive `f64` so `ln(0)` cannot occur.
+
+```rust
+pub fn sample_normal(seed: &mut u64) -> f64 { /* ... */ }
+```
+
+#### Function `sample_normal_3d`
+
+**Attributes:**
+
+- `Other("#[attr = Inline(Hint)]")`
+
+A 3-vector of independent `N(0, σ²)` deviates (three [`sample_normal`]
+calls, x then y then z).
+
+```rust
+pub fn sample_normal_3d(seed: &mut u64, sigma: f64) -> (f64, f64, f64) { /* ... */ }
+```
+
+#### Function `sample_exp`
+
+**Attributes:**
+
+- `Other("#[attr = Inline(Hint)]")`
+
+An exponential deviate with rate `λ` (mean `1/λ`) by inverse CDF,
+`-ln(u) / λ`, one draw.
+
+```rust
+pub fn sample_exp(seed: &mut u64, rate: f64) -> f64 { /* ... */ }
+```
+
 ### Types
 
 #### Struct `Uniform`
@@ -3573,10 +3201,9 @@ pub struct Uniform {
     fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
     ```
 
-- **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Self { /* ... */ }
+    fn clone(self: &Self) -> Uniform { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -3615,11 +3242,6 @@ pub struct Uniform {
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
     ```
 
-- **Downcast**
-  - ```rust
-    fn downcast(self: &Self) -> &T { /* ... */ }
-    ```
-
 - **Freeze**
 - **From**
   - ```rust
@@ -3633,30 +3255,11 @@ pub struct Uniform {
     ```
     Calls `U::from(self)`.
 
-- **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Uniform) -> bool { /* ... */ }
     ```
 
-- **Pointable**
-  - ```rust
-    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
-    ```
-
-  - ```rust
-    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
-    ```
-
-  - ```rust
-    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
-    ```
-
-  - ```rust
-    unsafe fn drop(ptr: usize) { /* ... */ }
-    ```
-
-- **Read**
 - **RefUnwindSafe**
 - **Same**
 - **Send**
@@ -3673,7 +3276,7 @@ pub struct Uniform {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
     ```
 
 - **TryInto**
@@ -3684,14 +3287,6 @@ pub struct Uniform {
 - **Unpin**
 - **UnsafeUnpin**
 - **UnwindSafe**
-- **Upcast**
-  - ```rust
-    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
-    ```
-
-- **WasmNotSend**
-- **WasmNotSendSync**
-- **WasmNotSync**
 #### Struct `Normal`
 
 Normal (Gaussian) distribution with mean `mu` and standard deviation
@@ -3754,10 +3349,9 @@ pub struct Normal {
     fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
     ```
 
-- **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Self { /* ... */ }
+    fn clone(self: &Self) -> Normal { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -3796,11 +3390,6 @@ pub struct Normal {
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
     ```
 
-- **Downcast**
-  - ```rust
-    fn downcast(self: &Self) -> &T { /* ... */ }
-    ```
-
 - **Freeze**
 - **From**
   - ```rust
@@ -3814,30 +3403,11 @@ pub struct Normal {
     ```
     Calls `U::from(self)`.
 
-- **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Normal) -> bool { /* ... */ }
     ```
 
-- **Pointable**
-  - ```rust
-    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
-    ```
-
-  - ```rust
-    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
-    ```
-
-  - ```rust
-    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
-    ```
-
-  - ```rust
-    unsafe fn drop(ptr: usize) { /* ... */ }
-    ```
-
-- **Read**
 - **RefUnwindSafe**
 - **Same**
 - **Send**
@@ -3854,7 +3424,7 @@ pub struct Normal {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
     ```
 
 - **TryInto**
@@ -3865,14 +3435,6 @@ pub struct Normal {
 - **Unpin**
 - **UnsafeUnpin**
 - **UnwindSafe**
-- **Upcast**
-  - ```rust
-    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
-    ```
-
-- **WasmNotSend**
-- **WasmNotSendSync**
-- **WasmNotSync**
 #### Struct `LogNormal`
 
 Log-normal distribution: `X = low + exp(Y)` with `Y ~ Normal(mu, sigma)`.
@@ -3941,10 +3503,9 @@ pub struct LogNormal {
     fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
     ```
 
-- **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Self { /* ... */ }
+    fn clone(self: &Self) -> LogNormal { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -3984,11 +3545,6 @@ pub struct LogNormal {
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
     ```
 
-- **Downcast**
-  - ```rust
-    fn downcast(self: &Self) -> &T { /* ... */ }
-    ```
-
 - **Freeze**
 - **From**
   - ```rust
@@ -4002,30 +3558,11 @@ pub struct LogNormal {
     ```
     Calls `U::from(self)`.
 
-- **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &LogNormal) -> bool { /* ... */ }
     ```
 
-- **Pointable**
-  - ```rust
-    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
-    ```
-
-  - ```rust
-    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
-    ```
-
-  - ```rust
-    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
-    ```
-
-  - ```rust
-    unsafe fn drop(ptr: usize) { /* ... */ }
-    ```
-
-- **Read**
 - **RefUnwindSafe**
 - **Same**
 - **Send**
@@ -4042,7 +3579,7 @@ pub struct LogNormal {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
     ```
 
 - **TryInto**
@@ -4053,14 +3590,6 @@ pub struct LogNormal {
 - **Unpin**
 - **UnsafeUnpin**
 - **UnwindSafe**
-- **Upcast**
-  - ```rust
-    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
-    ```
-
-- **WasmNotSend**
-- **WasmNotSendSync**
-- **WasmNotSync**
 #### Struct `Triangular`
 
 Triangular distribution on `[lower, upper]` peaking at `apex`.
@@ -4126,10 +3655,9 @@ pub struct Triangular {
     fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
     ```
 
-- **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Self { /* ... */ }
+    fn clone(self: &Self) -> Triangular { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -4168,11 +3696,6 @@ pub struct Triangular {
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
     ```
 
-- **Downcast**
-  - ```rust
-    fn downcast(self: &Self) -> &T { /* ... */ }
-    ```
-
 - **Freeze**
 - **From**
   - ```rust
@@ -4186,30 +3709,11 @@ pub struct Triangular {
     ```
     Calls `U::from(self)`.
 
-- **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Triangular) -> bool { /* ... */ }
     ```
 
-- **Pointable**
-  - ```rust
-    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
-    ```
-
-  - ```rust
-    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
-    ```
-
-  - ```rust
-    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
-    ```
-
-  - ```rust
-    unsafe fn drop(ptr: usize) { /* ... */ }
-    ```
-
-- **Read**
 - **RefUnwindSafe**
 - **Same**
 - **Send**
@@ -4226,7 +3730,7 @@ pub struct Triangular {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
     ```
 
 - **TryInto**
@@ -4237,14 +3741,6 @@ pub struct Triangular {
 - **Unpin**
 - **UnsafeUnpin**
 - **UnwindSafe**
-- **Upcast**
-  - ```rust
-    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
-    ```
-
-- **WasmNotSend**
-- **WasmNotSendSync**
-- **WasmNotSync**
 #### Struct `Exponential`
 
 Exponential distribution with **rate** `lambda`, shifted so its support is
@@ -4307,10 +3803,9 @@ pub struct Exponential {
     fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
     ```
 
-- **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Self { /* ... */ }
+    fn clone(self: &Self) -> Exponential { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -4349,11 +3844,6 @@ pub struct Exponential {
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
     ```
 
-- **Downcast**
-  - ```rust
-    fn downcast(self: &Self) -> &T { /* ... */ }
-    ```
-
 - **Freeze**
 - **From**
   - ```rust
@@ -4367,30 +3857,11 @@ pub struct Exponential {
     ```
     Calls `U::from(self)`.
 
-- **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Exponential) -> bool { /* ... */ }
     ```
 
-- **Pointable**
-  - ```rust
-    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
-    ```
-
-  - ```rust
-    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
-    ```
-
-  - ```rust
-    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
-    ```
-
-  - ```rust
-    unsafe fn drop(ptr: usize) { /* ... */ }
-    ```
-
-- **Read**
 - **RefUnwindSafe**
 - **Same**
 - **Send**
@@ -4407,7 +3878,7 @@ pub struct Exponential {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
     ```
 
 - **TryInto**
@@ -4418,14 +3889,6 @@ pub struct Exponential {
 - **Unpin**
 - **UnsafeUnpin**
 - **UnwindSafe**
-- **Upcast**
-  - ```rust
-    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
-    ```
-
-- **WasmNotSend**
-- **WasmNotSendSync**
-- **WasmNotSync**
 #### Struct `Weibull`
 
 Weibull distribution with shape `k` and **scale** `lambda`, shifted so its
@@ -4495,10 +3958,9 @@ pub struct Weibull {
     fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
     ```
 
-- **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Self { /* ... */ }
+    fn clone(self: &Self) -> Weibull { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -4537,11 +3999,6 @@ pub struct Weibull {
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
     ```
 
-- **Downcast**
-  - ```rust
-    fn downcast(self: &Self) -> &T { /* ... */ }
-    ```
-
 - **Freeze**
 - **From**
   - ```rust
@@ -4555,30 +4012,11 @@ pub struct Weibull {
     ```
     Calls `U::from(self)`.
 
-- **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Weibull) -> bool { /* ... */ }
     ```
 
-- **Pointable**
-  - ```rust
-    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
-    ```
-
-  - ```rust
-    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
-    ```
-
-  - ```rust
-    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
-    ```
-
-  - ```rust
-    unsafe fn drop(ptr: usize) { /* ... */ }
-    ```
-
-- **Read**
 - **RefUnwindSafe**
 - **Same**
 - **Send**
@@ -4595,7 +4033,7 @@ pub struct Weibull {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
     ```
 
 - **TryInto**
@@ -4606,14 +4044,6 @@ pub struct Weibull {
 - **Unpin**
 - **UnsafeUnpin**
 - **UnwindSafe**
-- **Upcast**
-  - ```rust
-    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
-    ```
-
-- **WasmNotSend**
-- **WasmNotSendSync**
-- **WasmNotSync**
 #### Struct `Gamma`
 
 Gamma distribution with shape `alpha` and **rate** `beta`, shifted so its
@@ -4687,10 +4117,9 @@ pub struct Gamma {
     fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
     ```
 
-- **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Self { /* ... */ }
+    fn clone(self: &Self) -> Gamma { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -4729,11 +4158,6 @@ pub struct Gamma {
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
     ```
 
-- **Downcast**
-  - ```rust
-    fn downcast(self: &Self) -> &T { /* ... */ }
-    ```
-
 - **Freeze**
 - **From**
   - ```rust
@@ -4747,30 +4171,11 @@ pub struct Gamma {
     ```
     Calls `U::from(self)`.
 
-- **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Gamma) -> bool { /* ... */ }
     ```
 
-- **Pointable**
-  - ```rust
-    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
-    ```
-
-  - ```rust
-    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
-    ```
-
-  - ```rust
-    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
-    ```
-
-  - ```rust
-    unsafe fn drop(ptr: usize) { /* ... */ }
-    ```
-
-- **Read**
 - **RefUnwindSafe**
 - **Same**
 - **Send**
@@ -4787,7 +4192,7 @@ pub struct Gamma {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
     ```
 
 - **TryInto**
@@ -4798,14 +4203,6 @@ pub struct Gamma {
 - **Unpin**
 - **UnsafeUnpin**
 - **UnwindSafe**
-- **Upcast**
-  - ```rust
-    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
-    ```
-
-- **WasmNotSend**
-- **WasmNotSendSync**
-- **WasmNotSync**
 #### Struct `Beta`
 
 Beta distribution with shapes `alpha` and `beta`, rescaled from the standard
@@ -4887,10 +4284,9 @@ pub struct Beta {
     fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
     ```
 
-- **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Self { /* ... */ }
+    fn clone(self: &Self) -> Beta { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -4929,11 +4325,6 @@ pub struct Beta {
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
     ```
 
-- **Downcast**
-  - ```rust
-    fn downcast(self: &Self) -> &T { /* ... */ }
-    ```
-
 - **Freeze**
 - **From**
   - ```rust
@@ -4947,30 +4338,11 @@ pub struct Beta {
     ```
     Calls `U::from(self)`.
 
-- **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Beta) -> bool { /* ... */ }
     ```
 
-- **Pointable**
-  - ```rust
-    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
-    ```
-
-  - ```rust
-    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
-    ```
-
-  - ```rust
-    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
-    ```
-
-  - ```rust
-    unsafe fn drop(ptr: usize) { /* ... */ }
-    ```
-
-- **Read**
 - **RefUnwindSafe**
 - **Same**
 - **Send**
@@ -4987,7 +4359,7 @@ pub struct Beta {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
     ```
 
 - **TryInto**
@@ -4998,14 +4370,6 @@ pub struct Beta {
 - **Unpin**
 - **UnsafeUnpin**
 - **UnwindSafe**
-- **Upcast**
-  - ```rust
-    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
-    ```
-
-- **WasmNotSend**
-- **WasmNotSendSync**
-- **WasmNotSync**
 #### Enum `Distribution`
 
 A univariate continuous probability distribution — the dispatch point for
@@ -5147,10 +4511,9 @@ Fields:
     fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
     ```
 
-- **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Self { /* ... */ }
+    fn clone(self: &Self) -> Distribution { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -5189,11 +4552,6 @@ Fields:
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
     ```
 
-- **Downcast**
-  - ```rust
-    fn downcast(self: &Self) -> &T { /* ... */ }
-    ```
-
 - **Freeze**
 - **From**
   - ```rust
@@ -5207,30 +4565,11 @@ Fields:
     ```
     Calls `U::from(self)`.
 
-- **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Distribution) -> bool { /* ... */ }
     ```
 
-- **Pointable**
-  - ```rust
-    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
-    ```
-
-  - ```rust
-    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
-    ```
-
-  - ```rust
-    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
-    ```
-
-  - ```rust
-    unsafe fn drop(ptr: usize) { /* ... */ }
-    ```
-
-- **Read**
 - **RefUnwindSafe**
 - **Same**
 - **Send**
@@ -5247,7 +4586,7 @@ Fields:
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
     ```
 
 - **TryInto**
@@ -5258,14 +4597,6 @@ Fields:
 - **Unpin**
 - **UnsafeUnpin**
 - **UnwindSafe**
-- **Upcast**
-  - ```rust
-    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
-    ```
-
-- **WasmNotSend**
-- **WasmNotSendSync**
-- **WasmNotSync**
 #### Struct `Truncated`
 
 Any [`Distribution`] restricted to `[lower, upper]` and renormalised so its
@@ -5362,10 +4693,9 @@ pub struct Truncated {
     fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
     ```
 
-- **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Self { /* ... */ }
+    fn clone(self: &Self) -> Truncated { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -5406,11 +4736,6 @@ pub struct Truncated {
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
     ```
 
-- **Downcast**
-  - ```rust
-    fn downcast(self: &Self) -> &T { /* ... */ }
-    ```
-
 - **Freeze**
 - **From**
   - ```rust
@@ -5424,30 +4749,11 @@ pub struct Truncated {
     ```
     Calls `U::from(self)`.
 
-- **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Truncated) -> bool { /* ... */ }
     ```
 
-- **Pointable**
-  - ```rust
-    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
-    ```
-
-  - ```rust
-    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
-    ```
-
-  - ```rust
-    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
-    ```
-
-  - ```rust
-    unsafe fn drop(ptr: usize) { /* ... */ }
-    ```
-
-- **Read**
 - **RefUnwindSafe**
 - **Same**
 - **Send**
@@ -5464,7 +4770,7 @@ pub struct Truncated {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
     ```
 
 - **TryInto**
@@ -5475,14 +4781,6 @@ pub struct Truncated {
 - **Unpin**
 - **UnsafeUnpin**
 - **UnwindSafe**
-- **Upcast**
-  - ```rust
-    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
-    ```
-
-- **WasmNotSend**
-- **WasmNotSendSync**
-- **WasmNotSync**
 ### Traits
 
 #### Trait `ContinuousDistribution1D`
@@ -5547,6 +4845,330 @@ This trait is implemented for the following types:
 - `Distribution`
 - `Truncated`
 
+## Module `estimators`
+
+**Basic estimators** — the generic statistics a Monte Carlo code needs:
+sample mean and standard error, seed pooling, Shannon entropy over counts,
+running-sum (batch) uncertainty and batch prediction, and first-order error
+propagation.
+
+# Why these live in RAFFLES
+
+The rule from GitHub issue #500: **the maths on numbers lives here; deciding
+what is counted stays with the physics code.** `outram-mc-libs` still
+chooses the active generations, bins the fission bank on its mesh, decides
+which tally a trigger watches and which tallies are combined — and calls
+these functions for the arithmetic. Before the move the sample mean/stderr
+existed in four identical private copies in outram-mc's drivers; it now
+exists once.
+
+# Bit-identity is a requirement, not a nicety
+
+Every function here reproduces its outram-mc original **bit for bit**: the
+same summation order, the same `(n - 1)` placement, the same `sqrt` of a
+quotient rather than a quotient of `sqrt`s. Two functions that compute "the
+same" statistic are therefore kept apart where their rounding differs:
+[`mean_and_stderr`] returns `sqrt(var / n)` and [`pooled`] returns
+`sqrt(var) / sqrt(n)`, which are not bit-identical. Merging them would move
+recorded results. `outram-mc-libs/tests/stats_move_fingerprints.rs` pins
+k-eff runs through all of them.
+
+# Status
+
+No human V&V, like the rest of this crate. The formulas are the textbook
+ones and each carries a unit test against a hand-computed value.
+
+```rust
+pub mod estimators { /* ... */ }
+```
+
+### Types
+
+#### Struct `BinStats`
+
+Running sums for one quantity across realisations (batches).
+
+**Moved from** `outram_mc_libs::tally::trigger::BinStats`, which re-exports
+it.
+
+```rust
+pub struct BinStats {
+    pub sum: f64,
+    pub sum_sq: f64,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `sum` | `f64` | Sum of the per-realisation values. |
+| `sum_sq` | `f64` | Sum of their squares. |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> BinStats { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Default**
+  - ```rust
+    fn default() -> BinStats { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+### Functions
+
+#### Function `mean_and_stderr`
+
+Sample mean and **standard error of the mean** (1σ) of `x`.
+
+```text
+mean = Σx / n
+var  = Σ(x - mean)² / (n - 1)
+sem  = sqrt(var / n)
+```
+
+Returns `(0, 0)` for an empty slice and `(mean, 0)` for one sample — a
+single realisation has no measurable spread.
+
+**Moved from** `outram-mc-libs`, where four identical private copies
+(`physics/keff.rs`, `physics/transport_csg.rs`, `physics/physics_mg.rs`,
+`pebble_beds/keff_delta.rs`) computed the eigenvalue estimate over the
+active generations. The four were diffed before merging and were
+character-identical.
+
+```
+let (m, s) = raffles::estimators::mean_and_stderr(&[1.0, 2.0, 3.0]);
+assert_eq!(m, 2.0);
+assert!((s - (1.0_f64 / 3.0).sqrt()).abs() < 1e-15);
+```
+
+```rust
+pub fn mean_and_stderr(x: &[f64]) -> (f64, f64) { /* ... */ }
+```
+
+#### Function `pooled`
+
+Pool independent samples — typically one result per RNG seed — into
+`(mean, sd, sem)`.
+
+- **`sd`** is the sample standard deviation (`n - 1`): the spread of one
+  realisation, i.e. what a single reproduction will give.
+- **`sem = sd / √n`** is the uncertainty on the pooled mean; quote it when
+  comparing with a benchmark or another code.
+
+Returns `(NaN, 0, 0)` for no samples and `(x, 0, 0)` for one.
+
+**Moved from** `outram_mc_libs::vv::pooled`, which re-exports this. Note
+`sem` is `sd / sqrt(n)`, not [`mean_and_stderr`]'s `sqrt(var / n)`: equal in
+exact arithmetic, different in the last bit, and kept so.
+
+```
+let (mean, sd, sem) = raffles::estimators::pooled(&[100.0, 200.0, 300.0]);
+assert!((mean - 200.0).abs() < 1e-9);
+assert!((sd - 100.0).abs() < 1e-9);
+assert!((sem - 100.0 / 3.0_f64.sqrt()).abs() < 1e-9);
+```
+
+```rust
+pub fn pooled(x: &[f64]) -> (f64, f64, f64) { /* ... */ }
+```
+
+#### Function `shannon_entropy_bits`
+
+Shannon entropy, **in bits**, of the distribution given by non-negative
+`counts` (weights per bin): `H = -Σ p log₂ p` with `p = c / Σc`, empty bins
+contributing nothing.
+
+Ranges from 0 (everything in one bin) to `log₂(bins)` (uniform). Returns
+`None` when the total is not positive — there is no distribution to take
+an entropy of (OpenMC divides unconditionally and yields NaN there).
+
+**Moved from** `outram_mc_libs::tally::mesh::RegularMesh::shannon_entropy`
+(a port of OpenMC `src/mesh.cpp`'s entropy, base 2 as upstream's
+`std::log2`), which still bins the fission bank and calls this.
+
+```
+let h = raffles::estimators::shannon_entropy_bits(&[1.0, 1.0, 1.0, 1.0]).unwrap();
+assert_eq!(h, 2.0);
+assert_eq!(raffles::estimators::shannon_entropy_bits(&[0.0, 0.0]), None);
+```
+
+```rust
+pub fn shannon_entropy_bits(counts: &[f64]) -> Option<f64> { /* ... */ }
+```
+
+#### Function `bin_uncertainty`
+
+Mean, standard deviation **of the mean**, and relative error over `n`
+realisations, from running sums:
+
+```text
+mean    = sum / n
+std_dev = sqrt( max(0, sum_sq / n - mean²) / (n - 1) )
+rel_err = std_dev / |mean|
+```
+
+The `(n - 1)` is outside the parenthesis, so this is the uncertainty on the
+mean, not the spread of the realisations. The variance is clamped at 0 so
+a cancelled variance reads as zero rather than NaN.
+
+Returns `None` for `n < 2` (no estimate) or a mean of exactly zero ("no
+contributions", which OpenMC signals with a `(-1, -1)` sentinel and which
+must not be confused with "converged to zero").
+
+**Moved from** `outram_mc_libs::tally::trigger::bin_uncertainty` (port of
+OpenMC `get_tally_uncertainty`, `src/tallies/trigger.cpp:30`), which
+re-exports it; the trigger *policy* (metrics, thresholds, which bins) stays
+in outram-mc.
+
+```rust
+pub fn bin_uncertainty(stats: BinStats, n: usize) -> Option<(f64, f64, f64)> { /* ... */ }
+```
+
+#### Function `predict_batches`
+
+Predicted total batches for an uncertainty that is `ratio` times its
+target, assuming variance falls as `1/N`:
+
+```text
+n_pred = floor(n_active * ratio²) + n_inactive + 1,  n_active = current - n_inactive
+```
+
+`None` for a non-finite ratio (no basis for an estimate).
+
+**Moved from** `outram_mc_libs::tally::trigger::predict_batches` (OpenMC
+`src/tallies/trigger.cpp:209-215`), which re-exports it.
+
+```rust
+pub fn predict_batches(current_batch: usize, n_inactive: usize, ratio: f64) -> Option<usize> { /* ... */ }
+```
+
+#### Function `sigma_sum`
+
+**Attributes:**
+
+- `Other("#[attr = Inline(Hint)]")`
+
+First-order, **uncorrelated** error propagation for `a ± b`:
+`σ = sqrt(σa² + σb²)`.
+
+**Moved from** `outram_mc_libs::tally::arithmetic` (`DerivedTally::add` /
+`sub`, after `openmc/tally.py`). Two operands that are in fact correlated
+(`a + a`) get the uncorrelated answer, by design.
+
+```rust
+pub fn sigma_sum(sa: f64, sb: f64) -> f64 { /* ... */ }
+```
+
+#### Function `product_with_sigma`
+
+**Attributes:**
+
+- `Other("#[attr = Inline(Hint)]")`
+
+`a · b` and its first-order uncorrelated σ, `|a·b| · sqrt((σa/a)² + (σb/b)²)`.
+
+**Moved from** `outram_mc_libs::tally::arithmetic::DerivedTally::mul`.
+
+```rust
+pub fn product_with_sigma(a: f64, sa: f64, b: f64, sb: f64) -> (f64, f64) { /* ... */ }
+```
+
+#### Function `quotient_with_sigma`
+
+**Attributes:**
+
+- `Other("#[attr = Inline(Hint)]")`
+
+`a / b` and its first-order uncorrelated σ, `|a/b| · sqrt((σa/a)² + (σb/b)²)`.
+A zero `b` gives a non-finite value; guarding against it is the caller's job.
+
+**Moved from** `outram_mc_libs::tally::arithmetic::DerivedTally::div`.
+
+```rust
+pub fn quotient_with_sigma(a: f64, sa: f64, b: f64, sb: f64) -> (f64, f64) { /* ... */ }
+```
+
+#### Function `sum_with_sigma`
+
+Sum of values and the quadrature sum of their σ, `(Σv, sqrt(Σσ²))`.
+
+**Moved from** `outram_mc_libs::tally::arithmetic::DerivedTally::sum`
+(`openmc.Tally.summation`).
+
+```rust
+pub fn sum_with_sigma(values: &[f64], sigmas: &[f64]) -> (f64, f64) { /* ... */ }
+```
+
 ## Module `gnn`
 
 Graph neural networks for physics: message passing, and the physics-guided
@@ -5574,10 +5196,16 @@ rollout no matter how well it trains.
 
 [`graph`] holds the topology that bound is computed from — radius and
 contact graphs, hop distances, diameters, receptive fields, disjoint-union
-batching — and is likewise `burn`-free. [`mc_geometry`] builds that topology
-from an `outram-mc-libs` CSG geometry; the matching bridge for granular DEM
-lives in `outram-park-fork-liggghts` behind its `gnn` feature, because the
-dependency only runs one way.
+batching — and is likewise `burn`-free. ~~`mc_geometry` builds that
+topology from an `outram-mc-libs` CSG geometry~~ **CORRECTED 2026-10-02**:
+the CSG adapter (`cell_adjacency_graph`) moved to
+`outram_blender::gnn_graph`, behind that crate's `gnn-graph` feature, by
+maintainer decision (GitHub issue #486: `outram-blender` owns geometry
+description). RAFFLES no longer depends on `outram-mc-libs` at all. The
+matching bridge for granular DEM lives in `outram-park-fork-liggghts`
+behind its `gnn` feature. Both adapters live with the geometry because
+the dependency only runs one way: geometry crates depend on RAFFLES, never
+the reverse.
 
 [`mpnn`] is the network itself and [`training`] is its training loop and
 autoregressive rollout; both are behind the crate's `burn` feature.
@@ -5772,10 +5400,9 @@ simultaneously.
     fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
     ```
 
-- **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Self { /* ... */ }
+    fn clone(self: &Self) -> PdeClass { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -5787,11 +5414,6 @@ simultaneously.
 - **Debug**
   - ```rust
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
-    ```
-
-- **Downcast**
-  - ```rust
-    fn downcast(self: &Self) -> &T { /* ... */ }
     ```
 
 - **Freeze**
@@ -5807,30 +5429,11 @@ simultaneously.
     ```
     Calls `U::from(self)`.
 
-- **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &PdeClass) -> bool { /* ... */ }
     ```
 
-- **Pointable**
-  - ```rust
-    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
-    ```
-
-  - ```rust
-    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
-    ```
-
-  - ```rust
-    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
-    ```
-
-  - ```rust
-    unsafe fn drop(ptr: usize) { /* ... */ }
-    ```
-
-- **Read**
 - **RefUnwindSafe**
 - **Same**
 - **Send**
@@ -5847,7 +5450,7 @@ simultaneously.
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
     ```
 
 - **TryInto**
@@ -5858,14 +5461,6 @@ simultaneously.
 - **Unpin**
 - **UnsafeUnpin**
 - **UnwindSafe**
-- **Upcast**
-  - ```rust
-    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
-    ```
-
-- **WasmNotSend**
-- **WasmNotSendSync**
-- **WasmNotSync**
 #### Struct `IterationBound`
 
 The verdict on a chosen number of message-passing iterations.
@@ -5923,10 +5518,9 @@ pub struct IterationBound {
     fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
     ```
 
-- **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Self { /* ... */ }
+    fn clone(self: &Self) -> IterationBound { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -5937,11 +5531,6 @@ pub struct IterationBound {
 - **Debug**
   - ```rust
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
-    ```
-
-- **Downcast**
-  - ```rust
-    fn downcast(self: &Self) -> &T { /* ... */ }
     ```
 
 - **Freeze**
@@ -5957,30 +5546,11 @@ pub struct IterationBound {
     ```
     Calls `U::from(self)`.
 
-- **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &IterationBound) -> bool { /* ... */ }
     ```
 
-- **Pointable**
-  - ```rust
-    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
-    ```
-
-  - ```rust
-    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
-    ```
-
-  - ```rust
-    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
-    ```
-
-  - ```rust
-    unsafe fn drop(ptr: usize) { /* ... */ }
-    ```
-
-- **Read**
 - **RefUnwindSafe**
 - **Same**
 - **Send**
@@ -5997,7 +5567,7 @@ pub struct IterationBound {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
     ```
 
 - **TryInto**
@@ -6008,14 +5578,6 @@ pub struct IterationBound {
 - **Unpin**
 - **UnsafeUnpin**
 - **UnwindSafe**
-- **Upcast**
-  - ```rust
-    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
-    ```
-
-- **WasmNotSend**
-- **WasmNotSendSync**
-- **WasmNotSync**
 ### Functions
 
 #### Function `physics_guided_lower_bound`
@@ -6154,10 +5716,9 @@ which is the argument for doing both.
     fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
     ```
 
-- **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Self { /* ... */ }
+    fn clone(self: &Self) -> Dtype { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -6171,21 +5732,7 @@ which is the argument for doing both.
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
     ```
 
-- **Downcast**
-  - ```rust
-    fn downcast(self: &Self) -> &T { /* ... */ }
-    ```
-
 - **Eq**
-- **Equivalent**
-  - ```rust
-    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
-    ```
-
-  - ```rust
-    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
-    ```
-
 - **Freeze**
 - **From**
   - ```rust
@@ -6199,30 +5746,11 @@ which is the argument for doing both.
     ```
     Calls `U::from(self)`.
 
-- **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Dtype) -> bool { /* ... */ }
     ```
 
-- **Pointable**
-  - ```rust
-    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
-    ```
-
-  - ```rust
-    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
-    ```
-
-  - ```rust
-    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
-    ```
-
-  - ```rust
-    unsafe fn drop(ptr: usize) { /* ... */ }
-    ```
-
-- **Read**
 - **RefUnwindSafe**
 - **Same**
 - **Send**
@@ -6239,7 +5767,7 @@ which is the argument for doing both.
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
     ```
 
 - **TryInto**
@@ -6250,14 +5778,6 @@ which is the argument for doing both.
 - **Unpin**
 - **UnsafeUnpin**
 - **UnwindSafe**
-- **Upcast**
-  - ```rust
-    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
-    ```
-
-- **WasmNotSend**
-- **WasmNotSendSync**
-- **WasmNotSync**
 #### Struct `Tensor`
 
 One tensor read out of an archive, already de-strided into row-major order.
@@ -6314,10 +5834,9 @@ pub struct Tensor {
     fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
     ```
 
-- **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Self { /* ... */ }
+    fn clone(self: &Self) -> Tensor { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -6328,11 +5847,6 @@ pub struct Tensor {
 - **Debug**
   - ```rust
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
-    ```
-
-- **Downcast**
-  - ```rust
-    fn downcast(self: &Self) -> &T { /* ... */ }
     ```
 
 - **Freeze**
@@ -6348,30 +5862,11 @@ pub struct Tensor {
     ```
     Calls `U::from(self)`.
 
-- **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Tensor) -> bool { /* ... */ }
     ```
 
-- **Pointable**
-  - ```rust
-    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
-    ```
-
-  - ```rust
-    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
-    ```
-
-  - ```rust
-    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
-    ```
-
-  - ```rust
-    unsafe fn drop(ptr: usize) { /* ... */ }
-    ```
-
-- **Read**
 - **RefUnwindSafe**
 - **Same**
 - **Send**
@@ -6388,7 +5883,7 @@ pub struct Tensor {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
     ```
 
 - **TryInto**
@@ -6399,14 +5894,6 @@ pub struct Tensor {
 - **Unpin**
 - **UnsafeUnpin**
 - **UnwindSafe**
-- **Upcast**
-  - ```rust
-    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
-    ```
-
-- **WasmNotSend**
-- **WasmNotSendSync**
-- **WasmNotSync**
 #### Struct `TorchArchive`
 
 A parsed `torch.save` archive: every named tensor it contains, in the order
@@ -6485,10 +5972,9 @@ pub struct TorchArchive {
     fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
     ```
 
-- **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Self { /* ... */ }
+    fn clone(self: &Self) -> TorchArchive { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -6499,11 +5985,6 @@ pub struct TorchArchive {
 - **Debug**
   - ```rust
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
-    ```
-
-- **Downcast**
-  - ```rust
-    fn downcast(self: &Self) -> &T { /* ... */ }
     ```
 
 - **Freeze**
@@ -6519,30 +6000,11 @@ pub struct TorchArchive {
     ```
     Calls `U::from(self)`.
 
-- **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &TorchArchive) -> bool { /* ... */ }
     ```
 
-- **Pointable**
-  - ```rust
-    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
-    ```
-
-  - ```rust
-    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
-    ```
-
-  - ```rust
-    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
-    ```
-
-  - ```rust
-    unsafe fn drop(ptr: usize) { /* ... */ }
-    ```
-
-- **Read**
 - **RefUnwindSafe**
 - **Same**
 - **Send**
@@ -6559,7 +6021,7 @@ pub struct TorchArchive {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
     ```
 
 - **TryInto**
@@ -6570,14 +6032,6 @@ pub struct TorchArchive {
 - **Unpin**
 - **UnsafeUnpin**
 - **UnwindSafe**
-- **Upcast**
-  - ```rust
-    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
-    ```
-
-- **WasmNotSend**
-- **WasmNotSendSync**
-- **WasmNotSync**
 ## Module `graph`
 
 Graph topology: the mesh or particle connectivity a message-passing network
@@ -6727,10 +6181,9 @@ pub struct Graph {
     fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
     ```
 
-- **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Self { /* ... */ }
+    fn clone(self: &Self) -> Graph { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -6743,21 +6196,7 @@ pub struct Graph {
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
     ```
 
-- **Downcast**
-  - ```rust
-    fn downcast(self: &Self) -> &T { /* ... */ }
-    ```
-
 - **Eq**
-- **Equivalent**
-  - ```rust
-    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
-    ```
-
-  - ```rust
-    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
-    ```
-
 - **Freeze**
 - **From**
   - ```rust
@@ -6771,30 +6210,11 @@ pub struct Graph {
     ```
     Calls `U::from(self)`.
 
-- **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Graph) -> bool { /* ... */ }
     ```
 
-- **Pointable**
-  - ```rust
-    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
-    ```
-
-  - ```rust
-    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
-    ```
-
-  - ```rust
-    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
-    ```
-
-  - ```rust
-    unsafe fn drop(ptr: usize) { /* ... */ }
-    ```
-
-- **Read**
 - **RefUnwindSafe**
 - **Same**
 - **Send**
@@ -6811,7 +6231,7 @@ pub struct Graph {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
     ```
 
 - **TryInto**
@@ -6822,94 +6242,6 @@ pub struct Graph {
 - **Unpin**
 - **UnsafeUnpin**
 - **UnwindSafe**
-- **Upcast**
-  - ```rust
-    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
-    ```
-
-- **WasmNotSend**
-- **WasmNotSendSync**
-- **WasmNotSync**
-## Module `mc_geometry`
-
-Building a message-passing graph from a Monte Carlo CSG geometry.
-
-# Where this lives, and why
-
-In `raffles`, not in `outram-mc-libs`. RAFFLES already depends on
-`outram-mc-libs` for its random-number generator, so an adapter in the other
-direction would make the two crates mutually dependent and neither would
-compile. The DEM bridge went the other way — it lives in
-`outram-park-fork-liggghts`, which nothing here depends on — and the
-asymmetry is the dependency graph's, not a design preference.
-
-# The graph
-
-Nodes are **cells**; two cells are joined when they share a surface with
-**opposite senses** — one on the inside, the other on the outside. That is
-the standard cheap construction of a CSG adjacency graph, and it is what a
-particle's possible next cell looks like from the current one.
-
-## What it gets wrong, stated plainly
-
-This is a **superset** of true geometric adjacency, in two ways:
-
-- Two cells can reference the same surface with opposite senses and still
-  not touch, because some *other* surface in one of their region
-  expressions separates them. The graph will join them anyway.
-- A cell defined by a union can have disconnected pieces, and this treats it
-  as one node.
-
-It is never a *subset*: two genuinely adjacent cells always share a surface
-with opposite senses, so no real adjacency is missed. That direction is the
-one that matters for a reach bound — an over-connected graph gives a
-diameter that is too small, and therefore a bound that is too *low*, which
-is the unsafe direction. **Treat a diameter computed from this graph as a
-lower bound on the true one**, and say so in anything reported from it.
-
-Exact adjacency needs surface-surface intersection tests against the full
-region expressions, which is a real geometry kernel and is not what this
-module is.
-
-# What it is for
-
-Two uses, both from the literature on learned variance reduction:
-
-- **Importance and weight-window maps.** These are currently produced by a
-  deterministic adjoint solve or by iterating Monte Carlo. A network over
-  the cell graph is a candidate, and the cell graph is small and static so
-  the training cost is dominated by generating targets, not by the graph.
-- **Cell-wise response surrogates** — a predicted reaction rate or leakage
-  per cell.
-
-One caution worth stating up front: a Monte Carlo target carries a
-statistical uncertainty, and a surrogate fitted to noisy targets inherits it
-without reporting it. Any such surrogate needs its own uncertainty story
-before it goes anywhere near a k-eff.
-
-```rust
-pub mod mc_geometry { /* ... */ }
-```
-
-### Functions
-
-#### Function `cell_adjacency_graph`
-
-Builds the cell-adjacency graph of a CSG geometry.
-
-Two cells are joined when one references a surface on its inside and the
-other references the same surface on its outside. See the module
-documentation for exactly how this over-approximates true adjacency, and
-why that direction is the unsafe one for a reach bound.
-
-# Errors
-
-[`RafflesError::InvalidParameter`] if `cells` is empty.
-
-```rust
-pub fn cell_adjacency_graph(cells: &[outram_mc_libs::geometry::cell::Cell]) -> crate::Result<super::graph::Graph> { /* ... */ }
-```
-
 ### Re-exports
 
 #### Re-export `physics_guided_lower_bound`
@@ -6940,12 +6272,6 @@ pub use dataset::TorchArchive;
 
 ```rust
 pub use graph::Graph;
-```
-
-#### Re-export `cell_adjacency_graph`
-
-```rust
-pub use mc_geometry::cell_adjacency_graph;
 ```
 
 ## Module `imprecise`
@@ -7141,10 +6467,9 @@ pub struct Interval {
     fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
     ```
 
-- **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Self { /* ... */ }
+    fn clone(self: &Self) -> Interval { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -7156,11 +6481,6 @@ pub struct Interval {
 - **Debug**
   - ```rust
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
-    ```
-
-- **Downcast**
-  - ```rust
-    fn downcast(self: &Self) -> &T { /* ... */ }
     ```
 
 - **Freeze**
@@ -7176,30 +6496,11 @@ pub struct Interval {
     ```
     Calls `U::from(self)`.
 
-- **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Interval) -> bool { /* ... */ }
     ```
 
-- **Pointable**
-  - ```rust
-    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
-    ```
-
-  - ```rust
-    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
-    ```
-
-  - ```rust
-    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
-    ```
-
-  - ```rust
-    unsafe fn drop(ptr: usize) { /* ... */ }
-    ```
-
-- **Read**
 - **RefUnwindSafe**
 - **Same**
 - **Send**
@@ -7216,7 +6517,7 @@ pub struct Interval {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
     ```
 
 - **TryInto**
@@ -7227,14 +6528,6 @@ pub struct Interval {
 - **Unpin**
 - **UnsafeUnpin**
 - **UnwindSafe**
-- **Upcast**
-  - ```rust
-    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
-    ```
-
-- **WasmNotSend**
-- **WasmNotSendSync**
-- **WasmNotSync**
 #### Enum `EventDependence`
 
 How component failure events depend on one another.
@@ -7293,10 +6586,9 @@ variant is declining to.
     fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
     ```
 
-- **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Self { /* ... */ }
+    fn clone(self: &Self) -> EventDependence { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -7310,21 +6602,7 @@ variant is declining to.
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
     ```
 
-- **Downcast**
-  - ```rust
-    fn downcast(self: &Self) -> &T { /* ... */ }
-    ```
-
 - **Eq**
-- **Equivalent**
-  - ```rust
-    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
-    ```
-
-  - ```rust
-    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
-    ```
-
 - **Freeze**
 - **From**
   - ```rust
@@ -7338,30 +6616,11 @@ variant is declining to.
     ```
     Calls `U::from(self)`.
 
-- **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &EventDependence) -> bool { /* ... */ }
     ```
 
-- **Pointable**
-  - ```rust
-    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
-    ```
-
-  - ```rust
-    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
-    ```
-
-  - ```rust
-    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
-    ```
-
-  - ```rust
-    unsafe fn drop(ptr: usize) { /* ... */ }
-    ```
-
-- **Read**
 - **RefUnwindSafe**
 - **Same**
 - **Send**
@@ -7378,7 +6637,7 @@ variant is declining to.
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
     ```
 
 - **TryInto**
@@ -7389,14 +6648,6 @@ variant is declining to.
 - **Unpin**
 - **UnsafeUnpin**
 - **UnwindSafe**
-- **Upcast**
-  - ```rust
-    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
-    ```
-
-- **WasmNotSend**
-- **WasmNotSendSync**
-- **WasmNotSync**
 #### Enum `SystemStructure`
 
 The reliability structure of a coherent system.
@@ -7470,10 +6721,9 @@ Fields:
     fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
     ```
 
-- **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Self { /* ... */ }
+    fn clone(self: &Self) -> SystemStructure { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -7487,21 +6737,7 @@ Fields:
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
     ```
 
-- **Downcast**
-  - ```rust
-    fn downcast(self: &Self) -> &T { /* ... */ }
-    ```
-
 - **Eq**
-- **Equivalent**
-  - ```rust
-    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
-    ```
-
-  - ```rust
-    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
-    ```
-
 - **Freeze**
 - **From**
   - ```rust
@@ -7515,30 +6751,11 @@ Fields:
     ```
     Calls `U::from(self)`.
 
-- **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &SystemStructure) -> bool { /* ... */ }
     ```
 
-- **Pointable**
-  - ```rust
-    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
-    ```
-
-  - ```rust
-    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
-    ```
-
-  - ```rust
-    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
-    ```
-
-  - ```rust
-    unsafe fn drop(ptr: usize) { /* ... */ }
-    ```
-
-- **Read**
 - **RefUnwindSafe**
 - **Same**
 - **Send**
@@ -7555,7 +6772,7 @@ Fields:
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
     ```
 
 - **TryInto**
@@ -7566,14 +6783,6 @@ Fields:
 - **Unpin**
 - **UnsafeUnpin**
 - **UnwindSafe**
-- **Upcast**
-  - ```rust
-    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
-    ```
-
-- **WasmNotSend**
-- **WasmNotSendSync**
-- **WasmNotSync**
 #### Struct `Pbox`
 
 A probability box: a pair of CDFs that bracket an unknown distribution.
@@ -7694,10 +6903,9 @@ where
     fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
     ```
 
-- **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Self { /* ... */ }
+    fn clone(self: &Self) -> Pbox { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -7708,11 +6916,6 @@ where
 - **Debug**
   - ```rust
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
-    ```
-
-- **Downcast**
-  - ```rust
-    fn downcast(self: &Self) -> &T { /* ... */ }
     ```
 
 - **Freeze**
@@ -7728,30 +6931,11 @@ where
     ```
     Calls `U::from(self)`.
 
-- **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Pbox) -> bool { /* ... */ }
     ```
 
-- **Pointable**
-  - ```rust
-    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
-    ```
-
-  - ```rust
-    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
-    ```
-
-  - ```rust
-    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
-    ```
-
-  - ```rust
-    unsafe fn drop(ptr: usize) { /* ... */ }
-    ```
-
-- **Read**
 - **RefUnwindSafe**
 - **Same**
 - **Send**
@@ -7768,7 +6952,7 @@ where
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
     ```
 
 - **TryInto**
@@ -7779,14 +6963,6 @@ where
 - **Unpin**
 - **UnsafeUnpin**
 - **UnwindSafe**
-- **Upcast**
-  - ```rust
-    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
-    ```
-
-- **WasmNotSend**
-- **WasmNotSendSync**
-- **WasmNotSync**
 ### Functions
 
 #### Function `cbox_binomial`
@@ -7958,20 +7134,14 @@ pub enum EvidenceStrength {
     fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
     ```
 
-- **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Self { /* ... */ }
+    fn clone(self: &Self) -> EvidenceStrength { /* ... */ }
     ```
 
 - **CloneToUninit**
   - ```rust
     unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
-    ```
-
-- **Comparable**
-  - ```rust
-    fn compare(self: &Self, key: &K) -> Ordering { /* ... */ }
     ```
 
 - **Copy**
@@ -7980,21 +7150,7 @@ pub enum EvidenceStrength {
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
     ```
 
-- **Downcast**
-  - ```rust
-    fn downcast(self: &Self) -> &T { /* ... */ }
-    ```
-
 - **Eq**
-- **Equivalent**
-  - ```rust
-    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
-    ```
-
-  - ```rust
-    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
-    ```
-
 - **Freeze**
 - **From**
   - ```rust
@@ -8008,40 +7164,21 @@ pub enum EvidenceStrength {
     ```
     Calls `U::from(self)`.
 
-- **IntoEither**
 - **Ord**
   - ```rust
-    fn cmp(self: &Self, other: &Self) -> $crate::cmp::Ordering { /* ... */ }
+    fn cmp(self: &Self, other: &EvidenceStrength) -> $crate::cmp::Ordering { /* ... */ }
     ```
 
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &EvidenceStrength) -> bool { /* ... */ }
     ```
 
 - **PartialOrd**
   - ```rust
-    fn partial_cmp(self: &Self, other: &Self) -> $crate::option::Option<$crate::cmp::Ordering> { /* ... */ }
+    fn partial_cmp(self: &Self, other: &EvidenceStrength) -> $crate::option::Option<$crate::cmp::Ordering> { /* ... */ }
     ```
 
-- **Pointable**
-  - ```rust
-    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
-    ```
-
-  - ```rust
-    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
-    ```
-
-  - ```rust
-    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
-    ```
-
-  - ```rust
-    unsafe fn drop(ptr: usize) { /* ... */ }
-    ```
-
-- **Read**
 - **RefUnwindSafe**
 - **Same**
 - **Send**
@@ -8058,7 +7195,7 @@ pub enum EvidenceStrength {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
     ```
 
 - **TryInto**
@@ -8069,14 +7206,6 @@ pub enum EvidenceStrength {
 - **Unpin**
 - **UnsafeUnpin**
 - **UnwindSafe**
-- **Upcast**
-  - ```rust
-    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
-    ```
-
-- **WasmNotSend**
-- **WasmNotSendSync**
-- **WasmNotSync**
 #### Struct `ModelEvidence`
 
 One candidate model in a comparison: a name and its log-evidence.
@@ -8121,10 +7250,9 @@ pub struct ModelEvidence {
     fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
     ```
 
-- **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Self { /* ... */ }
+    fn clone(self: &Self) -> ModelEvidence { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -8135,11 +7263,6 @@ pub struct ModelEvidence {
 - **Debug**
   - ```rust
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
-    ```
-
-- **Downcast**
-  - ```rust
-    fn downcast(self: &Self) -> &T { /* ... */ }
     ```
 
 - **Freeze**
@@ -8155,30 +7278,11 @@ pub struct ModelEvidence {
     ```
     Calls `U::from(self)`.
 
-- **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &ModelEvidence) -> bool { /* ... */ }
     ```
 
-- **Pointable**
-  - ```rust
-    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
-    ```
-
-  - ```rust
-    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
-    ```
-
-  - ```rust
-    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
-    ```
-
-  - ```rust
-    unsafe fn drop(ptr: usize) { /* ... */ }
-    ```
-
-- **Read**
 - **RefUnwindSafe**
 - **Same**
 - **Send**
@@ -8195,7 +7299,7 @@ pub struct ModelEvidence {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
     ```
 
 - **TryInto**
@@ -8206,14 +7310,6 @@ pub struct ModelEvidence {
 - **Unpin**
 - **UnsafeUnpin**
 - **UnwindSafe**
-- **Upcast**
-  - ```rust
-    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
-    ```
-
-- **WasmNotSend**
-- **WasmNotSendSync**
-- **WasmNotSync**
 #### Struct `ModelComparison`
 
 A ranked comparison of several models.
@@ -8267,10 +7363,9 @@ pub struct ModelComparison {
     fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
     ```
 
-- **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Self { /* ... */ }
+    fn clone(self: &Self) -> ModelComparison { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -8281,11 +7376,6 @@ pub struct ModelComparison {
 - **Debug**
   - ```rust
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
-    ```
-
-- **Downcast**
-  - ```rust
-    fn downcast(self: &Self) -> &T { /* ... */ }
     ```
 
 - **Freeze**
@@ -8301,30 +7391,11 @@ pub struct ModelComparison {
     ```
     Calls `U::from(self)`.
 
-- **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &ModelComparison) -> bool { /* ... */ }
     ```
 
-- **Pointable**
-  - ```rust
-    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
-    ```
-
-  - ```rust
-    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
-    ```
-
-  - ```rust
-    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
-    ```
-
-  - ```rust
-    unsafe fn drop(ptr: usize) { /* ... */ }
-    ```
-
-- **Read**
 - **RefUnwindSafe**
 - **Same**
 - **Send**
@@ -8341,7 +7412,7 @@ pub struct ModelComparison {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
     ```
 
 - **TryInto**
@@ -8352,14 +7423,6 @@ pub struct ModelComparison {
 - **Unpin**
 - **UnsafeUnpin**
 - **UnwindSafe**
-- **Upcast**
-  - ```rust
-    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
-    ```
-
-- **WasmNotSend**
-- **WasmNotSendSync**
-- **WasmNotSync**
 ### Functions
 
 #### Function `ln_bayes_factor`
@@ -8512,8 +7575,14 @@ Three different things share the name and none of them is in this module:
 # The RNG — reused, not reinvented
 
 **RAFFLES ships no generator of its own.** Sampling draws from
-`outram_mc_libs::rng::lcg`, the workspace's port of OpenMC's 64-bit linear
-congruential generator (`src/random_lcg.cpp`). Three reasons it is the right
+`petir::rng::lcg`, the workspace's port of OpenMC's 64-bit linear
+congruential generator (`src/random_lcg.cpp`). ~~It is reached through
+`outram_mc_libs::rng::lcg`.~~ **CORRECTED 2026-10-02**: the generator moved
+from `outram-mc-libs` into `petir` (the workspace's `no_std` numerics
+crate), unchanged bit for bit, and RAFFLES now depends on `petir` instead
+of on the transport crate. That edge had to go: with `outram-mc-libs` taking
+on `outram-park-fork-liggghts` for DEM pebble beds, it closed the cycle
+`outram-mc-libs -> liggghts -> raffles -> outram-mc-libs`. Three reasons it is the right
 choice here rather than a fresh PRNG or a new `rand` dependency:
 
 - **One generator per workspace.** `docs/raven-port-scoping.md` (section 10,
@@ -8525,14 +7594,14 @@ choice here rather than a fresh PRNG or a new `rand` dependency:
   given a starting seed a full stride away from its neighbours' — the
   streams provably do not overlap. That is OpenMC's reproducible-parallel
   Monte Carlo design, and it is what makes the dimensions of a design
-  statistically independent. It is also already tested upstream in
-  `outram-mc-libs`.
-- **Android-clean.** `outram-mc-libs` target-gates its wgpu/GPU paths off
-  Android, so `cargo check -p raffles --all-targets --target
-  aarch64-linux-android` stays clean. RAFFLES follows the same gating
-  convention if it ever needs something Android-hostile.
+  statistically independent. It is also already tested where it lives, in
+  `petir::rng::lcg` (formerly `outram-mc-libs`).
+- **Android-clean.** `petir` is `no_std` with no GPU dependency in its
+  default build, so `cargo check -p raffles --all-targets --target
+  aarch64-linux-android` stays clean. RAFFLES follows `outram-mc-libs`'
+  gating convention if it ever needs something Android-hostile.
 
-`outram_mc_libs::rng::lcg::init_seed` is deliberately **not** used — see
+`petir::rng::lcg::init_seed` is deliberately **not** used — see
 [`stream_seed`] for why, and for what this module does instead.
 
 # Reproducibility
@@ -8641,10 +7710,9 @@ pub struct MonteCarlo {
     fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
     ```
 
-- **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Self { /* ... */ }
+    fn clone(self: &Self) -> MonteCarlo { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -8657,21 +7725,7 @@ pub struct MonteCarlo {
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
     ```
 
-- **Downcast**
-  - ```rust
-    fn downcast(self: &Self) -> &T { /* ... */ }
-    ```
-
 - **Eq**
-- **Equivalent**
-  - ```rust
-    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
-    ```
-
-  - ```rust
-    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
-    ```
-
 - **Freeze**
 - **From**
   - ```rust
@@ -8685,30 +7739,11 @@ pub struct MonteCarlo {
     ```
     Calls `U::from(self)`.
 
-- **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &MonteCarlo) -> bool { /* ... */ }
     ```
 
-- **Pointable**
-  - ```rust
-    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
-    ```
-
-  - ```rust
-    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
-    ```
-
-  - ```rust
-    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
-    ```
-
-  - ```rust
-    unsafe fn drop(ptr: usize) { /* ... */ }
-    ```
-
-- **Read**
 - **RefUnwindSafe**
 - **Same**
 - **SamplingDesign**
@@ -8738,7 +7773,7 @@ pub struct MonteCarlo {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
     ```
 
 - **TryInto**
@@ -8749,14 +7784,6 @@ pub struct MonteCarlo {
 - **Unpin**
 - **UnsafeUnpin**
 - **UnwindSafe**
-- **Upcast**
-  - ```rust
-    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
-    ```
-
-- **WasmNotSend**
-- **WasmNotSendSync**
-- **WasmNotSync**
 #### Struct `LatinHypercube`
 
 Latin hypercube sampling — **RAVEN calls this `Stratified`**.
@@ -8847,10 +7874,9 @@ pub struct LatinHypercube {
     fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
     ```
 
-- **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Self { /* ... */ }
+    fn clone(self: &Self) -> LatinHypercube { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -8863,21 +7889,7 @@ pub struct LatinHypercube {
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
     ```
 
-- **Downcast**
-  - ```rust
-    fn downcast(self: &Self) -> &T { /* ... */ }
-    ```
-
 - **Eq**
-- **Equivalent**
-  - ```rust
-    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
-    ```
-
-  - ```rust
-    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
-    ```
-
 - **Freeze**
 - **From**
   - ```rust
@@ -8891,30 +7903,11 @@ pub struct LatinHypercube {
     ```
     Calls `U::from(self)`.
 
-- **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &LatinHypercube) -> bool { /* ... */ }
     ```
 
-- **Pointable**
-  - ```rust
-    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
-    ```
-
-  - ```rust
-    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
-    ```
-
-  - ```rust
-    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
-    ```
-
-  - ```rust
-    unsafe fn drop(ptr: usize) { /* ... */ }
-    ```
-
-- **Read**
 - **RefUnwindSafe**
 - **Same**
 - **SamplingDesign**
@@ -8944,7 +7937,7 @@ pub struct LatinHypercube {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
     ```
 
 - **TryInto**
@@ -8955,14 +7948,6 @@ pub struct LatinHypercube {
 - **Unpin**
 - **UnsafeUnpin**
 - **UnwindSafe**
-- **Upcast**
-  - ```rust
-    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
-    ```
-
-- **WasmNotSend**
-- **WasmNotSendSync**
-- **WasmNotSync**
 #### Struct `GridSampler`
 
 Full-factorial sampling on a tensor product of per-dimension CDF levels.
@@ -9061,10 +8046,9 @@ pub struct GridSampler {
     fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
     ```
 
-- **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Self { /* ... */ }
+    fn clone(self: &Self) -> GridSampler { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -9075,11 +8059,6 @@ pub struct GridSampler {
 - **Debug**
   - ```rust
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
-    ```
-
-- **Downcast**
-  - ```rust
-    fn downcast(self: &Self) -> &T { /* ... */ }
     ```
 
 - **Freeze**
@@ -9095,30 +8074,11 @@ pub struct GridSampler {
     ```
     Calls `U::from(self)`.
 
-- **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &GridSampler) -> bool { /* ... */ }
     ```
 
-- **Pointable**
-  - ```rust
-    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
-    ```
-
-  - ```rust
-    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
-    ```
-
-  - ```rust
-    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
-    ```
-
-  - ```rust
-    unsafe fn drop(ptr: usize) { /* ... */ }
-    ```
-
-- **Read**
 - **RefUnwindSafe**
 - **Same**
 - **SamplingDesign**
@@ -9148,7 +8108,7 @@ pub struct GridSampler {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
     ```
 
 - **TryInto**
@@ -9159,14 +8119,6 @@ pub struct GridSampler {
 - **Unpin**
 - **UnsafeUnpin**
 - **UnwindSafe**
-- **Upcast**
-  - ```rust
-    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
-    ```
-
-- **WasmNotSend**
-- **WasmNotSendSync**
-- **WasmNotSync**
 #### Enum `Sampler`
 
 A design-of-experiments strategy over a set of uncertain inputs.
@@ -9274,10 +8226,9 @@ Fields:
     fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
     ```
 
-- **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Self { /* ... */ }
+    fn clone(self: &Self) -> Sampler { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -9288,11 +8239,6 @@ Fields:
 - **Debug**
   - ```rust
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
-    ```
-
-- **Downcast**
-  - ```rust
-    fn downcast(self: &Self) -> &T { /* ... */ }
     ```
 
 - **Freeze**
@@ -9308,30 +8254,11 @@ Fields:
     ```
     Calls `U::from(self)`.
 
-- **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Sampler) -> bool { /* ... */ }
     ```
 
-- **Pointable**
-  - ```rust
-    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
-    ```
-
-  - ```rust
-    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
-    ```
-
-  - ```rust
-    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
-    ```
-
-  - ```rust
-    unsafe fn drop(ptr: usize) { /* ... */ }
-    ```
-
-- **Read**
 - **RefUnwindSafe**
 - **Same**
 - **Send**
@@ -9348,7 +8275,7 @@ Fields:
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
     ```
 
 - **TryInto**
@@ -9359,14 +8286,6 @@ Fields:
 - **Unpin**
 - **UnsafeUnpin**
 - **UnwindSafe**
-- **Upcast**
-  - ```rust
-    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
-    ```
-
-- **WasmNotSend**
-- **WasmNotSendSync**
-- **WasmNotSync**
 ### Traits
 
 #### Trait `SamplingDesign`
@@ -9422,18 +8341,20 @@ design needs more draws than that.
 `master_seed` may be any `i64` and `stream` any index; there are no bad
 values.
 
-# Why not `outram_mc_libs::rng::lcg::init_seed`
+# Why not `petir::rng::lcg::init_seed`
 
-That helper computes `future_seed(id + offset, future_seed(DEFAULT_STRIDE,
+~~That helper computes `future_seed(id + offset, future_seed(DEFAULT_STRIDE,
 master))`, i.e. consecutive `id`s land **one LCG step apart**, not one
-stride apart. OpenMC's own `init_seed` (`src/random_lcg.cpp:60`) is
-`future_seed(id * prn_stride, master_seed + offset)`. Using the workspace
-helper for per-dimension streams would therefore make dimension `j+1`'s
-draws a one-step shift of dimension `j`'s — near-perfectly correlated
-dimensions, and a silently wrong design. This function calls `future_seed`
-directly with OpenMC's `id * stride` semantics instead. The discrepancy is
-in `outram-mc-libs`, not here, and is reported rather than patched from this
-crate.
+stride apart. [...] The discrepancy is in `outram-mc-libs`, not here, and is
+reported rather than patched from this crate.~~ **CORRECTED 2026-10-02** —
+stale since `op-rbo` (2026-08-06): `init_seed` now computes
+`future_seed(id * DEFAULT_STRIDE, master_seed + offset)` with wrapping
+arithmetic, exactly OpenMC's `src/random_lcg.cpp:60`, so it too gives
+non-overlapping streams (checked by reading `petir::rng::lcg::init_seed`
+and its test `init_seed_consecutive_ids_are_one_full_stride_apart`). This
+function still calls `future_seed` directly, now as a preference rather
+than a workaround: it lets a design widen the stride past
+`DEFAULT_STRIDE`, which `init_seed` pins.
 
 # Example
 
@@ -9507,12 +8428,39 @@ complemented literals. Measured on the fixture's small non-coherent model:
 cut sets sum to `0.80`, prime implicants to `0.54`, and the truth is
 `0.5032`.
 
-**What is still absent:** everything SCRAM does around this core — XML
-input models, event trees, alignments, common-cause-failure groups,
-substitutions and the expression library — plus, in the analysis itself,
-the preprocessor
-(upstream's `--prime-implicants`, which is what recovers the exact function
-a non-coherent tree describes).
+**Reading SCRAM's own input models.** [`mef`] takes a Model Exchange
+Format document to a [`fault_tree::FaultTreeModel`], evaluating the
+basic-event expressions through [`expression`] on the way. It handles
+`<define-component>`'s private namespaces, `<xi:include>`, and all eleven
+MEF connectives, and it **refuses** rather than skips anything it does not
+read.
+
+**Common-cause failure groups are applied by default.** A model that
+declares one has said its components are coupled, and [`ccf`] rewrites the
+tree accordingly — each member becomes a proxy gate over the shared-failure
+events it belongs to. Upstream does this only under `scram --ccf`;
+[`mef::MefModel::without_ccf`] is the explicit ablation, and both paths are
+verified against the corresponding SCRAM run. On
+`TwoTrain/common_cause` the difference is `0.0622587` against `0.0361` —
+ignoring a declared group is not a small approximation.
+
+~~**What is still absent:** everything SCRAM does around this core — XML
+input models, … and the expression library~~ **CORRECTED 2026-09-22** —
+both landed, and on 2026-09-22 so did the seven random deviates and the
+four common-cause-failure models ([`ccf`]) and the substitutions
+([`substitution`]), and sampling with the uncertainty analysis over it
+([`uncertainty`]) and the alignments ([`alignment`]). What is still
+absent: event trees, the
+reporter, and — in the analysis itself — the preprocessor, whose absence is
+a cost in diagram size rather than in answers.
+
+**Uncertainty analysis.** [`uncertainty::analyse`] runs upstream's Monte
+Carlo: draw every random deviate afresh each trial, quantify, and report
+the distribution of the answers. Because the random stream differs from
+upstream's, its verification is statistical rather than exact — the one
+place in this module where that is so, and `scram_uncertainty` states the
+confidence and checks the samplers a second way, against closed-form
+moments.
 
 ## Where this sits relative to the rest of the crate
 
@@ -9542,6 +8490,250 @@ pub mod scram { /* ... */ }
 
 ### Modules
 
+## Module `alignment`
+
+Alignments — the same model analysed in several operating configurations.
+
+A plant is not in one state all year. It runs normally most of the time,
+with one pump out for maintenance some of it, and the risk is different in
+each. An **alignment** names those configurations, gives each a fraction of
+the mission time, and says which house events are set in it.
+
+# What a phase changes
+
+Two things, and upstream's `RiskAnalysis::RunAnalysis` does both before
+running the whole analysis again:
+
+1. the **mission time** becomes `time_fraction x mission_time`, so every
+   `<exponential>` and `<periodic-test>` is evaluated over that phase's
+   duration;
+2. the phase's `<set-house-event>` instructions flip the named house
+   events, which prunes whole branches of the tree.
+
+There is **no single answer** for a model with an alignment: upstream
+produces one result set per phase, tagged with the alignment and phase
+names, and so does this. [`super::mef::MefModel::in_phase`] returns the
+model as it stands in one phase; the caller loops.
+
+The fractions must sum to 1 — upstream checks it to `1e-4` — so a caller
+wanting a single number can combine the per-phase results by those
+fractions. That combination is the analyst's to make, and neither upstream
+nor this port makes it for them.
+
+```rust
+pub mod alignment { /* ... */ }
+```
+
+### Types
+
+#### Struct `Phase`
+
+One operating configuration within an [`Alignment`].
+
+```rust
+pub struct Phase {
+    pub name: String,
+    pub time_fraction: f64,
+    pub set_house_events: Vec<(String, bool)>,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `name` | `String` | Its name, as the report tags the phase's results. |
+| `time_fraction` | `f64` | The fraction of the mission time spent in it, in `(0, 1]`. |
+| `set_house_events` | `Vec<(String, bool)>` | `<set-house-event>` instructions: `(house-event id, state)`. |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Phase { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Phase) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Struct `Alignment`
+
+A set of phases covering the whole mission time.
+
+```rust
+pub struct Alignment {
+    pub name: String,
+    pub phases: Vec<Phase>,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `name` | `String` | Its id. |
+| `phases` | `Vec<Phase>` | Its phases, in declaration order. |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn validate(self: &Self) -> Result<()> { /* ... */ }
+  ```
+  Upstream's `Phase::Phase` domain check and `Alignment::Validate`.
+
+- ```rust
+  pub fn phase(self: &Self, name: &str) -> Option<&Phase> { /* ... */ }
+  ```
+  The phase of that name.
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Alignment { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Alignment) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
 ## Module `bdd`
 
 Binary decision diagrams — the **exact** top-event probability, at any
@@ -9648,10 +8840,9 @@ pub struct Ite {
     fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
     ```
 
-- **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Self { /* ... */ }
+    fn clone(self: &Self) -> Ite { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -9665,21 +8856,7 @@ pub struct Ite {
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
     ```
 
-- **Downcast**
-  - ```rust
-    fn downcast(self: &Self) -> &T { /* ... */ }
-    ```
-
 - **Eq**
-- **Equivalent**
-  - ```rust
-    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
-    ```
-
-  - ```rust
-    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
-    ```
-
 - **Freeze**
 - **From**
   - ```rust
@@ -9698,30 +8875,11 @@ pub struct Ite {
     ```
     Calls `U::from(self)`.
 
-- **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Ite) -> bool { /* ... */ }
     ```
 
-- **Pointable**
-  - ```rust
-    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
-    ```
-
-  - ```rust
-    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
-    ```
-
-  - ```rust
-    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
-    ```
-
-  - ```rust
-    unsafe fn drop(ptr: usize) { /* ... */ }
-    ```
-
-- **Read**
 - **RefUnwindSafe**
 - **Same**
 - **Send**
@@ -9738,7 +8896,7 @@ pub struct Ite {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
     ```
 
 - **TryInto**
@@ -9749,14 +8907,6 @@ pub struct Ite {
 - **Unpin**
 - **UnsafeUnpin**
 - **UnwindSafe**
-- **Upcast**
-  - ```rust
-    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
-    ```
-
-- **WasmNotSend**
-- **WasmNotSendSync**
-- **WasmNotSync**
 #### Struct `Bdd`
 
 A reduced, ordered binary decision diagram of a fault tree's Boolean
@@ -9849,10 +8999,9 @@ pub struct Bdd {
     fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
     ```
 
-- **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Self { /* ... */ }
+    fn clone(self: &Self) -> Bdd { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -9863,11 +9012,6 @@ pub struct Bdd {
 - **Debug**
   - ```rust
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
-    ```
-
-- **Downcast**
-  - ```rust
-    fn downcast(self: &Self) -> &T { /* ... */ }
     ```
 
 - **Freeze**
@@ -9883,25 +9027,6 @@ pub struct Bdd {
     ```
     Calls `U::from(self)`.
 
-- **IntoEither**
-- **Pointable**
-  - ```rust
-    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
-    ```
-
-  - ```rust
-    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
-    ```
-
-  - ```rust
-    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
-    ```
-
-  - ```rust
-    unsafe fn drop(ptr: usize) { /* ... */ }
-    ```
-
-- **Read**
 - **RefUnwindSafe**
 - **Same**
 - **Send**
@@ -9917,7 +9042,7 @@ pub struct Bdd {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
     ```
 
 - **TryInto**
@@ -9928,14 +9053,6 @@ pub struct Bdd {
 - **Unpin**
 - **UnsafeUnpin**
 - **UnwindSafe**
-- **Upcast**
-  - ```rust
-    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
-    ```
-
-- **WasmNotSend**
-- **WasmNotSendSync**
-- **WasmNotSync**
 ### Constants and Statics
 
 #### Constant `ZERO`
@@ -9968,6 +9085,413 @@ disappearing process.
 pub const NODE_LIMIT: usize = 20_000_000;
 ```
 
+## Module `ccf`
+
+Common-cause failure groups.
+
+A fault tree that treats two pumps as independent understates the risk:
+one flood, one maintenance error or one bad batch fails both. A CCF group
+says "these members share a cause", gives the probability of a member
+failing at all, and gives the fractions belonging to each size of
+simultaneous failure.
+
+# What applying a group does to the tree
+
+Upstream's `CcfGroup::ApplyModel` rewrites the tree rather than adjusting
+numbers, and this port does the same:
+
+1. every member basic event becomes a **proxy gate of the same name**;
+2. for each level `k` and each `k`-subset of the members, a new basic
+   event `[A B …]` is created with that level's probability;
+3. each proxy gate becomes an `or` over every CCF event it belongs to.
+
+So a two-member group replaces `PumpOne` with
+`or([PumpOne], [PumpOne PumpTwo])`, and the shared failure appears in the
+cut sets as a single event — which is exactly what makes it show up as an
+order-1 product where the independent model gave order 2.
+
+# Applied by default, ablated explicitly
+
+Upstream applies CCF groups only under `scram --ccf`. **This port applies
+them by default**, following the workspace rule that physics the data
+supplies is applied unless a caller explicitly ablates it: a model that
+declares a CCF group has said its components are coupled, and a run that
+silently ignores that reports a risk it has been told is wrong.
+[`super::mef::MefModel::without_ccf`] is the visible ablation, and both
+paths are verified against the corresponding SCRAM run.
+
+```rust
+pub mod ccf { /* ... */ }
+```
+
+### Types
+
+#### Enum `CcfModel`
+
+Which common-cause model a group uses.
+
+Upstream's four `CcfGroup` subclasses. Each differs in what its factors
+mean and therefore in `CalculateProbabilities`; they share everything
+else.
+
+```rust
+pub enum CcfModel {
+    BetaFactor,
+    Mgl,
+    AlphaFactor,
+    PhiFactor,
+}
+```
+
+##### Variants
+
+###### `BetaFactor`
+
+`beta-factor`: if the common cause occurs, **all** members fail.
+One factor, at the group's own size.
+
+###### `Mgl`
+
+`MGL`, the multiple-Greek-letter model: factor `k` is the fraction of
+failures of `k` or more given that `k - 1` failed. Factors start at
+level 2.
+
+###### `AlphaFactor`
+
+`alpha-factor`: factor `k` is the fraction of failures involving
+exactly `k` members.
+
+###### `PhiFactor`
+
+`phi-factor`: the fractions are given directly, `Q_k = phi_k Q`.
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn as_str(self: Self) -> &'static str { /* ... */ }
+  ```
+  The MEF attribute value.
+
+- ```rust
+  pub fn parse(s: &str) -> Result<Self> { /* ... */ }
+  ```
+  Reads the MEF attribute value.
+
+- ```rust
+  pub fn min_level(self: Self, members: usize) -> usize { /* ... */ }
+  ```
+  Upstream's `min_level()`: the lowest factor level the model takes.
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> CcfModel { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Eq**
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &CcfModel) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Struct `CcfGroup`
+
+A common-cause failure group.
+
+```rust
+pub struct CcfGroup {
+    pub name: String,
+    pub model: CcfModel,
+    pub members: Vec<String>,
+    pub distribution: super::expression::Expression,
+    pub factors: Vec<(usize, super::expression::Expression)>,
+    pub base_path: String,
+    pub private: bool,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `name` | `String` | The group's id, as [`super::mef`] resolves names. |
+| `model` | `CcfModel` | Which model the factors belong to. |
+| `members` | `Vec<String>` | Member basic-event ids, in declaration order. The order decides which<br>subsets are formed and in what order, so it is not incidental. |
+| `distribution` | `super::expression::Expression` | The probability of a member failing at all — upstream's<br>`distribution_`, which also becomes each member's own probability<br>before the model is applied. |
+| `factors` | `Vec<(usize, super::expression::Expression)>` | `(level, factor)`, dense from [`CcfModel::min_level`] upwards. |
+| `base_path` | `String` | The dotted path CCF events are named in, empty at model level. |
+| `private` | `bool` | Whether the group is private, so its CCF events take their full path<br>as their id. |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn validate(self: &Self, parameters: &Parameters, mission_time: f64) -> Result<()> { /* ... */ }
+  ```
+  Upstream's `CcfGroup::Validate`.
+
+- ```rust
+  pub fn probabilities(self: &Self) -> Result<Vec<(usize, Expression)>> { /* ... */ }
+  ```
+  Upstream's `CalculateProbabilities`, one arm per model.
+
+- ```rust
+  pub fn events(self: &Self) -> Result<Vec<CcfEvent>> { /* ... */ }
+  ```
+  The CCF events this group creates, and which members each one couples.
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> CcfGroup { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Struct `CcfEvent`
+
+One generated common-cause basic event.
+
+```rust
+pub struct CcfEvent {
+    pub id: String,
+    pub group: String,
+    pub level: usize,
+    pub members: Vec<String>,
+    pub probability: super::expression::Expression,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `id` | `String` | The id it is registered under — `[A B]`, or the full path if the<br>group is private. |
+| `group` | `String` | The group that created it. |
+| `level` | `usize` | How many members fail together. |
+| `members` | `Vec<String>` | The member ids it couples. |
+| `probability` | `super::expression::Expression` | Its probability. |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> CcfEvent { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+### Functions
+
+#### Function `proxy_arguments`
+
+The proxy-gate arguments a set of CCF events implies: member id -> the
+events that couple it.
+
+Upstream builds this while generating the events; separating it keeps
+[`CcfGroup`] free of the tree types.
+
+```rust
+pub fn proxy_arguments(events: &[CcfEvent]) -> std::collections::HashMap<String, Vec<String>> { /* ... */ }
+```
+
 ## Module `expression`
 
 Expressions — how a basic event's probability is *computed* rather than
@@ -9984,6 +9508,20 @@ every basic event by `<periodic-test>` or `<GLM>`, and its probabilities
 appear nowhere in the input as literals — SCRAM computes them. Reproducing
 those exact values is the verification, and
 `tests/scram_expressions.rs` does it.
+
+# Random deviates
+
+The seven `<*-deviate>` and `<histogram>` elements are here too. Each has
+two faces upstream: `value()` is the distribution's **mean**, which is
+what an ordinary SCRAM run computes and prints, and `DoSample()` draws
+from it, which only the uncertainty analysis calls.
+[`Expression::evaluate`] is the first and [`Expression::sample`] the
+second; [`super::uncertainty`] is what consumes the latter.
+
+Their arrival is also what gives [`Expression::interval`] a purpose: a
+normal deviate with a comfortable mean has a domain reaching six sigma
+below it, and upstream rejects such an argument on the *domain* half of
+its validation even though the value passes.
 
 # Example
 
@@ -10092,6 +9630,35 @@ pub enum Expression {
     Eq(std::sync::Arc<Expression>, std::sync::Arc<Expression>),
     Lt(std::sync::Arc<Expression>, std::sync::Arc<Expression>),
     Gt(std::sync::Arc<Expression>, std::sync::Arc<Expression>),
+    UniformDeviate {
+        min: std::sync::Arc<Expression>,
+        max: std::sync::Arc<Expression>,
+    },
+    NormalDeviate {
+        mean: std::sync::Arc<Expression>,
+        sigma: std::sync::Arc<Expression>,
+    },
+    LognormalDeviate {
+        mean: std::sync::Arc<Expression>,
+        ef: std::sync::Arc<Expression>,
+        level: std::sync::Arc<Expression>,
+    },
+    LognormalDeviateNormal {
+        mu: std::sync::Arc<Expression>,
+        sigma: std::sync::Arc<Expression>,
+    },
+    GammaDeviate {
+        k: std::sync::Arc<Expression>,
+        theta: std::sync::Arc<Expression>,
+    },
+    BetaDeviate {
+        alpha: std::sync::Arc<Expression>,
+        beta: std::sync::Arc<Expression>,
+    },
+    Histogram {
+        boundaries: Vec<Expression>,
+        weights: Vec<Expression>,
+    },
 }
 ```
 
@@ -10469,6 +10036,100 @@ Fields:
 | 0 | `std::sync::Arc<Expression>` |  |
 | 1 | `std::sync::Arc<Expression>` |  |
 
+###### `UniformDeviate`
+
+`<uniform-deviate>`. Upstream `UniformDeviate`.
+
+Its deterministic value is the midpoint, which is the distribution's
+mean.
+
+Fields:
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `min` | `std::sync::Arc<Expression>` | Lower bound. |
+| `max` | `std::sync::Arc<Expression>` | Upper bound. |
+
+###### `NormalDeviate`
+
+`<normal-deviate>`. Upstream `NormalDeviate`.
+
+Fields:
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `mean` | `std::sync::Arc<Expression>` | Mean. |
+| `sigma` | `std::sync::Arc<Expression>` | Standard deviation. |
+
+###### `LognormalDeviate`
+
+The three-argument `<lognormal-deviate>` — upstream's `Logarithmic`
+flavour, parametrised by the distribution's **own** mean and an error
+factor at a confidence level.
+
+`EF = exp(z_level * sigma)`, so `sigma = ln(EF) / z_level`, and
+`mu = ln(mean) - sigma^2 / 2`. This is the flavour `SmallTree` and
+`BSCU` use.
+
+Fields:
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `mean` | `std::sync::Arc<Expression>` | Mean of the log-normal distribution (not of the underlying normal). |
+| `ef` | `std::sync::Arc<Expression>` | Error factor. |
+| `level` | `std::sync::Arc<Expression>` | Confidence level the error factor is quoted at, in `(0, 1)`. |
+
+###### `LognormalDeviateNormal`
+
+The two-argument `<lognormal-deviate>` — upstream's `Normal` flavour,
+parametrised by the **underlying normal's** mean and standard
+deviation.
+
+Fields:
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `mu` | `std::sync::Arc<Expression>` | Location parameter: mean of `ln X`. |
+| `sigma` | `std::sync::Arc<Expression>` | Scale parameter: standard deviation of `ln X`. |
+
+###### `GammaDeviate`
+
+`<gamma-deviate>`. Upstream `GammaDeviate`, shape and **scale**.
+
+Fields:
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `k` | `std::sync::Arc<Expression>` | Shape parameter. |
+| `theta` | `std::sync::Arc<Expression>` | Scale parameter. |
+
+###### `BetaDeviate`
+
+`<beta-deviate>`. Upstream `BetaDeviate`.
+
+Fields:
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `alpha` | `std::sync::Arc<Expression>` | First shape parameter. |
+| `beta` | `std::sync::Arc<Expression>` | Second shape parameter. |
+
+###### `Histogram`
+
+`<histogram>`. Upstream `Histogram`: a piecewise-constant density.
+
+`boundaries` has one more entry than `weights`: the first is the lower
+bound of the first bin, and each later one closes a bin. Upstream keeps
+them in one argument list split at the midpoint; here they are two
+fields, which makes the length invariant representable.
+
+Fields:
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `boundaries` | `Vec<Expression>` | Bin boundaries, strictly increasing, `weights.len() + 1` of them. |
+| `weights` | `Vec<Expression>` | Positive weight of each bin. |
+
 ##### Implementations
 
 ###### Methods
@@ -10518,6 +10179,51 @@ Fields:
   ```
   Upstream's `Validate()`: the domain checks each formula requires.
 
+- ```rust
+  pub fn uniform_deviate(min: Expression, max: Expression) -> Self { /* ... */ }
+  ```
+  `<uniform-deviate>`.
+
+- ```rust
+  pub fn normal_deviate(mean: Expression, sigma: Expression) -> Self { /* ... */ }
+  ```
+  `<normal-deviate>`.
+
+- ```rust
+  pub fn lognormal_deviate(mean: Expression, ef: Expression, level: Expression) -> Self { /* ... */ }
+  ```
+  The three-argument `<lognormal-deviate>`: mean, error factor, level.
+
+- ```rust
+  pub fn lognormal_deviate_normal(mu: Expression, sigma: Expression) -> Self { /* ... */ }
+  ```
+  The two-argument `<lognormal-deviate>`: the underlying normal's
+
+- ```rust
+  pub fn gamma_deviate(k: Expression, theta: Expression) -> Self { /* ... */ }
+  ```
+  `<gamma-deviate>`: shape and scale.
+
+- ```rust
+  pub fn beta_deviate(alpha: Expression, beta: Expression) -> Self { /* ... */ }
+  ```
+  `<beta-deviate>`.
+
+- ```rust
+  pub fn is_deviate(self: &Self) -> bool { /* ... */ }
+  ```
+  Whether the expression's value deviates from its mean — upstream's
+
+- ```rust
+  pub fn interval(self: &Self, parameters: &Parameters, mission_time: f64) -> Result<Interval> { /* ... */ }
+  ```
+  The domain of values this expression can take — upstream's
+
+- ```rust
+  pub fn sample(self: &Self, parameters: &Parameters, mission_time: f64, seed: &mut u64) -> Result<f64> { /* ... */ }
+  ```
+  Draws one value — upstream's `Expression::Sample`.
+
 ###### Trait Implementations
 
 - **Any**
@@ -10535,10 +10241,9 @@ Fields:
     fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
     ```
 
-- **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Self { /* ... */ }
+    fn clone(self: &Self) -> Expression { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -10549,11 +10254,6 @@ Fields:
 - **Debug**
   - ```rust
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
-    ```
-
-- **Downcast**
-  - ```rust
-    fn downcast(self: &Self) -> &T { /* ... */ }
     ```
 
 - **Freeze**
@@ -10569,30 +10269,11 @@ Fields:
     ```
     Calls `U::from(self)`.
 
-- **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Expression) -> bool { /* ... */ }
     ```
 
-- **Pointable**
-  - ```rust
-    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
-    ```
-
-  - ```rust
-    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
-    ```
-
-  - ```rust
-    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
-    ```
-
-  - ```rust
-    unsafe fn drop(ptr: usize) { /* ... */ }
-    ```
-
-- **Read**
 - **RefUnwindSafe**
 - **Same**
 - **Send**
@@ -10609,7 +10290,7 @@ Fields:
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
     ```
 
 - **TryInto**
@@ -10620,14 +10301,194 @@ Fields:
 - **Unpin**
 - **UnsafeUnpin**
 - **UnwindSafe**
-- **Upcast**
+#### Struct `Interval`
+
+A value's domain, for validation only — upstream's `Interval`.
+
+Upstream is `boost::icl::continuous_interval<double>`, and the only
+operations it uses are the four constructors, `lower`/`upper`, `contains`
+and `within`. Those are what this carries; nothing here is a general
+interval-arithmetic type.
+
+**What it is for.** Upstream validates an argument twice: its *value* must
+be in range, and its *sample domain* must be too
+(`EnsureNonNegative`/`EnsurePositive`/`EnsureWithin` in `expression.cc`).
+The second check only bites when a random deviate is involved — a normal
+deviate used as a failure rate has a domain reaching six sigma below its
+mean, and upstream rejects it however comfortable the mean looks.
+
+```rust
+pub struct Interval {
+    // Some fields omitted
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| *private fields* | ... | *Some fields have been omitted* |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn closed(lower: f64, upper: f64) -> Self { /* ... */ }
+  ```
+  `[lower, upper]`.
+
+- ```rust
+  pub fn left_open(lower: f64, upper: f64) -> Self { /* ... */ }
+  ```
+  `(lower, upper]`.
+
+- ```rust
+  pub fn point(value: f64) -> Self { /* ... */ }
+  ```
+  The degenerate interval `[value, value]`, which is upstream's default
+
+- ```rust
+  pub fn lower(self: &Self) -> f64 { /* ... */ }
+  ```
+  The lower bound.
+
+- ```rust
+  pub fn upper(self: &Self) -> f64 { /* ... */ }
+  ```
+  The upper bound.
+
+- ```rust
+  pub fn contains(self: &Self, value: f64) -> bool { /* ... */ }
+  ```
+  Whether `value` lies in the interval — upstream's `Contains`.
+
+- ```rust
+  pub fn within(self: &Self, other: &Interval) -> bool { /* ... */ }
+  ```
+  Whether this interval lies entirely inside `other` — upstream's
+
+- ```rust
+  pub fn is_non_negative(self: &Self) -> bool { /* ... */ }
+  ```
+  Upstream's `IsNonNegative`: **the lower bound alone**, open or not.
+
+- ```rust
+  pub fn is_positive(self: &Self) -> bool { /* ... */ }
+  ```
+  Upstream's `IsPositive`: non-negative and not containing zero.
+
+- ```rust
+  pub fn is_probability(self: &Self) -> bool { /* ... */ }
+  ```
+  Upstream's `IsProbability`: within `[0, 1]`.
+
+###### Trait Implementations
+
+- **Any**
   - ```rust
-    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
     ```
 
-- **WasmNotSend**
-- **WasmNotSendSync**
-- **WasmNotSync**
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Interval { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Display**
+  - ```rust
+    fn fmt(self: &Self, f: &mut std::fmt::Formatter<''_>) -> std::fmt::Result { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Interval) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **ToString**
+  - ```rust
+    fn to_string(self: &Self) -> String { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+### Functions
+
+#### Function `ensure_probability`
+
+Upstream `EnsureProbability` (`src/expression.cc`).
+
+Two checks, not one: the expression's **value** must be a probability, and
+so must its whole [`Interval`]. The second only bites when a random deviate
+is involved, and it is the reason [`Expression::interval`] exists.
+
+# Errors
+
+[`RafflesError::InvalidParameter`] naming which of the two failed.
+
+```rust
+pub fn ensure_probability(expression: &Expression, parameters: &Parameters, mission_time: f64, what: &str) -> crate::Result<()> { /* ... */ }
+```
+
 ### Constants and Statics
 
 #### Constant `DEFAULT_MISSION_TIME`
@@ -10784,10 +10645,9 @@ would change the tree's shape.
     fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
     ```
 
-- **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Self { /* ... */ }
+    fn clone(self: &Self) -> Connective { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -10801,21 +10661,7 @@ would change the tree's shape.
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
     ```
 
-- **Downcast**
-  - ```rust
-    fn downcast(self: &Self) -> &T { /* ... */ }
-    ```
-
 - **Eq**
-- **Equivalent**
-  - ```rust
-    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
-    ```
-
-  - ```rust
-    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
-    ```
-
 - **Freeze**
 - **From**
   - ```rust
@@ -10829,30 +10675,11 @@ would change the tree's shape.
     ```
     Calls `U::from(self)`.
 
-- **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Connective) -> bool { /* ... */ }
     ```
 
-- **Pointable**
-  - ```rust
-    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
-    ```
-
-  - ```rust
-    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
-    ```
-
-  - ```rust
-    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
-    ```
-
-  - ```rust
-    unsafe fn drop(ptr: usize) { /* ... */ }
-    ```
-
-- **Read**
 - **RefUnwindSafe**
 - **Same**
 - **Send**
@@ -10869,7 +10696,7 @@ would change the tree's shape.
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
     ```
 
 - **TryInto**
@@ -10880,14 +10707,6 @@ would change the tree's shape.
 - **Unpin**
 - **UnsafeUnpin**
 - **UnwindSafe**
-- **Upcast**
-  - ```rust
-    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
-    ```
-
-- **WasmNotSend**
-- **WasmNotSendSync**
-- **WasmNotSync**
 #### Enum `Arg`
 
 What feeds a gate: another gate, a basic event, or a constant.
@@ -10963,10 +10782,9 @@ Fields:
     fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
     ```
 
-- **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Self { /* ... */ }
+    fn clone(self: &Self) -> Arg { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -10980,21 +10798,7 @@ Fields:
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
     ```
 
-- **Downcast**
-  - ```rust
-    fn downcast(self: &Self) -> &T { /* ... */ }
-    ```
-
 - **Eq**
-- **Equivalent**
-  - ```rust
-    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
-    ```
-
-  - ```rust
-    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
-    ```
-
 - **Freeze**
 - **From**
   - ```rust
@@ -11008,30 +10812,11 @@ Fields:
     ```
     Calls `U::from(self)`.
 
-- **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Arg) -> bool { /* ... */ }
     ```
 
-- **Pointable**
-  - ```rust
-    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
-    ```
-
-  - ```rust
-    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
-    ```
-
-  - ```rust
-    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
-    ```
-
-  - ```rust
-    unsafe fn drop(ptr: usize) { /* ... */ }
-    ```
-
-- **Read**
 - **RefUnwindSafe**
 - **Same**
 - **Send**
@@ -11048,7 +10833,7 @@ Fields:
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
     ```
 
 - **TryInto**
@@ -11059,14 +10844,6 @@ Fields:
 - **Unpin**
 - **UnsafeUnpin**
 - **UnwindSafe**
-- **Upcast**
-  - ```rust
-    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
-    ```
-
-- **WasmNotSend**
-- **WasmNotSendSync**
-- **WasmNotSync**
 #### Struct `Gate`
 
 One gate: a connective and the arguments it applies to.
@@ -11114,10 +10891,9 @@ pub struct Gate {
     fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
     ```
 
-- **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Self { /* ... */ }
+    fn clone(self: &Self) -> Gate { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -11130,21 +10906,7 @@ pub struct Gate {
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
     ```
 
-- **Downcast**
-  - ```rust
-    fn downcast(self: &Self) -> &T { /* ... */ }
-    ```
-
 - **Eq**
-- **Equivalent**
-  - ```rust
-    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
-    ```
-
-  - ```rust
-    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
-    ```
-
 - **Freeze**
 - **From**
   - ```rust
@@ -11158,30 +10920,11 @@ pub struct Gate {
     ```
     Calls `U::from(self)`.
 
-- **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Gate) -> bool { /* ... */ }
     ```
 
-- **Pointable**
-  - ```rust
-    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
-    ```
-
-  - ```rust
-    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
-    ```
-
-  - ```rust
-    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
-    ```
-
-  - ```rust
-    unsafe fn drop(ptr: usize) { /* ... */ }
-    ```
-
-- **Read**
 - **RefUnwindSafe**
 - **Same**
 - **Send**
@@ -11198,7 +10941,7 @@ pub struct Gate {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
     ```
 
 - **TryInto**
@@ -11209,14 +10952,6 @@ pub struct Gate {
 - **Unpin**
 - **UnsafeUnpin**
 - **UnwindSafe**
-- **Upcast**
-  - ```rust
-    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
-    ```
-
-- **WasmNotSend**
-- **WasmNotSendSync**
-- **WasmNotSync**
 #### Struct `FaultTree`
 
 A validated fault tree.
@@ -11284,10 +11019,9 @@ pub struct FaultTree {
     fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
     ```
 
-- **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Self { /* ... */ }
+    fn clone(self: &Self) -> FaultTree { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -11300,21 +11034,7 @@ pub struct FaultTree {
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
     ```
 
-- **Downcast**
-  - ```rust
-    fn downcast(self: &Self) -> &T { /* ... */ }
-    ```
-
 - **Eq**
-- **Equivalent**
-  - ```rust
-    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
-    ```
-
-  - ```rust
-    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
-    ```
-
 - **Freeze**
 - **From**
   - ```rust
@@ -11328,30 +11048,11 @@ pub struct FaultTree {
     ```
     Calls `U::from(self)`.
 
-- **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &FaultTree) -> bool { /* ... */ }
     ```
 
-- **Pointable**
-  - ```rust
-    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
-    ```
-
-  - ```rust
-    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
-    ```
-
-  - ```rust
-    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
-    ```
-
-  - ```rust
-    unsafe fn drop(ptr: usize) { /* ... */ }
-    ```
-
-- **Read**
 - **RefUnwindSafe**
 - **Same**
 - **Send**
@@ -11368,7 +11069,7 @@ pub struct FaultTree {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
     ```
 
 - **TryInto**
@@ -11379,14 +11080,6 @@ pub struct FaultTree {
 - **Unpin**
 - **UnsafeUnpin**
 - **UnwindSafe**
-- **Upcast**
-  - ```rust
-    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
-    ```
-
-- **WasmNotSend**
-- **WasmNotSendSync**
-- **WasmNotSync**
 #### Struct `FaultTreeModel`
 
 A fault tree, its basic-event probabilities, and the names they came from.
@@ -11454,10 +11147,9 @@ pub struct FaultTreeModel {
     fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
     ```
 
-- **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Self { /* ... */ }
+    fn clone(self: &Self) -> FaultTreeModel { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -11468,11 +11160,6 @@ pub struct FaultTreeModel {
 - **Debug**
   - ```rust
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
-    ```
-
-- **Downcast**
-  - ```rust
-    fn downcast(self: &Self) -> &T { /* ... */ }
     ```
 
 - **Freeze**
@@ -11488,30 +11175,11 @@ pub struct FaultTreeModel {
     ```
     Calls `U::from(self)`.
 
-- **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &FaultTreeModel) -> bool { /* ... */ }
     ```
 
-- **Pointable**
-  - ```rust
-    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
-    ```
-
-  - ```rust
-    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
-    ```
-
-  - ```rust
-    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
-    ```
-
-  - ```rust
-    unsafe fn drop(ptr: usize) { /* ... */ }
-    ```
-
-- **Read**
 - **RefUnwindSafe**
 - **Same**
 - **Send**
@@ -11528,7 +11196,7 @@ pub struct FaultTreeModel {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
     ```
 
 - **TryInto**
@@ -11539,14 +11207,6 @@ pub struct FaultTreeModel {
 - **Unpin**
 - **UnsafeUnpin**
 - **UnwindSafe**
-- **Upcast**
-  - ```rust
-    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
-    ```
-
-- **WasmNotSend**
-- **WasmNotSendSync**
-- **WasmNotSync**
 #### Struct `FaultTreeBuilder`
 
 Builds a [`FaultTreeModel`] from named gates and basic events.
@@ -11619,10 +11279,9 @@ pub struct FaultTreeBuilder {
     fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
     ```
 
-- **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Self { /* ... */ }
+    fn clone(self: &Self) -> FaultTreeBuilder { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -11637,12 +11296,7 @@ pub struct FaultTreeBuilder {
 
 - **Default**
   - ```rust
-    fn default() -> Self { /* ... */ }
-    ```
-
-- **Downcast**
-  - ```rust
-    fn downcast(self: &Self) -> &T { /* ... */ }
+    fn default() -> FaultTreeBuilder { /* ... */ }
     ```
 
 - **Freeze**
@@ -11658,25 +11312,6 @@ pub struct FaultTreeBuilder {
     ```
     Calls `U::from(self)`.
 
-- **IntoEither**
-- **Pointable**
-  - ```rust
-    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
-    ```
-
-  - ```rust
-    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
-    ```
-
-  - ```rust
-    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
-    ```
-
-  - ```rust
-    unsafe fn drop(ptr: usize) { /* ... */ }
-    ```
-
-- **Read**
 - **RefUnwindSafe**
 - **Same**
 - **Send**
@@ -11692,7 +11327,7 @@ pub struct FaultTreeBuilder {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
     ```
 
 - **TryInto**
@@ -11703,14 +11338,6 @@ pub struct FaultTreeBuilder {
 - **Unpin**
 - **UnsafeUnpin**
 - **UnwindSafe**
-- **Upcast**
-  - ```rust
-    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
-    ```
-
-- **WasmNotSend**
-- **WasmNotSendSync**
-- **WasmNotSync**
 ## Module `importance`
 
 Which basic events matter — the five standard importance measures.
@@ -11776,10 +11403,9 @@ pub struct ImportanceFactors {
     fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
     ```
 
-- **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Self { /* ... */ }
+    fn clone(self: &Self) -> ImportanceFactors { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -11791,11 +11417,6 @@ pub struct ImportanceFactors {
 - **Debug**
   - ```rust
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
-    ```
-
-- **Downcast**
-  - ```rust
-    fn downcast(self: &Self) -> &T { /* ... */ }
     ```
 
 - **Freeze**
@@ -11811,30 +11432,11 @@ pub struct ImportanceFactors {
     ```
     Calls `U::from(self)`.
 
-- **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &ImportanceFactors) -> bool { /* ... */ }
     ```
 
-- **Pointable**
-  - ```rust
-    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
-    ```
-
-  - ```rust
-    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
-    ```
-
-  - ```rust
-    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
-    ```
-
-  - ```rust
-    unsafe fn drop(ptr: usize) { /* ... */ }
-    ```
-
-- **Read**
 - **RefUnwindSafe**
 - **Same**
 - **Send**
@@ -11851,7 +11453,7 @@ pub struct ImportanceFactors {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
     ```
 
 - **TryInto**
@@ -11862,14 +11464,6 @@ pub struct ImportanceFactors {
 - **Unpin**
 - **UnsafeUnpin**
 - **UnwindSafe**
-- **Upcast**
-  - ```rust
-    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
-    ```
-
-- **WasmNotSend**
-- **WasmNotSendSync**
-- **WasmNotSync**
 ### Functions
 
 #### Function `importance_factors`
@@ -11969,6 +11563,768 @@ denominator.
 
 ```rust
 pub const SINGULARITY_TOLERANCE: f64 = 1e-12;
+```
+
+## Module `mef`
+
+Reading SCRAM's Model Exchange Format.
+
+Until this existed, upstream's models reached the tests through a shell
+script that scraped a flat subset of the XML, and two things were out of
+reach because of it: `<xi:include>`, and `<define-component>`'s private
+namespaces. The second is why `ThreeMotor/three_motor` — the one model in
+the fixture that no analysis route could cover — was excluded: it declares
+`E1` twice, once at the top and once inside a private component, and a
+flat parser silently merges them into a wrong tree.
+
+# What this reads
+
+`<define-fault-tree>` and `<define-component>`, `<define-gate>`,
+`<define-basic-event>`, `<define-house-event>`, `<define-parameter>`,
+`<define-CCF-group>`, `<define-substitution>`, `<define-alignment>`,
+`<model-data>`, all eleven MEF connectives, event references (`<event>`,
+`<gate>`, `<basic-event>`, `<house-event>`, and `<event type="…">`),
+`<not>` and `<constant>` arguments, and the expression elements
+[`super::expression`] evaluates.
+
+**Formulas do not nest**, and that is a property of the format rather than
+a limit of this reader: upstream's grammar (`share/input.rng`) lets a
+connective take only event references, `<not>` around one event, or a
+`<constant>`. See [`Formula`].
+
+# What it does not
+
+Event trees and extern functions.
+**An element it does not recognise is an error**, never a skip — a model
+using one would otherwise be read as a smaller, different model that
+happens to parse, which is the failure this whole port exists to avoid.
+
+The remaining expression elements — the trigonometric functions,
+`<switch>`, the test-event conditions and `<extern-function>` calls — are
+refused for the same reason. None appears in any of upstream's own input
+models.
+
+There is also **no schema validation**. Upstream validates against a
+RelaxNG grammar before looking at anything; this checks only what it needs
+to build the model. A document SCRAM would reject may be read here.
+
+```rust
+pub mod mef { /* ... */ }
+```
+
+### Types
+
+#### Struct `Element`
+
+A parsed XML element: name, attributes, children, and any text.
+
+A deliberately small DOM. The pull parser gives events; the MEF walk wants
+to look at a subtree more than once (an expression's arity decides which
+formula it is), so the events are collected first.
+
+```rust
+pub struct Element {
+    pub name: String,
+    pub attributes: std::collections::HashMap<String, String>,
+    pub children: Vec<Element>,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `name` | `String` | Local name, with any namespace prefix stripped. |
+| `attributes` | `std::collections::HashMap<String, String>` | Attributes, by local name. |
+| `children` | `Vec<Element>` | Child elements, in document order. |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn attr(self: &Self, name: &str) -> Option<&str> { /* ... */ }
+  ```
+  The value of an attribute, or `None`.
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Element { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Enum `MefConnective`
+
+The Model Exchange Format's connective set — upstream's `mef::Connective`.
+
+The first eight are the analysis connectives, in upstream's own order, and
+map one-to-one onto [`Connective`]. The last three are, in upstream's
+words, "rarely used connectives specific to the MEF": they have no PDAG
+representation and `Pdag::ConstructComplexGate` rewrites each into the
+first eight. This port keeps them as read and applies the same rewrite in
+[`MefModel::fault_tree`], so a model using them builds the tree upstream
+would have built.
+
+```rust
+pub enum MefConnective {
+    And,
+    Or,
+    Atleast {
+        min: usize,
+    },
+    Xor,
+    Not,
+    Nand,
+    Nor,
+    Null,
+    Iff,
+    Imply,
+    Cardinality {
+        min: usize,
+        max: usize,
+    },
+}
+```
+
+##### Variants
+
+###### `And`
+
+`<and>`.
+
+###### `Or`
+
+`<or>`.
+
+###### `Atleast`
+
+`<atleast min="k">` — the K-of-N vote.
+
+Fields:
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `min` | `usize` | How many arguments must occur. |
+
+###### `Xor`
+
+`<xor>`, two arguments.
+
+###### `Not`
+
+`<not>`, one argument.
+
+###### `Nand`
+
+`<nand>`.
+
+###### `Nor`
+
+`<nor>`.
+
+###### `Null`
+
+A pass-through: a gate that names another event directly.
+
+###### `Iff`
+
+`<iff>`, two arguments — equality.
+
+###### `Imply`
+
+`<imply>`, two arguments — `a` implies `b`.
+
+###### `Cardinality`
+
+`<cardinality min="j" max="k">` — between `j` and `k` arguments occur.
+
+Fields:
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `min` | `usize` | Fewest arguments that may occur. |
+| `max` | `usize` | Most arguments that may occur. |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> MefConnective { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Eq**
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &MefConnective) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Struct `Formula`
+
+A gate's Boolean formula.
+
+**MEF formulas do not nest.** Upstream's RelaxNG grammar (`share/input.rng`,
+`define name="formula"`) admits a connective whose arguments are each an
+`argument`, and an `argument` is an event reference, a `<not>` around one
+event reference, or a `<constant>` — never another connective. An earlier
+revision of this reader carried machinery for arbitrarily nested formulas
+and said so in its module doc; that was **wrong about the format**, and the
+claim is corrected here rather than left standing. What does exist is the
+`<not>` wrapper, which upstream records as a *complement flag on the
+argument* and this port lowers into an anonymous negating gate.
+
+```rust
+pub struct Formula {
+    pub connective: MefConnective,
+    pub args: Vec<FormulaArg>,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `connective` | `MefConnective` | The connective. |
+| `args` | `Vec<FormulaArg>` | Its arguments, in document order. |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Formula { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Eq**
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Formula) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Enum `FormulaArg`
+
+One argument of a [`Formula`] — upstream's `Formula::Arg`.
+
+```rust
+pub enum FormulaArg {
+    Event {
+        name: String,
+        complement: bool,
+    },
+    Constant(bool),
+}
+```
+
+##### Variants
+
+###### `Event`
+
+A reference to a declared event, by resolved id, optionally negated by
+a `<not>` wrapper.
+
+Fields:
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `name` | `String` | The `Id::id()` of the declaration this reference resolves to. |
+| `complement` | `bool` | Whether a `<not>` wrapped it. |
+
+###### `Constant`
+
+`<constant value="true|false"/>`. Upstream substitutes its
+`HouseEvent::kTrue` / `kFalse` singletons.
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `bool` |  |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> FormulaArg { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Eq**
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &FormulaArg) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Struct `MefModel`
+
+A parsed MEF model.
+
+```rust
+pub struct MefModel {
+    pub name: Option<String>,
+    pub mission_time: f64,
+    pub parameters: std::collections::HashMap<String, super::expression::Expression>,
+    pub basic_events: std::collections::HashMap<String, super::expression::Expression>,
+    pub house_events: std::collections::HashMap<String, bool>,
+    pub gates: std::collections::HashMap<String, Formula>,
+    pub gate_order: Vec<String>,
+    pub ccf_groups: Vec<super::ccf::CcfGroup>,
+    pub alignments: Vec<super::alignment::Alignment>,
+    pub substitutions: Vec<super::substitution::Substitution>,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `name` | `Option<String>` | The `name` attribute of `<opsa-mef>`, if any. |
+| `mission_time` | `f64` | Mission time, defaulting to [`DEFAULT_MISSION_TIME`]. |
+| `parameters` | `std::collections::HashMap<String, super::expression::Expression>` | Parameter expressions, by resolved name. |
+| `basic_events` | `std::collections::HashMap<String, super::expression::Expression>` | Basic-event expressions, by resolved name. |
+| `house_events` | `std::collections::HashMap<String, bool>` | House-event constants, by resolved name. |
+| `gates` | `std::collections::HashMap<String, Formula>` | Gate formulas, by resolved name. |
+| `gate_order` | `Vec<String>` | Declaration order of the gates, so a model reads back deterministically. |
+| `ccf_groups` | `Vec<super::ccf::CcfGroup>` | Common-cause failure groups, in declaration order.<br><br>[`MefModel::fault_tree`] applies them; [`MefModel::without_ccf`] is<br>the explicit ablation. |
+| `alignments` | `Vec<super::alignment::Alignment>` | Alignments, in declaration order.<br><br>A model with an alignment has **no single answer**: it is analysed once<br>per phase. [`MefModel::in_phase`] returns the model as it stands in one. |
+| `substitutions` | `Vec<super::substitution::Substitution>` | Substitutions, in declaration order.<br><br>The **declarative** ones are applied by [`MefModel::fault_tree`], as a<br>tree rewrite. The **non-declarative** ones are a pass over the<br>generated products, which the caller runs with<br>[`MefModel::product_substitutions`] and<br>[`super::substitution::apply_to_products`]. |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn from_file(path: &Path) -> Result<Self> { /* ... */ }
+  ```
+  Reads a model from a file, resolving `<xi:include>` relative to it.
+
+- ```rust
+  pub fn from_element(root: &Element) -> Result<Self> { /* ... */ }
+  ```
+  Reads a model from an already-parsed `<opsa-mef>` element.
+
+- ```rust
+  pub fn resolved_parameters(self: &Self) -> Result<Parameters> { /* ... */ }
+  ```
+  Every parameter's value, resolved by repeated passes.
+
+- ```rust
+  pub fn without_ccf(self: &Self) -> MefModel { /* ... */ }
+  ```
+  This model with its common-cause groups **dropped** — the explicit
+
+- ```rust
+  pub fn apply_ccf(self: &Self) -> Result<MefModel> { /* ... */ }
+  ```
+  This model with every common-cause group applied — upstream's
+
+- ```rust
+  pub fn apply_declarative_substitutions(self: &Self, top: &str) -> Result<MefModel> { /* ... */ }
+  ```
+  This model with its **declarative** substitutions applied to the tree
+
+- ```rust
+  pub fn product_substitutions(self: &Self, tree: &FaultTreeModel) -> Result<Vec<ProductSubstitution>> { /* ... */ }
+  ```
+  The **non-declarative** substitutions, in the basic-event indices of
+
+- ```rust
+  pub fn basic_event_expressions(self: &Self, tree: &FaultTreeModel) -> Result<Vec<Expression>> { /* ... */ }
+  ```
+  The **expression** behind each basic event of `tree`, in its index
+
+- ```rust
+  pub fn in_phase(self: &Self, alignment: &str, phase: &str) -> Result<MefModel> { /* ... */ }
+  ```
+  This model as it stands in one phase of one alignment — upstream's
+
+- ```rust
+  pub fn phases(self: &Self) -> Vec<(&str, &str)> { /* ... */ }
+  ```
+  Every `(alignment, phase)` pair the model declares, in declaration
+
+- ```rust
+  pub fn fault_tree(self: &Self, top: &str) -> Result<FaultTreeModel> { /* ... */ }
+  ```
+  Flattens the model into a [`FaultTreeModel`] rooted at `top`.
+
+- ```rust
+  pub fn top_gates(self: &Self) -> Vec<String> { /* ... */ }
+  ```
+  Every gate no other gate references — the candidate top events.
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> MefModel { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Default**
+  - ```rust
+    fn default() -> MefModel { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+### Functions
+
+#### Function `parse_xml`
+
+Parses an XML document into [`Element`]s.
+
+Namespace prefixes are stripped: MEF uses one vocabulary and the only
+prefixed element in upstream's suite is `<xi:include>`, which is resolved
+before this sees it.
+
+```rust
+pub fn parse_xml(source: &str) -> crate::Result<Element> { /* ... */ }
+```
+
+### Constants and Statics
+
+#### Constant `CONSTANT_TRUE`
+
+The reserved house event standing in for `<constant value="true"/>`.
+
+Angle brackets cannot occur in a MEF name, so this can never collide with a
+declaration.
+
+```rust
+pub const CONSTANT_TRUE: &str = "<constant:true>";
+```
+
+#### Constant `CONSTANT_FALSE`
+
+The reserved house event standing in for `<constant value="false"/>`.
+
+```rust
+pub const CONSTANT_FALSE: &str = "<constant:false>";
 ```
 
 ## Module `mocus`
@@ -12202,10 +12558,9 @@ pub struct CutSet {
     fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
     ```
 
-- **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Self { /* ... */ }
+    fn clone(self: &Self) -> CutSet { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -12218,21 +12573,7 @@ pub struct CutSet {
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
     ```
 
-- **Downcast**
-  - ```rust
-    fn downcast(self: &Self) -> &T { /* ... */ }
-    ```
-
 - **Eq**
-- **Equivalent**
-  - ```rust
-    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
-    ```
-
-  - ```rust
-    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
-    ```
-
 - **Freeze**
 - **From**
   - ```rust
@@ -12246,30 +12587,11 @@ pub struct CutSet {
     ```
     Calls `U::from(self)`.
 
-- **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &CutSet) -> bool { /* ... */ }
     ```
 
-- **Pointable**
-  - ```rust
-    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
-    ```
-
-  - ```rust
-    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
-    ```
-
-  - ```rust
-    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
-    ```
-
-  - ```rust
-    unsafe fn drop(ptr: usize) { /* ... */ }
-    ```
-
-- **Read**
 - **RefUnwindSafe**
 - **Same**
 - **Send**
@@ -12286,7 +12608,7 @@ pub struct CutSet {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
     ```
 
 - **TryInto**
@@ -12297,14 +12619,6 @@ pub struct CutSet {
 - **Unpin**
 - **UnsafeUnpin**
 - **UnwindSafe**
-- **Upcast**
-  - ```rust
-    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
-    ```
-
-- **WasmNotSend**
-- **WasmNotSendSync**
-- **WasmNotSync**
 #### Enum `Approximation`
 
 How to combine cut-set probabilities into a top-event probability.
@@ -12378,10 +12692,9 @@ exceeds 1 by construction, so it needs no clamp.
     fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
     ```
 
-- **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Self { /* ... */ }
+    fn clone(self: &Self) -> Approximation { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -12395,21 +12708,7 @@ exceeds 1 by construction, so it needs no clamp.
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
     ```
 
-- **Downcast**
-  - ```rust
-    fn downcast(self: &Self) -> &T { /* ... */ }
-    ```
-
 - **Eq**
-- **Equivalent**
-  - ```rust
-    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
-    ```
-
-  - ```rust
-    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
-    ```
-
 - **Freeze**
 - **From**
   - ```rust
@@ -12423,30 +12722,11 @@ exceeds 1 by construction, so it needs no clamp.
     ```
     Calls `U::from(self)`.
 
-- **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Approximation) -> bool { /* ... */ }
     ```
 
-- **Pointable**
-  - ```rust
-    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
-    ```
-
-  - ```rust
-    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
-    ```
-
-  - ```rust
-    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
-    ```
-
-  - ```rust
-    unsafe fn drop(ptr: usize) { /* ... */ }
-    ```
-
-- **Read**
 - **RefUnwindSafe**
 - **Same**
 - **Send**
@@ -12463,7 +12743,7 @@ exceeds 1 by construction, so it needs no clamp.
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
     ```
 
 - **TryInto**
@@ -12474,14 +12754,6 @@ exceeds 1 by construction, so it needs no clamp.
 - **Unpin**
 - **UnsafeUnpin**
 - **UnwindSafe**
-- **Upcast**
-  - ```rust
-    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
-    ```
-
-- **WasmNotSend**
-- **WasmNotSendSync**
-- **WasmNotSync**
 ### Functions
 
 #### Function `cut_set_probability`
@@ -12531,6 +12803,869 @@ million, which is a second or so, and every step beyond doubles it.
 
 ```rust
 pub const EXACT_CUT_SET_LIMIT: usize = 20;
+```
+
+## Module `substitution`
+
+Substitutions — delete terms, recovery rules and exchange events.
+
+A fault tree says how a system fails. A substitution says something the
+tree cannot: that two events are mutually exclusive, that a recovery action
+applies when a particular combination occurs, or that one event stands in
+for another under some condition.
+
+# Two kinds, applied in two different places
+
+A substitution with **no `<source>`** is *declarative*: it is a statement
+about the world, and upstream applies it to the **graph** as a logical
+implication. `hypothesis -> target` becomes `or(not hypothesis, target)`,
+and the analysed root becomes `and(root, that)`. A `false` target — a
+delete term — has no target to imply, so the conjunct is just
+`not hypothesis`.
+
+A substitution **with** a `<source>` is *non-declarative*: it is a
+post-processing rule, and upstream applies it to the **products**. For
+every product containing the whole hypothesis, the source events are
+removed and the target added; the result is then re-minimised. That is
+[`apply_to_products`].
+
+**Upstream refuses an exact analysis with non-declarative substitutions**
+— "Non-declarative substitutions do not apply to exact analyses." The
+substituted product list is no longer the minimal cut sets of any Boolean
+function, so inclusion-exclusion over it means nothing; only the
+rare-event and MCUB approximations, which treat the products as a list,
+stay meaningful. That is measured, not inferred: the compiled binary
+refuses `--probability` on `TwoTrain/nondeclarative_substitutions.xml` and
+runs it under `--rare-event`.
+
+```rust
+pub mod substitution { /* ... */ }
+```
+
+### Types
+
+#### Enum `SubstitutionType`
+
+The "traditional" substitution types of the MEF.
+
+Upstream treats these as a *classification* rather than as behaviour: the
+`type` attribute is optional, and `Substitution::type()` infers which one a
+substitution amounts to from its shape. Nothing in the analysis branches on
+it.
+
+```rust
+pub enum SubstitutionType {
+    DeleteTerms,
+    RecoveryRule,
+    ExchangeEvent,
+}
+```
+
+##### Variants
+
+###### `DeleteTerms`
+
+`delete-terms`: the hypothesis is impossible.
+
+###### `RecoveryRule`
+
+`recovery-rule`: the hypothesis implies the target.
+
+###### `ExchangeEvent`
+
+`exchange-event`: one source event is replaced by the target.
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn as_str(self: Self) -> &'static str { /* ... */ }
+  ```
+  The MEF attribute value — upstream's `kSubstitutionTypeToString`.
+
+- ```rust
+  pub fn parse(s: &str) -> Result<Self> { /* ... */ }
+  ```
+  Reads the MEF attribute value.
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> SubstitutionType { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Eq**
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &SubstitutionType) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Enum `SubstitutionTarget`
+
+What a substitution puts in place of its source.
+
+```rust
+pub enum SubstitutionTarget {
+    Event(String),
+    Constant(bool),
+}
+```
+
+##### Variants
+
+###### `Event`
+
+A basic event, by resolved id.
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `String` |  |
+
+###### `Constant`
+
+`<constant value="true|false"/>`.
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `bool` |  |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> SubstitutionTarget { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Eq**
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &SubstitutionTarget) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Struct `Substitution`
+
+A substitution.
+
+```rust
+pub struct Substitution {
+    pub name: String,
+    pub declared_type: Option<SubstitutionType>,
+    pub hypothesis: super::mef::Formula,
+    pub target: SubstitutionTarget,
+    pub source: Vec<String>,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `name` | `String` | Its id. |
+| `declared_type` | `Option<SubstitutionType>` | The `type` attribute, if the model gave one. Optional in the grammar. |
+| `hypothesis` | `super::mef::Formula` | A simple Boolean formula over basic events only. |
+| `target` | `SubstitutionTarget` | What replaces the source, or what the hypothesis implies. |
+| `source` | `Vec<String>` | The events replaced, by resolved id. **Empty means declarative.** |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn declarative(self: &Self) -> bool { /* ... */ }
+  ```
+  Upstream's `declarative()`: no source events.
+
+- ```rust
+  pub fn validate(self: &Self) -> Result<()> { /* ... */ }
+  ```
+  Upstream's `Substitution::Validate`.
+
+- ```rust
+  pub fn inferred_type(self: &Self) -> Option<SubstitutionType> { /* ... */ }
+  ```
+  Upstream's `Substitution::type()`: which "traditional" type this
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Substitution { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Struct `ProductSubstitution`
+
+A non-declarative substitution, in basic-event indices — upstream's
+`Pdag::Substitution`.
+
+Upstream splits an `or` hypothesis into one of these per argument, so that
+every entry's hypothesis is a plain conjunction to test against a product.
+
+```rust
+pub struct ProductSubstitution {
+    pub hypothesis: Vec<usize>,
+    pub source: Vec<usize>,
+    pub target: Option<usize>,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `hypothesis` | `Vec<usize>` | Every one of these must be in a product for the rule to fire. |
+| `source` | `Vec<usize>` | Events removed from the product. |
+| `target` | `Option<usize>` | The event added, if any. `None` is upstream's index `0`, which it uses<br>for a constant target. |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> ProductSubstitution { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Eq**
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &ProductSubstitution) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+### Functions
+
+#### Function `apply_to_products`
+
+Upstream's `Zbdd::ApplySubstitutions`, as a pass over products.
+
+For every product, each rule whose whole hypothesis is present removes its
+source events and adds its target; the rewritten products are then
+re-minimised, since a substitution can make one product a superset of
+another.
+
+Upstream does this inside the ZBDD, where `Apply<kAnd>`/`Apply<kOr>`
+rebuild the set and `Minimize` subsumes; here the products are already a
+list, so the same operations are set operations on it. The **result** is
+what is checked, against SCRAM's own reported products.
+
+# Errors
+
+[`RafflesError::InvalidParameter`] if a substitution empties a product
+entirely, which would make the top event unconditional — upstream's
+`Apply<kAnd>` over no arguments is the `Base` set, and a product list
+containing it is the UNITY case the generators here refuse by name.
+
+```rust
+pub fn apply_to_products(products: &[super::probability::CutSet], substitutions: &[ProductSubstitution]) -> crate::Result<Vec<super::probability::CutSet>> { /* ... */ }
+```
+
+## Module `uncertainty`
+
+Uncertainty analysis — what the top-event probability's **distribution**
+looks like, not just its mean.
+
+A basic event defined by a `<lognormal-deviate>` is not a number, it is a
+distribution. Evaluating it at its mean — which is what every other part of
+this module does, and what an ordinary SCRAM run does — gives one number
+and says nothing about the spread. This runs the analysis many times,
+drawing every deviate afresh each round, and reports the distribution of
+the answers.
+
+# The loop
+
+Upstream's `UncertaintyAnalysis::Analyze`, in three steps:
+
+1. gather the basic events whose expression [`Expression::is_deviate`];
+2. per trial, `Reset()` and `Sample()` each of them, **clamping to
+   `[0, 1]`** — upstream's `prob > 1 ? 1 : prob < 0 ? 0 : prob`, which
+   matters because a normal deviate reaches outside the unit interval;
+3. quantify the top event with those probabilities, and collect.
+
+**Parameters are sampled once per trial, not once per use.** Upstream
+memoises a draw per expression object per round, so a parameter feeding
+several basic events contributes the same draw to all of them. Here a
+parameter is a name in a table, so the table is sampled first and every
+event evaluated against it — the same thing by construction rather than by
+bookkeeping.
+
+# What this can and cannot be checked against
+
+SCRAM's `--uncertainty` reports the mean, sigma, error factor, confidence
+interval and quantiles. Those are the oracle. But **the random streams
+differ** — upstream draws from one static `std::mt19937`, this from
+`petir::rng::lcg` — so the two runs cannot agree sample for
+sample, only in distribution. The verification is therefore statistical,
+and `tests/scram_uncertainty.rs` says at what confidence.
+
+The quantiles differ for a second reason: upstream estimates them
+**online** with `boost::accumulators`' `extended_p_square_quantile`, which
+is an approximation that never stores the samples, while this sorts the
+samples and takes the exact order statistic. Both are defensible; they are
+not the same number.
+
+```rust
+pub mod uncertainty { /* ... */ }
+```
+
+### Types
+
+#### Struct `UncertaintySettings`
+
+How a Monte Carlo run is configured — upstream's `Settings` fields that
+uncertainty analysis reads.
+
+```rust
+pub struct UncertaintySettings {
+    pub trials: usize,
+    pub quantiles: usize,
+    pub bins: usize,
+    pub seed: u64,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `trials` | `usize` | How many trials to run. |
+| `quantiles` | `usize` | How many quantiles to report. |
+| `bins` | `usize` | How many histogram bins to report. |
+| `seed` | `u64` | The generator's seed. |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> UncertaintySettings { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Default**
+  - ```rust
+    fn default() -> Self { /* ... */ }
+    ```
+
+- **Eq**
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &UncertaintySettings) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Struct `UncertaintyResult`
+
+The result of a Monte Carlo run — upstream's `UncertaintyAnalysis`
+accessors.
+
+```rust
+pub struct UncertaintyResult {
+    pub mean: f64,
+    pub sigma: f64,
+    pub error_factor: f64,
+    pub confidence_interval: (f64, f64),
+    pub quantiles: Vec<f64>,
+    pub distribution: Vec<(f64, f64)>,
+    pub samples: Vec<f64>,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `mean` | `f64` | Mean of the sampled top-event probabilities. |
+| `sigma` | `f64` | Standard deviation, with upstream's `n / (n - 1)` correction. |
+| `error_factor` | `f64` | `exp(1.96 * sigma)` — upstream's 95 % error factor.<br><br>Note this is upstream's formula as written. It is the error factor of a<br>*log-normal* with that log-scale, so it is only the usual ratio measure<br>when the distribution is log-normal; on any other shape it is a number<br>computed from sigma rather than a property of the samples. Ported as<br>upstream wrote it. |
+| `confidence_interval` | `(f64, f64)` | 95 % confidence interval **of the mean**: `mean ± 1.96 sigma / sqrt(n)`. |
+| `quantiles` | `Vec<f64>` | Quantiles at `1/q, 2/q, …, 1`. |
+| `distribution` | `Vec<(f64, f64)>` | The histogram, as `(lower bound, fraction of samples)` pairs.<br><br>**This is not upstream's binning.** Upstream reports the same<br>*quantity* — its `<bin value=…>` is a fraction, and the twenty of them<br>sum to 1 — but the edges come from `boost::accumulators`' density<br>accumulator, whose range is its own and is neither `[min, max]` nor<br>documented as anything reproducible. On `SmallTree` its first edge is<br>`0.0021956` and its width `0.0100408`, which is not<br>`(max - min) / 20`. These bins are equal-width over `[min, max]`, and<br>`scram_uncertainty` compares the mean, sigma and quantiles rather than<br>this. |
+| `samples` | `Vec<f64>` | Every sampled top-event probability, in trial order. |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> UncertaintyResult { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+### Functions
+
+#### Function `analyse`
+
+Runs the Monte Carlo — upstream's `UncertaintyAnalysis::Analyze`.
+
+`quantify` turns one trial's basic-event probabilities into a top-event
+probability. Which quantification it uses is the caller's choice, exactly
+as it is upstream: the BDD, inclusion-exclusion over cut sets, or an
+approximation. It is called once per trial, so its cost sets the run's.
+
+`parameters` are the model's parameter **expressions**, sampled once per
+trial before the basic events are — upstream's memoisation, by
+construction.
+
+# Errors
+
+[`RafflesError::InvalidParameter`] if `settings.trials` is below 2 (the
+variance correction divides by `n - 1`), if a sample or a quantification
+fails, or if the model has no deviate at all — a Monte Carlo over a
+deterministic model reports a spread of zero and is almost always a
+mistake, so it is refused rather than answered.
+
+```rust
+pub fn analyse<Q>(model: &super::fault_tree::FaultTreeModel, expressions: &[super::expression::Expression], parameters: &std::collections::HashMap<String, super::expression::Expression>, mission_time: f64, settings: UncertaintySettings, quantify: Q) -> crate::Result<UncertaintyResult>
+where
+    Q: FnMut(&[f64]) -> crate::Result<f64> { /* ... */ }
+```
+
+#### Function `statistics`
+
+Upstream's `CalculateStatistics`, over an already-collected sample.
+
+Separated so that the statistics can be checked against closed forms
+without running a Monte Carlo, which is what
+`scram_uncertainty::the_statistics_are_upstreams_formulas` does.
+
+# Panics
+
+Never: `analyse` has already refused fewer than two trials, and this is
+only reachable through it or through a test that supplies its own samples
+with at least two.
+
+```rust
+pub fn statistics(samples: Vec<f64>, settings: UncertaintySettings) -> UncertaintyResult { /* ... */ }
+```
+
+### Constants and Statics
+
+#### Constant `DEFAULT_TRIALS`
+
+Upstream `Settings::num_trials_`.
+
+```rust
+pub const DEFAULT_TRIALS: usize = 1_000;
+```
+
+#### Constant `DEFAULT_QUANTILES`
+
+Upstream `Settings::num_quantiles_`.
+
+```rust
+pub const DEFAULT_QUANTILES: usize = 20;
+```
+
+#### Constant `DEFAULT_BINS`
+
+Upstream `Settings::num_bins_`.
+
+```rust
+pub const DEFAULT_BINS: usize = 20;
+```
+
+#### Constant `DEFAULT_SEED`
+
+Upstream `Settings::seed_`.
+
+```rust
+pub const DEFAULT_SEED: u64 = 0;
 ```
 
 ## Module `zbdd`
@@ -12671,10 +13806,9 @@ pub struct PrimeImplicant {
     fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
     ```
 
-- **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Self { /* ... */ }
+    fn clone(self: &Self) -> PrimeImplicant { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -12682,31 +13816,12 @@ pub struct PrimeImplicant {
     unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
     ```
 
-- **Comparable**
-  - ```rust
-    fn compare(self: &Self, key: &K) -> Ordering { /* ... */ }
-    ```
-
 - **Debug**
   - ```rust
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
     ```
 
-- **Downcast**
-  - ```rust
-    fn downcast(self: &Self) -> &T { /* ... */ }
-    ```
-
 - **Eq**
-- **Equivalent**
-  - ```rust
-    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
-    ```
-
-  - ```rust
-    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
-    ```
-
 - **Freeze**
 - **From**
   - ```rust
@@ -12720,40 +13835,21 @@ pub struct PrimeImplicant {
     ```
     Calls `U::from(self)`.
 
-- **IntoEither**
 - **Ord**
   - ```rust
-    fn cmp(self: &Self, other: &Self) -> $crate::cmp::Ordering { /* ... */ }
+    fn cmp(self: &Self, other: &PrimeImplicant) -> $crate::cmp::Ordering { /* ... */ }
     ```
 
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &PrimeImplicant) -> bool { /* ... */ }
     ```
 
 - **PartialOrd**
   - ```rust
-    fn partial_cmp(self: &Self, other: &Self) -> $crate::option::Option<$crate::cmp::Ordering> { /* ... */ }
+    fn partial_cmp(self: &Self, other: &PrimeImplicant) -> $crate::option::Option<$crate::cmp::Ordering> { /* ... */ }
     ```
 
-- **Pointable**
-  - ```rust
-    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
-    ```
-
-  - ```rust
-    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
-    ```
-
-  - ```rust
-    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
-    ```
-
-  - ```rust
-    unsafe fn drop(ptr: usize) { /* ... */ }
-    ```
-
-- **Read**
 - **RefUnwindSafe**
 - **Same**
 - **Send**
@@ -12770,7 +13866,7 @@ pub struct PrimeImplicant {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
     ```
 
 - **TryInto**
@@ -12781,14 +13877,6 @@ pub struct PrimeImplicant {
 - **Unpin**
 - **UnsafeUnpin**
 - **UnwindSafe**
-- **Upcast**
-  - ```rust
-    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
-    ```
-
-- **WasmNotSend**
-- **WasmNotSendSync**
-- **WasmNotSync**
 ### Functions
 
 #### Function `minimal_cut_sets`
@@ -12919,8 +14007,12 @@ drives.
 
 [`minimal_cut_sets`] answers the same question through a BDD. Keeping both
 is the point: they share the `Minimize`/`Subsume` tail and nothing else,
-so agreeing is evidence. `tests/scram_graph_zbdd.rs` checks them against
-each other, against [`super::mocus`], and against SCRAM's own products.
+so agreeing is evidence. ~~`tests/scram_graph_zbdd.rs`~~ **CORRECTED
+2026-09-22** — there is no such file and there never was; the checks live
+in `tests/scram_bdd_oracle.rs`
+(`the_graph_zbdd_route_matches_scram_and_the_bdd_route`), which
+compares this route against each other route, against [`super::mocus`],
+and against SCRAM's own products.
 
 `limit_order` discards cut sets above that order, applied when the family
 is listed; `None` keeps all of them.
@@ -12980,6 +14072,12 @@ pub use bdd::Bdd;
 
 ```rust
 pub use expression::Expression;
+```
+
+#### Re-export `MefModel`
+
+```rust
+pub use mef::MefModel;
 ```
 
 #### Re-export `Arg`
@@ -13307,10 +14405,9 @@ exactly preserved by any strictly monotone transform, linear or not.
     fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
     ```
 
-- **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Self { /* ... */ }
+    fn clone(self: &Self) -> CorrelationKind { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -13324,21 +14421,7 @@ exactly preserved by any strictly monotone transform, linear or not.
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
     ```
 
-- **Downcast**
-  - ```rust
-    fn downcast(self: &Self) -> &T { /* ... */ }
-    ```
-
 - **Eq**
-- **Equivalent**
-  - ```rust
-    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
-    ```
-
-  - ```rust
-    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
-    ```
-
 - **Freeze**
 - **From**
   - ```rust
@@ -13357,30 +14440,11 @@ exactly preserved by any strictly monotone transform, linear or not.
     ```
     Calls `U::from(self)`.
 
-- **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &CorrelationKind) -> bool { /* ... */ }
     ```
 
-- **Pointable**
-  - ```rust
-    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
-    ```
-
-  - ```rust
-    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
-    ```
-
-  - ```rust
-    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
-    ```
-
-  - ```rust
-    unsafe fn drop(ptr: usize) { /* ... */ }
-    ```
-
-- **Read**
 - **RefUnwindSafe**
 - **Same**
 - **Send**
@@ -13397,7 +14461,7 @@ exactly preserved by any strictly monotone transform, linear or not.
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
     ```
 
 - **TryInto**
@@ -13408,14 +14472,6 @@ exactly preserved by any strictly monotone transform, linear or not.
 - **Unpin**
 - **UnsafeUnpin**
 - **UnwindSafe**
-- **Upcast**
-  - ```rust
-    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
-    ```
-
-- **WasmNotSend**
-- **WasmNotSendSync**
-- **WasmNotSync**
 #### Struct `SobolSampleLayout`
 
 The sample layout the Sobol estimator requires — **get this wrong and the
@@ -13522,10 +14578,9 @@ pub struct SobolSampleLayout {
     fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
     ```
 
-- **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Self { /* ... */ }
+    fn clone(self: &Self) -> SobolSampleLayout { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -13539,21 +14594,7 @@ pub struct SobolSampleLayout {
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
     ```
 
-- **Downcast**
-  - ```rust
-    fn downcast(self: &Self) -> &T { /* ... */ }
-    ```
-
 - **Eq**
-- **Equivalent**
-  - ```rust
-    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
-    ```
-
-  - ```rust
-    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
-    ```
-
 - **Freeze**
 - **From**
   - ```rust
@@ -13572,30 +14613,11 @@ pub struct SobolSampleLayout {
     ```
     Calls `U::from(self)`.
 
-- **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &SobolSampleLayout) -> bool { /* ... */ }
     ```
 
-- **Pointable**
-  - ```rust
-    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
-    ```
-
-  - ```rust
-    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
-    ```
-
-  - ```rust
-    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
-    ```
-
-  - ```rust
-    unsafe fn drop(ptr: usize) { /* ... */ }
-    ```
-
-- **Read**
 - **RefUnwindSafe**
 - **Same**
 - **Send**
@@ -13612,7 +14634,7 @@ pub struct SobolSampleLayout {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
     ```
 
 - **TryInto**
@@ -13623,14 +14645,6 @@ pub struct SobolSampleLayout {
 - **Unpin**
 - **UnsafeUnpin**
 - **UnwindSafe**
-- **Upcast**
-  - ```rust
-    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
-    ```
-
-- **WasmNotSend**
-- **WasmNotSendSync**
-- **WasmNotSync**
 #### Struct `SobolIndices`
 
 Variance-based sensitivity indices estimated from one Sobol sample.
@@ -13678,10 +14692,9 @@ pub struct SobolIndices {
     fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
     ```
 
-- **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Self { /* ... */ }
+    fn clone(self: &Self) -> SobolIndices { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -13692,11 +14705,6 @@ pub struct SobolIndices {
 - **Debug**
   - ```rust
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
-    ```
-
-- **Downcast**
-  - ```rust
-    fn downcast(self: &Self) -> &T { /* ... */ }
     ```
 
 - **Freeze**
@@ -13712,30 +14720,11 @@ pub struct SobolIndices {
     ```
     Calls `U::from(self)`.
 
-- **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &SobolIndices) -> bool { /* ... */ }
     ```
 
-- **Pointable**
-  - ```rust
-    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
-    ```
-
-  - ```rust
-    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
-    ```
-
-  - ```rust
-    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
-    ```
-
-  - ```rust
-    unsafe fn drop(ptr: usize) { /* ... */ }
-    ```
-
-- **Read**
 - **RefUnwindSafe**
 - **Same**
 - **Send**
@@ -13752,7 +14741,7 @@ pub struct SobolIndices {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
     ```
 
 - **TryInto**
@@ -13763,14 +14752,6 @@ pub struct SobolIndices {
 - **Unpin**
 - **UnsafeUnpin**
 - **UnwindSafe**
-- **Upcast**
-  - ```rust
-    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
-    ```
-
-- **WasmNotSend**
-- **WasmNotSendSync**
-- **WasmNotSync**
 ### Functions
 
 #### Function `sample_mean`
@@ -14139,10 +15120,9 @@ pub struct PolynomialSurrogate {
     fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
     ```
 
-- **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Self { /* ... */ }
+    fn clone(self: &Self) -> PolynomialSurrogate { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -14153,11 +15133,6 @@ pub struct PolynomialSurrogate {
 - **Debug**
   - ```rust
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
-    ```
-
-- **Downcast**
-  - ```rust
-    fn downcast(self: &Self) -> &T { /* ... */ }
     ```
 
 - **Freeze**
@@ -14173,30 +15148,11 @@ pub struct PolynomialSurrogate {
     ```
     Calls `U::from(self)`.
 
-- **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &PolynomialSurrogate) -> bool { /* ... */ }
     ```
 
-- **Pointable**
-  - ```rust
-    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
-    ```
-
-  - ```rust
-    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
-    ```
-
-  - ```rust
-    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
-    ```
-
-  - ```rust
-    unsafe fn drop(ptr: usize) { /* ... */ }
-    ```
-
-- **Read**
 - **RefUnwindSafe**
 - **Same**
 - **Send**
@@ -14213,7 +15169,7 @@ pub struct PolynomialSurrogate {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
     ```
 
 - **TryInto**
@@ -14224,14 +15180,6 @@ pub struct PolynomialSurrogate {
 - **Unpin**
 - **UnsafeUnpin**
 - **UnwindSafe**
-- **Upcast**
-  - ```rust
-    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
-    ```
-
-- **WasmNotSend**
-- **WasmNotSendSync**
-- **WasmNotSync**
 ### Re-exports
 
 #### Re-export `PolynomialSurrogate`
@@ -14321,10 +15269,9 @@ Fields:
     fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
     ```
 
-- **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Self { /* ... */ }
+    fn clone(self: &Self) -> RafflesError { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -14342,11 +15289,6 @@ Fields:
     fn fmt(self: &Self, __formatter: &mut ::core::fmt::Formatter<''_>) -> ::core::fmt::Result { /* ... */ }
     ```
 
-- **Downcast**
-  - ```rust
-    fn downcast(self: &Self) -> &T { /* ... */ }
-    ```
-
 - **Error**
 - **Freeze**
 - **From**
@@ -14361,30 +15303,11 @@ Fields:
     ```
     Calls `U::from(self)`.
 
-- **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &RafflesError) -> bool { /* ... */ }
     ```
 
-- **Pointable**
-  - ```rust
-    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
-    ```
-
-  - ```rust
-    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
-    ```
-
-  - ```rust
-    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
-    ```
-
-  - ```rust
-    unsafe fn drop(ptr: usize) { /* ... */ }
-    ```
-
-- **Read**
 - **RefUnwindSafe**
 - **Same**
 - **Send**
@@ -14406,7 +15329,7 @@ Fields:
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
     ```
 
 - **TryInto**
@@ -14417,14 +15340,6 @@ Fields:
 - **Unpin**
 - **UnsafeUnpin**
 - **UnwindSafe**
-- **Upcast**
-  - ```rust
-    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
-    ```
-
-- **WasmNotSend**
-- **WasmNotSendSync**
-- **WasmNotSync**
 ### Type Alias `Result`
 
 Convenient alias for a fallible RAFFLES result.

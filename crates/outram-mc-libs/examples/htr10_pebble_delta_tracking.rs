@@ -64,8 +64,11 @@
 //! 2. **No density is given for the fuel ball's own graphite.** Table 2 gives
 //!    1.73 g/cm3 only for the *moderator* ball. The matrix and shell are taken
 //!    at that same 1.73 g/cm3.
-//! 3. **"ppm" has no stated basis.** Taken as **by weight**, and as *natural*
-//!    boron — so only the 18.43 wt% that is B-10 absorbs. See the sensitivity
+//! 3. **"ppm" has no stated basis.** ~~Taken as **by weight**, and as *natural*
+//!    boron — so only the 18.43 wt% that is B-10 absorbs.~~ **CHANGED
+//!    2026-10-01 (gh:#424):** taken as **atom** ppm of natural boron (19.9
+//!    at.% B-10), as TECDOC's MIT and BATAN tables do; the weight reading is
+//!    the `NaturalWeightPpm` arm. Results recorded below predate the change. See the sensitivity
 //!    study below, which exists because this one is easy to get wrong.
 //!
 //! ## The boron sensitivity, and why it is here
@@ -195,7 +198,7 @@ fn nuclides() -> Option<Vec<Nuclide>> {
         load("U238", "n-092_U_238.endf")?,
         load("O16", "n-008_O_016-ENDF8.0.endf")?,
         load("C12", "n-006_C_012-ENDF8.0.endf")?,
-        load("C12", "n-006_C_012-ENDF8.0.endf")?.with_thermal_scattering(sab),
+        load("C12", "n-006_C_012-ENDF8.0.endf")?.with_thermal_scattering(sab.clone()),
         bind_sic(load("Si28", "n-014_Si_028-ENDF8.0.endf")?, &si_in_sic),
         load("B10", "n-005_B_010-ENDF8.0.endf")?,
         // 7, 8, 9: the slots `Htr10Nuclides` names. Filling the struct
@@ -207,23 +210,17 @@ fn nuclides() -> Option<Vec<Nuclide>> {
         bind_sic(load("Si30", "n-014_Si_030-ENDF8.0.endf")?, &si_in_sic),
         // 10: B-11, the rest of natural boron (gh:#311).
         load("B11", "n-005_B_011-ENDF8.0.endf")?,
+        // 11, 12, 13: C-13, the 1.07 at.% of natural carbon (gh:#425,
+        // 2026-10-01): free, graphite-bound and SiC-bound, as their C-12
+        // partners at 3, 4 and 7 (`Htr10Nuclides::NATURAL_CARBON`).
+        load("C13", "n-006_C_013-ENDF8.0.endf")?,
+        load("C13", "n-006_C_013-ENDF8.0.endf")?.with_thermal_scattering(sab),
+        bind_sic(load("C13", "n-006_C_013-ENDF8.0.endf")?, &c_in_sic),
     ])
 }
 
 /// Where each nuclide sits in the slice handed to [`DhUniverse::keff`].
-const NUCLIDES: Htr10Nuclides = Htr10Nuclides {
-    u235: 0,
-    u238: 1,
-    o16: 2,
-    c_free: 3,     // SiC only
-    c_graphite: 4, // buffer / PyC / matrix / shell, with S(alpha,beta)
-    si28: 5,
-    b10: 6,
-    c_sic: 7,
-    si29: 8,
-    si30: 9,
-    b11: 10,
-};
+const NUCLIDES: Htr10Nuclides = Htr10Nuclides::NATURAL_CARBON;
 
 fn main() {
     let n_particles: usize = std::env::var("OUTRAM_HTR10_HISTORIES")

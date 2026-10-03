@@ -154,6 +154,16 @@ def main():
                     help="diagnostic (GitHub #367): remove one nuclide everywhere")
     ap.add_argument("--no-sab", action="store_true",
                     help="diagnostic (GitHub #367): drop S(a,b), H-1 free gas")
+    ap.add_argument("--no-ptables", action="store_true",
+                    help="diagnostic (GitHub #407): URR probability tables off, "
+                         "for the URR-worth comparison with outram-mc's --ablate no-urr")
+    ap.add_argument("--no-dbrc", action="store_true",
+                    help="diagnostic (GitHub #407): resonance scattering off, "
+                         "for the DBRC-worth comparison with outram-mc's --ablate no-dbrc")
+    ap.add_argument("--dbrc-nuclides", default=None,
+                    help="diagnostic (GitHub #407): comma-separated resonant nuclides "
+                         "(resonance_scattering['nuclides']); pairs with outram-mc's "
+                         "--ablate dbrc-only=<name>")
     ap.add_argument("--openmc", default=os.path.expanduser("~/Documents/research/openmcbin/bin/openmc"))
     a = ap.parse_args()
 
@@ -184,9 +194,11 @@ def main():
         space=space, energy=openmc.stats.Watt(a=0.988e6, b=2.249e-6),
         constraints={"fissionable": True})
     s.temperature = {"default": T, "method": "nearest", "tolerance": 10.0}
-    s.ptables = True
-    s.resonance_scattering = {"enable": True, "method": "dbrc",
+    s.ptables = not a.no_ptables
+    s.resonance_scattering = {"enable": not a.no_dbrc, "method": "dbrc",
                               "energy_min": 1.0e-5, "energy_max": 1000.0}
+    if a.dbrc_nuclides:
+        s.resonance_scattering["nuclides"] = a.dbrc_nuclides.split(",")
     s.output = {"tallies": False, "summary": False}
     model = openmc.Model(geometry=geo, materials=materials, settings=s)
 

@@ -55,6 +55,22 @@
 //! Ink/freehand strokes are still not implemented: every box is
 //! axis-aligned.
 //!
+//! ## Correcting a saved box by dragging it (2026-10-01)
+//!
+//! Maintainer: *"when i edit annotations, i should be able to drag the
+//! corners of the boxes to correct them."* While a block with a `[source]
+//! region` is open in the page-context panel's editor (a click on its card,
+//! or a double-click on its box), its box grows four corner handles. A drag
+//! on a corner resizes it with the opposite corner fixed, on an edge moves
+//! that side, and in the interior moves the whole box — in any tool, ahead of
+//! pan / draw-box / select-text. The box follows the pointer live and is
+//! written back **on release** through [`classify::replace_artifact_region`]
+//! (`modified` bumped, `created` and every other line kept). Esc during a
+//! drag abandons it; the editor's **Cancel** writes back the region from
+//! before the edit's first drag. Geometry, hit testing and the handle itself
+//! are [`super::box_handles`], shared with the digitiser's corner drag.
+//! The in-memory, not-yet-saved amber boxes are not draggable.
+//!
 //! ## Text selection (op-z9u0)
 //!
 //! `SelectText` drags out a rectangle and selects the **lines** of real PDF
@@ -133,6 +149,10 @@ use kopitiam_pdf::mupdf::{
 };
 
 use crate::artifact::{block_span, Artifact, ArtifactKind, Region, SourceAnchor};
+use super::box_handles::{
+    drag_region, hit_grip, normalised_to_screen, paint_handle, screen_to_normalised, Corner, Grip,
+    HANDLE_GRAB_PX,
+};
 use crate::autocomplete::{library_candidates, LibraryCandidate};
 use crate::classify;
 use crate::digitiser::dataset::utc_now_iso8601;
@@ -803,13 +823,11 @@ pub(super) fn region_to_screen_rect(
     if !region.is_valid() || page_px.x <= 0.0 || page_px.y <= 0.0 || zoom <= 0.0 {
         return None;
     }
-    let page_top = page as f32 * (page_px.y * zoom + gap);
+    // The one placement transform, shared with the corner-drag edit's
+    // inverse (`box_handles::screen_to_normalised`), so a handle is hit
+    // exactly where its box is drawn.
     let to_screen = |x_frac: f64, y_frac: f64| -> Pos2 {
-        origin
-            + egui::vec2(
-                x_frac as f32 * page_px.x * zoom,
-                page_top + y_frac as f32 * page_px.y * zoom,
-            )
+        normalised_to_screen(x_frac, y_frac, page, page_px, origin, zoom, gap)
     };
     Some(Rect::from_min_max(
         to_screen(region.x0, region.y0),
@@ -911,6 +929,26 @@ struct SearchState {
     computed_for: String,
     /// Index into `hits` of the "current" hit (`Next`/`Prev` cycle it).
     current: Option<usize>,
+}
+
+/// A drag on the edited block's region box ([`PdfReaderState::region_drag`]).
+/// The live box is recomputed every frame from `start` by
+/// [`super::box_handles::drag_region`], never accumulated.
+#[derive(Debug, Clone)]
+struct RegionDrag {
+    /// The artifact being corrected.
+    id: String,
+    /// Its 0-based page — the pointer is read against this page however far
+    /// it strays.
+    page: usize,
+    /// What was grabbed.
+    grip: Grip,
+    /// The region when the drag began.
+    start: Region,
+    /// The pointer at drag start, normalised page fractions.
+    from: (f64, f64),
+    /// The box as the drag currently has it.
+    current: Region,
 }
 
 #[derive(Default)]
@@ -1064,6 +1102,18 @@ pub struct PdfReaderState {
     /// (by stable id) it currently holds, or `None` when no block is open.
     block_editor: KvimEditorState,
     editing_block_id: Option<String>,
+    /// A drag in progress on the edited block's region box — a corner, an
+    /// edge or the interior (maintainer, 2026-10-01: "when i edit
+    /// annotations, i should be able to drag the corners of the boxes to
+    /// correct them"). See [`super::box_handles`].
+    region_drag: Option<RegionDrag>,
+    /// Set by Esc during a region drag: the rest of that pointer gesture is
+    /// swallowed rather than turning into a pan or a new box.
+    region_drag_cancelled: bool,
+    /// The edited block's region as it was **before its first drag** in this
+    /// edit, by artifact id — what the block editor's Cancel writes back.
+    /// Cleared by Save, Cancel, or the editor moving to another block.
+    region_original: Option<(String, Region)>,
     /// The stable id of the anchored-artifact card the pointer is hovering
     /// in the page-context panel, if any — the canvas overlay reads it to
     /// highlight that artifact's `region` box (op-4x5s, panel → canvas
@@ -1692,6 +1742,9 @@ impl PdfReaderState {
         self.hover_created_at = None;
         self.panel_hover_id = None;
         self.editing_block_id = None;
+        self.region_drag = None;
+        self.region_drag_cancelled = false;
+        self.region_original = None;
         self.context_page_synced = None;
         self.unsaved_rotation = None;
     }
@@ -2265,6 +2318,35 @@ impl PdfReaderState {
     /// `crate::project::append_to_section` path for a PDF outside any
     /// paper.~~ **CORRECTED 2026-09-22**: with no paper open the boxes stay in the reader and
     /// the message says to ingest the PDF first.
+    /// Write a dragged region box back into the paper (maintainer,
+    /// 2026-10-01), through the same path the inline block editor's Save
+    /// uses: one `classify` call that re-renders just that block
+    /// ([`classify::replace_artifact_region`] — `modified` bumped, `created`
+    /// and everything else kept), then `save_document`, then the page-context
+    /// preview reloaded from the session.
+    fn write_region(
+        &mut self,
+        active_paper: Option<&mut PaperSession>,
+        context_editor: &mut KvimEditorState,
+        id: &str,
+        region: Region,
+    ) {
+        let Some(session) = active_paper else {
+            self.message = "no paper open: the box edit was not saved".to_string();
+            return;
+        };
+        match classify::replace_artifact_region(session, id, region) {
+            Ok(_) => match session.save_document() {
+                Ok(()) => {
+                    context_editor.load_text(session.markdown());
+                    self.message = format!("saved the corrected box of {id}");
+                }
+                Err(e) => self.message = e.to_string(),
+            },
+            Err(e) => self.message = format!("box edit failed: {e}"),
+        }
+    }
+
     fn save_annotations_into_project(
         &mut self,
         active_paper: Option<&mut PaperSession>,
@@ -2691,6 +2773,12 @@ impl PdfReaderState {
                             block_cancel = true;
                         }
                     });
+                    if a.toml.source.as_ref().and_then(|s| s.region).is_some() {
+                        ui.small(
+                            "drag the box's corners or edges on the page to correct it, \
+                             or its middle to move it · saved on release · Cancel puts it back",
+                        );
+                    }
                     ui.push_id(("block-editor", id), |ui| {
                         egui::ScrollArea::vertical()
                             .id_salt("pdf_block_editor_scroll")
@@ -2856,6 +2944,19 @@ impl PdfReaderState {
 
         if block_cancel {
             self.editing_block_id = None;
+            self.region_drag = None;
+            // Cancel undoes the box drags of this edit too: each drag was
+            // saved on release, so put the region from before the first one
+            // back — only if it actually moved.
+            if let Some((id, original)) = self.region_original.take() {
+                let saved = artifacts
+                    .iter()
+                    .find(|a| a.id() == id)
+                    .and_then(|a| a.toml.source.as_ref()?.region);
+                if saved.is_some_and(|r| r != original) {
+                    self.write_region(active_paper.as_deref_mut(), context_editor, &id, original);
+                }
+            }
         }
 
         // A double-click landed on a block — open the right editor for it.
@@ -2869,6 +2970,8 @@ impl PdfReaderState {
         // The inline block editor's Save — replace just that block's body.
         if let Some((id, new_body)) = block_save {
             self.editing_block_id = None;
+            // The box drags were saved as they happened; Save keeps them.
+            self.region_original = None;
             if let Some(session) = active_paper.as_deref_mut() {
                 match classify::replace_artifact_body(session, &id, &new_body) {
                     Ok(_) => match session.save_document() {
@@ -3211,7 +3314,8 @@ impl PdfReaderState {
 
         ui.small(
             "Draw box → right-click it → Annotate / Digitise graph / Read table. \
-             Right-click an existing box → Edit / Delete. Double-click a saved box → edit it.",
+             Right-click an existing box → Edit / Delete. Double-click a saved box → edit it; \
+             while editing, drag its corners to correct it.",
         );
         let mut save_clicked = false;
         ui.horizontal(|ui| {
@@ -3277,6 +3381,9 @@ impl PdfReaderState {
         let zoom = self.zoom;
         let n = self.source.page_count().max(1);
         let mut open_target: Option<String> = None;
+        // A finished drag on the edited block's region box, written back
+        // after the canvas (where `active_paper` is free to borrow).
+        let mut region_commit: Option<(String, Region)> = None;
 
         // A zoom change scales the content but not the `ScrollArea`'s
         // (absolute, in points) offset, so the same offset lands somewhere
@@ -3441,11 +3548,123 @@ impl PdfReaderState {
                 }
             }
 
+            // --- Correcting the edited block's box (maintainer, 2026-10-01:
+            // "when i edit annotations, i should be able to drag the corners
+            // of the boxes to correct them"). Only while a block with a
+            // region is open in the panel's editor. A drag that starts on
+            // its corner, edge or interior is claimed here, in every tool,
+            // before the pan / draw-box / select-text gestures below get it.
+            // The geometry is `box_handles`; the transform is the one every
+            // saved box is drawn with (`region_to_screen_rect`). ---
+            let page_px_now = self.pages.page_size_px();
+            if self
+                .region_original
+                .as_ref()
+                .is_some_and(|(id, _)| self.editing_block_id.as_ref() != Some(id))
+            {
+                self.region_original = None;
+            }
+            if self
+                .region_drag
+                .as_ref()
+                .is_some_and(|d| self.editing_block_id.as_ref() != Some(&d.id))
+            {
+                self.region_drag = None;
+            }
+            let edit_target: Option<(String, usize, Region)> =
+                self.editing_block_id.as_ref().and_then(|id| {
+                    let art = active_artifacts
+                        .as_deref()?
+                        .iter()
+                        .find(|a| a.id() == id.as_str())?;
+                    let page = Self::artifact_page(art)?;
+                    let region = art.toml.source.as_ref()?.region?;
+                    region.is_valid().then(|| (id.clone(), page, region))
+                });
+            let mut region_cursor: Option<egui::CursorIcon> = None;
+            if let Some((id, epage, saved)) = &edit_target {
+                let shown = self.region_drag.as_ref().map_or(*saved, |d| d.current);
+                if let Some(rect) =
+                    region_to_screen_rect(shown, *epage, page_px_now, origin, zoom, GAP)
+                {
+                    if self.region_drag.is_none()
+                        && response.drag_started_by(egui::PointerButton::Primary)
+                    {
+                        if let Some(pos) = response.interact_pointer_pos() {
+                            let grip = hit_grip(rect, pos, HANDLE_GRAB_PX);
+                            let from =
+                                screen_to_normalised(pos, *epage, page_px_now, origin, zoom, GAP);
+                            if let (Some(grip), Some(from)) = (grip, from) {
+                                self.region_original
+                                    .get_or_insert_with(|| (id.clone(), *saved));
+                                self.region_drag = Some(RegionDrag {
+                                    id: id.clone(),
+                                    page: *epage,
+                                    grip,
+                                    start: *saved,
+                                    from,
+                                    current: *saved,
+                                });
+                            }
+                        }
+                    }
+                    region_cursor = self
+                        .region_drag
+                        .as_ref()
+                        .map(|d| d.grip)
+                        .or_else(|| {
+                            response
+                                .hover_pos()
+                                .and_then(|p| hit_grip(rect, p, HANDLE_GRAB_PX))
+                        })
+                        .map(Grip::cursor);
+                }
+            }
+            if self.region_drag.is_some() && ui.input(|i| i.key_pressed(egui::Key::Escape)) {
+                // Esc abandons the drag: nothing was written yet, so dropping
+                // it is the whole undo.
+                self.region_drag = None;
+                self.region_drag_cancelled = true;
+            }
+            if let Some(drag) = &mut self.region_drag {
+                if response.dragged_by(egui::PointerButton::Primary) {
+                    let to = response.interact_pointer_pos().and_then(|pos| {
+                        screen_to_normalised(pos, drag.page, page_px_now, origin, zoom, GAP)
+                    });
+                    if let Some(r) =
+                        to.and_then(|to| drag_region(drag.start, drag.grip, drag.from, to))
+                    {
+                        drag.current = r;
+                    }
+                }
+            }
+            if response.drag_stopped() || !response.is_pointer_button_down_on() {
+                if let Some(d) = self.region_drag.take() {
+                    if d.current != d.start {
+                        region_commit = Some((d.id, d.current));
+                    }
+                }
+            }
+            let region_gesture =
+                self.region_drag.is_some() || region_commit.is_some() || self.region_drag_cancelled;
+            if self.region_drag_cancelled
+                && (response.drag_stopped() || !response.is_pointer_button_down_on())
+            {
+                self.region_drag_cancelled = false;
+            }
+            // The live box, for the overlay pass below (the stop frame's
+            // committed box too, so it does not flash back for a frame).
+            let live_region: Option<(String, Region)> = self
+                .region_drag
+                .as_ref()
+                .map(|d| (d.id.clone(), d.current))
+                .or_else(|| region_commit.clone());
+
             // --- Pan mode: grab-and-drag the page to scroll (GH issue #35
             // 2026-09-02 — this tool is a *pan* tool, it does not select
             // text). The other tools own the primary drag for drawing a box
             // / selecting text, so this is scoped to `None`. ---
-            if self.tool == AnnotationTool::None {
+            if self.tool == AnnotationTool::None && !region_gesture {
                 response.clone().on_hover_cursor(if response.dragged() {
                     egui::CursorIcon::Grabbing
                 } else {
@@ -3458,6 +3677,10 @@ impl PdfReaderState {
                         egui::style::ScrollAnimation::none(),
                     );
                 }
+            }
+            // After the pan cursor, so a resize/move cursor over a handle wins.
+            if let Some(cursor) = region_cursor {
+                ui.ctx().set_cursor_icon(cursor);
             }
 
             // --- Arrow keys nudge the view, whenever no text field owns the
@@ -3566,7 +3789,7 @@ impl PdfReaderState {
 
             // --- drawing a new box ---
             if self.tool == AnnotationTool::DrawBox {
-                if response.drag_started_by(egui::PointerButton::Primary) {
+                if response.drag_started_by(egui::PointerButton::Primary) && !region_gesture {
                     self.draw_start = response.interact_pointer_pos().map(to_image);
                 }
                 if let (Some(start), Some(pos)) = (self.draw_start, response.interact_pointer_pos())
@@ -3588,7 +3811,7 @@ impl PdfReaderState {
                     }
                 }
             } else if self.tool == AnnotationTool::SelectText {
-                if response.drag_started_by(egui::PointerButton::Primary) {
+                if response.drag_started_by(egui::PointerButton::Primary) && !region_gesture {
                     self.select_start = response.interact_pointer_pos().map(to_image);
                 }
                 if let (Some(start), Some(pos)) =
@@ -3784,6 +4007,14 @@ impl PdfReaderState {
                     for (art, r) in
                         artifact_overlays_for_page(artifacts, p, page_px, origin, zoom, GAP)
                     {
+                        // The box being dragged draws where the drag has it.
+                        let r = match &live_region {
+                            Some((id, live)) if id == art.id() => {
+                                region_to_screen_rect(*live, p, page_px, origin, zoom, GAP)
+                                    .unwrap_or(r)
+                            }
+                            _ => r,
+                        };
                         let hit = hovered_id.as_deref() == Some(art.id());
                         if hit {
                             hover_id = Some(art.toml.kovan.created.clone());
@@ -3810,6 +4041,24 @@ impl PdfReaderState {
                 }
             }
             self.hover_created_at = hover_id;
+
+            // Handles on the edited block's box: its four corners, constant
+            // on screen at any zoom, the dragged one highlighted — the
+            // digitiser's corner handle (`box_handles::paint_handle`).
+            if let Some((id, epage, saved)) = &edit_target {
+                let shown = live_region
+                    .as_ref()
+                    .filter(|(lid, _)| lid == id)
+                    .map_or(*saved, |(_, r)| *r);
+                if let Some(rect) = region_to_screen_rect(shown, *epage, page_px, origin, zoom, GAP)
+                {
+                    let grabbed = self.region_drag.as_ref().map(|d| d.grip);
+                    for corner in Corner::ALL {
+                        let active = grabbed == Some(Grip::Corner(corner));
+                        paint_handle(&painter, corner.of_rect(rect), active);
+                    }
+                }
+            }
 
             // Search hits — soft yellow on every visible page, the current
             // one a bright outline (GH issue #35 2026-09-02).
@@ -3892,6 +4141,12 @@ impl PdfReaderState {
             (scroll_out.state.offset.y + self.last_viewport.y * 0.5) / stride.max(1.0),
         );
         self.last_zoom = zoom;
+
+        // A box drag just released: write it back now that `active_paper`
+        // is free (the canvas closure above held `self`).
+        if let Some((id, region)) = region_commit {
+            self.write_region(active_paper.as_deref_mut(), context_editor, &id, region);
+        }
 
         // A double-click on a saved region box (GH issue #35 2026-09-02):
         // straight into editing it.
@@ -5342,6 +5597,7 @@ mod tests {
                 access: Access::Open,
                 topics: vec!["htgrs".into()],
                 projects: vec![],
+                target: None,
             },
         )
         .unwrap();

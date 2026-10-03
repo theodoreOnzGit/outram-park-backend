@@ -257,7 +257,11 @@ pub fn obukhov(
     let thetastar = surface_heat_flux / (rhoa * CPA * ustar);
 
     let l = if thetastar.abs() > 1.0e-10 {
-        theta * ustar * ustar / (KARMAN * GA * thetastar)
+        // Upstream writes `theta*ustar**2`: the power binds first, so this is
+        // theta * (ustar * ustar), not (theta * ustar) * ustar. Measured: the
+        // other association is 1 ulp off in about a quarter of calcpar's
+        // columns (gh:#410 stage 3).
+        theta * (ustar * ustar) / (KARMAN * GA * thetastar)
     } else {
         9999.0
     };

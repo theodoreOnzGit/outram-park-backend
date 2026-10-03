@@ -18,6 +18,11 @@
 
 //! # HTR-10: Monte Carlo MGXS handed to GeN-Foam, on ONE shared geometry
 //!
+//! **BLOCKED since 2026-10-01 (gh:#475):** this example still builds the
+//! one-ball homogenised `core_model::assemble`, which was withdrawn because it
+//! cuts pebbles (wrong physics, gh:#472). It now panics at assembly, by
+//! design, until it is ported to `assemble_explicit_triso`.
+//!
 //! The coupling layer's whole purpose is that the stochastic and deterministic
 //! ends describe the *same* reactor. This example does that for the HTR-10:
 //! `nee_soon::htr10_rmc` builds the core once, `outram-mc` transports it and
@@ -55,6 +60,7 @@ use nee_soon::genfoam_xs::to_nuclear_data_input;
 use nee_soon::htr10_rmc::core_model::{
     assemble, mat, HTR10_BORED_BORON, HTR10_BORED_CARBON, PAPER_FILLING_FRACTION,
 };
+use nee_soon::htr10_rmc::materials::GraphiteLaw;
 use nee_soon::htr10_rmc::reflector::zone_composition;
 use nee_soon::mgxs::{condense, matrix_tally, scalar_tally, GroupStructure};
 use outram_foam_appbuilder_lib::genfoam::neutronics::diffusion::{
@@ -77,21 +83,7 @@ use uom::si::length::meter;
 
 const TEMP_K: f64 = 293.6;
 const B10_OF_NATURAL: f64 = 0.199;
-const NUC: Htr10Nuclides = Htr10Nuclides {
-    u235: 0,
-    u238: 1,
-    o16: 2,
-    c_free: 3,
-    c_graphite: 4,
-    si28: 5,
-    b10: 6,
-    // Appended 2026-09-23: slots 0..=6 keep their indices so no
-    // existing material silently repoints at a different nuclide.
-    c_sic: 7,
-    si29: 8,
-    si30: 9,
-    b11: 10,
-};
+const NUC: Htr10Nuclides = Htr10Nuclides::NATURAL_CARBON;
 
 fn env_usize(key: &str, default: usize) -> usize {
     std::env::var(key)
@@ -104,9 +96,11 @@ fn nuclides() -> Option<Vec<Nuclide>> {
     let dir =
         std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../reference-data/endf");
     let load = |n: &str, f: &str| Nuclide::from_endf_file(&dir.join(f), n, TEMP_K, 1.0e-3).ok();
+    // Graphite law: `GraphiteLaw::default()` (30P since 2026-09-27).
+    let law = GraphiteLaw::default();
     let sab = ThermalScattering::from_endf_file(
-        dir.join("tsl-crystalline-graphite.endf").to_str()?,
-        30,
+        dir.join(law.tape()).to_str()?,
+        law.mat(),
         TEMP_K,
         "c_Graphite",
     )
@@ -129,7 +123,7 @@ fn nuclides() -> Option<Vec<Nuclide>> {
         load("U238", "n-092_U_238.endf")?,
         load("O16", "n-008_O_016-ENDF8.0.endf")?,
         load("C12", "n-006_C_012-ENDF8.0.endf")?,
-        load("C12", "n-006_C_012-ENDF8.0.endf")?.with_thermal_scattering(sab),
+        load("C12", "n-006_C_012-ENDF8.0.endf")?.with_thermal_scattering(sab.clone()),
         bind_sic(load("Si28", "n-014_Si_028-ENDF8.0.endf")?, &si_in_sic),
         load("B10", "n-005_B_010-ENDF8.0.endf")?,
         // 7, 8, 9: carbon bound in SiC, and silicon's other two natural
@@ -139,6 +133,12 @@ fn nuclides() -> Option<Vec<Nuclide>> {
         bind_sic(load("Si29", "n-014_Si_029-ENDF8.0.endf")?, &si_in_sic),
         bind_sic(load("Si30", "n-014_Si_030-ENDF8.0.endf")?, &si_in_sic),
         load("B11", "n-005_B_011-ENDF8.0.endf")?, // 10: B-11 (gh:#311)
+        // 11, 12, 13: C-13, the 1.07 at.% of natural carbon (gh:#425,
+        // 2026-10-01): free, graphite-bound and SiC-bound, as their C-12
+        // partners at 3, 4 and 7 (`Htr10Nuclides::NATURAL_CARBON`).
+        load("C13", "n-006_C_013-ENDF8.0.endf")?,
+        load("C13", "n-006_C_013-ENDF8.0.endf")?.with_thermal_scattering(sab),
+        bind_sic(load("C13", "n-006_C_013-ENDF8.0.endf")?, &c_in_sic),
     ])
 }
 
@@ -155,16 +155,16 @@ fn materials() -> Vec<Material> {
     let graphite_zone = |id: i32, name: &str, z_carbon: f64, z_boron: f64| Material {
         id,
         name: name.into(),
-        components: vec![
-            NuclideComponent {
-                nuclide_idx: NUC.c_graphite,
-                atom_density: z_carbon,
-            },
+        components: NUC.c_graphite
+            .components(z_carbon)
+            .into_iter()
+            .chain([
             NuclideComponent {
                 nuclide_idx: NUC.b10,
                 atom_density: z_boron * B10_OF_NATURAL,
             },
-        ],
+            ])
+            .collect(),
         temperature: TEMP_K,
     };
     let z22 = zone_composition(22).expect("TECDOC zone 22");

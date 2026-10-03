@@ -31,6 +31,23 @@
 //! (so it travels with the library), via
 //! [`crate::root::KovanRoot::set_push_after_save`].
 //!
+//! # Pulling the Kovan folder pulls its corpora (GH issue #422)
+//!
+//! A successful Pull of the Kovan folder (ordinary, or forced through the
+//! prompt below) runs [`crate::save_push::pull_corpora`]: each corpus that
+//! is merely behind is fast-forwarded onto its branch, one line per corpus
+//! is listed under the pull, and each corpus whose local work would be
+//! destroyed gets the same "sure anot?" prompt, queued one at a time.
+//!
+//! # Git runs off the GUI thread (maintainer, 2026-09-29)
+//!
+//! Save Repository (with its push), Fetch, Pull, Push and the forced pull
+//! run on a background thread ([`AdvancedGitState::spawn`]); the tab shows
+//! a spinner and disables those buttons until [`AdvancedGitState::poll_job`]
+//! sees it finish and records the result, so a slow network never freezes
+//! the window. One job at a time, and no "sure anot?" prompt is shown while
+//! one runs.
+//!
 //! # One exception to "presentation only": the conflicted-pull prompt
 //!
 //! Since GH issue #279 this file also owns a decision, not just a
@@ -55,7 +72,7 @@ use std::path::PathBuf;
 /// so each panel uses the repository's own `origin` and the branch it has
 /// checked out, read from Git on refresh.
 struct RepoPanel {
-    label: &'static str,
+    label: String,
     dir: PathBuf,
     remotes: Vec<RemoteInfo>,
     /// The branch checked out, if any.
@@ -63,7 +80,7 @@ struct RepoPanel {
 }
 
 impl RepoPanel {
-    fn load(label: &'static str, dir: PathBuf) -> Self {
+    fn load(label: String, dir: PathBuf) -> Self {
         Self {
             label,
             remotes: advanced_git::list_remotes_in(&dir).unwrap_or_default(),
@@ -118,6 +135,49 @@ pub struct AdvancedGitState {
     /// A pull Git stopped on a conflict, waiting for the user's answer to
     /// the "sure anot?" prompt (GH issue #279). `None` the rest of the time.
     pending_force_pull: Option<ForcePullPrompt>,
+    /// Further prompts waiting their turn behind [`Self::pending_force_pull`]
+    /// — raised when pulling the Kovan folder finds more than one corpus
+    /// whose local work a pull would destroy (#422). Asked one at a time.
+    queued_force_pulls: std::collections::VecDeque<ForcePullPrompt>,
+    /// The save, fetch, pull or push running on a background thread, if
+    /// any — network Git can take seconds to minutes, and the window must
+    /// not freeze meanwhile (maintainer, 2026-09-29). One at a time: the
+    /// buttons are disabled until it lands in [`Self::poll_job`].
+    job: Option<GitJob>,
+}
+
+/// A Git operation running off the GUI thread, and what to say meanwhile.
+struct GitJob {
+    /// e.g. "pulling Kovan folder…".
+    what: String,
+    handle: std::thread::JoinHandle<GitJobDone>,
+}
+
+/// What a finished [`GitJob`] hands back to the GUI thread to record.
+enum GitJobDone {
+    /// A panel's fetch/pull/push; `corpora` is set when the Kovan folder
+    /// was pulled and its corpora followed it (#422).
+    Remote {
+        label: String,
+        dir: PathBuf,
+        remote: String,
+        branch: String,
+        op: RemoteOp,
+        result: Result<String, advanced_git::RemoteError>,
+        kovan_folder: bool,
+        corpora: Option<Vec<crate::save_push::CorpusPull>>,
+    },
+    /// Save Repository, with push-after-save when it is on.
+    Save {
+        result: Result<Option<SaveSummary>, crate::repository::RepositoryError>,
+        pushed: Option<crate::save_push::PushReport>,
+    },
+    /// The "yes, can" forced pull.
+    ForcePull {
+        prompt: ForcePullPrompt,
+        result: Result<String, advanced_git::RemoteError>,
+        corpora: Option<Vec<crate::save_push::CorpusPull>>,
+    },
 }
 
 /// The pull that just hit a conflict, held while [`AdvancedGitState::force_pull_prompt_ui`]
@@ -129,13 +189,16 @@ pub struct AdvancedGitState {
 /// destructive enough that it must not be able to land on a different
 /// repository than the one the user was shown.
 struct ForcePullPrompt {
-    label: &'static str,
+    label: String,
     dir: PathBuf,
     remote: String,
     branch: String,
     /// Git's own account of the conflict, shown on request rather than by
     /// default — it is the evidence, not the question.
     git_says: String,
+    /// Whether a forced pull here is of the Kovan folder itself, whose
+    /// corpora then follow it ([`crate::save_push::pull_corpora`], #422).
+    follow_corpora: bool,
 }
 
 impl AdvancedGitState {
@@ -149,11 +212,27 @@ impl AdvancedGitState {
         }
         self.branches = advanced_git::local_branches(root).unwrap_or_default();
         self.history = advanced_git::history(root, 20).unwrap_or_default();
-        self.repos = std::iter::once(("Kovan folder", root.path().to_path_buf()))
-            .chain([
-                ("Open corpus", root.open_corpus_dir()),
-                ("Proprietary corpus", root.restricted_sources_dir()),
-            ])
+        // Every open and proprietary repository (#458); a tier with one
+        // repository keeps its plain label.
+        let corpus = root.corpus_repos();
+        let mut panels: Vec<(String, PathBuf)> =
+            vec![("Kovan folder".to_string(), root.path().to_path_buf())];
+        for tier in [
+            crate::corpus_tiers::Tier::Open,
+            crate::corpus_tiers::Tier::Proprietary,
+        ] {
+            let in_tier: Vec<_> = corpus.iter().filter(|r| r.tier == tier).collect();
+            for r in &in_tier {
+                let label = if in_tier.len() == 1 {
+                    tier.label().to_string()
+                } else {
+                    r.label()
+                };
+                panels.push((label, r.dir.clone()));
+            }
+        }
+        self.repos = panels
+            .into_iter()
             .filter(|(_, dir)| crate::corpus_repos::is_git_repo(dir))
             .map(|(label, dir)| RepoPanel::load(label, dir))
             .collect();
@@ -186,6 +265,13 @@ impl AdvancedGitState {
             self.stale = false;
             self.refresh(root);
         }
+        self.poll_job(root);
+        let busy = self.job.is_some();
+        if busy {
+            // Nothing else repaints an idle window; keep checking the job.
+            ui.ctx()
+                .request_repaint_after(std::time::Duration::from_millis(100));
+        }
 
         ui.heading("Save Repository");
         ui.small("Version history is kept using a Git backend.");
@@ -197,15 +283,34 @@ impl AdvancedGitState {
                 ui.weak("clean — nothing to save");
             }
             Some(s) => {
-                for a in &s.added {
-                    ui.label(format!("+ {a}"));
-                }
-                for c in &s.changed {
-                    ui.label(format!("~ {c}"));
-                }
-                for r in &s.removed {
-                    ui.label(format!("- {r}"));
-                }
+                // Maintainer, 2026-09-30: on a fresh Kovan folder the list
+                // "floods" the tab and pushes the Save Repository button off
+                // the bottom ("I cannot even find the save repository
+                // button"). The list therefore gets its OWN scroll area,
+                // capped in height, so the note box and the button below it
+                // stay on screen however many files changed. A one-line count
+                // comes first, so the size is visible without scrolling.
+                ui.weak(format!(
+                    "{} added, {} changed, {} removed",
+                    s.added.len(),
+                    s.changed.len(),
+                    s.removed.len()
+                ));
+                egui::ScrollArea::vertical()
+                    .id_salt("save_repository_changes")
+                    .max_height(changes_list_max_height(ui.available_height()))
+                    .auto_shrink([false, true])
+                    .show(ui, |ui| {
+                        for a in &s.added {
+                            ui.label(format!("+ {a}"));
+                        }
+                        for c in &s.changed {
+                            ui.label(format!("~ {c}"));
+                        }
+                        for r in &s.removed {
+                            ui.label(format!("- {r}"));
+                        }
+                    });
             }
             None => {
                 ui.weak("(loading…)");
@@ -240,21 +345,37 @@ impl AdvancedGitState {
             // expect to see save to repository. I don't see any button" —
             // the backend (`crate::repository::save_repository`) already
             // existed and was tested; it just had no button wired to it.
-            if ui.button("Save Repository").clicked() {
-                save_result = Some(advanced_git::save_and_push(
-                    root,
-                    &self.commit_note,
-                    self.push_after_save,
-                ));
+            if ui
+                .add_enabled(!busy, egui::Button::new("Save Repository"))
+                .clicked()
+            {
+                save_result = Some(());
             }
-            if ui.button("Refresh").clicked() {
+            if ui
+                .add_enabled(!busy, egui::Button::new("Refresh"))
+                .clicked()
+            {
                 self.refresh(root);
+            }
+            if let Some(job) = &self.job {
+                ui.spinner();
+                ui.weak(&job.what);
             }
         });
-        if let Some((result, pushed)) = save_result {
-            if self.record_save(result, pushed) {
-                self.refresh(root);
-            }
+        if save_result.is_some() {
+            let (root, note, push) = (root.clone(), self.commit_note.clone(), self.push_after_save);
+            self.spawn(
+                if push {
+                    "saving and pushing…"
+                } else {
+                    "saving…"
+                }
+                .into(),
+                move || {
+                    let (result, pushed) = advanced_git::save_and_push(&root, &note, push);
+                    GitJobDone::Save { result, pushed }
+                },
+            );
         }
         if !self.message.is_empty() {
             let color = if self.message_is_error {
@@ -287,20 +408,16 @@ impl AdvancedGitState {
                 let mut action: Option<(usize, RemoteOp)> = None;
                 for (i, repo) in self.repos.iter().enumerate() {
                     ui.add_space(4.0);
-                    ui.label(egui::RichText::new(repo.label).strong());
+                    ui.label(egui::RichText::new(&repo.label).strong());
                     ui.weak(repo.dir.display().to_string());
                     match (repo.remote(), &repo.branch) {
                         (Some(remote), Some(branch)) => {
                             ui.label(format!("{} ({}), branch {branch}", remote.url, remote.name));
                             ui.horizontal(|ui| {
-                                if ui.button("Fetch").clicked() {
-                                    action = Some((i, RemoteOp::Fetch));
-                                }
-                                if ui.button("Pull").clicked() {
-                                    action = Some((i, RemoteOp::Pull));
-                                }
-                                if ui.button("Push").clicked() {
-                                    action = Some((i, RemoteOp::Push));
+                                for op in [RemoteOp::Fetch, RemoteOp::Pull, RemoteOp::Push] {
+                                    if ui.add_enabled(!busy, egui::Button::new(op.button())).clicked() {
+                                        action = Some((i, op));
+                                    }
                                 }
                             });
                         }
@@ -314,7 +431,7 @@ impl AdvancedGitState {
                     }
                 }
                 if let Some((i, op)) = action {
-                    self.run(i, op);
+                    self.run(root, i, op);
                 }
             });
         });
@@ -403,7 +520,7 @@ impl AdvancedGitState {
     }
 
     /// Fetch, pull or push repository `i` against its own remote and branch.
-    fn run(&mut self, i: usize, op: RemoteOp) {
+    fn run(&mut self, root: &KovanRoot, i: usize, op: RemoteOp) {
         let Some(repo) = self.repos.get(i) else {
             return;
         };
@@ -413,15 +530,160 @@ impl AdvancedGitState {
         let (remote, branch, label, dir) = (
             remote.name.clone(),
             branch.to_string(),
-            repo.label,
+            repo.label.clone(),
             repo.dir.clone(),
         );
-        let result = match op {
-            RemoteOp::Fetch => advanced_git::fetch_in(&dir, &remote),
-            RemoteOp::Pull => advanced_git::pull_in(&dir, &remote, &branch),
-            RemoteOp::Push => advanced_git::push_in(&dir, &remote, &branch),
-        };
-        self.record(label, dir, remote, branch, op, result);
+        let kovan_folder = dir == root.path();
+        let root = root.clone();
+        self.spawn(format!("{}ing {label}…", op.verb()), move || {
+            let result = match op {
+                RemoteOp::Fetch => advanced_git::fetch_in(&dir, &remote),
+                RemoteOp::Pull => advanced_git::pull_in(&dir, &remote, &branch),
+                RemoteOp::Push => advanced_git::push_in(&dir, &remote, &branch),
+            };
+            // #422: pulling the Kovan folder pulls its corpora too.
+            let corpora = (kovan_folder && matches!(op, RemoteOp::Pull) && result.is_ok())
+                .then(|| crate::save_push::pull_corpora(&root));
+            GitJobDone::Remote {
+                label,
+                dir,
+                remote,
+                branch,
+                op,
+                result,
+                kovan_folder,
+                corpora,
+            }
+        });
+    }
+
+    /// Run `work` on a background thread; [`Self::poll_job`] records it.
+    fn spawn(&mut self, what: String, work: impl FnOnce() -> GitJobDone + Send + 'static) {
+        self.job = Some(GitJob {
+            what,
+            handle: std::thread::spawn(work),
+        });
+    }
+
+    /// Record the background job once it has finished; a no-op while it
+    /// runs. Also raises the next queued corpus prompt (#422), which waits
+    /// for the job so two Git operations never run at once.
+    fn poll_job(&mut self, root: &KovanRoot) {
+        if self.job.as_ref().is_some_and(|j| j.handle.is_finished()) {
+            if let Some(job) = self.job.take() {
+                match job.handle.join() {
+                    Ok(done) => self.record_job(done, root),
+                    Err(_) => self.set_error(format!("{} failed unexpectedly", job.what)),
+                }
+            }
+        }
+        if self.job.is_none() && self.pending_force_pull.is_none() {
+            self.pending_force_pull = self.queued_force_pulls.pop_front();
+        }
+    }
+
+    /// Record what a finished background job returned.
+    fn record_job(&mut self, done: GitJobDone, root: &KovanRoot) {
+        match done {
+            GitJobDone::Remote {
+                label,
+                dir,
+                remote,
+                branch,
+                op,
+                result,
+                kovan_folder,
+                corpora,
+            } => {
+                self.record(label, dir, remote, branch, op, result);
+                if let Some(prompt) = self.pending_force_pull.as_mut() {
+                    prompt.follow_corpora = kovan_folder;
+                }
+                if let Some(corpora) = corpora {
+                    self.follow_corpora(corpora);
+                }
+                if matches!(op, RemoteOp::Pull) {
+                    self.refresh(root);
+                }
+            }
+            GitJobDone::Save { result, pushed } => {
+                if self.record_save(result, pushed) {
+                    self.refresh(root);
+                }
+            }
+            GitJobDone::ForcePull {
+                prompt,
+                result,
+                corpora,
+            } => {
+                match result {
+                    // The files on disk were replaced underneath the rest
+                    // of the app, whose index and any open paper were read
+                    // before the pull. Refreshing this tab does not reload
+                    // those, so say so rather than letting a stale Wiki look
+                    // like the pull did not work. (True of an ordinary
+                    // successful pull too — this is the loudest case, not a
+                    // new one.)
+                    Ok(_) => self.set_status(format!(
+                        "{}: pulled by force — the folder now matches {}/{}. Reopen the folder \
+                         from Home so the rest of Kovan reads the new files.",
+                        prompt.label, prompt.remote, prompt.branch
+                    )),
+                    Err(e) => {
+                        self.set_error(format!("{}: could not force the pull: {e}", prompt.label))
+                    }
+                }
+                // #422: the Kovan folder was replaced; its corpora follow.
+                if let Some(corpora) = corpora {
+                    self.follow_corpora(corpora);
+                }
+                // The working tree and the history both moved; everything on
+                // this tab is now stale.
+                self.refresh(root);
+            }
+        }
+    }
+
+    /// File what [`crate::save_push::pull_corpora`] did after the Kovan
+    /// folder was pulled (#422): one line per corpus under the pull's
+    /// message, and — for each corpus whose local work a pull would destroy
+    /// — the "sure anot?" prompt, queued, so overriding it is still the
+    /// user's answer and never automatic. Split out so it is testable
+    /// without a repository.
+    fn follow_corpora(&mut self, pulled: Vec<crate::save_push::CorpusPull>) {
+        use crate::save_push::CorpusPullOutcome;
+        for p in pulled {
+            self.message.push('\n');
+            self.message.push_str(&p.line());
+            match p.outcome {
+                CorpusPullOutcome::Failed { .. } => self.message_is_error = true,
+                CorpusPullOutcome::NeedsConfirmation {
+                    remote,
+                    branch,
+                    reason,
+                } => {
+                    let label = if p.name.is_empty() {
+                        p.corpus.label().to_string()
+                    } else {
+                        format!("{} ({})", p.corpus.label(), p.name)
+                    };
+                    let prompt = ForcePullPrompt {
+                        label,
+                        dir: p.dir,
+                        remote,
+                        branch,
+                        git_says: format!("Not pulled, because {reason}."),
+                        follow_corpora: false,
+                    };
+                    if self.pending_force_pull.is_none() {
+                        self.pending_force_pull = Some(prompt);
+                    } else {
+                        self.queued_force_pulls.push_back(prompt);
+                    }
+                }
+                _ => {}
+            }
+        }
     }
 
     /// File what a remote operation returned: a message, or — for the one
@@ -431,7 +693,7 @@ impl AdvancedGitState {
     /// those two is testable without a repository or a running `git`.
     fn record(
         &mut self,
-        label: &'static str,
+        label: String,
         dir: PathBuf,
         remote: String,
         branch: String,
@@ -451,6 +713,7 @@ impl AdvancedGitState {
                     remote,
                     branch,
                     git_says: output,
+                    follow_corpora: false,
                 });
             }
             Err(e) => self.set_error(format!("{label}: {e}")),
@@ -471,6 +734,9 @@ impl AdvancedGitState {
     ///   conflicted merge would be left half-applied in a folder whose
     ///   owner was never meant to need Git vocabulary (op-wqaw).
     fn force_pull_prompt_ui(&mut self, ctx: &egui::Context, root: &KovanRoot) {
+        if self.job.is_some() {
+            return;
+        }
         let Some(prompt) = self.pending_force_pull.take() else {
             return;
         };
@@ -516,26 +782,18 @@ impl AdvancedGitState {
 
         match force {
             Some(true) => {
-                match advanced_git::force_pull_in(&prompt.dir, &prompt.remote, &prompt.branch) {
-                    // The files on disk were replaced underneath the rest
-                    // of the app, whose index and any open paper were read
-                    // before the pull. Refreshing this tab does not reload
-                    // those, so say so rather than letting a stale Wiki look
-                    // like the pull did not work. (True of an ordinary
-                    // successful pull too — this is the loudest case, not a
-                    // new one.)
-                    Ok(_) => self.set_status(format!(
-                        "{}: pulled by force — the folder now matches {}/{}. Reopen the folder \
-                         from Home so the rest of Kovan reads the new files.",
-                        prompt.label, prompt.remote, prompt.branch
-                    )),
-                    Err(e) => {
-                        self.set_error(format!("{}: could not force the pull: {e}", prompt.label))
+                let root = root.clone();
+                self.spawn(format!("pulling {} by force…", prompt.label), move || {
+                    let result =
+                        advanced_git::force_pull_in(&prompt.dir, &prompt.remote, &prompt.branch);
+                    let corpora = (prompt.follow_corpora && result.is_ok())
+                        .then(|| crate::save_push::pull_corpora(&root));
+                    GitJobDone::ForcePull {
+                        prompt,
+                        result,
+                        corpora,
                     }
-                }
-                // The working tree and the history both moved; everything on
-                // this tab is now stale.
-                self.refresh(root);
+                });
             }
             Some(false) => match advanced_git::abort_in_progress_in(&prompt.dir) {
                 Ok(_) => self.set_status(format!(
@@ -550,11 +808,21 @@ impl AdvancedGitState {
             // Neither button pressed yet — keep asking.
             None => self.pending_force_pull = Some(prompt),
         }
+        // Answered: the next queued corpus prompt (#422), if any, is raised
+        // by `poll_job` once no job is running.
     }
 }
 
+/// Height cap for the "Changes since last save" list: a third of the room left
+/// below the heading, clamped to `[120, 360]` px. That leaves the note box,
+/// the push checkbox and the Save Repository button visible below the list
+/// even on a small window. The list scrolls inside its cap.
+fn changes_list_max_height(available: f32) -> f32 {
+    (available / 3.0).clamp(120.0, 360.0)
+}
+
 /// A remote operation a repository panel can run.
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum RemoteOp {
     Fetch,
     Pull,
@@ -562,6 +830,15 @@ enum RemoteOp {
 }
 
 impl RemoteOp {
+    /// The button's caption.
+    fn button(self) -> &'static str {
+        match self {
+            Self::Fetch => "Fetch",
+            Self::Pull => "Pull",
+            Self::Push => "Push",
+        }
+    }
+
     fn verb(self) -> &'static str {
         match self {
             Self::Fetch => "fetch",
@@ -577,7 +854,7 @@ mod tests {
 
     fn panel(names: &[&str]) -> RepoPanel {
         RepoPanel {
-            label: "test",
+            label: "test".into(),
             dir: PathBuf::new(),
             remotes: names
                 .iter()
@@ -600,7 +877,7 @@ mod tests {
     fn state_after(result: Result<String, advanced_git::RemoteError>) -> AdvancedGitState {
         let mut state = AdvancedGitState::default();
         state.record(
-            "Kovan folder",
+            "Kovan folder".into(),
             PathBuf::from("/tmp/local-kovan-repo"),
             "origin".into(),
             "main".into(),
@@ -672,6 +949,102 @@ mod tests {
         assert!(state.message.is_empty(), "something ran: {}", state.message);
     }
 
+    /// Pulling the Kovan folder lists each corpus's result, and every corpus
+    /// whose local work a pull would destroy gets its own prompt, asked one
+    /// at a time — overriding a corpus is never automatic (#422).
+    #[test]
+    fn corpora_that_need_overriding_are_asked_about_one_at_a_time() {
+        use crate::save_push::{CorpusKind, CorpusPull, CorpusPullOutcome};
+        let confirm = |corpus, dir: &str| CorpusPull {
+            corpus,
+            name: String::new(),
+            dir: PathBuf::from(dir),
+            outcome: CorpusPullOutcome::NeedsConfirmation {
+                remote: "origin".into(),
+                branch: "main".into(),
+                reason: "it has saves the remote does not have".into(),
+            },
+        };
+        let mut state = state_after(Ok(String::new()));
+        state.follow_corpora(vec![
+            confirm(CorpusKind::Proprietary, "/k/prop"),
+            confirm(CorpusKind::Open, "/k/open"),
+            CorpusPull {
+                corpus: CorpusKind::Standard,
+                name: String::new(),
+                dir: PathBuf::from("/k/std"),
+                outcome: CorpusPullOutcome::UpToDate {
+                    branch: "main".into(),
+                },
+            },
+        ]);
+        assert_eq!(state.message.lines().count(), 4, "{}", state.message);
+        assert!(state.message.contains("Standard corpus: up to date"));
+        let first = state.pending_force_pull.as_ref().expect("no prompt");
+        assert_eq!(first.dir, PathBuf::from("/k/prop"));
+        assert!(!first.follow_corpora);
+        assert_eq!(state.queued_force_pulls.len(), 1);
+        assert_eq!(state.queued_force_pulls[0].dir, PathBuf::from("/k/open"));
+    }
+
+    /// A job runs off the GUI thread and is recorded only once it has
+    /// finished; while it runs, nothing is recorded and no prompt is shown.
+    #[test]
+    fn a_background_job_is_recorded_when_it_finishes_and_not_before() {
+        let dir = tempfile::tempdir().unwrap();
+        let root = KovanRoot::create(dir.path(), crate::root::RootConfig::new("lib", "Lib"), true)
+            .unwrap();
+        let gate = std::sync::Arc::new(std::sync::RwLock::new(false));
+        let mut state = AdvancedGitState::default();
+        state.queued_force_pulls.push_back(ForcePullPrompt {
+            label: "Open corpus".into(),
+            dir: PathBuf::from("/k/open"),
+            remote: "origin".into(),
+            branch: "main".into(),
+            git_says: String::new(),
+            follow_corpora: false,
+        });
+        let release = gate.clone();
+        state.spawn("pushing Kovan folder…".into(), move || {
+            while !*release.read().unwrap() {
+                std::thread::sleep(std::time::Duration::from_millis(5));
+            }
+            GitJobDone::Remote {
+                label: "Kovan folder".into(),
+                dir: PathBuf::from("/k"),
+                remote: "origin".into(),
+                branch: "main".into(),
+                op: RemoteOp::Push,
+                result: Ok(String::new()),
+                kovan_folder: true,
+                corpora: None,
+            }
+        });
+        state.poll_job(&root);
+        assert!(state.job.is_some(), "recorded before it finished");
+        assert!(state.message.is_empty());
+        assert!(state.pending_force_pull.is_none(), "prompt raised mid-job");
+
+        *gate.write().unwrap() = true;
+        for _ in 0..400 {
+            state.poll_job(&root);
+            if state.job.is_none() {
+                break;
+            }
+            std::thread::sleep(std::time::Duration::from_millis(5));
+        }
+        assert!(state.job.is_none(), "the job never finished");
+        assert!(
+            state.message.contains("Kovan folder: push done"),
+            "{}",
+            state.message
+        );
+        assert_eq!(
+            state.pending_force_pull.map(|p| p.dir),
+            Some(PathBuf::from("/k/open"))
+        );
+    }
+
     /// The panel pushes to `origin`, or to the only remote there is; with
     /// several and no `origin` it does not guess.
     #[test]
@@ -725,6 +1098,7 @@ mod tests {
             repos: vec![
                 RepoPush {
                     repo: PushRepo::ProprietaryCorpus,
+                    name: String::new(),
                     dir: PathBuf::new(),
                     outcome: PushOutcome::Pushed {
                         remote_url: "https://example.com/private.git".into(),
@@ -734,6 +1108,7 @@ mod tests {
                 },
                 RepoPush {
                     repo: PushRepo::OpenCorpus,
+                    name: String::new(),
                     dir: PathBuf::new(),
                     outcome: PushOutcome::Failed {
                         message: "the remote has commits this folder does not have — pull first"
@@ -742,12 +1117,14 @@ mod tests {
                 },
                 RepoPush {
                     repo: PushRepo::KovanRepository,
+                    name: String::new(),
                     dir: PathBuf::new(),
                     outcome: PushOutcome::Skipped {
                         reason: "a corpus above was not pushed".into(),
                     },
                 },
             ],
+            warnings: Vec::new(),
         };
         let mut state = AdvancedGitState {
             commit_note: "note".into(),
@@ -768,11 +1145,13 @@ mod tests {
         let ok = PushReport {
             repos: vec![RepoPush {
                 repo: PushRepo::KovanRepository,
+                name: String::new(),
                 dir: PathBuf::new(),
                 outcome: PushOutcome::UpToDate {
                     branch: "main".into(),
                 },
             }],
+            warnings: Vec::new(),
         };
         let mut state = AdvancedGitState::default();
         state.record_save(Ok(Some(summary)), Some(ok));
@@ -803,5 +1182,58 @@ mod tests {
         state.persist_push_setting(&root);
         assert!(crate::advanced_git::push_after_save_setting(&root));
         assert!(!state.message_is_error, "{}", state.message);
+    }
+
+    /// A fresh Kovan folder with thousands of new files must not push the
+    /// Save Repository button off the window (maintainer, 2026-09-30: "my
+    /// save repository page is flooded with changes. I cannot even find the
+    /// save repository button").
+    ///
+    /// Drawn headless in a 1000 × 700 window with 5 000 added files, the whole
+    /// tab (list, note box, checkbox, buttons) must fit within the window
+    /// height. Before the change, every file was a bare label in the page, so
+    /// the page grew with the file count and the button sat below all of them.
+    /// Control run, 2026-09-30: with the cap removed (the list in a scroll
+    /// area with no height limit), this test FAILS, with an 849 px page in a
+    /// 700 px window.
+    #[test]
+    fn thousands_of_changes_do_not_push_the_save_button_off_screen() {
+        let dir = tempfile::tempdir().unwrap();
+        let root =
+            KovanRoot::create(dir.path(), crate::root::RootConfig::new("lib", "Lib"), true)
+                .unwrap();
+        let mut state = AdvancedGitState {
+            loaded_once: true, // keep `ui` from re-scanning and replacing the status
+            status: Some(crate::repository::SaveSummary {
+                added: (0..5000).map(|i| format!("corpus/file_{i:05}.md")).collect(),
+                changed: Vec::new(),
+                removed: Vec::new(),
+            }),
+            ..Default::default()
+        };
+        let window = egui::vec2(1000.0, 700.0);
+        let input = egui::RawInput {
+            screen_rect: Some(egui::Rect::from_min_size(egui::Pos2::ZERO, window)),
+            ..Default::default()
+        };
+        let ctx = egui::Context::default();
+        let mut page_height = f32::NAN;
+        let _ = ctx.run_ui(input, |ui| {
+            state.ui(ui, &root);
+            page_height = ui.min_rect().height();
+        });
+        assert!(
+            page_height < window.y,
+            "the Save Repository tab is {page_height:.0} px tall in a {:.0} px window; \
+             the button is off screen",
+            window.y
+        );
+    }
+
+    #[test]
+    fn the_changes_list_cap_leaves_room_below_it() {
+        assert_eq!(changes_list_max_height(300.0), 120.0);
+        assert_eq!(changes_list_max_height(600.0), 200.0);
+        assert_eq!(changes_list_max_height(3000.0), 360.0);
     }
 }

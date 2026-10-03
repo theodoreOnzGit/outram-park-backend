@@ -1,12 +1,18 @@
 # Crate Documentation
 
-**Version:** 0.0.3
+**Version:** 0.0.4
 
-**Format Version:** 61
+**Format Version:** 60
 
 # Module `outram_blender`
 
 # outram-blender
+
+**Geometry description + meshing** (scope widened 2026-10-02, GitHub
+issue #486): the CSG geometry description and its pure navigation kernel
+([`csg`], an OpenMC port moved here from `outram-mc-libs`, which re-exports
+it), the OpenMC geometry plotter ([`csg::plot`]), the tally-mesh description
+([`spatial_mesh`]), and the mesh-authoring frontend described below.
 
 A pure-Rust, headless **mesh-authoring frontend** for the OUTRAM PARK
 multiphysics suite, inspired by the **architecture** of
@@ -14,18 +20,23 @@ multiphysics suite, inspired by the **architecture** of
 GPLv3-compatible). It authors and procedurally generates geometry, then
 bridges it into two OUTRAM PARK solver workflows:
 
-- **Monte Carlo neutron transport** (feature `mc-export`). Author a surface,
+- ~~**Monte Carlo neutron transport** (feature `mc-export`). Author a surface,
   fit it to an `outram-mc-libs` CSG universe ([`export`]), attach materials,
   and run a k-eigenvalue (criticality) calculation returning `k_eff ± σ`
   (the `sim` module). This path is driven by the **MC Studio** egui app
-  (`examples/mc_studio`).
+  (`examples/mc_studio`).~~ **MOVED 2026-10-02 (GitHub #486):** this crate
+  no longer depends on `outram-mc-libs` (outram-mc depends on *it*, for the
+  CSG description). Fit a surface to CSG here ([`export::to_csg_primitive`]);
+  the bridge onto outram-mc and the k-eigenvalue run driver (`sim`) live in
+  `nee_soon` (`nee_soon::blender_bridge`, `nee_soon::sim`), which MC Studio
+  in `dhoby-ghaut` drives.
 - **CFD / thermal-hydraulics volume meshing** (feature `foam-mesh`). Hand a
   closed surface to `outram-park-fork-cfmesh`'s tet→dual→boundary-layers
   pipeline and write out an OpenFOAM `polyMesh` (the `foam_mesh` module). This
   path is driven by the **Mesh Studio** egui app (`examples/mesh_studio`).
 
 The base authoring library (primitives, mesh operators, modifiers, procedural
-evaluator, geometry processing) pulls in neither solver — both bridges are
+evaluator, geometry processing) pulls in no solver — the CFD bridges are
 opt-in cargo features, so the default build stays light and Android-buildable.
 
 > **⚠️ Not a Blender port.** Blender is millions of lines of C/C++/Python;
@@ -57,9 +68,53 @@ opt-in cargo features, so the default build stays light and Android-buildable.
 |---|---|---|
 | [`math`] | `blenlib` `BLI_math` vector types | **real** — a minimal pure-Rust [`math::Vec3`] |
 | [`transform`] | `Object.matrix_world` affine placement | **real** — [`transform::Affine3`] per-vertex transform (CPU reference for the GPU kernel) |
-| `gpu` *(desktop only)* | — (no Blender analogue) | **real** — headless `wgpu` compute (WGSL); one wired kernel (parallel affine vertex transform) with probe + graceful CPU fallback. Compiled unconditionally on desktop, absent on Android |
+| `gpu` *(feature `gpu`, default-on; never on Android)* | — (no Blender analogue) | **real** — headless `wgpu` compute (WGSL); one wired kernel (parallel affine vertex transform) with probe + graceful CPU fallback. ~~Compiled unconditionally on desktop~~ **CORRECTED 2026-10-02**: behind the default-on `gpu` feature; absent on Android, or with `--no-default-features` |
 | [`mesh`] | `bmesh` (`BMVert`/`BMEdge`/`BMLoop`/`BMFace`) | **real** — index-based half-edge topology |
+| [`selection`] | `editmesh_select.cc` / `BM_select_*` | **real** — select modes + flush; all/none/invert; box/sphere/lasso region; linked; mirror; edge/face loop, ring, boundary loop, shortest path; more/less; select similar; checker deselect; non-manifold / loose / interior-faces / faces-by-sides (GH issue #37 §A — `op-hzs.54.1`–`.4`) |
+| [`topology`] | `bmesh_queries.cc` / `bmesh_walkers_impl.cc` | **real** — precomputed radial (edge→faces) + disk (vertex→edges) adjacency; edge-loop / edge-ring / face-loop walkers; Dijkstra + BFS path helpers |
+| [`loop_cut`] | `editmesh_loopcut.cc` / `bmo_subdivide_edgering` | **real** — Loop Cut and Slide: N parallel loops across an edge ring, with a slide factor; quad-only, splices terminal n-gons (GH issue #37 §B) |
+| [`knife`] | `editmesh_knife.cc` | **real** — split faces along a path of boundary-point chords (edge-split / vertex); polyline→chord resolver is follow-up (GH issue #37 §B) |
+| [`slide`] | `transform_mode_edge_slide.cc` / `_vert_slide.cc` | **real** — position-only edge-loop / vertex slide along rail edges, consistent side propagation (GH issue #37 §B) |
+| [`subdivide`] | `bmo_subdivide.cc` | **real** — N-cut subdivide (quad grid / tri lattice / n-gon fan) with smoothness + deterministic fractal; un-subdivide halves a quad grid (GH issue #37 §B) |
+| [`bevel`] | `bmesh_bevel.cc` | **real** — multi-segment rounded edge bevel over [`edge_bevel`]: `segments`, `profile`, `WidthType` (offset/width/depth/percent), clamp-overlap; corner fan-filled (rounded corner patch + selected-subset are follow-up) (GH issue #37 §B) |
+| [`extrude`] | `bmo_extrude.cc` / `editmesh_extrude.cc` | **real** — extrude individual faces (own normal), region along averaged normals, vertices, manifold; complements [`ops`]'s region/edge extrude (GH issue #37 §B) |
+| [`merge`] | `editmesh_tools.cc` `MESH_OT_merge` | **real** — merge vertices at centre / point / first / last; collapse edges; merge-by-distance over a subset (Auto-Merge) (GH issue #37 §B) |
+| [`rip_split`] | `editmesh_rip.cc` / `MESH_OT_separate` / `_split` | **real** — split a face group into an island; separate by selection / loose parts / group; rip a slit along edges (GH issue #37 §B) |
+| [`bridge`] | `bmo_bridge.cc` | **real** — join two equal-length edge loops with a face strip; twist / cuts / flip / weld; ordered_ring walker (GH issue #37 §B) |
+| [`fill`] | `bmo_grid_fill.cc` / `bmo_triangle_fill.cc` / `MESH_OT_edge_face_add` | **real** — make_face (F), grid_fill (Coons quad grid from a 4-sided loop), beauty_fill (Delaunay diagonal flips) (GH issue #37 §B) |
+| [`dissolve`] | `bmo_dissolve.cc` / `MESH_OT_delete` | **real** — dissolve faces/edges/vertices (merge to one n-gon), limited dissolve (planar cleanup), the delete/erase matrix (GH issue #37 §B) |
+| [`connect`] | `bmo_connect.cc` | **real** — connect vertex path / pairs (J) via knife face-chord splits (GH issue #37 §B) |
+| [`poke_quads`] | `bmo_poke.cc` / `bmo_join_triangles.cc` | **real** — poke faces (centroid fan + offset), triangulate quads by method, tris↔quads join (GH issue #37 §B) |
+| [`edge_tools`] | `bmo_rotate_edges.cc` / mesh_edge_flow / `MOD_edgesplit.cc` | **real** — rotate edge CW/CCW, set edge flow (loop relax), edge split operator (GH issue #37 §B) |
+| [`transform_ops`] | `transform_mode_*.cc` | **real** — to-sphere / shear / bend / warp / push-pull / shrink-fatten / randomize / smooth-verts, position-only over a selection (GH issue #37 §C) |
+| [`proportional`] | `transform_proportional_*` | **real** — proportional-edit falloff (smooth/sphere/root/inv-sq/sharp/linear/constant/random), Euclidean or connected-only distance (GH issue #37 §C) |
+| [`symmetry`] | `bmo_symmetrize.cc` / `MESH_OT_symmetry_snap` | **real** — symmetrize (mirror + weld a half), snap-to-symmetry (average with partner), mirror_selection (GH issue #37 §C) |
+| [`spin_screw`] | `bmo_spin_exec` / `MOD_screw.cc` | **real** — spin a profile selection around an axis (bridged or duplicates), screw = spin + axial translation (helix) (GH issue #37 §C) |
+| [`transform_input`] | `transform_input.cc` / `transform_constraints.cc` | **real** — Constraint (free/axis/plane), TransformBasis (global/normal), NumericEntry with an expression evaluator (pi/tau/e, ^ right-assoc), grid-increment snap; the CAD precision-input model (GH issue #37 §D) |
+| [`snap`] | `transform_snap.cc` / `transform_snap_object.cc` | **real** — snap to grid increment / vertex / edge-midpoint / nearest-on-edge / nearest-on-face; SnapBase closest/center/median/active; align-rotation-to-target; snap-onto-self exclusion (GH issue #37 §D) |
+| [`cursor_pivot`] | view3d_cursor_snap / transform_orientations.cc | **real** — 3D cursor placement, PivotPoint (bbox/cursor/individual-origins/median/active), rotate/scale about pivot, custom orientation from a vertex/edge/face selection (GH issue #37 §D) |
+| [`measure`] | mesh-statistics overlay / ruler gizmo / mesh-analysis | **real** — edge/area/angle/dihedral readouts, volume, dimensions, Ruler + Protractor, overhang / distortion / sharp-edges / self-intersection (tri-tri) / thickness (ray cast) (GH issue #37 §D) |
+| [`normals`] | `MESH_OT_normals_*` / mesh_normals.cc | **real** — flip, recalc inside/outside, vertex_normals by weight (uniform/area/corner-angle), point-to-target, SplitNormals + split_normals_by_angle + harden (GH issue #37 §E) |
+| [`attributes`] | `MESH_OT_mark_*` / crease / bevel-weight / auto-smooth | **real** — MeshAttributes: sharp/seam/freestyle marks, edge/vertex crease + bevel weight, per-face smooth + material; auto_smooth; linked_delimiters -> Selection::select_linked_delimited (GH issue #37 §E) |
+| [`remesh`] | mesh_remesh_voxel.cc / MOD_mesh_to_volume | **real** — VoxelGrid occupancy, mesh_to_volume (ray-parity raster), volume_to_mesh (blocky isosurface), voxel_remesh (+ smoothing) (GH issue #37 §F) |
+| [`deform`] | MOD_simpledeform / MOD_cast / MOD_displace / MOD_warp / MOD_wave | **real** — simple_deform (twist/bend/taper/stretch), cast (sphere/cyl/cuboid), displace (value noise), warp (segment map), wave (GH issue #37 §F) |
+| [`deform2`] | MOD_curve / MOD_lattice / MOD_hook / MOD_shrinkwrap / MOD_surfacedeform | **real** — curve_deform (arc-length ride), Lattice + lattice_deform (trilinear FFD), hook (falloff drag), shrinkwrap (3 modes), bind_to_surface + surface_deform, laplacian_deform -> arap (GH issue #37 §F) |
+| [`curve`] | BKE_curve / curve_to_mesh | **real** — Spline (poly / Bézier / NURBS de-Boor), ControlPoint (handle types, radius, tilt, weight), recalculate_handles, cyclic, sample + sample_with_frames (parallel-transport + tilt) (GH issue #37 §G) |
+| [`curve_surface`] | curve_to_mesh.cc / displist.cc | **real** — Bevel (round / custom profile / none), taper spline, 2-D fill (ear clip), end caps; sweep a section along the spline frames (GH issue #37 §G) |
+| [`curve_mesh`] | OBJECT_OT_convert / MOD_curve / MOD_skin | **real** — mesh_to_splines (edge chains), boundary_to_splines, spline_to_mesh, spline_deform_mesh (curve modifier), skin_spline (GH issue #37 §G) |
+| [`nurbs_surface`] | BKE_nurb_makeFaces / editcurve_add.cc | **real** — NurbsSurface tensor-product rational B-spline (periodic knots for cyclic axes), evaluate + to_mesh, plane/sphere/cylinder/torus primitives, control-point patch editing (GH issue #37 §G) |
+| [`text`] | `blenkernel/intern/vfont.cc` (text objects) | **real** — Font/Glyph outline table (+ built-in block stroke font), text_to_contours (baseline layout), text_to_mesh (ear-clip fill, extrude, chamfer bevel) for name plates / labels / gauge faces (GH issue #37 §G) |
 | [`primitives`] | `editors/mesh/editmesh_add` primitive add-ops | **real** — cube / UV-sphere / cylinder / grid generators (unit-tested) |
+| [`primitives_extra`] | `add_mesh_*` operators + redo panels | **real** — plane / circle (fill or wire) / cone + truncated cone / torus / geodesic icosphere; AddMeshOptions (location, XYZ-Euler rotation, scale) common settings, all Euler-checked (GH issue #37 §H) |
+| [`extra_objects`] | `add_mesh_extra_objects` add-on | **real** — rounded_cube (rounded-box SDF projection), capsule, spur_gear (trapezoidal teeth), pipe + elbow (hollow, swept), wedge, star, honeycomb, z_function_surface (generic `Fn(x,y)->z`) (GH issue #37 §H) |
+| [`draw_tool`] | interactive Add Object Tool (place gizmo) + snap/PDT entry | **real** — WorkPlane (xy/xz/yz/from-normal), staged DrawGesture (PickBase→DragFootprint→DragDepth→Done), box/circle/cone from-drag, snap_input (SnapTarget projection), eval_dimension (expression entry) (GH issue #37 §H) |
+| [`loop_tools`] | `mesh_looptools` add-on | **real** — circle (best-fit circle), flatten (best-fit plane), relax (Laplacian), curve (Catmull–Rom toward anchors), space (equal arc length), gstretch (onto a stroke), bridge + loft, subdivide (loop-edge midpoint split) (GH issue #37 §I) |
+| [`snap_line`] | `mesh_snap_utilities_line` add-on | **real** — LineTool connected polyline: add_raw / add_snapped (snap engine) / add_polar / add_constrained (numeric length + angle in a WorkPlane), undo, close, commit_wire, auto_cut_chords (edge-to-edge-on-one-face knife cuts) (GH issue #37 §I) |
+| [`pdt`] | `precision_drawing_tools` add-on | **real** — Placement (Absolute/Delta/Polar/Percent), three_point_circle + three_point_arc, line_line_intersection (3-D closest approach), fillet (tangent corner arc), offset_polyline, taper, angle_between, mirror_point / mirror_vertices across a WorkPlane (GH issue #37 §I) |
+| [`bool_tool`] | `object_boolean_tools` add-on | **real** — BoolStack of non-destructive BoolBrush cutters (Difference/Union/Intersect/Slice, enable toggle); bake (strict fold), carve (skip unresolvable brushes), slice_pieces (inside part per Slice brush); wraps `boolean` (GH issue #37 §I) |
+| [`fill_helpers`] | `mesh_f2` / `object_auto_mirror` / `mesh_bsurfaces` | **real** — f2_fill (smart F: quad or triangle from one boundary edge), auto_mirror (bisect + mirror + weld in one call), bsurfaces (lofted quad surface through resampled strokes) (GH issue #37 §I) |
+| [`object_ops`] | Object menu (Duplicate/Join/Separate/Apply/Set Origin/Align/Snap) | **real** — SceneObject (Arc<Mesh> + Affine3); duplicate vs linked_duplicate, join, separate_loose_parts (union-find), apply_transform, set_origin (geometry/surface-COM/volume-COM/cursor), align, snap_objects, cursor_to_objects (GH issue #37 §J) |
+| [`array_patterns`] | Array modifier Object-Offset + Curve modifier | **real** — radial_array / circular_array (rotate about an axis), object_offset_array (compounding Affine3), array_along_curve (spline frames, align an Axis to the tangent), ArrayCaps start/end (GH issue #37 §J) |
 | [`revolve`] | Spin (`bmo_spin`) | **real** — sweep a profile polyline around an axis into a surface of revolution (pipes / vessels / cones) |
 | [`ops`] | `bmesh/operators/*` (`bmo_*`) mesh operators | **real** — extrude / midpoint-subdivide / vertex-bevel (flat or rounded multi-segment; boolean delegates to [`boolean`]) |
 | [`subdivision`] | OpenSubdiv / `MOD_subsurf` | **real** — Catmull-Clark surface subdivision (local stencils) |
@@ -83,9 +138,10 @@ opt-in cargo features, so the default build stays light and Android-buildable.
 | [`boolean_classify`] | `mesh_boolean.cc` inside/outside classification | **real** — point-in-closed-mesh via generalized winding number (+ ray-parity cross-check) |
 | [`modifiers`] | `modifiers/intern/MOD_*` modifier stack | **real** — subsurf / mirror / array |
 | [`procedural`] | Geometry Nodes (`nodes/geometry/*`) | **real** — node-graph evaluator |
-| [`export`] | I/O exporters (`io/*`) | **real** — OpenFOAM polyMesh text + CSG fitting (box/sphere/cylinder/convex-faceted) + DAGMC faceted-solid (with an opt-in closed-2-manifold gate, [`export::to_faceted_solid_checked`]) + feature-gated real-type bridges (`foam-export`, `mc-export`) |
+| [`export`] | I/O exporters (`io/*`) | **real** — OpenFOAM polyMesh text + CSG fitting (box/sphere/cylinder/convex-faceted) + DAGMC faceted-solid (with an opt-in closed-2-manifold gate, [`export::to_faceted_solid_checked`]) + feature-gated real-type bridge (`foam-export`; ~~`mc-export`~~ retired 2026-10-02, #486) |
 | [`stl`] | STL I/O | **real** — ASCII + binary STL read/write (surface-mesh interchange / DAGMC / Monte-Carlo feed) |
-| `sim` *(feature `mc-export`)* | — (no Blender analogue) | **real** — Monte Carlo setup + run: build materials, bundle geometry/source/settings, run a k-eigenvalue criticality calc (`k_eff ± σ`) via `outram-mc-libs`. Backend of **MC Studio** |
+| ~~`sim` *(feature `mc-export`)*~~ | — | **MOVED 2026-10-02 to `nee_soon::sim`** (GitHub #486): the Monte Carlo setup + run driver, backend of **MC Studio** |
+| [`unstructured`] | — (OpenFOAM `primitiveMesh` geometry port) | **draft** (2026-10-03, #492) — the neutral FV/FE/MC mesh (`UnstructuredMesh`), converters (`convert::{foam, block_mesh, cfmesh, fem}`, feature-gated), the 1-D mesher, a mesh plotter. Unit tests written, not yet run |
 | `foam_mesh` *(feature `foam-mesh`)* | — (no Blender analogue) | **real** — volume-meshing bridge: blender surface → `outram-park-fork-cfmesh` tet→dual→boundary-layers pipeline → OpenFOAM `polyMesh`, gated by a closed-2-manifold check on the surface. Backend of **Mesh Studio** |
 
 ## Design rules honoured here (workspace `CLAUDE.md`)
@@ -275,6 +331,7 @@ weights broke SPD.
 
 - **Read**
 - **RefUnwindSafe**
+- **Same**
 - **Send**
 - **Sync**
 - **ToString**
@@ -398,6 +455,637 @@ assert_eq!(solid.euler_characteristic(), 2);
 
 ```rust
 pub fn bisect(mesh: &crate::mesh::Mesh, point: crate::math::Vec3, normal: crate::math::Vec3) -> crate::mesh::Mesh { /* ... */ }
+```
+
+## Module `attributes`
+
+**Marks & surface attributes** (`op-hzs.54.28`, GH issue #37 §E) — the
+per-element attribute layer that `select_linked` delimiters (`op-hzs.54.2`),
+`tris_to_quads` comparisons (`op-hzs.54.17`), `edge_split` (`op-hzs.54.18`),
+`bevel`'s mark-seam/sharp (`op-hzs.54.9`) and `separate_by_material`
+(`op-hzs.54.12`) were all deferred to.
+
+[`MeshAttributes`] holds:
+
+- `sharp` / `seam` — `BTreeSet<EdgeId>` marks.
+- `crease` / `edge_bevel_weight` / `vertex_bevel_weight` — `f64` in `[0, 1]`.
+- `smooth` — `BTreeSet<FaceId>` (shade-smooth; default is flat).
+- `material` — per-face `usize` index (default `0`).
+- `freestyle_edge` / `freestyle_face` — marks.
+
+The keys are mesh indices, so a `MeshAttributes` goes stale when topology
+changes exactly like any [`crate::mesh::VertexId`] — rebuild it alongside
+the mesh.
+
+[`MeshAttributes::auto_smooth`] derives `smooth` + `sharp` from the dihedral
+angle (Blender's auto-smooth). [`MeshAttributes::linked_delimiters`] gives
+the edge set `select_linked` should not cross.
+
+```rust
+pub mod attributes { /* ... */ }
+```
+
+### Types
+
+#### Struct `MeshAttributes`
+
+The full per-element attribute layer for one mesh.
+
+```rust
+pub struct MeshAttributes {
+    pub sharp: std::collections::BTreeSet<crate::mesh::EdgeId>,
+    pub seam: std::collections::BTreeSet<crate::mesh::EdgeId>,
+    pub crease: std::collections::HashMap<crate::mesh::EdgeId, f64>,
+    pub edge_bevel_weight: std::collections::HashMap<crate::mesh::EdgeId, f64>,
+    pub vertex_bevel_weight: std::collections::HashMap<crate::mesh::VertexId, f64>,
+    pub smooth: std::collections::BTreeSet<crate::mesh::FaceId>,
+    pub material: std::collections::HashMap<crate::mesh::FaceId, usize>,
+    pub freestyle_edge: std::collections::BTreeSet<crate::mesh::EdgeId>,
+    pub freestyle_face: std::collections::BTreeSet<crate::mesh::FaceId>,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `sharp` | `std::collections::BTreeSet<crate::mesh::EdgeId>` | Edges marked sharp (a hard shading edge; also a bevel/split seed). |
+| `seam` | `std::collections::BTreeSet<crate::mesh::EdgeId>` | Edges marked as a UV seam. |
+| `crease` | `std::collections::HashMap<crate::mesh::EdgeId, f64>` | Subdivision-surface crease per edge, `[0, 1]`. |
+| `edge_bevel_weight` | `std::collections::HashMap<crate::mesh::EdgeId, f64>` | Bevel-modifier weight per edge, `[0, 1]`. |
+| `vertex_bevel_weight` | `std::collections::HashMap<crate::mesh::VertexId, f64>` | Bevel-modifier weight per vertex, `[0, 1]`. |
+| `smooth` | `std::collections::BTreeSet<crate::mesh::FaceId>` | Faces shaded smooth (default: flat). |
+| `material` | `std::collections::HashMap<crate::mesh::FaceId, usize>` | Per-face material index (default: `0`). |
+| `freestyle_edge` | `std::collections::BTreeSet<crate::mesh::EdgeId>` | Edges marked as a Freestyle edge. |
+| `freestyle_face` | `std::collections::BTreeSet<crate::mesh::FaceId>` | Faces marked as a Freestyle face. |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn new(_mesh: &Mesh) -> Self { /* ... */ }
+  ```
+  A fresh, empty attribute layer for `mesh` (everything at its default).
+
+- ```rust
+  pub fn mark_sharp(self: &mut Self, edges: &[EdgeId]) { /* ... */ }
+  ```
+  Mark `edges` sharp.
+
+- ```rust
+  pub fn clear_sharp(self: &mut Self, edges: &[EdgeId]) { /* ... */ }
+  ```
+  Clear the sharp mark from `edges`.
+
+- ```rust
+  pub fn is_sharp(self: &Self, e: EdgeId) -> bool { /* ... */ }
+  ```
+  Whether `e` is sharp.
+
+- ```rust
+  pub fn mark_seam(self: &mut Self, edges: &[EdgeId]) { /* ... */ }
+  ```
+  Mark `edges` as a seam.
+
+- ```rust
+  pub fn clear_seam(self: &mut Self, edges: &[EdgeId]) { /* ... */ }
+  ```
+  Clear the seam mark from `edges`.
+
+- ```rust
+  pub fn is_seam(self: &Self, e: EdgeId) -> bool { /* ... */ }
+  ```
+  Whether `e` is a seam.
+
+- ```rust
+  pub fn set_crease(self: &mut Self, edges: &[EdgeId], value: f64) { /* ... */ }
+  ```
+  Set the crease of `edges` to `value` (clamped to `[0, 1]`; `0` removes
+
+- ```rust
+  pub fn crease(self: &Self, e: EdgeId) -> f64 { /* ... */ }
+  ```
+  The crease of `e` (`0.0` if unset).
+
+- ```rust
+  pub fn set_edge_bevel_weight(self: &mut Self, edges: &[EdgeId], value: f64) { /* ... */ }
+  ```
+  Set the bevel weight of `edges` to `value` (clamped, `0` removes).
+
+- ```rust
+  pub fn edge_bevel_weight(self: &Self, e: EdgeId) -> f64 { /* ... */ }
+  ```
+  The bevel weight of `e` (`0.0` if unset).
+
+- ```rust
+  pub fn shade_smooth(self: &mut Self, mesh: &Mesh, faces: &[FaceId]) { /* ... */ }
+  ```
+  Shade `faces` smooth (empty = whole mesh).
+
+- ```rust
+  pub fn shade_flat(self: &mut Self, mesh: &Mesh, faces: &[FaceId]) { /* ... */ }
+  ```
+  Shade `faces` flat (empty = whole mesh).
+
+- ```rust
+  pub fn is_smooth(self: &Self, f: FaceId) -> bool { /* ... */ }
+  ```
+  Whether `f` is shaded smooth.
+
+- ```rust
+  pub fn set_material(self: &mut Self, faces: &[FaceId], index: usize) { /* ... */ }
+  ```
+  Set the material index of `faces`.
+
+- ```rust
+  pub fn material(self: &Self, f: FaceId) -> usize { /* ... */ }
+  ```
+  The material index of `f` (`0` if unset).
+
+- ```rust
+  pub fn auto_smooth(self: &mut Self, mesh: &Mesh, angle: f64) { /* ... */ }
+  ```
+  Auto-smooth: every face becomes smooth, and every interior edge whose
+
+- ```rust
+  pub fn linked_delimiters(self: &Self, mesh: &Mesh, by_seam: bool, by_sharp: bool, by_material: bool) -> BTreeSet<EdgeId> { /* ... */ }
+  ```
+  The edges `select_linked` must not cross, per the given delimiters
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **ByRef**
+  - ```rust
+    fn by_ref(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> MeshAttributes { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Default**
+  - ```rust
+    fn default() -> MeshAttributes { /* ... */ }
+    ```
+
+- **DistributionExt**
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Imply**
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+## Module `bevel`
+
+**Bevel — Blender parity** (`op-hzs.54.9`, GH issue #37 §B).
+
+[`bevel`] extends [`crate::edge_bevel`]'s flat single-segment chamfer with:
+
+- **`segments`** — the edge gap is filled with `segments` quads whose
+  cross-section follows a circular arc (a rounded edge), not one flat quad.
+- **`profile`** — `0.0` chord (flat chamfer) … `0.5` circular … `1.0` bulged
+  toward the original edge (sharp). Blender's profile slider.
+- **`width_type`** — how `amount` is interpreted ([`WidthType`]). `Offset`
+  is exact (distance each face is cut back); `Width` / `Depth` / `Percent`
+  are right-angle approximations, since a headless call has no live dihedral.
+- **`clamp_overlap`** — clamp the offset to half the shortest edge so a face
+  cannot invert.
+
+The **corner** where three or more beveled edges meet is filled with a
+single n-gon cap (as in `edge_bevel`); a rounded spherical-triangle corner
+patch is tracked as follow-up under this bead. Every edge is beveled — a
+*selected-subset* bevel needs partial-boundary handling and is also
+follow-up.
+
+```rust
+pub mod bevel { /* ... */ }
+```
+
+### Types
+
+#### Enum `WidthType`
+
+How [`BevelOptions::amount`] is measured.
+
+```rust
+pub enum WidthType {
+    Offset,
+    Width,
+    Depth,
+    Percent,
+}
+```
+
+##### Variants
+
+###### `Offset`
+
+Distance each adjacent face is moved back from the edge (exact).
+
+###### `Width`
+
+Width of the new bevel face (≈ `offset · √2` at a right angle).
+
+###### `Depth`
+
+Perpendicular distance from the original edge to the new face
+(≈ `offset / √2` at a right angle).
+
+###### `Percent`
+
+Percentage (0–100) of the mean adjacent edge length.
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Boilerplate**
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **ByRef**
+  - ```rust
+    fn by_ref(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> WidthType { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **DistributionExt**
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Imply**
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &WidthType) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Struct `BevelOptions`
+
+Tuning for [`bevel`].
+
+```rust
+pub struct BevelOptions {
+    pub amount: f64,
+    pub segments: usize,
+    pub profile: f64,
+    pub width_type: WidthType,
+    pub clamp_overlap: bool,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `amount` | `f64` | Bevel size, interpreted per [`BevelOptions::width_type`]. |
+| `segments` | `usize` | Number of quad rings across the bevel (`>= 1`). `1` = flat chamfer. |
+| `profile` | `f64` | Profile shape, `0.0` … `1.0` (`0.5` = circular). |
+| `width_type` | `WidthType` | How `amount` is measured. |
+| `clamp_overlap` | `bool` | Clamp the offset to half the shortest edge so no face inverts. |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **ByRef**
+  - ```rust
+    fn by_ref(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> BevelOptions { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Default**
+  - ```rust
+    fn default() -> Self { /* ... */ }
+    ```
+
+- **DistributionExt**
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Imply**
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+### Functions
+
+#### Function `bevel`
+
+Bevel every edge of `mesh` per `opts`.
+
+```rust
+pub fn bevel(mesh: &crate::mesh::Mesh, opts: BevelOptions) -> crate::mesh::Mesh { /* ... */ }
 ```
 
 ## Module `boolean`
@@ -568,6 +1256,7 @@ Fields:
 
 - **Read**
 - **RefUnwindSafe**
+- **Same**
 - **Send**
 - **Sync**
 - **ToString**
@@ -833,10 +1522,6 @@ this is an epsilon-based judgement call, not an exact predicate.
     fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
     ```
 
-  - ```rust
-    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
-    ```
-
 - **Freeze**
 - **From**
   - ```rust
@@ -876,6 +1561,7 @@ this is an epsilon-based judgement call, not an exact predicate.
 
 - **Read**
 - **RefUnwindSafe**
+- **Same**
 - **Send**
 - **StructuralPartialEq**
 - **Sync**
@@ -1306,6 +1992,7 @@ pub struct Vec2 {
 
 - **Read**
 - **RefUnwindSafe**
+- **Same**
 - **Send**
 - **StructuralPartialEq**
 - **Sync**
@@ -1471,6 +2158,457 @@ fast path the same way [`orient3d`]/[`incircle`] do.
 pub fn insphere(a: crate::math::Vec3, b: crate::math::Vec3, c: crate::math::Vec3, d: crate::math::Vec3, e: crate::math::Vec3) -> i32 { /* ... */ }
 ```
 
+## Module `bridge`
+
+**Bridge Edge Loops** (`op-hzs.54.14`, GH issue #37 §B) — join two edge
+loops with a face strip. Blender's `Edge ▸ Bridge Edge Loops`.
+
+[`bridge_edge_loops`] takes the two loops as ordered vertex rings (open or
+closed) plus [`BridgeOptions`]:
+
+- `twist` — rotate the pairing between the two rings by this many steps
+  (Blender's Twist).
+- `cuts` — insert `cuts` intermediate rings, so the bridge is `cuts + 1`
+  quads deep (linear interpolation).
+- `flip` — reverse ring B's direction (fixes an inside-out strip).
+- `merge_ends` — if a paired vertex on each ring is within a tolerance,
+  weld them (bridging a loop back onto itself).
+
+The two rings must have the **same** vertex count; unequal-count bridging
+(Blender interpolates) is tracked as follow-up under this bead.
+
+```rust
+pub mod bridge { /* ... */ }
+```
+
+### Types
+
+#### Struct `BridgeOptions`
+
+Tuning for [`bridge_edge_loops`].
+
+```rust
+pub struct BridgeOptions {
+    pub twist: i64,
+    pub cuts: usize,
+    pub flip: bool,
+    pub merge_distance: f64,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `twist` | `i64` | Rotate the A↔B vertex pairing by this many steps. |
+| `cuts` | `usize` | Intermediate rings inserted along the bridge (`0` = one quad deep). |
+| `flip` | `bool` | Reverse ring B before pairing. |
+| `merge_distance` | `f64` | Weld paired vertices closer than this distance (`0` disables). |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **ByRef**
+  - ```rust
+    fn by_ref(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> BridgeOptions { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Default**
+  - ```rust
+    fn default() -> Self { /* ... */ }
+    ```
+
+- **DistributionExt**
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Imply**
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+### Functions
+
+#### Function `bridge_edge_loops`
+
+Bridge `ring_a` to `ring_b` (both ordered vertex rings of equal length),
+appending the connecting faces to `mesh`. `closed` says whether the rings
+are cyclic (a tube) or open (a ribbon).
+
+```rust
+pub fn bridge_edge_loops(mesh: &crate::mesh::Mesh, ring_a: &[crate::mesh::VertexId], ring_b: &[crate::mesh::VertexId], closed: bool, opts: BridgeOptions) -> crate::mesh::Mesh { /* ... */ }
+```
+
+#### Function `ordered_ring`
+
+Walk an edge set into its ordered vertex ring, or `None` if it is not a
+single simple chain / loop. `closed` in the result says whether it cycles.
+
+```rust
+pub fn ordered_ring(mesh: &crate::mesh::Mesh, edges: &[crate::mesh::EdgeId]) -> Option<(Vec<crate::mesh::VertexId>, bool)> { /* ... */ }
+```
+
+#### Function `align_by_nearest`
+
+Convenience: reorder `ring_b` so its first vertex is the one geometrically
+nearest `ring_a[0]` — a reasonable default pairing before applying `twist`.
+
+```rust
+pub fn align_by_nearest(mesh: &crate::mesh::Mesh, ring_a: &[crate::mesh::VertexId], ring_b: &[crate::mesh::VertexId]) -> Vec<crate::mesh::VertexId> { /* ... */ }
+```
+
+## Module `connect`
+
+**Connect Vertex Path / Pairs** (`op-hzs.54.16`, GH issue #37 §B) —
+Blender's `J`.
+
+- [`connect_vertex_path`] connects an ordered vertex list: each consecutive
+  pair that shares a face splits that face along the chord.
+- [`connect_vertex_pairs`] connects an explicit list of pairs.
+
+Both compose [`crate::knife::knife`]'s face-chord split, so they inherit its
+"one chord per face, applied in sequence" behaviour. A pair that shares no
+face, or is already an edge, is skipped.
+
+```rust
+pub mod connect { /* ... */ }
+```
+
+### Functions
+
+#### Function `connect_vertex_path`
+
+Connect the ordered `path` of vertices: for each consecutive pair sharing a
+face, split that face along the chord between them. Returns the rebuilt
+mesh.
+
+```rust
+pub fn connect_vertex_path(mesh: &crate::mesh::Mesh, path: &[crate::mesh::VertexId]) -> crate::mesh::Mesh { /* ... */ }
+```
+
+#### Function `connect_vertex_pairs`
+
+Connect an explicit list of vertex `pairs`. Order matters when several pairs
+touch one face (each acts on whichever sub-face contains it).
+
+```rust
+pub fn connect_vertex_pairs(mesh: &crate::mesh::Mesh, pairs: &[(crate::mesh::VertexId, crate::mesh::VertexId)]) -> crate::mesh::Mesh { /* ... */ }
+```
+
+#### Function `common_face`
+
+A face incident to **both** `a` and `b` (the first by id), or `None`.
+
+```rust
+pub fn common_face(mesh: &crate::mesh::Mesh, a: crate::mesh::VertexId, b: crate::mesh::VertexId) -> Option<crate::mesh::FaceId> { /* ... */ }
+```
+
+## Module `connect_concave`
+
+Split concave faces into convex ones — a port of Blender's **Split
+Concave Faces** (`bmo_connect_concave.cc`).
+
+# Why a solver frontend wants this
+
+A concave face's centroid lies outside the face. Anything downstream
+that treats a face as "a centroid plus a normal plus an area" — which is
+most of a finite-volume mesher's face handling, and the CSG bridge's
+surface test — is then working from a point that is not on the surface
+it is meant to describe. Splitting concave faces into convex pieces
+removes that whole class of surprise, and it does so **without moving a
+single vertex**: only edges are added.
+
+This is the third member of the face-quality trio, alongside
+[`crate::connect_nonplanar`] (warped faces, split) and
+[`crate::planar_faces`] (warped faces, relaxed).
+
+# The algorithm: shatter, then glue back while convex
+
+Upstream does not search for good cuts directly. It triangulates the
+concave face outright and then greedily merges the triangles back
+together, accepting each merge only while the result stays convex. What
+survives is a set of maximal convex pieces.
+
+The merge *order* is where the quality comes from, and it is upstream's,
+transcribed:
+
+1. Interior edges whose **both** endpoints are concave corners of the
+   original face are considered **last**. Those edges are the natural
+   dividers between the face's convex lobes, so leaving them for last
+   means they are still there to be kept.
+2. Otherwise, **longer edges first** — upstream's comment is "shortest
+   edges last". Merging across a long edge early tends to produce the
+   larger, better-shaped pieces.
+
+# Fidelity to upstream, and the deviations
+
+The triangulate-then-remerge structure, the concave-corner tagging, the
+sort comparator and the convexity gate are transcribed. Differences:
+
+1. **`f64`, not `f32`.**
+2. **The convexity gate checks the whole merged ring**, where upstream
+   checks only the two corners the merge creates (`cross_tri_v3` against
+   the face normal, once per side). The two are equivalent — the other
+   corners were already convex — and upstream's is `O(1)` against this
+   port's `O(n)`. Chosen for legibility; if this ever shows up in a
+   profile, the two-corner test is the drop-in.
+3. **Merging reuses [`crate::limited_dissolve`]'s boundary-cancellation
+   join** rather than a second implementation of face merging. Upstream
+   calls `BM_faces_join`, which is that same operation.
+4. **No `f_double` handling.** Upstream watches for a merge that
+   reproduces an existing face elsewhere in the mesh and kills it; on
+   index rings rebuilt per face that case cannot arise.
+5. **Rebuild, not in-place.**
+
+```rust
+pub mod connect_concave { /* ... */ }
+```
+
+### Functions
+
+#### Function `connect_concave`
+
+Split every concave face of `mesh` into convex pieces.
+
+Convex faces and triangles are passed through untouched — a triangle is
+always convex. Vertex positions are never modified; only edges are
+added, so the surface is unchanged. Infallible.
+
+# Examples
+
+```
+use outram_blender::{mesh::Mesh, math::Vec3};
+use outram_blender::connect_concave::connect_concave;
+
+// The L-shaped hexagon: one reflex corner.
+let pts: Vec<Vec3> = [(0.0, 0.0), (1.0, 0.0), (1.0, 0.5),
+                      (0.5, 0.5), (0.5, 1.0), (0.0, 1.0)]
+    .iter().map(|&(x, y)| Vec3::new(x, y, 0.0)).collect();
+let l = Mesh::from_polygons(&pts, &[(0..6).collect::<Vec<usize>>()]);
+assert_eq!(l.face_count(), 1);
+
+let split = connect_concave(&l);
+assert!(split.face_count() > 1);
+assert_eq!(split.vertex_count(), 6); // no vertices added
+```
+
+```rust
+pub fn connect_concave(mesh: &crate::mesh::Mesh) -> crate::mesh::Mesh { /* ... */ }
+```
+
+## Module `connect_nonplanar`
+
+Split non-planar faces along their flattest diagonal — a port of
+Blender's **Split Non-Planar Faces** (`bmo_connect_nonplanar.cc`).
+
+# What this computes and why a solver frontend needs it
+
+A face with four or more corners is only planar by accident. A warped
+quad has no single well-defined plane, so its normal, its centroid and
+its area all depend on how you choose to interpret it — and a CFD mesher
+or a Monte Carlo surface test will each interpret it differently. This
+operator finds, for each face, the chord that splits it into the two
+*flattest* halves, and cuts along it when the two halves' normals differ
+by more than a given angle. It then recurses, so a badly warped n-gon is
+reduced until every piece is planar to tolerance.
+
+Inputs are positions in the caller's length unit; the tolerance is a true
+angle in **radians** (upstream's `angle_limit` slot). Nothing here has a
+physical dimension.
+
+# The measure: total height variation, not a plane fit
+
+Upstream scores a candidate half by `bm_face_subset_calc_planar`: project
+every corner onto the half's own Newell normal and sum the **absolute
+successive differences** in that height. This is total variation, not an
+RMS residual. It punishes a face that zig-zags through the plane more
+than one that bows smoothly away from it, which is the right bias — a
+zig-zag is the shape a mesher chokes on. The two halves' scores are
+summed and the lowest total wins.
+
+The *cut decision* is separate from the *cut choice*: having found the
+best chord, the face is split only if the cosine of the angle between
+the two halves' normals is below `cos(angle_limit)`. So a gently warped
+face is left whole.
+
+# Fidelity to upstream, and the deviations
+
+The `O(N^2)` chord search, the planarity measure, the normal-angle gate
+and the recursion via a work stack are transcribed from upstream.
+Differences:
+
+1. **`f64`, not `f32`.**
+2. **The legality test is our own.** Upstream calls
+   `BM_face_splits_check_legal`, which works on live BMesh loops and
+   knows about existing edges and face doubles. This crate rebuilds
+   meshes from index rings, so the equivalent question is purely
+   "is this chord a valid diagonal of this polygon?" — it must stay
+   inside the ring and cross no edge. [`is_valid_diagonal`] answers that
+   in the face's own projected plane. It is stricter than upstream's in
+   one respect (it rejects a chord that merely touches an edge) and
+   blind to one thing upstream catches (a pre-existing edge elsewhere in
+   the mesh joining the same two vertices, which would create a double).
+   Stated rather than papered over.
+3. **Rebuild, not in-place split.** Upstream mutates a BMesh; this
+   returns a new [`Mesh`], like every other operator in this crate.
+
+```rust
+pub mod connect_nonplanar { /* ... */ }
+```
+
+### Functions
+
+#### Function `connect_nonplanar`
+
+Split every face of `mesh` that is non-planar by more than
+`angle_limit` radians, recursively, until no face can be improved.
+
+Triangles are always planar and are passed through. Positions are never
+moved — only faces are cut — so this is a topology change, not a
+deformation. Use [`crate::planar_faces`] when you would rather move the
+vertices than add edges.
+
+`angle_limit` is in **radians**; [`DEFAULT_ANGLE_LIMIT`] is upstream's 5°.
+A limit of 0 splits every face that is non-planar at all; a limit of
+`PI` splits nothing. Infallible.
+
+# Examples
+
+```
+use outram_blender::{mesh::Mesh, math::Vec3};
+use outram_blender::connect_nonplanar::{connect_nonplanar, DEFAULT_ANGLE_LIMIT};
+
+// A badly warped quad: one corner lifted well out of the others' plane.
+let pts = vec![
+    Vec3::new(0.0, 0.0, 0.0),
+    Vec3::new(1.0, 0.0, 0.0),
+    Vec3::new(1.0, 1.0, 1.0),
+    Vec3::new(0.0, 1.0, 0.0),
+];
+let warped = Mesh::from_polygons(&pts, &[vec![0, 1, 2, 3]]);
+let split = connect_nonplanar(&warped, DEFAULT_ANGLE_LIMIT);
+assert_eq!(split.face_count(), 2);
+```
+
+```rust
+pub fn connect_nonplanar(mesh: &crate::mesh::Mesh, angle_limit: f64) -> crate::mesh::Mesh { /* ... */ }
+```
+
+### Constants and Statics
+
+#### Constant `DEFAULT_ANGLE_LIMIT`
+
+Upstream's default for the **Split Non-Planar Faces** operator: 5°,
+expressed in radians.
+
+Faces whose two best halves differ by less than this are left alone.
+
+```rust
+pub const DEFAULT_ANGLE_LIMIT: f64 = _;
+```
+
 ## Module `convex_hull`
 
 **3D convex hull** of a point set — the incremental algorithm on the robust
@@ -1634,6 +2772,7 @@ Every point is coplanar — the hull would be a flat polygon, not a solid.
 
 - **Read**
 - **RefUnwindSafe**
+- **Same**
 - **Send**
 - **Sync**
 - **ToString**
@@ -1685,6 +2824,2767 @@ dimensional) input.
 
 ```rust
 pub fn convex_hull(points: &[crate::math::Vec3]) -> Result<crate::mesh::Mesh, HullError> { /* ... */ }
+```
+
+## Module `curve`
+
+**Curve authoring** (`op-hzs.54.34`, GH issue #37 §G — the CAD sketch
+layer). The foundation for curve → surface geometry (`op-hzs.54.35`),
+curve ↔ mesh conversion (`.36`), NURBS surfaces (`.37`) and text
+(`.38`).
+
+A [`Spline`] is an ordered list of [`ControlPoint`]s plus a
+[`SplineType`] (poly / Bézier / NURBS) and a `cyclic` flag.
+[`Spline::sample`] evaluates it to a polyline of `resolution` points per
+segment; [`Spline::sample_with_frames`] also returns the per-point radius
+and an oriented frame (tangent + tilted normal), which the sweep operators
+ride.
+
+```rust
+pub mod curve { /* ... */ }
+```
+
+### Types
+
+#### Enum `SplineType`
+
+The interpolation family of a [`Spline`].
+
+```rust
+pub enum SplineType {
+    Poly,
+    Bezier,
+    Nurbs,
+}
+```
+
+##### Variants
+
+###### `Poly`
+
+Straight segments through the control points.
+
+###### `Bezier`
+
+Cubic Bézier between consecutive points, driven by their handles.
+
+###### `Nurbs`
+
+Non-uniform rational B-spline of the spline's `order`.
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Boilerplate**
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **ByRef**
+  - ```rust
+    fn by_ref(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> SplineType { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **DistributionExt**
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Imply**
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &SplineType) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Enum `HandleType`
+
+How a Bézier handle is derived when [`Spline::recalculate_handles`] runs.
+
+```rust
+pub enum HandleType {
+    Automatic,
+    Vector,
+    Aligned,
+    Free,
+}
+```
+
+##### Variants
+
+###### `Automatic`
+
+A smooth tangent from the neighbouring points' spacing.
+
+###### `Vector`
+
+Points straight at the neighbouring control point (a sharp-ish corner).
+
+###### `Aligned`
+
+Kept collinear with the opposite handle, length preserved.
+
+###### `Free`
+
+Left untouched.
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Boilerplate**
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **ByRef**
+  - ```rust
+    fn by_ref(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> HandleType { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **DistributionExt**
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Imply**
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &HandleType) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Struct `ControlPoint`
+
+One control point of a [`Spline`].
+
+```rust
+pub struct ControlPoint {
+    pub position: crate::math::Vec3,
+    pub handle_left: crate::math::Vec3,
+    pub handle_right: crate::math::Vec3,
+    pub type_left: HandleType,
+    pub type_right: HandleType,
+    pub radius: f64,
+    pub tilt: f64,
+    pub weight: f64,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `position` | `crate::math::Vec3` | The point itself (the "knot"). |
+| `handle_left` | `crate::math::Vec3` | The incoming Bézier handle (absolute position). Unused for poly / NURBS. |
+| `handle_right` | `crate::math::Vec3` | The outgoing Bézier handle (absolute position). |
+| `type_left` | `HandleType` | Handle-recalculation rule for the left handle. |
+| `type_right` | `HandleType` | Handle-recalculation rule for the right handle. |
+| `radius` | `f64` | Cross-section radius at this point (rides through to a bevel). |
+| `tilt` | `f64` | Roll of the local frame about the tangent, in radians. |
+| `weight` | `f64` | NURBS weight (`1.0` = a plain B-spline point). |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn new(position: Vec3) -> Self { /* ... */ }
+  ```
+  A point at `position` with mirrored auto handles and unit radius.
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **ByRef**
+  - ```rust
+    fn by_ref(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> ControlPoint { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **DistributionExt**
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Imply**
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Struct `Spline`
+
+An ordered spline.
+
+```rust
+pub struct Spline {
+    pub spline_type: SplineType,
+    pub points: Vec<ControlPoint>,
+    pub cyclic: bool,
+    pub resolution: usize,
+    pub order: usize,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `spline_type` | `SplineType` | Interpolation family. |
+| `points` | `Vec<ControlPoint>` | The control points, in order. |
+| `cyclic` | `bool` | Whether the spline closes back on itself. |
+| `resolution` | `usize` | Evaluated points per segment (`>= 1`). |
+| `order` | `usize` | NURBS order (degree + 1); `>= 2`. Ignored for poly / Bézier. |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn poly(positions: &[Vec3]) -> Self { /* ... */ }
+  ```
+  A new poly spline through `positions`.
+
+- ```rust
+  pub fn bezier(positions: &[Vec3]) -> Self { /* ... */ }
+  ```
+  A new Bézier spline through `positions` with auto handles.
+
+- ```rust
+  pub fn nurbs(positions: &[Vec3], order: usize) -> Self { /* ... */ }
+  ```
+  A new NURBS spline of `order` through `positions`.
+
+- ```rust
+  pub fn push(self: &mut Self, position: Vec3) { /* ... */ }
+  ```
+  Append a control point at `position`.
+
+- ```rust
+  pub fn toggle_cyclic(self: &mut Self) { /* ... */ }
+  ```
+  Toggle the cyclic flag.
+
+- ```rust
+  pub fn set_type(self: &mut Self, ty: SplineType) { /* ... */ }
+  ```
+  Change the interpolation family (recomputing handles for Bézier).
+
+- ```rust
+  pub fn subdivide(self: &mut Self) { /* ... */ }
+  ```
+  Insert a control point at the midpoint of every segment (a curve
+
+- ```rust
+  pub fn recalculate_handles(self: &mut Self) { /* ... */ }
+  ```
+  Recompute Bézier handles per each point's [`HandleType`]. `Free` handles
+
+- ```rust
+  pub fn sample(self: &Self) -> Vec<Vec3> { /* ... */ }
+  ```
+  Evaluate the spline to a polyline (`resolution` points per segment).
+
+- ```rust
+  pub fn sample_with_frames(self: &Self) -> Vec<SplineSample> { /* ... */ }
+  ```
+  Evaluate the spline to a list of [`SplineSample`]s (position, radius,
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **ByRef**
+  - ```rust
+    fn by_ref(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Spline { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **DistributionExt**
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Imply**
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Struct `SplineSample`
+
+One evaluated point of a spline plus its local frame.
+
+```rust
+pub struct SplineSample {
+    pub position: crate::math::Vec3,
+    pub radius: f64,
+    pub tangent: crate::math::Vec3,
+    pub normal: crate::math::Vec3,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `position` | `crate::math::Vec3` |  |
+| `radius` | `f64` |  |
+| `tangent` | `crate::math::Vec3` | Unit tangent (direction of travel). |
+| `normal` | `crate::math::Vec3` | Unit normal, rolled by the interpolated tilt. |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **ByRef**
+  - ```rust
+    fn by_ref(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> SplineSample { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **DistributionExt**
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Imply**
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+## Module `curve_mesh`
+
+**Curve ↔ Mesh conversion + curve deform + skin** (`op-hzs.54.36`, GH issue
+#37 §G).
+
+- [`mesh_to_splines`] — every maximal non-branching edge chain of a mesh
+  becomes a poly [`Spline`] (Blender's *Convert to Curve*).
+- [`boundary_to_splines`] — just the open-boundary loops.
+- [`spline_to_mesh`] — [`crate::curve_surface::curve_to_mesh`] with sensible
+  defaults (*Convert to Mesh*).
+- [`spline_deform_mesh`] — deform a mesh so its axis rides a [`Spline`]
+  (the Curve modifier).
+- [`skin_spline`] — a round tube along a [`Spline`] (the Skin modifier on a
+  curve).
+
+```rust
+pub mod curve_mesh { /* ... */ }
+```
+
+### Functions
+
+#### Function `mesh_to_splines`
+
+Extract every maximal edge chain of `mesh` as a poly [`Spline`]. A chain
+ends at a branch vertex (valence != 2) or closes into a cyclic loop.
+
+```rust
+pub fn mesh_to_splines(mesh: &crate::mesh::Mesh) -> Vec<crate::curve::Spline> { /* ... */ }
+```
+
+#### Function `boundary_to_splines`
+
+Extract the open-boundary loops of `mesh` as poly [`Spline`]s (each is
+`cyclic`).
+
+```rust
+pub fn boundary_to_splines(mesh: &crate::mesh::Mesh) -> Vec<crate::curve::Spline> { /* ... */ }
+```
+
+#### Function `spline_to_mesh`
+
+Convert a [`Spline`] to a mesh — a wire, a round tube, or a filled outline.
+
+```rust
+pub fn spline_to_mesh(spline: &crate::curve::Spline, tube_radius: Option<f64>) -> crate::mesh::Mesh { /* ... */ }
+```
+
+#### Function `spline_deform_mesh`
+
+Deform `mesh` so its `axis` coordinate rides `spline` (the Curve modifier).
+
+```rust
+pub fn spline_deform_mesh(mesh: &crate::mesh::Mesh, spline: &crate::curve::Spline, axis: crate::selection::Axis) -> crate::mesh::Mesh { /* ... */ }
+```
+
+#### Function `skin_spline`
+
+A round tube of `radius` along `spline` — the Skin modifier applied to a
+curve. `segments` sides.
+
+```rust
+pub fn skin_spline(spline: &crate::curve::Spline, radius: f64, segments: usize) -> crate::mesh::Mesh { /* ... */ }
+```
+
+#### Function `is_poly`
+
+Whether `s` reads as a plausible poly conversion of a straight edge chain
+(helper used by the tests / a round-trip check).
+
+```rust
+pub fn is_poly(s: &crate::curve::Spline) -> bool { /* ... */ }
+```
+
+## Module `curve_surface`
+
+**Curve → surface geometry** (`op-hzs.54.35`, GH issue #37 §G). Depends on
+[`crate::curve`].
+
+[`curve_to_mesh`] turns a [`Spline`] into geometry per [`CurveGeometry`]:
+
+- `bevel` — [`Bevel::Round`] sweeps a circle of `depth`, [`Bevel::Profile`]
+  sweeps a custom 2-D cross-section, [`Bevel::None`] leaves a wire / fill.
+- `taper` — an optional [`Spline`] whose height at parameter `t` scales the
+  cross-section (a lathe taper object).
+- `fill` — when there is no bevel and the spline is cyclic,
+  [`FillMode::Full`] triangulates the outline (a flat cap).
+- `caps` — close the ends of a swept open spline.
+
+```rust
+pub mod curve_surface { /* ... */ }
+```
+
+### Types
+
+#### Enum `Bevel`
+
+The cross-section swept along the spline.
+
+```rust
+pub enum Bevel {
+    None,
+    Round {
+        depth: f64,
+        segments: usize,
+    },
+    Profile {
+        section: Vec<[f64; 2]>,
+        closed: bool,
+    },
+}
+```
+
+##### Variants
+
+###### `None`
+
+No cross-section (wire, or a fill for a cyclic 2-D spline).
+
+###### `Round`
+
+A circle of the given radius, `segments` sides.
+
+Fields:
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `depth` | `f64` |  |
+| `segments` | `usize` |  |
+
+###### `Profile`
+
+A custom cross-section, as `[x, y]` points in the spline's frame plane.
+
+Fields:
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `section` | `Vec<[f64; 2]>` |  |
+| `closed` | `bool` |  |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **ByRef**
+  - ```rust
+    fn by_ref(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Bevel { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **DistributionExt**
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Imply**
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Enum `FillMode`
+
+How a bevel-free cyclic spline is filled.
+
+```rust
+pub enum FillMode {
+    None,
+    Full,
+}
+```
+
+##### Variants
+
+###### `None`
+
+Not filled — leave a wire.
+
+###### `Full`
+
+Fill the outline once (a flat face).
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Boilerplate**
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **ByRef**
+  - ```rust
+    fn by_ref(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> FillMode { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **DistributionExt**
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Imply**
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &FillMode) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Struct `CurveGeometry`
+
+Options for [`curve_to_mesh`].
+
+```rust
+pub struct CurveGeometry {
+    pub bevel: Bevel,
+    pub taper: Option<crate::curve::Spline>,
+    pub fill: FillMode,
+    pub caps: bool,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `bevel` | `Bevel` | The swept cross-section. |
+| `taper` | `Option<crate::curve::Spline>` | Optional taper spline — its `y` at parameter `t` scales the section. |
+| `fill` | `FillMode` | Fill for a bevel-free cyclic spline. |
+| `caps` | `bool` | Cap the ends of a swept open spline. |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **ByRef**
+  - ```rust
+    fn by_ref(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> CurveGeometry { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Default**
+  - ```rust
+    fn default() -> Self { /* ... */ }
+    ```
+
+- **DistributionExt**
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Imply**
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+### Functions
+
+#### Function `curve_to_mesh`
+
+Evaluate `spline` into a [`Mesh`] per `opts`.
+
+```rust
+pub fn curve_to_mesh(spline: &crate::curve::Spline, opts: &CurveGeometry) -> crate::mesh::Mesh { /* ... */ }
+```
+
+## Module `cursor_pivot`
+
+**3D cursor + pivot points + custom orientations** (`op-hzs.54.25`, GH issue
+#37 §D).
+
+- [`Cursor3D`] and its placement helpers ([`Cursor3D::to_grid`],
+  [`Cursor3D::to_selected`], [`Cursor3D::to_active`],
+  [`Cursor3D::to_world_origin`], [`selection_to_cursor`]).
+- [`PivotPoint`] and [`pivot_position`] — the point a rotation / scale
+  turns about.
+- [`rotate_about_pivot`] / [`scale_about_pivot`] — apply a transform to a
+  vertex selection about a pivot, with [`PivotPoint::IndividualOrigins`]
+  handled per connected component.
+- [`orientation_from_selection`] — a [`TransformBasis`] from a
+  vertex / edge / face selection (Blender's *Create Orientation*).
+
+```rust
+pub mod cursor_pivot { /* ... */ }
+```
+
+### Types
+
+#### Struct `Cursor3D`
+
+The 3D cursor: a position and a rotation frame.
+
+```rust
+pub struct Cursor3D {
+    pub position: crate::math::Vec3,
+    pub basis: crate::transform_input::TransformBasis,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `position` | `crate::math::Vec3` |  |
+| `basis` | `crate::transform_input::TransformBasis` |  |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn to_grid(self: &mut Self, step: f64) { /* ... */ }
+  ```
+  Snap the cursor position to a multiple of `step` on each axis.
+
+- ```rust
+  pub fn to_selected(self: &mut Self, mesh: &Mesh, verts: &[VertexId]) { /* ... */ }
+  ```
+  Move the cursor to the median of `verts` (empty = whole mesh).
+
+- ```rust
+  pub fn to_active(self: &mut Self, mesh: &Mesh, active: VertexId) { /* ... */ }
+  ```
+  Move the cursor to a single active vertex.
+
+- ```rust
+  pub fn to_world_origin(self: &mut Self) { /* ... */ }
+  ```
+  Move the cursor to the world origin.
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **ByRef**
+  - ```rust
+    fn by_ref(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Cursor3D { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Default**
+  - ```rust
+    fn default() -> Self { /* ... */ }
+    ```
+
+- **DistributionExt**
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Imply**
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Enum `PivotPoint`
+
+Which point a rotation / scale pivots about.
+
+```rust
+pub enum PivotPoint {
+    BoundingBoxCenter,
+    Cursor,
+    IndividualOrigins,
+    MedianPoint,
+    ActiveElement(crate::mesh::VertexId),
+}
+```
+
+##### Variants
+
+###### `BoundingBoxCenter`
+
+Centre of the selection's axis-aligned bounding box.
+
+###### `Cursor`
+
+The 3D cursor.
+
+###### `IndividualOrigins`
+
+Each connected component about its own median.
+
+###### `MedianPoint`
+
+The mean of the selected vertices.
+
+###### `ActiveElement`
+
+A caller-nominated active vertex.
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `crate::mesh::VertexId` |  |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Boilerplate**
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **ByRef**
+  - ```rust
+    fn by_ref(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> PivotPoint { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **DistributionExt**
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Imply**
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &PivotPoint) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+### Functions
+
+#### Function `selection_to_cursor`
+
+The delta that moves `verts` so their median lands on `cursor`.
+
+```rust
+pub fn selection_to_cursor(mesh: &crate::mesh::Mesh, verts: &[crate::mesh::VertexId], cursor: crate::math::Vec3) -> crate::math::Vec3 { /* ... */ }
+```
+
+#### Function `pivot_position`
+
+The single pivot position for `pivot` (for [`PivotPoint::IndividualOrigins`]
+this returns the overall median — use [`rotate_about_pivot`] for the real
+per-component behaviour).
+
+```rust
+pub fn pivot_position(mesh: &crate::mesh::Mesh, verts: &[crate::mesh::VertexId], pivot: PivotPoint, cursor: crate::math::Vec3) -> crate::math::Vec3 { /* ... */ }
+```
+
+#### Function `rotate_about_pivot`
+
+Rotate `verts` by `angle` about `axis` through the `pivot` point.
+[`PivotPoint::IndividualOrigins`] rotates each connected component about its
+own median.
+
+```rust
+pub fn rotate_about_pivot(mesh: &crate::mesh::Mesh, verts: &[crate::mesh::VertexId], pivot: PivotPoint, axis: crate::selection::Axis, angle: f64, cursor: crate::math::Vec3) -> crate::mesh::Mesh { /* ... */ }
+```
+
+#### Function `scale_about_pivot`
+
+Scale `verts` by `factor` about the `pivot` point.
+
+```rust
+pub fn scale_about_pivot(mesh: &crate::mesh::Mesh, verts: &[crate::mesh::VertexId], pivot: PivotPoint, factor: f64, cursor: crate::math::Vec3) -> crate::mesh::Mesh { /* ... */ }
+```
+
+#### Function `orientation_from_selection`
+
+A [`TransformBasis`] derived from a selection (Blender's *Create
+Orientation*):
+
+- a **face** — `z` = face normal, `x` along its first edge;
+- an **edge** — `z` along the edge, `x` an arbitrary completion;
+- two or more **vertices** — `z` along the line of best fit (here the vector
+  between the two farthest-apart), `x` an arbitrary completion.
+
+```rust
+pub fn orientation_from_selection(mesh: &crate::mesh::Mesh, verts: &[crate::mesh::VertexId], edges: &[crate::mesh::EdgeId], faces: &[crate::mesh::FaceId]) -> Option<crate::transform_input::TransformBasis> { /* ... */ }
+```
+
+## Module `deform`
+
+**Deform modifiers pt.1** (`op-hzs.54.31`, GH issue #37 §F) — position-only
+space deformers.
+
+- [`simple_deform`] — [`SimpleDeform::Twist`] / [`SimpleDeform::Bend`] /
+  [`SimpleDeform::Taper`] / [`SimpleDeform::Stretch`] along an [`Axis`],
+  parameterised over the mesh's extent on that axis.
+- [`cast`] — pull toward a [`CastTarget`] (sphere / cylinder / cuboid).
+- [`displace`] — offset along a direction by value noise (a stand-in for
+  Blender's texture input).
+- [`warp`] — bend space so a "from" segment maps onto a "to" segment.
+- [`wave`] — a travelling sine ripple.
+
+```rust
+pub mod deform { /* ... */ }
+```
+
+### Types
+
+#### Enum `SimpleDeform`
+
+Simple Deform modes.
+
+```rust
+pub enum SimpleDeform {
+    Twist(f64),
+    Bend(f64),
+    Taper(f64),
+    Stretch(f64),
+}
+```
+
+##### Variants
+
+###### `Twist`
+
+Rotate progressively about the axis (radians end-to-end).
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `f64` |  |
+
+###### `Bend`
+
+Bend into an arc of the given total angle (radians).
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `f64` |  |
+
+###### `Taper`
+
+Scale the perpendicular cross-section from `1` to `1 + factor` along
+the axis.
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `f64` |  |
+
+###### `Stretch`
+
+Stretch by `factor` along the axis, contracting perpendicular by
+`1/√(1 + factor)` (volume-preserving-ish).
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `f64` |  |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Boilerplate**
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **ByRef**
+  - ```rust
+    fn by_ref(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> SimpleDeform { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **DistributionExt**
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Imply**
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &SimpleDeform) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Enum `CastTarget`
+
+What [`cast`] pulls toward.
+
+```rust
+pub enum CastTarget {
+    Sphere(f64),
+    Cylinder {
+        radius: f64,
+        axis: crate::selection::Axis,
+    },
+    Cuboid(crate::math::Vec3),
+}
+```
+
+##### Variants
+
+###### `Sphere`
+
+A sphere of the given radius about the mesh centre.
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `f64` |  |
+
+###### `Cylinder`
+
+A cylinder of the given radius about the axis through the mesh centre.
+
+Fields:
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `radius` | `f64` |  |
+| `axis` | `crate::selection::Axis` |  |
+
+###### `Cuboid`
+
+A cuboid of the given half-extents about the mesh centre.
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `crate::math::Vec3` |  |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Boilerplate**
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **ByRef**
+  - ```rust
+    fn by_ref(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> CastTarget { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **DistributionExt**
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Imply**
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &CastTarget) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+### Functions
+
+#### Function `simple_deform`
+
+Apply a [`SimpleDeform`] along `axis` over the selection's extent.
+
+```rust
+pub fn simple_deform(mesh: &crate::mesh::Mesh, verts: &[crate::mesh::VertexId], mode: SimpleDeform, axis: crate::selection::Axis) -> crate::mesh::Mesh { /* ... */ }
+```
+
+#### Function `cast`
+
+Pull the selection a fraction `factor` of the way toward `target`
+(about the selection's centre).
+
+```rust
+pub fn cast(mesh: &crate::mesh::Mesh, verts: &[crate::mesh::VertexId], target: CastTarget, factor: f64) -> crate::mesh::Mesh { /* ... */ }
+```
+
+#### Function `displace`
+
+Displace along `direction` by `strength` times value noise sampled at
+`p * noise_scale`. A texture-free stand-in for Blender's Displace.
+
+```rust
+pub fn displace(mesh: &crate::mesh::Mesh, verts: &[crate::mesh::VertexId], direction: crate::math::Vec3, strength: f64, noise_scale: f64, seed: u64) -> crate::mesh::Mesh { /* ... */ }
+```
+
+#### Function `warp`
+
+Warp space so the segment `from` … `from2` maps onto `to` … `to2` (a
+rotate + scale + translate blended by proximity to `from`).
+
+```rust
+pub fn warp(mesh: &crate::mesh::Mesh, verts: &[crate::mesh::VertexId], from: crate::math::Vec3, from2: crate::math::Vec3, to: crate::math::Vec3, to2: crate::math::Vec3, falloff_radius: f64) -> crate::mesh::Mesh { /* ... */ }
+```
+
+#### Function `wave`
+
+A travelling sine ripple: displace along `axis` by
+`amplitude · sin(2π (r/wavelength − speed·time))` where `r` is the distance
+from the origin in the plane orthogonal to `axis`.
+
+```rust
+pub fn wave(mesh: &crate::mesh::Mesh, verts: &[crate::mesh::VertexId], axis: crate::selection::Axis, amplitude: f64, wavelength: f64, speed: f64, time: f64) -> crate::mesh::Mesh { /* ... */ }
+```
+
+## Module `deform2`
+
+**Deform modifiers pt.2** (`op-hzs.54.32`, GH issue #37 §F).
+
+- [`curve_deform`] — bend the mesh so its `axis` coordinate follows the
+  arc-length of a polyline curve, riding the curve's local frame.
+- [`Lattice`] + [`lattice_deform`] — trilinear free-form deformation from a
+  3-D control-point grid (Blender's Lattice modifier).
+- [`hook`] — a hook point drags a vertex set, with a smooth falloff.
+- [`shrinkwrap`] — project vertices onto a target mesh
+  ([`ShrinkMode::NearestSurfacePoint`] / [`ShrinkMode::ProjectAlongNormal`] /
+  [`ShrinkMode::NearestVertex`]).
+- [`SurfaceBind`] + [`surface_deform`] — bind vertices to a target mesh's
+  triangles (barycentric) once, then follow the deformed target.
+- [`laplacian_deform`] — anchored deformation; forwards to
+  [`crate::arap::arap_deform`].
+
+```rust
+pub mod deform2 { /* ... */ }
+```
+
+### Types
+
+#### Struct `Lattice`
+
+A 3-D grid of control points for [`lattice_deform`].
+
+```rust
+pub struct Lattice {
+    pub dims: [usize; 3],
+    pub rest_min: crate::math::Vec3,
+    pub rest_max: crate::math::Vec3,
+    pub points: Vec<crate::math::Vec3>,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `dims` | `[usize; 3]` | Grid resolution `[nx, ny, nz]` (each `>= 2`). |
+| `rest_min` | `crate::math::Vec3` | The undeformed grid's corner and its opposite corner. |
+| `rest_max` | `crate::math::Vec3` |  |
+| `points` | `Vec<crate::math::Vec3>` | Control-point positions, `points[x + nx*(y + ny*z)]`. |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn from_bounds(dims: [usize; 3], min: Vec3, max: Vec3) -> Self { /* ... */ }
+  ```
+  A lattice matching a mesh's bounding box, control points at their rest
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **ByRef**
+  - ```rust
+    fn by_ref(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Lattice { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **DistributionExt**
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Imply**
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Enum `ShrinkMode`
+
+How [`shrinkwrap`] snaps a vertex onto the target.
+
+```rust
+pub enum ShrinkMode {
+    NearestSurfacePoint,
+    ProjectAlongNormal,
+    NearestVertex,
+}
+```
+
+##### Variants
+
+###### `NearestSurfacePoint`
+
+The closest point anywhere on the target surface.
+
+###### `ProjectAlongNormal`
+
+The first target hit along `+normal` then `-normal` from the vertex.
+
+###### `NearestVertex`
+
+The closest target vertex.
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Boilerplate**
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **ByRef**
+  - ```rust
+    fn by_ref(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> ShrinkMode { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **DistributionExt**
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Imply**
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &ShrinkMode) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Struct `SurfaceBind`
+
+A binding of a mesh's vertices to a target surface's triangles.
+
+```rust
+pub struct SurfaceBind {
+    // Some fields omitted
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| *private fields* | ... | *Some fields have been omitted* |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **ByRef**
+  - ```rust
+    fn by_ref(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> SurfaceBind { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **DistributionExt**
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Imply**
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+### Functions
+
+#### Function `curve_deform`
+
+Deform `mesh` so its `axis` coordinate rides `curve` (a polyline, `>= 2`
+points). A vertex at axis-coordinate `c` is placed at arc-length
+`c - axis_min` along the curve, offset by its perpendicular components in
+the curve's local frame (tangent + a stable up).
+
+```rust
+pub fn curve_deform(mesh: &crate::mesh::Mesh, curve: &[crate::math::Vec3], axis: crate::selection::Axis) -> crate::mesh::Mesh { /* ... */ }
+```
+
+#### Function `lattice_deform`
+
+Trilinear free-form deformation: each mesh vertex's normalised position in
+the lattice's rest box picks a trilinear blend of the (possibly moved)
+control points.
+
+```rust
+pub fn lattice_deform(mesh: &crate::mesh::Mesh, lat: &Lattice) -> crate::mesh::Mesh { /* ... */ }
+```
+
+#### Function `hook`
+
+A hook: drag `verts` by `to - from`, weighted by a smooth falloff from
+`from` out to `falloff_radius` (`0` = rigid within the whole selection).
+
+```rust
+pub fn hook(mesh: &crate::mesh::Mesh, verts: &[crate::mesh::VertexId], from: crate::math::Vec3, to: crate::math::Vec3, falloff_radius: f64) -> crate::mesh::Mesh { /* ... */ }
+```
+
+#### Function `shrinkwrap`
+
+Move each vertex of `mesh` onto `target` per `mode`, blended by `factor`.
+
+```rust
+pub fn shrinkwrap(mesh: &crate::mesh::Mesh, target: &crate::mesh::Mesh, mode: ShrinkMode, factor: f64) -> crate::mesh::Mesh { /* ... */ }
+```
+
+#### Function `bind_to_surface`
+
+Bind `mesh`'s vertices to `target`'s triangles at the current pose.
+
+```rust
+pub fn bind_to_surface(mesh: &crate::mesh::Mesh, target: &crate::mesh::Mesh) -> SurfaceBind { /* ... */ }
+```
+
+#### Function `surface_deform`
+
+Re-evaluate a [`SurfaceBind`] against a deformed `target` (same topology),
+producing the corresponding deformed source mesh.
+
+```rust
+pub fn surface_deform(mesh: &crate::mesh::Mesh, bind: &SurfaceBind, deformed_target: &crate::mesh::Mesh) -> crate::mesh::Mesh { /* ... */ }
+```
+
+#### Function `laplacian_deform`
+
+Anchored (Laplacian) deformation — forwards to [`crate::arap::arap_deform`].
+
+```rust
+pub fn laplacian_deform(mesh: &crate::mesh::Mesh, handles: &[(crate::mesh::VertexId, crate::math::Vec3)], iterations: u32) -> Result<crate::mesh::Mesh, crate::arap::ArapError> { /* ... */ }
 ```
 
 ## Module `decimate`
@@ -1809,10 +5709,6 @@ No legal collapse remained (every candidate was rejected by the manifold
     fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
     ```
 
-  - ```rust
-    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
-    ```
-
 - **Freeze**
 - **From**
   - ```rust
@@ -1852,6 +5748,7 @@ No legal collapse remained (every candidate was rejected by the manifold
 
 - **Read**
 - **RefUnwindSafe**
+- **Same**
 - **Send**
 - **StructuralPartialEq**
 - **Sync**
@@ -1988,6 +5885,7 @@ pub struct DecimateResult {
 
 - **Read**
 - **RefUnwindSafe**
+- **Same**
 - **Send**
 - **Sync**
 - **ToOwned**
@@ -2048,6 +5946,272 @@ Like [`decimate`] but also reports the [`StopReason`].
 
 ```rust
 pub fn decimate_with_reason(mesh: &crate::mesh::Mesh, target_faces: usize) -> DecimateResult { /* ... */ }
+```
+
+## Module `dissolve`
+
+**Dissolve / Delete** (`op-hzs.54.13`, GH issue #37 §B).
+
+- [`dissolve_faces`] merges a connected set of faces into one n-gon (the
+  union boundary). Fails (returns the mesh unchanged) if the set has a hole
+  or a non-simple boundary.
+- [`dissolve_edges`] dissolves each interior edge by merging its two faces.
+- [`dissolve_vertices`] removes each vertex, merging its incident faces and
+  dropping the vertex from the merged ring.
+- [`limited_dissolve`] dissolves every edge whose two faces are within
+  `angle` of coplanar — the planar cleanup pass.
+- [`delete`] is the delete/erase matrix ([`DeleteMode`]).
+
+```rust
+pub mod dissolve { /* ... */ }
+```
+
+### Types
+
+#### Enum `DeleteMode`
+
+The delete/erase matrix.
+
+```rust
+pub enum DeleteMode {
+    Vertices,
+    Edges,
+    Faces,
+    OnlyFaces,
+    Collapse,
+}
+```
+
+##### Variants
+
+###### `Vertices`
+
+Remove the vertices and every edge/face using them.
+
+###### `Edges`
+
+Remove the edges and every face using them; keep the vertices.
+
+###### `Faces`
+
+Remove the faces; keep their edges and vertices (leaves a hole).
+
+###### `OnlyFaces`
+
+Remove the faces only (same as [`DeleteMode::Faces`] in a soup model).
+
+###### `Collapse`
+
+Collapse the given edges (see [`crate::merge::merge_edges`]).
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Boilerplate**
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **ByRef**
+  - ```rust
+    fn by_ref(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> DeleteMode { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **DistributionExt**
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Imply**
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &DeleteMode) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+### Functions
+
+#### Function `dissolve_faces`
+
+Merge a connected face set into a single n-gon. Returns the mesh unchanged
+if `faces` is empty, disconnected, or its union boundary is not one simple
+loop (e.g. it encloses a hole).
+
+```rust
+pub fn dissolve_faces(mesh: &crate::mesh::Mesh, faces: &[crate::mesh::FaceId]) -> crate::mesh::Mesh { /* ... */ }
+```
+
+#### Function `dissolve_edges`
+
+Dissolve each interior edge in `edges` (merge its two faces). Dissolves are
+applied in id order; an edge whose faces were already merged is skipped.
+
+```rust
+pub fn dissolve_edges(mesh: &crate::mesh::Mesh, edges: &[crate::mesh::EdgeId]) -> crate::mesh::Mesh { /* ... */ }
+```
+
+#### Function `dissolve_vertices`
+
+Dissolve each vertex in `verts`: merge its incident faces and remove the
+vertex from the merged boundary.
+
+```rust
+pub fn dissolve_vertices(mesh: &crate::mesh::Mesh, verts: &[crate::mesh::VertexId]) -> crate::mesh::Mesh { /* ... */ }
+```
+
+#### Function `limited_dissolve`
+
+Dissolve every interior edge whose two faces are within `angle` radians of
+coplanar — Blender's Limited Dissolve (planar cleanup).
+
+**Reimplemented 2026-09-19.** This now delegates to
+[`crate::limited_dissolve::limited_dissolve`], the port of upstream's
+`BM_mesh_decimate_dissolve`. The signature and behaviour-on-flat-geometry
+are unchanged, so callers need no edit.
+
+# Why it changed
+
+The previous implementation scored every edge **once** against the input
+normals and dissolved the whole qualifying set in a single
+[`dissolve_edges`] call. Upstream re-costs the merged face's edges after
+every join, which is what keeps a curved surface from collapsing: once
+two facets merge, the merged normal is their average, so the next facet
+is measured against a normal that has already moved.
+
+Measured over two UV spheres, the one-shot approach failed two ways:
+
+- **Area was not conserved.** On a 48x32 sphere at 5 degrees it produced
+  a surface of area 15.501 against a true 12.533 — a +23.7 % error, from
+  merged n-gons warped enough to no longer describe the same surface.
+- **Past a threshold it silently did nothing.** At 15 and 30 degrees it
+  returned the input unchanged, because a single all-at-once merge
+  cannot form a simple boundary and bails. Asking for more
+  simplification produced less, with no error.
+
+The full table is on
+`limited_dissolve::tests::the_iterative_dissolve_conserves_area_where_the_one_shot_did_not`.
+
+```rust
+pub fn limited_dissolve(mesh: &crate::mesh::Mesh, angle: f64) -> crate::mesh::Mesh { /* ... */ }
+```
+
+#### Function `delete`
+
+Apply `mode` to the given elements, returning the rebuilt mesh.
+
+```rust
+pub fn delete(mesh: &crate::mesh::Mesh, mode: DeleteMode, verts: &[crate::mesh::VertexId], edges: &[crate::mesh::EdgeId], faces: &[crate::mesh::FaceId]) -> crate::mesh::Mesh { /* ... */ }
 ```
 
 ## Module `edge_bevel`
@@ -2114,6 +6278,56 @@ assert_eq!(beveled.euler_characteristic(), 2);
 pub fn bevel_edges(mesh: &crate::mesh::Mesh, width: f64) -> crate::mesh::Mesh { /* ... */ }
 ```
 
+## Module `edge_tools`
+
+**Edge tools** (`op-hzs.54.18`, GH issue #37 §B).
+
+- [`rotate_edge`] — spin an edge to the next pair of vertices of its two
+  faces (a triangle flip generalises to any two faces). Blender's `Edge ▸
+  Rotate Edge CW / CCW`.
+- [`set_edge_flow`] — relax an edge loop's vertices toward a smooth path
+  along their rail edges. Blender's `Edge ▸ Set Edge Flow` addon.
+- [`edge_split`] — split the mesh along an edge set: each vertex shared by
+  two face groups the split separates gets its own copy (the Edge Split
+  modifier as an operator).
+
+```rust
+pub mod edge_tools { /* ... */ }
+```
+
+### Functions
+
+#### Function `rotate_edge`
+
+Rotate `edge` to connect the next vertices of its two incident faces —
+`cw` picks the clockwise pair, `!cw` the counter-clockwise. A no-op unless
+the edge has exactly two faces and the combined polygon stays simple.
+
+```rust
+pub fn rotate_edge(mesh: &crate::mesh::Mesh, edge: crate::mesh::EdgeId, cw: bool) -> crate::mesh::Mesh { /* ... */ }
+```
+
+#### Function `set_edge_flow`
+
+Relax the vertices of the edge loop `loop_edges` toward a smooth path:
+`iterations` passes, each moving every 2-rail loop vertex a fraction
+`strength` toward the midpoint of its two rail neighbours. Topology
+unchanged.
+
+```rust
+pub fn set_edge_flow(mesh: &crate::mesh::Mesh, loop_edges: &[crate::mesh::EdgeId], iterations: u32, strength: f64) -> crate::mesh::Mesh { /* ... */ }
+```
+
+#### Function `edge_split`
+
+Split `mesh` along `edges`: each vertex the split separates into two or more
+face groups gets one copy per extra group. The Edge Split modifier as an
+operator (pair with a crease attribute later).
+
+```rust
+pub fn edge_split(mesh: &crate::mesh::Mesh, edges: &[crate::mesh::EdgeId]) -> crate::mesh::Mesh { /* ... */ }
+```
+
 ## Module `export`
 
 Export bridges from an authored [`Mesh`] to the OUTRAM PARK solvers.
@@ -2133,8 +6347,11 @@ cargo features, so neither solver crate is a hard dependency:
   reader/writer round-trips), and `from_poly_mesh` reads one back into a
   [`Mesh`] — combined with `PolyMesh::read(dir)` this **imports** an OpenFOAM
   `constant/polyMesh` directory, the inverse of `write_polymesh`;
-- `mc-export` → `to_mc_geometry` returns a real
-  `outram_mc_libs::prelude::Geometry` (surfaces + a cell region).
+- ~~`mc-export` → `to_mc_geometry` returns a real
+  `outram_mc_libs::prelude::Geometry` (surfaces + a cell region).~~
+  **MOVED 2026-10-02 (GitHub #486)**: the `mc-export` feature is retired,
+  because this crate may not depend on `outram-mc-libs` (outram-mc depends
+  on it). `to_mc_geometry` now lives in `nee_soon::blender_bridge`.
 
 These are the wired counterparts of the text / mirror exporters (epic
 `op-hzs`, beads `op-hzs.6`/`op-hzs.7`).
@@ -2238,8 +6455,8 @@ pub enum ExportError {
 
 A requested export path is documented but not implemented for this mesh.
 
-Returned when [`to_csg_primitive`] (or `to_mc_geometry`, which builds
-on it) is handed a mesh that is not a half-space intersection — i.e. a
+Returned when [`to_csg_primitive`] (or `nee_soon`'s `to_mc_geometry`,
+which builds on it) is handed a mesh that is not a half-space intersection — i.e. a
 **non-convex** solid, which no combination of analytic surfaces
 describes. That is not a gap in this module: use [`to_faceted_solid`]
 for the DAGMC-style faceted boundary representation of such a solid.
@@ -2378,6 +6595,7 @@ Fields:
 
 - **Read**
 - **RefUnwindSafe**
+- **Same**
 - **Send**
 - **Sync**
 - **ToString**
@@ -2527,6 +6745,7 @@ pub struct IndexedTriangles {
 
 - **Read**
 - **RefUnwindSafe**
+- **Same**
 - **Send**
 - **Sync**
 - **ToOwned**
@@ -2679,6 +6898,7 @@ pub struct PolyMeshText {
 
 - **Read**
 - **RefUnwindSafe**
+- **Same**
 - **Send**
 - **Sync**
 - **ToOwned**
@@ -2930,6 +7150,7 @@ Fields:
 
 - **Read**
 - **RefUnwindSafe**
+- **Same**
 - **Send**
 - **StructuralPartialEq**
 - **Sync**
@@ -3048,10 +7269,6 @@ The `f < 0` side (inside a sphere/cylinder; -axis side of a plane).
     fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
     ```
 
-  - ```rust
-    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
-    ```
-
 - **Freeze**
 - **From**
   - ```rust
@@ -3091,6 +7308,7 @@ The `f < 0` side (inside a sphere/cylinder; -axis side of a plane).
 
 - **Read**
 - **RefUnwindSafe**
+- **Same**
 - **Send**
 - **StructuralPartialEq**
 - **Sync**
@@ -3264,6 +7482,7 @@ Boolean NOT of the top operand (set complement).
 
 - **Read**
 - **RefUnwindSafe**
+- **Same**
 - **Send**
 - **StructuralPartialEq**
 - **Sync**
@@ -3417,6 +7636,7 @@ pub struct CsgDescription {
 
 - **Read**
 - **RefUnwindSafe**
+- **Same**
 - **Send**
 - **StructuralPartialEq**
 - **Sync**
@@ -3588,6 +7808,7 @@ pub struct FacetedSolid {
 
 - **Read**
 - **RefUnwindSafe**
+- **Same**
 - **Send**
 - **Sync**
 - **ToOwned**
@@ -3773,6 +7994,15452 @@ assert!(export::to_faceted_solid_checked(&primitives::grid(2, 2, 1.0)).is_err())
 pub fn to_faceted_solid_checked(mesh: &crate::mesh::Mesh) -> Result<FacetedSolid, ExportError> { /* ... */ }
 ```
 
+#### Function `to_csg_geometry`
+
+Convert `mesh` to a native CSG [`crate::csg::geometry::Geometry`] — the
+geometry a Monte Carlo code tracks through.
+
+Added 2026-10-02 (GitHub #486, plan stage 6): since the CSG description
+lives in [`crate::csg`], the export needs no solver crate. It is the
+former `mc-export` bridge (`to_mc_geometry`, now a thin wrapper over this
+in `nee_soon::blender_bridge`), producing the same type: outram-mc-libs
+re-exports [`crate::csg::geometry::Geometry`] as its own `Geometry`. Fits `mesh` to analytic CSG via [`to_csg_primitive`],
+then maps the local-mirror surfaces/region onto the real
+[`crate::csg`] `SurfaceKind` / `RegionToken` and wraps them in a single-cell `Geometry`:
+
+- each [`CsgSurface`] → the matching `SurfaceKind` variant, tagged
+  `BoundaryType::Transmissive` (an interior surface);
+- [`Sense::Negative`] → `HalfSpaceSense::Inside` (evaluate `< 0`),
+  [`Sense::Positive`] → `HalfSpaceSense::Outside` (evaluate `> 0`);
+- the region RPN maps 1:1 onto [`crate::csg::cell::RegionToken`];
+- the region becomes one `Cell` (id `1`) filled `CellFill::Void`, in a single
+  root `Universe`. **The `Void` fill is a placeholder** — the caller assigns
+  the real material/fill and temperature; this bridge exports *geometry*
+  only.
+
+All fitted surfaces map exactly: box, sphere, and Z-cylinder primitives, plus
+the **convex-faceted** route — a general [`CsgSurface::Plane`] maps to
+[`crate::csg::surface::Plane`] `{ a, b, c, d }` (`a·x + b·y + c·z = d`), so an
+arbitrary convex polyhedron exports as one half-space per face.
+
+# Errors
+
+Returns [`ExportError::NotImplemented`] only if `mesh` is not a fittable
+primitive at all (propagated from [`to_csg_primitive`] — i.e. a non-convex
+mesh, which has no half-space-intersection CSG; use [`to_faceted_solid`] for
+that boundary representation).
+
+```rust
+pub fn to_csg_geometry(mesh: &crate::mesh::Mesh) -> Result<crate::csg::geometry::Geometry, ExportError> { /* ... */ }
+```
+
+## Module `csg`
+
+**CSG geometry description and its pure navigation kernel** (surfaces,
+cells, universes, lattices, locate / distance-to-boundary, TRISO particle).
+Moved here from `outram-mc-libs` on 2026-10-02 (GitHub issue #486);
+outram-mc-libs re-exports it under `outram_mc_libs::geometry::*`. Core: no
+feature, no dependency, Android- and wasm-clean.
+**Constructive solid geometry (CSG) description and its pure navigation
+kernel** — the geometry a Monte Carlo code tracks through.
+
+Moved here from `outram-mc-libs` (`src/geometry/`) on 2026-10-02, GitHub
+issue #486, by maintainer decision: outram-blender owns geometry
+**description** and the **pure** queries on it (surface evaluate, sense,
+distance and normal; cell membership and boundary distance; universe
+search; geometry location and boundary distance; lattice indices, local
+positions and distances), so the geometry plotter and the transport code
+share one locator and "draw what the solver sees" holds by construction.
+`outram-mc-libs` keeps the **transport-state** work (surface crossing,
+nudging, corner and diffuse reflection, cross-section lookups, distribcell,
+virtual lattices, volume calculation, GPU encoders, tally scoring), reaches
+it on these types through `*Ext` traits, and re-exports everything here
+under its old `outram_mc_libs::geometry::*` paths.
+
+The code is a port of OpenMC's geometry (MIT licence; see `NOTICE` and
+`LICENSE.openmc`). Units are raw `f64` **centimetres**, as in OpenMC and
+outram-mc-libs: this is the inner loop of particle tracking, so the
+workspace `uom` rule is deliberately not applied here (documented in
+`crates/outram-mc-libs/CLAUDE.md`, "Units: raw `f64`, not `uom`").
+
+This module is in the crate's **core**: it needs no cargo feature and pulls
+no dependency, so `default-features = false` builds it for Android and
+`wasm32-unknown-unknown`.
+
+```rust
+pub mod csg { /* ... */ }
+```
+
+### Modules
+
+## Module `cell`
+
+CSG cells — regions bounded by surface half-spaces.
+
+C++ source: `src/cell.cpp` (1861 LOC), `include/openmc/cell.h` (493 LOC).
+
+A `Cell` is defined by a Boolean combination of surface half-spaces encoded
+as a **Reverse Polish Notation (RPN)** token stream ([`RegionToken`]):
+half-space operands are pushed, and the `Intersection` / `Union` /
+`Complement` operators pop and combine them. A pure intersection cell — the
+common case (fuel pin, moderator box) — is written as
+`[HalfSpace, HalfSpace, Intersection, HalfSpace, Intersection, …]`.
+
+A cell may be a **material cell** (filled with a `Material`) or a **fill
+cell** (filled with a nested `Universe` or `Lattice`).
+
+```rust
+pub mod cell { /* ... */ }
+```
+
+### Types
+
+#### Enum `HalfSpaceSense`
+
+Which side of a surface a half-space token selects.
+
+```rust
+pub enum HalfSpaceSense {
+    Inside,
+    Outside,
+}
+```
+
+##### Variants
+
+###### `Inside`
+
+Negative side, `evaluate(r) < 0` — the interior of a sphere/cylinder.
+
+###### `Outside`
+
+Positive side, `evaluate(r) > 0` — the exterior.
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Boilerplate**
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **ByRef**
+  - ```rust
+    fn by_ref(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> HalfSpaceSense { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **DistributionExt**
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Imply**
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &HalfSpaceSense) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Enum `SurfaceToken`
+
+**Which surface a particle is sitting on, and which side of it it is on.**
+
+This is OpenMC's *signed surface token* (`Particle::surface_`,
+`include/openmc/particle_data.h:437`; `SURFACE_NONE == 0`), expressed as a
+named type instead of a signed integer with a magic zero.
+
+# Why a particle needs to carry this
+
+Immediately after a boundary crossing the particle sits **exactly on** a
+surface, where `Surface::evaluate(r)` is ~0 and its sign is decided by
+round-off rather than by geometry. A membership test that re-evaluates that
+sign can therefore put the particle back in the cell it was *leaving*; the
+next `distance_to_boundary` then finds no forward surface (the one it is on
+is suppressed as coincident), the particle streams to infinity and the
+history leaks. That is GitHub #168 — 85 % of source neutrons lost on a
+concentric-shell pebble (measured 2026-09-10: leakage 0.846 per source
+neutron, k_eff 0.236 where ~1.30 was expected).
+
+Carrying the crossed surface **plus the side it ended up on** removes the
+ambiguity entirely: [`Cell::contains`] takes the recorded sense as fact for
+that one surface instead of re-deriving it. Mirrors `Region::contains_simple`
+/ `contains_complex` (`src/cell.cpp:1046`, `:1069`), where a region token
+equal to `on_surface` is satisfied outright and its negation fails outright.
+
+[`SurfaceToken::NONE`] means "not on any surface" — the state after a
+collision, at birth, and for any standalone geometry query.
+
+```rust
+pub enum SurfaceToken {
+    None,
+    On {
+        surface_idx: usize,
+        sense: HalfSpaceSense,
+    },
+}
+```
+
+##### Variants
+
+###### `None`
+
+The particle is not sitting on any surface.
+
+###### `On`
+
+The particle is on surface `surface_idx`, on the `sense` side of it.
+
+Fields:
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `surface_idx` | `usize` | Index into the global surface array. |
+| `sense` | `HalfSpaceSense` | Which side of that surface the particle is on. |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn on(surface_idx: usize, sense: HalfSpaceSense) -> Self { /* ... */ }
+  ```
+  On surface `surface_idx`, on the `sense` side.
+
+- ```rust
+  pub fn is_on(self: Self, surface_idx: usize) -> bool { /* ... */ }
+  ```
+  Whether this token names surface `surface_idx` (either sense) — the
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Boilerplate**
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **ByRef**
+  - ```rust
+    fn by_ref(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> SurfaceToken { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **DistributionExt**
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Imply**
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &SurfaceToken) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Enum `RegionToken`
+
+One token in the RPN region definition. Maps to OpenMC's region token stream
+(`src/cell.cpp`), but with the operators named rather than encoded as the
+sentinel negative integers OpenMC uses.
+
+```rust
+pub enum RegionToken {
+    HalfSpace {
+        surface_idx: usize,
+        sense: HalfSpaceSense,
+    },
+    Intersection,
+    Union,
+    Complement,
+}
+```
+
+##### Variants
+
+###### `HalfSpace`
+
+Half-space of surface `surface_idx` (index into the global surface array).
+
+Fields:
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `surface_idx` | `usize` |  |
+| `sense` | `HalfSpaceSense` |  |
+
+###### `Intersection`
+
+Logical AND of the two operands below it on the stack.
+
+###### `Union`
+
+Logical OR of the two operands below it on the stack.
+
+###### `Complement`
+
+Logical NOT of the single operand below it on the stack.
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Boilerplate**
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **ByRef**
+  - ```rust
+    fn by_ref(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> RegionToken { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **DistributionExt**
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Imply**
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &RegionToken) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Enum `CellFill`
+
+What fills a cell. Maps to OpenMC's `Cell::type_` / `Fill`.
+
+```rust
+pub enum CellFill {
+    Material(usize),
+    Universe(usize),
+    Lattice(usize),
+    Void,
+}
+```
+
+##### Variants
+
+###### `Material`
+
+Filled with a material (index into the materials list).
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `usize` |  |
+
+###### `Universe`
+
+Filled with a nested universe (index into the universe array).
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `usize` |  |
+
+###### `Lattice`
+
+Filled with a lattice (index into the lattice array).
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `usize` |  |
+
+###### `Void`
+
+Void — no material, streams freely.
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Boilerplate**
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **ByRef**
+  - ```rust
+    fn by_ref(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> CellFill { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **DistributionExt**
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Imply**
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &CellFill) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Enum `TrackingMethod`
+
+**How a particle is transported through a region.**
+
+This is NEW WORK, not a port — OpenMC is pure surface tracking and has no
+equivalent. It exists so a single model can use delta (Woodcock) tracking
+where the geometry is finely divided, and ordinary surface tracking
+everywhere else. See `bn:op-867c.1`, gh #214.
+
+# Why a per-region choice rather than one method per run
+
+Delta tracking samples flights against a **majorant** — a bound on `Σ_t`
+over everything the tracker might encounter — so one strong absorber
+anywhere raises the cost *everywhere*. Measured on 2026-09-17
+(`examples/majorant_absorber_price.rs`): adding one illustrative B4C control
+rod to the bounded material set costs **26.3x in tracking steps at the
+thermal peak**, and it costs that in reflector graphite metres from the rod
+just as much as inside it. Above ~1 keV it costs nothing, because there the
+rod is not the largest cross section in the problem.
+
+Scoping the method — and with it the majorant — to the region that benefits
+is what recovers that factor. Delta tracking is **unbiased** under any valid
+majorant, so this is a cost decision and never an accuracy one.
+
+# Inheritance
+
+A region's method applies to everything nested inside it unless a deeper
+region overrides it. [`super::geometry::GeometryPath::tracking`] reports the
+method in force at the located point, which is the deepest declaration on
+the path.
+
+```rust
+pub enum TrackingMethod {
+    Surface,
+    Delta {
+        majorant: usize,
+    },
+}
+```
+
+##### Variants
+
+###### `Surface`
+
+Conventional surface tracking: stream to the next boundary, collide on
+the local `Σ_t`. The default, and correct everywhere.
+
+###### `Delta`
+
+Delta (Woodcock) tracking against the majorant at `majorant` in the
+caller's majorant table.
+
+The index is deliberately **not** a majorant by value: majorants live in
+`pebble_beds::delta_tracking`, and having `geometry` own one would
+invert the module dependency. The transport driver supplies the table.
+
+Fields:
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `majorant` | `usize` | Index into the caller-supplied majorant table. |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Boilerplate**
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **ByRef**
+  - ```rust
+    fn by_ref(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> TrackingMethod { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Default**
+  - ```rust
+    fn default() -> TrackingMethod { /* ... */ }
+    ```
+
+- **DistributionExt**
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Imply**
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &TrackingMethod) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Struct `Cell`
+
+A CSG cell. Maps to `openmc::Cell`.
+
+```rust
+pub struct Cell {
+    pub id: i32,
+    pub region: Vec<RegionToken>,
+    pub fill: CellFill,
+    pub temperature: f64,
+    pub translation: super::position::Position,
+    pub tracking: Option<TrackingMethod>,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `id` | `i32` | User-facing cell id (for reporting/tallies). |
+| `region` | `Vec<RegionToken>` | Region definition as an RPN token stream (see [`RegionToken`]). |
+| `fill` | `CellFill` | What the cell is filled with. |
+| `temperature` | `f64` | Temperature of this cell in Kelvin.<br><br>~~(passed to the Doppler XS lookup)~~ **CORRECTED 2026-09-27: transport<br>does not read this field.** Cross sections are looked up at the<br>material's temperature and broadened at the nuclide's build<br>temperature; free-gas kinematics use ~~the run's<br>`KeffSettings::temperature_k`~~ the nuclide's data temperature (the<br>material's for a multipole nuclide; GitHub #313, 2026-09-30).<br>Changing it to 1200 K leaves `k`<br>bit-identical (`tests/temperature_precedence.rs`). Kept as the cell's<br>declared temperature for callers and a future per-cell treatment (OpenMC<br>has one); see `docs/temperatures.md`. |
+| `translation` | `super::position::Position` | Rigid translation \[cm\] applied to a fill universe's local frame<br>(`coord.r -= translation`). Zero for material cells and untranslated fills.<br>Mirrors `Cell::translation_` in `src/cell.cpp`. |
+| `tracking` | `Option<TrackingMethod>` | How particles are transported through this region, or `None` to<br>**inherit** from the enclosing region.<br><br>`None` and `Some(TrackingMethod::Surface)` are deliberately different:<br>the first inherits, the second is an explicit override that carves a<br>surface-tracked island out of a delta-tracked parent — a control-rod<br>channel inside a pebble bed being exactly that case. Collapsing them<br>into a bare `TrackingMethod` makes every nested universe silently reset<br>its parent's choice, since `Surface` is the common default.<br><br>NEW WORK, no OpenMC counterpart. |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn material(id: i32, region: Vec<RegionToken>, material_idx: usize, temperature: f64) -> Self { /* ... */ }
+  ```
+  Build a material cell with no translation — the common leaf case.
+
+- ```rust
+  pub fn fill(id: i32, region: Vec<RegionToken>, fill: CellFill, translation: Position) -> Self { /* ... */ }
+  ```
+  Build a fill cell (nested universe or lattice) with an optional translation.
+
+- ```rust
+  pub fn delta_tracked(self: Self, majorant_idx: usize) -> Self { /* ... */ }
+  ```
+  Declare that this region is transported by **delta (Woodcock) tracking**
+
+- ```rust
+  pub fn surface_tracked(self: Self) -> Self { /* ... */ }
+  ```
+  Declare this region **explicitly** surface-tracked, overriding an
+
+- ```rust
+  pub fn contains(self: &Self, r: Position, u: Direction, surfaces: &[SurfaceKind], on_surface: SurfaceToken) -> bool { /* ... */ }
+  ```
+  Whether a particle at `r` heading along `u` lies inside this cell's region.
+
+- ```rust
+  pub fn distance_to_boundary(self: &Self, r: Position, u: Direction, surfaces: &[SurfaceKind], on_surface: SurfaceToken) -> (f64, usize) { /* ... */ }
+  ```
+  Distance along ray `(r, u)` to the nearest surface bounding this cell.
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **ByRef**
+  - ```rust
+    fn by_ref(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Cell { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **DistributionExt**
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Imply**
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+## Module `geometry`
+
+High-level geometry navigation: particle location and boundary crossing.
+
+C++ source: `src/geometry.cpp` (495 LOC), `include/openmc/geometry.h`.
+
+These are the two innermost queries of the transport algorithm:
+  1. [`Geometry::locate`] — descend the universe/lattice hierarchy from the
+     root universe to find the leaf cell and its material at a point (ported
+     from `find_cell_inner`, `src/geometry.cpp:102`).
+  2. [`Geometry::distance_to_boundary`] — over every coordinate level, find
+     the nearest surface **or** lattice-tile crossing (ported from
+     `distance_to_boundary`, `src/geometry.cpp:361`).
+
+A [`Geometry`] owns the flat arrays every index refers to: `surfaces`,
+`cells`, `universes`, `lattices`, plus the `root_universe`. It is read-only
+after construction, so transport threads share it as `Arc<Geometry>`.
+
+```rust
+pub mod geometry { /* ... */ }
+```
+
+### Types
+
+#### Struct `Coord`
+
+One coordinate level in a located particle's nesting chain.
+
+Mirrors an OpenMC `LocalCoord`: the universe searched at this level, the cell
+found there, and the particle's position/direction expressed in that level's
+local frame. `lattice` is `Some` when this level's universe was reached by
+descending into a lattice (so a lattice-tile crossing is possible here).
+
+```rust
+pub struct Coord {
+    pub universe: usize,
+    pub cell: usize,
+    pub r: super::position::Position,
+    pub u: super::position::Direction,
+    pub lattice: Option<usize>,
+    pub lattice_index: [i32; 3],
+    pub offset: super::position::Position,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `universe` | `usize` | Universe index searched at this level. |
+| `cell` | `usize` | Cell index (global) found containing the particle at this level. |
+| `r` | `super::position::Position` | Position \[cm\] in this level's local frame. |
+| `u` | `super::position::Direction` | Direction (unit) in this level's local frame. |
+| `lattice` | `Option<usize>` | Lattice index if this level was entered via a lattice, else `None`. |
+| `lattice_index` | `[i32; 3]` | Lattice tile index `[ix, iy, iz]` for this level (only meaningful if<br>`lattice` is `Some`). |
+| `offset` | `super::position::Position` | **Exact global -> local frame offset for this level**: `r` here equals<br>the global position minus this, and a direction needs no transformation<br>because every nested frame in this crate is a pure translation.<br><br>Accumulated on the way down (`parent.offset + cell.translation`, plus the<br>lattice tile centre for a lattice level) rather than recovered afterwards<br>as `levels[0].r - levels[k].r`. That subtraction is catastrophic<br>cancellation — with a probe at `y = -9` and a translation of `0.2` it<br>returns `0.19999999999999929` — and the ~1e-16 error it leaves in the<br>local coordinate is enough to put a crossing point exactly on<br>`dot == 0.0` in `nudge_across`, flipping that branch and displacing the<br>particle by `1e-9`, a 10^6 amplification. Carrying the offset removes the<br>cancellation entirely. Found by `tests/cell_translation.rs`; it affects<br>lattice tile centres too, not only non-zero cell translations. |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **ByRef**
+  - ```rust
+    fn by_ref(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Coord { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **DistributionExt**
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Imply**
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Struct `GeometryPath`
+
+A fully located particle: its coordinate-level chain plus the leaf material.
+
+```rust
+pub struct GeometryPath {
+    pub levels: Vec<Coord>,
+    pub material: Option<usize>,
+    pub on_surface: super::cell::SurfaceToken,
+    pub tracking: crate::csg::cell::TrackingMethod,
+    pub tracking_level: usize,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `levels` | `Vec<Coord>` | Coordinate levels from root (index 0) down to the material leaf. |
+| `material` | `Option<usize>` | Leaf material index, or `None` for a void cell. |
+| `on_surface` | `super::cell::SurfaceToken` | The surface the particle currently sits on and which side of it it is on<br>([`SurfaceToken::NONE`] if it is on none). Used for coincident-distance<br>handling and for unambiguous cell membership after a crossing. |
+| `tracking` | `crate::csg::cell::TrackingMethod` | **How this point is to be transported** — the deepest<br>[`TrackingMethod`] declared on the path from root to leaf.<br><br>A region's method is inherited by everything nested inside it, so a<br>delta-tracked bed makes its pebble and TRISO universes delta-tracked<br>too, without each of them restating it. A deeper cell may override,<br>which is how a surface-tracked control-rod channel is carved out of a<br>delta-tracked bed.<br><br>NEW WORK, no OpenMC counterpart — see [`TrackingMethod`] (`bn:op-867c.1`). |
+| `tracking_level` | `usize` | Index into [`Self::levels`] of the cell that **declared** [`Self::tracking`],<br>or `0` when nothing on the path declared anything (the default,<br>surface-tracked case).<br><br>This is what makes a delta region's *extent* knowable. Delta tracking<br>must stop at the edge of the region that chose it, and<br>[`Geometry::distance_to_boundary`] cannot answer that: it returns the<br>nearest boundary at **any** level, which inside a finely divided bed is<br>usually a pebble or TRISO surface far inside the region. Pair this with<br>outram-mc-libs' `GeometryExt::distance_out_of_level`.<br><br>NEW WORK, no OpenMC counterpart (`bn:op-867c.4`). |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn leaf(self: &Self) -> &Coord { /* ... */ }
+  ```
+  The leaf (lowest) coordinate level — where the material fill lives.
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **ByRef**
+  - ```rust
+    fn by_ref(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **DistributionExt**
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Imply**
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **Sync**
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Enum `Crossing`
+
+What the nearest boundary along a flight is.
+
+```rust
+pub enum Crossing {
+    Surface(usize),
+    Lattice,
+    None,
+}
+```
+
+##### Variants
+
+###### `Surface`
+
+A CSG surface with this global index is crossed.
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `usize` |  |
+
+###### `Lattice`
+
+A lattice-tile boundary is crossed (re-locate into the neighbouring tile).
+
+###### `None`
+
+No boundary within a finite distance (particle streams to infinity).
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Boilerplate**
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **ByRef**
+  - ```rust
+    fn by_ref(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Crossing { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **DistributionExt**
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Imply**
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Crossing) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Struct `BoundaryHit`
+
+Result of a [`Geometry::distance_to_boundary`] query.
+
+```rust
+pub struct BoundaryHit {
+    pub distance: f64,
+    pub crossing: Crossing,
+    pub coord_level: usize,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `distance` | `f64` | Distance \[cm\] to the nearest boundary (`INFINITY` if none). |
+| `crossing` | `Crossing` | What is crossed at that distance. |
+| `coord_level` | `usize` | Coordinate level (index into [`GeometryPath::levels`]) of the crossing. |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **ByRef**
+  - ```rust
+    fn by_ref(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> BoundaryHit { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **DistributionExt**
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Imply**
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Struct `Geometry`
+
+The whole CSG model — the flat arrays every geometry index refers to.
+
+Read-only after construction; share across threads as `Arc<Geometry>`.
+Maps to OpenMC's `model::{surfaces,cells,universes,lattices}` globals plus
+`model::root_universe`.
+
+```rust
+pub struct Geometry {
+    pub surfaces: Vec<super::surface::SurfaceKind>,
+    pub cells: Vec<crate::csg::cell::Cell>,
+    pub universes: Vec<super::universe::Universe>,
+    pub lattices: Vec<super::lattice::Lattice>,
+    pub root_universe: usize,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `surfaces` | `Vec<super::surface::SurfaceKind>` | Global surface array; region tokens and `on_surface` index into it. |
+| `cells` | `Vec<crate::csg::cell::Cell>` | Global cell array; universes and paths index into it. |
+| `universes` | `Vec<super::universe::Universe>` | Global universe array; the root and every fill index into it. |
+| `lattices` | `Vec<super::lattice::Lattice>` | Global lattice array; lattice-fill cells index into it. Each entry is a<br>[`Lattice`] enum ([`Lattice::Rect`] or [`Lattice::Hex`]). |
+| `root_universe` | `usize` | Index of the root universe tracking starts in. |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn locate(self: &Self, r: Position, u: Direction, on_surface: SurfaceToken) -> Option<GeometryPath> { /* ... */ }
+  ```
+  Locate the particle at global position `r` moving along `u`.
+
+- ```rust
+  pub fn distance_to_boundary(self: &Self, path: &GeometryPath) -> BoundaryHit { /* ... */ }
+  ```
+  Distance to the nearest boundary — surface or lattice tile — over all
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **ByRef**
+  - ```rust
+    fn by_ref(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Geometry { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **DistributionExt**
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Imply**
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+## Module `lattice`
+
+Rectangular and hexagonal lattices.
+
+C++ source: `src/lattice.cpp` (1219 LOC), `include/openmc/lattice.h`.
+
+A lattice tiles space with identical universes on a periodic grid. OpenMC
+supports two types:
+  - `RectLattice` — 3-D rectangular grid (nx × ny × nz pitches)
+  - `HexLattice`  — 2-D hexagonal grid (axial rings + axial levels)
+
+Each lattice element maps to a universe index. The lattice is itself a
+special kind of universe fill: [`crate::csg::geometry::Geometry`]
+descends into it exactly as it would a nested universe.
+
+```rust
+pub mod lattice { /* ... */ }
+```
+
+### Types
+
+#### Enum `LatticeType`
+
+Lattice type tag. Maps to `openmc::LatticeType`.
+
+```rust
+pub enum LatticeType {
+    Rect,
+    Hex,
+}
+```
+
+##### Variants
+
+###### `Rect`
+
+###### `Hex`
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Boilerplate**
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **ByRef**
+  - ```rust
+    fn by_ref(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> LatticeType { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **DistributionExt**
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Imply**
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &LatticeType) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Enum `Lattice`
+
+A lattice fill — dispatched by enum, not a trait object (per the workspace
+"enums over `dyn`" rule). [`crate::csg::geometry::Geometry`] holds a
+`Vec<Lattice>` and matches on the variant during descent.
+
+```rust
+pub enum Lattice {
+    Rect(RectLattice),
+    Hex(HexLattice),
+}
+```
+
+##### Variants
+
+###### `Rect`
+
+A rectangular lattice.
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `RectLattice` |  |
+
+###### `Hex`
+
+A hexagonal lattice.
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `HexLattice` |  |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn id(self: &Self) -> i32 { /* ... */ }
+  ```
+  The user-facing lattice id.
+
+- ```rust
+  pub fn get_indices(self: &Self, r: Position, u: Direction) -> [i32; 3] { /* ... */ }
+  ```
+  Skewed/signed tile index for `(r, u)` in this lattice's local frame.
+
+- ```rust
+  pub fn universe_at(self: &Self, i: [i32; 3]) -> Option<usize> { /* ... */ }
+  ```
+  Universe index at tile `i` (tile universe, else `outer`, else `None`).
+
+- ```rust
+  pub fn get_local_position(self: &Self, r: Position, i: [i32; 3]) -> Position { /* ... */ }
+  ```
+  Position `r` recentred into tile `i`'s local frame (tile centre at origin).
+
+- ```rust
+  pub fn tile_center(self: &Self, i: [i32; 3]) -> Position { /* ... */ }
+  ```
+  The centre of tile `i`, exactly as [`Self::get_local_position`]
+
+- ```rust
+  pub fn distance(self: &Self, r: Position, u: Direction, i_xyz: [i32; 3]) -> (f64, [i32; 3]) { /* ... */ }
+  ```
+  Distance to the next tile boundary along `(r, u)` from tile `i_xyz`, with
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **ByRef**
+  - ```rust
+    fn by_ref(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Lattice { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **DistributionExt**
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Imply**
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+### Functions
+
+#### Function `surface_in_tile_frame`
+
+**Translate a surface into a lattice tile's local frame** — the mechanism for
+clipping tile contents against a boundary defined in world coordinates
+(`bn:op-867c.10`, gh #214).
+
+NEW WORK, no OpenMC counterpart.
+
+# Why this is needed
+
+A cell region inside a tile universe is evaluated in the **tile-local**
+frame, because `Geometry::locate` recentres the position into the tile before
+testing the region. Measured 2026-09-17 in
+`tests/lattice_tile_clipping.rs`, which was written specifically to find out.
+
+So a single world-frame surface — HTR-10's conus, or its discharge tube —
+does **not** clip every boundary tile at the right place. Each boundary tile
+needs its own copy of that surface, translated by minus its tile centre.
+
+# Why not the alternatives
+
+Two other routes were considered and are recorded on the bead. Real per-tile
+omission in [`HexLattice`] is the cleanest answer but the largest change —
+`universe_at` returns a plain index and `HEX_NONE` marks only the skewed
+array's unused corners. Doing the rejection in the delta path's `material_at`
+closure is cheaper at run time and became possible only once hybrid tracking
+landed, but needs the transport dispatch to accept a caller-supplied query,
+which it does not.
+
+This route needs nothing new, and its cost is bounded: one surface per
+BOUNDARY tile, generated once at model-build time, not per history.
+
+# What is supported
+
+Planes and quadrics translate exactly. A sphere or cylinder translates by
+moving its centre; a cone likewise. Surfaces whose definition is not
+translation-covariant are returned unchanged and **that is a defect the
+caller must not paper over** — check the returned surface if in doubt.
+
+# Parameters
+- `surface` — the world-frame surface to translate.
+- `tile_center` — the tile's centre in the parent frame, from
+  [`RectLattice::tile_center`] or [`HexLattice::tile_center`].
+
+```rust
+pub fn surface_in_tile_frame(surface: &crate::csg::surface::SurfaceKind, tile_center: super::position::Position) -> crate::csg::surface::SurfaceKind { /* ... */ }
+```
+
+### Re-exports
+
+#### Re-export `HexLattice`
+
+```rust
+pub use hex::HexLattice;
+```
+
+#### Re-export `HexOrientation`
+
+```rust
+pub use hex::HexOrientation;
+```
+
+#### Re-export `HEX_NONE`
+
+```rust
+pub use hex::HEX_NONE;
+```
+
+#### Re-export `RectLattice`
+
+```rust
+pub use rect::RectLattice;
+```
+
+## Module `plot`
+
+**Geometry plotting** — OpenMC's plotter (`src/plot.cpp`), ported, writing
+PNG natively from Rust. GitHub #268.
+
+# What changed, and why this module is shaped the way it is
+
+~~"The native rasteriser is NOT ported ... emits a matplotlib script"~~ —
+**REVERSED 2026-09-25 by maintainer direction**: *"make sure the plotting
+capabilities of openmc are properly ported over (to jpg or PNG)"*. The
+earlier decision (2026-09-22) kept this crate free of an image encoder and
+emitted a Python script instead; that path still exists, unchanged in
+behaviour, in [`script`] (re-exported here as [`sample_slice`],
+[`emit_python`], [`ColourBy`], [`Slice`]).
+
+# What is ported (OpenMC d7d3284a1)
+
+| Here | Upstream | Lines |
+|---|---|---|
+| [`colour::random_colour`], [`colour::default_colours`] | `random_color`, `set_default_colors` | `plot.cpp:1179-1183`, `:580-596` |
+| [`colour::ColourScheme`] builders | `set_user_colors`, `set_mask`, `set_bg_color`, `set_overlap_color` | `plot.cpp:598-633`, `:743-827`, `:466-477` |
+| [`slice::SlicePlot::id_map`] | `SlicePlotBase::get_map<IdData>`, `IdData::set_value` | `plot.h:222-293`, `plot.cpp:47-79` |
+| [`slice::SlicePlot::create_image`] | `Plot::create_image` | `plot.cpp:317-358` |
+| [`slice::check_cell_overlap`] | `check_cell_overlap` | `geometry.cpp:38-90` |
+| mesh lines (private) | `Plot::draw_mesh_lines`, `RegularMesh::plot` | `plot.cpp:941-1053`, `mesh.cpp:1628-1667` |
+| [`raytrace::Camera`] | `RayTracePlot::update_view`, `get_pixel_ray` | `plot.cpp:1200-1219`, `:1326-1367` |
+| ray tracer (private) | `Ray::trace`, `advance_to_boundary_from_void` | `ray.cpp:14-143`, `particle_data.cpp:59-84` |
+| [`raytrace::WireframeRayTracePlot`] | `WireframeRayTracePlot::create_image`, `trackstack_equivalent`, `ProjectionRay` | `plot.cpp:1369-1529`, `:1265-1324`, `:1750-1763` |
+| [`raytrace::SolidRayTracePlot`] | `SolidRayTracePlot::create_image`, `PhongRay` | `plot.cpp:1683-1701`, `:1765-1891` |
+| [`image::ImageData::write_png`] / [`image::ImageData::write_ppm`] | `output_png` / `output_ppm` | `plot.cpp:887-935` / `:857-881` |
+
+Every function above carries its own upstream line range in its doc
+comment.
+
+# What is NOT ported, and why
+
+- **Voxel plots** (`Plot::create_voxel`, `plot.cpp:1065-1177`). They write
+  an HDF5 volume, not an image; HDF5 output belongs to
+  `njoy-outram-park-fork` (gh:#270), and nothing here needs it.
+- **`plots.xml` parsing** — the crate reads no XML (see its `CLAUDE.md`).
+  Plots are built with Rust constructors whose fields name the XML elements.
+- **`openmc_*` C API** entry points (`plot.cpp:1893-2621`) — the Python
+  binding layer; this crate's API *is* the Rust types.
+- **Property maps** (temperature/density, `PropertyData`) and **tally-filter
+  bins** in `RasterData` — used by the interactive plotter, not by image
+  output.
+- **JPEG.** Lossy compression blurs the boundaries a geometry plot exists
+  to show, and OpenMC itself writes only PNG/PPM; PNG is sufficient and
+  smaller for flat-colour images. See [`image`].
+- **Non-regular meshes for mesh lines** — the crate has only
+  [`crate::spatial_mesh::RegularMesh`].
+- **Cell rotations** in the Phong normal (`plot.cpp:1828-1833`) — this
+  crate's nested frames are pure translations, so there is nothing to undo.
+
+Known behavioural differences of the ray tracer are listed in
+[`raytrace`]; measured agreement with `openmc --plot` is in
+`verification_and_validation/geometry_plotting/README.md`.
+
+# Drawing a reactor model (the geometry-drawing HARD RULE)
+
+[`render_material_slice`] is the one-call path: slice the **assembled**
+geometry, colour by material with a caller-chosen palette, and frame it
+with a legend and dimensioned axes ([`annotate::annotate_slice`]).
+`crates/nee_soon/examples/htr10_geometry_images.rs` uses it on the HTR-10
+core.
+
+```rust
+pub mod plot { /* ... */ }
+```
+
+### Modules
+
+## Module `annotate`
+
+**Legend, title and dimensioned axes for a plot image** — NEW WORK, no
+OpenMC counterpart.
+
+OpenMC's images are bare rasters: no legend, no axes. The crate's
+geometry-drawing HARD RULE (`crates/outram-mc-libs/CLAUDE.md`) asks for
+images a human can check *without* the input deck beside them — "colour by
+material, with a legend and the key dimensions marked". This module frames
+an already-rendered image with:
+
+- a title line;
+- tick marks and coordinate labels in cm along the bottom and left edges of
+  a slice ([`annotate_slice`]), derived from the slice's own origin, width
+  and basis — so the numbers are the geometry's, not a caption typed by hand;
+- a legend panel mapping each colour to a label.
+
+The raster inside the frame is copied unchanged, so an annotated image
+still carries the exact OpenMC-parity pixels; parity tests compare the
+*unannotated* image.
+
+Text is drawn with a built-in 5x7 bitmap font (upper-case letters, digits
+and common punctuation; lower case is drawn as upper case) so no font file
+or text-rendering dependency is needed.
+
+```rust
+pub mod annotate { /* ... */ }
+```
+
+### Types
+
+#### Struct `LegendEntry`
+
+One legend row.
+
+```rust
+pub struct LegendEntry {
+    pub colour: super::colour::Rgb,
+    pub label: String,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `colour` | `super::colour::Rgb` | Swatch colour. |
+| `label` | `String` | Label text. |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn new</* synthetic */ impl Into<String>: Into<String>>(colour: Rgb, label: impl Into<String>) -> Self { /* ... */ }
+  ```
+  A legend row.
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **ByRef**
+  - ```rust
+    fn by_ref(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> LegendEntry { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **DistributionExt**
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Imply**
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &LegendEntry) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+### Functions
+
+#### Function `text_width`
+
+**Attributes:**
+
+- `MustUse { reason: None }`
+
+Width in pixels of `text` drawn with [`draw_text`].
+
+```rust
+pub fn text_width(text: &str) -> usize { /* ... */ }
+```
+
+#### Function `draw_text`
+
+Draw `text` with its top-left corner at `(x, y)`; pixels off the image are
+dropped.
+
+```rust
+pub fn draw_text(img: &mut super::image::ImageData, x: i64, y: i64, text: &str, colour: super::colour::Rgb) { /* ... */ }
+```
+
+#### Function `annotate_image`
+
+**Attributes:**
+
+- `MustUse { reason: None }`
+
+Frame `image` with a title and a legend (no axes) — for ray-traced views.
+
+```rust
+pub fn annotate_image(image: &super::image::ImageData, title: &str, legend: &[LegendEntry]) -> super::image::ImageData { /* ... */ }
+```
+
+#### Function `annotate_slice`
+
+**Attributes:**
+
+- `MustUse { reason: None }`
+
+Frame a slice image with a title, a legend, and tick marks labelled in cm
+along the bottom (horizontal axis) and left (vertical axis) edges.
+
+The tick values come from `plot`'s origin, width and basis, using the same
+pixel-to-coordinate map as [`SlicePlot::pixel_centre`], so a tick marks the
+pixel whose centre is nearest that coordinate. Axis names follow the basis
+(`X`, `Y` or `Z`). `image` must be `plot`'s own image (same pixel size).
+
+```rust
+pub fn annotate_slice(image: &super::image::ImageData, plot: &super::slice::SlicePlot, title: &str, legend: &[LegendEntry]) -> super::image::ImageData { /* ... */ }
+```
+
+## Module `colour`
+
+**Plot colours** — OpenMC's default colour stream, user colours, masks.
+
+The one thing that decides whether a plot here and a plot from
+`openmc --plot` come out the *same colour* is [`random_colour`]: three
+draws of the crate's PCG `prn` on a dedicated plotter seed, truncated to a
+byte. It is ported bit-for-bit, so with the same seed and the same cell (or
+material) ordering the two codes agree on every default colour — verified
+pixel-for-pixel in `verification_and_validation/geometry_plotting/`.
+
+```rust
+pub mod colour { /* ... */ }
+```
+
+### Types
+
+#### Struct `Rgb`
+
+One 8-bit RGB colour. Maps to `openmc::RGBColor` (`include/openmc/plot.h:48-79`).
+
+```rust
+pub struct Rgb {
+    pub r: u8,
+    pub g: u8,
+    pub b: u8,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `r` | `u8` | Red channel. |
+| `g` | `u8` | Green channel. |
+| `b` | `u8` | Blue channel. |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub const fn new(r: u8, g: u8, b: u8) -> Self { /* ... */ }
+  ```
+  A colour from its three channels.
+
+- ```rust
+  pub fn scaled(self: Self, x: f64) -> Self { /* ... */ }
+  ```
+  Scale every channel by `x`, truncating back to a byte exactly as
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Boilerplate**
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **ByRef**
+  - ```rust
+    fn by_ref(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Rgb { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **DistributionExt**
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Hash**
+  - ```rust
+    fn hash<__H: $crate::hash::Hasher>(self: &Self, state: &mut __H) { /* ... */ }
+    ```
+
+- **Imply**
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Rgb) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Enum `PlotColourBy`
+
+What a plot colours by. Maps to `PlottableInterface::PlotColorBy`
+(`include/openmc/plot.h:120`) — upstream offers exactly these two for image
+output. (The matplotlib-script path's [`super::ColourBy`] additionally has a
+universe mode; OpenMC's image plots do not.)
+
+```rust
+pub enum PlotColourBy {
+    Cell,
+    Material,
+}
+```
+
+##### Variants
+
+###### `Cell`
+
+By leaf cell (or the cell at the plot's universe level).
+
+###### `Material`
+
+By leaf material; a void cell draws [`WHITE`].
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Boilerplate**
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **ByRef**
+  - ```rust
+    fn by_ref(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> PlotColourBy { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **DistributionExt**
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Imply**
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &PlotColourBy) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Struct `ColourScheme`
+
+The colour state every image plot carries: the per-cell or per-material
+table plus the background and overlap colours.
+
+Maps to the colour members of `PlottableInterface`
+(`include/openmc/plot.h:144-149`): `color_by_`, `not_found_`,
+`overlap_color_`, `colors_`. Build it with [`ColourScheme::new`] (which draws
+the default colours) and then apply user colours and masks **in upstream's
+order**, which is the order of the `PlottableInterface` constructor
+(`src/plot.cpp:829-839`): background, default colours, user colours, mask,
+overlap colour. The builder methods are order-independent except that
+[`Self::with_mask`] must follow [`Self::with_colour`], as upstream's does,
+because a mask overwrites whatever colour the component had.
+
+```rust
+pub struct ColourScheme {
+    pub colour_by: PlotColourBy,
+    pub colours: Vec<Rgb>,
+    pub background: Rgb,
+    pub overlap_colour: Rgb,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `colour_by` | `PlotColourBy` | Cell or material colouring. |
+| `colours` | `Vec<Rgb>` | One colour per cell index (in [`crate::csg::geometry::Geometry::cells`]<br>order) or per material index, as `colour_by` says. |
+| `background` | `Rgb` | Background: pixels in no cell, and pixels whose cell level is deeper than<br>the geometry at that point. `not_found_`, default [`WHITE`]. |
+| `overlap_colour` | `Rgb` | Colour of an overlap when overlaps are shown. `overlap_color_`, default [`RED`]. |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn new(colour_by: PlotColourBy, n_domains: usize, seed: &mut u64) -> Self { /* ... */ }
+  ```
+  Default colours for `n_domains` cells or materials, drawn from `seed`.
+
+- ```rust
+  pub fn with_colour(self: Self, index: usize, colour: Rgb) -> Self { /* ... */ }
+  ```
+  Set one cell's or material's colour, by index. `set_user_colors`
+
+- ```rust
+  pub fn with_mask(self: Self, components: &[usize], mask_background: Option<Rgb>) -> Self { /* ... */ }
+  ```
+  Mask: every listed component draws `mask_background`, or [`WHITE`] when
+
+- ```rust
+  pub fn with_background(self: Self, colour: Rgb) -> Self { /* ... */ }
+  ```
+  Background colour. `set_bg_color` (`src/plot.cpp:466-477`).
+
+- ```rust
+  pub fn with_overlap_colour(self: Self, colour: Rgb) -> Self { /* ... */ }
+  ```
+  Overlap colour. `set_overlap_color` (`src/plot.cpp:800-827`).
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **ByRef**
+  - ```rust
+    fn by_ref(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> ColourScheme { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **DistributionExt**
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Imply**
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &ColourScheme) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+### Functions
+
+#### Function `random_colour`
+
+One random colour from the plotter stream. Port of `random_color`
+(`src/plot.cpp:1179-1183`): `int(prn(&seed) * 255)` per channel, red first.
+
+```rust
+pub fn random_colour(seed: &mut u64) -> Rgb { /* ... */ }
+```
+
+#### Function `default_colours`
+
+`n` default colours drawn from `seed`, rejecting [`RED`] and [`WHITE`].
+Port of `PlottableInterface::set_default_colors` (`src/plot.cpp:580-596`).
+
+# The seed is shared across plots
+
+Upstream's `model::plotter_seed` is a single global that every plot in a
+`plots.xml` draws from in turn, starting at [`DEFAULT_PLOTTER_SEED`]. So the
+*second* plot's colours depend on how many cells or materials the first one
+coloured. Pass the same `&mut u64` through a sequence of plots to reproduce
+a multi-plot `openmc --plot` run; start a fresh one at
+[`DEFAULT_PLOTTER_SEED`] to reproduce a single-plot run.
+
+```rust
+pub fn default_colours(n: usize, seed: &mut u64) -> Vec<Rgb> { /* ... */ }
+```
+
+### Constants and Statics
+
+#### Constant `WHITE`
+
+`WHITE` (`include/openmc/plot.h:82`) — the default background, the colour of a
+void material, and of a masked component with no mask background.
+
+```rust
+pub const WHITE: Rgb = _;
+```
+
+#### Constant `RED`
+
+`RED` (`include/openmc/plot.h:83`) — the default overlap colour.
+
+```rust
+pub const RED: Rgb = _;
+```
+
+#### Constant `BLACK`
+
+`BLACK` (`include/openmc/plot.h:84`) — the default wireframe colour.
+
+```rust
+pub const BLACK: Rgb = _;
+```
+
+#### Constant `DEFAULT_PLOTTER_SEED`
+
+Initial value of OpenMC's `model::plotter_seed` (`src/plot.cpp:174`). The
+`<plot_seed>` element of `settings.xml` overrides it (`src/settings.cpp:581-585`).
+
+```rust
+pub const DEFAULT_PLOTTER_SEED: u64 = 1;
+```
+
+## Module `image`
+
+**Image buffer and the PNG / PPM codecs.**
+
+# Why this writes its own PNG container
+
+Upstream calls libpng. A PNG is a signature, three chunk types and one
+zlib stream, and the only non-trivial part — DEFLATE — is already in this
+crate's dependency tree: `miniz_oxide` (pure Rust, MIT/Zlib/Apache-2.0) is a
+non-optional dependency of `njoy-outram-park-fork`, which this crate depends
+on, so naming it directly adds **no new crate to the build**, and it builds
+for Android/Termux and `wasm32-unknown-unknown` already (it is the WMPB
+codec there). The rest — chunk framing, CRC-32, row filters — is ~150 lines
+below. The `image` crate was considered and rejected: it is a far larger
+tree, and in this workspace it is only ever a dev/GUI dependency.
+
+# Why no JPEG
+
+JPEG is lossy. A geometry plot is a *classification* — every pixel says
+which cell or material is there — and JPEG's block DCT blurs exactly the
+boundaries a plot exists to show, and makes a pixel-for-pixel comparison
+against OpenMC meaningless. OpenMC itself writes only PNG or PPM
+(`PlottableInterface::write_image`, `src/plot.cpp:193-200`). PNG is also
+smaller than JPEG for flat-colour images like these.
+
+The decoder ([`decode_png`]) exists so the parity tests can read OpenMC's
+own PNGs; it handles what libpng writes for an 8-bit RGB/RGBA
+non-interlaced image — all five row filters — and refuses anything else.
+
+```rust
+pub mod image { /* ... */ }
+```
+
+### Types
+
+#### Struct `ImageData`
+
+A rectangular RGB image, row-major with row 0 at the **top** — the order
+both PNG and PPM store rows, and the order upstream's `data(x, y)` writes
+them (`y` = 0 is the first row written by `output_png`).
+
+Maps to `ImageData` = `tensor::Tensor<RGBColor>` of shape `{width, height}`
+(`include/openmc/plot.h:97`), indexed `data(x, y)`.
+
+```rust
+pub struct ImageData {
+    pub width: usize,
+    pub height: usize,
+    pub pixels: Vec<super::colour::Rgb>,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `width` | `usize` | Pixels across. |
+| `height` | `usize` | Pixels down. |
+| `pixels` | `Vec<super::colour::Rgb>` | `width * height` pixels, `pixels[y * width + x]`. |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn filled(width: usize, height: usize, colour: Rgb) -> Self { /* ... */ }
+  ```
+  An image filled with one colour — upstream constructs every image
+
+- ```rust
+  pub fn get(self: &Self, x: usize, y: usize) -> Rgb { /* ... */ }
+  ```
+  Pixel at column `x`, row `y` (row 0 at the top).
+
+- ```rust
+  pub fn set(self: &mut Self, x: usize, y: usize, c: Rgb) { /* ... */ }
+  ```
+  Set the pixel at column `x`, row `y`.
+
+- ```rust
+  pub fn to_png_bytes(self: &Self) -> Vec<u8> { /* ... */ }
+  ```
+  Encode as PNG: 8-bit RGB, non-interlaced — the same `IHDR` upstream's
+
+- ```rust
+  pub fn write_png</* synthetic */ impl AsRef<Path>: AsRef<Path>>(self: &Self, path: impl AsRef<Path>) -> io::Result<()> { /* ... */ }
+  ```
+  Write a PNG file. Port of `output_png` (`src/plot.cpp:887-935`).
+
+- ```rust
+  pub fn to_ppm_bytes(self: &Self) -> Vec<u8> { /* ... */ }
+  ```
+  Encode as binary PPM (`P6`), byte-for-byte what `output_ppm` writes
+
+- ```rust
+  pub fn write_ppm</* synthetic */ impl AsRef<Path>: AsRef<Path>>(self: &Self, path: impl AsRef<Path>) -> io::Result<()> { /* ... */ }
+  ```
+  Write a PPM file. Port of `output_ppm`.
+
+- ```rust
+  pub fn count_differences(self: &Self, other: &Self) -> Option<usize> { /* ... */ }
+  ```
+  Count of pixels that differ between two images of the same size;
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **ByRef**
+  - ```rust
+    fn by_ref(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> ImageData { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **DistributionExt**
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Imply**
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &ImageData) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Enum `PngDecodeError`
+
+Why a PNG could not be decoded.
+
+```rust
+pub enum PngDecodeError {
+    Malformed(&'static str),
+    BadCrc,
+    Unsupported(&'static str),
+    Inflate,
+}
+```
+
+##### Variants
+
+###### `Malformed`
+
+Not a PNG, or truncated.
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `&'static str` |  |
+
+###### `BadCrc`
+
+A chunk's CRC did not match.
+
+###### `Unsupported`
+
+A valid PNG this minimal decoder does not handle (palette, 16-bit,
+greyscale, interlaced).
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `&'static str` |  |
+
+###### `Inflate`
+
+The zlib stream did not inflate.
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **ByRef**
+  - ```rust
+    fn by_ref(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> PngDecodeError { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **DistributionExt**
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Imply**
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &PngDecodeError) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+### Functions
+
+#### Function `decode_png`
+
+Decode an 8-bit RGB or RGBA non-interlaced PNG (alpha is dropped) — the
+format libpng writes for OpenMC's plots and [`ImageData::to_png_bytes`]
+writes here. All five row filters are supported and every chunk CRC is
+checked.
+
+# Errors
+See [`PngDecodeError`].
+
+```rust
+pub fn decode_png(bytes: &[u8]) -> Result<ImageData, PngDecodeError> { /* ... */ }
+```
+
+## Module `model_plot`
+
+**OpenMC's Python slice plot (`openmc.Model.plot`), as an emitted
+matplotlib script.**
+
+`openmc.Model.plot` — and `Universe.plot`, `Cell.plot`, `Geometry.plot`
+and `Region.plot`, which all build a throw-away model and call it — asks
+the C++ library for an **id map** (cell id, cell instance, material id per
+pixel), turns it into an RGB image in numpy (`_id_map_to_rgb`), and draws
+it with `imshow` on a figure sized so the axes are exactly `pixels` big,
+optionally with an outline (`contour`), a legend and sampled source points.
+
+Here the id map comes from this crate's own ported point location
+([`SlicePlot::id_map`], verified pixel-for-pixel against `openmc --plot`),
+and **everything after it is emitted as Python** that is a line-for-line
+transcription of upstream's: the same numpy calls in the same order, the
+same `RandomState(1)` default colours, the same figure sizing, the same
+legend and contour arguments. Running the script therefore draws the
+picture upstream draws. Verified pixel for pixel against OpenMC 0.16.1.dev25
+running `Model.plot` itself: see
+`verification_and_validation/python_plotting_parity/README.md`.
+
+The script is standalone (`numpy` + `matplotlib`, no OpenMC, no Rust
+binary): the id map is embedded as base64 of zlib-compressed
+little-endian `int32`.
+
+# Mapping of the Python keyword arguments
+
+| `Model.plot(...)` | [`ModelPlot`] |
+|---|---|
+| `origin`, `width` (default: bounding box) | [`ModelPlot::origin`], [`ModelPlot::width`] |
+| `pixels` (int total, or `(h, v)`) | [`Pixels`] |
+| `basis` | [`ModelPlot::basis`] |
+| `color_by` | [`ModelPlot::color_by`] |
+| `colors` (dict of Cell/Material → RGB or SVG name) | [`ModelPlot::colors`] |
+| `seed` (→ `SlicePlot.colorize`) | [`ModelPlot::seed`] |
+| `legend`, `legend_kwargs` | [`ModelPlot::legend`], [`ModelPlot::legend_kwargs`] |
+| `axis_units` | [`AxisUnits`] |
+| `outline` (`False`/`True`/`'only'`), `contour_kwargs` | [`Outline`], [`ModelPlot::contour_kwargs`] |
+| `show_overlaps`, `overlap_color` | [`ModelPlot::show_overlaps`], [`ModelPlot::overlap_color`] |
+| `n_samples`, `plane_tolerance`, `source_kwargs` | [`ModelPlot::source_points`], [`ModelPlot::plane_tolerance`], [`ModelPlot::source_kwargs`] |
+| `**kwargs` (to `imshow`) | [`ModelPlot::imshow_kwargs`] |
+| `axes` (draw into existing axes) | not ported: the script owns its figure |
+
+`*_kwargs` entries are `(name, python_expression)` pairs written verbatim
+into the call, so anything matplotlib accepts can be passed.
+
+# One input differs, by necessity: `n_samples`
+
+Upstream samples `n_samples` source particles through `openmc.lib` with
+OpenMC's own random stream. This crate's source sampling is its own, so the
+caller passes the sampled positions ([`ModelPlot::source_points`]); the
+slab selection (`slice_value - tol < r[z] < slice_value + tol`), the unit
+scaling and the `scatter` call are upstream's.
+
+# IDs
+
+Upstream's id map holds **ids**, not indices: `Cell::id` here, and
+[`MaterialIdentity::material_id`] of the material the cell's index points to — which is why
+[`ModelPlot::emit`] takes the material table. Void reads `-1`
+(`MATERIAL_VOID`), "not found" `-2`, an overlap `-3` in every channel
+(`src/plot.cpp:43-79`).
+
+```rust
+pub mod model_plot { /* ... */ }
+```
+
+### Types
+
+#### Enum `Pixels`
+
+`pixels`: a total count split by aspect ratio, or `(horizontal, vertical)`.
+
+```rust
+pub enum Pixels {
+    Total(usize),
+    Exact([usize; 2]),
+}
+```
+
+##### Variants
+
+###### `Total`
+
+`pixels=int` (upstream default `40000`).
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `usize` |  |
+
+###### `Exact`
+
+`pixels=(h, v)`.
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `[usize; 2]` |  |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Boilerplate**
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **ByRef**
+  - ```rust
+    fn by_ref(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Pixels { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **DistributionExt**
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Imply**
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Pixels) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Enum `AxisUnits`
+
+`axis_units`, with upstream's scale factors (`model.py:1392`) — note
+`'km': 0.00001`, which is upstream's number (1 cm = 1e-5 km), kept.
+
+```rust
+pub enum AxisUnits {
+    Km,
+    M,
+    Cm,
+    Mm,
+}
+```
+
+##### Variants
+
+###### `Km`
+
+Kilometres.
+
+###### `M`
+
+Metres.
+
+###### `Cm`
+
+Centimetres (default).
+
+###### `Mm`
+
+Millimetres.
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Boilerplate**
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **ByRef**
+  - ```rust
+    fn by_ref(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> AxisUnits { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **DistributionExt**
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Imply**
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &AxisUnits) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Enum `Outline`
+
+`outline`: `False`, `True` or `'only'`.
+
+```rust
+pub enum Outline {
+    Off,
+    On,
+    Only,
+}
+```
+
+##### Variants
+
+###### `Off`
+
+No outline (default).
+
+###### `On`
+
+Contour lines over the image.
+
+###### `Only`
+
+Contour lines only, no image.
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Boilerplate**
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **ByRef**
+  - ```rust
+    fn by_ref(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Outline { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **DistributionExt**
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Imply**
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Outline) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Enum `ColorBy`
+
+`color_by`.
+
+```rust
+pub enum ColorBy {
+    Cell,
+    Material,
+}
+```
+
+##### Variants
+
+###### `Cell`
+
+By cell id (id-map channel 0). Upstream default.
+
+###### `Material`
+
+By material id (channel 2).
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Boilerplate**
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **ByRef**
+  - ```rust
+    fn by_ref(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> ColorBy { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **DistributionExt**
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Imply**
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &ColorBy) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Enum `PlotColour`
+
+One colour value as upstream accepts it: an RGB triple (0-255) or an SVG
+colour name (looked up in `_SVG_COLORS` for the image, passed to
+matplotlib as the name for the legend patch, exactly as upstream does).
+
+```rust
+pub enum PlotColour {
+    Rgb([u8; 3]),
+    Named(String),
+}
+```
+
+##### Variants
+
+###### `Rgb`
+
+`(r, g, b)`.
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `[u8; 3]` |  |
+
+###### `Named`
+
+An SVG name, e.g. `"red"`. Must be a key of [`SVG_COLOURS`].
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `String` |  |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **ByRef**
+  - ```rust
+    fn by_ref(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> PlotColour { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **DistributionExt**
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Imply**
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &PlotColour) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Struct `DomainColour`
+
+A `colors` dict entry: the domain's **id** (cell id or material id, per
+[`ModelPlot::color_by`]), its legend label (`key.name`, or the id when the
+name is empty — upstream's rule), and its colour.
+
+```rust
+pub struct DomainColour {
+    pub id: i32,
+    pub name: String,
+    pub colour: PlotColour,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `id` | `i32` | Cell or material id. |
+| `name` | `String` | `name`; empty means "label with the id". |
+| `colour` | `PlotColour` | The colour. |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **ByRef**
+  - ```rust
+    fn by_ref(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> DomainColour { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **DistributionExt**
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Imply**
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &DomainColour) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Enum `ModelPlotError`
+
+Errors `Model.plot` raises before drawing, surfaced before emitting.
+
+```rust
+pub enum ModelPlotError {
+    Pixels,
+    PlaneTolerance,
+    LegendWithoutColours,
+    UnknownColourName(String),
+    MaterialIndex(usize),
+}
+```
+
+##### Variants
+
+###### `Pixels`
+
+`_check_pixels`: a zero pixel count.
+
+###### `PlaneTolerance`
+
+`plane_tolerance` must be > 0.
+
+###### `LegendWithoutColours`
+
+`legend=True` with no colours (`model.py:1478-1480`).
+
+###### `UnknownColourName`
+
+A named colour that is not in `_SVG_COLORS` (upstream: `KeyError`).
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `String` |  |
+
+###### `MaterialIndex`
+
+A cell fills a material index the material table does not have.
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `usize` |  |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **ByRef**
+  - ```rust
+    fn by_ref(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> ModelPlotError { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Display**
+  - ```rust
+    fn fmt(self: &Self, f: &mut std::fmt::Formatter<''_>) -> std::fmt::Result { /* ... */ }
+    ```
+
+- **DistributionExt**
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+- **Error**
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Imply**
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &ModelPlotError) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **ToString**
+  - ```rust
+    fn to_string(self: &Self) -> String { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Struct `ModelPlot`
+
+**`openmc.Model.plot`, ported.** Build with [`ModelPlot::new`] (upstream's
+defaults), set fields, then [`ModelPlot::emit`] the script.
+
+```rust
+pub struct ModelPlot {
+    pub origin: Option<crate::csg::position::Position>,
+    pub width: Option<[f64; 2]>,
+    pub pixels: Pixels,
+    pub basis: super::slice::PlotBasis,
+    pub color_by: ColorBy,
+    pub colors: Option<Vec<DomainColour>>,
+    pub seed: Option<u32>,
+    pub cell_names: Vec<(i32, String)>,
+    pub legend: bool,
+    pub legend_kwargs: Vec<(String, String)>,
+    pub axis_units: AxisUnits,
+    pub outline: Outline,
+    pub contour_kwargs: Vec<(String, String)>,
+    pub show_overlaps: bool,
+    pub overlap_color: PlotColour,
+    pub source_points: Option<Vec<crate::csg::position::Position>>,
+    pub plane_tolerance: f64,
+    pub source_kwargs: Vec<(String, String)>,
+    pub imshow_kwargs: Vec<(String, String)>,
+    pub title: Option<String>,
+    pub default_output: String,
+    pub savefig_kwargs: Vec<(String, String)>,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `origin` | `Option<crate::csg::position::Position>` | `origin`; `None` = bounding-box centre (`_set_plot_defaults`). |
+| `width` | `Option<[f64; 2]>` | `width`; `None` = bounding-box width along the basis. |
+| `pixels` | `Pixels` | `pixels`, default `Total(40000)`. |
+| `basis` | `super::slice::PlotBasis` | `basis`, default `xy`. |
+| `color_by` | `ColorBy` | `color_by`, default cell. |
+| `colors` | `Option<Vec<DomainColour>>` | `colors`, in dict order; `None` = upstream's `None`. |
+| `seed` | `Option<u32>` | `seed`: when `colors` is `None`, `SlicePlot.colorize(geometry, seed)`<br>assigns every cell (or material) of the geometry a colour. |
+| `cell_names` | `Vec<(i32, String)>` | Legend labels for cells, by cell id, used by `seed` colouring (this<br>crate's cells carry no name). Missing = label with the id. |
+| `legend` | `bool` | `legend`. |
+| `legend_kwargs` | `Vec<(String, String)>` | Extra `legend_kwargs`, `(name, python expression)`, applied after<br>upstream's `setdefault`s (so they override them). |
+| `axis_units` | `AxisUnits` | `axis_units`. |
+| `outline` | `Outline` | `outline`. |
+| `contour_kwargs` | `Vec<(String, String)>` | `contour_kwargs`, overriding upstream's defaults. |
+| `show_overlaps` | `bool` | `show_overlaps`. |
+| `overlap_color` | `PlotColour` | `overlap_color`, default `(255, 0, 0)`. |
+| `source_points` | `Option<Vec<crate::csg::position::Position>>` | Sampled source positions — see the module docs on `n_samples`.<br>`None` (or empty) draws no scatter. |
+| `plane_tolerance` | `f64` | `plane_tolerance` \[cm\], default 1. |
+| `source_kwargs` | `Vec<(String, String)>` | `source_kwargs`, overriding upstream's `marker='x'`. |
+| `imshow_kwargs` | `Vec<(String, String)>` | `**kwargs` passed to `imshow`. |
+| `title` | `Option<String>` | Title set on the axes after upstream's drawing (`None` = no title,<br>as upstream). An addition for annotated figures; not in `Model.plot`. |
+| `default_output` | `String` | PNG the script writes when run with no argument. |
+| `savefig_kwargs` | `Vec<(String, String)>` | Keyword arguments for the final `plt.savefig` — the caller's call, not<br>part of `Model.plot`. Empty (matplotlib defaults) for the parity cases;<br>`bbox_inches='tight'` keeps upstream's outside-the-axes legend<br>(`bbox_to_anchor=(1.05, 1)`) in the file. |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn new() -> Self { /* ... */ }
+  ```
+  Upstream's defaults (`model.py:1345-1366`).
+
+- ```rust
+  pub fn resolved(self: &Self, geom: &Geometry) -> ([f64; 3], [f64; 2], [usize; 2]) { /* ... */ }
+  ```
+  `_set_plot_defaults` (`model.py:1114-1148`): origin, width and pixel
+
+- ```rust
+  pub fn id_map<M: MaterialIdentity>(self: &Self, geom: &Geometry, materials: &[M]) -> Result<(Vec<i32>, Vec<i32>, [usize; 2]), ModelPlotError> { /* ... */ }
+  ```
+  The id map upstream's `Model.slice_data` returns — shape
+
+- ```rust
+  pub fn emit<M: MaterialIdentity>(self: &Self, geom: &Geometry, materials: &[M]) -> Result<String, ModelPlotError> { /* ... */ }
+  ```
+  Emit the standalone matplotlib script.
+
+- ```rust
+  pub fn emit_with_id_map<M: MaterialIdentity>(self: &Self, geom: &Geometry, materials: &[M], cells: &[i32], mats: &[i32]) -> Result<String, ModelPlotError> { /* ... */ }
+  ```
+  [`Self::emit`] with an id map the caller already has from
+
+- ```rust
+  pub fn emit_universe<M: MaterialIdentity>(self: &Self, geom: &Geometry, u: usize, materials: &[M]) -> Result<String, ModelPlotError> { /* ... */ }
+  ```
+  `Universe.plot` (`universe.py:335-341`): the same plot of a model
+
+- ```rust
+  pub fn emit_cell<M: MaterialIdentity>(self: &Self, geom: &Geometry, c: usize, materials: &[M]) -> Result<String, ModelPlotError> { /* ... */ }
+  ```
+  `Cell.plot` (`cell.py:596-606`): a throw-away universe holding only
+
+- ```rust
+  pub fn emit_region<M: MaterialIdentity>(self: &Self, geom: &Geometry, region: Vec<RegionToken>, materials: &[M]) -> Result<String, ModelPlotError> { /* ... */ }
+  ```
+  `Region.plot` (`region.py:348-362`): a void cell with this region
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **ByRef**
+  - ```rust
+    fn by_ref(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> ModelPlot { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Default**
+  - ```rust
+    fn default() -> Self { /* ... */ }
+    ```
+
+- **DistributionExt**
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Imply**
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+### Traits
+
+#### Trait `MaterialIdentity`
+
+What the plotter needs to know about a material: the user-facing
+id (OpenMC's `Material.id`, which the id map and the colour keys
+carry) and its name.
+
+Added 2026-10-02 (GitHub #486) when the plotter moved here from
+`outram-mc-libs`, which implements it for its `Material`. Static
+dispatch: every function taking materials is generic over it.
+
+```rust
+pub trait MaterialIdentity {
+    /* Associated items */
+}
+```
+
+##### Required Items
+
+###### Required Methods
+
+- `material_id`: User-facing material id (`openmc.Material.id`).
+- `material_name`: Material name (`openmc.Material.name`).
+
+### Re-exports
+
+#### Re-export `bounds::*`
+
+```rust
+pub use bounds::*;
+```
+
+#### Re-export `svg::*`
+
+```rust
+pub use svg::*;
+```
+
+## Module `raytrace`
+
+**Ray-traced plots** — OpenMC's `wireframe_raytrace` and `solid_raytrace`.
+
+Rays are traced through the crate's own CSG machinery —
+[`Geometry::locate`], [`Geometry::distance_to_boundary`] and
+[`Cell::distance_to_boundary`](crate::csg::cell::Cell::distance_to_boundary)
+— so a ray-traced plot shows the geometry transport sees. There is no
+second geometry engine here.
+
+# Where this can differ from OpenMC, and why
+
+1. **Complex (union / complement) regions.** Upstream's
+   `Region::distance_complex` walks along the ray until the region is
+   actually left. This crate's cell distance takes the nearest bounding
+   surface of *any* half-space, so a ray in a union region stops at an
+   internal surface, re-locates into the same cell and records an extra
+   segment. Colour is unaffected (consecutive segments of one domain compose
+   to the same attenuation) but the wireframe can show an edge upstream
+   does not. Intersection-only regions — every case in the V&V — are exact.
+2. **Relocation after a crossing.** Upstream re-searches from the crossed
+   level down (`neighbor_list_find_cell`, `cross_lattice`); this re-locates
+   from the root at the advanced position. Without overlaps the two find
+   the same cell.
+3. **Void material under material colouring.** Upstream indexes its colour
+   and opacity tables with `MATERIAL_VOID = -1` — out of bounds. Here a void
+   segment is fully transparent and never opaque.
+
+```rust
+pub mod raytrace { /* ... */ }
+```
+
+### Types
+
+#### Enum `Projection`
+
+Camera projection.
+
+```rust
+pub enum Projection {
+    Perspective {
+        horizontal_fov_deg: f64,
+    },
+    Orthographic {
+        width: f64,
+    },
+}
+```
+
+##### Variants
+
+###### `Perspective`
+
+Perspective with this horizontal field of view in degrees, `(0, 180)`.
+Upstream default: 70 (`include/openmc/plot.h:397`).
+
+Fields:
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `horizontal_fov_deg` | `f64` | Horizontal field of view \[degrees\]. |
+
+###### `Orthographic`
+
+Orthographic with this horizontal extent \[cm\] (`orthographic_width_`).
+
+Fields:
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `width` | `f64` | Width of the view \[cm\]. |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Boilerplate**
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **ByRef**
+  - ```rust
+    fn by_ref(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Projection { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **DistributionExt**
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Imply**
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Projection) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Struct `Camera`
+
+The camera of a ray-traced plot. `RayTracePlot`'s members
+(`include/openmc/plot.h:397-414`).
+
+```rust
+pub struct Camera {
+    pub position: crate::csg::position::Position,
+    pub look_at: crate::csg::position::Position,
+    pub up: crate::csg::position::Direction,
+    pub pixels: [usize; 2],
+    pub projection: Projection,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `position` | `crate::csg::position::Position` | Eye position \[cm\]. |
+| `look_at` | `crate::csg::position::Position` | Point at the centre of the view \[cm\]. |
+| `up` | `crate::csg::position::Direction` | Which way is up. Upstream default `(0, 0, 1)`; it is not settable from<br>`plots.xml`, only through the C API. |
+| `pixels` | `[usize; 2]` | Pixels across and down. |
+| `projection` | `Projection` | Projection. |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn perspective(position: Position, look_at: Position, pixels: [usize; 2]) -> Self { /* ... */ }
+  ```
+  A perspective camera with upstream's defaults (70 degrees, up = +z).
+
+- ```rust
+  pub fn camera_to_model(self: &Self) -> [f64; 9] { /* ... */ }
+  ```
+  Camera-to-model matrix, row-major with the camera axes as columns.
+
+- ```rust
+  pub fn pixel_ray(self: &Self, m: &[f64; 9], horiz: usize, vert: usize) -> (Position, Direction) { /* ... */ }
+  ```
+  Start point and direction of the ray through pixel `(horiz, vert)`.
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Boilerplate**
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **ByRef**
+  - ```rust
+    fn by_ref(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Camera { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **DistributionExt**
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Imply**
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Camera) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Struct `WireframeRayTracePlot`
+
+A wireframe ("x-ray") plot. `WireframeRayTracePlot`.
+
+```rust
+pub struct WireframeRayTracePlot {
+    pub camera: Camera,
+    pub xs: Vec<f64>,
+    pub wireframe_thickness: i32,
+    pub wireframe_colour: super::colour::Rgb,
+    pub wireframe_ids: Vec<usize>,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `camera` | `Camera` | The camera. |
+| `xs` | `Vec<f64>` | Attenuation per colour index \[1/cm\]; upstream default `1e6` = opaque<br>(`set_opacities`, `src/plot.cpp:1555`). Same length as the scheme's colours. |
+| `wireframe_thickness` | `i32` | Line thickness in pixels; 0 = no wireframe. Default 1. |
+| `wireframe_colour` | `super::colour::Rgb` | Line colour. Default [`BLACK`]. |
+| `wireframe_ids` | `Vec<usize>` | Colour indices to outline; empty = every boundary (`wireframe_ids_`). |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn new(camera: Camera, n_domains: usize) -> Self { /* ... */ }
+  ```
+  Defaults: everything opaque, thickness 1, black lines on every boundary.
+
+- ```rust
+  pub fn with_xs(self: Self, index: usize, xs: f64) -> Self { /* ... */ }
+  ```
+  Set one domain's attenuation (`<color id=.. xs=..>`).
+
+- ```rust
+  pub fn create_image(self: &Self, geom: &Geometry, scheme: &ColourScheme) -> ImageData { /* ... */ }
+  ```
+  Render. Port of `WireframeRayTracePlot::create_image`
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **ByRef**
+  - ```rust
+    fn by_ref(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> WireframeRayTracePlot { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **DistributionExt**
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Imply**
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Struct `SolidRayTracePlot`
+
+A solid, lit plot. `SolidRayTracePlot`.
+
+```rust
+pub struct SolidRayTracePlot {
+    pub camera: Camera,
+    pub opaque: Vec<bool>,
+    pub light_position: Option<crate::csg::position::Position>,
+    pub diffuse_fraction: f64,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `camera` | `Camera` | The camera. |
+| `opaque` | `Vec<bool>` | Which colour indices are opaque (`opaque_ids_`); everything else is<br>invisible. |
+| `light_position` | `Option<crate::csg::position::Position>` | Light position; `None` = at the camera (upstream default,<br>`src/plot.cpp:1735-1737`). |
+| `diffuse_fraction` | `f64` | Share of ambient light, `[0, 1]`. Default 0.1. |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn new(camera: Camera, n_domains: usize) -> Self { /* ... */ }
+  ```
+  Defaults: nothing opaque, light at the camera, diffuse fraction 0.1.
+
+- ```rust
+  pub fn with_opaque(self: Self, index: usize) -> Self { /* ... */ }
+  ```
+  Make one domain opaque (`<opaque_ids>`).
+
+- ```rust
+  pub fn create_image(self: &Self, geom: &Geometry, scheme: &ColourScheme) -> ImageData { /* ... */ }
+  ```
+  Render. Port of `SolidRayTracePlot::create_image` (`src/plot.cpp:1683-1701`).
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **ByRef**
+  - ```rust
+    fn by_ref(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> SolidRayTracePlot { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **DistributionExt**
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Imply**
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+### Constants and Statics
+
+#### Constant `TINY_BIT`
+
+`TINY_BIT` (`include/openmc/constants.h:50`) — how far past a boundary a
+ray is pushed.
+
+```rust
+pub const TINY_BIT: f64 = 1e-8;
+```
+
+## Module `script`
+
+**Geometry slice plotting, by emitting a standalone matplotlib script.**
+GitHub #268.
+
+This is the *script* path. The native OpenMC-parity rasteriser now lives
+beside it in [`super::slice`] and [`super::raytrace`] and writes PNG
+directly; see the module docs of [`super`].
+
+# Why this shape
+
+~~Upstream `src/plot.cpp` is 2597 lines of PPM/PNG rasterisation, voxel
+output and a colour-mapping layer. **None of it is ported**, by maintainer
+direction.~~ **CORRECTED 2026-09-25 (maintainer direction reversed,
+gh:#268):** "make sure the plotting capabilities of openmc are properly
+ported over (to jpg or PNG)". The slice and ray-trace rasterisers, the
+default colour stream and a PNG writer are now ported in the sibling
+modules; only voxel output (HDF5, not an image) is still left out. This
+script emitter is kept because it is still useful: what it emits is a
+self-contained `.py` file that draws the slice when run.
+
+That choice buys three things:
+
+- the script is **inspectable and editable**: change the colour map, the
+  slice plane or the figure size without rebuilding, and `diff` two scripts
+  to see what changed in a model;
+- it sits naturally beside the OpenMC decks already committed under
+  `verification_and_validation/<topic>/openmc_inputs/`, so it can be
+  compared against `openmc.Plot` output of the same model;
+- matplotlib draws axes, ticks and a colour bar for free.
+
+# How the data gets into the script
+
+The index array is **embedded in the script itself** as a nested list, so
+the `.py` is standalone and reproducible with no Rust binary and no side
+files. It runs on a bare `python3` with only `matplotlib` and `numpy`.
+
+```rust
+pub mod script { /* ... */ }
+```
+
+### Types
+
+#### Enum `ColourBy`
+
+What the slice is coloured by.
+
+~~The three upstream offers.~~ **CORRECTED 2026-09-25:** upstream image
+plots colour by cell or material only (`PlotColorBy`, `include/openmc/plot.h:120`);
+`Universe` is this script path's own addition.
+
+```rust
+pub enum ColourBy {
+    Cell,
+    Material,
+    Universe,
+}
+```
+
+##### Variants
+
+###### `Cell`
+
+Leaf cell index.
+
+###### `Material`
+
+Leaf material index; void reads as -1.
+
+###### `Universe`
+
+Leaf universe index.
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Boilerplate**
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **ByRef**
+  - ```rust
+    fn by_ref(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> ColourBy { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **DistributionExt**
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Imply**
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &ColourBy) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Struct `Slice`
+
+A slice plane: an origin and two in-plane basis vectors, with a width along
+each and a pixel count along each.
+
+```rust
+pub struct Slice {
+    pub origin: crate::csg::position::Position,
+    pub basis_u: crate::csg::position::Direction,
+    pub basis_v: crate::csg::position::Direction,
+    pub width_u: f64,
+    pub width_v: f64,
+    pub pixels_u: usize,
+    pub pixels_v: usize,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `origin` | `crate::csg::position::Position` | Centre of the slice \[cm\]. |
+| `basis_u` | `crate::csg::position::Direction` | In-plane basis vector for the horizontal axis (need not be unit; it is<br>normalised here). |
+| `basis_v` | `crate::csg::position::Direction` | In-plane basis vector for the vertical axis. |
+| `width_u` | `f64` | Full width along `basis_u` \[cm\]. |
+| `width_v` | `f64` | Full width along `basis_v` \[cm\]. |
+| `pixels_u` | `usize` | Pixels along `basis_u`. |
+| `pixels_v` | `usize` | Pixels along `basis_v`. |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **ByRef**
+  - ```rust
+    fn by_ref(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Slice { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **DistributionExt**
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Imply**
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+### Functions
+
+#### Function `sample_slice`
+
+Sample the slice, returning a `pixels_v` x `pixels_u` array of indices.
+
+`-1` marks a point that is in no cell at all — outside the geometry — and is
+deliberately distinct from a void cell inside it, which under
+[`ColourBy::Material`] also reads `-1`. Under [`ColourBy::Cell`] the two are
+distinguishable, which is why a geometry that looks wrong should be checked
+cell-coloured first.
+
+```rust
+pub fn sample_slice(geom: &crate::csg::geometry::Geometry, slice: &Slice, colour_by: ColourBy) -> Vec<Vec<i64>> { /* ... */ }
+```
+
+#### Function `emit_python`
+
+Emit a standalone matplotlib script that draws this slice.
+
+`title` names the model; `provenance` is free text written into the header
+comment — the commit, the date, whatever makes the plot traceable later.
+
+```rust
+pub fn emit_python(geom: &crate::csg::geometry::Geometry, slice: &Slice, colour_by: ColourBy, title: &str, provenance: &str) -> String { /* ... */ }
+```
+
+## Module `slice`
+
+**Slice plots** — OpenMC's `<plot type="slice">`, rasterised in Rust.
+
+```rust
+pub mod slice { /* ... */ }
+```
+
+### Types
+
+#### Enum `PlotBasis`
+
+Slice orientation. `SlicePlotBase::PlotBasis` (`include/openmc/plot.h:204`).
+
+```rust
+pub enum PlotBasis {
+    Xy,
+    Xz,
+    Yz,
+}
+```
+
+##### Variants
+
+###### `Xy`
+
+Horizontal axis +x, vertical axis +y.
+
+###### `Xz`
+
+Horizontal axis +x, vertical axis +z — an R-Z view of an axisymmetric core.
+
+###### `Yz`
+
+Horizontal axis +y, vertical axis +z.
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn axes(self: Self) -> (usize, usize) { /* ... */ }
+  ```
+  Global axis indices `(horizontal, vertical)` — `ax1`, `ax2` in
+
+- ```rust
+  pub fn name(self: Self) -> &'static str { /* ... */ }
+  ```
+  Short name, as OpenMC spells it.
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Boilerplate**
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **ByRef**
+  - ```rust
+    fn by_ref(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> PlotBasis { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **DistributionExt**
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Imply**
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &PlotBasis) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Struct `MeshLines`
+
+Mesh-line overlay. `<meshlines>` (`Plot::set_meshlines`, `src/plot.cpp:635-741`).
+
+Upstream draws any structured mesh that implements `Mesh::plot` (regular,
+rectilinear, cylindrical, spherical). This crate has **one** mesh type,
+[`RegularMesh`], so that is the only one supported — which also means
+`meshtype` (`ufs` / `entropy` / `tally`) has nothing to choose between here:
+the caller hands over the mesh itself.
+
+```rust
+pub struct MeshLines {
+    pub mesh: crate::spatial_mesh::RegularMesh,
+    pub width: i32,
+    pub colour: super::colour::Rgb,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `mesh` | `crate::spatial_mesh::RegularMesh` | The mesh to overlay. |
+| `width` | `i32` | `linewidth`: a line covers `2 * width + 1` pixels (`src/plot.cpp:1015`). |
+| `colour` | `super::colour::Rgb` | Line colour. Upstream's default is a value-initialised `RGBColor`, i.e.<br>[`BLACK`] (`include/openmc/plot.h:50`, `:324`). |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **ByRef**
+  - ```rust
+    fn by_ref(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> MeshLines { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **DistributionExt**
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Imply**
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Struct `SlicePlot`
+
+A slice plot: the geometry-side parameters of OpenMC's `Plot` with
+`PlotType::slice`. Colours live separately in a [`ColourScheme`] so one
+geometry pass ([`SlicePlot::id_map`]) can be coloured several ways.
+
+```rust
+pub struct SlicePlot {
+    pub origin: crate::csg::position::Position,
+    pub basis: PlotBasis,
+    pub width: [f64; 2],
+    pub pixels: [usize; 2],
+    pub level: Option<usize>,
+    pub show_overlaps: bool,
+    pub meshlines: Option<MeshLines>,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `origin` | `crate::csg::position::Position` | Centre of the slice \[cm\]. `origin_`. |
+| `basis` | `PlotBasis` | Orientation. `basis_`. |
+| `width` | `[f64; 2]` | Full widths along the horizontal and vertical axes \[cm\]. `width_`. |
+| `pixels` | `[usize; 2]` | Pixels across and down. `pixels_`. |
+| `level` | `Option<usize>` | Universe level whose cell is coloured under cell colouring; `None` is<br>upstream's `PLOT_LEVEL_LOWEST` (the leaf cell). `level_` / `slice_level_`.<br>Level 0 is the root universe. Ignored under material colouring, where<br>the leaf material is always used — as upstream. |
+| `show_overlaps` | `bool` | Paint overlapping cells in the scheme's overlap colour. `show_overlaps_`. |
+| `meshlines` | `Option<MeshLines>` | Optional mesh-line overlay. |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn new(basis: PlotBasis, origin: Position, width: [f64; 2], pixels: [usize; 2]) -> Self { /* ... */ }
+  ```
+  A slice with upstream's defaults: leaf level, no overlaps, no mesh lines.
+
+- ```rust
+  pub fn at_level(self: Self, level: usize) -> Self { /* ... */ }
+  ```
+  Plot a specific universe level (0 = root). `<level>`.
+
+- ```rust
+  pub fn showing_overlaps(self: Self) -> Self { /* ... */ }
+  ```
+  Show overlapping cells. `<show_overlaps>`.
+
+- ```rust
+  pub fn with_meshlines(self: Self, mesh: RegularMesh, width: i32, colour: Rgb) -> Self { /* ... */ }
+  ```
+  Overlay a regular mesh's lines. `<meshlines>`.
+
+- ```rust
+  pub fn pixel_centre(self: &Self, x: usize, y: usize) -> Position { /* ... */ }
+  ```
+  Global position of the centre of pixel `(x, y)`, with exactly the
+
+- ```rust
+  pub fn id_map(self: &Self, geom: &Geometry) -> IdMap { /* ... */ }
+  ```
+  Locate every pixel. Port of `SlicePlotBase::get_map<IdData>`
+
+- ```rust
+  pub fn create_image(self: &Self, geom: &Geometry, scheme: &ColourScheme) -> ImageData { /* ... */ }
+  ```
+  Render the slice. Port of `Plot::create_image` (`src/plot.cpp:317-358`),
+
+- ```rust
+  pub fn colour_id_map(self: &Self, ids: &IdMap, scheme: &ColourScheme) -> ImageData { /* ... */ }
+  ```
+  Colour an already-computed [`IdMap`] — the colouring half of
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **ByRef**
+  - ```rust
+    fn by_ref(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> SlicePlot { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **DistributionExt**
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Imply**
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Enum `SliceHit`
+
+What one pixel of a slice found. The information of one `IdData` entry
+(`src/plot.cpp:47-79`) in a type rather than in magic negative integers
+(`NOT_FOUND = -2`, `OVERLAP = -3`, `MATERIAL_VOID = -1`).
+
+```rust
+pub enum SliceHit {
+    NotFound,
+    Overlap,
+    Found {
+        cell: Option<usize>,
+        material: Option<usize>,
+    },
+}
+```
+
+##### Variants
+
+###### `NotFound`
+
+The point is in no cell (outside the model, or in a hole at some level).
+
+###### `Overlap`
+
+The point is claimed by two or more cells of one universe
+(only reported when [`SlicePlot::show_overlaps`] is set).
+
+###### `Found`
+
+A cell was found.
+
+Fields:
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `cell` | `Option<usize>` | Cell index at the plot's level, or `None` when that level is deeper<br>than the geometry here (upstream writes `NOT_FOUND`, drawn as background). |
+| `material` | `Option<usize>` | Leaf material index, or `None` for a void cell (`MATERIAL_VOID`). |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Boilerplate**
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **ByRef**
+  - ```rust
+    fn by_ref(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> SliceHit { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **DistributionExt**
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Imply**
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &SliceHit) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Struct `IdMap`
+
+The per-pixel result of a slice — `get_map<IdData>`. Row 0 is the top of
+the image; `hits[y * width + x]`.
+
+```rust
+pub struct IdMap {
+    pub width: usize,
+    pub height: usize,
+    pub hits: Vec<SliceHit>,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `width` | `usize` | Pixels across. |
+| `height` | `usize` | Pixels down. |
+| `hits` | `Vec<SliceHit>` | One entry per pixel. |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn get(self: &Self, x: usize, y: usize) -> SliceHit { /* ... */ }
+  ```
+  The hit at column `x`, row `y`.
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **ByRef**
+  - ```rust
+    fn by_ref(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> IdMap { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **DistributionExt**
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Imply**
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &IdMap) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+### Functions
+
+#### Function `check_cell_overlap`
+
+**Attributes:**
+
+- `MustUse { reason: None }`
+
+Whether any cell other than the one found claims the point, at any level.
+Port of `check_cell_overlap` (`src/geometry.cpp:38-90`) with `error =
+false`, minus its bookkeeping of which pair overlaps (the image only needs
+to know that one does).
+
+```rust
+pub fn check_cell_overlap(geom: &crate::csg::geometry::Geometry, path: &crate::csg::geometry::GeometryPath) -> bool { /* ... */ }
+```
+
+### Constants and Statics
+
+#### Constant `DEFAULT_MESHLINE_COLOUR`
+
+Default mesh-line colour, spelled out: upstream's `meshlines_color_` is a
+default-constructed `RGBColor`, which is black.
+
+```rust
+pub const DEFAULT_MESHLINE_COLOUR: super::colour::Rgb = BLACK;
+```
+
+### Functions
+
+#### Function `material_count`
+
+**Attributes:**
+
+- `MustUse { reason: None }`
+
+Highest material index any cell fills with, plus one — the smallest
+material table a [`ColourScheme`] for this geometry can use. (OpenMC sizes
+its table to the full materials list, which may be longer; pass that
+length instead when reproducing an OpenMC run's colours.)
+
+```rust
+pub fn material_count(geom: &crate::csg::geometry::Geometry) -> usize { /* ... */ }
+```
+
+#### Function `render_material_slice`
+
+**Attributes:**
+
+- `MustUse { reason: None }`
+
+**Draw a slice of an assembled geometry by material, with a legend and
+dimensioned axes** — the geometry-drawing rule's minimum, in one call.
+
+`palette[i]` is `(colour, label)` for material index `i`; materials past
+the end of `palette` get OpenMC's default colours (seed
+[`DEFAULT_PLOTTER_SEED`]), labelled `MATERIAL <i>`. Only materials that
+actually appear in the slice are listed in the legend, plus `VOID` and
+`OUTSIDE MODEL` when present. Returns `(raw, annotated)`: the raw image is
+OpenMC-parity pixels, the annotated one is for a human.
+
+```rust
+pub fn render_material_slice(geom: &crate::csg::geometry::Geometry, plot: &SlicePlot, palette: &[(Rgb, &str)], title: &str) -> (ImageData, ImageData) { /* ... */ }
+```
+
+### Re-exports
+
+#### Re-export `annotate_image`
+
+```rust
+pub use annotate::annotate_image;
+```
+
+#### Re-export `annotate_slice`
+
+```rust
+pub use annotate::annotate_slice;
+```
+
+#### Re-export `LegendEntry`
+
+```rust
+pub use annotate::LegendEntry;
+```
+
+#### Re-export `default_colours`
+
+```rust
+pub use colour::default_colours;
+```
+
+#### Re-export `random_colour`
+
+```rust
+pub use colour::random_colour;
+```
+
+#### Re-export `ColourScheme`
+
+```rust
+pub use colour::ColourScheme;
+```
+
+#### Re-export `PlotColourBy`
+
+```rust
+pub use colour::PlotColourBy;
+```
+
+#### Re-export `Rgb`
+
+```rust
+pub use colour::Rgb;
+```
+
+#### Re-export `BLACK`
+
+```rust
+pub use colour::BLACK;
+```
+
+#### Re-export `DEFAULT_PLOTTER_SEED`
+
+```rust
+pub use colour::DEFAULT_PLOTTER_SEED;
+```
+
+#### Re-export `RED`
+
+```rust
+pub use colour::RED;
+```
+
+#### Re-export `WHITE`
+
+```rust
+pub use colour::WHITE;
+```
+
+#### Re-export `decode_png`
+
+```rust
+pub use image::decode_png;
+```
+
+#### Re-export `ImageData`
+
+```rust
+pub use image::ImageData;
+```
+
+#### Re-export `PngDecodeError`
+
+```rust
+pub use image::PngDecodeError;
+```
+
+#### Re-export `AxisUnits`
+
+```rust
+pub use model_plot::AxisUnits;
+```
+
+#### Re-export `BoundingBox`
+
+```rust
+pub use model_plot::BoundingBox;
+```
+
+#### Re-export `ColorBy`
+
+```rust
+pub use model_plot::ColorBy;
+```
+
+#### Re-export `DomainColour`
+
+```rust
+pub use model_plot::DomainColour;
+```
+
+#### Re-export `MaterialIdentity`
+
+```rust
+pub use model_plot::MaterialIdentity;
+```
+
+#### Re-export `ModelPlot`
+
+```rust
+pub use model_plot::ModelPlot;
+```
+
+#### Re-export `ModelPlotError`
+
+```rust
+pub use model_plot::ModelPlotError;
+```
+
+#### Re-export `Outline`
+
+```rust
+pub use model_plot::Outline;
+```
+
+#### Re-export `Pixels`
+
+```rust
+pub use model_plot::Pixels;
+```
+
+#### Re-export `PlotColour`
+
+```rust
+pub use model_plot::PlotColour;
+```
+
+#### Re-export `Camera`
+
+```rust
+pub use raytrace::Camera;
+```
+
+#### Re-export `Projection`
+
+```rust
+pub use raytrace::Projection;
+```
+
+#### Re-export `SolidRayTracePlot`
+
+```rust
+pub use raytrace::SolidRayTracePlot;
+```
+
+#### Re-export `WireframeRayTracePlot`
+
+```rust
+pub use raytrace::WireframeRayTracePlot;
+```
+
+#### Re-export `emit_python`
+
+```rust
+pub use script::emit_python;
+```
+
+#### Re-export `sample_slice`
+
+```rust
+pub use script::sample_slice;
+```
+
+#### Re-export `ColourBy`
+
+```rust
+pub use script::ColourBy;
+```
+
+#### Re-export `Slice`
+
+```rust
+pub use script::Slice;
+```
+
+#### Re-export `IdMap`
+
+```rust
+pub use slice::IdMap;
+```
+
+#### Re-export `MeshLines`
+
+```rust
+pub use slice::MeshLines;
+```
+
+#### Re-export `PlotBasis`
+
+```rust
+pub use slice::PlotBasis;
+```
+
+#### Re-export `SliceHit`
+
+```rust
+pub use slice::SliceHit;
+```
+
+#### Re-export `SlicePlot`
+
+```rust
+pub use slice::SlicePlot;
+```
+
+## Module `position`
+
+3D position and direction vectors.
+
+C++ source: `include/openmc/position.h`, `src/position.cpp`.
+
+Units: OpenMC uses **centimetres (cm)** throughout. All `Position` values
+are in cm; this is not enforced by the type system (raw f64) because the
+particle tracking inner loop is performance-critical.
+
+```rust
+pub mod position { /* ... */ }
+```
+
+### Types
+
+#### Struct `Position`
+
+Cartesian position in cm.  Maps to `openmc::Position`.
+
+```rust
+pub struct Position {
+    pub x: f64,
+    pub y: f64,
+    pub z: f64,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `x` | `f64` |  |
+| `y` | `f64` |  |
+| `z` | `f64` |  |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn new(x: f64, y: f64, z: f64) -> Self { /* ... */ }
+  ```
+
+- ```rust
+  pub fn dot(self: Self, other: Self) -> f64 { /* ... */ }
+  ```
+
+- ```rust
+  pub fn norm_sqr(self: Self) -> f64 { /* ... */ }
+  ```
+
+- ```rust
+  pub fn norm(self: Self) -> f64 { /* ... */ }
+  ```
+
+- ```rust
+  pub fn distance(self: Self, other: Self) -> f64 { /* ... */ }
+  ```
+  Distance to another position.
+
+###### Trait Implementations
+
+- **Add**
+  - ```rust
+    fn add(self: Self, r: Self) -> Self { /* ... */ }
+    ```
+
+- **AddAssign**
+  - ```rust
+    fn add_assign(self: &mut Self, r: Self) { /* ... */ }
+    ```
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Boilerplate**
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **ByRef**
+  - ```rust
+    fn by_ref(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Position { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Default**
+  - ```rust
+    fn default() -> Position { /* ... */ }
+    ```
+
+- **DistributionExt**
+- **Div**
+  - ```rust
+    fn div(self: Self, s: f64) -> Self { /* ... */ }
+    ```
+
+- **DivAssign**
+  - ```rust
+    fn div_assign(self: &mut Self, s: f64) { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Imply**
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **Mul**
+  - ```rust
+    fn mul(self: Self, s: f64) -> Self { /* ... */ }
+    ```
+
+  - ```rust
+    fn mul(self: Self, p: Position) -> Position { /* ... */ }
+    ```
+
+- **MulAssign**
+  - ```rust
+    fn mul_assign(self: &mut Self, s: f64) { /* ... */ }
+    ```
+
+- **Neg**
+  - ```rust
+    fn neg(self: Self) -> Self { /* ... */ }
+    ```
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Position) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sub**
+  - ```rust
+    fn sub(self: Self, r: Self) -> Self { /* ... */ }
+    ```
+
+- **SubAssign**
+  - ```rust
+    fn sub_assign(self: &mut Self, r: Self) { /* ... */ }
+    ```
+
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Struct `Direction`
+
+Unit direction vector (direction cosines u, v, w).  Always |d| = 1.
+Maps to `openmc::Direction` (which is a typedef for `Position` in OpenMC).
+
+```rust
+pub struct Direction {
+    pub u: f64,
+    pub v: f64,
+    pub w: f64,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `u` | `f64` |  |
+| `v` | `f64` |  |
+| `w` | `f64` |  |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn new(u: f64, v: f64, w: f64) -> Self { /* ... */ }
+  ```
+  Construct a Direction from raw components — caller must ensure |d| ≈ 1.
+
+- ```rust
+  pub fn from_unnormalised(x: f64, y: f64, z: f64) -> Self { /* ... */ }
+  ```
+  Normalise an arbitrary vector to obtain a unit direction.
+
+- ```rust
+  pub fn dot_pos(self: Self, p: Position) -> f64 { /* ... */ }
+  ```
+  Dot product with a `Position` (used for projecting displacement onto direction).
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Boilerplate**
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **ByRef**
+  - ```rust
+    fn by_ref(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Direction { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **DistributionExt**
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Imply**
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Direction) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+### Functions
+
+#### Function `stream`
+
+**Attributes:**
+
+- `Other("#[attr = Inline(Hint)]")`
+
+Advance a position by `distance` along `direction`.
+
+Equivalent to `r + d * distance` — the core operation in particle streaming.
+
+```rust
+pub fn stream(pos: Position, dir: Direction, distance: f64) -> Position { /* ... */ }
+```
+
+## Module `surface`
+
+Quadric surfaces for CSG geometry.
+
+C++ source: `src/surface.cpp` (1422 LOC), `include/openmc/surface.h` (419 LOC).
+
+OpenMC supports: XPlane, YPlane, ZPlane, Plane (general), XCylinder,
+YCylinder, ZCylinder, Sphere, XCone, YCone, ZCone, Quadric, Torus{X,Y,Z}.
+
+Each surface implements two core methods:
+  - `evaluate(r)` — signed "sense" function; negative = inside, positive = outside
+  - `distance(r, u, coincident)` — distance to surface intersection along ray
+
+Boundary conditions: Transmissive, Vacuum, Reflective, Periodic, White.
+
+```rust
+pub mod surface { /* ... */ }
+```
+
+### Types
+
+#### Enum `BoundaryType`
+
+Surface boundary condition type.  Maps to `openmc::BoundaryType`.
+
+```rust
+pub enum BoundaryType {
+    Transmissive,
+    Vacuum,
+    Reflective,
+    Periodic,
+    White,
+}
+```
+
+##### Variants
+
+###### `Transmissive`
+
+###### `Vacuum`
+
+###### `Reflective`
+
+###### `Periodic`
+
+###### `White`
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Boilerplate**
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **ByRef**
+  - ```rust
+    fn by_ref(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> BoundaryType { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **DistributionExt**
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Imply**
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &BoundaryType) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Enum `SurfaceKind`
+
+A CSG quadric surface — the closed set the geometry navigator dispatches over.
+
+Wraps each concrete surface struct. Maps to the OpenMC `Surface` polymorphic
+hierarchy (`src/surface.cpp`), realised here as an enum so `match` gives
+exhaustiveness and rust-analyzer go-to-definition on every variant.
+
+```rust
+pub enum SurfaceKind {
+    XPlane(XPlane),
+    YPlane(YPlane),
+    ZPlane(ZPlane),
+    Plane(Plane),
+    Sphere(Sphere),
+    XCylinder(XCylinder),
+    YCylinder(YCylinder),
+    ZCylinder(ZCylinder),
+    XCone(XCone),
+    YCone(YCone),
+    ZCone(ZCone),
+    Quadric(Quadric),
+    XTorus(XTorus),
+    YTorus(YTorus),
+    ZTorus(ZTorus),
+}
+```
+
+##### Variants
+
+###### `XPlane`
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `XPlane` |  |
+
+###### `YPlane`
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `YPlane` |  |
+
+###### `ZPlane`
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `ZPlane` |  |
+
+###### `Plane`
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `Plane` |  |
+
+###### `Sphere`
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `Sphere` |  |
+
+###### `XCylinder`
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `XCylinder` |  |
+
+###### `YCylinder`
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `YCylinder` |  |
+
+###### `ZCylinder`
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `ZCylinder` |  |
+
+###### `XCone`
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `XCone` |  |
+
+###### `YCone`
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `YCone` |  |
+
+###### `ZCone`
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `ZCone` |  |
+
+###### `Quadric`
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `Quadric` |  |
+
+###### `XTorus`
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `XTorus` |  |
+
+###### `YTorus`
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `YTorus` |  |
+
+###### `ZTorus`
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `ZTorus` |  |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn evaluate(self: &Self, r: Position) -> f64 { /* ... */ }
+  ```
+  Signed surface sense at `r`: negative inside, positive outside.
+
+- ```rust
+  pub fn sense(self: &Self, r: Position, u: Direction) -> bool { /* ... */ }
+  ```
+  Boolean sense used by cell membership: `true` = positive (outside) half-space.
+
+- ```rust
+  pub fn distance(self: &Self, r: Position, u: Direction, coincident: bool) -> f64 { /* ... */ }
+  ```
+  Smallest positive distance along ray `(r, u)` to this surface, or
+
+- ```rust
+  pub fn normal(self: &Self, r: Position) -> Direction { /* ... */ }
+  ```
+  Outward unit normal at `r` (assumes `r` lies on the surface).
+
+- ```rust
+  pub fn reflect(self: &Self, r: Position, u: Direction) -> Direction { /* ... */ }
+  ```
+  Specular reflection of direction `u` off this surface at `r`.
+
+- ```rust
+  pub fn bc(self: &Self) -> BoundaryType { /* ... */ }
+  ```
+  This surface's boundary condition.
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **ByRef**
+  - ```rust
+    fn by_ref(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> SurfaceKind { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **DistributionExt**
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Imply**
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+### Traits
+
+#### Trait `Surface`
+
+Trait all surfaces must implement.  Maps to the virtual `Surface` base class.
+
+```rust
+pub trait Surface: Send + Sync {
+    /* Associated items */
+}
+```
+
+##### Required Items
+
+###### Required Methods
+
+- `evaluate`: Evaluate the surface equation at `r`. Negative = inside the surface.
+- `distance`: Smallest positive distance along ray `(r, u)` to this surface.
+- `normal`: Outward unit normal at point `r` (assumes `r` is on the surface).
+
+##### Provided Methods
+
+- ```rust
+  fn reflect(self: &Self, r: Position, u: Direction) -> Direction { /* ... */ }
+  ```
+  Reflect direction `u` off this surface at position `r`.
+
+##### Implementations
+
+This trait is implemented for the following types:
+
+- `XPlane`
+- `YPlane`
+- `ZPlane`
+- `Sphere`
+- `ZCylinder`
+- `Plane`
+- `XCylinder`
+- `YCylinder`
+- `ZCone`
+- `XCone`
+- `YCone`
+- `Quadric`
+- `ZTorus`
+- `XTorus`
+- `YTorus`
+
+### Constants and Statics
+
+#### Constant `FP_COINCIDENT`
+
+Tolerance \[dimensionless, in the units of `evaluate`\] within which a point
+counts as sitting **on** a surface rather than to one side of it.
+
+`FP_COINCIDENT` in `include/openmc/constants.h:55`. Inside this band the sign
+of `evaluate` is decided by floating-point round-off rather than by geometry,
+so [`SurfaceKind::sense`] switches to the direction of travel instead.
+
+```rust
+pub const FP_COINCIDENT: f64 = 1.0e-12;
+```
+
+### Re-exports
+
+#### Re-export `Plane`
+
+```rust
+pub use quadric::Plane;
+```
+
+#### Re-export `Quadric`
+
+```rust
+pub use quadric::Quadric;
+```
+
+#### Re-export `Sphere`
+
+```rust
+pub use quadric::Sphere;
+```
+
+#### Re-export `XCone`
+
+```rust
+pub use quadric::XCone;
+```
+
+#### Re-export `XCylinder`
+
+```rust
+pub use quadric::XCylinder;
+```
+
+#### Re-export `XPlane`
+
+```rust
+pub use quadric::XPlane;
+```
+
+#### Re-export `YCone`
+
+```rust
+pub use quadric::YCone;
+```
+
+#### Re-export `YCylinder`
+
+```rust
+pub use quadric::YCylinder;
+```
+
+#### Re-export `YPlane`
+
+```rust
+pub use quadric::YPlane;
+```
+
+#### Re-export `ZCone`
+
+```rust
+pub use quadric::ZCone;
+```
+
+#### Re-export `ZCylinder`
+
+```rust
+pub use quadric::ZCylinder;
+```
+
+#### Re-export `ZPlane`
+
+```rust
+pub use quadric::ZPlane;
+```
+
+#### Re-export `XTorus`
+
+```rust
+pub use torus::XTorus;
+```
+
+#### Re-export `YTorus`
+
+```rust
+pub use torus::YTorus;
+```
+
+#### Re-export `ZTorus`
+
+```rust
+pub use torus::ZTorus;
+```
+
+## Module `triso_particle`
+
+Full nested-shell TRISO fuel-particle geometry (kernel + 4 coatings).
+
+A real TRISO (TRi-structural ISOtropic) fuel particle is **five concentric
+regions**, not the single fuel sphere the `triso` notebook verification test
+collapses into the matrix. From the centre outward:
+
+1. **fuel kernel** — the fissile ceramic microsphere (UO2 for HTR-10),
+2. **buffer** — a low-density porous pyrolytic-carbon layer that gives fission
+   gases somewhere to go and absorbs fuel-kernel swelling / recoils,
+3. **IPyC** — inner (dense) pyrolytic carbon, the inner seal coat,
+4. **SiC** — silicon carbide, the primary pressure boundary / metallic-fission-
+   product barrier (the structural "miniature pressure vessel"),
+5. **OPyC** — outer pyrolytic carbon, the outer bonding / protective coat,
+
+all embedded in a graphite **matrix** (the compact / pebble binder) that fills
+the rest of the particle's universe.
+
+This module **assembles existing CSG primitives** — it is not an OpenMC port.
+It places five concentric [`Sphere`] surfaces at the cumulative outer radii of
+each region and builds one [`Cell`] per shell as the half-space region between
+consecutive spheres (`+sense` of the inner sphere ∧ `−sense` of the outer),
+with the kernel as the innermost `−sense` ball and the matrix as the outermost
+`+sense` exterior. The result is a [`Universe`] a lattice tile or a bounding
+cell can be filled with, exactly like the single-kernel universe the existing
+`triso` test builds — only now with the real coating stack resolved.
+
+# Reference dimensions (typical HTR-10 / reference TRISO — NOT an authoritative spec)
+
+The [`TrisoRadii::HTR10`] preset uses IAEA-TECDOC-1382's HTR-10 pebble-bed TRISO
+geometry (UO2 kernel + the standard four coatings). These are **typical /
+reference** values drawn from open pebble-bed-HTGR literature, provided as a
+convenience default — they are not a controlled design specification and must
+not be treated as one:
+
+| Region | Layer size | Cumulative outer radius |
+|---|---|---|
+| UO2 kernel   | 250 µm radius   | 0.0250 cm |
+| buffer (PyC) | 90 µm thick     | 0.0340 cm |
+| IPyC         | 40 µm thick     | 0.0380 cm |
+| SiC          | 35 µm thick     | 0.0415 cm |
+| OPyC         | 40 µm thick     | 0.0455 cm |
+
+(1 µm = 1e-4 cm; the kernel figure is a *radius*, the four coatings are
+*thicknesses* accumulated onto it.) The builder itself is fully general — it
+takes whatever five cumulative radii the caller supplies; the preset only
+encodes the table above.
+
+# Scope: geometry + material assignment only
+
+Nothing here loads or asserts any thermal data; the material ids are opaque
+indices the caller maps to real materials. That is deliberate and stays that
+way — deck loading in a CSG module would break the crate's data/transport
+boundary (`outram-mc-libs` parses no ENDF; it consumes the njoy surface).
+
+**S(α,β) thermal scattering is therefore attached caller-side**, to the
+`Nuclide`s (outram-mc-libs) that make up the materials
+passed in here, via `Nuclide::with_thermal_scattering`. It is no longer
+blocked on data availability: as of 2026-08-14 the ENDF/B-VIII.0 LEAPR decks
+are embedded in `njoy-outram-park-fork` and regenerate offline. See
+`tests/triso_shell_thermal_scattering.rs` for the worked, checked
+composition, and note its finding:
+
+- **PyC coatings and matrix (carbon in graphite) — available and verified.**
+- **SiC layer — available as of 2026-08-19, not yet fully verified.** Stock
+  LEAPR could not generate SiC's coherent-elastic channel (card 4
+  `iel = 0`); a generalized coherent-elastic implementation (bead
+  `op-jw4a`, mirrors GitHub issue #24) now produces a real MF=7/MT=2
+  channel for both `tsl-CinSiC` and `tsl-SiinSiC`, measured within ~3% of
+  the official ENDF/B-VIII.0 tape oracle at 0.0253 eV
+  (`crates/njoy-outram-park-fork/tests/leapr_sic_coherent_elastic_oracle.rs`).
+  **Still do not substitute the graphite law for the SiC layer** — it
+  remains a different lattice. **Still do not sum both SiC materials'
+  elastic channels for one region** — coherent elastic is a property of
+  the 3C-SiC compound as a whole and both materials carry the identical
+  value; a caller must attribute MT=2 to the compound once. Remaining
+  follow-up (tracked in `op-jw4a`, not yet done): a tighter-tolerance
+  edge-by-edge validation, and root-causing the residual ~3% gap.
+
+```rust
+pub mod triso_particle { /* ... */ }
+```
+
+### Types
+
+#### Struct `TrisoRadii`
+
+The five cumulative **outer radii** \[cm\] of a TRISO particle's regions.
+
+Each field is the radius of the *outer* boundary of that region (measured from
+the particle centre), so they must be **strictly increasing**:
+`kernel < buffer < ipyc < sic < opyc`. A region's radial thickness is the
+difference between its outer radius and the previous one (the kernel's
+"thickness" is just its radius).
+
+```rust
+pub struct TrisoRadii {
+    pub kernel: f64,
+    pub buffer: f64,
+    pub ipyc: f64,
+    pub sic: f64,
+    pub opyc: f64,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `kernel` | `f64` | Fuel-kernel outer radius \[cm\]. |
+| `buffer` | `f64` | Buffer outer radius \[cm\] (kernel radius + buffer thickness). |
+| `ipyc` | `f64` | IPyC outer radius \[cm\]. |
+| `sic` | `f64` | SiC outer radius \[cm\]. |
+| `opyc` | `f64` | OPyC outer radius \[cm\] — the overall particle radius. |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn as_array(self: Self) -> [f64; 5] { /* ... */ }
+  ```
+  The five outer radii as an array, kernel-first (outermost = index 4).
+
+- ```rust
+  pub fn is_strictly_increasing(self: Self) -> bool { /* ... */ }
+  ```
+  Whether the radii are strictly increasing and positive (a physically valid
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Boilerplate**
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **ByRef**
+  - ```rust
+    fn by_ref(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> TrisoRadii { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **DistributionExt**
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Imply**
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &TrisoRadii) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Struct `TrisoMaterials`
+
+Material indices for the five shells plus the surrounding matrix.
+
+Each field is an opaque index into the caller's global material array (the
+same convention as [`CellFill::Material`](super::cell::CellFill::Material)).
+The shells are filled in nesting order; `matrix` fills the rest of the
+particle's universe outside the OPyC.
+
+```rust
+pub struct TrisoMaterials {
+    pub kernel: usize,
+    pub buffer: usize,
+    pub ipyc: usize,
+    pub sic: usize,
+    pub opyc: usize,
+    pub matrix: usize,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `kernel` | `usize` | Fuel-kernel material index. |
+| `buffer` | `usize` | Buffer (porous PyC) material index. |
+| `ipyc` | `usize` | IPyC (inner pyrolytic carbon) material index. |
+| `sic` | `usize` | SiC (silicon carbide) material index. |
+| `opyc` | `usize` | OPyC (outer pyrolytic carbon) material index. |
+| `matrix` | `usize` | Surrounding matrix (graphite compact / pebble binder) material index. |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Boilerplate**
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **ByRef**
+  - ```rust
+    fn by_ref(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> TrisoMaterials { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **DistributionExt**
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Imply**
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &TrisoMaterials) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Struct `TrisoParticle`
+
+One assembled TRISO particle: the concentric surfaces, the per-shell cells,
+and the universe that searches them.
+
+The [`Universe::cell_indices`] point at `cells` offset by the `cell_base`
+passed to [`build_triso_particle`]; each cell's region tokens index `surfaces`
+offset by `surface_base`. With both bases `0` (the [`triso_particle`]
+convenience) the vectors are self-contained and can be dropped straight into a
+[`Geometry`] via [`TrisoParticle::into_geometry`].
+
+```rust
+pub struct TrisoParticle {
+    pub surfaces: Vec<super::surface::SurfaceKind>,
+    pub cells: Vec<super::cell::Cell>,
+    pub universe: super::universe::Universe,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `surfaces` | `Vec<super::surface::SurfaceKind>` | The five concentric sphere surfaces, kernel-first. |
+| `cells` | `Vec<super::cell::Cell>` | The six cells: kernel, buffer, IPyC, SiC, OPyC, matrix (in that order). |
+| `universe` | `super::universe::Universe` | The universe searching the six cells in nesting order. |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn into_geometry(self: Self) -> Geometry { /* ... */ }
+  ```
+  Wrap this self-contained particle (built with `surface_base = cell_base =
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **ByRef**
+  - ```rust
+    fn by_ref(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> TrisoParticle { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **DistributionExt**
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Imply**
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+### Functions
+
+#### Function `build_triso_particle`
+
+Build a full nested-shell TRISO particle universe from five radii and six
+material ids.
+
+Places five concentric [`Sphere`] surfaces (all [`BoundaryType::Transmissive`]
+— these are internal material interfaces, not model boundaries) at `center`
+with the cumulative outer radii in `radii`, then one [`Cell`] per region:
+
+- **kernel** — `−sense` of sphere 0 (the innermost ball),
+- **buffer / IPyC / SiC / OPyC** — `+sense` of the previous sphere ∧ `−sense`
+  of this shell's sphere (the annular gap between consecutive spheres),
+- **matrix** — `+sense` of sphere 4 (everything outside the OPyC), filling the
+  rest of the universe.
+
+`surface_base` / `cell_base` are the global offsets at which these surfaces /
+cells will live in the enclosing [`Geometry`]'s flat arrays, so the region
+tokens and the universe's `cell_indices` refer to the right global slots when
+this universe is spliced into a larger model (a lattice of particles, a
+pebble, …). For a standalone particle pass `0` for both (see
+[`triso_particle`]). `temperature` \[K\] is stamped on every cell.
+
+# Panics (debug only)
+
+Debug-asserts that `radii` is strictly increasing; in release, non-increasing
+radii silently produce empty (unreachable) shells rather than aborting.
+
+```rust
+pub fn build_triso_particle(center: super::position::Position, radii: TrisoRadii, materials: TrisoMaterials, temperature: f64, universe_id: i32, surface_base: usize, cell_base: usize) -> TrisoParticle { /* ... */ }
+```
+
+#### Function `triso_particle`
+
+Convenience: a self-contained TRISO particle centred at `center`
+(`surface_base = cell_base = 0`, universe id `1`).
+
+The returned [`TrisoParticle`]'s vectors are internally consistent and can be
+turned into a standalone [`Geometry`] with [`TrisoParticle::into_geometry`].
+
+```rust
+pub fn triso_particle(center: super::position::Position, radii: TrisoRadii, materials: TrisoMaterials, temperature: f64) -> TrisoParticle { /* ... */ }
+```
+
+## Module `universe`
+
+Universe hierarchy — the nesting mechanism for CSG geometry.
+
+C++ source: `src/universe.cpp` (217 LOC), `include/openmc/universe.h`.
+
+A `Universe` is a collection of `Cell`s. Particle tracking starts in the root
+universe and recursively descends into fill universes/lattices to locate the
+leaf cell a particle inhabits (see [`crate::csg::geometry::Geometry`]).
+
+Key operation: [`Universe::find_cell`] — given a local position, return the
+first cell in this universe that contains it.
+
+```rust
+pub mod universe { /* ... */ }
+```
+
+### Types
+
+#### Struct `Universe`
+
+A universe — an ordered list of cells searched top-to-bottom.
+Maps to `openmc::Universe`.
+
+```rust
+pub struct Universe {
+    pub id: i32,
+    pub cell_indices: Vec<usize>,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `id` | `i32` | User-facing universe id. |
+| `cell_indices` | `Vec<usize>` | Indices into the global cell array, in search order. |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn find_cell(self: &Self, r: Position, u: Direction, surfaces: &[SurfaceKind], cells: &[Cell], on_surface: SurfaceToken) -> Option<usize> { /* ... */ }
+  ```
+  Find the first cell in this universe that contains a particle at `r`
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **ByRef**
+  - ```rust
+    fn by_ref(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Universe { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **DistributionExt**
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Imply**
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+## Module `spatial_mesh`
+
+**Spatial (tally) mesh description**: regular, rectilinear, cylindrical,
+spherical and (since 2026-10-03, GitHub #492) **unstructured** meshes and
+[`spatial_mesh::MeshKind`]. Moved here from `outram-mc-libs`
+(`tally::mesh`) on 2026-10-02 (GitHub issue #486); bin lookup and scoring
+stay in outram-mc-libs. Core: no feature, no dependency.
+**Spatial mesh description** — the structured meshes a Monte Carlo tally
+(and, later, the deterministic MGXS path) bins space on.
+
+Moved here from `outram-mc-libs` (`src/tally/mesh.rs`) on 2026-10-02,
+GitHub issue #486 (maintainer scope addition): the **description** —
+bounds, edges, dimensions, bin counts, per-bin volumes and the flat-index
+convention ([`unflatten`]) — lives here; **bin lookup and scoring** (which
+bin a point falls in, fission-site counting, Shannon entropy, mesh-surface
+crossings) stay in outram-mc-libs on `*Ext` traits, and outram-mc-libs
+re-exports everything here as `outram_mc_libs::tally::mesh::*`.
+
+Units: cm and radians, raw `f64`, as in OpenMC.
+
+~~The unstructured mesh family is not here yet; it is GitHub #492, which
+will add it as a [`MeshKind`] variant.~~ **CORRECTED 2026-10-03 (GitHub
+#492):** it is [`MeshKind::Unstructured`], holding an
+`Arc<`[`UnstructuredMesh`](crate::unstructured::UnstructuredMesh)`>` from [`crate::unstructured`] — the same
+object an FV or FE solver is built from. Point location and the
+track-length estimator across its cells live in outram-mc-libs
+(`UnstructuredMeshExt`).
+
+```rust
+pub mod spatial_mesh { /* ... */ }
+```
+
+### Types
+
+#### Struct `RegularMesh`
+
+Axis-aligned regular (equal-spacing) Cartesian mesh.
+
+Maps to `openmc::RegularMesh` (`src/mesh.cpp`). The mesh spans the box
+`[lower_left, upper_right]` \[cm\] and is divided into `dimension[i]` equal
+cells along each axis `i ∈ {x, y, z}`. A point is binned into the grid cell
+containing it; points outside the box are unbinned (`None`).
+
+# Fields (all lengths in cm)
+- `lower_left` — the low corner `[x0, y0, z0]` of the meshed box.
+- `upper_right` — the high corner `[x1, y1, z1]`; each `upper_right[i]` must
+  exceed `lower_left[i]`.
+- `dimension` — number of cells `[nx, ny, nz]` along each axis (each ≥ 1). A
+  flat 2-D mesh sets one dimension to 1 (e.g. `[4, 4, 1]`).
+
+```rust
+pub struct RegularMesh {
+    pub lower_left: [f64; 3],
+    pub upper_right: [f64; 3],
+    pub dimension: [usize; 3],
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `lower_left` | `[f64; 3]` | Low corner `[x0, y0, z0]` of the meshed box \[cm\]. |
+| `upper_right` | `[f64; 3]` | High corner `[x1, y1, z1]` of the meshed box \[cm\]. |
+| `dimension` | `[usize; 3]` | Number of equal cells `[nx, ny, nz]` along each axis. |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn width(self: &Self) -> [f64; 3] { /* ... */ }
+  ```
+  Cell width `[wx, wy, wz]` \[cm\] along each axis
+
+- ```rust
+  pub fn n_bins(self: &Self) -> usize { /* ... */ }
+  ```
+  Total number of mesh cells = `nx · ny · nz`.
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **ByRef**
+  - ```rust
+    fn by_ref(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> RegularMesh { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **DistributionExt**
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Imply**
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &RegularMesh) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Struct `RectilinearMesh`
+
+**Rectilinear** mesh: explicit, non-uniform bin edges on each axis.
+
+`openmc::RectilinearMesh`. This is the cheap one, and it is what a radial
+power profile with finer edge binning actually needs.
+
+```rust
+pub struct RectilinearMesh {
+    pub grid: [Vec<f64>; 3],
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `grid` | `[Vec<f64>; 3]` | Ascending bin edges along x, y, z. Each needs at least two entries. |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn dimension(self: &Self) -> [usize; 3] { /* ... */ }
+  ```
+  Number of bins along each axis.
+
+- ```rust
+  pub fn n_bins(self: &Self) -> usize { /* ... */ }
+  ```
+  Total bins.
+
+- ```rust
+  pub fn volume(self: &Self, ijk: [usize; 3]) -> f64 { /* ... */ }
+  ```
+  Volume of bin `(i, j, k)` \[cm^3\]: `src/mesh.cpp:1867`, the product of
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **ByRef**
+  - ```rust
+    fn by_ref(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> RectilinearMesh { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **DistributionExt**
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Imply**
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &RectilinearMesh) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Struct `CylindricalMesh`
+
+**Cylindrical** `(r, phi, z)` mesh about `origin`.
+
+`openmc::CylindricalMesh`. This is the natural tally geometry for every core
+model in this repository — the workspace's standing correction is that
+reactor cores are R-Z, not slabs.
+
+`phi` is measured from the +x axis and is mapped into `[0, 2 pi)`, matching
+`src/mesh.cpp:1932`. `z` is absolute (relative to `origin.z`).
+
+```rust
+pub struct CylindricalMesh {
+    pub r_grid: Vec<f64>,
+    pub phi_grid: Vec<f64>,
+    pub z_grid: Vec<f64>,
+    pub origin: crate::csg::position::Position,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `r_grid` | `Vec<f64>` | Ascending radial edges \[cm\]. |
+| `phi_grid` | `Vec<f64>` | Ascending azimuthal edges \[rad\], within `[0, 2 pi]`. |
+| `z_grid` | `Vec<f64>` | Ascending axial edges \[cm\], relative to `origin`. |
+| `origin` | `crate::csg::position::Position` | Mesh origin \[cm\]. |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn dimension(self: &Self) -> [usize; 3] { /* ... */ }
+  ```
+
+- ```rust
+  pub fn n_bins(self: &Self) -> usize { /* ... */ }
+  ```
+
+- ```rust
+  pub fn volume(self: &Self, ijk: [usize; 3]) -> f64 { /* ... */ }
+  ```
+  Volume of bin `(i, j, k)` \[cm^3\]: `src/mesh.cpp:2159`,
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **ByRef**
+  - ```rust
+    fn by_ref(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> CylindricalMesh { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **DistributionExt**
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Imply**
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &CylindricalMesh) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Struct `SphericalMesh`
+
+**Spherical** `(r, theta, phi)` mesh about `origin`.
+
+`openmc::SphericalMesh`. `theta` is the **polar** angle from +z in
+`[0, pi]`; `phi` the azimuth from +x in `[0, 2 pi)`. That ordering is
+upstream's (`src/mesh.cpp:2230`) and is the opposite of the physics
+convention some texts use, which is exactly the kind of thing that produces
+a mesh that looks right and bins wrong.
+
+```rust
+pub struct SphericalMesh {
+    pub r_grid: Vec<f64>,
+    pub theta_grid: Vec<f64>,
+    pub phi_grid: Vec<f64>,
+    pub origin: crate::csg::position::Position,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `r_grid` | `Vec<f64>` | Ascending radial edges \[cm\]. |
+| `theta_grid` | `Vec<f64>` | Ascending polar edges \[rad\], within `[0, pi]`. |
+| `phi_grid` | `Vec<f64>` | Ascending azimuthal edges \[rad\], within `[0, 2 pi]`. |
+| `origin` | `crate::csg::position::Position` | Mesh origin \[cm\]. |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn dimension(self: &Self) -> [usize; 3] { /* ... */ }
+  ```
+
+- ```rust
+  pub fn n_bins(self: &Self) -> usize { /* ... */ }
+  ```
+
+- ```rust
+  pub fn volume(self: &Self, ijk: [usize; 3]) -> f64 { /* ... */ }
+  ```
+  Volume of bin `(i, j, k)` \[cm^3\]: `src/mesh.cpp:2493`,
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **ByRef**
+  - ```rust
+    fn by_ref(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> SphericalMesh { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **DistributionExt**
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Imply**
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &SphericalMesh) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Enum `MeshKind`
+
+**Enum dispatch over every tally mesh type** — the form
+outram-mc-libs' `tally::filter::MeshFilter` holds so one filter serves all
+of them. ~~every structured mesh type ... all four~~ **CORRECTED
+2026-10-03:** four structured kinds plus [`MeshKind::Unstructured`].
+
+Enum rather than a trait object, per the workspace Rust design rule
+(`docs/claude-md/rust-design-rules.md`: dispatch with enums, no `Box<dyn>`).
+Upstream uses virtual dispatch off a `Mesh` base class; the enum is the
+faithful equivalent here and costs no indirection.
+
+**Not `#[non_exhaustive]`, deliberately** (GitHub #486 / #492). ~~An
+`Unstructured(Arc<..>)` variant is planned (#492)~~ **It landed
+2026-10-03 (#492)**: MC tally meshes are the same mesh objects the
+deterministic solver uses for MGXS. Every exhaustive `match` on this enum
+in the workspace was updated by hand when it landed, which is what the
+absence of a wildcard-forcing attribute guaranteed; a future variant will
+force the same review.
+
+```rust
+pub enum MeshKind {
+    Regular(RegularMesh),
+    Rectilinear(RectilinearMesh),
+    Cylindrical(CylindricalMesh),
+    Spherical(SphericalMesh),
+    Unstructured(std::sync::Arc<UnstructuredMesh>),
+}
+```
+
+##### Variants
+
+###### `Regular`
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `RegularMesh` |  |
+
+###### `Rectilinear`
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `RectilinearMesh` |  |
+
+###### `Cylindrical`
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `CylindricalMesh` |  |
+
+###### `Spherical`
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `SphericalMesh` |  |
+
+###### `Unstructured`
+
+A neutral [`UnstructuredMesh`] (3-D only for tallies; see
+outram-mc-libs' `UnstructuredMeshExt`). Bins are cells, in cell order.
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `std::sync::Arc<UnstructuredMesh>` |  |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn n_bins(self: &Self) -> usize { /* ... */ }
+  ```
+  Total bins.
+
+- ```rust
+  pub fn bin_volume(self: &Self, bin: usize) -> Option<f64> { /* ... */ }
+  ```
+  Volume of flat bin `bin` \[cm^3\], or `None` if out of range.
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **ByRef**
+  - ```rust
+    fn by_ref(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> MeshKind { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **DistributionExt**
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Imply**
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &MeshKind) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+### Functions
+
+#### Function `unflatten`
+
+**Attributes:**
+
+- `Other("#[attr = Inline(Hint)]")`
+
+Flat bin index back to `(i, j, k)`, first axis fastest — the inverse of
+`i + d0 (j + d1 k)`, which every mesh here uses.
+
+```rust
+pub fn unflatten(bin: usize, d: [usize; 3]) -> [usize; 3] { /* ... */ }
+```
+
+### Re-exports
+
+#### Re-export `UnstructuredMesh`
+
+```rust
+pub use crate::unstructured::UnstructuredMesh;
+```
+
+## Module `unstructured`
+
+**The neutral unstructured mesh** (GitHub #492): one description that FV
+(`polyMesh` / `FvMesh`), FE (`farrer-park` typed elements) and Monte Carlo
+tallies (`spatial_mesh::MeshKind::Unstructured`) are all built from, with
+feature-gated converters and orchestration of the workspace's meshers
+(blockMesh / snappyHexMesh, cfMesh, farrer-park generators, the 1-D
+mesher) and a mesh plotter. Core: no feature.
+# The neutral unstructured mesh — blender as the meshing nexus (GitHub #492)
+
+One mesh description, [`UnstructuredMesh`], that the three solver families
+of this workspace are built from:
+
+- **finite volume** (`outram-foam-*`, GeN-Foam ports): cells are
+  polyhedra bounded by faces with an owner and (internally) a neighbour,
+  boundary faces grouped in typed patches — the OpenFOAM `polyMesh` model;
+- **finite element** (`farrer-park`, later Moltres / OFFBEAT): cells are
+  **typed** elements (`Tet4`, `Hex8`, `Tri3`, `Tri6`, `Quad4`) with nodes in
+  a fixed local order;
+- **Monte Carlo** (`outram-mc-libs`): the same cells are tally bins, through
+  [`crate::spatial_mesh::MeshKind::Unstructured`], so MGXS bins and solver
+  cells match one-to-one by construction (the #492 MGXS requirement).
+
+Every cell carries both views: its faces (always) and its element type and
+ordered nodes (when it is a typed element; a cfMesh dual cell is a plain
+[`ElementKind::Polyhedron`]). [`UnstructuredMesh::from_elements`] derives
+the faces of an FE mesh; [`UnstructuredMesh::from_polyhedral`] recognises
+tets and hexes in an FV mesh. Cell **zones** name material / solver regions
+and patches name boundaries.
+
+## What lives where
+
+| here (`outram_blender::unstructured`) | elsewhere |
+|---|---|
+| description: points, faces, cells, patches, zones, element types, units | — |
+| geometry: face centres / area vectors, cell volumes / centroids (OpenFOAM `primitiveMesh` port), the centroid tetrahedral decomposition | — |
+| a uniform-grid spatial index over cell bounding boxes ([`CellLocator`]) | — |
+| the 1-D mesher ([`one_d::one_d_column`]) | — |
+| converters and mesher orchestration ([`convert`], feature-gated) | the meshers themselves: `outram-foam-mesh` (blockMesh / snappy), `outram-park-fork-cfmesh`, `farrer-park`'s generators |
+| drawing ([`plot`]) | — |
+| — | **point location and track-length scoring**: `outram-mc-libs`' `UnstructuredMeshExt` (`tally::mesh`) |
+
+## Units
+
+Coordinates are raw `f64` in the mesh's declared [`LengthUnit`] (the
+documented raw-`f64` exception of `csg` / `spatial_mesh`), mirroring
+OpenMC's unstructured-mesh `length_multiplier`. Converters scale to metres
+for the FV / FE crates; Monte Carlo scales its cm positions into the mesh
+unit.
+
+## Status
+
+Untrusted AI-generated draft (2026-10-03), per the workspace
+`RESPONSIBLE_USE.md`. Unit tests are written but **NOT YET RUN** (testing
+deferred by the maintainer, 2026-10-03). For research, education and V&V
+only.
+
+```rust
+pub mod unstructured { /* ... */ }
+```
+
+### Modules
+
+## Module `build`
+
+The two constructors of [`UnstructuredMesh`]: from typed **elements** (the
+finite-element view) and from **polyhedral faces** (the `polyMesh` view).
+Each derives what the other view needs.
+
+```rust
+pub mod build { /* ... */ }
+```
+
+### Constants and Statics
+
+#### Constant `DEFAULT_PATCH`
+
+Name of the patch that collects boundary faces no
+[`BoundarySpec`] claimed — OpenFOAM `blockMesh`'s default patch name.
+
+`blockMesh` gives `defaultFaces` the type `empty`; this crate gives it
+[`PatchKind::Patch`] instead, deliberately: `empty` means "2-D reduced
+direction" to an FV solver, which would be wrong for every 3-D mesh built
+here. Rename or retype it with
+[`UnstructuredMesh::with_patch_where`].
+
+```rust
+pub const DEFAULT_PATCH: &str = "defaultFaces";
+```
+
+## Module `convert`
+
+**Converters and mesher orchestration**: one module per solver family,
+each behind the cargo feature that pulls that solver crate.
+
+| module | feature | to | from | meshers driven |
+|---|---|---|---|---|
+| `foam` | `foam-export` | `outram-foam-basic-lib` `PolyMesh`, `FvMesh` | `PolyMesh` | — |
+| `block_mesh` | `block-mesh` | — | `outram-foam-mesh` `blockMesh`, `snappyHexMesh` driver | `block_mesh`, `snappy_from_surface` |
+| `cfmesh` | `foam-mesh` | — | `outram-park-fork-cfmesh` `VolumeMesh` | `tet_dual` (tet -> dual -> layers) |
+| `fem` | `fem-export` | `farrer-park` `Mesh` | `farrer-park` `Mesh` | `FemGenerator` (farrer-park's own generators, which stay there) |
+
+The 1-D mesher is in the core ([`super::one_d`]), because its points are
+not recoverable from the `FvMesh` the FV crate's version returns.
+
+**Direction rule (GitHub #486, #492).** The solver crates never depend on
+this one; this crate depends on them, optionally. No converter targets
+`outram-mc-libs`: Monte Carlo takes the neutral mesh directly through
+`spatial_mesh::MeshKind::Unstructured`.
+
+There is no `FvMesh -> UnstructuredMesh` converter, deliberately: an
+`FvMesh` holds no points, so there is nothing to build vertices from. Go
+through the `PolyMesh` it was built from.
+
+```rust
+pub mod convert { /* ... */ }
+```
+
+### Types
+
+#### Enum `ConvertError`
+
+Errors from a converter or a mesher it drives.
+
+```rust
+pub enum ConvertError {
+    Dimension {
+        dim: usize,
+        target: &'static str,
+    },
+    MixedElements {
+        target: &'static str,
+        cell: usize,
+        found: &'static str,
+        first: &'static str,
+    },
+    Mesh(super::mesh::UnstructuredMeshError),
+    Solver(String),
+}
+```
+
+##### Variants
+
+###### `Dimension`
+
+The target needs a mesh of another dimension.
+
+Fields:
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `dim` | `usize` | The mesh's dimension. |
+| `target` | `&'static str` | The target type. |
+
+###### `MixedElements`
+
+The target needs every cell to be one typed element kind.
+
+Fields:
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `target` | `&'static str` | The target type. |
+| `cell` | `usize` | The offending cell. |
+| `found` | `&'static str` | Its kind. |
+| `first` | `&'static str` | The first cell's kind. |
+
+###### `Mesh`
+
+A neutral-mesh construction error on the way in.
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `super::mesh::UnstructuredMeshError` |  |
+
+###### `Solver`
+
+The solver crate refused the result or the mesher failed; its message.
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `String` |  |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **ByRef**
+  - ```rust
+    fn by_ref(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> ConvertError { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Display**
+  - ```rust
+    fn fmt(self: &Self, __formatter: &mut ::core::fmt::Formatter<''_>) -> ::core::fmt::Result { /* ... */ }
+    ```
+
+- **DistributionExt**
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Error**
+  - ```rust
+    fn source(self: &Self) -> ::core::option::Option<&dyn ::thiserror::__private18::Error + ''static> { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+  - ```rust
+    fn from(source: UnstructuredMeshError) -> Self { /* ... */ }
+    ```
+
+- **Imply**
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &ConvertError) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **ToString**
+  - ```rust
+    fn to_string(self: &Self) -> String { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+## Module `element`
+
+Element types, length units and patch kinds of the neutral
+[`UnstructuredMesh`](super::UnstructuredMesh).
+
+# Local node orderings
+
+The finite-element kinds use the node orderings of `farrer-park`'s
+`element::ElementType` (which are the VTK / Abaqus conventions), so a
+converted mesh needs no renumbering:
+
+- [`ElementKind::Tet4`] — the fourth node lies on the positive side of the
+  plane of the first three (`(n1 - n0) x (n2 - n0) . (n3 - n0) > 0`).
+- [`ElementKind::Hex8`] — nodes 0-3 are the `zeta = -1` face,
+  counter-clockwise seen from `+zeta`; nodes 4-7 the matching `zeta = +1`
+  face.
+- [`ElementKind::Tri3`] / [`ElementKind::Quad4`] — corners counter-clockwise
+  in the `z = 0` plane; [`ElementKind::Tri6`] adds the midsides of edges
+  0-1, 1-2, 2-0 as nodes 3, 4, 5.
+
+The local face tables below list each face **wound outward** (right-hand
+normal pointing out of the element). The tables were checked by hand on the
+reference elements; `face_tables_are_outward` in the tests checks them
+numerically.
+
+```rust
+pub mod element { /* ... */ }
+```
+
+### Types
+
+#### Enum `LengthUnit`
+
+The unit the mesh's point coordinates are stored in.
+
+The neutral mesh stores raw `f64` coordinates (the documented raw-`f64`
+exception of `csg` and `spatial_mesh`: point location sits on the Monte
+Carlo hot path) and carries the unit explicitly so no consumer has to
+guess. Monte Carlo works in **cm**, `outram-foam-*` and `farrer-park` in
+**m**; the converters scale.
+
+This mirrors OpenMC's `UnstructuredMesh::length_multiplier_`
+(`include/openmc/mesh.h:820`), which scales a mesh file's units to cm
+(`LibMesh::get_bin`, `src/mesh.cpp:3973`, divides the query point by it).
+
+```rust
+pub enum LengthUnit {
+    Centimetre,
+    Metre,
+    Millimetre,
+}
+```
+
+##### Variants
+
+###### `Centimetre`
+
+Centimetres (the Monte Carlo convention).
+
+###### `Metre`
+
+Metres (the finite-volume and finite-element convention).
+
+###### `Millimetre`
+
+Millimetres (CAD exports).
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn cm_per_unit(self: Self) -> f64 { /* ... */ }
+  ```
+  Centimetres per one stored unit.
+
+- ```rust
+  pub fn metres_per_unit(self: Self) -> f64 { /* ... */ }
+  ```
+  Metres per one stored unit.
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Boilerplate**
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **ByRef**
+  - ```rust
+    fn by_ref(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> LengthUnit { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **DistributionExt**
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Hash**
+  - ```rust
+    fn hash<__H: $crate::hash::Hasher>(self: &Self, state: &mut __H) { /* ... */ }
+    ```
+
+- **Imply**
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &LengthUnit) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Enum `ElementKind`
+
+The type of one mesh cell.
+
+The FV world sees every cell as a polyhedron (faces + owner/neighbour);
+the FE world needs a **typed** element with an ordered node list. Both are
+carried: every cell has its faces, and a typed cell also has its nodes in
+the local ordering above. A polyhedral cell (an OpenFOAM `polyMesh` cell
+that is not recognised as a tet or a hex, e.g. a cfMesh dual cell) has no
+FE ordering and is [`ElementKind::Polyhedron`].
+
+```rust
+pub enum ElementKind {
+    Tri3,
+    Tri6,
+    Quad4,
+    Tet4,
+    Hex8,
+    Polygon,
+    Polyhedron,
+}
+```
+
+##### Variants
+
+###### `Tri3`
+
+3-node linear triangle (2-D).
+
+###### `Tri6`
+
+6-node quadratic triangle (2-D). Geometry here uses the straight-sided
+corner triangle; the midside nodes are carried for the FE converter.
+
+###### `Quad4`
+
+4-node bilinear quadrilateral (2-D).
+
+###### `Tet4`
+
+4-node linear tetrahedron.
+
+###### `Hex8`
+
+8-node trilinear hexahedron.
+
+###### `Polygon`
+
+A general polygon (2-D) with no FE ordering.
+
+###### `Polyhedron`
+
+A general polyhedron (3-D) with no FE ordering.
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn dim(self: Self) -> usize { /* ... */ }
+  ```
+  Spatial dimension of the cell: 2 or 3.
+
+- ```rust
+  pub fn n_nodes(self: Self) -> Option<usize> { /* ... */ }
+  ```
+  Nodes per element, or `None` for the untyped polygon / polyhedron.
+
+- ```rust
+  pub fn is_typed(self: Self) -> bool { /* ... */ }
+  ```
+  Whether this is a typed finite element (has a fixed node ordering).
+
+- ```rust
+  pub fn local_faces(self: Self) -> &'static [&'static [usize]] { /* ... */ }
+  ```
+  Local faces of a typed element, each wound outward, as indices into
+
+- ```rust
+  pub fn n_corners(self: Self) -> Option<usize> { /* ... */ }
+  ```
+  Number of corner (vertex) nodes: the leading nodes that define the
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Boilerplate**
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **ByRef**
+  - ```rust
+    fn by_ref(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> ElementKind { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **DistributionExt**
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Hash**
+  - ```rust
+    fn hash<__H: $crate::hash::Hasher>(self: &Self, state: &mut __H) { /* ... */ }
+    ```
+
+- **Imply**
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &ElementKind) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Enum `PatchKind`
+
+Boundary-patch type, the union of what the FV converters need.
+
+Mirrors `outram_foam_basic_lib::mesh::PatchKind` (OpenFOAM's
+`polyPatch` types). A finite-element consumer ignores the kind and uses the
+patch as a named facet set.
+
+```rust
+pub enum PatchKind {
+    Patch,
+    Wall,
+    Symmetry,
+    Empty,
+    Wedge,
+    Cyclic {
+        partner: Option<usize>,
+    },
+    CyclicAmi {
+        partner: Option<usize>,
+    },
+    Processor,
+}
+```
+
+##### Variants
+
+###### `Patch`
+
+Generic boundary.
+
+###### `Wall`
+
+Wall.
+
+###### `Symmetry`
+
+Symmetry plane.
+
+###### `Empty`
+
+2-D reduced case (OpenFOAM `empty`).
+
+###### `Wedge`
+
+Axisymmetric wedge.
+
+###### `Cyclic`
+
+Conformal periodic pair; `partner` is the patch index of the other
+half when known.
+
+Fields:
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `partner` | `Option<usize>` | Patch index of the partner half, if resolved. |
+
+###### `CyclicAmi`
+
+Non-conformal periodic pair (OpenFOAM `cyclicAMI`). The AMI weights
+are not part of the description; the FV side recomputes them.
+
+Fields:
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `partner` | `Option<usize>` | Patch index of the partner half, if resolved. |
+
+###### `Processor`
+
+Inter-processor decomposition seam.
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Boilerplate**
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **ByRef**
+  - ```rust
+    fn by_ref(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> PatchKind { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **DistributionExt**
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Hash**
+  - ```rust
+    fn hash<__H: $crate::hash::Hasher>(self: &Self, state: &mut __H) { /* ... */ }
+    ```
+
+- **Imply**
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &PatchKind) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Struct `Patch`
+
+A named set of boundary faces.
+
+```rust
+pub struct Patch {
+    pub name: String,
+    pub kind: PatchKind,
+    pub faces: Vec<usize>,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `name` | `String` | Patch name (`"inlet"`, `"walls"`, `"defaultFaces"`, ...). |
+| `kind` | `PatchKind` | Patch type. |
+| `faces` | `Vec<usize>` | Global face indices (boundary faces only), ascending. |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **ByRef**
+  - ```rust
+    fn by_ref(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Patch { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **DistributionExt**
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Imply**
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Patch) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Struct `Zone`
+
+A named set of cells: a material region, a solver region, a tally group.
+
+OpenFOAM `cellZone`, Exodus element block, MOAB material set. Zones may
+overlap and need not cover the mesh;
+[`UnstructuredMesh::zone_of`](super::UnstructuredMesh::zone_of) reports
+the first zone a cell is in.
+
+```rust
+pub struct Zone {
+    pub name: String,
+    pub cells: Vec<usize>,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `name` | `String` | Zone name (`"fuel"`, `"reflector"`, ...). |
+| `cells` | `Vec<usize>` | Cell indices, ascending. |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **ByRef**
+  - ```rust
+    fn by_ref(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Zone { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **DistributionExt**
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Imply**
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Zone) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Struct `Element`
+
+One input element for
+[`UnstructuredMesh::from_elements`](super::UnstructuredMesh::from_elements):
+a typed cell given by its nodes.
+
+```rust
+pub struct Element {
+    pub kind: ElementKind,
+    pub nodes: Vec<usize>,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `kind` | `ElementKind` | Element type; must be a typed kind (not `Polygon`/`Polyhedron`). |
+| `nodes` | `Vec<usize>` | Node indices in the kind's local ordering. |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **ByRef**
+  - ```rust
+    fn by_ref(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Element { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **DistributionExt**
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Imply**
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Element) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Struct `BoundarySpec`
+
+One input boundary facet set for
+[`UnstructuredMesh::from_elements`](super::UnstructuredMesh::from_elements).
+
+Each facet is a corner-node list; it is matched to a mesh boundary face by
+its **set** of nodes, so the winding given here does not matter.
+
+```rust
+pub struct BoundarySpec {
+    pub name: String,
+    pub kind: PatchKind,
+    pub facets: Vec<Vec<usize>>,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `name` | `String` | Patch name. |
+| `kind` | `PatchKind` | Patch type. |
+| `facets` | `Vec<Vec<usize>>` | Corner-node lists of the facets in this patch. |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **ByRef**
+  - ```rust
+    fn by_ref(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> BoundarySpec { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **DistributionExt**
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Imply**
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &BoundarySpec) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Struct `PolyFace`
+
+One input face for
+[`UnstructuredMesh::from_polyhedral`](super::UnstructuredMesh::from_polyhedral).
+
+```rust
+pub struct PolyFace {
+    pub verts: Vec<usize>,
+    pub owner: usize,
+    pub neighbour: Option<usize>,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `verts` | `Vec<usize>` | Vertex loop, wound so the normal points out of `owner` (into<br>`neighbour`), the OpenFOAM convention. |
+| `owner` | `usize` | Owner cell. |
+| `neighbour` | `Option<usize>` | Neighbour cell, `None` on the boundary. |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **ByRef**
+  - ```rust
+    fn by_ref(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> PolyFace { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **DistributionExt**
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Imply**
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &PolyFace) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+## Module `geometry`
+
+Face and cell geometry of the neutral mesh: face centres and area vectors,
+cell volumes and centroids, and the two triangulations a cell is used
+through.
+
+All quantities are in the mesh's own [`LengthUnit`](super::LengthUnit).
+
+# What "inside a cell" means: the bounding triangles
+
+A polyhedral cell with non-planar faces has no unique interior. This crate
+fixes one: the cell is the region enclosed by the **fan triangles**
+`(face centre, v_i, v_i+1)` of its faces
+([`UnstructuredMesh::for_each_bounding_triangle`](super::UnstructuredMesh::for_each_bounding_triangle)).
+Two cells sharing a face share its fan triangles, so the cells tile the
+mesh with no gap and no overlap, and the definition holds for **any**
+closed cell, convex or not. Point location (outram-mc-libs) tests it by
+the generalized winding number of those triangles, the same inside test
+[`crate::boolean_classify`] uses for closed surface meshes.
+
+# The centroid decomposition: sampling only
+
+The tetrahedra `(face centre, v_i, v_i+1, cell centre)`
+([`UnstructuredMesh::for_each_cell_simplex`](super::UnstructuredMesh::for_each_cell_simplex))
+are OpenFOAM's `tetDecomposition` (the `CELL_TETS` mode of
+`polyMesh::findCell`). They tile the cell exactly when it is star-shaped
+about its centroid, which every convex cell is; some cfMesh dual cells are
+not (found 2026-10-03 on the first cfMesh cylinder put through this
+module: cell 4 of a 0.1 m tet-dual mesh had an inverted decomposition
+tetrahedron). Whether a cell's decomposition is valid is recorded
+([`UnstructuredMesh::decomposition_is_valid`](super::UnstructuredMesh::decomposition_is_valid));
+it is used only to sample uniformly in a cell, with rejection sampling as
+the fallback.
+
+The volume formula below is OpenFOAM's pyramid decomposition about an
+estimated centre; for a closed cell with planar faces it is exact by the
+divergence theorem whatever the cell's shape (a warped face adds the usual
+OpenFOAM approximation).
+
+```rust
+pub mod geometry { /* ... */ }
+```
+
+### Functions
+
+#### Function `sub`
+
+**Attributes:**
+
+- `Other("#[attr = Inline(Hint)]")`
+
+`a - b`.
+
+```rust
+pub fn sub(a: [f64; 3], b: [f64; 3]) -> [f64; 3] { /* ... */ }
+```
+
+#### Function `add`
+
+**Attributes:**
+
+- `Other("#[attr = Inline(Hint)]")`
+
+`a + b`.
+
+```rust
+pub fn add(a: [f64; 3], b: [f64; 3]) -> [f64; 3] { /* ... */ }
+```
+
+#### Function `scale`
+
+**Attributes:**
+
+- `Other("#[attr = Inline(Hint)]")`
+
+`s a`.
+
+```rust
+pub fn scale(a: [f64; 3], s: f64) -> [f64; 3] { /* ... */ }
+```
+
+#### Function `dot`
+
+**Attributes:**
+
+- `Other("#[attr = Inline(Hint)]")`
+
+`a . b`.
+
+```rust
+pub fn dot(a: [f64; 3], b: [f64; 3]) -> f64 { /* ... */ }
+```
+
+#### Function `cross`
+
+**Attributes:**
+
+- `Other("#[attr = Inline(Hint)]")`
+
+`a x b`.
+
+```rust
+pub fn cross(a: [f64; 3], b: [f64; 3]) -> [f64; 3] { /* ... */ }
+```
+
+#### Function `mag`
+
+**Attributes:**
+
+- `Other("#[attr = Inline(Hint)]")`
+
+`|a|`.
+
+```rust
+pub fn mag(a: [f64; 3]) -> f64 { /* ... */ }
+```
+
+#### Function `tet_signed_volume`
+
+**Attributes:**
+
+- `Other("#[attr = Inline(Hint)]")`
+
+Signed volume of the tetrahedron `(a, b, c, d)`:
+`((b - a) x (c - a)) . (d - a) / 6`, positive when `d` lies on the side
+the right-hand normal of `(a, b, c)` points to.
+
+```rust
+pub fn tet_signed_volume(a: [f64; 3], b: [f64; 3], c: [f64; 3], d: [f64; 3]) -> f64 { /* ... */ }
+```
+
+#### Function `face_centre_and_area`
+
+Centre and area vector of one face.
+
+- **3-D** (`dim == 3`): port of `primitiveMesh::makeFaceCentresAndAreas`
+  (mirrored from `outram_foam_basic_lib::io::poly_mesh::face_centre_and_area`):
+  a triangle is exact; a polygon is fanned about its vertex average, the
+  centre is the area-weighted mean of the fan-triangle centroids and the
+  area vector the sum of the fan-triangle area vectors. The area vector's
+  direction is the right-hand normal of the vertex loop.
+- **2-D** (`dim == 2`): the face is an edge `a -> b` in the `z = 0` plane;
+  the centre is its midpoint and the area vector `(dy, -dx, 0)`, the
+  outward normal of a counter-clockwise cell scaled by the edge length
+  (unit depth).
+
+```rust
+pub fn face_centre_and_area(points: &[[f64; 3]], verts: &[usize], dim: usize) -> ([f64; 3], [f64; 3]) { /* ... */ }
+```
+
+#### Function `cell_volumes_and_centres`
+
+Volumes and centroids of every cell, by the OpenFOAM pyramid
+decomposition (`primitiveMesh::makeCellCentresAndVols`).
+
+First the cell centre is estimated as the mean of its face centres; then
+each face contributes a pyramid with apex at that estimate. In 3-D the
+pyramid volume is `Sf . (Cf - c_est) / 3` with centroid
+`3/4 Cf + 1/4 c_est`; in 2-D the triangle area is `Sf . (Cf - c_est) / 2`
+with centroid `2/3 Cf + 1/3 c_est`.
+
+`face_owner_side` is, for each face, `(owner, neighbour)`; the area vector
+is negated for the neighbour.
+
+```rust
+pub fn cell_volumes_and_centres(n_cells: usize, face_centres: &[[f64; 3]], face_areas: &[[f64; 3]], owner: &[usize], neighbour: &[Option<usize>], dim: usize) -> (Vec<f64>, Vec<[f64; 3]>) { /* ... */ }
+```
+
+#### Function `for_each_fan_triangle`
+
+**Attributes:**
+
+- `Other("#[attr = Inline(Hint)]")`
+
+Visit the fan triangles `(face centre, v_i, v_i+1)` of one 3-D face, wound
+like the face (right-hand normal along the face's area vector).
+
+```rust
+pub fn for_each_fan_triangle<F: FnMut([f64; 3], [f64; 3], [f64; 3])>(points: &[[f64; 3]], verts: &[usize], centre: [f64; 3], f: F) { /* ... */ }
+```
+
+## Module `locator`
+
+A uniform bucket grid over cell bounding boxes: the spatial index that
+turns "which cell contains this point" from a scan of every cell into a
+scan of a handful.
+
+# Where this sits relative to upstream
+
+OpenMC delegates the same job to a library: MOAB's `AdaptiveKDTree` over
+the tets and their triangles (`MOABMesh::build_kdtree`,
+`src/mesh.cpp:3099`, options `MAX_DEPTH=20;PLANE_SET=2`) or libMesh's
+`PointLocator` (`LibMesh::get_bin`, `src/mesh.cpp:3973`). Neither is
+available in pure Rust, so this is the pure-Rust equivalent: a uniform
+grid, which is simpler than a k-d tree and as good for the near-uniform
+cell sizes a reactor mesh has. It is an index only — it answers "which
+cells might contain this point", never "which cell does"; the exact test is
+the caller's (outram-mc-libs' `UnstructuredMeshExt`).
+
+The grid is part of the description (built once, read-only, shared through
+the mesh's `Arc`) so that every consumer uses the same candidates.
+
+```rust
+pub mod locator { /* ... */ }
+```
+
+### Types
+
+#### Struct `CellLocator`
+
+Uniform bucket grid over cell bounding boxes (compressed-row storage).
+
+```rust
+pub struct CellLocator {
+    // Some fields omitted
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| *private fields* | ... | *Some fields have been omitted* |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn build(lower: [f64; 3], upper: [f64; 3], cell_bounds: &[[[f64; 3]; 2]]) -> Self { /* ... */ }
+  ```
+  Build the grid over `cell_bounds` (`[lower, upper]` per cell), which
+
+- ```rust
+  pub fn dims(self: &Self) -> [usize; 3] { /* ... */ }
+  ```
+  Buckets per axis.
+
+- ```rust
+  pub fn candidates_at(self: &Self, p: [f64; 3]) -> &[usize] { /* ... */ }
+  ```
+  Cells whose bounding box overlaps the bucket containing `p`, or an
+
+- ```rust
+  pub fn candidates_in_box(self: &Self, lo: [f64; 3], hi: [f64; 3], out: &mut Vec<usize>) { /* ... */ }
+  ```
+  Every cell whose bucket overlaps the axis-aligned box `[lo, hi]`,
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **ByRef**
+  - ```rust
+    fn by_ref(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> CellLocator { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **DistributionExt**
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Imply**
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &CellLocator) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+## Module `mesh`
+
+The [`UnstructuredMesh`] type: storage, accessors, derived geometry and
+validation. Construction lives in [`super::build`].
+
+```rust
+pub mod mesh { /* ... */ }
+```
+
+### Types
+
+#### Enum `UnstructuredMeshError`
+
+Errors raised while building or validating an [`UnstructuredMesh`].
+
+```rust
+pub enum UnstructuredMeshError {
+    Empty(&'static str),
+    PointOutOfRange {
+        context: &'static str,
+        index: usize,
+        n_points: usize,
+    },
+    CellOutOfRange {
+        context: &'static str,
+        index: usize,
+        n_cells: usize,
+    },
+    WrongNodeCount {
+        element: usize,
+        kind: super::element::ElementKind,
+        expected: usize,
+        got: usize,
+    },
+    BadKind {
+        element: usize,
+        kind: super::element::ElementKind,
+        reason: &'static str,
+    },
+    MixedDimension {
+        element: usize,
+        expected: usize,
+        got: usize,
+    },
+    NonManifoldFace {
+        nodes: Vec<usize>,
+    },
+    UnmatchedFacet {
+        patch: String,
+        nodes: Vec<usize>,
+    },
+    FaceInTwoPatches {
+        face: usize,
+        first: String,
+        second: String,
+    },
+    FaceOutOfRange {
+        patch: String,
+        face: usize,
+        n_faces: usize,
+    },
+    BoundaryFaceUnpatched {
+        face: usize,
+    },
+    InternalFaceInPatch {
+        face: usize,
+        patch: String,
+    },
+    DegenerateFace {
+        face: usize,
+        n: usize,
+        dim: usize,
+        min: usize,
+    },
+    SelfNeighbour {
+        face: usize,
+        cell: usize,
+    },
+    TooFewFaces {
+        cell: usize,
+        n: usize,
+        dim: usize,
+        min: usize,
+    },
+    OpenCell {
+        cell: usize,
+        relative: f64,
+    },
+    BadCellGeometry {
+        cell: usize,
+        volume: f64,
+        reason: &'static str,
+    },
+}
+```
+
+##### Variants
+
+###### `Empty`
+
+Nothing to build.
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `&'static str` |  |
+
+###### `PointOutOfRange`
+
+A point index past the end of the point list.
+
+Fields:
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `context` | `&'static str` | Where it was found. |
+| `index` | `usize` | The bad index. |
+| `n_points` | `usize` | Number of points. |
+
+###### `CellOutOfRange`
+
+A cell index past the end of the cell list.
+
+Fields:
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `context` | `&'static str` | Where it was found. |
+| `index` | `usize` | The bad index. |
+| `n_cells` | `usize` | Number of cells. |
+
+###### `WrongNodeCount`
+
+A typed element with the wrong number of nodes.
+
+Fields:
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `element` | `usize` | Element index. |
+| `kind` | `super::element::ElementKind` | Its kind. |
+| `expected` | `usize` | Nodes the kind needs. |
+| `got` | `usize` | Nodes given. |
+
+###### `BadKind`
+
+An element kind that is not allowed where it was given.
+
+Fields:
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `element` | `usize` | Element index. |
+| `kind` | `super::element::ElementKind` | Its kind. |
+| `reason` | `&'static str` | Why. |
+
+###### `MixedDimension`
+
+Elements of different dimension in one mesh.
+
+Fields:
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `element` | `usize` | Element index. |
+| `expected` | `usize` | Mesh dimension (from the first element). |
+| `got` | `usize` | This element's dimension. |
+
+###### `NonManifoldFace`
+
+A face shared by more than two cells.
+
+Fields:
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `nodes` | `Vec<usize>` | Sorted corner nodes of the face. |
+
+###### `UnmatchedFacet`
+
+A boundary facet that matches no boundary face.
+
+Fields:
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `patch` | `String` | Patch name. |
+| `nodes` | `Vec<usize>` | The facet's nodes as given. |
+
+###### `FaceInTwoPatches`
+
+A face listed in two patches.
+
+Fields:
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `face` | `usize` | Face index. |
+| `first` | `String` | First patch. |
+| `second` | `String` | Second patch. |
+
+###### `FaceOutOfRange`
+
+A patch naming a face that does not exist.
+
+Fields:
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `patch` | `String` | Patch name. |
+| `face` | `usize` | The bad index. |
+| `n_faces` | `usize` | Number of faces. |
+
+###### `BoundaryFaceUnpatched`
+
+A boundary face no patch claims.
+
+Fields:
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `face` | `usize` | Face index. |
+
+###### `InternalFaceInPatch`
+
+An internal face listed in a patch.
+
+Fields:
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `face` | `usize` | Face index. |
+| `patch` | `String` | Patch name. |
+
+###### `DegenerateFace`
+
+A face with too few vertices.
+
+Fields:
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `face` | `usize` | Face index. |
+| `n` | `usize` | Vertices given. |
+| `dim` | `usize` | Mesh dimension. |
+| `min` | `usize` | Minimum. |
+
+###### `SelfNeighbour`
+
+A face whose owner is also its neighbour.
+
+Fields:
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `face` | `usize` | Face index. |
+| `cell` | `usize` | The cell. |
+
+###### `TooFewFaces`
+
+A cell with too few faces to enclose anything.
+
+Fields:
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `cell` | `usize` | Cell index. |
+| `n` | `usize` | Faces found. |
+| `dim` | `usize` | Mesh dimension. |
+| `min` | `usize` | Minimum. |
+
+###### `OpenCell`
+
+A cell whose outward area vectors do not sum to zero.
+
+Fields:
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `cell` | `usize` | Cell index. |
+| `relative` | `f64` | Relative closure residual. |
+
+###### `BadCellGeometry`
+
+A cell with non-positive volume.
+
+Fields:
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `cell` | `usize` | Cell index. |
+| `volume` | `f64` | Cell volume (area in 2-D). |
+| `reason` | `&'static str` | What is wrong. |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **ByRef**
+  - ```rust
+    fn by_ref(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> UnstructuredMeshError { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Display**
+  - ```rust
+    fn fmt(self: &Self, __formatter: &mut ::core::fmt::Formatter<''_>) -> ::core::fmt::Result { /* ... */ }
+    ```
+
+- **DistributionExt**
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Error**
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+  - ```rust
+    fn from(source: UnstructuredMeshError) -> Self { /* ... */ }
+    ```
+
+- **Imply**
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &UnstructuredMeshError) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **ToString**
+  - ```rust
+    fn to_string(self: &Self) -> String { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Struct `UnstructuredMesh`
+
+The **neutral mesh description**: one object both a finite-volume solver
+(polyhedral cells, owner/neighbour faces, patches) and a finite-element
+solver (typed elements with ordered nodes) can be built from, and that a
+Monte Carlo tally bins on (`spatial_mesh::MeshKind::Unstructured`).
+
+See the [module docs](super) for the design and the converters.
+
+# Invariants (checked on construction)
+
+- Every face is wound so its area vector points **out of its owner** (into
+  its neighbour), and `owner < neighbour` for internal faces built from
+  elements (the OpenFOAM upper-triangular convention the `polyMesh`
+  converter relies on).
+- Every boundary face is in exactly one patch; no internal face is in any.
+- Every cell is closed and has a positive volume.
+
+A cell need **not** be convex or star-shaped: a cfMesh dual cell often is
+neither. Whether its centroid decomposition is valid (no inverted
+tetrahedron) is recorded per cell, [`Self::decomposition_is_valid`], and
+only used to choose a sampling method; point location uses the cell's
+bounding faces (see [`super::geometry`]), which is right for any closed
+cell.
+
+Fields are private so the derived geometry cannot drift from the topology;
+a mesh is immutable once built (share it with `Arc`).
+
+```rust
+pub struct UnstructuredMesh {
+    // Some fields omitted
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| *private fields* | ... | *Some fields have been omitted* |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn from_elements(unit: LengthUnit, points: Vec<[f64; 3]>, elements: Vec<Element>, boundaries: Vec<BoundarySpec>, zones: Vec<Zone>) -> Result<Self, UnstructuredMeshError> { /* ... */ }
+  ```
+  Build from **typed elements** (the finite-element view).
+
+- ```rust
+  pub fn from_polyhedral(unit: LengthUnit, points: Vec<[f64; 3]>, faces: Vec<PolyFace>, n_cells: usize, patches: Vec<Patch>, zones: Vec<Zone>) -> Result<Self, UnstructuredMeshError> { /* ... */ }
+  ```
+  Build from **polyhedral faces** (the OpenFOAM `polyMesh` view; 3-D).
+
+- ```rust
+  pub fn decomposition_is_valid(self: &Self, c: usize) -> bool { /* ... */ }
+  ```
+  Whether cell `c`'s centroid decomposition
+
+- ```rust
+  pub fn n_non_star_cells(self: &Self) -> usize { /* ... */ }
+  ```
+  Number of cells whose centroid decomposition is not valid.
+
+- ```rust
+  pub fn for_each_bounding_triangle<F: FnMut([[f64; 3]; 3])>(self: &Self, c: usize, f: F) { /* ... */ }
+  ```
+  Visit the **bounding triangles** of cell `c`, each wound **outward**
+
+- ```rust
+  pub fn unit(self: &Self) -> LengthUnit { /* ... */ }
+  ```
+  Unit of every stored coordinate, length, area and volume.
+
+- ```rust
+  pub fn dim(self: &Self) -> usize { /* ... */ }
+  ```
+  Spatial dimension, 2 or 3.
+
+- ```rust
+  pub fn points(self: &Self) -> &[[f64; 3]] { /* ... */ }
+  ```
+  Points (vertices), in [`Self::unit`].
+
+- ```rust
+  pub fn n_cells(self: &Self) -> usize { /* ... */ }
+  ```
+  Number of cells.
+
+- ```rust
+  pub fn n_faces(self: &Self) -> usize { /* ... */ }
+  ```
+  Number of faces (internal + boundary).
+
+- ```rust
+  pub fn n_internal_faces(self: &Self) -> usize { /* ... */ }
+  ```
+  Number of internal faces.
+
+- ```rust
+  pub fn face(self: &Self, f: usize) -> &[usize] { /* ... */ }
+  ```
+  Vertex loop of face `f`, wound out of its owner.
+
+- ```rust
+  pub fn owner(self: &Self, f: usize) -> usize { /* ... */ }
+  ```
+  Owner cell of face `f`.
+
+- ```rust
+  pub fn neighbour(self: &Self, f: usize) -> Option<usize> { /* ... */ }
+  ```
+  Neighbour cell of face `f`, `None` on the boundary.
+
+- ```rust
+  pub fn cell_kind(self: &Self, c: usize) -> ElementKind { /* ... */ }
+  ```
+  Type of cell `c`.
+
+- ```rust
+  pub fn cell_nodes(self: &Self, c: usize) -> &[usize] { /* ... */ }
+  ```
+  Nodes of cell `c`: the local FE ordering for a typed cell, the sorted
+
+- ```rust
+  pub fn cell_faces(self: &Self, c: usize) -> &[usize] { /* ... */ }
+  ```
+  Faces bounding cell `c`.
+
+- ```rust
+  pub fn patches(self: &Self) -> &[Patch] { /* ... */ }
+  ```
+  Boundary patches.
+
+- ```rust
+  pub fn zones(self: &Self) -> &[Zone] { /* ... */ }
+  ```
+  Cell zones.
+
+- ```rust
+  pub fn zone_of(self: &Self, c: usize) -> Option<usize> { /* ... */ }
+  ```
+  The first zone cell `c` belongs to, if any.
+
+- ```rust
+  pub fn face_centre(self: &Self, f: usize) -> [f64; 3] { /* ... */ }
+  ```
+  Centre of face `f`.
+
+- ```rust
+  pub fn face_area_vector(self: &Self, f: usize) -> [f64; 3] { /* ... */ }
+  ```
+  Area vector of face `f` (out of the owner; per unit depth in 2-D).
+
+- ```rust
+  pub fn cell_volume(self: &Self, c: usize) -> f64 { /* ... */ }
+  ```
+  Volume of cell `c` in `unit^3` (area in `unit^2` for a 2-D mesh).
+
+- ```rust
+  pub fn cell_centre(self: &Self, c: usize) -> [f64; 3] { /* ... */ }
+  ```
+  Volume-weighted centroid of cell `c`.
+
+- ```rust
+  pub fn cell_bounds(self: &Self, c: usize) -> [[f64; 3]; 2] { /* ... */ }
+  ```
+  Axis-aligned bounds `[lower, upper]` of cell `c`.
+
+- ```rust
+  pub fn bounds(self: &Self) -> [[f64; 3]; 2] { /* ... */ }
+  ```
+  Axis-aligned bounds `[lower, upper]` of the whole mesh.
+
+- ```rust
+  pub fn locator(self: &Self) -> &CellLocator { /* ... */ }
+  ```
+  The spatial index over cell bounding boxes.
+
+- ```rust
+  pub fn total_volume(self: &Self) -> f64 { /* ... */ }
+  ```
+  Sum of cell volumes, in `unit^3`.
+
+- ```rust
+  pub fn patch_index(self: &Self, name: &str) -> Option<usize> { /* ... */ }
+  ```
+  Index of the patch named `name`.
+
+- ```rust
+  pub fn for_each_cell_simplex<F: FnMut([[f64; 3]; 4])>(self: &Self, c: usize, f: F) { /* ... */ }
+  ```
+  Visit every simplex of cell `c`'s centroid decomposition (see
+
+- ```rust
+  pub fn with_unit(self: &Self, unit: LengthUnit) -> Self { /* ... */ }
+  ```
+  A copy with every coordinate rescaled into `unit`.
+
+- ```rust
+  pub fn with_patch_where<F: Fn([f64; 3], [f64; 3]) -> bool, /* synthetic */ impl Into<String>: Into<String>>(self: Self, name: impl Into<String>, kind: PatchKind, select: F) -> Self { /* ... */ }
+  ```
+  Move every boundary face whose centre and outward unit normal satisfy
+
+- ```rust
+  pub fn with_zones(self: Self, zones: Vec<Zone>) -> Result<Self, UnstructuredMeshError> { /* ... */ }
+  ```
+  Replace the cell zones.
+
+- ```rust
+  pub fn face_is_oriented(self: &Self, f: usize) -> bool { /* ... */ }
+  ```
+  Outward normal component check used by the converters: `true` if the
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **ByRef**
+  - ```rust
+    fn by_ref(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> UnstructuredMesh { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **DistributionExt**
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Imply**
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &UnstructuredMesh) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+## Module `one_d`
+
+The **1-D mesher**: a column of `n` equal hexahedra along `x`, the neutral
+counterpart of `outram-foam-basic-lib`'s `create_one_d_mesh`.
+
+# Why this is not a call to `create_one_d_mesh`
+
+Checked and rejected (2026-10-03): `create_one_d_mesh` returns an `FvMesh`,
+which stores cell/face geometry but **no points**, so no neutral mesh can be
+rebuilt from it; and this crate's core cannot depend on
+`outram-foam-basic-lib` (outram-mc-libs takes the core without features).
+So the column is built here with points, and the
+`one_d_column_matches_create_one_d_mesh` test (feature `foam-export`) pins
+it to the original: same cell volumes and centres, same internal-face area
+vectors, same `right`/`left` patches in the same order. The only addition
+is the lateral surface, which an `FvMesh` column simply omits and this mesh
+carries as an `empty` patch named `sides` (the OpenFOAM way to say "no
+flux in this direction").
+
+```rust
+pub mod one_d { /* ... */ }
+```
+
+### Functions
+
+#### Function `one_d_column`
+
+A column of `n_cells` equal [`ElementKind::Hex8`] cells over
+`x in [0, length]`, square cross-section of area `area`, centred on the
+`x` axis (so cell centres sit at `y = z = 0`, as in `create_one_d_mesh`).
+
+Patches, in order: `right` (`x = length`, [`PatchKind::Patch`]), `left`
+(`x = 0`, [`PatchKind::Patch`]), `sides` (the lateral faces,
+[`PatchKind::Empty`]).
+
+# Arguments
+- `unit` — unit of `length` (and of `area`, squared).
+- `length` — column length, `> 0`.
+- `area` — cross-sectional area, `> 0`.
+- `n_cells` — number of cells, `>= 1`.
+
+# Errors
+[`UnstructuredMeshError::Empty`] for `n_cells == 0` or a non-positive
+length or area.
+
+```rust
+pub fn one_d_column(unit: super::element::LengthUnit, length: f64, area: f64, n_cells: usize) -> Result<super::mesh::UnstructuredMesh, super::mesh::UnstructuredMeshError> { /* ... */ }
+```
+
+## Module `plot`
+
+**Drawing a neutral mesh** — the geometry-drawing HARD RULE (crate
+`CLAUDE.md`) for FV and FE meshes: "for meshes, plot the mesh itself
+(cells, patches, zones)".
+
+A slice plane cuts the mesh; every cell's cut is filled with its zone
+colour (or its own colour), and every **face** the plane crosses is drawn
+as a black line, so the picture shows the cells a solver integrates over,
+not a resampling of them. A cell's cut is the plane section of its
+**bounding triangles** ([`UnstructuredMesh::for_each_bounding_triangle`]),
+filled by even-odd scanline, so what is filled is exactly the region point
+location assigns to that cell, convex or not. A 2-D mesh is drawn as it is
+(basis [`PlotBasis::Xy`]).
+
+Coordinates are in **cm** whatever the mesh's unit (they are scaled), so
+the frame and ticks of [`annotate_slice`] read correctly.
+
+```rust
+pub mod plot { /* ... */ }
+```
+
+### Types
+
+#### Enum `MeshColourBy`
+
+What the fill colour of a cell means.
+
+```rust
+pub enum MeshColourBy {
+    Zone,
+    Cell,
+}
+```
+
+##### Variants
+
+###### `Zone`
+
+One colour per cell zone (cells in no zone are light grey). The legend
+lists the zones.
+
+###### `Cell`
+
+One colour per cell, to see individual cells. No legend.
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Boilerplate**
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **ByRef**
+  - ```rust
+    fn by_ref(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> MeshColourBy { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **DistributionExt**
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Imply**
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &MeshColourBy) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Struct `MeshSlice`
+
+A slice of a neutral mesh to draw.
+
+```rust
+pub struct MeshSlice {
+    pub basis: crate::csg::plot::slice::PlotBasis,
+    pub origin: [f64; 3],
+    pub width: [f64; 2],
+    pub pixels: [usize; 2],
+    pub colour_by: MeshColourBy,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `basis` | `crate::csg::plot::slice::PlotBasis` | Orientation (horizontal, vertical axes). |
+| `origin` | `[f64; 3]` | Slice centre \[cm\]; its normal-axis component is the cut height. |
+| `width` | `[f64; 2]` | Full widths along the horizontal and vertical axes \[cm\]. |
+| `pixels` | `[usize; 2]` | Pixels across and down. |
+| `colour_by` | `MeshColourBy` | Fill colouring. |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn framing(mesh: &UnstructuredMesh, basis: PlotBasis, pixels: usize, colour_by: MeshColourBy) -> Self { /* ... */ }
+  ```
+  A slice through the middle of the mesh's bounding box, framing it with
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **ByRef**
+  - ```rust
+    fn by_ref(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> MeshSlice { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **DistributionExt**
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Imply**
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &MeshSlice) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+### Functions
+
+#### Function `render_mesh_slice`
+
+Rasterise `slice` of `mesh` (no frame): cell cuts filled, crossed faces
+drawn in black, background white. Returns the image and the zone legend.
+
+```rust
+pub fn render_mesh_slice(mesh: &super::mesh::UnstructuredMesh, slice: &MeshSlice) -> (crate::csg::plot::image::ImageData, Vec<crate::csg::plot::annotate::LegendEntry>) { /* ... */ }
+```
+
+#### Function `render_mesh_slice_annotated`
+
+[`render_mesh_slice`] framed with a title, a zone legend and cm ticks
+([`annotate_slice`]).
+
+```rust
+pub fn render_mesh_slice_annotated(mesh: &super::mesh::UnstructuredMesh, slice: &MeshSlice, title: &str) -> crate::csg::plot::image::ImageData { /* ... */ }
+```
+
+### Re-exports
+
+#### Re-export `DEFAULT_PATCH`
+
+```rust
+pub use build::DEFAULT_PATCH;
+```
+
+#### Re-export `ConvertError`
+
+```rust
+pub use convert::ConvertError;
+```
+
+#### Re-export `BoundarySpec`
+
+```rust
+pub use element::BoundarySpec;
+```
+
+#### Re-export `Element`
+
+```rust
+pub use element::Element;
+```
+
+#### Re-export `ElementKind`
+
+```rust
+pub use element::ElementKind;
+```
+
+#### Re-export `LengthUnit`
+
+```rust
+pub use element::LengthUnit;
+```
+
+#### Re-export `Patch`
+
+```rust
+pub use element::Patch;
+```
+
+#### Re-export `PatchKind`
+
+```rust
+pub use element::PatchKind;
+```
+
+#### Re-export `PolyFace`
+
+```rust
+pub use element::PolyFace;
+```
+
+#### Re-export `Zone`
+
+```rust
+pub use element::Zone;
+```
+
+#### Re-export `CellLocator`
+
+```rust
+pub use locator::CellLocator;
+```
+
+#### Re-export `UnstructuredMesh`
+
+```rust
+pub use mesh::UnstructuredMesh;
+```
+
+#### Re-export `UnstructuredMeshError`
+
+```rust
+pub use mesh::UnstructuredMeshError;
+```
+
+#### Re-export `render_mesh_slice`
+
+```rust
+pub use plot::render_mesh_slice;
+```
+
+#### Re-export `render_mesh_slice_annotated`
+
+```rust
+pub use plot::render_mesh_slice_annotated;
+```
+
+#### Re-export `MeshColourBy`
+
+```rust
+pub use plot::MeshColourBy;
+```
+
+#### Re-export `MeshSlice`
+
+```rust
+pub use plot::MeshSlice;
+```
+
+## Module `array_patterns`
+
+**Array patterns** (`op-hzs.54.48`, GH issue #37 §J).
+
+- [`radial_array`] / [`circular_array`] — copies rotated about an axis
+  (pin lattices, MSR loops, sphere rings).
+- [`object_offset_array`] — copies under a compounding [`Affine3`] offset
+  (the Array modifier's *Object Offset*), spiralling / scaling stacks.
+- [`array_along_curve`] — copies distributed along a [`crate::curve::Spline`],
+  each oriented to the curve frame.
+- [`ArrayCaps`] — optional start / end cap meshes on any of the above.
+
+Every function returns one merged [`Mesh`]; copies are **not** welded (they
+are separate shells), matching the Array modifier.
+
+## Units
+
+Positions/lengths are dimensionless model-space quantities; angles radians.
+
+```rust
+pub mod array_patterns { /* ... */ }
+```
+
+### Types
+
+#### Struct `ArrayCaps`
+
+Optional cap meshes placed at the ends of an array (Array modifier's
+*Start Cap* / *End Cap*). Each cap is placed with the same offset the next
+(or previous) copy would have had.
+
+```rust
+pub struct ArrayCaps {
+    pub start: Option<std::sync::Arc<crate::mesh::Mesh>>,
+    pub end: Option<std::sync::Arc<crate::mesh::Mesh>>,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `start` | `Option<std::sync::Arc<crate::mesh::Mesh>>` | Placed one offset step *before* the first copy. |
+| `end` | `Option<std::sync::Arc<crate::mesh::Mesh>>` | Placed one offset step *after* the last copy. |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **ByRef**
+  - ```rust
+    fn by_ref(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> ArrayCaps { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Default**
+  - ```rust
+    fn default() -> ArrayCaps { /* ... */ }
+    ```
+
+- **DistributionExt**
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Imply**
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+### Functions
+
+#### Function `radial_array`
+
+`count` copies of `mesh`, copy `i` rotated by `i * step_angle` about `axis`
+through `center`. `count` clamped `>= 1`.
+
+```rust
+pub fn radial_array(mesh: &crate::mesh::Mesh, count: usize, step_angle: f64, axis: crate::math::Vec3, center: crate::math::Vec3) -> crate::mesh::Mesh { /* ... */ }
+```
+
+#### Function `radial_array_capped`
+
+[`radial_array`] with [`ArrayCaps`].
+
+```rust
+pub fn radial_array_capped(mesh: &crate::mesh::Mesh, count: usize, step_angle: f64, axis: crate::math::Vec3, center: crate::math::Vec3, caps: &ArrayCaps) -> crate::mesh::Mesh { /* ... */ }
+```
+
+#### Function `circular_array`
+
+`count` copies of `mesh` spread evenly around a full turn about `axis`
+through `center` (step `= 2π / count`).
+
+```rust
+pub fn circular_array(mesh: &crate::mesh::Mesh, count: usize, axis: crate::math::Vec3, center: crate::math::Vec3) -> crate::mesh::Mesh { /* ... */ }
+```
+
+#### Function `object_offset_array`
+
+`count` copies of `mesh`, copy `i` placed under `offset` applied `i` times
+(the Array modifier's *Object Offset*). `count` clamped `>= 1`.
+
+```rust
+pub fn object_offset_array(mesh: &crate::mesh::Mesh, count: usize, offset: crate::transform::Affine3) -> crate::mesh::Mesh { /* ... */ }
+```
+
+#### Function `object_offset_array_capped`
+
+[`object_offset_array`] with [`ArrayCaps`].
+
+```rust
+pub fn object_offset_array_capped(mesh: &crate::mesh::Mesh, count: usize, offset: crate::transform::Affine3, caps: &ArrayCaps) -> crate::mesh::Mesh { /* ... */ }
+```
+
+#### Function `array_along_curve`
+
+`count` copies of `mesh` distributed at even parameter spacing along
+`spline`, each translated to the sample point and rotated so its local
+`align_axis` points along the curve tangent (and local +Y toward the curve
+normal). `count` clamped `>= 1`.
+
+```rust
+pub fn array_along_curve(mesh: &crate::mesh::Mesh, spline: &crate::curve::Spline, count: usize, align_axis: crate::selection::Axis) -> crate::mesh::Mesh { /* ... */ }
+```
+
+#### Function `array_along_curve_capped`
+
+[`array_along_curve`] with [`ArrayCaps`] (caps sit at the curve ends,
+oriented to the end frames).
+
+```rust
+pub fn array_along_curve_capped(mesh: &crate::mesh::Mesh, spline: &crate::curve::Spline, count: usize, align_axis: crate::selection::Axis, caps: &ArrayCaps) -> crate::mesh::Mesh { /* ... */ }
+```
+
+## Module `bool_tool`
+
+**Bool Tool** (`op-hzs.54.45`, GH issue #37 §I) — a non-destructive stack of
+brush cutters over a base mesh.
+
+- [`BrushOp`] — Difference / Union / Intersect / Slice.
+- [`BoolBrush`] — one cutter: an `Arc<Mesh>`, its op, and an `enabled`
+  toggle. Nothing is applied until [`BoolStack::bake`].
+- [`BoolStack`] — the ordered stack. [`BoolStack::bake`] folds every enabled
+  brush into the base; [`BoolStack::slice_pieces`] returns the inside piece
+  each `Slice` brush carves off as a separate mesh.
+- **Carve mode** ([`BoolStack::carve`]) — a fast, best-effort bake that
+  skips a brush the CSG cannot resolve instead of failing the whole stack.
+
+The base and brushes are unchanged by any call here — that is what makes
+the stack "non-destructive"; `bake` returns a fresh [`Mesh`].
+
+```rust
+pub mod bool_tool { /* ... */ }
+```
+
+### Types
+
+#### Enum `BrushOp`
+
+What a brush does to the base.
+
+```rust
+pub enum BrushOp {
+    Difference,
+    Union,
+    Intersect,
+    Slice,
+}
+```
+
+##### Variants
+
+###### `Difference`
+
+Subtract the brush volume (`base \ brush`).
+
+###### `Union`
+
+Add the brush volume (`base ∪ brush`).
+
+###### `Intersect`
+
+Keep only the shared volume (`base ∩ brush`).
+
+###### `Slice`
+
+Keep the base outside the brush, and carve the inside off as a
+separate piece (see [`BoolStack::slice_pieces`]).
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Boilerplate**
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **ByRef**
+  - ```rust
+    fn by_ref(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> BrushOp { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **DistributionExt**
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Imply**
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &BrushOp) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Struct `BoolBrush`
+
+One non-destructive cutter.
+
+```rust
+pub struct BoolBrush {
+    pub mesh: std::sync::Arc<crate::mesh::Mesh>,
+    pub op: BrushOp,
+    pub enabled: bool,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `mesh` | `std::sync::Arc<crate::mesh::Mesh>` | The cutter geometry (shared, never mutated). |
+| `op` | `BrushOp` | What it does. |
+| `enabled` | `bool` | Skipped by [`BoolStack::bake`] when `false`. |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn new(mesh: Arc<Mesh>, op: BrushOp) -> Self { /* ... */ }
+  ```
+  A new enabled brush.
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **ByRef**
+  - ```rust
+    fn by_ref(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> BoolBrush { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **DistributionExt**
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Imply**
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Struct `BoolStack`
+
+An ordered stack of brushes over a base mesh.
+
+```rust
+pub struct BoolStack {
+    pub brushes: Vec<BoolBrush>,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `brushes` | `Vec<BoolBrush>` | The brushes, applied in order by [`BoolStack::bake`]. |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn new() -> Self { /* ... */ }
+  ```
+  An empty stack.
+
+- ```rust
+  pub fn with(self: Self, brush: BoolBrush) -> Self { /* ... */ }
+  ```
+  Push a brush and return `self` (builder style).
+
+- ```rust
+  pub fn push(self: &mut Self, brush: BoolBrush) { /* ... */ }
+  ```
+  Add a brush in place.
+
+- ```rust
+  pub fn bake(self: &Self, base: &Mesh) -> Result<Mesh, BooleanError> { /* ... */ }
+  ```
+  Fold every **enabled** brush into `base`, in stack order, and return the
+
+- ```rust
+  pub fn carve(self: &Self, base: &Mesh) -> (Mesh, Vec<usize>) { /* ... */ }
+  ```
+  Like [`BoolStack::bake`], but a brush whose boolean fails is **skipped**
+
+- ```rust
+  pub fn slice_pieces(self: &Self, base: &Mesh) -> Vec<Result<Mesh, BooleanError>> { /* ... */ }
+  ```
+  The inside piece (`base ∩ brush`) that each enabled `Slice` brush carves
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **ByRef**
+  - ```rust
+    fn by_ref(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> BoolStack { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Default**
+  - ```rust
+    fn default() -> BoolStack { /* ... */ }
+    ```
+
+- **DistributionExt**
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Imply**
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+## Module `draw_tool`
+
+**Interactive primitive-draw tool** (`op-hzs.54.41`, GH issue #37 §H) — the
+CAD "draw a box / circle / cone" gesture, expressed as a headless staged
+operator instead of a mouse-driven modal.
+
+The gesture is: pick a [`WorkPlane`], drag out a footprint rectangle on it,
+then drag a depth along the plane normal. Each 3-D input point can be run
+through the [`crate::snap`] engine, and each scalar (a footprint side, the
+depth) can be typed as an expression evaluated by
+[`crate::transform_input::eval_expr`].
+
+- [`WorkPlane`] — an oriented base plane (`origin`, orthonormal `u`, `v`,
+  `normal`); [`WorkPlane::xy`] / [`WorkPlane::xz`] / [`WorkPlane::yz`] /
+  [`WorkPlane::from_origin_normal`].
+- [`DrawGesture`] — the staged state machine (`PickBase → DragFootprint →
+  DragDepth → Done`); [`DrawGesture::resolve`] builds the [`Mesh`].
+- [`box_from_drag`] / [`circle_from_drag`] / [`cone_from_drag`] — the
+  one-shot forms when you already have the points.
+- [`snap_input`] — project one world point onto a [`crate::snap::SnapTarget`].
+
+## Units
+
+Points and lengths are dimensionless model-space quantities (see
+[`crate::math`]).
+
+```rust
+pub mod draw_tool { /* ... */ }
+```
+
+### Types
+
+#### Struct `WorkPlane`
+
+An oriented drawing plane: a point on it plus an orthonormal basis, where
+`u` and `v` span the plane and `normal = u x v` is the extrude direction.
+
+```rust
+pub struct WorkPlane {
+    pub origin: crate::math::Vec3,
+    pub u: crate::math::Vec3,
+    pub v: crate::math::Vec3,
+    pub normal: crate::math::Vec3,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `origin` | `crate::math::Vec3` | A point on the plane (the gesture's local origin). |
+| `u` | `crate::math::Vec3` | In-plane "x" axis (unit). |
+| `v` | `crate::math::Vec3` | In-plane "y" axis (unit, perpendicular to `u`). |
+| `normal` | `crate::math::Vec3` | Plane normal / extrude axis (unit, `= u x v`). |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn xy() -> Self { /* ... */ }
+  ```
+  The world `x-y` plane through the origin, extruding along `+z`.
+
+- ```rust
+  pub fn xz() -> Self { /* ... */ }
+  ```
+  The world `x-z` plane, extruding along `+y`.
+
+- ```rust
+  pub fn yz() -> Self { /* ... */ }
+  ```
+  The world `y-z` plane, extruding along `+x`.
+
+- ```rust
+  pub fn from_origin_normal(origin: Vec3, normal: Vec3) -> Self { /* ... */ }
+  ```
+  A plane through `origin` with the given `normal` (need not be unit); the
+
+- ```rust
+  pub fn point(self: &Self, a: f64, b: f64, h: f64) -> Vec3 { /* ... */ }
+  ```
+  World-space point for plane coordinates `(a, b)` and height `h` along
+
+- ```rust
+  pub fn project(self: &Self, p: Vec3) -> (f64, f64) { /* ... */ }
+  ```
+  Project a world point onto plane coordinates `(u_coord, v_coord)`
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Boilerplate**
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **ByRef**
+  - ```rust
+    fn by_ref(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> WorkPlane { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **DistributionExt**
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Imply**
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &WorkPlane) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Enum `DrawKind`
+
+Which primitive a [`DrawGesture`] builds.
+
+```rust
+pub enum DrawKind {
+    Box,
+    Cylinder {
+        segments: usize,
+    },
+    Cone {
+        segments: usize,
+    },
+}
+```
+
+##### Variants
+
+###### `Box`
+
+A rectangular box.
+
+###### `Cylinder`
+
+A cylinder (footprint's shorter side is the diameter proxy — the
+gesture uses the drag distance as the radius directly).
+
+Fields:
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `segments` | `usize` | Sides around the axis. |
+
+###### `Cone`
+
+A cone with the apex at the depth end.
+
+Fields:
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `segments` | `usize` | Sides around the base. |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Boilerplate**
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **ByRef**
+  - ```rust
+    fn by_ref(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> DrawKind { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **DistributionExt**
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Imply**
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &DrawKind) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Enum `Stage`
+
+The stage a [`DrawGesture`] is at.
+
+```rust
+pub enum Stage {
+    PickBase,
+    DragFootprint,
+    DragDepth,
+    Done,
+}
+```
+
+##### Variants
+
+###### `PickBase`
+
+Waiting for the first base point.
+
+###### `DragFootprint`
+
+Have the first point; waiting for the opposite footprint corner / rim.
+
+###### `DragDepth`
+
+Have the footprint; waiting for the depth.
+
+###### `Done`
+
+Complete — [`DrawGesture::resolve`] will succeed.
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Boilerplate**
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **ByRef**
+  - ```rust
+    fn by_ref(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Stage { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **DistributionExt**
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Imply**
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Stage) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Struct `DrawGesture`
+
+The staged "draw a primitive" operator. Feed it points (optionally
+snapped by the caller via [`snap_input`]); call [`DrawGesture::resolve`]
+once [`DrawGesture::stage`] is [`Stage::Done`].
+
+```rust
+pub struct DrawGesture {
+    // Some fields omitted
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| *private fields* | ... | *Some fields have been omitted* |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn new(plane: WorkPlane, kind: DrawKind) -> Self { /* ... */ }
+  ```
+  Start a gesture on `plane` building `kind`.
+
+- ```rust
+  pub fn stage(self: &Self) -> Stage { /* ... */ }
+  ```
+  Current stage.
+
+- ```rust
+  pub fn push_point(self: &mut Self, world: Vec3) { /* ... */ }
+  ```
+  Supply the next point in the gesture (base corner, then footprint
+
+- ```rust
+  pub fn push_depth_point(self: &mut Self, world: Vec3) { /* ... */ }
+  ```
+  Supply the depth by a world point: the signed distance from the base
+
+- ```rust
+  pub fn set_depth(self: &mut Self, depth: f64) { /* ... */ }
+  ```
+  Supply the depth directly (or from [`eval_dimension`]).
+
+- ```rust
+  pub fn resolve(self: &Self) -> Option<Mesh> { /* ... */ }
+  ```
+  Build the mesh. `None` unless [`Self::stage`] is [`Stage::Done`].
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **ByRef**
+  - ```rust
+    fn by_ref(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> DrawGesture { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **DistributionExt**
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Imply**
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+### Functions
+
+#### Function `snap_input`
+
+Project one world point onto a snap target of `mesh`, returning the snapped
+position (or `p` unchanged if nothing is within `max_dist`).
+
+```rust
+pub fn snap_input(mesh: &crate::mesh::Mesh, p: crate::math::Vec3, target: crate::snap::SnapTarget, max_dist: f64) -> crate::math::Vec3 { /* ... */ }
+```
+
+#### Function `eval_dimension`
+
+Evaluate a scalar that may be a literal or an expression (`"2*0.5"`,
+`"pi/4"`); `None` on a parse error.
+
+```rust
+pub fn eval_dimension(s: &str) -> Option<f64> { /* ... */ }
+```
+
+#### Function `box_from_drag`
+
+A box from two opposite base corners (world points, assumed on/near the
+plane) and a `depth` along the plane normal. The footprint is the
+axis-aligned (in plane coords) rectangle spanned by the two corners.
+
+```rust
+pub fn box_from_drag(plane: &WorkPlane, corner_a: crate::math::Vec3, corner_b: crate::math::Vec3, depth: f64) -> crate::mesh::Mesh { /* ... */ }
+```
+
+#### Function `circle_from_drag`
+
+A cylinder from a base centre, a rim point (radius = their in-plane
+distance) and a `depth` along the normal. `segments` clamped `>= 3`.
+
+```rust
+pub fn circle_from_drag(plane: &WorkPlane, center: crate::math::Vec3, rim: crate::math::Vec3, depth: f64, segments: usize) -> crate::mesh::Mesh { /* ... */ }
+```
+
+#### Function `cone_from_drag`
+
+A cone (apex up) from a base centre, a rim point and a `depth`.
+`segments` clamped `>= 3`.
+
+```rust
+pub fn cone_from_drag(plane: &WorkPlane, center: crate::math::Vec3, rim: crate::math::Vec3, depth: f64, segments: usize) -> crate::mesh::Mesh { /* ... */ }
+```
+
+## Module `extra_objects`
+
+**Extra-objects generators** (`op-hzs.54.40`, GH issue #37 §H) — the
+parametric shapes Blender's *Add Mesh: Extra Objects* add-on provides.
+
+- [`rounded_cube`] — a box with filleted edges/corners (rounded-box SDF
+  projection of a subdivided cube).
+- [`capsule`] — a cylinder capped by two hemispheres.
+- [`spur_gear`] — an extruded trapezoidal-tooth spur gear.
+- [`pipe`] / [`elbow`] — a straight pipe segment and a swept bend, both
+  hollow (inner + outer wall), via [`crate::revolve`].
+- [`wedge`] — a right-triangular prism.
+- [`star`] — an extruded star polygon.
+- [`honeycomb`] — a hex-cell grid (flat).
+- [`z_function_surface`] — a grid patch with `z = f(x, y)`.
+
+## Units
+
+All radii / lengths are dimensionless model-space quantities; angles are
+radians; tooth/segment counts are clamped to sane minimums.
+
+```rust
+pub mod extra_objects { /* ... */ }
+```
+
+### Functions
+
+#### Function `rounded_cube`
+
+A box of full extent `size` on each axis with edges and corners rounded to
+`radius`, built by projecting a `segments`-subdivided cube onto the
+rounded-box surface.
+
+`radius` is clamped to `< size/2`; `segments` (per face edge, clamped
+`>= 2`) controls how finely the fillets are tessellated. Closed genus-0,
+`chi = 2` (after the shared-corner welding that [`Mesh::from_polygons`]
+does).
+
+```rust
+pub fn rounded_cube(size: f64, radius: f64, segments: usize) -> crate::mesh::Mesh { /* ... */ }
+```
+
+#### Function `capsule`
+
+A capsule about the `z` axis: a cylinder of `radius` and cylindrical length
+`length` (the straight part), capped top and bottom by hemispheres of the
+same `radius`.
+
+`segments` around the axis (clamped `>= 3`), `rings` per hemisphere
+(clamped `>= 1`). Total height is `length + 2*radius`. Closed genus-0,
+`chi = 2`.
+
+```rust
+pub fn capsule(radius: f64, length: f64, segments: usize, rings: usize) -> crate::mesh::Mesh { /* ... */ }
+```
+
+#### Function `spur_gear`
+
+An extruded spur gear about the `z` axis with `teeth` trapezoidal teeth.
+
+`root_radius` is the radius at the tooth root, `tooth_height` the added
+radial length of each tooth, `width` the extrusion depth along `z`
+(centred on `z = 0`). `tooth_frac` in `(0, 1)` is the fraction of each
+angular pitch the tooth tip occupies (`0.5` ≈ equal land/gap). `teeth` is
+clamped `>= 3`. Closed genus-0 prism, `chi = 2`.
+
+```rust
+pub fn spur_gear(teeth: usize, root_radius: f64, tooth_height: f64, width: f64, tooth_frac: f64) -> crate::mesh::Mesh { /* ... */ }
+```
+
+#### Function `pipe`
+
+A straight hollow pipe about the `z` axis: outer radius `outer`, wall
+thickness `wall`, length `length` (centred on `z = 0`), `segments` around
+(clamped `>= 3`). Both ends are open annular rims. Genus-1 (a tube),
+`chi = 0`.
+
+```rust
+pub fn pipe(outer: f64, wall: f64, length: f64, segments: usize) -> crate::mesh::Mesh { /* ... */ }
+```
+
+#### Function `elbow`
+
+A swept pipe bend ("elbow"): a hollow annular cross-section (outer radius
+`outer`, wall `wall`) swept along a circular arc of `bend_radius` through
+`angle` radians.
+
+The arc lies in the `x-y` plane starting along `+x`; `arc_segments` steps
+along the bend, `tube_segments` around the section (both clamped `>= 3` /
+`>= 2`). Open annular ends. Genus-1, `chi = 0`.
+
+```rust
+pub fn elbow(outer: f64, wall: f64, bend_radius: f64, angle: f64, arc_segments: usize, tube_segments: usize) -> crate::mesh::Mesh { /* ... */ }
+```
+
+#### Function `wedge`
+
+A right-triangular prism ("wedge"): the triangle has legs `size_x` (along
+`+x`) and `size_z` (along `+z`) with the right angle at the origin;
+extruded `size_y` along `+y`. Closed genus-0, `chi = 2`.
+
+```rust
+pub fn wedge(size_x: f64, size_y: f64, size_z: f64) -> crate::mesh::Mesh { /* ... */ }
+```
+
+#### Function `star`
+
+An extruded star polygon in the `z = 0` plane: `points` spikes alternating
+between `outer_radius` and `inner_radius`, extruded `depth` along `z`
+(centred). `points` clamped `>= 2`. `depth = 0` gives the flat filled
+outline. Closed genus-0 for `depth > 0`.
+
+```rust
+pub fn star(points: usize, outer_radius: f64, inner_radius: f64, depth: f64) -> crate::mesh::Mesh { /* ... */ }
+```
+
+#### Function `honeycomb`
+
+A flat honeycomb: `rows` x `cols` pointy-top hexagonal cells of
+circumradius `cell_radius` in the `z = 0` plane, each cell a single 6-gon
+face, packed on the standard offset hex lattice.
+
+Returns one face per cell (`rows * cols` faces); shared cell edges are
+deduplicated by [`Mesh::from_polygons`].
+
+```rust
+pub fn honeycomb(rows: usize, cols: usize, cell_radius: f64) -> crate::mesh::Mesh { /* ... */ }
+```
+
+#### Function `z_function_surface`
+
+A grid patch over `[-extent_x, extent_x] x [-extent_y, extent_y]` in the
+`x-y` plane with height `z = f(x, y)`, tessellated `nx` by `ny` quads
+(each clamped `>= 1`).
+
+`f` is any `Fn(f64, f64) -> f64` (a plain generic — no trait object), so
+callers pass a closure. A topological disc, `chi = 1`.
+
+```rust
+pub fn z_function_surface<F: Fn(f64, f64) -> f64>(nx: usize, ny: usize, extent_x: f64, extent_y: f64, f: F) -> crate::mesh::Mesh { /* ... */ }
+```
+
+## Module `extrude`
+
+**Extrude family** (`op-hzs.54.10`, GH issue #37 §B) — the extrude modes
+[`crate::ops::extrude_faces`] (region, fixed vector) and
+[`crate::ops::extrude_edges`] do not cover:
+
+- [`extrude_faces_individual`] — each face lifted along **its own** normal,
+  with its own side walls (independent bumps).
+- [`extrude_faces_along_normals`] — a region lifted with **each vertex**
+  moving along its averaged normal, so a curved patch thickens evenly.
+- [`extrude_vertices`] — selected vertices duplicated and joined to the
+  originals by new edges (a wire extrude).
+- [`extrude_manifold`] — region extrude that also removes the original
+  faces (the source region becomes a clean opening bridged by the walls);
+  for a standalone face group this equals the region extrude.
+
+"Extrude to Cursor" is `extrude_* ` followed by a translate by the caller,
+so it needs no dedicated entry point.
+
+```rust
+pub mod extrude { /* ... */ }
+```
+
+### Functions
+
+#### Function `extrude_faces_individual`
+
+Extrude each face in `faces` **individually** by `amount` along its own
+outward normal. Each face gets its own duplicated top and side walls; the
+original faces are removed.
+
+```rust
+pub fn extrude_faces_individual(mesh: &crate::mesh::Mesh, faces: &[crate::mesh::FaceId], amount: f64) -> crate::mesh::Mesh { /* ... */ }
+```
+
+#### Function `extrude_faces_along_normals`
+
+Extrude the region `faces` by `amount`, each **vertex** moving along its
+averaged (area-weighted) normal over the selected faces. The selected faces
+become the raised top; boundary edges gain side walls.
+
+```rust
+pub fn extrude_faces_along_normals(mesh: &crate::mesh::Mesh, faces: &[crate::mesh::FaceId], amount: f64) -> crate::mesh::Mesh { /* ... */ }
+```
+
+#### Function `extrude_vertices`
+
+Extrude selected `verts` by `offset` — duplicate each and add an edge (a
+degenerate two-sided face is avoided by emitting nothing but the edge via a
+wire; here we add a thin quad so the polygon-soup mesh keeps it). For a
+surface mesh the more useful call is [`crate::ops::extrude_edges`]; this
+covers the lone-vertex / wire case.
+
+```rust
+pub fn extrude_vertices(mesh: &crate::mesh::Mesh, verts: &[crate::mesh::VertexId], offset: crate::math::Vec3) -> crate::mesh::Mesh { /* ... */ }
+```
+
+#### Function `extrude_manifold`
+
+Region extrude that removes the original faces — the source region becomes a
+clean opening bridged by the walls (Blender's Extrude Manifold). For a
+standalone face group this is the same as [`crate::ops::extrude_faces`].
+
+```rust
+pub fn extrude_manifold(mesh: &crate::mesh::Mesh, faces: &[crate::mesh::FaceId], offset: crate::math::Vec3) -> crate::mesh::Mesh { /* ... */ }
+```
+
+#### Function `selection_boundary_edges`
+
+The set of boundary edges of a face selection — handy for a caller wiring
+"extrude then move the new boundary".
+
+```rust
+pub fn selection_boundary_edges(mesh: &crate::mesh::Mesh, faces: &[crate::mesh::FaceId]) -> Vec<crate::mesh::EdgeId> { /* ... */ }
+```
+
+## Module `fill`
+
+**Fill operators** (`op-hzs.54.15`, GH issue #37 §B).
+
+- [`make_face`] — add one face through the given ordered vertices (Blender's
+  `F` when it closes a loop). Two vertices with no face between them add a
+  wire edge.
+- [`grid_fill`] — fill a closed boundary loop of `2·(w + h)` vertices with a
+  `w × h` quad grid, splitting the loop into four sides at `span`
+  (Blender's `Face ▸ Grid Fill`).
+- [`beauty_fill`] — flip the shared diagonal of adjacent triangle pairs
+  toward the Delaunay (max-min-angle) criterion (Blender's `Face ▸ Beauty
+  Fill`).
+- Simple hole capping is [`crate::fill_holes`]; the F-fill of an *edge net*
+  into multiple faces is tracked as follow-up.
+
+```rust
+pub mod fill { /* ... */ }
+```
+
+### Functions
+
+#### Function `make_face`
+
+Add one face through `verts` in the given order. If `verts.len() == 2` a
+wire edge is recorded instead (a zero-area sliver in the soup model).
+Returns the rebuilt mesh; `verts.len() < 2` is a no-op.
+
+```rust
+pub fn make_face(mesh: &crate::mesh::Mesh, verts: &[crate::mesh::VertexId]) -> crate::mesh::Mesh { /* ... */ }
+```
+
+#### Function `grid_fill`
+
+Fill the closed boundary loop `boundary` (ordered vertex ring) with a quad
+grid. `span` is the number of edges on the first side; the loop must have
+`2 · span + 2 · other` vertices for some `other >= 1`. Returns the mesh
+unchanged if that does not hold.
+
+```rust
+pub fn grid_fill(mesh: &crate::mesh::Mesh, boundary: &[crate::mesh::VertexId], span: usize) -> crate::mesh::Mesh { /* ... */ }
+```
+
+#### Function `beauty_fill`
+
+Flip the shared diagonal of every adjacent triangle pair toward the
+max-min-angle (Delaunay) criterion — one pass. Non-triangle faces are left
+alone. Returns the rebuilt mesh.
+
+```rust
+pub fn beauty_fill(mesh: &crate::mesh::Mesh) -> crate::mesh::Mesh { /* ... */ }
+```
+
+## Module `fill_helpers`
+
+**Fill / mirror helpers** (`op-hzs.54.46`, GH issue #37 §I).
+
+- [`f2_fill`] — the F2 "smart F": from one boundary edge, close the corner
+  with a quad when the two neighbouring boundary edges allow it, else a
+  triangle.
+- [`auto_mirror`] — bisect the mesh by a plane, keep one half, mirror it
+  back and weld along the cut (Auto Mirror in one call).
+- [`bsurfaces`] — a lofted quad surface through a set of ordered strokes
+  (Bsurfaces from annotation strokes).
+
+## Units
+
+Positions are dimensionless model-space quantities (see [`crate::math`]).
+
+```rust
+pub mod fill_helpers { /* ... */ }
+```
+
+### Functions
+
+#### Function `f2_fill`
+
+Context-aware fill from a single boundary edge (F2's smart `F`).
+
+`edge` must be a boundary edge (used by exactly one face). The two boundary
+edges sharing its endpoints are followed to their far vertices `c` (past
+the `verts[0]` end) and `d` (past the `verts[1]` end):
+
+- `c == d` → a triangle `(a, b, c)` is added;
+- otherwise → a quad `(c, a, b, d)` is added.
+
+Returns the mesh unchanged if `edge` is not a boundary edge or the
+neighbours cannot be found.
+
+```rust
+pub fn f2_fill(mesh: &crate::mesh::Mesh, edge: crate::mesh::EdgeId) -> crate::mesh::Mesh { /* ... */ }
+```
+
+#### Function `auto_mirror`
+
+Bisect `mesh` by `plane` (keeping the half on the `−normal` side, matching
+[`crate::bisect::bisect`]), mirror that half across the plane, and weld the
+two halves along the cut with tolerance `weld_dist`.
+
+The result is symmetric about `plane`. If the mesh lies entirely on one
+side, the kept half is just mirrored and welded (a doubled shell).
+
+```rust
+pub fn auto_mirror(mesh: &crate::mesh::Mesh, plane: &crate::draw_tool::WorkPlane, weld_dist: f64) -> crate::mesh::Mesh { /* ... */ }
+```
+
+#### Function `bsurfaces`
+
+A lofted quad surface through `strokes` (each an ordered polyline). Every
+stroke is resampled to `cols` points; consecutive strokes are bridged into
+a `(strokes.len()-1) x (cols-1)` quad grid.
+
+`cols` is clamped `>= 2`; strokes with fewer than 2 points are skipped.
+Needs at least two usable strokes, else an empty mesh.
+
+```rust
+pub fn bsurfaces(strokes: &[Vec<crate::math::Vec3>], cols: usize) -> crate::mesh::Mesh { /* ... */ }
+```
+
 ## Module `fill_holes`
 
 Fill holes — cap the open boundary loops of a surface so it becomes
@@ -3913,6 +23580,484 @@ assert_eq!(inset.euler_characteristic(), 2);
 pub fn inset_faces(mesh: &crate::mesh::Mesh, amount: f64) -> crate::mesh::Mesh { /* ... */ }
 ```
 
+## Module `knife`
+
+**Knife** (`op-hzs.54.6`, GH issue #37 §B) — cut new edges across faces
+along a path of [boundary points](KnifePoint).
+
+Blender's interactive knife resolves a screen-space polyline into a chain of
+vertex / edge-crossing / face-interior points; this module takes that chain
+already resolved — as a list of [`Chord`]s, each a straight cut across one
+face between two points on its boundary — and rebuilds the mesh with every
+crossed edge split and every crossed face divided in two.
+
+Resolving a raw polyline (or another object's silhouette, for **Knife
+Project**) into [`Chord`]s is the caller's job for now; a
+`project_polyline` helper that walks the surface is tracked as follow-up
+under this bead.
+
+Each [`knife`] chord splits exactly one face. Multiple chords on the same
+face are applied in sequence, each acting on whichever sub-face contains it.
+
+```rust
+pub mod knife { /* ... */ }
+```
+
+### Types
+
+#### Enum `KnifePoint`
+
+A point on the boundary of a face — where a [`Chord`] starts or ends.
+
+```rust
+pub enum KnifePoint {
+    Vertex(crate::mesh::VertexId),
+    EdgeSplit {
+        edge: crate::mesh::EdgeId,
+        t: f64,
+    },
+}
+```
+
+##### Variants
+
+###### `Vertex`
+
+An existing vertex of the face.
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `crate::mesh::VertexId` |  |
+
+###### `EdgeSplit`
+
+A new vertex `t` of the way along `edge` (from its `verts[0]` to
+`verts[1]`), `0 < t < 1`.
+
+Fields:
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `edge` | `crate::mesh::EdgeId` |  |
+| `t` | `f64` |  |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Boilerplate**
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **ByRef**
+  - ```rust
+    fn by_ref(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> KnifePoint { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **DistributionExt**
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Imply**
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &KnifePoint) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Struct `Chord`
+
+One straight knife cut across a single face, between two points on its
+boundary. The two points must lie on *different* sides / vertices of the
+face (a chord, not a degenerate zero-length cut).
+
+```rust
+pub struct Chord {
+    pub face: crate::mesh::FaceId,
+    pub from: KnifePoint,
+    pub to: KnifePoint,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `face` | `crate::mesh::FaceId` | The face to cut, by its id in the **input** mesh. |
+| `from` | `KnifePoint` | Where the cut enters. |
+| `to` | `KnifePoint` | Where the cut leaves. |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **ByRef**
+  - ```rust
+    fn by_ref(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Chord { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **DistributionExt**
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Imply**
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Struct `KnifeResult`
+
+The result of [`knife`].
+
+```rust
+pub struct KnifeResult {
+    pub mesh: crate::mesh::Mesh,
+    pub cut_vertices: Vec<crate::mesh::VertexId>,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `mesh` | `crate::mesh::Mesh` | The rebuilt mesh. Ids may have moved; the new cut vertices are listed in<br>[`KnifeResult::cut_vertices`]. |
+| `cut_vertices` | `Vec<crate::mesh::VertexId>` | Every vertex the knife introduced or cut along, in chord order (each<br>chord contributes its `from` then `to` vertex). Duplicates are kept so a<br>caller can see the per-chord pairing. |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **ByRef**
+  - ```rust
+    fn by_ref(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> KnifeResult { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **DistributionExt**
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Imply**
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+### Functions
+
+#### Function `knife`
+
+Apply `chords` to `mesh`. Chords are grouped by face; within a face they are
+applied in the given order. A chord whose endpoints resolve to the same
+point, or whose face is not found, is skipped.
+
+```rust
+pub fn knife(mesh: &crate::mesh::Mesh, chords: &[Chord]) -> KnifeResult { /* ... */ }
+```
+
 ## Module `laplacian`
 
 Discrete **Laplacian operators** over a mesh, and implicit **Laplacian
@@ -4047,10 +24192,6 @@ bare operator is only positive semidefinite for a Delaunay-ish mesh.
     fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
     ```
 
-  - ```rust
-    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
-    ```
-
 - **Freeze**
 - **From**
   - ```rust
@@ -4090,6 +24231,7 @@ bare operator is only positive semidefinite for a Delaunay-ish mesh.
 
 - **Read**
 - **RefUnwindSafe**
+- **Same**
 - **Send**
 - **StructuralPartialEq**
 - **Sync**
@@ -4235,6 +24377,7 @@ with the [`LaplacianWeighting::Cotangent`] weighting on a very obtuse
 
 - **Read**
 - **RefUnwindSafe**
+- **Same**
 - **Send**
 - **Sync**
 - **ToString**
@@ -4389,6 +24532,409 @@ radius far better than plain Laplacian smoothing shrinks it.
 
 ```rust
 pub fn taubin_smooth(mesh: &crate::mesh::Mesh, weighting: LaplacianWeighting, lambda: f64, mu: f64, iterations: u32) -> crate::mesh::Mesh { /* ... */ }
+```
+
+## Module `limited_dissolve`
+
+Limited dissolve — merge faces across edges that are nearly flat, then
+drop the vertices left stranded mid-edge. A port of Blender's
+**Limited Dissolve** (`BM_mesh_decimate_dissolve`).
+
+# What this is for
+
+This is the cleanup pass to run before handing a surface to a mesher.
+A boolean, a subdivision or an imported STL typically leaves a surface
+carrying far more faces than its shape needs: a flat wall arrives as
+dozens of coplanar triangles, each contributing a face to the volume
+mesh and a surface to the CSG bridge for no geometric reason. Limited
+dissolve removes exactly those edges — the ones whose two faces are
+within `angle_limit` of coplanar — and **moves no vertices at all**, so
+the surface it produces is the same surface, just described with fewer
+faces.
+
+That "moves nothing" property is what separates it from
+[`crate::decimate`]: QEM collapse approximates the shape and trades
+accuracy for face count, while this is lossless on any region that is
+genuinely planar.
+
+`angle_limit` is a true angle in **radians**. Positions are in the
+caller's length unit and are never modified.
+
+# The cost function
+
+Upstream scores each manifold edge by `-cos(theta)`, where `theta` is
+the angle between the two adjacent face normals, and dissolves while the
+cheapest edge scores below `-cos(angle_limit)`. Two coplanar faces give
+`-1` (cheapest); perpendicular faces give `0`. Working in the cosine
+rather than the angle avoids an `acos` per edge per update, and the
+comparison direction is preserved because `-cos` is monotonic over
+`[0, PI]`.
+
+Joining a face pair changes the score of every edge on the merged face,
+so those are re-costed each time — which is what lets a long flat strip
+collapse into a single n-gon rather than stopping after one merge.
+
+# What is NOT ported, and why
+
+Upstream's operator takes a `BMO_Delimit` mask — stop dissolving at
+material boundaries, UV seams, sharp-marked edges, vertex-group borders.
+Every one of those needs per-loop custom-data layers this crate does not
+have, so none is ported and the mask is absent from the API rather than
+present and ignored. If material or seam boundaries are ever added to
+this crate's [`crate::attributes`], this is the operator that needs to
+learn about them.
+
+Upstream's `USE_DEGENERATE_CHECK` (a projected self-intersection test on
+the prospective merged face) is also not ported. Instead, a join is
+refused when it would repeat a vertex in the merged ring — a cheaper,
+stricter test that catches the cases that matter here. Stated rather
+than left for the reader to discover.
+
+# Other deviations
+
+1. **`f64`, not `f32`.**
+2. **A linear-scan priority queue**, not an indexed binary heap. Same pop
+   order; `O(E)` per pop. Consistent with
+   [`crate::polyfill_beautify`], and for the same reason.
+3. **Rebuild, not in-place.** Returns a new [`Mesh`].
+
+```rust
+pub mod limited_dissolve { /* ... */ }
+```
+
+### Functions
+
+#### Function `limited_dissolve`
+
+Dissolve edges whose two faces are within `angle_limit` radians of
+coplanar, then remove vertices left stranded in the middle of a
+straight run.
+
+Vertex positions are never changed; only faces are merged and redundant
+corners dropped. Boundary and non-manifold edges are left alone. With
+`angle_limit` of 0 nothing dissolves; [`DEFAULT_ANGLE_LIMIT`] is
+upstream's 5°. Infallible.
+
+# Examples
+
+```
+use outram_blender::{primitives, subdivide::{subdivide, SubdivideOptions}};
+use outram_blender::limited_dissolve::{limited_dissolve, DEFAULT_ANGLE_LIMIT};
+
+// Subdividing a cube's flat faces adds faces but no shape.
+let cube = primitives::cube(2.0);
+let opts = SubdivideOptions { cuts: 3, ..Default::default() };
+let dense = subdivide(&cube, opts);
+assert!(dense.face_count() > cube.face_count());
+
+// Limited dissolve takes the shape back to six faces.
+let clean = limited_dissolve(&dense, DEFAULT_ANGLE_LIMIT);
+assert_eq!(clean.face_count(), 6);
+```
+
+```rust
+pub fn limited_dissolve(mesh: &crate::mesh::Mesh, angle_limit: f64) -> crate::mesh::Mesh { /* ... */ }
+```
+
+### Constants and Statics
+
+#### Constant `DEFAULT_ANGLE_LIMIT`
+
+Blender's default angle limit for Limited Dissolve: 5°, in radians.
+
+```rust
+pub const DEFAULT_ANGLE_LIMIT: f64 = _;
+```
+
+## Module `loop_cut`
+
+**Loop Cut and Slide** (`op-hzs.54.5`, GH issue #37 §B) — insert `cuts`
+parallel edge loops around the [ring](crate::topology::edge_ring) of a seed
+edge.
+
+Blender's `Ctrl+R` tool. Each quad the ring crosses is cut into `cuts + 1`
+quads by new edges perpendicular to the ring direction; `factor` in
+`[-1, 1]` slides the whole set of loops between the two rails
+(`0` = evenly spaced, `±1` = the outermost loop pressed against a rail).
+
+Only **quad** faces are cut. The walk stops at a triangle / n-gon / pole /
+non-manifold edge or the mesh boundary; a terminal ring edge whose far face
+is not part of the loop still gets the new vertices spliced into that face's
+boundary (it gains sides) so the result stays watertight — the same
+T-junction-free behaviour as Blender when a loop cut ends at an n-gon.
+
+[`loop_cut`] returns the rebuilt [`Mesh`] plus, per cut, the ordered vertex
+chain of the new loop, so a caller can select it (mirroring the "and Slide"
+tool leaving the new loop selected).
+
+```rust
+pub mod loop_cut { /* ... */ }
+```
+
+### Types
+
+#### Struct `LoopCutResult`
+
+The result of [`loop_cut`]: the rebuilt mesh and the new loops it added.
+
+```rust
+pub struct LoopCutResult {
+    pub mesh: crate::mesh::Mesh,
+    pub new_loops: Vec<Vec<crate::mesh::VertexId>>,
+    pub closed: bool,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `mesh` | `crate::mesh::Mesh` | The mesh with the new loops inserted. Rebuilt from a polygon soup, so<br>every id from the source mesh may have moved — remap selections against<br>[`LoopCutResult::new_loops`]. |
+| `new_loops` | `Vec<Vec<crate::mesh::VertexId>>` | One entry per cut (in slide order), each the ordered [`VertexId`] chain<br>of that new edge loop in the returned [`LoopCutResult::mesh`]. |
+| `closed` | `bool` | `true` if the ring closed on itself (a band all the way around). |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **ByRef**
+  - ```rust
+    fn by_ref(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> LoopCutResult { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **DistributionExt**
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Imply**
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+### Functions
+
+#### Function `loop_cut`
+
+Insert `cuts` edge loops across the ring of `seed`. `cuts == 0` returns a
+clone with no new loops. `factor` is clamped to `[-1, 1]`.
+
+```rust
+pub fn loop_cut(mesh: &crate::mesh::Mesh, seed: crate::mesh::EdgeId, cuts: usize, factor: f64) -> LoopCutResult { /* ... */ }
+```
+
+## Module `loop_tools`
+
+**LoopTools** (`op-hzs.54.42`, GH issue #37 §I) — shape operators on an
+ordered vertex loop.
+
+Every operator takes the mesh and a `loop_verts` slice giving the loop in
+order (`cyclic` says whether it closes), and returns a new [`Mesh`] with
+those vertices repositioned (topology unchanged) — except [`bridge`] /
+[`loft`], which add faces between loops, and [`subdivide`], which splits the
+loop's edges.
+
+- [`circle`] — snap the loop to a best-fit circle (even angular spacing).
+- [`flatten`] — project the loop onto its best-fit plane.
+- [`relax`] — Laplacian smoothing along the loop.
+- [`curve`] — pull the loop toward a Catmull–Rom spline through a subset of
+  its own vertices.
+- [`space`] — redistribute the loop to equal arc-length spacing.
+- [`gstretch`] — redistribute the loop along an external stroke polyline.
+- [`bridge`] — connect two equal-length loops with a quad strip.
+- [`loft`] — [`bridge`] a sequence of loops.
+- [`subdivide`] — split each loop edge at its midpoint.
+
+## Units
+
+Positions are dimensionless model-space quantities (see [`crate::math`]).
+
+```rust
+pub mod loop_tools { /* ... */ }
+```
+
+### Functions
+
+#### Function `circle`
+
+Snap the loop to the best-fit circle in its best-fit plane: same centroid,
+radius = mean vertex distance, vertices placed at even angular spacing
+starting from the first vertex's current angle.
+
+```rust
+pub fn circle(mesh: &crate::mesh::Mesh, loop_verts: &[crate::mesh::VertexId], _cyclic: bool) -> crate::mesh::Mesh { /* ... */ }
+```
+
+#### Function `flatten`
+
+Project the loop's vertices onto their best-fit plane.
+
+```rust
+pub fn flatten(mesh: &crate::mesh::Mesh, loop_verts: &[crate::mesh::VertexId]) -> crate::mesh::Mesh { /* ... */ }
+```
+
+#### Function `relax`
+
+Laplacian smoothing along the loop: each vertex moves a `factor` fraction
+toward the midpoint of its two loop neighbours, `iterations` times.
+
+```rust
+pub fn relax(mesh: &crate::mesh::Mesh, loop_verts: &[crate::mesh::VertexId], cyclic: bool, iterations: usize, factor: f64) -> crate::mesh::Mesh { /* ... */ }
+```
+
+#### Function `curve`
+
+Pull the loop toward a smooth Catmull–Rom spline through every `keep`-th
+vertex (the "anchors"), by `factor`. `keep >= 2`.
+
+```rust
+pub fn curve(mesh: &crate::mesh::Mesh, loop_verts: &[crate::mesh::VertexId], cyclic: bool, keep: usize, factor: f64) -> crate::mesh::Mesh { /* ... */ }
+```
+
+#### Function `space`
+
+Redistribute the loop's vertices to equal arc-length spacing along the
+polyline through their current positions (endpoints of an open loop stay
+put).
+
+```rust
+pub fn space(mesh: &crate::mesh::Mesh, loop_verts: &[crate::mesh::VertexId], cyclic: bool) -> crate::mesh::Mesh { /* ... */ }
+```
+
+#### Function `gstretch`
+
+Redistribute the loop's vertices to equal arc-length spacing along an
+external `stroke` polyline (the "GStretch" grease-pencil behaviour).
+
+```rust
+pub fn gstretch(mesh: &crate::mesh::Mesh, loop_verts: &[crate::mesh::VertexId], stroke: &[crate::math::Vec3], cyclic: bool) -> crate::mesh::Mesh { /* ... */ }
+```
+
+#### Function `bridge`
+
+Bridge two equal-length ordered loops with a quad strip.
+
+```rust
+pub fn bridge(mesh: &crate::mesh::Mesh, loop_a: &[crate::mesh::VertexId], loop_b: &[crate::mesh::VertexId], cyclic: bool) -> crate::mesh::Mesh { /* ... */ }
+```
+
+#### Function `loft`
+
+Bridge a sequence of loops in order (`loft`). All loops must be the same
+length.
+
+```rust
+pub fn loft(mesh: &crate::mesh::Mesh, loops: &[&[crate::mesh::VertexId]], cyclic: bool) -> crate::mesh::Mesh { /* ... */ }
+```
+
+#### Function `subdivide`
+
+Split each edge of the loop at its midpoint, subdividing the faces those
+edges bound. A face that gains exactly two midpoints is cut in two along
+the chord between them; a face gaining one keeps it as an extra boundary
+vertex.
+
+```rust
+pub fn subdivide(mesh: &crate::mesh::Mesh, loop_verts: &[crate::mesh::VertexId], cyclic: bool) -> crate::mesh::Mesh { /* ... */ }
 ```
 
 ## Module `loop_subdivision`
@@ -4626,6 +25172,7 @@ pub struct Vec3 {
 
 - **Read**
 - **RefUnwindSafe**
+- **Same**
 - **Send**
 - **StructuralPartialEq**
 - **Sync**
@@ -4664,6 +25211,663 @@ pub struct Vec3 {
 - **WasmNotSend**
 - **WasmNotSendSync**
 - **WasmNotSync**
+## Module `measure`
+
+**Measurement & inspection** (`op-hzs.54.26`, GH issue #37 §D). Depends on
+[`crate::snap`] for the closest-point helpers.
+
+- Per-element readouts: [`edge_length`], [`face_area`], [`face_perimeter`],
+  [`dihedral_angle`], [`corner_angle`].
+- Whole-mesh: [`total_edge_length`], [`total_surface_area`],
+  [`signed_volume`], [`bounding_box`], [`dimensions`].
+- Tools: [`Ruler`] (distance), [`Protractor`] (angle).
+- Mesh analysis: [`overhang`], [`distortion`], [`sharp_edges`],
+  [`self_intersections`], [`thickness`].
+
+```rust
+pub mod measure { /* ... */ }
+```
+
+### Types
+
+#### Struct `Ruler`
+
+A two-point distance measurement (Blender's Ruler).
+
+```rust
+pub struct Ruler {
+    pub a: crate::math::Vec3,
+    pub b: crate::math::Vec3,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `a` | `crate::math::Vec3` |  |
+| `b` | `crate::math::Vec3` |  |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn distance(self: &Self) -> f64 { /* ... */ }
+  ```
+  The measured distance.
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **ByRef**
+  - ```rust
+    fn by_ref(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Ruler { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **DistributionExt**
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Imply**
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Struct `Protractor`
+
+A three-point angle measurement — the angle at `vertex` (Blender's
+Protractor).
+
+```rust
+pub struct Protractor {
+    pub a: crate::math::Vec3,
+    pub vertex: crate::math::Vec3,
+    pub b: crate::math::Vec3,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `a` | `crate::math::Vec3` |  |
+| `vertex` | `crate::math::Vec3` |  |
+| `b` | `crate::math::Vec3` |  |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn angle(self: &Self) -> f64 { /* ... */ }
+  ```
+  The measured angle at `vertex`, in radians.
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **ByRef**
+  - ```rust
+    fn by_ref(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Protractor { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **DistributionExt**
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Imply**
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+### Functions
+
+#### Function `edge_length`
+
+Length of an edge (`0.0` if out of range).
+
+```rust
+pub fn edge_length(mesh: &crate::mesh::Mesh, e: crate::mesh::EdgeId) -> f64 { /* ... */ }
+```
+
+#### Function `face_area`
+
+Area of a face by Newell's method (robust for non-planar / concave faces).
+
+```rust
+pub fn face_area(mesh: &crate::mesh::Mesh, f: crate::mesh::FaceId) -> f64 { /* ... */ }
+```
+
+#### Function `face_perimeter`
+
+Perimeter of a face (sum of its edge lengths).
+
+```rust
+pub fn face_perimeter(mesh: &crate::mesh::Mesh, f: crate::mesh::FaceId) -> f64 { /* ... */ }
+```
+
+#### Function `dihedral_angle`
+
+Angle between the two faces on an edge, in radians (`0` = flat, `π` =
+folded flat back). `None` if the edge does not have exactly two faces.
+
+```rust
+pub fn dihedral_angle(mesh: &crate::mesh::Mesh, e: crate::mesh::EdgeId) -> Option<f64> { /* ... */ }
+```
+
+#### Function `corner_angle`
+
+Interior angle of face `f` at corner `v`, in radians.
+
+```rust
+pub fn corner_angle(mesh: &crate::mesh::Mesh, f: crate::mesh::FaceId, v: crate::mesh::VertexId) -> Option<f64> { /* ... */ }
+```
+
+#### Function `total_edge_length`
+
+Sum of all edge lengths.
+
+```rust
+pub fn total_edge_length(mesh: &crate::mesh::Mesh) -> f64 { /* ... */ }
+```
+
+#### Function `total_surface_area`
+
+Sum of all face areas.
+
+```rust
+pub fn total_surface_area(mesh: &crate::mesh::Mesh) -> f64 { /* ... */ }
+```
+
+#### Function `signed_volume`
+
+Signed volume of the mesh via the divergence theorem (`Σ (a · (b × c)) / 6`
+over a fan triangulation of each face). Meaningful for a **closed**,
+consistently-wound surface; positive for outward-facing winding.
+
+```rust
+pub fn signed_volume(mesh: &crate::mesh::Mesh) -> f64 { /* ... */ }
+```
+
+#### Function `bounding_box`
+
+Axis-aligned bounding box `(min, max)`.
+
+```rust
+pub fn bounding_box(mesh: &crate::mesh::Mesh) -> (crate::math::Vec3, crate::math::Vec3) { /* ... */ }
+```
+
+#### Function `dimensions`
+
+The model's dimensions (bounding-box extent) — Blender's N-panel *Dimensions*.
+
+```rust
+pub fn dimensions(mesh: &crate::mesh::Mesh) -> crate::math::Vec3 { /* ... */ }
+```
+
+#### Function `overhang`
+
+Overhang: the angle of face `f`'s normal from `up`, in radians. `0` = the
+face points straight up; `π` = straight down. Used to flag unsupported
+overhangs for additive manufacturing.
+
+```rust
+pub fn overhang(mesh: &crate::mesh::Mesh, f: crate::mesh::FaceId, up: crate::math::Vec3) -> f64 { /* ... */ }
+```
+
+#### Function `distortion`
+
+Distortion: how far face `f` deviates from planar, as the maximum angle
+(radians) between its per-triangle normals over a fan triangulation. `0` for
+a triangle or a perfectly planar polygon.
+
+```rust
+pub fn distortion(mesh: &crate::mesh::Mesh, f: crate::mesh::FaceId) -> f64 { /* ... */ }
+```
+
+#### Function `sharp_edges`
+
+Every edge whose dihedral angle exceeds `angle` radians — Blender's Mesh
+Analysis "sharp" and the seed set for Mark Sharp.
+
+```rust
+pub fn sharp_edges(mesh: &crate::mesh::Mesh, angle: f64) -> Vec<crate::mesh::EdgeId> { /* ... */ }
+```
+
+#### Function `self_intersections`
+
+Pairs of faces whose triangulations intersect. `O(F²)` broad phase on
+bounding boxes then a triangle-triangle test — fine for interactive meshes,
+not a spatial-hash implementation.
+
+```rust
+pub fn self_intersections(mesh: &crate::mesh::Mesh) -> Vec<(crate::mesh::FaceId, crate::mesh::FaceId)> { /* ... */ }
+```
+
+#### Function `thickness`
+
+Local wall thickness at face `f`: cast a ray from its centroid along `-normal`
+and return the distance to the first other face it hits, or `None`.
+
+```rust
+pub fn thickness(mesh: &crate::mesh::Mesh, f: crate::mesh::FaceId) -> Option<f64> { /* ... */ }
+```
+
+## Module `merge`
+
+**Merge** (`op-hzs.54.11`, GH issue #37 §B) — collapse vertices together.
+
+- [`merge_vertices`] collapses a vertex set to one point chosen by
+  [`MergeTarget`] (centre / a supplied point / the first / the last of the
+  set). This is Blender's `M` menu.
+- [`merge_edges`] collapses each edge in a set to its midpoint (Blender's
+  *Collapse*), independently.
+- [`merge_by_distance`] merges only vertices *within* a given set that are
+  closer than a threshold — the subset form of
+  [`crate::weld::weld`] / Blender's *Merge by Distance* and the operation
+  an **Auto-Merge** editor toggle runs after each edit.
+
+```rust
+pub mod merge { /* ... */ }
+```
+
+### Types
+
+#### Enum `MergeTarget`
+
+Where [`merge_vertices`] places the merged vertex.
+
+```rust
+pub enum MergeTarget {
+    Center,
+    Point(crate::math::Vec3),
+    First,
+    Last,
+}
+```
+
+##### Variants
+
+###### `Center`
+
+The arithmetic mean of the merged vertices' positions.
+
+###### `Point`
+
+A caller-supplied point (Blender's *At Cursor*).
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `crate::math::Vec3` |  |
+
+###### `First`
+
+The position of the first vertex in the set (ascending id).
+
+###### `Last`
+
+The position of the last vertex in the set (ascending id).
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Boilerplate**
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **ByRef**
+  - ```rust
+    fn by_ref(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> MergeTarget { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **DistributionExt**
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Imply**
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &MergeTarget) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+### Functions
+
+#### Function `merge_vertices`
+
+Collapse `verts` into a single vertex placed per `target`. Faces that become
+degenerate (fewer than three distinct corners) are dropped. Returns the
+rebuilt mesh.
+
+```rust
+pub fn merge_vertices(mesh: &crate::mesh::Mesh, verts: &[crate::mesh::VertexId], target: MergeTarget) -> crate::mesh::Mesh { /* ... */ }
+```
+
+#### Function `merge_edges`
+
+Collapse each edge in `edges` to its midpoint, independently (Blender's
+*Merge ▸ Collapse*). Chained edges collapse toward a shared vertex.
+
+```rust
+pub fn merge_edges(mesh: &crate::mesh::Mesh, edges: &[crate::mesh::EdgeId]) -> crate::mesh::Mesh { /* ... */ }
+```
+
+#### Function `merge_by_distance`
+
+Merge vertices *within* `verts` that lie within `threshold` of each other,
+keeping the lowest id of each cluster. The subset form of
+[`crate::weld::weld`].
+
+```rust
+pub fn merge_by_distance(mesh: &crate::mesh::Mesh, verts: &[crate::mesh::VertexId], threshold: f64) -> crate::mesh::Mesh { /* ... */ }
+```
+
 ## Module `mesh`
 
 BMesh-inspired **index-based half-edge** mesh topology.
@@ -4795,10 +25999,6 @@ pub struct VertexId(pub usize);
     fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
     ```
 
-  - ```rust
-    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
-    ```
-
 - **Freeze**
 - **From**
   - ```rust
@@ -4854,6 +26054,7 @@ pub struct VertexId(pub usize);
 - **Read**
 - **RefUnwindSafe**
 - **RuleType**
+- **Same**
 - **Send**
 - **StructuralPartialEq**
 - **Sync**
@@ -4969,10 +26170,6 @@ pub struct EdgeId(pub usize);
     fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
     ```
 
-  - ```rust
-    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
-    ```
-
 - **Freeze**
 - **From**
   - ```rust
@@ -5028,6 +26225,7 @@ pub struct EdgeId(pub usize);
 - **Read**
 - **RefUnwindSafe**
 - **RuleType**
+- **Same**
 - **Send**
 - **StructuralPartialEq**
 - **Sync**
@@ -5143,10 +26341,6 @@ pub struct LoopId(pub usize);
     fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
     ```
 
-  - ```rust
-    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
-    ```
-
 - **Freeze**
 - **From**
   - ```rust
@@ -5202,6 +26396,7 @@ pub struct LoopId(pub usize);
 - **Read**
 - **RefUnwindSafe**
 - **RuleType**
+- **Same**
 - **Send**
 - **StructuralPartialEq**
 - **Sync**
@@ -5317,10 +26512,6 @@ pub struct FaceId(pub usize);
     fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
     ```
 
-  - ```rust
-    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
-    ```
-
 - **Freeze**
 - **From**
   - ```rust
@@ -5376,6 +26567,7 @@ pub struct FaceId(pub usize);
 - **Read**
 - **RefUnwindSafe**
 - **RuleType**
+- **Same**
 - **Send**
 - **StructuralPartialEq**
 - **Sync**
@@ -5513,6 +26705,7 @@ pub struct Vertex {
 
 - **Read**
 - **RefUnwindSafe**
+- **Same**
 - **Send**
 - **Sync**
 - **ToOwned**
@@ -5647,6 +26840,7 @@ pub struct Edge {
 
 - **Read**
 - **RefUnwindSafe**
+- **Same**
 - **Send**
 - **Sync**
 - **ToOwned**
@@ -5793,6 +26987,7 @@ pub struct Loop {
 
 - **Read**
 - **RefUnwindSafe**
+- **Same**
 - **Send**
 - **Sync**
 - **ToOwned**
@@ -5929,6 +27124,7 @@ pub struct Face {
 
 - **Read**
 - **RefUnwindSafe**
+- **Same**
 - **Send**
 - **Sync**
 - **ToOwned**
@@ -6163,6 +27359,7 @@ pub struct Mesh {
 
 - **Read**
 - **RefUnwindSafe**
+- **Same**
 - **Send**
 - **Sync**
 - **ToOwned**
@@ -6330,10 +27527,6 @@ The unit square `[0, 1]^2`, one quarter of the boundary length per side.
     fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
     ```
 
-  - ```rust
-    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
-    ```
-
 - **Freeze**
 - **From**
   - ```rust
@@ -6373,6 +27566,7 @@ The unit square `[0, 1]^2`, one quarter of the boundary length per side.
 
 - **Read**
 - **RefUnwindSafe**
+- **Same**
 - **Send**
 - **StructuralPartialEq**
 - **Sync**
@@ -6534,6 +27728,7 @@ obtuse mesh, or a disconnected interior). Try the uniform weighting.
 
 - **Read**
 - **RefUnwindSafe**
+- **Same**
 - **Send**
 - **Sync**
 - **ToString**
@@ -6599,6 +27794,343 @@ a 2D *mesh* (rather than a UV list) is wanted.
 pub fn flatten_to_plane(mesh: &crate::mesh::Mesh, weighting: crate::laplacian::LaplacianWeighting, boundary: BoundaryShape) -> Result<crate::mesh::Mesh, ParamError> { /* ... */ }
 ```
 
+## Module `pdt`
+
+**Precision Drawing Tools** (`op-hzs.54.44`, GH issue #37 §I) — the analytic
+CAD constructions from Blender's PDT add-on, as pure functions on points
+plus a few [`Mesh`] wrappers.
+
+Placement (compute one point):
+- [`Placement::Absolute`] / [`Placement::Delta`] / [`Placement::Polar`] /
+  [`Placement::Percent`] → [`Placement::resolve`].
+
+Constructions:
+- [`three_point_circle`] — circumcircle (centre, radius, normal).
+- [`three_point_arc`] — polyline along the arc `p0 → p1 → p2`.
+- [`line_line_intersection`] — closest-approach point of two 3-D lines.
+- [`fillet`] — tangent arc rounding a polyline corner.
+- [`offset_polyline`] — parallel offset in a plane.
+- [`taper`] — linear cross-section scaling along an axis.
+- [`angle_between`] — the angle `∠(a, vertex, b)`.
+- [`mirror_point`] / [`mirror_vertices`] — reflection across a
+  [`crate::draw_tool::WorkPlane`].
+
+## Units
+
+Positions/lengths are dimensionless model-space quantities; angles radians;
+`Percent` is a literal percentage (`50.0` = halfway).
+
+```rust
+pub mod pdt { /* ... */ }
+```
+
+### Types
+
+#### Enum `Placement`
+
+How to compute a single target point.
+
+```rust
+pub enum Placement {
+    Absolute {
+        coord: crate::math::Vec3,
+    },
+    Delta {
+        from: crate::math::Vec3,
+        delta: crate::math::Vec3,
+    },
+    Polar {
+        from: crate::math::Vec3,
+        plane: crate::draw_tool::WorkPlane,
+        distance: f64,
+        angle: f64,
+    },
+    Percent {
+        a: crate::math::Vec3,
+        b: crate::math::Vec3,
+        percent: f64,
+    },
+}
+```
+
+##### Variants
+
+###### `Absolute`
+
+The point is exactly `coord`.
+
+Fields:
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `coord` | `crate::math::Vec3` |  |
+
+###### `Delta`
+
+`from + delta`.
+
+Fields:
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `from` | `crate::math::Vec3` |  |
+| `delta` | `crate::math::Vec3` |  |
+
+###### `Polar`
+
+`from`, stepped `distance` along `angle` (radians) measured in `plane`
+from `plane.u`, CCW about `plane.normal`.
+
+Fields:
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `from` | `crate::math::Vec3` |  |
+| `plane` | `crate::draw_tool::WorkPlane` |  |
+| `distance` | `f64` |  |
+| `angle` | `f64` |  |
+
+###### `Percent`
+
+`a + (b - a) * percent/100`.
+
+Fields:
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `a` | `crate::math::Vec3` |  |
+| `b` | `crate::math::Vec3` |  |
+| `percent` | `f64` |  |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn resolve(self: &Self) -> Vec3 { /* ... */ }
+  ```
+  Resolve to the world point.
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Boilerplate**
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **ByRef**
+  - ```rust
+    fn by_ref(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Placement { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **DistributionExt**
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Imply**
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Placement) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+### Functions
+
+#### Function `place_vertex`
+
+Add a vertex at `placement`'s point to `mesh`, returning the new mesh and
+the id.
+
+```rust
+pub fn place_vertex(mesh: &crate::mesh::Mesh, placement: &Placement) -> (crate::mesh::Mesh, crate::mesh::VertexId) { /* ... */ }
+```
+
+#### Function `three_point_circle`
+
+The circumcircle of three points: `(centre, radius, unit normal)`, or
+`None` if the points are collinear.
+
+```rust
+pub fn three_point_circle(p0: crate::math::Vec3, p1: crate::math::Vec3, p2: crate::math::Vec3) -> Option<(crate::math::Vec3, f64, crate::math::Vec3)> { /* ... */ }
+```
+
+#### Function `three_point_arc`
+
+A polyline of `segments + 1` points along the circular arc that starts at
+`p0`, passes through `p1`, and ends at `p2`. Falls back to the straight
+chords `p0, p1, p2` if the points are collinear. `segments` clamped `>= 2`.
+
+```rust
+pub fn three_point_arc(p0: crate::math::Vec3, p1: crate::math::Vec3, p2: crate::math::Vec3, segments: usize) -> Vec<crate::math::Vec3> { /* ... */ }
+```
+
+#### Function `line_line_intersection`
+
+The point of closest approach of line `A` (through `a0`, `a1`) and line
+`B` (through `b0`, `b1`): the midpoint of the shortest connecting segment.
+`None` if the lines are parallel.
+
+```rust
+pub fn line_line_intersection(a0: crate::math::Vec3, a1: crate::math::Vec3, b0: crate::math::Vec3, b1: crate::math::Vec3) -> Option<crate::math::Vec3> { /* ... */ }
+```
+
+#### Function `fillet`
+
+A tangent fillet arc rounding the corner at `corner` between legs to
+`prev` and `next`, with the given `radius`. Returns `segments + 1` points
+from the tangent point on the `prev` leg to the one on the `next` leg
+(empty if the legs are degenerate or the radius does not fit).
+
+```rust
+pub fn fillet(prev: crate::math::Vec3, corner: crate::math::Vec3, next: crate::math::Vec3, radius: f64, segments: usize) -> Vec<crate::math::Vec3> { /* ... */ }
+```
+
+#### Function `offset_polyline`
+
+Parallel-offset a polyline by `distance` along the in-plane normal
+(`plane_normal x segment_direction`), averaging the two adjacent segment
+normals at each interior vertex. `cyclic` wraps the ends.
+
+```rust
+pub fn offset_polyline(pts: &[crate::math::Vec3], plane_normal: crate::math::Vec3, distance: f64, cyclic: bool) -> Vec<crate::math::Vec3> { /* ... */ }
+```
+
+#### Function `taper`
+
+Taper `points` along `axis` (unit): each point's component perpendicular to
+`axis`, measured from `pivot`, is scaled by `1 + rate * along`, where
+`along` is its signed distance from `pivot` along `axis`.
+
+```rust
+pub fn taper(points: &[crate::math::Vec3], axis: crate::math::Vec3, rate: f64, pivot: crate::math::Vec3) -> Vec<crate::math::Vec3> { /* ... */ }
+```
+
+#### Function `angle_between`
+
+The angle `∠(a, vertex, b)` in radians, in `[0, π]`.
+
+```rust
+pub fn angle_between(a: crate::math::Vec3, vertex: crate::math::Vec3, b: crate::math::Vec3) -> f64 { /* ... */ }
+```
+
+#### Function `mirror_point`
+
+Reflect a point across a [`WorkPlane`].
+
+```rust
+pub fn mirror_point(p: crate::math::Vec3, plane: &crate::draw_tool::WorkPlane) -> crate::math::Vec3 { /* ... */ }
+```
+
+#### Function `mirror_vertices`
+
+Reflect the given `verts` of `mesh` across `plane`, returning a new mesh
+(topology unchanged; other vertices untouched).
+
+```rust
+pub fn mirror_vertices(mesh: &crate::mesh::Mesh, verts: &[crate::mesh::VertexId], plane: &crate::draw_tool::WorkPlane) -> crate::mesh::Mesh { /* ... */ }
+```
+
 ## Module `modifiers`
 
 Non-destructive **modifier stack** (Blender's `modifiers/intern/MOD_*`).
@@ -6650,6 +28182,7 @@ Errors returned while evaluating a [`Modifier`] or a [`ModifierStack`].
 ```rust
 pub enum ModifierError {
     NotImplemented(&'static str),
+    Failed(String),
 }
 ```
 
@@ -6660,15 +28193,24 @@ pub enum ModifierError {
 A modifier is scaffolded but its algorithm is not implemented yet.
 
 Retained for forward compatibility (new modifier variants may land as
-stubs); the three current variants — [`Modifier::Subsurf`],
-[`Modifier::Mirror`], [`Modifier::Array`] — are all implemented and do
-not return this.
+stubs).
 
 Fields:
 
 | Index | Type | Documentation |
 |-------|------|---------------|
 | 0 | `&'static str` |  |
+
+###### `Failed`
+
+A modifier's underlying operator failed (e.g. a boolean on
+non-manifold input).
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `String` |  |
 
 ##### Implementations
 
@@ -6746,6 +28288,7 @@ Fields:
 
 - **Read**
 - **RefUnwindSafe**
+- **Same**
 - **Send**
 - **Sync**
 - **ToString**
@@ -6865,10 +28408,6 @@ pub struct MirrorAxes {
     fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
     ```
 
-  - ```rust
-    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
-    ```
-
 - **Freeze**
 - **From**
   - ```rust
@@ -6908,6 +28447,7 @@ pub struct MirrorAxes {
 
 - **Read**
 - **RefUnwindSafe**
+- **Same**
 - **Send**
 - **StructuralPartialEq**
 - **Sync**
@@ -6962,6 +28502,73 @@ pub enum Modifier {
         count: u32,
         offset: [f64; 3],
     },
+    Bevel {
+        options: crate::bevel::BevelOptions,
+    },
+    Boolean {
+        operand: std::sync::Arc<crate::mesh::Mesh>,
+        op: crate::ops::BooleanMode,
+    },
+    Solidify {
+        thickness: f64,
+    },
+    Weld {
+        distance: f64,
+    },
+    Wireframe {
+        thickness: f64,
+    },
+    EdgeSplit {
+        angle: f64,
+    },
+    Triangulate,
+    Mask {
+        keep: std::sync::Arc<Vec<crate::mesh::VertexId>>,
+        invert: bool,
+    },
+    Remesh {
+        voxel_size: f64,
+        smooth_iterations: u32,
+    },
+    Screw {
+        axis: crate::selection::Axis,
+        turns: f64,
+        steps: usize,
+        screw_offset: f64,
+    },
+    Skin {
+        radius: f64,
+    },
+    Build {
+        factor: f64,
+    },
+    Multires {
+        levels: u32,
+    },
+    Decimate {
+        ratio: f64,
+    },
+    SimpleDeform {
+        mode: crate::deform::SimpleDeform,
+        axis: crate::selection::Axis,
+    },
+    Cast {
+        target: crate::deform::CastTarget,
+        factor: f64,
+    },
+    Displace {
+        direction: crate::math::Vec3,
+        strength: f64,
+        noise_scale: f64,
+        seed: u64,
+    },
+    Wave {
+        axis: crate::selection::Axis,
+        amplitude: f64,
+        wavelength: f64,
+        speed: f64,
+        time: f64,
+    },
 }
 ```
 
@@ -6998,6 +28605,205 @@ Fields:
 |------|------|---------------|
 | `count` | `u32` | Number of copies including the original (`>= 1`; `0` is treated as<br>`1`). |
 | `offset` | `[f64; 3]` | Per-axis relative offset. Copy `k` is translated by<br>`k * offset[axis] * bbox_size[axis]`, where `bbox_size` is the<br>input mesh's bounding-box extent along that axis. |
+
+###### `Bevel`
+
+Bevel every edge — forwards to [`crate::bevel::bevel`] (GH issue #37 §F,
+`op-hzs.54.29`).
+
+Fields:
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `options` | `crate::bevel::BevelOptions` | [`crate::bevel::BevelOptions`] for the bevel. |
+
+###### `Boolean`
+
+CSG boolean against `operand` — forwards to [`crate::boolean::boolean`].
+
+Fields:
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `operand` | `std::sync::Arc<crate::mesh::Mesh>` | The cutter / combiner mesh (shared, never mutated). |
+| `op` | `crate::ops::BooleanMode` | Union / difference / intersect. |
+
+###### `Solidify`
+
+Thicken the surface into a shell — forwards to
+[`crate::solidify::solidify`].
+
+Fields:
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `thickness` | `f64` | Shell thickness (model units). |
+
+###### `Weld`
+
+Merge vertices within `distance` — forwards to [`crate::weld::weld`].
+
+Fields:
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `distance` | `f64` | Merge distance. |
+
+###### `Wireframe`
+
+Replace the surface with a wireframe of beams along its edges.
+
+Fields:
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `thickness` | `f64` | Beam thickness as a fraction of the local face size. |
+
+###### `EdgeSplit`
+
+Split the mesh along edges sharper than `angle` radians — forwards to
+[`crate::edge_tools::edge_split`].
+
+Fields:
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `angle` | `f64` | Dihedral angle above which an edge is split. |
+
+###### `Triangulate`
+
+Fan-triangulate every face — forwards to
+[`crate::triangulate::triangulate`].
+
+###### `Mask`
+
+Keep only faces all of whose vertices are in `keep`; `invert` keeps the
+complement instead.
+
+Fields:
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `keep` | `std::sync::Arc<Vec<crate::mesh::VertexId>>` | Vertices whose fully-covered faces survive. |
+| `invert` | `bool` | Keep the complement. |
+
+###### `Remesh`
+
+Voxel remesh — rasterise and re-surface at `voxel_size`, then
+`smooth_iterations` Laplacian passes (GH issue #37 §F, `op-hzs.54.30`).
+
+Fields:
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `voxel_size` | `f64` | Voxel edge length. |
+| `smooth_iterations` | `u32` | Smoothing passes (`0` = blocky). |
+
+###### `Screw`
+
+Screw: revolve the whole mesh's profile around `axis`, `turns` turns,
+`steps` steps, advancing `screw_offset` along the axis (a helix).
+
+Fields:
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `axis` | `crate::selection::Axis` | Rotation axis. |
+| `turns` | `f64` | Number of full revolutions. |
+| `steps` | `usize` | Steps per revolution. |
+| `screw_offset` | `f64` | Total axial advance. |
+
+###### `Skin`
+
+Skin: a rectangular tube of half-width `radius` along every edge.
+
+Fields:
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `radius` | `f64` | Tube half-width. |
+
+###### `Build`
+
+Build: reveal only the first `factor` fraction of the faces
+(`0.0` … `1.0`).
+
+Fields:
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `factor` | `f64` | Fraction of faces to keep. |
+
+###### `Multires`
+
+Multiresolution: `levels` of Catmull-Clark subdivision (the "simple"
+flavour; forwards to [`crate::subdivision::catmull_clark`]).
+
+Fields:
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `levels` | `u32` | Subdivision levels. |
+
+###### `Decimate`
+
+Decimate: reduce to `ratio` of the current face count (QEM collapse).
+
+Fields:
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `ratio` | `f64` | Target face fraction (`0.0` … `1.0`). |
+
+###### `SimpleDeform`
+
+Simple Deform (twist / bend / taper / stretch) along an axis (GH issue
+#37 §F, `op-hzs.54.31`).
+
+Fields:
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `mode` | `crate::deform::SimpleDeform` | The deform mode + amount. |
+| `axis` | `crate::selection::Axis` | Axis the deform is parameterised along. |
+
+###### `Cast`
+
+Cast toward a sphere / cylinder / cuboid.
+
+Fields:
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `target` | `crate::deform::CastTarget` | The shape to cast toward. |
+| `factor` | `f64` | `0` = unchanged, `1` = fully on the target. |
+
+###### `Displace`
+
+Displace along `direction` by value noise (a texture-free stand-in).
+
+Fields:
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `direction` | `crate::math::Vec3` | Displacement direction. |
+| `strength` | `f64` | Displacement amplitude. |
+| `noise_scale` | `f64` | Noise frequency. |
+| `seed` | `u64` | Noise seed. |
+
+###### `Wave`
+
+Wave: a travelling sine ripple along `axis`.
+
+Fields:
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `axis` | `crate::selection::Axis` | Ripple axis. |
+| `amplitude` | `f64` | Peak displacement. |
+| `wavelength` | `f64` | Wave period. |
+| `speed` | `f64` | Travel speed. |
+| `time` | `f64` | Evaluation time. |
 
 ##### Implementations
 
@@ -7086,6 +28892,7 @@ Fields:
 
 - **Read**
 - **RefUnwindSafe**
+- **Same**
 - **Send**
 - **Sync**
 - **ToOwned**
@@ -7133,7 +28940,7 @@ final derived mesh.
 
 ```rust
 pub struct ModifierStack {
-    pub modifiers: Vec<Modifier>,
+    pub modifiers: Vec<ModifierEntry>,
 }
 ```
 
@@ -7141,7 +28948,7 @@ pub struct ModifierStack {
 
 | Name | Type | Documentation |
 |------|------|---------------|
-| `modifiers` | `Vec<Modifier>` | The modifiers, evaluated first-to-last (top-to-bottom in Blender's UI). |
+| `modifiers` | `Vec<ModifierEntry>` | The modifier entries, evaluated first-to-last (top-to-bottom in<br>Blender's UI). |
 
 ##### Implementations
 
@@ -7155,12 +28962,57 @@ pub struct ModifierStack {
 - ```rust
   pub fn push(self: Self, m: Modifier) -> Self { /* ... */ }
   ```
-  Append a modifier to the end of the stack (builder style).
+  Append a modifier to the end of the stack (builder style), all toggles
+
+- ```rust
+  pub fn push_entry(self: Self, e: ModifierEntry) -> Self { /* ... */ }
+  ```
+  Append a fully-specified entry (builder style).
+
+- ```rust
+  pub fn move_up(self: &mut Self, i: usize) { /* ... */ }
+  ```
+  Move entry `i` one place earlier in the stack.
+
+- ```rust
+  pub fn move_down(self: &mut Self, i: usize) { /* ... */ }
+  ```
+  Move entry `i` one place later in the stack.
+
+- ```rust
+  pub fn remove(self: &mut Self, i: usize) { /* ... */ }
+  ```
+  Remove entry `i`.
+
+- ```rust
+  pub fn duplicate(self: &mut Self, i: usize) { /* ... */ }
+  ```
+  Copy entry `i` (append a clone to the end) — Blender's *Copy to
 
 - ```rust
   pub fn evaluate(self: &Self, base: &Mesh) -> Result<Mesh, ModifierError> { /* ... */ }
   ```
-  Evaluate the whole stack against `base`.
+  Evaluate the whole stack against `base`, skipping entries whose
+
+- ```rust
+  pub fn evaluate_render(self: &Self, base: &Mesh) -> Result<Mesh, ModifierError> { /* ... */ }
+  ```
+  Evaluate using the `show_render` toggle instead of `show_viewport`.
+
+- ```rust
+  pub fn apply_first(self: &mut Self, base: &Mesh) -> Result<Mesh, ModifierError> { /* ... */ }
+  ```
+  **Apply** the first entry: bake it into `base` and drop it from the
+
+- ```rust
+  pub fn apply_all(self: &mut Self, base: &Mesh) -> Result<Mesh, ModifierError> { /* ... */ }
+  ```
+  **Apply all**: bake the whole (viewport-enabled) stack into `base` and
+
+- ```rust
+  pub fn apply_as_shape_key(self: &Self, base: &Mesh) -> Result<Vec<Vec3>, ModifierError> { /* ... */ }
+  ```
+  **Apply as Shape Key**: the deformed vertex positions, valid only if the
 
 ###### Trait Implementations
 
@@ -7245,6 +29097,7 @@ pub struct ModifierStack {
 
 - **Read**
 - **RefUnwindSafe**
+- **Same**
 - **Send**
 - **Sync**
 - **ToOwned**
@@ -7282,6 +29135,1504 @@ pub struct ModifierStack {
 - **WasmNotSend**
 - **WasmNotSendSync**
 - **WasmNotSync**
+#### Struct `ModifierEntry`
+
+One modifier plus its per-entry visibility toggles (Blender's row of icons).
+
+```rust
+pub struct ModifierEntry {
+    pub modifier: Modifier,
+    pub show_viewport: bool,
+    pub show_render: bool,
+    pub show_in_editmode: bool,
+    pub on_cage: bool,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `modifier` | `Modifier` | The modifier. |
+| `show_viewport` | `bool` | Evaluate this entry in the viewport result (Blender's monitor icon).<br>A disabled entry is skipped by [`ModifierStack::evaluate`]. |
+| `show_render` | `bool` | Evaluate this entry in the render result. |
+| `show_in_editmode` | `bool` | Show the modified geometry while in edit mode. |
+| `on_cage` | `bool` | Edit the *modified* geometry directly (the "on cage" toggle). |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn new(modifier: Modifier) -> Self { /* ... */ }
+  ```
+  An entry with every toggle on (the Blender default for a new modifier).
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **ByRef**
+  - ```rust
+    fn by_ref(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> ModifierEntry { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **DistributionExt**
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Imply**
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+## Module `normals`
+
+**Normals toolset** (`op-hzs.54.27`, GH issue #37 §E).
+
+- [`flip_faces`] — reverse the winding of selected faces.
+- [`recalculate`] — [`crate::recalc_normals`] plus an *inside* option.
+- [`vertex_normals`] — per-vertex normals by [`NormalWeight`]
+  (uniform / face-area / corner-angle).
+- [`point_normals_to_target`] — per-vertex normals aimed toward / away from
+  a point.
+- [`SplitNormals`] — a per-face-corner normal layer;
+  [`split_normals_by_angle`] auto-smooths below an angle,
+  [`harden_normals`] makes the selected faces contribute flat.
+
+```rust
+pub mod normals { /* ... */ }
+```
+
+### Types
+
+#### Enum `NormalWeight`
+
+How incident face normals are weighted into a vertex normal.
+
+```rust
+pub enum NormalWeight {
+    Uniform,
+    FaceArea,
+    CornerAngle,
+}
+```
+
+##### Variants
+
+###### `Uniform`
+
+Every incident face counts equally.
+
+###### `FaceArea`
+
+Weight by face area (Blender's "Face Area").
+
+###### `CornerAngle`
+
+Weight by the face's interior angle at that vertex (Blender's "Corner
+Angle" — the default).
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Boilerplate**
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **ByRef**
+  - ```rust
+    fn by_ref(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> NormalWeight { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **DistributionExt**
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Imply**
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &NormalWeight) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Struct `SplitNormals`
+
+A per-face-corner normal layer (Blender's custom split normals). `normals[f]`
+has one entry per corner of face `f`, in its vertex order.
+
+```rust
+pub struct SplitNormals {
+    pub normals: Vec<Vec<crate::math::Vec3>>,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `normals` | `Vec<Vec<crate::math::Vec3>>` |  |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn flat(mesh: &Mesh) -> Self { /* ... */ }
+  ```
+  Every corner normal equal to its face's flat normal.
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **ByRef**
+  - ```rust
+    fn by_ref(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> SplitNormals { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Default**
+  - ```rust
+    fn default() -> SplitNormals { /* ... */ }
+    ```
+
+- **DistributionExt**
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Imply**
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+### Functions
+
+#### Function `flip_faces`
+
+Reverse the winding (hence normal) of the faces in `faces` (empty = all).
+
+```rust
+pub fn flip_faces(mesh: &crate::mesh::Mesh, faces: &[crate::mesh::FaceId]) -> crate::mesh::Mesh { /* ... */ }
+```
+
+#### Function `recalculate`
+
+Make the whole mesh's winding consistent and point it `outside` (or inside).
+
+```rust
+pub fn recalculate(mesh: &crate::mesh::Mesh, outside: bool) -> crate::mesh::Mesh { /* ... */ }
+```
+
+#### Function `vertex_normals`
+
+Per-vertex normals for `mesh`, one entry per [`VertexId`], weighted per
+`weight`. A vertex on no face gets [`Vec3::ZERO`].
+
+```rust
+pub fn vertex_normals(mesh: &crate::mesh::Mesh, weight: NormalWeight) -> Vec<crate::math::Vec3> { /* ... */ }
+```
+
+#### Function `point_normals_to_target`
+
+Per-vertex normals aimed at `target` (`invert` flips them to aim away).
+Blender's *Point to Target*.
+
+```rust
+pub fn point_normals_to_target(mesh: &crate::mesh::Mesh, target: crate::math::Vec3, invert: bool) -> Vec<crate::math::Vec3> { /* ... */ }
+```
+
+#### Function `split_normals_by_angle`
+
+Auto-smooth split normals: a corner's normal is the average of the incident
+face normals whose angle to this face's normal is `<= angle` radians; a
+steeper neighbour is excluded (a hard edge). `angle = 0` gives flat shading,
+`angle = π` gives fully smooth.
+
+```rust
+pub fn split_normals_by_angle(mesh: &crate::mesh::Mesh, angle: f64) -> SplitNormals { /* ... */ }
+```
+
+#### Function `harden_normals`
+
+Harden normals: start from [`split_normals_by_angle`], then force every
+corner of a face in `faces` to that face's flat normal (so the selection
+reads as a crisp, faceted region regardless of its neighbours). Blender's
+*Harden Normals*.
+
+```rust
+pub fn harden_normals(mesh: &crate::mesh::Mesh, faces: &[crate::mesh::FaceId], angle: f64) -> SplitNormals { /* ... */ }
+```
+
+## Module `nurbs_surface`
+
+**NURBS surfaces** (`op-hzs.54.37`, GH issue #37 §G).
+
+[`NurbsSurface`] is a tensor-product rational B-spline patch: an
+`nu × nv` grid of control points with weights and a clamped uniform knot
+vector on each axis. [`NurbsSurface::evaluate`] gives a point, and
+[`NurbsSurface::to_mesh`] tessellates it into a quad grid.
+
+Primitives ([`NurbsSurface::plane`] / [`sphere`](NurbsSurface::sphere) /
+[`cylinder`](NurbsSurface::cylinder) / [`torus`](NurbsSurface::torus))
+match Blender's Add-Surface menu. Patch editing is
+[`NurbsSurface::move_control`] and [`NurbsSurface::control_mut`].
+
+```rust
+pub mod nurbs_surface { /* ... */ }
+```
+
+### Types
+
+#### Struct `NurbsSurface`
+
+A tensor-product NURBS surface patch.
+
+```rust
+pub struct NurbsSurface {
+    pub nu: usize,
+    pub nv: usize,
+    pub order_u: usize,
+    pub order_v: usize,
+    pub control: Vec<crate::math::Vec3>,
+    pub weights: Vec<f64>,
+    pub cyclic_u: bool,
+    pub cyclic_v: bool,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `nu` | `usize` | Control-point counts along `u` and `v`. |
+| `nv` | `usize` |  |
+| `order_u` | `usize` | Orders (degree + 1) along `u` and `v` (`>= 2`). |
+| `order_v` | `usize` |  |
+| `control` | `Vec<crate::math::Vec3>` | `control[u + nu * v]` — the control-point positions. |
+| `weights` | `Vec<f64>` | Matching weights (`1.0` = a plain B-spline point). |
+| `cyclic_u` | `bool` | Wrap the surface along `u` / `v` (a cylinder wraps in one, a torus in<br>both). |
+| `cyclic_v` | `bool` |  |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn control_mut(self: &mut Self, u: usize, v: usize) -> &mut Vec3 { /* ... */ }
+  ```
+  Mutable access to control point `(u, v)`.
+
+- ```rust
+  pub fn move_control(self: &mut Self, u: usize, v: usize, delta: Vec3) { /* ... */ }
+  ```
+  Translate control point `(u, v)` by `delta` (patch editing).
+
+- ```rust
+  pub fn evaluate(self: &Self, u: f64, v: f64) -> Vec3 { /* ... */ }
+  ```
+  Evaluate the surface at parameters `(u, v)`, each in `[0, 1]`.
+
+- ```rust
+  pub fn to_mesh(self: &Self, res_u: usize, res_v: usize) -> Mesh { /* ... */ }
+  ```
+  Tessellate the surface into a `res_u × res_v` quad grid.
+
+- ```rust
+  pub fn plane(nu: usize, nv: usize) -> Self { /* ... */ }
+  ```
+  A flat `nu × nv` control grid spanning `[-1, 1]²` in the `z = 0` plane.
+
+- ```rust
+  pub fn sphere(radius: f64) -> Self { /* ... */ }
+  ```
+  A NURBS sphere of `radius` — a dense `nu × nv` control grid sampled on
+
+- ```rust
+  pub fn cylinder(radius: f64, height: f64) -> Self { /* ... */ }
+  ```
+  A NURBS cylinder of `radius` and `height` — cyclic in `u`.
+
+- ```rust
+  pub fn torus(r: f64, t: f64) -> Self { /* ... */ }
+  ```
+  A NURBS torus of major radius `r` and minor radius `t` — cyclic in both.
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **ByRef**
+  - ```rust
+    fn by_ref(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> NurbsSurface { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **DistributionExt**
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Imply**
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+## Module `object_ops`
+
+**Object-mode CAD operators** (`op-hzs.54.47`, GH issue #37 §J).
+
+A [`SceneObject`] is a shared mesh in *local* space plus an [`Affine3`]
+placing it in the world. The operators here work on objects and lists of
+them:
+
+- [`SceneObject::duplicate`] / [`SceneObject::linked_duplicate`] — a full
+  copy vs. a copy that shares the same `Arc<Mesh>`.
+- [`join`] — bake several objects' world geometry into one mesh.
+- [`separate_loose_parts`] — split an object's mesh into its connected
+  components, each a new object.
+- [`SceneObject::apply_transform`] — bake the transform into the mesh and
+  reset it to the identity.
+- [`SceneObject::set_origin`] — move the object's local origin
+  ([`OriginMode`]) without moving the geometry in the world.
+- [`align`] — line objects' bounding boxes up along an axis.
+- [`snap_objects`] / [`cursor_to_objects`] — the Snap menu.
+
+## Units
+
+Positions/lengths are dimensionless model-space quantities (see
+[`crate::math`]).
+
+```rust
+pub mod object_ops { /* ... */ }
+```
+
+### Types
+
+#### Struct `SceneObject`
+
+A placed mesh: geometry in local space, [`Affine3`] to world space.
+
+```rust
+pub struct SceneObject {
+    pub mesh: std::sync::Arc<crate::mesh::Mesh>,
+    pub transform: crate::transform::Affine3,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `mesh` | `std::sync::Arc<crate::mesh::Mesh>` | Geometry in the object's local frame (shared, never mutated in place). |
+| `transform` | `crate::transform::Affine3` | Local → world transform. |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn new(mesh: Mesh) -> Self { /* ... */ }
+  ```
+  A new object at the identity transform.
+
+- ```rust
+  pub fn world_mesh(self: &Self) -> Mesh { /* ... */ }
+  ```
+  This object's geometry in world space.
+
+- ```rust
+  pub fn world_origin(self: &Self) -> Vec3 { /* ... */ }
+  ```
+  The object's origin in world space (its transform's translation).
+
+- ```rust
+  pub fn duplicate(self: &Self) -> SceneObject { /* ... */ }
+  ```
+  A full, independent copy (new mesh storage).
+
+- ```rust
+  pub fn linked_duplicate(self: &Self) -> SceneObject { /* ... */ }
+  ```
+  A copy that **shares** the same mesh data (Blender's Linked Duplicate);
+
+- ```rust
+  pub fn shares_mesh_with(self: &Self, other: &SceneObject) -> bool { /* ... */ }
+  ```
+  Whether this object shares its mesh with `other`.
+
+- ```rust
+  pub fn apply_transform(self: &Self) -> SceneObject { /* ... */ }
+  ```
+  Bake the transform into the geometry and reset the transform to the
+
+- ```rust
+  pub fn set_origin(self: &Self, mode: OriginMode) -> SceneObject { /* ... */ }
+  ```
+  Move the object's local origin per `mode`, keeping every vertex in the
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **ByRef**
+  - ```rust
+    fn by_ref(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> SceneObject { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **DistributionExt**
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Imply**
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Enum `OriginMode`
+
+Where [`SceneObject::set_origin`] puts the origin.
+
+```rust
+pub enum OriginMode {
+    GeometryMedian,
+    CenterOfMassSurface,
+    CenterOfMassVolume,
+    Cursor {
+        world: crate::math::Vec3,
+    },
+}
+```
+
+##### Variants
+
+###### `GeometryMedian`
+
+The mean of the mesh vertices (Origin to Geometry).
+
+###### `CenterOfMassSurface`
+
+Area-weighted mean face centroid (Center of Mass — Surface).
+
+###### `CenterOfMassVolume`
+
+Volume centroid via signed tetrahedra (Center of Mass — Volume).
+
+###### `Cursor`
+
+A given world point (Origin to 3D Cursor).
+
+Fields:
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `world` | `crate::math::Vec3` | The cursor position in world space. |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Boilerplate**
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **ByRef**
+  - ```rust
+    fn by_ref(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> OriginMode { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **DistributionExt**
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Imply**
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &OriginMode) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Enum `AlignMode`
+
+How [`align`] lines objects up on the chosen axis.
+
+```rust
+pub enum AlignMode {
+    Min,
+    Center,
+    Max,
+}
+```
+
+##### Variants
+
+###### `Min`
+
+Match the minimum (negative) side of each bounding box.
+
+###### `Center`
+
+Match the bounding-box centres.
+
+###### `Max`
+
+Match the maximum (positive) side.
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Boilerplate**
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **ByRef**
+  - ```rust
+    fn by_ref(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> AlignMode { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **DistributionExt**
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Imply**
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &AlignMode) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Enum `SnapObjectsTo`
+
+Target for [`snap_objects`].
+
+```rust
+pub enum SnapObjectsTo {
+    Cursor {
+        world: crate::math::Vec3,
+    },
+    Grid {
+        step: f64,
+    },
+    Active {
+        index: usize,
+    },
+}
+```
+
+##### Variants
+
+###### `Cursor`
+
+Move each object's origin to `world` (Selection to Cursor).
+
+Fields:
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `world` | `crate::math::Vec3` | The cursor position. |
+
+###### `Grid`
+
+Round each object's origin to a multiple of `step` (Selection to Grid).
+
+Fields:
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `step` | `f64` | The grid step. |
+
+###### `Active`
+
+Move every object's origin onto object `index`'s origin (Selection to
+Active).
+
+Fields:
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `index` | `usize` | Index of the active object in the slice. |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Boilerplate**
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **ByRef**
+  - ```rust
+    fn by_ref(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> SnapObjectsTo { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **DistributionExt**
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Imply**
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &SnapObjectsTo) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+### Functions
+
+#### Function `join`
+
+Bake `objects`' world geometry into a single identity-transform object
+(Join). The first object's transform is discarded along with the rest —
+use [`SceneObject::apply_transform`] on the result if you want it re-based.
+
+```rust
+pub fn join(objects: &[SceneObject]) -> SceneObject { /* ... */ }
+```
+
+#### Function `separate_loose_parts`
+
+Split `object`'s mesh into connected components (by shared vertices), each
+returned as a new object with the **same** transform as the original
+(Separate → By Loose Parts).
+
+```rust
+pub fn separate_loose_parts(object: &SceneObject) -> Vec<SceneObject> { /* ... */ }
+```
+
+#### Function `align`
+
+Translate each object along `axis` so its world bounding box lines up per
+`mode` with the group's average reference coordinate. Returns new objects
+(translation-only change).
+
+```rust
+pub fn align(objects: &[SceneObject], axis: crate::selection::Axis, mode: AlignMode) -> Vec<SceneObject> { /* ... */ }
+```
+
+#### Function `snap_objects`
+
+Apply a Snap-menu target to every object (translation only).
+
+```rust
+pub fn snap_objects(objects: &[SceneObject], to: SnapObjectsTo) -> Vec<SceneObject> { /* ... */ }
+```
+
+#### Function `cursor_to_objects`
+
+The median of the objects' world origins (Cursor to Selected).
+
+```rust
+pub fn cursor_to_objects(objects: &[SceneObject]) -> crate::math::Vec3 { /* ... */ }
+```
+
 ## Module `ops`
 
 Mesh **operators** — the editing verbs (Blender's `bmesh/operators`, `bmo_*`).
@@ -7497,6 +30848,7 @@ Fields:
 
 - **Read**
 - **RefUnwindSafe**
+- **Same**
 - **Send**
 - **Sync**
 - **ToString**
@@ -7614,10 +30966,6 @@ Keep the volume common to both (A ∩ B).
     fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
     ```
 
-  - ```rust
-    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
-    ```
-
 - **Freeze**
 - **From**
   - ```rust
@@ -7657,6 +31005,7 @@ Keep the volume common to both (A ∩ B).
 
 - **Read**
 - **RefUnwindSafe**
+- **Same**
 - **Send**
 - **StructuralPartialEq**
 - **Sync**
@@ -8055,6 +31404,7 @@ Fields:
 
 - **Read**
 - **RefUnwindSafe**
+- **Same**
 - **Send**
 - **Sync**
 - **ToOwned**
@@ -8286,6 +31636,906 @@ For a cube (`V=8, E=12, F=6`, every vertex degree 3) at `segments = s >= 2`:
 pub fn bevel_vertices_rounded(mesh: &crate::mesh::Mesh, width: f64, segments: u32) -> crate::mesh::Mesh { /* ... */ }
 ```
 
+## Module `planar_faces`
+
+Flatten faces by relaxing their vertices onto each face's own plane — a
+port of Blender's **Make Planar Faces** (`bmo_planar_faces.cc`).
+
+# What this computes, and how it differs from splitting
+
+[`crate::connect_nonplanar`] makes a warped face planar by **cutting it**
+— topology changes, positions do not. This operator does the opposite:
+it **moves the vertices** until the faces are planar, leaving topology
+alone. For a solver mesh both are useful and they are not
+interchangeable: cutting preserves the surface exactly but multiplies
+face count, while relaxing keeps the face count but perturbs the
+geometry. Pick by which of the two you can afford to lose.
+
+# The algorithm
+
+One iteration, per upstream:
+
+1. Each face defines a plane through its (area-weighted) centroid with
+   its own normal. That centroid and normal are taken **once, from the
+   input**, and reused — upstream's comment is "keep original face data
+   (else we 'move' the face)". Recomputing them each sweep lets the face
+   drift bodily through space instead of just flattening, which is why
+   the recompute is `#if 0`-ed out upstream. That is reproduced here.
+2. Every vertex collects the closest point on each incident face's plane
+   and averages them — upstream accumulates with a running mean
+   (`interp_v3_v3v3(va.co, va.co, co, 1 / co_tot)`), which is the same
+   value as a plain mean and is kept in that form.
+3. Each vertex moves a `factor` of the way toward its average target.
+   Vertices that moved less than `1e-5` are considered settled; when no
+   vertex moves, the sweep stops early.
+
+Triangles are skipped throughout — they are planar already, and pulling
+their corners about would only distort the mesh.
+
+Inputs are positions in the caller's length unit; `factor` is
+dimensionless in `[0, 1]` and `iterations` is a count. Nothing here
+carries a physical dimension.
+
+# Fidelity to upstream, and the deviations
+
+The plane-per-face construction, the frozen centroid/normal, the running
+mean, the `1e-5` settle threshold and the early-out are transcribed.
+Differences:
+
+1. **`f64`, not `f32`.** The `1e-5` threshold is kept at that value; it
+   is a geometric tolerance in model units, not a mantissa bound.
+2. **No per-face dirty flag.** Upstream tracks `ELE_FACE_ADJUST` so a
+   sweep only revisits faces touching a vertex that moved. This port
+   recomputes every non-triangle face each sweep. Same fixed point, more
+   work per sweep; the flag is an optimisation, not a semantic. Worth
+   revisiting if this is ever run on a large mesh.
+3. **Returns a new [`Mesh`]** rather than mutating in place, like every
+   other operator here.
+
+```rust
+pub mod planar_faces { /* ... */ }
+```
+
+### Functions
+
+#### Function `planar_faces`
+
+Relax the vertices of `mesh` so its faces become planar.
+
+`factor` is how far toward the target each vertex moves per sweep
+(upstream's "factor" slot, [`DEFAULT_FACTOR`] = 1.0 for the full step);
+`iterations` bounds the number of sweeps ([`DEFAULT_ITERATIONS`] = 1).
+Topology is untouched — only positions change — so the returned mesh has
+the same vertex, edge and face counts. Infallible.
+
+Triangles are left alone. A mesh of only triangles is returned unchanged.
+
+# Examples
+
+```
+use outram_blender::{mesh::Mesh, math::Vec3};
+use outram_blender::planar_faces::{planar_faces, DEFAULT_FACTOR};
+
+let pts = vec![
+    Vec3::new(0.0, 0.0, 0.0),
+    Vec3::new(1.0, 0.0, 0.0),
+    Vec3::new(1.0, 1.0, 0.5),
+    Vec3::new(0.0, 1.0, 0.0),
+];
+let warped = Mesh::from_polygons(&pts, &[vec![0, 1, 2, 3]]);
+let flat = planar_faces(&warped, DEFAULT_FACTOR, 20);
+assert_eq!(flat.face_count(), warped.face_count());
+assert_eq!(flat.vertex_count(), warped.vertex_count());
+```
+
+```rust
+pub fn planar_faces(mesh: &crate::mesh::Mesh, factor: f64, iterations: usize) -> crate::mesh::Mesh { /* ... */ }
+```
+
+#### Function `planar_faces_converge`
+
+Flatten by calling [`planar_faces`] repeatedly until the mesh stops
+moving — **this crate's addition, not an upstream operator.**
+
+# Why this exists
+
+[`planar_faces`] freezes each face's target plane from its input, which
+is deliberate upstream (it stops faces drifting bodily through space)
+but means its own `iterations` argument does not converge on geometry
+where faces share vertices: measured on a corrugated 3x3 grid, peak warp
+goes 0.150 -> 0.0666 after one sweep and then *back up* to 0.0674 by 200
+sweeps. Re-invoking the operator recomputes the planes and does
+converge. See the `iterations_within_one_call_do_not_converge_but_repeated_calls_do`
+test for the full table.
+
+So this is a loop around the upstream operator, not a different
+algorithm. Each pass runs exactly one upstream sweep.
+
+Stops when the largest vertex movement in a pass falls below
+`tolerance` (in the caller's length unit), or after `max_passes`.
+Topology is untouched. Infallible.
+
+# It cannot flatten below upstream's absolute `eps`
+
+`planar_faces` skips any vertex whose step is shorter than 1e-5 **model
+units** (upstream's `eps`), so this loop plateaus there however many
+passes it is given — measured 7.71e-5 peak warp on the corrugated grid,
+unchanged from 200 passes to 5000. That floor is absolute, not relative,
+so it scales with your model's units. Where exact planarity is required,
+use [`crate::connect_nonplanar`], which cuts rather than moves.
+
+# Examples
+
+```
+use outram_blender::{mesh::Mesh, math::Vec3};
+use outram_blender::planar_faces::{planar_faces_converge, DEFAULT_FACTOR};
+
+let pts = vec![
+    Vec3::new(0.0, 0.0, 0.0),
+    Vec3::new(1.0, 0.0, 0.0),
+    Vec3::new(1.0, 1.0, 0.5),
+    Vec3::new(0.0, 1.0, 0.0),
+];
+let warped = Mesh::from_polygons(&pts, &[vec![0, 1, 2, 3]]);
+let flat = planar_faces_converge(&warped, DEFAULT_FACTOR, 1e-9, 100);
+assert_eq!(flat.face_count(), 1);
+```
+
+```rust
+pub fn planar_faces_converge(mesh: &crate::mesh::Mesh, factor: f64, tolerance: f64, max_passes: usize) -> crate::mesh::Mesh { /* ... */ }
+```
+
+### Constants and Statics
+
+#### Constant `DEFAULT_FACTOR`
+
+Upstream's default relaxation factor for **Make Planar Faces**.
+
+```rust
+pub const DEFAULT_FACTOR: f64 = 1.0;
+```
+
+#### Constant `DEFAULT_ITERATIONS`
+
+Upstream's default iteration count.
+
+```rust
+pub const DEFAULT_ITERATIONS: usize = 1;
+```
+
+## Module `poke_quads`
+
+**Poke Faces / Tris ↔ Quads** (`op-hzs.54.17`, GH issue #37 §B).
+
+- [`poke_faces`] replaces each face with a fan of triangles from a new
+  centre vertex, offset by `offset` along the face normal (Blender's
+  `Face ▸ Poke Faces`).
+- [`triangulate_quads`] triangulates each quad by the diagonal chosen per
+  [`QuadMethod`]; n-gons are centroid-fanned (Blender's `Face ▸
+  Triangulate` with a quad method). The plain fan is
+  [`crate::triangulate::triangulate`].
+- [`tris_to_quads`] greedily merges adjacent coplanar-ish triangle pairs
+  into quads whose corner angles stay within `max_angle` of 90° (Blender's
+  `Face ▸ Tris to Quads`). Attribute comparisons (material / UV / sharp /
+  seam) arrive with the attribute layers in `op-hzs.54.28`.
+
+```rust
+pub mod poke_quads { /* ... */ }
+```
+
+### Types
+
+#### Enum `QuadMethod`
+
+Which diagonal [`triangulate_quads`] cuts a quad along.
+
+```rust
+pub enum QuadMethod {
+    ShortestDiagonal,
+    Fixed,
+    FixedAlternate,
+    Beauty,
+}
+```
+
+##### Variants
+
+###### `ShortestDiagonal`
+
+The shorter of the two diagonals. Same rule as
+[`crate::triangulate::QuadMethod::ShortEdge`].
+
+###### `Fixed`
+
+Always `v0–v2`. Same as [`crate::triangulate::QuadMethod::Fixed`].
+
+###### `FixedAlternate`
+
+Always `v1–v3`. Same as [`crate::triangulate::QuadMethod::Alternate`].
+
+###### `Beauty`
+
+The diagonal that gives the better-shaped triangle pair, decided by
+Blender's own rule — see [`crate::triangulate::QuadMethod::Beauty`].
+
+**Changed 2026-09-19.** This variant previously used a hand-rolled
+"maximise the smallest of the four resulting angles" measure, written
+before Blender's own rule was ported. It now delegates to the ported
+rule (`is_quad_flip_v3`, then area-over-perimeter), so the crate has
+one definition of "beauty" rather than two that drift. The two agree
+on planar convex quads and differ on warped or concave ones, where
+the upstream rule is the one that avoids folding the pair.
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Boilerplate**
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **ByRef**
+  - ```rust
+    fn by_ref(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> QuadMethod { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **DistributionExt**
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+  - ```rust
+    fn from(m: QuadMethod) -> Self { /* ... */ }
+    ```
+
+- **Imply**
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &QuadMethod) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Enum `PokeCenter`
+
+Where the poke centre goes — upstream's `BMOP_POKE_*`
+(`bmesh_operators.hh:93`).
+
+Blender's **Poke Faces** tool defaults to [`PokeCenter::MedianWeighted`]
+(`editmesh_tools.cc:5470`), which is why that is the default here too.
+
+```rust
+pub enum PokeCenter {
+    MedianWeighted,
+    Median,
+    Bounds,
+}
+```
+
+##### Variants
+
+###### `MedianWeighted`
+
+Each corner weighted by the length of the two edges meeting there,
+so a cluster of closely-spaced corners does not drag the centre
+toward itself. Upstream `BMOP_POKE_MEDIAN_WEIGHTED`, and upstream's
+default.
+
+###### `Median`
+
+The plain mean of the corner positions. Upstream `BMOP_POKE_MEDIAN`.
+
+###### `Bounds`
+
+The centre of the face's axis-aligned bounding box. Upstream
+`BMOP_POKE_BOUNDS`.
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Boilerplate**
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **ByRef**
+  - ```rust
+    fn by_ref(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> PokeCenter { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Default**
+  - ```rust
+    fn default() -> PokeCenter { /* ... */ }
+    ```
+
+- **DistributionExt**
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Imply**
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &PokeCenter) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+### Functions
+
+#### Function `poke_faces`
+
+Poke every face into a fan around a new centre vertex, using upstream's
+defaults.
+
+The centre is placed by [`PokeCenter::MedianWeighted`] and displaced
+along the face normal by `offset` (an absolute length, in the caller's
+units). See [`poke_faces_with`] for the other modes.
+
+**Changed 2026-09-19.** This previously used the plain vertex mean,
+which is upstream's `BMOP_POKE_MEDIAN` — *not* its default. Blender's
+Poke Faces tool defaults to median-weighted, so this now does too. The
+two agree on any face whose corners are evenly spaced and differ on one
+where they are not; see
+`poke_center_modes_differ_on_unevenly_spaced_corners`.
+
+```rust
+pub fn poke_faces(mesh: &crate::mesh::Mesh, offset: f64) -> crate::mesh::Mesh { /* ... */ }
+```
+
+#### Function `poke_faces_with`
+
+Poke every face into a fan, choosing the centre mode and offset scaling.
+
+When `use_relative_offset` is set, `offset` is multiplied by the mean
+distance from the face centre to its corners, so the displacement scales
+with the face rather than being absolute — upstream's
+`use_relative_offset` slot, which defaults to off.
+
+Positions of existing vertices are never changed; one vertex is added
+per face. Infallible.
+
+# Examples
+
+```
+use outram_blender::primitives;
+use outram_blender::poke_quads::{poke_faces_with, PokeCenter};
+
+let cube = primitives::cube(2.0);
+// Six quads become six fans of four triangles.
+let poked = poke_faces_with(&cube, 0.0, PokeCenter::MedianWeighted, false);
+assert_eq!(poked.face_count(), 24);
+assert_eq!(poked.vertex_count(), cube.vertex_count() + 6);
+```
+
+```rust
+pub fn poke_faces_with(mesh: &crate::mesh::Mesh, offset: f64, center_mode: PokeCenter, use_relative_offset: bool) -> crate::mesh::Mesh { /* ... */ }
+```
+
+#### Function `triangulate_quads`
+
+Triangulate every quad by `method`; n-gons are centroid-fanned; triangles
+are kept.
+
+```rust
+pub fn triangulate_quads(mesh: &crate::mesh::Mesh, method: QuadMethod) -> crate::mesh::Mesh { /* ... */ }
+```
+
+#### Function `tris_to_quads`
+
+Greedily merge adjacent triangle pairs into quads. A pair is merged when the
+shared edge's two opposite vertices form a convex quad whose four corner
+angles are all within `max_angle` (radians) of 90°, and the two triangle
+normals agree.
+
+```rust
+pub fn tris_to_quads(mesh: &crate::mesh::Mesh, max_angle: f64) -> crate::mesh::Mesh { /* ... */ }
+```
+
+## Module `polyfill`
+
+Ear-clipping triangulation of a single-boundary polygon — a port of
+Blender's `BLI_polyfill_calc` (`polyfill_2d.cc`).
+
+# What this computes
+
+Given the `n` corners of one simple polygon, in order, this emits exactly
+`n - 2` triangles as index triples into that corner list. The triangles
+tile the polygon's interior and do not overlap. This is a *geometric*
+routine — it produces no physical quantity and carries no units; the
+inputs are plain positions in whatever length unit the caller's mesh uses,
+and the outputs are corner indices.
+
+# Why this exists — fan triangulation is wrong on concave faces
+
+[`crate::triangulate`] historically fanned every face from its first
+corner. For a **convex** polygon a fan is correct. For a **concave** one it
+is not: the fan emits triangles that stick out past the boundary and
+overlap each other, so the triangulated surface no longer bounds the same
+solid. That matters here because this crate's meshes are handed to a CFD
+volume mesher and a Monte Carlo CSG bridge, both of which take the triangle
+soup as the truth about the geometry.
+
+Upstream does not fan. `bmo_triangulate` routes n-gons through
+`BLI_polyfill_calc`, which is the ear-clipping algorithm ported here.
+
+# Fidelity to upstream, and the three deliberate deviations
+
+The control flow, the two-pass ear search, the "desperate mode" fallback
+and the sign conventions are transcribed from `polyfill_2d.cc` rather than
+re-derived. Three things differ, each for a stated reason:
+
+1. **No k-d tree.** Upstream compiles `USE_KDTREE` to accelerate the
+   point-in-candidate-ear test. This port takes upstream's *own*
+   `#else` branch — the linear scan over concave corners, which is in
+   `pf_ear_tip_check` verbatim — so the result is identical and only the
+   complexity differs (`O(n * concave)` rather than `O(n log n)`). A k-d
+   tree is an acceleration structure, not a semantic: porting it would add
+   ~330 lines that cannot change an answer.
+2. **`f64`, not `f32`.** This crate is `f64` throughout. Upstream's own
+   comments note the `TANGENTIAL` test compares exactly against `0.0`, so
+   the *classification* of a near-degenerate corner can differ between the
+   two precisions. Neither is "right"; ours is the stricter one.
+3. **Indices, not pointers.** Upstream's circular doubly-linked list is
+   raw `PolyIndex *`. The workspace forbids lifetime parameters and `Box`,
+   so the list is an index-linked `Vec` — same structure, same operations.
+
+# Winding — read this before using [`polyfill_2d`] directly
+
+Upstream normalises the working polygon to **clockwise** in 2-D and assumes
+that orientation everywhere downstream ("Because the polygon has clockwise
+winding order, the area sign will be positive if the point is strictly
+inside"). A consequence, which `BLI_polyfill_2d.hh` states as part of the
+contract, is that **the emitted triples are clockwise whatever the input
+ring's winding was**. That is ported as-is: [`polyfill_2d`] emits clockwise
+triangles from a counter-clockwise ring.
+
+Upstream's own mesh callers deal with this by projecting through the
+*negated* face normal — `axis_dominant_v3_to_m3_negate` in
+`bmesh_mesh_tessellate.cc:116`, immediately before
+`BLI_polyfill_calc_arena(projverts, len, 1, ...)` — so the 2-D ring is
+already clockwise and the clockwise output maps back to the face's own
+winding in 3-D. [`polyfill_3d`] does exactly that, and is therefore the
+entry point a mesh operator should call: it preserves the caller's winding
+and hence its outward normal.
+
+```rust
+pub mod polyfill { /* ... */ }
+```
+
+### Functions
+
+#### Function `project_to_plane`
+
+Project 3-D polygon corners onto the plane of `normal`, as upstream's
+`axis_dominant_v3_to_m3` + `mul_v2_m3v3` pair does.
+
+`normal` need not be unit length; it is normalised here. A zero-length
+normal (a fully degenerate face) falls back to the X/Y plane, which keeps
+the routine total rather than panicking.
+
+```rust
+pub fn project_to_plane(points: &[crate::math::Vec3], normal: crate::math::Vec3) -> Vec<[f64; 2]> { /* ... */ }
+```
+
+#### Function `polyfill_2d`
+
+Ear-clip a single-boundary 2-D polygon into `coords.len() - 2` triangles.
+
+Returns index triples into `coords`, **wound clockwise regardless of the
+input ring's winding** — upstream's documented contract
+(`BLI_polyfill_2d.hh`: "This array is filled in with triangle indices in
+clockwise order"). If you need the caller's winding preserved, use
+[`polyfill_3d`], which applies upstream's negated-normal projection.
+
+Fewer than three corners yields no triangles. Self-intersecting input is
+degenerate — upstream's contract is that the triangle *count* and the
+non-repetition of indices still hold, but the triangles may overlap.
+
+Upstream takes a `coords_sign` hint to skip the winding test; this port
+always measures it, which is semantically the same and one shoelace pass
+slower.
+
+This is the port of `BLI_polyfill_calc`; see the module docs for the three
+deviations from upstream.
+
+```rust
+pub fn polyfill_2d(coords: &[[f64; 2]]) -> Vec<[usize; 3]> { /* ... */ }
+```
+
+#### Function `polyfill_3d`
+
+Ear-clip a 3-D polygon given its corner positions and face normal.
+
+Returns index triples into `points`, **wound the same way the input ring
+is** — so a face's outward normal survives triangulation. This is the
+entry point a mesh operator wants.
+
+The winding is preserved by projecting through the *negated* normal, which
+is what upstream's tessellation path does
+(`axis_dominant_v3_to_m3_negate`, `bmesh_mesh_tessellate.cc:116`): it makes
+the 2-D ring clockwise, so [`polyfill_2d`]'s clockwise output maps back to
+the face's own orientation. Getting this backwards inverts every normal on
+the triangulated mesh, which is why it is spelled out rather than left to
+the reader.
+
+```rust
+pub fn polyfill_3d(points: &[crate::math::Vec3], normal: crate::math::Vec3) -> Vec<[usize; 3]> { /* ... */ }
+```
+
+#### Function `newell_normal`
+
+Newell's method for a polygon normal — robust for non-planar rings, where
+a single cross product of three corners is not.
+
+Returns a non-normalised vector whose direction is the face's outward
+normal under the ring's own winding, and whose length is twice the
+projected area.
+
+```rust
+pub fn newell_normal(points: &[crate::math::Vec3]) -> crate::math::Vec3 { /* ... */ }
+```
+
+## Module `polyfill_beautify`
+
+Improve an ear-clipped triangulation by rotating its interior edges — a
+port of Blender's `BLI_polyfill_beautify` (`polyfill_2d_beautify.cc`).
+
+# What this computes
+
+[`crate::polyfill`] tiles a polygon correctly but not *well*: ear clipping
+happily emits long slivers. This pass takes that tiling and repeatedly
+flips the shared diagonal of adjacent triangle pairs, each time picking
+the flip that most improves the pair, until no flip helps. The vertex set,
+the boundary and the triangle count are all unchanged — only which
+diagonals are used.
+
+This is a *geometric* quality pass. It carries no units and computes no
+physical quantity; it exists because downstream consumers (the CFD volume
+mesher, the Monte Carlo CSG bridge) behave badly on sliver triangles.
+
+# The quality measure is area-over-perimeter, not Delaunay
+
+Worth stating plainly, because "beautify" reads like it should be a
+Delaunay flip and it is not. Upstream's rule
+(`BLI_polyfill_beautify_quad_rotate_calc_ex`) scores each of the two
+diagonals of a quad by `sum over the two triangles of (2 * area) /
+perimeter`, and rotates when the alternative scores higher. That is a
+fatness measure — it maximises the inradius-like ratio — and it is what
+[`quad_rotate_cost`] returns, negated so that "negative means rotate".
+
+Two guards in that function are load-bearing and are ported as-is:
+a rotation that would make the two triangles point in *opposite*
+directions is refused (it would fold the surface), and one that would
+produce a zero-area triangle is refused. Conversely, if the *current*
+state is already folded or degenerate, the rotation is forced
+(`-f64::MAX`, upstream's `-FLT_MAX`) — repairing a bad state beats
+preserving it.
+
+# Fidelity to upstream, and the deliberate deviations
+
+The half-edge construction, the pairing of interior edges, the rotation
+rewiring, the cost function and the two different insert thresholds are
+transcribed rather than re-derived. Differences:
+
+1. **`f64`, not `f32`.** As everywhere in this crate. Upstream's
+   `eps_zero_area = 1e-12f` and `-1e-6f` thresholds are kept at those
+   numeric values rather than rescaled, since they are tuned against
+   coordinate magnitudes, not against the mantissa.
+2. **A linear-scan priority queue, not a binary heap.** Upstream keeps an
+   indexed `Heap` so it can update or remove one edge's entry in `O(log n)`.
+   The number of interior edges is `n - 3` for an `n`-gon, so this port
+   keeps a flat `Vec<Option<f64>>` of live costs and scans it for the
+   minimum. Same pop order, `O(E)` per pop instead of `O(log E)`.
+3. **Ties break on the lower edge index.** Upstream's heap does not
+   specify a tie-break, so on exactly-equal costs the two can choose
+   differently. This is deterministic, which upstream's is not; where they
+   disagree both answers are equally good by the cost measure.
+4. **Indices, not pointers.** Required by the workspace no-lifetimes rule.
+
+```rust
+pub mod polyfill_beautify { /* ... */ }
+```
+
+### Functions
+
+#### Function `quad_rotate_cost`
+
+Score rotating the shared diagonal of the quad `v1 v2 v3 v4` from the
+`2-4` diagonal (the current state) to the `1-3` diagonal.
+
+Port of `BLI_polyfill_beautify_quad_rotate_calc_ex`. Returns
+`fac_24 - fac_13`, so a **negative** result means rotating improves the
+pair. Returns [`f64::MAX`] when the rotation is refused outright, and
+[`f64::MIN`] (upstream's `-FLT_MAX`) when the current state is broken
+enough that rotating is mandatory.
+
+When `r_area` is `Some`, it receives the mean of the four candidate
+triangle areas — upstream includes both diagonals' pairs "for predictable
+results", and the caller uses it to scale its re-insertion threshold.
+
+`lock_degenerate` refuses the forced rotation as well; the 2-D polyfill
+path passes `false`, the 3-D path in upstream passes `true`.
+
+```rust
+pub fn quad_rotate_cost(v1: [f64; 2], v2: [f64; 2], v3: [f64; 2], v4: [f64; 2], lock_degenerate: bool, r_area: Option<&mut f64>) -> f64 { /* ... */ }
+```
+
+#### Function `polyfill_beautify`
+
+Improve a triangulation of a single-boundary polygon in place by rotating
+interior edges — the port of `BLI_polyfill_beautify`.
+
+`coords` is the polygon ring and `tris` the triangulation of it, as
+produced by [`crate::polyfill::polyfill_2d`]; `tris` is rewritten with the
+same triangle count over the same vertices. The polygon boundary is never
+rotated.
+
+A polygon with fewer than four triangles has no interior edge to rotate,
+so this is a no-op below that size.
+
+```rust
+pub fn polyfill_beautify(coords: &[[f64; 2]], tris: &mut [[usize; 3]]) { /* ... */ }
+```
+
+#### Function `is_quad_flip_v3`
+
+Upstream `is_quad_flip_v3` (`math_geom.cc:5627`) — does a 3-D quad fold
+across either of its diagonals?
+
+Returns a bit mask: bit 0 set means the `v1-v3` split folds, bit 1 set
+means the `v2-v4` split does. A convex planar quad returns 0.
+
+```rust
+pub fn is_quad_flip_v3(v1: crate::math::Vec3, v2: crate::math::Vec3, v3: crate::math::Vec3, v4: crate::math::Vec3) -> u8 { /* ... */ }
+```
+
+#### Function `edge_rotate_cost_3d`
+
+Score rotating a **3-D** quad's diagonal from `2-4` to `1-3`, by
+projecting the quad onto the plane of its own averaged normal and
+applying [`quad_rotate_cost`] there.
+
+Port of `BLI_polyfill_edge_calc_rotate_beauty__area`
+(`polyfill_2d_beautify.cc:180`). Negative means rotating improves the
+pair; [`f64::MAX`] means refuse.
+
+Two upstream subtleties are kept:
+
+- The projection plane is the sum of the two *current* triangle normals,
+  so the measure is taken in the quad's own frame rather than an
+  arbitrary axis. A zero-length sum (the two triangles exactly oppose)
+  means there is no sensible plane, and the rotation is refused.
+- The two triangles are rejected outright when they already wind
+  oppositely or are both degenerate, via the `signum_i_ex` sum. Upstream
+  spells out the accept/ignore table: `(1,1)`/`(-1,-1)` accept,
+  `(+/-1, 0)` accept (one degenerate — a rotation may fix it),
+  `(-1, 1)` and `(0, 0)` ignore.
+
+```rust
+pub fn edge_rotate_cost_3d(v1: crate::math::Vec3, v2: crate::math::Vec3, v3: crate::math::Vec3, v4: crate::math::Vec3, lock_degenerate: bool) -> f64 { /* ... */ }
+```
+
 ## Module `primitives`
 
 **Real** mesh primitive generators (Blender's "Add Mesh" primitives).
@@ -8397,6 +32647,265 @@ Panics if `nx < 1` or `ny < 1`.
 
 ```rust
 pub fn grid(nx: usize, ny: usize, size: f64) -> crate::mesh::Mesh { /* ... */ }
+```
+
+## Module `primitives_extra`
+
+**Extra mesh primitives + Add-Mesh common settings** (`op-hzs.54.39`, GH
+issue #37 §H).
+
+Completes the [`crate::primitives`] set with the primitives Blender's *Add
+Mesh* menu offers that were not yet covered:
+
+- [`plane`] — a single quad (Add Plane).
+- [`circle`] — an `n`-gon, optionally filled (Add Circle, fill = Nothing /
+  N-Gon).
+- [`cone`] — a cone or truncated cone (Add Cone, with `radius2`).
+- [`torus`] — a ring torus (Add Torus, major/minor radius + segments).
+- [`icosphere`] — a geodesic sphere by `subdivisions` of an icosahedron
+  (Add Ico Sphere).
+
+[`AddMeshOptions`] is the "redo panel" every add-operator shares: where to
+put the new geometry (`location`) and how to orient it (`rotation_euler`,
+XYZ radians). [`AddMeshOptions::place`] applies it to a freshly generated
+mesh.
+
+## Units
+
+All radius / size arguments are dimensionless model-space lengths, as in
+[`crate::primitives`]; angles are radians.
+
+```rust
+pub mod primitives_extra { /* ... */ }
+```
+
+### Types
+
+#### Struct `AddMeshOptions`
+
+The common "redo panel" settings shared by every *Add Mesh* operator:
+where the new geometry is placed and how it is oriented.
+
+```rust
+pub struct AddMeshOptions {
+    pub location: crate::math::Vec3,
+    pub rotation_euler: crate::math::Vec3,
+    pub scale: f64,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `location` | `crate::math::Vec3` | World-space location of the primitive's origin. |
+| `rotation_euler` | `crate::math::Vec3` | Orientation as intrinsic XYZ Euler angles, in radians, applied about<br>the primitive's own origin before translation. |
+| `scale` | `f64` | Uniform scale applied about the origin before rotation (`1.0` = none). |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn at(location: Vec3) -> Self { /* ... */ }
+  ```
+  Placement at `location` with no rotation and unit scale.
+
+- ```rust
+  pub fn place(self: &Self, mesh: &Mesh) -> Mesh { /* ... */ }
+  ```
+  Apply this placement (scale → rotate → translate) to `mesh`, returning
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Boilerplate**
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **ByRef**
+  - ```rust
+    fn by_ref(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> AddMeshOptions { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Default**
+  - ```rust
+    fn default() -> Self { /* ... */ }
+    ```
+
+- **DistributionExt**
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Imply**
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &AddMeshOptions) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+### Functions
+
+#### Function `plane`
+
+A single `size x size` quad in the `z = 0` plane, centred on the origin,
+wound CCW as seen from `+z`.
+
+Topology: **4** vertices, **4** edges, **1** face, `chi = 1` (a disc).
+
+```rust
+pub fn plane(size: f64) -> crate::mesh::Mesh { /* ... */ }
+```
+
+#### Function `circle`
+
+A regular `segments`-gon of `radius` in the `z = 0` plane, centred on the
+origin.
+
+With `fill = true` a single `segments`-sided N-gon face is added (`chi = 1`);
+with `fill = false` only the boundary ring of edges exists (a wire loop,
+`chi = 0`). `segments` is clamped to `>= 3`.
+
+```rust
+pub fn circle(segments: usize, radius: f64, fill: bool) -> crate::mesh::Mesh { /* ... */ }
+```
+
+#### Function `cone`
+
+A cone (or truncated cone) about the `z` axis, base at `z = -height/2`.
+
+`radius1` is the base radius, `radius2` the top radius (`0.0` → a true
+apex). `segments` (clamped `>= 3`) sides. Base and top are filled with
+N-gon caps (the top cap is omitted when `radius2 == 0`). Closed genus-0,
+`chi = 2`.
+
+```rust
+pub fn cone(segments: usize, radius1: f64, radius2: f64, height: f64) -> crate::mesh::Mesh { /* ... */ }
+```
+
+#### Function `torus`
+
+A ring torus about the `z` axis: a tube of `minor_radius` whose centreline
+is a circle of `major_radius` in the `z = 0` plane.
+
+`major_segments` around the main ring, `minor_segments` around the tube
+(each clamped `>= 3`). All quads, closed, genus-1 → `chi = 0`.
+
+```rust
+pub fn torus(major_segments: usize, minor_segments: usize, major_radius: f64, minor_radius: f64) -> crate::mesh::Mesh { /* ... */ }
+```
+
+#### Function `icosphere`
+
+A geodesic sphere of `radius`: an icosahedron subdivided `subdivisions`
+times, each new vertex pushed back onto the sphere.
+
+`subdivisions` is clamped to `0..=5` (a level-5 icosphere is 20480 faces).
+All triangles, closed genus-0 → `chi = 2`.
+
+```rust
+pub fn icosphere(subdivisions: usize, radius: f64) -> crate::mesh::Mesh { /* ... */ }
 ```
 
 ## Module `procedural`
@@ -8581,6 +33090,7 @@ Fields:
 
 - **Read**
 - **RefUnwindSafe**
+- **Same**
 - **Send**
 - **Sync**
 - **ToString**
@@ -8686,10 +33196,6 @@ pub struct NodeId(pub usize);
     fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
     ```
 
-  - ```rust
-    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
-    ```
-
 - **Freeze**
 - **From**
   - ```rust
@@ -8734,6 +33240,7 @@ pub struct NodeId(pub usize);
 
 - **Read**
 - **RefUnwindSafe**
+- **Same**
 - **Send**
 - **StructuralPartialEq**
 - **Sync**
@@ -8921,6 +33428,7 @@ Fields:
 
 - **Read**
 - **RefUnwindSafe**
+- **Same**
 - **Send**
 - **StructuralPartialEq**
 - **Sync**
@@ -9146,6 +33654,7 @@ Fields:
 
 - **Read**
 - **RefUnwindSafe**
+- **Same**
 - **Send**
 - **Sync**
 - **ToOwned**
@@ -9320,6 +33829,7 @@ pub struct GeometryGraph {
 
 - **Read**
 - **RefUnwindSafe**
+- **Same**
 - **Send**
 - **Sync**
 - **ToOwned**
@@ -9365,7 +33875,8 @@ Domain generators that compose the crate's primitive / [`revolve`](crate::revolv
 / boolean operators into whole-reactor **surfaces**, ready to hand to the
 solver bridges: the volume-meshing bridge ([`crate::foam_mesh`], feature
 `foam-mesh`, for CFD / thermal-hydraulics) and the Monte-Carlo bridge
-([`crate::sim`], feature `mc-export`, for neutronics). Nothing here meshes or
+(~~`crate::sim`, feature `mc-export`~~ `nee_soon::sim` since 2026-10-02,
+GitHub #486, for neutronics). Nothing here meshes or
 simulates — it only *authors* a closed, watertight, outward-wound
 [`Mesh`](crate::mesh::Mesh) that those bridges then consume.
 
@@ -9534,6 +34045,7 @@ pub struct Htr10Conus {
 
 - **Read**
 - **RefUnwindSafe**
+- **Same**
 - **Send**
 - **StructuralPartialEq**
 - **Sync**
@@ -9705,6 +34217,7 @@ pub struct Htr10CoreDimensions {
 
 - **Read**
 - **RefUnwindSafe**
+- **Same**
 - **Send**
 - **StructuralPartialEq**
 - **Sync**
@@ -9797,6 +34310,233 @@ cylinder (see [`tests`]).
 pub const DEFAULT_SEGMENTS: usize = 48;
 ```
 
+## Module `proportional`
+
+**Proportional editing** (`op-hzs.54.20`, GH issue #37 §C) — spread a set of
+explicit vertex displacements to nearby vertices by a falloff curve.
+
+[`proportional_move`] takes the vertices the caller is "grabbing" with their
+target displacements, a `radius`, a [`Falloff`], and `connected_only` (use
+topological distance along edges instead of straight-line distance). Each
+other vertex within `radius` of a grabbed vertex moves by
+`falloff(dist / radius) · displacement_of_nearest_grabbed`.
+
+```rust
+pub mod proportional { /* ... */ }
+```
+
+### Types
+
+#### Enum `Falloff`
+
+Blender's proportional-edit falloff curves. `t` is `distance / radius` in
+`[0, 1]`; each returns a weight in `[0, 1]` that is `1` at `t = 0`.
+
+```rust
+pub enum Falloff {
+    Smooth,
+    Sphere,
+    Root,
+    InverseSquare,
+    Sharp,
+    Linear,
+    Constant,
+    Random,
+}
+```
+
+##### Variants
+
+###### `Smooth`
+
+`2t³ − 3t² + 1` (the default smoothstep).
+
+###### `Sphere`
+
+`√(1 − t²)` — a quarter circle, `1` at the centre.
+
+###### `Root`
+
+`√(1 − t)`.
+
+###### `InverseSquare`
+
+`(1 − t)²`.
+
+###### `Sharp`
+
+`t² − 2t + 1` … actually the sharp curve `(1 − t)² `? Blender's Sharp is
+`(1 − t)²` with a steeper toe — implemented as `((1 − t))³`.
+
+###### `Linear`
+
+`1 − t`.
+
+###### `Constant`
+
+`1` for all `t < 1` (a hard cutoff).
+
+###### `Random`
+
+`1 − t` scaled by a per-vertex random value (see
+[`proportional_move`]'s `seed`).
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn weight(self: Self, t: f64) -> f64 { /* ... */ }
+  ```
+  The weight for a normalised distance `t` (clamped to `[0, 1]`).
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Boilerplate**
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **ByRef**
+  - ```rust
+    fn by_ref(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Falloff { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **DistributionExt**
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Imply**
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Falloff) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+### Functions
+
+#### Function `proportional_move`
+
+Apply the explicit displacements in `grabbed` and spread them to nearby
+vertices per `falloff` within `radius`. `connected_only` measures distance
+along mesh edges (Dijkstra); otherwise straight-line. `seed` is used only
+by [`Falloff::Random`].
+
+```rust
+pub fn proportional_move(mesh: &crate::mesh::Mesh, grabbed: &[(crate::mesh::VertexId, crate::math::Vec3)], radius: f64, falloff: Falloff, connected_only: bool, seed: u64) -> crate::mesh::Mesh { /* ... */ }
+```
+
 ## Module `recalc_normals`
 
 Recalculate normals — make a mesh's face winding globally consistent and
@@ -9867,6 +34607,284 @@ assert_eq!(fixed.euler_characteristic(), 2);
 
 ```rust
 pub fn recalculate_normals(mesh: &crate::mesh::Mesh) -> crate::mesh::Mesh { /* ... */ }
+```
+
+## Module `rip_split`
+
+**Rip / Split / Separate** (`op-hzs.54.12`, GH issue #37 §B).
+
+- [`split_faces`] — disconnect the selected faces from the rest along their
+  shared boundary (each shared vertex is duplicated), leaving one mesh with
+  two islands that no longer share topology. Blender's `Y`.
+- [`separate_selection`] — remove the selected faces from the mesh and
+  return them as a **second** mesh. Blender's `P ▸ Selection`.
+- [`separate_loose_parts`] — one mesh per connected component. Blender's
+  `P ▸ By Loose Parts`.
+- [`separate_by_group`] — one mesh per value of a caller-supplied
+  per-face key (stands in for `P ▸ By Material` until material layers land
+  in `op-hzs.54.28`).
+- [`rip_edges`] — duplicate the vertices of the given interior edges and
+  hand one side's faces the copies, tearing a slit. A minimal headless
+  Rip; Rip Fill (capping the slit) composes it with
+  [`crate::fill_holes`].
+
+```rust
+pub mod rip_split { /* ... */ }
+```
+
+### Functions
+
+#### Function `split_faces`
+
+Disconnect the selected faces from the unselected ones: every vertex shared
+by both groups is duplicated so the two groups no longer share it. Returns
+one mesh with two now-independent islands (positions unchanged).
+
+```rust
+pub fn split_faces(mesh: &crate::mesh::Mesh, faces: &[crate::mesh::FaceId]) -> crate::mesh::Mesh { /* ... */ }
+```
+
+#### Function `separate_selection`
+
+Remove the selected faces from `mesh` and return `(remaining, separated)`.
+Each result is compacted to only its own vertices.
+
+```rust
+pub fn separate_selection(mesh: &crate::mesh::Mesh, faces: &[crate::mesh::FaceId]) -> (crate::mesh::Mesh, crate::mesh::Mesh) { /* ... */ }
+```
+
+#### Function `separate_loose_parts`
+
+Split `mesh` into one mesh per connected component (by shared edge).
+
+```rust
+pub fn separate_loose_parts(mesh: &crate::mesh::Mesh) -> Vec<crate::mesh::Mesh> { /* ... */ }
+```
+
+#### Function `separate_by_group`
+
+Split `mesh` into one mesh per distinct value of `group(face)` — a
+stand-in for *Separate by Material*. Returns `(key, mesh)` sorted by key.
+
+```rust
+pub fn separate_by_group</* synthetic */ impl Fn(FaceId) -> usize: Fn(crate::mesh::FaceId) -> usize>(mesh: &crate::mesh::Mesh, group: impl Fn(crate::mesh::FaceId) -> usize) -> Vec<(usize, crate::mesh::Mesh)> { /* ... */ }
+```
+
+#### Function `rip_edges`
+
+Tear a slit along `edges`: each edge's vertices are duplicated and the faces
+on **one** side of the edge (the second incident face, by id) get the
+copies. An interior edge becomes an open slit; pair with
+[`crate::fill_holes`] for Rip Fill.
+
+```rust
+pub fn rip_edges(mesh: &crate::mesh::Mesh, edges: &[crate::mesh::EdgeId]) -> crate::mesh::Mesh { /* ... */ }
+```
+
+## Module `remesh`
+
+**Voxel remesh + Mesh ↔ Volume** (`op-hzs.54.30`, GH issue #37 §F).
+
+- [`VoxelGrid`] — a dense occupancy grid (one `bool` per cell).
+- [`mesh_to_volume`] — rasterise a **closed** mesh: a cell is occupied if
+  its centre is inside (ray-parity test). Blender's *Mesh to Volume*.
+- [`volume_to_mesh`] — emit a quad for every occupied-cell face that borders
+  an empty cell, giving a watertight blocky surface. Blender's *Volume to
+  Mesh*.
+- [`voxel_remesh`] — [`mesh_to_volume`] → [`volume_to_mesh`] →
+  `smooth_iters` Laplacian passes. Blender's voxel Remesh (blocks mode at
+  `smooth_iters = 0`, voxel/smooth otherwise).
+
+```rust
+pub mod remesh { /* ... */ }
+```
+
+### Types
+
+#### Struct `VoxelGrid`
+
+A dense voxel occupancy grid.
+
+```rust
+pub struct VoxelGrid {
+    pub origin: crate::math::Vec3,
+    pub cell: f64,
+    pub dims: [usize; 3],
+    pub occ: Vec<bool>,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `origin` | `crate::math::Vec3` | World position of the centre of cell `(0, 0, 0)`. |
+| `cell` | `f64` | Edge length of a cell. |
+| `dims` | `[usize; 3]` | Grid resolution `[nx, ny, nz]`. |
+| `occ` | `Vec<bool>` | `occ[x + nx*(y + ny*z)]` — whether that cell is inside the volume. |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn get(self: &Self, x: i64, y: i64, z: i64) -> bool { /* ... */ }
+  ```
+  Whether cell `(x, y, z)` is occupied (`false` for out-of-range).
+
+- ```rust
+  pub fn cell_center(self: &Self, x: usize, y: usize, z: usize) -> Vec3 { /* ... */ }
+  ```
+  The world-space centre of cell `(x, y, z)`.
+
+- ```rust
+  pub fn occupied_count(self: &Self) -> usize { /* ... */ }
+  ```
+  Number of occupied cells.
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **ByRef**
+  - ```rust
+    fn by_ref(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> VoxelGrid { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **DistributionExt**
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Imply**
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+### Functions
+
+#### Function `mesh_to_volume`
+
+Rasterise `mesh` (assumed closed and consistently wound) into a
+[`VoxelGrid`] of cell size `cell`. Adds one cell of padding on every side.
+
+```rust
+pub fn mesh_to_volume(mesh: &crate::mesh::Mesh, cell: f64) -> VoxelGrid { /* ... */ }
+```
+
+#### Function `volume_to_mesh`
+
+Emit a watertight blocky surface: one outward-facing quad per occupied-cell
+face that borders an empty cell.
+
+```rust
+pub fn volume_to_mesh(grid: &VoxelGrid) -> crate::mesh::Mesh { /* ... */ }
+```
+
+#### Function `voxel_remesh`
+
+Voxel remesh: rasterise, re-surface, then `smooth_iters` Laplacian passes
+(`0` = the blocky result).
+
+```rust
+pub fn voxel_remesh(mesh: &crate::mesh::Mesh, cell: f64, smooth_iters: u32) -> crate::mesh::Mesh { /* ... */ }
 ```
 
 ## Module `revolve`
@@ -9940,6 +34958,2805 @@ assert_eq!(fill_holes(&tube).euler_characteristic(), 2);
 pub fn revolve(profile: &[crate::math::Vec3], axis_point: crate::math::Vec3, axis_dir: crate::math::Vec3, segments: usize, angle: f64) -> crate::mesh::Mesh { /* ... */ }
 ```
 
+## Module `selection`
+
+Topological **element selection** — the state every Edit-Mode operator reads.
+
+Blender analogue: `editors/mesh/editmesh_select.cc` plus the `BM_select_*` /
+`BM_elem_flag` API. In Blender selection is a per-element flag on the mesh;
+here it is a separate [`Selection`] value holding three sorted index sets
+(selected vertices, edges, faces) and the current [`SelectMode`]. Keeping it
+out of [`crate::mesh::Mesh`] means a mesh stays a pure geometry container and
+an operator takes `(&Mesh, &Selection)` explicitly.
+
+# What this module provides (GH issue #37 §A — `op-hzs.54.1`)
+
+- **Select modes** — [`SelectMode::Vertex`] / [`SelectMode::Edge`] /
+  [`SelectMode::Face`], with [`Selection::set_mode`] doing Blender's
+  *selection flush*: switching to a coarser domain keeps only fully-selected
+  elements, switching to a finer domain selects every sub-element.
+- **Whole-mesh ops** — [`Selection::select_all`], [`Selection::deselect_all`],
+  [`Selection::invert`].
+- **Single element** — [`Selection::select`], [`Selection::deselect`],
+  [`Selection::toggle`], [`Selection::is_selected`] over an [`Element`].
+- **Region select** — [`Selection::select_in_box`],
+  [`Selection::select_in_sphere`] (headless, model-space) and
+  [`Selection::select_in_screen_polygon`] (the box / circle / lasso tools —
+  the caller supplies the projection, so any orthographic or perspective
+  camera works). Each takes a [`RegionMode`] deciding whether an edge/face
+  needs *all* or just *any* of its vertices inside.
+- **Select linked** — [`Selection::select_linked`] (grow to whole connected
+  components) and [`Selection::select_linked_from`] (pick one component from
+  a seed, Blender's `L`). Delimiters (seam / sharp / material) arrive with
+  the per-edge attribute layers in `op-hzs.54.28`.
+- **Select mirror** — [`Selection::select_mirror`]: for each selected element
+  also select its mirror image across an [`Axis`] plane through the origin,
+  matched by position within a tolerance.
+- **Set algebra** — [`Selection::union`], [`Selection::subtract`],
+  [`Selection::intersect`], [`Selection::retain`] compose the primitives
+  above into Blender's extend / subtract / intersect box-select modes
+  without widening the per-operator API.
+- **Loop / ring** (`op-hzs.54.2`) — [`Selection::select_edge_loop`],
+  [`Selection::select_edge_ring`], [`Selection::select_face_loop`],
+  [`Selection::select_boundary_loop`], [`Selection::select_shortest_path`],
+  over [`crate::topology`]'s adjacency walkers.
+- **Grow / shrink / similar / nth** (`op-hzs.54.3`) —
+  [`Selection::select_more`], [`Selection::select_less`],
+  [`Selection::select_similar`] ([`SimilarTrait`]),
+  [`Selection::checker_deselect`].
+- **By trait** (`op-hzs.54.4`) — [`Selection::select_non_manifold`]
+  ([`NonManifoldKinds`]), [`Selection::select_loose`],
+  [`Selection::select_interior_faces`],
+  [`Selection::select_faces_by_sides`] ([`NumberCompare`]). "Ungrouped
+  vertices" waits on vertex groups in `op-hzs.54.28`.
+
+```rust
+pub mod selection { /* ... */ }
+```
+
+### Types
+
+#### Enum `SelectMode`
+
+Which element domain selection operations act on (Blender's Edit-Mode
+vertex / edge / face select-mode buttons).
+
+The active mode decides what [`Selection::select_all`],
+[`Selection::invert`], and the region-select operators add, and what a bare
+[`Element`] is expected to be. [`Selection::set_mode`] converts an existing
+selection when the mode changes.
+
+```rust
+pub enum SelectMode {
+    Vertex,
+    Edge,
+    Face,
+}
+```
+
+##### Variants
+
+###### `Vertex`
+
+Individual vertices.
+
+###### `Edge`
+
+Whole edges (both endpoints).
+
+###### `Face`
+
+Whole faces (every corner).
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Boilerplate**
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **ByRef**
+  - ```rust
+    fn by_ref(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> SelectMode { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **DistributionExt**
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Hash**
+  - ```rust
+    fn hash<__H: $crate::hash::Hasher>(self: &Self, state: &mut __H) { /* ... */ }
+    ```
+
+- **Imply**
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &SelectMode) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Enum `Element`
+
+One addressable mesh element, tagged by domain — the unit
+[`Selection::select`] / [`Selection::deselect`] / [`Selection::toggle`] /
+[`Selection::is_selected`] operate on.
+
+```rust
+pub enum Element {
+    Vertex(crate::mesh::VertexId),
+    Edge(crate::mesh::EdgeId),
+    Face(crate::mesh::FaceId),
+}
+```
+
+##### Variants
+
+###### `Vertex`
+
+A vertex by id.
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `crate::mesh::VertexId` |  |
+
+###### `Edge`
+
+An edge by id.
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `crate::mesh::EdgeId` |  |
+
+###### `Face`
+
+A face by id.
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `crate::mesh::FaceId` |  |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Boilerplate**
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **ByRef**
+  - ```rust
+    fn by_ref(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Element { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **DistributionExt**
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Hash**
+  - ```rust
+    fn hash<__H: $crate::hash::Hasher>(self: &Self, state: &mut __H) { /* ... */ }
+    ```
+
+- **Imply**
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Element) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Enum `Axis`
+
+A coordinate axis — names the reflection plane for [`Selection::select_mirror`]
+(the plane through the origin **orthogonal** to this axis).
+
+```rust
+pub enum Axis {
+    X,
+    Y,
+    Z,
+}
+```
+
+##### Variants
+
+###### `X`
+
+The Y-Z plane (mirror negates X).
+
+###### `Y`
+
+The X-Z plane (mirror negates Y).
+
+###### `Z`
+
+The X-Y plane (mirror negates Z).
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Boilerplate**
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **ByRef**
+  - ```rust
+    fn by_ref(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Axis { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **DistributionExt**
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Hash**
+  - ```rust
+    fn hash<__H: $crate::hash::Hasher>(self: &Self, state: &mut __H) { /* ... */ }
+    ```
+
+- **Imply**
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Axis) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Enum `RegionMode`
+
+Whether a multi-vertex element (edge or face) is caught by a region when
+only *some* of its vertices lie inside.
+
+Matches the two useful Blender box-select behaviours. Ignored when the
+active [`SelectMode`] is [`SelectMode::Vertex`] (a vertex is simply in or
+out).
+
+```rust
+pub enum RegionMode {
+    Touching,
+    Enclosed,
+}
+```
+
+##### Variants
+
+###### `Touching`
+
+Select the element if **any** vertex is inside the region (Blender's
+default — you can lasso part of a face).
+
+###### `Enclosed`
+
+Select the element only if **all** its vertices are inside the region
+(a strict "fully enclosed" box select).
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Boilerplate**
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **ByRef**
+  - ```rust
+    fn by_ref(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> RegionMode { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **DistributionExt**
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Hash**
+  - ```rust
+    fn hash<__H: $crate::hash::Hasher>(self: &Self, state: &mut __H) { /* ... */ }
+    ```
+
+- **Imply**
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &RegionMode) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Enum `SimilarTrait`
+
+A trait that [`Selection::select_similar`] matches on (Blender's
+`Select ▸ Select Similar`, `Shift+G`). Each variant is meaningful in one
+[`SelectMode`]; calling it in the wrong mode is a no-op.
+
+Attribute-backed traits (material, crease, bevel weight, seam, sharp, vertex
+groups) arrive with the per-element attribute layers in `op-hzs.54.28`.
+
+```rust
+pub enum SimilarTrait {
+    VertexValence,
+    EdgeLength,
+    EdgeDirection,
+    EdgeFaceCount,
+    FaceArea,
+    FaceSides,
+    FacePerimeter,
+    FaceNormal,
+    FaceCoplanar,
+}
+```
+
+##### Variants
+
+###### `VertexValence`
+
+**Vertex** — number of connecting edges (valence). Exact match;
+threshold ignored.
+
+###### `EdgeLength`
+
+**Edge** — length. `threshold` is a relative tolerance
+(`|a - ref| <= threshold * max(|ref|, eps)`).
+
+###### `EdgeDirection`
+
+**Edge** — direction (undirected). `threshold` is the angle tolerance
+in radians.
+
+###### `EdgeFaceCount`
+
+**Edge** — number of incident faces (1 = boundary, 2 = manifold).
+Exact match; threshold ignored.
+
+###### `FaceArea`
+
+**Face** — area. `threshold` is a relative tolerance.
+
+###### `FaceSides`
+
+**Face** — number of sides. Exact match; threshold ignored.
+
+###### `FacePerimeter`
+
+**Face** — perimeter. `threshold` is a relative tolerance.
+
+###### `FaceNormal`
+
+**Face** — normal direction. `threshold` is the angle tolerance in
+radians.
+
+###### `FaceCoplanar`
+
+**Face** — coplanar with a selected face: normals parallel within
+~0.5° **and** plane offset equal within `threshold` (absolute, model
+units).
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Boilerplate**
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **ByRef**
+  - ```rust
+    fn by_ref(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> SimilarTrait { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **DistributionExt**
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Hash**
+  - ```rust
+    fn hash<__H: $crate::hash::Hasher>(self: &Self, state: &mut __H) { /* ... */ }
+    ```
+
+- **Imply**
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &SimilarTrait) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Struct `NonManifoldKinds`
+
+Which non-manifold conditions [`Selection::select_non_manifold`] catches
+(Blender's `Select ▸ All by Trait ▸ Non Manifold` checkboxes). All default
+on via [`NonManifoldKinds::all`].
+
+```rust
+pub struct NonManifoldKinds {
+    pub wire: bool,
+    pub boundary: bool,
+    pub multiple_faces: bool,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `wire` | `bool` | Wire edges — edges with **no** incident face. |
+| `boundary` | `bool` | Boundary edges — edges with **one** incident face (an open border). |
+| `multiple_faces` | `bool` | Edges shared by **three or more** faces. |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn all() -> Self { /* ... */ }
+  ```
+  Every condition enabled.
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Boilerplate**
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **ByRef**
+  - ```rust
+    fn by_ref(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> NonManifoldKinds { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Default**
+  - ```rust
+    fn default() -> Self { /* ... */ }
+    ```
+
+- **DistributionExt**
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Hash**
+  - ```rust
+    fn hash<__H: $crate::hash::Hasher>(self: &Self, state: &mut __H) { /* ... */ }
+    ```
+
+- **Imply**
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &NonManifoldKinds) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Enum `NumberCompare`
+
+How [`Selection::select_faces_by_sides`] compares a face's side count to the
+target (Blender's `Select ▸ All by Trait ▸ Faces by Sides` "Type" dropdown).
+
+```rust
+pub enum NumberCompare {
+    Equal,
+    NotEqual,
+    Less,
+    Greater,
+}
+```
+
+##### Variants
+
+###### `Equal`
+
+Side count `== n`.
+
+###### `NotEqual`
+
+Side count `!= n`.
+
+###### `Less`
+
+Side count `< n`.
+
+###### `Greater`
+
+Side count `> n`.
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Boilerplate**
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **ByRef**
+  - ```rust
+    fn by_ref(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> NumberCompare { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **DistributionExt**
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Hash**
+  - ```rust
+    fn hash<__H: $crate::hash::Hasher>(self: &Self, state: &mut __H) { /* ... */ }
+    ```
+
+- **Imply**
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &NumberCompare) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Struct `Selection`
+
+The set of currently-selected mesh elements plus the active [`SelectMode`].
+
+Three sorted sets (vertices, edges, faces) are kept at all times; the active
+mode is a *view* onto them, not a restriction — the region operators write
+into the set matching the current mode, and [`Selection::set_mode`] rewrites
+the sets so they stay mutually consistent (Blender's selection flush).
+
+A `Selection` holds only indices, so it is `Clone` and carries no borrow of
+the mesh it describes; pair it with the `&Mesh` explicitly at each call.
+Indices are **not** validated against a mesh on construction — an operator
+that mutates topology invalidates a `Selection` exactly as it would a raw
+index, and should rebuild or remap it.
+
+```rust
+pub struct Selection {
+    // Some fields omitted
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| *private fields* | ... | *Some fields have been omitted* |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn new(mode: SelectMode) -> Self { /* ... */ }
+  ```
+  An empty selection in `mode`.
+
+- ```rust
+  pub fn all(mesh: &Mesh, mode: SelectMode) -> Self { /* ... */ }
+  ```
+  Everything in `mesh` selected, in `mode` (and every domain flushed to
+
+- ```rust
+  pub fn mode(self: &Self) -> SelectMode { /* ... */ }
+  ```
+  The active select mode.
+
+- ```rust
+  pub fn selected_vertices(self: &Self) -> impl Iterator<Item = VertexId> + ''_ { /* ... */ }
+  ```
+  Currently-selected vertices, ascending by id.
+
+- ```rust
+  pub fn selected_edges(self: &Self) -> impl Iterator<Item = EdgeId> + ''_ { /* ... */ }
+  ```
+  Currently-selected edges, ascending by id.
+
+- ```rust
+  pub fn selected_faces(self: &Self) -> impl Iterator<Item = FaceId> + ''_ { /* ... */ }
+  ```
+  Currently-selected faces, ascending by id.
+
+- ```rust
+  pub fn vertex_count(self: &Self) -> usize { /* ... */ }
+  ```
+  Number of selected vertices.
+
+- ```rust
+  pub fn edge_count(self: &Self) -> usize { /* ... */ }
+  ```
+  Number of selected edges.
+
+- ```rust
+  pub fn face_count(self: &Self) -> usize { /* ... */ }
+  ```
+  Number of selected faces.
+
+- ```rust
+  pub fn is_empty(self: &Self) -> bool { /* ... */ }
+  ```
+  `true` when no vertex, edge, or face is selected.
+
+- ```rust
+  pub fn is_selected(self: &Self, e: Element) -> bool { /* ... */ }
+  ```
+  Whether a specific element is selected (checks the set for its domain,
+
+- ```rust
+  pub fn select(self: &mut Self, mesh: &Mesh, e: Element) { /* ... */ }
+  ```
+  Select one element into the active mode's domain.
+
+- ```rust
+  pub fn deselect(self: &mut Self, mesh: &Mesh, e: Element) { /* ... */ }
+  ```
+  Deselect one element from the active mode's domain. Element-domain
+
+- ```rust
+  pub fn toggle(self: &mut Self, mesh: &Mesh, e: Element) { /* ... */ }
+  ```
+  Flip the selected state of one element.
+
+- ```rust
+  pub fn select_all(self: &mut Self, mesh: &Mesh) { /* ... */ }
+  ```
+  Select every element of `mesh` in the active mode (the other two domains
+
+- ```rust
+  pub fn deselect_all(self: &mut Self) { /* ... */ }
+  ```
+  Deselect everything (all three domains).
+
+- ```rust
+  pub fn invert(self: &mut Self, mesh: &Mesh) { /* ... */ }
+  ```
+  Invert the selection **in the active mode**: every element of that
+
+- ```rust
+  pub fn set_mode(self: &mut Self, mesh: &Mesh, mode: SelectMode) { /* ... */ }
+  ```
+  Change the active mode, rewriting the selection so the domains stay
+
+- ```rust
+  pub fn union(self: &mut Self, mesh: &Mesh, other: &Selection) { /* ... */ }
+  ```
+  Union another selection's active-domain set into this one, then re-sync.
+
+- ```rust
+  pub fn subtract(self: &mut Self, mesh: &Mesh, other: &Selection) { /* ... */ }
+  ```
+  Remove `other`'s active-domain elements from this selection, then
+
+- ```rust
+  pub fn intersect(self: &mut Self, mesh: &Mesh, other: &Selection) { /* ... */ }
+  ```
+  Keep only elements also present in `other`'s active-domain set, then
+
+- ```rust
+  pub fn retain</* synthetic */ impl FnMut(Element) -> bool: FnMut(Element) -> bool>(self: &mut Self, mesh: &Mesh, keep: impl FnMut(Element) -> bool) { /* ... */ }
+  ```
+  Keep only active-mode elements for which `keep` returns `true`, then
+
+- ```rust
+  pub fn select_in_box(self: &mut Self, mesh: &Mesh, min: Vec3, max: Vec3, region: RegionMode) { /* ... */ }
+  ```
+  Add to the selection every element of `mesh` inside the axis-aligned box
+
+- ```rust
+  pub fn select_in_sphere(self: &mut Self, mesh: &Mesh, center: Vec3, radius: f64, region: RegionMode) { /* ... */ }
+  ```
+  Add to the selection every element of `mesh` within `radius` of
+
+- ```rust
+  pub fn select_in_screen_polygon</* synthetic */ impl Fn(Vec3) -> [f64; 2]: Fn(Vec3) -> [f64; 2]>(self: &mut Self, mesh: &Mesh, project: impl Fn(Vec3) -> [f64; 2], polygon: &[[f64; 2]], region: RegionMode) { /* ... */ }
+  ```
+  Add to the selection every element of `mesh` whose projected position
+
+- ```rust
+  pub fn select_linked(self: &mut Self, mesh: &Mesh) { /* ... */ }
+  ```
+  Grow the selection so that every connected component containing at least
+
+- ```rust
+  pub fn select_linked_delimited(self: &mut Self, mesh: &Mesh, delimiters: &BTreeSet<EdgeId>) { /* ... */ }
+  ```
+  Like [`Selection::select_linked`] but the flood is over **face**
+
+- ```rust
+  pub fn select_linked_from(self: &mut Self, mesh: &Mesh, seed: Element) { /* ... */ }
+  ```
+  Select exactly the one connected component that contains `seed`
+
+- ```rust
+  pub fn select_edge_loop(self: &mut Self, mesh: &Mesh, seed: EdgeId) { /* ... */ }
+  ```
+  Select the **edge loop** through `seed` — Blender's `Alt`-click. In edge
+
+- ```rust
+  pub fn select_edge_ring(self: &mut Self, mesh: &Mesh, seed: EdgeId) { /* ... */ }
+  ```
+  Select the **edge ring** through `seed` — Blender's `Ctrl+Alt`-click.
+
+- ```rust
+  pub fn select_face_loop(self: &mut Self, mesh: &Mesh, seed: EdgeId) { /* ... */ }
+  ```
+  Select the **face loop** perpendicular to `seed` — the strip of quads
+
+- ```rust
+  pub fn select_boundary_loop(self: &mut Self, mesh: &Mesh, seed: EdgeId) { /* ... */ }
+  ```
+  Select the **boundary loop** that contains `seed` — the ring of open
+
+- ```rust
+  pub fn select_shortest_path(self: &mut Self, mesh: &Mesh, from: Element, to: Element) { /* ... */ }
+  ```
+  Select the **shortest path** between two elements (Blender's
+
+- ```rust
+  pub fn select_more(self: &mut Self, mesh: &Mesh) { /* ... */ }
+  ```
+  Grow the selection by one ring — add every element of the active domain
+
+- ```rust
+  pub fn select_less(self: &mut Self, mesh: &Mesh) { /* ... */ }
+  ```
+  Shrink the selection by one ring — remove every selected element of the
+
+- ```rust
+  pub fn select_similar(self: &mut Self, mesh: &Mesh, trait_: SimilarTrait, threshold: f64) { /* ... */ }
+  ```
+  Select every element of the active domain whose `trait_` value matches
+
+- ```rust
+  pub fn checker_deselect(self: &mut Self, mesh: &Mesh, selected: usize, deselected: usize, offset: usize) { /* ... */ }
+  ```
+  Thin out the selection to a regular pattern: over the selected elements
+
+- ```rust
+  pub fn select_non_manifold(self: &mut Self, mesh: &Mesh, kinds: NonManifoldKinds) { /* ... */ }
+  ```
+  Select the **non-manifold** geometry of `mesh` per `kinds` (Blender's
+
+- ```rust
+  pub fn select_loose(self: &mut Self, mesh: &Mesh) { /* ... */ }
+  ```
+  Select **loose geometry** — elements not connected to any face (Blender's
+
+- ```rust
+  pub fn select_interior_faces(self: &mut Self, mesh: &Mesh) { /* ... */ }
+  ```
+  Select **interior faces** — faces every edge of which is shared by three
+
+- ```rust
+  pub fn select_faces_by_sides(self: &mut Self, mesh: &Mesh, sides: usize, cmp: NumberCompare) { /* ... */ }
+  ```
+  Select faces whose side count compares to `sides` as `cmp` says
+
+- ```rust
+  pub fn select_mirror(self: &mut Self, mesh: &Mesh, axis: Axis, merge_dist: f64, extend: bool) { /* ... */ }
+  ```
+  For each currently-selected element, also select the element that is its
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **ByRef**
+  - ```rust
+    fn by_ref(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Selection { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **DistributionExt**
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Imply**
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Selection) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+## Module `slide`
+
+**Edge Slide** and **Vertex Slide** (`op-hzs.54.7`, GH issue #37 §B) — move
+the vertices of an edge loop, or a single vertex, along their adjacent
+**rail** edges. Topology is untouched; only positions change.
+
+- [`edge_slide`] takes a connected chain / loop of edges and a signed
+  `factor` in `[-1, 1]`. Each vertex on the chain has two rail edges (the
+  loop-perpendicular edges); `factor > 0` slides toward the rail on one
+  consistent side of the loop, `factor < 0` toward the other. `factor = ±1`
+  collapses the loop onto the neighbouring loop.
+- [`vertex_slide`] moves one vertex a fraction `factor` of the way along a
+  chosen incident edge toward its far end.
+
+The side used by [`edge_slide`] is fixed by propagating a "left face" along
+the ordered chain, so the whole loop slides coherently. A vertex without
+exactly two rails (a pole, a boundary end) is left where it is.
+
+```rust
+pub mod slide { /* ... */ }
+```
+
+### Functions
+
+#### Function `edge_slide`
+
+Slide the vertices of the edge chain `edges` along their rails by `factor`
+(clamped to `[-1, 1]`). Returns a new mesh with the same topology and moved
+positions. `edges` should be edge-connected (a loop or an open run); a
+disconnected set slides each component with its own side propagation.
+
+```rust
+pub fn edge_slide(mesh: &crate::mesh::Mesh, edges: &[crate::mesh::EdgeId], factor: f64) -> crate::mesh::Mesh { /* ... */ }
+```
+
+#### Function `vertex_slide`
+
+Move `vert` a fraction `factor` (clamped to `[0, 1]`) of the way along
+`along_edge` toward its far end. Returns a new mesh; topology unchanged.
+
+```rust
+pub fn vertex_slide(mesh: &crate::mesh::Mesh, vert: crate::mesh::VertexId, along_edge: crate::mesh::EdgeId, factor: f64) -> crate::mesh::Mesh { /* ... */ }
+```
+
+## Module `snap`
+
+**Snapping engine** (`op-hzs.54.24`, GH issue #37 §D — the precision/CAD
+core). Depends on [`crate::transform_input`].
+
+- [`SnapTarget`] — what to snap to: grid increment, vertex, edge midpoint,
+  nearest point on an edge, nearest point on a face.
+- [`SnapBase`] — which point of the moving selection is snapped: its
+  closest vertex to the target, its bounding-box centre, its median, or a
+  caller-nominated active vertex.
+- [`snap_point`] — the nearest snap target to a query point.
+- [`snap_translation`] — the delta that lands the base exactly on a target,
+  or the raw delta if nothing is within `max_dist`.
+- [`align_rotation_target`] — the surface normal at a face snap, so a caller
+  can also orient the moved geometry (Blender's *Align Rotation to Target*).
+
+```rust
+pub mod snap { /* ... */ }
+```
+
+### Types
+
+#### Enum `SnapTarget`
+
+What a snap locks onto.
+
+```rust
+pub enum SnapTarget {
+    Increment(f64),
+    Vertex,
+    EdgeMidpoint,
+    EdgeNearest,
+    FaceNearest,
+}
+```
+
+##### Variants
+
+###### `Increment`
+
+Round each coordinate to a multiple of the given step (absolute grid).
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `f64` |  |
+
+###### `Vertex`
+
+The nearest static vertex.
+
+###### `EdgeMidpoint`
+
+The nearest static edge's midpoint.
+
+###### `EdgeNearest`
+
+The nearest point lying on any static edge segment.
+
+###### `FaceNearest`
+
+The nearest point lying on any static face.
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Boilerplate**
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **ByRef**
+  - ```rust
+    fn by_ref(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> SnapTarget { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **DistributionExt**
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Imply**
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &SnapTarget) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Enum `SnapBase`
+
+Which point of the moving selection is aligned to the snap target.
+
+```rust
+pub enum SnapBase {
+    Closest,
+    Center,
+    Median,
+    Active(crate::mesh::VertexId),
+}
+```
+
+##### Variants
+
+###### `Closest`
+
+The moving vertex currently closest to the target.
+
+###### `Center`
+
+The centre of the moving selection's bounding box.
+
+###### `Median`
+
+The mean of the moving vertices.
+
+###### `Active`
+
+A caller-nominated vertex.
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `crate::mesh::VertexId` |  |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Boilerplate**
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **ByRef**
+  - ```rust
+    fn by_ref(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> SnapBase { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **DistributionExt**
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Imply**
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &SnapBase) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Struct `SnapHit`
+
+A found snap location.
+
+```rust
+pub struct SnapHit {
+    pub position: crate::math::Vec3,
+    pub element: Option<SnapElement>,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `position` | `crate::math::Vec3` | Where to snap to. |
+| `element` | `Option<SnapElement>` | The element the snap landed on (`None` for a grid snap). |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **ByRef**
+  - ```rust
+    fn by_ref(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> SnapHit { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **DistributionExt**
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Imply**
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Enum `SnapElement`
+
+Which mesh element a [`SnapHit`] is on.
+
+```rust
+pub enum SnapElement {
+    Vertex(crate::mesh::VertexId),
+    Edge(crate::mesh::EdgeId),
+    Face(crate::mesh::FaceId),
+}
+```
+
+##### Variants
+
+###### `Vertex`
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `crate::mesh::VertexId` |  |
+
+###### `Edge`
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `crate::mesh::EdgeId` |  |
+
+###### `Face`
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `crate::mesh::FaceId` |  |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Boilerplate**
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **ByRef**
+  - ```rust
+    fn by_ref(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> SnapElement { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **DistributionExt**
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Imply**
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &SnapElement) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+### Functions
+
+#### Function `snap_point`
+
+The nearest snap target to `query`. `exclude` vertices (and any element
+using only excluded vertices) are ignored — pass the moving selection to
+disable snap-onto-self. Returns `None` if nothing is within `max_dist`
+(grid snaps always succeed).
+
+```rust
+pub fn snap_point(mesh: &crate::mesh::Mesh, query: crate::math::Vec3, target: SnapTarget, max_dist: f64, exclude: &[crate::mesh::VertexId]) -> Option<SnapHit> { /* ... */ }
+```
+
+#### Function `snap_translation`
+
+The translation delta that snaps the [`SnapBase`] of `moving` (currently at
+its position `+ raw_delta`) onto the nearest [`SnapTarget`] of the static
+geometry. Falls back to `raw_delta` when nothing is within `max_dist`.
+
+```rust
+pub fn snap_translation(mesh: &crate::mesh::Mesh, moving: &[crate::mesh::VertexId], raw_delta: crate::math::Vec3, base: SnapBase, target: SnapTarget, max_dist: f64) -> crate::math::Vec3 { /* ... */ }
+```
+
+#### Function `align_rotation_target`
+
+The unit normal at a face snap (Blender's *Align Rotation to Target*), or
+`None` if the hit is not on a face.
+
+```rust
+pub fn align_rotation_target(mesh: &crate::mesh::Mesh, hit: &SnapHit) -> Option<crate::math::Vec3> { /* ... */ }
+```
+
+## Module `snap_line`
+
+**Snap Utilities Line** (`op-hzs.54.43`, GH issue #37 §I) — place a
+connected polyline with live snapping and numeric length/angle entry,
+expressed as a headless staged operator.
+
+- [`LineTool`] — the growing polyline. Add points [`LineTool::add_raw`],
+  [`LineTool::add_snapped`] (through the [`crate::snap`] engine), or
+  [`LineTool::add_polar`] / [`LineTool::add_constrained`] (numeric length
+  and/or angle relative to a [`crate::draw_tool::WorkPlane`]).
+- [`LineTool::undo`] / [`LineTool::close`].
+- [`LineTool::commit_wire`] — append the polyline to a mesh as an edge
+  wire.
+- [`LineTool::auto_cut_chords`] + [`crate::knife::knife`] — cut faces the
+  polyline crosses, for the tractable edge-to-edge-on-one-face case (the
+  general surface-walking projection is deferred, as it is upstream in
+  [`crate::knife`]).
+
+## Units
+
+Positions and lengths are dimensionless model-space quantities; angles are
+radians.
+
+```rust
+pub mod snap_line { /* ... */ }
+```
+
+### Types
+
+#### Struct `LinePoint`
+
+One placed point of the polyline.
+
+```rust
+pub struct LinePoint {
+    pub position: crate::math::Vec3,
+    pub on: Option<crate::snap::SnapElement>,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `position` | `crate::math::Vec3` | World position. |
+| `on` | `Option<crate::snap::SnapElement>` | The mesh element it snapped to, if any. |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Boilerplate**
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **ByRef**
+  - ```rust
+    fn by_ref(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> LinePoint { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **DistributionExt**
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Imply**
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &LinePoint) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Struct `LineTool`
+
+The connected-polyline drawing tool.
+
+```rust
+pub struct LineTool {
+    // Some fields omitted
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| *private fields* | ... | *Some fields have been omitted* |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn new() -> Self { /* ... */ }
+  ```
+  A fresh, empty tool.
+
+- ```rust
+  pub fn points(self: &Self) -> &[LinePoint] { /* ... */ }
+  ```
+  The points placed so far, in order.
+
+- ```rust
+  pub fn is_closed(self: &Self) -> bool { /* ... */ }
+  ```
+  Whether [`LineTool::close`] has joined the ends.
+
+- ```rust
+  pub fn add_raw(self: &mut Self, position: Vec3) { /* ... */ }
+  ```
+  Append a raw world point (no snap).
+
+- ```rust
+  pub fn add_snapped(self: &mut Self, mesh: &Mesh, cursor: Vec3, target: SnapTarget, max_dist: f64) { /* ... */ }
+  ```
+  Snap `cursor` to the nearest `target` of `mesh` within `max_dist`, and
+
+- ```rust
+  pub fn add_polar(self: &mut Self, plane: &WorkPlane, length: f64, angle: f64) { /* ... */ }
+  ```
+  Append a point at `length` from the previous point, in the direction of
+
+- ```rust
+  pub fn add_constrained(self: &mut Self, mesh: &Mesh, cursor: Vec3, target: SnapTarget, max_dist: f64, plane: &WorkPlane, length: Option<f64>, angle: Option<f64>) { /* ... */ }
+  ```
+  Snap `cursor` as [`LineTool::add_snapped`] would, then optionally
+
+- ```rust
+  pub fn undo(self: &mut Self) { /* ... */ }
+  ```
+  Remove the last placed point.
+
+- ```rust
+  pub fn close(self: &mut Self) { /* ... */ }
+  ```
+  Join the last point back to the first (cyclic polyline).
+
+- ```rust
+  pub fn segment_count(self: &Self) -> usize { /* ... */ }
+  ```
+  Segment count (`points - 1`, or `points` when closed).
+
+- ```rust
+  pub fn commit_wire(self: &Self, base: &Mesh) -> Mesh { /* ... */ }
+  ```
+  Append the polyline to `base` as an edge wire (degenerate sliver
+
+- ```rust
+  pub fn auto_cut_chords(self: &Self, mesh: &Mesh) -> Vec<Chord> { /* ... */ }
+  ```
+  Knife chords for segments whose *both* endpoints snapped onto edges of
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **ByRef**
+  - ```rust
+    fn by_ref(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> LineTool { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Default**
+  - ```rust
+    fn default() -> LineTool { /* ... */ }
+    ```
+
+- **DistributionExt**
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Imply**
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
 ## Module `solidify`
 
 Solidify — give a surface thickness by extruding it into a closed shell.
@@ -10007,6 +37824,46 @@ assert_eq!(slab.euler_characteristic(), 2);
 
 ```rust
 pub fn solidify(mesh: &crate::mesh::Mesh, thickness: f64) -> crate::mesh::Mesh { /* ... */ }
+```
+
+## Module `spin_screw`
+
+**Spin / Screw** (`op-hzs.54.22`, GH issue #37 §C).
+
+- [`spin`] — rotate-copy an ordered profile of vertices `steps` times over
+  `angle` about an axis through `center`, bridging consecutive copies into a
+  surface. `use_duplicates` places the copies without bridging.
+- [`screw`] — [`spin`] plus a translation of `screw_offset` along the axis
+  spread over the whole sweep, so `turns` revolutions trace a helix.
+
+For an explicit polyline (rather than a mesh selection) use
+[`crate::revolve`].
+
+```rust
+pub mod spin_screw { /* ... */ }
+```
+
+### Functions
+
+#### Function `spin`
+
+Rotate-copy `profile` (an ordered vertex chain) around the `axis` line
+through `center`, `steps` times over `angle` radians. When `!use_duplicates`
+the consecutive copies are bridged into quads. Returns the mesh with the new
+geometry appended.
+
+```rust
+pub fn spin(mesh: &crate::mesh::Mesh, profile: &[crate::mesh::VertexId], center: crate::math::Vec3, axis: crate::selection::Axis, angle: f64, steps: usize, use_duplicates: bool) -> crate::mesh::Mesh { /* ... */ }
+```
+
+#### Function `screw`
+
+[`spin`] with an axial translation: the profile advances `screw_offset`
+along the axis over `turns` full revolutions in `steps` steps, tracing a
+helix. Always bridged.
+
+```rust
+pub fn screw(mesh: &crate::mesh::Mesh, profile: &[crate::mesh::VertexId], center: crate::math::Vec3, axis: crate::selection::Axis, screw_offset: f64, turns: f64, steps: usize) -> crate::mesh::Mesh { /* ... */ }
 ```
 
 ## Module `stl`
@@ -10189,6 +38046,7 @@ Fields:
 
 - **Read**
 - **RefUnwindSafe**
+- **Same**
 - **Send**
 - **Sync**
 - **ToString**
@@ -10327,6 +38185,203 @@ Read an STL file from `path`, auto-detecting ASCII vs binary.
 pub fn read_stl(path: &std::path::Path) -> Result<crate::mesh::Mesh, StlError> { /* ... */ }
 ```
 
+## Module `subdivide`
+
+**Subdivide** and **Un-Subdivide** (`op-hzs.54.8`, GH issue #37 §B).
+
+[`subdivide`] cuts every face into `cuts + 1` pieces per side:
+
+- a **quad** becomes a `(cuts+1) × (cuts+1)` grid of quads;
+- a **triangle** becomes `(cuts+1)²` small triangles;
+- an **n-gon** is fanned from its centroid, then each fan triangle is cut.
+
+Edge points are shared between faces (deduplicated), so the result stays
+watertight. [`SubdivideOptions`] adds:
+
+- `smoothness` — blends new edge / interior points toward a Catmull-Clark-
+  style smoothed position (0 = linear, 1 = full pull);
+- `fractal` + `seed` — displaces each new vertex along the local face
+  normal by `fractal · (rand − ½) · edge_len`, deterministically from
+  `seed` (a small xorshift PRNG — no external crate, offline-reproducible).
+
+[`un_subdivide`] is the partial inverse: it dissolves every other vertex of
+a clean all-quad grid region, halving the resolution. It only acts where
+the topology is a regular quad grid; elsewhere it is a no-op (Blender's is
+similarly limited).
+
+```rust
+pub mod subdivide { /* ... */ }
+```
+
+### Types
+
+#### Struct `SubdivideOptions`
+
+Tuning for [`subdivide`].
+
+```rust
+pub struct SubdivideOptions {
+    pub cuts: usize,
+    pub smoothness: f64,
+    pub fractal: f64,
+    pub seed: u64,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `cuts` | `usize` | Number of cuts per edge (`>= 1`). `1` = a single midpoint split. |
+| `smoothness` | `f64` | Pull toward the smoothed surface, `0.0` (linear) … `1.0` (full). |
+| `fractal` | `f64` | Fractal displacement amplitude along the face normal (`0.0` = none). |
+| `seed` | `u64` | PRNG seed for the fractal displacement. |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **ByRef**
+  - ```rust
+    fn by_ref(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> SubdivideOptions { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Default**
+  - ```rust
+    fn default() -> Self { /* ... */ }
+    ```
+
+- **DistributionExt**
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Imply**
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+### Functions
+
+#### Function `subdivide`
+
+Subdivide every face of `mesh` per `opts`. `opts.cuts == 0` returns a clone.
+
+```rust
+pub fn subdivide(mesh: &crate::mesh::Mesh, opts: SubdivideOptions) -> crate::mesh::Mesh { /* ... */ }
+```
+
+#### Function `un_subdivide`
+
+Dissolve alternate rows/columns of a clean all-quad grid region, halving its
+resolution. A no-op where the topology is not a regular quad grid.
+
+`iterations` repeats the halving. Returns a new mesh.
+
+```rust
+pub fn un_subdivide(mesh: &crate::mesh::Mesh, iterations: u32) -> crate::mesh::Mesh { /* ... */ }
+```
+
 ## Module `subdivision`
 
 Catmull-Clark subdivision surface via **local stencils** (no global solve).
@@ -10419,6 +38474,845 @@ characteristic. The output is always an all-quad mesh.
 
 ```rust
 pub fn catmull_clark(mesh: &crate::mesh::Mesh, levels: u32) -> crate::mesh::Mesh { /* ... */ }
+```
+
+## Module `symmetry`
+
+**Mesh symmetry** (`op-hzs.54.21`, GH issue #37 §C).
+
+- [`symmetrize`] — keep one half of the mesh (the `keep_positive` side of
+  the [`Axis`] plane through the origin), mirror it onto the other half, and
+  weld the seam. Blender's `Mesh ▸ Symmetrize`.
+- [`snap_to_symmetry`] — move every vertex to the average of its own
+  position and its mirror partner's, so the mesh becomes exactly symmetric
+  without changing topology. Blender's `Mesh ▸ Snap to Symmetry`.
+- [`mirror_selection`] — the mirror-image vertices of a selection (the
+  position-matched partners), for live / topology mirror editing.
+
+```rust
+pub mod symmetry { /* ... */ }
+```
+
+### Functions
+
+#### Function `symmetrize`
+
+Symmetrize `mesh` across the [`Axis`] plane through the origin. Keeps the
+side where `axis · p >= 0` when `keep_positive`, else the `<= 0` side;
+mirrors it onto the other side and welds vertices within `merge_threshold`
+of the plane (and of each other on the seam).
+
+```rust
+pub fn symmetrize(mesh: &crate::mesh::Mesh, axis: Axis, keep_positive: bool, merge_threshold: f64) -> crate::mesh::Mesh { /* ... */ }
+```
+
+#### Function `snap_to_symmetry`
+
+Make `mesh` exactly symmetric about the [`Axis`] plane without changing
+topology: each vertex moves to the average of its position and the
+position of the vertex nearest its mirror image (within `match_threshold`).
+Unmatched vertices near the plane are snapped onto it.
+
+```rust
+pub fn snap_to_symmetry(mesh: &crate::mesh::Mesh, axis: Axis, match_threshold: f64) -> crate::mesh::Mesh { /* ... */ }
+```
+
+#### Function `mirror_selection`
+
+The mirror-image vertices of `verts` across the [`Axis`] plane, matched by
+position within `tolerance`. Unmatched inputs are dropped.
+
+```rust
+pub fn mirror_selection(mesh: &crate::mesh::Mesh, verts: &[crate::mesh::VertexId], axis: Axis, tolerance: f64) -> Vec<crate::mesh::VertexId> { /* ... */ }
+```
+
+### Re-exports
+
+#### Re-export `Axis`
+
+```rust
+pub use crate::selection::Axis;
+```
+
+## Module `text`
+
+**Text → geometry** (`op-hzs.54.38`, GH issue #37 §G) — lay glyph outlines
+on a baseline, then fill / extrude / bevel them like a 2-D curve.
+
+A [`Font`] maps a `char` to a [`Glyph`] (a list of closed `[x, y]` contours
+on a `[0, 1]` em square, plus an advance width). [`Font::builtin_stroke`]
+is a compact block font covering `A–Z`, `0–9`, space, `-` and `.` — enough
+to letter parts and labels; supply your own [`Font`] for anything else.
+
+- [`text_to_contours`] — the positioned, sized 2-D outlines.
+- [`text_to_mesh`] — the outlines filled and, if `extrude > 0`, thickened
+  into a solid with beveled front/back edges.
+
+```rust
+pub mod text { /* ... */ }
+```
+
+### Types
+
+#### Struct `Glyph`
+
+One glyph: closed contours on the `[0, 1]` em square, plus its advance.
+
+```rust
+pub struct Glyph {
+    pub contours: Vec<Vec<[f64; 2]>>,
+    pub advance: f64,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `contours` | `Vec<Vec<[f64; 2]>>` | Closed polylines (the last point joins the first). |
+| `advance` | `f64` | How far the pen advances after this glyph, in em units. |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **ByRef**
+  - ```rust
+    fn by_ref(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Glyph { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **DistributionExt**
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Imply**
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Struct `Font`
+
+A minimal font: `char` → [`Glyph`].
+
+```rust
+pub struct Font {
+    pub glyphs: std::collections::HashMap<char, Glyph>,
+    pub default_advance: f64,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `glyphs` | `std::collections::HashMap<char, Glyph>` | Glyph table. |
+| `default_advance` | `f64` | Advance for a `char` with no glyph (used for the space). |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn glyph(self: &Self, c: char) -> Option<&Glyph> { /* ... */ }
+  ```
+  Look up a glyph, falling back to `None` (the caller draws nothing but
+
+- ```rust
+  pub fn builtin_stroke() -> Self { /* ... */ }
+  ```
+  A compact block stroke font — `A–Z`, `0–9`, space, `-`, `.` — each an
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **ByRef**
+  - ```rust
+    fn by_ref(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Font { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Default**
+  - ```rust
+    fn default() -> Font { /* ... */ }
+    ```
+
+- **DistributionExt**
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Imply**
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Struct `TextGeometry`
+
+Options for [`text_to_mesh`].
+
+```rust
+pub struct TextGeometry {
+    pub size: f64,
+    pub tracking: f64,
+    pub extrude: f64,
+    pub bevel: f64,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `size` | `f64` | Cap height (em → world scale). |
+| `tracking` | `f64` | Extra advance between glyphs, in `size` units. |
+| `extrude` | `f64` | Extrude depth along `+z` (`0` = a flat filled outline). |
+| `bevel` | `f64` | Chamfer on the front/back edges (`0` = none). |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **ByRef**
+  - ```rust
+    fn by_ref(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> TextGeometry { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Default**
+  - ```rust
+    fn default() -> Self { /* ... */ }
+    ```
+
+- **DistributionExt**
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Imply**
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+### Functions
+
+#### Function `text_to_contours`
+
+The positioned, sized 2-D outlines for `text` — one contour list per glyph,
+already offset along the baseline and scaled by `size`.
+
+```rust
+pub fn text_to_contours(text: &str, font: &Font, size: f64, tracking: f64) -> Vec<Vec<[f64; 2]>> { /* ... */ }
+```
+
+#### Function `text_to_mesh`
+
+Build geometry for `text`: fill the outlines and, if `extrude > 0`, thicken
+into a solid with (optional) beveled front/back edges.
+
+```rust
+pub fn text_to_mesh(text: &str, font: &Font, opts: &TextGeometry) -> crate::mesh::Mesh { /* ... */ }
+```
+
+## Module `topology`
+
+Precomputed **mesh adjacency** — the queries [`crate::mesh::Mesh`] can only
+answer by a scan, cached in flat `Vec`s so operators can walk topology in
+`O(1)` per step.
+
+[`crate::mesh::Mesh`] deliberately omits BMesh's radial cycle (all faces on
+an edge) and disk cycle (all edges at a vertex) — see its module docs.
+[`MeshTopology`] builds them once from the public [`crate::mesh::Mesh`] API:
+
+- **edge → faces** ([`MeshTopology::edge_faces`]) — the radial cycle. 1
+  face = boundary edge, 2 = manifold interior, >2 = non-manifold.
+- **vertex → edges** ([`MeshTopology::vertex_edges`]) — the disk cycle
+  (unordered here; ordering around the vertex is added when a consumer needs
+  it).
+- **vertex → faces** ([`MeshTopology::vertex_faces`]).
+- the **quad opposite-edge** step ([`MeshTopology::opposite_edge_in_face`])
+  and the loop/ring single steps ([`MeshTopology::edge_loop_step`],
+  [`MeshTopology::edge_ring_step`]) that edge-loop / edge-ring / face-loop
+  selection (`op-hzs.54.2`) and, later, loop cut (`op-hzs.54.5`) are built
+  from.
+
+Rebuild a [`MeshTopology`] after any operator that changes topology — like
+any index into the mesh, it goes stale.
+
+```rust
+pub mod topology { /* ... */ }
+```
+
+### Types
+
+#### Struct `MeshTopology`
+
+Precomputed adjacency for one [`Mesh`] snapshot. Build with
+[`MeshTopology::new`]; discard and rebuild after a topology edit.
+
+```rust
+pub struct MeshTopology {
+    // Some fields omitted
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| *private fields* | ... | *Some fields have been omitted* |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn new(mesh: &Mesh) -> Self { /* ... */ }
+  ```
+  Build the adjacency tables for `mesh` (one pass over its edges and
+
+- ```rust
+  pub fn edge_faces(self: &Self, e: EdgeId) -> &[FaceId] { /* ... */ }
+  ```
+  Faces incident to edge `e` (its radial cycle). Empty for an out-of-range
+
+- ```rust
+  pub fn vertex_edges(self: &Self, v: VertexId) -> &[EdgeId] { /* ... */ }
+  ```
+  Edges incident to vertex `v` (its disk cycle, unordered).
+
+- ```rust
+  pub fn vertex_faces(self: &Self, v: VertexId) -> &[FaceId] { /* ... */ }
+  ```
+  Faces incident to vertex `v`.
+
+- ```rust
+  pub fn is_boundary_edge(self: &Self, e: EdgeId) -> bool { /* ... */ }
+  ```
+  `true` when `e` has exactly one incident face — a mesh-boundary (open)
+
+- ```rust
+  pub fn is_manifold_edge(self: &Self, e: EdgeId) -> bool { /* ... */ }
+  ```
+  `true` when `e` has exactly two incident faces — a manifold interior
+
+- ```rust
+  pub fn edge_between(self: &Self, a: VertexId, b: VertexId) -> Option<EdgeId> { /* ... */ }
+  ```
+  The id of the undirected edge between `a` and `b`, or `None`.
+
+- ```rust
+  pub fn other_end(self: &Self, mesh: &Mesh, e: EdgeId, v: VertexId) -> Option<VertexId> { /* ... */ }
+  ```
+  The other endpoint of `e` given one of them, or `None` if `v` is not on
+
+- ```rust
+  pub fn is_quad(self: &Self, mesh: &Mesh, f: FaceId) -> bool { /* ... */ }
+  ```
+  `true` when face `f` is a quadrilateral (four sides) — the case the
+
+- ```rust
+  pub fn face_edges(self: &Self, mesh: &Mesh, f: FaceId) -> Vec<EdgeId> { /* ... */ }
+  ```
+  The edges of face `f` in boundary order (one per consecutive vertex
+
+- ```rust
+  pub fn opposite_edge_in_face(self: &Self, mesh: &Mesh, f: FaceId, e: EdgeId) -> Option<EdgeId> { /* ... */ }
+  ```
+  The edge of quad `f` opposite `e` — the one two steps around the ring.
+
+- ```rust
+  pub fn edge_loop_step(self: &Self, edge: EdgeId, pivot: VertexId) -> Option<EdgeId> { /* ... */ }
+  ```
+  One step of an **edge loop** walk: from `edge`, pivoting about its
+
+- ```rust
+  pub fn edge_ring_step(self: &Self, mesh: &Mesh, edge: EdgeId, face: FaceId) -> Option<(EdgeId, Option<FaceId>)> { /* ... */ }
+  ```
+  One step of an **edge ring** walk: from `edge` across quad `face`, the
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **ByRef**
+  - ```rust
+    fn by_ref(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> MeshTopology { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **DistributionExt**
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Imply**
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+### Functions
+
+#### Function `edge_loop`
+
+The full **edge loop** through `seed` — the chain of edges that runs
+"straight" across regular valence-4 vertices, or follows the mesh boundary
+when `seed` is a boundary edge. Blender's `Alt`-click edge select.
+
+The result always contains `seed`; it is unordered. A closed loop (around a
+cylinder, say) terminates when the walk returns to `seed`; an open loop
+terminates at the first pole / non-manifold vertex on each side.
+
+```rust
+pub fn edge_loop(topo: &MeshTopology, mesh: &crate::mesh::Mesh, seed: crate::mesh::EdgeId) -> Vec<crate::mesh::EdgeId> { /* ... */ }
+```
+
+#### Function `edge_ring`
+
+The full **edge ring** through `seed` — the edges "parallel" to `seed`, one
+per quad crossed as the walk steps to each quad's opposite edge. Blender's
+`Ctrl+Alt`-click edge select. Always contains `seed`; unordered.
+
+```rust
+pub fn edge_ring(topo: &MeshTopology, mesh: &crate::mesh::Mesh, seed: crate::mesh::EdgeId) -> Vec<crate::mesh::EdgeId> { /* ... */ }
+```
+
+#### Function `face_loop`
+
+The **face loop** perpendicular to `seed` — the strip of quads crossed by
+the [`edge_ring`] walk (the faces, rather than their shared edges). Blender's
+`Alt`-click face select. Unordered; contains every face incident to `seed`.
+
+```rust
+pub fn face_loop(topo: &MeshTopology, mesh: &crate::mesh::Mesh, seed: crate::mesh::EdgeId) -> Vec<crate::mesh::FaceId> { /* ... */ }
+```
+
+#### Function `boundary_loop`
+
+The **boundary loop** containing `seed` — the ring of open (one-face) edges
+around a hole or the outer border. Empty if `seed` is not a boundary edge.
+(This is just [`edge_loop`] restricted to a boundary start, exposed
+separately for intent.)
+
+```rust
+pub fn boundary_loop(topo: &MeshTopology, mesh: &crate::mesh::Mesh, seed: crate::mesh::EdgeId) -> Vec<crate::mesh::EdgeId> { /* ... */ }
+```
+
+#### Function `shortest_vertex_path`
+
+A shortest **vertex path** from `from` to `to` along mesh edges, weighted by
+edge length (Dijkstra). Returns the ordered vertex chain including both
+ends, or an empty `Vec` if they are not connected. Blender's `Ctrl`-click
+"Select Shortest Path" in vertex mode (geometry-distance flavour).
+
+```rust
+pub fn shortest_vertex_path(topo: &MeshTopology, mesh: &crate::mesh::Mesh, from: crate::mesh::VertexId, to: crate::mesh::VertexId) -> Vec<crate::mesh::VertexId> { /* ... */ }
+```
+
+#### Function `shortest_hop_path`
+
+A shortest path (fewest hops) between two elements over a simple adjacency
+graph — used for the edge-mode and face-mode "Select Shortest Path".
+`adjacent(x)` yields the neighbours of `x`. Returns the ordered chain
+including both ends, or empty if disconnected.
+
+```rust
+pub fn shortest_hop_path<T, F, I>(from: T, to: T, adjacent: F) -> Vec<T>
+where
+    T: Copy + Eq + std::hash::Hash,
+    F: FnMut(T) -> I,
+    I: IntoIterator<Item = T> { /* ... */ }
 ```
 
 ## Module `transform`
@@ -10599,6 +39493,7 @@ pub struct Affine3 {
 
 - **Read**
 - **RefUnwindSafe**
+- **Same**
 - **Send**
 - **StructuralPartialEq**
 - **Sync**
@@ -10637,15 +39532,828 @@ pub struct Affine3 {
 - **WasmNotSend**
 - **WasmNotSendSync**
 - **WasmNotSync**
+## Module `transform_input`
+
+**Numeric transform input + axis/plane constraints** (`op-hzs.54.23`, GH
+issue #37 §D — the precision/CAD core).
+
+The parameter model every transform operator ([`crate::transform_ops`], the
+upcoming snapping engine, PDT) consumes:
+
+- [`Constraint`] — free, locked to one axis, or locked to a plane.
+- [`TransformBasis`] — three orthonormal vectors giving the coordinate space
+  (global / local / normal / view). [`TransformBasis::global`] is the
+  identity.
+- [`NumericEntry`] — a per-component optional exact value, each parsed from
+  a string with [`eval_expr`] (so `"1+1"`, `"pi/2"`, `"-tau"` all work).
+- [`resolve_translation`] — combine a raw delta, a constraint, a basis,
+  numeric overrides and a grid increment into the delta actually applied.
+- [`apply_translation`] — move a vertex selection by a delta.
+
+```rust
+pub mod transform_input { /* ... */ }
+```
+
+### Types
+
+#### Enum `Constraint`
+
+Which components of a transform are free to move.
+
+```rust
+pub enum Constraint {
+    Free,
+    Axis(u8),
+    Plane(u8),
+}
+```
+
+##### Variants
+
+###### `Free`
+
+No constraint — all three components free.
+
+###### `Axis`
+
+Locked to one basis axis (`0 = X`, `1 = Y`, `2 = Z` of the basis).
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `u8` |  |
+
+###### `Plane`
+
+Locked to the plane **orthogonal** to one basis axis (that component is
+zeroed; the other two are free).
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `u8` |  |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Boilerplate**
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **ByRef**
+  - ```rust
+    fn by_ref(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Constraint { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **DistributionExt**
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Imply**
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Constraint) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Struct `TransformBasis`
+
+Three orthonormal basis vectors defining a transform space.
+
+```rust
+pub struct TransformBasis {
+    pub x: crate::math::Vec3,
+    pub y: crate::math::Vec3,
+    pub z: crate::math::Vec3,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `x` | `crate::math::Vec3` |  |
+| `y` | `crate::math::Vec3` |  |
+| `z` | `crate::math::Vec3` |  |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn global() -> Self { /* ... */ }
+  ```
+  The world axes — Blender's *Global* orientation.
+
+- ```rust
+  pub fn from_normal(normal: Vec3) -> Self { /* ... */ }
+  ```
+  A basis whose `z` is `normal` (Blender's *Normal* orientation), with
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **ByRef**
+  - ```rust
+    fn by_ref(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> TransformBasis { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **DistributionExt**
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Imply**
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Struct `NumericEntry`
+
+Per-component optional exact value (already parsed). `None` = take the value
+from the raw delta.
+
+```rust
+pub struct NumericEntry {
+    pub x: Option<f64>,
+    pub y: Option<f64>,
+    pub z: Option<f64>,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `x` | `Option<f64>` |  |
+| `y` | `Option<f64>` |  |
+| `z` | `Option<f64>` |  |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn parse(s: &str) -> Option<Self> { /* ... */ }
+  ```
+  Parse a `"x, y, z"` style string (each field optional, blank = `None`)
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **ByRef**
+  - ```rust
+    fn by_ref(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> NumericEntry { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Default**
+  - ```rust
+    fn default() -> NumericEntry { /* ... */ }
+    ```
+
+- **DistributionExt**
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Imply**
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+### Functions
+
+#### Function `resolve_translation`
+
+Resolve the delta actually applied.
+
+1. Express `raw_delta` in `basis`.
+2. Apply `constraint` (zero the locked components).
+3. Override any component that has a [`NumericEntry`] value.
+4. Snap each free component to a multiple of `increment` if `Some`.
+5. Map back to world space.
+
+```rust
+pub fn resolve_translation(raw_delta: crate::math::Vec3, constraint: Constraint, basis: TransformBasis, numeric: NumericEntry, increment: Option<f64>) -> crate::math::Vec3 { /* ... */ }
+```
+
+#### Function `apply_translation`
+
+Move `verts` (empty = whole mesh) by `delta`. Positions only.
+
+```rust
+pub fn apply_translation(mesh: &crate::mesh::Mesh, verts: &[crate::mesh::VertexId], delta: crate::math::Vec3) -> crate::mesh::Mesh { /* ... */ }
+```
+
+#### Function `eval_expr`
+
+Evaluate a small arithmetic expression to `f64`. Supports `+ - * / ^`,
+parentheses, unary minus, and the constants `pi`, `tau`, `e`. Whitespace is
+ignored. Returns `None` on any syntax error.
+
+```rust
+pub fn eval_expr(s: &str) -> Option<f64> { /* ... */ }
+```
+
+## Module `transform_ops`
+
+**Edit-mode transform toolset** (`op-hzs.54.19`, GH issue #37 §C) —
+parameterised versions of Blender's interactive transform tools. Every one
+takes a `verts` subset (empty = whole mesh) and rewrites positions only.
+
+- [`to_sphere`] — blend toward a sphere of `radius` about `center`.
+- [`shear`] — offset along `shear_axis` proportional to the coordinate on
+  `measure_axis`.
+- [`bend`] — wrap the selection around an arc of `angle` about `center`.
+- [`warp`] — Blender's Warp: bend around the 3D cursor in the view plane.
+- [`push_pull`] — move each vertex toward / away from `center`.
+- [`shrink_fatten`] — move each vertex along its averaged normal.
+- [`randomize`] — deterministic per-vertex jitter.
+- [`smooth_vertices`] — Laplacian smoothing with a per-axis mask.
+
+```rust
+pub mod transform_ops { /* ... */ }
+```
+
+### Types
+
+#### Enum `Axis`
+
+A coordinate axis for [`shear`] / [`bend`].
+
+```rust
+pub enum Axis {
+    X,
+    Y,
+    Z,
+}
+```
+
+##### Variants
+
+###### `X`
+
+###### `Y`
+
+###### `Z`
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Boilerplate**
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **ByRef**
+  - ```rust
+    fn by_ref(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Axis { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **DistributionExt**
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Imply**
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Axis) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+### Functions
+
+#### Function `to_sphere`
+
+Blend the selection toward a sphere of `radius` about `center` by `factor`
+(`0` = unchanged, `1` = fully on the sphere).
+
+```rust
+pub fn to_sphere(mesh: &crate::mesh::Mesh, verts: &[crate::mesh::VertexId], center: crate::math::Vec3, radius: f64, factor: f64) -> crate::mesh::Mesh { /* ... */ }
+```
+
+#### Function `shear`
+
+Shear: shift each vertex along `shear_axis` by `factor · coord(measure_axis)`.
+
+```rust
+pub fn shear(mesh: &crate::mesh::Mesh, verts: &[crate::mesh::VertexId], measure_axis: Axis, shear_axis: Axis, factor: f64) -> crate::mesh::Mesh { /* ... */ }
+```
+
+#### Function `bend`
+
+Bend the selection around an arc: a vertex at signed distance `t` along
+`along` from `center` is rotated by `angle · t / span` about the axis
+`axis`, where `span` is the selection's extent along `along`.
+
+```rust
+pub fn bend(mesh: &crate::mesh::Mesh, verts: &[crate::mesh::VertexId], center: crate::math::Vec3, along: Axis, axis: Axis, angle: f64) -> crate::mesh::Mesh { /* ... */ }
+```
+
+#### Function `warp`
+
+Warp: bend the selection around `center` in the plane orthogonal to `axis`,
+mapping its `along` extent onto an arc of `angle`.
+
+```rust
+pub fn warp(mesh: &crate::mesh::Mesh, verts: &[crate::mesh::VertexId], center: crate::math::Vec3, along: Axis, axis: Axis, angle: f64) -> crate::mesh::Mesh { /* ... */ }
+```
+
+#### Function `push_pull`
+
+Push (`distance < 0`) or pull (`distance > 0`) each vertex along the ray
+from `center`.
+
+```rust
+pub fn push_pull(mesh: &crate::mesh::Mesh, verts: &[crate::mesh::VertexId], center: crate::math::Vec3, distance: f64) -> crate::mesh::Mesh { /* ... */ }
+```
+
+#### Function `shrink_fatten`
+
+Move each vertex `offset` along its averaged (incident-face) normal —
+Blender's Shrink/Fatten (offset along normals).
+
+```rust
+pub fn shrink_fatten(mesh: &crate::mesh::Mesh, verts: &[crate::mesh::VertexId], offset: f64) -> crate::mesh::Mesh { /* ... */ }
+```
+
+#### Function `randomize`
+
+Deterministic per-vertex jitter of magnitude up to `amount`. `uniform`
+gives the same displacement magnitude to every vertex (only the direction
+varies); otherwise the magnitude is random too.
+
+```rust
+pub fn randomize(mesh: &crate::mesh::Mesh, verts: &[crate::mesh::VertexId], amount: f64, seed: u64, uniform: bool) -> crate::mesh::Mesh { /* ... */ }
+```
+
+#### Function `smooth_vertices`
+
+Laplacian-smooth the selection: `iterations` passes, each moving every
+selected vertex a fraction `factor` toward the mean of its edge-neighbours.
+`mask` disables movement on an axis when `false`.
+
+```rust
+pub fn smooth_vertices(mesh: &crate::mesh::Mesh, verts: &[crate::mesh::VertexId], iterations: u32, factor: f64, mask: [bool; 3]) -> crate::mesh::Mesh { /* ... */ }
+```
+
 ## Module `triangulate`
 
 Triangulate — convert every polygon face into triangles, returning a
 triangle-only [`Mesh`].
 
 This is the pure-Rust analogue of Blender's **Triangulate Faces**
-(`bmo_triangulate`, fan mode). It fan-triangulates each face — a quad
-becomes two triangles, an `n`-gon becomes `n − 2` — and rebuilds a mesh
+(`bmo_triangulate` / `BM_face_triangulate`). A quad becomes two triangles
+and an `n`-gon becomes `n − 2`, and the result is rebuilt as a [`Mesh`]
 whose every face is a triangle.
+
+# Concave faces: this used to be wrong
+
+Until 2026-09-19 this module fanned every face from its first corner. That
+is correct for a convex face and **incorrect for a concave one** — the fan
+emits triangles that cross the reflex corner, leave the polygon, and
+overlap each other, so the triangulated surface no longer bounds the same
+solid. Measured on an L-shaped hexagon of true area 0.75, the fan totalled
+1.000 (+33.3 %) from four of its six possible apex corners; see
+[`crate::polyfill`]'s `concave_l_shape_is_tiled_exactly_where_a_fan_is_not`
+for the full table. Since a face's corner order is just whatever the mesh
+happens to store, that was firing on most concave faces.
+
+N-gons now route through [`crate::polyfill`] (ear clipping, upstream's
+`BLI_polyfill_calc`), which tiles exactly. The fan survives only as the
+explicit [`QuadMethod::Fixed`] choice on quads, where it is exact.
+
+# Methods
+
+Upstream exposes two orthogonal choices, and so does this module:
+[`QuadMethod`] for four-cornered faces and [`NgonMethod`] for the rest.
+[`triangulate`] applies upstream's own defaults; [`triangulate_with`]
+takes them explicitly.
 
 # Why not [`crate::export::triangulate`]?
 
@@ -10660,30 +40368,406 @@ consume the result directly.
 
 # Winding
 
-Fan triangulation from each face's first corner preserves the face's
-winding, so a consistently-wound, outward-facing input stays that way. No
-`faer`, no external dependency; Android-safe.
+Every method preserves each face's winding, so a consistently-wound,
+outward-facing input stays that way. No `faer`, no external dependency;
+Android-safe.
 
 ```rust
 pub mod triangulate { /* ... */ }
 ```
 
+### Types
+
+#### Enum `QuadMethod`
+
+How to split a four-cornered face into two triangles.
+
+Mirrors upstream's `TriangulateModifierQuadMethod`
+(`DNA_modifier_types.h:1927`). A quad has exactly two candidate diagonals;
+every variant is a different rule for picking one. All are exact — a quad
+is always tiled correctly by either diagonal *if* it is planar and convex;
+for a non-planar or concave quad the choice changes the surface, which is
+why upstream makes it a user decision rather than a constant.
+
+```rust
+pub enum QuadMethod {
+    Beauty,
+    Fixed,
+    Alternate,
+    ShortEdge,
+    LongEdge,
+}
+```
+
+##### Variants
+
+###### `Beauty`
+
+Pick the diagonal that gives the better-shaped triangle pair.
+Upstream `MOD_TRIANGULATE_QUAD_BEAUTY`.
+
+Decided exactly as upstream's `BM_face_triangulate` does: first
+[`crate::polyfill_beautify::is_quad_flip_v3`] rejects a diagonal that
+would fold the quad, and only if neither folds is the
+area-over-perimeter measure
+([`crate::polyfill_beautify::edge_rotate_cost_3d`]) consulted.
+Unlike the length-based variants this one is aware of non-planarity.
+
+###### `Fixed`
+
+Always split corner 0 to corner 2 — the historical fan. Upstream
+`MOD_TRIANGULATE_QUAD_FIXED`.
+
+###### `Alternate`
+
+Always split corner 1 to corner 3. Upstream
+`MOD_TRIANGULATE_QUAD_ALTERNATE`.
+
+###### `ShortEdge`
+
+Split along the **shorter** diagonal. Upstream
+`MOD_TRIANGULATE_QUAD_SHORTEDGE`, and upstream's default.
+
+###### `LongEdge`
+
+Split along the **longer** diagonal. Upstream
+`MOD_TRIANGULATE_QUAD_LONGEDGE`.
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Boilerplate**
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **ByRef**
+  - ```rust
+    fn by_ref(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> QuadMethod { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Default**
+  - ```rust
+    fn default() -> QuadMethod { /* ... */ }
+    ```
+
+- **DistributionExt**
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+  - ```rust
+    fn from(m: QuadMethod) -> Self { /* ... */ }
+    ```
+
+- **Imply**
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &QuadMethod) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Enum `NgonMethod`
+
+How to split a face with five or more corners.
+
+Mirrors upstream's `TriangulateModifierNgonMethod`
+(`DNA_modifier_types.h:1921`).
+
+```rust
+pub enum NgonMethod {
+    Beauty,
+    EarClip,
+}
+```
+
+##### Variants
+
+###### `Beauty`
+
+Ear-clip, then improve the result by rotating interior edges.
+Upstream `MOD_TRIANGULATE_NGON_BEAUTY`, and upstream's default.
+
+The rotation pass is [`crate::polyfill_beautify::polyfill_beautify`],
+the port of `BLI_polyfill_beautify`. Both variants tile correctly;
+this one additionally removes slivers (measured 5.8x improvement in
+the worst triangle's fatness on a sliver-prone fixture — see that
+module).
+
+###### `EarClip`
+
+Ear-clip only. Upstream `MOD_TRIANGULATE_NGON_EARCLIP`, via
+[`crate::polyfill::polyfill_3d`].
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Boilerplate**
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **ByRef**
+  - ```rust
+    fn by_ref(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> NgonMethod { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Default**
+  - ```rust
+    fn default() -> NgonMethod { /* ... */ }
+    ```
+
+- **DistributionExt**
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Imply**
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &NgonMethod) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
 ### Functions
 
 #### Function `triangulate`
 
-Fan-triangulate every face of `mesh`, returning a triangle-only mesh.
+Triangulate every face of `mesh` using upstream's default methods.
 
-Positions are unchanged; only faces are re-cut. A face with fewer than three
-corners is dropped (it is already degenerate); a triangle is passed through
-unchanged. This is infallible.
+Those defaults are [`QuadMethod::ShortEdge`] and [`NgonMethod::Beauty`]
+(`DNA_modifier_types.h:1939-1940`). Positions are unchanged; only faces
+are re-cut. A face with fewer than three corners is dropped (it is already
+degenerate); a triangle is passed through unchanged. This is infallible.
 
 # Examples
 
 ```
 use outram_blender::{primitives, triangulate::triangulate};
 
-// A cube's 6 quads fan-triangulate into 12 triangles; still χ = 2.
+// A cube's 6 quads split into 12 triangles; still χ = 2.
 let cube = primitives::cube(2.0);
 let tris = triangulate(&cube);
 assert_eq!(tris.face_count(), 12);
@@ -10692,6 +40776,27 @@ assert_eq!(tris.euler_characteristic(), 2);
 
 ```rust
 pub fn triangulate(mesh: &crate::mesh::Mesh) -> crate::mesh::Mesh { /* ... */ }
+```
+
+#### Function `triangulate_with`
+
+Triangulate every face of `mesh`, choosing the quad and n-gon methods.
+
+See [`QuadMethod`] and [`NgonMethod`]. Infallible.
+
+# Examples
+
+```
+use outram_blender::{primitives, triangulate::{triangulate_with, QuadMethod, NgonMethod}};
+
+let cube = primitives::cube(2.0);
+// The historical fan, still available where it is exact.
+let tris = triangulate_with(&cube, QuadMethod::Fixed, NgonMethod::EarClip);
+assert_eq!(tris.face_count(), 12);
+```
+
+```rust
+pub fn triangulate_with(mesh: &crate::mesh::Mesh, quad: QuadMethod, ngon: NgonMethod) -> crate::mesh::Mesh { /* ... */ }
 ```
 
 ## Module `weld`
@@ -10778,19 +40883,22 @@ pub fn weld(mesh: &crate::mesh::Mesh, distance: f64) -> crate::mesh::Mesh { /* .
 
 **Attributes:**
 
-- `Other("#[attr = CfgTrace([Not(NameValue { name: \"target_os\", value: Some(\"android\"), span: crates/outram-blender/src/lib.rs:213:11: 213:32 (#0) }, crates/outram-blender/src/lib.rs:213:10: 213:33 (#0))])]")`
+- `Other("#[attr = CfgTrace([All([NameValue { name: \"feature\", value: Some(\"gpu\"), span: crates/outram-blender/src/lib.rs:348:11: 348:26 (#0) }, Not(NameValue { name: \"target_os\", value: Some(\"android\"), span: crates/outram-blender/src/lib.rs:348:32: 348:53 (#0) }, crates/outram-blender/src/lib.rs:348:31: 348:54 (#0))], crates/outram-blender/src/lib.rs:348:10: 348:55 (#0))])]")`
 
-Headless GPU compute via `wgpu`. Compiled **unconditionally on every desktop
-target** (no cargo feature to opt in) so the GPU path is used as far as
-possible; **absent only on Android** (`target_os = "android"`), which has no
-system Vulkan/Metal loader and where the workspace Android rule forbids GPU
-deps in the library build. Whether or not this module is present, callers get
-a graceful CPU fallback: on Android the GPU attempt is compiled out entirely,
-and on desktop [`gpu::probe`] returning `None` or a recoverable
-[`gpu::GpuError`] routes to the CPU reference path. See
+Headless GPU compute via `wgpu`. Behind the **default-on `gpu` feature**
+(~~compiled unconditionally on every desktop target, no cargo feature~~
+**CORRECTED 2026-10-02**, GitHub issue #486) and **absent on Android**
+(`target_os = "android"`) whatever the feature says, since Android has no
+system Vulkan/Metal loader and the workspace Android rule forbids GPU deps
+in the library build. Whether or not this module is present, callers get
+a graceful CPU fallback: with the feature off or on Android the GPU attempt
+is compiled out entirely, and otherwise `gpu::probe` returning `None` or a
+recoverable `gpu::GpuError` routes to the CPU reference path. See
 [`transform::Affine3::transform_points_best_effort`] for the unified
-try-GPU-then-CPU entry point, and [`gpu`] for the fallback contract.
-GPU compute (headless, target-gated OFF Android; no cargo feature).
+try-GPU-then-CPU entry point, and the `gpu` module for the fallback
+contract.
+GPU compute (headless, target-gated OFF Android; behind the default-on `gpu`
+feature since 2026-10-02 — ~~no cargo feature~~).
 
 Headless GPU acceleration via [`wgpu`] for the *embarrassingly parallel*
 parts of mesh authoring — per-vertex / per-face kernels, subdivision
@@ -10811,13 +40919,15 @@ subdivision) follow the same buffer/pipeline pattern.
 
 ## Non-negotiable contract for using this module
 
-1. **Target-gated, not feature-gated.** This module is compiled
+1. **Target-gated AND feature-gated.** ~~This module is compiled
    **unconditionally on every desktop target** — there is no `gpu` cargo
-   feature to enable — so the GPU path is always available and used as far as
-   possible. It is present on all targets **except Android**
-   (`target_os = "android"`), where the workspace Android rule forbids GPU
-   deps in the library build; there the GPU attempt is compiled out and the
-   CPU path runs.
+   feature to enable~~ **CORRECTED 2026-10-02** (GitHub issue #486): it is
+   behind the **default-on `gpu` feature**, so a default build still has the
+   GPU path and uses it as far as possible, and a dependent that does not
+   want wgpu takes the crate with `default-features = false`. It is never
+   present on **Android** (`target_os = "android"`), where the workspace
+   Android rule forbids GPU deps in the library build. With the feature off
+   or on Android the GPU attempt is compiled out and the CPU path runs.
 2. **Runtime CPU fallback is mandatory.** Even where wgpu is compiled, at
    runtime there may be **no usable GPU adapter** (headless servers, VMs) or
    a submission may fail mid-flight. Callers MUST treat [`crate::gpu::probe`] returning
@@ -10957,6 +41067,7 @@ The buffer-map callback never fired despite a wait-indefinitely poll.
 
 - **Read**
 - **RefUnwindSafe**
+- **Same**
 - **Send**
 - **Sync**
 - **ToString**
@@ -11083,6 +41194,7 @@ pub struct GpuContext {
 
 - **Read**
 - **RefUnwindSafe**
+- **Same**
 - **Send**
 - **Sync**
 - **TryFrom**
@@ -11184,8 +41296,8 @@ pub fn transform_vertices_gpu(ctx: &GpuContext, affine: crate::transform::Affine
 #### Re-export `wgpu`
 
 Re-export of the GPU backend so callers can build pipelines without adding
-their own `wgpu` dependency. Present on every desktop target (absent only on
-Android, where this whole module is compiled out).
+their own `wgpu` dependency. Present wherever this module is: a non-Android
+target with the default-on `gpu` feature.
 
 ```rust
 pub use wgpu;

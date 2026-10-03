@@ -12,7 +12,7 @@ license.workspace = true
 # Foundation. No Blender source tree is bundled; exactly one file,
 # src/boolean_predicates.rs, is a literal attributed port (GPL-2.0-or-later,
 # GPL-3.0-compatible). See README.md "Naming & trademark" and NOTICE.
-description = "A GPL-licensed fork of Blender's mesh-authoring architecture — headless mesh frontend for OUTRAM PARK multiphysics, with opt-in Monte Carlo (mc-export) and OpenFOAM volume-meshing (foam-mesh) solver bridges. Not affiliated with the Blender Foundation."
+description = "Geometry description and meshing for OUTRAM PARK: the CSG geometry description and navigation kernel, plotter and tally-mesh description ported from OpenMC, plus a GPL-licensed fork of Blender's mesh-authoring architecture with opt-in OpenFOAM volume-meshing (foam-mesh) bridges. Not affiliated with the Blender Foundation or OpenMC."
 homepage.workspace = true
 repository.workspace = true
 readme = "README.md"
@@ -25,21 +25,35 @@ categories.workspace = true
 exclude = ["docs", "upstream_source/*", "!upstream_source/README.md"]
 
 [features]
-# Optional export bridges to the real OUTRAM PARK solver crates. OFF by default
+# `gpu` — headless wgpu compute (src/gpu.rs). **ON BY DEFAULT** (maintainer
+# direction, 2026-10-02, GitHub issue #486), so a plain build behaves exactly as
+# before. It is a feature now so a dependent that has its own GPU path (e.g.
+# outram-mc-libs, once #486 moves geometry description here) can take this crate
+# with `default-features = false` and skip wgpu's ~60-crate subtree. With it
+# off, `gpu` is not compiled and `Affine3::transform_points_best_effort` runs
+# the CPU reference path. On Android the feature is a no-op: `wgpu` stays
+# target-gated off there, so `gpu` on Android still compiles to the CPU path.
+default = ["gpu"]
+gpu = ["dep:wgpu"]
+
+# Optional export bridge to a real OUTRAM PARK solver crate. OFF by default
 # so the authoring frontend stays light and trivially Android-buildable; enable
-# a bridge only when you actually hand geometry to that solver.
+# it only when you actually hand geometry to that solver.
 #
 #   foam-export → real outram-foam-basic-lib polyMesh types (CFD boundary export)
-#   mc-export   → real outram-mc-libs CSG surface/cell types (Monte Carlo)
 #
 # The polyMesh connectivity + I/O types (`io::poly_mesh::PolyMesh`,
 # `BoundaryPatch`, `Vector3`) live in outram-foam-basic-lib (outram-foam-mesh
-# re-exports none of them), so that is the foam-export target. Both target
-# crates are BLAS-free (Android-safe); mc-export additionally pulls the
-# nuclear-data crate transitively, which is why it is opt-in rather than a hard
-# dependency of the frontend.
+# re-exports none of them), so that is the foam-export target. It is BLAS-free
+# (Android-safe).
+#
+# ~~mc-export → real outram-mc-libs CSG surface/cell types (Monte Carlo)~~
+# RETIRED 2026-10-02 (GitHub #486, maintainer decision): outram-mc-libs takes
+# its CSG description from THIS crate (#486 stage 3a), and Cargo counts optional
+# dependencies when it looks for cycles, so this crate may not depend on
+# outram-mc-libs at all. The bridge (`to_mc_geometry`), the run driver (`sim`)
+# and the `mc_godiva_keff` example moved to `nee_soon`.
 foam-export = ["dep:outram-foam-basic-lib"]
-mc-export = ["dep:outram-mc-libs"]
 
 # foam-mesh → volume meshing bridge to outram-park-fork-cfmesh: take a blender
 # surface `Mesh` (or a built-in primitive) → cfmesh's tet→dual→boundary-layers
@@ -50,15 +64,54 @@ mc-export = ["dep:outram-mc-libs"]
 # so the base authoring frontend pulls nothing. Drives the `mesh_studio` example.
 foam-mesh = ["dep:outram-park-fork-cfmesh"]
 
+# gnn-graph → `gnn_graph::cell_adjacency_graph`: a CSG cell
+# list as a RAFFLES message-passing graph (`raffles::gnn::Graph`). OFF by
+# default. MOVED here 2026-10-02 from `raffles::gnn::mc_geometry` by maintainer
+# decision: under GitHub issue #486 this crate owns geometry description (CSG
+# cells included), and RAFFLES had to stop depending on outram-mc-libs to break
+# the cycle outram-mc-libs -> outram-park-fork-liggghts -> raffles ->
+# outram-mc-libs. ~~It still needs outram-mc-libs only because `Cell` lives
+# there until #486 moves it here~~ DONE 2026-10-02 (#486 stage 3a): `Cell` is
+# `crate::csg::cell::Cell`, so the feature needs only raffles.
+gnn-graph = ["dep:raffles"]
+
+# ── Meshing nexus (GitHub #492, 2026-10-03) ─────────────────────────────────
+# The neutral mesh (`unstructured`) and its plotter are CORE (no feature).
+# Each solver family's converter / mesher orchestration is behind a feature
+# that pulls that solver crate, OFF by default (maintainer default: heavy
+# solver crates default-off). The solver crates never depend on this one
+# (GitHub #486 dependency rule 1), so these edges cannot form a cycle.
+#
+#   foam-export  (above)  neutral <-> outram-foam-basic-lib PolyMesh / FvMesh
+#   block-mesh            blockMesh + snappyHexMesh (outram-foam-mesh) -> neutral
+#   foam-mesh    (above)  cfMesh tet->dual->layers VolumeMesh -> neutral
+#   fem-export            neutral <-> farrer-park Mesh, farrer-park generators
+block-mesh = ["foam-export", "dep:outram-foam-mesh"]
+fem-export = ["dep:farrer-park"]
+
 [dependencies]
 # Pure-Rust error type (Android-safe, in workspace deps). No BLAS, no C, no GUI.
 thiserror = { workspace = true }
 
-# Optional internal path deps for the export bridges (see [features] above).
+# Geometry plotter (`csg::plot`, moved here from outram-mc-libs on 2026-10-02,
+# GitHub #486): `petir::rng::lcg::prn` draws OpenMC's default colour stream,
+# and `miniz_oxide` is the pure-Rust DEFLATE behind the PNG writer/reader.
+# Both no_std/pure Rust, Android- and wasm-clean.
+petir = { workspace = true }
+miniz_oxide = { workspace = true }
+
+# Optional internal path dep for the export bridge (see [features] above).
 # Inherited from the root [workspace.dependencies]; `optional` so the default
-# build depends on neither.
+# build does not depend on it.
+#
+# NO outram-mc-libs dependency, not even optional (GitHub #486, 2026-10-02):
+# outram-mc-libs depends on this crate for `csg` (and later `spatial_mesh`),
+# and Cargo counts optional dependencies when it looks for cycles.
 outram-foam-basic-lib = { workspace = true, optional = true }
-outram-mc-libs = { workspace = true, optional = true }
+# RAFFLES's graph type, for the `gnn-graph` feature only. RAFFLES depends on no
+# geometry or physics crate (petir only), so this edge cannot form a cycle; it
+# pulls no tensor library (raffles' `burn` feature stays off).
+raffles = { workspace = true, optional = true }
 
 # Volume-meshing bridge (feature `foam-mesh`). cfmesh is pulled WITH its
 # `foam-export` feature so the polyMesh writer (`foam::write_polymesh`) is
@@ -67,29 +120,57 @@ outram-mc-libs = { workspace = true, optional = true }
 # feature-gated, not target-gated.
 outram-park-fork-cfmesh = { workspace = true, optional = true, features = ["foam-export"] }
 
+# Meshing-nexus bridges (GitHub #492): blockMesh / snappyHexMesh, and the
+# farrer-park FEM mesh + generators. Both pure Rust and Android-safe; optional
+# so outram-mc-libs (default-features = false) never compiles them.
+outram-foam-mesh = { workspace = true, optional = true }
+farrer-park = { workspace = true, optional = true }
+
 # Pure-Rust dense+sparse linear algebra backend (Android-safe, no system BLAS).
 # For the large mesh solves the advanced operators need (Laplacian editing /
 # ARAP deformation / parameterization — see beads op-hzs). Per-element math
 # stays in fixed-size `crate::math` types; faer handles the big systems.
-faer = { workspace = true }
+#
+# Target-split (GitHub #486, maintainer decision 2026-10-02): mesh authoring
+# and faer are ALWAYS compiled (no `mesh` feature), so faer itself must build
+# for wasm32. Off wasm, faer's full default feature set (`rayon` included), as
+# before. On wasm32, without `rayon` (spindle -> atomic-wait has no wasm
+# backend) and `rand` (getrandom needs a wasm backend feature), which nothing
+# here uses. The root workspace entry is `default-features = false`, so the
+# features are named here.
+[target.'cfg(not(target_arch = "wasm32"))'.dependencies]
+faer = { workspace = true, features = ["std", "rayon", "sparse-linalg", "rand", "npy"] }
+# The plotter rasterises pixel rows in parallel; `rayon-core` has no wasm
+# backend, so on wasm32 `src/wasm_par.rs` stands in, serially (exact: pixels
+# are independent and collected in order).
+rayon = { workspace = true }
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+faer = { workspace = true, features = ["std", "sparse-linalg"] }
 
 # GPU compute (headless, no window) — see src/gpu.rs. wgpu is **target-gated OFF
 # Android** (no system Vulkan/Metal loader there, and the workspace Android rule
 # forbids GPU deps in the library build), so the crate still builds headless for
-# `aarch64-linux-android` via the CPU-only path. On every desktop target wgpu is
-# built **unconditionally** — no cargo feature to opt in — so the GPU path is
-# used as far as possible, with a mandatory runtime CPU fallback (probe → None,
+# `aarch64-linux-android` via the CPU-only path. ~~On every desktop target wgpu
+# is built **unconditionally** — no cargo feature to opt in~~ **CORRECTED
+# 2026-10-02**: it is now OPTIONAL, enabled by the default-on `gpu` feature
+# (see [features]); both gates apply, so wgpu is built only on a non-Android
+# target AND with `gpu` on. The runtime CPU fallback is unchanged (probe → None,
 # or a recoverable GPU error → CPU). GPU is acceleration only; CPU (faer + math)
 # stays the trusted/deterministic path. Version inherited from the root
 # `[workspace.dependencies]` (matched to the eframe/egui 0.34 wgpu, so no
 # duplicate wgpu in the tree).
 [target.'cfg(not(target_os = "android"))'.dependencies]
-wgpu = { workspace = true }
+wgpu = { workspace = true, optional = true }
 
 # NOTE: no OpenGL/Vulkan/GUI dependency here. The library is headless and
 # Android-buildable. Any future viewport/GUI belongs in `examples/` behind a
 # `cfg(not(target_os = "android"))` gate, never in the library's unconditional
 # build (workspace Android-portability rule).
+
+# `uom` only for the `foam-export` cross-check against
+# `create_one_d_mesh`, whose arguments are uom quantities.
+[dev-dependencies]
+uom = { workspace = true }
 
 # GUI example stack — the `mc_studio` egui app (author geometry + set up and run
 # a basic outram-mc Monte Carlo simulation). Dev-only and **target-gated OFF
@@ -102,8 +183,9 @@ egui = { workspace = true }
 egui_plot = { workspace = true }
 env_logger = { workspace = true }
 
-# The Monte Carlo authoring GUI. Needs `mc-export` (the outram-mc-libs bridge +
-# the `sim` backend it drives), so it only builds with that feature:
+# The Monte Carlo authoring GUI. ~~Needs `mc-export` (the outram-mc-libs bridge +
+# the `sim` backend it drives), so it only builds with that feature~~ (the
+# bridge and `sim` moved to `nee_soon` on 2026-10-02, GitHub #486):
 # ~~mc_studio~~ MOVED 2026-09-17 to `crates/dhoby-ghaut` (DHOBY GHAUT), which is
 # the designated home for windowed studios. This crate is an AUTHORING frontend
 # and should not carry a windowing stack; keeping the GUI here is what forced
@@ -117,3 +199,9 @@ env_logger = { workspace = true }
 # only the windowed GUI moved, so this crate keeps no windowing stack.
 #
 #   cargo run -p dhoby-ghaut --example mesh_studio --release
+
+# Draws one mesh from each orchestrated mesher (GitHub #492, geometry-drawing
+# HARD RULE) into docs/meshing_nexus/. Needs every meshing-nexus bridge.
+[[example]]
+name = "meshing_nexus_images"
+required-features = ["block-mesh", "foam-mesh", "fem-export"]

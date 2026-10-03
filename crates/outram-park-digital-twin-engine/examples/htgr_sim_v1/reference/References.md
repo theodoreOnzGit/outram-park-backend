@@ -313,6 +313,11 @@ and pages: `crates/buangkok/docs/References.md`). Adult.
 
 ### What the map shows (re-measured 2026-09-29 after gh:#399/#400, map puff model)
 
+> **Building not credited (conservative); see gh:#409.** Since 2026-09-29 the
+> default release path sends the circuit leak straight to the stack; the table
+> below was taken WITH the gh:#400 building credit and is **not re-measured
+> since that change; pending validation work**.
+
 `app::map_tab::tests::the_dose_rate_table_is_the_pixel_and_the_buangkok_sum`,
 release = the live primary pools (gh:#399) leaking at 1 %/day into the
 bishan reactor-building CV and out of its stack (gh:#400), held at one

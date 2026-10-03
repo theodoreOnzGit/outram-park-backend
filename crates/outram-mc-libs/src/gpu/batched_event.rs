@@ -46,7 +46,6 @@
 // still requires human review before promotion past the "Unit Tested" V&V stage.
 
 use crate::gpu::collision_grid::CollisionTables;
-use crate::rng::lcg::{INC, MULT};
 
 /// Sentinel in [`EventBatch::fiss_nuc`] meaning "this neutron did not fission".
 pub const FISS_NONE: u32 = 0xFFFF_FFFF;
@@ -235,21 +234,46 @@ impl EventTablesF32 {
     }
 }
 
+/// This kernel's own WGSL, which is **not a complete shader on its own**: it
+/// calls `petir_lcg_next`, defined in [`petir::wgsl::LCG`]. Compile
+/// [`shader_source`] instead. Exposed so tests can append probe entry points
+/// to exactly what the pipeline compiles.
+pub const KERNEL_WGSL: &str = include_str!("shaders/batched_event.wgsl");
+
+/// The complete shader the pipeline compiles: PETIR's LCG
+/// ([`petir::wgsl::LCG`], the workspace's one WGSL copy of OpenMC's 64-bit
+/// LCG state advance) concatenated ahead of [`KERNEL_WGSL`].
+///
+/// **Why composition and not a copy (2026-10-02).** This kernel used to carry
+/// its own transcription of the LCG, and so did the other batched kernel; the
+/// maintainer directed that the LCG live once, in PETIR, beside its Rust
+/// original [`petir::rng::lcg`]. WGSL has no `#include`, so composing is
+/// string concatenation at pipeline creation. The arithmetic is unchanged
+/// byte for byte, and `tests/gpu_lcg_advance_directly.rs` pins the composed
+/// source bit-exact against the CPU LCG on a device.
+pub fn shader_source() -> String {
+    let lcg = petir::wgsl::LCG;
+    let mut s = String::with_capacity(lcg.len() + KERNEL_WGSL.len() + 1);
+    s.push_str(lcg);
+    s.push('\n');
+    s.push_str(KERNEL_WGSL);
+    s
+}
+
 // ---------------------------------------------------------------------------
 // CPU mirror: the same f32 arithmetic as the WGSL kernel (the logic reference).
 // ---------------------------------------------------------------------------
 
 /// Advance a split 64-bit LCG seed one step (bit-exact vs the CPU LCG) and derive
-/// the top-24-bit f32 uniform — the same `rng_next` the shader uses. Returns
+/// the top-24-bit f32 uniform — the same `petir_lcg_next` the shader uses. Returns
 /// `(new_lo, new_hi, xi)`.
+///
+/// **One copy (2026-10-02).** This is [`petir::wgsl::mirror_lcg::lcg_next`],
+/// the CPU mirror of the PETIR shader (`petir_lcg_next`) this kernel is
+/// composed with.
 #[inline]
 fn rng_next(lo: u32, hi: u32) -> (u32, u32, f32) {
-    let seed = ((hi as u64) << 32) | (lo as u64);
-    let new = seed.wrapping_mul(MULT).wrapping_add(INC);
-    let new_hi = (new >> 32) as u32;
-    let new_lo = new as u32;
-    let xi = ((new >> 40) as u32 as f32) * (1.0f32 / 16_777_216.0f32);
-    (new_lo, new_hi, xi)
+    petir::wgsl::mirror_lcg::lcg_next(lo, hi)
 }
 
 /// Rotate unit direction `u` by cosine `mu` and a sampled azimuth (one draw).
@@ -763,7 +787,7 @@ pub fn advance_generation_gpu(
     });
     let shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
         label: Some("batched_event.shader"),
-        source: wgpu::ShaderSource::Wgsl(include_str!("shaders/batched_event.wgsl").into()),
+        source: wgpu::ShaderSource::Wgsl(shader_source().into()),
     });
     let pipeline = device.create_compute_pipeline(&wgpu::ComputePipelineDescriptor {
         label: Some("batched_event.pipeline"),

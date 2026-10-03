@@ -8,7 +8,7 @@
 //! ## Why this comparison is statistical, and what that costs
 //!
 //! Upstream draws from one static `std::mt19937`; this port draws from
-//! `outram_mc_libs::rng::lcg`, the workspace's generator (the
+//! `petir::rng::lcg`, the workspace's generator (the
 //! search-before-building rule: the workspace has a tested generator and a
 //! tested distribution library, and a port that added a second of either would
 //! be the duplication that rule exists to prevent). **Two Monte Carlo runs

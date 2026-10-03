@@ -56,3 +56,14 @@ interpretation of what the numbers mean and whether the pass criterion was met.
 See `outram-park-fork-coolprop/verification_and_validation/` for a worked
 example (`water_critical_point_iapws95.md`).
 
+## MHTGR end-to-end workflow vs Stoyer et al. (GitHub #413)
+
+[`mhtgr_stoyer/`](mhtgr_stoyer/README.md): the paper's two MHTGR cases, run
+through the port and through upstream TRISO-ATOPS on the same cited inputs.
+- **Port vs upstream:** agree to 5.6e-12.
+- **Against the paper's Tables 9, 13 and the initial releases:** every value
+  is reproduced within 2 % once `k_plate` = 7.5e-4 /s, which is upstream's
+  default. Table 3 prints 7.5e-5.
+- **Pending:** the heat-up releases need Fig. 5 to be digitised.
+Test: `tests/mhtgr_stoyer_workflow.rs`.
+

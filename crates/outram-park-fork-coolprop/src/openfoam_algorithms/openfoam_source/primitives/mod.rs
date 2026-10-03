@@ -24,11 +24,14 @@
 //! `SphericalTensor`/`SymmTensor`/`Tensor` rank-2 types with their algebra.
 //! Mirrors OpenFOAM's `src/OpenFOAM/primitives/` VectorSpace types.
 
-pub mod scalar;
-pub mod spherical_tensor;
-pub mod vector;
-pub mod symm_tensor;
-pub mod tensor;
+// DEDUPED 2026-10-03 (GitHub #492): this module's five primitive modules were a copy of
+// `outram-foam-basic-lib`'s, code-identical apart from doc comments (or, for
+// `FvMesh`/`MeshError`, a strict subset of it: foam-basic-lib adds the
+// cyclic/AMI fields and checks, which this crate never sets, so every mesh
+// built here behaves identically). foam-basic-lib is the one copy; these are
+// re-exports. Merging `FvMesh` alone was not possible: its fields are
+// foam-basic-lib `Vector3`s, so the primitives had to come with it.
+pub use outram_foam_basic_lib::primitives::{scalar, spherical_tensor, symm_tensor, tensor, vector};
 
 pub use scalar::{Label, Scalar, GREAT, ROOT_GREAT, ROOT_SMALL, ROOT_VSMALL, SMALL, VGREAT, VSMALL};
 pub use spherical_tensor::SphericalTensor;

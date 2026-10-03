@@ -155,8 +155,9 @@ pub struct HtgrPlantSnapshot {
     pub ihx_duty_w: f64,
     /// Helium-side IHX outlet temperature \[K\] — ~~what the core inlet relaxes
     /// toward once the return transport lag has played out~~ **CORRECTED
-    /// 2026-09-29 (gh:#392)**: the inflow to the cold-return helium CV, whose
-    /// own state is the core inlet.
+    /// 2026-09-29 (gh:#392)**: the inflow to the ~~cold-return helium CV, whose
+    /// own state is the core inlet~~ cold-duct helium CV (2026-10-01 split),
+    /// upstream of the RPV-annuli CV whose state is the core inlet.
     pub ihx_outlet_temp_k: f64,
 
     // ---- Secondary steam cycle ----

@@ -65,6 +65,7 @@ struct Fixture {
     root: KovanRoot,
     proprietary: String,
     open: String,
+    standard: String,
     parent: String,
 }
 
@@ -100,6 +101,7 @@ fn fixture() -> Option<Fixture> {
         root,
         proprietary,
         open,
+        standard,
         parent,
     })
 }
@@ -465,4 +467,183 @@ fn url_spellings_of_one_repository_compare_equal() {
         "paths stay case-sensitive"
     );
     assert_eq!(normalize_url("/tmp/x/p.git"), normalize_url("/tmp/x/p"));
+}
+
+/// Another clone pushes a commit to `remote`'s `main` (as a second machine
+/// saving into the corpus would). Returns the new tip.
+fn advance_remote(tmp: &Path, remote: &str, file: &str) -> String {
+    let other = tmp.join(format!("other-{}", file.replace('/', "_")));
+    g(tmp, &["clone", "-q", remote, &other.to_string_lossy()]);
+    let f = other.join(file);
+    std::fs::create_dir_all(f.parent().unwrap()).unwrap();
+    std::fs::write(&f, b"from another clone").unwrap();
+    g(&other, &["add", "."]);
+    g(&other, &["commit", "-q", "-m", "saved elsewhere"]);
+    g(&other, &["push", "-q", "origin", "main"]);
+    tip(remote, "main")
+}
+
+/// GH issue #422: a corpus another clone saved into is behind its remote;
+/// pulling the corpora fast-forwards it, leaves it on `main` (not detached),
+/// and the next save's push is no longer refused. Before #422 this exact
+/// state made push-after-save refuse the corpus and skip the Kovan
+/// repository (seen 2026-09-29: open corpus 7 behind, proprietary 16).
+#[test]
+fn pulling_the_corpora_fast_forwards_a_corpus_that_fell_behind() {
+    let Some(f) = fixture() else { return };
+    let t = f._tmp.path();
+    let open_dir = f.root.open_corpus_dir();
+    let prop_dir = f.root.restricted_sources_dir();
+    // Leave both detached, as `git submodule update` would.
+    g(&open_dir, &["checkout", "-q", "--detach"]);
+    g(&prop_dir, &["checkout", "-q", "--detach"]);
+    let open_before = head(&open_dir);
+    let open_tip = advance_remote(t, &f.open, "me-open-corpus/elsewhere.pdf");
+    let prop_tip = advance_remote(t, &f.proprietary, "papers/elsewhere.pdf");
+
+    let pulled = pull_corpora(&f.root);
+    let lines: Vec<String> = pulled.iter().map(CorpusPull::line).collect();
+    let get = |k: CorpusKind| &pulled.iter().find(|p| p.corpus == k).unwrap().outcome;
+    assert_eq!(
+        get(CorpusKind::Open),
+        &CorpusPullOutcome::Updated {
+            branch: "main".into(),
+            from: open_before,
+            to: open_tip.clone(),
+        },
+        "{lines:?}"
+    );
+    assert!(
+        matches!(
+            get(CorpusKind::Proprietary),
+            CorpusPullOutcome::Updated { .. }
+        ),
+        "{lines:?}"
+    );
+    assert!(
+        matches!(
+            get(CorpusKind::Standard),
+            CorpusPullOutcome::UpToDate { .. }
+        ),
+        "{lines:?}"
+    );
+    assert_eq!(head(&open_dir), open_tip);
+    assert_eq!(head(&prop_dir), prop_tip);
+    for dir in [&open_dir, &prop_dir] {
+        assert_eq!(g(dir, &["symbolic-ref", "--short", "HEAD"]), "main");
+    }
+
+    // A new save now pushes everywhere instead of being refused.
+    std::fs::write(prop_dir.join("papers/after.pdf"), b"new").unwrap();
+    save_repository_with_message(&f.root, "after pull")
+        .unwrap()
+        .unwrap();
+    let report = push_after_save(&f.root);
+    assert!(!report.has_problem(), "{:?}", report.lines());
+    assert_eq!(tip(&f.proprietary, "main"), head(&prop_dir));
+
+    // Pulling again finds everything up to date.
+    for p in pull_corpora(&f.root) {
+        assert!(
+            matches!(p.outcome, CorpusPullOutcome::UpToDate { .. }),
+            "{}",
+            p.line()
+        );
+    }
+}
+
+/// Following the remote would destroy local work: a corpus with an unpushed
+/// save, or with an unsaved file, is reported as needing confirmation and
+/// left exactly as it was — overriding is the user's call, never automatic.
+#[test]
+fn a_corpus_with_local_work_is_not_overridden_without_asking() {
+    let Some(f) = fixture() else { return };
+    let t = f._tmp.path();
+    let prop_dir = f.root.restricted_sources_dir();
+    let open_dir = f.root.open_corpus_dir();
+    advance_remote(t, &f.proprietary, "papers/elsewhere.pdf");
+    advance_remote(t, &f.open, "me-open-corpus/elsewhere.pdf");
+
+    // Proprietary: a local save the remote does not have.
+    std::fs::write(prop_dir.join("papers/local.pdf"), b"only here").unwrap();
+    g(&prop_dir, &["add", "."]);
+    g(&prop_dir, &["commit", "-q", "-m", "local only"]);
+    let prop_head = head(&prop_dir);
+    // Open: an unsaved file.
+    std::fs::write(open_dir.join("me-open-corpus/unsaved.pdf"), b"draft").unwrap();
+    let open_head = head(&open_dir);
+
+    let pulled = pull_corpora(&f.root);
+    for (kind, dir) in [
+        (CorpusKind::Proprietary, &prop_dir),
+        (CorpusKind::Open, &open_dir),
+    ] {
+        let p = pulled.iter().find(|p| p.corpus == kind).unwrap();
+        match &p.outcome {
+            CorpusPullOutcome::NeedsConfirmation { remote, branch, .. } => {
+                assert_eq!((remote.as_str(), branch.as_str()), ("origin", "main"));
+            }
+            other => panic!("{kind:?}: expected a confirmation, got {other:?}"),
+        }
+        assert_eq!(p.dir, *dir);
+    }
+    assert_eq!(head(&prop_dir), prop_head);
+    assert!(prop_dir.join("papers/local.pdf").exists());
+    assert_eq!(head(&open_dir), open_head);
+    assert!(open_dir.join("me-open-corpus/unsaved.pdf").exists());
+
+    // "yes, can": the forced pull makes the corpus match its remote and
+    // leaves it on `main`.
+    crate::advanced_git::force_pull_in(&prop_dir, "origin", "main").unwrap();
+    assert_eq!(head(&prop_dir), tip(&f.proprietary, "main"));
+    assert!(!prop_dir.join("papers/local.pdf").exists());
+    assert_eq!(g(&prop_dir, &["symbolic-ref", "--short", "HEAD"]), "main");
+}
+
+/// Maintainer, 2026-09-30: *"make sure the pull button from kovan gui also
+/// pulls in both corpuses"*. A Kovan folder whose corpora are registered but
+/// were never fetched (a plain clone, or `git submodule deinit`) used to get
+/// "not pulled — not downloaded" from Pull and stay empty. Now Pull fetches
+/// both the open and the proprietary corpus, and leaves each on `main` at
+/// its remote's tip.
+#[test]
+fn pulling_downloads_corpora_that_are_configured_but_not_fetched() {
+    let Some(f) = fixture() else { return };
+    let open_dir = f.root.open_corpus_dir();
+    let prop_dir = f.root.restricted_sources_dir();
+    for dir in [&open_dir, &prop_dir] {
+        let rel = dir.strip_prefix(f.root.path()).unwrap().to_string_lossy().to_string();
+        g(f.root.path(), &["submodule", "deinit", "-q", "-f", "--", &rel]);
+        assert!(!dir.join(".git").exists(), "{rel} still checked out");
+    }
+
+    let pulled = pull_corpora_with(&f.root, &f.standard, "main");
+    let lines: Vec<String> = pulled.iter().map(CorpusPull::line).collect();
+    for (kind, dir, remote) in [
+        (CorpusKind::Open, &open_dir, &f.open),
+        (CorpusKind::Proprietary, &prop_dir, &f.proprietary),
+    ] {
+        let p = pulled.iter().find(|p| p.corpus == kind).unwrap();
+        assert_eq!(
+            p.outcome,
+            CorpusPullOutcome::Downloaded {
+                branch: "main".into(),
+                head: tip(remote, "main"),
+            },
+            "{lines:?}"
+        );
+        assert_eq!(head(dir), tip(remote, "main"));
+        assert_eq!(g(dir, &["symbolic-ref", "--short", "HEAD"]), "main");
+    }
+    assert!(open_dir.join("me-open-corpus/b.pdf").exists());
+    assert!(prop_dir.join("papers/c.pdf").exists());
+
+    // The next pull finds them present and up to date.
+    for p in pull_corpora_with(&f.root, &f.standard, "main") {
+        assert!(
+            matches!(p.outcome, CorpusPullOutcome::UpToDate { .. }),
+            "{}",
+            p.line()
+        );
+    }
 }

@@ -1,0 +1,18 @@
+--- a/DWSIM.UnitOperations/Reactors/CSTR.vb
++++ b/DWSIM.UnitOperations/Reactors/CSTR.vb
+@@ -505,7 +505,14 @@
+                 ResidenceTimeV = ResidenceTimeL
+             End If
+ 
+-            dT = ResidenceTimeL / 10 'initial time step
++            ' OUTRAM-DIAGNOSTIC (build copy only, not upstream): seed dT from V/Q when
++            ' there is no liquid or solid, to test whether dT = 0 is why an all-vapour
++            ' CSTR returns no conversion.
++            If ResidenceTimeL <= 0 AndAlso Q > 0 Then
++                dT = Volume / Q / 10
++            Else
++                dT = ResidenceTimeL / 10 'initial time step
++            End If
+ 
+             If dynamics Then
+                 Dim integratorID = FlowSheet.DynamicsManager.ScheduleList(FlowSheet.DynamicsManager.CurrentSchedule).CurrentIntegrator

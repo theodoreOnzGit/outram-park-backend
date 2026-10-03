@@ -9,7 +9,12 @@
 //! cargo run --release -p nee_soon --example htr10_core_scaling
 //! ```
 //!
-//! # Results (2026-09-17) — SCALE IS NOT A RUNTIME RISK
+//! **2026-10-01:** moved from the one-ball `core_model::assemble` (withdrawn:
+//! it cuts pebbles) to [`assemble_explicit_triso`] on Şeker's bed. The table
+//! below was measured on the withdrawn geometry and is kept as history; it has
+//! not been re-measured on the new bed.
+//!
+//! # Results (2026-09-17, withdrawn one-ball geometry) — SCALE IS NOT A RUNTIME RISK
 //!
 //! | rings | layers | tiles | build (ms) | locate (us) | dist (us) |
 //! |---|---|---|---|---|---|
@@ -43,7 +48,7 @@
 
 use std::time::Instant;
 
-use nee_soon::htr10_rmc::core_model::assemble;
+use nee_soon::htr10_rmc::core_model::assemble_explicit_triso;
 use outram_mc_libs::geometry::cell::SurfaceToken;
 use outram_mc_libs::geometry::position::{Direction, Position};
 
@@ -57,12 +62,15 @@ fn main() {
         "rings", "layers", "tiles", "build (ms)", "locate (us)", "dist (us)"
     );
 
-    // Full HTR-10 is roughly 14 rings x 21 layers.
-    let sizes = [(2, 3), (4, 6), (6, 10), (9, 15), (12, 18), (14, 21)];
+    // ~~Full HTR-10 is roughly 14 rings x 21 layers~~ of the one-ball
+    // `assemble`, WITHDRAWN 2026-10-01 (it cuts pebbles: wrong physics). Now
+    // Şeker's whole-ball bed; `layers` is Şeker layers N (20 = 202 cm). The
+    // ring count is a floor (the lattice is sized to the 90 cm bed).
+    let sizes = [(2, 1), (4, 3), (6, 5), (9, 8), (12, 12), (14, 20)];
     let mut last: Option<(f64, f64)> = None;
     for (rings, layers) in sizes {
         let t0 = Instant::now();
-        let core = assemble(rings, layers, 0);
+        let core = assemble_explicit_triso(rings, layers, 0);
         let build_ms = t0.elapsed().as_secs_f64() * 1e3;
 
         // Probe points spread through the bed, so the cost is the real descent

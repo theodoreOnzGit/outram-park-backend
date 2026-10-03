@@ -43,6 +43,9 @@ fn main() {
         Some(si29),
         Some(si30),
         Some(b11),
+        Some(c13_free),
+        Some(c13_graphite),
+        Some(c13_sic),
     ) = (
         l("U235", "n-092_U_235-ENDF8.0.endf"),
         l("U238", "n-092_U_238.endf"),
@@ -55,6 +58,10 @@ fn main() {
         l("Si29", "n-014_Si_029-ENDF8.0.endf"),
         l("Si30", "n-014_Si_030-ENDF8.0.endf"),
         l("B11", "n-005_B_011-ENDF8.0.endf"), // 10: B-11 (gh:#311)
+        // 11, 12, 13: C-13, the 1.07 at.% of natural carbon (gh:#425).
+        l("C13", "n-006_C_013-ENDF8.0.endf"),
+        l("C13", "n-006_C_013-ENDF8.0.endf"),
+        l("C13", "n-006_C_013-ENDF8.0.endf"),
     )
     else {
         println!("SKIP: no endf dir");
@@ -65,7 +72,7 @@ fn main() {
         u8,
         o,
         cf,
-        cg.with_thermal_scattering(sab.unwrap()),
+        cg.with_thermal_scattering(sab.clone().unwrap()),
         bind_sic(si, &si_in_sic),
         b,
         // 7, 8, 9: carbon bound in SiC, and silicon's other two natural
@@ -76,21 +83,12 @@ fn main() {
         bind_sic(si30, &si_in_sic),
         // 10: B-11 (gh:#311).
         b11,
+        // 11, 12, 13: C-13 (gh:#425), bound as its C-12 partners.
+        c13_free,
+        c13_graphite.with_thermal_scattering(sab.unwrap()),
+        bind_sic(c13_sic, &c_in_sic),
     ];
-    let idx = Htr10Nuclides {
-        u235: 0,
-        u238: 1,
-        o16: 2,
-        c_free: 3,
-        c_graphite: 4,
-        si28: 5,
-        b10: 6,
-        // Appended 2026-09-23: slots 0..=6 keep their indices.
-        c_sic: 7,
-        si29: 8,
-        si30: 9,
-        b11: 10,
-    };
+    let idx = Htr10Nuclides::NATURAL_CARBON;
     let mut mats = fuel_pebble_materials(idx, BoronReading::Natural, 293.6);
     mats.truncate(6);
     mats.push(Material {
@@ -103,16 +101,16 @@ fn main() {
     mats.push(Material {
         id: 71,
         name: "reflector".into(),
-        components: vec![
-            NuclideComponent {
-                nuclide_idx: idx.c_graphite,
-                atom_density: z.carbon,
-            },
+        components: idx.c_graphite
+            .components(z.carbon)
+            .into_iter()
+            .chain([
             NuclideComponent {
                 nuclide_idx: idx.b10,
                 atom_density: z.natural_boron * B10_OF_NATURAL,
             },
-        ],
+            ])
+            .collect(),
         temperature: 293.6,
     });
     println!(

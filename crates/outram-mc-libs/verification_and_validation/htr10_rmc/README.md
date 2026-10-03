@@ -11,12 +11,314 @@ height dependence, the separated data/transport timings, the P-core vs E-core
 sweep and the constant-cavity ablation. **This page remains the authority for
 how the model was built and corrected**; that one is the authority for how it
 performs across the loading range.
+**CORRECTED 2026-10-01 (gh:#428):** that suite was measured on the one-ball
+bed with the R-Z zone-22 reflector, and is superseded as a statement of
+performance (see the marker at its top). For the current model (Şeker's
+13-ball bed, explicit reflector, withdrawn rods, 30P graphite), the authority
+is the section below. The twelve-row sweep has not been re-run on it.
 
 **Images of the built geometry (2026-09-25):**
 [`crates/nee_soon/verification_and_validation/htr10_geometry_images/`](../../../nee_soon/verification_and_validation/htr10_geometry_images/README.md)
 — slices of the assembled `assemble_explicit_triso(14, 25, 0)` core rendered
 with the OpenMC-parity plotter, from the whole R-Z model down to one TRISO
-particle. gh:#309 and gh:#310 are directly visible there.
+particle. ~~gh:#309 and gh:#310 are directly visible there.~~ Regenerated
+2026-09-25 for the two-ball cell, which fixes both — see the next section.
+**CORRECTED 2026-10-01:** regenerated again on 2026-10-01 for Şeker's
+13-ball bed, where the second argument of `assemble_explicit_triso` is now
+the layer count N, not half-layers.
+
+## Materials changed after every number on this page (2026-10-01, gh:#425, #426, #329)
+
+Three maintainer decisions of 2026-10-01 changed the **default** HTR-10
+materials. **Every eigenvalue on this page was measured before them**, with
+C-12-only carbon, a vacuum coolant and the simplified rod metal. None has been
+re-measured: no eigenvalue is run until the geometry and materials are complete
+(maintainer rule). The new defaults, built by `nee_soon::htr10_rmc::data`:
+
+| term | before 2026-10-01 | default since | ablation knob |
+|---|---|---|---|
+| carbon (VIII.0) | all C-12 at the natural-carbon density | natural carbon, C-12 / C-13 at 98.93 / 1.07 at.% (IUPAC), thermal law on both | `OUTRAM_HTR10_CARBON_AS_C12` |
+| coolant (`mat::HELIUM`) | empty material = exact vacuum | natural helium, ideal gas at 300.15 K and 101.33 kPa (pressure **assumed** atmospheric), 2.4452e-5 atoms/(b cm), He-3 1.343e-6 | `OUTRAM_HTR10_VACUUM_COOLANT` |
+| rod steel and joint iron | Ni -> Fe, Fe-57 -> Fe-56 (knobs) | real Ni-58..64 (ACE submodule) and Fe-54..58; **refused until gh:#339 is fixed** | `OUTRAM_HTR10_NI_AS_FE` + `OUTRAM_HTR10_FE57_AS_FE56` (= `examples/htr10_rod_metal_simplified.rs`) |
+
+The full and simplified rod-metal cases are the examples
+`htr10_rod_metal_full` and `htr10_rod_metal_simplified`. Predicted signs, not
+measured: C-13 removes ~0.7 % of carbon capture (gh:#425 estimates k up by 50
+to 150 pcm); helium at 1 atm is a few pcm at most (gh:#426); the rod metal is
+withdrawn, so its worth should be small.
+
+## Şeker & Çolak (2003)'s 13-ball cell (2026-10-01, gh:#472) — CURRENT
+
+**Status:** geometry verified (built-geometry tests, sampling, images), with
+an uncalibrated check against the source's own ball counts. The eigenvalue is
+being re-measured. AI-assisted, not yet reviewed by the maintainer.
+
+**What changed.** The cell is now Şeker & Çolak's, reconstructed from their
+text and Fig. 3 with no free parameter:
+- apothem 8.196 cm, pitch 16.392 cm, height 9.798 cm;
+- a 7-ball touching flower on each face and a 6-ball triangle at mid-height,
+  13 balls per prism.
+
+It is used as follows:
+- every ball is whole, rejected at the side wall, cone and tube (Şeker p.267);
+- the bed is `9.798 N + 6` cm, the reference's own height axis;
+- `assemble_explicit_triso`'s second argument is now N.
+
+Derivation and tests: `nee_soon::htr10_rmc::bed::SekerCell` / `SekerBed`. The
+two-ball cell below ~~is the `OUTRAM_HTR10_TWO_BALL_CELL=1` ablation~~ is
+**withdrawn (maintainer, 2026-10-01)**. It cuts pebbles at the side wall and
+the bed top, which is wrong physics, and it is not to be run, even as an
+ablation. Its numbers below stay as history.
+
+**Check against Şeker Table 3 (N = 12), nothing fitted:**
+
+| quantity | this model | Şeker Table 3 |
+|---|---|---|
+| balls per basal plane | 721 | 733 (−1.6 %) |
+| balls per central plane | 609 | 613 (−0.7 %) |
+| balls in total | 16 681 | 16 885 (−1.2 %) |
+
+**Images:** `crates/nee_soon/verification_and_validation/htr10_geometry_images/`,
+regenerated 2026-10-01.
+
+### First eigenvalue on Şeker's cell (2026-10-01, fast statistics, single seed: tentative)
+
+**Methodology.**
+- **Command:** `htr10_rmc_keff` with `OUTRAM_HTR10_RINGS=14
+  OUTRAM_HTR10_LAYERS=12 OUTRAM_HTR10_NI_AS_FE=1 OUTRAM_HTR10_FE57_AS_FE56=1
+  OUTRAM_HTR10_THREADS=6`, at commit `348eec9305` (geometry) / `f51a581f5b`.
+- **Model:** N = 12 is the critical row, 123.576 cm, built on the reference's
+  own height axis, so no height mapping and no interpolation.
+- **Data:** ENDF/B-VIII.0, 30P reactor graphite S(α,β), 300.15 K.
+- **Statistics:** 2000 histories × [30 inactive + 70 active], seed 20260917,
+  hybrid delta/surface tracking.
+- **Assumptions:** rod steel Ni → Fe and Fe-57 → Fe-56, as stated in the log.
+- **Reference:** Li, Yu & Wei (2014) RMC, 1.004288 at this row.
+
+**Results.**
+
+| quantity | value |
+|---|---|
+| k_eff | **0.987043 ± 0.003022** |
+| residual vs RMC at the 123.576 cm row | ~~−1724 ± 302 pcm~~ superseded by the line below |
+| **residual vs RMC at equal ball count** (gh:#472) | **−1238 ± 302 pcm**: 16 681 balls, which is 122.091 cm in Şeker's model, where RMC = 0.999419 (VIII.0; ~~the references used VII.0~~ **CORRECTED 2026-10-01:** RMC used ENDF/B-VII.0 (Li 2014), Şeker's MCNP used ENDF/B-VI + TMCCS graphite (Şeker p.265); that offset is not corrected) |
+| MCNP gauge (Şeker's own model) | 1.003298 vacuum (−1625 pcm), 1.004788 helium (−1774 pcm) |
+| geometry | 22 974 tiles, 43 445 cells, 1 502 universes |
+| locate | 0 lost, 0 stuck, 0 negative distances |
+| entropy | 5.548 → 5.514 bits |
+| run | data 175.8 s, transport 543.6 s, on an AMD Ryzen 5 5600 (6 threads, 15.5 GiB) |
+
+**Why equal ball count (2026-10-01, maintainer's choice).** At the same
+height our whole-ball bed holds 1.2 % fewer balls than Şeker's model. The
+missing ones are exactly the shells centred at ρ = 87.08 and 87.21 cm, which
+cross the r = 90 cm reflector by 0.08–0.21 cm. Keeping them reproduces
+Şeker's basal count exactly. The reference therefore holds wall-crossing
+(cut) balls. Cut pebbles are wrong physics, so they are not added, and the
+reference is read where its model holds our inventory
+(`htr10_rmc::rmc_keff_at_ball_count`). A side effect: at N = 9 our 12 691
+balls map to 93.06 cm, below the lowest row, so that point has no reference
+(no extrapolation).
+
+**Interpretation.** This is the first k on a bed whose every pebble is whole,
+built on the reference's own heights. It is **not** a paired measurement of
+the cell change:
+- The last two-ball number at this row (0.977026, −2726 pcm, 2026-09-26)
+  predates the #459 thermal-data and OpenMC-parity changes on `develop`.
+- The two-ball bed is withdrawn (it cuts pebbles) and is not re-run.
+
+So the +1000 pcm between the two numbers is **not attributed** to the cell.
+Single seed, one height: the drift (gh:#218/#336) needs the twelve-row sweep
+(`htr10_endf8_height_sweep l09 … l20`).
+
+## ~~The two-ball prism cell (2026-09-25, gh:#309 step 2, gh:#310) — CURRENT~~ The two-ball prism cell (2026-09-25), superseded as default 2026-10-01
+
+**Status: geometry verified (sampling, built-geometry tests, images); the
+eigenvalue residual it produces is an open question.** Branch
+`claude/htr10-two-ball-cell` from `develop` at `fe975296a2`. AI-assisted; not
+yet reviewed by the maintainer. Every `k` elsewhere on this page predates it.
+
+### What changed, and why
+
+The bed was one 6 cm ball per hex tile of half the paper's height
+(4.899 cm), pitch solved to 6.6086 cm. That dropped the paper's A-B lateral
+offset, so axial neighbours sat 4.899 cm apart and **interpenetrated by
+1.101 cm**; the tile face cut each pebble on the plane where the two spheres
+cross, removing 4.74 % of every pebble (almost all carbon). Core graphite was
+4.76 % low (C/U 4.8 % low), and the fuel zones of axial neighbours met on a
+1 cm disc (gh:#309, #310).
+
+Now the lattice tile **is** the paper's prism, `HexBedCell::from_paper()`:
+
+| quantity | value | source |
+|---|---|---|
+| tile pitch | 6.6106 cm | touching pitch diluted to the stated 0.61 (`bed.rs`) |
+| tile height | 9.7980 cm | two close-packed layers = the paper's stated 9.798 cm layer |
+| balls per tile | 2 | A: two half-balls on the axis at the faces; B: three third-balls at alternate vertices, mid-height |
+| packing | 0.6100 | 2 x 113.097 cm³ / 370.8 cm³ |
+| nearest centres | in-plane 6.6106, A-B 6.2102, A-A axial 9.798 cm | all > 6.0 cm: no overlap, 0.210 cm minimum gap |
+| pebble / fuel zone / TRISO | 6.0 cm / 2.5 cm / 8340 per pebble (built = counted, gh:#316) | unchanged |
+
+Nothing is solved or clipped. Spheres centred on a tile face or vertex are
+exact: `Geometry::locate` evaluates a tile universe's cells in tile-local
+coordinates only for points the lattice has placed in that tile, so each tile
+draws its own piece of a ball and its neighbours draw the rest.
+
+**Fuel/dummy identity is per BALL** (`bed::TwoBallBed`). The 57:43 split is a
+low-discrepancy (Bresenham) rule over every ball with volume inside the bed
+cylinder, ordered by layer from the bed floor up, then distance from the axis,
+then angle; balls centred below the bed floor are the conus and are all dummy
+(Terry 2005 s2). Each tile's universe is the variant for its five balls'
+identities (all 32 masks occur; 35 universes, 287 cells at 14 rings).
+
+**`n_axial`** still counts 4.899 cm half-layers, so every loading height is
+unchanged (20 / 25 / 41 -> 97.980 / 122.474 / 200.858 cm). The stacking phase
+is **anchored at the bed floor** (layer 0 is an A layer): the floor is fixed
+hardware, so a taller loading only adds layers on top, and — because the
+identity order runs from the floor up — never reshuffles the balls below
+(`a_taller_loading_does_not_reshuffle_the_balls_below`). An odd `n_axial` ends
+on an A layer, an even one on a B layer; nothing else distinguishes them. The
+layer centred 2.449 cm above the bed top is present and protrudes 0.55 cm into
+the bed, replacing the top layer's 0.55 cm the bed plane clips off; the
+laterally averaged density is periodic with period 4.899 cm, so a whole number
+of half-layers holds exactly the cell's packing.
+
+Cavity, bottom reflector, conus and discharge-tube geometry are unchanged
+(`the_axial_stack_matches_terry_at_every_loading` passes). `mat::HOMOG_DUMMY`'s
+0.61 smear now agrees with the bed it homogenises.
+
+### Verification 1 — sampling the built geometry (`examples/htr10_fuel_fraction.rs`)
+
+400 M uniform points in the fuelled envelope (r <= 90 cm, conus floor to bed
+top), classified by `locate`; expected values computed over the SAME envelope
+(bed slab at 0.61 x 57 % fuel pebbles with 8340 TRISO; conus band: dummy
+pebbles at 0.61 inside the frustum, reflector outside). Binomial errors.
+
+| n_axial | kernel / expected | graphite / expected | helium / expected | bed filling fraction | fuel-ball volume fraction |
+|---|---|---|---|---|---|
+| 20 (97.98 cm) | 0.9983 +/- 0.0014 | 0.9994 | 1.0009 | 0.609701 +/- 0.000029 | 0.569313 +/- 0.000037 |
+| 25 (122.47 cm) | 1.0002 +/- 0.0014 | 0.9993 | 1.0010 | 0.609618 +/- 0.000028 | 0.569333 +/- 0.000036 |
+| 41 (200.86 cm) | 0.9994 +/- 0.0013 | 0.9993 | 1.0009 | 0.609606 +/- 0.000027 | 0.569694 +/- 0.000035 |
+
+- **Heavy metal:** 0.998-1.000 of the paper-implied value (the one-ball model
+  gave 0.9971 +/- 0.0014).
+- **Carbon restored:** envelope graphite at n 25 **0.4990 -> 0.5244**, helium
+  **0.3662 -> 0.3408**; in the bed slab graphite is 0.5996 against the
+  paper-implied 0.59988 (the one-ball bed had 0.57131).
+- **The filling fraction is 0.05 % below 0.61, at 13 sigma, and that is
+  recorded rather than explained away.** A scratch probe (not committed)
+  located it: r < 80 cm gives 0.6094, the 80-90 cm annulus 0.6102, and
+  trimming 10 cm off each end of the r < 80 cm column 0.6099 — it changes
+  sign with the window, which is the signature of lattice-point discreteness
+  (a finite hex lattice cut by a cylinder; A and B layers hold slightly
+  different numbers of balls in a disc), not of missing volume. The fuel-ball
+  volume fraction is 0.05-0.12 % below 0.57 for the same reason plus the
+  one-ball-per-layer granularity of the split. Neither is tuned.
+
+### Verification 2 — tests on the built geometry (`htr10_rmc::tests`, `bed::hex_lattice_tests`)
+
+| test | result (14 rings x 20) |
+|---|---|
+| `no_two_balls_of_the_built_bed_overlap` — centres read from the assembled lattice + sphere surfaces | 29 445 balls; **minimum centre distance 6.2102 cm** (= the A-B spacing) |
+| `every_piece_of_a_built_ball_has_one_identity` | held by 1 / 2 / 3 tiles: 2 501 / 13 888 / 13 056; **0 inconsistent** |
+| `the_built_bed_is_57_percent_fuel_balls_and_the_conus_none` | 7 700 / 13 510 = 0.56995 fuelled in the bed; conus 0 / 5 404 |
+| `the_sampled_bed_has_the_papers_packing_and_fuel_ball_fraction` (400 k) | 0.60972, 0.57066 |
+| `every_tile_resolves_a_shared_ball_to_one_position`, `a_taller_loading_does_not_reshuffle_the_balls_below` | pass |
+| `the_built_triso_lattice_holds_the_counted_8340_particles`, `the_axial_stack_matches_terry_at_every_loading`, `every_boron_bearing_material_carries_natural_b11` | pass |
+
+**Mutation check of the identity test:** a per-TILE identity (every site
+takes its `ABottom` ball's identity) -> 11 685 inconsistent, FAILS; the
+`BNorthWest` vertex owner `(a-1, b)` instead of `(a-1, b+1)` -> 3 748
+inconsistent, FAILS; restored -> passes. Giving every tile its neighbour's
+mask is correctly NOT caught: it translates the whole identity field and keeps
+every ball consistent.
+
+### Verification 3 — images
+
+`crates/nee_soon/verification_and_validation/htr10_geometry_images/`,
+regenerated from the assembled geometry, two new views (a B layer in plan; the
+bed floor). Whole pebbles, helium between every pair, no cut at tile faces or
+vertices, every B disc (three tiles) uniformly fuel or dummy, conus all dummy.
+What was and was not checked is in that folder's README.
+
+### Eigenvalue — methodology
+
+`examples/htr10_rmc_keff.rs`, default arm: ENDF/B-VIII.0 + 5 thermal laws,
+B-11 placed, 8340 TRISO, fixed cavity, Terry bottom reflector; 10 000
+histories x [5 inactive + 135 active], 14 rings; seeds 20260917, +2, +3
+(`OUTRAM_BENCH_SEEDS=3`); height-matched against RMC interpolated to the bed
+height. **CORRECTED 2026-10-01 (gh:#333, gh:#472):** the bed heights here
+(97.980 / 122.474 / 200.858 cm) are volume-equivalent, while RMC's heights
+are whole-ball extents, `9.798 N + 6` cm. So this "height match" compared
+unequal beds, and the residuals below read high (see the gh:#333 note in the
+last section of this page). The current model is matched to the reference
+by ball count (`htr10_rmc::rmc_keff_at_ball_count`). The numbers below are
+kept as they were run. Binary SHA-256 `e74e556f...e214c9`, built from the tree committed as
+`1b8c95704f` (later commits on the branch change docs and tests only). Compared
+against develop (`fe975296a2`-equivalent geometry) at the same settings, 3-seed
+means: n20 0.903261, n25 0.993947, n41 1.157860.
+
+**Prediction stated before the runs:** the +5 to +7 pcm/cm drift against RMC
+should largely disappear (the shrunk-pebble ablation had moved the slope by
+-6.88 +/- 1.48 pcm/cm). No prediction of the absolute shift's sign was made.
+
+### Eigenvalue — results (3 seeds per height)
+
+| bed [cm] | seeds | k (mean) | sem [pcm] | RMC | **dk [pcm]** | develop dk | **change** |
+|---|---|---|---|---|---|---|---|
+| 97.980 | 0.926758, 0.928382, 0.927039 | 0.927393 | 50 | 0.911138 | **+1626 +/- 50** | -788 | **+2413** |
+| 122.474 | 1.017567, 1.015903, 1.017928 | 1.017133 | 62 | 1.000676 | **+1646 +/- 62** | -673 | **+2319** |
+| 200.858 | 1.180401, 1.180581, 1.179514 | 1.180165 | 33 | 1.160581 | **+1958 +/- 33** | -272 | **+2231** |
+
+Lost locate 0 and stuck events 0 in all nine runs; Shannon entropy flat
+(e.g. 5.6044 -> 5.6071 bits at n 25); ~16 min of transport per seed at n 25
+on 32 threads.
+
+| fit (weighted, three heights) | two-ball | develop |
+|---|---|---|
+| slope | **+3.41 +/- 0.54 pcm/cm** (chi² 0.6 / 1) | +5.04 +/- 0.77 (sems from the pooled seed sd, ~60 pcm) |
+| constant | rejected (chi² 40.5 / 2) | rejected |
+| **change of slope** | **-1.63 +/- 0.94 pcm/cm (1.7 sigma, unresolved)** | |
+
+### What this says
+
+1. **The prediction failed.** The drift did not largely disappear: it fell
+   from about +5.0 to +3.4 pcm/cm, a change that is not even resolved at
+   2 sigma, and the remaining slope is 6 sigma from zero. The shrunk-pebble
+   ablation's -6.88 +/- 1.48 pcm/cm differs from the physical fix's
+   -1.63 +/- 0.94 by -5.3 +/- 1.8 pcm/cm, so most of that ablation's effect
+   came from what else differed in it — chiefly its 18 % smaller pebble — not
+   from the clip or the contact. The gh:#218 statement "cause now evidenced"
+   is withdrawn (struck through in the `htr10_rmc` module docs).
+2. **Restoring the carbon raises k by 2231-2413 pcm**, and the model goes from
+   272-788 pcm below RMC to **1626-1958 pcm above it**. Sign as the ablation
+   had it (+2344 to +3069), smaller in magnitude. This is the measured answer
+   of a geometry that is now, on every check above, the paper's; **nothing was
+   adjusted to close the gap.**
+3. **The residual is open.** The documented simplifications that push `k` UP
+   are the first candidates to investigate — not to tune: every reflector
+   region is TECDOC zone 22, the densest graphite in Table 4-3; the boronated
+   reflector zones are not placed; the control-rod boring band is solid
+   zone-22 graphite (the bored-graphite option `OUTRAM_HTR10_BORINGS`, priced
+   at -1572 +/- 425 pcm, is off because its core-height composition is
+   unrecorded). The library term is a further ~+1100 pcm (VII.0 above VIII.0)
+   on the reference's own library.
+   **CORRECTED 2026-10-01 (gh:#428):** those three simplifications describe
+   the model as run on 2026-09-25 and no longer hold. Since PR #327 the
+   reflector is the full TECDOC Fig. 4.10 zone map (with the p.242
+   corrections) and every channel is explicit geometry, following Şeker
+   Fig. 4 since gh:#330 (`nee_soon::htr10_rmc::reflector_geometry`). The ten
+   rods are explicit and sit at the withdrawn position. The smeared band and
+   its `OUTRAM_HTR10_BORINGS` knob are gone (verified in `core_model.rs`:
+   `BORED_GRAPHITE` is no longer placed).
+
+### NOT done: the twelve-height single-seed curve (cut short)
+
+The planned remaining nine heights (n 21, 23, 27, 29, 31, 33, 35, 37, 39,
+single seed) were **stopped by maintainer direction on 2026-09-25** while n 21
+was still running; no point of that sweep completed. The slope above rests on
+three heights only, and the curvature it hints at (flat 98 -> 122 cm, then
+rising) is unmeasured. Raw logs of the nine completed runs and the 400 M
+sampling runs were kept outside the repository (scratch), not committed.
 
 **Status as of 2026-09-18 (later): the conus was filled with the WRONG
 CONTENTS, and correcting it removes the +3670 pcm overshoot.** `op-5n34`.
@@ -135,6 +437,12 @@ fraction**, which sits between them.
 
 ### The control-rod boring band — measured, but NOT enabled
 
+> **SUPERSEDED (noted 2026-10-01, gh:#428).** This section describes the
+> R-Z reflector of 2026-09-18. Since PR #327 every reflector zone follows the
+> TECDOC zone map and the rod borings are explicit channels holding explicit
+> withdrawn rods. The smeared band and `OUTRAM_HTR10_BORINGS` no longer exist.
+> The −1572 ± 425 pcm below is kept as the measurement it was.
+
 TECDOC zone 22 is used for every reflector region in this model, and it is
 **rank 1 of 40 distinct carbon densities in Table 4-3** — the densest graphite
 available, everywhere. Giving the band at r 95.6-108.6 cm the reduced density
@@ -223,10 +531,22 @@ reactor leaks. Carving it out moved `k` by -14,108 pcm and took leakage from
   loading but only 114.0 cm at the tallest, in a model 581 cm tall rather than
   610. **Every result recorded on this page before that commit used the mirrored
   bottom.**
-- **Control-rod borings** (r 95.6-108.6 cm) are solid graphite here, not
-  homogenised with their borings.
-- **Control rods themselves** are absent; the benchmark arm is rods-out.
-- **4.76 % of ALL core graphite** is clipped away by the one-ball-per-tile
+- ~~**Control-rod borings** (r 95.6-108.6 cm) are solid graphite here, not
+  homogenised with their borings.~~
+- ~~**Control rods themselves** are absent; the benchmark arm is rods-out.~~
+- **CHANGED 2026-09-25 (WIP, branch `claude/htr10-reflector`; ~~not yet priced
+  or drawn~~ drawn and first priced 2026-09-26, see
+  [`fast_ablation_2026_09_26.md`](fast_ablation_2026_09_26.md) and
+  `crates/nee_soon/verification_and_validation/htr10_python_plots/`):** every reflector channel is explicit geometry — 20 coolant,
+  10 control-rod, 3 irradiation and 7 absorber-ball channels plus the hot gas
+  duct, in solid graphite, inside the full IAEA-TECDOC-1382 Fig. 4.10 zone map
+  with the p. 242 corrections — and the ten rods sit in their channels at the
+  withdrawn position (B1 is rods-out) with explicit B4C, steel and iron. The
+  discharge tube holds explicit whole graphite balls with Li (2014)'s
+  rejection at the cone and tube. See `nee_soon::htr10_rmc::reflector_geometry`
+  and `crates/kovan-literature/derived/tecdoc1382-htr10-mc-borings-and-zone-map.md`.
+  The residuals on this page predate it.
+- ~~**4.76 % of ALL core graphite** is clipped away by the one-ball-per-tile
   construction and replaced by helium. Every pebble loses 4.74 % of its volume
   — 11.1 % of the *fuel* pebble's fuel-free shell, and the whole cap for the
   43 % of tiles that are solid graphite dummies, which have no shell at all —
@@ -235,13 +555,13 @@ reactor leaks. Carving it out moved `k` by -14,108 pcm and took leakage from
   exact to **+0.060 %**: **C/U is 4.8 % low**. The `core_model.rs` comment said
   4.7 % of the *shell*, which is the BALL deficit mislabelled, and omitted the
   dummy pebbles entirely; both corrected 2026-09-25. Sign on `k` not predicted,
-  not measured — **gh:#309**.
-- **`mat::HOMOG_DUMMY` smears the discharge tube at `PAPER_FILLING_FRACTION =
+  not measured — **gh:#309**.~~
+- ~~**`mat::HOMOG_DUMMY` smears the discharge tube at `PAPER_FILLING_FRACTION =
   0.61` while the bed it homogenises realises 0.5814**, so the tube is 4.9 %
   denser in graphite than the bed above it — the same error with the opposite
   sign, in the one place the model homogenises rather than resolves. It should
-  read the realised packing from the assembled lattice — **gh:#309**.
-- **The bed lattice drops the paper's A-B layer offset, so the pebbles
+  read the realised packing from the assembled lattice — **gh:#309**.~~
+- ~~**The bed lattice drops the paper's A-B layer offset, so the pebbles
   INTERPENETRATE.** The paper's cell is a two-ball prism whose layers sit in each
   other's hollows (interlayer centre distance 6.2102 cm, clear of the 6.0 cm
   diameter); one ball per tile puts every ball in a column at the same `(x, y)`,
@@ -253,14 +573,23 @@ reactor leaks. Carving it out moved `k` by -14,108 pcm and took leakage from
   cause of the graphite deficit above: pebbles at 4.899 cm centres cannot occupy
   0.61 of the volume. **`bed.rs`'s own `is_non_overlapping()` guard cannot see
   it** — it runs on `HexBedCell::from_paper()`, which passes, and `HexBedCell`
-  has no method that returns the columnar spacing — **gh:#310**.
+  has no method that returns the columnar spacing — **gh:#310**.~~
+  **ALL THREE FIXED 2026-09-25** by the two-ball prism cell — see "The
+  two-ball prism cell" at the top of this page: whole pebbles, minimum
+  centre distance 6.2102 cm on the built bed, sampled filling fraction
+  0.6096-0.6097, so `HOMOG_DUMMY`'s 0.61 now matches the bed.
 - **B-11 is never placed** anywhere in this model (only B-10), which leaves the
   boronated brick ~3.5 % short on atom density. `nee_soon::rod_insertion`
   already splits it correctly — **gh:#311**.
 - **Every cell hardcodes 293.6 K** while the material temperature is what
   transport reads, so `Cell::temperature` is inert here — **gh:#313**.
-- **`core_model::assemble` (the homogenised-fuel path) has none of the above
-  fixed.** No cavity (solid graphite there), no boronated brick, no coolant
+- **WITHDRAWN 2026-10-01 (maintainer), noted here for gh:#428:**
+  `core_model::assemble` now panics, and `OUTRAM_HTR10_HOMOG=1` is refused by
+  `htr10_rmc_keff`. Its one-ball tile cuts pebbles, which is wrong physics.
+  The item below is the record of why it was never comparable.
+  ~~**`core_model::assemble` (the homogenised-fuel path) has none of the above
+  fixed.**~~ **`core_model::assemble` (the homogenised-fuel path) had none of
+  the above fixed.** No cavity (solid graphite there), no boronated brick, no coolant
   annulus, no conus, no discharge tube: roughly **+15 500 pcm** in terms this
   page already prices individually. It carries `assemble_explicit_triso`'s
   comments without its geometry, and it feeds `examples/htr10_mgxs_genfoam.rs`.
@@ -269,8 +598,15 @@ reactor leaks. Carving it out moved `k` by -14,108 pcm and took leakage from
 
 ## THE RESIDUAL WAS THE DATA LIBRARY — measured 2026-09-18
 
-The model was run on **ENDF/B-VII.0**, the library RMC, MCNP, Serpent and HCP
-all used, against the ENDF/B-VIII.0 it had always used. Same geometry, same
+The model was run on **ENDF/B-VII.0**, ~~the library RMC, MCNP, Serpent and
+HCP all used~~ **CORRECTED 2026-10-01 (gh:#428):** the library RMC used (Li
+2014: *"continuous energy cross section based on ENDF/B-7.0"*). It is not the
+library behind the MCNP column. Li's MCNP values are Şeker & Çolak (2003)'s
+(vacuum = Şeker Table 3, helium = Table 4), computed with ENDF/B-VI plus TMCCS
+graphite (Şeker p.265). Li's abstract says MCNP also used ENDF/B-7.0, which
+contradicts the paper its numbers come from. Serpent and HCP (Choo and Xiao
+2024) are not part of this reference; their library is Not re-checked here.
+It was run against the ENDF/B-VIII.0 the model had always used. Same geometry, same
 seed, same settings (3000 histories x [20 + 60], 14 rings x 25 layers, bed
 122.474 cm), compared against RMC interpolated to the height actually modelled.
 
@@ -310,8 +646,16 @@ Reachable as `OUTRAM_HTR10_ENDF7=1`.
 **Two evaluation differences that are part of the term, not bugs in it:**
 
 - **VII.0 carbon is ELEMENTAL natural carbon** (`6-C-0`, MAT 600); VIII.0 ships
-  C-12 separately. The VII.0 arm therefore carries 1.1 % C-13 and the VIII.0 arm
-  does not. Not separable without a third arm.
+  C-12 ~~separately~~ and C-13 separately. ~~The VII.0 arm therefore carries
+  1.1 % C-13 and the VIII.0 arm does not. Not separable without a third arm.~~
+  **CORRECTED 2026-10-01 (gh:#425):** that described the VIII.0 model, which
+  loaded only C-12, while `reference-data/endf/n-006_C_013-ENDF8.0.endf` was in
+  the checkout. Since 2026-10-01 the VIII.0 arm splits natural carbon into C-12
+  and C-13 (98.93 / 1.07 at.%) by default, so both arms carry natural carbon
+  and the C-13 term is no longer part of the library difference. It can be
+  priced directly with `OUTRAM_HTR10_CARBON_AS_C12=1`. The `+1644 pcm` library
+  term above was measured with C-12-only VIII.0 carbon and has not been
+  re-measured.
 - **The graphite thermal tape's MAT changed**: VIII.0 crystalline graphite is
   MAT 30 (ZA 130), VII.0 is MAT 31 (ZA 131). Passing the wrong one makes
   `ThermalScattering::from_endf_file` return `Err`, which turned the whole
@@ -329,7 +673,11 @@ Reachable as `OUTRAM_HTR10_ENDF7=1`.
 - The cavity defect (below) is ~zero at this loading, so it does not contaminate
   this point. It is still a real defect at every other loading.
 - One loading height, one temperature, rods out, no control rods or absorber
-  balls, R-Z homogenised reflector. Unchanged.
+  balls, R-Z homogenised reflector. ~~Unchanged.~~ **CORRECTED 2026-10-01:**
+  that was the model of 2026-09-18. Since PR #327 the reflector and its
+  channels are explicit and the rods are explicit at the withdrawn position;
+  the absorber-ball (KLAK) channels are empty by maintainer decision
+  (gh:#330).
 
 ## THE CHAIN CLOSES — two routes to the answer agree (2026-09-18)
 
@@ -594,7 +942,14 @@ with RMC Code*, HTR 2014 Weihai, paper HTR2014-51207. Catalogued **proprietary**
 Critical loading height **123.576 cm**: RMC **k = 1.004288**, MCNP **1.0033**.
 
 **The reference quotes no uncertainty on any of its 12 values.** At its stated
-1.35 M active histories the implied σ is ~60–100 pcm, but it is never printed,
+1.35 M active histories ~~the implied σ is ~60–100 pcm~~ **CORRECTED
+2026-10-01 (gh:#428):** the σ is not stated anywhere. "~60–100 pcm" was our
+estimate, not a source. Our own runs at the identical 10 000 × [5 + 135]
+gave a within-run σ of 86–117 pcm across the twelve heights
+(`docs/htr10-rmc-verification-suite.md` §2). Three-seed spreads on the
+two-ball bed at the same settings were 57–108 pcm (computed from the seed
+values in "Eigenvalue — results" above). So the 60 pcm lower bound is
+unsupported, and ~100 pcm is the better guess. It is never printed,
 so "agreement to 100 pcm" against it is not a well-posed claim. The gate is
 **500–1000 pcm** (maintainer decision), which matches the existing bar recorded
 in `nee_soon::htr10_rmc` — *"~500 pcm would be success, 50 pcm would be
@@ -619,10 +974,14 @@ suspicious."*
 
 ## Three findings that changed the plan
 
-1. **8,335 TRISO is unattainable.** The count moves in symmetry shells (8336 →
+1. ~~**8,335 TRISO is unattainable.** The count moves in symmetry shells (8336 →
    8240 in one step of pitch); nearest reachable are 8330 and 8340. The paper's
    arrangement is therefore *not* exactly the one specified — its zone radius,
-   particle radius or rejection rule must differ in the last digit.
+   particle radius or rejection rule must differ in the last digit.~~
+   **CORRECTED 2026-10-01 (gh:#430):** that holds only for the symmetric
+   offsets tried; a generic offset gives exactly 8335. Şeker & Çolak (2003),
+   NED 222:263, p.266, state that their whole-particle cubic lattice was
+   *"verified to be 8335"*.
 2. **One shared surface cannot clip the conus.** Region surfaces inside a
    lattice tile are evaluated in the **tile-local** frame, so each boundary tile
    needs its own translated copy (`surface_in_tile_frame`).
@@ -632,20 +991,42 @@ suspicious."*
 
 ## What is NOT done, and must not be implied
 
-- **No eigenvalue has been computed for HTR-10.** The assembled core carries a
+> **Re-checked 2026-10-01 (gh:#428).** This list was written on 2026-09-17,
+> before any eigenvalue. Four of its five items no longer hold, and each is
+> struck through below with what replaced it.
+
+- ~~**No eigenvalue has been computed for HTR-10.** The assembled core carries a
   **homogenised** fuel zone, not an explicit TRISO lattice, so the double
-  heterogeneity is absent and its `k` is not comparable to the reference.
-- **The data library differs from every reference.** RMC, MCNP, Serpent and HCP
-  all used **ENDF/B-VII.0**; this workspace has **VIII.0**. On a
-  graphite-moderated LEU system that is worth hundreds of pcm, so a
-  disagreement could not be attributed to transport.
-- **The reflector densities are homogenised in R-Z.** TECDOC says explicitly
+  heterogeneity is absent and its `k` is not comparable to the reference.~~
+  **CORRECTED 2026-10-01:** eigenvalues have been computed on the explicit
+  TRISO lattice since 2026-09-17 (this page, from "The two-ball prism cell"
+  down). The current one is 0.987043 ± 0.003022 on Şeker's 13-ball bed (top
+  of this page). The homogenised-fuel `core_model::assemble` is withdrawn and
+  panics.
+- ~~**The data library differs from every reference.** RMC, MCNP, Serpent and HCP
+  all used **ENDF/B-VII.0**; this workspace has **VIII.0**.~~ **CORRECTED
+  2026-10-01:** RMC used ENDF/B-VII.0 (Li 2014). The MCNP column is Şeker &
+  Çolak (2003)'s, on ENDF/B-VI + TMCCS graphite (Şeker p.265). Serpent and
+  HCP are not part of this reference (library Not re-checked). This model
+  runs **VIII.0** by default, and VII.0 is available as an ablation
+  (`OUTRAM_HTR10_ENDF7=1`; see "THE RESIDUAL WAS THE DATA LIBRARY"). On a
+  graphite-moderated LEU system the library is worth hundreds of pcm, so a
+  disagreement cannot be attributed to transport without that ablation.
+- ~~**The reflector densities are homogenised in R-Z.** TECDOC says explicitly
   that a 3-D model must correct them for the boring geometries; using them
-  unadjusted smears the control-rod and helium-flow channels uniformly.
+  unadjusted smears the control-rod and helium-flow channels uniformly.~~
+  **CORRECTED 2026-10-01:** since PR #327 the channels are explicit geometry
+  inside the TECDOC zone map, so nothing is smeared in the default model.
+  Their positions follow Şeker Fig. 4 since gh:#330
+  (`nee_soon::htr10_rmc::reflector_geometry`).
 - **This crate's thermal accuracy floor is ~200–400 pcm**, not 100 — LCT-008
   sits at +87 to +237 pcm against ICSBEP with a ~69 pcm spectral residual still
   open (`op-os8x`, gh #206).
-- **No control rods or absorber balls** are modelled.
+- ~~**No control rods or absorber balls** are modelled.~~ **CORRECTED
+  2026-10-01:** the ten control rods are explicit (B4C, steel sleeves, iron
+  joints) at the withdrawn position (since PR #327). The absorber-ball channels
+  are explicit but empty (gh:#330). No inserted-rod (B3/B4) result is
+  recorded on this page.
 
 ## The fuel deficit — real, but NOT the cause of `k = 0`
 
@@ -831,3 +1212,7 @@ has **not** been done. The conus effect (+4578 +/- 158 pcm) is about ten times t
 combined single-run sigma, so it is resolved by a single pair and is safe to
 quote as an effect. The *residual* after it is not similarly safe, and no
 sub-sigma difference anywhere in this record should be quoted as a result.
+
+## 2026-09-26: fast VII.0/VIII.0 ablation on the explicit-reflector geometry
+
+Six single-seed fast runs (2000 x [30 + 70]) at n = 20, 25, 41 on both libraries, on PR #327's explicit reflector with Ni and Fe-57 substituted in the rod steel. Critical loading: ~~**VIII.0 -2365 pcm, VII.0 -922 pcm** height-matched~~ **VIII.0 -2726 pcm, VII.0 -1283 pcm** (CORRECTED 2026-09-27, gh:#333: the paper's heights are whole-ball extents, so `n_axial = 25` is its 123.576 cm point; every earlier height-matched residual on this page is 165-480 pcm too high). See [`fast_ablation_2026_09_26.md`](fast_ablation_2026_09_26.md).

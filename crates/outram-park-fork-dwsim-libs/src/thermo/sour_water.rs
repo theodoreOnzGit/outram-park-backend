@@ -23,6 +23,14 @@
 //!   is the piece ported here: the eight aqueous acid/base/hydrolysis reactions,
 //!   their mass-action laws, and DWSIM's pH-parametrized charge-balance solve
 //!   (see the Honest-scope note on the solver choice).
+//!   **Amended 2026-10-02 — a port of the method, not line-for-line.** Measured
+//!   against compiled upstream (`tests/upstream_sourwater_parity.rs`), this port
+//!   differs from upstream at two places, and in both upstream is wrong:
+//!   `:475` (the HS⁻ closure applies the total-sulfide formula to free H2S, so
+//!   upstream violates its own K5 by ×487 and reads +0.11 to +0.59 pH high) and
+//!   `:407`/`:535-541` (a mass-weighted carbon closure with a stray `m/1000`,
+//!   so every CO2 case fails or deletes the carbon). With `:475` patched in a
+//!   build copy, upstream reproduces this port's speciation to 1.8e-7.
 //! - `DWSIM.Thermodynamics/Assets/swreactions.dwrxm` — the embedded reaction
 //!   set: the eight `ln K(T)` correlations (`Expression` fields), evaluated as
 //!   `K = exp(expr(1.8 T))` per

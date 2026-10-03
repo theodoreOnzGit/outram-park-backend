@@ -163,6 +163,33 @@ pub struct HtgrSnapshot {
     /// bounded by the circulator's 0.3 kg/s regulating floor, so it cannot
     /// express a stopped blower. See `physics::Scenario`.
     pub circulator_tripped: bool,
+    /// Operator has started the **water-ingress** accident (gh:#401) from the
+    /// Map tab. A control input; see `physics::Scenario::WaterIngress`.
+    pub water_ingress_triggered: bool,
+    /// Operator has started the DLOFC + ATWS accident (gh:#402) from the Map
+    /// tab. A control input; see `physics::Scenario::DlofcAtws`.
+    pub dlofc_triggered: bool,
+    /// DLOFC readouts (gh:#402), `NAN` unless it runs: helium discharged
+    /// \[kg\], fraction of the primary gas vented, graphite oxidised \[kg\],
+    /// and (since 2026-09-30, #420) the fraction of the primary gas exchanged
+    /// with air by the Gao & Shi cavity ventilation.
+    pub dlofc_discharged_kg: f64,
+    pub dlofc_vented_fraction: f64,
+    pub dlofc_graphite_oxidised_kg: f64,
+    pub dlofc_air_exchanged_fraction: f64,
+    /// Water-ingress readouts (gh:#401), `NAN` unless the accident runs:
+    /// primary pressure \[MPa\], steam in the primary \[kg\], graphite
+    /// gasified \[kg\], H2 and CO mole fractions \[%\], fraction of the
+    /// primary gas vented.
+    pub ingress_pressure_mpa: f64,
+    pub ingress_steam_kg: f64,
+    pub ingress_graphite_corroded_kg: f64,
+    pub ingress_h2_percent: f64,
+    pub ingress_co_percent: f64,
+    pub ingress_vented_fraction: f64,
+    /// Whether the kernel-hydrolysis burst has been evaluated outside its
+    /// TECDOC-978 fit (gh:#418); shown on the Map tab.
+    pub ingress_hydrolysis_out_of_range: bool,
     /// Whether the feedwater station is in **MANUAL** (`true`) or **AUTO**
     /// (`false`).
     ///
@@ -363,6 +390,12 @@ pub struct HtgrSnapshot {
     /// One entry per receptor, ordered distance-major then compass sector.
     /// All-zero before the first dispersion evaluation.
     pub receptors: [ReceptorSnapshot; DISPERSION_RECEPTORS],
+    /// INDICATIVE dose integrated at each receptor since plant start, in the
+    /// same order as [`Self::receptors`] (gh:#470, 2026-10-01). Research and
+    /// education only, not a dose to any real person -- see
+    /// [`crate::physics::tede_accumulator`] for the pathways it does and does
+    /// not include.
+    pub tede: crate::physics::tede_accumulator::TedeSnapshot,
     /// The evaluated field the Map tab paints, per cell, row-major and
     /// **north-up** so it can be drawn straight down the screen, **in the
     /// basis [`Self::dispersion_grid_weighting`] names** (gh:#400; ~~always
@@ -396,16 +429,20 @@ pub struct HtgrSnapshot {
     pub dispersion_grid_time_s: f64,
     /// Cells per side the Map tab is asking the dispersion field for.
     ///
-    /// A **control input**: the GUI writes the map square's width in physical
+    /// A **control input**: ~~the GUI writes the map square's width in physical
     /// screen pixels, so the field is evaluated once per pixel and the map is
     /// a readout everywhere it paints rather than a mosaic of interpolated
-    /// boxes (maintainer, 2026-09-25). The physics clamps it to what this
+    /// boxes (maintainer, 2026-09-25).~~ **CHANGED 2026-10-01 (maintainer: a
+    /// bigger map must not do more physics):** the GUI writes the fixed
+    /// `map_tab::MAP_REQUESTED_CELLS`, and each cell is drawn as a crisp
+    /// block however large the map is. The physics clamps it to what this
     /// host can afford -- see
     /// [`crate::physics::atmospheric_dispersion::max_grid_cells`] -- so an
     /// oversized request costs a coarser map, never a missed tick.
     pub map_field_cells_requested: usize,
     /// The basis the Map tab shows, so the physics sums the field in it with
-    /// each puff at its emission's rate (gh:#400). A control input.
+    /// each puff at its emission's rate (gh:#400). A control input. Opens
+    /// on `DoseRateUsvPerH`, matching the tab's default basis (2026-10-01).
     pub map_field_weighting: crate::physics::atmospheric_dispersion::FieldWeighting,
     /// How far ahead of the plant clock the operator has run the **plume**
     /// clock \[s\] -- the Map tab's fast-forward.
@@ -509,9 +546,9 @@ pub struct HtgrSnapshot {
     pub budget_xenon_dollars: f64,
     /// Net: the sum the kinetics integrate \[$\].
     pub budget_net_dollars: f64,
-    /// The `beta` the kinetics convert those dollars with (dimensionless) --
-    /// NOT [`Self::delayed_neutron_fraction_pcm`], which is the delayed
-    /// layer's `sum(beta_i)` the rod-worth conversion uses (gh:#387).
+    /// The `beta` the kinetics convert those dollars with (dimensionless);
+    /// since 2026-09-29 the same as [`Self::delayed_neutron_fraction_pcm`]
+    /// / 1e5 (one beta, gh:#387).
     pub kinetics_beta: f64,
     /// Effective total delayed-neutron fraction \[pcm\].
     pub delayed_neutron_fraction_pcm: f64,
@@ -537,12 +574,36 @@ pub struct HtgrSnapshot {
     pub sg_secondary_duty_mw: f64,
     /// Helium-side IHX outlet temperature \[K\] -- ~~what the core inlet
     /// relaxes toward once the return transport lag has played out~~
-    /// **CORRECTED 2026-09-29**: the inflow to the cold-return CV, whose own
-    /// state is the core inlet (the 8 s lag was deleted, gh:#392).
+    /// **CORRECTED 2026-09-29**: the inflow to the ~~cold-return CV, whose own
+    /// state is the core inlet~~ cold-duct CV (2026-10-01 split; the
+    /// RPV-annuli CV downstream of it is the core inlet) (the 8 s lag was
+    /// deleted, gh:#392).
     pub ihx_outlet_temp_k: f64,
-    /// Helium loop residence time \[s\] (`m/m_dot`), driving the primary
-    /// flow tracers in the schematic.
+    /// **Whole-loop** helium residence time \[s\] (`M_inventory/m_dot`, about
+    /// 49 s at rated flow since gh:#403) -- a panel readout only.
+    /// ~~driving the primary flow tracers in the schematic~~ **CORRECTED
+    /// 2026-10-01**: one loop-wide time made every drawn run, including a
+    /// 3 m duct, take ~49 s to cross. Each drawn run now uses its own transit
+    /// time, the fields below.
     pub helium_residence_time_s: f64,
+    /// Hot-duct CV residence time \[s\], `M_h/m_dot` -- the hot pipe, the
+    /// hot-gas plenum and the SG centre riser's tracers.
+    pub hot_duct_residence_time_s: f64,
+    /// Cold-duct CV residence time \[s\], `M_d/m_dot` -- the coaxial duct's
+    /// cold annulus (and the undimensioned SG-side cold legs, which share it).
+    pub cold_duct_residence_time_s: f64,
+    /// RPV-annuli CV residence time \[s\], `M_r/m_dot` -- the downcomer and
+    /// the top cold plenum.
+    pub rpv_annuli_residence_time_s: f64,
+    /// Transit time up the 20 riser boreholes \[s\], `M_riser/(f_riser
+    /// m_dot)` from the published borehole volume.
+    pub riser_residence_time_s: f64,
+    /// Transit time across the SG helium shell side \[s\], from the
+    /// exchanger's own helium array mass.
+    pub sg_shell_residence_time_s: f64,
+    /// Transit time through the SG tube side \[s\], the exchanger's own
+    /// water/steam array mass over the secondary flow -- the coil tracers.
+    pub sg_tube_residence_time_s: f64,
     /// Frictional pressure drop around the whole helium loop \[kPa\]: the KTA
     /// pebble-bed term plus the published non-bed component sum.
     pub primary_pressure_drop_kpa: f64,
@@ -553,12 +614,12 @@ pub struct HtgrSnapshot {
     /// published figure.
     pub bed_pressure_drop_kpa: f64,
     /// Circulator shaft power \[MW\] -- delivered to the helium in the
-    /// cold-return CV since 2026-09-29 (gh:#392).
+    /// ~~cold-return~~ cold-duct (2026-10-01) CV since 2026-09-29 (gh:#392).
     pub circulator_power_mw: f64,
     /// Passive decay-heat loss from the bed to the reflector \[MW\].
     pub passive_heat_loss_mw: f64,
     /// Heat the side reflector gives the helium rising through its channels
-    /// \[MW\] (gh:#397) -- enters the cold-return CV.
+    /// \[MW\] (gh:#397) -- enters the ~~cold-return~~ RPV-annuli (2026-10-01) CV.
     pub riser_heat_mw: f64,
     /// Lumped side-reflector temperature \[K\] (passive path node).
     pub reflector_temp_k: f64,
@@ -568,7 +629,8 @@ pub struct HtgrSnapshot {
     /// fission (prompt) + decay heat deposited in the fuel.
     pub energy_source_j: f64,
     /// Cumulative change in energy stored in every lumped CV \[J\]: fuel
-    /// node, bed graphite, bed void helium, hot-duct and cold-return CVs,
+    /// node, bed graphite, bed void helium, hot-duct, cold-duct and
+    /// RPV-annuli CVs (~~cold-return CV~~, split 2026-10-01),
     /// reflector and RPV. (The steam generator's arrays are outside it; the
     /// ledger's boundary on that side is the helium stream.)
     pub energy_stored_j: f64,
@@ -605,14 +667,24 @@ pub struct HtgrSnapshot {
     /// Secondary (feedwater/steam) mass flow \[kg/s\], as moved by the
     /// feedwater controller.
     pub secondary_mass_flow_kg_per_s: f64,
-    /// Secondary loop residence time \[s\] (`m/m_dot`), driving the steam-line
-    /// flow tracers in the schematic.
+    /// **Whole-piping** secondary residence time \[s\] (`m/m_dot`) -- a panel
+    /// readout. ~~driving the steam-line flow tracers in the schematic~~
+    /// **CORRECTED 2026-10-01**: each secondary run now has its own transit
+    /// time (the three fields below).
     ///
     /// Built from the secondary **piping** inventory, not a plant water
     /// inventory -- see
     /// [`crate::physics::secondary_loop::SteamSecondaryLoop::piping_inventory`]
     /// for why the distinction is what makes these tracers move at all.
     pub secondary_residence_time_s: f64,
+    /// Main steam line transit time \[s\], `M_line/m_dot` at the SG outlet
+    /// state (2026-10-01).
+    pub main_steam_line_residence_time_s: f64,
+    /// Turbine exhaust duct transit time \[s\] at the turbine outlet state.
+    pub exhaust_duct_residence_time_s: f64,
+    /// Condensate/feedwater line transit time \[s\] at the condensate state
+    /// -- shared by the drawn condensate and feed segments (one line).
+    pub feedwater_line_residence_time_s: f64,
     /// Water/steam mass held in the secondary piping \[kg\] -- the numerator of
     /// [`Self::secondary_residence_time_s`].
     ///
@@ -788,6 +860,19 @@ impl Default for HtgrSnapshot {
             control_rod_insertion_fraction: crate::physics::GUI_INITIAL_ROD_INSERTION,
             // The blower runs at startup; the operator trips it deliberately.
             circulator_tripped: false,
+            water_ingress_triggered: false,
+            dlofc_triggered: false,
+            dlofc_discharged_kg: f64::NAN,
+            dlofc_vented_fraction: f64::NAN,
+            dlofc_graphite_oxidised_kg: f64::NAN,
+            dlofc_air_exchanged_fraction: f64::NAN,
+            ingress_pressure_mpa: f64::NAN,
+            ingress_steam_kg: f64::NAN,
+            ingress_graphite_corroded_kg: f64::NAN,
+            ingress_h2_percent: f64::NAN,
+            ingress_co_percent: f64::NAN,
+            ingress_vented_fraction: f64::NAN,
+            ingress_hydrolysis_out_of_range: false,
             // ~~"Feedwater in AUTO at the published 440 degC ... the opening
             // state is exactly `physics::PlantCommands::default()`."~~
             // **CORRECTED 2026-09-22.** Two claims here were false. The
@@ -811,14 +896,15 @@ impl Default for HtgrSnapshot {
             trip_reason: None,
             scram_insertion_fraction: 0.0,
             external_reactivity_dollars: 0.0,
-            // Derived, not restated: `GUI_INITIAL_HELIUM_FLOW_KG_PER_S` is a
-            // dimensionless FRACTION of rated despite its name (its own doc
-            // comment says so), so the opening flow is 0.30 * 4.3 = 1.29 kg/s.
+            // Derived, not restated: `GUI_INITIAL_HELIUM_FLOW_FRACTION` is a
+            // dimensionless FRACTION of rated (renamed from `..._KG_PER_S`
+            // 2026-10-01), so the opening flow is 0.30 * 4.3 = 1.29 kg/s
+            // (rated 4.3 kg/s from 2026-09-27 to 2026-10-01).
             // This field held a bare 4.3 until 2026-09-22, which opened the
             // GUI at RATED flow while the physics defaulted to part load --
             // and `GUI_INITIAL_ROD_INSERTION` was bisected at part load, so
             // the two were a matched pair that had come apart.
-            helium_flow_setpoint_kg_per_s: (crate::physics::GUI_INITIAL_HELIUM_FLOW_KG_PER_S
+            helium_flow_setpoint_kg_per_s: (crate::physics::GUI_INITIAL_HELIUM_FLOW_FRACTION
                 * crate::physics::nominal_helium_flow())
             .get::<uom::si::mass_rate::kilogram_per_second>(),
             reactor_power_mw: 10.0,
@@ -839,13 +925,19 @@ impl Default for HtgrSnapshot {
             pebble_centre_k: f64::NAN,
             particle_sic_k: f64::NAN,
             receptors: [ReceptorSnapshot::default(); DISPERSION_RECEPTORS],
+            tede: crate::physics::tede_accumulator::TedeSnapshot::default(),
             dispersion_grid: Vec::new(),
             dispersion_grid_weighting: Default::default(),
             dispersion_grid_cells: 0,
             dispersion_grid_half_width_m: 0.0,
             dispersion_grid_time_s: f64::NAN,
             map_field_cells_requested: crate::physics::atmospheric_dispersion::DEFAULT_GRID_CELLS,
-            map_field_weighting: Default::default(),
+            // The Map tab opens on the dose-rate basis (maintainer,
+            // 2026-10-01), so the field is summed in its weighting from the
+            // first frame; `FieldWeighting::default()` (ChiOverQ) stays the
+            // channel's own default.
+            map_field_weighting:
+                crate::physics::atmospheric_dispersion::FieldWeighting::DoseRateUsvPerH,
             plume_clock_offset_s: 0.0,
             // The map regime's representative speed (inter-monsoon, 1 m/s;
             // `map_puff_model`, maintainer 2026-09-29).
@@ -873,6 +965,12 @@ impl Default for HtgrSnapshot {
             sg_secondary_duty_mw: 0.0,
             ihx_outlet_temp_k: 439.15,
             helium_residence_time_s: 0.0,
+            hot_duct_residence_time_s: 0.0,
+            cold_duct_residence_time_s: 0.0,
+            rpv_annuli_residence_time_s: 0.0,
+            riser_residence_time_s: 0.0,
+            sg_shell_residence_time_s: 0.0,
+            sg_tube_residence_time_s: 0.0,
             primary_pressure_drop_kpa: 0.0,
             bed_pressure_drop_kpa: 0.0,
             circulator_power_mw: 0.0,
@@ -898,6 +996,9 @@ impl Default for HtgrSnapshot {
             // 12.5 t/hr of main steam.
             secondary_mass_flow_kg_per_s: 3.47,
             secondary_residence_time_s: 0.0,
+            main_steam_line_residence_time_s: 0.0,
+            exhaust_duct_residence_time_s: 0.0,
+            feedwater_line_residence_time_s: 0.0,
             secondary_piping_inventory_kg: 0.0,
             // Saturated liquid at 104 degC, the published feedwater state.
             feedwater_enthalpy_j_per_kg: 4.36e5,

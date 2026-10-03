@@ -56,19 +56,10 @@ pub use njoy_outram_park_fork::vv::{
 /// assert!((sd - 100.0).abs() < 1e-9);
 /// assert!((sem - 100.0 / 3.0_f64.sqrt()).abs() < 1e-9);
 /// ```
-pub fn pooled(x: &[f64]) -> (f64, f64, f64) {
-    let n = x.len();
-    if n == 0 {
-        return (f64::NAN, 0.0, 0.0);
-    }
-    let mean = x.iter().sum::<f64>() / n as f64;
-    if n == 1 {
-        return (mean, 0.0, 0.0);
-    }
-    let var = x.iter().map(|v| (v - mean).powi(2)).sum::<f64>() / (n - 1) as f64;
-    let sd = var.sqrt();
-    (mean, sd, sd / (n as f64).sqrt())
-}
+///
+/// **Moved 2026-10-02** to [`raffles::estimators::pooled`] (GitHub #500), byte
+/// for byte; this path re-exports it, and the bench knobs below stay here.
+pub use raffles::estimators::pooled;
 
 /// How many seeds a benchmark example should run, from `OUTRAM_BENCH_SEEDS`.
 ///
@@ -220,6 +211,14 @@ pub fn report_transport_losses(label: &str, r: &crate::physics::keff::KeffResult
 /// `drift_pcm` is returned so a caller can gate on it rather than eyeball it.
 /// A drift comparable to, or larger than, the residual being interpreted means
 /// that residual cannot be attributed to nuclear data at all.
+///
+/// **See also (2026-10-03, GitHub #496):**
+/// [`crate::stats::convergence::SourceConvergence`] runs MSER-5, Geweke and a
+/// change-point test over the WHOLE entropy and `k` traces (inactive
+/// included) and recommends an inactive count with its evidence; and
+/// [`crate::stats::correlated_sigma::KeffUncertainty`] gives the
+/// autocorrelation-corrected `σ` that the lower-bound error below lacks.
+/// This function is unchanged and still what the ICSBEP examples print.
 pub fn report_source_convergence(
     label: &str,
     r: &crate::physics::keff::KeffResult,

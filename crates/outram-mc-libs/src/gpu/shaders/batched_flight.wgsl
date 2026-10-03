@@ -42,12 +42,23 @@
 //   seed_{n+1} = (MULT * seed_n + INC) mod 2^64
 //   MULT = 6364136223846793005 = 0x5851F42D4C957F2D
 //   INC  = 1442695040888963407 = 0x14057B7EF767814F
-// The CPU reference is `src/rng/lcg.rs` (`future_seed(1, seed)` advances one step).
+// The CPU reference is `petir::rng::lcg` (`future_seed(1, seed)` advances one
+// step), re-exported as `outram_mc_libs::rng::lcg`.
 //
 // WGSL has NO u64 and NO f64, so the 64-bit multiply-add is emulated with u32
 // pairs (16-bit schoolbook for exact carries) so the *integer state advance is
 // BIT-EXACT* vs the CPU LCG: the returned (rng_hi, rng_lo) equal CPU
 // `future_seed(1, seed)` for every particle. This is the reproducibility linchpin.
+//
+// WHERE THE LCG CODE LIVES (2026-10-02). ~~This file carried its own
+// `lcg_advance`, `mul64_low`, `mul_u32_full` and MULT/INC constants.~~ MOVED to
+// PETIR: `petir::wgsl::LCG` (`crates/petir/src/wgsl/shaders/lcg.wgsl`), the ONE
+// copy in the workspace, which `batched_event.wgsl` also uses. This file is no
+// longer a complete shader on its own: `batched_flight::shader_source()`
+// concatenates `petir::wgsl::LCG` ahead of it, and this kernel calls
+// `petir_lcg_next(vec2(lo, hi)) -> vec3(new_lo, new_hi, bitcast(xi))`. The
+// arithmetic is byte-for-byte what was here; the GPU bit-exactness gates
+// (`tests/gpu_lcg_advance_directly.rs`) run on the composed source.
 //
 // The uniform VALUE used for the flight is NOT the CPU f64 `prn` value (that is
 // impossible to match in f32). Instead it is derived from the TOP 24 bits of the
@@ -62,7 +73,8 @@
 // precision effect, and calling it an f32 cost understated it by seven orders
 // of magnitude:
 //
-//   CPU  src/rng/lcg.rs:116-117 applies a PCG-RXS-M-XS output PERMUTATION to
+//   CPU  petir::rng::lcg::prn (moved from src/rng/lcg.rs:116-117 on
+//        2026-10-02) applies a PCG-RXS-M-XS output PERMUTATION to
 //        the advanced state, then scales the permuted word by 2^-64.
 //   GPU  applies NO permutation and scales the raw top 24 bits by 2^-24.
 //
@@ -120,63 +132,11 @@ struct Params {
 @group(0) @binding(3) var<storage, read_write> pos:     array<f32>;
 @group(0) @binding(4) var<storage, read_write> state:   array<u32>;
 
-// LCG constants split into 32-bit halves (see header).
-const MULT_HI: u32 = 0x5851F42Du;
-const MULT_LO: u32 = 0x4C957F2Du;
-const INC_HI:  u32 = 0x14057B7Eu;
-const INC_LO:  u32 = 0xF767814Fu;
-
 // A sentinel "no intersection" distance (cm). Physically the sampled flight
 // distance in this kernel is O(10) cm, so this is always larger than any d_col.
 const BIG: f32 = 1e30;
 // Coincident-surface epsilon (cm), f32; matches the task spec / OpenMC treatment.
 const EPS: f32 = 1e-7;
-
-// Full 32x32 -> 64-bit unsigned product via 16-bit schoolbook decomposition, so
-// all carries are exact. Returns vec2(lo32, hi32).
-fn mul_u32_full(x: u32, y: u32) -> vec2<u32> {
-    let x0 = x & 0xFFFFu;
-    let x1 = x >> 16u;
-    let y0 = y & 0xFFFFu;
-    let y1 = y >> 16u;
-    let t0 = x0 * y0;               // < 2^32
-    let s  = x0 * y1;               // < 2^32
-    let t1 = s + x1 * y0;           // wraps in u32; carry captured below
-    let carry1 = select(0u, 1u, t1 < s); // bit 32 of the true (s + x1*y0)
-    let t2 = x1 * y1;               // < 2^32
-    let lo_lo16 = t0 & 0xFFFFu;
-    let mid = (t0 >> 16u) + (t1 & 0xFFFFu); // < 2^17
-    let lo = lo_lo16 | ((mid & 0xFFFFu) << 16u);
-    let carry_mid = mid >> 16u;     // 0 or 1
-    let hi = t2 + (t1 >> 16u) + carry_mid + (carry1 << 16u);
-    return vec2<u32>(lo, hi);
-}
-
-// Low 64 bits of the 64x64 product (a_hi:a_lo) * (b_hi:b_lo). Only the low 64
-// bits are needed for the mod-2^64 LCG advance.
-fn mul64_low(a_lo: u32, a_hi: u32, b_lo: u32, b_hi: u32) -> vec2<u32> {
-    let p = mul_u32_full(a_lo, b_lo);
-    // (a_lo*b_hi + a_hi*b_lo) contributes only its low 32 bits (it is scaled by
-    // 2^32); u32 multiply/add already wraps to those low 32 bits.
-    let cross = a_lo * b_hi + a_hi * b_lo;
-    let res_lo = p.x;
-    let res_hi = p.y + cross;       // wraps in u32 = mod 2^32
-    return vec2<u32>(res_lo, res_hi);
-}
-
-// Advance the split LCG seed (s_hi:s_lo) by ONE step and return the new state
-// plus the derived f32 uniform. Returns vec3(new_lo, new_hi, bitcast<u32>(xi)).
-// (xi is bitcast into the .z lane to keep a single return value.)
-fn lcg_advance(s_lo: u32, s_hi: u32) -> vec3<u32> {
-    let m = mul64_low(s_lo, s_hi, MULT_LO, MULT_HI);
-    let new_lo = m.x + INC_LO;
-    let carry = select(0u, 1u, new_lo < INC_LO); // add carry into the high word
-    let new_hi = m.y + INC_HI + carry;
-    // Uniform from the top 24 bits of the 64-bit state (state_hi >> 8) in [0,1).
-    let top24 = new_hi >> 8u;
-    let xi = f32(top24) * (1.0 / 16777216.0);
-    return vec3<u32>(new_lo, new_hi, bitcast<u32>(xi));
-}
 
 @compute @workgroup_size(64)
 fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
@@ -191,7 +151,9 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
     // 2. Advance the RNG one step; write the new split seed back regardless of
     //    outcome (every flight consumes exactly one LCG step).
     //    state layout: rng_hi[0..N] ++ rng_lo[0..N] ++ outcome[0..N].
-    let adv = lcg_advance(state[nn + i], state[i]);
+    //    `petir_lcg_next` comes from PETIR's `lcg.wgsl`, concatenated ahead of
+    //    this file at pipeline creation (see the header).
+    let adv = petir_lcg_next(vec2<u32>(state[nn + i], state[i]));
     state[i] = adv.y;               // rng_hi
     state[nn + i] = adv.x;          // rng_lo
     let xi = bitcast<f32>(adv.z);

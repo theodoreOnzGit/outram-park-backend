@@ -24,6 +24,8 @@
 //! distribcell offset tables upstream builds in `src/geometry_aux.cpp`.
 
 use super::filter::{Filter, FilterEvent};
+use crate::tally::mesh::MeshKindExt;
+use crate::tally::mesh::RegularMeshExt;
 
 // ── MT summation rules (src/endf.cpp) ───────────────────────────────────────
 
@@ -647,6 +649,9 @@ impl MeshSurfaceFilter {
                     MeshKind::Rectilinear(_) => "a rectilinear mesh",
                     MeshKind::Cylindrical(_) => "a cylindrical mesh",
                     MeshKind::Spherical(_) => "a spherical mesh",
+                    // Upstream fatal_errors too: "Unstructured mesh surface
+                    // tallies are not implemented." (`src/mesh.cpp:1029`).
+                    MeshKind::Unstructured(_) => "an unstructured mesh",
                     MeshKind::Regular(_) => unreachable!(),
                 }
             )),

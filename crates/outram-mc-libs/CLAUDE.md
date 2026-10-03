@@ -33,6 +33,33 @@ before any result computed on it is reported as more than tentative.
 - **Say what you checked in them, and what you could not** — an image nobody
   was told to look at checks nothing.
 
+### SHOW the pictures to the maintainer, every time (HARD RULE, this crate)
+
+**Maintainer direction, 2026-09-27:** *"whenever u make changes to geometry or
+new geometry, show me visuals of what the geometry is like."* Binds
+`outram-mc-libs` only (geometry built with this crate's CSG, lattices, TRISO
+and pebble-bed types, including models assembled in other crates such as
+`nee_soon::htr10_rmc`).
+
+- **Trigger:** any change to an existing geometry, or any new geometry. That
+  covers surfaces, cells, universes, lattices, fills, pebble or TRISO
+  arrangements, reflector zones, and channels. A refactor that should not
+  change the geometry counts too: show the before and after so the "no
+  change" is visible.
+- **Committing the images is not showing them.** Hand them over in the
+  conversation itself: send the PNGs to the maintainer (e.g. `SendUserFile`
+  with `display: "render"`), or publish a page that shows them. Do this
+  **before** reporting any result computed on the geometry, and before calling
+  the change done.
+- **Draw with the ported plotter** (`geometry::plot`: `ModelPlot` for the
+  OpenMC-`Model.plot` look, or `render_material_slice`) from the assembled
+  geometry. Colour by material, with a legend and cm axes. For nested
+  geometry, go down to the smallest level.
+- **One line per image** saying what it shows and what you checked in it. Say
+  what you could not check.
+- **Not a substitute for tests.** The pictures are for a human to catch what no
+  diagnostic reports. Keep the tests.
+
 **Why.** On 2026-09-24/25 the HTR-10 model carried, at once: a bottom reflector
 mirrored from the top and up to 107 cm short; a core cavity that grew with the
 bed; pebbles interpenetrating by 1.1 cm with 4.8 % of core carbon clipped away
@@ -50,6 +77,38 @@ against `openmc --plot`
 `render_material_slice` draws a material-coloured slice with a legend and cm
 axes in one call; `crates/nee_soon/examples/htr10_geometry_images.rs` is the
 worked example. For meshes, plot the mesh itself (cells, patches, zones).
+
+## Every timing carries its hardware (HARD RULE, this crate)
+
+**Maintainer direction, 2026-09-27:** *"when doing timing runs, make sure to
+record hardware specs. Otherwise timing numbers r useless."* This binds
+`outram-mc-libs`, including models from other crates that run on its
+transport (e.g. `nee_soon::htr10_rmc`) and the V&V records under this crate.
+
+- **Trigger:** any wall-clock, throughput or speed-up number that gets
+  recorded or quoted. That covers V&V docs, doc comments, issue comments,
+  `CLAUDE.md` and summaries to the maintainer.
+- **Record, next to the number:** CPU model, logical cores, the thread count
+  the run actually used, RAM, OS, and GPU (or "CPU only"). Add whether the
+  machine was shared or loaded when that is known.
+  `perf_report::HardwareInfo::headline()` gives all of these except threads
+  and load. CPU model and RAM are **detected on Linux only**. Elsewhere they
+  read "unknown", and you write them in by hand.
+- **Automatic for `RunDiagnostics`:** since 2026-09-27 every record, and the
+  console summary, carries a `hardware` line. It is pinned by
+  `run_diagnostics::tests::every_record_names_its_hardware`. Copy that line
+  into the V&V doc with the timing. The record itself is gitignored.
+- **Compare timings across machines only as ratios measured on the same
+  machine.** For example, "3.2× faster" is only meaningful when both arms ran
+  on one host. Never compare absolute seconds from two hosts.
+- **Timings recorded before this rule mostly have no hardware.** Some were
+  taken on a faster desktop and some in cloud containers. When you quote one,
+  mark it `hardware not recorded`. Do not guess the host.
+
+**Why.** Seconds are a property of the machine as much as of the code. HTR-10
+runs in this crate were timed on both the maintainer's desktop and 4-core
+cloud containers, and without the host a slowdown or a speed-up cannot be told
+apart from a change of computer.
 
 ## Maturity: DECLARED MATURE (2026-09-05)
 
@@ -486,8 +545,9 @@ a translation of it.
 ### In scope
 | Module | C++ source | What it does |
 |---|---|---|
-| RNG | `src/random_lcg.cpp` | LCG with O(log n) jump-ahead for particle splitting |
+| RNG | `src/random_lcg.cpp` | LCG with O(log n) jump-ahead for particle splitting. **Moved 2026-10-02 to `petir::rng::lcg`** (Rust) and `petir::wgsl::LCG` (WGSL), re-exported here as `rng::lcg`; see "The RNG lives in PETIR" below |
 | Distributions | `src/random_dist.cpp` | Maxwell, Watt, tabulated samplers |
+| Geometry (all six rows below) | — | **MOVED 2026-10-02 to `outram_blender::csg` (GitHub #486)** with the pure navigation kernel; re-exported here under the same `geometry::*` paths. Transport-state work stays here: see "Geometry lives in outram-blender" below |
 | Geometry / position | `include/openmc/position.h` | 3-D position and direction vectors (cm) |
 | Geometry / surfaces | `src/surface.cpp` | Quadric CSG surfaces + distance/sense |
 | Geometry / cells | `src/cell.cpp` | Boolean RPN region evaluation |
@@ -547,7 +607,9 @@ capability-parity epic gh:#257:**
   of scope.~~ **REVERSED 2026-09-25 (maintainer direction: "make sure the
   plotting capabilities of openmc are properly ported over (to jpg or PNG)").**
   `src/plot.cpp`'s slice and ray-trace rasterisers, its default colour stream
-  and a PNG/PPM writer are ported in `src/geometry/plot/` and match
+  and a PNG/PPM writer are ported in ~~`src/geometry/plot/`~~
+  `outram_blender::csg::plot` (moved 2026-10-02, GitHub #486; re-exported here
+  as `geometry::plot`) and match
   `openmc --plot` pixel-for-pixel on 17 reference images
   (`verification_and_validation/geometry_plotting/README.md`). Voxel plots
   (HDF5 output) remain out of scope; the matplotlib-script emitter is kept.
@@ -581,7 +643,7 @@ nobody reaches for is, in practice, an optimisation the code does not have.
   45 of them away. `Material::macro_xs_total` already does this, so the
   flight-distance path and all five delta-tracking sites are covered.
 - **Measured worth, LCT-008, 11 nuclides, 5000 × [30 + 70]:** transport
-  **64.2 s → 20.1 s (3.2×)**, `k_eff` **byte-identical**. That closed most of
+  **64.2 s → 20.1 s (3.2×)**, `k_eff` **byte-identical** (hardware not recorded). That closed most of
   the 8.4× gap against OpenMC the 2026-09-24 sweep measured.
 - **An optimisation that changes the answer is a bug, not a trade.**
   `tests/total_fast_path_matches_full.rs` asserts the two paths are **exactly**
@@ -631,8 +693,11 @@ path. `material::speed::SpeedTier`, chosen per nuclide with
 **Decision recorded:** the maintainer's first framing was "Standard, Fast,
 VeryFast" with Standard implicitly the default. The rule above ("the
 cheapest correct path is the default") was applied instead, because `Fast`
-is exact. Flip `#[default]` in `speed.rs` if that is not what was meant; the
-exactness test does not depend on which tier is the default.
+is exact. ~~Flip `#[default]` in `speed.rs` if that is not what was meant~~
+**CONFIRMED 2026-09-28:** the maintainer chose `Fast` as the default ("Fast
+lah"). `ordinary_constructors_default_to_the_exact_fast_tier` in
+`tests/speed_tier_fast_is_exact.rs` pins it. The exactness test does not
+depend on which tier is the default.
 
 
 ### Units: raw `f64`, not `uom`
@@ -669,7 +734,8 @@ bytes on disk. `no file I/O in the inner loop` is the invariant; `no HDF5
 anywhere in the workspace` never was one.
 
 **One exception, noted 2026-09-25:** the geometry plotter
-(`src/geometry/plot/`) encodes PNG/PPM itself — `ImageData::to_png_bytes` is
+(~~`src/geometry/plot/`~~ `outram_blender::csg::plot` since 2026-10-02,
+GitHub #486) encodes PNG/PPM itself — `ImageData::to_png_bytes` is
 the pure path, and `ImageData::write_png` is a one-line `std::fs::write`
 convenience at the end of a plot, never inside transport. The DEFLATE codec is
 `miniz_oxide`, already in this crate's tree via `njoy-outram-park-fork`.
@@ -683,7 +749,158 @@ OpenMC's reproducibility guarantee relies on each particle having a completely
 independent LCG stream obtained by jump-ahead.  This Rust port preserves that
 design: `init_seed(id, offset, master)` derives a unique starting seed for each
 particle.  The jump-ahead in `future_seed(n, seed)` is O(log n), implemented in
-`src/rng/lcg.rs`.
+~~`src/rng/lcg.rs`~~ `crates/petir/src/rng/lcg.rs` (**CORRECTED 2026-10-02**,
+see below).
+
+### The RNG lives in PETIR (2026-10-02, maintainer direction)
+
+The LCG this crate ported (`random_lcg.cpp`) now lives in `petir`:
+`petir::rng::lcg` for the Rust and `petir::wgsl::LCG` (`lcg.wgsl`) for the
+WGSL state advance, with its CPU mirror in `petir::wgsl::mirror_lcg`. **Keep
+using `crate::rng::lcg`** — it is a `pub use` of PETIR's module, so every call
+site here, in `boon-lay` and in `nee_soon` is unchanged.
+
+- **Why.** `raffles` used this crate only for the RNG and a CSG graph adapter.
+  That edge closed a cycle once this crate depended on
+  `outram-park-fork-liggghts` (whose default `gnn` feature depends on
+  `raffles`). The RNG went to PETIR; the adapter went to
+  `outram_blender::gnn_graph` (GitHub issue #486). **`raffles` must never
+  depend on this crate again.** The reverse edge, this crate -> `raffles`, is
+  **allowed** (maintainer, 2026-10-02: RAFFLES is a statistics crate that can
+  speed up Monte Carlo) now that `raffles` depends only on `petir`, and it was
+  added the same day with real consumers — see the next section.
+- **No random number moved.** `petir::rng::lcg`'s `moved_stream_is_pinned`
+  pins values printed by the pre-move file compiled standalone.
+- **The GPU kernels compose, they do not copy.** `batched_flight.wgsl` and
+  `batched_event.wgsl` no longer define the LCG; `gpu::batched_flight::shader_source()`
+  and `gpu::batched_event::shader_source()` prepend `petir::wgsl::LCG` and the
+  kernels call `petir_lcg_next`. Test probes must use `shader_source()`, not
+  `include_str!` of the kernel file, which no longer compiles on its own.
+- **`rng::distributions` did not go to PETIR**: it calls `cos`/`sin` through
+  this crate's `mathf` route (platform libm by default), which a `no_std`
+  PETIR copy could not reproduce bit for bit. (Its generic samplers later went
+  to RAFFLES instead, with the routing preserved — next section.)
+
+### Geometry lives in outram-blender (2026-10-02, GitHub #486)
+
+**The CSG description, its pure navigation kernel, the geometry plotter and
+the tally-mesh description live in `outram-blender`; this crate keeps the
+transport-state work and re-exports everything under the old paths.**
+Maintainer decisions recorded on GitHub #486.
+
+| moved to `outram_blender` | stays here |
+|---|---|
+| `csg::{position, surface, cell, universe, lattice, geometry, triso_particle}` (re-exported as `geometry::*`) | `geometry::crossing`: `GeometryExt` (`cross_surface`, `cross_surface_in_frame`, `distance_out_of_level`, `sigma_t_at`, `validate_boundary_conditions`), `SurfaceKindExt` (`diffuse_reflect`, `sphere_centre_radius`, `overlaps_voxel`), nudging and corner reflection |
+| `csg::plot` (re-exported as `geometry::plot`; `ModelPlot` is generic over `MaterialIdentity`, implemented for `Material` in `geometry/plot.rs`) | the plot-parity V&V (`tests/*plot_parity.rs`, `verification_and_validation/geometry_plotting/`) |
+| `spatial_mesh` (re-exported as `tally::mesh::*`) | `tally::mesh`: `RegularMeshExt`, `RectilinearMeshExt`, `CylindricalMeshExt`, `SphericalMeshExt`, `MeshKindExt` — bin lookup, `count_sites`, `shannon_entropy`, mesh-surface crossings |
+| `unstructured::UnstructuredMesh` (2026-10-03, #492; re-exported as `tally::mesh_unstructured::UnstructuredMesh`, held by `MeshKind::Unstructured`) — the neutral FV/FE/MC mesh, its geometry and `CellLocator` | `tally::mesh_unstructured::UnstructuredMeshExt` — point location (winding number of each cell's bounding fan triangles), track-length `bins_crossed` (port of `MOABMesh::bins_crossed`), `sample_in_cell`; the split branch of `score_track_length`. V&V plan: `verification_and_validation/unstructured_mesh_tally/` (**NOT YET MEASURED**) |
+| — | distribcell, `virtual_lattice`, `volume_calc`, GPU encoders and WGSL |
+
+- **The `*Ext` traits are in the prelude.** Code that names `Geometry` or a
+  mesh by path needs one more `use` (e.g. `use
+  outram_mc_libs::geometry::crossing::GeometryExt;`); the compiler names the
+  trait when it is missing.
+- **outram-blender must never depend on this crate** (Cargo counts optional
+  deps for cycles). The workspace entry is `default-features = false` (no
+  wgpu); blender's mesh authoring and `faer` are still compiled, by
+  maintainer decision — the cost is in the `cargo tree` count.
+- **A change to the moved code is a change to this crate's transport.** The
+  bit-identity gate is `tests/stats_move_fingerprints.rs` (three #486 cases:
+  nested hex/rect-lattice TRISO navigation and crossings, a k run on it, and
+  all four tally meshes); the plot-parity tests stay here.
+- **Publishing:** a crates.io release of this crate needs `outram-blender`
+  and `petir` published at compatible versions (accepted by the maintainer).
+
+### Generic statistics live in RAFFLES (2026-10-02, GitHub #500)
+
+**The maths on numbers lives in `raffles`; deciding what is counted stays
+here.** Moved, byte for byte, and re-exported at the old paths:
+
+| was | now | what stays here |
+|---|---|---|
+| `mean_and_stderr`, four identical private copies (`physics/keff.rs`, `physics/transport_csg.rs`, `physics/physics_mg.rs`, `pebble_beds/keff_delta.rs`) | `raffles::estimators::mean_and_stderr` | choice of active generations |
+| `tally::mesh::RegularMesh::shannon_entropy`'s formula | `raffles::estimators::shannon_entropy_bits` | `count_sites` (binning the bank) |
+| `vv::pooled` | `raffles::estimators::pooled` (re-exported) | `bench_seeds`, `bench_run_size`, `bench_speed` |
+| `tally::trigger::{BinStats, bin_uncertainty, predict_batches}` | `raffles::estimators` (re-exported) | `Trigger`, `TriggerMetric`, `bin_ratio`, `limiting_ratio`, `satisfied` |
+| `tally::arithmetic` propagation formulas | `raffles::estimators::{sigma_sum, product_with_sigma, quotient_with_sigma, sum_with_sigma}` | `DerivedTally` readout and selection |
+| `rng::distributions::{uniform, sample_normal, sample_normal_3d, sample_exp}` | `raffles::distributions::seeded` (re-exported) | `maxwell`, `watt`, `isotropic_direction` |
+
+- **Bit-identical, measured.** `tests/stats_move_fingerprints.rs` pins six
+  fingerprints (Godiva `run_keff`; Godiva CSG with entropy mesh and a k
+  trigger; a two-group MG sphere; the FHR explicit-TRISO delta-tracking
+  pebble; pure statistics; Shannon entropy), printed before the move and
+  unchanged after it.
+- **`mean_and_stderr` and `pooled` are deliberately NOT merged**:
+  `sqrt(var / n)` and `sqrt(var) / sqrt(n)` differ in the last bit.
+- **`deterministic-math` forwards to `raffles/deterministic-math`**, so
+  `sample_normal`'s `cos` keeps this crate's routing.
+- ~~**Not moved, because it does not exist:** a χ²/dof consistency check of
+  seed values against their internal σ. `vv.rs` has no such function; it
+  belongs with #494 when that lands.~~ **CORRECTED 2026-10-03** — #494 added
+  it: `raffles::estimators::seed_consistency` (the maths) and
+  `stats::ensemble` here (the seed runner, `EnsembleReport`). `vv.rs` still
+  has no such function and keeps only the bench knobs.
+- RAFFLES is Adolphus Lye's crate; the move was the workspace maintainer's
+  direction and is recorded in `crates/raffles/CLAUDE.md` with their review
+  outstanding.
+
+### Statistics on top of RAFFLES: `stats` (2026-10-03, epic GitHub #493)
+
+`src/stats/` holds the **drivers and adapters**; the maths is in
+`raffles::estimators` / `raffles::surrogate`. **No driver calls anything in
+`stats`**, so a default run is bit-identical with or without it. What is
+there, and its V&V state (every gate **NOT YET MEASURED** — testing deferred by
+the maintainer, 2026-10-03; protocols in
+`verification_and_validation/stats_epic_493/`):
+
+- `stats::ensemble` (#494) — `run_seeds` / `run_seeds_with_progress` (seeds
+  chunked in order, worker-count independent), `EnsembleReport` (pooled
+  mean/sd/sem exactly as `vv::pooled`, `χ²/dof` seed consistency, outlier
+  seeds, disjoint-group `1/√N` check). `examples/godiva_keff_ensemble.rs` uses
+  it; the remaining per-example ensembles (`OUTRAM_BENCH_SEEDS`) are not
+  migrated yet.
+- `stats::correlated_sigma` (#495) — `KeffUncertainty::from_result`: batch
+  means and `τ_int`/ESS over the active generations, reported **beside** the
+  run's own `k_std`, which is carried bit for bit and never replaced.
+  `TallyBatchRecorder` differences a `Tally`'s running sums per batch; no
+  driver exposes a per-batch hook yet, so it serves caller-stepped loops only.
+- `stats::convergence` (#496) — `SourceConvergence::from_result`: MSER-5,
+  Geweke and change-point on the entropy and `k` traces (all generations);
+  recommends an inactive count only when every analysed trace has settled,
+  otherwise says so. Complements `vv::report_source_convergence` (active-half
+  drift), which it does not replace. Report-only.
+- `stats::learned_importance` (#497) — `learned_weight_windows`: MAGIC where
+  the early tally resolves the flux, a RAFFLES polynomial in `ln φ(x,y,z)`
+  filling the cells MAGIC leaves without a window (extrapolation clamped,
+  leave-one-out error reported); `VrArm` / `FomComparison` for
+  `FOM = 1/(R²T)` and the unbiasedness gate (`|z| ≤ 2`). **Off by default**:
+  it only builds a `WeightWindows`; transport changes only if a caller
+  attaches it to a `VarianceReduction`, whose default stays analog. Source
+  biasing is not implemented.
+- `stats::uq` (#498) — `UqDesign::{sampled, sobol, evaluate}` with
+  `raffles` distributions / samplers, `UqReport::analyse` (total sd, the runs'
+  own MC-noise variance separated out, quantiles, Pearson / Spearman /
+  marginal least-squares slope per input, or Sobol indices), and
+  `DirectPerturbation` for the #498 gate. Quantification only — no
+  calibration.
+- `stats::sweep` (#499) — `SweepSurrogate` (RAFFLES polynomial + leave-one-out
+  refits), `predict` → `SurrogatePrediction` with a jackknife+ interval (its
+  own type: **a surrogate value is never a transport result**), `loo_gate`
+  (literal and noise-floor-aware readings — the literal one is expected to
+  fail for a perfect surrogate; flagged on #499), `propose_next_runs`
+  (active sampling heuristic). `examples/stats_sweep_loo.rs` runs the gate on
+  the committed HTR-10 sweep CSV without transport.
+
+### DEM pebble beds: `pebble_beds::dem_bed` (2026-10-02)
+
+`outram-park-fork-liggghts` is a dependency (with none of its default
+features) so a bed settled by granular DEM can be handed to transport.
+`DemBed::from_granular_system` / `from_dem_simulation` / `from_particles`
+convert to pebble centres in **cm**, refuse a polydisperse bed, and **report**
+the soft-sphere overlap rather than hiding it. It does **not** build a CSG
+geometry; whoever does must draw it (rule at the top of this file). Use
+liggghts' `GranularSystem` to settle — it is the engine verified against
+LIGGGHTS.
 
 ### RNG goal: statistical correctness, NOT particle-for-particle parity
 

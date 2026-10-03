@@ -27,17 +27,14 @@
 //! this layer itself only implements the algebra (dot/cross/outer products,
 //! trace, deviatoric/symmetric decomposition, inversion, eigen-invariants).
 
-/// Scalar type aliases (`Scalar`, `Label`) and OpenFOAM-style
-/// small/great tolerance constants.
-pub mod scalar;
-/// Isotropic (single-component) tensor — see [`SphericalTensor`].
-pub mod spherical_tensor;
-/// 3x3 symmetric tensor (6 independent components) — see [`SymmTensor`].
-pub mod symm_tensor;
-/// General 3x3 tensor — see [`Tensor`].
-pub mod tensor;
-/// 3-component vector — see [`Vector3`].
-pub mod vector;
+// DEDUPED 2026-10-03 (GitHub #492): this module's five primitive modules were a copy of
+// `outram-foam-basic-lib`'s, code-identical apart from doc comments (or, for
+// `FvMesh`/`MeshError`, a strict subset of it: foam-basic-lib adds the
+// cyclic/AMI fields and checks, which this crate never sets, so every mesh
+// built here behaves identically). foam-basic-lib is the one copy; these are
+// re-exports. Merging `FvMesh` alone was not possible: its fields are
+// foam-basic-lib `Vector3`s, so the primitives had to come with it.
+pub use outram_foam_basic_lib::primitives::{scalar, spherical_tensor, symm_tensor, tensor, vector};
 
 pub use scalar::{Label, Scalar, GREAT, ROOT_GREAT, ROOT_SMALL, ROOT_VSMALL, SMALL, VGREAT, VSMALL};
 pub use spherical_tensor::SphericalTensor;

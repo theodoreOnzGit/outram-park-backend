@@ -63,3 +63,13 @@ example (`water_critical_point_iapws95.md`).
   zooms down to one TRISO particle), with what was and was not checked in
   them. Regenerate with `cargo run --release -p nee_soon --example
   htr10_geometry_images` whenever the geometry changes.
+
+## HTR-10 k against loading height
+
+- [`htr10_endf8_kvsh_quick_2026-10-02/`](htr10_endf8_kvsh_quick_2026-10-02/README.md)
+  and [`htr10_endf8_kvsh_heavy_2026-10-02/`](htr10_endf8_kvsh_heavy_2026-10-02/README.md) — the whole ENDF/B-VIII.0 sweep from
+  `examples/htr10_endf8_kvsh_quick.rs` / `_heavy.rs` (gh:#501), against RMC
+  and both MCNP columns, with the figure script that drew them.
+- [`htr10_seker_2026_10_01_10k/`](htr10_seker_2026_10_01_10k/README.md) — the
+  same sweep on VIII.0 and VII.0 at 10 000 × [5 + 135], run through
+  `htr10_rmc_keff`.

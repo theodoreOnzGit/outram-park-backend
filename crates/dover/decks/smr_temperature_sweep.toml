@@ -1,0 +1,45 @@
+# DOVER deck -- the same reactor swept over temperature.
+#
+# Reforming is strongly endothermic, so conversion must rise with temperature.
+# That is the qualitative check the sweep exists to make visible; it is
+# asserted in `tests/smr_cstr.rs`.
+
+schema_version = 1
+
+[case]
+name = "smr-T-sweep"
+
+[reactor]
+kind = "cstr"
+volume_m3 = 2.0
+temperature_k = 1123.15
+pressure_pa = 2.0e6
+
+[feed]
+methane_mol_s = 1.0
+steam_to_carbon = 3.0
+
+[kinetics.reforming]
+a_forward = 1.0e7
+e_forward_j_mol = 2.4e5
+
+# ---------------------------------------------------------------------------
+# The water-gas shift is EQUILIBRIUM-LIMITED here, and its pre-exponential is
+# chosen for numerical conditioning, not to reproduce any result. Measured
+# 2026-09-25: methane conversion is 0.41174540 at a_forward = 1e2 and
+# 0.41174800 at 1e6 -- 6e-6 relative -- because the shift sits at equilibrium
+# (Q/Kc = 0.9992 and 1.0000) either way. At 1e6, though, V*rate_shift reaches
+# 1.3e6 mol/s against a 1 mol/s feed and the residual zeta - V*rate becomes
+# unsolvable: the solve then failed for 4 of 13 temperatures and 4 of 6
+# volumes, and max_iter = 100000 fixed none of them. See the "Stiffness"
+# section in src/smr.rs.
+# ---------------------------------------------------------------------------
+[kinetics.water_gas_shift]
+a_forward = 1.0e2
+e_forward_j_mol = 6.7e4
+
+[sweep]
+variable = "temperature_k"
+from = 800.0
+to = 1300.0
+steps = 11

@@ -53,6 +53,12 @@
 > thing that turns this file back into a live result.
 
 
+> **Update 2026-09-30 — after the OpenMC-parity audit (#407).** Routes 3–5 at
+> `0414bc8277`. Every case × route is within 2σ of OpenMC + NJOY2016 except the
+> LCT-008 lattice on route 3, at −18 ± 8 pcm (96 seeds a side). The table
+> below is the superseded 2026-09-29 interim; the current numbers are in the
+> record.
+>
 > **Update 2026-09-29 — five-route campaign** ([`five_route_keff_2026_09_29.md`](five_route_keff_2026_09_29.md)),
 > 32 seeds per case, URR and DBRC on, corrected PURR grid:
 >

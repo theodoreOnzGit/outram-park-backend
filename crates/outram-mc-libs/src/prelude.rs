@@ -8,6 +8,7 @@ pub use crate::geometry::position::{Position, Direction};
 pub use crate::geometry::surface::{
     BoundaryType, Sphere, SurfaceKind, XPlane, YPlane, ZPlane, ZCylinder,
 };
+pub use crate::geometry::crossing::SurfaceKindExt;
 pub use crate::geometry::cell::{Cell, CellFill, HalfSpaceSense, RegionToken, SurfaceToken};
 pub use crate::geometry::universe::Universe;
 pub use crate::geometry::plot::{
@@ -17,7 +18,7 @@ pub use crate::geometry::plot::{
 pub use crate::geometry::lattice::{HexLattice, HexOrientation, Lattice, RectLattice};
 pub use crate::geometry::virtual_lattice::{BuildReport, VirtualLattice};
 pub use crate::geometry::geometry::{
-    BoundaryHit, Coord, Crossing, Geometry, GeometryPath, SurfaceCrossing,
+    BoundaryHit, Coord, Crossing, Geometry, GeometryExt, GeometryPath, SurfaceCrossing,
 };
 pub use crate::geometry::triso_particle::{
     build_triso_particle, triso_particle, TrisoMaterials, TrisoParticle, TrisoRadii,
@@ -36,7 +37,11 @@ pub use crate::tally::filter::{
     SpatialLegendreFilter, SphericalHarmonicsFilter, SurfaceFilter, TimeFilter, UniverseFilter,
     ZernikeFilter,
 };
-pub use crate::tally::mesh::RegularMesh;
+pub use crate::tally::mesh::{
+    CylindricalMeshExt, MeshKindExt, RectilinearMeshExt, RegularMesh, RegularMeshExt,
+    SphericalMeshExt,
+};
+pub use crate::tally::mesh_unstructured::{UnstructuredMesh, UnstructuredMeshExt};
 pub use crate::tally::scoring::Q_FISSION_J;
 pub use crate::tally::arithmetic::DerivedTally;
 pub use crate::physics::compute::{ComputeType, ThreadCount};
@@ -47,8 +52,7 @@ pub use crate::physics::search::{
 pub use crate::physics::transport_csg::{run_keff_csg, run_keff_csg_reactor_physics, SourceBox};
 pub use crate::physics::reactor_physics::{
     assemble_six_factors, run_keff_reactor_physics, Estimate, Group, LethargySpectrum,
-    ReactorPhysicsConfig,
-    ReactorPhysicsError, ReactorPhysicsReport, SixFactors, CONSISTENCY_BAND,
+    ReactorPhysicsConfig, ReactorPhysicsError, ReactorPhysicsReport, SixFactors, CONSISTENCY_BAND,
 };
 pub use crate::physics::fixed_source::{
     run_fixed_source, FixedSource, FixedSourceResult, FixedSourceSettings,
@@ -67,6 +71,7 @@ pub use crate::pebble_beds::sphere_packing::{
     pack_spheres, PackedSpheres, PackingConfig, PackingMethod,
 };
 pub use crate::pebble_beds::crp_packing::{pack_spheres_crp, CrpError, MAX_PF_CRP};
+pub use crate::pebble_beds::dem_bed::{DemBed, DemBedError};
 // Stochastic-media research track (beads epic op-eby). The chord statistics,
 // SCLS retention machinery and brute-force index are implemented.
 //
@@ -137,3 +142,14 @@ pub use crate::perf_report::{HardwareInfo, PerfReport, PerfRow};
 // The error type the ENDF entry points return, so `use outram_mc_libs::prelude::*`
 // is enough to write a signature that propagates it.
 pub use crate::NjoyError;
+
+// Statistics on top of RAFFLES (epic GitHub #493). Report-only or opt-in;
+// nothing here is on any driver's default path.
+pub use crate::stats::ensemble::{run_seeds, EnsembleReport, SeedRun};
+pub use crate::stats::correlated_sigma::{KeffUncertainty, TallyBatchRecorder};
+pub use crate::stats::convergence::SourceConvergence;
+pub use crate::stats::learned_importance::{
+    learned_weight_windows, FomComparison, LearnedImportanceSettings, VrArm,
+};
+pub use crate::stats::uq::{DirectPerturbation, UncertainInput, UqDesign, UqReport};
+pub use crate::stats::sweep::{SurrogatePrediction, SweepRun, SweepSurrogate};

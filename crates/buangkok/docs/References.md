@@ -94,11 +94,19 @@ assessment into `changi`'s current scope (see `crates/changi/CLAUDE.md`).
 
 `reference/htr10_accident_individual_dose_by_distance.csv`, exposed by
 `buangkok::published::accident_dose_by_distance`. Added 2026-09-28.
-**Reference data only: nothing in this crate or in `htgr_sim_v1` consumes it,
+~~**Reference data only: nothing in this crate or in `htgr_sim_v1` consumes it,
 and `changi` computes no dose.** Parked in `changi` next to Table 7 at the
 maintainer's direction (2026-09-28), pending their decision on where dose data
 lives; the placeholder crate `buangkok` is the named future home, and nothing
-has been added there.
+has been added there.~~ **CORRECTED 2026-10-01:** the CSV
+(`crates/buangkok/reference/`) and its loader
+(`crates/buangkok/src/published/accident_dose_by_distance.rs`) live in
+`buangkok`, not `changi`. **Reference data only; nothing uses it as a model
+input.** Verified readers: `htgr_sim_v1` reads it **for display only**, as two
+literature overlays on the Map tab's TEDE graph (whole-body column, as
+published, #473); `sembawang::lwr_comparison::htr10_dba_vs_table9` (and two
+sembawang examples) and `buangkok/tests/liu_cao_external_dose_cross_check.rs`
+read it as a comparison reference. `changi` computes no dose.
 
 | Field | Value |
 |---|---|
@@ -213,7 +221,12 @@ pass). They are not presented as authoritative values.
 
 `buangkok::coefficients` compiles in five CSVs from `reference/`, holding
 the coefficients for the five nuclides `htgr_sim_v1` tracks (Kr-85, Xe-133,
-I-131, Cs-137, Ag-110m) plus Cs-137's short-lived daughter Ba-137m. They are
+I-131, Cs-137, Ag-110m) plus Cs-137's short-lived daughter Ba-137m.
+**Added 2026-09-29 (gh:#379):** the two FGR-15 CSVs also carry the 18 further nuclides of Liu & Cao (2002) Tables 5 and 8 (Ar-41, Kr-83m, Kr-85m, Kr-87, Kr-88, Xe-131m, Xe-133m, Xe-135m, Xe-135, I-132..I-135, Sr-89, Sr-90, Cs-134, H-3, C-14), **Adult column only**, added 2026-09-29 for the gh:#379 cross-check.
+Those rows were extracted by `kovan-cli` and a deterministic regex; the
+method and its checks are in
+`crates/kovan-literature/derived/epa-fgr15-adult-external-coefficients.md`.
+The six rows both extractions share agreed exactly. They are
 returned as the pyDOSEIA port's own table types (`ExternalDcfTable`,
 `InhalationDcfTable`, `ProgenyChains`), so the port's lookups do the
 selecting. The maintainer asked for the dose-rate map on 2026-09-29.
@@ -225,7 +238,7 @@ selecting. The maintainer asked for the dose-rate map on 2026-09-29.
 | `fgr15_2025_air_submersion_dose_rate_coefficients.csv` | US EPA **Federal Guidance Report No. 15**, *External Exposure to Radionuclides in Air, Water and Soil*, **EPA 402-R-25-001, revised July 2025**; M.B. Bellamy et al., Oak Ridge National Laboratory for the EPA Office of Radiation and Indoor Air | **Table 4-6** "Reference person effective dose rate coefficients for air submersion", Sv Bq^-1 s^-1 m^3. Printed pp. 192 (Kr-85), 196 (Ag-110m), 199 (I-131, Xe-133), 200 (Cs-137, Ba-137m); PDF pages = printed + 10 |
 | `fgr15_2025_ground_surface_dose_rate_coefficients.csv` | FGR-15, as above | **Table 4-1** "Reference person effective dose rate coefficients for ground surface", Sv Bq^-1 s^-1 m^2. Printed pp. 37 (Kr-85), 41 (Ag-110m), 44 (I-131, Xe-133), 45 (Cs-137, Ba-137m) |
 | `fgr15_2025_short_lived_progeny_links.csv`, `..._half_lives.csv` | FGR-15, as above | Worked **Example 4**, printed pp. 269-270: "In 94.4 percent of the 137Cs transformations, the radioactive decay product 137mBa is formed"; 137mBa half-life 2.552 minutes. (The 2025 revision removed the Appendix A decay-data table, so the example is where the report states these.) |
-| `fgr11_inhalation_committed_dose_coefficients.csv` | US EPA **Federal Guidance Report No. 11**, *Limiting Values of Radionuclide Intake and Air Concentration and Dose Conversion Factors for Inhalation, Submersion, and Ingestion*, EPA-520/1-88-020 (1988); K.F. Eckerman, A.B. Wolbarst, A.C.B. Richardson | **Table 2.1** "Exposure-to-Dose Conversion Factors for Inhalation", column **Effective** (committed effective dose equivalent per unit intake, Sv/Bq). Printed pp. 132 (Ag-110m, classes D 1.07e-8, W 8.34e-9, Y 2.17e-8), 136 (I-131, D 8.89e-9), 137 (Cs-137, D 8.63e-9); PDF pages = printed + 8 |
+| `fgr11_inhalation_committed_dose_coefficients.csv` | US EPA **Federal Guidance Report No. 11**, *Limiting Values of Radionuclide Intake and Air Concentration and Dose Conversion Factors for Inhalation, Submersion, and Ingestion*, EPA-520/1-88-020 (1988); K.F. Eckerman, A.B. Wolbarst, A.C.B. Richardson | **Table 2.1** "Exposure-to-Dose Conversion Factors for Inhalation", column **Effective** (committed effective dose equivalent per unit intake, Sv/Bq). Printed pp. 132 (Ag-110m, classes D 1.07e-8, W 8.34e-9, Y 2.17e-8), 136 (I-131, D 8.89e-9), 137 (Cs-137, D 8.63e-9); PDF pages = printed + 8. **Added 2026-09-30** (read by an AI agent from the rendered pages at 120 dpi, not the OCR layer; **not human-reviewed**; I-131 re-read as 8.89e-9, matching the existing row): printed p.136, I-132 D 1.03e-10, I-133 D 1.58e-9, I-134 D 3.55e-11, I-135 D 3.32e-10, Cs-134 D 1.25e-8; printed p.128, Sr-89 D 1.76e-9 / Y 1.12e-8, Sr-90 D 6.47e-8 / Y 3.51e-7 |
 
 Files: `crates/kovan-literature/reactor-literature/kovan-standard-open-corpus/epa/`
 (`fgr-15-epa-402-r-25-001.pdf`, SHA-256 `a91cda89…21ae`, and

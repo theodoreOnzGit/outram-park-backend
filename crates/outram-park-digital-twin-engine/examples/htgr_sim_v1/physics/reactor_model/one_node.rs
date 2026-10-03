@@ -1340,8 +1340,9 @@ pub fn helium_specific_heat(temperature: ThermodynamicTemperature) -> SpecificHe
 /// \[J/kg\], from the CoolProp-fork Helmholtz EOS (Ortiz-Vega et al.).
 ///
 /// **The one helium `h(T)` for the whole primary circuit** (gh:#393,
-/// 2026-09-29): the bed's fluid row, the primary loop's hot-duct and
-/// cold-return CVs and the steam generator's helium array all sit on this
+/// 2026-09-29): the bed's fluid row, the primary loop's hot-duct,
+/// cold-duct and RPV-annuli CVs (the cold-return CV until 2026-10-01) and
+/// the steam generator's helium array all sit on this
 /// EOS and datum, so an enthalpy handed from one CV to the next means the
 /// same energy on both sides. Used to seed states and to convert prescribed
 /// boundary temperatures; the balances themselves carry enthalpy.
@@ -1732,7 +1733,7 @@ pub struct BedStepEnergy {
     /// Enthalpy carried out by the throughflow above the inlet,
     /// `m_dot (h_f' - h_in) dt` (~~`m_dot c_p (T_f' - T_in) dt`~~, changed
     /// 2026-09-29, gh:#393). This is exactly what the primary loop's hot-duct
-    /// CV receives less what its cold-return CV discharged into the bed.
+    /// CV receives less what its RPV-annuli CV discharged into the bed.
     pub throughflow_out: f64,
     /// Heat leaving the bed to the passive path (reflector, RPV, RCCS) over
     /// the step, `[G_s (T_s' - T_nw') + G_f (T_f' - T_nw')] dt` (gh:#395,
@@ -1943,7 +1944,7 @@ impl PebbleBedPorousMediaNode {
             0.5 * (t_n.get::<kelvin>() + passive_path.reflector_temperature().get::<kelvin>());
         let mut reflector_k = passive_path.reflector_temperature().get::<kelvin>();
         let mut rpv_k = passive_path.rpv_temperature().get::<kelvin>();
-        // The riser helium enters at the cold-return CV's state -- the inlet
+        // The riser helium enters at the RPV-annuli CV's state -- the inlet
         // enthalpy this step was handed (gh:#397).
         let riser_inlet = ThermodynamicTemperature::new::<kelvin>(
             helium_state_at(helium_inlet_enthalpy).temperature,
@@ -2248,7 +2249,7 @@ fn helium_void_mass(helium_state: FluidState, void_volume: Volume) -> Mass {
 /// the passive path's legs `G_s` (solid -> near wall), `G_f` (helium -> near
 /// wall), `G_w` (near wall -> reflector), `G_2` (reflector -> RPV), `G_3`
 /// (RPV -> RCCS), `G_riser` (reflector -> riser helium entering at the
-/// cold-return temperature `T_cold`, gh:#397) and secant capacities `C_r`,
+/// RPV-annuli (core-inlet) temperature `T_cold`, gh:#397) and secant capacities `C_r`,
 /// `C_v`:
 ///
 /// | | `T_s'` | `y` | `T_nw'` | `T_r'` | `T_v'` | `b` |

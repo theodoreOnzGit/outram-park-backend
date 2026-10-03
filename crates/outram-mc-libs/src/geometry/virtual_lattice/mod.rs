@@ -102,7 +102,7 @@
 //! regression case has been run — that is tracked as a separate bead.
 
 use super::position::Position;
-use super::surface::SurfaceKind;
+use super::surface::{SurfaceKind, SurfaceKindExt};
 
 pub mod traversal;
 

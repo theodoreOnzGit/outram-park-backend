@@ -133,6 +133,31 @@ pub fn resolve(explicit: Option<&Path>) -> io::Result<(PathBuf, String)> {
     ))
 }
 
+/// Fetch the workspace's literature submodule if it was never checked out
+/// ([`crate::corpus_repos::ensure_workspace_corpus`]), telling the caller on
+/// stderr only when something happened: a fetch, or a failure. Called by
+/// every `kovan-cli` command that resolves the workspace, so the first one
+/// run in a plain clone brings the literature in.
+///
+/// Skipped when `CI` is set: a CI runner has no use for the PDF corpus, and
+/// fetching it there would cost every job the download.
+pub fn fetch_literature(root: &Path) {
+    if std::env::var_os("CI").is_some() {
+        return;
+    }
+    use crate::corpus_repos::{ensure_workspace_corpus, RepoState, WORKSPACE_CORPUS_PATH};
+    match ensure_workspace_corpus(root) {
+        Ok(Some(RepoState::Cloned)) => {
+            eprintln!("literature: fetched the {WORKSPACE_CORPUS_PATH} submodule (it was empty)");
+        }
+        Ok(_) => {}
+        Err(e) => eprintln!(
+            "literature: {WORKSPACE_CORPUS_PATH} is empty and could not be fetched ({e}); \
+             run `git submodule update --init {WORKSPACE_CORPUS_PATH}`"
+        ),
+    }
+}
+
 /// Choose where a generated directory such as `agent-docs/` should live.
 ///
 /// # The order

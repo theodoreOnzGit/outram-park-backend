@@ -20,6 +20,8 @@
 //! - [`save_digitised_csv`] — from either digitiser tab's "save into notes".
 //! - [`replace_artifact_body`] — the page-context panel's inline block
 //!   editor (body only, metadata kept verbatim).
+//! - [`replace_artifact_region`] — the PDF reader's drag-a-corner box
+//!   correction (`[source] region` only, body and other metadata kept).
 //! - [`replace_digitisation`] — a re-digitise replacing its block in place,
 //!   body **and** `[extraction]` (CORRECTED 2026-09-28: this used to go
 //!   through [`replace_artifact_body`] and kept the stale extraction).
@@ -46,8 +48,8 @@ pub enum ClassifyError {
     /// `heading` produced no usable id (e.g. it was empty or entirely
     /// punctuation).
     NoUsableId,
-    /// [`replace_artifact_body`] was asked for an id no artifact in the
-    /// document has.
+    /// [`replace_artifact_body`] (or [`replace_artifact_region`]) was asked
+    /// for an id no artifact in the document has.
     UnknownId(String),
     /// The `[source]` anchor violates §15's invariants — see
     /// `SourceAnchor::validate`'s own error text.
@@ -426,6 +428,52 @@ pub fn replace_artifact_body(
     let mut toml = artifact.toml.clone();
     toml.kovan.modified = utc_now_iso8601();
     let rendered = render_artifact_block(artifact.level, &artifact.heading, &toml, new_body)
+        .map_err(ClassifyError::Render)?;
+
+    let span = block_span(&md, artifact);
+    session.set_markdown(splice_lines(&md, span, &rendered));
+
+    let refreshed = ResearchRecordIndex::from_session(session);
+    Ok(refreshed.get(id).expect("just replaced").clone())
+}
+
+/// Move the `[source] region` box of the artifact with stable id `id` to
+/// `region` — the PDF reader's drag-a-corner correction (maintainer,
+/// 2026-10-01: "when i edit annotations, i should be able to drag the
+/// corners of the boxes to correct them").
+///
+/// The same re-render path as [`replace_artifact_body`]: the block is
+/// rendered back through [`render_artifact_block`] with its **existing**
+/// body, `[kovan] modified` is bumped, and nothing else changes — `id`,
+/// `kind`, `created`, `[source] page`, classification, relation, connections
+/// and extraction are all kept, as is every other line of the document.
+///
+/// # Errors
+///
+/// [`ClassifyError::UnknownId`] if no artifact has that id;
+/// [`ClassifyError::BadAnchor`] if it has no `[source]` anchor or the new
+/// anchor fails `SourceAnchor::validate` (no `page`, or an invalid region);
+/// [`ClassifyError::Render`] if re-serialising its metadata fails.
+pub fn replace_artifact_region(
+    session: &mut PaperSession,
+    id: &str,
+    region: Region,
+) -> Result<Artifact, ClassifyError> {
+    let md = session.markdown().to_string();
+    let parsed = parse_document(&md);
+    let artifact = parsed
+        .get(id)
+        .ok_or_else(|| ClassifyError::UnknownId(id.to_string()))?;
+
+    let mut toml = artifact.toml.clone();
+    let source = toml
+        .source
+        .as_mut()
+        .ok_or_else(|| ClassifyError::BadAnchor(format!("{id} has no [source] anchor")))?;
+    source.region = Some(region);
+    source.validate().map_err(ClassifyError::BadAnchor)?;
+    toml.kovan.modified = utc_now_iso8601();
+    let rendered = render_artifact_block(artifact.level, &artifact.heading, &toml, &artifact.body)
         .map_err(ClassifyError::Render)?;
 
     let span = block_span(&md, artifact);
@@ -1253,6 +1301,100 @@ x,y
         );
     }
 
+    /// Maintainer, 2026-10-01: "when i edit annotations, i should be able to
+    /// drag the corners of the boxes to correct them." A dragged box is
+    /// written back through [`replace_artifact_region`], saved, and read back
+    /// off disk by a fresh session: the region is the new one, `created` and
+    /// the body are unchanged, and only the `[source] region` and `modified`
+    /// lines differ from the file before the edit.
+    #[test]
+    fn replace_artifact_region_round_trips_through_disk_and_keeps_created() {
+        let (dir, mut session) = open_session();
+        let index = ResearchRecordIndex::from_session(&session);
+        let art = classify_selection(
+            &mut session,
+            &index,
+            "Gaussian plume equation",
+            ArtifactKind::Annotation,
+            SourceAnchor {
+                page: Some(4),
+                pages: None,
+                region: Some(Region::from([0.5, 0.6, 0.9, 0.9])),
+            },
+            Classification::default(),
+            "the plume note",
+        )
+        .unwrap();
+        session.save_document().unwrap();
+        let created = art.toml.kovan.created.clone();
+        let before = session.markdown().to_string();
+
+        let moved = Region::from([0.25, 0.125, 0.75, 0.875]);
+        let updated = replace_artifact_region(&mut session, art.id(), moved).unwrap();
+        assert_eq!(updated.toml.source.as_ref().unwrap().region, Some(moved));
+        session.save_document().unwrap();
+
+        let root = KovanRoot::open(dir.path()).unwrap();
+        let reopened = PaperSession::open(&root, session.citekey()).unwrap();
+        let back = ResearchRecordIndex::from_session(&reopened);
+        let a = back.get(art.id()).expect("still there after reload");
+        let source = a.toml.source.as_ref().unwrap();
+        assert_eq!(source.region, Some(moved));
+        assert_eq!(source.page, Some(4), "the page is kept");
+        assert_eq!(a.toml.kovan.created, created, "created is stable");
+        assert_eq!(a.body.trim(), "the plume note", "the body is kept");
+        assert_eq!(a.kind(), ArtifactKind::Annotation);
+
+        // Nothing but the region's four numbers and `modified` changed.
+        let after = reopened.markdown();
+        let changed: Vec<(&str, &str)> = before
+            .lines()
+            .zip(after.lines())
+            .filter(|(b, a)| b != a)
+            .collect();
+        assert_eq!(before.lines().count(), after.lines().count());
+        assert!(
+            changed.iter().all(|(b, _)| b.starts_with("modified =")
+                || b.trim_start().starts_with(|c: char| c.is_ascii_digit())),
+            "only `modified` and the region numbers may change: {changed:?}"
+        );
+    }
+
+    #[test]
+    fn replace_artifact_region_rejects_an_invalid_region_and_an_unknown_id() {
+        let (_dir, mut session) = open_session();
+        let index = ResearchRecordIndex::from_session(&session);
+        let art = classify_selection(
+            &mut session,
+            &index,
+            "A boxed note",
+            ArtifactKind::Annotation,
+            SourceAnchor {
+                page: Some(1),
+                pages: None,
+                region: Some(Region::from([0.1, 0.1, 0.2, 0.2])),
+            },
+            Classification::default(),
+            "body",
+        )
+        .unwrap();
+        let before = session.markdown().to_string();
+        let inverted = Region::from([0.8, 0.1, 0.2, 0.2]);
+        assert!(matches!(
+            replace_artifact_region(&mut session, art.id(), inverted),
+            Err(ClassifyError::BadAnchor(_))
+        ));
+        assert!(matches!(
+            replace_artifact_region(
+                &mut session,
+                "no-such-id",
+                Region::from([0.1, 0.1, 0.2, 0.2])
+            ),
+            Err(ClassifyError::UnknownId(_))
+        ));
+        assert_eq!(session.markdown(), before, "a rejected edit writes nothing");
+    }
+
     /// Maintainer, 2026-09-02: "when saving annotations, i want them auto
     /// organised by page number. Not saved one after another."
     #[test]
@@ -1905,13 +2047,13 @@ pub fn ensure_paper_header(
 /// and table digitisers wrote when no paper was active, as a plain Markdown
 /// heading plus a bare ```csv fence and no `[kovan]` block at all:
 ///
-/// ```text
+/// ````text
 /// ### Fig 1. — page 3, pixel bbox [38.6, 71.9, 1215.4, 797.4], 2026-09-02T02:31:04Z, unnamed
 ///
 /// ```csv
 /// …
 /// ```
-/// ```
+/// ````
 ///
 /// Because such a section carries no fenced TOML, [`parse_document`] does not
 /// see it as an artifact at all: it has no id, no kind and no `[source]`, so

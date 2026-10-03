@@ -8,6 +8,29 @@ step upstream of an OpenMC run.
 > the shared dependency policy and design rules. Dep versions come from
 > `[workspace.dependencies]` — do not pin locally.
 
+## The NJOY2016 manual: where it is, and its licence (2026-10-02)
+
+**The manual is OPEN literature, not proprietary.** Read it, quote it, and
+cite its sections freely when porting or debugging. The root `CLAUDE.md`'s
+"read upstream first" rule means the Fortran *and* this manual.
+
+- **PDF:** `crates/kovan-literature/reactor-literature/theodore-open-corpus/2022laur1720093.pdf`.
+  That is *The NJOY Nuclear Data Processing System, Version 2016*,
+  LA-UR-17-20093 (R.E. MacFarlane et al., revision of November 7, 2019),
+  logged in that folder's README under ground 6.
+- **Source (LaTeX):** <https://github.com/njoy/NJOY2016-manual>. The
+  maintainer's clone is at `~/Documents/research/NJOY2016-manual` (commit
+  `9a2951f`).
+- **Licence:** Los Alamos National Security, LLC's **BSD-3-Clause-style**
+  licence, in that repository's `LICENSE` and also printed on page 2 of the
+  PDF. It permits redistribution as long as the copyright notice and
+  disclaimer are retained, and it has a no-endorsement clause. ~~MIT~~: the
+  maintainer first described it as MIT; the `LICENSE` text is BSD-3-style.
+  Both are permissive and GPL-compatible.
+- **Related open paper:** Conlin et al. 2017, *NJOY21: Next generation
+  nuclear data processing capabilities* (CC BY 4.0), at
+  `.../theodore-open-corpus/cc-by/conlin2017-njoy21-next-generation-nuclear-data-processing.pdf`.
+
 ## Maturity: DECLARED MATURE (2026-09-05)
 
 The API-usability rules in the root `CLAUDE.md` ("Human interface layer",
@@ -366,6 +389,13 @@ sampler selects row `k` with probability `cdf[k+1] - cdf[k]`, because
 `sample_ct_table_indexed` returns the lower edge of the CDF bin. Weighting it the
 way the code behaves gives 0.21 sigma. The defect was in the oracle; a looser
 gate would have buried the distinction rather than exposing it.
+
+**CORRECTED 2026-09-29 (GitHub #365 audit):** the row rule above no longer
+holds. The sampler now picks the row as OpenMC's `CorrelatedAngleEnergy`
+does, the nearer cdf edge (`k` or `k+1` on a lin-lin table), and inverts the
+row's cdf quadratically. The oracle follows the new rule and reads 0.78 sigma;
+the old oracle reads 6.36 sigma against the new sampler. Record:
+`crates/outram-mc-libs/verification_and_validation/ace_route_physics/correlated_angle_2026-09-29.md`.
 
 Be-9 is in none of this workspace's criticality cases, so none of this moves a
 `k_eff`. What it closes is a silent fallback.

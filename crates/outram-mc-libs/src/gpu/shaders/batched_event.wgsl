@@ -31,7 +31,8 @@
 //   4. A neutron that scatters stays alive: atomicAdd(alive_count, 1).
 //
 // PROVENANCE (CPU sources mirrored, all in this crate + OpenMC)
-//   - LCG state advance: OpenMC src/random_lcg.cpp:32-35 (as batched_flight.wgsl).
+//   - LCG state advance: OpenMC src/random_lcg.cpp:32-35, via PETIR's lcg.wgsl
+//     (composed ahead of this file; see the LCG section below).
 //   - Sigma_t grid search + interp: OpenMC src/nuclide.cpp:716-740.
 //   - Sphere distance: OpenMC src/surface.cpp:607-638.
 //   - Nuclide sampling: src/material/material.rs `sample_nuclide`.
@@ -48,13 +49,15 @@
 //   is the bit-level reference for this kernel's LOGIC. The uniform is the top-24
 //   bits of the advanced 64-bit LCG state (as in batched_flight.wgsl). The
 //   integer state stream stays bit-exact vs the CPU, and
-//   gpu_lcg_advance_directly.rs additionally pins THIS kernel's rng_next and
-//   batched_flight's lcg_advance to the same stream, state and uniform alike —
-//   the two files implement the LCG twice and a history depends on which one
-//   drew it. ~~The uniform VALUE is the documented f32 divergence from the CPU
+//   gpu_lcg_advance_directly.rs additionally pins THIS kernel's composed source
+//   and batched_flight's to the same stream, state and uniform alike.
+//   ~~The two files implement the LCG twice and a history depends on which one
+//   drew it.~~ CORRECTED 2026-10-02: they no longer do — both call PETIR's
+//   single `petir_lcg_next`, so that check now guards the composition rather
+//   than two transcriptions. ~~The uniform VALUE is the documented f32 divergence from the CPU
 //   f64 `prn`.~~ **CORRECTED 2026-09-19** — that divergence is STRUCTURAL, not
 //   a precision effect: the CPU applies a PCG-RXS-M-XS output permutation
-//   (src/rng/lcg.rs:116-117) and this does not, so the two would disagree in
+//   (petir::rng::lcg::prn, formerly src/rng/lcg.rs:116-117) and this does not, so the two would disagree in
 //   exact arithmetic (worst gap 9.995e-01 over 1e6 draws). The raw top-24
 //   stream is a sound uniform in its own right — see batched_flight.wgsl's
 //   header for the measured mean, chi-square and covariance.
@@ -91,51 +94,19 @@ struct Params {
 @group(0) @binding(3) var<storage, read_write>  ctrl:   atomic<u32>;
 @group(0) @binding(4) var<uniform>              params: Params;
 
-// LCG constants split into 32-bit halves (OpenMC src/random_lcg.cpp:11-12).
-const MULT_HI: u32 = 0x5851F42Du;
-const MULT_LO: u32 = 0x4C957F2Du;
-const INC_HI:  u32 = 0x14057B7Eu;
-const INC_LO:  u32 = 0xF767814Fu;
-
 const BIG: f32 = 1e30;
 const EPS: f32 = 1e-7;
 const PI:  f32 = 3.14159265358979323846;
 const FISS_NONE: u32 = 0xFFFFFFFFu; // "did not fission" sentinel in fiss_nuc
 
-// ---- 64-bit LCG emulation (bit-exact integer state; f32 top-24 uniform) -------
-
-fn mul_u32_full(x: u32, y: u32) -> vec2<u32> {
-    let x0 = x & 0xFFFFu; let x1 = x >> 16u;
-    let y0 = y & 0xFFFFu; let y1 = y >> 16u;
-    let t0 = x0 * y0;
-    let s  = x0 * y1;
-    let t1 = s + x1 * y0;
-    let carry1 = select(0u, 1u, t1 < s);
-    let t2 = x1 * y1;
-    let lo_lo16 = t0 & 0xFFFFu;
-    let mid = (t0 >> 16u) + (t1 & 0xFFFFu);
-    let lo = lo_lo16 | ((mid & 0xFFFFu) << 16u);
-    let carry_mid = mid >> 16u;
-    let hi = t2 + (t1 >> 16u) + carry_mid + (carry1 << 16u);
-    return vec2<u32>(lo, hi);
-}
-
-fn mul64_low(a_lo: u32, a_hi: u32, b_lo: u32, b_hi: u32) -> vec2<u32> {
-    let p = mul_u32_full(a_lo, b_lo);
-    let cross = a_lo * b_hi + a_hi * b_lo;
-    return vec2<u32>(p.x, p.y + cross);
-}
-
-// Advance the split seed (s.x = lo, s.y = hi) one step; return the new state
-// (.xy) and the top-24-bit f32 uniform bitcast into .z.
-fn rng_next(s: vec2<u32>) -> vec3<u32> {
-    let m = mul64_low(s.x, s.y, MULT_LO, MULT_HI);
-    let new_lo = m.x + INC_LO;
-    let carry = select(0u, 1u, new_lo < INC_LO);
-    let new_hi = m.y + INC_HI + carry;
-    let xi = f32(new_hi >> 8u) * (1.0 / 16777216.0);
-    return vec3<u32>(new_lo, new_hi, bitcast<u32>(xi));
-}
+// ---- 64-bit LCG: petir_lcg_next, from PETIR's lcg.wgsl ------------------------
+// ~~`mul_u32_full`, `mul64_low`, `rng_next` and the MULT/INC constants were
+// defined here.~~ MOVED 2026-10-02 to `petir::wgsl::LCG`
+// (`crates/petir/src/wgsl/shaders/lcg.wgsl`), the ONE copy in the workspace,
+// shared with batched_flight.wgsl. `batched_event::shader_source()`
+// concatenates it ahead of this file, and every former `rng_next(seed)` call
+// is now `petir_lcg_next(seed)`: same argument (vec2 lo, hi), same return
+// (vec3 new_lo, new_hi, bitcast(xi)), byte-for-byte the same arithmetic.
 
 // ---- Shared grid search (binary search + interpolation factor) ----------------
 
@@ -179,7 +150,7 @@ fn interp_channel(base: u32, j: u32, loc: GridLoc) -> f32 {
 struct DirSeed { dir: vec3<f32>, seed: vec2<u32> };
 
 fn rotate_direction(u: vec3<f32>, mu: f32, seed_in: vec2<u32>) -> DirSeed {
-    let r = rng_next(seed_in);
+    let r = petir_lcg_next(seed_in);
     let seed = r.xy;
     let phi = 2.0 * PI * bitcast<f32>(r.z);
     let sinphi = sin(phi);
@@ -273,15 +244,15 @@ fn continuum_inelastic(e: f32, u: vec3<f32>, awr: f32, seed_in: vec2<u32>) -> Sc
     let a_ld = max(a / 11.0, 1.0);
     let theta = max(sqrt(e * 1.0e-6 / a_ld) * 1.0e6, 1.0);
 
-    var r = rng_next(seed); seed = r.xy;
+    var r = petir_lcg_next(seed); seed = r.xy;
     var e_cm_out = e_cm_elastic * bitcast<f32>(r.z);
     for (var it: u32 = 0u; it < 64u; it = it + 1u) {
-        var r1v = rng_next(seed); seed = r1v.xy;
-        var r2v = rng_next(seed); seed = r2v.xy;
+        var r1v = petir_lcg_next(seed); seed = r1v.xy;
+        var r2v = petir_lcg_next(seed); seed = r2v.xy;
         let cand = -theta * log(bitcast<f32>(r1v.z) * bitcast<f32>(r2v.z));
         if (cand <= e_cm_elastic) { e_cm_out = cand; break; }
     }
-    var rmu = rng_next(seed); seed = rmu.xy;
+    var rmu = petir_lcg_next(seed); seed = rmu.xy;
     let mu_cm = 2.0 * bitcast<f32>(rmu.z) - 1.0;
     let lab = cm_to_lab(e, e_cm_out, mu_cm, a);
     let ds = rotate_direction(u, lab.y, seed);
@@ -314,7 +285,7 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
     let e = fstate[6u * nn + i];
 
     // ---- 1. FLIGHT ---------------------------------------------------------
-    var rf = rng_next(seed); seed = rf.xy;
+    var rf = petir_lcg_next(seed); seed = rf.xy;
     let xi_flight = bitcast<f32>(rf.z);
 
     let loc = locate(e);
@@ -379,7 +350,7 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
     for (var j: u32 = 0u; j < n_nuc; j = j + 1u) {
         sig_tot = sig_tot + xs[base_N + j] * interp_channel(base_tot, j, loc);
     }
-    var rn = rng_next(seed); seed = rn.xy;
+    var rn = petir_lcg_next(seed); seed = rn.xy;
     let xi_n = bitcast<f32>(rn.z) * sig_tot;
     var jsel: u32 = n_nuc - 1u;
     var acc: f32 = 0.0;
@@ -400,7 +371,7 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
 
     // (c) reaction partition on the microscopic total (fission|capture|inelastic|
     //     elastic — (n,2n)=0 for the LOW tier, so it collapses out).
-    var rr = rng_next(seed); seed = rr.xy;
+    var rr = petir_lcg_next(seed); seed = rr.xy;
     let xi_r = bitcast<f32>(rr.z) * x_tot;
 
     let u_in = vec3<f32>(ux, uy, uz);
@@ -434,7 +405,7 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
         // above -> exponential-mu forward scatter. Both draw one uniform for the
         // CM cosine, then rotate_direction draws the azimuth (see scatter.rs).
         var mu_cm: f32;
-        var re = rng_next(seed); seed = re.xy;
+        var re = petir_lcg_next(seed); seed = re.xy;
         let xi_e = bitcast<f32>(re.z);
         if (e <= emax_j || abs(mubar) < 1.0e-4) {
             mu_cm = 2.0 * xi_e - 1.0;         // isotropic-CM

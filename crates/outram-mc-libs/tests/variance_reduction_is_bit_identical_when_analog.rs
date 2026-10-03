@@ -115,6 +115,75 @@
 //! One 2000-history draw; the 32-seed measurement of the change on Godiva's
 //! ENDF route is `+87 ± 37 pcm`.
 //!
+//! ## Re-recorded 2026-09-29 (later still): correlated angle laws as OpenMC (GitHub #365 audit)
+//!
+//! Three changes came in together:
+//! - the continuum cosine row is now the **nearer** cdf edge of the `E'` bin,
+//!   as OpenMC's `CorrelatedAngleEnergy` picks it;
+//! - the row's cosine inverse is now OpenMC's quadratic `Tabular::sample`;
+//! - Kalbach-Mann `r` and `a` are interpolated.
+//!
+//! This reaches the ENDF route through the linearised MF=6 Legendre rows of
+//! U-235 and U-238 MT=91/16. **No variate is added or removed**, so the first
+//! generation moves only in its ninth digit, as the cosines of its continuum
+//! collisions shift. The cause is proved, not inferred: with those three
+//! changes reverted in place (row `k` always, linear-cdf inverse, no `r`/`a`
+//! interpolation), the test reproduces the previous row below **bit for bit**,
+//! all four values. The same build carries the interpolation-region port,
+//! which is therefore bit-neutral here, as it must be on lin-lin tables.
+//!
+//! | quantity | delayed spectra (superseded) | correlated angles |
+//! |---|---|---|
+//! | `k_mean` | ~~`9.80966055782988677e-1`~~ | `9.92702845023975877e-1` |
+//! | `k_std` | ~~`3.94301558460743561e-3`~~ | `5.09258853928865312e-3` |
+//! | first generation | ~~`8.90099543330054144e-1`~~ | `8.90099531919115061e-1` |
+//! | last generation | ~~`9.88192314096006386e-1`~~ | `9.89550193757308016e-1` |
+//!
+//! This is one 2000-history draw, so the 1174 pcm move is re-randomisation, not
+//! the worth of the change. The worth is measured by paired ensembles and
+//! recorded in
+//! `verification_and_validation/ace_route_physics/correlated_angle_2026-09-29.md`.
+//!
+//! ## Re-recorded 2026-09-29 (evening): URR band per energy and DBRC as OpenMC (GitHub #407)
+//!
+//! The URR band now comes from its own stream (`STREAM_URR_PTABLE`, one band
+//! per nuclide and energy serving the flight, the nuclide choice and the
+//! reaction). The collision no longer draws `prn(seed)` for it, so the
+//! transport stream shifts at the first unresolved-range collision. The first
+//! generation moves too. DBRC now follows OpenMC's gate and window. **Cause
+//! proved:** with `physics/transport_csg.rs` and `physics/scatter.rs` put back
+//! to their previous versions (everything else as it now is), the test
+//! reproduces the previous row **bit for bit**, all four values.
+//!
+//! | quantity | correlated angles (superseded) | #407 URR + DBRC |
+//! |---|---|---|
+//! | `k_mean` | ~~`9.92702845023975877e-1`~~ | `9.89128190214768388e-1` |
+//! | `k_std` | ~~`5.09258853928865312e-3`~~ | `5.49770408934844787e-3` |
+//! | first generation | ~~`8.90099531919115061e-1`~~ | `9.35484563494561105e-1` |
+//! | last generation | ~~`9.89550193757308016e-1`~~ | `9.82661289061869225e-1` |
+//!
+//! It is one 2000-history draw. The paired worth is on #407.
+//!
+//! ## Re-recorded 2026-09-30: fission-source combing (GitHub #460)
+//!
+//! The next generation's source is now drawn by OpenMC's uniform comb
+//! (`synchronize_bank`), one variate per generation, instead of `n`
+//! independent draws with replacement. That is a transport change, and a
+//! deliberate one. The first generation is unchanged, as it must be: the
+//! comb acts only between generations. **Cause proved:** with only
+//! `transport_csg.rs`'s `resample` put back to the with-replacement draw
+//! (the #313, #461 and #463 changes of the same day left in place), the
+//! test reproduces the previous row **bit for bit**, all four values.
+//!
+//! | quantity | #407 URR + DBRC (superseded) | #460 comb |
+//! |---|---|---|
+//! | `k_mean` | ~~`9.89128190214768388e-1`~~ | `9.88088405842273865e-1` |
+//! | `k_std` | ~~`5.49770408934844787e-3`~~ | `3.74932273347360848e-3` |
+//! | first generation | `9.35484563494561105e-1` | `9.35484563494561105e-1` (unchanged) |
+//! | last generation | ~~`9.82661289061869225e-1`~~ | `1.00328075246550052e0` |
+//!
+//! The smaller `k_std` is one draw and is not evidence of lower variance.
+//!
 //! **What this means for the next failure.** An analog-path regression and a
 //! data correction look the same to this test. When it fails, bisect before
 //! re-recording, and re-record only when the first bad commit changes data
@@ -149,10 +218,10 @@ const TEMP: f64 = 293.6;
 /// The pre-#258 analog path on the data as of #325 (`3f141992e`). Exact, not
 /// approximate. The values measured on `9b861a861` itself are kept in the
 /// module docs; see "Re-recorded 2026-09-27" there for why these differ.
-const K_MEAN_PRE_258: f64 = 9.809_660_557_829_886_77e-1;
-const K_STD_PRE_258: f64 = 3.943_015_584_607_435_61e-3;
-const K_GEN_FIRST_PRE_258: f64 = 8.900_995_433_300_541_44e-1;
-const K_GEN_LAST_PRE_258: f64 = 9.881_923_140_960_063_86e-1;
+const K_MEAN_PRE_258: f64 = 9.880_884_058_422_738_65e-1;
+const K_STD_PRE_258: f64 = 3.749_322_733_473_608_48e-3;
+const K_GEN_FIRST_PRE_258: f64 = 9.354_845_634_945_611_05e-1;
+const K_GEN_LAST_PRE_258: f64 = 1.003_280_752_465_500_52e0;
 
 fn heu() -> Option<Vec<Nuclide>> {
     let base =

@@ -41,8 +41,12 @@ pub struct HeadlessConfig {
     pub sample_every: usize,
     /// Operator controls, held constant for the whole run.
     ///
-    /// `PlantCommands::default()` is the published operating point with the
-    /// rods at their critical insertion.
+    /// ~~`PlantCommands::default()` is the published operating point with the
+    /// rods at their critical insertion.~~ **CORRECTED 2026-10-01**: it is the
+    /// simulator's opening state -- rods at `GUI_INITIAL_ROD_INSERTION` (0.45,
+    /// shallower than cold-clean critical 0.6045) and helium at 1.29 kg/s (30 %
+    /// of rated). The 2026-09-06 measurement below predates both and is not
+    /// re-measured; pending validation work.
     ///
     /// Its docstring in `physics` claims this starts *"near steady state
     /// rather than on a prompt excursion"*. **Measured 2026-09-06, it does
@@ -92,7 +96,8 @@ pub struct TraceRow {
     pub bed_temperature_k: f64,
     /// Circulator helium mass flow \[kg/s\].
     pub helium_flow_kg_per_s: f64,
-    /// Core inlet (cold-return CV) helium temperature \[K\].
+    /// Core inlet (RPV-annuli CV; the cold-return CV until 2026-10-01) helium
+    /// temperature \[K\].
     pub core_inlet_k: f64,
     /// Core outlet (bed fluid node) helium temperature \[K\].
     pub core_outlet_k: f64,
@@ -109,7 +114,7 @@ pub struct TraceRow {
     /// Circulator work delivered to the helium \[MW\].
     pub circulator_work_mw: f64,
     /// Reflector -> riser helium heat \[MW\] (gh:#397; internal to the
-    /// ledger: it leaves the reflector and enters the cold-return CV).
+    /// ledger: it leaves the reflector and enters the RPV-annuli CV).
     pub riser_heat_mw: f64,
     /// Lumped reflector temperature \[K\].
     pub reflector_k: f64,
@@ -280,6 +285,53 @@ pub fn run_and_print(cfg: &HeadlessConfig) {
     }
 }
 
+/// Print the Map tab's **Bounding air ingress** table (#453) as CSV: the
+/// `--bounding-air-ingress` entry point. It is a bounding case, not a
+/// transient (#420), so it runs no plant; the numbers are
+/// `sembawang::lwr_comparison::bounding_comparison`'s, cached by
+/// [`crate::physics::bounding_air_ingress::comparison`].
+pub fn print_bounding_air_ingress() {
+    use crate::physics::bounding_air_ingress as b;
+    use sembawang::lwr_comparison::{Tier, ARM_COLUMNS};
+    println!("# {}", b::CASE_LABEL);
+    println!("# basis: {}", b::BASIS_LABEL);
+    println!("# tier 1, {}", Tier::DesignBasis.label());
+    println!("#   {}", b::DBA_LABEL);
+    println!("#   {}", b::LWR_LABEL);
+    println!("# tier 2, {}", Tier::BeyondDesignBasis.label());
+    println!("#   HTR-10 KORA bound ({})", b::CASE_LABEL);
+    println!("#   {}", b::SEVERE_LABEL);
+    println!("#   assumption: {}", b::CONTAINED_LABEL);
+    println!("# {}", b::WASH_LABEL);
+    println!(
+        "# natural deposition (both LWR LOCA arms): {}",
+        b::DEPOSITION_LABEL
+    );
+    println!("# {}", b::f_ox_provenance());
+    match b::comparison() {
+        Err(e) => println!("# unavailable: {e}"),
+        Ok(c) => {
+            let i = c.incomplete;
+            println!(
+                "# FGR-incomplete share of released Bq (dose is a LOWER BOUND where > 0, #456): \
+                 htr10_dba {:.4}, lwr_dba {:.4}, htr10_bound {:.4}, lwr_severe_loca {:.4}, \
+                 wash1400 {:.4}",
+                i.htr10_dba, i.lwr_dba, i.htr10_bound, i.lwr_severe_loca, i.wash1400
+            );
+            let keys: Vec<&str> = ARM_COLUMNS.iter().map(|k| k.csv_key).collect();
+            println!("distance_m,class,{}", keys.join(","));
+            for r in &c.rows {
+                let cells: Vec<String> = r
+                    .arm_doses_sv()
+                    .iter()
+                    .map(|v| v.map_or("pending".to_string(), |s| format!("{:.6e}", 1e3 * s)))
+                    .collect();
+                println!("{:.0},{:?},{}", r.distance_m, r.class, cells.join(","));
+            }
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -386,6 +438,21 @@ mod tests {
     /// The risers hold the reflector ~166 K cooler, so more heat leaves the
     /// bed sideways; about a third of it returns to the core inlet through the
     /// cold return. Ledger residual at 300 s: -1.4e-4 J on 8.16e9 J.
+    ///
+    /// ## Not regenerated since the gh:#403 inventory change, the SG merge
+    /// (gh:#319), the single beta (gh:#387) and the uncredited building
+    /// (gh:#409)
+    ///
+    /// Also not re-measured since af7991ca2a (cold return split into cold-duct + RPV-annuli CVs); pending validation work.
+    ///
+    /// Nor since the default helium flow moved from 4.3 to 1.29 kg/s
+    /// (2026-10-01, maintainer direction): the fixture was captured at the
+    /// old default commands and the run now starts from a different state.
+    /// Pending validation work.
+    ///
+    /// The fixture is stale against all four; per the maintainer's
+    /// 2026-09-29 direction it is **not re-measured; pending validation
+    /// work**. Expect this ignored test to fail until then.
     ///
     /// **This is not the loosening the note below warns against.** When
     /// parallel execution lands and reduction order legitimately changes,

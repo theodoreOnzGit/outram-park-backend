@@ -28,6 +28,26 @@
 //! [`diffusion`](super::diffusion) and
 //! [`release_models`](super::release_models); this module adds the rest.
 //!
+//! # A depressurisation model: no ingress transport (GitHub #446)
+//!
+//! Upstream's accident case moves released activity out of the core **only by
+//! venting**, per its user manual: *"releases are due to a breach in the
+//! reactor resulting in a venting of the core"*. [`coolant_release`] gives the
+//! ideal-gas expansion fraction at the samples where the core **heats**
+//! (`dT/dt ≥ 0`).
+//!
+//! Upstream's driver has one other branch: for a **uniform, constant**
+//! accident temperature it skips [`coolant_release`] and sets `frac = 1` at
+//! every sample (`trisoatops.py::accident_case`,
+//! `else: frac = np.ones(np.size(times))`). That branch lives in the
+//! orchestration, not here: `sembawang::accident::release::Venting::Upstream`,
+//! restored there 2026-09-30.
+//!
+//! **There is no air- or water-ingress transport**, i.e. no gas flowing through
+//! the core and carrying the release out while the temperature is falling or
+//! non-uniform. `sembawang`'s `Venting::FullFlowThrough` and
+//! `Venting::Prescribed` add one. They are **not** upstream.
+//!
 //! # Scope limit
 //!
 //! Like the whole crate this is **research, education and V&V only**, and an

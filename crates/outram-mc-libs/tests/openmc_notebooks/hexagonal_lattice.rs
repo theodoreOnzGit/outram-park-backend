@@ -43,7 +43,8 @@
 //!     via the lattice `outer` universe, to **water**.
 //!  3. A point outside the r = 5 cm boundary is a lost particle (`None`).
 //! (Lower-level index/round-trip/distance checks live in the `hex_tests` unit
-//! module of `src/geometry/lattice.rs`.)
+//! module of ~~`src/geometry/lattice.rs`~~ `crates/outram-blender/src/csg/lattice/hex_tests.rs`
+//! — CORRECTED 2026-10-02: the lattice moved to outram-blender, GitHub #486.)
 //!
 //! **Results (re-measured 2026-09-14, this harness): k = 0.29942 ± 0.00791.**
 //! All geometry properties pass — see [`hexagonal_lattice_geometry`]; they are

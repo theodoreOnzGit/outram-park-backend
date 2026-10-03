@@ -5,10 +5,15 @@
 //! - [`ensure_repo`]: make a directory a Git repository, by leaving an
 //!   existing one alone, cloning a remote into it, or initialising it locally
 //!   so the user can add a remote and push later.
-//! - [`ensure_library_corpora`]: do that for a Kovan folder's two corpus
+//! - [`ensure_library_corpora`]: do that for ~~a Kovan folder's two corpus
 //!   repositories, the **open corpus** ([`KovanRoot::open_corpus_dir`]) and
 //!   the **proprietary corpus** ([`KovanRoot::restricted_sources_dir`]), from
-//!   the remotes in its `[corpora]` table ([`crate::root::CorporaConfig`]).
+//!   the remotes in its `[corpora]` table ([`crate::root::CorporaConfig`])~~
+//!   **CORRECTED 2026-09-30** (it already covered the standard corpus too,
+//!   and since GitHub issue #458 a tier may hold several repositories):
+//!   **every** corpus repository of the folder, standard, open and
+//!   proprietary, as [`crate::corpus_tiers::resolve`] lists them (the
+//!   `[corpora]` remotes are each tier's first repository).
 //! - [`ensure_standard_corpus`]: clone Kovan's standard corpus
 //!   ([`crate::corpus::CORPUS_REPOSITORY_URL`]) once into the platform
 //!   application-data folder, shared by every Kovan folder.
@@ -197,18 +202,28 @@ fn clone(url: &str, dir: &Path, branch: Option<&str>) -> Result<(), CorpusRepoEr
     }
 }
 
-/// The outcome for each of a Kovan folder's three corpus repositories.
+/// The outcome for each of a Kovan folder's corpus repositories: the first
+/// repository of each tier in the three named fields, as before GitHub
+/// issue #458, and every further one in [`Self::others`].
 #[derive(Debug)]
 pub struct CorporaSetup {
-    /// Kovan's standard corpus, the same for every user.
+    /// Kovan's standard corpus, the same for every user (the tier's first
+    /// repository).
     pub standard: Result<RepoState, CorpusRepoError>,
-    /// The user's open corpus.
+    /// The user's open corpus (the tier's first repository).
     pub open: Result<RepoState, CorpusRepoError>,
-    /// The user's proprietary (closed) corpus.
+    /// The user's proprietary (closed) corpus (the tier's first repository).
     pub proprietary: Result<RepoState, CorpusRepoError>,
+    /// Every further repository (`[[repos.<tier>]]`, #458), in order, with
+    /// its tier and name.
+    pub others: Vec<(
+        crate::corpus_tiers::Tier,
+        String,
+        Result<RepoState, CorpusRepoError>,
+    )>,
 }
 
-/// Make the three corpus repositories of `root` (maintainer direction,
+/// Make the corpus repositories of `root` (maintainer direction,
 /// 2026-09-22: a Kovan folder is its own repository plus the standard, open
 /// and closed corpora):
 ///
@@ -216,7 +231,10 @@ pub struct CorporaSetup {
 ///   [`crate::corpus::CORPUS_REPOSITORY_URL`], the same for every user;
 /// - **open corpus** at [`KovanRoot::open_corpus_dir`] and **proprietary
 ///   corpus** at [`KovanRoot::restricted_sources_dir`], from the user's own
-///   remotes in `[corpora]`.
+///   remotes in `[corpora]`;
+/// - since GitHub issue #458, **every further repository** of each tier
+///   (`[[repos.<tier>]]`, [`crate::corpus_tiers`]), from its own remote and
+///   branch, reported in [`CorporaSetup::others`].
 ///
 /// Each is attempted independently; one failing does not stop the others.
 /// See [`ensure_corpus`] for how each is set up.
@@ -228,34 +246,69 @@ pub fn ensure_library_corpora(root: &KovanRoot) -> CorporaSetup {
     )
 }
 
-/// [`ensure_library_corpora`] with the standard corpus's remote and branch
-/// given, so tests can use a local repository instead of the network.
+/// [`ensure_library_corpora`] with the **built-in** standard corpus's remote
+/// and branch given, so tests can use a local repository instead of the
+/// network. Every repository of every tier ([`crate::corpus_tiers`], #458)
+/// is set up, each independently, from its own remote and branch.
+///
+/// The proprietary repository at `[paths] restricted_sources` is set up
+/// from `[corpora] proprietary_remote` only, exactly as before #458 (a
+/// `[private_submodule] remote` alone never made setup clone it).
 pub fn ensure_library_corpora_with(
     root: &KovanRoot,
     standard_remote: &str,
     standard_branch: &str,
 ) -> CorporaSetup {
-    let corpora = &root.config().corpora;
-    CorporaSetup {
-        standard: ensure_corpus(
-            root,
-            &root.standard_corpus_dir(),
-            Some(standard_remote),
-            Some(standard_branch),
-        ),
-        open: ensure_corpus(
-            root,
-            &root.open_corpus_dir(),
-            corpora.open_remote.as_deref(),
-            None,
-        ),
-        proprietary: ensure_corpus(
-            root,
-            &root.restricted_sources_dir(),
-            corpora.proprietary_remote.as_deref(),
-            None,
-        ),
+    use crate::corpus_tiers::{RepoOrigin, Tier};
+    let missing = |tier: Tier| {
+        Err(CorpusRepoError::Io(std::io::Error::other(format!(
+            "this folder configures no {} repository",
+            tier.key()
+        ))))
+    };
+    let mut setup = CorporaSetup {
+        standard: missing(Tier::Standard),
+        open: missing(Tier::Open),
+        proprietary: missing(Tier::Proprietary),
+        others: Vec::new(),
+    };
+    // Best effort: a `.gitignore` that cannot be written must not stop setup.
+    let _ = root.ensure_repo_paths_ignored();
+    let mut firsts: Vec<Tier> = Vec::new();
+    let mut builtin_seen = false;
+    let mut done: Vec<PathBuf> = Vec::new();
+    for r in root.corpus_repos() {
+        let (remote, branch) = if r.origin == RepoOrigin::Builtin && !builtin_seen {
+            builtin_seen = true;
+            (
+                Some(standard_remote.to_string()),
+                Some(standard_branch.to_string()),
+            )
+        } else {
+            (
+                crate::corpus_tiers::setup_remote(root.config(), &r),
+                r.branch.clone(),
+            )
+        };
+        // A checkout mounted in two tiers is set up once.
+        let result = if done.contains(&r.dir) {
+            Ok(RepoState::Existing)
+        } else {
+            done.push(r.dir.clone());
+            ensure_corpus(root, &r.dir, remote.as_deref(), branch.as_deref())
+        };
+        if firsts.contains(&r.tier) {
+            setup.others.push((r.tier, r.name, result));
+        } else {
+            firsts.push(r.tier);
+            match r.tier {
+                Tier::Standard => setup.standard = result,
+                Tier::Open => setup.open = result,
+                Tier::Proprietary => setup.proprietary = result,
+            }
+        }
     }
+    setup
 }
 
 /// Set up one corpus repository at `dir` inside `root`.
@@ -490,6 +543,55 @@ pub fn open_corpus_pdfs(repo: &Path) -> Vec<PathBuf> {
     }
     out.sort();
     out
+}
+
+/// Where the OUTRAM PARK workspace mounts the standard corpus
+/// ([`crate::corpus::CORPUS_REPOSITORY_URL`]) as a Git submodule, relative to
+/// the workspace root.
+pub const WORKSPACE_CORPUS_PATH: &str = "crates/kovan-literature/reactor-literature";
+
+/// Fetch the workspace's own literature submodule ([`WORKSPACE_CORPUS_PATH`])
+/// when it is registered but not checked out.
+///
+/// A plain `git clone` of the workspace leaves the path an **empty directory
+/// rather than an error**, so nothing complains until something looks for a
+/// PDF and does not find one. Before 2026-09-30 nothing in Kovan fetched it:
+/// [`ensure_library_corpora`] and [`ensure_standard_corpus`] only ever touch a
+/// *Kovan folder* and the application-data clone, never this mount, and an
+/// audit that needed the HTR-10 literature found the directory empty.
+///
+/// - Not a submodule of `workspace` (another checkout layout, or a test
+///   tree): `Ok(None)`, nothing done.
+/// - Already checked out: `Ok(Some(`[`RepoState::Existing`]`))`, untouched —
+///   updating it is an explicit, separate action, per the module's safety
+///   rules.
+/// - Registered but empty: `git submodule update --init`, then put on its
+///   remote's default branch; `Ok(Some(`[`RepoState::Cloned`]`))`.
+///
+/// Failures (offline, no `git`) are values, as everywhere in this module.
+pub fn ensure_workspace_corpus(workspace: &Path) -> Result<Option<RepoState>, CorpusRepoError> {
+    if !is_submodule(workspace, WORKSPACE_CORPUS_PATH) {
+        return Ok(None);
+    }
+    let dir = workspace.join(WORKSPACE_CORPUS_PATH);
+    if is_git_repo(&dir) {
+        return Ok(Some(RepoState::Existing));
+    }
+    if !crate::advanced_git::system_git_available() {
+        return Err(CorpusRepoError::GitUnavailable);
+    }
+    let output = submodule_git(workspace)
+        .args(["submodule", "update", "--init", "--", WORKSPACE_CORPUS_PATH])
+        .output()?;
+    if output.status.success() {
+        attach_to_branch(&dir);
+        Ok(Some(RepoState::Cloned))
+    } else {
+        Err(CorpusRepoError::Clone {
+            remote: crate::corpus::CORPUS_REPOSITORY_URL.to_string(),
+            stderr: String::from_utf8_lossy(&output.stderr).trim().to_string(),
+        })
+    }
 }
 
 #[cfg(test)]
@@ -884,5 +986,49 @@ mod tests {
             2,
             "root layout, .git skipped"
         );
+    }
+
+    /// A plain clone of a workspace that mounts the literature at
+    /// [`WORKSPACE_CORPUS_PATH`] leaves it empty; [`ensure_workspace_corpus`]
+    /// fetches it, and a second call leaves it alone. A workspace without the
+    /// submodule is not touched.
+    #[test]
+    fn the_workspace_literature_submodule_is_fetched_when_empty() {
+        if !crate::advanced_git::system_git_available() {
+            return;
+        }
+        let tmp = tempfile::tempdir().unwrap();
+        let t = tmp.path();
+        let git = |dir: &Path, args: &[&str]| {
+            let out = Command::new("git")
+                .arg("-C")
+                .arg(dir)
+                .args(["-c", "user.name=t", "-c", "user.email=t@t"])
+                .args(["-c", "protocol.file.allow=always"])
+                .args(args)
+                .output()
+                .unwrap();
+            assert!(out.status.success(), "git {args:?}: {}", String::from_utf8_lossy(&out.stderr));
+        };
+        let literature = source_repo(&t.join("lit"), "kovan-standard-open-corpus/a.pdf");
+        let upstream = t.join("workspace");
+        std::fs::create_dir_all(&upstream).unwrap();
+        git(&upstream, &["init", "-q", "-b", "main"]);
+        git(&upstream, &["submodule", "add", "-q", &literature, WORKSPACE_CORPUS_PATH]);
+        git(&upstream, &["commit", "-q", "-m", "mount literature"]);
+
+        let clone = t.join("clone");
+        git(t, &["clone", "-q", &upstream.to_string_lossy(), &clone.to_string_lossy()]);
+        let pdf = clone.join(WORKSPACE_CORPUS_PATH).join("kovan-standard-open-corpus/a.pdf");
+        assert!(!pdf.exists(), "a plain clone should leave the mount empty");
+
+        assert_eq!(ensure_workspace_corpus(&clone).unwrap(), Some(RepoState::Cloned));
+        assert!(pdf.exists());
+        assert_eq!(ensure_workspace_corpus(&clone).unwrap(), Some(RepoState::Existing));
+
+        let bare = t.join("no-mount");
+        std::fs::create_dir_all(&bare).unwrap();
+        git(&bare, &["init", "-q"]);
+        assert_eq!(ensure_workspace_corpus(&bare).unwrap(), None);
     }
 }

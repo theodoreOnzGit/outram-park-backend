@@ -13,9 +13,7 @@ categories.workspace = true
 # write-ups). Excluded so it never ships to crates.io.
 # `verification_and_validation/` holds the Python that regenerates the
 # code-to-code fixture; it is repo-only too.
-# The Liu and Cao cross-check test reads its FGR-15 coefficients from
-# crates/kovan-literature/derived/ (outside this package), so it is repo-only.
-exclude = ["docs", "verification_and_validation", "tests/liu_cao_external_dose_cross_check.rs"]
+exclude = ["docs", "verification_and_validation"]
 
 # A dose calculation would read CHANGI's air concentrations and deposition
 # and, for uncertainty, RAFFLES; each edge is declared when code here calls

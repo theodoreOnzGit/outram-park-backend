@@ -63,8 +63,8 @@ use outram_mc_libs::material::thermal::ThermalScattering;
 use outram_mc_libs::vv::njoy_golden::{
     GRAPHITE_KERNEL as GRAPHITE_KERNEL_NJOY, GRAPHITE_KERNEL_CONVERGED_ABOVE_EV,
     GRAPHITE_KERNEL_CONVERGED_TOL, GRAPHITE_KERNEL_TOL, GRAPHITE_XS_COHERENT,
-    GRAPHITE_XS_INELASTIC, GRAPHITE_XS_TOL, H2O_KERNEL as H2O_KERNEL_NJOY, H2O_KERNEL_CROSSOVER_EV,
-    H2O_KERNEL_TOL, H2O_XS as H2O_XS_NJOY, H2O_XS_EXPECTED_SIGN, H2O_XS_TOL,
+    GRAPHITE_XS_INELASTIC, GRAPHITE_XS_TOL, H2O_KERNEL as H2O_KERNEL_NJOY,
+    H2O_KERNEL_TOL, H2O_XS as H2O_XS_NJOY, H2O_XS_TOL,
 };
 
 /// `Some(law)` when the tape is present, else `None` after printing a skip note.
@@ -179,57 +179,31 @@ fn h2o_sab_cross_section_against_njoy_thermr() {
         100.0 * worst.0,
         worst.1
     );
-    // The error is one-signed, and which sign it carries is evidence about which
-    // defect is present — so it is asserted, separately from the magnitude.
-    //
-    // It was `+1` (a consistent +0.65…+1.47 % EXCESS) from 2026-09-11 until
-    // 2026-09-13, when porting `calcem`/`sigl`'s adaptive E' linearisation into
-    // THERMR's `ep_profile` removed the excess: the mean |error| more than halved,
-    // 1.10 % → 0.47 %, and what is left is a DEFICIT at all eleven points. Most of
-    // the recorded "magnitude offset" was this crate's own quadrature, not its
-    // scattering law. This assertion is what announced that, firing exactly as its
-    // old message said it would — see `H2O_XS` for the full before/after table.
-    assert!(
-        worst.0 * H2O_XS_EXPECTED_SIGN > 0.0,
-        "the H(H2O) cross-section error has changed SIGN (now {:+.2} %, expected sign \
-         {:+.0}). The recorded defect since 2026-09-13 is a one-signed DEFICIT of up \
-         to -1.39 %; the opposite sign is a different bug and this test's premise no \
-         longer holds",
-        100.0 * worst.0,
-        H2O_XS_EXPECTED_SIGN
-    );
+    // ~~The error is one-signed~~ (a sign assertion stood here until
+    // 2026-09-30). With `calcem` xsi at tol 0.001 the residual is +0.02 %, noise
+    // around zero, so the magnitude gate (tightened to 0.3 %) is the test.
 }
 
-/// **This crate's H-in-H₂O law ends between 2 and 4 eV, where NJOY's THERMR run
-/// extends to 10 eV — above it the free-gas kernel takes over.**
+/// **This crate's H-in-H₂O law ends where NJOY's does: the top of THERMR's
+/// table run with `emax` = the tape's B(4), 10.0 eV.** GitHub #459.
 ///
-/// # Why pin this
+/// ~~It ended between 2 and 4 eV (a hard-coded 4 eV cutoff), where NJOY's
+/// THERMR run extends to 10 eV.~~ Corrected 2026-09-30. OpenMC's library takes
+/// `emax` from B(4) (`openmc/data/njoy.py`), and this crate now does too.
 ///
-/// It is a real difference in the modelled range, and it is invisible in any
-/// cross-section comparison that stops at 2 eV. Above the handover the two
-/// treatments happen to agree closely — NJOY's bound value is 20.689 b at 4 eV
-/// against this crate's free-gas 20.50 b, 0.9 % apart — so the *consequence* is
-/// small, but the discontinuity is real and should not move silently.
+/// # Results (2026-09-30)
 ///
-/// # Results (2026-09-11)
-///
-/// `total_xs` is positive at 2.0 eV (21.257 b) and exactly zero at 4.0 eV.
+/// `total_xs` is positive at 8.0 eV, within the 0.3 % gate of NJOY's MT=222
+/// value (20.56327 b), and exactly zero at 10.5 eV.
 #[test]
-fn h2o_sab_law_ends_between_2_and_4_ev() {
+fn h2o_sab_law_extends_to_njoys_10_ev() {
     let Some(law) = law_or_skip("tsl-HinH2O.endf", 1, 293.6, "c_H_in_H2O") else {
         return;
     };
-    assert!(
-        law.total_xs(2.0) > 0.0,
-        "the H(H2O) law no longer covers 2.0 eV; it did on 2026-09-11 (21.257 b)"
-    );
-    assert_eq!(
-        law.total_xs(4.0),
-        0.0,
-        "the H(H2O) law now extends past 4.0 eV. That may be an improvement — NJOY's \
-         own run reaches 10 eV — but the handover to free gas has moved and the \
-         transport's thermal/epithermal seam moved with it"
-    );
+    let at8 = law.total_xs(8.0);
+    println!("  total_xs(8 eV) = {at8} b (NJOY MT=222 20.56327 b); cutoff {} eV", law.cutoff_ev());
+    assert!((at8 / 20.56327 - 1.0).abs() < H2O_XS_TOL, "H(H2O) at 8 eV: {at8} b");
+    assert_eq!(law.total_xs(10.5), 0.0, "the H(H2O) law extends past NJOY's 10 eV");
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -746,6 +720,25 @@ fn graphite_sab_mean_cosine_against_njoy_thermr() {
 /// — both tightened on 2026-09-12 from the 50 % / 15 %-below-0.2 eV
 /// characterisation bounds that described the old defect. Tighten them again
 /// when `N_OUTGOING` rises; **never widen either.**
+///
+/// # Two samplers since 2026-09-29 (GitHub #407)
+///
+/// The default is now OpenMC's `IncoherentInelasticAEDiscrete`, whose `E'` is
+/// one of the 64 bin energies. It carries the representation's narrow
+/// truncation, which the legacy continuous-in-bin scheme partly undid. The
+/// #188 scheme was **never a maintainer decision** (CORRECTED 2026-09-29;
+/// replaced by OpenMC's scheme per the maintainer).
+///
+/// - **The tight gates above keep their bounds, unwidened**, and apply to the
+///   scheme they were set on, now the ablation
+///   `with_legacy_equiprobable_sampling`.
+/// - **The default** is held to the table's general envelope
+///   (`GRAPHITE_KERNEL_WIDTH_TOL`) and the broad ceiling. The broad ceiling is
+///   the sign a truncating representation must have.
+///
+/// Measured 2026-09-29 at 200 000 samples: default worst −0.88 % (−1.25 % on
+/// another stream, the documented 0.8-point stream-to-stream scatter); legacy
+/// worst +0.81 %.
 #[test]
 fn graphite_sab_kernel_width_against_njoy_thermr() {
     use outram_mc_libs::vv::njoy_golden::{
@@ -755,9 +748,53 @@ fn graphite_sab_kernel_width_against_njoy_thermr() {
     };
     const N: usize = 200_000;
 
-    let Some(law) = law_or_skip("tsl-crystalline-graphite.endf", 30, 600.0, "c_Graphite") else {
+    let Some(law_default) = law_or_skip("tsl-crystalline-graphite.endf", 30, 600.0, "c_Graphite")
+    else {
         return;
     };
+    // The DEFAULT sampler, OpenMC's `IncoherentInelasticAEDiscrete` (GitHub
+    // #407): `E'` is one of the 64 discrete bin energies, so the width carries
+    // the representation's one-signed narrow truncation (see `N_OUTGOING`).
+    // Gated at the table's general envelope `GRAPHITE_KERNEL_WIDTH_TOL` and
+    // the narrow sign. Measured 2026-09-29: worst -1.25 % at 5 meV.
+    {
+        let mut seed = 20_260_929_u64;
+        let mut worst_d = 0.0_f64;
+        println!("  default sampler (OpenMC IncoherentInelasticAEDiscrete):");
+        for &(e, w_njoy) in GRAPHITE_KERNEL_WIDTH {
+            let (mut s1, mut s2, mut k) = (0.0, 0.0, 0usize);
+            for _ in 0..N {
+                let Some((ep, _mu)) = law_default.sample(e, &mut seed) else {
+                    continue;
+                };
+                if (ep - e).abs() <= 1.0e-12 * e {
+                    continue;
+                }
+                s1 += ep;
+                s2 += ep * ep;
+                k += 1;
+            }
+            let (m1, m2) = (s1 / k as f64, s2 / k as f64);
+            let w = (m2 - m1 * m1).max(0.0).sqrt() / m1;
+            let rel = w / w_njoy - 1.0;
+            println!("  {e:>9.4e}  NJOY {w_njoy:>8.5}  ours {w:>8.5}  {:>+7.2} %", 100.0 * rel);
+            assert!(
+                rel.abs() < GRAPHITE_KERNEL_WIDTH_TOL && rel < GRAPHITE_KERNEL_WIDTH_BROAD_CEILING,
+                "default sampler: graphite width {:+.2} % from NJOY at {e:.4e} eV",
+                100.0 * rel
+            );
+            if rel.abs() > worst_d.abs() {
+                worst_d = rel;
+            }
+        }
+        println!("  default worst {:+.2} %", 100.0 * worst_d);
+    }
+    // The LEGACY #188 sampler (`E'` continuous in the bin), which the tight
+    // gates below were set on. It is now the ablation
+    // `with_legacy_equiprobable_sampling`, and they still hold it to exactly
+    // the bounds they always did.
+    let law = law_default.with_legacy_equiprobable_sampling();
+    println!("  legacy ablation (#188 continuous-in-bin):");
     let mut seed = 20_260_912_u64;
     let (mut worst, mut worst_e) = (0.0_f64, 0.0_f64);
     for &(e, w_njoy) in GRAPHITE_KERNEL_WIDTH {
@@ -876,8 +913,14 @@ fn h2o_sab_kernel_width_against_njoy_thermr() {
             worst = rel;
             worst_e = e;
         }
+        // Narrow, allowing statistical noise: at 200 000 samples a width
+        // carries ~0.16 % (Gaussian) to ~0.8 points (stream to stream,
+        // heavy-tailed; see `N_EMIT_GRID`). Since the calcem-tolerance fix of
+        // 2026-09-30 the high-energy rows sit at 0 within that noise (+0.02 % at
+        // 0.625 eV), so a strict `rel < 0` would test the noise, not the
+        // truncation. A BROAD point beyond the noise still fails.
         assert!(
-            rel < 0.0 && rel.abs() < H2O_KERNEL_WIDTH_TOL,
+            rel < 0.008 && rel.abs() < H2O_KERNEL_WIDTH_TOL,
             "H(H2O)'s kernel width is {:+.2} % from NJOY at {e:.4e} eV — it was \
              one-signed NARROW and inside {H2O_KERNEL_WIDTH_TOL} at every energy on \
              2026-09-12. A broad point would mean the incident-grid mechanism of \

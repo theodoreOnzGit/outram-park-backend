@@ -15,9 +15,94 @@
 //! routed through the ACER ACE-file writer (`src/ace/energy.rs` has its own,
 //! narrower MF=5 LF=1 parser for that separate path; see `docs/porting-plan.md` §8).
 
+/// `true` when an `(NBT, INT)` region table is **lin-lin throughout**: empty
+/// (no regions stated, which ENDF and ACE both read as lin-lin) or every region
+/// `INT = 2`. The consumers below keep their original lin-lin arithmetic on
+/// such a table, so every table that was right before the GitHub #365 audit
+/// evaluates bit-identically after it.
+pub fn is_lin_lin(interp: &[(u32, u32)]) -> bool {
+    interp.iter().all(|&(_, int)| int == 2)
+}
+
+/// Evaluate a tabulated function at `x` as **OpenMC's `Tabulated1D`** does
+/// (`src/endf.cpp`, `Tabulated1D::operator()`): the record's own `(NBT, INT)`
+/// regions (1 histogram, 2 lin-lin, 3 lin-log, 4 log-lin, 5 log-log), and
+/// **clamped** to the end values outside the table, never zeroed. The bin is
+/// OpenMC's `lower_bound_index` (`include/openmc/search.h`), so at a repeated
+/// abscissa the left-hand value is taken. GitHub #365 audit: the ν̄ and yield
+/// tables used to drop their regions and interpolate lin-lin whatever the
+/// evaluation said.
+///
+/// `point(i)` returns the `i`-th `(x, y)` of `n` points.
+fn tabulated1d_core<F: Fn(usize) -> (f64, f64)>(
+    interp: &[(u32, u32)],
+    n: usize,
+    point: F,
+    x: f64,
+) -> f64 {
+    if n == 0 {
+        return 0.0;
+    }
+    let (x_first, y_first) = point(0);
+    let (x_last, y_last) = point(n - 1);
+    if x < x_first {
+        return y_first;
+    }
+    if x > x_last {
+        return y_last;
+    }
+    if n == 1 {
+        return y_first;
+    }
+    // lower_bound_index: 0 on an exact first point, else (first index with
+    // x_j >= x) - 1, kept inside [0, n-2].
+    let i = if x == x_first {
+        0
+    } else {
+        let (mut lo, mut hi) = (0usize, n);
+        while lo < hi {
+            let mid = (lo + hi) / 2;
+            if point(mid).0 < x {
+                lo = mid + 1;
+            } else {
+                hi = mid;
+            }
+        }
+        lo.saturating_sub(1).min(n - 2)
+    };
+    // OpenMC stores NBT 0-based (`--b` on load) and takes the first region
+    // with `i < nbt`.
+    let mut law = interp.first().map_or(2, |r| r.1);
+    for &(nbt, int) in interp {
+        if i < (nbt as usize).saturating_sub(1) {
+            law = int;
+            break;
+        }
+    }
+    let (x0, y0) = point(i);
+    let (x1, y1) = point(i + 1);
+    match law {
+        1 => y0,
+        3 => y0 + (x / x0).ln() / (x1 / x0).ln() * (y1 - y0),
+        4 => y0 * ((x - x0) / (x1 - x0) * (y1 / y0).ln()).exp(),
+        5 => y0 * ((x / x0).ln() / (x1 / x0).ln() * (y1 / y0).ln()).exp(),
+        _ => y0 + (x - x0) / (x1 - x0) * (y1 - y0),
+    }
+}
+
+/// [`tabulated1d_core`] on `(x, y)` pairs.
+pub fn tabulated1d_at(interp: &[(u32, u32)], pairs: &[(f64, f64)], x: f64) -> f64 {
+    tabulated1d_core(interp, pairs.len(), |i| pairs[i], x)
+}
+
+/// [`tabulated1d_core`] on parallel `x` and `y` slices.
+pub fn tabulated1d_at_xy(interp: &[(u32, u32)], xs: &[f64], ys: &[f64], x: f64) -> f64 {
+    tabulated1d_core(interp, xs.len().min(ys.len()), |i| (xs[i], ys[i]), x)
+}
+
 /// Average neutron yield per fission, ν̄(E).
 ///
-/// Stored as a lin-lin table in incident energy \[eV\]; `nu_total` is prompt +
+/// Stored as a table in incident energy \[eV\]; `nu_total` is prompt +
 /// delayed (delayed matters for delayed-critical benchmarks; a prompt bare-sphere
 /// Keff uses the total directly).
 #[derive(Debug, Clone, Default)]
@@ -37,13 +122,22 @@ pub struct NuBar {
     /// approximation inside that range (a quadratic is not piecewise linear)
     /// and a clamp above it.
     pub poly: Option<Vec<f64>>,
+    /// The table's **interpolation regions** `(NBT, INT)`, as the evaluation
+    /// states them; empty means lin-lin. [`Self::at`] honours them as OpenMC's
+    /// `Tabulated1D` does. GitHub #365 audit: ENDF MF=1 `LNU = 2` used to drop
+    /// them and the ACE NU reader refused any region that was not lin-lin.
+    /// Every ν̄ table in ENDF/B-VIII.0 is lin-lin (census 2026-09-29: 86 MT=452,
+    /// 86 MT=456, 84 MT=455), so this changes no number in this workspace.
+    pub interp: Vec<(u32, u32)>,
 }
 
 impl NuBar {
     /// Parse total ν̄(E) from ENDF **MF=1/MT=452** for material `mat`.
     ///
     /// Handles both ENDF representations:
-    /// - **LNU=2** — ν̄(E) tabulated (TAB1); stored directly as the lin-lin table.
+    /// - **LNU=2** — ν̄(E) tabulated (TAB1); stored with its interpolation
+    ///   regions (~~stored directly as the lin-lin table~~, CORRECTED
+    ///   2026-09-29, GitHub #365: the regions used to be dropped).
     /// - **LNU=1** — ν̄(E) = Σ Cₖ Eᵏ polynomial (LIST of coefficients); sampled
     ///   onto a 60-point log grid over `[1e-3, 2e7]` eV so it fits the same table.
     ///
@@ -70,6 +164,7 @@ impl NuBar {
                     energy,
                     nu_total,
                     poly: None,
+                    interp: tab1.interp,
                 }))
             }
             1 => {
@@ -89,6 +184,7 @@ impl NuBar {
                     energy,
                     nu_total,
                     poly: Some(coeffs),
+                    interp: Vec::new(),
                 }))
             }
             _ => Ok(None),
@@ -96,11 +192,14 @@ impl NuBar {
     }
 
     /// ν̄ at incident energy `e` \[eV\]: the polynomial exactly when the
-    /// evaluation gives one ([`Self::poly`]), otherwise the table lin-lin,
-    /// clamped at the ends.
+    /// evaluation gives one ([`Self::poly`]), otherwise the table on its own
+    /// interpolation regions ([`Self::interp`]), clamped at the ends.
     pub fn at(&self, e: f64) -> f64 {
         if let Some(c) = &self.poly {
             return c.iter().rev().fold(0.0, |acc, &ci| acc * e + ci);
+        }
+        if !is_lin_lin(&self.interp) {
+            return tabulated1d_at_xy(&self.interp, &self.energy, &self.nu_total, e);
         }
         match self.energy.first() {
             None => 0.0,
@@ -559,6 +658,12 @@ pub struct ContinuumBranch {
     /// this is how many of them there are. Empty on a branch built from ACE,
     /// where the reaction's multiplicity is `TY` and is not split per law.
     pub yield_pairs: Vec<(f64, f64)>,
+    /// The yield table's interpolation regions `(NBT, INT)`; empty means
+    /// lin-lin. [`Self::yield_at`] honours them as OpenMC's `Tabulated1D` does.
+    /// GitHub #365 audit: they used to be dropped (ENDF) or refused (ACE MT=5).
+    /// The one non-lin-lin neutron yield in ENDF/B-VIII.0 is F-19's (histogram
+    /// on MT=16/22/28/91, census 2026-09-29, 4 of 4950 subsections).
+    pub yield_interp: Vec<(u32, u32)>,
     /// The ACE **`LNW` applicability** `p(E)` of this branch, when the emission
     /// is a *mixture of laws for one particle* rather than a list of particles.
     ///
@@ -809,6 +914,15 @@ pub struct ContinuumAngularRow {
     pub cosines: Vec<f64>,
     /// Cumulative distribution on `cosines` (`cdf[0] = 0`, `cdf[last] = 1`).
     pub cdf: Vec<f64>,
+    /// The density on `cosines`, when the row carries one (every row built
+    /// since the GitHub #365 audit). With it, [`Self::sample_mu`] inverts the
+    /// cdf exactly as OpenMC's `Tabular::sample` does — quadratic for lin-lin,
+    /// linear for histogram. Empty: the linear-cdf inverse this type used to
+    /// apply to every row.
+    pub pdf: Vec<f64>,
+    /// `true` when the row is a **histogram** in μ (ACE `intt = 1`); `false`
+    /// for lin-lin.
+    pub histogram: bool,
     /// The row's mean cosine `⟨μ⟩`, equal to the normalised `a₁ = f₁/f₀`.
     /// Retained because it is the single number a transport-corrected model
     /// needs, and because it is what an ablation control asserts is non-zero.
@@ -821,6 +935,8 @@ impl ContinuumAngularRow {
         ContinuumAngularRow {
             cosines: Vec::new(),
             cdf: Vec::new(),
+            pdf: Vec::new(),
+            histogram: false,
             mubar: 0.0,
         }
     }
@@ -841,6 +957,41 @@ impl ContinuumAngularRow {
         if n < 2 {
             return 2.0 * xi - 1.0;
         }
+        if self.pdf.len() == n {
+            // OpenMC `Tabular::sample_unbiased` (`src/distribution.cpp`): the
+            // bin is the first cdf point above xi; lin-lin inverts the
+            // quadratic, histogram the line. GitHub #365 audit: the linear-cdf
+            // inverse below is not what upstream does for a lin-lin row.
+            let mut k = 0usize;
+            while k + 2 < n && self.cdf[k + 1] <= xi {
+                k += 1;
+            }
+            let (c_i, x_i, p_i) = (self.cdf[k], self.cosines[k], self.pdf[k]);
+            let mu = if self.histogram {
+                if p_i > 0.0 {
+                    x_i + (xi - c_i) / p_i
+                } else {
+                    x_i
+                }
+            } else {
+                let (x_i1, p_i1) = (self.cosines[k + 1], self.pdf[k + 1]);
+                let m = if x_i1 > x_i {
+                    (p_i1 - p_i) / (x_i1 - x_i)
+                } else {
+                    0.0
+                };
+                if m == 0.0 {
+                    if p_i > 0.0 {
+                        x_i + (xi - c_i) / p_i
+                    } else {
+                        x_i
+                    }
+                } else {
+                    x_i + ((p_i * p_i + 2.0 * m * (xi - c_i)).max(0.0).sqrt() - p_i) / m
+                }
+            };
+            return mu.clamp(-1.0, 1.0);
+        }
         // Locate the CDF bin, then interpolate linearly within it. The stored
         // pdf is lin-lin, so a strictly correct inverse is the quadratic one;
         // linear interpolation of the CDF is used instead because the grid is
@@ -856,6 +1007,32 @@ impl ContinuumAngularRow {
             (m0 + (xi - c0) / (c1 - c0) * (m1 - m0)).clamp(-1.0, 1.0)
         } else {
             m0
+        }
+    }
+}
+
+/// Where a sampled outgoing energy fell within its tabulated bin, as the
+/// correlated angular laws need it (GitHub #365 audit): the bin's lower row
+/// `row`, whether the draw was nearer its **upper** edge in cdf (the row OpenMC's
+/// `CorrelatedAngleEnergy` then uses), and the fractional position in energy
+/// (what `KalbachMann` interpolates `r` and `a` by).
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct AnglePick {
+    /// Lower row of the bin (a discrete line's own row).
+    pub row: usize,
+    /// `true` when OpenMC takes row `row + 1`.
+    pub upper: bool,
+    /// `(E' - E_row) / (E_row+1 - E_row)`, 0 for histogram tables and lines.
+    pub frac: f64,
+}
+
+impl AnglePick {
+    /// The plain lower-row pick, for a table with a single row or a line.
+    pub fn lower(row: usize) -> Self {
+        AnglePick {
+            row,
+            upper: false,
+            frac: 0.0,
         }
     }
 }
@@ -891,6 +1068,48 @@ impl ContinuumAngular {
     /// distinct from returning `0.0`. **Every arm consumes exactly one
     /// variate**, including the `None` case at the call site, so switching
     /// between them does not shift the random stream.
+    /// [`sample_mu`](Self::sample_mu) with the **row choice OpenMC makes**
+    /// (GitHub #365 audit), given where the outgoing energy fell in its bin:
+    ///
+    /// - tabulated cosines (ACE law 61, and the MF=6 tables): the row of the
+    ///   **closer** bin edge, `k + 1` when `pick.upper`
+    ///   (`CorrelatedAngleEnergy::sample_dist`, `src/secondary_correlated.cpp`);
+    /// - Kalbach-Mann: `r` and `a` **interpolated** between rows `k` and `k+1`
+    ///   by `pick.frac` (`KalbachMann::sample_params`, lin-lin tables; `frac = 0`
+    ///   for histogram ones).
+    ///
+    /// One variate, as `sample_mu`.
+    pub fn sample_mu_at(&self, table: usize, pick: AnglePick, xi: f64) -> Option<f64> {
+        match self {
+            ContinuumAngular::EvaluatedIsotropic
+            | ContinuumAngular::Unported(_)
+            | ContinuumAngular::Ablated => None,
+            ContinuumAngular::Legendre(tables) | ContinuumAngular::LabTabulated(tables) => {
+                let rows = &tables.get(table)?.rows;
+                let r = if pick.upper && pick.row + 1 < rows.len() {
+                    pick.row + 1
+                } else {
+                    pick.row
+                };
+                Some(rows.get(r)?.sample_mu(xi))
+            }
+            ContinuumAngular::KalbachMann(tables) => {
+                let rows = &tables.get(table)?.rows;
+                let a = rows.get(pick.row)?;
+                match rows.get(pick.row + 1) {
+                    Some(b) if pick.frac > 0.0 => Some(
+                        ContinuumKalbachRow {
+                            r: a.r + pick.frac * (b.r - a.r),
+                            a: a.a + pick.frac * (b.a - a.a),
+                        }
+                        .sample_mu(xi),
+                    ),
+                    _ => Some(a.sample_mu(xi)),
+                }
+            }
+        }
+    }
+
     pub fn sample_mu(&self, table: usize, row: usize, xi: f64) -> Option<f64> {
         match self {
             ContinuumAngular::EvaluatedIsotropic
@@ -1000,11 +1219,14 @@ impl ContinuumBranch {
         }
     }
 
-    /// Multiplicity `y` at incident energy `e_in` \[eV\], lin-lin interpolated
-    /// and clamped to the end values outside the tabulated range. Returns 1.0 if
-    /// the table is empty.
+    /// Multiplicity `y` at incident energy `e_in` \[eV\], on the table's own
+    /// regions ([`Self::yield_interp`]) and clamped to the end values outside
+    /// the tabulated range. Returns 1.0 if the table is empty.
     pub fn yield_at(&self, e_in: f64) -> f64 {
         let p = &self.yield_pairs;
+        if !p.is_empty() && !is_lin_lin(&self.yield_interp) {
+            return tabulated1d_at(&self.yield_interp, p, e_in);
+        }
         match p.len() {
             0 => 1.0,
             1 => p[0].1,
@@ -1364,6 +1586,7 @@ fn lab_angle_energy_emission(
             incident_interp: collapse_law7_incident_interp(&law7.e_in_interp),
         },
         yield_pairs: law7.yield_pairs,
+        yield_interp: law7.yield_interp,
         applicability: None,
         angular: ContinuumAngular::LabTabulated(ang_tables),
     };
@@ -1435,6 +1658,8 @@ fn cosine_row_from_slice(mu: &[f64], f: &[f64]) -> ContinuumAngularRow {
     ContinuumAngularRow {
         cosines: mu.to_vec(),
         cdf,
+        pdf: f[..n].iter().map(|v| v.max(0.0) / total).collect(),
+        histogram: false,
         mubar: (num / total).clamp(-1.0, 1.0),
     }
 }
@@ -1528,6 +1753,7 @@ fn phase_space_emission(
         branches: vec![ContinuumBranch {
             spectrum,
             yield_pairs: ps.yield_pairs.clone(),
+            yield_interp: ps.yield_interp.clone(),
             applicability: None,
             angular: ContinuumAngular::EvaluatedIsotropic,
         }],
@@ -1692,6 +1918,7 @@ impl ContinuumEmission {
                     incident_interp: neutron.law4.e_in_interp.clone(),
                 },
                 yield_pairs: neutron.yield_pairs,
+                yield_interp: neutron.yield_interp,
                 applicability: None,
                 angular,
             });
@@ -1854,11 +2081,13 @@ fn build_continuum_angular(neutron: &crate::acer::energy::Mf6Neutron) -> Continu
         for r in 0..t.len() {
             let coeffs = t.legendre_coefficients(r);
             match crate::acer::angular::legendre_cosine_law(&coeffs) {
-                Some((cosines, _pdf, cdf)) => {
+                Some((cosines, pdf, cdf)) => {
                     any = true;
                     rows.push(ContinuumAngularRow {
                         cosines,
                         cdf,
+                        pdf,
+                        histogram: false,
                         // `a₁` straight from the tape, not re-integrated off the
                         // linearised grid: it is exact, and comparing the two is
                         // how a linearisation defect would show up.

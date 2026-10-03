@@ -93,6 +93,12 @@ pub mod det_six_factor;
 pub mod rod_insertion;
 pub mod coupling;
 pub mod direct_coupling;
+/// outram-blender -> outram-mc CSG bridge (`to_mc_geometry`). Moved here from
+/// outram-blender's retired `mc-export` feature on 2026-10-02 (GitHub #486).
+pub mod blender_bridge;
+/// Monte Carlo setup + run driver behind the MC Studio GUI. Moved here from
+/// `outram_blender::sim` on 2026-10-02 (GitHub #486).
+pub mod sim;
 
 /// Object-oriented facade for the OUTRAM PARK neutronics + kinetics suite.
 ///

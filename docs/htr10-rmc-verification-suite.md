@@ -1,5 +1,26 @@
 # HTR-10 — code-to-code verification against RMC, across the loading range
 
+> **SUPERSEDED — re-checked against the code 2026-10-01 (gh:#428).** This page
+> is the record of the 2026-09-24 suite and was true when written. Its model is
+> no longer the one in the code, and no number here describes the current
+> model. **Current authority:**
+> [`crates/outram-mc-libs/verification_and_validation/htr10_rmc/README.md`](../crates/outram-mc-libs/verification_and_validation/htr10_rmc/README.md),
+> section "Şeker & Çolak (2003)'s 13-ball cell". What changed since, in order:
+>
+> - 2026-09-25: the two-ball cell (§8);
+> - PR #327: an explicit reflector inside the TECDOC zone map, with explicit
+>   withdrawn rods;
+> - 30P reactor graphite as the default thermal law;
+> - gh:#333: the reference heights are whole-ball extents, `9.798 N + 6` cm;
+> - gh:#330: channel positions from Şeker Fig. 4;
+> - gh:#472, 2026-10-01: Şeker's 13-ball bed. Every ball is whole, rejected
+>   at the wall, cone and tube, and the reference is matched by ball count.
+>   The two-ball and one-ball beds are withdrawn because they cut pebbles.
+>
+> The twelve-height sweep has not been re-run on the current model. The
+> tables below are kept as they were run, and the claims that no longer hold
+> are struck through or annotated in place.
+
 **Status:** complete for ENDF/B-VIII.0, 2026-09-24. Twelve fuel loadings, one
 seed each. **This is verification, not validation, and it is not an agreement
 result** — see "The gate is not met".
@@ -34,6 +55,18 @@ twelve values**, so every `±` below is ours alone.
 | Reflector | IAEA-TECDOC-1382 Table 4-3, **single homogenised zone 22** |
 | Data | ENDF/B-VIII.0 |
 | Thermal laws | graphite (MAT 30), **C-in-SiC (44)**, **Si-in-SiC (43)**, **U-in-UO₂ (48)**, **O-in-UO₂ (75)** |
+
+**Annotated 2026-10-01 (gh:#428):** this table is the model as run on
+2026-09-24, and three rows no longer describe the code:
+- *Geometry:* the bed is now Şeker's 13-ball cell, with `n_axial` the layer
+  count N (bed `9.798 N + 6` cm). The R-Z reflector is replaced by explicit
+  channels and rods (PR #327).
+- *Reflector:* ~~single homogenised zone 22~~ now the full TECDOC Fig. 4.10
+  zone map with the p.242 corrections.
+- *Thermal laws:* ~~graphite (MAT 30)~~ the graphite default is now 30P
+  reactor graphite. MAT 30 crystalline graphite is an ablation.
+- *Fuel:* "8335 particles" was the specification; the lattice actually built
+  then held 8340 (gh:#316).
 | Tracking | hybrid — delta-tracked bed inside a surface-tracked reflector |
 | Temperature | 300.15 K, every material |
 
@@ -60,6 +93,15 @@ built**, not to the 123.576 cm headline. The curve rises ~270 pcm/cm through
 this region, so comparing a 122.474 cm bed against the 123.576 cm point is
 worth ~360 pcm of pure bookkeeping.
 
+~~Each point is compared against RMC interpolated to the bed height actually
+built.~~ **CORRECTED 2026-10-01 (gh:#333, gh:#472):** that rule was itself
+wrong. The bed heights above are volume-equivalent, while RMC's heights are
+whole-ball extents, `9.798 N + 6` cm, so equal heights were unequal beds. The
+fast VII.0/VIII.0 ablation found every height-matched residual 165–480 pcm too
+high (V&V README, last section). The current comparison matches by **ball
+count**: `htr10_rmc::rmc_keff_at_ball_count` reads RMC where Şeker's model
+holds the same number of balls as ours.
+
 ### Pass criterion
 
 Agreement gate for this code-to-code reference is **500–1000 pcm**.
@@ -67,6 +109,11 @@ Agreement gate for this code-to-code reference is **500–1000 pcm**.
 ---
 
 ## 2. Results — the eigenvalue curve
+
+> **SUPERSEDED 2026-09-25** by the two-ball prism cell — see §8 and the V&V
+> record. The curve below is the one-ball-per-tile bed (interpenetrating
+> pebbles, 4.76 % of core carbon missing) and predates the B-11 and TRISO-count
+> fixes as well. Kept as the record of what was measured then.
 
 `htr10_rmc_curve_2026-09-24.csv`:
 
@@ -104,6 +151,13 @@ Weighted fit over the twelve points:
 | earlier curve | ENDF/B-VII.0 | 3 | `+6.71 ± 1.06` |
 | earlier curve | ENDF/B-VIII.0 | 1 | `+5.74 ± 2.41` |
 | **this suite** | ENDF/B-VIII.0 + 5 thermal laws | 1 | **`+7.18 ± 0.85`** |
+
+**Not re-checked (2026-10-01, gh:#428):** the VIII.0 row's `+5.74 ± 2.41`
+disagrees with the body of gh:#218, which records that curve's slope as
+**`+5.54 ± 2.52 pcm/cm`**. No raw data for either figure was found in the
+repository, so which is right cannot be settled here. Both agree with this
+suite's `+7.18 ± 0.85` within 1 sigma, so the conclusion below does not
+depend on it.
 
 Three measurements, two libraries, two physics revisions, all consistent.
 **The drift with loading height is a property of the model**, not of the
@@ -226,15 +280,29 @@ settings: all four rows returned `0.987538 ± 0.003362`, again identical.
 
 ## 6. What is NOT modelled, and which way each pushes
 
-- **The reflector is a single homogenised TECDOC zone (22)** — the cleanest
+> **Re-checked 2026-10-01 (gh:#428).** The first three items described the
+> 2026-09-24 model and are struck through. The fourth still stands, with a
+> correction to which library the reference used.
+
+- ~~**The reflector is a single homogenised TECDOC zone (22)** — the cleanest
   graphite in Table 4-3, highest carbon, near-zero boron — with the boronated
-  zones omitted. Both simplifications push `k` **up**.
-- **The core-height reflector zone map is not placed.** The derived geometry
-  record places only the bottom two axial layers.
-- **Control-rod borings are solid graphite**, and no absorber is modelled at
+  zones omitted. Both simplifications push `k` **up**.~~ **CORRECTED
+  2026-10-01:** since PR #327 every reflector zone takes its Table 4-3
+  composition from the Fig. 4.10 zone map, with the p.242 corrections
+  (`core_model::mat::for_zone_mc`), including the boronated zones.
+- ~~**The core-height reflector zone map is not placed.** The derived geometry
+  record places only the bottom two axial layers.~~ **CORRECTED 2026-10-01:**
+  placed since PR #327, from TECDOC p.242 and Fig. 4.10
+  (`crates/kovan-literature/derived/tecdoc1382-htr10-mc-borings-and-zone-map.md`).
+- ~~**Control-rod borings are solid graphite**, and no absorber is modelled at
   all: the model represents rods fully withdrawn and cannot represent any
-  other position.
-- **ENDF/B-VIII.0 against the reference's VII.0.** A whole-library swap was
+  other position.~~ **CORRECTED 2026-10-01:** the borings are explicit
+  channels (positions from Şeker Fig. 4 since gh:#330). The ten rods are
+  explicit B4C, steel and iron, fixed at the withdrawn position (lower end
+  119.2 cm). No other rod position is built.
+- **ENDF/B-VIII.0 against the reference's VII.0** (RMC; the MCNP column is
+  Şeker & Çolak 2003's, on ENDF/B-VI + TMCCS graphite, Şeker p.265 —
+  clarified 2026-10-01). A whole-library swap was
   previously priced at `+1644 ± 438 pcm`, but **that number was measured
   under an asymmetry since corrected** (the UO₂ laws were withheld from the
   VII.0 arm) and needs re-measuring. Do not quote it.
@@ -289,6 +357,38 @@ entire difference is the cavity treatment.
 
 ## 8. What has moved since
 
+**Added 2026-10-01 (gh:#428).** These entries were missing from the list
+below:
+
+- **PR #327:** explicit reflector. All 20 coolant, 10 control-rod,
+  3 irradiation and 7 absorber-ball channels, and the hot gas duct, are
+  explicit inside the full TECDOC zone map. The ten rods are explicit at the
+  withdrawn position.
+- **30P reactor graphite** is the default thermal law. Crystalline MAT 30 is
+  an ablation.
+- **gh:#333:** the reference heights are whole-ball extents, `9.798 N + 6` cm.
+  The volume-equivalent heights used in §2 and §7 make every height-matched
+  residual there read 165–480 pcm high.
+- **gh:#330:** reflector channel positions follow Şeker Fig. 4.
+- **gh:#472, 2026-10-01:** Şeker & Çolak (2003)'s 13-ball bed is the
+  default. Every ball is whole, the reference is matched by ball count, and
+  the two-ball and one-ball beds are withdrawn (they panic) because they cut
+  pebbles. The first `k` on it is in the V&V README; the twelve-height sweep
+  has not been re-run.
+
+- **2026-09-25: the bed is the paper's two-ball prism cell (gh:#309 step 2,
+  gh:#310). EVERY CURVE IN §2 AND §7 IS SUPERSEDED BY IT.** The one-ball tile
+  made axial pebbles interpenetrate and left core carbon 4.76 % low; the
+  two-ball cell restores whole pebbles and the carbon. At 10 000 x [5 + 135],
+  14 rings, three seeds per height, VIII.0: residual **+1626 +/- 50** (97.98
+  cm), **+1646 +/- 62** (122.47 cm), **+1958 +/- 33** (200.86 cm) pcm — the
+  model moved from below RMC to above it by 2231-2413 pcm. The slope fell from
+  about +5.0 to **+3.41 +/- 0.54 pcm/cm**, a change of -1.63 +/- 0.94 that is
+  not resolved: **the drift did not largely disappear, as predicted; it is
+  still open.** The twelve-height single-seed re-run was started and cut short
+  (no point completed). Methodology, sampling evidence and interpretation are in
+  `crates/outram-mc-libs/verification_and_validation/htr10_rmc/README.md`,
+  "The two-ball prism cell". Nothing was adjusted towards the reference.
 - **2026-09-25: the bottom reflector was MIRRORED from the top, and is now
   placed from the reactor.** The outer box was symmetric about the bed
   mid-height, so the bottom plane rode up with the bed and the bottom
@@ -302,7 +402,9 @@ entire difference is the cavity treatment.
   They were hardcoded to the VIII.0 tapes; 7.7 % of the SiC silicon came from
   the other evaluation.
 - **`082cd413d9` deleted the constant-void option entirely.** The fixed cavity
-  is now the only behaviour, so §2's curve describes current code and §7
+  is now the only behaviour, so ~~§2's curve describes current code~~ §2's
+  curve described the code of that date (**CORRECTED 2026-10-01**: it no
+  longer does; see the marker at the top) and §7
   documents a path that no longer exists. Filed as gh:#292; resolved more
   strongly than that issue proposed.
 - **`5618d72ed8` put the UO₂ laws in both library arms.** They had been gated
@@ -326,8 +428,13 @@ OUTRAM_HTR10_RINGS=14 OUTRAM_HTR10_LAYERS=25 OUTRAM_HTR10_THREADS=32 \
   cargo run --release -p nee_soon --example htr10_rmc_keff
 ```
 
-`n_axial` ∈ {20, 21, 23, 25, 27, 29, 31, 33, 35, 37, 39, 41} reproduces the
-reference's twelve heights. Each run writes a diagnostics record naming every
+~~`n_axial` ∈ {20, 21, 23, 25, 27, 29, 31, 33, 35, 37, 39, 41} reproduces the
+reference's twelve heights.~~ **CORRECTED 2026-10-01 (gh:#472):** that set
+counted 4.899 cm half-layers on the withdrawn one-ball bed and no longer runs
+(the one-ball and two-ball beds panic). `OUTRAM_HTR10_LAYERS` is now Şeker's
+layer count N, and N = 9 … 20 builds the reference's twelve rows at
+`9.798 N + 6` cm; compare by ball count, not height. The command above is
+kept as it was run. Each run writes a diagnostics record naming every
 data file used and the two timing totals; set `OUTRAM_MC_DIAGNOSTICS` to
 choose the path.
 

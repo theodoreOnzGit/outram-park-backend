@@ -27,9 +27,22 @@
 //! For the single-reaction first-order case this reproduces the textbook CSTR
 //! result `X = k·τ / (1 + k·τ)`, `τ = V/Q`.
 //!
+//! ### Heterogeneous catalytic reactions
+//!
+//! A [`ReactionKind::HeterogeneousCatalytic`] reaction's rate is per kilogram
+//! of catalyst and carries the Langmuir–Hinshelwood denominator: upstream
+//! evaluates `rate = numerator / denominator` (`CSTR.vb:768-802`) and
+//! multiplies it by [`Cstr::catalyst_amount`] instead of the volume
+//! (`CSTR.vb:855`). The residual for such a reaction is therefore
+//! `ζ_r − W_cat · rate_LH,r(C_out)`, with
+//! [`Reaction::langmuir_hinshelwood_rate`]. ~~(Before 2026-10-02 every reaction
+//! kind was integrated with the power-law `net_rate` times `V`, silently
+//! dropping both the adsorption denominator and the catalyst mass — coverage
+//! row R3.)~~ **CORRECTED 2026-10-02.**
+//!
 //! ⚠️ Untrusted draft, pending human V&V (see [`crate::reactors`]).
 
-use crate::reactions::Reaction;
+use crate::reactions::{Reaction, ReactionKind};
 
 use super::{solve_linear, ReactorError, ReactorFeed, ReactorOutcome};
 
@@ -44,11 +57,16 @@ pub struct Cstr {
     pub max_iter: usize,
     /// Convergence tolerance on the residual norm (default: `1e−10`).
     pub tol: f64,
+    /// Catalyst mass `W_cat` [kg] (DWSIM `CatalystAmount`, `CSTR.vb:120`).
+    /// Multiplies the per-kg rate of every
+    /// [`ReactionKind::HeterogeneousCatalytic`] reaction; unused by kinetic
+    /// ones. Default `0` — as upstream, a catalytic reaction then does not run.
+    pub catalyst_amount: f64,
 }
 
 impl Cstr {
     /// Construct a CSTR with default solver settings (`max_iter = 200`,
-    /// `tol = 1e−10`).
+    /// `tol = 1e−10`) and no catalyst.
     #[must_use]
     pub fn new(reactions: Vec<Reaction>, volume: f64) -> Self {
         Self {
@@ -56,6 +74,25 @@ impl Cstr {
             volume,
             max_iter: 200,
             tol: 1e-10,
+            catalyst_amount: 0.0,
+        }
+    }
+
+    /// Set the catalyst mass `W_cat` [kg] for heterogeneous catalytic reactions.
+    #[must_use]
+    pub fn with_catalyst_amount(mut self, catalyst_amount: f64) -> Self {
+        self.catalyst_amount = catalyst_amount;
+        self
+    }
+
+    /// `ζ_r` implied by the tank composition: `V · rate` for a kinetic reaction,
+    /// `W_cat · rate_LH` for a heterogeneous catalytic one (`CSTR.vb:850-856`).
+    fn extent_from_rate(&self, rxn: &Reaction, conc: &[f64], t: f64) -> f64 {
+        match rxn.kind {
+            ReactionKind::HeterogeneousCatalytic => {
+                self.catalyst_amount * rxn.langmuir_hinshelwood_rate(conc, t)
+            }
+            _ => self.volume * rxn.net_rate(conc, t),
         }
     }
 
@@ -80,7 +117,7 @@ impl Cstr {
         self.reactions
             .iter()
             .enumerate()
-            .map(|(r, rxn)| extents[r] - self.volume * rxn.net_rate(&conc, t))
+            .map(|(r, rxn)| extents[r] - self.extent_from_rate(rxn, &conc, t))
             .collect()
     }
 

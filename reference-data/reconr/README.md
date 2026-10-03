@@ -102,7 +102,10 @@ built and run in-session; generated from `../endf/n-038_Sr_088-ENDF8.1.endf`
 (MAT 3837) with the deck committed beside it as
 `sr88-ENDF8.1-0K-err0.001.njoy-input`.
 
-Sr-88 is the **only LRF=7 (R-matrix limited) evaluation** held in
+~~Sr-88 is the **only LRF=7 (R-matrix limited) evaluation** held in~~
+**CORRECTED 2026-10-01**: Sr-88 is one of seven `LRF=7` evaluations held in
+`../endf/` (with Cl-35, Fe-54, Fe-57, Cu-63, Cu-65, Mo-95); see the Fe-57 /
+Mo-95 section below. Sr-88 is held in
 `../endf/`, and it is the oracle for `KBK > 0` — a background R-matrix.
 All seven of its spin groups carry `KBK = 1` with `LCH = 2`, `LBK = 2`
 (SAMMY parametrisation) on the elastic channel, and all 443 of its
@@ -184,3 +187,43 @@ on all 64 stored cross sections to **4.22e-7** — the seven-figure floor
 
 Data policy: derived product of a synthetic input containing no evaluated,
 proprietary, or restricted data, processed with the BSD-licensed NJOY2016.
+
+## `fe57-…-0K-err0.001.pendf`, `mo95-…-0K-err0.001.pendf`: `LRF=7` with threshold channels
+
+Added 2026-10-01 for GitHub #339. Built with NJOY2016 upstream `ac5adf5`
+(2016.79), from the local build at `~/Documents/research/NJOY2016/build/njoy`
+(binary dated 2026-09-16, system gfortran). That build was checked first on
+the deck committed above, and its Sr-88 `tape22` is **byte-identical** to
+`sr88-ENDF8.1-0K-err0.001.pendf`. Each deck is committed beside its PENDF
+as `*.njoy-input`. The deck is `reconr 20 22 / <mat> 0 0 / 0.001 / 0 /`
+(err = 0.001, 0 K, `errmax`/`errint` defaulted).
+
+| Tape | Material | Input | Points | SHA-256 |
+|---|---|---|---|---|
+| `fe57-ENDF8.0-0K-err0.001.pendf` (4.7 MB) | Fe-57, MAT 2634, `LRU=1/LRF=7/KRM=3`, 1e-5 eV – 190 keV, pairs (γ, n, n'₁ MT=51 at Q = -14.413 keV), 6 spin groups, two with four explicit channels | `../endf/n-026_Fe_057-ENDF8.0.endf`: ENDF/B-VIII.0, CIELO, EVAL-Oct16 (Brown, Nobre, Herman, Leal, Trkov et al.), NDS 148, 214 (2018), DIST-FEB18 | 17 213 per section (unionised); MT=51 and MT=4 14 007 | `4aa63bd0…0c83bba93b` |
+| `mo95-ENDF8.0beta-0K-err0.001.pendf` (5.8 MB) | Mo-95, MAT 4234, `LRU=1/LRF=7`, 4 particle pairs, 10 spin groups | `../endf/n-042_Mo_095-ENDF8.0-beta.endf`: ENDF/B-VIII beta, BNL/KAERI, EVAL-DEC10 (Kim, Herman, Mughabghab et al.), NDS 148, 1 (2018) | 34 939 per section (unionised) | `30dc9ab1…cca2f2241d` |
+
+Fe-57's full digest is
+`4aa63bd0f8e5aafe32397619959cd2aae0b4098b5fb29ba5375d5c0a83bba93b`; Mo-95's
+is `30dc9ab12a1524459099f588eae11bd7b4ae28c60f8a18fbef8c04cca2f2241d`.
+
+**Why these two.** They are the only `LRF=7` evaluations here whose spin
+groups reach `yfour`, the general inverter for four or more channels, with
+a coupled level matrix. They are also the two that ran out of memory in
+this crate's RECONR until 2026-10-01. The cause was a wrong `Y^-1` from
+`yfour` (`xspsl`'s `xdot`), plus the missing negative-partial guard in
+`sigma`; `tests/reconr_lrf7_threshold_channels_vs_njoy2016.rs` has the
+mechanism.
+
+**Measured agreement (2026-10-01).** Consumed by that test, which asserts
+every MF=3 word. Fe-57: 82 sections, **0 differing words**, 0.10 s, 24 MB.
+Mo-95: 84 sections, **0 differing words**, 0.40 s.
+
+Fe-54 (MAT 2625), Cu-63 (MAT 2925) and Cu-65 (MAT 2931), the other `LRF=7`
+tapes, were compared the same day against PENDFs from the same build and
+deck. All three are identical in every word. Their PENDFs are not committed;
+Fe-54's alone is 16.6 MB.
+
+Data policy: derived products of open ENDF/B-VIII.0 data (Mo-95: its public
+beta release) processed with the BSD-licensed NJOY2016; no proprietary
+content.

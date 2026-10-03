@@ -58,6 +58,7 @@
 
 use crate::geometry::position::{Direction, Position};
 use crate::material::material::Material;
+use crate::material::nuclide::library_energy_max_ev;
 use crate::material::nuclide::{Inelastic, Nuclide};
 use crate::pebble_beds::delta_tracking::{
     classify_collision, sample_delta_distance, DeltaEvent, Majorant,
@@ -517,6 +518,7 @@ fn delta_flight<Q>(
     max_virtual: u32,
     material_at: &Q,
     seed: &mut u64,
+    urr_seed: u64,
 ) -> Option<(Position, usize, Direction)>
 where
     Q: MaterialQuery,
@@ -533,7 +535,9 @@ where
         r = r_next;
         u = u_next;
         let m = material_at.material_at(r)?;
-        let sigma_t = materials[m].macro_xs_total(energy, nuclides);
+        // The band total the collision will use (GitHub #407); the majorant
+        // bounds it (`Majorant` builds on `macro_xs_total_upper_bound`).
+        let sigma_t = materials[m].macro_xs_total_urr(energy, nuclides, urr_seed);
         match classify_collision(sigma_t, maj, seed) {
             DeltaEvent::Real => return Some((r, m, u)),
             DeltaEvent::Virtual => continue,
@@ -954,6 +958,8 @@ fn transport_history<Q>(
 where
     Q: MaterialQuery,
 {
+    // OpenMC's `data::energy_max[neutron]` (GitHub #463 item 2).
+    let e_cap_fission = library_energy_max_ev(nuclides);
     // Safety cap on events per history — a purely-scattering reflective medium with
     // vanishing absorption could otherwise bounce forever (mirrors keff drivers).
     material_at.begin_history();
@@ -961,17 +967,25 @@ where
     const MAX_VIRTUAL: u32 = 100_000;
     let mut production = 0.0;
     let mut stack: Vec<Site> = vec![site];
+    // The URR probability-table stream, OpenMC's `STREAM_URR_PTABLE`; see
+    // `transport_csg::transport_history_vr`, which this mirrors (GitHub #407).
+    let mut urr_seed = future_seed(5 * crate::rng::lcg::DEFAULT_STRIDE, *seed);
 
     while let Some(start) = stack.pop() {
         let mut r = start.r;
         let mut u = start.u;
         let mut e = start.e;
         let mut events = 0u32;
+        let mut urr_e_last = e;
 
         'history: loop {
             events += 1;
             if events > MAX_EVENTS {
                 break 'history; // give up on a stuck history (leak it)
+            }
+            if e != urr_e_last {
+                urr_seed = future_seed(nuclides.len() as u64, urr_seed);
+                urr_e_last = e;
             }
 
             let Some((r_col, m, u_arr)) = delta_flight(
@@ -985,6 +999,7 @@ where
                 MAX_VIRTUAL,
                 material_at,
                 seed,
+                urr_seed,
             ) else {
                 break 'history; // leaked / virtual budget exhausted
             };
@@ -992,15 +1007,13 @@ where
             u = u_arr;
 
             let material = &materials[m];
-            let ci = material.sample_nuclide(e, seed, nuclides);
-            let nuc = &nuclides[material.components[ci].nuclide_idx];
+            let ci = material.sample_nuclide_urr(e, seed, nuclides, urr_seed);
+            let nuc_idx = material.components[ci].nuclide_idx;
+            let nuc = &nuclides[nuc_idx];
             let x = if nuc.needs_urr_draw(e) {
-                // Unresolved-resonance self-shielding: draw one band. The
-                // `needs_urr_draw` gate is what keeps a run WITHOUT tables
-                // bit-identical to one from before they existed -- an
-                // unconditional draw would shift every RNG stream in the crate
-                // for no physical reason.
-                nuc.xs_at_energy_urr(e, temp, prn(seed))
+                // The same band the flight and the nuclide choice used
+                // (GitHub #407; OpenMC `calculate_urr_xs`).
+                nuc.xs_at_energy_urr(e, temp, crate::material::material::urr_xi(nuc_idx, urr_seed))
             } else {
                 nuc.xs_at_energy(e, temp)
             };
@@ -1021,7 +1034,7 @@ where
                     next_bank.push(Site {
                         r,
                         u: Direction::new(dx, dy, dz),
-                        e: nuc.sample_fission_energy(e, seed),
+                        e: nuc.sample_fission_energy_below(e, e_cap_fission, seed),
                     });
                 }
                 break 'history; // fission absorbs the incident neutron
@@ -1182,30 +1195,23 @@ where
     production
 }
 
-/// Resample `n` sites uniformly with replacement — fixed-size population control.
+/// Resample `n` sites for the next generation by uniform combing
+/// ([`crate::physics::fission::comb_resample`], GitHub #460).
 fn resample(bank: &[Site], n: usize, seed: &mut u64) -> Vec<Site> {
-    let len = bank.len();
-    (0..n)
-        .map(|_| {
-            let idx = ((prn(seed) * len as f64) as usize).min(len - 1);
-            bank[idx]
-        })
-        .collect()
+    // Uniform combing, as OpenMC's `synchronize_bank` (GitHub #460). ~~Each of
+    // the `n` sites was drawn independently with replacement~~ until
+    // 2026-09-30.
+    crate::physics::fission::comb_resample(bank, n, seed)
 }
 
-/// Mean and standard error of the mean (1σ) of the active-generation eigenvalues.
-fn mean_and_stderr(k: &[f64]) -> (f64, f64) {
-    let n = k.len();
-    if n == 0 {
-        return (0.0, 0.0);
-    }
-    let mean = k.iter().sum::<f64>() / n as f64;
-    if n < 2 {
-        return (mean, 0.0);
-    }
-    let var = k.iter().map(|x| (x - mean).powi(2)).sum::<f64>() / (n as f64 - 1.0);
-    (mean, (var / n as f64).sqrt())
-}
+/// Mean and standard error of the mean (1σ) of the active-generation
+/// eigenvalues — [`raffles::estimators::mean_and_stderr`]. ~~Four identical
+/// private copies of this function lived in `physics::keff`,
+/// `physics::transport_csg`, `physics::physics_mg` and
+/// `pebble_beds::keff_delta`.~~ **MOVED 2026-10-02** (GitHub #500) after the
+/// four were diffed and found character-identical; this driver still decides
+/// which generations are active.
+use raffles::estimators::mean_and_stderr;
 
 #[cfg(test)]
 mod tests {

@@ -88,8 +88,11 @@ cargo test --release <name>                     # run a subset by substring matc
 cargo run --release --example fhr_sim_v1        # earlier FHR educational simulator (fhr_sim_v2 moved to crates/tampines/examples/)
 ```
 
-**No system BLAS is needed.** This crate's `[dependencies]` are only `approx`,
-`ndarray`, `thiserror` and `uom` — the `ndarray-linalg` entries that used to sit
+**No system BLAS is needed.** ~~This crate's `[dependencies]` are only `approx`,
+`ndarray`, `thiserror` and `uom`~~ **CORRECTED 2026-10-03**: they are
+`approx`, `petir`, `ndarray`, `thiserror`, `uom` and (since GitHub #492, for
+the deduped `FvMesh` and tensor primitives) `outram-foam-basic-lib`, none
+of which needs BLAS — the `ndarray-linalg` entries that used to sit
 in the three `[target.*.dependencies]` blocks were vestigial and have been
 removed, and nothing in `src/` imports `ndarray_linalg`. Earlier revisions of
 this file told Linux users to `sudo apt install libopenblas-dev` and told

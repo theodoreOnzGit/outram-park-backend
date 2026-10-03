@@ -118,8 +118,10 @@ pub enum ReactionKind {
     Equilibrium,
     /// Arrhenius power-law rate kinetics.
     Kinetic,
-    /// Heterogeneous catalytic (Langmuir–Hinshelwood in DWSIM; power-law
-    /// placeholder here — see the type-level note).
+    /// Heterogeneous catalytic: Langmuir–Hinshelwood rate per kg of catalyst.
+    /// ~~power-law placeholder here~~ **CORRECTED 2026-10-02** — the CSTR and
+    /// PFR now evaluate [`Reaction::langmuir_hinshelwood_rate`] and scale it by
+    /// the catalyst mass / bed loading, as upstream does.
     HeterogeneousCatalytic,
 }
 
@@ -139,7 +141,12 @@ pub enum ReactionKind {
 pub enum ReactionBasis {
     /// Activity `aᵢ = γᵢ xᵢ` (ideal `γᵢ = 1` in this port).
     Activity,
-    /// Fugacity `fᵢ = φᵢ yᵢ P` (ideal `φᵢ = 1` in this port).
+    /// Fugacity, as upstream uses it in an equilibrium expression: the
+    /// dimensionless `fᵢ/P0 = φᵢ yᵢ P / P0`, `P0 = 101 325 Pa`
+    /// (`Equilibrium.vb:338-339`; ideal `φᵢ = 1` in this port). ~~`fᵢ = φᵢ yᵢ P`~~
+    /// **CORRECTED 2026-10-02** — the `/P0` was missing here, and the
+    /// equilibrium reactor returned plain `yᵢ` for this basis until the same
+    /// change (`tests/upstream_equilibrium_parity.rs`).
     Fugacity,
     /// Molar concentration `Cᵢ` [mol/m³]. The default kinetic basis.
     #[default]
@@ -440,9 +447,19 @@ pub struct Reaction {
     /// by the conversion reactor; DWSIM stores this as a percentage 0–100 and
     /// divides by 100 — here it is already the fraction).
     pub conversion: f64,
-    /// Standard reaction enthalpy `ΔH°` [J/mol of reaction extent], DWSIM
-    /// `ReactionHeat`. Positive = endothermic (absorbs heat). Used for the
-    /// energy balance / heat-duty accounting.
+    /// Standard reaction enthalpy `ΔH°` [J/mol of reaction extent]. Positive =
+    /// endothermic (absorbs heat). Used for the energy balance / heat-duty
+    /// accounting.
+    ///
+    /// ~~DWSIM `ReactionHeat`.~~ **CORRECTED 2026-10-02** — not the same
+    /// quantity when `|ν_BC| ≠ 1`. Upstream's `ReactionHeat` is per mol of
+    /// **base reactant**, `(H_products − H_reactants)/|ν_BC|`
+    /// (`FlowsheetBase.vb:4368`, pinned `1abf72d1`), and its reactors multiply
+    /// it by `|Δn_BC|` (`Conversion.vb:704`). The two agree on heat released
+    /// only if this field is set to upstream's `ReactionHeat × |ν_BC|`.
+    /// Checked against compiled upstream: `CH4 + 2 O2` with O2 as base gives
+    /// `ReactionHeat = −401 309` J/mol, i.e. `ΔH° = −802 618` J/mol per extent
+    /// (`tests/upstream_conversion_parity.rs`).
     pub reaction_heat: f64,
     /// Lower temperature bound `T_min` [K] of kinetic validity (DWSIM `Tmin`).
     /// Below it the rate constants are forced to zero, per DWSIM.
@@ -596,8 +613,12 @@ impl Reaction {
     /// production is obtained by multiplying by `νᵢ / |ν_BC|` in the reactor
     /// (see [`crate::reactors`]).
     ///
-    /// Applies to [`ReactionKind::Kinetic`] and, as a documented placeholder,
-    /// [`ReactionKind::HeterogeneousCatalytic`].
+    /// The rate of a [`ReactionKind::Kinetic`] reaction, and the numerator of a
+    /// [`ReactionKind::HeterogeneousCatalytic`] one.
+    /// ~~Applies to … as a documented placeholder, `HeterogeneousCatalytic`.~~
+    /// **CORRECTED 2026-10-02** — the reactors use
+    /// [`langmuir_hinshelwood_rate`](Self::langmuir_hinshelwood_rate) for
+    /// catalytic reactions.
     #[must_use]
     pub fn net_rate(&self, concentrations: &[f64], temperature_k: f64) -> f64 {
         let kf = self.forward_rate_constant(temperature_k);

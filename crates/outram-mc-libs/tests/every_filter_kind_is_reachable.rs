@@ -32,6 +32,7 @@ use outram_mc_libs::tally::filter::*;
 use outram_mc_libs::tally::filter_extra::*;
 use outram_mc_libs::tally::mesh::{MeshKind, RegularMesh};
 use outram_mc_libs::tally::tally::{ScoreType, Tally, TallyBin};
+use outram_mc_libs::tally::mesh::RegularMeshExt;
 
 fn a_mesh() -> MeshKind {
     MeshKind::Regular(RegularMesh {

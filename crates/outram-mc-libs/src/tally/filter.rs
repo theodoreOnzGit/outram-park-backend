@@ -22,6 +22,7 @@
 use super::mesh::MeshKind;
 use crate::geometry::position::{Direction, Position};
 use crate::particle::particle::ParticleType;
+use crate::tally::mesh::MeshKindExt;
 
 /// Base trait for all filters.  Maps to `openmc::Filter`.
 pub trait Filter: Send + Sync {
@@ -41,6 +42,19 @@ pub trait Filter: Send + Sync {
     /// `Filter::get_all_bins` for expansion filters
     /// (`src/tallies/filter_sptl_legendre.cpp`, `get_all_bins`).
     fn expansion_moments(&self, _event: &FilterEvent) -> Option<Vec<f64>> {
+        None
+    }
+
+    /// Track-length splitting: for a filter that divides a streamed segment
+    /// `r0 -> r1` \[cm\] among several bins, the `(bin, length fraction)`
+    /// pairs — the multi-`(bin, weight)` return of OpenMC's
+    /// `MeshFilter::get_all_bins` under the track-length estimator
+    /// (`src/tallies/filter_mesh.cpp:60-69`). `None` (the default) means the
+    /// filter bins the segment by [`Filter::get_bin`] at its midpoint.
+    ///
+    /// Only a [`MeshFilter`] on an unstructured mesh returns `Some` today
+    /// (GitHub #492).
+    fn track_length_bins(&self, _r0: Position, _r1: Position) -> Option<Vec<(usize, f64)>> {
         None
     }
 }
@@ -387,9 +401,12 @@ impl Filter for UniverseFilter {
 /// Ported from `src/tallies/filter_mesh.cpp` (`MeshFilter::get_all_bins`, the
 /// non-track-length branch: `mesh->get_bin(r)`; a single bin, weight 1). The
 /// track-length "bins crossed" sub-segmentation
-/// (`StructuredMesh::bins_crossed`) is a documented gap (bead op-6tz.13) — this
-/// port scores the whole segment into the midpoint's cell, which is exact for a
-/// mesh whose cells are large relative to the mean free path.
+/// (`StructuredMesh::bins_crossed`) is a documented gap (bead op-6tz.13) **for
+/// the four structured kinds** — this port scores the whole segment into the
+/// midpoint's cell, which is exact for a mesh whose cells are large relative
+/// to the mean free path. **On [`MeshKind::Unstructured`] (2026-10-03, GitHub
+/// #492) the segment IS split** across the cells it crosses
+/// ([`Filter::track_length_bins`], after `MOABMesh::bins_crossed`).
 /// **CHANGED 2026-09-22 (GitHub #260, scope item 4).** `mesh` was a concrete
 /// [`RegularMesh`]; it is now a [`MeshKind`], so the same filter serves the
 /// regular, rectilinear, cylindrical and spherical meshes. Enum dispatch rather
@@ -407,6 +424,12 @@ impl Filter for MeshFilter {
     }
     fn get_bin(&self, ev: &FilterEvent) -> Option<usize> {
         self.mesh.bin(ev.position)
+    }
+    /// Unstructured meshes split the segment across the cells it crosses
+    /// (GitHub #492); the structured kinds return `None` and keep the
+    /// midpoint binning documented above.
+    fn track_length_bins(&self, r0: Position, r1: Position) -> Option<Vec<(usize, f64)>> {
+        self.mesh.bins_crossed(r0, r1)
     }
 }
 
@@ -1073,6 +1096,22 @@ impl FilterKind {
     /// Functional-expansion weights, or `None` for a non-expansion filter.
     pub fn expansion_moments(&self, event: &FilterEvent) -> Option<Vec<f64>> {
         self.as_filter().expansion_moments(event)
+    }
+
+    /// Whether this filter splits a track-length segment across several
+    /// bins ([`Filter::track_length_bins`]) — known before any event, so the
+    /// scoring path can choose its branch once per segment.
+    pub fn splits_track_length(&self) -> bool {
+        match self {
+            FilterKind::Mesh(f) => f.mesh.splits_track_length(),
+            _ => false,
+        }
+    }
+
+    /// `(bin, length fraction)` pairs for the segment `r0 -> r1` \[cm\], or
+    /// `None` for a filter that bins the segment at its midpoint.
+    pub fn track_length_bins(&self, r0: Position, r1: Position) -> Option<Vec<(usize, f64)>> {
+        self.as_filter().track_length_bins(r0, r1)
     }
 
     /// Whether this filter deposits into every moment bin at once rather than

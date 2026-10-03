@@ -139,7 +139,8 @@ members = [
     "crates/buangkok",
     # dover — DOVER (Deck-based Open-source Visualisation Engine for Reactors).
     # The low-fidelity counterpart of dhoby-ghaut (maintainer, 2026-09-25).
-    # EMPTY SKELETON: details undecided, no code, no deps.
+    # First model (2026-09-25, merged 2026-09-30): a deck-driven steam-methane-
+    # reforming CSTR on outram-park-fork-dwsim-libs; see crates/dover/README.md.
     "crates/dover",
 ]
 
@@ -193,7 +194,14 @@ getrandom = "0.3"
 # Pure-Rust dense+sparse linear algebra (SIMD via `pulp`, no system BLAS →
 # Android-safe). Used by outram-blender for the large mesh solves (Laplacian
 # editing / ARAP / parameterization); per-element math stays in fixed-size types.
-faer = "0.24"
+#
+# `default-features = false` HERE (GitHub #486, 2026-10-02) so a member can drop
+# faer's `rayon` and `rand` features on wasm32: `rayon` pulls spindle ->
+# atomic-wait (no wasm backend) and `rand` pulls getrandom (needs a wasm feature).
+# Every member therefore names its faer features itself. faer's own defaults are
+# `std`, `rayon`, `sparse-linalg`, `rand`, `npy`; outram-blender and bedok
+# request exactly those on native targets, so nothing changes off wasm.
+faer = { version = "0.24", default-features = false }
 # burn — deep-learning / tensor framework (tracel-ai), declared `no_std`.
 # MIT OR Apache-2.0, i.e. permissive into GPL-3.0 (ONE-WAY: our GPL-3.0 code
 # cannot flow back to burn).
@@ -323,7 +331,7 @@ tempfile = "3.14"             # dev-dep: throwaway fixture trees for discovery/s
 ratatui = "0.29"
 log = "0.4"
 rayon = "1.11.0"
-fission-yields-data = "0.1.4"
+fission-yields-data = "0.1.5"
 openmc-endf-8-depletion-lib-a = "1.0.0"
 openmc-endf-8-depletion-lib-b = "1.0.0"
 # pure-Rust HDF5 (no system libhdf5) — staged for the Windowed Multipole (WMP)
@@ -433,12 +441,23 @@ petir                        = { path = "crates/petir",                        v
 changi                       = { path = "crates/changi",                       version = "0.0.0" }
 bishan                       = { path = "crates/bishan",                       version = "0.0.1" }
 buangkok                     = { path = "crates/buangkok",                     version = "0.0.1" }
+sembawang                    = { path = "crates/sembawang",                    version = "0.0.1" }
 outram-foam-turbulence-lib   = { path = "crates/outram-foam-turbulence-lib",   version = "0.1.2" }
 outram-foam-appbuilder-lib   = { path = "crates/outram-foam-appbuilder-lib",   version = "0.1.3" }
 outram-foam-multiphase       = { path = "crates/outram-foam-multiphase",       version = "0.0.2" }
 outram-foam-mesh             = { path = "crates/outram-foam-mesh",             version = "0.1.0" }
+# FEM structural mechanics; first workspace-dep consumer: outram-blender's
+# optional `fem-export` bridge (GitHub #492).
+farrer-park                  = { path = "crates/farrer-park",                  version = "0.0.0" }
 outram-foam-cli              = { path = "crates/outram-foam-cli",              version = "0.1.0" }
 outram-mc-libs         = { path = "crates/outram-mc-libs",         version = "0.0.4" }
+# Granular DEM. `default-features = false` HERE, at the root, because workspace
+# inheritance can only ADD features: a member writing `default-features = false`
+# against a default-on root entry is silently ignored. Its defaults are
+# `long-tests` (its own slow tests -- meaningless to a dependent) and `gnn`
+# (pulls `raffles`); a member that wants either names it. First consumer:
+# outram-mc-libs (2026-10-02), for DEM-settled pebble beds.
+outram-park-fork-liggghts = { path = "crates/outram-park-fork-liggghts", version = "0.0.0", default-features = false }
 outram-park-fork-dwsim-libs = { path = "crates/outram-park-fork-dwsim-libs", version = "0.0.3" }
 boon-lay            = { path = "crates/boon-lay",            version = "0.1.3" }
 # All nuclear-data representation (ENDF processing, WMP + Faddeeva, lean ACE)
@@ -474,7 +493,12 @@ kovan-metrics    = { path = "crates/kovan-metrics",    version = "0.0.0" }
 # `mc-export` (outram-mc-libs CSG → Monte Carlo, the MC Studio GUI) and
 # `foam-mesh` (outram-park-fork-cfmesh tet-dual pipeline → OpenFOAM polyMesh,
 # the Mesh Studio GUI).
-outram-blender   = { path = "crates/outram-blender",   version = "0.0.4" }
+#
+# `default-features = false` (GitHub #486, 2026-10-02): outram-mc-libs takes
+# blender's geometry description without blender's default-on `gpu` feature
+# (wgpu); outram-mc has its own GPU path. A member that wants blender's GPU
+# vertex transform names `features = ["gpu"]`.
+outram-blender   = { path = "crates/outram-blender",   version = "0.0.4", default-features = false }
 
 # outram-park-fork-cfmesh — Rust port of cfMesh (GPL-3.0): the volume-mesh
 # generation layer (tet / polyhedral cells + boundary layers) that sits between
@@ -523,4 +547,9 @@ strip = "none"
 # frame is attributed to its caller. `perf` recovers them from DWARF, so this
 # stays at the release default rather than being lowered -- a profile of code
 # with inlining disabled is a profile of a program nobody ships.
+#
+# Also used by `scripts/profile-icsbep.sh` (perf + valgrind on the ICSBEP
+# cases), which adds `-C force-frame-pointers=yes`. That branch had defined
+# this profile with `debug = "line-tables-only"`; the merge keeps `debug = 2`,
+# a superset, so the script is unaffected.
 

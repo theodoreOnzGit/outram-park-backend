@@ -12,21 +12,7 @@ use outram_mc_libs::pebble_beds::delta_tracking::Majorant;
 use outram_mc_libs::pebble_beds::htr10::{fuel_pebble_materials, BoronReading, Htr10Nuclides};
 
 const TEMP_K: f64 = 300.15;
-const NUC: Htr10Nuclides = Htr10Nuclides {
-    u235: 0,
-    u238: 1,
-    o16: 2,
-    c_free: 3,
-    c_graphite: 4,
-    si28: 5,
-    b10: 6,
-    // Appended 2026-09-23: slots 0..=6 keep their indices so no
-    // existing material silently repoints at a different nuclide.
-    c_sic: 7,
-    si29: 8,
-    si30: 9,
-    b11: 10,
-};
+const NUC: Htr10Nuclides = Htr10Nuclides::NATURAL_CARBON;
 
 fn main() {
     let base =
@@ -65,7 +51,7 @@ fn main() {
             load("U238", "n-092_U_238.endf")?,
             load("O16", "n-008_O_016-ENDF8.0.endf")?,
             load("C12", "n-006_C_012-ENDF8.0.endf")?,
-            load("C12", "n-006_C_012-ENDF8.0.endf")?.with_thermal_scattering(sab),
+            load("C12", "n-006_C_012-ENDF8.0.endf")?.with_thermal_scattering(sab.clone()),
             bind_sic(load("Si28", "n-014_Si_028-ENDF8.0.endf")?, &si_in_sic),
             load("B10", "n-005_B_010-ENDF8.0.endf")?,
             // 7, 8, 9: carbon bound in SiC, and silicon's other two natural
@@ -75,6 +61,12 @@ fn main() {
             bind_sic(load("Si29", "n-014_Si_029-ENDF8.0.endf")?, &si_in_sic),
             bind_sic(load("Si30", "n-014_Si_030-ENDF8.0.endf")?, &si_in_sic),
             load("B11", "n-005_B_011-ENDF8.0.endf")?, // 10: B-11 (gh:#311)
+            // 11, 12, 13: C-13, the 1.07 at.% of natural carbon (gh:#425,
+            // 2026-10-01): free, graphite-bound and SiC-bound, as their C-12
+            // partners at 3, 4 and 7 (`Htr10Nuclides::NATURAL_CARBON`).
+            load("C13", "n-006_C_013-ENDF8.0.endf")?,
+            load("C13", "n-006_C_013-ENDF8.0.endf")?.with_thermal_scattering(sab),
+            bind_sic(load("C13", "n-006_C_013-ENDF8.0.endf")?, &c_in_sic),
         ])
     })() else {
         println!("SKIP: no tapes");
@@ -93,16 +85,16 @@ fn main() {
     mats.push(Material {
         id: 71,
         name: "reflector".into(),
-        components: vec![
-            NuclideComponent {
-                nuclide_idx: NUC.c_graphite,
-                atom_density: z.carbon,
-            },
+        components: NUC.c_graphite
+            .components(z.carbon)
+            .into_iter()
+            .chain([
             NuclideComponent {
                 nuclide_idx: NUC.b10,
                 atom_density: z.natural_boron * 0.199,
             },
-        ],
+            ])
+            .collect(),
         temperature: TEMP_K,
     });
 

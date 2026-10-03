@@ -11,6 +11,7 @@
 
 mod advanced_git_view;
 mod bibliography;
+mod box_handles;
 mod csv_preview;
 mod gfm_preview;
 mod home;
@@ -24,6 +25,8 @@ mod plot_setup;
 mod saved_digitisation;
 #[cfg(test)]
 mod edit_digitisation_tests;
+#[cfg(test)]
+mod axes_lock_tests;
 mod series_select;
 mod setup;
 mod table_digitiser;
@@ -414,6 +417,15 @@ pub struct DigitiseApp {
     /// corner. Takes priority over `ref_dragging` when a drag starts on a
     /// corner (see `image_panel`'s hit test).
     ref_dragging_corner: Option<(usize, usize)>,
+    /// Whether the axes are locked (GH issue #421). Unlocked, only the
+    /// calibration can be changed: the reference lines/corners drag, and
+    /// tracing, adding, editing and erasing points are all disabled. Locked,
+    /// it is the other way round — the lines cannot be grabbed, so editing a
+    /// point near an axis can no longer drag the axis with it (maintainer,
+    /// 2026-09-29: "otherwise i accidentally drag them around when
+    /// digitising plots ... don't allow me to start drawing traces until i
+    /// fix the axes"). See [`Self::lock_axes`] / [`Self::unlock_axes`].
+    axes_locked: bool,
     /// Which calibration shape is active (op-vyb9) — see [`CalibrationShape`].
     calibration_shape: CalibrationShape,
     /// Parallelogram corner pixel positions, order `[top_left, top_right,
@@ -614,6 +626,7 @@ impl Default for DigitiseApp {
             ref_val: Default::default(),
             ref_dragging: None,
             ref_dragging_corner: None,
+            axes_locked: false,
             calibration_shape: CalibrationShape::default(),
             para_corners: [None; 4],
             para_dragging: None,
@@ -703,16 +716,23 @@ impl DigitiseApp {
             }
         }
 
-        let configured_pdf = EntityConfig::load(&root.paper_dir(citekey))
+        let source = EntityConfig::load(&root.paper_dir(citekey))
             .ok()
-            .and_then(|cfg| cfg.source)
-            .and_then(|source| source.pdf)
-            .map(|rel| root.paper_dir(citekey).join(rel));
-        let pdf_path = configured_pdf
+            .and_then(|cfg| cfg.source);
+        let configured_pdf = source
             .as_ref()
-            .filter(|path| path.is_file())
-            .cloned();
-        let pdf_unavailable = configured_pdf.is_some() && pdf_path.is_none();
+            .and_then(|source| source.pdf.clone())
+            .map(|rel| root.paper_dir(citekey).join(rel));
+        // The recorded PDF, or, for a standard-corpus document's notes, its
+        // corpus file wherever the corpus is checked out (2026-09-30).
+        let pdf_path = crate::standard_corpus::paper_pdf(
+            &root,
+            &crate::standard_corpus::StandardCorpus::for_root(Some(&root)),
+            citekey,
+        );
+        let expects_pdf =
+            configured_pdf.is_some() || source.as_ref().is_some_and(|s| s.corpus.is_some());
+        let pdf_unavailable = expects_pdf && pdf_path.is_none();
 
         if let Some(pdf) = &pdf_path {
             self.pdf_reader.open(&pdf.to_string_lossy());
@@ -833,23 +853,122 @@ impl DigitiseApp {
             .as_ref()
             .is_none_or(|l| l.root != root.path())
         {
-            self.literature = Some(literature_list::LiteratureList::build(&root));
+            self.literature = Some(literature_list::LiteratureList::build(
+                &root,
+                &crate::standard_corpus::StandardCorpus::for_root(Some(&root)),
+            ));
         }
         let chosen = self
             .literature
             .as_ref()
             .and_then(|list| self.literature_finder.ui(ctx, list));
-        if let Some(path) = chosen {
-            self.open_document(&path);
+        if let Some(action) = chosen {
+            self.literature_action(action);
+        }
+    }
+
+    /// Carry out what the literature list or finder asked for.
+    fn literature_action(&mut self, action: literature_list::LiteratureAction) {
+        match action {
+            literature_list::LiteratureAction::Open(path) => self.open_document(&path),
+            literature_list::LiteratureAction::NotDownloaded(lit) => {
+                self.open_corpus_document(lit.id)
+            }
+            literature_list::LiteratureAction::Refresh => self.literature = None,
+            literature_list::LiteratureAction::Find => self.literature_finder.show(),
+        }
+    }
+
+    /// Open standard-corpus document `id` (2026-09-30): as its notes paper
+    /// ([`crate::standard_corpus::ensure_paper`]) when a folder is open, else
+    /// read-only in the reader. A document that is not downloaded is
+    /// reported with where to get it, not treated as an error.
+    fn open_corpus_document(&mut self, id: &str) {
+        let Some(lit) = crate::standard_corpus::entry(id) else {
+            self.set_error(format!("{id}: not a standard-corpus document"));
+            return;
+        };
+        let root = self.home.root().cloned();
+        let corpus = crate::standard_corpus::StandardCorpus::for_root(root.as_ref());
+        let Some(pdf) = corpus.locate(lit) else {
+            self.set_status(format!(
+                "{id} is in the standard corpus but not downloaded here{}; pull the \
+                 corpus from Setup",
+                lit.source_url
+                    .map(|u| format!(" (source: {u})"))
+                    .unwrap_or_default()
+            ));
+            return;
+        };
+        match root {
+            Some(root) => match crate::standard_corpus::ensure_paper(&root, &corpus, lit) {
+                Ok(citekey) => {
+                    self.refresh_knowledge(&root);
+                    self.activate_paper_and_navigate(&citekey);
+                }
+                Err(e) => self.set_error(format!("{id}: {e}")),
+            },
+            None => {
+                self.active_paper = None;
+                self.view = View::PdfReader;
+                self.reader_path = Some(pdf.clone());
+                self.pdf_reader.open(&pdf.to_string_lossy());
+                self.set_status(format!(
+                    "opened {id} read-only; open a Kovan folder to keep notes on it"
+                ));
+            }
+        }
+    }
+
+    /// Start ingesting `path`, unless it is already in the library
+    /// ([`crate::ingest::find_existing`]): then say so and open the existing
+    /// entry instead of ingesting a duplicate (2026-09-30).
+    fn begin_ingest(&mut self, root: &crate::root::KovanRoot, path: &std::path::Path) {
+        let corpus = crate::standard_corpus::StandardCorpus::for_root(Some(root));
+        let mut cache = crate::fingerprint::HashCache::load(&root.state_dir());
+        if let Some(existing) = crate::ingest::find_existing(root, &corpus, path, &mut cache) {
+            let message = format!("{existing}; opening it instead of ingesting a duplicate");
+            match &existing {
+                crate::ingest::ExistingEntry::StandardCorpus { id, .. } => {
+                    self.open_corpus_document(id)
+                }
+                crate::ingest::ExistingEntry::Paper { citekey, .. } => {
+                    self.activate_paper_and_navigate(citekey)
+                }
+                // A PDF already in a corpus repository that no paper records
+                // (#458): open that copy, which offers an ingest in place.
+                crate::ingest::ExistingEntry::RepoFile { pdf, .. } => {
+                    let pdf = pdf.clone();
+                    self.open_document(&pdf);
+                }
+            }
+            self.set_status(message);
+            return;
+        }
+        let wiki = self.wiki.get_or_insert_with(WikiState::new);
+        if let Err(e) = wiki.begin_ingest(root, path) {
+            self.set_error(e);
         }
     }
 
     /// Open `path` in the PDF reader: as its paper when one records it (so
     /// notes save into it), otherwise on its own with the ingest offer.
+    ///
+    /// A standard-corpus file opens as that document, never with the offer
+    /// (2026-09-30).
     fn open_document(&mut self, path: &std::path::Path) {
         self.reader_path = Some(path.to_path_buf());
+        let corpus_entry = || {
+            crate::standard_corpus::StandardCorpus::for_root(self.home.root())
+                .entry_for_path(path)
+        };
         match self.paper_owning_pdf(path) {
             Some(citekey) => self.activate_paper_and_navigate(&citekey),
+            None if corpus_entry().is_some() => {
+                if let Some(lit) = corpus_entry() {
+                    self.open_corpus_document(lit.id);
+                }
+            }
             None => {
                 // Not a paper's PDF: whatever paper was open no longer
                 // matches the reader, so notes must not go into it.
@@ -870,13 +989,18 @@ impl DigitiseApp {
     /// inside one said nothing; opening such a PDF offered no ingest and the
     /// reader showed the no-paper fallback ("Set a project root…"). This
     /// reads each paper's recorded PDF instead (a few files per paper).
+    ///
+    /// Since 2026-09-30 a standard-corpus document's notes paper owns its
+    /// corpus file even when `[source].pdf` does not record it
+    /// ([`crate::standard_corpus::paper_pdf`]).
     fn paper_owning_pdf(&self, path: &std::path::Path) -> Option<String> {
         let root = self.home.root()?;
         let target = path.canonicalize().ok()?;
+        let corpus = crate::standard_corpus::StandardCorpus::for_root(Some(root));
         root.paper_dirs().into_iter().find_map(|dir| {
             let config = EntityConfig::load(&dir).ok()?;
-            let pdf = config.source?.pdf?;
-            (dir.join(pdf).canonicalize().ok()? == target).then_some(config.id)
+            let pdf = crate::standard_corpus::paper_pdf(root, &corpus, &config.id)?;
+            (pdf.canonicalize().ok()? == target).then_some(config.id)
         })
     }
 
@@ -894,10 +1018,7 @@ impl DigitiseApp {
             return;
         }
         if self.auto_ingest_opened_pdfs {
-            let wiki = self.wiki.get_or_insert_with(WikiState::new);
-            if let Err(e) = wiki.begin_ingest(&root, std::path::Path::new(path)) {
-                self.set_error(e);
-            }
+            self.begin_ingest(&root, std::path::Path::new(path));
         } else {
             self.pending_ingest_prompt = Some(path.to_string());
         }
@@ -916,6 +1037,7 @@ impl DigitiseApp {
             return;
         };
         let mut close = false;
+        let mut ingest = false;
         egui::Window::new("Ingest this PDF?")
             .collapsible(false)
             .resizable(false)
@@ -930,10 +1052,7 @@ impl DigitiseApp {
                 );
                 ui.horizontal(|ui| {
                     if ui.button("Ingest…").clicked() {
-                        let wiki = self.wiki.get_or_insert_with(WikiState::new);
-                        if let Err(e) = wiki.begin_ingest(&root, std::path::Path::new(&path)) {
-                            self.set_error(e);
-                        }
+                        ingest = true;
                         close = true;
                     }
                     if ui.button("Skip").clicked() {
@@ -943,6 +1062,9 @@ impl DigitiseApp {
             });
         if close {
             self.pending_ingest_prompt = None;
+        }
+        if ingest {
+            self.begin_ingest(&root, std::path::Path::new(&path));
         }
     }
 
@@ -1308,7 +1430,77 @@ impl DigitiseApp {
         } else {
             self.set_status(msg);
         }
+        // The points were placed through this calibration: it is the
+        // figure's, so the axes come back locked (#421).
+        self.axes_locked = true;
         true
+    }
+
+    /// Lock the axes (GH issue #421): the reference lines stop responding
+    /// to drags, and tracing and point editing become available.
+    ///
+    /// Refused, with the reason shown, while the calibration is incomplete —
+    /// locking unusable axes would only move the error to the first point.
+    /// If points already exist under a different calibration (the axes were
+    /// unlocked and moved), each point with a pixel position is re-read
+    /// through the new calibration, in every series on the figure: moving
+    /// the axes means exactly that, and leaving the old values would let the
+    /// lines on screen disagree with the numbers saved.
+    fn lock_axes(&mut self) {
+        let cal = match self.calibration() {
+            Ok(c) => c,
+            Err(e) => {
+                self.set_error(format!("cannot lock the axes yet: {e}"));
+                return;
+            }
+        };
+        let mut reread = 0usize;
+        for d in self.dataset.iter_mut().chain(self.completed_series.iter_mut()) {
+            if d.calibration == cal {
+                continue;
+            }
+            d.calibration = cal;
+            for p in &mut d.points {
+                let (Some(px), Some(py)) = (p.x_px, p.y_px) else {
+                    continue;
+                };
+                (p.x, p.y) = cal.point_at(px, py);
+                let ((x_minus, x_plus), (y_minus, y_plus)) =
+                    xy_uncertainty_interval(&cal, px, py, 0.5, 0.5);
+                (p.x_minus, p.x_plus) = (x_minus, x_plus);
+                (p.y_minus, p.y_plus) = (y_minus, y_plus);
+                reread += 1;
+            }
+        }
+        self.axes_locked = true;
+        self.ref_dragging = None;
+        self.ref_dragging_corner = None;
+        self.para_dragging = None;
+        self.set_status(if reread > 0 {
+            format!(
+                "axes locked — the calibration changed, so {reread} existing point(s) were \
+                 re-read from their pixels through the new axes"
+            )
+        } else {
+            "axes locked — draw the trace or place points".to_string()
+        });
+    }
+
+    /// Unlock the axes to re-calibrate (GH issue #421). Tracing and point
+    /// editing pause until they are locked again; if points exist, the
+    /// message says that locking again re-reads them through the new axes.
+    fn unlock_axes(&mut self) {
+        self.axes_locked = false;
+        self.stroke.clear();
+        self.dragging = None;
+        let has_points = self.dataset.as_ref().is_some_and(|d| !d.points.is_empty())
+            || !self.completed_series.is_empty();
+        self.set_status(if has_points {
+            "axes unlocked — tracing and editing are paused. Moving the axes changes the \
+             value of every existing point: they are re-read when you lock again"
+        } else {
+            "axes unlocked — drag the lines onto the axes, then lock them"
+        });
     }
 
     pub fn load_image_from_raster(
@@ -1383,6 +1575,8 @@ impl DigitiseApp {
         self.selected = None;
         self.ref_dragging = None;
         self.ref_dragging_corner = None;
+        // A new figure has its own axes, not yet placed (#421).
+        self.axes_locked = false;
         self.crop_provenance = None;
         self.set_status(status);
     }
@@ -2001,17 +2195,24 @@ impl DigitiseApp {
         ui.separator();
 
         ui.label("1. Calibration shape (op-vyb9):");
-        ui.horizontal(|ui| {
-            ui.selectable_value(
-                &mut self.calibration_shape,
-                CalibrationShape::AxisAligned,
-                "Rectangle",
-            );
-            ui.selectable_value(
-                &mut self.calibration_shape,
-                CalibrationShape::Parallelogram,
-                "Parallelogram",
-            );
+        // #421: the calibration is edited only while unlocked; locked, it is
+        // shown but greyed out, so neither a drag nor a stray keystroke in a
+        // value field can move the axes under existing points.
+        ui.scope(|ui| {
+            if self.axes_locked {
+                ui.disable();
+            }
+            ui.horizontal(|ui| {
+                ui.selectable_value(
+                    &mut self.calibration_shape,
+                    CalibrationShape::AxisAligned,
+                    "Rectangle",
+                );
+                ui.selectable_value(
+                    &mut self.calibration_shape,
+                    CalibrationShape::Parallelogram,
+                    "Parallelogram",
+                );
         });
         match self.calibration_shape {
             CalibrationShape::AxisAligned => {
@@ -2056,38 +2257,72 @@ impl DigitiseApp {
         }
         ui.checkbox(&mut self.x_log, "x axis logarithmic");
         ui.checkbox(&mut self.y_log, "y axis logarithmic");
+        });
+        ui.horizontal(|ui| {
+            if self.axes_locked {
+                if ui
+                    .button("\u{1F513} Unlock axes")
+                    .on_hover_text("move the axes again; tracing and editing pause until you re-lock")
+                    .clicked()
+                {
+                    self.unlock_axes();
+                }
+                ui.colored_label(Color32::from_rgb(90, 200, 90), "\u{1F512} axes locked");
+            } else {
+                if ui
+                    .button("\u{1F512} Lock axes")
+                    .on_hover_text(
+                        "fix the calibration so the lines cannot be dragged by accident; \
+                         tracing and point editing unlock once the axes are locked",
+                    )
+                    .clicked()
+                {
+                    self.lock_axes();
+                }
+                ui.colored_label(
+                    Color32::from_rgb(230, 160, 60),
+                    "lock the axes before tracing",
+                );
+            }
+        });
         ui.separator();
 
-        // #290: ~~"2. Automatic pass"~~ — the automatic column scan and its
-        // strategy/step controls are gone from this panel (maintainer,
-        // 2026-09-23: "we won't do auto-trace anymore"). `trace_curve` and
-        // `auto.rs` remain for `kovan-cli digitise`, which is a different
-        // surface and was not part of that decision.
-        ui.label("2. Trace the curve:");
-        ui.add(egui::Slider::new(&mut self.threshold, 1..=254).text("ink threshold"));
-        ui.add(
-            egui::Slider::new(&mut self.snap_spacing, 1.0..=20.0)
-                .text("point spacing (px)")
-                .step_by(1.0),
-        )
-        .on_hover_text("distance between points along the stroke you draw");
-        ui.horizontal(|ui| {
-            if ui
-                .selectable_label(self.mode == ClickMode::DrawTrace, "\u{270F} Draw trace")
-                .on_hover_text(
-                    "hold the left button and draw along the curve; let go and the \
-                     stroke snaps onto it. Hold the right button and drag to erase",
-                )
-                .clicked()
-            {
-                self.mode = ClickMode::DrawTrace;
-                if self.dataset.is_none() {
+        // #421: steps 2 and 3 are unavailable until the axes are locked.
+        ui.scope(|ui| {
+            if !self.axes_locked {
+                ui.disable();
+            }
+
+            // #290: ~~"2. Automatic pass"~~ — the automatic column scan and its
+            // strategy/step controls are gone from this panel (maintainer,
+            // 2026-09-23: "we won't do auto-trace anymore"). `trace_curve` and
+            // `auto.rs` remain for `kovan-cli digitise`, which is a different
+            // surface and was not part of that decision.
+            ui.label("2. Trace the curve:");
+            ui.add(egui::Slider::new(&mut self.threshold, 1..=254).text("ink threshold"));
+            ui.add(
+                egui::Slider::new(&mut self.snap_spacing, 1.0..=20.0)
+                    .text("point spacing (px)")
+                    .step_by(1.0),
+            )
+            .on_hover_text("distance between points along the stroke you draw");
+            ui.horizontal(|ui| {
+                if ui
+                    .selectable_label(self.mode == ClickMode::DrawTrace, "\u{270F} Draw trace")
+                    .on_hover_text(
+                        "hold the left button and draw along the curve; let go and the \
+                         stroke snaps onto it. Hold the right button and drag to erase",
+                    )
+                    .clicked()
+                {
+                    self.mode = ClickMode::DrawTrace;
+                    if self.dataset.is_none() {
+                        self.start_empty();
+                    }
+                }
+                if ui.button("Start empty (hand-place)").clicked() {
                     self.start_empty();
                 }
-            }
-            if ui.button("Start empty (hand-place)").clicked() {
-                self.start_empty();
-            }
         });
         ui.separator();
 
@@ -2111,6 +2346,7 @@ impl DigitiseApp {
         ui.small(
             "double-click adds a marker (Add points mode) · right-click removes the nearest one",
         );
+        });
         ui.separator();
 
         // A figure routinely carries several curves against one pair of axes
@@ -2417,7 +2653,10 @@ impl DigitiseApp {
             // cursor regardless of mode (graphReader precedent), checked
             // before the mode-dispatched left-click handling below so a
             // stray left click from the same gesture can't also fire.
-            if response.secondary_clicked() {
+            // #421: every point gesture below needs locked axes; the
+            // reference-line drags need them unlocked. One flag, read once.
+            let points_live = self.axes_locked;
+            if points_live && response.secondary_clicked() {
                 if let Some(pos) = response.interact_pointer_pos() {
                     let (px, py) = to_image(pos);
                     if let Some(i) = self.nearest_point(px, py, 12.0 / zoom as f64) {
@@ -2431,12 +2670,15 @@ impl DigitiseApp {
             // `dragged()` rather than `drag_started()` so holding the button
             // down and moving keeps erasing, which is the whole reason the
             // mode is worth having over the per-point right-click.
-            if self.mode == ClickMode::Erase {
+            if points_live && self.mode == ClickMode::Erase {
                 // The pointer says which mode is live: an eraser that looks
                 // like the point tool costs someone their trace.
                 response.clone().on_hover_cursor(egui::CursorIcon::NoDrop);
             }
-            if self.mode == ClickMode::Erase && (response.clicked() || response.dragged()) {
+            if points_live
+                && self.mode == ClickMode::Erase
+                && (response.clicked() || response.dragged())
+            {
                 if let Some(pos) = response.interact_pointer_pos() {
                     let (px, py) = to_image(pos);
                     self.erase_near(px, py, 12.0 / zoom as f64);
@@ -2446,7 +2688,7 @@ impl DigitiseApp {
             // the ink. `dragged()` rather than `drag_started()` so every
             // frame of the gesture contributes a vertex — the stroke is the
             // path the pointer took, not its two ends.
-            if self.mode == ClickMode::DrawTrace {
+            if points_live && self.mode == ClickMode::DrawTrace {
                 // Right-drag erases while drawing (maintainer, 2026-09-28:
                 // "right click and drag should be eraser behaviour ... when
                 // in draw trace mode"), so a bad stretch of trace can be
@@ -2483,13 +2725,13 @@ impl DigitiseApp {
             // Adding a point is a double left-click (graphReader precedent) —
             // a single click in AddPoint mode is reserved for future
             // click-drag box-select, so it deliberately does not add here.
-            if self.mode == ClickMode::AddPoint && response.double_clicked() {
+            if points_live && self.mode == ClickMode::AddPoint && response.double_clicked() {
                 if let Some(pos) = response.interact_pointer_pos() {
                     let (px, py) = to_image(pos);
                     self.add_point(px, py);
                 }
             }
-            if self.mode == ClickMode::EditPoints {
+            if points_live && self.mode == ClickMode::EditPoints {
                 if let Some(pos) = response
                     .clicked()
                     .then(|| response.interact_pointer_pos())
@@ -2503,24 +2745,8 @@ impl DigitiseApp {
             // Parallelogram corner hit test (op-vyb9) — nearest of the 4
             // free corners within `corner_tol`, mirroring `hit_ref_corner`'s
             // tolerance but over independent points rather than line
-            // intersections.
-            fn hit_para_corner(
-                corners: &[Option<(f64, f64)>; 4],
-                tol: f64,
-                px: f64,
-                py: f64,
-            ) -> Option<usize> {
-                let mut best: Option<(usize, f64)> = None;
-                for (i, c) in corners.iter().enumerate() {
-                    if let Some((cx, cy)) = c {
-                        let d = ((px - cx).powi(2) + (py - cy).powi(2)).sqrt();
-                        if d < tol && best.is_none_or(|(_, bd)| d < bd) {
-                            best = Some((i, d));
-                        }
-                    }
-                }
-                best.map(|(i, _)| i)
-            }
+            // intersections. Shared with the PDF reader's annotation-box
+            // corner drag (`box_handles::nearest_handle`, 2026-10-01).
 
             // Reference-line/corner dragging (op-zfnh/op-vyb9) takes priority
             // over marker dragging when a drag starts on top of one — it is
@@ -2529,7 +2755,9 @@ impl DigitiseApp {
             if response.drag_started_by(PointerButton::Primary) {
                 if let Some(pos) = response.interact_pointer_pos() {
                     let (px, py) = to_image(pos);
-                    let claimed = match self.calibration_shape {
+                    // #421: locked axes are never grabbed — this is the
+                    // accidental drag the lock exists to prevent.
+                    let claimed = !points_live && match self.calibration_shape {
                         CalibrationShape::AxisAligned => {
                             self.ref_dragging_corner =
                                 hit_ref_corner(&self.ref_px, corner_tol, px, py);
@@ -2541,12 +2769,16 @@ impl DigitiseApp {
                             self.ref_dragging_corner.is_some() || self.ref_dragging.is_some()
                         }
                         CalibrationShape::Parallelogram => {
-                            self.para_dragging =
-                                hit_para_corner(&self.para_corners, corner_tol, px, py);
+                            self.para_dragging = box_handles::nearest_handle(
+                                &self.para_corners,
+                                corner_tol,
+                                px,
+                                py,
+                            );
                             self.para_dragging.is_some()
                         }
                     };
-                    if !claimed && self.mode == ClickMode::EditPoints {
+                    if !claimed && points_live && self.mode == ClickMode::EditPoints {
                         self.dragging = self.nearest_point(px, py, 12.0 / zoom as f64);
                         self.selected = self.dragging;
                     }
@@ -2573,7 +2805,8 @@ impl DigitiseApp {
                     self.para_corners[i] = Some((px, py));
                 }
             }
-            if self.mode == ClickMode::EditPoints
+            if points_live
+                && self.mode == ClickMode::EditPoints
                 && self.ref_dragging.is_none()
                 && self.ref_dragging_corner.is_none()
                 && self.para_dragging.is_none()
@@ -2592,14 +2825,22 @@ impl DigitiseApp {
                 self.para_dragging = None;
                 self.dragging = None;
             }
-            if ui.input(|i| i.key_pressed(Key::Delete) || i.key_pressed(Key::Backspace)) {
+            if points_live
+                && ui.input(|i| i.key_pressed(Key::Delete) || i.key_pressed(Key::Backspace))
+            {
                 self.delete_selected();
             }
 
             // --- overlays: reference lines/quad, then points ---
             match self.calibration_shape {
                 CalibrationShape::AxisAligned => {
-                    let ref_stroke = Stroke::new(1.0_f32, Color32::from_rgb(60, 120, 255));
+                    // #421: locked lines are drawn grey and without handles,
+                    // so it is plain that they will not move.
+                    let ref_stroke = if self.axes_locked {
+                        Stroke::new(1.0_f32, Color32::from_rgba_unmultiplied(150, 150, 150, 170))
+                    } else {
+                        Stroke::new(1.0_f32, Color32::from_rgb(60, 120, 255))
+                    };
                     let ref_stroke_active = Stroke::new(2.5_f32, Color32::from_rgb(255, 210, 60));
                     let stroke_for = |i: usize| {
                         if self.ref_dragging == Some(i) {
@@ -2626,25 +2867,14 @@ impl DigitiseApp {
                     // at once) is discoverable rather than a hidden
                     // hit-test-only gesture.
                     for (xi, yi) in [(0, 2), (0, 3), (1, 2), (1, 3)] {
+                        if self.axes_locked {
+                            break;
+                        }
                         let (Some(x), Some(y)) = (self.ref_px[xi], self.ref_px[yi]) else {
                             continue;
                         };
-                        let pos = to_screen(x, y);
                         let active = self.ref_dragging_corner == Some((xi, yi));
-                        painter.circle_filled(
-                            pos,
-                            if active { 6.0 } else { 4.0 },
-                            if active {
-                                Color32::from_rgb(255, 210, 60)
-                            } else {
-                                Color32::from_rgb(60, 120, 255)
-                            },
-                        );
-                        painter.circle_stroke(
-                            pos,
-                            if active { 6.0 } else { 4.0 },
-                            Stroke::new(1.0_f32, Color32::WHITE),
-                        );
+                        box_handles::paint_handle(&painter, to_screen(x, y), active);
                     }
                 }
                 CalibrationShape::Parallelogram => {
@@ -2662,27 +2892,23 @@ impl DigitiseApp {
                         {
                             painter.line_segment(
                                 [a, b],
-                                Stroke::new(1.5_f32, Color32::from_rgb(60, 120, 255)),
+                                if self.axes_locked {
+                                    Stroke::new(
+                                        1.5_f32,
+                                        Color32::from_rgba_unmultiplied(150, 150, 150, 170),
+                                    )
+                                } else {
+                                    Stroke::new(1.5_f32, Color32::from_rgb(60, 120, 255))
+                                },
                             );
                         }
                     }
                     for (i, sc) in screen_corners.iter().enumerate() {
+                        if self.axes_locked {
+                            break;
+                        }
                         let Some(pos) = sc else { continue };
-                        let active = self.para_dragging == Some(i);
-                        painter.circle_filled(
-                            *pos,
-                            if active { 6.0 } else { 4.0 },
-                            if active {
-                                Color32::from_rgb(255, 210, 60)
-                            } else {
-                                Color32::from_rgb(60, 120, 255)
-                            },
-                        );
-                        painter.circle_stroke(
-                            *pos,
-                            if active { 6.0 } else { 4.0 },
-                            Stroke::new(1.0_f32, Color32::WHITE),
-                        );
+                        box_handles::paint_handle(&painter, *pos, self.para_dragging == Some(i));
                     }
                 }
             }
@@ -2817,10 +3043,8 @@ impl DigitiseApp {
             }
             FileDialogTarget::SetupFolder => self.setup.folder = path,
             FileDialogTarget::PdfIngest => {
-                if let (Some(root), Some(wiki)) = (self.home.root(), self.wiki.as_mut()) {
-                    if let Err(message) = wiki.begin_ingest(root, std::path::Path::new(&path)) {
-                        self.set_error(message);
-                    }
+                if let Some(root) = self.home.root().cloned() {
+                    self.begin_ingest(&root, std::path::Path::new(&path));
                 }
             }
             FileDialogTarget::KvimFile => match std::fs::read_to_string(&path) {
@@ -3033,6 +3257,10 @@ impl DigitiseApp {
             parts.push(describe("standard corpus", &setup.standard));
             parts.push(describe("open corpus", &setup.open));
             parts.push(describe("proprietary corpus", &setup.proprietary));
+            for (tier, name, r) in &setup.others {
+                let what = format!("{} ({name})", tier.label().to_lowercase());
+                parts.push(describe(&what, r));
+            }
             parts.join("; ")
         });
         Ok(())
@@ -3137,6 +3365,7 @@ impl eframe::App for DigitiseApp {
             View::Wiki => {
                 let mut ingest_clicked = false;
                 let mut opened_paper = None;
+                let mut opened_corpus: Option<String> = None;
                 let mut knowledge_changed = false;
                 if let Some(root) = self.home.root().cloned() {
                     if self.workspace.is_none() {
@@ -3151,6 +3380,9 @@ impl eframe::App for DigitiseApp {
                                 Some(WikiAction::OpenPaper(citekey)) => {
                                     opened_paper = Some(citekey);
                                     knowledge_changed = true;
+                                }
+                                Some(WikiAction::OpenCorpusLiterature(id)) => {
+                                    opened_corpus = Some(id);
                                 }
                                 None => {}
                             }
@@ -3182,6 +3414,9 @@ impl eframe::App for DigitiseApp {
                 if let Some(citekey) = opened_paper {
                     self.activate_paper_and_navigate(&citekey);
                 }
+                if let Some(id) = opened_corpus {
+                    self.open_corpus_document(&id);
+                }
             }
             View::Mindmap => {
                 // The map needs no folder: without one it shows the built-in
@@ -3193,6 +3428,7 @@ impl eframe::App for DigitiseApp {
                     }
                 }
                 let mut opened_paper = None;
+                let mut opened_corpus: Option<String> = None;
                 let mut sort_paper = None;
                 let mut open_setup = false;
                 let mut knowledge_changed = false;
@@ -3206,6 +3442,7 @@ impl eframe::App for DigitiseApp {
                         .ui(ui, root.as_ref(), index, graph, self.recent.as_ref())
                     {
                         Some(MindmapAction::OpenPaper(citekey)) => opened_paper = Some(citekey),
+                        Some(MindmapAction::OpenCorpusLiterature(id)) => opened_corpus = Some(id),
                         Some(MindmapAction::SortPaper(citekey)) => sort_paper = Some(citekey),
                         // No Kovan folder yet and the user asked for
                         // something that needs one: open setup rather than
@@ -3236,6 +3473,9 @@ impl eframe::App for DigitiseApp {
                     {
                         w.open_sort_flow(citekey, &workspace.index);
                     }
+                }
+                if let Some(id) = opened_corpus {
+                    self.open_corpus_document(&id);
                 }
                 if let Some(citekey) = opened_paper {
                     // op-sr4n.3: route through the same
@@ -3294,7 +3534,10 @@ impl eframe::App for DigitiseApp {
                         .as_ref()
                         .is_none_or(|l| l.root != root.path())
                     {
-                        self.literature = Some(literature_list::LiteratureList::build(root));
+                        self.literature = Some(literature_list::LiteratureList::build(
+                            root,
+                            &crate::standard_corpus::StandardCorpus::for_root(Some(root)),
+                        ));
                     }
                     let current = self.reader_path.clone();
                     let action = egui::Panel::left("pdf_literature")
@@ -3307,15 +3550,8 @@ impl eframe::App for DigitiseApp {
                                 .and_then(|l| l.ui(ui, current.as_deref()))
                         })
                         .inner;
-                    match action {
-                        Some(literature_list::LiteratureAction::Open(path)) => {
-                            self.open_document(&path)
-                        }
-                        Some(literature_list::LiteratureAction::Refresh) => self.literature = None,
-                        Some(literature_list::LiteratureAction::Find) => {
-                            self.literature_finder.show()
-                        }
-                        None => {}
+                    if let Some(action) = action {
+                        self.literature_action(action);
                     }
                 }
                 egui::CentralPanel::default().show(ui, |ui| {
@@ -3639,6 +3875,7 @@ mod tests {
             access,
             topics: vec!["htgrs".to_string()],
             projects: vec![],
+            target: None,
         };
         ingest::ingest(root, &preview, choice).unwrap();
         citekey

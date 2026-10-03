@@ -158,7 +158,7 @@ fn nearest_calcem_record(table: &Iform0Table, ev: f64) -> Option<&IncidentEnergy
 /// tabulated value when `arg` matches a node to `1e-10` relative. `calcem`'s
 /// incident grid is increasing, which is the only case this serves; the
 /// decreasing-table branch of the Fortran is not needed and not ported.
-fn thermr_terp(x: &[f64], y: &[f64], arg: f64, il: usize) -> f64 {
+pub(crate) fn thermr_terp(x: &[f64], y: &[f64], arg: f64, il: usize) -> f64 {
     const SMALL: f64 = 1.0e-10;
     let nl = x.len();
     if nl == 0 {

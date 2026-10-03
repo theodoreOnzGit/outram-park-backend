@@ -253,6 +253,20 @@ pub struct SourceRef {
     /// metadata alone, with no document held locally.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub pdf: Option<PathBuf>,
+    /// The Kovan standard-corpus id ([`crate::corpus::CorpusLiterature::id`])
+    /// this paper holds the user's notes for, when it is one. The PDF is then
+    /// found through [`crate::standard_corpus::StandardCorpus`] wherever the
+    /// corpus is checked out, so `pdf` may be absent or stale without the
+    /// paper losing its document (GitHub issue on standard-corpus
+    /// documents not being recognised as ingested, 2026-09-30).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub corpus: Option<String>,
+    /// The name of the corpus repository ([`crate::corpus_tiers::CorpusRepo::name`])
+    /// the PDF was stored in or found in at ingest (GitHub issue #458: a
+    /// tier may hold several repositories). `None` for a paper ingested
+    /// before that, or whose PDF is in no corpus repository.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub repo: Option<String>,
 }
 
 /// Which topics and projects an entity belongs to (§7, §16).
@@ -477,6 +491,8 @@ impl EntityConfig {
                 access,
                 storage: StorageMode::default(),
                 pdf: None,
+                corpus: None,
+                repo: None,
             }),
             classification: Classification::unsorted(),
         }
@@ -537,11 +553,33 @@ impl EntityConfig {
     pub fn with_pdf(mut self, pdf: impl Into<PathBuf>) -> Self {
         let access = self.source.as_ref().map(|s| s.access).unwrap_or_default();
         let storage = self.source.as_ref().map(|s| s.storage).unwrap_or_default();
+        let corpus = self.source.as_ref().and_then(|s| s.corpus.clone());
+        let repo = self.source.as_ref().and_then(|s| s.repo.clone());
         self.source = Some(SourceRef {
             access,
             storage,
             pdf: Some(pdf.into()),
+            corpus,
+            repo,
         });
+        self
+    }
+
+    /// Record the corpus repository the PDF is in ([`SourceRef::repo`]). A
+    /// no-op without a `[source]`.
+    pub fn with_repo(mut self, repo: impl Into<String>) -> Self {
+        if let Some(source) = self.source.as_mut() {
+            source.repo = Some(repo.into());
+        }
+        self
+    }
+
+    /// Mark this paper as the notes for standard-corpus document
+    /// `corpus_id` ([`SourceRef::corpus`]). A no-op without a `[source]`.
+    pub fn with_corpus(mut self, corpus_id: impl Into<String>) -> Self {
+        if let Some(source) = self.source.as_mut() {
+            source.corpus = Some(corpus_id.into());
+        }
         self
     }
 

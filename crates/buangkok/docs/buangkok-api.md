@@ -167,13 +167,20 @@ workspace.
 
 # What this is NOT
 
-- **Not computed here, and not wired into any model.** Nothing in this
-  crate or in `htgr_sim_v1` reads it. `changi` still computes no dose
-  quantity (see `changi::activity`).
-- **Parked here, not settled here.** Dose is to live in the placeholder
+- **Not computed here, and not wired into any model.** ~~Nothing in this
+  crate or in `htgr_sim_v1` reads it.~~ **CORRECTED 2026-10-01:** nothing
+  uses it as a model input. `htgr_sim_v1` reads it **for display only**,
+  as two literature overlays (whole-body, as published) on the Map tab's
+  TEDE graph (#473); `sembawang::lwr_comparison::htr10_dba_vs_table9` and
+  this crate's `tests/liu_cao_external_dose_cross_check.rs` read it as a
+  comparison reference. `changi` still computes no dose quantity (see
+  `changi::activity`).
+- ~~**Parked here, not settled here.** Dose is to live in the placeholder
   crate `buangkok` eventually, but the maintainer (2026-09-28) has asked
-  for the dose tables to stay in `changi` until they decide. Do not move
-  it, and do not build dose computation around it, unasked.
+  for the dose tables to stay in `changi` until they decide.~~
+  **CORRECTED 2026-10-01:** it lives in `buangkok` (this file and
+  `reference/htr10_accident_individual_dose_by_distance.csv`), not
+  `changi`. Do not build dose computation around it, unasked.
 - **Not a basis for emergency planning, emergency-zone sizing, siting,
   licensing or any safety decision**, for HTR-10 or any other plant.
   `RESPONSIBLE_USE.md` applies in full. This workspace uses it for
@@ -691,7 +698,17 @@ inhalation) for the nuclides `htgr_sim_v1` tracks, as the port's own table
 types. Not a port; see the module docs for provenance.
 Freely usable dose coefficients from the US EPA Federal Guidance Reports,
 for the five nuclides `htgr_sim_v1` tracks (Kr-85, Xe-133, I-131, Cs-137,
-Ag-110m) plus Cs-137's short-lived daughter Ba-137m.
+Ag-110m) plus Cs-137's short-lived daughter Ba-137m, all ages. The two
+FGR-15 tables also carry the 18 further nuclides of Liu & Cao (2002)
+Tables 5 and 8, **Adult only** (younger ages NaN = missing), added
+2026-09-29 for the gh:#379 cross-check -- the workspace's one source of
+FGR coefficients. The progeny table still holds only Cs-137 -> Ba-137m, so
+e.g. Kr-88 -> Rb-88 is not corrected for.
+
+The FGR-11 inhalation table gained **I-132, I-133, I-134, I-135, Cs-134,
+Sr-89 and Sr-90** on 2026-09-30, for `sembawang`'s HTR-10 air-ingress dose
+example. It now holds 10 nuclides; H-3, C-14 and every other Liu & Cao
+nuclide still have **no inhalation entry (missing, not zero)**.
 
 **Not a port.** The pyDOSEIA port ([`crate::pydoseia`]) ships no
 coefficient data and takes caller-supplied tables in upstream's CSV layout.

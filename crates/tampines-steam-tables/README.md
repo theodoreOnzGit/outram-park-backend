@@ -210,6 +210,15 @@ cargo test --release -p tampines-steam-tables --lib
 cargo test --release -p tampines-steam-tables --test edwards_blowdown
 ```
 
+**KNOWN LIMITATION, not an endorsement (maintainer, 2026-09-29, gh:#406).**
+The Edwards numbers (plateau 359.0 psia, GS-1 RMSE 42.8 psia) are valid **only
+under the unbounded linear enthalpy scheme** (`EnergyConvectionScheme::Linear`,
+`Gauss linear`), which the array no longer uses by default. Under the bounded
+default (van Leer) the break cell over-drains to the IF97 273.15 K floor and the
+run panics; under upwind the hybrid-ringing check fails. The linear scheme
+likely **masks** the break-cell over-drain rather than resolving it. The pin is
+kept deliberately, as a save point. Future work: gh:#406.
+
 **Current status, measured 2026-08-11:** `--lib` gives **924 passed, 0 failed,
 14 ignored**. List the ignored ones with
 `cargo test --release -p tampines-steam-tables --lib -- --ignored --list`.
@@ -304,11 +313,16 @@ Every arrow points **down** to `outram-foam-basic-lib`. **Note (verified
 against `Cargo.toml`, 2026-08-11): that edge was never actually drawn.**
 The OpenFOAM primitives `TampinesSteamArray` needs were instead **vendored
 in-crate** under `src/openfoam_algorithms/openfoam_source/` as
-`pub(crate)` modules (see "Current choice" below), so this crate's
+`pub(crate)` modules (see "Current choice" below), so ~~this crate's
 `[dependencies]` are only `approx`, `ndarray`, `thiserror`, `uom` — no
-`outram-foam-basic-lib`, and nothing depends on `tampines-steam-tables`
-from the OpenFOAM stack yet. The cycle analysis below still documents the
-constraint any future real dependency edge must respect.
+`outram-foam-basic-lib`~~ **CORRECTED 2026-10-03 (GitHub #492):** this
+crate now depends **downward** on `outram-foam-basic-lib` (Solution A's
+edge direction) for the `FvMesh`, `MeshError`, 1-D mesher and tensor
+primitives, which were code-identical copies and are now re-exports; the
+rest of `openfoam_source/` is still vendored. Nothing depends on
+`tampines-steam-tables` from the OpenFOAM stack, so there is no cycle. The
+cycle analysis below still documents the constraint every dependency edge
+must respect.
 
 ### The invariant
 
@@ -427,14 +441,25 @@ tables one layer up.
 operators, LDU matrix, interpolation, thermophysics kernels, …) were
 **vendored into this crate** as a copy under
 `src/openfoam_algorithms/openfoam_source/`, kept `pub(crate)` so none of it
-leaks into the public API. This crate's `[dependencies]` are therefore only
+leaks into the public API. ~~This crate's `[dependencies]` are therefore only
 `approx`, `ndarray`, `thiserror`, `uom` — property-only consumers get a lean
 crate with no OpenFOAM dependency (the outcome Solution **D** aimed for),
 while `TampinesSteamArray` still builds on OpenFOAM-style primitives
 in-crate. The forbidden `outram-foam-basic-lib → tampines` edge is never
 drawn, and in fact no dependency edge exists between the two crates in
-either direction; Solutions **A**/**B** remain the plan for wiring the
-steam tables into `outram-foam-appbuilder-lib`-level solvers.
+either direction~~ **CORRECTED 2026-10-03 (GitHub #492, maintainer default
+"merge the FvMesh copies where identical or trivially compatible"):** the
+`FvMesh`/`MeshError` (a strict subset of foam-basic-lib's), the 1-D mesher
+and the five tensor-primitive modules (code-identical) were deleted here and
+are re-exported from `outram-foam-basic-lib` (5,917 lines removed across this
+crate and `outram-park-fork-coolprop`). The cost: property-only consumers now
+compile `outram-foam-basic-lib` (about 59k lines; the crate count goes from
+18 to 19, since its own dependencies were already ours). That gives up the
+"lean, no OpenFOAM dependency" outcome Solution **D** aimed for; it is one
+commit and can be reverted if that weight matters more. The forbidden
+`outram-foam-basic-lib → tampines` edge is still not drawn. Solutions
+**A**/**B** remain the plan for wiring the steam tables into
+`outram-foam-appbuilder-lib`-level solvers.
 
 
 # Changelog

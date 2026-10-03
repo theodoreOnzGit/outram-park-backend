@@ -727,7 +727,8 @@ mod desktop {
                  collision"
             );
             println!(
-                "        kernel, and with_target_at_rest makes that same function return 0.0."
+                "        kernel (until GitHub #313, 2026-09-30, made it the data temperature), and \
+                 with_target_at_rest makes that same function return 0.0."
             );
             println!(
                 "    The two routes are therefore mechanically identical on this case, and the \

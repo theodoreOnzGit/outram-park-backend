@@ -8,7 +8,7 @@ use outram_mc_libs::rng::lcg::prn;
 const FISSILE: usize = 0; // the UO2 kernel slot
 
 fn main() {
-    let core = assemble_explicit_triso(8, 12, usize::MAX);
+    let core = assemble_explicit_triso(8, 6, usize::MAX);
     let u = Direction::new(0.0, 0.0, 1.0);
     let mut seed = 1_u64;
     const N: usize = 4_000_000;

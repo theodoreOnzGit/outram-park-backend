@@ -29,6 +29,12 @@ from the primary circuit, decay, deposition and filtered exhaust to the stack,
 from published figures (Jiang et al. 2002; Liu & Cao 2002), stepped exactly.
 Everything else in the scope below is **not implemented**.
 
+**Deferred (GitHub #409, maintainer 2026-09-29).** Reactor-building work waits
+until next week or next month. `htgr_sim_v1` does **not** credit the building
+by default (conservative: the circuit leak goes straight to the stack); this
+CV is kept, unchanged, off that default path. Do not develop it further until
+#409 is taken up.
+
 The name and backronym come from the roadmap slides (`slides/outram-park.tex`,
 2026-09-14), which also say BISHAN depends on RAFFLES for its probabilistic
 machinery. That dependency is **deliberately not declared yet**; it is added

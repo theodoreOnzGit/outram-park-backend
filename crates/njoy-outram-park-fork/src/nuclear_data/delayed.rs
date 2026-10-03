@@ -82,6 +82,10 @@ pub struct DelayedNuBar {
     /// (`LDG=1`) and [`Self::lambda`] holds the lowest-energy set (see the
     /// type-level note); `false` for the standard `LDG=0` form.
     pub ldg1_energy_dependent: bool,
+    /// `nu_delayed`'s interpolation regions `(NBT, INT)`; empty means lin-lin.
+    /// Honoured by [`Self::nu_delayed_at`] as OpenMC's `Tabulated1D` does
+    /// (GitHub #365 audit: they used to be dropped).
+    pub interp: Vec<(u32, u32)>,
 }
 
 impl DelayedNuBar {
@@ -126,14 +130,16 @@ impl DelayedNuBar {
         };
 
         // Delayed ν̄_d(E): TAB1 for LNU=2, polynomial LIST for LNU=1.
-        let (energy, nu_delayed) = match lnu {
+        let (energy, nu_delayed, interp) = match lnu {
             2 => {
                 let tab1 = cur.read_tab1()?;
-                tab1.pairs.iter().copied().unzip()
+                let (e, v): (Vec<f64>, Vec<f64>) = tab1.pairs.iter().copied().unzip();
+                (e, v, tab1.interp)
             }
             1 => {
                 let list = cur.read_list()?;
-                Self::sample_polynomial(&list.data)
+                let (e, v) = Self::sample_polynomial(&list.data);
+                (e, v, Vec::new())
             }
             other => {
                 return Err(NjoyError::EndfParse(format!(
@@ -147,6 +153,7 @@ impl DelayedNuBar {
             energy,
             nu_delayed,
             ldg1_energy_dependent: ldg1,
+            interp,
         })
     }
 
@@ -183,9 +190,18 @@ impl DelayedNuBar {
         self.lambda.get(g).map(|&l| Frequency::new::<hertz>(l))
     }
 
-    /// Interpolate total delayed ν̄_d at incident energy `e` \[eV\] (lin-lin,
-    /// clamped at the ends). Returns `0.0` if no ν̄_d table was parsed.
+    /// Interpolate total delayed ν̄_d at incident energy `e` \[eV\] on the
+    /// table's own regions ([`Self::interp`]), clamped at the ends. Returns
+    /// `0.0` if no ν̄_d table was parsed.
     pub fn nu_delayed_at(&self, e: f64) -> f64 {
+        if !crate::nuclear_data::secondary::is_lin_lin(&self.interp) {
+            return crate::nuclear_data::secondary::tabulated1d_at_xy(
+                &self.interp,
+                &self.energy,
+                &self.nu_delayed,
+                e,
+            );
+        }
         interp_clamped(&self.energy, &self.nu_delayed, e)
     }
 }
@@ -230,6 +246,9 @@ pub struct DelayedChiGroup {
     /// The group's probability fraction p_k(E) as `(E [eV], fraction)` — the
     /// per-group share of the total delayed emission vs incident energy.
     pub fraction: Vec<(f64, f64)>,
+    /// `fraction`'s interpolation regions `(NBT, INT)`; empty means lin-lin.
+    /// GitHub #365 audit: they used to be dropped.
+    pub fraction_interp: Vec<(u32, u32)>,
     /// ENDF `LF` law code for this group's outgoing spectrum (5 or 1 here).
     pub lf: i32,
     /// Outgoing-energy spectrum samples `(E' [eV], density [eV⁻¹])`, ascending
@@ -355,6 +374,7 @@ impl DelayedChi {
             let p_tab = cur.read_tab1()?;
             let lf = p_tab.head.l2;
             let fraction = p_tab.pairs.clone();
+            let fraction_interp = p_tab.interp.clone();
 
             use crate::nuclear_data::secondary::{ChiTabular, FissionSpectrum};
             let (spectrum, law) = match lf {
@@ -413,6 +433,7 @@ impl DelayedChi {
 
             groups.push(DelayedChiGroup {
                 fraction,
+                fraction_interp,
                 lf,
                 spectrum,
                 law,

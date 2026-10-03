@@ -69,7 +69,9 @@ crate was created that day to reserve the name. It now holds:
   now ships one such caller-supplied set: **US EPA FGR-15 (2025 revision, EPA
   402-R-25-001)** air-submersion (Table 4-6) and ground-surface (Table 4-1)
   dose-rate coefficients and **FGR-11** (Table 2.1) inhalation coefficients,
-  for Kr-85, Xe-133, I-131, Cs-137 (+ Ba-137m) and Ag-110m only, with
+  for Kr-85, Xe-133, I-131, Cs-137 (+ Ba-137m) and Ag-110m (all ages) ~~only~~,
+  plus, since 2026-09-29 (gh:#379), FGR-15 Adult-only rows for the 18 other
+  nuclides Liu & Cao release, with
   provenance in [`docs/References.md`](docs/References.md). Half-lives come
   from `boon-lay`, not from here.
 - ~~Nothing in the workspace calls it yet. It is not wired into

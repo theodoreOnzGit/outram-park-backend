@@ -32,10 +32,18 @@
 //! a larger σ than the exact `2·a` (`scalar_mul`), which is the correct behaviour
 //! for the independent-samples assumption and is asserted in the verification test.
 //!
+//! **The arithmetic moved 2026-10-02** to `raffles::estimators`
+//! (`sigma_sum`, `product_with_sigma`, `quotient_with_sigma`, `sum_with_sigma`;
+//! GitHub #500), byte for byte. [`DerivedTally`] keeps the tally selection
+//! and readout and calls it.
+//!
 //! No `Box`, no trait objects, no lifetime parameters — a plain owned struct of two
 //! `Vec<f64>` (per the crate's Rust design rules).
 
 use super::tally::{Tally, TallyBin};
+// The propagation formulas are RAFFLES' since 2026-10-02 (GitHub #500); which
+// tallies are combined, and how a bin is read out, stays here.
+use raffles::estimators::{product_with_sigma, quotient_with_sigma, sigma_sum, sum_with_sigma};
 
 /// A derived tally result: parallel arrays of per-bin **mean** and **absolute
 /// standard deviation**.
@@ -67,18 +75,6 @@ fn bin_mean_std(bin: &TallyBin, n_realizations: u64) -> (f64, f64) {
         0.0
     };
     (mean, std)
-}
-
-/// Relative-variance term `(σ/x)²`, guarded so a zero value contributes `0`
-/// instead of a `NaN`/`∞` (the value's own magnitude then dominates the product
-/// in [`DerivedTally::mul`]/[`DerivedTally::div`], matching OpenMC's convention of
-/// treating an exact-zero bin as carrying no relative uncertainty).
-fn rel_var(x: f64, s: f64) -> f64 {
-    if x == 0.0 {
-        0.0
-    } else {
-        (s / x).powi(2)
-    }
 }
 
 impl DerivedTally {
@@ -160,32 +156,26 @@ impl DerivedTally {
 
     /// Elementwise sum `a + b` with `σ = sqrt(σa² + σb²)`. Panics on length mismatch.
     pub fn add(&self, other: &DerivedTally) -> DerivedTally {
-        self.zip_map(other, |a, sa, b, sb| (a + b, (sa * sa + sb * sb).sqrt()))
+        self.zip_map(other, |a, sa, b, sb| (a + b, sigma_sum(sa, sb)))
     }
 
     /// Elementwise difference `a - b` with `σ = sqrt(σa² + σb²)`. Panics on length
     /// mismatch.
     pub fn sub(&self, other: &DerivedTally) -> DerivedTally {
-        self.zip_map(other, |a, sa, b, sb| (a - b, (sa * sa + sb * sb).sqrt()))
+        self.zip_map(other, |a, sa, b, sb| (a - b, sigma_sum(sa, sb)))
     }
 
     /// Elementwise product `a · b` with `σ = |a·b|·sqrt((σa/a)² + (σb/b)²)`.
     /// Panics on length mismatch.
     pub fn mul(&self, other: &DerivedTally) -> DerivedTally {
-        self.zip_map(other, |a, sa, b, sb| {
-            let v = a * b;
-            (v, v.abs() * (rel_var(a, sa) + rel_var(b, sb)).sqrt())
-        })
+        self.zip_map(other, product_with_sigma)
     }
 
     /// Elementwise quotient `a / b` with `σ = |a/b|·sqrt((σa/a)² + (σb/b)²)`.
     /// Panics on length mismatch. A zero denominator yields a non-finite value —
     /// the caller must guard against zero-flux bins (the verification test does).
     pub fn div(&self, other: &DerivedTally) -> DerivedTally {
-        self.zip_map(other, |a, sa, b, sb| {
-            let v = a / b;
-            (v, v.abs() * (rel_var(a, sa) + rel_var(b, sb)).sqrt())
-        })
+        self.zip_map(other, quotient_with_sigma)
     }
 
     /// Scale every bin by an **exact** scalar `k`: value `k·a`, `σ = |k|·σa`.
@@ -203,9 +193,7 @@ impl DerivedTally {
     /// Reduce all bins to a single `(sum, σ)` with `σ = sqrt(Σ σᵢ²)` (mirrors
     /// `openmc.Tally.summation`).
     pub fn sum(&self) -> (f64, f64) {
-        let s: f64 = self.values.iter().sum();
-        let var: f64 = self.std_devs.iter().map(|x| x * x).sum();
-        (s, var.sqrt())
+        sum_with_sigma(&self.values, &self.std_devs)
     }
 
     /// Shared elementwise combinator: apply `f(a, σa, b, σb) -> (value, σ)` bin by

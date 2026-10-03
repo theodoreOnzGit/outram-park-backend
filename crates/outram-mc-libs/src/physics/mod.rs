@@ -12,7 +12,7 @@
 //!   external neutron source (point/box) driving a sub-critical or
 //!   non-multiplying system, scoring track-length tallies. No `k_eff` / power
 //!   iteration; the second canonical MC mode (shielding / detector response).
-//!   Reuses [`transport_csg::transport_history`] for the per-history physics.
+//!   Reuses [`transport_csg::transport_history_vr`] for the per-history physics.
 //! - [`physics_mg`] — multigroup transport (group-averaged cross sections;
 //!   pending / partial).
 //! - [`reactor_physics::run_keff_reactor_physics`] — k-eigenvalue **plus**

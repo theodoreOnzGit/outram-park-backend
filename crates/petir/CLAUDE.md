@@ -82,6 +82,24 @@ Five things about them bind future work:
   the standard published tables. All weights are correct and were never
   touched.
 
+### A fifth non-GSL port: OpenMC's RNG (2026-10-02)
+
+`src/rng/lcg.rs` (OpenMC `random_lcg.cpp`, MIT) and `src/wgsl/shaders/lcg.wgsl`
+were **moved in, not ported here**: both were ported in `outram-mc-libs` and
+moved at the maintainer's direction so `raffles` could drop its dependency on
+the transport crate. Bind future work as follows:
+
+- **Not a single random number may change.** `rng::lcg`'s
+  `moved_stream_is_pinned` holds values printed by the pre-move file. Every
+  seed-pinned k_eff in `outram-mc-libs`, `boon-lay` and `nee_soon` depends on
+  this stream. A change to `prn`'s bits is a maintainer decision, not a
+  refactor.
+- **`lcg.wgsl` is composed into `outram-mc-libs`' `batched_flight.wgsl` and
+  `batched_event.wgsl`** at pipeline creation. Renaming `petir_lcg_next` or its
+  helpers breaks that crate, and its device tests
+  (`gpu_lcg_advance_directly.rs`) are the GPU gate for this shader.
+- **`rng::distributions` was deliberately NOT moved** — see `src/rng/mod.rs`.
+
 **`peroxide` as a DEPENDENCY remains ruled out** (it pulls
 `blas`/`lapack`/`netcdf`/`arrow`, which the "Dependencies" section below
 forbids). That is a separate question from porting a pure-Rust routine out of

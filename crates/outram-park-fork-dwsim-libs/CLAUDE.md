@@ -5,7 +5,14 @@ Pure-Rust port of DWSIM thermal-hydraulics and thermodynamics kernels.
 The reference source lives at (STRICTLY READ-ONLY, pinned):
 `/home/teddy0/Documents/research/dwsim-upstream/`
 (branch `windows`, commit `1abf72d1b6b41d3e9a8cc770d3cc4e8fc76e5766`,
-cloned 2026-07-17). Do **not** use the older, stale clone at
+~~cloned 2026-07-17~~ **CORRECTED 2026-10-02** — on snrsi-arch-desktop this
+directory did not exist until it was cloned on 2026-10-02 and checked out at
+the pin, made read-only with `chmod -R a-w`; the 2026-07-17 / 2026-09-13 /
+2026-09-25 work used a cloud container at `/home/user/dwsim-upstream`). The
+writable build copy, Mono toolchain and merged run directory live beside it at
+`/home/teddy0/Documents/research/dwsim-build/` and `.../dwsim-toolchain/`
+(see `docs/upstream-harness/README.md`, "Building without root"). Do **not**
+use the older, stale clone at
 `/home/teddy0/Documents/research/dwsim/` — ports since 2026-08 cite the
 pinned `dwsim-upstream` commit in their attribution headers.
 
@@ -106,12 +113,55 @@ what a reader should treat as the real current evidence:
 | Wang-Henke ⟷ Naphtali-Sandholm cross-check at NS's D | Q₇ −0.018785 W, profiles agree to 0.001 K |
 | Test suite | 705 lib, 18 doc, 11 integration, 0 failing |
 
+**CSTR, measured 2026-09-25 — cross-code, not validation.** A real upstream
+`Reactor_CSTR` on a headless flowsheet against `reactors::Cstr`
+(`tests/upstream_cstr_parity.rs`, driver `docs/upstream-harness/cstr_driver.cs`):
+
+| case | worst relative gap |
+|---|---|
+| liquid n-butane → isobutane, first order | 4.9e-12 |
+| vapour n-butane → isobutane *(diagnostic build)* | 1.7e-13 |
+| steam reforming + shift, 5 species *(diagnostic build)* | 6.1e-10 per species flow |
+
+Two conditions make that a comparison of *solvers*: this crate is handed
+upstream's **outlet** `Q` (upstream re-flashes every sweep, this crate holds
+`Q` fixed), and upstream is run at `Tolerance` 1e-11 to 1e-13, because its
+default `1e-5` stops on per-step change and leaves the steam-reforming case
+with a 0.138 mol/s balance residual. Handed the **inlet** `Q`, as a caller
+normally would, this crate overstates steam-reforming conversion by **+9.6 %**
+(0.411745 vs 0.375803). That is the documented constant-`Q` simplification,
+now with a number on it, not a solver defect.
+
+**Upstream defect found by this run** (GitHub issue #326): an all-vapour CSTR
+returns **zero conversion** on the pristine build, because the first
+relaxation step is `ResidenceTimeL/10` and `ResidenceTimeL = V/(QL+QS)` is
+zero with no liquid. The vapour rows above therefore come from a build copy
+carrying a one-line diagnostic patch, and are labelled so.
+
+**All five reactors, measured 2026-10-02 — cross-code, not validation.** Each
+pinned by `tests/upstream_<reactor>_parity.rs` with a driver in
+`docs/upstream-harness/`. "Solver" is the port handed upstream's own `Q` / φ /
+`g°/RT`; "normal use" is the port as a caller runs it.
+
+| reactor | solver vs upstream | found |
+|---|---|---|
+| conversion | ≤ 3.7e-16 (6 cases) | port: no rank groups — parallel reactions +75 % CH4 (fixed, #477); upstream: penalty scope loses 25 % C (#478); `ReactionPhase` not ported, +67 % (#479) |
+| equilibrium | ≤ 3.9e-12 | port: fugacity basis was `x`, +129 % (fixed, #482); ideal φ +1.1 % at 30 bar (#483); upstream default tolerance stops short / NaN (#484) |
+| Gibbs | ≤ 8.5e-6 (GibbsMin), ≤ 3.5e-7 (Lagrange) | upstream: Lagrange `ln(P/P0)/(RT)` slip, fails ≤ 2 bar (#485); port `p_ref = 1e5` default costs +1.3–2.7 % CH4 |
+| PFR | 1.4e-10 / 2.6e-9 / 2.0e-10 | upstream: 99 % of each segment integrated when `ΔV/(0.01ΔV)` truncates, +1.9 % (#480); constant `Q` costs 6.0 % on SMR (#483) |
+| sour water (T19) | K(T) 2.3e-13, speciation 1.8e-7 vs upstream with its `:475` patched | upstream: HS⁻ closure +0.11–0.59 pH (#487), carbon closure fails every CO2 case (#488), flash discards speciation (#489), asymmetric PR k_ij (#490); port: no sour-water VLE flash, no k_ij table / H2S preset — k_ij = 0 costs K_CH4 −99.5 % (#491) |
+| CSTR (+LH case) | 2.4e-13 | port: heterogeneous catalytic rate ignored LH denominator and catalyst mass, −99.1 % (fixed in CSTR and PFR, #481) |
+
 ## Running upstream DWSIM headless (for code-to-code verification)
 
 Established 2026-09-13. Upstream DWSIM **can** be built and run on Linux from
 the pinned commit, which makes the cross-code bar above measurable. The
-pinned clone at `/home/user/dwsim-upstream` stays **read-only**; build from a
-copy.
+pinned clone ~~at `/home/user/dwsim-upstream`~~ (**CORRECTED 2026-10-02**:
+that is the cloud container's path; on snrsi-arch-desktop it is
+`/home/teddy0/Documents/research/dwsim-upstream`) stays **read-only**; build
+from a copy. The `apt-get` route below needs root; a root-free route (Mono from
+conda-forge, VB runtime from the Ubuntu pool, the host `dotnet` SDK 10) was
+used on 2026-10-02 and is in `docs/upstream-harness/README.md`.
 
 ```bash
 apt-get install -y dotnet-sdk-8.0 mono-complete   # MS CDN is proxy-blocked; Ubuntu's archive works
@@ -121,8 +171,13 @@ dotnet msbuild DWSIM.Thermodynamics/DWSIM.Thermodynamics.vbproj \
 ```
 
 Six things are required, and none of them touches thermodynamic code:
+(**2026-09-25:** items 2 and 3 can instead be applied with no project-file edits
+by copying `docs/upstream-harness/Directory.Build.props` and `.targets` to the
+build-copy root; the harness README says why and lists two further
+requirements for running a flowsheet.)
 
-1. **`packages/` is ~80 % incomplete** (102 of 128 absent). `dist.nuget.org` is
+1. **`packages/` is ~80 % incomplete** (102 of 128 absent; **in a fresh clone
+   on 2026-10-02 it was absent entirely, all 128**). `dist.nuget.org` is
    proxy-blocked, so fetch each `.nupkg` from `api.nuget.org`'s
    `v3-flatcontainer` endpoint at the exact version in `packages.config` and
    unzip to `packages/<Id>.<Version>/`.

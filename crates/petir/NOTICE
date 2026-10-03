@@ -130,6 +130,31 @@ COPYRIGHT HOLDERS
     math/math_err.c       Copyright (c) 2018, Arm Limited
 
 ================================================================================
+DERIVED WORK — OpenMC (random number generator)
+================================================================================
+
+`src/rng/lcg.rs` ports OpenMC's `src/random_lcg.cpp` and
+`include/openmc/random_lcg.h` (the 64-bit LCG, its PCG-RXS-M-XS output
+permutation adapted by OpenMC from pcg-c, the O(log n) jump-ahead of
+F. Brown 1994, and `init_seed`). `src/wgsl/shaders/lcg.wgsl` transcribes its
+state advance to WGSL. Both were moved here on 2026-10-02 from
+`outram-mc-libs`, where they were first ported; the attribution moved with
+them.
+
+  Project    : OpenMC
+  Upstream   : https://github.com/openmc-dev/openmc
+  Commit     : d7d3284a1b13d7cae020e0d8fea9f1e60d91b18b (2026-09-05)
+  Licence    : MIT
+
+  `LICENSE` in the upstream tree opens:
+
+      Copyright (c) 2011-2026 Massachusetts Institute of Technology, UChicago
+      Argonne LLC, and OpenMC contributors
+
+  followed by the standard MIT permission notice. MIT is permissive and
+  GPL-3.0-compatible; the flow is ONE-WAY.
+
+================================================================================
 OTHER UPSTREAM SOURCES
 ================================================================================
 

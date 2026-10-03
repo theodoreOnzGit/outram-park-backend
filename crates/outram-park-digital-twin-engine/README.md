@@ -100,6 +100,21 @@ cargo run --release --example fhr_sim_v2
 scaffold, but a demo"). A demo is an offline demonstration for education and
 research, not a validated or operational tool (`RESPONSIBLE_USE.md`).
 
+> **Read this first (2026-09-29, gh:#387, #408, #409).**
+> - **One delayed-neutron fraction everywhere**, beta_eff = 7.26e-3 (Chen et
+>   al. 2009), for the rods, the prompt layer and the delayed bank.
+> - **The delayed-neutron precursors start EMPTY** and fill over the first
+>   minutes (the longest group's ~56 s half-life sets the scale; within 1 % of
+>   equilibrium after 245 s at 10 MW). From a cold start at net 0 $ the power
+>   first drops. Early-transient numbers are the precursors filling, not plant
+>   behaviour.
+> - **Decay heat starts at equilibrium**, a conservative choice (more decay
+>   heat early).
+> - **Rod worth vs the feedback reference is demo-grade** (cold-clean worth
+>   against an illustrative 950 K feedback zero; gh:#408).
+> - **The reactor building is not credited** (conservative): the primary leak
+>   goes straight to the stack (gh:#409).
+
 A helium-cooled, graphite-moderated ~~prismatic-block~~ **pebble-bed**
 (HTR-10-shaped; CORRECTED 2026-09-28 — the prismatic core was replaced by the
 pebble bed in `physics/reactor_model/one_node.rs`) HTGR: reactor kinetics, a

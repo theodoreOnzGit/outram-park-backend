@@ -67,6 +67,23 @@ Blender  —  ARCHITECTURE THIS CRATE DERIVES FROM
   provenance header block (project, source file, commit, copyright, licence)
   per the workspace RESEARCH_INTEGRITY_AND_PROVENANCE.md.
 
+--------------------------------------------------------------------------------
+OpenMC  —  SOURCE OF THE CSG GEOMETRY UNDER src/csg/ (added 2026-10-02)
+--------------------------------------------------------------------------------
+  Upstream:   https://github.com/openmc-dev/openmc
+  Copyright:  (c) 2011-2026 Massachusetts Institute of Technology, UChicago
+              Argonne LLC, and OpenMC contributors
+  Licence:    MIT (reproduced as LICENSE.openmc), GPL-3.0-compatible
+
+  The CSG geometry description and its pure navigation kernel under src/csg/
+  (position, surfaces, cells, universes, lattices, geometry location and
+  boundary distance, the TRISO particle builder) are a Rust port of OpenMC's
+  geometry (src/surface.cpp, src/cell.cpp, src/universe.cpp, src/lattice.cpp,
+  src/geometry.cpp, include/openmc/position.h and their headers). The port was
+  written in outram-mc-libs and moved here, with its provenance, on
+  2026-10-02 (GitHub issue #486). Each file carries an upstream provenance
+  header block; do not strip it during refactors.
+
 ================================================================================
 Trademarks and non-affiliation
 ================================================================================

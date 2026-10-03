@@ -96,29 +96,31 @@ pub const H2O_XS: &[XsPoint] = &[
 
 /// The envelope [`H2O_XS`] is asserted inside.
 ///
+/// **Tightened 2026-09-30 from 1.5 % to 0.3 %, the level of graphite's.** The
+/// comment on this issue had said to do exactly that when #188's cross-section
+/// defect was fixed. The ENDF-route σ_inel is now THERMR's own `calcem` xsi on
+/// its own grid, at OpenMC's THERMR tolerance of 0.001 (it had been an analytic
+/// integral, at 0.05). Measured worst deviation against this table: +0.02 %.
+/// The per-row comments below are the superseded 2026-09-11 measurement.
+///
 /// **Tightened 2026-09-13 from 2 % to 1.5 %**, against a worst measured
 /// deviation of −1.39 % (was +1.47 % before the E' quadrature fix; see
 /// [`H2O_XS`] for the full before/after). The comparison is fully deterministic
 /// — no RNG anywhere in it — so a gate 0.11 % above the worst measured point is
 /// a gate, not a flake.
-pub const H2O_XS_TOL: f64 = 0.015;
+pub const H2O_XS_TOL: f64 = 0.003;
 
-/// The **sign** [`H2O_XS`]'s error is expected to carry: `-1` for a deficit.
-///
-/// Recorded as `+1` (a consistent excess) until 2026-09-13, when fixing this
-/// crate's E' quadrature removed the excess and left a smaller deficit at all
-/// eleven points. The sign is asserted separately from the magnitude because a
-/// one-signed error is evidence about *which* defect is present, and a flip is
-/// worth stopping for — which is exactly how the quadrature fix announced
-/// itself.
-pub const H2O_XS_EXPECTED_SIGN: f64 = -1.0;
+// ~~`H2O_XS_EXPECTED_SIGN` (-1, a one-signed deficit)~~: removed 2026-09-30.
+// The deficit was the analytic σ_inel integral and the 0.05 tolerance (GitHub
+// #188, #407). With `calcem` xsi the residual is +0.02 %, which is noise
+// around zero and carries no sign to assert.
 
-/// NJOY's H-in-H₂O law runs to **10 eV**; this crate's ends between 2 and 4 eV.
-///
-/// That is why [`H2O_XS`] stops at 2 eV. The handover to free gas is a real
-/// difference between the two codes and is asserted separately, rather than
-/// being hidden by truncating the comparison silently.
-pub const H2O_LAW_UPPER_BOUND_EV: (f64, f64) = (2.0, 4.0);
+/// ~~NJOY's H-in-H₂O law runs to 10 eV; this crate's ends between 2 and 4 eV.~~
+/// **CORRECTED 2026-09-30 (GitHub #459):** this crate's law now ends where
+/// NJOY's does, at the top of THERMR's table run with `emax` = the tape's B(4),
+/// which is 10.0 eV. The range is asserted by
+/// `h2o_sab_law_extends_to_njoys_10_ev`.
+pub const H2O_LAW_UPPER_BOUND_EV: (f64, f64) = (9.99, 10.00008);
 
 /// **H-in-H₂O scattering kernel**, THERMR MF=6/MT=222 for `tsl-HinH2O` at
 /// 293.6 K, reduced to its first moment: `(E [eV], <E'>/E, xi = <ln(E/E')>)`.

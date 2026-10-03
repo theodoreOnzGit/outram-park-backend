@@ -5,7 +5,13 @@ comparison with three critical experiments. **No human V&V sign-off.** This is
 an AI-assisted draft under `RESPONSIBLE_USE.md`, not for any operational,
 licensing or safety use.
 
-**Status (2026-09-29, INTERIM).**
+**Status (2026-09-30).** All five routes are complete for all four cases.
+Routes 3–5 are at `0414bc8277`, after the OpenMC-parity audit (#407); see
+"Results — after the OpenMC-parity audit" below. The lattice is at 96 seeds on
+routes 1 and 3–5. The table that follows is the superseded interim status,
+kept for the history.
+
+~~**Status (2026-09-29, INTERIM).**~~
 
 | route(s) | state |
 |---|---|
@@ -100,8 +106,11 @@ Data and decks:
   0; outram-mc has no lower bound.
 - **Estimators.** OpenMC's generation-mean k agrees with its combined k to
   within 1σ on every case.
-- **Thermal sampling (#188).** outram-mc's thermal scattering uses the
-  deliberate #188 scheme, not OpenMC's. It is now excluded as the cause of #367
+- **Thermal sampling (#188).** ~~outram-mc's thermal scattering uses the
+  deliberate #188 scheme, not OpenMC's.~~ **CORRECTED 2026-09-29: never a maintainer decision; replaced by OpenMC's scheme per the maintainer** (GitHub #407): the
+  equiprobable S(a,b) form is now sampled with OpenMC's
+  `IncoherentInelasticAEDiscrete` on both routes. The #188 scheme survives only
+  as `--ablate legacy-thermal-sampling`. It was excluded as the cause of #367
   (see below).
 
 ### Settings and statistics
@@ -189,70 +198,141 @@ fixed; it runs since then.
 | P2 | after the thermal fixes, route 2 − route 1 within 2σ of 0 on HST-009 and LCT-008 | **held**: +41 ± 38 and −3 ± 11 (was −96 ± 33 and −94 ± 11) |
 | P3 | #367: if outram-mc's S(α,β) sampling (#188) causes HST-009's gap, a free-gas A/B closes it | **refuted**: −247 ± 37 |
 | P4 | #367: if F-19 causes it, dropping F-19 closes it | **refuted**: −272 ± 38 |
+| P6 | at the final code, every case × route within 2σ of route 1 | **held on 11 of 12 outram-mc cells**; the lattice on route 3 is −36 ± 15 (2.5σ), and an extension is declared |
 | P5 | route 3 with the #366 fix lands within ~60 pcm of route 1 on Godiva and Jemima | met on the patch test (Godiva −5 ± 37, Jemima −51 ± 33); the post-fix campaign gives −54 ± 40 and +124 ± 38, the latter since attributed to the delayed spectra (see below) |
+| P7 | #459 (route-4 S(α,β) as OpenMC's library): lattice +40 to +100, HST-009 +50 to +150 pcm, paired | **refuted**: −40.0 ± 17.5 (lattice) and −3.7 ± 37.8 (HST-009); route 4 now agrees with route 5 (#459) |
+| P8 | #460 (combed fission source): +0 to +5 pcm on the lattice, below what 96 seeds resolve | not measured paired; the unpaired route-3 move from f78b5180d5 (96 seeds each) is +5 ± 10, consistent with it and with zero |
+| P9 | at the audited code, every case × route within 2σ of route 1 | **held on 11 of 12 outram-mc cells**; the lattice on route 3 is −18 ± 8 (2.3σ) at 96 seeds a side |
 
-## Results — interim (2026-09-29)
+## Results — after the OpenMC-parity audit (2026-09-30, routes 3/4/5 at `0414bc8277`)
 
-**Route 1 and 2 rows are final. The route 3/4/5 rows predate the delayed-neutron-spectra commit.**
+**These supersede the 2026-09-29 table below.** The audit (#407) compared
+outram-mc with OpenMC `d7d3284a1` routine by routine and fixed:
+- #459: the route-4 S(α,β) cutoff is the tape's `E_max`, and σ_inel is THERMR's `calcem` xsi at tol 0.001;
+- #460: the fission source is combed, as OpenMC's `synchronize_bank`;
+- #313: the free-gas/DBRC kT comes from the data temperature;
+- #461: variance reduction applies on the parallel path;
+- #463 items 1–2;
+- a7e6506945: the DBRC rejection loop is unbounded, as upstream.
+
+**Protocol.**
+- Routes 3, 4 and 5 were re-run at `0414bc8277`, with binaries snapshotted in `target/five_route_keff/bin/0414bc8277/`. Campaign settings are unchanged.
+- Godiva, Jemima and HST-009 have 32 seeds each.
+- The lattice has 96 seeds on routes 3–5. Route 1 is taken to 96 as well: seeds 33–96 from the extension run at the same settings (#407).
+- The route-5 thermal ACE, regenerated at `0414bc8277`, is data-identical to the library used (only the header comment line differs), so the libraries were not rebuilt.
+- The replaced rows are archived in `data/per_seed_keff_pre_audit_routes345.csv`.
 
 | case | route | n | k_eff ± sem | seed sd [pcm] | Δ vs k=1 [pcm] | Δ vs route 1 [pcm] |
 |---|---|---|---|---|---|---|
 | godiva | route1 | 32 | 1.00016 ± 0.00021 | 118 | +16 ± 21 | reference |
 | godiva | route2 | 32 | 1.00016 ± 0.00021 | 118 | +16 ± 21 | +0 ± 29 (+0.0σ) |
-| godiva | route3 | 32 | 0.99962 ± 0.00035 | 195 | -38 ± 35 | -54 ± 40 (-1.3σ) |
-| godiva | route4 | 32 | 0.99933 ± 0.00035 | 197 | -67 ± 35 | -83 ± 41 (-2.0σ) |
-| godiva | route5 | 32 | 0.99962 ± 0.00035 | 195 | -38 ± 35 | -54 ± 40 (-1.3σ) |
+| godiva | route3 | 32 | 0.99976 ± 0.00036 | 204 | -24 ± 36 | -40 ± 42 (-1.0σ) |
+| godiva | route4 | 32 | 0.99948 ± 0.00027 | 151 | -52 ± 27 | -68 ± 34 (-2.0σ) |
+| godiva | route5 | 32 | 0.99976 ± 0.00036 | 204 | -24 ± 36 | -40 ± 42 (-1.0σ) |
 | jemima | route1 | 32 | 0.99594 ± 0.00017 | 99 | -406 ± 17 | reference |
 | jemima | route2 | 32 | 0.99594 ± 0.00017 | 99 | -406 ± 17 | +0 ± 25 (+0.0σ) |
-| jemima | route3 | 32 | 0.99718 ± 0.00034 | 191 | -282 ± 34 | +124 ± 38 (+3.3σ) |
-| jemima | route4 | 32 | 0.99699 ± 0.00029 | 163 | -301 ± 29 | +106 ± 34 (+3.1σ) |
-| jemima | route5 | 32 | 0.99718 ± 0.00034 | 191 | -282 ± 34 | +124 ± 38 (+3.3σ) |
+| jemima | route3 | 32 | 0.99594 ± 0.00026 | 146 | -406 ± 26 | +0 ± 31 (+0.0σ) |
+| jemima | route4 | 32 | 0.99609 ± 0.00027 | 152 | -391 ± 27 | +15 ± 32 (+0.5σ) |
+| jemima | route5 | 32 | 0.99594 ± 0.00026 | 146 | -406 ± 26 | +0 ± 31 (+0.0σ) |
 | hst009 | route1 | 32 | 1.00234 ± 0.00022 | 127 | +234 ± 22 | reference |
 | hst009 | route2 | 32 | 1.00275 ± 0.00031 | 174 | +275 ± 31 | +41 ± 38 (+1.1σ) |
-| hst009 | route3 | 32 | 1.00002 ± 0.00033 | 189 | +2 ± 33 | -232 ± 40 (-5.8σ) |
-| hst009 | route4 | 32 | 0.99962 ± 0.00027 | 152 | -38 ± 27 | -271 ± 35 (-7.8σ) |
-| hst009 | route5 | 32 | 0.99931 ± 0.00044 | 248 | -69 ± 44 | -302 ± 49 (-6.1σ) |
+| hst009 | route3 | 32 | 1.00205 ± 0.00022 | 127 | +205 ± 22 | -29 ± 32 (-0.9σ) |
+| hst009 | route4 | 32 | 1.00198 ± 0.00032 | 181 | +198 ± 32 | -36 ± 39 (-0.9σ) |
+| hst009 | route5 | 32 | 1.00255 ± 0.00023 | 130 | +255 ± 23 | +21 ± 32 (+0.7σ) |
+| lct008 | route1 | 96 | 1.00244 ± 0.00005 | 50 | +244 ± 5 | reference |
+| lct008 | route2 | 32 | 1.00248 ± 0.00008 | 45 | +248 ± 8 | +4 ± 9 (+0.4σ) |
+| lct008 | route3 | 96 | 1.00225 ± 0.00006 | 59 | +225 ± 6 | -18 ± 8 (-2.3σ) |
+| lct008 | route4 | 96 | 1.00236 ± 0.00008 | 74 | +236 ± 8 | -8 ± 9 (-0.8σ) |
+| lct008 | route5 | 96 | 1.00241 ± 0.00006 | 64 | +241 ± 6 | -3 ± 8 (-0.3σ) |
+
+**What the numbers say.**
+- **Every cell is within 2σ of route 1 except the lattice on route 3: −18 ± 8 pcm (2.3σ)** at 96 seeds a side. It was −24 ± 9 at `f78b5180d5`. The 96-seed extension declared on 2026-09-29 therefore leaves a small but still resolved residual.
+- The lattice on routes 4 and 5 is −8 ± 9 and −3 ± 8.
+- Godiva route 4 is at −1.99σ (−68 ± 34). Nothing in the audit fixes acts on a bare fast sphere by more than a few pcm, and at 2σ this is not investigated further.
+- **The #459 prediction was wrong in sign** (P7). The fix moved route 4 on the lattice by −40.0 ± 17.5 pcm, paired. That brought route 4 into agreement with route 5, which is NJOY's processing of the same S(α,β) evaluation.
+- **DBRC worth on the lattice (route 3 against OpenMC, #407).** Outram-mc is −13.9 ± 8.3 pcm (96 paired seeds); OpenMC is +27.6 ± 9.9 (32). The difference is **−41.5 ± 12.9 pcm (3.2σ)**. Before the sampler fix outram-mc's worth was −42.6 ± 20.
+  - This disagreement has the same sign as the route-3 residual and exceeds it in size. It is the leading lead.
+  - The single-scatter sampler test at 6.4, 20.5 and 36.4 eV agrees with OpenMC (worst z = 3.6). The difference must therefore sit elsewhere: higher resonances, other nuclides, or an interaction in transport.
+  - Declared next (on #407): a per-nuclide split of the DBRC worth, and per-resonance distribution tests.
+
+## Results — FINAL (2026-09-29, routes 3/4/5 at `f78b5180d5`) — *superseded 2026-09-30, above*
+
+- **Routes 1 and 2** are unchanged from the interim campaign.
+- **Routes 3, 4 and 5** were re-run at commit `f78b5180d5`, 32 seeds each, at
+  campaign settings. The lattice ran at 10000 × [250 + 400]. The binary
+  snapshot is `target/five_route_keff/bin/f78b5180d5/`.
+- The rows they replace (code `f1ac422b11`, binary `2d2a1787fa`) are archived
+  in `data/per_seed_keff_pre_final_routes345.csv`.
+  - That archive holds **Jemima's 96-seed routes 3–5**. At the final code
+    Jemima is at 32 seeds, like every other case, so its interval is wider
+    than the interim one.
+
+| case | route | n | k_eff ± sem | seed sd [pcm] | Δ vs k=1 [pcm] | Δ vs route 1 [pcm] |
+|---|---|---|---|---|---|---|
+| godiva | route1 | 32 | 1.00016 ± 0.00021 | 118 | +16 ± 21 | reference |
+| godiva | route2 | 32 | 1.00016 ± 0.00021 | 118 | +16 ± 21 | +0 ± 29 (+0.0σ) |
+| godiva | route3 | 32 | 0.99992 ± 0.00036 | 206 | -8 ± 36 | -24 ± 42 (-0.6σ) |
+| godiva | route4 | 32 | 1.00020 ± 0.00029 | 165 | +20 ± 29 | +4 ± 36 (+0.1σ) |
+| godiva | route5 | 32 | 0.99992 ± 0.00036 | 206 | -8 ± 36 | -24 ± 42 (-0.6σ) |
+| jemima | route1 | 32 | 0.99594 ± 0.00017 | 99 | -406 ± 17 | reference |
+| jemima | route2 | 32 | 0.99594 ± 0.00017 | 99 | -406 ± 17 | +0 ± 25 (+0.0σ) |
+| jemima | route3 | 32 | 0.99630 ± 0.00037 | 209 | -370 ± 37 | +36 ± 41 (+0.9σ) |
+| jemima | route4 | 32 | 0.99609 ± 0.00033 | 187 | -391 ± 33 | +15 ± 37 (+0.4σ) |
+| jemima | route5 | 32 | 0.99630 ± 0.00037 | 209 | -370 ± 37 | +36 ± 41 (+0.9σ) |
+| hst009 | route1 | 32 | 1.00234 ± 0.00022 | 127 | +234 ± 22 | reference |
+| hst009 | route2 | 32 | 1.00275 ± 0.00031 | 174 | +275 ± 31 | +41 ± 38 (+1.1σ) |
+| hst009 | route3 | 32 | 1.00229 ± 0.00037 | 209 | +229 ± 37 | -5 ± 43 (-0.1σ) |
+| hst009 | route4 | 32 | 1.00216 ± 0.00026 | 145 | +216 ± 26 | -17 ± 34 (-0.5σ) |
+| hst009 | route5 | 32 | 1.00218 ± 0.00025 | 141 | +218 ± 25 | -16 ± 34 (-0.5σ) |
 | lct008 | route1 | 32 | 1.00251 ± 0.00007 | 42 | +251 ± 7 | reference |
 | lct008 | route2 | 32 | 1.00248 ± 0.00008 | 45 | +248 ± 8 | -3 ± 11 (-0.3σ) |
-| lct008 | route3 | 15 | 1.00212 ± 0.00015 | 60 | +212 ± 15 | -39 ± 17 (-2.3σ) |
-| lct008 | route4 | 32 | 1.00192 ± 0.00012 | 67 | +192 ± 12 | -59 ± 14 (-4.2σ) |
-
-Binaries:
-
-- routes 3 and 5: `25270acb67` (post-#365 and #366, pre-URR interpolation, pre-delayed spectra);
-- lattice route 4: `3d9526e5a1`;
-- Godiva, Jemima and HST-009 route 4: `be4206c2d3` (the first campaign).
-
-Earlier states of routes 2, 3 and 5 are archived rather than overwritten:
-
-- `data/per_seed_keff_pre366_routes35.csv`: routes 3 and 5 before #366's fix,
-  i.e. Godiva +1853 and Jemima −923 pcm against route 1;
-- `data/per_seed_keff_pre_thermalfix_route2.csv`: route 2 with the pre-fix
-  thermal table.
+| lct008 | route3 | 32 | 1.00214 ± 0.00012 | 71 | +214 ± 12 | -36 ± 15 (-2.5σ) |
+| lct008 | route4 | 32 | 1.00272 ± 0.00011 | 63 | +272 ± 11 | +21 ± 13 (+1.6σ) |
+| lct008 | route5 | 32 | 1.00230 ± 0.00012 | 69 | +230 ± 12 | -21 ± 14 (-1.5σ) |
 
 ### What the numbers say
 
-- **Data routes (route 2 against route 1).** The Rust NJOY port's library is at
-  k-parity with NJOY2016's on all four cases:
-  - identical seed for seed on the two uranium-only cases;
-  - +41 ± 38 on HST-009;
-  - −3 ± 11 on the lattice.
-- **The outram-mc ACE route (#366).** Since the fix, outram-mc on ACE and
-  outram-mc on ENDF agree to within 2σ on every case. The remaining gaps to
-  OpenMC are shared by both outram routes, so they are transport-side, not
-  data-side.
-- **Jemima.** The shared +106 to +124 pcm is, per the ACE agent's measurement,
-  carried by the delayed-neutron spectra. Its pending commit gives route 4
-  −1 ± 39 against route 1. To be re-measured here once it lands.
-- **HST-009 (#367).** The shared −232 to −302 pcm is open. Excluded so far,
-  each by an A/B with the prediction recorded first (data in
-  `data/diagnostics.csv`):
-  - the S(α,β) data: route 3 reads OpenMC's own table;
-  - the #188 thermal-sampling scheme: free-gas A/B, −247 ± 37;
-  - F-19: F-19-free A/B, −272 ± 38.
-- **Lattice LCT-008.** Routes 1, 2 and 4 all sit at +190 to +250 pcm above
-  k = 1, inside the stand-in band. Route 4 − route 1 is −59 ± 14. That is small,
-  but resolved at 4σ, and it is to be re-measured with the delayed spectra.
+**Every case × route is within 2σ of route 1, except the lattice on route 3:
+−36 ± 15 pcm (2.5σ).**
+- Before the final code the lattice routes 3/4/5 stood at −73 ± 15,
+  −50 ± 13 and −69 ± 15.
+- **Declared extension:** lattice routes 3 and 1 are being extended to 96
+  seeds (#407) before anything is concluded from the 2.5σ.
+
+**HST-009 (#367) is closed.**
+- The shared −232 to −302 pcm of the interim campaign is now −5 ± 43
+  (route 3), −17 ± 34 (route 4) and −16 ± 34 (route 5).
+- The delayed-neutron spectra carry most of it: their paired A/B was
+  +174 ± 48 on route 3 and +154 ± 42 on route 4, against a +50 to +200
+  prediction.
+- Transporting the other neutron-emitting reactions added +33 ± 42.
+- The exclusions recorded earlier stand, each as an A/B: the S(α,β) data,
+  the free-gas S(α,β) test (−247 ± 37), and F-19 (−272 ± 38).
+
+**Jemima.**
+- The interim +106 to +124 pcm is gone: now +36 ± 41, +15 ± 37 and
+  +36 ± 41.
+- The 96-seed interim rows (archived) measured the delayed-spectra code
+  alone. The final code adds the URR band-per-energy port, which is
+  +38 ± 20 on Jemima at 128 seeds.
+
+**The code changes between the interim and final campaigns**, each with a
+paired A/B and a prediction posted first (#365, #407). Records:
+`../ace_route_physics/correlated_angle_2026-09-29.md`,
+`../ace_route_physics/urr_dbrc_sab_as_openmc_2026-09-29.md`.
+- **Law-61 and law-44 angular sampling, as OpenMC.** Godiva −10.5 ± 9.4
+  (512 seeds); lattice −13.1 ± 9.4 (96 seeds).
+- **URR, one band per nuclide and energy.** Lattice +32 ± 18; Jemima
+  +38 ± 20.
+- **DBRC gate and window.** Lattice +7 ± 18.
+- **S(α,β) equiprobable sampling, as OpenMC.** This one replaced #188's
+  scheme, which was never a maintainer decision. Lattice +36 ± 16 on route 3,
+  +42 ± 14 on route 4.
+
+**#407 (lattice residual).** URR-worth cross-check on the lattice, 32 seeds
+per arm: outram-mc −4 ± 21 pcm, OpenMC +41 ± 11 pcm, difference −45 ± 24
+(1.9σ). It is not resolved. A 96-seed follow-up is declared. A DBRC-worth
+cross-check is running.
 
 ### The ACE-route defect, as found by the first campaign (GitHub #366, fixed at `a15958912c`)
 

@@ -1870,6 +1870,11 @@ impl ContinuousDistribution1D for Truncated {
 // Verification
 // ===========================================================================
 
+/// Seed-driven generic samplers (uniform, Box-Muller normal, exponential) on
+/// the workspace LCG — moved from `outram-mc-libs` 2026-10-02 (GitHub #500).
+/// Not RAVEN-derived; see the module's own header.
+pub mod seeded;
+
 #[cfg(test)]
 mod tests {
     use super::*;

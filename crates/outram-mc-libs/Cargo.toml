@@ -33,6 +33,44 @@ ndarray = { workspace = true }
 # microscopic cross sections from this crate's provider surface. See
 # docs/architecture.md.
 njoy-outram-park-fork = { workspace = true }
+# Granular DEM (LIGGGHTS port), so a pebble bed can be SETTLED physically and
+# handed to transport: `pebble_beds::dem_bed` converts a settled
+# `GranularSystem` / `DemSimulation` into pebble centres in this crate's cm
+# convention (maintainer direction, 2026-10-02: "so it is easier to model
+# pebble beds"). Before 2026-10-02 this edge was impossible -- liggghts' default
+# `gnn` feature depends on `raffles`, which depended on this crate for its RNG
+# and a CSG adapter; both moved out (to `petir::rng` and
+# `outram_blender::gnn_graph`) so the graph is acyclic.
+#
+# FEATURES: NONE of liggghts' defaults, deliberately (the root entry sets
+# `default-features = false`). `long-tests` gates liggghts' OWN slow tests and
+# means nothing to a dependent; `gnn` pulls `raffles` (a UQ / graph-network
+# crate) that nothing here uses -- the bridge needs only particle positions and
+# radii. What does come in unconditionally: `rayon` (already a dependency
+# here) and, on desktop only, `wgpu` (target-gated off Android and wasm by
+# liggghts exactly as this crate gates its own; already in this tree). Pure
+# Rust, no BLAS, Android- and wasm-clean.
+outram-park-fork-liggghts = { workspace = true }
+# Generic statistics (GitHub issue #500, 2026-10-02): the sample mean/stderr of
+# the active generations, seed pooling, Shannon entropy over mesh counts, the
+# trigger's running-sum statistics, tally error propagation and the generic
+# seed-driven samplers now live in `raffles::estimators` and
+# `raffles::distributions::seeded`. The rule: the maths on numbers lives in
+# RAFFLES; deciding WHAT is counted stays here. Allowed edge (maintainer,
+# 2026-10-02) because `raffles` depends only on `petir` -- it must never depend
+# on this crate. Default features: `long-tests` gates raffles' own slow tests
+# and costs a dependent nothing; `burn` stays off. Pure Rust, Android/wasm-clean.
+raffles = { workspace = true }
+# CSG geometry DESCRIPTION and its pure navigation kernel (GitHub #486,
+# maintainer decision 2026-10-02): position, surfaces, cells, universes,
+# lattices, `Geometry::locate` / `distance_to_boundary`, the TRISO particle
+# builder and the tally-mesh description live in `outram_blender::csg` (and
+# `spatial_mesh`), re-exported here under the old `geometry::*` /
+# `tally::mesh::*` paths. Transport-state work stays here on `*Ext` traits
+# (`geometry::crossing`). The root workspace entry is `default-features =
+# false`, so blender's `gpu` (wgpu) feature is not pulled; this crate has its
+# own GPU path. outram-blender must never depend on this crate.
+outram-blender = { workspace = true }
 # Used ONLY at the njoy nuclear-data boundary (S(α,β) thermal scattering import in
 # `material::thermal`), which speaks dimensioned `uom` types. The transport hot
 # loop stays raw `f64` — see this crate's CLAUDE.md "Units" note.
@@ -55,8 +93,10 @@ fission-yields-data = { workspace = true }
 #     `ComputeType::Gpu` is requested but no GPU adapter is available.
 # rayon / ratatui: see the wasm target table at the end of this manifest.
 log = { workspace = true }
-# Pure-Rust DEFLATE for the geometry plotter's PNG writer
-# (`src/geometry/plot/image.rs`, gh:#268). NOT a new crate in the build: it is
+# Pure-Rust DEFLATE, used by `src/plotter/script.rs`. ~~for the geometry
+# plotter's PNG writer (`src/geometry/plot/image.rs`, gh:#268)~~ -- that writer
+# moved to `outram_blender::csg::plot::image` on 2026-10-02 (GitHub #486),
+# which names miniz_oxide itself. NOT a new crate in the build: it is
 # already a non-optional dependency of `njoy-outram-park-fork` above, and builds
 # for Android/Termux and wasm32 there. Named here only so the plot module can
 # call it directly instead of re-exporting it through the data crate.
@@ -88,7 +128,7 @@ long-tests = []
 # better on those three: ~1.8x faster than the old libm route on exp, ~2.1x on
 # powf, and exp is now faster than the platform. Only the six functions above
 # still carry a cost worth opting into. See src/mathf.rs.
-deterministic-math = []
+deterministic-math = ["raffles/deterministic-math"]
 # HIGH-fidelity nuclear data. Forwards to njoy's `net-fetch` tier so
 # `Nuclide::from_endf` can download raw ENDF tapes and reconstruct pointwise
 # σ(E) on device (RECONR + BROADR). Off by default — the LOW tier

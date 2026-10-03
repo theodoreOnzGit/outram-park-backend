@@ -25,5 +25,21 @@ boon-lay  = { workspace = true }
 # reverse: changi defines the source-term types its own driver consumes, which
 # is what lets changi's end-to-end example run with this crate untouched.
 changi    = { workspace = true }
+# Dose (maintainer direction, 2026-09-30): the Gaussian plume and the dose
+# pathways at the end of the offsite chain. buangkok depends on changi and
+# petir only, so the edge sembawang -> buangkok introduces no cycle.
+buangkok  = { workspace = true }
 uom       = { workspace = true }
 thiserror = { workspace = true }
+
+[dev-dependencies]
+# Reads boon-lay's upstream code-to-code probes (tests/nuclide_names_code_to_code.rs).
+serde_json = { workspace = true }
+# Examples and tests ONLY. The published HTR-10 pebble and TRISO particle
+# dimensions live in `tampines::pebble_bed` (IAEA-TECDOC-1382 part 2
+# Table 4-17) and must not be copied into this crate, so the HTR-10 case reads
+# them from there. Kept out of `[dependencies]` deliberately: the library takes
+# geometry as an argument (`htr10::Htr10Geometry`), so a consumer of the
+# library pays nothing for this. `tampines` already depends on `boon-lay`, so
+# the edge sembawang -> tampines introduces no cycle.
+tampines = { workspace = true }

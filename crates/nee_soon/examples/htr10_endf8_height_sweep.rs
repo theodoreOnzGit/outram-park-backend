@@ -23,7 +23,7 @@
 //!
 //! ```bash
 //! cargo build --release -p nee_soon --example htr10_endf8_height_sweep
-//! taskset -c 0 ./target/release/examples/htr10_endf8_height_sweep n20
+//! taskset -c 0 ./target/release/examples/htr10_endf8_height_sweep l12
 //! ./target/release/examples/htr10_endf8_height_sweep --list
 //! ```
 //!
@@ -43,23 +43,49 @@
 //! see exactly what differs between them. Nothing is read from the
 //! environment.
 //!
-//! The nuclide set is built in this file rather than shared with
+//! ~~The nuclide set is built in this file rather than shared with
 //! `htr10_rmc_keff::nuclides`, because that one branches on the ablation knobs
 //! this example exists to be free of. The two must not drift: if a tape name
-//! or a thermal law changes there, change it here. The physics they build is
-//! intended to be identical when `htr10_rmc_keff` is run with no knobs set.
+//! or a thermal law changes there, change it here.~~ **CHANGED 2026-10-01:**
+//! both now call `nee_soon::htr10_rmc::data` (`Htr10NuclideLayout::plan` +
+//! `load_htr10_nuclides`). This example passes
+//! `Htr10DataConfig::default()` as a literal and reads nothing from the
+//! environment, so the two cannot drift: with no knobs set, `htr10_rmc_keff`
+//! builds the identical set.
+//!
+//! ~~**Blocked on gh:#339 as of 2026-10-01.** The default rod metal is the FULL
+//! case (real Ni and Fe-57), and Fe-57 cannot yet be reconstructed, so every
+//! case here prints `REFUSED` until #339 is fixed. (Before 2026-10-01 it
+//! printed `SKIP`: the Ni tapes were not in the checkout.) Use
+//! `htr10_rod_metal_simplified` for a runnable case meanwhile.~~
+//! **CORRECTED 2026-10-02:** no longer blocked. `data::FE57_RECONSTRUCTION_FIXED`
+//! was flipped to `true` on 2026-10-01 (the LRF=7 `xdot` operand fix), and the
+//! FULL rod metal ran in all 22 runs of
+//! `verification_and_validation/htr10_seker_2026_10_01_10k/` (each log prints
+//! `rod metal: FULL`).
+//!
+//! **For a whole-sweep record use `htr10_endf8_kvsh_quick` / `_heavy`
+//! (gh:#501)**: they run every height in one process (the nuclear data are
+//! processed once), and write the figure script, the results table and the
+//! parameters block. This example and those share the run machinery in
+//! [`nee_soon::htr10_rmc::keff_vs_height`] (majorant, source box, entropy mesh,
+//! reference interpolation; since 2026-10-02).
 //!
 //! ## What every case holds fixed
 //!
 //! | quantity | value | why |
 //! |---|---|---|
 //! | library | ENDF/B-VIII.0 | see the thermal laws below |
-//! | graphite S(a,b) | crystalline, MAT 30 | a graphite-moderated thermal system |
+//! | graphite S(a,b) | ~~crystalline, MAT 30~~ **30 %-porosity reactor graphite, MAT 32** (`GraphiteLaw::default()`; CORRECTED 2026-10-01, gh:#428) | a graphite-moderated thermal system |
 //! | SiC S(a,b) | C-in-SiC MAT 44, Si-in-SiC MAT 43 | SiC is a crystal; free gas is wrong |
 //! | UO2 S(a,b) | U-in-UO2 MAT 48, O-in-UO2 MAT 75 | generated in-process from LEAPR decks |
 //! | silicon | natural Si-28/29/30 | splits a correct total, does not change it |
+//! | carbon | natural, C-12 / C-13 98.93 / 1.07 at.% (since 2026-10-01, gh:#425) | ENDF/B-VIII.0 ships the isotopes separately |
+//! | coolant | natural helium, 300.15 K, 101.33 kPa (pressure assumed; since 2026-10-01, gh:#426) | was exact vacuum until 2026-10-01 |
+//! | rod metal | FULL: real Ni-58..64, Fe-54..58 (since 2026-10-01, gh:#329) | blocked by gh:#339 |
 //! | cavity | fixed core cavity | the only treatment there is — see below |
 //! | rings | 14 | radial tiling of the bed |
+//! | bed | Şeker & Çolak (2003) 13-ball cell, N = 9 … 20 layers | every ball whole (gh:#472) |
 //! | particles | 10 000 per generation | |
 //! | generations | 5 inactive + 135 active | |
 //! | seed | 20260917, single draw | |
@@ -78,9 +104,13 @@
 //!
 //! ## Data provenance
 //!
-//! Atom densities from **IAEA-TECDOC-1382** Table 4-38 via
-//! [`nee_soon::htr10_rmc::materials`]; geometry from Terry et al. (2005) and
-//! the same TECDOC. Evaluated data is ENDF/B-VIII.0 from `reference-data/endf/`.
+//! Atom densities ~~from **IAEA-TECDOC-1382** Table 4-38~~ via
+//! [`nee_soon::htr10_rmc::materials`]: **CORRECTED 2026-10-01 (gh:#428)** —
+//! Table 4-38 is MIT's pebble-bed composition table, which the model does not
+//! use. The pebble is Li, Yu & Wei (2014) Table 2, the reflector zones are
+//! IAEA-TECDOC-1382 Table 4-3 with its p. 242 corrections, and the rods are
+//! TECDOC § 4.1.1.5. Geometry from Terry et al. (2005), the same TECDOC and
+//! Şeker & Çolak (2003). Evaluated data is ENDF/B-VIII.0 from `reference-data/endf/`.
 //! The UO2 laws ship as no tape anywhere in this repository and are generated
 //! from the LEAPR decks committed in `njoy-outram-park-fork`.
 //!
@@ -88,8 +118,10 @@
 //!
 //! **Methodology.** Each case computes `k_eff` for the HTR-10 first-criticality
 //! core at one fuel-loading height and compares it against the RMC result of
-//! Li, Yu & Wei (2014), **interpolated to the height actually modelled**
-//! (`rmc_at_height`). Comparing against RMC's single 123.576 cm headline while
+//! Li, Yu & Wei (2014), ~~**interpolated to the height actually modelled**~~
+//! **read at the height where Şeker's model holds as many balls as the built
+//! bed** (`rmc_at_height` at `seker_height_for_balls`; CORRECTED 2026-10-01,
+//! gh:#428, the comparison changed with gh:#472). Comparing against RMC's single 123.576 cm headline while
 //! modelling a different bed imports ~270 pcm per cm of mismatch, which is
 //! larger than several of the physics terms being argued about. The pass
 //! criterion for the workspace gate is 500-1000 pcm.
@@ -102,24 +134,26 @@
 //! physics until it has been looked at**. Record the table here once measured.
 //!
 //! **Single seed.** Seed-to-seed scatter on this problem is `sd ~ 179-211 pcm`
-//! (`verification_and_validation/htr10_rmc/README.md`). A single draw is not a
+//! (~~`verification_and_validation/htr10_rmc/README.md`~~ **CORRECTED
+//! 2026-10-02:** no such file exists; the figure is recorded in
+//! `docs/software_engineering/htr10-run-log.md`). A single draw is not a
 //! mean and the within-run sigma does not contain that scatter.
 
 use std::time::Instant;
 
-use nee_soon::htr10_rmc::core_model::{assemble_explicit_triso, mat, HTR10_CORE_CAVITY_CM};
+use uom::si::f64::ThermodynamicTemperature;
+use uom::si::thermodynamic_temperature::kelvin;
+use nee_soon::htr10_rmc::core_model::{assemble_explicit_triso, HTR10_CORE_CAVITY_CM};
+use nee_soon::htr10_rmc::data::{
+    load_htr10_nuclides, Htr10DataConfig, Htr10DataError, Htr10NuclideLayout,
+};
 use nee_soon::htr10_rmc::materials::{htr10_material_set, Htr10MaterialConfig};
+use nee_soon::htr10_rmc::keff_vs_height::{bed_majorant, fissile_entropy_mesh, fissile_source_box};
 use nee_soon::htr10_rmc::reflector::zone_composition;
-use njoy_outram_park_fork::leapr::decks::SabMaterial;
-use outram_mc_libs::geometry::position::Position;
-use outram_mc_libs::material::nuclide::Nuclide;
-use outram_mc_libs::material::thermal::ThermalScattering;
-use outram_mc_libs::pebble_beds::delta_tracking::Majorant;
-use outram_mc_libs::pebble_beds::htr10::{BoronReading, Htr10Nuclides};
+use outram_mc_libs::pebble_beds::htr10::BoronReading;
 use outram_mc_libs::physics::keff::{ComputeType, KeffSettings, ThreadCount};
-use outram_mc_libs::physics::transport_csg::{run_keff_csg_hybrid, SourceBox};
-use outram_mc_libs::run_diagnostics::{DataSource, RunDiagnostics};
-use outram_mc_libs::tally::mesh::RegularMesh;
+use outram_mc_libs::physics::transport_csg::run_keff_csg_hybrid;
+use outram_mc_libs::run_diagnostics::RunDiagnostics;
 
 const TEMP_K: f64 = 300.15;
 
@@ -127,27 +161,14 @@ const TEMP_K: f64 = 300.15;
 /// output can show how far the headline is from the height actually modelled.
 const RMC_HEADLINE_KEFF: f64 = 1.004288;
 
-const NUC: Htr10Nuclides = Htr10Nuclides {
-    u235: 0,
-    u238: 1,
-    o16: 2,
-    c_free: 3,
-    c_graphite: 4,
-    si28: 5,
-    b10: 6,
-    c_sic: 7,
-    si29: 8,
-    si30: 9,
-    b11: 10,
-};
-
 /// Everything one case is. No field has a default and nothing is read from the
 /// environment: this struct IS the run.
 #[derive(Clone, Copy, Debug)]
 struct CaseSpec {
     /// Case name, as typed on the command line.
     name: &'static str,
-    /// Axial tile count. The bed height follows from it.
+    /// Şeker layers N (since 2026-10-01, gh:#472). The bed height follows
+    /// from it: `9.798 N + 6` cm.
     n_axial: usize,
     /// Radial ring count.
     n_rings: usize,
@@ -192,192 +213,77 @@ macro_rules! case {
 // so each case has a reference point that needs no extrapolation.
 // ---------------------------------------------------------------------------
 
-fn case_n20() -> CaseSpec {
-    case!("n20", 20, 97.980)
+// ~~n20 … n41: half-layer counts 2N+1, built volume-equivalent~~ **CHANGED
+// 2026-10-01 (gh:#472):** one case per Şeker layer count N = 9..20. Şeker's
+// bed is built on the paper's own height axis (9.798 N + 6 cm, every ball
+// whole), so each case IS a tabulated row and needs no conversion or
+// interpolation (closes the gh:#427 driver defects for this bed).
+fn case_l09() -> CaseSpec {
+    case!("l09", 9, 94.182)
 }
-fn case_n21() -> CaseSpec {
-    case!("n21", 21, 102.879)
+fn case_l10() -> CaseSpec {
+    case!("l10", 10, 103.980)
 }
-fn case_n23() -> CaseSpec {
-    case!("n23", 23, 112.677)
+fn case_l11() -> CaseSpec {
+    case!("l11", 11, 113.778)
 }
-fn case_n25() -> CaseSpec {
-    case!("n25", 25, 122.475)
+fn case_l12() -> CaseSpec {
+    case!("l12", 12, 123.576)
 }
-fn case_n27() -> CaseSpec {
-    case!("n27", 27, 132.273)
+fn case_l13() -> CaseSpec {
+    case!("l13", 13, 133.374)
 }
-fn case_n29() -> CaseSpec {
-    case!("n29", 29, 142.071)
+fn case_l14() -> CaseSpec {
+    case!("l14", 14, 143.172)
 }
-fn case_n31() -> CaseSpec {
-    case!("n31", 31, 151.869)
+fn case_l15() -> CaseSpec {
+    case!("l15", 15, 152.970)
 }
-fn case_n33() -> CaseSpec {
-    case!("n33", 33, 161.667)
+fn case_l16() -> CaseSpec {
+    case!("l16", 16, 162.768)
 }
-fn case_n35() -> CaseSpec {
-    case!("n35", 35, 171.465)
+fn case_l17() -> CaseSpec {
+    case!("l17", 17, 172.566)
 }
-fn case_n37() -> CaseSpec {
-    case!("n37", 37, 181.263)
+fn case_l18() -> CaseSpec {
+    case!("l18", 18, 182.364)
 }
-fn case_n39() -> CaseSpec {
-    case!("n39", 39, 191.061)
+fn case_l19() -> CaseSpec {
+    case!("l19", 19, 192.162)
 }
-fn case_n41() -> CaseSpec {
-    case!("n41", 41, 200.859)
+fn case_l20() -> CaseSpec {
+    case!("l20", 20, 201.960)
 }
 
 /// Every case, in loading order.
 fn all_cases() -> Vec<fn() -> CaseSpec> {
     vec![
-        case_n20, case_n21, case_n23, case_n25, case_n27, case_n29, case_n31, case_n33, case_n35,
-        case_n37, case_n39, case_n41,
+        case_l09, case_l10, case_l11, case_l12, case_l13, case_l14, case_l15, case_l16, case_l17,
+        case_l18, case_l19, case_l20,
     ]
 }
 
-/// RMC's `k_eff` interpolated to the height actually modelled.
+/// RMC's `k_eff` interpolated to ~~the height actually modelled~~ a given
+/// height. Since 2026-10-01 (gh:#472) it is called at the equal-ball-count
+/// height, not at the built height (CORRECTED 2026-10-01, gh:#428).
 ///
 /// Returns `None` outside the tabulated range rather than extrapolating: past
 /// the ends the curve flattens and a linear extension would invent reactivity.
+///
+/// Since 2026-10-02 (gh:#501) a call to the shared
+/// [`keff_curve_at_height`](nee_soon::htr10_rmc::keff_curve_at_height).
 fn rmc_at_height(h_cm: f64) -> Option<f64> {
-    let c = nee_soon::htr10_rmc::RMC_KEFF_VS_HEIGHT;
-    if h_cm < c[0].0 || h_cm > c[c.len() - 1].0 {
-        return None;
-    }
-    for w in c.windows(2) {
-        let ((h0, k0), (h1, k1)) = (w[0], w[1]);
-        if (h0..=h1).contains(&h_cm) {
-            return Some(k0 + (h_cm - h0) / (h1 - h0) * (k1 - k0));
-        }
-    }
-    None
+    nee_soon::htr10_rmc::keff_curve_at_height(nee_soon::htr10_rmc::RMC_KEFF_VS_HEIGHT, h_cm)
 }
 
-/// The ENDF/B-VIII.0 nuclide set, with every bound thermal law this model has.
-///
-/// All four law families are applied unconditionally, per the workspace rule
-/// that correct physics is the default and not an opt-in. There is no ablation
-/// path here on purpose — `htr10_rmc_keff` is where ablations live.
-fn nuclides_endf8(diag: &mut RunDiagnostics) -> Option<Vec<Nuclide>> {
-    let base =
-        std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../reference-data/endf");
-
-    macro_rules! load {
-        ($diag:expr, $n:expr, $f:expr) => {{
-            let p = base.join($f);
-            eprint!("  {:<6} ", $n);
-            let t = Instant::now();
-            let r = $diag.time_data(
-                format!("{} cross sections", $n),
-                DataSource::File(p.clone()),
-                format!("{:.2} K, tol 1.0e-3", TEMP_K),
-                || {
-                    p.exists().then_some(())?;
-                    Nuclide::from_endf_file(&p, $n, TEMP_K, 1.0e-3).ok()
-                },
-            );
-            eprintln!("{:.1?}", t.elapsed());
-            r
-        }};
+/// The ENDF/B-VIII.0 data configuration: the correct-physics default, every
+/// field stated so the source is the specification of the run. No ablation
+/// path here on purpose -- `htr10_rmc_keff` is where ablations live.
+fn data_config_endf8() -> Htr10DataConfig {
+    Htr10DataConfig {
+        temperature: ThermodynamicTemperature::new::<kelvin>(TEMP_K),
+        ..Htr10DataConfig::default()
     }
-
-    // Crystalline graphite, MAT 30 in ENDF/B-VIII.0. (VII.0 ships it as MAT 31;
-    // passing the wrong one returns Err and silently drops the whole set.)
-    let sab = diag.time_data(
-        "graphite S(a,b)",
-        DataSource::File(base.join("tsl-crystalline-graphite.endf")),
-        format!("MAT 30, {TEMP_K:.2} K"),
-        || {
-            let p = base.join("tsl-crystalline-graphite.endf");
-            if !p.exists() {
-                eprintln!("  graphite S(a,b): tape not in this checkout");
-                return None;
-            }
-            ThermalScattering::from_endf_file(p.to_str()?, 30, TEMP_K, "graphite")
-                .map_err(|e| eprintln!("  graphite S(a,b) load FAILED: {e}"))
-                .ok()
-        },
-    )?;
-
-    let sic_sab = |diag: &mut RunDiagnostics, mat_no: i32, file: &str, name: &'static str| {
-        let p = base.join(file);
-        diag.time_data(
-            format!("{name} S(a,b)"),
-            DataSource::File(p.clone()),
-            format!("MAT {mat_no}, {TEMP_K:.2} K"),
-            || {
-                if !p.exists() {
-                    eprintln!("  {name}: {file} not in this checkout -- falling back to free gas");
-                    return None;
-                }
-                ThermalScattering::from_endf_file(p.to_str()?, mat_no, TEMP_K, name)
-                    .map_err(|e| eprintln!("  {name} S(a,b) load FAILED: {e}"))
-                    .ok()
-            },
-        )
-    };
-    let c_in_sic = sic_sab(diag, 44, "tsl-CinSiC.endf", "c_SiC");
-    let si_in_sic = sic_sab(diag, 43, "tsl-SiinSiC.endf", "Si_SiC");
-
-    // No UO2 tape ships in reference-data/endf; both laws are GENERATED from
-    // the LEAPR decks committed in njoy-outram-park-fork. Reproducible from a
-    // deck that can be read, with no new binary tapes. Costs ~10 s and ~15 s.
-    let uo2_sab = |diag: &mut RunDiagnostics, material: SabMaterial, name: &'static str| {
-        eprint!("  {name:<8} LEAPR ");
-        let t = Instant::now();
-        let out = diag.time_data(
-            format!("{name} S(a,b)"),
-            DataSource::GeneratedFromLeaprDeck(material.base().to_string()),
-            format!(
-                "MAT {}, {TEMP_K:.2} K, generated in-process",
-                material.mat()
-            ),
-            || {
-                ThermalScattering::from_leapr(material, TEMP_K, name)
-                    .map_err(|e| eprintln!("  {name} LEAPR generation FAILED: {e}"))
-                    .ok()
-            },
-        );
-        eprintln!("{:.1?}", t.elapsed());
-        out
-    };
-    let u_in_uo2 = uo2_sab(diag, SabMaterial::UInUO2, "U_UO2");
-    let o_in_uo2 = uo2_sab(diag, SabMaterial::OInUO2, "O_UO2");
-
-    let bind = |n: Nuclide, s: &Option<ThermalScattering>| match s {
-        Some(t) => n.with_thermal_scattering(t.clone()),
-        None => n,
-    };
-
-    Some(vec![
-        bind(load!(diag, "U235", "n-092_U_235-ENDF8.0.endf")?, &u_in_uo2),
-        bind(load!(diag, "U238", "n-092_U_238.endf")?, &u_in_uo2),
-        bind(load!(diag, "O16", "n-008_O_016-ENDF8.0.endf")?, &o_in_uo2),
-        // 3: free-gas carbon. Unused by this example's materials, but slot 3
-        // must stay occupied or every later index repoints.
-        load!(diag, "C12", "n-006_C_012-ENDF8.0.endf")?,
-        // 4: graphite-bound carbon.
-        load!(diag, "C12", "n-006_C_012-ENDF8.0.endf")?.with_thermal_scattering(sab),
-        // 5, 8, 9: natural silicon, bound in SiC.
-        bind(
-            load!(diag, "Si28", "n-014_Si_028-ENDF8.0.endf")?,
-            &si_in_sic,
-        ),
-        load!(diag, "B10", "n-005_B_010-ENDF8.0.endf")?,
-        // 7: carbon bound in SiC.
-        bind(load!(diag, "C12", "n-006_C_012-ENDF8.0.endf")?, &c_in_sic),
-        bind(
-            load!(diag, "Si29", "n-014_Si_029-ENDF8.0.endf")?,
-            &si_in_sic,
-        ),
-        bind(
-            load!(diag, "Si30", "n-014_Si_030-ENDF8.0.endf")?,
-            &si_in_sic,
-        ),
-        load!(diag, "B11", "n-005_B_011-ENDF8.0.endf")?, // 10: B-11 (gh:#311)
-    ])
 }
 
 fn run_case(spec: &CaseSpec) {
@@ -400,9 +306,19 @@ fn run_case(spec: &CaseSpec) {
         "{} particles x [{} inactive + {} active], {} rings x {} layers, fixed core cavity",
         spec.particles, spec.inactive, spec.active, spec.n_rings, spec.n_axial
     ));
-    let Some(nucs) = nuclides_endf8(&mut diag) else {
-        println!("SKIP: reference-data/endf/ not in this checkout.");
-        return;
+    let data_cfg = data_config_endf8();
+    let layout = Htr10NuclideLayout::plan(&data_cfg).expect("the default data configuration is valid");
+    println!("  rod metal: {}", data_cfg.rod_metal.label());
+    let nucs = match load_htr10_nuclides(&data_cfg, &layout, &mut diag) {
+        Ok(v) => v,
+        Err(e @ Htr10DataError::BlockedByGh339) => {
+            println!("REFUSED: {e}");
+            return;
+        }
+        Err(e) => {
+            println!("SKIP: {e}");
+            return;
+        }
     };
 
     let z = zone_composition(spec.reflector_zone).expect("zone is listed");
@@ -411,7 +327,7 @@ fn run_case(spec: &CaseSpec) {
         spec.reflector_zone, z.carbon, spec.reflector_carbon_scale, z.natural_boron
     );
     let mats = htr10_material_set(
-        NUC,
+        &layout,
         Htr10MaterialConfig {
             temperature_k: TEMP_K,
             boron: spec.boron,
@@ -426,11 +342,7 @@ fn run_case(spec: &CaseSpec) {
         core.tiles, core.cells, core.universes
     );
 
-    let grid: Vec<f64> = (0..4096)
-        .map(|i| (1.0e-4_f64.ln() + (2.0e7_f64.ln() - 1.0e-4_f64.ln()) * i as f64 / 4095.0).exp())
-        .collect();
-    let bed_mats: Vec<usize> = (0..=mat::HELIUM).collect();
-    let maj = Majorant::over_indices(&mats, &bed_mats, &nucs, &grid, 0.3);
+    let maj = bed_majorant(&mats, &nucs);
 
     let settings = KeffSettings {
         n_particles: spec.particles,
@@ -448,16 +360,8 @@ fn run_case(spec: &CaseSpec) {
     // Source box and entropy mesh span the WHOLE fissile region, conus floor
     // included. A mesh blind to part of the core reports convergence of the
     // part it can see, which is the one diagnostic that must not be trusted.
-    let (zl, zu, rb) = (core.conus_floor, core.bed_half_height, core.bed_radius);
-    let src = SourceBox {
-        lower: Position::new(-rb, -rb, zl),
-        upper: Position::new(rb, rb, zu),
-    };
-    let entropy_mesh = RegularMesh {
-        lower_left: [-rb, -rb, zl],
-        upper_right: [rb, rb, zu],
-        dimension: [4, 4, 4],
-    };
+    let src = fissile_source_box(&core);
+    let entropy_mesh = fissile_entropy_mesh(&core);
 
     println!(
         "  nuclear data processed in {:.1} s ({} items)",
@@ -481,6 +385,15 @@ fn run_case(spec: &CaseSpec) {
     let secs = t.elapsed().as_secs_f64();
 
     let bed_height_cm = core.bed_half_height * 2.0;
+    // The reference is read at equal BALL COUNT, not equal height (gh:#472,
+    // 2026-10-01): Şeker's model kept wall-crossing balls, ours keeps every
+    // ball whole, so at the same height it holds 1.2 % fewer.
+    let ref_height_cm = core
+        .bed
+        .as_ref()
+        .and_then(|b| b.core_balls())
+        .map_or(bed_height_cm, nee_soon::htr10_rmc::seker_height_for_balls);
+    println!("  reference read at {ref_height_cm:.3} cm (equal ball count)");
     // The nominal height in the case function is documentation; the geometry is
     // the truth. If they disagree the case is mislabelled, and a mislabelled
     // height silently compares against the wrong RMC point.
@@ -495,7 +408,7 @@ fn run_case(spec: &CaseSpec) {
     let sigma_pcm = res.k_std * 1.0e5;
     println!("\n  bed height   = {bed_height_cm:.3} cm");
     println!("  k_eff        = {:.6} +/- {:.6}", res.k_mean, res.k_std);
-    match rmc_at_height(bed_height_cm) {
+    match rmc_at_height(ref_height_cm) {
         Some(k) => {
             let dk = (res.k_mean - k) * 1.0e5;
             println!(
@@ -510,7 +423,7 @@ fn run_case(spec: &CaseSpec) {
             );
         }
         None => println!(
-            "  RMC(interp)  = NONE -- {bed_height_cm:.3} cm is outside the tabulated range, \
+            "  RMC(interp)  = NONE -- {ref_height_cm:.3} cm (equal ball count) is outside the tabulated range, \
              so there is no like-for-like reference and no CSV line is emitted."
         ),
     }
@@ -591,7 +504,7 @@ fn main() {
             );
         }
         println!("\nRun one case per process, pinned to its own core:");
-        println!("  taskset -c 0 ./target/release/examples/htr10_endf8_height_sweep n20");
+        println!("  taskset -c 0 ./target/release/examples/htr10_endf8_height_sweep l12");
         return;
     }
 

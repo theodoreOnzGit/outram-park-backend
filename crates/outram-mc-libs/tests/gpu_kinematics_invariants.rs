@@ -54,7 +54,7 @@
 
 use outram_mc_libs::gpu::{probe, GpuContext};
 
-const BATCHED_EVENT_WGSL: &str = include_str!("../src/gpu/shaders/batched_event.wgsl");
+use outram_mc_libs::gpu::batched_event::shader_source;
 
 /// A second entry point appended to the shader, reusing its existing `xs`
 /// (binding 0, read) and `fstate` (binding 2, read-write) declarations.
@@ -160,7 +160,7 @@ fn elastic_mu_lab(awr: f64, mu_cm: f64) -> f64 {
 fn run(gpu: &GpuContext, cases: &[Case]) -> Vec<f32> {
     use wgpu::util::DeviceExt;
 
-    let mut source = String::from(BATCHED_EVENT_WGSL);
+    let mut source = shader_source();
     source.push_str(KINEMATICS_ENTRY);
 
     let module = gpu

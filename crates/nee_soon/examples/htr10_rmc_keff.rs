@@ -32,7 +32,10 @@
 //! largest single reactivity term turned out to be a missing **void** — 98.758
 //! cm of helium core cavity above the bed that had been modelled as graphite.
 //!
-//! **Current result** (14 rings x 25 layers, 10000 histories x [40 inactive +
+//! ~~**Current result**~~ **Result of 2026-09-18, superseded** (gh:#428: every
+//! number in this STATUS section predates the explicit reflector, the 30P
+//! graphite law and Şeker's bed; see the note at the end of the section)
+//! (14 rings x 25 layers, 10000 histories x [40 inactive +
 //! 120 active], surface tracking, ENDF/B-VIII.0):
 //!
 //! ```text
@@ -73,20 +76,26 @@
 //!
 //! > *"the conus and discharge tube contained only **dummy** pebbles"*
 //!
-//! The conus is part of the bed hex lattice, and `bed_tile_levels` applies the
-//! core's 57:43 fuel:dummy split to every level. Extending the lattice to the
+//! The conus is part of the bed hex lattice, and `bed_tile_levels` applied the
+//! core's 57:43 fuel:dummy split to every level. (Since 2026-09-25 the
+//! explicit-TRISO bed assigns fuel per BALL, ~~through `bed::TwoBallBed`~~
+//! since 2026-10-01 through `bed::SekerBed` (gh:#472; the two-ball bed is
+//! withdrawn), with the conus all-dummy by construction.) Extending the lattice to the
 //! conus floor therefore filled it with fuel. The geometry was right; the
 //! contents were not. Correcting it is worth **-5177 +/- 420 pcm (12 sigma)**.
 //!
 //! The same sentence covers the DISCHARGE TUBE, which was solid reflector
-//! graphite (over-reflecting the conus tip) — now pebble graphite at the
-//! bed's 0.61 filling fraction, between that bound and the pure-helium one.
+//! graphite (over-reflecting the conus tip) — ~~now pebble graphite at the
+//! bed's 0.61 filling fraction, between that bound and the pure-helium one~~
+//! then a 0.61 smear of pebble graphite; **since 2026-09-25 explicit whole
+//! graphite balls**, rejected at the cone and tube (CORRECTED 2026-10-01,
+//! gh:#428; the smear is only the `OUTRAM_HTR10_HOMOG_TUBE` ablation).
 //!
 //! **The "two offsetting errors" reading is withdrawn.** The flat-bottomed
 //! model was not missing fuel; it was missing the conus's *dummy* pebbles and
 //! had reflector graphite there instead, worth only about -680 pcm.
 //!
-//! Current physical model, 3000 histories x [20 + 60]:
+//! ~~Current~~ The 2026-09-18 physical model, 3000 histories x [20 + 60]:
 //!
 //! ```text
 //! single seed : k_eff = 0.991372 +/- 0.003002   ->  -1292 +/- 300 pcm
@@ -101,6 +110,15 @@
 //! Full ablation chain, methodology and results:
 //! `crates/outram-mc-libs/verification_and_validation/htr10_rmc/README.md`.
 //!
+//! **Note 2026-10-01 (gh:#428).** None of the numbers above describes the
+//! current default. Since they were taken: the reflector became explicit
+//! 3-D geometry with withdrawn rods (PR #327), graphite took the 30P law
+//! (2026-09-27), the reference is matched on the paper's whole-ball height and
+//! then by ball count (gh:#333, gh:#472), and the bed became Şeker & Çolak
+//! (2003)'s 13-ball cell (gh:#472). The later records are in
+//! `crates/outram-mc-libs/verification_and_validation/htr10_rmc/` (e.g.
+//! `fast_ablation_2026_09_26.md`).
+//!
 //! # Read this before quoting any number it prints
 //!
 //! - ~~**ENDF/B-VIII.0**; RMC, MCNP, Serpent and HCP all used **VII.0**. On a
@@ -113,86 +131,118 @@
 //!   against `-1259 pcm` on VIII.0. The warning was right that a disagreement
 //!   could not be attributed to transport; it understated the size by 5x.
 //!   Single seed — pool before quoting.
+//!   **CORRECTED 2026-10-01 (gh:#428) on who used VII.0:** Li, Yu & Wei
+//!   (2014) state ENDF/B-7.0 for RMC (abstract and § III). Their MCNP columns
+//!   are Şeker & Çolak (2003)'s results (`htr10_rmc` module docs), and Şeker
+//!   p.265 used **ENDF/B-VI**, with TMCCS graphite. Serpent and HCP are not in
+//!   Li's paper: Not re-checked, no source for their library was found.
 //! - The reference quotes **no uncertainty** on any of its twelve values.
-//! - The reflector densities are **R-Z homogenised**; TECDOC says a 3-D model
+//! - ~~The reflector densities are **R-Z homogenised**; TECDOC says a 3-D model
 //!   must correct them for the boring geometries. Unadjusted, they smear the
-//!   control-rod and helium-flow channels uniformly.
-//! - **No control rods or absorber balls** are modelled.
-//! - The realised TRISO count is **8340**, not 8335 — unattainable, see
-//!   `cubic_array_in_ball`.
+//!   control-rod and helium-flow channels uniformly.~~ **CORRECTED 2026-10-01
+//!   (gh:#428):** since PR #327 the borings are explicit 3-D geometry and the
+//!   zone densities carry TECDOC p. 242's corrections
+//!   (`htr10_rmc::reflector_geometry`, `core_model::mat::for_zone_mc`).
+//! - ~~**No control rods or absorber balls** are modelled.~~ **CORRECTED
+//!   2026-10-01 (gh:#428):** the ten rods are explicit at their withdrawn
+//!   position (B4C, steel, iron; `OUTRAM_HTR10_NO_WITHDRAWN_RODS=1` empties
+//!   them). The absorber-ball (KLAK) and irradiation channels are empty
+//!   (maintainer, gh:#330); no absorber balls are modelled.
+//! - ~~The realised TRISO count is **8340**, not 8335 — unattainable, see
+//!   `cubic_array_in_ball`.~~ **CORRECTED 2026-10-01 (gh:#430):** 8335, as
+//!   stated (Şeker & Çolak 2003 p.266), through a generic lattice offset.
 
 use std::time::Instant;
 
-use nee_soon::htr10_rmc::core_model::{assemble_explicit_triso, mat};
+use uom::si::f64::ThermodynamicTemperature;
+use uom::si::thermodynamic_temperature::kelvin;
+use nee_soon::htr10_rmc::core_model::assemble_explicit_triso;
+use nee_soon::htr10_rmc::data::{
+    load_htr10_nuclides, CarbonTreatment, Coolant, Htr10DataConfig, Htr10DataError,
+    Htr10NuclideLayout, NuclearDataLibrary, RodMetalTreatment, ThermalScatteringTreatment,
+    U238Evaluation, Uo2Laws,
+};
 use nee_soon::htr10_rmc::reflector::zone_composition;
-use outram_mc_libs::material::nuclide::Nuclide;
-use njoy_outram_park_fork::leapr::decks::SabMaterial;
-use outram_mc_libs::material::thermal::ThermalScattering;
-use outram_mc_libs::run_diagnostics::{DataSource, RunDiagnostics};
-use outram_mc_libs::pebble_beds::delta_tracking::Majorant;
-use outram_mc_libs::pebble_beds::htr10::{BoronReading, Htr10Nuclides};
+use nee_soon::htr10_rmc::materials::GraphiteLaw;
+use outram_mc_libs::run_diagnostics::RunDiagnostics;
+use outram_mc_libs::pebble_beds::htr10::BoronReading;
 use outram_mc_libs::physics::keff::{ComputeType, KeffSettings, ThreadCount};
-use outram_mc_libs::physics::transport_csg::{run_keff_csg_hybrid, SourceBox};
-use outram_mc_libs::geometry::position::Position;
-use outram_mc_libs::tally::mesh::RegularMesh;
+use outram_mc_libs::physics::transport_csg::run_keff_csg_hybrid;
 
 const TEMP_K: f64 = 300.15;
 /// RMC's value at the **123.576 cm** loading height.
 ///
 /// Kept as the historical comparison point, but **do not compare against it
-/// blind** -- see [`rmc_at_height`]. The bed this example builds is
-/// `lat_height * n_axial` tall, which at the default layer count is NOT
-/// 123.576 cm, and RMC's own curve is steep enough (~270 pcm/cm near this
-/// point) that the mismatch is a real systematic rather than a rounding
-/// detail.
+/// blind** -- see [`rmc_at_height`]. ~~The bed this example builds is
+/// `n_axial x 4.899` cm tall (`2 * bed_half_height`; not `lat_height *
+/// n_axial`, which stopped being true on 2026-09-25 when the tile became the
+/// two-ball 9.798 cm prism), which at the default layer count is NOT
+/// 123.576 cm,~~ **CORRECTED 2026-10-01 (gh:#428):** the bed is Şeker's,
+/// `9.798 N + 6` cm, so the default N = 12 IS 123.576 cm tall; but it holds
+/// 1.2 % fewer balls than Şeker's model at that height, so the reference is
+/// read at the equal-ball-count height (122.091 cm at N = 12, gh:#472). RMC's
+/// own curve is steep enough (~270 pcm/cm near this point) that the mismatch
+/// is a real systematic rather than a rounding detail.
 const RMC_KEFF: f64 = 1.004288; // 123.576 cm loading height
+
+/// The paper's loading height for a bed built with `n_axial` ball layers:
+/// whole-ball extent, `(n_axial - 1)` layer pitches of 4.899 cm plus one ball
+/// diameter (gh:#333, see [`rmc_at_height`]).
+///
+/// **Since 2026-10-01 (gh:#472) a fallback only.** `main` uses it only when
+/// the bed reports no ball count, and Şeker's bed (the only bed that can be
+/// built) always reports one. (This doc block and [`rmc_at_height`]'s were
+/// attached to the wrong functions until 2026-10-01, gh:#428.)
+fn paper_height(bed_height_cm: f64) -> f64 {
+    let pitch = nee_soon::htr10_rmc::table1::LAYER_HEIGHT_CM / 2.0;
+    bed_height_cm - pitch + nee_soon::htr10_rmc::table1::BALL_DIAMETER_CM
+}
 
 /// RMC's `k_eff` interpolated to an arbitrary fuel-loading height \[cm\], from
 /// the paper's own twelve-point curve.
 ///
 /// # Why this exists
 ///
-/// The example compared every result against the single 123.576 cm point while
-/// building a bed of `lat_height * n_axial` cm. At the default 25 layers that
+/// ~~The example compared every result against the single 123.576 cm point while
+/// building a bed of `n_axial x 4.899` cm. At the default 25 layers that
 /// bed is **122.474 cm**, and RMC's curve interpolates there to **1.000676**
 /// rather than 1.004288 -- so **+361 pcm of the reported disagreement was the
-/// comparison point, not the model**. The curve rises ~270 pcm/cm through this
-/// region, so a 1.1 cm mismatch is worth more than several of the physics terms
-/// the V&V record ablates.
+/// comparison point, not the model**.~~
+///
+/// **CORRECTED 2026-09-27 (gh:#333) -- that "correction" was itself the
+/// error.** Li, Yu & Wei (2014) step the loading by whole prism layers
+/// (*"the step size of fuel addition is selected as the height of a layer
+/// i.e. 9.798 cm in order to avoid fractional fuel or moderator balls"*) and
+/// complete the top layer's balls (*"the top layer is formed by adding half
+/// spheres to each ball present in this layer"*). Every tabulated height is
+/// `9.798 N + 6.0` cm: `N` prisms carry `2N + 1` ball layers (faces and
+/// mid-planes), whose whole-ball extent is `(2N) x 4.899 + 6.0` cm. The paper's
+/// height is therefore **bottom of the lowest ball to top of the highest**.
+///
+/// Measured on the built two-ball bed (2026-09-27; that bed is withdrawn
+/// since 2026-10-01, and `layers` now counts Şeker layers N): `n_axial` = 25 gives 25
+/// whole fuelled ball layers whose extent is **123.576 cm** -- exactly the
+/// paper's critical loading, so the right reference is the tabulated
+/// **1.004288**, not an interpolation at the volume-equivalent 122.474 cm. In
+/// general `n_axial` maps to `4.899 (n_axial - 1) + 6.0` cm ([`paper_height`]).
+/// (The bed also holds a 0.55 cm cap of a 26th layer under the bed-top plane:
+/// shell graphite plus ~0.05 cm of fuel zone. Not in the paper's model; noted,
+/// not priced.) The curve rises ~270 pcm/cm here, so the mapping mattered:
+/// -361 pcm at n = 25, -477 at n = 20, -165 at n = 41.
 ///
 /// Returns `None` outside the tabulated range \[94.182, 201.960\] cm rather
 /// than extrapolating: past the ends the curve flattens and a linear
 /// extension would invent reactivity.
+///
+/// **Since 2026-10-01 (gh:#472)** `main` calls it at the height where Şeker's
+/// model holds as many balls as the built bed
+/// (`htr10_rmc::seker_height_for_balls`), not at the built height.
+///
+/// Since 2026-10-02 (gh:#501) a call to the shared
+/// [`keff_curve_at_height`](nee_soon::htr10_rmc::keff_curve_at_height).
 fn rmc_at_height(h_cm: f64) -> Option<f64> {
-    let c = nee_soon::htr10_rmc::RMC_KEFF_VS_HEIGHT;
-    if h_cm < c[0].0 || h_cm > c[c.len() - 1].0 {
-        return None;
-    }
-    for w in c.windows(2) {
-        let ((h0, k0), (h1, k1)) = (w[0], w[1]);
-        if (h0..=h1).contains(&h_cm) {
-            return Some(k0 + (h_cm - h0) / (h1 - h0) * (k1 - k0));
-        }
-    }
-    None
+    nee_soon::htr10_rmc::keff_curve_at_height(nee_soon::htr10_rmc::RMC_KEFF_VS_HEIGHT, h_cm)
 }
-const NUC: Htr10Nuclides = Htr10Nuclides {
-    u235: 0,
-    u238: 1,
-    o16: 2,
-    c_free: 3,
-    c_graphite: 4,
-    si28: 5,
-    b10: 6,
-    // Appended rather than inserted: slots 0..6 keep their indices so no
-    // existing material silently repoints at a different nuclide.
-    c_sic: 7,
-    si29: 8,
-    si30: 9,
-    // 10: B-11, the rest of natural boron (gh:#311).
-    b11: 10,
-};
-
 fn env_usize(k: &str, d: usize) -> usize {
     std::env::var(k)
         .ok()
@@ -200,297 +250,102 @@ fn env_usize(k: &str, d: usize) -> usize {
         .unwrap_or(d)
 }
 
-/// Ablation knobs over the NUCLEAR DATA rather than the geometry.
+/// Ablation knobs over the NUCLEAR DATA rather than the geometry, read into
+/// the shared [`Htr10DataConfig`].
 ///
-/// Both exist because the V&V record names ENDF/B-VIII.0-vs-VII.0 as a known,
-/// uncorrected systematic "worth hundreds of pcm" that had never actually been
-/// priced. No VII.0 tape is available locally, so the library term cannot be
+/// **Since 2026-10-01 the nuclide set is built by
+/// `nee_soon::htr10_rmc::data`**, which this example and
+/// `htr10_endf8_height_sweep`, `htr10_rod_metal_full` and
+/// `htr10_rod_metal_simplified` all call. ~~`fn nuclides` and `fn
+/// rod_metal_plan` here built it inline~~ (moved verbatim in logic; the
+/// comments that explained each tape now live in that module). With no knob
+/// set, the config is [`Htr10DataConfig::default`]: ENDF/B-VIII.0, natural
+/// carbon (C-12 / C-13, gh:#425), helium coolant (gh:#426), real Ni and Fe in
+/// the rod steel (gh:#329; **refused until gh:#339 is fixed**, so set
+/// `OUTRAM_HTR10_NI_AS_FE=1 OUTRAM_HTR10_FE57_AS_FE56=1` for the simplified
+/// case meanwhile), every bound thermal law.
+///
+/// ~~No VII.0 tape is available locally, so the library term cannot be
 /// reproduced exactly; what CAN be done is to bound library sensitivity on the
-/// nuclide that carries most of it.
+/// nuclide that carries most of it.~~ **CORRECTED 2026-10-01 (gh:#428):** the
+/// VII.0 tapes were downloaded on 2026-09-18 and `OUTRAM_HTR10_ENDF7=1` runs
+/// the whole nuclide set from them. The JENDL knob below predates that and
+/// remains a different-library bound.
 ///
+/// - `OUTRAM_HTR10_ENDF7=1` runs every nuclide from ENDF/B-VII.0, the library
+///   Li, Yu & Wei (2014) state for RMC. VII.0 carbon is elemental C-nat, which
+///   is natural carbon (so ~~the VIII.0 arm does not carry the C-13 and the
+///   difference is "not separable without a third arm"~~ **CORRECTED
+///   2026-10-01, gh:#425:** both arms now carry natural carbon). No SiC law;
+///   helium and the rod metals from VIII.0 (stated in the diagnostics).
+/// - `OUTRAM_HTR10_GRAPHITE_TSL=crystalline|10P|30P` (VIII.0 only; default 30P).
 /// - `OUTRAM_HTR10_U238_JENDL=1` swaps U-238 to the JENDL-3.3 evaluation.
-///   **This is not the VII.0 offset** and must never be quoted as one. It is a
-///   different-library bound on the dominant absorber.
-/// - `OUTRAM_HTR10_NO_SAB=1` drops the crystalline-graphite S(alpha,beta) and
-///   leaves carbon as a free gas. Primarily a HARNESS check: in a
-///   graphite-moderated system this must be worth a large, resolved amount. If
-///   it came back near zero, the thermal scattering law would not be engaged
-///   at all, and every thermal result here would be resting on nothing.
-fn nuclides(diag: &mut RunDiagnostics) -> Option<Vec<Nuclide>> {
-    let base =
-        std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../reference-data/endf");
-    let u238_file = if std::env::var("OUTRAM_HTR10_U238_JENDL").is_ok() {
-        eprintln!("  ABLATION: U-238 from JENDL-3.3 (NOT the VII.0 offset -- a library bound)");
-        "n-092_U_238-JENDL3.3.endf"
-    } else {
-        "n-092_U_238.endf"
+///   **This is not the VII.0 offset** and must never be quoted as one.
+/// - `OUTRAM_HTR10_NO_SAB=1` drops every S(alpha,beta) and leaves every
+///   nuclide a free gas. Primarily a HARNESS check: in a graphite-moderated
+///   system this must be worth a large, resolved amount.
+/// - `OUTRAM_HTR10_CARBON_AS_C12=1` (VIII.0 only, new 2026-10-01): all carbon
+///   as C-12, the pre-2026-10-01 model, to price the C-13 term.
+/// - `OUTRAM_HTR10_VACUUM_COOLANT=1` (new 2026-10-01): the coolant regions
+///   are exact vacuum, the pre-2026-10-01 model; Li reports both.
+/// - `OUTRAM_HTR10_NI_AS_FE=1`, `OUTRAM_HTR10_FE57_AS_FE56=1` (both = the
+///   SIMPLIFIED rod metal), `OUTRAM_HTR10_NO_WITHDRAWN_RODS=1`.
+/// - `OUTRAM_HTR10_UO2_TAPE_DIR=<dir>` reads the UO2 laws from tabulated tapes.
+fn data_config() -> Htr10DataConfig {
+    let on = |k: &str| std::env::var(k).is_ok();
+    let graphite_choice = std::env::var("OUTRAM_HTR10_GRAPHITE_TSL").ok();
+    let graphite_law = match graphite_choice.as_deref() {
+        None => GraphiteLaw::default(),
+        Some(v) => GraphiteLaw::from_name(v).unwrap_or_else(|| {
+            panic!("OUTRAM_HTR10_GRAPHITE_TSL must be crystalline, 10P or 30P, got {v}")
+        }),
     };
-    let no_sab = std::env::var("OUTRAM_HTR10_NO_SAB").is_ok();
-    if no_sab {
-        eprintln!("  ABLATION: graphite S(alpha,beta) DISABLED -- carbon as free gas");
-    }
-    // `OUTRAM_HTR10_ENDF7=1` runs the WHOLE nuclide set from ENDF/B-VII.0 --
-    // the library RMC, MCNP, Serpent and HCP all used. This is the offset the
-    // V&V record has named as "worth hundreds of pcm" and never priced.
-    //
-    // Downloaded 2026-09-18 from the IAEA NDS `download-endf` tree
-    // (https://www-nds.iaea.org/public/download-endf/ENDF-B-VII.0/), which is
-    // the same pinned host `njoy-outram-park-fork::acquire` uses. Open,
-    // publicly released evaluated nuclear data.
-    //
-    // **One genuine evaluation difference, not a version relabel:** VII.0's
-    // carbon is ELEMENTAL natural carbon (`6-C-0`, MAT 600), where VIII.0 ships
-    // C-12 separately. So the VII.0 arm carries the 1.1 % C-13 in its carbon and
-    // the VIII.0 arm does not. That is part of what "the library difference"
-    // physically IS here, and it is not separable without a third arm.
-    let endf7 = std::env::var("OUTRAM_HTR10_ENDF7").is_ok();
-    if endf7 {
-        eprintln!("  ABLATION: ENDF/B-VII.0 for ALL nuclides (the library the references used)");
-        eprintln!("            note: VII.0 carbon is elemental C-nat, not C-12");
-    }
-    // Every tape is recorded, with its path, whether or not it loaded. A
-    // thermal law that fails to load falls back to free gas and the
-    // eigenvalue simply comes out somewhere else -- the diagnostics file is
-    // what turns that from an invisible substitution into a line of text.
-    macro_rules! load {
-        ($diag:expr, $n:expr, $f:expr) => {{
-            let p = base.join($f);
-            eprint!("  {:<6} ", $n);
-            let t = Instant::now();
-            let r = $diag.time_data(
-                format!("{} cross sections", $n),
-                DataSource::File(p.clone()),
-                format!("{:.2} K, tol 1.0e-3", TEMP_K),
-                || {
-                    p.exists().then_some(())?;
-                    Nuclide::from_endf_file(&p, $n, TEMP_K, 1.0e-3).ok()
-                },
-            );
-            eprintln!("{:.1?}", t.elapsed());
-            r
-        }};
-    }
-    // Si-29 and Si-30 from the SAME library as Si-28. Until 2026-09-25 they
-    // were hardcoded to the VIII.0 tapes, so the VII.0 arm carried 7.7 % of
-    // its silicon from the other evaluation. VII.0 does evaluate both (IAEA
-    // NDS n_1428_14-Si-29, n_1431_14-Si-30; the Si-28 from that tree is
-    // byte-identical to the committed VII.0 tape).
-    let (f_si29, f_si30) = if endf7 {
-        ("n-014_Si_029-ENDF7.0.endf", "n-014_Si_030-ENDF7.0.endf")
-    } else {
-        ("n-014_Si_029-ENDF8.0.endf", "n-014_Si_030-ENDF8.0.endf")
-    };
-    // B-11 from the selected library too (gh:#311). VII.0 tape: IAEA NDS
-    // n_0528_5-B-11; the B-10 from that tree is byte-identical to the committed
-    // VII.0 tape.
-    let f_b11 = if endf7 {
-        "n-005_B_011-ENDF7.0.endf"
-    } else {
-        "n-005_B_011-ENDF8.0.endf"
-    };
-    let (f_u235, f_u238, f_o16, f_c, f_si28, f_b10, f_tsl) = if endf7 {
-        (
-            "n-092_U_235-ENDF7.0.endf",
-            "n-092_U_238-ENDF7.0.endf",
-            "n-008_O_016-ENDF7.0.endf",
-            "n-006_C_000-ENDF7.0.endf",
-            "n-014_Si_028-ENDF7.0.endf",
-            "n-005_B_010-ENDF7.0.endf",
-            "tsl-graphite-ENDF7.0.endf",
-        )
-    } else {
-        (
-            "n-092_U_235-ENDF8.0.endf",
-            u238_file,
-            "n-008_O_016-ENDF8.0.endf",
-            "n-006_C_012-ENDF8.0.endf",
-            "n-014_Si_028-ENDF8.0.endf",
-            "n-005_B_010-ENDF8.0.endf",
-            "tsl-crystalline-graphite.endf",
-        )
-    };
-    // The graphite thermal tape's MAT differs between releases: VIII.0's
-    // crystalline graphite is MAT 30 (ZA 130), VII.0's is MAT 31 (ZA 131).
-    // Passing the wrong one makes `from_endf_file` return Err and the whole
-    // nuclide set silently become `None`, which surfaces as the misleading
-    // "reference-data/endf/ not in this checkout" -- so it is selected here
-    // rather than hardcoded.
-    let tsl_mat = if endf7 { 31 } else { 30 };
-    let sab = diag.time_data(
-        "graphite S(a,b)",
-        DataSource::File(base.join(f_tsl)),
-        format!("MAT {tsl_mat}, {TEMP_K:.2} K, c_Graphite"),
-        || {
-            ThermalScattering::from_endf_file(
-                base.join(f_tsl).to_str()?,
-                tsl_mat,
-                TEMP_K,
-                "c_Graphite",
-            )
-            .map_err(|e| eprintln!("  thermal scattering load FAILED (mat {tsl_mat}): {e}"))
-            .ok()
-        },
-    )?;
-    // SiC HAS ITS OWN BOUND THERMAL LAWS, and until 2026-09-23 the model used
-    // neither: its carbon was free gas and its silicon was bare Si-28.
-    // ENDF/B-VIII.0 ships `tsl-CinSiC` (MAT 44) and `tsl-SiinSiC` (MAT 43)
-    // precisely so a SiC coating need not be approximated as a gas.
-    //
-    // These are NOT loaded for the ENDF/B-VII.0 arm: VII.0 has no SiC
-    // thermal evaluation, so that arm keeps free-gas SiC. That is a real
-    // difference between the two libraries rather than an inconsistency, and
-    // it is one more term bundled into the "library" number -- see the
-    // carbon-evaluation note above.
-    let sic_sab = |diag: &mut RunDiagnostics, mat: i32, name: &'static str| {
-        let f = if mat == 44 {
-            "tsl-CinSiC.endf"
+    Htr10DataConfig {
+        library: if on("OUTRAM_HTR10_ENDF7") {
+            NuclearDataLibrary::EndfB7
         } else {
-            "tsl-SiinSiC.endf"
-        };
-        if endf7 || no_sab {
-            diag.note(format!(
-                "{name} S(a,b) deliberately NOT applied ({}) -- SiC carbon and \
-                 silicon are free gas in this arm",
-                if endf7 {
-                    "ENDF/B-VII.0 has no SiC thermal evaluation"
-                } else {
-                    "NO_SAB ablation"
-                }
-            ));
-            return None;
-        }
-        let p = base.join(f);
-        diag.time_data(
-            format!("{name} S(a,b)"),
-            DataSource::File(p.clone()),
-            format!("MAT {mat}, {TEMP_K:.2} K"),
-            || {
-                if !p.exists() {
-                    eprintln!("  {name}: {f} not in this checkout -- falling back to free gas");
-                    return None;
-                }
-                ThermalScattering::from_endf_file(p.to_str()?, mat, TEMP_K, name)
-                    .map_err(|e| eprintln!("  {name} S(a,b) load FAILED (mat {mat}): {e}"))
-                    .ok()
-            },
-        )
-    };
-    let c_in_sic = sic_sab(diag, 44, "c_SiC");
-    let si_in_sic = sic_sab(diag, 43, "Si_SiC");
-
-    // UO2 HAS BOUND THERMAL LAWS TOO, and the kernel had none at all -- the
-    // fuel was scattering as a free gas, in the one place the thermal flux
-    // and the absorption actually meet. No UO2 tape ships in
-    // `reference-data/endf/`, but both LEAPR decks are committed in
-    // `njoy-outram-park-fork`, so these are GENERATED rather than downloaded:
-    // reproducible from a deck that can be read, with no new binary tapes.
-    //
-    // Generation is not free. That is exactly why this run now separates
-    // nuclear-data time from transport time.
-    //
-    // APPLIED TO BOTH LIBRARY ARMS, unlike the SiC laws above. Until
-    // 2026-09-24 these were withheld from the `OUTRAM_HTR10_ENDF7=1` arm
-    // alongside SiC, but the two cases are not alike: SiC is withheld because
-    // ENDF/B-VII.0 ships no SiC thermal evaluation, whereas these are
-    // GENERATED from LEAPR decks that do not depend on the library version at
-    // all. Withholding them therefore put a difference into the measured
-    // "library term" that is not a library difference -- an artefact of which
-    // arm the code chose to run them in. Both arms now carry them, so the
-    // term prices evaluation differences and the genuinely-absent SiC law,
-    // and nothing else.
-    // `OUTRAM_HTR10_UO2_TAPE_DIR=<dir>` reads the UO2 laws from TABULATED
-    // tapes in <dir> (`tsl-UinUO2.endf`, `tsl-OinUO2.endf`) instead of
-    // generating them from the committed decks. The decks are the VIII.0
-    // evaluation, so this is how the VII.0 arm gets its OWN UO2 laws (VII.0
-    // ships them: U-in-UO2 MAT 76, O-in-UO2 MAT 75). A tape that fails to load
-    // aborts the run rather than falling back to free gas.
-    let uo2_tape_dir = std::env::var("OUTRAM_HTR10_UO2_TAPE_DIR").ok();
-    let uo2_sab = |diag: &mut RunDiagnostics, material: SabMaterial, name: &'static str| {
-        if no_sab {
-            diag.note(format!(
-                "{name} S(a,b) deliberately NOT applied (NO_SAB ablation)"
-            ));
-            return None;
-        }
-        if let Some(dir) = &uo2_tape_dir {
-            let (f, mat) = match material {
-                SabMaterial::UInUO2 => ("tsl-UinUO2.endf", 76),
-                SabMaterial::OInUO2 => ("tsl-OinUO2.endf", 75),
-                _ => unreachable!("only the two UO2 laws come through here"),
-            };
-            let p = std::path::Path::new(dir).join(f);
-            eprint!("  {name:<8} TAPE  ");
-            let t = Instant::now();
-            let out = diag.time_data(
-                format!("{name} S(a,b)"),
-                DataSource::File(p.clone()),
-                format!("MAT {mat}, {TEMP_K:.2} K, tabulated tape"),
-                || {
-                    Some(
-                        ThermalScattering::from_endf_file(p.to_str()?, mat, TEMP_K, name)
-                            .unwrap_or_else(|e| {
-                                panic!("{name} tape {} (MAT {mat}) FAILED: {e}", p.display())
-                            }),
-                    )
-                },
-            );
-            eprintln!("{:.1?}", t.elapsed());
-            return Some(out.expect("UO2 tape path is not valid UTF-8"));
-        }
-        eprint!("  {name:<8} LEAPR ");
-        let t = Instant::now();
-        let out = diag.time_data(
-            format!("{name} S(a,b)"),
-            DataSource::GeneratedFromLeaprDeck(material.base().to_string()),
-            format!(
-                "MAT {}, {TEMP_K:.2} K, generated in-process",
-                material.mat()
-            ),
-            || {
-                ThermalScattering::from_leapr(material, TEMP_K, name)
-                    .map_err(|e| eprintln!("  {name} LEAPR generation FAILED: {e}"))
-                    .ok()
-            },
-        );
-        eprintln!("{:.1?}", t.elapsed());
-        out
-    };
-    let u_in_uo2 = uo2_sab(diag, SabMaterial::UInUO2, "U_UO2");
-    let o_in_uo2 = uo2_sab(diag, SabMaterial::OInUO2, "O_UO2");
-    let bind = |n: Nuclide, sab: &Option<ThermalScattering>| match sab {
-        Some(s) => n.with_thermal_scattering(s.clone()),
-        None => n,
-    };
-
-    Some(vec![
-        bind(load!(diag, "U235", f_u235)?, &u_in_uo2),
-        bind(load!(diag, "U238", f_u238)?, &u_in_uo2),
-        bind(load!(diag, "O16", f_o16)?, &o_in_uo2),
-        // 3: free-gas carbon, retained for the NO_SAB ablation arm only.
-        load!(diag, "C12", f_c)?,
-        // 4: graphite-bound carbon.
-        if no_sab {
-            load!(diag, "C12", f_c)?
-        } else {
-            load!(diag, "C12", f_c)?.with_thermal_scattering(sab)
+            NuclearDataLibrary::EndfB8
         },
-        // 5, 8, 9: silicon, split over its three natural isotopes and bound
-        // in SiC. The atom density was always built from silicon's natural
-        // molar mass, so this splits a correct total rather than changing it.
-        bind(load!(diag, "Si28", f_si28)?, &si_in_sic),
-        load!(diag, "B10", f_b10)?,
-        // 7: carbon bound in SiC.
-        bind(load!(diag, "C12", f_c)?, &c_in_sic),
-        bind(load!(diag, "Si29", f_si29)?, &si_in_sic),
-        bind(load!(diag, "Si30", f_si30)?, &si_in_sic),
-        // 10: B-11 (gh:#311). No thermal law: a trace scatterer in graphite.
-        load!(diag, "B11", f_b11)?,
-    ])
+        graphite_law,
+        carbon: if on("OUTRAM_HTR10_CARBON_AS_C12") {
+            CarbonTreatment::AllC12
+        } else {
+            CarbonTreatment::Natural
+        },
+        coolant: if on("OUTRAM_HTR10_VACUUM_COOLANT") {
+            Coolant::Vacuum
+        } else {
+            Coolant::Helium
+        },
+        rod_metal: RodMetalTreatment::from_knobs(
+            on("OUTRAM_HTR10_NI_AS_FE"),
+            on("OUTRAM_HTR10_FE57_AS_FE56"),
+            on("OUTRAM_HTR10_NO_WITHDRAWN_RODS"),
+        ),
+        thermal: if on("OUTRAM_HTR10_NO_SAB") {
+            ThermalScatteringTreatment::FreeGas
+        } else {
+            ThermalScatteringTreatment::Bound
+        },
+        u238: if on("OUTRAM_HTR10_U238_JENDL") {
+            U238Evaluation::Jendl33
+        } else {
+            U238Evaluation::Library
+        },
+        uo2_laws: match std::env::var("OUTRAM_HTR10_UO2_TAPE_DIR") {
+            Ok(dir) => Uo2Laws::Tapes(dir.into()),
+            Err(_) => Uo2Laws::GeneratedFromLeapr,
+        },
+        temperature: ThermodynamicTemperature::new::<kelvin>(TEMP_K),
+    }
 }
 
 fn main() {
     let histories = env_usize("OUTRAM_HTR10_HISTORIES", 2000);
     let rings = env_usize("OUTRAM_HTR10_RINGS", 8);
+    // Şeker layers N since 2026-10-01 (gh:#472): the bed is 9.798 N + 6 cm, a
+    // row of Li's table for N = 9..20. ~~Half-layers of 4.899 cm~~ (the
+    // two-ball / one-ball `2 N + 1`). The default 12 is the critical row.
     let layers = env_usize("OUTRAM_HTR10_LAYERS", 12);
 
     println!("HTR-10 core k-eff vs Li, Yu & Wei (2014), RMC {RMC_KEFF}");
@@ -500,9 +355,11 @@ fn main() {
     // run announced itself as VIII.0 at the top of its own transcript -- the
     // one place a reader looks to find out which arm a saved log came from.
     if std::env::var("OUTRAM_HTR10_ENDF7").is_ok() {
-        println!("  ENDF/B-VII.0 (the library RMC, MCNP, Serpent and HCP used)");
+        // CORRECTED 2026-10-01 (gh:#428): "the library RMC, MCNP, Serpent and
+        // HCP used" -- Li's MCNP columns are Şeker's ENDF/B-VI runs.
+        println!("  ENDF/B-VII.0 (the library Li, Yu & Wei state for RMC)");
     } else {
-        println!("  ENDF/B-VIII.0 (references used VII.0 -- offset NOT corrected)");
+        println!("  ENDF/B-VIII.0 (RMC used VII.0 -- offset NOT corrected)");
     }
     println!("  explicit TRISO, hybrid delta/surface tracking, TECDOC reflector\n");
 
@@ -518,9 +375,25 @@ fn main() {
         env_usize("OUTRAM_HTR10_INACTIVE", 30),
         env_usize("OUTRAM_HTR10_ACTIVE", 70)
     ));
-    let Some(nucs) = nuclides(&mut diag) else {
-        println!("SKIP: reference-data/endf/ not in this checkout.");
-        return;
+    let data_cfg = data_config();
+    let layout = match Htr10NuclideLayout::plan(&data_cfg) {
+        Ok(l) => l,
+        Err(e) => {
+            println!("REFUSED: {e}");
+            return;
+        }
+    };
+    println!("  rod metal: {}", data_cfg.rod_metal.label());
+    let nucs = match load_htr10_nuclides(&data_cfg, &layout, &mut diag) {
+        Ok(v) => v,
+        Err(e @ Htr10DataError::BlockedByGh339) => {
+            println!("REFUSED: {e}");
+            return;
+        }
+        Err(e) => {
+            println!("SKIP: {e}");
+            return;
+        }
     };
 
     // Pebble materials, slots 0..5 in DhUniverse::pebble order.
@@ -550,8 +423,8 @@ fn main() {
         "  reflector zone: {zone_id} (C {:.4e} x{refl_scale:.3}, natural B {:.4e})",
         z_report.carbon, z_report.natural_boron
     );
-    let mats = nee_soon::htr10_rmc::materials::htr10_material_set(
-        NUC,
+    let mut mats = nee_soon::htr10_rmc::materials::htr10_material_set(
+        &layout,
         nee_soon::htr10_rmc::materials::Htr10MaterialConfig {
             temperature_k: TEMP_K,
             boron,
@@ -562,25 +435,58 @@ fn main() {
 
     // OUTRAM_HTR10_SURFACE=1 runs the SAME geometry with surface tracking only.
     let surface_only = std::env::var("OUTRAM_HTR10_SURFACE").is_ok();
-    // OUTRAM_HTR10_HOMOG=1 drops the nested TRISO lattice for a homogenised
-    // fuel zone. Not physical (the zone becomes pure kernel material) but it
-    // DISCRIMINATES: if this fissions and the explicit model does not, the TRISO
-    // lattice is the culprit.
-    let homog = std::env::var("OUTRAM_HTR10_HOMOG").is_ok();
-    let maj_idx = if surface_only { usize::MAX } else { 0 };
-    let core = if homog {
-        nee_soon::htr10_rmc::core_model::assemble(rings, layers, maj_idx)
-    } else {
-        assemble_explicit_triso(rings, layers, maj_idx)
-    };
-    println!(
-        "  fuel zone: {}",
-        if homog {
-            "HOMOGENISED"
-        } else {
-            "explicit TRISO lattice"
-        }
+    // ~~OUTRAM_HTR10_HOMOG=1 drops the nested TRISO lattice for a homogenised
+    // fuel zone (the one-ball `core_model::assemble`).~~ WITHDRAWN 2026-10-01
+    // (maintainer): that model cuts pebbles at its tile faces, which is wrong
+    // physics, and it is never to be run, not even as a diagnostic.
+    assert!(
+        std::env::var("OUTRAM_HTR10_HOMOG").is_err(),
+        "OUTRAM_HTR10_HOMOG is withdrawn: the one-ball model cuts pebbles (wrong physics)"
     );
+    let maj_idx = if surface_only { usize::MAX } else { 0 };
+    let core = assemble_explicit_triso(rings, layers, maj_idx);
+    // The no-withdrawn-rods modelling assumption (`RodMetalTreatment::
+    // NotModelled`): the rod metals were not loaded (they are the last slots),
+    // so drop their components, and PROVE that no cell is filled with a
+    // material that lost them.
+    if !layout.rod_metal.loads_rod_metal() {
+        let mut stripped = Vec::new();
+        for (i, m) in mats.iter_mut().enumerate() {
+            let before = m.components.len();
+            m.components.retain(|c| c.nuclide_idx < nucs.len());
+            if m.components.len() != before {
+                stripped.push(i);
+            }
+        }
+        for c in &core.geometry.cells {
+            if let outram_mc_libs::geometry::cell::CellFill::Material(m) = c.fill {
+                assert!(
+                    !stripped.contains(&m),
+                    "cell {} is filled with material {m} ({}) whose rod-metal nuclides \
+                     were not loaded -- the no-rods assumption does not hold",
+                    c.id,
+                    mats[m].name
+                );
+            }
+        }
+        println!(
+            "  ASSUMPTION: no withdrawn rods; materials {stripped:?} stripped, used by no cell"
+        );
+    }
+    // Every component must name a loaded nuclide (guards the Ni-as-Fe slot
+    // remap and the no-rods strip alike).
+    for m in &mats {
+        for c in &m.components {
+            assert!(
+                c.nuclide_idx < nucs.len(),
+                "material {} names nuclide slot {} but only {} are loaded",
+                m.name,
+                c.nuclide_idx,
+                nucs.len()
+            );
+        }
+    }
+    println!("  fuel zone: explicit TRISO lattice");
     println!(
         "  tracking: {}",
         if surface_only {
@@ -596,11 +502,7 @@ fn main() {
 
     // Region-local majorant: the BED's materials only. The reflector is
     // surface-tracked, so it must NOT raise the bed's tracking cost.
-    let grid: Vec<f64> = (0..4096)
-        .map(|i| (1.0e-4_f64.ln() + (2.0e7_f64.ln() - 1.0e-4_f64.ln()) * i as f64 / 4095.0).exp())
-        .collect();
-    let bed_mats: Vec<usize> = (0..=mat::HELIUM).collect();
-    let maj = Majorant::over_indices(&mats, &bed_mats, &nucs, &grid, 0.3);
+    let maj = nee_soon::htr10_rmc::keff_vs_height::bed_majorant(&mats, &nucs);
 
     let settings = KeffSettings {
         n_particles: histories,
@@ -611,7 +513,12 @@ fn main() {
         n_inactive: env_usize("OUTRAM_HTR10_INACTIVE", 30),
         n_active: env_usize("OUTRAM_HTR10_ACTIVE", 70),
         temperature_k: TEMP_K,
-        seed: 20260917,
+        // `OUTRAM_HTR10_SEED=n` replaces the default seed, so a multi-seed
+        // study can run one seed per process (resumable, one log per seed).
+        seed: std::env::var("OUTRAM_HTR10_SEED")
+            .ok()
+            .and_then(|v| v.parse().ok())
+            .unwrap_or(20260917),
         // `OUTRAM_HTR10_THREADS=n` pins the thread count; default stays Auto.
         //
         // This exists because thread-count independence is **tested for
@@ -647,22 +554,14 @@ fn main() {
     // is recoverable given enough inactive generations; an entropy mesh that
     // is blind to part of the core is NOT -- it reports convergence of the
     // region it can see, which is exactly the diagnostic one must not trust.
-    let zl = core.conus_floor;
-    let zu = core.bed_half_height;
-    let rb = core.bed_radius;
-    let src = SourceBox {
-        lower: Position::new(-rb, -rb, zl),
-        upper: Position::new(rb, rb, zu),
-    };
-    let entropy_mesh = RegularMesh {
-        lower_left: [-rb, -rb, zl],
-        upper_right: [rb, rb, zu],
-        dimension: [4, 4, 4],
-    };
+    // Both are `nee_soon::htr10_rmc::keff_vs_height`'s since 2026-10-02
+    // (gh:#501), shared with every HTR-10 example.
+    let src = nee_soon::htr10_rmc::keff_vs_height::fissile_source_box(&core);
+    let entropy_mesh = nee_soon::htr10_rmc::keff_vs_height::fissile_entropy_mesh(&core);
 
     println!(
-        "  {histories} histories x [{} inactive + {} active]\n",
-        settings.n_inactive, settings.n_active
+        "  {histories} histories x [{} inactive + {} active], seed {}\n",
+        settings.n_inactive, settings.n_active, settings.seed
     );
     println!(
         "  nuclear data processed in {:.1} s ({} items)",
@@ -728,14 +627,46 @@ fn main() {
         println!("    uncertainty  sem = +/-{sem:.0} pcm   (on the pooled mean)");
     }
 
-    // Height-matched comparison. The bed is `lat_height * n_axial` tall; RMC's
+    // Height-matched comparison. The bed is `2 * bed_half_height` = `n_axial x
+    // 4.899` cm tall (not `lat_height * n_axial` since the two-ball tile); RMC's
     // curve is sampled at ITS heights, so comparing against a point the model
     // does not occupy imports a systematic worth ~270 pcm per cm of mismatch.
-    let bed_height_cm = core.bed_half_height * 2.0;
+    // CORRECTED 2026-09-27 (gh:#333): matched on the paper's whole-ball
+    // extent, not the volume-equivalent height.
+    //
+    // Since 2026-10-01 (gh:#472) Şeker's bed IS built on the paper's height
+    // axis (`9.798 N + 6` cm, every ball whole), so no mapping is applied; ~~the
+    // two-ball and one-ball beds keep the gh:#333 mapping~~ (CORRECTED
+    // 2026-10-01, gh:#428: both are withdrawn and panic, so `paper_height`
+    // below is a fallback the default path never reaches).
+    let volume_height_cm = core.bed_half_height * 2.0;
+    //
+    // ~~Şeker's bed is compared at its built height~~ **CHANGED 2026-10-01
+    // (gh:#472, maintainer: "match by ball count"):** our whole-ball bed holds
+    // 1.2 % fewer balls than Şeker's model at the same height (Şeker kept balls
+    // crossing the wall by up to 0.21 cm). So the reference is read at the
+    // height where Şeker's model holds OUR inventory,
+    // `htr10_rmc::seker_height_for_balls`.
+    let bed_height_cm = match core.bed.as_ref().and_then(|b| b.core_balls()) {
+        Some(balls) => {
+            let h = nee_soon::htr10_rmc::seker_height_for_balls(balls);
+            println!(
+                "\n  BALL-COUNT MATCH (gh:#472): {balls} balls in a {volume_height_cm:.3} cm bed; \
+                 Şeker's model holds that many at {h:.3} cm"
+            );
+            h
+        }
+        None => paper_height(volume_height_cm),
+    };
     let rmc_here = rmc_at_height(bed_height_cm);
     match rmc_here {
         Some(k) => println!(
-            "\n  HEIGHT-MATCHED: bed is {bed_height_cm:.3} cm -> RMC(interp) = {k:.6}\n  \
+            // CORRECTED 2026-10-01 (gh:#428): this printed "(volume) = ... ball
+            // extent (paper's convention, gh:#333)", which is not what
+            // `bed_height_cm` is for Şeker's bed. `htr10_pooled_study` parses
+            // the `HEIGHT-MATCHED` and `RMC(interp) =` tokens; keep both.
+            "\n  HEIGHT-MATCHED: bed {volume_height_cm:.3} cm built; reference read at \
+             {bed_height_cm:.3} cm (equal ball count, gh:#472) -> RMC(interp) = {k:.6}\n  \
              (the {RMC_KEFF:.6} headline is RMC at 123.576 cm; difference {:+.0} pcm \
              is comparison point, NOT model)",
             (RMC_KEFF - k) * 1.0e5
@@ -745,6 +676,21 @@ fn main() {
              RMC range [94.182, 201.960] cm, so no height-matched reference exists \
              and the {RMC_KEFF:.6} comparison below is NOT like-for-like."
         ),
+    }
+
+    // A rough gauge only (maintainer direction 2026-09-27): the paper's MCNP
+    // columns, from an independently built model. RMC stays the reference.
+    let at = |c: &[(f64, f64)]| nee_soon::htr10_rmc::keff_curve_at_height(c, bed_height_cm);
+    if let (Some(m3), Some(m4)) = (
+        at(nee_soon::htr10_rmc::MCNP_TABLE3_KEFF_VS_HEIGHT),
+        at(nee_soon::htr10_rmc::MCNP_TABLE4_KEFF_VS_HEIGHT),
+    ) {
+        println!(
+            "  GAUGE (not a reference): MCNP at this height, Table 3 {m3:.6} ({:+.0} pcm), \
+             Table 4 {m4:.6} ({:+.0} pcm)",
+            (res.k_mean - m3) * 1.0e5,
+            (res.k_mean - m4) * 1.0e5
+        );
     }
 
     let pcm = (res.k_mean - RMC_KEFF) * 1.0e5;
@@ -832,8 +778,19 @@ fn main() {
             (entropy_mesh.n_bins() as f64).log2()
         );
     }
-    println!("\n  Gate is 500-1000 pcm. This is a REDUCED core ({rings} rings x {layers} layers),");
-    println!("  not the 123.576 cm loading, and carries the VIII.0-vs-VII.0 offset.");
+    // CORRECTED 2026-09-27: this used to say every run was "a REDUCED core,
+    // not the 123.576 cm loading". Both halves were false: the bed radius is
+    // always the physical 90 cm (`rings` is only a floor, see
+    // `core_model::assemble`), and ~~`layers = 25` IS the 123.576 cm loading
+    // in the paper's whole-ball-extent convention (gh:#333)~~ CORRECTED
+    // 2026-10-01 (gh:#428): `layers` is Şeker layers N since gh:#472, and
+    // N = 12 is the 123.576 cm loading. The printout said "{layers} layers =
+    // {bed_height_cm} cm", but `bed_height_cm` is the equal-ball-count
+    // reference height, not the bed's.
+    println!(
+        "\n  Gate is 500-1000 pcm. Full-radius bed, {layers} Seker layers = {volume_height_cm:.3} cm \
+         built, reference read at {bed_height_cm:.3} cm; VIII.0 runs carry the VIII.0-vs-VII.0 offset."
+    );
 
     // Data-processing time and transport time, reported separately, and the
     // full provenance record written to a file. If any data item failed to

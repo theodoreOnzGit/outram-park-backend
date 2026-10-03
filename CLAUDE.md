@@ -10,7 +10,7 @@ exactly as if it were here.
 
 | When you are… | Read |
 |---|---|
-| using `kovan-cli`, handling literature, or digitising a figure | [`docs/claude-md/kovan-tooling.md`](docs/claude-md/kovan-tooling.md) |
+| using `kovan-cli`, handling literature (the maintainer supplies the corpus), or digitising a figure | [`docs/claude-md/kovan-tooling.md`](docs/claude-md/kovan-tooling.md) |
 | running an agent fleet or a `Workflow` (post progress every 15 min) | [`docs/claude-md/agent-fleet-reporting.md`](docs/claude-md/agent-fleet-reporting.md) |
 | committing (token trailers) or merging `develop` → `main` (historian report) | [`docs/claude-md/accounting-and-historian.md`](docs/claude-md/accounting-and-historian.md) |
 | writing or editing any `README.md` or markdown with math | [`docs/claude-md/markdown-format.md`](docs/claude-md/markdown-format.md) |
@@ -559,7 +559,9 @@ since 2026-09-22), holding the open literature PDFs (see "Literature and the
 Kovan corpus" below). Clone with `git clone --recurse-submodules`, or run
 `git submodule update --init` afterwards. A plain clone leaves each path an
 **empty directory rather than an error**, so nothing complains until something
-looks for a file and does not find one.
+looks for a file and does not find one. (Since 2026-09-30 the first workspace
+`kovan-cli` command fetches the literature submodule if it is empty; the ACE
+submodule is still yours to fetch.)
 
 ```bash
 cargo build --workspace --release                   # all libraries
@@ -602,7 +604,11 @@ receipt.
   `cargo test --workspace --lib --tests --release`, and say which one you ran.
 - TUAS natural-circulation tests are very long: run them in parallel, never
   `--test-threads=1`, and a timeout is not a failure.
-- CI runs quick on `develop` and full on `main`.
+- ~~CI runs quick on `develop` and full on `main`.~~ **CORRECTED
+  2026-09-29**: the `main` tier has never run. CI on `develop` is a compile
+  gate over the top crates plus a four-case smoke set
+  (`ci/smoke-tests.toml`: Godiva HIGH tier, Edwards, cavity, Sod). The full
+  suite runs only on demand (`manual-tests.yml`).
 
 Full rules, tiers and CI triggers: [`docs/claude-md/long-tests-and-ci.md`](docs/claude-md/long-tests-and-ci.md).
 
@@ -673,16 +679,14 @@ pattern: `Cargo.toml`, `src/lib.rs` with a `SCOPE` constant and one test,
 
 ## Literature and the Kovan corpus (brief)
 
-- **PDFs do not live in this repository.** Open literature is in the
-  `reactor-literature` Git submodule at `crates/kovan-literature/reactor-literature/`
-  (`git submodule update --init` it): `kovan-standard-open-corpus/` and
-  `theodore-open-corpus/`, each README stating every document's licence basis.
-  Proprietary literature is in the maintainer's private repository, never here.
-- **Kovan's built-in corpus** is the nuclear-engineering map compiled into
-  `crates/kovan/src/corpus.rs`: the topic tree plus metadata for exactly the
-  documents in `kovan-standard-open-corpus/`, nothing else.
-- Details and rules: [`crates/kovan-literature/CLAUDE.md`](crates/kovan-literature/CLAUDE.md)
-  and its `CATALOGUE.md`.
+- **The maintainer supplies the kovan corpus** and ingests literature
+  manually. Do not ingest literature into kovan on your own initiative.
+- **From time to time the maintainer may ask you to hardcode the mind map, the
+  standard corpus and annotations in `kovan-literature`.** Do it when asked.
+- Open literature lives in the `reactor-literature` submodule at
+  `crates/kovan-literature/reactor-literature/`; proprietary literature is in
+  the maintainer's private repository, never here. Details:
+  [`crates/kovan-literature/CLAUDE.md`](crates/kovan-literature/CLAUDE.md).
 
 ## Session completion
 

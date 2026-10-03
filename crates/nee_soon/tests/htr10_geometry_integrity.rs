@@ -24,10 +24,17 @@ use outram_mc_libs::pebble_beds::sphere_packing::{cubic_array_in_ball, cubic_pit
 
 /// The bed cell must reproduce the plant's published ball inventory.
 ///
-/// This is the strongest single check available without transport: 27,000 fuel
+/// ~~This is the strongest single check available without transport: 27,000 fuel
 /// elements is a **stated plant figure**, and the cell geometry is derived from
 /// different stated figures (6 cm balls, 0.61 filling fraction, a 180 x 197 cm
-/// core). If the derivation were wrong the two would not meet.
+/// core). If the derivation were wrong the two would not meet.~~
+///
+/// **CORRECTED 2026-10-01 (gh:#430):** this is a **consistency check that
+/// cannot fail**. `balls_in_core` reduces to `V_core x 0.61 / V_ball` for any
+/// pitch and height, so it meets 27 000 whatever the cell. And 27 000 is the
+/// equilibrium (all-fuel) core, not the 57:43 initial core. An independent
+/// count is Şeker & Çolak (2003), NED 222:263, Table 3: `1346 N + 733` balls
+/// at loading height `9.798 N + 6.0` cm.
 #[test]
 fn the_bed_reproduces_the_published_ball_inventory() {
     let cell = HexBedCell::from_paper();

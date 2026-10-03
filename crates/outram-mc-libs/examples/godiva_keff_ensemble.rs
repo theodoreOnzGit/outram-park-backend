@@ -112,6 +112,14 @@
 //!     --features endf-pebble-cases --example godiva_keff_ensemble
 //! ```
 //!
+//! **Since 2026-10-03 (GitHub #494)** the seed loop is the library runner
+//! [`outram_mc_libs::stats::ensemble`], with the same seeds, chunking and
+//! pooling formula, so the numbers above are reproduced unchanged; the run
+//! additionally prints a seed-consistency report (`χ²/dof` of the seeds
+//! against each run's internal `σ`, outlier seeds, and a disjoint-group check
+//! of the `1/√N` law). That report has **NOT YET been measured** (testing
+//! deferred by maintainer, 2026-10-03).
+//!
 //! `OUTRAM_SPEED=standard|fast|very-fast` picks the nuclides' `SpeedTier`.
 //! Unset means `fast` (the default, exactly the same `k` as `standard`);
 //! `very-fast` coarsens RECONR/BROADR to 1 %, an approximation whose
@@ -133,22 +141,14 @@ mod desktop {
     use outram_mc_libs::material::material::{Material, NuclideComponent};
     use outram_mc_libs::material::nuclide::Nuclide;
     use outram_mc_libs::physics::keff::{run_keff, KeffSettings};
-    use std::sync::atomic::{AtomicUsize, Ordering};
+    use outram_mc_libs::stats::ensemble::{
+        consecutive_seeds, default_workers, run_seeds_with_progress, EnsembleReport,
+    };
     use std::sync::Arc;
     use std::time::Instant;
 
     const TEMP_K: f64 = 293.6;
     const RADIUS_CM: f64 = 8.7407;
-    /// Worker threads, taken from the machine rather than hard-coded. The
-    /// result does not depend on it: seeds are chunked in order and each
-    /// writes its own slot, so the per-seed vector is thread-count
-    /// independent, not merely the mean.
-    fn workers() -> usize {
-        std::thread::available_parallelism()
-            .map(|n| n.get())
-            .unwrap_or(4)
-    }
-
     const NUCLIDES: &[(&str, &str, f64)] = &[
         ("n-092_U_234-ENDF8.0.endf", "U234", 4.9184e-4),
         ("n-092_U_235-ENDF8.0.endf", "U235", 4.4994e-2),
@@ -243,45 +243,47 @@ mod desktop {
                 .collect(),
         };
 
-        let seeds: Vec<u64> = (1..=n_seeds as u64).collect();
+        // GitHub #494: the seed loop is now the library runner
+        // (`outram_mc_libs::stats::ensemble`), which uses exactly the scheme
+        // this example had inline — seeds `1..=N`, chunked in order across
+        // `available_parallelism()` workers, each seed writing its own slot —
+        // so the per-seed values, and every number printed below them, are
+        // unchanged. The runner also returns each run's internal sigma, which
+        // feeds the seed-consistency report printed after the gates' inputs.
+        let seeds = consecutive_seeds(n_seeds);
         let nuclides = Arc::new(nuclides);
-        let done = Arc::new(AtomicUsize::new(0));
 
         println!("{n_seeds} seeds, 5000 histories × [40 inactive + 120 active]…");
         let t = Instant::now();
-        let mut pcm = vec![0.0f64; seeds.len()];
-        let chunk = seeds.len().div_ceil(workers().min(seeds.len()).max(1));
-        std::thread::scope(|s| {
-            for (sd_chunk, out_chunk) in seeds.chunks(chunk).zip(pcm.chunks_mut(chunk)) {
-                let nuclides = Arc::clone(&nuclides);
-                let material = &material;
-                let done = Arc::clone(&done);
-                s.spawn(move || {
-                    for (k, &seed) in sd_chunk.iter().enumerate() {
-                        let settings = KeffSettings {
-                            n_particles: 5000,
-                            n_inactive: 40,
-                            n_active: 120,
-                            temperature_k: TEMP_K,
-                            seed,
-                            ..KeffSettings::default()
-                        };
-                        let r = run_keff(RADIUS_CM, material, &nuclides, &settings);
-                        out_chunk[k] = (r.k_mean - 1.0) * 1.0e5;
-                        let n = done.fetch_add(1, Ordering::Relaxed) + 1;
-                        if n % 16 == 0 {
-                            println!("  {n} seeds done ({:.0} s)", t.elapsed().as_secs_f64());
-                        }
-                    }
-                });
-            }
-        });
+        let runs = run_seeds_with_progress(
+            &seeds,
+            default_workers(),
+            |seed| {
+                let settings = KeffSettings {
+                    n_particles: 5000,
+                    n_inactive: 40,
+                    n_active: 120,
+                    temperature_k: TEMP_K,
+                    seed,
+                    ..KeffSettings::default()
+                };
+                let r = run_keff(RADIUS_CM, &material, &nuclides, &settings);
+                ((r.k_mean - 1.0) * 1.0e5, r.k_std * 1.0e5)
+            },
+            |n| {
+                if n % 16 == 0 {
+                    println!("  {n} seeds done ({:.0} s)", t.elapsed().as_secs_f64());
+                }
+            },
+        );
         println!("  all seeds done in {:.1} s\n", t.elapsed().as_secs_f64());
 
-        let n = pcm.len() as f64;
-        let mean = pcm.iter().sum::<f64>() / n;
-        let sd = (pcm.iter().map(|v| (v - mean).powi(2)).sum::<f64>() / (n - 1.0).max(1.0)).sqrt();
-        let sem = sd / n.sqrt();
+        let report = EnsembleReport::from_runs(runs);
+        let pcm = report.values();
+        // `raffles::estimators::pooled`, which is the formula this example
+        // computed inline before #494 (mean = sum/n; sd from the n-1 sample
+        // variance; sem = sd/sqrt(n)), bit for bit.
+        let (mean, sd, sem) = (report.mean, report.sd, report.sem);
 
         println!("Godiva vs ICSBEP HEU-MET-FAST-001 (benchmark k = 1.0000 ± 0.0010):");
         println!("  seeds         {}", pcm.len());
@@ -298,6 +300,12 @@ mod desktop {
             "  Move from that baseline: {:+.0} pcm.",
             mean - RECORDED_PCM
         );
+
+        // Report-only (GitHub #494): do the seeds scatter as their own internal
+        // sigma says they should? Printed before the gates so it is seen even
+        // when a gate fires. Nothing here feeds the gates.
+        println!("\n  Seed consistency (internal sigma vs seed-to-seed scatter, #494):");
+        print!("{}", report.consistency_summary("pcm"));
 
         gate(mean, sem, sd, pcm.len());
     }

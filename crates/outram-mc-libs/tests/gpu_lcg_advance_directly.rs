@@ -1,6 +1,8 @@
 //! **Direct verification of `lcg_advance`** inside
 //! `src/gpu/shaders/batched_flight.wgsl` — the state advance that every
-//! batched free flight consumes exactly one of.
+//! batched free flight consumes exactly one of. (Since 2026-10-02 that
+//! function is PETIR's `petir_lcg_next`, composed ahead of the kernel; see
+//! the CORRECTED note below.)
 //!
 //! # Why this exists
 //!
@@ -25,10 +27,21 @@
 //! | a 4096-step chain | `future_seed(1, .)` iterated | a per-step error that cancels once will not cancel 4096 times |
 //! | against `rng_next` | `batched_event.wgsl` | a *second, separately written* kernel that must draw the same stream |
 //!
-//! The last row is the one worth having. `batched_flight` and `batched_event`
-//! implement the same LCG twice, in two files, and a particle's history
-//! depends on which kernel drew its number. If the two ever disagree the run
-//! is not reproducible no matter which one matches the CPU.
+//! The last row is the one worth having. ~~`batched_flight` and
+//! `batched_event` implement the same LCG twice, in two files, and a
+//! particle's history depends on which kernel drew its number.~~
+//! **CORRECTED 2026-10-02**: they no longer do. Both kernels are now composed
+//! with PETIR's single `lcg.wgsl` (`petir::wgsl::LCG`) and call
+//! `petir_lcg_next`; this file's former targets `lcg_advance`, `mul64_low` and
+//! `rng_next` are that file's `petir_lcg_next` and `petir_lcg_mul64_low`. The
+//! cross-kernel check is kept: it now guards the *composition* (each pipeline
+//! really compiles PETIR's copy, with nothing shadowing it), and if the two
+//! ever disagree the run is not reproducible no matter which one matches the
+//! CPU.
+//!
+//! Every probe below runs against `shader_source()` — byte for byte what the
+//! pipelines compile — not against the kernel files alone, which no longer
+//! define the LCG.
 //!
 //! # The uniform's divergence is NOT an `f32` effect, and both shader headers
 //! # said it was
@@ -74,11 +87,16 @@
 use outram_mc_libs::gpu::{probe, GpuContext};
 use outram_mc_libs::rng::lcg;
 
-/// The shader under test, included verbatim.
-const BATCHED_FLIGHT_WGSL: &str = include_str!("../src/gpu/shaders/batched_flight.wgsl");
+/// The shader under test: exactly what the batched-flight pipeline compiles,
+/// i.e. PETIR's `lcg.wgsl` composed ahead of `batched_flight.wgsl`.
+fn batched_flight_wgsl() -> String {
+    outram_mc_libs::gpu::batched_flight::shader_source()
+}
 
-/// The second implementation of the same LCG, for the cross-kernel check.
-const BATCHED_EVENT_WGSL: &str = include_str!("../src/gpu/shaders/batched_event.wgsl");
+/// The second kernel that draws from the LCG, for the cross-kernel check.
+fn batched_event_wgsl() -> String {
+    outram_mc_libs::gpu::batched_event::shader_source()
+}
 
 /// Probe entry points appended to `batched_flight.wgsl`, reusing its existing
 /// `state` (binding 4) buffer and nothing else.
@@ -93,7 +111,7 @@ const FLIGHT_PROBES: &str = r#"
 fn probe_lcg_advance(@builtin(global_invocation_id) gid: vec3<u32>) {
     let i = gid.x;
     if (3u * i + 2u >= arrayLength(&state)) { return; }
-    let r = lcg_advance(state[3u * i], state[3u * i + 1u]);
+    let r = petir_lcg_next(vec2<u32>(state[3u * i], state[3u * i + 1u]));
     state[3u * i] = r.x;
     state[3u * i + 1u] = r.y;
     state[3u * i + 2u] = r.z;
@@ -105,7 +123,7 @@ fn probe_lcg_advance(@builtin(global_invocation_id) gid: vec3<u32>) {
 fn probe_mul64_low(@builtin(global_invocation_id) gid: vec3<u32>) {
     let i = gid.x;
     if (4u * i + 3u >= arrayLength(&state)) { return; }
-    let m = mul64_low(state[4u * i], state[4u * i + 1u], state[4u * i + 2u], state[4u * i + 3u]);
+    let m = petir_lcg_mul64_low(state[4u * i], state[4u * i + 1u], state[4u * i + 2u], state[4u * i + 3u]);
     state[4u * i] = m.x;
     state[4u * i + 1u] = m.y;
 }
@@ -119,7 +137,7 @@ fn probe_lcg_chain(@builtin(global_invocation_id) gid: vec3<u32>) {
     var hi = state[3u * i + 1u];
     var r = vec3<u32>(lo, hi, 0u);
     for (var k: u32 = 0u; k < 4096u; k = k + 1u) {
-        r = lcg_advance(lo, hi);
+        r = petir_lcg_next(vec2<u32>(lo, hi));
         lo = r.x;
         hi = r.y;
     }
@@ -136,7 +154,7 @@ const EVENT_PROBE: &str = r#"
 fn probe_rng_next_stream(@builtin(global_invocation_id) gid: vec3<u32>) {
     let i = gid.x;
     if (3u * i + 2u >= arrayLength(&istate)) { return; }
-    let r = rng_next(vec2<u32>(istate[3u * i], istate[3u * i + 1u]));
+    let r = petir_lcg_next(vec2<u32>(istate[3u * i], istate[3u * i + 1u]));
     istate[3u * i] = r.x;
     istate[3u * i + 1u] = r.y;
     istate[3u * i + 2u] = bitcast<u32>(r.z);
@@ -381,7 +399,7 @@ fn gpu_lcg_advance_is_bit_exact_against_the_cpu_lcg() {
     }
     let out = run(
         &gpu,
-        BATCHED_FLIGHT_WGSL,
+        &batched_flight_wgsl(),
         FLIGHT_PROBES,
         "probe_lcg_advance",
         4,
@@ -438,7 +456,7 @@ fn gpu_mul64_low_is_exact_against_a_u64_multiply() {
     }
     let out = run(
         &gpu,
-        BATCHED_FLIGHT_WGSL,
+        &batched_flight_wgsl(),
         FLIGHT_PROBES,
         "probe_mul64_low",
         4,
@@ -477,7 +495,7 @@ fn gpu_a_long_chain_stays_locked_to_the_cpu_stream() {
     }
     let out = run(
         &gpu,
-        BATCHED_FLIGHT_WGSL,
+        &batched_flight_wgsl(),
         FLIGHT_PROBES,
         "probe_lcg_chain",
         4,
@@ -500,9 +518,10 @@ fn gpu_a_long_chain_stays_locked_to_the_cpu_stream() {
 
 /// **The two kernels draw the same stream.**
 ///
-/// `batched_flight.wgsl` and `batched_event.wgsl` each carry their own copy of
-/// the LCG — `lcg_advance` and `rng_next` — and a particle's numbers come from
-/// whichever kernel happens to be running. If they ever disagree the run is
+/// ~~`batched_flight.wgsl` and `batched_event.wgsl` each carry their own copy
+/// of the LCG — `lcg_advance` and `rng_next`~~ (**CORRECTED 2026-10-02**:
+/// both now compose PETIR's one `petir_lcg_next`), and a particle's numbers
+/// come from whichever kernel happens to be running. If they ever disagree the run is
 /// not reproducible even though each might still match some reference.
 ///
 /// Both the state **and** the `f32` uniform are required to agree exactly.
@@ -524,7 +543,7 @@ fn gpu_the_two_kernels_draw_the_same_stream() {
 
     let flight = run(
         &gpu,
-        BATCHED_FLIGHT_WGSL,
+        &batched_flight_wgsl(),
         FLIGHT_PROBES,
         "probe_lcg_advance",
         4,
@@ -533,7 +552,7 @@ fn gpu_the_two_kernels_draw_the_same_stream() {
     );
     let event = run(
         &gpu,
-        BATCHED_EVENT_WGSL,
+        &batched_event_wgsl(),
         EVENT_PROBE,
         "probe_rng_next_stream",
         1,

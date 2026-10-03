@@ -23,6 +23,12 @@ an automated test".
 
 ## Reactor geometry is DRAWN for a human to check before it is trusted (HARD RULE)
 
+> **Note, 2026-10-02.** This crate took the rule below on through its
+> dependency on `outram-mc-libs`, which it no longer has (see "RNG" below). The
+> rule is left in force here — RAFFLES' graph work still consumes reactor
+> geometry through `outram_blender::gnn_graph` and liggghts' `gnn_bridge` —
+> and whether to drop it is the maintainer's call, not an assistant's.
+
 **Maintainer direction, 2026-09-25.** Binds this crate. The same rule is in the
 `CLAUDE.md` of `outram-mc-libs`, `nee_soon`, every `outram-foam-*` crate and
 every crate downstream of them; a crate that newly depends on one of those
@@ -223,7 +229,8 @@ both models read. ~~Only their deterministic `value()` is ported~~ **CORRECTED 2
 `Expression::sample` and `src/scram/uncertainty.rs` landed together, which is
 the order that made the sampling checkable at all.
 **The random stream differs from upstream's** (one static `std::mt19937`
-there, `outram_mc_libs::rng::lcg` here, reused per the
+there, `petir::rng::lcg` here (~~`outram_mc_libs::rng::lcg`~~, the same
+generator before it moved on 2026-10-02), reused per the
 search-before-building rule), so this is the **one part of the SCRAM port
 whose verification is statistical rather than exact**. Do not tighten
 `scram_uncertainty`'s tolerances into exact comparisons: they are set by the
@@ -501,7 +508,8 @@ enough?") is a separate question and is not answered by any of the above.
 ## Android / Termux
 
 The crate is Android-clean, and stays that way. Its dependencies are
-`thiserror`, `outram-mc-libs` (the RNG — see below), and the optional `burn`
+`thiserror`, `petir` (the RNG — see below; ~~`outram-mc-libs`~~ **CORRECTED
+2026-10-02**), `xml-rs` (the MEF reader), and the optional `burn`
 (see "Machine learning" below); all three build for `aarch64-linux-android` —
 `cargo check -p raffles --all-targets --features burn --target
 aarch64-linux-android` was clean on 2026-09-16 (burn 0.21.0, rustc 1.94.1).
@@ -536,7 +544,21 @@ Note the workspace rule while you are here: Android's `target_os` is
 
 ### RNG — reuse, do not add or hand-roll one
 
-**Sampling draws from `outram_mc_libs::rng::lcg`** (OpenMC's 64-bit LCG port),
+**RAFFLES must never depend on `outram-mc-libs` (or any crate that depends on
+RAFFLES) again (2026-10-02).** It used to, for this generator and for a CSG
+graph adapter (`gnn::mc_geometry`). Once `outram-mc-libs` took on
+`outram-park-fork-liggghts` for DEM pebble beds, that edge closed the cycle
+`outram-mc-libs -> liggghts -> raffles -> outram-mc-libs`. The generator moved
+to `petir::rng::lcg`; the adapter moved to `outram_blender::gnn_graph` (feature
+`gnn-graph`, GitHub issue #486). Adapters from a physics or geometry crate INTO
+RAFFLES' types live in that crate, never here. The reverse edge
+`outram-mc-libs -> raffles` is explicitly allowed (maintainer, 2026-10-02:
+RAFFLES' statistics can speed up Monte Carlo), which is exactly why RAFFLES
+must stay free of physics and geometry dependencies.
+
+**Sampling draws from `petir::rng::lcg`** (OpenMC's 64-bit LCG port;
+~~`outram_mc_libs::rng::lcg`~~ **CORRECTED 2026-10-02** — the generator moved
+to `petir` unchanged, at the maintainer's direction),
 not from a `rand` crate and not from a PRNG written inside RAFFLES. Whether the
 workspace should take a general `rand` dependency is an open maintainer
 question (`docs/raven-port-scoping.md` section 10, question 1) and is not a
@@ -545,7 +567,7 @@ port agent's call. Seeding stays **explicit** — every `generate` takes a
 streams via `future_seed` jump-ahead. See `src/samplers.rs`.
 
 **Resolved upstream defect — the warning that used to sit here is obsolete.**
-`outram_mc_libs::rng::lcg::init_seed` was wrong: it added where OpenMC
+`init_seed` (then `outram_mc_libs::rng::lcg::init_seed`) was wrong: it added where OpenMC
 multiplies, so consecutive `id`s landed one LCG *step* apart instead of one
 *stride*, making per-stream derivation produce near-perfectly correlated
 streams. **Fixed in `op-rbo`** — it now matches
@@ -651,6 +673,66 @@ port's remaining gaps — the maintainer being the person who set the SCRAM
 direction in the first place. The instruction is recorded as superseded rather
 than deleted, because the crate owner's review is still outstanding and the
 scope has moved a long way since it was written.
+
+**`src/estimators.rs` and `src/distributions/seeded.rs` were added on
+2026-10-02 at the workspace maintainer's direction, not the crate owner's**
+(GitHub issue #500, under the outram-mc ↔ RAFFLES epic #493). They hold
+generic statistics moved out of `outram-mc-libs` — sample mean and standard
+error, seed pooling, Shannon entropy over counts, the trigger's running-sum
+uncertainty and batch prediction, first-order error propagation — and three
+seed-driven samplers (`uniform`, Box-Muller `sample_normal`, `sample_exp`).
+The rule they follow: the maths on numbers lives here, and deciding *what* is
+counted stays in the physics crate. #493's ownership comment classes a new
+basic-estimators module as **needing Adolphus Lye's OK**; the maintainer
+directed it to land now, so, as with `scram/`, it is recorded here as a
+direction call that is **theirs to confirm or reverse**, with their review
+outstanding. (`src/estimators.rs` moved, content unchanged, to
+`src/estimators/mod.rs` on 2026-10-03 so the submodules below could sit
+beside it.) Until they decide, two constraints bind anyone editing these
+files:
+
+- **Bit-identity is the contract.** `outram-mc-libs` pins k-eff results to the
+  bit through these functions (`tests/stats_move_fingerprints.rs` there). Do
+  not "tidy" an expression — a reassociated sum or a `sqrt(a)/sqrt(b)` in
+  place of `sqrt(a/b)` moves recorded results.
+- **They are not RAVEN ports** and carry no RAVEN header; each function names
+  the outram-mc file (and, through it, the OpenMC routine) it came from.
+
+**Estimator submodules added 2026-10-03 under epic #493, at the workspace
+maintainer's direction, not the crate owner's.** #493's ownership comment
+classes each of these as **needing Adolphus Lye's OK**; the maintainer directed
+them to land now, so they are recorded here like `estimators` itself — a
+direction call that is **theirs to confirm or reverse**, with their review
+outstanding. They are generic statistics on arrays of numbers; the simulation
+drivers that call them (the seed-ensemble runner, the learned weight windows,
+the UQ and sweep loops) stay in `outram-mc-libs::stats`, outside this crate's
+scope. None of them changes any function that existed before, so the
+bit-identity contract above is untouched.
+
+- `src/estimators/seed_consistency.rs` (#494) — `χ²/dof` of seed values
+  against their internal `σ` with a fixed two-sided 95 % band, leave-one-out
+  Bonferroni outlier flags, disjoint-group-mean scatter (the measured `1/√N`
+  check).
+- `src/estimators/autocorrelation.rs` (#495) — lag autocorrelations, integrated
+  autocorrelation time with Sokal's automatic window (`c = 5`, fixed),
+  non-overlapping batch means (default batch `⌊√n⌋`, fixed; leading remainder
+  dropped), and `CorrelatedMean`, which always carries the naive `s/√n`
+  beside the corrected estimates.
+- `src/estimators/stationarity.rs` (#496) — MSER-5 truncation (White 1997),
+  Geweke's 10 %/50 % two-window z with batch-means errors (`|z| > 1.96`,
+  fixed), and a single change-point in the mean (exact posterior under flat
+  mean / Jeffreys variance priors, BIC verdict on the Kass–Raftery scale via
+  `model_selection`).
+
+Also added 2026-10-03, but as **ordinary contribution** rather than a scope
+change: `src/surrogate/validation.rs` (leave-one-out refits and jackknife+
+prediction intervals for `PolynomialSurrogate`; first consumers #497 and
+#499). It fills the "cross-validation machinery" that `src/surrogate/mod.rs`
+already lists as in scope. The owner has not reviewed it.
+
+`outram-mc-libs` now depends on RAFFLES (allowed edge, maintainer 2026-10-02),
+which is exactly why RAFFLES must stay free of physics and geometry
+dependencies.
 
 **Out of scope:** physics of any kind; simulation drivers, job scheduling and
 run-directory management; databases; RAVEN's optimisers; adaptive /

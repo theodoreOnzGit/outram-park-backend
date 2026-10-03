@@ -89,8 +89,7 @@ use changi::puff::concentration::gaussian_puff_methane_ppm;
 use changi::puff::dispersion::pasquill_gifford_sigmas;
 use changi::puff::simulate::{
     constant_wind, simulate_grid_mode, simulate_sensor_mode, AdvectionPolicy, EmissionPolicy,
-    Receptor, RunConfig,
-    Source,
+    Receptor, RunConfig, Source,
 };
 use changi::puff::stability::{is_day, stability_class, StabilityClass, StabilitySet};
 use changi::puff::wind::{interpolate_wind, wind_vector_convert, WindComponents};

@@ -56,6 +56,10 @@
 
 use outram_mc_libs::geometry::position::Position;
 use outram_mc_libs::tally::mesh::{CylindricalMesh, RectilinearMesh, SphericalMesh};
+use outram_mc_libs::tally::mesh::CylindricalMeshExt;
+use outram_mc_libs::tally::mesh::MeshKindExt;
+use outram_mc_libs::tally::mesh::RectilinearMeshExt;
+use outram_mc_libs::tally::mesh::SphericalMeshExt;
 
 const TAU: f64 = std::f64::consts::TAU;
 const PI: f64 = std::f64::consts::PI;
@@ -370,7 +374,7 @@ fn the_mesh_filter_dispatches_over_every_mesh_type() {
                     .map(|ijk| m.volume(ijk))
                     .sum()
             }
-            MeshKind::Regular(_) => unreachable!(),
+            MeshKind::Regular(_) | MeshKind::Unstructured(_) => unreachable!(),
         };
         assert!(
             (sum - typed_sum).abs() / typed_sum < 1e-12,

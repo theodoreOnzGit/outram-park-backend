@@ -320,6 +320,15 @@ pub fn score_track_length(
         }
     }
 
+    // Track-length splitting (GitHub #492): a mesh filter on an unstructured
+    // mesh divides the segment among the cells it crosses, as OpenMC's
+    // MeshFilter::get_all_bins does under the track-length estimator
+    // (`src/tallies/filter_mesh.cpp:60-69` -> `MOABMesh::bins_crossed`).
+    if tally.filters.iter().any(|f| f.splits_track_length()) {
+        score_track_length_split(batch, tally, &ev, distance, macro_xs, weight, energy);
+        return;
+    }
+
     let Some(bin) = filter_bin(tally, &ev) else {
         return;
     };
@@ -336,6 +345,84 @@ pub fn score_track_length(
         // collision estimator is immune because it scores the ratio Σ_x/Σ_t.
         if val.is_finite() {
             batch[bin * n_scores + s_idx] += val;
+        }
+    }
+}
+
+/// The track-length branch for a tally holding a filter that splits segments
+/// ([`super::filter::FilterKind::splits_track_length`]).
+///
+/// The segment is rebuilt from its midpoint `ev.position`, its direction and
+/// `distance` (`r0 = mid - d/2 u`, `r1 = mid + d/2 u`; the free flight is
+/// straight). Each filter yields a list of `(bin, weight)`: a splitting filter
+/// its length fractions, every other filter its single midpoint bin with
+/// weight 1. The tally bin of each combination receives the score times the
+/// product of its weights — OpenMC's `FilterBinIter` over the per-filter
+/// `(bins_, weights_)` matches (`src/tallies/filter.cpp`, `tally_scoring.cpp`).
+/// The weights of a split sum to the fraction of the segment inside the mesh,
+/// so a segment wholly inside scores exactly what the unsplit path would.
+#[allow(clippy::too_many_arguments)]
+fn score_track_length_split(
+    batch: &mut [f64],
+    tally: &Tally,
+    ev: &FilterEvent,
+    distance: f64,
+    macro_xs: Option<&MacroXs>,
+    weight: f64,
+    energy: f64,
+) {
+    let u = ev.direction;
+    let h = 0.5 * distance;
+    let r0 = Position::new(ev.position.x - h * u.u, ev.position.y - h * u.v, ev.position.z - h * u.w);
+    let r1 = Position::new(ev.position.x + h * u.u, ev.position.y + h * u.v, ev.position.z + h * u.w);
+
+    let mut per_filter: Vec<Vec<(usize, f64)>> = Vec::with_capacity(tally.filters.len());
+    for f in &tally.filters {
+        let bins = match f.track_length_bins(r0, r1) {
+            Some(b) => b,
+            None => match f.get_bin(ev) {
+                Some(b) => vec![(b, 1.0)],
+                None => return,
+            },
+        };
+        if bins.is_empty() {
+            return;
+        }
+        per_filter.push(bins);
+    }
+    let n_scores = tally.scores.len();
+    let base: Vec<f64> = tally
+        .scores
+        .iter()
+        .map(|s| track_length_value(s, distance, macro_xs, weight, energy))
+        .collect();
+    // Odometer over the Cartesian product of the per-filter lists.
+    let mut idx = vec![0usize; per_filter.len()];
+    loop {
+        let mut bin = 0usize;
+        let mut w = 1.0;
+        for (k, f) in tally.filters.iter().enumerate() {
+            let (b, wk) = per_filter[k][idx[k]];
+            bin = bin * f.n_bins() + b;
+            w *= wk;
+        }
+        for (s_idx, &v) in base.iter().enumerate() {
+            let val = v * w;
+            if val.is_finite() {
+                batch[bin * n_scores + s_idx] += val;
+            }
+        }
+        let mut k = per_filter.len();
+        loop {
+            if k == 0 {
+                return;
+            }
+            k -= 1;
+            idx[k] += 1;
+            if idx[k] < per_filter[k].len() {
+                break;
+            }
+            idx[k] = 0;
         }
     }
 }
@@ -683,5 +770,58 @@ mod tests {
         );
         assert_eq!(t.bins[0].count, 2);
         assert_eq!(t.bins[1].count, 0, "cell-1 saw no collisions");
+    }
+
+    /// GitHub #492: a track-length flux tally on an **unstructured** mesh
+    /// splits a segment across the cells it crosses. Two unit hexes along x;
+    /// a 1.5 cm segment from x = 0.25 to 1.75 puts 0.75 cm in each. A second
+    /// filter (energy, unsplit) multiplies through with weight 1.
+    ///
+    /// Results: NOT YET MEASURED (testing deferred by maintainer, 2026-10-03).
+    #[test]
+    fn unstructured_mesh_filter_splits_track_length() {
+        use crate::tally::filter::{EnergyFilter, MeshFilter};
+        use crate::tally::mesh::MeshKind;
+        use outram_blender::unstructured::{Element, ElementKind, LengthUnit, UnstructuredMesh};
+        use std::sync::Arc;
+
+        let mut pts = Vec::new();
+        for x in [0.0, 1.0, 2.0] {
+            for (y, z) in [(0.0, 0.0), (1.0, 0.0), (1.0, 1.0), (0.0, 1.0)] {
+                pts.push([x, y, z]);
+            }
+        }
+        let el = |i: usize| Element { kind: ElementKind::Hex8, nodes: (0..8).map(|k| 4 * i + k).collect() };
+        let mesh =
+            UnstructuredMesh::from_elements(LengthUnit::Centimetre, pts, vec![el(0), el(1)], vec![], vec![])
+                .unwrap();
+        let tally = Tally {
+            id: 7,
+            name: "umesh flux".into(),
+            filters: vec![
+                FilterKind::Energy(EnergyFilter { bins: vec![0.0, 2.0e7] }),
+                FilterKind::Mesh(MeshFilter { mesh: MeshKind::Unstructured(Arc::new(mesh)) }),
+            ],
+            scores: vec![ScoreType::Flux],
+            bins: vec![TallyBin::default(); 2],
+        };
+        let mut batch = vec![0.0; 2];
+        score_track_length(
+            &mut batch,
+            &tally,
+            0,
+            usize::MAX,
+            0,
+            1.0e6,
+            1.5,
+            Position::new(1.0, 0.5, 0.5),
+            None,
+            1.0,
+            None,
+            0.0,
+            Direction::new(1.0, 0.0, 0.0),
+        );
+        assert!((batch[0] - 0.75).abs() < 1e-12, "cell 0 got {}", batch[0]);
+        assert!((batch[1] - 0.75).abs() < 1e-12, "cell 1 got {}", batch[1]);
     }
 }

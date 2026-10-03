@@ -49,6 +49,10 @@ struct IngestFlow {
     preview: IngestPreview,
     citekey: String,
     access: Access,
+    /// The tier and repository to store the PDF in (#458); reset to the
+    /// default of the tier `access` implies whenever it stops being a valid
+    /// choice ([`ingest::target_choices`]).
+    target: Option<crate::corpus_tiers::RepoRef>,
     message: String,
 }
 
@@ -64,6 +68,7 @@ impl IngestFlow {
             preview,
             citekey,
             access: Access::Restricted,
+            target: None,
             message,
         }
     }
@@ -186,6 +191,8 @@ pub enum WikiAction {
     /// shared knowledge state — the caller should refresh it here too, not
     /// only navigate.
     OpenPaper(String),
+    /// A standard-corpus citation was opened, by corpus id (2026-09-30).
+    OpenCorpusLiterature(String),
 }
 
 pub struct WikiState {
@@ -271,6 +278,14 @@ impl WikiState {
                 if let Some(doi) = &flow.preview.doi {
                     ui.label(format!("DOI: {doi}"));
                 }
+                // The duplicate guard (2026-09-30): a duplicate is refused by
+                // `ingest`; a same-name file is only a warning.
+                if let Some(dup) = &flow.preview.duplicate {
+                    ui.colored_label(Color32::from_rgb(220, 90, 90), dup.to_string());
+                }
+                if let Some(clash) = &flow.preview.name_clash {
+                    ui.colored_label(Color32::from_rgb(220, 170, 60), clash.to_string());
+                }
                 ui.separator();
 
                 ui.horizontal(|ui| {
@@ -285,6 +300,34 @@ impl WikiState {
                     "Restricted / proprietary",
                 );
                 ui.radio_value(&mut flow.access, Access::Open, "Open / redistributable");
+                // Which repository (#458): a tier may hold several. The
+                // choices follow the access, so a restricted document can
+                // only be put in a proprietary repository.
+                let choices = ingest::target_choices(root, flow.access);
+                let valid = flow
+                    .target
+                    .as_ref()
+                    .is_some_and(|t| choices.iter().any(|r| r.tier == t.tier && r.name == t.name));
+                if !valid {
+                    flow.target = ingest::default_target(root, flow.access);
+                }
+                let shown = flow
+                    .target
+                    .as_ref()
+                    .and_then(|t| choices.iter().find(|r| r.name == t.name))
+                    .map(|r| r.label())
+                    .unwrap_or_else(|| "no repository available".to_string());
+                egui::ComboBox::from_label("Repository")
+                    .selected_text(shown)
+                    .show_ui(ui, |ui| {
+                        for r in &choices {
+                            let value = Some(crate::corpus_tiers::RepoRef {
+                                tier: r.tier,
+                                name: r.name.clone(),
+                            });
+                            ui.selectable_value(&mut flow.target, value, r.label());
+                        }
+                    });
                 // No topics or projects here (maintainer, 2026-09-22: too
                 // much at ingest). The paper starts unsorted; classify it
                 // later with Reclassify.
@@ -311,6 +354,7 @@ impl WikiState {
                 access: flow.access,
                 topics: Vec::new(),
                 projects: Vec::new(),
+                target: flow.target.clone(),
             };
             match ingest::ingest(root, &flow.preview, choice) {
                 Ok(()) => {
@@ -491,6 +535,7 @@ impl WikiState {
         // synthetic "Unsorted" concept at the top so an unclassified paper
         // never disappears (op-sr4n.4).
         let mut open_paper = None;
+        let mut open_corpus: Option<String> = None;
         let mut classify_target = None;
         let entries = self.bib.entries(root).clone();
         let mut drill_into = None;
@@ -522,7 +567,13 @@ impl WikiState {
                     )
                     .on_hover_ui(|ui| crate::mindmap::citations_hover(ui, &title, &here));
                 resp.context_menu(|ui| {
-                    pick_citation(ui, &here, &mut open_paper, &mut classify_target);
+                    pick_citation(
+                        ui,
+                        &here,
+                        &mut open_paper,
+                        &mut open_corpus,
+                        &mut classify_target,
+                    );
                 });
                 ui.add_space(6.0);
             }
@@ -555,7 +606,13 @@ impl WikiState {
                         ui.weak("built-in corpus (read-only)");
                     }
                     ui.separator();
-                    pick_citation(ui, &cites, &mut open_paper, &mut classify_target);
+                    pick_citation(
+                        ui,
+                        &cites,
+                        &mut open_paper,
+                        &mut open_corpus,
+                        &mut classify_target,
+                    );
                     ui.separator();
                     if ui.button("Go here").clicked() {
                         drill_into = Some(c.id.clone());
@@ -574,6 +631,9 @@ impl WikiState {
         if let Some(citekey) = open_paper {
             action = Some(WikiAction::OpenPaper(citekey));
         }
+        if let Some(id) = open_corpus {
+            action = Some(WikiAction::OpenCorpusLiterature(id));
+        }
         action
     }
 }
@@ -585,11 +645,13 @@ fn pick_citation(
     ui: &mut egui::Ui,
     citations: &[crate::mindmap::Citation],
     open: &mut Option<String>,
+    open_corpus: &mut Option<String>,
     classify: &mut Option<String>,
 ) {
     use crate::mindmap::{CitationAction, CitationPick};
     match crate::mindmap::citations_menu(ui, citations, &[CitationAction::Reclassify]) {
         Some(CitationPick::Open(k)) => *open = Some(k),
+        Some(CitationPick::OpenCorpus(k)) => *open_corpus = Some(k),
         Some(CitationPick::Action(CitationAction::Reclassify, k)) => *classify = Some(k),
         Some(CitationPick::Action(CitationAction::LiteratureCard, _)) => {}
         None => {}

@@ -259,7 +259,7 @@ impl IndependentPrior {
         self.marginals
             .iter()
             .map(|marginal| {
-                let u = clamp_open_unit(outram_mc_libs::rng::lcg::prn(seed));
+                let u = clamp_open_unit(petir::rng::lcg::prn(seed));
                 // `ppf` only errors for u outside [0, 1]; `clamp_open_unit`
                 // guarantees the interior, so this cannot fail.
                 marginal.ppf(u).unwrap_or_else(|_| marginal.mean())
@@ -336,7 +336,7 @@ where
 /// function of its configuration alone and therefore keeps runs reproducible
 /// when a rejected proposal short-circuits.
 pub(crate) fn standard_normal(seed: &mut u64) -> f64 {
-    let u = clamp_open_unit(outram_mc_libs::rng::lcg::prn(seed));
+    let u = clamp_open_unit(petir::rng::lcg::prn(seed));
     // The standard normal is constructible and its ppf is defined on (0, 1),
     // so neither step can fail; 0.0 is the median fallback.
     crate::distributions::Normal::new(0.0, 1.0)

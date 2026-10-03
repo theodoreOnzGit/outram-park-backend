@@ -13,16 +13,28 @@
 //!
 //! # Order
 //!
-//! 1. the **proprietary corpus** ([`KovanRoot::restricted_sources_dir`]),
-//! 2. the **open corpus** ([`KovanRoot::open_corpus_dir`]),
-//! 3. the **Kovan repository** itself — only if neither corpus push failed
+//! Since GitHub issue #458 a tier may hold several repositories
+//! ([`crate::corpus_tiers`]); each is pushed **independently**, one result
+//! per repository:
+//!
+//! 1. every **proprietary** repository (the first is
+//!    [`KovanRoot::restricted_sources_dir`]),
+//! 2. every **open** repository (the first is [`KovanRoot::open_corpus_dir`]),
+//! 3. every **standard** repository configured `writable = true` (none by
+//!    default),
+//! 4. the **Kovan repository** itself — only if no corpus push failed
 //!    or was refused, so the parent never publishes a gitlink to a corpus
 //!    commit that is not on its remote. A corpus that is merely *skipped*
 //!    (not downloaded here, or no remote configured for it) does not hold
 //!    the parent back: that corpus was never going to be pushed from here.
 //!
-//! The **standard corpus is never pushed**: it is read-only to everyone but
-//! its maintainer, and Save never commits into it.
+//! A **standard repository is never pushed** unless configured `writable`:
+//! it is read-only to everyone but its maintainer, and Save never commits
+//! into it. A checkout mounted in two tiers is pushed once.
+//!
+//! The report also carries a **size warning** for every checkout near
+//! GitHub's recommended 1 GB ([`crate::corpus_tiers::size_warning`]),
+//! suggesting another repository in the same tier.
 //!
 //! # Safety rules (non-negotiable, each pinned by a test)
 //!
@@ -38,30 +50,48 @@
 //!   the commit, i.e. the branch fast-forwards. Otherwise nothing is moved
 //!   and the push is refused.
 //! - **Each corpus goes only to its own configured remote.** Every push URL
-//!   of the proprietary corpus's remote must be the private remote in
-//!   `kovan_root.toml` (`[private_submodule] remote` and/or
-//!   `[corpora] proprietary_remote`, which must agree), and must not be the
-//!   open-corpus or standard-corpus remote; the open corpus's must be
-//!   `[corpora] open_remote` and must not be a proprietary one. A mismatch is
-//!   refused, so a proprietary PDF cannot reach a public repository through
-//!   a mis-set `origin`.
+//!   of a proprietary repository's remote must be that repository's
+//!   configured remote (for the first one, `[private_submodule] remote`
+//!   and/or `[corpora] proprietary_remote`, which must agree), and an open
+//!   repository's must be its own remote and must not be any proprietary
+//!   one. A mismatch is refused, so a proprietary PDF cannot reach a public
+//!   repository through a mis-set `origin`.
+//! - **Proprietary never goes to a public remote** (#458). A proprietary
+//!   repository's remote is refused when it is any standard or open
+//!   repository's remote, Kovan's built-in standard corpus, a
+//!   `[repos] known_public` entry or an `outram-park-backend` URL
+//!   ([`crate::corpus_tiers::public_remote_reason`]), or when it is an
+//!   HTTPS (or GitHub `git@`) remote that `git ls-remote` can read with
+//!   no credential of the user's in reach
+//!   ([`crate::corpus_tiers::anonymously_readable`]).
 //! - **System `git` for the network**, as every remote operation in Kovan
 //!   ([`crate::advanced_git`]), so the user's credential helpers apply.
 //!   `GIT_TERMINAL_PROMPT=0` makes a missing credential fail fast with Git's
 //!   own message instead of hanging on a prompt no GUI window can answer.
+//!
+//! # Pull: the corpora follow the Kovan folder (GH issue #422)
+//!
+//! The reverse direction. After the Kovan folder is pulled, [`pull_corpora`]
+//! brings each downloaded corpus to its remote's branch tip, so a corpus
+//! another clone saved into does not fall behind and get refused by the next
+//! push. It only ever fast-forwards on its own; a corpus whose local work
+//! would be destroyed is reported, not overridden, and the GUI asks.
 
 use std::path::{Path, PathBuf};
 use std::process::{Command, Output};
 
+use crate::corpus_tiers::{CorpusRepo, RepoOrigin, Tier};
 use crate::root::KovanRoot;
 
 /// One of the repositories a Save pushes.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum PushRepo {
-    /// The private literature submodule.
+    /// A proprietary repository (the private literature submodule).
     ProprietaryCorpus,
-    /// The user's open corpus.
+    /// An open repository.
     OpenCorpus,
+    /// A standard repository configured `writable` (#458).
+    StandardCorpus,
     /// The Kovan folder's own repository.
     KovanRepository,
 }
@@ -72,7 +102,17 @@ impl PushRepo {
         match self {
             Self::ProprietaryCorpus => "Proprietary corpus",
             Self::OpenCorpus => "Open corpus",
+            Self::StandardCorpus => "Standard corpus",
             Self::KovanRepository => "Kovan repository",
+        }
+    }
+
+    /// The kind for a corpus repository of `tier`.
+    pub fn for_tier(tier: Tier) -> Self {
+        match tier {
+            Tier::Proprietary => Self::ProprietaryCorpus,
+            Tier::Open => Self::OpenCorpus,
+            Tier::Standard => Self::StandardCorpus,
         }
     }
 }
@@ -112,6 +152,9 @@ impl PushOutcome {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct RepoPush {
     pub repo: PushRepo,
+    /// The corpus repository's name ([`crate::corpus_tiers::CorpusRepo::name`]);
+    /// empty for the Kovan repository.
+    pub name: String,
     pub dir: PathBuf,
     pub outcome: PushOutcome,
 }
@@ -137,7 +180,11 @@ impl RepoPush {
             PushOutcome::Refused { reason } => format!("REFUSED — {reason}"),
             PushOutcome::Failed { message } => format!("push FAILED — {message}"),
         };
-        format!("{}: {what}", self.repo.label())
+        if self.name.is_empty() {
+            format!("{}: {what}", self.repo.label())
+        } else {
+            format!("{} ({}): {what}", self.repo.label(), self.name)
+        }
     }
 }
 
@@ -145,6 +192,9 @@ impl RepoPush {
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct PushReport {
     pub repos: Vec<RepoPush>,
+    /// Checkouts near GitHub's recommended 1 GB
+    /// ([`crate::corpus_tiers::size_warning`]); advice, not a problem.
+    pub warnings: Vec<String>,
 }
 
 impl PushReport {
@@ -161,45 +211,101 @@ impl PushReport {
             .map(|r| &r.outcome)
     }
 
-    /// One line per repository ([`RepoPush::line`]).
+    /// One line per repository ([`RepoPush::line`]), then one per warning.
     pub fn lines(&self) -> Vec<String> {
-        self.repos.iter().map(RepoPush::line).collect()
+        self.repos
+            .iter()
+            .map(RepoPush::line)
+            .chain(self.warnings.iter().map(|w| format!("Warning: {w}")))
+            .collect()
+    }
+
+    /// Every result for repositories of kind `repo`, in push order (a tier
+    /// may hold several, #458).
+    pub fn all(&self, repo: PushRepo) -> Vec<&RepoPush> {
+        self.repos.iter().filter(|r| r.repo == repo).collect()
+    }
+
+    /// The result of the corpus repository named `name`, if it was
+    /// considered.
+    pub fn named(&self, name: &str) -> Option<&PushOutcome> {
+        self.repos
+            .iter()
+            .find(|r| r.name == name)
+            .map(|r| &r.outcome)
     }
 }
 
-/// Push the proprietary corpus, the open corpus and then the Kovan
-/// repository, under the module's safety rules. Never panics; every
-/// problem is a [`PushOutcome`] in the report.
+/// The corpus repositories a push considers, in push order: every
+/// proprietary one, every open one, then every `writable` standard one; a
+/// checkout mounted twice is listed once.
+fn push_targets(all: &[CorpusRepo]) -> Vec<CorpusRepo> {
+    let mut out: Vec<CorpusRepo> = Vec::new();
+    for tier in [Tier::Proprietary, Tier::Open, Tier::Standard] {
+        for r in all.iter().filter(|r| r.tier == tier && r.writable) {
+            if !out.iter().any(|t| same_dir(&t.dir, &r.dir)) {
+                out.push(r.clone());
+            }
+        }
+    }
+    out
+}
+
+/// Push every corpus repository and then the Kovan repository, under the
+/// module's safety rules. Never panics; every problem is a [`PushOutcome`]
+/// in the report.
 ///
 /// Called after a successful save whether or not that save committed
 /// anything, so commits from earlier saves that were never pushed (every
 /// save before 2026-09-28) go up too.
 pub fn push_after_save(root: &KovanRoot) -> PushReport {
+    push_after_save_warning_at(root, crate::corpus_tiers::SIZE_WARN_BYTES)
+}
+
+/// [`push_after_save`], warning about checkouts of `size_warn_bytes` or
+/// more instead of [`crate::corpus_tiers::SIZE_WARN_BYTES`] (for tests).
+pub fn push_after_save_warning_at(root: &KovanRoot, size_warn_bytes: u64) -> PushReport {
+    let all = root.corpus_repos();
+    let targets = push_targets(&all);
     let mut report = PushReport::default();
+    let mut seen: Vec<PathBuf> = Vec::new();
+    for r in &all {
+        if r.is_downloaded() && !seen.iter().any(|d| same_dir(d, &r.dir)) {
+            seen.push(r.dir.clone());
+            report
+                .warnings
+                .extend(crate::corpus_tiers::size_warning(r, size_warn_bytes));
+        }
+    }
     if !crate::advanced_git::system_git_available() {
-        for (repo, dir) in [
-            (PushRepo::ProprietaryCorpus, root.restricted_sources_dir()),
-            (PushRepo::OpenCorpus, root.open_corpus_dir()),
-            (PushRepo::KovanRepository, root.path().to_path_buf()),
-        ] {
+        let skipped = || PushOutcome::Skipped {
+            reason: "no usable system `git`, which pushing needs".into(),
+        };
+        for r in &targets {
             report.repos.push(RepoPush {
-                repo,
-                dir,
-                outcome: PushOutcome::Skipped {
-                    reason: "no usable system `git`, which pushing needs".into(),
-                },
+                repo: PushRepo::for_tier(r.tier),
+                name: r.name.clone(),
+                dir: r.dir.clone(),
+                outcome: skipped(),
             });
         }
+        report.repos.push(RepoPush {
+            repo: PushRepo::KovanRepository,
+            name: String::new(),
+            dir: root.path().to_path_buf(),
+            outcome: skipped(),
+        });
         return report;
     }
 
-    for repo in [PushRepo::ProprietaryCorpus, PushRepo::OpenCorpus] {
-        let dir = match repo {
-            PushRepo::ProprietaryCorpus => root.restricted_sources_dir(),
-            _ => root.open_corpus_dir(),
-        };
-        let outcome = push_corpus(root, repo, &dir);
-        report.repos.push(RepoPush { repo, dir, outcome });
+    for r in &targets {
+        let outcome = push_corpus(root, &all, r);
+        report.repos.push(RepoPush {
+            repo: PushRepo::for_tier(r.tier),
+            name: r.name.clone(),
+            dir: r.dir.clone(),
+            outcome,
+        });
     }
 
     let dir = root.path().to_path_buf();
@@ -214,70 +320,96 @@ pub fn push_after_save(root: &KovanRoot) -> PushReport {
     };
     report.repos.push(RepoPush {
         repo: PushRepo::KovanRepository,
+        name: String::new(),
         dir,
         outcome,
     });
     report
 }
 
-/// Push one corpus repository after checking which remote it may go to.
-fn push_corpus(root: &KovanRoot, repo: PushRepo, dir: &Path) -> PushOutcome {
-    if !dir.join(".git").exists() {
+/// Push one corpus repository after checking which remote it may go to
+/// (`all` is every repository of the folder, for the cross-tier checks).
+fn push_corpus(root: &KovanRoot, all: &[CorpusRepo], repo: &CorpusRepo) -> PushOutcome {
+    let dir = repo.dir.as_path();
+    if !repo.is_downloaded() {
         return PushOutcome::Skipped {
             reason: "not downloaded in this Kovan folder".into(),
         };
     }
-    if same_dir(dir, &root.standard_corpus_dir()) {
+    if !repo.writable {
+        return PushOutcome::Refused {
+            reason: "this standard repository is read-only; Kovan never pushes it".into(),
+        };
+    }
+    if repo.tier != Tier::Standard && same_dir(dir, &root.standard_corpus_dir()) {
         return PushOutcome::Refused {
             reason: "this folder is the standard corpus, which Kovan never pushes".into(),
         };
     }
     let cfg = root.config();
-    let proprietary: Vec<String> = cfg
-        .private_submodule
-        .as_ref()
-        .map(|p| p.remote.clone())
-        .into_iter()
-        .chain(cfg.corpora.proprietary_remote.clone())
+    let mut proprietary: Vec<String> = all
+        .iter()
+        .filter(|r| r.tier == Tier::Proprietary)
+        .filter_map(|r| r.remote.clone())
         .collect();
-    let open: Vec<String> = cfg.corpora.open_remote.clone().into_iter().collect();
+    proprietary.extend(cfg.private_submodule.as_ref().map(|p| p.remote.clone()));
+    proprietary.extend(cfg.corpora.proprietary_remote.clone());
 
-    let (allowed, forbidden, what) = match repo {
-        PushRepo::ProprietaryCorpus => {
-            let mut forbidden = open.clone();
-            forbidden.push(crate::corpus::CORPUS_REPOSITORY_URL.to_string());
-            (proprietary.clone(), forbidden, "proprietary")
-        }
-        _ => (open.clone(), proprietary.clone(), "open"),
-    };
-    let Some(first) = allowed.first() else {
+    let what = repo.tier.key();
+    let mut allowed: Vec<String> = repo.remote.clone().into_iter().collect();
+    if repo.tier == Tier::Proprietary && repo.origin == RepoOrigin::Legacy {
+        allowed.extend(cfg.private_submodule.as_ref().map(|p| p.remote.clone()));
+        allowed.extend(cfg.corpora.proprietary_remote.clone());
+    }
+    let Some(first) = allowed.first().cloned() else {
         return PushOutcome::Skipped {
             reason: format!("no {what} remote is configured in kovan_root.toml"),
         };
     };
     if allowed
         .iter()
-        .any(|u| normalize_url(u) != normalize_url(first))
+        .any(|u| normalize_url(u) != normalize_url(&first))
     {
         return PushOutcome::Refused {
             reason: format!(
-                "kovan_root.toml names two different {what} remotes ({}); make them agree",
+                "kovan_root.toml names two different remotes for the {what} repository {:?} \
+                 ({}); make them agree",
+                repo.name,
                 allowed.join(" and ")
             ),
         };
     }
-    if let Some(bad) = forbidden
+    if repo.tier == Tier::Proprietary {
+        if let Some(why) = crate::corpus_tiers::public_remote_reason(cfg, all, &first) {
+            return PushOutcome::Refused {
+                reason: format!(
+                    "the proprietary repository {:?} would push to {first}, but {why}; refusing \
+                     so proprietary documents cannot reach a public repository",
+                    repo.name
+                ),
+            };
+        }
+        if crate::corpus_tiers::anonymously_readable(&first) == Some(true) {
+            return PushOutcome::Refused {
+                reason: format!(
+                    "the proprietary repository {:?} would push to {first}, which can be read \
+                     without any credentials, so it is public; make it private first",
+                    repo.name
+                ),
+            };
+        }
+    } else if let Some(bad) = proprietary
         .iter()
-        .find(|f| normalize_url(f) == normalize_url(first))
+        .find(|p| normalize_url(p) == normalize_url(&first))
     {
         return PushOutcome::Refused {
             reason: format!(
-                "the configured {what} remote {first} is also configured as another corpus's \
-                 remote ({bad}); refusing so {what} documents cannot go to the wrong repository"
+                "the configured {what} remote {first} is also configured as a proprietary \
+                 remote ({bad}); refusing so documents cannot go to the wrong repository"
             ),
         };
     }
-    let branch = gitmodules_branch(root, dir);
+    let branch = repo.branch.clone().or_else(|| gitmodules_branch(root, dir));
     push_repo(dir, Some((first.as_str(), what)), branch)
 }
 
@@ -518,6 +650,319 @@ fn pick_remote(dir: &Path) -> Option<String> {
         Some(remotes[0].to_string())
     } else {
         None
+    }
+}
+
+/// The tier of a corpus [`pull_corpora`] considers (one per repository
+/// since #458; a tier may appear several times).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum CorpusKind {
+    /// The private literature submodule.
+    Proprietary,
+    /// The user's open corpus.
+    Open,
+    /// The read-only standard corpus.
+    Standard,
+}
+
+impl CorpusKind {
+    /// The label the UI shows.
+    pub fn label(self) -> &'static str {
+        match self {
+            Self::Proprietary => "Proprietary corpus",
+            Self::Open => "Open corpus",
+            Self::Standard => "Standard corpus",
+        }
+    }
+}
+
+/// What [`pull_corpora`] did to one corpus.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum CorpusPullOutcome {
+    /// Moved from `from` to the remote's tip `to`, and left on `branch`.
+    Updated {
+        branch: String,
+        from: String,
+        to: String,
+    },
+    /// Already at the remote's tip; now on `branch` (it may have been
+    /// detached at that same commit before).
+    UpToDate { branch: String },
+    /// Was not downloaded in this Kovan folder, and has now been fetched from
+    /// its configured remote (a registered submodule initialised, or a new
+    /// one added) and left on `branch` at `head`. A plain clone of someone's
+    /// Kovan folder, or a folder whose corpora were configured but never
+    /// fetched, lands here on its first pull.
+    Downloaded { branch: String, head: String },
+    /// Not attempted: not downloaded here and no remote configured to
+    /// download it from, or no system `git`.
+    Skipped { reason: String },
+    /// Following the remote would destroy local work (`reason` says which),
+    /// so nothing was touched. The caller asks the user, and on "yes"
+    /// overrides with [`crate::advanced_git::force_pull_in`] against
+    /// `remote`/`branch`.
+    NeedsConfirmation {
+        remote: String,
+        branch: String,
+        reason: String,
+    },
+    /// A `git` step failed, with Git's words. Nothing was overridden.
+    Failed { message: String },
+}
+
+impl CorpusKind {
+    /// The kind for a repository of `tier`.
+    pub fn for_tier(tier: Tier) -> Self {
+        match tier {
+            Tier::Proprietary => Self::Proprietary,
+            Tier::Open => Self::Open,
+            Tier::Standard => Self::Standard,
+        }
+    }
+}
+
+/// One corpus repository's result.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct CorpusPull {
+    pub corpus: CorpusKind,
+    /// The repository's name ([`crate::corpus_tiers::CorpusRepo::name`]).
+    pub name: String,
+    pub dir: PathBuf,
+    pub outcome: CorpusPullOutcome,
+}
+
+impl CorpusPull {
+    /// One human-readable line, e.g. `Open corpus: updated main 1a2b3c4..5d6e7f8`.
+    pub fn line(&self) -> String {
+        let short = |s: &str| s.chars().take(7).collect::<String>();
+        let what = match &self.outcome {
+            CorpusPullOutcome::Updated { branch, from, to } => {
+                format!("updated {branch} {}..{}", short(from), short(to))
+            }
+            CorpusPullOutcome::UpToDate { branch } => format!("up to date ({branch})"),
+            CorpusPullOutcome::Downloaded { branch, head } => {
+                format!("downloaded (was missing), on {branch} at {}", short(head))
+            }
+            CorpusPullOutcome::Skipped { reason } => format!("not pulled — {reason}"),
+            CorpusPullOutcome::NeedsConfirmation { reason, .. } => {
+                format!("NOT pulled yet — {reason}; asking before overriding")
+            }
+            CorpusPullOutcome::Failed { message } => format!("pull FAILED — {message}"),
+        };
+        if self.name.is_empty() {
+            format!("{}: {what}", self.corpus.label())
+        } else {
+            format!("{} ({}): {what}", self.corpus.label(), self.name)
+        }
+    }
+}
+
+/// Bring every corpus to its remote's branch tip, downloading any not yet here — run after the
+/// Kovan folder itself was pulled (GH issue #422; maintainer, 2026-09-29:
+/// *"when pulling from kovan corpus, i want the submodules to pull in and
+/// override the local one as well"*).
+///
+/// Without this, a corpus that another clone saved into falls behind its
+/// remote, and the next [`push_after_save`] refuses it (its detached save
+/// does not contain the remote branch, so it cannot fast-forward).
+///
+/// For each corpus repository — every proprietary, every open and every
+/// standard one (#458) — when downloaded:
+/// fetch the tracked branch (`.gitmodules` `branch =`, else the remote's
+/// default — the same rule the push uses), then
+///
+/// - **nothing local would be lost** (a clean tree, `HEAD` an ancestor of
+///   the fetched tip): `git checkout -B <branch> FETCH_HEAD`. The corpus is
+///   left *on the branch*, not detached, so the next save pushes cleanly.
+/// - **something would be lost** (uncommitted or untracked files, or commits
+///   the remote does not have): nothing is touched, and the outcome is
+///   [`CorpusPullOutcome::NeedsConfirmation`]. Overriding destroys work, so
+///   it is the caller's to ask about (the #279 prompt), never done here.
+///
+/// The gitlinks in the Kovan folder are not committed here; the next Save
+/// records the corpora where they now are.
+///
+/// **A corpus that is configured but not downloaded is downloaded** (the
+/// open and proprietary corpora from `[corpora]`, the standard corpus from
+/// [`crate::corpus::CORPUS_REPOSITORY_URL`]), through
+/// [`crate::corpus_repos::ensure_corpus`], then followed as above
+/// ([`CorpusPullOutcome::Downloaded`]). Before this, Pull reported such a
+/// corpus as "not downloaded" and left it empty, so a fresh clone of a Kovan
+/// folder never got its literature (maintainer, 2026-09-30: *"make sure the
+/// pull button from kovan gui also pulls in both corpuses"*).
+pub fn pull_corpora(root: &KovanRoot) -> Vec<CorpusPull> {
+    pull_corpora_with(
+        root,
+        crate::corpus::CORPUS_REPOSITORY_URL,
+        crate::corpus::CORPUS_REPOSITORY_BRANCH,
+    )
+}
+
+/// [`pull_corpora`] with the **built-in** standard corpus's remote and
+/// branch given, so tests can use a local repository instead of the network
+/// (as [`crate::corpus_repos::ensure_library_corpora_with`] does). Other
+/// repositories use their own configured remotes and branches.
+pub fn pull_corpora_with(
+    root: &KovanRoot,
+    standard_remote: &str,
+    standard_branch: &str,
+) -> Vec<CorpusPull> {
+    let all = root.corpus_repos();
+    let git_ok_here = crate::advanced_git::system_git_available();
+    let mut out: Vec<CorpusPull> = Vec::new();
+    let mut builtin_seen = false;
+    let ordered = [Tier::Proprietary, Tier::Open, Tier::Standard]
+        .into_iter()
+        .flat_map(|tier| all.iter().filter(move |r| r.tier == tier));
+    for r in ordered {
+        let (remote, branch) = if r.origin == RepoOrigin::Builtin && !builtin_seen {
+            builtin_seen = true;
+            (
+                Some(standard_remote.to_string()),
+                Some(standard_branch.to_string()),
+            )
+        } else {
+            (
+                crate::corpus_tiers::setup_remote(root.config(), r),
+                r.branch.clone(),
+            )
+        };
+        let (corpus, name, dir) = (CorpusKind::for_tier(r.tier), r.name.clone(), r.dir.clone());
+        // Two corpora configured on one folder: pull it once.
+        if out.iter().any(|p| same_dir(&p.dir, &dir)) {
+            continue;
+        }
+        let outcome = if !git_ok_here {
+            CorpusPullOutcome::Skipped {
+                reason: "no usable system `git`, which pulling needs".into(),
+            }
+        } else if dir.join(".git").exists() {
+            pull_one_corpus(root, &dir, branch.as_deref())
+        } else {
+            download_corpus(root, &dir, remote.as_deref(), branch.as_deref())
+        };
+        out.push(CorpusPull {
+            corpus,
+            name,
+            dir,
+            outcome,
+        });
+    }
+    out
+}
+
+/// [`pull_corpora_with`] for a corpus with no checkout at `dir`: fetch it
+/// from `remote` with [`crate::corpus_repos::ensure_corpus`] (which never
+/// overwrites files already there), then follow its branch as
+/// [`pull_one_corpus`] does.
+fn download_corpus(
+    root: &KovanRoot,
+    dir: &Path,
+    remote: Option<&str>,
+    branch: Option<&str>,
+) -> CorpusPullOutcome {
+    let Some(url) = remote else {
+        return CorpusPullOutcome::Skipped {
+            reason: "not downloaded in this Kovan folder, and no remote is configured \
+                     to download it from"
+                .into(),
+        };
+    };
+    if let Err(e) = crate::corpus_repos::ensure_corpus(root, dir, Some(url), branch) {
+        return CorpusPullOutcome::Failed {
+            message: format!("downloading it failed: {e}"),
+        };
+    }
+    match pull_one_corpus(root, dir, branch) {
+        CorpusPullOutcome::Updated { branch, to, .. } => CorpusPullOutcome::Downloaded {
+            branch,
+            head: to,
+        },
+        CorpusPullOutcome::UpToDate { branch } => {
+            let head = git_ok(dir, &["rev-parse", "HEAD"])
+                .map(|s| s.trim().to_string())
+                .unwrap_or_default();
+            CorpusPullOutcome::Downloaded { branch, head }
+        }
+        other => other,
+    }
+}
+
+/// [`pull_corpora`] for the corpus at `dir`, following `branch_hint` (its
+/// configured branch) when given, else the `.gitmodules` branch, else the
+/// remote's default.
+fn pull_one_corpus(root: &KovanRoot, dir: &Path, branch_hint: Option<&str>) -> CorpusPullOutcome {
+    if !dir.join(".git").exists() {
+        return CorpusPullOutcome::Skipped {
+            reason: "not downloaded in this Kovan folder".into(),
+        };
+    }
+    let Some(remote) = pick_remote(dir) else {
+        return CorpusPullOutcome::Skipped {
+            reason: "no remote (or several and none is `origin`)".into(),
+        };
+    };
+    let Some(branch) = gitmodules_branch(root, dir)
+        .or_else(|| branch_hint.map(String::from))
+        .or_else(|| remote_default_branch(dir, &remote))
+    else {
+        return CorpusPullOutcome::Skipped {
+            reason: "neither .gitmodules nor the remote names a branch to follow".into(),
+        };
+    };
+    if let Err(message) = git_ok(dir, &["fetch", "-q", &remote, &branch]) {
+        return CorpusPullOutcome::Failed { message };
+    }
+    let fetched = match git_ok(dir, &["rev-parse", "FETCH_HEAD"]) {
+        Ok(s) => s.trim().to_string(),
+        Err(message) => return CorpusPullOutcome::Failed { message },
+    };
+    let head = git_ok(dir, &["rev-parse", "--verify", "-q", "HEAD"])
+        .map(|s| s.trim().to_string())
+        .ok();
+
+    let dirty = match git_ok(dir, &["status", "--porcelain"]) {
+        Ok(s) => !s.trim().is_empty(),
+        Err(message) => return CorpusPullOutcome::Failed { message },
+    };
+    let behind_only = head.as_deref().is_none_or(|h| {
+        git_ok(dir, &["merge-base", "--is-ancestor", h, &fetched]).is_ok()
+    });
+    if dirty || !behind_only {
+        let reason = match (dirty, behind_only) {
+            (true, false) => "it has unsaved files and saves the remote does not have",
+            (true, true) => "it has unsaved (uncommitted or untracked) files",
+            _ => "it has saves the remote does not have",
+        };
+        return CorpusPullOutcome::NeedsConfirmation {
+            remote,
+            branch,
+            reason: reason.into(),
+        };
+    }
+
+    if let Err(message) = git_ok(dir, &["checkout", "-q", "-B", &branch, &fetched]) {
+        return CorpusPullOutcome::Failed { message };
+    }
+    let tracking = format!("refs/remotes/{remote}/{branch}");
+    if git_ok(dir, &["rev-parse", "--verify", "-q", &tracking]).is_ok() {
+        let _ = git_ok(
+            dir,
+            &[
+                "branch",
+                "-q",
+                &format!("--set-upstream-to={remote}/{branch}"),
+                &branch,
+            ],
+        );
+    }
+    match head {
+        Some(from) if from == fetched => CorpusPullOutcome::UpToDate { branch },
+        from => CorpusPullOutcome::Updated {
+            branch,
+            from: from.unwrap_or_default(),
+            to: fetched,
+        },
     }
 }
 

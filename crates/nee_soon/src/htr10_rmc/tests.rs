@@ -31,8 +31,14 @@
 //!
 //! ## What is NOT verified here
 //!
-//! The paper's `k_eff`-vs-height curve ([`RMC_KEFF_VS_HEIGHT`]). It needs the
-//! reflector, which the paper defers to IAEA-TECDOC-1382. See the module docs.
+//! The paper's `k_eff`-vs-height curve ([`RMC_KEFF_VS_HEIGHT`]). ~~It needs the
+//! reflector, which the paper defers to IAEA-TECDOC-1382.~~ **CORRECTED
+//! 2026-10-01 (gh:#428):** the reflector is now modelled (explicit TECDOC-1382
+//! borings and zone map, PR #327, `super::reflector_geometry`). The curve is
+//! still not verified *here*, because it needs a transport solve that takes
+//! hours: it is computed by `examples/htr10_rmc_keff.rs` and recorded in
+//! `crates/outram-mc-libs/verification_and_validation/htr10_rmc/`. See the
+//! module docs.
 
 use super::*;
 
@@ -165,9 +171,15 @@ fn the_reference_curve_is_monotonic_and_brackets_criticality() {
 /// across `k = 1`. Recorded so a future full-core run has something to aim at.
 ///
 /// **Measured: 122.269 cm.** The paper never states this; it is read off its
-/// Tables 3/4. HTR-10's experimental first-criticality height is commonly quoted
+/// Tables 3/4. ~~HTR-10's experimental first-criticality height is commonly quoted
 /// near 123 cm, but that value has NOT been checked against a source here and is
-/// deliberately not asserted.
+/// deliberately not asserted.~~ **CORRECTED 2026-10-01 (gh:#428):** the
+/// experimental value is sourced. IAEA-TECDOC-1382 p. 251 (§ 4.2.1.5) gives
+/// first criticality at **16 890 balls (9 627 fuel, 7 263 dummy), a loading
+/// height of 123.06 cm**, in 15 °C air. It is still deliberately not asserted:
+/// it is an experiment in air with as-built materials (TECDOC § 4.2.1.3 lists
+/// the deviations from the benchmark definition), and RMC's curve is a
+/// calculation on the benchmark definition, so the two need not agree.
 #[test]
 fn the_reference_curve_implies_a_critical_height() {
     let c = RMC_KEFF_VS_HEIGHT;
@@ -191,7 +203,13 @@ fn the_reference_curve_implies_a_critical_height() {
 /// Terry (2005) Fig. 2, z measured down from the model top: top reflector
 /// 0 -> 130, core cavity 130 -> 351.818 (bed + void, fixed hardware), conus
 /// 351.818 -> 388.764, bottom reflector 388.764 -> 610. Only the split of the
-/// cavity between bed and void may change with `n_axial`.
+/// cavity between bed and void may change with the loading.
+///
+/// Since 2026-10-01 (gh:#472) the explicit model is loaded in Şeker layers
+/// (N = 9, 12, 20: the lowest, critical and tallest rows)~~ and the homogenised
+/// one in the equivalent `2N + 1` half-layers~~. ~~The homogenised one-ball
+/// model was checked alongside.~~ It was withdrawn on 2026-10-01 because it cuts
+/// pebbles, so it is no longer built here.
 ///
 /// Two construction defects of exactly this class have shipped: a constant
 /// void that grew the cavity with the bed, and a bottom boundary MIRRORED from
@@ -202,7 +220,7 @@ fn the_reference_curve_implies_a_critical_height() {
 /// reported fields.
 #[test]
 fn the_axial_stack_matches_terry_at_every_loading() {
-    use crate::htr10_rmc::core_model::{assemble, assemble_explicit_triso};
+    use crate::htr10_rmc::core_model::assemble_explicit_triso;
     use outram_mc_libs::geometry::surface::SurfaceKind;
     let z_of = |s: &SurfaceKind| match s {
         SurfaceKind::ZPlane(p) => p.z0,
@@ -214,7 +232,7 @@ fn the_axial_stack_matches_terry_at_every_loading() {
             "n_axial {n}: {what} = {a:.6}, Terry says {b:.6}"
         );
     };
-    for n in [20usize, 25, 41] {
+    for n in [9usize, 12, 20] {
         let c = assemble_explicit_triso(14, n, 0);
         let bed_bottom = -c.bed_half_height;
         close(c.refl_top - c.cavity_top, 130.0, "top reflector", n);
@@ -245,28 +263,6 @@ fn the_axial_stack_matches_terry_at_every_loading() {
             "top vacuum plane",
             n,
         );
-
-        // The homogenised diagnostic model has the same outer extent
-        // (surfaces 6/7), with reflector graphite where the conus would be.
-        let h = assemble(14, n, 0);
-        close(
-            h.refl_top - h.refl_bottom,
-            610.0,
-            "homogenised: whole model",
-            n,
-        );
-        close(
-            z_of(&h.geometry.surfaces[6]),
-            h.refl_bottom,
-            "homogenised: bottom plane",
-            n,
-        );
-        close(
-            z_of(&h.geometry.surfaces[7]),
-            h.refl_top,
-            "homogenised: top plane",
-            n,
-        );
     }
 }
 
@@ -279,23 +275,12 @@ fn the_axial_stack_matches_terry_at_every_loading() {
 /// ATOM basis, so this also checks the two bases agree.
 #[test]
 fn every_boron_bearing_material_carries_natural_b11() {
+    use crate::htr10_rmc::data::{Htr10DataConfig, Htr10NuclideLayout};
     use crate::htr10_rmc::materials::{htr10_material_set, Htr10MaterialConfig};
-    use outram_mc_libs::pebble_beds::htr10::Htr10Nuclides;
-    let n = Htr10Nuclides {
-        u235: 0,
-        u238: 1,
-        o16: 2,
-        c_free: 3,
-        c_graphite: 4,
-        si28: 5,
-        b10: 6,
-        c_sic: 7,
-        si29: 8,
-        si30: 9,
-        b11: 10,
-    };
+    let layout = Htr10NuclideLayout::plan(&Htr10DataConfig::default()).expect("valid");
+    let n = layout.pebble;
     let want = 0.801 / 0.199;
-    let mats = htr10_material_set(n, Htr10MaterialConfig::benchmark_default(300.15));
+    let mats = htr10_material_set(&layout, Htr10MaterialConfig::benchmark_default(300.15));
     let mut with_boron = 0;
     for m in &mats {
         let sum = |i: usize| -> f64 {
@@ -318,8 +303,11 @@ fn every_boron_bearing_material_carries_natural_b11() {
             m.name
         );
     }
-    // Kernel, four graphite layers, three reflector zones, homogenised dummies.
-    assert!(with_boron >= 9, "only {with_boron} materials carry boron");
+    // Kernel, four graphite layers, three reflector zones, homogenised dummies
+    // (9), plus -- since the explicit reflector, 2026-09-25 -- the 23 Table
+    // 4-3 zone slots that carry boron (all but zone 18, the plain carbon
+    // brick) and the rod B4C.
+    assert!(with_boron >= 9 + 23 + 1, "only {with_boron} materials carry boron");
 }
 
 /// **The TRISO lattice holds the particles it reports** (gh:#316).
@@ -329,11 +317,16 @@ fn every_boron_bearing_material_carries_natural_b11() {
 /// holds 8240: every fuel pebble carried 1.2 % less heavy metal than stated.
 /// The builder now asserts built == counted; this pins the count itself and
 /// the non-cubic grid that realises it.
+///
+/// ~~8340, on the `[0.5, 0.5, 0.0]` grid of 26 x 26 x 27~~ **CHANGED
+/// 2026-10-01 (gh:#430):** the stated **8335** (Şeker & Çolak 2003 p.266, Li
+/// Table 2), through the generic offset `[0.13, 0.37, 0.71]`. The grid shape
+/// is printed, and the cover check below still applies.
 #[test]
-fn the_built_triso_lattice_holds_the_counted_8340_particles() {
-    use crate::htr10_rmc::core_model::assemble_explicit_triso;
+fn the_built_triso_lattice_holds_the_stated_8335_particles() {
+    use crate::htr10_rmc::core_model::{assemble_explicit_triso, TRISO_PARTICLE_UNIVERSE};
     use outram_mc_libs::geometry::lattice::Lattice;
-    let c = assemble_explicit_triso(14, 20, 0);
+    let c = assemble_explicit_triso(14, 9, 0);
     let rect = c
         .geometry
         .lattices
@@ -343,9 +336,13 @@ fn the_built_triso_lattice_holds_the_counted_8340_particles() {
             _ => None,
         })
         .expect("the explicit-TRISO core has a rect lattice");
-    let built = rect.universes.iter().filter(|&&u| u == 3).count();
-    assert_eq!(built, 8340, "TRISO particles per fuel pebble");
-    assert_eq!(rect.n, [26, 26, 27], "offset [0.5, 0.5, 0.0] grid");
+    let built = rect
+        .universes
+        .iter()
+        .filter(|&&u| u == TRISO_PARTICLE_UNIVERSE)
+        .count();
+    println!("{built} particles on a {:?} grid, pitch {:.7} cm", rect.n, rect.pitch[0]);
+    assert_eq!(built, 8335, "TRISO particles per fuel pebble");
     // The grid must cover the 2.5 cm fuel zone on every axis.
     for a in 0..3 {
         let lo = [rect.lower_left.x, rect.lower_left.y, rect.lower_left.z][a];
@@ -355,4 +352,474 @@ fn the_built_triso_lattice_holds_the_counted_8340_particles() {
             "axis {a}: [{lo}, {hi}] does not cover the zone"
         );
     }
+}
+
+// ---------------------------------------------------------------------------
+// THE BED, CHECKED ON THE BUILT GEOMETRY (gh:#309, gh:#310; written for the
+// two-ball cell, run on Şeker's 13-ball cell since 2026-10-01, gh:#472 -- the
+// two-ball cell is withdrawn)
+// ---------------------------------------------------------------------------
+
+/// One piece of a pebble, as the BUILT geometry holds it: the global centre of
+/// its sphere (tile centre + the sphere's tile-local centre) and whether the
+/// tile draws it as a fuelled pebble.
+struct BallPiece {
+    centre: [f64; 3],
+    fuel: bool,
+}
+
+/// Every pebble piece in every valid tile of the built bed lattice.
+///
+/// Read from the assembled `Geometry` alone -- the lattice's tile centres and
+/// universes, each universe's cells, their region's sphere and their role --
+/// never from the bed's ball list (~~`TwoBallBed`~~ `bed::PebbleBed`, Şeker's
+/// bed since 2026-10-01), so it checks what transport sees rather than the
+/// description it was built from.
+fn built_ball_pieces(c: &crate::htr10_rmc::core_model::AssembledCore) -> Vec<BallPiece> {
+    use crate::htr10_rmc::core_model::{tile_cell_role, TileCellRole};
+    use outram_mc_libs::geometry::cell::{HalfSpaceSense, RegionToken};
+    use outram_mc_libs::geometry::lattice::Lattice;
+    use outram_mc_libs::geometry::surface::SurfaceKind;
+    let g = &c.geometry;
+    let Lattice::Hex(hex) = &g.lattices[0] else {
+        panic!("lattice 0 is the bed hex lattice")
+    };
+    let n = 2 * hex.n_rings as i32 - 1;
+    let mut out = Vec::new();
+    for iz in 0..hex.n_axial as i32 {
+        for iy in 0..n {
+            for ix in 0..n {
+                let i = [ix, iy, iz];
+                if !hex.are_valid_indices(i) {
+                    continue;
+                }
+                let t = hex.tile_center(i);
+                let u = hex.universe_at(i).expect("a valid tile has a universe");
+                for &ci in &g.universes[u].cell_indices {
+                    let cell = &g.cells[ci];
+                    let fuel = match tile_cell_role(cell.id) {
+                        Some(TileCellRole::FuelShell) => true,
+                        Some(TileCellRole::DummyBall) => false,
+                        _ => continue,
+                    };
+                    // The pebble sphere: the Inside half-space of a sphere of
+                    // the ball radius in this cell's region.
+                    let s = cell
+                        .region
+                        .iter()
+                        .find_map(|tok| match tok {
+                            RegionToken::HalfSpace {
+                                surface_idx,
+                                sense: HalfSpaceSense::Inside,
+                            } => match &g.surfaces[*surface_idx] {
+                                SurfaceKind::Sphere(s) if (s.r - 3.0).abs() < 1e-12 => Some([s.x0, s.y0, s.z0]),
+                                _ => None,
+                            },
+                            _ => None,
+                        })
+                        .expect("a pebble cell is bounded by its 3.0 cm sphere");
+                    out.push(BallPiece {
+                        centre: [t.x + s[0], t.y + s[1], t.z + s[2]],
+                        fuel,
+                    });
+                }
+            }
+        }
+    }
+    out
+}
+
+/// Pieces grouped into balls by global centre (to 1e-6 cm): `(centre, fuel
+/// flags of every piece)`.
+fn built_balls(pieces: &[BallPiece]) -> Vec<([f64; 3], Vec<bool>)> {
+    let key = |c: &[f64; 3]| c.map(|x| (x * 1.0e6).round() as i64);
+    let mut m: std::collections::BTreeMap<[i64; 3], ([f64; 3], Vec<bool>)> =
+        std::collections::BTreeMap::new();
+    for p in pieces {
+        m.entry(key(&p.centre))
+            .or_insert_with(|| (p.centre, Vec::new()))
+            .1
+            .push(p.fuel);
+    }
+    m.into_values().collect()
+}
+
+/// **No two pebbles of the BUILT bed overlap** (gh:#310).
+///
+/// The one-ball-per-tile lattice put axial neighbours at 4.899 cm centres, so
+/// its 6 cm pebbles interpenetrated by 1.101 cm -- and the only overlap guard,
+/// `the_reconstructed_cell_is_a_real_packing`, ran on `HexBedCell::from_paper()`
+/// (which is fine) instead of on what was built. This one reads every ball
+/// centre out of the assembled lattice and takes the minimum centre distance
+/// over all pairs (a 7 cm spatial hash, so every pair closer than a diameter
+/// is compared).
+///
+/// **Results (2026-09-25, two-ball cell, 14 rings x 20 half-layers):** 29 445
+/// balls built (the whole lattice, conus and margins included); minimum
+/// centre distance **6.2102 cm** = `hypot(pitch/sqrt(3), height/2)`, the A-B
+/// interlayer distance of the paper's cell, i.e. a 0.210 cm helium gap at the
+/// closest approach. Nothing is closer.
+///
+/// **Since 2026-10-01 (gh:#472) on Şeker's cell (N = 9):** its balls TOUCH (the
+/// flower and the central triangle are contact packings), so the minimum
+/// centre distance is exactly the 6.0 cm diameter and the gate is
+/// `dmin >= d - 1e-9`. **Results (2026-10-01, N = 9):** 16 692 balls built,
+/// minimum centre distance **6.0000 cm**.
+#[test]
+fn no_two_balls_of_the_built_bed_overlap() {
+    use crate::htr10_rmc::core_model::assemble_explicit_triso;
+    let c = assemble_explicit_triso(14, 9, 0);
+    let balls = built_balls(&built_ball_pieces(&c));
+    let cell = bed::HexBedCell::from_paper();
+    let seker = matches!(c.bed, Some(bed::PebbleBed::Seker(_)));
+    let bin = 7.0;
+    let cell_of = |p: &[f64; 3]| p.map(|x| (x / bin).floor() as i64);
+    let mut grid: std::collections::BTreeMap<[i64; 3], Vec<usize>> = Default::default();
+    for (i, (p, _)) in balls.iter().enumerate() {
+        grid.entry(cell_of(p)).or_default().push(i);
+    }
+    let mut dmin = f64::INFINITY;
+    for (i, (p, _)) in balls.iter().enumerate() {
+        let k = cell_of(p);
+        for dx in -1..=1 {
+            for dy in -1..=1 {
+                for dz in -1..=1 {
+                    let Some(v) = grid.get(&[k[0] + dx, k[1] + dy, k[2] + dz]) else {
+                        continue;
+                    };
+                    for &j in v {
+                        if j <= i {
+                            continue;
+                        }
+                        let q = &balls[j].0;
+                        let d = ((p[0] - q[0]).powi(2)
+                            + (p[1] - q[1]).powi(2)
+                            + (p[2] - q[2]).powi(2))
+                        .sqrt();
+                        dmin = dmin.min(d);
+                    }
+                }
+            }
+        }
+    }
+    println!(
+        "{} balls built; minimum centre distance {dmin:.4} cm (diameter {:.1}, A-B spacing {:.4})",
+        balls.len(),
+        cell.ball_diameter,
+        cell.interlayer_spacing()
+    );
+    assert!(balls.len() > 10_000, "the bed was not walked");
+    assert!(
+        dmin > cell.ball_diameter - 1e-9,
+        "two built pebbles are {dmin:.4} cm apart, less than a {} cm diameter: they overlap",
+        cell.ball_diameter
+    );
+    let closest = if seker { cell.ball_diameter } else { cell.interlayer_spacing() };
+    assert!(
+        (dmin - closest).abs() < 1e-6,
+        "the closest pair should be {closest:.4} cm apart, got {dmin:.4}"
+    );
+}
+
+/// **Every piece of one ball is the same kind of pebble** (gh:#309 step 2).
+///
+/// A ball split across tiles -- two for an A ball, three for a B ball -- must
+/// be fuelled in all of them or dummy in all of them; a per-TILE identity
+/// would draw one physical pebble as part fuel, part graphite. Also checks
+/// that the pieces are where the two-ball cell puts them: at most two tiles
+/// hold an A ball (on a tile axis) and at most three a B ball.
+///
+/// **Results (2026-09-25, 14 x 20):** 29 445 balls; held by one tile 2 501
+/// (lattice-edge and margin balls, all outside the bed), two tiles 13 888,
+/// three tiles 13 056; **0 inconsistent**. **Since 2026-10-01 on Şeker's cell
+/// (N = 9, gh:#472):** 16 692 balls; one tile 3 744, two tiles 12 948, three
+/// tiles 0; **0 inconsistent**. (In Şeker's cell no ball is split three ways,
+/// so the "two or three tiles" description above is the two-ball cell's.)
+///
+/// **Mutation-checked (2026-09-25):**
+/// - a PER-TILE identity (every site of a tile takes the identity of its
+///   `ABottom` ball, `m = if mask & 1 != 0 { 31 } else { 0 }` in
+///   `assemble_explicit_triso`) -> **11 685 inconsistent balls, FAILS**;
+/// - `tile_ball`'s `BNorthWest` owner `(a-1, b)` instead of `(a-1, b+1)` ->
+///   **3 748 inconsistent, FAILS**;
+/// - restoring each -> passes.
+///
+/// A mutation this test correctly does NOT catch: giving every tile its
+/// neighbour's mask, `bed.tile_mask(a, b + 1, level)`. That translates the
+/// whole identity field by one tile, so every ball is still one kind of
+/// pebble in all its tiles -- a relabelling, not a per-tile defect.
+#[test]
+fn every_piece_of_a_built_ball_has_one_identity() {
+    use crate::htr10_rmc::core_model::assemble_explicit_triso;
+    let c = assemble_explicit_triso(14, 9, 0);
+    let seker = matches!(c.bed, Some(bed::PebbleBed::Seker(_)));
+    let balls = built_balls(&built_ball_pieces(&c));
+    let mut split = [0usize; 4];
+    let mut inconsistent = 0;
+    for (p, flags) in &balls {
+        assert!(
+            (1..=3).contains(&flags.len()),
+            "ball at {p:?} is held by {} tiles",
+            flags.len()
+        );
+        split[flags.len()] += 1;
+        if flags.iter().any(|&f| f != flags[0]) {
+            inconsistent += 1;
+        }
+    }
+    println!(
+        "{} balls: held by 1 tile {}, 2 tiles {}, 3 tiles {}; inconsistent {inconsistent}",
+        balls.len(),
+        split[1],
+        split[2],
+        split[3]
+    );
+    assert_eq!(inconsistent, 0, "{inconsistent} balls are part fuel, part dummy");
+    if seker {
+        // Şeker's cell (gh:#472): flower balls and corner central balls are
+        // split between two tiles, inner central balls are whole in one.
+        assert!(split[1] > 0 && split[2] > 0 && split[3] == 0, "Şeker pieces: {split:?}");
+    } else {
+        assert!(split[2] > 0 && split[3] > 0, "A and B balls must both be shared");
+    }
+}
+
+/// **57:43 by BALL inside the bed, all-dummy in the conus** -- counted on the
+/// built geometry.
+///
+/// Balls centred inside the bed cylinder and between the bed floor and top
+/// are the paper's 0.57 fuelled (the low-discrepancy rule runs over a slightly
+/// larger set -- every ball with volume in the bed -- so this subset need not
+/// be exact to one ball); every ball centred below the floor inside the conus
+/// region is a dummy (Terry 2005 s2).
+///
+/// **Results (2026-09-25, two-ball cell, 14 x 20):** 7 700 of 13 510 balls
+/// centred in the bed fuelled = **0.56995**; conus **0 of 5 404**. Since
+/// 2026-10-01 run on Şeker's cell at N = 9 (gh:#472). **Results (2026-10-01,
+/// Şeker, N = 9):** 7 233 of 12 691 = **0.56993**; conus **0 of 2 065**.
+///
+/// **The `2e-3` tolerance has no recorded derivation (gh:#428).** It is not
+/// statistical: the rule is deterministic. For scale, one ball is 1/12 691 ≈
+/// 8e-5 of this subset, so `2e-3` is about 25 balls; the measured deviation is
+/// 7e-5, about one ball. Not tightened here (a documentation-only change).
+#[test]
+fn the_built_bed_is_57_percent_fuel_balls_and_the_conus_none() {
+    use crate::htr10_rmc::core_model::assemble_explicit_triso;
+    let c = assemble_explicit_triso(14, 9, 0);
+    let balls = built_balls(&built_ball_pieces(&c));
+    let (mut bed_n, mut bed_fuel, mut conus_n, mut conus_fuel) = (0, 0, 0, 0);
+    for (p, flags) in &balls {
+        let r = p[0].hypot(p[1]);
+        if r > c.bed_radius {
+            continue;
+        }
+        if p[2] > -c.bed_half_height && p[2] < c.bed_half_height {
+            bed_n += 1;
+            bed_fuel += usize::from(flags[0]);
+        } else if p[2] < -c.bed_half_height && p[2] > c.conus_floor {
+            conus_n += 1;
+            conus_fuel += usize::from(flags[0]);
+        }
+    }
+    let f = bed_fuel as f64 / bed_n as f64;
+    println!("bed: {bed_fuel} of {bed_n} balls fuelled = {f:.5}; conus: {conus_fuel} of {conus_n}");
+    assert!(
+        (f - table1::FUEL_BALL_FRACTION).abs() < 2.0e-3,
+        "fuel-ball fraction in the bed {f:.5}, paper {}",
+        table1::FUEL_BALL_FRACTION
+    );
+    assert!(conus_n > 1000, "the conus was not walked");
+    assert_eq!(conus_fuel, 0, "the conus holds only dummy pebbles");
+}
+
+/// **The built bed has the volume fractions its ball list implies, sampled
+/// through `locate`**, and a fuel-BALL volume fraction of 0.57.
+///
+/// ~~Filling fraction 0.61~~ **CHANGED 2026-10-01 (gh:#472).** 0.61 was the
+/// two-ball cell's *input* (its pitch was diluted to it), so the gate checked
+/// the build against its own input. Şeker's cell is not built to a filling
+/// fraction. The comparison with the reference is
+/// `bed::seker_cell_tests::the_seker_bed_reproduces_table_3_per_plane_counts`
+/// (−1.2 %). This test is the **verification** that transport sees what the bed
+/// says: the sampled filling must equal the ball volume the `SekerBed` ball
+/// list puts inside the slab (each kept ball clipped to the slab, so the conus
+/// balls' 1.1 cm caps above the floor count), not anything read from the
+/// geometry. Şeker's own count for the same N is printed for context.
+///
+/// **Results (2026-10-01, N = 9, 400 000 samples):** sampled packing
+/// **0.60232** against **0.60112** from the ball list (+1.5 sigma), fuel-ball
+/// volume fraction **0.56918**. Şeker's Table 3 count for N = 9 gives 0.60625. A first
+/// version counted only balls centred in the bed (0.59889) and the sample sat
+/// 4.3 sigma above it, at 0.60232. The gate caught the omitted conus caps; it
+/// was not widened.
+///
+/// The one-ball lattice realised 0.581 (it could not hold 0.61 without
+/// overlap). 400 000 uniform points in the bed slab (r < 90 cm, |z| < bed
+/// half-height) of the 14 x 20 core, each classified by the bed-tile cell it
+/// lands in. Binomial sigma ~0.0008 on each fraction; the gates are 5 sigma.
+///
+/// **Results (2026-09-25):** packing **0.60972**, fuel-ball volume fraction
+/// **0.57066**, helium 0.39028. The 400 M-sample run of
+/// `examples/htr10_fuel_fraction.rs` is in the V&V record.
+#[test]
+fn the_sampled_bed_has_the_papers_packing_and_fuel_ball_fraction() {
+    use crate::htr10_rmc::core_model::{assemble_explicit_triso, tile_cell_role, TileCellRole};
+    use outram_mc_libs::geometry::cell::SurfaceToken;
+    use outram_mc_libs::geometry::position::{Direction, Position};
+    let c = assemble_explicit_triso(14, 9, usize::MAX);
+    let g = &c.geometry;
+    let mut seed = 0x5EED_u64;
+    let mut prn = || {
+        seed = seed
+            .wrapping_mul(6364136223846793005)
+            .wrapping_add(1442695040888963407);
+        ((seed >> 11) as f64) / ((1u64 << 53) as f64)
+    };
+    let n = 400_000;
+    let (mut fuel, mut dummy, mut helium) = (0usize, 0usize, 0usize);
+    let u = Direction::new(0.0, 0.0, 1.0);
+    for _ in 0..n {
+        let r = c.bed_radius * prn().sqrt();
+        let th = 2.0 * std::f64::consts::PI * prn();
+        let z = c.bed_half_height * (2.0 * prn() - 1.0);
+        let path = g
+            .locate(Position::new(r * th.cos(), r * th.sin(), z), u, SurfaceToken::NONE)
+            .expect("every point in the bed is located");
+        let role = path
+            .levels
+            .iter()
+            .find(|l| l.lattice == Some(0))
+            .and_then(|l| tile_cell_role(g.cells[l.cell].id));
+        match role {
+            Some(TileCellRole::FuelZone | TileCellRole::FuelShell) => fuel += 1,
+            Some(TileCellRole::DummyBall) => dummy += 1,
+            Some(TileCellRole::Helium) => helium += 1,
+            None => panic!("a bed point resolved to no tile cell"),
+        }
+    }
+    let pack = (fuel + dummy) as f64 / n as f64;
+    let fb = fuel as f64 / (fuel + dummy) as f64;
+    println!("packing {pack:.5}, fuel-ball fraction {fb:.5}, helium {}", helium as f64 / n as f64);
+    let expected = match c.bed.as_ref() {
+        Some(pb @ bed::PebbleBed::Seker(b)) => {
+            // Ball volume inside the sampled slab, from the BALL LIST: every
+            // kept ball, clipped to |z| < bed half-height. That includes the
+            // caps of the conus balls centred 1.899 cm below the floor, which
+            // reach 1.1 cm up into the slab (Şeker's lattice continues into the
+            // cone). Kept balls never cross r = 90 cm.
+            let pi = std::f64::consts::PI;
+            let r = 3.0;
+            let cap = |h: f64| pi * h * h * (3.0 * r - h) / 3.0;
+            let (lo, hi) = (-c.bed_half_height, c.bed_half_height);
+            let v_in: f64 = pb
+                .all_balls()
+                .into_iter()
+                .filter(|&id| pb.is_present(id))
+                .map(|id| {
+                    let z = pb.centre(id)[2];
+                    let above = |plane: f64| cap((z + r - plane).clamp(0.0, 2.0 * r));
+                    above(lo) - above(hi)
+                })
+                .sum();
+            let v_bed = pi * c.bed_radius.powi(2) * 2.0 * c.bed_half_height;
+            let v_ball = 4.0 / 3.0 * pi * r.powi(3);
+            let seker = (1346 * b.n_layers + 733) as f64 * v_ball / v_bed;
+            println!(
+                "Seker bed, N = {}: ball list -> {:.5}; Seker Table 3 count -> {seker:.5}",
+                b.n_layers,
+                v_in / v_bed
+            );
+            v_in / v_bed
+        }
+        _ => 0.61,
+    };
+    assert!((pack - expected).abs() < 5.0 * 0.0008, "filling fraction {pack:.5} against {expected:.5}");
+    assert!((fb - 0.57).abs() < 5.0 * 0.001, "fuel-ball volume fraction {fb:.5}");
+}
+
+/// **The MCNP columns are transcribed correctly** (2026-09-27): the paper's
+/// own "Re-diff" column, `|RMC - MCNP| / RMC`, is re-derived from our RMC and
+/// MCNP tables and must match the printed value to its last digit (6 decimal
+/// places, so within 1e-6 after rounding). A digit slip in either table fails
+/// this.
+#[test]
+fn the_mcnp_columns_reproduce_the_papers_relative_differences() {
+    use super::{MCNP_TABLE3_KEFF_VS_HEIGHT, MCNP_TABLE4_KEFF_VS_HEIGHT, RMC_KEFF_VS_HEIGHT};
+    // Printed "Re-diff" columns of Tables 3 and 4, row order as the tables.
+    let t3 = [
+        0.006855, 0.007045, 0.002246, 0.000984, 0.002835, 0.001451, 0.006187, 0.005039,
+        0.006813, 0.004553, 0.00949, 0.008346,
+    ];
+    let t4 = [
+        0.004754, 0.006063, 0.002503, 0.0005, 0.001545, 0.003249, 0.003943, 0.004383,
+        0.006912, 0.003485, 0.008069, 0.006453,
+    ];
+    for (mcnp, printed, name) in [
+        (MCNP_TABLE3_KEFF_VS_HEIGHT, t3, "Table 3"),
+        (MCNP_TABLE4_KEFF_VS_HEIGHT, t4, "Table 4"),
+    ] {
+        assert_eq!(mcnp.len(), RMC_KEFF_VS_HEIGHT.len());
+        for ((&(h, k_rmc), &(h_m, k_mcnp)), &p) in RMC_KEFF_VS_HEIGHT.iter().zip(mcnp).zip(&printed) {
+            assert_eq!(h, h_m, "{name}: heights differ");
+            let rd = (k_rmc - k_mcnp).abs() / k_rmc;
+            // The paper prints up to 6 decimals and drops trailing zeros.
+            let decimals = format!("{p}").split('.').nth(1).map_or(0, str::len) as i32;
+            let tol = 0.5 * 10f64.powi(-decimals) + 1e-12;
+            assert!(
+                (rd - p).abs() <= tol,
+                "{name} at {h} cm: Re-diff {rd:.7} but the paper prints {p}"
+            );
+        }
+    }
+}
+
+/// **Pins the graphite S(α,β) default.** Maintainer decision 2026-09-27:
+/// 30 %-porosity reactor graphite, chosen on density (see
+/// [`super::materials::GraphiteLaw`]). Without this test the default can drift
+/// back to crystalline unnoticed. The tape name and MAT are checked against
+/// the tape itself, because a wrong MAT makes the loader fail and every nuclide
+/// silently drop out.
+#[test]
+fn the_default_graphite_law_is_30p_reactor_graphite() {
+    use super::materials::GraphiteLaw;
+    let law = GraphiteLaw::default();
+    assert_eq!(law, GraphiteLaw::Reactor30P);
+    assert_eq!(law.tape(), "tsl-reactor-graphite-30P.endf");
+    assert_eq!(GraphiteLaw::from_name("crystalline"), Some(GraphiteLaw::Crystalline));
+    assert_eq!(GraphiteLaw::from_name("bogus"), None);
+    let tape = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .join("../../reference-data/endf")
+        .join(law.tape());
+    let Ok(text) = std::fs::read_to_string(&tape) else {
+        eprintln!("SKIP tape check: {} not in this checkout", tape.display());
+        return;
+    };
+    let line = text.lines().nth(2).expect("tape has a header record");
+    let mat: i32 = line[66..70].trim().parse().expect("MAT field");
+    assert_eq!(mat, law.mat(), "MAT in {} is {mat}", law.tape());
+}
+
+/// **Ball-count matching against the reference (gh:#472, 2026-10-01).**
+///
+/// [`super::seker_height_for_balls`] must return every tabulated height
+/// exactly for Şeker's own count `1346 N + 733`, and the whole-ball bed at
+/// N = 12 must map to its inventory's height. **Results (2026-10-01):** our
+/// N = 12 bed holds 16 681 balls, which is 122.091 cm in Şeker's model, where
+/// RMC reads 0.999419 (against 1.004288 at the 123.576 cm row).
+#[test]
+fn the_reference_is_matched_to_the_bed_by_ball_count() {
+    use super::{rmc_keff_at_ball_count, seker_height_for_balls, RMC_KEFF_VS_HEIGHT};
+    for (i, &(h, k)) in RMC_KEFF_VS_HEIGHT.iter().enumerate() {
+        let n = 9 + i;
+        let balls = 1346 * n + 733;
+        assert!((seker_height_for_balls(balls) - h).abs() < 1e-9, "row N = {n}");
+        assert!((rmc_keff_at_ball_count(balls).unwrap() - k).abs() < 1e-12, "row N = {n}");
+    }
+    let c = crate::htr10_rmc::core_model::assemble_explicit_triso(14, 12, 0);
+    let balls = c.bed.as_ref().and_then(|b| b.core_balls()).expect("a Şeker bed");
+    let h = seker_height_for_balls(balls);
+    let k = rmc_keff_at_ball_count(balls).expect("inside the table");
+    println!("N = 12: {balls} balls -> Seker height {h:.3} cm -> RMC {k:.6}");
+    assert_eq!(balls, 16_681);
+    assert!(h < 123.576 && h > 113.778);
 }

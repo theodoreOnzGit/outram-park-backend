@@ -160,7 +160,15 @@ impl DelayedMgxs {
             den[g] += phi;
             num_total[g] += nu_t * sf * phi;
             for (k, grp) in chi.groups.iter().enumerate() {
-                let p_k = interp_pairs_clamped(&grp.fraction, mid);
+                let p_k = if crate::nuclear_data::secondary::is_lin_lin(&grp.fraction_interp) {
+                    interp_pairs_clamped(&grp.fraction, mid)
+                } else {
+                    crate::nuclear_data::secondary::tabulated1d_at(
+                        &grp.fraction_interp,
+                        &grp.fraction,
+                        mid,
+                    )
+                };
                 num_del[g][k] += nu_d * p_k * sf * phi;
             }
         }
@@ -281,6 +289,7 @@ mod tests {
             energy: vec![1.0e-5, 2.0e7],
             nu_delayed: vec![0.02, 0.02],
             ldg1_energy_dependent: false,
+            interp: Vec::new(),
         };
         // χ: two groups, constant fractions p = [0.3, 0.7]; each with a triangular
         // outgoing spectrum on [0, 2 MeV] (area 1).
@@ -289,12 +298,14 @@ mod tests {
             groups: vec![
                 DelayedChiGroup {
                     fraction: vec![(1.0e-5, 0.3), (2.0e7, 0.3)],
+                    fraction_interp: Vec::new(),
                     lf: 5,
                     spectrum: g_spec.clone(),
                     law: None,
                 },
                 DelayedChiGroup {
                     fraction: vec![(1.0e-5, 0.7), (2.0e7, 0.7)],
+                    fraction_interp: Vec::new(),
                     lf: 5,
                     spectrum: g_spec,
                     law: None,

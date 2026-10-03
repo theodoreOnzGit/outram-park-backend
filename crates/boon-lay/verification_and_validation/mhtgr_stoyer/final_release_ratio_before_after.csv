@@ -1,0 +1,187 @@
+# Final (heat-up) release / paper (Tables 10, 14 final column), upstream TRISO-ATOPS de374c8 (= port to < 4e-11), final = initial + (Eq.29 - initial)/10 (paper s.III.A.5, flagged).
+# before = Fig. 5 digitisation 2026-09-29T12:04:42Z; after = re-digitisation 2026-09-30T01:50:02Z (kovan 066e691: t = 0 markers added to 5 % and 50 %, four erroneous 50 % points removed). Nothing else changed.
+case,k_plate,nuclide,paper_final_ci,ratio_before,ratio_after
+A,7.5e-5 (Table 3 as printed),Kr-85,3.21E-02,0.8459,0.9375
+A,7.5e-5 (Table 3 as printed),Sr-89,6.51E-01,0.7983,0.9315
+A,7.5e-5 (Table 3 as printed),Sr-90,3.90E-02,0.7984,0.9310
+A,7.5e-5 (Table 3 as printed),Y-90,5.40E-02,0.8297,0.8786
+A,7.5e-5 (Table 3 as printed),Sr-91,7.92E-01,0.7981,0.9313
+A,7.5e-5 (Table 3 as printed),Y-91,1.10E+00,0.8298,0.8788
+A,7.5e-5 (Table 3 as printed),Zr-95,1.21E+00,0.8249,0.8736
+A,7.5e-5 (Table 3 as printed),Nb-95,1.21E+00,0.8249,0.8736
+A,7.5e-5 (Table 3 as printed),Zr-97,1.10E+00,0.8298,0.8788
+A,7.5e-5 (Table 3 as printed),Mo-99,1.17E+00,0.8258,0.8745
+A,7.5e-5 (Table 3 as printed),Tc-99m,1.03E+00,0.8256,0.8743
+A,7.5e-5 (Table 3 as printed),Ru-103,1.29E+00,0.8293,0.8782
+A,7.5e-5 (Table 3 as printed),Rh-105,9.26E-01,0.8294,0.8784
+A,7.5e-5 (Table 3 as printed),Ru-106,8.55E-01,0.8288,0.8777
+A,7.5e-5 (Table 3 as printed),Ag-110m,2.33E+00,0.9033,1.1162
+A,7.5e-5 (Table 3 as printed),Ag-111,2.41E+02,0.9289,1.1515
+A,7.5e-5 (Table 3 as printed),Sb-125,8.40E-03,0.8291,0.8780
+A,7.5e-5 (Table 3 as printed),Sb-127,9.08E-02,0.8291,0.8780
+A,7.5e-5 (Table 3 as printed),Te-127m,6.93E-02,0.8795,0.9737
+A,7.5e-5 (Table 3 as printed),Te-127,4.32E-01,0.8934,0.9891
+A,7.5e-5 (Table 3 as printed),Te-129m,2.39E-01,0.8826,0.9774
+A,7.5e-5 (Table 3 as printed),Te-131m,9.59E-01,0.8876,0.9830
+A,7.5e-5 (Table 3 as printed),I-131,3.43E+00,0.8847,0.9799
+A,7.5e-5 (Table 3 as printed),Xe-131m,4.76E-02,0.8872,0.9832
+A,7.5e-5 (Table 3 as printed),Te-132,4.64E+00,0.8859,0.9813
+A,7.5e-5 (Table 3 as printed),I-133,6.15E+00,0.8899,0.9855
+A,7.5e-5 (Table 3 as printed),Xe-133m,2.07E-01,0.8852,0.9806
+A,7.5e-5 (Table 3 as printed),Xe-133,6.19E+00,0.8868,0.9826
+A,7.5e-5 (Table 3 as printed),Cs-134,7.73E+00,0.8289,0.8561
+A,7.5e-5 (Table 3 as printed),I-135,6.29E+00,0.8947,0.9904
+A,7.5e-5 (Table 3 as printed),Xe-135,8.33E-01,0.8983,0.9927
+A,7.5e-5 (Table 3 as printed),Cs-136,1.04E+00,0.8231,0.8619
+A,7.5e-5 (Table 3 as printed),Cs-137,1.58E+01,0.9321,0.9437
+A,7.5e-5 (Table 3 as printed),Ba-140,8.36E-01,0.7977,0.9308
+A,7.5e-5 (Table 3 as printed),La-140,1.17E+00,0.8285,0.8773
+A,7.5e-5 (Table 3 as printed),Ce-141,1.08E+00,0.8283,0.8771
+A,7.5e-5 (Table 3 as printed),Ce-143,1.10E+00,0.8326,0.8817
+A,7.5e-5 (Table 3 as printed),Pr-143,1.10E+00,0.8326,0.8817
+A,7.5e-5 (Table 3 as printed),Ce-144,8.33E-01,0.8287,0.8776
+A,7.5e-5 (Table 3 as printed),Nd-147,4.40E-01,0.8278,0.8766
+A,7.5e-5 (Table 3 as printed),Pm-147,8.05E-02,0.8292,0.8781
+A,7.5e-5 (Table 3 as printed),Pm-149,2.77E-01,0.8307,0.8797
+A,7.5e-5 (Table 3 as printed),Pm-151,1.74E-01,0.8294,0.8783
+A,7.5e-5 (Table 3 as printed),Sm-151,1.42E-04,0.8306,0.8796
+A,7.5e-5 (Table 3 as printed),Sm-153,1.01E-01,0.8268,0.8756
+A,7.5e-5 (Table 3 as printed),Eu-155,5.73E-04,0.7978,0.9304
+A,7.5e-4 (diagnostic),Kr-85,3.21E-02,0.8459,0.9375
+A,7.5e-4 (diagnostic),Sr-89,6.51E-01,0.7983,0.9315
+A,7.5e-4 (diagnostic),Sr-90,3.90E-02,0.7984,0.9310
+A,7.5e-4 (diagnostic),Y-90,5.40E-02,0.8297,0.8786
+A,7.5e-4 (diagnostic),Sr-91,7.92E-01,0.7981,0.9313
+A,7.5e-4 (diagnostic),Y-91,1.10E+00,0.8298,0.8788
+A,7.5e-4 (diagnostic),Zr-95,1.21E+00,0.8249,0.8736
+A,7.5e-4 (diagnostic),Nb-95,1.21E+00,0.8249,0.8736
+A,7.5e-4 (diagnostic),Zr-97,1.10E+00,0.8298,0.8788
+A,7.5e-4 (diagnostic),Mo-99,1.17E+00,0.8258,0.8745
+A,7.5e-4 (diagnostic),Tc-99m,1.03E+00,0.8256,0.8743
+A,7.5e-4 (diagnostic),Ru-103,1.29E+00,0.8293,0.8782
+A,7.5e-4 (diagnostic),Rh-105,9.26E-01,0.8294,0.8784
+A,7.5e-4 (diagnostic),Ru-106,8.55E-01,0.8288,0.8777
+A,7.5e-4 (diagnostic),Ag-110m,2.33E+00,0.9031,1.1161
+A,7.5e-4 (diagnostic),Ag-111,2.41E+02,0.9282,1.1508
+A,7.5e-4 (diagnostic),Sb-125,8.40E-03,0.8291,0.8780
+A,7.5e-4 (diagnostic),Sb-127,9.08E-02,0.8291,0.8780
+A,7.5e-4 (diagnostic),Te-127m,6.93E-02,0.8886,0.9829
+A,7.5e-4 (diagnostic),Te-127,4.32E-01,0.8882,0.9839
+A,7.5e-4 (diagnostic),Te-129m,2.39E-01,0.8889,0.9837
+A,7.5e-4 (diagnostic),Te-131m,9.59E-01,0.8869,0.9824
+A,7.5e-4 (diagnostic),I-131,3.43E+00,0.8882,0.9834
+A,7.5e-4 (diagnostic),Xe-131m,4.76E-02,0.8872,0.9832
+A,7.5e-4 (diagnostic),Te-132,4.64E+00,0.8874,0.9828
+A,7.5e-4 (diagnostic),I-133,6.15E+00,0.8878,0.9834
+A,7.5e-4 (diagnostic),Xe-133m,2.07E-01,0.8852,0.9806
+A,7.5e-4 (diagnostic),Xe-133,6.19E+00,0.8868,0.9826
+A,7.5e-4 (diagnostic),Cs-134,7.73E+00,0.8282,0.8555
+A,7.5e-4 (diagnostic),I-135,6.29E+00,0.8879,0.9835
+A,7.5e-4 (diagnostic),Xe-135,8.33E-01,0.8896,0.9841
+A,7.5e-4 (diagnostic),Cs-136,1.04E+00,0.8163,0.8551
+A,7.5e-4 (diagnostic),Cs-137,1.58E+01,0.9319,0.9435
+A,7.5e-4 (diagnostic),Ba-140,8.36E-01,0.7977,0.9308
+A,7.5e-4 (diagnostic),La-140,1.17E+00,0.8285,0.8773
+A,7.5e-4 (diagnostic),Ce-141,1.08E+00,0.8283,0.8771
+A,7.5e-4 (diagnostic),Ce-143,1.10E+00,0.8326,0.8817
+A,7.5e-4 (diagnostic),Pr-143,1.10E+00,0.8326,0.8817
+A,7.5e-4 (diagnostic),Ce-144,8.33E-01,0.8287,0.8776
+A,7.5e-4 (diagnostic),Nd-147,4.40E-01,0.8278,0.8766
+A,7.5e-4 (diagnostic),Pm-147,8.05E-02,0.8292,0.8781
+A,7.5e-4 (diagnostic),Pm-149,2.77E-01,0.8307,0.8797
+A,7.5e-4 (diagnostic),Pm-151,1.74E-01,0.8294,0.8783
+A,7.5e-4 (diagnostic),Sm-151,1.42E-04,0.8306,0.8796
+A,7.5e-4 (diagnostic),Sm-153,1.01E-01,0.8268,0.8756
+A,7.5e-4 (diagnostic),Eu-155,5.73E-04,0.7978,0.9304
+B,7.5e-5 (Table 3 as printed),Kr-85,2.35E-02,0.6838,0.7576
+B,7.5e-5 (Table 3 as printed),Sr-89,1.56E-01,0.8043,0.9352
+B,7.5e-5 (Table 3 as printed),Sr-90,1.38E-02,0.8658,0.9531
+B,7.5e-5 (Table 3 as printed),Y-90,1.27E-02,0.8290,0.8779
+B,7.5e-5 (Table 3 as printed),Sr-91,1.88E-01,0.8416,0.9737
+B,7.5e-5 (Table 3 as printed),Y-91,2.59E-01,0.8324,0.8815
+B,7.5e-5 (Table 3 as printed),Zr-95,2.84E-01,0.8254,0.8741
+B,7.5e-5 (Table 3 as printed),Nb-95,2.84E-01,0.8254,0.8741
+B,7.5e-5 (Table 3 as printed),Zr-97,2.59E-01,0.8324,0.8815
+B,7.5e-5 (Table 3 as printed),Mo-99,2.74E-01,0.8327,0.8818
+B,7.5e-5 (Table 3 as printed),Tc-99m,2.42E-01,0.8277,0.8765
+B,7.5e-5 (Table 3 as printed),Ru-103,3.04E-01,0.8262,0.8750
+B,7.5e-5 (Table 3 as printed),Rh-105,2.18E-01,0.8286,0.8775
+B,7.5e-5 (Table 3 as printed),Ru-106,2.01E-01,0.8299,0.8789
+B,7.5e-5 (Table 3 as printed),Ag-110m,2.48E+01,0.9639,0.9776
+B,7.5e-5 (Table 3 as printed),Ag-111,8.73E+02,1.7504,1.7941
+B,7.5e-5 (Table 3 as printed),Sb-125,1.98E-03,0.8277,0.8765
+B,7.5e-5 (Table 3 as printed),Sb-127,2.14E-02,0.8284,0.8773
+B,7.5e-5 (Table 3 as printed),Te-127m,5.06E-02,0.8794,0.9742
+B,7.5e-5 (Table 3 as printed),Te-127,3.21E-01,0.9151,1.0102
+B,7.5e-5 (Table 3 as printed),Te-129m,1.76E-01,0.8812,0.9762
+B,7.5e-5 (Table 3 as printed),Te-131m,7.08E-01,0.8997,0.9953
+B,7.5e-5 (Table 3 as printed),I-131,2.52E+00,0.8898,0.9855
+B,7.5e-5 (Table 3 as printed),Xe-131m,3.54E-02,0.8860,0.9813
+B,7.5e-5 (Table 3 as printed),Te-132,3.42E+00,0.8921,0.9877
+B,7.5e-5 (Table 3 as printed),I-133,4.55E+00,0.9044,0.9998
+B,7.5e-5 (Table 3 as printed),Xe-133m,1.56E-01,0.8843,0.9777
+B,7.5e-5 (Table 3 as printed),Xe-133,4.61E+00,0.8882,0.9831
+B,7.5e-5 (Table 3 as printed),Cs-134,1.54E+00,0.6454,0.6683
+B,7.5e-5 (Table 3 as printed),I-135,4.67E+00,0.9260,1.0213
+B,7.5e-5 (Table 3 as printed),Xe-135,6.51E-01,0.9301,1.0195
+B,7.5e-5 (Table 3 as printed),Cs-136,2.47E-01,0.8099,0.8431
+B,7.5e-5 (Table 3 as printed),Cs-137,2.34E+00,0.8733,0.8863
+B,7.5e-5 (Table 3 as printed),Ba-140,1.98E-01,0.8135,0.9463
+B,7.5e-5 (Table 3 as printed),La-140,2.85E-01,0.8378,0.8849
+B,7.5e-5 (Table 3 as printed),Ce-141,2.54E-01,0.8323,0.8814
+B,7.5e-5 (Table 3 as printed),Ce-143,2.60E-01,0.8292,0.8781
+B,7.5e-5 (Table 3 as printed),Pr-143,2.60E-01,0.8292,0.8781
+B,7.5e-5 (Table 3 as printed),Ce-144,1.96E-01,0.8298,0.8787
+B,7.5e-5 (Table 3 as printed),Nd-147,1.04E-01,0.8252,0.8738
+B,7.5e-5 (Table 3 as printed),Pm-147,1.90E-02,0.8262,0.8750
+B,7.5e-5 (Table 3 as printed),Pm-149,6.53E-02,0.8270,0.8758
+B,7.5e-5 (Table 3 as printed),Pm-151,4.10E-02,0.8270,0.8758
+B,7.5e-5 (Table 3 as printed),Sm-151,3.35E-05,0.8310,0.8800
+B,7.5e-5 (Table 3 as printed),Sm-153,2.37E-02,0.8302,0.8791
+B,7.5e-5 (Table 3 as printed),Eu-155,1.57E-04,0.8265,0.9402
+B,7.5e-4 (diagnostic),Kr-85,2.35E-02,0.6838,0.7576
+B,7.5e-4 (diagnostic),Sr-89,1.56E-01,0.7994,0.9303
+B,7.5e-4 (diagnostic),Sr-90,1.38E-02,0.8648,0.9521
+B,7.5e-4 (diagnostic),Y-90,1.27E-02,0.8290,0.8779
+B,7.5e-4 (diagnostic),Sr-91,1.88E-01,0.7987,0.9308
+B,7.5e-4 (diagnostic),Y-91,2.59E-01,0.8324,0.8815
+B,7.5e-4 (diagnostic),Zr-95,2.84E-01,0.8254,0.8741
+B,7.5e-4 (diagnostic),Nb-95,2.84E-01,0.8254,0.8741
+B,7.5e-4 (diagnostic),Zr-97,2.59E-01,0.8324,0.8815
+B,7.5e-4 (diagnostic),Mo-99,2.74E-01,0.8327,0.8818
+B,7.5e-4 (diagnostic),Tc-99m,2.42E-01,0.8277,0.8765
+B,7.5e-4 (diagnostic),Ru-103,3.04E-01,0.8262,0.8750
+B,7.5e-4 (diagnostic),Rh-105,2.18E-01,0.8286,0.8775
+B,7.5e-4 (diagnostic),Ru-106,2.01E-01,0.8299,0.8789
+B,7.5e-4 (diagnostic),Ag-110m,2.48E+01,0.8998,0.9136
+B,7.5e-4 (diagnostic),Ag-111,8.73E+02,0.7098,0.7535
+B,7.5e-4 (diagnostic),Sb-125,1.98E-03,0.8277,0.8765
+B,7.5e-4 (diagnostic),Sb-127,2.14E-02,0.8284,0.8773
+B,7.5e-4 (diagnostic),Te-127m,5.06E-02,0.8826,0.9774
+B,7.5e-4 (diagnostic),Te-127,3.21E-01,0.8865,0.9816
+B,7.5e-4 (diagnostic),Te-129m,1.76E-01,0.8825,0.9775
+B,7.5e-4 (diagnostic),Te-131m,7.08E-01,0.8873,0.9829
+B,7.5e-4 (diagnostic),I-131,2.52E+00,0.8876,0.9833
+B,7.5e-4 (diagnostic),Xe-131m,3.54E-02,0.8860,0.9813
+B,7.5e-4 (diagnostic),Te-132,3.42E+00,0.8859,0.9814
+B,7.5e-4 (diagnostic),I-133,4.55E+00,0.8872,0.9826
+B,7.5e-4 (diagnostic),Xe-133m,1.56E-01,0.8843,0.9777
+B,7.5e-4 (diagnostic),Xe-133,4.61E+00,0.8882,0.9831
+B,7.5e-4 (diagnostic),Cs-134,1.54E+00,0.6408,0.6637
+B,7.5e-4 (diagnostic),I-135,4.67E+00,0.8912,0.9865
+B,7.5e-4 (diagnostic),Xe-135,6.51E-01,0.8959,0.9854
+B,7.5e-4 (diagnostic),Cs-136,2.47E-01,0.7247,0.7579
+B,7.5e-4 (diagnostic),Cs-137,2.34E+00,0.8715,0.8846
+B,7.5e-4 (diagnostic),Ba-140,1.98E-01,0.8037,0.9365
+B,7.5e-4 (diagnostic),La-140,2.85E-01,0.8346,0.8818
+B,7.5e-4 (diagnostic),Ce-141,2.54E-01,0.8323,0.8814
+B,7.5e-4 (diagnostic),Ce-143,2.60E-01,0.8292,0.8781
+B,7.5e-4 (diagnostic),Pr-143,2.60E-01,0.8292,0.8781
+B,7.5e-4 (diagnostic),Ce-144,1.96E-01,0.8298,0.8787
+B,7.5e-4 (diagnostic),Nd-147,1.04E-01,0.8252,0.8738
+B,7.5e-4 (diagnostic),Pm-147,1.90E-02,0.8262,0.8750
+B,7.5e-4 (diagnostic),Pm-149,6.53E-02,0.8270,0.8758
+B,7.5e-4 (diagnostic),Pm-151,4.10E-02,0.8270,0.8758
+B,7.5e-4 (diagnostic),Sm-151,3.35E-05,0.8310,0.8800
+B,7.5e-4 (diagnostic),Sm-153,2.37E-02,0.8302,0.8791
+B,7.5e-4 (diagnostic),Eu-155,1.57E-04,0.8250,0.9387

@@ -105,8 +105,11 @@
 //! reference values, not HTR-10 fuel-qualification data** ...~~
 //! **CHANGED 2026-09-29 (gh:#399, source-term stage 1):** the absolute arm
 //! is now HTR-10's end to end -- Table 1 inventory, HTR-10's measured free
-//! uranium (Tang et al. 2002), a live in-service failure from boon-lay fuel
-//! failure at the plant's kernel temperature, HTR-10's fuel residence, and
+//! uranium (Tang et al. 2002), ~~a live in-service failure from boon-lay fuel
+//! failure at the plant's kernel temperature~~ **(CHANGED 2026-09-30, #469)**
+//! an in-service failure of Liu & Cao's design `5e-4` plus the live boon-lay
+//! fuel failure at the plant's kernel temperature, the NP-MHTGR SiC-only
+//! stand-in (metals only), HTR-10's fuel residence, and
 //! HTR-10's primary-circuit constants (Liu & Cao 2002, Yao et al. 2002) in
 //! **live** pools stepped through the transient. It is the simulator's
 //! primary basis now; the per-curie arm is kept as the transfer function
@@ -126,6 +129,17 @@
 //! 20-full-power-year history ([`POOL_OPENING_HISTORY_S`], Liu & Cao's
 //! Table 3 basis). Rate constants: [`htr10_pool_rates`]. The leak
 //! ([`NodalActivitiesBq::leak_rate`]) is what leaves the circuit.
+//!
+//! # Building not credited (conservative); see gh:#409
+//!
+//! **Maintainer, 2026-09-29:** the reactor-building credit is deferred. By
+//! default the circuit leak goes **straight to the stack**
+//! ([`NodalActivitiesBq::stack_release_rate`] = `leak_rate`): no building
+//! hold-up, no deposition, no filtration. The `bishan` building CV added in
+//! gh:#400 stays in the tree, off the default path
+//! (`TrisoAtopsReleaseChannel::with_building_credit`, test-only until the
+//! work resumes). The accident stages release through this same uncredited
+//! path.
 //!
 //! # What else is an input rather than a derivation
 //!
@@ -210,14 +224,18 @@ pub struct NodalActivitiesBq {
     /// Clean-up / HPS activity \[Bq\].
     pub clean_up_activity: f64,
     /// Primary-circuit leak rate `k_leak C` \[Bq/s\] (gh:#399) -- what leaves
-    /// the circuit into the reactor building.
+    /// the circuit.
     pub leak_rate: f64,
-    /// Release rate **up the stack** \[Bq/s\] (gh:#400): what leaves the
-    /// reactor building (`bishan::building`, HTR-10 vented confinement) at the
-    /// end of the latest step. This, not the circuit leak, is the source the
-    /// atmospheric dispersion receives.
+    /// Release rate **up the stack** \[Bq/s\]: the source the atmospheric
+    /// dispersion receives. **Building not credited (conservative); see
+    /// gh:#409** -- by default this equals [`Self::leak_rate`], the circuit
+    /// leak going straight to the stack with no hold-up, deposition or
+    /// filtration (maintainer, 2026-09-29). ~~What leaves the reactor
+    /// building (`bishan::building`)~~ was the gh:#400 default; that CV is
+    /// kept, off the default path (`with_building_credit`, deferred).
     pub stack_release_rate: f64,
-    /// Activity airborne in the reactor building \[Bq\] (gh:#400).
+    /// Activity airborne in the reactor building \[Bq\]; zero unless the
+    /// deferred building credit is switched on (gh:#409).
     pub building_activity: f64,
 }
 
@@ -245,8 +263,10 @@ pub const HTR10_PURIFICATION_FLOW_KG_PER_H: f64 = 10.5;
 /// HTR-10 primary helium inventory \[kg\], **derived** from Yao's two figures:
 /// `10.5 kg/h / (0.05 /h)` = **210 kg**. Sets the loop's cycle time
 /// `M / m_dot`, which turns Liu & Cao's per-cycle deposition into a rate
-/// constant, **and** sizes the primary loop's cold-return CV
-/// (`primary_loop::cold_return_volume`, gh:#403), so the thermal-hydraulic
+/// constant, **and** sizes the primary loop's ~~cold-return CV
+/// (`primary_loop::cold_return_volume`, gh:#403)~~ RPV-annuli CV
+/// (`primary_loop::rpv_annuli_volume`, gh:#403; split from the cold return on
+/// 2026-10-01), so the thermal-hydraulic
 /// loop and the source term hold one inventory. ~~(It is about ten times the
 /// stage (a) primary-loop model's own inventory, which rests on an invented
 /// 6 m^3 allowance.)~~ Corrected 2026-09-29 (gh:#403): the loop is sized from
@@ -320,7 +340,13 @@ pub fn htr10_pool_rates(z: u32, decay_per_s: f64, mass_flow: MassRate) -> PoolRa
 /// are opened at the exact solution for that history at the opening source,
 /// so the simulator starts from an operating circuit and the comparison with
 /// Table 3 is like-for-like.
-pub const POOL_OPENING_HISTORY_S: f64 = 20.0 * 3.155_76e7;
+///
+/// ~~`20.0 * 3.155_76e7` (365.25-d years), typed here~~ -- **CHANGED
+/// 2026-09-30 (#469 item 3)**: read from `sembawang::htr10::OPERATING_HISTORY_S`
+/// (365-d years), the history `sembawang::htr10::primary_circuit_pools` uses,
+/// so the simulator and `htr10::plant_parameters` hold one copy. The opening
+/// history moved by -0.068 %; nothing recorded here was re-measured for it.
+pub const POOL_OPENING_HISTORY_S: f64 = sembawang::htr10::OPERATING_HISTORY_S;
 
 /// The nuclides this channel tracks, chosen to cover **all five** TRISO-ATOPS
 /// transport groups rather than to be a list of the most radiologically
@@ -424,7 +450,9 @@ impl Htr10TrisoAtopsInputs {
     /// al., section 4.2) -- TRISO-ATOPS's `f_hm + f_sic`. The split between
     /// the two is **not published**. It matters only for the noble gases and
     /// halogens, which a defective-SiC particle's intact PyC retains
-    /// (TRISO-ATOPS's `release_rate` counts `f_hm` and not `f_sic` for them).
+    /// (TRISO-ATOPS's `release_rate` counts `f_hm` and not `f_sic` for them;
+    /// the physics is IAEA-TECDOC-CD-1645 (2010), §1.2.1, §12.3, §12.5.2 --
+    /// see [`Self::fractions_at`]).
     /// This channel takes the **bounding** assignment -- all of it as exposed
     /// heavy metal (`f_hm`) -- which over-states the gas and iodine release by
     /// at most the (unknown) defective-SiC share; the other bound (all `f_sic`)
@@ -447,10 +475,42 @@ impl Htr10TrisoAtopsInputs {
     ///
     /// | TRISO-ATOPS | Value | Source |
     /// |---|---|---|
-    /// | `f_hm` | 5.0e-5 | [`Self::HTR10_FREE_URANIUM_FRACTION`] (bounding split) |
-    /// | `f_sic` | 0 | (the other bound; see above) |
-    /// | `f_inc` | `phi_1(T_B) + chemical_attack` | boon-lay fuel failure, end of irradiation, `T_B = T_kernel - 75 K` |
-    /// | `f_inc_sic` | 0 | SiC decomposition is negligible below ~2000 degC |
+    /// | `f_hm` | 5.0e-5 | [`Self::HTR10_FREE_URANIUM_FRACTION`] -- tramp uranium **and** SiC manufacturing defects, measured together (bounding split) |
+    /// | `f_sic` | 0 | inside the measured 5.0e-5 above (the other bound; see there). Not the audited example's 1e-4 NP-MHTGR stand-in, which would count the defective-SiC population twice |
+    /// | ~~`f_inc`~~ | ~~`phi_1(T_B) + chemical_attack`~~ | ~~boon-lay fuel failure only~~ **CHANGED 2026-09-30 (#469 item 1)**, see the next row |
+    /// | `f_inc` | `5.0e-4 + phi_1(T_B) + chemical_attack` | Liu & Cao 2002 §2.1 design irradiation failure (`sembawang::htr10::LIU_CAO_DESIGN_IRRADIATION_FAILURE`), plus boon-lay fuel failure at end of irradiation, `T_B = T_kernel - 75 K`, plus the chemical-attack hook |
+    /// | ~~`f_inc_sic`~~ | ~~0~~ | ~~"SiC decomposition is negligible below ~2000 degC"~~ **CORRECTED 2026-09-30 (#469)**: that reason conflated two things. `f_inc_sic` is the *in-service SiC-only failure* population, not SiC decomposition (PANAMA's `phi_2`, which is not routed here) |
+    /// | `f_inc_sic` | 3.6e-5 | **NP-MHTGR stand-in** (`sembawang::htr10::np_mhtgr_normal_operation_fractions`, TRISO-ATOPS's reference); no HTR-10 value is published. The audited example carries the same value |
+    ///
+    /// **Why `f_inc` is not `phi_1` alone (#469 item 1).** The fuel fails in
+    /// service as it is irradiated (the audited example, l.309-312). `phi_1`
+    /// is the PANAMA-I pressure-vessel *accident* failure and is `~1e-12` at
+    /// design temperatures; `boon_lay::triso_atops_fork::activities::FailureFractions::with_fuel_failure_incremental`
+    /// itself warns that using it for steady state "would silently answer a
+    /// different question". Before this change the channel therefore started
+    /// from the as-manufactured defects alone. Liu & Cao's design value is the
+    /// HTR-10 in-service figure the audited example uses; `phi_1(T_B)` is kept
+    /// on top because it is the part that rises with the live temperature. At
+    /// 776 degC the overlap it could double-count is `1.2e-12`, 2.4e-9 of the
+    /// design value.
+    ///
+    /// **SiC-only failures keep the gases (#469 item 2).** A particle whose
+    /// SiC has failed but whose PyC layers are intact (`f_sic`, `f_inc_sic`)
+    /// releases **metallic** fission products only: Kr, Xe and the halogens
+    /// stay inside, by slow diffusion through the PyC, not adsorption.
+    /// IAEA-TECDOC-CD-1645 (2010), *HTGR Fuels and Materials*: §1.2.1 (the
+    /// IPyC and OPyC are the gaseous fission-product barriers; SiC retains the
+    /// metals), §12.3 (Kr/Xe diffusion in PyC is negligible), §12.5.2
+    /// (`D ~ 2e-18 m^2/s` for fission gases in PyC, "for all practical purposes
+    /// ... impervious to fission gases"),
+    /// <https://www-pub.iaea.org/mtcd/publications/pdf/te_1645_cd/pdf/tecdoc_1645.pdf>.
+    /// This channel does not route it itself: boon-lay's
+    /// `triso_atops_fork::activities::source_terms::release_rate` gives noble
+    /// gases and halogens `(f_hm + f_inc)` only, and
+    /// `triso_atops_fork::accident::AccidentFractions::volatile_sum` does the
+    /// same in an accident (upstream TRISO-ATOPS's own split).
+    /// `tests::sic_only_failures_release_metals_but_keep_gases_and_halogens`
+    /// pins it through this channel.
     ///
     /// `phi_1` is **boon-lay fuel failure** (boon-lay's implementation of the
     /// PANAMA-I pressure-vessel formulas -- not the PANAMA code), at the end of
@@ -481,8 +541,13 @@ impl Htr10TrisoAtopsInputs {
         FailureFractions {
             heavy_metal: Self::HTR10_FREE_URANIUM_FRACTION,
             sic: 0.0,
-            incremental: phi_1 + chemical_attack,
-            incremental_sic: 0.0,
+            incremental: sembawang::htr10::LIU_CAO_DESIGN_IRRADIATION_FAILURE
+                + phi_1
+                + chemical_attack,
+            // SiC-only in-service failure: metals only (TECDOC-CD-1645
+            // §1.2.1, §12.3, §12.5.2; see the doc above).
+            incremental_sic: sembawang::htr10::np_mhtgr_normal_operation_fractions()
+                .incremental_sic,
         }
     }
 
@@ -614,6 +679,15 @@ impl NuclideRelease {
         }
     }
 
+    /// Building not credited (conservative; gh:#409): the circuit leak goes
+    /// straight up the stack.
+    fn set_uncredited_stack(&mut self) {
+        if let Some(a) = self.absolute.as_mut() {
+            a.stack_release_rate = a.leak_rate;
+            a.building_activity = 0.0;
+        }
+    }
+
     /// Report `pools` (atoms) as this nuclide's circulating, plate-out and
     /// clean-up activities, on both bases, and the leak rate.
     fn set_pools(&mut self, pools: PrimaryPools) {
@@ -657,8 +731,25 @@ pub struct TrisoAtopsReleaseChannel {
     pools: Option<Vec<PrimaryPools>>,
     /// The **reactor building** inventory per tracked nuclide \[atoms\]
     /// (gh:#400), fed by the pools' leak. `None` until the first evaluation
-    /// opens it at the building's steady state for the opening leak.
+    /// opens it at the building's steady state for the opening leak, and
+    /// always `None` while [`Self::building_credit`] is off (the default).
     building: Option<Vec<bishan::building::BuildingInventory>>,
+    /// Whether the reactor building is credited between the circuit leak and
+    /// the stack. **Off by default: building not credited (conservative); see
+    /// gh:#409** (maintainer, 2026-09-29: deferred, "whatever is in ATOPS
+    /// will suffice"). The bishan CV stays in the tree for when it is taken
+    /// up again.
+    building_credit: bool,
+    /// Atoms per tracked nuclide vented from the circulating pool by an
+    /// accident's relief valves since the last evaluation (gh:#401); they go
+    /// up the stack at the next evaluation as a mean rate over the interval.
+    vented_since_evaluation: Vec<f64>,
+    /// Activity released up the stack so far, per tracked nuclide \[Bq\],
+    /// counted at the moment of release (leak + vent; the uncredited path).
+    cumulative_stack_release_bq: Vec<f64>,
+    /// The stored-gas fraction of the exposed kernels' noble gas already
+    /// released by kernel hydrolysis (gh:#401), so a burst is applied once.
+    stored_gas_released: f64,
     /// Primary loop mass flow the plate-out rate is formed at. Set by the
     /// plant every step ([`Self::set_primary_flow`]); the rated 4.3 kg/s until
     /// then.
@@ -697,8 +788,22 @@ impl TrisoAtopsReleaseChannel {
             last_evaluated_s: None,
             pools: None,
             building: None,
+            building_credit: false,
+            vented_since_evaluation: Vec::new(),
+            cumulative_stack_release_bq: Vec::new(),
+            stored_gas_released: 0.0,
             primary_flow: super::pebble_bed::nominal_helium_flow(),
         }
+    }
+
+    /// **Deferred (gh:#409), off by default.** Credit the bishan reactor
+    /// building CV (gh:#400) between the circuit leak and the stack. Kept
+    /// test-only so the CV stays exercised on this path until the building
+    /// work is taken up; un-gate it then.
+    #[cfg(test)]
+    pub fn with_building_credit(mut self) -> Self {
+        self.building_credit = true;
+        self
     }
 
     /// Set the primary loop mass flow the live plate-out rate is formed at
@@ -776,6 +881,9 @@ impl TrisoAtopsReleaseChannel {
         // over exactly); opened at its own steady state for the opening leak.
         let building_parameters = bishan::building::BuildingParameters::htr10();
         let building = match self.building.take() {
+            // Building not credited (conservative; gh:#409): the leak goes
+            // straight to the stack.
+            _ if !self.building_credit => Vec::new(),
             None => pools
                 .iter()
                 .zip(releases.iter())
@@ -813,17 +921,153 @@ impl TrisoAtopsReleaseChannel {
                 })
                 .collect(),
         };
-        for ((release, pool), b) in releases.iter_mut().zip(pools.iter()).zip(building.iter()) {
+        let n = releases.len();
+        self.vented_since_evaluation.resize(n, 0.0);
+        self.cumulative_stack_release_bq.resize(n, 0.0);
+        for (i, (release, pool)) in releases.iter_mut().zip(pools.iter()).enumerate() {
             release.set_pools(*pool);
-            release.set_building(*b, building_parameters);
+            match building.get(i) {
+                Some(b) => release.set_building(*b, building_parameters),
+                None => release.set_uncredited_stack(),
+            }
+            // What went up the stack over the interval: the leak (its exact
+            // integral, uncredited) plus any accident venting (gh:#401),
+            // counted at release; the venting also as a mean rate.
+            let lam = release.decay_constant.get::<hertz>();
+            let leaked = leaked_before.get(i).map_or(0.0, |b| pool.leaked - b);
+            let vented = std::mem::take(&mut self.vented_since_evaluation[i]);
+            let leak_to_stack = if self.building_credit { 0.0 } else { leaked };
+            self.cumulative_stack_release_bq[i] += (leak_to_stack + vented) * lam;
+            if let Some(a) = release.absolute.as_mut() {
+                if dt > 0.0 {
+                    a.stack_release_rate += vented * lam / dt;
+                }
+            }
         }
         self.pools = Some(pools);
-        self.building = Some(building);
+        self.building = self.building_credit.then_some(building);
         self.latest = releases;
         self.evaluated_at_kernel = Some(stack.kernel);
         self.evaluated_at = Some(stack);
         self.last_evaluated_s = Some(sim_time_s);
         true
+    }
+
+    /// **Accident (gh:#401): liquid water washes the steam generator's share
+    /// of each element's plate-out back into the circulating pool**, once.
+    /// `share(z)` is that share (`None` = not published, nothing moved).
+    /// Returns whether anything was applied (false before the first
+    /// evaluation, when there are no pools yet).
+    pub fn wash_off_plate_out(&mut self, share: impl Fn(u32) -> Option<f64>) -> bool {
+        let Some(pools) = self.pools.as_mut() else {
+            return false;
+        };
+        for (pool, r) in pools.iter_mut().zip(self.latest.iter()) {
+            if let Some(f) = share(r.z) {
+                let moved = pool.plate_out * f.clamp(0.0, 1.0);
+                pool.plate_out -= moved;
+                pool.circulating += moved;
+            }
+        }
+        true
+    }
+
+    /// **Accident (gh:#402): depressurisation lift-off** (Liu & Cao 2002
+    /// s.4.1.1.2-4), applied once at the rupture, moving atoms into the
+    /// circulating pool (from which the blowdown vents them):
+    ///
+    /// - plate-out desorption: iodine and metals, `2.4 x` the circulating
+    ///   pool, taken from the plate-out pool (and capped by it, so no atom is
+    ///   invented);
+    /// - dust: `dust_share(z) x 10 %` of the (remaining) plate-out;
+    /// - purification system: `purification(z)` of the clean-up pool.
+    ///
+    /// Returns whether anything was applied (false before the first
+    /// evaluation).
+    pub fn depressurisation_lift_off(&mut self) -> bool {
+        use super::depressurisation as d;
+        let Some(pools) = self.pools.as_mut() else {
+            return false;
+        };
+        for (pool, r) in pools.iter_mut().zip(self.latest.iter()) {
+            if d::desorbs(r.z) {
+                let moved = (d::DESORPTION_MULTIPLE * pool.circulating).min(pool.plate_out);
+                pool.plate_out -= moved;
+                pool.circulating += moved;
+            }
+            if let Some(share) = d::dust_share(r.z) {
+                let moved = pool.plate_out * share * d::DUST_RELEASED_FRACTION;
+                pool.plate_out -= moved;
+                pool.circulating += moved;
+            }
+            let moved = pool.clean_up * d::purification_release_fraction(r.z);
+            pool.clean_up -= moved;
+            pool.circulating += moved;
+        }
+        true
+    }
+
+    /// **Accident (gh:#401): vent `fraction` of the primary gas**, and with it
+    /// that fraction of every circulating pool, up the stack (building not
+    /// credited; gh:#409). Applied to the pools now; reported as stack rate
+    /// and cumulative release at the next evaluation.
+    pub fn vent_circulating(&mut self, fraction: f64) {
+        let Some(pools) = self.pools.as_mut() else {
+            return;
+        };
+        self.vented_since_evaluation.resize(pools.len(), 0.0);
+        for (pool, vented) in pools
+            .iter_mut()
+            .zip(self.vented_since_evaluation.iter_mut())
+        {
+            let moved = pool.circulating * fraction.clamp(0.0, 1.0);
+            pool.circulating -= moved;
+            *vented += moved;
+        }
+    }
+
+    /// **Accident (gh:#401): stored noble gas released by kernel hydrolysis.**
+    /// `cumulative_fraction` is TECDOC-978 Eq. 5-2's stored-gas fraction at
+    /// the current conditions; only its rise above what has already been
+    /// released is applied, to the Kr and Xe of the **exposed** kernels --
+    /// the free uranium plus the in-service failed particles at the kernel
+    /// temperature of the latest evaluation (`f_hm + f_inc`,
+    /// [`Htr10TrisoAtopsInputs::fractions_at`]) -- as atoms added to the
+    /// circulating pool. Returns the atoms added, summed.
+    ///
+    /// **SiC-only failures (`f_sic`, `f_inc_sic`) are left out on purpose**:
+    /// their intact PyC keeps the noble gas in (IAEA-TECDOC-CD-1645 (2010)
+    /// §1.2.1, §12.3; `D ~ 2e-18 m^2/s`, §12.5.2), and steam that has not
+    /// reached the kernel cannot hydrolyse it (#469 item 2).
+    pub fn release_stored_noble_gas(&mut self, cumulative_fraction: f64) -> f64 {
+        let (Some(pools), Some(stack)) = (self.pools.as_mut(), self.evaluated_at) else {
+            return 0.0;
+        };
+        let rise = (cumulative_fraction.clamp(0.0, 1.0) - self.stored_gas_released).max(0.0);
+        if rise == 0.0 {
+            return 0.0;
+        }
+        self.stored_gas_released += rise;
+        let f = Htr10TrisoAtopsInputs::fractions_at(stack.kernel, 0.0);
+        let exposed = f.heavy_metal + f.incremental;
+        let mut added = 0.0;
+        for (pool, r) in pools.iter_mut().zip(self.latest.iter()) {
+            let noble = matches!(r.z, 36 | 54);
+            if let (true, Some(inventory_bq)) = (noble, r.core_inventory_bq) {
+                let atoms = rise * exposed * inventory_bq / r.decay_constant.get::<hertz>();
+                pool.circulating += atoms;
+                added += atoms;
+            }
+        }
+        added
+    }
+
+    /// Activity released up the stack so far per tracked nuclide \[Bq\],
+    /// counted at release, in [`TRACKED_NUCLIDES`] order (empty before the
+    /// first evaluation). Includes the normal leak.
+    #[cfg(test)] // read by the water-ingress V&V
+    pub fn cumulative_stack_release_bq(&self) -> &[f64] {
+        &self.cumulative_stack_release_bq
     }
 
     /// The live pools \[atoms\], one per tracked nuclide, `None` before the
@@ -930,8 +1174,9 @@ impl TrisoAtopsReleaseChannel {
         // longer uses (the live pools replace them); the history is stated
         // for completeness.
         plant.run_time = Time::new::<second>(POOL_OPENING_HISTORY_S + sim_time_s.max(0.0));
-        // HTR-10's measured free uranium plus the live in-service failure at
-        // this kernel temperature (gh:#399). The chemical-attack hook is zero
+        // HTR-10's measured free uranium, the design in-service failure plus
+        // the live boon-lay failure at this kernel temperature, and the
+        // SiC-only stand-in (gh:#399, #469). The chemical-attack hook is zero
         // until an ingress stage supplies it.
         let fractions = Htr10TrisoAtopsInputs::fractions_at(kernel_temperature, 0.0);
 
@@ -1601,6 +1846,12 @@ mod tests {
     ///
     /// # Results (2026-09-29)
     ///
+    /// **Not re-measured since 62434bb998; pending validation work.** #469
+    /// (2026-09-30) added Liu & Cao's design in-service failure `f_inc` = 5e-4
+    /// and the `f_inc_sic` stand-in, which raise the gas and iodine release by
+    /// about `(5e-5 + 5e-4) / 5e-5` = 11x and Cs-137 by about 12x; the table
+    /// below is the pre-#469 channel.
+    ///
     /// | Nuclide | `S` model | Table 2 | model/pub | circulating model (20 a) | Table 3 | model/pub |
     /// |---|---|---|---|---|---|---|
     /// | Kr-85 | 1.607e3 | 1.5e4 | **0.107** | 3.219e5 Bq | 3.0e6 | **0.107** |
@@ -1656,12 +1907,16 @@ mod tests {
     /// release** (gh:#399). Tang's 5.0e-5 is `f_hm + f_sic` together; the
     /// channel takes it all as `f_hm`. Methodology: evaluate Kr-85, Xe-133 and
     /// I-131 at 864 degC with the whole fraction as `f_hm` and then as `f_sic`
-    /// (with the same in-service `phi_1`); print the ratio. Results
+    /// (with the same in-service `f_inc`); print the ratio. ~~Results
     /// (2026-09-29): **1.587e7** for all three -- with the whole fraction as
     /// defective SiC the intact PyC retains the gases, and the release falls to
     /// the in-service `phi_1` share alone. The unpublished split is therefore
-    /// the dominant uncertainty of the gas release; the channel's assignment is
-    /// the upper bound.
+    /// the dominant uncertainty of the gas release~~ **CHANGED 2026-09-30
+    /// (#469 item 1)**: with Liu & Cao's design in-service failure `f_inc` =
+    /// 5e-4 in the channel, the ratio is **1.1000** for all three (printed by
+    /// this test, 2026-09-30), i.e. `(5e-5 + 5e-4) / 5e-4`. The in-service
+    /// failure, not the unpublished split, now dominates the gas release. The
+    /// channel's assignment is still the upper bound.
     #[test]
     fn the_free_uranium_split_bounds_the_gas_release() {
         use boon_lay::triso_atops_fork::normal_operation::normal_operation_node;
@@ -1713,7 +1968,9 @@ mod tests {
     /// 1 s for 600 s; then raise the kernel to 1300 K for 600 s. Require: the
     /// first evaluation's pools equal the opening pools exactly; `leak_rate =
     /// k_leak x circulating` to 1e-12; circulating Xe-133 higher after the
-    /// heat-up than before. Results (2026-09-29): Xe-133 circulating
+    /// heat-up than before. Results (2026-09-29; **not re-measured since
+    /// 62434bb998, pending validation work** -- #469 raised `f_inc`, about 11x
+    /// on Xe-133): Xe-133 circulating
     /// 6.5752e7 -> 7.3845e7 Bq, leak 7.61 -> 8.55 Bq/s.
     #[test]
     fn the_live_pools_open_carry_the_leak_and_follow_the_kernel() {
@@ -1761,6 +2018,108 @@ mod tests {
         assert!(ch.pools().unwrap().iter().all(|p| p.leaked > 0.0));
     }
 
+    /// **The accident pool operations move atoms, never make or lose them**
+    /// (gh:#401): wash-off moves the SG share of plate-out into the
+    /// circulating pool exactly (Cs 73 %, I 100 %, Ag untouched); venting
+    /// removes a fraction of circulating that then appears, as activity, in
+    /// the cumulative stack release at the next evaluation; the stored-gas
+    /// burst touches only Kr and Xe and is applied once.
+    #[test]
+    fn the_accident_pool_operations_conserve_atoms() {
+        let k = |v| ThermodynamicTemperature::new::<kelvin>(v);
+        let stack = TrisoAtopsReleaseChannel::kernel_and_graphite(k(1200.0), k(950.0));
+        let mut ch = channel();
+        ch.update(0.0, Some(stack));
+        let before: Vec<PrimaryPools> = ch.pools().unwrap().to_vec();
+        assert!(
+            ch.wash_off_plate_out(super::super::water_ingress::steam_generator_share_of_plate_out)
+        );
+        for ((b, a), r) in before.iter().zip(ch.pools().unwrap()).zip(ch.latest()) {
+            let moved = a.circulating - b.circulating;
+            assert!((moved - (b.plate_out - a.plate_out)).abs() <= 1e-9 * b.plate_out.max(1.0));
+            match r.name {
+                "Cs-137" => assert!((moved - 0.73 * b.plate_out).abs() <= 1e-9 * b.plate_out),
+                "I-131" => assert!(a.plate_out.abs() <= 1e-9 * b.plate_out),
+                _ => assert_eq!(moved, 0.0, "{}", r.name),
+            }
+        }
+        let circ: Vec<f64> = ch.pools().unwrap().iter().map(|p| p.circulating).collect();
+        let released_before = ch.cumulative_stack_release_bq().to_vec();
+        ch.vent_circulating(0.25);
+        for (p, c) in ch.pools().unwrap().iter().zip(&circ) {
+            assert!((p.circulating - 0.75 * c).abs() <= 1e-12 * c.max(1.0));
+        }
+        ch.update(1.0, Some(stack));
+        for (i, r) in ch.latest().iter().enumerate() {
+            let vented_bq = 0.25 * circ[i] * r.decay_constant.get::<hertz>();
+            let rise = ch.cumulative_stack_release_bq()[i] - released_before[i];
+            assert!(
+                rise >= vented_bq * (1.0 - 1e-12),
+                "{}: {rise:e} < {vented_bq:e}",
+                r.name
+            );
+        }
+        let added = ch.release_stored_noble_gas(0.5);
+        assert!(added > 0.0);
+        assert_eq!(
+            ch.release_stored_noble_gas(0.4),
+            0.0,
+            "applied once, never reversed"
+        );
+    }
+
+    /// **The depressurisation lift-off moves atoms between pools and never
+    /// makes any** (gh:#402): per nuclide, circulating + plate-out + clean-up
+    /// is unchanged; noble gases gain only the purification system's hold-up
+    /// (100 %); iodine and metals gain the capped desorption, the dust and
+    /// 10 % of the hold-up.
+    #[test]
+    fn the_depressurisation_lift_off_conserves_atoms() {
+        let k = |v| ThermodynamicTemperature::new::<kelvin>(v);
+        let stack = TrisoAtopsReleaseChannel::kernel_and_graphite(k(1200.0), k(950.0));
+        let mut ch = channel();
+        ch.update(0.0, Some(stack));
+        let before: Vec<PrimaryPools> = ch.pools().unwrap().to_vec();
+        assert!(ch.depressurisation_lift_off());
+        for ((b, a), r) in before.iter().zip(ch.pools().unwrap()).zip(ch.latest()) {
+            let sum = |p: &PrimaryPools| p.circulating + p.plate_out + p.clean_up;
+            assert!((sum(a) - sum(b)).abs() <= 1e-9 * sum(b), "{}", r.name);
+            if matches!(r.z, 36 | 54) {
+                assert_eq!(a.plate_out, b.plate_out, "{}", r.name);
+                assert!(
+                    a.clean_up.abs() <= 1e-12 * b.clean_up.max(1.0),
+                    "{}",
+                    r.name
+                );
+            } else {
+                assert!(a.circulating >= b.circulating, "{}", r.name);
+                assert!((a.clean_up - 0.9 * b.clean_up).abs() <= 1e-9 * b.clean_up.max(1.0));
+            }
+        }
+    }
+
+    /// **Building not credited by default (gh:#409):** the stack rate IS the
+    /// circuit leak, bit for bit, with no building inventory; the deferred
+    /// opt-in still routes it through the bishan CV, which passes strictly
+    /// less (decay in the building) at its opening steady state.
+    #[test]
+    fn the_default_stack_rate_is_the_uncredited_circuit_leak() {
+        let k = |v| ThermodynamicTemperature::new::<kelvin>(v);
+        let stack = TrisoAtopsReleaseChannel::kernel_and_graphite(k(1200.0), k(950.0));
+        let mut plain = channel();
+        let mut credited = channel().with_building_credit();
+        for i in 0..=60 {
+            plain.update(i as f64, Some(stack));
+            credited.update(i as f64, Some(stack));
+        }
+        for (a, b) in plain.latest().iter().zip(credited.latest()) {
+            let (a, b) = (a.absolute.unwrap(), b.absolute.unwrap());
+            assert_eq!(a.stack_release_rate, a.leak_rate);
+            assert_eq!(a.building_activity, 0.0);
+            assert!(b.stack_release_rate < b.leak_rate && b.stack_release_rate > 0.0);
+        }
+    }
+
     /// **The chemical-attack hook adds to the in-service failure** and to
     /// nothing else (gh:#399; consumers gh:#401, #402).
     #[test]
@@ -1773,6 +2132,97 @@ mod tests {
         assert_eq!(hit.sic, base.sic);
         assert_eq!(hit.incremental_sic, base.incremental_sic);
         assert_eq!(base.heavy_metal, 5.0e-5);
+    }
+
+    /// **#469 item 1: the initial failed fraction carries every class the
+    /// audited example does** -- tramp uranium and SiC manufacturing defects
+    /// (Tang's measured 5.0e-5, as `f_hm`), in-service failure `f_inc` (Liu &
+    /// Cao §2.1 design 5e-4 plus boon-lay's live `phi_1`), and the SiC-only
+    /// in-service class `f_inc_sic` (NP-MHTGR stand-in) -- so the channel does
+    /// not start from the as-manufactured defects alone. Methodology: read
+    /// [`Htr10TrisoAtopsInputs::fractions_at`] at the 776 degC `T_B` stand-in
+    /// and at 864 degC; compare with the `sembawang` constants (one source).
+    /// Results (2026-09-30): pass. Before this change `f_inc` was `phi_1`
+    /// alone, ~1e-12 here, below the asserted in-service class.
+    #[test]
+    fn the_initial_failed_fraction_carries_every_audited_class() {
+        use uom::si::thermodynamic_temperature::degree_celsius;
+        for c in [776.0 + 75.0, 864.0] {
+            let t = ThermodynamicTemperature::new::<degree_celsius>(c);
+            let f = Htr10TrisoAtopsInputs::fractions_at(t, 0.0);
+            assert_eq!(
+                f.heavy_metal,
+                Htr10TrisoAtopsInputs::HTR10_FREE_URANIUM_FRACTION
+            );
+            assert!(
+                f.incremental >= sembawang::htr10::LIU_CAO_DESIGN_IRRADIATION_FAILURE,
+                "in-service failure missing at {c} degC: f_inc = {:e}",
+                f.incremental
+            );
+            assert!(
+                f.incremental - sembawang::htr10::LIU_CAO_DESIGN_IRRADIATION_FAILURE < 1e-9,
+                "phi_1 is negligible at normal temperatures: {:e}",
+                f.incremental
+            );
+            assert!(f.incremental > f.heavy_metal + f.sic);
+            assert_eq!(
+                f.incremental_sic,
+                sembawang::htr10::np_mhtgr_normal_operation_fractions().incremental_sic
+            );
+            assert!(f.incremental_sic > 0.0);
+            println!(
+                "{c} degC: f_hm {:.2e}, f_sic {:.1e}, f_inc {:.6e}, f_inc_sic {:.2e}",
+                f.heavy_metal, f.sic, f.incremental, f.incremental_sic
+            );
+        }
+    }
+
+    /// **#469 item 2: SiC-only failures release metals and keep the gases
+    /// and halogens** (intact PyC; IAEA-TECDOC-CD-1645 (2010) §1.2.1, §12.3,
+    /// §12.5.2). Methodology: the channel's own nuclides through
+    /// `normal_operation_node` at 864 degC with **only** the SiC-only classes
+    /// set (`f_sic` = Tang's 5.0e-5, `f_inc_sic` from
+    /// [`Htr10TrisoAtopsInputs::fractions_at`]). Pass: Kr-85, Xe-133 and I-131
+    /// release exactly zero; Cs-137 releases a positive amount. Silver is not
+    /// asserted: its breakthrough model releases through intact SiC and
+    /// ignores the fractions (upstream's split). Results (2026-09-30): pass.
+    #[test]
+    fn sic_only_failures_release_metals_but_keep_gases_and_halogens() {
+        use boon_lay::triso_atops_fork::normal_operation::normal_operation_node;
+        use uom::si::thermodynamic_temperature::degree_celsius;
+        let t = ThermodynamicTemperature::new::<degree_celsius>(864.0);
+        let ch = channel();
+        let sic_only = FailureFractions {
+            heavy_metal: 0.0,
+            sic: Htr10TrisoAtopsInputs::HTR10_FREE_URANIUM_FRACTION,
+            incremental: 0.0,
+            incremental_sic: Htr10TrisoAtopsInputs::fractions_at(t, 0.0).incremental_sic,
+        };
+        let node = NodeState {
+            core_temperature: t,
+            graphite_temperature: t,
+        };
+        let rate = |name: &str| {
+            let n = ch.nuclides.iter().find(|n| n.name == name).unwrap();
+            let sl = n.half_life.get::<second>() / Htr10TrisoAtopsInputs::IRRADIATION_TIME_S < 0.2;
+            normal_operation_node(
+                n,
+                sl,
+                becquerels_from_curies(1.0),
+                sic_only,
+                ch.inputs.plant,
+                node,
+                false,
+                ParentPools::none(),
+            )
+            .release_rate
+        };
+        for name in ["Kr-85", "Xe-133", "I-131"] {
+            assert_eq!(rate(name), 0.0, "{name} must stay behind intact PyC");
+        }
+        let cs = rate("Cs-137");
+        assert!(cs > 0.0, "Cs-137 leaves through failed SiC: {cs:e}");
+        println!("SiC-only failures at 864 degC: Cs-137 release rate {cs:.4e} (unit inventory); Kr/Xe/I 0");
     }
 
     /// The design-point fuel stack the plant opens at: the bed at its seed
@@ -1830,67 +2280,72 @@ mod tests {
     ///   it for physical reasons, not wiring faults, so the band was dropped
     ///   rather than widened a second time. The spread IS the finding.
     ///
-    /// # Results (2026-09-29, branch `claude/htgr-sim-v1-source-term-u7qwe0`)
+    /// **Not re-measured since 62434bb998; pending validation work.** #469
+    /// (2026-09-30) added Liu & Cao's design in-service failure `f_inc` = 5e-4
+    /// and the `f_inc_sic` stand-in, which raise the gas and iodine release by
+    /// about `(5e-5 + 5e-4) / 5e-5` = 11x and Cs-137 by about 12x; the table
+    /// below is the pre-#469 channel.
     ///
-    /// Run with `cargo test --release -p outram-park-digital-twin-engine
-    /// --example htgr_sim_v1 -- circulating_activity_against_liu_and_cao
-    /// --nocapture`. `adj.` is sim/T3 x (1 - exp(-lambda t_irr)) (#370, long-lived only).
+    /// # Results (re-measured 2026-09-29 on `develop` after the merge, i.e.
+    /// with source-term stage 1, gh:#399)
     ///
-    /// **Design stack (bed 954.9 K matrix, 955.1 K SiC, 960.3 K kernel):**
+    /// Since gh:#399 `evaluate_stack` fills `circulating_activity` from the
+    /// **live pools' opening state** (a 20-full-power-year history at HTR-10's
+    /// purification, plate-out and leak constants), so it is now on Table 3's
+    /// own 20-year basis. `t_irr` is the 1080 FPD residence, not 1 y. The
+    /// `adj.` column's #370 factor uses this test's own `t1/2 >= t_irr` split;
+    /// the channel's short-lived branch is `t1/2 / t_irr < 0.2`, so for Ag-110m
+    /// the two disagree (not material: silver is ~0 either way).
+    ///
+    /// **Design stack (matrix 954.9 K, SiC 955.1 K, kernel 960.3 K):**
     ///
     /// | Nuclide | sim \[Bq\] | Table 3 \[Bq\] | sim/T3 | adj. |
     /// |---|---|---|---|---|
-    /// | Kr-85 | 2.8227e4 | 3.0e6 | 9.409e-3 | 5.881e-4 |
-    /// | Xe-133 | 1.5625e7 | 2.2e9 | 7.102e-3 | (short) |
-    /// | I-131 | 5.8893e5 | 2.1e6 | 2.804e-1 | (short) |
-    /// | Cs-137 | 8.4268e-3 | 1.6e3 | 5.267e-6 | 1.200e-7 |
-    /// | Ag-110m | 0 | 26 | 0 | (short) |
+    /// | Kr-85 | 8.0276e4 | 3.0e6 | 2.676e-2 | 4.649e-3 |
+    /// | Xe-133 | 1.1320e8 | 2.2e9 | 5.146e-2 | (short) |
+    /// | I-131 | 1.3469e5 | 2.1e6 | 6.414e-2 | (short) |
+    /// | Cs-137 | 1.1410e1 | 1.6e3 | 7.132e-3 | 4.697e-4 |
+    /// | Ag-110m | 1.4e-13 | 26 | 5.4e-15 | (short) |
     ///
     /// **Sensitivity, sim/T3 at bed -100 K / seed / +100 K:**
     ///
     /// | Nuclide | -100 K | seed | +100 K |
     /// |---|---|---|---|
-    /// | Kr-85 | 3.333e-3 | 9.409e-3 | 2.184e-2 |
-    /// | Xe-133 | 2.765e-3 | 7.102e-3 | 1.527e-2 |
-    /// | I-131 | 1.092e-1 | 2.804e-1 | 6.029e-1 |
-    /// | Cs-137 | 2.776e-6 | 5.267e-6 | **2.708e1** |
-    /// | Ag-110m | 2.5e-18 | 0 | 4.4e-11 |
+    /// | Kr-85 | 9.480e-3 | 2.676e-2 | 6.210e-2 |
+    /// | Xe-133 | 2.003e-2 | 5.146e-2 | 1.106e-1 |
+    /// | I-131 | 2.497e-2 | 6.414e-2 | 1.379e-1 |
+    /// | Cs-137 | 4.224e-8 | 7.132e-3 | **3.559** |
+    /// | Ag-110m | 0 | 5.4e-15 | 0 |
+    ///
+    /// ~~Branch `claude/htgr-sim-v1-source-term-u7qwe0` figures, taken before
+    /// gh:#399 (TRISO-ATOPS NP-MHTGR clean-up constant, 1-y irradiation):
+    /// design stack Kr-85 9.409e-3, Xe-133 7.102e-3, I-131 2.804e-1, Cs-137
+    /// 5.267e-6, Ag-110m 0~~ -- superseded; kept so the movement is visible.
     ///
     /// # Interpretation
     ///
-    /// 1. **The simulator is LOW for every tracked nuclide at its design
-    ///    stack**, by 100-140x for the noble gases and 3.6x for I-131. #359's
-    ///    expectation, and #370's direction for the long-lived arm, was that
-    ///    the absolute arm might read high. Removing the #370 inflation makes
-    ///    Kr-85 and Cs-137 **lower still**, so that inflation is not what sets
-    ///    the gap.
-    /// 2. **For the noble gases, the helium-purification rate constant alone
-    ///    accounts for most of it.** Without plate-out, `C = R/(lambda +
-    ///    k_clean)`. For Xe-133, `(lambda + k_clean)/lambda` = (1.52e-6 +
-    ///    8.77e-5)/1.52e-6 ~ 59, and `k_clean` is TRISO-ATOPS's NP-MHTGR
-    ///    reference value, not HTR-10's (see
-    ///    [`Htr10TrisoAtopsInputs::TRISO_ATOPS_CLEAN_UP_PER_S`]). That is
-    ///    arithmetic on the model's own form, not a separate run. The remainder
-    ///    (~2x) sits in the failure fractions (TRISO-ATOPS reference, not
-    ///    HTR-10) and the noble-gas `R/B` at 960 K.
-    /// 3. **Cs-137 is dominated by graphite hold-up, and it is a cliff:** x5e6
-    ///    between the seed and +100 K. So the temperature the graphite term is
-    ///    evaluated at (#371) and the outlet-referenced bed (#372) are not
-    ///    second-order for caesium. They decide the answer.
-    /// 4. **Ag-110m is ~0**: TRISO-ATOPS releases silver only by breakthrough
-    ///    of *intact* SiC, and failed particles add none on that path. At
-    ///    955 K the SiC diffusion lag `a^2/6D` is of order 10^3 years. The
-    ///    nonzero values at 855 K and 1055 K are f64 round-off in an
-    ///    ill-conditioned series (see `boon-lay`'s code-to-code doc).
-    ///    Table 3's 26 Bq therefore needs a mechanism this model does not have.
-    /// 5. **Bases differ, stated rather than corrected:** Table 3 is the end of
-    ///    a 20-year life; the simulator uses a 1-year irradiation and the
-    ///    Table 1 equilibrium-core inventory.
+    /// 1. **The simulator is still LOW for every tracked nuclide at its design
+    ///    stack**: 19-37x for the noble gases, 16x for I-131, 140x for Cs-137.
+    ///    Against the branch's pre-#399 reading the noble gases rose 2.8x (Kr)
+    ///    and 7.2x (Xe), consistent with the branch's own finding that the
+    ///    NP-MHTGR clean-up constant dominated them; I-131 fell 4.4x. The #399
+    ///    change set (constants, failure fractions, 20-year pools) is not
+    ///    decomposed term by term here.
+    /// 2. The design stack is ~200 K below Liu & Cao's 864 degC bounding
+    ///    fuel temperature. At that temperature the same pools read Kr-85
+    ///    0.107, Xe-133 0.182, I-131 0.227, Cs-137 13.9 and Ag-110m 2.32 of
+    ///    Table 3 (`the_release_is_compared_uncalibrated_with_liu_cao_tables_2_and_3`).
+    ///    The spread between the two instruments is the temperature
+    ///    sensitivity, not a second answer.
+    /// 3. **Cs-137 is a cliff** (x8e7 from -100 K to +100 K). The graphite
+    ///    hold-up temperature (#371) and the outlet-referenced bed (#372)
+    ///    decide the caesium answer.
+    /// 4. **Ag-110m ~0** at the design stack: only intact-SiC breakthrough
+    ///    releases silver on this path, and at 955 K its lag is of order 10^3 y.
+    ///    Nonzero values are f64 round-off in an ill-conditioned series.
     ///
-    /// Nothing here is a validation of anything. It is the first measured
-    /// comparison of this chain against published HTR-10 primary-circuit data,
-    /// and it says the placeholder circuit constants, not the release physics,
-    /// dominate the noble-gas and iodine answer.
+    /// Nothing here is a validation. It records the plant's opening
+    /// primary-helium activity against published HTR-10 data.
     #[test]
     fn circulating_activity_against_liu_and_cao_table_3() {
         use changi::activity::primary_helium::htr10_primary_helium_activity;

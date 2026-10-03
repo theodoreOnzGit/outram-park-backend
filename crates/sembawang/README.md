@@ -14,9 +14,28 @@ boon-lay (TRISO release) -> SEMBAWANG source term -> CHANGI (air, ground) -> RED
                             RAFFLES: uncertainty propagation across the whole chain (#238)
 ```
 
-Wired in today: `boon-lay` and `changi`. Not yet: `raffles` (#238) and
-`redhill` (a placeholder). **No dose is computed**, and none of this is
-described as PSA. See `docs/ecosystem-naming.md` decision 7.
+Wired in today: `boon-lay`, `changi` and, since 2026-09-30, `buangkok`. Not yet:
+`raffles` (#238) and `redhill` (a placeholder). ~~**No dose is computed**~~
+**UPDATED 2026-09-30:** ~~the library still computes no dose.~~ One example,
+`examples/htr10_air_ingress_kora_bound.rs`, computes a research-grade dose at
+400 m through `buangkok`'s Gaussian plume. **CORRECTED 2026-09-30 (#452):** the
+library module `lwr_comparison` now computes a research-grade dose through
+the same `buangkok` chain, comparing HTR-10 with an LWR at equal power
+(`examples/lwr_nureg1465_counterpart.rs`). ~~It places the HTR-10 bounding
+air-ingress case beside LWR counterparts (NUREG-1465, RG 1.183 per unit leak
+rate, WASH-1400 PWR 8).~~ ~~**Reframed 2026-09-30 (maintainer decision, #450):**
+the primary comparison is design basis against design basis ... The HTR-10
+bounding air-ingress case against WASH-1400 PWR 8 is the secondary,
+beyond-design-basis bounding comparison.~~ **Reframed again 2026-09-30
+(maintainer decision, #464): paired by initiating event and severity**, DLOFC
+(HTR) against LOCA (LWR). *Design basis: DLOFC vs LOCA*: the HTR-10
+depressurisation (Liu & Cao Table 8) against the RG 1.183 MHA LOCA at NuScale's
+L_a. *Beyond design basis: DLOFC + air ingress (bounding) vs LOCA + core melt*:
+the KORA bound against NUREG-1465 Table 3.13 (all phases) in an intact
+containment leaking at L_a. WASH-1400 PWR 8 is context only (no melt,
+uncontained). Each side is credited only with its reactor-level barrier
+(containment vessel; TRISO particles), with no pool, building or filter credit
+on either side. None of this is described as PSA. See `docs/ecosystem-naming.md` decision 7.
 
 ## What exists, and what does not
 
@@ -31,6 +50,24 @@ temperature transient is an **input**; nothing here computes it. Nor is the
 core inventory computed (see `src/inventory.rs` for why `fission-yields-data`
 must not be used to build one).
 
+**Also exists (2026-09-24): the HTR-10 case, and the PANAMA seam.** `src/htr10.rs`
+joins `boon-lay`'s two halves on one reactor for the first time: PANAMA-I
+(`boon_lay::fuel_failure`) supplies TRISO-ATOPS's **accident-added** failure
+fraction `f_inc_acc`, and the release is driven by the *published* HTR-10
+equilibrium-core inventory from `changi`. Methodology, every input classified
+(HTR-10's own / derived / stand-in / **estimate**), the ablation control and the
+grid-convergence study are in
+[`verification_and_validation/htr10-dlofc-panama-triso-atops.md`](verification_and_validation/htr10-dlofc-panama-triso-atops.md).
+
+The headline preliminary result, and it is a negative one: at the HTR-Module
+DLOFC peak of 1500 °C the accident-added failure fraction is `1.07e-7` against an
+as-manufactured `1.23e-4`, so the seam raises the source term by **0.08 %**. An
+HTR-10 DLOFC source term at that peak is governed by as-manufactured fuel
+quality, not by accident-induced particle failure; the crossover is above the
+1600 °C design limit. **Not a source term for HTR-10** — the transient is
+HTR-Module's, the fuel-quality fractions are NP-MHTGR's, and the whole core is
+run on the hot-node history. GitHub #296.
+
 **Also exists (2026-09-21): the join to `changi`.** `sembawang::chain::pad_for_dispersion`
 lines the release windows up with a `changi` dispersion run, so one run goes from
 the prescribed transient to Bq·s/m³ in air and Bq/m² on the ground. No dose is
@@ -41,6 +78,7 @@ computed.
 ```bash
 cargo run --release -p sembawang --example npmhtgr_release   # release only: Bq, Ci, fraction per nuclide
 cargo run --release -p sembawang --example npmhtgr_chain     # release -> changi: Bq, Ci, Bq.s/m3, Bq/m2 vs distance
+cargo run --release -p sembawang --example htr10_dlofc_panama_source_term   # HTR-10 DLOFC: PANAMA -> TRISO-ATOPS
 cargo test --release -p sembawang --lib --tests
 ```
 
@@ -60,7 +98,7 @@ gases deposit exactly zero. These are consistency checks, not verification.
 - Known upstream behaviours are returned as data (`Caveats`), not logged.
 - The three accident-phase failure fractions are required arguments, not
   defaults: they are not in the cited reference case.
-- Starting from empty normal-operation pools under-predicts the early release.
+- ~~Starting from empty normal-operation pools under-predicts the early release.~~ **CORRECTED 2026-09-30 (#448):** the release now starts from real normal-operation pools by default (code-to-code verified against upstream TRISO-ATOPS at 3.8e-12). Empty pools remain as an explicit ablation, `PlantParameters::without_normal_operation_pools`, and their error is nuclide-dependent: in upstream, metals are **over**-predicted (Ag-110m ×2, Cs-137 ×1.6) and un-scrubbed noble gases slightly under-predicted.
 
 ## Bookkeeping status
 

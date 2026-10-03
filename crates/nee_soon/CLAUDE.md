@@ -63,6 +63,7 @@ assemble simulations without wiring the crates together by hand.
 | Monte Carlo transport | `outram-mc-libs` | CSG geometry, k-eigenvalue, Woodcock tracking |
 | Point reactor kinetics | `teh-o-prke` | PRKE precursor / reactivity time response |
 | GeN-Foam SP3 multiphysics | `outram-foam-appbuilder-lib` | SP3 neutronics + porous-media TH + multi-region coupling (host for the Xin Wang SP3 workflow) |
+| Geometry authoring | `outram-blender` | since 2026-10-02 (GitHub #486): `blender_bridge::to_mc_geometry` (authored surface -> CSG, a wrapper over `outram_blender::export::to_csg_geometry`) and the `sim` run driver behind MC Studio, both moved from blender's retired `mc-export` feature. The edge runs nee_soon -> blender; blender never depends on outram-mc-libs |
 
 See the workspace `docs/architecture.md` for the responsibility split
 (nuclear data ⟂ Monte Carlo ⟂ deterministic/TH ⟂ coupling).
@@ -75,9 +76,20 @@ to `teh-o-prke`'s `NordheimFuchsExactTimestepper`, backed by an integration
 test (bead op-fr2.1, closed). The `xin_wang_sp3_workflow` module now exists as a
 documented four-stage scaffold: its stage `run()` methods return
 `WorkflowError::NotYetImplemented` (each naming its tracking bead), while
-carrying real Mk1 case data. The `njoy-outram-park-fork` and `outram-mc-libs`
-coupling logic is still future work. **Do not add physics kernels here** — only
-orchestration / facade / cross-crate glue belongs in this crate.
+carrying real Mk1 case data. ~~The `njoy-outram-park-fork` and `outram-mc-libs`
+coupling logic is still future work.~~ **CORRECTED 2026-10-02:** it is wired
+for HTR-10 (`htr10_rmc::data` loads the tapes through the NJOY port;
+`htr10_rmc::keff_vs_height` transports with `outram-mc-libs`), though not yet
+through the `NeeSoon` facade.
+
+**HTR-10 k against height (gh:#501):** `examples/htr10_endf8_kvsh_quick.rs`
+and `examples/htr10_endf8_kvsh_heavy.rs` run the whole N = 10..20 sweep and
+write the figure script, results table and parameters. The shared machinery
+(majorant, source box, entropy mesh, reference interpolation, emitters) is
+`htr10_rmc::keff_vs_height`; use it rather than copying it into a new example.
+
+**Do not add physics kernels here** — only orchestration / facade /
+cross-crate glue belongs in this crate.
 
 ## Design rules
 

@@ -121,8 +121,10 @@
 //!
 //! 6. **The pricing harness has a positive control, and it passes.** A table of
 //!    null results is only worth reading if the instrument that produced it can
-//!    produce a non-null one. `OUTRAM_RINGRPT_TARGET_AT_REST=1` zeroes the
-//!    transport temperature, which for a pointwise nuclide changes the kinematics
+//!    produce a non-null one. `OUTRAM_RINGRPT_TARGET_AT_REST=1` ~~zeroes the
+//!    transport temperature~~ (since 2026-09-30, GitHub #313: holds every
+//!    nuclide at rest with `Nuclide::with_target_at_rest`), which for a
+//!    pointwise nuclide changes the kinematics
 //!    only (the cross sections were already broadened to 600 K at construction),
 //!    so what goes away is free-gas target motion -- the defect bead `op-50vu`
 //!    recorded and fixed. Same case, same seed, 2026-09-12:
@@ -591,6 +593,17 @@ mod desktop {
         } else {
             nuclides()
         };
+        // GitHub #313: the free-gas kT of a pointwise nuclide is now its data
+        // temperature, so zeroing `KeffSettings::temperature_k` no longer
+        // removes target motion. The positive control therefore applies the
+        // per-nuclide hook, which the in-process ablation study
+        // (`fhr_pebble_target_at_rest_ablation.rs`) showed to be mechanically
+        // identical to the old whole-run switch.
+        let nucs = if std::env::var("OUTRAM_RINGRPT_TARGET_AT_REST").is_ok() {
+            nucs.into_iter().map(Nuclide::with_target_at_rest).collect::<Vec<_>>()
+        } else {
+            nucs
+        };
         let (mats, spec) = build_materials();
         // ── Sensitivity switch: how much is the graphite S(α,β) law WORTH here? ──
         //
@@ -619,7 +632,9 @@ mod desktop {
         let compute = ComputeType::CpuMultiThread(Default::default());
         // ── Positive control: can the pricing harness SEE a big effect at all? ──
         //
-        // `OUTRAM_RINGRPT_TARGET_AT_REST=1` zeroes the transport temperature, which
+        // `OUTRAM_RINGRPT_TARGET_AT_REST=1` ~~zeroes the transport temperature~~
+        // (**CORRECTED 2026-09-30, GitHub #313**: applies
+        // `Nuclide::with_target_at_rest` to every nuclide, above), which
         // for a HIGH-tier (pointwise) nuclide changes the *kinematics only*: the
         // cross sections were Doppler-broadened to 600 K at construction and are
         // temperature-independent at lookup, so the collision rate is untouched and
@@ -633,14 +648,14 @@ mod desktop {
         if target_at_rest {
             eprintln!(
                 "  !! POSITIVE CONTROL: free-gas target motion REMOVED — transport\n\
-                 \x20    temperature zeroed. Known-broken on purpose."
+                 \x20    every nuclide held at rest. Known-broken on purpose."
             );
         }
         let keff = KeffSettings {
             n_particles: 4000,
             n_inactive: 30,
             n_active: 80,
-            temperature_k: if target_at_rest { 0.0 } else { TEMP_K },
+            temperature_k: TEMP_K,
             compute,
             ..KeffSettings::default()
         };

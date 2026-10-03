@@ -58,6 +58,7 @@
 use outram_mc_libs::geometry::position::{Direction, Position};
 use outram_mc_libs::particle::bank::BankSite;
 use outram_mc_libs::tally::mesh::RegularMesh;
+use outram_mc_libs::tally::mesh::RegularMeshExt;
 
 const BANK_CSV: &str =
     include_str!("../verification_and_validation/shannon_entropy/entropy_source_bank.csv");

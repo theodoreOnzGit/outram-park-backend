@@ -37,6 +37,12 @@ petir.workspace = true
 ndarray.workspace = true
 thiserror.workspace = true
 uom.workspace = true
+# The FvMesh, MeshError, 1-D mesher and tensor primitives of
+# `openfoam_algorithms::openfoam_source` are re-exported from here (deduped
+# 2026-10-03, GitHub #492; they were code-identical copies). Adds this one
+# crate to the tree: its own deps (petir, thiserror, uom, ndarray) are already
+# ours, and its rayon/wgpu are optional and off. Android- and wasm-clean.
+outram-foam-basic-lib.workspace = true
 
 [features]
 # `long-tests` gates the individual tests that measure over 5 minutes, and is

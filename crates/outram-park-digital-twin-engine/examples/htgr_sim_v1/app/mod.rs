@@ -187,8 +187,9 @@ pub(crate) fn plant_commands_from(s: &HtgrSnapshot) -> PlantCommands {
             s.wind_speed_m_per_s,
             s.wind_from_deg,
         ),
-        // What the Map tab wants of the dispersion field: one cell per screen
-        // pixel of the map square, and the operator's plume-clock
+        // What the Map tab wants of the dispersion field: ~~one cell per screen
+        // pixel of the map square~~ a fixed cell count since 2026-10-01
+        // (`map_tab::MAP_REQUESTED_CELLS`), and the operator's plume-clock
         // fast-forward. Travels as a command for the same reason the wind
         // does -- see `MapFieldRequest`. Nothing is clamped here; the
         // dispersion channel bounds the resolution to what this host can
@@ -198,11 +199,11 @@ pub(crate) fn plant_commands_from(s: &HtgrSnapshot) -> PlantCommands {
             plume_clock_offset: Time::new::<second>(s.plume_clock_offset_s),
             weighting: s.map_field_weighting,
         },
-        scenario: if s.circulator_tripped {
-            crate::physics::Scenario::Lofc
-        } else {
-            crate::physics::Scenario::Normal
-        },
+        scenario: crate::physics::scenario_from(
+            s.circulator_tripped,
+            s.water_ingress_triggered,
+            s.dlofc_triggered,
+        ),
         secondary: SecondaryCommands {
             feedwater: if s.feedwater_manual {
                 FeedwaterCommand::Manual {
@@ -313,7 +314,8 @@ pub struct HtgrSimApp {
     plots_csv_panel: outram_park_digital_twin_engine::app_scaffold::CsvSnapshotPanel,
     /// Flow-tracer trains for the schematic's connector runs. Owned here (not
     /// by the widgets, which are rebuilt every repaint) and advanced once per
-    /// frame from the real loop residence times -- see
+    /// frame from ~~the real loop residence times~~ each drawn run's own
+    /// transit time (2026-10-01; see [`SchematicTracers`]) -- see
     /// [`outram_park_digital_twin_engine::animation`].
     tracers: SchematicTracers,
     /// The plant clock's current rate, measured between snapshots, which sets
@@ -617,6 +619,10 @@ impl HtgrSimApp {
         match action {
             map_tab::MapAction::None => {}
             map_tab::MapAction::ResetPlant => self.restart_simulation(),
+            map_tab::MapAction::StartWaterIngress => {
+                self.physics.update(|s| s.water_ingress_triggered = true)
+            }
+            map_tab::MapAction::StartDlofc => self.physics.update(|s| s.dlofc_triggered = true),
         }
     }
 }
@@ -790,6 +796,15 @@ impl eframe::App for HtgrSimApp {
             // budget rather than the window's, so a panel that sized itself
             // from in there would grow every frame it filled.
             let view = ui.available_size();
+            // The Map tab is wider than the window at its minimum sizes (map
+            // + graph, the wide tables), so its scroll bars are SOLID there:
+            // always drawn when the content overflows, rather than egui's
+            // default floating bars that appear only on hover and read as "it
+            // does not scroll sideways" (maintainer, 2026-10-01). The tables
+            // inside inherit the style for their own horizontal scrolls.
+            if self.open_panel == Panel::Map {
+                ui.style_mut().spacing.scroll = egui::style::ScrollStyle::solid();
+            }
             egui::ScrollArea::both()
                 .auto_shrink([false; 2])
                 .show(ui, |ui| match self.open_panel {
@@ -1071,9 +1086,10 @@ mod tests {
     /// | helium flow | 4.3 kg/s | **1.29 kg/s** |
     /// | feedwater demand | 4.0 kg/s | **10.0 kg/s** |
     ///
-    /// Neither drift was harmless. `GUI_INITIAL_HELIUM_FLOW_KG_PER_S` is a
-    /// *fraction* of rated (0.30, despite the `KG_PER_S` suffix its own doc
-    /// comment apologises for), so the physics opened at **part load** while
+    /// Neither drift was harmless. `GUI_INITIAL_HELIUM_FLOW_FRACTION` (then
+    /// named `GUI_INITIAL_HELIUM_FLOW_KG_PER_S`; renamed 2026-10-01) is a
+    /// *fraction* of rated (0.30, despite the `KG_PER_S` suffix its doc
+    /// comment then apologised for), so the physics opened at **part load** while
     /// the GUI opened at **rated** — and that constant's doc says in terms
     /// that [`crate::physics::GUI_INITIAL_ROD_INSERTION`] "was bisected
     /// against settled power AT this flow. The two are a matched pair and must
@@ -1098,6 +1114,14 @@ mod tests {
     /// `feedwater_manual` to `false` yields
     /// `Auto { target_steam_temperature: 713.15 K }`.
     ///
+    /// **2026-10-01:** rods are 0.45 now, and the helium flow, rated 4.3 kg/s
+    /// from 2026-09-27, is back at **1.29 kg/s** by maintainer direction (the
+    /// HTR-10 test's experimental flow). The test now also asserts that value
+    /// directly, since matching the two sides alone cannot catch both moving
+    /// together. Also 2026-10-01: the Map tab opens on the dose-rate basis,
+    /// so both sides now carry `map_field.weighting = DoseRateUsvPerH` (this
+    /// test failed until `PlantCommands::default()` was moved with it).
+    ///
     /// **Interpretation.** The opening frame commands the plant's current
     /// default, and the mode boolean is read in the right direction. Note what
     /// this test bought by comparing the *whole struct* with `PartialEq`: it
@@ -1112,6 +1136,14 @@ mod tests {
             commands,
             PlantCommands::default(),
             "the GUI's opening state must be the plant's default command set"
+        );
+
+        // The opening flow is the HTR-10 test's experimental 1.29 kg/s
+        // (0.30 of the rated 4.3 kg/s; maintainer direction 2026-10-01).
+        assert!(
+            (commands.helium_flow_setpoint.get::<kilogram_per_second>() - 1.29).abs() < 1e-9,
+            "the plant must open at the experimental 1.29 kg/s, got {} kg/s",
+            commands.helium_flow_setpoint.get::<kilogram_per_second>()
         );
 
         // The scalars really did survive their unit conversions.

@@ -543,3 +543,78 @@ Android/Termux portability rule and the data-policy rules all still bind.
 > binary-rename history and the kopi-beans-era tracker rules as they stood:
 > [`docs/claude-md-rationale/tooling-kopitiam-kovan.md`](docs/claude-md-rationale/tooling-kopitiam-kovan.md).
 
+
+## Moved out of `docs/claude-md/kovan-tooling.md` on 2026-10-01
+
+> Maintainer direction, 2026-10-01: *"for the old kovan rules, they need to be
+> migrated out of all Claude md, only pointers"*. What follows is the text as
+> it stood that day, verbatim, with its headings demoted one level. **Do not
+> act on the struck-through or RETIRED rules.** The live rule is the short
+> pointer left in `docs/claude-md/kovan-tooling.md`: the maintainer supplies
+> the corpus.
+
+#### Literature: the maintainer supplies the kovan corpus (2026-10-01)
+
+**The maintainer supplies the kovan corpus and ingests literature into it
+manually.** Do not ingest, import or move literature into kovan or
+`crates/kovan-literature` on your own initiative, and do not treat a paper
+missing from the corpus as a defect to fix. When the maintainer hands you a
+paper, read it where it is given.
+
+**From time to time the maintainer may ask an agent to hardcode the mind map,
+the standard corpus or annotations in `kovan-literature`.** Do that when asked,
+and only then.
+
+~~The earlier literature rules (the 2026-09-21 retirement note of the kovan
+ingestion and read-through-`kovan lit` mandates)~~ **REPLACED 2026-10-01** by
+the two paragraphs above, at the maintainer's request. The original mandates
+are preserved in
+[`docs/claude-md-rationale/tooling-kopitiam-kovan.md`](../claude-md-rationale/tooling-kopitiam-kovan.md).
+
+**Compliance obligations that are not kovan rules** still bind wherever a
+document lives (`DATA_POLICY.md`):
+
+- **The open/proprietary split.** Public, openly published literature is
+  committable; anything restricted is not and must stay out of the repository.
+  **Decide the access tier from the document's own copyright page**, not from
+  where it was downloaded — public hosting (INIS, gen-4.org, a lab's website)
+  grants no redistribution rights. **Unsure means proprietary**; that failure
+  direction is recoverable and the other is a licence violation in a public
+  repository. The root-level `collaboration/` directory is gitignored scratch
+  and is **not** automatically open — ask if provenance is not stated.
+- **Text-and-data-mining / AI-training reservations.** Where a copyright line
+  carries one, record metadata and factual findings only and do **not** extract
+  the full text — facts are not copyrightable, but the corpus is what that
+  clause reserves.
+- **Provenance for anything the code depends on.** If a document informs the
+  code — a correlation taken from it, a benchmark value cited, a number in a
+  doc comment — record its source, author, title, licence/access terms,
+  URL/DOI, date accessed and any processing steps, per the "Responsible use &
+  data policy" section. A citation that points at nothing a reader can reach
+  is a dead reference. Where to put that record is now your judgement: a
+  `References.md` beside the example, the relevant validation report, or the
+  kovan archive.
+#### Graph digitisation (the `kovan-cli digitise` mandate was RETIRED 2026-09-21)
+
+**~~Graph digitisation: dogfood `kovan-cli digitise` (HARD RULE)~~ — RETIRED
+2026-09-21 at the maintainer's request, alongside the kovan literature
+mandate above. It no longer applies.** Getting data off a published figure
+does not have to go through `kovan-cli digitise`, the `kovan-tui` Digitiser
+tab or the `kovan` GUI. Do not enforce it. The full original text is preserved
+in [`docs/claude-md-rationale/tooling-kopitiam-kovan.md`](../claude-md-rationale/tooling-kopitiam-kovan.md).
+
+The digitiser still exists in `crates/kovan/src/digitiser/` and still works —
+using it is now a choice. Two of its properties are worth knowing if you do:
+its accuracy is verified **against synthetic ground truth only** (never
+against real published figures), and **only a human can mark a dataset
+reviewed** — an agent session cannot, and a CLI run can only ever emit
+`Unreviewed`.
+
+**What survives, because it was never a `kovan` rule:** if a number in this
+codebase came off a plot, **say so and say how**. Record the figure it came
+from, the axis calibration or reference points used, the scale (linear or
+log), and whether the reading was automatic or by eye. That is the
+"Responsible use & data policy" provenance obligation and the
+"Verification & validation documentation" rule, not a tooling preference — a
+digitised value with no record of how it was read is not a citable number,
+whatever produced it.

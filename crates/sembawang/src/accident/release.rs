@@ -60,12 +60,19 @@ use boon_lay::triso_atops_fork::activities::atom_count_from_activity;
 use boon_lay::triso_atops_fork::diffusion::{integrate_diffusion_over_time, DiffusionMaterial};
 use boon_lay::triso_atops_fork::nuclide_model::ElementGroup;
 use boon_lay::triso_atops_fork::release_models::release_fraction_transient;
-use boon_lay::triso_atops_fork::run_selection::select_nuclides_accident;
+use boon_lay::triso_atops_fork::activities::FailureFractions;
+use boon_lay::triso_atops_fork::normal_operation::{
+    normal_operation_node, NodalActivities, NodeState, ParentPools, PlantConstants,
+};
+use boon_lay::triso_atops_fork::run_selection::{
+    normalise_nuclide_name, select_nuclides, select_nuclides_accident, ParentDecayPolicy,
+};
+use std::collections::HashMap;
 use boon_lay::triso_atops_fork::TrisoAtopsNuclide;
 use changi::activity::deposition::DepositionGroup;
 use changi::activity::source::{NuclideRelease, ReleaseWindow, SourceTerm};
 use uom::si::area::square_meter;
-use uom::si::f64::{Area, Length, Pressure, Ratio, ThermodynamicTemperature, Time};
+use uom::si::f64::{Area, Frequency, Length, Pressure, Ratio, ThermodynamicTemperature, Time};
 use uom::si::ratio::ratio;
 use uom::si::thermodynamic_temperature::degree_celsius;
 use uom::si::time::second;
@@ -78,8 +85,10 @@ use crate::units;
 use super::venting::VentingWindow;
 
 /// Lower edge of the Arrhenius diffusion correlation's fitted range, degrees
-/// Celsius. Outside it `boon-lay` clamps rather than extrapolating; crossing it
-/// sets [`Caveats::diffusion_coefficient_clamped`].
+/// Celsius. Crossing it sets [`Caveats::diffusion_coefficient_clamped`].
+/// ~~Outside it `boon-lay` clamps rather than extrapolating~~ **CORRECTED 2026-09-30 (#449):**
+/// `boon-lay` clamps only group-specific lower limits and extrapolates
+/// everything else; see that caveat's docs.
 pub const DIFFUSION_FIT_MIN_CELSIUS: f64 = 700.0;
 
 /// Upper edge of the fitted range, degrees Celsius. See
@@ -90,7 +99,7 @@ pub const DIFFUSION_FIT_MAX_CELSIUS: f64 = 2400.0;
 ///
 /// Every field is prescribed by the caller. There are no defaults, deliberately
 /// — a default geometry would be a specific reactor's, wearing no label.
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct PlantParameters {
     /// Failure fractions, normal-operation and accident-phase.
     pub fractions: AccidentFractions,
@@ -106,6 +115,114 @@ pub struct PlantParameters {
     pub x_liftoff: f64,
     /// Whether a helium purification system is fitted.
     pub clean_up_fitted: bool,
+    /// The primary-circuit state the accident starts from (GitHub #448). The
+    /// constructors set [`PrimaryCircuitPools::FromNormalOperation`]; the empty
+    /// state is an explicit ablation.
+    pub pools: PrimaryCircuitPools,
+}
+
+/// The primary-circuit and fuel-matrix pools an accident starts from.
+///
+/// Upstream (`trisoatops.py::main`, commit `de374c8`) runs `normal_operation`
+/// and feeds its per-node pools into `accident_case`. That does three things
+/// the empty state omits (#448):
+/// 1. `release_activity` subtracts the graphite, circulating, plate-out and HPS
+///    inventory from what the kernel can still release;
+/// 2. the graphite pool is released through `RF_graph`;
+/// 3. the circuit term `C + x_liftoff · P` is added.
+///
+/// **Default ON** (CLAUDE.md "correct physics is the default"): every
+/// constructor in this crate sets [`Self::FromNormalOperation`].
+#[derive(Debug, Clone, PartialEq)]
+pub enum PrimaryCircuitPools {
+    /// Run TRISO-ATOPS normal operation per node first, as upstream does.
+    FromNormalOperation(NormalOperation),
+    /// **Ablation only.** Every pool empty ([`zero_pools`]). Measured in
+    /// upstream on a heat-up case (#448), this **over**-predicts the metals
+    /// (Ag-110m ×2.0, Cs-137 ×1.6) and slightly **under**-predicts
+    /// un-scrubbed noble gases (Kr-85 ×0.87). The direction is
+    /// nuclide-dependent.
+    EmptyAblation,
+}
+
+/// The normal-operation inputs upstream's `normal_operation` needs, beyond
+/// the inventory, fractions and geometry already in [`PlantParameters`].
+#[derive(Debug, Clone, PartialEq)]
+pub struct NormalOperation {
+    /// Plate-out rate constant `k_plate`.
+    pub k_plate: Frequency,
+    /// Helium-purification clean-up rate constant `k_clean`. Applied only when
+    /// [`PlantParameters::clean_up_fitted`].
+    pub k_clean: Frequency,
+    /// Kernel grain size `a_grain`.
+    pub grain_size: Length,
+    /// Reactor run time, for the coolant-pool balances.
+    pub run_time: Time,
+    /// Fuel irradiation time, for release-to-birth and the short-lived flag.
+    pub irradiation_time: Time,
+    /// Normal-operation fuel and graphite temperatures.
+    pub temperatures: NodeTemperatures,
+}
+
+/// Normal-operation temperatures over the core nodes.
+#[derive(Debug, Clone, PartialEq)]
+pub enum NodeTemperatures {
+    /// One fuel and one graphite temperature for every node.
+    Uniform {
+        /// Fuel (kernel) temperature.
+        core: ThermodynamicTemperature,
+        /// Matrix graphite temperature.
+        graphite: ThermodynamicTemperature,
+    },
+    /// Per node, `[ring][axial]`, matching the transient's node layout.
+    PerNode {
+        /// Fuel (kernel) temperatures.
+        core: Vec<Vec<ThermodynamicTemperature>>,
+        /// Matrix graphite temperatures.
+        graphite: Vec<Vec<ThermodynamicTemperature>>,
+    },
+}
+
+impl NodeTemperatures {
+    fn at(&self, ring: usize, axial: usize) -> NodeState {
+        match self {
+            Self::Uniform { core, graphite } => NodeState {
+                core_temperature: *core,
+                graphite_temperature: *graphite,
+            },
+            Self::PerNode { core, graphite } => NodeState {
+                core_temperature: core[ring][axial],
+                graphite_temperature: graphite[ring][axial],
+            },
+        }
+    }
+}
+
+/// Seconds in upstream's year (`convert_time`: 365 days).
+const UPSTREAM_YEAR_S: f64 = 365.0 * 24.0 * 3600.0;
+
+impl NormalOperation {
+    /// The NP-MHTGR reference normal operation, Stoyer et al. 2026 Case A,
+    /// Table 3 (`boon-lay/verification_and_validation/mhtgr_stoyer/constants.csv`):
+    /// `k_plate` 7.5e-5 /s, `k_clean` 8.77e-5 /s, `a_grain` 1e-5 m,
+    /// run time 40 y, irradiation time 3 y.
+    ///
+    /// **Temperatures are a stand-in:** a uniform **885.24 K** (core and
+    /// graphite), the arithmetic mean of the paper's Table 7 per-node profile
+    /// (the paper sets graphite = fuel). A caller with per-node temperatures
+    /// should use [`NodeTemperatures::PerNode`].
+    #[must_use]
+    pub fn np_mhtgr_reference() -> Self {
+        let t = ThermodynamicTemperature::new::<uom::si::thermodynamic_temperature::kelvin>(885.24);
+        Self {
+            k_plate: Frequency::new::<uom::si::frequency::hertz>(7.5e-5),
+            k_clean: Frequency::new::<uom::si::frequency::hertz>(8.77e-5),
+            grain_size: Length::new::<uom::si::length::meter>(1.0e-5),
+            run_time: Time::new::<uom::si::time::second>(40.0 * UPSTREAM_YEAR_S),
+            irradiation_time: Time::new::<uom::si::time::second>(3.0 * UPSTREAM_YEAR_S),
+            temperatures: NodeTemperatures::Uniform { core: t, graphite: t },
+        }
+    }
 }
 
 impl PlantParameters {
@@ -145,10 +262,11 @@ impl PlantParameters {
     /// - `incremental_accident` — accident-phase incremental failure fraction.
     /// - `incremental_sic_accident` — accident-phase incremental SiC failure
     ///   fraction.
-    /// - `x_liftoff` — fraction of plated-out activity lifted off. Note this
-    ///   crate currently starts from empty pools (see [`zero_pools`]), so it
-    ///   has nothing to lift off and this parameter does nothing until a
-    ///   normal-operation history is wired in.
+    /// - `x_liftoff` — fraction of plated-out activity lifted off.
+    ///   ~~It does nothing, because the crate starts from empty pools~~
+    ///   **CORRECTED 2026-09-30 (#448):** the plant starts from real
+    ///   normal-operation pools ([`NormalOperation::np_mhtgr_reference`]), so
+    ///   the lift-off term is live.
     #[must_use]
     pub fn np_mhtgr_reference(
         incremental_accident: f64,
@@ -170,7 +288,16 @@ impl PlantParameters {
             coolant_pressure: Pressure::new::<uom::si::pressure::kilopascal>(101.325),
             x_liftoff,
             clean_up_fitted: true,
+            pools: PrimaryCircuitPools::FromNormalOperation(NormalOperation::np_mhtgr_reference()),
         }
+    }
+
+    /// The same plant, with the primary-circuit pools **emptied**: an explicit
+    /// ablation of [`PrimaryCircuitPools::FromNormalOperation`] (#448).
+    #[must_use]
+    pub fn without_normal_operation_pools(mut self) -> Self {
+        self.pools = PrimaryCircuitPools::EmptyAblation;
+        self
     }
 }
 
@@ -184,22 +311,29 @@ pub struct AccidentRelease {
     pub caveats: Caveats,
     /// Which samples vented, and how much each released.
     pub venting: VentingWindow,
-    /// Nuclides dropped by the half-life screen, with the reason.
+    /// Nuclides dropped by the **half-life screen** (t½ below 4 % of the
+    /// transient), as supplied. ~~"with the reason"~~: no reason is stored,
+    /// and since #449 unknown names are an error, never listed here.
     pub screened_out: Vec<String>,
+    /// Per released nuclide, the **unfloored cumulative release at the last
+    /// venting sample** \[Bq\]: upstream `accident_case`'s last total. The
+    /// source term's window sum equals this unless a window was floored
+    /// ([`Caveats::negative_atom_count_seen`]). This is the quantity to compare
+    /// with upstream.
+    pub cumulative_final: Vec<(String, f64)>,
 }
 
-/// A normal-operation state with every pool empty.
+/// A normal-operation state with every pool empty: the
+/// [`PrimaryCircuitPools::EmptyAblation`] state.
 ///
-/// Used when no normal-operation history has been run, which is this crate's
-/// current position: nothing has accumulated in the coolant, on surfaces or in
-/// the clean-up system before the accident starts.
-///
-/// **That is a modelling choice with a direction.** A real plant carries a
-/// circulating and plated-out inventory built up over the operating cycle, and
-/// an accident lifts some of it off. Starting from zero therefore
-/// **under-predicts** the early release, by however much that pre-existing
-/// inventory would have contributed. Wiring a normal-operation history in is
-/// the obvious next step and is not done here.
+/// ~~Starting from zero therefore **under-predicts** the early release~~
+/// **CORRECTED 2026-09-30 (#448):** the direction is **nuclide-dependent**.
+/// Measured in upstream TRISO-ATOPS (3-year irradiation, 900 °C normal
+/// operation, heat to 1600 °C then cool), the ratio empty ÷ real pools is:
+/// Ag-110m ×2.00 and Cs-137 ×1.59 (**over**-predicted: the kernel term is not
+/// reduced by what already left it); Kr-85 ×0.87 without HPS (**under**: the
+/// circuit term is lost); Sr-90 0.99; I-131 1.00. Since #448 the default is
+/// [`PrimaryCircuitPools::FromNormalOperation`], and this is an ablation.
 #[must_use]
 pub fn zero_pools() -> boon_lay::triso_atops_fork::normal_operation::NodalActivities {
     boon_lay::triso_atops_fork::normal_operation::NodalActivities {
@@ -210,6 +344,81 @@ pub fn zero_pools() -> boon_lay::triso_atops_fork::normal_operation::NodalActivi
         plate_out_activity: 0.0,
         clean_up_activity: 0.0,
     }
+}
+
+/// Upstream's `normal_operation`, per node, for every inventory nuclide the
+/// normal-operation selection keeps: the pools [`PrimaryCircuitPools::FromNormalOperation`]
+/// starts the accident from. Keyed by nuclide name; each vector is indexed
+/// `ring * n_axial + axial`.
+///
+/// It follows `boon-lay`'s `tests/mhtgr_stoyer_workflow.rs::port_case_nodal`,
+/// which is verified against upstream at 1e-9:
+/// - `select_nuclides` with [`ParentDecayPolicy::UpstreamTableDefault`];
+/// - nuclides in **supplied order** (upstream's `nuclide_sort` is a no-op), so
+///   a parent must precede its daughter for the daughter to see its pools;
+/// - the HPS applied iff [`PlantParameters::clean_up_fitted`].
+fn normal_operation_pools(
+    inventory: &CoreInventory,
+    transient: &TemperatureTransient,
+    plant: &PlantParameters,
+    op: &NormalOperation,
+) -> HashMap<String, Vec<NodalActivities>> {
+    let names = inventory.names();
+    let (selected, _unknown) =
+        select_nuclides(&names, op.irradiation_time, None, ParentDecayPolicy::UpstreamTableDefault);
+    let constants = PlantConstants {
+        k_plate: op.k_plate,
+        k_clean: op.k_clean,
+        graphite_thickness: plant.graphite_thickness,
+        grain_size: op.grain_size,
+        sic_thickness: plant.sic_thickness,
+        kernel_radius: plant.kernel_radius,
+        run_time: op.run_time,
+        irradiation_time: op.irradiation_time,
+    };
+    let f = plant.fractions;
+    let fractions = FailureFractions {
+        heavy_metal: f.heavy_metal,
+        sic: f.sic,
+        incremental: f.incremental,
+        incremental_sic: f.incremental_sic,
+    };
+    let mut out: HashMap<String, Vec<NodalActivities>> = HashMap::new();
+    for s in &selected {
+        let Some(inv) = inventory
+            .nuclides
+            .iter()
+            .find(|n| normalise_nuclide_name(&n.name).is_ok_and(|c| c == s.nuclide.name))
+        else {
+            continue;
+        };
+        let parent = s
+            .parent_decay
+            .then(|| out.get(s.nuclide.parents[0]))
+            .flatten()
+            .cloned();
+        let mut nodes = Vec::with_capacity(transient.n_radial * transient.n_axial);
+        for r in 0..transient.n_radial {
+            let axial = inv.axial_curies(r, transient.n_axial);
+            for (k, curies) in axial.iter().enumerate().take(transient.n_axial) {
+                let pools = parent
+                    .as_ref()
+                    .map_or(ParentPools::none(), |p| p[r * transient.n_axial + k].parent_pools());
+                nodes.push(normal_operation_node(
+                    &s.nuclide,
+                    s.short_lived,
+                    units::to_boon_lay_activity(units::from_curies(*curies)),
+                    fractions,
+                    constants,
+                    op.temperatures.at(r, k),
+                    plant.clean_up_fitted,
+                    pools,
+                ));
+            }
+        }
+        out.insert(s.nuclide.name.to_string(), nodes);
+    }
+    out
 }
 
 /// Bridge `normal_operation_node`'s six channels to `release_activity`'s seven.
@@ -264,7 +473,10 @@ pub fn deposition_group_of(nuclide: &TrisoAtopsNuclide) -> DepositionGroup {
 /// [`AccidentRelease::screened_out`] rather than vanishing.
 ///
 /// # Errors
-/// [`Error::UnknownNuclide`] if a name is not in the supported table;
+/// [`Error::UnknownNuclide`] if **any** inventory name does not parse or is not
+/// in the supported table. Non-canonical spellings (`cs137`) are normalised, as
+/// upstream does. ~~(only when no nuclide survives)~~ **CORRECTED 2026-09-30
+/// (#449)**: unknown names were previously listed in `screened_out`;
 /// [`Error::TransientTooShort`] if the venting calculation has too little to
 /// work with; [`Error::VentingTimeNotOnAxis`] if the venting selection cannot
 /// be reconciled with the time axis.
@@ -275,6 +487,146 @@ pub fn accident_release(
     inventory: &CoreInventory,
     transient: &TemperatureTransient,
     plant: &PlantParameters,
+) -> Result<AccidentRelease> {
+    accident_release_with_venting(inventory, transient, plant, &Venting::Upstream)
+}
+
+/// How released activity leaves the core, i.e. the vented fraction `frac(t)`
+/// that multiplies the cumulative fuel release (upstream
+/// `accident_totals = frac * (kernel + graphite) + …`).
+///
+/// **TRISO-ATOPS is a depressurisation model.** Its user manual: *"releases
+/// are due to a breach in the reactor resulting in a venting of the core"*.
+/// Its only transport is [`Venting::Upstream`]: thermal expansion of the
+/// coolant while the core heats. **It has no air- or water-ingress transport**,
+/// in which gas flows through the core and carries the release out whatever
+/// the temperature does. The other two variants exist for that (GitHub #446),
+/// and they are **this workspace's additions, not upstream behaviour**.
+///
+/// `frac(t)` is the fraction of the fuel's cumulative release up to `t` that
+/// has left the core by `t`. It is dimensionless, in `[0, 1]`.
+#[derive(Debug, Clone, PartialEq)]
+pub enum Venting {
+    /// Upstream TRISO-ATOPS (`trisoatops.py::accident_case`, commit `de374c8`),
+    /// both branches:
+    /// - **uniform and constant temperature** (every node at every time equal
+    ///   to the first, by exact comparison as upstream's
+    ///   `np.all(accident_temp == accident_temp[0, 0, 0])`): **`frac = 1` at
+    ///   every sample**, and no `coolant_release` call;
+    /// - **otherwise:** `coolant_release`. The ideal-gas expansion fraction at
+    ///   the heating samples (`dT/dt ≥ 0`), with upstream's forced
+    ///   `frac[0] = 1`.
+    ///
+    /// ~~Before 2026-09-30 the port always took the second branch~~, so an
+    /// isothermal hold vented nothing after `t = 0` and released **0 Bq**
+    /// (#446). The first branch was missing from the port and is restored
+    /// here.
+    ///
+    /// **Where upstream has no answer (#447, #449):** if *every* sample
+    /// vents, as in a monotonic heat-up or any `from_ramp` ramp-and-hold,
+    /// upstream's `accident_temp[:, :-0, :]` is empty and it raises
+    /// `IndexError`. This port returns the ideal-gas fraction `≈ 1 − T0/T`
+    /// instead: a defined answer, but **not an upstream-verified one**.
+    ///
+    /// A spatially **non-uniform field that is constant in time** is now an
+    /// **error**, [`Error::NoVentingTransport`] (#447, 2026-09-30).
+    /// ~~(every `frac` after the first is 0: a silent 0 Bq)~~. Upstream
+    /// raises there. Heat-up venting moves nothing, but a real core leaks and
+    /// convects, so the caller picks [`Venting::Ventilation`],
+    /// [`Venting::FullFlowThrough`] or [`Venting::Prescribed`].
+    Upstream,
+    /// Everything released from the fuel leaves the core at once: `frac = 1`
+    /// at every sample. The conservative choice for an ingress with no
+    /// primary-circuit retention (the #435 bound's assumption). Not upstream.
+    FullFlowThrough,
+    /// A caller-supplied `frac(t)`, **one entry per transient sample**, each
+    /// finite and in `[0, 1]`: e.g. the cumulative fraction of the core's gas
+    /// exchanged by an ingress flow. The caller owns the number and its
+    /// source. Not upstream.
+    Prescribed(Vec<f64>),
+    /// **Ventilation / gas exchange** (#447): the core gas is exchanged at a
+    /// constant rate `λ` (air changes per unit time), well mixed, until an
+    /// optional cut-off, after which it is sealed:
+    /// `frac(t) = 1 − exp(−λ · min(t, cut_off))`.
+    ///
+    /// For transport that upstream's heat-up venting does not have:
+    /// convection, leakage and ventilation through a break, which carry the
+    /// release out of a core **whatever its temperature does**. See
+    /// [`Venting::gao_shi_htr10_cavity_ventilation`] for the sourced HTR-10
+    /// case. Not upstream.
+    ///
+    /// **It errs high, and the docs say so:** `frac(t)` multiplies the
+    /// *cumulative* fuel release (upstream's `accident_totals` structure), so
+    /// activity released late is credited the same escape fraction as activity
+    /// released at `t = 0`, and activity released after the cut-off still
+    /// escapes at the frozen fraction. A convolution over release time would
+    /// give less.
+    Ventilation {
+        /// Exchange rate `λ`, air changes per unit time.
+        rate: Frequency,
+        /// When the exchange stops (the break is sealed). `None` means never.
+        cut_off: Option<Time>,
+    },
+}
+
+impl Venting {
+    /// **HTR-10 air ingress, the reactor-cavity ventilation**, from Gao & Shi
+    /// 2002 (NED 218:65-80) §5.3.2: after the hot-gas-duct rupture, *"the
+    /// venting flow is 100 % d⁻¹ in the first 3 days. It is conservatively
+    /// assumed that the air source is cut off 3 days later"*, and the cavity
+    /// is then sealed. So `λ = 1 d⁻¹` and the cut-off is **72 h**, giving
+    /// `frac(72 h) = 1 − e⁻³ = 0.950`.
+    ///
+    /// **The assumption, stated:** the core gas exchanges at the **cavity's**
+    /// rate, i.e. the core is well mixed with the cavity through the break.
+    /// Gao & Shi give the cavity's air change, not the core's. Maintainer's
+    /// choice, 2026-09-30: *"a reasonable and citable scenario"*. The fact is
+    /// transcribed in `crates/kovan-literature/derived/gao-shi2002-htr10-accident-results.md` §2.
+    #[must_use]
+    pub fn gao_shi_htr10_cavity_ventilation() -> Self {
+        Self::Ventilation {
+            rate: Frequency::new::<uom::si::frequency::hertz>(1.0 / 86_400.0),
+            cut_off: Some(Time::new::<uom::si::time::second>(72.0 * 3600.0)),
+        }
+    }
+}
+
+impl TemperatureTransient {
+    /// Whether every node's temperature is the same at every time (spatial
+    /// variation allowed): the non-uniform isothermal case (#447).
+    fn is_constant_in_time(&self) -> bool {
+        self.temperatures
+            .iter()
+            .all(|ring| ring.iter().all(|slice| slice == &ring[0]))
+    }
+
+    /// Whether every node at every time has exactly the first node's first
+    /// temperature: upstream's test for skipping `coolant_release`.
+    fn is_uniform_and_constant(&self) -> bool {
+        let first = self.temperatures[0][0][0];
+        self.temperatures
+            .iter()
+            .flatten()
+            .flatten()
+            .all(|t| *t == first)
+    }
+}
+
+/// [`accident_release`] with the core-venting (transport) mode chosen
+/// explicitly; see [`Venting`]. [`accident_release`] is this with
+/// [`Venting::Upstream`].
+///
+/// # Errors
+/// As [`accident_release`], plus [`Error::VentingLengthMismatch`] and
+/// [`Error::VentingFractionOutOfRange`] for a bad [`Venting::Prescribed`].
+///
+/// # Panics
+/// As [`accident_release`].
+pub fn accident_release_with_venting(
+    inventory: &CoreInventory,
+    transient: &TemperatureTransient,
+    plant: &PlantParameters,
+    venting_mode: &Venting,
 ) -> Result<AccidentRelease> {
     assert_eq!(
         inventory.n_radial, transient.n_radial,
@@ -299,11 +651,24 @@ pub fn accident_release(
 
     // -- which nuclides survive the half-life screen
     let names = inventory.names();
-    let (selected, _errors) = select_nuclides_accident(&names, transient.end(), None);
+    // Names are normalised as upstream's `nuclide_import_accident` does
+    // ("cs137" -> "Cs-137"). A name that is NOT in the TRISO-ATOPS table, or
+    // does not parse, is an ERROR (#449). Upstream raises `KeyError` for the
+    // first and only warns for the second; returning an error for both is
+    // stricter, deliberately, because a nuclide silently left out of a source
+    // term is the kind of silent zero #446 was. Before 2026-09-30 both were
+    // listed as "screened out".
+    let (selected, errors) = select_nuclides_accident(&names, transient.end(), None);
+    if !errors.is_empty() {
+        return Err(Error::UnknownNuclide(format!("{errors:?}")));
+    }
     let kept: Vec<String> = selected.iter().map(|n| n.name.to_string()).collect();
     let screened_out: Vec<String> = names
         .iter()
-        .filter(|n| !kept.iter().any(|k| k == *n))
+        .filter(|n| {
+            let canonical = normalise_nuclide_name(n).unwrap_or_default();
+            !kept.iter().any(|k| *k == canonical)
+        })
         .map(|n| (*n).to_string())
         .collect();
     if selected.is_empty() {
@@ -312,18 +677,60 @@ pub fn accident_release(
         )));
     }
 
-    // -- venting
-    let rate = mean_temperature_rate(&transient.times, &transient.all_node_histories());
-    let hot = transient.hot_node_history();
-    let (vent_fraction, vent_times) = coolant_release(
-        &transient.times,
-        &rate,
-        &hot,
-        plant.coolant_pressure,
-    );
-    let venting =
-        VentingWindow::from_coolant_release(&transient.times, &vent_times, vent_fraction.clone())?;
-    caveats.first_sample_forced_fully_vented = !venting.is_empty();
+    // -- venting (see `Venting`)
+    let n_samples = transient.times.len();
+    let venting = match venting_mode {
+        Venting::Upstream if transient.is_uniform_and_constant() => {
+            // Upstream's `else: frac = np.ones(np.size(times))`.
+            VentingWindow::all_samples(vec![1.0; n_samples])
+        }
+        Venting::Upstream if transient.is_constant_in_time() => {
+            // Constant in time but NOT uniform in space (the uniform case is
+            // caught above). Upstream's `[:-0]` slice is empty and it raises
+            // `IndexError`. The port used to return frac = [1, 0, 0, …] and a
+            // silent 0 Bq fuel release (#447). The model has no transport
+            // here, so the caller must choose one.
+            return Err(Error::NoVentingTransport);
+        }
+        Venting::Upstream => {
+            let rate = mean_temperature_rate(&transient.times, &transient.all_node_histories());
+            let hot = transient.hot_node_history();
+            let (vent_fraction, vent_times) =
+                coolant_release(&transient.times, &rate, &hot, plant.coolant_pressure);
+            let window =
+                VentingWindow::from_coolant_release(&transient.times, &vent_times, vent_fraction)?;
+            caveats.first_sample_forced_fully_vented = !window.is_empty();
+            window
+        }
+        Venting::FullFlowThrough => VentingWindow::all_samples(vec![1.0; n_samples]),
+        Venting::Ventilation { rate, cut_off } => {
+            let lam = rate.get::<uom::si::frequency::hertz>();
+            let t_cut = cut_off.map_or(f64::INFINITY, |c| c.get::<second>());
+            VentingWindow::all_samples(
+                transient
+                    .times
+                    .iter()
+                    .map(|t| -(-lam * t.get::<second>().min(t_cut)).exp_m1())
+                    .collect(),
+            )
+        }
+        Venting::Prescribed(fractions) => {
+            if fractions.len() != n_samples {
+                return Err(Error::VentingLengthMismatch {
+                    expected: n_samples,
+                    got: fractions.len(),
+                });
+            }
+            if let Some((index, &value)) = fractions
+                .iter()
+                .enumerate()
+                .find(|(_, f)| !(f.is_finite() && (0.0..=1.0).contains(*f)))
+            {
+                return Err(Error::VentingFractionOutOfRange { index, value });
+            }
+            VentingWindow::all_samples(fractions.clone())
+        }
+    };
     caveats.venting_mask_was_gappy = !venting.is_contiguous();
     if venting.len() < 2 {
         return Err(Error::TransientTooShort(venting.len()));
@@ -332,8 +739,17 @@ pub fn accident_release(
     let n_keep = venting.len();
     let kept_times = venting.times(&transient.times);
 
+    // -- the normal-operation pools the accident starts from (#448)
+    let normal_pools: Option<HashMap<String, Vec<NodalActivities>>> = match &plant.pools {
+        PrimaryCircuitPools::FromNormalOperation(op) => {
+            Some(normal_operation_pools(inventory, transient, plant, op))
+        }
+        PrimaryCircuitPools::EmptyAblation => None,
+    };
+
     // -- per-nuclide, per-node release
     let mut releases = Vec::with_capacity(selected.len());
+    let mut cumulative_final = Vec::with_capacity(selected.len());
     for nuclide in &selected {
         let group = nuclide.element_group();
         let volatile = matches!(group, ElementGroup::NobleGas | ElementGroup::Halogen);
@@ -343,11 +759,15 @@ pub fn accident_release(
         let inv = inventory
             .nuclides
             .iter()
-            .find(|n| n.name == nuclide.name)
+            .find(|n| normalise_nuclide_name(&n.name).is_ok_and(|c| c == nuclide.name))
             .ok_or_else(|| Error::UnknownNuclide(nuclide.name.to_string()))?;
 
         let mut kernel_curies = vec![0.0_f64; n_keep];
         let mut graphite_curies = vec![0.0_f64; n_keep];
+        // Circuit pools summed over nodes, in effective atoms (upstream sums
+        // `nodal_normop[nuclide][4 or 5]` before the `lam / 3.7e10`).
+        let (mut circulating_atoms, mut plate_out_atoms) = (0.0_f64, 0.0_f64);
+        let node_pools = normal_pools.as_ref().and_then(|m| m.get(nuclide.name));
 
         for r in 0..transient.n_radial {
             let axial = inv.axial_curies(r, transient.n_axial);
@@ -379,7 +799,10 @@ pub fn accident_release(
                 // Prescribed as zero pools: this crate does not run a
                 // normal-operation history, so nothing has accumulated in the
                 // coolant, on surfaces or in the clean-up system beforehand.
-                let node = bridge_node(&zero_pools(), axial[k], lambda);
+                let pools = node_pools.map_or_else(zero_pools, |v| v[r * transient.n_axial + k]);
+                circulating_atoms += pools.circulating_activity;
+                plate_out_atoms += pools.plate_out_activity;
+                let node = bridge_node(&pools, axial[k], lambda);
 
                 for t in 0..n_keep {
                     let rf_k: Ratio = release_fraction_transient(
@@ -431,10 +854,16 @@ pub fn accident_release(
             &kernel_curies,
             &graphite_curies,
             venting.fractions(),
-            0.0,
-            0.0,
+            atoms_to_curies(circulating_atoms, lam_hz),
+            atoms_to_curies(plate_out_atoms, lam_hz),
             plant.x_liftoff,
         );
+
+        cumulative_final.push((
+            nuclide.name.to_string(),
+            units::from_curies(*cumulative.last().unwrap_or(&0.0))
+                .get::<uom::si::radioactivity::becquerel>(),
+        ));
 
         // Cumulative -> per-window. See the module docs.
         let mut per_window = Vec::with_capacity(n_keep - 1);
@@ -471,6 +900,7 @@ pub fn accident_release(
         caveats,
         venting,
         screened_out,
+        cumulative_final,
     })
 }
 

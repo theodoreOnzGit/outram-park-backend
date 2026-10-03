@@ -35,8 +35,10 @@
 //! The runtime `sl` (short-lived) and `parent_decay` flags. In TRISO-ATOPS those
 //! are **not intrinsic** to a nuclide — they are recomputed for each run from the
 //! reactor's irradiation time (`nuclide_import`) and the accident duration
-//! (`nuclide_import_accident`). They therefore live in the nodal-orchestration
-//! layer ([`crate::triso_atops_fork::normal_operation`], scaffolded).
+//! (`nuclide_import_accident`). ~~They therefore live in the nodal-orchestration
+//! layer (`normal_operation`, scaffolded).~~ **CORRECTED 2026-09-30 (#449):** they live in
+//! [`crate::triso_atops_fork::run_selection`] (`SelectedNuclide`), which is
+//! implemented.
 
 pub mod nuclide_database;
 

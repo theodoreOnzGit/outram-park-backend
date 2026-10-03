@@ -203,7 +203,11 @@ Not established / open:
 
 1. `yfour` (4+ channels), `KRM≠3`, `IFG=1`, `KBK>0` background terms,
    an eliminated channel not listed first (`op-cjw.3`) — need another
-   `LRF=7` evaluation; none is available here.
+   `LRF=7` evaluation; ~~none is available here~~. **CORRECTED 2026-10-01:**
+   six more are held in `reference-data/endf/`. `KBK>0` is covered by Sr-88
+   (`reconr_sr88_lrf7_kbk_vs_njoy2016.md`). `yfour` is covered by Fe-57 and
+   Mo-95 at RECONR level (GitHub #339; it had a defect, now fixed). Neither
+   is covered through ERRORR MF=32, which is what this record is about.
 2. `LCOMP=1` for `LRF=7` (ported alongside, no oracle).
 3. The angular-distribution routines of `samm.f90` are dead code in
    NJOY2016 as shipped (`Want_Angular_Dist = .false.` in both callers)

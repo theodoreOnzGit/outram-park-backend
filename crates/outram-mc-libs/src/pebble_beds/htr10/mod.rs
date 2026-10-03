@@ -35,19 +35,33 @@
 //!
 //! # Three things Table 2 does not say
 //!
-//! Every one is an assumption a reader must be able to overrule, so each is a
-//! named constant or an enum rather than a buried literal:
+//! ~~Every one is an assumption a reader must be able to overrule~~
+//! **CORRECTED 2026-10-01 (gh:#428, gh:#334):** Li's Table 2 is silent on all
+//! three, but the benchmark specification it follows is not silent on the
+//! first two. IAEA-TECDOC-1382 part 2, **Table 4-2** "Fuel element
+//! characteristics" (§ 4.1.1.5, printed p.235; re-read 2026-10-01), states
+//! *"Enrichment of 235U (weight) 17 %"* and *"Density of graphite in matrix
+//! and outer shell 1.73 g/cm3"*. So items 1 and 2 are the specification, not
+//! assumptions. Each is still a named constant or an enum rather than a
+//! buried literal:
 //!
 //! 1. **The enrichment basis.** "Fuel enrichment 17 %" gives no basis.
-//!    [`ENRICHMENT_WT`] takes it as **weight** percent, the industry convention.
+//!    [`ENRICHMENT_WT`] takes it as **weight** percent, ~~the industry
+//!    convention~~ as TECDOC-1382 Table 4-2 states. Whether Li's RMC model
+//!    used weight or atom per cent is not stated in Li (gh:#334).
 //!    The table's own 5 g heavy-metal figure *cannot* arbitrate — it comes out
 //!    4.99991 g on a weight reading against 4.99992 g on an atom reading — but
 //!    the two differ by **1.06 % in U-235 number density**, which an eigenvalue
 //!    does see.
-//! 2. **The fuel ball's graphite density.** Table 2 states 1.73 g/cm3 only for
-//!    the *moderator* ball. [`RHO_GRAPHITE`] applies it to the matrix and shell
-//!    too.
-//! 3. **The "ppm" basis.** Taken as by weight, of *natural* boron — see
+//! 2. **The fuel ball's graphite density.** Li's Table 2 states 1.73 g/cm3
+//!    only for the *moderator* ball. [`RHO_GRAPHITE`] applies it to the matrix
+//!    and shell too, ~~an assumption~~ as TECDOC-1382 Table 4-2 states for the
+//!    fuel ball's matrix and outer shell.
+//! 3. **The "ppm" basis.** TECDOC-1382 Table 4-2 is silent on this too: it
+//!    says "equivalent natural boron content" with no weight or atom basis
+//!    (checked 2026-10-01). ~~Taken as by weight~~ **Taken as ATOM ppm**
+//!    (maintainer, 2026-10-01, gh:#424, as TECDOC's MIT and BATAN tables
+//!    do), of *natural* boron — see
 //!    [`BoronReading`], which exists because this one is both easy to get wrong
 //!    and expensive when you do.
 
@@ -57,15 +71,27 @@ use crate::material::material::{Material, NuclideComponent};
 const NA: f64 = 6.022_140_76e23;
 const M_U235: f64 = 235.043_930;
 const M_U238: f64 = 238.050_788;
+/// O-16 isotopic mass \[g/mol\]. All oxygen is placed as O-16, and the UO2
+/// molar mass uses this rather than natural oxygen's 15.999 (noted 2026-10-01,
+/// gh:#428). O-17 and O-18 (0.04 + 0.20 at.%) are omitted. The molar-mass
+/// difference shifts the UO2 molecule density by about 3e-5 relative, a
+/// negligible effect.
 const M_O16: f64 = 15.994_914_6;
 const M_C: f64 = 12.011;
+/// Natural silicon \[g/mol\]. `nee_soon::htr10_rmc::materials::atomic_weight::SI`
+/// uses the IUPAC conventional value 28.085 (noted 2026-10-01, gh:#428). The
+/// two differ by 1.8e-5 relative, which is negligible but is a duplicated
+/// constant that can drift.
 const M_SI: f64 = 28.0855;
 const M_B10: f64 = 10.0129;
 const M_B11: f64 = 11.0093;
 
 /// Fuel enrichment as a **weight** fraction of U-235 in uranium (Table 2: 17 %).
 ///
-/// See the module docs for why the basis is an assumption and what it costs.
+/// ~~See the module docs for why the basis is an assumption and what it
+/// costs.~~ **CORRECTED 2026-10-01 (gh:#428):** the weight basis is stated by
+/// IAEA-TECDOC-1382 Table 4-2; only Li's Table 2 leaves it out. See the module
+/// docs for what the other basis would cost.
 pub const ENRICHMENT_WT: f64 = 0.17;
 /// UO2 kernel density \[g/cm3\] (Table 2).
 pub const RHO_UO2: f64 = 10.4;
@@ -76,12 +102,26 @@ pub const RHO_PYC: f64 = 1.9;
 /// SiC density \[g/cm3\] (Table 2).
 pub const RHO_SIC: f64 = 3.18;
 /// Graphite density \[g/cm3\] — Table 2 gives this for the **moderator ball**;
-/// applied here to the fuel ball's matrix and shell as well. See the module docs.
+/// applied here to the fuel ball's matrix and shell as well, as
+/// IAEA-TECDOC-1382 Table 4-2 states (*"Density of graphite in matrix and outer
+/// shell 1.73 g/cm3"*; corrected 2026-10-01, gh:#428). See the module docs.
 pub const RHO_GRAPHITE: f64 = 1.73;
-/// Natural boron in the uranium \[ppm by weight\] (Table 2).
+/// Natural boron in the uranium \[ppm\] (Table 2): boron atoms per 10^6
+/// uranium atoms since 2026-10-01 (see [`BoronReading::Natural`]).
+/// ~~\[ppm by weight\]~~
 pub const B_PPM_URANIUM: f64 = 4.0;
-/// Natural boron in the graphite and moderator \[ppm by weight\] (Table 2).
+/// Natural boron in the graphite and moderator \[ppm\] (Table 2): boron
+/// atoms per 10^6 carbon atoms since 2026-10-01. ~~\[ppm by weight\]~~
 pub const B_PPM_GRAPHITE: f64 = 1.3;
+
+/// B-10 **atom** fraction of natural boron, 19.9 at.% (B-11 is the other
+/// 80.1 at.%).
+///
+/// Source: IUPAC representative isotopic composition of boron, 0.199(7) B-10.
+/// IAEA-TECDOC-1382's MIT section (p.~284) uses the same nominal 19.9 % and
+/// notes that measured natural boron spans 19.1–20.3 %. That range is
+/// unablated (gh:#424).
+pub const B10_ATOM_FRACTION_OF_NATURAL_B: f64 = 0.199;
 
 /// B-10 **weight** fraction of natural boron (19.9 at% B-10 / 80.1 at% B-11).
 ///
@@ -94,17 +134,45 @@ pub const B10_WEIGHT_FRACTION_OF_NATURAL_B: f64 = 0.184_3;
 
 /// How the two "ppm" rows of Table 2 are read.
 ///
+/// **The ppm basis (maintainer decision, 2026-10-01, gh:#424).** Neither Li
+/// (2014) Table 2, TECDOC-1382 Table 4-2 nor Şeker & Çolak (2003) Table 2 says
+/// whether "ppm" is by weight or by atom. TECDOC's two participants who
+/// tabulated number densities read it as **atom** ppm:
+/// - MIT, Table 4-38: B-10 = 0.199 x 1.3e-6 x N_C in graphite, and
+///   0.199 x 4e-6 x N_U in the kernel;
+/// - BATAN, Table 4-18: the same.
+///
+/// The maintainer chose atom ppm of natural boron. So [`Self::Natural`] now
+/// means:
+/// - boron atoms = ppm x 10^-6 x the host's atoms (carbon in graphite,
+///   uranium in the kernel);
+/// - split 19.9 / 80.1 at.% B-10 / B-11.
+///
+/// The weight reading the code used until then is kept as the
+/// [`Self::NaturalWeightPpm`] ablation. It holds +11.1 % graphite boron and
+/// ~22x the kernel boron.
+///
 /// This is an **ablation knob**, not a modelling preference. Table 2 says
 /// "natural boron content", and taking that as *elemental B-10* instead
-/// over-absorbs by `1/0.1843` = 5.43x — a mistake the table's wording does
-/// nothing to prevent. The arms exist so the cost is measured rather than
-/// asserted; `examples/htr10_pebble_delta_tracking.rs` runs all four and
-/// `tests/htr10_boron_ablation_control.rs` gates that they actually differ.
+/// over-absorbs by ~~`1/0.1843` = 5.43x~~ `1/0.199` = 5.03x (atom basis since
+/// 2026-10-01) — a mistake the table's wording does nothing to prevent. The
+/// arms exist so the cost is measured rather than asserted;
+/// `examples/htr10_pebble_delta_tracking.rs` runs ~~all four~~ every arm and
+/// ~~`tests/htr10_boron_ablation_control.rs`~~ **CORRECTED 2026-10-01: no such
+/// file exists;** the unit test
+/// `the_boron_readings_are_genuinely_different_compositions` (in this module's
+/// `tests.rs`) gates that they actually differ.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum BoronReading {
-    /// Table 2 read as written: ppm by weight of **natural** boron, so only
-    /// [`B10_WEIGHT_FRACTION_OF_NATURAL_B`] of it absorbs. The correct reading.
+    /// **The default:** ppm as **atoms** of **natural** boron per host atom
+    /// (carbon in graphite, uranium in the kernel), 19.9 at.% of it B-10
+    /// ([`B10_ATOM_FRACTION_OF_NATURAL_B`]). ~~ppm by weight of natural boron~~
+    /// **CHANGED 2026-10-01 (maintainer, gh:#424):** see the type docs.
     Natural,
+    /// ABLATION: ppm by **weight** of natural boron, so only
+    /// [`B10_WEIGHT_FRACTION_OF_NATURAL_B`] of the mass is B-10. This was the
+    /// default until 2026-10-01.
+    NaturalWeightPpm,
     /// Both impurity rows dropped — the "does boron matter at all" arm.
     None,
     /// Graphite's 1.3 ppm kept, the uranium's 4 ppm dropped.
@@ -123,30 +191,42 @@ impl BoronReading {
     #[must_use]
     pub fn label(self) -> &'static str {
         match self {
-            Self::Natural => "natural B (as specified)",
+            Self::Natural => "natural B, atom ppm (as specified)",
+            Self::NaturalWeightPpm => "natural B, weight ppm (ablation)",
             Self::None => "no boron at all",
             Self::GraphiteOnly => "graphite boron only",
             Self::AsElementalB10 => "ppm read as elemental B-10",
         }
     }
 
-    /// The B-10 weight fraction applied to the stated ppm under this reading.
+    /// Whether this reading takes the ppm by **weight** (only
+    /// [`Self::NaturalWeightPpm`]); every other reading is by atom.
+    #[must_use]
+    pub fn is_weight_basis(self) -> bool {
+        matches!(self, Self::NaturalWeightPpm)
+    }
+
+    /// The B-10 fraction of the stated boron under this reading: an **atom**
+    /// fraction, or a **weight** fraction under [`Self::is_weight_basis`].
     #[must_use]
     pub fn b10_fraction(self) -> f64 {
         match self {
-            Self::Natural | Self::GraphiteOnly => B10_WEIGHT_FRACTION_OF_NATURAL_B,
+            Self::Natural | Self::GraphiteOnly => B10_ATOM_FRACTION_OF_NATURAL_B,
+            Self::NaturalWeightPpm => B10_WEIGHT_FRACTION_OF_NATURAL_B,
             Self::None => 0.0,
             Self::AsElementalB10 => 1.0,
         }
     }
 
-    /// The B-11 weight fraction applied to the stated ppm under this reading:
-    /// the remainder of natural boron, or nothing when the ppm is read as
+    /// The B-11 fraction (atom or weight, as [`Self::b10_fraction`]): the
+    /// remainder of natural boron, or nothing when the ppm is read as
     /// elemental B-10 (that arm puts ALL of it in B-10) or dropped.
     #[must_use]
     pub fn b11_fraction(self) -> f64 {
         match self {
-            Self::Natural | Self::GraphiteOnly => 1.0 - B10_WEIGHT_FRACTION_OF_NATURAL_B,
+            Self::Natural | Self::GraphiteOnly | Self::NaturalWeightPpm => {
+                1.0 - self.b10_fraction()
+            }
             Self::None | Self::AsElementalB10 => 0.0,
         }
     }
@@ -171,13 +251,119 @@ impl BoronReading {
 
     /// Every arm, for iterating an ablation study.
     #[must_use]
-    pub fn all() -> [Self; 4] {
+    pub fn all() -> [Self; 5] {
         [
             Self::Natural,
+            Self::NaturalWeightPpm,
             Self::None,
             Self::GraphiteOnly,
             Self::AsElementalB10,
         ]
+    }
+}
+
+/// C-12 **atom** fraction of natural carbon, 98.93 at.%.
+///
+/// Source: IUPAC/CIAAW representative isotopic composition, 0.9893(8) C-12 /
+/// 0.0107(8) C-13 (Meija et al., *Pure Appl. Chem.* 88 (2016) 293-306,
+/// Table 1). Every carbon atom density in this module is built from natural
+/// carbon's molar mass (12.011 g/mol), so the split divides a total that is
+/// already correct rather than changing it.
+pub const C12_ATOM_FRACTION_OF_NATURAL_C: f64 = 0.9893;
+/// C-13 atom fraction of natural carbon, 1.07 at.%. See
+/// [`C12_ATOM_FRACTION_OF_NATURAL_C`].
+pub const C13_ATOM_FRACTION_OF_NATURAL_C: f64 = 0.0107;
+
+/// Where one **kind of carbon** (free gas, graphite-bound, SiC-bound) sits in
+/// the caller's nuclide array.
+///
+/// **Natural carbon is the model (maintainer decision 2026-10-01, gh:#425,
+/// "use natural carbon, to follow the ENDF7 convention or MCNP convention").**
+/// The two library arms realise it differently, and this enum says which,
+/// so neither needs a zero-density placeholder slot:
+///
+/// - ENDF/B-VII.0 ships **elemental** natural carbon (`6-C-0`, MAT 600): one
+///   nuclide carries all of it, [`Self::Elemental`].
+/// - ENDF/B-VIII.0 ships C-12 and C-13 separately: natural carbon is split
+///   98.93 / 1.07 at.% ([`C12_ATOM_FRACTION_OF_NATURAL_C`]) over two nuclides,
+///   [`Self::Natural`]. **The default on that path.**
+///
+/// ~~On VIII.0 every carbon was loaded as C-12 at the natural-carbon atom
+/// density, and the C-13 term was said to be "not separable without a third
+/// arm".~~ **CORRECTED 2026-10-01 (gh:#425):** the C-13 tape
+/// (`reference-data/endf/n-006_C_013-ENDF8.0.endf`) is in the checkout; the
+/// C-12-only treatment survives only as an explicit ablation, expressed as
+/// [`Self::Elemental`] pointing at a C-12 nuclide.
+///
+/// A thermal law, where there is one, binds to **every** nuclide of the slot
+/// (graphite S(a,b) on C-12 and C-13 alike), as OpenMC binds `c_Graphite` to
+/// `C12`, `C13` and `C0`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum CarbonSlot {
+    /// One nuclide carries all of the carbon: ENDF/B-VII.0 elemental C-nat,
+    /// or (on VIII.0) the "all carbon as C-12" ablation.
+    Elemental(usize),
+    /// Natural carbon split over C-12 and C-13 at the IUPAC abundances.
+    Natural {
+        /// Slot of the C-12 nuclide.
+        c12: usize,
+        /// Slot of the C-13 nuclide.
+        c13: usize,
+    },
+}
+
+impl CarbonSlot {
+    /// `(slot, atom density)` pairs that place `total` atoms/(b cm) of natural
+    /// carbon in this slot: one pair for [`Self::Elemental`], two (98.93 /
+    /// 1.07 at.%) for [`Self::Natural`]. The densities sum to `total`.
+    #[must_use]
+    pub fn split(self, total: f64) -> Vec<(usize, f64)> {
+        match self {
+            Self::Elemental(i) => vec![(i, total)],
+            Self::Natural { c12, c13 } => vec![
+                (c12, total * C12_ATOM_FRACTION_OF_NATURAL_C),
+                (c13, total * C13_ATOM_FRACTION_OF_NATURAL_C),
+            ],
+        }
+    }
+
+    /// [`Self::split`] as material components.
+    #[must_use]
+    pub fn components(self, total: f64) -> Vec<NuclideComponent> {
+        self.split(total)
+            .into_iter()
+            .map(|(nuclide_idx, atom_density)| NuclideComponent {
+                nuclide_idx,
+                atom_density,
+            })
+            .collect()
+    }
+
+    /// The nuclide slots this carbon occupies.
+    #[must_use]
+    pub fn slots(self) -> Vec<usize> {
+        match self {
+            Self::Elemental(i) => vec![i],
+            Self::Natural { c12, c13 } => vec![c12, c13],
+        }
+    }
+
+    /// Whether nuclide slot `idx` belongs to this carbon.
+    #[must_use]
+    pub fn contains(self, idx: usize) -> bool {
+        self.slots().contains(&idx)
+    }
+
+    /// Total carbon \[atoms/(b cm)\] this slot carries in `material`, summed
+    /// over its nuclides.
+    #[must_use]
+    pub fn total_in(self, material: &Material) -> f64 {
+        material
+            .components
+            .iter()
+            .filter(|c| self.contains(c.nuclide_idx))
+            .map(|c| c.atom_density)
+            .sum()
     }
 }
 
@@ -186,6 +372,11 @@ impl BoronReading {
 /// Indices, not names, because that is the convention
 /// [`Material`] already uses — see
 /// [`DhUniverse::material_at`](crate::dh_universe::DhUniverse::material_at).
+///
+/// **Carbon is a [`CarbonSlot`] since 2026-10-01 (gh:#425)**, not a single
+/// index: on ENDF/B-VIII.0 each kind of carbon is two nuclides, C-12 and C-13.
+/// The two standard layouts are [`Self::NATURAL_CARBON`] (VIII.0, the default)
+/// and [`Self::ELEMENTAL_CARBON`] (VII.0 C-nat).
 #[derive(Debug, Clone, Copy)]
 pub struct Htr10Nuclides {
     /// U-235.
@@ -194,18 +385,22 @@ pub struct Htr10Nuclides {
     pub u238: usize,
     /// O-16.
     pub o16: usize,
-    /// Free-gas carbon — the **ablation arm only**.
+    /// Free-gas carbon: the carbon of the control-rod B4C and sleeve steel in
+    /// `nee_soon` (neither graphite nor SiC).
     ///
     /// Was the SiC layer's carbon until 2026-09-23. It is not that any more:
-    /// SiC has its own bound thermal law and [`Self::c_sic`] carries it. This
-    /// slot survives so `OUTRAM_HTR10_NO_SAB` can still strip every S(alpha,
-    /// beta) and measure what they are worth.
-    pub c_free: usize,
+    /// SiC has its own bound thermal law and [`Self::c_sic`] carries it.
+    /// ~~This slot survives so `OUTRAM_HTR10_NO_SAB` can still strip every
+    /// S(alpha, beta)~~ **CORRECTED 2026-10-01:** the pebble places no free
+    /// carbon; `nee_soon`'s rod B4C and steel do, and the `NO_SAB` ablation
+    /// unbinds the thermal laws from the other slots rather than moving their
+    /// carbon here.
+    pub c_free: CarbonSlot,
     /// Graphite-bound carbon (with S(alpha,beta)) — buffer, PyC, matrix, shell.
     ///
     /// Using free-gas carbon here would misrepresent the thermal spectrum a
     /// graphite-moderated pebble lives in. The distinction is not cosmetic.
-    pub c_graphite: usize,
+    pub c_graphite: CarbonSlot,
     /// Si-28, bound in SiC (with S(alpha,beta)).
     pub si28: usize,
     /// B-10 — the impurity absorber.
@@ -216,7 +411,7 @@ pub struct Htr10Nuclides {
     /// is the same error the doc on [`Self::c_graphite`] warns about one
     /// layer out: SiC is a crystal, its carbon is bound, and ENDF/B-VIII.0
     /// ships `tsl-CinSiC` (MAT 44) precisely so it need not be approximated.
-    pub c_sic: usize,
+    pub c_sic: CarbonSlot,
     /// Si-29, bound in SiC.
     ///
     /// Added 2026-09-23. Natural silicon is 92.223 % Si-28, **4.685 % Si-29
@@ -232,6 +427,62 @@ pub struct Htr10Nuclides {
     /// boronated carbon brick (TECDOC zone 17) was ~3.5 % short on scattering
     /// atoms. A scattering correction, not an absorption one.
     pub b11: usize,
+}
+
+impl Htr10Nuclides {
+    /// **The default layout (ENDF/B-VIII.0): natural carbon split C-12 / C-13**
+    /// (gh:#425). Slots 0..=10 are the historical layout with C-12 where
+    /// carbon was; the three C-13 nuclides are APPENDED at 11 (free), 12
+    /// (graphite) and 13 (SiC), so no earlier slot repoints.
+    /// [`Self::slot_count`] = 14.
+    pub const NATURAL_CARBON: Self = Self {
+        u235: 0,
+        u238: 1,
+        o16: 2,
+        c_free: CarbonSlot::Natural { c12: 3, c13: 11 },
+        c_graphite: CarbonSlot::Natural { c12: 4, c13: 12 },
+        si28: 5,
+        b10: 6,
+        c_sic: CarbonSlot::Natural { c12: 7, c13: 13 },
+        si29: 8,
+        si30: 9,
+        b11: 10,
+    };
+
+    /// One nuclide per kind of carbon: ENDF/B-VII.0 elemental C-nat, or the
+    /// VIII.0 "all carbon as C-12" ablation. [`Self::slot_count`] = 11.
+    pub const ELEMENTAL_CARBON: Self = Self {
+        u235: 0,
+        u238: 1,
+        o16: 2,
+        c_free: CarbonSlot::Elemental(3),
+        c_graphite: CarbonSlot::Elemental(4),
+        si28: 5,
+        b10: 6,
+        c_sic: CarbonSlot::Elemental(7),
+        si29: 8,
+        si30: 9,
+        b11: 10,
+    };
+
+    /// Every slot this table names, in no particular order.
+    #[must_use]
+    pub fn all_slots(&self) -> Vec<usize> {
+        let mut v = vec![
+            self.u235, self.u238, self.o16, self.si28, self.b10, self.si29, self.si30, self.b11,
+        ];
+        v.extend(self.c_free.slots());
+        v.extend(self.c_graphite.slots());
+        v.extend(self.c_sic.slots());
+        v
+    }
+
+    /// One past the highest slot this table names: the length of nuclide
+    /// array the pebble needs, and the first free slot after it.
+    #[must_use]
+    pub fn slot_count(&self) -> usize {
+        self.all_slots().into_iter().max().map_or(0, |m| m + 1)
+    }
 }
 
 /// Natural silicon isotopic abundances, atom fractions (IUPAC).
@@ -257,18 +508,40 @@ pub fn u235_atom_fraction() -> f64 {
     (w / M_U235) / ((w / M_U235) + ((1.0 - w) / M_U238))
 }
 
-/// B-10 atom density \[atoms/b-cm\] for `ppm` by weight of natural boron in a
-/// host of density `rho` \[g/cm3\], under the given reading.
-#[must_use]
-pub fn b10_atom_density(rho_host: f64, ppm: f64, reading: BoronReading) -> f64 {
-    atom_density(rho_host * ppm * 1.0e-6 * reading.b10_fraction(), M_B10)
+/// The host a boron impurity is quoted against: its element's **mass** density
+/// \[g/cm3\] (for a weight reading) and **atom** density \[atoms/b-cm\] (for an
+/// atom reading). For the kernel the host is the uranium in it; for graphite,
+/// the carbon.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct BoronHost {
+    /// Mass density of the host element \[g/cm3\].
+    pub mass_density: f64,
+    /// Atom density of the host element \[atoms/b-cm\].
+    pub atom_density: f64,
 }
 
-/// B-11 atom density \[atoms/b-cm\] for `ppm` by weight of natural boron, the
-/// companion of [`b10_atom_density`]. Zero under readings that place none.
+/// B-10 atom density \[atoms/b-cm\] for `ppm` of natural boron in `host`,
+/// under the given reading:
+/// - atom basis: `ppm e-6 x N_host x f_B10(at)`;
+/// - weight basis: `ppm e-6 x rho_host x f_B10(wt) x N_A / M_B10`.
 #[must_use]
-pub fn b11_atom_density(rho_host: f64, ppm: f64, reading: BoronReading) -> f64 {
-    atom_density(rho_host * ppm * 1.0e-6 * reading.b11_fraction(), M_B11)
+pub fn b10_atom_density(host: BoronHost, ppm: f64, reading: BoronReading) -> f64 {
+    if reading.is_weight_basis() {
+        atom_density(host.mass_density * ppm * 1.0e-6 * reading.b10_fraction(), M_B10)
+    } else {
+        host.atom_density * ppm * 1.0e-6 * reading.b10_fraction()
+    }
+}
+
+/// B-11 atom density \[atoms/b-cm\], the companion of [`b10_atom_density`].
+/// Zero under readings that place none.
+#[must_use]
+pub fn b11_atom_density(host: BoronHost, ppm: f64, reading: BoronReading) -> f64 {
+    if reading.is_weight_basis() {
+        atom_density(host.mass_density * ppm * 1.0e-6 * reading.b11_fraction(), M_B11)
+    } else {
+        host.atom_density * ppm * 1.0e-6 * reading.b11_fraction()
+    }
 }
 
 /// The seven-material table for an HTR-10 fuel pebble, in the order
@@ -290,21 +563,29 @@ pub fn fuel_pebble_materials(
     let n_uo2 = atom_density(RHO_UO2, m_uo2);
 
     // Table 2 quotes the kernel's boron "of uranium", so it rides on the URANIUM
-    // mass density inside the kernel, not the UO2 density.
-    let rho_u = RHO_UO2 * m_u / m_uo2;
-    let n_b10_kernel = b10_atom_density(rho_u, boron.kernel_ppm(), boron);
-    let gr_b10 = |rho: f64| b10_atom_density(rho, boron.graphite_ppm(), boron);
-    let n_b11_kernel = b11_atom_density(rho_u, boron.kernel_ppm(), boron);
-    let gr_b11 = |rho: f64| b11_atom_density(rho, boron.graphite_ppm(), boron);
+    // inside the kernel (its mass density for a weight reading, its atom
+    // density, one per UO2 molecule, for an atom reading), not on the UO2.
+    let uranium = BoronHost {
+        mass_density: RHO_UO2 * m_u / m_uo2,
+        atom_density: n_uo2,
+    };
+    let carbon = |rho: f64| BoronHost {
+        mass_density: rho,
+        atom_density: atom_density(rho, M_C),
+    };
+    let n_b10_kernel = b10_atom_density(uranium, boron.kernel_ppm(), boron);
+    let gr_b10 = |rho: f64| b10_atom_density(carbon(rho), boron.graphite_ppm(), boron);
+    let n_b11_kernel = b11_atom_density(uranium, boron.kernel_ppm(), boron);
+    let gr_b11 = |rho: f64| b11_atom_density(carbon(rho), boron.graphite_ppm(), boron);
 
-    let mat = |id: i32, name: &str, comps: &[(usize, f64)]| Material {
+    let mat = |id: i32, name: &str, comps: Vec<(usize, f64)>| Material {
         id,
         name: name.into(),
         temperature: temperature_k,
         components: comps
-            .iter()
-            .filter(|&&(_, density)| density > 0.0)
-            .map(|&(nuclide_idx, atom_density)| NuclideComponent {
+            .into_iter()
+            .filter(|&(_, density)| density > 0.0)
+            .map(|(nuclide_idx, atom_density)| NuclideComponent {
                 nuclide_idx,
                 atom_density,
             })
@@ -312,23 +593,18 @@ pub fn fuel_pebble_materials(
     };
 
     let n_sic = atom_density(RHO_SIC, M_SI + M_C);
+    // Natural carbon, split C-12 / C-13 on the VIII.0 layout (gh:#425).
     let graphite = |id, name, rho: f64| {
-        mat(
-            id,
-            name,
-            &[
-                (n.c_graphite, atom_density(rho, M_C)),
-                (n.b10, gr_b10(rho)),
-                (n.b11, gr_b11(rho)),
-            ],
-        )
+        let mut c = n.c_graphite.split(atom_density(rho, M_C));
+        c.extend([(n.b10, gr_b10(rho)), (n.b11, gr_b11(rho))]);
+        mat(id, name, c)
     };
 
     vec![
         mat(
             0,
             "UO2 kernel",
-            &[
+            vec![
                 (n.u235, x5 * n_uo2),
                 (n.u238, (1.0 - x5) * n_uo2),
                 (n.o16, 2.0 * n_uo2),
@@ -344,12 +620,14 @@ pub fn fuel_pebble_materials(
         mat(
             3,
             "SiC",
-            &[
+            [
                 (n.si28, SI28_ATOM_FRACTION * n_sic),
                 (n.si29, SI29_ATOM_FRACTION * n_sic),
                 (n.si30, SI30_ATOM_FRACTION * n_sic),
-                (n.c_sic, n_sic),
-            ],
+            ]
+            .into_iter()
+            .chain(n.c_sic.split(n_sic))
+            .collect(),
         ),
         graphite(4, "OPyC", RHO_PYC),
         graphite(5, "matrix graphite", RHO_GRAPHITE),

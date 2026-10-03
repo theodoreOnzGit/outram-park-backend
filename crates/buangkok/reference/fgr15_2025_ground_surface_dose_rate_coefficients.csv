@@ -3,6 +3,11 @@
 # surface", units Sv Bq^-1 s^-1 m^2. Parent only: FGR-15 coefficients exclude
 # progeny (Section 5.1). NOT the withdrawn 2019 edition.
 # Provenance, licence basis and reading method: crates/buangkok/docs/References.md.
+# Rows after Ba-137m (added 2026-09-29, gh:#379, for the Liu & Cao cross-check's
+# 23 released nuclides): ADULT column only, extracted from the same 2025 table by
+# kovan-cli + a deterministic regex (method: crates/kovan-literature/derived/
+# epa-fgr15-adult-external-coefficients.md). Younger ages blank = NaN = missing,
+# never zero; printed/PDF page not recorded for these rows.
 Nuclide,Newborn,1-yr-old,5-yr-old,10-yr-old,15-yr-old,Adult,printed_page,pdf_page
 Kr-85,1.02E-17,1.00E-17,9.89E-18,9.79E-18,9.64E-18,9.62E-18,37,47
 Ag-110m,2.26E-15,2.09E-15,1.98E-15,1.89E-15,1.75E-15,1.73E-15,41,51
@@ -10,3 +15,21 @@ I-131,3.21E-16,2.97E-16,2.82E-16,2.68E-16,2.46E-16,2.43E-16,44,54
 Xe-133,2.96E-17,2.53E-17,2.27E-17,2.11E-17,1.89E-17,1.85E-17,44,54
 Cs-137,3.08E-18,3.06E-18,3.04E-18,3.03E-18,3.02E-18,3.01E-18,45,55
 Ba-137m,5.07E-16,4.69E-16,4.45E-16,4.24E-16,3.92E-16,3.87E-16,45,55
+Ar-41,,,,,,8.35E-16,,
+Kr-83m,,,,,,2.76E-21,,
+Kr-85m,,,,,,1.07E-16,,
+Kr-87,,,,,,6.03E-16,,
+Kr-88,,,,,,1.17E-15,,
+Xe-131m,,,,,,4.23E-18,,
+Xe-133m,,,,,,1.68E-17,,
+Xe-135m,,,,,,2.77E-16,,
+Xe-135,,,,,,1.73E-16,,
+I-132,,,,,,1.47E-15,,
+I-133,,,,,,4.27E-16,,
+I-134,,,,,,1.69E-15,,
+I-135,,,,,,9.95E-16,,
+Sr-89,,,,,,6.80E-17,,
+Sr-90,,,,,,1.50E-18,,
+Cs-134,,,,,,9.87E-16,,
+H-3,,,,,,8.97E-28,,
+C-14,,,,,,3.06E-21,,
