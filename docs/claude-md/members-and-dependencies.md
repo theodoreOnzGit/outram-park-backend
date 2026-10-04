@@ -59,7 +59,7 @@ applies: only to crates declared mature".
 | `raffles` | **RAFFLES** — UQ / risk analysis ported from RAVEN. **Owned by Adolphus Lye.** Apache-2.0 → GPL-3.0 is **one-way**. Implemented in part, no human V&V. Since 2026-10-02 also `outram-mc-libs`' generic statistics (`estimators`, `distributions::seeded`; maintainer direction, owner review outstanding) | |
 | `outram-park-mpi` | Pure-Rust **MPICH** subset over a shared-memory threads-as-ranks transport. No C/FFI, Android-buildable. Scaffold | |
 | `outram-blender` | **Geometry description + meshing** (2026-10-02, #486): the CSG description and its pure navigation kernel (`csg`, an OpenMC port moved from `outram-mc-libs`), the geometry plotter (`csg::plot`), the tally-mesh description (`spatial_mesh`), plus the mesh-authoring frontend (GPL fork of Blender's mesh architecture) and the OpenFOAM export bridges. ~~+ the MC export bridge~~ (moved to `nee_soon`). **Meshing nexus since 2026-10-03 (#492):** `unstructured::UnstructuredMesh`, the one mesh FV, FE and MC tallies are built from, with feature-gated converters to `outram-foam-basic-lib` / `farrer-park` and orchestration of blockMesh, snappy, cfMesh and farrer-park's generators | |
-| `dhoby-ghaut` | **DHOBY GHAUT** — intended GUI home for the meshing and MC studios. **Placeholder**; holds the `mc_studio` / `mesh_studio` examples | |
+| `dhoby-ghaut` | **DHOBY GHAUT** — intended GUI home for the meshing and MC studios. **Placeholder**; holds the `mc_studio` / `mesh_studio` examples ~~only~~ **UPDATED 2026-10-03**: and `triso_pebble_web`, a one-neutron-at-a-time track demo on real ENDF/B-VIII.0 data that also builds for the browser | |
 | `outram-park-digital-twin-engine` | Offline digital-twin engine + egui GUI example simulators (offline demonstrations only) | |
 | `kovan-common` | KOVAN shared canonical types (`KovanDocument`, `KovanSymbol`, …) | |
 | `kovan-discovery` | KOVAN file discovery + text search (`ignore` walker, `grep-*` engine) | |
@@ -140,7 +140,7 @@ outram-park-fork-cfmesh, raffles}`, the last three optional (features
 never depend on `outram-blender` (it exports into them). **`outram-blender` must never depend
 on `outram-mc-libs`, not even optionally** (Cargo counts optional deps for
 cycles); `mc-export` is retired. `nee_soon → outram-blender` and
-`dhoby-ghaut (dev) → {outram-blender, nee_soon}` carry the MC bridge instead.
+`dhoby-ghaut (dev) → {outram-blender, nee_soon}` carry the MC bridge instead (and, **since 2026-10-03**, `dhoby-ghaut (dev) → {outram-mc-libs, njoy-outram-park-fork}` for the `triso_pebble_web` demo, which drives `outram-mc-libs` directly rather than through `nee_soon::sim`).
 `outram-foam-basic-lib` has no internal deps besides `petir`, and
 `njoy-outram-park-fork` is kept lean so data consumers stay light:
 ~~`thiserror`, `uom`; no BLAS~~ **CORRECTED 2026-10-02** — its direct

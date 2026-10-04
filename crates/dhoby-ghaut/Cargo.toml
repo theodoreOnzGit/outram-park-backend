@@ -4,7 +4,7 @@ version = "0.0.1"
 authors.workspace = true
 edition.workspace = true
 license.workspace = true
-description = "Digital High-fidelity Orchestration by GUI for a Human-friendly Automated Unified Toolkit — DHOBY GHAUT, the GUI home for OUTRAM PARK's meshing and Monte Carlo studios. The library is a placeholder; the MC Studio and Mesh Studio GUIs live here as examples."
+description = "Digital High-fidelity Orchestration by GUI for a Human-friendly Automated Unified Toolkit — DHOBY GHAUT, the GUI home for OUTRAM PARK's meshing and Monte Carlo studios. The library is a placeholder; the MC Studio and Mesh Studio GUIs, and a browser-capable TRISO pebble neutron-track demo, live here as examples."
 homepage.workspace = true
 repository.workspace = true
 categories.workspace = true
@@ -26,6 +26,18 @@ categories.workspace = true
 [target.'cfg(not(target_os = "android"))'.dev-dependencies]
 eframe = { workspace = true }
 egui = { workspace = true }
+# The TRISO pebble demo, which ALSO builds for wasm32: continuous-energy
+# transport, the in-repo NJOY port that processes the real ENDF tapes it runs
+# on, and zlib for the covariance-stripped tapes the browser downloads.
+outram-mc-libs = { workspace = true }
+njoy-outram-park-fork = { workspace = true }
+miniz_oxide = { workspace = true }
+log = { workspace = true }
+
+# Native only: the two studios' stacks. Gated off wasm32 because dev-deps
+# resolve for EVERY example in the package, and outram-blender's `gpu` feature
+# and nee_soon have no business in the browser build of the pebble demo.
+[target.'cfg(all(not(target_os = "android"), not(target_arch = "wasm32")))'.dev-dependencies]
 egui_plot = { workspace = true }
 env_logger = { workspace = true }
 # Authoring frontend (math/mesh/primitives) plus its volume-meshing bridge.
@@ -57,3 +69,26 @@ path = "examples/mc_studio/main.rs"
 [[example]]
 name = "mesh_studio"
 path = "examples/mesh_studio/main.rs"
+
+# Browser-side extras for the TRISO pebble demo. `glow` (WebGL2) is added
+# because WebGPU is still not universal; the app selects it at start-up.
+[target.'cfg(target_arch = "wasm32")'.dev-dependencies]
+eframe = { workspace = true, features = ["glow"] }
+wasm-bindgen = { workspace = true }
+wasm-bindgen-futures = { workspace = true }
+js-sys = { workspace = true }
+web-sys = { workspace = true, features = [
+    "Window", "Document", "Element", "HtmlCanvasElement", "Response", "Location",
+] }
+
+# TRISO pebble -- a 2D analogue of an HTR-10 fuel pebble in a reflective cell,
+# transporting ONE neutron at a time on real ENDF/B-VIII.0 data and drawing its
+# track. Runs natively and, single-threaded, in the browser (web/triso_pebble/).
+#
+#   cargo run -p dhoby-ghaut --example triso_pebble_web --release
+#   cargo run -p dhoby-ghaut --example triso_pebble_web --release -- --headless
+#
+# Carries an Android stub `main`, as mc_studio does.
+[[example]]
+name = "triso_pebble_web"
+path = "examples/triso_pebble_web/main.rs"

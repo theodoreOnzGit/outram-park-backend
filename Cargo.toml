@@ -372,6 +372,14 @@ eframe = { version = "0.36.1", default-features = false, features = [
 ] }
 egui_plot = "0.37.0"  # 0.37 pairs with egui 0.36 (rust-version 1.95 matches)
 egui_extras = { version = "0.36.1", features = ["all_loaders"] }
+# Browser builds of the dhoby-ghaut web demos (wasm32-only dev-dependencies).
+# These are exactly the versions eframe 0.36.1 already resolves to in
+# Cargo.lock, so declaring them moves nothing. The `wasm-bindgen` CLI that
+# post-processes the .wasm must match the `wasm-bindgen` crate EXACTLY.
+wasm-bindgen = "0.2.127"
+wasm-bindgen-futures = "0.4.77"
+web-sys = "0.3.104"
+js-sys = "0.3.104"
 # In-app file/directory picker widget (pure egui, no GTK/native-dialog
 # backend). 0.15.0 is the first version pinned to egui 0.36.
 egui-file-dialog = "0.15.0"
