@@ -52,16 +52,16 @@ for ax, tag, title in ((axes[0], "case1", "case-1 water, 1511 ppm soluble boron"
                 label="outram-mc, ENDF/B-VIII.0 direct (11 nuclides)")
     if tag == "case1":
         x, y, s = series("pitch_sweep_full36_case1.csv", "k_inf", "k_std")
-        ax.errorbar(x, y, yerr=s, color=BLUE, marker="^", ms=7, lw=0, elinewidth=1,
+        ax.errorbar(x, y, yerr=s, color=BLUE, marker="^", ms=11, lw=0, elinewidth=1, mew=1.5,
                     capsize=2, mfc="none", label="outram-mc, all 36 nuclides")
     ax.axvline(VM_VF_LCT008, color="#52514e", lw=1, ls="--")
-    ax.text(VM_VF_LCT008 + 0.15, 0.45, "LCT-008 pitch\n(1.63576 cm)", color="#52514e",
+    ax.text(VM_VF_LCT008 + 0.15, 1.27 if tag == "case1" else 0.5, "LCT-008 pitch\n(1.63576 cm)", color="#52514e",
             fontsize=9)
     ax.set_title(title, fontsize=10)
     ax.set_xlabel("moderator-to-fuel volume ratio  V_mod / V_fuel")
     ax.grid(alpha=0.25, lw=0.5)
 axes[0].set_ylabel("k-infinity (reflective pin cell)")
-axes[0].legend(fontsize=8, loc="lower left")
+axes[0].legend(fontsize=8, loc="upper right")
 fig.suptitle("LCT-008 pin in an infinite square lattice, 293.6 K, H in H2O S(a,b): "
              "k-infinity against moderator ratio (verification, not validation)", fontsize=10)
 fig.tight_layout()

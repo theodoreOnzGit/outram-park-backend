@@ -49,6 +49,26 @@
 //! This is **verification** (code-to-code); there is no measured reference for
 //! an infinite lattice of this pin at other pitches.
 //!
+//! **Results (2026-10-04, seed 1, 5000 × [50 + 200], 11-nuclide tier, cores
+//! 8–9 of a shared i9-13900K, 2 threads):**
+//!
+//! - **Borated case-1 water.** k∞ peaks between 1.35 and 1.45 cm pitch
+//!   (V_m/V_f ≈ 0.8–1.15): 1.11886 ± 0.00125 at 1.45 cm.
+//! - **LCT-008's own pitch.** At 1.63576 cm (V_m/V_f = 1.84) k∞ is
+//!   **1.06403 ± 0.00117**, so in that water the lattice is
+//!   **over-moderated**, about 5500 pcm below the peak.
+//! - **With the soluble boron removed** the peak moves to ≈ 1.75 cm (OpenMC).
+//!   LCT-008's pitch is then slightly under-moderated (1.34838 ± 0.00112).
+//! - **OpenMC (NJOY2016 ACE, same tier).** The 11 borated points differ by
+//!   −409 to +342 pcm with no trend: mean −53 pcm, χ² = 21.9 for 11 points.
+//!   Three points sit at 2.0–2.4σ of the single-run σ. This is mild
+//!   tension, not a clean pass, and is unresolved without a seed ensemble.
+//!   The 4 unborated points agree within 1σ.
+//! - **Predictions 3 and 4** (borated peak at V_m/V_f ≈ 2–3, LCT-008
+//!   under-moderated) were **refuted**.
+//!
+//! Full tables, timings and the 36-nuclide points are in `pitch_sweep.md`.
+//!
 //! # Usage
 //!
 //! ```text

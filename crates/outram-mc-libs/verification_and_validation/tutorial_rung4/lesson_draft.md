@@ -119,7 +119,7 @@ one elastic collision; the code only samples the kinematics.
 **Measured check.** None for hydrogen yet. The rung-2 graphite check
 (`examples/graphite_energy_decrement.rs`) measures ⟨ln E/E′⟩ from the
 sampler and compares it with the analytic ξ; the same check for H-1 above
-the S(α,β) cutoff is owed (filed as a follow-up on #526's list).
+the S(α,β) cutoff is owed (GitHub #532).
 
 **Predict.** *If hydrogen slows neutrons this well, should a reactor just use
 as much water as possible?* (Step 5 answers it.)
@@ -266,18 +266,46 @@ moderator-to-fuel volume ratio
 
 as the knob. For LCT-008, V_m/V_f = 1.841 (p/d = 1.356).
 
-**Predict (the reader's, and ours).** Before running, the expected outcome
-was written down in
+**Predict (the reader's, and ours).** Our expected outcome was written down
+before running, in
 [`pitch_sweep.md`](pitch_sweep.md) ("Prediction", 2026-10-04 22:10 +08:00):
-k∞ rises, peaks, falls; `p` rises and `f` falls monotonically; with the
-case-1 borated water the peak at V_m/V_f ≈ 2–3; LCT-008 slightly
-under-moderated, within ~1000 pcm of the peak.
+
+- k∞ rises, peaks, then falls;
+- `p` rises and `f` falls monotonically;
+- with the case-1 borated water, the peak sits at V_m/V_f ≈ 2–3;
+- LCT-008 is slightly under-moderated, within ~1000 pcm of the peak.
+
+*Reader: before you look, where would you put the peak, and on which side
+is LCT-008?*
+
+**And then:** what does the dissolved boron do to that answer?
 
 **The calculation.** `examples/lct008_pitch_sweep.rs`: one LCT-008 rod in a
 reflective square cell (an infinite lattice), k∞ and the six factors at 11
 pitches, ENDF/B-VIII.0 at 293.6 K, H₂O S(α,β), URR and DBRC on.
 
-**Result.** [RESULT: filled from `pitch_sweep.md` once the runs finish.]
+**Result** (`pitch_sweep.md`, 2026-10-04, seed 1, 5000 × [50 + 200],
+11-nuclide tier, figure `figures/kinf_vs_moderator_ratio.png`):
+
+| water | where k∞ peaks | k∞ at LCT-008's pitch | LCT-008 is |
+|---|---|---|---|
+| case 1, 1511 ppm boron | 1.35–1.45 cm (V_m/V_f ≈ 0.8–1.15), k∞ ≈ 1.119 | 1.06403 ± 0.00117 | **over-moderated**, ~5500 pcm below the peak |
+| boron removed (ablation) | ≈ 1.75 cm (V_m/V_f ≈ 2.3), k∞ ≈ 1.351 (OpenMC) | 1.34838 ± 0.00112 | slightly under-moderated, within ~400 pcm |
+
+- **Our prediction was wrong where it mattered.** We put the borated peak
+  at V_m/V_f ≈ 2–3, with LCT-008 just under-moderated. Both codes put the
+  peak near V_m/V_f ≈ 1, with LCT-008 well over it.
+- **What the prediction got right was the clean-water picture.** We had
+  underestimated what 1511 ppm of boron does to water.
+- **p and f behave as the formula says**: p rises from 0.466 to 0.933 and f
+  falls from 0.878 to 0.234. ε also falls, from 1.47 to 1.10. That is more
+  than we predicted: at tight pitch, fast neutrons reach the next rod before
+  the water.
+- **OpenMC on the same model agrees without trend.** Mean difference −53 pcm;
+  three of 11 points sit at 2.0–2.4σ of the single-run σ. That is mild
+  tension, shown as it is (verification, not validation).
+
+*Caution: this is k∞ of an infinite pin lattice, not the finite core.*
 
 **Animation (phase 2).** A pitch slider on a pin cell; the curve k∞(V_m/V_f)
 with the reader's point, and the f and p bars moving in opposite directions.
@@ -407,6 +435,7 @@ expensive enough that **delta tracking** is worth teaching.
 | 11-nuclide tier in the quoted result | the OpenMC NJOY2016 library was built for it, so both codes run the same model | not measured on the lattice |
 | k = 1 reference with no uncertainty | handbook is licence-restricted | readers cannot judge σ from experiment |
 | pin cell for the pitch sweep is an infinite lattice | isolates moderation from leakage | k∞ ≠ k_eff; the real core leaks |
+| pitch sweep on the 11-nuclide tier | the OpenMC library carries only those; the 36-nuclide default was run at 3 pitches, differences ±250 pcm, unresolved | worth of the dropped nuclides not measured (#533) |
 | pitch sweep keeps case-1 water (1511 ppm boron) | the actual critical configuration | the unborated optimum differs; `--no-soluble-boron` measures it |
 | 293.6 K for the sweep, not 296 K | the LCT-008 model's own `TEMP_K`, the tabulated temperature of `H(H2O)` | none intended; no thermal interpolation needed |
 
