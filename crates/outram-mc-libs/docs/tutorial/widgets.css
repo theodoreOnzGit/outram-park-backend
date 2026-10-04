@@ -18,3 +18,4 @@
 /* Wide tables and code scroll inside their own box. */
 .content table { display: block; overflow-x: auto; }
 .content pre { overflow-x: auto; }
+.MathJax_Display, .MathJax_SVG_Display { overflow-x: auto; overflow-y: hidden; }

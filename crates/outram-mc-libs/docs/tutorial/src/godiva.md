@@ -139,9 +139,14 @@ For a sphere of radius $R$ centred at the origin, a neutron at $\vec{r}$
 flying along $\vec{u}$ reaches the surface where $|\vec{r} + d\vec{u}| = R$,
 a quadratic in $d$:
 
-$$d^2 + 2 k d + c = 0, \quad k = \vec{r} \cdot \vec{u}, \quad c = |\vec{r}|^2 - R^2$$
+$$d^2 + 2 k d + c = 0$$
 
-$$d_\text{bound} = -k + \sqrt{k^2 - c} \quad (\text{inside the sphere, } c < 0)$$
+$$k = \vec{r} \cdot \vec{u}, \quad c = |\vec{r}|^2 - R^2$$
+
+Inside the sphere $c < 0$, so one root is positive, and that is the distance
+to the surface:
+
+$$d_\text{bound} = -k + \sqrt{k^2 - c}$$
 
 <div class="mcw" data-mc-widget="surface" data-radius="8.7407" data-sigma="0.332"></div>
 
@@ -258,7 +263,9 @@ finishes the neutron it is following. When every neutron of a generation has
 been followed, the bank becomes the next generation. The multiplication
 factor is the ratio of the two generations:
 
-$$k = \frac{\text{neutrons born in generation } n+1}{\text{neutrons in generation } n}$$
+$$k = \frac{N_{n+1}}{N_n}$$
+
+where $N_n$ is the number of neutrons in generation $n$ and $N_{n+1}$ the number its fissions produce.
 
 In the code, each generation starts with exactly $N$ neutrons, and $k$ is the
 total $\bar\nu$ of its fissions divided by $N$.
@@ -391,9 +398,10 @@ section "Results — after the OpenMC-parity audit" (2026-09-30, commit
 reading ENDF/B-VIII.0 directly**, 32 independent seeds × 5000 neutrons ×
 [40 + 120] generations:
 
-$$k_\text{eff} = 0.99948 \pm 0.00027 \quad (-52 \pm 27 \text{ pcm})$$
+$$k_\text{eff} = 0.99948 \pm 0.00027$$
 
-against the experiment, **1.0000 ± 0.0010** (HEU-MET-FAST-001). One pcm is
+that is, **−52 ± 27 pcm** from 1, against the experiment's
+**1.0000 ± 0.0010** (HEU-MET-FAST-001). One pcm is
 $10^{-5}$ in $k$.
 
 - **What the ± means.** Each seed is a complete, independent run. The 32
@@ -413,7 +421,9 @@ $10^{-5}$ in $k$.
   spread of its 120 generations) to be of that size too. A run done natively
   for this page (seed 1, 2026-10-04, i9-13900K, one thread) gave
   **0.99942 ± 0.00183** (−58 ± 183 pcm); its transport took 2.9 s and the
-  data processing 62 s.
+  data processing 62 s. The demo, at its defaults in headless Chromium at
+  phone width, printed **the same k and the same counts**, digit for digit:
+  seed 1 is seed 1, in a browser or not.
 
 <div class="history">
 
