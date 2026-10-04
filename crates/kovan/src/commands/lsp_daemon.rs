@@ -339,7 +339,11 @@ mod unix_impl {
             Request::Definitions { file, positions } => {
                 let mut all = Vec::with_capacity(positions.len());
                 for [line, character] in positions {
-                    match session.definition(&file, line, character) {
+                    match semq::retry_content_modified(|| {
+                        session
+                            .definition(&file, line, character)
+                            .map_err(|e| e.to_string())
+                    }) {
                         Ok(locations) => all.push(
                             locations
                                 .iter()
@@ -350,7 +354,7 @@ mod unix_impl {
                                 })
                                 .collect(),
                         ),
-                        Err(e) => return Response::error(e.to_string()),
+                        Err(e) => return Response::error(e),
                     }
                 }
                 Response {

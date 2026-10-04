@@ -96,6 +96,8 @@ kovan-cli lit outline paper.pdf
 kovan-cli setup --dry-run
 kovan-cli digitise --image fig7.png --x-scale log --x-range 1,1e6 \
     --y-scale log --y-range 0.1,10 --figure "Fig. 7" --json fig7.json
+kovan-cli code-walk --from crates/x/examples/demo.rs::main --to crates/x/src/geom.rs::Sphere::distance
+kovan-cli code-walk-check crates/x/docs/lessons --update
 ```
 
 Every command's own `--help` documents its flags; the summary below is the
@@ -210,6 +212,64 @@ subcommand calls it, it is never run automatically, and it does not affect
 the rest of this crate's offline/Android-clean core operation (below). On
 Android it detects PATH presence normally but no-ops the actual install
 (there is no meaningful `cargo install`-a-dev-tool host on-device).
+
+### `code-walk` / `code-walk-check` — call chains for the lessons (`commands::code_walk`)
+
+Rust-analyzer-backed (needs `rust-analyzer` on PATH; uses the same warm
+`lsp-daemon` as `def`/`sig`/`refs`). GitHub issue #523.
+
+```text
+# concept path: the shortest chain(s) of workspace calls between two functions
+kovan-cli code-walk --from crates/outram-mc-libs/examples/godiva_keff_endf_local.rs::main \
+    --to crates/outram-mc-libs/src/physics/keff.rs::transport_history
+# exhaustive tree: everything an entry point reaches within --depth hops
+kovan-cli code-walk --from crates/outram-mc-libs/src/physics/keff.rs::transport_history --depth 2
+# formats: --format markdown (default) | mermaid | both | json
+# a hop filled in by hand (repeatable):
+kovan-cli code-walk --from A.rs::f --to B.rs::g --hand "A.rs::f -> B.rs::Impl::m | trait dispatch, read by hand"
+# lessons: regenerate every <!-- code-walk: ... --> block, fail if stale
+kovan-cli code-walk-check crates/outram-mc-libs/docs/lessons [--update]
+```
+
+- A function is `path/to/file.rs::name`, or `path/to/file.rs::Type::name`
+  when the bare name is ambiguous in that file. Only workspace code is
+  walked; calls into std and dependencies are filtered out (counted in the
+  JSON as `external_calls`).
+- Each hop: a permalink (`.../blob/@@COMMIT@@/<file>#L<n>`, filled in by
+  `scripts/build-pages.sh`), the signature, the first doc sentence, and the
+  line it is called from. In tree mode each function is expanded once; later
+  calls to it are back-references.
+- **Gaps are explicit.** A call the tool cannot follow is printed as
+  `UNRESOLVED(<kind>)` (JSON: `gaps[].kind`): `trait` (resolves to a trait
+  method declaration), `closure` (a closure, fn-typed binding or
+  `(expr)(..)` call), `macro` (a workspace macro), `no-definition`
+  (rust-analyzer found nothing), `other`. Calls *inside* closures, including
+  `rayon` closures, are followed; a function passed by name (`.map(f)`) is
+  resolved as a function value.
+- **Lesson blocks** keep the walk's parameters and the hand-filled hops in the
+  opening comment, which the tool never rewrites; only the text between it and
+  `<!-- /code-walk -->` is regenerated:
+
+  ```text
+  <!-- code-walk: from=crates/x/examples/demo.rs::main to=crates/x/src/geom.rs::Sphere::distance
+  hand: crates/x/src/keff.rs::step -> crates/x/src/geom.rs::Sphere::distance | Godiva is a Sphere
+  -->
+  <!-- /code-walk -->
+  ```
+
+  Keys: `from=` (required), `to=` (omit for the tree), `depth=`,
+  `format=markdown|mermaid|both`, `max-paths=`. `code-walk-check` fails when
+  a block's regenerated output differs (a hop moved, appeared or vanished), a
+  path no longer connects, or a hand-filled hop names a function that is
+  gone; it notes a hand hop the tool now resolves itself. `--update` writes
+  the regenerated blocks instead of failing on a difference.
+  `scripts/build-pages.sh` runs the check when a deep dive has a block.
+- Ported from `kopitiam callees` (the maintainer's kopitiam, commit
+  `dfdf1c4`): breadth-first instead of depth-first, callee bodies found from
+  source text instead of `documentSymbol` (whose flat shape here broke
+  kopitiam's recursion past hop 1), comments/literals/attributes blanked
+  before scanning, every call site resolved. `callers` and `impls` are not
+  implemented.
 
 ### Determinism & offline guarantees
 
@@ -486,6 +546,12 @@ cargo test --release -p kovan
   proprietary PDF ever ships as a fixture) and assert on stdout/stderr/exit
   code. Targets `kovan-cli` specifically — `kovan` is the GUI binary and
   needs a display, so it cannot run headlessly here.
+- `tests/code_walk_rust_analyzer.rs` — `code-walk` and `code-walk-check`
+  end to end against a real rust-analyzer on a throwaway crate (shortest
+  chain, method resolution, trait and closure gaps, a lesson block with a
+  hand-filled hop, failure when that hop's target is renamed). Skips, and
+  says so, when `rust-analyzer` is not on PATH. The graph searches themselves
+  are unit-tested on synthetic graphs in `src/commands/code_walk/graph.rs`.
 - `src/tui/**` unit tests — state-update ("reducer") tests that construct a
   tab's state struct and call its `handle_key(key, ..)` directly, plus
   `ratatui::backend::TestBackend` render tests, plus fixture-backed tests

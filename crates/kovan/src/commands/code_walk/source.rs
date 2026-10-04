@@ -199,25 +199,57 @@ impl FileIndex {
         };
         let locals = local_names(&self.code, decl.line, end);
         let mut out = Vec::new();
+        let mut in_use = false;
         for ln in start..=end {
             let Some(line) = self.code.get(ln as usize) else {
                 continue;
             };
-            if ln == start {
-                // Only what follows the body's `{`: the signature on the
-                // same line (`fn f(g: impl Fn(u32))`) holds no calls.
-                let tail: String = line
-                    .chars()
-                    .enumerate()
-                    .map(|(i, c)| if (i as u32) < decl.body_col { ' ' } else { c })
-                    .collect();
-                out.extend(call_candidates(&tail, ln, &locals));
-            } else {
-                out.extend(call_candidates(line, ln, &locals));
-            }
+            // Only what follows the body's `{` on its first line: the
+            // signature (`fn f(g: impl Fn(u32))`) holds no calls.
+            let skip = if ln == start { decl.body_col as usize + 1 } else { 0 };
+            let line = blank_use_statements(line, skip, &mut in_use);
+            out.extend(call_candidates(&line, ln, &locals));
         }
         out
     }
+}
+
+/// Blanks the first `skip` chars of `line` and any `use ...;` statement on
+/// it (`in_use` carries a statement split over several lines): the names in
+/// `use a::{b, c};` sit in argument-like position but are imports, not
+/// function values.
+fn blank_use_statements(line: &str, skip: usize, in_use: &mut bool) -> String {
+    let chars: Vec<char> = line.chars().collect();
+    let mut out: Vec<char> = Vec::with_capacity(chars.len());
+    let mut i = 0;
+    while i < chars.len() {
+        if i < skip {
+            out.push(' ');
+            i += 1;
+            continue;
+        }
+        if !*in_use {
+            let at_stmt_start = chars[..i]
+                .iter()
+                .rev()
+                .find(|c| **c != ' ')
+                .is_none_or(|c| matches!(c, '{' | '}' | ';'));
+            let is_use = chars[i..].starts_with(&['u', 's', 'e', ' ']);
+            if at_stmt_start && is_use {
+                *in_use = true;
+            }
+        }
+        if *in_use {
+            if chars[i] == ';' {
+                *in_use = false;
+            }
+            out.push(' ');
+        } else {
+            out.push(chars[i]);
+        }
+        i += 1;
+    }
+    out.into_iter().collect()
 }
 
 /// True for a macro name the walk need not ask about.
@@ -646,11 +678,35 @@ fn first_doc_line(lines: &[String], line: u32) -> String {
         .skip_while(|l| l.is_empty())
         .take_while(|l| !l.is_empty() && !l.starts_with("```") && !l.starts_with('#'))
         .collect();
-    let joined = para.join(" ");
+    let joined = strip_intra_doc_links(&para.join(" "));
     match joined.find(". ") {
         Some(i) => joined[..=i].to_string(),
         None => joined,
     }
+}
+
+/// `` [`Name`] `` (a rustdoc intra-doc link, which Markdown outside rustdoc
+/// shows with its brackets) becomes `` `Name` ``; a real link `[x](url)` is
+/// left alone.
+fn strip_intra_doc_links(s: &str) -> String {
+    let mut out = String::with_capacity(s.len());
+    let mut rest = s;
+    while let Some(i) = rest.find("[`") {
+        let after = &rest[i + 1..];
+        match after.find("`]") {
+            Some(j) if !after[j + 2..].starts_with(['(', '[']) => {
+                out.push_str(&rest[..i]);
+                out.push_str(&after[..j + 1]);
+                rest = &after[j + 2..];
+            }
+            _ => {
+                out.push_str(&rest[..i + 2]);
+                rest = &rest[i + 2..];
+            }
+        }
+    }
+    out.push_str(rest);
+    out
 }
 
 /// Names bound locally in `[from, to]` (`let x`, `let mut x`, closure
@@ -828,6 +884,8 @@ use std::fmt;
 pub fn transport_history(seed: &mut u64) -> f64 {
     let s = "not_a_call(";
     let c = '{';
+    use crate::x::{alpha,
+        beta};
     let x = helper(seed); // also_not(a call)
     let v = data.iter().map(scale).collect::<Vec<_>>();
     my_macro!(x);
@@ -877,7 +935,7 @@ pub trait Geometry {
         );
         let th = &idx.fns[0];
         assert_eq!(th.line, 7);
-        assert_eq!(th.body, Some((7, 15)));
+        assert_eq!(th.body, Some((7, 17)));
         assert_eq!(th.signature, "pub fn transport_history(seed: &mut u64) -> f64");
         assert_eq!(th.doc, "Advance one history.");
         let wrapped: Vec<String> = ["/// One sentence", "/// wrapped. Second.", "fn f() {}"]
@@ -885,13 +943,17 @@ pub trait Geometry {
             .map(|s| s.to_string())
             .collect();
         assert_eq!(first_doc_line(&wrapped, 2), "One sentence wrapped.");
+        assert_eq!(
+            strip_intra_doc_links("the form of [`two_body_scatter`] and [`x`](u) [`y`][z]"),
+            "the form of `two_body_scatter` and [`x`](u) [`y`][z]"
+        );
         let d = &idx.fns[1];
         assert_eq!(
             d.signature,
             "pub(crate) fn distance(&self, r: f64) -> f64 where T: Copy,"
         );
         assert_eq!(d.doc, "Distance to the surface.");
-        assert_eq!(d.body.map(|b| b.1), Some(27));
+        assert_eq!(d.body.map(|b| b.1), Some(29));
         assert!(matches!(
             idx.fns[2].container,
             Container::Impl { ref trait_name, .. } if trait_name.as_deref() == Some("Geometry")

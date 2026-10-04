@@ -83,6 +83,31 @@ pub(super) fn connect(root: &Path) -> Result<RustAnalyzerSession, String> {
     })
 }
 
+/// Runs an LSP request, retrying while rust-analyzer answers
+/// `ContentModified` (LSP error -32801). It sends that when its state
+/// changed under the request — routinely in the seconds after it reports
+/// ready, while it is still loading crates — and the protocol's answer is to
+/// ask again. Backs off from 100 ms to 2 s, giving up after about a minute.
+pub(super) fn retry_content_modified<T>(
+    mut f: impl FnMut() -> Result<T, String>,
+) -> Result<T, String> {
+    let mut wait = Duration::from_millis(100);
+    let mut waited = Duration::ZERO;
+    loop {
+        match f() {
+            Err(e)
+                if (e.contains("-32801") || e.contains("content modified"))
+                    && waited < Duration::from_secs(60) =>
+            {
+                std::thread::sleep(wait);
+                waited += wait;
+                wait = (wait * 2).min(Duration::from_secs(2));
+            }
+            other => return other,
+        }
+    }
+}
+
 /// The identifier position of a resolved symbol (0-based, matching every
 /// `kopitiam_semantic` query).
 #[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]

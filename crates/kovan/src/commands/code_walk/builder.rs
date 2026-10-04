@@ -80,14 +80,14 @@ impl Resolver {
             Resolver::Session(session) => positions
                 .iter()
                 .map(|[l, c]| {
-                    session
-                        .definition(file, *l, *c)
-                        .map(|locs| {
-                            locs.iter()
-                                .map(|x| (x.path.clone(), x.range.start.line, x.range.start.character))
-                                .collect()
-                        })
-                        .map_err(|e| e.to_string())
+                    semq::retry_content_modified(|| {
+                        session.definition(file, *l, *c).map_err(|e| e.to_string())
+                    })
+                    .map(|locs| {
+                        locs.iter()
+                            .map(|x| (x.path.clone(), x.range.start.line, x.range.start.character))
+                            .collect()
+                    })
                 })
                 .collect(),
         }

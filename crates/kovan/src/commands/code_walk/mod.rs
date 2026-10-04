@@ -25,8 +25,8 @@
 //!
 //! Markdown (a nested list for mdBook `{{#include}}`), Mermaid, or JSON. Each
 //! hop carries a permalink with the `@@COMMIT@@` placeholder the Pages build
-//! fills in, its signature, its first doc line and the line it is called
-//! from. A call the tool cannot follow — a trait method, a closure or fn
+//! fills in, its signature, the first sentence of its doc comment and the
+//! line it is called from. A call the tool cannot follow — a trait method, a closure or fn
 //! pointer, a workspace macro, a token rust-analyzer cannot resolve — is
 //! marked `UNRESOLVED(<kind>)`, never guessed and never dropped. Calls inside
 //! closures (including `rayon` closures) are ordinary calls in the body and

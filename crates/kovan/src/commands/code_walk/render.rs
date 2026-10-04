@@ -96,7 +96,7 @@ pub(crate) fn markdown_lines(h: &Header, g: &CallGraph, lines: &[TreeLine]) -> S
             TreeLine::BackRef { depth, node, via } => {
                 out.push_str(&"  ".repeat(*depth));
                 out.push_str(&format!(
-                    "- `{}` *(shown above)*{}\n",
+                    "- `{}` *(expanded elsewhere in this walk)*{}\n",
                     g.node(*node).label(),
                     via_text(h, g, via)
                 ));
@@ -178,11 +178,16 @@ pub(crate) fn markdown_tree(h: &Header, g: &CallGraph, lines: &[TreeLine], trunc
         .iter()
         .filter(|l| matches!(l, TreeLine::Gap { .. }))
         .count();
+    let s = |n: usize| if n == 1 { "" } else { "s" };
     let mut out = format!(
-        "Everything `{}` reaches in the workspace, to {} hops: {shown} functions, \
-         {gaps} unresolved calls. A function is expanded once; later calls to it \
-         say *(shown above)*.\n\n",
-        h.from, h.depth
+        "Everything `{}` reaches in the workspace, to {} hop{}: {shown} function{}, \
+         {gaps} unresolved call{}. A function is expanded once; later calls to it \
+         say *(expanded elsewhere in this walk)*.\n\n",
+        h.from,
+        h.depth,
+        s(h.depth),
+        s(shown),
+        s(gaps)
     );
     if truncated {
         out.push_str("**Truncated**: the function cap was reached before the depth limit.\n\n");

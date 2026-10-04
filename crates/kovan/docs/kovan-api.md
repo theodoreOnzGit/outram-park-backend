@@ -7885,6 +7885,319 @@ Default location of the smoke list, relative to the workspace root.
 pub const DEFAULT_LIST: &str = "ci/smoke-tests.toml";
 ```
 
+## Module `code_walk`
+
+`kovan-cli code-walk` and `code-walk-check` — call chains from an entry
+point down to the function that implements a concept, and exhaustive call
+trees, for the deep dives and tutorials (GitHub issue #523, part of #509).
+
+This is kovan's long-deferred `callees` (historical `op-l3uz`), built on
+the same rust-analyzer plumbing as `def`/`sig`/`refs` (`super::semq`, the
+warm `super::lsp_daemon`) and ported from kopitiam's `callees`
+(`apps/cli/src/semq.rs` in the maintainer's `kopitiam` repository, commit
+`dfdf1c4`, AGPL-3.0, the same licence as this crate). What changed in the
+port, and why, is in `builder`'s and `source`'s module docs.
+
+# Modes
+
+- **Concept path** — `--from <file>::<fn> --to <file>::<fn>`: the shortest
+  chain(s) of workspace calls between the two, breadth-first, std and
+  dependencies filtered out. `--depth` caps the search (default 12).
+- **Exhaustive tree** — `--from <file>::<fn>` alone: everything reachable
+  within `--depth` hops (default 3), each function expanded once and every
+  later call to it a back-reference.
+
+A function is named `path/to/file.rs::name`, or `...::Type::name` for a
+method when the bare name is ambiguous in that file.
+
+# Output
+
+Markdown (a nested list for mdBook `{{#include}}`), Mermaid, or JSON. Each
+hop carries a permalink with the `@@COMMIT@@` placeholder the Pages build
+fills in, its signature, the first sentence of its doc comment and the
+line it is called from. A call the tool cannot follow — a trait method, a closure or fn
+pointer, a workspace macro, a token rust-analyzer cannot resolve — is
+marked `UNRESOLVED(<kind>)`, never guessed and never dropped. Calls inside
+closures (including `rayon` closures) are ordinary calls in the body and
+are followed; a function passed by name (`.map(f)`) is resolved as a
+function value.
+
+# Filling gaps by hand
+
+The tool generates; a lesson-writing agent fills the gaps. A hop it
+filled goes on a `hand:` line (`--hand` on the command line, or in the
+lesson block's opening comment — see `lesson`); it is added to the graph
+before the search, labelled `filled by hand` in every format, and
+re-verified on every check: if either endpoint stops existing, the check
+fails. A hand hop the tool now resolves itself is reported as redundant.
+
+```rust
+pub mod code_walk { /* ... */ }
+```
+
+### Modules
+
+## Module `render`
+
+Markdown, Mermaid and JSON renderings of a walk.
+
+Every format marks an unresolved call explicitly and in a fixed,
+greppable form — `UNRESOLVED(<kind>)` in Markdown and Mermaid, a
+`"gaps"` array with a `"kind"` per entry in JSON — so a lesson-writing
+agent can find each one and either fill it by hand (a `hand:` line, see
+`super::lesson`) or explain it in prose. Hand-filled hops are labelled
+`filled by hand` in every format. Output is deterministic: no dates, no
+timings, no query counts, so the check mode can compare it byte for byte.
+
+```rust
+pub mod render { /* ... */ }
+```
+
+### Constants and Statics
+
+#### Constant `DEFAULT_REPO_URL`
+
+Default repository the permalinks point into. `@@COMMIT@@` is replaced by
+the Pages build (`scripts/build-pages.sh`) with the commit it built.
+
+```rust
+pub const DEFAULT_REPO_URL: &str = "https://github.com/theodoreOnzGit/outram-park-backend";
+```
+
+### Types
+
+#### Enum `Format`
+
+Output format.
+
+```rust
+pub enum Format {
+    Markdown,
+    Mermaid,
+    Both,
+    Json,
+}
+```
+
+##### Variants
+
+###### `Markdown`
+
+Nested Markdown list.
+
+###### `Mermaid`
+
+A Mermaid flowchart in a fenced block.
+
+###### `Both`
+
+Markdown followed by the Mermaid chart.
+
+###### `Json`
+
+The explored graph, chains and gaps as JSON.
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Format { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Default**
+  - ```rust
+    fn default() -> Format { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+  - ```rust
+    fn into_any(self: Box<T>) -> Box<dyn Any> { /* ... */ }
+    ```
+
+  - ```rust
+    fn into_any_rc(self: Rc<T>) -> Rc<dyn Any> { /* ... */ }
+    ```
+
+  - ```rust
+    fn as_any(self: &Self) -> &dyn Any + ''static { /* ... */ }
+    ```
+
+  - ```rust
+    fn as_any_mut(self: &mut Self) -> &mut dyn Any + ''static { /* ... */ }
+    ```
+
+- **DowncastSync**
+  - ```rust
+    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
+    ```
+
+- **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+- **ErasedDestructor**
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Instrument**
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **NoneValue**
+  - ```rust
+    fn null_value() -> T { /* ... */ }
+    ```
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Format) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **ReadPrimitive**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **SimdFrom**
+  - ```rust
+    fn simd_from(_simd: S, value: T) -> T { /* ... */ }
+    ```
+
+- **SimdInto**
+  - ```rust
+    fn simd_into(self: Self, simd: S) -> T { /* ... */ }
+    ```
+
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **ValueEnum**
+  - ```rust
+    fn value_variants<''a>() -> &'a [Self] { /* ... */ }
+    ```
+
+  - ```rust
+    fn to_possible_value<''a>(self: &Self) -> ::std::option::Option<clap::builder::PossibleValue> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+- **WithSubscriber**
+### Functions
+
+#### Function `run`
+
+**Attributes:**
+
+- `Other("#[allow(clippy::too_many_arguments)]")`
+
+`kovan-cli code-walk`.
+
+```rust
+pub fn run(from: String, to: Option<String>, depth: Option<usize>, format: Format, max_paths: usize, hand: Vec<String>, root: std::path::PathBuf, repo_url: String) -> Result<(), String> { /* ... */ }
+```
+
+#### Function `run_check`
+
+`kovan-cli code-walk-check` — regenerate every code-walk block under
+`paths` and fail if any is stale or broken (`update` writes instead of
+failing on a mere difference).
+
+```rust
+pub fn run_check(paths: Vec<std::path::PathBuf>, update: bool, root: std::path::PathBuf, repo_url: String) -> Result<(), String> { /* ... */ }
+```
+
 ## Module `cost`
 
 `kovan-cli cost` — estimate how many tokens a file would cost an agent to
@@ -9380,7 +9693,7 @@ pub fn run(command: LitCommand) -> Result<(), String> { /* ... */ }
 ## Module `lsp_daemon`
 
 Keep-warm rust-analyzer daemon for `kovan-cli def`/`sig`/`refs` (op-fdph,
-GitHub issue #32's follow-up).
+GitHub issue #32's follow-up) and `code-walk` (GitHub issue #523).
 
 # Why
 
@@ -9777,11 +10090,14 @@ daemon is reachable (including on non-Unix targets, where the daemon
 doesn't exist at all). See `commands::lsp_daemon`'s module doc for the
 daemon design.
 
-**Deferred, not implemented here** (see `op-l3uz`): `callers`/`callees`
+~~**Deferred, not implemented here** (see `op-l3uz`): `callers`/`callees`
 (call-hierarchy composition over `references` + `document_symbols`) and
-`impls` (trait `impl`-site filtering). Both are real, more involved
-features on top of the same session — this module ships the three
-highest-value, simplest-to-verify queries first.
+`impls` (trait `impl`-site filtering).~~ **CORRECTED 2026-10-04**:
+callees now exist as `kovan-cli code-walk` (GitHub issue #523,
+`commands::code_walk`), which reuses [`connect`] and the daemon; it finds
+function bodies from source text rather than `document_symbols` (see its
+`source` module for why). `callers` and `impls` are still not
+implemented.
 
 ```rust
 pub mod semq { /* ... */ }
