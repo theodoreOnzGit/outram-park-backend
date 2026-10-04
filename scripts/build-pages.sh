@@ -84,13 +84,16 @@ done < docs/site/tutorials.txt
 # (crates/dhoby-ghaut/examples/monte_carlo_web/rungs.rs): wasm build, its JS
 # glue, the ENDF tapes it processes in the browser, and its geometry review
 # images. The TRISO pebble demo's old URL redirects to its rung.
-crates/dhoby-ghaut/web/monte_carlo/build.sh "$OUT/demos/monte-carlo"
+# Demo build scripts run through bash, so a clone with core.fileMode=false
+# cannot drop the executable bit and break the site (it did, twice, on
+# 2026-10-04/05).
+bash crates/dhoby-ghaut/web/monte_carlo/build.sh "$OUT/demos/monte-carlo"
 # The dispersion demo (gh:#530): one app, a rung of the dispersion lessons at
 # a time; computed in the browser from buangkok and changi, no data files.
-crates/dhoby-ghaut/web/dispersion/build.sh "$OUT/demos/dispersion"
+bash crates/dhoby-ghaut/web/dispersion/build.sh "$OUT/demos/dispersion"
 # The nuclear data demo (gh:#529): one app, a rung of the nuclear data track
 # at a time; ENDF/B-VIII.0 tapes processed in the browser by njoy-outram-park-fork.
-crates/dhoby-ghaut/web/nuclear_data/build.sh "$OUT/demos/nuclear-data"
+bash crates/dhoby-ghaut/web/nuclear_data/build.sh "$OUT/demos/nuclear-data"
 mkdir -p "$OUT/demos/triso-pebble/geometry"
 cp crates/dhoby-ghaut/web/monte_carlo/triso-pebble-redirect.html "$OUT/demos/triso-pebble/index.html"
 printf '%s\n' '<!DOCTYPE html><html lang="en"><head><meta charset="utf-8">' \
