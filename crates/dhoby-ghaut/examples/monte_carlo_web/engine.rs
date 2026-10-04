@@ -396,7 +396,8 @@ impl Link {
     pub fn drain(&self) -> Vec<Event> {
         match self {
             #[cfg(not(target_arch = "wasm32"))]
-            Link::Native(m) => m.write().map(|mut m| std::mem::take(&mut m.events)).unwrap_or_default(),
+            // try_write: if the engine thread is posting, take the events next frame.
+            Link::Native(m) => m.try_write().map(|mut m| std::mem::take(&mut m.events)).unwrap_or_default(),
             #[cfg(target_arch = "wasm32")]
             Link::Web { inbox, .. } => inbox.write().map(|mut i| std::mem::take(&mut *i)).unwrap_or_default(),
         }

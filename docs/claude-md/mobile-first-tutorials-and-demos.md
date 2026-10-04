@@ -62,7 +62,8 @@ cycles, sweeps, loading and parsing.
   thread.
 - **The UI reads results without blocking.** Shared state follows the
   workspace rule (`Arc<RwLock<T>>`, e.g. the mailbox in
-  `triso_pebble_web/engine.rs`). Never hold a lock across a long computation;
+  `monte_carlo_web/engine.rs`, ~~`triso_pebble_web`~~ renamed 2026-10-04).
+  Never hold a lock across a long computation;
   take `try_read`-style snapshots for drawing.
 - **Long work streams results:** per generation, per batch, per nuclide. The
   view updates as results arrive, with progress and elapsed time on screen and
@@ -75,7 +76,9 @@ cycles, sweeps, loading and parsing.
   immediately. Say in the report that you checked, alongside the phone-width
   check.
 
-**Reference implementation:** `crates/dhoby-ghaut/examples/triso_pebble_web/engine.rs`
+**Reference implementation:** `crates/dhoby-ghaut/examples/monte_carlo_web/engine.rs`
+(~~`triso_pebble_web/engine.rs`~~, renamed 2026-10-04; the Godiva Run k_eff
+runs one power-iteration generation per worker message)
 (processing and transport in a worker; the page keeps animating while about
 11 MB of ENDF data are processed).
 
