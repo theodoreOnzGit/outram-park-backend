@@ -71,9 +71,47 @@
 //!
 //! # Results
 //!
-//! Recorded in the doc comment of
+//! ~~Recorded in the doc comment of
 //! [`outram_mc_libs::vv::njoy_golden::GRAPHITE_KERNEL_WIDTH`], with the date and
-//! the history count they took.
+//! the history count they took.~~ **CORRECTED 2026-10-04:** that doc comment
+//! never carried them (it held unfilled `<PEB_OLD>` / `<PEB_NEW>` placeholders
+//! for a different run). The 2026-09-12 numbers are in
+//! `verification_and_validation/thermal_sab/emission_tabulation_rebaseline.md`
+//! §4.1, "The k-worth, decomposed by dimension".
+//!
+//! ## Re-measured 2026-10-04 (GitHub #524) — the recorded worth does NOT reproduce
+//!
+//! Same program at the record's own settings (`-- 4000 20 180 1`: 4000
+//! particles x [20 + 180], one replica, 720 000 active histories per
+//! tabulation, master seed 20 260 912), `develop` at `bfeb81a083`; 484 s on one
+//! core of an i9-13900K (16 logical cores, 62 GB, Linux, shared with other
+//! jobs), CPU only.
+//!
+//! ```text
+//!   tabulation                k_inf              2026-09-12
+//!   48 x 16  (superseded)     1.38460 +/- 0.00136   1.38976 +/- 0.00138
+//!   384 x 16 (grid only)      1.38598 +/- 0.00145   1.38351 +/- 0.00146
+//!   48 x 64  (bins only)      1.38418 +/- 0.00141   1.38737 +/- 0.00148
+//!   384 x 64 (current)        1.38566 +/- 0.00156   1.38605 +/- 0.00137
+//!   worth 384x64 vs 48x16     +107 +/- 207 pcm      -371 +/- 194 pcm
+//! ```
+//!
+//! **The current tabulation reproduces its record** (1.38566 against 1.38605,
+//! -39 +/- 207 pcm, 0.2 sigma). **The superseded one does not**: it moved
+//! -516 +/- 194 pcm (2.7 sigma), and with it the worth of the repair went from
+//! ~~-371 +/- 194 pcm (1.9 sigma)~~ to **+107 +/- 207 pcm, consistent with zero
+//! (0.5 sigma)**; the grid-only and bins-only arms are likewise now within
+//! 1 sigma of the current one. The likely reason, not isolated here: since
+//! 2026-09-29 the S(alpha,beta) tables are sampled with OpenMC's scheme
+//! (GitHub #407; the old equiprobable sampling survives only as the
+//! `with_legacy_equiprobable_sampling` ablation), and the defect the 48 x 16
+//! tables carried was a property of the old sampler on a coarse grid. **So
+//! the -371 pcm worth is a statement about the pre-#407 code and must not be
+//! quoted as the present cost of a coarse tabulation.** Whether the coarse
+//! tables are now harmless in general is not established by one 720 000-history
+//! run; the kernel-shape oracles
+//! (`graphite_sab_angle_and_width_vs_njoy_thermr.rs`) are the better
+//! instrument for that.
 
 use outram_mc_libs::geometry::position::Position;
 use outram_mc_libs::material::material::{Material, NuclideComponent};

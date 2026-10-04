@@ -162,6 +162,17 @@ same medium, same seeds, 2026-09-12:
 | 48 × 64 (outgoing bins only) | 1.38737 ± 0.00148 | −239 ± 203 pcm | 1.2σ |
 | **384 × 64 (current)** | **1.38605 ± 0.00137** | **−371 ± 194 pcm** | 1.9σ |
 
+> **Re-measured 2026-10-04 (GitHub #524): this decomposition no longer
+> reproduces.** Same program and settings on `develop` at `bfeb81a083`:
+> 48 × 16 1.38460 ± 0.00136, 384 × 16 1.38598 ± 0.00145, 48 × 64
+> 1.38418 ± 0.00141, 384 × 64 1.38566 ± 0.00156. The current tabulation
+> reproduces its value above (−39 ± 207 pcm); the superseded one moved
+> −516 ± 194 pcm, so the worth of the repair is now **+107 ± 207 pcm,
+> consistent with zero**, not −371 ± 194. Likely cause (not isolated): the
+> S(α,β) sampler was replaced by OpenMC's scheme on 2026-09-29 (#407). The
+> table and the paragraph below describe the code as it was on 2026-09-12.
+> Full record: `examples/thermal_kernel_keff_worth.rs`.
+
 **The two dimensions are not additive** — −624 and −239 separately, −371
 together — which is what should be expected of two errors that pull *opposite
 ways* on the kernel width. Fixing only the incident grid over-corrects; fixing
