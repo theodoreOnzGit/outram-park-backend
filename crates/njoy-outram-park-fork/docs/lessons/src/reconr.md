@@ -7,8 +7,7 @@
 > human.**
 
 **Modules:** `reconr`, `samm`.
-**Demo rung:** `?rung=reconr` (planned: σ(E) building on a log–log plot, the
-grid refining as you watch).
+**Demo:** [open the nuclear data demo at this rung](../../demos/nuclear-data/?rung=reconr): RECONR builds U-238's σ(E) at tolerances 0.3 to 0.001 in your browser, the curve refining on screen; zoom in to see the grid points.
 
 ## The question
 
@@ -216,8 +215,10 @@ How many points does it take to draw U-238 to 0.1 %?
 - **This port**, ~~961 073 grid points (crate `CLAUDE.md`, maturity
   declaration, 2026-09-05)~~: that count predates 2026-09-26, when the port's
   RECONR grid became NJOY's word for word on U-238 (#340, crate `CLAUDE.md`
-  "The ACE tables reproduce NJOY's"). The 0 K count was **not re-counted** for
-  this page; the word-for-word claim implies 448 168.
+  "The ACE tables reproduce NJOY's"). **Re-counted 2026-10-04: 448 168**, by
+  the nuclear data demo's engine (`examples/nuclear_data_web`, `--headless
+  reconr`, 20.8 s natively on two cores; 29.6 s in headless Chromium in a Web
+  Worker), the same number as NJOY's.
 - **After BROADR at 293.6 K** the curve is smoother and thinning removes
   points: the tutorial example's MT=1 table has **103 908** points
   (re-measured 2026-10-04, [re-measurement log](./remeasured.md); that example

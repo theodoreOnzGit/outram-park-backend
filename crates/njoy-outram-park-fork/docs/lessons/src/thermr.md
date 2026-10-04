@@ -7,10 +7,7 @@
 > human.**
 
 **Modules:** `leapr` (makes the scattering law), `thermr` (uses it).
-**Demo rung:** `?rung=thermr` (planned: S(α,β) emission spectra at the
-thermal end, against the free-gas spectrum).
-**Monte Carlo side:** this page is where the Monte Carlo track's rung 2
-("uranium in graphite", the free-gas versus S(α,β) step) sends its readers.
+**Demo:** [open the nuclear data demo at this rung](../../demos/nuclear-data/?rung=thermr): bound-atom σ(E) for graphite and H in H₂O against the free atom, and where a thermal neutron goes.
 
 ## The question
 

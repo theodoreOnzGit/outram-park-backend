@@ -7,10 +7,7 @@
 > human.**
 
 **Module:** `acer` (writers and readers for every ACE class).
-**Demo rung:** `?rung=acer` (planned, **recorded results only**: building a
-U-238 ACE table takes minutes natively, so the demo shows the recorded
-block-by-block comparison with its provenance rather than pretending to run
-it).
+**Demo:** [open the nuclear data demo at this rung](../../demos/nuclear-data/?rung=acer): the recorded results, with their provenance (an ACE build takes minutes, so nothing is computed live).
 
 ## The question
 

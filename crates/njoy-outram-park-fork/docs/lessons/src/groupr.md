@@ -8,8 +8,7 @@
 
 **Modules:** `groupr` (neutrons; also photon *production* matrices), `gaminr`
 (photon interaction).
-**Demo rung:** `?rung=groupr` (planned: group boundaries drawn over σ(E), the
-group average as a step, a σ₀ slider showing self-shielding).
+**Demo:** [open the nuclear data demo at this rung](../../demos/nuclear-data/?rung=groupr): group averages of U-238 capture, infinitely dilute and self-shielded, with group count and σ₀ sliders.
 
 ## The question
 

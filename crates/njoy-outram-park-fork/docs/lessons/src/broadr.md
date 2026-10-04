@@ -7,8 +7,7 @@
 > human.**
 
 **Module:** `broadr` (`mod.rs`, `broadn.rs`, `joint.rs`).
-**Demo rung:** `?rung=broadr` (planned: a temperature slider smearing the
-resonances, with the 0 K curve kept faint behind).
+**Demo:** [open the nuclear data demo at this rung](../../demos/nuclear-data/?rung=broadr): a temperature slider over U-238's low resonances, with the area under them checked live.
 
 ## The question
 

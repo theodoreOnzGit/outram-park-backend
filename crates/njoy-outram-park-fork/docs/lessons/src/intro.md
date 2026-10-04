@@ -22,6 +22,13 @@ from?"*. This book answers it, one processing step at a time.
 
 **Start here:** [Where does σ(E) come from?](./where-sigma-comes-from.md)
 
+**Live demo:** [the nuclear data demo](../../demos/nuclear-data/?rung=reconr):
+real ENDF/B-VIII.0 tapes processed in your browser by this crate, one rung at
+a time (RECONR building U-238's σ(E), BROADR's temperature slider, PURR's
+bands, THERMR's thermal scattering, a group collapse). It downloads about
+11 MB and computes in a background worker, so the page stays live; each rung's
+lesson links to it.
+
 ## What the crate is
 
 NJOY reads **evaluated nuclear data** (ENDF-6 files: resonance parameters,

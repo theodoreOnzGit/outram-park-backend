@@ -7,8 +7,7 @@
 > human.**
 
 **Modules:** `unresr`, `purr` (and RECONR's unresolved table, `reconr::urr`).
-**Demo rung:** `?rung=purr` (planned: the probability bands drawn as a
-shaded fan over the smooth average curve).
+**Demo:** [open the nuclear data demo at this rung](../../demos/nuclear-data/?rung=purr): PURR's probability bands for U-238 in the unresolved range, at a temperature you choose.
 
 ## The question
 

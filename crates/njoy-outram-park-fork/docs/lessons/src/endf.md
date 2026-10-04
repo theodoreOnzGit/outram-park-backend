@@ -7,7 +7,7 @@
 > human.**
 
 **Modules:** `endf`, `moder`, `reference_data`, `acquire`.
-**Demo rung:** `?rung=endf` (planned, phase 3 of #529).
+**Demo:** [open the nuclear data demo at this rung](../../demos/nuclear-data/?rung=endf): every section on U-238's tape, and its resonance-range flags.
 
 ## The question
 
