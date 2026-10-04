@@ -35,6 +35,9 @@
 //! kovan-cli def foo --file src/lib.rs
 //! kovan-cli sig foo --file src/lib.rs
 //! kovan-cli refs foo --file src/lib.rs
+//! kovan-cli code-walk --from crates/x/examples/demo.rs::main --to crates/x/src/geom.rs::Sphere::distance
+//! kovan-cli code-walk --from crates/x/src/keff.rs::transport_history --depth 2 --format json
+//! kovan-cli code-walk-check crates/x/docs/lessons --update
 //! kovan-cli lsp-daemon-stop --root .
 //! kovan-cli project regen /path/to/my-kovan-folder
 //! ```
@@ -61,8 +64,11 @@
 //! `def`/`sig`/`refs` are that same issue's follow-up — rust-analyzer-backed
 //! semantic queries wired directly to `kopitiam-semantic`'s
 //! `RustAnalyzerSession` (see `commands::semq`); they need `rust-analyzer` on
-//! `PATH`. `callers`/`callees`/`impls` are deliberately not implemented yet
-//! (`op-l3uz`). `project regen` wraps [`kovan::project::regenerate_and_write`]
+//! `PATH`. ~~`callers`/`callees`/`impls` are deliberately not implemented yet
+//! (`op-l3uz`).~~ **CORRECTED 2026-10-04**: callees now exist as `code-walk`
+//! (GitHub issue #523; concept paths and exhaustive call trees, see
+//! `commands::code_walk`), with `code-walk-check` as the lessons' staleness
+//! gate; `callers` and `impls` are still not implemented. `project regen` wraps [`kovan::project::regenerate_and_write`]
 //! — the "kovan folder" `kovan.toml` index generator (GitHub issue #30's
 //! project-folder format, op-63u0's design, op-b1y5's implementation); the
 //! file is always fully regenerated, never hand-merged — see that module's
@@ -398,6 +404,54 @@ enum Command {
         #[command(flatten)]
         locator: Locator,
     },
+    /// Rust-analyzer-backed call walk (GitHub issue #523): the shortest
+    /// chain(s) of workspace calls from `--from` to `--to`, or, without
+    /// `--to`, everything `--from` reaches within `--depth` hops. Functions
+    /// are `path/to/file.rs::name` or `path/to/file.rs::Type::name`. Calls
+    /// that cannot be followed (trait methods, closures, workspace macros)
+    /// are marked UNRESOLVED(<kind>), never guessed. Needs `rust-analyzer`.
+    CodeWalk {
+        /// Entry point, e.g. `crates/x/examples/demo.rs::main`.
+        #[arg(long)]
+        from: String,
+        /// Concept function; omit for the exhaustive tree.
+        #[arg(long)]
+        to: Option<String>,
+        /// Max hops searched (path mode, default 12) or shown (tree mode,
+        /// default 3).
+        #[arg(long)]
+        depth: Option<usize>,
+        #[arg(long, value_enum, default_value_t = commands::code_walk::Format::Markdown)]
+        format: commands::code_walk::Format,
+        /// Most shortest chains to report.
+        #[arg(long, default_value_t = 8)]
+        max_paths: usize,
+        /// A hop filled in by hand, `<from> -> <to> | <note>` (repeatable).
+        #[arg(long)]
+        hand: Vec<String>,
+        /// Directory containing the workspace `Cargo.toml`.
+        #[arg(long, default_value = ".")]
+        root: PathBuf,
+        /// Repository the permalinks point into (`/blob/@@COMMIT@@/...`).
+        #[arg(long, default_value = commands::code_walk::render::DEFAULT_REPO_URL)]
+        repo_url: String,
+    },
+    /// Regenerates every `<!-- code-walk: ... -->` block in the Markdown
+    /// under the given paths and fails if one is stale, a concept path no
+    /// longer connects, or a hand-filled hop names a function that no longer
+    /// exists (GitHub issue #523; the lessons' staleness gate). `--update`
+    /// writes the regenerated walks instead of failing on a difference.
+    CodeWalkCheck {
+        /// Markdown files or directories to scan.
+        #[arg(required = true)]
+        paths: Vec<PathBuf>,
+        #[arg(long)]
+        update: bool,
+        #[arg(long, default_value = ".")]
+        root: PathBuf,
+        #[arg(long, default_value = commands::code_walk::render::DEFAULT_REPO_URL)]
+        repo_url: String,
+    },
     /// Internal: runs the keep-warm rust-analyzer daemon in the foreground
     /// for one workspace root (op-fdph). Spawned automatically and detached
     /// by `def`/`sig`/`refs`'s client-side logic the first time one of them
@@ -578,6 +632,22 @@ fn run(command: Command) -> Result<(), String> {
         Command::Refs { locator } => {
             commands::semq::run_refs(locator.symbol, locator.file, locator.root)
         }
+        Command::CodeWalk {
+            from,
+            to,
+            depth,
+            format,
+            max_paths,
+            hand,
+            root,
+            repo_url,
+        } => commands::code_walk::run(from, to, depth, format, max_paths, hand, root, repo_url),
+        Command::CodeWalkCheck {
+            paths,
+            update,
+            root,
+            repo_url,
+        } => commands::code_walk::run_check(paths, update, root, repo_url),
         Command::LspDaemonServe { root } => commands::lsp_daemon::serve(root),
         Command::LspDaemonStop { root } => commands::lsp_daemon::stop(root),
     }

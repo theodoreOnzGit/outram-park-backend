@@ -22,11 +22,14 @@
 //! doesn't exist at all). See `commands::lsp_daemon`'s module doc for the
 //! daemon design.
 //!
-//! **Deferred, not implemented here** (see `op-l3uz`): `callers`/`callees`
+//! ~~**Deferred, not implemented here** (see `op-l3uz`): `callers`/`callees`
 //! (call-hierarchy composition over `references` + `document_symbols`) and
-//! `impls` (trait `impl`-site filtering). Both are real, more involved
-//! features on top of the same session — this module ships the three
-//! highest-value, simplest-to-verify queries first.
+//! `impls` (trait `impl`-site filtering).~~ **CORRECTED 2026-10-04**:
+//! callees now exist as `kovan-cli code-walk` (GitHub issue #523,
+//! `commands::code_walk`), which reuses [`connect`] and the daemon; it finds
+//! function bodies from source text rather than `document_symbols` (see its
+//! `source` module for why). `callers` and `impls` are still not
+//! implemented.
 
 use std::path::{Path, PathBuf};
 use std::time::Duration;
@@ -55,7 +58,7 @@ pub(super) fn ra_timeout() -> Duration {
 /// Spawn rust-analyzer for `root`, announcing indexing progress on stderr so
 /// a `--json` stdout stays clean and a slow index doesn't look like a hang.
 /// The fallback path when no daemon (`commands::lsp_daemon`) is reachable.
-fn connect(root: &Path) -> Result<RustAnalyzerSession, String> {
+pub(super) fn connect(root: &Path) -> Result<RustAnalyzerSession, String> {
     let root = std::fs::canonicalize(root)
         .map_err(|e| format!("resolving workspace root {}: {e}", root.display()))?;
     let timeout = ra_timeout();

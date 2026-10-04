@@ -1,5 +1,5 @@
 //! Keep-warm rust-analyzer daemon for `kovan-cli def`/`sig`/`refs` (op-fdph,
-//! GitHub issue #32's follow-up).
+//! GitHub issue #32's follow-up) and `code-walk` (GitHub issue #523).
 //!
 //! # Why
 //!
@@ -59,6 +59,12 @@ pub(super) enum Request {
     Def { file: PathBuf, symbol: String },
     Sig { file: PathBuf, symbol: String },
     Refs { file: PathBuf, symbol: String },
+    /// `textDocument/definition` at each of `positions` (0-based line and
+    /// char column) in `file`, answered in one round trip. Used by
+    /// `kovan-cli code-walk` (GitHub issue #523), which asks about every
+    /// call-shaped token in a function body at once. An empty `positions`
+    /// list is a readiness probe: it returns once the index is warm.
+    Definitions { file: PathBuf, positions: Vec<[u32; 2]> },
     Shutdown,
 }
 
@@ -83,6 +89,10 @@ pub(super) struct Response {
     pub(super) definition: Option<Coord>,
     #[serde(skip_serializing_if = "Option::is_none", default)]
     pub(super) refs: Option<Vec<Coord>>,
+    /// One list of definition sites per position of a
+    /// [`Request::Definitions`], in the same order.
+    #[serde(skip_serializing_if = "Option::is_none", default)]
+    pub(super) definitions: Option<Vec<Vec<Coord>>>,
     #[serde(skip_serializing_if = "Option::is_none", default)]
     pub(super) error: Option<String>,
 }
@@ -326,6 +336,29 @@ mod unix_impl {
                 },
                 Err(e) => Response::error(e),
             },
+            Request::Definitions { file, positions } => {
+                let mut all = Vec::with_capacity(positions.len());
+                for [line, character] in positions {
+                    match session.definition(&file, line, character) {
+                        Ok(locations) => all.push(
+                            locations
+                                .iter()
+                                .map(|l| Coord {
+                                    file: l.path.display().to_string(),
+                                    line: l.range.start.line,
+                                    character: l.range.start.character,
+                                })
+                                .collect(),
+                        ),
+                        Err(e) => return Response::error(e.to_string()),
+                    }
+                }
+                Response {
+                    ok: true,
+                    definitions: Some(all),
+                    ..Default::default()
+                }
+            }
         }
     }
 
