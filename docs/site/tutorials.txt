@@ -2,3 +2,4 @@
 # (gh:#520). One book per track; one page per rung of its ladder.
 # <url-name> <mdBook directory>
 monte-carlo crates/outram-mc-libs/docs/tutorial
+triso-atops crates/boon-lay/docs/tutorial
