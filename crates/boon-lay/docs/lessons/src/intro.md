@@ -10,16 +10,30 @@
 > operation, licensing, safety-critical decisions or emergency response. See
 > [`RESPONSIBLE_USE.md`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/RESPONSIBLE_USE.md).
 
-> **Review status: AI-assisted first draft (2026-10-03), not yet
+> **Review status: AI-assisted first draft (2026-10-03; core lessons added 2026-10-04), not yet
 > human-reviewed.** Every claim below was checked against the code at the
 > commit this page was built from, but a person has not yet signed it off.
 > Treat it as a draft until a review stamp appears here.
 
-This is the **extended** deep dive into
-[`boon-lay`](https://github.com/theodoreOnzGit/outram-park-backend/tree/@@COMMIT@@/crates/boon-lay):
-how the crate models a TRISO fuel particle, how it decides when one fails,
-and how fission products leave it on their way to an offsite source term. It
-is written for someone who wants to read the code, change it, or check it.
+The material on **all of**
+[`boon-lay`](https://github.com/theodoreOnzGit/outram-park-backend/tree/@@COMMIT@@/crates/boon-lay)
+comes in two books, kept distinct:
+
+- **The core lessons, rungs 1–8**, are a separate tutorial book:
+  [TRISO-ATOPS and fuel failure, one rung at a time](../../tutorials/triso-atops/intro.html).
+  A ladder of questions following one atom born in a TRISO particle, each
+  rung adding one piece of physics, each step built the same way (question,
+  shortest answer, formula, illustration, code walk, check, prediction).
+  Start at [rung 1](../../tutorials/triso-atops/triso.html).
+- **This book, the extended deep dive**, is the rest of the crate for someone
+  who wants to read the code, change it, or check it: architecture, the
+  fuel-failure equations one by one, HTR-10, run set-up, transmutation,
+  compute backends, decay data and the legacy engine.
+
+A [coverage table](./coverage.md) maps every module to the page that teaches
+it (in either book), its code walk and its V&V record; a module without a
+lesson would be a visible row. The [call-tree appendices](./call-trees.md)
+give the full call tree of each lesson's entry point.
 
 ## What you will find on each page
 
@@ -56,4 +70,4 @@ code.
 If a page says something the code does not do, that is a defect in the page.
 Please [open an issue](https://github.com/theodoreOnzGit/outram-park-backend/issues/new)
 and name the page and the line. Tracking issue for this track:
-[#517](https://github.com/theodoreOnzGit/outram-park-backend/issues/517).
+[#531](https://github.com/theodoreOnzGit/outram-park-backend/issues/531) (this book; it expands [#517](https://github.com/theodoreOnzGit/outram-park-backend/issues/517)).

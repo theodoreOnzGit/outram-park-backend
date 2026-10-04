@@ -12,4 +12,6 @@ src = "src"
 git-repository-url = "https://github.com/theodoreOnzGit/outram-park-backend/tree/develop/crates/boon-lay"
 edit-url-template = "https://github.com/theodoreOnzGit/outram-park-backend/edit/develop/crates/boon-lay/docs/lessons/{path}"
 site-url = "/outram-park-backend/deep-dives/triso-atops/"
-mathjax-support = false
+mathjax-support = true
+# Inline $...$ math (gh:#531), as in the tutorials.
+additional-js = ["mathjax-dollars.js"]

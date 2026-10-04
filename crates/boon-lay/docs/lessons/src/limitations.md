@@ -63,6 +63,26 @@ number most likely to be misused
   ([`first_passage/mod.rs`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/mod.rs#L33-L35)),
   and the old code is the case study in [Getting out](./release.md).
 
+## Added 2026-10-04 by the core-lesson pass (gh:#531)
+
+- **No oxidation-failure model.** Measured KORA failures in air are added by
+  hand downstream (`sembawang`); the mechanistic attack chain is gh:#441,
+  with SiC oxidation gh:#443 and exposed-kernel air oxidation gh:#444
+  ([rung 6](../../tutorials/triso-atops/chemistry.html)).
+- **Chemistry is three transcribed correlations**, each used outside its
+  fitted range in an accident; the hydrolysis fit is clamped to the whole
+  inventory at water-ingress pressures (gh:#418).
+- **The random walk's `D(T)` covers Ag, Cs, Sr and Kr**; every other element
+  diffuses as silver, and the graphite materials are `todo!()` (gh:#541).
+- **The decay sampler can panic** on a branch with no daughter
+  (spontaneous fission) or on branching ratios summing below 1 (gh:#538).
+- **The decay data and TRISO-ATOPS's half-lives come from different
+  sources** (ENDF/B-VIII.0 via OpenMC's chain, and the IAEA Live Chart).
+- **Accident release is venting-only**: an isothermal hold releases exactly
+  0 Bq (gh:#446; [rung 7](../../tutorials/triso-atops/coolant.html)).
+- **The GPU path is unverified**, and the CPU path is the reference
+  ([compute backends](./compute-backends.md)).
+
 ## The examples
 
 The three `egui` examples have no `--headless` mode yet, which the workspace

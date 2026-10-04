@@ -101,6 +101,15 @@ Three `egui` desktop examples live in
 cargo run --release -p boon-lay --example first_passage_realtime
 ```
 
+Two headless examples were added with the core lessons (2026-10-04, gh:#531):
+
+- `triso_cell_slice` draws the assembled `TrisoCell` from region lookups and
+  recovers every interface radius from the geometry ([rung 1](../../tutorials/triso-atops/triso.html)).
+- `layer_diffusion_table` prints the `D` the random walk uses in each layer
+  and the PyC→SiC transmission probability ([rung 4](../../tutorials/triso-atops/layers.html)).
+
+Both are pure `std` and print their result; neither has a GUI.
+
 > **Known gap.** The workspace requires every egui example to have a
 > deterministic `--headless` mode with a regression test. At this commit none
 > of the three has one (a search of `examples/` for `headless` finds

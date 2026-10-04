@@ -15,7 +15,7 @@ heavy-metal contamination `f_hm`, as-manufactured defective SiC `f_sic`,
 in-service failure `f_inc`, and in-service SiC-only failure `f_inc_sic`.
 
 How they combine with `<R/B>` depends on the transport group
-([`release_rate`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/activities/source_terms.rs#L166-L192)):
+([`release_rate`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/activities/source_terms.rs#@@L:crates/boon-lay/src/triso_atops_fork/activities/source_terms.rs:fn=release_rate@@)):
 
 ```rust,ignore
 {{#include ../../../src/triso_atops_fork/activities/source_terms.rs:166:192}}
@@ -33,7 +33,7 @@ equilibrium) and `A / (1 − e^{−λt})` for a long-lived one.
 ## The seam between the two models
 
 This is where boon-lay fuel failure plugs into TRISO-ATOPS.
-[`with_fuel_failure_incremental`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/activities/source_terms.rs#L106-L116)
+[`with_fuel_failure_incremental`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/activities/source_terms.rs#@@L:crates/boon-lay/src/triso_atops_fork/activities/source_terms.rs:fn=with_fuel_failure_incremental@@)
 replaces `f_inc` with `1 − (1 − φ₁)(1 − φ₂)` from an accident history, and
 leaves the other three untouched:
 

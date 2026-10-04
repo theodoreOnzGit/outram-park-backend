@@ -12,7 +12,7 @@ ways.
 
 TRISO-ATOPS does not treat every element alike. It sorts each element into
 one of five transport groups by atomic number
-([`ElementGroup`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/mod.rs#L143-L162)):
+([`ElementGroup`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/mod.rs#@@L:crates/boon-lay/src/triso_atops_fork/nuclide_model/mod.rs:enum=ElementGroup@@)):
 
 | Group | Elements | Release model |
 |---|---|---|
@@ -23,7 +23,7 @@ one of five transport groups by atomic number
 | Other | everything else | fixed `<R/B> = 1e-5` |
 
 The dispatcher
-[`rb_fail`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/release_models/mod.rs#L81-L100)
+[`rb_fail`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/release_models/mod.rs#@@L:crates/boon-lay/src/triso_atops_fork/release_models/mod.rs:fn=rb_fail@@)
 picks the model by group.
 
 ### The Booth equivalent sphere
@@ -36,7 +36,7 @@ Arrhenius law, `D(T) = D₀·exp(−Q/RT)`
 
 For a **long-lived** species with a uniform start and a perfect-sink surface,
 the released fraction is Crank's series
-([`booth_longlived`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/release_models/steady_state.rs#L180-L197)):
+([`booth_longlived`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/release_models/steady_state.rs#@@L:crates/boon-lay/src/triso_atops_fork/release_models/steady_state.rs:fn=booth_longlived@@)):
 
 ```rust,ignore
 {{#include ../../../src/triso_atops_fork/release_models/steady_state.rs:180:197}}
@@ -45,7 +45,7 @@ the released fraction is Crank's series
 For a **short-lived** species, decay competes with diffusion, and the release
 settles to a steady release-to-birth ratio
 `<R/B> = (3/μ)(coth μ − 1/μ)`, with `μ = √(λa²/D)`
-([`booth_shortlived_fast_diffuse`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/release_models/steady_state.rs#L225-L236)).
+([`booth_shortlived_fast_diffuse`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/release_models/steady_state.rs#@@L:crates/boon-lay/src/triso_atops_fork/release_models/steady_state.rs:fn=booth_shortlived_fast_diffuse@@)).
 When `μ` is small (diffusion fast or decay slow), everything born gets out and
 `<R/B> → 1`. When `μ` is large, `<R/B> → 3/μ`.
 
@@ -62,7 +62,7 @@ and the same series are reused in
 
 The series stops after a fixed number of terms (`BOOTH_SERIES_TERMS = 5000`,
 upstream's `num_terms`;
-[source](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/release_models/steady_state.rs#L48-L49)).
+[source](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/release_models/steady_state.rs#@@L:crates/boon-lay/src/triso_atops_fork/release_models/steady_state.rs:const=BOOTH_SERIES_TERMS@@)).
 At very small `D't` the cut-off series does not go to zero. It floors at
 about `1.216·10⁻⁴`. That over-states Sr, Ba and Eu kernel release by up to
 120× at HTR-10 normal-operation temperatures (gh:#385). The port keeps
@@ -101,13 +101,13 @@ The replacement does not step in time. At each move it:
    atom (inside that sphere the medium is uniform, so this is exact);
 3. adds a first-passage **time** drawn from the exact exit-time distribution
    for that sphere, with mean `R²/(6D)`
-   ([`sample_first_passage_time`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/sphere_fpt.rs#L176-L184)).
+   ([`sample_first_passage_time`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/sphere_fpt.rs#@@L:crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/sphere_fpt.rs:fn=sample_first_passage_time@@)).
 
 Hops are large in the bulk and shrink as the atom nears an interface. A hop
 touches the nearest interface but never crosses it, so the buffer overshoot
 cannot happen. The single-region version, used for the CRP-6 benchmark, is
 short enough to read whole
-([`walk_to_absorbing_sphere`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/walk_on_spheres.rs#L217-L237)):
+([`walk_to_absorbing_sphere`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/walk_on_spheres.rs#@@L:crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/walk_on_spheres.rs:fn=walk_to_absorbing_sphere@@)):
 
 ```rust,ignore
 {{#include ../../../src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/walk_on_spheres.rs:217:237}}
@@ -117,14 +117,14 @@ short enough to read whole
 
 When the atom reaches an interface between `D₁` (its side) and `D₂`, it
 transmits with probability
-([`transmission_probability`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/interface.rs#L65-L78))
+([`transmission_probability`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/interface.rs#@@L:crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/interface.rs:fn=transmission_probability@@))
 
 ```text
 p_transmit = K·D₂ / (D₁ + K·D₂)
 ```
 
 ```rust,ignore
-{{#include ../../../src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/interface.rs:65:78}}
+{{#include ../../../src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/interface.rs:70:83}}
 ```
 
 Why linear in `D` and not `√D`? It depends on how often *this* walk visits an
@@ -134,8 +134,13 @@ fixed-time-step walk visits at a rate that scales as `1/√D` and would need a
 `√D` rule; using that one here would give the wrong equilibrium
 ([derivation](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/interface.rs#L13-L32)).
 
-`D` in SiC is about 10⁶ times smaller than in the pyrolytic carbon around
-it. So an atom arriving from PyC transmits with probability of order
+~~`D` in SiC is about 10⁶ times smaller than in the pyrolytic carbon around
+it.~~ **CORRECTED 2026-10-04 (gh:#531):** with the Arrhenius factors
+included, `D` in SiC is 13 to 4100 times smaller than in the pyrolytic
+carbon around it, by element and temperature (Cs: 120 at 1000 °C, 440 at
+1600 °C), as measured in
+[rung 4](../../tutorials/triso-atops/layers.html#step-1-how-fast-does-an-atom-move-in-each-layer);
+the 10⁶ compared prefactors only. So an atom arriving from PyC transmits with probability of order
 `D_SiC/D_PyC` and is reflected nearly every time. That is SiC's containment
 role, coming out of one line of arithmetic.
 

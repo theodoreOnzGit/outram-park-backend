@@ -18,19 +18,33 @@ binomial error is about 0.0025). Measured 2026-07-23
 
 | Case | T | MC | Crank | abs. error |
 |---|---|---|---|---|
-| 1a | 1200 °C | 0.5332 | 0.5337 | 0.0006 |
+| 1a | 1200 °C | ~~0.5332~~ **0.5331** | 0.5337 | 0.0006 |
 | 1b | 1600 °C | 1.0000 | 1.0000 | 0.0000 |
 
-This is a **single-layer** case. The multilayer release through the coatings
-has no full CRP-6 record yet.
+**Re-measured 2026-10-04** at `5e802df3a4` (gh:#531), same $N$ and seed;
+the 1a value moved by 0.0001, inside its 0.0025 standard deviation. This is a
+**single-layer** case. The multilayer release through the coatings has no
+full CRP-6 record yet. Separately, the analytical 1a value (0.5337) lies
+outside the 0.453–0.498 range the code itself cites from Hales et al. 2021,
+and two tests swallow that check (gh:#537; [rung 3](../../tutorials/triso-atops/walk.html)).
 
 **Interface rule gives a uniform equilibrium.** Across a tenfold diffusivity
 contrast, the time a walker spends in the inner region should equal its
-volume fraction, 0.1250. Measured 0.1216 (error 0.0034, threshold 0.02),
-`3·10⁶` steps
+volume fraction, 0.1250. ~~Measured 0.1216 (error 0.0034)~~ **Re-measured
+2026-10-04: 0.1368 (error 0.0118)**, threshold 0.02, `3·10⁶` steps, same seed
 ([record](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/verification_and_validation/interface_uniform_equilibrium_density.md)).
 This is the check that the `D`-linear transmission rule, not a `√D` rule, is
-the right one for this walk.
+the right one for this walk. Its seed-to-seed spread has not been measured.
+
+**Decay sampler against the decay law** (new to this page, 2026-10-04):
+99 999 lifetimes at a 30 s half-life, seed 77, surviving fraction against
+$2^{-t/30}$ at 0–100 s, pass at 0.9 % relative: worst 8.43·10⁻³ at 60 s
+(1.5σ). The tail is tested at about one standard deviation
+([rung 2](../../tutorials/triso-atops/decay.html)).
+
+**Geometry** ([rung 1](../../tutorials/triso-atops/triso.html)): the assembled CRP-6 and HTR-10
+`TrisoCell`s are drawn from region lookups and every interface radius is
+recovered from the lookup alone (`triso_cell_slice`).
 
 ## TRISO-ATOPS port
 
@@ -111,3 +125,22 @@ All are recorded in
 - For **boon-lay fuel failure**: Table 1 and Fig. 7 *with* the drift. Do not
   quote any HTR-10 number from it as validated. It is an extrapolation
   ([fuel failure](./fuel-failure.md)).
+- Where a number was re-measured on 2026-10-04 (CRP-6 Case 1, the interface
+  equilibrium, the decay sampler, the HTR-10 sweeps), quote the 2026-10-04
+  value; the older one is struck through where it changed.
+
+## What has no V&V at all
+
+Stated so nobody reads silence as a pass:
+
+| Module | Status | Issue |
+|---|---|---|
+| `chemistry` (air, steam, hydrolysis) | transcription checks only; no comparison with measured oxidation or release | gh:#457, #444, #418 |
+| `first_passage::depletion` / transmutation | unit tests only; no Bateman or capture build-up comparison | gh:#539 |
+| decay branching | chain *order* checked (Th-232 → Pb-208); branching *frequencies* never sampled; two reachable panics | gh:#538 |
+| the legacy Gaussian engine | one unit test; never compared with an exact release | ([legacy](./legacy-gaussian.md)) |
+| the `wgpu` GPU kernel | only the CPU fallback has run | stated in `gpu.rs` |
+| SiC thermal decomposition, Eqs (11)–(14b) | nothing in the source report checks them | ([rung 5](../../tutorials/triso-atops/failure.html)) |
+| multilayer CRP-6 release | no record; only a qualitative transmission test | — |
+| the three `egui` examples | no `--headless` mode, so no regression test | — |
+| anything against measured HTR-10 data | none exists in the workspace's literature | gh:#383, #296 |

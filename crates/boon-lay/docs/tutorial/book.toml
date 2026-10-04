@@ -1,0 +1,24 @@
+# Tutorial: TRISO-ATOPS and fuel failure, one rung at a time (teaching site,
+# gh:#531, under the dispersion epic #522). Built by scripts/build-pages.sh
+# (docs/site/tutorials.txt) into the backend's GitHub Pages site under
+# tutorials/triso-atops/. One page per rung; the extended deep dive is the
+# sibling book docs/lessons/ (deep-dives/triso-atops/), and the two link to
+# each other. The track's demo (triso_atops_web, gh:#540) will link back by
+# rung name once #521's framework can host it.
+#
+# How the pages are written: docs/lessons/lesson-philosophy.md.
+[book]
+title = "TRISO-ATOPS and fuel failure, one rung at a time"
+authors = ["OUTRAM PARK contributors"]
+language = "en"
+src = "src"
+
+[output.html]
+git-repository-url = "https://github.com/theodoreOnzGit/outram-park-backend/tree/develop/crates/boon-lay"
+edit-url-template = "https://github.com/theodoreOnzGit/outram-park-backend/edit/develop/crates/boon-lay/docs/tutorial/{path}"
+site-url = "/outram-park-backend/tutorials/triso-atops/"
+mathjax-support = true
+# In-page illustrations: plain JavaScript re-implementations of each page's
+# formula, labelled as such; the checked code is the Rust the pages walk.
+additional-css = ["anim/boonlay-anim.css"]
+additional-js = ["anim/boonlay-anim.js"]

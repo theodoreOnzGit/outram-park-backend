@@ -24,7 +24,7 @@ The model has three ways to fail
 
 A particle survives only if it survives all three, so the **survival**
 probabilities multiply. The failure fractions are not added
-([`total_failure_fraction`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/fuel_failure/mod.rs#L249-L258)):
+([`total_failure_fraction`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/fuel_failure/mod.rs#@@L:crates/boon-lay/src/fuel_failure/mod.rs:fn=total_failure_fraction@@)):
 
 ```rust,ignore
 {{#include ../../../src/fuel_failure/mod.rs:249:258}}
@@ -41,7 +41,7 @@ The chain goes gas → pressure → stress → failure probability.
 **1. Gas pressure, Eq (3)**, is the ideal-gas law. Gas is the released
 fission-gas fraction `F_d` times yield `F_f`, plus oxygen per fission `OPF`,
 times burnup `F_b`
-([`internal_gas_pressure`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/fuel_failure/pressure.rs#L80-L101)):
+([`internal_gas_pressure`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/fuel_failure/pressure.rs#@@L:crates/boon-lay/src/fuel_failure/pressure.rs:fn=internal_gas_pressure@@)):
 
 ```rust,ignore
 {{#include ../../../src/fuel_failure/pressure.rs:80:101}}
@@ -55,14 +55,14 @@ against `nRT/V` computed independently
 
 **2. SiC hoop stress, Eq (2)**, thin shell, with corrosion thinning the
 layer over time
-([`induced_stress`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/fuel_failure/stress.rs#L46-L56)):
+([`induced_stress`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/fuel_failure/stress.rs#@@L:crates/boon-lay/src/fuel_failure/stress.rs:fn=induced_stress@@)):
 
 ```rust,ignore
 {{#include ../../../src/fuel_failure/stress.rs:46:56}}
 ```
 
 **3. Failure probability, Eq (1)**, a Weibull law
-([`weibull_failure_fraction`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/fuel_failure/weibull.rs#L49-L62)):
+([`weibull_failure_fraction`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/fuel_failure/weibull.rs#@@L:crates/boon-lay/src/fuel_failure/weibull.rs:fn=weibull_failure_fraction@@)):
 
 ```rust,ignore
 {{#include ../../../src/fuel_failure/weibull.rs:49:62}}
