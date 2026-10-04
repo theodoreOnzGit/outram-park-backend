@@ -52,8 +52,10 @@ const STEP_S: f64 = 10.0;
 const DURATION_S: f64 = 3600.0;
 
 /// Puffs are dropped at this age. At 4 m/s it is the 6 km reach the header
-/// prints — the far receptors would read exactly zero if it were left at
-/// upstream's 1200 s default.
+/// prints — the far receptors would read ~~exactly zero~~ only a negligible
+/// Gaussian tail (exactly zero once it underflows; CORRECTED 2026-10-04, see
+/// `activity::chi_over_q`'s module doc) if it were left at upstream's 1200 s
+/// default.
 const PUFF_LIFETIME_S: f64 = 1500.0;
 
 fn main() {
@@ -151,8 +153,9 @@ fn main() {
     );
     println!(
         "  * Puffs are dropped at {PUFF_LIFETIME_S:.0} s. Any receptor beyond the \
-         printed reach\n    reads exactly zero, with no error -- check the reach before \
-         trusting a far-field zero."
+         printed reach\n    reads only a negligible Gaussian tail (or exactly zero once it \
+         underflows), with no error --\n    check the reach before trusting a far-field \
+         near-zero."
     );
     println!(
         "  * Pasquill-Gifford is fitted over roughly 0.1-10 km. The 100 m column is \

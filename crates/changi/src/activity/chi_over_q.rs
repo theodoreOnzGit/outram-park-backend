@@ -45,7 +45,13 @@
 //!
 //! `RunConfig::puff_duration` (upstream default 1200 s) is a hard cutoff, not a
 //! decay — a puff older than it simply stops existing. At 4 m/s that is 4800 m,
-//! so a receptor at 10 km reads **exactly zero** with no error and no warning.
+//! so a receptor at 10 km reads ~~**exactly zero**~~ only the Gaussian tail of
+//! the oldest puffs, with no error and no warning. **CORRECTED 2026-10-04**
+//! (measured, `examples/site_activity_survey.rs`, 2 m/s, class D, reach
+//! 5000 m): the 8000 m receptor reads 1.06e-19 Bq·s/m³ of Kr-88 against
+//! 9.59e4 at 5000 m, 24 decades down but not zero; a receptor reads exactly
+//! zero only once that tail underflows. Either way the far field is missing,
+//! not small.
 //! [`dilution_factors`] computes the reach and panics if *every* receptor is
 //! beyond it, because an all-zero result is otherwise indistinguishable from a
 //! correct answer. A mixed set is allowed through — check [`DilutionFactors::reach`].

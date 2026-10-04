@@ -3,7 +3,11 @@
 //! through TRISO-ATOPS (GitHub #434, #435, #438).
 //!
 //! > **Research, education and V&V only** (`RESPONSIBLE_USE.md`). This is not a
-//! > source term for HTR-10 or for any facility, and it computes no dose.
+//! > source term for HTR-10 or for any facility~~, and it computes no dose~~.
+//! > **CORRECTED 2026-10-04:** it does compute a research-grade dose at
+//! > distance, through `buangkok`'s Gaussian plume and FGR coefficients (see
+//! > "Maximum dose" under Results); that dose is a property of this bounding
+//! > model, never a dose to a real person.
 //!
 //! Written for the maintainer to **inspect by hand and re-code**. Every input
 //! is a named constant with its source beside it, and the arithmetic is kept
@@ -247,7 +251,8 @@ fn main() {
     println!("================================================================");
     println!(" HTR-10 air ingress, BOUNDING CASE B: 1400 C hold, 140 h");
     println!(" boon-lay fuel failure + KORA f_ox -> TRISO-ATOPS (sembawang)");
-    println!(" RESEARCH, EDUCATION AND V&V ONLY. Not a source term. No dose.");
+    // CORRECTED 2026-10-04: this banner said "No dose.", but sections 5-7 print one.
+    println!(" RESEARCH, EDUCATION AND V&V ONLY. Not a source term. The dose below is a bounding model's, never a dose to a person.");
     println!("================================================================\n");
 
     // ------------------------------------------------ 1. boon-lay increment

@@ -98,6 +98,11 @@
 //!   release ([`activity::airborne_release`], added 2026-09-28), and the
 //!   end-of-life primary-helium activity ([`activity::primary_helium`],
 //!   added 2026-09-28). Provenance for all three is in `docs/References.md`.
+//!   **CORRECTED 2026-10-04** (checked against `src/activity/` and
+//!   `reference/`): it holds **five**, not three; also the two design-basis
+//!   accident releases ([`activity::accident_airborne_release`], Table 8,
+//!   2026-09-28) and the fuel-element release rate
+//!   ([`activity::fuel_release`], Table 2, 2026-09-29).
 //!
 //! ## Licence
 //!

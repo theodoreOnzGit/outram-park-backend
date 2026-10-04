@@ -3,7 +3,11 @@
 //! through TRISO-ATOPS (GitHub #434, #435, #438).
 //!
 //! > **Research, education and V&V only** (`RESPONSIBLE_USE.md`). This is not a
-//! > source term for HTR-10 or for any facility, and it computes no dose.
+//! > source term for HTR-10 or for any facility~~, and it computes no dose~~.
+//! > **CORRECTED 2026-10-04:** it does compute a research-grade dose at
+//! > distance, through `buangkok`'s Gaussian plume and FGR coefficients (see
+//! > "Maximum dose" under Results); that dose is a property of this bounding
+//! > model, never a dose to a real person.
 //!
 //! Written for the maintainer to **inspect by hand and re-code**. Every input
 //! is a named constant with its source beside it, and the arithmetic is kept
@@ -68,6 +72,12 @@
 //!
 //! | Quantity | Value |
 //! |---|---|
+//! **Re-measured 2026-10-04** (dispersion lesson track, gh:#530) on `develop`
+//! `d4428668be`, one core: every number below reproduced at its printed
+//! precision (release 1.689e13 Bq, both venting modes 1.6888e13 Bq; 400 m
+//! dose 66.137 mSv; the distance table; the 62.87 mSv cavity-ventilation arm).
+//! No value is superseded.
+//!
 //! **Updated 2026-09-30 (third run):** real normal-operation pools (#448)
 //! and groundshine added. The release window is the **96 h dose period**; the
 //! failure fractions stay at their 140 h values. Earlier results are struck
@@ -297,7 +307,8 @@ fn main() {
     println!("================================================================");
     println!(" HTR-10 air ingress, BOUNDING CASE B: 1400 C hold, 140 h");
     println!(" boon-lay fuel failure + KORA f_ox -> TRISO-ATOPS (sembawang)");
-    println!(" RESEARCH, EDUCATION AND V&V ONLY. Not a source term. No dose.");
+    // CORRECTED 2026-10-04: this banner said "No dose.", but sections 5-7 print one.
+    println!(" RESEARCH, EDUCATION AND V&V ONLY. Not a source term. The dose below is a bounding model's, never a dose to a person.");
     println!("================================================================\n");
 
     // ------------------------------------------------ 1. boon-lay increment

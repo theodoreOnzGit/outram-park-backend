@@ -238,7 +238,8 @@ fn main() {
     );
     println!(
         "  * Puffs are dropped at {PUFF_LIFETIME_S:.0} s (reach {:.0} m); a receptor beyond\n    \
-         the reach would read exactly zero with no error.",
+         the reach reads only the far Gaussian tail of the oldest puffs (effectively\n    \
+         zero, not a true value: see the 8000 m row), with no error.",
         air.reach().get::<meter>()
     );
 }

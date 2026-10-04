@@ -97,6 +97,7 @@ Tables held today, all from Liu and Cao (2002), NED 218, 81–90:
 | Table | What | CSV | Loader |
 |---|---|---|---|
 | 1 | Equilibrium-core inventory, 22 nuclides (Bq) | `htr10_equilibrium_core_inventory.csv` | `activity/inventory.rs` |
+| 2 | Release rate from the fuel elements, equilibrium core, normal operation, 22 nuclides (Bq h^-1 MWt^-1). **Row ADDED 2026-10-04:** the table has been held since 2026-09-29 (`f464c76f33`), and this list omitted it | `htr10_fuel_element_release_rate.csv` | `activity/fuel_release.rs` |
 | 3 | Primary-helium activity at end of a 20-year life, 20 nuclides (Bq) | `htr10_primary_helium_activity_end_of_life.csv` | `activity/primary_helium.rs` |
 | 5 | Annual normal-operation airborne release, 22 nuclides (Bq/a) | `htr10_normal_operation_annual_airborne_release.csv` | `activity/airborne_release.rs` |
 | ~~7~~ | ~~Individual effective dose vs distance, normal operation (mSv/a)~~ — **MOVED to `buangkok::published` 2026-09-28** | — | — |
@@ -108,7 +109,14 @@ Tables held today, all from Liu and Cao (2002), NED 218, 81–90:
 `physics::fission_product_release` (`changi::activity::inventory`), which
 drives the absolute arm of its dispersion map and, since 2026-09-29, its
 indicative dose rate; Table 8 is referenced by `buangkok::published`
-(`AccidentCase`). Tables 3 and 5 still have no consumer.
+(`AccidentCase`). ~~Tables 3 and 5 still have no consumer.~~ **CORRECTED 2026-10-04**
+(checked by grep over `crates/`): Table 3 is read by `htgr_sim_v1`
+(`physics::primary_loop`, `physics::fission_product_release`), by
+`sembawang::lwr_comparison` and by three `sembawang` examples
+(`htr10_air_ingress_kora_bound`, its human-audited copy, `htr10_dlofc_dose`);
+Table 5 by `sembawang::lwr_comparison` and `buangkok`'s
+`tests/liu_cao_external_dose_cross_check.rs`; Table 2 by `htgr_sim_v1`'s
+`physics::fission_product_release` (its uncalibrated release check, gh:#399).
 
 ~~**The Table 7 and Table 9 dose tables are parked
 here, not settled here** (**CORRECTED 2026-09-28**: Table 9, the accident
