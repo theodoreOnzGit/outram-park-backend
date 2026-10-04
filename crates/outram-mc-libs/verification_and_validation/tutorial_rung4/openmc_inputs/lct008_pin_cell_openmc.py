@@ -108,6 +108,13 @@ def main():
     s.ptables = True
     s.resonance_scattering = {"enable": True, "method": "dbrc",
                               "energy_min": 1.0e-5, "energy_max": 1000.0}
+    # Shannon entropy of the fission source on an 8 x 8 x 4 mesh over the fuel's
+    # bounding box: the source-convergence check for the inactive batches.
+    mesh = openmc.RegularMesh()
+    mesh.lower_left = (-R_FUEL, -R_FUEL, -HALF_Z)
+    mesh.upper_right = (R_FUEL, R_FUEL, HALF_Z)
+    mesh.dimension = (8, 8, 4)
+    s.entropy_mesh = mesh
     s.output = {"tallies": False, "summary": False}
     model = openmc.Model(geometry=geo, materials=mats, settings=s)
 
@@ -119,7 +126,7 @@ def main():
     with openmc.StatePoint(sp_path) as sp:
         k = sp.keff
         kgen = np.asarray(sp.k_generation)[a.inactive:]
-        ent = np.asarray(sp.entropy) if sp.entropy is not None and len(sp.entropy) else None
+        ent = np.asarray(sp.entropy)
     csv_path = pathlib.Path(a.csv)
     new = not csv_path.is_file()
     with csv_path.open("a", newline="") as f:
@@ -127,13 +134,15 @@ def main():
         if new:
             w.writerow(["pitch_cm", "boron", "seed", "particles", "inactive", "active",
                         "threads", "k_combined", "k_combined_std", "k_gen_mean",
-                        "k_gen_sem", "wall_s"])
+                        "k_gen_sem", "wall_s", "entropy_inactive_last", "entropy_active_mean"])
         sem = kgen.std(ddof=1) / np.sqrt(len(kgen))
         w.writerow([a.pitch, "none" if a.no_soluble_boron else "case1", a.seed, a.particles,
                     a.inactive, a.active, a.threads, f"{k.nominal_value:.6f}",
-                    f"{k.std_dev:.6f}", f"{kgen.mean():.6f}", f"{sem:.6f}", f"{wall:.1f}"])
+                    f"{k.std_dev:.6f}", f"{kgen.mean():.6f}", f"{sem:.6f}", f"{wall:.1f}",
+                    f"{ent[a.inactive - 1]:.4f}", f"{ent[a.inactive:].mean():.4f}"])
     print(f"pitch {a.pitch}: k = {k.nominal_value:.5f} +/- {k.std_dev:.5f} "
-          f"(generation mean {kgen.mean():.5f})  {wall:.1f} s")
+          f"(generation mean {kgen.mean():.5f})  {wall:.1f} s; entropy first/last-inactive/"
+          f"active-mean {ent[0]:.3f}/{ent[a.inactive - 1]:.3f}/{ent[a.inactive:].mean():.3f}")
 
 
 if __name__ == "__main__":
