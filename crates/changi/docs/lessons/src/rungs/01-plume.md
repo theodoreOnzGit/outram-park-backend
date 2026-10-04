@@ -11,11 +11,7 @@
 > A claim the code contradicts is a defect:
 > [it doesn't tally](https://github.com/theodoreOnzGit/outram-park-backend/issues/new?title=Dispersion%20rung%201%20doesn%27t%20tally).
 
-> **Demo (rung `plume`): coming.** The dispersion demo is one app with a
-> rung setting, built on the shared multi-rung framework from #521, which is
-> not on `develop` yet (#530 phase 3). When it lands, this box opens the
-> steady plume on a map with stability and wind-speed sliders, and the demo's
-> "What's happening here?" button opens this page.
+> **Demo:** [open this rung in the dispersion demo](../../../demos/dispersion/?rung=plume): the steady plume on a map, with stability class, wind speed, release height and wind direction in the panel; the colours are buangkok's ground-level `chi/Q`, computed in a background worker as you move the sliders. Every calculation runs in a background worker, so the page stays live; the demo's "What's happening here?" link opens this page.
 
 ## The problem
 
@@ -48,7 +44,7 @@ wind of a few metres per second, carrying beats along-wind spreading by a wide
 margin, so the plume is *slender*. That is the **slender-plume
 approximation**, and it is the reason `u` appears only once.
 
-**Animation.** *Coming with the demo:* tracer particles leaving a stack,
+**Animation.** *Not yet built* ([gh:#548](https://github.com/theodoreOnzGit/outram-park-backend/issues/548)): tracer particles leaving a stack,
 drifting with the wind and jittering across it. *Predict first:* if the wind
 doubles, does the concentration 1 km downwind go up, down, or stay the same?
 
@@ -91,7 +87,7 @@ they grow with it. So in practice `sigma_y(x)` and `sigma_z(x)` are not
 derived from `K`. They are **fitted to tracer experiments**, per weather
 class. That is rung 2.
 
-**Animation.** *Coming:* a crosswind slice of the plume at increasing `x`,
+**Animation.** *Not yet built* ([gh:#548](https://github.com/theodoreOnzGit/outram-park-backend/issues/548)): a crosswind slice of the plume at increasing `x`,
 the Gaussian widening and flattening while its area (the flux) stays fixed.
 *Predict first:* when `sigma_z` doubles at the same `sigma_y`, what happens to
 the peak?
@@ -132,7 +128,7 @@ and the formula collapses to
 chi/Q (ground, centreline) = exp(-H^2 / 2 sigma_z^2) / (pi sigma_y sigma_z u)
 ```
 
-**Animation.** *Coming:* the plume and its mirror image, with the part below
+**Animation.** *Not yet built* ([gh:#548](https://github.com/theodoreOnzGit/outram-park-backend/issues/548)): the plume and its mirror image, with the part below
 ground folded back up.
 
 **The code walk.** The workspace's steady plume is `buangkok`'s port of

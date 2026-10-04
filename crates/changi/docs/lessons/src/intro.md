@@ -44,6 +44,12 @@ pyDOSEIA), `changi` (the Gaussian puff, decay in transit and deposition) and
   was ported from, what upstream gets wrong, the machinery under the
   pathways, and the full V&V record. Read them when a rung sends you there.
 
+**The demo.** One browser app with a rung setting,
+[the dispersion demo](../../demos/dispersion/), opens on each rung from its
+page and links back with "What's happening here?". It computes everything in
+a background worker from `buangkok` and `changi`, except the capstone, whose
+recorded results it shows with their provenance.
+
 The [coverage table](./coverage.md) maps every public module of the three
 crates to the page that teaches it, its code walk and its V&V record; a module
 with no lesson is a visible row, not a silent omission.

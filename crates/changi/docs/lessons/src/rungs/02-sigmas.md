@@ -9,10 +9,7 @@
 > [`@@COMMIT_SHORT@@`](https://github.com/theodoreOnzGit/outram-park-backend/commit/@@COMMIT@@).
 > [It doesn't tally](https://github.com/theodoreOnzGit/outram-park-backend/issues/new?title=Dispersion%20rung%202%20doesn%27t%20tally).
 
-> **Demo (rung `sigmas`): coming** (#530 phase 3, waiting for #521's
-> framework). It will show the plume with a stability-class and wind-speed
-> slider and the `sigma_y`, `sigma_z` curves on log-log axes beside it, a
-> marker riding along the curve as you move downwind.
+> **Demo:** [open this rung in the dispersion demo](../../../demos/dispersion/?rung=sigmas): both sigma sets on log-log axes for the class you pick: changi's Martin/ISC fits and buangkok's BARC/AERB fits. Every calculation runs in a background worker, so the page stays live; the demo's "What's happening here?" link opens this page.
 
 ## The problem
 
@@ -57,7 +54,7 @@ range. The port puts that in the type: a
 is either `One(class)` or `Two(class, class)`. Rung 4 shows why that mattered:
 upstream mishandles the second class in two different ways.
 
-**Animation.** *Coming:* the same plume at 14:00 and at 02:00, same wind,
+**Animation.** *Not yet built* ([gh:#548](https://github.com/theodoreOnzGit/outram-park-backend/issues/548)): the same plume at 14:00 and at 02:00, same wind,
 side by side.
 
 **The code walk.** From the puff example's first part down to the lookup:
@@ -139,8 +136,7 @@ Pasquill–Gifford nomograms' half-width into a standard deviation. And
 in the ninth significant figure (relative `2.8e-8`); the port keeps upstream's
 literal because the code-to-code comparison sees the difference.
 
-**Animation.** *Coming:* the six `sigma_z` curves on log-log axes, both sets,
-with a marker riding down the curve as the reader moves the receptor; class C
+**Animation.** [In the demo](../../../demos/dispersion/?rung=sigmas): the `sigma_y` and `sigma_z` curves on log-log axes, both sets, for the class you pick. Class C
 of `changi`'s set is one straight line (it is unbinned), the others show their
 bin breakpoints as slope changes.
 

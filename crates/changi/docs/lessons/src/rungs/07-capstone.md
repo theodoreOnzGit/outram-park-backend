@@ -11,9 +11,7 @@
 > [`@@COMMIT_SHORT@@`](https://github.com/theodoreOnzGit/outram-park-backend/commit/@@COMMIT@@).
 > [It doesn't tally](https://github.com/theodoreOnzGit/outram-park-backend/issues/new?title=Dispersion%20rung%207%20doesn%27t%20tally).
 
-> **Demo (rung `capstone`): coming** (#530 phase 3). This run is too heavy for
-> a phone, so the demo will show the **recorded** dose-against-distance curve
-> below with its provenance, not pretend to compute it live.
+> **Demo:** [open this rung in the dispersion demo](../../../demos/dispersion/?rung=capstone): this rung's recorded results with their provenance; the chain itself is too heavy for a phone, so nothing is computed live. Every calculation runs in a background worker, so the page stays live; the demo's "What's happening here?" link opens this page.
 
 ## The problem
 
@@ -415,6 +413,6 @@ Everything `crates/sembawang/examples/htr10_air_ingress_kora_bound.rs::main` rea
   - [`release.rs::Venting::gao_shi_htr10_cavity_ventilation`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/sembawang/src/accident/release.rs#L586) `pub fn gao_shi_htr10_cavity_ventilation() -> Self` — **HTR-10 air ingress, the reactor-cavity ventilation**, from Gao & Shi 2002 (NED 218:65-80) §5.3.2: after the hot-gas-duct rupture, *"the venting flow is 100 % d⁻¹ in the first 3 days. · called at [L589](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/sembawang/examples/htr10_air_ingress_kora_bound.rs#L589)
 <!-- /code-walk -->
 
-**Back to the start:** the [demo](../intro.md) (coming) runs the same chain,
+**Back to the start:** the [dispersion demo](../../../demos/dispersion/?rung=plume) runs the same chain,
 rung by rung. **Further:** [sembawang beyond the capstone](../ext/sembawang.md)
 compares this case with an equal-power LWR.

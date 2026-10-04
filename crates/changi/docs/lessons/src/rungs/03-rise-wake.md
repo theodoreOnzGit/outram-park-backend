@@ -9,9 +9,7 @@
 > [`@@COMMIT_SHORT@@`](https://github.com/theodoreOnzGit/outram-park-backend/commit/@@COMMIT@@).
 > [It doesn't tally](https://github.com/theodoreOnzGit/outram-park-backend/issues/new?title=Dispersion%20rung%203%20doesn%27t%20tally).
 
-> **Demo (rung `rise-wake`): coming** (#530 phase 3, waiting for #521's
-> framework). It will show the plume in side view, with the stack, the rise
-> and an optional building, and the ground-level concentration beneath.
+> **Demo:** [open this rung in the dispersion demo](../../../demos/dispersion/?rung=rise-wake): the ground-level centreline `chi/Q` with and without pyDOSEIA's plume rise, and a ground release with and without a building wake, as you move the exit velocity, stack height and building size. Every calculation runs in a background worker, so the page stays live; the demo's "What's happening here?" link opens this page.
 
 > **Status of this rung's physics: ported, not verified against its sources,
 > and not used.** Every function on this page is a port of pyDOSEIA code that
@@ -100,7 +98,7 @@ port:
   cap binds (see the run below). Filed with the reference check as a gap issue
   (linked at the bottom).
 
-**Animation.** *Coming:* the plume leaving the stack, rising and bending
+**Animation.** *Not yet built* ([gh:#548](https://github.com/theodoreOnzGit/outram-park-backend/issues/548)): the plume leaving the stack, rising and bending
 over, with `H_e` marked.
 
 **The code walk.** There is no caller in the library, so the walk starts from

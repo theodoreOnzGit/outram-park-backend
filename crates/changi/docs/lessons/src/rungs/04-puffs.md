@@ -9,9 +9,7 @@
 > [`@@COMMIT_SHORT@@`](https://github.com/theodoreOnzGit/outram-park-backend/commit/@@COMMIT@@).
 > [It doesn't tally](https://github.com/theodoreOnzGit/outram-park-backend/issues/new?title=Dispersion%20rung%204%20doesn%27t%20tally).
 
-> **Demo (rung `puffs`): coming** (#530 phase 3, waiting for #521's
-> framework). It will emit a train of puffs on a map; rotate the wind and the
-> train bends, because each puff remembers where it has been.
+> **Demo:** [open this rung in the dispersion demo](../../../demos/dispersion/?rung=puffs): a puff train on a map; rotate the wind and the train bends, because each puff remembers where it is and the class it was born in; tick "frozen wind" to see upstream R `puff`'s defect. Every calculation runs in a background worker, so the page stays live; the demo's "What's happening here?" link opens this page.
 
 ## The problem
 
@@ -50,7 +48,7 @@ with `sigma` evaluated at the distance the puff has **travelled** (rung 2's
   and upstream maps the result to 0. A modelling artefact, not physics, and
   the doc comment says so.
 
-**Animation.** *Coming:* a single puff drifting and growing, then a train of
+**Animation.** *Not yet built* ([gh:#548](https://github.com/theodoreOnzGit/outram-park-backend/issues/548)): a single puff drifting and growing, then a train of
 them merging into something that looks like a plume.
 
 **The code walk.** From the puff example to the kernel:
@@ -154,8 +152,11 @@ port default (Lagrangian): x_p(t + dt) = x_p(t) + u(t) dt,  distance += |u(t)| d
 On a constant wind the two agree algebraically (`n` steps of `u dt` is
 `u * age`), so no steady-wind number moves; they differ on every other wind.
 
-**Animation.** *Coming:* the same release under both policies, side by side,
-with the wind turning 90° halfway.
+**Animation.** [In the demo](../../../demos/dispersion/?rung=puffs): run the train, then turn the wind
+90°. Under the default the old puffs keep their place and the train bends;
+tick "frozen wind" (upstream's rule) and every puff keeps flying the bearing
+it was born on. (Both policies side by side in one view is not built:
+[gh:#548](https://github.com/theodoreOnzGit/outram-park-backend/issues/548).)
 
 **The code walk.** The step that marches each puff:
 

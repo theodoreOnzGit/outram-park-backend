@@ -12,9 +12,7 @@
 > [`@@COMMIT_SHORT@@`](https://github.com/theodoreOnzGit/outram-park-backend/commit/@@COMMIT@@).
 > [It doesn't tally](https://github.com/theodoreOnzGit/outram-park-backend/issues/new?title=Dispersion%20rung%206%20doesn%27t%20tally).
 
-> **Demo (rung `dose`): coming** (#530 phase 3, waiting for #521's
-> framework). It will plot dose against distance by pathway, with published
-> curves drawn solid and this workspace's calculations dotted.
+> **Demo:** [open this rung in the dispersion demo](../../../demos/dispersion/?rung=dose): dose against distance: the capstone's recorded points, the same release under the class and wind you pick (scaled by `chi/Q`, the capstone's own arithmetic), and Liu & Cao's published Table 9 drawn solid as context. Every calculation runs in a background worker, so the page stays live; the demo's "What's happening here?" link opens this page.
 
 ## The problem
 

@@ -9,10 +9,7 @@
 > [`@@COMMIT_SHORT@@`](https://github.com/theodoreOnzGit/outram-park-backend/commit/@@COMMIT@@).
 > [It doesn't tally](https://github.com/theodoreOnzGit/outram-park-backend/issues/new?title=Dispersion%20rung%205%20doesn%27t%20tally).
 
-> **Demo (rung `deposition`): coming** (#530 phase 3, waiting for #521's
-> framework). It will colour the ground by deposited activity under the puff
-> train, with a nuclide selector, so a noble gas leaves no footprint and
-> iodine does.
+> **Demo:** [open this rung in the dispersion demo](../../../demos/dispersion/?rung=deposition): the dry-deposition footprint per unit release for krypton, iodine, caesium or bromine, with a half-life slider for decay in flight. Every calculation runs in a background worker, so the page stays live; the demo's "What's happening here?" link opens this page.
 
 ## The problem
 
