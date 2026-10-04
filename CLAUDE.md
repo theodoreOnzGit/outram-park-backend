@@ -21,6 +21,7 @@ exactly as if it were here.
 | adding a dependency, test or example (Android/Termux, wasm), or a deep file path (170-char cap) | [`docs/claude-md/portability-android-wasm-paths.md`](docs/claude-md/portability-android-wasm-paths.md) |
 | writing a slow test, or touching CI (`long-tests` tiers, TUAS parallel runs) | [`docs/claude-md/long-tests-and-ci.md`](docs/claude-md/long-tests-and-ci.md) |
 | building an egui simulator (headless mode is mandatory) | [`crates/outram-park-digital-twin-engine/CLAUDE.md`](crates/outram-park-digital-twin-engine/CLAUDE.md) |
+| writing a tutorial, deep dive or interactive demo (**mobile-first is a HARD RULE**) | [`docs/claude-md/mobile-first-tutorials-and-demos.md`](docs/claude-md/mobile-first-tutorials-and-demos.md) |
 | asked to enable the working-hours guardrail (opt-in, off by default) | [`docs/claude-md/working-hours-guardrail.md`](docs/claude-md/working-hours-guardrail.md) |
 | asked for Singlish mode | [`docs/claude-md/singlish-mode.md`](docs/claude-md/singlish-mode.md) |
 | publishing, upgrading dependencies, or needing consolidation history | [`docs/workspace-maintenance.md`](docs/workspace-maintenance.md) |
@@ -636,6 +637,17 @@ Full text, with the enum-dispatch pattern: [`docs/claude-md/rust-design-rules.md
 - **No new file path over 170 characters** (repo-relative).
 
 Full rules, gating patterns and exclusions: [`docs/claude-md/portability-android-wasm-paths.md`](docs/claude-md/portability-android-wasm-paths.md).
+
+## Tutorials and demos work on mobile (HARD RULE) — short form
+
+**Maintainer direction, 2026-10-04.** Every tutorial page and interactive demo
+must work on a phone. Each demo has a full-page **main view** with on-screen
+**zoom in, zoom out and reset** (centre and fit) buttons, plus a
+**collapsible side panel** that holds every control, folded by default on a
+narrow screen. Gestures may supplement the buttons, never replace them. Check at
+phone width before calling it done.
+
+Full rule, layout sketch and reference implementation: [`docs/claude-md/mobile-first-tutorials-and-demos.md`](docs/claude-md/mobile-first-tutorials-and-demos.md).
 
 # Part 3 — The workspace
 

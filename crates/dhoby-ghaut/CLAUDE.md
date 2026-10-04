@@ -46,3 +46,11 @@ against `openmc --plot`
 `render_material_slice` draws a material-coloured slice with a legend and cm
 axes in one call; `crates/nee_soon/examples/htr10_geometry_images.rs` is the
 worked example. For meshes, plot the mesh itself (cells, patches, zones).
+
+## Web demos are mobile-first (HARD RULE, 2026-10-04)
+
+Every demo here follows
+[`docs/claude-md/mobile-first-tutorials-and-demos.md`](../../docs/claude-md/mobile-first-tutorials-and-demos.md):
+a full-page main view with on-screen zoom in, zoom out and reset buttons, and a
+collapsible side panel holding every control, folded by default on a narrow
+screen. `examples/triso_pebble_web/` is the reference implementation.

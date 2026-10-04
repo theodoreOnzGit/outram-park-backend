@@ -130,6 +130,15 @@ impl View {
             c.y - ((y - self.centre[1]) * self.scale) as f32,
         )
     }
+    /// Multiply the zoom by `factor`, keeping the world point under `p` fixed.
+    fn zoom_about(&mut self, rect: Rect, p: Pos2, factor: f64) {
+        let before = self.to_world(rect, p);
+        let fit = (rect.width().min(rect.height()) as f64) * 0.94 / (2.0 * model::half_pitch());
+        self.scale = (self.scale * factor).clamp(fit * 0.5, fit * 600.0);
+        let after = self.to_world(rect, p);
+        self.centre[0] += before[0] - after[0];
+        self.centre[1] += before[1] - after[1];
+    }
     fn to_world(&self, rect: Rect, p: Pos2) -> [f64; 2] {
         let c = rect.center();
         [
@@ -652,7 +661,7 @@ impl TrisoApp {
                     }
                 });
                 ui.checkbox(&mut r.dots, "mark collisions");
-                ui.weak("Scroll or pinch to zoom (to see the TRISO layers), drag to pan, double-click to fit.");
+                ui.weak("Zoom with + and − (or scroll / pinch) to see the TRISO layers, drag to pan, Reset to recentre.");
 
                 ui.separator();
                 ui.strong("This neutron");
@@ -822,12 +831,7 @@ impl TrisoApp {
             let factor = zoom as f64 * (scroll as f64 * 0.0025).exp();
             if (factor - 1.0).abs() > 1e-6 {
                 if let Some(p) = resp.hover_pos() {
-                    let before = self.view.to_world(rect, p);
-                    let fit = (rect.width().min(rect.height()) as f64) * 0.94 / (2.0 * model::half_pitch());
-                    self.view.scale = (self.view.scale * factor).clamp(fit * 0.5, fit * 600.0);
-                    let after = self.view.to_world(rect, p);
-                    self.view.centre[0] += before[0] - after[0];
-                    self.view.centre[1] += before[1] - after[1];
+                    self.view.zoom_about(rect, p, factor);
                 }
             }
         }
@@ -891,6 +895,29 @@ impl TrisoApp {
             if ui.put(b, egui::Button::new("Controls »")).clicked() {
                 self.panel_open = true;
             }
+        }
+
+        // Zoom in, zoom out and reset as real buttons (top right): a phone
+        // has no wheel, and pinch or double-tap are not discoverable.
+        // Text, not a ⟲ glyph: egui's bundled fonts may not carry it.
+        let buttons = [
+            ("+", "Zoom in", 40.0),
+            ("−", "Zoom out", 40.0),
+            ("Reset", "Centre the pebble and fit it to the screen", 64.0),
+        ];
+        let gap = 6.0;
+        let total: f32 = buttons.iter().map(|b| b.2).sum::<f32>() + gap * (buttons.len() - 1) as f32;
+        let mut x = rect.right() - 8.0 - total;
+        for (label, hover, w) in buttons {
+            let b = Rect::from_min_size(Pos2::new(x, rect.top() + 8.0), Vec2::new(w, 36.0));
+            if ui.put(b, egui::Button::new(egui::RichText::new(label).size(18.0))).on_hover_text(hover).clicked() {
+                match label {
+                    "+" => self.view.zoom_about(rect, rect.center(), 1.5),
+                    "−" => self.view.zoom_about(rect, rect.center(), 1.0 / 1.5),
+                    _ => self.view.fit(rect),
+                }
+            }
+            x += w + gap;
         }
     }
 
