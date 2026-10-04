@@ -316,6 +316,12 @@ required-features = ["endf-pebble-cases"]
 name = "ugraphite_four_factor"
 required-features = ["endf-pebble-cases"]
 
+# Tutorial rung 3 (GitHub #525): natural-uranium metal lumps in graphite,
+# k_inf vs lump radius at fixed C/U, Wigner-Seitz cell with a white boundary.
+[[example]]
+name = "lumped_ugraphite_kinf"
+required-features = ["endf-pebble-cases"]
+
 # Oracle: resonance integral (area under the resonances, not point values) vs
 # NJOY2016's PENDF and vs the published RI_inf (op-mzvp.2.12).
 [[example]]

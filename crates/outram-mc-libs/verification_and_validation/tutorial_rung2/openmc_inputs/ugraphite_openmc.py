@@ -146,7 +146,7 @@ def main():
     t = openmc.Tally(name="four_factor")
     t.filters = [openmc.EnergyFilter(E_EDGES)]
     t.nuclides = ["total"] + list(u.keys())
-    t.scores = ["absorption", "nu-fission", "flux"]
+    t.scores = ["absorption", "nu-fission"]
     model = openmc.Model(geometry=geo, materials=openmc.Materials([m]), settings=s,
                          tallies=openmc.Tallies([t]))
 
@@ -158,7 +158,6 @@ def main():
     with openmc.StatePoint(sp_path) as sp:
         k = sp.keff
         kgen = np.asarray(sp.k_generation)[a.inactive:]
-        ent = np.asarray(sp.entropy) if sp.entropy is not None else None
         tt = sp.get_tally(name="four_factor")
 
         def rate(score, nuc):
