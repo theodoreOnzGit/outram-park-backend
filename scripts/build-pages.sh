@@ -1,8 +1,10 @@
 #!/usr/bin/env bash
 # Build the backend GitHub Pages site (gh:#509, #518): the tabbed main menu
-# (docs/site/), every deep-dive mdBook (docs/site/deep-dives.txt) and rustdoc
+# (docs/site/), every deep-dive mdBook (docs/site/deep-dives.txt), rustdoc
 # for the crates that have lessons (docs/site/lesson-crates.txt), without
-# source pages. Run by .github/workflows/pages.yml; runnable locally:
+# source pages, and the browser demos (gh:#519). The demos need the
+# wasm32-unknown-unknown target and the wasm-bindgen CLI at the Cargo.lock
+# version; the demo's own build script checks the latter. Run by .github/workflows/pages.yml; runnable locally:
 #   scripts/build-pages.sh target/pages
 set -euo pipefail
 cd "$(git rev-parse --show-toplevel)"
@@ -46,6 +48,9 @@ while read -r name dir; do
   mdbook build "$dir" -d "$PWD/$OUT/deep-dives/$name"
 done < docs/site/deep-dives.txt
 
+# Browser demos (gh:#519): wasm build, its JS glue, the ENDF tapes it
+# processes in the browser, and its geometry review images.
+crates/dhoby-ghaut/web/triso_pebble/build.sh "$OUT/demos/triso-pebble"
 # Pin every GitHub link and the footer to the build commit.
 grep -rlZ -e '@@COMMIT@@' -e '@@COMMIT_SHORT@@' -e '@@BUILD_DATE@@' "$OUT" \
   | xargs -0 -r sed -i -e "s/@@COMMIT@@/$COMMIT/g" -e "s/@@COMMIT_SHORT@@/$SHORT/g" -e "s/@@BUILD_DATE@@/$DATE/g"
@@ -53,7 +58,9 @@ grep -rlZ -e '@@COMMIT@@' -e '@@COMMIT_SHORT@@' -e '@@BUILD_DATE@@' "$OUT" \
 # Every page must exist where the main menu points.
 for f in index.html api/outram_mc_libs/index.html api/changi/index.html \
   api/buangkok/index.html api/boon_lay/index.html \
-  deep-dives/{monte-carlo,dispersion,triso-atops}/index.html; do
+  deep-dives/{monte-carlo,dispersion,triso-atops}/index.html \
+  demos/triso-pebble/index.html demos/triso-pebble/triso_pebble_web_bg.wasm \
+  demos/triso-pebble/geometry/index.html; do
   [[ -f "$OUT/$f" ]] || { echo "missing $OUT/$f" >&2; exit 1; }
 done
 

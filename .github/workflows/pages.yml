@@ -9,7 +9,9 @@
 # What it builds: `scripts/build-pages.sh`, the tabbed main menu
 # (docs/site/), each deep-dive mdBook listed in docs/site/deep-dives.txt, and
 # rustdoc (release, no source pages) for the crates in
-# docs/site/lesson-crates.txt, i.e. only crates that have lessons.
+# docs/site/lesson-crates.txt, i.e. only crates that have lessons, and the
+# browser demos (gh:#519): a wasm32 build plus the wasm-bindgen CLI, whose
+# version is read from Cargo.lock because the two must match exactly.
 #
 # Separate from `fast tests`: a broken page fails this workflow only.
 
@@ -35,16 +37,29 @@ env:
 jobs:
   build:
     runs-on: ubuntu-latest
-    timeout-minutes: 60
+    # 90, not 60: a cold cache now also builds the demo natively (to prepare
+    # its data) and for wasm32.
+    timeout-minutes: 90
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-unknown-unknown
       - uses: Swatinem/rust-cache@v2
         with:
           key: pages
       - uses: taiki-e/install-action@v2
         with:
           tool: mdbook
+      - name: wasm-bindgen version pinned by Cargo.lock
+        id: wb
+        run: |
+          v=$(grep -A1 '^name = "wasm-bindgen"$' Cargo.lock | sed -n 's/^version = "\(.*\)"$/\1/p')
+          test -n "$v"
+          echo "version=$v" >> "$GITHUB_OUTPUT"
+      - uses: taiki-e/install-action@v2
+        with:
+          tool: wasm-bindgen@${{ steps.wb.outputs.version }}
       - name: Build the site
         run: scripts/build-pages.sh target/pages
       - uses: actions/upload-pages-artifact@v3

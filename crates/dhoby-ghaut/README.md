@@ -69,6 +69,10 @@ Monte Carlo bridge moved to `nee_soon` (`nee_soon::sim`,
 
 ## The TRISO pebble, in the browser
 
+**Live:** <https://theodoreonzgit.github.io/outram-park-backend/demos/triso-pebble/>
+(published by the backend Pages site on every push to `develop`; its geometry
+images are at `demos/triso-pebble/geometry/`).
+
 `examples/triso_pebble_web/` puts a pebble on screen and sends neutrons into it
 **one at a time**, drawing each track coloured by energy as the neutron slows
 down in the graphite, until it is captured or causes a fission. Start and stop
