@@ -757,9 +757,17 @@ fn arg_usize(args: &[String], flag: &str) -> Option<usize> {
 /// tape for. Returns the nuclide array, name → slot, and the omitted set.
 /// Which optional resonance-treatment physics to switch on, for pricing it.
 ///
-/// Both default to **off**, matching every result recorded for this case
+/// ~~Both default to **off**, matching every result recorded for this case
 /// before 2026-09-16 — so a run without flags reproduces the baseline and the
-/// difference is attributable to the flag alone.
+/// difference is attributable to the flag alone.~~ **CORRECTED 2026-10-04:**
+/// the *flags* default to off, but the *physics* does not. `load()` builds
+/// every nuclide through `Nuclide::from_endf_file_with_speed`, whose
+/// constructor ends in `with_urr_probability_tables(.., 20, 16, 2000)` and
+/// `with_dbrc(DBRC_DEFAULT_E_MAX_EV)` (`src/material/nuclide.rs`,
+/// `from_tape_with_broadr_tolerance`), so a run without flags already carries
+/// both and the flags only rebuild them. A no-flag run is NOT the pre-2026-09-16
+/// baseline; ablating either needs `Nuclide::without_urr_probability_tables` /
+/// `without_dbrc`, which this example does not expose.
 #[derive(Debug, Clone, Copy, Default)]
 struct ResonanceOptions {
     /// `--dbrc` — resonance elastic scattering (`Nuclide::with_dbrc`) on the

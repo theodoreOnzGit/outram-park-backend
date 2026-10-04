@@ -229,6 +229,13 @@ required-features = ["endf-pebble-cases"]
 name = "lct008_keff"
 required-features = ["endf-pebble-cases"]
 
+# Tutorial rung 4 (GitHub #526): LCT-008's pin in a reflective square cell,
+# k-infinity and six factors against pitch (under-/over-moderation). Needs the
+# reference ENDF tapes, so it is gated like the other LCT-008 examples.
+[[example]]
+name = "lct008_pitch_sweep"
+required-features = ["endf-pebble-cases"]
+
 [[example]]
 name = "b10_thermal_probe"
 required-features = ["endf-pebble-cases"]
