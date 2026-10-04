@@ -26,18 +26,12 @@ use outram_mc_libs::vv::godiva;
 
 pub use godiva::{RADIUS_CM, TEMPERATURE_K};
 
-/// One tape to process: the label shown while loading, and the file.
-#[derive(Debug, Clone, Copy)]
-pub struct Job {
-    pub label: &'static str,
-    pub tape: &'static str,
-}
-
-/// The three tapes, in [`godiva::NUCLIDES`] order.
-pub const JOBS: [Job; 3] = [
-    Job { label: "U-234", tape: godiva::NUCLIDES[0].1 },
-    Job { label: "U-235", tape: godiva::NUCLIDES[1].1 },
-    Job { label: "U-238", tape: godiva::NUCLIDES[2].1 },
+/// The three tapes, `(label shown while loading, file)`, in
+/// [`godiva::NUCLIDES`] order.
+pub const JOBS: [(&str, &str); 3] = [
+    ("U-234", godiva::NUCLIDES[0].1),
+    ("U-235", godiva::NUCLIDES[1].1),
+    ("U-238", godiva::NUCLIDES[2].1),
 ];
 
 /// Index of U-235 in the nuclide list (for the Watch mode's birth spectrum).

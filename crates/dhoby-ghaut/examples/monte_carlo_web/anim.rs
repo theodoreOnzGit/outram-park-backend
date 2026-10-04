@@ -11,7 +11,7 @@ use outram_mc_libs::physics::track_output::TrackEvent;
 /// Reference energy of the speed slider \[eV\]: the slider value is the
 /// animated speed of a neutron of THIS energy. One constant for every rung,
 /// so a slider value means the same on each (maintainer decision 2026-10-04;
-/// each rung's default is in [`crate::rungs::Spectrum::default_speed_at_1ev`]).
+/// each rung's default is in [`Spectrum::default_speed_at_1ev`]).
 pub const SPEED_REFERENCE_EV: f64 = 1.0;
 
 /// Neutron rest energy `m_n c^2` \[eV\] (CODATA 2018: 939.56542052 MeV).
@@ -46,6 +46,49 @@ pub fn neutron_speed_cm_s(e_ev: f64) -> f64 {
 /// recorded history carried after the event that started the segment.
 pub fn animated_speed(e_ev: f64, slider_cm_s: f64) -> f64 {
     slider_cm_s * neutron_speed_cm_s(e_ev) / neutron_speed_cm_s(SPEED_REFERENCE_EV)
+}
+
+/// The energy range a rung's neutrons mostly live in. It sets the default of
+/// the animation-speed slider.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Spectrum {
+    /// Moderated: neutrons slow down to thermal energies (TRISO; later
+    /// uranium in graphite, LCT-008, HTR-10).
+    Thermal,
+    /// Unmoderated: neutrons stay near their ~MeV birth energies (Godiva;
+    /// later Jemima).
+    Fast,
+}
+
+impl Spectrum {
+    /// Default of the "speed at 1 eV" slider \[cm of flight per second\].
+    ///
+    /// **One unit for every rung, a default per spectrum** (maintainer
+    /// decision, 2026-10-04): the slider always means the animated speed of a
+    /// 1 eV neutron, so rungs stay comparable, and each spectrum's default
+    /// animates a TYPICAL neutron of that spectrum at about 7 cm/s:
+    ///
+    /// - thermal rungs: **7 cm/s at 1 eV** (a slowing-down neutron in a
+    ///   moderator; a fully thermal 0.0253 eV neutron then crawls at 1.1 cm/s
+    ///   and a 2 MeV birth flies at ~9900 cm/s);
+    /// - fast rungs: **0.007 cm/s at 1 eV**, which is **7 cm/s at 1 MeV**,
+    ///   about where a Godiva neutron spends its life.
+    ///
+    /// Selecting a rung resets the slider to its rung's default.
+    pub fn default_speed_at_1ev(self) -> f64 {
+        match self {
+            Spectrum::Thermal => 7.0,
+            Spectrum::Fast => 0.007,
+        }
+    }
+
+    /// The characteristic energy shown beside the slider \[eV\], and its name.
+    pub fn characteristic(self) -> (f64, &'static str) {
+        match self {
+            Spectrum::Thermal => (0.0253, "0.0253 eV (thermal)"),
+            Spectrum::Fast => (1.0e6, "1 MeV (fast)"),
+        }
+    }
 }
 
 // ─── Flying along a recorded track ───────────────────────────────────────────

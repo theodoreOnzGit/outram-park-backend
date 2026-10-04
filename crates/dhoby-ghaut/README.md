@@ -24,8 +24,13 @@ deck-driven steam-methane-reforming CSTR, is merged.
 
 ## What is here
 
-**The library is a placeholder.** Its only public item is the `EXPANSION`
-constant, and it has no `[dependencies]`. Everything here is an **example**:
+~~**The library is a placeholder.** Its only public item is the `EXPANSION`
+constant, and it has no `[dependencies]`.~~ **CORRECTED 2026-10-04:** the
+library holds `web_demo`, the framework every tutorial track's browser demo is
+built on (mobile-first main view and panel, the worker/thread plumbing of the
+no-lagging rule, loading card, rung table and lesson links), so it depends on
+`egui` (off Android) and, on wasm32, the wasm-bindgen family. The GUIs and
+demos themselves are **examples**:
 the two studios, moved here from `outram-blender` on 2026-09-17, and the Monte
 Carlo web demo (the TRISO pebble demo of 2026-10-03, made multi-rung on
 2026-10-04):
@@ -136,38 +141,16 @@ crates/dhoby-ghaut/web/monte_carlo/build.sh                                     
 python3 -m http.server -d crates/dhoby-ghaut/web/monte_carlo/dist 8000
 ```
 
-### Adding a rung (and its lesson page)
+### Adding a rung, or a new track's demo
 
-1. **The table.** Add a variant to `rungs::Rung` and a row to `rungs::RUNGS`
-   (`examples/monte_carlo_web/rungs.rs`): its URL `name`, `title`, `lesson`
-   page (site-relative), `spectrum` (sets the animation-speed default) and
-   whether it has a Run k_eff mode. Keep `name:` and `lesson:` on one line
-   each: `scripts/build-pages.sh` reads them and fails the site build if the
-   lesson page is missing or a page links to a rung the table lacks.
-2. **The physics.** Add `examples/monte_carlo_web/<rung>/` with `model.rs`
-   (its tapes as `JOBS`, a `DataBuilder`, the geometry) and `sim.rs` (a
-   `Chain` producing `history::History` from `run_fixed_source_traced`, as
-   `godiva/sim.rs` does; a power iteration if it has Run mode), and
-   `render.rs` for the geometry review images (the drawing rule).
-3. **The engine.** Extend `engine::jobs`, `engine::effective_tier`,
-   `engine::Builder` and `engine::Loaded` (and the arms of `Loaded::serve`)
-   with the variant. The worker, its message format and the UI's
-   loading/progress need no change.
-4. **The app.** In `app.rs`: `half_extent` (what Reset fits), the picture in
-   `McApp::canvas`, `job_weights` (progress-bar weights), and the rung's
-   "What this is — and is not" notes. The panel, + / − / Reset, speed slider,
-   loading card and Run console are shared.
-5. **The page.** Add `crates/outram-mc-libs/docs/tutorial/src/<rung>.md`, list it
-   in that book's `SUMMARY.md`, and add it to the "every page must exist" list
-   in `scripts/build-pages.sh`. Link the demo as
-   `../../demos/monte-carlo/?rung=<name>&mode=watch`.
-
-A different **track** (nuclear data, dispersion, …) reuses the same pieces
-without the rung table's physics: the worker/thread `engine` pattern (`Link`,
-the `hello` handshake, per-step messages so the UI never blocks), the
-mobile-first `View` / panel / buttons of `app.rs`, `web/monte_carlo/build.sh`
-for the wasm build, and the tutorial book layout under
-`docs/site/tutorials.txt`.
+Both are written down once, in this crate's
+[`CLAUDE.md`](CLAUDE.md#web-demos-how-a-new-track-app-and-a-new-rung-plug-in).
+In short: a **Monte Carlo rung** is a directory
+`examples/monte_carlo_web/<rung>/` implementing `rungs::McRung`, plus one
+line in the `rung_table!` in `main.rs`, plus its lesson page; a **new track's
+demo** is a new example built on the library's `dhoby_ghaut::web_demo`
+(main view and zoom buttons, folding panel, worker/thread plumbing, loading
+card, rung table and lesson links), whose module docs walk through it.
 
 **Geometry review images** (the crate's drawing rule), rendered from the
 assembled geometry with the OpenMC-parity plotter, are committed under

@@ -1,35 +1,32 @@
-//! The physics side of the GUI, kept OFF the UI thread.
+//! The physics side of the GUI, kept OFF the UI thread, on the library's
+//! worker/thread plumbing ([`dhoby_ghaut::web_demo::link`]).
 //!
 //! Processing a large ENDF tape is one blocking call of tens of seconds. On the
-//! UI thread that freezes the page — every frame, every click, the progress
-//! bar itself — so the GUI never does physics. Natively a thread owns the
-//! nuclear data and the neutrons; in the browser a Web Worker running this
-//! same wasm module does (the module finds no `window` there and enters
-//! [`run_worker`]). Each talks to the UI in the same [`Event`]s, so the UI has
+//! UI thread that freezes the page, so the GUI never does physics: natively a
+//! thread runs [`McEngine`], in the browser a Web Worker running this same
+//! wasm module does. Each talks to the UI in the same [`Event`]s, so the UI has
 //! one code path, and the nuclear data never cross threads: only finished
 //! histories and generation reports do, flattened to `f64`s.
 //!
 //! The engine serves one rung at a time. [`Request::Load`] replaces whatever
 //! was loaded; every loading event carries the load's `id`, and the UI ignores
-//! events from a load it has since replaced.
+//! events from a load it has since replaced. A power iteration runs ONE
+//! generation per [`Request::KeffStep`], so the UI can pause it.
 //!
-//! The engine runs requests strictly in order, so the TRISO histories are the
-//! same sequence [`crate::triso::sim::headless_csv`] prints for the same seed —
-//! the `the_engine_thread_runs_the_headless_sequence` test pins that.
+//! Requests are served strictly in order, so the TRISO histories are the
+//! same sequence `triso::sim::headless_csv` prints for the same seed — the
+//! `the_engine_thread_runs_the_headless_sequence` test pins that.
 
-// The wire format serves the browser build (and the tests);
-// the native engine thread hands over Rust values directly.
+// The wire format serves the browser build (and the tests).
 #![cfg_attr(not(target_arch = "wasm32"), allow(dead_code))]
 
-use crate::godiva;
 use crate::history::History;
-use crate::rungs::Rung;
-use crate::triso;
+use crate::keff::{Generation, KeffConfig};
+use crate::table::{Loaded, Rung};
 use outram_mc_libs::geometry::position::{Direction, Position};
 use outram_mc_libs::material::speed::SpeedTier;
 use outram_mc_libs::physics::keff::{GenerationReport, HistoryCounts};
 use outram_mc_libs::physics::track_output::{Track, TrackEvent, TrackState};
-use std::sync::{Arc, RwLock};
 
 /// Seed of the neutron chain the GUI shows.
 pub const CHAIN_SEED: u64 = 1;
@@ -50,15 +47,6 @@ impl Tier {
             Tier::Loose => SpeedTier::VeryFast,
         }
     }
-    fn code(self) -> f64 {
-        match self {
-            Tier::Exact => 0.0,
-            Tier::Loose => 1.0,
-        }
-    }
-    fn from_code(c: f64) -> Tier {
-        if c == 0.0 { Tier::Exact } else { Tier::Loose }
-    }
 }
 
 pub enum Request {
@@ -67,8 +55,8 @@ pub enum Request {
     /// Transport `n` more traced neutrons of the loaded rung; `animate: false`
     /// ones go straight to the statistics ("Run 100 unanimated").
     Run { n: usize, animate: bool },
-    /// Start a power iteration (Godiva), replacing any running one.
-    KeffStart(godiva::sim::KeffConfig),
+    /// Start a power iteration, replacing any running one.
+    KeffStart(KeffConfig),
     /// Run its next generation.
     KeffStep,
 }
@@ -80,102 +68,81 @@ pub enum Event {
     History { h: History, animate: bool },
     /// The source before the first generation of a just-started iteration.
     KeffStarted { sites: Vec<[f32; 2]> },
-    Generation(godiva::sim::Generation),
+    Generation(Generation),
     /// The iteration has run every generation.
     KeffDone,
     Error(String),
 }
 
-/// The tapes of a rung, `(label, file)`, in processing order.
-pub fn jobs(rung: Rung) -> Vec<(&'static str, &'static str)> {
-    match rung {
-        Rung::Triso => triso::model::JOBS.iter().map(|j| (j.label, j.tape)).collect(),
-        Rung::Godiva => godiva::model::JOBS.iter().map(|j| (j.label, j.tape)).collect(),
-    }
-}
-
-/// The tier a rung is processed at. The TRISO rung always uses its own
-/// [`triso::model::SPEED`]; Godiva uses what was asked for.
-pub fn effective_tier(rung: Rung, tier: Tier) -> Tier {
-    match rung {
-        Rung::Triso => Tier::Loose,
-        Rung::Godiva => tier,
-    }
-}
-
-/// Incremental processing of a rung's tapes.
-#[allow(clippy::large_enum_variant)]
-pub enum Builder {
-    Triso(triso::model::DataBuilder),
-    Godiva(godiva::model::DataBuilder),
-}
-
-impl Builder {
-    pub fn new(rung: Rung, tier: Tier) -> Self {
-        match rung {
-            Rung::Triso => Builder::Triso(triso::model::DataBuilder::default()),
-            Rung::Godiva => Builder::Godiva(godiva::model::DataBuilder::new(tier.speed())),
+/// Serve one non-load request on loaded data.
+pub fn serve(l: &mut Loaded, r: Request, post: &mut impl FnMut(Event)) {
+    match r {
+        Request::Load { .. } => {} // the platform loader's job
+        Request::Run { n, animate } => {
+            for _ in 0..n {
+                post(Event::History { h: l.run_next(), animate });
+            }
         }
-    }
-    pub fn step(&mut self, bytes: &[u8]) -> Result<(), String> {
-        match self {
-            Builder::Triso(b) => b.step(bytes),
-            Builder::Godiva(b) => b.step(bytes),
-        }
-    }
-    pub fn finish(self) -> Result<Loaded, String> {
-        Ok(match self {
-            Builder::Triso(b) => Loaded::Triso { phys: triso::sim::Physics::new(b.finish()?), chain: triso::sim::Chain::new(CHAIN_SEED) },
-            Builder::Godiva(b) => Loaded::Godiva {
-                phys: godiva::sim::Physics::new(b.finish()?),
-                chain: godiva::sim::Chain::new(CHAIN_SEED),
-                keff: None,
-            },
-        })
-    }
-}
-
-/// The engine's state once a rung's data are processed.
-#[allow(clippy::large_enum_variant)]
-pub enum Loaded {
-    Triso { phys: triso::sim::Physics, chain: triso::sim::Chain },
-    Godiva { phys: godiva::sim::Physics, chain: godiva::sim::Chain, keff: Option<godiva::sim::Keff> },
-}
-
-impl Loaded {
-    /// Serve one (non-load) request, posting what it produces.
-    pub fn serve(&mut self, r: Request, post: &mut impl FnMut(Event)) {
-        match (self, r) {
-            (_, Request::Load { .. }) => {} // handled by the platform loader
-            (Loaded::Triso { phys, chain }, Request::Run { n, animate }) => {
-                for _ in 0..n {
-                    post(Event::History { h: chain.run_next(phys), animate });
+        Request::KeffStart(cfg) => match l.keff_start(cfg) {
+            Ok(sites) => post(Event::KeffStarted { sites }),
+            Err(e) => post(Event::Error(e)),
+        },
+        Request::KeffStep => match l.keff_step() {
+            Some(g) => {
+                post(Event::Generation(g));
+                if l.keff_finished() {
+                    post(Event::KeffDone);
                 }
             }
-            (Loaded::Godiva { phys, chain, .. }, Request::Run { n, animate }) => {
-                for _ in 0..n {
-                    post(Event::History { h: chain.run_next(phys), animate });
-                }
-            }
-            (Loaded::Godiva { keff, .. }, Request::KeffStart(cfg)) => {
-                let k = godiva::sim::Keff::new(cfg);
-                post(Event::KeffStarted { sites: if cfg.want_sites { k.initial_sites() } else { Vec::new() } });
-                *keff = Some(k);
-            }
-            (Loaded::Godiva { phys, keff, .. }, Request::KeffStep) => match keff.as_mut().and_then(|k| k.step(phys)) {
-                Some(g) => {
-                    post(Event::Generation(g));
-                    if keff.as_ref().is_some_and(|k| k.finished()) {
-                        post(Event::KeffDone);
+            None => post(Event::KeffDone),
+        },
+    }
+}
+
+/// The engine: what is loaded, and (in the browser) the newest load asked for.
+#[derive(Default)]
+pub struct McEngine {
+    loaded: Option<Loaded>,
+    newest_load: u32,
+}
+
+// ─── Native: an engine thread ────────────────────────────────────────────────
+
+#[cfg(not(target_arch = "wasm32"))]
+impl dhoby_ghaut::web_demo::link::NativeEngine for McEngine {
+    type Req = Request;
+    type Ev = Event;
+    fn handle(&mut self, req: Request, post: &mut impl FnMut(Event)) {
+        match req {
+            Request::Load { id, rung, tier } => {
+                self.loaded = None;
+                match native_load(id, rung, tier, post) {
+                    Ok(l) => {
+                        self.loaded = Some(l);
+                        post(Event::Ready { id });
                     }
+                    Err(e) => post(Event::Error(e)),
                 }
-                None => post(Event::KeffDone),
-            },
-            (Loaded::Triso { .. }, Request::KeffStart(_) | Request::KeffStep) => {
-                post(Event::Error("the TRISO rung has no k_eff mode".into()))
             }
+            r => match self.loaded.as_mut() {
+                Some(l) => serve(l, r, post),
+                None => post(Event::Error("no data loaded".into())),
+            },
         }
     }
+}
+
+/// Process a rung's tapes from `reference-data/endf/`, posting progress.
+#[cfg(not(target_arch = "wasm32"))]
+pub fn native_load(id: u32, rung: Rung, tier: Tier, post: &mut impl FnMut(Event)) -> Result<Loaded, String> {
+    let mut b = rung.builder(tier);
+    for (index, (label, tape)) in rung.jobs().iter().enumerate() {
+        post(Event::JobStarted { id, index });
+        let t = std::time::Instant::now();
+        crate::native_tape(tape).and_then(|bytes| b.step(&bytes)).map_err(|e| format!("{label}: {e}"))?;
+        post(Event::JobDone { id, index, secs: t.elapsed().as_secs_f64() });
+    }
+    b.finish()
 }
 
 // ─── Flattening for postMessage ──────────────────────────────────────────────
@@ -293,7 +260,7 @@ pub fn decode_history(v: &[f64]) -> Result<History, String> {
 const GEN_HEAD: usize = 15;
 
 /// A generation report and its sites as `f64`s. `None` is NaN.
-pub fn encode_generation(g: &godiva::sim::Generation) -> Vec<f64> {
+pub fn encode_generation(g: &Generation) -> Vec<f64> {
     let r = &g.report;
     let c = &r.counts;
     let (m, e) = r.k_mean.unwrap_or((f64::NAN, f64::NAN));
@@ -321,7 +288,7 @@ pub fn encode_generation(g: &godiva::sim::Generation) -> Vec<f64> {
     v
 }
 
-pub fn decode_generation(v: &[f64]) -> Result<godiva::sim::Generation, String> {
+pub fn decode_generation(v: &[f64]) -> Result<Generation, String> {
     if v.len() < GEN_HEAD {
         return Err("generation message too short".into());
     }
@@ -346,416 +313,203 @@ pub fn decode_generation(v: &[f64]) -> Result<godiva::sim::Generation, String> {
         },
     };
     let sites = v[GEN_HEAD..].chunks_exact(2).map(|c| [c[0] as f32, c[1] as f32]).collect();
-    Ok(godiva::sim::Generation { report, sites })
+    Ok(Generation { report, sites })
 }
 
-// ─── The UI's handle on the engine ───────────────────────────────────────────
-
-/// What the native engine thread and the UI share. `Arc<RwLock<_>>`, per the
-/// workspace Rust rules; the thread polls `requests`, the UI drains `events`.
-#[cfg(not(target_arch = "wasm32"))]
-#[derive(Default)]
-pub struct Mailbox {
-    pub events: Vec<Event>,
-    pub requests: Vec<Request>,
-}
-
-pub enum Link {
-    #[cfg(not(target_arch = "wasm32"))]
-    Native(Arc<RwLock<Mailbox>>),
-    #[cfg(target_arch = "wasm32")]
-    /// `outbox` holds requests until the worker says it is listening: a
-    /// module worker sets its `onmessage` only after the wasm has loaded, and
-    /// a message dispatched before that is dropped.
-    Web { worker: web_sys::Worker, inbox: Arc<RwLock<Vec<Event>>>, outbox: Arc<RwLock<Option<Vec<wasm_bindgen::JsValue>>>> },
-}
-
-impl Link {
-    pub fn send(&self, r: Request) {
-        match self {
-            #[cfg(not(target_arch = "wasm32"))]
-            Link::Native(m) => {
-                if let Ok(mut m) = m.write() {
-                    m.requests.push(r);
-                }
-            }
-            #[cfg(target_arch = "wasm32")]
-            Link::Web { worker, outbox, .. } => {
-                let msg = web::request_to_js(&r);
-                if let Ok(mut o) = outbox.write() {
-                    if let Some(queue) = o.as_mut() {
-                        queue.push(msg);
-                        return;
-                    }
-                }
-                let _ = worker.post_message(&msg);
-            }
-        }
-    }
-
-    pub fn drain(&self) -> Vec<Event> {
-        match self {
-            #[cfg(not(target_arch = "wasm32"))]
-            // try_write: if the engine thread is posting, take the events next frame.
-            Link::Native(m) => m.try_write().map(|mut m| std::mem::take(&mut m.events)).unwrap_or_default(),
-            #[cfg(target_arch = "wasm32")]
-            Link::Web { inbox, .. } => inbox.write().map(|mut i| std::mem::take(&mut *i)).unwrap_or_default(),
-        }
-    }
-}
-
-// ─── Native: an engine thread ────────────────────────────────────────────────
-
-#[cfg(not(target_arch = "wasm32"))]
-pub fn start_native(repaint: impl Fn() + Send + 'static) -> Link {
-    let mailbox = Arc::new(RwLock::new(Mailbox::default()));
-    let m = mailbox.clone();
-    std::thread::spawn(move || native_engine(&m, repaint));
-    Link::Native(mailbox)
-}
-
-#[cfg(not(target_arch = "wasm32"))]
-fn native_engine(mailbox: &Arc<RwLock<Mailbox>>, repaint: impl Fn()) {
-    let mut post = |e: Event| {
-        if let Ok(mut m) = mailbox.write() {
-            m.events.push(e);
-        }
-        repaint();
-    };
-    let mut loaded: Option<Loaded> = None;
-    loop {
-        let requests = mailbox.write().map(|mut m| std::mem::take(&mut m.requests)).unwrap_or_default();
-        if requests.is_empty() {
-            std::thread::sleep(std::time::Duration::from_millis(3));
-            continue;
-        }
-        for r in requests {
-            match r {
-                Request::Load { id, rung, tier } => {
-                    loaded = None;
-                    match native_load(id, rung, tier, &mut post) {
-                        Ok(l) => {
-                            loaded = Some(l);
-                            post(Event::Ready { id });
-                        }
-                        Err(e) => post(Event::Error(e)),
-                    }
-                }
-                r => match loaded.as_mut() {
-                    Some(l) => l.serve(r, &mut post),
-                    None => post(Event::Error("no data loaded".into())),
-                },
-            }
-        }
-    }
-}
-
-#[cfg(not(target_arch = "wasm32"))]
-pub fn native_load(id: u32, rung: Rung, tier: Tier, post: &mut impl FnMut(Event)) -> Result<Loaded, String> {
-    let mut b = Builder::new(rung, effective_tier(rung, tier));
-    for (index, (label, tape)) in jobs(rung).into_iter().enumerate() {
-        post(Event::JobStarted { id, index });
-        let t = std::time::Instant::now();
-        crate::native_tape(tape).and_then(|bytes| b.step(&bytes)).map_err(|e| format!("{label}: {e}"))?;
-        post(Event::JobDone { id, index, secs: t.elapsed().as_secs_f64() });
-    }
-    b.finish()
-}
-
-// ─── Browser: a Web Worker running this same module ──────────────────────────
-
-#[cfg(target_arch = "wasm32")]
-pub use web::{run_worker, start_web};
+// ─── Browser: messages as JS objects, and the worker ─────────────────────────
 
 #[cfg(target_arch = "wasm32")]
 mod web {
     use super::*;
-    use js_sys::{Float64Array, Object, Reflect};
-    use wasm_bindgen::closure::Closure;
-    use wasm_bindgen::{JsCast as _, JsValue};
-    use wasm_bindgen_futures::JsFuture;
+    use dhoby_ghaut::web_demo::link::{fetch_promise, fetch_start, js, Message, Poster, WorkerEngine};
+    use std::sync::{Arc, RwLock};
+    use wasm_bindgen::JsValue;
 
-    fn set(o: &Object, k: &str, v: JsValue) {
-        let _ = Reflect::set(o, &k.into(), &v);
-    }
-    fn get_f64(o: &JsValue, k: &str) -> Option<f64> {
-        Reflect::get(o, &k.into()).ok().and_then(|v| v.as_f64())
-    }
-    fn get_str(o: &JsValue, k: &str) -> String {
-        Reflect::get(o, &k.into()).ok().and_then(|v| v.as_string()).unwrap_or_default()
-    }
-    fn get_array(o: &JsValue, k: &str) -> Vec<f64> {
-        Reflect::get(o, &k.into())
-            .ok()
-            .and_then(|d| d.dyn_into::<Float64Array>().ok())
-            .map(|a| a.to_vec())
-            .unwrap_or_default()
-    }
-
-    pub(super) fn request_to_js(r: &Request) -> JsValue {
-        let o = Object::new();
-        match r {
-            Request::Load { id, rung, tier } => {
-                set(&o, "kind", "load".into());
-                set(&o, "id", (*id as f64).into());
-                set(&o, "rung", rung.info().name.into());
-                set(&o, "tier", tier.code().into());
-            }
-            Request::Run { n, animate } => {
-                set(&o, "kind", "run".into());
-                set(&o, "n", (*n as f64).into());
-                set(&o, "animate", (*animate).into());
-            }
-            Request::KeffStart(c) => {
-                set(&o, "kind", "keff_start".into());
-                let v = [
-                    c.n_particles as f64,
-                    c.n_inactive as f64,
-                    c.n_active as f64,
-                    c.seed as f64,
-                    c.point_source as u8 as f64,
-                    c.want_sites as u8 as f64,
-                ];
-                set(&o, "cfg", Float64Array::from(v.as_slice()).into());
-            }
-            Request::KeffStep => set(&o, "kind", "keff_step".into()),
-        }
-        o.into()
-    }
-
-    fn request_from_js(v: &JsValue) -> Result<Request, String> {
-        Ok(match get_str(v, "kind").as_str() {
-            "load" => Request::Load {
-                id: get_f64(v, "id").unwrap_or(0.0) as u32,
-                rung: Rung::parse(&get_str(v, "rung")).ok_or("unknown rung")?,
-                tier: Tier::from_code(get_f64(v, "tier").unwrap_or(1.0)),
-            },
-            "run" => Request::Run {
-                n: get_f64(v, "n").unwrap_or(1.0) as usize,
-                animate: Reflect::get(v, &"animate".into()).ok().and_then(|a| a.as_bool()).unwrap_or(true),
-            },
-            "keff_start" => {
-                let c = get_array(v, "cfg");
-                if c.len() != 6 {
-                    return Err("bad k_eff config".into());
+    impl Message for Request {
+        fn to_js(&self) -> JsValue {
+            let o = js::object();
+            match self {
+                Request::Load { id, rung, tier } => {
+                    js::set(&o, "kind", "load");
+                    js::set(&o, "id", *id as f64);
+                    js::set(&o, "rung", dhoby_ghaut::web_demo::lesson::Rung::name(*rung));
+                    js::set(&o, "exact", *tier == Tier::Exact);
                 }
-                Request::KeffStart(godiva::sim::KeffConfig {
-                    n_particles: c[0] as usize,
-                    n_inactive: c[1] as usize,
-                    n_active: c[2] as usize,
-                    seed: c[3] as u64,
-                    point_source: c[4] != 0.0,
-                    want_sites: c[5] != 0.0,
-                })
-            }
-            "keff_step" => Request::KeffStep,
-            other => return Err(format!("unknown request '{other}'")),
-        })
-    }
-
-    fn event_to_js(e: &Event) -> JsValue {
-        let o = Object::new();
-        match e {
-            Event::JobStarted { id, index } => {
-                set(&o, "kind", "started".into());
-                set(&o, "id", (*id as f64).into());
-                set(&o, "index", (*index as f64).into());
-            }
-            Event::JobDone { id, index, secs } => {
-                set(&o, "kind", "done".into());
-                set(&o, "id", (*id as f64).into());
-                set(&o, "index", (*index as f64).into());
-                set(&o, "secs", (*secs).into());
-            }
-            Event::Ready { id } => {
-                set(&o, "kind", "ready".into());
-                set(&o, "id", (*id as f64).into());
-            }
-            Event::History { h, animate } => {
-                set(&o, "kind", "history".into());
-                set(&o, "animate", (*animate).into());
-                set(&o, "data", Float64Array::from(encode_history(h).as_slice()).into());
-            }
-            Event::KeffStarted { sites } => {
-                set(&o, "kind", "keff_started".into());
-                let flat: Vec<f64> = sites.iter().flat_map(|s| [s[0] as f64, s[1] as f64]).collect();
-                set(&o, "data", Float64Array::from(flat.as_slice()).into());
-            }
-            Event::Generation(g) => {
-                set(&o, "kind", "generation".into());
-                set(&o, "data", Float64Array::from(encode_generation(g).as_slice()).into());
-            }
-            Event::KeffDone => set(&o, "kind", "keff_done".into()),
-            Event::Error(m) => {
-                set(&o, "kind", "error".into());
-                set(&o, "message", m.as_str().into());
-            }
-        }
-        o.into()
-    }
-
-    fn event_from_js(v: &JsValue) -> Event {
-        let id = || get_f64(v, "id").unwrap_or(0.0) as u32;
-        let idx = || get_f64(v, "index").unwrap_or(0.0) as usize;
-        match get_str(v, "kind").as_str() {
-            "started" => Event::JobStarted { id: id(), index: idx() },
-            "done" => Event::JobDone { id: id(), index: idx(), secs: get_f64(v, "secs").unwrap_or(0.0) },
-            "ready" => Event::Ready { id: id() },
-            "history" => {
-                let animate = Reflect::get(v, &"animate".into()).ok().and_then(|a| a.as_bool()).unwrap_or(true);
-                match decode_history(&get_array(v, "data")) {
-                    Ok(h) => Event::History { h, animate },
-                    Err(e) => Event::Error(e),
+                Request::Run { n, animate } => {
+                    js::set(&o, "kind", "run");
+                    js::set(&o, "n", *n as f64);
+                    js::set(&o, "animate", *animate);
                 }
+                Request::KeffStart(c) => {
+                    js::set(&o, "kind", "keff_start");
+                    let v = [
+                        c.n_particles as f64,
+                        c.n_inactive as f64,
+                        c.n_active as f64,
+                        c.seed as f64,
+                        c.point_source as u8 as f64,
+                        c.want_sites as u8 as f64,
+                    ];
+                    js::set(&o, "cfg", js::f64s(&v));
+                }
+                Request::KeffStep => js::set(&o, "kind", "keff_step"),
             }
-            "keff_started" => Event::KeffStarted {
-                sites: get_array(v, "data").chunks_exact(2).map(|c| [c[0] as f32, c[1] as f32]).collect(),
-            },
-            "generation" => match decode_generation(&get_array(v, "data")) {
-                Ok(g) => Event::Generation(g),
-                Err(e) => Event::Error(e),
-            },
-            "keff_done" => Event::KeffDone,
-            "error" => Event::Error(get_str(v, "message")),
-            other => Event::Error(format!("unknown message '{other}' from the physics worker")),
+            o.into()
+        }
+        fn from_js(v: &JsValue) -> Result<Self, String> {
+            Ok(match js::get_str(v, "kind").as_str() {
+                "load" => Request::Load {
+                    id: js::get_f64(v, "id").unwrap_or(0.0) as u32,
+                    rung: dhoby_ghaut::web_demo::lesson::parse(&js::get_str(v, "rung")).ok_or("unknown rung")?,
+                    tier: if js::get_bool(v, "exact").unwrap_or(false) { Tier::Exact } else { Tier::Loose },
+                },
+                "run" => Request::Run {
+                    n: js::get_f64(v, "n").unwrap_or(1.0) as usize,
+                    animate: js::get_bool(v, "animate").unwrap_or(true),
+                },
+                "keff_start" => {
+                    let c = js::get_f64s(v, "cfg");
+                    if c.len() != 6 {
+                        return Err("bad k_eff config".into());
+                    }
+                    Request::KeffStart(KeffConfig {
+                        n_particles: c[0] as usize,
+                        n_inactive: c[1] as usize,
+                        n_active: c[2] as usize,
+                        seed: c[3] as u64,
+                        point_source: c[4] != 0.0,
+                        want_sites: c[5] != 0.0,
+                    })
+                }
+                "keff_step" => Request::KeffStep,
+                other => return Err(format!("unknown request '{other}'")),
+            })
         }
     }
 
-    /// Page side: start the worker and route its messages into the inbox.
-    pub fn start_web(ctx: egui::Context) -> Result<Link, String> {
-        let opts = web_sys::WorkerOptions::new();
-        opts.set_type(web_sys::WorkerType::Module);
-        let worker = web_sys::Worker::new_with_options("./worker.js", &opts).map_err(|e| format!("{e:?}"))?;
-        let inbox: Arc<RwLock<Vec<Event>>> = Arc::default();
-        let outbox: Arc<RwLock<Option<Vec<JsValue>>>> = Arc::new(RwLock::new(Some(Vec::new())));
-        let (ib, ob, w, c) = (inbox.clone(), outbox.clone(), worker.clone(), ctx.clone());
-        // `Closure<dyn FnMut>` is wasm-bindgen's only callback type: a framework
-        // boundary, not a design choice (the workspace otherwise avoids `dyn`).
-        let on_message = Closure::<dyn FnMut(web_sys::MessageEvent)>::new(move |ev: web_sys::MessageEvent| {
-            let data = ev.data();
-            if get_str(&data, "kind") == "hello" {
-                // The worker is listening: send what was queued, then go direct.
-                let queued = ob.write().ok().and_then(|mut o| o.take()).unwrap_or_default();
-                for m in queued {
-                    let _ = w.post_message(&m);
+    impl Message for Event {
+        fn to_js(&self) -> JsValue {
+            let o = js::object();
+            match self {
+                Event::JobStarted { id, index } => {
+                    js::set(&o, "kind", "started");
+                    js::set(&o, "id", *id as f64);
+                    js::set(&o, "index", *index as f64);
                 }
-                return;
+                Event::JobDone { id, index, secs } => {
+                    js::set(&o, "kind", "done");
+                    js::set(&o, "id", *id as f64);
+                    js::set(&o, "index", *index as f64);
+                    js::set(&o, "secs", *secs);
+                }
+                Event::Ready { id } => {
+                    js::set(&o, "kind", "ready");
+                    js::set(&o, "id", *id as f64);
+                }
+                Event::History { h, animate } => {
+                    js::set(&o, "kind", "history");
+                    js::set(&o, "animate", *animate);
+                    js::set(&o, "data", js::f64s(&encode_history(h)));
+                }
+                Event::KeffStarted { sites } => {
+                    js::set(&o, "kind", "keff_started");
+                    let flat: Vec<f64> = sites.iter().flat_map(|s| [s[0] as f64, s[1] as f64]).collect();
+                    js::set(&o, "data", js::f64s(&flat));
+                }
+                Event::Generation(g) => {
+                    js::set(&o, "kind", "generation");
+                    js::set(&o, "data", js::f64s(&encode_generation(g)));
+                }
+                Event::KeffDone => js::set(&o, "kind", "keff_done"),
+                Event::Error(m) => {
+                    js::set(&o, "kind", "error");
+                    js::set(&o, "message", m.as_str());
+                }
             }
-            if let Ok(mut i) = ib.write() {
-                i.push(event_from_js(&data));
-            }
-            c.request_repaint();
-        });
-        worker.set_onmessage(Some(on_message.as_ref().unchecked_ref()));
-        on_message.forget();
-        let (ib, c) = (inbox.clone(), ctx);
-        let on_error = Closure::<dyn FnMut(web_sys::ErrorEvent)>::new(move |ev: web_sys::ErrorEvent| {
-            if let Ok(mut i) = ib.write() {
-                i.push(Event::Error(format!("physics worker: {}", ev.message())));
-            }
-            c.request_repaint();
-        });
-        worker.set_onerror(Some(on_error.as_ref().unchecked_ref()));
-        on_error.forget();
-        Ok(Link::Web { worker, inbox, outbox })
+            o.into()
+        }
+        fn from_js(v: &JsValue) -> Result<Self, String> {
+            let id = || js::get_f64(v, "id").unwrap_or(0.0) as u32;
+            let idx = || js::get_f64(v, "index").unwrap_or(0.0) as usize;
+            Ok(match js::get_str(v, "kind").as_str() {
+                "started" => Event::JobStarted { id: id(), index: idx() },
+                "done" => Event::JobDone { id: id(), index: idx(), secs: js::get_f64(v, "secs").unwrap_or(0.0) },
+                "ready" => Event::Ready { id: id() },
+                "history" => Event::History {
+                    h: decode_history(&js::get_f64s(v, "data"))?,
+                    animate: js::get_bool(v, "animate").unwrap_or(true),
+                },
+                "keff_started" => Event::KeffStarted {
+                    sites: js::get_f64s(v, "data").chunks_exact(2).map(|c| [c[0] as f32, c[1] as f32]).collect(),
+                },
+                "generation" => Event::Generation(decode_generation(&js::get_f64s(v, "data"))?),
+                "keff_done" => Event::KeffDone,
+                "error" => Event::Error(js::get_str(v, "message")),
+                other => return Err(format!("unknown message '{other}' from the physics worker")),
+            })
+        }
     }
 
-    fn scope() -> web_sys::DedicatedWorkerGlobalScope {
-        js_sys::global().unchecked_into()
-    }
-
-    fn post(e: Event) {
-        let _ = scope().post_message(&event_to_js(&e));
-    }
-
-    /// What the worker holds: the loaded rung, and the id of the newest load
-    /// asked for (an older load still downloading checks it and stops).
-    #[derive(Default)]
-    struct WorkerState {
-        loaded: Option<Loaded>,
-        newest_load: u32,
-    }
-
-    /// Worker side: entered from `main` when the module finds no `window`.
-    pub fn run_worker() {
-        std::panic::set_hook(Box::new(|info| {
-            let m = info.to_string();
-            web_sys::console::error_1(&m.as_str().into());
-            post(Event::Error(format!("physics worker panicked: {m}")));
-        }));
-        let state: Arc<RwLock<WorkerState>> = Arc::default();
-        let st = state.clone();
-        let on_message = Closure::<dyn FnMut(web_sys::MessageEvent)>::new(move |ev: web_sys::MessageEvent| {
-            match request_from_js(&ev.data()) {
-                Ok(Request::Load { id, rung, tier }) => {
-                    if let Ok(mut g) = st.write() {
+    impl WorkerEngine for McEngine {
+        type Req = Request;
+        type Ev = Event;
+        fn error(message: String) -> Event {
+            Event::Error(message)
+        }
+        fn handle(state: &Arc<RwLock<Self>>, req: Request, post: Poster<Event>) {
+            match req {
+                Request::Load { id, rung, tier } => {
+                    if let Ok(mut g) = state.write() {
                         g.loaded = None;
                         g.newest_load = id;
                     }
-                    let st = st.clone();
+                    let st = state.clone();
                     wasm_bindgen_futures::spawn_local(async move {
-                        match load(id, rung, tier, st.clone()).await {
+                        match load(id, rung, tier, &st, post).await {
                             Ok(Some(l)) => {
                                 if let Ok(mut g) = st.write() {
                                     if g.newest_load == id {
                                         g.loaded = Some(l);
-                                        post(Event::Ready { id });
+                                        post.post(Event::Ready { id });
                                     }
                                 }
                             }
-                            Ok(None) => {} // superseded
-                            Err(e) => post(Event::Error(e)),
+                            Ok(None) => {} // superseded by a newer load
+                            Err(e) => post.post(Event::Error(e)),
                         }
                     });
                 }
-                Ok(r) => {
-                    if let Ok(mut g) = st.write() {
+                r => {
+                    if let Ok(mut g) = state.write() {
                         match g.loaded.as_mut() {
-                            Some(l) => l.serve(r, &mut post),
-                            None => post(Event::Error("no data loaded".into())),
+                            Some(l) => serve(l, r, &mut |e| post.post(e)),
+                            None => post.post(Event::Error("no data loaded".into())),
                         }
                     }
                 }
-                Err(e) => post(Event::Error(e)),
             }
-        });
-        scope().set_onmessage(Some(on_message.as_ref().unchecked_ref()));
-        on_message.forget();
-        // Tell the page it can send: anything it sent earlier was queued there.
-        let hello = Object::new();
-        set(&hello, "kind", "hello".into());
-        let _ = scope().post_message(&hello);
-    }
-
-    async fn bytes_of(p: js_sys::Promise, url: &str) -> Result<Vec<u8>, String> {
-        let err = |e: JsValue| format!("{url}: {e:?}");
-        let resp: web_sys::Response = JsFuture::from(p).await.map_err(err)?.dyn_into().map_err(err)?;
-        if !resp.ok() {
-            return Err(format!("{url}: HTTP {}", resp.status()));
         }
-        let buf = JsFuture::from(resp.array_buffer().map_err(err)?).await.map_err(err)?;
-        Ok(js_sys::Uint8Array::new(&buf).to_vec())
     }
 
     /// Download and process a rung's tapes. `Ok(None)` if a newer load was
-    /// asked for meanwhile.
-    async fn load(id: u32, rung: Rung, tier: Tier, st: Arc<RwLock<WorkerState>>) -> Result<Option<Loaded>, String> {
+    /// asked for meanwhile (checked between tapes).
+    async fn load(id: u32, rung: Rung, tier: Tier, st: &Arc<RwLock<McEngine>>, post: Poster<Event>) -> Result<Option<Loaded>, String> {
         let superseded = || st.read().map(|g| g.newest_load != id).unwrap_or(true);
-        let jobs = jobs(rung);
+        let jobs = rung.jobs();
         // Every request is issued before the first (blocking) job, so the
         // downloads proceed while the first tape is being processed.
         let urls: Vec<String> = jobs.iter().map(|(_, t)| format!("data/{}", crate::tapes::wire_name(t))).collect();
-        let promises: Vec<js_sys::Promise> = urls.iter().map(|u| scope().fetch_with_str(u)).collect();
-        let mut b = Builder::new(rung, effective_tier(rung, tier));
+        let promises: Vec<js_sys::Promise> = urls.iter().map(|u| fetch_start(u)).collect();
+        let mut b = rung.builder(tier);
         for (index, (((label, _), p), url)) in jobs.iter().zip(promises).zip(&urls).enumerate() {
-            let z = bytes_of(p, url).await?;
+            let z = fetch_promise(p, url).await?;
             if superseded() {
                 return Ok(None);
             }
-            post(Event::JobStarted { id, index });
+            post.post(Event::JobStarted { id, index });
             let t = js_sys::Date::now();
             b.step(&crate::tapes::decompress(&z)?).map_err(|e| format!("{label}: {e}"))?;
-            post(Event::JobDone { id, index, secs: (js_sys::Date::now() - t) / 1000.0 });
+            post.post(Event::JobDone { id, index, secs: (js_sys::Date::now() - t) / 1000.0 });
         }
         if superseded() {
             return Ok(None);

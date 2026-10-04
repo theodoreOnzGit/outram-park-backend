@@ -46,10 +46,14 @@ and a wide screen is a defect, not a missing nicety.
 6. **Status the reader needs** (loading progress, errors) is drawn on the main
    view, so it shows with the panel folded.
 
-**Reference implementation:** `crates/dhoby-ghaut/examples/monte_carlo_web/app.rs`
-(~~`examples/triso_pebble_web/app.rs`~~, renamed 2026-10-04)
-(`View::zoom_about`, `View::fit`, `McApp::canvas`, and the panel folding in
-`McApp::ui`). Reuse it rather than writing a second version.
+**Reference implementation (since 2026-10-04): the library module
+`dhoby_ghaut::web_demo`** (`crates/dhoby-ghaut/src/web_demo/`): `view::View`
+(`zoom_about`, `fit`), `view::zoom_buttons`, `panel::Panel` (folding, "«
+Hide", "Controls »"), `loading::Loading`. **Build on it rather than writing a
+second version**; `crates/dhoby-ghaut/CLAUDE.md` says how a new track's demo
+plugs in. ~~`examples/monte_carlo_web/app.rs` (`View::zoom_about`, `View::fit`,
+`McApp::canvas`, the panel folding in `McApp::ui`)~~, moved into the library
+the same day; `monte_carlo_web` is its first user.
 
 ## No lagging: computation runs in the background (HARD RULE)
 
@@ -76,11 +80,14 @@ cycles, sweeps, loading and parsing.
   immediately. Say in the report that you checked, alongside the phone-width
   check.
 
-**Reference implementation:** `crates/dhoby-ghaut/examples/monte_carlo_web/engine.rs`
-(~~`triso_pebble_web/engine.rs`~~, renamed 2026-10-04; the Godiva Run k_eff
-runs one power-iteration generation per worker message)
-(processing and transport in a worker; the page keeps animating while about
-11 MB of ENDF data are processed).
+**Reference implementation:** `dhoby_ghaut::web_demo::link` (since
+2026-10-04: `Link`, `NativeEngine` / `start_native`, `WorkerEngine` /
+`worker_main` with the hello handshake), used by
+`crates/dhoby-ghaut/examples/monte_carlo_web/engine.rs`
+(~~`triso_pebble_web/engine.rs`~~, renamed 2026-10-04): processing and
+transport in a worker, the page animating while the ENDF data are processed,
+and the Godiva Run k_eff running one power-iteration generation per worker
+message.
 
 ## Pages that are mostly text
 

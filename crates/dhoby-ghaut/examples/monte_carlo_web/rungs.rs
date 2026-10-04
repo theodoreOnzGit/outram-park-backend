@@ -1,40 +1,49 @@
-//! **The rung table**: the one place that says which rungs this demo has,
-//! what each is called in a URL, which lesson page explains it, and how its
-//! neutrons are animated (gh:#520, #521).
+//! **The rung table** of the Monte Carlo demo (gh:#520, #521): which rungs
+//! the one app has, and the contract each rung's module fulfils.
 //!
-//! A rung is one step of the Monte Carlo tutorial ladder (epic #520): Godiva
-//! first (a bare fast sphere), the TRISO pebble at the top. The demo is ONE
-//! app; `?rung=<name>&mode=<watch|run>` picks what it opens on (natively:
-//! `--rung <name> --mode <watch|run>`).
+//! # Adding a rung is additive
 //!
-//! **This table drives the links both ways.** The side panel's "What's
-//! happening here?" opens [`RungInfo::lesson`]; the lesson pages link back to
-//! `demos/monte-carlo/?rung=<name>`. `scripts/build-pages.sh` reads the
-//! `name:` and `lesson:` lines of this file and fails the site build if a
-//! lesson page is missing or a page links to a rung this table does not have.
-//! Keep each on one line, in that form.
+//! A rung is a directory `examples/monte_carlo_web/<rung>/` whose `mod.rs`
+//! defines a marker type implementing [`McRung`] (its [`RungInfo`], tapes,
+//! picture, notes, and the [`RungBuilder`] / [`LoadedRung`] that process the
+//! data and run the neutrons), plus **one line** in the `rung_table!`
+//! invocation in `main.rs`:
+//!
+//! ```text
+//! rung_table! {
+//!     godiva: Godiva,
+//!     triso: Triso,
+//!     ugraphite: Ugraphite,   // <- the new rung's module and marker type
+//! }
+//! ```
+//!
+//! The macro declares the module and generates the `Rung` enum, its URL
+//! names, and the enum dispatch (`Builder`, `Loaded`) that the engine and the
+//! app use, so no other file changes. (Enums, not trait objects: the
+//! workspace's Rust rules.) `godiva/` is the worked example of a rung with a
+//! Run k_eff mode, `triso/` of one without.
+//!
+//! `scripts/build-pages.sh` reads every rung's `name:` and `lesson:` lines
+//! (in `<rung>/mod.rs`, one line each) and fails the site build if the lesson
+//! page is missing or a page links to a rung that does not exist.
 
-/// The rungs, in ladder order.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum Rung {
-    /// Rung 1: a bare sphere of highly enriched uranium (ICSBEP HEU-MET-FAST-001).
-    Godiva,
-    /// The hook (rung 6 when the ladder gets there): a 2D TRISO fuel pebble.
-    Triso,
-}
+use crate::anim::Spectrum;
+use crate::engine::Tier;
+use crate::history::History;
+use crate::keff::{Generation, KeffConfig, Reference};
+use dhoby_ghaut::web_demo::view::View;
 
 /// What the demo shows for a rung.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Mode {
-    /// Illustration: neutrons animated one at a time (and, for Godiva, whole
-    /// generations of the fission source).
+    /// Illustration: neutrons animated one at a time (and, where the rung has
+    /// one, whole generations of the fission source).
     Watch,
     /// True Monte Carlo: a real power iteration, one console line per generation.
     Run,
 }
 
 impl Mode {
-    #[cfg_attr(not(target_arch = "wasm32"), allow(dead_code))] // the browser URL only
     pub fn name(self) -> &'static str {
         match self {
             Mode::Watch => "watch",
@@ -50,110 +59,196 @@ impl Mode {
     }
 }
 
-/// The energy range a rung's neutrons mostly live in. It sets the default of
-/// the animation-speed slider; see [`Spectrum::default_speed_at_1ev`].
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum Spectrum {
-    /// Moderated: neutrons slow down to thermal energies (TRISO; later HST-009,
-    /// LCT-008, HTR-10).
-    Thermal,
-    /// Unmoderated: neutrons stay near their ~MeV birth energies (Godiva; later
-    /// Jemima).
-    Fast,
-}
-
-impl Spectrum {
-    /// Default of the "speed at 1 eV" slider \[cm of flight per second\].
-    ///
-    /// **One unit for every rung, a default per spectrum** (maintainer
-    /// decision, 2026-10-04): the slider always means the animated speed of a
-    /// 1 eV neutron, so rungs stay comparable, and each spectrum's default
-    /// animates a TYPICAL neutron of that spectrum at about 7 cm/s:
-    ///
-    /// - thermal rungs: **7 cm/s at 1 eV** (a slowing-down neutron in a
-    ///   moderator; a fully thermal 0.0253 eV neutron then crawls at 1.1 cm/s
-    ///   and a 2 MeV birth flies at ~9900 cm/s);
-    /// - fast rungs: **0.007 cm/s at 1 eV**, which is **7 cm/s at 1 MeV**,
-    ///   about where a Godiva neutron spends its life.
-    ///
-    /// The speed itself scales with the neutron's real speed, so every rung
-    /// shows neutrons slowing down (see [`crate::anim::animated_speed`]).
-    pub fn default_speed_at_1ev(self) -> f64 {
-        match self {
-            Spectrum::Thermal => 7.0,
-            Spectrum::Fast => 0.007,
-        }
-    }
-
-    /// The characteristic energy shown beside the slider \[eV\], and its name.
-    pub fn characteristic(self) -> (f64, &'static str) {
-        match self {
-            Spectrum::Thermal => (0.0253, "0.0253 eV (thermal)"),
-            Spectrum::Fast => (1.0e6, "1 MeV (fast)"),
-        }
-    }
-}
-
-/// One row of the rung table.
+/// One rung's row of the table.
 pub struct RungInfo {
-    pub rung: Rung,
     /// Stable short name, used in `?rung=`.
     pub name: &'static str,
     /// Title shown in the panel.
     pub title: &'static str,
     /// The page explaining this rung, relative to the site root.
     pub lesson: &'static str,
+    /// Sets the animation-speed default ([`Spectrum::default_speed_at_1ev`]).
     pub spectrum: Spectrum,
-    /// Whether the rung has a Run k_eff mode.
-    pub has_run: bool,
 }
 
-/// Root of the backend GitHub Pages site. Absolute so the "What's happening
-/// here?" link also works from the native build.
-pub const SITE: &str = "https://theodoreonzgit.github.io/outram-park-backend/";
-
-pub const RUNGS: [RungInfo; 2] = [
-    RungInfo {
-        rung: Rung::Godiva,
-        name: "godiva",
-        title: "Godiva: a bare uranium sphere",
-        lesson: "tutorials/monte-carlo/godiva.html",
-        spectrum: Spectrum::Fast,
-        has_run: true,
-    },
-    RungInfo {
-        rung: Rung::Triso,
-        name: "triso",
-        title: "TRISO pebble: one neutron at a time",
-        // No tutorial page for this rung yet (it is rung 6); the deep dive
-        // explains the code it runs.
-        lesson: "deep-dives/monte-carlo/index.html",
-        spectrum: Spectrum::Thermal,
-        has_run: false,
-    },
-];
-
-impl Rung {
-    pub fn info(self) -> &'static RungInfo {
-        RUNGS.iter().find(|r| r.rung == self).expect("every rung is in RUNGS")
-    }
-    pub fn parse(s: &str) -> Option<Rung> {
-        RUNGS.iter().find(|r| r.name == s).map(|r| r.rung)
-    }
-    /// The lesson page, as an absolute URL.
-    pub fn lesson_url(self) -> String {
-        format!("{SITE}{}", self.info().lesson)
-    }
+/// A rung's data processing, one tape at a time (so the UI can show
+/// progress between the long, blocking jobs).
+pub trait RungBuilder: Sized {
+    type Loaded: LoadedRung;
+    fn new(tier: Tier) -> Self;
+    /// Process the next tape from its (covariance-stripped) bytes.
+    fn step(&mut self, bytes: &[u8]) -> Result<(), String>;
+    fn finish(self) -> Result<Self::Loaded, String>;
 }
 
-/// What the app opens on: from the page URL (`?rung=…&mode=…`) in the
-/// browser, or `--rung …` / `--mode …` natively. No rung given opens Godiva
-/// in Watch mode, the first rung; a rung without a Run mode ignores
-/// `mode=run`. The old `demos/triso-pebble/` URL redirects to `?rung=triso`.
-pub fn start(query: &[(String, String)]) -> (Rung, Mode) {
-    let get = |k: &str| query.iter().find(|(a, _)| a == k).map(|(_, v)| v.as_str());
-    let rung = get("rung").and_then(Rung::parse).unwrap_or(Rung::Godiva);
-    let mode = get("mode").and_then(Mode::parse).unwrap_or(Mode::Watch);
-    let mode = if rung.info().has_run { mode } else { Mode::Watch };
+/// A rung with its data processed: what the engine serves.
+pub trait LoadedRung {
+    /// The next traced history of the Watch mode's chain.
+    fn run_next(&mut self) -> History;
+    /// Start a power iteration; returns the initial source sites when
+    /// `cfg.want_sites`. A rung without one returns an error.
+    fn keff_start(&mut self, cfg: KeffConfig) -> Result<Vec<[f32; 2]>, String>;
+    /// Run the next generation; `None` once the run is over.
+    fn keff_step(&mut self) -> Option<Generation>;
+    fn keff_finished(&self) -> bool;
+}
+
+/// Everything about one rung that the engine and the app need. Implemented
+/// by a marker type in the rung's `mod.rs`.
+pub trait McRung {
+    const INFO: RungInfo;
+    type Builder: RungBuilder;
+    /// The tapes to process, `(label shown, file in reference-data/endf/)`.
+    fn jobs() -> &'static [(&'static str, &'static str)];
+    /// The tier the tapes are processed at, given what the mode asked for.
+    fn tier(requested: Tier) -> Tier;
+    /// Rough cost of each job, for the progress bar only.
+    fn job_weights(tier: Tier) -> Vec<f64>;
+    /// Half-width of the picture, cm (what Reset fits).
+    fn half_extent() -> f64;
+    /// Draw the geometry under the tracks.
+    fn draw(painter: &egui::Painter, rect: egui::Rect, view: &View);
+    /// "What this is — and is not", one bullet per line.
+    fn notes() -> &'static [&'static str];
+    /// Run k_eff's default settings; `None` means the rung has no Run mode.
+    fn run_default() -> Option<KeffConfig> {
+        None
+    }
+    /// Watch mode's "whole generations" settings; `None` means no such view.
+    fn watch_generations() -> Option<KeffConfig> {
+        None
+    }
+    /// The recorded result Run k_eff compares with.
+    fn reference() -> Option<Reference> {
+        None
+    }
+    /// Shown on the loading card, if anything (e.g. why it takes long).
+    fn loading_note(_tier: Tier) -> Option<&'static str> {
+        None
+    }
+    /// The rung's own legend in the side panel (materials, say), under the
+    /// shared energy colour bar and track markers.
+    fn legend(_ui: &mut egui::Ui) {}
+}
+
+/// Generates, from a list `module: Marker`, the `mod` declarations, the
+/// `Rung` enum with its dispatch to each marker's [`McRung`] methods, and the
+/// `Builder` / `Loaded` enums the engine holds. See the module docs.
+#[macro_export]
+macro_rules! rung_table {
+    ($($m:ident : $t:ident),+ $(,)?) => {
+        $( #[cfg(not(target_os = "android"))] mod $m; )+
+
+        #[cfg(not(target_os = "android"))]
+        pub mod table {
+            #![allow(dead_code)]
+            use $crate::rungs::{McRung, RungBuilder, LoadedRung, RungInfo};
+            use $crate::engine::Tier;
+            use $crate::history::History;
+            use $crate::keff::{Generation, KeffConfig, Reference};
+
+            /// The rungs, in ladder order (the order of `rung_table!`).
+            #[derive(Clone, Copy, Debug, PartialEq, Eq)]
+            pub enum Rung { $( $t, )+ }
+
+            pub const ALL: &[Rung] = &[ $( Rung::$t, )+ ];
+
+            impl dhoby_ghaut::web_demo::lesson::Rung for Rung {
+                fn all() -> &'static [Self] { ALL }
+                fn name(self) -> &'static str { self.info().name }
+                fn title(self) -> &'static str { self.info().title }
+                fn lesson(self) -> &'static str { self.info().lesson }
+            }
+
+            impl Rung {
+                pub fn info(self) -> &'static RungInfo {
+                    match self { $( Rung::$t => &<$crate::$m::$t as McRung>::INFO, )+ }
+                }
+                pub fn jobs(self) -> &'static [(&'static str, &'static str)] {
+                    match self { $( Rung::$t => <$crate::$m::$t as McRung>::jobs(), )+ }
+                }
+                pub fn tier(self, requested: Tier) -> Tier {
+                    match self { $( Rung::$t => <$crate::$m::$t as McRung>::tier(requested), )+ }
+                }
+                pub fn job_weights(self, tier: Tier) -> Vec<f64> {
+                    match self { $( Rung::$t => <$crate::$m::$t as McRung>::job_weights(tier), )+ }
+                }
+                pub fn half_extent(self) -> f64 {
+                    match self { $( Rung::$t => <$crate::$m::$t as McRung>::half_extent(), )+ }
+                }
+                pub fn draw(self, painter: &egui::Painter, rect: egui::Rect, view: &dhoby_ghaut::web_demo::view::View) {
+                    match self { $( Rung::$t => <$crate::$m::$t as McRung>::draw(painter, rect, view), )+ }
+                }
+                pub fn notes(self) -> &'static [&'static str] {
+                    match self { $( Rung::$t => <$crate::$m::$t as McRung>::notes(), )+ }
+                }
+                pub fn run_default(self) -> Option<KeffConfig> {
+                    match self { $( Rung::$t => <$crate::$m::$t as McRung>::run_default(), )+ }
+                }
+                pub fn watch_generations(self) -> Option<KeffConfig> {
+                    match self { $( Rung::$t => <$crate::$m::$t as McRung>::watch_generations(), )+ }
+                }
+                pub fn reference(self) -> Option<Reference> {
+                    match self { $( Rung::$t => <$crate::$m::$t as McRung>::reference(), )+ }
+                }
+                pub fn loading_note(self, tier: Tier) -> Option<&'static str> {
+                    match self { $( Rung::$t => <$crate::$m::$t as McRung>::loading_note(tier), )+ }
+                }
+                pub fn legend(self, ui: &mut egui::Ui) {
+                    match self { $( Rung::$t => <$crate::$m::$t as McRung>::legend(ui), )+ }
+                }
+                pub fn has_run(self) -> bool {
+                    self.run_default().is_some()
+                }
+                pub fn builder(self, requested: Tier) -> Builder {
+                    let tier = self.tier(requested);
+                    match self { $( Rung::$t => Builder::$t(<<$crate::$m::$t as McRung>::Builder as RungBuilder>::new(tier)), )+ }
+                }
+            }
+
+            /// A rung's data processing in progress.
+            #[allow(clippy::large_enum_variant)]
+            pub enum Builder { $( $t(<$crate::$m::$t as McRung>::Builder), )+ }
+
+            impl Builder {
+                pub fn step(&mut self, bytes: &[u8]) -> Result<(), String> {
+                    match self { $( Builder::$t(b) => RungBuilder::step(b, bytes), )+ }
+                }
+                pub fn finish(self) -> Result<Loaded, String> {
+                    Ok(match self { $( Builder::$t(b) => Loaded::$t(RungBuilder::finish(b)?), )+ })
+                }
+            }
+
+            /// A rung with its data processed.
+            #[allow(clippy::large_enum_variant)]
+            pub enum Loaded { $( $t(<<$crate::$m::$t as McRung>::Builder as RungBuilder>::Loaded), )+ }
+
+            impl Loaded {
+                pub fn run_next(&mut self) -> History {
+                    match self { $( Loaded::$t(l) => l.run_next(), )+ }
+                }
+                pub fn keff_start(&mut self, cfg: KeffConfig) -> Result<Vec<[f32; 2]>, String> {
+                    match self { $( Loaded::$t(l) => l.keff_start(cfg), )+ }
+                }
+                pub fn keff_step(&mut self) -> Option<Generation> {
+                    match self { $( Loaded::$t(l) => l.keff_step(), )+ }
+                }
+                pub fn keff_finished(&self) -> bool {
+                    match self { $( Loaded::$t(l) => l.keff_finished(), )+ }
+                }
+            }
+        }
+    };
+}
+
+/// What the app opens on: `?rung=…&mode=…` in the browser, `--rung …
+/// --mode …` natively. No rung given opens the first rung; a rung without a
+/// Run mode ignores `mode=run`. (The old `demos/triso-pebble/` URL
+/// redirects to `?rung=triso`.)
+pub fn start(query: &[(String, String)]) -> (crate::table::Rung, Mode) {
+    use dhoby_ghaut::web_demo::{lesson, platform::query_value};
+    let rung: crate::table::Rung = lesson::from_query(query);
+    let mode = query_value(query, "mode").and_then(Mode::parse).unwrap_or(Mode::Watch);
+    let mode = if rung.has_run() { mode } else { Mode::Watch };
     (rung, mode)
 }

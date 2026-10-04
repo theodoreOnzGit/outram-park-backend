@@ -55,3 +55,65 @@ a full-page main view with on-screen zoom in, zoom out and reset buttons, and a
 collapsible side panel holding every control, folded by default on a narrow
 screen. `examples/monte_carlo_web/` (~~`examples/triso_pebble_web/`~~, renamed
 2026-10-04) is the reference implementation.
+
+## Web demos: how a new track app and a new rung plug in
+
+**Since 2026-10-04 (gh:#521) the track-independent half of every browser demo
+is in this crate's LIBRARY, `dhoby_ghaut::web_demo`.** Build on it; do not
+copy `monte_carlo_web`. It gives, ready-made and tested:
+
+| piece | module | what it does |
+|---|---|---|
+| main view | `web_demo::view` | `View` (world cm to screen, `fit`, `zoom_about`, `handle_input`: wheel / pinch / drag / double-click), `zoom_buttons` + `apply_zoom` (+ / − / Reset, 36 px, top right), `scale_bar` |
+| side panel | `web_demo::panel` | `Panel::show(ui, heading, contents)`: folds, "« Hide" inside, opens folded under 700 px, at most 85 % of a phone; `reopen_button` draws "Controls »" on the main view |
+| no-lag plumbing | `web_demo::link` | `Link<Req, Ev>` (UI side, `send` / non-blocking `drain`), `NativeEngine` + `start_native` (a thread), `WorkerEngine` + `worker_main` + `start_web` (a module Web Worker on the same wasm, with the hello handshake), `Message` + `js` helpers, `fetch_start` / `fetch_promise` |
+| loading | `web_demo::loading` | `Loading`: per-job progress weighted by cost, `card` on the main view, `grid` in the panel |
+| rungs and lessons | `web_demo::lesson` | trait `Rung` (`all`, `name`, `title`, `lesson`), `from_query` (`?rung=`), `lesson_url`, `whats_happening`, `picker` |
+| platform | `web_demo::platform` | `now_s` (no `Instant` on wasm), `set_title`, `query_pairs` (URL query, or `--key value` natively), `set_query`, `autostart` |
+
+### A new track's demo (nuclear data, dispersion, fuel performance, …)
+
+1. `examples/<track>_web/main.rs`, declared in `Cargo.toml` like
+   `monte_carlo_web` (Android stub `main`; on wasm, `worker_main::<YourEngine>()`
+   when in a worker, else start eframe on a canvas).
+2. `Request` / `Event` enums; implement `web_demo::link::Message` for both on
+   wasm (see `monte_carlo_web/engine.rs`, module `web`).
+3. One engine type implementing `NativeEngine` and `WorkerEngine`. **Each
+   request must be short**: split long work into steps the UI asks for (a
+   generation, a batch) or yield between steps in an async task. Never hold a
+   lock across a computation.
+4. An `eframe::App` with a `Link`, a `Panel`, a `View` and (while loading) a
+   `Loading`; each frame `drain`, handle events, `panel.show(..)`, draw, then
+   `zoom_buttons` and `panel.reopen_button`.
+5. A rung enum implementing `web_demo::lesson::Rung` if the track has rungs.
+6. `web/<track>/{index.html, worker.js, build.sh}` copied from
+   `web/monte_carlo/` with the module renamed, and the build added to
+   `scripts/build-pages.sh` (publish, every-page list, rung check).
+7. Check at phone width AND that the UI stays live during the heaviest
+   computation (HARD RULES), and say how in the report.
+
+### A new Monte Carlo rung (additive: no one else's file changes)
+
+1. A directory `examples/monte_carlo_web/<rung>/` whose `mod.rs` defines a
+   marker type implementing `rungs::McRung`: `INFO` (`name:`, `title:`,
+   `lesson:` on one line each, `spectrum:`), `jobs` (tapes), `tier`,
+   `job_weights`, `half_extent`, `draw`, `notes`, and optionally
+   `run_default` (gives it Run k_eff), `watch_generations`, `reference`,
+   `loading_note`, `legend`. Its `Builder` implements `RungBuilder` (one tape
+   per `step`) producing a type implementing `LoadedRung` (`run_next` traced
+   history; `keff_start` / `keff_step` / `keff_finished`, or an error for a
+   rung without Run). `godiva/` is the worked example with Run k_eff,
+   `triso/` without. Add `render.rs` for the geometry review images (the
+   drawing rule above) and wire it into `--render-geometry` in `main.rs`.
+2. **One line** in the `rung_table!` invocation in `main.rs`
+   (`<module>: <Marker>,`, in ladder order). The macro declares the module and
+   generates the `Rung` enum and all dispatch; the engine, app, worker and
+   message format need no change.
+3. The lesson page `crates/outram-mc-libs/docs/tutorial/src/<rung>.md`, listed
+   in that book's `SUMMARY.md` and in the "every page must exist" list of
+   `scripts/build-pages.sh`; it links the demo as
+   `../../demos/monte-carlo/?rung=<name>&mode=watch` (or `mode=run`). The site
+   build fails if the rung's lesson page is missing or a page links to a rung
+   not in the table.
+4. Any new tape must be in `reference-data/endf/`; `--prepare-web-data`
+   publishes every rung's tapes (shared ones once).

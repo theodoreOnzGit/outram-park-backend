@@ -25,10 +25,11 @@
 
 use super::model::{self, NuclearData, N_U235};
 use crate::history::History;
+use crate::keff::{console_line, sample_sites, summary_lines, Generation, KeffConfig, CONSOLE_HEADER};
 use outram_mc_libs::geometry::geometry::Geometry;
 use outram_mc_libs::geometry::position::Position;
 use outram_mc_libs::physics::fixed_source::{run_fixed_source_traced, FixedSource, FixedSourceSettings};
-use outram_mc_libs::physics::keff::{GenerationReport, KeffSettings, PowerIteration};
+use outram_mc_libs::physics::keff::{HistoryCounts, KeffResult, KeffSettings, PowerIteration};
 use outram_mc_libs::physics::track_output::{TrackEvent, TrackRecorder};
 
 /// Incident energy for the birth spectrum of a neutron not born at the last
@@ -37,8 +38,6 @@ const FRESH_INCIDENT_EV: f64 = 1.0e6;
 /// A fast neutron in Godiva makes a handful of collisions; any cap far above
 /// that makes a truncated track a reportable anomaly.
 const MAX_STATES: usize = 20_000;
-/// At most this many source sites cross to the page per generation (to draw).
-pub const MAX_SITES_SHOWN: usize = 3000;
 
 pub struct Physics {
     pub geometry: Geometry,
@@ -121,60 +120,15 @@ impl Chain {
 
 // ─── Generations: the real power iteration ───────────────────────────────────
 
-/// The settings a reader chooses, and where the source starts.
-#[derive(Clone, Copy, Debug, PartialEq)]
-pub struct KeffConfig {
-    pub n_particles: usize,
-    pub n_inactive: usize,
-    pub n_active: usize,
-    pub seed: u64,
-    /// Start from every neutron at the centre (Watch) rather than spread
-    /// uniformly through the sphere (Run, as the recorded result did).
-    pub point_source: bool,
-    /// Send the next generation's source sites to the page (Watch draws them).
-    pub want_sites: bool,
-}
-
-impl KeffConfig {
-    /// The defaults of the Run k_eff panel: **the recorded result's own
-    /// settings**, 5000 neutrons x [40 inactive + 120 active], seed 1, so a
-    /// reader's run is one seed of the 32 the record pools.
-    ///
-    /// Sized on a measurement, not a guess: natively (i9-13900K, 16 logical
-    /// cores, 1 thread used, 62 GB, Linux, CPU only, shared with other
-    /// builds) the transport of these 800 000 histories took **2.9 s** on
-    /// 2026-10-04; processing the three tapes at tolerance 0.001 took 62 s.
-    /// Transport is a few seconds even several times slower in a phone's
-    /// browser; the data processing is the long part.
-    ///
-    /// That run (`--headless-keff 5000 40 120 1`) gave **k = 0.99942 ±
-    /// 0.00183 (−58 ± 183 pcm)**: one draw, consistent with the record's
-    /// −52 ± 27 pcm.
-    pub const RUN_DEFAULT: KeffConfig =
-        KeffConfig { n_particles: 5000, n_inactive: 40, n_active: 120, seed: 1, point_source: false, want_sites: false };
-    /// The Watch-generations run: a small population started at the centre,
-    /// enough generations for the entropy to rise and flatten.
-    pub const WATCH_DEFAULT: KeffConfig =
-        KeffConfig { n_particles: 1000, n_inactive: 15, n_active: 15, seed: 1, point_source: true, want_sites: true };
-
-    pub fn settings(&self) -> KeffSettings {
-        KeffSettings {
-            n_particles: self.n_particles,
-            n_inactive: self.n_inactive,
-            n_active: self.n_active,
-            seed: self.seed,
-            temperature_k: model::TEMPERATURE_K,
-            ..KeffSettings::default()
-        }
+fn settings(cfg: &KeffConfig) -> KeffSettings {
+    KeffSettings {
+        n_particles: cfg.n_particles,
+        n_inactive: cfg.n_inactive,
+        n_active: cfg.n_active,
+        seed: cfg.seed,
+        temperature_k: model::TEMPERATURE_K,
+        ..KeffSettings::default()
     }
-}
-
-/// One generation as the page sees it: the library's report plus (Watch only)
-/// a sample of where the next generation's neutrons start, projected on x-y.
-#[derive(Clone, Debug, PartialEq)]
-pub struct Generation {
-    pub report: GenerationReport,
-    pub sites: Vec<[f32; 2]>,
 }
 
 /// The entropy mesh: 5 x 5 x 5 on the sphere's bounding box, the mesh of the
@@ -190,7 +144,7 @@ pub struct Keff {
 
 impl Keff {
     pub fn new(cfg: KeffConfig) -> Self {
-        let s = cfg.settings();
+        let s = settings(&cfg);
         let it = if cfg.point_source {
             PowerIteration::new_point_source(model::RADIUS_CM, &s, Position::ZERO)
         } else {
@@ -201,59 +155,34 @@ impl Keff {
 
     /// The source before the first generation (Watch draws it).
     pub fn initial_sites(&self) -> Vec<[f32; 2]> {
-        self.sites()
-    }
-
-    fn sites(&self) -> Vec<[f32; 2]> {
-        let all = self.it.source_positions();
-        let stride = all.len().div_ceil(MAX_SITES_SHOWN).max(1);
-        all.iter().step_by(stride).map(|p| [p.x as f32, p.y as f32]).collect()
+        sample_sites(&self.it.source_positions())
     }
 
     /// Run one generation. `None` once the run is over.
     pub fn step(&mut self, phys: &Physics) -> Option<Generation> {
         let report = self.it.step(&phys.data.material, &phys.data.nuclides)?;
-        let sites = if self.cfg.want_sites { self.sites() } else { Vec::new() };
+        let sites = if self.cfg.want_sites { sample_sites(&self.it.source_positions()) } else { Vec::new() };
         Some(Generation { report, sites })
     }
 
     pub fn finished(&self) -> bool {
         self.it.finished()
     }
-}
 
-// ─── The openmc.run()-style console ──────────────────────────────────────────
-
-/// The console header, as `openmc.run()` prints it for an eigenvalue run
-/// with an entropy mesh.
-pub const CONSOLE_HEADER: [&str; 2] = [
-    " Bat./Gen.      k       Entropy         Average k",
-    " =========   ========   ========   ====================",
-];
-
-/// One console line per generation, in `openmc.run()`'s layout: generation,
-/// its `k`, the source entropy, and from the second active generation on the
-/// running mean and its standard error.
-pub fn console_line(r: &GenerationReport) -> String {
-    let h = r.entropy.map_or("        ".to_string(), |h| format!("{h:8.5}"));
-    let mut s = format!("{:>8}/1    {:7.5}   {h}", r.index + 1, r.k);
-    if let Some((m, e)) = r.k_mean {
-        if e > 0.0 {
-            s.push_str(&format!("   {m:7.5} +/- {e:7.5}"));
-        }
+    pub fn result(&self) -> KeffResult {
+        self.it.result()
     }
-    s
 }
 
 /// A headless Run k_eff: the console, then the counts and the result.
 /// Deterministic for a given config and data. Native-only (the workspace's
 /// headless-mode rule; it is also how the native live-run check is done).
-pub fn headless_keff(phys: &Physics, cfg: KeffConfig, mut out: impl FnMut(&str)) -> outram_mc_libs::physics::keff::KeffResult {
+pub fn headless_keff(phys: &Physics, cfg: KeffConfig, mut out: impl FnMut(&str)) -> KeffResult {
     let mut k = Keff::new(cfg);
     for l in CONSOLE_HEADER {
         out(l);
     }
-    let mut active = outram_mc_libs::physics::keff::HistoryCounts::default();
+    let mut active = HistoryCounts::default();
     let mut production = 0.0;
     while let Some(g) = k.step(phys) {
         out(&console_line(&g.report));
@@ -262,61 +191,35 @@ pub fn headless_keff(phys: &Physics, cfg: KeffConfig, mut out: impl FnMut(&str))
             production += g.report.production;
         }
     }
-    let r = k.it.result();
-    for l in summary_lines(&active, production, cfg, r.k_mean, r.k_std) {
+    let r = k.result();
+    for l in summary_lines(&active, production, cfg, r.k_mean, r.k_std, Some(super::REFERENCE)) {
         out(&l);
     }
     r
 }
 
-/// The closing summary, shared by the headless run and the app: the analog
-/// counts over the active generations, `k` by counting, and the result
-/// against the experiment and the record.
-pub fn summary_lines(
-    c: &outram_mc_libs::physics::keff::HistoryCounts,
-    production: f64,
-    cfg: KeffConfig,
-    k_mean: f64,
-    k_std: f64,
-) -> Vec<String> {
-    let mut v = Vec::new();
-    let t = c.tracked.max(1) as f64;
-    let f = c.fissions();
-    let pct = |x: u64| 100.0 * x as f64 / t;
-    v.push(String::new());
-    v.push(format!(" Neutrons followed (active): {} ({} source + {} (n,xn) secondaries)",
-        c.tracked, cfg.n_particles * cfg.n_active, c.tracked as i64 - (cfg.n_particles * cfg.n_active) as i64));
-    v.push(format!("   leaked     {:>9}  {:5.1} %", c.leaked, pct(c.leaked)));
-    v.push(format!("   captured   {:>9}  {:5.1} %", c.captured, pct(c.captured)));
-    v.push(format!("   fissioned  {:>9}  {:5.1} %", f, pct(f)));
-    let [b0, b1, b2] = c.fissions_by_energy;
-    v.push(format!("   fissions by incident energy: < 0.625 eV {b0}, 0.625 eV-100 keV {b1}, > 100 keV {b2}"));
-    if f > 0 {
-        let nu = production / f as f64;
-        let p_nl = 1.0 - c.leaked as f64 / t;
-        let k_inf = nu * f as f64 / (f + c.captured) as f64;
-        v.push(format!("   nu-bar {nu:.4}   k_inf = nu F/(F+C) = {k_inf:.5}   P_NL = 1 - L/N = {p_nl:.5}"));
-        v.push(format!("   k_inf x P_NL = {:.5}   (k = nu F / source neutrons = {:.5})",
-            k_inf * p_nl, production / (cfg.n_particles * cfg.n_active) as f64));
-    }
-    v.push(String::new());
-    v.push(format!(" k-effective = {k_mean:.5} +/- {k_std:.5}   ({:+.0} +/- {:.0} pcm from 1)", (k_mean - 1.0) * 1e5, k_std * 1e5));
-    v.push(format!(" Experiment (ICSBEP HEU-MET-FAST-001): {:.4} +/- {:.4}",
-        outram_mc_libs::vv::godiva::BENCHMARK_K, outram_mc_libs::vv::godiva::BENCHMARK_SIGMA));
-    v.push(format!(" Recorded (32 seeds x 5000 x [40+120], 2026-09-30): {:.5} +/- {:.5} ({:+.0} +/- {:.0} pcm)",
-        RECORDED_K, RECORDED_SEM, (RECORDED_K - 1.0) * 1e5, RECORDED_SEM * 1e5));
-    v
+/// The rung once its data are processed: what the engine serves.
+pub struct Loaded {
+    pub phys: Physics,
+    pub chain: Chain,
+    pub keff: Option<Keff>,
 }
 
-/// The recorded result for this model and data, to compare a reader's run
-/// with: **route 4** (outram-mc reading ENDF/B-VIII.0 directly) of
-/// `crates/outram-mc-libs/verification_and_validation/icsbep/five_route_keff_2026_09_29.md`,
-/// "Results — after the OpenMC-parity audit": **0.99948 ± 0.00027
-/// (−52 ± 27 pcm)**, 32 seeds × 5000 histories × [40 inactive + 120 active],
-/// 2026-09-30, commit `0414bc8277`. The ± is the standard error of the
-/// 32-seed mean (seed-to-seed sd 151 pcm). Quoted, not re-measured here.
-pub const RECORDED_K: f64 = 0.99948;
-/// Standard error of [`RECORDED_K`].
-pub const RECORDED_SEM: f64 = 0.00027;
-/// Seed-to-seed standard deviation of one run at the recorded settings.
-pub const RECORDED_SD_ONE_RUN: f64 = 0.00151;
+impl crate::rungs::LoadedRung for Loaded {
+    fn run_next(&mut self) -> History {
+        self.chain.run_next(&self.phys)
+    }
+    fn keff_start(&mut self, cfg: KeffConfig) -> Result<Vec<[f32; 2]>, String> {
+        let k = Keff::new(cfg);
+        let sites = if cfg.want_sites { k.initial_sites() } else { Vec::new() };
+        self.keff = Some(k);
+        Ok(sites)
+    }
+    fn keff_step(&mut self) -> Option<Generation> {
+        let phys = &self.phys;
+        self.keff.as_mut().and_then(|k| k.step(phys))
+    }
+    fn keff_finished(&self) -> bool {
+        self.keff.as_ref().is_none_or(|k| k.finished())
+    }
+}

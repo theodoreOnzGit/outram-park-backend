@@ -7,7 +7,7 @@
 //! toolbox and the Monte Carlo studio — and for any future GUI that drives
 //! physics rather than merely displaying it.
 //!
-//! # STATUS: ~~PLACEHOLDER. Nothing is implemented.~~ The LIBRARY is a placeholder; the two studios are examples.
+//! # STATUS: ~~PLACEHOLDER. Nothing is implemented.~~ ~~The LIBRARY is a placeholder; the two studios are examples.~~ The library holds the web-demo framework (below); the studios and demos are examples.
 //!
 //! ~~This crate was created on 2026-09-17 to hold a decision, not code. It has
 //! no GUI, no dependencies, and no behaviour. Do not describe it as providing
@@ -98,7 +98,20 @@
 //!   be added to `nee_soon`, `outram-blender`, or any library expected to build
 //!   for `aarch64-linux-android`.
 
+//!
+//! # The web-demo framework (2026-10-04, gh:#521)
+//!
+//! **CORRECTED 2026-10-04** — the library is no longer only a placeholder:
+//! [`web_demo`] holds the track-independent half of the browser demos (main
+//! view with zoom buttons, folding side panel, the worker/thread plumbing the
+//! no-lagging rule needs, the loading card, the rung table and lesson links),
+//! extracted from `examples/monte_carlo_web/` so every tutorial track builds
+//! on it. Its module docs say how a new track app plugs in. Gated off Android.
+
 #![doc(html_no_source)]
+
+#[cfg(not(target_os = "android"))]
+pub mod web_demo;
 
 /// The crate's own expansion, for anywhere a human needs it spelled out.
 ///
@@ -112,14 +125,11 @@ pub const EXPANSION: &str = "Digital High-fidelity Orchestration by GUI for a \
 mod tests {
     use super::*;
 
-    /// The crate is a placeholder and this test says so out loud.
-    ///
-    /// It exists so that `cargo test -p dhoby-ghaut` is not vacuously green in
-    /// a way that could be mistaken for a working GUI being exercised. When the
-    /// studios actually land, delete this test — its failure to be deleted is
-    /// itself a signal that nothing has moved yet.
+    /// ~~The crate is a placeholder and this test says so out loud.~~
+    /// **CORRECTED 2026-10-04:** the library now has the web-demo framework,
+    /// tested in `web_demo`'s own modules; this only checks the expansion.
     #[test]
-    fn this_crate_is_a_placeholder_and_implements_nothing() {
+    fn the_expansion_is_spelled_out() {
         assert!(EXPANSION.starts_with("Digital High-fidelity Orchestration"));
     }
 }

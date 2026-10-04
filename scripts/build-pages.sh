@@ -156,15 +156,22 @@ done
 
 # The demo's rung table drives the links both ways (gh:#520): every rung's
 # lesson page must exist, and every page link into the demo must name a rung
-# the table has. The table's `name:` and `lesson:` lines are read as written.
-rungs_rs=crates/dhoby-ghaut/examples/monte_carlo_web/rungs.rs
-rung_names="$(sed -n 's/^ *name: "\([a-z0-9_-]*\)",$/\1/p' "$rungs_rs")"
-[[ -n "$rung_names" ]] || { echo "no rungs read from $rungs_rs" >&2; exit 1; }
-while read -r lesson; do
-  [[ -f "$OUT/$lesson" ]] || { echo "rung lesson page missing: $lesson ($rungs_rs)" >&2; exit 1; }
-done < <(sed -n 's/^ *lesson: "\([^"]*\)",$/\1/p' "$rungs_rs")
+# the table has. The table is the `rung_table!` invocation in main.rs (one
+# `module: Marker,` line per rung); each rung's `name:` and `lesson:` lines are
+# in its `<module>/mod.rs`, read as written.
+mc=crates/dhoby-ghaut/examples/monte_carlo_web
+rung_mods="$(sed -n '/^rung_table! {/,/^}/s/^ *\([a-z0-9_]*\): *[A-Z][A-Za-z0-9]*,$/\1/p' "$mc/main.rs")"
+[[ -n "$rung_mods" ]] || { echo "no rungs read from $mc/main.rs" >&2; exit 1; }
+rung_names=""
+for m in $rung_mods; do
+  n="$(sed -n 's/^ *name: "\([a-z0-9_-]*\)",$/\1/p' "$mc/$m/mod.rs")"
+  l="$(sed -n 's/^ *lesson: "\([^"]*\)",$/\1/p' "$mc/$m/mod.rs")"
+  [[ -n "$n" && -n "$l" ]] || { echo "rung $m: no name/lesson line in $mc/$m/mod.rs" >&2; exit 1; }
+  [[ -f "$OUT/$l" ]] || { echo "rung lesson page missing: $l ($mc/$m/mod.rs)" >&2; exit 1; }
+  rung_names+="$n"$'\n'
+done
 while read -r r; do
-  grep -qx "$r" <<< "$rung_names" || { echo "a page links to demo rung '$r', not in $rungs_rs" >&2; exit 1; }
+  grep -qx "$r" <<< "$rung_names" || { echo "a page links to demo rung '$r', not in the rung table" >&2; exit 1; }
 done < <(grep -rhoE 'demos/monte-carlo/\?rung=[a-z0-9_-]+' "$OUT" --include='*.html' | sed 's/.*rung=//' | sort -u)
 # Every tape a rung processes must have been published for the browser.
 for t in n-092_U_234-ENDF8.0.endf n-092_U_235-ENDF8.0.endf n-092_U_238.endf; do

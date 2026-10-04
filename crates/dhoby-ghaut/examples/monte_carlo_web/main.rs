@@ -42,15 +42,23 @@ mod app;
 #[cfg(not(target_os = "android"))]
 mod engine;
 #[cfg(not(target_os = "android"))]
-mod godiva;
-#[cfg(not(target_os = "android"))]
 mod history;
 #[cfg(not(target_os = "android"))]
+mod keff;
+#[cfg(not(target_os = "android"))]
+#[macro_use]
 mod rungs;
 #[cfg(not(target_os = "android"))]
 mod tapes;
+
+// THE RUNG TABLE, in ladder order: one line per rung, `module: MarkerType`,
+// for `examples/monte_carlo_web/<module>/mod.rs` (see `rungs.rs`). Adding a
+// rung is adding its directory and one line here; nothing else changes.
 #[cfg(not(target_os = "android"))]
-mod triso;
+rung_table! {
+    godiva: Godiva,
+    triso: Triso,
+}
 
 /// Android stub: windowing GUIs are out of scope on Termux (the workspace
 /// example rule — a blanked file gives "main function not found").
@@ -72,8 +80,8 @@ fn native_tape(tape: &str) -> Result<Vec<u8>, String> {
 /// Process a rung's tapes natively, in order. `report` sees each job's label
 /// and seconds.
 #[cfg(all(not(target_os = "android"), not(target_arch = "wasm32")))]
-fn load_native(rung: rungs::Rung, tier: engine::Tier, mut report: impl FnMut(&str, f64)) -> Result<engine::Loaded, String> {
-    let jobs = engine::jobs(rung);
+fn load_native(rung: table::Rung, tier: engine::Tier, mut report: impl FnMut(&str, f64)) -> Result<table::Loaded, String> {
+    let jobs = rung.jobs();
     let mut post = |e: engine::Event| {
         if let engine::Event::JobDone { index, secs, .. } = e {
             report(jobs[index].0, secs);
@@ -84,8 +92,9 @@ fn load_native(rung: rungs::Rung, tier: engine::Tier, mut report: impl FnMut(&st
 
 #[cfg(all(not(target_os = "android"), not(target_arch = "wasm32")))]
 fn main() -> Result<(), String> {
-    use engine::{Loaded, Tier};
-    use rungs::{Mode, Rung};
+    use engine::Tier;
+    use rungs::Mode;
+    use table::{Loaded, Rung};
     let args: Vec<String> = std::env::args().skip(1).collect();
     let arg = |i: usize| args.get(i).map(String::as_str);
     let num = |i: usize, d: u64| -> Result<u64, String> { arg(i).map_or(Ok(d), str::parse).map_err(|e| format!("argument {i}: {e}")) };
@@ -94,24 +103,24 @@ fn main() -> Result<(), String> {
         Some("--headless") => {
             let (n, seed) = (num(1, 200)? as usize, num(2, 1)?);
             eprintln!("Processing ENDF/B-VIII.0 (tier {:?}, {} K):", triso::model::SPEED, triso::model::TEMPERATURE_K);
-            let Loaded::Triso { phys, .. } = load_native(Rung::Triso, Tier::Loose, timing)? else { unreachable!() };
-            print!("{}", triso::sim::headless_csv(&phys, n, seed));
+            let Loaded::Triso(l) = load_native(Rung::Triso, Tier::Loose, timing)? else { unreachable!() };
+            print!("{}", triso::sim::headless_csv(&l.phys, n, seed));
             Ok(())
         }
         Some("--headless-godiva") => {
             let (n, seed) = (num(1, 200)? as usize, num(2, 1)?);
-            let Loaded::Godiva { phys, .. } = load_native(Rung::Godiva, Tier::Loose, timing)? else { unreachable!() };
+            let Loaded::Godiva(l) = load_native(Rung::Godiva, Tier::Loose, timing)? else { unreachable!() };
             let mut chain = godiva::sim::Chain::new(seed);
             println!("{}", history::CSV_HEADER);
             for _ in 0..n {
-                println!("{}", history::csv_row(&chain.run_next(&phys)));
+                println!("{}", history::csv_row(&chain.run_next(&l.phys)));
             }
             Ok(())
         }
         Some("--headless-keff") => {
             let loose = args.iter().any(|a| a == "--loose");
-            let d = godiva::sim::KeffConfig::RUN_DEFAULT;
-            let cfg = godiva::sim::KeffConfig {
+            let d = Rung::Godiva.run_default().ok_or("no run default")?;
+            let cfg = keff::KeffConfig {
                 n_particles: num(1, d.n_particles as u64)? as usize,
                 n_inactive: num(2, d.n_inactive as u64)? as usize,
                 n_active: num(3, d.n_active as u64)? as usize,
@@ -121,7 +130,8 @@ fn main() -> Result<(), String> {
             let tier = if loose { Tier::Loose } else { Tier::Exact };
             eprintln!("Processing ENDF/B-VIII.0 for Godiva ({tier:?} tier, {} K):", godiva::model::TEMPERATURE_K);
             let t0 = std::time::Instant::now();
-            let Loaded::Godiva { phys, .. } = load_native(Rung::Godiva, tier, timing)? else { unreachable!() };
+            let Loaded::Godiva(l) = load_native(Rung::Godiva, tier, timing)? else { unreachable!() };
+            let phys = l.phys;
             eprintln!("  data ready in {:.1} s; {} neutrons x [{} + {}], seed {}", t0.elapsed().as_secs_f64(), cfg.n_particles, cfg.n_inactive, cfg.n_active, cfg.seed);
             let t = std::time::Instant::now();
             godiva::sim::headless_keff(&phys, cfg, |l| println!("{l}"));
@@ -132,8 +142,8 @@ fn main() -> Result<(), String> {
             // Godiva's macroscopic cross sections, split the way
             // transport_history splits a collision, at a few energies: the
             // numbers the lesson's reaction-choice picture uses.
-            let Loaded::Godiva { phys, .. } = load_native(Rung::Godiva, Tier::Exact, timing)? else { unreachable!() };
-            let (m, n) = (&phys.data.material, &phys.data.nuclides);
+            let Loaded::Godiva(l) = load_native(Rung::Godiva, Tier::Exact, timing)? else { unreachable!() };
+            let (m, n) = (&l.phys.data.material, &l.phys.data.nuclides);
             println!("E_eV,Sigma_t_per_cm,mfp_cm,fission,capture,inelastic_and_nxn,elastic");
             for e in [1.0e4, 1.0e5, 5.0e5, 1.0e6, 2.0e6, 5.0e6] {
                 let (mut t, mut f, mut a, mut inel) = (0.0, 0.0, 0.0, 0.0);
@@ -160,8 +170,8 @@ fn main() -> Result<(), String> {
             println!("{:<34} {:>10} {:>10} {:>10}", "tape", "raw MB", "stripped", "on wire");
             let (mut raw_t, mut wire_t) = (0usize, 0usize);
             let mut done: Vec<&str> = Vec::new();
-            for r in &rungs::RUNGS {
-                for (_, tape) in engine::jobs(r.rung) {
+            for r in table::ALL {
+                for &(_, tape) in r.jobs() {
                     if done.contains(&tape) {
                         continue; // shared between rungs (U-235, U-238)
                     }
@@ -182,13 +192,7 @@ fn main() -> Result<(), String> {
         }
         _ => {
             // `--rung <name> --mode <watch|run>`, the native twin of the URL.
-            let mut query = Vec::new();
-            for w in args.windows(2) {
-                if let Some(k) = w[0].strip_prefix("--") {
-                    query.push((k.to_string(), w[1].clone()));
-                }
-            }
-            let (rung, mode): (Rung, Mode) = rungs::start(&query);
+            let (rung, mode): (Rung, Mode) = rungs::start(&dhoby_ghaut::web_demo::platform::query_pairs());
             let options = eframe::NativeOptions::default();
             eframe::run_native(
                 "Monte Carlo demo",
@@ -202,13 +206,13 @@ fn main() -> Result<(), String> {
 
 /// In the browser this module runs twice: on the page, where it starts the
 /// egui app, and in the physics Web Worker (`web/monte_carlo/worker.js`),
-/// where there is no `window` and it runs [`engine::run_worker`] instead.
+/// where there is no `window` and it runs the engine instead.
 #[cfg(target_arch = "wasm32")]
 fn main() {
     use eframe::wasm_bindgen::JsCast as _;
     eframe::WebLogger::init(log::LevelFilter::Info).ok();
     if js_sys::global().dyn_ref::<web_sys::DedicatedWorkerGlobalScope>().is_some() {
-        engine::run_worker();
+        dhoby_ghaut::web_demo::link::worker_main::<engine::McEngine>();
         return;
     }
     let web_options = eframe::WebOptions {
@@ -216,13 +220,7 @@ fn main() {
         renderer: eframe::Renderer::Glow,
         ..Default::default()
     };
-    let search = web_sys::window().and_then(|w| w.location().search().ok()).unwrap_or_default();
-    let query: Vec<(String, String)> = search
-        .trim_start_matches('?')
-        .split('&')
-        .filter_map(|kv| kv.split_once('=').map(|(k, v)| (k.to_string(), v.to_string())))
-        .collect();
-    let (rung, mode) = rungs::start(&query);
+    let (rung, mode) = rungs::start(&dhoby_ghaut::web_demo::platform::query_pairs());
     wasm_bindgen_futures::spawn_local(async move {
         let document = web_sys::window().expect("no window").document().expect("no document");
         let canvas = document
@@ -247,13 +245,13 @@ fn main() {
 #[cfg(all(test, not(target_os = "android"), not(target_arch = "wasm32")))]
 mod tests {
     use super::*;
-    use engine::{Loaded, Tier};
+    use engine::Tier;
     use outram_mc_libs::geometry::cell::SurfaceToken;
     use outram_mc_libs::geometry::position::{Direction, Position};
     use outram_mc_libs::material::material::{Material, NuclideComponent};
     use outram_mc_libs::physics::track_output::TrackEvent;
-    use rungs::Rung;
     use std::sync::OnceLock;
+    use table::{Loaded, Rung};
     use triso::model;
 
     const FIXTURE: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/tests/fixtures/triso_pebble_web_headless.csv");
@@ -263,16 +261,16 @@ mod tests {
     fn physics() -> &'static triso::sim::Physics {
         static P: OnceLock<triso::sim::Physics> = OnceLock::new();
         P.get_or_init(|| match load_native(Rung::Triso, Tier::Loose, |_, _| {}).expect("load nuclear data") {
-            Loaded::Triso { phys, .. } => phys,
-            Loaded::Godiva { .. } => unreachable!(),
+            Loaded::Triso(l) => l.phys,
+            _ => unreachable!(),
         })
     }
 
     fn godiva_physics() -> &'static godiva::sim::Physics {
         static P: OnceLock<godiva::sim::Physics> = OnceLock::new();
         P.get_or_init(|| match load_native(Rung::Godiva, Tier::Loose, |_, _| {}).expect("load nuclear data") {
-            Loaded::Godiva { phys, .. } => phys,
-            Loaded::Triso { .. } => unreachable!(),
+            Loaded::Godiva(l) => l.phys,
+            _ => unreachable!(),
         })
     }
 
@@ -423,7 +421,7 @@ mod tests {
     #[test]
     fn the_godiva_keff_run_counts_close_and_crosses_the_worker_boundary() {
         let phys = godiva_physics();
-        let cfg = godiva::sim::KeffConfig { n_particles: 200, n_inactive: 3, n_active: 4, seed: 9, point_source: true, want_sites: true };
+        let cfg = keff::KeffConfig { n_particles: 200, n_inactive: 3, n_active: 4, seed: 9, point_source: true, want_sites: true };
         let mut k = godiva::sim::Keff::new(cfg);
         assert_eq!(k.initial_sites().len(), 200);
         let mut n = 0;
@@ -461,7 +459,7 @@ mod tests {
     /// produce exactly the headless sequence for the GUI's chain seed.
     #[test]
     fn the_engine_thread_runs_the_headless_sequence() {
-        let link = engine::start_native(|| {});
+        let link = dhoby_ghaut::web_demo::link::start_native(engine::McEngine::default(), || {});
         link.send(engine::Request::Load { id: 7, rung: Rung::Triso, tier: Tier::Loose });
         let deadline = std::time::Instant::now() + std::time::Duration::from_secs(900);
         let (mut ready, mut got) = (false, Vec::new());
@@ -497,16 +495,20 @@ mod tests {
         assert_eq!(got, want, "headless trace differs from {FIXTURE}");
     }
 
-    /// Every rung's lesson link is a page path, and the URL parser falls back
-    /// sensibly: no rung opens Godiva; a rung without Run ignores mode=run.
+    /// Every rung's lesson link is a page path, names are unique, and the URL
+    /// parser falls back sensibly: no rung opens the first (Godiva); a rung
+    /// without Run ignores mode=run.
     #[test]
     fn the_rung_table_parses_urls() {
         let q = |s: &[(&str, &str)]| s.iter().map(|(a, b)| (a.to_string(), b.to_string())).collect::<Vec<_>>();
         assert_eq!(rungs::start(&q(&[])), (Rung::Godiva, rungs::Mode::Watch));
         assert_eq!(rungs::start(&q(&[("rung", "godiva"), ("mode", "run")])), (Rung::Godiva, rungs::Mode::Run));
         assert_eq!(rungs::start(&q(&[("rung", "triso"), ("mode", "run")])), (Rung::Triso, rungs::Mode::Watch));
-        for r in &rungs::RUNGS {
-            assert!(r.lesson.ends_with(".html") && !r.lesson.starts_with('/'));
+        for (i, r) in table::ALL.iter().enumerate() {
+            let info = r.info();
+            assert!(info.lesson.ends_with(".html") && !info.lesson.starts_with('/'));
+            assert!(table::ALL[..i].iter().all(|o| o.info().name != info.name), "duplicate rung name {}", info.name);
+            assert!(!r.jobs().is_empty() && r.half_extent() > 0.0);
         }
     }
 }
