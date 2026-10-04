@@ -109,13 +109,11 @@ use outram_mc_libs::geometry::position::Position;
 use outram_mc_libs::geometry::surface::BoundaryType;
 use outram_mc_libs::pebble_beds::fhr_pebble::fhr_pebble_geometry;
 use std::time::Instant;
+use outram_mc_libs::vv::ugraphite::{cell_radius, RHO_U_METAL};
 use ugraphite_common::{
-    env_or, graphite_density, load_nuclides, natural_mix, print_case, run_case, FuelSplit, Mix,
-    M_U234, M_U235, M_U238, NAT_U, NA_B, TEMP_K,
+    env_or, graphite, load_nuclides, natural_mix, print_case, run_case, uranium_metal,
+    uranium_volume_fraction, FuelSplit, Mix, TEMP_K,
 };
-
-/// Natural uranium metal density \[g/cm3\] (handbook value, not page-checked).
-const RHO_U_METAL: f64 = 19.05;
 
 /// The lump radii scanned by default \[cm\].
 const RADII_CM: &[f64] = &[0.1, 0.3, 1.0, 2.0, 3.0, 4.0, 6.0];
@@ -123,25 +121,6 @@ const RADII_CM: &[f64] = &[0.1, 0.3, 1.0, 2.0, 3.0, 4.0, 6.0];
 /// Lump radius of the homogenised control cell \[cm\]. Any radius would do;
 /// this one puts the internal surface where the scan's interesting rows are.
 const CONTROL_R_CM: f64 = 2.0;
-
-/// Natural uranium metal \[atoms/b-cm\].
-fn uranium_metal() -> Mix {
-    let m_u = NAT_U[0] * M_U234 + NAT_U[1] * M_U235 + NAT_U[2] * M_U238;
-    let n_u = RHO_U_METAL * NA_B / m_u;
-    Mix {
-        u: [NAT_U[0] * n_u, NAT_U[1] * n_u, NAT_U[2] * n_u],
-        c: 0.0,
-    }
-}
-
-/// Uranium volume fraction that gives cell-average `c_per_u` with a pure
-/// uranium-metal lump and pure graphite around it.
-fn uranium_volume_fraction(c_per_u: f64) -> f64 {
-    let n_u: f64 = uranium_metal().u.iter().sum();
-    let n_c = graphite_density();
-    // (1 - v) n_c / (v n_u) = c_per_u
-    1.0 / (1.0 + c_per_u * n_u / n_c)
-}
 
 /// The Wigner-Seitz cell: lump (material 0) to `r`, graphite (material 1) to
 /// `big_r`, white outer boundary. The middle sphere is only the constructor's
@@ -167,7 +146,7 @@ fn main() {
         .ok()
         .map(|s| s.split(',').map(|x| x.trim().parse().expect("RADII")).collect())
         .unwrap_or_else(|| RADII_CM.to_vec());
-    let cell_r = |r: f64| r / v.cbrt();
+    let cell_r = |r: f64| cell_radius(r, cu);
 
     if std::env::var("MODE").as_deref() == Ok("images") {
         draw(&radii, cell_r);
@@ -180,10 +159,7 @@ fn main() {
     let nuclides = load_nuclides();
     eprintln!("data ready in {:.1} s", t_load.elapsed().as_secs_f64());
     let lump = uranium_metal();
-    let graphite = Mix {
-        u: [0.0; 3],
-        c: graphite_density(),
-    };
+    let graphite = graphite();
     println!(
         "settings: PARTICLES {} x [INACTIVE {} + ACTIVE {}], THREADS {}, SEED {seed}, {TEMP_K} K; \
          cell-average N_C/N_U = {cu}, uranium volume fraction v = {v:.6e}, R/r = {:.4}",
@@ -203,7 +179,7 @@ fn main() {
     let mut rows = Vec::new();
     if env_or::<u32>("CONTROL", 1) != 0 {
         let hom = Mix {
-            u: [lump.u[0] * v, lump.u[1] * v, lump.u[2] * v],
+            u: lump.scaled(v).u,
             c: graphite.c * (1.0 - v),
         };
         let r = CONTROL_R_CM;

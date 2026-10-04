@@ -96,7 +96,7 @@
 //! All three gates pass.
 //!
 //! **Default kernel (DBRC + URR on), and the tutorial's 296 K.** Same seed,
-//! same histories; single core of an i9-13900K (24 logical cores, shared with
+//! same histories; single core of an i9-13900K (16 logical cores, 62 GB, Linux, shared with
 //! other jobs), CPU only; 542 s (600 K), 822 s (296 K, sharing its core), and
 //! 552 s for the 296 K legacy run. `RI_eff/RI_inf` (1 sigma 0.0105 on the
 //! first row, ~0.004 on the second and third):

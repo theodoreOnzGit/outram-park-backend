@@ -340,7 +340,7 @@ struct KinRow {
 /// # Re-measured 2026-10-04 (GitHub #524), develop at `bfeb81a083`
 ///
 /// Same program, same seeds (ENDF/B-VIII.0 at 600 K, 200 000 samples per row,
-/// 20 000 walkers x 400 scatters), 60 s on one core of an i9-13900K (24
+/// 20 000 walkers x 400 scatters), 60 s on one core of an i9-13900K (16
 /// logical cores, shared with other jobs), CPU only. **Every gate passes, and
 /// the 2026-09-11 numbers above are superseded as follows:**
 ///

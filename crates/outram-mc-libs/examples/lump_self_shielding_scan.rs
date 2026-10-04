@@ -39,7 +39,7 @@
 //! physics defaults and the 2026-09-30 OpenMC-parity audit. Re-run on
 //! `develop` at `bfeb81a083` with the defaults (`MODE=full`, `HIST=50000`,
 //! `SIGMA_B=300`, `VFRAC=0.30`, `FUEL_SUB=12`, `CP_NODES=16`; ENDF/B-VIII.0 at
-//! 293.6 K), 1346 s on one core of an i9-13900K (24 logical cores, shared with
+//! 293.6 K), 1346 s on one core of an i9-13900K (16 logical cores, 62 GB, Linux, shared with
 //! other jobs), CPU only. **Every gate passes and nothing moved beyond its
 //! statistics.** This program's walker is `physics::slowing_down`'s, run with
 //! `ScatterKernel::IsotropicCmAtRest` (the deterministic oracle's kernel, so

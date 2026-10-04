@@ -115,8 +115,69 @@
 //!
 //! # Results
 //!
-//! Not yet run. (This section is filled in from the runs, with date, commit,
-//! settings and hardware.)
+//! ## Main case (2026-10-04, `develop` at `c199b7dc1f`)
+//!
+//! 20 000 neutrons x [20 inactive + 100 active], seed 20 261 004, 2 threads,
+//! 12 300 fine bins over 1e-5 eV .. 20 MeV. Hardware: i9-13900K (16 logical
+//! cores, 62 GB, Linux, CPU only), cores pinned with `taskset`, machine shared
+//! with other jobs. Data 90 s (RECONR + BROADR of five tapes), transport
+//! 819 s, energy-only `p` check 82 s.
+//!
+//! ```text
+//!   N_C/N_U = 767.2   N: U-235 1.9256e-5, U-238 9.2829e-5, C 8.59914e-2 /b-cm
+//!   k_inf (generation mean)        1.56777 +/- 0.00081
+//!   eta                            2.02809 +/- 0.00132
+//!   f   (nuclide split)            0.97470 +/- 0.00063
+//!   p   (3-group)                  0.71398 +/- 0.00044
+//!   epsilon (3-group)              1.11144 +/- 0.00093
+//!   eta f p epsilon                1.56867 +/- 0.00256   = P_total/A_total to 2e-16
+//!   (k - k_factors)/k              -0.00057              inside the consistency band
+//!   two-group view: eta 2.02809  f 0.97470  p 0.71052  epsilon 1.11686
+//!   absorption per source neutron [thermal, resonance, fast] 0.71010 0.28447 0.00485
+//!   binning check: fold(Sigma_a,tot) / tallied thermal absorption = 0.999989
+//! ```
+//!
+//! - **Telescoping holds exactly** (product minus `P/A` = 2e-16), and `k` from
+//!   the power iteration agrees with the factors' product to 0.06 %, inside
+//!   the band (the factors' quoted sigma is conservative, see the module docs).
+//! - **The prediction held**: `k_inf ~ 1.4-1.6` predicted, 1.568 measured;
+//!   each factor was inside its predicted range (`eta ~ 2.0`, `f ~ 0.98`,
+//!   `p ~ 0.70`, `epsilon ~ 1.0-1.1`).
+//! - **`p` against the energy-only walk:** 0.71274 +/- 0.00072 (400 000
+//!   histories from 100 keV) against the transport's 0.71398 +/- 0.00044,
+//!   **+0.00124, 1.5 sigma**. Agreement at the level the two definitions allow
+//!   (the transport's resonance group also holds the ~1 % of fission neutrons
+//!   born below 100 keV, which escape more easily); not a resolved difference.
+//! - **The two conventions differ as they should**: `p` 0.714 (3-group) vs
+//!   0.711 (2-group), `epsilon` 1.111 vs 1.117, same product. Quote the
+//!   3-group values with the library's definitions; the 2-group view is for
+//!   comparing with decks that use it.
+//!
+//! **OpenMC code-to-code** (verification, not validation): the same mixture
+//! in OpenMC 0.16.1-dev25 (`d7d3284a1`) on the openmc.org ENDF/B-VIII.0 HDF5
+//! library (neutron data at 294 K by nearest-temperature lookup, `c_Graphite`
+//! at 296 K; outram-mc broadens to 296 K exactly), ptables and DBRC on, same
+//! histories, seed 1, 1 thread, 316 s:
+//!
+//! ```text
+//!                       outram-mc            OpenMC                 difference
+//!   k (gen. mean)       1.56777 +/- 0.00081  1.56711 +/- 0.00134    +66 +/- 157 pcm (0.4 sigma)
+//!   k (OpenMC combined)                      1.56807 +/- 0.00066    -30 +/- 104 pcm (0.3 sigma)
+//!   eta                 2.02809              2.02786                +0.01 %
+//!   f                   0.97470              0.97471                -0.00 %
+//!   p                   0.71398 +/- 0.00044  0.71301 +/- 0.00084    +0.14 % (1.0 sigma)
+//!   epsilon             1.11144              1.11272                -0.12 %
+//! ```
+//!
+//! **Agreement within statistics on `k` and on every factor.** The 2 K
+//! temperature difference (296 K here, 294 K neutron data there) is not
+//! corrected; with a Doppler coefficient of a few pcm/K it is below the
+//! statistics. Record and deck:
+//! `verification_and_validation/tutorial_rung2/README.md`.
+//!
+//! ## Step 7 sweep (natural uranium)
+//!
+//! Running; recorded in the next commit.
 //!
 //! # Running
 //!

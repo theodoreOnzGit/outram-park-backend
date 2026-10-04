@@ -13,6 +13,9 @@
 //! itself.
 
 pub mod njoy_golden;
+/// The uranium-graphite compositions of tutorial rungs 2 and 3 (GitHub #524,
+/// #525), shared by their examples and the web demo's rungs.
+pub mod ugraphite;
 
 pub use njoy_outram_park_fork::vv::{
     assert_absolute, assert_monotone, assert_relative, assert_reproduces_keff,
