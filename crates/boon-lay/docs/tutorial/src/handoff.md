@@ -24,7 +24,7 @@ boon-lay                          sembawang                       changi / buang
   and flow-through options, each labelled as not upstream).
 - [`changi`](https://github.com/theodoreOnzGit/outram-park-backend/tree/@@COMMIT@@/crates/changi)
   carries the release downwind. Its own deep dive is the
-  [dispersion track](../dispersion/) (gh:#516).
+  [dispersion track](../../deep-dives/dispersion/) (gh:#516).
 
 ## What crosses the seam, exactly
 
@@ -64,4 +64,4 @@ rungs side by side; until then, the [TRISO pebble demo](../../demos/triso-pebble
 shows the particles from the neutron's side.
 
 **Next:** the [extended deep dives](../../deep-dives/triso-atops/architecture.html) for the parts of the
-crate the ladder walked past, or the [dispersion track](../dispersion/).
+crate the ladder walked past, or the [dispersion track](../../deep-dives/dispersion/).
