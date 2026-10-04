@@ -99,7 +99,9 @@ table, which is what RECONR + BROADR already give us:
 
 ## Other ACE classes
 
-`acer` writes five kinds of table and this crate now builds three of them:
+`acer` writes five kinds of table and this crate now builds all five
+(~~three of them~~, corrected 2026-10-04: the table below already listed
+photo-atomic and photonuclear as built):
 
 | `iopt` | class | upstream | here |
 |---|---|---|---|
@@ -8650,8 +8652,9 @@ Thermal scattering **S(α,β)** ACE table writer (`…t` tables).
 Assembles the thermal ACE table a Monte-Carlo code uses for bound-atom
 thermal scattering — graphite, H/D in water, ZrH, Al, … — where the free-gas
 model no longer applies and the scattering law S(α,β) governs the kinematics.
-Ports the load path of `aceth.f90` (`thrlod`) for the `IFENG=0` (equiprobable)
-inelastic form plus coherent-elastic (Bragg) data.
+Ports the load path of `aceth.f90` (`thrlod`) for the `IFENG=0/1/2`
+inelastic forms (equiprobable, skewed, continuous; ~~`IFENG=0` only~~,
+corrected 2026-10-04) plus coherent-elastic (Bragg) data.
 
 The physics comes from [`crate::thermr`]: [`IncoherentInelastic`] provides
 the inelastic cross section and equiprobable emission bins, and
@@ -8661,7 +8664,7 @@ the inelastic cross section and equiprobable emission bins, and
 
 - **NXS**: `IDPNI` (inelastic mode = 3), `NIL` (= nang−1 discrete cosines),
   `NIEB` (outgoing energies per incident energy), `IDPNC` (elastic mode: 4
-  coherent, 0 none), `NCL` (−1 for coherent), `IFENG` (= 0, equiprobable).
+  coherent, 0 none), `NCL` (−1 for coherent), `IFENG` (0 equiprobable, 1 skewed, 2 continuous).
 - **JXS**: `ITIE`/`ITIX` (inelastic incident-energy grid + cross section),
   `ITXE` (energy-angle distributions), `ITCE`/`ITCX` (coherent-elastic Bragg
   energies + cumulative cross section).
@@ -8678,8 +8681,11 @@ ITCX : cumulative S(1..NEE)               [MeV·b]
 
 Incoherent-elastic is handled: ITCE/ITCX/ITCA when it is the only elastic
 mode (`IDPNC=3`), or ITCEI/ITCXI/ITCAI alongside coherent (`IDPNC=5`).
-Not yet handled: the skewed/continuous `IFENG=1/2` inelastic forms, and
-multi-atom mixing (`nmix`, taken as 1).
+~~Not yet handled: the skewed/continuous `IFENG=1/2` inelastic forms, and~~
+~~multi-atom mixing (`nmix`, taken as 1).~~ **CORRECTED 2026-10-04:** all
+three `IFENG` forms are written since 2026-09-22 (`InelasticForm`,
+`ThermalAceOptions::form`; `tests/acer_thermal_ifeng_vs_njoy2016.rs`).
+Still not handled: multi-atom mixing (`nmix`, taken as 1).
 
 ## Prerequisite provenance
 
@@ -15072,11 +15078,12 @@ pub struct Tape {
 - ```rust
   pub fn read_file(path: &std::path::Path) -> Result<Self, NjoyError> { /* ... */ }
   ```
-  Parse an ENDF ASCII tape from any [`Read`] source.
+  Parse an ENDF ASCII tape from a file on disk.
 
 - ```rust
   pub fn read<R: Read>(reader: R) -> Result<Self, NjoyError> { /* ... */ }
   ```
+  Parse an ENDF ASCII tape from any [`Read`] source.
 
 - ```rust
   pub fn section(self: &Self, mat: i32, mf: i32, mt: i32) -> Option<&Section> { /* ... */ }
@@ -15086,11 +15093,12 @@ pub struct Tape {
 - ```rust
   pub fn materials(self: &Self) -> Vec<i32> { /* ... */ }
   ```
-  Iterate over all sections in file order.
+  Every ENDF material number on this tape, ascending and deduplicated.
 
 - ```rust
   pub fn sections(self: &Self) -> &[Section] { /* ... */ }
   ```
+  All sections in file order. (CORRECTED 2026-10-04: this line used to
 
 - ```rust
   pub fn len(self: &Self) -> usize { /* ... */ }
@@ -25790,11 +25798,13 @@ that the thermal ACE writer ([`crate::acer::thermal`]) consumes.
   withholding tabulated temperatures, interpolating to them from the ones
   kept, and comparing against the evaluation's own values. Also does
   leave-one-out characterisation of the existing production interpolation.
-- The `aceth.f90` writer ([`crate::acer::thermal`]) is **done** for the
-  standard IFENG=0 (equiprobable) case, both coherent- and
-  incoherent-elastic, with the coherent `S(E)` resolved at the requested
-  temperature. Not ported: IFENG=1/2 (skewed/continuous inelastic forms)
-  and multi-scatterer mixing (`nmix` > 1) — see that module's docs.
+- The `aceth.f90` writer ([`crate::acer::thermal`]) is **done** for all
+  three inelastic forms, IFENG=0 (equiprobable), 1 (skewed) and 2
+  (continuous), both coherent- and incoherent-elastic, with the coherent
+  `S(E)` resolved at the requested temperature. Not ported: multi-scatterer
+  mixing (`nmix` > 1) — see that module's docs. (~~Not ported: IFENG=1/2~~
+  **CORRECTED 2026-10-04**: written since 2026-09-22,
+  `tests/acer_thermal_ifeng_vs_njoy2016.rs`.)
 
 See `docs/porting-plan.md` (Phase 3 THERMR, Phase 4f thermal ACE).
 
@@ -84891,7 +84901,7 @@ pub fn probe() -> Option<GpuContext> { /* ... */ }
 
 **Attributes:**
 
-- `Other("#[attr = CfgTrace([Not(NameValue { name: \"target_os\", value: Some(\"android\"), span: crates/njoy-outram-park-fork/src/lib.rs:145:11: 145:32 (#0) }, crates/njoy-outram-park-fork/src/lib.rs:145:10: 145:33 (#0))])]")`
+- `Other("#[attr = CfgTrace([Not(NameValue { name: \"target_os\", value: Some(\"android\"), span: crates/njoy-outram-park-fork/src/lib.rs:148:11: 148:32 (#0) }, crates/njoy-outram-park-fork/src/lib.rs:148:10: 148:33 (#0))])]")`
 
 **Full-fidelity GPU windowed-multipole evaluation** — the complete WMP cross
 section (curve-fit background **plus** the complex Faddeeva pole-sum over each
@@ -85135,12 +85145,10 @@ pub fn wmp_evaluate_batch_cpu(wmp: &crate::wmp::WindowedMultipole, energies_ev: 
 
 ## Module `hdf5`
 
-**Per-machine performance-report generator** — hardware detection (GPU label,
-CPU cores, OS) plus a small markdown formatter, so a benchmark can emit a
-fresh report on the machine it runs on and write it to a git-ignored local
-path. Pure `std` (no `wgpu`), so it builds on every target including Android.
-The committed benchmark markdown stays a methodology template; per-machine
-timings live in each user's local report.
+Read and write for the **OpenMC interchange formats** (HDF5 nuclide, MGXS,
+WMP and statepoint files, `cross_sections.xml`, the depletion chain) —
+see the module docs. (CORRECTED 2026-10-04: the `perf_report` doc comment
+below used to sit on this line, so rustdoc showed it for `hdf5`.)
 **Read and write for the OpenMC interchange formats.** GitHub #270.
 
 Mostly HDF5, plus the two small XML files OpenMC ships beside its HDF5
@@ -90242,6 +90250,12 @@ pub const VERSION_SOURCE: [i64; 2] = _;
 
 ## Module `perf_report`
 
+**Per-machine performance-report generator** — hardware detection (GPU label,
+CPU cores, OS) plus a small markdown formatter, so a benchmark can emit a
+fresh report on the machine it runs on and write it to a git-ignored local
+path. Pure `std` (no `wgpu`), so it builds on every target including Android.
+The committed benchmark markdown stays a methodology template; per-machine
+timings live in each user's local report.
 Per-machine performance-report generator (hardware detection + markdown).
 
 # What this is for
