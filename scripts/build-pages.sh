@@ -88,6 +88,9 @@ crates/dhoby-ghaut/web/monte_carlo/build.sh "$OUT/demos/monte-carlo"
 # The dispersion demo (gh:#530): one app, a rung of the dispersion lessons at
 # a time; computed in the browser from buangkok and changi, no data files.
 crates/dhoby-ghaut/web/dispersion/build.sh "$OUT/demos/dispersion"
+# The nuclear data demo (gh:#529): one app, a rung of the nuclear data track
+# at a time; ENDF/B-VIII.0 tapes processed in the browser by njoy-outram-park-fork.
+crates/dhoby-ghaut/web/nuclear_data/build.sh "$OUT/demos/nuclear-data"
 mkdir -p "$OUT/demos/triso-pebble/geometry"
 cp crates/dhoby-ghaut/web/monte_carlo/triso-pebble-redirect.html "$OUT/demos/triso-pebble/index.html"
 printf '%s\n' '<!DOCTYPE html><html lang="en"><head><meta charset="utf-8">' \
@@ -158,7 +161,9 @@ for f in index.html api/outram_mc_libs/index.html api/changi/index.html \
   demos/triso-pebble/index.html demos/triso-pebble/geometry/index.html \
   tutorials/monte-carlo/index.html tutorials/monte-carlo/godiva.html \
   demos/dispersion/index.html demos/dispersion/dispersion_web_bg.wasm \
-  api/sembawang/index.html; do
+  api/sembawang/index.html \
+  deep-dives/nuclear-data/index.html api/njoy_outram_park_fork/index.html \
+  demos/nuclear-data/index.html demos/nuclear-data/nuclear_data_web_bg.wasm; do
   [[ -f "$OUT/$f" ]] || { echo "missing $OUT/$f" >&2; exit 1; }
 done
 
@@ -200,6 +205,23 @@ done
 while read -r r; do
   grep -qx "$r" <<< "$d_names" || { echo "a page links to dispersion demo rung '$r', not in $dt" >&2; exit 1; }
 done < <(grep -rhoE 'demos/dispersion/\?rung=[a-z0-9_-]+' "$OUT" --include='*.html' | sed 's/.*rung=//' | sort -u)
+
+# The nuclear data demo's rung table (gh:#529), the same two checks
+# (examples/nuclear_data_web/rungs.rs, one `name:` and one `lesson:` line per
+# rung), and its tapes must have been published.
+nt=crates/dhoby-ghaut/examples/nuclear_data_web/rungs.rs
+n_names="$(sed -n 's/^ *name: "\([a-z0-9_-]*\)",$/\1/p' "$nt")"
+n_lessons="$(sed -n 's/^ *lesson: "\([^"]*\)",$/\1/p' "$nt")"
+[[ -n "$n_names" && -n "$n_lessons" ]] || { echo "no rungs read from $nt" >&2; exit 1; }
+for l in $n_lessons; do
+  [[ -f "$OUT/$l" ]] || { echo "nuclear data rung lesson page missing: $l ($nt)" >&2; exit 1; }
+done
+while read -r r; do
+  grep -qx "$r" <<< "$n_names" || { echo "a page links to nuclear data demo rung '$r', not in $nt" >&2; exit 1; }
+done < <(grep -rhoE 'demos/nuclear-data/\?rung=[a-z0-9_-]+' "$OUT" --include='*.html' | sed 's/.*rung=//' | sort -u)
+for t in n-092_U_238.endf tsl-crystalline-graphite.endf tsl-HinH2O.endf; do
+  [[ -f "$OUT/demos/nuclear-data/data/$t.zz" ]] || { echo "missing nuclear data demo tape $t" >&2; exit 1; }
+done
 
 # Every relative link from the main menu, the deep dives and the tutorials must land on a
 # page in the site (a lesson link into the API 404s silently otherwise).

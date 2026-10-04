@@ -51,6 +51,8 @@ log = { workspace = true }
 # and decay transfer function. Both are wasm in-scope crates.
 changi = { workspace = true }
 buangkok = { workspace = true }
+# The nuclear data demo's THERMR rung names energies and cross sections in
+# njoy-outram-park-fork's `uom` units (gh:#529).
 uom = { workspace = true }
 
 # Native only: the two studios' stacks. Gated off wasm32 because dev-deps
@@ -130,3 +132,15 @@ path = "examples/monte_carlo_web/main.rs"
 [[example]]
 name = "dispersion_web"
 path = "examples/dispersion_web/main.rs"
+
+# The nuclear data demo (gh:#529) -- one app, a rung of the nuclear data track
+# at a time (endf, reconr, broadr, purr, thermr, groupr, acer): real
+# ENDF/B-VIII.0 processed by njoy-outram-park-fork in a background thread or
+# Web Worker, built on `dhoby_ghaut::web_demo` (web/nuclear_data/).
+#
+#   cargo run -p dhoby-ghaut --example nuclear_data_web --release [-- --rung broadr]
+#
+# Carries an Android stub `main`.
+[[example]]
+name = "nuclear_data_web"
+path = "examples/nuclear_data_web/main.rs"
