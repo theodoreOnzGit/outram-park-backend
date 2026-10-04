@@ -58,6 +58,30 @@
 //! be exactly zero — but that is not a reactivity effect. The damage is confined
 //! to the 20 keV seam.
 //!
+//! # Re-measured 2026-10-04 (after the #340 grid and joint-walk work)
+//!
+//! Develop `3c41d99f5b` plus doc-only edits, release, `--features
+//! urr-diagnostics`, two threads, 420 s wall (RECONR 45 s). Every gate passes:
+//! `thnmax = 2.0e4 eV`; bounded BROADR reproduces MF=3 above the seam to
+//! **+0.000 %**; unbounded still loses **46.73 %** at 2.000001e4 eV; unbounded
+//! MT=18 worst **19.6 %**; the (n,2n) threshold leak is **1.009e-6 b**.
+//!
+//! **One thing moved.** ~~The unbounded kernel "recovers only slowly, still
+//! 13 % low at 23 keV".~~ Now it is wrong **only at the seam point itself**:
+//!
+//! ```text
+//!   E [eV]        tape       bounded 600K   unbounded 600K
+//!   2.000001e4   0.529870    0.529870       0.282250  (-46.73 %)
+//!   2.050e4      0.522616    0.522616       0.522616  (+0.00 %)
+//!   2.300e4      0.486347    0.486347       0.486347  (-0.00 %)
+//! ```
+//!
+//! **Why is not established.** The likely candidate is the RECONR grid,
+//! which became NJOY's on 2026-09-26 (GitHub #340) and changes which points
+//! the unbounded kernel sees above the seam; that has not been checked. The
+//! counter-example still fails where the gate looks, which is all the gate
+//! claims. The table above it is the 2026-09-11 state.
+//!
 //! # The counter-example is kept executable
 //!
 //! The gate at the bottom asserts that the unbounded kernel **still fails**.

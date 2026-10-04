@@ -1,0 +1,14 @@
+# Deep dive: the nuclear data track, inside njoy-outram-park-fork (gh:#529,
+# under #520). Built by scripts/build-pages.sh into the backend's GitHub Pages
+# site under deep-dives/nuclear-data/. Lessons live here, beside the code (#510).
+[book]
+title = "Nuclear data deep dive — inside njoy-outram-park-fork"
+authors = ["OUTRAM PARK contributors"]
+language = "en"
+src = "src"
+
+[output.html]
+git-repository-url = "https://github.com/theodoreOnzGit/outram-park-backend/tree/develop/crates/njoy-outram-park-fork"
+edit-url-template = "https://github.com/theodoreOnzGit/outram-park-backend/edit/develop/crates/njoy-outram-park-fork/docs/lessons/{path}"
+site-url = "/outram-park-backend/deep-dives/nuclear-data/"
+mathjax-support = false
