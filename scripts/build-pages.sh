@@ -85,6 +85,9 @@ done < docs/site/tutorials.txt
 # glue, the ENDF tapes it processes in the browser, and its geometry review
 # images. The TRISO pebble demo's old URL redirects to its rung.
 crates/dhoby-ghaut/web/monte_carlo/build.sh "$OUT/demos/monte-carlo"
+# The dispersion demo (gh:#530): one app, a rung of the dispersion lessons at
+# a time; computed in the browser from buangkok and changi, no data files.
+crates/dhoby-ghaut/web/dispersion/build.sh "$OUT/demos/dispersion"
 mkdir -p "$OUT/demos/triso-pebble/geometry"
 cp crates/dhoby-ghaut/web/monte_carlo/triso-pebble-redirect.html "$OUT/demos/triso-pebble/index.html"
 printf '%s\n' '<!DOCTYPE html><html lang="en"><head><meta charset="utf-8">' \
@@ -153,7 +156,9 @@ for f in index.html api/outram_mc_libs/index.html api/changi/index.html \
   demos/monte-carlo/index.html demos/monte-carlo/monte_carlo_web_bg.wasm \
   demos/monte-carlo/geometry/index.html \
   demos/triso-pebble/index.html demos/triso-pebble/geometry/index.html \
-  tutorials/monte-carlo/index.html tutorials/monte-carlo/godiva.html; do
+  tutorials/monte-carlo/index.html tutorials/monte-carlo/godiva.html \
+  demos/dispersion/index.html demos/dispersion/dispersion_web_bg.wasm \
+  api/sembawang/index.html; do
   [[ -f "$OUT/$f" ]] || { echo "missing $OUT/$f" >&2; exit 1; }
 done
 
@@ -180,6 +185,21 @@ done < <(grep -rhoE 'demos/monte-carlo/\?rung=[a-z0-9_-]+' "$OUT" --include='*.h
 for t in n-092_U_234-ENDF8.0.endf n-092_U_235-ENDF8.0.endf n-092_U_238.endf; do
   [[ -f "$OUT/demos/monte-carlo/data/$t.zz" ]] || { echo "missing demo tape $t" >&2; exit 1; }
 done
+
+# The dispersion demo's rung table (gh:#530) drives its links both ways too:
+# every rung's lesson page must exist, and every page link into the demo must
+# name a rung in the table (examples/dispersion_web/rungs.rs, one `name:` and
+# one `lesson:` line per rung).
+dt=crates/dhoby-ghaut/examples/dispersion_web/rungs.rs
+d_names="$(sed -n 's/^ *name: "\([a-z0-9_-]*\)",$/\1/p' "$dt")"
+d_lessons="$(sed -n 's/^ *lesson: "\([^"]*\)",$/\1/p' "$dt")"
+[[ -n "$d_names" && -n "$d_lessons" ]] || { echo "no rungs read from $dt" >&2; exit 1; }
+for l in $d_lessons; do
+  [[ -f "$OUT/$l" ]] || { echo "dispersion rung lesson page missing: $l ($dt)" >&2; exit 1; }
+done
+while read -r r; do
+  grep -qx "$r" <<< "$d_names" || { echo "a page links to dispersion demo rung '$r', not in $dt" >&2; exit 1; }
+done < <(grep -rhoE 'demos/dispersion/\?rung=[a-z0-9_-]+' "$OUT" --include='*.html' | sed 's/.*rung=//' | sort -u)
 
 # Every relative link from the main menu, the deep dives and the tutorials must land on a
 # page in the site (a lesson link into the API 404s silently otherwise).

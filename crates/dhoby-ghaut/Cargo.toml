@@ -46,6 +46,12 @@ outram-mc-libs = { workspace = true }
 njoy-outram-park-fork = { workspace = true }
 miniz_oxide = { workspace = true }
 log = { workspace = true }
+# The dispersion demo (gh:#530), which also builds for wasm32: buangkok's
+# pyDOSEIA plume, rise, wake and deposition velocities, changi's puff kernel
+# and decay transfer function. Both are wasm in-scope crates.
+changi = { workspace = true }
+buangkok = { workspace = true }
+uom = { workspace = true }
 
 # Native only: the two studios' stacks. Gated off wasm32 because dev-deps
 # resolve for EVERY example in the package, and outram-blender's `gpu` feature
@@ -110,3 +116,17 @@ web-sys = { workspace = true, features = [
 [[example]]
 name = "monte_carlo_web"
 path = "examples/monte_carlo_web/main.rs"
+
+# The dispersion demo -- one app, a rung of the dispersion lesson ladder at a
+# time (gh:#530; deep-dives/dispersion/rungs/): steady plume, sigma curves,
+# plume rise and wake, the puff train in a turning wind, deposition, dose
+# against distance, and the HTR-10 capstone (recorded). Built on
+# `dhoby_ghaut::web_demo`; runs natively and in the browser
+# (web/dispersion/), every calculation off the UI thread.
+#
+#   cargo run -p dhoby-ghaut --example dispersion_web --release [-- --rung puffs]
+#
+# Carries an Android stub `main`.
+[[example]]
+name = "dispersion_web"
+path = "examples/dispersion_web/main.rs"

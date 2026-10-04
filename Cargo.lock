@@ -2155,6 +2155,8 @@ dependencies = [
 name = "dhoby-ghaut"
 version = "0.0.1"
 dependencies = [
+ "buangkok",
+ "changi",
  "eframe",
  "egui",
  "egui_plot",
@@ -2166,6 +2168,7 @@ dependencies = [
  "njoy-outram-park-fork",
  "outram-blender",
  "outram-mc-libs",
+ "uom",
  "wasm-bindgen",
  "wasm-bindgen-futures",
  "web-sys",
