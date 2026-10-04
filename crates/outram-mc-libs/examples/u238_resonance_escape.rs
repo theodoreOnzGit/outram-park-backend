@@ -93,8 +93,37 @@
 //!     3.7958e2      0.60998       56.863      0.2070              (0.2070)
 //! ```
 //!
-//! All three gates pass. The default-kernel (DBRC + URR) runs at 600 K and at
-//! the tutorial's 296 K are not yet recorded (they follow in the next commit).
+//! All three gates pass.
+//!
+//! **Default kernel (DBRC + URR on), and the tutorial's 296 K.** Same seed,
+//! same histories; single core of an i9-13900K (24 logical cores, shared with
+//! other jobs), CPU only; 542 s (600 K), 822 s (296 K, sharing its core), and
+//! 552 s for the 296 K legacy run. `RI_eff/RI_inf` (1 sigma 0.0105 on the
+//! first row, ~0.004 on the second and third):
+//!
+//! ```text
+//!   sigma_0 [b]   600 K legacy   600 K default   296 K legacy   296 K default
+//!     3.7958e5       0.9910         0.9948          1.0003         0.9820
+//!     3.7958e4       0.9213         0.9249          0.8962         0.9026
+//!     3.7958e3       0.5823         0.5863          0.5233         0.5236
+//!     3.7958e2       0.2070         0.2095          0.1884         0.1877
+//! ```
+//!
+//! **Quote the default-kernel columns** — they are the physics transport
+//! runs. All three gates pass in all four runs. At 600 K turning DBRC + URR on
+//! raises `RI_eff` by 0.4-1.2 % on every row, the direction expected of DBRC
+//! (resonance up-scatter into the peaks), though no single row resolves it
+//! beyond ~1.3 sigma; at 296 K the two kernels agree within statistics, as a
+//! smaller Doppler width predicts. The 296 K default dilute row is 0.982, 1.7
+//! sigma below the analytic 1; its legacy twin is 1.000. The runs are not
+//! paired (the RNG stream decorrelates at the first differing draw), so the
+//! difference is 1.2 sigma and is recorded, not explained. `RI_MEASURED_B`
+//! is the 600 K integral; Doppler broadening conserves the area, and the
+//! 296 K integral was not re-computed here (`Not re-checked`).
+//!
+//! Colder fuel shields more: at `sigma_0 = 3796 b` the effective integral is
+//! 52 % of the dilute value at 296 K against 59 % at 600 K. That is the
+//! Doppler effect seen from the resonance-integral side.
 //!
 //! # What this deliberately leaves out
 //!

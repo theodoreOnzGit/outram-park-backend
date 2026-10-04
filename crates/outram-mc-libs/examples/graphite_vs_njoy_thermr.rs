@@ -170,9 +170,17 @@ fn interp_linlin(pairs: &[(f64, f64)], e: f64) -> f64 {
 ///
 /// # Results (2026-09-11, NJOY2016 2016.79, ENDF/B-VIII.0)
 ///
-/// Worst deviation **−0.14 %** on the incoherent-inelastic channel (at 3.9 eV)
+/// Worst deviation ~~**−0.14 %** on the incoherent-inelastic channel (at 3.9 eV)~~
 /// and **−0.09 %** on the coherent-elastic one (at 3.0 eV). Both channels are
 /// gated inside **0.5 %**.
+///
+/// **Re-measured 2026-10-04** (GitHub #524; `develop` at `bfeb81a083`, 11 s on
+/// one core of an i9-13900K shared with other jobs, CPU only): incoherent
+/// inelastic worst **+0.060 % at 1 meV** (12/12 points), coherent elastic worst
+/// **−0.085 % at 3.0 eV** (10/12 compared, the other two are the exact zeros
+/// below the first Bragg edge, which also pass). The inelastic channel moved
+/// closer to NJOY; the cause (plausibly the 2026-09-30 THERMR tolerance and
+/// `E_max` alignment, #459) was not isolated.
 ///
 /// Separately, the coherent-elastic cross section is asserted to be **exactly
 /// zero** below the first Bragg edge. That is structural: a law with the cutoff

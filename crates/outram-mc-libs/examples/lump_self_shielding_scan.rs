@@ -32,6 +32,40 @@
 //! are trapped on their chords and can never re-enter the lump. The correct
 //! Wigner-Seitz condition is **white**. Both are still run, and the gate asserts
 //! they disagree, so the counter-example stays executable.
+//!
+//! # Re-measured 2026-10-04 (GitHub #525), before rung 3 quotes it
+//!
+//! The results recorded below are from 2026-09-11/12, before the 2026-09-20
+//! physics defaults and the 2026-09-30 OpenMC-parity audit. Re-run on
+//! `develop` at `bfeb81a083` with the defaults (`MODE=full`, `HIST=50000`,
+//! `SIGMA_B=300`, `VFRAC=0.30`, `FUEL_SUB=12`, `CP_NODES=16`; ENDF/B-VIII.0 at
+//! 293.6 K), 1346 s on one core of an i9-13900K (24 logical cores, shared with
+//! other jobs), CPU only. **Every gate passes and nothing moved beyond its
+//! statistics.** This program's walker is `physics::slowing_down`'s, run with
+//! `ScatterKernel::IsotropicCmAtRest` (the deterministic oracle's kernel, so
+//! DBRC never enters) over 1 eV - 10 keV (below U-238's unresolved range, so
+//! no URR band either): the 2026-09-20 defaults could not move it, and the
+//! re-run confirms that.
+//!
+//! ```text
+//!   exact homogeneous p_esc  0.38760   (recorded 0.38763)
+//!   CONTROL (both regions homogenised), R_cell 0.03 / 0.1 / 0.3 / 1 / 3 cm:
+//!     +1.32 / +0.94 / -0.27 / -0.72 / +0.23 % vs exact, no history lost
+//!   WHITE scan, R/mfp*   p_esc     1 sigma   vs hom.   ORACLE    MC-ORACLE   SPECULAR vs hom.
+//!     0.103            0.38880   0.00689   +0.31 %   0.38801   +0.20 %     +41.95 %
+//!     0.343            0.38988   0.00218   +0.59 %   0.38903   +0.22 %     +43.02 %
+//!     0.857            0.39066   0.00218   +0.79 %   0.39136   -0.18 %     +42.92 %
+//!     2.570            0.39827   0.00109   +2.75 %   0.40009   -0.46 %     +42.60 %
+//!     8.565            0.43348   0.00111  +11.84 %   0.43177   +0.40 %     +43.95 %
+//!    25.696            0.50090   0.00112  +29.23 %   0.50056   +0.07 %     +48.58 %
+//!   thick-lump L (MC vs oracle): 2.57 mfp -14.59 % +/- 8.76, 8.57 mfp +3.86 % +/- 2.51,
+//!     25.70 mfp +0.30 % +/- 0.99; worst |z| 1.67
+//!   ring-RPT annulus: MC p_esc 0.797575 +/- 0.000898 vs oracle 0.798463
+//!     (-0.111 %, -0.99 sigma); lumping effect MC/oracle - 1 = -0.71 % +/- 0.72 %
+//! ```
+//!
+//! (The 2026-09-11 `vv_gate` table below was taken at `HIST=4000`; these rows
+//! are at the default 50 000, hence the smaller sigmas.) Quote these numbers.
 use njoy_outram_park_fork::reference_data::reference_endf;
 use outram_mc_libs::geometry::surface::BoundaryType;
 use outram_mc_libs::material::material::{Material, NuclideComponent};

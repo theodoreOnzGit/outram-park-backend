@@ -319,7 +319,9 @@ struct KinRow {
 /// Those two are asserted on every row. The exact `mubar_cm` ↔ `<E'/E>` relation
 /// is checked per-sample in `tests/slowing_down_kinematics.rs`.
 ///
-/// **Thermal equilibrium**, `<E>/2kT` after 300 collisions from 1 eV:
+/// **Thermal equilibrium**, `<E>/2kT` after ~~300~~ **400** collisions from
+/// 1 eV (**CORRECTED 2026-10-04**: the code has run `SCATTERS = 400` since
+/// the commit that created this file, `c356cf2552`; "300" was never true):
 ///
 /// ```text
 ///   C12 (graphite S(a,b))    0.9706      O16  (UCO kernel)     0.9846
@@ -330,9 +332,43 @@ struct KinRow {
 ///
 /// The seven light nuclides sit within 5 % of the fixed point. **U-238 at 1.29
 /// is expected and is not a defect**: a mass-238 target takes `~1/xi = 172`
-/// collisions per decade of lethargy against carbon's 6, so 300 collisions is
-/// nowhere near enough to relax it. It is in the table as the control that shows
-/// the relaxation is being driven by the mass ratio and not by the harness.
+/// collisions per decade of lethargy against carbon's 6, so ~~300~~ 400
+/// collisions is nowhere near enough to relax it. It is in the table as the
+/// control that shows the relaxation is being driven by the mass ratio and not
+/// by the harness.
+///
+/// # Re-measured 2026-10-04 (GitHub #524), develop at `bfeb81a083`
+///
+/// Same program, same seeds (ENDF/B-VIII.0 at 600 K, 200 000 samples per row,
+/// 20 000 walkers x 400 scatters), 60 s on one core of an i9-13900K (24
+/// logical cores, shared with other jobs), CPU only. **Every gate passes, and
+/// the 2026-09-11 numbers above are superseded as follows:**
+///
+/// - **Kinematics:** ~~106 rows, worst 7.7e-4 (Be-9 at 20.87 eV)~~ **104**
+///   non-thermal rows at or below the anisotropy onset match the closed form,
+///   **worst `|xi - xi_0| = 1.08e-3` (Li-7 at 100 eV)**, inside the 1.5e-3
+///   envelope. Zero floor violations, zero up-scatters outside the bound
+///   regime. Graphite C-12 between 6.674 eV and 10 keV: `xi/xi_0` 0.9972 to
+///   0.9998, i.e. the "`xi/xi_0 = 1.000` from 4 eV to 10 keV" above holds to
+///   0.3 % (below 4.9 eV the S(a,b) branch is taken and the oracle does not
+///   apply). The row count and the worst row moved; why was not isolated.
+/// - **1 MeV:** C-12 0.9120 / 1.0140 and Li-7 1.0432 / 0.9888 (`xi/xi_0` /
+///   `ratio/r0`) reproduce the record. **O-16 does not:** ~~1.0010 and
+///   1.0079~~ **1.0040 and 1.0015** — still both above 1, but `ratio/r0` moved
+///   by ~40 sigma of its sampling error, so O-16's 1 MeV elastic angular data
+///   path has changed since 2026-09-11 (not isolated here; no gate covers it).
+/// - **Thermal equilibrium**, `<E>/2kT` after 400 collisions:
+///
+/// ```text
+///   C12 (graphite S(a,b))    0.9889 (was 0.9706)   O16  (UCO kernel)     0.9842 (0.9846)
+///   C12 (free gas)           0.9813 (0.9801)       Si28 (SiC coating)    0.9924 (0.9969)
+///   Be9  (FLiBe)             0.9742 (0.9788)       Li7  (FLiBe)          0.9543 (0.9520)
+///   F19  (FLiBe)             0.9918 (0.9892)       U238 (heavy control)  1.2932 (1.2908)
+/// ```
+///
+/// The graphite S(a,b) row moved most (+1.9 points, closer to the fixed point),
+/// consistent with the 2026-09-29/30 S(a,b) sampling changes (#407, #459);
+/// that attribution is a plausibility, not a measurement.
 ///
 /// # Interpretation
 ///
@@ -461,7 +497,7 @@ fn vv_gate(kinematics: &[KinRow], equilibrium: &[(String, f64)], any_violation: 
         if label.starts_with("U238") {
             println!(
                 "  [skip] {label}: <E>/2kT = {ratio:.4}. A mass-238 target needs \
-                 ~172 collisions per lethargy decade against carbon's 6, so 300 \
+                 ~172 collisions per lethargy decade against carbon's 6, so 400 \
                  collisions cannot relax it. This row is the control, not a claim."
             );
             continue;

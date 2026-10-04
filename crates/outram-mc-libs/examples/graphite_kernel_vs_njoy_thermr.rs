@@ -290,6 +290,29 @@ fn endf_f(s: &str) -> f64 {
 /// Worst **−0.49 % at 0.05 eV** (seed 20 260 911, 400 000 samples). Above
 /// 0.2 eV the deviation falls to ≤ 0.04 % and stays there.
 ///
+/// **Re-measured 2026-10-04** (GitHub #524; `develop` at `bfeb81a083`, same
+/// seed and samples, 12 s on one core of an i9-13900K shared with other jobs,
+/// CPU only). Superseding the table above:
+///
+/// ```text
+///    E [eV]     <E'>/E ours   NJOY       rel       1 sigma
+///    0.01          4.92277   4.90799   +0.30 %     0.35 %
+///    0.0253        1.90768   1.90393   +0.20 %     0.27 %
+///    0.05          1.26553   1.26414   +0.11 %     0.15 %
+///    0.11157       1.01175   1.01158   +0.02 %     0.07 %
+///    0.2           0.93715   0.93648   +0.07 %     0.05 %
+///    0.41704       0.89030   0.89041   −0.01 %     0.04 %
+///    0.625         0.87908   0.87857   +0.06 %     0.03 %
+///    1.05          0.86971   0.86953   +0.02 %     0.03 %
+///    1.855         0.86384   0.86398   −0.02 %     0.02 %
+///    3.75          0.86031   0.86040   −0.01 %     0.02 %
+/// ```
+///
+/// Worst **+0.30 % at 0.01 eV**, inside one sampling sigma; ≤ 0.07 % at and
+/// above 0.2 eV. Both gates pass. Every row is now within ~1 sigma of NJOY,
+/// where the 2026-09-12 run was 3-4 sigma low at 0.05 eV; the S(a,b) sampling
+/// changed in between (#407, #459) and is the likely reason, not isolated.
+///
 /// **Superseded 2026-09-12, and the superseded column is why this matters.**
 /// The same run on 2026-09-11 read
 ///
