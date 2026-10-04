@@ -44,7 +44,7 @@ cp -r "$DOC_TARGET/doc" "$OUT/api"
 rm -rf "$OUT/api/src" "$OUT/api/.lock"
 
 # Code walks (gh:#523, the lesson CI of #512): every `<!-- code-walk: ... -->`
-# block in a deep dive is regenerated with rust-analyzer and must match what is
+# block in a deep dive or a tutorial is regenerated with rust-analyzer and must match what is
 # committed; a stale walk, a broken chain or a hand-filled hop whose function
 # is gone fails the build. Skipped (with a warning) when no lesson has a block
 # yet or rust-analyzer is absent, unless CODE_WALK_REQUIRED=1.
@@ -52,7 +52,7 @@ walk_dirs=()
 while read -r name dir; do
   [[ -z "$name" || "$name" == \#* ]] && continue
   walk_dirs+=("$dir")
-done < docs/site/deep-dives.txt
+done < <(cat docs/site/deep-dives.txt docs/site/tutorials.txt)
 if grep -rqs -- '<!-- code-walk:' "${walk_dirs[@]}"; then
   if command -v rust-analyzer >/dev/null; then
     cargo run --release -q -p kovan --no-default-features --bin kovan-cli -- \
