@@ -853,7 +853,7 @@ impl McApp {
         );
         let (e, name) = rung.info().spectrum.characteristic();
         ui.weak(format!(
-            "= {} at {name}. Speed follows the neutron's real speed, v ∝ √E: neutrons slow down as they lose energy.",
+            "= {} at {name}. Speed follows the neutron's real speed, v proportional to √E: neutrons slow down as they lose energy.",
             fmt_speed(animated_speed(e, *speed))
         ));
         if ui.button("Default speed").clicked() {
@@ -1175,7 +1175,7 @@ impl McApp {
                 "Low fidelity, deliberately: reconstruction tolerance 0.01, not NJOY's 0.001.",
                 "Geometry: HTR-10 pebble dimensions (IAEA-TECDOC-1382) in 2D. The TRISO particles are therefore infinitely long rods, not spheres: 152 of them, so the fuel fraction of the fuelled zone matches the real pebble (5.0 %). Rods self-shield differently from spheres, so this is a picture of how neutrons move, not a model of HTR-10.",
                 "Approximations: carbon in the thin SiC layer is free gas; every fission's next neutron takes the U-235 fission spectrum; helium is void.",
-                "Animation speed is proportional to the neutron's real speed (classical kinetic energy, v ∝ √E).",
+                "Animation speed is proportional to the neutron's real speed (classical kinetic energy, v proportional to √E).",
                 "Education and research only.",
             ] {
                 ui.label(format!("• {line}"));
@@ -1191,7 +1191,7 @@ impl McApp {
                 "Run k_eff is true Monte Carlo: outram-mc-libs' single-thread reference power iteration, one generation at a time. Its counts (leaked, captured, fissioned) are tallied by that transport.",
                 "Watch, one neutron at a time, is an illustration: each track is one real history (a one-particle fixed-source run), chained by hand. Tracks are 3D, drawn projected from above.",
                 "Watch, whole generations, is the real power iteration started from a point at the centre, to show the source spreading.",
-                "Animation speed is proportional to the neutron's real speed (classical kinetic energy, v ∝ √E).",
+                "Animation speed is proportional to the neutron's real speed (classical kinetic energy, v proportional to √E).",
                 "Education and research only. Not for reactor operation, licensing or safety decisions.",
             ] {
                 ui.label(format!("• {line}"));
@@ -1237,8 +1237,11 @@ impl Axes {
 /// Entropy per generation, with the inactive generations shaded.
 fn draw_entropy(painter: &egui::Painter, rect: Rect, it: &Iteration) {
     let n = it.total_gens().max(2) as f64;
+    // From just below the lowest value to the 5 x 5 x 5 mesh's ceiling,
+    // log2(125) bits, so the rise is visible.
     let ceiling = (125f64).log2();
-    let ax = Axes { rect, x: (0.5, n + 0.5), y: (0.0, ceiling) };
+    let lowest = it.gens.iter().filter_map(|g| g.entropy).fold(ceiling, f64::min);
+    let ax = Axes { rect, x: (0.5, n + 0.5), y: ((lowest - 0.5).floor().max(0.0), ceiling) };
     ax.frame(painter, "Shannon entropy of the fission source (bits)", |v| format!("{v:.1}"));
     ax.shade_inactive(painter, it.cfg.n_inactive);
     let pts: Vec<Pos2> =
