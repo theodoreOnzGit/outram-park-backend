@@ -7,8 +7,9 @@
 //! The FHR pebble sits ~+1.7 % above the OpenMC reference, with `p` too high and
 //! `ε` too low — a spectrum that is too soft. Every named data mechanism is
 //! excluded by measurement: point σ against NJOY's PENDF (±0.04 %), the capture
-//! **resonance integral** against NJOY *and* the published RI_∞
-//! (`u238_resonance_integral.rs`, +0.00 %), graphite σ against THERMR (±0.05 %).
+//! **resonance integral** against NJOY ~~*and* the published RI_∞~~
+//! (`u238_resonance_integral.rs`, +0.00 %; the "published" value has no
+//! recorded source, 2026-10-04, #524), graphite σ against THERMR (±0.05 %).
 //!
 //! What was measured of the *kernel* was `ξ = ⟨ln(E/E′)⟩` from 0.0253 eV to
 //! **3.9 eV** — entirely inside the bound-atom regime, where

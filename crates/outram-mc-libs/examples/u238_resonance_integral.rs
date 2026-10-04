@@ -32,13 +32,25 @@
 //!
 //! # External oracle — independent of NJOY
 //!
-//! The infinite-dilution capture resonance integral of U-238 is a measured,
+//! **Not re-checked (2026-10-04, GitHub #524): no source has been found for
+//! these numbers.** They entered with the commit that created this file
+//! (`c356cf2552`, an AI-assisted session) without a citation, and a search on
+//! 2026-10-04 of the open corpus (`crates/kovan-literature/reactor-literature/`,
+//! `CATALOGUE.md`), the maintainer's notes and this repository's history found
+//! no document carrying 275.7 b, 277 +/- 3 b, 275 b or 144 b. The likeliest
+//! homes (Mughabghab's *Atlas of Neutron Resonances*; Brown et al. 2018,
+//! Nucl. Data Sheets 148, 1) are not in the open corpus. Until the maintainer
+//! supplies one of them and a page is cited, **do not quote these values**,
+//! and read the published-value half of the gate below as a coarse sanity
+//! bound, not as evidence. The NJOY half is the oracle that counts.
+//!
+//! ~~The infinite-dilution capture resonance integral of U-238 is a measured,
 //! published quantity: **RI_∞ = 275.7 b** for ENDF/B-VIII.0 (evaluated;
-//! experiment 277 ± 3 b), conventionally `∫ σ_γ dE/E` from the 0.5 eV cadmium
-//! cutoff upward. It is essentially temperature-independent at infinite dilution
+//! experiment 277 ± 3 b),~~ (unsourced, see above) conventionally `∫ σ_γ dE/E`
+//! from the 0.5 eV cadmium cutoff upward. It is essentially temperature-independent at infinite dilution
 //! (Doppler broadening conserves the area under a resonance to high accuracy),
-//! so a 600 K reconstruction must reproduce it. For U-235 the reference points
-//! are RI_f ≈ 275 b and RI_γ ≈ 144 b.
+//! so a 600 K reconstruction must reproduce it. ~~For U-235 the reference points
+//! are RI_f ≈ 275 b and RI_γ ≈ 144 b.~~ (unsourced, see above)
 //!
 //! # Running
 //!
@@ -257,7 +269,8 @@ fn main() {
     }
 
     println!(
-        "\nPublished infinite-dilution reference points (independent of NJOY):\n  \
+        "\nInfinite-dilution reference points -- NOT RE-CHECKED: no source found \
+         (2026-10-04, #524), do not quote:\n  \
          U-238 capture RI_inf = 275.7 b (ENDF/B-VIII.0; experiment 277 +/- 3 b)\n  \
          U-235 fission RI_inf ~ 275 b, U-235 capture RI_inf ~ 144 b\n  \
          Doppler broadening conserves resonance area, so a 600 K reconstruction\n  \
@@ -274,7 +287,11 @@ fn main() {
     }
 }
 
-/// U-238's published infinite-dilution capture resonance integral, barns.
+/// U-238's ~~published~~ infinite-dilution capture resonance integral, barns.
+///
+/// **Not re-checked (2026-10-04, GitHub #524): no source found for this value
+/// or for the 277 +/- 3 b below** — see the module docs. A coarse sanity bound
+/// only, until a cited source replaces it.
 ///
 /// `RI_inf = int sigma_gamma dE/E` from the 0.5 eV cadmium cutoff upward.
 /// **275.7 b** is the ENDF/B-VIII.0 evaluated value; the measured quantity is
@@ -296,9 +313,11 @@ const U238_CAPTURE_RI_INF_B: f64 = 275.7;
 ///
 /// # The oracles
 ///
-/// 1. **Published RI_inf = 275.7 b** (ENDF/B-VIII.0 evaluated; experiment
-///    277 +/- 3 b). Independent of NJOY entirely — it is a tabulated physical
-///    quantity, so this half of the gate runs with no oracle tape on disk.
+/// 1. ~~**Published RI_inf = 275.7 b** (ENDF/B-VIII.0 evaluated; experiment
+///    277 +/- 3 b).~~ **Not re-checked, no source found (2026-10-04, #524):**
+///    275.7 b is kept only as a coarse 2 % sanity bound. Independent of NJOY
+///    entirely, so this half of the gate runs with no oracle tape on disk —
+///    but until it has a source it is not evidence.
 /// 2. **NJOY2016's own PENDF**, when `U238_PENDF` points at one. That comparison
 ///    additionally separates *data* from *grid density*, via the four-way split
 ///    printed above.
@@ -309,13 +328,16 @@ const U238_CAPTURE_RI_INF_B: f64 = 275.7;
 /// own grid — which is what transport actually integrates, since transport looks
 /// sigma up by lin-lin interpolation on that same grid.
 ///
-/// Against the published 275.7 b that is **-0.39 %**, and well inside the
-/// experimental 277 +/- 3 b (1.1 %). Against NJOY's own PENDF on NJOY's own grid
-/// it was **+0.00 %**.
+/// ~~Against the published 275.7 b that is **-0.39 %**, and well inside the
+/// experimental 277 +/- 3 b (1.1 %).~~ **Not re-checked (2026-10-04, #524):**
+/// neither reference value has a source, so this comparison is not evidence.
+/// Against NJOY's own PENDF on NJOY's own grid it was **+0.00 %**, and that is
+/// the result to quote.
 ///
 /// # Tolerance
 ///
-/// **2 %** against the published value. That is not slack for this crate: it is
+/// **2 %** against the ~~published~~ unsourced value (see the module docs).
+/// That is not slack for this crate: it is
 /// the room the *comparison* needs. RI_inf depends on the cadmium-cutoff
 /// convention (0.5 eV here), on the upper limit, and on the evaluation revision,
 /// and the experimental value itself carries +/- 3 b (1.1 %). Asserting tighter

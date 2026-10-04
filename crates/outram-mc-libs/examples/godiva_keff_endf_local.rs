@@ -6,7 +6,8 @@
 //! The FHR pebble study (`verification_and_validation/ring_rpt/`) sits ~+1.7 %
 //! above its OpenMC reference and every *data* mechanism has been excluded by
 //! measurement: point σ vs NJOY's PENDF (±0.04 %), the capture **resonance
-//! integral** vs NJOY and vs the published RI_∞ (+0.00 %,
+//! integral** vs NJOY (+0.00 %) ~~and vs the published RI_∞~~ (that
+//! reference has no recorded source, 2026-10-04, #524;
 //! `u238_resonance_integral.rs`), graphite σ vs THERMR (±0.05 %), and the
 //! slowing-down kernel above the S(α,β) cutoff against analytic two-body
 //! kinematics (`epithermal_slowing_down.rs`, ξ/ξ₀ = 1.000).

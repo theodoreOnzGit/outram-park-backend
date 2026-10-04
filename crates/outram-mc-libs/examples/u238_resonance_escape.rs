@@ -65,11 +65,43 @@
 //! differential (`examples/lct008_keff.rs`): three cases sharing one lattice give
 //! +2950/+2271/+1713 pcm, a 14-sigma spread that an error in `p` cannot produce.
 //!
+//! # Re-measured 2026-10-04 (GitHub #524)
+//!
+//! **The kernel changed in this change, and the old one is kept.** Until
+//! 2026-10-04 this program carried its own copy of the collision loop, whose
+//! comment claimed "both arms use the same kernels transport uses". That was **not true**
+//! of it: it scattered off U-238 without DBRC (`free_gas_elastic_scatter`, no
+//! table) and looked cross sections up without URR self-shielding, although
+//! both have been transport's defaults since 2026-09-20. The loop now lives in
+//! `examples/common/energy_only_slowing_down.rs`, shared with
+//! `ugraphite_four_factor.rs`, and applies both by default. `KERNEL=legacy`
+//! runs the old kernel, and `TEMP_K` sets the temperature (default 600 K).
+//!
+//! **Legacy kernel, 600 K, on `develop` at `bfeb81a083` and again through the
+//! shared module** (seed 5 150 701, same histories; 272 s and 453 s single
+//! core on an i9-13900K, the second run sharing the machine with other jobs):
+//! the two runs agree **bit for bit** on every row, which is the check that the
+//! move into the shared module changed nothing. Both differ slightly from the
+//! 2026-09-11 record above, which predates later changes to the code; the
+//! movement is within the counting statistics:
+//!
+//! ```text
+//!   sigma_0 [b]   P_abs(U8)   RI_eff [b]   RI_eff/RI_inf     (2026-09-11)
+//!     3.7958e5      0.00450      272.169      0.9910 +/- 0.0105   (0.9906)
+//!     3.7958e4      0.04103      253.034      0.9213              (0.9214)
+//!     3.7958e3      0.23264      159.918      0.5823              (0.5817)
+//!     3.7958e2      0.60998       56.863      0.2070              (0.2070)
+//! ```
+//!
+//! All three gates pass. The default-kernel (DBRC + URR) runs at 600 K and at
+//! the tutorial's 296 K are not yet recorded (they follow in the next commit).
+//!
 //! # What this deliberately leaves out
 //!
 //! No geometry, no tracking, no majorant: the neutron is followed in **energy
 //! only**, sampling the nuclide by `N·σ_t` and the reaction by the same
-//! branch order `keff_delta` uses. If the answer is right here and wrong in the
+//! branch order ~~`keff_delta` uses~~ `transport_csg::transport_history_vr`
+//! uses (see `common/energy_only_slowing_down.rs`; corrected 2026-10-04). If the answer is right here and wrong in the
 //! pebble, the fault is spatial (geometry, delta tracking); if it is wrong here
 //! too, it is in the collision physics itself.
 //!
@@ -78,30 +110,33 @@
 //!     --example u238_resonance_escape
 //! ```
 
-use outram_mc_libs::geometry::position::Direction;
+#[path = "common/energy_only_slowing_down.rs"]
+mod energy_only_slowing_down;
+
+use energy_only_slowing_down::{slow_down, KernelOptions};
 use outram_mc_libs::material::nuclide::Nuclide;
-use outram_mc_libs::physics::scatter::{
-    continuum_inelastic_scatter_evaluated, free_gas_elastic_scatter, two_body_scatter,
-    two_body_scatter_with_mu, K_BOLTZMANN_EV_PER_K,
-};
-use outram_mc_libs::material::nuclide::Inelastic;
-use outram_mc_libs::rng::lcg::prn;
 use outram_mc_libs::vv::{assert_absolute, assert_monotone};
 
-/// ENDF MT of the continuum inelastic channel, whose evaluated MF=6 emission
-/// law the collision kernel below looks up.
-///
-/// Note this channel is **unreachable at this example's source energy**: U-238's
-/// MT=91 threshold is 435.6 keV and [`E_SOURCE`] is 100 keV. The arm is wired
-/// correctly anyway so the kernel matches transport's if the source is ever
-/// raised, rather than being a stale branch nobody notices.
-const MT_CONTINUUM_INELASTIC: i32 = 91;
+/// Medium temperature \[K\]: `TEMP_K` from the environment, default 600 K
+/// (the temperature every result recorded here before 2026-10-04 was taken
+/// at). The tutorial's room-temperature run is `TEMP_K=296`.
+fn temp_k() -> f64 {
+    std::env::var("TEMP_K")
+        .ok()
+        .and_then(|s| s.parse().ok())
+        .unwrap_or(600.0)
+}
 
-/// ENDF MT of the (n,2n) channel, likewise unreachable here (U-238's threshold
-/// is ~6 MeV) and likewise wired to the evaluated law rather than left stale.
-const MT_N2N: i32 = 16;
-
-const TEMP: f64 = 600.0;
+/// The collision kernel: everything transport applies (DBRC, URR) unless
+/// `KERNEL=legacy` asks for the pre-2026-10-04 kernel (neither), which is kept
+/// so the recorded 2026-09-11 table stays reproducible and the worth of the
+/// two terms stays measurable.
+fn kernel() -> KernelOptions {
+    match std::env::var("KERNEL").as_deref() {
+        Ok("legacy") => KernelOptions::legacy(),
+        _ => KernelOptions::default(),
+    }
+}
 /// Source energy — above the whole resolved range, so nothing is captured
 /// outside the band the resonance integral covers.
 const E_SOURCE: f64 = 1.0e5;
@@ -112,9 +147,11 @@ const E_CUT: f64 = 0.5;
 const RI_MEASURED_B: f64 = 274.637;
 
 fn main() {
+    let temp = temp_k();
+    let opts = kernel();
     let dir = endf_dir();
-    let c12 = load("C12", "n-006_C_012-ENDF8.0.endf", &dir);
-    let u238 = load("U238", "n-092_U_238.endf", &dir);
+    let c12 = load("C12", "n-006_C_012-ENDF8.0.endf", &dir, temp);
+    let u238 = load("U238", "n-092_U_238.endf", &dir, temp);
 
     // Graphite-density carbon, free gas: above 4 eV the bound law is off anyway,
     // and leaving it off keeps xi*Sigma_s a number this program can state.
@@ -124,10 +161,17 @@ fn main() {
     let xi_c = 1.0 + alpha_c * alpha_c.ln() / (1.0 - alpha_c);
     // Carbon's elastic cross section is flat across the whole band; take it at
     // 1 keV, in the middle of it.
-    let sigma_s_c = c12.xs_at_energy(1.0e3, TEMP).elastic;
+    let sigma_s_c = c12.xs_at_energy(1.0e3, temp).elastic;
     let xi_sigma_s = xi_c * n_c * sigma_s_c;
+    // Moderator first: the shared kernel's cumulative nuclide search then makes
+    // the same choice, from the same draw, as the two-nuclide loop it replaced.
+    let nuclides = vec![c12, u238];
 
-    println!("Infinite homogeneous medium, {TEMP} K, source {E_SOURCE:.0e} eV, cutoff {E_CUT} eV");
+    println!(
+        "Infinite homogeneous medium, {temp} K, source {E_SOURCE:.0e} eV, cutoff {E_CUT} eV, \
+         kernel: DBRC {} URR {}",
+        opts.dbrc, opts.urr
+    );
     println!(
         "moderator: C-12 at N = {n_c} /b.cm, sigma_s = {sigma_s_c:.4} b, xi = {xi_c:.6} \
          -> xi*Sigma_s = {xi_sigma_s:.6} /cm"
@@ -151,7 +195,17 @@ fn main() {
         // Fewer histories are needed when absorption is likely; keep the
         // absolute uncertainty on P_abs roughly constant.
         let n_hist = if n_a <= 1.0e-5 { 2_000_000 } else { 400_000 };
-        let (abs_a, abs_m) = slow_down(&c12, &u238, n_c, n_a, n_hist, &mut seed);
+        let counts = slow_down(
+            &nuclides,
+            &[n_c, n_a],
+            temp,
+            E_SOURCE,
+            E_CUT,
+            n_hist,
+            &mut seed,
+            opts,
+        );
+        let (abs_m, abs_a) = (counts.absorbed_by[0], counts.absorbed_by[1]);
         // Only the absorber's own captures belong in RI_eff. The moderator has
         // its own 1/v capture -- carbon's is worth N_C * 1.5e-3 b / (xi*Sigma_s)
         // ~ 0.2 % of source neutrons, which is a third of the signal at the most
@@ -261,114 +315,6 @@ fn main() {
     );
 }
 
-/// Follow neutrons in **energy only** from `E_SOURCE` to `E_CUT`; return
-/// `(absorber captures, moderator captures)`.
-///
-/// The collision loop mirrors `pebble_beds::keff_delta::simulate`: sample the
-/// nuclide by `N·σ_t`, then partition `ξ·σ_t` into fission / capture / inelastic
-/// / (n,2n) / elastic in the same order. (n,2n) secondaries are followed too, so
-/// the multiplication is not silently dropped.
-fn slow_down(
-    mod_nuc: &Nuclide,
-    abs_nuc: &Nuclide,
-    n_mod: f64,
-    n_abs: f64,
-    histories: usize,
-    seed: &mut u64,
-) -> (usize, usize) {
-    let kt = K_BOLTZMANN_EV_PER_K * TEMP;
-    let u = Direction::new(0.0, 0.0, 1.0);
-    let (mut abs_a, mut abs_m) = (0usize, 0usize);
-
-    for _ in 0..histories {
-        let mut stack: Vec<f64> = vec![E_SOURCE];
-        while let Some(mut e) = stack.pop() {
-            loop {
-                if e <= E_CUT {
-                    break; // escaped the resonance range
-                }
-                let xm = mod_nuc.xs_at_energy(e, TEMP);
-                let xa = abs_nuc.xs_at_energy(e, TEMP);
-                let (sm, sa) = (n_mod * xm.total, n_abs * xa.total);
-                let st = sm + sa;
-                if !(st > 0.0) {
-                    break;
-                }
-                let is_mod = prn(seed) * st < sm;
-                let (nuc, x) = if is_mod { (mod_nuc, xm) } else { (abs_nuc, xa) };
-
-                let xi = prn(seed) * x.total;
-                if xi < x.absorption {
-                    // Fission would also end the history here, but U-238 fission
-                    // below 100 keV is ~1e-4 b and carbon has none.
-                    if is_mod {
-                        abs_m += 1;
-                    } else {
-                        abs_a += 1;
-                    }
-                    break;
-                } else if xi < x.absorption + x.inelastic {
-                    // Both arms use the same kernels transport uses. This
-                    // example exists to probe how transport assembles the data,
-                    // so a simplified collision here would be probing something
-                    // else: the discrete levels take their own MF=4 CM cosine
-                    // (bead `op-tm9f`) and the continuum takes the evaluated
-                    // MF=6 law (`op-og56`), falling back exactly as transport
-                    // does when the evaluation carries neither.
-                    e = match nuc.sample_inelastic(e, seed) {
-                        Inelastic::Level { q, mt } => match nuc.sample_inelastic_mu_cm(mt, e, seed)
-                        {
-                            Some(mu_cm) => {
-                                two_body_scatter_with_mu(e, u, nuc.awr, q, mu_cm, seed).0
-                            }
-                            None => two_body_scatter(e, u, nuc.awr, q, seed).0,
-                        },
-                        Inelastic::Continuum { q } => {
-                            continuum_inelastic_scatter_evaluated(
-                                e,
-                                u,
-                                nuc.awr,
-                                q,
-                                nuc.continuum_law(MT_CONTINUUM_INELASTIC),
-                                seed,
-                            )
-                            .0
-                        }
-                    };
-                } else if xi < x.absorption + x.inelastic + x.n2n {
-                    // (n,2n) takes its own evaluated MF=6 law, like transport.
-                    // The `0.0` Q is the one thing still approximated here:
-                    // MT=16's QI is not carried on this path (GitHub #192), and
-                    // it only bounds the outgoing energy, which the evaluated
-                    // law already respects. Unreachable at this example's source
-                    // energy in any case -- U-238's (n,2n) threshold is ~6 MeV
-                    // against E_SOURCE = 100 keV.
-                    let e2 = continuum_inelastic_scatter_evaluated(
-                        e,
-                        u,
-                        nuc.awr,
-                        0.0,
-                        nuc.continuum_law(MT_N2N),
-                        seed,
-                    )
-                    .0;
-                    stack.push(e2); // yield - 1 = 1 secondary
-                    e = e2;
-                } else {
-                    let mu_cm = nuc
-                        .sample_elastic_mu_cm(e, seed)
-                        .unwrap_or_else(|| 2.0 * prn(seed) - 1.0);
-                    e = free_gas_elastic_scatter(e, u, nuc.awr, kt, mu_cm, seed).0;
-                }
-                if !(e > 0.0) || !e.is_finite() {
-                    break;
-                }
-            }
-        }
-    }
-    (abs_a, abs_m)
-}
-
 fn endf_dir() -> std::path::PathBuf {
     njoy_outram_park_fork::reference_data::reference_endf("n-006_C_012-ENDF8.0.endf")
         .expect("reference-data/endf/")
@@ -377,11 +323,11 @@ fn endf_dir() -> std::path::PathBuf {
         .to_path_buf()
 }
 
-fn load(name: &str, file: &str, dir: &std::path::Path) -> Nuclide {
+fn load(name: &str, file: &str, dir: &std::path::Path, temp: f64) -> Nuclide {
     let p = dir.join(file);
     eprint!("  reconstructing {name:<6} … ");
     let t0 = std::time::Instant::now();
-    let n = Nuclide::from_endf_file(&p, name, TEMP, 1.0e-3)
+    let n = Nuclide::from_endf_file(&p, name, temp, 1.0e-3)
         .unwrap_or_else(|e| panic!("from_endf_file({}): {e}", p.display()));
     eprintln!("{:.1?}", t0.elapsed());
     n

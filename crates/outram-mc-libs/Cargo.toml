@@ -310,6 +310,12 @@ required-features = ["endf-pebble-cases"]
 name = "u238_resonance_escape"
 required-features = ["endf-pebble-cases"]
 
+# Tutorial rung 2 (GitHub #524): homogeneous uranium in graphite, the four-factor
+# formula from the six-factor tallies, and the natural-U k_inf sweep.
+[[example]]
+name = "ugraphite_four_factor"
+required-features = ["endf-pebble-cases"]
+
 # Oracle: resonance integral (area under the resonances, not point values) vs
 # NJOY2016's PENDF and vs the published RI_inf (op-mzvp.2.12).
 [[example]]
