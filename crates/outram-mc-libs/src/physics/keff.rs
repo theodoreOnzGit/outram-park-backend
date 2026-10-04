@@ -310,8 +310,73 @@ pub struct KeffResult {
     pub histories: u64,
 }
 
+/// **Analog counts of how neutrons ended**, from the bare-sphere transport
+/// itself (gh:#521: the Godiva lesson teaches leakage and fast fission by
+/// counting).
+///
+/// Every neutron the transport follows ends exactly one way, so
+/// `leaked + captured + fissions() == tracked`. `tracked` counts the source
+/// neutrons **and** the same-generation `(n,2n)`, `(n,3n)` and `(n,anything)`
+/// secondaries (they are followed to the end like any other neutron), so it is
+/// slightly more than the number of source neutrons. Counting draws no random
+/// numbers: `k` is unchanged
+/// (`stepping_the_power_iteration_is_the_single_thread_run_bit_for_bit`).
+///
+/// - **leaked**: crossed the vacuum boundary (the sphere's surface), or had
+///   `Σ_t = 0` and would have streamed out.
+/// - **captured**: absorbed without fission: radiative capture, or an
+///   `(n,anything)` / other emission arm whose sampled neutron yield is zero.
+/// - **fissions**: binned by the INCIDENT neutron's energy at
+///   [`Self::FISSION_BIN_EDGES_EV`] (0.625 eV, the cadmium cut-off, and
+///   100 keV).
+///
+/// What the counts give, per generation or summed: the non-leakage
+/// probability `P_NL = 1 - leaked / tracked`, and `k_inf = nu_bar F / (F + C)`,
+/// so that `k_inf * P_NL = nu_bar F / tracked`, which is `k` up to the ratio
+/// `tracked / n_particles` (the secondaries). These are tallies of one run;
+/// their statistical uncertainty is the caller's to estimate.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub struct HistoryCounts {
+    /// Neutrons followed to the end: source neutrons plus same-generation
+    /// secondaries.
+    pub tracked: u64,
+    /// Ended by leaking out through the surface.
+    pub leaked: u64,
+    /// Ended by absorption without fission.
+    pub captured: u64,
+    /// Ended in fission, by incident energy: `[< 0.625 eV, 0.625 eV - 100 keV, > 100 keV]`.
+    pub fissions_by_energy: [u64; 3],
+}
+
+impl HistoryCounts {
+    /// Bin edges of [`Self::fissions_by_energy`] \[eV\]: the conventional
+    /// thermal cut-off (cadmium, 0.625 eV) and 100 keV.
+    pub const FISSION_BIN_EDGES_EV: [f64; 2] = [0.625, 1.0e5];
+
+    /// All fissions.
+    pub fn fissions(&self) -> u64 {
+        self.fissions_by_energy.iter().sum()
+    }
+
+    /// Add another set of counts (e.g. one generation's) to these.
+    pub fn add(&mut self, other: &HistoryCounts) {
+        self.tracked += other.tracked;
+        self.leaked += other.leaked;
+        self.captured += other.captured;
+        for (a, b) in self.fissions_by_energy.iter_mut().zip(other.fissions_by_energy) {
+            *a += b;
+        }
+    }
+
+    fn record_fission(&mut self, e_incident_ev: f64) {
+        let [lo, hi] = Self::FISSION_BIN_EDGES_EV;
+        let bin = if e_incident_ev < lo { 0 } else if e_incident_ev < hi { 1 } else { 2 };
+        self.fissions_by_energy[bin] += 1;
+    }
+}
+
 /// A fission-source neutron awaiting transport in the next generation.
-#[derive(Clone, Copy)]
+#[derive(Debug, Clone, Copy)]
 struct Site {
     r: Position,
     u: Direction,
@@ -382,87 +447,299 @@ pub fn run_keff_cpu_single(
     nuclides: &[Nuclide],
     settings: &KeffSettings,
 ) -> KeffResult {
-    let sphere = Sphere {
-        x0: 0.0,
-        y0: 0.0,
-        z0: 0.0,
-        r: radius_cm,
-        bc: BoundaryType::Vacuum,
-    };
-    let mut seed = settings.seed;
-    let temp = settings.temperature_k;
+    let mut it = PowerIteration::new(radius_cm, settings);
+    while it.step(material, nuclides).is_some() {}
+    it.result()
+}
 
-    // Initial source: uniform in the sphere volume, isotropic, Watt energy.
-    let mut source: Vec<Site> = (0..settings.n_particles)
-        .map(|_| {
-            let (dx, dy, dz) = isotropic_direction(&mut seed);
-            let rr = radius_cm * prn(&mut seed).r_cbrt(); // uniform-in-volume radius
-            Site {
-                r: Position::new(rr * dx, rr * dy, rr * dz),
-                u: Direction::new(dx, dy, dz),
-                e: watt(&mut seed, settings.watt_a, settings.watt_b),
-            }
-        })
-        .collect();
+/// What one generation of a [`PowerIteration`] produced.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct GenerationReport {
+    /// Generation index, from 0. Generations `0..n_inactive` are inactive.
+    pub index: usize,
+    /// Whether this generation counts towards the reported `k`.
+    pub active: bool,
+    /// This generation's estimate, `k_gen = (sum of nu-bar over fissions) / n_particles`.
+    pub k: f64,
+    /// Shannon entropy \[bits\] of this generation's fission bank, before it
+    /// is resampled (OpenMC `src/eigenvalue.cpp:587` takes it at the same
+    /// point). `None` without an entropy mesh, or for an empty bank.
+    pub entropy: Option<f64>,
+    /// Mean and standard error of the mean over the active generations so
+    /// far, this one included; `None` while still inactive. The error is 0
+    /// after the first active generation (one sample has no spread).
+    pub k_mean: Option<(f64, f64)>,
+    /// Fission sites banked this generation, before resampling.
+    pub bank_size: usize,
+    /// Fission production, `sum of nu-bar` over this generation's fissions
+    /// (so `k = production / n_particles`, and the mean `nu-bar` is
+    /// `production / counts.fissions()`).
+    pub production: f64,
+    /// How this generation's neutrons ended: leaked, captured, fissioned.
+    pub counts: HistoryCounts,
+}
 
-    let n_gen = settings.n_inactive + settings.n_active;
-    let mut k_by_generation = Vec::with_capacity(n_gen);
-    let mut k_running = 1.0; // guess feeding the site-count normalisation
-    let mut active_k = Vec::with_capacity(settings.n_active);
+/// The single-thread power iteration of [`run_keff_cpu_single`], **one
+/// generation at a time**.
+///
+/// [`run_keff_cpu_single`] is exactly [`Self::new`], [`Self::step`] until it
+/// returns `None`, then [`Self::result`]. So this is the reference backend
+/// itself, not a copy of it: the same random numbers are drawn in the same
+/// order and the eigenvalue is bit-for-bit the same. It exists for callers
+/// that need to see a run as it happens: a live console printing one line per
+/// generation the way `openmc.run()` does, a convergence plot, or a run that
+/// pauses between generations. The `dhoby-ghaut` Monte Carlo web demo runs
+/// Godiva this way, in a browser worker (gh:#521).
+///
+/// It holds no reference to the material or the nuclides (the workspace
+/// forbids lifetime parameters on structs). Pass the same ones to every
+/// [`Self::step`].
+///
+/// ```no_run
+/// # use outram_mc_libs::material::material::Material;
+/// # use outram_mc_libs::material::nuclide::Nuclide;
+/// use outram_mc_libs::physics::keff::{KeffSettings, PowerIteration};
+/// # fn demo(material: &Material, nuclides: &[Nuclide]) {
+/// let r = 8.7407; // Godiva, cm
+/// let mut it = PowerIteration::new(r, &KeffSettings::default())
+///     .with_entropy_mesh(PowerIteration::bounding_box_mesh(r, 5));
+/// while let Some(g) = it.step(material, nuclides) {
+///     println!("{:>5}  {:.5}  {:?}  {:?}", g.index + 1, g.k, g.entropy, g.k_mean);
+/// }
+/// let result = it.result();
+/// # }
+/// ```
+#[derive(Debug, Clone)]
+pub struct PowerIteration {
+    sphere: Sphere,
+    settings: KeffSettings,
+    seed: u64,
+    source: Vec<Site>,
+    k_running: f64,
+    k_by_generation: Vec<f64>,
+    active_k: Vec<f64>,
+    entropy_mesh: Option<crate::tally::mesh::RegularMesh>,
+    entropy: Vec<f64>,
+    generation: usize,
+    finished: bool,
+}
 
-    for gen in 0..n_gen {
-        let mut next_bank: Vec<Site> = Vec::with_capacity(settings.n_particles);
+impl PowerIteration {
+    /// Start a run on a bare sphere of radius `radius_cm` (centred at the
+    /// origin, vacuum outside), from the initial source
+    /// [`run_keff_cpu_single`] has always used: uniform in the volume,
+    /// isotropic, Watt energy.
+    pub fn new(radius_cm: f64, settings: &KeffSettings) -> Self {
+        let mut seed = settings.seed;
+        // ANCHOR: initial_source
+        // Initial source: uniform in the sphere volume, isotropic, Watt energy.
+        // NOTE (2026-10-04, gh:#527): the SAME random direction places each
+        // neutron and aims it, so every first-generation neutron flies
+        // radially outward and generation 1 leaks too much (Godiva: k_1 =
+        // 0.468 at 5000 neutrons). Kept so recorded runs stay bit-identical;
+        // the inactive generations forget it. See the issue for the fix.
+        let source: Vec<Site> = (0..settings.n_particles)
+            .map(|_| {
+                let (dx, dy, dz) = isotropic_direction(&mut seed);
+                let rr = radius_cm * prn(&mut seed).r_cbrt(); // uniform-in-volume radius
+                Site {
+                    r: Position::new(rr * dx, rr * dy, rr * dz),
+                    u: Direction::new(dx, dy, dz),
+                    e: watt(&mut seed, settings.watt_a, settings.watt_b),
+                }
+            })
+            .collect();
+        // ANCHOR_END: initial_source
+        Self::from_source(radius_cm, settings, source, seed)
+    }
+
+    /// Start with every neutron at one point `at` (isotropic, Watt energy)
+    /// instead of spread through the volume: a deliberately bad first guess,
+    /// so the source can be watched spreading to its converged shape and its
+    /// entropy rising to a plateau. Same driver, same physics. Only the first
+    /// generation's source differs, which is what inactive generations exist
+    /// to forget.
+    pub fn new_point_source(radius_cm: f64, settings: &KeffSettings, at: Position) -> Self {
+        let mut seed = settings.seed;
+        let source: Vec<Site> = (0..settings.n_particles)
+            .map(|_| {
+                let (dx, dy, dz) = isotropic_direction(&mut seed);
+                Site {
+                    r: at,
+                    u: Direction::new(dx, dy, dz),
+                    e: watt(&mut seed, settings.watt_a, settings.watt_b),
+                }
+            })
+            .collect();
+        Self::from_source(radius_cm, settings, source, seed)
+    }
+
+    fn from_source(radius_cm: f64, settings: &KeffSettings, source: Vec<Site>, seed: u64) -> Self {
+        let n_gen = settings.n_inactive + settings.n_active;
+        Self {
+            sphere: Sphere {
+                x0: 0.0,
+                y0: 0.0,
+                z0: 0.0,
+                r: radius_cm,
+                bc: BoundaryType::Vacuum,
+            },
+            settings: settings.clone(),
+            seed,
+            source,
+            k_running: 1.0, // guess feeding the site-count normalisation
+            k_by_generation: Vec::with_capacity(n_gen),
+            active_k: Vec::with_capacity(settings.n_active),
+            entropy_mesh: None,
+            entropy: Vec::new(),
+            generation: 0,
+            finished: n_gen == 0,
+        }
+    }
+
+    /// Also compute the Shannon entropy of every generation's fission bank
+    /// on `mesh` ([`crate::tally::mesh::RegularMeshExt::shannon_entropy`],
+    /// the port verified against OpenMC). It draws no random numbers, so `k`
+    /// is unchanged.
+    pub fn with_entropy_mesh(mut self, mesh: crate::tally::mesh::RegularMesh) -> Self {
+        self.entropy_mesh = Some(mesh);
+        self
+    }
+
+    /// An `n x n x n` mesh on the sphere's bounding box `[-R, R]^3`. With
+    /// `n = 5` it is the mesh of the Shannon-entropy verification against
+    /// OpenMC (`tests/shannon_entropy_vs_openmc.rs`). The ceiling is
+    /// `log2(n^3)` bits (6.97 for `n = 5`); a converged source stays below
+    /// it, because the corner bins lie outside the sphere.
+    pub fn bounding_box_mesh(radius_cm: f64, n: usize) -> crate::tally::mesh::RegularMesh {
+        crate::tally::mesh::RegularMesh {
+            lower_left: [-radius_cm; 3],
+            upper_right: [radius_cm; 3],
+            dimension: [n; 3],
+        }
+    }
+
+    /// Transport one generation and resample its fission bank into the next
+    /// source. Returns `None` once every generation has run, or the
+    /// population has died out; [`Self::result`] then holds the answer.
+    pub fn step(&mut self, material: &Material, nuclides: &[Nuclide]) -> Option<GenerationReport> {
+        if self.finished {
+            return None;
+        }
+        let gen = self.generation;
+        let n_particles = self.settings.n_particles;
+        let temp = self.settings.temperature_k;
+        // ANCHOR: generation
+        let mut next_bank: Vec<Site> = Vec::with_capacity(n_particles);
         let mut production = 0.0_f64;
+        let mut counts = HistoryCounts::default();
 
-        for site in &source {
+        for site in &self.source {
             production += transport_history(
                 *site,
-                &sphere,
+                &self.sphere,
                 material,
                 nuclides,
                 temp,
-                k_running,
+                self.k_running,
                 &mut next_bank,
-                &mut seed,
+                &mut self.seed,
+                &mut counts,
             );
         }
 
-        let k_gen = production / settings.n_particles as f64;
-        k_by_generation.push(k_gen);
-        k_running = k_gen;
-        if gen >= settings.n_inactive {
-            active_k.push(k_gen);
+        let k_gen = production / n_particles as f64;
+        // ANCHOR_END: generation
+        self.k_by_generation.push(k_gen);
+        self.k_running = k_gen;
+        let active = gen >= self.settings.n_inactive;
+        if active {
+            self.active_k.push(k_gen);
+        }
+        let entropy = self.entropy_mesh.as_ref().and_then(|mesh| {
+            use crate::tally::mesh::RegularMeshExt;
+            let sites: Vec<crate::particle::bank::BankSite> = next_bank
+                .iter()
+                .map(|b| crate::particle::bank::BankSite { r: b.r, u: b.u, e: b.e, wgt: 1.0, seed: 0 })
+                .collect();
+            mesh.shannon_entropy(&sites)
+        });
+        if let Some(h) = entropy {
+            self.entropy.push(h);
+        }
+        let bank_size = next_bank.len();
+        self.generation += 1;
+        if self.generation == self.settings.n_inactive + self.settings.n_active {
+            self.finished = true;
         }
 
         // Resample the next generation's source to exactly n_particles sites.
         if next_bank.is_empty() {
             // Sub-critical to extinction (or no data): nothing left to iterate.
-            break;
+            self.finished = true;
+        } else {
+            self.source = resample(&next_bank, n_particles, &mut self.seed);
         }
-        source = resample(&next_bank, settings.n_particles, &mut seed);
+        Some(GenerationReport {
+            index: gen,
+            active,
+            k: k_gen,
+            entropy,
+            k_mean: active.then(|| mean_and_stderr(&self.active_k)),
+            bank_size,
+            production,
+            counts,
+        })
     }
 
-    let (k_mean, k_std) = mean_and_stderr(&active_k);
-    KeffResult {
-        // Not instrumented in this driver (bn:op-867c.5 wired the CSG path only).
-        collisions: 0,
-        lost_locate: 0,
-        stuck_events: 0,
-        stuck_path_cm: 0.0,
-        stuck_last_e: 0.0,
-        neg_dist: 0,
-        neg_level: 0,
-        neg_worst: 0.0,
-        neg_from_lattice: 0,
-        neg_from_surface: 0,
-        leak_vacuum: 0,
-        leak_infinity: 0,
-        histories: 0,
-        k_mean,
-        k_std,
-        k_by_generation,
-        entropy: Vec::new(),
-        virtual_collisions: 0,
+    /// Generations run so far.
+    pub fn generations_done(&self) -> usize {
+        self.generation
+    }
+
+    /// Whether every generation has run (or the population died out).
+    pub fn finished(&self) -> bool {
+        self.finished
+    }
+
+    /// The settings this run was started with.
+    pub fn settings(&self) -> &KeffSettings {
+        &self.settings
+    }
+
+    /// Where the neutrons of the NEXT generation start: the resampled
+    /// fission bank of the last generation, or the initial source before the
+    /// first [`Self::step`].
+    pub fn source_positions(&self) -> Vec<Position> {
+        self.source.iter().map(|s| s.r).collect()
+    }
+
+    /// The result so far, as [`run_keff_cpu_single`] returns it: mean and
+    /// standard error over the active generations run, the per-generation
+    /// `k` trace, and the entropy trace when a mesh was given.
+    pub fn result(&self) -> KeffResult {
+        let (k_mean, k_std) = mean_and_stderr(&self.active_k);
+        KeffResult {
+            // Not instrumented in this driver (bn:op-867c.5 wired the CSG path only).
+            collisions: 0,
+            lost_locate: 0,
+            stuck_events: 0,
+            stuck_path_cm: 0.0,
+            stuck_last_e: 0.0,
+            neg_dist: 0,
+            neg_level: 0,
+            neg_worst: 0.0,
+            neg_from_lattice: 0,
+            neg_from_surface: 0,
+            leak_vacuum: 0,
+            leak_infinity: 0,
+            histories: 0,
+            k_mean,
+            k_std,
+            k_by_generation: self.k_by_generation.clone(),
+            entropy: self.entropy.clone(),
+            virtual_collisions: 0,
+        }
     }
 }
 
@@ -618,6 +895,8 @@ pub fn run_keff_cpu_multi(
                         k_running,
                         &mut local_bank,
                         &mut seed,
+                        // Not reported by this backend (see `PowerIteration`).
+                        &mut HistoryCounts::default(),
                     );
                     (production, local_bank)
                 })
@@ -1716,6 +1995,7 @@ fn transport_history(
     k_running: f64,
     next_bank: &mut Vec<Site>,
     seed: &mut u64,
+    counts: &mut HistoryCounts,
 ) -> f64 {
     // OpenMC's `data::energy_max[neutron]` (GitHub #463 item 2).
     let e_cap_fission = library_energy_max_ev(nuclides);
@@ -1727,6 +2007,7 @@ fn transport_history(
     let mut urr_seed = future_seed(5 * crate::rng::lcg::DEFAULT_STRIDE, *seed);
 
     while let Some(start) = stack.pop() {
+        counts.tracked += 1;
         let mut r = start.r;
         let mut u = start.u;
         let mut e = start.e;
@@ -1737,16 +2018,20 @@ fn transport_history(
                 urr_seed = future_seed(nuclides.len() as u64, urr_seed);
                 urr_e_last = e;
             }
+            // ANCHOR: free_flight
             let sigma_t = material.macro_xs_total_urr(e, nuclides, urr_seed);
             if !(sigma_t > 0.0) {
+                counts.leaked += 1;
                 break; // no interaction possible; treat as escape
             }
             let d_col = -prn(seed).r_ln() / sigma_t;
             let d_bound = sphere.distance(r, u, false);
 
             if d_col >= d_bound {
+                counts.leaked += 1;
                 break; // reaches the vacuum boundary first → leaks
             }
+            // ANCHOR_END: free_flight
 
             // Collide: advance to the collision site and pick the target nuclide.
             r = stream(r, u, d_col);
@@ -1768,8 +2053,10 @@ fn transport_history(
             // the HIGH tier, so the LOW tier collapses to the fission | capture |
             // elastic split. The final elastic bucket (total − absorption −
             // inelastic − n2n) sweeps up any remaining scattering as elastic-like.
+            // ANCHOR: reaction_choice
             let xi = prn(seed) * x.total;
             if xi < x.fission {
+                // ANCHOR: fission_bank
                 let nu_bar = if x.fission > 0.0 {
                     x.nu_fission / x.fission
                 } else {
@@ -1788,13 +2075,18 @@ fn transport_history(
                         e: nuc.sample_fission_energy_below(e, e_cap_fission, seed),
                     });
                 }
+                // ANCHOR_END: fission_bank
+                counts.record_fission(e);
                 break; // fission is a terminal absorption for the incident neutron
             } else if xi < x.absorption {
+                counts.captured += 1;
                 break; // radiative capture → dead
+            // ANCHOR_END: reaction_choice
             } else if xi < x.absorption + x.inelastic {
                 // Inelastic scatter with a real energy-loss law: a discrete level's
                 // two-body kinematics (Q-value) or continuum evaporation. This is
                 // the dominant fast-spectrum down-scatter off heavy nuclei.
+                // ANCHOR: inelastic
                 let (e2, u2) = match nuc.sample_inelastic(e, seed) {
                     // Discrete level: the CM angular law is the level's own ENDF
                     // MF=4 (op-tm9f). Isotropic-CM only when the evaluation
@@ -1807,6 +2099,7 @@ fn transport_history(
                     },
                     Inelastic::Continuum { q } => nuc.sample_inelastic_emission(91, e, u, q, seed),
                 };
+                // ANCHOR_END: inelastic
                 e = e2;
                 u = u2;
             } else if xi < x.absorption + x.inelastic + x.n2n {
@@ -1904,6 +2197,7 @@ fn transport_history(
                 // `y(E) = 0` kills the neutron -- see the equivalent arm in
                 // `collide`. Below ~100 keV U-235's MT=5 emits nothing at all.
                 if n_emit == 0 {
+                    counts.captured += 1; // absorbed without fission
                     break;
                 }
                 for (se, su) in extras.iter().take(n_emit.saturating_sub(1).min(2)) {
@@ -1916,6 +2210,7 @@ fn transport_history(
                 // equivalent arm in `collide`.
                 let o = nuc.sample_other_emission(e, u, seed);
                 if o.n_emit == 0 {
+                    counts.captured += 1; // absorbed without fission
                     break;
                 }
                 for (se, su) in o.extras.iter().take(o.n_emit.saturating_sub(1).min(3)) {
@@ -2262,6 +2557,63 @@ mod tests {
             ],
         };
         (material, nuclides)
+    }
+
+    /// `PowerIteration` stepped by hand is `run_keff_cpu_single`, bit for bit,
+    /// with and without an entropy mesh (which must draw no random numbers).
+    /// Small LOW-tier Godiva run: 300 histories x [5 + 10].
+    #[test]
+    fn stepping_the_power_iteration_is_the_single_thread_run_bit_for_bit() {
+        let (material, nuclides) = godiva();
+        let settings = KeffSettings { n_particles: 300, n_inactive: 5, n_active: 10, ..KeffSettings::default() };
+        let whole = run_keff_cpu_single(8.7407, &material, &nuclides, &settings);
+        for mesh in [None, Some(PowerIteration::bounding_box_mesh(8.7407, 5))] {
+            let mut it = PowerIteration::new(8.7407, &settings);
+            if let Some(m) = mesh.clone() {
+                it = it.with_entropy_mesh(m);
+            }
+            let mut reports = Vec::new();
+            while let Some(g) = it.step(&material, &nuclides) {
+                reports.push(g);
+            }
+            let stepped = it.result();
+            assert_eq!(reports.len(), 15);
+            assert_eq!(stepped.k_mean.to_bits(), whole.k_mean.to_bits());
+            assert_eq!(stepped.k_std.to_bits(), whole.k_std.to_bits());
+            for (g, k) in reports.iter().zip(&whole.k_by_generation) {
+                assert_eq!(g.k.to_bits(), k.to_bits(), "generation {}", g.index);
+                assert_eq!(g.active, g.index >= 5);
+                // Every neutron ends exactly one way; each source neutron is
+                // tracked, plus any (n,xn) secondaries.
+                let c = g.counts;
+                assert_eq!(c.leaked + c.captured + c.fissions(), c.tracked, "generation {}", g.index);
+                assert!(c.tracked >= 300 && c.fissions() > 0 && c.leaked > 0);
+                assert_eq!((g.production / 300.0).to_bits(), g.k.to_bits());
+            }
+            let last = reports.last().unwrap().k_mean.unwrap();
+            assert_eq!((last.0.to_bits(), last.1.to_bits()), (whole.k_mean.to_bits(), whole.k_std.to_bits()));
+            assert_eq!(stepped.entropy.len(), if mesh.is_some() { 15 } else { 0 });
+            assert!(it.step(&material, &nuclides).is_none());
+        }
+    }
+
+    /// From a point source at the centre, the fission source must spread:
+    /// entropy starts low (every first-generation fission is near the centre)
+    /// and ends higher. A harness check of `new_point_source` and the entropy
+    /// hook, not validation.
+    #[test]
+    fn a_point_source_spreads_and_its_entropy_rises() {
+        let (material, nuclides) = godiva();
+        let settings = KeffSettings { n_particles: 400, n_inactive: 8, n_active: 2, ..KeffSettings::default() };
+        let mut it = PowerIteration::new_point_source(8.7407, &settings, Position::ZERO)
+            .with_entropy_mesh(PowerIteration::bounding_box_mesh(8.7407, 5));
+        assert!(it.source_positions().iter().all(|p| *p == Position::ZERO));
+        let h: Vec<f64> = std::iter::from_fn(|| it.step(&material, &nuclides)).filter_map(|g| g.entropy).collect();
+        assert_eq!(h.len(), 10);
+        let first = h[0];
+        let late = h[6..].iter().sum::<f64>() / 4.0;
+        assert!(late > first + 0.5, "entropy did not rise: {h:?}");
+        assert!(late < (125f64).log2(), "entropy above the mesh ceiling: {h:?}");
     }
 
     /// **LOW-fidelity Godiva V&V** (HEU-MET-FAST-001).

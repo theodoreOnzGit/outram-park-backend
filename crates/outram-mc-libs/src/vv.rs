@@ -309,3 +309,51 @@ pub fn source_convergence_drift_pcm(
     let h = active.len() / 2;
     (mean(&active[h..]) - mean(&active[..h])) * 1.0e5
 }
+
+/// **ICSBEP HEU-MET-FAST-001 (Godiva)**, the bare HEU metal sphere, as this
+/// crate's ENDF examples model it: one sphere, one homogeneous material,
+/// U-234/235/238 at the evaluation's atom densities, vacuum outside.
+///
+/// These are the numbers `examples/godiva_keff_endf_local.rs` (the crate's
+/// maturity evidence, and the model of the five-route study,
+/// `verification_and_validation/icsbep/five_route_keff_2026_09_29.md`) has
+/// always run. They were typed into that example and into many tests beside
+/// it; they are collected here (2026-10-04, gh:#521) so the tutorial and the
+/// web demo use the model the record was measured on, not another copy of it.
+/// Changing a value here changes that example.
+pub mod godiva {
+    use crate::material::material::{Material, NuclideComponent};
+
+    // ANCHOR: model
+    /// Sphere radius \[cm\].
+    pub const RADIUS_CM: f64 = 8.7407;
+    /// Material temperature \[K\]: room temperature (a metal assembly).
+    pub const TEMPERATURE_K: f64 = 293.6;
+    /// `(name, ENDF/B-VIII.0 tape in reference-data/endf/, atoms per barn-cm)`.
+    pub const NUCLIDES: [(&str, &str, f64); 3] = [
+        ("U234", "n-092_U_234-ENDF8.0.endf", 4.9184e-4),
+        ("U235", "n-092_U_235-ENDF8.0.endf", 4.4994e-2),
+        ("U238", "n-092_U_238.endf", 2.4984e-3),
+    ];
+    // ANCHOR_END: model
+
+    /// The benchmark `k_eff`: the assembly was critical, so 1.0000 by
+    /// construction.
+    pub const BENCHMARK_K: f64 = 1.0000;
+    /// The evaluation's stated uncertainty on [`BENCHMARK_K`].
+    pub const BENCHMARK_SIGMA: f64 = 0.0010;
+
+    /// The Godiva material, indexing nuclides `0, 1, 2` in [`NUCLIDES`] order.
+    pub fn material() -> Material {
+        Material {
+            id: 1,
+            name: "Godiva HEU".into(),
+            temperature: TEMPERATURE_K,
+            components: NUCLIDES
+                .iter()
+                .enumerate()
+                .map(|(i, &(_, _, n))| NuclideComponent { nuclide_idx: i, atom_density: n })
+                .collect(),
+        }
+    }
+}

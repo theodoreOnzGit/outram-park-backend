@@ -45,7 +45,7 @@ pub use crate::tally::mesh_unstructured::{UnstructuredMesh, UnstructuredMeshExt}
 pub use crate::tally::scoring::Q_FISSION_J;
 pub use crate::tally::arithmetic::DerivedTally;
 pub use crate::physics::compute::{ComputeType, ThreadCount};
-pub use crate::physics::keff::{run_keff, KeffResult, KeffSettings};
+pub use crate::physics::keff::{run_keff, GenerationReport, HistoryCounts, KeffResult, KeffSettings, PowerIteration};
 pub use crate::physics::search::{
     search_for_keff, SearchError, SearchIteration, SearchMethod, SearchResult, SearchSettings,
 };

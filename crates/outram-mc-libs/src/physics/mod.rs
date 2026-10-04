@@ -5,6 +5,8 @@
 //!
 //! - [`keff::run_keff`] — k-eigenvalue power iteration for a homogeneous bare
 //!   sphere (the reference criticality driver; `CPU`/`GPU` backends).
+//!   [`keff::PowerIteration`] is its single-thread backend one generation at
+//!   a time, for live output and convergence plots.
 //! - [`transport_csg::run_keff_csg`] — k-eigenvalue power iteration over
 //!   **general CSG geometry** (surfaces/cells/universes/lattices), with track-
 //!   length tallies. Generalises `keff`.

@@ -90,26 +90,22 @@
 //! measured effect is in `docs/profiling/speed_tiers_2026_09_27.md`.
 
 use njoy_outram_park_fork::reference_data::reference_endf;
-use outram_mc_libs::material::material::{Material, NuclideComponent};
 use outram_mc_libs::material::nuclide::Nuclide;
 use outram_mc_libs::physics::keff::{run_keff, KeffSettings};
-use outram_mc_libs::vv::{assert_reproduces_keff, RecordedKeff};
+use outram_mc_libs::vv::{assert_reproduces_keff, godiva, RecordedKeff};
 use std::time::Instant;
 
 /// Godiva material temperature \[K\] (room temperature; the benchmark is a metal
-/// assembly, not a reactor).
-const TEMP_K: f64 = 293.6;
+/// assembly, not a reactor). Since 2026-10-04 the model's numbers live in
+/// [`outram_mc_libs::vv::godiva`], shared with the tutorial and the web demo.
+const TEMP_K: f64 = godiva::TEMPERATURE_K;
 
 fn main() {
     println!("Reconstructing HEU isotopes from ENDF/B-VIII.0 (RECONR + BROADR @ {TEMP_K} K)…");
     let t0 = Instant::now();
-    let nuclides: Vec<Nuclide> = [
-        ("U234", "n-092_U_234-ENDF8.0.endf"),
-        ("U235", "n-092_U_235-ENDF8.0.endf"),
-        ("U238", "n-092_U_238.endf"),
-    ]
+    let nuclides: Vec<Nuclide> = godiva::NUCLIDES
     .iter()
-    .map(|(name, file)| {
+    .map(|(name, file, _)| {
         let p = reference_endf(file).unwrap_or_else(|| panic!("missing reference tape {file}"));
         let t = Instant::now();
         let n = Nuclide::from_endf_file_with_speed(&p, name, TEMP_K, outram_mc_libs::vv::bench_speed())
@@ -128,26 +124,9 @@ fn main() {
 
     // HEU-MET-FAST-001 atom densities [atoms/barn·cm] — the same numbers the
     // LOW-tier `godiva_keff` and the net-fetch `godiva_keff_endf` use, so the
-    // three runs differ only in where σ comes from.
-    let material = Material {
-        id: 1,
-        name: "Godiva HEU".into(),
-        temperature: TEMP_K,
-        components: vec![
-            NuclideComponent {
-                nuclide_idx: 0,
-                atom_density: 4.9184e-4,
-            }, // U-234
-            NuclideComponent {
-                nuclide_idx: 1,
-                atom_density: 4.4994e-2,
-            }, // U-235
-            NuclideComponent {
-                nuclide_idx: 2,
-                atom_density: 2.4984e-3,
-            }, // U-238
-        ],
-    };
+    // three runs differ only in where σ comes from. (4.9184e-4, 4.4994e-2,
+    // 2.4984e-3 for U-234/235/238, in `vv::godiva::NUCLIDES`.)
+    let material = godiva::material();
 
     // Defaults 5000 x [40 + 120]; OUTRAM_NPART / OUTRAM_NINACTIVE /
     // OUTRAM_NACTIVE override them for profiling (`vv::bench_run_size`).
@@ -160,7 +139,8 @@ fn main() {
         ..KeffSettings::default()
     };
 
-    let radius_cm = 8.7407;
+    // Try changing this: the lesson's "find the critical radius" exercise.
+    let radius_cm = godiva::RADIUS_CM;
     println!("Godiva bare-sphere Keff — HIGH fidelity, ENDF/B-VIII.0  (r = {radius_cm} cm)");
     eprintln!("  speed tier: {} (OUTRAM_SPEED)", outram_mc_libs::vv::bench_speed());
     println!(
@@ -211,10 +191,10 @@ fn main() {
 /// code's answer — which is the whole reason this case is here, since every
 /// other comparison in this crate's V&V set is against NJOY, OpenMC, or an
 /// analytic limit.
-const ICSBEP_HMF001_K: f64 = 1.0000;
+const ICSBEP_HMF001_K: f64 = godiva::BENCHMARK_K;
 
 /// The ICSBEP-stated uncertainty on [`ICSBEP_HMF001_K`].
-const ICSBEP_HMF001_BAND: f64 = 0.0010;
+const ICSBEP_HMF001_BAND: f64 = godiva::BENCHMARK_SIGMA;
 
 /// The offset from [`ICSBEP_HMF001_K`] this case produces, in pcm.
 ///
@@ -232,7 +212,17 @@ const ICSBEP_HMF001_BAND: f64 = 0.0010;
 /// | `+228 ± 18` | the pre-gh:#192 code's true mean, 96 seeds | MT=91 Q-value cap: **+85 ± 26 pcm** |
 /// | `+314 ± 21` | after the cap, 96 seeds | evaluated MF=6 law: **−105 ± 32 pcm** |
 /// | `+214 ± 20` | 64 seeds, 2026-09-13 | discrete inelastic MF=4 angles (`op-tm9f`): **−198 pcm** |
-/// | `+16 ± 11` | **now**, 256 seeds, 2026-09-15 | — |
+/// | `+16 ± 11` | ~~**now**~~, 256 seeds, 2026-09-15 | see below |
+///
+/// **Not the latest pooled number (noted 2026-10-04, not re-measured here).**
+/// The five-route study re-ran this model after the OpenMC-parity audit
+/// (gh:#407) and records **0.99948 ± 0.00027, i.e. −52 ± 27 pcm** (32 seeds at
+/// these settings, 2026-09-30, commit `0414bc8277`, route 4 of
+/// `verification_and_validation/icsbep/five_route_keff_2026_09_29.md`), 2.3
+/// sigma from `+16 ± 11`. That is the number to quote for the current code
+/// (the tutorial does). This constant still holds `+16`: re-pointing a drift
+/// gate is a re-measurement decision, and at this program's single-run
+/// resolution (~613-693 pcm) the gate passes either way.
 ///
 /// Two single runs of this program differ by ~√2 × 173 ≈ 245 pcm from
 /// re-randomisation alone, whatever the physics does, which is why every entry
