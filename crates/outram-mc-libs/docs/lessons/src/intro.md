@@ -34,6 +34,14 @@ development team, MIT and Argonne National Laboratory), distributed under
 GPL-3.0-only. It is not the official OpenMC and is not affiliated with or
 endorsed by MIT or Argonne.
 
+## Live demo
+
+**[Launch the TRISO pebble demo](../../demos/triso-pebble/)**: one neutron at a
+time through a TRISO pebble, on real ENDF/B-VIII.0 data processed in your
+browser by this workspace's NJOY port and tracked by this crate. It is a
+teaching picture, not a benchmark (tracking issue
+[#519](https://github.com/theodoreOnzGit/outram-park-backend/issues/519)).
+
 ## How each chapter is built
 
 Every chapter starts from a **problem**, shows the **code that answers it**, and

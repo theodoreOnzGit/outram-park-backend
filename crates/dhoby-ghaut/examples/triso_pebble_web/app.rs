@@ -360,6 +360,10 @@ struct Running {
     trail_cm: Option<f64>,
 }
 
+/// The `outram-mc-libs` deep dive this demo belongs to (gh:#514), on the
+/// backend's GitHub Pages site. Absolute so it also works from the native build.
+const DEEP_DIVE_URL: &str = "https://theodoreonzgit.github.io/outram-park-backend/deep-dives/monte-carlo/";
+
 impl Running {
     fn new(link: &Link) -> Self {
         link.send(Request::Run { n: PREFETCH, animate: true });
@@ -599,6 +603,10 @@ impl TrisoApp {
             });
         });
         ui.label("One neutron at a time, on real ENDF/B-VIII.0 data.");
+        ui.add(
+            egui::Hyperlink::from_label_and_url("How the Monte Carlo code works: the neutronics deep dive", DEEP_DIVE_URL)
+                .open_in_new_tab(true),
+        );
         ui.separator();
         let link = self.link.as_ref();
         match &mut self.phase {
