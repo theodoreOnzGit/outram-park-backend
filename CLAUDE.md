@@ -639,7 +639,7 @@ Full text, with the enum-dispatch pattern: [`docs/claude-md/rust-design-rules.md
 
 Full rules, gating patterns and exclusions: [`docs/claude-md/portability-android-wasm-paths.md`](docs/claude-md/portability-android-wasm-paths.md).
 
-## Tutorials and demos work on mobile (HARD RULE) — short form
+## Tutorials and demos work on mobile and never lag (HARD RULES) — short form
 
 **Maintainer direction, 2026-10-04.** Every tutorial page and interactive demo
 must work on a phone. Each demo has a full-page **main view** with on-screen
@@ -647,6 +647,12 @@ must work on a phone. Each demo has a full-page **main view** with on-screen
 **collapsible side panel** that holds every control, folded by default on a
 narrow screen. Gestures may supplement the buttons, never replace them. Check at
 phone width before calling it done.
+
+**No lagging (HARD RULE, 2026-10-04):** the app never freezes. The UI thread
+only draws and handles input; every calculation longer than a frame (data
+processing, transport, sweeps, loading) runs in a background worker or thread
+and streams results, with progress shown. Check that panning, zooming and
+sliders stay responsive during the heaviest computation.
 
 Full rule, layout sketch and reference implementation: [`docs/claude-md/mobile-first-tutorials-and-demos.md`](docs/claude-md/mobile-first-tutorials-and-demos.md).
 

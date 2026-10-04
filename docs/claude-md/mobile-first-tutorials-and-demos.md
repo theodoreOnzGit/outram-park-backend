@@ -1,4 +1,4 @@
-# Tutorials and demos work on mobile (HARD RULE)
+# Tutorials and demos work on mobile, and never lag (HARD RULES)
 
 **Maintainer direction, 2026-10-04.** Every tutorial page and every interactive
 demo or simulation it uses must work on a phone. That covers the backend site
@@ -49,6 +49,34 @@ and a wide screen is a defect, not a missing nicety.
 **Reference implementation:** `crates/dhoby-ghaut/examples/triso_pebble_web/app.rs`
 (`View::zoom_about`, `View::fit`, `TrisoApp::canvas`, and the panel folding in
 `TrisoApp::ui`). Reuse it rather than writing a second version.
+
+## No lagging: computation runs in the background (HARD RULE)
+
+**Maintainer direction, 2026-10-04.** The app never freezes. The UI thread
+only draws and handles input. Every calculation that can take more than a
+frame runs in the background: processing nuclear data, transport, eigenvalue
+cycles, sweeps, loading and parsing.
+
+- **On the web,** that means a Web Worker. **Natively,** it means a background
+  thread.
+- **The UI reads results without blocking.** Shared state follows the
+  workspace rule (`Arc<RwLock<T>>`, e.g. the mailbox in
+  `triso_pebble_web/engine.rs`). Never hold a lock across a long computation;
+  take `try_read`-style snapshots for drawing.
+- **Long work streams results:** per generation, per batch, per nuclide. The
+  view updates as results arrive, with progress and elapsed time on screen and
+  a way to stop or restart.
+- **Work per frame stays small** (a few milliseconds). Animating many
+  particles is precomputed in the background and only interpolated on the UI
+  thread.
+- **How to check:** while the heaviest computation in the demo is running, pan,
+  zoom, open and fold the panel, and move a slider. All of it must respond
+  immediately. Say in the report that you checked, alongside the phone-width
+  check.
+
+**Reference implementation:** `crates/dhoby-ghaut/examples/triso_pebble_web/engine.rs`
+(processing and transport in a worker; the page keeps animating while about
+11 MB of ENDF data are processed).
 
 ## Pages that are mostly text
 

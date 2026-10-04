@@ -165,6 +165,9 @@ and BORAX, Shippingport.
   side panel, folded on narrow screens. Gestures supplement the buttons, never
   replace them. Every page is checked at phone width before it counts as
   done.
+- **No lagging is a hard rule.** The app never freezes. All computation runs
+  in a background worker or thread and streams results, with progress shown,
+  while the view stays responsive to panning, zooming and sliders.
 - **One demo per track, with a rung setting**, not one demo per lesson. Each
   rung has a stable short name (`?rung=godiva`) and its own modes, e.g. Godiva
   *Watch* (illustrative) and *Run k_eff* (a real single-threaded run with a
@@ -194,5 +197,5 @@ and BORAX, Shippingport.
 - [ ] Every number quoted from a record (file, date, commit), re-measured where stale, misses shown.
 - [ ] Verification and validation named correctly; deliberate liberties listed.
 - [ ] History cited with source and page, or left as a visible placeholder.
-- [ ] Demo rung linked both ways; truthful animation speed; checked at phone width.
+- [ ] Demo rung linked both ways; truthful animation speed; checked at phone width; stays responsive while computing (no lagging).
 - [ ] Education-only banner; review stamp; "doesn't tally" button.
