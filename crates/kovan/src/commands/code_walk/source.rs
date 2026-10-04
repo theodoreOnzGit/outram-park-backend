@@ -678,7 +678,7 @@ fn first_doc_line(lines: &[String], line: u32) -> String {
         .skip_while(|l| l.is_empty())
         .take_while(|l| !l.is_empty() && !l.starts_with("```") && !l.starts_with('#'))
         .collect();
-    let joined = strip_intra_doc_links(&para.join(" "));
+    let joined = strip_rustdoc_link_targets(&strip_intra_doc_links(&para.join(" ")));
     match joined.find(". ") {
         Some(i) => joined[..=i].to_string(),
         None => joined,
@@ -702,6 +702,40 @@ fn strip_intra_doc_links(s: &str) -> String {
             _ => {
                 out.push_str(&rest[..i + 2]);
                 rest = &rest[i + 2..];
+            }
+        }
+    }
+    out.push_str(rest);
+    out
+}
+
+/// `[text](target)` whose target is a rustdoc path (`Self::calcem`,
+/// `crate::x::y`, a bare item name) rather than a web address or a page
+/// becomes plain `text`: outside rustdoc such a link points nowhere, and the
+/// Pages link check rejects it (it broke every deploy on 2026-10-04). Links to
+/// URLs, relative pages (`/`, `.html`, `.md`) and anchors (`#`) are kept.
+fn strip_rustdoc_link_targets(s: &str) -> String {
+    fn is_page(t: &str) -> bool {
+        t.contains("://") || t.contains('/') || t.contains('#') || t.ends_with(".html") || t.ends_with(".md")
+    }
+    let mut out = String::with_capacity(s.len());
+    let mut rest = s;
+    while let Some(i) = rest.find("](") {
+        let Some(open) = rest[..i].rfind('[') else {
+            out.push_str(&rest[..i + 2]);
+            rest = &rest[i + 2..];
+            continue;
+        };
+        let after = &rest[i + 2..];
+        match after.find(')') {
+            Some(j) if !is_page(&after[..j]) => {
+                out.push_str(&rest[..open]);
+                out.push_str(&rest[open + 1..i]);
+                rest = &after[j + 1..];
+            }
+            _ => {
+                out.push_str(&rest[..i + 2]);
+                rest = after;
             }
         }
     }
@@ -1010,5 +1044,14 @@ pub trait Geometry {
         assert!(!b.contains("'\\''"));
         // Attributes hold no calls.
         assert!(!b.contains("cfg"));
+    }
+
+    #[test]
+    fn rustdoc_path_link_targets_become_plain_text() {
+        assert_eq!(
+            strip_rustdoc_link_targets("see [`calcem`](Self::calcem) and [docs](https://x.org/a) or [p](page.html)."),
+            "see `calcem` and [docs](https://x.org/a) or [p](page.html)."
+        );
+        assert_eq!(strip_rustdoc_link_targets("[`a`](crate::m::a)"), "`a`");
     }
 }
