@@ -34,7 +34,7 @@ the range: six of its ten regimes return two classes. The port makes that
 impossible to ignore by putting it in the type. `StabilitySet` is either
 `One(class)` or `Two(class, class)`, never an empty or open-ended list
 ([lines 87–99](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/changi/src/puff/stability.rs#L87-L99)).
-Chapter 4 shows why that mattered: upstream itself mishandles the second
+[The puff-train page](./puff-train.md) shows why that mattered: upstream itself mishandles the second
 class, in two different ways.
 
 ## 2. Sigmas: empirical fits, used in kilometres
@@ -95,7 +95,7 @@ C = Q / ((2 pi)^{3/2} sigma_y^2 sigma_z)
 {{#include ../../../src/puff/concentration.rs:89:116}}
 ```
 
-Compare it with the plume from chapter 2:
+Compare it with [the plume](./plume.md):
 
 - **There is no wind speed in it.** A puff is a snapshot, so the wind enters
   only through where the puff is (`x_p, y_p`) and how far it has travelled
@@ -108,7 +108,7 @@ Compare it with the plume from chapter 2:
   represents spreading along the wind by the *spacing* of successive puffs,
   so giving each puff its own along-wind sigma as well would count it twice.
 - **`travel_distance` is not the puff-to-receptor distance.** It is how far
-  the puff has come from the source. That distinction is what chapter 4's
+  the puff has come from the source. That distinction is what [the puff-train page](./puff-train.md)'s
   wind-turning fix depends on.
 - **An unmoved puff reports zero.** The sigmas are undefined at zero
   distance, and upstream maps the resulting `NA` to `0`. The doc comment says

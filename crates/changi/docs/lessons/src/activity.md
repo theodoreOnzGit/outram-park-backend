@@ -11,7 +11,7 @@ and then follows the result through decay, deposition, and the end-to-end
 example. All of it is in `changi::activity`, which is **not a port**: it was
 written here, and has no upstream to compare against
 ([`activity/mod.rs`, lines 3–18](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/changi/src/activity/mod.rs#L3-L18)).
-Chapter 6 covers how it was checked anyway.
+[The V&V page](./vv-and-limits.md) covers how it was checked anyway.
 
 ## Step 1: run once, with unit mass
 
@@ -56,10 +56,12 @@ Two details in `dilution_factors` are worth reading:
 
 - **The mass is counted, not assumed.** It normalises by the mass each segment
   *actually* emitted. That stays correct even under upstream's mass-doubling
-  emission policy from chapter 4.
+  emission policy from [the puff-train page](./puff-train.md).
 - **An all-zero answer is an error.** A puff older than `puff_duration` simply
   stops existing. At 4 m/s and 1200 s that is 4.8 km, so a receptor at 10 km
-  would read exactly zero with no warning. The function computes the reach
+  would read ~~exactly zero~~ only the negligible Gaussian tail of the
+  oldest puffs (**CORRECTED 2026-10-04**: measured 1.06e-19 Bq·s/m³ at
+  8000 m in the example below, against 9.6e4 at 5000 m), with no warning. The function computes the reach
   and panics if *every* receptor lies beyond it
   ([lines 44–51](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/changi/src/activity/chi_over_q.rs#L44-L51)).
   A mixed set is allowed, so check
@@ -177,12 +179,16 @@ of the lesson
 - the near rows are low because the release is 30 m up;
 - 100 m is at the edge of the Pasquill–Gifford fit range;
 - an unmoved puff contributes nothing;
-- a receptor beyond the puff reach reads exactly zero.
+- a receptor beyond the puff reach reads ~~exactly zero~~ only a negligible
+  Gaussian tail (**CORRECTED 2026-10-04**, measured below).
 
 That last note applies to this example itself. The wind is Singapore's mean
 surface wind, 2 m/s, taken from `puff::climatology`, and puffs live 2500 s, so
 the reach is 2 × 2500 = 5000 m. The 8000 m receptor is beyond it, so its row
-should read zero. The comment on `PUFF_LIFETIME_S` said "at 4 m/s the reach is
+~~should read zero~~ reads only the Gaussian tail of the oldest puffs:
+**measured 2026-10-04**, 1.06e-19 Bq·s/m³ of Kr-88 against 9.59e4 at
+5000 m (`develop` `d4428668be`, one core). Not exactly zero, and not a real
+far-field value either. The comment on `PUFF_LIFETIME_S` said "at 4 m/s the reach is
 10 km", from when the example ran at 4 m/s, until it was corrected on 2026-10-03
 ([lines 45–66](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/changi/examples/site_activity_survey.rs#L45-L68)).
 Run the example and check the last row.

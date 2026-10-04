@@ -1,5 +1,8 @@
 # What has been checked, and what has not
 
+> **Review status:** AI-assisted first draft (2026-10-03; section 5 and the
+> open items updated 2026-10-04), not yet reviewed by a human.
+
 Two words, used strictly:
 
 - **Verification**: does the code compute what its specification says? For a
@@ -38,7 +41,7 @@ replacing `0.017453293` with `PI/180`, dropping the ground-reflection image,
 moving one stability band edge, and flipping the default emission policy
 ([lines 96–129](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/changi/docs/puff-code-to-code.md#L96-L129)).
 
-**What it found.** Five upstream defects (chapter 4), and three defects in the
+**What it found.** Five upstream defects ([puff train](./puff-train.md)), and three defects in the
 port itself, each caught by a fixture row rather than by inspection.
 
 **What it cannot find.** The fixture's wind is constant throughout. Defect 5,
@@ -90,7 +93,7 @@ could not see that, and the port now applies the same clip
 
 ## 3. `buangkok`'s plume against pyDOSEIA
 
-The plume of chapter 2 is checked the same way, against upstream pyDOSEIA
+The plume of [the plume page](./plume.md) is checked the same way, against upstream pyDOSEIA
 executed on synthetic inputs (2026-09-28). The `sigmay`, `sigmaz`, height
 factor, both master equations and the no-met dilution factors are **exact**,
 within a dataset of 1 899 cases and 43 groups, all passing
@@ -131,10 +134,26 @@ difference is kept as a measurement of the time-step error.
 
 **The two sigma sets, compared** (reported, not gated). `changi`'s
 Martin/ISC fits and pyDOSEIA's BARC/AERB fits give plumes that mostly agree to
-within 10 % over 0.1–10 km. The exceptions are class A beyond about 5 km
+within 10 % (up to about 30 % near the stack) over 0.1–10 km. The exceptions are class A beyond about 5 km
 (2.5–8×, from `changi`'s 5000 m cap) and stable classes close to an elevated
 stack (700× for class F at 120 m). **Choosing a sigma set is a modelling
 decision of that size.**
+
+## 5. Conservation checks added for the rung ladder (2026-10-04)
+
+Two analytic checks that could have failed, written for the core lessons,
+with methodology and results in each test's module doc:
+
+- **The plume carries the whole release through every crosswind plane**
+  (`crates/buangkok/tests/plume_mass_flux_conservation.rs`): `u` times the
+  integral of `chi/Q` over `y` and `z >= 0` must be 1. Classes A–F at 0.2, 1
+  and 5 km, criterion `1e-12` fixed before the run: **worst 3.9e-15**. Over
+  the whole line in `z` the kernel carries 2 (the image is present).
+- **One puff holds its mass** (`crates/changi/tests/puff_mass_conservation.rs`):
+  the kernel integrated over `z >= 0` must be `Q`. Same grid of cases,
+  criterion `1e-12`: **worst 2.4e-13**, larger than the predicted 1e-14; a
+  compensated-summation probe brought it to 2.2e-16, so it is summation
+  rounding, and the criterion was not moved.
 
 ## What remains open
 
@@ -145,8 +164,10 @@ decision of that size.**
 - **The `activity` layer's dry deposition is diagnostic and not depleting**,
   and it applies no wet scavenging. The deposition velocities are uncited
   placeholders.
-- **No plume rise, building wake, daughter ingrowth beyond two steps, or
-  iodine speciation.**
+- **No plume rise or building wake in any pathway**; the ported formulas are
+  unchecked against their cited sources, with an open downwash-term question
+  (gh:#542). **No daughter ingrowth beyond two steps, no iodine speciation.**
+- **No plume depletion and no wet deposition** in the chain (gh:#543).
 - **FLEXPART cannot yet read meteorology.** The GRIB/NetCDF readers and the
   file writers are not ported, so the verified kernels cannot be driven by
   real weather data.

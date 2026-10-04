@@ -68,8 +68,8 @@ Two things are worth noticing:
   up to 0.84 % (class E at 1000 m), and the port keeps the jumps
   ([lines 100–128](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/dispersion.rs#L100-L128)).
 
-These are **not** the sigmas `changi`'s puff model uses (next chapter). The
-two sets are compared in chapter 6.
+These are **not** the sigmas `changi`'s puff model uses ([the next page](./puff.md)). The
+two sets are compared on [the V&V page](./vv-and-limits.md) and in [rung 2](./rungs/02-sigmas.md).
 
 ### Short-term and long-term
 
@@ -91,7 +91,7 @@ API: [`master_equation_single_plume`](../../api/buangkok/pydoseia/dispersion/fn.
 The plume formula has no time in it. A real release has a start and an end,
 and the wind changes during it. That is what the puff model in the next two
 chapters is for. The plume earns its place as a **reference**: in the steady
-limit a train of puffs should reproduce it, and chapter 6 shows that it does,
+limit a train of puffs should reproduce it, and [the V&V page](./vv-and-limits.md) shows that it does,
 with a residual whose size was predicted before the comparison was run.
 
 ## Try it

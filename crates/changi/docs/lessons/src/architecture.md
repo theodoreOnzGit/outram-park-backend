@@ -29,7 +29,7 @@ and it computes **no dose** of any kind
 |---|---|---|---|---|
 | [`puff`](../../api/changi/puff/index.html) | Analytic Gaussian puff on one wind series | R package `puff` 0.1.1, commit `5213d58` (Hammerling Research Group) | MIT | The upstream R, executed |
 | [`flexpart`](../../api/changi/flexpart/index.html) | Kernels of a Lagrangian particle model on gridded meteorology | FLEXPART v10.4, commit `3d7eebf` (NILU) | GPL-3.0-or-later | The upstream Fortran, compiled twice |
-| [`activity`](../../api/changi/activity/index.html) | Dilution factors, decay, deposition, survey | **none**, written here | GPL-3.0 | An independent sum and `buangkok`'s plume (chapter 6) |
+| [`activity`](../../api/changi/activity/index.html) | Dilution factors, decay, deposition, survey | **none**, written here | GPL-3.0 | An independent sum and `buangkok`'s plume ([the V&V page](./vv-and-limits.md)) |
 
 ### Why the two ports are kept apart
 
@@ -78,7 +78,7 @@ plume dilution factors, from
 ([`buangkok/src/pydoseia/dispersion.rs`, lines 1–28](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/dispersion.rs#L1-L28)).
 Its sigma fits are a different set (BARC/AERB) from `changi`'s (Martin / US EPA
 ISC), so the two are **not interchangeable and not unified**. That turns out
-to be useful: chapter 6 uses the plume as an independent check on the puff
+to be useful: [the V&V page](./vv-and-limits.md) uses the plume as an independent check on the puff
 train.
 
 ## Where the numbers come from

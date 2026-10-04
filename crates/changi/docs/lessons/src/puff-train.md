@@ -3,7 +3,7 @@
 ## The problem
 
 A release lasts twenty minutes, and halfway through the wind swings from east
-to north. The steady plume of chapter 2 cannot represent either fact. A puff
+to north. The steady plume of [the plume page](./plume.md) cannot represent either fact. A puff
 model can: emit a puff every `puff_dt`, carry each one on the wind, and add up
 their contributions at the receptor
 ([`simulate.rs`, lines 7–20](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/changi/src/puff/simulate.rs#L7-L20)).
@@ -93,7 +93,7 @@ rather than relying on the agreement.
 
 ## Defects 2 and 3: the second stability class
 
-Chapter 3 showed that six of the ten Pasquill regimes return two classes.
+[The puff page](./puff.md) showed that six of the ten Pasquill regimes return two classes.
 Upstream mishandles that pair twice, in opposite directions
 ([`docs/puff-code-to-code.md`, lines 211–293](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/changi/docs/puff-code-to-code.md#L212-L294)):
 
@@ -152,4 +152,4 @@ separate:
    are its net displacement and its dispersion distance? Which `sigma` does
    each policy give it, and which is physically right?
 2. Why does `RunConfig` insist that `puff_dt` is an integer multiple of
-   `sim_dt`? (Hint: chapter 5 bins puffs by age.)
+   `sim_dt`? (Hint: [the activity page](./activity.md) bins puffs by age.)
