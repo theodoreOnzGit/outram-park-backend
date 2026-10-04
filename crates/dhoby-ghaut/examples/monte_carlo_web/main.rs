@@ -1,44 +1,62 @@
-//! **TRISO pebble** — a 2D analogue of an HTR-10 fuel pebble in a reflective
-//! cell, transporting ONE neutron at a time on real ENDF/B-VIII.0 data and
-//! drawing each neutron's track as it goes. Single-threaded; runs natively and
-//! in the browser (`web/triso_pebble/`).
+//! **The Monte Carlo demo** — one app, a rung of the tutorial ladder at a time
+//! (gh:#520, #521): `godiva`, a bare uranium sphere (Watch, and a true
+//! Run k_eff), and `triso`, a 2D analogue of an HTR-10 fuel pebble. Every
+//! neutron is transported by outram-mc-libs on real ENDF/B-VIII.0 data that
+//! the workspace's own NJOY port processes — in the browser, on the reader's
+//! machine. Single-threaded; runs natively and in the browser
+//! (`web/monte_carlo/`, published at `demos/monte-carlo/`).
 //!
 //! ```text
-//! cargo run -p dhoby-ghaut --example triso_pebble_web --release
-//! cargo run -p dhoby-ghaut --example triso_pebble_web --release -- --headless [n] [seed]
-//! cargo run -p dhoby-ghaut --example triso_pebble_web --release -- --render-geometry <dir>
-//! cargo run -p dhoby-ghaut --example triso_pebble_web --release -- --prepare-web-data <dir>
-//! cargo test -p dhoby-ghaut --example triso_pebble_web --release
+//! cargo run -p dhoby-ghaut --example monte_carlo_web --release [-- --rung godiva --mode run]
+//! cargo run -p dhoby-ghaut --example monte_carlo_web --release -- --headless [n] [seed]
+//! cargo run -p dhoby-ghaut --example monte_carlo_web --release -- --headless-godiva [n] [seed]
+//! cargo run -p dhoby-ghaut --example monte_carlo_web --release -- --headless-keff [n inactive active seed] [--loose]
+//! cargo run -p dhoby-ghaut --example monte_carlo_web --release -- --render-geometry <dir>
+//! cargo run -p dhoby-ghaut --example monte_carlo_web --release -- --prepare-web-data <dir>
+//! cargo test -p dhoby-ghaut --example monte_carlo_web --release
 //! ```
 //!
-//! - **Physics**: outram-mc-libs continuous-energy transport, unmodified — see
-//!   [`sim`]. Graphite carries the crystalline-graphite S(alpha,beta).
-//! - **Data**: ENDF/B-VIII.0 tapes from `reference-data/endf/`, processed by
-//!   the workspace's own NJOY port (RECONR + BROADR) — in the browser, on the
-//!   user's machine. At the `VeryFast` tier (tolerance 0.01), an approximation
-//!   chosen for this demo; see [`model::SPEED`].
-//! - **Geometry**: IAEA-TECDOC-1382 dimensions, with what the 2D reduction does
-//!   and does not preserve set out in [`model`].
+//! In the browser, `?rung=<name>&mode=<watch|run>` picks the rung and mode
+//! ([`rungs`] is the table). Until 2026-10-04 this was the TRISO-only
+//! `triso_pebble_web` example; its URL `demos/triso-pebble/` now redirects
+//! here with `?rung=triso`.
+//!
+//! - **Physics**: outram-mc-libs continuous-energy transport, unmodified. The
+//!   Godiva Run k_eff is its single-thread reference power iteration
+//!   (`PowerIteration`, which `run_keff` is), stepped one generation at a time.
+//! - **Data**: ENDF/B-VIII.0 tapes from `reference-data/endf/`, covariances
+//!   stripped, processed by the workspace's NJOY port (RECONR + BROADR). The
+//!   tier per rung and mode is in [`app`] (`tier_for`): Godiva Run k_eff at
+//!   NJOY's tolerance 0.001, so its `k` is comparable with the record; the
+//!   Watch modes at 0.01.
+//! - **Geometry**: TRISO from IAEA-TECDOC-1382 ([`triso::model`]); Godiva from
+//!   `outram_mc_libs::vv::godiva` ([`godiva::model`]).
 //!
 //! Education and research only, per the workspace `RESPONSIBLE_USE.md`. Not for
 //! reactor operation, licensing, or safety-critical decisions.
 
 #[cfg(not(target_os = "android"))]
+mod anim;
+#[cfg(not(target_os = "android"))]
 mod app;
 #[cfg(not(target_os = "android"))]
 mod engine;
 #[cfg(not(target_os = "android"))]
-mod model;
-#[cfg(all(not(target_os = "android"), not(target_arch = "wasm32")))]
-mod render;
+mod godiva;
 #[cfg(not(target_os = "android"))]
-mod sim;
+mod history;
+#[cfg(not(target_os = "android"))]
+mod rungs;
+#[cfg(not(target_os = "android"))]
+mod tapes;
+#[cfg(not(target_os = "android"))]
+mod triso;
 
 /// Android stub: windowing GUIs are out of scope on Termux (the workspace
 /// example rule — a blanked file gives "main function not found").
 #[cfg(target_os = "android")]
 fn main() {
-    eprintln!("triso_pebble_web is a windowing GUI and is not built for Android.");
+    eprintln!("monte_carlo_web is a windowing GUI and is not built for Android.");
 }
 
 /// Read a reference tape from `reference-data/endf/` and strip its covariances
@@ -48,66 +66,134 @@ fn native_tape(tape: &str) -> Result<Vec<u8>, String> {
     let path = njoy_outram_park_fork::reference_data::reference_endf(tape)
         .ok_or_else(|| format!("reference tape {tape} is not present"))?;
     let raw = std::fs::read(&path).map_err(|e| format!("{}: {e}", path.display()))?;
-    Ok(model::strip_covariances(&raw))
+    Ok(tapes::strip_covariances(&raw))
 }
 
-/// Process every tape, in order. `report` sees each job's label and seconds.
+/// Process a rung's tapes natively, in order. `report` sees each job's label
+/// and seconds.
 #[cfg(all(not(target_os = "android"), not(target_arch = "wasm32")))]
-fn load_native(mut report: impl FnMut(&str, f64)) -> Result<sim::Physics, String> {
-    let mut b = model::DataBuilder::default();
-    while let Some(job) = b.next_job() {
-        let t = std::time::Instant::now();
-        b.step(&native_tape(job.tape)?)?;
-        report(job.label, t.elapsed().as_secs_f64());
-    }
-    Ok(sim::Physics::new(b.finish()?))
+fn load_native(rung: rungs::Rung, tier: engine::Tier, mut report: impl FnMut(&str, f64)) -> Result<engine::Loaded, String> {
+    let jobs = engine::jobs(rung);
+    let mut post = |e: engine::Event| {
+        if let engine::Event::JobDone { index, secs, .. } = e {
+            report(jobs[index].0, secs);
+        }
+    };
+    engine::native_load(0, rung, tier, &mut post)
 }
 
 #[cfg(all(not(target_os = "android"), not(target_arch = "wasm32")))]
 fn main() -> Result<(), String> {
+    use engine::{Loaded, Tier};
+    use rungs::{Mode, Rung};
     let args: Vec<String> = std::env::args().skip(1).collect();
     let arg = |i: usize| args.get(i).map(String::as_str);
+    let num = |i: usize, d: u64| -> Result<u64, String> { arg(i).map_or(Ok(d), str::parse).map_err(|e| format!("argument {i}: {e}")) };
     let timing = |label: &str, s: f64| eprintln!("  {label:<16} {s:6.1} s");
     match arg(0) {
         Some("--headless") => {
-            let n = arg(1).map_or(Ok(200), str::parse).map_err(|e| format!("n: {e}"))?;
-            let seed = arg(2).map_or(Ok(1), str::parse).map_err(|e| format!("seed: {e}"))?;
-            eprintln!("Processing ENDF/B-VIII.0 (tier {:?}, {} K):", model::SPEED, model::TEMPERATURE_K);
-            let phys = load_native(timing)?;
-            print!("{}", sim::headless_csv(&phys, n, seed));
+            let (n, seed) = (num(1, 200)? as usize, num(2, 1)?);
+            eprintln!("Processing ENDF/B-VIII.0 (tier {:?}, {} K):", triso::model::SPEED, triso::model::TEMPERATURE_K);
+            let Loaded::Triso { phys, .. } = load_native(Rung::Triso, Tier::Loose, timing)? else { unreachable!() };
+            print!("{}", triso::sim::headless_csv(&phys, n, seed));
+            Ok(())
+        }
+        Some("--headless-godiva") => {
+            let (n, seed) = (num(1, 200)? as usize, num(2, 1)?);
+            let Loaded::Godiva { phys, .. } = load_native(Rung::Godiva, Tier::Loose, timing)? else { unreachable!() };
+            let mut chain = godiva::sim::Chain::new(seed);
+            println!("{}", history::CSV_HEADER);
+            for _ in 0..n {
+                println!("{}", history::csv_row(&chain.run_next(&phys)));
+            }
+            Ok(())
+        }
+        Some("--headless-keff") => {
+            let loose = args.iter().any(|a| a == "--loose");
+            let d = godiva::sim::KeffConfig::RUN_DEFAULT;
+            let cfg = godiva::sim::KeffConfig {
+                n_particles: num(1, d.n_particles as u64)? as usize,
+                n_inactive: num(2, d.n_inactive as u64)? as usize,
+                n_active: num(3, d.n_active as u64)? as usize,
+                seed: num(4, d.seed)?,
+                ..d
+            };
+            let tier = if loose { Tier::Loose } else { Tier::Exact };
+            eprintln!("Processing ENDF/B-VIII.0 for Godiva ({tier:?} tier, {} K):", godiva::model::TEMPERATURE_K);
+            let t0 = std::time::Instant::now();
+            let Loaded::Godiva { phys, .. } = load_native(Rung::Godiva, tier, timing)? else { unreachable!() };
+            eprintln!("  data ready in {:.1} s; {} neutrons x [{} + {}], seed {}", t0.elapsed().as_secs_f64(), cfg.n_particles, cfg.n_inactive, cfg.n_active, cfg.seed);
+            let t = std::time::Instant::now();
+            godiva::sim::headless_keff(&phys, cfg, |l| println!("{l}"));
+            eprintln!("  transport: {:.1} s (single thread)", t.elapsed().as_secs_f64());
+            Ok(())
+        }
+        Some("--xs-table") => {
+            // Godiva's macroscopic cross sections, split the way
+            // transport_history splits a collision, at a few energies: the
+            // numbers the lesson's reaction-choice picture uses.
+            let Loaded::Godiva { phys, .. } = load_native(Rung::Godiva, Tier::Exact, timing)? else { unreachable!() };
+            let (m, n) = (&phys.data.material, &phys.data.nuclides);
+            println!("E_eV,Sigma_t_per_cm,mfp_cm,fission,capture,inelastic_and_nxn,elastic");
+            for e in [1.0e4, 1.0e5, 5.0e5, 1.0e6, 2.0e6, 5.0e6] {
+                let (mut t, mut f, mut a, mut inel) = (0.0, 0.0, 0.0, 0.0);
+                for c in &m.components {
+                    let x = n[c.nuclide_idx].xs_at_energy(e, godiva::model::TEMPERATURE_K);
+                    t += c.atom_density * x.total;
+                    f += c.atom_density * x.fission;
+                    a += c.atom_density * x.absorption;
+                    inel += c.atom_density * (x.inelastic + x.n2n + x.n3n + x.mt5);
+                }
+                let el = t - a - inel;
+                println!("{e:e},{t:.5},{:.3},{:.4},{:.4},{:.4},{:.4}", 1.0 / t, f / t, (a - f) / t, inel / t, el / t);
+            }
             Ok(())
         }
         Some("--render-geometry") => {
-            let dir = arg(1).ok_or("--render-geometry needs an output directory")?;
-            render::render_all(std::path::Path::new(dir))
+            let dir = std::path::Path::new(arg(1).ok_or("--render-geometry needs an output directory")?);
+            triso::render::render_all(dir)?;
+            godiva::render::render_all(dir)
         }
         Some("--prepare-web-data") => {
             let dir = std::path::Path::new(arg(1).ok_or("--prepare-web-data needs an output directory")?);
             std::fs::create_dir_all(dir).map_err(|e| e.to_string())?;
             println!("{:<34} {:>10} {:>10} {:>10}", "tape", "raw MB", "stripped", "on wire");
             let (mut raw_t, mut wire_t) = (0usize, 0usize);
-            for job in model::JOBS {
-                let path = njoy_outram_park_fork::reference_data::reference_endf(job.tape)
-                    .ok_or_else(|| format!("missing {}", job.tape))?;
-                let raw = std::fs::read(&path).map_err(|e| e.to_string())?;
-                let stripped = model::strip_covariances(&raw);
-                let wire = model::compress(&stripped);
-                std::fs::write(dir.join(model::wire_name(job.tape)), &wire).map_err(|e| e.to_string())?;
-                let mb = |n: usize| n as f64 / 1.0e6;
-                println!("{:<34} {:>10.2} {:>10.2} {:>10.2}", job.tape, mb(raw.len()), mb(stripped.len()), mb(wire.len()));
-                raw_t += raw.len();
-                wire_t += wire.len();
+            let mut done: Vec<&str> = Vec::new();
+            for r in &rungs::RUNGS {
+                for (_, tape) in engine::jobs(r.rung) {
+                    if done.contains(&tape) {
+                        continue; // shared between rungs (U-235, U-238)
+                    }
+                    done.push(tape);
+                    let path = njoy_outram_park_fork::reference_data::reference_endf(tape).ok_or_else(|| format!("missing {tape}"))?;
+                    let raw = std::fs::read(&path).map_err(|e| e.to_string())?;
+                    let stripped = tapes::strip_covariances(&raw);
+                    let wire = tapes::compress(&stripped);
+                    std::fs::write(dir.join(tapes::wire_name(tape)), &wire).map_err(|e| e.to_string())?;
+                    let mb = |n: usize| n as f64 / 1.0e6;
+                    println!("{:<34} {:>10.2} {:>10.2} {:>10.2}", tape, mb(raw.len()), mb(stripped.len()), mb(wire.len()));
+                    raw_t += raw.len();
+                    wire_t += wire.len();
+                }
             }
             println!("total: {:.1} MB of tapes -> {:.1} MB downloaded", raw_t as f64 / 1e6, wire_t as f64 / 1e6);
             Ok(())
         }
-        Some(other) => Err(format!("unknown argument {other}")),
-        None => {
+        _ => {
+            // `--rung <name> --mode <watch|run>`, the native twin of the URL.
+            let mut query = Vec::new();
+            for w in args.windows(2) {
+                if let Some(k) = w[0].strip_prefix("--") {
+                    query.push((k.to_string(), w[1].clone()));
+                }
+            }
+            let (rung, mode): (Rung, Mode) = rungs::start(&query);
             let options = eframe::NativeOptions::default();
             eframe::run_native(
-                "TRISO pebble — one neutron at a time",
+                "Monte Carlo demo",
                 options,
-                Box::new(|cc| Ok(Box::new(app::TrisoApp::new(cc)))),
+                Box::new(move |cc| Ok(Box::new(app::McApp::new(cc, rung, mode)))),
             )
             .map_err(|e| e.to_string())
         }
@@ -115,7 +201,7 @@ fn main() -> Result<(), String> {
 }
 
 /// In the browser this module runs twice: on the page, where it starts the
-/// egui app, and in the physics Web Worker (`web/triso_pebble/worker.js`),
+/// egui app, and in the physics Web Worker (`web/monte_carlo/worker.js`),
 /// where there is no `window` and it runs [`engine::run_worker`] instead.
 #[cfg(target_arch = "wasm32")]
 fn main() {
@@ -130,15 +216,22 @@ fn main() {
         renderer: eframe::Renderer::Glow,
         ..Default::default()
     };
-    wasm_bindgen_futures::spawn_local(async {
+    let search = web_sys::window().and_then(|w| w.location().search().ok()).unwrap_or_default();
+    let query: Vec<(String, String)> = search
+        .trim_start_matches('?')
+        .split('&')
+        .filter_map(|kv| kv.split_once('=').map(|(k, v)| (k.to_string(), v.to_string())))
+        .collect();
+    let (rung, mode) = rungs::start(&query);
+    wasm_bindgen_futures::spawn_local(async move {
         let document = web_sys::window().expect("no window").document().expect("no document");
         let canvas = document
-            .get_element_by_id("triso_canvas")
-            .expect("no #triso_canvas")
+            .get_element_by_id("mc_canvas")
+            .expect("no #mc_canvas")
             .dyn_into::<web_sys::HtmlCanvasElement>()
-            .expect("#triso_canvas is not a canvas");
+            .expect("#mc_canvas is not a canvas");
         let started = eframe::WebRunner::new()
-            .start(canvas, web_options, Box::new(|cc| Ok(Box::new(app::TrisoApp::new(cc)))))
+            .start(canvas, web_options, Box::new(move |cc| Ok(Box::new(app::McApp::new(cc, rung, mode)))))
             .await;
         if let Some(el) = document.get_element_by_id("loading") {
             match started {
@@ -154,18 +247,33 @@ fn main() {
 #[cfg(all(test, not(target_os = "android"), not(target_arch = "wasm32")))]
 mod tests {
     use super::*;
+    use engine::{Loaded, Tier};
     use outram_mc_libs::geometry::cell::SurfaceToken;
     use outram_mc_libs::geometry::position::{Direction, Position};
     use outram_mc_libs::material::material::{Material, NuclideComponent};
+    use outram_mc_libs::physics::track_output::TrackEvent;
+    use rungs::Rung;
     use std::sync::OnceLock;
+    use triso::model;
 
     const FIXTURE: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/tests/fixtures/triso_pebble_web_headless.csv");
     const FIXTURE_N: usize = 40;
     const FIXTURE_SEED: u64 = 1;
 
-    fn physics() -> &'static sim::Physics {
-        static P: OnceLock<sim::Physics> = OnceLock::new();
-        P.get_or_init(|| load_native(|_, _| {}).expect("load nuclear data"))
+    fn physics() -> &'static triso::sim::Physics {
+        static P: OnceLock<triso::sim::Physics> = OnceLock::new();
+        P.get_or_init(|| match load_native(Rung::Triso, Tier::Loose, |_, _| {}).expect("load nuclear data") {
+            Loaded::Triso { phys, .. } => phys,
+            Loaded::Godiva { .. } => unreachable!(),
+        })
+    }
+
+    fn godiva_physics() -> &'static godiva::sim::Physics {
+        static P: OnceLock<godiva::sim::Physics> = OnceLock::new();
+        P.get_or_init(|| match load_native(Rung::Godiva, Tier::Loose, |_, _| {}).expect("load nuclear data") {
+            Loaded::Godiva { phys, .. } => phys,
+            Loaded::Triso { .. } => unreachable!(),
+        })
     }
 
     /// Covariance stripping must change nothing transport reads. Checked on
@@ -178,7 +286,7 @@ mod tests {
         for (label, tape) in [("O-16", "n-008_O_016-ENDF8.0.endf"), ("U-235", "n-092_U_235-ENDF8.0.endf")] {
             let path = njoy_outram_park_fork::reference_data::reference_endf(tape).expect("tape present");
             let raw = std::fs::read(path).unwrap();
-            let stripped = model::strip_covariances(&raw);
+            let stripped = tapes::strip_covariances(&raw);
             assert!(stripped.len() < raw.len() / 2, "{label}: stripping removed too little");
             let full = model::nuclide_from_bytes(&raw, label).unwrap();
             let thin = model::nuclide_from_bytes(&stripped, label).unwrap();
@@ -251,9 +359,23 @@ mod tests {
         assert!(at(1.01 * p, 0.0).is_none(), "outside the reflective cell is outside the geometry");
     }
 
+    /// The Godiva sphere as the solver sees it: HEU inside, no cell outside.
+    #[test]
+    fn the_godiva_geometry_is_one_uranium_sphere() {
+        let g = godiva::model::build_geometry();
+        let r = godiva::model::RADIUS_CM;
+        let dir = Direction::new(0.0, 0.0, 1.0);
+        let at = |x: f64, y: f64, z: f64| g.locate(Position::new(x, y, z), dir, SurfaceToken::NONE).map(|p| p.material);
+        for p in [(0.0, 0.0, 0.0), (0.99 * r, 0.0, 0.0), (0.0, -0.99 * r, 0.0), (0.5 * r, 0.5 * r, 0.5 * r)] {
+            assert_eq!(at(p.0, p.1, p.2), Some(Some(0)), "inside at {p:?}");
+        }
+        assert!(at(1.01 * r, 0.0, 0.0).is_none());
+        assert_eq!(r, outram_mc_libs::vv::godiva::RADIUS_CM);
+    }
+
     #[test]
     fn the_headless_run_is_deterministic() {
-        assert_eq!(sim::headless_csv(physics(), 12, 7), sim::headless_csv(physics(), 12, 7));
+        assert_eq!(triso::sim::headless_csv(physics(), 12, 7), triso::sim::headless_csv(physics(), 12, 7));
     }
 
     /// A harness check, NOT validation: every history must end in a physical
@@ -261,11 +383,11 @@ mod tests {
     #[test]
     fn every_history_ends_physically_inside_the_cell() {
         let phys = physics();
-        let mut chain = sim::Chain::new(3);
+        let mut chain = triso::sim::Chain::new(3);
         let p = model::half_pitch();
         for _ in 0..60 {
             let h = chain.run_next(phys);
-            assert!(matches!(sim::outcome_name(h.outcome), "fission" | "capture"), "history {}: {}", h.index, sim::outcome_name(h.outcome));
+            assert!(matches!(history::outcome_name(h.outcome), "fission" | "capture"), "history {}: {}", h.index, history::outcome_name(h.outcome));
             assert_eq!(h.track.dropped_states, 0, "history {} truncated", h.index);
             assert!(h.track.states.len() >= 2);
             for s in &h.track.states {
@@ -276,16 +398,58 @@ mod tests {
         }
     }
 
+    /// The same for Godiva, where leaking out is the commonest ending.
+    #[test]
+    fn every_godiva_history_leaks_or_is_absorbed_inside_the_sphere() {
+        let phys = godiva_physics();
+        let mut chain = godiva::sim::Chain::new(5);
+        let r = godiva::model::RADIUS_CM;
+        let mut leaks = 0;
+        for _ in 0..80 {
+            let h = chain.run_next(phys);
+            assert!(matches!(h.outcome, Some(TrackEvent::Leak | TrackEvent::Fission | TrackEvent::Absorption)), "history {}: {}", h.index, history::outcome_name(h.outcome));
+            leaks += (h.outcome == Some(TrackEvent::Leak)) as usize;
+            assert_eq!(h.track.dropped_states, 0);
+            for s in &h.track.states {
+                assert!((s.r.x * s.r.x + s.r.y * s.r.y + s.r.z * s.r.z).sqrt() <= r * (1.0 + 1e-9), "history {} outside", h.index);
+            }
+        }
+        assert!(leaks > 10, "a bare fast sphere leaks about half its neutrons; got {leaks} of 80");
+    }
+
+    /// The live k_eff run, at a tiny size: every generation's counts close
+    /// (leaked + captured + fissioned = followed), the console has one line
+    /// per generation, and a generation crosses the worker boundary bit for bit.
+    #[test]
+    fn the_godiva_keff_run_counts_close_and_crosses_the_worker_boundary() {
+        let phys = godiva_physics();
+        let cfg = godiva::sim::KeffConfig { n_particles: 200, n_inactive: 3, n_active: 4, seed: 9, point_source: true, want_sites: true };
+        let mut k = godiva::sim::Keff::new(cfg);
+        assert_eq!(k.initial_sites().len(), 200);
+        let mut n = 0;
+        while let Some(g) = k.step(phys) {
+            let c = g.report.counts;
+            assert_eq!(c.leaked + c.captured + c.fissions(), c.tracked);
+            assert!(c.tracked >= 200);
+            assert_eq!(engine::decode_generation(&engine::encode_generation(&g)).unwrap(), g);
+            n += 1;
+        }
+        assert_eq!(n, 7);
+        let mut lines = Vec::new();
+        godiva::sim::headless_keff(phys, cfg, |l| lines.push(l.to_string()));
+        assert_eq!(lines.iter().filter(|l| l.contains("/1 ")).count(), 7);
+    }
+
     /// What crosses from the physics worker to the page is a flattened
     /// history; it must come back bit for bit, or the browser would draw a
     /// different neutron from the one transported.
     #[test]
     fn a_history_crosses_the_worker_boundary_bit_for_bit() {
-        let mut chain = sim::Chain::new(11);
+        let mut chain = triso::sim::Chain::new(11);
         for _ in 0..8 {
             let h = chain.run_next(physics());
             let back = engine::decode_history(&engine::encode_history(&h)).expect("decode");
-            assert_eq!(sim::csv_row(&back), sim::csv_row(&h));
+            assert_eq!(history::csv_row(&back), history::csv_row(&h));
             assert_eq!(back.track.states.len(), h.track.states.len());
             for (a, b) in back.track.states.iter().zip(&h.track.states) {
                 assert_eq!(a, b, "history {}: a track state changed in transit", h.index);
@@ -298,17 +462,19 @@ mod tests {
     #[test]
     fn the_engine_thread_runs_the_headless_sequence() {
         let link = engine::start_native(|| {});
+        link.send(engine::Request::Load { id: 7, rung: Rung::Triso, tier: Tier::Loose });
         let deadline = std::time::Instant::now() + std::time::Duration::from_secs(900);
         let (mut ready, mut got) = (false, Vec::new());
         while got.len() < 5 {
             assert!(std::time::Instant::now() < deadline, "engine thread timed out");
             for e in link.drain() {
                 match e {
-                    engine::Event::Ready => {
+                    engine::Event::Ready { id } => {
+                        assert_eq!(id, 7);
                         ready = true;
                         link.send(engine::Request::Run { n: 5, animate: true });
                     }
-                    engine::Event::History { h, .. } => got.push(sim::csv_row(&h)),
+                    engine::Event::History { h, .. } => got.push(history::csv_row(&h)),
                     engine::Event::Error(m) => panic!("engine: {m}"),
                     _ => {}
                 }
@@ -317,17 +483,30 @@ mod tests {
         }
         assert!(ready);
         let want: Vec<String> =
-            sim::headless_csv(physics(), 5, engine::CHAIN_SEED).lines().skip(1).map(str::to_owned).collect();
+            triso::sim::headless_csv(physics(), 5, engine::CHAIN_SEED).lines().skip(1).map(str::to_owned).collect();
         assert_eq!(got, want);
     }
 
     #[test]
     fn the_headless_run_matches_the_committed_fixture() {
-        let got = sim::headless_csv(physics(), FIXTURE_N, FIXTURE_SEED);
+        let got = triso::sim::headless_csv(physics(), FIXTURE_N, FIXTURE_SEED);
         if std::env::var_os("TRISO_BLESS").is_some() {
             std::fs::write(FIXTURE, &got).unwrap();
         }
         let want = std::fs::read_to_string(FIXTURE).expect("fixture missing: rerun with TRISO_BLESS=1");
         assert_eq!(got, want, "headless trace differs from {FIXTURE}");
+    }
+
+    /// Every rung's lesson link is a page path, and the URL parser falls back
+    /// sensibly: no rung opens Godiva; a rung without Run ignores mode=run.
+    #[test]
+    fn the_rung_table_parses_urls() {
+        let q = |s: &[(&str, &str)]| s.iter().map(|(a, b)| (a.to_string(), b.to_string())).collect::<Vec<_>>();
+        assert_eq!(rungs::start(&q(&[])), (Rung::Godiva, rungs::Mode::Watch));
+        assert_eq!(rungs::start(&q(&[("rung", "godiva"), ("mode", "run")])), (Rung::Godiva, rungs::Mode::Run));
+        assert_eq!(rungs::start(&q(&[("rung", "triso"), ("mode", "run")])), (Rung::Triso, rungs::Mode::Watch));
+        for r in &rungs::RUNGS {
+            assert!(r.lesson.ends_with(".html") && !r.lesson.starts_with('/'));
+        }
     }
 }

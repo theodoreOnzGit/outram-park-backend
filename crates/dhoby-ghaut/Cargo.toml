@@ -70,7 +70,7 @@ path = "examples/mc_studio/main.rs"
 name = "mesh_studio"
 path = "examples/mesh_studio/main.rs"
 
-# Browser-side extras for the TRISO pebble demo. `glow` (WebGL2) is added
+# Browser-side extras for the Monte Carlo web demo. `glow` (WebGL2) is added
 # because WebGPU is still not universal; the app selects it at start-up.
 [target.'cfg(target_arch = "wasm32")'.dev-dependencies]
 eframe = { workspace = true, features = ["glow"] }
@@ -78,20 +78,22 @@ wasm-bindgen = { workspace = true }
 wasm-bindgen-futures = { workspace = true }
 js-sys = { workspace = true }
 web-sys = { workspace = true, features = [
-    "Window", "Document", "Element", "HtmlCanvasElement", "Response", "Location",
+    "Window", "Document", "Element", "HtmlCanvasElement", "Response", "Location", "History",
     # The physics Web Worker that keeps the page live while ENDF data process.
     "Worker", "WorkerOptions", "WorkerType", "WorkerGlobalScope",
     "DedicatedWorkerGlobalScope", "MessageEvent", "ErrorEvent", "console",
 ] }
 
-# TRISO pebble -- a 2D analogue of an HTR-10 fuel pebble in a reflective cell,
-# transporting ONE neutron at a time on real ENDF/B-VIII.0 data and drawing its
-# track. Runs natively and, single-threaded, in the browser (web/triso_pebble/).
+# The Monte Carlo demo -- one app, a rung of the tutorial ladder at a time
+# (gh:#520/#521): `godiva` (a bare HEU sphere: Watch, and a live Run k_eff) and
+# `triso` (a 2D HTR-10 fuel pebble). Real ENDF/B-VIII.0 data, outram-mc-libs
+# transport. Runs natively and, single-threaded, in the browser
+# (web/monte_carlo/). Was `triso_pebble_web` until 2026-10-04.
 #
-#   cargo run -p dhoby-ghaut --example triso_pebble_web --release
-#   cargo run -p dhoby-ghaut --example triso_pebble_web --release -- --headless
+#   cargo run -p dhoby-ghaut --example monte_carlo_web --release [-- --rung godiva --mode run]
+#   cargo run -p dhoby-ghaut --example monte_carlo_web --release -- --headless-keff
 #
 # Carries an Android stub `main`, as mc_studio does.
 [[example]]
-name = "triso_pebble_web"
-path = "examples/triso_pebble_web/main.rs"
+name = "monte_carlo_web"
+path = "examples/monte_carlo_web/main.rs"

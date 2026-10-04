@@ -26,14 +26,15 @@ deck-driven steam-methane-reforming CSTR, is merged.
 
 **The library is a placeholder.** Its only public item is the `EXPANSION`
 constant, and it has no `[dependencies]`. Everything here is an **example**:
-the two studios, moved here from `outram-blender` on 2026-09-17, and the TRISO
-pebble demo, added 2026-10-03:
+the two studios, moved here from `outram-blender` on 2026-09-17, and the Monte
+Carlo web demo (the TRISO pebble demo of 2026-10-03, made multi-rung on
+2026-10-04):
 
 | Example | What it does |
 |---|---|
 | `mc_studio` | Author a geometry, set a material and run settings, run a basic `outram-mc` k-eigenvalue calculation through `nee_soon::sim` (~~`outram_blender::sim`~~, moved 2026-10-02, #486), and read `k_eff ± σ` with the per-generation plot |
 | `mesh_studio` | Author a surface in `outram-blender`, volume-mesh it through `outram-park-fork-cfmesh`'s tet → dual → boundary-layer pipeline, show the mesh statistics, and export an OpenFOAM `polyMesh` |
-| `triso_pebble_web` | Transport **one neutron at a time** through a 2D analogue of an HTR-10 fuel pebble on real ENDF/B-VIII.0 data, and draw each track as it flies. Single-threaded; also runs **in the browser** — see [below](#the-triso-pebble-in-the-browser) |
+| `monte_carlo_web` (~~`triso_pebble_web`~~, renamed 2026-10-04) | **One demo, a rung of the Monte Carlo tutorial at a time** (gh:#520, #521): `godiva`, a bare uranium sphere, with a Watch mode and a true **Run k_eff** mode (a live power iteration with an `openmc.run()`-style console), and `triso`, one neutron at a time through a 2D HTR-10 pebble. Real ENDF/B-VIII.0 data; single-threaded; also runs **in the browser** — see [below](#the-monte-carlo-demo-in-the-browser) |
 
 ```bash
 cargo run -p dhoby-ghaut --example mc_studio --release
@@ -42,7 +43,8 @@ cargo run -p dhoby-ghaut --example mesh_studio --release
 
 Each example has a `--headless` mode that prints CSV with no window, checked by
 `#[test]`s against a committed fixture under `tests/fixtures/` (four per
-studio, six for the pebble):
+studio; the web demo's tests cover both rungs, and the TRISO trace is pinned
+by `tests/fixtures/triso_pebble_web_headless.csv`):
 
 ```bash
 cargo run  -p dhoby-ghaut --example mc_studio --release -- --headless
@@ -67,13 +69,29 @@ Monte Carlo bridge moved to `nee_soon` (`nee_soon::sim`,
 `nee_soon::blender_bridge`), ungated. The volume-meshing bridge stays in
 `outram-blender` (`src/foam_mesh.rs`, feature `foam-mesh`).
 
-## The TRISO pebble, in the browser
+## The Monte Carlo demo, in the browser
 
-**Live:** <https://theodoreonzgit.github.io/outram-park-backend/demos/triso-pebble/>
-(published by the backend Pages site on every push to `develop`; its geometry
-images are at `demos/triso-pebble/geometry/`).
+**Live:** <https://theodoreonzgit.github.io/outram-park-backend/demos/monte-carlo/>
+(published by the backend Pages site on every push to `develop`; geometry
+images at `demos/monte-carlo/geometry/`). `?rung=godiva&mode=run` opens the
+Godiva Run k_eff; `?rung=triso` the pebble. The old
+`demos/triso-pebble/` URL redirects to `?rung=triso`. The rung table, and the
+lesson page each rung links to, is `examples/monte_carlo_web/rungs.rs`.
 
-`examples/triso_pebble_web/` puts a pebble on screen and sends neutrons into it
+**Godiva (rung 1, gh:#521).** ICSBEP HEU-MET-FAST-001 from
+`outram_mc_libs::vv::godiva`, the model of the recorded result. *Watch* shows
+real histories one at a time (illustration) and then whole generations of the
+real power iteration, started from a point at the centre, with the source
+entropy rising and flattening. *Run k_eff* runs outram-mc-libs'
+`PowerIteration` (the `run_keff` reference backend, one generation at a time)
+at the record's settings, printing one console line per generation, plotting
+`k` and the running mean, counting leaked / captured / fissioned neutrons, and
+comparing the result with the experiment and the record. It processes ENDF at
+NJOY's tolerance 0.001 so the `k` is comparable. Natively (i9-13900K, one
+thread, 2026-10-04) the data took 62 s and the 800 000 histories 2.9 s, giving
+k = 0.99942 ± 0.00183 (seed 1).
+
+**TRISO pebble.** `examples/monte_carlo_web/triso/` puts a pebble on screen and sends neutrons into it
 **one at a time**, drawing each track coloured by energy as the neutron slows
 down in the graphite, until it is captured or causes a fission. Start and stop
 it, step one neutron, zoom in until the five TRISO coating layers are visible.
@@ -104,18 +122,59 @@ it, step one neutron, zoom in until the five TRISO coating layers are visible.
   the core's 0.61 filling fraction. Rods self-shield differently from spheres,
   so read it as a picture of how neutrons move, not as a model of the reactor.
 
+- **Animation speed follows the neutron's real speed** (classical kinetic
+  energy, v ∝ √E). The slider is the speed at 1 eV on every rung; the default
+  is 7 cm/s at 1 eV for thermal rungs and 0.007 cm/s at 1 eV (= 7 cm/s at
+  1 MeV) for fast ones.
+
 ```bash
-cargo run -p dhoby-ghaut --example triso_pebble_web --release                  # native window
-cargo run -p dhoby-ghaut --example triso_pebble_web --release -- --headless 40 # CSV, one row per neutron
-crates/dhoby-ghaut/web/triso_pebble/build.sh                                   # browser build -> dist/
-python3 -m http.server -d crates/dhoby-ghaut/web/triso_pebble/dist 8000
+cargo run -p dhoby-ghaut --example monte_carlo_web --release                        # native window (Godiva Watch)
+cargo run -p dhoby-ghaut --example monte_carlo_web --release -- --rung triso        # the pebble
+cargo run -p dhoby-ghaut --example monte_carlo_web --release -- --headless 40       # TRISO CSV, one row per neutron
+cargo run -p dhoby-ghaut --example monte_carlo_web --release -- --headless-keff     # Godiva Run k_eff, as a console
+crates/dhoby-ghaut/web/monte_carlo/build.sh                                         # browser build -> dist/
+python3 -m http.server -d crates/dhoby-ghaut/web/monte_carlo/dist 8000
 ```
+
+### Adding a rung (and its lesson page)
+
+1. **The table.** Add a variant to `rungs::Rung` and a row to `rungs::RUNGS`
+   (`examples/monte_carlo_web/rungs.rs`): its URL `name`, `title`, `lesson`
+   page (site-relative), `spectrum` (sets the animation-speed default) and
+   whether it has a Run k_eff mode. Keep `name:` and `lesson:` on one line
+   each: `scripts/build-pages.sh` reads them and fails the site build if the
+   lesson page is missing or a page links to a rung the table lacks.
+2. **The physics.** Add `examples/monte_carlo_web/<rung>/` with `model.rs`
+   (its tapes as `JOBS`, a `DataBuilder`, the geometry) and `sim.rs` (a
+   `Chain` producing `history::History` from `run_fixed_source_traced`, as
+   `godiva/sim.rs` does; a power iteration if it has Run mode), and
+   `render.rs` for the geometry review images (the drawing rule).
+3. **The engine.** Extend `engine::jobs`, `engine::effective_tier`,
+   `engine::Builder` and `engine::Loaded` (and the arms of `Loaded::serve`)
+   with the variant. The worker, its message format and the UI's
+   loading/progress need no change.
+4. **The app.** In `app.rs`: `half_extent` (what Reset fits), the picture in
+   `McApp::canvas`, `job_weights` (progress-bar weights), and the rung's
+   "What this is — and is not" notes. The panel, + / − / Reset, speed slider,
+   loading card and Run console are shared.
+5. **The page.** Add `crates/outram-mc-libs/docs/tutorial/src/<rung>.md`, list it
+   in that book's `SUMMARY.md`, and add it to the "every page must exist" list
+   in `scripts/build-pages.sh`. Link the demo as
+   `../../demos/monte-carlo/?rung=<name>&mode=watch`.
+
+A different **track** (nuclear data, dispersion, …) reuses the same pieces
+without the rung table's physics: the worker/thread `engine` pattern (`Link`,
+the `hello` handshake, per-step messages so the UI never blocks), the
+mobile-first `View` / panel / buttons of `app.rs`, `web/monte_carlo/build.sh`
+for the wasm build, and the tutorial book layout under
+`docs/site/tutorials.txt`.
 
 **Geometry review images** (the crate's drawing rule), rendered from the
 assembled geometry with the OpenMC-parity plotter, are committed under
-[`examples/triso_pebble_web/geometry/`](examples/triso_pebble_web/geometry/):
-the whole cell, a quadrant, one particle, and two axial slices. Regenerate them
-with `-- --render-geometry <dir>` whenever the geometry changes.
+[`examples/monte_carlo_web/geometry/`](examples/monte_carlo_web/geometry/):
+the whole TRISO cell, a quadrant, one particle, two axial slices, and the
+Godiva sphere in x-y and x-z. Regenerate them with `-- --render-geometry <dir>`
+whenever the geometry changes.
 
 ## Bookkeeping status
 

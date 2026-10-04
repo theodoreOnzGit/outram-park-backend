@@ -53,4 +53,5 @@ Every demo here follows
 [`docs/claude-md/mobile-first-tutorials-and-demos.md`](../../docs/claude-md/mobile-first-tutorials-and-demos.md):
 a full-page main view with on-screen zoom in, zoom out and reset buttons, and a
 collapsible side panel holding every control, folded by default on a narrow
-screen. `examples/triso_pebble_web/` is the reference implementation.
+screen. `examples/monte_carlo_web/` (~~`examples/triso_pebble_web/`~~, renamed
+2026-10-04) is the reference implementation.

@@ -9,7 +9,7 @@
 //! lists `OUTSIDE MODEL` only if some pixel finds no cell; inside the
 //! reflective cell, it must not.
 
-use crate::model;
+use super::model;
 use outram_mc_libs::geometry::plot::{render_material_slice, PlotBasis, Rgb, SlicePlot};
 use outram_mc_libs::geometry::position::Position;
 use std::path::Path;

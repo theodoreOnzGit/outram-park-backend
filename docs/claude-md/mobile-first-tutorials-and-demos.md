@@ -46,9 +46,10 @@ and a wide screen is a defect, not a missing nicety.
 6. **Status the reader needs** (loading progress, errors) is drawn on the main
    view, so it shows with the panel folded.
 
-**Reference implementation:** `crates/dhoby-ghaut/examples/triso_pebble_web/app.rs`
-(`View::zoom_about`, `View::fit`, `TrisoApp::canvas`, and the panel folding in
-`TrisoApp::ui`). Reuse it rather than writing a second version.
+**Reference implementation:** `crates/dhoby-ghaut/examples/monte_carlo_web/app.rs`
+(~~`examples/triso_pebble_web/app.rs`~~, renamed 2026-10-04)
+(`View::zoom_about`, `View::fit`, `McApp::canvas`, and the panel folding in
+`McApp::ui`). Reuse it rather than writing a second version.
 
 ## No lagging: computation runs in the background (HARD RULE)
 

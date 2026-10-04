@@ -20,15 +20,13 @@
 // does not call them.
 #![cfg_attr(target_arch = "wasm32", allow(dead_code))]
 
-use crate::model::{self, NuclearData, N_U235};
+use super::model::{self, NuclearData, N_U235};
+use crate::history::{csv_row, History, CSV_HEADER};
 use outram_mc_libs::geometry::geometry::Geometry;
 use outram_mc_libs::geometry::position::Position;
 use outram_mc_libs::physics::fixed_source::{run_fixed_source_traced, FixedSource, FixedSourceSettings};
-use outram_mc_libs::physics::track_output::{Track, TrackEvent, TrackRecorder};
+use outram_mc_libs::physics::track_output::{TrackEvent, TrackRecorder};
 
-/// The conventional thermal / epithermal boundary (the cadmium cut-off), eV.
-/// Used only to count "thermalised" histories.
-pub const THERMAL_CUTOFF_EV: f64 = 0.625;
 /// Incident energy for a fresh chain's birth spectrum: thermal fission, eV.
 const FRESH_INCIDENT_EV: f64 = 0.0253;
 /// A thermal neutron in graphite scatters hundreds of times; cap states far
@@ -46,30 +44,6 @@ impl Physics {
         let centres = model::particle_centres(model::LAYOUT_SEED);
         let geometry = model::build_geometry(&centres);
         Self { geometry, data, centres }
-    }
-}
-
-/// One finished history and the numbers derived from its track.
-#[derive(Clone)]
-pub struct History {
-    pub index: u64,
-    pub birth: Position,
-    pub birth_energy_ev: f64,
-    pub track: Track,
-    pub outcome: Option<TrackEvent>,
-    pub scatters: usize,
-    pub crossings: usize,
-    pub path_cm: f64,
-    pub time_of_flight_s: f64,
-    pub final_energy_ev: f64,
-    pub min_energy_ev: f64,
-    /// Whether this neutron was born at the previous neutron's fission site.
-    pub from_fission: bool,
-}
-
-impl History {
-    pub fn thermalised(&self) -> bool {
-        self.min_energy_ev < THERMAL_CUTOFF_EV
     }
 }
 
@@ -116,24 +90,7 @@ impl Chain {
             None,
         );
         let track = recorder.tracks.into_iter().next().unwrap_or_default();
-
-        let outcome = track.outcome();
-        let count = |ev: TrackEvent| track.states.iter().filter(|s| s.event == ev).count();
-        let last = track.states.last();
-        let h = History {
-            index: self.next_index,
-            birth,
-            birth_energy_ev,
-            outcome,
-            scatters: count(TrackEvent::Scatter),
-            crossings: count(TrackEvent::SurfaceCrossing),
-            path_cm: track.path_length().unwrap_or(0.0),
-            time_of_flight_s: last.map_or(0.0, |s| s.time),
-            final_energy_ev: last.map_or(f64::NAN, |s| s.energy),
-            min_energy_ev: track.states.iter().map(|s| s.energy).fold(f64::INFINITY, f64::min),
-            from_fission,
-            track,
-        };
+        let h = History::from_track(self.next_index, birth, birth_energy_ev, from_fission, track);
         self.next_index += 1;
         if h.outcome == Some(TrackEvent::Fission) {
             if let Some(s) = h.track.states.last() {
@@ -153,57 +110,7 @@ impl Chain {
     }
 }
 
-/// Running totals over every history shown.
-#[derive(Default, Clone)]
-pub struct Stats {
-    pub histories: u64,
-    pub fissions: u64,
-    pub captures: u64,
-    pub other: u64,
-    pub thermalised: u64,
-    pub scatters: u64,
-    pub path_cm: f64,
-}
-
-impl Stats {
-    pub fn add(&mut self, h: &History) {
-        self.histories += 1;
-        match h.outcome {
-            Some(TrackEvent::Fission) => self.fissions += 1,
-            Some(TrackEvent::Absorption) => self.captures += 1,
-            _ => self.other += 1,
-        }
-        self.thermalised += h.thermalised() as u64;
-        self.scatters += h.scatters as u64;
-        self.path_cm += h.path_cm;
-    }
-}
-
-pub fn outcome_name(o: Option<TrackEvent>) -> &'static str {
-    match o {
-        Some(TrackEvent::Fission) => "fission",
-        Some(TrackEvent::Absorption) => "capture",
-        Some(TrackEvent::Leak) => "leak",
-        Some(TrackEvent::Lost) => "lost",
-        Some(TrackEvent::Rouletted) => "rouletted",
-        Some(TrackEvent::Born) | Some(TrackEvent::SurfaceCrossing) | Some(TrackEvent::Scatter) => "unterminated",
-        None => "empty",
-    }
-}
-
 // ─── Headless (workspace hard rule) ──────────────────────────────────────────
-
-pub const CSV_HEADER: &str = "history,from_fission,birth_x_cm,birth_y_cm,birth_energy_eV,outcome,\
-scatters,crossings,path_cm,time_of_flight_s,final_energy_eV,min_energy_eV,states,dropped_states";
-
-pub fn csv_row(h: &History) -> String {
-    format!(
-        "{},{},{:.6e},{:.6e},{:.6e},{},{},{},{:.6e},{:.6e},{:.6e},{:.6e},{},{}",
-        h.index, h.from_fission as u8, h.birth.x, h.birth.y, h.birth_energy_ev,
-        outcome_name(h.outcome), h.scatters, h.crossings, h.path_cm, h.time_of_flight_s,
-        h.final_energy_ev, h.min_energy_ev, h.track.states.len(), h.track.dropped_states,
-    )
-}
 
 /// The whole headless trace: header plus one row per history. Deterministic —
 /// no clock, no I/O — so the same `(n, seed)` always gives the same bytes.

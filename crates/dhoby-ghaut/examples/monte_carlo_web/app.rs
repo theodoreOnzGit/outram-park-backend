@@ -1,14 +1,24 @@
-//! The egui front end: loading screen, the pebble, and the animated track.
+//! The egui front end: one app, a rung at a time (see [`crate::rungs`]).
 //!
-//! The UI never does physics: [`crate::engine`] runs the ENDF processing and
-//! the neutrons on a thread (natively) or in a Web Worker (in the browser),
-//! and this file only draws what it reports. So the page keeps animating —
-//! progress bar, elapsed time, the pebble — while a nuclide is processed.
+//! The UI never does physics: [`crate::engine`] runs the ENDF processing, the
+//! neutrons and the power iteration on a thread (natively) or in a Web Worker
+//! (in the browser), and this file only draws what it reports. So the page
+//! keeps animating — progress bar, elapsed time, the picture — while a
+//! nuclide is processed or a generation runs.
+//!
+//! Layout follows the workspace's mobile-first rule
+//! (`docs/claude-md/mobile-first-tutorials-and-demos.md`): the main view fills
+//! the page, with + / − / Reset always on it, and every control is in a side
+//! panel that opens folded on a narrow screen.
 
-use crate::engine::{self, Event, Link, Request};
-use crate::model::{self, JOBS};
-use crate::sim::{self, History, Stats};
-use egui::{Color32, Pos2, Rect, Sense, Stroke, StrokeKind, Vec2};
+use crate::anim::{self, animated_speed, draw_track, energy_colour, fmt_energy, fmt_speed, fmt_time, Anim};
+use crate::engine::{self, Event, Link, Request, Tier};
+use crate::godiva::sim::{self as gsim, Generation, KeffConfig};
+use crate::history::{outcome_name, History, Stats};
+use crate::rungs::{Mode, Rung, RUNGS};
+use crate::triso::model as tmodel;
+use egui::{Color32, Pos2, Rect, RichText, Sense, Stroke, StrokeKind, Vec2};
+use outram_mc_libs::physics::keff::{GenerationReport, HistoryCounts};
 use outram_mc_libs::physics::track_output::TrackEvent;
 use std::collections::VecDeque;
 
@@ -38,8 +48,20 @@ fn set_title(ctx: &egui::Context, title: &str) {
     ctx.send_viewport_cmd(egui::ViewportCommand::Title(title.to_owned()));
 }
 
-/// `?autostart` in the page URL (or `TRISO_AUTOSTART` natively) starts the
-/// run as soon as the data are ready — for unattended browser tests.
+/// Keep the page URL in step with the rung and mode, so it can be shared.
+fn set_url(rung: Rung, mode: Mode) {
+    #[cfg(target_arch = "wasm32")]
+    if let Some(h) = web_sys::window().and_then(|w| w.history().ok()) {
+        let q = format!("?rung={}&mode={}", rung.info().name, mode.name());
+        let _ = h.replace_state_with_url(&wasm_bindgen::JsValue::NULL, "", Some(&q));
+    }
+    #[cfg(not(target_arch = "wasm32"))]
+    let _ = (rung, mode);
+}
+
+/// `?autostart` in the page URL (or `MC_AUTOSTART` natively) starts the
+/// animation, or the k_eff run, as soon as the data are ready — for
+/// unattended browser tests.
 fn autostart() -> bool {
     #[cfg(target_arch = "wasm32")]
     {
@@ -47,13 +69,15 @@ fn autostart() -> bool {
     }
     #[cfg(not(target_arch = "wasm32"))]
     {
-        std::env::var_os("TRISO_AUTOSTART").is_some()
+        std::env::var_os("MC_AUTOSTART").is_some()
     }
 }
 
 // ─── Colours ─────────────────────────────────────────────────────────────────
 
+const BG: Color32 = Color32::from_rgb(14, 16, 20);
 const HELIUM: Color32 = Color32::from_rgb(24, 28, 36);
+const URANIUM: Color32 = Color32::from_rgb(70, 64, 58);
 const MATERIAL_COLOURS: [Color32; 7] = [
     Color32::from_rgb(214, 120, 46),  // UO2 kernel
     Color32::from_rgb(58, 58, 62),    // buffer
@@ -63,43 +87,8 @@ const MATERIAL_COLOURS: [Color32; 7] = [
     Color32::from_rgb(92, 94, 98),    // matrix graphite
     Color32::from_rgb(74, 76, 80),    // shell graphite
 ];
-
-/// Energy colour scale: 1e-3 eV (blue) to 2e7 eV (red), logarithmic.
-const E_LO_LOG: f64 = -3.0;
-const E_HI_LOG: f64 = 7.3;
-
-fn energy_colour(e_ev: f64, alpha: u8) -> Color32 {
-    const STOPS: [(f64, [u8; 3]); 6] = [
-        (0.00, [60, 100, 255]),
-        (0.25, [40, 200, 235]),
-        (0.45, [90, 215, 100]),
-        (0.65, [240, 215, 50]),
-        (0.82, [250, 140, 40]),
-        (1.00, [235, 50, 45]),
-    ];
-    let t = ((e_ev.max(1e-12).log10() - E_LO_LOG) / (E_HI_LOG - E_LO_LOG)).clamp(0.0, 1.0);
-    let k = STOPS.iter().position(|s| s.0 >= t).unwrap_or(STOPS.len() - 1).max(1);
-    let (a, b) = (STOPS[k - 1], STOPS[k]);
-    let f = ((t - a.0) / (b.0 - a.0)).clamp(0.0, 1.0);
-    let mix = |i: usize| (a.1[i] as f64 + f * (b.1[i] as f64 - a.1[i] as f64)).round() as u8;
-    Color32::from_rgba_unmultiplied(mix(0), mix(1), mix(2), alpha)
-}
-
-fn fmt_time(t_s: f64) -> String {
-    match t_s {
-        t if t >= 1e-3 => format!("{:.3} ms", t * 1e3),
-        t if t >= 1e-6 => format!("{:.2} µs", t * 1e6),
-        t => format!("{:.1} ns", t * 1e9),
-    }
-}
-
-fn fmt_energy(e: f64) -> String {
-    match e {
-        e if e >= 1e6 => format!("{:.3} MeV", e / 1e6),
-        e if e >= 1e3 => format!("{:.3} keV", e / 1e3),
-        e => format!("{:.4} eV", e),
-    }
-}
+const K_COLOUR: Color32 = Color32::from_rgb(120, 170, 255);
+const MEAN_COLOUR: Color32 = Color32::from_rgb(255, 200, 80);
 
 // ─── View transform ──────────────────────────────────────────────────────────
 
@@ -109,18 +98,22 @@ struct View {
     centre: [f64; 2],
     /// Pixels per cm.
     scale: f64,
+    /// Half-width of the subject, cm: what Reset fits to the screen.
+    half_extent: f64,
     /// Fitted to the canvas yet?
     fitted: bool,
 }
 
 impl View {
-    fn new() -> Self {
-        Self { centre: [0.0, 0.0], scale: 1.0, fitted: false }
+    fn new(half_extent: f64) -> Self {
+        Self { centre: [0.0, 0.0], scale: 1.0, half_extent, fitted: false }
+    }
+    fn fit_scale(&self, rect: Rect) -> f64 {
+        (rect.width().min(rect.height()) as f64) * 0.94 / (2.0 * self.half_extent)
     }
     fn fit(&mut self, rect: Rect) {
-        let p = model::half_pitch();
         self.centre = [0.0, 0.0];
-        self.scale = (rect.width().min(rect.height()) as f64) * 0.94 / (2.0 * p);
+        self.scale = self.fit_scale(rect);
         self.fitted = true;
     }
     fn to_screen(&self, rect: Rect, x: f64, y: f64) -> Pos2 {
@@ -133,7 +126,7 @@ impl View {
     /// Multiply the zoom by `factor`, keeping the world point under `p` fixed.
     fn zoom_about(&mut self, rect: Rect, p: Pos2, factor: f64) {
         let before = self.to_world(rect, p);
-        let fit = (rect.width().min(rect.height()) as f64) * 0.94 / (2.0 * model::half_pitch());
+        let fit = self.fit_scale(rect);
         self.scale = (self.scale * factor).clamp(fit * 0.5, fit * 600.0);
         let after = self.to_world(rect, p);
         self.centre[0] += before[0] - after[0];
@@ -148,27 +141,31 @@ impl View {
     }
 }
 
-/// Draw the cell from the same particle centres the geometry was built from.
-///
-/// This is the interactive view. The geometry REVIEW images required by the
-/// crate's drawing rule are rendered separately, from the assembled geometry,
-/// by `--render-geometry` (see `render.rs`).
-fn draw_cell(painter: &egui::Painter, rect: Rect, view: &View, centres: &[(f64, f64)]) {
-    painter.rect_filled(rect, 0.0, Color32::from_rgb(14, 16, 20));
-    let p = model::half_pitch();
+fn half_extent(rung: Rung) -> f64 {
+    match rung {
+        Rung::Triso => tmodel::half_pitch(),
+        Rung::Godiva => crate::godiva::model::RADIUS_CM,
+    }
+}
+
+/// Draw the TRISO cell from the same particle centres the geometry was built
+/// from. (The geometry REVIEW images required by the crate's drawing rule are
+/// rendered separately, from the assembled geometry, by `--render-geometry`.)
+fn draw_triso(painter: &egui::Painter, rect: Rect, view: &View, centres: &[(f64, f64)]) {
+    let p = tmodel::half_pitch();
     let (a, b) = (view.to_screen(rect, -p, p), view.to_screen(rect, p, -p));
     let cell = Rect::from_two_pos(a, b);
     painter.rect_filled(cell, 0.0, HELIUM);
     let s = view.scale as f32;
     let o = view.to_screen(rect, 0.0, 0.0);
-    painter.circle_filled(o, model::PEBBLE_R as f32 * s, MATERIAL_COLOURS[model::MAT_SHELL]);
-    painter.circle_filled(o, model::FUEL_ZONE_R as f32 * s, MATERIAL_COLOURS[model::MAT_MATRIX]);
+    painter.circle_filled(o, tmodel::PEBBLE_R as f32 * s, MATERIAL_COLOURS[tmodel::MAT_SHELL]);
+    painter.circle_filled(o, tmodel::FUEL_ZONE_R as f32 * s, MATERIAL_COLOURS[tmodel::MAT_MATRIX]);
     let radii = [
-        (model::particle_r(), model::MAT_OPYC),
-        (model::sic_r(), model::MAT_SIC),
-        (model::ipyc_r(), model::MAT_IPYC),
-        (model::buffer_r(), model::MAT_BUFFER),
-        (model::KERNEL_R, model::MAT_KERNEL),
+        (tmodel::particle_r(), tmodel::MAT_OPYC),
+        (tmodel::sic_r(), tmodel::MAT_SIC),
+        (tmodel::ipyc_r(), tmodel::MAT_IPYC),
+        (tmodel::buffer_r(), tmodel::MAT_BUFFER),
+        (tmodel::KERNEL_R, tmodel::MAT_KERNEL),
     ];
     let clip = painter.clip_rect().expand(8.0);
     for &(x, y) in centres {
@@ -176,8 +173,8 @@ fn draw_cell(painter: &egui::Painter, rect: Rect, view: &View, centres: &[(f64, 
         if !clip.contains(c) {
             continue;
         }
-        if model::particle_r() as f32 * s < 1.6 {
-            painter.circle_filled(c, 1.2, MATERIAL_COLOURS[model::MAT_KERNEL]);
+        if tmodel::particle_r() as f32 * s < 1.6 {
+            painter.circle_filled(c, 1.2, MATERIAL_COLOURS[tmodel::MAT_KERNEL]);
             continue;
         }
         for (r, m) in radii {
@@ -194,165 +191,100 @@ fn draw_cell(painter: &egui::Painter, rect: Rect, view: &View, centres: &[(f64, 
     );
 }
 
-// ─── Animated history ────────────────────────────────────────────────────────
-
-struct Anim {
-    hist: History,
-    /// Cumulative 3D flight distance at each state, cm.
-    cum: Vec<f64>,
-    shown_cm: f64,
-    /// Already added to the statistics? A history is computed whole before
-    /// it is animated; counting it then would show its fate while it is
-    /// still in flight.
-    counted: bool,
-}
-
-impl Anim {
-    fn new(hist: History) -> Self {
-        let st = &hist.track.states;
-        let mut cum = Vec::with_capacity(st.len());
-        let mut d = 0.0;
-        for (i, s) in st.iter().enumerate() {
-            if i > 0 {
-                let q = st[i - 1].r;
-                d += ((s.r.x - q.x).powi(2) + (s.r.y - q.y).powi(2) + (s.r.z - q.z).powi(2)).sqrt();
-            }
-            cum.push(d);
-        }
-        Self { hist, cum, shown_cm: 0.0, counted: false }
-    }
-    fn total(&self) -> f64 {
-        self.cum.last().copied().unwrap_or(0.0)
-    }
-    fn finished(&self) -> bool {
-        self.shown_cm >= self.total()
-    }
-    /// Index of the segment being flown, and the fraction along it.
-    fn head(&self) -> (usize, f64) {
-        let k = self.cum.partition_point(|&c| c <= self.shown_cm).saturating_sub(1);
-        let k = k.min(self.cum.len().saturating_sub(2));
-        let len = self.cum.get(k + 1).map_or(0.0, |c| c - self.cum[k]);
-        let f = if len > 0.0 { ((self.shown_cm - self.cum[k]) / len).clamp(0.0, 1.0) } else { 1.0 };
-        (k, f)
-    }
-}
-
-/// Draw one track. `trail` is `(cumulative distances, head distance, trail
-/// length)`: segments further than `trail length` behind the head fade towards
-/// a floor alpha, so the neutron's recent path stays legible on top of its
-/// history. A neutron flies hundreds of cm in a 7 cm cell, so without this a
-/// single track covers the whole picture.
-fn draw_track(
-    painter: &egui::Painter,
-    rect: Rect,
-    view: &View,
-    h: &History,
-    upto: Option<(usize, f64)>,
-    alpha: u8,
-    dots: bool,
-    trail: Option<(&[f64], f64, f64)>,
-) {
-    let st = &h.track.states;
-    if st.len() < 2 {
-        return;
-    }
-    let (last_seg, frac) = upto.unwrap_or((st.len() - 2, 1.0));
-    let w = if alpha == 255 { 2.0 } else { 1.2 };
-    for k in 0..=last_seg.min(st.len() - 2) {
-        let (a, b) = (&st[k], &st[k + 1]);
-        let f = if k == last_seg { frac } else { 1.0 };
-        let end = [a.r.x + f * (b.r.x - a.r.x), a.r.y + f * (b.r.y - a.r.y)];
-        let seg_alpha = match trail {
-            Some((cum, head, len)) if len.is_finite() => {
-                let behind = head - cum.get(k + 1).copied().unwrap_or(head);
-                let t = (1.0 - behind / len).clamp(0.0, 1.0);
-                (35.0 + (alpha as f64 - 35.0) * t) as u8
-            }
-            _ => alpha,
-        };
-        let col = energy_colour(a.energy, seg_alpha);
-        painter.line_segment([view.to_screen(rect, a.r.x, a.r.y), view.to_screen(rect, end[0], end[1])], Stroke::new(w, col));
-        if dots && k > 0 && a.event == TrackEvent::Scatter {
-            painter.circle_filled(view.to_screen(rect, a.r.x, a.r.y), 1.6, Color32::from_white_alpha(seg_alpha / 2));
-        }
-    }
-    let birth = view.to_screen(rect, st[0].r.x, st[0].r.y);
-    painter.circle_stroke(birth, 5.0, Stroke::new(1.5, Color32::from_rgba_unmultiplied(90, 230, 120, alpha)));
-    if upto.is_none() || (last_seg >= st.len() - 2 && frac >= 1.0) {
-        let e = st.last().unwrap();
-        let p = view.to_screen(rect, e.r.x, e.r.y);
-        match h.outcome {
-            Some(TrackEvent::Fission) => {
-                painter.circle_filled(p, 5.0, Color32::from_rgba_unmultiplied(255, 230, 80, alpha));
-                painter.circle_stroke(p, 9.0, Stroke::new(1.5, Color32::from_rgba_unmultiplied(255, 230, 80, alpha)));
-            }
-            _ => {
-                let s = Stroke::new(2.0, Color32::from_rgba_unmultiplied(255, 70, 70, alpha));
-                painter.line_segment([p + Vec2::new(-5.0, -5.0), p + Vec2::new(5.0, 5.0)], s);
-                painter.line_segment([p + Vec2::new(-5.0, 5.0), p + Vec2::new(5.0, -5.0)], s);
-            }
-        }
-    } else if let Some((k, f)) = upto {
-        let (a, b) = (&st[k], &st[k + 1]);
-        let p = view.to_screen(rect, a.r.x + f * (b.r.x - a.r.x), a.r.y + f * (b.r.y - a.r.y));
-        painter.circle_filled(p, 4.0, Color32::WHITE);
-    }
+/// Draw Godiva: a uranium disc (the sphere seen from above), vacuum outside.
+fn draw_godiva(painter: &egui::Painter, rect: Rect, view: &View) {
+    let r = crate::godiva::model::RADIUS_CM;
+    let o = view.to_screen(rect, 0.0, 0.0);
+    painter.circle_filled(o, (r * view.scale) as f32, URANIUM);
+    painter.circle_stroke(o, (r * view.scale) as f32, Stroke::new(1.5, Color32::from_rgb(170, 120, 255)));
+    painter.text(
+        o + Vec2::new(0.0, -(r * view.scale) as f32 - 6.0),
+        egui::Align2::CENTER_BOTTOM,
+        format!("HEU metal sphere, r = {r} cm · vacuum outside (leaks)"),
+        egui::FontId::proportional(12.0),
+        Color32::from_rgb(190, 170, 230),
+    );
 }
 
 // ─── Loading ─────────────────────────────────────────────────────────────────
 
-/// Rough cost of each job in seconds, measured in headless Chromium on
-/// 2026-10-03, used ONLY to weight the progress bar: the jobs differ by two
-/// orders of magnitude, so counting them would make the bar jump.
-const JOB_WEIGHT_S: [f64; 11] = [35.1, 28.5, 0.2, 0.1, 0.2, 0.1, 0.1, 0.3, 0.3, 0.3, 21.5];
+/// Rough cost of each job in seconds, used ONLY to weight the progress bar:
+/// jobs differ by two orders of magnitude, so counting them would make the
+/// bar jump. TRISO: headless Chromium, 2026-10-03. Godiva: native,
+/// 2026-10-04, i9-13900K, one thread, shared machine (U-234 / U-235 / U-238:
+/// 1.6 / 29.5 / 31.1 s at tolerance 0.001, 1.0 / 11.2 / 11.6 s at 0.01).
+fn job_weights(rung: Rung, tier: Tier) -> Vec<f64> {
+    match (rung, engine::effective_tier(rung, tier)) {
+        (Rung::Triso, _) => vec![35.1, 28.5, 0.2, 0.1, 0.2, 0.1, 0.1, 0.3, 0.3, 0.3, 21.5],
+        (Rung::Godiva, Tier::Exact) => vec![1.6, 29.5, 31.1],
+        (Rung::Godiva, Tier::Loose) => vec![1.0, 11.2, 11.6],
+    }
+}
 
 struct Loading {
+    rung: Rung,
+    tier: Tier,
+    jobs: Vec<(&'static str, &'static str)>,
+    weights: Vec<f64>,
     started: f64,
     job_started: Vec<Option<f64>>,
     job_secs: Vec<Option<f64>>,
 }
 
 impl Loading {
-    fn new() -> Self {
-        Self { started: now_s(), job_started: vec![None; JOBS.len()], job_secs: vec![None; JOBS.len()] }
+    fn new(rung: Rung, tier: Tier) -> Self {
+        let jobs = engine::jobs(rung);
+        let n = jobs.len();
+        Self {
+            rung,
+            tier,
+            jobs,
+            weights: job_weights(rung, tier),
+            started: now_s(),
+            job_started: vec![None; n],
+            job_secs: vec![None; n],
+        }
     }
     fn done(&self) -> usize {
         self.job_secs.iter().filter(|s| s.is_some()).count()
     }
-    /// The job running now, if any.
     fn current(&self) -> Option<usize> {
-        (0..JOBS.len()).find(|&i| self.job_started[i].is_some() && self.job_secs[i].is_none())
+        (0..self.jobs.len()).find(|&i| self.job_started[i].is_some() && self.job_secs[i].is_none())
     }
     /// A rough fraction: finished jobs by weight, plus the running job's
     /// elapsed share of its expected time, capped short of done.
     fn fraction(&self, now: f64) -> f32 {
-        let total: f64 = JOB_WEIGHT_S.iter().sum();
-        let mut f: f64 = (0..JOBS.len()).filter(|&i| self.job_secs[i].is_some()).map(|i| JOB_WEIGHT_S[i]).sum();
+        let total: f64 = self.weights.iter().sum();
+        let mut f: f64 = (0..self.jobs.len()).filter(|&i| self.job_secs[i].is_some()).map(|i| self.weights[i]).sum();
         if let Some(i) = self.current() {
             let t = now - self.job_started[i].unwrap_or(now);
-            f += JOB_WEIGHT_S[i] * (t / JOB_WEIGHT_S[i].max(0.05)).min(0.95);
+            f += self.weights[i] * (t / self.weights[i].max(0.05)).min(0.95);
         }
         (f / total).clamp(0.0, 1.0) as f32
     }
     fn status_line(&self) -> String {
         match self.current() {
-            Some(i) => format!("{} ({} of {})", JOBS[i].label, i + 1, JOBS.len()),
+            Some(i) => format!("{} ({} of {})", self.jobs[i].0, i + 1, self.jobs.len()),
             None if self.done() == 0 => "Downloading ENDF tapes".into(),
             None => "Assembling the model".into(),
         }
     }
+    fn tolerance(&self) -> &'static str {
+        match engine::effective_tier(self.rung, self.tier) {
+            Tier::Exact => "0.001 (NJOY's own)",
+            Tier::Loose => "0.01 (loosened)",
+        }
+    }
 }
 
-// ─── Running ─────────────────────────────────────────────────────────────────
+// ─── Watch: one neutron at a time ────────────────────────────────────────────
 
 /// Animated neutrons kept in hand while running, so the animation never waits
 /// on transport.
 const PREFETCH: usize = 3;
 
-struct Running {
-    /// Histories received and not yet shown, in chain order.
+struct Tracks {
     queue: VecDeque<History>,
-    /// Animated neutrons requested from the engine and not yet received.
     outstanding: usize,
     current: Option<Anim>,
     past: VecDeque<History>,
@@ -362,19 +294,14 @@ struct Running {
     single: bool,
     /// "Next" was pressed before its neutron had arrived.
     want_single: bool,
-    speed_cm_s: f64,
     keep: usize,
     dots: bool,
     /// Length of bright trail behind the neutron, cm; `None` draws it all.
     trail_cm: Option<f64>,
 }
 
-/// The `outram-mc-libs` deep dive this demo belongs to (gh:#514), on the
-/// backend's GitHub Pages site. Absolute so it also works from the native build.
-const DEEP_DIVE_URL: &str = "https://theodoreonzgit.github.io/outram-park-backend/deep-dives/monte-carlo/";
-
-impl Running {
-    fn new(link: &Link) -> Self {
+impl Tracks {
+    fn new(link: &Link, rung: Rung, autostart: bool) -> Self {
         link.send(Request::Run { n: PREFETCH, animate: true });
         Self {
             queue: VecDeque::new(),
@@ -382,13 +309,12 @@ impl Running {
             current: None,
             past: VecDeque::new(),
             stats: Stats::default(),
-            running: autostart(),
+            running: autostart,
             single: false,
             want_single: false,
-            speed_cm_s: 7.0,
-            keep: 0,
+            keep: if rung == Rung::Godiva { 6 } else { 0 },
             dots: true,
-            trail_cm: Some(80.0),
+            trail_cm: if rung == Rung::Godiva { None } else { Some(80.0) },
         }
     }
     fn retire(&mut self, h: History) {
@@ -397,7 +323,6 @@ impl Running {
             self.past.pop_front();
         }
     }
-    /// Show the next queued neutron. `false` if none has arrived yet.
     fn start_next(&mut self) -> bool {
         let Some(h) = self.queue.pop_front() else { return false };
         if let Some(a) = self.current.take() {
@@ -409,7 +334,6 @@ impl Running {
         self.current = Some(Anim::new(h));
         true
     }
-    /// Count the current neutron once its animation reaches the end.
     fn count_if_finished(&mut self) {
         if let Some(a) = &mut self.current {
             if a.finished() && !a.counted {
@@ -444,31 +368,168 @@ impl Running {
     }
 }
 
+// ─── Godiva power iteration: Watch (generations) and Run k_eff ───────────────
+
+/// What a button on the Run view asked for.
+enum RunAction {
+    None,
+    Start,
+    Pause,
+    Resume,
+}
+
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+enum RunState {
+    Idle,
+    Running,
+    Paused,
+    Done,
+}
+
+/// One power iteration as the UI follows it, for both the Watch-generations
+/// view and the Run k_eff console.
+struct Iteration {
+    cfg: KeffConfig,
+    state: RunState,
+    gens: Vec<GenerationReport>,
+    sites: Vec<[f32; 2]>,
+    lines: Vec<String>,
+    /// Counts and fission production summed over the ACTIVE generations.
+    active_counts: HistoryCounts,
+    active_production: f64,
+    /// A step was asked for and its generation has not arrived yet.
+    waiting: bool,
+    started_at: f64,
+    elapsed: f64,
+    last_step_at: f64,
+    /// Watch only: seconds between generations, so the spreading is visible.
+    pace_s: f64,
+}
+
+impl Iteration {
+    fn new(cfg: KeffConfig, pace_s: f64) -> Self {
+        Self {
+            cfg,
+            state: RunState::Idle,
+            gens: Vec::new(),
+            sites: Vec::new(),
+            lines: Vec::new(),
+            active_counts: HistoryCounts::default(),
+            active_production: 0.0,
+            waiting: false,
+            started_at: 0.0,
+            elapsed: 0.0,
+            last_step_at: 0.0,
+            pace_s,
+        }
+    }
+    fn start(&mut self, link: &Link) {
+        let (cfg, pace) = (self.cfg, self.pace_s);
+        *self = Self::new(cfg, pace);
+        self.state = RunState::Running;
+        self.started_at = now_s();
+        self.lines.extend(gsim::CONSOLE_HEADER.iter().map(|s| s.to_string()));
+        link.send(Request::KeffStart(cfg));
+        link.send(Request::KeffStep);
+        self.waiting = true;
+    }
+    fn pump(&mut self, link: &Link) {
+        if self.state == RunState::Running {
+            self.elapsed = now_s() - self.started_at;
+            if !self.waiting && now_s() - self.last_step_at >= self.pace_s {
+                link.send(Request::KeffStep);
+                self.waiting = true;
+            }
+        }
+    }
+    fn receive(&mut self, g: Generation) {
+        self.waiting = false;
+        self.last_step_at = now_s();
+        self.lines.push(gsim::console_line(&g.report));
+        if g.report.active {
+            self.active_counts.add(&g.report.counts);
+            self.active_production += g.report.production;
+        }
+        if self.cfg.want_sites {
+            self.sites = g.sites;
+        }
+        self.gens.push(g.report);
+    }
+    fn done(&mut self) {
+        if self.state == RunState::Done {
+            return;
+        }
+        self.waiting = false;
+        self.state = RunState::Done;
+        self.elapsed = now_s() - self.started_at;
+        let (m, e) = self.result();
+        let lines = gsim::summary_lines(&self.active_counts, self.active_production, self.cfg, m, e);
+        self.lines.extend(lines);
+        self.lines.push(format!(" Wall time in this tab: {:.0} s", self.elapsed));
+    }
+    fn result(&self) -> (f64, f64) {
+        self.gens.last().and_then(|g| g.k_mean).unwrap_or((f64::NAN, f64::NAN))
+    }
+    fn total_gens(&self) -> usize {
+        self.cfg.n_inactive + self.cfg.n_active
+    }
+}
+
 // ─── The app ─────────────────────────────────────────────────────────────────
 
+/// What the main view shows.
 #[allow(clippy::large_enum_variant)] // held by value: the workspace forbids `Box<T>`
+enum Screen {
+    Tracks(Tracks),
+    Generations(Iteration),
+    Run(Iteration),
+}
+
+#[allow(clippy::large_enum_variant)]
 enum Phase {
     Loading(Loading),
-    Ready(Running),
+    Ready(Screen),
     Failed(String),
 }
 
-pub struct TrisoApp {
+/// Watch mode for Godiva has two views; TRISO only has the first.
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum WatchView {
+    Neutrons,
+    Generations,
+}
+
+pub struct McApp {
     link: Option<Link>,
+    rung: Rung,
+    mode: Mode,
+    watch_view: WatchView,
+    load_id: u32,
+    /// Rung and tier of the data the engine holds (once ready).
+    loaded: Option<(Rung, Tier)>,
     phase: Phase,
-    centres: Vec<(f64, f64)>,
     view: View,
+    centres: Vec<(f64, f64)>,
     title: String,
     load_timings: Vec<(&'static str, f64)>,
     load_total_s: f64,
     panel_open: bool,
     /// The panel's initial state is decided on the first frame, from the
-    /// screen width: collapsed on a phone, so the pebble gets the screen.
+    /// screen width: folded on a phone, so the picture gets the screen.
     panel_decided: bool,
+    /// The "speed at 1 eV" slider, cm/s; reset to the rung's default when the
+    /// rung changes.
+    speed_at_1ev: f64,
+    /// The Run k_eff panel's settings (kept across runs).
+    run_cfg: KeffConfig,
+    /// Text size of the Run view (its + / − change it).
+    run_text: f32,
+    /// `?autostart` (read once at start-up: the URL is rewritten later).
+    autostart: bool,
 }
 
-impl TrisoApp {
-    pub fn new(cc: &eframe::CreationContext<'_>) -> Self {
+impl McApp {
+    pub fn new(cc: &eframe::CreationContext<'_>, rung: Rung, mode: Mode) -> Self {
         // The energy colours are chosen against a dark ground; keep the panel
         // dark too rather than follow a light system theme.
         cc.egui_ctx.set_theme(egui::ThemePreference::Dark);
@@ -479,56 +540,135 @@ impl TrisoApp {
         };
         #[cfg(target_arch = "wasm32")]
         let link = engine::start_web(cc.egui_ctx.clone());
-        let (link, phase) = match link {
-            Ok(l) => (Some(l), Phase::Loading(Loading::new())),
-            Err(e) => (None, Phase::Failed(format!("could not start the physics worker: {e}"))),
-        };
-        Self {
-            link,
-            phase,
-            centres: model::particle_centres(model::LAYOUT_SEED),
-            view: View::new(),
+        let mut app = Self {
+            link: None,
+            rung,
+            mode,
+            watch_view: WatchView::Neutrons,
+            load_id: 0,
+            loaded: None,
+            phase: Phase::Failed(String::new()),
+            view: View::new(half_extent(rung)),
+            centres: tmodel::particle_centres(tmodel::LAYOUT_SEED),
             title: String::new(),
             load_timings: Vec::new(),
             load_total_s: 0.0,
             panel_open: true,
             panel_decided: false,
+            speed_at_1ev: rung.info().spectrum.default_speed_at_1ev(),
+            run_cfg: KeffConfig::RUN_DEFAULT,
+            run_text: 13.0,
+            autostart: autostart(),
+        };
+        match link {
+            Ok(l) => {
+                app.link = Some(l);
+                app.switch(rung, mode);
+            }
+            Err(e) => app.phase = Phase::Failed(format!("could not start the physics worker: {e}")),
         }
+        app
+    }
+
+    /// The tier a rung and mode need: Run k_eff processes at NJOY's
+    /// tolerance so its `k` is comparable with the record; Watch may use the
+    /// loosened tier.
+    fn tier_for(rung: Rung, mode: Mode) -> Tier {
+        match (rung, mode) {
+            (Rung::Godiva, Mode::Run) => Tier::Exact,
+            _ => Tier::Loose,
+        }
+    }
+
+    /// Go to a rung and mode: reload the data if what is loaded will not do,
+    /// otherwise just change the screen.
+    fn switch(&mut self, rung: Rung, mode: Mode) {
+        let mode = if rung.info().has_run { mode } else { Mode::Watch };
+        if rung != self.rung {
+            self.speed_at_1ev = rung.info().spectrum.default_speed_at_1ev();
+            self.view = View::new(half_extent(rung));
+            self.watch_view = WatchView::Neutrons;
+        }
+        self.rung = rung;
+        self.mode = mode;
+        set_url(rung, mode);
+        let need = Self::tier_for(rung, mode);
+        let ok = match self.loaded {
+            // Exact data serve Watch too; loose data do not serve Run.
+            Some((r, t)) => r == rung && (t == need || t == Tier::Exact),
+            None => false,
+        };
+        if ok && !matches!(self.phase, Phase::Loading(_)) {
+            self.enter_screen();
+        } else {
+            self.load_id += 1;
+            self.loaded = None;
+            self.phase = Phase::Loading(Loading::new(rung, need));
+            if let Some(link) = &self.link {
+                link.send(Request::Load { id: self.load_id, rung, tier: need });
+            }
+        }
+    }
+
+    /// Build the screen for the current rung, mode and view, on loaded data.
+    fn enter_screen(&mut self) {
+        let Some(link) = &self.link else { return };
+        self.phase = Phase::Ready(match (self.mode, self.watch_view) {
+            (Mode::Run, _) => {
+                let mut it = Iteration::new(self.run_cfg, 0.0);
+                if self.autostart {
+                    it.start(link);
+                }
+                Screen::Run(it)
+            }
+            (Mode::Watch, WatchView::Generations) if self.rung == Rung::Godiva => {
+                let mut it = Iteration::new(KeffConfig::WATCH_DEFAULT, 0.6);
+                it.start(link);
+                Screen::Generations(it)
+            }
+            (Mode::Watch, _) => Screen::Tracks(Tracks::new(link, self.rung, self.autostart)),
+        });
     }
 
     fn handle(&mut self, events: Vec<Event>) {
         for e in events {
             match (&mut self.phase, e) {
                 (_, Event::Error(m)) => self.phase = Phase::Failed(m),
-                (Phase::Loading(l), Event::JobStarted { index }) => l.job_started[index] = Some(now_s()),
-                (Phase::Loading(l), Event::JobDone { index, secs }) => l.job_secs[index] = Some(secs),
-                (Phase::Loading(l), Event::Ready) => {
-                    self.load_timings =
-                        JOBS.iter().zip(&l.job_secs).map(|(j, s)| (j.label, s.unwrap_or(0.0))).collect();
-                    self.load_total_s = now_s() - l.started;
-                    if let Some(link) = &self.link {
-                        self.phase = Phase::Ready(Running::new(link));
-                    }
+                (Phase::Loading(l), Event::JobStarted { id, index }) if id == self.load_id => {
+                    l.job_started[index] = Some(now_s())
                 }
-                (Phase::Ready(r), Event::History { h, animate }) => r.receive(h, animate),
+                (Phase::Loading(l), Event::JobDone { id, index, secs }) if id == self.load_id => {
+                    l.job_secs[index] = Some(secs)
+                }
+                (Phase::Loading(l), Event::Ready { id }) if id == self.load_id => {
+                    self.load_timings = l.jobs.iter().zip(&l.job_secs).map(|(j, s)| (j.0, s.unwrap_or(0.0))).collect();
+                    self.load_total_s = now_s() - l.started;
+                    self.loaded = Some((l.rung, engine::effective_tier(l.rung, l.tier)));
+                    self.enter_screen();
+                }
+                (Phase::Ready(Screen::Tracks(t)), Event::History { h, animate }) => t.receive(h, animate),
+                (Phase::Ready(Screen::Generations(it) | Screen::Run(it)), Event::KeffStarted { sites }) => {
+                    it.sites = sites
+                }
+                (Phase::Ready(Screen::Generations(it) | Screen::Run(it)), Event::Generation(g)) => it.receive(g),
+                (Phase::Ready(Screen::Generations(it) | Screen::Run(it)), Event::KeffDone) => it.done(),
                 _ => {}
             }
         }
     }
 
     fn title_now(&mut self, ctx: &egui::Context) {
+        let name = self.rung.info().title;
         let t = match &self.phase {
-            Phase::Loading(l) => format!(
-                "TRISO pebble · loading {}/{} · {}",
-                l.done(),
-                JOBS.len(),
-                l.status_line()
+            Phase::Loading(l) => format!("{name} · loading {}/{} · {}", l.done(), l.jobs.len(), l.status_line()),
+            Phase::Ready(Screen::Tracks(r)) => format!(
+                "{name} · {} neutrons · {} fission · {} capture · {} leak",
+                r.stats.histories, r.stats.fissions, r.stats.captures, r.stats.leaks
             ),
-            Phase::Ready(r) => format!(
-                "TRISO pebble · ready · {} neutrons · {} fission · {} capture · {} other",
-                r.stats.histories, r.stats.fissions, r.stats.captures, r.stats.other
-            ),
-            Phase::Failed(e) => format!("TRISO pebble · FAILED · {e}"),
+            Phase::Ready(Screen::Generations(it) | Screen::Run(it)) => {
+                format!("{name} · generation {}/{} · {:?}", it.gens.len(), it.total_gens(), it.state)
+            }
+            Phase::Failed(e) => format!("{name} · FAILED · {e}"),
         };
         if t != self.title {
             set_title(ctx, &t);
@@ -537,7 +677,7 @@ impl TrisoApp {
     }
 }
 
-impl eframe::App for TrisoApp {
+impl eframe::App for McApp {
     fn ui(&mut self, ui: &mut egui::Ui, _frame: &mut eframe::Frame) {
         let ctx = ui.ctx().clone();
         if !self.panel_decided {
@@ -548,8 +688,16 @@ impl eframe::App for TrisoApp {
             let events = link.drain();
             self.handle(events);
         }
-        if let (Phase::Ready(r), Some(link)) = (&mut self.phase, &self.link) {
-            r.top_up(link);
+        if let (Phase::Ready(s), Some(link)) = (&mut self.phase, &self.link) {
+            match s {
+                Screen::Tracks(t) => t.top_up(link),
+                Screen::Generations(it) | Screen::Run(it) => {
+                    it.pump(link);
+                    if it.state == RunState::Running {
+                        ctx.request_repaint_after(std::time::Duration::from_millis(100));
+                    }
+                }
+            }
         }
         if matches!(self.phase, Phase::Loading(_)) {
             // Elapsed time and the progress bar keep moving between events.
@@ -561,7 +709,8 @@ impl eframe::App for TrisoApp {
         // button inside it (`self.panel_open`); whichever changed wins.
         let before = self.panel_open;
         let mut open = before;
-        egui::Panel::left("controls").default_size(330.0).resizable(true).show_collapsible(ui, &mut open, |ui| {
+        let panel_w = (ui.max_rect().width() * 0.85).min(340.0);
+        egui::Panel::left("controls").default_size(panel_w).resizable(true).show_collapsible(ui, &mut open, |ui| {
             egui::ScrollArea::vertical().show(ui, |ui| self.side_panel(ui));
         });
         if self.panel_open == before {
@@ -571,7 +720,90 @@ impl eframe::App for TrisoApp {
     }
 }
 
-impl TrisoApp {
+// ─── Side panel ──────────────────────────────────────────────────────────────
+
+impl McApp {
+    fn side_panel(&mut self, ui: &mut egui::Ui) {
+        ui.horizontal(|ui| {
+            ui.heading("Monte Carlo");
+            ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                if ui.button("« Hide").on_hover_text("Fold the panel away to see the whole picture").clicked() {
+                    self.panel_open = false;
+                }
+            });
+        });
+
+        // Rung and mode.
+        let (mut rung, mut mode) = (self.rung, self.mode);
+        ui.horizontal_wrapped(|ui| {
+            ui.label("Rung:");
+            for r in &RUNGS {
+                ui.selectable_value(&mut rung, r.rung, r.name);
+            }
+        });
+        if self.rung.info().has_run {
+            ui.horizontal_wrapped(|ui| {
+                ui.label("Mode:");
+                ui.selectable_value(&mut mode, Mode::Watch, "Watch (illustration)");
+                ui.selectable_value(&mut mode, Mode::Run, "Run k_eff (true MC)");
+            });
+        }
+        if (rung, mode) != (self.rung, self.mode) {
+            self.switch(rung, mode);
+        }
+        ui.strong(self.rung.info().title);
+        ui.add(egui::Hyperlink::from_label_and_url("What's happening here? (the lesson)", self.rung.lesson_url()).open_in_new_tab(true));
+        ui.separator();
+
+        let mut want_view: Option<WatchView> = None;
+        let link = self.link.as_ref();
+        let rung = self.rung;
+        match &mut self.phase {
+            Phase::Loading(l) => Self::loading_panel(ui, l),
+            Phase::Failed(e) => {
+                ui.colored_label(Color32::from_rgb(255, 90, 90), format!("Failed: {e}"));
+            }
+            Phase::Ready(Screen::Tracks(t)) => {
+                if rung == Rung::Godiva {
+                    want_view = Self::watch_view_picker(ui, WatchView::Neutrons);
+                }
+                Self::tracks_panel(ui, t, link, rung, &mut self.speed_at_1ev);
+            }
+            Phase::Ready(Screen::Generations(it)) => {
+                want_view = Self::watch_view_picker(ui, WatchView::Generations);
+                Self::generations_panel(ui, it, link);
+            }
+            Phase::Ready(Screen::Run(it)) => Self::run_panel(ui, it, link, &mut self.run_cfg),
+        }
+        if let Some(v) = want_view {
+            self.watch_view = v;
+            self.enter_screen();
+        }
+
+        ui.separator();
+        match self.rung {
+            Rung::Triso => Self::triso_notes(ui),
+            Rung::Godiva => Self::godiva_notes(ui),
+        }
+        if !self.load_timings.is_empty() {
+            egui::CollapsingHeader::new(format!("Data processing: {:.0} s", self.load_total_s)).show(ui, |ui| {
+                for (l, s) in &self.load_timings {
+                    ui.label(format!("{l:<16} {s:6.1} s"));
+                }
+            });
+        }
+    }
+
+    fn watch_view_picker(ui: &mut egui::Ui, now: WatchView) -> Option<WatchView> {
+        let mut v = now;
+        ui.horizontal_wrapped(|ui| {
+            ui.label("Watch:");
+            ui.selectable_value(&mut v, WatchView::Neutrons, "one neutron at a time");
+            ui.selectable_value(&mut v, WatchView::Generations, "whole generations");
+        });
+        (v != now).then_some(v)
+    }
+
     fn loading_panel(ui: &mut egui::Ui, l: &Loading) {
         let now = now_s();
         ui.heading("Simulation loading…");
@@ -580,16 +812,24 @@ impl TrisoApp {
             ui.strong(format!("Processing ENDF files · {}", l.status_line()));
         });
         ui.add(egui::ProgressBar::new(l.fraction(now)).show_percentage().text(format!("rough · {:.0} s", now - l.started)));
-        ui.label("About 11 MB of ENDF tapes, covariance data removed.");
-        ui.label(
-            "Every cross section is reconstructed from evaluated ENDF/B-VIII.0 data by OUTRAM PARK's own \
-             NJOY port (RECONR + BROADR, tolerance 0.01), off the page's main thread, so the page stays \
-             live. U-235, U-238 and graphite thermal scattering take the longest.",
-        );
+        ui.label(format!(
+            "Every cross section is reconstructed from evaluated ENDF/B-VIII.0 data by OUTRAM PARK's own NJOY port \
+             (RECONR + BROADR, tolerance {}), off the page's main thread, so the page stays live. Covariance data \
+             are removed before download: transport never reads them.",
+            l.tolerance()
+        ));
+        if l.rung == Rung::Godiva && engine::effective_tier(l.rung, l.tier) == Tier::Exact {
+            ui.colored_label(
+                Color32::from_rgb(250, 200, 80),
+                "Run k_eff uses NJOY's tolerance 0.001, as the recorded result did, so your k is comparable with \
+                 it. That takes longer than Watch mode (0.01): on a fast desktop, natively, about 30 s each for \
+                 U-235 and U-238 instead of about 11 s; in a browser, and on a phone, longer still.",
+            );
+        }
         ui.add_space(6.0);
         egui::Grid::new("jobs").num_columns(2).spacing([16.0, 2.0]).show(ui, |ui| {
-            for (i, job) in JOBS.iter().enumerate() {
-                ui.label(job.label);
+            for (i, job) in l.jobs.iter().enumerate() {
+                ui.label(job.0);
                 if let Some(s) = l.job_secs[i] {
                     ui.label(format!("done in {s:.1} s"));
                 } else if let Some(t0) = l.job_started[i] {
@@ -602,201 +842,331 @@ impl TrisoApp {
         });
     }
 
-    fn side_panel(&mut self, ui: &mut egui::Ui) {
+    /// The speed slider: one unit everywhere ("speed at 1 eV"), with the
+    /// equivalent at the rung's characteristic energy beside it.
+    fn speed_slider(ui: &mut egui::Ui, rung: Rung, speed: &mut f64) {
+        ui.add(
+            egui::Slider::new(speed, 0.0001..=20_000.0)
+                .logarithmic(true)
+                .text("speed at 1 eV (cm/s)")
+                .custom_formatter(|v, _| fmt_speed(v)),
+        );
+        let (e, name) = rung.info().spectrum.characteristic();
+        ui.weak(format!(
+            "= {} at {name}. Speed follows the neutron's real speed, v ∝ √E: neutrons slow down as they lose energy.",
+            fmt_speed(animated_speed(e, *speed))
+        ));
+        if ui.button("Default speed").clicked() {
+            *speed = rung.info().spectrum.default_speed_at_1ev();
+        }
+    }
+
+    fn tracks_panel(ui: &mut egui::Ui, r: &mut Tracks, link: Option<&Link>, rung: Rung, speed: &mut f64) {
         ui.horizontal(|ui| {
-            ui.heading("TRISO pebble");
-            ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                if ui.button("« Hide").on_hover_text("Fold the panel away to see the whole pebble").clicked() {
-                    self.panel_open = false;
+            let label = if r.running { "⏸ Stop" } else { "▶ Start" };
+            if ui.button(label).clicked() {
+                r.running = !r.running;
+            }
+            if ui.add_enabled(!r.running, egui::Button::new("Next neutron")).clicked() {
+                if r.start_next() {
+                    r.single = true;
+                } else {
+                    r.want_single = true;
+                }
+            }
+            if ui.button("Clear").clicked() {
+                r.past.clear();
+            }
+        });
+        if ui.add_enabled(!r.running, egui::Button::new("Run 100 unanimated")).clicked() {
+            if let Some(link) = link {
+                link.send(Request::Run { n: 100, animate: false });
+            }
+        }
+        Self::speed_slider(ui, rung, speed);
+        ui.add(egui::Slider::new(&mut r.keep, 0..=40).text("past tracks kept"));
+        let mut fade = r.trail_cm.is_some();
+        ui.horizontal(|ui| {
+            ui.checkbox(&mut fade, "fade the track behind the neutron");
+            if fade {
+                let mut v = r.trail_cm.unwrap_or(80.0);
+                ui.add(egui::DragValue::new(&mut v).range(5.0..=2000.0).suffix(" cm"));
+                r.trail_cm = Some(v);
+            } else {
+                r.trail_cm = None;
+            }
+        });
+        ui.checkbox(&mut r.dots, "mark collisions");
+        ui.weak("Zoom with + and − (or scroll / pinch), drag to pan, Reset to recentre.");
+
+        ui.separator();
+        ui.strong("This neutron");
+        if let Some(a) = &r.current {
+            let h = &a.hist;
+            let (k, _) = a.head();
+            let s = &h.track.states[k.min(h.track.states.len() - 1)];
+            let scatters =
+                h.track.states[..=k.min(h.track.states.len() - 1)].iter().filter(|s| s.event == TrackEvent::Scatter).count();
+            let born = match (h.from_fission, rung) {
+                (true, _) => "at the last neutron's fission site",
+                (false, Rung::Triso) => "in a random kernel",
+                (false, Rung::Godiva) if h.index == 0 => "at the centre",
+                (false, Rung::Godiva) => "at a random point (last one did not fission)",
+            };
+            egui::Grid::new("now").num_columns(2).show(ui, |ui| {
+                ui.label("number");
+                ui.label(format!("#{}", h.index + 1));
+                ui.end_row();
+                ui.label("born");
+                ui.label(born);
+                ui.end_row();
+                ui.label("birth energy");
+                ui.label(fmt_energy(h.birth_energy_ev));
+                ui.end_row();
+                ui.label("energy now");
+                ui.colored_label(energy_colour(s.energy, 255), fmt_energy(s.energy));
+                ui.end_row();
+                ui.label("drawn at");
+                ui.label(fmt_speed(animated_speed(a.energy_now(), *speed)));
+                ui.end_row();
+                if rung == Rung::Triso {
+                    ui.label("in");
+                    ui.label(s.material.map_or("helium (void)", |m| tmodel::MATERIAL_NAMES[m]));
+                    ui.end_row();
+                }
+                ui.label("scatters so far");
+                ui.label(scatters.to_string());
+                ui.end_row();
+                ui.label("distance flown");
+                ui.label(format!("{:.1} cm", a.shown_cm.min(a.total())));
+                ui.end_row();
+                ui.label("real flight time");
+                ui.label(fmt_time(s.time));
+                ui.end_row();
+                if a.finished() {
+                    ui.label("fate");
+                    ui.strong(match h.outcome {
+                        Some(TrackEvent::Fission) => "fission".to_string(),
+                        Some(TrackEvent::Absorption) => "captured".to_string(),
+                        Some(TrackEvent::Leak) => "leaked out".to_string(),
+                        o => outcome_name(o).to_string(),
+                    });
+                    ui.end_row();
                 }
             });
-        });
-        ui.label("One neutron at a time, on real ENDF/B-VIII.0 data.");
-        ui.add(
-            egui::Hyperlink::from_label_and_url("How the Monte Carlo code works: the neutronics deep dive", DEEP_DIVE_URL)
-                .open_in_new_tab(true),
-        );
-        ui.separator();
-        let link = self.link.as_ref();
-        match &mut self.phase {
-            Phase::Loading(l) => Self::loading_panel(ui, l),
-            Phase::Failed(e) => {
-                ui.colored_label(Color32::from_rgb(255, 90, 90), format!("Failed: {e}"));
-            }
-            Phase::Ready(r) => {
-                ui.horizontal(|ui| {
-                    let label = if r.running { "⏸ Stop" } else { "▶ Start" };
-                    if ui.button(label).clicked() {
-                        r.running = !r.running;
-                    }
-                    if ui.add_enabled(!r.running, egui::Button::new("Next neutron")).clicked() {
-                        if r.start_next() {
-                            r.single = true;
-                        } else {
-                            r.want_single = true;
-                        }
-                    }
-                    if ui.button("Clear").clicked() {
-                        r.past.clear();
-                    }
-                });
-                ui.horizontal(|ui| {
-                    if ui.add_enabled(!r.running, egui::Button::new("Run 100 unanimated")).clicked() {
-                        if let Some(link) = link {
-                            link.send(Request::Run { n: 100, animate: false });
-                        }
-                    }
-                });
-                ui.add(egui::Slider::new(&mut r.speed_cm_s, 1.0..=20_000.0).logarithmic(true).text("cm of flight / s"));
-                ui.add(egui::Slider::new(&mut r.keep, 0..=40).text("past tracks kept"));
-                let mut fade = r.trail_cm.is_some();
-                ui.horizontal(|ui| {
-                    ui.checkbox(&mut fade, "fade the track behind the neutron");
-                    if fade {
-                        let mut v = r.trail_cm.unwrap_or(80.0);
-                        ui.add(egui::DragValue::new(&mut v).range(5.0..=2000.0).suffix(" cm"));
-                        r.trail_cm = Some(v);
-                    } else {
-                        r.trail_cm = None;
-                    }
-                });
-                ui.checkbox(&mut r.dots, "mark collisions");
-                ui.weak("Zoom with + and − (or scroll / pinch) to see the TRISO layers, drag to pan, Reset to recentre.");
-
-                ui.separator();
-                ui.strong("This neutron");
-                if let Some(a) = &r.current {
-                    let h = &a.hist;
-                    let (k, _) = a.head();
-                    let s = &h.track.states[k.min(h.track.states.len() - 1)];
-                    let scatters = h.track.states[..=k.min(h.track.states.len() - 1)]
-                        .iter()
-                        .filter(|s| s.event == TrackEvent::Scatter)
-                        .count();
-                    let born = if h.from_fission { "at the last neutron's fission site" } else { "in a random kernel" };
-                    egui::Grid::new("now").num_columns(2).show(ui, |ui| {
-                        ui.label("number");
-                        ui.label(format!("#{}", h.index + 1));
-                        ui.end_row();
-                        ui.label("born");
-                        ui.label(born);
-                        ui.end_row();
-                        ui.label("birth energy");
-                        ui.label(fmt_energy(h.birth_energy_ev));
-                        ui.end_row();
-                        ui.label("energy now");
-                        ui.colored_label(energy_colour(s.energy, 255), fmt_energy(s.energy));
-                        ui.end_row();
-                        ui.label("in");
-                        ui.label(s.material.map_or("helium (void)", |m| model::MATERIAL_NAMES[m]));
-                        ui.end_row();
-                        ui.label("scatters so far");
-                        ui.label(scatters.to_string());
-                        ui.end_row();
-                        ui.label("distance flown");
-                        ui.label(format!("{:.1} cm", a.shown_cm.min(a.total())));
-                        ui.end_row();
-                        ui.label("real flight time");
-                        ui.label(fmt_time(s.time));
-                        ui.end_row();
-                        if a.finished() {
-                            ui.label("fate");
-                            ui.strong(match h.outcome {
-                                Some(TrackEvent::Fission) => "fission".to_string(),
-                                Some(TrackEvent::Absorption) => "captured".to_string(),
-                                o => sim::outcome_name(o).to_string(),
-                            });
-                            ui.end_row();
-                        }
-                    });
-                } else {
-                    ui.weak("Press Start.");
-                }
-
-                ui.separator();
-                let st = &r.stats;
-                ui.strong(format!("All {} neutrons", st.histories));
-                if st.histories > 0 {
-                    let n = st.histories as f64;
-                    let pct = |x: u64| format!("{:.0} %", 100.0 * x as f64 / n);
-                    egui::Grid::new("tot").num_columns(2).show(ui, |ui| {
-                        ui.label("ended in fission");
-                        ui.label(pct(st.fissions));
-                        ui.end_row();
-                        ui.label("captured");
-                        ui.label(pct(st.captures));
-                        ui.end_row();
-                        if st.other > 0 {
-                            ui.colored_label(Color32::from_rgb(255, 90, 90), "other (a defect)");
-                            ui.label(st.other.to_string());
-                            ui.end_row();
-                        }
-                        ui.label("reached thermal (< 0.625 eV)");
-                        ui.label(pct(st.thermalised));
-                        ui.end_row();
-                        ui.label("mean scatters");
-                        ui.label(format!("{:.0}", st.scatters as f64 / n));
-                        ui.end_row();
-                        ui.label("mean distance flown");
-                        ui.label(format!("{:.0} cm", st.path_cm / n));
-                        ui.end_row();
-                    });
-                    ui.weak("Counts from a handful of histories, not converged statistics.");
-                }
-            }
+        } else {
+            ui.weak("Press Start.");
         }
 
         ui.separator();
-        ui.strong("Neutron energy");
-        let (rect, _) = ui.allocate_exact_size(Vec2::new(ui.available_width().min(300.0), 14.0), Sense::hover());
-        let n = 80;
-        for i in 0..n {
-            let t = i as f64 / n as f64;
-            let e = 10f64.powf(E_LO_LOG + t * (E_HI_LOG - E_LO_LOG));
-            let x0 = rect.left() + rect.width() * i as f32 / n as f32;
-            let x1 = rect.left() + rect.width() * (i + 1) as f32 / n as f32;
-            ui.painter().rect_filled(Rect::from_x_y_ranges(x0..=x1, rect.y_range()), 0.0, energy_colour(e, 255));
+        let st = &r.stats;
+        ui.strong(format!("All {} neutrons: how they ended", st.histories));
+        if st.histories > 0 {
+            Self::counts_grid(ui, &st.counts, st.other);
+            egui::Grid::new("tot").num_columns(2).show(ui, |ui| {
+                let n = st.histories as f64;
+                if rung == Rung::Triso {
+                    ui.label("reached thermal (< 0.625 eV)");
+                    ui.label(format!("{:.0} %", 100.0 * st.thermalised as f64 / n));
+                    ui.end_row();
+                }
+                ui.label("mean scatters");
+                ui.label(format!("{:.1}", st.scatters as f64 / n));
+                ui.end_row();
+                ui.label("mean distance flown");
+                ui.label(format!("{:.1} cm", st.path_cm / n));
+                ui.end_row();
+            });
+            ui.weak("Counts from a handful of histories, not converged statistics.");
         }
-        ui.horizontal(|ui| {
-            ui.weak("1 meV · thermal");
-            ui.add_space(20.0);
-            ui.weak("1 keV");
-            ui.add_space(20.0);
-            ui.weak("fast · 20 MeV");
-        });
-        ui.add_space(4.0);
-        ui.strong("Materials");
-        for (i, name) in model::MATERIAL_NAMES.iter().enumerate() {
-            if i == model::MAT_OPYC {
-                continue; // same colour and composition as inner PyC
+        ui.separator();
+        anim::energy_bar(ui);
+        anim::legend_markers(ui, rung == Rung::Godiva);
+        if rung == Rung::Triso {
+            ui.add_space(4.0);
+            ui.strong("Materials");
+            for (i, name) in tmodel::MATERIAL_NAMES.iter().enumerate() {
+                if i == tmodel::MAT_OPYC {
+                    continue; // same colour and composition as inner PyC
+                }
+                ui.horizontal(|ui| {
+                    let (r, _) = ui.allocate_exact_size(Vec2::splat(12.0), Sense::hover());
+                    ui.painter().rect_filled(r, 2.0, MATERIAL_COLOURS[i]);
+                    ui.label(if i == tmodel::MAT_IPYC { "Pyrolytic carbon (inner & outer)" } else { name });
+                });
             }
             ui.horizontal(|ui| {
                 let (r, _) = ui.allocate_exact_size(Vec2::splat(12.0), Sense::hover());
-                ui.painter().rect_filled(r, 2.0, MATERIAL_COLOURS[i]);
-                ui.label(if i == model::MAT_IPYC { "Pyrolytic carbon (inner & outer)" } else { name });
+                ui.painter().rect_filled(r, 2.0, HELIUM);
+                ui.label("Helium coolant (modelled as void)");
             });
         }
-        ui.horizontal(|ui| {
-            let (r, _) = ui.allocate_exact_size(Vec2::splat(12.0), Sense::hover());
-            ui.painter().rect_filled(r, 2.0, HELIUM);
-            ui.label("Helium coolant (modelled as void)");
-        });
-        ui.horizontal(|ui| {
-            let (r, _) = ui.allocate_exact_size(Vec2::new(16.0, 16.0), Sense::hover());
-            ui.painter().circle_stroke(r.center(), 5.0, Stroke::new(1.5, Color32::from_rgb(90, 230, 120)));
-            ui.label("birth");
-            let (r, _) = ui.allocate_exact_size(Vec2::new(22.0, 16.0), Sense::hover());
-            ui.painter().circle_filled(r.center(), 4.0, Color32::from_rgb(255, 230, 80));
-            ui.painter().circle_stroke(r.center(), 7.0, Stroke::new(1.2, Color32::from_rgb(255, 230, 80)));
-            ui.label("fission");
-            let (r, _) = ui.allocate_exact_size(Vec2::new(16.0, 16.0), Sense::hover());
-            let (c, s) = (r.center(), Stroke::new(2.0, Color32::from_rgb(255, 70, 70)));
-            ui.painter().line_segment([c + Vec2::new(-4.0, -4.0), c + Vec2::new(4.0, 4.0)], s);
-            ui.painter().line_segment([c + Vec2::new(-4.0, 4.0), c + Vec2::new(4.0, -4.0)], s);
-            ui.label("capture");
-        });
+    }
 
-        ui.separator();
+    /// Leaked / captured / fissioned, and fissions by incident energy.
+    fn counts_grid(ui: &mut egui::Ui, c: &HistoryCounts, other: u64) {
+        let t = c.tracked.max(1) as f64;
+        let pct = |x: u64| format!("{x}  ({:.1} %)", 100.0 * x as f64 / t);
+        egui::Grid::new(ui.next_auto_id()).num_columns(2).show(ui, |ui| {
+            ui.label("leaked out");
+            ui.label(pct(c.leaked));
+            ui.end_row();
+            ui.label("captured");
+            ui.label(pct(c.captured));
+            ui.end_row();
+            ui.label("fissioned");
+            ui.label(pct(c.fissions()));
+            ui.end_row();
+            if other > 0 {
+                ui.colored_label(Color32::from_rgb(255, 90, 90), "other (a defect)");
+                ui.label(other.to_string());
+                ui.end_row();
+            }
+            let [b0, b1, b2] = c.fissions_by_energy;
+            ui.label("fissions < 0.625 eV");
+            ui.label(b0.to_string());
+            ui.end_row();
+            ui.label("fissions 0.625 eV – 100 keV");
+            ui.label(b1.to_string());
+            ui.end_row();
+            ui.label("fissions > 100 keV");
+            ui.label(b2.to_string());
+            ui.end_row();
+            if c.tracked > 0 {
+                ui.label("non-leakage P_NL = 1 − L/N");
+                ui.label(format!("{:.3}", 1.0 - c.leaked as f64 / t));
+                ui.end_row();
+            }
+        });
+    }
+
+    fn generations_panel(ui: &mut egui::Ui, it: &mut Iteration, link: Option<&Link>) {
+        ui.label(format!(
+            "A real power iteration: {} neutrons per generation, ALL starting at the centre (a deliberately bad \
+             guess). Each dot is where a neutron of the next generation starts: a fission site of this one.",
+            it.cfg.n_particles
+        ));
+        ui.horizontal(|ui| {
+            match it.state {
+                RunState::Running => {
+                    if ui.button("⏸ Pause").clicked() {
+                        it.state = RunState::Paused;
+                    }
+                }
+                RunState::Paused => {
+                    if ui.button("▶ Resume").clicked() {
+                        it.state = RunState::Running;
+                    }
+                }
+                _ => {}
+            }
+            if ui.button("Restart").clicked() {
+                if let Some(link) = link {
+                    it.start(link);
+                }
+            }
+        });
+        ui.add(egui::Slider::new(&mut it.pace_s, 0.0..=3.0).text("s between generations"));
+        if let Some(g) = it.gens.last() {
+            ui.label(format!(
+                "Generation {} of {} ({}): k = {:.4}, entropy {}",
+                g.index + 1,
+                it.total_gens(),
+                if g.active { "active" } else { "inactive" },
+                g.k,
+                g.entropy.map_or("–".into(), |h| format!("{h:.3} bits"))
+            ));
+            Self::counts_grid(ui, &g.counts, 0);
+        }
+        ui.weak(
+            "Shannon entropy measures how spread out the fission source is (5 × 5 × 5 mesh on the sphere's box). \
+             It rises as the source spreads from the centre and flattens once the shape has settled: the \
+             inactive generations (shaded) are thrown away for that reason.",
+        );
+    }
+
+    fn run_panel(ui: &mut egui::Ui, it: &mut Iteration, link: Option<&Link>, cfg: &mut KeffConfig) {
+        let editable = matches!(it.state, RunState::Idle | RunState::Done);
+        ui.add_enabled_ui(editable, |ui| {
+            egui::Grid::new("cfg").num_columns(2).show(ui, |ui| {
+                ui.label("neutrons / generation");
+                ui.add(egui::DragValue::new(&mut cfg.n_particles).range(100..=20_000).speed(50));
+                ui.end_row();
+                ui.label("inactive generations");
+                ui.add(egui::DragValue::new(&mut cfg.n_inactive).range(1..=200));
+                ui.end_row();
+                ui.label("active generations");
+                ui.add(egui::DragValue::new(&mut cfg.n_active).range(2..=1000));
+                ui.end_row();
+                ui.label("seed");
+                ui.add(egui::DragValue::new(&mut cfg.seed).range(1..=1_000_000));
+                ui.end_row();
+            });
+            if ui.button("Defaults").clicked() {
+                *cfg = KeffConfig::RUN_DEFAULT;
+            }
+        });
+        ui.horizontal(|ui| {
+            match it.state {
+                RunState::Idle | RunState::Done => {
+                    if ui.button("▶ Run").clicked() {
+                        if let Some(link) = link {
+                            it.cfg = *cfg;
+                            it.start(link);
+                        }
+                    }
+                }
+                RunState::Running => {
+                    if ui.button("⏸ Pause").clicked() {
+                        it.state = RunState::Paused;
+                    }
+                }
+                RunState::Paused => {
+                    if ui.button("▶ Resume").clicked() {
+                        it.state = RunState::Running;
+                        it.started_at = now_s() - it.elapsed;
+                    }
+                    if ui.button("Stop").clicked() {
+                        it.done();
+                    }
+                }
+            }
+        });
+        ui.label(format!("{} of {} generations · {:.0} s", it.gens.len(), it.total_gens(), it.elapsed));
+        ui.weak(
+            "Single-threaded, in this tab's background worker: exactly the power iteration the recorded result \
+             ran (outram-mc-libs `PowerIteration`, the `run_keff` reference backend), on ENDF/B-VIII.0 processed \
+             at NJOY's tolerance.",
+        );
+        if it.active_counts.tracked > 0 {
+            ui.separator();
+            ui.strong("Active generations: how neutrons ended");
+            Self::counts_grid(ui, &it.active_counts, 0);
+        }
+        if it.state == RunState::Done {
+            let (m, e) = it.result();
+            ui.separator();
+            ui.strong("Your result");
+            ui.label(RichText::new(format!("k = {m:.5} ± {e:.5}  ({:+.0} ± {:.0} pcm)", (m - 1.0) * 1e5, e * 1e5)).monospace());
+            let exp = outram_mc_libs::vv::godiva::BENCHMARK_SIGMA;
+            ui.label(format!(
+                "Experiment: 1.0000 ± {exp:.4}. Recorded: {:.5} ± {:.5} (−52 ± 27 pcm).",
+                gsim::RECORDED_K,
+                gsim::RECORDED_SEM
+            ));
+            let hist = (it.cfg.n_particles * it.cfg.n_active) as f64;
+            let expect = gsim::RECORDED_SD_ONE_RUN * (5000.0 * 120.0 / hist).sqrt();
+            ui.weak(format!(
+                "Why your ± is wider: the record pools 32 independent runs of 5000 × 120 active neutrons, so its ± \
+                 is the spread of one such run (151 pcm) divided by √32. One run of yours, {:.0} active neutrons, \
+                 is expected to scatter by about {:.0} pcm around the true value.",
+                hist,
+                expect * 1e5
+            ));
+        }
+    }
+
+    fn triso_notes(ui: &mut egui::Ui) {
         egui::CollapsingHeader::new("What this is — and is not").default_open(false).show(ui, |ui| {
             for line in [
                 "Transport: outram-mc-libs continuous-energy Monte Carlo, unmodified. Each neutron is a one-particle fixed-source run with fission progeny switched off, so every track is one real history, drawn projected onto the slice.",
@@ -805,54 +1175,168 @@ impl TrisoApp {
                 "Low fidelity, deliberately: reconstruction tolerance 0.01, not NJOY's 0.001.",
                 "Geometry: HTR-10 pebble dimensions (IAEA-TECDOC-1382) in 2D. The TRISO particles are therefore infinitely long rods, not spheres: 152 of them, so the fuel fraction of the fuelled zone matches the real pebble (5.0 %). Rods self-shield differently from spheres, so this is a picture of how neutrons move, not a model of HTR-10.",
                 "Approximations: carbon in the thin SiC layer is free gas; every fission's next neutron takes the U-235 fission spectrum; helium is void.",
+                "Animation speed is proportional to the neutron's real speed (classical kinetic energy, v ∝ √E).",
                 "Education and research only.",
             ] {
                 ui.label(format!("• {line}"));
             }
         });
-        if !self.load_timings.is_empty() {
-            egui::CollapsingHeader::new(format!("Data processing: {:.0} s", self.load_total_s)).show(ui, |ui| {
-                for (l, s) in &self.load_timings {
-                    ui.label(format!("{l:<16} {s:6.1} s"));
-                }
-            });
-        }
     }
 
+    fn godiva_notes(ui: &mut egui::Ui) {
+        egui::CollapsingHeader::new("What this is — and is not").default_open(false).show(ui, |ui| {
+            for line in [
+                "Model: ICSBEP HEU-MET-FAST-001 (Godiva), a bare sphere of highly enriched uranium metal, r = 8.7407 cm, U-234/235/238 at the evaluation's atom densities, 293.6 K. The numbers are outram-mc-libs' `vv::godiva`, the model the recorded result was measured on.",
+                "Data: ENDF/B-VIII.0, processed in this browser by OUTRAM PARK's NJOY port. Run k_eff: NJOY's tolerance 0.001 (as the record). Watch: the loosened 0.01, whose measured effect on Godiva is +7 ± 41 pcm.",
+                "Run k_eff is true Monte Carlo: outram-mc-libs' single-thread reference power iteration, one generation at a time. Its counts (leaked, captured, fissioned) are tallied by that transport.",
+                "Watch, one neutron at a time, is an illustration: each track is one real history (a one-particle fixed-source run), chained by hand. Tracks are 3D, drawn projected from above.",
+                "Watch, whole generations, is the real power iteration started from a point at the centre, to show the source spreading.",
+                "Animation speed is proportional to the neutron's real speed (classical kinetic energy, v ∝ √E).",
+                "Education and research only. Not for reactor operation, licensing or safety decisions.",
+            ] {
+                ui.label(format!("• {line}"));
+            }
+        });
+    }
+}
+
+// ─── Main view ───────────────────────────────────────────────────────────────
+
+/// A plot frame with linear axes.
+struct Axes {
+    rect: Rect,
+    x: (f64, f64),
+    y: (f64, f64),
+}
+
+impl Axes {
+    fn p(&self, x: f64, y: f64) -> Pos2 {
+        let fx = ((x - self.x.0) / (self.x.1 - self.x.0)) as f32;
+        let fy = ((y - self.y.0) / (self.y.1 - self.y.0)) as f32;
+        Pos2::new(self.rect.left() + fx * self.rect.width(), self.rect.bottom() - fy * self.rect.height())
+    }
+    fn frame(&self, painter: &egui::Painter, title: &str, fmt: impl Fn(f64) -> String) {
+        painter.rect_filled(self.rect, 4.0, Color32::from_rgb(20, 23, 30));
+        painter.rect_stroke(self.rect, 4.0, Stroke::new(1.0, Color32::from_rgb(60, 66, 80)), StrokeKind::Inside);
+        let f = egui::FontId::proportional(11.0);
+        let c = Color32::from_rgb(170, 176, 190);
+        painter.text(self.rect.left_top() + Vec2::new(6.0, 3.0), egui::Align2::LEFT_TOP, title, egui::FontId::proportional(12.0), Color32::WHITE);
+        painter.text(self.rect.right_top() + Vec2::new(-4.0, 3.0), egui::Align2::RIGHT_TOP, fmt(self.y.1), f.clone(), c);
+        painter.text(self.rect.right_bottom() + Vec2::new(-4.0, -3.0), egui::Align2::RIGHT_BOTTOM, fmt(self.y.0), f, c);
+    }
+    /// Shade the inactive generations `[0.5, n_inactive + 0.5]`.
+    fn shade_inactive(&self, painter: &egui::Painter, n_inactive: usize) {
+        let a = self.p(0.5, self.y.1);
+        let b = self.p(n_inactive as f64 + 0.5, self.y.0);
+        let r = Rect::from_two_pos(a, b).intersect(self.rect);
+        painter.rect_filled(r, 0.0, Color32::from_rgba_unmultiplied(120, 120, 140, 40));
+        painter.text(r.center_bottom() + Vec2::new(0.0, -3.0), egui::Align2::CENTER_BOTTOM, "inactive", egui::FontId::proportional(10.0), Color32::from_rgb(150, 150, 170));
+    }
+}
+
+/// Entropy per generation, with the inactive generations shaded.
+fn draw_entropy(painter: &egui::Painter, rect: Rect, it: &Iteration) {
+    let n = it.total_gens().max(2) as f64;
+    let ceiling = (125f64).log2();
+    let ax = Axes { rect, x: (0.5, n + 0.5), y: (0.0, ceiling) };
+    ax.frame(painter, "Shannon entropy of the fission source (bits)", |v| format!("{v:.1}"));
+    ax.shade_inactive(painter, it.cfg.n_inactive);
+    let pts: Vec<Pos2> =
+        it.gens.iter().filter_map(|g| g.entropy.map(|h| ax.p(g.index as f64 + 1.0, h))).collect();
+    if pts.len() > 1 {
+        painter.add(egui::Shape::line(pts.clone(), Stroke::new(1.5, Color32::from_rgb(120, 220, 160))));
+    }
+    for p in pts {
+        painter.circle_filled(p, 2.0, Color32::from_rgb(120, 220, 160));
+    }
+}
+
+/// `k` per generation (dots) and the running mean ± σ over the active ones,
+/// with the experiment's band.
+fn draw_k(painter: &egui::Painter, rect: Rect, it: &Iteration) {
+    let n = it.total_gens().max(2) as f64;
+    let mut lo = 0.98f64;
+    let mut hi = 1.02f64;
+    // The first generations come from the guessed source (generation 1
+    // leaks far too much, gh:#527) and would squash the rest: they are
+    // drawn clamped to the frame instead of setting its range.
+    for g in it.gens.iter().filter(|g| g.index >= 2) {
+        lo = lo.min(g.k);
+        hi = hi.max(g.k);
+    }
+    let pad = 0.1 * (hi - lo);
+    let ax = Axes { rect, x: (0.5, n + 0.5), y: (lo - pad, hi + pad) };
+    ax.frame(painter, "k per generation (dots) · running mean ± σ (band)", |v| format!("{v:.3}"));
+    ax.shade_inactive(painter, it.cfg.n_inactive);
+    // Experiment: 1.0000 ± 0.0010.
+    let s = outram_mc_libs::vv::godiva::BENCHMARK_SIGMA;
+    let band = Rect::from_two_pos(ax.p(0.5, 1.0 + s), ax.p(n + 0.5, 1.0 - s)).intersect(rect);
+    painter.rect_filled(band, 0.0, Color32::from_rgba_unmultiplied(255, 255, 255, 18));
+    painter.line_segment([ax.p(0.5, 1.0), ax.p(n + 0.5, 1.0)], Stroke::new(1.0, Color32::from_rgb(200, 200, 200)));
+    painter.text(ax.p(0.5, 1.0) + Vec2::new(4.0, -2.0), egui::Align2::LEFT_BOTTOM, "experiment 1.0000 ± 0.0010", egui::FontId::proportional(10.0), Color32::from_rgb(200, 200, 200));
+    // Running mean and its band.
+    let means: Vec<(f64, f64, f64)> =
+        it.gens.iter().filter_map(|g| g.k_mean.filter(|m| m.1 > 0.0).map(|(m, e)| (g.index as f64 + 1.0, m, e))).collect();
+    if means.len() > 1 {
+        let upper: Vec<Pos2> = means.iter().map(|&(x, m, e)| ax.p(x, m + e)).collect();
+        let lower: Vec<Pos2> = means.iter().map(|&(x, m, e)| ax.p(x, m - e)).collect();
+        for w in 0..means.len() - 1 {
+            let quad = vec![upper[w], upper[w + 1], lower[w + 1], lower[w]];
+            painter.add(egui::Shape::convex_polygon(quad, Color32::from_rgba_unmultiplied(255, 200, 80, 50), Stroke::NONE));
+        }
+        let line: Vec<Pos2> = means.iter().map(|&(x, m, _)| ax.p(x, m)).collect();
+        painter.add(egui::Shape::line(line, Stroke::new(2.0, MEAN_COLOUR)));
+    }
+    for g in &it.gens {
+        let c = if g.active { K_COLOUR } else { Color32::from_rgb(110, 115, 130) };
+        painter.circle_filled(ax.p(g.index as f64 + 1.0, g.k.clamp(ax.y.0, ax.y.1)), 2.2, c);
+    }
+}
+
+impl McApp {
     fn canvas(&mut self, ui: &mut egui::Ui) {
         let (resp, painter) = ui.allocate_painter(ui.available_size(), Sense::click_and_drag());
         let rect = resp.rect;
-        if !self.view.fitted || resp.double_clicked() {
-            self.view.fit(rect);
-        }
-        // Zoom about the pointer (wheel or pinch); drag to pan.
-        if resp.hovered() {
-            let (scroll, zoom) = ui.input(|i| (i.smooth_scroll_delta.y, i.zoom_delta()));
-            let factor = zoom as f64 * (scroll as f64 * 0.0025).exp();
-            if (factor - 1.0).abs() > 1e-6 {
-                if let Some(p) = resp.hover_pos() {
-                    self.view.zoom_about(rect, p, factor);
+        painter.rect_filled(rect, 0.0, BG);
+        let is_run = matches!(self.phase, Phase::Ready(Screen::Run(_)));
+        if !is_run {
+            if !self.view.fitted || resp.double_clicked() {
+                self.view.fit(rect);
+            }
+            // Zoom about the pointer (wheel or pinch); drag to pan.
+            if resp.hovered() {
+                let (scroll, zoom) = ui.input(|i| (i.smooth_scroll_delta.y, i.zoom_delta()));
+                let factor = zoom as f64 * (scroll as f64 * 0.0025).exp();
+                if (factor - 1.0).abs() > 1e-6 {
+                    if let Some(p) = resp.hover_pos() {
+                        self.view.zoom_about(rect, p, factor);
+                    }
                 }
             }
-        }
-        if resp.dragged() {
-            let d = resp.drag_delta();
-            self.view.centre[0] -= d.x as f64 / self.view.scale;
-            self.view.centre[1] += d.y as f64 / self.view.scale;
+            if resp.dragged() {
+                let d = resp.drag_delta();
+                self.view.centre[0] -= d.x as f64 / self.view.scale;
+                self.view.centre[1] += d.y as f64 / self.view.scale;
+            }
+            match self.rung {
+                Rung::Triso => draw_triso(&painter, rect, &self.view, &self.centres),
+                Rung::Godiva => draw_godiva(&painter, rect, &self.view),
+            }
         }
 
-        draw_cell(&painter, rect, &self.view, &self.centres);
-
+        let view = self.view;
+        let to_screen = |x: f64, y: f64| view.to_screen(rect, x, y);
+        let speed = self.speed_at_1ev;
         match &mut self.phase {
             Phase::Loading(l) => Self::loading_card(&painter, rect, l),
             Phase::Failed(e) => {
                 painter.text(rect.center(), egui::Align2::CENTER_CENTER, format!("Failed: {e}"), egui::FontId::proportional(15.0), Color32::from_rgb(255, 110, 110));
             }
-            Phase::Ready(r) => {
+            Phase::Ready(Screen::Tracks(r)) => {
                 let dt = ui.input(|i| i.stable_dt).min(0.1) as f64;
                 if r.running || r.single {
                     match &mut r.current {
-                        Some(a) if !a.finished() => a.shown_cm += r.speed_cm_s * dt,
+                        Some(a) if !a.finished() => a.advance(dt, speed),
                         Some(_) if r.single => r.single = false,
                         _ if r.running => {
                             r.start_next();
@@ -865,80 +1349,156 @@ impl TrisoApp {
                 let n = r.past.len();
                 for (i, h) in r.past.iter().enumerate() {
                     let alpha = (25.0 + 45.0 * (i + 1) as f32 / n.max(1) as f32) as u8;
-                    draw_track(&painter, rect, &self.view, h, None, alpha, false, None);
+                    draw_track(&painter, to_screen, h, None, alpha, false, None);
                 }
                 if let Some(a) = &r.current {
                     let upto = if a.finished() { None } else { Some(a.head()) };
                     let trail = r.trail_cm.map(|len| (a.cum.as_slice(), a.shown_cm.min(a.total()), len));
-                    draw_track(&painter, rect, &self.view, &a.hist, upto, 255, r.dots, trail);
+                    draw_track(&painter, to_screen, &a.hist, upto, 255, r.dots, trail);
+                }
+                if self.rung == Rung::Godiva {
+                    painter.text(rect.left_bottom() + Vec2::new(16.0, -40.0), egui::Align2::LEFT_BOTTOM, "illustration: real histories, chained by hand", egui::FontId::proportional(12.0), Color32::from_rgb(170, 176, 190));
+                }
+            }
+            Phase::Ready(Screen::Generations(it)) => {
+                for s in &it.sites {
+                    painter.circle_filled(to_screen(s[0] as f64, s[1] as f64), 1.6, Color32::from_rgba_unmultiplied(255, 220, 90, 170));
+                }
+                let h = (rect.height() * 0.28).clamp(90.0, 180.0);
+                let plot = Rect::from_min_max(Pos2::new(rect.left() + 12.0, rect.bottom() - h - 30.0), Pos2::new(rect.right() - 12.0, rect.bottom() - 30.0));
+                draw_entropy(&painter, plot, it);
+                let label = match it.gens.last() {
+                    Some(g) => format!("generation {} of {} · {} source neutrons shown (of {})", g.index + 1, it.total_gens(), it.sites.len(), it.cfg.n_particles),
+                    None => format!("generation 0 · all {} neutrons start at the centre", it.cfg.n_particles),
+                };
+                painter.text(Pos2::new(rect.left() + 12.0, plot.top() - 6.0), egui::Align2::LEFT_BOTTOM, label, egui::FontId::proportional(12.0), Color32::WHITE);
+            }
+            Phase::Ready(Screen::Run(it)) => {
+                match Self::run_view(ui, rect, &painter, it, self.run_text) {
+                    RunAction::Start => {
+                        if let Some(link) = &self.link {
+                            it.cfg = self.run_cfg;
+                            it.start(link);
+                        }
+                    }
+                    RunAction::Pause => it.state = RunState::Paused,
+                    RunAction::Resume => {
+                        it.state = RunState::Running;
+                        it.started_at = now_s() - it.elapsed;
+                    }
+                    RunAction::None => {}
                 }
             }
         }
 
-        // Scale bar: the smallest round length that is at least 80 px long.
-        let bar_cm = [0.001, 0.002, 0.005, 0.01, 0.02, 0.05, 0.1, 0.2, 0.5, 1.0, 2.0]
-            .into_iter()
-            .find(|&c| c * self.view.scale >= 80.0)
-            .unwrap_or(2.0);
-        let x0 = rect.left() + 16.0;
-        let y0 = rect.bottom() - 18.0;
-        let x1 = x0 + (bar_cm * self.view.scale) as f32;
-        painter.line_segment([Pos2::new(x0, y0), Pos2::new(x1, y0)], Stroke::new(2.0, Color32::WHITE));
-        let label = if bar_cm < 0.1 { format!("{:.0} µm", bar_cm * 1e4) } else { format!("{bar_cm} cm") };
-        painter.text(Pos2::new(x0, y0 - 4.0), egui::Align2::LEFT_BOTTOM, label, egui::FontId::proportional(12.0), Color32::WHITE);
+        // Scale bar, where there is a length.
+        if !is_run {
+            let bar_cm = [0.001, 0.002, 0.005, 0.01, 0.02, 0.05, 0.1, 0.2, 0.5, 1.0, 2.0, 5.0]
+                .into_iter()
+                .find(|&c| c * self.view.scale >= 80.0)
+                .unwrap_or(5.0);
+            let x0 = rect.left() + 16.0;
+            let y0 = rect.bottom() - 12.0;
+            let x1 = x0 + (bar_cm * self.view.scale) as f32;
+            painter.line_segment([Pos2::new(x0, y0), Pos2::new(x1, y0)], Stroke::new(2.0, Color32::WHITE));
+            let label = if bar_cm < 0.1 { format!("{:.0} µm", bar_cm * 1e4) } else { format!("{bar_cm} cm") };
+            painter.text(Pos2::new(x0, y0 - 4.0), egui::Align2::LEFT_BOTTOM, label, egui::FontId::proportional(12.0), Color32::WHITE);
+        }
 
         // With the panel folded away, a real button brings it back: the
         // panel's own drag handle is a few pixels wide and hard to hit on a
         // phone. (While it is open, its "« Hide" button folds it.)
         if !self.panel_open {
-            let b = Rect::from_min_size(rect.left_top() + Vec2::new(8.0, 8.0), Vec2::new(104.0, 32.0));
+            let b = Rect::from_min_size(rect.left_top() + Vec2::new(8.0, 8.0), Vec2::new(104.0, 36.0));
             if ui.put(b, egui::Button::new("Controls »")).clicked() {
                 self.panel_open = true;
             }
         }
 
-        // Zoom in, zoom out and reset as real buttons (top right): a phone
-        // has no wheel, and pinch or double-tap are not discoverable.
-        // Text, not a ⟲ glyph: egui's bundled fonts may not carry it.
-        let buttons = [
-            ("+", "Zoom in", 40.0),
-            ("−", "Zoom out", 40.0),
-            ("Reset", "Centre the pebble and fit it to the screen", 64.0),
-        ];
+        // Zoom in, zoom out and reset as real buttons (top right). In Run
+        // mode there is no geometry: they scale the console and plots' text.
+        let buttons = [("+", "Zoom in", 40.0), ("−", "Zoom out", 40.0), ("Reset", "Centre and fit to the screen", 64.0)];
         let gap = 6.0;
         let total: f32 = buttons.iter().map(|b| b.2).sum::<f32>() + gap * (buttons.len() - 1) as f32;
         let mut x = rect.right() - 8.0 - total;
         for (label, hover, w) in buttons {
             let b = Rect::from_min_size(Pos2::new(x, rect.top() + 8.0), Vec2::new(w, 36.0));
-            if ui.put(b, egui::Button::new(egui::RichText::new(label).size(18.0))).on_hover_text(hover).clicked() {
-                match label {
-                    "+" => self.view.zoom_about(rect, rect.center(), 1.5),
-                    "−" => self.view.zoom_about(rect, rect.center(), 1.0 / 1.5),
-                    _ => self.view.fit(rect),
+            if ui.put(b, egui::Button::new(RichText::new(label).size(18.0))).on_hover_text(hover).clicked() {
+                match (label, is_run) {
+                    ("+", false) => self.view.zoom_about(rect, rect.center(), 1.5),
+                    ("−", false) => self.view.zoom_about(rect, rect.center(), 1.0 / 1.5),
+                    (_, false) => self.view.fit(rect),
+                    ("+", true) => self.run_text = (self.run_text * 1.2).min(28.0),
+                    ("−", true) => self.run_text = (self.run_text / 1.2).max(8.0),
+                    (_, true) => self.run_text = 13.0,
                 }
             }
             x += w + gap;
         }
     }
 
+    /// Run k_eff's main view: the two plots, then the console, scrolling,
+    /// with Run / Pause / Resume on it (the panel is folded on a phone).
+    fn run_view(ui: &mut egui::Ui, rect: Rect, painter: &egui::Painter, it: &Iteration, text: f32) -> RunAction {
+        let top = rect.top() + 52.0;
+        let narrow = rect.width() < 700.0;
+        let plot_h = ((rect.height() - 60.0) * 0.36).clamp(110.0, 260.0);
+        let plots = Rect::from_min_max(Pos2::new(rect.left() + 10.0, top), Pos2::new(rect.right() - 10.0, top + plot_h));
+        if narrow {
+            draw_k(painter, plots, it);
+        } else {
+            let (a, b) = plots.split_left_right_at_fraction(0.62);
+            draw_k(painter, a.shrink2(Vec2::new(0.0, 0.0)), it);
+            draw_entropy(painter, b.translate(Vec2::new(8.0, 0.0)).with_max_x(plots.right()), it);
+        }
+        // One action button, between the plots and the console.
+        let mut action = RunAction::None;
+        let brow = Rect::from_min_size(Pos2::new(rect.left() + 10.0, plots.bottom() + 8.0), Vec2::new(rect.width() - 20.0, 36.0));
+        let (label, act) = match it.state {
+            RunState::Idle => (format!("▶ Run k_eff  ({} × [{} + {}])", it.cfg.n_particles, it.cfg.n_inactive, it.cfg.n_active), RunAction::Start),
+            RunState::Done => ("▶ Run again (settings in Controls »)".to_string(), RunAction::Start),
+            RunState::Running => (format!("⏸ Pause · generation {} of {} · {:.0} s", it.gens.len(), it.total_gens(), it.elapsed), RunAction::Pause),
+            RunState::Paused => ("▶ Resume".to_string(), RunAction::Resume),
+        };
+        let bw = (brow.width()).min(360.0);
+        if ui.put(Rect::from_min_size(brow.min, Vec2::new(bw, 36.0)), egui::Button::new(RichText::new(label).size(15.0))).clicked() {
+            action = act;
+        }
+        let console = Rect::from_min_max(Pos2::new(rect.left() + 10.0, brow.bottom() + 8.0), Pos2::new(rect.right() - 10.0, rect.bottom() - 10.0));
+        painter.rect_filled(console, 4.0, Color32::from_rgb(8, 9, 12));
+        if it.lines.is_empty() {
+            painter.text(console.center(), egui::Align2::CENTER_CENTER, "openmc.run()-style output appears here", egui::FontId::proportional(text), Color32::from_rgb(140, 146, 160));
+            return action;
+        }
+        ui.scope_builder(egui::UiBuilder::new().max_rect(console.shrink(6.0)), |ui| {
+            egui::ScrollArea::both().stick_to_bottom(true).auto_shrink([false, false]).show(ui, |ui| {
+                for l in &it.lines {
+                    ui.add(egui::Label::new(RichText::new(l).monospace().size(text).color(Color32::from_rgb(210, 216, 226))).extend());
+                }
+                if it.state == RunState::Running {
+                    ui.label(RichText::new(" …").monospace().size(text));
+                }
+            });
+        });
+        action
+    }
+
     /// The loading progress, drawn on the canvas so it shows even with the
     /// panel collapsed (the phone layout).
     fn loading_card(painter: &egui::Painter, rect: Rect, l: &Loading) {
+        if rect.width() < 260.0 {
+            return; // the side panel is open over most of the screen and shows the same
+        }
         let now = now_s();
-        let w = (rect.width() - 32.0).min(420.0);
-        let card = Rect::from_center_size(rect.center(), Vec2::new(w, 112.0));
+        let exact = l.rung == Rung::Godiva && engine::effective_tier(l.rung, l.tier) == Tier::Exact;
+        let w = (rect.width() - 32.0).min(440.0);
+        let card = Rect::from_center_size(rect.center(), Vec2::new(w, if exact { 168.0 } else { 112.0 }));
         painter.rect_filled(card, 8.0, Color32::from_rgba_unmultiplied(14, 16, 22, 235));
         painter.rect_stroke(card, 8.0, Stroke::new(1.0, Color32::from_rgb(70, 80, 100)), StrokeKind::Inside);
         let f = |s: f32| egui::FontId::proportional(s);
         let left = card.left() + 16.0;
         painter.text(Pos2::new(left, card.top() + 14.0), egui::Align2::LEFT_TOP, "Simulation loading…", f(17.0), Color32::WHITE);
-        painter.text(
-            Pos2::new(left, card.top() + 40.0),
-            egui::Align2::LEFT_TOP,
-            format!("Processing ENDF files · {}", l.status_line()),
-            f(13.0),
-            Color32::from_rgb(200, 205, 215),
-        );
+        painter.text(Pos2::new(left, card.top() + 40.0), egui::Align2::LEFT_TOP, format!("Processing ENDF files · {}", l.status_line()), f(13.0), Color32::from_rgb(200, 205, 215));
         let bar = Rect::from_min_size(Pos2::new(left, card.top() + 66.0), Vec2::new(w - 32.0, 12.0));
         painter.rect_filled(bar, 6.0, Color32::from_rgb(40, 46, 58));
         let mut fill = bar;
@@ -951,5 +1511,12 @@ impl TrisoApp {
             f(12.0),
             Color32::from_rgb(150, 158, 175),
         );
+        if exact {
+            let galley_text = "Run k_eff processes at NJOY's tolerance 0.001, like the recorded result, so it takes \
+                               about three times longer than Watch mode (a fast desktop natively: about a \
+                               minute; a browser or a phone: several).";
+            let galley = painter.layout(galley_text.to_string(), f(12.0), Color32::from_rgb(250, 200, 80), w - 32.0);
+            painter.galley(Pos2::new(left, card.top() + 108.0), galley, Color32::from_rgb(250, 200, 80));
+        }
     }
 }
