@@ -220,6 +220,24 @@
 //! # RESOLVED 2026-09-16 — the residual is gone, and the prediction that said
 //! # it would be is GitHub #188's own
 //!
+//! > **CORRECTED 2026-10-04 — the attribution in this section is confounded;
+//! > the paired geometry A/B above is the attributable measurement.** The
+//! > 2026-09-13 column below was run at `8b8f5a7eb1` (2026-09-13 13:09 UTC).
+//! > Between it and the 2026-09-16 run (`6a8f42b668`) **two** fixes landed: the
+//! > #188 kernel (`4d074ea8b9`, 2026-09-13 23:13 UTC) and the nested-frame
+//! > surface-crossing fix (`9387f6b0de`, 2026-09-14 11:12 UTC). The −2508 /
+//! > −2085 / −1481 pcm moves below are the sum of both, and this section
+//! > credits all of it to #188. The paired run at matched settings
+//! > (`2655d83fa1`, the "before / after the fix" table above, 3000 × [80 + 150])
+//! > was made **after** the kernel fix and isolates the geometry fix at
+//! > **−2304 ± 267 pcm**. What is left for the kernel is the unpaired
+//! > difference between the 2026-09-13 case-1 column (+2665 ± 128) and the
+//! > paired run's "before" arm (+2341 ± 188): **−324 ± 227 pcm, 1.4 σ, not
+//! > resolved**, at different statistics. So "the real cause was a thermal
+//! > scattering kernel" below is not supported by the record;
+//! > the case scan's spread was removed by the geometry fix. Verified from
+//! > `git log` commit times and the two commit messages on 2026-10-04.
+//!
 //! GitHub #188 ("H-in-H2O incoherent-inelastic kernel transfers 2-5.5 % too
 //! little energy") was closed on 2026-09-14 by replacing `equiprobable_emission`
 //! with the ported `aceth.f90::acesix`. Its closing text named the direct test
@@ -267,8 +285,10 @@
 //!
 //! **Does not:** it does not retroactively justify the attribution history
 //! above. The residual was attributed to U-238 resonance escape, that
-//! attribution was **refuted** by the case scan, and the real cause was a
-//! thermal scattering kernel. A quantitative prediction agreeing to 8 % (the
+//! attribution was **refuted** by the case scan, and ~~the real cause was a
+//! thermal scattering kernel~~ **CORRECTED 2026-10-04:** the cause the paired
+//! A/B isolates is the nested-frame surface-crossing defect (see the
+//! correction at the head of this section). A quantitative prediction agreeing to 8 % (the
 //! `+3200` against `+2950`) turned out to be coincidence. That sequence is
 //! recorded because it is how a wrong attribution comes to feel settled, and it
 //! is worth more than the number that finally came out right.
