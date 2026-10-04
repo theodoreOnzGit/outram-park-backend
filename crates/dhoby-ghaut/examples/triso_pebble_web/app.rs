@@ -372,8 +372,8 @@ impl Running {
             running: autostart(),
             single: false,
             want_single: false,
-            speed_cm_s: 60.0,
-            keep: 1,
+            speed_cm_s: 7.0,
+            keep: 0,
             dots: true,
             trail_cm: Some(80.0),
         }
