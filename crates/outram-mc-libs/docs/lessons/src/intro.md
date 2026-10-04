@@ -36,7 +36,7 @@ endorsed by MIT or Argonne.
 
 ## Live demo
 
-**[Launch the TRISO pebble demo](../../demos/triso-pebble/)**: one neutron at a
+**[Launch the TRISO pebble demo](../../demos/monte-carlo/?rung=triso&mode=watch)**: one neutron at a
 time through a TRISO pebble, on real ENDF/B-VIII.0 data processed in your
 browser by this workspace's NJOY port and tracked by this crate. It is a
 teaching picture, not a benchmark (tracking issue

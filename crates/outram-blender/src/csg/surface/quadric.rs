@@ -159,6 +159,7 @@ impl Surface for Sphere {
     /// `coincident` (the particle is sitting on this surface, e.g. just after a
     /// boundary crossing) forces c = 0 so round-off can't reflect the tangent
     /// root back inside — the standard OpenMC treatment.
+    // ANCHOR: sphere_distance (mdBook include, Monte Carlo tutorial gh:#521)
     #[inline]
     fn distance(&self, r: Position, u: Direction, coincident: bool) -> f64 {
         const EPS: f64 = 1.0e-10;
@@ -189,6 +190,7 @@ impl Surface for Sphere {
             }
         }
     }
+    // ANCHOR_END: sphere_distance
 }
 
 #[derive(Debug, Clone)]

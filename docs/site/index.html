@@ -30,18 +30,28 @@
     <section class="panel" id="p-mc">
       <h2>Monte Carlo — inside <code>outram-mc-libs</code></h2>
       <p>A Rust port of selected OpenMC kernels: CSG geometry and nested lattices, surface and delta tracking, collisions, k-eigenvalue power iteration, tallies, variance reduction and multigroup mode. Each lesson sits beside the code it describes.</p>
+      <h3>Tutorial: Monte Carlo, one rung at a time</h3>
+      <p>Lessons that start from a question and answer it with the real code, one rung of physics at a time, each with its rung of the live demo. Rung 1, <strong>Godiva</strong>: free flights, the surface, collisions, fission generations, leakage and fast fission by counting, and whether a sphere of uranium is critical.</p>
+      <p class="actions">
+        <a class="btn" href="tutorials/monte-carlo/godiva.html">Rung 1: Godiva</a>
+        <a class="btn ghost" href="tutorials/monte-carlo/">How the lessons work</a>
+      </p>
+      <p class="status">Status: first draft (2026-10-04), not yet human-reviewed. Tracking issues <a href="https://github.com/theodoreOnzGit/outram-park-backend/issues/520">#520</a>, <a href="https://github.com/theodoreOnzGit/outram-park-backend/issues/521">#521</a>.</p>
+      <h3>Deep dive: inside the code</h3>
       <p class="actions">
         <a class="btn" href="deep-dives/monte-carlo/">Open the deep dive</a>
         <a class="btn ghost" href="api/outram_mc_libs/">API reference</a>
       </p>
       <p class="status">Status: first draft (2026-10-03), not yet human-reviewed. Tracking issue <a href="https://github.com/theodoreOnzGit/outram-park-backend/issues/514">#514</a>.</p>
-      <h3>Live demo: one neutron at a time</h3>
-      <p>A 2D analogue of an HTR-10 fuel pebble. Each neutron is one history transported by <code>outram-mc-libs</code> on real ENDF/B-VIII.0 data, which your browser downloads (about 11&nbsp;MB) and processes with the workspace's NJOY port, in a background worker, before the first neutron flies &mdash; expect a minute or two; the page stays responsive meanwhile, and on a phone the control panel folds away to the left. Low-fidelity reconstruction (tolerance 0.01); the tracks are drawn projected onto the slice.</p>
+      <h3>Live demo: the Monte Carlo demo, a rung at a time</h3>
+      <p>One app with a rung setting. <strong>Godiva</strong>, a bare sphere of uranium: watch real neutron histories, then run a true k-eigenvalue calculation in your browser, one console line per generation. <strong>TRISO pebble</strong>: one neutron at a time through a 2D analogue of an HTR-10 fuel pebble. Every neutron is transported by <code>outram-mc-libs</code> on real ENDF/B-VIII.0 data, which your browser downloads and processes with the workspace's NJOY port in a background worker before the first neutron flies &mdash; expect a minute or two (more for Godiva's Run k_eff, which processes at NJOY's full tolerance); the page stays responsive meanwhile, and on a phone the control panel folds away to the left.</p>
       <p class="actions">
-        <a class="btn" href="demos/triso-pebble/">Launch the TRISO pebble demo</a>
-        <a class="btn ghost" href="demos/triso-pebble/geometry/">Geometry images</a>
+        <a class="btn" href="demos/monte-carlo/?rung=godiva&amp;mode=watch">Godiva: watch</a>
+        <a class="btn" href="demos/monte-carlo/?rung=godiva&amp;mode=run">Godiva: run k_eff</a>
+        <a class="btn" href="demos/monte-carlo/?rung=triso&amp;mode=watch">TRISO pebble</a>
+        <a class="btn ghost" href="demos/monte-carlo/geometry/">Geometry images</a>
       </p>
-      <p class="status">Status: first demo (2026-10-04), not yet human-reviewed. Tracking issue <a href="https://github.com/theodoreOnzGit/outram-park-backend/issues/519">#519</a>.</p>
+      <p class="status">Status: first demo (2026-10-04), not yet human-reviewed. Tracking issues <a href="https://github.com/theodoreOnzGit/outram-park-backend/issues/519">#519</a>, <a href="https://github.com/theodoreOnzGit/outram-park-backend/issues/521">#521</a>.</p>
     </section>
 
     <section class="panel" id="p-nd">

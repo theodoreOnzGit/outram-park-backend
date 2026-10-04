@@ -1,0 +1,23 @@
+# Tutorial: Monte Carlo, one rung at a time (teaching site, gh:#520).
+# Built by scripts/build-pages.sh (docs/site/tutorials.txt) into the backend's
+# GitHub Pages site under tutorials/monte-carlo/. One page per rung of the
+# ladder; each page links to the demo at its rung, and the demo's rung table
+# (crates/dhoby-ghaut/examples/monte_carlo_web/rungs.rs) links back.
+#
+# How the pages are written: docs/lessons/lesson-philosophy.md.
+# Adding a rung's page: add `src/<rung>.md`, list it in src/SUMMARY.md, point
+# that rung's `lesson:` in rungs.rs at `tutorials/monte-carlo/<rung>.html`,
+# and add the page to the "every page must exist" list in build-pages.sh.
+[book]
+title = "Monte Carlo, one rung at a time"
+authors = ["OUTRAM PARK contributors"]
+language = "en"
+src = "src"
+
+[output.html]
+git-repository-url = "https://github.com/theodoreOnzGit/outram-park-backend/tree/develop/crates/outram-mc-libs"
+edit-url-template = "https://github.com/theodoreOnzGit/outram-park-backend/edit/develop/crates/outram-mc-libs/docs/tutorial/{path}"
+site-url = "/outram-park-backend/tutorials/monte-carlo/"
+mathjax-support = true
+additional-css = ["widgets.css"]
+additional-js = ["widgets.js"]
