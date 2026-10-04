@@ -22,6 +22,7 @@ exactly as if it were here.
 | writing a slow test, or touching CI (`long-tests` tiers, TUAS parallel runs) | [`docs/claude-md/long-tests-and-ci.md`](docs/claude-md/long-tests-and-ci.md) |
 | building an egui simulator (headless mode is mandatory) | [`crates/outram-park-digital-twin-engine/CLAUDE.md`](crates/outram-park-digital-twin-engine/CLAUDE.md) |
 | writing a tutorial, deep dive or interactive demo (**mobile-first is a HARD RULE**) | [`docs/claude-md/mobile-first-tutorials-and-demos.md`](docs/claude-md/mobile-first-tutorials-and-demos.md) |
+| designing or writing any lesson, tutorial or deep dive (question chain, rung ladder, code walks, honest numbers) | [`docs/lessons/lesson-philosophy.md`](docs/lessons/lesson-philosophy.md) |
 | asked to enable the working-hours guardrail (opt-in, off by default) | [`docs/claude-md/working-hours-guardrail.md`](docs/claude-md/working-hours-guardrail.md) |
 | asked for Singlish mode | [`docs/claude-md/singlish-mode.md`](docs/claude-md/singlish-mode.md) |
 | publishing, upgrading dependencies, or needing consolidation history | [`docs/workspace-maintenance.md`](docs/workspace-maintenance.md) |
