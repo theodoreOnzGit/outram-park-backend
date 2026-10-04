@@ -163,7 +163,8 @@ for f in index.html api/outram_mc_libs/index.html api/changi/index.html \
   demos/dispersion/index.html demos/dispersion/dispersion_web_bg.wasm \
   api/sembawang/index.html \
   deep-dives/nuclear-data/index.html api/njoy_outram_park_fork/index.html \
-  demos/nuclear-data/index.html demos/nuclear-data/nuclear_data_web_bg.wasm; do
+  demos/nuclear-data/index.html demos/nuclear-data/nuclear_data_web_bg.wasm \
+  tutorials/monte-carlo/lct008.html; do
   [[ -f "$OUT/$f" ]] || { echo "missing $OUT/$f" >&2; exit 1; }
 done
 
