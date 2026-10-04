@@ -402,9 +402,6 @@ impl DataBuilder {
     pub fn next_job(&self) -> Option<Job> {
         JOBS.get(self.done).copied()
     }
-    pub fn progress(&self) -> (usize, usize) {
-        (self.done, JOBS.len())
-    }
     /// Process the next job from its (covariance-stripped) tape bytes.
     pub fn step(&mut self, bytes: &[u8]) -> Result<(), String> {
         let job = self.next_job().ok_or("no job left")?;

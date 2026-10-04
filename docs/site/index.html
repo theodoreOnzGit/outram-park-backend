@@ -36,7 +36,7 @@
       </p>
       <p class="status">Status: first draft (2026-10-03), not yet human-reviewed. Tracking issue <a href="https://github.com/theodoreOnzGit/outram-park-backend/issues/514">#514</a>.</p>
       <h3>Live demo: one neutron at a time</h3>
-      <p>A 2D analogue of an HTR-10 fuel pebble. Each neutron is one history transported by <code>outram-mc-libs</code> on real ENDF/B-VIII.0 data, which your browser downloads (about 11&nbsp;MB) and processes with the workspace's NJOY port before the first neutron flies &mdash; expect a minute or two, during which the page may stop responding. Low-fidelity reconstruction (tolerance 0.01); the tracks are drawn projected onto the slice.</p>
+      <p>A 2D analogue of an HTR-10 fuel pebble. Each neutron is one history transported by <code>outram-mc-libs</code> on real ENDF/B-VIII.0 data, which your browser downloads (about 11&nbsp;MB) and processes with the workspace's NJOY port, in a background worker, before the first neutron flies &mdash; expect a minute or two; the page stays responsive meanwhile, and on a phone the control panel folds away to the left. Low-fidelity reconstruction (tolerance 0.01); the tracks are drawn projected onto the slice.</p>
       <p class="actions">
         <a class="btn" href="demos/triso-pebble/">Launch the TRISO pebble demo</a>
         <a class="btn ghost" href="demos/triso-pebble/geometry/">Geometry images</a>

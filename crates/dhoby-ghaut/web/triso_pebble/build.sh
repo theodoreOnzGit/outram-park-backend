@@ -37,7 +37,7 @@ rm -rf "$dist"
 mkdir -p "$dist/data"
 wasm-bindgen --target web --no-typescript --out-dir "$dist" --out-name triso_pebble_web \
   "$root/target/wasm32-unknown-unknown/release/examples/triso_pebble_web.wasm"
-cp "$here/index.html" "$dist/"
+cp "$here/index.html" "$here/worker.js" "$dist/"
 
 cargo run --release -p dhoby-ghaut --example triso_pebble_web -- --prepare-web-data "$dist/data"
 

@@ -1,120 +1,16 @@
 //! The egui front end: loading screen, the pebble, and the animated track.
 //!
-//! Loading processes one ENDF tape per frame. Each job is a single blocking
-//! call (U-235 is the longest), so the page cannot repaint DURING a job; it
-//! repaints between them. A frame that is about to block first draws "now
-//! processing X" and only starts the job on the NEXT frame, so the label the
-//! user sees is always the job that is running.
+//! The UI never does physics: [`crate::engine`] runs the ENDF processing and
+//! the neutrons on a thread (natively) or in a Web Worker (in the browser),
+//! and this file only draws what it reports. So the page keeps animating —
+//! progress bar, elapsed time, the pebble — while a nuclide is processed.
 
-use crate::model::{self, DataBuilder, JOBS};
-use crate::sim::{self, Chain, History, Physics, Stats};
+use crate::engine::{self, Event, Link, Request};
+use crate::model::{self, JOBS};
+use crate::sim::{self, History, Stats};
 use egui::{Color32, Pos2, Rect, Sense, Stroke, StrokeKind, Vec2};
 use outram_mc_libs::physics::track_output::TrackEvent;
 use std::collections::VecDeque;
-
-// ─── Where tape bytes come from ──────────────────────────────────────────────
-
-#[cfg(target_arch = "wasm32")]
-#[derive(Default)]
-pub struct WebTapes {
-    ready: std::collections::HashMap<&'static str, Result<Vec<u8>, String>>,
-    fetched: usize,
-    downloaded_bytes: usize,
-}
-
-pub enum Source {
-    #[cfg(not(target_arch = "wasm32"))]
-    Native,
-    #[cfg(target_arch = "wasm32")]
-    Web(std::sync::Arc<std::sync::RwLock<WebTapes>>),
-}
-
-impl Source {
-    #[cfg(not(target_arch = "wasm32"))]
-    pub fn native() -> Self {
-        Source::Native
-    }
-
-    /// Start downloading every tape at once, in the background.
-    ///
-    /// All requests are issued before the first (blocking) nuclear-data job
-    /// can start, so the transfers proceed while U-235 is being processed.
-    /// Issued one after another instead, each download would wait for the
-    /// previous nuclide's processing to finish.
-    #[cfg(target_arch = "wasm32")]
-    pub fn web(ctx: &egui::Context) -> Self {
-        let store = std::sync::Arc::new(std::sync::RwLock::new(WebTapes::default()));
-        for job in JOBS {
-            let (s, ctx) = (store.clone(), ctx.clone());
-            wasm_bindgen_futures::spawn_local(async move {
-                let url = format!("data/{}", model::wire_name(job.tape));
-                let got = fetch_bytes(&url).await.and_then(|z| model::decompress(&z).map(|b| (z.len(), b)));
-                if let Ok(mut st) = s.write() {
-                    match got {
-                        Ok((n, b)) => {
-                            st.downloaded_bytes += n;
-                            st.ready.insert(job.tape, Ok(b));
-                        }
-                        Err(e) => {
-                            st.ready.insert(job.tape, Err(e));
-                        }
-                    }
-                    st.fetched += 1;
-                }
-                ctx.request_repaint();
-            });
-        }
-        Source::Web(store)
-    }
-
-    fn has(&self, tape: &str) -> bool {
-        match self {
-            #[cfg(not(target_arch = "wasm32"))]
-            Source::Native => {
-                let _ = tape; // natively every tape is on disk
-                true
-            }
-            #[cfg(target_arch = "wasm32")]
-            Source::Web(s) => s.read().is_ok_and(|s| s.ready.contains_key(tape)),
-        }
-    }
-
-    fn take(&self, tape: &'static str) -> Option<Result<Vec<u8>, String>> {
-        match self {
-            #[cfg(not(target_arch = "wasm32"))]
-            Source::Native => Some(crate::native_tape(tape)),
-            #[cfg(target_arch = "wasm32")]
-            Source::Web(s) => s.write().ok().and_then(|mut s| s.ready.remove(tape)),
-        }
-    }
-
-    /// `(tapes downloaded, MB downloaded)`, or `None` when there is no download.
-    fn download_status(&self) -> Option<(usize, f64)> {
-        match self {
-            #[cfg(not(target_arch = "wasm32"))]
-            Source::Native => None,
-            #[cfg(target_arch = "wasm32")]
-            Source::Web(s) => {
-                let s = s.read().ok()?;
-                Some((s.fetched, s.downloaded_bytes as f64 / 1.0e6))
-            }
-        }
-    }
-}
-
-#[cfg(target_arch = "wasm32")]
-async fn fetch_bytes(url: &str) -> Result<Vec<u8>, String> {
-    use wasm_bindgen::JsCast as _;
-    use wasm_bindgen_futures::JsFuture;
-    let err = |e: wasm_bindgen::JsValue| format!("{url}: {e:?}");
-    let window = web_sys::window().ok_or("no window")?;
-    let resp: web_sys::Response = JsFuture::from(window.fetch_with_str(url)).await.map_err(err)?.dyn_into().map_err(err)?;
-    if !resp.ok() {
-        return Err(format!("{url}: HTTP {}", resp.status()));
-    }
-    let buf = JsFuture::from(resp.array_buffer().map_err(err)?).await.map_err(err)?;
-    Ok(js_sys::Uint8Array::new(&buf).to_vec())
-}
 
 // ─── Platform shims (no std::time on wasm32 — it compiles, then panics) ──────
 
@@ -394,17 +290,69 @@ fn draw_track(
     }
 }
 
-// ─── The app ─────────────────────────────────────────────────────────────────
+// ─── Loading ─────────────────────────────────────────────────────────────────
+
+/// Rough cost of each job in seconds, measured in headless Chromium on
+/// 2026-10-03, used ONLY to weight the progress bar: the jobs differ by two
+/// orders of magnitude, so counting them would make the bar jump.
+const JOB_WEIGHT_S: [f64; 11] = [35.1, 28.5, 0.2, 0.1, 0.2, 0.1, 0.1, 0.3, 0.3, 0.3, 21.5];
+
+struct Loading {
+    started: f64,
+    job_started: Vec<Option<f64>>,
+    job_secs: Vec<Option<f64>>,
+}
+
+impl Loading {
+    fn new() -> Self {
+        Self { started: now_s(), job_started: vec![None; JOBS.len()], job_secs: vec![None; JOBS.len()] }
+    }
+    fn done(&self) -> usize {
+        self.job_secs.iter().filter(|s| s.is_some()).count()
+    }
+    /// The job running now, if any.
+    fn current(&self) -> Option<usize> {
+        (0..JOBS.len()).find(|&i| self.job_started[i].is_some() && self.job_secs[i].is_none())
+    }
+    /// A rough fraction: finished jobs by weight, plus the running job's
+    /// elapsed share of its expected time, capped short of done.
+    fn fraction(&self, now: f64) -> f32 {
+        let total: f64 = JOB_WEIGHT_S.iter().sum();
+        let mut f: f64 = (0..JOBS.len()).filter(|&i| self.job_secs[i].is_some()).map(|i| JOB_WEIGHT_S[i]).sum();
+        if let Some(i) = self.current() {
+            let t = now - self.job_started[i].unwrap_or(now);
+            f += JOB_WEIGHT_S[i] * (t / JOB_WEIGHT_S[i].max(0.05)).min(0.95);
+        }
+        (f / total).clamp(0.0, 1.0) as f32
+    }
+    fn status_line(&self) -> String {
+        match self.current() {
+            Some(i) => format!("{} ({} of {})", JOBS[i].label, i + 1, JOBS.len()),
+            None if self.done() == 0 => "Downloading ENDF tapes".into(),
+            None => "Assembling the model".into(),
+        }
+    }
+}
+
+// ─── Running ─────────────────────────────────────────────────────────────────
+
+/// Animated neutrons kept in hand while running, so the animation never waits
+/// on transport.
+const PREFETCH: usize = 3;
 
 struct Running {
-    phys: Physics,
-    chain: Chain,
+    /// Histories received and not yet shown, in chain order.
+    queue: VecDeque<History>,
+    /// Animated neutrons requested from the engine and not yet received.
+    outstanding: usize,
     current: Option<Anim>,
     past: VecDeque<History>,
     stats: Stats,
     running: bool,
-    /// Animate the current neutron to the end even while stopped ("Next").
+    /// Animate the current neutron to the end while stopped ("Next").
     single: bool,
+    /// "Next" was pressed before its neutron had arrived.
+    want_single: bool,
     speed_cm_s: f64,
     keep: usize,
     dots: bool,
@@ -413,14 +361,40 @@ struct Running {
 }
 
 impl Running {
-    fn start_next(&mut self) {
+    fn new(link: &Link) -> Self {
+        link.send(Request::Run { n: PREFETCH, animate: true });
+        Self {
+            queue: VecDeque::new(),
+            outstanding: PREFETCH,
+            current: None,
+            past: VecDeque::new(),
+            stats: Stats::default(),
+            running: autostart(),
+            single: false,
+            want_single: false,
+            speed_cm_s: 60.0,
+            keep: 1,
+            dots: true,
+            trail_cm: Some(80.0),
+        }
+    }
+    fn retire(&mut self, h: History) {
+        self.past.push_back(h);
+        while self.past.len() > self.keep {
+            self.past.pop_front();
+        }
+    }
+    /// Show the next queued neutron. `false` if none has arrived yet.
+    fn start_next(&mut self) -> bool {
+        let Some(h) = self.queue.pop_front() else { return false };
         if let Some(a) = self.current.take() {
             if !a.counted {
                 self.stats.add(&a.hist); // skipped past before it finished
             }
             self.retire(a.hist);
         }
-        self.current = Some(Anim::new(self.chain.run_next(&self.phys)));
+        self.current = Some(Anim::new(h));
+        true
     }
     /// Count the current neutron once its animation reaches the end.
     fn count_if_finished(&mut self) {
@@ -431,131 +405,182 @@ impl Running {
             }
         }
     }
-    fn retire(&mut self, h: History) {
-        self.past.push_back(h);
-        while self.past.len() > self.keep {
-            self.past.pop_front();
+    fn top_up(&mut self, link: &Link) {
+        if !(self.running || self.want_single) {
+            return;
+        }
+        let have = self.queue.len() + self.outstanding;
+        if have < PREFETCH {
+            let n = PREFETCH - have;
+            link.send(Request::Run { n, animate: true });
+            self.outstanding += n;
+        }
+    }
+    fn receive(&mut self, h: History, animate: bool) {
+        if !animate {
+            self.stats.add(&h);
+            self.retire(h);
+            return;
+        }
+        self.outstanding = self.outstanding.saturating_sub(1);
+        self.queue.push_back(h);
+        if self.want_single && self.start_next() {
+            self.want_single = false;
+            self.single = true;
         }
     }
 }
 
-#[allow(clippy::large_enum_variant)] // see `Ready`
+// ─── The app ─────────────────────────────────────────────────────────────────
+
+#[allow(clippy::large_enum_variant)] // held by value: the workspace forbids `Box<T>`
 enum Phase {
-    Loading { builder: DataBuilder, armed: bool, timings: Vec<(&'static str, f64)>, started: f64 },
-    // Held by value: the workspace forbids `Box<T>` outside recursive types.
+    Loading(Loading),
     Ready(Running),
     Failed(String),
 }
 
 pub struct TrisoApp {
-    source: Source,
+    link: Option<Link>,
     phase: Phase,
     centres: Vec<(f64, f64)>,
     view: View,
     title: String,
     load_timings: Vec<(&'static str, f64)>,
     load_total_s: f64,
+    panel_open: bool,
+    /// The panel's initial state is decided on the first frame, from the
+    /// screen width: collapsed on a phone, so the pebble gets the screen.
+    panel_decided: bool,
 }
 
 impl TrisoApp {
-    pub fn new(cc: &eframe::CreationContext<'_>, source: Source) -> Self {
+    pub fn new(cc: &eframe::CreationContext<'_>) -> Self {
         // The energy colours are chosen against a dark ground; keep the panel
         // dark too rather than follow a light system theme.
         cc.egui_ctx.set_theme(egui::ThemePreference::Dark);
+        #[cfg(not(target_arch = "wasm32"))]
+        let link = {
+            let ctx = cc.egui_ctx.clone();
+            Ok::<Link, String>(engine::start_native(move || ctx.request_repaint()))
+        };
+        #[cfg(target_arch = "wasm32")]
+        let link = engine::start_web(cc.egui_ctx.clone());
+        let (link, phase) = match link {
+            Ok(l) => (Some(l), Phase::Loading(Loading::new())),
+            Err(e) => (None, Phase::Failed(format!("could not start the physics worker: {e}"))),
+        };
         Self {
-            source,
-            phase: Phase::Loading { builder: DataBuilder::default(), armed: false, timings: Vec::new(), started: now_s() },
+            link,
+            phase,
             centres: model::particle_centres(model::LAYOUT_SEED),
             view: View::new(),
             title: String::new(),
             load_timings: Vec::new(),
             load_total_s: 0.0,
+            panel_open: true,
+            panel_decided: false,
         }
     }
 
-    fn title_now(&mut self, ctx: &egui::Context, t: String) {
+    fn handle(&mut self, events: Vec<Event>) {
+        for e in events {
+            match (&mut self.phase, e) {
+                (_, Event::Error(m)) => self.phase = Phase::Failed(m),
+                (Phase::Loading(l), Event::JobStarted { index }) => l.job_started[index] = Some(now_s()),
+                (Phase::Loading(l), Event::JobDone { index, secs }) => l.job_secs[index] = Some(secs),
+                (Phase::Loading(l), Event::Ready) => {
+                    self.load_timings =
+                        JOBS.iter().zip(&l.job_secs).map(|(j, s)| (j.label, s.unwrap_or(0.0))).collect();
+                    self.load_total_s = now_s() - l.started;
+                    if let Some(link) = &self.link {
+                        self.phase = Phase::Ready(Running::new(link));
+                    }
+                }
+                (Phase::Ready(r), Event::History { h, animate }) => r.receive(h, animate),
+                _ => {}
+            }
+        }
+    }
+
+    fn title_now(&mut self, ctx: &egui::Context) {
+        let t = match &self.phase {
+            Phase::Loading(l) => format!(
+                "TRISO pebble · loading {}/{} · {}",
+                l.done(),
+                JOBS.len(),
+                l.status_line()
+            ),
+            Phase::Ready(r) => format!(
+                "TRISO pebble · ready · {} neutrons · {} fission · {} capture · {} other",
+                r.stats.histories, r.stats.fissions, r.stats.captures, r.stats.other
+            ),
+            Phase::Failed(e) => format!("TRISO pebble · FAILED · {e}"),
+        };
         if t != self.title {
             set_title(ctx, &t);
             self.title = t;
         }
     }
+}
 
-    /// Advance loading by at most one job. Returns the next phase if it changed.
-    fn step_loading(&mut self, ctx: &egui::Context) -> Option<Phase> {
-        let Phase::Loading { builder, armed, timings, started } = &mut self.phase else { return None };
-        let Some(job) = builder.next_job() else {
-            let b = std::mem::take(builder);
-            self.load_timings = std::mem::take(timings);
-            self.load_total_s = now_s() - *started;
-            return Some(match b.finish() {
-                Ok(data) => Phase::Ready(Running {
-                    phys: Physics::new(data),
-                    chain: Chain::new(1),
-                    current: None,
-                    past: VecDeque::new(),
-                    stats: Stats::default(),
-                    running: autostart(),
-                    single: false,
-                    speed_cm_s: 60.0,
-                    keep: 1,
-                    dots: true,
-                    trail_cm: Some(80.0),
-                }),
-                Err(e) => Phase::Failed(e),
-            });
-        };
-        if !self.source.has(job.tape) {
+impl eframe::App for TrisoApp {
+    fn ui(&mut self, ui: &mut egui::Ui, _frame: &mut eframe::Frame) {
+        let ctx = ui.ctx().clone();
+        if !self.panel_decided {
+            self.panel_open = ui.max_rect().width() >= 700.0;
+            self.panel_decided = true;
+        }
+        if let Some(link) = &self.link {
+            let events = link.drain();
+            self.handle(events);
+        }
+        if let (Phase::Ready(r), Some(link)) = (&mut self.phase, &self.link) {
+            r.top_up(link);
+        }
+        if matches!(self.phase, Phase::Loading(_)) {
+            // Elapsed time and the progress bar keep moving between events.
             ctx.request_repaint_after(std::time::Duration::from_millis(100));
-            return None;
         }
-        if !*armed {
-            *armed = true; // draw "processing <job>" this frame, run it next frame
-            ctx.request_repaint();
-            return None;
-        }
-        let t = now_s();
-        let result = match self.source.take(job.tape) {
-            Some(Ok(bytes)) => builder.step(&bytes),
-            Some(Err(e)) => Err(e),
-            None => return None,
-        };
-        *armed = false;
-        if let Err(e) = result {
-            return Some(Phase::Failed(format!("{}: {e}", job.label)));
-        }
-        timings.push((job.label, now_s() - t));
-        ctx.request_repaint();
-        None
-    }
+        self.title_now(&ctx);
 
-    fn loading_panel(&self, ui: &mut egui::Ui) {
-        let Phase::Loading { builder, armed, timings, started } = &self.phase else { return };
-        let (done, total) = builder.progress();
-        ui.heading("Processing ENDF/B-VIII.0 in your browser");
-        ui.label(
-            "Every cross section is reconstructed here, from the evaluated nuclear data, by \
-             OUTRAM PARK's own NJOY port (RECONR + BROADR, tolerance 0.01). Each nuclide is one \
-             long computation: the page cannot redraw while it runs, so it may look frozen — \
-             U-235 and U-238 take the longest.",
-        );
-        ui.add_space(6.0);
-        ui.add(egui::ProgressBar::new(done as f32 / total as f32).text(format!("{done} / {total} nuclear-data jobs")));
-        if let Some((n, mb)) = self.source.download_status() {
-            ui.label(format!("Downloaded {n} / {total} tapes ({mb:.1} MB, covariance data removed)"));
+        // Folds two ways: the panel's own drag handle (`open`), and the hide
+        // button inside it (`self.panel_open`); whichever changed wins.
+        let before = self.panel_open;
+        let mut open = before;
+        egui::Panel::left("controls").default_size(330.0).resizable(true).show_collapsible(ui, &mut open, |ui| {
+            egui::ScrollArea::vertical().show(ui, |ui| self.side_panel(ui));
+        });
+        if self.panel_open == before {
+            self.panel_open = open;
         }
-        ui.label(format!("Elapsed {:.0} s", now_s() - started));
+        egui::CentralPanel::default().frame(egui::Frame::NONE).show(ui, |ui| self.canvas(ui));
+    }
+}
+
+impl TrisoApp {
+    fn loading_panel(ui: &mut egui::Ui, l: &Loading) {
+        let now = now_s();
+        ui.heading("Simulation loading…");
+        ui.horizontal(|ui| {
+            ui.spinner();
+            ui.strong(format!("Processing ENDF files · {}", l.status_line()));
+        });
+        ui.add(egui::ProgressBar::new(l.fraction(now)).show_percentage().text(format!("rough · {:.0} s", now - l.started)));
+        ui.label("About 11 MB of ENDF tapes, covariance data removed.");
+        ui.label(
+            "Every cross section is reconstructed from evaluated ENDF/B-VIII.0 data by OUTRAM PARK's own \
+             NJOY port (RECONR + BROADR, tolerance 0.01), off the page's main thread, so the page stays \
+             live. U-235, U-238 and graphite thermal scattering take the longest.",
+        );
         ui.add_space(6.0);
         egui::Grid::new("jobs").num_columns(2).spacing([16.0, 2.0]).show(ui, |ui| {
             for (i, job) in JOBS.iter().enumerate() {
                 ui.label(job.label);
-                if let Some((_, s)) = timings.get(i) {
+                if let Some(s) = l.job_secs[i] {
                     ui.label(format!("done in {s:.1} s"));
-                } else if i == done && *armed {
-                    ui.colored_label(Color32::from_rgb(250, 200, 80), "processing… (page busy)");
-                } else if i == done && self.source.has(job.tape) {
-                    ui.label("next");
-                } else if !self.source.has(job.tape) && i >= done {
-                    ui.weak("downloading");
+                } else if let Some(t0) = l.job_started[i] {
+                    ui.colored_label(Color32::from_rgb(250, 200, 80), format!("processing… {:.0} s", now - t0));
                 } else {
                     ui.weak("queued");
                 }
@@ -563,44 +588,21 @@ impl TrisoApp {
             }
         });
     }
-}
 
-impl eframe::App for TrisoApp {
-    fn ui(&mut self, ui: &mut egui::Ui, _frame: &mut eframe::Frame) {
-        let ctx = ui.ctx().clone();
-        if let Some(next) = self.step_loading(&ctx) {
-            self.phase = next;
-        }
-
-        // Title doubles as a status line an unattended browser test can read.
-        let title = match &self.phase {
-            Phase::Loading { builder, armed, .. } => {
-                let (d, t) = builder.progress();
-                let label = builder.next_job().map_or("", |j| j.label);
-                if *armed { format!("TRISO pebble · processing {label} ({}/{t})", d + 1) } else { format!("TRISO pebble · loading {d}/{t}") }
-            }
-            Phase::Ready(r) => format!(
-                "TRISO pebble · ready · {} neutrons · {} fission · {} capture · {} other",
-                r.stats.histories, r.stats.fissions, r.stats.captures, r.stats.other
-            ),
-            Phase::Failed(e) => format!("TRISO pebble · FAILED · {e}"),
-        };
-        self.title_now(&ctx, title);
-
-        egui::Panel::left("controls").default_size(330.0).resizable(true).show(ui, |ui| {
-            egui::ScrollArea::vertical().show(ui, |ui| self.side_panel(ui));
-        });
-        egui::CentralPanel::default().frame(egui::Frame::NONE).show(ui, |ui| self.canvas(ui));
-    }
-}
-
-impl TrisoApp {
     fn side_panel(&mut self, ui: &mut egui::Ui) {
-        ui.heading("TRISO pebble");
+        ui.horizontal(|ui| {
+            ui.heading("TRISO pebble");
+            ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                if ui.button("« Hide").on_hover_text("Fold the panel away to see the whole pebble").clicked() {
+                    self.panel_open = false;
+                }
+            });
+        });
         ui.label("One neutron at a time, on real ENDF/B-VIII.0 data.");
         ui.separator();
+        let link = self.link.as_ref();
         match &mut self.phase {
-            Phase::Loading { .. } => self.loading_panel(ui),
+            Phase::Loading(l) => Self::loading_panel(ui, l),
             Phase::Failed(e) => {
                 ui.colored_label(Color32::from_rgb(255, 90, 90), format!("Failed: {e}"));
             }
@@ -611,8 +613,11 @@ impl TrisoApp {
                         r.running = !r.running;
                     }
                     if ui.add_enabled(!r.running, egui::Button::new("Next neutron")).clicked() {
-                        r.start_next();
-                        r.single = true;
+                        if r.start_next() {
+                            r.single = true;
+                        } else {
+                            r.want_single = true;
+                        }
                     }
                     if ui.button("Clear").clicked() {
                         r.past.clear();
@@ -620,10 +625,8 @@ impl TrisoApp {
                 });
                 ui.horizontal(|ui| {
                     if ui.add_enabled(!r.running, egui::Button::new("Run 100 unanimated")).clicked() {
-                        for _ in 0..100 {
-                            let h = r.chain.run_next(&r.phys);
-                            r.stats.add(&h);
-                            r.retire(h);
+                        if let Some(link) = link {
+                            link.send(Request::Run { n: 100, animate: false });
                         }
                     }
                 });
@@ -641,7 +644,7 @@ impl TrisoApp {
                     }
                 });
                 ui.checkbox(&mut r.dots, "mark collisions");
-                ui.weak("Scroll to zoom (to see the TRISO layers), drag to pan, double-click to fit.");
+                ui.weak("Scroll or pinch to zoom (to see the TRISO layers), drag to pan, double-click to fit.");
 
                 ui.separator();
                 ui.strong("This neutron");
@@ -649,7 +652,10 @@ impl TrisoApp {
                     let h = &a.hist;
                     let (k, _) = a.head();
                     let s = &h.track.states[k.min(h.track.states.len() - 1)];
-                    let scatters = h.track.states[..=k.min(h.track.states.len() - 1)].iter().filter(|s| s.event == TrackEvent::Scatter).count();
+                    let scatters = h.track.states[..=k.min(h.track.states.len() - 1)]
+                        .iter()
+                        .filter(|s| s.event == TrackEvent::Scatter)
+                        .count();
                     let born = if h.from_fission { "at the last neutron's fission site" } else { "in a random kernel" };
                     egui::Grid::new("now").num_columns(2).show(ui, |ui| {
                         ui.label("number");
@@ -776,8 +782,8 @@ impl TrisoApp {
         ui.separator();
         egui::CollapsingHeader::new("What this is — and is not").default_open(false).show(ui, |ui| {
             for line in [
-                "Transport: outram-mc-libs continuous-energy Monte Carlo, unmodified. Each neutron is a one-particle fixed-source run with fission progeny switched off, so every track is one real history.",
-                "Data: ENDF/B-VIII.0 (U-235, U-238, O-16, B-10, B-11, C-12, C-13, Si-28/29/30), reconstructed and Doppler-broadened to 296 K in this browser by OUTRAM PARK's NJOY port. Graphite carbon uses the crystalline-graphite S(α,β) thermal-scattering law.",
+                "Transport: outram-mc-libs continuous-energy Monte Carlo, unmodified. Each neutron is a one-particle fixed-source run with fission progeny switched off, so every track is one real history, drawn projected onto the slice.",
+                "Data: ENDF/B-VIII.0 (U-235, U-238, O-16, B-10, B-11, C-12, C-13, Si-28/29/30), reconstructed and Doppler-broadened to 296 K in this browser by OUTRAM PARK's NJOY port, in a background worker. Graphite carbon uses the crystalline-graphite S(α,β) thermal-scattering law.",
                 "Covariance data (ENDF files 30–40) are removed before download: transport never reads them. A test proves the stripped tapes give bit-identical cross sections and fission spectra.",
                 "Low fidelity, deliberately: reconstruction tolerance 0.01, not NJOY's 0.001.",
                 "Geometry: HTR-10 pebble dimensions (IAEA-TECDOC-1382) in 2D. The TRISO particles are therefore infinitely long rods, not spheres: 152 of them, so the fuel fraction of the fuelled zone matches the real pebble (5.0 %). Rods self-shield differently from spheres, so this is a picture of how neutrons move, not a model of HTR-10.",
@@ -802,7 +808,7 @@ impl TrisoApp {
         if !self.view.fitted || resp.double_clicked() {
             self.view.fit(rect);
         }
-        // Zoom about the pointer; drag to pan.
+        // Zoom about the pointer (wheel or pinch); drag to pan.
         if resp.hovered() {
             let (scroll, zoom) = ui.input(|i| (i.smooth_scroll_delta.y, i.zoom_delta()));
             let factor = zoom as f64 * (scroll as f64 * 0.0025).exp();
@@ -825,28 +831,38 @@ impl TrisoApp {
 
         draw_cell(&painter, rect, &self.view, &self.centres);
 
-        let Phase::Ready(r) = &mut self.phase else { return };
-        let dt = ui.input(|i| i.stable_dt).min(0.1) as f64;
-        if r.running || r.single {
-            match &mut r.current {
-                Some(a) if !a.finished() => a.shown_cm += r.speed_cm_s * dt,
-                Some(_) if r.single => r.single = false,
-                _ if r.running => r.start_next(),
-                _ => {}
+        match &mut self.phase {
+            Phase::Loading(l) => Self::loading_card(&painter, rect, l),
+            Phase::Failed(e) => {
+                painter.text(rect.center(), egui::Align2::CENTER_CENTER, format!("Failed: {e}"), egui::FontId::proportional(15.0), Color32::from_rgb(255, 110, 110));
             }
-            ui.ctx().request_repaint();
+            Phase::Ready(r) => {
+                let dt = ui.input(|i| i.stable_dt).min(0.1) as f64;
+                if r.running || r.single {
+                    match &mut r.current {
+                        Some(a) if !a.finished() => a.shown_cm += r.speed_cm_s * dt,
+                        Some(_) if r.single => r.single = false,
+                        _ if r.running => {
+                            r.start_next();
+                        }
+                        _ => {}
+                    }
+                    ui.ctx().request_repaint();
+                }
+                r.count_if_finished();
+                let n = r.past.len();
+                for (i, h) in r.past.iter().enumerate() {
+                    let alpha = (25.0 + 45.0 * (i + 1) as f32 / n.max(1) as f32) as u8;
+                    draw_track(&painter, rect, &self.view, h, None, alpha, false, None);
+                }
+                if let Some(a) = &r.current {
+                    let upto = if a.finished() { None } else { Some(a.head()) };
+                    let trail = r.trail_cm.map(|len| (a.cum.as_slice(), a.shown_cm.min(a.total()), len));
+                    draw_track(&painter, rect, &self.view, &a.hist, upto, 255, r.dots, trail);
+                }
+            }
         }
-        r.count_if_finished();
-        let n = r.past.len();
-        for (i, h) in r.past.iter().enumerate() {
-            let alpha = (25.0 + 45.0 * (i + 1) as f32 / n.max(1) as f32) as u8;
-            draw_track(&painter, rect, &self.view, h, None, alpha, false, None);
-        }
-        if let Some(a) = &r.current {
-            let upto = if a.finished() { None } else { Some(a.head()) };
-            let trail = r.trail_cm.map(|len| (a.cum.as_slice(), a.shown_cm.min(a.total()), len));
-            draw_track(&painter, rect, &self.view, &a.hist, upto, 255, r.dots, trail);
-        }
+
         // Scale bar: the smallest round length that is at least 80 px long.
         let bar_cm = [0.001, 0.002, 0.005, 0.01, 0.02, 0.05, 0.1, 0.2, 0.5, 1.0, 2.0]
             .into_iter()
@@ -858,5 +874,47 @@ impl TrisoApp {
         painter.line_segment([Pos2::new(x0, y0), Pos2::new(x1, y0)], Stroke::new(2.0, Color32::WHITE));
         let label = if bar_cm < 0.1 { format!("{:.0} µm", bar_cm * 1e4) } else { format!("{bar_cm} cm") };
         painter.text(Pos2::new(x0, y0 - 4.0), egui::Align2::LEFT_BOTTOM, label, egui::FontId::proportional(12.0), Color32::WHITE);
+
+        // With the panel folded away, a real button brings it back: the
+        // panel's own drag handle is a few pixels wide and hard to hit on a
+        // phone. (While it is open, its "« Hide" button folds it.)
+        if !self.panel_open {
+            let b = Rect::from_min_size(rect.left_top() + Vec2::new(8.0, 8.0), Vec2::new(104.0, 32.0));
+            if ui.put(b, egui::Button::new("Controls »")).clicked() {
+                self.panel_open = true;
+            }
+        }
+    }
+
+    /// The loading progress, drawn on the canvas so it shows even with the
+    /// panel collapsed (the phone layout).
+    fn loading_card(painter: &egui::Painter, rect: Rect, l: &Loading) {
+        let now = now_s();
+        let w = (rect.width() - 32.0).min(420.0);
+        let card = Rect::from_center_size(rect.center(), Vec2::new(w, 112.0));
+        painter.rect_filled(card, 8.0, Color32::from_rgba_unmultiplied(14, 16, 22, 235));
+        painter.rect_stroke(card, 8.0, Stroke::new(1.0, Color32::from_rgb(70, 80, 100)), StrokeKind::Inside);
+        let f = |s: f32| egui::FontId::proportional(s);
+        let left = card.left() + 16.0;
+        painter.text(Pos2::new(left, card.top() + 14.0), egui::Align2::LEFT_TOP, "Simulation loading…", f(17.0), Color32::WHITE);
+        painter.text(
+            Pos2::new(left, card.top() + 40.0),
+            egui::Align2::LEFT_TOP,
+            format!("Processing ENDF files · {}", l.status_line()),
+            f(13.0),
+            Color32::from_rgb(200, 205, 215),
+        );
+        let bar = Rect::from_min_size(Pos2::new(left, card.top() + 66.0), Vec2::new(w - 32.0, 12.0));
+        painter.rect_filled(bar, 6.0, Color32::from_rgb(40, 46, 58));
+        let mut fill = bar;
+        fill.set_width(bar.width() * l.fraction(now));
+        painter.rect_filled(fill, 6.0, Color32::from_rgb(110, 160, 255));
+        painter.text(
+            Pos2::new(left, card.top() + 86.0),
+            egui::Align2::LEFT_TOP,
+            format!("rough · {:.0} % · {:.0} s elapsed", 100.0 * l.fraction(now), now - l.started),
+            f(12.0),
+            Color32::from_rgb(150, 158, 175),
+        );
     }
 }

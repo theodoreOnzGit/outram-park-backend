@@ -87,7 +87,11 @@ it, step one neutron, zoom in until the five TRISO coating layers are visible.
   (RECONR + BROADR to 296 K, plus the crystalline-graphite thermal-scattering
   law). This is the expensive part: measured natively, U-235 takes 17 s, U-238
   13 s and graphite S(alpha, beta) 15 s, about 47 s in all; the browser is slower
-  and single-threaded.
+  (about 90 s in headless Chromium). The processing and the neutrons run in a
+  **Web Worker** (a thread natively), not on the page's thread, so the page
+  stays responsive throughout; only finished tracks cross to the page.
+- **On a phone** the control panel starts folded away to the left so the pebble
+  gets the screen; a button on the canvas brings it back.
 - **Covariance data are stripped before download** — transport never reads
   them, and they are most of the bytes: 116 MB of tapes become an 11 MB
   download. A test proves the stripped tapes give **bit-identical** cross

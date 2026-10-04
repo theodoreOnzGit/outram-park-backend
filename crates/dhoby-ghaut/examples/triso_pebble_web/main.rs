@@ -26,6 +26,8 @@
 #[cfg(not(target_os = "android"))]
 mod app;
 #[cfg(not(target_os = "android"))]
+mod engine;
+#[cfg(not(target_os = "android"))]
 mod model;
 #[cfg(all(not(target_os = "android"), not(target_arch = "wasm32")))]
 mod render;
@@ -105,17 +107,24 @@ fn main() -> Result<(), String> {
             eframe::run_native(
                 "TRISO pebble — one neutron at a time",
                 options,
-                Box::new(|cc| Ok(Box::new(app::TrisoApp::new(cc, app::Source::native())))),
+                Box::new(|cc| Ok(Box::new(app::TrisoApp::new(cc)))),
             )
             .map_err(|e| e.to_string())
         }
     }
 }
 
+/// In the browser this module runs twice: on the page, where it starts the
+/// egui app, and in the physics Web Worker (`web/triso_pebble/worker.js`),
+/// where there is no `window` and it runs [`engine::run_worker`] instead.
 #[cfg(target_arch = "wasm32")]
 fn main() {
     use eframe::wasm_bindgen::JsCast as _;
     eframe::WebLogger::init(log::LevelFilter::Info).ok();
+    if js_sys::global().dyn_ref::<web_sys::DedicatedWorkerGlobalScope>().is_some() {
+        engine::run_worker();
+        return;
+    }
     let web_options = eframe::WebOptions {
         // WebGL2 rather than WebGPU, which is still not universal.
         renderer: eframe::Renderer::Glow,
@@ -129,7 +138,7 @@ fn main() {
             .dyn_into::<web_sys::HtmlCanvasElement>()
             .expect("#triso_canvas is not a canvas");
         let started = eframe::WebRunner::new()
-            .start(canvas, web_options, Box::new(|cc| Ok(Box::new(app::TrisoApp::new(cc, app::Source::web(&cc.egui_ctx))))))
+            .start(canvas, web_options, Box::new(|cc| Ok(Box::new(app::TrisoApp::new(cc)))))
             .await;
         if let Some(el) = document.get_element_by_id("loading") {
             match started {
@@ -265,6 +274,51 @@ mod tests {
             }
             assert!(h.path_cm.is_finite() && h.path_cm > 0.0);
         }
+    }
+
+    /// What crosses from the physics worker to the page is a flattened
+    /// history; it must come back bit for bit, or the browser would draw a
+    /// different neutron from the one transported.
+    #[test]
+    fn a_history_crosses_the_worker_boundary_bit_for_bit() {
+        let mut chain = sim::Chain::new(11);
+        for _ in 0..8 {
+            let h = chain.run_next(physics());
+            let back = engine::decode_history(&engine::encode_history(&h)).expect("decode");
+            assert_eq!(sim::csv_row(&back), sim::csv_row(&h));
+            assert_eq!(back.track.states.len(), h.track.states.len());
+            for (a, b) in back.track.states.iter().zip(&h.track.states) {
+                assert_eq!(a, b, "history {}: a track state changed in transit", h.index);
+            }
+        }
+    }
+
+    /// The GUI's engine thread (the native twin of the browser's worker) must
+    /// produce exactly the headless sequence for the GUI's chain seed.
+    #[test]
+    fn the_engine_thread_runs_the_headless_sequence() {
+        let link = engine::start_native(|| {});
+        let deadline = std::time::Instant::now() + std::time::Duration::from_secs(900);
+        let (mut ready, mut got) = (false, Vec::new());
+        while got.len() < 5 {
+            assert!(std::time::Instant::now() < deadline, "engine thread timed out");
+            for e in link.drain() {
+                match e {
+                    engine::Event::Ready => {
+                        ready = true;
+                        link.send(engine::Request::Run { n: 5, animate: true });
+                    }
+                    engine::Event::History { h, .. } => got.push(sim::csv_row(&h)),
+                    engine::Event::Error(m) => panic!("engine: {m}"),
+                    _ => {}
+                }
+            }
+            std::thread::sleep(std::time::Duration::from_millis(20));
+        }
+        assert!(ready);
+        let want: Vec<String> =
+            sim::headless_csv(physics(), 5, engine::CHAIN_SEED).lines().skip(1).map(str::to_owned).collect();
+        assert_eq!(got, want);
     }
 
     #[test]

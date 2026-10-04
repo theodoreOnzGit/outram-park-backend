@@ -79,6 +79,9 @@ wasm-bindgen-futures = { workspace = true }
 js-sys = { workspace = true }
 web-sys = { workspace = true, features = [
     "Window", "Document", "Element", "HtmlCanvasElement", "Response", "Location",
+    # The physics Web Worker that keeps the page live while ENDF data process.
+    "Worker", "WorkerOptions", "WorkerType", "WorkerGlobalScope",
+    "DedicatedWorkerGlobalScope", "MessageEvent", "ErrorEvent", "console",
 ] }
 
 # TRISO pebble -- a 2D analogue of an HTR-10 fuel pebble in a reflective cell,
