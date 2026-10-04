@@ -3,3 +3,4 @@
 monte-carlo crates/outram-mc-libs/docs/lessons
 dispersion crates/changi/docs/lessons
 triso-atops crates/boon-lay/docs/lessons
+nuclear-data crates/njoy-outram-park-fork/docs/lessons

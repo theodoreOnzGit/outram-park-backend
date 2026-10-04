@@ -56,8 +56,13 @@
 
     <section class="panel" id="p-nd">
       <h2>Nuclear data — inside <code>njoy-outram-park-fork</code></h2>
-      <p>ENDF tapes to ACE: RECONR, BROADR, THERMR, ACER, and the Fe-57 bug case study.</p>
-      <p class="status planned">Planned, not written yet. Tracking issue <a href="https://github.com/theodoreOnzGit/outram-park-backend/issues/515">#515</a>.</p>
+      <p>Where a Monte Carlo code's cross sections come from, one NJOY module at a time: what an ENDF tape holds, RECONR building &sigma;(E) from resonance parameters (and the Fe-57 bug case study), BROADR and temperature, the unresolved range and probability tables, thermal scattering, heating and gas, multigroup constants, covariances, and the ACE table a transport code reads. Every module of the port has a row in the coverage table, including the ones not ported.</p>
+      <p class="actions">
+        <a class="btn" href="deep-dives/nuclear-data/">Open the deep dive</a>
+        <a class="btn ghost" href="deep-dives/nuclear-data/where-sigma-comes-from.html">Where does &sigma;(E) come from?</a>
+        <a class="btn ghost" href="api/njoy_outram_park_fork/">API reference</a>
+      </p>
+      <p class="status">Status: first draft (2026-10-04), not yet human-reviewed. Tracking issue <a href="https://github.com/theodoreOnzGit/outram-park-backend/issues/529">#529</a>.</p>
     </section>
 
     <section class="panel" id="p-plume">
