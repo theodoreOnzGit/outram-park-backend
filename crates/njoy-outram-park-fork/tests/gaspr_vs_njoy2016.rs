@@ -59,6 +59,27 @@
 //! on a real evaluation, plus the `LR` half of the ejectile table. Neither is
 //! reachable from a lookup keyed on MT alone.
 //!
+//! # Results (re-measured 2026-10-04)
+//!
+//! Develop `3c41d99f5b` plus doc-only edits, release, two threads. Worst
+//! relative difference per section, at NJOY's own grid points:
+//!
+//! | case | MT=203 (p) | MT=204 (d) | MT=205 (t) | MT=207 (α) |
+//! |---|---|---|---|---|
+//! | Li-6 | 6.9e-8 | 2.1e-7 | 3.0e-13 | 1.5e-7 |
+//! | Be-9 | 3.8e-12 | 1.7e-12 | 6.9e-12 | 3.9e-7 |
+//! | B-10 | 1.0e-7 | 4.4e-7 | 3.7e-7 | 4.6e-7 |
+//! | H-2  | 4.4e-12 | — | 1.5e-13 | — |
+//! | C-12 | 4.1e-7 | 1.9e-7 | — | 3.0e-7 |
+//!
+//! **Worst over all 17 sections: 4.6e-7**, i.e. NJOY's printed precision. The
+//! 2026-09-17 results below (worst 4.9e-3) were interpolation between two
+//! different energy grids; since 2026-09-26 (GitHub #340) RECONR's grid is
+//! NJOY's, so the comparison points coincide and the residual is gone. The
+//! gate (1e-2) is unchanged.
+//!
+//! ~~Results (2026-09-17)~~, superseded above:
+//!
 //! # Results (2026-09-17, ENDF/B-VIII.0, NJOY2016 `ac5adf5f`)
 //!
 //! All 17 gas-production sections the two codes both produce agree, with the

@@ -739,7 +739,16 @@ fn parse_reich_moore(
 /// We read the SPI/AP header CONT so the cursor advances past the range
 /// header, then return a placeholder.
 ///
-/// # This is a KNOWN GAP, not a design decision
+/// # ~~This is a KNOWN GAP, not a design decision~~
+///
+/// **CORRECTED 2026-10-04:** the gap below is closed. This parser still reads
+/// only the header, but RECONR now reconstructs the infinitely-dilute
+/// unresolved cross sections from the full LRU=2 parameters elsewhere:
+/// `reconr()` calls `urr::add_unresolved_ranges`, which evaluates
+/// [`crate::unresr::unresolved_cross_sections`] at `sig0 = 1e10`
+/// (see `crate::reconr::urr`'s module doc, 2026-09-14, and
+/// `tests/reconr_urr_kernel_vs_njoy2016.rs`). The history is kept because the
+/// mistaken comment made a real hole look intended.
 ///
 /// **This doc comment used to say "RECONR does not use unresolved parameters
 /// (that is PURR's job)". That is wrong about upstream** and the correction is
@@ -773,8 +782,10 @@ fn parse_reich_moore(
 /// # The machinery already exists — this is wiring, not porting
 ///
 /// [`crate::unresr::unresolved_cross_sections`] computes exactly what is
-/// needed; pass `sig0 = [1e10]` for infinite dilution. It is currently
-/// consumed only by PURR. Tracked as `bn:op-12lu`.
+/// needed; pass `sig0 = [1e10]` for infinite dilution. ~~It is currently
+/// consumed only by PURR.~~ **CORRECTED 2026-10-04:** `reconr::urr` consumes
+/// it too (checked: `reconr/urr.rs` calls it in `add_unresolved_ranges`).
+/// Tracked as `bn:op-12lu` (historical id).
 fn parse_lru2_header(
     cur: &mut SectionCursor<'_>,
     el: f64,

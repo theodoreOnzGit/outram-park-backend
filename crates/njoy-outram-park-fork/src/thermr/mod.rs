@@ -54,11 +54,13 @@
 //!   withholding tabulated temperatures, interpolating to them from the ones
 //!   kept, and comparing against the evaluation's own values. Also does
 //!   leave-one-out characterisation of the existing production interpolation.
-//! - The `aceth.f90` writer ([`crate::acer::thermal`]) is **done** for the
-//!   standard IFENG=0 (equiprobable) case, both coherent- and
-//!   incoherent-elastic, with the coherent `S(E)` resolved at the requested
-//!   temperature. Not ported: IFENG=1/2 (skewed/continuous inelastic forms)
-//!   and multi-scatterer mixing (`nmix` > 1) — see that module's docs.
+//! - The `aceth.f90` writer ([`crate::acer::thermal`]) is **done** for all
+//!   three inelastic forms, IFENG=0 (equiprobable), 1 (skewed) and 2
+//!   (continuous), both coherent- and incoherent-elastic, with the coherent
+//!   `S(E)` resolved at the requested temperature. Not ported: multi-scatterer
+//!   mixing (`nmix` > 1) — see that module's docs. (~~Not ported: IFENG=1/2~~
+//!   **CORRECTED 2026-10-04**: written since 2026-09-22,
+//!   `tests/acer_thermal_ifeng_vs_njoy2016.rs`.)
 //!
 //! See `docs/porting-plan.md` (Phase 3 THERMR, Phase 4f thermal ACE).
 

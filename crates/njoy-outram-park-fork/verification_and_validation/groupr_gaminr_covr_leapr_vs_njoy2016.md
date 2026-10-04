@@ -98,7 +98,13 @@ copied across a bracket), then ported deliberately.
 
 ## 4. Results — GAMINR, COVR, LEAPR
 
-### 4.1 GAMINR (`tests/gaminr_synthetic_photoat_golden.rs`)
+### 4.1 GAMINR (~~`tests/gaminr_synthetic_photoat_golden.rs`~~ `tests/gaminr_vs_njoy2016.rs`)
+
+> **CORRECTED 2026-10-04:** the test file was renamed to
+> `tests/gaminr_vs_njoy2016.rs` in `0c81e1b2d9` (2026-09-17), which also added
+> a real ENDF/B-VIII.0 uranium photo-atomic case; see
+> `gaminr_u_photoatomic_vs_njoy2016.md`. The synthetic-tape results below are
+> unchanged.
 
 Oracle: `reference-data/gendf/photoat-synthetic-Z6-lanl12-iwt3-lord3.gendf`
 — NJOY GAMINR on the **synthetic** photoatomic tape

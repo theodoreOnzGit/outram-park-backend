@@ -228,12 +228,14 @@ impl UrrProbabilityTables {
             return None;
         }
         let n = self.energy.len();
+        // ANCHOR: lesson_band
         let xi = xi.clamp(0.0, 1.0);
         let band = |p: &UrrPoint| {
             // First band whose cumulative probability exceeds xi.
             let b = p.cum.partition_point(|&c| c <= xi).min(p.value.len() - 1);
             p.value[b]
         };
+        // ANCHOR_END: lesson_band
         let v = if n == 1 {
             band(&self.points[0])
         } else {

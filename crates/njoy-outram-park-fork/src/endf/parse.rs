@@ -50,6 +50,7 @@ pub fn parse_endf_float(s: &str) -> Result<f64, NjoyError> {
             // the field silently became 0.0 (bead op-sti5).
             let mantissa = s[..sep].trim_end_matches(['E', 'e', 'D', 'd']);
             let exponent = &s[sep..]; // includes the `+`/`-`
+            // ANCHOR: lesson_float_once
             // ONE correctly-rounded conversion of the whole decimal, as a
             // Fortran formatted read does.
             //
@@ -85,6 +86,7 @@ pub fn parse_endf_float(s: &str) -> Result<f64, NjoyError> {
                 }
                 Err(_) => None,
             }
+            // ANCHOR_END: lesson_float_once
         }
     };
 

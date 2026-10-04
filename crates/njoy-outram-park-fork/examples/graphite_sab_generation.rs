@@ -239,6 +239,12 @@ fn main() {
     // LEAPR pipeline. At that level, whether a given stored value also happens
     // to round to identical ENDF sigfigs is an artefact of where the decimal
     // falls, not a physics claim, so the count is reported and not asserted.
+    //
+    // Re-measured 2026-10-04 (develop `3c41d99f5b` plus doc-only edits, release,
+    // two threads, 74 s wall with the build): MT=4 1.002e-13 max, 9.993e-14 rms
+    // over 48941 points, 6645/60000 bit-identical; MT=2 221 Bragg points,
+    // 1.001e-13 on edge energies and 1.000e-13 on S(E). Generation 1.65 s per
+    // temperature (296, 393, 523 K).
     println!("\n=== V&V gate: regenerated MT=4 vs the official ENDF/B-VIII.0 tape ===");
     assert!(
         n > 1000,

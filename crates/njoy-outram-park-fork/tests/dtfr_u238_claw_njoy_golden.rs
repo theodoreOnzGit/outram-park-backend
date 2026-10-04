@@ -22,6 +22,14 @@
 //! agrees with NJOY's 6 printed figures — both sides add the same GENDF
 //! numbers; a band-packing offset would misplace whole diagonals, a wrong
 //! group ordering would reverse the table.
+//!
+//! **Results (measured 2026-10-04**, develop `3c41d99f5b` plus doc-only
+//! edits, release, two threads; the doc stated no result before this date):
+//! the 32 x 29 n-n table has 115 non-zero entries, worst relative difference
+//! **4.546e-6** (group 23 position 3: crate 1.099815e1, NJOY 1.099820e1); the
+//! 10-column edit block has 145 non-zero entries, worst **4.546e-6** (`totl`
+//! group 23). Both inside the 2e-5 gate set by the `1PE12.5` print, so the
+//! prediction held: the residual is NJOY's sixth printed figure.
 
 use njoy_outram_park_fork::dtfr::gendf::build_neutron_table;
 use njoy_outram_park_fork::dtfr::input::DtfrInput;

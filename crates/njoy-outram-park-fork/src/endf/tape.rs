@@ -58,10 +58,6 @@ pub struct Tape {
 }
 
 impl Tape {
-    /// Parse an ENDF ASCII tape from any [`Read`] source.
-    ///
-    /// Line length must be 80 characters (padded with spaces if shorter is fine).
-    /// Binary (blocked-binary) tapes are not supported in this version.
     /// Parse an ENDF ASCII tape from a file on disk.
     ///
     /// [`Tape::read`] is generic over [`Read`], which is right for Rust and
@@ -92,6 +88,12 @@ impl Tape {
         Self::read(file)
     }
 
+    /// Parse an ENDF ASCII tape from any [`Read`] source.
+    ///
+    /// Line length must be 80 characters (padded with spaces if shorter is fine).
+    /// Binary (blocked-binary) tapes are not supported in this version.
+    /// (CORRECTED 2026-10-04: these three lines used to sit above
+    /// [`Tape::read_file`], so rustdoc showed them on the wrong function.)
     pub fn read<R: Read>(reader: R) -> Result<Self, NjoyError> {
         let mut lines = BufReader::new(reader).lines();
         let mut tpid = String::new();
@@ -197,7 +199,6 @@ impl Tape {
         self.index.get(&key).map(|&i| &self.sections[i])
     }
 
-    /// Iterate over all sections in file order.
     /// Every ENDF material number on this tape, ascending and deduplicated.
     ///
     /// A tape carries its own MAT numbers, so a caller should never have to
@@ -212,6 +213,8 @@ impl Tape {
         mats
     }
 
+    /// All sections in file order. (CORRECTED 2026-10-04: this line used to
+    /// sit above [`Tape::materials`].)
     pub fn sections(&self) -> &[Section] {
         &self.sections
     }

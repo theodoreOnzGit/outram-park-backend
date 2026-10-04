@@ -92,6 +92,12 @@ evaluation, the `LR` half of the ejectile table, and the MF=6/MT=5 path.
 
 ## Results
 
+> **Re-measured 2026-10-04** (develop `3c41d99f5b`, release): worst over all 17
+> sections **4.6e-7**, at NJOY's printed precision; the per-section table is in
+> the test's doc comment (`tests/gaspr_vs_njoy2016.rs`). The 2026-09-17 numbers
+> below (worst 4.9e-3) were interpolation between two different grids, and are
+> superseded since RECONR's grid became NJOY's (GitHub #340, 2026-09-26).
+
 Worst relative difference per section, over the asserted range:
 
 | case | MT=203 (p) | MT=204 (d) | MT=205 (t) | MT=207 (α) |

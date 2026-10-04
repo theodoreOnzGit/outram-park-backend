@@ -104,6 +104,7 @@ fn xaxpy(n: i64, sa: f64, sai: f64, re: &mut [f64], im: &mut [f64], x0: i64, y0:
 /// (`samm.f90:6189, 6201-6204`): `xdot(xdoti,k-1,ap(1,ik+1),1,b(1,1),1)`
 /// — `sx` is a column of the factor, `sy` is **`b`**.
 ///
+// ANCHOR: lesson_xdot
 /// ~~`xdot(n, re, im, x0, y0)` reading both `x` and `y` from the packed
 /// matrix~~ — **CORRECTED 2026-10-01** (GitHub #339). The `y` operand was
 /// taken from the factor at offset `y0 = 0`, i.e. from `ap(1..k-1)`, not
@@ -130,6 +131,7 @@ fn xdot(n: i64, re: &[f64], im: &[f64], x0: i64, b_re: &[f64], b_im: &[f64]) -> 
     }
     (stemp, stempi)
 }
+// ANCHOR_END: lesson_xdot
 
 /// Swap `x[x0+1..=x0+n]` and `y[y0+1..=y0+n]` — upstream `xswap`,
 /// stride-1 only.

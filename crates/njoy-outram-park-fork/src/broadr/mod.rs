@@ -355,6 +355,7 @@ const EMIN_DEFAULT: f64 = 1.0;
 /// unresolved side of the seam. That destroyed U-238's 20 keV seam in this
 /// port (`op-sdbk`: MT=102 45 % low at the seam) until this limit was added.
 #[must_use]
+// ANCHOR: lesson_thnmax
 pub fn broadening_limit(result: &ReconrResult) -> f64 {
     let mut thnmax = result.resonance_upper_limit.unwrap_or(0.0).min(E6PT5);
     // broadr.f90:441 — never above the input file's own emax.
@@ -386,6 +387,7 @@ pub fn broadening_limit(result: &ReconrResult) -> f64 {
     }
     thnmax
 }
+// ANCHOR_END: lesson_thnmax
 
 /// Reactions upstream's reaction loop (`broadr.f90:465-530`) considers when
 /// choosing `thnmax` for a non-resonance nuclide — i.e. everything it does

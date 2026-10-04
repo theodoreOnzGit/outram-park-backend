@@ -50,7 +50,9 @@
 //!
 //! ## Other ACE classes
 //!
-//! `acer` writes five kinds of table and this crate now builds three of them:
+//! `acer` writes five kinds of table and this crate now builds all five
+//! (~~three of them~~, corrected 2026-10-04: the table below already listed
+//! photo-atomic and photonuclear as built):
 //!
 //! | `iopt` | class | upstream | here |
 //! |---|---|---|---|

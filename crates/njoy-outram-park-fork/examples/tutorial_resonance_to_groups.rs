@@ -539,15 +539,32 @@ const U238_CAPTURE_RI_INF_B: f64 = 275.7;
 /// same broadened data, is what makes Doppler feedback a real effect rather than
 /// a bookkeeping artefact.
 ///
-/// # Results (2026-09-11, U-238 ENDF/B-VIII.0, tol 1e-3)
+/// # Results (re-measured 2026-10-04, U-238 ENDF/B-VIII.0, tol 1e-3)
+///
+/// Develop `3c41d99f5b` plus doc-comment-only edits, release, two threads
+/// (`taskset -c 10-11`), 249 s wall including the build.
 ///
 /// ```text
 ///     T [K]     RI_inf [b]   RI(sb=60) [b]   RI(sb=20) [b]
-///       0.0       274.65         15.27           8.46
-///     293.6       274.63         17.48           9.57
-///     900.0       274.64         19.06          10.19
-///    1200.0       274.66         19.68          10.42
+///       0.0       274.65         15.24           8.44
+///     293.6       274.63         17.50           9.57
+///     600.0       274.63         18.40           9.93
+///     900.0       274.65         19.08          10.19
+///    1200.0       274.66         19.67          10.41
 /// ```
+///
+/// RI_inf vs the published 275.7 b: **-0.382 %**; spread over the sweep
+/// **0.0094 %**; RI_eff **+29.0 %** at sigma_b = 60 b and **+23.3 %** at
+/// sigma_b = 20 b over 0-1200 K.
+///
+/// ~~Results (2026-09-11): 0 K 274.65 / 15.27 / 8.46 b; 293.6 K 274.63 / 17.48 /
+/// 9.57 b; 900 K 274.64 / 19.06 / 10.19 b; 1200 K 274.66 / 19.68 / 10.42 b;
+/// spread 0.0095 %; +28.9 % and +23.1 %.~~ Superseded above. The shielded
+/// integrals moved by up to 0.2 % (the RECONR/BROADR grid became NJOY2016's on
+/// 2026-09-26, GitHub #340); RI_inf did not move in the printed figures. The
+/// 2026-09-11 notes below are kept as written.
+///
+/// Notes as recorded 2026-09-11:
 ///
 /// - **RI_inf vs the published 275.7 b: −0.382 %**, and well inside the
 ///   experimental 277 ± 3 b. RECONR reconstructed the resolved resonances

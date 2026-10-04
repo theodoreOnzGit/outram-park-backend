@@ -1221,6 +1221,7 @@ impl RangeDelta {
     /// panel down to the significant-figure floor. Missing until 2026-10-01
     /// (GitHub #339), when a separate kernel defect gave Fe-57 a negative
     /// LRF=7 capture and the reconstruction exhausted memory.
+// ANCHOR: lesson_clamp
     pub(crate) fn clamp_negative_to_zero(mut self) -> Self {
         let z = |v: &mut f64| {
             if *v < 0.0 {
@@ -1234,6 +1235,7 @@ impl RangeDelta {
         self.other.iter_mut().for_each(z);
         self
     }
+// ANCHOR_END: lesson_clamp
 }
 
 fn add_slbw_range(sections: &mut Vec<ReconrSection>, range: &EnergyRange, eps: f64, raw: &RawMf3) {

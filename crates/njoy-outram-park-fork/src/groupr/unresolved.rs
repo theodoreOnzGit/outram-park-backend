@@ -98,6 +98,7 @@ use crate::NjoyError;
 ///
 /// Returns `weight_c` for the degenerate `sigma_t + sigma_0 == 0` case rather
 /// than a `NaN`.
+// ANCHOR: lesson_bondarenko
 pub fn bondarenko_flux_value(sigma_t: f64, weight_c: f64, sigma_pot: f64, sigma_0: f64) -> f64 {
     if sigma_0.is_infinite() {
         return weight_c;
@@ -108,6 +109,7 @@ pub fn bondarenko_flux_value(sigma_t: f64, weight_c: f64, sigma_pot: f64, sigma_
     }
     weight_c * (sigma_0 + sigma_pot) / denom
 }
+// ANCHOR_END: lesson_bondarenko
 
 /// A set of self-shielded weighting fluxes, one per background dilution — the
 /// output of the Bondarenko branch of `genflx`.

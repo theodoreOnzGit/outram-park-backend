@@ -29,7 +29,16 @@
 //! **Prediction stated before running:** every printed number within 2e-5
 //! relative (the `1PE12.5` six-figure print) for both material cards.
 //!
-//! **Result:** see the printed summary / assertions.
+//! ~~**Result:** see the printed summary / assertions.~~ **Results (measured
+//! 2026-10-04**, develop `3c41d99f5b` plus doc-only edits, release, two
+//! threads), worst relative difference against NJOY per table:
+//!
+//! | card | edit block (17 cols, 269 non-zero) | l=0 n-n (144) | l=1 n-n (86) | n-p (348) |
+//! |---|---|---|---|---|
+//! | `u238`, jz=1 (infinite dilution) | 4.546e-6 | 4.546e-6 | 4.546e-6 | 4.794e-6 |
+//! | `u238s`, jz=6 (1 b) | 4.570e-6 | 4.570e-6 | 4.927e-6 | 4.514e-6 |
+//!
+//! All inside the 2e-5 gate (six printed figures): the prediction held.
 
 use njoy_outram_park_fork::dtfr::assemble::assemble_tables;
 use njoy_outram_park_fork::dtfr::input::{DtfrInput, CLAW_HMTID};

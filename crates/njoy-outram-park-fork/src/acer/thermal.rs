@@ -3,8 +3,9 @@
 //! Assembles the thermal ACE table a Monte-Carlo code uses for bound-atom
 //! thermal scattering — graphite, H/D in water, ZrH, Al, … — where the free-gas
 //! model no longer applies and the scattering law S(α,β) governs the kinematics.
-//! Ports the load path of `aceth.f90` (`thrlod`) for the `IFENG=0` (equiprobable)
-//! inelastic form plus coherent-elastic (Bragg) data.
+//! Ports the load path of `aceth.f90` (`thrlod`) for the `IFENG=0/1/2`
+//! inelastic forms (equiprobable, skewed, continuous; ~~`IFENG=0` only~~,
+//! corrected 2026-10-04) plus coherent-elastic (Bragg) data.
 //!
 //! The physics comes from [`crate::thermr`]: [`IncoherentInelastic`] provides
 //! the inelastic cross section and equiprobable emission bins, and
@@ -14,7 +15,7 @@
 //!
 //! - **NXS**: `IDPNI` (inelastic mode = 3), `NIL` (= nang−1 discrete cosines),
 //!   `NIEB` (outgoing energies per incident energy), `IDPNC` (elastic mode: 4
-//!   coherent, 0 none), `NCL` (−1 for coherent), `IFENG` (= 0, equiprobable).
+//!   coherent, 0 none), `NCL` (−1 for coherent), `IFENG` (0 equiprobable, 1 skewed, 2 continuous).
 //! - **JXS**: `ITIE`/`ITIX` (inelastic incident-energy grid + cross section),
 //!   `ITXE` (energy-angle distributions), `ITCE`/`ITCX` (coherent-elastic Bragg
 //!   energies + cumulative cross section).
@@ -31,8 +32,11 @@
 //!
 //! Incoherent-elastic is handled: ITCE/ITCX/ITCA when it is the only elastic
 //! mode (`IDPNC=3`), or ITCEI/ITCXI/ITCAI alongside coherent (`IDPNC=5`).
-//! Not yet handled: the skewed/continuous `IFENG=1/2` inelastic forms, and
-//! multi-atom mixing (`nmix`, taken as 1).
+//! ~~Not yet handled: the skewed/continuous `IFENG=1/2` inelastic forms, and~~
+//! ~~multi-atom mixing (`nmix`, taken as 1).~~ **CORRECTED 2026-10-04:** all
+//! three `IFENG` forms are written since 2026-09-22 (`InelasticForm`,
+//! `ThermalAceOptions::form`; `tests/acer_thermal_ifeng_vs_njoy2016.rs`).
+//! Still not handled: multi-atom mixing (`nmix`, taken as 1).
 //!
 //! ## Prerequisite provenance
 //!

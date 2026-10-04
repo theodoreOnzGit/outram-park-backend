@@ -79,10 +79,10 @@ two that drift.
 | example | oracle | what it now asserts |
 |---|---|---|
 | `seam_stage_probe` | the tape's own MF=3 | `thnmax` is at the resolved-resonance limit; **bounded** BROADR reproduces MF=3 above the seam to +0.000 %; **unbounded** BROADR still loses 46.7 % there; the (n,2n) threshold is exactly zero under the bounded kernel and leaks 1.0e-6 b under the unbounded one |
-| `endf_to_broadened_xs` | analytic (convolution) | area under σ(E) is conserved 293.6 K → 900 K to **+0.000 %**, while the peak falls 37.1 % and the valley rises 253 % |
+| `endf_to_broadened_xs` | analytic (convolution) | area under σ(E) is conserved 293.6 K → 900 K to **+0.000 %**, while the peak falls 37.1 % and the valley rises ~~253 %~~ **283 %** (re-measured 2026-10-04 after the #340 grid change; see the example's doc) |
 | `tutorial_resonance_to_groups` | published RI_∞ + analytic | RI_∞ matches the published 275.7 b; RI_∞ is flat in temperature; the self-shielded integrals **rise** — which is Doppler feedback |
 | `temperature_thinning_study` | the evaluation itself | production (`LI=2`) interpolation is within **1.42 %** worst at 0.0253 eV; error grows with bracket width; log-space beats the stated law on 7/8 points |
-| `graphite_sab_generation` | the official ENDF/B-VIII.0 tape | every stored MT=4 `S` is **bit-identical**; MT=2 Bragg edges to 1e-6 and `S(E)` to 1e-4 |
+| `graphite_sab_generation` | the official ENDF/B-VIII.0 tape | ~~every stored MT=4 `S` is **bit-identical**~~ **CORRECTED 2026-10-04** (the example's own gate, corrected 2026-09-11): MT=4 `S` agrees to **1.004e-13 max, 9.991e-14 rms** over 48 941 points above 1e-30, and only 6 645 of 60 000 stored values are bit-identical; MT=2 Bragg edges to 1e-6 and `S(E)` to 1e-4 |
 
 **`seam_stage_probe`'s unbounded-kernel assertions are counter-examples and are
 meant to keep failing the old way.** They are what demonstrates that bounding

@@ -97,10 +97,13 @@ pub mod wmp;
 // with its Rust source (physics or `NotPorted` stub) and co-located `README.md`.
 // Most are ported: reconr, broadr, heatr, gaspr, thermr, acer, and wmp are
 // declared above next to their long-form docs; unresr, purr, samm, groupr,
-// gaminr, errorr, covr, leapr, dtfr, resxsr, and mixr (below) are also ported
-// (translation-level — V&V is the trust gate). The genuine `NotPorted` stubs
-// are only ccccr, matxsr, powr, plotr, viewr, and wimsr (output formats OUTRAM
-// PARK does not target). Dispatch is via the `NjoyModule` enum in `modules.rs`.
+// gaminr, errorr, covr, leapr, dtfr, resxsr, mixr and wimsr (below) are also
+// ported (translation-level — V&V is the trust gate). The genuine `NotPorted`
+// stubs are only ccccr, matxsr, powr, plotr and viewr (output formats OUTRAM
+// PARK does not target). ~~…and wimsr~~ CORRECTED 2026-10-04: wimsr was ported
+// 2026-09-11 (`src/wimsr/`, `wimsr::run_gendf`, byte-identical library vs
+// NJOY2016 in `tests/wimsr_u238_njoy_golden.rs`); only its card-deck `run()`
+// stays `NotPorted`. Dispatch is via the `NjoyModule` enum in `modules.rs`.
 pub mod moder;
 pub mod unresr;
 pub mod purr;
@@ -145,13 +148,17 @@ pub mod gpu;
 #[cfg(not(target_os = "android"))]
 pub mod gpu_wmp;
 
+/// Read and write for the **OpenMC interchange formats** (HDF5 nuclide, MGXS,
+/// WMP and statepoint files, `cross_sections.xml`, the depletion chain) —
+/// see the module docs. (CORRECTED 2026-10-04: the `perf_report` doc comment
+/// below used to sit on this line, so rustdoc showed it for `hdf5`.)
+pub mod hdf5;
 /// **Per-machine performance-report generator** — hardware detection (GPU label,
 /// CPU cores, OS) plus a small markdown formatter, so a benchmark can emit a
 /// fresh report on the machine it runs on and write it to a git-ignored local
 /// path. Pure `std` (no `wgpu`), so it builds on every target including Android.
 /// The committed benchmark markdown stays a methodology template; per-machine
 /// timings live in each user's local report.
-pub mod hdf5;
 pub mod perf_report;
 
 mod error;

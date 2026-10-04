@@ -69,6 +69,7 @@ impl IntLaw {
 /// let y = terp1(0.0, 0.0, 2.0, 4.0, 1.0, IntLaw::LinLin).unwrap();
 /// assert!((y - 2.0).abs() < 1e-12);
 /// ```
+// ANCHOR: lesson_terp1
 pub fn terp1(x1: f64, y1: f64, x2: f64, y2: f64, x: f64, law: IntLaw) -> Result<f64, NjoyError> {
     // `endf.f90:1420` tests exact equality, not a tolerance. A tolerance here
     // would treat a legitimately narrow panel as degenerate and return `y1`
@@ -88,6 +89,7 @@ pub fn terp1(x1: f64, y1: f64, x2: f64, y2: f64, x: f64, law: IntLaw) -> Result<
         // **not** the same in floating point, and the difference shows up as
         // the last bit of a written ACE word.
         IntLaw::LinLin => Ok(y1 + (x - x1) * (y2 - y1) / (x2 - x1)),
+        // ANCHOR_END: lesson_terp1
         IntLaw::LinLog => {
             // ENDF INT=3: y linear in ln(x) (`:1435`).
             if x1 <= 0.0 || x2 <= 0.0 || x <= 0.0 {

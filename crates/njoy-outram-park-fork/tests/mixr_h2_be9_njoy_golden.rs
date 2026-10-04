@@ -14,6 +14,14 @@
 //! to the tape's 7 printed figures. A wrong union (dropped or duplicated
 //! energies) shows as a count mismatch; a wrong weighting as a uniform
 //! factor.
+//!
+//! **Results (measured 2026-10-04**, develop `3c41d99f5b` plus doc-only
+//! edits, release, two threads; the doc stated no result before this date):
+//! MT=1, 2 and 102 each have **787 points (NJOY 787)** in one interpolation
+//! region (NJOY 1), and the worst relative difference is **0.0** on all three:
+//! identical to the printed figure, tighter than the 2e-6 gate. Sums over the
+//! points: MT=1 9.736429e3, MT=2 9.666179e3, MT=102 1.644874e1 b, equal on
+//! both sides.
 
 use njoy_outram_park_fork::endf::interp::eval_tab1;
 use njoy_outram_park_fork::endf::records::SectionCursor;
