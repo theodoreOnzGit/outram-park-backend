@@ -569,6 +569,15 @@ mod tests {
     /// *volume* fraction — i.e. the concentration is uniform — regardless of the
     /// diffusivity contrast. This is what fixes the transmission rule: it holds
     /// for the linear `p = D2/(D1+D2)` rule and fails for the `sqrt(D)` rule.
+    ///
+    /// Methodology and the full record:
+    /// `verification_and_validation/interface_uniform_equilibrium_density.md`
+    /// (pass if `|f_in − 0.125| < 0.02`, 3·10⁶ steps, fixed seed).
+    ///
+    /// Results: ~~2026-07-23 at `ae84a04`: 0.1216 (error 0.0034)~~
+    /// **re-measured 2026-10-04 at `5e802df3a4`: 0.1368 (error 0.0118), pass**
+    /// (gh:#531). Same seed, so the stream changed in between; the seed-to-seed
+    /// spread has not been measured.
     #[test]
     fn interface_rule_gives_uniform_equilibrium_density() {
         use crate::lagrangian_decay_simulator::lagrangian_diffusion::first_passage::interface::does_transmit;

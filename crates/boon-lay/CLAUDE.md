@@ -79,7 +79,9 @@ Covers:
 |---|---|
 | `fission-yields-data` | `Nuclide` enum covering ~3000 nuclides; boon-lay re-exports it |
 | `openmc-endf-8-depletion-lib-b` | ENDF/B-VIII.0 depletion chain XML data (half-lives, decay modes, Q-values) |
-| `oorandom` | Simple fast RNG for decay-chain sampling |
+| ~~`oorandom`~~ | ~~Simple fast RNG for decay-chain sampling~~ **CORRECTED 2026-10-04 (gh:#531):** not a dependency (`Cargo.toml` has none); `OoRng64` in `central_limit_theorem/oorandom_rng.rs` is a local wrapper, and decay chains use `outram_mc_libs::rng::lcg::Lcg64` |
+| `serde_json` | reading upstream / GUI-written TRISO-ATOPS run files (`run_file::upstream`) |
+| `rayon` (not on wasm), `wgpu` (not on Android or wasm) | parallel ensembles; the optional, unverified GPU kernel |
 | `outram-mc-libs` | RNG (LCG + Normal + Exp distributions) — replaces `oorandom`, `rand`, `rand_core`, `rand_distr` |
 | `serde` / `serde-xml-rs` | Deserialise the ENDF-8 XML into `SerdeNuclideData` structs |
 | `anyhow` | Error propagation in XML parsing |
@@ -108,14 +110,15 @@ src/
     stochastic_decay_chain/               ← iterator-based decay chain walker
     monte_carlo_single_radionuclide_decay_simulator/  ← MC half-life verification
     lagrangian_diffusion/
-      central_limit_theorem/              ← Gaussian step sampling
+      central_limit_theorem/              ← Gaussian step sampling (the legacy engine)
+      first_passage/                      ← Walk-on-Spheres engine: sphere_fpt, walk_on_spheres, interface, depletion, ensemble, live. Added to this map 2026-10-04 (gh:#531)
       single_particle_simulator/
         constructive_solid_geometry/      ← sphere CSG intersection
         interaction_with_decaying_nuclide_simulator/
         movement_within_triso_particle/
         release_fraction_crp_6_case_1a_1b/  ← CRP-6 benchmark
       temperature_dependent_collisions/
-        diffusion_coeffs/                 ← Cs, Ag, Sr diffusion coefficients in SiC/PyC
+        diffusion_coeffs/                 ← ~~Cs, Ag, Sr diffusion coefficients in SiC/PyC~~ **CORRECTED 2026-10-04:** Ag, Cs, Sr, Kr (Jiang 2023) for kernel, buffer, PyC, SiC; other elements fall back to Ag; graphite is todo!() (gh:#541)
     tests/
   lagrangian_transmutation_and_fission_simulator/
     mod.rs                                ← ~~empty stub (future work)~~ **CORRECTED 2026-09-21**: implemented in `lagrangian_diffusion::first_passage::depletion`; this `mod.rs` is the map
@@ -137,6 +140,10 @@ src/
     run_selection/mod.rs                  ← nuclide selection (sl, parent_decay), name normalisation, half-life screens
     run_file/mod.rs                       ← the port's own RunFile / RunConfig format
     run_file/upstream.rs                  ← reads UPSTREAM / GUI-written run files; code-to-code verified vs process_run_file (#449)
+  chemistry/                              ← cited rate laws: graphite_air, graphite_steam, kernel_hydrolysis (gh:#401). Added to this map 2026-10-04 (gh:#531)
+  compute.rs                              ← ComputeType / ThreadCount backend selector (CPU single, CPU rayon, wgpu). Added 2026-10-04
+  gpu.rs                                  ← optional wgpu Walk-on-Spheres kernel, off Android and wasm; UNVERIFIED (CPU fallback only). Added 2026-10-04
+  wasm_par.rs                             ← serial rayon stand-ins on wasm32. Added 2026-10-04
   fuel_failure/                           ← **boon-lay fuel failure**: TRISO particle failure from the PANAMA-I formulas (NOT the PANAMA code)
     mod.rs                                ← naming rule, model overview, total_failure_fraction
     weibull / stress / pressure / booth / oxygen / molar_volume / corrosion / strength /
@@ -178,9 +185,12 @@ in `docs/panama-i-units-and-open-questions.md`, named for the report it audits.
 
 - `nuclide_reaction_and_decay_data/<element>_test.rs` — each checks that the
   parsed half-life and decay mode for representative nuclides matches ENDF/B-VIII.0.
-- `monte_carlo_single_radionuclide_decay_simulator/tests.rs` — verifies that
+- `monte_carlo_single_radionuclide_decay_simulator/tests.rs` — ~~verifies that
   the MC-simulated half-life (N=10000 histories) matches the tabulated value
-  within ~5%.
+  within ~5%.~~ **CORRECTED 2026-10-04 (gh:#531):** draws 99 999 lifetimes
+  (seed 77, 30 s half-life) and checks the surviving fraction against
+  `2^(-t/30)` at 0–100 s to 0.9 % relative; worst point 8.43e-3 at 60 s
+  (1.5σ). Also walks Th-232 to Pb-208.
 - `release_fraction_crp_6_case_1a_1b/monte_carlo_test.rs` — compares MC
   release fraction to the IAEA CRP-6 analytical solution.
 - `lagrangian_diffusion/temperature_dependent_collisions/diffusion_coeffs/

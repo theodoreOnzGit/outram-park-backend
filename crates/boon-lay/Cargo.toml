@@ -69,6 +69,16 @@ name = "triso_simulator"
 [[example]]
 name = "first_passage_realtime"
 
+# Geometry check for lesson rung 1 (gh:#531): draws the assembled TrisoCell
+# from region lookups and recovers each interface radius. Pure std.
+[[example]]
+name = "triso_cell_slice"
+
+# Rung 4 table: D per TRISO layer and the PyC->SiC transmission probability,
+# through the walker's own coefficient lookup (gh:#531). Pure std.
+[[example]]
+name = "layer_diffusion_table"
+
 # ── rayon: native + Android only ─────────────────────────────────────────────
 # rayon-core does not build for wasm32-unknown-unknown (no OS threads;
 # "cannot find module or crate sys"). Target-gated off wasm ONLY — rayon is pure

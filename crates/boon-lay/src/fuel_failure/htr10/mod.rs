@@ -444,6 +444,8 @@ mod tests {
             (1000.0, 1.6e-6),
         ] {
             let got = end_of_irradiation_phi_1(c);
+            // Printed so a `--nocapture` run re-measures the table (gh:#531).
+            println!("HTR-10 end of irradiation, T_B = {c} degC: phi_1 = {got:.3e}");
             assert!(
                 (got / want).log10().abs() < 0.05,
                 "T_B = {c} degC: phi_1 = {got:e}, expected ~{want:e}"
@@ -475,6 +477,11 @@ mod tests {
     /// (1400 °C), **3.10·10⁻⁵ (1600 °C)**, 4.46·10⁻⁴ (1800 °C), 5.07·10⁻³
     /// (2000 °C), 0.978 (2200 °C).
     ///
+    /// Re-measured 2026-10-04 at `5e802df3a4` (gh:#531; the test now prints
+    /// the table): 4.528·10⁻⁹, 6.848·10⁻⁷, 3.103·10⁻⁵, 4.464·10⁻⁴,
+    /// 5.071·10⁻³, 0.9784, unchanged; `φ₂` (14b) at 2000/2200 °C 2.779·10⁻⁴ /
+    /// 0.9770.
+    ///
     /// The 2200 °C value is dominated by `φ₂`, which overtakes `φ₁` between
     /// 2000 and 2200 °C — matching the report's own statement (page -508-)
     /// that thermal decomposition governs above ~2000 °C. That is the one
@@ -492,6 +499,19 @@ mod tests {
             }
             h.progress()
         };
+
+        // Printed so a `--nocapture` run re-measures the table (gh:#531).
+        for c in [1200.0, 1400.0, 1600.0, 1800.0, 2000.0, 2200.0] {
+            let p = run(c);
+            println!(
+                "HTR-10 accident, 200 h at {c} degC (T_B 776 degC): phi_1 = {:.3e}, \
+                 phi_2 (14b) = {:.3e}, phi_total = {:.3e}, FKOR = {:.4}",
+                p.pressure_vessel.get::<ratio>(),
+                p.thermal_decomposition.get::<ratio>(),
+                p.total.get::<ratio>(),
+                p.thinning_factor.get::<ratio>()
+            );
+        }
 
         for (c, want) in [
             (1200.0, 4.53e-9),

@@ -84,11 +84,35 @@ case,temperature_C,D_m2_per_s,mc_release,crank_release,abs_error
 1b,1600,1.2503e-13,1.0000,1.0000,0.0000
 ```
 
+**Re-measured 2026-10-04** (gh:#531; `develop` atop `5e802df3a4`,
+`cargo test -p boon-lay --release --lib --tests -- --nocapture --test-threads=1`
+on one core; the whole library suite, 284 tests, ran in 17 s). Same $N$ and
+seed. **These are the numbers to quote.**
+
+```csv
+case,temperature_C,D_m2_per_s,mc_release,crank_release,abs_error
+1a,1200,2.2519e-15,0.5331,0.5337,0.0006
+1b,1600,1.2503e-13,1.0000,1.0000,0.0000
+```
+
+Case 1a's MC value moved by 0.0001 (0.5332 → 0.5331) at the same seed, so
+the random streams changed between `ae84a04` and `5e802df3a4`; the commit
+that changed them was not traced. The shift is well inside the 0.0025
+standard deviation and the criterion still passes.
+
 **Interpretation.** The Lagrangian Walk-on-Spheres release fraction reproduces
 the Crank continuum solution to within $6\times10^{-4}$ at 1200 °C and exactly
 (to four decimals) at 1600 °C — far inside the $0.02$ criterion and consistent
-with the expected Monte-Carlo statistical error. Both analytical values sit in
-the literature-cited ranges (~0.53 at 1200 °C; ~1.0 at 1600 °C). This verifies
+with the expected Monte-Carlo statistical error. ~~Both analytical values sit in
+the literature-cited ranges (~0.53 at 1200 °C; ~1.0 at 1600 °C).~~
+**CORRECTED 2026-10-04 (gh:#537):** the code's own citation contradicts this.
+The 1200 °C tests in `release_fraction_analytical_solution.rs` and
+`release_fraction_crp_6_case_1a_1b.rs` quote Hales et al. (2021, Table 4) for
+Case 1a as **0.453–0.498**; the analytical 0.5337 lies outside it, and both
+tests swallow that range check with `catch_unwind`. Case 1b (1.0000) is inside
+its cited 0.97–1.00. Not re-checked against the paper itself, which is not in
+the open corpus. The walk-against-Crank verification in this record is unaffected,
+because both sides use the same `D`. This verifies
 the first-passage engine (geometry, first-passage-time sampling, uniform-in-ball
 birth, perfect-sink capture) against a known closed-form solution for the
 single-layer TRISO case, and establishes the Lagrangian ⟷ Eulerian consistency

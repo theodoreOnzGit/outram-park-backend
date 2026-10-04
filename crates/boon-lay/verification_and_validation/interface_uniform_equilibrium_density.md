@@ -82,14 +82,41 @@ diffusivity_contrast,10x
 pass_threshold,0.02
 ```
 
+**Re-measured 2026-10-04** (gh:#531; `develop` atop `5e802df3a4`,
+`cargo test -p boon-lay --release --lib --tests -- --nocapture --test-threads=1`
+on one core). Same seed and step count. **These are the numbers to quote.**
+
+```csv
+quantity,value
+inner_volume_fraction,0.1250
+measured_inner_time_fraction,0.1368
+absolute_error,0.0118
+diffusivity_contrast,10x
+pass_threshold,0.02
+```
+
+**What changed, and what it means.** At the same seed the measured fraction
+moved from 0.1216 (3.4·10⁻³ **under**) to 0.1368 (1.18·10⁻² **over**), so the
+random stream behind this test changed between `ae84a04` and `5e802df3a4`
+(not traced). The test still passes, but the error is now 59 % of the
+threshold, and the sign of the residual flipped. That says the July
+interpretation below, which read the residual as "a slight under-population
+… consistent with the finite ε", was reading one draw of the noise: a single
+ergodic walker over 3·10⁶ correlated steps has a run-to-run spread of order
+10⁻², which this record never measured. **Not done here, and needed before
+the 0.02 criterion can be called tight:** repeat the run over several seeds
+and report the spread.
+
 **Interpretation.** With the linear transmission rule the walker's time-in-region
 matches the volume fraction to $3.4\times10^{-3}$ across a tenfold diffusivity
 contrast — i.e. the equilibrium is uniform, as Fickian continuity requires, and
 comfortably inside the $0.02$ criterion. The small residual (a slight
 under-population of the fast inner region) is consistent with the finite
 $\varepsilon$ interface-capture discretisation and Monte-Carlo noise. This
-verifies the interface treatment that turns the SiC layer (whose $D$ is ~$10^6$
-times smaller than the surrounding pyrolytic carbon) into the TRISO containment
+verifies the interface treatment that turns the SiC layer (whose $D$ is
+~~~$10^6$ times~~ **CORRECTED 2026-10-04: 13 to 4100 times, by element and
+temperature** (`examples/layer_diffusion_table.rs`) smaller than the
+surrounding pyrolytic carbon) into the TRISO containment
 barrier. Had the $\sqrt{D}$ rule been used, the predicted inner time fraction
 would have been biased well outside the threshold.
 
