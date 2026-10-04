@@ -54,14 +54,17 @@ while read -r name dir; do
   walk_dirs+=("$dir")
 done < <(cat docs/site/deep-dives.txt docs/site/tutorials.txt)
 if grep -rqs -- '<!-- code-walk:' "${walk_dirs[@]}"; then
-  if command -v rust-analyzer >/dev/null; then
+  # `command -v` is not enough: rustup installs a `rust-analyzer` proxy even
+  # when the component is absent, and that stub fails as soon as it is run
+  # (it took down every Pages build on 2026-10-04). Ask it for its version.
+  if rust-analyzer --version >/dev/null 2>&1; then
     cargo run --release -q -p kovan --no-default-features --bin kovan-cli -- \
       code-walk-check "${walk_dirs[@]}"
   elif [[ -n "${CODE_WALK_REQUIRED:-}" ]]; then
     echo "code walks need rust-analyzer (rustup component add rust-analyzer)" >&2
     exit 1
   else
-    echo "warning: rust-analyzer not on PATH; code walks NOT checked" >&2
+    echo "warning: rust-analyzer not installed (gh:#544); code walks NOT checked" >&2
   fi
 fi
 
