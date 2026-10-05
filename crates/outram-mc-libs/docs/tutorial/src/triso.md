@@ -357,10 +357,10 @@ Call chain from `htr10_fuel_zone_kinf.rs::main` to `delta_tracking.rs::classify_
 
 **11.** → [`delta_tracking.rs::classify_collision`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/pebble_beds/delta_tracking.rs#L313) · called at [L541](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/pebble_beds/keff_delta.rs#L541) — Decide whether a delta-tracking collision is real or virtual by rejection on the ratio `Σ_t(local)/Σ_maj`.
 
-<!-- snippet-check: crates/outram-mc-libs/src/pebble_beds/delta_tracking.rs:313 fn classify_collision -->
+<!-- snippet-check: crates/outram-mc-libs/src/pebble_beds/delta_tracking.rs:580 fn classify_collision -->
 
 ```rust,ignore
-{{#include ../../../../../crates/outram-mc-libs/src/pebble_beds/delta_tracking.rs:313:323}}
+{{#include ../../../../../crates/outram-mc-libs/src/pebble_beds/delta_tracking.rs:580:590}}
 ```
 
 **8.** (from step 3) → [`keff_delta.rs::run_keff_delta_par_in`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/pebble_beds/keff_delta.rs#L794) · called at [L635](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/pebble_beds/keff_delta.rs#L635) — Rayon-parallel delta-tracked power iteration (`ComputeType::CpuMultiThread`).
@@ -401,10 +401,10 @@ Call chain from `htr10_fuel_zone_kinf.rs::main` to `delta_tracking.rs::classify_
 
 **11.** → [`delta_tracking.rs::classify_collision`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/pebble_beds/delta_tracking.rs#L313) · called at [L541](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/pebble_beds/keff_delta.rs#L541) — Decide whether a delta-tracking collision is real or virtual by rejection on the ratio `Σ_t(local)/Σ_maj`.
 
-<!-- snippet-check: crates/outram-mc-libs/src/pebble_beds/delta_tracking.rs:313 fn classify_collision -->
+<!-- snippet-check: crates/outram-mc-libs/src/pebble_beds/delta_tracking.rs:580 fn classify_collision -->
 
 ```rust,ignore
-{{#include ../../../../../crates/outram-mc-libs/src/pebble_beds/delta_tracking.rs:313:323}}
+{{#include ../../../../../crates/outram-mc-libs/src/pebble_beds/delta_tracking.rs:580:590}}
 ```
 
 Unresolved calls inside the functions on this chain:

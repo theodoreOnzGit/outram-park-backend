@@ -220,7 +220,7 @@ Audited 2026-08-11. Every claim carries a `file:line`.
 | Capability | Where | Notes |
 |---|---|---|
 | **Woodcock delta tracking** | `crates/outram-mc-libs/src/pebble_beds/delta_tracking.rs:270` | `track_to_collision` takes geometry as a closure `Fn(Position) -> Option<f64>` returning local total macroscopic cross section. Generic, no trait object |
-| **Resonance-safe majorant** | `.../delta_tracking.rs:125` | `Majorant::bounding` sub-samples each bin for the max. Use this, not `from_materials` (`:75`), which under-bounds across U-238 resonances — its own doc says so at `:99-103` |
+| **Resonance-safe majorant** | `.../delta_tracking.rs:125` | ~~`Majorant::bounding` sub-samples each bin for the max.~~ **CORRECTED 2026-10-05 (GitHub #585):** that sampling under-bounded ENDF data by 18 %; `bounding` now tabulates on every nuclide breakpoint (line numbers here not re-checked). Use this, not `from_materials` (`:75`), which under-bounds across U-238 resonances — its own doc says so at `:99-103` |
 | **Delta-tracked k-eigenvalue with sigma** | `.../pebble_beds/keff_delta.rs:239` | `run_keff_delta` returns `KeffResult { k_mean, k_std, k_by_generation }` (`crates/outram-mc-libs/src/physics/keff.rs:183`). Sequential (`:285`) and rayon (`:382`) backends, thread-count-invariant by seed jump-ahead |
 | **RSA sphere packing** | `.../pebble_beds/sphere_packing.rs:205` | `pack_spheres(radius, half_width, packing_fraction, seed)`, plus O(1) membership `PackedSpheres::is_inside_kernel` (`:376`). Line-by-line port of OpenMC's `model/triso.py` |
 | **Full CSG geometry** | `crates/outram-mc-libs/src/geometry/surface.rs:1021` | `SurfaceKind` enum covers sphere, X/Y/Z cylinder, X/Y/Z cone, planes, quadric — enough to express an HTR-10 core, conus and reflector |

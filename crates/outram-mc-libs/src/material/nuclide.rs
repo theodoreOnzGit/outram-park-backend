@@ -3953,6 +3953,36 @@ impl Nuclide {
         }
         grid
     }
+
+    /// Every energy \[eV\] in `[e_min_ev, e_max_ev]` at which
+    /// [`Self::total_upper_bound`] changes form, unsorted and possibly with
+    /// duplicates: [`Self::native_energy_grid`] (the pointwise section grids,
+    /// or the WMP window edges and group bounds), plus the S(alpha,beta)
+    /// [`ThermalScattering::breakpoints`] and the URR table energies and range
+    /// ends.
+    ///
+    /// Kept separate from `native_energy_grid` on purpose: that grid is
+    /// compared node for node against NJOY's (`u238_recon_fingerprint`,
+    /// `u238_resonance_integral`), and the thermal and URR nodes are not part
+    /// of a reconstructed section.
+    ///
+    /// Used by [`crate::pebble_beds::delta_tracking::Majorant::bounding`] to
+    /// put a node wherever `Sigma_t` can bend or step, which is what makes the
+    /// majorant a bound by construction on the pointwise and thermal parts
+    /// (GitHub #585).
+    pub fn majorant_breakpoints(&self, e_min_ev: f64, e_max_ev: f64) -> Vec<f64> {
+        let mut v = self.native_energy_grid(e_min_ev, e_max_ev);
+        if let Some(th) = &self.thermal {
+            v.extend(th.breakpoints());
+        }
+        if let Some(u) = &self.urr {
+            v.extend_from_slice(u.energies());
+            v.push(u.e_low);
+            v.push(u.e_high);
+        }
+        v.retain(|&e| e.is_finite() && e >= e_min_ev && e <= e_max_ev);
+        v
+    }
 }
 
 /// Total absorption σ_a(E) \[barn\] — the ENDF **MT=27** quantity: every

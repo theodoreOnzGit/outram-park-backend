@@ -954,6 +954,33 @@ impl ThermalScattering {
         self.cutoff_ev
     }
 
+    /// Every energy \[eV\] at which [`Self::total_xs`] changes form: the
+    /// inelastic grid, the incoherent-elastic grid, every Bragg edge and the
+    /// cutoff. Unsorted, possibly with duplicates.
+    ///
+    /// Between two neighbouring breakpoints the total is a sum of linear
+    /// pieces (`interp_linear`) and at most one `s_k/E` Bragg term. That sum is
+    /// convex, so its maximum over the interval is at an end. This is what
+    /// lets [`crate::pebble_beds::delta_tracking::Majorant::bounding`] bound
+    /// the thermal range from these nodes alone (GitHub #585). At a Bragg
+    /// edge and at the cutoff the total **steps**, so a bound must also read
+    /// the one-sided limits there.
+    pub fn breakpoints(&self) -> Vec<f64> {
+        let mut v = self.xs_e.clone();
+        match &self.elastic {
+            ThermalElastic::None => {}
+            ThermalElastic::Coherent(c) => v.extend_from_slice(&c.edges_ev),
+            ThermalElastic::Incoherent(i) => v.extend_from_slice(&i.e_grid),
+            ThermalElastic::Mixed(c, i) => {
+                v.extend_from_slice(&c.edges_ev);
+                v.extend_from_slice(&i.e_grid);
+            }
+        }
+        v.push(self.cutoff_ev);
+        v.retain(|e| e.is_finite() && *e > 0.0);
+        v
+    }
+
     /// **Ablation (GitHub #407):** sample an equiprobable (ACE IFENG = 0) table
     /// with the legacy #188 scheme instead of OpenMC's
     /// `IncoherentInelasticAEDiscrete`. That scheme chooses the incident table

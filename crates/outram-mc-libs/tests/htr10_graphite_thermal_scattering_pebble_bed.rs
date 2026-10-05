@@ -477,9 +477,11 @@ fn graphite_thermal_law_reaches_the_transport_kernel() {
 /// goes negative and the estimator is biased **without any error being
 /// raised**. So this is checked, not reasoned about.
 ///
-/// Why it is not obviously safe: [`Majorant::bounding`] samples `Sigma_t` on a
-/// log energy grid (4096 bins x 32 subsamples here) and takes the per-bin max,
-/// but graphite's coherent-elastic cross section is a **1/E sawtooth with 221
+/// Why it was not obviously safe: ~~[`Majorant::bounding`] samples `Sigma_t` on a
+/// log energy grid (4096 bins x 32 subsamples here) and takes the per-bin max~~
+/// (**CHANGED 2026-10-05, GitHub #585:** `bounding` now also tabulates every
+/// Bragg edge with its one-sided limits, so the edges are nodes; this test
+/// stays as an independent check), but graphite's coherent-elastic cross section is a **1/E sawtooth with 221
 /// Bragg discontinuities** — it jumps upward at every edge, so a grid that
 /// steps over an edge can under-sample the peak just above it. The margin
 /// (10% here) is what absorbs that, and this test measures whether it does.

@@ -42,8 +42,9 @@
 //! - **Surface arm** — [`run_keff`], which ray-traces to the sphere and leaks
 //!   on crossing.
 //! - **Delta arm** — [`run_keff_delta_in`] on [`DeltaDomain::SphereVacuum`],
-//!   with a majorant built by [`Majorant::bounding`] (the bin-maximum
-//!   constructor, not the point sampler — Godiva runs on reconstructed
+//!   with a majorant built by [`Majorant::bounding`] (~~the bin-maximum
+//!   constructor~~ since GitHub #585 tabulated on every nuclide breakpoint,
+//!   not the point sampler — Godiva runs on reconstructed
 //!   resonance data, where a peak between two grid points would otherwise slip
 //!   under the bound and bias the real/virtual split).
 //!
@@ -188,9 +189,10 @@ mod desktop {
         let materials = vec![material.clone()];
 
         // The majorant must bound Sigma_t EVERYWHERE, not just at grid points --
-        // Godiva runs on reconstructed resonance data. `bounding` takes the
-        // maximum over a dense sub-sample of each bin, so a peak between grid
-        // points cannot slip under it.
+        // Godiva runs on reconstructed resonance data. `bounding` tabulates on
+        // every nuclide breakpoint, where linear-linear data peaks, so a peak
+        // between grid points cannot slip under it (GitHub #585; the old
+        // sub-sampled bin maximum was not a proof, though Godiva stayed bounded).
         let t_maj = Instant::now();
         let majorant = Majorant::bounding(
             &materials,

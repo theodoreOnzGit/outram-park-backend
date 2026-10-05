@@ -40,9 +40,10 @@
 //!
 //! **How this crate implements it.** The primitives live in
 //! [`outram_mc_libs::pebble_beds::delta_tracking`]: [`Majorant`] (the bound; here
-//! [`Majorant::bounding`], which sub-samples each energy bin so a resonance peak
-//! *between* grid points cannot slip under `Σ_maj` — a requirement for
-//! unbiasedness with WMP resonance data), `sample_delta_distance`, and
+//! [`Majorant::bounding`], which tabulates on every nuclide breakpoint and, for
+//! analytic WMP resonances, a sub-sampled log envelope, so a resonance peak
+//! *between* grid points does not slip under `Σ_maj` — a requirement for
+//! unbiasedness; the WMP part is sampled and audited, not proved, GitHub #585), `sample_delta_distance`, and
 //! `classify_collision` (the real/virtual rejection). They compose into two
 //! drivers: [`track_to_collision`] (one flight) and, for the eigenvalue,
 //! [`run_keff_delta`] — a fission-source power iteration over a reflective cube of

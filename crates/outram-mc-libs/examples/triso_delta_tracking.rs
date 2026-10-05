@@ -35,9 +35,14 @@
 //!
 //! - Randomly packs HEU fuel kernels into a reflective 1 cm³ box to a 0.30 packing
 //!   fraction with [`PackedSpheres::pack`] (Random Sequential Addition).
-//! - Builds a bin-maximum majorant with [`Majorant::bounding`] that provably bounds
-//!   `Σ_t` even across the U resonances (a coarse majorant would under-bound a
-//!   resonance peak between grid points and bias the result).
+//! - Builds a majorant with [`Majorant::bounding`] that bounds `Σ_t` across the U
+//!   resonances (a coarse majorant would under-bound a resonance peak between
+//!   grid points and bias the result). ~~bin-maximum ... provably bounds~~
+//!   **CORRECTED 2026-10-05 (GitHub #585):** the bin maximum was sampled, not
+//!   proved, and under-bounded ENDF data by 18 %. `bounding` now tabulates on
+//!   every nuclide's own breakpoints. On this LOW-tier (WMP) data the
+//!   resonances are analytic, so the bound there is still sampled and audited
+//!   (`examples/majorant_bound_audit.rs`).
 //! - Runs a fission-source k-eigenvalue power iteration with [`run_keff_delta`],
 //!   every history streamed by delta tracking, and prints the converged k∞.
 
@@ -105,8 +110,8 @@ fn main() {
         packed.packing_fraction()
     );
 
-    // The majorant: a provable upper bound on Σ_t over the whole energy range,
-    // sub-sampling each energy bin so a resonance peak cannot slip under it.
+    // The majorant: an upper bound on Σ_t over the whole energy range, on every
+    // nuclide breakpoint plus a sub-sampled log envelope (GitHub #585).
     let majorant = Majorant::bounding(&materials, &nuclides, 1.0e-4, 2.0e7, 4096, 32, 0.1);
 
     // Geometry lookup for delta tracking: which material index is at this point?

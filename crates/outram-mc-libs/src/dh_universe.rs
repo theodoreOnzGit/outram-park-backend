@@ -1480,6 +1480,8 @@ impl DhUniverse {
         // majorant is a SILENT bias in delta tracking, not a crash — which is
         // why `reachable_materials` must return every index `material_at` can
         // produce, and is derived from the geometry rather than guessed.
+        // Since GitHub #585 `bounding` is also tabulated on every nuclide's
+        // own breakpoints, so it bounds pointwise data by construction.
         let reachable = self.reachable_materials();
         let majorant = Majorant::bounding(&reachable, nuclides, 1.0e-4, 2.0e7, 4096, 32, 0.3);
         self.size_scls_window(nuclides);
@@ -1490,6 +1492,17 @@ impl DhUniverse {
             &majorant,
             self,
             settings,
+        )
+    }
+
+    /// The GitHub #585 caller audit of the majorant [`Self::keff`] builds:
+    /// the same reachable materials and arguments, through
+    /// [`crate::pebble_beds::delta_tracking::bounding_audit_line`], with the
+    /// old and new constructions side by side. Diagnostic only.
+    pub fn majorant_audit_line(&self, nuclides: &[Nuclide], label: &str) -> String {
+        let reachable = self.reachable_materials();
+        crate::pebble_beds::delta_tracking::bounding_audit_line(
+            label, &reachable, nuclides, 1.0e-4, 2.0e7, 4096, 32, 0.3,
         )
     }
 }

@@ -24,17 +24,20 @@ are a few lines each in
 [`pebble_beds/delta_tracking.rs`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/pebble_beds/delta_tracking.rs#L289-L324):
 
 ```rust,ignore
-{{#include ../../../src/pebble_beds/delta_tracking.rs:296:301}}
+{{#include ../../../src/pebble_beds/delta_tracking.rs:563:568}}
 
-{{#include ../../../src/pebble_beds/delta_tracking.rs:313:323}}
+{{#include ../../../src/pebble_beds/delta_tracking.rs:580:590}}
 ```
 
 The method is **unbiased for any valid majorant**. A loose majorant costs time (more
 virtual collisions), never accuracy. A majorant that is too *small* is the
-dangerous direction, which is why the bin-maximum constructor
+dangerous direction, which is why
 [`Majorant::bounding`](../../api/outram_mc_libs/pebble_beds/delta_tracking/struct.Majorant.html)
 exists: on reconstructed resonance data a peak between two grid points would
-otherwise slip under the bound.
+otherwise slip under the bound. ~~the bin-maximum constructor~~ **CORRECTED
+2026-10-05 (GitHub #585):** sampling each bin was not enough. On ENDF/B-VIII.0
+it left the HTR-10 kernel 18 % above the majorant at 1.689 MeV. `bounding` now
+tabulates on every nuclide's own breakpoints, where linear-linear data peaks.
 
 ## This is NEW WORK, not a port
 

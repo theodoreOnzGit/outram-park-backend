@@ -107,36 +107,6 @@ impl Majorant {
         }
     }
 
-    /// Build a **provably bounding** majorant by taking, for each energy bin, the
-    /// maximum of `Σ_t` over a dense sub-sample of that bin — not just its
-    /// endpoints.
-    ///
-    /// [`Self::from_materials`] evaluates `Σ_t` only at the grid *points*, so a
-    /// resonance peak that falls *between* two points slips under the bound — fatal
-    /// for delta tracking, whose whole contract is `Σ_maj ≥ Σ_t` **everywhere**
-    /// (an under-bound biases the real/virtual split toward the higher-`Σ_t`
-    /// material). This constructor instead lays a log grid of `n_bins` bins over
-    /// `[e_min, e_max]` and, for each bin, evaluates the per-material macroscopic
-    /// total at `subsamples` energies spanning the bin and keeps the largest. That
-    /// bin maximum is written to **both** bin edges, so [`Self::at`]'s
-    /// bracket-maximum returns a value `≥` the bin's true peak for any energy inside
-    /// it. A final `1 + margin` cushion covers sub-bin structure narrower than the
-    /// sampling.
-    ///
-    /// The cost is `n_bins · subsamples` cross-section evaluations at construction
-    /// (once), in exchange for an unbiased flight. For resonance data (WMP / HIGH
-    /// tier) prefer this over [`Self::from_materials`]; for smooth or group data the
-    /// cheaper point sampler is adequate.
-    ///
-    /// # Parameters
-    /// - `materials` / `nuclides` — every material the neutron might enter.
-    /// - `e_min` / `e_max` — energy span \[eV\] to bound (cover the whole range the
-    ///   histories visit — birth energy down to the lowest energy reached).
-    /// - `n_bins` — number of log-spaced bins; more bins ⇒ tighter (fewer virtual
-    ///   collisions), same bounding guarantee.
-    /// - `subsamples` — sub-energies evaluated per bin (`≥ 2`); more ⇒ safer against
-    ///   narrow resonances.
-    /// - `margin` — non-negative safety fraction multiplying the final envelope.
     /// **A majorant bounding only the materials a REGION can reach.**
     ///
     /// The spatial counterpart to `DhUniverse::reachable_materials`, which
@@ -186,6 +156,67 @@ impl Majorant {
         Majorant::from_materials(&subset, nuclides, energies, margin)
     }
 
+    /// Build a majorant that bounds `Σ_t` **by construction** wherever the data
+    /// is pointwise, thermal (S(α,β)) or multigroup, and by dense sampling where
+    /// it is analytic (WMP) or a URR band total.
+    ///
+    /// # How the bound is made (GitHub #585, 2026-10-05)
+    ///
+    /// Pointwise ENDF cross sections are linear-linear between their own grid
+    /// points; this crate evaluates them that way (`recon.eval_mt`), as OpenMC
+    /// does (`Nuclide::calculate_xs`, `src/nuclide.cpp:748`). On the **union**
+    /// of every nuclide's own breakpoints
+    /// ([`Nuclide::majorant_breakpoints`]: section grids, S(α,β) grids, Bragg
+    /// edges, the thermal cutoff, URR table energies and range ends, group
+    /// bounds), a mixture's `Σ_t` is therefore a sum of linear pieces and at
+    /// most one convex `s_k/E` Bragg term in every interval. A convex function
+    /// takes its maximum over an interval at an end. [`Self::at`] returns the
+    /// larger of the two bracketing nodes, so tabulating `Σ_t` at every node
+    /// bounds those parts with no sampling at all. Where the data **steps** (a
+    /// Bragg edge, the S(α,β) cutoff, a URR range end, a group bound), each
+    /// node also reads `Σ_t` one ulp below and one ulp above itself, so both
+    /// one-sided limits are inside the bound.
+    ///
+    /// Two parts are not piecewise linear and stay **sampled**. These are the
+    /// WMP analytic resonances (LOW tier) and the URR band totals between table
+    /// energies, which are products of two interpolants. For those the old
+    /// construction is kept as a floor: a log grid of `n_bins` bins over
+    /// `[e_min, e_max]`, `Σ_t` sampled at `subsamples` energies per bin, and
+    /// the bin maximum written to both bin edges. Every node of the union grid
+    /// takes the larger of its own value and that envelope, so this majorant is
+    /// **never below the pre-#585 one** at any energy. A `1 + margin` factor
+    /// multiplies the result. On the pointwise and thermal parts it only
+    /// covers round-off; on the sampled parts it covers structure narrower
+    /// than the sampling.
+    ///
+    /// The bound is pinned on ENDF/B-VIII.0 data by
+    /// `tests/majorant_bounds_endf.rs`, through [`Self::audit`].
+    ///
+    /// ~~Build a **provably bounding** majorant by taking, for each energy bin,
+    /// the maximum of `Σ_t` over a dense sub-sample of that bin.~~ **CORRECTED
+    /// 2026-10-05 (GitHub #585):** sampling is not a proof. On ENDF/B-VIII.0
+    /// data the old bin sampling (4096 × 32, margin 0.1) left the true `Σ_t`
+    /// at **1.18×** the majorant at 1.689 MeV in the HTR-10 UO₂ kernel: a
+    /// resonance narrower than the ~340 eV sampling step fell between samples.
+    /// That is a silent delta-tracking bias. The bin sampling survives above
+    /// as the floor for the analytic parts.
+    ///
+    /// # Cost
+    ///
+    /// About three `Σ_t` evaluations per material per union-grid node, plus
+    /// `n_bins · subsamples` for the envelope, once at construction. On
+    /// ENDF/B-VIII.0 uranium the union grid is a few hundred thousand nodes, so
+    /// [`Self::at`]'s binary search is a few steps deeper than on the 4097-point
+    /// grid this used to return.
+    ///
+    /// # Parameters
+    /// - `materials` / `nuclides` — every material the neutron might enter.
+    /// - `e_min` / `e_max` — energy span \[eV\] to bound (cover the whole range the
+    ///   histories visit — birth energy down to the lowest energy reached).
+    ///   Below `e_min`, [`Self::at`] extrapolates as 1/v.
+    /// - `n_bins` — number of log-spaced bins in the sampled envelope.
+    /// - `subsamples` — sub-energies evaluated per bin (`≥ 2`).
+    /// - `margin` — non-negative safety fraction multiplying the final values.
     pub fn bounding(
         materials: &[Material],
         nuclides: &[Nuclide],
@@ -195,14 +226,7 @@ impl Majorant {
         subsamples: usize,
         margin: f64,
     ) -> Self {
-        let n_bins = n_bins.max(1);
-        let subsamples = subsamples.max(2);
         let scale = 1.0 + margin.max(0.0);
-        let ln_lo = e_min.max(f64::MIN_POSITIVE).r_ln();
-        let ln_hi = e_max.max(e_min * 1.0001).r_ln();
-        let edge = |i: usize| (ln_lo + (ln_hi - ln_lo) * i as f64 / n_bins as f64).r_exp();
-
-        let energy: Vec<f64> = (0..=n_bins).map(edge).collect();
         let sigma_t_max = |e: f64| {
             materials
                 .iter()
@@ -210,22 +234,149 @@ impl Majorant {
                 .fold(0.0_f64, f64::max)
         };
 
-        let mut sigma = vec![0.0_f64; n_bins + 1];
-        for b in 0..n_bins {
-            let (lo, hi) = (energy[b].r_ln(), energy[b + 1].r_ln());
-            let mut bin_max = 0.0_f64;
-            for s in 0..subsamples {
-                let e = (lo + (hi - lo) * s as f64 / (subsamples - 1) as f64).r_exp();
-                bin_max = bin_max.max(sigma_t_max(e));
+        // 1. The sampled envelope (the pre-#585 construction, unscaled) and
+        //    the energies it sampled.
+        let (envelope, mut grid) =
+            sampled_envelope(materials, nuclides, e_min, e_max, n_bins, subsamples);
+        let edges = &envelope.energy;
+
+        // 2. The union grid: the envelope's own samples and edges, plus every
+        //    breakpoint of every nuclide the materials use.
+        let (g_lo, g_hi) = (edges[0], edges[edges.len() - 1]);
+        grid.extend_from_slice(edges);
+        for i in used_nuclides(materials) {
+            if let Some(n) = nuclides.get(i) {
+                grid.extend(n.majorant_breakpoints(g_lo, g_hi));
             }
-            // Write the bin peak to both edges so `at`'s bracket-max bounds the bin.
-            sigma[b] = sigma[b].max(bin_max);
-            sigma[b + 1] = sigma[b + 1].max(bin_max);
         }
-        for s in &mut sigma {
+        grid.retain(|&e| e.is_finite() && e >= g_lo && e <= g_hi);
+        grid.sort_by(|a, b| a.partial_cmp(b).expect("finite energies"));
+        // Exact duplicates only: two distinct nodes, however close, may sit
+        // either side of a step.
+        grid.dedup();
+
+        // 3. Each node: its own value and both one-sided limits, floored by
+        //    the envelope, times the margin.
+        let sigma = grid
+            .iter()
+            .map(|&e| {
+                let own = sigma_t_max(e.next_down())
+                    .max(sigma_t_max(e))
+                    .max(sigma_t_max(e.next_up()));
+                own.max(envelope.at(e)) * scale
+            })
+            .collect();
+        Majorant {
+            energy: grid,
+            sigma,
+        }
+    }
+
+    /// **ABLATION — not a bound on pointwise data.** The pre-#585
+    /// [`Self::bounding`]: `Σ_t` sampled at `subsamples` points in each of
+    /// `n_bins` log bins, the bin maximum written to both bin edges, times
+    /// `1 + margin`. No data breakpoints.
+    ///
+    /// Kept only so a recorded number taken with the old construction can be
+    /// reproduced, and so its under-bound can be measured
+    /// (`examples/majorant_bound_audit.rs`, `OUTRAM_HTR10_MAJORANT=bounding`).
+    /// On ENDF/B-VIII.0 data it left the true `Σ_t` at 1.18× the majorant at
+    /// 1.689 MeV in the HTR-10 UO₂ kernel (GitHub #585). **Do not transport
+    /// on it.**
+    pub fn bounding_without_breakpoints(
+        materials: &[Material],
+        nuclides: &[Nuclide],
+        e_min: f64,
+        e_max: f64,
+        n_bins: usize,
+        subsamples: usize,
+        margin: f64,
+    ) -> Self {
+        let scale = 1.0 + margin.max(0.0);
+        let (mut m, _) = sampled_envelope(materials, nuclides, e_min, e_max, n_bins, subsamples);
+        for s in &mut m.sigma {
             *s *= scale;
         }
-        Majorant { energy, sigma }
+        m
+    }
+
+    /// Check this majorant against `Σ_t` of `materials`, at far more energies
+    /// than it was built on, and return the worst ratio `Σ_t / Σ_maj` found.
+    ///
+    /// A ratio above 1 is an under-bound: delta tracking silently loses
+    /// collisions there. The energies checked are:
+    ///
+    /// - `n_log + 1` log-spaced energies over `[e_lo, e_hi]`;
+    /// - every [`Nuclide::majorant_breakpoints`] node of every nuclide the
+    ///   materials use, with its one-ulp neighbours either side;
+    /// - the **midpoint of every interval** between consecutive breakpoints.
+    ///   This is the falsifiable part for the construction in
+    ///   [`Self::bounding`]: if `Σ_t` were not linear or convex between
+    ///   breakpoints, the midpoint is where it would show.
+    ///
+    /// `Σ_t` is [`Material::macro_xs_total_upper_bound`], the largest URR band.
+    /// Diagnostic only; it changes nothing.
+    pub fn audit(
+        &self,
+        materials: &[Material],
+        nuclides: &[Nuclide],
+        e_lo: f64,
+        e_hi: f64,
+        n_log: usize,
+    ) -> MajorantAudit {
+        let n_log = n_log.max(1);
+        let mut bp: Vec<f64> = Vec::new();
+        for i in used_nuclides(materials) {
+            if let Some(n) = nuclides.get(i) {
+                bp.extend(n.majorant_breakpoints(e_lo, e_hi));
+            }
+        }
+        bp.sort_by(|a, b| a.partial_cmp(b).expect("finite energies"));
+        bp.dedup();
+        let mut energies: Vec<f64> = (0..=n_log)
+            .map(|i| e_lo * (e_hi / e_lo).r_powf(i as f64 / n_log as f64))
+            .collect();
+        for w in bp.windows(2) {
+            energies.push(0.5 * (w[0] + w[1]));
+        }
+        for &e in &bp {
+            energies.extend([e.next_down(), e, e.next_up()]);
+        }
+        let mut out = MajorantAudit {
+            worst_ratio: 0.0,
+            energy_ev: f64::NAN,
+            material: 0,
+            energies_checked: energies.len(),
+        };
+        for &e in &energies {
+            let m = self.at(e);
+            for (k, mat) in materials.iter().enumerate() {
+                let st = mat.macro_xs_total_upper_bound(e, nuclides);
+                let r = if m > 0.0 {
+                    st / m
+                } else if st > 0.0 {
+                    f64::INFINITY
+                } else {
+                    0.0
+                };
+                if r > out.worst_ratio {
+                    out.worst_ratio = r;
+                    out.energy_ev = e;
+                    out.material = k;
+                }
+            }
+        }
+        out
+    }
+
+    /// Number of tabulated nodes (the length of the energy grid).
+    pub fn len(&self) -> usize {
+        self.energy.len()
+    }
+
+    /// Whether the majorant has no tabulated nodes.
+    pub fn is_empty(&self) -> bool {
+        self.energy.is_empty()
     }
 
     /// The majorant Σ_maj \[cm⁻¹\] at energy `e` \[eV\] — conservative (takes the
@@ -275,6 +426,122 @@ impl Majorant {
             }
         }
     }
+}
+
+/// The result of [`Majorant::audit`]: the worst `Σ_t / Σ_maj` found and where.
+#[derive(Debug, Clone, Copy)]
+pub struct MajorantAudit {
+    /// Largest `Σ_t / Σ_maj` over every energy and material checked. Above 1
+    /// is an under-bound.
+    pub worst_ratio: f64,
+    /// Energy \[eV\] of the worst ratio.
+    pub energy_ev: f64,
+    /// Index, into the `materials` slice audited, of the worst material.
+    pub material: usize,
+    /// How many energies were checked (each against every material).
+    pub energies_checked: usize,
+}
+
+/// The caller audit for GitHub #585, run on a caller's own materials and
+/// settings. It builds [`Majorant::bounding`] and the pre-#585
+/// [`Majorant::bounding_without_breakpoints`] with the same arguments and
+/// audits both ([`Majorant::audit`], 2 000 001 log energies over
+/// 1e-5 eV to 20 MeV plus every breakpoint, its neighbours and the interval
+/// midpoints). It returns one printable line, prefixed `MAJORANT-AUDIT`.
+///
+/// Examples call this when `OUTRAM_MAJORANT_AUDIT` is set and then stop. A
+/// worst ratio above 1 for the OLD construction means a number recorded with
+/// that caller was measured on an under-bound majorant.
+#[allow(clippy::too_many_arguments)]
+pub fn bounding_audit_line(
+    label: &str,
+    materials: &[Material],
+    nuclides: &[Nuclide],
+    e_min: f64,
+    e_max: f64,
+    n_bins: usize,
+    subsamples: usize,
+    margin: f64,
+) -> String {
+    let (lo, hi, n) = (1.0e-5, 2.0e7, 2_000_000);
+    let new = Majorant::bounding(materials, nuclides, e_min, e_max, n_bins, subsamples, margin);
+    let a_new = new.audit(materials, nuclides, lo, hi, n);
+    let old = Majorant::bounding_without_breakpoints(
+        materials, nuclides, e_min, e_max, n_bins, subsamples, margin,
+    );
+    let a_old = old.audit(materials, nuclides, lo, hi, n);
+    let name = |a: &MajorantAudit| {
+        materials
+            .get(a.material)
+            .map(|m| m.name.clone())
+            .unwrap_or_default()
+    };
+    format!(
+        "MAJORANT-AUDIT {label} | margin {margin} | OLD worst {:.4} at {:.5e} eV in '{}' | \
+         NEW worst {:.4} at {:.5e} eV in '{}' | nodes old {} new {} | {} energies",
+        a_old.worst_ratio,
+        a_old.energy_ev,
+        name(&a_old),
+        a_new.worst_ratio,
+        a_new.energy_ev,
+        name(&a_new),
+        old.len(),
+        new.len(),
+        a_new.energies_checked
+    )
+}
+
+/// The distinct nuclide indices `materials` refer to, ascending.
+fn used_nuclides(materials: &[Material]) -> Vec<usize> {
+    let mut v: Vec<usize> = materials
+        .iter()
+        .flat_map(|m| m.components.iter().map(|c| c.nuclide_idx))
+        .collect();
+    v.sort_unstable();
+    v.dedup();
+    v
+}
+
+/// The sampled bin envelope shared by [`Majorant::bounding`] (as its floor)
+/// and [`Majorant::bounding_without_breakpoints`]: `n_bins` log bins over
+/// `[e_min, e_max]`, `Σ_t` sampled at `subsamples` points per bin, and the bin
+/// maximum written to both bin edges. Unscaled. Also returns every energy it
+/// sampled.
+fn sampled_envelope(
+    materials: &[Material],
+    nuclides: &[Nuclide],
+    e_min: f64,
+    e_max: f64,
+    n_bins: usize,
+    subsamples: usize,
+) -> (Majorant, Vec<f64>) {
+    let n_bins = n_bins.max(1);
+    let subsamples = subsamples.max(2);
+    let ln_lo = e_min.max(f64::MIN_POSITIVE).r_ln();
+    let ln_hi = e_max.max(e_min * 1.0001).r_ln();
+    let edge = |i: usize| (ln_lo + (ln_hi - ln_lo) * i as f64 / n_bins as f64).r_exp();
+    let sigma_t_max = |e: f64| {
+        materials
+            .iter()
+            .map(|m| m.macro_xs_total_upper_bound(e, nuclides))
+            .fold(0.0_f64, f64::max)
+    };
+    let energy: Vec<f64> = (0..=n_bins).map(edge).collect();
+    let mut sigma = vec![0.0_f64; n_bins + 1];
+    let mut sampled = Vec::with_capacity(n_bins * subsamples);
+    for b in 0..n_bins {
+        let (lo, hi) = (energy[b].r_ln(), energy[b + 1].r_ln());
+        let mut bin_max = 0.0_f64;
+        for s in 0..subsamples {
+            let e = (lo + (hi - lo) * s as f64 / (subsamples - 1) as f64).r_exp();
+            bin_max = bin_max.max(sigma_t_max(e));
+            sampled.push(e);
+        }
+        // Write the bin peak to both edges so `at`'s bracket-max bounds the bin.
+        sigma[b] = sigma[b].max(bin_max);
+        sigma[b + 1] = sigma[b + 1].max(bin_max);
+    }
+    (Majorant { energy, sigma }, sampled)
 }
 
 /// The outcome of one delta-tracking flight segment.

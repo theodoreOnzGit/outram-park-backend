@@ -278,7 +278,8 @@ fn main() {
         packed.packing_fraction()
     );
 
-    // ── 4. Majorant: a provable Σ_t bound across the U resonances (bin-maximum).
+    // ── 4. Majorant: a Σ_t bound across the U resonances, tabulated on every
+    // nuclide breakpoint (GitHub #585; the old bin maximum was sampled, not proved).
     let majorant = Majorant::bounding(&materials, &nuclides, 1.0e-3, 2.0e7, 4096, 32, 0.1);
 
     // Geometry lookup for delta tracking: kernel → fuel (0), matrix → moderator (1).

@@ -328,60 +328,46 @@ fn build_materials(l: &Layout, temperature: f64, f: f64) -> (Material, Material,
     (kernel, matrix, homogenised)
 }
 
-/// The delta-tracking majorant: `Majorant::from_materials` on the union of
-/// every nuclide's own pointwise energy grid and a dense log backbone.
+/// The delta-tracking majorant: [`Majorant::bounding`] over `[1e-5, 2e7]` eV,
+/// 4096 x 32, margin 0.1.
 ///
-/// # Why not `Majorant::bounding`, which this example used until 2026-10-05
+/// # History
 ///
-/// `bounding` samples each of 4096 log bins at 32 points and adds a margin.
-/// On this problem's ENDF/B-VIII.0 data that **under-bounds**: the dense audit
-/// below measured `Sigma_t / Sigma_maj = 1.1827` at 1.689 MeV (margin 0.1,
-/// first pilot, 2026-10-05), i.e. a resonance narrower than the ~340 eV
-/// sampling step there slipped between the samples. The full measurement,
-/// per material, is in the results below (`OUTRAM_HTR10_MAJORANT=bounding`). An under-bound majorant is a silent
-/// bias, so the protocol was changed rather than the margin raised until the
-/// check passed.
+/// Until 2026-10-05 this example used the old `Majorant::bounding`, which
+/// samples each of 4096 log bins at 32 points and adds a margin. On this
+/// problem's ENDF/B-VIII.0 data that **under-bounds**: the dense audit
+/// measured `Sigma_t / Sigma_maj = 1.1827` at 1.689 MeV (margin 0.1, first
+/// pilot), because a resonance narrower than the ~340 eV sampling step there
+/// slipped between the samples. An under-bound majorant is a silent bias, so
+/// the protocol was changed rather than the margin raised until the check
+/// passed.
 ///
-/// The fix uses the structure of the data. Pointwise ENDF cross sections are
-/// linear-linear between their own grid points, so on the union of every
-/// nuclide's grid, `Sigma_t` of any mixture is linear between neighbouring
-/// nodes and its maximum over each interval is at an end. `Majorant::at`
-/// takes the larger bracketing node, so tabulating at every node bounds the
-/// pointwise part exactly. The log backbone (4096 x 32 points, as before)
-/// covers what is not pointwise: the S(alpha,beta) tables and the URR band
-/// totals. The LOW tier has no pointwise grid; there the union grid reduces to
-/// the WMP window edges and the group boundaries (`Nuclide::native_energy_grid`)
-/// plus the backbone.
+/// f0d701bfc fixed it here first, with an example-local `build_majorant`:
+/// `Majorant::from_materials` on the union of every nuclide's own grid and a
+/// 4096 x 32 log backbone. The 2026-10-05 ENDF record below was measured
+/// with that construction. GitHub #585 then moved the union-grid
+/// construction into the library, so `Majorant::bounding` is now a bound by
+/// construction. It also adds the S(alpha,beta) and URR breakpoints and the
+/// one-sided limits at steps, which the local version did not have. Both
+/// are valid bounds, and delta tracking is unbiased on any valid majorant.
+/// The record therefore stands, but a re-run now draws a different random
+/// stream and does not reproduce it digit for digit.
+///
+/// `OUTRAM_HTR10_MAJORANT=bounding` keeps the pre-#585 construction
+/// (`Majorant::bounding_without_breakpoints`) as an ablation.
 fn build_majorant(materials: &[Material], nuclides: &[Nuclide]) -> Majorant {
-    let (lo, hi): (f64, f64) = (1.0e-5, 2.0e7);
-    let n_backbone = 4096 * 32;
-    let mut grid: Vec<f64> = (0..=n_backbone)
-        .map(|i| lo * (hi / lo).powf(i as f64 / n_backbone as f64))
-        .collect();
-    let mut used: Vec<usize> = materials
-        .iter()
-        .flat_map(|m| m.components.iter().map(|c| c.nuclide_idx))
-        .collect();
-    used.sort_unstable();
-    used.dedup();
-    for i in used {
-        grid.extend(nuclides[i].native_energy_grid(lo, hi));
-    }
-    grid.sort_by(|a, b| a.partial_cmp(b).expect("finite energies"));
-    grid.dedup_by(|a, b| (*a - *b).abs() <= 1.0e-12 * b.abs());
-    Majorant::from_materials(materials, nuclides, &grid, 0.1)
+    Majorant::bounding(materials, nuclides, 1.0e-5, 2.0e7, 4096, 32, 0.1)
 }
 
-/// Check the delta-tracking majorant actually bounds `Sigma_t`, on a scan far
-/// denser than a log grid of bins.
+/// Check the delta-tracking majorant actually bounds `Sigma_t`, with
+/// [`Majorant::audit`]. That covers 2 000 001 log-spaced energies from 1e-5 eV
+/// to 20 MeV, plus every nuclide breakpoint with its one-ulp neighbours, plus
+/// the midpoint between each pair of breakpoints. Each is checked against
+/// `macro_xs_total_upper_bound` (the URR band maximum).
 ///
-/// An under-bound majorant is a **silent** bias (collisions where
-/// `Sigma_t > Sigma_maj` are never sampled), so this is checked rather than
-/// assumed. The scan is 2 million log-spaced energies from 1e-5 eV to 20 MeV
-/// (~170 000 per decade, a spacing of ~0.014 eV at 1 keV, below U-238's
-/// Doppler width there) **plus every node of every nuclide's own grid**,
-/// against each material's `macro_xs_total_upper_bound` (which takes the URR
-/// band maximum). It panics on a breach: a run on an under-bound majorant
+/// An under-bound majorant is a **silent** bias: collisions where
+/// `Sigma_t > Sigma_maj` are never sampled. So this is checked rather than
+/// assumed. It panics on a breach, because a run on an under-bound majorant
 /// would be wrong without saying so.
 fn audit_majorant(
     label: &str,
@@ -390,30 +376,14 @@ fn audit_majorant(
     maj: &Majorant,
     fatal: bool,
 ) {
-    let n = 2_000_000usize;
-    let (lo, hi): (f64, f64) = (1.0e-5, 2.0e7);
-    let mut energies: Vec<f64> = (0..=n).map(|i| lo * (hi / lo).powf(i as f64 / n as f64)).collect();
-    for nuc in nuclides {
-        energies.extend(nuc.native_energy_grid(lo, hi));
-    }
-    let mut worst = 0.0_f64;
-    let mut worst_e = 0.0_f64;
-    let mut worst_m = String::new();
-    for &e in &energies {
-        let m = maj.at(e);
-        for mat in materials {
-            let r = mat.macro_xs_total_upper_bound(e, nuclides) / m;
-            if r > worst {
-                worst = r;
-                worst_e = e;
-                worst_m = mat.name.clone();
-            }
-        }
-    }
+    let a = maj.audit(materials, nuclides, 1.0e-5, 2.0e7, 2_000_000);
+    let (worst, worst_e) = (a.worst_ratio, a.energy_ev);
+    let worst_m = &materials[a.material].name;
     println!(
         "Majorant audit: {label}: max Sigma_t/Sigma_maj = {worst:.4} at {worst_e:.4e} eV in \
-         '{worst_m}' ({} energies: 2 000 001 log-spaced + every nuclide's own grid)",
-        energies.len()
+         '{worst_m}' ({} energies: 2 000 001 log-spaced + every breakpoint, its \
+         neighbours and the interval midpoints)",
+        a.energies_checked
     );
     assert!(
         !fatal || worst <= 1.0,
@@ -509,12 +479,12 @@ fn main() {
     // --- Case 1: doubly heterogeneous, kernels resolved explicitly. ---
     let het_materials = vec![kernel, matrix];
     // `OUTRAM_HTR10_MAJORANT=bounding` is the explicit ablation: the old
-    // `Majorant::bounding` construction, audited and reported but NOT stopped
+    // pre-#585 `Majorant::bounding` construction, audited and reported but NOT stopped
     // on, so its under-bound can be measured. Its k is not a result.
     let old_majorant = std::env::var("OUTRAM_HTR10_MAJORANT").as_deref() == Ok("bounding");
     let majorant_for = |mats: &[Material]| {
         if old_majorant {
-            Majorant::bounding(mats, &nuclides, 1.0e-4, 2.0e7, 4096, 32, 0.1)
+            Majorant::bounding_without_breakpoints(mats, &nuclides, 1.0e-4, 2.0e7, 4096, 32, 0.1)
         } else {
             build_majorant(mats, &nuclides)
         }
@@ -643,7 +613,9 @@ fn main() {
 ///
 /// **Methodology.** Default route (ENDF/B-VIII.0 direct, URR + DBRC on,
 /// 30P graphite S(alpha,beta) on C-12/C-13, 293.15 K; the law's 296 K table is
-/// used, within NJOY's `T/1000 + 5` K tolerance), union-grid majorant passing
+/// used, within NJOY's `T/1000 + 5` K tolerance), union-grid majorant (the
+/// example-local construction of f0d701bfc, since replaced by the library's;
+/// see `build_majorant`) passing
 /// the dense audit (worst `Sigma_t/Sigma_maj` = 0.9091 heterogeneous, 0.9092
 /// homogenised, i.e. bounded at every node with the 10 % margin).
 /// 10 000 histories x [50 inactive + 200 active] per case, RNG seed 1, packing
