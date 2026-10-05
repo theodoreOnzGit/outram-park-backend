@@ -184,7 +184,7 @@ mod desktop {
     use outram_mc_libs::physics::keff::KeffSettings;
     use outram_mc_libs::physics::reactor_physics::{run_keff_reactor_physics, ReactorPhysicsConfig};
     use outram_mc_libs::physics::transport_csg::SourceBox;
-    use outram_mc_libs::pebble_beds::delta_tracking::Majorant;
+    use outram_mc_libs::pebble_beds::delta_tracking::{bounding_audit_line, Majorant};
     use outram_mc_libs::pebble_beds::fhr_pebble::{
         fhr_pebble_geometry, homogenise_by_volume, rpt_fuel_outer_radius, ExplicitTrisoPebble,
         TrisoSpec,
@@ -714,6 +714,13 @@ mod desktop {
         );
 
         let r_rpt_fuel = rpt_fuel_outer_radius(R_RPT_INNER, R_FUEL_ZONE, spec.packing_fraction);
+        // `OUTRAM_MAJORANT_AUDIT=1`: audit the old and new majorant on these
+        // materials and stop (GitHub #585).
+        if std::env::var_os("OUTRAM_MAJORANT_AUDIT").is_some() {
+            let tag = "fhr_ring_rpt_endf";
+            println!("{}", bounding_audit_line(tag, &mats, &nucs, 1.0e-4, 2.0e7, 4096, 32, 0.3));
+            return;
+        }
         let majorant = Majorant::bounding(&mats, &nucs, 1.0e-4, 2.0e7, 4096, 32, 0.3);
         check_majorant_bounds(&majorant, &mats, &nucs);
 
@@ -1071,8 +1078,11 @@ mod desktop {
     /// little resonance absorption, `p` too high and `k` too high, which is the
     /// shape of this study's residual, so it is measured rather than assumed.
     ///
-    /// [`Majorant::bounding`] lays 4096 log bins over 11 decades (0.64 % wide)
-    /// and sub-samples each 32 times, so the sampling pitch is ~0.021 % in energy.
+    /// ~~[`Majorant::bounding`] lays~~ The pre-#585 `Majorant::bounding` laid
+    /// 4096 log bins over 11 decades (0.64 % wide)
+    /// and sub-sampled each 32 times (**CHANGED 2026-10-05, GitHub #585:** it now
+    /// also tabulates every nuclide breakpoint, so this check is independent
+    /// confirmation rather than the only guard), so the sampling pitch is ~0.021 % in energy.
     /// A Doppler width `Δ = √(4EkT/A)` is 1.1 % of E at the 6.674 eV resonance but
     /// only ~0.02 % by 20 keV — comparable to the pitch — so the high-keV
     /// resonances are where a peak can slip between sub-samples.

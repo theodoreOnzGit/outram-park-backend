@@ -117,7 +117,7 @@ use outram_mc_libs::geometry::position::Position;
 use outram_mc_libs::material::material::{Material, NuclideComponent};
 use outram_mc_libs::material::nuclide::Nuclide;
 use outram_mc_libs::material::thermal::ThermalScattering;
-use outram_mc_libs::pebble_beds::delta_tracking::Majorant;
+use outram_mc_libs::pebble_beds::delta_tracking::{bounding_audit_line, Majorant};
 use outram_mc_libs::pebble_beds::keff_delta::run_keff_delta;
 use outram_mc_libs::physics::keff::{ComputeType, KeffSettings};
 use std::path::PathBuf;
@@ -210,6 +210,16 @@ fn main() {
         sets.push((label.to_string(), v));
     }
 
+    // `OUTRAM_MAJORANT_AUDIT=1`: audit the old and new majorant on these
+    // materials, with the settings below, and stop (GitHub #585).
+    if std::env::var_os("OUTRAM_MAJORANT_AUDIT").is_some() {
+        for (label, nucs) in &sets {
+            let mats = std::slice::from_ref(&material);
+            let tag = format!("thermal_kernel_keff_worth [{label}]");
+            println!("{}", bounding_audit_line(&tag, mats, nucs, 1.0e-4, 2.0e7, 4096, 32, 0.1));
+        }
+        return;
+    }
     // k[config][replica], and the run's own generation-spread sigma alongside.
     let mut k: Vec<Vec<f64>> = vec![Vec::with_capacity(n_replicas); sets.len()];
     let mut ks: Vec<Vec<f64>> = vec![Vec::with_capacity(n_replicas); sets.len()];

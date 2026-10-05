@@ -47,7 +47,8 @@
 //! | HTR-10 kernel + matrix | ablation, pre-#585 | 4 097 | **1.1839** | 1.68934 MeV, kernel | 2 947 800 |
 //! | Godiva HEU | `bounding` (union grid) | 346 988 | **0.9091** | 20 MeV | 3 019 956 |
 //! | Godiva HEU | ablation, pre-#585 | 4 001 | 0.9678 | 17.02 keV (URR) | 3 019 956 |
-//! | TRISO notebook (LOW) | `bounding` (union grid) | 133 808 | 0.9436 | 15.05 keV | 427 332 |
+//! | TRISO notebook (LOW) | `bounding`, ~~133 808 nodes, 0.9436 at 15.05 keV~~ with WMP pole nodes (2026-10-05, second commit) | 143 266 | 0.9250 | 10.88 keV | 465 164 |
+//! | TRISO notebook (LOW) | `bounding` at 1024 x 16 (the TUI preset; 1.62 without pole nodes) | 31 650 | 0.9575 | 513 eV | 465 164 |
 //!
 //! **Interpretation.** The new construction bounds both ENDF sets. Its worst
 //! ratio is `1/1.1 = 0.9091`, the margin alone: `Sigma_t` touches the
@@ -272,4 +273,16 @@ fn union_grid_majorant_is_never_below_the_sampled_one() {
     let a = new.audit(&mats, &nuclides, 1.0e-4, 2.0e7, 400_000);
     report("TRISO notebook (LOW tier) bounding", &new, &a, &mats);
     assert!(a.worst_ratio <= 1.0, "LOW-tier under-bound {:.4} at {:e} eV", a.worst_ratio, a.energy_ev);
+
+    // The `outram-mc-tui` preset's coarse 1024 x 16: the sampled envelope
+    // alone under-bounded this by 1.62x. WMP pole nodes are what bound it.
+    let coarse = Majorant::bounding(&mats, &nuclides, 1.0e-4, 2.0e7, 1024, 16, 0.1);
+    let a = coarse.audit(&mats, &nuclides, 1.0e-4, 2.0e7, 400_000);
+    report("TRISO notebook (LOW tier) bounding at 1024 x 16", &coarse, &a, &mats);
+    assert!(
+        a.worst_ratio <= 1.0,
+        "LOW-tier 1024 x 16 under-bound {:.4} at {:e} eV",
+        a.worst_ratio,
+        a.energy_ev
+    );
 }

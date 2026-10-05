@@ -151,7 +151,13 @@
 //! **`majorant_still_bounds_total_xs_with_bound_graphite` — PASSES.** Worst
 //! `Sigma_t / Sigma_maj` = **0.909091** over 200k log-spaced points from 1e-4
 //! to 4.2 eV across both materials — exactly 1/1.1, i.e. the grid captures the
-//! true per-bin peak and the full 10% margin survives. This answers
+//! true per-bin peak and the full 10% margin survives. **Re-measured
+//! 2026-10-05 after GitHub #585** (`bounding` on every nuclide breakpoint,
+//! Bragg edges included): **0.909093** at 4.851 eV, over 200k points on
+//! [1e-4, 5.618] eV (the range the code scans; ~~4.2 eV~~ above was stale).
+//! The 2e-6 excess over 1/1.1 is most likely the LOW-tier C0 (WMP) part
+//! bending between nodes (not isolated), which the margin covers.
+//! This answers
 //! `op-hc2o`'s explicit warning that a Woodcock majorant which under-bounds
 //! `Sigma_t` is a **silent bias, not a crash**, and had to be measured once the
 //! bound channel raised `Sigma_t` below 4 eV.

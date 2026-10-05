@@ -273,6 +273,13 @@ fn main() {
                 continue;
             }
         };
+        // `OUTRAM_MAJORANT_AUDIT=1`: audit the majorant `keff` would build,
+        // old and new construction, and skip the transport (GitHub #585).
+        if std::env::var_os("OUTRAM_MAJORANT_AUDIT").is_some() {
+            let tag = format!("htr10_pebble_delta_tracking [{}]", arm.label());
+            println!("{}", universe.majorant_audit_line(&nucs, &tag));
+            continue;
+        }
         let t0 = Instant::now();
         let r = universe.keff(&nucs, &settings);
         let secs = t0.elapsed().as_secs_f64();

@@ -187,7 +187,7 @@ impl Majorant {
     /// **never below the pre-#585 one** at any energy. A `1 + margin` factor
     /// multiplies the result. On the pointwise and thermal parts it only
     /// covers round-off; on the sampled parts it covers structure narrower
-    /// than the sampling.
+    /// than the sampling. WMP pole nodes (`Nuclide::majorant_breakpoints`) narrow that.
     ///
     /// The bound is pinned on ENDF/B-VIII.0 data by
     /// `tests/majorant_bounds_endf.rs`, through [`Self::audit`].

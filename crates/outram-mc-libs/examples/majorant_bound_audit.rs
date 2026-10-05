@@ -13,9 +13,52 @@
 //! ```text
 //! cargo run --release -p outram-mc-libs --example majorant_bound_audit
 //! ```
+//!
+//! # GitHub #585 caller audit (2026-10-05)
+//!
+//! **Methodology.** Each `MAJORANT-AUDIT` row rebuilds one caller's majorant
+//! with that caller's own materials and arguments, using
+//! `pebble_beds::delta_tracking::bounding_audit_line`. It builds both the
+//! pre-#585 construction (`bounding_without_breakpoints`, OLD) and the current
+//! `bounding` (NEW), then runs `Majorant::audit`. The audit covers 2 000 001
+//! log energies from 1e-5 eV to 20 MeV, every breakpoint with its one-ulp
+//! neighbours, and every interval midpoint. Above 1 is an under-bound. The
+//! LOW-tier rows are produced by this example. The ENDF/B-VIII.0 rows come
+//! from each caller's own `OUTRAM_MAJORANT_AUDIT=1` hook (`dh_keff_vv` also
+//! honours it). They were run on cores 2-3 of a 2.1 GHz Xeon.
+//!
+//! **Results.** OLD is from the run without WMP pole nodes, except where
+//! marked. NEW includes pole nodes.
+//!
+//! | caller | data | args | OLD worst | NEW worst |
+//! |---|---|---|---|---|
+//! | `htr10_fuel_zone_kinf` (old ablation) | ENDF/B-VIII.0 + 30P | 4096x32, 0.1 | **1.1839** @ 1.689 MeV | 0.9092 |
+//! | `godiva_*` (3 examples) | ENDF/B-VIII.0 | 4000x24, 0.10 | 0.9678 | 0.9091 |
+//! | `thermal_kernel_keff_worth` (4 tabulations) | ENDF/B-VIII.0 + graphite | 4096x32, 0.1 | 0.9377 | 0.9166 |
+//! | `htr10_pebble_delta_tracking` (5 boron arms) | ENDF/B-VIII.0 + graphite | `DhUniverse::keff`, 0.3 | 0.9989 @ 1.689 MeV | 0.7693 |
+//! | `dh_keff_vv` (7 arms) | ENDF/B-VIII.0 FHR | `DhUniverse::keff`, 0.3 | ≤ 0.8970 | ≤ 0.7705 |
+//! | `fhr_ring_rpt_endf` | ENDF/B-VIII.0 FHR | 4096x32, 0.3 | 0.8903 | 0.7693 |
+//! | `triso_delta_tracking`, `tests/openmc_notebooks/triso.rs` | CORE (WMP) | 4096x32, 0.1 | 0.9434 | 0.9250 |
+//! | `delta_tracking.rs` below-floor unit test | CORE | 2048x16, 0.1 | **1.2022** | 0.9356 |
+//! | `outram-mc-tui` pebble presets (H and FLiBe) | CORE | 1024x16, 0.1 | **1.6200** | 0.9576 |
+//! | `DhUniverse::keff` on `dh_thread_scaling`'s UCO pebble | CORE | 4096x32, 0.3 | **1.0084** (1.0115 with pole-node audit) @ 772 keV, SiC | 0.8243 |
+//!
+//! **Interpretation.** Every recorded ENDF/B-VIII.0 number was measured on a
+//! majorant that bounded `Sigma_t`. The one exception is the HTR-10 fuel-zone
+//! ablation run, which was never a result. `htr10_pebble_delta_tracking` held
+//! by 0.1 %, and only because of its 30 % margin. The under-bounds are all on
+//! CORE (WMP) data, at coarse settings or in Si-28's fast resonances. None of
+//! those callers records a transport number that rests on it: the TUI is
+//! interactive, the unit test checks only the below-floor extrapolation, and
+//! `dh_thread_scaling` records scaling and reproducibility (its k values are
+//! stated not to be V&V numbers; the bit-identical delta pair does not depend
+//! on the bound). `triso_gpu_benchmark` reads
+//! ENDF/B-VII.1 through `net-fetch` and could not be audited here. Its numbers
+//! were already marked superseded and pending a re-run (`op-jis`).
 
 use outram_mc_libs::prelude::*;
 use outram_mc_libs::material::material::NuclideComponent;
+use outram_mc_libs::pebble_beds::delta_tracking::bounding_audit_line;
 
 fn audit(name: &str, materials: &[Material], nuclides: &[Nuclide], margin: f64, lo: f64, hi: f64) {
     let maj = Majorant::bounding(materials, nuclides, lo, hi, 4096, 32, margin);
@@ -191,4 +234,86 @@ fn main() {
         2.0e7,
     );
     resonance_scan(&materials, &nuclides, 0.1);
+
+    // ---- GitHub #585 caller audit, LOW tier ----
+    // Each row rebuilds a caller's majorant with that caller's own materials
+    // and arguments, old (`bounding_without_breakpoints`) and new
+    // (`bounding`), and audits both. The ENDF callers carry their own
+    // `OUTRAM_MAJORANT_AUDIT` hook; see GitHub #585 for the full table.
+    println!("\nGitHub #585 caller audit (LOW tier, embedded CORE data)");
+    println!("=======================================================");
+    let row = |label: &str, mats: &[Material], nucs: &[Nuclide], args: (f64, usize, usize, f64)| {
+        let (floor, bins, sub, margin) = args;
+        println!("{}", bounding_audit_line(label, mats, nucs, floor, 2.0e7, bins, sub, margin));
+    };
+    row(
+        "triso_delta_tracking / tests/openmc_notebooks/triso.rs",
+        &materials,
+        &nuclides,
+        (1.0e-4, 4096, 32, 0.1),
+    );
+    row(
+        "delta_tracking.rs unit test (same materials)",
+        &materials,
+        &nuclides,
+        (1.0e-4, 2048, 16, 0.1),
+    );
+    row(
+        "outram-mc-tui preset, H matrix",
+        &materials,
+        &nuclides,
+        (1.0e-4, 1024, 16, 0.1),
+    );
+    // The TUI's TMSR-like preset: the same kernel in a Li-7/Be-9/F-19 salt.
+    let mut salt_nucs: Vec<Nuclide> = nuclides[..3].to_vec();
+    for n in ["Li7", "Be9", "F19"] {
+        salt_nucs.push(Nuclide::from_core(n).unwrap());
+    }
+    let nf = 0.0118143;
+    let salt = vec![
+        materials[0].clone(),
+        Material {
+            id: 2,
+            name: "FLiBe-like salt (Li-7 only)".into(),
+            temperature: 293.6,
+            components: vec![comp(3, 2.0 * nf), comp(4, nf), comp(5, 4.0 * nf)],
+        },
+    ];
+    row(
+        "outram-mc-tui preset, FLiBe matrix",
+        &salt,
+        &salt_nucs,
+        (1.0e-4, 1024, 16, 0.1),
+    );
+    // dh_thread_scaling / DhUniverse tests: the UCO pebble on CORE data.
+    let dh_nucs: Vec<Nuclide> = ["U235", "U238", "O16", "C0", "Si28"]
+        .iter()
+        .map(|n| Nuclide::from_core(n).unwrap())
+        .collect();
+    let dh = vec![
+        Material {
+            id: 0,
+            name: "UCO kernel".into(),
+            temperature: 293.6,
+            components: vec![comp(0, 4.40e-3), comp(1, 1.77e-2), comp(2, 2.27e-2), comp(3, 9.10e-3)],
+        },
+        Material {
+            id: 3,
+            name: "SiC".into(),
+            temperature: 293.6,
+            components: vec![comp(4, 4.79e-2), comp(3, 4.79e-2)],
+        },
+        Material {
+            id: 5,
+            name: "matrix graphite".into(),
+            temperature: 293.6,
+            components: vec![comp(3, 8.53e-2)],
+        },
+    ];
+    row(
+        "DhUniverse::keff on dh_thread_scaling's UCO pebble",
+        &dh,
+        &dh_nucs,
+        (1.0e-4, 4096, 32, 0.3),
+    );
 }

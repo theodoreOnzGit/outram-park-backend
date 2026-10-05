@@ -3957,7 +3957,8 @@ impl Nuclide {
     /// Every energy \[eV\] in `[e_min_ev, e_max_ev]` at which
     /// [`Self::total_upper_bound`] changes form, unsorted and possibly with
     /// duplicates: [`Self::native_energy_grid`] (the pointwise section grids,
-    /// or the WMP window edges and group bounds), plus the S(alpha,beta)
+    /// or the WMP window edges and group bounds), the WMP pole peak energies
+    /// `Re(p)^2` on the LOW tier, plus the S(alpha,beta)
     /// [`ThermalScattering::breakpoints`] and the URR table energies and range
     /// ends.
     ///
@@ -3972,6 +3973,21 @@ impl Nuclide {
     /// (GitHub #585).
     pub fn majorant_breakpoints(&self, e_min_ev: f64, e_max_ev: f64) -> Vec<f64> {
         let mut v = self.native_energy_grid(e_min_ev, e_max_ev);
+        // LOW tier: the WMP form has no pointwise grid, but every resonance
+        // sits at a pole. A pole `p` in sqrt(E) space peaks near
+        // `E = Re(p)^2`, so put a node there. Between poles the Doppler shape
+        // is not piecewise linear, so this narrows the sampling gap rather
+        // than closing it; the sampled envelope in `Majorant::bounding` and
+        // its margin cover the rest, and `Majorant::audit` checks it.
+        if let XsSource::Core { wmp, .. } = &self.xs {
+            v.extend(
+                wmp.poles
+                    .iter()
+                    .filter(|p| p.re > 0.0)
+                    .map(|p| p.re * p.re)
+                    .filter(|&e| e >= wmp.e_min && e <= wmp.e_max),
+            );
+        }
         if let Some(th) = &self.thermal {
             v.extend(th.breakpoints());
         }
