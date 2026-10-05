@@ -767,6 +767,132 @@ where
     }
 }
 
+/// One generation of a [`DeltaPowerIteration`].
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct DeltaGenerationReport {
+    /// Generation index, from 0.
+    pub index: usize,
+    pub active: bool,
+    /// This generation's `k`: fission production per source neutron.
+    pub k: f64,
+    /// Mean and standard error over the active generations so far.
+    pub k_mean: Option<(f64, f64)>,
+}
+
+/// [`run_keff_delta_seq_in`], **one generation at a time** (for callers that
+/// stream a run and stop it between generations: the `dhoby-ghaut` Monte
+/// Carlo web demo's HTR-10 fuel-zone `k_inf`, gh:#528).
+///
+/// Same random numbers in the same order as [`run_keff_delta_seq_in`], so its
+/// per-generation `k` and mean are bit for bit that function's;
+/// `stepping_matches_run_keff_delta_seq_in_bit_for_bit` pins it. Holds no
+/// reference to the materials, nuclides, majorant or lookup (no lifetime
+/// parameters): pass the same ones to [`Self::new`] and every [`Self::step`].
+#[derive(Clone)]
+pub struct DeltaPowerIteration {
+    domain: DeltaDomain,
+    settings: KeffSettings,
+    seed: u64,
+    source: Vec<Site>,
+    k_running: f64,
+    active_k: Vec<f64>,
+    generation: usize,
+    finished: bool,
+}
+
+impl DeltaPowerIteration {
+    /// Sample the initial source as [`run_keff_delta_seq_in`] does.
+    pub fn new<Q: MaterialQuery>(
+        domain: DeltaDomain,
+        materials: &[Material],
+        nuclides: &[Nuclide],
+        material_at: &Q,
+        settings: &KeffSettings,
+    ) -> Self {
+        let mut seed = settings.seed;
+        let mut source: Vec<Site> = Vec::with_capacity(settings.n_particles);
+        let mut guard = 0usize;
+        while source.len() < settings.n_particles {
+            guard += 1;
+            if guard > settings.n_particles * 10_000 {
+                break;
+            }
+            let r = domain.sample_point(&mut seed);
+            let fissile = material_at
+                .material_at(r)
+                .map(|m| materials[m].macro_xs(1.0e6, nuclides).nu_fission > 0.0)
+                .unwrap_or(false);
+            if fissile {
+                let (dx, dy, dz) = isotropic_direction(&mut seed);
+                source.push(Site { r, u: Direction::new(dx, dy, dz), e: watt(&mut seed, settings.watt_a, settings.watt_b) });
+            }
+        }
+        let n_gen = settings.n_inactive + settings.n_active;
+        Self {
+            domain,
+            settings: settings.clone(),
+            seed,
+            finished: n_gen == 0 || source.is_empty(),
+            source,
+            k_running: 1.0,
+            active_k: Vec::with_capacity(settings.n_active),
+            generation: 0,
+        }
+    }
+
+    /// Transport one generation and resample its fission bank. `None` once
+    /// every generation has run or the population has died out.
+    pub fn step<Q: MaterialQuery>(
+        &mut self,
+        materials: &[Material],
+        nuclides: &[Nuclide],
+        majorant: &Majorant,
+        material_at: &Q,
+    ) -> Option<DeltaGenerationReport> {
+        if self.finished {
+            return None;
+        }
+        let gen = self.generation;
+        let n = self.settings.n_particles;
+        let mut next_bank: Vec<Site> = Vec::with_capacity(n);
+        let mut production = 0.0_f64;
+        for site in &self.source {
+            production += transport_history(
+                *site,
+                self.domain,
+                materials,
+                nuclides,
+                majorant,
+                self.settings.temperature_k,
+                self.k_running,
+                material_at,
+                &mut next_bank,
+                &mut self.seed,
+            );
+        }
+        let k_gen = production / n as f64;
+        self.k_running = k_gen.max(1.0e-6);
+        let active = gen >= self.settings.n_inactive;
+        if active {
+            self.active_k.push(k_gen);
+        }
+        self.generation += 1;
+        if self.generation == self.settings.n_inactive + self.settings.n_active || next_bank.is_empty() {
+            self.finished = true;
+        } else {
+            self.source = resample(&next_bank, n, &mut self.seed);
+        }
+        Some(DeltaGenerationReport { index: gen, active, k: k_gen, k_mean: active.then(|| mean_and_stderr(&self.active_k)) })
+    }
+
+    pub fn finished(&self) -> bool {
+        self.finished
+    }
+    pub fn generations_done(&self) -> usize {
+        self.generation
+    }
+}
+
 /// Rayon-parallel delta-tracked power iteration ([`ComputeType::CpuMultiThread`]).
 ///
 /// Same physics and power-iteration structure as [`run_keff_delta_seq_in`], but the
@@ -1252,6 +1378,35 @@ mod tests {
             "k = {}",
             result.k_mean
         );
+    }
+
+    /// [`DeltaPowerIteration`] is [`run_keff_delta_seq_in`] stepped: every
+    /// generation's `k` and the final mean match bit for bit (gh:#528).
+    #[test]
+    fn stepping_matches_run_keff_delta_seq_in_bit_for_bit() {
+        use crate::material::material::NuclideComponent;
+        let nuclides = vec![Nuclide::from_core("U235").unwrap(), Nuclide::from_core("U238").unwrap()];
+        let comp = |a: f64, b: f64| vec![NuclideComponent { nuclide_idx: 0, atom_density: a }, NuclideComponent { nuclide_idx: 1, atom_density: b }];
+        let materials = vec![
+            Material { id: 1, name: "fuel".into(), temperature: 293.6, components: comp(4.0e-2, 8.0e-3) },
+            Material { id: 2, name: "dilute".into(), temperature: 293.6, components: comp(2.0e-3, 2.0e-2) },
+        ];
+        let grid: Vec<f64> = (0..60).map(|i| 1.0e-3 * 1.5_f64.powi(i)).collect();
+        let maj = Majorant::from_materials(&materials, &nuclides, &grid, 0.05);
+        let settings = KeffSettings { n_particles: 300, n_inactive: 5, n_active: 10, ..KeffSettings::default() };
+        let q = |p: Position| Some(if p.norm() < 0.8 { 0usize } else { 1usize });
+        let domain = DeltaDomain::Cube { half: 1.5 };
+        let whole = run_keff_delta_seq_in(domain, &materials, &nuclides, &maj, q, &settings);
+        let mut it = DeltaPowerIteration::new(domain, &materials, &nuclides, &q, &settings);
+        let (mut ks, mut last) = (Vec::new(), None);
+        while let Some(g) = it.step(&materials, &nuclides, &maj, &q) {
+            ks.push(g.k.to_bits());
+            last = g.k_mean;
+        }
+        assert!(it.finished() && it.generations_done() == 15);
+        assert_eq!(ks, whole.k_by_generation.iter().map(|k| k.to_bits()).collect::<Vec<_>>());
+        let (m, e) = last.unwrap();
+        assert_eq!((m.to_bits(), e.to_bits()), (whole.k_mean.to_bits(), whole.k_std.to_bits()));
     }
 
     /// V&V — **backend agreement**: the rayon multi-thread delta backend
