@@ -59,6 +59,8 @@ const N_NUCLIDES: usize = 11;
 /// Index of H-1 and U-235 in the nuclide list.
 pub const N_H1: usize = 0;
 pub const N_U235: usize = 4;
+/// Index of U-238 (the σ(E) panel's capture curve).
+pub const N_U238: usize = 5;
 
 /// Material slots in the case-1 cards (asserted when built).
 pub const MAT_WATER: usize = 0;

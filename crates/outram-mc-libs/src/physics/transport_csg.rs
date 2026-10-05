@@ -664,6 +664,167 @@ pub fn run_keff_csg_seq(
     }
 }
 
+/// One generation of a [`CsgPowerIteration`].
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct CsgGenerationReport {
+    /// Generation index, from 0.
+    pub index: usize,
+    /// Counted in the mean (past the inactive generations)?
+    pub active: bool,
+    /// This generation's `k`: fission production per source neutron.
+    pub k: f64,
+    /// Mean and standard error over the active generations so far; `None`
+    /// before the first active one.
+    pub k_mean: Option<(f64, f64)>,
+    /// Fission sites banked this generation, before resampling.
+    pub bank_size: usize,
+}
+
+/// The single-thread CSG power iteration of [`run_keff_csg_seq`], **one
+/// generation at a time** (gh:#549), for callers that must stream a run as it
+/// happens and stop it between generations: the `dhoby-ghaut` Monte Carlo web
+/// demo runs its pitch slider's pin-cell `k_inf` this way, in a browser worker.
+///
+/// It draws the same random numbers in the same order as
+/// [`run_keff_csg_seq`] with no majorants, no entropy mesh, no tally and no
+/// leakage spectrum (the [`run_keff_csg`] path with
+/// [`ComputeType::CpuSingleThread`]), so its `k` is bit-for-bit that
+/// function's; `stepping_matches_run_keff_csg_seq_bit_for_bit` pins it. The
+/// `k_eff` trigger is not supported (a run always goes to its last
+/// generation unless the population dies out or the caller stops asking).
+///
+/// Like [`crate::physics::keff::PowerIteration`] it holds no reference to
+/// the geometry, materials or nuclides (no lifetime parameters): pass the same
+/// ones to [`Self::new`] and every [`Self::step`].
+#[derive(Clone)]
+pub struct CsgPowerIteration {
+    settings: KeffSettings,
+    seed: u64,
+    source: Vec<Site>,
+    k_running: f64,
+    active_k: Vec<f64>,
+    generation: usize,
+    finished: bool,
+}
+
+impl CsgPowerIteration {
+    /// Sample the initial source as [`run_keff_csg_seq`] does: points
+    /// uniform in `source_box`, kept where the cell's material can fission.
+    pub fn new(
+        geom: &Geometry,
+        materials: &[Material],
+        nuclides: &[Nuclide],
+        source_box: SourceBox,
+        settings: &KeffSettings,
+    ) -> Self {
+        let mut seed = settings.seed;
+        let mut source: Vec<Site> = Vec::with_capacity(settings.n_particles);
+        let mut guard = 0usize;
+        while source.len() < settings.n_particles {
+            guard += 1;
+            if guard > settings.n_particles * 10_000 {
+                break;
+            }
+            let r = Position::new(
+                source_box.lower.x + (source_box.upper.x - source_box.lower.x) * prn(&mut seed),
+                source_box.lower.y + (source_box.upper.y - source_box.lower.y) * prn(&mut seed),
+                source_box.lower.z + (source_box.upper.z - source_box.lower.z) * prn(&mut seed),
+            );
+            let (dx, dy, dz) = isotropic_direction(&mut seed);
+            let u = Direction::new(dx, dy, dz);
+            let fissile = geom
+                .locate(r, u, SurfaceToken::NONE)
+                .and_then(|p| p.material)
+                .map(|m| materials[m].macro_xs(1.0e6, nuclides).nu_fission > 0.0)
+                .unwrap_or(false);
+            if fissile {
+                source.push(Site { r, u, e: 2.0e6, delayed_group: None });
+            }
+        }
+        let n_gen = settings.n_inactive + settings.n_active;
+        Self {
+            settings: settings.clone(),
+            seed,
+            finished: n_gen == 0 || source.is_empty(),
+            source,
+            k_running: 1.0,
+            active_k: Vec::with_capacity(settings.n_active),
+            generation: 0,
+        }
+    }
+
+    /// Transport one generation and resample its fission bank into the next
+    /// source. `None` once every generation has run or the population died.
+    pub fn step(&mut self, geom: &Geometry, materials: &[Material], nuclides: &[Nuclide]) -> Option<CsgGenerationReport> {
+        if self.finished {
+            return None;
+        }
+        let gen = self.generation;
+        let n = self.settings.n_particles;
+        let active = gen >= self.settings.n_inactive;
+        let mut next_bank: Vec<Site> = Vec::with_capacity(n);
+        let mut production = 0.0_f64;
+        let (mut batch, mut leak_batch) = (Vec::new(), Vec::new());
+        for site in &self.source {
+            let outcome = transport_history_vr(
+                *site,
+                geom,
+                materials,
+                nuclides,
+                &[],
+                self.k_running,
+                &mut next_bank,
+                &mut self.seed,
+                None,
+                &mut batch,
+                &[],
+                &mut leak_batch,
+                &self.settings.variance_reduction,
+                None,
+                None,
+                None,
+                1.0,
+            );
+            production += outcome.production;
+        }
+        let k_gen = production / n as f64;
+        self.k_running = k_gen.max(1.0e-6);
+        if active {
+            self.active_k.push(k_gen);
+        }
+        self.generation += 1;
+        let bank_size = next_bank.len();
+        if self.generation == self.settings.n_inactive + self.settings.n_active || next_bank.is_empty() {
+            self.finished = true;
+        }
+        if !next_bank.is_empty() && !self.finished {
+            self.source = resample(&next_bank, n, &mut self.seed);
+        }
+        Some(CsgGenerationReport {
+            index: gen,
+            active,
+            k: k_gen,
+            k_mean: active.then(|| mean_and_stderr(&self.active_k)),
+            bank_size,
+        })
+    }
+
+    /// Whether every generation has run (or the population died out).
+    pub fn finished(&self) -> bool {
+        self.finished
+    }
+
+    /// Generations run so far.
+    pub fn generations_done(&self) -> usize {
+        self.generation
+    }
+
+    /// The settings the run was started with.
+    pub fn settings(&self) -> &KeffSettings {
+        &self.settings
+    }
+}
+
 /// Rayon-parallel CSG power iteration ([`ComputeType::CpuMultiThread`]).
 ///
 /// Same physics and power-iteration structure as [`run_keff_csg_seq`], but the
@@ -2369,6 +2530,30 @@ mod leakage_tests {
         SourceBox {
             lower: Position::new(-3.0, -3.0, -3.0),
             upper: Position::new(3.0, 3.0, 3.0),
+        }
+    }
+
+    /// [`CsgPowerIteration`] IS the single-thread reference, stepped: its
+    /// per-generation `k` and its final mean match [`run_keff_csg_seq`] (no
+    /// tally) bit for bit, on a vacuum and on a reflective sphere (gh:#549).
+    #[test]
+    fn stepping_matches_run_keff_csg_seq_bit_for_bit() {
+        let (mats, nucs) = godiva();
+        for bc in [BoundaryType::Vacuum, BoundaryType::Reflective] {
+            let g = heu_sphere(8.7407, bc);
+            let s = settings();
+            let whole = run_keff_csg_seq(&g, &mats, &nucs, &[], None, src(), &s, None, &[], None);
+            let mut it = CsgPowerIteration::new(&g, &mats, &nucs, src(), &s);
+            let mut ks = Vec::new();
+            let mut last = None;
+            while let Some(r) = it.step(&g, &mats, &nucs) {
+                ks.push(r.k);
+                last = r.k_mean;
+            }
+            assert!(it.finished() && it.generations_done() == 30);
+            assert_eq!(ks.iter().map(|k| k.to_bits()).collect::<Vec<_>>(), whole.k_by_generation.iter().map(|k| k.to_bits()).collect::<Vec<_>>());
+            let (m, e) = last.expect("active generations ran");
+            assert_eq!((m.to_bits(), e.to_bits()), (whole.k_mean.to_bits(), whole.k_std.to_bits()));
         }
     }
 

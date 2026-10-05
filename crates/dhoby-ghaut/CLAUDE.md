@@ -103,7 +103,12 @@ copy `monte_carlo_web`. It gives, ready-made and tested:
    per `step`) producing a type implementing `LoadedRung` (`run_next` traced
    history; `keff_start` / `keff_step` / `keff_finished`, or an error for a
    rung without Run). `godiva/` is the worked example with Run k_eff,
-   `triso/` without. Add `render.rs` for the geometry review images (the
+   `triso/` without. Optional since 2026-10-05 (gh:#549): a small `k_inf`
+   case the reader runs at a parameter of their choice (`McRung::kinf_case`
+   with `LoadedRung::kinf_start` / `kinf_step`, one generation per request;
+   `lct008/`'s pitch slider, on `transport_csg::CsgPowerIteration`), and
+   the σ(E) panel beside the geometry (`LoadedRung::xs_curves`, `xs::curves`).
+   Add `render.rs` for the geometry review images (the
    drawing rule above) and wire it into `--render-geometry` in `main.rs`.
 2. **One line** in the `rung_table!` invocation in `main.rs`
    (`<module>: <Marker>,`, in ladder order). The macro declares the module and

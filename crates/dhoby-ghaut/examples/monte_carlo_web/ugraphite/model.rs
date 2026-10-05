@@ -47,6 +47,9 @@ pub const JOBS: [(&str, &str); 6] = [
 
 /// Index of U-235 in the nuclide list (for the Watch mode's birth spectrum).
 pub const N_U235: usize = 1;
+/// Index of U-238 and of C-12 (the σ(E) panel, gh:#549).
+pub const N_U238: usize = 2;
+pub const N_C12: usize = 3;
 /// Indices of the carbons, which carry the graphite law.
 const N_CARBON: std::ops::Range<usize> = 3..5;
 

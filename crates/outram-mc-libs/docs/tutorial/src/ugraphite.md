@@ -77,6 +77,11 @@ carbon scattering on a log-log scale.
 from our own processing of the ENDF/B-VIII.0 evaluations (the nuclear data
 track explains where they come from).*
 
+The same three curves sit beside the neutrons in this rung's own demo (above,
+since 2026-10-05): the cross sections the browser processed for that run,
+with a dot riding the current neutron's energy, so you can watch one slow
+down past the resonances, or stop on one and be captured.
+
 In the code, every cross section the transport uses is one call:
 `Nuclide::xs_at_energy(e, temp_k)`, which reads the pointwise table that the
 workspace's NJOY port reconstructed and Doppler-broadened from the ENDF tape.
