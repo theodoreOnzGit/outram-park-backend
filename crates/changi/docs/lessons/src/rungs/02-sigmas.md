@@ -54,8 +54,9 @@ range. The port puts that in the type: a
 is either `One(class)` or `Two(class, class)`. Rung 4 shows why that mattered:
 upstream mishandles the second class in two different ways.
 
-**Animation.** *Not yet built* ([gh:#548](https://github.com/theodoreOnzGit/outram-park-backend/issues/548)): the same plume at 14:00 and at 02:00, same wind,
-side by side.
+**Animation.** [In the demo](../../../demos/dispersion/?rung=sigmas&step=day-night): the same plume at 14:00 and at 02:00, same wind,
+side by side, each class picked by `changi`'s `stability_class` and each map
+computed with `buangkok`'s plume.
 
 **The code walk.** From the puff example's first part down to the lookup:
 

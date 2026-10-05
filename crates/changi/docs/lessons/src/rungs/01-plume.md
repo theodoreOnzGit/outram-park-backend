@@ -44,8 +44,10 @@ wind of a few metres per second, carrying beats along-wind spreading by a wide
 margin, so the plume is *slender*. That is the **slender-plume
 approximation**, and it is the reason `u` appears only once.
 
-**Animation.** *Not yet built* ([gh:#548](https://github.com/theodoreOnzGit/outram-park-backend/issues/548)): tracer particles leaving a stack,
-drifting with the wind and jittering across it. *Predict first:* if the wind
+**Animation.** [In the demo](../../../demos/dispersion/?rung=plume&step=tracers): tracer particles leaving a stack,
+drifting with the wind and jittering across it, seen from above and from the
+side, with each crowd's spread set by buangkok's `sigma_y(x)` and
+`sigma_z(x)` (the tracers themselves are an illustration; gh:#548). *Predict first:* if the wind
 doubles, does the concentration 1 km downwind go up, down, or stay the same?
 
 **The code walk.** *There is no function for this step.* Nothing in the
@@ -87,8 +89,11 @@ they grow with it. So in practice `sigma_y(x)` and `sigma_z(x)` are not
 derived from `K`. They are **fitted to tracer experiments**, per weather
 class. That is rung 2.
 
-**Animation.** *Not yet built* ([gh:#548](https://github.com/theodoreOnzGit/outram-park-backend/issues/548)): a crosswind slice of the plume at increasing `x`,
-the Gaussian widening and flattening while its area (the flux) stays fixed.
+**Animation.** [In the demo](../../../demos/dispersion/?rung=plume&step=slice): a crosswind slice of the plume at increasing `x`,
+the Gaussian widening and flattening while its area (the flux) stays fixed;
+the number under it is `u` times the slice's integral, computed in your
+browser with the trapezoid rule of the flux test below, and it reads 1 at
+every `x`.
 *Predict first:* when `sigma_z` doubles at the same `sigma_y`, what happens to
 the peak?
 
@@ -128,8 +133,9 @@ and the formula collapses to
 chi/Q (ground, centreline) = exp(-H^2 / 2 sigma_z^2) / (pi sigma_y sigma_z u)
 ```
 
-**Animation.** *Not yet built* ([gh:#548](https://github.com/theodoreOnzGit/outram-park-backend/issues/548)): the plume and its mirror image, with the part below
-ground folded back up.
+**Animation.** [In the demo](../../../demos/dispersion/?rung=plume&step=mirror): the plume and its mirror image, with the part below
+ground folded back up: above ground, buangkok's `chi/Q`; below it, the part
+of the image-free plume that the mirror source puts back.
 
 **The code walk.** The workspace's steady plume is `buangkok`'s port of
 [pyDOSEIA](https://github.com/BiswajitSadhu/pyDOSEIA) (MIT, commit

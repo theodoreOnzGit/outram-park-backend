@@ -5,6 +5,8 @@
 
 use crate::engine::{Event, PlumeParams, PuffParams, Request, Series, ELEMENTS, PUFF_DT_S};
 use crate::rungs::Rung;
+use crate::step_view::{self, Tracers};
+use crate::steps::{Step, StepFrame, StepParams};
 use dhoby_ghaut::web_demo::lesson::{self, Rung as _};
 use dhoby_ghaut::web_demo::link::Link;
 use dhoby_ghaut::web_demo::panel::Panel;
@@ -92,6 +94,16 @@ pub struct DispApp {
     title: String,
     reset_puffs: bool,
     last_step_at: f64,
+    /// A step animation of the current rung, when one is open (gh:#548).
+    step: Option<Step>,
+    step_frame: Option<StepFrame>,
+    /// What the shown step frame was computed from.
+    step_shown: Option<(Step, StepParams)>,
+    tracers: Tracers,
+    /// The slice step's downwind distance, m, and the step's play state.
+    slice_x: f64,
+    step_playing: bool,
+    last_anim_at: f64,
 }
 
 /// Half-width of the map, m, per rung.
@@ -123,6 +135,12 @@ impl DispApp {
             Ok(l) => (Some(l), None),
             Err(e) => (None, Some(e)),
         };
+        let step = dhoby_ghaut::web_demo::platform::query_pairs()
+            .iter()
+            .find(|(k, _)| k == "step")
+            .and_then(|(_, v)| Step::parse(v));
+        // A step names its rung; the step wins if the two disagree.
+        let rung = step.map_or(rung, Step::rung);
         let mut c = Controls::default();
         if matches!(rung, Rung::Dose | Rung::Capstone) {
             // The capstone's own dispersion, so the live curve starts on the record.
@@ -146,6 +164,64 @@ impl DispApp {
             title: String::new(),
             reset_puffs: true,
             last_step_at: 0.0,
+            step,
+            step_frame: None,
+            step_shown: None,
+            tracers: Tracers::default(),
+            slice_x: 100.0,
+            step_playing: true,
+            last_anim_at: now_s(),
+        }
+    }
+
+    /// Open a step animation of the current rung, or go back to the rung view.
+    fn set_step(&mut self, s: Option<Step>) {
+        if s != self.step {
+            self.step = s;
+            self.step_frame = None;
+            self.step_shown = None;
+            self.tracers.clear();
+            self.reset_puffs = true;
+            self.slice_x = 100.0;
+        }
+        match self.step {
+            Some(st) => set_query(&[("rung", self.rung.name()), ("step", st.name())]),
+            None => set_query(&[("rung", self.rung.name())]),
+        }
+    }
+
+    fn step_params(&self) -> StepParams {
+        StepParams {
+            class: self.c.class,
+            wind: self.c.wind,
+            h: self.c.h,
+            x: self.slice_x,
+            w0: self.c.w0,
+        }
+    }
+
+    /// The step animations that run on the UI thread: the tracers, and the
+    /// slice's moving distance (one cheap worker request per frame).
+    fn animate(&mut self) {
+        let now = now_s();
+        let dt = (now - self.last_anim_at).min(0.1);
+        self.last_anim_at = now;
+        if !self.step_playing {
+            return;
+        }
+        match self.step {
+            Some(Step::Tracers) | Some(Step::Rise) => {
+                if let Some(f) = &self.step_frame {
+                    self.tracers.advance(f, dt * self.c.speed);
+                }
+            }
+            Some(Step::Slice) => {
+                self.slice_x += dt * 300.0;
+                if self.slice_x > crate::steps::REACH_M {
+                    self.slice_x = 100.0;
+                }
+            }
+            _ => {}
         }
     }
 
@@ -157,6 +233,9 @@ impl DispApp {
             self.curves.clear();
             self.shown = None;
             self.reset_puffs = true;
+            self.step = None;
+            self.step_frame = None;
+            self.step_shown = None;
             if r == Rung::Capstone || r == Rung::Dose {
                 // The capstone's own dispersion, so the live curve starts on the record.
                 self.c.class = 5;
@@ -212,7 +291,8 @@ impl DispApp {
                     wind: c.wind,
                     dir_deg: c.dir_deg,
                     h: c.h,
-                    emit: c.emit,
+                    // The single-puff step emits once, on the restart.
+                    emit: c.emit && (self.step != Some(Step::SinglePuff) || self.reset_puffs),
                     frozen: c.frozen,
                     reset: self.reset_puffs,
                     steps: 1,
@@ -231,6 +311,17 @@ impl DispApp {
             return;
         }
         let now = now_s();
+        if let Some(st) = self.step.filter(|s| *s != Step::SinglePuff) {
+            let p = self.step_params();
+            if self.step_shown != Some((st, p)) {
+                let id = self.next_id;
+                self.next_id += 1;
+                link.send(Request::Step { id, step: st as u8, p });
+                self.in_flight = Some((id, now));
+                self.step_shown = Some((st, p));
+            }
+            return;
+        }
         let wanted = if self.rung == Rung::Puffs {
             let interval = PUFF_DT_S / self.c.speed.max(1.0);
             (self.c.running && now - self.last_step_at >= interval) || self.reset_puffs
@@ -284,6 +375,15 @@ impl DispApp {
                     self.curves = series;
                     self.last_ms = ms;
                 }
+                Event::Step { id, frame, ms } => {
+                    if self.in_flight.map(|f| f.0) == Some(id) {
+                        self.in_flight = None;
+                    }
+                    if Step::from_code(frame.step) == self.step {
+                        self.step_frame = Some(frame);
+                    }
+                    self.last_ms = ms;
+                }
                 Event::Error(m) => {
                     self.in_flight = None;
                     self.error = Some(m);
@@ -301,7 +401,25 @@ impl DispApp {
         }
         ui.strong(self.rung.title());
         lesson::whats_happening(ui, self.rung);
+        let steps: Vec<Step> = Step::of(self.rung).collect();
+        if !steps.is_empty() {
+            ui.label("Step animations (one per lesson step):");
+            let mut pick = self.step;
+            ui.horizontal_wrapped(|ui| {
+                ui.selectable_value(&mut pick, None, "the rung view");
+                for st in &steps {
+                    ui.selectable_value(&mut pick, Some(*st), st.title());
+                }
+            });
+            if pick != self.step {
+                self.set_step(pick);
+            }
+        }
         ui.separator();
+        if let Some(st) = self.step.filter(|s| *s != Step::SinglePuff) {
+            self.step_panel(ui, st);
+            return;
+        }
         let c = &mut self.c;
         let class_row = |ui: &mut egui::Ui, class: &mut u8, set: &str| {
             ui.horizontal_wrapped(|ui| {
@@ -420,7 +538,76 @@ impl DispApp {
         }
     }
 
+    /// Controls and notes of a step animation.
+    fn step_panel(&mut self, ui: &mut egui::Ui, st: Step) {
+        let c = &mut self.c;
+        ui.horizontal_wrapped(|ui| {
+            ui.label("Stability (pyDOSEIA):");
+            for (i, n) in CLASSES.iter().enumerate() {
+                ui.selectable_value(&mut c.class, i as u8, *n);
+            }
+        });
+        ui.add(egui::Slider::new(&mut c.wind, 0.5..=12.0).text("wind at 10 m, m/s"));
+        ui.add(egui::Slider::new(&mut c.h, if st == Step::Rise { 10.0..=120.0 } else { 0.0..=120.0 }).text("release height, m"));
+        if st == Step::Rise {
+            ui.add(egui::Slider::new(&mut c.w0, 0.0..=30.0).text("exit velocity W0, m/s"));
+        }
+        if matches!(st, Step::Tracers | Step::Rise) {
+            ui.add(egui::Slider::new(&mut c.speed, 5.0..=300.0).logarithmic(true).text("simulated s per real s"));
+        }
+        if st == Step::Slice {
+            ui.add(egui::Slider::new(&mut self.slice_x, 100.0..=crate::steps::REACH_M).text("downwind distance x, m"));
+        }
+        if matches!(st, Step::Tracers | Step::Rise | Step::Slice) {
+            ui.horizontal(|ui| {
+                if ui.button(if self.step_playing { "Pause" } else { "Play" }).clicked() {
+                    self.step_playing = !self.step_playing;
+                }
+                if ui.button("Restart").clicked() {
+                    self.tracers.clear();
+                    self.slice_x = 100.0;
+                }
+            });
+        }
+        let note = match st {
+            Step::Tracers => "Each tracer is carried at the wind speed and random-walks across the wind with steps sized so that, at distance x, the crowd has buangkok's sigma_y(x) and sigma_z(x). Predict first: if the wind doubles, does the concentration 1 km downwind go up, down, or stay the same?",
+            Step::Slice => "The slice widens and fades, but the number under it stays 1: every crosswind plane carries the whole release (buangkok's flux check, the lesson's conservation argument). Predict first: when sigma_z doubles at the same sigma_y, what happens to the peak?",
+            Step::Mirror => "The ground is a wall the plume cannot cross. Adding a mirror source at -H folds the would-be underground part back up: that is the second exponential in chi/Q.",
+            Step::DayNight => "changi's Pasquill table picks the class from the wind and the hour; the same wind gives a broad, low daytime plume and a thin, long night one. Ground-level chi/Q from buangkok's plume.",
+            Step::Rise => "A hot or fast plume keeps rising after it leaves the stack, until the wind bends it over: the effective height H_e is what the plume formula should use. pyDOSEIA's rise formulas, unchecked against their sources (#542).",
+            Step::SinglePuff => "",
+        };
+        ui.label(note);
+        ui.label("Tracers are an illustration (they carry no concentration). Research, education and V&V only.");
+        ui.separator();
+        ui.label(format!(
+            "Last calculation: {:.1} ms in the background {}.",
+            self.last_ms,
+            if cfg!(target_arch = "wasm32") { "worker" } else { "thread" }
+        ));
+    }
+
     fn canvas(&mut self, ui: &mut egui::Ui) {
+        if let Some(st) = self.step.filter(|s| *s != Step::SinglePuff) {
+            let (resp, painter) = ui.allocate_painter(ui.available_size(), egui::Sense::click_and_drag());
+            let rect = resp.rect;
+            painter.rect_filled(rect, 0.0, Color32::from_rgb(14, 16, 20));
+            let below = Rect::from_min_max(rect.min + Vec2::new(0.0, 52.0), rect.max);
+            if let Some(f) = &self.step_frame {
+                step_view::draw(&painter, below, st, f, &self.tracers, self.plot_text);
+            } else {
+                painter.text(rect.center(), egui::Align2::CENTER_CENTER, "Computing in the background…", egui::FontId::proportional(15.0), Color32::LIGHT_GRAY);
+            }
+            self.panel.reopen_button(ui, rect);
+            if let Some(z) = zoom_buttons(ui, rect) {
+                self.plot_text = match z {
+                    Zoom::In => (self.plot_text * 1.2).min(28.0),
+                    Zoom::Out => (self.plot_text / 1.2).max(8.0),
+                    Zoom::Reset => 13.0,
+                };
+            }
+            return;
+        }
         let (resp, painter) =
             ui.allocate_painter(ui.available_size(), egui::Sense::click_and_drag());
         let rect = resp.rect;
@@ -724,8 +911,10 @@ impl eframe::App for DispApp {
             let events = link.drain();
             self.handle(events);
         }
+        self.animate();
         self.pump();
-        if self.rung == Rung::Puffs && self.c.running || self.in_flight.is_some() {
+        let stepping = self.step.is_some() && self.step_playing;
+        if self.rung == Rung::Puffs && self.c.running || self.in_flight.is_some() || stepping {
             ctx.request_repaint_after(std::time::Duration::from_millis(30));
         }
         let title = format!("Dispersion demo · {}", self.rung.title());
