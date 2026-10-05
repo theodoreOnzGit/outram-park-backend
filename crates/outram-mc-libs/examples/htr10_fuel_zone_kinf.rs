@@ -107,6 +107,13 @@ use outram_mc_libs::pebble_beds::delta_tracking::Majorant;
 use outram_mc_libs::pebble_beds::keff_delta::run_keff_delta;
 use outram_mc_libs::pebble_beds::sphere_packing::PackedSpheres;
 use outram_mc_libs::physics::keff::KeffSettings;
+use outram_mc_libs::material::thermal::ThermalScattering;
+use outram_mc_libs::pebble_beds::htr10::{
+    C12_ATOM_FRACTION_OF_NATURAL_C, C13_ATOM_FRACTION_OF_NATURAL_C,
+};
+use outram_mc_libs::physics::compute::{ComputeType, ThreadCount};
+use njoy_outram_park_fork::reference_data::reference_endf;
+use std::time::Instant;
 
 /// UO2 kernel atom densities, atoms/barn-cm (IAEA-TECDOC-1382 Table 4-38).
 const KERNEL_U235: f64 = 3.992067e-3;
@@ -128,7 +135,278 @@ const FUEL_ZONE_RADIUS_CM: f64 = 2.5;
 /// Coated particles per fuel pebble (IAEA-TECDOC-1382 Monte Carlo notes).
 const PARTICLES_PER_PEBBLE: f64 = 8335.0;
 
+/// Where each nuclide sits in the nuclide table, for one data route.
+///
+/// Carbon is a list because the ENDF/B-VIII.0 route carries C-12 and C-13 as
+/// separate evaluations (split at the natural abundance), while the LOW tier
+/// has one elemental carbon.
+struct Layout {
+    u235: usize,
+    u238: usize,
+    o16: usize,
+    /// `(nuclide index, atom fraction of natural carbon)`.
+    carbon: Vec<(usize, f64)>,
+    b10: usize,
+    b11: usize,
+}
+
+/// The 2026-09-11 data route: embedded WMP CORE library with its 10-group fast
+/// fallback, free-gas carbon. Kept only as the explicit `--low-tier` ablation
+/// so the old record can be reproduced.
+fn low_tier_nuclides() -> (Vec<Nuclide>, Layout, String, String) {
+    let nuclides = vec![
+        Nuclide::from_core("U235").expect("U235 is in the embedded CORE library"),
+        Nuclide::from_core("U238").expect("U238 is in the embedded CORE library"),
+        Nuclide::from_core("O16").expect("O16 is in the embedded CORE library"),
+        Nuclide::from_core("C0").expect("C-nat is in the embedded CORE library"),
+        Nuclide::from_core("B10").expect("B10 is in the embedded CORE library"),
+        Nuclide::from_core("B11").expect("B11 is in the embedded CORE library"),
+    ];
+    let layout = Layout {
+        u235: 0,
+        u238: 1,
+        o16: 2,
+        carbon: vec![(3, 1.0)],
+        b10: 4,
+        b11: 5,
+    };
+    (
+        nuclides,
+        layout,
+        "LOW (ABLATION --low-tier: embedded WMP CORE + 10-group fast fallback)".into(),
+        "FREE GAS (ABLATION --low-tier: no graphite S(alpha,beta))".into(),
+    )
+}
+
+/// The default route: ENDF/B-VIII.0 read directly from `reference-data/endf/`
+/// through this workspace's NJOY port (RECONR + BROADR at `temp_k`, tolerance
+/// 1e-3), with the constructor's correct-physics defaults (URR probability
+/// tables and DBRC, `Nuclide::from_tape`), C-12 and C-13 at natural
+/// abundance, and bound-graphite S(alpha,beta) on both carbon isotopes.
+///
+/// The graphite law defaults to Hawari's 30 %-porous reactor graphite (MAT 32),
+/// the maintainer's HTR-10 choice recorded on `nee_soon`'s `GraphiteLaw`
+/// (porosity of 1.73 g/cm3 graphite is ~23 %, and 30 % is the nearer of the
+/// two tabulated laws). `OUTRAM_HTR10_GRAPHITE_TSL=crystalline|10P|30P`
+/// selects another, as an explicit ablation.
+fn endf_nuclides(temp_k: f64) -> (Vec<Nuclide>, Layout, String, String) {
+    let load = |name: &str, file: &str| -> Nuclide {
+        let path = reference_endf(file)
+            .unwrap_or_else(|| panic!("missing reference tape {file} in reference-data/endf/"));
+        eprint!("  reconstructing {name:<6} from {file} … ");
+        let t0 = Instant::now();
+        let n = Nuclide::from_endf_file(&path, name, temp_k, 1.0e-3)
+            .unwrap_or_else(|e| panic!("from_endf_file({}): {e}", path.display()));
+        eprintln!(
+            "{:.1?}  (URR tables: {}, DBRC: {})",
+            t0.elapsed(),
+            n.urr_range_ev().is_some(),
+            n.has_dbrc()
+        );
+        n
+    };
+
+    let law = std::env::var("OUTRAM_HTR10_GRAPHITE_TSL").unwrap_or_else(|_| "30P".into());
+    let (tsl_file, tsl_mat) = match law.as_str() {
+        "crystalline" => ("tsl-crystalline-graphite.endf", 30),
+        "10P" => ("tsl-reactor-graphite-10P.endf", 31),
+        "30P" => ("tsl-reactor-graphite-30P.endf", 32),
+        other => panic!("OUTRAM_HTR10_GRAPHITE_TSL={other}: expected crystalline, 10P or 30P"),
+    };
+    let sab = ThermalScattering::from_endf_file(
+        reference_endf(tsl_file)
+            .unwrap_or_else(|| panic!("missing {tsl_file}"))
+            .to_str()
+            .expect("valid UTF-8 path"),
+        tsl_mat,
+        temp_k,
+        "c_Graphite",
+    )
+    .expect("graphite S(alpha,beta)");
+    let sab_t = sab.selected_temperature_k();
+    eprintln!("  graphite S(alpha,beta): {tsl_file} MAT {tsl_mat}, table at {sab_t} K");
+
+    let nuclides = vec![
+        load("U235", "n-092_U_235-ENDF8.0.endf"),
+        load("U238", "n-092_U_238.endf"),
+        load("O16", "n-008_O_016-ENDF8.0.endf"),
+        load("C12", "n-006_C_012-ENDF8.0.endf").with_thermal_scattering(sab.clone()),
+        load("C13", "n-006_C_013-ENDF8.0.endf").with_thermal_scattering(sab),
+        load("B10", "n-005_B_010-ENDF8.0.endf"),
+        load("B11", "n-005_B_011-ENDF8.0.endf"),
+    ];
+    let layout = Layout {
+        u235: 0,
+        u238: 1,
+        o16: 2,
+        carbon: vec![
+            (3, C12_ATOM_FRACTION_OF_NATURAL_C),
+            (4, C13_ATOM_FRACTION_OF_NATURAL_C),
+        ],
+        b10: 5,
+        b11: 6,
+    };
+    (
+        nuclides,
+        layout,
+        "HIGH: ENDF/B-VIII.0 direct (RECONR + BROADR, tol 1e-3), URR + DBRC on".into(),
+        format!("bound graphite S(alpha,beta) on C-12 and C-13: {tsl_file} (MAT {tsl_mat}) at {sab_t} K"),
+    )
+}
+
+/// Kernel, matrix and the inventory-matched homogenised fuel zone, for either
+/// route. `f` is the kernel volume fraction.
+fn build_materials(l: &Layout, temperature: f64, f: f64) -> (Material, Material, Material) {
+    let mk = |id: i32, name: &str, comps: Vec<(usize, f64)>| Material {
+        id,
+        name: name.into(),
+        temperature,
+        components: comps
+            .into_iter()
+            .map(|(nuclide_idx, atom_density)| NuclideComponent {
+                nuclide_idx,
+                atom_density,
+            })
+            .collect(),
+    };
+    let kernel = mk(
+        1,
+        "HTR-10 UO2 kernel (17 wt% enriched)",
+        vec![
+            (l.u235, KERNEL_U235),
+            (l.u238, KERNEL_U238),
+            (l.o16, KERNEL_O16),
+            (l.b10, KERNEL_B10),
+            (l.b11, KERNEL_B11),
+        ],
+    );
+    let mut m = Vec::new();
+    for &(i, frac) in &l.carbon {
+        m.push((i, MATRIX_C * frac));
+    }
+    m.push((l.b10, MATRIX_B10));
+    m.push((l.b11, MATRIX_B11));
+    let matrix = mk(2, "HTR-10 graphite matrix (1.73 g/cm^3, 1.3 ppm EBC)", m);
+
+    // The homogenised counterpart: exactly the same nuclide inventory, volume
+    // weighted into a single medium. Same atoms, no geometry.
+    let mut h = vec![
+        (l.u235, KERNEL_U235 * f),
+        (l.u238, KERNEL_U238 * f),
+        (l.o16, KERNEL_O16 * f),
+    ];
+    for &(i, frac) in &l.carbon {
+        h.push((i, MATRIX_C * frac * (1.0 - f)));
+    }
+    h.push((l.b10, KERNEL_B10 * f + MATRIX_B10 * (1.0 - f)));
+    h.push((l.b11, KERNEL_B11 * f + MATRIX_B11 * (1.0 - f)));
+    let homogenised = mk(3, "HTR-10 fuel zone, homogenised", h);
+    (kernel, matrix, homogenised)
+}
+
+/// The delta-tracking majorant: `Majorant::from_materials` on the union of
+/// every nuclide's own pointwise energy grid and a dense log backbone.
+///
+/// # Why not `Majorant::bounding`, which this example used until 2026-10-05
+///
+/// `bounding` samples each of 4096 log bins at 32 points and adds a margin.
+/// On this problem's ENDF/B-VIII.0 data that **under-bounds**: the dense audit
+/// below measured `Sigma_t / Sigma_maj = 1.1827` at 1.689 MeV (margin 0.1,
+/// first pilot, 2026-10-05), i.e. a resonance narrower than the ~340 eV
+/// sampling step there slipped between the samples. The full measurement,
+/// per material, is in the results below (`OUTRAM_HTR10_MAJORANT=bounding`). An under-bound majorant is a silent
+/// bias, so the protocol was changed rather than the margin raised until the
+/// check passed.
+///
+/// The fix uses the structure of the data. Pointwise ENDF cross sections are
+/// linear-linear between their own grid points, so on the union of every
+/// nuclide's grid, `Sigma_t` of any mixture is linear between neighbouring
+/// nodes and its maximum over each interval is at an end. `Majorant::at`
+/// takes the larger bracketing node, so tabulating at every node bounds the
+/// pointwise part exactly. The log backbone (4096 x 32 points, as before)
+/// covers what is not pointwise: the S(alpha,beta) tables and the URR band
+/// totals. The LOW tier has no pointwise grid; there the union grid reduces to
+/// the WMP window edges and the group boundaries (`Nuclide::native_energy_grid`)
+/// plus the backbone.
+fn build_majorant(materials: &[Material], nuclides: &[Nuclide]) -> Majorant {
+    let (lo, hi): (f64, f64) = (1.0e-5, 2.0e7);
+    let n_backbone = 4096 * 32;
+    let mut grid: Vec<f64> = (0..=n_backbone)
+        .map(|i| lo * (hi / lo).powf(i as f64 / n_backbone as f64))
+        .collect();
+    let mut used: Vec<usize> = materials
+        .iter()
+        .flat_map(|m| m.components.iter().map(|c| c.nuclide_idx))
+        .collect();
+    used.sort_unstable();
+    used.dedup();
+    for i in used {
+        grid.extend(nuclides[i].native_energy_grid(lo, hi));
+    }
+    grid.sort_by(|a, b| a.partial_cmp(b).expect("finite energies"));
+    grid.dedup_by(|a, b| (*a - *b).abs() <= 1.0e-12 * b.abs());
+    Majorant::from_materials(materials, nuclides, &grid, 0.1)
+}
+
+/// Check the delta-tracking majorant actually bounds `Sigma_t`, on a scan far
+/// denser than a log grid of bins.
+///
+/// An under-bound majorant is a **silent** bias (collisions where
+/// `Sigma_t > Sigma_maj` are never sampled), so this is checked rather than
+/// assumed. The scan is 2 million log-spaced energies from 1e-5 eV to 20 MeV
+/// (~170 000 per decade, a spacing of ~0.014 eV at 1 keV, below U-238's
+/// Doppler width there) **plus every node of every nuclide's own grid**,
+/// against each material's `macro_xs_total_upper_bound` (which takes the URR
+/// band maximum). It panics on a breach: a run on an under-bound majorant
+/// would be wrong without saying so.
+fn audit_majorant(
+    label: &str,
+    materials: &[Material],
+    nuclides: &[Nuclide],
+    maj: &Majorant,
+    fatal: bool,
+) {
+    let n = 2_000_000usize;
+    let (lo, hi): (f64, f64) = (1.0e-5, 2.0e7);
+    let mut energies: Vec<f64> = (0..=n).map(|i| lo * (hi / lo).powf(i as f64 / n as f64)).collect();
+    for nuc in nuclides {
+        energies.extend(nuc.native_energy_grid(lo, hi));
+    }
+    let mut worst = 0.0_f64;
+    let mut worst_e = 0.0_f64;
+    let mut worst_m = String::new();
+    for &e in &energies {
+        let m = maj.at(e);
+        for mat in materials {
+            let r = mat.macro_xs_total_upper_bound(e, nuclides) / m;
+            if r > worst {
+                worst = r;
+                worst_e = e;
+                worst_m = mat.name.clone();
+            }
+        }
+    }
+    println!(
+        "Majorant audit: {label}: max Sigma_t/Sigma_maj = {worst:.4} at {worst_e:.4e} eV in \
+         '{worst_m}' ({} energies: 2 000 001 log-spaced + every nuclide's own grid)",
+        energies.len()
+    );
+    assert!(
+        !fatal || worst <= 1.0,
+        "the {label} majorant UNDER-BOUNDS Sigma_t by {:.2} % at {worst_e:.4e} eV in \
+         '{worst_m}'; delta tracking would silently lose collisions there",
+        (worst - 1.0) * 100.0
+    );
+}
+
 fn main() {
+    let argv: Vec<String> = std::env::args().skip(1).collect();
+    // `--low-tier` reproduces the 2026-09-11 record (embedded WMP CORE data,
+    // free-gas graphite). It is an explicit, visible ablation: the default is
+    // the correct-physics ENDF route.
+    let low_tier = argv.iter().any(|a| a == "--low-tier");
+    let positional: Vec<&String> = argv.iter().filter(|a| !a.starts_with("--")).collect();
+
     // Kernel volume fraction of the fuelled zone:
     //   n * (4/3) pi r_k^3 / ((4/3) pi R_fz^3) = n * (r_k / R_fz)^3.
     let kernel_packing_fraction =
@@ -141,99 +419,16 @@ fn main() {
     let packing_seed = 20260811;
     let transport_seed = KeffSettings::default().seed;
 
-    let nuclides = vec![
-        Nuclide::from_core("U235").expect("U235 is in the embedded CORE library"),
-        Nuclide::from_core("U238").expect("U238 is in the embedded CORE library"),
-        Nuclide::from_core("O16").expect("O16 is in the embedded CORE library"),
-        Nuclide::from_core("C0").expect("C-nat is in the embedded CORE library"),
-        Nuclide::from_core("B10").expect("B10 is in the embedded CORE library"),
-        Nuclide::from_core("B11").expect("B11 is in the embedded CORE library"),
-    ];
-
     // Benchmark core temperature for B1: 20 degrees Celsius = 293.15 K.
     let temperature_k = 293.15;
 
-    let kernel = Material {
-        id: 1,
-        name: "HTR-10 UO2 kernel (17 wt% enriched)".into(),
-        temperature: temperature_k,
-        components: vec![
-            NuclideComponent {
-                nuclide_idx: 0,
-                atom_density: KERNEL_U235,
-            },
-            NuclideComponent {
-                nuclide_idx: 1,
-                atom_density: KERNEL_U238,
-            },
-            NuclideComponent {
-                nuclide_idx: 2,
-                atom_density: KERNEL_O16,
-            },
-            NuclideComponent {
-                nuclide_idx: 4,
-                atom_density: KERNEL_B10,
-            },
-            NuclideComponent {
-                nuclide_idx: 5,
-                atom_density: KERNEL_B11,
-            },
-        ],
+    let (nuclides, layout, data_label, thermal_label) = if low_tier {
+        low_tier_nuclides()
+    } else {
+        endf_nuclides(temperature_k)
     };
-    let matrix = Material {
-        id: 2,
-        name: "HTR-10 graphite matrix (1.73 g/cm^3, 1.3 ppm EBC)".into(),
-        temperature: temperature_k,
-        components: vec![
-            NuclideComponent {
-                nuclide_idx: 3,
-                atom_density: MATRIX_C,
-            },
-            NuclideComponent {
-                nuclide_idx: 4,
-                atom_density: MATRIX_B10,
-            },
-            NuclideComponent {
-                nuclide_idx: 5,
-                atom_density: MATRIX_B11,
-            },
-        ],
-    };
-
-    // The homogenised counterpart: exactly the same nuclide inventory, volume
-    // weighted into a single medium. Same atoms, no geometry.
-    let f = kernel_packing_fraction;
-    let homogenised = Material {
-        id: 3,
-        name: "HTR-10 fuel zone, homogenised".into(),
-        temperature: temperature_k,
-        components: vec![
-            NuclideComponent {
-                nuclide_idx: 0,
-                atom_density: KERNEL_U235 * f,
-            },
-            NuclideComponent {
-                nuclide_idx: 1,
-                atom_density: KERNEL_U238 * f,
-            },
-            NuclideComponent {
-                nuclide_idx: 2,
-                atom_density: KERNEL_O16 * f,
-            },
-            NuclideComponent {
-                nuclide_idx: 3,
-                atom_density: MATRIX_C * (1.0 - f),
-            },
-            NuclideComponent {
-                nuclide_idx: 4,
-                atom_density: KERNEL_B10 * f + MATRIX_B10 * (1.0 - f),
-            },
-            NuclideComponent {
-                nuclide_idx: 5,
-                atom_density: KERNEL_B11 * f + MATRIX_B11 * (1.0 - f),
-            },
-        ],
-    };
+    let (kernel, matrix, homogenised) =
+        build_materials(&layout, temperature_k, kernel_packing_fraction);
 
     let packed = PackedSpheres::pack(
         KERNEL_RADIUS_CM,
@@ -245,8 +440,8 @@ fn main() {
 
     println!("=== HTR-10 fuel-zone infinite medium — rung 1 step 1a ===");
     println!("Data          : IAEA-TECDOC-1382 Table 4-38 atom densities (Open tier)");
-    println!("Fidelity tier : LOW (embedded WMP CORE + 10-group fast fallback)");
-    println!("Thermal       : FREE GAS — graphite S(alpha,beta) NOT applied (op-hc2o)");
+    println!("Fidelity tier : {data_label}");
+    println!("Thermal       : {thermal_label}");
     println!("Coatings      : NOT resolved — buffer/IPyC/SiC/OPyC smeared into matrix");
     println!("Temperature   : {temperature_k} K (benchmark B1 core temperature, 20 C)");
     println!("Geometry      : reflective cube, half-width {half} cm, zero leakage (k_inf)");
@@ -262,25 +457,49 @@ fn main() {
     // Particle and generation counts may be overridden from the command line
     // so the same example serves both a quick smoke run and a long statistics
     // run:  `--example htr10_fuel_zone_kinf -- <particles> <inactive> <active>`.
-    let argv: Vec<String> = std::env::args().skip(1).collect();
     let arg = |i: usize, default: usize| -> usize {
-        argv.get(i).and_then(|v| v.parse().ok()).unwrap_or(default)
+        positional.get(i).and_then(|v| v.parse().ok()).unwrap_or(default)
+    };
+    // `THREADS=<n>` runs the rayon backend on n workers. Unset keeps the
+    // single-thread reference backend (bit-reproducible for a fixed seed; the
+    // multi-thread backend is reproducible for any thread count but does not
+    // bit-match it).
+    let compute = match std::env::var("THREADS").ok().and_then(|v| v.parse::<usize>().ok()) {
+        Some(n) if n > 1 => ComputeType::CpuMultiThread(ThreadCount::Fixed(n)),
+        _ => ComputeType::CpuSingleThread,
     };
     let settings = KeffSettings {
         n_particles: arg(0, 400),
         n_inactive: arg(1, 15),
         n_active: arg(2, 45),
+        temperature_k,
+        compute,
         ..KeffSettings::default()
     };
     println!(
-        "Transport     : {} particles/generation, {} inactive + {} active, RNG seed {}",
-        settings.n_particles, settings.n_inactive, settings.n_active, transport_seed
+        "Transport     : {} particles/generation, {} inactive + {} active, RNG seed {}, {:?}",
+        settings.n_particles, settings.n_inactive, settings.n_active, transport_seed, settings.compute
     );
     println!();
 
     // --- Case 1: doubly heterogeneous, kernels resolved explicitly. ---
     let het_materials = vec![kernel, matrix];
-    let het_majorant = Majorant::bounding(&het_materials, &nuclides, 1.0e-4, 2.0e7, 4096, 32, 0.1);
+    // `OUTRAM_HTR10_MAJORANT=bounding` is the explicit ablation: the old
+    // `Majorant::bounding` construction, audited and reported but NOT stopped
+    // on, so its under-bound can be measured. Its k is not a result.
+    let old_majorant = std::env::var("OUTRAM_HTR10_MAJORANT").as_deref() == Ok("bounding");
+    let majorant_for = |mats: &[Material]| {
+        if old_majorant {
+            Majorant::bounding(mats, &nuclides, 1.0e-4, 2.0e7, 4096, 32, 0.1)
+        } else {
+            build_majorant(mats, &nuclides)
+        }
+    };
+    if old_majorant {
+        println!("ABLATION OUTRAM_HTR10_MAJORANT=bounding: old majorant, audit not fatal");
+    }
+    let het_majorant = majorant_for(&het_materials);
+    audit_majorant("heterogeneous", &het_materials, &nuclides, &het_majorant, !old_majorant);
     let material_at = move |p: Position| {
         Some(if packed.is_inside_kernel(p) {
             0usize
@@ -288,6 +507,7 @@ fn main() {
             1usize
         })
     };
+    let t_het = Instant::now();
     let het = run_keff_delta(
         half,
         &het_materials,
@@ -297,13 +517,17 @@ fn main() {
         &settings,
     );
     println!(
-        "heterogeneous (kernels explicit) : k_inf = {:.5} +/- {:.5}",
-        het.k_mean, het.k_std
+        "heterogeneous (kernels explicit) : k_inf = {:.5} +/- {:.5}   ({:.1} s)",
+        het.k_mean,
+        het.k_std,
+        t_het.elapsed().as_secs_f64()
     );
 
     // --- Case 2: homogenised, identical nuclide inventory. ---
     let hom_materials = vec![homogenised];
-    let hom_majorant = Majorant::bounding(&hom_materials, &nuclides, 1.0e-4, 2.0e7, 4096, 32, 0.1);
+    let hom_majorant = majorant_for(&hom_materials);
+    audit_majorant("homogenised", &hom_materials, &nuclides, &hom_majorant, !old_majorant);
+    let t_hom = Instant::now();
     let hom = run_keff_delta(
         half,
         &hom_materials,
@@ -313,8 +537,10 @@ fn main() {
         &settings,
     );
     println!(
-        "homogenised   (same atoms)       : k_inf = {:.5} +/- {:.5}",
-        hom.k_mean, hom.k_std
+        "homogenised   (same atoms)       : k_inf = {:.5} +/- {:.5}   ({:.1} s)",
+        hom.k_mean,
+        hom.k_std,
+        t_hom.elapsed().as_secs_f64()
     );
 
     // Reactivity difference in pcm, with the combined statistical uncertainty.
@@ -342,9 +568,9 @@ fn main() {
     println!();
     println!(
         "READ THIS: neither k_inf above is an HTR-10 criticality result. This is a\n\
-         fuel-zone infinite medium with free-gas thermal scattering and unresolved\n\
-         TRISO coatings, on LOW-tier data. It exercises the rung-1 transport stack\n\
-         end to end and measures one self-comparison; it does not validate anything.\n\
+         fuel-zone infinite medium with unresolved TRISO coatings and no pebble\n\
+         shell, moderator ball, reflector or leakage. It measures one\n\
+         self-comparison; it does not validate anything.\n\
          See docs/reactor-scoping/htr10-neutronics.md sections 4.1 and 7.2."
     );
 
