@@ -23,11 +23,11 @@ pub use crate::ugraphite::model::TEMPERATURE_K;
 /// example's default `CU`).
 pub const C_PER_U: f64 = 600.0;
 
-/// The lump radius shown, cm. One of the scan's radii
-/// (`examples/lumped_ugraphite_kinf.rs`, `RADII_CM`), the one nearest the
-/// scan's measured maximum of `k_inf` (recorded in that example's doc
-/// comment, 2026-10-05). A display choice: nothing is compared at it.
-pub const LUMP_R_CM: f64 = 2.0;
+/// The lump radius shown, cm: the scan's radius with the highest measured
+/// `k_inf` at [`C_PER_U`] (0.95924 +/- 0.00211 at r = 0.3 cm,
+/// `examples/lumped_ugraphite_kinf.rs`, results of 2026-10-05). A display
+/// choice made after the scan: nothing is compared at it.
+pub const LUMP_R_CM: f64 = 0.3;
 
 /// The cell's outer radius, cm, for [`LUMP_R_CM`] at [`C_PER_U`].
 pub fn cell_r() -> f64 {

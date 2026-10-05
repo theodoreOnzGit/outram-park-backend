@@ -86,7 +86,7 @@ difference is stated, not corrected.
 
 ## Step 7 sweep: natural uranium, k_inf against N_C/N_U
 
-Recorded 2026-10-05 (00:09-02:15 UTC), `MODE=sweep`, binary built from
+Recorded 2026-10-05 (00:09-02:07 UTC), `MODE=sweep`, binary built from
 `develop` at `f39501b8bd` (later commits in the series touch comments and an
 off-by-default ablation knob only). 5000 neutrons x [20 + 50] per point, seed
 20 261 004 + point index, 2 threads. **Sizing:** 2 cores available; one point

@@ -260,7 +260,13 @@ show here. (Shrinking the lump towards zero cannot do this check affordably:
 step 1's 10 µm mean free path means even a 0.1 mm lump is black at the
 resonance peak.)
 
-*Running on 2026-10-05; the measured result is recorded here in the next update of this page.*
+**Measured** (2026-10-05, the example's doc comment and
+`verification_and_validation/tutorial_rung3/README.md`): the homogenised cell
+gives $k_\infty = 0.77580 \pm 0.00208$; rung 2's homogeneous mixture at the
+same ratio gave $0.77153 \pm 0.00243$. The difference, $+427 \pm 320$ pcm, is
+1.3σ, inside the 3σ criterion written down before the run. **The check
+passes**: the cell's surfaces and its white boundary lose and duplicate
+nothing that this check could see.
 
 ## 5. $k_\infty$ against lump radius
 
@@ -272,7 +278,61 @@ source): a gain of tens of per cent, nearly all in $p$; **a maximum above 1,
 of order 1.05, at a lump radius of order 1–3 cm**; $f$ falling a few per cent
 over the range.
 
-*Running on 2026-10-05; the measured result is recorded here in the next update of this page.*
+**What the code gives** (2026-10-05, 5000 neutrons × [20 + 50] generations
+per cell, so each $k$ is good to about ±0.0025; recorded in the example's doc
+comment and `verification_and_validation/tutorial_rung3/README.md`):
+
+| lump $r$ (cm) | cell $R$ (cm) | $k_\infty$ | $\eta$ | $f$ | $p$ | $\varepsilon$ |
+|---|---|---|---|---|---|---|
+| homogenised (control) | 13.882 | 0.77580 ± 0.00208 | 1.33303 | 0.76483 | 0.74811 | 1.01241 |
+| 0.1 | 0.694 | 0.93965 ± 0.00254 | 1.33288 | 0.76000 | 0.91854 | 1.01206 |
+| 0.3 | 2.082 | **0.95924 ± 0.00211** | 1.33253 | 0.74922 | 0.94424 | 1.01542 |
+| 1.0 | 6.941 | 0.93440 ± 0.00288 | 1.33130 | 0.70584 | 0.96285 | 1.02887 |
+| 2.0 | 13.882 | 0.85390 ± 0.00239 | 1.32966 | 0.62863 | 0.96981 | 1.05332 |
+| 3.0 | 20.823 | 0.76770 ± 0.00295 | 1.32862 | 0.54765 | 0.97087 | 1.08605 |
+| 4.0 | 27.764 | 0.68685 ± 0.00252 | 1.32781 | 0.47341 | 0.96517 | 1.13058 |
+| 6.0 | 41.646 | 0.55402 ± 0.00195 | 1.32608 | 0.35050 | 0.93550 | 1.27094 |
+
+- **Lumping helps enormously, and at once.** Even 1 mm lumps lift
+  $k_\infty$ from 0.776 to 0.940, almost all through $p$ (0.748 → 0.919): at
+  a resonance peak the lump is black whatever its size, so its interior is
+  shielded from the start.
+- **Then $f$ takes over.** Bigger lumps, at the same average composition, sit
+  further apart in more graphite, and the thermal neutrons are absorbed in
+  the graphite before they find one: $f$ falls from 0.76 to 0.35 across the
+  scan. The peak is **0.959 ± 0.002 at $r$ = 0.3 cm**.
+- **My prediction was wrong twice.** I expected a peak above 1 (about 1.05)
+  at a radius of 1–3 cm. Both are refuted: the best cell is 19σ short of 1,
+  at a few millimetres. The rise-then-fall shape and "the gain is in $p$"
+  held.
+- Not predicted: in a thick lump the fast neutrons meet a lot of U-238
+  before they leave, and $\varepsilon$ climbs to 1.27 at 6 cm.
+
+**Why, and the next question.** At 600 carbon atoms per uranium atom, $f$
+was already low before lumping (0.765). So try less carbon. That second
+question was written down, with its prediction ($k_\infty > 1$ at some radius
+around 1–2 cm, at $N_C/N_U = 200$), *after* seeing this scan and *before*
+running it (commit `bd05a299c`, `verification_and_validation/tutorial_rung3/README.md`).
+
+**The answer** (2026-10-05, same settings, recorded beside the first scan):
+
+| lump $r$ (cm) | cell $R$ (cm) | $k_\infty$ | $\eta$ | $f$ | $p$ | $\varepsilon$ |
+|---|---|---|---|---|---|---|
+| 0.3 | 1.447 | 1.04795 ± 0.00257 | 1.32800 | 0.89991 | 0.84795 | 1.03228 |
+| 1.0 | 4.822 | **1.08986 ± 0.00233** | 1.32738 | 0.88001 | 0.89753 | 1.03916 |
+| 2.0 | 9.644 | 1.08002 ± 0.00220 | 1.32653 | 0.84273 | 0.91759 | 1.05065 |
+| 3.0 | 14.466 | 1.04409 ± 0.00239 | 1.32604 | 0.79521 | 0.92777 | 1.06298 |
+
+**Above 1.** With a third of the carbon, the best lump ($r$ = 1 cm, cell
+radius 4.8 cm) gives $k_\infty = 1.090 \pm 0.002$: an infinite lattice of these
+cells would sustain a chain reaction, from natural uranium. $f$ stays at
+0.80–0.90 here, while $p$ still climbs with the lump. The homogeneous mixture
+at this ratio managed 0.726 (rung 2): lumping is worth about **+0.36** in
+$k_\infty$. That is why the pile was built from lumps.
+
+(A real pile is finite and leaks, and its graphite and uranium were not this
+pure; an infinite-lattice $k_\infty$ above 1 is necessary, not sufficient.
+The *Create* exercise below asks how much the spherical cell itself is worth.)
 
 **Verification, not validation.** No experiment was done on this cell; the
 checks are the homogeneous limit and the algebra of the factors. An OpenMC

@@ -186,7 +186,7 @@
 //! 4 logical cores, 15 GB, Linux, CPU only; the machine was shared with
 //! another agent's jobs and this session's own builds and browser checks
 //! (load average up to ~8), so the wall times are upper bounds. Data
-//! 112 s; the run 2026-10-05 00:09-02:15 UTC.
+//! 112 s; the run 2026-10-05 00:09-02:07 UTC.
 //!
 //! ```text
 //!  N_C/N_U   k_inf +/- sigma      eta      f        p        epsilon  wall s

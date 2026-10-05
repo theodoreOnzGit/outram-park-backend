@@ -84,9 +84,80 @@
 //! all in `p`), the maximum is **above 1, of order 1.05**, at a lump radius of
 //! **order 1-3 cm**, and `f` falls by a few per cent over the same range.
 //!
-//! # Results
+//! # Results (2026-10-05)
 //!
-//! Not yet run.
+//! Binary built from `develop` at `f39501b8bd` (later commits in the series
+//! touch comments and an off-by-default ablation knob only). **5000 neutrons
+//! x [20 + 50]** per cell (sized for 2 shared cores, sigma ~250 pcm),
+//! seed 20 261 005 (+ 1 + index for the lumps), 2 threads. Hardware: Intel
+//! Xeon @ 2.10 GHz, 2 threads pinned to 2 of 4 logical cores, 15 GB, Linux,
+//! CPU only, machine shared (load average up to ~8): wall times are upper
+//! bounds. Run 2026-10-05 02:07-03:16 UTC. Each cell was drawn
+//! (`MODE=images`, `verification_and_validation/tutorial_rung3/geometry/`).
+//!
+//! ```text
+//!   r [cm]  R [cm]   k_inf +/- sigma     eta      f        p        epsilon  wall s
+//!   homog.  13.882   0.77580 0.00208   1.33303  0.76483  0.74811  1.01241   868
+//!    0.1     0.694   0.93965 0.00254   1.33288  0.76000  0.91854  1.01206   898
+//!    0.3     2.082   0.95924 0.00211   1.33253  0.74922  0.94424  1.01542   524
+//!    1.0     6.941   0.93440 0.00288   1.33130  0.70584  0.96285  1.02887   420
+//!    2.0    13.882   0.85390 0.00239   1.32966  0.62863  0.96981  1.05332   312
+//!    3.0    20.823   0.76770 0.00295   1.32862  0.54765  0.97087  1.08605   295
+//!    4.0    27.764   0.68685 0.00252   1.32781  0.47341  0.96517  1.13058   339
+//!    6.0    41.646   0.55402 0.00195   1.32608  0.35050  0.93550  1.27094   357
+//! ```
+//!
+//! Telescoping exact in every row; `(k - k_factors)/k` -0.22 % .. +0.47 %,
+//! inside the band.
+//!
+//! **Check 1, homogenised cell: PASSES.** 0.77580 +/- 0.00208 against rung
+//! 2's homogeneous 0.77153 +/- 0.00243 at the same ratio (`ugraphite_four_factor.rs`,
+//! step-7 sweep, 2026-10-05): +427 +/- 320 pcm, 1.3 sigma, inside the 3-sigma
+//! criterion fixed before the run. The factors agree too (eta 1.33303 vs
+//! 1.33304, f 0.76483 vs 0.76483, p 0.74811 vs 0.74684).
+//!
+//! **Against the prediction written before the run:**
+//! - **Rises from the homogeneous value, peaks, falls: held.** Even 1 mm
+//!   lumps lift `k_inf` from 0.776 to 0.940, nearly all in `p` (0.748 ->
+//!   0.919): the lump is black at the resonance peaks at any radius scanned.
+//! - **Gain of tens of per cent, nearly all in `p`: held** (+24 % at the
+//!   peak; `f` falls 0.765 -> 0.749 there).
+//! - **Maximum above 1, of order 1.05: REFUTED.** The maximum on the grid is
+//!   **0.95924 +/- 0.00211 at r = 0.3 cm**, 19 sigma below 1.
+//! - **At r of order 1-3 cm: REFUTED.** The peak is at 0.1-1 cm (0.3 cm on
+//!   this grid); by 2 cm `f` has fallen to 0.63 and `k_inf` to 0.854.
+//! - **`f` falls a few per cent: refuted in size** — it falls from 0.76 to
+//!   0.35 over the scan, which is what limits the peak.
+//! - Not predicted: `epsilon` rises to 1.27 at r = 6 cm (fast fission of
+//!   U-238 inside a thick lump), and `p` falls again beyond 3 cm.
+//!
+//! **Why (a hypothesis, tested in the follow-up below):** at 600 carbon atoms
+//! per uranium atom the thermal utilisation is already low (0.765
+//! homogeneous), and lumping lowers it further, so the gain in `p` cannot
+//! carry `k_inf` above 1. The follow-up at `N_C/N_U = 200` and its
+//! prediction (written before it ran, `bd05a299c`) are in
+//! `verification_and_validation/tutorial_rung3/README.md`.
+//!
+//! **Follow-up at `N_C/N_U = 200`** (`CU=200 RADII=0.3,1,2,3 CONTROL=0`,
+//! 2026-10-05 03:16-03:37 UTC, same binary, settings and hardware; question
+//! and prediction "max above 1, at r ~ 1-2 cm" written after the 600 scan and
+//! before this run, `bd05a299c`):
+//!
+//! ```text
+//!   r [cm]  R [cm]   k_inf +/- sigma     eta      f        p        epsilon
+//!     0.3    1.447   1.04795 0.00257   1.32800  0.89991  0.84795  1.03228
+//!     1.0    4.822   1.08986 0.00233   1.32738  0.88001  0.89753  1.03916
+//!     2.0    9.644   1.08002 0.00220   1.32653  0.84273  0.91759  1.05065
+//!     3.0   14.466   1.04409 0.00239   1.32604  0.79521  0.92777  1.06298
+//! ```
+//!
+//! **Prediction held:** maximum **1.08986 +/- 0.00233 at r = 1 cm**, above 1;
+//! `f` stays 0.80-0.90 here (0.35-0.75 at 600) while `p` still rises with the
+//! lump. Cells drawn: `geometry/ws_cell_r*_cu200.png`.
+//!
+//! **OpenMC code-to-code: not run** (no OpenMC on the machine that ran the
+//! scan). `lumped_openmc.py --r R` and `--control` run these cells
+//! unchanged; pending the maintainer.
 //!
 //! # Running
 //!
@@ -150,7 +221,7 @@ fn main() {
     let cell_r = |r: f64| cell_radius(r, cu);
 
     if std::env::var("MODE").as_deref() == Ok("images") {
-        draw(&radii, cell_r);
+        draw(&radii, cu, cell_r);
         return;
     }
 
@@ -244,7 +315,7 @@ fn main() {
 
 /// Draw what the solver sees: an x-y slice through the centre of each cell,
 /// coloured by material, from the assembled geometry.
-fn draw(radii: &[f64], cell_r: impl Fn(f64) -> f64) {
+fn draw(radii: &[f64], cu: f64, cell_r: impl Fn(f64) -> f64) {
     let out = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"))
         .join("verification_and_validation/tutorial_rung3/geometry");
     std::fs::create_dir_all(&out).expect("create image directory");
@@ -267,9 +338,11 @@ fn draw(radii: &[f64], cell_r: impl Fn(f64) -> f64) {
                 &geom,
                 &plot,
                 &pal,
-                &format!("rung 3: lump radius {r} cm, cell radius {big_r:.3} cm, white"),
+                &format!("rung 3: lump radius {r} cm, cell radius {big_r:.3} cm, white, N_C/N_U {cu}"),
             );
-            let path = out.join(format!("ws_cell_r{:05.2}cm_{tag}.png", r));
+            // The default ratio keeps the original names; another ratio says so.
+            let suffix = if cu == 600.0 { String::new() } else { format!("_cu{cu}") };
+            let path = out.join(format!("ws_cell_r{:05.2}cm_{tag}{suffix}.png", r));
             img.write_png(&path).expect("write png");
             println!("wrote {}", path.display());
         }
