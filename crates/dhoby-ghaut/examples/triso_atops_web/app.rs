@@ -6,7 +6,7 @@
 
 use crate::engine::{
     Event, Frame, Request, Series, DECAY_NUCLIDES, GEOMETRIES, LAYER_NUCLIDES, POPULATION,
-    RELEASE_FLOWS, RELEASE_FLOWS_AT, RELEASE_NUCLIDES,
+    rel, release_dims, release_header, release_value, GROUPS, RELEASE_SKIPPED,
 };
 use crate::rungs::Rung;
 use dhoby_ghaut::web_demo::lesson::{self, Rung as _};
@@ -68,7 +68,9 @@ struct Controls {
     o2_kpa: f64,
     steam_kpa: f64,
     h2_kpa: f64,
-    release_nuclide: u8,
+    /// What the release rung shows: [`PICK_ALL`], a group
+    /// (`PICK_GROUP + g`) or one nuclide (`PICK_ONE + i`).
+    release_pick: u8,
     f_hm: f64,
     k_plate: f64,
     k_clean: f64,
@@ -99,7 +101,7 @@ impl Default for Controls {
             o2_kpa: 21.3,
             steam_kpa: 5.0,
             h2_kpa: 0.0,
-            release_nuclide: 0,
+            release_pick: PICK_ALL,
             // NP-MHTGR reference case (TRISO-ATOPS's shipped reference).
             f_hm: 1.0e-4,
             // Stoyer et al. 2026 Case A, Table 3 (sembawang's
@@ -120,7 +122,7 @@ enum Key {
     Layers(u8, u64),
     Failure([u64; 4]),
     Chemistry([u64; 3]),
-    Release(u8, [u64; 7]),
+    Release([u64; 7]),
     None,
 }
 
@@ -219,7 +221,6 @@ impl TrisoApp {
             ]),
             Rung::Chemistry => Key::Chemistry([bits(c.o2_kpa), bits(c.steam_kpa), bits(c.h2_kpa)]),
             Rung::Release => Key::Release(
-                c.release_nuclide,
                 [
                     bits(c.irr_c),
                     bits(c.hold_c),
@@ -277,7 +278,6 @@ impl TrisoApp {
             },
             Rung::Release => Request::Release {
                 id,
-                nuclide: c.release_nuclide,
                 irr_c: c.irr_c,
                 hold_c: c.hold_c,
                 hours: c.hours,
@@ -532,13 +532,24 @@ impl TrisoApp {
                     if ui.button(if c.playing { "Pause" } else { "Play" }).clicked() {
                         c.playing = !c.playing;
                     }
-                    egui::ComboBox::from_label("nuclide")
-                        .selected_text(RELEASE_NUCLIDES[c.release_nuclide as usize].0)
-                        .show_ui(ui, |ui| {
-                            for (i, n) in RELEASE_NUCLIDES.iter().enumerate() {
-                                ui.selectable_value(&mut c.release_nuclide, i as u8, n.0);
-                            }
-                        });
+                    if let Some(f) = f {
+                        let (n, _) = release_dims(f);
+                        egui::ComboBox::from_label("show")
+                            .selected_text(pick_label(f, c.release_pick))
+                            .show_ui(ui, |ui| {
+                                ui.selectable_value(&mut c.release_pick, PICK_ALL, pick_label(f, PICK_ALL));
+                                for g in 0..GROUPS.len() {
+                                    if f.tags.iter().any(|t| *t as usize == g) {
+                                        let p = PICK_GROUP + g as u8;
+                                        ui.selectable_value(&mut c.release_pick, p, pick_label(f, p));
+                                    }
+                                }
+                                for i in 0..n {
+                                    let p = PICK_ONE + i as u8;
+                                    ui.selectable_value(&mut c.release_pick, p, pick_label(f, p));
+                                }
+                            });
+                    }
                     ui.add(
                         egui::Slider::new(&mut c.f_hm, 1.0e-6..=1.0e-3)
                             .logarithmic(true)
@@ -547,12 +558,12 @@ impl TrisoApp {
                     ui.add(
                         egui::Slider::new(&mut c.k_plate, 1.0e-7..=1.0e-2)
                             .logarithmic(true)
-                            .text("k_plate, 1/s (halogens)"),
+                            .text("k_plate, 1/s (halogens, metals)"),
                     );
                     ui.add(
                         egui::Slider::new(&mut c.k_clean, 1.0e-7..=1.0e-2)
                             .logarithmic(true)
-                            .text("k_clean, 1/s"),
+                            .text("k_clean, 1/s (noble gases, halogens)"),
                     );
                     ui.checkbox(&mut c.leak_on, "primary-circuit leak");
                     if c.leak_on {
@@ -569,15 +580,38 @@ impl TrisoApp {
                         c.k_clean = d.k_clean;
                         c.leak_on = d.leak_on;
                     }
-                    ui.label(format!(
-                        "Core inventory (Liu & Cao 2002 Table 1): {:.3e} Bq; half-life {}. Source S: {:.3e} atoms/s at normal operation, {:.3e} at the end of the hold (in-service failure {:.2e}).",
-                        s(0), human_time(s(1)), s(2), s(3), s(4)
-                    ));
+                    if let Some(f) = f {
+                        let nucs = selected_nuclides(f, c.release_pick);
+                        let (_, p) = release_dims(f);
+                        let inv: f64 = nucs.iter().map(|&i| release_header(f, i, 0)).sum();
+                        let src = |pt: usize| nucs.iter().map(|&i| release_value(f, i, pt, rel::S)).sum::<f64>();
+                        let half = match nucs.as_slice() {
+                            [one] => format!("; half-life {}", human_time(std::f64::consts::LN_2 / release_header(f, *one, 1))),
+                            _ => String::new(),
+                        };
+                        if p > 0 {
+                            ui.label(format!(
+                                "{}: core inventory {inv:.3e} Bq (Liu & Cao 2002 Table 1){half}. Source S into the helium: {:.3e} atoms/s at normal operation, {:.3e} at the end of the hold (in-service failure {:.2e}).",
+                                pick_label(f, c.release_pick),
+                                src(0),
+                                src(p - 1),
+                                f.series.first().and_then(|s| s.ys.last()).copied().unwrap_or(f64::NAN)
+                            ));
+                        }
+                        let skipped: Vec<&str> = f.names.iter().filter_map(|n| n.strip_prefix(RELEASE_SKIPPED)).collect();
+                        if !skipped.is_empty() {
+                            ui.label(format!(
+                                "In the inventory but not in TRISO-ATOPS's nuclide table, so not shown: {}.",
+                                skipped.join(", ")
+                            ));
+                        }
+                    }
+                    ui.label("Each nuclide goes through TRISO-ATOPS's own chain: diffusion coefficients, <R/B>_fail (noble-gas fit for the volatiles, Booth diffusion for Cs and Sr, SiC breakthrough for Ag), the release rate, the matrix-graphite attenuation (metals are held up in the fuel element's graphite; volatiles pass straight through), then upstream's routing: noble gases do not plate out, and the purification system scrubs noble gases and halogens but not metals. No parent in-growth: I-135 decaying to Xe-135 is not followed (live_pools). Silver (Ag-110m) is zero at normal operation: in TRISO-ATOPS's breakthrough model it has not yet crossed intact SiC at the irradiation temperature (the membrane time lag); during a hot hold it does. During the hold this is TRISO-ATOPS's steady normal-operation release evaluated at the hold temperature, not its accident model (sembawang's, which depletes the kernel); the metals' Booth release is the one that differs most. Kernel radius 213 µm, SiC 35 µm, grain 10 µm and the 40-year run are the NP-MHTGR reference case, not HTR-10 values.");
                     ui.label(format!(
                         "The diagram: the fuel feeds the circulating helium at S; the helium loses atoms to plate-out (k_plate C), the purification system (k_clean C), a leak out of the circuit (k_leak C) and decay (λC); the plated and purified pools lose atoms only to decay. Arrow width and the number of dots show each flow on a log scale; the dots' speed is not physical. Playing moves \"now\" through the hold at {:.0} h per second.",
                         c.hours / 10.0
                     ));
-                    ui.label("Defaults: f_hm from the NP-MHTGR case TRISO-ATOPS ships; k_plate and k_clean from Stoyer et al. 2026 Case A Table 3. The pools start at normal-operation equilibrium and are carried through the hold exactly (live_pools, not a port). <R/B> uses the hold temperature. Air ingress releases exactly 0 Bq in this model (#446): it has no oxidation path.");
+                    ui.label("Defaults: f_hm from the NP-MHTGR case TRISO-ATOPS ships; k_plate and k_clean from Stoyer et al. 2026 Case A Table 3. The pools start from a 40-year run at the irradiation temperature (long-lived Cs-137 plate-out is still growing then, as in upstream's normal operation) and are carried through the hold exactly (live_pools, not a port). <R/B> uses the hold temperature. Air ingress releases exactly 0 Bq in this model (#446): it has no oxidation path.");
                 }
             }
             Rung::Chemistry => {
@@ -668,14 +702,18 @@ impl TrisoApp {
                 let strip = (rect.height() * 0.5).clamp(240.0, 460.0);
                 let r = Rect::from_min_max(area.min, Pos2::new(rect.right(), area.top() + strip));
                 if let Some(f) = &self.frame {
-                    let nuclide = RELEASE_NUCLIDES[self.c.release_nuclide as usize].0;
-                    draw_pools(&painter, r, f, nuclide, self.c.cursor_h, now_s(), self.plot_text);
+                    draw_pools(&painter, r, f, self.c.release_pick, self.c.cursor_h, now_s(), self.plot_text);
                 }
                 area = Rect::from_min_max(Pos2::new(rect.left(), r.bottom()), rect.max);
             }
             let specs = self.plot_specs();
             if let Some(f) = &self.frame {
-                draw_panels(&painter, area, &f.series, &specs, self.plot_text);
+                if self.rung == Rung::Release {
+                    let series = release_series(f, self.c.release_pick);
+                    draw_panels(&painter, area, &series, &specs, self.plot_text);
+                } else {
+                    draw_panels(&painter, area, &f.series, &specs, self.plot_text);
+                }
             }
         }
         if let Some(e) = &self.error {
@@ -957,18 +995,96 @@ fn draw_population(painter: &egui::Painter, rect: Rect, tags: &[f64], text: f32)
     );
 }
 
-/// `v` at `x` on the polyline `(xs, v)`, linear in x (the accident steps are
-/// short against every curve's change), clamped to its ends.
-fn at_hour(xs: &[f64], v: &[f64], x: f64) -> f64 {
-    match xs.iter().position(|&h| h >= x) {
-        None => v.last().copied().unwrap_or(0.0),
-        Some(0) => v.first().copied().unwrap_or(0.0),
+/// The release rung's selection: everything, one transport group, or one
+/// nuclide (see `Controls::release_pick`).
+const PICK_ALL: u8 = 0;
+const PICK_GROUP: u8 = 1;
+const PICK_ONE: u8 = 10;
+
+/// Colours of TRISO-ATOPS's transport groups, in [`GROUPS`] order: the dots
+/// of the diagram.
+const GROUP_COLOURS: [Color32; 5] = [
+    Color32::from_rgb(110, 210, 255),
+    Color32::from_rgb(205, 140, 255),
+    Color32::from_rgb(255, 170, 80),
+    Color32::from_rgb(235, 235, 245),
+    Color32::from_rgb(140, 230, 140),
+];
+
+/// The nuclides (frame indices) a pick selects.
+fn selected_nuclides(f: &Frame, pick: u8) -> Vec<usize> {
+    let (n, _) = release_dims(f);
+    (0..n)
+        .filter(|&i| match pick {
+            PICK_ALL => true,
+            p if p >= PICK_ONE => i == (p - PICK_ONE) as usize,
+            p => f.tags.get(i).map(|t| *t as u8) == Some(p - PICK_GROUP),
+        })
+        .collect()
+}
+
+fn pick_label(f: &Frame, pick: u8) -> String {
+    let (n, _) = release_dims(f);
+    match pick {
+        PICK_ALL => format!("all {n} nuclides"),
+        p if p >= PICK_ONE => {
+            let i = (p - PICK_ONE) as usize;
+            match (f.names.get(i), f.tags.get(i)) {
+                (Some(name), Some(t)) => format!("{name} ({})", GROUPS[*t as usize]),
+                _ => "—".into(),
+            }
+        }
+        p => format!("all {}", GROUPS[(p - PICK_GROUP) as usize]),
+    }
+}
+
+/// `release_value` of nuclide `nuc` at `hour`, linear between the accident
+/// steps (short against every curve's change), clamped to the ends.
+fn at_cursor(f: &Frame, nuc: usize, k: usize, hour: f64) -> f64 {
+    let Some(xs) = f.series.first().map(|s| &s.xs) else { return 0.0 };
+    let v = |pt: usize| release_value(f, nuc, pt, k);
+    match xs.iter().position(|&h| h >= hour) {
+        None => v(xs.len() - 1),
+        Some(0) => v(0),
         Some(i) => {
             let (h0, h1) = (xs[i - 1], xs[i]);
-            let w = if h1 > h0 { (x - h0) / (h1 - h0) } else { 1.0 };
-            v[i - 1] + w * (v[i] - v[i - 1])
+            let w = if h1 > h0 { (hour - h0) / (h1 - h0) } else { 1.0 };
+            v(i - 1) + w * (v(i) - v(i - 1))
         }
     }
+}
+
+/// The plots for a pick: sums over its nuclides (pools as activity, Bq =
+/// lambda x atoms; the source and the leak as atoms).
+fn release_series(f: &Frame, pick: u8) -> Vec<Series> {
+    let nucs = selected_nuclides(f, pick);
+    let (_, p) = release_dims(f);
+    let Some(xs) = f.series.first().map(|s| s.xs.clone()) else { return Vec::new() };
+    let sum = |k: usize, bq: bool| -> Vec<f64> {
+        (0..p)
+            .map(|pt| {
+                nucs.iter()
+                    .map(|&i| release_value(f, i, pt, k) * if bq { release_header(f, i, 1) } else { 1.0 })
+                    .sum()
+            })
+            .collect()
+    };
+    let line = |label: &str, colour: u8, panel: u8, ys: Vec<f64>| Series {
+        label: label.into(),
+        style: 1,
+        colour,
+        panel,
+        xs: xs.clone(),
+        ys,
+    };
+    vec![
+        line("source into the helium S, atoms/s", 1, 0, sum(rel::S, false)),
+        line("circulating activity, Bq", 0, 0, sum(rel::C, true)),
+        line("plated out, Bq", 5, 0, sum(rel::P, true)),
+        line("in the purification system, Bq", 2, 0, sum(rel::H, true)),
+        line("held in the fuel elements' matrix graphite, Bq", 4, 0, sum(rel::G, true)),
+        line("leaked from the circuit (cumulative atoms)", 3, 1, sum(rel::LEAKED, false)),
+    ]
 }
 
 /// Where the boundary of a `half`-sized box centred at `c` is crossed by the
@@ -979,29 +1095,65 @@ fn box_edge(c: Pos2, half: Vec2, to: Pos2) -> Pos2 {
     c + d * t.min(1.0)
 }
 
-/// Rung 7's living diagram: the fuel, the circulating helium and the three
-/// places atoms go from it (plated out, held in the purification system,
-/// leaked out of the circuit), each pool's content at "now" and each flow
-/// between them as an arrow whose width and dot count grow with the flow (log
-/// scale). Decay leaves every pool as dots rising and fading. The numbers are
-/// the engine's (`live_pools`' pools and the terms of its balances); only the
+/// Spread `n` dots over the groups in proportion to `shares` (every group
+/// with at least 2 % of the flow gets one), interleaved along the arrow.
+fn dot_groups(shares: &[f64; 5], n: usize) -> Vec<usize> {
+    let total: f64 = shares.iter().sum();
+    if total <= 0.0 {
+        return Vec::new();
+    }
+    let counts: Vec<usize> = shares
+        .iter()
+        .map(|s| {
+            let x = s / total;
+            if x >= 0.02 { ((x * n as f64).round() as usize).max(1) } else { 0 }
+        })
+        .collect();
+    let mut out = Vec::new();
+    let most = counts.iter().copied().max().unwrap_or(0);
+    for round in 0..most {
+        for (g, c) in counts.iter().enumerate() {
+            if round < *c {
+                out.push(g);
+            }
+        }
+    }
+    out
+}
+
+/// Rung 7's living diagram, for every nuclide the pick selects: the fuel (a
+/// TRISO particle in its fuel element's matrix graphite) feeds the
+/// circulating helium, which loses atoms to plate-out, the purification
+/// system, a leak out of the circuit and decay. Each pool shows its activity
+/// at "now"; each flow is an arrow whose width and dot count grow with it
+/// (log scale), its dots coloured by transport group in proportion to each
+/// group's share of that flow. Every number is the engine's (`live_pools`'
+/// pools, the terms of its balances, `base_activities`' hold-up); only the
 /// dots' motion is illustration.
-fn draw_pools(painter: &egui::Painter, rect: Rect, f: &Frame, nuclide: &str, now_h: f64, t: f64, text: f32) {
+fn draw_pools(painter: &egui::Painter, rect: Rect, f: &Frame, pick: u8, now_h: f64, t: f64, text: f32) {
     let painter = painter.with_clip_rect(rect);
-    let sc = |i: usize| f.scalars.get(i).copied().unwrap_or(0.0);
-    let n = sc(RELEASE_FLOWS_AT - 1) as usize;
-    let Some(hours) = f.series.first().map(|s| &s.xs) else { return };
-    if n == 0 || hours.len() != n || f.scalars.len() < RELEASE_FLOWS_AT + n * RELEASE_FLOWS {
+    let nucs = selected_nuclides(f, pick);
+    if nucs.is_empty() {
         return;
     }
-    let flow = |k: usize| {
-        let v: Vec<f64> = (0..n).map(|i| sc(RELEASE_FLOWS_AT + i * RELEASE_FLOWS + k)).collect();
-        at_hour(hours, &v, now_h)
+    let lam = |i: usize| release_header(f, i, 1);
+    // Totals and per-group shares at "now".
+    let total = |k: usize, bq: bool| -> f64 {
+        nucs.iter().map(|&i| at_cursor(f, i, k, now_h) * if bq { lam(i) } else { 1.0 }).sum()
     };
-    let pool = |series: usize| f.series.get(series).map(|s| at_hour(&s.xs, &s.ys, now_h)).unwrap_or(0.0);
-    let (kp, kl) = (sc(10), sc(12));
-    let q: Vec<f64> = (0..RELEASE_FLOWS).map(flow).collect();
-    let (c_bq, p_bq, h_bq, leaked) = (pool(1), pool(2), pool(3), pool(4));
+    let shares = |k: usize| -> [f64; 5] {
+        let mut g = [0.0; 5];
+        for &i in &nucs {
+            g[(f.tags[i] as usize).min(4)] += at_cursor(f, i, k, now_h);
+        }
+        g
+    };
+    let flows = [rel::S, rel::Q_PLATE, rel::Q_CLEAN, rel::Q_LEAK, rel::D_C, rel::D_P, rel::D_H];
+    let q: Vec<f64> = flows.iter().map(|&k| total(k, false)).collect();
+    let (c_bq, p_bq, h_bq, g_bq) = (total(rel::C, true), total(rel::P, true), total(rel::H, true), total(rel::G, true));
+    let leaked = total(rel::LEAKED, false);
+    let inventory: f64 = nucs.iter().map(|&i| release_header(f, i, 0)).sum();
+    let any_rate = |k: usize| nucs.iter().any(|&i| release_header(f, i, k) > 0.0);
     // Log scale for widths and dots: six decades below the largest flow.
     let top = q.iter().cloned().fold(0.0f64, f64::max).max(1e-300).log10();
     let norm = |v: f64| if v > 0.0 { ((v.log10() - (top - 6.0)) / 6.0).clamp(0.0, 1.0) as f32 } else { 0.0 };
@@ -1012,43 +1164,52 @@ fn draw_pools(painter: &egui::Painter, rect: Rect, f: &Frame, nuclide: &str, now
     painter.text(
         rect.left_top() + Vec2::new(12.0, 8.0),
         egui::Align2::LEFT_TOP,
-        format!("{nuclide} in the primary circuit at {now_h:.0} h of the hold"),
+        format!("{} in the primary circuit at {now_h:.0} h of the hold", pick_label(f, pick)),
         font.clone(),
         Color32::WHITE,
     );
+    // Group legend, the groups present.
+    let mut x = rect.left() + 12.0;
+    let ly = rect.top() + 14.0 + text * 1.5;
+    for g in 0..5 {
+        if nucs.iter().any(|&i| f.tags[i] as usize == g) {
+            painter.circle_filled(Pos2::new(x + 5.0, ly), 4.5, GROUP_COLOURS[g]);
+            let gl = painter.layout_no_wrap(GROUPS[g].to_string(), small.clone(), Color32::LIGHT_GRAY);
+            let w = gl.size().x;
+            painter.galley(Pos2::new(x + 13.0, ly - gl.size().y / 2.0), gl, Color32::LIGHT_GRAY);
+            x += w + 26.0;
+        }
+    }
+    let narrow = rect.width() < 600.0;
     let body = Rect::from_min_max(
-        rect.min + Vec2::new(0.0, 14.0 + text * 1.6),
-        rect.max - Vec2::new(0.0, if rect.width() < 600.0 { text * 3.2 } else { text * 1.6 }),
+        rect.min + Vec2::new(0.0, 22.0 + text * 2.6),
+        rect.max - Vec2::new(0.0, if narrow { text * 3.2 } else { text * 1.6 }),
     );
     // Positions (fractions of the body): left to right when wide, top to
     // bottom on a phone.
     let wide = body.width() > body.height() * 1.5;
     let at = |x: f32, y: f32| Pos2::new(body.left() + x * body.width(), body.top() + y * body.height());
     let (fuel, he, plate, hps, leak) = if wide {
-        (at(0.13, 0.5), at(0.45, 0.5), at(0.85, 0.17), at(0.85, 0.5), at(0.85, 0.83))
+        (at(0.12, 0.5), at(0.45, 0.5), at(0.85, 0.17), at(0.85, 0.5), at(0.85, 0.83))
     } else {
-        (at(0.5, 0.11), at(0.5, 0.45), at(0.17, 0.85), at(0.5, 0.85), at(0.83, 0.85))
+        (at(0.5, 0.12), at(0.5, 0.5), at(0.17, 0.87), at(0.5, 0.87), at(0.83, 0.87))
     };
     let bw = if wide { (body.width() * 0.2).min(230.0) } else { (body.width() * 0.31).min(200.0) };
     let half = Vec2::new(bw / 2.0, (text * 2.4).max(26.0));
-    let colours = [
-        Color32::from_rgb(192, 57, 43),   // fuel
-        PALETTE[0],                       // helium
-        PALETTE[5],                       // plated
-        PALETTE[2],                       // purification
-        PALETTE[3],                       // leaked
-    ];
+    // The fuel element: a disc of matrix graphite with one TRISO particle.
+    let pebble = if wide { (body.height() * 0.36).min(body.width() * 0.1) } else { (body.height() * 0.115).min(body.width() * 0.2) };
+    let fuel_half = Vec2::splat(pebble);
+    let colours = [Color32::from_rgb(192, 57, 43), PALETTE[0], PALETTE[5], PALETTE[2], PALETTE[3]];
 
-    // Arrows first, so the boxes sit on top of their ends.
-    // `along`: where on the arrow its label sits (the fan-out from the
-    // helium is crowded near the helium on a phone).
-    let arrow = |from: Pos2, to: Pos2, v: f64, colour: Color32, label: String, phase: f64, along: f32| {
-        let (a, b) = (box_edge(from, half, to), box_edge(to, half, from));
+    // Arrows first, so the boxes sit on top of their ends. `along`: where on
+    // the arrow its label sits (the fan-out is crowded on a phone).
+    let arrow = |from: Pos2, fh: Vec2, to: Pos2, v: f64, sh: [f64; 5], colour: Color32, label: String, phase: f64, along: f32| {
+        let (a, b) = (box_edge(from, fh, to), box_edge(to, half, from));
         let w = norm(v);
         if v <= 0.0 {
             painter.extend(egui::Shape::dashed_line(&[a, b], Stroke::new(1.0, Color32::from_gray(80)), 6.0, 5.0));
         } else {
-            painter.line_segment([a, b], Stroke::new(1.5 + 5.0 * w, colour.gamma_multiply(0.45)));
+            painter.line_segment([a, b], Stroke::new(1.5 + 5.0 * w, colour.gamma_multiply(0.35)));
             let dir = (b - a).normalized();
             let tip = b - dir * 2.0;
             let side = Vec2::new(-dir.y, dir.x) * (5.0 + 3.0 * w);
@@ -1057,10 +1218,11 @@ fn draw_pools(painter: &egui::Painter, rect: Rect, f: &Frame, nuclide: &str, now
                 colour,
                 Stroke::NONE,
             ));
-            let dots = 1 + (w * 11.0).round() as usize;
-            for k in 0..dots {
-                let s = ((t * 0.35 + phase + k as f64 / dots as f64) % 1.0) as f32;
-                painter.circle_filled(a + (b - a) * s, 2.0 + 1.5 * w, colour);
+            let groups = dot_groups(&sh, 1 + (w * 13.0).round() as usize);
+            let n = groups.len().max(1);
+            for (k, g) in groups.iter().enumerate() {
+                let s = ((t * 0.35 + phase + k as f64 / n as f64) % 1.0) as f32;
+                painter.circle_filled(a + (b - a) * s, 2.2 + 1.3 * w, GROUP_COLOURS[*g]);
             }
         }
         let mid = a + (b - a) * along;
@@ -1071,25 +1233,21 @@ fn draw_pools(painter: &egui::Painter, rect: Rect, f: &Frame, nuclide: &str, now
     };
     let per_s = |v: f64| format!("{v:.2e} /s");
     let side = if wide { 0.5 } else { 0.7 };
-    arrow(fuel, he, q[0], colours[0], format!("S {}", per_s(q[0])), 0.0, 0.5);
+    arrow(fuel, fuel_half, he, q[0], shares(rel::S), colours[0], format!("S {}", per_s(q[0])), 0.0, 0.5);
     arrow(
-        he,
-        plate,
-        q[1],
-        colours[2],
-        if kp > 0.0 { format!("plate-out {}", per_s(q[1])) } else { "no plate-out (noble gas)".into() },
-        0.13,
-        side,
+        he, half, plate, q[1], shares(rel::Q_PLATE), colours[2],
+        if any_rate(2) { format!("plate-out {}", per_s(q[1])) } else { "no plate-out (noble gases)".into() },
+        0.13, side,
     );
-    arrow(he, hps, q[2], colours[3], format!("clean-up {}", per_s(q[2])), 0.37, if wide { 0.5 } else { 0.4 });
     arrow(
-        he,
-        leak,
-        q[3],
-        colours[4],
-        if kl > 0.0 { format!("leak {}", per_s(q[3])) } else { "leak off".into() },
-        0.61,
-        side,
+        he, half, hps, q[2], shares(rel::Q_CLEAN), colours[3],
+        if any_rate(3) { format!("clean-up {}", per_s(q[2])) } else { "no clean-up (the HPS does not scrub metals)".into() },
+        0.37, if wide { 0.5 } else { 0.4 },
+    );
+    arrow(
+        he, half, leak, q[3], shares(rel::Q_LEAK), colours[4],
+        if any_rate(4) { format!("leak {}", per_s(q[3])) } else { "leak off".into() },
+        0.61, side,
     );
 
     // Decay: dots rising out of each pool and fading.
@@ -1110,7 +1268,48 @@ fn draw_pools(painter: &egui::Painter, rect: Rect, f: &Frame, nuclide: &str, now
     decay(plate, q[5], 0.3);
     decay(hps, q[6], 0.6);
 
-    // The boxes: name, content at "now", and a gauge of its decade.
+    // The fuel element and its particle. The SiC is drawn cracked: only a
+    // failed or contaminated particle (or, for silver, diffusion through
+    // intact SiC) releases. Atoms leave the kernel through the crack, cross
+    // the matrix graphite (where the metals are held up) and enter the
+    // helium.
+    let toward = (box_edge(he, half, fuel) - fuel).normalized();
+    painter.circle_filled(fuel, pebble, Color32::from_rgb(52, 56, 62));
+    painter.circle_stroke(fuel, pebble, Stroke::new(1.5, colours[0]));
+    let rp = pebble * 0.55;
+    // HTR-10 particle proportions (radii 250, 340, 380, 415, 455 µm).
+    let radii = [250.0f32, 340.0, 380.0, 415.0, 455.0].map(|r| rp * r / 455.0);
+    for k in (0..5).rev() {
+        painter.circle_filled(fuel, radii[k], REGIONS[k].0);
+    }
+    let crack_angle = toward.y.atan2(toward.x);
+    for d in [-0.18f32, -0.06, 0.06, 0.18] {
+        let a = crack_angle + d;
+        let u = Vec2::new(a.cos(), a.sin());
+        painter.line_segment([fuel + u * radii[2], fuel + u * radii[4]], Stroke::new(1.6, Color32::from_rgb(52, 56, 62)));
+    }
+    let src = shares(rel::S);
+    let groups = dot_groups(&src, 3 + (norm(q[0]) * 9.0).round() as usize);
+    let n = groups.len().max(1);
+    for (k, g) in groups.iter().enumerate() {
+        let s = ((t * 0.3 + k as f64 / n as f64) % 1.0) as f32;
+        // A small fan around the crack, from the kernel to the pebble's rim.
+        let a = crack_angle + ((k as f32 * 2.399).sin()) * 0.25;
+        let u = Vec2::new(a.cos(), a.sin());
+        painter.circle_filled(fuel + u * (radii[0] * 0.3 + s * (pebble - radii[0] * 0.3)), 2.2, GROUP_COLOURS[*g]);
+    }
+    let label_at = if wide { fuel + Vec2::new(0.0, pebble + text * 0.9) } else { fuel + Vec2::new(-pebble - 6.0, 0.0) };
+    let align = if wide { egui::Align2::CENTER_TOP } else { egui::Align2::RIGHT_CENTER };
+    let fuel_text = if g_bq > 0.0 {
+        format!("fuel element\ncore {inventory:.2e} Bq\nmatrix graphite {g_bq:.2e} Bq")
+    } else {
+        format!("fuel element\ncore {inventory:.2e} Bq")
+    };
+    let gl = painter.layout(fuel_text, small.clone(), Color32::LIGHT_GRAY, if wide { bw * 1.3 } else { body.width() * 0.3 });
+    let r = align.anchor_size(label_at, gl.size());
+    painter.galley(r.min, gl, Color32::LIGHT_GRAY);
+
+    // The pools: name, content at "now", and a gauge of its decade.
     let pools_bq = [c_bq, p_bq, h_bq];
     let top_bq = pools_bq.iter().cloned().fold(0.0f64, f64::max).max(1e-300).log10();
     let boxed = |c: Pos2, colour: Color32, name: &str, value: String, gauge: Option<f64>| {
@@ -1125,14 +1324,13 @@ fn draw_pools(painter: &egui::Painter, rect: Rect, f: &Frame, nuclide: &str, now
         painter.text(c - Vec2::new(0.0, text * 0.6), egui::Align2::CENTER_CENTER, name, font.clone(), Color32::WHITE);
         painter.text(c + Vec2::new(0.0, text * 0.75), egui::Align2::CENTER_CENTER, value, small.clone(), Color32::LIGHT_GRAY);
     };
-    boxed(fuel, colours[0], "fuel (failed particles)", format!("core {:.2e} Bq", sc(0)), None);
     boxed(he, colours[1], "circulating helium", format!("{c_bq:.2e} Bq"), Some(c_bq));
     boxed(plate, colours[2], "plated out", format!("{p_bq:.2e} Bq"), Some(p_bq));
     boxed(hps, colours[3], "purification (HPS)", format!("{h_bq:.2e} Bq"), Some(h_bq));
     boxed(leak, colours[4], "left the circuit", format!("{leaked:.2e} atoms"), None);
 
     let note = painter.layout(
-        "Box fill: the pool's activity, 8 decades. Arrow width and dots: the flow, 6 decades (log). Rising dots: decay. Dot speed is not physical.".into(),
+        "Dots: colour = transport group, number = share of the flow. Box fill: activity, 8 decades. Arrow width: the flow, 6 decades (log). Rising dots: decay. Dot speed is not physical; the particle is HTR-10's, drawn cracked.".into(),
         small,
         Color32::GRAY,
         rect.width() - 24.0,

@@ -16,7 +16,7 @@
 //! | 4 `layers` | `try_get_diffusion_coeff_jiang` per layer, `first_passage::interface::transmission_probability` |
 //! | 5 `failure` | `fuel_failure::htr10::particle` / `end_of_irradiation_failure`, `AccidentHistory::step`, `pressure_at`, `induced_stress_with_thinning_factor` |
 //! | 6 `chemistry` | `chemistry::{graphite_air, graphite_steam, kernel_hydrolysis}` |
-//! | 7 `release` | rung 5's history, `rb_fail_noble_gases`, `FailureFractions::with_fuel_failure_incremental`, `release_rate`, `base_activities`, `live_pools::step`; inventory from `changi::activity::inventory` (Liu & Cao 2002 Table 1); the pool diagram's arrows are the terms of `live_pools`' balances evaluated on the pools it returned |
+//! | 7 `release` | every nuclide of the inventory that TRISO-ATOPS's table carries (19 of 22), each through `normal_operation_node`'s chain: `diffusion_coefficient`, `rb_fail`, `release_rate`, `base_activities`, upstream's removal routing, then `live_pools::step` through rung 5's history; inventory from `changi::activity::inventory` (Liu & Cao 2002 Table 1); the pool diagram's arrows are the terms of `live_pools`' balances evaluated on the pools it returned |
 //!
 //! The demo's own logic is bookkeeping only: which atom is which species at a
 //! time (rung 2), slicing each walker's walk into frames (rung 3: hop while
@@ -69,7 +69,10 @@ use boon_lay::triso_atops_fork::activities::live_pools::{self, PoolRates, Primar
 use boon_lay::triso_atops_fork::activities::source_terms::{
     base_activities, release_rate, FailureFractions,
 };
-use boon_lay::triso_atops_fork::release_models::steady_state::rb_fail_noble_gases;
+use boon_lay::triso_atops_fork::diffusion::diffusion_coefficient;
+use boon_lay::triso_atops_fork::nuclide_model::nuclide_database::find_nuclide;
+use boon_lay::triso_atops_fork::release_models::rb_fail;
+use boon_lay::triso_atops_fork::TrisoAtopsNuclide;
 use boon_lay::triso_atops_fork::ElementGroup;
 use boon_lay::Nuclide;
 use uom::si::diffusion_coefficient::square_meter_per_second;
@@ -117,21 +120,204 @@ pub const LAYER_NUCLIDES: [(&str, Nuclide); 4] = [
     ("Kr-85", Nuclide::Kr85),
 ];
 
-/// The release rung's nuclides: label, `Nuclide`, Z, transport group. Only
-/// volatiles: their `<R/B>_fail` is the empirical NP-MHTGR fit, which needs
-/// no grain size or kernel diffusion input the demo would have to invent.
-pub const RELEASE_NUCLIDES: [(&str, Nuclide, u32, ElementGroup); 3] = [
-    ("Kr-88", Nuclide::Kr88, 36, ElementGroup::NobleGas),
-    ("Xe-133", Nuclide::Xe133, 54, ElementGroup::NobleGas),
-    ("I-131", Nuclide::I131, 53, ElementGroup::Halogen),
-];
 
-/// Flows per point in the release rung's frame (scalars from
-/// [`RELEASE_FLOWS_AT`]): S, plate-out, clean-up, leak, then decay in the
-/// circulating, plated and purification pools, atoms/s.
-pub const RELEASE_FLOWS: usize = 7;
-/// Index of the first flow in the release rung's scalars.
-pub const RELEASE_FLOWS_AT: usize = 14;
+/// The release rung's frame, for every nuclide at once (the UI sums or
+/// filters them). `scalars` = `[n_nuclides, n_points]`, then per nuclide
+/// [`REL_HEADER`] values (inventory Bq, lambda 1/s, and the k_plate, k_clean,
+/// k_leak it was routed, 1/s) followed by [`REL_PER_POINT`] values per point
+/// (indices in [`rel`]). `names` are the nuclides in that order, then the
+/// inventory nuclides TRISO-ATOPS does not model, prefixed
+/// [`RELEASE_SKIPPED`]; `tags` the transport group of each modelled one
+/// ([`GROUPS`]); `series[0].xs` the hours of the hold.
+pub const REL_HEADER: usize = 5;
+pub const REL_PER_POINT: usize = 12;
+pub const RELEASE_SKIPPED: &str = "skip:";
+
+/// Indices within one point of the release frame. Pools in atoms, flows in
+/// atoms/s: they are the terms of `live_pools`' balances (its module doc)
+/// evaluated on the pools it returned, plus `base_activities`' graphite
+/// hold-up `G`.
+pub mod rel {
+    /// Source into the helium `S`.
+    pub const S: usize = 0;
+    /// Circulating `C`, plated `P`, purification `H`, cumulative leaked `L`.
+    pub const C: usize = 1;
+    pub const P: usize = 2;
+    pub const H: usize = 3;
+    pub const LEAKED: usize = 4;
+    /// `k_plate C`, `k_clean C`, `k_leak C`.
+    pub const Q_PLATE: usize = 5;
+    pub const Q_CLEAN: usize = 6;
+    pub const Q_LEAK: usize = 7;
+    /// Decay `lambda C`, `lambda P`, `lambda H`.
+    pub const D_C: usize = 8;
+    pub const D_P: usize = 9;
+    pub const D_H: usize = 10;
+    /// Held in the fuel element's matrix graphite (`base_activities`' `G`).
+    pub const G: usize = 11;
+}
+
+/// `(n_nuclides, n_points)` of a release frame (0, 0 for another rung's).
+pub fn release_dims(f: &Frame) -> (usize, usize) {
+    let n = f.scalars.first().copied().unwrap_or(0.0) as usize;
+    let p = f.scalars.get(1).copied().unwrap_or(0.0) as usize;
+    if f.scalars.len() == 2 + n * (REL_HEADER + p * REL_PER_POINT) {
+        (n, p)
+    } else {
+        (0, 0)
+    }
+}
+
+/// Header value `k` of nuclide `nuc` (0 inventory Bq, 1 lambda, 2-4 rates).
+pub fn release_header(f: &Frame, nuc: usize, k: usize) -> f64 {
+    let (_, p) = release_dims(f);
+    f.scalars[2 + nuc * (REL_HEADER + p * REL_PER_POINT) + k]
+}
+
+/// Value `k` ([`rel`]) of nuclide `nuc` at point `pt`.
+pub fn release_value(f: &Frame, nuc: usize, pt: usize, k: usize) -> f64 {
+    let (_, p) = release_dims(f);
+    f.scalars[2 + nuc * (REL_HEADER + p * REL_PER_POINT) + REL_HEADER + pt * REL_PER_POINT + k]
+}
+
+/// TRISO-ATOPS's transport groups, in the order of the frame's `tags`.
+pub const GROUPS: [&str; 5] = ["noble gases", "halogens", "Cs, Sr (special metals)", "silver", "other"];
+
+fn group_index(g: ElementGroup) -> usize {
+    match g {
+        ElementGroup::NobleGas => 0,
+        ElementGroup::Halogen => 1,
+        ElementGroup::SpecialMetal => 2,
+        ElementGroup::Silver => 3,
+        ElementGroup::Other => 4,
+    }
+}
+
+/// NP-MHTGR reference geometry and grain size, the case TRISO-ATOPS ships
+/// (pinned against upstream `de374c8` in
+/// `boon-lay/tests/triso_atops_fork_verification.rs`; `a_grain` from Stoyer
+/// et al. 2026 Case A Table 3, as `sembawang`'s `NormalOperation` carries
+/// it). The metals' `<R/B>_fail` needs them; the volatiles' does not.
+const NP_MHTGR_KERNEL_RADIUS_M: f64 = 213.0e-6;
+const NP_MHTGR_SIC_THICKNESS_M: f64 = 35.0e-6;
+const NP_MHTGR_GRAIN_SIZE_M: f64 = 1.0e-5;
+/// The plant's run before the accident, for the pools' starting state:
+/// NP-MHTGR reference, 40 upstream years (Stoyer Case A, `sembawang`'s
+/// `NormalOperation::np_mhtgr_reference`). Long-lived nuclides are NOT at
+/// equilibrium after it (Cs-137 plate-out still growing), as in upstream's
+/// `normal_operation`.
+const NP_MHTGR_RUN_TIME_S: f64 = 40.0 * 365.0 * 86_400.0;
+
+/// One nuclide through the hold: the same chain as
+/// `normal_operation_node` (diffusion coefficients, `rb_fail`,
+/// `release_rate`, `base_activities`, upstream's group routing of the
+/// removal constants), evaluated at the irradiation temperature for normal
+/// operation and at the hold temperature (with that step's in-service
+/// failure) for each step, then carried through the pools by
+/// `live_pools::step`. Returns the nuclide's block of the frame and its
+/// group.
+#[allow(clippy::too_many_arguments)]
+fn release_one(
+    nuc: &TrisoAtopsNuclide,
+    inventory_bq: f64,
+    t_irr: Time,
+    pts: &[AccidentPoint],
+    irr_c: f64,
+    hold_c: f64,
+    f_hm: f64,
+    [k_plate, k_clean, k_leak]: [f64; 3],
+) -> (Vec<f64>, ElementGroup) {
+    let group = nuc.element_group();
+    let lambda = nuc.decay_constant();
+    let lam = lambda.get::<hertz>();
+    let short_lived = nuc.half_life.get::<second>() / t_irr.get::<second>() < 0.2;
+    // Upstream's routing (normal_operation_node): noble gases do not plate
+    // out; the HPS scrubs noble gases and halogens only.
+    let (kp, kc) = match group {
+        ElementGroup::NobleGas => (0.0, k_clean),
+        ElementGroup::Halogen => (k_plate, k_clean),
+        _ => (k_plate, 0.0),
+    };
+    let rates = PoolRates {
+        decay: lam,
+        plate_out: kp,
+        clean_up: kc,
+        leak: k_leak,
+    };
+    let source = |temp_c: f64, f_inc: f64| -> (f64, f64) {
+        let t = celsius(temp_c);
+        let diff = diffusion_coefficient(nuc.z, t, t);
+        let rb = rb_fail(
+            nuc.z,
+            short_lived,
+            lambda,
+            t,
+            t_irr,
+            Length::new::<meter>(NP_MHTGR_GRAIN_SIZE_M),
+            Length::new::<meter>(NP_MHTGR_SIC_THICKNESS_M),
+            Length::new::<meter>(NP_MHTGR_KERNEL_RADIUS_M),
+            diff.kernel,
+        );
+        let fractions = FailureFractions {
+            heavy_metal: f_hm,
+            sic: NP_MHTGR_F_SIC,
+            incremental: f_inc,
+            incremental_sic: NP_MHTGR_F_INC_SIC,
+        };
+        let r = release_rate(
+            rb,
+            group,
+            fractions,
+            Frequency::new::<hertz>(inventory_bq),
+            short_lived,
+            t_irr,
+            lambda,
+        );
+        let sg = base_activities(
+            group,
+            lambda,
+            t_irr,
+            Length::new::<meter>(NP_MHTGR_A_GRAPH_M),
+            diff.graphite,
+            r,
+        );
+        (sg.source_rate, sg.graphite_activity)
+    };
+    // Normal operation: the plant's run from empty pools, at the
+    // irradiation temperature (upstream's normal_operation does the same with
+    // its closed forms; live_pools reproduces them from empty).
+    let (s0, g0) = source(irr_c, pts[0].in_service);
+    let (mut pools, _) = live_pools::step(PrimaryPools::default(), s0, rates, NP_MHTGR_RUN_TIME_S);
+    pools.leaked = 0.0;
+    let mut out = vec![inventory_bq, lam, kp, kc, k_leak];
+    let mut push = |s: f64, g: f64, pools: &PrimaryPools| {
+        let c = pools.circulating;
+        out.extend_from_slice(&[
+            s,
+            c,
+            pools.plate_out,
+            pools.clean_up,
+            pools.leaked,
+            kp * c,
+            kc * c,
+            k_leak * c,
+            lam * c,
+            lam * pools.plate_out,
+            lam * pools.clean_up,
+            g,
+        ]);
+    };
+    push(s0, g0, &pools);
+    for w in pts.windows(2) {
+        // The step's source at the hold temperature and the step's end
+        // failure fraction, held over the step.
+        let (s, g) = source(hold_c, w[1].in_service);
+        let dt = (w[1].hours - w[0].hours) * 3600.0;
+        pools = live_pools::step(pools, s, rates, dt).0;
+        push(s, g, &pools);
+    }
+    (out, group)
+}
 
 /// NP-MHTGR reference fractions upstream TRISO-ATOPS ships, pinned against
 /// upstream `de374c8` in `boon-lay/tests/triso_atops_fork_verification.rs`
@@ -193,10 +379,9 @@ pub enum Request {
         steam_kpa: f64,
         h2_kpa: f64,
     },
-    /// Rung 5's transient carried into the coolant pools for one volatile.
+    /// Rung 5's transient carried into the coolant pools, every nuclide.
     Release {
         id: u32,
-        nuclide: u8,
         irr_c: f64,
         hold_c: f64,
         hours: f64,
@@ -991,7 +1176,6 @@ impl Engine {
             }
             Request::Release {
                 id,
-                nuclide,
                 irr_c,
                 hold_c,
                 hours,
@@ -1000,169 +1184,56 @@ impl Engine {
                 k_clean,
                 k_leak,
             } => {
-                let (label, n, z, group) =
-                    RELEASE_NUCLIDES[(nuclide as usize).min(RELEASE_NUCLIDES.len() - 1)];
-                let inventory = changi::activity::inventory::htr10_core_inventory(label)
-                    .ok_or_else(|| format!("{label} is not in Liu & Cao's Table 1"))?;
-                let inventory_bq = inventory.get::<uom::si::radioactivity::becquerel>();
-                let lam = std::f64::consts::LN_2 / self.half_life_of(n)?;
-                let lambda = Frequency::new::<hertz>(lam);
                 let t_irr = Time::new::<day>(htr10::RESIDENCE_FULL_POWER_DAYS);
-                let fractions = |f_inc: f64| FailureFractions {
-                    heavy_metal: f_hm,
-                    sic: NP_MHTGR_F_SIC,
-                    incremental: f_inc,
-                    incremental_sic: NP_MHTGR_F_INC_SIC,
-                };
-                // Upstream's routing: noble gases do not plate out; only
-                // noble gases and halogens are cleaned up.
-                let rates = PoolRates {
-                    decay: lam,
-                    plate_out: if group == ElementGroup::NobleGas { 0.0 } else { k_plate },
-                    clean_up: k_clean,
-                    leak: k_leak,
-                };
-                // Short-lived (t½/t_irr < 0.2 upstream): birth rate = inventory.
-                let short_lived = (std::f64::consts::LN_2 / lam) / t_irr.get::<second>() < 0.2;
-                let source = |temp_c: f64, f_inc: f64| -> f64 {
-                    let rb = rb_fail_noble_gases(z, lambda, celsius(temp_c));
-                    let r = release_rate(
-                        rb,
-                        group,
-                        fractions(f_inc),
-                        Frequency::new::<hertz>(inventory_bq),
-                        short_lived,
-                        t_irr,
-                        lambda,
-                    );
-                    base_activities(
-                        group,
-                        lambda,
-                        t_irr,
-                        Length::new::<meter>(NP_MHTGR_A_GRAPH_M),
-                        DiffusionCoefficient::new::<square_meter_per_second>(0.0),
-                        r,
-                    )
-                    .source_rate
-                };
                 let pts = accident_points(irr_c, hold_c, hours);
-                // Normal operation first: the pools at equilibrium with the
-                // end-of-irradiation source (one exact step of 100 half-lives
-                // from empty, which live_pools reproduces from the closed
-                // forms).
-                let s0 = source(irr_c, pts[0].in_service);
-                let (mut pools, _) =
-                    live_pools::step(PrimaryPools::default(), s0, rates, 100.0 / lam.max(1e-12));
-                pools.leaked = 0.0;
-                let (mut hs, mut s_series, mut c, mut p, mut hps, mut leaked) =
-                    (vec![], vec![], vec![], vec![], vec![], vec![]);
-                // The pool diagram's arrows: at each point, the terms of the
-                // balances live_pools integrates (its module doc), atoms/s:
-                // S, k_plate C, k_clean C, k_leak C, then lambda C, lambda P,
-                // lambda H (decay in each pool). Bookkeeping on the pools the
-                // library returned, not a second model.
-                let mut flows: Vec<f64> = Vec::new();
-                let mut push = |h: f64, s: f64, pools: &PrimaryPools| {
-                    hs.push(h);
-                    s_series.push(s);
-                    c.push(lam * pools.circulating);
-                    p.push(lam * pools.plate_out);
-                    hps.push(lam * pools.clean_up);
-                    leaked.push(pools.leaked);
-                    flows.extend_from_slice(&[
-                        s,
-                        rates.plate_out * pools.circulating,
-                        rates.clean_up * pools.circulating,
-                        rates.leak * pools.circulating,
-                        lam * pools.circulating,
-                        lam * pools.plate_out,
-                        lam * pools.clean_up,
-                    ]);
-                };
-                push(0.0, s0, &pools);
-                let mut last_s = s0;
-                for w in pts.windows(2) {
-                    // The step's source at the hold temperature and the
-                    // step's end failure fraction, held over the step.
-                    let s = source(hold_c, w[1].in_service);
-                    let dt = (w[1].hours - w[0].hours) * 3600.0;
-                    pools = live_pools::step(pools, s, rates, dt).0;
-                    push(w[1].hours, s, &pools);
-                    last_s = s;
+                let n_pts = pts.len();
+                let mut names: Vec<String> = Vec::new();
+                let mut tags: Vec<f64> = Vec::new();
+                let mut skipped: Vec<String> = Vec::new();
+                let mut blocks: Vec<f64> = Vec::new();
+                for entry in changi::activity::inventory::htr10_equilibrium_core() {
+                    // TRISO-ATOPS's own nuclide table supplies Z, the
+                    // half-life and the transport group; a nuclide it does
+                    // not carry is listed, not invented.
+                    let Some(nuc) = find_nuclide(entry.nuclide) else {
+                        skipped.push(entry.nuclide.to_string());
+                        continue;
+                    };
+                    let inventory_bq = entry.activity.get::<uom::si::radioactivity::becquerel>();
+                    let (block, group) = release_one(
+                        &nuc,
+                        inventory_bq,
+                        t_irr,
+                        &pts,
+                        irr_c,
+                        hold_c,
+                        f_hm,
+                        [k_plate, k_clean, k_leak],
+                    );
+                    names.push(nuc.name.to_string());
+                    tags.push(group_index(group) as f64);
+                    blocks.extend(block);
                 }
-                let last = |v: &[f64]| v.last().copied().unwrap_or(0.0);
-                let end = [last(&c), last(&p), last(&hps), last(&leaked)];
+                for sk in skipped {
+                    names.push(format!("{RELEASE_SKIPPED}{sk}"));
+                }
+                let n_nuc = tags.len();
                 Ok(Frame {
                     id,
-                    series: vec![
-                        Series {
-                            label: "source into the helium S, atoms/s".into(),
-                            style: 1,
-                            colour: 1,
-                            panel: 0,
-                            xs: hs.clone(),
-                            ys: s_series,
-                        },
-                        Series {
-                            label: "circulating activity, Bq".into(),
-                            style: 1,
-                            colour: 0,
-                            panel: 0,
-                            xs: hs.clone(),
-                            ys: c,
-                        },
-                        Series {
-                            label: "plated out, Bq".into(),
-                            style: 1,
-                            colour: 5,
-                            panel: 0,
-                            xs: hs.clone(),
-                            ys: p,
-                        },
-                        Series {
-                            label: "in the purification system, Bq".into(),
-                            style: 1,
-                            colour: 2,
-                            panel: 0,
-                            xs: hs.clone(),
-                            ys: hps,
-                        },
-                        Series {
-                            label: "leaked from the circuit (cumulative atoms)".into(),
-                            style: 1,
-                            colour: 3,
-                            panel: 1,
-                            xs: hs,
-                            ys: leaked,
-                        },
-                    ],
-                    // Scalars: inventory Bq, half-life s, S0 and S_end
-                    // (atoms/s), end-of-transient in-service failure, then the
-                    // end pools (circulating Bq, plated Bq, HPS Bq, leaked
-                    // atoms); then the rates used [1/s] (lambda, k_plate as
-                    // routed, k_clean, k_leak) and the number of points n;
-                    // then RELEASE_FLOWS flows per point (see `flows` above),
-                    // at the hours of the series.
-                    scalars: [
-                        vec![
-                            inventory_bq,
-                            std::f64::consts::LN_2 / lam,
-                            s0,
-                            last_s,
-                            pts.last().map(|p| p.in_service).unwrap_or(0.0),
-                            end[0],
-                            end[1],
-                            end[2],
-                            end[3],
-                            lam,
-                            rates.plate_out,
-                            rates.clean_up,
-                            rates.leak,
-                            (flows.len() / RELEASE_FLOWS) as f64,
-                        ],
-                        flows,
-                    ]
-                    .concat(),
+                    // One series: the hold's hours, with the in-service
+                    // failure fraction (rung 5) as its values.
+                    series: vec![Series {
+                        label: "in-service failure fraction".into(),
+                        style: 1,
+                        colour: 4,
+                        panel: 9,
+                        xs: pts.iter().map(|p| p.hours).collect(),
+                        ys: pts.iter().map(|p| p.in_service).collect(),
+                    }],
+                    // Layout: see `release_value` and friends.
+                    scalars: [vec![n_nuc as f64, n_pts as f64], blocks].concat(),
+                    names,
+                    tags,
                     ..Default::default()
                 })
             }
@@ -1227,7 +1298,6 @@ impl Request {
             }
             Request::Release {
                 id,
-                nuclide,
                 irr_c,
                 hold_c,
                 hours,
@@ -1238,7 +1308,6 @@ impl Request {
             } => vec![
                 7.0,
                 id as f64,
-                nuclide as f64,
                 irr_c,
                 hold_c,
                 hours,
@@ -1273,14 +1342,13 @@ impl Request {
             6 => Request::Chemistry { id, o2_kpa: g(2)?, steam_kpa: g(3)?, h2_kpa: g(4)? },
             7 => Request::Release {
                 id,
-                nuclide: g(2)? as u8,
-                irr_c: g(3)?,
-                hold_c: g(4)?,
-                hours: g(5)?,
-                f_hm: g(6)?,
-                k_plate: g(7)?,
-                k_clean: g(8)?,
-                k_leak: g(9)?,
+                irr_c: g(2)?,
+                hold_c: g(3)?,
+                hours: g(4)?,
+                f_hm: g(5)?,
+                k_plate: g(6)?,
+                k_clean: g(7)?,
+                k_leak: g(8)?,
             },
             k => return Err(format!("unknown request kind {k}")),
         })
@@ -1448,7 +1516,6 @@ mod tests {
             Request::Chemistry { id: 7, o2_kpa: 21.0, steam_kpa: 5.0, h2_kpa: 0.0 },
             Request::Release {
                 id: 8,
-                nuclide: 1,
                 irr_c: 776.0,
                 hold_c: 1600.0,
                 hours: 100.0,
@@ -1656,73 +1723,120 @@ mod tests {
         assert!((find("bare-kernel", 1000.0) / 0.296875 - 1.0).abs() < 1e-4);
     }
 
-    /// Rung 7: with no leak, no plate-out and no clean-up a noble gas's
-    /// circulating activity at normal operation equals its source (secular
-    /// equilibrium, C = S/lambda so lambda C = S); a hotter hold raises the
-    /// source.
+    fn release(e: &mut Engine, hold_c: f64, k: [f64; 3]) -> Frame {
+        frame(
+            e,
+            Request::Release {
+                id: 1,
+                irr_c: 776.0,
+                hold_c,
+                hours: 100.0,
+                f_hm: 1e-4,
+                k_plate: k[0],
+                k_clean: k[1],
+                k_leak: k[2],
+            },
+        )
+    }
+
+    fn index_of(f: &Frame, name: &str) -> usize {
+        f.names.iter().position(|n| n == name).unwrap_or_else(|| panic!("{name} missing"))
+    }
+
+    /// **Every inventory nuclide TRISO-ATOPS models is in the frame, and the
+    /// rest are listed as skipped.**
+    ///
+    /// Methodology: Liu & Cao's 22-nuclide inventory against TRISO-ATOPS's
+    /// table. **Result (2026-10-05):** 19 modelled; H-3, Xe-135m and Rb-88
+    /// skipped; the frame's layout checks (`release_dims`).
+    #[test]
+    fn release_carries_every_modelled_nuclide() {
+        let mut e = Engine::default();
+        let f = release(&mut e, 1600.0, [7.5e-5, 8.77e-5, 0.0]);
+        let (n, p) = release_dims(&f);
+        assert_eq!(n, 19);
+        assert_eq!(p, f.series[0].xs.len());
+        let skipped: Vec<&str> = f.names[n..].iter().map(|s| s.trim_start_matches(RELEASE_SKIPPED)).collect();
+        assert_eq!(skipped, ["H-3", "Xe-135m", "Rb-88"]);
+        for name in ["Cs-137", "Cs-134", "Sr-90", "Sr-89", "Ag-110m", "I-131", "Kr-88"] {
+            index_of(&f, name);
+        }
+    }
+
+    /// **The diagram's arrows balance where they must, and upstream's
+    /// routing holds.**
+    ///
+    /// Methodology: every sink on (`k_plate` 7.5e-5, `k_clean` 8.77e-5,
+    /// `k_leak` 1e-5 1/s). At the first point the pools have run 40 years
+    /// at a constant source, so a short-lived nuclide is at equilibrium:
+    /// for I-131 (halogen) the flow into the helium equals the flows out of
+    /// it and each held pool's inflow equals its decay. Cs-137 (special
+    /// metal) plates out but is never routed to the HPS; its plate-out after
+    /// 40 years is below equilibrium (inflow exceeds decay), as upstream's
+    /// normal operation gives. Kr-88 never plates out. Cs and Sr have a
+    /// positive source and graphite hold-up at normal operation, a larger
+    /// source and a smaller hold-up at the end of the 1600 C hold. Pass: 1e-9
+    /// relative. Ag-110m has no source at normal operation (upstream's
+    /// breakthrough time lag) and one during the hold.
+    /// **Result (2026-10-05):** passes. Cs-137 S 5.8e11 -> 2.6e12 atoms/s,
+    /// hold-up 8.1e19 -> 0 atoms; Sr-90 S 2.3 -> 1.9e12 atoms/s.
+    #[test]
+    fn release_flows_balance_and_follow_upstream_routing() {
+        let mut e = Engine::default();
+        let f = release(&mut e, 1600.0, [7.5e-5, 8.77e-5, 1e-5]);
+        let rel_err = |a: f64, b: f64| (a - b).abs() / b.abs();
+        let i = index_of(&f, "I-131");
+        let v = |n: usize, k: usize| release_value(&f, n, 0, k);
+        let out = v(i, rel::Q_PLATE) + v(i, rel::Q_CLEAN) + v(i, rel::Q_LEAK) + v(i, rel::D_C);
+        println!("I-131 at t = 0: S {:.4e}, out of the helium {out:.4e} atoms/s", v(i, rel::S));
+        assert!(rel_err(out, v(i, rel::S)) < 1e-9);
+        assert!(rel_err(v(i, rel::D_P), v(i, rel::Q_PLATE)) < 1e-9);
+        assert!(rel_err(v(i, rel::D_H), v(i, rel::Q_CLEAN)) < 1e-9);
+
+        let cs = index_of(&f, "Cs-137");
+        assert_eq!(release_header(&f, cs, 3), 0.0, "the HPS does not scrub metals");
+        assert_eq!(v(cs, rel::H), 0.0);
+        assert!(v(cs, rel::P) > 0.0);
+        assert!(v(cs, rel::Q_PLATE) > 1.01 * v(cs, rel::D_P), "Cs-137 plate-out still growing after 40 y");
+        let kr = index_of(&f, "Kr-88");
+        assert_eq!(v(kr, rel::P), 0.0);
+        // Metals are held up in the matrix graphite at normal operation
+        // (776 C); at 1600 C graphite diffusion is fast enough that the
+        // attenuation factor goes to 1 and the hold-up to ~0.
+        // Silver: at 776 C, D(Ag in SiC) ~7e-20 m2/s gives D't ~5e-3 over the
+        // residence, short of the membrane time lag, so upstream's
+        // breakthrough_model clamps a negative release fraction to 0: no
+        // silver through intact SiC at normal operation in this model.
+        let ag = index_of(&f, "Ag-110m");
+        let last = release_dims(&f).1 - 1;
+        assert_eq!(release_value(&f, ag, 0, rel::S), 0.0);
+        assert!(release_value(&f, ag, last, rel::S) > 0.0);
+        for name in ["Cs-137", "Cs-134", "Sr-90", "Sr-89"] {
+            let n = index_of(&f, name);
+            let last = release_dims(&f).1 - 1;
+            let (s0, g0) = (release_value(&f, n, 0, rel::S), release_value(&f, n, 0, rel::G));
+            let (s1, g1) = (release_value(&f, n, last, rel::S), release_value(&f, n, last, rel::G));
+            println!("{name}: S {s0:.3e} -> {s1:.3e} atoms/s; graphite hold-up {g0:.3e} -> {g1:.3e} atoms");
+            assert!(s0 > 0.0 && s1 > s0 && g0 > 0.0 && g1 < g0, "{name}");
+        }
+    }
+
+    /// Methodology: Kr-88 with no sinks: at normal operation the circulating
+    /// activity equals the source (lambda C = S); a hotter hold raises the
+    /// source. **Result (2026-10-05):** passes.
     #[test]
     fn release_pools_reach_equilibrium_and_rise_with_temperature() {
         let mut e = Engine::default();
-        let base = Request::Release {
-            id: 1,
-            nuclide: 0,
-            irr_c: 776.0,
-            hold_c: 776.0,
-            hours: 10.0,
-            f_hm: 1e-4,
-            k_plate: 0.0,
-            k_clean: 0.0,
-            k_leak: 0.0,
-        };
-        let f = frame(&mut e, base.clone());
-        let (s0, c0) = (f.scalars[2], f.series[1].ys[0]);
+        let f = release(&mut e, 776.0, [0.0; 3]);
+        let kr = index_of(&f, "Kr-88");
+        let lam = release_header(&f, kr, 1);
+        let (s0, c0) = (release_value(&f, kr, 0, rel::S), lam * release_value(&f, kr, 0, rel::C));
         assert!((c0 / s0 - 1.0).abs() < 1e-9, "{c0} vs {s0}");
-        let mut hot = base;
-        if let Request::Release { hold_c, .. } = &mut hot {
-            *hold_c = 1600.0;
-        }
-        let g = frame(&mut e, hot);
-        println!("Kr-88 source: {:.3e} -> {:.3e} atoms/s at 1600 C", g.scalars[2], g.scalars[3]);
-        assert!(g.scalars[3] > g.scalars[2]);
+        let g = release(&mut e, 1600.0, [0.0; 3]);
+        let last = release_dims(&g).1 - 1;
+        let s_hot = release_value(&g, kr, last, rel::S);
+        println!("Kr-88 source: {s0:.3e} -> {s_hot:.3e} atoms/s at 1600 C");
+        assert!(s_hot > s0);
     }
 
-    /// **The pool diagram's arrows balance at normal operation.**
-    ///
-    /// Methodology: I-131 (a halogen, so it plates out) with every sink on
-    /// (`k_plate` 7.5e-5, `k_clean` 8.77e-5, `k_leak` 1e-5 1/s). The pools
-    /// start at normal-operation equilibrium, so at the first point the flow
-    /// into the helium must equal the sum of the flows out of it, and each
-    /// held pool's inflow must equal its decay. The flows are computed from
-    /// the pools `live_pools::step` returned; this checks the bookkeeping
-    /// the diagram draws, not the library (whose own tests check the
-    /// integration). Pass: 1e-9 relative. **Result (2026-10-05):** passes;
-    /// one set of flows per plotted point.
-    #[test]
-    fn release_pool_flows_balance_at_normal_operation() {
-        let mut e = Engine::default();
-        let f = frame(
-            &mut e,
-            Request::Release {
-                id: 1,
-                nuclide: 2,
-                irr_c: 776.0,
-                hold_c: 1600.0,
-                hours: 100.0,
-                f_hm: 1e-4,
-                k_plate: 7.5e-5,
-                k_clean: 8.77e-5,
-                k_leak: 1e-5,
-            },
-        );
-        let n = f.scalars[RELEASE_FLOWS_AT - 1] as usize;
-        assert_eq!(n, f.series[0].xs.len());
-        assert_eq!(f.scalars.len(), RELEASE_FLOWS_AT + n * RELEASE_FLOWS);
-        let q = &f.scalars[RELEASE_FLOWS_AT..RELEASE_FLOWS_AT + RELEASE_FLOWS];
-        let rel = |a: f64, b: f64| (a - b).abs() / b.abs();
-        let out_of_helium = q[1] + q[2] + q[3] + q[4];
-        println!("I-131 at t = 0: S {:.4e}, out of the helium {:.4e} atoms/s", q[0], out_of_helium);
-        assert!(rel(out_of_helium, q[0]) < 1e-9);
-        assert!(rel(q[5], q[1]) < 1e-9, "plated: decay {} vs inflow {}", q[5], q[1]);
-        assert!(rel(q[6], q[2]) < 1e-9, "HPS: decay {} vs inflow {}", q[6], q[2]);
-    }
 }

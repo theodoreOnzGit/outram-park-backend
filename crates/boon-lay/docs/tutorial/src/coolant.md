@@ -24,11 +24,15 @@ fork of INL's MIT-licensed Python at commit `de374c8`. The extended page
 > up?*
 
 **Demo:** [open this rung](../../demos/triso-atops/?rung=release). Rung 5's accident hold carried
-into the helium for Kr-88, Xe-133 or I-131: the source into the coolant and
-the circulating, plated-out, purification-system and leaked pools, computed
-in your browser with `rb_fail_noble_gases`, `release_rate`,
-`base_activities` and `live_pools::step`, from Liu & Cao's HTR-10 core
-inventory. The MHTGR workflow of step 3 is too heavy for a browser and is
+into the helium for ~~Kr-88, Xe-133 or I-131~~ **(since 2026-10-05) every
+nuclide of Liu & Cao's HTR-10 core inventory that TRISO-ATOPS's nuclide table
+carries, 19 of 22** (H-3, Xe-135m and Rb-88 are not in it), as a live
+diagram from a TRISO particle in its fuel element to the circulating helium
+and its plated-out, purification-system and leaked pools, coloured by
+transport group and filterable to one group or one nuclide. Computed in your
+browser with ~~`rb_fail_noble_gases`~~ `diffusion_coefficient`, `rb_fail`,
+`release_rate`, `base_activities` (the chain `normal_operation_node` runs)
+and `live_pools::step`. The MHTGR workflow of step 3 is too heavy for a browser and is
 quoted below, not recomputed.
 
 ---

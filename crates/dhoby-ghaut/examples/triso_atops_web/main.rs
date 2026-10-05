@@ -88,7 +88,6 @@ fn headless(rung: rungs::Rung) -> Result<(), String> {
         rungs::Rung::Chemistry => Request::Chemistry { id: 1, o2_kpa: 21.3, steam_kpa: 5.0, h2_kpa: 0.0 },
         rungs::Rung::Release => Request::Release {
             id: 1,
-            nuclide: 0,
             irr_c: 776.0,
             hold_c: 1800.0,
             hours: 500.0,
@@ -108,6 +107,27 @@ fn headless(rung: rungs::Rung) -> Result<(), String> {
     let mut out = Vec::new();
     engine::Engine::default().serve(req, &mut |e| out.push(e));
     match out.pop() {
+        Some(engine::Event::Frame(f)) if rung == rungs::Rung::Release => {
+            // Every nuclide at the end of the hold.
+            let (n, p) = engine::release_dims(&f);
+            println!("nuclide,group,source_atoms_per_s,circulating_bq,plated_bq,hps_bq,leaked_atoms,graphite_bq");
+            for i in 0..n {
+                let lam = engine::release_header(&f, i, 1);
+                let v = |k| engine::release_value(&f, i, p - 1, k);
+                println!(
+                    "{},{},{:e},{:e},{:e},{:e},{:e},{:e}",
+                    f.names[i],
+                    engine::GROUPS[f.tags[i] as usize],
+                    v(engine::rel::S),
+                    lam * v(engine::rel::C),
+                    lam * v(engine::rel::P),
+                    lam * v(engine::rel::H),
+                    v(engine::rel::LEAKED),
+                    lam * v(engine::rel::G)
+                );
+            }
+            Ok(())
+        }
         Some(engine::Event::Frame(f)) => {
             println!("kind,label,x,y");
             for s in &f.series {
