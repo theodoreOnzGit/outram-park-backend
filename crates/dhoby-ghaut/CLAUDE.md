@@ -148,6 +148,14 @@ steps, recipe). Rules that bind changes to it:
   rule's minimum set from the assembled geometry.
 - **The UI thread only draws.** Two engine threads (geometry, physics) share
   the assembled core as an `Arc`.
+- **Ray tracing is the GPU's job** (maintainer, 2026-10-05, gh:#587): the 3D
+  view and the slices are traced by `outram_blender::csg::gpu` on eframe's
+  wgpu device (`src/bin/dhoby-ghaut/gpu_view.rs`); the UI thread only
+  submits GPU work, never waits on it, and the flattening runs on its own
+  thread. The CPU plotter on the geometry engine thread is the fallback and
+  the reference: PNG exports and `--render-review` always use it. A change to
+  either tracer re-runs `tests/gpu_csg_parity.rs` (here and in
+  `outram-blender`) and records the mismatch fraction it prints.
 - **A step that is not built says so** and names its issue
   (`WizardStep::issue`); nothing is simulated behind a placeholder.
 

@@ -27,10 +27,14 @@
 //!
 //! This module is in the crate's **core**: it needs no cargo feature and pulls
 //! no dependency, so `default-features = false` builds it for Android and
-//! `wasm32-unknown-unknown`.
+//! `wasm32-unknown-unknown`. The one exception is [`gpu`]'s `render`
+//! submodule (gh:#587, 2026-10-05), the GPU ray tracer, which needs the
+//! default-on `gpu` feature and is never built on Android or wasm32;
+//! [`gpu::flat`], its geometry encoding, is core like the rest.
 
 pub mod cell;
 pub mod geometry;
+pub mod gpu;
 pub mod lattice;
 pub mod plot;
 pub mod position;

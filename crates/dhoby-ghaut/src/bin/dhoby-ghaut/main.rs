@@ -36,6 +36,8 @@ mod dem;
 #[cfg(not(any(target_os = "android", target_arch = "wasm32")))]
 mod engine;
 #[cfg(not(any(target_os = "android", target_arch = "wasm32")))]
+mod gpu_view;
+#[cfg(not(any(target_os = "android", target_arch = "wasm32")))]
 mod literature;
 #[cfg(not(any(target_os = "android", target_arch = "wasm32")))]
 mod preset;

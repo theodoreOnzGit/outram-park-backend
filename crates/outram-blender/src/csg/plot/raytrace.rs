@@ -664,7 +664,9 @@ pub struct SolidRayTracePlot {
 /// lies on the cut side begins at the plane instead. If that point is inside
 /// an opaque material it is painted as a cut face: that material's colour,
 /// lit by the same diffuse model as a surface, with the plane as its normal.
-/// Otherwise the ray is traced from the plane as usual.
+/// Otherwise the ray is traced from the plane as usual, and its shadow ray
+/// toward the light stops (lit) where it passes back into the cut-away half
+/// (since 2026-10-05, gh:#587; see `PhongRay::on_intersection`).
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct ClipPlane {
     /// Normal pointing into the KEPT half-space (need not be unit length).
@@ -725,10 +727,24 @@ impl SolidRayTracePlot {
     /// Render. Port of `SolidRayTracePlot::create_image` (`src/plot.cpp:1683-1701`).
     #[must_use]
     pub fn create_image(&self, geom: &Geometry, scheme: &ColourScheme) -> ImageData {
+        self.create_image_with_ids(geom, scheme).0
+    }
+
+    /// [`Self::create_image`], plus **which colour index each pixel shows**:
+    /// the first opaque domain the ray hits (or the cut face's), `-1` for the
+    /// background, `-2` where upstream paints the overlap colour. Lighting
+    /// and shadows do not change a pixel's id, so this is the quantity a
+    /// second renderer (the GPU tracer, `csg::gpu`, gh:#587) is compared on.
+    #[must_use]
+    pub fn create_image_with_ids(
+        &self,
+        geom: &Geometry,
+        scheme: &ColourScheme,
+    ) -> (ImageData, Vec<i32>) {
         let [w, h] = self.camera.pixels;
         let m = self.camera.camera_to_model();
         let light = self.light_position.unwrap_or(self.camera.position);
-        let rows: Vec<Vec<Rgb>> = (0..h)
+        let rows: Vec<Vec<(Rgb, i32)>> = (0..h)
             .into_par_iter()
             .map(|v| {
                 (0..w)
@@ -736,7 +752,7 @@ impl SolidRayTracePlot {
                         let (r, u) = self.camera.pixel_ray(&m, x, v);
                         let r = match self.clip.map(|c| (c, c.start(r, u))) {
                             None => r,
-                            Some((_, None)) => return scheme.background,
+                            Some((_, None)) => return (scheme.background, -1),
                             Some((_, Some((r, false)))) => r,
                             Some((c, Some((r, true)))) => {
                                 if let Some(face) = self.cut_face(geom, scheme, light, c, r, u) {
@@ -749,20 +765,25 @@ impl SolidRayTracePlot {
                             reflected: false,
                             orig_hit: None,
                             result: scheme.background,
+                            id: -1,
                         };
                         trace(geom, r, u, |g, p, hit| {
                             ray.on_intersection(self, scheme, light, g, p, hit)
                         });
-                        ray.result
+                        (ray.result, ray.id)
                     })
                     .collect()
             })
             .collect();
-        ImageData {
-            width: w,
-            height: h,
-            pixels: rows.into_iter().flatten().collect(),
-        }
+        let (pixels, ids) = rows.into_iter().flatten().unzip();
+        (
+            ImageData {
+                width: w,
+                height: h,
+                pixels,
+            },
+            ids,
+        )
     }
 }
 
@@ -778,7 +799,7 @@ impl SolidRayTracePlot {
         clip: ClipPlane,
         r: Position,
         u: Direction,
-    ) -> Option<Rgb> {
+    ) -> Option<(Rgb, i32)> {
         let path = geom.locate(r, u, SurfaceToken::NONE)?;
         let id = match scheme.colour_by {
             PlotColourBy::Material => path.material?,
@@ -795,7 +816,7 @@ impl SolidRayTracePlot {
         let tl = scale(tl, norm(tl).max(f64::MIN_POSITIVE));
         let dot = (n[0] * tl[0] + n[1] * tl[1] + n[2] * tl[2]).max(0.0);
         let df = self.diffuse_fraction;
-        Some(scheme.colours[id].scaled(df + (1.0 - df) * dot))
+        Some((scheme.colours[id].scaled(df + (1.0 - df) * dot), id as i32))
     }
 }
 
@@ -805,6 +826,8 @@ struct PhongRay {
     reflected: bool,
     orig_hit: Option<usize>,
     result: Rgb,
+    /// The colour index the pixel shows (see `create_image_with_ids`).
+    id: i32,
 }
 
 impl PhongRay {
@@ -828,6 +851,24 @@ impl PhongRay {
         if self.reflected && toward >= 0.0 {
             return RayAction::Stop;
         }
+        // The section plane (not in OpenMC): a shadow ray that has passed
+        // into the cut-away half is lit, because that half is not drawn.
+        // ~~Until 2026-10-05 the shadow ray was traced through the removed
+        // half as if it were there~~ **CORRECTED 2026-10-05 (gh:#587)**: with
+        // the light at the camera, on the removed side, a surface seen
+        // through the cut, beyond the plane, came out in shadow (diffuse
+        // fraction only) wherever its shadow ray met opaque material in the
+        // removed half. Measured on `tests/gpu_csg_parity.rs`'s section view:
+        // 2.5 % of its pixels (the pebble shells around the cut faces)
+        // change shade; no pixel changes which material it shows.
+        if self.reflected {
+            if let Some(c) = plot.clip {
+                let n = c.normal;
+                if n[0] * hit.r.x + n[1] * hit.r.y + n[2] * hit.r.z < c.offset {
+                    return RayAction::Stop;
+                }
+            }
+        }
         let opaque = hit_id.is_some_and(|i| plot.opaque.get(i).copied().unwrap_or(false));
         if !opaque {
             return RayAction::Continue;
@@ -841,6 +882,7 @@ impl PhongRay {
 
         self.reflected = true;
         self.result = scheme.colours[id];
+        self.id = id as i32;
         let r_hit = Position::new(
             hit.r.x - TINY_BIT * hit.u.u,
             hit.r.y - TINY_BIT * hit.u.v,
@@ -854,6 +896,7 @@ impl PhongRay {
         // paints the overlap colour and stops (src/plot.cpp:1795-1808).
         let SurfaceToken::On { surface_idx, sense } = hit.token else {
             self.result = scheme.overlap_colour;
+            self.id = -2;
             return RayAction::Stop;
         };
         let Some(path) = path else {

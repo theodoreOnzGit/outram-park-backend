@@ -2,17 +2,25 @@
 //! own cell lookups (the crate's drawing HARD RULE), pannable and zoomable.
 //!
 //! The picture is re-rendered for whatever window the reader is looking at,
-//! at screen resolution, a moment after they stop moving, so zooming into a
-//! pebble shows the pebble's TRISO particles rather than blown-up pixels.
-//! Rendering runs on the geometry engine thread; until a new slice arrives
-//! the previous one stays on screen, placed in world coordinates, so panning
-//! never waits.
+//! at screen resolution, so zooming into a pebble shows the pebble's TRISO
+//! particles rather than blown-up pixels. ~~Rendering runs on the geometry
+//! engine thread~~ **CHANGED 2026-10-05 (gh:#587):** a slice is one material
+//! lookup per pixel **on the GPU** (`crate::gpu_view`), redrawn every frame
+//! the view moves; the CPU slice on the geometry engine thread, a moment
+//! after the reader stops moving, is the fallback (see `view3d`). Until a new
+//! slice arrives the previous one stays on screen, placed in world
+//! coordinates, so panning never waits. PNG exports are always the CPU's.
 
 use dhoby_ghaut::web_demo::view::{apply_zoom, scale_bar_sized, zoom_buttons_sized, View};
 use egui::{Color32, Pos2, Rect, RichText, TextureHandle, TextureOptions, Vec2};
-use outram_mc_libs::geometry::plot::{ImageData, PlotBasis};
+use outram_blender::csg::gpu::render::GpuPlot;
+use outram_mc_libs::geometry::plot::{
+    ColourScheme, ImageData, PlotBasis, PlotColourBy, Rgb, SlicePlot, DEFAULT_PLOTTER_SEED,
+};
+use outram_mc_libs::geometry::position::Position;
 
 use crate::engine::{palette, Ev, Req};
+use crate::gpu_view::{Gpu, GpuSlot};
 
 /// A named view of the review gate's minimum set.
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -45,6 +53,12 @@ pub struct SliceView {
     pub at_preset: Option<&'static str>,
     /// Size of the last canvas, for exports.
     pub canvas: Vec2,
+    /// The GPU tracer (gh:#587), shared with the 3D view; `None` draws on
+    /// the CPU.
+    pub gpu: Option<Gpu>,
+    slot: GpuSlot,
+    /// Where the GPU picture sits: centre and width in the plane \[cm\].
+    gpu_place: Option<([f64; 2], [f64; 2])>,
 }
 
 impl SliceView {
@@ -62,6 +76,9 @@ impl SliceView {
             last_key: (PlotBasis::Xz, 0, 0, 0, 0, 0, 0),
             at_preset: None,
             canvas: Vec2::new(800.0, 600.0),
+            gpu: None,
+            slot: GpuSlot::new(),
+            gpu_place: None,
         }
     }
 
@@ -80,6 +97,8 @@ impl SliceView {
     /// Forget the picture (the geometry changed).
     pub fn invalidate(&mut self) {
         self.texture = None;
+        self.slot.clear();
+        self.gpu_place = None;
         self.legend.clear();
         self.dirty = true;
     }
@@ -133,6 +152,7 @@ impl SliceView {
             let (tex, legend) = upload(ctx, image);
             self.texture = Some((tex, c, *width));
             self.legend = legend;
+            self.gpu_place = None;
             return true;
         }
         false
@@ -154,7 +174,12 @@ impl SliceView {
         self.view.handle_input(ui, &resp);
         let painter = ui.painter_at(rect);
         painter.rect_filled(rect, 0.0, Color32::from_gray(235));
-        if let Some((tex, c, w)) = &self.texture {
+        let gpu_tex = self.gpu.as_ref().and_then(|g| self.slot.texture(g));
+        let picture = match (gpu_tex, self.gpu_place) {
+            (Some(t), Some((c, w))) => Some((t, c, w)),
+            _ => self.texture.as_ref().map(|(t, c, w)| (t.id(), *c, *w)),
+        };
+        if let Some((tex, c, w)) = picture {
             let a = self
                 .view
                 .to_screen(rect, c[0] - 0.5 * w[0], c[1] + 0.5 * w[1]);
@@ -162,11 +187,14 @@ impl SliceView {
                 .view
                 .to_screen(rect, c[0] + 0.5 * w[0], c[1] - 0.5 * w[1]);
             painter.image(
-                tex.id(),
+                tex,
                 Rect::from_min_max(a, b),
                 Rect::from_min_max(Pos2::ZERO, Pos2::new(1.0, 1.0)),
                 Color32::WHITE,
             );
+        }
+        if let Some(ids) = self.slot.take_ids() {
+            self.legend = legend_from_ids(&ids);
         }
         if !have_geometry {
             painter.text(
@@ -222,7 +250,50 @@ impl SliceView {
             self.changed_at = now;
             self.dirty = true;
         }
-        if self.dirty && have_geometry && self.pending.is_none() && now - self.changed_at > 0.3 {
+        let gpu_ready = have_geometry && self.gpu.as_ref().is_some_and(Gpu::poll);
+        if gpu_ready {
+            // GPU: every change, at screen resolution, once the last frame
+            // has run (no frame is queued behind a slow one).
+            if self.dirty && !self.slot.busy() {
+                let ppp = ui.ctx().pixels_per_point();
+                let (origin, width, pixels) =
+                    self.window(rect, rect.width().max(rect.height()) * ppp);
+                if let Some(g) = &self.gpu {
+                    let plot = SlicePlot::new(
+                        self.basis,
+                        Position::new(origin[0], origin[1], origin[2]),
+                        width,
+                        pixels,
+                    );
+                    if g.draw(
+                        &mut self.slot,
+                        &GpuPlot::Slice(plot),
+                        &slice_scheme(g.n_materials()),
+                        eframe::egui_wgpu::wgpu::FilterMode::Nearest,
+                        true,
+                    ) {
+                        let c = match self.basis {
+                            PlotBasis::Xy => [origin[0], origin[1]],
+                            PlotBasis::Xz => [origin[0], origin[2]],
+                            PlotBasis::Yz => [origin[1], origin[2]],
+                        };
+                        self.gpu_place = Some((c, width));
+                        self.dirty = false;
+                        // A CPU slice still in flight belongs to an older view.
+                        self.pending = None;
+                    }
+                }
+            }
+            if self.dirty || self.slot.busy() {
+                ui.ctx().request_repaint();
+            }
+        }
+        if !gpu_ready
+            && self.dirty
+            && have_geometry
+            && self.pending.is_none()
+            && now - self.changed_at > 0.3
+        {
             let (origin, width, pixels) = self.window(rect, 1000.0);
             let id = self.next_id;
             self.next_id += 1;
@@ -241,6 +312,15 @@ impl SliceView {
                 .request_repaint_after(std::time::Duration::from_millis(100));
         }
         rect
+    }
+}
+
+impl SliceView {
+    /// Whether a GPU slice has reached the screen since the last call: what
+    /// the CPU path reports with an `Ev::Slice` (the review gate counts the
+    /// preset on screen as seen).
+    pub fn take_gpu_shown(&mut self) -> bool {
+        self.slot.take_done()
     }
 }
 
@@ -271,6 +351,40 @@ pub fn plane_controls(ui: &mut egui::Ui, sv: &mut SliceView) {
             sv.at_preset = None;
         }
     });
+}
+
+/// The colours of `outram_mc_libs`' `render_material_slice` (the CPU slice
+/// and its PNG export): the HTR-10 palette, OpenMC's default colours past
+/// it, a light grey outside the model.
+fn slice_scheme(n_materials: usize) -> ColourScheme {
+    let pal = palette();
+    let mut seed = DEFAULT_PLOTTER_SEED;
+    let mut s = ColourScheme::new(
+        PlotColourBy::Material,
+        n_materials.max(pal.len()),
+        &mut seed,
+    )
+    .with_background(Rgb::new(235, 235, 235));
+    for (i, (c, _)) in pal.iter().enumerate() {
+        s = s.with_colour(i, *c);
+    }
+    s
+}
+
+/// Legend rows for the materials a GPU slice shows (its per-pixel ids).
+fn legend_from_ids(ids: &[i32]) -> Vec<(Color32, &'static str)> {
+    let pal = palette();
+    let mut seen = vec![false; pal.len()];
+    for &i in ids {
+        if let Some(s) = usize::try_from(i).ok().and_then(|i| seen.get_mut(i)) {
+            *s = true;
+        }
+    }
+    pal.iter()
+        .zip(seen)
+        .filter(|((_, label), s)| *s && !label.is_empty())
+        .map(|((c, label), _)| (Color32::from_rgb(c.r, c.g, c.b), *label))
+        .collect()
 }
 
 /// Upload a raw slice and work out which palette entries it shows.

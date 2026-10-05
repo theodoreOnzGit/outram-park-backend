@@ -161,9 +161,19 @@ What was checked on 2026-10-05:
   - Each step opens on its own view: Step 1 the reactor in half-section with
     the bed; Step 2 one fuel pebble cut through its centre (TRISO in the cut
     face); Step 3 the reflector in half-section.
-  - A quarter-resolution preview while moving, the full trace once still. The
+  - ~~A quarter-resolution preview while moving, the full trace once still. The
     HTR-10 half-section takes 5–7 s at full resolution on the 16-core
-    development machine, under a software-rendered display.
+    development machine, under a software-rendered display.~~ **CHANGED
+    2026-10-05 (gh:#587): ray tracing is the GPU's job.** The assembled
+    geometry is flattened once (off the UI thread) and traced by a WGSL
+    compute shader (`outram_blender::csg::gpu`) on eframe's own wgpu device,
+    for the 3D view and the 2D slices alike. Measured on an RTX A5000: the
+    HTR-10 half-sections 0.3–0.45 s at 900 × 560 (the CPU: 5–9 s), a slice
+    7–50 ms; half resolution while the camera moves. The GPU picture matches
+    the CPU plotter's material in all but 0.36 % of pixels on the worst view
+    (`tests/gpu_csg_parity.rs`, `verification_and_validation/gpu_csg_parity/`).
+    The CPU tracer is the fallback (no wgpu device, a torus) and draws every
+    PNG export and `--render-review`.
 - ~~**Every font is twice egui's default** (`FONT_SCALE` in `app.rs`).~~
   **REVERTED the same day** at the maintainer's request, pending a systematic
   style settlement (#586); `FONT_SCALE` is 1.0 and is the hook for it.

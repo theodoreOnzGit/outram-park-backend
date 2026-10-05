@@ -5,7 +5,13 @@
 //! solid and wireframe ray-traced plots, ported in `outram-blender`), so what
 //! is drawn is what the solver sees, as the crate's drawing rule asks. There
 //! is no triangle mesh of the CSG anywhere in the workspace; ray tracing is
-//! the faithful path, and it runs on the geometry engine thread.
+//! the faithful path. ~~It runs on the geometry engine thread.~~ **CHANGED
+//! 2026-10-05 (gh:#587):** it runs **on the GPU** (`crate::gpu_view`,
+//! `outram_blender::csg::gpu`), every frame the camera moves, at full
+//! resolution; the CPU tracer on the geometry engine thread is the fallback
+//! (no wgpu device, a geometry the GPU tracer refuses, or the moment before
+//! the flattened geometry reaches the GPU) and the reference the GPU tracer
+//! is tested against (`tests/gpu_csg_parity.rs`).
 //!
 //! Controls, Blender's where a mouse has the buttons:
 //! - **orbit**: middle-drag, or left-drag;
@@ -18,13 +24,75 @@
 //!   the material's colour (solid shading);
 //! - **outliner**: show or hide each material in the settings panel.
 //!
-//! While the camera moves a quarter-resolution preview is traced; the full
-//! picture follows 0.35 s after it stops.
+//! On the CPU fallback, while the camera moves a quarter-resolution preview
+//! is traced; the full picture follows 0.35 s after it stops.
 
 use egui::{Color32, Pos2, Rect, RichText, TextureHandle, TextureOptions, Vec2};
 
+use outram_blender::csg::gpu::render::GpuPlot;
+use outram_mc_libs::geometry::plot::{
+    Camera, ClipPlane, ColourScheme, PlotColourBy, Projection, Rgb, SolidRayTracePlot,
+    WireframeRayTracePlot, DEFAULT_PLOTTER_SEED,
+};
+use outram_mc_libs::geometry::position::{Direction, Position};
+
 use crate::app::fs;
-use crate::engine::{Ev, Req, Shading, View3dJob};
+use crate::engine::{palette, Ev, Req, Shading, View3dJob};
+use crate::gpu_view::{Gpu, GpuSlot, GpuStatus};
+
+/// The plot a 3D job asks for, and its colours: OpenMC's solid ray trace
+/// (hidden materials left out of the opaque set, the section plane) or its
+/// wireframe ray trace (hidden materials given no attenuation and no
+/// outline). One description for both tracers: the CPU on the engine thread
+/// (`engine::render_3d`) and the GPU (`gpu_view`). `n` is the material table
+/// length, `material_count(geometry)`; the palette's is used if longer.
+pub fn plot_for(job: &View3dJob, n: usize) -> (GpuPlot, ColourScheme) {
+    let pal = palette();
+    let n = n.max(pal.len());
+    let mut seed = DEFAULT_PLOTTER_SEED;
+    let mut scheme = ColourScheme::new(PlotColourBy::Material, n, &mut seed)
+        .with_background(Rgb::new(48, 48, 52));
+    for (i, (c, _)) in pal.iter().enumerate() {
+        scheme = scheme.with_colour(i, *c);
+    }
+    let camera = Camera {
+        position: Position::new(job.eye[0], job.eye[1], job.eye[2]),
+        look_at: Position::new(job.look_at[0], job.look_at[1], job.look_at[2]),
+        up: Direction::new(0.0, 0.0, 1.0),
+        pixels: job.pixels,
+        projection: match job.ortho_width {
+            Some(width) => Projection::Orthographic { width },
+            None => Projection::Perspective {
+                horizontal_fov_deg: job.fov_deg,
+            },
+        },
+    };
+    let shown = |i: usize| job.visible.get(i).copied().unwrap_or(true);
+    let plot = match job.shading {
+        Shading::Solid => {
+            let mut plot = SolidRayTracePlot::new(camera, n);
+            for i in (0..n).filter(|&i| shown(i)) {
+                plot = plot.with_opaque(i);
+            }
+            plot.diffuse_fraction = 0.35;
+            if let Some((normal, offset)) = job.clip {
+                plot = plot.with_clip(ClipPlane { normal, offset });
+            }
+            GpuPlot::Solid(plot)
+        }
+        Shading::XRay => {
+            let mut plot = WireframeRayTracePlot::new(camera, n);
+            for i in 0..n {
+                plot = plot.with_xs(i, if shown(i) { 0.02 } else { 0.0 });
+            }
+            // Outline only what is shown: hidden pebbles' boundaries would
+            // otherwise cover the picture.
+            plot.wireframe_ids = (0..n).filter(|&i| shown(i)).collect();
+            GpuPlot::Wireframe(plot)
+        }
+    };
+    (plot, scheme)
+}
 
 pub struct View3d {
     /// Point the camera orbits \[cm\].
@@ -51,6 +119,12 @@ pub struct View3d {
     dirty_preview: bool,
     last_key: Vec<i64>,
     pub last_seconds: f64,
+    /// The GPU tracer (gh:#587), shared with the slice view; `None` draws on
+    /// the CPU.
+    pub gpu: Option<Gpu>,
+    slot: GpuSlot,
+    /// The picture on screen came from the GPU.
+    on_gpu: bool,
 }
 
 impl View3d {
@@ -73,6 +147,9 @@ impl View3d {
             dirty_preview: false,
             last_key: Vec::new(),
             last_seconds: 0.0,
+            gpu: None,
+            slot: GpuSlot::new(),
+            on_gpu: false,
         }
     }
 
@@ -86,6 +163,7 @@ impl View3d {
 
     pub fn invalidate(&mut self) {
         self.texture = None;
+        self.slot.clear();
         self.dirty_full = true;
         // A render already in flight belongs to the old view: ignore it.
         self.pending = None;
@@ -122,6 +200,7 @@ impl View3d {
             if full {
                 self.last_seconds = *seconds;
             }
+            self.on_gpu = false;
             let mut bytes = Vec::with_capacity(image.pixels.len() * 3);
             for p in &image.pixels {
                 bytes.extend_from_slice(&[p.r, p.g, p.b]);
@@ -133,12 +212,10 @@ impl View3d {
         false
     }
 
-    fn job(&mut self, rect: Rect, full: bool) -> View3dJob {
-        let k = if full {
-            (900.0 / rect.width().max(rect.height())).min(1.0)
-        } else {
-            0.25
-        };
+    /// The render job for the view in `rect` at `k` pixels per point (the
+    /// CPU's full picture caps the longer side at 900 pixels and its preview
+    /// is a quarter of that; the GPU draws every screen pixel).
+    fn job(&mut self, rect: Rect, k: f32, full: bool) -> View3dJob {
         let pixels = [
             ((rect.width() * k) as usize).max(32),
             ((rect.height() * k) as usize).max(24),
@@ -175,9 +252,11 @@ impl View3d {
             ui.allocate_exact_size(ui.available_size(), egui::Sense::click_and_drag());
         let painter = ui.painter_at(rect);
         painter.rect_filled(rect, 0.0, Color32::from_rgb(48, 48, 52));
-        if let Some(t) = &self.texture {
+        let gpu_tex = self.gpu.as_ref().and_then(|g| self.slot.texture(g));
+        let shown = if self.on_gpu { gpu_tex } else { None };
+        if let Some(t) = shown.or(self.texture.as_ref().map(TextureHandle::id)) {
             painter.image(
-                t.id(),
+                t,
                 rect,
                 Rect::from_min_max(Pos2::ZERO, Pos2::new(1.0, 1.0)),
                 Color32::WHITE,
@@ -213,15 +292,28 @@ impl View3d {
         }
         self.toolbar(ui, rect);
         self.gizmo(&painter, rect);
+        let gpu_ready = have_geometry && self.gpu.as_ref().is_some_and(Gpu::poll);
+        let gpu_busy = self.slot.busy();
+        let fallback = match self.gpu.as_ref().map(Gpu::status) {
+            None => " (CPU: no wgpu device)".to_string(),
+            Some(GpuStatus::Preparing) => " (CPU while the GPU loads the geometry)".to_string(),
+            Some(GpuStatus::Refused(why) | GpuStatus::Off(why)) => format!(" (CPU: {why})"),
+            Some(GpuStatus::Ready) => String::new(),
+        };
+        let mode = if self.ortho { "ortho" } else { "persp" };
         let status = if !have_geometry {
             "Assembling the geometry…".to_string()
+        } else if self.on_gpu && shown.is_some() {
+            format!(
+                "GPU ray-traced in {:.0} ms · {mode} · drag: orbit · right/Shift+middle: pan · wheel: zoom",
+                1000.0 * self.slot.last_seconds,
+            )
         } else if self.pending.is_some_and(|p| p.1) {
-            "ray tracing…".to_string()
+            format!("ray tracing on the CPU…{fallback}")
         } else {
             format!(
-                "ray-traced in {:.1} s · {} · drag: orbit · right/Shift+middle: pan · wheel: zoom",
+                "CPU ray-traced in {:.1} s{fallback} · {mode} · drag: orbit · right/Shift+middle: pan · wheel: zoom",
                 self.last_seconds,
-                if self.ortho { "ortho" } else { "persp" }
             )
         };
         painter.text(
@@ -258,18 +350,50 @@ impl View3d {
             self.dirty_full = true;
             self.dirty_preview = true;
         }
-        if have_geometry && self.pending.is_none() {
+        if gpu_ready {
+            // GPU: every change, at screen resolution, as soon as the last
+            // frame has run (frames are never queued behind a slow one).
+            // While the camera moves, half resolution (a quarter of the rays;
+            // the HTR-10 half-section takes ~0.4 s at full resolution on an
+            // RTX A5000); the full picture once it has been still 0.15 s.
+            let still = now - self.changed_at > 0.15;
+            if (self.dirty_full || self.dirty_preview) && !gpu_busy && (still || self.dirty_preview)
+            {
+                let ppp = ui.ctx().pixels_per_point();
+                let job = self.job(rect, if still { ppp } else { 0.5 * ppp }, still);
+                // A CPU picture still in flight belongs to an older view.
+                self.pending = None;
+                if let Some(g) = &self.gpu {
+                    let (plot, scheme) = plot_for(&job, g.n_materials());
+                    if g.draw(
+                        &mut self.slot,
+                        &plot,
+                        &scheme,
+                        eframe::egui_wgpu::wgpu::FilterMode::Linear,
+                        false,
+                    ) {
+                        self.dirty_full &= !still;
+                        self.dirty_preview = false;
+                        self.on_gpu = true;
+                    }
+                }
+            }
+        } else if have_geometry && self.pending.is_none() {
             let still = now - self.changed_at > 0.35;
             if self.dirty_full && still {
                 self.dirty_full = false;
                 self.dirty_preview = false;
-                let job = self.job(rect, true);
+                let k = (900.0 / rect.width().max(rect.height())).min(1.0);
+                let job = self.job(rect, k, true);
                 send(Req::Render3d(job));
             } else if self.dirty_preview && !still {
                 self.dirty_preview = false;
-                let job = self.job(rect, false);
+                let job = self.job(rect, 0.25, false);
                 send(Req::Render3d(job));
             }
+        }
+        if gpu_busy || (gpu_ready && (self.dirty_full || self.dirty_preview)) {
+            ui.ctx().request_repaint();
         }
         if self.dirty_full || self.pending.is_some() {
             ui.ctx()

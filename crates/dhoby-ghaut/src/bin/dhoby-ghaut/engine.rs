@@ -588,62 +588,21 @@ pub struct View3dJob {
     pub clip: Option<([f64; 3], f64)>,
 }
 
-/// Ray-trace `job` through `geom` with `outram_mc_libs::geometry::plot`'s
-/// port of OpenMC's ray-traced plots (rows in parallel). Hidden materials are
-/// left out of the solid plot's opaque set, or given a near-zero attenuation
-/// in x-ray mode, so the view sees through them.
+/// Ray-trace `job` through `geom` on the CPU with `outram_mc_libs::geometry::plot`'s
+/// port of OpenMC's ray-traced plots (rows in parallel): the fallback and the
+/// reference of the GPU tracer (gh:#587). The plot (hidden materials left out
+/// of the solid plot's opaque set, or given no attenuation in x-ray mode) is
+/// `view3d::plot_for`'s, the one the GPU draws.
 pub fn render_3d(
     geom: &outram_mc_libs::geometry::geometry::Geometry,
     job: &View3dJob,
 ) -> ImageData {
-    use outram_mc_libs::geometry::plot::{
-        material_count, Camera, ClipPlane, ColourScheme, PlotColourBy, Projection, Rgb, SolidRayTracePlot,
-        WireframeRayTracePlot, DEFAULT_PLOTTER_SEED,
-    };
-    use outram_mc_libs::geometry::position::Direction;
-    let pal = palette();
-    let n = material_count(geom).max(pal.len());
-    let mut seed = DEFAULT_PLOTTER_SEED;
-    let mut scheme = ColourScheme::new(PlotColourBy::Material, n, &mut seed)
-        .with_background(Rgb::new(48, 48, 52));
-    for (i, (c, _)) in pal.iter().enumerate() {
-        scheme = scheme.with_colour(i, *c);
-    }
-    let camera = Camera {
-        position: Position::new(job.eye[0], job.eye[1], job.eye[2]),
-        look_at: Position::new(job.look_at[0], job.look_at[1], job.look_at[2]),
-        up: Direction::new(0.0, 0.0, 1.0),
-        pixels: job.pixels,
-        projection: match job.ortho_width {
-            Some(width) => Projection::Orthographic { width },
-            None => Projection::Perspective {
-                horizontal_fov_deg: job.fov_deg,
-            },
-        },
-    };
-    let shown = |i: usize| job.visible.get(i).copied().unwrap_or(true);
-    match job.shading {
-        Shading::Solid => {
-            let mut plot = SolidRayTracePlot::new(camera, n);
-            for i in (0..n).filter(|&i| shown(i)) {
-                plot = plot.with_opaque(i);
-            }
-            plot.diffuse_fraction = 0.35;
-            if let Some((normal, offset)) = job.clip {
-                plot = plot.with_clip(ClipPlane { normal, offset });
-            }
-            plot.create_image(geom, &scheme)
-        }
-        Shading::XRay => {
-            let mut plot = WireframeRayTracePlot::new(camera, n);
-            for i in 0..n {
-                plot = plot.with_xs(i, if shown(i) { 0.02 } else { 0.0 });
-            }
-            // Outline only what is shown: hidden pebbles' boundaries would
-            // otherwise cover the picture.
-            plot.wireframe_ids = (0..n).filter(|&i| shown(i)).collect();
-            plot.create_image(geom, &scheme)
-        }
+    use outram_blender::csg::gpu::render::GpuPlot;
+    let n = outram_mc_libs::geometry::plot::material_count(geom);
+    match crate::view3d::plot_for(job, n) {
+        (GpuPlot::Solid(p), s) => p.create_image(geom, &s),
+        (GpuPlot::Wireframe(p), s) => p.create_image(geom, &s),
+        (GpuPlot::Slice(p), s) => p.create_image(geom, &s),
     }
 }
 

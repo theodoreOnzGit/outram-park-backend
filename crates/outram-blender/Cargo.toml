@@ -178,6 +178,9 @@ uom = { workspace = true }
 # workspace rule keeps windowing GUI out of any Android build. The library stays
 # headless/Android-buildable; the app is an example, never a library dep.
 [target.'cfg(not(target_os = "android"))'.dev-dependencies]
+# Static validation of the GPU CSG tracer's WGSL (tests/gpu_csg_parity.rs)
+# with no adapter, so CI without a GPU still catches shader errors (gh:#587).
+naga = { workspace = true, features = ["wgsl-in"] }
 eframe = { workspace = true }
 egui = { workspace = true }
 egui_plot = { workspace = true }
