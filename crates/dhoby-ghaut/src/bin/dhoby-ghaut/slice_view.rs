@@ -201,11 +201,11 @@ impl SliceView {
                 rect.center(),
                 egui::Align2::CENTER_CENTER,
                 "Assembling the geometry…",
-                egui::FontId::proportional(crate::app::fs(18.0)),
+                crate::style::Text::Subheading.font(),
                 Color32::DARK_GRAY,
             );
         }
-        scale_bar_sized(&painter, rect, &self.view, crate::app::fs(12.0));
+        scale_bar_sized(&painter, rect, &self.view, crate::style::Text::Small.size());
         let label = format!(
             "{} slice at {} = {:.1} cm{}",
             self.basis.name().to_uppercase(),
@@ -225,10 +225,10 @@ impl SliceView {
             rect.left_bottom() + Vec2::new(8.0, -30.0),
             egui::Align2::LEFT_BOTTOM,
             label,
-            egui::FontId::proportional(crate::app::fs(13.0)),
+            crate::style::Text::Body.font(),
             Color32::BLACK,
         );
-        if let Some(z) = zoom_buttons_sized(ui, rect, crate::app::fs(18.0)) {
+        if let Some(z) = zoom_buttons_sized(ui, rect, crate::style::Text::Subheading.size()) {
             apply_zoom(&mut self.view, rect, z);
         }
         if (self.view.centre, self.view.scale) != before {

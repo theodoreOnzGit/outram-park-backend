@@ -218,7 +218,7 @@ pub fn main_view(app: &mut App, ui: &mut egui::Ui) {
         ui.label(RichText::new("Report preview (kovan markdown)").strong());
         let md = report_markdown(&app.recipe, map.as_ref(), &sp, &[], &now_rfc3339()).unwrap_or_else(|e| e.to_string());
         egui::ScrollArea::vertical().id_salt("report_preview").show(ui, |ui| {
-            ui.add(egui::Label::new(RichText::new(md).monospace().size(crate::app::fs(11.0))).wrap());
+            ui.add(egui::Label::new(RichText::new(md).monospace().size(crate::style::Text::Small.size())).wrap());
         });
     });
 }

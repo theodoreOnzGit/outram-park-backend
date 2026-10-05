@@ -36,7 +36,6 @@ use outram_mc_libs::geometry::plot::{
 };
 use outram_mc_libs::geometry::position::{Direction, Position};
 
-use crate::app::fs;
 use crate::engine::{palette, Ev, Req, Shading, View3dJob};
 use crate::gpu_view::{Gpu, GpuSlot, GpuStatus};
 
@@ -334,7 +333,7 @@ impl View3d {
             rect.left_bottom() + Vec2::new(10.0, -10.0),
             egui::Align2::LEFT_BOTTOM,
             status,
-            egui::FontId::proportional(fs(12.0)),
+            crate::style::Text::Small.font(),
             Color32::from_gray(220),
         );
 
@@ -437,22 +436,29 @@ impl View3d {
             ),
             ("Iso", -0.8, 0.6, "Three-quarter view"),
         ];
-        let h = fs(15.0) + 14.0;
+        let h = crate::style::button_height();
         let mut x = rect.left() + 8.0;
-        let y = rect.top() + 8.0;
+        let mut y = rect.top() + 8.0;
+        // The + / − pair sits top right; view buttons wrap to a new row
+        // before reaching it, so nothing overlaps at any UI scale (gh:#586).
+        let row_end = rect.right() - 8.0 - 2.0 * (crate::style::em(2.2) + 6.0);
         let mut button =
             |ui: &mut egui::Ui, label: &str, w: f32, selected: bool, hover: &str| -> bool {
+                if x + w > row_end && x > rect.left() + 8.0 {
+                    x = rect.left() + 8.0;
+                    y += h + 6.0;
+                }
                 let b = Rect::from_min_size(Pos2::new(x, y), Vec2::new(w, h));
                 x += w + 6.0;
                 ui.put(
                     b,
-                    egui::Button::selectable(selected, RichText::new(label).size(fs(13.0))),
+                    egui::Button::selectable(selected, RichText::new(label).size(crate::style::Text::Body.size())),
                 )
                 .on_hover_text(hover)
                 .clicked()
             };
         for (label, yaw, pitch, hover) in views {
-            if button(ui, label, fs(13.0) * 3.4, false, hover) {
+            if button(ui, label, crate::style::Text::Body.size() * 3.4, false, hover) {
                 self.yaw = yaw;
                 self.pitch = pitch;
             }
@@ -460,7 +466,7 @@ impl View3d {
         if button(
             ui,
             "Frame all",
-            fs(13.0) * 5.0,
+            crate::style::Text::Body.size() * 5.0,
             false,
             "Fit the model (Home, or double-click)",
         ) {
@@ -471,34 +477,34 @@ impl View3d {
         if button(
             ui,
             if ortho { "Ortho" } else { "Persp" },
-            fs(13.0) * 3.6,
+            crate::style::Text::Body.size() * 3.6,
             false,
             "Toggle perspective / orthographic (numpad 5)",
         ) {
             self.ortho = !self.ortho;
         }
         let solid = self.shading == Shading::Solid;
-        if button(ui, "Solid", fs(13.0) * 3.4, solid, "Shaded opaque surfaces") {
+        if button(ui, "Solid", crate::style::Text::Body.size() * 3.4, solid, "Shaded opaque surfaces") {
             self.shading = Shading::Solid;
         }
         if button(
             ui,
             "X-ray",
-            fs(13.0) * 3.4,
+            crate::style::Text::Body.size() * 3.4,
             !solid,
             "See-through, boundaries outlined",
         ) {
             self.shading = Shading::XRay;
         }
         // Zoom buttons, top right, for a mouse without a wheel.
-        let w = fs(13.0) * 2.2;
+        let w = crate::style::Text::Body.size() * 2.2;
         for (i, (label, f)) in [("+", 1.3), ("−", 1.0 / 1.3)].into_iter().enumerate() {
             let b = Rect::from_min_size(
-                Pos2::new(rect.right() - 8.0 - (2 - i) as f32 * (w + 6.0), y),
+                Pos2::new(rect.right() - 8.0 - (2 - i) as f32 * (w + 6.0), rect.top() + 8.0),
                 Vec2::new(w, h),
             );
             if ui
-                .put(b, egui::Button::new(RichText::new(label).size(fs(15.0))))
+                .put(b, egui::Button::new(RichText::new(label).size(crate::style::Text::Emphasis.size())))
                 .clicked()
             {
                 self.distance = (self.distance / f).clamp(0.5, 20.0 * self.extent);
@@ -521,12 +527,12 @@ impl View3d {
             let sy = (u[0] * a[0] + u[1] * a[1] + u[2] * a[2]) as f32;
             let tip = c + Vec2::new(sx, -sy) * 42.0;
             painter.line_segment([c, tip], egui::Stroke::new(3.0, col));
-            painter.circle_filled(tip, fs(8.0), col);
+            painter.circle_filled(tip, crate::style::em(0.6), col);
             painter.text(
                 tip,
                 egui::Align2::CENTER_CENTER,
                 name,
-                egui::FontId::proportional(fs(9.0)),
+                crate::style::Text::Tiny.font(),
                 Color32::BLACK,
             );
         }

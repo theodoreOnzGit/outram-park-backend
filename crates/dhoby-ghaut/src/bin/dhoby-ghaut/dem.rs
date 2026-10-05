@@ -21,7 +21,6 @@ use outram_park_fork_liggghts::htr10_fill::{
     VALVE_Z_M,
 };
 
-use crate::app::fs;
 use crate::gpu_view::{Gpu, PebbleCamera, PebbleGpu};
 
 /// Set to `true` to stop a pour at the next chunk boundary.
@@ -223,23 +222,23 @@ impl DemView {
             rect.left_bottom() + Vec2::new(10.0, -10.0),
             egui::Align2::LEFT_BOTTOM,
             lines.join("\n"),
-            egui::FontId::proportional(fs(12.0)),
+            crate::style::Text::Small.font(),
             Color32::from_gray(225),
         );
         // + / − / half toggle, top right.
-        let h = fs(15.0) + 14.0;
-        let w = fs(13.0) * 2.2;
-        let mut x = rect.right() - 8.0 - 3.0 * (w + 6.0) - fs(13.0) * 3.0;
+        let h = crate::style::button_height();
+        let w = crate::style::Text::Body.size() * 2.2;
+        let mut x = rect.right() - 8.0 - 3.0 * (w + 6.0) - crate::style::Text::Body.size() * 3.0;
         let y = rect.top() + 8.0;
         for (label, f) in [("+", 1.3f32), ("−", 1.0 / 1.3)] {
-            if ui.put(Rect::from_min_size(Pos2::new(x, y), Vec2::new(w, h)), egui::Button::new(egui::RichText::new(label).size(fs(15.0)))).clicked() {
+            if ui.put(Rect::from_min_size(Pos2::new(x, y), Vec2::new(w, h)), egui::Button::new(egui::RichText::new(label).size(crate::style::Text::Emphasis.size()))).clicked() {
                 self.zoom = (self.zoom * f).clamp(0.3, 20.0);
             }
             x += w + 6.0;
         }
         let label = if self.half { "Whole" } else { "Half" };
         if ui
-            .put(Rect::from_min_size(Pos2::new(x, y), Vec2::new(fs(13.0) * 4.0, h)), egui::Button::new(egui::RichText::new(label).size(fs(13.0))))
+            .put(Rect::from_min_size(Pos2::new(x, y), Vec2::new(crate::style::Text::Body.size() * 4.0, h)), egui::Button::new(egui::RichText::new(label).size(crate::style::Text::Body.size())))
             .on_hover_text("Show the whole bed, or only the half y > 0 to see inside")
             .clicked()
         {

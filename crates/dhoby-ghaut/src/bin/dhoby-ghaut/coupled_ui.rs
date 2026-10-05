@@ -11,7 +11,7 @@ use dhoby_ghaut::workbench::recipe::{Citation, ElementStatus};
 use egui::{Color32, Pos2, Rect, RichText, Stroke, Vec2};
 use egui_plot::{Legend, Line, Plot, PlotPoints};
 
-use crate::app::{fs, App};
+use crate::app::App;
 use crate::coupled::{MpEngine, MpEv, MpReq, StopFlag};
 use crate::porous_core::{Fields, IterationReport, Summary};
 
@@ -574,7 +574,7 @@ pub fn results(app: &mut App, ui: &mut egui::Ui) {
                 .show(ui, |ui| {
                     for l in &mp.console {
                         ui.add(
-                            egui::Label::new(RichText::new(l).monospace().size(fs(11.5))).extend(),
+                            egui::Label::new(RichText::new(l).monospace().size(crate::style::Text::Small.size())).extend(),
                         );
                     }
                 });
@@ -717,7 +717,7 @@ fn draw_rz(
             colour(f64::from(t0)),
         );
     }
-    let font = egui::FontId::proportional(fs(12.0));
+    let font = crate::style::Text::Small.font();
     painter.text(
         Pos2::new(bar.left() - 4.0, bar.top()),
         egui::Align2::RIGHT_CENTER,
@@ -748,7 +748,7 @@ pub fn main_view(app: &mut App, ui: &mut egui::Ui, run_step: bool) {
     }
     let painter = ui.painter_at(rect);
     painter.rect_filled(rect, 0.0, Color32::from_rgb(40, 40, 46));
-    let font = egui::FontId::proportional(fs(13.0));
+    let font = crate::style::Text::Body.font();
     let text = Color32::from_gray(230);
     let zoom = app.mp.zoom;
     let mut lines: Vec<String> = Vec::new();
@@ -850,18 +850,18 @@ pub fn main_view(app: &mut App, ui: &mut egui::Ui, run_step: bool) {
         rect.left_bottom() + Vec2::new(10.0, -10.0),
         egui::Align2::LEFT_BOTTOM,
         lines.join("\n"),
-        egui::FontId::proportional(fs(12.0)),
+        crate::style::Text::Small.font(),
         text,
     );
     // + / − / reset.
-    let h = fs(15.0) + 14.0;
-    let w = fs(13.0) * 2.4;
+    let h = crate::style::button_height();
+    let w = crate::style::Text::Body.size() * 2.4;
     let mut x = rect.right() - 8.0 - 3.0 * (w + 6.0) - 50.0;
     for (label, f) in [("+", 1.3f32), ("−", 1.0 / 1.3), ("⟲", 0.0)] {
         if ui
             .put(
                 Rect::from_min_size(Pos2::new(x, rect.top() + 8.0), Vec2::new(w, h)),
-                egui::Button::new(RichText::new(label).size(fs(15.0))),
+                egui::Button::new(RichText::new(label).size(crate::style::Text::Emphasis.size())),
             )
             .clicked()
         {

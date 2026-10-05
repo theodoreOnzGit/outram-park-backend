@@ -88,6 +88,8 @@ mod mgxs_run;
 #[cfg(not(any(target_os = "android", target_arch = "wasm32")))]
 mod steps78;
 #[cfg(not(any(target_os = "android", target_arch = "wasm32")))]
+mod style;
+#[cfg(not(any(target_os = "android", target_arch = "wasm32")))]
 mod preset;
 #[cfg(not(any(target_os = "android", target_arch = "wasm32")))]
 mod results;
@@ -254,11 +256,13 @@ fn main() -> Result<(), String> {
     // `--auto-build` then builds Step 7's meshes as soon as the geometry is in.
     let open_step = arg("--open-step").and_then(|v| v.parse::<u8>().ok());
     let auto_build = args.iter().any(|a| a == "--auto-build");
+    // `--ui-scale S`: this session's UI scale (gh:#586), not saved.
+    let ui_scale = arg("--ui-scale").and_then(|v| v.parse::<f32>().ok());
     eframe::run_native(
         "Dhoby Ghaut workbench",
         options,
         Box::new(move |cc| {
-            let mut a = app::App::new(cc, recipe, recipe_step9);
+            let mut a = app::App::new(cc, recipe, recipe_step9, ui_scale);
             // `--step N` / `--open-step N`: open the wizard at Step N, e.g.
             // for screenshots. Navigation only: the review gate still guards
             // every Monte Carlo run.

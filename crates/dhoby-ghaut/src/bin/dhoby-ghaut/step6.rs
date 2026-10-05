@@ -276,7 +276,7 @@ pub fn main_view(app: &mut App, ui: &mut egui::Ui) {
                         "Held-out error (leave-one-out RMS): {ho}   beside   Monte Carlo σ_ρ (RMS): {:.0} pcm",
                         f.mc_sigma_rms_pcm
                     ))
-                    .size(crate::app::fs(17.0))
+                    .size(crate::style::Text::Subheading.size())
                     .strong(),
                 );
                 ui.small(format!(

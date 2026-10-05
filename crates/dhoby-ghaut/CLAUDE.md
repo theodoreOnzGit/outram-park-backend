@@ -189,6 +189,15 @@ report). Rules that bind changes to it:
   `tetOverlapVolume` / `cellVolumeWeightMethod`, as GeN-Foam's `meshHandler`
   uses). Nothing meshes or maps in this crate itself.
 
+## Sizes come from the style system (gh:#586)
+
+Every text size in the workbench is a `style::Text` token and every width or
+spacing a multiple of `style::em`; never a bare pixel number. The reader's
+UI scale (egui's zoom factor, `style::UiScale`) multiplies all of them
+together, so a layout that works at 100 % works at 150 %: check both, and
+hold side panels to a fraction of the window rather than a fixed width. To
+change the look, change the scale in `style.rs`, not individual call sites.
+
 ## Files and folders are chosen with a file picker (HARD RULE)
 
 **Maintainer direction, 2026-10-05. Binds `dhoby-ghaut`, `kovan` and `dover`.**

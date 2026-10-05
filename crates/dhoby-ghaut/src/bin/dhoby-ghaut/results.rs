@@ -268,7 +268,7 @@ fn console(app: &mut App, ui: &mut egui::Ui) {
                 egui::Label::new(
                     RichText::new(lines.join("\n"))
                         .monospace()
-                        .size(crate::app::fs(11.0)),
+                        .size(crate::style::Text::Small.size()),
                 )
                 .extend(),
             );

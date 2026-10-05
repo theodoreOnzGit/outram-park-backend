@@ -269,11 +269,18 @@ pub fn panes(app: &mut App, ui: &mut egui::Ui) {
     ) {
         app.shown_step = Some(step);
     }
+    // Panel sizes are body ems (gh:#586), each side panel held to at most
+    // 30 % of the window and each bottom panel to 45 %, so the main view
+    // keeps at least 40 % of the width at any UI scale.
+    let (win_w, win_h) = (ui.max_rect().width(), ui.max_rect().height());
+    let side_max = (0.30 * win_w).max(crate::style::em(12.0));
+    let bottom_max = (0.45 * win_h).max(crate::style::em(10.0));
     // Literature, left.
     let cites = cites_for(app, step);
     let mut lit_open = app.lit_open;
     egui::Panel::left("literature")
-        .default_size(330.0)
+        .default_size(crate::style::em(25.0).min(side_max))
+        .size_range(crate::style::em(12.0)..=side_max)
         .resizable(true)
         .show_collapsible(ui, &mut lit_open, |ui| {
             egui::ScrollArea::vertical().show(ui, |ui| {
@@ -287,7 +294,8 @@ pub fn panes(app: &mut App, ui: &mut egui::Ui) {
     // Settings, right.
     let mut settings_open = app.settings_open;
     egui::Panel::right("settings")
-        .default_size(340.0)
+        .default_size(crate::style::em(26.0).min(side_max))
+        .size_range(crate::style::em(12.0)..=side_max)
         .resizable(true)
         .show_collapsible(ui, &mut settings_open, |ui| {
             egui::ScrollArea::vertical().show(ui, |ui| settings(app, ui));
@@ -302,8 +310,8 @@ pub fn panes(app: &mut App, ui: &mut egui::Ui) {
     {
         let mut open = app.results_open;
         egui::Panel::bottom("results")
-            .default_size(310.0)
-            .size_range(200.0..=520.0)
+            .default_size(crate::style::em(24.0).min(bottom_max))
+            .size_range(crate::style::em(10.0).min(bottom_max)..=bottom_max)
             .resizable(true)
             .show_collapsible(ui, &mut open, |ui| {
                 crate::results::show(app, ui);
@@ -314,8 +322,8 @@ pub fn panes(app: &mut App, ui: &mut egui::Ui) {
     if step == WizardStep::Run {
         let mut open = app.results_open;
         egui::Panel::bottom("mp_results")
-            .default_size(260.0)
-            .size_range(160.0..=520.0)
+            .default_size(crate::style::em(20.0).min(bottom_max))
+            .size_range(crate::style::em(10.0).min(bottom_max)..=bottom_max)
             .resizable(true)
             .show_collapsible(ui, &mut open, |ui| crate::coupled_ui::results(app, ui));
         app.results_open = open;
@@ -372,7 +380,7 @@ fn main_view(app: &mut App, ui: &mut egui::Ui) {
             }
             let dem_step = step == WizardStep::PebbleBed
                 && app.recipe.pebble_bed.source == dhoby_ghaut::workbench::recipe::BedSource::Dem;
-            let tab = |t: &str| RichText::new(t).size(crate::app::fs(13.0));
+            let tab = |t: &str| RichText::new(t).size(crate::style::Text::Body.size());
             ui.horizontal(|ui| {
                 ui.add_space(8.0);
                 if dem_step {
@@ -970,7 +978,7 @@ fn monte_carlo(app: &mut App, ui: &mut egui::Ui) -> bool {
     if ui
         .add_enabled(
             ready && !busy,
-            egui::Button::new(RichText::new(format!("Run: {label}")).size(crate::app::fs(18.0))),
+            egui::Button::new(RichText::new(format!("Run: {label}")).size(crate::style::Text::Subheading.size())),
         )
         .clicked()
     {

@@ -24,17 +24,9 @@ use crate::literature::Literature;
 use crate::preset;
 use crate::slice_view::SliceView;
 
-/// Every font in the workbench is this many times its base size, applied to
-/// egui's text styles at start-up and, through [`fs`], to every explicit size.
-/// ~~2.0 (maintainer, 2026-10-05: "all fonts twice the size")~~ **REVERTED to
-/// 1.0 the same day** at the maintainer's request, pending a systematic style
-/// settlement (gh:#586); this constant is the one hook for it.
-pub const FONT_SCALE: f32 = 1.0;
-
-/// An explicit font size, scaled by [`FONT_SCALE`].
-pub fn fs(px: f32) -> f32 {
-    px * FONT_SCALE
-}
+// ~~`FONT_SCALE` / `fs()`: one multiplier on every font~~ **REPLACED
+// 2026-10-06** by the style system in `style.rs` (gh:#586): a type scale of
+// named sizes, widths in body ems, and the reader's UI scale.
 
 /// What the shared file picker was opened for. Every file or folder the user
 /// chooses goes through it (crate HARD RULE: pickers, never typed paths).
@@ -176,6 +168,8 @@ pub struct App {
     pub shown_step: Option<WizardStep>,
     /// Steps 7-8 (meshing, MGXS): their own engine thread and state.
     pub s78: crate::steps78::S78,
+    /// The reader's UI scale (gh:#586).
+    pub ui_scale: crate::style::UiScale,
 }
 
 impl App {
@@ -183,12 +177,10 @@ impl App {
         cc: &eframe::CreationContext<'_>,
         recipe: Option<Recipe>,
         recipe_step9: Option<Result<dhoby_ghaut::workbench::multiphysics::MultiphysicsSetup, String>>,
+        ui_scale: Option<f32>,
     ) -> Self {
-        cc.egui_ctx.all_styles_mut(|style| {
-            for font in style.text_styles.values_mut() {
-                font.size *= FONT_SCALE;
-            }
-        });
+        crate::style::apply(&cc.egui_ctx);
+        let ui_scale = crate::style::UiScale::new(&cc.egui_ctx, ui_scale);
         let ctx = cc.egui_ctx.clone();
         let c2 = ctx.clone();
         let c3 = ctx.clone();
@@ -251,6 +243,7 @@ impl App {
             main_rect: egui::Rect::NOTHING,
             shown_step: None,
             s78: crate::steps78::S78::new(cc.egui_ctx.clone()),
+            ui_scale,
         };
         // Ray tracing is the GPU's job (gh:#587); the CPU is the fallback.
         match crate::gpu_view::Gpu::new(cc) {
@@ -680,20 +673,23 @@ impl App {
     // ─── Screens before the wizard ──────────────────────────────────────────
 
     fn picker(&mut self, ui: &mut egui::Ui) {
+        ui.with_layout(egui::Layout::right_to_left(egui::Align::Min), |ui| {
+            self.ui_scale.controls(ui);
+        });
         ui.vertical_centered(|ui| {
             ui.add_space(12.0);
-            ui.heading(RichText::new("DHOBY GHAUT: what do you want to build?").size(crate::app::fs(26.0)));
+            ui.heading(RichText::new("DHOBY GHAUT: what do you want to build?").size(crate::style::Text::Title.size()));
             ui.label("A guided high-fidelity build. Research, education and V&V only: not for facility operation, licensing or safety decisions.");
         });
         ui.add_space(10.0);
         egui::ScrollArea::vertical().show(ui, |ui| {
             for g in Generation::ALL {
-                ui.label(RichText::new(g.title()).size(crate::app::fs(18.0)).strong());
+                ui.label(RichText::new(g.title()).size(crate::style::Text::Subheading.size()).strong());
                 let types: Vec<ReactorType> = ReactorType::ALL
                     .into_iter()
                     .filter(|t| t.generation() == g)
                     .collect();
-                let per_row = ((ui.available_width() / 290.0).floor() as usize).max(1);
+                let per_row = ((ui.available_width() / crate::style::em(22.5)).floor() as usize).max(1);
                 for row in types.chunks(per_row) {
                     ui.horizontal(|ui| {
                         for &t in row {
@@ -705,11 +701,11 @@ impl App {
                             };
                             let card = egui::Frame::group(ui.style()).inner_margin(10.0);
                             card.show(ui, |ui| {
-                                ui.set_width(260.0);
+                                ui.set_width(crate::style::em(20.0));
                                 ui.vertical(|ui| {
                                     ui.label(
                                         RichText::new(t.label())
-                                            .size(crate::app::fs(17.0))
+                                            .size(crate::style::Text::Subheading.size())
                                             .strong(),
                                     );
                                     ui.colored_label(colour, s.badge());
@@ -746,9 +742,9 @@ impl App {
         ui.add_space(8.0);
         ui.horizontal(|ui| {
             egui::Frame::group(ui.style()).inner_margin(12.0).show(ui, |ui| {
-                ui.set_width(340.0);
+                ui.set_width(crate::style::em(26.0));
                 ui.vertical(|ui| {
-                    ui.label(RichText::new("Basic").size(crate::app::fs(20.0)).strong());
+                    ui.label(RichText::new("Basic").size(crate::style::Text::Heading.size()).strong());
                     ui.label("Start from a pre-built model and modify from there. Every value prefilled, every value cited.");
                     if ui.button("Basic »").clicked() {
                         self.recipe.header.mode = Mode::Basic;
@@ -757,9 +753,9 @@ impl App {
                 });
             });
             egui::Frame::group(ui.style()).inner_margin(12.0).show(ui, |ui| {
-                ui.set_width(340.0);
+                ui.set_width(crate::style::em(26.0));
                 ui.vertical(|ui| {
-                    ui.label(RichText::new("Advanced").size(crate::app::fs(20.0)).strong());
+                    ui.label(RichText::new("Advanced").size(crate::style::Text::Heading.size()).strong());
                     ui.label("Build from scratch, more customisable.");
                     ui.colored_label(Color32::GRAY, "Not built yet: Advanced mode details are deferred (gh:#561).");
                     ui.add_enabled(false, egui::Button::new("Advanced »"));
@@ -779,9 +775,9 @@ impl App {
                 egui::Frame::group(ui.style())
                     .inner_margin(12.0)
                     .show(ui, |ui| {
-                        ui.set_width(340.0);
+                        ui.set_width(crate::style::em(26.0));
                         ui.vertical(|ui| {
-                            ui.label(RichText::new(c.label()).size(crate::app::fs(19.0)).strong());
+                            ui.label(RichText::new(c.label()).size(crate::style::Text::Subheading.size()).strong());
                             ui.small(c.note());
                             if c == HtgrCore::PebbleBed {
                                 ui.add_space(4.0);
@@ -814,7 +810,7 @@ impl App {
             if ui
                 .add_enabled(
                     i > 0,
-                    egui::Button::new(RichText::new("« Back").size(crate::app::fs(16.0))),
+                    egui::Button::new(RichText::new("« Back").size(crate::style::Text::Emphasis.size())),
                 )
                 .clicked()
             {
@@ -822,7 +818,7 @@ impl App {
             }
             ui.label(
                 RichText::new(self.step.title())
-                    .size(crate::app::fs(20.0))
+                    .size(crate::style::Text::Heading.size())
                     .strong(),
             );
             let next = WizardStep::ALL.get(i + 1).copied();
@@ -830,7 +826,7 @@ impl App {
             if let Some(n) = next {
                 let b = ui.add_enabled(
                     !blocked,
-                    egui::Button::new(RichText::new("Next »").size(crate::app::fs(16.0))),
+                    egui::Button::new(RichText::new("Next »").size(crate::style::Text::Emphasis.size())),
                 );
                 let b = if blocked {
                     b.on_disabled_hover_text("Look at every review view and confirm first")
@@ -843,6 +839,9 @@ impl App {
             }
             ui.separator();
             ui.label(RichText::new(self.step.phase()).color(Color32::GRAY));
+            ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                self.ui_scale.controls(ui);
+            });
         });
         ui.horizontal_wrapped(|ui| {
             if self.recipe.header.edited {
@@ -923,6 +922,7 @@ impl eframe::App for App {
             self.say(msg, err);
         }
         crate::steps78::handle(self, &ctx);
+        self.ui_scale.sync(&ctx);
         self.dialog.update(&ctx);
         if let Some(path) = self.dialog.take_picked() {
             self.picked(path);

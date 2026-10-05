@@ -584,7 +584,7 @@ pub fn mesh_settings(app: &mut App, ui: &mut egui::Ui) {
     let build = ui
         .add_enabled(
             !busy,
-            egui::Button::new(RichText::new("Build the three meshes").size(crate::app::fs(16.0))),
+            egui::Button::new(RichText::new("Build the three meshes").size(crate::style::Text::Emphasis.size())),
         )
         .clicked();
     if build {
@@ -745,7 +745,7 @@ pub fn mgxs_settings(app: &mut App, ui: &mut egui::Ui) {
         .add_enabled(
             ready && !s.busy(),
             egui::Button::new(
-                RichText::new("Run the MGXS state points").size(crate::app::fs(16.0)),
+                RichText::new("Run the MGXS state points").size(crate::style::Text::Emphasis.size()),
             ),
         )
         .clicked()

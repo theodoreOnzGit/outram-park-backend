@@ -223,7 +223,15 @@ What was checked on 2026-10-05:
     PNG export and `--render-review`.
 - ~~**Every font is twice egui's default** (`FONT_SCALE` in `app.rs`).~~
   **REVERTED the same day** at the maintainer's request, pending a systematic
-  style settlement (#586); `FONT_SCALE` is 1.0 and is the hook for it.
+  style settlement (#586); ~~`FONT_SCALE` is 1.0 and is the hook for it.~~
+  **UPDATED 2026-10-06:** `FONT_SCALE` is gone; the style system
+  (`src/bin/dhoby-ghaut/style.rs`) has one type scale (tiny 9, small 11.5,
+  body 13, emphasis 15, subheading 17.5, heading 20, title 26 pt), panel
+  widths in body ems with each side panel held to 30 % of the window, and a
+  **UI scale** you set with A− / % / A+ in the top bar or Ctrl + / Ctrl −,
+  remembered in `~/.config/dhoby-ghaut/ui.toml` (`--ui-scale S` for one
+  session). With nothing saved it starts at 125 % on a monitor ≥ 2400 points
+  wide, else 100 %.
 - **Files and folders are chosen with a file picker**: the ENDF folder, the
   kovan root, the PNG folder, and recipe open / save / save-as. This is a hard
   rule in this crate, kovan and dover (`CLAUDE.md`).
