@@ -259,6 +259,8 @@ pub mod bed;
 pub mod reflector;
 pub mod reflector_geometry;
 pub mod core_model;
+mod core_shell;
+pub mod explicit_bed;
 pub mod control_rod;
 pub mod data;
 pub mod materials;

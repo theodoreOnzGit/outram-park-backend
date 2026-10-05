@@ -168,6 +168,11 @@ taskset -c 0-9 ./target/release/examples/htr10_endf8_kvsh_quick --threads 8 --ou
 
 Research, education and V&V only: one seed per point, not validated.
 
+The core can also be built on an explicit pebble list, such as a DEM pour,
+with `htr10_rmc::explicit_bed::assemble_explicit_triso_from_centres` (added
+2026-10-05; geometry drawn in
+`verification_and_validation/htr10_dem_bed_images/`, no validated `k` on it).
+
 ## What belongs here / what does not
 
 - **Belongs here:** orchestration, the object-oriented facade, cross-crate glue

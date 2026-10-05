@@ -12,12 +12,50 @@
 // <main>. On full-screen demos (a canvas, no <main>) it is a thin fixed bar
 // at the top and the page below it is shortened, so it never covers the
 // demo's own buttons (mobile-first rule, docs/claude-md/).
+//
+// Demo links open in a new tab (maintainer request, 2026-10-05): any link
+// into `demos/<demo>/` opens in a new tab unless the page is already inside
+// that demo, so a reader keeps the lesson they came from. It is done here
+// rather than per link because mdBook's markdown links cannot carry a
+// `target`, and the main menu loads this script for this part only.
 (function () {
   "use strict";
   var me = document.currentScript;
   if (!me) return;
   var root = new URL(".", me.src);
   var here = new URL(location.href);
+  var demos = new URL("demos/", root);
+
+  // The demo a URL is inside ("monte-carlo" for demos/monte-carlo/...), or "".
+  function demoOf(url) {
+    if (url.origin !== demos.origin || url.pathname.indexOf(demos.pathname) !== 0) return "";
+    return url.pathname.slice(demos.pathname.length).split("/")[0];
+  }
+  var hereDemo = demoOf(here);
+  function newTabIfDemo(el) {
+    if (!el || !el.href || el.hasAttribute("target")) return;
+    var d = demoOf(new URL(el.href, location.href));
+    if (!d || d === hereDemo) return;
+    el.target = "_blank";
+    el.rel = (el.rel ? el.rel + " " : "") + "noopener";
+  }
+  function markAll() {
+    var links = document.querySelectorAll("a[href]");
+    for (var i = 0; i < links.length; i++) newTabIfDemo(links[i]);
+  }
+  // Links already on the page, and (capture phase, before the browser
+  // follows it) any link a page script added after load.
+  document.addEventListener("click", function (ev) {
+    var t = ev.target;
+    while (t && t.nodeName !== "A") t = t.parentNode;
+    if (t && t.hasAttribute && t.hasAttribute("href")) newTabIfDemo(t);
+  }, true);
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", markAll);
+  } else {
+    markAll();
+  }
+
   if (here.href.indexOf(root.href) !== 0) return;
   var parts = here.pathname.slice(root.pathname.length).split("/");
   if (parts.length < 2) return; // the main menu itself

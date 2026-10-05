@@ -87,6 +87,8 @@ impl View3d {
     pub fn invalidate(&mut self) {
         self.texture = None;
         self.dirty_full = true;
+        // A render already in flight belongs to the old view: ignore it.
+        self.pending = None;
     }
 
     fn eye(&self) -> [f64; 3] {

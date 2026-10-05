@@ -2172,6 +2172,7 @@ dependencies = [
  "njoy-outram-park-fork",
  "outram-blender",
  "outram-mc-libs",
+ "outram-park-fork-liggghts",
  "serde",
  "toml",
  "uom",

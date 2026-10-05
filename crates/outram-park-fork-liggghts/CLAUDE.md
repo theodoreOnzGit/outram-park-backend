@@ -316,8 +316,18 @@ are different claims and this entry keeps them apart.
 
 Modules: `bonded`, `boundary`, `compute`, `contact`, `coupling`, `gnn_bridge`
 (feature `gnn`), `gpu` (non-Android, non-wasm), `granular`, `granular_system`,
-`integrator`, `mesh_wall`, `particle`, `rdf`, `rolling`, `simulation`,
-`thermal`, `thermal_radiation`, `timestep`.
+`htr10_fill`, `integrator`, `mesh_wall`, `particle`, `rdf`, `rolling`,
+`simulation`, `thermal`, `thermal_radiation`, `timestep`.
+
+**`htr10_fill` (2026-10-05, gh:#561)** pours `N` pebbles into the HTR-10 vessel
+from empty and settles them in chunks a UI drives (`Htr10Fill::advance`); the
+first Rust-side HTR-10 pour (every earlier bed started from LIGGGHTS'
+`fix insert/pack` output). Defaults are the publications package's setting
+(µ 0.1, µ_r 0, E 5e8 Pa; 27 000 pebbles). The seed is random sequential
+placement, NOT a lattice: a jittered-lattice seed was tried first and its
+order survived the drop (g(√3 d) 2.90 against 1.29 for the reference random
+bed); the random seed measures 1.284, matching it, so do not reintroduce one. `examples/htr10_fresh_fill.rs` runs it;
+`examples/bed_rdf_check.rs` prints the g(r) diagnostics of any bed CSV.
 
 Three of those are newer than the rest and are worth naming here:
 

@@ -109,6 +109,8 @@ pub mod gnn_bridge;
 pub mod gpu;
 pub mod granular;
 pub mod granular_system;
+// A fresh HTR-10 pour from empty, steppable by a UI (gh:#561, dhoby-ghaut Step 1).
+pub mod htr10_fill;
 pub mod integrator;
 pub mod mesh_wall;
 pub mod particle;

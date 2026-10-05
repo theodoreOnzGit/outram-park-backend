@@ -164,7 +164,9 @@ What was checked on 2026-10-05:
   - A quarter-resolution preview while moving, the full trace once still. The
     HTR-10 half-section takes 5–7 s at full resolution on the 16-core
     development machine, under a software-rendered display.
-- **Every font is twice egui's default** (`FONT_SCALE` in `app.rs`).
+- ~~**Every font is twice egui's default** (`FONT_SCALE` in `app.rs`).~~
+  **REVERTED the same day** at the maintainer's request, pending a systematic
+  style settlement (#586); `FONT_SCALE` is 1.0 and is the hook for it.
 - **Files and folders are chosen with a file picker**: the ENDF folder, the
   kovan root, the PNG folder, and recipe open / save / save-as. This is a hard
   rule in this crate, kovan and dover (`CLAUDE.md`).
@@ -173,6 +175,24 @@ What was checked on 2026-10-05:
   Generations stream through `outram-mc-libs`'
   `run_keff_csg_hybrid_with_progress` (#579). A test pins that the callback
   changes nothing about the run.
+
+**Fresh DEM pour in Step 1 (2026-10-05).** Step 1's bed source is either the
+preset lattice (Şeker's 13-ball cell) or a **fresh DEM pour**:
+`outram-park-fork-liggghts`' `htr10_fill` pours N pebbles (default 27 000,
+the full core the quoted 0.61 refers to) with the publications package's
+contact settings, on its own thread, drawn live. Once a pour finishes, "Build
+the Monte Carlo core from this pour" assembles it with `nee_soon`'s explicit
+bed (`assemble_explicit_triso_from_centres`):
+- pebbles are kept whole;
+- soft-sphere overlaps are split by the bisector plane;
+- the tube below the DEM column is filled with the lattice model's dummy
+  balls;
+- fuel is 57:43 above the floor, with the conus and tube all dummy.
+
+Steps 2–5 then run on that core; until a pour finishes they use the lattice.
+Headless: `--headless-geometry --centres bed.csv` and
+`--render-review DIR --centres bed.csv`. A core built from a pour has no
+validated k: it is a new bed, not the reference's.
 
 Limits, each with an issue:
 

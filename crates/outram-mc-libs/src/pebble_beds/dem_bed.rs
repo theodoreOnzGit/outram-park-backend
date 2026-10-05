@@ -43,10 +43,15 @@
 //!
 //! - **It does not build a CSG geometry of the bed.** The output is centres and
 //!   a radius, the same thing [`super::sphere_packing::Sphere`] carries; turning
-//!   them into cells, a lattice, or a delta-tracked medium is the caller's job
-//!   (see `nee_soon::htr10_rmc` for how the HTR-10 core does it from a centre
-//!   list). When that is done, the geometry must be drawn and shown per this
-//!   crate's `CLAUDE.md` before any k-eff from it is reported.
+//!   them into cells, a lattice, or a delta-tracked medium is the caller's job.
+//!   ~~(see `nee_soon::htr10_rmc` for how the HTR-10 core does it from a centre
+//!   list)~~ **CORRECTED 2026-10-05:** until today `nee_soon::htr10_rmc` built
+//!   its core only from Şeker's lattice, never from a centre list; it now does,
+//!   in `nee_soon::htr10_rmc::explicit_bed::assemble_explicit_triso_from_centres`
+//!   (overlaps split by the bisector plane, drawn in
+//!   `crates/nee_soon/verification_and_validation/htr10_dem_bed_images/`). The
+//!   geometry must be drawn and shown per this crate's `CLAUDE.md` before any
+//!   k-eff from it is reported.
 //! - **It does not check the container.** It does not know the vessel; the
 //!   caller does. The test below checks containment for its own cylinder.
 //! - **No physics claim.** A DEM-settled bed is a *verification*-grade product

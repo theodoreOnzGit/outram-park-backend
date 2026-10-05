@@ -211,9 +211,51 @@ pub struct PebbleBedStep {
     pub filling_fraction: f64,
     /// Pebble-type mix.
     pub mix: PebbleMix,
+    /// Where the bed comes from: the preset lattice, or a fresh DEM pour.
+    /// Absent in recipes written before 2026-10-05, which read as the lattice.
+    #[serde(default)]
+    pub source: BedSource,
+    /// The DEM pour's settings (used when `source` is `Dem`).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub dem: Option<DemPour>,
     /// Sources.
     #[serde(default, rename = "cite", skip_serializing_if = "Vec::is_empty")]
     pub cites: Vec<Citation>,
+}
+
+/// Where Step 1's pebble bed comes from.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum BedSource {
+    /// The preset's lattice bed (HTR-10: Şeker's 13-ball hexagonal cell).
+    #[default]
+    Lattice,
+    /// A fresh DEM pour of `DemPour::n_pebbles` pebbles, settled under
+    /// gravity (`outram_park_fork_liggghts::htr10_fill`).
+    Dem,
+}
+
+/// The settings of a fresh DEM pour (Step 1). Contact values default to the
+/// liggghts V&V § 4.9 setting; µ there carries no specific citation, which the
+/// workbench shows.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct DemPour {
+    /// Pebbles to pour.
+    pub n_pebbles: usize,
+    /// Sliding friction µ \[-\].
+    pub friction: f64,
+    /// Rolling friction µ_r \[-\].
+    pub rolling_friction: f64,
+    /// Young's modulus \[Pa\] (softened, see the liggghts V&V § 4.7).
+    pub youngs_modulus_pa: f64,
+    /// Seed of the initial loose lattice's jitter.
+    pub seed: u64,
+    /// Steps the pour took to settle, once it has run.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub settled_steps: Option<usize>,
+    /// Whole-core filling fraction it settled to, once it has run.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub phi_whole_core: Option<f64>,
 }
 
 /// One TRISO particle design.
@@ -695,6 +737,16 @@ mod tests {
                     fertile: 0.0,
                     poison: 0.0,
                 },
+                source: BedSource::Dem,
+                dem: Some(DemPour {
+                    n_pebbles: 16_890,
+                    friction: 0.1,
+                    rolling_friction: 0.0,
+                    youngs_modulus_pa: 5.0e8,
+                    seed: 1,
+                    settled_steps: Some(40_000),
+                    phi_whole_core: Some(0.6047),
+                }),
                 cites: vec![],
             },
             pebble_design: PebbleDesignStep {
@@ -816,5 +868,20 @@ mod tests {
         assert_eq!(rfc3339_from_unix(1_791_158_400), "2026-10-05T00:00:00Z");
         // A leap day.
         assert_eq!(rfc3339_from_unix(951_782_400), "2000-02-29T00:00:00Z");
+    }
+
+    /// A recipe written before the bed source existed still reads, as the
+    /// lattice bed.
+    #[test]
+    fn an_older_recipe_without_a_bed_source_reads_as_the_lattice() {
+        let mut r = sample();
+        r.pebble_bed.source = BedSource::Lattice;
+        r.pebble_bed.dem = None;
+        let md = r.to_markdown("2026-10-05T00:00:00Z").expect("write");
+        // An older file simply has no `source` line.
+        let old: String = md.lines().filter(|l| !l.starts_with("source = ")).map(|l| format!("{l}\n")).collect();
+        assert_ne!(old, md, "the test must actually remove the line");
+        let back = Recipe::from_markdown(&old).expect("read");
+        assert_eq!(back.pebble_bed.source, BedSource::Lattice);
     }
 }

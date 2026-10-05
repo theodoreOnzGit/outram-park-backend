@@ -105,6 +105,17 @@ pub fn htr10() -> Recipe {
             rings: RINGS,
             layers: DEFAULT_LAYERS,
             filling_fraction: table1::BALL_FILLING_FRACTION,
+            source: dhoby_ghaut::workbench::recipe::BedSource::Lattice,
+            dem: Some(dhoby_ghaut::workbench::recipe::DemPour {
+                // The full core the published 0.61 is quoted for (Table 1).
+                n_pebbles: table1::FUEL_ELEMENTS as usize,
+                friction: 0.1,
+                rolling_friction: 0.0,
+                youngs_modulus_pa: 5.0e8,
+                seed: 0x5EED_0010,
+                settled_steps: None,
+                phi_whole_core: None,
+            }),
             mix: PebbleMix {
                 fuel: table1::FUEL_BALL_FRACTION,
                 moderator: table1::MODERATOR_BALL_FRACTION,

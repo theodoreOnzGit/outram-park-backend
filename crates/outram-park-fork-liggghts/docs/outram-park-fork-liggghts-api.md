@@ -2,7 +2,7 @@
 
 **Version:** 0.0.0
 
-**Format Version:** 61
+**Format Version:** 60
 
 # Module `outram_park_fork_liggghts`
 
@@ -46,6 +46,28 @@ CFD-DEM coupling deferred to a future explicit seam).
 
 Phases 2-4 are **clean-room, unit-tested foundations, not benchmark-validated**
 (that is a later human step) — see each module's "Honest scope".
+
+## LIGGGHTS-faithful path (translated from upstream, cross-code verified)
+
+Added 2026-09-15. These modules are a **direct translation of
+LIGGGHTS-PUBLIC** (commit `3d5c00f2`), each carrying its upstream provenance
+header, and are verified against an upstream run committed under
+`reference-data/liggghts/` — see `docs/verification-and-validation.md`.
+
+- [`granular`] — the contact chain (`surface_model_default` →
+  `normal_model_hertz`/`hooke` → `tangential_model_history`/`no_history`),
+  **including the per-contact tangential shear history** that [`contact`]
+  omits.
+- [`granular_system`] — the history-aware driver, in LIGGGHTS' step order.
+- [`integrator`] — `fix nve/sphere` kick–drift–kick velocity-Verlet.
+- [`timestep`] — `fix check/timestep/gran` Rayleigh and Hertz criteria.
+
+**Use these for any packed-bed or settling problem.** [`contact`] hard-codes
+the tangential displacement to zero, so it has no shear *spring*: a static
+assembly built on it cannot carry shear, and a heap has zero angle of
+repose. [`particle::Particle::integrate`] is likewise not symplectic (its
+own doc comment explains the measured consequences) and should not drive
+contact dynamics.
 
 ## Extensions (clean-room, unit-tested)
 
@@ -259,6 +281,7 @@ pub struct BondForce {
     fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
     ```
 
+- **CastableFrom**
 - **Clone**
   - ```rust
     fn clone(self: &Self) -> BondForce { /* ... */ }
@@ -275,6 +298,11 @@ pub struct BondForce {
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
     ```
 
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
 - **Freeze**
 - **From**
   - ```rust
@@ -288,11 +316,30 @@ pub struct BondForce {
     ```
     Calls `U::from(self)`.
 
+- **IntoEither**
 - **PartialEq**
   - ```rust
     fn eq(self: &Self, other: &BondForce) -> bool { /* ... */ }
     ```
 
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
 - **RefUnwindSafe**
 - **Same**
 - **Send**
@@ -320,6 +367,14 @@ pub struct BondForce {
 - **Unpin**
 - **UnsafeUnpin**
 - **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
 #### Struct `Bond`
 
 A **linear parallel bond** (Potyondy & Cundall 2004): a cemented, moment-
@@ -438,6 +493,7 @@ pub struct Bond {
     fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
     ```
 
+- **CastableFrom**
 - **Clone**
   - ```rust
     fn clone(self: &Self) -> Bond { /* ... */ }
@@ -454,6 +510,11 @@ pub struct Bond {
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
     ```
 
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
 - **Freeze**
 - **From**
   - ```rust
@@ -467,11 +528,30 @@ pub struct Bond {
     ```
     Calls `U::from(self)`.
 
+- **IntoEither**
 - **PartialEq**
   - ```rust
     fn eq(self: &Self, other: &Bond) -> bool { /* ... */ }
     ```
 
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
 - **RefUnwindSafe**
 - **Same**
 - **Send**
@@ -499,6 +579,14 @@ pub struct Bond {
 - **Unpin**
 - **UnsafeUnpin**
 - **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
 #### Enum `BondModel`
 
 Closed set of bond models, dispatched by `match` with **no** `dyn` / heap
@@ -562,6 +650,7 @@ caller can hold a uniform `BondModel` per pair and represent "unbonded"
     fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
     ```
 
+- **CastableFrom**
 - **Clone**
   - ```rust
     fn clone(self: &Self) -> BondModel { /* ... */ }
@@ -578,6 +667,11 @@ caller can hold a uniform `BondModel` per pair and represent "unbonded"
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
     ```
 
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
 - **Freeze**
 - **From**
   - ```rust
@@ -591,11 +685,30 @@ caller can hold a uniform `BondModel` per pair and represent "unbonded"
     ```
     Calls `U::from(self)`.
 
+- **IntoEither**
 - **PartialEq**
   - ```rust
     fn eq(self: &Self, other: &BondModel) -> bool { /* ... */ }
     ```
 
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
 - **RefUnwindSafe**
 - **Same**
 - **Send**
@@ -623,6 +736,14 @@ caller can hold a uniform `BondModel` per pair and represent "unbonded"
 - **Unpin**
 - **UnsafeUnpin**
 - **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
 ## Module `boundary`
 
 Phase 3 — **Boundaries** (bead `op-t3l.3`).
@@ -780,6 +901,7 @@ pub struct Contact {
     fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
     ```
 
+- **CastableFrom**
 - **Clone**
   - ```rust
     fn clone(self: &Self) -> Contact { /* ... */ }
@@ -796,6 +918,11 @@ pub struct Contact {
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
     ```
 
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
 - **Freeze**
 - **From**
   - ```rust
@@ -809,11 +936,30 @@ pub struct Contact {
     ```
     Calls `U::from(self)`.
 
+- **IntoEither**
 - **PartialEq**
   - ```rust
     fn eq(self: &Self, other: &Contact) -> bool { /* ... */ }
     ```
 
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
 - **RefUnwindSafe**
 - **Same**
 - **Send**
@@ -841,6 +987,14 @@ pub struct Contact {
 - **Unpin**
 - **UnsafeUnpin**
 - **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
 #### Enum `Boundary`
 
 A geometric domain boundary a DEM particle can collide with.
@@ -1019,6 +1173,7 @@ Fields:
     fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
     ```
 
+- **CastableFrom**
 - **Clone**
   - ```rust
     fn clone(self: &Self) -> Boundary { /* ... */ }
@@ -1035,6 +1190,11 @@ Fields:
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
     ```
 
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
 - **Freeze**
 - **From**
   - ```rust
@@ -1048,11 +1208,30 @@ Fields:
     ```
     Calls `U::from(self)`.
 
+- **IntoEither**
 - **PartialEq**
   - ```rust
     fn eq(self: &Self, other: &Boundary) -> bool { /* ... */ }
     ```
 
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
 - **RefUnwindSafe**
 - **Same**
 - **Send**
@@ -1080,6 +1259,459 @@ Fields:
 - **Unpin**
 - **UnsafeUnpin**
 - **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+## Module `compute`
+
+Compute-backend selector for the DEM timestep and the bulk analysis kernels.
+
+A single [`ComputeType`] value chooses *how* work executes — on one CPU
+thread, across all CPU cores with [`rayon`], or with a GPU kernel where one
+exists. The **physics is identical** across backends; only the execution
+strategy differs. Enum dispatch is used deliberately — no trait objects —
+so every `match self { … }` site is exhaustively checked at compile time
+(workspace `CLAUDE.md`, "No trait objects").
+
+This mirrors [`outram_mc_libs::physics::compute::ComputeType`] deliberately,
+so the two pillars of the pebble-bed workflow present the same selector to a
+caller. **One semantic differs, and it matters** — see the trust model
+below.
+
+# Trust model — stricter here than in the Monte Carlo pillar
+
+In `outram-mc-libs` the multi-thread backend is documented as agreeing with
+the single-thread reference only *within statistical uncertainty*, because
+parallel transport restructures the RNG streams.
+
+**This crate holds its parallel backend to bit-identity instead**, and
+tests it. That is not gold-plating: the crate's entire verification claim
+is that it reproduces upstream LIGGGHTS *bit-for-bit* on the deterministic
+cases and to 61 µm median per-pebble on the HTR-10 bed. A backend that
+perturbed the last bits would force every one of those comparisons to be
+re-qualified per backend, and would quietly convert an exact claim into a
+tolerance. So [`CpuMultiThread`](ComputeType::CpuMultiThread) is required to
+reproduce [`CpuSingleThread`](ComputeType::CpuSingleThread) exactly, for
+any thread count.
+
+Achieving that is a design constraint on the force loop, not an accident:
+floating-point addition is not associative, so the parallel path computes
+per-contact forces concurrently but **accumulates them in the serial pair
+order**. See [`crate::granular_system::GranularSystem::compute_forces`].
+
+# Portability
+
+The enum and every driver that dispatches on it compile on **all** targets.
+On `wasm32` (no OS threads) the rayon call sites use [`crate::wasm_par`] and
+run serially — which, given the bit-identity property above, is *numerically
+exact*, not a degraded fallback. On Android the GPU module is target-gated
+out and [`Gpu`](ComputeType::Gpu) transparently runs the CPU path, so
+selecting it is always safe.
+
+`Eq` is deliberately **not** derived: [`ThreadCount::Fraction`] carries an
+`f64`, which is only `PartialEq`.
+
+```rust
+pub mod compute { /* ... */ }
+```
+
+### Types
+
+#### Enum `ComputeType`
+
+Which compute backend a DEM driver or bulk analysis kernel uses.
+
+| This enum | Meaning |
+|---|---|
+| [`CpuSingleThread`](Self::CpuSingleThread) | scalar, single thread — the trusted reference |
+| [`CpuMultiThread`](Self::CpuMultiThread) | rayon-parallel, **bit-identical** to the reference |
+| [`Gpu`](Self::Gpu) | GPU kernel where one exists, CPU fallback otherwise |
+
+# Which kernels honour it
+
+| Kernel | `CpuSingleThread` | `CpuMultiThread` | `Gpu` |
+|---|---|---|---|
+| [`GranularSystem::step`](crate::granular_system::GranularSystem::step) | yes | yes | falls back to CPU |
+| [`rdf`](crate::rdf) pair-separation histogram | yes | yes | **yes** |
+
+**The timestep has no GPU path, deliberately.** DEM's expensive inner loop
+carries a persistent per-contact tangential shear history
+([`ShearHistory`](crate::granular::ShearHistory)) with contacts born and
+dying every step — a stateful gather/scatter structure that is the *worst*
+shape for a shader, while the Hertz force arithmetic that would port well is
+not where the time goes. At HTR-10 scale (27 554 pebbles, ~165 000 live
+contacts) the per-step working set is also far too small to amortise a
+host↔device round trip unless the entire integrator became GPU-resident.
+Selecting [`Gpu`](Self::Gpu) for a timestep is therefore not an error — it
+runs the CPU path.
+
+The radial distribution function is the opposite shape, which is why it has
+a real GPU kernel: an all-pairs distance histogram over 27 554 positions is
+3.8e8 stateless, independent pair evaluations.
+
+```rust
+pub enum ComputeType {
+    CpuSingleThread,
+    CpuMultiThread(ThreadCount),
+    Gpu,
+}
+```
+
+##### Variants
+
+###### `CpuSingleThread`
+
+Scalar, single-thread execution — the **deterministic trusted
+reference**, and the default.
+
+Every committed cross-code comparison in
+`crates/outram-park-fork-liggghts/docs/` was produced on this backend.
+
+###### `CpuMultiThread`
+
+Rayon-parallel execution, sized by the carried [`ThreadCount`].
+
+**Bit-identical to [`CpuSingleThread`](Self::CpuSingleThread)** for any
+thread count — see the module-level trust model for why that is required
+rather than merely nice, and
+[`GranularSystem::compute_forces`](crate::granular_system::GranularSystem::compute_forces)
+for how the accumulation order is preserved.
+
+Work runs in a **dedicated pool** sized to [`ThreadCount`], never the
+implicit global rayon pool, so a caller that is itself inside a rayon
+scope cannot deadlock or oversubscribe.
+
+Construct the default form with `CpuMultiThread(ThreadCount::Auto)`.
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `ThreadCount` |  |
+
+###### `Gpu`
+
+GPU-accelerated execution where a kernel exists, with graceful CPU
+fallback.
+
+Today exactly one kernel is GPU-backed: the [`rdf`](crate::rdf) pair
+separation histogram. Everything else runs the CPU path. If no GPU
+adapter is available — a headless server, CI with no Vulkan loader, or
+Android where the GPU module is compiled out — the driver falls back to
+the CPU path. It **never errors on a missing GPU.**
+
+GPU results are acceleration only and are held to a tolerance against
+the CPU reference, never trusted above it.
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn threads(self: Self) -> usize { /* ... */ }
+  ```
+  The worker-thread count this backend will actually use (always `>= 1`).
+
+- ```rust
+  pub fn is_parallel_step(self: Self) -> bool { /* ... */ }
+  ```
+  Whether this backend runs the DEM timestep on more than one thread.
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> ComputeType { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Default**
+  - ```rust
+    fn default() -> ComputeType { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &ComputeType) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Enum `ThreadCount`
+
+How many worker threads the [`ComputeType::CpuMultiThread`] backend uses,
+sized to the CPU's strength.
+
+Resolved to a concrete positive count with [`ThreadCount::resolve`], which
+then sizes a dedicated [`rayon::ThreadPool`]. The default is
+[`Auto`](Self::Auto), which reads the machine's logical core count via
+[`std::thread::available_parallelism`] — a desktop naturally gets many
+threads, an Android phone gets few, with no special-casing. All variants
+resolve to **at least 1**.
+
+```rust
+pub enum ThreadCount {
+    Auto,
+    Fixed(usize),
+    Fraction(f64),
+}
+```
+
+##### Variants
+
+###### `Auto`
+
+Use every logical core: [`std::thread::available_parallelism`]. Falls
+back to 1 if the query fails. The default.
+
+###### `Fixed`
+
+An explicit worker-thread count. Clamped up to a minimum of 1.
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `usize` |  |
+
+###### `Fraction`
+
+A fraction of the available logical cores, e.g. `0.5` = half. The
+product `fraction * cores` is rounded to nearest and clamped to at least
+1, so any positive fraction yields a runnable pool.
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `f64` |  |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn resolve(self: Self) -> usize { /* ... */ }
+  ```
+  Resolve to a concrete worker-thread count (always `>= 1`).
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> ThreadCount { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Default**
+  - ```rust
+    fn default() -> ThreadCount { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &ThreadCount) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
 ## Module `contact`
 
 Phase 2 — **Contact mechanics** (bead `op-t3l.2`).
@@ -1239,6 +1871,7 @@ pub struct ContactForce {
     fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
     ```
 
+- **CastableFrom**
 - **Clone**
   - ```rust
     fn clone(self: &Self) -> ContactForce { /* ... */ }
@@ -1255,6 +1888,11 @@ pub struct ContactForce {
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
     ```
 
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
 - **Freeze**
 - **From**
   - ```rust
@@ -1268,11 +1906,30 @@ pub struct ContactForce {
     ```
     Calls `U::from(self)`.
 
+- **IntoEither**
 - **PartialEq**
   - ```rust
     fn eq(self: &Self, other: &ContactForce) -> bool { /* ... */ }
     ```
 
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
 - **RefUnwindSafe**
 - **Same**
 - **Send**
@@ -1300,6 +1957,14 @@ pub struct ContactForce {
 - **Unpin**
 - **UnsafeUnpin**
 - **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
 #### Struct `HookeContact`
 
 Linear **spring-dashpot** contact model (Cundall & Strack 1979; tangential
@@ -1370,6 +2035,7 @@ pub struct HookeContact {
     fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
     ```
 
+- **CastableFrom**
 - **Clone**
   - ```rust
     fn clone(self: &Self) -> HookeContact { /* ... */ }
@@ -1403,6 +2069,11 @@ pub struct HookeContact {
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
     ```
 
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
 - **Freeze**
 - **From**
   - ```rust
@@ -1416,11 +2087,30 @@ pub struct HookeContact {
     ```
     Calls `U::from(self)`.
 
+- **IntoEither**
 - **PartialEq**
   - ```rust
     fn eq(self: &Self, other: &HookeContact) -> bool { /* ... */ }
     ```
 
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
 - **RefUnwindSafe**
 - **Same**
 - **Send**
@@ -1448,6 +2138,14 @@ pub struct HookeContact {
 - **Unpin**
 - **UnsafeUnpin**
 - **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
 #### Struct `HertzContact`
 
 Nonlinear **Hertz–Mindlin** contact model (Hertz 1882; Mindlin &
@@ -1545,6 +2243,7 @@ pub struct HertzContact {
     fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
     ```
 
+- **CastableFrom**
 - **Clone**
   - ```rust
     fn clone(self: &Self) -> HertzContact { /* ... */ }
@@ -1578,6 +2277,11 @@ pub struct HertzContact {
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
     ```
 
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
 - **Freeze**
 - **From**
   - ```rust
@@ -1591,11 +2295,30 @@ pub struct HertzContact {
     ```
     Calls `U::from(self)`.
 
+- **IntoEither**
 - **PartialEq**
   - ```rust
     fn eq(self: &Self, other: &HertzContact) -> bool { /* ... */ }
     ```
 
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
 - **RefUnwindSafe**
 - **Same**
 - **Send**
@@ -1623,6 +2346,14 @@ pub struct HertzContact {
 - **Unpin**
 - **UnsafeUnpin**
 - **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
 #### Enum `ContactModel`
 
 Closed set of contact models, dispatched by `match` with **no** `dyn` /
@@ -1684,6 +2415,7 @@ Fields:
     fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
     ```
 
+- **CastableFrom**
 - **Clone**
   - ```rust
     fn clone(self: &Self) -> ContactModel { /* ... */ }
@@ -1700,6 +2432,11 @@ Fields:
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
     ```
 
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
 - **Freeze**
 - **From**
   - ```rust
@@ -1713,11 +2450,30 @@ Fields:
     ```
     Calls `U::from(self)`.
 
+- **IntoEither**
 - **PartialEq**
   - ```rust
     fn eq(self: &Self, other: &ContactModel) -> bool { /* ... */ }
     ```
 
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
 - **RefUnwindSafe**
 - **Same**
 - **Send**
@@ -1745,6 +2501,14 @@ Fields:
 - **Unpin**
 - **UnsafeUnpin**
 - **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
 ### Traits
 
 #### Trait `ContactLaw`
@@ -1957,6 +2721,7 @@ fluid equations (dense regime). See the type docs.
     fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
     ```
 
+- **CastableFrom**
 - **Clone**
   - ```rust
     fn clone(self: &Self) -> CouplingScheme { /* ... */ }
@@ -1973,7 +2738,21 @@ fluid equations (dense regime). See the type docs.
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
     ```
 
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
 - **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
 - **Freeze**
 - **From**
   - ```rust
@@ -1987,11 +2766,30 @@ fluid equations (dense regime). See the type docs.
     ```
     Calls `U::from(self)`.
 
+- **IntoEither**
 - **PartialEq**
   - ```rust
     fn eq(self: &Self, other: &CouplingScheme) -> bool { /* ... */ }
     ```
 
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
 - **RefUnwindSafe**
 - **Same**
 - **Send**
@@ -2019,6 +2817,14 @@ fluid equations (dense regime). See the type docs.
 - **Unpin**
 - **UnsafeUnpin**
 - **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
 #### Struct `LocalFluidState`
 
 A snapshot of the **CFD fluid field sampled at one particle's location** —
@@ -2081,6 +2887,7 @@ pub struct LocalFluidState {
     fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
     ```
 
+- **CastableFrom**
 - **Clone**
   - ```rust
     fn clone(self: &Self) -> LocalFluidState { /* ... */ }
@@ -2097,6 +2904,11 @@ pub struct LocalFluidState {
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
     ```
 
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
 - **Freeze**
 - **From**
   - ```rust
@@ -2110,11 +2922,30 @@ pub struct LocalFluidState {
     ```
     Calls `U::from(self)`.
 
+- **IntoEither**
 - **PartialEq**
   - ```rust
     fn eq(self: &Self, other: &LocalFluidState) -> bool { /* ... */ }
     ```
 
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
 - **RefUnwindSafe**
 - **Same**
 - **Send**
@@ -2142,6 +2973,14 @@ pub struct LocalFluidState {
 - **Unpin**
 - **UnsafeUnpin**
 - **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
 #### Struct `CouplingExchange`
 
 One particle's **contribution back to the CFD solve** — the data the DEM
@@ -2195,6 +3034,7 @@ pub struct CouplingExchange {
     fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
     ```
 
+- **CastableFrom**
 - **Clone**
   - ```rust
     fn clone(self: &Self) -> CouplingExchange { /* ... */ }
@@ -2211,6 +3051,11 @@ pub struct CouplingExchange {
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
     ```
 
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
 - **Freeze**
 - **From**
   - ```rust
@@ -2224,11 +3069,30 @@ pub struct CouplingExchange {
     ```
     Calls `U::from(self)`.
 
+- **IntoEither**
 - **PartialEq**
   - ```rust
     fn eq(self: &Self, other: &CouplingExchange) -> bool { /* ... */ }
     ```
 
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
 - **RefUnwindSafe**
 - **Same**
 - **Send**
@@ -2256,6 +3120,14 @@ pub struct CouplingExchange {
 - **Unpin**
 - **UnsafeUnpin**
 - **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
 #### Struct `ReservedFluidSource`
 
 A reserved stand-in for the future CFD provider, so this crate's tests and
@@ -2290,6 +3162,7 @@ pub struct ReservedFluidSource;
     fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
     ```
 
+- **CastableFrom**
 - **Clone**
   - ```rust
     fn clone(self: &Self) -> ReservedFluidSource { /* ... */ }
@@ -2311,7 +3184,21 @@ pub struct ReservedFluidSource;
     fn default() -> ReservedFluidSource { /* ... */ }
     ```
 
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
 - **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
 - **FluidCouplingSource**
   - ```rust
     fn sample_fluid_state(self: &Self, _position: Vec3) -> Result<LocalFluidState, DemError> { /* ... */ }
@@ -2330,11 +3217,30 @@ pub struct ReservedFluidSource;
     ```
     Calls `U::from(self)`.
 
+- **IntoEither**
 - **PartialEq**
   - ```rust
     fn eq(self: &Self, other: &ReservedFluidSource) -> bool { /* ... */ }
     ```
 
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
 - **RefUnwindSafe**
 - **Same**
 - **Send**
@@ -2362,6 +3268,14 @@ pub struct ReservedFluidSource;
 - **Unpin**
 - **UnsafeUnpin**
 - **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
 #### Struct `ReservedDragModel`
 
 A reserved stand-in for the future DEM drag/volume model, implementing
@@ -2394,6 +3308,7 @@ pub struct ReservedDragModel;
     fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
     ```
 
+- **CastableFrom**
 - **Clone**
   - ```rust
     fn clone(self: &Self) -> ReservedDragModel { /* ... */ }
@@ -2424,7 +3339,21 @@ pub struct ReservedDragModel;
     fn particle_volume_fraction(self: &Self, _particle: &Particle, _averaging_volume: Volume) -> Result<Ratio, DemError> { /* ... */ }
     ```
 
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
 - **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
 - **Freeze**
 - **From**
   - ```rust
@@ -2438,11 +3367,30 @@ pub struct ReservedDragModel;
     ```
     Calls `U::from(self)`.
 
+- **IntoEither**
 - **PartialEq**
   - ```rust
     fn eq(self: &Self, other: &ReservedDragModel) -> bool { /* ... */ }
     ```
 
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
 - **RefUnwindSafe**
 - **Same**
 - **Send**
@@ -2470,6 +3418,14 @@ pub struct ReservedDragModel;
 - **Unpin**
 - **UnsafeUnpin**
 - **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
 #### Struct `ReservedCoupling`
 
 The reserved **coupling driver**: it names a [`CouplingScheme`] and sketches
@@ -2532,6 +3488,7 @@ where
     fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
     ```
 
+- **CastableFrom**
 - **Clone**
   - ```rust
     fn clone(self: &Self) -> ReservedCoupling { /* ... */ }
@@ -2548,7 +3505,21 @@ where
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
     ```
 
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
 - **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
 - **Freeze**
 - **From**
   - ```rust
@@ -2562,11 +3533,30 @@ where
     ```
     Calls `U::from(self)`.
 
+- **IntoEither**
 - **PartialEq**
   - ```rust
     fn eq(self: &Self, other: &ReservedCoupling) -> bool { /* ... */ }
     ```
 
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
 - **RefUnwindSafe**
 - **Same**
 - **Send**
@@ -2594,6 +3584,14 @@ where
 - **Unpin**
 - **UnsafeUnpin**
 - **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
 ### Traits
 
 #### Trait `FluidCouplingSource`
@@ -2665,6 +3663,3644 @@ pub trait DemCouplingResponse {
 This trait is implemented for the following types:
 
 - `ReservedDragModel`
+
+## Module `gnn_bridge`
+
+**Attributes:**
+
+- `Other("#[attr = CfgTrace([NameValue { name: \"feature\", value: Some(\"gnn\"), span: crates/outram-park-fork-liggghts/src/lib.rs:106:7: 106:22 (#0) }])]")`
+
+Bridge to RAFFLES's graph-neural-network layer: the contact graph, and how
+much message-passing reach a DEM surrogate needs.
+
+Gated on this crate's `gnn` feature, which is **on by default** (maintainer
+direction, 2026-09-17). Enabling it costs a `raffles` dependency but **no
+tensor library**: the contact graph and the reach bound below are plain
+combinatorics, and `raffles`'s own `burn` feature stays off unless a caller
+asks for it. Build without it via `--no-default-features`.
+
+# Why a DEM code wants this
+
+A granular assembly is already a graph: particles are nodes and contacts
+are edges. That makes it a natural target for a message-passing surrogate —
+and it makes the *reach* question immediate and physical, because force is
+transmitted along **force chains** that span many particles.
+
+The question a surrogate builder has to answer before training anything is
+how many message-passing steps the physics needs. Guess low and the network
+under-reaches: a particle's predicted force cannot depend on a particle
+further away than the step count, so a force chain longer than that cannot
+be represented at all, however long the model trains.
+[`reach_bound`] answers it from the material and the timestep, with no
+training and no neural network involved.
+
+# A DEM step is hyperbolic
+
+Contact forces propagate at the elastic wave speed of the solid, which is
+finite, so the bound is the CFL-style one: the message reach `M * h` must
+cover the distance `c * dt` a stress wave travels in one step. For a
+packing of particles of diameter `d`, one message hop covers roughly one
+particle diameter, so
+
+```text
+M >= c * dt / d,   c = sqrt(E / rho)
+```
+
+That is usually a small number for a well-chosen DEM timestep — which is
+itself limited by the Rayleigh criterion for the same physical reason — and
+that is the useful result: **a DEM surrogate does not need a deep network,
+and a paper reporting one should say why.**
+
+# What this module is not
+
+It builds graphs and computes bounds. It does not train, own or evaluate a
+surrogate: that belongs to the caller, using
+[`raffles::gnn::MessagePassingNet`] and `raffles::gnn::training`. Nothing
+here changes how the DEM solver runs.
+
+```rust
+pub mod gnn_bridge { /* ... */ }
+```
+
+### Functions
+
+#### Function `contact_graph`
+
+Builds the contact graph of a particle assembly.
+
+Two particles are connected when the gap between their surfaces is at most
+`skin`. With `skin = 0` that is exactly the set of particles currently in
+contact; a positive skin is the usual neighbour-list margin, and is what you
+want if the graph will be reused for more than one timestep.
+
+`skin` is in metres, like every length in this crate.
+
+# Errors
+
+[`DemError::InvalidInput`] if `particles` is empty or `skin` is negative.
+The underlying graph builder also rejects a non-finite coordinate, which
+cannot happen for particles built through [`Particle::new`] but can after a
+diverged integration — and catching it here is better than training on it.
+
+```rust
+pub fn contact_graph(particles: &[crate::particle::Particle], skin: f64) -> Result<raffles::gnn::Graph, crate::DemError> { /* ... */ }
+```
+
+#### Function `reach_bound`
+
+The message-passing reach a surrogate of this assembly needs, for a given
+material and timestep.
+
+- `particles` — the assembly, used for its contact graph and its mean
+  particle diameter (the distance one message hop covers).
+- `youngs_modulus` — `E` in pascals, as [`crate::contact::HertzContact`]
+  stores it.
+- `density` — solid density in kg/m³. Note this is the **solid** density,
+  not the bulk density of the packing: the stress wave travels through the
+  material, not through the voids.
+- `time_step` — the DEM timestep in seconds.
+- `message_passing_steps` — what a candidate model is configured with, if
+  there is one; pass `None` to ask only what is required.
+
+# Errors
+
+[`DemError::InvalidInput`] if the assembly is empty, if `youngs_modulus`,
+`density` or `time_step` is not strictly positive, or if the mean particle
+diameter is not positive.
+
+```rust
+pub fn reach_bound(particles: &[crate::particle::Particle], youngs_modulus: f64, density: f64, time_step: f64, message_passing_steps: Option<usize>) -> Result<raffles::gnn::bound::IterationBound, crate::DemError> { /* ... */ }
+```
+
+## Module `gpu`
+
+**Attributes:**
+
+- `Other("#[attr = CfgTrace([All([Not(NameValue { name: \"target_os\", value: Some(\"android\"), span: crates/outram-park-fork-liggghts/src/lib.rs:108:15: 108:36 (#0) }, crates/outram-park-fork-liggghts/src/lib.rs:108:14: 108:37 (#0)), Not(NameValue { name: \"target_arch\", value: Some(\"wasm32\"), span: crates/outram-park-fork-liggghts/src/lib.rs:108:43: 108:65 (#0) }, crates/outram-park-fork-liggghts/src/lib.rs:108:42: 108:66 (#0))], crates/outram-park-fork-liggghts/src/lib.rs:108:10: 108:67 (#0))])]")`
+
+Optional headless GPU compute for this crate's one embarrassingly-parallel
+kernel: the [`crate::rdf`] pair-separation histogram.
+
+# Why only the RDF, and not the timestep
+
+This is the deliberate scope limit, and it is worth stating where someone
+will look for it. The DEM timestep carries a persistent per-contact
+tangential shear history with contacts born and dying every step — a
+stateful gather/scatter structure that is the worst shape for a shader —
+while the Hertz arithmetic that *would* port well was measured at only
+3.7 ms of a 17.8 ms step once parallelised on the CPU. At HTR-10 scale the
+per-step working set is also far too small to amortise a host↔device round
+trip unless the whole integrator became GPU-resident. See
+[`crate::compute::ComputeType`].
+
+The RDF is the opposite: 3.8e8 independent, stateless distance evaluations
+over a fixed point set, computed once per bed rather than once per step.
+
+# Contract
+
+1. **Compiles always, runs on CPU when there is no GPU.** The whole module
+   is target-gated out on Android and `wasm32` (no system Vulkan/Metal
+   loader; `wgpu-hal` is not `Sync` on wasm), and [`rdf_histogram`] returns
+   `None` whenever no usable adapter exists — a headless server, CI with no
+   loader. Callers **must** treat `None` as "run the CPU path", never as an
+   error. [`crate::rdf::radial_distribution`] does exactly that.
+2. **CPU is the trusted reference.** WGSL has no `f64`, so this kernel is
+   `f32` throughout while the CPU path is `f64`. A pair whose separation
+   falls within `f32` rounding of a bin edge can therefore land in a
+   neighbouring bin, and the two histograms are **not** bit-identical. This
+   is a real, measured difference, not a hypothetical — see
+   `tests/rdf_backends.rs`. Anything feeding a V&V number uses the CPU path.
+3. **No new third-party dependency.** `wgpu`'s `request_adapter` /
+   `request_device` return futures; rather than pull in an async runtime
+   this module hand-rolls a tiny pure-`std` [`block_on`], the same shape
+   `outram-mc-libs` uses.
+
+```rust
+pub mod gpu { /* ... */ }
+```
+
+### Types
+
+#### Struct `GpuContext`
+
+A live, headless GPU compute context — a [`wgpu::Device`] and
+[`wgpu::Queue`] obtained with no window or surface.
+
+```rust
+pub struct GpuContext {
+    pub device: wgpu::Device,
+    pub queue: wgpu::Queue,
+    pub info: wgpu::AdapterInfo,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `device` | `wgpu::Device` | The logical GPU device. |
+| `queue` | `wgpu::Queue` | The command queue. |
+| `info` | `wgpu::AdapterInfo` | Which physical adapter was selected. Diagnostic only. |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut std::fmt::Formatter<''_>) -> std::fmt::Result { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **Sync**
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+### Functions
+
+#### Function `probe`
+
+**Attributes:**
+
+- `MustUse { reason: None }`
+
+Probe for a usable headless compute GPU, or `None` when the caller must
+fall back to the CPU path.
+
+`None` is the *normal, expected* outcome on a headless host and is never an
+error.
+
+```rust
+pub fn probe() -> Option<GpuContext> { /* ... */ }
+```
+
+#### Function `rdf_histogram`
+
+**Attributes:**
+
+- `MustUse { reason: None }`
+
+GPU pair-separation histogram: for every centre in `centre_idx`, count the
+pebbles of `centres` whose separation is below `r_max`, binned at width
+`dr`.
+
+Returns `None` — meaning *run the CPU path* — when no adapter is available,
+or when `n_bins` exceeds [`MAX_BINS`] (the shader's workgroup histogram is a
+compile-time size).
+
+# Precision
+
+`f32` throughout; see the module contract. Not bit-identical to the `f64`
+CPU reference.
+
+```rust
+pub fn rdf_histogram(centres: &[crate::particle::Vec3], centre_idx: &[u32], r_max: f64, dr: f64, n_bins: usize) -> Option<Vec<u64>> { /* ... */ }
+```
+
+#### Function `block_on`
+
+Minimal pure-`std` executor: block the current thread until `future`
+resolves, driving it with a `Wake`-based thread-park waker.
+
+The standard `pollster::block_on` shape. It exists so this crate needs **no**
+async-runtime dependency to await `wgpu`'s two setup futures. Buffer
+read-back does not use it — that uses `Device::poll`.
+
+```rust
+pub fn block_on<F: Future>(future: F) -> <F as >::Output { /* ... */ }
+```
+
+### Constants and Statics
+
+#### Constant `MAX_BINS`
+
+Largest bin count the shader's workgroup-local histogram can hold; must
+match `MAX_BINS` in `shaders/rdf_histogram.wgsl`.
+
+A request for more bins than this falls back to the CPU rather than
+silently truncating the histogram.
+
+```rust
+pub const MAX_BINS: usize = 1024;
+```
+
+## Module `granular`
+
+# LIGGGHTS-faithful granular contact pipeline (`pair_style gran`)
+
+A line-by-line translation of the LIGGGHTS contact chain — *surface model →
+normal model → tangential model* — including the **tangential shear
+history** that the stateless [`crate::contact`] module deliberately omits.
+
+## Why this module exists next to [`crate::contact`]
+
+[`crate::contact`] evaluates a contact from a *snapshot* of two particles:
+it has nowhere to keep the accumulated tangential displacement `ξ_t`, so it
+hard-codes `ξ_t = 0` and the tangential force degenerates to a Coulomb-capped
+dashpot. That is fine for an instantaneous force query and useless for a
+packed bed: with no tangential *spring*, a static assembly cannot carry
+shear, so a heap has **zero angle of repose** and a pebble bed will not stand
+up. Reproducing LIGGGHTS requires history, and history requires state that
+outlives the call — hence [`ShearHistory`].
+
+## Sign and geometry conventions (upstream's, kept verbatim)
+
+LIGGGHTS defines the contact normal `ê_n` as pointing **from `j` to `i`**
+(`delta = x_i − x_j`, `ê_n = delta/|delta|`) and the relative velocity as
+`v_r = v_i − v_j`. Consequently
+
+- `v_n = v_r · ê_n` is **negative while the pair approaches**;
+- the normal force `F_n ê_n` pushes `i` away from `j` for `F_n > 0`;
+- the damping term is `−γ_n v_n`, positive (repulsive) on approach.
+
+This is the *opposite* sign convention to [`crate::contact`], which measures
+`v_n` positive on approach along an `a → b` normal. Both are self-consistent;
+this module keeps upstream's so that the translation can be checked against
+upstream source without a mental sign flip on every line.
+
+## Contact radii — an `O(δ)` term [`crate::contact`] drops
+
+Upstream evaluates the lever arm and the surface-velocity moment at the
+**contact plane**, not the particle centre distance:
+
+```text
+  c_ri = r_i − δ_n/2 ,    c_rj = r_j − δ_n/2
+```
+
+[`crate::contact`] uses `r_i` and `r_j` instead. The difference is `O(δ_n)`
+and therefore small, but it is a genuine divergence from upstream and it
+biases both the slip velocity and the spin-up torque. This module uses
+upstream's.
+
+## Unit system: SI only, and why the port drops two conversion factors
+
+Upstream divides its stiffnesses by `force->nktv2p` and scales its force-to-
+velocity step by `force->ftm2v`:
+
+```text
+  kn /= force->nktv2p;   kt /= force->nktv2p;      // normal models
+  dtf = 0.5 * dt * force->ftm2v;                   // fix_nve_sphere
+```
+
+Both constants are **exactly `1.0` for `units si`** (`update.cpp`, the `si`
+branch), which is the unit system every case in this crate uses and the only
+one its `uom`-typed API admits. The port therefore omits both
+multiplications rather than carrying a factor that is identically one.
+
+This is a deliberate simplification, recorded here because it is the one
+place the translation is not literal: **it is exact for SI and wrong for any
+other LIGGGHTS unit style** (`lj`, `real`, `metal`, `cgs`, … have
+`nktv2p` = 1.0, 68568.415, 1.6021765e6, 2.94210108e13 respectively). If this
+crate ever grows a non-SI path, both factors must come back.
+
+## Honest scope
+
+- **Implemented:** default surface model; Hertz and Hooke normal models;
+  history and no-history tangential models; per-pair shear-history storage
+  with Coulomb rescaling of the stored displacement; the CDT
+  (constant-directional-torque) rolling model.
+- **Not implemented:** cohesion models, the EPSD rolling family,
+  superquadrics, multi-contact surface corrections,
+  the `limitForce`/`viscous`/`heating`/elastic-potential switches, and
+  mixed-material property matrices (a single material is assumed, as in
+  [`crate::contact`]).
+- **Verified against upstream** — see `docs/verification-and-validation.md`
+  and `tests/liggghts_cross_code.rs`.
+
+```rust
+pub mod granular { /* ... */ }
+```
+
+### Types
+
+#### Struct `GranularMaterial`
+
+Material and interaction properties shared by both normal models.
+
+Assumes a **single isotropic linear-elastic material** for both partners
+(see the module "Honest scope"). Upstream supports a per-type-pair matrix;
+the same-material reduction of upstream's `createYeff`/`createGeff` is used
+here and is reproduced exactly by [`GranularMaterial::y_eff`] /
+[`GranularMaterial::g_eff`].
+
+# Parameters and units
+
+| Field | Symbol | Quantity | SI unit | Valid range |
+|---|---|---|---|---|
+| `youngs_modulus` | `E` | Young's modulus | `[Pa]` | `> 0` |
+| `poisson_ratio` | `ν` | Poisson ratio | `[-]` | `0 ≤ ν < 0.5` |
+| `restitution` | `e` | coefficient of restitution | `[-]` | `0.05 < e ≤ 1` |
+| `friction` | `μ` | Coulomb friction coefficient | `[-]` | `≥ 0` |
+
+The restitution lower bound `0.05` is upstream's own sanity check in
+`MODEL_PARAMS::createCoeffRest` (`0.05 < coefficientRestitution <= 1
+required`) and is enforced here for parity.
+
+```rust
+pub struct GranularMaterial {
+    pub youngs_modulus: f64,
+    pub poisson_ratio: f64,
+    pub restitution: f64,
+    pub friction: f64,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `youngs_modulus` | `f64` | Young's modulus `E` `[Pa]`. |
+| `poisson_ratio` | `f64` | Poisson ratio `ν` `[-]`. |
+| `restitution` | `f64` | Coefficient of restitution `e` `[-]`. |
+| `friction` | `f64` | Coulomb friction coefficient `μ` `[-]`. |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn new(youngs_modulus: f64, poisson_ratio: f64, restitution: f64, friction: f64) -> Result<Self, DemError> { /* ... */ }
+  ```
+  Validate and build a material.
+
+- ```rust
+  pub fn y_eff(self: &Self) -> f64 { /* ... */ }
+  ```
+  Effective Young's modulus `Y_eff` `[Pa]`.
+
+- ```rust
+  pub fn g_eff(self: &Self) -> f64 { /* ... */ }
+  ```
+  Effective shear modulus `G_eff` `[Pa]`.
+
+- ```rust
+  pub fn beta_eff(self: &Self) -> f64 { /* ... */ }
+  ```
+  Damping ratio `β_eff` `[-]`, upstream `createBetaEff`.
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> GranularMaterial { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &GranularMaterial) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Struct `ContactKinematics`
+
+Contact kinematics — translation of upstream `SurfaceModel<SURFACE_DEFAULT>`.
+
+Every quantity uses upstream's convention (module docs): `ê_n` points from
+`j` to `i`, `v_r = v_i − v_j`.
+
+# Fields and units
+
+| Field | Symbol | Quantity | SI unit |
+|---|---|---|---|
+| `en` | `ê_n` | unit contact normal, `j → i` | `[-]` |
+| `delta_n` | `δ_n` | overlap (positive in contact) | `[m]` |
+| `vn` | `v_n` | normal relative velocity (`< 0` approaching) | `[m/s]` |
+| `vtr` | `v_tr` | relative **surface** velocity in the tangent plane | `[m/s]` |
+| `cri` / `crj` | `c_ri`, `c_rj` | contact radii `r − δ_n/2` | `[m]` |
+| `r_eff` | `R*` | effective radius | `[m]` |
+| `m_eff` | `m*` | effective mass | `[kg]` |
+| `omega_i` / `omega_j` | `ω_i`, `ω_j` | angular velocities | `[rad/s]` |
+| `is_wall` | — | particle–wall contact flag | `[-]` |
+
+```rust
+pub struct ContactKinematics {
+    pub en: crate::particle::Vec3,
+    pub delta_n: f64,
+    pub vn: f64,
+    pub vtr: crate::particle::Vec3,
+    pub cri: f64,
+    pub crj: f64,
+    pub r_eff: f64,
+    pub m_eff: f64,
+    pub omega_i: crate::particle::Vec3,
+    pub omega_j: crate::particle::Vec3,
+    pub is_wall: bool,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `en` | `crate::particle::Vec3` | Unit contact normal, pointing from `j` to `i` `[-]`. |
+| `delta_n` | `f64` | Overlap `δ_n = r_i + r_j − |x_i − x_j|` `[m]`, strictly positive. |
+| `vn` | `f64` | Normal relative velocity `v_r · ê_n` `[m/s]`; negative while approaching. |
+| `vtr` | `crate::particle::Vec3` | Relative surface (slip) velocity in the tangent plane `[m/s]`. |
+| `cri` | `f64` | Contact radius of `i`, `r_i − δ_n/2` `[m]`. |
+| `crj` | `f64` | Contact radius of `j`, `r_j − δ_n/2` `[m]`. |
+| `r_eff` | `f64` | Effective (reduced) radius `R*` `[m]`. |
+| `m_eff` | `f64` | Effective (reduced) mass `m*` `[kg]`. |
+| `omega_i` | `crate::particle::Vec3` | Angular velocity of `i` `[rad/s]` (needed by the rolling model). |
+| `omega_j` | `crate::particle::Vec3` | Angular velocity of `j` `[rad/s]`; zero for a wall contact. |
+| `is_wall` | `bool` | Whether this is a particle–wall contact (upstream's `is_wall`), which<br>changes `R*`, `m*` and the rolling model's rolling-velocity branch. |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn pair(i: &Particle, j: &Particle) -> Option<Self> { /* ... */ }
+  ```
+  Resolve the kinematics of a particle–particle contact, or `None` if the
+
+- ```rust
+  pub fn wall(i: &Particle, wall_normal: Vec3, delta_n: f64, wall_velocity: Vec3) -> Option<Self> { /* ... */ }
+  ```
+  Resolve the kinematics of a particle–**wall** contact.
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> ContactKinematics { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &ContactKinematics) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Struct `NormalOutcome`
+
+Scalar coefficients produced by a normal model for one contact.
+
+# Fields and units
+
+| Field | Symbol | Quantity | SI unit |
+|---|---|---|---|
+| `fn_scalar` | `F_n` | normal force magnitude along `ê_n` | `[N]` |
+| `kn` | `k_n` | normal stiffness | `[N/m]` |
+| `kt` | `k_t` | tangential stiffness | `[N/m]` |
+| `gamman` | `γ_n` | normal damping coefficient | `[kg/s]` |
+| `gammat` | `γ_t` | tangential damping coefficient | `[kg/s]` |
+
+```rust
+pub struct NormalOutcome {
+    pub fn_scalar: f64,
+    pub kn: f64,
+    pub kt: f64,
+    pub gamman: f64,
+    pub gammat: f64,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `fn_scalar` | `f64` | Normal force magnitude `[N]`, applied to `i` along `+ê_n`. |
+| `kn` | `f64` | Normal stiffness `[N/m]`. |
+| `kt` | `f64` | Tangential stiffness `[N/m]`. |
+| `gamman` | `f64` | Normal damping coefficient `[kg/s]`. |
+| `gammat` | `f64` | Tangential damping coefficient `[kg/s]`. |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> NormalOutcome { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &NormalOutcome) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Enum `GranularNormalModel`
+
+Closed set of normal contact models (enum dispatch, no `dyn`).
+
+Both variants carry the same [`GranularMaterial`]; they differ in how the
+stiffness and damping are derived from it.
+
+```rust
+pub enum GranularNormalModel {
+    Hertz {
+        material: GranularMaterial,
+        tangential_damping: bool,
+    },
+    Hooke {
+        material: GranularMaterial,
+        characteristic_velocity: f64,
+        tangential_damping: bool,
+        kt_to_kn: bool,
+    },
+}
+```
+
+##### Variants
+
+###### `Hertz`
+
+Upstream `NormalModel<HERTZ>` — nonlinear, `F_n ∝ δ_n^{3/2}`.
+
+Fields:
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `material` | `GranularMaterial` | Shared material properties. |
+| `tangential_damping` | `bool` | Upstream `tangential_damping` on/off switch (default **on**). |
+
+###### `Hooke`
+
+Upstream `NormalModel<HOOKE>` — linearised about a characteristic
+collision velocity, `F_n ∝ δ_n`.
+
+Fields:
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `material` | `GranularMaterial` | Shared material properties. |
+| `characteristic_velocity` | `f64` | Characteristic impact velocity `v_char` `[m/s]` about which the<br>Hertzian stiffness is linearised (upstream `characteristicVelocity`). |
+| `tangential_damping` | `bool` | Upstream `tangential_damping` on/off switch (default **on**). |
+| `kt_to_kn` | `bool` | Upstream `ktToKn`: when true, `k_t = (2/7)·k_n` instead of `k_t = k_n`. |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn hertz(material: GranularMaterial) -> Self { /* ... */ }
+  ```
+  Build a Hertz model with upstream's default settings
+
+- ```rust
+  pub fn hooke(material: GranularMaterial, characteristic_velocity: f64) -> Result<Self, DemError> { /* ... */ }
+  ```
+  Build a Hooke model with upstream's default settings
+
+- ```rust
+  pub fn material(self: &Self) -> GranularMaterial { /* ... */ }
+  ```
+  The material this model carries.
+
+- ```rust
+  pub fn evaluate(self: &Self, k: &ContactKinematics) -> NormalOutcome { /* ... */ }
+  ```
+  Evaluate the normal force and the stiffness/damping coefficients the
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> GranularNormalModel { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &GranularNormalModel) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Enum `TangentialModel`
+
+Closed set of tangential contact models.
+
+```rust
+pub enum TangentialModel {
+    History,
+    NoHistory,
+}
+```
+
+##### Variants
+
+###### `History`
+
+Upstream `TangentialModel<TANGENTIAL_HISTORY>` — a Mindlin shear spring
+with an accumulated tangential displacement, Coulomb-rescaled on slip.
+**This is the model a packed bed needs.**
+
+###### `NoHistory`
+
+Upstream `TangentialModel<TANGENTIAL_NO_HISTORY>` — Coulomb-capped
+dashpot only, no spring. Equivalent to what [`crate::contact`] does.
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> TangentialModel { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &TangentialModel) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Enum `ContactKey`
+
+Key identifying one persistent contact in the [`ShearHistory`] store.
+
+Particle–particle pairs are keyed by their **ordered** pair `(min, max)` so
+the entry is found regardless of which way round the pair is visited.
+Particle–wall contacts are keyed by the particle and a caller-chosen wall id.
+
+# The identifier is a STABLE TAG, not a position in the particle array
+
+This matters, and getting it wrong is silent. Upstream stores a contact's
+partner as `partner_[i][m] = tag[j]` — LAMMPS' global **atom tag** — in
+`fix_contact_history.cpp:393`, not the local index. That is precisely what
+lets LAMMPS delete an atom by copying the last atom into the hole without
+corrupting anybody's shear history.
+
+[`GranularSystem`](crate::granular_system::GranularSystem) follows upstream
+and passes its own per-particle tags here. **Do not pass array indices from
+a system whose particle set can change**: after a removal every index
+shifts, and each stored tangential spring silently re-attaches to a
+different pair — plausible-looking forces that are entirely wrong.
+
+~~Particle–particle pairs are keyed by their ordered **index** pair~~
+**CORRECTED 2026-09-17** — the store was index-keyed, which was safe only
+while the particle set was fixed. It is tag-keyed now, matching upstream,
+so insertion and removal are possible at all.
+
+```rust
+pub enum ContactKey {
+    Pair {
+        lo: usize,
+        hi: usize,
+    },
+    Wall {
+        particle: usize,
+        wall: usize,
+    },
+}
+```
+
+##### Variants
+
+###### `Pair`
+
+Contact between two particles, stored with `lo < hi`.
+
+Fields:
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `lo` | `usize` | Lower particle tag. |
+| `hi` | `usize` | Higher particle tag. |
+
+###### `Wall`
+
+Contact between a particle and a wall.
+
+Fields:
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `particle` | `usize` | Particle tag. |
+| `wall` | `usize` | Caller-assigned wall identifier. |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn pair(i: usize, j: usize) -> Self { /* ... */ }
+  ```
+  Key for the particle pair with tags `(i, j)`, normalised so that
+
+- ```rust
+  pub fn wall(particle: usize, wall: usize) -> Self { /* ... */ }
+  ```
+  Key for a particle–wall contact.
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> ContactKey { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Hash**
+  - ```rust
+    fn hash<__H: $crate::hash::Hasher>(self: &Self, state: &mut __H) { /* ... */ }
+    ```
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &ContactKey) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Struct `ShearHistory`
+
+Persistent per-contact tangential shear displacement store.
+
+Upstream keeps this in its neighbour list's `contact_history` array and
+clears an entry when the contact is lost. Here the same lifecycle is
+explicit: [`ShearHistory::begin_step`] marks every entry stale,
+[`ShearHistory::update`] refreshes the ones touched this step, and
+[`ShearHistory::end_step`] drops whatever was not touched.
+
+**Forgetting the `begin_step`/`end_step` bracket leaks history into contacts
+that have already separated**, which shows up as spurious cohesion.
+[`GranularSystem`] does the bracketing for you.
+
+The stored quantity is the tangential displacement vector `ξ_t` `[m]`.
+
+```rust
+pub struct ShearHistory {
+    // Some fields omitted
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| *private fields* | ... | *Some fields have been omitted* |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn new() -> Self { /* ... */ }
+  ```
+  An empty history store.
+
+- ```rust
+  pub fn len(self: &Self) -> usize { /* ... */ }
+  ```
+  Number of contacts currently carrying history.
+
+- ```rust
+  pub fn is_empty(self: &Self) -> bool { /* ... */ }
+  ```
+  Whether the store holds no contacts.
+
+- ```rust
+  pub fn get(self: &Self, key: ContactKey) -> Option<Vec3> { /* ... */ }
+  ```
+  The stored tangential displacement `ξ_t` `[m]` for a contact, if any.
+
+- ```rust
+  pub fn begin_step(self: &mut Self) { /* ... */ }
+  ```
+  Mark every stored contact stale, at the top of a force evaluation.
+
+- ```rust
+  pub fn end_step(self: &mut Self) { /* ... */ }
+  ```
+  Drop the history of every contact not refreshed since
+
+- ```rust
+  pub fn store(self: &mut Self, key: ContactKey, shear: Vec3) { /* ... */ }
+  ```
+  Record a contact's updated tangential displacement and mark it live —
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> ShearHistory { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Default**
+  - ```rust
+    fn default() -> ShearHistory { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &ShearHistory) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Struct `BuildContactHasher`
+
+`BuildHasher` for [`ContactKey`], replacing the standard library's SipHash.
+
+# Why this is hand-rolled rather than a dependency
+
+`ContactKey` is two small integers and a discriminant. SipHash is a
+keyed, DoS-resistant hash designed for adversarial string keys, and it is
+roughly an order of magnitude more expensive than what integer keys need.
+The contact store is looked up ~370 000 times and written ~66 500 times per
+timestep, so the hash *is* the cost.
+
+A crate such as `rustc-hash` would do this, but adding one would mean a new
+entry in the root `[workspace.dependencies]` for twenty lines of
+multiply-xor. This is those twenty lines: a standard FxHash-style
+multiply-and-rotate accumulator, pure Rust, `no_std`-compatible arithmetic,
+and safe on every target the workspace builds for.
+
+**This is not a security boundary.** Contact keys come from the
+simulation's own particle tags, never from untrusted input, so hash-flooding
+resistance buys nothing here.
+
+```rust
+pub struct BuildContactHasher;
+```
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **BuildHasher**
+  - ```rust
+    fn build_hasher(self: &Self) -> ContactHasher { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> BuildContactHasher { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Default**
+  - ```rust
+    fn default() -> BuildContactHasher { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Struct `ContactHasher`
+
+The FxHash-style accumulator built by [`BuildContactHasher`].
+
+```rust
+pub struct ContactHasher(/* private field */);
+```
+
+##### Fields
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `private` | *Private field* |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> ContactHasher { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Default**
+  - ```rust
+    fn default() -> ContactHasher { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Hasher**
+  - ```rust
+    fn finish(self: &Self) -> u64 { /* ... */ }
+    ```
+
+  - ```rust
+    fn write(self: &mut Self, bytes: &[u8]) { /* ... */ }
+    ```
+
+  - ```rust
+    fn write_u8(self: &mut Self, n: u8) { /* ... */ }
+    ```
+
+  - ```rust
+    fn write_u64(self: &mut Self, n: u64) { /* ... */ }
+    ```
+
+  - ```rust
+    fn write_usize(self: &mut Self, n: usize) { /* ... */ }
+    ```
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Enum `RollingModel`
+
+Closed set of rolling-resistance models.
+
+Rolling resistance is what gives a granular heap a finite **angle of
+repose**: without it, spheres roll off each other and a pile spreads until
+it is flat. For a pebble bed it is the dominant knob on packing structure,
+so it is part of this pipeline rather than an optional extra.
+
+# Relationship to [`crate::rolling`]
+
+[`crate::rolling::RollingModel`] has a similar constant-torque variant, but
+it diverges from upstream in three ways, all reproduced correctly here:
+
+1. it scales the torque by the **total** normal force `|F_n|` (including the
+   viscous damping term), where upstream CDT uses the **elastic** part only,
+   `k_n·δ_n`;
+2. it does **not** remove the torsion (normal) component of the resisting
+   torque, which upstream does by default (`torsionTorque` is off unless
+   asked for);
+3. for a wall contact it uses `ω_i − ω_j`, where upstream uses the
+   contact-point rolling velocity `w_r`.
+
+```rust
+pub enum RollingModel {
+    Off,
+    Cdt {
+        mu_r: f64,
+        torsion_torque: bool,
+    },
+}
+```
+
+##### Variants
+
+###### `Off`
+
+No rolling resistance (upstream `rolling_model off`).
+
+###### `Cdt`
+
+Upstream `RollingModel<ROLLING_CDT>` — **constant directional torque**.
+
+`M_r = µ_r · k_n·δ_n · R* · ŵ_r`, applied as `−M_r` to `i` and `+M_r` to
+`j`, with the component along `ê_n` removed unless `torsion_torque` is
+set. The magnitude is set by the elastic normal load and does not depend
+on rolling *speed* — only its direction, hence "constant torque".
+
+Fields:
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `mu_r` | `f64` | Rolling-friction coefficient `µ_r` `[-]`, non-negative. |
+| `torsion_torque` | `bool` | Upstream `torsionTorque` switch. **Default `false`**, which *removes*<br>the torque component along the contact normal. |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn cdt(mu_r: f64) -> Result<Self, DemError> { /* ... */ }
+  ```
+  Build a validated CDT model with upstream's default settings
+
+- ```rust
+  pub fn rolling_torque(self: &Self, k: &ContactKinematics, normal: &NormalOutcome, omega_i: Vec3, omega_j: Vec3, is_wall: bool) -> Vec3 { /* ... */ }
+  ```
+  Resisting rolling torque `M_r` `[N·m]` for one contact.
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> RollingModel { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &RollingModel) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Struct `GranularForce`
+
+Force and torque contributions of one resolved contact.
+
+Sign convention is upstream's (module docs): `force_i` acts on `i`,
+`force_j = −force_i`, and both torques are computed from the *same*
+`ê_n × F_t` product scaled by each partner's contact radius.
+
+# Fields and units
+
+| Field | Quantity | SI unit |
+|---|---|---|
+| `force_i` / `force_j` | force on `i` / `j` | `[N]` |
+| `torque_i` / `torque_j` | torque on `i` / `j` | `[N·m]` |
+| `fn_scalar` | normal force magnitude | `[N]` |
+| `ft` | tangential force applied to `i` | `[N]` |
+
+```rust
+pub struct GranularForce {
+    pub force_i: crate::particle::Vec3,
+    pub force_j: crate::particle::Vec3,
+    pub torque_i: crate::particle::Vec3,
+    pub torque_j: crate::particle::Vec3,
+    pub fn_scalar: f64,
+    pub ft: crate::particle::Vec3,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `force_i` | `crate::particle::Vec3` | Total force on `i` `[N]`. |
+| `force_j` | `crate::particle::Vec3` | Total force on `j` `[N]` (zero for a wall contact). |
+| `torque_i` | `crate::particle::Vec3` | Torque on `i` `[N·m]`. |
+| `torque_j` | `crate::particle::Vec3` | Torque on `j` `[N·m]` (zero for a wall contact). |
+| `fn_scalar` | `f64` | Normal force magnitude along `ê_n` `[N]`. |
+| `ft` | `crate::particle::Vec3` | Tangential force on `i` `[N]`. |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> GranularForce { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &GranularForce) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Struct `GranularContactModel`
+
+The assembled contact law: surface + normal + tangential model.
+
+This is the type a solver holds. It is `Copy` and carries no per-contact
+state; the state lives in the [`ShearHistory`] you pass in.
+
+```rust
+pub struct GranularContactModel {
+    pub normal: GranularNormalModel,
+    pub tangential: TangentialModel,
+    pub rolling: RollingModel,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `normal` | `GranularNormalModel` | The normal model (Hertz or Hooke). |
+| `tangential` | `TangentialModel` | The tangential model (history or no-history). |
+| `rolling` | `RollingModel` | The rolling-resistance model. Defaults to [`RollingModel::Off`] via<br>[`GranularContactModel::new`]; set it with<br>[`GranularContactModel::with_rolling`]. |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn has_tangential_history(self: &Self) -> bool { /* ... */ }
+  ```
+  Whether this model stores a persistent tangential spring per contact.
+
+- ```rust
+  pub fn new(normal: GranularNormalModel, tangential: TangentialModel) -> Self { /* ... */ }
+  ```
+  Assemble a contact model from its normal and tangential halves, with
+
+- ```rust
+  pub fn with_rolling(self: Self, rolling: RollingModel) -> Self { /* ... */ }
+  ```
+  Return a copy of this model with the given rolling-resistance model.
+
+- ```rust
+  pub fn hertz_history(material: GranularMaterial) -> Self { /* ... */ }
+  ```
+  Upstream's default pairing: `pair_style gran model hertz tangential history`.
+
+- ```rust
+  pub fn resolve(self: &Self, key: ContactKey, k: &ContactKinematics, history: &mut ShearHistory, dt: f64) -> GranularForce { /* ... */ }
+  ```
+  Resolve one contact, advancing its shear history by `dt` `[s]`.
+
+- ```rust
+  pub fn resolve_pure(self: &Self, prior_shear: Vec3, k: &ContactKinematics, dt: f64) -> (GranularForce, Option<Vec3>) { /* ... */ }
+  ```
+  The **pure** core of [`GranularContactModel::resolve`]: the same contact
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> GranularContactModel { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &GranularContactModel) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+### Constants and Statics
+
+#### Constant `SQRT_FIVE_OVER_SIX`
+
+`√(5/6)`, upstream's `sqrtFiveOverSix` damping constant `[-]`.
+
+Appears in the Hertz viscoelastic damping coefficients
+`γ = −2√(5/6)·β·√(S·m*)`. Upstream hard-codes the literal to 53 digits;
+the `f64` value is identical.
+
+```rust
+pub const SQRT_FIVE_OVER_SIX: f64 = 0.912_870_929_175_276_9;
+```
+
+## Module `granular_system`
+
+# History-aware DEM driver (LIGGGHTS `run` loop)
+
+Composes [`crate::granular`] (contact law + shear history),
+[`crate::integrator`] (velocity-Verlet), and [`crate::boundary`] (wall
+primitives) into a runnable simulation that reproduces LIGGGHTS' step
+ordering:
+
+```text
+  for each step:
+    initial_integrate   (half-kick with F(t), then drift)
+    compute forces      (pair contacts, then wall contacts, then gravity)
+    final_integrate     (half-kick with F(t+dt))
+```
+
+## Relationship to [`crate::simulation::DemSimulation`]
+
+[`crate::simulation::DemSimulation`] is the original stateless engine: it
+uses [`crate::contact`] (no shear history) and
+[`crate::particle::Particle::integrate`] (not symplectic — see
+[`crate::integrator`]). It is kept for the cases it was written and tested
+for, and because its neighbour-search code is shared. **For anything that
+must settle, pack, or hold a static assembly — a pebble bed — use
+[`GranularSystem`].**
+
+## Honest scope
+
+Single material; primitive [`Boundary`] walls only (no triangulated meshes —
+see [`crate::mesh_wall`]); no cohesion or rolling models wired in; uniform
+gravity; fixed time step; serial. Neighbour candidates come from an
+all-pairs scan below [`GranularSystem::BRUTE_FORCE_THRESHOLD`] and a
+uniform linked-cell grid above it.
+
+```rust
+pub mod granular_system { /* ... */ }
+```
+
+### Types
+
+#### Struct `GranularSystem`
+
+A runnable DEM simulation with **persistent tangential shear history**.
+
+# Fields and units
+
+| Field | Quantity | SI unit |
+|---|---|---|
+| `particles` | sphere ensemble | mixed (see [`Particle`]) |
+| `boundaries` | primitive walls | mixed (see [`Boundary`]) |
+| `model` | contact law (normal + tangential) | — |
+| `history` | per-contact tangential displacement `ξ_t` | `[m]` |
+| `gravity` | uniform gravitational acceleration | `[m/s²]` |
+| `dt` | fixed velocity-Verlet step | `[s]` |
+| `time` | elapsed simulated time | `[s]` |
+
+```rust
+pub struct GranularSystem {
+    // Some fields omitted
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| *private fields* | ... | *Some fields have been omitted* |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn new(particles: Vec<Particle>, boundaries: Vec<Boundary>, model: GranularContactModel, gravity: Vec3, dt: f64) -> Result<Self, DemError> { /* ... */ }
+  ```
+  Build a simulation.
+
+- ```rust
+  pub fn with_moving_walls(self: Self, walls: Vec<MovingBoundary>) -> Self { /* ... */ }
+  ```
+  Attach kinematically-prescribed **moving walls** (upstream
+
+- ```rust
+  pub fn with_compute(self: Self, compute: ComputeType) -> Self { /* ... */ }
+  ```
+  Select the compute backend for the timestep, returning the updated
+
+- ```rust
+  pub fn compute(self: &Self) -> ComputeType { /* ... */ }
+  ```
+  The compute backend the timestep is using.
+
+- ```rust
+  pub fn moving_walls(self: &Self) -> &[MovingBoundary] { /* ... */ }
+  ```
+  The attached moving walls, in their current pose.
+
+- ```rust
+  pub fn moving_walls_mut(self: &mut Self) -> &mut [MovingBoundary] { /* ... */ }
+  ```
+  Mutable access to the moving walls, for **changing their prescribed
+
+- ```rust
+  pub fn particles(self: &Self) -> &[Particle] { /* ... */ }
+  ```
+  The particle ensemble `[m]`/`[m/s]`/… (see [`Particle`]).
+
+- ```rust
+  pub fn tags(self: &Self) -> &[u64] { /* ... */ }
+  ```
+  The stable tag of each particle, parallel to [`GranularSystem::particles`].
+
+- ```rust
+  pub fn insert_particle(self: &mut Self, p: Particle) -> u64 { /* ... */ }
+  ```
+  Insert a particle, returning its newly assigned stable tag.
+
+- ```rust
+  pub fn surface_height_at(self: &Self, x: f64, y: f64, radius: f64, fallback: f64) -> f64 { /* ... */ }
+  ```
+  The height at which a sphere of radius `r` dropped at `(x, y)` would
+
+- ```rust
+  pub fn insert_particles</* synthetic */ impl IntoIterator<Item = Particle>: IntoIterator<Item = Particle>>(self: &mut Self, particles: impl IntoIterator<Item = Particle>) -> Vec<u64> { /* ... */ }
+  ```
+  Insert several particles at once, returning their newly assigned stable
+
+- ```rust
+  pub fn remove_particles(self: &mut Self, indices: &[usize]) -> Vec<Particle> { /* ... */ }
+  ```
+  Remove the particles at the given **array indices**, returning them in
+
+- ```rust
+  pub fn time(self: &Self) -> f64 { /* ... */ }
+  ```
+  Elapsed simulated time `[s]`.
+
+- ```rust
+  pub fn dt(self: &Self) -> f64 { /* ... */ }
+  ```
+  The fixed time step `[s]`.
+
+- ```rust
+  pub fn live_contacts(self: &Self) -> usize { /* ... */ }
+  ```
+  Number of contacts currently carrying tangential history.
+
+- ```rust
+  pub fn contact_pairs(self: &Self) -> Vec<(usize, usize)> { /* ... */ }
+  ```
+  Every pair of particles **actually in contact** right now, as sorted
+
+- ```rust
+  pub fn coordination_number(self: &Self) -> f64 { /* ... */ }
+  ```
+  Mean coordination number `[-]`: contacts per particle, counting both
+
+- ```rust
+  pub fn kinetic_energy(self: &Self) -> f64 { /* ... */ }
+  ```
+  Total translational kinetic energy `Σ ½ m v²` `[J]`.
+
+- ```rust
+  pub fn rotational_energy(self: &Self) -> f64 { /* ... */ }
+  ```
+  Total rotational kinetic energy `Σ ½ I ω²` `[J]`, `I = (2/5) m r²`.
+
+- ```rust
+  pub fn step(self: &mut Self) { /* ... */ }
+  ```
+  Advance one velocity-Verlet step, in LIGGGHTS' order.
+
+- ```rust
+  pub fn run(self: &mut Self, n_steps: usize) { /* ... */ }
+  ```
+  Advance `n_steps` steps.
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> GranularSystem { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &GranularSystem) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+## Module `htr10_fill`
+
+# A fresh HTR-10 pebble pour, steppable from a UI
+
+Pours `N` pebbles into the HTR-10 vessel from empty and settles them under
+gravity, in chunks the caller drives, reporting progress after each. Built
+for the Dhoby Ghaut workbench's Step 1 (gh:#561: "I should be able to run a
+fresh DEM in the early stages"), so a user can choose how many pebbles to
+load and watch the bed form, and the Monte Carlo model is then built on the
+bed this produced.
+
+**Before this module** every HTR-10 bed in the workspace started from
+LIGGGHTS' own `fix insert/pack` output (`reference-data/liggghts/htr10_init.csv`);
+the Rust side only re-settled it (`examples/htr10_recirculation_sweep.rs`).
+The pieces here are lifted from those examples so the two cannot drift:
+
+| piece | from |
+|---|---|
+| vessel: barrel, conus + discharge tube mesh, valve | `htr10_recirculation_sweep.rs` (system set-up), `reference-data/liggghts/make_htr10_discharge_stl.sh` (the mesh, generated here in code with the same 120-segment winding) |
+| contact model and defaults | the same example; V&V `docs/verification-and-validation.md` § 4.7 (E, dt) and § 4.9 (µ, µ_r; gh:#216) |
+| loose jittered-lattice seeding | `examples/bake_htr10_conus_slab.rs` `seed_column` |
+| settle criterion (core KE per pebble / one-radius drop < 1e-3) | `htr10_recirculation_sweep.rs` adaptive pre-settle |
+| surface height (99th percentile + r), whole-core φ | the same example's `bed_surface_height`, `whole_core_fraction` |
+
+## The defaults, and what they rest on
+
+- **µ = 0.1, µ_r = 0**: the setting at which this port's conus pre-settle
+  gives a whole-core filling fraction of **0.6047 against the published
+  0.61 (−0.9 %)** (V&V § 4.9, gh:#216). The docs justify µ as "graphite is
+  a solid lubricant; graphite-on-graphite sliding friction 0.1–0.2", with
+  **no specific paper cited**; treat it as a stated assumption, and ablate
+  it rather than tune it. The older LIGGGHTS-deck default is µ = 0.4,
+  µ_r = 0.1 (`reference-data/liggghts/in.htr10`).
+- **E = 5e8 Pa** (graphite is ~9 GPa): the standard pebble-bed DEM
+  softening, set by measuring contact overlap, not by its effect on packing
+  (V&V § 4.7). Soft-sphere overlap at this stiffness is up to ~1.7 % of r.
+- **dt = 3.5e-5 s**: 11.7 % of the Rayleigh time at E = 5e8.
+- ν = 0.2, e = 0.5, ρ = 1730 kg/m³, r = 3 cm.
+
+These are the settings the maintainer's HTR-10 pebble-bed DEM figure package
+records (publications repository, `outram_park/outram_park_intro_paper/
+outram_park_double_heterogeneity_arxiv/src/results_and_discussion/
+pebble_bed_dem/README.md`, prepared 2026-09-18 from this crate's V&V): the
+same µ = 0.1, µ_r = 0, E = 5e8 Pa, ν = 0.2, e = 0.5, dt = 35 µs, and the
+2×2 friction ablation reaching 0.6047 against the quoted 0.61, which it
+states is "an ablation, not a calibration".
+
+The published 0.61 is a check, not an input: nothing here is tuned to it.
+It is itself quoted from a specification table, not measured.
+
+## Frame
+
+Metres. `z = 0` is the conus inlet (the floor of the cylindrical core); the
+conus runs down to `z = −0.36946`, then a 0.25 m length of the 0.25 m-radius
+discharge tube to the valve at `z = −0.61946`. The real tube is ~6 m; the
+DEM holds only this stub of it.
+
+```rust
+pub mod htr10_fill { /* ... */ }
+```
+
+### Types
+
+#### Struct `Htr10FillSettings`
+
+Everything a fill depends on.
+
+```rust
+pub struct Htr10FillSettings {
+    pub n_pebbles: usize,
+    pub friction: f64,
+    pub rolling_friction: f64,
+    pub youngs_modulus: uom::si::f64::Pressure,
+    pub poisson_ratio: f64,
+    pub restitution: f64,
+    pub dt: uom::si::f64::Time,
+    pub threads: crate::compute::ThreadCount,
+    pub seed: u64,
+    pub settle_target: f64,
+    pub max_steps: usize,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `n_pebbles` | `usize` | Pebbles to pour. |
+| `friction` | `f64` | Sliding friction µ \[-\]. |
+| `rolling_friction` | `f64` | Rolling friction µ_r \[-\] (0 = none). |
+| `youngs_modulus` | `uom::si::f64::Pressure` | Young's modulus. |
+| `poisson_ratio` | `f64` | Poisson's ratio \[-\]. |
+| `restitution` | `f64` | Coefficient of restitution \[-\]. |
+| `dt` | `uom::si::f64::Time` | Integration timestep. |
+| `threads` | `crate::compute::ThreadCount` | Threads. |
+| `seed` | `u64` | Seed of the jitter in the initial loose lattice. |
+| `settle_target` | `f64` | Settled when the mean kinetic energy per core pebble falls below this<br>fraction of a one-radius gravitational drop. |
+| `max_steps` | `usize` | Give up settling after this many steps (reported, never hidden). |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Htr10FillSettings { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Default**
+  - ```rust
+    fn default() -> Self { /* ... */ }
+    ```
+    The V&V § 4.9 setting (µ = 0.1, µ_r = 0) for the full core: 27 000
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Htr10FillSettings) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Struct `FillProgress`
+
+Where a fill is, after a chunk.
+
+```rust
+pub struct FillProgress {
+    pub steps: usize,
+    pub time: uom::si::f64::Time,
+    pub ke_ratio_core: f64,
+    pub phi_whole_core: f64,
+    pub surface_height: uom::si::f64::Length,
+    pub n_in_core: usize,
+    pub settled: bool,
+    pub gave_up: bool,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `steps` | `usize` | Steps taken so far. |
+| `time` | `uom::si::f64::Time` | Simulated time. |
+| `ke_ratio_core` | `f64` | Mean KE per pebble in the core (`z > 0`) over a one-radius drop. |
+| `phi_whole_core` | `f64` | Whole-core filling fraction `N V / (π R² h)` (`z > 0`, `h` = surface). |
+| `surface_height` | `uom::si::f64::Length` | Bed surface: 99th-percentile core centre height + r. |
+| `n_in_core` | `usize` | Pebbles above the conus inlet. |
+| `settled` | `bool` | Below the settle target. |
+| `gave_up` | `bool` | Hit `max_steps` without settling. |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> FillProgress { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &FillProgress) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Struct `Htr10Fill`
+
+A pour in progress.
+
+```rust
+pub struct Htr10Fill {
+    // Some fields omitted
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| *private fields* | ... | *Some fields have been omitted* |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn new(settings: Htr10FillSettings) -> Result<Self, DemError> { /* ... */ }
+  ```
+  Seed the pour and build the system. Nothing is stepped yet.
+
+- ```rust
+  pub fn settings(self: &Self) -> Htr10FillSettings { /* ... */ }
+  ```
+  The settings it was built with.
+
+- ```rust
+  pub fn advance(self: &mut Self, n: usize) -> FillProgress { /* ... */ }
+  ```
+  Step `n` more times (fewer if `max_steps` is reached) and report.
+
+- ```rust
+  pub fn progress(self: &Self) -> FillProgress { /* ... */ }
+  ```
+  Where the fill is now, without stepping.
+
+- ```rust
+  pub fn centres(self: &Self) -> Vec<Vec3> { /* ... */ }
+  ```
+  Pebble centres \[m\], in insertion order.
+
+- ```rust
+  pub fn system(self: &Self) -> &GranularSystem { /* ... */ }
+  ```
+  The underlying system (for `DemBed::from_granular_system`, overlap
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Htr10Fill { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+### Functions
+
+#### Function `discharge_mesh`
+
+The conus and discharge tube as an inward-facing triangle mesh, exactly as
+`make_htr10_discharge_stl.sh` writes it (two bands of `segments` quads).
+
+```rust
+pub fn discharge_mesh(segments: usize) -> Result<crate::mesh_wall::MeshWall, crate::DemError> { /* ... */ }
+```
+
+#### Function `wall_radius_at`
+
+Inner wall radius at height `z` \[m\]: tube, conus, then barrel.
+
+```rust
+pub fn wall_radius_at(z: f64) -> f64 { /* ... */ }
+```
+
+#### Function `seed_loose`
+
+`n` pebble centres placed at random without overlap in the vessel, filling
+it from the valve upward at a loose solid fraction (0.30), the way
+LIGGGHTS' `fix insert/pack` seeds a region: random positions, rejected if
+they overlap a placed pebble or the wall. Deterministic in `seed`
+(SplitMix64, no RNG dependency). The pour then settles under gravity.
+
+~~A jittered square lattice (pitch 1.1 d), from `bake_htr10_conus_slab.rs`
+`seed_column`.~~ **REPLACED 2026-10-05:** a 16 890-pebble pour from that
+lattice kept its order through the short drop: g(√3 d) 2.90 and g(√2 d)
+0.898 against 1.29 and 0.599 for the LIGGGHTS-port reference bed
+(`htr10_conus_presettled_mu10_mur00.csv`), and a whole-core φ of 0.6227.
+A seed with no lattice in it carries no order to freeze in. Measured
+with this seed, same 16 890 pebbles: g(√2 d) 0.619, g(√3 d) 1.284, g(2 d)
+1.202, contact peak 19.55, against 0.599 / 1.286 / 1.190 / 19.56 for the
+reference random bed (core region, `examples/bed_rdf_check.rs`); settled
+after 26 000 steps (307 s, 12 threads) at whole-core φ 0.5954. That φ is
+not compared with the package's 0.6047, which is a 27 554-pebble core.
+
+```rust
+pub fn seed_loose(n: usize, seed: u64) -> Vec<crate::particle::Vec3> { /* ... */ }
+```
+
+#### Function `surface_height_m`
+
+Bed surface \[m\]: 99th-percentile centre height over the core (`z > 0`)
+plus one radius. Robust to a single pebble on top (see the sweep example's
+note on why `max z` is the wrong instrument). `None` if no pebble is in the
+core.
+
+```rust
+pub fn surface_height_m(centres: &[crate::particle::Vec3]) -> Option<f64> { /* ... */ }
+```
+
+#### Function `whole_core_fraction`
+
+Whole-core filling fraction `N V / (π R² h)` over `z > 0`: the like-for-like
+comparison with the published 0.61, itself a whole-core figure.
+
+```rust
+pub fn whole_core_fraction(centres: &[crate::particle::Vec3]) -> f64 { /* ... */ }
+```
+
+### Constants and Statics
+
+#### Constant `PEBBLE_RADIUS_M`
+
+Pebble radius \[m\].
+
+```rust
+pub const PEBBLE_RADIUS_M: f64 = 0.03;
+```
+
+#### Constant `PEBBLE_DENSITY`
+
+Graphite pebble density \[kg/m³\].
+
+```rust
+pub const PEBBLE_DENSITY: f64 = 1730.0;
+```
+
+#### Constant `CORE_RADIUS_M`
+
+Core (barrel) radius \[m\].
+
+```rust
+pub const CORE_RADIUS_M: f64 = 0.90;
+```
+
+#### Constant `CONE_HEIGHT_M`
+
+Height of the conus \[m\].
+
+```rust
+pub const CONE_HEIGHT_M: f64 = 0.36946;
+```
+
+#### Constant `TUBE_RADIUS_M`
+
+Discharge-tube radius \[m\].
+
+```rust
+pub const TUBE_RADIUS_M: f64 = 0.25;
+```
+
+#### Constant `TUBE_LENGTH_M`
+
+Length of discharge tube the DEM holds \[m\].
+
+```rust
+pub const TUBE_LENGTH_M: f64 = 0.25;
+```
+
+#### Constant `VALVE_Z_M`
+
+The valve at the bottom of the DEM's tube \[m\].
+
+```rust
+pub const VALVE_Z_M: f64 = _;
+```
+
+## Module `integrator`
+
+# Velocity-Verlet integration for spheres (`nve/sphere`)
+
+Faithful translation of LIGGGHTS' `FixNVESphere`, which is a genuine
+**kick–drift–kick** velocity-Verlet propagator split across two half steps
+around the force evaluation:
+
+```text
+  initial_integrate:   v += (dt/2)·F(t)/m
+                       ω += (dt/2)·τ(t)/I
+                       x += dt·v
+  ---- forces and torques are recomputed at x(t+dt) ----
+  final_integrate:     v += (dt/2)·F(t+dt)/m
+                       ω += (dt/2)·τ(t+dt)/I
+```
+
+with `I = (2/5) m r²` for a solid sphere (LIGGGHTS' `INERTIA = 0.4`, applied
+as `dtirotate = (dt/2)/INERTIA / (r² m)`).
+
+## Why this module exists: [`Particle::integrate`] is not velocity-Verlet
+
+[`Particle::integrate`](crate::particle::Particle::integrate) applies the
+*same* acceleration `a(t)` to both the position and the velocity update:
+
+```text
+  x(t+dt) = x + v·dt + ½·a(t)·dt²
+  v(t+dt) = v + a(t)·dt
+```
+
+That is **not** velocity-Verlet, and — despite what that method's own doc
+comment claimed before 2026-09-15 — it is **not symplectic**. For a linear
+restoring force `a = −ω²x` (which is exactly what a DEM contact spring is)
+its one-step Jacobian is
+
+```text
+  M = [ 1 − ω²dt²/2    dt ]        det M = 1 + ω²dt²/2  >  1
+      [ −ω²dt           1 ]
+```
+
+so phase-space volume — and with it the energy — **grows geometrically**,
+by a factor `(1 + ω²dt²/2)` per step, no matter how well resolved the step
+is. Measured on a unit oscillator at `dt = 0.1/ω` (≈ 63 steps per period, a
+*comfortably* resolved DEM contact), `E/E₀ = 2.13 × 10⁴³` after 20 000
+steps, against `0.99969` for the scheme in this module. See
+`docs/verification-and-validation.md` § "Integrator".
+
+The old scheme is exact for a **constant** force (free flight under gravity,
+constant-torque spin-up), which is all its original unit tests exercised —
+which is why the defect survived. It is kept, with a corrected doc comment,
+because it is still the right thing for a single constant-force kick; every
+*contact* integration should use [`VelocityVerlet`].
+
+## Unit system: SI only
+
+Upstream forms its half-step as `dtf = 0.5 * dt * force->ftm2v`. `ftm2v` is
+**exactly `1.0` for `units si`** (`update.cpp`), which is the only unit
+system this crate's `uom`-typed API admits, so the factor is omitted rather
+than carried as an identity. Exact for SI; it would be wrong for LIGGGHTS'
+`lj`/`real`/`metal`/`cgs` styles. See the same note in
+[`crate::granular`].
+
+## Honest scope
+
+Translation of the integrator only. Orientation (quaternions) is not
+tracked, matching the base crate: only `angular_velocity` is advanced, which
+is sufficient for spheres with isotropic inertia.
+
+```rust
+pub mod integrator { /* ... */ }
+```
+
+### Types
+
+#### Struct `VelocityVerlet`
+
+Kick–drift–kick **velocity-Verlet** propagator for a sphere ensemble
+(`fix nve/sphere`).
+
+Holds only the time step, so it is `Copy` and carries no ensemble state; the
+particles live in the caller's `Vec<Particle>` and are advanced in place.
+
+# Usage
+
+One full step is *always* three calls, in this order:
+
+```
+# use outram_park_fork_liggghts::integrator::VelocityVerlet;
+# use outram_park_fork_liggghts::particle::{Particle, Vec3};
+# let mut particles = vec![Particle::new(
+#     Vec3::zero(), Vec3::new(1.0, 0.0, 0.0), Vec3::zero(), 1.0, 0.1, 300.0).unwrap()];
+# let compute_forces = |_: &[Particle]| (vec![Vec3::zero()], vec![Vec3::zero()]);
+let vv = VelocityVerlet::new(1.0e-6).unwrap();
+
+let (mut f, mut t) = compute_forces(&particles);   // F(t), τ(t)
+vv.initial_integrate(&mut particles, &f, &t);      // half-kick + drift
+let (f_new, t_new) = compute_forces(&particles);   // F(t+dt), τ(t+dt)
+vv.final_integrate(&mut particles, &f_new, &t_new); // half-kick
+# f = f_new; t = t_new; let _ = (f, t);
+```
+
+Skipping [`VelocityVerlet::final_integrate`], or reusing the *old* forces in
+it, degrades the scheme back to the non-symplectic form described in the
+module docs — the energy will grow.
+
+# Parameters and units
+
+| Field | Symbol | Quantity | SI unit | Valid range |
+|---|---|---|---|---|
+| `dt` | `Δt` | integration time step | `[s]` | `> 0` |
+
+```rust
+pub struct VelocityVerlet {
+    // Some fields omitted
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| *private fields* | ... | *Some fields have been omitted* |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn new(dt: f64) -> Result<Self, DemError> { /* ... */ }
+  ```
+  Build a propagator with time step `dt` `[s]`.
+
+- ```rust
+  pub fn dt(self: &Self) -> f64 { /* ... */ }
+  ```
+  The integration time step `[s]`.
+
+- ```rust
+  pub fn initial_integrate(self: &Self, particles: &mut [Particle], forces: &[Vec3], torques: &[Vec3]) { /* ... */ }
+  ```
+  First half of the step: velocity/spin half-kick with the **current**
+
+- ```rust
+  pub fn final_integrate(self: &Self, particles: &mut [Particle], forces: &[Vec3], torques: &[Vec3]) { /* ... */ }
+  ```
+  Second half of the step: velocity/spin half-kick with the force and
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> VelocityVerlet { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &VelocityVerlet) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+### Constants and Statics
+
+#### Constant `INERTIA`
+
+LIGGGHTS' `INERTIA` constant for a solid sphere: `I = INERTIA · m · r²`.
+
+Dimensionless `[-]`. Value `2/5`, the moment of inertia of a uniform solid
+sphere about a diameter.
+
+```rust
+pub const INERTIA: f64 = 0.4;
+```
 
 ## Module `mesh_wall`
 
@@ -2853,6 +7489,7 @@ pub struct Triangle {
     fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
     ```
 
+- **CastableFrom**
 - **Clone**
   - ```rust
     fn clone(self: &Self) -> Triangle { /* ... */ }
@@ -2869,6 +7506,11 @@ pub struct Triangle {
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
     ```
 
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
 - **Freeze**
 - **From**
   - ```rust
@@ -2882,11 +7524,30 @@ pub struct Triangle {
     ```
     Calls `U::from(self)`.
 
+- **IntoEither**
 - **PartialEq**
   - ```rust
     fn eq(self: &Self, other: &Triangle) -> bool { /* ... */ }
     ```
 
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
 - **RefUnwindSafe**
 - **Same**
 - **Send**
@@ -2914,6 +7575,14 @@ pub struct Triangle {
 - **Unpin**
 - **UnsafeUnpin**
 - **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
 #### Struct `MeshWall`
 
 A **triangulated (STL-style) wall**: a surface made of flat [`Triangle`]
@@ -2931,6 +7600,7 @@ nearest the particle centre, and reports the contact there.
 ```rust
 pub struct MeshWall {
     pub triangles: Vec<Triangle>,
+    // Some fields omitted
 }
 ```
 
@@ -2938,7 +7608,8 @@ pub struct MeshWall {
 
 | Name | Type | Documentation |
 |------|------|---------------|
-| `triangles` | `Vec<Triangle>` | The triangular facets `[m]`. Assumed consistently wound (outward normals<br>point into the domain) and to form a sensible surface; see the module<br>"Honest scope" for what is *not* checked. |
+| `triangles` | `Vec<Triangle>` | The triangular facets `[m]`. Assumed consistently wound (outward normals<br>point into the domain) and to form a sensible surface; see the module<br>"Honest scope" for what is *not* checked.<br><br>**If you mutate this directly**, the bounding-sphere cache below is<br>invalidated; [`MeshWall::particle_overlap`] detects the length mismatch<br>and falls back to the unaccelerated scan, so results stay correct but<br>slow. Rebuild with [`MeshWall::new`] to restore the acceleration. |
+| *private fields* | ... | *Some fields have been omitted* |
 
 ##### Implementations
 
@@ -2948,6 +7619,21 @@ pub struct MeshWall {
   pub fn new(triangles: Vec<Triangle>) -> Result<Self, DemError> { /* ... */ }
   ```
   Construct a mesh wall from a non-empty list of facets.
+
+- ```rust
+  pub fn from_ascii_stl(text: &str) -> Result<Self, DemError> { /* ... */ }
+  ```
+  Parse an **ASCII STL** file body into a mesh wall.
+
+- ```rust
+  pub fn rebuild_bounds(self: &mut Self) { /* ... */ }
+  ```
+  Recompute the pruning caches from the current `triangles`.
+
+- ```rust
+  pub fn shift_bounds(self: &mut Self, disp: Vec3) { /* ... */ }
+  ```
+  Translate the pruning caches by `disp` `[m]`, the exact equivalent of
 
 - ```rust
   pub fn particle_overlap(self: &Self, p: &Particle) -> Option<Contact> { /* ... */ }
@@ -2971,6 +7657,7 @@ pub struct MeshWall {
     fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
     ```
 
+- **CastableFrom**
 - **Clone**
   - ```rust
     fn clone(self: &Self) -> MeshWall { /* ... */ }
@@ -2986,6 +7673,11 @@ pub struct MeshWall {
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
     ```
 
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
 - **Freeze**
 - **From**
   - ```rust
@@ -2999,11 +7691,30 @@ pub struct MeshWall {
     ```
     Calls `U::from(self)`.
 
+- **IntoEither**
 - **PartialEq**
   - ```rust
     fn eq(self: &Self, other: &MeshWall) -> bool { /* ... */ }
     ```
 
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
 - **RefUnwindSafe**
 - **Same**
 - **Send**
@@ -3031,6 +7742,14 @@ pub struct MeshWall {
 - **Unpin**
 - **UnsafeUnpin**
 - **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
 #### Enum `WallGeometry`
 
 The wall geometry a [`MovingBoundary`] carries: either an analytic
@@ -3095,6 +7814,7 @@ Fields:
     fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
     ```
 
+- **CastableFrom**
 - **Clone**
   - ```rust
     fn clone(self: &Self) -> WallGeometry { /* ... */ }
@@ -3110,6 +7830,11 @@ Fields:
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
     ```
 
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
 - **Freeze**
 - **From**
   - ```rust
@@ -3123,11 +7848,30 @@ Fields:
     ```
     Calls `U::from(self)`.
 
+- **IntoEither**
 - **PartialEq**
   - ```rust
     fn eq(self: &Self, other: &WallGeometry) -> bool { /* ... */ }
     ```
 
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
 - **RefUnwindSafe**
 - **Same**
 - **Send**
@@ -3155,6 +7899,14 @@ Fields:
 - **Unpin**
 - **UnsafeUnpin**
 - **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
 #### Struct `MovingBoundary`
 
 A **moving / rotating rigid wall**: a [`WallGeometry`] plus its rigid-body
@@ -3248,6 +8000,7 @@ pub struct MovingBoundary {
     fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
     ```
 
+- **CastableFrom**
 - **Clone**
   - ```rust
     fn clone(self: &Self) -> MovingBoundary { /* ... */ }
@@ -3263,6 +8016,11 @@ pub struct MovingBoundary {
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
     ```
 
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
 - **Freeze**
 - **From**
   - ```rust
@@ -3276,11 +8034,30 @@ pub struct MovingBoundary {
     ```
     Calls `U::from(self)`.
 
+- **IntoEither**
 - **PartialEq**
   - ```rust
     fn eq(self: &Self, other: &MovingBoundary) -> bool { /* ... */ }
     ```
 
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
 - **RefUnwindSafe**
 - **Same**
 - **Send**
@@ -3308,6 +8085,14 @@ pub struct MovingBoundary {
 - **Unpin**
 - **UnsafeUnpin**
 - **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
 ## Module `particle`
 
 Phase 1 — **Particle framework** (bead `op-t3l.1`).
@@ -3464,6 +8249,7 @@ pub struct Vec3 {
     fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
     ```
 
+- **CastableFrom**
 - **Clone**
   - ```rust
     fn clone(self: &Self) -> Vec3 { /* ... */ }
@@ -3480,6 +8266,11 @@ pub struct Vec3 {
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
     ```
 
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
 - **Freeze**
 - **From**
   - ```rust
@@ -3493,11 +8284,30 @@ pub struct Vec3 {
     ```
     Calls `U::from(self)`.
 
+- **IntoEither**
 - **PartialEq**
   - ```rust
     fn eq(self: &Self, other: &Vec3) -> bool { /* ... */ }
     ```
 
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
 - **RefUnwindSafe**
 - **Same**
 - **Send**
@@ -3525,6 +8335,14 @@ pub struct Vec3 {
 - **Unpin**
 - **UnsafeUnpin**
 - **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
 #### Struct `Particle`
 
 A single spherical DEM particle: its full kinematic state plus mass, radius,
@@ -3619,6 +8437,7 @@ pub struct Particle {
     fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
     ```
 
+- **CastableFrom**
 - **Clone**
   - ```rust
     fn clone(self: &Self) -> Particle { /* ... */ }
@@ -3635,6 +8454,11 @@ pub struct Particle {
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
     ```
 
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
 - **Freeze**
 - **From**
   - ```rust
@@ -3648,11 +8472,30 @@ pub struct Particle {
     ```
     Calls `U::from(self)`.
 
+- **IntoEither**
 - **PartialEq**
   - ```rust
     fn eq(self: &Self, other: &Particle) -> bool { /* ... */ }
     ```
 
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
 - **RefUnwindSafe**
 - **Same**
 - **Send**
@@ -3680,6 +8523,599 @@ pub struct Particle {
 - **Unpin**
 - **UnsafeUnpin**
 - **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+## Module `rdf`
+
+Radial distribution function `g(r)` — the **structure** of a packed bed, as
+opposed to its bulk packing fraction.
+
+# What this measures and why a packing fraction is not enough
+
+A solid fraction `φ` is one number: it says how much of the bed is pebble.
+Two beds can share a `φ` and be structurally different — one crystallising
+into ordered layers, one genuinely random — and that difference governs flow
+resistance, effective conductivity and, for a pebble-bed reactor, the
+neutron streaming paths. `g(r)` resolves it.
+
+`g(r)` is the probability of finding another pebble centre at separation `r`
+from a given centre, **relative to a uniform random arrangement of the same
+mean density**. So:
+
+- `g(r) = 1` means "as likely as random" — the value `g` tends to at large
+  `r` in any disordered packing, by construction of the normalisation;
+- `g(r) = 0` for `r < d` — hard spheres cannot interpenetrate, so the
+  function is identically zero below one pebble diameter (a nonzero value
+  there is a bug or an overlap, and this module's tests check exactly that);
+- a **sharp first peak at `r = d`** is the contact shell: its area is the
+  mean number of touching neighbours;
+- the **split second peak**, at `r = √3 d ≈ 1.732 d` and `r = 2 d`, is the
+  signature of a *random* close packing and is the single most-used
+  diagnostic for distinguishing it from a crystalline one. In an FCC or HCP
+  crystal the second-neighbour structure sits at `√2 d ≈ 1.414 d` instead.
+
+That last point is why this module exists for the HTR-10 work: the question
+is whether slow recirculation densifies the bed toward the published filling
+fraction of 0.61, and *how*. A bed that densifies by crystallising is a
+different physical claim from one that densifies while staying random, and
+`φ` alone cannot tell them apart.
+
+# The estimator, and why the domain is eroded
+
+The normalisation is the whole difficulty. Naively,
+
+```text
+g(r) = <n(r)> / (rho * 4 * pi * r^2 * dr)
+```
+
+where `<n(r)>` is the mean number of neighbours in a shell. That is only
+correct while the shell lies **entirely inside the bed**. Near a wall or the
+free surface part of the shell is outside, no pebble can be there, and `g`
+sags below 1 for a purely geometric reason that has nothing to do with
+structure. In a bed 30 pebbles across, that artefact is large.
+
+This module avoids it rather than correcting for it: **only pebbles at least
+`r_max` from every boundary are used as shell centres** (an erosion of the
+domain), while *every* pebble remains available as a neighbour. Every shell
+is then fully enclosed, the normalisation above is exact, and no boundary
+correction is needed or assumed. The price is fewer centres — for the HTR-10
+bed at `r_max = 5 d` roughly a third of them — which costs statistics, not
+correctness. [`Rdf::n_centres`] reports how many were used so a caller can
+see what it paid.
+
+The mean number density `rho` is measured **over the eroded region itself**,
+so it is the local bulk density the shells actually sample, not a whole-bed
+average contaminated by the loose free surface.
+
+# Backends
+
+The kernel is an all-pairs distance histogram — stateless, with no
+dependence between pairs — which makes it the one part of this crate that
+genuinely suits a GPU, and the reason [`ComputeType::Gpu`] exists here at
+all. See [`crate::compute`] for the contrast with the DEM timestep, which
+does not.
+
+The two CPU backends are held to the **identical histogram**: binning is
+integer counting and integer addition is associative, so a per-thread
+histogram reduced in any order gives exactly the serial counts. No ordered
+accumulation is needed here, unlike the DEM force loop.
+
+**The GPU backend is not bit-identical, and cannot be.** WGSL has no `f64`,
+so that kernel computes separations in `f32` while the CPU path uses `f64`.
+A pair whose separation falls within `f32` rounding of a bin edge may land
+in a neighbouring bin. The effect is bounded and small — `f32` resolves a
+2 m coordinate to ~0.2 µm against a bin width of `d/50 = 1.2 mm` — but it is
+real, and it is measured rather than asserted in `tests/htr10_rdf.rs`.
+**Any number quoted in a V&V document comes from the CPU path.**
+
+```rust
+pub mod rdf { /* ... */ }
+```
+
+### Types
+
+#### Struct `RdfDomain`
+
+The region a bed occupies: a right circular cylinder with its axis along
+`z`, which is the shape of every bed in this crate (core barrel, laboratory
+cylinder, lifting cylinder).
+
+Used only to decide which pebbles are far enough from a boundary to serve as
+shell centres — see the module docs on erosion.
+
+```rust
+pub struct RdfDomain {
+    pub radius: f64,
+    pub z_min: f64,
+    pub z_max: f64,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `radius` | `f64` | Cylinder radius `[m]`, about the `z` axis at `x = y = 0`. |
+| `z_min` | `f64` | Lower bound of the occupied height `[m]`. |
+| `z_max` | `f64` | Upper bound of the occupied height `[m]`. |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn cylinder(radius: f64, z_min: f64, z_max: f64) -> Self { /* ... */ }
+  ```
+  A cylinder of `radius` spanning `z_min..z_max`, about the `z` axis.
+
+- ```rust
+  pub fn from_positions(centres: &[Vec3]) -> Self { /* ... */ }
+  ```
+  Infer the domain from the pebbles themselves: the largest cylindrical
+
+- ```rust
+  pub fn is_interior(self: &Self, p: Vec3, margin: f64) -> bool { /* ... */ }
+  ```
+  Whether `p` is at least `margin` `[m]` from the curved wall and from
+
+- ```rust
+  pub fn eroded_volume(self: &Self, margin: f64) -> f64 { /* ... */ }
+  ```
+  Volume `[m³]` of the region eroded by `margin` — the region
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> RdfDomain { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &RdfDomain) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Struct `RdfSettings`
+
+What to compute: how far out, and at what resolution.
+
+```rust
+pub struct RdfSettings {
+    pub r_max: f64,
+    pub n_bins: usize,
+    pub domain: RdfDomain,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `r_max` | `f64` | Largest separation `[m]` to histogram. Also the erosion margin, so<br>raising it costs shell centres quadratically — `5 d` is a good default<br>for a packed bed, comfortably past the split second peak at `2 d`. |
+| `n_bins` | `usize` | Number of equal-width bins spanning `0..r_max`. |
+| `domain` | `RdfDomain` | The region the bed occupies. |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn for_diameter(d: f64, domain: RdfDomain) -> Self { /* ... */ }
+  ```
+  Default settings for a bed of pebble **diameter** `d`: out to `5 d` in
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> RdfSettings { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &RdfSettings) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Struct `Rdf`
+
+A computed radial distribution function.
+
+```rust
+pub struct Rdf {
+    pub r: Vec<f64>,
+    pub g: Vec<f64>,
+    pub coordination: Vec<f64>,
+    pub counts: Vec<u64>,
+    pub n_centres: usize,
+    pub number_density: f64,
+    pub dr: f64,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `r` | `Vec<f64>` | Bin centre separations `[m]`, ascending, `n_bins` long. |
+| `g` | `Vec<f64>` | `g(r)`, dimensionless, `n_bins` long. Tends to 1 at large `r`. |
+| `coordination` | `Vec<f64>` | Running mean number of neighbours within each bin's outer edge — the<br>**cumulative coordination number**. `coordination[k]` counts every<br>neighbour out to `r[k] + dr/2`.<br><br>Read at the first minimum of `g` (just past the contact peak) this is<br>the contact coordination number, ~6 for a random loose packing and<br>~9–10 for a dense one. |
+| `counts` | `Vec<u64>` | Raw pair counts per bin, before normalisation. Backends must agree on<br>these **exactly** — see the module docs. |
+| `n_centres` | `usize` | How many pebbles survived the erosion to serve as shell centres. |
+| `number_density` | `f64` | Mean number density `[1/m³]` over the eroded region, the `rho` of the<br>normalisation. |
+| `dr` | `f64` | Bin width `[m]`. |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn peak_r(self: &Self) -> f64 { /* ... */ }
+  ```
+  The separation `[m]` at which `g` is largest — the contact peak, which
+
+- ```rust
+  pub fn contact_coordination(self: &Self) -> Option<f64> { /* ... */ }
+  ```
+  Coordination number at the first minimum of `g` after the contact peak
+
+- ```rust
+  pub fn to_csv_rows(self: &Self, diameter: f64) -> String { /* ... */ }
+  ```
+  Render as CSV rows (no header) for the V&V dataset:
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Rdf { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Rdf) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+### Functions
+
+#### Function `radial_distribution`
+
+**Attributes:**
+
+- `MustUse { reason: None }`
+
+Compute `g(r)` for a set of pebble centres.
+
+# Methodology
+
+See the module docs. In short: pebbles at least `r_max` from every boundary
+serve as shell centres; every pebble is available as a neighbour; the number
+density is measured over the eroded region; no boundary correction is
+applied because none is needed.
+
+# Arguments
+
+`centres` are pebble centre positions `[m]`. `settings` fixes the range,
+resolution and domain. `compute` selects the backend — all of which produce
+the **same bin counts**, so this choice affects speed only.
+
+# Panics
+
+If `settings.n_bins` is zero, or `settings.r_max` is not finite and
+positive.
+
+# Returns
+
+An [`Rdf`] with `n_bins` entries. If the erosion leaves no centres (a bed
+smaller than `2 r_max` across) every `g` is `NaN` and `n_centres` is 0 —
+deliberately, rather than silently returning a meaningless curve from an
+un-eroded domain.
+
+```rust
+pub fn radial_distribution(centres: &[crate::particle::Vec3], settings: RdfSettings, compute: crate::compute::ComputeType) -> Rdf { /* ... */ }
+```
+
 ## Module `rolling`
 
 Phase 2 follow-up — **Rolling resistance & cohesion** contact extensions
@@ -3825,6 +9261,7 @@ pub struct RollingTorque {
     fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
     ```
 
+- **CastableFrom**
 - **Clone**
   - ```rust
     fn clone(self: &Self) -> RollingTorque { /* ... */ }
@@ -3841,6 +9278,11 @@ pub struct RollingTorque {
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
     ```
 
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
 - **Freeze**
 - **From**
   - ```rust
@@ -3854,11 +9296,30 @@ pub struct RollingTorque {
     ```
     Calls `U::from(self)`.
 
+- **IntoEither**
 - **PartialEq**
   - ```rust
     fn eq(self: &Self, other: &RollingTorque) -> bool { /* ... */ }
     ```
 
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
 - **RefUnwindSafe**
 - **Same**
 - **Send**
@@ -3886,6 +9347,14 @@ pub struct RollingTorque {
 - **Unpin**
 - **UnsafeUnpin**
 - **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
 #### Enum `RollingModel`
 
 Closed set of rolling-resistance models, dispatched by `match` with **no**
@@ -3915,6 +9384,7 @@ pub enum RollingModel {
     None,
     ConstantDirectionalTorque {
         mu_r: f64,
+        torsion_torque: bool,
     },
     ViscousRolling {
         c_r: f64,
@@ -3930,28 +9400,47 @@ No rolling resistance — always returns [`RollingTorque::zero`].
 
 ###### `ConstantDirectionalTorque`
 
-**Directional constant-torque** rolling resistance (Ai et al. 2011
-"Model A"; Iwashita & Oda 1998).
+**Directional constant-torque (CDT)** rolling resistance — a port of
+upstream LIGGGHTS `rolling_model_cdt.h` (Ai et al. 2011 "Model A";
+Iwashita & Oda 1998).
 
-The resisting torque has a fixed magnitude set by the normal load and
-always points opposite the relative rolling direction:
+The resisting torque has a fixed magnitude set by the **elastic** normal
+load and always points opposite the relative rolling direction:
 
-`M_r = −μ_r · R* · |F_n| · ω̂_rel`,  with  `ω̂_rel = ω_rel / ‖ω_rel‖`.
+`M_r = −μ_r · R* · (k_n·δ_n) · ω̂_rel`,  with  `ω̂_rel = ω_rel / ‖ω_rel‖`,
+
+followed by removal of the component along the contact normal (the
+*torsion* part) unless `torsion_torque` is set.
 
 When `‖ω_rel‖` is below [`ROLLING_OMEGA_EPS`] the direction is undefined
 and the torque is zero (a non-rolling pair feels no rolling resistance).
 This is the *directional* form: the magnitude does not depend on the
 rolling *speed*, only its direction — hence "constant torque".
 
+# Faithfulness note (fixed 2026-09-16)
+
+Until 2026-09-16 this variant scaled the torque by the **total** normal
+force `|F_n|` (including the viscous damping term) and kept the torsion
+component. Upstream does neither: it uses the elastic part `k_n·δ_n`
+only, and removes torsion unless `torsionTorque` is explicitly asked
+for (that switch defaults **off**). Both are now upstream's.
+
 Fields:
 
 | Name | Type | Documentation |
 |------|------|---------------|
 | `mu_r` | `f64` | Rolling-friction coefficient `μ_r` `[-]`. Non-negative. |
+| `torsion_torque` | `bool` | Upstream's `torsionTorque` switch. **Default `false`**, which<br>removes the torque component along the contact normal. |
 
 ###### `ViscousRolling`
 
 **Viscous** rolling resistance (Ai et al. 2011, viscous family).
+
+> **Not an upstream LIGGGHTS model.** LIGGGHTS ships `cdt`, `epsd`,
+> `epsd2`, `epsd3` and `luding`; a pure linear rolling dashpot is not
+> among them. This variant is a clean-room addition from the DEM
+> literature and is therefore **not** covered by the cross-code
+> verification in `docs/verification-and-validation.md`.
 
 The resisting torque is linear in the relative rolling angular velocity:
 
@@ -3990,7 +9479,7 @@ Fields:
   Construct a validated viscous rolling-resistance model.
 
 - ```rust
-  pub fn rolling_torque(self: &Self, normal_force: f64, r_eff: f64, omega_rel: Vec3) -> RollingTorque { /* ... */ }
+  pub fn rolling_torque(self: &Self, elastic_normal_force: f64, r_eff: f64, omega_rel: Vec3, contact_normal: Vec3) -> RollingTorque { /* ... */ }
   ```
   Resisting rolling torque on each particle of the pair.
 
@@ -4011,6 +9500,7 @@ Fields:
     fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
     ```
 
+- **CastableFrom**
 - **Clone**
   - ```rust
     fn clone(self: &Self) -> RollingModel { /* ... */ }
@@ -4027,6 +9517,11 @@ Fields:
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
     ```
 
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
 - **Freeze**
 - **From**
   - ```rust
@@ -4040,11 +9535,30 @@ Fields:
     ```
     Calls `U::from(self)`.
 
+- **IntoEither**
 - **PartialEq**
   - ```rust
     fn eq(self: &Self, other: &RollingModel) -> bool { /* ... */ }
     ```
 
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
 - **RefUnwindSafe**
 - **Same**
 - **Send**
@@ -4072,6 +9586,14 @@ Fields:
 - **Unpin**
 - **UnsafeUnpin**
 - **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
 #### Enum `CohesionModel`
 
 Closed set of cohesion (attractive-normal-force) models, dispatched by
@@ -4201,6 +9723,7 @@ Fields:
     fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
     ```
 
+- **CastableFrom**
 - **Clone**
   - ```rust
     fn clone(self: &Self) -> CohesionModel { /* ... */ }
@@ -4217,6 +9740,11 @@ Fields:
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
     ```
 
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
 - **Freeze**
 - **From**
   - ```rust
@@ -4230,11 +9758,30 @@ Fields:
     ```
     Calls `U::from(self)`.
 
+- **IntoEither**
 - **PartialEq**
   - ```rust
     fn eq(self: &Self, other: &CohesionModel) -> bool { /* ... */ }
     ```
 
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
 - **RefUnwindSafe**
 - **Same**
 - **Send**
@@ -4262,6 +9809,14 @@ Fields:
 - **Unpin**
 - **UnsafeUnpin**
 - **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
 ## Module `simulation`
 
 Phase 5 — **Multi-particle DEM simulation engine** (bead `op-t3l`).
@@ -4502,7 +10057,7 @@ pub struct DemSimulation {
 - ```rust
   pub fn step(self: &mut Self) { /* ... */ }
   ```
-  Advance the whole system by one velocity-Verlet step of size `dt` `[s]`.
+  Advance the whole system by one **velocity-Verlet** step of size `dt`
 
 - ```rust
   pub fn run(self: &mut Self, n_steps: usize) { /* ... */ }
@@ -4526,6 +10081,7 @@ pub struct DemSimulation {
     fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
     ```
 
+- **CastableFrom**
 - **Clone**
   - ```rust
     fn clone(self: &Self) -> DemSimulation { /* ... */ }
@@ -4541,6 +10097,11 @@ pub struct DemSimulation {
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
     ```
 
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
 - **Freeze**
 - **From**
   - ```rust
@@ -4554,11 +10115,30 @@ pub struct DemSimulation {
     ```
     Calls `U::from(self)`.
 
+- **IntoEither**
 - **PartialEq**
   - ```rust
     fn eq(self: &Self, other: &DemSimulation) -> bool { /* ... */ }
     ```
 
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
 - **RefUnwindSafe**
 - **Same**
 - **Send**
@@ -4586,6 +10166,14 @@ pub struct DemSimulation {
 - **Unpin**
 - **UnsafeUnpin**
 - **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
 ## Module `thermal`
 
 Phase 4 — **Thermal DEM** (bead `op-t3l.4`).
@@ -4777,6 +10365,7 @@ Fields:
     fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
     ```
 
+- **CastableFrom**
 - **Clone**
   - ```rust
     fn clone(self: &Self) -> ThermalModel { /* ... */ }
@@ -4793,6 +10382,11 @@ Fields:
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
     ```
 
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
 - **Freeze**
 - **From**
   - ```rust
@@ -4806,11 +10400,30 @@ Fields:
     ```
     Calls `U::from(self)`.
 
+- **IntoEither**
 - **PartialEq**
   - ```rust
     fn eq(self: &Self, other: &ThermalModel) -> bool { /* ... */ }
     ```
 
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
 - **RefUnwindSafe**
 - **Same**
 - **Send**
@@ -4838,6 +10451,14 @@ Fields:
 - **Unpin**
 - **UnsafeUnpin**
 - **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
 ### Functions
 
 #### Function `harmonic_mean_conductivity`
@@ -5267,6 +10888,7 @@ Fields:
     fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
     ```
 
+- **CastableFrom**
 - **Clone**
   - ```rust
     fn clone(self: &Self) -> RadiationModel { /* ... */ }
@@ -5283,6 +10905,11 @@ Fields:
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
     ```
 
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
 - **Freeze**
 - **From**
   - ```rust
@@ -5296,11 +10923,30 @@ Fields:
     ```
     Calls `U::from(self)`.
 
+- **IntoEither**
 - **PartialEq**
   - ```rust
     fn eq(self: &Self, other: &RadiationModel) -> bool { /* ... */ }
     ```
 
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
 - **RefUnwindSafe**
 - **Same**
 - **Send**
@@ -5328,6 +10974,14 @@ Fields:
 - **Unpin**
 - **UnsafeUnpin**
 - **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
 ### Functions
 
 #### Function `radiative_heat_rate`
@@ -5492,6 +11146,301 @@ fourth powers of absolute temperatures in the grey-body radiative law.
 pub const STEFAN_BOLTZMANN: f64 = 5.670_374_419e-8;
 ```
 
+## Module `timestep`
+
+# Granular time-step criteria (`fix check/timestep/gran`)
+
+Translation of LIGGGHTS' Rayleigh-wave and Hertz-contact time estimates —
+the two limits that decide whether a DEM step is small enough.
+
+**This is not a nicety for a pebble bed.** An explicit DEM step that
+over-runs the contact duration does not merely lose accuracy, it goes
+unstable and ejects particles; picking `dt` by eye is how a bed "explodes".
+Upstream warns above ~20 % of the Rayleigh time, and this module reports the
+same fractions so the two codes can be compared directly.
+
+## The two criteria
+
+**Rayleigh time** — the period of a Rayleigh surface wave crossing a
+particle, the limit on how fast a contact signal can traverse it:
+
+```text
+  t_R = π·r·√(ρ/G) / (0.1631·ν + 0.8766)
+```
+
+with shear modulus `G = E / (2(1 + ν))`. (Upstream's own expression, from
+the Thornton/Randall form quoted in the LIGGGHTS documentation.)
+
+**Hertz time** — the duration of a Hertzian collision at the maximum
+relative approach speed in the system:
+
+```text
+  t_H = 2.87·(m_eff² / (r_eff · E_eff² · v_rel,max))^{1/5}
+```
+
+Upstream evaluates this with the deliberately conservative choices
+`m_eff = (4/3)π r³ ρ` (the *full* particle mass, not the reduced mass) and
+`r_eff = r/2`, testing "collision of a particle with itself"; both are
+reproduced here so the numbers match.
+
+## Honest scope
+
+Single material, monodisperse or polydisperse spheres, no moving meshes
+(upstream folds mesh node speeds into `v_rel,max`; here `v_rel,max = 2·v_max`
+over the particles, upstream's particle–particle branch). The estimates are
+upstream's *heuristics*, not theorems — they are reproduced faithfully,
+including their approximations.
+
+```rust
+pub mod timestep { /* ... */ }
+```
+
+### Types
+
+#### Struct `TimestepEstimate`
+
+The two limiting times for a granular ensemble, plus the step fractions.
+
+# Fields and units
+
+| Field | Symbol | Quantity | SI unit |
+|---|---|---|---|
+| `rayleigh_time` | `t_R` | minimum Rayleigh time over the ensemble | `[s]` |
+| `hertz_time` | `t_H` | minimum Hertz collision time | `[s]` |
+| `v_rel_max` | `v_rel,max` | maximum relative approach speed | `[m/s]` |
+| `r_min` | `r_min` | smallest particle radius | `[m]` |
+
+```rust
+pub struct TimestepEstimate {
+    pub rayleigh_time: f64,
+    pub hertz_time: f64,
+    pub v_rel_max: f64,
+    pub r_min: f64,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `rayleigh_time` | `f64` | Minimum Rayleigh time over the ensemble `[s]`. |
+| `hertz_time` | `f64` | Minimum Hertz collision time `[s]`; `f64::INFINITY` when nothing moves. |
+| `v_rel_max` | `f64` | Maximum relative approach speed `2·v_max` `[m/s]`. |
+| `r_min` | `f64` | Smallest particle radius `[m]`. |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn rayleigh_fraction(self: &Self, dt: f64) -> f64 { /* ... */ }
+  ```
+  Fraction of the Rayleigh time a step of `dt` `[s]` uses `[-]`.
+
+- ```rust
+  pub fn hertz_fraction(self: &Self, dt: f64) -> f64 { /* ... */ }
+  ```
+  Fraction of the Hertz collision time a step of `dt` `[s]` uses `[-]`.
+
+- ```rust
+  pub fn is_stable(self: &Self, dt: f64) -> bool { /* ... */ }
+  ```
+  Whether `dt` `[s]` satisfies **both** of upstream's warning thresholds.
+
+- ```rust
+  pub fn recommended_dt(self: &Self) -> f64 { /* ... */ }
+  ```
+  The largest step `[s]` satisfying both thresholds.
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> TimestepEstimate { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &TimestepEstimate) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+### Functions
+
+#### Function `rayleigh_time`
+
+Rayleigh time `[s]` for a single sphere of radius `r` `[m]` and density `ρ`
+`[kg/m³]` in `material`.
+
+`t_R = π·r·√(ρ/G) / (0.1631·ν + 0.8766)`, with `G = E/(2(1+ν))`.
+
+# Errors
+
+[`DemError::InvalidInput`] if `r` or `density` is not finite and strictly
+positive.
+
+```rust
+pub fn rayleigh_time(radius: f64, density: f64, material: &crate::granular::GranularMaterial) -> Result<f64, crate::DemError> { /* ... */ }
+```
+
+#### Function `hertz_time`
+
+Hertz collision time `[s]` at relative approach speed `v_rel` `[m/s]`.
+
+Upstream's conservative form: `m_eff = (4/3)π r³ ρ`, `r_eff = r/2`,
+`E_eff = Y_eff`, `t_H = 2.87·(m_eff²/(r_eff·E_eff²·v_rel))^{1/5}`.
+
+Returns `f64::INFINITY` for `v_rel == 0` (no collision to resolve), matching
+upstream's guard.
+
+# Errors
+
+[`DemError::InvalidInput`] for a non-positive radius or density, or a
+negative `v_rel`.
+
+```rust
+pub fn hertz_time(radius: f64, density: f64, v_rel: f64, material: &crate::granular::GranularMaterial) -> Result<f64, crate::DemError> { /* ... */ }
+```
+
+#### Function `estimate`
+
+Both criteria for a whole ensemble, as `fix check/timestep/gran` computes
+them.
+
+`density` `[kg/m³]` is the shared material density. `v_rel,max` is taken as
+`2·max_i|v_i|` (upstream's particle–particle branch; a moving mesh would
+raise it).
+
+# Errors
+
+[`DemError::InvalidInput`] if `particles` is empty or `density` is invalid.
+
+```rust
+pub fn estimate(particles: &[crate::particle::Particle], density: f64, material: &crate::granular::GranularMaterial) -> Result<TimestepEstimate, crate::DemError> { /* ... */ }
+```
+
+### Constants and Statics
+
+#### Constant `RAYLEIGH_WARN_FRACTION`
+
+Upstream's recommended maximum fraction of the Rayleigh time `[-]`.
+
+`fix check/timestep/gran` warns when `dt` exceeds this fraction; 20 % is the
+value quoted in the LIGGGHTS documentation for the Rayleigh criterion.
+
+```rust
+pub const RAYLEIGH_WARN_FRACTION: f64 = 0.20;
+```
+
+#### Constant `HERTZ_WARN_FRACTION`
+
+Upstream's recommended maximum fraction of the Hertz collision time `[-]`.
+
+`fix check/timestep/gran` warns when `dt` exceeds this fraction of the
+estimated contact duration.
+
+```rust
+pub const HERTZ_WARN_FRACTION: f64 = 0.10;
+```
+
 ## Types
 
 ### Enum `DemError`
@@ -5546,6 +11495,7 @@ Fields:
     fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
     ```
 
+- **CastableFrom**
 - **Debug**
   - ```rust
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
@@ -5554,6 +11504,11 @@ Fields:
 - **Display**
   - ```rust
     fn fmt(self: &Self, __formatter: &mut ::core::fmt::Formatter<''_>) -> ::core::fmt::Result { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
     ```
 
 - **Error**
@@ -5570,6 +11525,25 @@ Fields:
     ```
     Calls `U::from(self)`.
 
+- **IntoEither**
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
 - **RefUnwindSafe**
 - **Same**
 - **Send**
@@ -5592,3 +11566,11 @@ Fields:
 - **Unpin**
 - **UnsafeUnpin**
 - **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**

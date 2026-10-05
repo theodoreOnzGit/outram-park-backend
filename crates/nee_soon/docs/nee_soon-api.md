@@ -5366,6 +5366,7 @@ ablation; kept only as the record of earlier numbers).
 pub enum PebbleBed {
     Seker(SekerBed),
     TwoBall(TwoBallBed),
+    Explicit(super::explicit_bed::ExplicitBed),
 }
 ```
 
@@ -5391,6 +5392,18 @@ Fields:
 | Index | Type | Documentation |
 |-------|------|---------------|
 | 0 | `TwoBallBed` |  |
+
+###### `Explicit`
+
+An explicit ball list, normally a DEM fill (added 2026-10-05): see
+[`super::explicit_bed`]. Built only by
+[`super::explicit_bed::assemble_explicit_triso_from_centres`].
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `super::explicit_bed::ExplicitBed` |  |
 
 ##### Implementations
 
@@ -5494,7 +5507,7 @@ Fields:
 - ```rust
   pub fn rejected_balls(self: &Self) -> usize { /* ... */ }
   ```
-  Balls removed by a rejection rule.
+  Balls removed by a rejection rule. For an explicit bed: DEM balls
 
 ###### Trait Implementations
 
@@ -5620,6 +5633,7 @@ A ball of a [`PebbleBed`].
 pub enum BedBall {
     Seker(SekerBallId),
     TwoBall(BallId),
+    Explicit(usize),
 }
 ```
 
@@ -5644,6 +5658,17 @@ Fields:
 | Index | Type | Documentation |
 |-------|------|---------------|
 | 0 | `BallId` |  |
+
+###### `Explicit`
+
+Ball `i` of an [`super::explicit_bed::ExplicitBed`] (its index in
+`centres`).
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `usize` |  |
 
 ##### Implementations
 
@@ -7361,7 +7386,7 @@ pub struct AssembledCore {
 | `cavity_top` | `f64` | Top of the empty core cavity \[cm\], i.e. where the axial reflector<br>begins. Equals `bed_half_height` when no reflector is built. |
 | `refl_top` | `f64` | Top of the whole assembled model \[cm\]: cavity top + the 130 cm axial<br>reflector. Equals `bed_half_height` when no reflector is built. |
 | `refl_bottom` | `f64` | Bottom of the whole assembled model \[cm\] (negative): conus floor less<br>the fixed [`HTR10_BOTTOM_REFLECTOR_CM`]. Equals `-bed_half_height` when<br>no reflector is built.<br><br>The model is **not** symmetric about `z = 0` (the bed mid-height): see<br>[`HTR10_BOTTOM_REFLECTOR_CM`] for why the old mirrored bottom was wrong.<br>With a reflector, `refl_top - refl_bottom` is [`HTR10_MODEL_HEIGHT_CM`]<br>at every loading. |
-| `bed` | `Option<super::bed::PebbleBed>` | The ball-level description of the bed (every ball's centre, identity and<br>presence) that [`assemble_explicit_triso`] built its lattice from;<br>`None` for the one-ball [`assemble`]. Added 2026-09-26 so plots can cut<br>through ball centres chosen from the built bed rather than from constants.<br>~~`Option<TwoBallBed>`~~ **CHANGED 2026-10-01 (gh:#472):** a<br>[`PebbleBed`], Şeker's cell by default. |
+| `bed` | `Option<super::bed::PebbleBed>` | The ball-level description of the bed (every ball's centre, identity and<br>presence) that [`assemble_explicit_triso`] built its lattice from;<br>`None` for the one-ball [`assemble`]. Added 2026-09-26 so plots can cut<br>through ball centres chosen from the built bed rather than from constants.<br>~~`Option<TwoBallBed>`~~ **CHANGED 2026-10-01 (gh:#472):** a<br>[`PebbleBed`], Şeker's cell by default; `PebbleBed::Explicit` when<br>built by [`super::explicit_bed::assemble_explicit_triso_from_centres`]<br>(2026-10-05), whose lattice uses Şeker's tile shape purely as a<br>spatial index. |
 
 ##### Implementations
 
@@ -8144,6 +8169,585 @@ Variants the id scheme can hold: `1_000_000 / TILE_SITE_STRIDE`.
 
 ```rust
 pub const TILE_VARIANTS_MAX: usize = 10_000;
+```
+
+## Module `explicit_bed`
+
+# The HTR-10 core built from an explicit list of pebble centres (a DEM fill)
+
+NEW WORK, not a port. Added 2026-10-05 so the HTR-10 Monte Carlo model can
+be built on the bed a DEM pour (`outram-park-fork-liggghts`) actually
+produced, instead of only on Şeker & Çolak (2003)'s ordered lattice
+([`super::bed::SekerBed`]).
+
+[`assemble_explicit_triso_from_centres`] takes pebble centres in the **DEM
+frame** and a fuel/dummy flag per pebble, and returns the same
+[`AssembledCore`] that [`super::core_model::assemble_explicit_triso`]
+returns, with [`PebbleBed::Explicit`] as its bed. Everything around the bed
+(TRISO particle and lattice, bed envelope, conus, discharge tube, cavity,
+TECDOC zone map, borings, withdrawn rods) is the same code,
+[`super::core_shell`], so the two builders cannot drift apart.
+
+# Frame
+
+- **DEM frame** (input): metres, `z = 0` is the bed floor (the top of the
+  conus, where the core cylinder meets the cone), the conus below it to
+  `z = -0.36946 m`, the discharge tube below that. This is the frame of
+  `reference-data/liggghts/in.htr10_conus` and its outputs.
+- **MC frame** (output): cm, the bed floor at `-bed_half_height`.
+
+`bed_half_height` is half the height of the **top of the highest pebble**
+above the floor, so that `z_MC = 100 z_DEM - bed_half_height`. The top of
+the highest ball is Şeker's own definition of the bed top (`SekerBed`), and
+it is the only choice under which the bed envelope's top plane cuts no
+pebble. The cavity above the bed is fixed hardware measured from the floor
+([`super::core_model::cavity_above_bed`]), so the choice moves no material:
+between the highest ball and the cavity top there is helium either way.
+
+A poured surface is rough, so the highest ball is not a robust *loading
+height*. [`ExplicitBed::surface_height`] records the robust one, the 99th
+percentile of the centre heights above the floor plus one radius (the
+measure the liggghts examples use). It is reported, not used to place
+anything. The reference is matched by ball count
+([`PebbleBed::core_balls`], balls centred above the floor), exactly as for
+Şeker's bed.
+
+# Overlap: lens split by the bisector plane (nothing shrunk)
+
+A soft-sphere DEM bed has every contact slightly interpenetrating (at
+`E = 5e8 Pa` up to ~1.7 % of the radius). Two overlapping CSG spheres make
+the lens between them belong to two cells. **No pebble is shrunk or moved.**
+Instead each overlapping pair's lens is split by the plane bisecting the
+centre line (the plane through the midpoint, normal to the centre line):
+each ball's graphite cell is its sphere intersected with the half-space on
+its own side. For two spheres of **equal radius** the bisector is the
+radical plane, and the cap of ball *i* beyond it lies wholly inside ball
+*j*, so the split moves exactly half of each lens to each ball: no carbon or
+fuel is invented or removed beyond the lens itself, whose volume is counted
+once instead of twice. That once-counted lens volume is the only change in
+inventory, reported as [`ExplicitBed::lens_volume_fraction`] (lens volume
+over the summed nominal sphere volume). The 2.5 cm fuel zone is never
+touched as long as the centre distance is at least `2 x 2.5 = 5.0` cm (an
+overlap of 1.0 cm); a bed with a closer pair is refused with a panic rather
+than silently clipped.
+
+Pebbles touching (overlap below [`TOUCH_TOLERANCE_CM`]) get no plane.
+
+**What the DEM wall does.** The DEM walls are soft too, so a ball can sit a
+few hundredths of a millimetre into the side wall or the faceted conus. The
+bed envelope region clips that cap (it is graphite in the reflector's
+place, not inside the bed). It is measured as
+[`ExplicitBed::max_wall_penetration`] and not corrected. A ball whose
+CENTRE is outside the container is a frame error and panics.
+
+# The discharge tube below the DEM column
+
+The DEM tube is short (`in.htr10_conus`: 25 cm, valve at `z = -0.61946 m`);
+the MC tube runs [`HTR10_BOTTOM_REFLECTOR_CM`] = 221.236 cm below the
+conus floor. Below the lowest DEM ball the tube is filled with the **same
+balls the default Şeker model puts there**: the discharge-tube balls of a
+`SekerBed` (all dummy, every ball whole, rejected at the tube wall),
+translated so its conus floor is this bed's, keeping only balls whose top
+is at or below `cut = min(conus floor, bottom of the lowest DEM ball)`. The
+plane `z = cut` therefore separates the two sets and no DEM ball can
+overlap a filler ball. The helium gap between the highest filler ball and
+`cut` is reported as [`ExplicitBed::tube_gap`]. The filler is ordered, not
+poured: it is the default model's treatment, stated, not a DEM result.
+Under the `OUTRAM_HTR10_HOMOG_TUBE` ablation the tube is the old smear,
+no filler is built, and DEM balls centred below the conus floor are dropped
+(counted in [`ExplicitBed::dropped_dem_balls`]); a ball straddling the
+floor is then cut by it, as that ablation already does to Şeker's balls.
+
+# Tiles
+
+The bed lattice is a `HexLattice` of Şeker's tile shape (pitch 16.392 cm,
+height 9.798 cm), used purely as a spatial index. Every ball is placed in
+**every tile it intersects** (exact hexagonal-prism / sphere distance), at
+its tile-local centre, as the same cells as Şeker's: a fuel ball is a
+fuel-zone cell filled with the TRISO lattice translated to the centre plus
+a graphite shell, a dummy ball a graphite sphere, the rest of the tile
+helium. Cell ids follow [`super::core_model::tile_cell_role`]. Unlike
+Şeker's bed, almost every tile is unique, so each non-empty tile is its own
+universe; empty tiles and the lattice `outer` share one all-helium universe.
+
+# Status
+
+AI-drafted, awaiting human review. The geometry is drawn in
+`crates/nee_soon/verification_and_validation/htr10_dem_bed_images/`. No
+k_eff on a DEM bed has been validated; see that folder's README for the
+one smoke run and what it does and does not show.
+
+```rust
+pub mod explicit_bed { /* ... */ }
+```
+
+### Types
+
+#### Enum `ExplicitBallSource`
+
+Where a ball of an [`ExplicitBed`] came from.
+
+```rust
+pub enum ExplicitBallSource {
+    Dem(usize),
+    TubeFiller,
+}
+```
+
+##### Variants
+
+###### `Dem`
+
+The caller's centre list, at this index.
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `usize` |  |
+
+###### `TubeFiller`
+
+A Şeker discharge-tube ball below the DEM column (see the module docs).
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Boilerplate**
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **ByRef**
+  - ```rust
+    fn by_ref(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> ExplicitBallSource { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **DistributionExt**
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Imply**
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &ExplicitBallSource) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Struct `ExplicitBed`
+
+A pebble bed given ball by ball (normally a DEM fill), in the MC frame.
+Built by [`assemble_explicit_triso_from_centres`]; see the module docs for
+the frame, the overlap split and the tube.
+
+```rust
+pub struct ExplicitBed {
+    pub radius: f64,
+    pub centres: Vec<[f64; 3]>,
+    pub fuel: Vec<bool>,
+    pub source: Vec<ExplicitBallSource>,
+    pub overlaps: Vec<(usize, usize)>,
+    pub tile_balls: std::collections::BTreeMap<(i32, i32, i32), Vec<usize>>,
+    pub n_rings: usize,
+    pub n_levels: usize,
+    pub z_bottom: f64,
+    pub tile_pitch: f64,
+    pub tile_height: f64,
+    pub bed_radius: f64,
+    pub bed_bottom: f64,
+    pub bed_top: f64,
+    pub conus_floor: f64,
+    pub tube_radius: f64,
+    pub container_bottom: f64,
+    pub surface_height: f64,
+    pub dem_to_mc_dz: f64,
+    pub tube_cut: Option<f64>,
+    pub tube_gap: f64,
+    pub max_overlap: f64,
+    pub lens_volume_fraction: f64,
+    pub max_wall_penetration: f64,
+    pub dropped_dem_balls: usize,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `radius` | `f64` | Ball radius \[cm\]. |
+| `centres` | `Vec<[f64; 3]>` | Ball centres \[cm\], MC frame. |
+| `fuel` | `Vec<bool>` | Fuel flag per ball. |
+| `source` | `Vec<ExplicitBallSource>` | Origin of each ball. |
+| `overlaps` | `Vec<(usize, usize)>` | Overlapping pairs `(i, j)`, `i < j`, each split by its bisector plane. |
+| `tile_balls` | `std::collections::BTreeMap<(i32, i32, i32), Vec<usize>>` | Balls per non-empty tile, keyed by `(a, b, level)`. |
+| `n_rings` | `usize` | Hex rings of the lattice. |
+| `n_levels` | `usize` | Axial lattice levels. |
+| `z_bottom` | `f64` | z \[cm\] of the bottom face of lattice level 0. |
+| `tile_pitch` | `f64` | Tile pitch (flat to flat) \[cm\]. |
+| `tile_height` | `f64` | Tile height \[cm\]. |
+| `bed_radius` | `f64` | Bed cylinder radius \[cm\]. |
+| `bed_bottom` | `f64` | Bed floor \[cm\] (= top of the conus = DEM `z = 0`). |
+| `bed_top` | `f64` | Bed top \[cm\]: the top of the highest ball. |
+| `conus_floor` | `f64` | Conus floor \[cm\]. |
+| `tube_radius` | `f64` | Discharge-tube radius \[cm\]. |
+| `container_bottom` | `f64` | Bottom of the container \[cm\] (the tube bottom, or the conus floor<br>under the `OUTRAM_HTR10_HOMOG_TUBE` ablation). |
+| `surface_height` | `f64` | Robust loading height \[cm\] above the floor: 99th percentile of the<br>centre heights above the floor, plus one radius. Reported only. |
+| `dem_to_mc_dz` | `f64` | `z_MC - 100 z_DEM` \[cm\]. |
+| `tube_cut` | `Option<f64>` | The plane \[cm\] separating DEM balls (above) from tube filler balls<br>(below); `None` when no filler is built. |
+| `tube_gap` | `f64` | Helium gap \[cm\] between the highest filler ball and `tube_cut`. |
+| `max_overlap` | `f64` | Largest pair overlap `2r - d` \[cm\] (0 if none). |
+| `lens_volume_fraction` | `f64` | Summed lens volume over the summed nominal ball volume \[-\]. |
+| `max_wall_penetration` | `f64` | Largest depth \[cm\] a ball reaches beyond the container wall (clipped<br>by the bed envelope; 0 if none). |
+| `dropped_dem_balls` | `usize` | DEM balls dropped (centre below the conus floor with no explicit tube). |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn lattice_centre_z(self: &Self) -> f64 { /* ... */ }
+  ```
+  z \[cm\] of the lattice centre.
+
+- ```rust
+  pub fn core_balls(self: &Self) -> usize { /* ... */ }
+  ```
+  Balls centred above the bed floor (the count Şeker's Table 3
+
+- ```rust
+  pub fn eligible_and_fuel_balls(self: &Self) -> (usize, usize) { /* ... */ }
+  ```
+  Balls centred above the floor, and of which fuelled.
+
+- ```rust
+  pub fn tile_centre(self: &Self, a: i32, b: i32, level: i32) -> [f64; 3] { /* ... */ }
+  ```
+  Tile-local centre \[cm\] of tile `(a, b, level)`.
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **ByRef**
+  - ```rust
+    fn by_ref(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> ExplicitBed { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **DistributionExt**
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Imply**
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+### Functions
+
+#### Function `lens_volume`
+
+**Attributes:**
+
+- `MustUse { reason: None }`
+
+Volume \[cm^3\] of the lens shared by two spheres of radius `r` whose
+centres are `d` apart (`d < 2r`).
+
+```rust
+pub fn lens_volume(r: f64, d: f64) -> f64 { /* ... */ }
+```
+
+#### Function `paper_fuel_assignment`
+
+**Attributes:**
+
+- `MustUse { reason: None }`
+
+**Fuel/dummy flags by the literature's rule**, for centres in the DEM
+frame (`z = 0` the bed floor): balls centred above the floor take the
+57:43 split ([`super::table1::FUEL_BALL_FRACTION`]) by the same
+low-discrepancy rule `SekerBed` uses, in order of height from the floor up
+(then radius, then angle); balls centred in the conus or the tube are all
+dummy (Terry 2005 sec. 2, TECDOC-1382 p. 235, Şeker & Çolak 2003 p. 267).
+
+```rust
+pub fn paper_fuel_assignment(centres: &[[uom::si::f64::Length; 3]]) -> Vec<bool> { /* ... */ }
+```
+
+#### Function `assemble_explicit_triso_from_centres`
+
+**Attributes:**
+
+- `Other("#[allow(clippy::too_many_lines)]")`
+- `MustUse { reason: None }`
+
+**Assemble the HTR-10 core on an explicit pebble list** (a DEM fill).
+
+# Parameters
+- `centres` — pebble centres in the **DEM frame**: `z = 0` the bed floor
+  (top of the conus), the conus and the discharge tube below it, the core
+  axis at `x = y = 0`. Every pebble is an HTR-10 6 cm ball.
+- `is_fuel` — one flag per centre ([`paper_fuel_assignment`] gives the
+  literature's 57:43 split with an all-dummy conus and tube).
+- `n_rings` — a FLOOR on the bed-lattice ring count, as for
+  [`super::core_model::assemble_explicit_triso`] (the lattice always tiles
+  the 90 cm core).
+- `majorant_index` — the bed's delta-tracking majorant (`usize::MAX`
+  surface-tracks the bed).
+
+Everything outside the bed is [`super::core_shell`], the code
+`assemble_explicit_triso` uses. The ablation knobs that act on the
+envelope (`OUTRAM_HTR10_NOREFL`, `_REFLECTIVE`, `_HOMOG_TUBE`,
+`_NO_ZONE_MAP`, `_NO_WITHDRAWN_RODS`) apply; the fuel-identity knobs
+(`_ALLFUEL`, `_FUEL_CONUS`) do not, because the caller gives the identity.
+
+# Panics
+If the lengths differ, the list is empty, a centre lies outside the
+container, two centres are closer than 5.0 cm (the fuel zone would be
+cut), the bed is taller than the core cavity, or a tile would hold more
+than [`TILE_SITE_STRIDE`] balls.
+
+```rust
+pub fn assemble_explicit_triso_from_centres(centres: &[[uom::si::f64::Length; 3]], is_fuel: &[bool], n_rings: usize, majorant_index: usize) -> super::core_model::AssembledCore { /* ... */ }
+```
+
+### Constants and Statics
+
+#### Constant `PEBBLE_RADIUS_CM`
+
+HTR-10 pebble radius \[cm\] (6 cm balls). Every centre handed to
+[`assemble_explicit_triso_from_centres`] is taken to be a ball of this
+radius.
+
+```rust
+pub const PEBBLE_RADIUS_CM: f64 = 3.0;
+```
+
+#### Constant `FUEL_ZONE_RADIUS_CM`
+
+Fuel-zone radius \[cm\] of a fuel pebble.
+
+```rust
+pub const FUEL_ZONE_RADIUS_CM: f64 = 2.5;
+```
+
+#### Constant `TOUCH_TOLERANCE_CM`
+
+Overlap \[cm\] below which two balls count as touching and get no
+bisector plane.
+
+```rust
+pub const TOUCH_TOLERANCE_CM: f64 = 1.0e-9;
 ```
 
 ## Module `control_rod`

@@ -1708,6 +1708,10 @@ pub enum PebbleBed {
     /// [`TwoBallBed`], ~~an ablation~~ withdrawn 2026-10-01 (it cuts pebbles);
     /// never built by the default path, and its knob panics.
     TwoBall(TwoBallBed),
+    /// An explicit ball list, normally a DEM fill (added 2026-10-05): see
+    /// [`super::explicit_bed`]. Built only by
+    /// [`super::explicit_bed::assemble_explicit_triso_from_centres`].
+    Explicit(super::explicit_bed::ExplicitBed),
 }
 
 /// A ball of a [`PebbleBed`].
@@ -1717,6 +1721,9 @@ pub enum BedBall {
     Seker(SekerBallId),
     /// A ball of a [`TwoBallBed`].
     TwoBall(BallId),
+    /// Ball `i` of an [`super::explicit_bed::ExplicitBed`] (its index in
+    /// `centres`).
+    Explicit(usize),
 }
 
 impl PebbleBed {
@@ -1726,6 +1733,7 @@ impl PebbleBed {
         match self {
             Self::Seker(b) => b.bed_bottom,
             Self::TwoBall(b) => b.bed_bottom,
+            Self::Explicit(b) => b.bed_bottom,
         }
     }
 
@@ -1735,6 +1743,7 @@ impl PebbleBed {
         match self {
             Self::Seker(b) => b.bed_top,
             Self::TwoBall(b) => b.bed_top,
+            Self::Explicit(b) => b.bed_top,
         }
     }
 
@@ -1744,6 +1753,7 @@ impl PebbleBed {
         match self {
             Self::Seker(b) => b.conus_floor,
             Self::TwoBall(b) => b.conus_floor,
+            Self::Explicit(b) => b.conus_floor,
         }
     }
 
@@ -1753,6 +1763,7 @@ impl PebbleBed {
         match self {
             Self::Seker(b) => b.bed_radius,
             Self::TwoBall(b) => b.bed_radius,
+            Self::Explicit(b) => b.bed_radius,
         }
     }
 
@@ -1762,6 +1773,7 @@ impl PebbleBed {
         match self {
             Self::Seker(b) => b.n_rings,
             Self::TwoBall(b) => b.n_rings,
+            Self::Explicit(b) => b.n_rings,
         }
     }
 
@@ -1771,6 +1783,7 @@ impl PebbleBed {
         match self {
             Self::Seker(b) => b.n_levels,
             Self::TwoBall(b) => b.n_levels,
+            Self::Explicit(b) => b.n_levels,
         }
     }
 
@@ -1780,6 +1793,7 @@ impl PebbleBed {
         match self {
             Self::Seker(b) => b.z_bottom,
             Self::TwoBall(b) => b.z_bottom,
+            Self::Explicit(b) => b.z_bottom,
         }
     }
 
@@ -1789,6 +1803,7 @@ impl PebbleBed {
         match self {
             Self::Seker(b) => b.lattice_centre_z(),
             Self::TwoBall(b) => b.lattice_centre_z(),
+            Self::Explicit(b) => b.lattice_centre_z(),
         }
     }
 
@@ -1798,6 +1813,7 @@ impl PebbleBed {
         match self {
             Self::Seker(b) => (b.cell.pitch(), b.cell.height),
             Self::TwoBall(b) => (b.cell.pitch, b.cell.height),
+            Self::Explicit(b) => (b.tile_pitch, b.tile_height),
         }
     }
 
@@ -1807,20 +1823,25 @@ impl PebbleBed {
         match self {
             Self::Seker(b) => b.cell.ball_diameter,
             Self::TwoBall(b) => b.cell.ball_diameter,
+            Self::Explicit(b) => 2.0 * b.radius,
         }
     }
 
     /// Tile-local centres \[cm\] of the ball sites, in tile-mask bit order.
+    /// Empty for an explicit bed, which has no fixed sites (each of its tiles
+    /// is its own universe; see [`super::explicit_bed`]).
     #[must_use]
     pub fn site_centres(&self) -> Vec<[f64; 3]> {
         match self {
             Self::Seker(b) => SekerSite::ALL.iter().map(|&s| b.cell.site_centre(s)).collect(),
             Self::TwoBall(b) => BallSite::ALL.iter().map(|&s| b.cell.site_centre(s)).collect(),
+            Self::Explicit(_) => Vec::new(),
         }
     }
 
     /// `(fuel, present)` masks of tile `(a, b, level)`, bit `i` for site `i` of
-    /// [`Self::site_centres`].
+    /// [`Self::site_centres`]. `(0, 0)` for an explicit bed, which has no
+    /// sites (read its `tile_balls` instead).
     #[must_use]
     pub fn tile_masks(&self, a: i32, b: i32, level: i32) -> (u32, u32) {
         match self {
@@ -1829,6 +1850,7 @@ impl PebbleBed {
                 u32::from(t.tile_mask(a, b, level)),
                 u32::from(t.tile_present_mask(a, b, level)),
             ),
+            Self::Explicit(_) => (0, 0),
         }
     }
 
@@ -1838,6 +1860,7 @@ impl PebbleBed {
         match self {
             Self::Seker(b) => b.all_balls().into_iter().map(BedBall::Seker).collect(),
             Self::TwoBall(b) => b.all_balls().into_iter().map(BedBall::TwoBall).collect(),
+            Self::Explicit(b) => (0..b.centres.len()).map(BedBall::Explicit).collect(),
         }
     }
 
@@ -1850,6 +1873,7 @@ impl PebbleBed {
         match (self, ball) {
             (Self::Seker(b), BedBall::Seker(id)) => b.centre(id),
             (Self::TwoBall(b), BedBall::TwoBall(id)) => b.centre(id),
+            (Self::Explicit(b), BedBall::Explicit(i)) => b.centres[i],
             _ => panic!("a {ball:?} is not a ball of this bed"),
         }
     }
@@ -1860,6 +1884,7 @@ impl PebbleBed {
         match (self, ball) {
             (Self::Seker(b), BedBall::Seker(id)) => b.is_fuel(id),
             (Self::TwoBall(b), BedBall::TwoBall(id)) => b.is_fuel(id),
+            (Self::Explicit(b), BedBall::Explicit(i)) => b.fuel[i],
             _ => panic!("a {ball:?} is not a ball of this bed"),
         }
     }
@@ -1870,6 +1895,7 @@ impl PebbleBed {
         match (self, ball) {
             (Self::Seker(b), BedBall::Seker(id)) => b.is_present(id),
             (Self::TwoBall(b), BedBall::TwoBall(id)) => b.is_present(id),
+            (Self::Explicit(b), BedBall::Explicit(i)) => i < b.centres.len(),
             _ => panic!("a {ball:?} is not a ball of this bed"),
         }
     }
@@ -1880,6 +1906,7 @@ impl PebbleBed {
         match self {
             Self::Seker(b) => (b.eligible_balls, b.fuel_balls),
             Self::TwoBall(b) => (b.eligible_balls, b.fuel_balls),
+            Self::Explicit(b) => b.eligible_and_fuel_balls(),
         }
     }
 
@@ -1892,13 +1919,16 @@ impl PebbleBed {
             Self::Seker(b) => (b.container_bottom < b.conus_floor)
                 .then_some((b.tube_radius, b.container_bottom)),
             Self::TwoBall(b) => b.tube.map(|t| (t.radius, b.conus_floor - t.depth)),
+            Self::Explicit(b) => (b.container_bottom < b.conus_floor)
+                .then_some((b.tube_radius, b.container_bottom)),
         }
     }
 
     /// The bed's ball inventory: kept balls centred above the bed floor (the
     /// count Şeker's Table 3 tabulates). The reference is matched to a model
     /// by this, through [`super::rmc_keff_at_ball_count`]. `None` for the
-    /// withdrawn two-ball bed.
+    /// withdrawn two-ball bed. For an explicit bed: every ball centred above
+    /// the floor, DEM or not.
     #[must_use]
     pub fn core_balls(&self) -> Option<usize> {
         match self {
@@ -1907,15 +1937,19 @@ impl PebbleBed {
                 Some(basal.iter().sum::<usize>() + central.iter().sum::<usize>())
             }
             Self::TwoBall(_) => None,
+            Self::Explicit(b) => Some(b.core_balls()),
         }
     }
 
-    /// Balls removed by a rejection rule.
+    /// Balls removed by a rejection rule. For an explicit bed: DEM balls
+    /// dropped below the conus floor under the `OUTRAM_HTR10_HOMOG_TUBE`
+    /// ablation (no rejection is applied to a DEM bed).
     #[must_use]
     pub fn rejected_balls(&self) -> usize {
         match self {
             Self::Seker(b) => b.boundary_rejected,
             Self::TwoBall(b) => b.rejected_balls,
+            Self::Explicit(b) => b.dropped_dem_balls,
         }
     }
 }

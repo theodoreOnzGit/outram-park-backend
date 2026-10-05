@@ -96,6 +96,20 @@ mdBook pages are responsive already. Keep them that way:
   (wide tables scroll inside their own box);
 - embedded demos follow the layout above.
 
+## Demo links open in a new tab
+
+**Maintainer direction, 2026-10-05.** A link from any page into a demo opens
+in a new tab, so the reader keeps the lesson or menu they came from. Links
+inside one demo (its geometry page, its "Up" link) stay in the same tab.
+
+Nothing per page is needed. `docs/site/site-nav.js` marks every link that
+resolves into `demos/<demo>/` with `target="_blank" rel="noopener"`, and it
+also catches links a page adds after loading. `scripts/build-pages.sh` adds
+that script to every built page, and the main menu loads it itself. Write
+demo links as ordinary links. Do not remove the script from a page, and do
+not add a `target` of your own, because the script leaves a link that
+already has one unchanged.
+
 ## How to check
 
 Before calling a demo or tutorial done, check it at phone width (about
