@@ -220,22 +220,50 @@ pub trait DeltaRegion {
     fn content(&self, r: Position) -> SiteContent;
 }
 
+/// What a point lookup returns, read as a [`SiteContent`].
+///
+/// `Option<usize>` is the contract of the public [`bounded_delta_flight`]
+/// family: `None` is a point that cannot be placed ([`SiteContent::Lost`]),
+/// and there is no way to say "void". A lookup that can see a void returns
+/// [`SiteContent`] itself (the hybrid driver does, gh:#719).
+pub trait IntoSiteContent {
+    /// The content this lookup result describes.
+    fn into_site_content(self) -> SiteContent;
+}
+
+impl IntoSiteContent for Option<usize> {
+    #[inline]
+    fn into_site_content(self) -> SiteContent {
+        match self {
+            Some(m) => SiteContent::Material(m),
+            None => SiteContent::Lost,
+        }
+    }
+}
+
+impl IntoSiteContent for SiteContent {
+    #[inline]
+    fn into_site_content(self) -> SiteContent {
+        self
+    }
+}
+
 /// A straight ray through a region bounded by `distance_to_exit`, with
-/// `material_at` naming what is at a point. `material_at` returning `None`
-/// reports the point as lost: this is the contract of the public
-/// [`bounded_delta_flight`] family, which has no way to express a void.
+/// `material_at` naming what is at a point (an `Option<usize>` or a
+/// [`SiteContent`], see [`IntoSiteContent`]).
 pub struct BoundedRay<D, M> {
     /// Distance along the direction from a point to where the region ends;
     /// `f64::INFINITY` if it does not end.
     pub distance_to_exit: D,
-    /// Material index at a point; `None` if the point cannot be placed.
+    /// What is at a point.
     pub material_at: M,
 }
 
-impl<D, M> DeltaRegion for BoundedRay<D, M>
+impl<D, M, C> DeltaRegion for BoundedRay<D, M>
 where
     D: Fn(Position, Direction) -> f64,
-    M: Fn(Position) -> Option<usize>,
+    M: Fn(Position) -> C,
+    C: IntoSiteContent,
 {
     #[inline]
     fn advance(&self, r: Position, u: Direction, s: f64) -> Advance {
@@ -256,10 +284,7 @@ where
 
     #[inline]
     fn content(&self, r: Position) -> SiteContent {
-        match (self.material_at)(r) {
-            Some(m) => SiteContent::Material(m),
-            None => SiteContent::Lost,
-        }
+        (self.material_at)(r).into_site_content()
     }
 }
 

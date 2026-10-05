@@ -72,8 +72,8 @@ pub mod majorant;
 pub use flight::{
     bounded_delta_flight, bounded_delta_flight_urr, bounded_delta_flight_visiting,
     classify_collision, fly, sample_delta_distance, track_to_collision, Advance, BoundedRay,
-    DeltaEvent, DeltaFlight, DeltaRegion, DeltaStep, FlightEnd, SiteContent, SiteTotal,
-    TentativeSite,
+    DeltaEvent, DeltaFlight, DeltaRegion, DeltaStep, FlightEnd, IntoSiteContent, SiteContent,
+    SiteTotal, TentativeSite,
 };
 pub use handoff::DeltaTallyEstimator;
 pub use majorant::{bounding_audit_line, Majorant, MajorantAudit};

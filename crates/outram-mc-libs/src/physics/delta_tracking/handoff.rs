@@ -84,7 +84,7 @@ use crate::material::nuclide::Nuclide;
 use crate::tally::scoring::score_collision_point;
 use crate::tally::tally::Tally;
 
-use super::flight::{bounded_delta_flight_visiting, DeltaStep};
+use super::flight::{fly, BoundedRay, DeltaStep, SiteContent, SiteTotal, TentativeSite};
 use super::majorant::Majorant;
 
 /// **Which collision estimator a tally uses inside a delta-tracked region**
@@ -213,53 +213,74 @@ pub(crate) fn fly_delta_region(
         Some((t, b)) => (Some(t), b),
         None => (None, &mut [][..]),
     };
+    // A non-positive majorant: nothing in the region can interact at this
+    // energy, so the particle streams to the nearest surface (gh:#722 note:
+    // no tentative site exists, so the tentative estimator scores nothing).
+    let maj = majorant.at(e);
+    if !(maj > 0.0) {
+        return RegionFlight {
+            end: RegionFlightEnd::StreamToSurface,
+            virtual_collisions: 0,
+        };
+    }
     // The tentative-collision scoring hook. ONLY sites before `d_surface` are
-    // scored (module docs); it draws no random number.
-    let visit = |site_p: Position, m: usize, maj_e: f64| {
+    // scored (module docs); it draws no random number. A void site scores its
+    // flux `w/Σ_maj` with no material, as surface tracking's track length
+    // scores a void cell.
+    let visit = |site: TentativeSite| {
         let Some(t) = tally else { return };
-        if !(maj_e > 0.0) {
+        if !(site.majorant > 0.0) {
             return;
         }
-        let d = travelled(r, u, site_p);
+        let d = travelled(r, u, site.position);
         if !(d < d_surface) {
             return;
         }
-        let mxs = materials[m].macro_xs(e, nuclides);
+        let mxs = site.material.map(|m| materials[m].macro_xs(e, nuclides));
         score_collision_point(
             batch,
             t,
             bins.cell,
-            m,
+            site.material.unwrap_or(usize::MAX),
             bins.universe,
             e,
-            1.0 / maj_e,
-            site_p,
-            Some(&mxs),
+            1.0 / site.majorant,
+            site.position,
+            mxs.as_ref(),
             w,
             bins.instance,
             time_s + crate::physics::transport_csg::flight_time(d, e),
             u,
         );
     };
-    let step = bounded_delta_flight_visiting(
+    let region = BoundedRay {
+        // `exit_at` is measured from `r`; convert a probe point back to the
+        // remaining distance along the ray.
+        distance_to_exit: |q: Position, _d: Direction| exit_at - travelled(r, u, q),
+        // A void cell is a site with `Σ_t = 0`, always virtual. ~~`None`, i.e.
+        // a lost history~~ until gh:#719 (2026-10-06): every neutron that
+        // sampled a site in a void cell was scored as a leak.
+        material_at: |q: Position| match geom.locate(q, u, SurfaceToken::NONE) {
+            None => SiteContent::Lost,
+            Some(located) => located
+                .material
+                .map_or(SiteContent::Void, SiteContent::Material),
+        },
+    };
+    let end = fly(
         r,
         u,
         e,
-        majorant,
+        maj,
+        &region,
         materials,
         nuclides,
+        SiteTotal::UrrBand(urr_seed),
         MAX_VIRTUAL_COLLISIONS,
-        // `exit_at` is measured from `r`; convert a probe point back to the
-        // remaining distance along the ray.
-        |q: Position, _d: Direction| exit_at - travelled(r, u, q),
-        |q: Position| {
-            geom.locate(q, u, SurfaceToken::NONE)
-                .and_then(|located| located.material)
-        },
         seed,
-        Some(urr_seed),
         visit,
     );
+    let step = DeltaStep::from(end);
     match step {
         DeltaStep::Collision {
             position,
