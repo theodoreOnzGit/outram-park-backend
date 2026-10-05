@@ -345,13 +345,22 @@ fill the sphere and the entropy curve climbs and levels off.*
 
 **A guess that is worse than it looks.** The ordinary start
 ([`PowerIteration::new`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/physics/keff.rs#@@L:crates/outram-mc-libs/src/physics/keff.rs:anchor=initial_source@@))
-places the neutrons uniformly in the sphere, but it aims every one of them
-straight **outward**, because the same random direction is used for both. So
-generation 1 leaks far too much: in the run recorded below its $k$ is
-**0.468**, and from generation 2 on it is near 1. That is a defect in the
-starting guess (filed as
-[#527](https://github.com/theodoreOnzGit/outram-park-backend/issues/527)),
-and it is exactly what inactive generations are for: they forget it.
+places the neutrons uniformly in the sphere and aims each one in its own
+random direction. In the run recorded below, generation 1 has $k$ =
+**0.897** and the later generations scatter around 1. Generation 1 is still
+low, most likely because a uniform source puts more neutrons near the surface
+than the settled source does (that one is peaked towards the centre), so more
+of them leak; that explanation is ours and has not been measured.
+Forgetting the starting guess is exactly what inactive generations are for.
+
+~~It aims every one of them straight **outward**, because the same random
+direction is used for both; generation 1's $k$ is **0.468**~~ **CORRECTED
+2026-10-05**: that was the start until
+[#527](https://github.com/theodoreOnzGit/outram-park-backend/issues/527) was
+fixed, when one random direction both placed and aimed each neutron. The
+fix draws a second, independent direction. Generation 1 went from 0.468 to
+0.897 (seed 1). The answer did not move: 512 seeds after the fix give
+−7 ± 8 pcm, against −6 ± 5 pcm before.
 
 <div class="predict">
 
@@ -378,22 +387,25 @@ The counts are tallied by the transport itself, one increment where each
 neutron ends
 ([`HistoryCounts`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/physics/keff.rs#@@L:crates/outram-mc-libs/src/physics/keff.rs:struct=HistoryCounts@@);
 the `counts.` lines in the code above). **Recorded run** for this page,
-2026-10-04, natively, the record's settings and seed 1:
+2026-10-05 (re-run after #527 changed the initial source), natively, the
+record's settings and seed 1:
 `cargo run --release -p dhoby-ghaut --example monte_carlo_web -- --headless-keff 5000 40 120 1`
 (the same output the demo's Run k_eff mode prints), over the 120 active
 generations:
 
 | | count | share |
 |---|---|---|
-| neutrons followed | 601 638 | 600 000 source + 1 638 from (n,2n)-type reactions |
-| leaked | 343 884 | 57.2 % |
-| captured | 26 806 | 4.5 % |
-| fissioned | 230 948 | 38.4 % |
+| neutrons followed | 601 643 | 600 000 source + 1 643 from (n,2n)-type reactions |
+| leaked | 344 386 | 57.2 % |
+| captured | 26 865 | 4.5 % |
+| fissioned | 230 392 | 38.3 % |
 
-$\bar\nu = 2.5965$, $k_\infty = 2.32645$, $P_{NL} = 0.42842$, so
-$k_\infty P_{NL} = 0.99670$, against $k = \bar\nu F / N_\text{source} = 0.99942$.
+$\bar\nu = 2.5962$, $k_\infty = 2.32505$, $P_{NL} = 0.42759$, so
+$k_\infty P_{NL} = 0.99417$, against $k = \bar\nu F / N_\text{source} = 0.99689$.
+*(The 2026-10-04 run, on the old source, gave 601 638 / 343 884 / 26 806 /
+230 948 and $k$ = 0.99942: the same shares, a different draw.)*
 **The two differ by 0.27 %, and that is not a mistake:** $(n,2n)$ and similar
-reactions add 1 638 neutrons (0.27 %) that were never source neutrons, so
+reactions add 1 643 neutrons (0.27 %) that were never source neutrons, so
 dividing by the neutrons *followed* rather than the neutrons *started* drops
 exactly them. **More than half of all neutrons leak.** A bigger sphere
 leaks less, which is why there is a critical size; that is the exercise at the
@@ -464,11 +476,13 @@ had simply come out low (see "Later measurements" in
 - **Your run.** One run at the default settings is one seed of the 1024, so
   expect it to land within about ±165 pcm of the record, and its own ± (the
   spread of its 120 generations) to be of that size too. A run done natively
-  for this page (seed 1, 2026-10-04, i9-13900K, one thread) gave
-  **0.99942 ± 0.00183** (−58 ± 183 pcm); its transport took 2.9 s and the
-  data processing 62 s. The demo, at its defaults in headless Chromium at
-  phone width, printed **the same k and the same counts**, digit for digit:
-  seed 1 is seed 1, in a browser or not.
+  for this page (seed 1, 2026-10-05, after #527; Intel Xeon @ 2.10 GHz, one
+  thread of a shared 4-core machine) gave **0.99689 ± 0.00178**
+  (−311 ± 178 pcm), 1.7 of its own σ from the record; its transport took
+  5.6 s and the data processing 99 s. The demo, at its defaults in headless
+  Chromium, printed **the same k and the same counts**, digit for digit:
+  seed 1 is seed 1, in a browser or not. (~~0.99942 ± 0.00183, −58 ± 183 pcm,
+  2026-10-04, i9-13900K~~: the same seed on the old initial source.)
 
 <div class="history">
 
