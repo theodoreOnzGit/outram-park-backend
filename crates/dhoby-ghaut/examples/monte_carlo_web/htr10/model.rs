@@ -15,8 +15,14 @@
 //!   4-38 densities) against the same atoms homogenised, the case
 //!   `htr10_fuel_zone_kinf.rs` records. ENDF/B-VIII.0 at NJOY's tolerance
 //!   0.001 (the record's), 293.15 K, URR and DBRC on by default, graphite
-//!   `tsl-reactor-graphite-30P` on both carbons; the union-grid majorant of
-//!   the record (not `Majorant::bounding`, which under-bounds here, #528).
+//!   `tsl-reactor-graphite-30P` on both carbons. The majorant is
+//!   `Majorant::bounding` through the shared file: since #585 (282d22d35) the
+//!   library tabulates it on every nuclide breakpoint, a bound by
+//!   construction. (~~the union-grid majorant of the record, not
+//!   `Majorant::bounding`, which under-bounds here~~: corrected 2026-10-05
+//!   when #585 landed; the record used the example's local union-grid
+//!   construction, both are bounds. The audit of both arms on this rung's
+//!   data is in `the_fuel_zone_case_runs_both_arms`.)
 
 use crate::engine::Tier;
 use crate::tapes::read_tape;

@@ -196,7 +196,11 @@ impl McRung for Htr10 {
         })
     }
     /// The fuel-zone cube: kernels homogenised (0) or resolved (1).
-    /// Defaults 1000 × [20 + 60]: measured in the browser on #528.
+    /// Defaults 1000 × [20 + 60]. Measured 2026-10-05 in headless Chromium
+    /// (2 shared cores, 2.1 GHz Xeon, software rendering): data 283 s, then
+    /// 97–124 s per case (43–50 s majorant and source, 54–75 s transport);
+    /// resolved 1.5696 ± 0.0050, homogenised 1.4430 ± 0.0049, worth
+    /// −12 653 ± 706 pcm (record −12 452 ± 126). Natively the same digits.
     fn kinf_case() -> Option<KinfCase> {
         Some(KinfCase {
             title: "fuel-zone k∞: kernels resolved or smeared",
@@ -213,7 +217,7 @@ impl McRung for Htr10 {
             }],
             notes: vec![
                 "The record's fuel zone (htr10_fuel_zone_kinf.rs): a 2 cm reflective cube of HTR-10 fuel-zone material, 1018 RSA-packed UO₂ kernels (r = 0.025 cm, IAEA-TECDOC-1382 Table 4-38 densities) in graphite matrix, against the SAME atoms smeared uniformly. Coatings are not resolved (smeared into the matrix), as in the record.",
-                "Delta (Woodcock) tracking with the record's union-grid majorant, ENDF/B-VIII.0 processed in this tab at NJOY's tolerance 0.001, graphite S(α,β) (30 % porosity law), 293.15 K. A real power iteration, one generation per worker message.",
+                "Delta (Woodcock) tracking with the library's Majorant::bounding (a bound by construction since #585), ENDF/B-VIII.0 processed in this tab at NJOY's tolerance 0.001, graphite S(α,β) (30 % porosity law), 293.15 K. A real power iteration, one generation per worker message.",
                 "Recorded: resolved 1.57136 ± 0.00088, homogenised 1.44684 ± 0.00090, so smearing the kernels costs −12 452 ± 126 pcm (2026-10-05, c5a6ca4ae). That is the double-heterogeneity worth: lumps (the kernels) shield themselves, as rung 3's lumps did.",
                 "Your ± is the spread of one run's active generations, which understates the true σ. This is k∞ of a fuel-zone cube, not the reactor.",
             ],
@@ -367,13 +371,23 @@ mod tests {
             let t = std::time::Instant::now();
             l.kinf_start(arm, cfg).expect("start");
             let t_start = t.elapsed().as_secs_f64();
+            // The majorant must bound Sigma_t on this rung's data (#585):
+            // Majorant::audit over 2 M log energies plus every breakpoint.
+            {
+                let fuel = l.fuel.as_mut().unwrap();
+                let (mats, maj, nucs, _) = fuel.arm(arm > 0.5);
+                let a = maj.audit(mats, nucs, 1.0e-5, 2.0e7, 2_000_000);
+                eprintln!("  arm {arm}: majorant audit worst Sigma_t/Sigma_maj = {:.4} at {:.4e} eV (material {}, {} energies)", a.worst_ratio, a.energy_ev, a.material, a.energies_checked);
+                assert!(a.worst_ratio <= 1.0, "under-bound majorant: {}", a.worst_ratio);
+            }
+            let t = std::time::Instant::now();
             let mut last = None;
             while let Some(g) = l.kinf_step() {
                 last = Some(g);
             }
             let g = last.unwrap();
             eprintln!(
-                "  arm {arm}: majorant + source {t_start:.1} s, total {:.1} s, {} x [{} + {}]: k_inf = {:.5} +/- {:.5} (record {:.5} +/- {:.5})",
+                "  arm {arm}: majorant + source {t_start:.1} s, transport {:.1} s, {} x [{} + {}]: k_inf = {:.5} +/- {:.5} (record {:.5} +/- {:.5})",
                 t.elapsed().as_secs_f64(), cfg.n_particles, cfg.n_inactive, cfg.n_active, g.mean, g.sem, rec.0, rec.1
             );
             assert!((g.mean - rec.0).abs() < 5.0 * g.sem, "arm {arm}");
