@@ -82,7 +82,15 @@ pub fn env_or<T: std::str::FromStr>(k: &str, d: T) -> T {
 /// U-234, U-235, U-238, C-12, C-13 from ENDF/B-VIII.0 at [`TEMP_K`] (RECONR +
 /// BROADR, tolerance 0.001; URR and DBRC by the constructor's defaults), with
 /// crystalline-graphite S(alpha,beta) (MAT 30, 296 K) on both carbons.
+///
+/// **Ablation (explicit, off by default):** `GRAPHITE_SAB=0` leaves the
+/// carbons as free gas (the transport's free-gas kernel below 400 kT), to
+/// measure what the bound-atom law is worth (lesson step 4). Printed when on.
 pub fn load_nuclides() -> Vec<Nuclide> {
+    let sab_on = std::env::var("GRAPHITE_SAB").as_deref() != Ok("0");
+    if !sab_on {
+        println!("ABLATION: GRAPHITE_SAB=0, carbon is free gas (no crystalline-graphite S(a,b))");
+    }
     use njoy_outram_park_fork::reference_data::reference_endf;
     let load = |name: &str, file: &str| {
         let p = reference_endf(file).unwrap_or_else(|| panic!("reference tape {file} not found"));
@@ -99,7 +107,7 @@ pub fn load_nuclides() -> Vec<Nuclide> {
         .iter()
         .map(|&(name, file)| {
             let n = load(name, file);
-            if name.starts_with('C') {
+            if name.starts_with('C') && sab_on {
                 n.with_thermal_scattering(sab.clone())
             } else {
                 n

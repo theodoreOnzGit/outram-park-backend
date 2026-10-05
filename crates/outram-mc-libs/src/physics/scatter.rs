@@ -123,6 +123,7 @@ pub fn rotate_direction(u: Direction, mu: f64, seed: &mut u64) -> Direction {
 /// excluded. Exposing it lets
 /// `outram-mc-libs`'s `tests/cm_to_lab_vs_kinematics.rs` check it against
 /// first-principles velocity addition rather than only through a sampler.
+// ANCHOR: cm_to_lab (mdBook include, Monte Carlo tutorial rung 2, gh:#524)
 pub fn cm_to_lab(e: f64, e_cm_out: f64, mu_cm: f64, awr: f64) -> (f64, f64) {
     let ap1 = awr + 1.0;
     let e_trans = e / (ap1 * ap1); // unit-mass energy at the CM velocity
@@ -135,6 +136,7 @@ pub fn cm_to_lab(e: f64, e_cm_out: f64, mu_cm: f64, awr: f64) -> (f64, f64) {
     };
     (e_out, mu_lab)
 }
+// ANCHOR_END: cm_to_lab
 
 /// Two-body scatter a neutron of energy `e` \[eV\] and direction `u` off a target
 /// of atomic weight ratio `awr` with reaction Q-value `q` \[eV\], isotropic in the
@@ -214,11 +216,14 @@ pub const FREE_GAS_THRESHOLD: f64 = 400.0;
 /// far above the thermal range and **wrong inside it**, where it removes the
 /// up-scatter that gives a neutron population its fixed point. Without up-scatter
 /// there is no Maxwellian equilibrium at all: a neutron random-walking in such a
-/// medium cools without bound (measured: `⟨E⟩ → 1e-27 eV` and below in FLiBe,
-/// graphite kernel carbon, O-16 and SiC after 400 collisions at 600 K, against
+/// medium cools without bound (measured: ~~`⟨E⟩ → 1e-27 eV` and below in FLiBe,
+/// graphite kernel carbon, O-16 and SiC~~ after 400 collisions at 600 K, against
 /// the correct `1.5·kT = 0.0776 eV` — `examples/epithermal_slowing_down.rs`,
-/// bead `op-50vu`). Only a nuclide carrying an S(α,β) table escaped, because that
-/// law does model lattice recoil.
+/// bead `op-50vu`). **CORRECTED 2026-10-05** (re-measured with that example's
+/// `TARGET_AT_REST=1` ablation, GitHub #524): free-gas C-12 `1.5e-27 eV`, Be-9
+/// `2e-35`, Li-7 `1e-43`, but F-19 `3e-18`, O-16 `3e-21` and Si-28 `8e-13 eV`:
+/// all tens of decades below `kT`, not all below `1e-27`. Only a nuclide carrying
+/// an S(α,β) table escaped, because that law does model lattice recoil.
 ///
 /// This is a port of OpenMC `elastic_scatter` + `sample_target_velocity`
 /// (`src/physics.cpp`) in the **constant cross-section (CXS)** approximation:
