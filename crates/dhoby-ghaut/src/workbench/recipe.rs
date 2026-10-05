@@ -44,7 +44,8 @@
 //! ```
 //! ````
 //!
-//! Section ids are fixed (`recipe`, `step-0` … `step-5`, `review`), so a
+//! Section ids are fixed (`recipe`, `step-0` … `step-5`, `review`, and the
+//! optional `step-6`, added 2026-10-05 for gh:#571), so a
 //! reworded heading does not break a recipe (kovan §40: the id, not the
 //! heading, is the identity).
 //!
@@ -66,6 +67,7 @@ use uom::si::f64::ThermodynamicTemperature;
 use uom::si::thermodynamic_temperature::kelvin;
 
 use super::catalogue::{Mode, ReactorType};
+use super::reactivity_map::MapSettings;
 
 /// The `format` string every recipe header carries.
 pub const FORMAT: &str = "dhoby-ghaut-recipe";
@@ -413,6 +415,47 @@ pub struct MonteCarloStep {
     pub cites: Vec<Citation>,
 }
 
+/// Step 6's choice of branch.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum Branch {
+    /// (B) Monte Carlo → MGXS → coupled multiphysics (Steps 7–10). The default.
+    #[default]
+    Multiphysics,
+    /// (A) A reactivity map: a low-fidelity, neutronics-only surrogate
+    /// exported as plain TOML ([`super::reactivity_map`]).
+    ReactivityMap,
+}
+
+/// Step 6: the branch, and the reactivity map's settings (gh:#571).
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct BranchStep {
+    /// Which branch.
+    #[serde(default)]
+    pub branch: Branch,
+    /// The fit, chosen before it is made.
+    #[serde(default)]
+    pub map: MapSettings,
+    /// The state-point planner's temperature range \[K\] and node count.
+    pub plan_lo_k: f64,
+    /// Upper end of the planned range \[K\].
+    pub plan_hi_k: f64,
+    /// Temperatures to plan (Chebyshev–Lobatto nodes).
+    pub plan_points: usize,
+}
+
+impl Default for BranchStep {
+    fn default() -> Self {
+        Self {
+            branch: Branch::Multiphysics,
+            map: MapSettings::default(),
+            plan_lo_k: 300.0,
+            plan_hi_k: 1200.0,
+            plan_points: 5,
+        }
+    }
+}
+
 /// A whole recipe: header, Steps 0–5 and the review gate.
 #[derive(Debug, Clone, PartialEq)]
 pub struct Recipe {
@@ -432,6 +475,9 @@ pub struct Recipe {
     pub review: ReviewGate,
     /// Step 5.
     pub monte_carlo: MonteCarloStep,
+    /// Step 6. Optional in a file (a recipe written before Step 6 existed
+    /// reads as the default, multiphysics).
+    pub branch: BranchStep,
 }
 
 /// Why a recipe could not be read or written.
@@ -528,6 +574,12 @@ const SECTIONS: [(&str, &str, &str); 8] = [
     ),
 ];
 
+/// Step 6's section: optional, so recipes written before it read.
+const STEP6_ID: &str = "step-6";
+const STEP6_HEADING: &str = "Step 6: Parameter extraction: choose a branch";
+const STEP6_PROSE: &str = "The branch (multiphysics, the default, or a reactivity map) and the \
+     reactivity map's fit settings and state-point plan.";
+
 /// The first ` ```toml ` fence in an artifact body: the section's settings.
 fn settings_fence(body: &str) -> Option<String> {
     let mut lines = body.lines();
@@ -595,6 +647,25 @@ impl Recipe {
             out.push_str(&block);
             out.push('\n');
         }
+        let payload = kovan::artifact::ArtifactToml {
+            kovan: kovan::artifact::ArtifactMeta {
+                id: STEP6_ID.to_string(),
+                kind: kovan::artifact::ArtifactKind::Note,
+                created: timestamp.to_string(),
+                modified: timestamp.to_string(),
+                reviewed: None,
+            },
+            source: None,
+            classification: Default::default(),
+            extraction: None,
+            relation: None,
+            connections: Vec::new(),
+        };
+        let body = format!("{STEP6_PROSE}\n\n```toml\n{}```\n", ser(&self.branch)?);
+        let block = kovan::artifact::render_artifact_block(1, STEP6_HEADING, &payload, &body)
+            .map_err(RecipeError::Write)?;
+        out.push_str(&block);
+        out.push('\n');
         Ok(out)
     }
 
@@ -643,6 +714,10 @@ impl Recipe {
             inserts: section(&doc, "step-4")?,
             review: section(&doc, "review")?,
             monte_carlo: section(&doc, "step-5")?,
+            branch: match doc.get(STEP6_ID) {
+                Some(_) => section(&doc, STEP6_ID)?,
+                None => BranchStep::default(),
+            },
         })
     }
 
@@ -699,10 +774,11 @@ pub fn rfc3339_from_unix(secs: u64) -> String {
 }
 
 #[cfg(test)]
-mod tests {
+pub(crate) mod tests {
     use super::*;
 
-    fn sample() -> Recipe {
+    /// A full recipe for tests (also used by `exports`' tests).
+    pub(crate) fn sample() -> Recipe {
         let cite = |field: &str| Citation {
             field: field.into(),
             citekey: "example2014".into(),
@@ -818,6 +894,10 @@ mod tests {
                 }],
                 cites: vec![],
             },
+            branch: BranchStep {
+                branch: Branch::ReactivityMap,
+                ..BranchStep::default()
+            },
         }
     }
 
@@ -838,7 +918,8 @@ mod tests {
         let doc = kovan::artifact::parse_document(&md);
         assert!(doc.problems.is_empty(), "{:?}", doc.problems);
         let ids: Vec<&str> = doc.artifacts.iter().map(|a| a.id()).collect();
-        let want: Vec<&str> = SECTIONS.iter().map(|s| s.0).collect();
+        let mut want: Vec<&str> = SECTIONS.iter().map(|s| s.0).collect();
+        want.push(STEP6_ID);
         assert_eq!(ids, want);
         assert!(doc
             .artifacts
@@ -883,5 +964,17 @@ mod tests {
         assert_ne!(old, md, "the test must actually remove the line");
         let back = Recipe::from_markdown(&old).expect("read");
         assert_eq!(back.pebble_bed.source, BedSource::Lattice);
+    }
+
+    /// A recipe written before Step 6 existed has no `step-6` section; it
+    /// reads with the default branch (multiphysics).
+    #[test]
+    fn a_recipe_without_step_6_reads_as_multiphysics() {
+        let r = sample();
+        let md = r.to_markdown("2026-10-05T00:00:00Z").expect("write");
+        let cut = md.find("# Step 6").expect("step 6 is written");
+        let back = Recipe::from_markdown(&md[..cut]).expect("read");
+        assert_eq!(back.branch, BranchStep::default());
+        assert_eq!(back.branch.branch, Branch::Multiphysics);
     }
 }

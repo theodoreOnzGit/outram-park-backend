@@ -119,17 +119,18 @@ impl WizardStep {
     /// Whether this build implements the step.
     #[must_use]
     pub fn implemented(self) -> bool {
-        self <= Self::MonteCarlo
+        // Step 6 (branch + reactivity map, gh:#571) and Step 11 (exports,
+        // gh:#574) were built 2026-10-05.
+        self <= Self::MonteCarlo || matches!(self, Self::Branch | Self::PostProcessing)
     }
 
     /// The GitHub issue that builds a step this build does not.
     #[must_use]
     pub fn issue(self) -> Option<u32> {
         match self {
-            Self::Branch => Some(571),
             Self::Meshing => Some(572),
             Self::Mgxs => Some(573),
-            Self::Setup | Self::Run | Self::PostProcessing => Some(574),
+            Self::Setup | Self::Run => Some(574),
             _ => None,
         }
     }
@@ -188,7 +189,8 @@ impl WizardStep {
             }
             Self::Run => "Run the coupled case off the UI thread, with live residuals.",
             Self::PostProcessing => {
-                "Plots and slices; export CSV, kovan markdown reports and the recipe."
+                "Export CSV (runs, spectra, the reactivity map on a grid), a kovan markdown \
+                 report and the recipe; load a recipe back and check it round-trips."
             }
         }
     }

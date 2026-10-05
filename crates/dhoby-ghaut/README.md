@@ -42,7 +42,7 @@ each built on `web_demo` (Monte Carlo, dispersion, nuclear data, TRISO-ATOPS):
 
 | Example | What it does |
 |---|---|
-| `dhoby-ghaut` (**binary**) | **The guided high-fidelity workbench, first slice** (gh:#561): pick a reactor type by generation, Basic or Advanced, the HTGR core, then Steps 0–11 with every value prefilled and cited, a kovan literature pane beside the model, and recipes saved and loaded as kovan markdown. Steps 0–5 work for HTGR → Basic → pebble bed (HTR-10, the TENTATIVE `nee_soon::htr10_rmc` model); Steps 6–11 are shown with the issue that builds each. See [below](#the-high-fidelity-workbench) |
+| `dhoby-ghaut` (**binary**) | **The guided high-fidelity workbench, first slice** (gh:#561): pick a reactor type by generation, Basic or Advanced, the HTGR core, then Steps 0–11 with every value prefilled and cited, a kovan literature pane beside the model, and recipes saved and loaded as kovan markdown. Steps 0–5 work for HTGR → Basic → pebble bed (HTR-10, the TENTATIVE `nee_soon::htr10_rmc` model); ~~Steps 6–11 are shown with the issue that builds each~~ **(2026-10-05)** Step 6 (branch; reactivity-map surrogate, low fidelity) and Step 11 (exports) work too; Steps 7–10 are shown with the issue that builds each. See [below](#the-high-fidelity-workbench) |
 | `mc_studio` | Author a geometry, set a material and run settings, run a basic `outram-mc` k-eigenvalue calculation through `nee_soon::sim` (~~`outram_blender::sim`~~, moved 2026-10-02, #486), and read `k_eff ± σ` with the per-generation plot |
 | `mesh_studio` | Author a surface in `outram-blender`, volume-mesh it through `outram-park-fork-cfmesh`'s tet → dual → boundary-layer pipeline, show the mesh statistics, and export an OpenFOAM `polyMesh` |
 | `monte_carlo_web` (~~`triso_pebble_web`~~, renamed 2026-10-04) | **One demo, a rung of the Monte Carlo tutorial at a time** (gh:#520, #521): `godiva`, a bare uranium sphere, with a Watch mode and a true **Run k_eff** mode (a live power iteration with an `openmc.run()`-style console), and `triso`, one neutron at a time through a 2D HTR-10 pebble. Real ENDF/B-VIII.0 data; single-threaded; also runs **in the browser** — see [below](#the-monte-carlo-demo-in-the-browser) |
@@ -123,7 +123,34 @@ window walks a guided build:
   - Step 5: Monte Carlo. Per-run state, nuclide-by-nuclide data progress, the
     console, k by generation, the lethargy-normalised spectrum and a table of
     runs.
-  - Steps 6–11: placeholders naming their issues.
+  - ~~Steps 6–11: placeholders naming their issues.~~ **UPDATED
+    2026-10-05:** Step 6 chooses the branch: (B) multiphysics (default) routes
+    to Step 7; (A) builds a **reactivity map**, a LOW-FIDELITY neutronics-only
+    surrogate (a weighted Chebyshev fit of ρ(T) over the saved runs, on
+    `petir`'s Chebyshev basis and QR least squares), shows its leave-one-out
+    held-out error beside the Monte Carlo σ, plans and queues the state-point
+    runs it needs on Step 5's machinery, and exports plain TOML with
+    provenance tables (`src/workbench/reactivity_map.rs`). Step 11 exports
+    CSV (runs, spectra, the map on a grid), a kovan-markdown report and the
+    recipe, and checks the recipe round trip (`src/workbench/exports.rs`).
+    `--headless-map` does both with no window. Steps 7–10 are placeholders
+    naming their issues. The temperature axis is isothermal (fuel and
+    moderator not separated, gh:#590) and rods are withdrawn only (gh:#580).
+
+    *Checked 2026-10-05.* SYNTHETIC runs (made up, `ρ = 4000 − 150√T`
+    pcm ± 30 alternating, σ_k = 3e-4; `--headless-map --synthetic`, pinned by
+    `headless_map::tests`): order 1 in √T gives a held-out RMS of 40 pcm
+    beside an RMS σ_ρ of 30 pcm, χ²/dof 1.34. A **real** tiny sweep
+    (`--sweep 300,600,900 --order 1 --particles 500 --inactive 10 --active 20
+    --threads 4`, HTR-10 preset lattice, ENDF/B-VIII.0; 9 min 24 s, of which
+    118 / 129 / 163 s nuclear data per temperature, so it is not a cargo
+    test) gave k = 1.00661 ± 0.01165 (300 K), 0.93877 ± 0.00890 (600 K),
+    0.89230 ± 0.01181 (900 K), i.e. ρ from +657 to −12 069 pcm with σ_ρ
+    ≈ 1000–1500 pcm. The map's held-out RMS came out at 39 pcm, far *below*
+    σ: with three runs and two terms each refit is a line through two noisy
+    points, so that number is luck, not evidence, and the window says so.
+    These are preview statistics; the ~−21 pcm/K isothermal slope they imply
+    has not been compared with any reference and must not be quoted.
 - **The main view** is a slice of the *assembled* geometry, from the solver's
   own cell lookups, re-rendered at screen resolution for whatever window is in
   view. It works from the whole reactor down to one TRISO particle. Slices
