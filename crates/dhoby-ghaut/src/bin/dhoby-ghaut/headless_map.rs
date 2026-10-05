@@ -61,10 +61,17 @@ pub fn synthetic_runs(temps: &[f64]) -> Vec<RunRecord> {
 pub fn sweep(r: &mut Recipe, temps: &[f64]) -> Result<Vec<Spectrum>, String> {
     let mut engine = Engine::default();
     let mut ok = false;
+    // Built to the recipe's design (gh:#566); what it cannot represent is
+    // printed, never silently dropped.
+    let plan = crate::design::plan(r);
+    for n in &plan.not_built {
+        eprintln!("NOT built: {n}");
+    }
     engine.handle(
         Req::Assemble {
             rings: r.pebble_bed.rings,
             layers: r.pebble_bed.layers,
+            design: plan.design,
         },
         &mut |e| {
             if let Ev::Assembled(i, _) = e {
@@ -90,6 +97,7 @@ pub fn sweep(r: &mut Recipe, temps: &[f64]) -> Result<Vec<Spectrum>, String> {
             threads: mc.threads,
             temperature_k: t,
             bins_per_decade: mc.spectrum_bins_per_decade,
+            tapes: crate::engine::tape_source(std::path::Path::new(&r.nuclear_data.endf_dir)),
         };
         let (mut outcome, mut err) = (None, None);
         engine.handle(Req::RunKeff(job), &mut |e| match e {

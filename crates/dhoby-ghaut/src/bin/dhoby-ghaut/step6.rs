@@ -55,7 +55,7 @@ pub fn current_map(app: &mut App) -> Result<ReactivityMap, String> {
 }
 
 /// Send the next queued run to the physics thread, at its temperature, with
-/// Step 5's settings. Rods stay as Step 5 has them (withdrawn: gh:#580).
+/// Step 5's settings. Rods stay at Step 5's insertion (gh:#580).
 fn start_next(app: &mut App) {
     if app.mc.running {
         return;
@@ -81,6 +81,7 @@ fn start_next(app: &mut App) {
         threads: mc.threads,
         temperature_k: t,
         bins_per_decade: mc.spectrum_bins_per_decade,
+        tapes: crate::engine::tape_source(std::path::Path::new(&app.recipe.nuclear_data.endf_dir)),
     };
     app.mc.running = true;
     app.mc.items.clear();
@@ -158,7 +159,7 @@ pub fn settings(app: &mut App, ui: &mut egui::Ui) {
     ui.label(RichText::new("State axes").strong());
     ui.label("Temperature [K]: isothermal, every material at the run's one data temperature.");
     ui.colored_label(AMBER, "Fuel and moderator temperatures are one axis here: separating them is gh:#590.");
-    ui.colored_label(AMBER, "Rod insertion: fixed at the runs' value; the model has its rods withdrawn only (gh:#580).");
+    ui.colored_label(AMBER, "Rod insertion: fixed at the runs' value; the planner sweeps temperature only (all ten rods move together, gh:#580).");
     ui.separator();
     ui.label(RichText::new("State-point planner").strong());
     let b = &mut app.recipe.branch;

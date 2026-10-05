@@ -135,7 +135,7 @@ window walks a guided build:
     recipe, and checks the recipe round trip (`src/workbench/exports.rs`).
     `--headless-map` does both with no window. Steps 7–8 are placeholders
     naming their issues. The temperature axis is isothermal (fuel and
-    moderator not separated, gh:#590) and rods are withdrawn only (gh:#580).
+    moderator not separated, gh:#590) and ~~rods are withdrawn only~~ the planner sweeps at the recipe's rod insertion (all ten rods together since gh:#580).
 
     *Checked 2026-10-05.* SYNTHETIC runs (made up, `ρ = 4000 − 150√T`
     pcm ± 30 alternating, σ_k = 3e-4; `--headless-map --synthetic`, pinned by

@@ -17,7 +17,7 @@
 //! | axis | in this build |
 //! |---|---|
 //! | temperature \[K\] | **isothermal**: Step 5 runs every material at one data temperature, so fuel and moderator temperature are ONE axis here, not two (separating them: gh:#590) |
-//! | control-rod insertion | the HTR-10 model has its rods WITHDRAWN only (gh:#580), so every run sits at 0 and the axis is recorded as *fixed* |
+//! | control-rod insertion | ~~the HTR-10 model has its rods WITHDRAWN only (gh:#580), so every run sits at 0~~ **UPDATED 2026-10-05:** all ten rods move together from 0 (withdrawn) to 1 (fully in) since gh:#580; each run records the insertion its core was built to. Runs at one insertion leave the axis *fixed*; the planner sweeps temperature at the recipe's current insertion |
 //!
 //! An axis whose runs all share one value is not fitted; it is written as a
 //! `[[fixed]]` entry and the map refuses any other value on it.
@@ -310,7 +310,8 @@ impl Provenance {
                 "Temperature is isothermal: every material at the run's one data temperature \
                  (fuel/moderator separation: gh:#590)."
                     .into(),
-                "Control rods are withdrawn in every run: insertion is not modelled (gh:#580)."
+                "Control rods: all ten move together (one insertion fraction per run, gh:#580); \
+                 a single rod alone is not modelled."
                     .into(),
                 "The runs do not record which model they were made on; the recipe hash names \
                  the model at export time."
@@ -550,7 +551,7 @@ impl ReactivityMap {
                     note: match name {
                         AxisName::TemperatureK => "every run at this temperature".into(),
                         AxisName::RodInsertion => {
-                            "every run at this insertion (rods withdrawn only in this model, gh:#580)".into()
+                            "every run at this insertion".into()
                         }
                     },
                 });
