@@ -40,3 +40,21 @@ comment carries the same results.
 ## Results
 
 Running (2026-10-05); recorded in the next commit.
+
+## Follow-up added AFTER seeing the N_C/N_U = 600 scan (prediction written before its run)
+
+Written 2026-10-05 ~03:15 UTC, after the 600 scan had peaked **below 1**
+(about 0.96 at r = 0.3 cm, then falling) and before any run at another ratio.
+It does not change the pre-registered comparison above; it is a second
+question the first result raised, labelled as such.
+
+**Hypothesis.** At 600 carbon atoms per uranium atom the homogeneous thermal
+utilisation is already low (f = 0.765, rung-2 sweep), and lumping lowers it
+further, so the gain in p cannot carry k above 1. With less carbon,
+N_C/N_U = **200** (homogeneous f = 0.907 but p = 0.58), lumps should raise p
+a lot while f stays high.
+
+**Prediction:** at N_C/N_U = 200, scanning r = 0.3, 1, 2, 3 cm, the maximum
+k_inf **exceeds 1**, at r of order 1-2 cm (larger than at 600, because the
+lumps sit closer together). Same settings as the 600 scan
+(`CU=200 RADII=0.3,1,2,3 CONTROL=0`, 5000 x [20 + 50]).
