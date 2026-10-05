@@ -716,7 +716,6 @@ where
     Q: MaterialQuery,
 {
     let mut seed = settings.seed;
-    let temp = settings.temperature_k;
 
     let mut source = sample_initial_source(domain, materials, nuclides, &material_at, settings, &mut seed);
 
@@ -736,7 +735,6 @@ where
                 materials,
                 nuclides,
                 majorant,
-                temp,
                 k_running,
                 &material_at,
                 &mut next_bank,
@@ -841,7 +839,6 @@ impl DeltaPowerIteration {
                 materials,
                 nuclides,
                 majorant,
-                self.settings.temperature_k,
                 self.k_running,
                 material_at,
                 &mut next_bank,
@@ -914,7 +911,6 @@ where
     #[cfg(target_arch = "wasm32")]
     use crate::wasm_par as rayon;
 
-    let temp = settings.temperature_k;
 
     // Dedicated, explicitly sized rayon pool. `resolve()` maps the ThreadCount to
     // a concrete worker count (>= 1); the per-history seeding below is
@@ -962,7 +958,6 @@ where
                         materials,
                         nuclides,
                         majorant,
-                        temp,
                         k_running,
                         &material_at,
                         &mut local_bank,
@@ -1013,7 +1008,6 @@ fn transport_history<Q>(
     materials: &[Material],
     nuclides: &[Nuclide],
     majorant: &Majorant,
-    temp: f64,
     k_running: f64,
     material_at: &Q,
     next_bank: &mut Vec<Site>,
@@ -1071,6 +1065,12 @@ where
             u = u_arr;
 
             let material = &materials[m];
+            // THE COLLISION MATERIAL'S OWN TEMPERATURE, as the flight used
+            // (`macro_xs_total_urr` reads it) and as the CSG drivers have since
+            // GitHub #313. ~~`settings.temperature_k`~~ until gh:#720
+            // (2026-10-06): on multipole data with materials at 1200 K and the
+            // run at 293.6 K that moved k by +1053 +/- 131 pcm (8.0 sigma).
+            let temp = material.temperature;
             let ci = material.sample_nuclide_urr(e, seed, nuclides, urr_seed);
             let nuc_idx = material.components[ci].nuclide_idx;
             let nuc = &nuclides[nuc_idx];
