@@ -29,3 +29,29 @@ in-flight work.
   run fleets outside active hours in the first place) and the
   never-auto-commit/push rule.
 
+
+## Agents in worktrees, and waiting on processes (2026-10-06)
+
+Learned running a dozen worktree agents in one session (gh:#599 era):
+
+- **Worktrees start from `develop` now.** `.claude/settings.json` sets
+  `worktree.baseRef = "head"`, so an `isolation: "worktree"` agent branches
+  from the session's own HEAD. Before that it branched from `origin/HEAD`
+  (`main`, which has none of the current work) and every agent had to
+  `git reset --hard origin/develop` first. A brief may still say "check you
+  are on develop"; it is a cheap guard, not a ritual.
+- **`reference-data/` resolves to the main checkout from a worktree.** A
+  worktree leaves the `reference-data/ace` submodule as an empty directory;
+  `njoy_outram_park_fork::reference_data::reference_data_dir` now falls back
+  to the main checkout's copy when the worktree's is empty. Setting
+  `OUTRAM_PARK_REFERENCE_DATA_DIR` by hand is no longer needed.
+- **Never wait with `while pgrep -f "<pattern>"; do sleep …; done`.** The
+  loop's own shell command line contains `<pattern>`, so `pgrep -f` always
+  matches itself and the loop never ends: one session accumulated ~85 such
+  loops, each still "running" hours after the work finished. Wait on a PID
+  you recorded (`while kill -0 "$PID" 2>/dev/null; do sleep 30; done`), or
+  run the job with `run_in_background` and let the completion notification
+  wake you. The same trap applies to `pkill -f` (which is also forbidden by
+  name: the maintainer runs their own GUIs).
+- **Remove a worktree once its branch is merged** (`git worktree remove`,
+  then `git branch -d`), so `.claude/worktrees/` holds only live work.

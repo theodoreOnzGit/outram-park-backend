@@ -223,6 +223,25 @@ pub fn is_endf_tape(path: &Path) -> bool {
 
 #[cfg(test)]
 mod tests {
+    /// A linked worktree's `.git` file names the main checkout; the main
+    /// checkout's own `.git` directory does not resolve to anything.
+    #[test]
+    fn a_linked_worktree_resolves_to_its_main_checkout() {
+        let base = std::env::temp_dir().join(format!("refdata-wt-{}", std::process::id()));
+        let main = base.join("main");
+        let wt = base.join("wt");
+        std::fs::create_dir_all(main.join(".git/worktrees/agent-x")).unwrap();
+        std::fs::create_dir_all(&wt).unwrap();
+        std::fs::write(
+            wt.join(".git"),
+            format!("gitdir: {}\n", main.join(".git/worktrees/agent-x").display()),
+        )
+        .unwrap();
+        assert_eq!(main_checkout_of_worktree(&wt), Some(main.clone()));
+        assert_eq!(main_checkout_of_worktree(&main), None);
+        let _ = std::fs::remove_dir_all(&base);
+    }
+
     use super::*;
 
     #[test]
@@ -315,6 +334,14 @@ pub const REFERENCE_DATA_ROOT_ENV: &str = "OUTRAM_PARK_REFERENCE_DATA_DIR";
 /// exists: `$OUTRAM_PARK_REFERENCE_DATA_DIR/<subdir>` when set, else the
 /// in-repo `<crate>/../../reference-data/<subdir>`.
 ///
+/// **Linked git worktrees** (since 2026-10-06): when the in-repo directory is
+/// missing or empty and this checkout is a linked worktree (`git worktree
+/// add`, which is how agent sessions are isolated), the main checkout's
+/// `reference-data/<subdir>` is used instead if it has content. A worktree
+/// leaves the `reference-data/ace` submodule as an empty directory, and
+/// before this every ACE-gated test in a worktree skipped or failed until
+/// someone set `OUTRAM_PARK_REFERENCE_DATA_DIR` by hand.
+///
 /// `subdir` is a bare directory name such as `"gendf"`; the raw ENDF tapes keep
 /// their own accessor ([`reference_endf_dir`]) because they have a separate
 /// override variable and the library-suffix tolerance.
@@ -324,10 +351,33 @@ pub fn reference_data_dir(subdir: &str) -> PathBuf {
             return PathBuf::from(root).join(subdir);
         }
     }
-    let mut p = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
-    p.push("../../reference-data");
-    p.push(subdir);
+    let repo = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../..");
+    let p = repo.join("reference-data").join(subdir);
+    if !dir_has_entries(&p) {
+        if let Some(main) = main_checkout_of_worktree(&repo) {
+            let q = main.join("reference-data").join(subdir);
+            if dir_has_entries(&q) {
+                return q;
+            }
+        }
+    }
     p
+}
+
+/// Whether `dir` exists and holds at least one entry.
+fn dir_has_entries(dir: &Path) -> bool {
+    std::fs::read_dir(dir).is_ok_and(|mut d| d.next().is_some())
+}
+
+/// The main checkout's root when `repo` is a linked git worktree, read from
+/// its `.git` FILE (`gitdir: <main>/.git/worktrees/<name>`); `None` for the
+/// main checkout itself (whose `.git` is a directory) or a non-git tree.
+fn main_checkout_of_worktree(repo: &Path) -> Option<PathBuf> {
+    let text = std::fs::read_to_string(repo.join(".git")).ok()?;
+    let gitdir = PathBuf::from(text.strip_prefix("gitdir:")?.trim());
+    // <main>/.git/worktrees/<name> -> <main>
+    let dot_git = gitdir.parent()?.parent()?;
+    (dot_git.file_name()? == ".git").then(|| dot_git.parent().map(Path::to_path_buf))?
 }
 
 /// Absolute path of `reference-data/<subdir>/<file>` (e.g. a golden GENDF tape

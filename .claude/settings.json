@@ -1,4 +1,7 @@
 {
   "hooks": {
+  },
+  "worktree": {
+    "baseRef": "head"
   }
 }
