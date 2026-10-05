@@ -116,10 +116,16 @@ the slowing down?*
 function that computes ξ.** ξ and the 18 collisions *emerge* from repeating
 one elastic collision; the code only samples the kinematics.
 
-**Measured check.** None for hydrogen yet. The rung-2 graphite check
-(`examples/graphite_energy_decrement.rs`) measures ⟨ln E/E′⟩ from the
-sampler and compares it with the analytic ξ; the same check for H-1 above
-the S(α,β) cutoff is owed (GitHub #532).
+**Measured check.** ~~None for hydrogen yet.~~ **Measured 2026-10-05
+(GitHub #532), code at `6faff1ed8`:** `tests/elastic_xi_h1_o16.rs` samples
+4 000 000 collisions per energy through `free_gas_elastic_scatter_dbrc` at
+1 keV, 10 keV, 100 keV and 1 MeV (above H(H₂O)'s 10 eV S(α,β) cutoff and
+400 kT), isotropic CM cosines, criterion |⟨ln E/E′⟩ − ξ| ≤ 4 sem fixed before
+running. H-1: 0.99994 to 1.00045 (sem 5.0e-4, worst 0.9 sem; with DBRC removed,
+worst 1.7 sem) against ξ = 0.9999973. O-16: 0.120932 to 0.120987 (sem 3.6e-5,
+worst 1.3 sem) against ξ = 0.1209800. All twelve points pass. The rung-2
+graphite check (`examples/graphite_energy_decrement.rs`) is the S(α,β)-range
+counterpart.
 
 **Predict.** *If hydrogen slows neutrons this well, should a reactor just use
 as much water as possible?* (Step 5 answers it.)
