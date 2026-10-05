@@ -91,6 +91,14 @@ dependency of another crate, re-read this NOTICE and re-confirm the
 licensing consequence with the maintainer — do not assume it is free of
 cost just because it worked for this crate.
 
+~~`kovan` is a dependency leaf.~~ **UPDATED 2026-10-05:** `dhoby-ghaut` now
+depends on `kovan` as a library (GitHub #561/#562). The maintainer re-confirmed
+the consequence in that session and `dhoby-ghaut` was relicensed
+AGPL-3.0-only (see `crates/dhoby-ghaut/NOTICE`). `kovan` is still NOT in the
+workspace `[workspace.dependencies]`; `dhoby-ghaut` declares it by path. The
+maintainer has also said `dover` should depend on `kovan` (GitHub #577); that
+needs the same relicence and has not been done.
+
 Android / Termux
 -----------------
 

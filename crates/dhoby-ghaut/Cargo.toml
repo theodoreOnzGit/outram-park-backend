@@ -3,8 +3,11 @@ name = "dhoby-ghaut"
 version = "0.0.1"
 authors.workspace = true
 edition.workspace = true
-license.workspace = true
-description = "Digital High-fidelity Orchestration by GUI for a Human-friendly Automated Unified Toolkit — DHOBY GHAUT, the GUI home for OUTRAM PARK's meshing and Monte Carlo studios. The library is a placeholder; the MC Studio and Mesh Studio GUIs, and a browser-capable TRISO pebble neutron-track demo, live here as examples."
+# AGPL-3.0-only, NOT `license.workspace = true` (GPL-3.0-only): relicensed
+# 2026-10-05 at the maintainer's direction (gh:#561/#562) so the workbench can
+# depend on `kovan` (AGPL-3.0-only) as a library. See NOTICE in this directory.
+license = "AGPL-3.0-only"
+description = "Digital High-fidelity Orchestration by GUI for a Human-friendly Automated Unified Toolkit — DHOBY GHAUT, OUTRAM PARK's GUI home: the guided high-fidelity simulation workbench, the meshing and Monte Carlo studios, and the web-demo framework of the tutorial tracks."
 homepage.workspace = true
 repository.workspace = true
 categories.workspace = true
@@ -19,6 +22,23 @@ categories.workspace = true
 # ---------------------------------------------------------------------------
 
 [dependencies]
+
+# `kovan`: the workbench's recipes (input decks) and every file it writes are
+# kovan-compatible markdown + TOML artifacts, parsed by kovan's own artifact
+# parser rather than a second one (maintainer, 2026-10-05, gh:#561/#562).
+# AGPL-3.0-only -- which is why this crate is too (NOTICE). Declared here with
+# a path, NOT in the root `[workspace.dependencies]`, so no other crate picks
+# it up by accident (the boundary rule in `crates/kovan/NOTICE`).
+# `default-features = false` drops kovan's own egui GUI binary stack.
+# Gated off wasm32: kovan carries gix, directories and the kopitiam crates,
+# none of which belong in the browser demos that build this library for wasm.
+[target.'cfg(not(target_arch = "wasm32"))'.dependencies]
+kovan = { path = "../kovan", default-features = false }
+# The recipe schema (`src/workbench/recipe.rs`): serde for the settings
+# tables, toml to read/write them, uom for the quantities that leave it.
+serde = { workspace = true }
+toml = { workspace = true }
+uom = { workspace = true }
 
 [target.'cfg(not(target_os = "android"))'.dependencies]
 egui = { workspace = true }
@@ -78,6 +98,10 @@ env_logger = { workspace = true }
 outram-blender = { workspace = true, features = ["foam-mesh", "gpu"] }
 # MC Studio's backend (`nee_soon::sim`, `nee_soon::blender_bridge`).
 nee_soon = { workspace = true }
+# The high-fidelity workbench's literature pane renders PDF pages with the
+# engine kovan's own reader uses (AGPL-3.0-only, like this crate since
+# 2026-10-05; see NOTICE). Same version and features as `crates/kovan`.
+kopitiam-pdf = { version = "0.4.3", default-features = false, features = ["egui"] }
 
 # MC Studio -- author geometry, set up and run an outram-mc calculation.
 #
@@ -163,3 +187,15 @@ path = "examples/triso_atops_web/main.rs"
 [[example]]
 name = "nuclear_data_web"
 path = "examples/nuclear_data_web/main.rs"
+
+# The guided high-fidelity workbench (gh:#561, first slice): generation
+# picker, Basic/Advanced, HTGR → pebble bed (HTR-10), Steps 0-11 (0-5 built),
+# kovan literature pane, recipes as kovan markdown. Native desktop only.
+#
+#   cargo run -p dhoby-ghaut --example hifi_workbench --release
+#   cargo run -p dhoby-ghaut --example hifi_workbench --release -- --headless-geometry
+#
+# Carries an Android/wasm stub `main`.
+[[example]]
+name = "hifi_workbench"
+path = "examples/hifi_workbench/main.rs"

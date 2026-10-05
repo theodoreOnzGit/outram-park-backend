@@ -14,7 +14,8 @@ not a status record, and must not be cited as evidence of anything.
 > [`docs/claude-md-rationale/crate-roster.md`](../claude-md-rationale/crate-roster.md).
 
 All crates are **GPL-3.0** except `kovan` (**AGPL-3.0-only**, workspace
-exception — see `crates/kovan/NOTICE`) and
+exception — see `crates/kovan/NOTICE`), `dhoby-ghaut` (**AGPL-3.0-only since
+2026-10-05**, because it depends on `kovan` — see `crates/dhoby-ghaut/NOTICE`) and
 `chem-eng-real-time-process-control-simulator` (GPL-3.0 since 2026-08-11;
 published versions <= 0.1.1 stay Apache-2.0 — see its `NOTICE`). "Mature" in
 the last column means the maintainer has declared it so — see "When this
@@ -171,8 +172,9 @@ only as a target-gated **dev-dependency** for `tests/matrix_bench.rs`. TUAS's
 
 A second exception: **`kopitiam-pdf`** (AGPL-3.0-only, GitHub issue #30's
 PDF-reader work) is declared only in `crates/kovan/Cargo.toml`'s own
-`[dependencies]`, never in the workspace table — `kovan` is the sole
-AGPL-3.0-only crate in this workspace, and keeping the dependency
+`[dependencies]`, never in the workspace table — `kovan` is ~~the sole~~
+an AGPL-3.0-only crate in this workspace (**since 2026-10-05**, `dhoby-ghaut`
+is the other, depending on `kovan` by path), and keeping the dependency
 crate-local is what stops another crate from picking it up (and the
 AGPL question that comes with it) by accident. See `crates/kovan/NOTICE`.
 

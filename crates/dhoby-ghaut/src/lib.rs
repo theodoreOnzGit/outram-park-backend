@@ -7,7 +7,7 @@
 //! toolbox and the Monte Carlo studio — and for any future GUI that drives
 //! physics rather than merely displaying it.
 //!
-//! # STATUS: ~~PLACEHOLDER. Nothing is implemented.~~ ~~The LIBRARY is a placeholder; the two studios are examples.~~ The library holds the web-demo framework (below); the studios and demos are examples.
+//! # STATUS: ~~PLACEHOLDER. Nothing is implemented.~~ ~~The LIBRARY is a placeholder; the two studios are examples.~~ The library holds the web-demo framework and, since 2026-10-05, the high-fidelity workbench's catalogue, steps and recipe format (`workbench`); the studios, demos and the workbench window are examples.
 //!
 //! ~~This crate was created on 2026-09-17 to hold a decision, not code. It has
 //! no GUI, no dependencies, and no behaviour. Do not describe it as providing
@@ -112,6 +112,11 @@
 
 #[cfg(not(target_os = "android"))]
 pub mod web_demo;
+
+// The guided high-fidelity workbench's library half (gh:#561): catalogue,
+// steps and the kovan-markdown recipe. Off wasm32 because `kovan` is.
+#[cfg(not(target_arch = "wasm32"))]
+pub mod workbench;
 
 /// The crate's own expansion, for anywhere a human needs it spelled out.
 ///

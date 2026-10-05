@@ -780,6 +780,41 @@ pub fn load_htr10_nuclides(
     layout: &Htr10NuclideLayout,
     diag: &mut RunDiagnostics,
 ) -> Result<Vec<Nuclide>, Htr10DataError> {
+    load_htr10_nuclides_with_progress(cfg, layout, diag, |_| {})
+}
+
+/// One step of [`load_htr10_nuclides_with_progress`], for a caller that shows
+/// progress (Dhoby Ghaut's workbench, gh:#568).
+#[derive(Debug, Clone, PartialEq)]
+pub enum LoadProgress {
+    /// A thermal-scattering law or a nuclide is about to be processed.
+    Started {
+        /// What is being processed (`"graphite S(a,b)"`, `"U235"`).
+        item: String,
+    },
+    /// It finished, after `seconds` of wall time.
+    Finished {
+        /// Same text as the matching [`LoadProgress::Started`].
+        item: String,
+        /// Wall-clock seconds.
+        seconds: f64,
+    },
+}
+
+/// [`load_htr10_nuclides`], calling `progress` before and after every
+/// thermal law and every nuclide slot. The processing, its order and its
+/// result are exactly those of [`load_htr10_nuclides`], which is this with a
+/// no-op `progress`.
+///
+/// # Errors
+///
+/// As [`load_htr10_nuclides`].
+pub fn load_htr10_nuclides_with_progress<F: FnMut(LoadProgress)>(
+    cfg: &Htr10DataConfig,
+    layout: &Htr10NuclideLayout,
+    diag: &mut RunDiagnostics,
+    mut progress: F,
+) -> Result<Vec<Nuclide>, Htr10DataError> {
     if layout.loads_fe57() && !FE57_RECONSTRUCTION_FIXED {
         return Err(Htr10DataError::BlockedByGh339);
     }
@@ -795,7 +830,15 @@ pub fn load_htr10_nuclides(
         if laws.iter().any(|(l, _)| *l == law) {
             continue;
         }
-        if let Some(sab) = load_law(law, cfg, diag)? {
+        let item = law.label().to_string();
+        progress(LoadProgress::Started { item: item.clone() });
+        let t = Instant::now();
+        let loaded = load_law(law, cfg, diag)?;
+        progress(LoadProgress::Finished {
+            item,
+            seconds: t.elapsed().as_secs_f64(),
+        });
+        if let Some(sab) = loaded {
             laws.push((law, sab));
         }
     }
@@ -810,6 +853,9 @@ pub fn load_htr10_nuclides(
             });
         }
         eprint!("  {:<6} ", s.name);
+        progress(LoadProgress::Started {
+            item: s.name.to_string(),
+        });
         let t = Instant::now();
         let nuc = diag.time_data(
             format!("{} cross sections", s.name),
@@ -818,6 +864,10 @@ pub fn load_htr10_nuclides(
             || Nuclide::from_endf_file(&p, s.name, t_k, 1.0e-3).ok(),
         );
         eprintln!("{:.1?}", t.elapsed());
+        progress(LoadProgress::Finished {
+            item: s.name.to_string(),
+            seconds: t.elapsed().as_secs_f64(),
+        });
         let nuc = nuc.ok_or_else(|| Htr10DataError::LoadFailed {
             name: s.name.into(),
             path: p,

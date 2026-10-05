@@ -29,7 +29,11 @@ constant, and it has no `[dependencies]`.~~ **CORRECTED 2026-10-04:** the
 library holds `web_demo`, the framework every tutorial track's browser demo is
 built on (mobile-first main view and panel, the worker/thread plumbing of the
 no-lagging rule, loading card, rung table and lesson links), so it depends on
-`egui` (off Android) and, on wasm32, the wasm-bindgen family. The GUIs and
+`egui` (off Android) and, on wasm32, the wasm-bindgen family. **Since
+2026-10-05** it also holds `workbench` (off wasm32): the guided high-fidelity
+workbench's reactor catalogue, wizard steps and the **recipe** format (input
+decks as kovan markdown + TOML), which is why it depends on `kovan`, `serde`,
+`toml` and `uom` and is AGPL-3.0-only (see [`NOTICE`](NOTICE)). The GUIs and
 demos themselves are **examples**:
 the two studios, moved here from `outram-blender` on 2026-09-17, ~~and the Monte
 Carlo web demo (the TRISO pebble demo of 2026-10-03, made multi-rung on
@@ -38,6 +42,7 @@ each built on `web_demo` (Monte Carlo, dispersion, nuclear data, TRISO-ATOPS):
 
 | Example | What it does |
 |---|---|
+| `hifi_workbench` | **The guided high-fidelity workbench, first slice** (gh:#561): pick a reactor type by generation, Basic or Advanced, the HTGR core, then Steps 0–11 with every value prefilled and cited, a kovan literature pane beside the model, and recipes saved and loaded as kovan markdown. Steps 0–5 work for HTGR → Basic → pebble bed (HTR-10, the TENTATIVE `nee_soon::htr10_rmc` model); Steps 6–11 are shown with the issue that builds each. See [below](#the-high-fidelity-workbench) |
 | `mc_studio` | Author a geometry, set a material and run settings, run a basic `outram-mc` k-eigenvalue calculation through `nee_soon::sim` (~~`outram_blender::sim`~~, moved 2026-10-02, #486), and read `k_eff ± σ` with the per-generation plot |
 | `mesh_studio` | Author a surface in `outram-blender`, volume-mesh it through `outram-park-fork-cfmesh`'s tet → dual → boundary-layer pipeline, show the mesh statistics, and export an OpenFOAM `polyMesh` |
 | `monte_carlo_web` (~~`triso_pebble_web`~~, renamed 2026-10-04) | **One demo, a rung of the Monte Carlo tutorial at a time** (gh:#520, #521): `godiva`, a bare uranium sphere, with a Watch mode and a true **Run k_eff** mode (a live power iteration with an `openmc.run()`-style console), and `triso`, one neutron at a time through a 2D HTR-10 pebble. Real ENDF/B-VIII.0 data; single-threaded; also runs **in the browser** — see [below](#the-monte-carlo-demo-in-the-browser) |
@@ -82,6 +87,71 @@ that has not happened.~~ **CORRECTED 2026-10-02 (GitHub #486):** the headless
 Monte Carlo bridge moved to `nee_soon` (`nee_soon::sim`,
 `nee_soon::blender_bridge`), ungated. The volume-meshing bridge stays in
 `outram-blender` (`src/foam_mesh.rs`, feature `foam-mesh`).
+
+## The high-fidelity workbench
+
+```bash
+cargo run -p dhoby-ghaut --example hifi_workbench --release
+KOVAN_ROOT=~/your-kovan-library cargo run -p dhoby-ghaut --example hifi_workbench --release
+cargo run -p dhoby-ghaut --example hifi_workbench --release -- --headless-geometry
+cargo run -p dhoby-ghaut --example hifi_workbench --release -- --render-review out_dir
+cargo run -p dhoby-ghaut --example hifi_workbench --release -- --headless-keff --particles 500 --inactive 10 --active 20
+```
+
+The design was agreed with the maintainer on 2026-10-05 (gh:#561). A native
+window walks a guided build:
+
+- **Screen 1** lists reactor types by generation (Gen II, Gen III+ large, Gen
+  III+ SMRs, Gen IV with MSR split into solid and liquid fuel). Each card has
+  an honest status. Only HTGR is in the wizard; PWR and both MSRs are
+  "partial" (models exist elsewhere in the workspace); the rest say "not yet".
+- **Basic or Advanced.** Advanced is shown and not built yet.
+- **HTGR core.** Pebble bed loads the HTR-10 preset and shows its V&V status:
+  TENTATIVE, code-to-code against RMC, with the open residual its record
+  states. Prismatic (HTTR) waits for its literature.
+- **The wizard.** A top bar shows `Step N`, with Back and Next. The kovan
+  literature pane is on the left, the reactor in the middle, and the
+  prefilled settings on the right. The steps:
+  - Step 0: ENDF library scan.
+  - Step 1: pebble bed and pebble-type mix.
+  - Step 2: pebble designs.
+  - Step 3: reflector and internals, each part marked *in model*,
+    *simplified* or *NOT in model*.
+  - Step 4: inserts.
+  - The **geometry review gate**. Every minimum view of the crate's drawing
+    rule must be drawn before Monte Carlo is unlocked.
+  - Step 5: Monte Carlo. Per-run state, nuclide-by-nuclide data progress, the
+    console, k by generation, the lethargy-normalised spectrum and a table of
+    runs.
+  - Steps 6–11: placeholders naming their issues.
+- **The main view** is a slice of the *assembled* geometry, from the solver's
+  own cell lookups, re-rendered at screen resolution for whatever window is in
+  view. It works from the whole reactor down to one TRISO particle. Slices
+  export as PNG with legend and axes.
+- **Recipes** (`Save recipe`, `--recipe file`) are kovan markdown. Each
+  section is a kovan note artifact read by kovan's own parser, and its
+  settings sit in a ` ```toml ` block in the body
+  (`src/workbench/recipe.rs`).
+
+What was checked on 2026-10-05:
+
+- `--headless-geometry` is pinned by `tests/fixtures/hifi_workbench_geometry.csv`:
+  43 445 cells, 22 974 tiles and 16 681 balls at 14 rings × 12 layers.
+- The review images were inspected for whole pebbles and five TRISO layers.
+- A preview run, 500 × [10 + 20] with 14 threads, took 87 s of nuclear data
+  and 15 s of transport. It gave k = 0.99999 ± 0.01264, the same in the GUI as
+  headless. That is a preview σ, not a benchmark comparison.
+- The spectrum has its thermal peak near 0.05 eV and is flat per unit lethargy
+  through the slowing-down range.
+
+Limits, each with an issue:
+
+- The k_eff console fills at the end of a run, not live (#579).
+- Rod insertion is not modelled (#580).
+- A custom ENDF folder is scanned but not used for the load (#581).
+- Pebble designs and the pebble-type mix are recorded, not rebuilt (#566).
+- The refuelling chute, absorber spheres and irradiation-channel pebbles are
+  not in the HTR-10 model (#570).
 
 ## The Monte Carlo demo, in the browser
 
@@ -183,4 +253,7 @@ whenever the geometry changes.
 
 ## License
 
-GPL-3.0. Part of the [OUTRAM PARK](../../README.md) workspace.
+~~GPL-3.0.~~ **AGPL-3.0-only since 2026-10-05** (maintainer-directed, gh:#562),
+so that the high-fidelity workbench can depend on `kovan` (AGPL-3.0-only) and
+read and write kovan-compatible files. See [`NOTICE`](NOTICE). Part of the
+[OUTRAM PARK](../../README.md) workspace.

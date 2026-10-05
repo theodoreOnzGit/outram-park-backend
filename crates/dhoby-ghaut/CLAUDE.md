@@ -117,3 +117,31 @@ copy `monte_carlo_web`. It gives, ready-made and tested:
    not in the table.
 4. Any new tape must be in `reference-data/endf/`; `--prepare-web-data`
    publishes every rung's tapes (shared ones once).
+
+## The high-fidelity workbench (gh:#561)
+
+**Maintainer design, 2026-10-05.** `examples/hifi_workbench/` is the guided
+high-fidelity simulator; `src/workbench/` is its library half (catalogue,
+steps, recipe). Rules that bind changes to it:
+
+- **Recipes are kovan markdown, read and written through `kovan::artifact`.**
+  Do not write a second markdown or TOML-in-markdown parser. Plain TOML is
+  for light data transfer only (the reactivity map, gh:#571; #576).
+- **Every input and output file is kovan-compatible, and this crate depends
+  on `kovan` directly**, which is why it is AGPL-3.0-only (`NOTICE`). A crate
+  that depends on `dhoby-ghaut` as a library inherits that: confirm with the
+  maintainer first.
+- **Prefill from the model's own constants wherever it exports them**
+  (`preset.rs` reads `nee_soon::htr10_rmc`); a value it does not export is
+  marked at the line that types it. Cite each value; give a page only where a
+  source states one.
+- **State what the model lacks.** Every part of the reactor is *in model*,
+  *simplified* or *NOT in model*, with an issue. The pre-built card shows the
+  preset's V&V status from its record, never "validated"; an edited recipe is
+  "derived", with no V&V standing.
+- **The review gate stays in front of Monte Carlo.** It draws the drawing
+  rule's minimum set from the assembled geometry.
+- **The UI thread only draws.** Two engine threads (geometry, physics) share
+  the assembled core as an `Arc`.
+- **A step that is not built says so** and names its issue
+  (`WizardStep::issue`); nothing is simulated behind a placeholder.
