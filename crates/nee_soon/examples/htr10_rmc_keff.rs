@@ -502,7 +502,25 @@ fn main() {
 
     // Region-local majorant: the BED's materials only. The reflector is
     // surface-tracked, so it must NOT raise the bed's tracking cost.
-    let maj = nee_soon::htr10_rmc::keff_vs_height::bed_majorant(&mats, &nucs);
+    //
+    // `OUTRAM_HTR10_MAJORANT_WITHOUT_BREAKPOINTS=1` is the ABLATION back to
+    // the pre-#589 construction (log grid only; under-bounds Sigma_t 14x at
+    // 661 eV in the UO2 kernel). It exists as a control: run on today's code,
+    // it separates the majorant's effect on k from every other code change
+    // since an old record was taken. Never the default.
+    let maj = if std::env::var_os("OUTRAM_HTR10_MAJORANT_WITHOUT_BREAKPOINTS").is_some() {
+        println!("  majorant: ABLATION, log grid only (pre-#589, under-bound)");
+        let bed_mats: Vec<usize> = (0..=nee_soon::htr10_rmc::core_model::mat::HELIUM).collect();
+        outram_mc_libs::pebble_beds::delta_tracking::Majorant::over_indices_without_breakpoints(
+            &mats,
+            &bed_mats,
+            &nucs,
+            &nee_soon::htr10_rmc::keff_vs_height::majorant_energy_grid(),
+            0.3,
+        )
+    } else {
+        nee_soon::htr10_rmc::keff_vs_height::bed_majorant(&mats, &nucs)
+    };
 
     // `OUTRAM_MAJORANT_AUDIT=1`: audit the bed majorant this run would use on
     // the bed's own materials, then stop (GitHub #589).
