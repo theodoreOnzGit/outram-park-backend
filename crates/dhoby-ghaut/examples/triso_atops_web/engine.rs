@@ -16,7 +16,7 @@
 //! | 4 `layers` | `try_get_diffusion_coeff_jiang` per layer, `first_passage::interface::transmission_probability` |
 //! | 5 `failure` | `fuel_failure::htr10::particle` / `end_of_irradiation_failure`, `AccidentHistory::step`, `pressure_at`, `induced_stress_with_thinning_factor` |
 //! | 6 `chemistry` | `chemistry::{graphite_air, graphite_steam, kernel_hydrolysis}` |
-//! | 7 `release` | rung 5's history, `rb_fail_noble_gases`, `FailureFractions::with_fuel_failure_incremental`, `release_rate`, `base_activities`, `live_pools::step`; inventory from `changi::activity::inventory` (Liu & Cao 2002 Table 1) |
+//! | 7 `release` | rung 5's history, `rb_fail_noble_gases`, `FailureFractions::with_fuel_failure_incremental`, `release_rate`, `base_activities`, `live_pools::step`; inventory from `changi::activity::inventory` (Liu & Cao 2002 Table 1); the pool diagram's arrows are the terms of `live_pools`' balances evaluated on the pools it returned |
 //!
 //! The demo's own logic is bookkeeping only: which atom is which species at a
 //! time (rung 2), slicing each walker's walk into frames (rung 3: hop while
@@ -125,6 +125,13 @@ pub const RELEASE_NUCLIDES: [(&str, Nuclide, u32, ElementGroup); 3] = [
     ("Xe-133", Nuclide::Xe133, 54, ElementGroup::NobleGas),
     ("I-131", Nuclide::I131, 53, ElementGroup::Halogen),
 ];
+
+/// Flows per point in the release rung's frame (scalars from
+/// [`RELEASE_FLOWS_AT`]): S, plate-out, clean-up, leak, then decay in the
+/// circulating, plated and purification pools, atoms/s.
+pub const RELEASE_FLOWS: usize = 7;
+/// Index of the first flow in the release rung's scalars.
+pub const RELEASE_FLOWS_AT: usize = 14;
 
 /// NP-MHTGR reference fractions upstream TRISO-ATOPS ships, pinned against
 /// upstream `de374c8` in `boon-lay/tests/triso_atops_fork_verification.rs`
@@ -1049,6 +1056,12 @@ impl Engine {
                 pools.leaked = 0.0;
                 let (mut hs, mut s_series, mut c, mut p, mut hps, mut leaked) =
                     (vec![], vec![], vec![], vec![], vec![], vec![]);
+                // The pool diagram's arrows: at each point, the terms of the
+                // balances live_pools integrates (its module doc), atoms/s:
+                // S, k_plate C, k_clean C, k_leak C, then lambda C, lambda P,
+                // lambda H (decay in each pool). Bookkeeping on the pools the
+                // library returned, not a second model.
+                let mut flows: Vec<f64> = Vec::new();
                 let mut push = |h: f64, s: f64, pools: &PrimaryPools| {
                     hs.push(h);
                     s_series.push(s);
@@ -1056,6 +1069,15 @@ impl Engine {
                     p.push(lam * pools.plate_out);
                     hps.push(lam * pools.clean_up);
                     leaked.push(pools.leaked);
+                    flows.extend_from_slice(&[
+                        s,
+                        rates.plate_out * pools.circulating,
+                        rates.clean_up * pools.circulating,
+                        rates.leak * pools.circulating,
+                        lam * pools.circulating,
+                        lam * pools.plate_out,
+                        lam * pools.clean_up,
+                    ]);
                 };
                 push(0.0, s0, &pools);
                 let mut last_s = s0;
@@ -1117,18 +1139,30 @@ impl Engine {
                     // Scalars: inventory Bq, half-life s, S0 and S_end
                     // (atoms/s), end-of-transient in-service failure, then the
                     // end pools (circulating Bq, plated Bq, HPS Bq, leaked
-                    // atoms).
-                    scalars: vec![
-                        inventory_bq,
-                        std::f64::consts::LN_2 / lam,
-                        s0,
-                        last_s,
-                        pts.last().map(|p| p.in_service).unwrap_or(0.0),
-                        end[0],
-                        end[1],
-                        end[2],
-                        end[3],
-                    ],
+                    // atoms); then the rates used [1/s] (lambda, k_plate as
+                    // routed, k_clean, k_leak) and the number of points n;
+                    // then RELEASE_FLOWS flows per point (see `flows` above),
+                    // at the hours of the series.
+                    scalars: [
+                        vec![
+                            inventory_bq,
+                            std::f64::consts::LN_2 / lam,
+                            s0,
+                            last_s,
+                            pts.last().map(|p| p.in_service).unwrap_or(0.0),
+                            end[0],
+                            end[1],
+                            end[2],
+                            end[3],
+                            lam,
+                            rates.plate_out,
+                            rates.clean_up,
+                            rates.leak,
+                            (flows.len() / RELEASE_FLOWS) as f64,
+                        ],
+                        flows,
+                    ]
+                    .concat(),
                     ..Default::default()
                 })
             }
@@ -1650,5 +1684,45 @@ mod tests {
         let g = frame(&mut e, hot);
         println!("Kr-88 source: {:.3e} -> {:.3e} atoms/s at 1600 C", g.scalars[2], g.scalars[3]);
         assert!(g.scalars[3] > g.scalars[2]);
+    }
+
+    /// **The pool diagram's arrows balance at normal operation.**
+    ///
+    /// Methodology: I-131 (a halogen, so it plates out) with every sink on
+    /// (`k_plate` 7.5e-5, `k_clean` 8.77e-5, `k_leak` 1e-5 1/s). The pools
+    /// start at normal-operation equilibrium, so at the first point the flow
+    /// into the helium must equal the sum of the flows out of it, and each
+    /// held pool's inflow must equal its decay. The flows are computed from
+    /// the pools `live_pools::step` returned; this checks the bookkeeping
+    /// the diagram draws, not the library (whose own tests check the
+    /// integration). Pass: 1e-9 relative. **Result (2026-10-05):** passes;
+    /// one set of flows per plotted point.
+    #[test]
+    fn release_pool_flows_balance_at_normal_operation() {
+        let mut e = Engine::default();
+        let f = frame(
+            &mut e,
+            Request::Release {
+                id: 1,
+                nuclide: 2,
+                irr_c: 776.0,
+                hold_c: 1600.0,
+                hours: 100.0,
+                f_hm: 1e-4,
+                k_plate: 7.5e-5,
+                k_clean: 8.77e-5,
+                k_leak: 1e-5,
+            },
+        );
+        let n = f.scalars[RELEASE_FLOWS_AT - 1] as usize;
+        assert_eq!(n, f.series[0].xs.len());
+        assert_eq!(f.scalars.len(), RELEASE_FLOWS_AT + n * RELEASE_FLOWS);
+        let q = &f.scalars[RELEASE_FLOWS_AT..RELEASE_FLOWS_AT + RELEASE_FLOWS];
+        let rel = |a: f64, b: f64| (a - b).abs() / b.abs();
+        let out_of_helium = q[1] + q[2] + q[3] + q[4];
+        println!("I-131 at t = 0: S {:.4e}, out of the helium {:.4e} atoms/s", q[0], out_of_helium);
+        assert!(rel(out_of_helium, q[0]) < 1e-9);
+        assert!(rel(q[5], q[1]) < 1e-9, "plated: decay {} vs inflow {}", q[5], q[1]);
+        assert!(rel(q[6], q[2]) < 1e-9, "HPS: decay {} vs inflow {}", q[6], q[2]);
     }
 }
