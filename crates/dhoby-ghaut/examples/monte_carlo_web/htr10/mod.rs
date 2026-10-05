@@ -38,8 +38,15 @@ use outram_mc_libs::physics::keff::KeffSettings;
 /// The marker type `rung_table!` names.
 pub struct Htr10;
 
-/// The recorded k-vs-height table (both libraries), read at build time.
+/// The 2026-10-01 k-vs-height table (both libraries, N = 10–20), read at
+/// build time. **Superseded** (#589): measured on a majorant under-bound 14×
+/// at 661 eV in the kernel. Shown faded, for the N not re-measured and for
+/// comparison.
 const SEKER_CSV: &str = include_str!("../../../../nee_soon/verification_and_validation/htr10_seker_2026_10_01_10k/results_table.csv");
+/// The 2026-10-05 re-measurement on the bounded majorant (#589): a subset of
+/// N at 10 000 × [5 + 20], read at build time.
+const SEKER_CSV_BOUNDED: &str =
+    include_str!("../../../../nee_soon/verification_and_validation/htr10_seker_2026_10_05_majorant_fix/results_table.csv");
 
 /// The fuel-zone record, quoted from
 /// `crates/outram-mc-libs/verification_and_validation/tutorial_rung5/README.md`
@@ -143,8 +150,8 @@ impl McRung for Htr10 {
             colour,
             points: pts.iter().map(|&(h, k)| SweepPoint { x: h, k, sigma: 0.0, tag: Some(n_of(h)), detail: String::new() }).collect(),
         };
-        let ours = |lib: &str, colour| {
-            let mut rows = SEKER_CSV.lines();
+        let ours = |csv: &str, lib: &str, colour, label: String, when: &str| {
+            let mut rows = csv.lines();
             let head: Vec<&str> = rows.next().unwrap_or("").split(',').collect();
             let col = |n: &str| head.iter().position(|h| *h == n).unwrap_or(usize::MAX);
             let (c_lib, c_n, c_b, c_r, c_k, c_s, c_rmc, c_d, c_ns) =
@@ -161,7 +168,7 @@ impl McRung for Htr10 {
                         sigma: s,
                         tag: Some(n),
                         detail: format!(
-                            "{lib}: k = {k:.5} ± {s:.5}, RMC {:.5}: {:+.0} pcm ({:+.1}σ); N = {n}, built bed {b:.1} cm, compared at {r:.1} cm (same ball count)",
+                            "{lib} {when}: k = {k:.5} ± {s:.5}, RMC {:.5}: {:+.0} pcm ({:+.1}σ); N = {n}, built bed {b:.1} cm, compared at {r:.1} cm (same ball count)",
                             num(c_rmc).unwrap_or(f64::NAN),
                             num(c_d).unwrap_or(f64::NAN),
                             num(c_ns).unwrap_or(f64::NAN)
@@ -169,7 +176,7 @@ impl McRung for Htr10 {
                     })
                 })
                 .collect();
-            SweepCurve { label: format!("ours, ENDF/B-{lib} (recorded 2026-10-01), ±1σ"), style: LineStyle::Ours, colour, points }
+            SweepCurve { label, style: LineStyle::Ours, colour, points }
         };
         Some(RecordedSweep {
             title: "k_eff against loading height",
@@ -177,14 +184,23 @@ impl McRung for Htr10 {
             range: (10.0, 20.0),
             default: LADDER_N,
             x_label: "height (cm); ours at the height with the same ball count",
-            curves: vec![
+            curves: {
+                let mut c = vec![
                 lit("RMC (Li, Yu & Wei 2014): the reference", Color32::from_rgb(235, 235, 235), RMC_KEFF_VS_HEIGHT),
                 lit("MCNP vacuum (Şeker & Çolak 2003; Li 2014 Table 3): a gauge", Color32::from_rgb(150, 150, 160), MCNP_TABLE3_KEFF_VS_HEIGHT),
                 lit("MCNP helium (Şeker & Çolak 2003; Li 2014 Table 4): a gauge", Color32::from_rgb(110, 160, 140), MCNP_TABLE4_KEFF_VS_HEIGHT),
-                ours("VIII.0", Color32::from_rgb(120, 170, 255)),
-                ours("VII.0", Color32::from_rgb(255, 170, 90)),
-            ],
+                // Superseded first, faded, so the new points draw on top.
+                ours(SEKER_CSV, "VIII.0", Color32::from_rgb(70, 82, 110), "old majorant, superseded: ENDF/B-VIII.0, 2026-10-01".into(), "(OLD majorant, superseded)"),
+                ours(SEKER_CSV, "VII.0", Color32::from_rgb(112, 88, 66), "old majorant, superseded: ENDF/B-VII.0, 2026-10-01".into(), "(OLD majorant, superseded)"),
+                ours(SEKER_CSV_BOUNDED, "VIII.0", Color32::from_rgb(120, 170, 255), "ours, ENDF/B-VIII.0, bounded majorant (2026-10-05), ±1σ".into(), "(bounded majorant, 2026-10-05)"),
+                ours(SEKER_CSV_BOUNDED, "VII.0", Color32::from_rgb(255, 170, 90), "ours, ENDF/B-VII.0, bounded majorant (2026-10-05), ±1σ".into(), "(bounded majorant, 2026-10-05)"),
+                ];
+                // A library with no re-measured point has no curve.
+                c.retain(|c| !c.points.is_empty());
+                c
+            },
             notes: vec![
+                "Bright points: re-measured 2026-10-05 on the bounded delta-tracking majorant (#589), 10 000 × [5 + 20] per point (σ about 290 pcm), at a subset of N only. Faded points: the 2026-10-01 record (10 000 × [5 + 135]), measured on a majorant under-bound 14× at 661 eV in the kernel, SUPERSEDED; shown for the N not re-measured and for comparison.",
                 "Pebbles on Şeker & Çolak (2003)'s regular 13-ball lattice cell, not the real random bed. The references use the same lattice, so the comparison is like for like with them, not with the reactor.",
                 "Every pebble whole: balls crossing the wall are rejected (gh:#472), so the built height (9.798 N + 6 cm) holds fewer balls than Şeker's; points are compared at equal ball count, by interpolation.",
                 "TRISO particles on a lattice inside each fuel pebble, not randomly packed.",
@@ -336,17 +352,25 @@ mod tests {
         assert_eq!(map[10 * 21 + 10] as usize, nee_soon::htr10_rmc::core_model::mat::KERNEL);
     }
 
-    /// The sweep reads every recorded row: 11 points per library, each with
-    /// its N, and the three reference curves.
+    /// The sweep reads every recorded row: the superseded 2026-10-01 record
+    /// (11 points per library, each with its N), the 2026-10-05
+    /// bounded-majorant re-measurement (#589; a subset of N), and the three
+    /// reference curves. The superseded points say so when selected.
     #[test]
     fn the_sweep_reads_the_record() {
         let s = Htr10::sweep().unwrap();
-        assert_eq!(s.curves.len(), 5);
-        for c in s.curves.iter().filter(|c| c.style == LineStyle::Ours) {
-            assert_eq!(c.points.len(), 11, "{}", c.label);
-            assert!(c.points.iter().all(|p| p.sigma > 0.0 && p.tag.is_some()));
+        let ours: Vec<_> = s.curves.iter().filter(|c| c.style == LineStyle::Ours).collect();
+        assert_eq!(s.curves.len() - ours.len(), 3);
+        for c in &ours {
+            assert!(c.points.iter().all(|p| p.sigma > 0.0 && p.tag.is_some()), "{}", c.label);
         }
-        assert!(s.details(12.0).iter().any(|d| d.contains("0.99566")), "{:?}", s.details(12.0));
+        let old: Vec<_> = ours.iter().filter(|c| c.label.contains("superseded")).collect();
+        assert_eq!(old.len(), 2);
+        assert!(old.iter().all(|c| c.points.len() == 11));
+        let new: Vec<_> = ours.iter().filter(|c| c.label.contains("bounded majorant")).collect();
+        assert!(!new.is_empty() && new.iter().all(|c| !c.points.is_empty()));
+        assert!(s.details(12.0).iter().any(|d| d.contains("0.99566") && d.contains("superseded")), "{:?}", s.details(12.0));
+        assert!(s.details(14.0).iter().any(|d| d.contains("bounded majorant")), "{:?}", s.details(14.0));
     }
 
     /// The fuel-zone case natively at the slider's defaults, both arms, on
