@@ -35,9 +35,9 @@ that can fail, and the problem it leaves open motivates the next rung.
 | Rung | System | What it adds | Page |
 |---|---|---|---|
 | 1 | Godiva, a bare sphere of uranium | free flights, collisions, the surface, leakage, fission generations, k; leakage and "all fission is fast" by counting | [Godiva](godiva.md) |
-| 2 | uranium mixed into graphite | slowing down, the four-factor formula, the fast fission factor | planned ([#524](https://github.com/theodoreOnzGit/outram-park-backend/issues/524)) |
-| 3 | lumped uranium in graphite | spatial self-shielding | planned |
-| 4 | LCT-008, a water-moderated rod lattice | hydrogen moderation, lattices | planned |
+| 2 | uranium mixed into graphite | slowing down, lethargy, free gas and S(α,β), resonance escape, the four-factor formula, why the homogeneous mixture fails | [Uranium in graphite](ugraphite.md) |
+| 3 | lumped uranium in graphite | spatial self-shielding, why lumps help | [Lumping](lumped.md) |
+| 4 | LCT-008, a water-moderated rod lattice | hydrogen moderation, lattices | [LCT-008](lct008.md) |
 | 5 | TRISO, then the HTR-10 pebble bed | double heterogeneity, delta tracking | planned; the TRISO pebble already runs in the [demo](../../demos/monte-carlo/?rung=triso&mode=watch) |
 
 ## The demo

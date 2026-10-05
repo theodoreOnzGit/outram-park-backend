@@ -513,7 +513,8 @@ Godiva never slows its neutrons down: not one thermal fission. Mix the uranium
 into graphite and almost every fission becomes thermal, the fast fission
 factor $\varepsilon$ becomes measurable, and four new questions open (how do
 neutrons slow down, what is a resonance, why do neutrons escape it, and why
-was the 1942 pile built from lumps). That is **rung 2**, uranium in graphite
+was the 1942 pile built from lumps). That is **[rung 2, uranium in
+graphite](ugraphite.md)**
 ([#524](https://github.com/theodoreOnzGit/outram-park-backend/issues/524)).
 
 ## The whole call tree
