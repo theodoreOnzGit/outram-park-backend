@@ -2155,6 +2155,7 @@ dependencies = [
 name = "dhoby-ghaut"
 version = "0.0.1"
 dependencies = [
+ "boon-lay",
  "buangkok",
  "changi",
  "eframe",

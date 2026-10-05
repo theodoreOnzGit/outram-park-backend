@@ -3,8 +3,9 @@
 # (docs/site/tutorials.txt) into the backend's GitHub Pages site under
 # tutorials/triso-atops/. One page per rung; the extended deep dive is the
 # sibling book docs/lessons/ (deep-dives/triso-atops/), and the two link to
-# each other. The track's demo (triso_atops_web, gh:#540) will link back by
-# rung name once #521's framework can host it.
+# each other. The track's demo (dhoby-ghaut's triso_atops_web, gh:#540,
+# published at demos/triso-atops/) links each page by rung name, and each page
+# links its rung.
 #
 # How the pages are written: docs/lessons/lesson-philosophy.md.
 [book]

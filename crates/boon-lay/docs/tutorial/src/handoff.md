@@ -59,8 +59,10 @@ A source term inherits every gap above it. From this track:
 You can now explain a TRISO particle from the inside: the layers (rung 1),
 the clock of each atom (rung 2), its walk (rungs 3–4), when the shell breaks
 (rung 5), what air and steam add (rung 6), and how release reaches the
-coolant (rung 7). The `triso_atops_web` demo, when built, will put those
-rungs side by side; until then, the [TRISO pebble demo](../../demos/triso-pebble/)
+coolant (rung 7). The [demo](../../demos/triso-atops/?rung=triso) puts those rungs side by
+side, one setting per page; its last rung, [the source term](../../demos/triso-atops/?rung=source-term),
+shows the recorded release that crosses into `sembawang` and links on to the
+dispersion demo's capstone. The [TRISO pebble demo](../../demos/triso-pebble/)
 shows the particles from the neutron's side.
 
 **Next:** the [extended deep dives](../../deep-dives/triso-atops/architecture.html) for the parts of the

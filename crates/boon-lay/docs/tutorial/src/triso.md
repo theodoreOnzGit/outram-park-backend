@@ -21,10 +21,10 @@ atoms, and some of them are radioactive.
 > cladding. The particles themselves are the containment. *What is in a
 > particle, and how does this crate describe it?*
 
-The `triso_atops_web` demo will open at this rung as `?rung=triso`. It is
-not built yet: it waits for the Monte Carlo track's multi-rung demo framework
-(gh:#521). Until it lands, the illustrations on this page are small
-JavaScript drawings, labelled as such.
+**Demo:** [open this rung](../../demos/triso-atops/?rung=triso). The CRP-6 or HTR-10 particle drawn
+in your browser from 200 × 200 region lookups on the assembled `TrisoCell`
+(step 2's lookup); tap it to name a layer. The illustrations on this page
+are small JavaScript drawings, labelled as such.
 
 ---
 

@@ -23,9 +23,13 @@ fork of INL's MIT-licensed Python at commit `de374c8`. The extended page
 > operation, and how much leaves the core when it depressurises and heats
 > up?*
 
-The demo rung for this page will be `?rung=release`: a release-rate plot
-over a heat-up, with recorded results and their provenance rather than a
-fake live run (not built yet; gh:#521).
+**Demo:** [open this rung](../../demos/triso-atops/?rung=release). Rung 5's accident hold carried
+into the helium for Kr-88, Xe-133 or I-131: the source into the coolant and
+the circulating, plated-out, purification-system and leaked pools, computed
+in your browser with `rb_fail_noble_gases`, `release_rate`,
+`base_activities` and `live_pools::step`, from Liu & Cao's HTR-10 core
+inventory. The MHTGR workflow of step 3 is too heavy for a browser and is
+quoted below, not recomputed.
 
 ---
 
@@ -227,7 +231,7 @@ not validation. No measured release from a reactor enters it.
 
 **Re-run 2026-10-04** (this track's run, `develop` atop `5e802df3a4`,
 `--release`, one core; the four workflow tests took **1550 s**, which is why
-the demo will show these as recorded results rather than recompute them):
+it is quoted here and not recomputed in the demo):
 pass. Port against upstream: 5.58·10⁻¹² in normal operation, 3.9·10⁻¹¹ on
 the accident path. The final-over-paper ratios printed by the run match the
 2026-09-30 record.

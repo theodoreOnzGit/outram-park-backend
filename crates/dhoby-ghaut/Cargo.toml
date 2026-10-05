@@ -51,6 +51,10 @@ log = { workspace = true }
 # and decay transfer function. Both are wasm in-scope crates.
 changi = { workspace = true }
 buangkok = { workspace = true }
+# The TRISO-ATOPS and fuel failure demo (gh:#540): boon-lay's TRISO geometry,
+# decay chains, Walk-on-Spheres, fuel failure, chemistry and TRISO-ATOPS
+# release. A wasm in-scope crate (its `wasm_par` shim stands in for rayon).
+boon-lay = { workspace = true }
 # The nuclear data demo's THERMR rung names energies and cross sections in
 # njoy-outram-park-fork's `uom` units (gh:#529).
 uom = { workspace = true }
@@ -132,6 +136,19 @@ path = "examples/monte_carlo_web/main.rs"
 [[example]]
 name = "dispersion_web"
 path = "examples/dispersion_web/main.rs"
+
+# The TRISO-ATOPS and fuel failure demo (gh:#540) -- one app, a rung of the
+# boon-lay lesson ladder at a time (triso, decay, walk, layers, failure,
+# chemistry, release, source-term), every number a call into boon-lay in a
+# background thread or Web Worker, built on `dhoby_ghaut::web_demo`
+# (web/triso_atops/).
+#
+#   cargo run -p dhoby-ghaut --example triso_atops_web --release [-- --rung failure]
+#
+# Carries an Android stub `main`.
+[[example]]
+name = "triso_atops_web"
+path = "examples/triso_atops_web/main.rs"
 
 # The nuclear data demo (gh:#529) -- one app, a rung of the nuclear data track
 # at a time (endf, reconr, broadr, purr, thermr, groupr, acer): real

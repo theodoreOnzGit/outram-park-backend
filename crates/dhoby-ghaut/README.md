@@ -31,25 +31,34 @@ built on (mobile-first main view and panel, the worker/thread plumbing of the
 no-lagging rule, loading card, rung table and lesson links), so it depends on
 `egui` (off Android) and, on wasm32, the wasm-bindgen family. The GUIs and
 demos themselves are **examples**:
-the two studios, moved here from `outram-blender` on 2026-09-17, and the Monte
+the two studios, moved here from `outram-blender` on 2026-09-17, ~~and the Monte
 Carlo web demo (the TRISO pebble demo of 2026-10-03, made multi-rung on
-2026-10-04):
+2026-10-04)~~ **CORRECTED 2026-10-05:** and one web demo per tutorial track,
+each built on `web_demo` (Monte Carlo, dispersion, nuclear data, TRISO-ATOPS):
 
 | Example | What it does |
 |---|---|
 | `mc_studio` | Author a geometry, set a material and run settings, run a basic `outram-mc` k-eigenvalue calculation through `nee_soon::sim` (~~`outram_blender::sim`~~, moved 2026-10-02, #486), and read `k_eff ± σ` with the per-generation plot |
 | `mesh_studio` | Author a surface in `outram-blender`, volume-mesh it through `outram-park-fork-cfmesh`'s tet → dual → boundary-layer pipeline, show the mesh statistics, and export an OpenFOAM `polyMesh` |
 | `monte_carlo_web` (~~`triso_pebble_web`~~, renamed 2026-10-04) | **One demo, a rung of the Monte Carlo tutorial at a time** (gh:#520, #521): `godiva`, a bare uranium sphere, with a Watch mode and a true **Run k_eff** mode (a live power iteration with an `openmc.run()`-style console), and `triso`, one neutron at a time through a 2D HTR-10 pebble. Real ENDF/B-VIII.0 data; single-threaded; also runs **in the browser** — see [below](#the-monte-carlo-demo-in-the-browser) |
+| `dispersion_web` | **The dispersion track's demo** (gh:#530): seven rungs, buangkok's Gaussian plume and changi's puff train computed in a Web Worker; the capstone recorded. Published at `demos/dispersion/` |
+| `nuclear_data_web` | **The nuclear data track's demo** (gh:#529): real ENDF/B-VIII.0 processed by `njoy-outram-park-fork` in the browser, one NJOY module per rung. Published at `demos/nuclear-data/` |
+| `triso_atops_web` | **The TRISO-ATOPS and fuel failure track's demo** (gh:#540): eight rungs, every number a call into `boon-lay` (the slice from region lookups, decay chains, the CRP-6 Case 1 walk against Crank, D(T) per layer, PANAMA-I fuel failure, chemistry, release into the coolant pools); the source term recorded. Published at `demos/triso-atops/` |
 
 ```bash
 cargo run -p dhoby-ghaut --example mc_studio --release
 cargo run -p dhoby-ghaut --example mesh_studio --release
 ```
 
-Each example has a `--headless` mode that prints CSV with no window, checked by
+~~Each example has a `--headless` mode~~ **CORRECTED 2026-10-05:** the two
+studios, `monte_carlo_web`, `nuclear_data_web` and `triso_atops_web` have a
+`--headless` mode that prints CSV with no window; the studios' and the Monte
+Carlo demo's output is checked by
 `#[test]`s against a committed fixture under `tests/fixtures/` (four per
 studio; the web demo's tests cover both rungs, and the TRISO trace is pinned
-by `tests/fixtures/triso_pebble_web_headless.csv`):
+by `tests/fixtures/triso_pebble_web_headless.csv`). `dispersion_web` has no
+window-free mode. Every track demo's engine, which does all the computing, is
+also exercised without a window by the example's own `#[test]`s:
 
 ```bash
 cargo run  -p dhoby-ghaut --example mc_studio --release -- --headless
