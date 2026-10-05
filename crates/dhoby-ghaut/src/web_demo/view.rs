@@ -99,14 +99,21 @@ pub enum Zoom {
 /// right corner: a phone has no wheel, and pinch or double-tap are not
 /// discoverable. Text, not a ⟲ glyph: egui's bundled fonts may not carry it.
 pub fn zoom_buttons(ui: &mut egui::Ui, rect: Rect) -> Option<Zoom> {
-    let buttons = [("+", "Zoom in", 40.0, Zoom::In), ("−", "Zoom out", 40.0, Zoom::Out), ("Reset", "Centre and fit to the screen", 64.0, Zoom::Reset)];
+    zoom_buttons_sized(ui, rect, 18.0)
+}
+
+/// [`zoom_buttons`] with label text `text_px` points high; the buttons grow
+/// with it (the desktop workbench doubles every font, gh:#561).
+pub fn zoom_buttons_sized(ui: &mut egui::Ui, rect: Rect, text_px: f32) -> Option<Zoom> {
+    let k = text_px / 18.0;
+    let buttons = [("+", "Zoom in", 40.0 * k, Zoom::In), ("−", "Zoom out", 40.0 * k, Zoom::Out), ("Reset", "Centre and fit to the screen", 64.0 * k, Zoom::Reset)];
     let gap = 6.0;
     let total: f32 = buttons.iter().map(|b| b.2).sum::<f32>() + gap * (buttons.len() - 1) as f32;
     let mut x = rect.right() - 8.0 - total;
     let mut hit = None;
     for (label, hover, w, z) in buttons {
-        let b = Rect::from_min_size(Pos2::new(x, rect.top() + 8.0), Vec2::new(w, 36.0));
-        if ui.put(b, egui::Button::new(RichText::new(label).size(18.0))).on_hover_text(hover).clicked() {
+        let b = Rect::from_min_size(Pos2::new(x, rect.top() + 8.0), Vec2::new(w, 36.0 * k));
+        if ui.put(b, egui::Button::new(RichText::new(label).size(text_px))).on_hover_text(hover).clicked() {
             hit = Some(z);
         }
         x += w + gap;
@@ -154,6 +161,11 @@ mod tests {
 /// A scale bar in the bottom-left corner: the smallest round length at least
 /// 80 px long.
 pub fn scale_bar(painter: &egui::Painter, rect: Rect, view: &View) {
+    scale_bar_sized(painter, rect, view, 12.0);
+}
+
+/// [`scale_bar`] with its label `text_px` points high.
+pub fn scale_bar_sized(painter: &egui::Painter, rect: Rect, view: &View, text_px: f32) {
     let bar_cm = [0.001, 0.002, 0.005, 0.01, 0.02, 0.05, 0.1, 0.2, 0.5, 1.0, 2.0, 5.0, 10.0, 20.0, 50.0, 100.0]
         .into_iter()
         .find(|&c| c * view.scale >= 80.0)
@@ -163,5 +175,5 @@ pub fn scale_bar(painter: &egui::Painter, rect: Rect, view: &View) {
     let x1 = x0 + (bar_cm * view.scale) as f32;
     painter.line_segment([Pos2::new(x0, y0), Pos2::new(x1, y0)], Stroke::new(2.0, Color32::WHITE));
     let label = if bar_cm < 0.1 { format!("{:.0} µm", bar_cm * 1e4) } else { format!("{bar_cm} cm") };
-    painter.text(Pos2::new(x0, y0 - 4.0), egui::Align2::LEFT_BOTTOM, label, egui::FontId::proportional(12.0), Color32::WHITE);
+    painter.text(Pos2::new(x0, y0 - 4.0), egui::Align2::LEFT_BOTTOM, label, egui::FontId::proportional(text_px), Color32::WHITE);
 }

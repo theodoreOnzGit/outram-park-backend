@@ -11107,6 +11107,170 @@ Fields:
 - **WasmNotSend**
 - **WasmNotSendSync**
 - **WasmNotSync**
+#### Enum `LoadProgress`
+
+One step of [`load_htr10_nuclides_with_progress`], for a caller that shows
+progress (Dhoby Ghaut's workbench, gh:#568).
+
+```rust
+pub enum LoadProgress {
+    Started {
+        item: String,
+    },
+    Finished {
+        item: String,
+        seconds: f64,
+    },
+}
+```
+
+##### Variants
+
+###### `Started`
+
+A thermal-scattering law or a nuclide is about to be processed.
+
+Fields:
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `item` | `String` | What is being processed (`"graphite S(a,b)"`, `"U235"`). |
+
+###### `Finished`
+
+It finished, after `seconds` of wall time.
+
+Fields:
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `item` | `String` | Same text as the matching [`LoadProgress::Started`]. |
+| `seconds` | `f64` | Wall-clock seconds. |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **ByRef**
+  - ```rust
+    fn by_ref(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> LoadProgress { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **DistributionExt**
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Imply**
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &LoadProgress) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
 ### Functions
 
 #### Function `load_htr10_nuclides`
@@ -11130,6 +11294,21 @@ object).
 
 ```rust
 pub fn load_htr10_nuclides(cfg: &Htr10DataConfig, layout: &Htr10NuclideLayout, diag: &mut outram_mc_libs::run_diagnostics::RunDiagnostics) -> Result<Vec<outram_mc_libs::material::nuclide::Nuclide>, Htr10DataError> { /* ... */ }
+```
+
+#### Function `load_htr10_nuclides_with_progress`
+
+[`load_htr10_nuclides`], calling `progress` before and after every
+thermal law and every nuclide slot. The processing, its order and its
+result are exactly those of [`load_htr10_nuclides`], which is this with a
+no-op `progress`.
+
+# Errors
+
+As [`load_htr10_nuclides`].
+
+```rust
+pub fn load_htr10_nuclides_with_progress<F: FnMut(LoadProgress)>(cfg: &Htr10DataConfig, layout: &Htr10NuclideLayout, diag: &mut outram_mc_libs::run_diagnostics::RunDiagnostics, progress: F) -> Result<Vec<outram_mc_libs::material::nuclide::Nuclide>, Htr10DataError> { /* ... */ }
 ```
 
 ### Constants and Statics

@@ -2160,6 +2160,7 @@ dependencies = [
  "changi",
  "eframe",
  "egui",
+ "egui-file-dialog",
  "egui_plot",
  "env_logger",
  "js-sys",
