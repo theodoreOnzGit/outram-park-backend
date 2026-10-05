@@ -5,11 +5,23 @@
 //! cargo run -p outram-mc-libs --release --example htr10_fuel_zone_kinf
 //! # optional: particles-per-generation, inactive, active
 //! cargo run -p outram-mc-libs --release --example htr10_fuel_zone_kinf -- 2000 25 100
+//! # the recorded run (2026-10-05): see "Results" below
+//! THREADS=1 cargo run -p outram-mc-libs --release --example htr10_fuel_zone_kinf -- 10000 50 200
 //! ```
 //!
-//! **Cost warning.** Thermal neutrons in graphite scatter hundreds of times per
+//! Knobs: `THREADS=<n>` (rayon backend, default single-thread);
+//! `OUTRAM_HTR10_GRAPHITE_TSL=crystalline|10P|30P` (graphite law, default 30P);
+//! ablations `--low-tier` (the 2026-09-11 LOW-tier free-gas route) and
+//! `OUTRAM_HTR10_MAJORANT=bounding` (the old majorant, audited but not
+//! stopped on; its k is not a result).
+//!
+//! **Cost.** ~~Thermal neutrons in graphite scatter hundreds of times per
 //! history, so this is far more expensive per particle than a fast system. The
-//! defaults are sized for a few minutes; raise them for real statistics.
+//! defaults are sized for a few minutes; raise them for real statistics.~~
+//! **Measured 2026-10-05:** about 0.28-0.30 ms per history per case on one core
+//! of a 2.1 GHz Xeon (2.5 M histories in 704 s and 761 s), plus ~2.5 min of
+//! ENDF processing (U-235 and U-238 ~70 s each, with URR tables) and a few
+//! seconds per majorant. The defaults (400 x [15 + 45]) run in seconds.
 //!
 //! # What this computes, and what it does NOT
 //!
@@ -44,7 +56,12 @@
 //!   absolute k_inf here cannot be compared to the literature. Only the
 //!   heterogeneous-versus-homogeneous *difference* is meaningful, and only
 //!   as a self-comparison.
-//! - **Thermal scattering in THIS EXAMPLE is FREE GAS.**
+//! - ~~**Thermal scattering in THIS EXAMPLE is FREE GAS.**~~ **CHANGED
+//!   2026-10-05 (#528):** the default route now attaches the ENDF/B-VIII.0
+//!   bound-graphite law (30 %-porous reactor graphite, MAT 32, the HTR-10
+//!   choice recorded on `nee_soon`'s `GraphiteLaw`) to C-12 and C-13; free gas
+//!   is the `--low-tier` ablation only. The UO2 kernel is still free gas (no
+//!   U-in-UO2 / O-in-UO2 law here). The history below is kept as it was.
 //!   ~~Graphite bound-atom S(alpha,beta) (coherent elastic Bragg plus
 //!   incoherent elastic) does not reach the transport path in this
 //!   workspace — `crates/outram-mc-libs/src/material/thermal.rs:24-26` says
@@ -69,15 +86,22 @@
 //! - **The TRISO coatings are not resolved.** The buffer, inner PyC, SiC and
 //!   outer PyC layers are smeared into the matrix graphite; only the fissile
 //!   kernel is an explicit sphere. Tracked as bead `op-6tz.35`.
-//! - **Cross-section data is the LOW fidelity tier** — the embedded windowed-
+//! - ~~**Cross-section data is the LOW fidelity tier** — the embedded windowed-
 //!   multipole CORE library with the 10-group fast fallback above its range,
 //!   a flat nu-bar and a Watt fission-spectrum stand-in
 //!   (`src/material/nuclide.rs:196-199`, `:1110-1124`; worth about +500 pcm on
-//!   Godiva). Published HTR-10 values are continuous-energy ENDF/B-VII.0.
+//!   Godiva).~~ **CHANGED 2026-10-05 (#528):** the default is ENDF/B-VIII.0 read
+//!   directly from `reference-data/endf/` (RECONR + BROADR at 293.15 K,
+//!   tolerance 1e-3), with URR probability tables and DBRC applied by the
+//!   constructor (`Nuclide::from_tape`, the correct-physics default); C is
+//!   split into C-12/C-13 at 98.93/1.07 at.%. The LOW tier is the explicit
+//!   `--low-tier` ablation. Published HTR-10 values are continuous-energy
+//!   ENDF/B-VII.0.
 //! - **Two open P1 RNG defects are inherited**: `op-rbo` (`init_seed` stream
 //!   separation) and `op-jis` (missing PCG output permutation). `op-rbo` has no
 //!   library call site so it does not touch this result, but `op-jis` means
-//!   this crate cannot reproduce an OpenMC sequence bit-for-bit.
+//!   this crate cannot reproduce an OpenMC sequence bit-for-bit. (Not
+//!   re-checked 2026-10-05.)
 //!
 //! # Reproducibility
 //!
@@ -590,8 +614,10 @@ fn main() {
 ///
 /// There is no oracle for them. This is a fuel-zone infinite medium — no
 /// graphite shell, no dummy ball, no reflector, no leakage — and **no published
-/// HTR-10 value corresponds to that problem**. The thermal scattering is free
-/// gas rather than graphite S(alpha,beta), and the data is the LOW tier. Pinning
+/// HTR-10 value corresponds to that problem**. ~~The thermal scattering is free
+/// gas rather than graphite S(alpha,beta), and the data is the LOW tier.~~
+/// (Since 2026-10-05 the default is ENDF/B-VIII.0 with bound graphite; the
+/// absolute k still has no oracle.) Pinning
 /// an absolute k_inf here would manufacture a reference that does not exist, and
 /// the number would then get quoted as an HTR-10 result, which is exactly what
 /// this file's closing text spends a paragraph forbidding.
@@ -613,7 +639,43 @@ fn main() {
 /// two cases equal. That is the failure this catches, and it is invisible to any
 /// check on an absolute k.
 ///
-/// # Results (2026-09-11, LOW tier, free-gas thermal, reflective cube)
+/// # Results — re-measured 2026-10-05, ENDF/B-VIII.0 + graphite S(alpha,beta)
+///
+/// **Methodology.** Default route (ENDF/B-VIII.0 direct, URR + DBRC on,
+/// 30P graphite S(alpha,beta) on C-12/C-13, 293.15 K; the law's 296 K table is
+/// used, within NJOY's `T/1000 + 5` K tolerance), union-grid majorant passing
+/// the dense audit (worst `Sigma_t/Sigma_maj` = 0.9091 heterogeneous, 0.9092
+/// homogenised, i.e. bounded at every node with the 10 % margin).
+/// 10 000 histories x [50 inactive + 200 active] per case, RNG seed 1, packing
+/// seed 20260811 (1018 kernels, realised f = 0.008328), `THREADS=1`
+/// (single-thread backend). Binary built from `5eb40da10` (`develop` +
+/// this example's change); hardware Intel Xeon @ 2.10 GHz (KVM, 4 vCPU, 260 MiB
+/// L3, 15 GiB), pinned to one core with `taskset`, Linux 6.18.44, rustc
+/// 1.95.0, `--release`. Prediction written first, in
+/// `verification_and_validation/tutorial_rung5/README.md` (commit
+/// `071962748`).
+///
+/// ```text
+///   heterogeneous (kernels explicit)   k_inf = 1.57136 +/- 0.00088   (703.6 s)
+///   homogenised   (same atoms)         k_inf = 1.44684 +/- 0.00090   (760.9 s)
+///   delta k (hom - het)                      -12452 +/- 126 pcm  (98.7 sigma)
+///   delta rho (hom - het)                     -5477 +/- 56 pcm
+/// ```
+///
+/// Resolving the TRISO kernels is worth **12 452 ± 126 pcm in k** on this
+/// data, correctly signed. Against the prediction: the sign held; the
+/// magnitude is inside the predicted 10 000-20 000 pcm range but **smaller**
+/// than the LOW-tier value, where the prediction said slightly larger. The
+/// move from the old number, +2191 ± 1174 pcm, is 1.9 sigma (the old run's
+/// statistics dominate), so it is not resolved. The heterogeneous k fell by
+/// 2535 ± 901 pcm from the LOW record (predicted: 1000-4000 lower, held); the
+/// homogenised k fell by only 344 ± 752 pcm (predicted 1000-4000 lower,
+/// **missed**; not resolved from zero). Full record:
+/// `verification_and_validation/tutorial_rung5/README.md`.
+///
+/// # Results (2026-09-11, LOW tier, free-gas thermal, reflective cube) — superseded
+///
+/// Kept as the record; superseded by the ENDF re-measurement above.
 ///
 /// ```text
 ///   heterogeneous (kernels explicit)   k_inf = 1.59671 +/- 0.00897
@@ -621,8 +683,8 @@ fn main() {
 ///   delta k (hom - het)                      -14643 +/- 1167 pcm  (12.5 sigma)
 /// ```
 ///
-/// Resolving the TRISO kernels is worth **14 643 pcm** here, correctly signed
-/// and at 12.5 sigma. Neither absolute number is an HTR-10 result and neither is
+/// Resolving the TRISO kernels is worth ~~**14 643 pcm**~~ here (LOW tier,
+/// superseded), correctly signed and at 12.5 sigma. Neither absolute number is an HTR-10 result and neither is
 /// asserted; only the difference is.
 ///
 /// # Tolerance
@@ -630,9 +692,13 @@ fn main() {
 /// The effect must be present at **> 3 sigma** of the run's own combined
 /// counting statistics, and in the right direction. No magnitude is pinned: it
 /// depends on packing fraction, kernel radii and the data tier, none of which
-/// have an external reference here either. The 12.5 sigma measured leaves a
-/// factor of four over the bar, so the gate fires on the effect disappearing
-/// rather than on ordinary fluctuation.
+/// have an external reference here either. ~~The 12.5 sigma measured leaves a
+/// factor of four over the bar~~ The 98.7 sigma measured on 2026-10-05 (12.5
+/// on the LOW-tier record) leaves a wide margin over the bar, so the gate
+/// fires on the effect disappearing rather than on ordinary fluctuation. At
+/// the default 400 x [15 + 45] the combined sigma is of order 1000 pcm (scaled
+/// from a 200 x [5 + 10] pilot at 3175 pcm), so the
+/// effect still clears 3 sigma there.
 fn vv_gate(k_het: f64, s_het: f64, k_hom: f64, s_hom: f64, dk_pcm: f64, dk_sigma_pcm: f64) {
     println!("\n=== V&V gate: the double-heterogeneity difference (self-comparison) ===");
 
