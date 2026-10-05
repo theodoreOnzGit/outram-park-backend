@@ -160,7 +160,7 @@ use nee_soon::htr10_rmc::core_model::assemble_explicit_triso;
 use nee_soon::htr10_rmc::data::{
     load_htr10_nuclides, CarbonTreatment, Coolant, Htr10DataConfig, Htr10DataError,
     Htr10NuclideLayout, NuclearDataLibrary, RodMetalTreatment, ThermalScatteringTreatment,
-    U238Evaluation, Uo2Laws,
+    TapeSource, U238Evaluation, Uo2Laws,
 };
 use nee_soon::htr10_rmc::reflector::zone_composition;
 use nee_soon::htr10_rmc::materials::GraphiteLaw;
@@ -337,6 +337,7 @@ fn data_config() -> Htr10DataConfig {
             Err(_) => Uo2Laws::GeneratedFromLeapr,
         },
         temperature: ThermodynamicTemperature::new::<kelvin>(TEMP_K),
+        tapes: TapeSource::Workspace,
     }
 }
 

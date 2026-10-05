@@ -78,7 +78,11 @@
 //! **Contents.** B1 is defined with no rod inserted (p. 242), and the rods'
 //! withdrawn position is given (lower end at 119.2 cm), so the rods ARE in
 //! their channels, in the top reflector, with their B4C, steel sleeves and
-//! iron joints as explicit geometry. The absorber-ball system is a reserve
+//! iron joints as explicit geometry. **Since 2026-10-05 (gh:#580)** the same
+//! explicit rods can be built at any position of their published travel,
+//! all ten together (`core_design::Htr10CoreDesign::rod_insertion`; lower end
+//! from `z_T` 119.2 cm withdrawn to 394.2 cm fully inserted); withdrawn stays
+//! the default and the benchmark's state. The absorber-ball system is a reserve
 //! shutdown system, so its channels are empty. The irradiation channels are
 //! empty. Nothing is said about either; ~~both are open items~~ **DECIDED
 //! 2026-09-27 (maintainer, gh:#330): leave them empty.**
@@ -108,7 +112,7 @@ use outram_mc_libs::geometry::surface::{
 use outram_mc_libs::geometry::universe::Universe;
 
 use super::control_rod::{
-    AXIAL_IS_B4C, AXIAL_SECTIONS_CM, LOWER_END_WITHDRAWN_CM, N_CONTROL_RODS,
+    AXIAL_IS_B4C, AXIAL_SECTIONS_CM, N_CONTROL_RODS,
 };
 
 /// First cell id of the reflector's cells, clear of the bed-tile id ranges.
@@ -190,7 +194,8 @@ pub const IRRADIATION_POSITIONS: [usize; N_IRRADIATION_CHANNELS] = [3, 9, 19];
 pub enum ChannelKind {
     /// Cold-helium coolant channel: empty.
     Coolant,
-    /// Control-rod channel: holds a rod at its withdrawn position.
+    /// Control-rod channel: holds a rod, withdrawn unless the design inserts
+    /// it (gh:#580).
     ControlRod,
     /// Irradiation channel: empty.
     Irradiation,
@@ -521,9 +526,15 @@ impl ReflectorFrame {
 /// environment knob `assemble_explicit_triso` reads.
 #[derive(Debug, Clone, Copy)]
 pub(super) struct ReflectorOptions {
-    /// The ten rods at their withdrawn position (`OUTRAM_HTR10_NO_WITHDRAWN_RODS`
-    /// leaves the rod channels empty).
+    /// The ten rods in their channels (`OUTRAM_HTR10_NO_WITHDRAWN_RODS`
+    /// leaves the rod channels empty). The name is historical: until
+    /// 2026-10-05 the rods could only be withdrawn.
     pub withdrawn_rods: bool,
+    /// `z_T` \[cm\] of the rods' lower end: [`super::control_rod::LOWER_END_WITHDRAWN_CM`]
+    /// (119.2) withdrawn, the benchmark's state, up to
+    /// `LOWER_END_INSERTED_CM` (394.2) fully inserted
+    /// (`core_design::Htr10CoreDesign::rod_insertion`, gh:#580).
+    pub rod_lower_end_zt_cm: f64,
 }
 
 /// Material slots the reflector needs, supplied by `core_model` so this module
@@ -668,6 +679,11 @@ pub(super) fn build_reflector(
     // axial, lower end upward, 45/487/36/487/36/487/36/487/36/487/23 mm;
     // joints and ends are Fe only in 27.5 < R < 55 mm. Withdrawn, the lower
     // end is at z_T = 119.2 cm and the rod runs up out of the model top.
+    // Inserted (gh:#580, 2026-10-05) the lower end moves down to
+    // `opts.rod_lower_end_zt_cm` (394.2 cm fully in); once the rod's top end
+    // (264.7 cm above its lower end) is inside the model, the channel above it
+    // is helium. The rod's surfaces and cells are those of the withdrawn rod
+    // translated in z, nothing else changes.
     let rod_universe = if opts.withdrawn_rods {
         // Surfaces pushed fresh, never shared with the root frame: a
         // rod-local cylinder is a different physical surface for every rod.
@@ -689,7 +705,7 @@ pub(super) fn build_reflector(
         idx.push(push(cells, Cell::material(new_id(), Rgn::out(c550).0, he, 293.6)));
         idx.push(push(cells, Cell::material(new_id(), Rgn::ins(c275).0, he, 293.6)));
         // Sections from the lower end up: z_T of each section's lower end.
-        let mut zt_lo = LOWER_END_WITHDRAWN_CM;
+        let mut zt_lo = opts.rod_lower_end_zt_cm;
         let wall = Rgn::out(c275).and(Rgn::ins(c550));
         // Below the rod: empty channel.
         let p_end = zplane(s, frame.lz(zt_lo));
@@ -697,12 +713,15 @@ pub(super) fn build_reflector(
             cells,
             Cell::material(new_id(), wall.clone().and(Rgn::ins(p_end)).0, he, 293.6),
         ));
-        for (i, (&len, &is_b4c)) in AXIAL_SECTIONS_CM.iter().zip(AXIAL_IS_B4C.iter()).enumerate() {
+        for (&len, &is_b4c) in AXIAL_SECTIONS_CM.iter().zip(AXIAL_IS_B4C.iter()) {
             let zt_hi = zt_lo - len;
             let lo = zplane(s, frame.lz(zt_lo));
-            // The last section inside the model runs on up, unbounded: the
-            // channel cell's own top (z_T = 0) closes it.
-            let last = zt_hi <= 0.0 || i + 1 == AXIAL_SECTIONS_CM.len();
+            // A section that reaches the model top runs on up, unbounded: the
+            // channel cell's own top (z_T = 0) closes it. ~~`|| i + 1 ==
+            // len`~~ (2026-10-05, gh:#580): the rod's top section is bounded
+            // when the rod is far enough in for its top to be inside the
+            // model, and helium fills the channel above (below the loop).
+            let last = zt_hi <= 0.0;
             let slab = if last {
                 Rgn::out(lo)
             } else {
@@ -724,10 +743,19 @@ pub(super) fn build_reflector(
                 let reg = wall.clone().and(slab);
                 idx.push(push(cells, Cell::material(new_id(), reg.0, mats.iron, 293.6)));
             }
+            zt_lo = zt_hi;
             if last {
                 break;
             }
-            zt_lo = zt_hi;
+        }
+        // Above the rod's top end, when that is inside the model: empty
+        // channel (gh:#580). `zt_lo` is now the top end's z_T.
+        if zt_lo > 0.0 {
+            let top = zplane(s, frame.lz(zt_lo));
+            idx.push(push(
+                cells,
+                Cell::material(new_id(), wall.clone().and(Rgn::out(top)).0, he, 293.6),
+            ));
         }
         universes.push(Universe {
             id: universes.len() as i32,

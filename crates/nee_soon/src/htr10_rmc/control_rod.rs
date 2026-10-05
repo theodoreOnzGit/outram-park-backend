@@ -17,7 +17,9 @@
 //!   never places `mat::BORED_GRAPHITE`. Its ten rods are **explicit**
 //!   geometry in their own channels (the rod universe of
 //!   [`super::reflector_geometry`]): B4C rings, steel sleeves and iron joints,
-//!   at the withdrawn position by default. They are built from this module's
+//!   at the withdrawn position by default, and since 2026-10-05 at any
+//!   position between [`LOWER_END_WITHDRAWN_CM`] and [`LOWER_END_INSERTED_CM`]
+//!   (`super::core_design::Htr10CoreDesign::rod_insertion`, gh:#580). They are built from this module's
 //!   [`AXIAL_SECTIONS_CM`], [`AXIAL_IS_B4C`], [`LOWER_END_WITHDRAWN_CM`] and
 //!   [`N_CONTROL_RODS`] (checked by search of `reflector_geometry.rs`).
 //! - The smeared composition below is the absorber the band would carry with

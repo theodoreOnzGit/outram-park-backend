@@ -102,6 +102,17 @@ geometry verified byte-identical before/after by its `Debug` hash):
   docs. Drawn in `verification_and_validation/htr10_dem_bed_images/`
   (`examples/htr10_dem_bed_images.rs`). **No validated `k` on it yet.**
 
+Both take a design since 2026-10-05 (`assemble_explicit_triso_with`,
+`assemble_explicit_triso_from_centres_with`, `core_design::Htr10CoreDesign`;
+gh:#566, gh:#580): fuel-ball fraction, fuel-zone radius, TRISO radii and
+count, and the control-rod insertion (all ten explicit rods, 0 withdrawn to 1
+fully inserted). The default design is the record's model and builds the
+same geometry (pinned by `the_default_design_builds_the_geometry_unchanged`
+and the workbench fixture). The 6 cm ball, materials and fertile/poison
+balls are not part of a design; `core_design`'s module docs list them.
+Tapes can be read from a chosen folder, flat or an extracted library, found
+by MAT and NSUB (`data::TapeSource::Folder`, gh:#581).
+
 **Do not add physics kernels here** — only orchestration / facade /
 cross-crate glue belongs in this crate.
 

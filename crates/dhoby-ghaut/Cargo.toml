@@ -61,6 +61,9 @@ egui_plot = { workspace = true }
 # and tampines-steam-tables-gui use).
 egui-file-dialog = { workspace = true }
 nee_soon = { workspace = true }
+# Step 0's folder scan and the tape lookup the nuclear-data load shares with
+# it (`endf_folder`, gh:#581).
+njoy-outram-park-fork = { workspace = true }
 outram-mc-libs = { workspace = true }
 # Step 1's fresh DEM pour (`htr10_fill`, the LIGGGHTS port's GranularSystem).
 outram-park-fork-liggghts = { workspace = true }

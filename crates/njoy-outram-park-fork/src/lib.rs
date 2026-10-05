@@ -54,6 +54,10 @@ pub mod acquire;
 pub mod broadr;
 pub mod common;
 pub mod endf;
+/// A folder of ENDF tapes, flat or an extracted library with sub-library
+/// folders: list it, and find a tape in it by MAT and NSUB rather than by
+/// file name (gh:#581). See [`endf_folder`].
+pub mod endf_folder;
 /// `GASPR` — gas-production cross sections (ENDF MT=203–207: H1/H2/H3/He3/He4)
 /// from a reconstructed evaluation. Informational (depletion/swelling), not a
 /// transport-path quantity — see [`gaspr`] module docs.

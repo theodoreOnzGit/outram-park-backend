@@ -2,9 +2,12 @@
 //!
 //! Every number is read from `nee_soon::htr10_rmc` (the model of the HTR-10
 //! RMC code-to-code record) or `outram_mc_libs::pebble_beds` where they export
-//! it, so the recipe and the model the solver builds cannot drift. Two values
-//! they do not export (the 2.5 cm fuel zone and 8335 particles per pebble)
-//! are typed here and marked where they are. Each value
+//! it, so the recipe and the model the solver builds cannot drift. ~~Two
+//! values they do not export (the 2.5 cm fuel zone and 8335 particles per
+//! pebble) are typed here and marked where they are.~~ **CORRECTED
+//! 2026-10-05:** both are exported (`explicit_bed::FUEL_ZONE_RADIUS_CM`, and
+//! `core_design::PARTICLES_PER_PEBBLE` since gh:#566) and read from there.
+//! Each value
 //! carries the source that `nee_soon`'s own docs give for it. Page numbers
 //! are given only where those docs state one; otherwise the table or section
 //! is named in `what`, and `page` is left empty rather than guessed.
@@ -134,10 +137,10 @@ pub fn htr10() -> Recipe {
                 PebbleDesign {
                     kind: "fuel".into(),
                     outer_radius_cm: 0.5 * table1::BALL_DIAMETER_CM,
-                    // Not exported as constants by the model: 2.5 cm and 8335
-                    // are literals in `nee_soon::htr10_rmc::geometry_closures`
-                    // (Li 2014 Table 2). Kept equal to those by hand.
-                    fuel_zone_radius_cm: Some(2.5),
+                    // ~~Not exported as constants by the model~~ CORRECTED
+                    // 2026-10-05: the builder's own constants (Li 2014
+                    // Table 2), so the recipe cannot drift from the model.
+                    fuel_zone_radius_cm: Some(nee_soon::htr10_rmc::explicit_bed::FUEL_ZONE_RADIUS_CM),
                     matrix: "graphite".into(),
                     triso: Some(Triso {
                         kernel: "UO2".into(),
@@ -149,7 +152,7 @@ pub fn htr10() -> Recipe {
                             ("SiC".into(), spec.sic),
                             ("OPyC".into(), spec.opyc),
                         ],
-                        particles_per_pebble: 8335,
+                        particles_per_pebble: nee_soon::htr10_rmc::core_design::PARTICLES_PER_PEBBLE,
                     }),
                 },
                 PebbleDesign {
@@ -194,7 +197,7 @@ pub fn htr10() -> Recipe {
             b4c_outer_radius_cm: B4C_OUTER_RADIUS_CM,
             b4c_density_g_per_cm3: B4C_DENSITY_G_PER_CM3,
             elements: vec![
-                el("control rods (B4C, steel sleeves, iron joints)", ElementStatus::InModel, "explicit, at the WITHDRAWN position only (the benchmark's state); insertion is not modelled, gh:#580"),
+                el("control rods (B4C, steel sleeves, iron joints)", ElementStatus::InModel, "explicit; withdrawn (the benchmark's state) unless Step 5 inserts them, all ten together (gh:#580)"),
                 el("small absorber spheres", ElementStatus::NotInModel, "KLAK channels are empty (maintainer, gh:#330); gh:#570"),
                 el("pebbles in the irradiation channels", ElementStatus::NotInModel, "irradiation channels are empty (gh:#330); gh:#570"),
                 el("pressure vessel and core barrel steel", ElementStatus::NotInModel, "the model ends at the reflector's outer radius, 190 cm"),

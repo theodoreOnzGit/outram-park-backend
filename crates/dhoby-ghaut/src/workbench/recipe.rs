@@ -363,7 +363,8 @@ impl ReviewGate {
 pub struct RunRecord {
     /// Run label ("Run 1").
     pub label: String,
-    /// Control-rod insertion during the run, fraction (0 = withdrawn).
+    /// Control-rod insertion of the geometry the run transported, fraction
+    /// of the published travel (0 = withdrawn, 1 = fully inserted; gh:#580).
     pub rod_insertion: f64,
     /// Data temperature \[K\].
     pub temperature_k: f64,
@@ -396,7 +397,10 @@ pub struct MonteCarloStep {
     pub seed: u64,
     /// Worker threads.
     pub threads: usize,
-    /// Control-rod insertion for the next run, fraction (0 = withdrawn).
+    /// Control-rod insertion for the next run, fraction of the published
+    /// travel, all ten rods together (0 = withdrawn, the benchmark's state;
+    /// 1 = fully inserted). It moves the explicit rods in the geometry
+    /// (gh:#580).
     pub rod_insertion: f64,
     /// Energy groups of the spectrum tally, per decade.
     pub spectrum_bins_per_decade: usize,

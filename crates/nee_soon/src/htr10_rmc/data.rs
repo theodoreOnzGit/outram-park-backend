@@ -37,10 +37,24 @@
 //!
 //! Every other choice is a named ablation on one field of the config. The
 //! pin is `tests/htr10_correct_physics_is_default.rs`.
+//!
+//! # Where the tapes are read from (gh:#581, 2026-10-05)
+//!
+//! [`Htr10DataConfig::tapes`] is [`TapeSource::Workspace`] by default:
+//! `reference-data/endf/` and, for the nickel tapes, the ACE submodule, as
+//! always. [`TapeSource::Folder`] reads every tape from one folder the caller
+//! names instead, flat or an extracted library (`neutrons/`,
+//! `thermal_scatt/`), finding each tape by the MAT and NSUB of the
+//! workspace copy's header rather than by file name
+//! ([`njoy_outram_park_fork::endf_folder`]). A tape the folder lacks is an
+//! error ([`Htr10DataError::NotInFolder`]), never a silent fall-back to the
+//! workspace copy; the one exception is the documented free-gas fall-back
+//! for a missing SiC law, which applies to either source.
 
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::time::Instant;
 
+use njoy_outram_park_fork::endf_folder::{EndfFolder, FindTapeError, TapeIdentity};
 use njoy_outram_park_fork::leapr::decks::SabMaterial;
 use njoy_outram_park_fork::reference_data::{ace_submodule_dir, reference_data_dir};
 use outram_mc_libs::material::nuclide::Nuclide;
@@ -254,6 +268,24 @@ pub struct Htr10DataConfig {
     /// (27 °C) is the temperature Li, Yu & Wei (2014) and Şeker & Çolak (2003)
     /// state.
     pub temperature: ThermodynamicTemperature,
+    /// Where the tapes are read from: the workspace (default) or a folder
+    /// the user chose (gh:#581). Changes no physics choice: the same tapes
+    /// are read, found by identity.
+    pub tapes: TapeSource,
+}
+
+/// Where [`load_htr10_nuclides`] reads the evaluated tapes.
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
+pub enum TapeSource {
+    /// Each tape at its [`Tape::path`]: `reference-data/endf/` (honouring
+    /// `OUTRAM_PARK_REFERENCE_DATA_DIR`) or the ACE submodule.
+    #[default]
+    Workspace,
+    /// Every tape from this folder: flat, or an extracted ENDF library with
+    /// `neutrons/` and `thermal_scatt/` sub-folders. Each tape is found by
+    /// the MAT and NSUB of the workspace copy's header (the library's own
+    /// file names may differ), by file name when no workspace copy exists.
+    Folder(PathBuf),
 }
 
 impl Default for Htr10DataConfig {
@@ -269,6 +301,7 @@ impl Default for Htr10DataConfig {
             u238: U238Evaluation::default(),
             uo2_laws: Uo2Laws::default(),
             temperature: ThermodynamicTemperature::new::<kelvin>(300.15),
+            tapes: TapeSource::Workspace,
         }
     }
 }
@@ -437,6 +470,23 @@ pub enum Htr10DataError {
         name: String,
         /// Path tried.
         path: PathBuf,
+    },
+    /// [`TapeSource::Folder`] does not hold a tape the plan needs (or holds
+    /// several candidates and none has the wanted name).
+    #[error("{name}: {file} (MAT {mat:?}, NSUB {nsub:?}) is not in {folder}{detail}")]
+    NotInFolder {
+        /// Slot or law name.
+        name: String,
+        /// The workspace copy's file name.
+        file: String,
+        /// MAT looked for.
+        mat: Option<i32>,
+        /// Sub-library looked for.
+        nsub: Option<i64>,
+        /// The folder searched.
+        folder: PathBuf,
+        /// Extra detail (the ambiguous candidates), or empty.
+        detail: String,
     },
     /// A tape is present but did not load.
     #[error("{name}: loading {path} failed")]
@@ -783,6 +833,107 @@ pub fn load_htr10_nuclides(
     load_htr10_nuclides_with_progress(cfg, layout, diag, |_| {})
 }
 
+/// Where each tape of a load is read from, decided once per load.
+struct TapeResolver {
+    /// The scanned folder of [`TapeSource::Folder`]; `None` for the workspace.
+    folder: Option<EndfFolder>,
+}
+
+impl TapeResolver {
+    fn new(source: &TapeSource) -> Self {
+        Self {
+            folder: match source {
+                TapeSource::Workspace => None,
+                TapeSource::Folder(dir) => Some(EndfFolder::scan(dir)),
+            },
+        }
+    }
+
+    /// The path to read for the tape whose workspace copy is at `default`.
+    /// `known` is an identity known without a header (the thermal laws'
+    /// MAT), used when the workspace copy is absent.
+    fn resolve(
+        &self,
+        name: &str,
+        default: &Path,
+        known: Option<TapeIdentity>,
+    ) -> Result<PathBuf, Htr10DataError> {
+        let Some(folder) = &self.folder else {
+            return Ok(default.to_path_buf());
+        };
+        let mut want = TapeIdentity::of_tape(default);
+        if let Some(k) = known {
+            want.mat = want.mat.or(k.mat);
+            want.nsub = want.nsub.or(k.nsub);
+        }
+        folder.locate(&want).map_err(|e| Htr10DataError::NotInFolder {
+            name: name.to_string(),
+            file: want.file.clone(),
+            mat: want.mat,
+            nsub: want.nsub,
+            folder: folder.dir.clone(),
+            detail: match e {
+                FindTapeError::Missing => String::new(),
+                FindTapeError::Ambiguous(v) => format!(" as one tape: candidates {}", v.join(", ")),
+            },
+        })
+    }
+}
+
+/// The identity of a thermal law's tape, from what the plan knows about it.
+fn law_identity(file: &str, mat: i32) -> TapeIdentity {
+    TapeIdentity {
+        file: file.to_string(),
+        mat: Some(mat),
+        // ENDF-6 sub-library 12: thermal neutron scattering.
+        nsub: Some(12),
+    }
+}
+
+/// The tape file and MAT of a law read from a tape, if it is one
+/// (`None` for the UO2 laws, which are generated or read from `Uo2Laws`).
+fn law_tape(law: ThermalLaw) -> Option<(&'static str, i32)> {
+    match law {
+        ThermalLaw::Graphite { file, mat } => Some((file, mat)),
+        ThermalLaw::CInSiC => Some(("tsl-CinSiC.endf", 44)),
+        ThermalLaw::SiInSiC => Some(("tsl-SiinSiC.endf", 43)),
+        ThermalLaw::UInUO2 | ThermalLaw::OInUO2 => None,
+    }
+}
+
+/// Every tape `layout` reads, and where [`load_htr10_nuclides`] would read it
+/// from under `cfg.tapes`: `(slot or law name, path)`, nuclide slots after
+/// the thermal laws. Reads only headers, never the data, so a caller can
+/// check a folder before a load that takes minutes. A SiC law the source
+/// lacks is left out (the load falls back to free gas for it).
+///
+/// # Errors
+/// [`Htr10DataError::NotInFolder`] for the first tape a folder does not hold.
+pub fn resolve_tapes(
+    cfg: &Htr10DataConfig,
+    layout: &Htr10NuclideLayout,
+) -> Result<Vec<(String, PathBuf)>, Htr10DataError> {
+    let r = TapeResolver::new(&cfg.tapes);
+    let mut out: Vec<(String, PathBuf)> = Vec::new();
+    for law in layout.slots.iter().filter_map(|s| s.thermal) {
+        let Some((file, mat)) = law_tape(law) else { continue };
+        let label = law.label().to_string();
+        if out.iter().any(|(n, _)| *n == label) {
+            continue;
+        }
+        let default = DataDir::Endf.path().join(file);
+        match r.resolve(&label, &default, Some(law_identity(file, mat))) {
+            Ok(p) => out.push((label, p)),
+            Err(_) if matches!(law, ThermalLaw::CInSiC | ThermalLaw::SiInSiC) => {}
+            Err(e) => return Err(e),
+        }
+    }
+    for s in &layout.slots {
+        out.push((s.name.to_string(), r.resolve(s.name, &s.tape.path(), None)?));
+    }
+    Ok(out)
+}
+
 /// One step of [`load_htr10_nuclides_with_progress`], for a caller that shows
 /// progress (Dhoby Ghaut's workbench, gh:#568).
 #[derive(Debug, Clone, PartialEq)]
@@ -823,6 +974,12 @@ pub fn load_htr10_nuclides_with_progress<F: FnMut(LoadProgress)>(
         eprintln!("  {n}");
     }
     let t_k = cfg.temperature.get::<kelvin>();
+    let resolver = TapeResolver::new(&cfg.tapes);
+    if let TapeSource::Folder(dir) = &cfg.tapes {
+        let note = format!("tapes read from {} (found by MAT and NSUB, gh:#581)", dir.display());
+        diag.note(note.clone());
+        eprintln!("  {note}");
+    }
 
     // Each distinct thermal law, loaded once.
     let mut laws: Vec<(ThermalLaw, ThermalScattering)> = Vec::new();
@@ -833,7 +990,7 @@ pub fn load_htr10_nuclides_with_progress<F: FnMut(LoadProgress)>(
         let item = law.label().to_string();
         progress(LoadProgress::Started { item: item.clone() });
         let t = Instant::now();
-        let loaded = load_law(law, cfg, diag)?;
+        let loaded = load_law(law, cfg, &resolver, diag)?;
         progress(LoadProgress::Finished {
             item,
             seconds: t.elapsed().as_secs_f64(),
@@ -845,7 +1002,7 @@ pub fn load_htr10_nuclides_with_progress<F: FnMut(LoadProgress)>(
 
     let mut out = Vec::with_capacity(layout.len());
     for s in &layout.slots {
-        let p = s.tape.path();
+        let p = resolver.resolve(s.name, &s.tape.path(), None)?;
         if !p.exists() {
             return Err(Htr10DataError::MissingTape {
                 name: s.name.into(),
@@ -888,6 +1045,7 @@ pub fn load_htr10_nuclides_with_progress<F: FnMut(LoadProgress)>(
 fn load_law(
     law: ThermalLaw,
     cfg: &Htr10DataConfig,
+    resolver: &TapeResolver,
     diag: &mut RunDiagnostics,
 ) -> Result<Option<ThermalScattering>, Htr10DataError> {
     let t_k = cfg.temperature.get::<kelvin>();
@@ -905,7 +1063,11 @@ fn load_law(
     };
     match law {
         ThermalLaw::Graphite { file, mat } => {
-            let p = DataDir::Endf.path().join(file);
+            let p = resolver.resolve(
+                "graphite S(a,b)",
+                &DataDir::Endf.path().join(file),
+                Some(law_identity(file, mat)),
+            )?;
             if !p.exists() {
                 return Err(Htr10DataError::MissingTape {
                     name: "graphite S(a,b)".into(),
@@ -927,12 +1089,17 @@ fn load_law(
             } else {
                 ("tsl-SiinSiC.endf", 43, "Si_SiC")
             };
-            let p = DataDir::Endf.path().join(file);
-            if !p.exists() {
+            // Absent from the workspace or from the chosen folder: the same
+            // documented free-gas fall-back either way.
+            let found = resolver
+                .resolve(name, &DataDir::Endf.path().join(file), Some(law_identity(file, mat)))
+                .ok()
+                .filter(|p| p.exists());
+            let Some(p) = found else {
                 eprintln!("  {name}: {file} not in this checkout -- falling back to free gas");
                 diag.note(format!("{name} S(a,b): {file} absent -- FREE GAS fallback"));
                 return Ok(None);
-            }
+            };
             Ok(from_tape(diag, p, mat, name))
         }
         ThermalLaw::UInUO2 | ThermalLaw::OInUO2 => {
@@ -1314,5 +1481,79 @@ mod tests {
             0,
             "nothing may be read before refusing"
         );
+    }
+
+    /// # Verification: tapes resolved from a chosen folder (gh:#581)
+    ///
+    /// **Methodology.** [`resolve_tapes`] reads only headers, so the whole
+    /// default plan can be resolved without loading data. Three sources:
+    /// the workspace (each tape at its own path); a synthetic extracted
+    /// library, made of symbolic links to the workspace tapes under the
+    /// official archive's names (`neutrons/n-092_U_235.endf`, no `-ENDF8.0`)
+    /// with the rod metal simplified so the ACE submodule is not needed; and
+    /// `reference-data/endf/` itself as a folder, which lacks the nickel
+    /// tapes (they are in the ACE submodule) and must say so rather than
+    /// fall back.
+    ///
+    /// **Results (2026-10-05).** Workspace: every path is the plan's own.
+    /// Library: every nuclide and the graphite law resolve into the library,
+    /// to the tape with the same MAT and NSUB, none to the workspace.
+    /// Reference folder: `NotInFolder` for Ni-58.
+    #[test]
+    fn tapes_resolve_from_a_chosen_folder_by_identity() {
+        let ws = Htr10DataConfig::default();
+        let layout = Htr10NuclideLayout::plan(&ws).expect("plan");
+        let paths = resolve_tapes(&ws, &layout).expect("workspace");
+        for s in &layout.slots {
+            let p = &paths.iter().find(|(n, _)| n == s.name).expect("slot resolved").1;
+            assert_eq!(*p, s.tape.path(), "{}", s.name);
+        }
+
+        // reference-data/endf as a folder: the nickel is not there.
+        let flat = Htr10DataConfig {
+            tapes: TapeSource::Folder(DataDir::Endf.path()),
+            ..Htr10DataConfig::default()
+        };
+        match resolve_tapes(&flat, &layout) {
+            Err(Htr10DataError::NotInFolder { file, .. }) => assert!(file.contains("Ni_058"), "{file}"),
+            other => panic!("expected the nickel to be missing, got {other:?}"),
+        }
+
+        #[cfg(unix)]
+        {
+            let cfg0 = Htr10DataConfig {
+                rod_metal: RodMetalTreatment::Simplified,
+                ..Htr10DataConfig::default()
+            };
+            let layout = Htr10NuclideLayout::plan(&cfg0).expect("plan");
+            let root = std::env::temp_dir().join(format!("nee_soon_endf_lib_{}", std::process::id()));
+            let _ = std::fs::remove_dir_all(&root);
+            std::fs::create_dir_all(root.join("neutrons")).expect("dir");
+            std::fs::create_dir_all(root.join("thermal_scatt")).expect("dir");
+            let ws_paths = resolve_tapes(&cfg0, &layout).expect("workspace");
+            for (_, p) in &ws_paths {
+                let f = p.file_name().and_then(|f| f.to_str()).expect("name");
+                let lib_name = f.replace("-ENDF8.0", "");
+                let sub = if f.starts_with("tsl-") { "thermal_scatt" } else { "neutrons" };
+                let dst = root.join(sub).join(&lib_name);
+                if !dst.exists() {
+                    std::os::unix::fs::symlink(p, &dst).expect("link");
+                }
+            }
+            let cfg = Htr10DataConfig {
+                tapes: TapeSource::Folder(root.clone()),
+                ..cfg0
+            };
+            let got = resolve_tapes(&cfg, &layout).expect("library");
+            assert_eq!(got.len(), ws_paths.len());
+            for ((n, p), (wn, wp)) in got.iter().zip(&ws_paths) {
+                assert_eq!(n, wn);
+                assert!(p.starts_with(&root), "{n} read from {}", p.display());
+                let (a, b) = (TapeIdentity::of_tape(p), TapeIdentity::of_tape(wp));
+                assert_eq!((a.mat, a.nsub), (b.mat, b.nsub), "{n}");
+                assert!(a.mat.is_some(), "{n}: header unreadable");
+            }
+            let _ = std::fs::remove_dir_all(&root);
+        }
     }
 }

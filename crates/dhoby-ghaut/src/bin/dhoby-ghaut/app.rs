@@ -55,12 +55,21 @@ pub enum Screen {
     Wizard,
 }
 
-/// What a geometry was built from: the lattice at `(rings, layers)`, or a
-/// particular DEM pour (identified by its run number in this session).
+/// What a geometry's bed was built from: the lattice at `(rings, layers)`,
+/// or a particular DEM pour (identified by its run number in this session).
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum BedKey {
     Lattice(usize, usize),
     Dem(u64),
+}
+
+/// Everything a geometry was built from: the bed and the design (mix,
+/// pebble design, rod insertion; gh:#566, gh:#580). Any model-input edit
+/// changes it, which is what marks the geometry stale.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct BuildKey {
+    pub bed: BedKey,
+    pub design: nee_soon::htr10_rmc::core_design::Htr10CoreDesign,
 }
 
 /// Step 1's DEM pour: where it is, and what it produced.
@@ -136,7 +145,7 @@ pub struct App {
     pub core: Option<Arc<AssembledCore>>,
     pub assembling: bool,
     /// What the current geometry was built from.
-    pub assembled_for: Option<BedKey>,
+    pub assembled_for: Option<BuildKey>,
     pub slice: SliceView,
     /// The Blender-like 3D viewport, and whether the main view shows it (else
     /// the 2D slice).
@@ -320,19 +329,25 @@ impl App {
         });
     }
 
-    /// The bed Step 1 currently asks for (always `Some`; kept an `Option` for
-    /// a future source with nothing to build).
-    pub fn wanted_bed(&self) -> Option<BedKey> {
+    /// The geometry the recipe currently asks for: Step 1's bed and the
+    /// design every model input maps to ([`crate::design::plan`]). Always
+    /// `Some`; kept an `Option` for a future source with nothing to build.
+    pub fn wanted_bed(&self) -> Option<BuildKey> {
         use dhoby_ghaut::workbench::recipe::BedSource;
-        match self.recipe.pebble_bed.source {
-            BedSource::Lattice => Some(BedKey::Lattice(self.recipe.pebble_bed.rings, self.recipe.pebble_bed.layers)),
+        let lattice = BedKey::Lattice(self.recipe.pebble_bed.rings, self.recipe.pebble_bed.layers);
+        let bed = match self.recipe.pebble_bed.source {
+            BedSource::Lattice => lattice,
             // Until a pour has finished, the preset lattice stands in (Step 1
             // says so).
-            BedSource::Dem => Some(match &self.dem.result {
+            BedSource::Dem => match &self.dem.result {
                 Some(_) => BedKey::Dem(self.dem.run_id),
-                None => BedKey::Lattice(self.recipe.pebble_bed.rings, self.recipe.pebble_bed.layers),
-            }),
-        }
+                None => lattice,
+            },
+        };
+        Some(BuildKey {
+            bed,
+            design: crate::design::plan(&self.recipe).design,
+        })
     }
 
     /// Build the geometry Step 1 asks for: the lattice, or the finished DEM
@@ -346,12 +361,13 @@ impl App {
         self.slice.invalidate();
         self.view3d.invalidate();
         self.shown_step = None;
-        match key {
-            BedKey::Lattice(rings, layers) => self.geo.send(Req::Assemble { rings, layers }),
+        let design = key.design;
+        match key.bed {
+            BedKey::Lattice(rings, layers) => self.geo.send(Req::Assemble { rings, layers, design }),
             BedKey::Dem(_) => {
                 let centres_m = self.dem.result.clone().unwrap_or_default();
                 let rings = self.recipe.pebble_bed.rings;
-                self.geo.send(Req::AssembleFromCentres { centres_m, rings });
+                self.geo.send(Req::AssembleFromCentres { centres_m, rings, design });
             }
         }
         // A new geometry needs a new look before Monte Carlo.
@@ -473,7 +489,9 @@ impl App {
                         .runs
                         .push(dhoby_ghaut::workbench::recipe::RunRecord {
                             label: o.label.clone(),
-                            rod_insertion: mc.rod_insertion,
+                            // The insertion the transported geometry was
+                            // built with (gh:#580).
+                            rod_insertion: o.rod_insertion,
                             temperature_k: self.recipe.nuclear_data.temperature_k,
                             particles: mc.particles,
                             inactive: mc.inactive,

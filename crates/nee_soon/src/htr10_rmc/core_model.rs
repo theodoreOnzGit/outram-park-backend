@@ -47,6 +47,7 @@ use super::bed::{
     bed_tile_levels, hex_ring, DischargeTube, FuelAssignment, HexBedCell, PebbleBed, SekerBed,
     SekerCell, TwoBallBed,
 };
+use super::core_design::Htr10CoreDesign;
 use super::core_shell::{ins, shell, CoreFrame, CoreShell};
 use super::reflector_geometry::Rgn;
 
@@ -435,6 +436,16 @@ pub struct AssembledCore {
     /// (2026-10-05), whose lattice uses Şeker's tile shape purely as a
     /// spatial index.
     pub bed: Option<PebbleBed>,
+    /// Whole TRISO particles the built lattice places in each fuel zone
+    /// (gh:#566): the design's `particles_per_pebble` when the pitch search
+    /// reaches it, else the closest count it found. `None` for the one-ball
+    /// [`assemble`].
+    pub triso_particles: Option<usize>,
+    /// TECDOC `z_T` \[cm\] (downward from the model top) of the ten control
+    /// rods' lower end as built (gh:#580): 119.2 withdrawn to 394.2 fully
+    /// inserted. `None` when no rods are built (no reflector, the
+    /// `OUTRAM_HTR10_NO_WITHDRAWN_RODS` ablation, or the one-ball [`assemble`]).
+    pub rod_lower_end_zt_cm: Option<f64>,
 }
 
 /// **Assemble a delta-tracked pebble bed inside a surface-tracked reflector.**
@@ -894,6 +905,8 @@ pub fn assemble(n_rings: usize, n_axial: usize, majorant_index: usize) -> Assemb
         refl_top,
         refl_bottom,
         bed: None,
+        triso_particles: None,
+        rod_lower_end_zt_cm: None,
     }
 }
 
@@ -1016,6 +1029,27 @@ pub fn assemble_explicit_triso(
     layers: usize,
     majorant_index: usize,
 ) -> AssembledCore {
+    assemble_explicit_triso_with(n_rings, layers, majorant_index, &Htr10CoreDesign::default())
+}
+
+/// [`assemble_explicit_triso`] built to `design` (gh:#566, gh:#580): the
+/// fuel-ball fraction, fuel-zone radius, TRISO radii and count, and the
+/// control-rod insertion are the design's. With
+/// [`Htr10CoreDesign::default`] the geometry is the record's, cell for cell
+/// (`the_default_design_builds_the_geometry_unchanged`). What a design cannot
+/// change (the 6 cm ball, materials, fertile or poison balls) is listed in
+/// [`super::core_design`].
+///
+/// # Panics
+/// As [`assemble_explicit_triso`], and if `design` fails
+/// [`Htr10CoreDesign::check`].
+#[must_use]
+pub fn assemble_explicit_triso_with(
+    n_rings: usize,
+    layers: usize,
+    majorant_index: usize,
+    design: &Htr10CoreDesign,
+) -> AssembledCore {
     // The two-ball bed CUTS pebbles (side wall, bed top): wrong physics, never
     // to be run, not even as an ablation (maintainer, 2026-10-01). Refuse the
     // old knob loudly rather than ignore it silently.
@@ -1038,7 +1072,8 @@ pub fn assemble_explicit_triso(
     let cell = HexBedCell::from_paper();
     let seker_cell = SekerCell::from_paper();
     let r_pebble = cell.ball_diameter * 0.5;
-    let r_fuel_zone = 2.5;
+    // 2.5 cm in the default design (Li 2014 Table 2); gh:#566.
+    let r_fuel_zone = design.fuel_zone_radius_cm;
 
     // TWO BALLS PER TILE: the lattice tile IS the paper's prism (gh:#309 step
     // 2, gh:#310, 2026-09-25).
@@ -1177,7 +1212,7 @@ pub fn assemble_explicit_triso(
     } else {
         // Şeker's rejection is part of the bed (every kept ball whole). With
         // the smeared-tube ablation the container ends at the conus floor.
-        PebbleBed::Seker(SekerBed::new(
+        let b = SekerBed::new(
             seker_cell,
             n_rings,
             layers,
@@ -1186,7 +1221,14 @@ pub fn assemble_explicit_triso(
             HTR10_DISCHARGE_TUBE_RADIUS_CM,
             explicit_tube.then_some(HTR10_BOTTOM_REFLECTOR_CM),
             assignment,
-        ))
+        );
+        // The design's fuel fraction (gh:#566); the paper's 0.57 leaves the
+        // bed exactly as `SekerBed::new` assigned it.
+        PebbleBed::Seker(if design.fuel_ball_fraction == b.fuel_fraction {
+            b
+        } else {
+            b.with_fuel_fraction(design.fuel_ball_fraction)
+        })
     };
     debug_assert!((bed.bed_top() - bed_half_height).abs() < 1e-9);
     let site_centres = bed.site_centres();
@@ -1195,7 +1237,7 @@ pub fn assemble_explicit_triso(
     // Everything around the bed -- TRISO, envelope, cavity, zone 0 -- is
     // `super::core_shell` (extracted from this function 2026-10-05 so the
     // explicit DEM bed reuses it). Surfaces 0..21 are unchanged.
-    let mut sh = CoreShell::new(&frame, site_centres[0], r_fuel_zone, r_pebble, majorant_index);
+    let mut sh = CoreShell::new(&frame, site_centres[0], design, r_pebble, majorant_index);
     let mut surfaces = std::mem::take(&mut sh.surfaces);
     let mut cells = std::mem::take(&mut sh.cells);
     let mut universes = std::mem::take(&mut sh.universes);
