@@ -100,8 +100,8 @@ line that samples the flight:
 
 Call chain from `godiva_keff_endf_local.rs::main` to `keff.rs::run_keff_cpu_single`: 2 hops, 1 shortest chain.
 
-- [`godiva_keff_endf_local.rs::main`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/examples/godiva_keff_endf_local.rs#L103) `fn main()`
-  - [`keff.rs::run_keff`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/physics/keff.rs#L413) `pub fn run_keff(radius_cm: f64, material: &Material, nuclides: &[Nuclide], settings: &KeffSettings) -> KeffResult` — Run fission-source power iteration on a bare sphere of radius `radius_cm` (centred at the origin, vacuum outside) filled with `material`. · called at [L152](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/examples/godiva_keff_endf_local.rs#L152)
+- [`godiva_keff_endf_local.rs::main`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/examples/godiva_keff_endf_local.rs#L106) `fn main()`
+  - [`keff.rs::run_keff`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/physics/keff.rs#L413) `pub fn run_keff(radius_cm: f64, material: &Material, nuclides: &[Nuclide], settings: &KeffSettings) -> KeffResult` — Run fission-source power iteration on a bare sphere of radius `radius_cm` (centred at the origin, vacuum outside) filled with `material`. · called at [L155](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/examples/godiva_keff_endf_local.rs#L155)
     - [`keff.rs::run_keff_cpu_single`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/physics/keff.rs#L444) `pub fn run_keff_cpu_single(radius_cm: f64, material: &Material, nuclides: &[Nuclide], settings: &KeffSettings) -> KeffResult` — Scalar, single-thread fission-source power iteration — the **trusted, deterministic, bit-reproducible reference** backend (`ComputeType::CpuSingleThread`). · called at [L421](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/physics/keff.rs#L421)
 <!-- /code-walk -->
 
@@ -427,33 +427,42 @@ record below, so expect it to load more slowly than Watch mode. Then press
 ▶ Run k_eff: 5000 neutrons × [40 inactive + 120 active] generations, one
 console line per generation, as `openmc.run()` prints.*
 
-**The result to quote.** Five ways of computing Godiva were compared in
-[`five_route_keff_2026_09_29.md`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/verification_and_validation/icsbep/five_route_keff_2026_09_29.md),
-section "Results — after the OpenMC-parity audit" (2026-09-30, commit
-`0414bc8277`). The one this lesson's code is, **route 4: `outram-mc-libs`
-reading ENDF/B-VIII.0 directly**, 32 independent seeds × 5000 neutrons ×
-[40 + 120] generations:
+**The result to quote.** This lesson's program, run **1024 times with
+independent seeds** (`examples/godiva_keff_ensemble.rs`, 5000 neutrons ×
+[40 + 120] generations, ENDF/B-VIII.0 read directly; 2026-10-05, commit
+`6faff1ed8`, recorded as `RECORDED_PCM` in
+[`godiva_keff_endf_local.rs`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/examples/godiva_keff_endf_local.rs),
+[#546](https://github.com/theodoreOnzGit/outram-park-backend/issues/546)):
 
-$$k_\text{eff} = 0.99948 \pm 0.00027$$
+$$k_\text{eff} = 0.99994 \pm 0.00005$$
 
-that is, **−52 ± 27 pcm** from 1, against the experiment's
+that is, **−6 ± 5 pcm** from 1, against the experiment's
 **1.0000 ± 0.0010** (HEU-MET-FAST-001). One pcm is
 $10^{-5}$ in $k$.
 
-- **What the ± means.** Each seed is a complete, independent run. The 32
-  results scatter with a standard deviation of **151 pcm**; the mean of 32 is
-  known to $151/\sqrt{32} = 27$ pcm. *Why that is trustworthy is a later
-  lesson.*
-- **Validation.** Against the experiment, $-52 \pm 27$ pcm is well inside the
+~~$k_\text{eff} = 0.99948 \pm 0.00027$, −52 ± 27 pcm (route 4 of the
+five-route record, 32 seeds, 2026-09-30, `0414bc8277`)~~: superseded on
+2026-10-05. The same route, re-run on the same code, reproduces those 32
+seeds digit for digit, and over 288 seeds gives −10 ± 11 pcm. The 32 seeds
+had simply come out low (see "Later measurements" in
+[`five_route_keff_2026_09_29.md`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/verification_and_validation/icsbep/five_route_keff_2026_09_29.md)).
+
+- **What the ± means.** Each seed is a complete, independent run. The 1024
+  results scatter with a standard deviation of **165 pcm**, so the mean of
+  1024 is known to $165/\sqrt{1024} = 5$ pcm. *Why that is trustworthy is a
+  later lesson.*
+- **Validation.** Against the experiment, $-6 \pm 5$ pcm is well inside the
   experiment's own ±100 pcm. That is a check against a measurement: a
-  **validation**.
+  **validation**. It does not mean "6 pcm accurate": the experiment itself is
+  known only to ±100 pcm.
 - **Verification.** Beside it, **OpenMC** reading NJOY2016 data (route 1 of
-  the same record; *route 1 is OpenMC, not this code*) gives
-  1.00016 ± 0.00021, **+16 ± 21 pcm**. The difference, **−68 ± 34 pcm
-  (2.0 σ)**, is shown as it is: two codes, two data paths, agreeing to within
-  a tenth of a percent but not yet within their statistics.
-- **Your run.** One run at the default settings is one seed of the 32, so
-  expect it to land within about ±151 pcm of the record, and its own ± (the
+  the five-route record, 32 seeds, 2026-09-30; *route 1 is OpenMC, not this
+  code*) gives 1.00016 ± 0.00021, **+16 ± 21 pcm**. The difference is
+  **−22 ± 22 pcm (1.0 σ)**: two codes and two data paths agree within their
+  statistics. ~~The difference, −68 ± 34 pcm (2.0 σ)~~ was against the low
+  32-seed draw above.
+- **Your run.** One run at the default settings is one seed of the 1024, so
+  expect it to land within about ±165 pcm of the record, and its own ± (the
   spread of its 120 generations) to be of that size too. A run done natively
   for this page (seed 1, 2026-10-04, i9-13900K, one thread) gave
   **0.99942 ± 0.00183** (−58 ± 183 pcm); its transport took 2.9 s and the
@@ -483,7 +492,7 @@ The lesson in it: for a bare fast sphere, **forward-peaked elastic
 scattering** was worth about 10 000 pcm, because a neutron that keeps going
 forward reaches the surface sooner. The data's fidelity mattered far less
 than the physics of the collision. The current number is the one above,
-−52 ± 27 pcm.
+−6 ± 5 pcm (~~−52 ± 27 pcm~~ until 2026-10-05).
 
 </div>
 

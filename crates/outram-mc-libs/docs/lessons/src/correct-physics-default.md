@@ -29,7 +29,7 @@ The defaults were also **mis-read during the hunt itself**. A search for
 as the feature being active, when three lines away it read
 `urr: args.iter().any(|a| a == "--urr")`: off unless asked for. **Counting a
 symbol's presence is not checking a default.** The line is still in
-[`examples/lct008_keff.rs`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/examples/lct008_keff.rs#L534-L544),
+[`examples/lct008_keff.rs`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/examples/lct008_keff.rs#@@L:crates/outram-mc-libs/examples/lct008_keff.rs:text=urr:+args.iter().any@@),
 but it no longer decides anything. The constructor that example calls now applies
 both terms itself (next section), so the flag only rebuilds tables the nuclide
 already carries. The example's own text said both were "default OFF" until

@@ -248,12 +248,52 @@ outram-mc with OpenMC `d7d3284a1` routine by routine and fixed:
 **What the numbers say.**
 - **Every cell is within 2σ of route 1 except the lattice on route 3: −18 ± 8 pcm (2.3σ)** at 96 seeds a side. It was −24 ± 9 at `f78b5180d5`. The 96-seed extension declared on 2026-09-29 therefore leaves a small but still resolved residual.
 - The lattice on routes 4 and 5 is −8 ± 9 and −3 ± 8.
-- Godiva route 4 is at −1.99σ (−68 ± 34). Nothing in the audit fixes acts on a bare fast sphere by more than a few pcm, and at 2σ this is not investigated further.
+- ~~Godiva route 4 is at −1.99σ (−68 ± 34). Nothing in the audit fixes acts on a bare fast sphere by more than a few pcm, and at 2σ this is not investigated further.~~ **Re-measured 2026-10-05 (#546): the 32-seed −52 was a low draw.** Route 4 at HEAD reproduces these 32 seeds digit for digit, and 288 seeds give −10 ± 11 pcm, which is −26 ± 24 (1.1σ) from route 1. See "Later measurements" below.
 - **The #459 prediction was wrong in sign** (P7). The fix moved route 4 on the lattice by −40.0 ± 17.5 pcm, paired. That brought route 4 into agreement with route 5, which is NJOY's processing of the same S(α,β) evaluation.
 - **DBRC worth on the lattice (route 3 against OpenMC, #407).** Outram-mc is −13.9 ± 8.3 pcm (96 paired seeds); OpenMC is +27.6 ± 9.9 (32). The difference is **−41.5 ± 12.9 pcm (3.2σ)**. Before the sampler fix outram-mc's worth was −42.6 ± 20.
   - This disagreement has the same sign as the route-3 residual and exceeds it in size. It is the leading lead.
   - The single-scatter sampler test at 6.4, 20.5 and 36.4 eV agrees with OpenMC (worst z = 3.6). The difference must therefore sit elsewhere: higher resonances, other nuclides, or an interaction in transport.
   - Declared next (on #407): a per-nuclide split of the DBRC worth, and per-resonance distribution tests.
+
+## Later measurements (2026-10-05)
+
+### Godiva route 4 extended to 288 seeds (GitHub #546)
+
+**Why.** The audited table puts Godiva route 4 at −52 ± 27 pcm. That is
+2.3σ from the 256-seed `+16 ± 11` that `godiva_keff_endf_local.rs` gated
+against, and −68 ± 34 (2.0σ) from route 1.
+
+**Method.** The route-4 driver `icsbep_five_route_keff --case godiva --route
+endf`, binary built at `8b17079bc`, ran 2 threads with campaign settings
+(5000 × [40 + 120]) on seeds 1–288. The prediction was written before the
+extension: if the single-threaded ensemble harness and this multi-threaded
+driver sample the same distribution, the 288-seed mean lies within 2σ of the
+ensemble's −6 ± 5, roughly [−27, +15] pcm. Per-seed rows are in
+[`data/per_seed_keff_godiva_route4_288_2026_10_05.csv`](five_route_keff/data/per_seed_keff_godiva_route4_288_2026_10_05.csv).
+
+**Hardware.** Intel Xeon Processor @ 2.10 GHz, 2 of 4 shared logical cores
+(`taskset -c 2,3`), 15.7 GB RAM, Linux 6.18, CPU only. Data took 101 s and
+transport 3.3 s per seed.
+
+**Results.**
+
+| seeds | k_eff ± sem | seed sd [pcm] | Δ vs k=1 [pcm] | Δ vs route 1 [pcm] |
+|---|---|---|---|---|
+| 1–32 | 0.99948 ± 0.00027 | 151 | −52 ± 27 | identical, per seed, to the audited row above (32/32 to every printed digit) |
+| 33–288 | 0.99995 ± 0.00012 | 187 | −5 ± 12 | |
+| **1–288** | **0.99990 ± 0.00011** | 183 | **−10 ± 11** | **−26 ± 24 (−1.1σ)** |
+
+- **The code did not move.** Route 4 reproduces itself bit for bit from
+  `0414bc8277` to `8b17079bc`.
+- **The −52 was a 32-seed low draw.** Seeds 1–32 sit −1.6σ from seeds
+  33–288.
+- **The prediction held.** The pooled ensemble of the same model,
+  `godiva_keff_ensemble.rs` (1024 seeds, single-threaded per seed,
+  `6faff1ed8`), gives −6 ± 5. That agrees with route 4's 288 seeds to
+  −4 ± 12 pcm, and is now the recorded value `godiva_keff_endf_local.rs`
+  gates against.
+- **Route 4 now agrees with route 1** within 1.1σ. Godiva no longer
+  qualifies the "every cell within 2σ" statement.
 
 ## Results — FINAL (2026-09-29, routes 3/4/5 at `f78b5180d5`) — *superseded 2026-09-30, above*
 

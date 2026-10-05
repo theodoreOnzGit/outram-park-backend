@@ -59,8 +59,11 @@
 //! Wiring in the **discrete inelastic MF=4 angular distributions** (`op-tm9f`,
 //! 2026-09-15) moved it a further **−198 pcm**, to **+16 ± 11 pcm over 256
 //! seeds** — inside the ICSBEP ±100 pcm band for the first time in this case's
-//! history. That is the value [`RECORDED_PCM`] now holds, and
-//! `examples/godiva_keff_ensemble.rs` is where it is measured and gated.
+//! history. ~~That is the value [`RECORDED_PCM`] now holds~~ **Superseded
+//! 2026-10-05 (GitHub #546):** [`RECORDED_PCM`] now holds **−6 ± 5 pcm over 1024
+//! seeds**, re-measured at `6faff1ed8` after the URR/DBRC defaults and the
+//! OpenMC-parity audit; see its docs. `examples/godiva_keff_ensemble.rs` is
+//! where it is measured and gated.
 //!
 //! The 500 pcm bar holds with 44 sigma of margin on the pooled number. **This
 //! program cannot establish any of that**: it takes one draw, with a sigma of
@@ -163,9 +166,12 @@ fn main() {
     // run's statistics on top. Four, not one: a V&V gate that fires on ordinary
     // statistical fluctuation trains people to ignore it.
     //
-    // The recorded result is **+214 ± 20 pcm**, the pooled mean of a 64-seed
-    // ensemble of this program at these settings (2026-09-13); the single-seed
-    // +57 it ultimately replaced turned out to be a −0.97 sigma draw. It is
+    // The recorded result is ~~**+214 ± 20 pcm**, the pooled mean of a 64-seed
+    // ensemble of this program at these settings (2026-09-13)~~ (stale since
+    // 2026-09-15; CORRECTED 2026-10-05) **−6 ± 5 pcm**, the pooled mean of
+    // 1024 seeds of this program's model at these settings (2026-10-05, #546;
+    // see `RECORDED_PCM`); the single-seed +57 of 2026-09-12 was a −0.97 sigma
+    // draw of an earlier code. It is
     // checked as a SEPARATE claim from agreement with the benchmark: a result
     // can stay inside the ICSBEP band while drifting steadily within it, and
     // only the reproduction claim sees that.
@@ -198,11 +204,62 @@ const ICSBEP_HMF001_BAND: f64 = godiva::BENCHMARK_SIGMA;
 
 /// The offset from [`ICSBEP_HMF001_K`] this case produces, in pcm.
 ///
-/// **+16 pcm, sem ±11, seed-to-seed sd 173 pcm** on the HIGH tier against
-/// ENDF/B-VIII.0 — the pooled mean of **256 independent seeds** at this
+/// **−6 pcm, sem ±5, seed-to-seed sd 165 pcm** on the HIGH tier against
+/// ENDF/B-VIII.0 — the pooled mean of **1024 independent seeds** at this
 /// program's own settings (5000 histories × [40 inactive + 120 active], all
-/// three ICSBEP nuclides, single-threaded CPU). Measured 2026-09-15 by
-/// `examples/godiva_keff_ensemble.rs`, which carries the method and the gates.
+/// three ICSBEP nuclides, `CpuSingleThread` per seed — exactly this program's
+/// run, repeated). Measured **2026-10-05** at commit `6faff1ed8` by
+/// `examples/godiva_keff_ensemble.rs` (`OUTRAM_GODIVA_SEEDS=1024`), which
+/// carries the method and the gates (GitHub #546).
+///
+/// ~~**+16 pcm, sem ±11, seed-to-seed sd 173 pcm**, 256 seeds, 2026-09-15~~ —
+/// superseded by the line above; kept in the table below.
+///
+/// # The 2026-10-05 re-measure (GitHub #546)
+///
+/// **Why.** `+16 ± 11` was measured before URR and DBRC became defaults
+/// (2026-09-20) and before the OpenMC-parity audit (2026-09-30, #407). The
+/// five-route study then recorded route 4 — this model, on the multi-threaded
+/// driver — at **−52 ± 27 pcm** over 32 seeds (2026-09-30, `0414bc8277`),
+/// 2.3 σ from `+16`. A drift gate that may be stale has to be re-measured, not
+/// argued about.
+///
+/// **Method.** `godiva_keff_ensemble.rs`, binary built at `6faff1ed8` (no
+/// Godiva-relevant source change since: see the next paragraph), seeds
+/// `1..=1024`. Size chosen from a timed pilot (4 seeds: 12.5 s of transport on
+/// two workers): 1024 seeds is ~50 min, and at `sem ≈ 165/√1024 ≈ 5 pcm` the
+/// comparison with `−52 ± 27` is limited by that record's own σ (combined
+/// 27.5 pcm; 2048 seeds would only reach 27.3), so more seeds buy nothing here.
+///
+/// **Result.** `mean −6 pcm, sd 165, sem ±5` (`k = 0.99994 ± 0.00005`). Seed
+/// consistency report: `χ²/dof = 0.97` (1023 dof, 95 % band 0.92–1.09), no
+/// outlier seed, `1/√N` check over 256 groups of 4 = `1.01 ± 0.04`. Both of the
+/// ensemble's gates pass (no regression from `+16`: 1.8 σ of 12 pcm;
+/// benchmark: `|−6| ≤ 100`). Data processing 114 s, transport 2995 s, on an
+/// Intel Xeon Processor @ 2.10 GHz, **2 of 4 shared logical cores**
+/// (`taskset -c 2,3`, two single-threaded seed workers), 15.7 GB RAM, Linux
+/// 6.18, CPU only; the machine was shared with another agent's runs and a
+/// rust-analyzer process on one of the two cores.
+///
+/// **Against the records it is compared with.**
+///
+/// - `+16 ± 11` (256 seeds, 2026-09-15): **−22 ± 12 pcm (1.8 σ)**. Not
+///   resolved as a move; several defaults changed in between (URR, DBRC, the
+///   audit fixes) and their sum on Godiva is not decomposed here.
+/// - Route 4, `−52 ± 27` (32 seeds): **+46 ± 27 pcm (1.7 σ)**. This is beyond
+///   that record's σ, so it was checked rather than waved through: the route-4
+///   driver at `8b17079bc` reproduces 0414bc8277's per-seed `k` for seeds 1–32
+///   **to every printed digit (32/32)**, so the code did not move; and extended
+///   to seeds 1–288 (multi-threaded, 2 threads, same hardware, 3.3 s per seed)
+///   it gives **−10 ± 11 pcm (sd 183)**, seeds 33–288 alone −5 ± 12. The two
+///   drivers draw different random streams per seed (single- vs
+///   multi-threaded), so these are independent samples of one distribution;
+///   they differ by −4 ± 12 pcm. **The 32-seed −52 was a low draw**
+///   (−1.6 σ against the independent seeds 33–288), not a code effect. Prediction written
+///   before the extension: "within 2 σ of −6, about [−27, +15]"; it held.
+///
+/// Gate width after re-pointing: `4·√(165² + 5²) ≈ 660 pcm` for one run of
+/// this program — still set by the run's own noise.
 ///
 /// # How this number got here
 ///
@@ -212,9 +269,10 @@ const ICSBEP_HMF001_BAND: f64 = godiva::BENCHMARK_SIGMA;
 /// | `+228 ± 18` | the pre-gh:#192 code's true mean, 96 seeds | MT=91 Q-value cap: **+85 ± 26 pcm** |
 /// | `+314 ± 21` | after the cap, 96 seeds | evaluated MF=6 law: **−105 ± 32 pcm** |
 /// | `+214 ± 20` | 64 seeds, 2026-09-13 | discrete inelastic MF=4 angles (`op-tm9f`): **−198 pcm** |
-/// | `+16 ± 11` | ~~**now**~~, 256 seeds, 2026-09-15 | see below |
+/// | ~~`+16 ± 11`~~ | 256 seeds, 2026-09-15; **superseded 2026-10-05** | URR + DBRC defaults, the #407 audit: −22 ± 12 pcm (1.8 σ), not decomposed |
+/// | **`−6 ± 5`** | **now**: 1024 seeds, 2026-10-05, `6faff1ed8` (#546) | — |
 ///
-/// **Not the latest pooled number (noted 2026-10-04, not re-measured here).**
+/// ~~**Not the latest pooled number (noted 2026-10-04, not re-measured here).**
 /// The five-route study re-ran this model after the OpenMC-parity audit
 /// (gh:#407) and records **0.99948 ± 0.00027, i.e. −52 ± 27 pcm** (32 seeds at
 /// these settings, 2026-09-30, commit `0414bc8277`, route 4 of
@@ -222,7 +280,10 @@ const ICSBEP_HMF001_BAND: f64 = godiva::BENCHMARK_SIGMA;
 /// sigma from `+16 ± 11`. That is the number to quote for the current code
 /// (the tutorial does). This constant still holds `+16`: re-pointing a drift
 /// gate is a re-measurement decision, and at this program's single-run
-/// resolution (~613-693 pcm) the gate passes either way.
+/// resolution (~613-693 pcm) the gate passes either way.~~ **RESOLVED
+/// 2026-10-05 (#546):** re-measured and re-pointed, see the top of this
+/// comment. The `−52 ± 27` was a 32-seed low draw; the number to quote is
+/// `−6 ± 5`.
 ///
 /// Two single runs of this program differ by ~√2 × 173 ≈ 245 pcm from
 /// re-randomisation alone, whatever the physics does, which is why every entry
@@ -232,8 +293,8 @@ const ICSBEP_HMF001_BAND: f64 = godiva::BENCHMARK_SIGMA;
 ///
 /// # Why this constant now carries an uncertainty (gh:#196, 2026-09-16)
 ///
-/// It is passed as [`RecordedKeff::pooled(16.0, 11.0)`](RecordedKeff::pooled),
-/// not as a bare number. The drift gate is the spread of the **difference of two
+/// It is passed as `RecordedKeff::pooled(RECORDED_PCM, RECORDED_SEM_PCM)`
+/// (~~`(16.0, 11.0)`~~ `(−6.0, 5.0)` since 2026-10-05), not as a bare number. The drift gate is the spread of the **difference of two
 /// independent measurements**, `4·√(σ_run² + σ_recorded²)` — here
 /// `4·√(173² + 11²) ≈ 693 pcm`, essentially set by this single run's own noise,
 /// which is the honest resolution of a one-seed check. The previous helper
@@ -264,6 +325,7 @@ const ICSBEP_HMF001_BAND: f64 = godiva::BENCHMARK_SIGMA;
 /// paper dataset). Sweeping them is the remainder of gh:#196 / `bn:op-awwi`,
 /// and wants a pooled re-measurement of each of those cases rather than a
 /// find-and-replace of this number.
-const RECORDED_PCM: f64 = 16.0;
-/// The `sem` on [`RECORDED_PCM`]: `173/√256`, from the 256-seed ensemble.
-const RECORDED_SEM_PCM: f64 = 11.0;
+const RECORDED_PCM: f64 = -6.0;
+/// The `sem` on [`RECORDED_PCM`]: `165/√1024`, from the 1024-seed ensemble of
+/// 2026-10-05 (~~`173/√256 = 11`~~ before).
+const RECORDED_SEM_PCM: f64 = 5.0;

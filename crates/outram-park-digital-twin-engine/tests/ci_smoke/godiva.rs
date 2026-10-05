@@ -11,6 +11,11 @@
 //! authoritative**; `ci/smoke-tests.toml` records the pairing. If the recorded
 //! value there changes, re-copy it here.
 //!
+//! **Edits since the copy:** 2026-10-05 (GitHub #546), `RECORDED_PCM` /
+//! `RECORDED_SEM_PCM` re-copied from the source (`+16 ± 11` → `−6 ± 5`, the
+//! 1024-seed re-measure) with their doc's headline and history row; nothing
+//! else changed.
+//!
 //! **HIGH tier by maintainer direction** ("the high information tier, not the
 //! low one; use the ENDFs provided"): continuous-energy cross sections
 //! reconstructed on the fly (RECONR + BROADR at 293.6 K) from the repo's own
@@ -252,11 +257,20 @@ const ICSBEP_HMF001_BAND: f64 = 0.0010;
 
 /// The offset from [`ICSBEP_HMF001_K`] this case produces, in pcm.
 ///
-/// **+16 pcm, sem ±11, seed-to-seed sd 173 pcm** on the HIGH tier against
+/// **RE-COPIED 2026-10-05 (GitHub #546)** from the source example, whose
+/// recorded value changed: **−6 pcm, sem ±5, seed-to-seed sd 165 pcm**, the
+/// pooled mean of **1024 independent seeds** at this program's settings,
+/// measured 2026-10-05 at `6faff1ed8` by `examples/godiva_keff_ensemble.rs`.
+/// The method, the hardware and the checks against `+16` and the five-route
+/// study's `−52 ± 27` are in the source example
+/// (`crates/outram-mc-libs/examples/godiva_keff_endf_local.rs`,
+/// `RECORDED_PCM`).
+///
+/// ~~**+16 pcm, sem ±11, seed-to-seed sd 173 pcm** on the HIGH tier against
 /// ENDF/B-VIII.0 — the pooled mean of **256 independent seeds** at this
 /// program's own settings (5000 histories × [40 inactive + 120 active], all
 /// three ICSBEP nuclides, single-threaded CPU). Measured 2026-09-15 by
-/// `examples/godiva_keff_ensemble.rs`, which carries the method and the gates.
+/// `examples/godiva_keff_ensemble.rs`, which carries the method and the gates.~~
 ///
 /// # How this number got here
 ///
@@ -266,7 +280,8 @@ const ICSBEP_HMF001_BAND: f64 = 0.0010;
 /// | `+228 ± 18` | the pre-gh:#192 code's true mean, 96 seeds | MT=91 Q-value cap: **+85 ± 26 pcm** |
 /// | `+314 ± 21` | after the cap, 96 seeds | evaluated MF=6 law: **−105 ± 32 pcm** |
 /// | `+214 ± 20` | 64 seeds, 2026-09-13 | discrete inelastic MF=4 angles (`op-tm9f`): **−198 pcm** |
-/// | `+16 ± 11` | **now**, 256 seeds, 2026-09-15 | — |
+/// | ~~`+16 ± 11`~~ | 256 seeds, 2026-09-15; superseded 2026-10-05 | URR + DBRC defaults, #407 audit: −22 ± 12 pcm, not decomposed |
+/// | **`−6 ± 5`** | **now**, 1024 seeds, 2026-10-05 (#546) | — |
 ///
 /// Two single runs of this program differ by ~√2 × 173 ≈ 245 pcm from
 /// re-randomisation alone, whatever the physics does, which is why every entry
@@ -276,8 +291,8 @@ const ICSBEP_HMF001_BAND: f64 = 0.0010;
 ///
 /// # Why this constant now carries an uncertainty (gh:#196, 2026-09-16)
 ///
-/// It is passed as [`RecordedKeff::pooled(16.0, 11.0)`](RecordedKeff::pooled),
-/// not as a bare number. The drift gate is the spread of the **difference of two
+/// It is passed as `RecordedKeff::pooled(RECORDED_PCM, RECORDED_SEM_PCM)`
+/// (~~`(16.0, 11.0)`~~ `(−6.0, 5.0)` since 2026-10-05), not as a bare number. The drift gate is the spread of the **difference of two
 /// independent measurements**, `4·√(σ_run² + σ_recorded²)` — here
 /// `4·√(173² + 11²) ≈ 693 pcm`, essentially set by this single run's own noise,
 /// which is the honest resolution of a one-seed check. The previous helper
@@ -308,6 +323,7 @@ const ICSBEP_HMF001_BAND: f64 = 0.0010;
 /// paper dataset). Sweeping them is the remainder of gh:#196 / `bn:op-awwi`,
 /// and wants a pooled re-measurement of each of those cases rather than a
 /// find-and-replace of this number.
-const RECORDED_PCM: f64 = 16.0;
-/// The `sem` on [`RECORDED_PCM`]: `173/√256`, from the 256-seed ensemble.
-const RECORDED_SEM_PCM: f64 = 11.0;
+const RECORDED_PCM: f64 = -6.0;
+/// The `sem` on [`RECORDED_PCM`]: `165/√1024`, from the 1024-seed ensemble of
+/// 2026-10-05 (~~`173/√256 = 11`~~ before).
+const RECORDED_SEM_PCM: f64 = 5.0;
