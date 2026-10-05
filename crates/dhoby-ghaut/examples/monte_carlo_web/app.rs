@@ -1511,6 +1511,9 @@ impl McApp {
                 let n = sl.info.ladder.len();
                 let bw = ((rect.width() - 20.0 - 6.0 * (n as f32 - 1.0)) / n as f32).min(110.0);
                 let mut go = None;
+                // A dark strip, so unselected (transparent) buttons read over the slice.
+                let strip = Rect::from_min_max(Pos2::new(rect.left() + 4.0, rect.bottom() - 80.0), Pos2::new(rect.left() + 16.0 + n as f32 * (bw + 6.0), rect.bottom() - 36.0));
+                painter.rect_filled(strip, 6.0, Color32::from_rgba_unmultiplied(14, 16, 20, 215));
                 for (i, p) in sl.info.ladder.iter().enumerate() {
                     // Above the scale bar.
                     let b = Rect::from_min_size(Pos2::new(rect.left() + 10.0 + i as f32 * (bw + 6.0), rect.bottom() - 76.0), Vec2::new(bw, 36.0));
