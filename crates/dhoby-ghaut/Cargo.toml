@@ -70,6 +70,10 @@ nee_soon = { workspace = true }
 # it (`endf_folder`, gh:#581).
 njoy-outram-park-fork = { workspace = true }
 outram-mc-libs = { workspace = true }
+# The GPU ray tracer of the 3D view and the slices (gh:#587,
+# `outram_blender::csg::gpu`): its `gpu` feature, on eframe's own wgpu
+# device. Same wgpu as eframe's (the workspace pins them together).
+outram-blender = { workspace = true, features = ["gpu"] }
 # Step 1's fresh DEM pour (`htr10_fill`, the LIGGGHTS port's GranularSystem).
 outram-park-fork-liggghts = { workspace = true }
 # Step 10's coupled run (gh:#574): helium properties, KTA bed friction, Wakao

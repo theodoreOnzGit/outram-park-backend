@@ -249,6 +249,14 @@ impl App {
             main_rect: egui::Rect::NOTHING,
             shown_step: None,
         };
+        // Ray tracing is the GPU's job (gh:#587); the CPU is the fallback.
+        match crate::gpu_view::Gpu::new(cc) {
+            Ok(g) => {
+                app.view3d.gpu = Some(g.clone());
+                app.slice.gpu = Some(g);
+            }
+            Err(e) => eprintln!("dhoby-ghaut: GPU ray tracing off, drawing on the CPU: {e}"),
+        }
         if loaded {
             app.refresh_edited();
             app.enter_wizard();
@@ -423,6 +431,14 @@ impl App {
     }
 
     fn handle(&mut self, ctx: &egui::Context, events: Vec<Ev>) {
+        // A GPU slice on screen counts as an Ev::Slice would (gh:#587).
+        if self.slice.take_gpu_shown() {
+            if let Some(p) = self.slice.at_preset {
+                if !self.review_seen.contains(&p) {
+                    self.review_seen.push(p);
+                }
+            }
+        }
         for ev in events {
             if self.view3d.on_event(ctx, &ev) {
                 continue;
@@ -457,6 +473,9 @@ impl App {
                         false,
                     );
                     self.phys.send(Req::UseCore(core.clone()));
+                    if let Some(g) = &self.view3d.gpu {
+                        g.set_core(core.clone(), ctx);
+                    }
                     self.core = Some(core);
                     self.assembly = Some(info);
                     self.slice.invalidate();

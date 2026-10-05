@@ -419,7 +419,7 @@ fn bytes_to_f32_vec(bytes: &[u8]) -> Vec<f32> {
 /// parking the thread between polls and being unparked by the waker. Keeps the
 /// dependency surface minimal (no `pollster`) per the workspace policy. Not a
 /// general-purpose executor.
-fn block_on<F: Future>(future: F) -> F::Output {
+pub(crate) fn block_on<F: Future>(future: F) -> F::Output {
     struct ThreadWaker(std::thread::Thread);
     impl std::task::Wake for ThreadWaker {
         fn wake(self: Arc<Self>) {

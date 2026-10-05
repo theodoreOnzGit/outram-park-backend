@@ -6757,6 +6757,7 @@ dependencies = [
  "faer",
  "farrer-park",
  "miniz_oxide",
+ "naga",
  "outram-foam-basic-lib",
  "outram-foam-mesh",
  "outram-park-fork-cfmesh",

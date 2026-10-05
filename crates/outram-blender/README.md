@@ -21,6 +21,13 @@
 - **Geometry plotter** (`csg::plot`) — OpenMC's slice and ray-trace plotters,
   writing PNG, pixel-for-pixel against `openmc --plot` (V&V in
   `crates/outram-mc-libs/verification_and_validation/geometry_plotting/`).
+- **GPU ray tracer of the assembled CSG** (`csg::gpu`, 2026-10-05, gh:#587) —
+  the solid, x-ray and slice pictures of the plotter traced in a WGSL compute
+  shader through the same cells, universes and lattices (`f32`; the CPU
+  plotter stays the reference). Pixel parity with the CPU plotter is
+  measured by `tests/gpu_csg_parity.rs` (0 % on its nested test model;
+  0.36 % at worst on HTR-10, `crates/dhoby-ghaut/tests/gpu_csg_parity.rs`).
+  Tori are refused (drawn on the CPU).
 - **Tally-mesh description** (`spatial_mesh`) — regular, rectilinear,
   cylindrical and spherical meshes; ~~an unstructured variant is planned
   (#492)~~ **and, since 2026-10-03, `MeshKind::Unstructured`** (#492).
