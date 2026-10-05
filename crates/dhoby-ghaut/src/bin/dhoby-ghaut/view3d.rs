@@ -125,6 +125,10 @@ pub struct View3d {
     slot: GpuSlot,
     /// The picture on screen came from the GPU.
     on_gpu: bool,
+    /// The last GPU job was at full resolution; and whether full-resolution
+    /// frames are fast enough (< 30 ms) to trace while the camera moves.
+    last_job_full: bool,
+    full_res_fast: bool,
 }
 
 impl View3d {
@@ -150,6 +154,8 @@ impl View3d {
             gpu: None,
             slot: GpuSlot::new(),
             on_gpu: false,
+            last_job_full: false,
+            full_res_fast: false,
         }
     }
 
@@ -294,6 +300,14 @@ impl View3d {
         self.gizmo(&painter, rect);
         let gpu_ready = have_geometry && self.gpu.as_ref().is_some_and(Gpu::poll);
         let gpu_busy = self.slot.busy();
+        // The GPU became ready after a CPU picture (or has a new geometry):
+        // trace it there, without waiting for the camera to move.
+        if gpu_ready && gpu_tex.is_none() && !gpu_busy {
+            self.dirty_full = true;
+        }
+        if !gpu_busy && self.last_job_full && self.slot.last_seconds > 0.0 {
+            self.full_res_fast = self.slot.last_seconds < 0.03;
+        }
         let fallback = match self.gpu.as_ref().map(Gpu::status) {
             None => " (CPU: no wgpu device)".to_string(),
             Some(GpuStatus::Preparing) => " (CPU while the GPU loads the geometry)".to_string(),
@@ -353,14 +367,18 @@ impl View3d {
         if gpu_ready {
             // GPU: every change, at screen resolution, as soon as the last
             // frame has run (frames are never queued behind a slow one).
-            // While the camera moves, half resolution (a quarter of the rays;
-            // the HTR-10 half-section takes ~0.4 s at full resolution on an
-            // RTX A5000); the full picture once it has been still 0.15 s.
+            // While the camera moves, full resolution if the last full frame
+            // took under 30 ms, else half resolution (a quarter of the
+            // rays); the full picture once it has been still 0.15 s. ~~The
+            // HTR-10 half-section takes ~0.4 s at full resolution on an RTX
+            // A5000.~~ Since the grid index (2026-10-05, gh:#587): 17 ms.
             let still = now - self.changed_at > 0.15;
             if (self.dirty_full || self.dirty_preview) && !gpu_busy && (still || self.dirty_preview)
             {
                 let ppp = ui.ctx().pixels_per_point();
-                let job = self.job(rect, if still { ppp } else { 0.5 * ppp }, still);
+                let full = still || self.full_res_fast;
+                self.last_job_full = full;
+                let job = self.job(rect, if full { ppp } else { 0.5 * ppp }, still);
                 // A CPU picture still in flight belongs to an older view.
                 self.pending = None;
                 if let Some(g) = &self.gpu {

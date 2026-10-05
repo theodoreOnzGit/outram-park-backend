@@ -169,7 +169,13 @@ report). Rules that bind changes to it:
   thread. The CPU plotter on the geometry engine thread is the fallback and
   the reference: PNG exports and `--render-review` always use it. A change to
   either tracer re-runs `tests/gpu_csg_parity.rs` (here and in
-  `outram-blender`) and records the mismatch fraction it prints.
+  `outram-blender`) and records the mismatch fraction it prints. Since
+  2026-10-05 the flattened geometry carries a grid index
+  (`outram_blender::csg::gpu::index`: HTR-10's half-sections ~0.36 s ->
+  20-60 ms); the parity test draws every view with and without it, and
+  also on a DEM-poured bed. Step 1's DEM pour view (`dem.rs`) draws its
+  pebbles as GPU sphere impostors (`gpu_view::PebbleGpu`), the egui painter
+  being the fallback without a wgpu device.
 - **A step that is not built says so** and names its issue
   (`WizardStep::issue`); nothing is simulated behind a placeholder.
 - **Steps 7-8 hand off through library types** (2026-10-05, gh:#572/#573):

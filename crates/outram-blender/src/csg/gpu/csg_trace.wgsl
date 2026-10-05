@@ -31,7 +31,18 @@
 //    naming that half-space (flat.rs's crossing hints), then everywhere;
 //  - a fill whose whole subtree holds no drawn material is crossed as one
 //    cell (solid and x-ray only): the CPU walks it, reporting crossings that
-//    change nothing in the picture.
+//    change nothing in the picture;
+//  - in a universe with a grid index (flat.rs, index.rs) a point is looked
+//    for only among its voxel's candidates, each cell's region cut down to
+//    the surfaces passing through the voxel; the voxel's faces are silent
+//    boundaries (nothing reported, no re-location). Same cell, same
+//    distances inside the voxel; the CPU scans the whole universe;
+//  - a ray outside a closed root grid (no cell outside it) jumps to the
+//    grid's box; the CPU steps from one root-cell surface to the next,
+//    through their extensions beyond the model;
+//  - a crossing out of a cell whose region is not a plain intersection is
+//    signed from the surface normal (as the CPU does since 2026-10-05,
+//    upstream's distance_complex), not from the region's token.
 
 const INF: f32 = 1e30;
 const NONE: u32 = 0xFFFFFFFFu;
@@ -42,6 +53,9 @@ const TOK_COMP: u32 = 0xFFFFFFF2u;
 const SURF_WORDS: u32 = 12u;
 const CELL_WORDS: u32 = 8u;
 const LAT_WORDS: u32 = 12u;
+const CAND_WORDS: u32 = 4u;
+// Voxel steps a ray may take (apart from boundary crossings).
+const MAX_VOXEL_STEPS: u32 = 4096u;
 const FOCAL_PLANE_DIST: f32 = 10.0;
 const S3: f32 = 1.7320508;
 
@@ -97,6 +111,16 @@ var<private> lv_lat: array<u32, MAX_DEPTH>;
 var<private> lv_idx: array<vec3<i32>, MAX_DEPTH>;
 var<private> lv_off: array<vec3<f32>, MAX_DEPTH>;
 var<private> depth: u32;
+// The token range each level's cell is tested with: the cell's own, or its
+// folded copy in the level's current voxel (lv_vox, NONE when the universe
+// has no grid or the point is outside it).
+struct Toks {
+    s: u32,
+    n: u32,
+    f: u32,
+};
+var<private> lv_toks: array<Toks, MAX_DEPTH>;
+var<private> lv_vox: array<u32, MAX_DEPTH>;
 var<private> cur_mat: i32;
 // the surface token: which surface the ray sits on, and on which side
 var<private> tok_surf: u32;
@@ -349,12 +373,20 @@ fn halfspace(t: u32, r: vec3<f32>, u: vec3<f32>) -> bool {
     return surf_sense(s, r, u) == want_out;
 }
 
-fn cell_contains(c: u32, r: vec3<f32>, u: vec3<f32>) -> bool {
+fn full_toks(c: u32) -> Toks {
     let b = cbase(c);
-    let ts = h(10u) + h(b);
-    let tl = h(b + 1u);
+    return Toks(h(10u) + h(b), h(b + 1u), h(b + 7u));
+}
+
+fn cell_contains(c: u32, r: vec3<f32>, u: vec3<f32>) -> bool {
+    return toks_contain(full_toks(c), r, u);
+}
+
+fn toks_contain(t: Toks, r: vec3<f32>, u: vec3<f32>) -> bool {
+    let ts = t.s;
+    let tl = t.n;
     if (tl == 0u) { return true; }
-    if ((h(b + 7u) & 1u) == 1u) {
+    if ((t.f & 1u) == 1u) {
         for (var i: u32 = 0u; i < tl; i = i + 1u) {
             let t = h(ts + i);
             if (t < TOK_INTER && !halfspace(t, r, u)) { return false; }
@@ -394,9 +426,12 @@ struct Hit {
 
 // Cell::distance_to_boundary.
 fn cell_distance(c: u32, r: vec3<f32>, u: vec3<f32>) -> Hit {
-    let b = cbase(c);
-    let ts = h(10u) + h(b);
-    let tl = h(b + 1u);
+    return toks_distance(full_toks(c), r, u);
+}
+
+fn toks_distance(tk: Toks, r: vec3<f32>, u: vec3<f32>) -> Hit {
+    let ts = tk.s;
+    let tl = tk.n;
     var best = Hit(INF, NONE);
     for (var i: u32 = 0u; i < tl; i = i + 1u) {
         let t = h(ts + i);
@@ -411,26 +446,24 @@ fn cell_distance(c: u32, r: vec3<f32>, u: vec3<f32>) -> Hit {
 }
 
 // The side of `s` a ray leaving cell `c` across it ends on (boundary_token).
-fn leaving_side(c: u32, s: u32) -> bool {
-    let b = cbase(c);
-    let ts = h(10u) + h(b);
-    let tl = h(b + 1u);
+// boundary_token (plot/raytrace.rs): the side of `s` opposite cell `c`, for
+// a ray at r leaving c along `dir`. A simple region (ANDs only): the side its
+// token does not select. Any other: from the normal (upstream's
+// distance_complex; complements are not read as written, gh:#587).
+fn side_after(c: u32, s: u32, r: vec3<f32>, dir: vec3<f32>) -> bool {
+    let ft = full_toks(c);
+    if ((ft.f & 1u) == 1u) { return toks_leaving(ft, s); }
+    return dot(surf_normal(s, r), dir) > 0.0;
+}
+
+fn toks_leaving(tk: Toks, s: u32) -> bool {
+    let ts = tk.s;
+    let tl = tk.n;
     for (var i: u32 = 0u; i < tl; i = i + 1u) {
         let t = h(ts + i);
         if (t < TOK_INTER && (t >> 1u) == s) {
             return (t & 1u) == 0u;
         }
-    }
-    return false;
-}
-
-fn cell_has(c: u32, s: u32) -> bool {
-    let b = cbase(c);
-    let ts = h(10u) + h(b);
-    let tl = h(b + 1u);
-    for (var i: u32 = 0u; i < tl; i = i + 1u) {
-        let t = h(ts + i);
-        if (t < TOK_INTER && (t >> 1u) == s) { return true; }
     }
     return false;
 }
@@ -470,6 +503,132 @@ fn find_cell(un: u32, r: vec3<f32>, u: vec3<f32>) -> u32 {
         if (cell_contains(c, r, u)) { return c; }
     }
     return NONE;
+}
+
+// ── grid index (flat.rs H_GRIDS, index.rs) ──────────────────────────────────
+
+// Absolute offset of universe un's grid record, or NONE.
+fn grid_of(un: u32) -> u32 {
+    let g = h(16u);
+    let o = h(g + un);
+    if (o == NONE) { return NONE; }
+    return g + o;
+}
+
+fn grid_lo(gb: u32) -> vec3<f32> { return vec3<f32>(gf(gb), gf(gb + 1u), gf(gb + 2u)); }
+fn grid_d(gb: u32) -> vec3<f32> { return vec3<f32>(gf(gb + 3u), gf(gb + 4u), gf(gb + 5u)); }
+fn grid_n(gb: u32) -> vec3<u32> { return vec3<u32>(h(gb + 6u), h(gb + 7u), h(gb + 8u)); }
+
+// The voxel holding r (x fastest), or NONE outside the grid.
+fn voxel_at(gb: u32, r: vec3<f32>) -> u32 {
+    let f = floor((r - grid_lo(gb)) / grid_d(gb));
+    let n = grid_n(gb);
+    if (any(f < vec3<f32>(0.0)) || any(f >= vec3<f32>(n))) { return NONE; }
+    let i = vec3<u32>(f);
+    return i.x + n.x * (i.y + n.y * i.z);
+}
+
+// Absolute offset of voxel v's candidate list, or NONE (no cell reaches it).
+fn vox_list(gb: u32, v: u32) -> u32 {
+    let g = h(16u);
+    let o = h(g + h(gb + 10u) + v);
+    if (o == NONE) { return NONE; }
+    return g + o;
+}
+
+fn cand_toks(e: u32) -> Toks {
+    return Toks(h(10u) + h(e + 1u), h(e + 2u), h(e + 3u));
+}
+
+// Distance from r to where the ray leaves voxel v.
+fn vox_exit(gb: u32, v: u32, r: vec3<f32>, u: vec3<f32>) -> f32 {
+    let n = grid_n(gb);
+    let i = vec3<f32>(f32(v % n.x), f32((v / n.x) % n.y), f32(v / (n.x * n.y)));
+    let lo = grid_lo(gb) + i * grid_d(gb);
+    let hi = lo + grid_d(gb);
+    var d: f32 = INF;
+    for (var k: u32 = 0u; k < 3u; k = k + 1u) {
+        if (u[k] > 0.0) { d = min(d, (hi[k] - r[k]) / u[k]); }
+        if (u[k] < 0.0) { d = min(d, (lo[k] - r[k]) / u[k]); }
+    }
+    return max(d, 0.0);
+}
+
+// Distance along the ray to the grid's box (0 inside), INF if it misses.
+fn grid_entry(gb: u32, r: vec3<f32>, u: vec3<f32>) -> f32 {
+    let lo = grid_lo(gb);
+    let hi = lo + grid_d(gb) * vec3<f32>(grid_n(gb));
+    var t0: f32 = 0.0;
+    var t1: f32 = INF;
+    for (var k: u32 = 0u; k < 3u; k = k + 1u) {
+        if (u[k] == 0.0) {
+            if (r[k] < lo[k] || r[k] > hi[k]) { return INF; }
+        } else {
+            let a = (lo[k] - r[k]) / u[k];
+            let b = (hi[k] - r[k]) / u[k];
+            t0 = max(t0, min(a, b));
+            t1 = min(t1, max(a, b));
+        }
+    }
+    if (t0 > t1) { return INF; }
+    return t0;
+}
+
+// find_cell at level k: among the voxel's candidates when the universe has a
+// grid, else the whole universe (crossing hints first). Sets lv_vox[k] and
+// lv_toks[k].
+fn find_cell_at(k: u32, un: u32, r: vec3<f32>, u: vec3<f32>, hint: u32) -> u32 {
+    lv_vox[k] = NONE;
+    let gb = grid_of(un);
+    if (gb != NONE) {
+        let v = voxel_at(gb, r);
+        if (v != NONE) {
+            lv_vox[k] = v;
+            let lb = vox_list(gb, v);
+            if (lb == NONE) { return NONE; }
+            let n = h(lb);
+            for (var i: u32 = 0u; i < n; i = i + 1u) {
+                let e = lb + 1u + i * CAND_WORDS;
+                let t = cand_toks(e);
+                if (toks_contain(t, r, u)) {
+                    lv_toks[k] = t;
+                    return h(e);
+                }
+            }
+            return NONE;
+        }
+        // Outside a closed grid no cell holds the point.
+        if ((h(gb + 9u) & 1u) == 0u) { return NONE; }
+    }
+    let c = find_cell_hint(un, r, u, hint);
+    if (c != NONE) { lv_toks[k] = full_toks(c); }
+    return c;
+}
+
+// Bring level k's voxel up to date with the ray's position: the same cell's
+// folded tokens in the voxel the point is now in. False if that voxel does
+// not list the cell (the caller re-locates).
+fn sync_level(k: u32) -> bool {
+    let gb = grid_of(lv_uni[k]);
+    if (gb == NONE) { return true; }
+    let v = voxel_at(gb, local(k));
+    if (v == lv_vox[k]) { return true; }
+    lv_vox[k] = v;
+    if (v == NONE) {
+        lv_toks[k] = full_toks(lv_cell[k]);
+        return true;
+    }
+    let lb = vox_list(gb, v);
+    if (lb == NONE) { return false; }
+    let n = h(lb);
+    for (var i: u32 = 0u; i < n; i = i + 1u) {
+        let e = lb + 1u + i * CAND_WORDS;
+        if (h(e) == lv_cell[k]) {
+            lv_toks[k] = cand_toks(e);
+            return true;
+        }
+    }
+    return false;
 }
 
 // ── lattices ─────────────────────────────────────────────────────────────────
@@ -664,12 +823,9 @@ fn locate_from(start: u32, hint: u32) -> bool {
     loop {
         if (k >= MAX_DEPTH) { return false; }
         let r = local(k);
-        var c: u32;
-        if (k == start) {
-            c = find_cell_hint(lv_uni[k], r, ray_u, hint);
-        } else {
-            c = find_cell(lv_uni[k], r, ray_u);
-        }
+        var hk = NONE;
+        if (k == start) { hk = hint; }
+        let c = find_cell_at(k, lv_uni[k], r, ray_u, hk);
         if (c == NONE) { return false; }
         lv_cell[k] = c;
         let b = cbase(c);
@@ -719,7 +875,7 @@ fn locate_root() -> bool {
 fn relocate(lvl: u32, hint: u32) -> bool {
     for (var k: u32 = 0u; k < lvl; k = k + 1u) {
         let r = local(k);
-        if (!cell_contains(lv_cell[k], r, ray_u)) {
+        if (!sync_level(k) || !toks_contain(lv_toks[k], r, ray_u)) {
             return locate_from(k, NONE);
         }
         let l = lv_lat[k + 1u];
@@ -746,16 +902,26 @@ struct Boundary {
     s: u32,
     level: u32,
     found: bool,
+    // distance to the nearest voxel face of any level (INF: none)
+    vox: f32,
 };
 
-// Geometry::distance_to_boundary.
+// Geometry::distance_to_boundary, plus the nearest voxel face.
 fn distance_to_boundary() -> Boundary {
-    var best = Boundary(INF, NONE, 0u, false);
+    var best = Boundary(INF, NONE, 0u, false, INF);
     for (var k: u32 = 0u; k < depth; k = k + 1u) {
+        if (!sync_level(k)) {
+            // The voxel the point moved into does not list its cell (a
+            // boundary within rounding of the voxel face): re-locate.
+            if (!locate_from(k, NONE)) { return best; }
+        }
         let r = local(k);
-        let hs = cell_distance(lv_cell[k], r, ray_u);
+        let hs = toks_distance(lv_toks[k], r, ray_u);
         if (hs.d < best.d) {
-            best = Boundary(hs.d, hs.s, k, hs.s != NONE);
+            best = Boundary(hs.d, hs.s, k, hs.s != NONE, best.vox);
+        }
+        if (lv_vox[k] != NONE) {
+            best.vox = min(best.vox, vox_exit(grid_of(lv_uni[k]), lv_vox[k], r, ray_u));
         }
         let l = lv_lat[k];
         if (l != NONE) {
@@ -763,7 +929,7 @@ fn distance_to_boundary() -> Boundary {
             // The bounding surface wins a tie with the lattice edge.
             let tie = best.s != NONE && abs(best.d - dl) < nudge();
             if (dl < best.d && !tie) {
-                best = Boundary(dl, NONE, k, true);
+                best = Boundary(dl, NONE, k, true, best.vox);
             }
         }
     }
@@ -817,6 +983,8 @@ var<private> hash: u32;
 var<private> prelocated: bool;
 // Boundary crossings this pixel took (aux[2p + 1] of a solid picture).
 var<private> steps: u32;
+// Silent voxel steps this pixel took.
+var<private> vsteps: u32;
 
 fn mix_hash(x: u32) {
     hash = (hash ^ x) * 16777619u;
@@ -902,37 +1070,76 @@ fn trace() {
     }
     var entry_s: u32 = NONE;
     var entry_out = false;
+    vsteps = 0u;
     loop {
         if (have) { break; }
         // Advance to the nearest root-cell boundary from outside the model.
         var best: f32 = INF;
-        var bc: u32 = NONE;
         var bs: u32 = NONE;
-        let ub = h(7u) + h(1u) * 4u;
-        let start = h(11u) + h(ub);
-        let n = h(ub + 1u);
+        var bc: u32 = NONE;
+        // Distance of a silent step (a voxel face, or the grid's box).
+        var silent: f32 = INF;
         let r = pos();
-        for (var i: u32 = 0u; i < n; i = i + 1u) {
-            let c = h(start + i);
-            let hs = cell_distance(c, r, ray_u);
-            if (hs.d < best) {
-                best = hs.d;
-                bc = c;
-                bs = hs.s;
+        let gb = grid_of(h(1u));
+        if (gb != NONE && lv_vox[0] != NONE) {
+            // In the grid, in no cell: the voxel's candidates only.
+            let lb = vox_list(gb, lv_vox[0]);
+            if (lb != NONE) {
+                let n = h(lb);
+                for (var i: u32 = 0u; i < n; i = i + 1u) {
+                    let e = lb + 1u + i * CAND_WORDS;
+                    let hs = toks_distance(cand_toks(e), r, ray_u);
+                    if (hs.d < best) {
+                        best = hs.d;
+                        bs = hs.s;
+                        bc = h(e);
+                    }
+                }
             }
+            silent = vox_exit(gb, lv_vox[0], r, ray_u);
+        } else if (gb != NONE && (h(gb + 9u) & 1u) == 0u) {
+            // Outside a closed grid: nothing until its box.
+            silent = grid_entry(gb, r, ray_u);
+            if (silent > 1.0e29) { return; }
+            silent = max(silent, nudge());
+        } else {
+            let ub = h(7u) + h(1u) * 4u;
+            let start = h(11u) + h(ub);
+            let n = h(ub + 1u);
+            for (var i: u32 = 0u; i < n; i = i + 1u) {
+                let c = h(start + i);
+                let hs = cell_distance(c, r, ray_u);
+                if (hs.d < best) {
+                    best = hs.d;
+                    bs = hs.s;
+                    bc = c;
+                }
+            }
+        }
+        lv_uni[0] = h(1u);
+        lv_lat[0] = NONE;
+        lv_off[0] = vec3<f32>(0.0, 0.0, 0.0);
+        if (silent < INF && (bs == NONE || best > silent + 2.0 * nudge())) {
+            ray_t = ray_t + silent + nudge();
+            have = locate_from(0u, NONE);
+            vsteps = vsteps + 1u;
+            if (vsteps > MAX_VOXEL_STEPS) { return; }
+            continue;
         }
         if (best > 1.0e29 || bs == NONE) { return; }
         ray_t = ray_t + best + nudge();
         entry_s = bs;
-        entry_out = leaving_side(bc, bs);
-        lv_uni[0] = h(1u);
-        lv_lat[0] = NONE;
-        lv_off[0] = vec3<f32>(0.0, 0.0, 0.0);
+        // The side opposite the cell entered (a ray leaving it backwards).
+        entry_out = side_after(bc, bs, pos(), -ray_u);
         have = locate_from(0u, (bs << 1u) | select(1u, 0u, entry_out));
         steps = steps + 1u;
         if (steps > 64u) { return; }
     }
     var trav: f32 = 0.0;
+    // Distance since the last crossing, voxel steps included: the CPU's
+    // "closer than 10 nudges" rule is about the crossing just taken, not
+    // about the last silent step.
+    var since: f32 = 0.0;
     if (entry_s != NONE) {
         let a = on_hit(cur_mat, entry_s, entry_out, 0u, true, trav);
         if (a == 1u) { return; }
@@ -948,16 +1155,34 @@ fn trace() {
     tok_surf = NONE;
     loop {
         let bh = distance_to_boundary();
+        // A voxel face nearer than every boundary: a silent step (nothing
+        // crossed, nothing reported; the next distance_to_boundary moves the
+        // level to its new voxel). A boundary within two nudges of the face
+        // is taken as the crossing, so no surface is stepped over.
+        if (bh.vox < 1.0e29 && (!bh.found || bh.d > bh.vox + 2.0 * nudge())) {
+            let dv = bh.vox + nudge();
+            ray_t = ray_t + dv;
+            trav = trav + dv;
+            since = since + dv;
+            // Off the surface just crossed: its token (which makes a surface
+            // distance "coincident", measured as from a point on it) no
+            // longer applies. Within 10 nudges it still does, as on the CPU.
+            if (since > 10.0 * nudge()) { tok_surf = NONE; }
+            vsteps = vsteps + 1u;
+            if (vsteps > MAX_VOXEL_STEPS) { return; }
+            continue;
+        }
         if (!bh.found || bh.d >= 1.0e29 || bh.d < 0.0) { return; }
         // The CPU skips a crossing closer than 10 nudges (10 * TINY_BIT).
-        let call = bh.d >= 10.0 * nudge();
+        let call = since + bh.d >= 10.0 * nudge();
+        since = 0.0;
         let d = bh.d + nudge();
         ray_t = ray_t + d;
         trav = trav + d;
         let old_mat = cur_mat;
         var side_out = false;
         if (bh.s != NONE) {
-            side_out = leaving_side(lv_cell[bh.level], bh.s);
+            side_out = side_after(lv_cell[bh.level], bh.s, local(bh.level), ray_u);
             tok_surf = bh.s;
             tok_out = side_out;
         } else {
@@ -1091,7 +1316,7 @@ fn render(@builtin(global_invocation_id) gid: vec3<u32>) {
         if (nseg == 0u) { hv = 0u; }
         put_px(x, y, c, hv, nseg);
     } else {
-        put_px(x, y, result, bitcast<u32>(out_id), steps);
+        put_px(x, y, result, bitcast<u32>(out_id), min(steps, 65535u) | (min(vsteps, 65535u) << 16u));
     }
 }
 

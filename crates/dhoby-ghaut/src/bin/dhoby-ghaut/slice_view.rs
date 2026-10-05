@@ -251,6 +251,11 @@ impl SliceView {
             self.dirty = true;
         }
         let gpu_ready = have_geometry && self.gpu.as_ref().is_some_and(Gpu::poll);
+        // The GPU became ready after a CPU picture (or has a new geometry):
+        // trace it there, without waiting for the reader to move the view.
+        if gpu_ready && gpu_tex.is_none() {
+            self.dirty = true;
+        }
         if gpu_ready {
             // GPU: every change, at screen resolution, once the last frame
             // has run (no frame is queued behind a slow one).

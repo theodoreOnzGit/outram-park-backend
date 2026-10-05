@@ -256,6 +256,7 @@ impl App {
         match crate::gpu_view::Gpu::new(cc) {
             Ok(g) => {
                 app.view3d.gpu = Some(g.clone());
+                app.dem.view.use_gpu(&g);
                 app.slice.gpu = Some(g);
             }
             Err(e) => eprintln!("dhoby-ghaut: GPU ray tracing off, drawing on the CPU: {e}"),
