@@ -9,9 +9,20 @@
 > measured on a delta-tracking majorant (`bed_majorant`: `over_indices` on a
 > 4096-point log grid, margin 0.3) that **under-bounds `Sigma_t` by 14x at 661 eV
 > in the UO2 kernel** (13.8x on the VII.0 arm). An under-bound majorant silently
-> drops collisions in the U-238 resonances. **Re-measurement is pending; the
-> expected shift is −500 to −3000 pcm (k lower) at every height.** The numbers
-> below are left as measured until the re-measurement exists.
+> drops collisions in the U-238 resonances. ~~**Re-measurement is pending; the
+> expected shift is −500 to −3000 pcm (k lower) at every height.**~~
+> **RE-MEASURED 2026-10-05** in
+> [`../htr10_seker_2026_10_05_majorant_fix/`](../htr10_seker_2026_10_05_majorant_fix/README.md),
+> at 4 of the 11 heights on VIII.0 and 1 on VII.0, at 10 000 × [5 + 20]. The
+> measured shifts (new − old) are −550 ± 281, −10 ± 309, −510 ± 351 and
+> −63 ± 259 pcm at N = 10, 14, 17 and 20 (VIII.0; weighted mean
+> −263 ± 147 pcm), and −332 ± 316 pcm at N = 14 (VII.0). That is far smaller
+> than the −500 to −3000 pcm predicted. The same-code control, VIII.0 N = 14
+> on today's code with the old majorant, reproduces this record's k
+> (+139 ± 268 pcm), so no other change since this record moved k
+> measurably. The numbers below are left as measured on the under-bound majorant. At the 17 points not re-measured,
+> read them as carrying a shift of about −300 pcm, known only to about
+> ±150 pcm.
 
 ![k vs height, both libraries](keff_vs_height_endf8_endf7.png)
 
