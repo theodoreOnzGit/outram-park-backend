@@ -94,7 +94,9 @@ fn headless(rung: rungs::Rung) -> Result<(), String> {
             f_hm: 1.0e-4,
             k_plate: 7.5e-5,
             k_clean: 8.77e-5,
-            k_leak: 0.0,
+            // The app's default: HTR-10's 1 %/day primary-helium leakage
+            // (Liu & Cao 2002, Section 2.4.1).
+            k_leak: 0.01 / 86_400.0,
         },
         rungs::Rung::SourceTerm => {
             println!("nuclide,released_bq,core_bq");

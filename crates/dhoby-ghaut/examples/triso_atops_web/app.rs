@@ -49,6 +49,11 @@ const SPECIES: [Color32; 6] = [
     Color32::from_rgb(255, 140, 110),
 ];
 
+/// HTR-10's primary-helium leakage, 1 % of the volume per day (Liu & Cao
+/// 2002, NED 218, Section 2.4.1, as recorded in `changi/docs/References.md`),
+/// as a first-order rate \[1/s\]: 0.01 / 86 400 s.
+const HTR10_K_LEAK: f64 = 0.01 / 86_400.0;
+
 /// Every control, for every rung (each rung reads the ones it needs).
 #[derive(Clone, Copy, PartialEq)]
 struct Controls {
@@ -108,8 +113,11 @@ impl Default for Controls {
             // NormalOperation::np_mhtgr_reference).
             k_plate: 7.5e-5,
             k_clean: 8.77e-5,
-            leak_on: false,
-            k_leak: 1.0e-5,
+            // On by default at HTR-10's own figure: primary-helium leakage of
+            // 1 % of the volume per day (Liu & Cao 2002, NED 218, Section
+            // 2.4.1; changi/docs/References.md), k_leak = 0.01 / 86 400 s.
+            leak_on: true,
+            k_leak: HTR10_K_LEAK,
         }
     }
 }
@@ -566,6 +574,7 @@ impl TrisoApp {
                             .text("k_clean, 1/s (noble gases, halogens)"),
                     );
                     ui.checkbox(&mut c.leak_on, "primary-circuit leak");
+                    ui.label(egui::RichText::new("Default: HTR-10's primary-helium leakage, 1 % of the volume per day (Liu & Cao 2002, Section 2.4.1), 1.157e-7 /s. That is the pressurised circuit's normal-operation leakage, carried through the hold unchanged; a depressurisation is not modelled here.").small());
                     if c.leak_on {
                         ui.add(
                             egui::Slider::new(&mut c.k_leak, 1.0e-8..=1.0e-2)
@@ -579,6 +588,7 @@ impl TrisoApp {
                         c.k_plate = d.k_plate;
                         c.k_clean = d.k_clean;
                         c.leak_on = d.leak_on;
+                        c.k_leak = d.k_leak;
                     }
                     if let Some(f) = f {
                         let nucs = selected_nuclides(f, c.release_pick);
