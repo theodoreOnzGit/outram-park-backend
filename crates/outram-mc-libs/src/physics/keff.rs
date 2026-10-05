@@ -191,6 +191,17 @@ pub struct KeffSettings {
     /// tightened threshold silently multiply the cost of a study, which is
     /// the opposite of what this feature is for.
     pub keff_trigger: Option<crate::tally::trigger::Trigger>,
+    /// **How a tally is scored inside a delta-tracked region** (gh:#598).
+    ///
+    /// The default, [`DeltaTallyEstimator::TentativeCollision`], scores
+    /// `w/Σ_maj` (flux) and `w·Σ_x/Σ_maj` (reaction rates) at every
+    /// tentative collision site, virtual and real: unbiased everywhere in the
+    /// region, the near-void helium between pebbles included.
+    /// [`DeltaTallyEstimator::RealCollision`] (`w/Σ_t` at real collisions
+    /// only) is the explicit ablation. Neither draws random numbers, so the
+    /// eigenvalue does not depend on this choice; only the tallies do.
+    /// Surface-tracked regions always use the track-length estimator.
+    pub delta_tally_estimator: crate::physics::transport_csg::DeltaTallyEstimator,
 }
 
 impl Default for KeffSettings {
@@ -209,6 +220,7 @@ impl Default for KeffSettings {
             compute: ComputeType::CpuSingleThread,
             variance_reduction: Default::default(),
             keff_trigger: None,
+            delta_tally_estimator: Default::default(),
         }
     }
 }

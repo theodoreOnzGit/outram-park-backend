@@ -73,6 +73,14 @@ MOAB algorithm is used for every mesh.
   unstructured meshes at 3-D.
 - Mesh-surface (current) tallies are refused on unstructured meshes, as
   upstream does.
+- **Collision-estimator scores are binned at their site, never split
+  (2026-10-06, gh:#598).** Inside a delta-tracked region the transport scored
+  `w/Σ_t` through the track-length path with `1/Σ_t` as the "length", and
+  this filter split that pseudo-segment along the ray: a helium collision's
+  `1/Σ_t ~ 5e4 cm` fell almost wholly outside the mesh. The HTR-10 Step 8
+  pebble-bed flux lost its helium share that way. `score_collision_point`
+  now bins such scores at the site
+  (`tests/delta_collision_estimator.rs`).
 - The structured kinds keep the midpoint approximation for track length.
   Changing that would move every recorded structured-mesh tally, so it is
   left for a separate, re-measured change.

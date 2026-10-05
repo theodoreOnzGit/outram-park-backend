@@ -20,8 +20,13 @@
 //! - total rate:      `w`               (one collision)
 //!
 //! (`src/tallies/tally_scoring.cpp`, `score_general` collision branch.) This is
-//! the simplest unbiased estimator; a track-length estimator (bead op-6tz.9
-//! follow-up) would additionally score along free-flight segments.
+//! the simplest unbiased estimator; ~~a track-length estimator (bead op-6tz.9
+//! follow-up) would additionally score along free-flight segments.~~
+//! **CORRECTED 2026-10-06:** the track-length estimator exists
+//! ([`score_track_length`]) and is what the CSG transport scores on
+//! surface-tracked segments. Inside a delta-tracked region the transport
+//! scores a collision estimator at a POINT with [`score_collision_point`]
+//! (gh:#598), by default at every tentative collision with `1/Σ_maj`.
 
 use super::filter::{FilterEvent, FilterKind};
 use crate::particle::particle::ParticleType;
@@ -261,6 +266,91 @@ pub fn score_track_length(
     // track-length event in one bin — the same defect `time` had.
     direction: Direction,
 ) {
+    score_length_like(
+        batch,
+        tally,
+        cell_idx,
+        material_idx,
+        universe_idx,
+        energy,
+        distance,
+        position,
+        macro_xs,
+        weight,
+        cell_instance,
+        time,
+        direction,
+        false,
+    );
+}
+
+/// A **collision-estimator** score at one point (gh:#598): deposits
+/// `w·inv_sigma` as flux and `w·inv_sigma·Σ_x` as each reaction rate, binned
+/// at `position` by EVERY filter, including the spatial ones that split a
+/// real track-length segment ([`super::filter::Filter::track_length_bins`]).
+///
+/// `inv_sigma` is `1/Σ_maj` for the delta-tracking tentative-collision
+/// estimator, or `1/Σ_t` for the real-collision one. Both are weights, not
+/// lengths: scoring them through [`score_track_length`] on an unstructured
+/// mesh filter reconstructed a segment of that "length" around the site and
+/// split it across the cells the segment crossed, which was the gh:#598
+/// defect.
+///
+/// Per-batch accumulation, `time` and `direction` as in
+/// [`score_track_length`] (`time` is the clock AT the site).
+#[allow(clippy::too_many_arguments)]
+pub fn score_collision_point(
+    batch: &mut [f64],
+    tally: &Tally,
+    cell_idx: usize,
+    material_idx: usize,
+    universe_idx: usize,
+    energy: f64,
+    inv_sigma: f64,
+    position: Position,
+    macro_xs: Option<&MacroXs>,
+    weight: f64,
+    cell_instance: Option<usize>,
+    time: f64,
+    direction: Direction,
+) {
+    score_length_like(
+        batch,
+        tally,
+        cell_idx,
+        material_idx,
+        universe_idx,
+        energy,
+        inv_sigma,
+        position,
+        macro_xs,
+        weight,
+        cell_instance,
+        time,
+        direction,
+        true,
+    );
+}
+
+/// Shared body of [`score_track_length`] (`at_point = false`) and
+/// [`score_collision_point`] (`at_point = true`).
+#[allow(clippy::too_many_arguments)]
+fn score_length_like(
+    batch: &mut [f64],
+    tally: &Tally,
+    cell_idx: usize,
+    material_idx: usize,
+    universe_idx: usize,
+    energy: f64,
+    distance: f64,
+    position: Position,
+    macro_xs: Option<&MacroXs>,
+    weight: f64,
+    cell_instance: Option<usize>,
+    time: f64,
+    direction: Direction,
+    at_point: bool,
+) {
     if distance <= 0.0 || !distance.is_finite() {
         return;
     }
@@ -324,7 +414,13 @@ pub fn score_track_length(
     // mesh divides the segment among the cells it crosses, as OpenMC's
     // MeshFilter::get_all_bins does under the track-length estimator
     // (`src/tallies/filter_mesh.cpp:60-69` -> `MOABMesh::bins_crossed`).
-    if tally.filters.iter().any(|f| f.splits_track_length()) {
+    //
+    // ONLY for a real segment. A collision-estimator score (`at_point`) has no
+    // segment: its "length" `1/Σ` is a weight, and splitting it as if it were
+    // a flight centred on the collision site smeared each score along the
+    // ray and dropped whatever fell outside the mesh — for a helium collision
+    // (`1/Σ_t ~ 5e4 cm`) essentially all of it (gh:#598).
+    if !at_point && tally.filters.iter().any(|f| f.splits_track_length()) {
         score_track_length_split(batch, tally, &ev, distance, macro_xs, weight, energy);
         return;
     }
@@ -663,8 +759,9 @@ pub fn score_collision(
         universe_idx,
         energy,
         surface_idx: usize::MAX,
-        // The collision estimator has no spatial-filter callers yet; a mesh /
-        // Legendre tally uses the track-length estimator. Score at the origin.
+        // This function has no spatial-filter callers; a mesh / Legendre
+        // tally uses the track-length estimator, or `score_collision_point`
+        // inside a delta-tracked region (gh:#598). Score at the origin.
         position: Position::ZERO,
         ..Default::default()
     };

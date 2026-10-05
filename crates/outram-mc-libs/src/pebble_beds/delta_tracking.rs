@@ -1069,6 +1069,65 @@ where
     D: Fn(Position, Direction) -> f64,
     M: Fn(Position) -> Option<usize>,
 {
+    bounded_delta_flight_visiting(
+        start,
+        direction,
+        energy,
+        majorant,
+        materials,
+        nuclides,
+        max_virtual,
+        distance_to_exit,
+        material_at,
+        seed,
+        urr_seed,
+        |_, _, _| {},
+    )
+}
+
+/// [`bounded_delta_flight_urr`] that also calls `visit(position, material,
+/// majorant)` at **every tentative collision site** inside the region, virtual
+/// and real alike (the real one last), before the site is classified.
+///
+/// NEW WORK, no OpenMC counterpart: OpenMC has no delta tracking, and its
+/// MGXS module scores flux with the track-length estimator
+/// (`openmc/mgxs/mgxs.py`, `estimator = 'tracklength'`), which a
+/// delta-tracked flight cannot supply. This is what the **delta-tracking
+/// collision estimator** needs (gh:#598). In a Woodcock-tracked region the
+/// tentative sites are a Poisson process of rate `Σ_maj(E)` along the flight,
+/// so their density is `φ(r,E)·Σ_maj(E)` everywhere in the region,
+/// *including* the near-void helium between pebbles. Hence `w/Σ_maj` per site
+/// is an unbiased flux estimator and `w·Σ_x(r)/Σ_maj` an unbiased
+/// reaction-rate one. This is Serpent's collision flux estimator under delta
+/// tracking (J. Leppänen, "Performance of Woodcock delta-tracking in lattice
+/// physics applications using the Serpent Monte Carlo reactor physics burnup
+/// calculation code", Ann. Nucl. Energy 37 (2010) 715-722). The
+/// real-collision estimator `w/Σ_t` is unbiased too, but where `Σ_t ≪ Σ_maj`
+/// (helium at 1 atm: `Σ_t/Σ_maj ~ 5e-5`) its support is almost never
+/// sampled and each rare sample is enormous.
+///
+/// **The visitor draws no random numbers**, so a run that visits takes
+/// exactly the same histories as one that does not.
+#[allow(clippy::too_many_arguments)]
+pub fn bounded_delta_flight_visiting<D, M, V>(
+    start: Position,
+    direction: Direction,
+    energy: f64,
+    majorant: &Majorant,
+    materials: &[Material],
+    nuclides: &[Nuclide],
+    max_virtual: u32,
+    distance_to_exit: D,
+    material_at: M,
+    seed: &mut u64,
+    urr_seed: Option<u64>,
+    mut visit: V,
+) -> DeltaStep
+where
+    D: Fn(Position, Direction) -> f64,
+    M: Fn(Position) -> Option<usize>,
+    V: FnMut(Position, usize, f64),
+{
     let maj = majorant.at(energy);
     let mut r = start;
     let mut virtual_collisions = 0_u32;
@@ -1115,6 +1174,7 @@ where
             Some(us) => materials[m].macro_xs_total_urr(energy, nuclides, us),
             None => materials[m].macro_xs_total(energy, nuclides),
         };
+        visit(r, m, maj);
         match classify_collision(sigma_t, maj, seed) {
             DeltaEvent::Real => {
                 return DeltaStep::Collision {

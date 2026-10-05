@@ -45,7 +45,10 @@
 //! per generation and flushed as one realization per active batch (see
 //! [`crate::tally::scoring::score_track_length`] / `flush_batch`). The
 //! collision estimator ([`crate::tally::scoring::score_collision`]) remains
-//! available as an alternative.
+//! available as an alternative. **Inside a delta-tracked region** there is no
+//! track length; the tally is scored at points by
+//! [`crate::tally::scoring::score_collision_point`], by default at every
+//! tentative collision with `w/Σ_maj` ([`DeltaTallyEstimator`], gh:#598).
 //!
 //! **S(α,β) thermal scattering (bead op-6tz.12).** A moderator nuclide carrying a
 //! [`crate::material::thermal::ThermalScattering`] table (attached via
@@ -57,9 +60,34 @@
 //! *thermal* LWR pin-cell tractable; see the `pincell` verification test.
 
 use crate::geometry::cell::{SurfaceToken, TrackingMethod};
-use crate::pebble_beds::delta_tracking::{bounded_delta_flight_urr, DeltaStep, Majorant};
+use crate::pebble_beds::delta_tracking::{bounded_delta_flight_visiting, DeltaStep, Majorant};
 use crate::geometry::crossing::GeometryExt;
 use crate::tally::mesh::RegularMeshExt;
+
+/// **Which collision estimator a tally uses inside a delta-tracked region**
+/// (gh:#598). A track-length estimator is not available there (see the
+/// scoring block in [`transport_history_vr`]).
+///
+/// NEW WORK: OpenMC has no delta tracking. Serpent, which does, scores its
+/// collision flux at every tentative collision (Leppänen 2010, cited at
+/// [`crate::pebble_beds::delta_tracking::bounded_delta_flight_visiting`]).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum DeltaTallyEstimator {
+    /// **The default.** At every tentative collision site, virtual and real,
+    /// score `w/Σ_maj` (flux) and `w·Σ_x(r)/Σ_maj` (reaction rates), with
+    /// `Σ_x` of the material AT the site. The sites have density
+    /// `φ·Σ_maj` everywhere in the region, so this samples the near-void
+    /// helium between pebbles as often as the graphite. Costs one
+    /// `Material::macro_xs` per tentative site while a tally is attached.
+    #[default]
+    TentativeCollision,
+    /// **Ablation**: `w/Σ_t` and `w·Σ_x/Σ_t` at REAL collisions only, as
+    /// OpenMC's collision estimator does (`tally_scoring.cpp`,
+    /// `score_general_ce_nonanalog`). Unbiased, but where `Σ_t ≪ Σ_maj`
+    /// (helium, `Σ_t/Σ_maj ~ 5e-5`) its support is almost never sampled, so
+    /// a finite run sees a void's flux as rare enormous scores or not at all.
+    RealCollision,
+}
 
 /// Virtual-collision budget for a delta-tracked region before the history is
 /// declared lost. Matches `keff_delta.rs`'s `MAX_VIRTUAL` so the two paths
@@ -87,7 +115,8 @@ use crate::physics::variance_reduction::{
 use crate::rng::distributions::isotropic_direction;
 use crate::rng::lcg::{future_seed, prn};
 use crate::tally::scoring::{
-    flush_batch, flush_bins, score_fission_birth, score_scatter_matrix, score_track_length,
+    flush_batch, flush_bins, score_collision_point, score_fission_birth, score_scatter_matrix,
+    score_track_length,
 };
 use crate::tally::tally::{Tally, TallyBin};
 use crate::mathf::RealMath;
@@ -698,6 +727,7 @@ pub fn run_keff_csg_seq_progress<G: FnMut(GenerationProgress) + Send>(
                     leak_edges_gen,
                     &mut leak_batch,
                     &settings.variance_reduction,
+                    settings.delta_tally_estimator,
                     None,
                     None,
                     None,
@@ -919,6 +949,7 @@ impl CsgPowerIteration {
                 &[],
                 &mut leak_batch,
                 &self.settings.variance_reduction,
+                self.settings.delta_tally_estimator,
                 None,
                 None,
                 None,
@@ -1151,6 +1182,7 @@ pub fn run_keff_csg_par_progress<G: FnMut(GenerationProgress) + Send>(
                             leak_edges_gen,
                             &mut local_leak,
                             &settings.variance_reduction,
+                            settings.delta_tally_estimator,
                             None,
                             None,
                             None,
@@ -1412,6 +1444,9 @@ pub(crate) fn transport_history_vr(
     leak_edges: &[f64],
     leak_batch: &mut [f64],
     vr: &VarianceReduction,
+    // Tally estimator inside delta-tracked regions (gh:#598). Draws no
+    // randomness: the histories are the same whichever is chosen.
+    delta_estimator: DeltaTallyEstimator,
     // Track capture (GitHub #271). `None` records nothing and costs a single
     // `Option` check per event; recording draws no randomness, so a run with
     // capture on gives the same eigenvalue bit for bit as one without.
@@ -1812,7 +1847,56 @@ pub(crate) fn transport_history_vr(
                     // The region's OWN extent, not the nearest surface -- a bed
                     // is full of internal surfaces the tracker exists to cross.
                     let exit_at = geom.distance_out_of_level(&path, path.tracking_level);
-                    let step = bounded_delta_flight_urr(
+                    // ── Delta tracking: TENTATIVE-COLLISION estimator ──────
+                    // (gh:#598, the default; see `DeltaTallyEstimator`.)
+                    // Every tentative site inside the region, virtual and
+                    // real, scores `w/Σ_maj` (flux) and `w·Σ_x/Σ_maj` (rates)
+                    // in the material AT the site, binned at the site. Draws
+                    // no randomness, so `k` is unchanged by it.
+                    let tentative_tally = match (tally, delta_estimator) {
+                        (Some(t), DeltaTallyEstimator::TentativeCollision) => Some(t),
+                        _ => None,
+                    };
+                    let batch_ref = &mut *batch;
+                    // ONLY the sites before `d_bound` are scored. The flight
+                    // runs to the region's exit, but the particle advances at
+                    // most to the nearest surface (an internal pebble or
+                    // kernel surface, usually): a real collision beyond it is
+                    // discarded and the remainder re-sampled from the surface
+                    // on the next flight (memoryless, so unbiased). Scoring
+                    // the sites past `d_bound` would count that stretch twice.
+                    // Measured before this guard, on the BCC cell of
+                    // `tests/delta_collision_estimator.rs`: region Σ_t -1.9 %
+                    // in both groups against surface track-length (15 σ).
+                    let d_scored = d_bound.distance;
+                    let visit = |p: Position, m: usize, maj_e: f64| {
+                        let Some(t) = tentative_tally else { return };
+                        if !(maj_e > 0.0) {
+                            return;
+                        }
+                        let travelled =
+                            (p.x - r.x) * u.u + (p.y - r.y) * u.v + (p.z - r.z) * u.w;
+                        if !(travelled < d_scored) {
+                            return;
+                        }
+                        let mxs = materials[m].macro_xs(e, nuclides);
+                        score_collision_point(
+                            batch_ref,
+                            t,
+                            cell_idx,
+                            m,
+                            leaf.universe,
+                            e,
+                            1.0 / maj_e,
+                            p,
+                            Some(&mxs),
+                            w,
+                            cell_instance,
+                            time_s + flight_time(travelled, e),
+                            u,
+                        );
+                    };
+                    let step = bounded_delta_flight_visiting(
                         r,
                         u,
                         e,
@@ -1833,6 +1917,7 @@ pub(crate) fn transport_history_vr(
                         },
                         seed,
                         Some(urr_seed),
+                        visit,
                     );
                     match step {
                         DeltaStep::Collision {
@@ -1920,32 +2005,40 @@ pub(crate) fn transport_history_vr(
                     // — impossible for a leaking system. Surface-tracking the
                     // same geometry closed that balance to -133 pcm.
                     //
-                    // The collision estimator is what OpenMC and Serpent use in
+                    // ~~The collision estimator is what OpenMC and Serpent use in
                     // delta-tracked regions for exactly this reason: it scores
                     // `w/Sigma_t` at the resolved collision site, where the
                     // material IS known. A flight that exits the region without
                     // colliding scores nothing — correct, not an omission: the
                     // estimator's support is collisions, and it is unbiased
-                    // over a history.
+                    // over a history.~~ **CORRECTED 2026-10-06 (gh:#598).**
+                    // OpenMC has no delta tracking at all. Serpent scores its
+                    // collision flux at every TENTATIVE collision, `w/Σ_maj`,
+                    // and that is now the default (`DeltaTallyEstimator::
+                    // TentativeCollision`, scored inside the flight above).
+                    // The real-collision `w/Σ_t` form below is unbiased in
+                    // expectation but, in near-void helium (`Σ_t/Σ_maj ~
+                    // 5e-5`), almost never sampled; it is kept as the explicit
+                    // ablation `DeltaTallyEstimator::RealCollision`.
+                    //
+                    // gh:#598 DEFECT, fixed here: the real-collision score was
+                    // passed through `score_track_length` with `1/Σ_t` as a
+                    // "length". On an unstructured mesh filter (gh:#492) that
+                    // length was rebuilt as a segment around the site and split
+                    // across the cells it crossed; a helium collision's
+                    // `1/Σ_t ~ 5e4 cm` segment fell almost wholly outside the
+                    // mesh and was dropped. The HTR-10 Step 8 bed lost its
+                    // helium flux that way: bed Σ ~ 1/0.61 too large.
+                    // `score_collision_point` bins at the site instead.
                     TrackingMethod::Delta { .. } => {
-                        if d_col < d_bound.distance {
+                        if delta_estimator == DeltaTallyEstimator::RealCollision
+                            && d_col < d_bound.distance
+                        {
                             if let Some(m) = col_material {
                                 let mxs = materials[m].macro_xs(e, nuclides);
                                 if mxs.total > 0.0 {
-                                    // The collision estimator scored THROUGH the
-                                    // track-length machinery. The two differ only
-                                    // in the length deposited: track-length gives
-                                    // `w·d`, the collision estimator `w/Sigma_t`.
-                                    // Passing `1/Sigma_t` as the length therefore
-                                    // deposits `w/Sigma_t` (flux) and
-                                    // `w·Sigma_x/Sigma_t` (reaction rates), which
-                                    // IS the collision estimator — and it keeps
-                                    // the per-generation batch accumulation and
-                                    // every filter the track-length path already
-                                    // supports. `score_collision` writes straight
-                                    // to the tally and would bypass the batch.
                                     let at = stream(r, u, d_col);
-                                    score_track_length(
+                                    score_collision_point(
                                         batch,
                                         t,
                                         cell_idx,
@@ -1957,7 +2050,7 @@ pub(crate) fn transport_history_vr(
                                         Some(&mxs),
                                         w,
                                         cell_instance,
-                                        time_s,
+                                        time_s + flight_time(d_col, e),
                                         u,
                                     );
                                 }

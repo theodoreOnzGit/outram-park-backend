@@ -326,6 +326,8 @@ pub fn run_fixed_source_traced(
                     &[],
                     &mut [],
                     &settings.variance_reduction,
+                    // No delta regions here (`&[]` above); the default.
+                    crate::physics::transport_csg::DeltaTallyEstimator::default(),
                     tracks.as_deref_mut(),
                     surface_source.as_deref_mut(),
                     distribcell,

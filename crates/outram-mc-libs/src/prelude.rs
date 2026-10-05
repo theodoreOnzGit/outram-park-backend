@@ -49,7 +49,9 @@ pub use crate::physics::keff::{run_keff, GenerationReport, HistoryCounts, KeffRe
 pub use crate::physics::search::{
     search_for_keff, SearchError, SearchIteration, SearchMethod, SearchResult, SearchSettings,
 };
-pub use crate::physics::transport_csg::{run_keff_csg, run_keff_csg_reactor_physics, SourceBox};
+pub use crate::physics::transport_csg::{
+    run_keff_csg, run_keff_csg_reactor_physics, DeltaTallyEstimator, SourceBox,
+};
 pub use crate::physics::reactor_physics::{
     assemble_six_factors, run_keff_reactor_physics, Estimate, Group, LethargySpectrum,
     ReactorPhysicsConfig, ReactorPhysicsError, ReactorPhysicsReport, SixFactors, CONSISTENCY_BAND,
