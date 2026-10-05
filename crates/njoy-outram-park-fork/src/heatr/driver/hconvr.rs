@@ -179,6 +179,11 @@ impl Heatr {
                 let mut cur = SectionCursor::new(&s.rows);
                 let head = cur.read_cont()?;
                 let (za, awr, lg) = (head.c1, head.c2, head.l2 as usize);
+                // Upstream assigns these to the module globals `za` and
+                // `awr` (`:4751-4752`), so the last LO=2 head's values are the
+                // ones every later routine, and `hout`'s section heads, use.
+                self.za = za;
+                self.awr = awr;
                 l2flg = true;
                 let list = cur.read_list()?;
                 let scr = list_flat(&list);
