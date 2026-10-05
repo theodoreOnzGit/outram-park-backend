@@ -633,7 +633,7 @@ impl TrisoApp {
                     }
                     ui.label("Each nuclide goes through TRISO-ATOPS's own chain: diffusion coefficients, <R/B>_fail (noble-gas fit for the volatiles, Booth diffusion for Cs and Sr, SiC breakthrough for Ag), the release rate, the matrix-graphite attenuation (metals are held up in the fuel element's graphite; volatiles pass straight through), then upstream's routing: noble gases do not plate out, and the purification system scrubs noble gases and halogens but not metals. No parent in-growth: I-135 decaying to Xe-135 is not followed (live_pools). Silver (Ag-110m) is zero at normal operation: in TRISO-ATOPS's breakthrough model it has not yet crossed intact SiC at the irradiation temperature (the membrane time lag); during a hot hold it does. During the hold this is TRISO-ATOPS's steady normal-operation release evaluated at the hold temperature, not its accident model (sembawang's, which depletes the kernel); the metals' Booth release is the one that differs most. Kernel radius 213 µm, SiC 35 µm, grain 10 µm and the 40-year run are the NP-MHTGR reference case, not HTR-10 values.");
                     ui.label(format!(
-                        "The diagram: the fuel feeds the circulating helium at S; the helium loses atoms to plate-out (k_plate C), the purification system (k_clean C), a leak out of the circuit (k_leak C) and decay (λC); the plated and purified pools lose atoms only to decay. Arrow width and the number of dots show each flow on a log scale; the dots' speed is not physical. Playing moves \"now\" through the hold at {:.0} h per second.",
+                        "The diagram: the kernels release R atoms/s from failed particles. The coatings hold no pool in TRISO-ATOPS (they act only through <R/B>: failure fractions, and silver diffusing through SiC), so R passes through them into the fuel element's matrix graphite (G), which holds metals back when cool; S = R / Af reaches the circulating helium (volatiles pass straight through, S = R). The helium loses atoms to plate-out (k_plate C), the purification system (k_clean C), a leak out of the circuit (k_leak C) and decay (λC); the plated and purified pools lose atoms only to decay. Arrow width and the number of dots show each flow on a log scale; the dots' speed is not physical. Playing moves \"now\" through the hold at {:.0} h per second.",
                         c.hours / 10.0
                     ));
                     ui.label("Defaults: f_hm from the NP-MHTGR case TRISO-ATOPS ships; k_plate and k_clean from Stoyer et al. 2026 Case A Table 3. The pools start from a 40-year run at the irradiation temperature (long-lived Cs-137 plate-out is still growing then, as in upstream's normal operation) and are carried through the hold exactly (live_pools, not a port). <R/B> uses the hold temperature. Air ingress releases exactly 0 Bq in this model (#446): it has no oxidation path.");
@@ -724,7 +724,12 @@ impl TrisoApp {
             if self.rung == Rung::Release {
                 // The living diagram on top, the plots (with the same "now")
                 // below it.
-                let strip = (rect.height() * 0.5).clamp(240.0, 460.0);
+                // Taller on a phone, where the fuel side stacks above the helium.
+                let strip = if rect.width() < 600.0 {
+                    (rect.height() * 0.58).clamp(300.0, 540.0)
+                } else {
+                    (rect.height() * 0.5).clamp(240.0, 460.0)
+                };
                 let r = Rect::from_min_max(area.min, Pos2::new(rect.right(), area.top() + strip));
                 if let Some(f) = &self.frame {
                     draw_pools(&painter, r, f, self.c.release_pick, self.c.cursor_h, now_s(), self.plot_text);
@@ -734,8 +739,16 @@ impl TrisoApp {
             let specs = self.plot_specs();
             if let Some(f) = &self.frame {
                 if self.rung == Rung::Release {
-                    let series = release_series(f, self.c.release_pick);
-                    draw_panels(&painter, area, &series, &specs, self.plot_text);
+                    let mut series = release_series(f, self.c.release_pick);
+                    // On a phone the diagram takes the room; only the pools
+                    // over time are plotted under it.
+                    let specs = if rect.width() < 600.0 {
+                        series.retain(|s| s.panel == 0);
+                        &specs[..1]
+                    } else {
+                        &specs[..]
+                    };
+                    draw_panels(&painter, area, &series, specs, self.plot_text);
                 } else {
                     draw_panels(&painter, area, &f.series, &specs, self.plot_text);
                 }
@@ -1107,6 +1120,7 @@ fn release_series(f: &Frame, pick: u8) -> Vec<Series> {
         line("circulating activity, Bq", 0, 0, sum(rel::C, true)),
         line("plated out, Bq", 5, 0, sum(rel::P, true)),
         line("in the purification system, Bq", 2, 0, sum(rel::H, true)),
+        line("release from the kernels R, atoms/s", 3, 0, sum(rel::R, false)),
         line("held in the fuel elements' matrix graphite, Bq", 4, 0, sum(rel::G, true)),
         line("leaked from the circuit (cumulative atoms)", 3, 1, sum(rel::LEAKED, false)),
     ]
@@ -1180,7 +1194,8 @@ fn draw_pools(painter: &egui::Painter, rect: Rect, f: &Frame, pick: u8, now_h: f
     let inventory: f64 = nucs.iter().map(|&i| release_header(f, i, 0)).sum();
     let any_rate = |k: usize| nucs.iter().any(|&i| release_header(f, i, k) > 0.0);
     // Log scale for widths and dots: six decades below the largest flow.
-    let top = q.iter().cloned().fold(0.0f64, f64::max).max(1e-300).log10();
+    let q_r = total(rel::R, false);
+    let top = q.iter().cloned().fold(q_r, f64::max).max(1e-300).log10();
     let norm = |v: f64| if v > 0.0 { ((v.log10() - (top - 6.0)) / 6.0).clamp(0.0, 1.0) as f32 } else { 0.0 };
 
     let font = egui::FontId::proportional(text);
@@ -1205,31 +1220,57 @@ fn draw_pools(painter: &egui::Painter, rect: Rect, f: &Frame, pick: u8, now_h: f
             x += w + 26.0;
         }
     }
-    let narrow = rect.width() < 600.0;
+    // The footnote is laid out first, so the diagram fits above it.
+    let note = painter.layout(
+        "Dots: colour = transport group, number = share of the flow. Box fill: activity, 8 decades. Arrow width: the flow, 6 decades (log). Rising dots: decay. Dot speed is not physical. The particle is HTR-10's, drawn cracked; in TRISO-ATOPS its coatings hold no pool (they act only through <R/B>). G is TRISO-ATOPS's quasi-steady hold-up at the current temperature, not carried through time.".into(),
+        small.clone(),
+        Color32::GRAY,
+        rect.width() - 24.0,
+    );
+    let note_h = note.size().y;
     let body = Rect::from_min_max(
         rect.min + Vec2::new(0.0, 22.0 + text * 2.6),
-        rect.max - Vec2::new(0.0, if narrow { text * 3.2 } else { text * 1.6 }),
+        rect.max - Vec2::new(0.0, note_h + 10.0),
     );
     // Positions (fractions of the body): left to right when wide, top to
-    // bottom on a phone.
+    // bottom on a phone. The fuel side is a TRISO particle in its matrix
+    // graphite, with a line from each layer to the box of its pool; the
+    // boxes feed the helium side.
     let wide = body.width() > body.height() * 1.5;
     let at = |x: f32, y: f32| Pos2::new(body.left() + x * body.width(), body.top() + y * body.height());
-    let (fuel, he, plate, hps, leak) = if wide {
-        (at(0.12, 0.5), at(0.45, 0.5), at(0.85, 0.17), at(0.85, 0.5), at(0.85, 0.83))
+    let (particle, kernel, coatings, graphite, he, plate, hps, leak) = if wide {
+        (
+            at(0.095, 0.5),
+            at(0.30, 0.17),
+            at(0.30, 0.5),
+            at(0.30, 0.83),
+            at(0.55, 0.5),
+            at(0.87, 0.17),
+            at(0.87, 0.5),
+            at(0.87, 0.83),
+        )
     } else {
-        (at(0.5, 0.12), at(0.5, 0.5), at(0.17, 0.87), at(0.5, 0.87), at(0.83, 0.87))
+        (
+            at(0.18, 0.255),
+            at(0.66, 0.065),
+            at(0.66, 0.255),
+            at(0.66, 0.445),
+            at(0.5, 0.655),
+            at(0.17, 0.915),
+            at(0.5, 0.915),
+            at(0.83, 0.915),
+        )
     };
-    let bw = if wide { (body.width() * 0.2).min(230.0) } else { (body.width() * 0.31).min(200.0) };
-    let half = Vec2::new(bw / 2.0, (text * 2.4).max(26.0));
-    // The fuel element: a disc of matrix graphite with one TRISO particle.
-    let pebble = if wide { (body.height() * 0.36).min(body.width() * 0.1) } else { (body.height() * 0.115).min(body.width() * 0.2) };
-    let fuel_half = Vec2::splat(pebble);
+    let bw = if wide { (body.width() * 0.17).min(210.0) } else { (body.width() * 0.31).min(200.0) };
+    let half = Vec2::new(bw / 2.0, if wide { (text * 2.4).max(26.0) } else { (text * 1.8).max(22.0) });
     let colours = [Color32::from_rgb(192, 57, 43), PALETTE[0], PALETTE[5], PALETTE[2], PALETTE[3]];
+    let graphite_colour = Color32::from_rgb(150, 155, 165);
+    let sic_colour = REGIONS[3].0;
 
     // Arrows first, so the boxes sit on top of their ends. `along`: where on
     // the arrow its label sits (the fan-out is crowded on a phone).
-    let arrow = |from: Pos2, fh: Vec2, to: Pos2, v: f64, sh: [f64; 5], colour: Color32, label: String, phase: f64, along: f32| {
-        let (a, b) = (box_edge(from, fh, to), box_edge(to, half, from));
+    let arrow = |from: Pos2, to: Pos2, v: f64, sh: [f64; 5], colour: Color32, label: String, phase: f64, along: f32| {
+        let (a, b) = (box_edge(from, half, to), box_edge(to, half, from));
         let w = norm(v);
         if v <= 0.0 {
             painter.extend(egui::Shape::dashed_line(&[a, b], Stroke::new(1.0, Color32::from_gray(80)), 6.0, 5.0));
@@ -1250,6 +1291,9 @@ fn draw_pools(painter: &egui::Painter, rect: Rect, f: &Frame, pick: u8, now_h: f
                 painter.circle_filled(a + (b - a) * s, 2.2 + 1.3 * w, GROUP_COLOURS[*g]);
             }
         }
+        if label.is_empty() {
+            return;
+        }
         let mid = a + (b - a) * along;
         let g = painter.layout(label, small.clone(), if v > 0.0 { Color32::LIGHT_GRAY } else { Color32::GRAY }, bw);
         let r = Rect::from_center_size(mid + Vec2::new(0.0, -10.0), g.size()).expand(2.0);
@@ -1258,24 +1302,32 @@ fn draw_pools(painter: &egui::Painter, rect: Rect, f: &Frame, pick: u8, now_h: f
     };
     let per_s = |v: f64| format!("{v:.2e} /s");
     let side = if wide { 0.5 } else { 0.7 };
-    arrow(fuel, fuel_half, he, q[0], shares(rel::S), colours[0], format!("S {}", per_s(q[0])), 0.0, 0.5);
+    // R leaves the kernels and passes THROUGH the coatings (they hold no
+    // atoms in TRISO-ATOPS) into the matrix graphite; S leaves the graphite.
+    // On a phone the stacked boxes leave no room for these labels; the
+    // coatings box carries R instead.
+    let r_label = if wide { format!("R {}", per_s(q_r)) } else { String::new() };
+    arrow(kernel, coatings, q_r, shares(rel::R), colours[0], r_label.clone(), 0.0, 0.5);
+    arrow(coatings, graphite, q_r, shares(rel::R), colours[0], r_label, 0.5, 0.5);
+    arrow(graphite, he, q[0], shares(rel::S), graphite_colour, format!("S {}", per_s(q[0])), 0.21, 0.5);
     arrow(
-        he, half, plate, q[1], shares(rel::Q_PLATE), colours[2],
+        he, plate, q[1], shares(rel::Q_PLATE), colours[2],
         if any_rate(2) { format!("plate-out {}", per_s(q[1])) } else { "no plate-out (noble gases)".into() },
         0.13, side,
     );
     arrow(
-        he, half, hps, q[2], shares(rel::Q_CLEAN), colours[3],
+        he, hps, q[2], shares(rel::Q_CLEAN), colours[3],
         if any_rate(3) { format!("clean-up {}", per_s(q[2])) } else { "no clean-up (the HPS does not scrub metals)".into() },
         0.37, if wide { 0.5 } else { 0.4 },
     );
     arrow(
-        he, half, leak, q[3], shares(rel::Q_LEAK), colours[4],
+        he, leak, q[3], shares(rel::Q_LEAK), colours[4],
         if any_rate(4) { format!("leak {}", per_s(q[3])) } else { "leak off".into() },
         0.61, side,
     );
 
-    // Decay: dots rising out of each pool and fading.
+    // Decay: dots rising out of each pool and fading. (A pool's decay rate
+    // in atoms/s, lambda N, is the same number as its activity in Bq.)
     let decay = |c: Pos2, v: f64, phase: f64| {
         let w = norm(v);
         if v <= 0.0 {
@@ -1289,53 +1341,50 @@ fn draw_pools(painter: &egui::Painter, rect: Rect, f: &Frame, pick: u8, now_h: f
             painter.circle_filled(p, 2.0, Color32::from_white_alpha(((1.0 - s) * 200.0) as u8));
         }
     };
+    decay(graphite, g_bq, 0.8);
     decay(he, q[4], 0.0);
     decay(plate, q[5], 0.3);
     decay(hps, q[6], 0.6);
 
-    // The fuel element and its particle. The SiC is drawn cracked: only a
-    // failed or contaminated particle (or, for silver, diffusion through
-    // intact SiC) releases. Atoms leave the kernel through the crack, cross
-    // the matrix graphite (where the metals are held up) and enter the
-    // helium.
-    let toward = (box_edge(he, half, fuel) - fuel).normalized();
-    painter.circle_filled(fuel, pebble, Color32::from_rgb(52, 56, 62));
-    painter.circle_stroke(fuel, pebble, Stroke::new(1.5, colours[0]));
-    let rp = pebble * 0.55;
-    // HTR-10 particle proportions (radii 250, 340, 380, 415, 455 µm).
+    // The particle, in a ring of matrix graphite, with HTR-10's proportions
+    // (radii 250, 340, 380, 415, 455 µm) and its SiC drawn cracked: only a
+    // failed or contaminated particle releases (or silver through intact SiC).
+    let rp = if wide { (body.height() * 0.3).min(body.width() * 0.06) } else { (body.height() * 0.1).min(body.width() * 0.11) };
+    let rm = rp * 1.3;
+    painter.circle_filled(particle, rm, Color32::from_rgb(58, 62, 70));
+    painter.circle_stroke(particle, rm, Stroke::new(1.0, graphite_colour));
     let radii = [250.0f32, 340.0, 380.0, 415.0, 455.0].map(|r| rp * r / 455.0);
     for k in (0..5).rev() {
-        painter.circle_filled(fuel, radii[k], REGIONS[k].0);
+        painter.circle_filled(particle, radii[k], REGIONS[k].0);
     }
-    let crack_angle = toward.y.atan2(toward.x);
-    for d in [-0.18f32, -0.06, 0.06, 0.18] {
+    let toward = (kernel - particle).normalized();
+    let crack_angle = toward.y.atan2(toward.x) + 0.6;
+    for d in [-0.2f32, -0.07, 0.07, 0.2] {
         let a = crack_angle + d;
         let u = Vec2::new(a.cos(), a.sin());
-        painter.line_segment([fuel + u * radii[2], fuel + u * radii[4]], Stroke::new(1.6, Color32::from_rgb(52, 56, 62)));
+        painter.line_segment([particle + u * radii[2], particle + u * radii[4]], Stroke::new(1.6, Color32::from_rgb(58, 62, 70)));
     }
-    let src = shares(rel::S);
-    let groups = dot_groups(&src, 3 + (norm(q[0]) * 9.0).round() as usize);
+    let groups = dot_groups(&shares(rel::R), 2 + (norm(q_r) * 6.0).round() as usize);
     let n = groups.len().max(1);
     for (k, g) in groups.iter().enumerate() {
         let s = ((t * 0.3 + k as f64 / n as f64) % 1.0) as f32;
-        // A small fan around the crack, from the kernel to the pebble's rim.
-        let a = crack_angle + ((k as f32 * 2.399).sin()) * 0.25;
+        let a = crack_angle + ((k as f32 * 2.399).sin()) * 0.2;
         let u = Vec2::new(a.cos(), a.sin());
-        painter.circle_filled(fuel + u * (radii[0] * 0.3 + s * (pebble - radii[0] * 0.3)), 2.2, GROUP_COLOURS[*g]);
+        painter.circle_filled(particle + u * (radii[0] * 0.3 + s * (rm - radii[0] * 0.3)), 2.0, GROUP_COLOURS[*g]);
     }
-    let label_at = if wide { fuel + Vec2::new(0.0, pebble + text * 0.9) } else { fuel + Vec2::new(-pebble - 6.0, 0.0) };
-    let align = if wide { egui::Align2::CENTER_TOP } else { egui::Align2::RIGHT_CENTER };
-    let fuel_text = if g_bq > 0.0 {
-        format!("fuel element\ncore {inventory:.2e} Bq\nmatrix graphite {g_bq:.2e} Bq")
-    } else {
-        format!("fuel element\ncore {inventory:.2e} Bq")
+    // Leader lines: a dot on each layer, a thin line to its box.
+    let leader = |on: Pos2, to: Pos2, colour: Color32| {
+        let end = box_edge(to, half, on);
+        painter.line_segment([on, end], Stroke::new(1.0, colour.gamma_multiply(0.8)));
+        painter.circle_filled(on, 3.0, colour);
     };
-    let gl = painter.layout(fuel_text, small.clone(), Color32::LIGHT_GRAY, if wide { bw * 1.3 } else { body.width() * 0.3 });
-    let r = align.anchor_size(label_at, gl.size());
-    painter.galley(r.min, gl, Color32::LIGHT_GRAY);
+    let dir_to = |b: Pos2| (b - particle).normalized();
+    leader(particle + dir_to(kernel) * radii[0] * 0.55, kernel, colours[0]);
+    leader(particle + dir_to(coatings) * (radii[2] + radii[3]) * 0.5, coatings, sic_colour);
+    leader(particle + dir_to(graphite) * (radii[4] + rm) * 0.5, graphite, graphite_colour);
 
     // The pools: name, content at "now", and a gauge of its decade.
-    let pools_bq = [c_bq, p_bq, h_bq];
+    let pools_bq = [c_bq, p_bq, h_bq, g_bq];
     let top_bq = pools_bq.iter().cloned().fold(0.0f64, f64::max).max(1e-300).log10();
     let boxed = |c: Pos2, colour: Color32, name: &str, value: String, gauge: Option<f64>| {
         let r = Rect::from_center_size(c, half * 2.0);
@@ -1349,17 +1398,25 @@ fn draw_pools(painter: &egui::Painter, rect: Rect, f: &Frame, pick: u8, now_h: f
         painter.text(c - Vec2::new(0.0, text * 0.6), egui::Align2::CENTER_CENTER, name, font.clone(), Color32::WHITE);
         painter.text(c + Vec2::new(0.0, text * 0.75), egui::Align2::CENTER_CENTER, value, small.clone(), Color32::LIGHT_GRAY);
     };
+    boxed(kernel, colours[0], "kernels", format!("core {inventory:.2e} Bq"), None);
+    // The coatings hold no pool in TRISO-ATOPS: a dashed box, R passes through.
+    let cr = Rect::from_center_size(coatings, half * 2.0);
+    painter.rect_filled(cr, 6.0, Color32::from_rgb(22, 25, 31));
+    painter.extend(egui::Shape::dashed_line(
+        &[cr.left_top(), cr.right_top(), cr.right_bottom(), cr.left_bottom(), cr.left_top()],
+        Stroke::new(1.2, sic_colour),
+        6.0,
+        4.0,
+    ));
+    painter.text(coatings - Vec2::new(0.0, text * 0.6), egui::Align2::CENTER_CENTER, "coatings", font.clone(), Color32::WHITE);
+    let coatings_value = if wide { "no pool: pass-through".to_string() } else { format!("no pool · R {q_r:.1e}/s") };
+    painter.text(coatings + Vec2::new(0.0, text * 0.75), egui::Align2::CENTER_CENTER, coatings_value, small.clone(), Color32::LIGHT_GRAY);
+    boxed(graphite, graphite_colour, "matrix graphite (G)", format!("{g_bq:.2e} Bq"), Some(g_bq));
     boxed(he, colours[1], "circulating helium", format!("{c_bq:.2e} Bq"), Some(c_bq));
     boxed(plate, colours[2], "plated out", format!("{p_bq:.2e} Bq"), Some(p_bq));
     boxed(hps, colours[3], "purification (HPS)", format!("{h_bq:.2e} Bq"), Some(h_bq));
     boxed(leak, colours[4], "left the circuit", format!("{leaked:.2e} atoms"), None);
 
-    let note = painter.layout(
-        "Dots: colour = transport group, number = share of the flow. Box fill: activity, 8 decades. Arrow width: the flow, 6 decades (log). Rising dots: decay. Dot speed is not physical; the particle is HTR-10's, drawn cracked.".into(),
-        small,
-        Color32::GRAY,
-        rect.width() - 24.0,
-    );
     painter.galley(Pos2::new(rect.left() + 12.0, rect.bottom() - 4.0 - note.size().y), note, Color32::GRAY);
 }
 

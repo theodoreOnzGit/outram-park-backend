@@ -131,7 +131,7 @@ pub const LAYER_NUCLIDES: [(&str, Nuclide); 4] = [
 /// [`RELEASE_SKIPPED`]; `tags` the transport group of each modelled one
 /// ([`GROUPS`]); `series[0].xs` the hours of the hold.
 pub const REL_HEADER: usize = 5;
-pub const REL_PER_POINT: usize = 12;
+pub const REL_PER_POINT: usize = 13;
 pub const RELEASE_SKIPPED: &str = "skip:";
 
 /// Indices within one point of the release frame. Pools in atoms, flows in
@@ -156,6 +156,10 @@ pub mod rel {
     pub const D_H: usize = 10;
     /// Held in the fuel element's matrix graphite (`base_activities`' `G`).
     pub const G: usize = 11;
+    /// Release rate from the kernels `R` (`release_rate`), atoms/s: what
+    /// leaves the failed particles into the matrix graphite, before its
+    /// attenuation (`S = R / Af`).
+    pub const R: usize = 12;
 }
 
 /// `(n_nuclides, n_points)` of a release frame (0, 0 for another rung's).
@@ -239,7 +243,7 @@ fn release_one(
     let rates = RemovalRates::upstream(Frequency::new::<hertz>(k_plate), Frequency::new::<hertz>(k_clean))
         .pool_rates(nuc.z, lambda, Frequency::new::<hertz>(k_leak));
     let (kp, kc) = (rates.plate_out, rates.clean_up);
-    let source = |temp_c: f64, f_inc: f64| -> (f64, f64) {
+    let source = |temp_c: f64, f_inc: f64| -> (f64, f64, f64) {
         let t = celsius(temp_c);
         let diff = diffusion_coefficient(nuc.z, t, t);
         let rb = rb_fail(
@@ -276,16 +280,16 @@ fn release_one(
             diff.graphite,
             r,
         );
-        (sg.source_rate, sg.graphite_activity)
+        (sg.source_rate, sg.graphite_activity, r)
     };
     // Normal operation: the plant's run from empty pools, at the
     // irradiation temperature (upstream's normal_operation does the same with
     // its closed forms; live_pools reproduces them from empty).
-    let (s0, g0) = source(irr_c, pts[0].in_service);
+    let (s0, g0, r0) = source(irr_c, pts[0].in_service);
     let (mut pools, _) = live_pools::step(PrimaryPools::default(), s0, rates, NP_MHTGR_RUN_TIME_S);
     pools.leaked = 0.0;
     let mut out = vec![inventory_bq, lam, kp, kc, k_leak];
-    let mut push = |s: f64, g: f64, pools: &PrimaryPools| {
+    let mut push = |s: f64, g: f64, r: f64, pools: &PrimaryPools| {
         let c = pools.circulating;
         out.extend_from_slice(&[
             s,
@@ -300,16 +304,17 @@ fn release_one(
             lam * pools.plate_out,
             lam * pools.clean_up,
             g,
+            r,
         ]);
     };
-    push(s0, g0, &pools);
+    push(s0, g0, r0, &pools);
     for w in pts.windows(2) {
         // The step's source at the hold temperature and the step's end
         // failure fraction, held over the step.
-        let (s, g) = source(hold_c, w[1].in_service);
+        let (s, g, r) = source(hold_c, w[1].in_service);
         let dt = (w[1].hours - w[0].hours) * 3600.0;
         pools = live_pools::step(pools, s, rates, dt).0;
-        push(s, g, &pools);
+        push(s, g, r, &pools);
     }
     (out, group)
 }
@@ -1774,7 +1779,9 @@ mod tests {
     /// relative. Ag-110m has no source at normal operation (upstream's
     /// breakthrough time lag) and one during the hold.
     /// **Result (2026-10-05):** passes. Cs-137 S 5.8e11 -> 2.6e12 atoms/s,
-    /// hold-up 8.1e19 -> 0 atoms; Sr-90 S 2.3 -> 1.9e12 atoms/s.
+    /// hold-up 8.1e19 -> 0 atoms; Sr-90 S 2.3 -> 1.9e12 atoms/s. The
+    /// graphite only holds back: R > S for Cs-137 at normal operation, R = S
+    /// for I-131.
     #[test]
     fn release_flows_balance_and_follow_upstream_routing() {
         let mut e = Engine::default();
@@ -1814,6 +1821,13 @@ mod tests {
             println!("{name}: S {s0:.3e} -> {s1:.3e} atoms/s; graphite hold-up {g0:.3e} -> {g1:.3e} atoms");
             assert!(s0 > 0.0 && s1 > s0 && g0 > 0.0 && g1 < g0, "{name}");
         }
+        // The fuel-side pools: the graphite only holds atoms back (S <= R),
+        // and volatiles pass straight through it (S = R).
+        let (cs, i131) = (index_of(&f, "Cs-137"), index_of(&f, "I-131"));
+        let (r_cs, s_cs) = (release_value(&f, cs, 0, rel::R), release_value(&f, cs, 0, rel::S));
+        println!("Cs-137 at normal operation: R {r_cs:.3e}, S {s_cs:.3e} atoms/s");
+        assert!(r_cs > s_cs);
+        assert_eq!(release_value(&f, i131, 0, rel::R), release_value(&f, i131, 0, rel::S));
     }
 
     /// Methodology: Kr-88 with no sinks: at normal operation the circulating
