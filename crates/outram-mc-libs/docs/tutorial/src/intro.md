@@ -38,7 +38,7 @@ that can fail, and the problem it leaves open motivates the next rung.
 | 2 | uranium mixed into graphite | slowing down, lethargy, free gas and S(α,β), resonance escape, the four-factor formula, why the homogeneous mixture fails | [Uranium in graphite](ugraphite.md) |
 | 3 | lumped uranium in graphite | spatial self-shielding, why lumps help | [Lumping](lumped.md) |
 | 4 | LCT-008, a water-moderated rod lattice | hydrogen moderation, lattices | [LCT-008](lct008.md) |
-| 5 | TRISO, then the HTR-10 pebble bed | double heterogeneity, delta tracking | planned; the TRISO pebble already runs in the [demo](../../demos/monte-carlo/?rung=triso&mode=watch) |
+| 5 | TRISO, then the HTR-10 pebble bed | double heterogeneity, delta tracking, shortcuts and what they cost | [TRISO and HTR-10](triso.md) |
 
 ## The demo
 
