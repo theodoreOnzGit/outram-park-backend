@@ -4,7 +4,7 @@
 # majorant's effect from every other code change since the 2026-10-01 record.
 set -u
 BIN=${BIN:-/home/user/outram-park-backend/target/release/examples/htr10_rmc_keff}
-log=logs/control_e8_N14_old_majorant.log
+log=logs/run_e8_N14_control_old_majorant.log
 if [ -f "$log" ] && grep -q "k_eff        =" "$log"; then exit 0; fi
 env OUTRAM_HTR10_HISTORIES=10000 OUTRAM_HTR10_INACTIVE=5 OUTRAM_HTR10_ACTIVE=20 \
     OUTRAM_HTR10_RINGS=14 OUTRAM_HTR10_LAYERS=14 OUTRAM_HTR10_THREADS=4 \

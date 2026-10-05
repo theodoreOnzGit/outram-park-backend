@@ -15,7 +15,7 @@ Writes into <out dir>:
   summary.md                             mean shift, and residual statistics new vs old at the same N
 
 Reads `run_{e7,e8}_N{10..20}.log` (the bounded-majorant runs) and
-`control_e8_N14_old_majorant.log` (same code, old majorant) if present. The old
+`run_e8_N14_control_old_majorant.log` (same code, old majorant) if present. The old
 k come from the old record's `results_table.csv`, never retyped. Each point is
 placed at the height where Seker's model holds as many balls as the built bed
 (gh:#472); residuals use the references linearly interpolated there. Error
@@ -195,7 +195,7 @@ def main():
             if f.exists() and "k_eff  " in f.read_text():
                 pts.append(run(f, n))
         runs[lib] = sorted(pts, key=lambda r: r["h"])
-    cf = logdir / "control_e8_N14_old_majorant.log"
+    cf = logdir / "run_e8_N14_control_old_majorant.log"
     control = run(cf, 14) if cf.exists() and "k_eff  " in cf.read_text() else None
     old = old_points()
 
