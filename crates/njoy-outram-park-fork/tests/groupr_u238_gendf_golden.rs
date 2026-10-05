@@ -112,8 +112,23 @@
 //! 0.01023921) — i.e. at the 7-figure storage floor. Prediction (< 1e-5) met
 //! with a factor of ~4 to spare; the engine reproduces `genflx` + `panel`.
 //!
-//! **Tier 2 — crate RECONR + BROADR** (961,139 sigt points → 962,803 flux
-//! points; RECONR + BROADR 156 s):
+//! **Tier 2 — crate RECONR + BROADR, re-measured 2026-10-05 (GitHub #554).**
+//! Since #340 (2026-09-26) the crate's RECONR and BROADR reproduce NJOY2016's
+//! U-238 PENDF word for word, so tier 2 now feeds the engine the same input as
+//! tier 1. **Prediction, stated before the run:** tier 2 collapses onto tier 1.
+//! Measured (`develop` `bd0852b50`, release, `-j 3`, whole test 34 s): sigt
+//! grid **155,207** points (NJOY's BROADR count) → 156,864 flux points;
+//! worst `sigma_g` **2.65e-6** for MT=1/2/102 (MT=102, group 9, σ0 = ∞:
+//! 1.5263030 vs 1.5262990), MT=18 **2.07e-6** (group 9, σ0 = ∞), worst group
+//! flux **4.93e-7** (MT=1, group 10, σ0 = 1 b). Per MT, `sigma_g` at
+//! σ0 = ∞ / 1 b: MT=1 6.85e-7 / 4.69e-7, MT=2 4.55e-7 / 3.84e-7, MT=18
+//! 2.07e-6 / 7.28e-7, MT=102 2.65e-6 / 1.08e-6. These are tier 1's numbers to
+//! the digit: the prediction held. Tier 2 is now asserted at tier 1's
+//! criterion (1e-5); the looser bounds below were justified by grid
+//! differences that no longer exist.
+//!
+//! ~~**Tier 2 — crate RECONR + BROADR** (961,139 sigt points → 962,803 flux
+//! points; RECONR + BROADR 156 s):~~ superseded, 2026-09-10:
 //!
 //! | MT | `sigma_g`, σ0 = ∞ | `sigma_g`, σ0 = 1 b |
 //! |---|---|---|
@@ -128,12 +143,15 @@
 //! `errint = err/20000 = 5e-8` b (`reconr.f90:112-117, 430`; NJOY's listing:
 //! "max resonance-integral error 5.000E-08", 363,092 points affected). Where a
 //! point's integral contribution is below `errint`, NJOY converges it only to
-//! `errmax = 10*err = 1 %` (`:109-111, 428`). The crate's RECONR has no such
+//! `errmax = 10*err = 1 %` (`:109-111, 428`). ~~The crate's RECONR has no such
 //! relaxation (hence 961k vs NJOY's 448k grid points), so it is the *crate*
 //! value that is the tighter reconstruction; the 1.1 % is NJOY's own
 //! linearization slack on a negligible cross section, and tier 1 shows the
 //! group-averaging engine reproduces NJOY's `sigma_f` to 2e-6 when fed NJOY's
-//! grid. MT=18 is therefore asserted at 3e-2 in tier 2, the others at 3e-3.
+//! grid. MT=18 is therefore asserted at 3e-2 in tier 2, the others at 3e-3.~~
+//! **CORRECTED 2026-10-05:** true on 2026-09-10; since #340 the crate's
+//! RECONR carries NJOY's `errint`/`errmax` relaxation and reproduces its
+//! 448,168-point grid, and the 1.1 % is gone (MT=18 now 2.07e-6, above).
 //!
 //! **Tier 3 — URR self-shielding via MT=152, engine isolated on the UNRESR
 //! PENDF** (same 155,207-point grid). First measurement, with the flux built
@@ -245,9 +263,11 @@ const MTS: [(i32, UrrReaction); 4] = [
 /// within this relative tolerance of the GENDF.
 const TIER1_TOL: f64 = 1e-5;
 /// Tier-2 pass criteria: MT=1/2/102 `sigma_g` and the group flux; and MT=18
-/// separately (NJOY's `errmax` slack on sub-threshold fission, see module doc).
-const TIER2_TOL: f64 = 3e-3;
-const TIER2_TOL_MT18: f64 = 3e-2;
+/// separately. Tier 2 at tier 1's criterion since 2026-10-05 (#554): with the crate's
+/// PENDF equal to NJOY's word for word, nothing but the engine differs. Was
+/// `3e-3` (and `3e-2` for MT=18), justified by grid differences #340 removed.
+const TIER2_TOL: f64 = TIER1_TOL;
+const TIER2_TOL_MT18: f64 = TIER1_TOL;
 
 /// One reaction's P0 golden values: `[group][dilution]`.
 struct GoldenReaction {
@@ -543,12 +563,17 @@ fn njoy_pendf_isolates_the_group_averaging_engine() {
 ///
 /// Methodology: as tier 1, but the pointwise cross sections come from the Rust
 /// RECONR/BROADR, so the comparison folds in reconstruction-grid differences.
-/// Pass criteria: MT=1/2/102 `sigma_g` and every group flux within **3e-3**
+/// Pass criteria: ~~MT=1/2/102 `sigma_g` and every group flux within **3e-3**
 /// relative (prediction: O(1e-3)); MT=18 within **3e-2** (NJOY's `errmax`
-/// slack on sub-threshold fission — module doc).
+/// slack on sub-threshold fission — module doc)~~ **since 2026-10-05**, every
+/// `sigma_g` (MT=18 included) and every group flux within tier 1's **1e-5**:
+/// the crate's PENDF is NJOY's word for word (#340), so the reconstruction
+/// grid no longer contributes, and this tier now also guards that parity.
 ///
-/// Result (2026-09-10): worst `sigma_g` 9.24e-4 for MT=1/2/102 (MT=102,
-/// σ0 = 1 b), 1.14e-2 for MT=18 (group 13, σ0 = 1 b), worst flux 6.06e-5.
+/// Result (2026-10-05, #554): worst `sigma_g` 2.65e-6 (MT=102, group 9,
+/// σ0 = ∞), MT=18 2.07e-6, worst flux 4.93e-7 — tier 1's numbers.
+/// ~~Result (2026-09-10): worst `sigma_g` 9.24e-4 for MT=1/2/102 (MT=102,
+/// σ0 = 1 b), 1.14e-2 for MT=18 (group 13, σ0 = 1 b), worst flux 6.06e-5.~~
 #[test]
 fn crate_reconr_broadr_vs_njoy_gendf() {
     let Some(golden_path) = reference_file_or_skip("gendf", GOLDEN_GENDF, "groupr-u238-golden")
