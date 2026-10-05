@@ -38,7 +38,7 @@
 //! | `godiva_run_keff` | ~~`0xe78387f55e2fa2fd`~~ **`0xb525169aa6d32f38`, re-pinned 2026-10-05 (#527)** | ~~`0x3ff00f0eaccb9f03 +/- 0x3f737285e6855dbd`~~ `0x3ff02b99706b5644 +/- 0x3f75eea63987d4a7` |
 //! | `godiva_csg_entropy_trigger` (trigger stopped at 33 of 40 generations; 33 entropy values) | `0x0f90e5295c6cbcae` | `0x3ff067ac7ac2dc28 +/- 0x3f83ff11d76e40a5` |
 //! | `mg_sphere` | `0xcafa58c94439199d` | `0x3fe5281b4e81b4e6 +/- 0x3f7a2fd2977f13b2` |
-//! | `fhr_explicit_triso_delta` | `0x86e84b60e8278ec3` | `0x3fface4d94cf76ff +/- 0x3f833745b17635e5` |
+//! | `fhr_explicit_triso_delta` | ~~`0x86e84b60e8278ec3`~~ **`0x235271e5059e6adf` (host B), re-pinned 2026-10-05 on top of #589 (#578)** | ~~`0x3fface4d94cf76ff +/- 0x3f833745b17635e5`~~ `0x3ff8831d4ac636a2 +/- 0x3f863a2cdc785702` |
 //! | `pure_statistics` | `0xf67085fed4325815` | — |
 //! | `shannon_entropy` | `0x5c785611104f059b` | `H = 0x4012bef1a747a582` |
 //!
@@ -62,7 +62,7 @@
 //! | case | fingerprint | detail |
 //! |---|---|---|
 //! | `csg_nested_lattice_navigation` | `0xa10fb6daad87f539` | 3104 of 4000 random points located; 17220 flight events with `cross_surface_in_frame` |
-//! | `csg_nested_lattice_keff` | `0x509ddd7ff08feef7` | `k = 0x3ffb9180edbe43e9 +/- 0x3f8b269ad03f0271` |
+//! | `csg_nested_lattice_keff` | `0x509ddd7ff08feef7` (host A); **`0xa9f3504144099ed2` (host B), added 2026-10-05 (#578)** | host A `k = 0x3ffb9180edbe43e9 +/- 0x3f8b269ad03f0271`; host B `k = 0x3ffb4f3f5b277128 +/- 0x3f91395450009c13` |
 //! | `tally_meshes` | `0x574737c051c52969` | four meshes: bins, volumes, surface crossings |
 //!
 //! **Platform caveat.** `sample_normal` calls the platform `cos` unless the
@@ -71,6 +71,59 @@
 //! different bits. These pins are a same-host before/after gate; if they fail
 //! on another platform with no code change, re-pin there rather than read it
 //! as a regression.
+//!
+//! **Two hosts disagree on the thermal cases (GitHub #578, 2026-10-05).** On
+//! an Intel Xeon @ 2.10 GHz (Ubuntu glibc 2.39, AVX-512/FMA; "host B") two
+//! cases have never reproduced the pins printed on the maintainer's desktop
+//! ("host A", where every pin above was printed):
+//!
+//! - `csg_nested_lattice_keff` gives `k = 1.70685 +/- 0.01682` against host
+//!   A's `1.72302 +/- 0.01326` (-1618 pcm, 0.76 combined sigma).
+//! - `fhr_explicit_triso_delta` gives `k = 1.68081 +/- 0.00802` against
+//!   `1.67537 +/- 0.00938` (+545 pcm, 0.44 combined sigma).
+//!
+//! **No commit moved them.** `git bisect run` on host B from `40b6ba9fca` to
+//! `848f83f12` (7 steps, one skipped) returned `c2b5000db`, the commit that
+//! *added* the CSG case, as "first bad": host B's `k` bits are identical at
+//! `c2b5000db`, `3a91e12f1`, `185a67c63`, `ca0e50e23`, `7bd019715`,
+//! `eb5ee78b6`, `499c7b287`, `848f83f12` and `1e9ee8b25`. The FHR case gives
+//! host B's bits at `785fcd1ce` (the commit that pinned it), `40b6ba9fca`,
+//! `848f83f12` and `1e9ee8b25` (after #585, which does not touch
+//! `Majorant::from_materials`).
+//!
+//! **The cause is the platform libm.** Same binary, same host, with glibc's
+//! FMA/AVX2 libm variants masked (`GLIBC_TUNABLES=glibc.cpu.hwcaps=-FMA`) gives
+//! a third pair of values (CSG `k = 1.72991 +/- 0.01128`, FHR `1.69594 +/-
+//! 0.00968`), and also moves `csg_nested_lattice_navigation` and
+//! `pure_statistics`; with `-AVX512F` alone nothing changes. The libm calls
+//! that are still platform-routed (`cos`, `sin`, `atan2` through `mathf`, and
+//! direct `f64::exp`/`cos` calls such as the WMP Faddeeva evaluation in
+//! `njoy-outram-park-fork`) differ in the last ulp between glibc builds and
+//! CPU-dispatched variants, and a Monte Carlo history amplifies one ulp into
+//! a different random walk. Which call first diverges between host A and
+//! host B was not isolated; these two are the only continuous-energy cases
+//! moderated at 900 K, so most of their collisions are thermal, a regime the
+//! fast Godiva cases barely visit. All three `k` values agree with each other
+//! within their sigmas.
+//!
+//! So `csg_nested_lattice_keff` now accepts each named host's pin
+//! (`check_hosts`); a third host adds its own line rather than replacing
+//! one.
+//!
+//! **`fhr_explicit_triso_delta` re-pinned 2026-10-05 on top of `b208cecc7`
+//! (#589), for two causes.** (1) The host dependence above. (2) #589 made
+//! `Majorant::from_materials` add every nuclide's breakpoints: this case's
+//! 150-point log-grid majorant was 97x under `Sigma_t` at 20.9 eV in the
+//! kernel (#589's audit), and `classify_collision` clamps `p_real` at 1, so
+//! the old run under-collided in the U-238 resonances. On host B, `k` went
+//! 1.68081 +/- 0.00802 -> **1.53201 +/- 0.01085** (-14880 pcm, 11 combined
+//! sigma), the sign #589 predicted. Swapping in the ablation
+//! `from_materials_without_breakpoints` gives back host B's pre-#589 bits
+//! exactly (`k = 0x3ffae49b6a9aea9d`), so #589 is the only mover on top of
+//! the libm difference. #585 (`Majorant::bounding`) did not move it: the bits
+//! were unchanged from `785fcd1ce` to `1e9ee8b25`. Host A's pre-#589 pin is
+//! superseded and its post-#589 value has not been measured; host A adds its
+//! own line to the list.
 
 use outram_mc_libs::geometry::cell::{Cell, HalfSpaceSense, RegionToken};
 use outram_mc_libs::geometry::geometry::Geometry;
@@ -120,6 +173,20 @@ fn check(name: &str, got: u64, pinned: u64, detail: &str) {
         return;
     }
     assert_eq!(got, pinned, "{name} moved: {detail}");
+}
+
+/// Like [`check`], but passes when `got` equals any named host's pin. Use
+/// only for a case shown to be libm-dependent (GitHub #578): on any one host
+/// it is still a bit-identity gate, because each host's runs give one value.
+fn check_hosts(name: &str, got: u64, pins: &[(&str, u64)], detail: &str) {
+    if std::env::var("STATS_FP_PRINT").is_ok() {
+        eprintln!("FINGERPRINT {name} = {got:#018x}   ({detail})");
+        return;
+    }
+    assert!(
+        pins.iter().any(|&(_, p)| p == got),
+        "{name} moved: {detail}; got {got:#018x}, known host pins {pins:x?}"
+    );
 }
 
 fn godiva() -> (Material, Vec<Nuclide>) {
@@ -391,10 +458,16 @@ fn fhr_explicit_triso_delta_is_bit_identical() {
     );
     let mut fp = Fp::new();
     fp.keff(&r);
-    check(
+    check_hosts(
         "fhr_explicit_triso_delta",
         fp.0,
-        0x86e84b60e8278ec3,
+        &[
+            // Host B: Intel Xeon @ 2.10 GHz, Ubuntu glibc 2.39. Re-pinned
+            // 2026-10-05 (#578) on top of b208cecc7 (#589, majorant adds
+            // nuclide breakpoints); was 0x86e84b60e8278ec3 (host A, before
+            // #589). Host A's post-#589 value is not yet measured.
+            ("host B", 0x235271e5059e6adf),
+        ],
         &format!(
             "k = {:#018x} +/- {:#018x}",
             r.k_mean.to_bits(),
@@ -823,10 +896,17 @@ fn csg_nested_lattice_keff_is_bit_identical() {
     );
     let mut fp = Fp::new();
     fp.keff(&r);
-    check(
+    check_hosts(
         "csg_nested_lattice_keff",
         fp.0,
-        0x509ddd7ff08feef7,
+        &[
+            // Host A: maintainer's desktop, pinned on 40b6ba9fca (#486).
+            ("host A", 0x509ddd7ff08feef7),
+            // Host B: Intel Xeon @ 2.10 GHz, Ubuntu glibc 2.39 (FMA libm
+            // variants). Added 2026-10-05 (#578): the same code gives this on
+            // host B at every commit from c2b5000db on; libm, not a code move.
+            ("host B", 0xa9f3504144099ed2),
+        ],
         &format!(
             "k = {:#018x} +/- {:#018x}",
             r.k_mean.to_bits(),

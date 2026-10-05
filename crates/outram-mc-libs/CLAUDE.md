@@ -859,7 +859,9 @@ here.** Moved, byte for byte, and re-exported at the old paths:
   fingerprints (Godiva `run_keff`; Godiva CSG with entropy mesh and a k
   trigger; a two-group MG sphere; the FHR explicit-TRISO delta-tracking
   pebble; pure statistics; Shannon entropy), printed before the move and
-  unchanged after it.
+  unchanged after it, on the host that printed them. The 900 K thermal
+  cases (FHR delta pebble, #486's nested-lattice k) depend on the platform
+  libm and give other bits on another host with no code change (#578).
 - **`mean_and_stderr` and `pooled` are deliberately NOT merged**:
   `sqrt(var / n)` and `sqrt(var) / sqrt(n)` differ in the last bit.
 - **`deterministic-math` forwards to `raffles/deterministic-math`**, so
