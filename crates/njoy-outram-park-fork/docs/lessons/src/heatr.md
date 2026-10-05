@@ -54,13 +54,22 @@ multi-neutron, continuum          H = σ [ E + Q − ȳ ⟨E'⟩ ],   ⟨E'⟩ f
 
 NJOY's HEATR normally uses the **energy-balance method**: it subtracts the
 energy carried away by the evaluation's own photons (from MF=12–15) and
-neutrons. The kinematic limit is NJOY's *check* on that result. **This port
-computes the kinematic limit only** (sub-phases H1–H5); the photon
-energy-balance method (H6) is deferred and the damage-energy port (H7) covers
+neutrons. The kinematic limit is NJOY's *check* on that result. ~~**This port
+computes the kinematic limit only**~~ **This port computes the kinematic limit**
+(sub-phases H1–H5), **and** (corrected 2026-10-05,
+[#535](https://github.com/theodoreOnzGit/outram-park-backend/issues/535))
+`Kerma::with_energy_balance` subtracts the evaluation's photon energy
+production from it (MT=442 from MF=12 `LO=1`, MF=13 and MF=15 via the `photon`
+module; no `LO=2` cascades, no MF=6 photons, no capture recoil). ~~the photon
+energy-balance method (H6) is deferred~~ The full energy-balance method (H6,
+NJOY's `nheat`, which also takes each reaction's *neutron* energies from the
+evaluation) is not ported and the damage-energy port (H7) covers
 two-body recoils only (elastic and discrete levels, isotropic in the centre of
 mass). See the module doc of
 [`heatr/mod.rs`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/njoy-outram-park-fork/src/heatr/mod.rs).
-That KERMA feeds the ACE heating column (rung 9).
+~~That KERMA feeds the ACE heating column (rung 9).~~ The ACE heating column
+(rung 9) gets the photon-corrected value, which has **no NJOY comparison** of
+its own: the HEATR record below compares the uncorrected kinematic limit.
 
 ## The code walk
 
@@ -118,8 +127,16 @@ Damage energy where scattering is isotropic: mean +0.16 % (Fe-58) and +0.31 %
 (Si-28). **The cost of the missing MF=4 anisotropy**, measured: up to +28.5 %
 (Fe-58, 900 keV) and +68.3 % (Si-28, 580 keV). Above ~1 MeV the KERMA of the
 two methods differs by −75 % to +73 %, which this comparison cannot separate.
-**Open:** NJOY's MT=445 is non-zero on Fe-58 at 562.5 eV, below the kinematic
-threshold implied by `E_d = 40 eV`; `disbar` has not been read.
+~~**Open:** NJOY's MT=445 is non-zero on Fe-58 at 562.5 eV, below the kinematic
+threshold implied by `E_d = 40 eV`; `disbar` has not been read.~~
+**Diagnosed 2026-10-05:** NJOY's MT=445 is non-zero on Fe-58 at 562.5 eV,
+below the kinematic threshold implied by `E_d = 40 eV` (594.5 eV), because
+`disbar` runs its recoil integral only at nodes 10 % apart in energy and
+interpolates linearly between them. NJOY's two sub-threshold points lie on the
+chord from a zero node at 550 eV (`500 × 1.1`; the chord crosses zero at
+549.97 eV) to the next node at 605 eV. So the smeared threshold is NJOY's
+interpolation, and this port, which integrates at every energy, has the sharp
+kinematic one.
 
 **GASPR against NJOY2016** (record
 [`gaspr_light_nuclides_vs_njoy2016.md`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/njoy-outram-park-fork/verification_and_validation/gaspr_light_nuclides_vs_njoy2016.md),

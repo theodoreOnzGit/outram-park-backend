@@ -14,8 +14,10 @@
 //! dispatch/transfer overhead. The benchmark sweeps grid sizes to find the
 //! crossover.
 //!
-//! Nuclide: **U-238** from the embedded CORE WMP library (602 poles), at
-//! **300 K**.
+//! Nuclide: **U-238** from the embedded CORE WMP library (~~602 poles~~ **4 062
+//! poles in 4 309 windows**, counted from `WmpLibrary::core()` on 2026-10-05; 602 is
+//! U-238's size in KB in `docs/wmp-nuclide-manifest.md`, misread as a pole
+//! count, GitHub #536), at **300 K**.
 //!
 //! # Units
 //! - Incident neutron energy: electron-volts (**eV**).
@@ -91,10 +93,13 @@ fn main() {
     let mut rows: Vec<Row> = Vec::with_capacity(grid_sizes.len());
 
     println!(
-        "GPU vs CPU windowed-multipole benchmark — U-238 (602 poles), {temp_k} K\n\
+        "GPU vs CPU windowed-multipole benchmark — U-238 ({} poles, {} windows), {temp_k} K\n\
          energy in [{:.6e}, {:.6e}] eV, log-spaced grid, best-of-3, warm-up excluded\n\
          CPU is f64 (trusted reference); GPU is f32 (acceleration).\n",
-        wmp.e_min, wmp.e_max
+        wmp.poles.len(),
+        wmp.windows.len(),
+        wmp.e_min,
+        wmp.e_max
     );
 
     for &n in &grid_sizes {
@@ -267,7 +272,7 @@ fn main() {
         .collect();
 
     let methodology = format!(
-        "Full-fidelity windowed-multipole evaluator for **U-238** (602 poles) at \
+        "Full-fidelity windowed-multipole evaluator for **U-238** ({} poles) at \
          **300 K**: GPU (`f32`, WGSL compute) vs the trusted CPU reference \
          (`f64`). Compute-bound kernel (many Faddeeva pole terms per energy).\n\n\
          - Energy grid: log-spaced over [{:.6e}, {:.6e}] eV.\n\
@@ -277,7 +282,9 @@ fn main() {
          - Agreement metric: max relative error of the total cross section \
            (sigma_s + sigma_a), GPU vs CPU, denominator floored at 1e-30.\n\
          - Units: energy in eV, cross sections in barn, temperature in K.",
-        wmp.e_min, wmp.e_max
+        wmp.poles.len(),
+        wmp.e_min,
+        wmp.e_max
     );
 
     let report = format_perf_report(

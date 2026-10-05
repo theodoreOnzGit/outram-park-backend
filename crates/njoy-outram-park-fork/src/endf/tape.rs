@@ -351,6 +351,17 @@ impl Tape {
     ///   increasing counter across the whole tape, not NJOY's per-file
     ///   `nsh`/`nsp`/`nsc` reset convention — `parse_line` (and every ENDF
     ///   reader) documents this column as cosmetic/ignored on read.
+    /// - **MF=1/MT=451 descriptive text is not preserved.** [`Tape::read`]
+    ///   parses text fields as 0.0 (or as a number, where the text happens to
+    ///   parse as one), so this writes numbers where the evaluation had its
+    ///   description. Blank fields (the directory rows) and NJOY's
+    ///   blank-field sentinels are written as `a11` zeros.
+    ///
+    /// **Measured against NJOY2016's MODER** (2026-10-05, GitHub #536,
+    /// `tests/moder_vs_njoy2016.rs`): on a two-material selection (H-2 + Li-6,
+    /// 11 793 lines) the MAT/MF/MT layout is identical, all 59 098 `a11` float
+    /// fields are character-identical and every value round-trips bit for bit;
+    /// only 1 line is byte-identical, for the reasons above.
     pub fn write<W: Write>(&self, mut w: W) -> Result<(), NjoyError> {
         writeln!(w, "{}", self.tpid).map_err(NjoyError::Io)?;
 

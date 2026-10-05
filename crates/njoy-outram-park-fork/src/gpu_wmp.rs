@@ -657,8 +657,10 @@ mod tests {
     /// (`f64`) reference on a real nuclide, or skips cleanly when no GPU is found.
     ///
     /// # Methodology
-    /// Loads the embedded core WMP nuclide **U-238** (`WmpLibrary::core()`, 602
-    /// poles), builds ~2000 log-spaced energies across `[e_min, e_max]`, and
+    /// Loads the embedded core WMP nuclide **U-238** (`WmpLibrary::core()`, ~~602~~
+    /// **4 062** poles in 4 309 windows; corrected 2026-10-05, GitHub #536: 602 is
+    /// U-238's size in KB in `docs/wmp-nuclide-manifest.md`), builds ~2000
+    /// log-spaced energies across `[e_min, e_max]`, and
     /// evaluates both paths at `temp_k = 300 K`:
     /// - CPU: [`wmp_evaluate_batch_cpu`] (`f64`, trusted reference), and
     /// - GPU: [`crate::gpu::GpuContext::wmp_evaluate_batch`] (`f32`, WGSL).

@@ -169,8 +169,18 @@ letter (`1.00000E-5`). Before the fix those fields **silently became 0.0**.
   plus ASCII writing (`Tape::write`, `format_endf_float`, a port of `a11`).
   Blocked-binary conversion is **not planned**: the in-memory model replaces
   it ([`moder/README.md`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/njoy-outram-park-fork/src/moder/README.md)).
-  V&V: verified by hand per its README; **no NJOY2016 comparison** of a
-  MODER-written tape is recorded (gap noted in the [coverage table](./coverage.md)).
+  V&V: ~~verified by hand per its README; **no NJOY2016 comparison** of a
+  MODER-written tape is recorded~~ **compared with NJOY2016's own MODER on
+  2026-10-05** ([#536](https://github.com/theodoreOnzGit/outram-park-backend/issues/536)):
+  selecting H-2 and Li-6 from two ENDF/B-VIII.0 tapes gives the same 11 793
+  lines with the same MAT/MF/MT on each, all **59 098** `a11` number fields
+  character-identical and every value bit-identical. It is **not** a
+  byte-faithful MODER: one line in 11 793 is byte-identical, because a row of
+  six floats cannot say which fields NJOY writes as integers (`i11`), which
+  it leaves blank, or which are text. The text is the one that matters:
+  **the evaluation's MF=1/MT=451 description does not survive** a write by
+  this port. Record:
+  [`moder_vs_njoy2016.md`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@@/crates/njoy-outram-park-fork/verification_and_validation/moder_vs_njoy2016.md).
 - **`reference_data`** — where the workspace's reference tapes live. They sit
   at the repository root in `reference-data/endf/` (82 entries on
   2026-10-04: ENDF/B-VII.0, -VII.1, -VIII.0, -VIII.1, JENDL-3.3, TENDL-2023,

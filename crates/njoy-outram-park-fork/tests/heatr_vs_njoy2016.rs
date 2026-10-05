@@ -279,9 +279,28 @@ fn kerma_matches_njoy_local_deposition_in_the_capture_regime() {
 /// NJOY's own `df` (`heatr.f90:2015-2052`) cuts at `break = E_d` exactly as this
 /// port does, and its `E_d` table for Z=26 is 40 eV exactly as this port's is —
 /// both were read, not assumed. So the difference is in how `disbar` bounds the
-/// recoil, which has not been read. The magnitude is 0.86 eV.b against a scale
-/// that reaches 1e5, confined to a ~45 eV-wide window, so it is recorded as an
-/// open question rather than chased here.
+/// recoil, ~~which has not been read~~. The magnitude is 0.86 eV.b against a scale
+/// that reaches 1e5, confined to a ~45 eV-wide window, so it ~~is recorded as an
+/// open question rather than chased here~~ was recorded as an open question.
+///
+/// **Diagnosed 2026-10-05 (GitHub #535): it is `disbar`'s node interpolation,
+/// not its recoil bound.** `disbar` (`heatr.f90:1829-2013`) does not evaluate
+/// the damage at the energy it is asked for. It keeps two nodes `(el, daml)`
+/// and `(en, damn)`, advances `en` by `step = 1.1` (capped by the next MF=4
+/// energy, and raised to the request if that is further), runs the 64-point
+/// Gauss-Legendre recoil integral **only at the node**, and returns
+/// `terp1(el,daml,en,damn,ee,dame,2)`, a straight line between nodes. When a
+/// node lies below the kinematic threshold (damage 0) and the next above it,
+/// every request between them gets a non-zero chord value. Checked on NJOY's
+/// own tape (`reference-data/heatr/fe58-ENDF8.0-0K-local1.heatr.pendf`): MT=445
+/// is 0.85851 eV.b at 562.5 eV and 2.99995 at 593.75 eV, both below 594.5 eV;
+/// the line through them reaches zero at **549.97 eV**, i.e. at the node
+/// `500 * 1.1 = 550` eV, and continued to the next node `550 * 1.1 = 605` eV it
+/// gives 3.771, from which the chord to NJOY's 625 eV point predicts 10.53
+/// against the tape's 10.571. So NJOY smears the threshold over up to 10 % in
+/// energy; this port evaluates the integral at every point, and its threshold
+/// (first non-zero at 607.7 eV) is the kinematic one. Not a port defect. Full
+/// account: `verification_and_validation/heatr_vs_njoy2016.md`.
 ///
 /// # And the measured cost of the missing anisotropy
 ///

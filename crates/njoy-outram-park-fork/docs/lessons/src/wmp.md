@@ -107,10 +107,24 @@ doc). And the faster path's fidelity contract: `XsProvider::Mgxs`, the fast
 range above WMP's `e_max`, is a 10-group Watt-weighted set with **no**
 self-shielding, deliberately low fidelity.
 
-**A discrepancy found while writing this page, not resolved:** the GPU
-benchmark record and its example say U-238 in the CORE library has **602
-poles**; the WMP-write record says **4 062 poles** (and 4 309 windows). Both
-cannot describe the same table. **Not re-checked**; filed as
+**A discrepancy found while writing this page,** ~~not resolved~~ **resolved
+2026-10-05:** the GPU benchmark record and its example said U-238 in the CORE
+library has **602 poles**; the WMP-write record says **4 062 poles** (and 4 309
+windows). Both could not describe the same table. ~~**Not re-checked**~~
+**Re-checked 2026-10-05** by decoding the embedded table and counting:
+
+| nuclide | `poles.len()` | `windows.len()` | fit order | `e_max` (eV) |
+|---|---|---|---|---|
+| U-238 | **4 062** | 4 309 | 2 | 2.0e4 |
+| U-235 | 5 254 | 2 250 | 3 | 2.25e3 |
+| Fe-56 | 347 | 850 | 2 | 8.5e5 |
+
+The WMP-write record is right. The **602** is U-238's row in
+`docs/wmp-nuclide-manifest.md`, whose last column is the payload size in
+**KB**, copied into the GPU benchmark as a pole count. The benchmark example
+now prints `poles.len()` instead of a constant, and the wrong records carry
+strike-throughs. Nothing numerical depended on it: the benchmark always
+evaluated the real table. Issue:
 [#536](https://github.com/theodoreOnzGit/outram-park-backend/issues/536).
 
 **Next:** [The consumer surface](./consumer-surface.md).
