@@ -442,12 +442,12 @@ Call chain from `nuclide.rs::Nuclide::sample_thermal` to `thermal.rs::ThermalSca
 {{#include ../../../../../crates/outram-mc-libs/src/material/nuclide.rs:3412:3414}}
 ```
 
-**2.** → [`thermal.rs::ThermalScattering::sample`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/material/thermal.rs#L1053) · called at [L3413](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/material/nuclide.rs#L3413) — Sample a thermal scatter at incident energy `e` \[eV\], returning `Some((e_out, mu_lab))` — a laboratory-frame outgoing energy \[eV\] and scattering cosine — or `None` at or above the cutoff.
+**2.** → [`thermal.rs::ThermalScattering::sample`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/material/thermal.rs#L1080) · called at [L3413](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/material/nuclide.rs#L3413) — Sample a thermal scatter at incident energy `e` \[eV\], returning `Some((e_out, mu_lab))` — a laboratory-frame outgoing energy \[eV\] and scattering cosine — or `None` at or above the cutoff.
 
-<!-- snippet-check: crates/outram-mc-libs/src/material/thermal.rs:1053 fn sample -->
+<!-- snippet-check: crates/outram-mc-libs/src/material/thermal.rs:1080 fn sample -->
 
 ```rust,ignore
-{{#include ../../../../../crates/outram-mc-libs/src/material/thermal.rs:1053:1071}}
+{{#include ../../../../../crates/outram-mc-libs/src/material/thermal.rs:1080:1098}}
 ```
 <!-- /code-walk -->
 
