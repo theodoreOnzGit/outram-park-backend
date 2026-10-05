@@ -45,6 +45,11 @@ kovan = { path = "../kovan", default-features = false }
 serde = { workspace = true }
 toml = { workspace = true }
 uom = { workspace = true }
+# Step 6's reactivity map (gh:#571): the Chebyshev basis and the Householder
+# QR least squares of the GSL port, rather than a second fitter here; sha2 for
+# the recipe hash in the map's provenance (already in kovan's tree).
+petir = { workspace = true }
+sha2 = { workspace = true }
 
 [target.'cfg(not(target_os = "android"))'.dependencies]
 egui = { workspace = true }

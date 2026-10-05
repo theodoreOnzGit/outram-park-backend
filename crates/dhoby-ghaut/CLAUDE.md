@@ -127,7 +127,9 @@ copy `monte_carlo_web`. It gives, ready-made and tested:
 
 **Maintainer design, 2026-10-05.** `src/bin/dhoby-ghaut/` is the guided
 high-fidelity simulator; `src/workbench/` is its library half (catalogue,
-steps, recipe). Rules that bind changes to it:
+steps, recipe; since 2026-10-05 also `reactivity_map`, Step 6's low-fidelity
+surrogate on petir's Chebyshev/QR, and `exports`, Step 11's CSV and kovan
+report). Rules that bind changes to it:
 
 - **Recipes are kovan markdown, read and written through `kovan::artifact`.**
   Do not write a second markdown or TOML-in-markdown parser. Plain TOML is

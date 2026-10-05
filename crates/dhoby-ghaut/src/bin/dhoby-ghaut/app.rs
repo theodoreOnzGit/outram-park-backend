@@ -45,6 +45,8 @@ pub enum Pick {
     PngFolder,
     OpenRecipe,
     SaveRecipeAs,
+    /// Step 6's map TOML and Step 11's exports (routed in `step11`).
+    Export(crate::step11::ExportPick),
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -145,6 +147,9 @@ pub struct App {
     pub review_seen: Vec<&'static str>,
     // Step 5
     pub mc: McState,
+    // Steps 6 and 11
+    pub branch: crate::step6::BranchUi,
+    pub post: crate::step11::PostUi,
     // Panes
     pub lit: Literature,
     pub lit_open: bool,
@@ -208,6 +213,8 @@ impl App {
             show_3d: true,
             review_seen: Vec::new(),
             mc: McState::default(),
+            branch: Default::default(),
+            post: Default::default(),
             lit: Literature::new(),
             lit_open: true,
             settings_open: true,
@@ -249,11 +256,14 @@ impl App {
 
     /// Open the shared picker for `what`, starting where its current value is.
     pub fn open_picker(&mut self, what: Pick) {
+        if let Pick::Export(e) = what {
+            return crate::step11::pick(self, e);
+        }
         let current = match what {
             Pick::EndfFolder => PathBuf::from(&self.endf_dir),
             Pick::KovanRoot => PathBuf::from(&self.lit.root),
             Pick::PngFolder => PathBuf::from(&self.out_dir),
-            Pick::OpenRecipe | Pick::SaveRecipeAs => PathBuf::from(&self.recipe_path)
+            Pick::OpenRecipe | Pick::SaveRecipeAs | Pick::Export(_) => PathBuf::from(&self.recipe_path)
                 .parent()
                 .map(PathBuf::from)
                 .unwrap_or_default(),
@@ -274,7 +284,7 @@ impl App {
                 Pick::KovanRoot => "Pick the kovan root (your literature library)",
                 Pick::PngFolder => "Pick the folder for exported PNGs",
                 Pick::OpenRecipe => "Open a recipe",
-                Pick::SaveRecipeAs => "Save the recipe as",
+                Pick::SaveRecipeAs | Pick::Export(_) => "Save the recipe as",
             }
             .into(),
         );
@@ -282,7 +292,7 @@ impl App {
         match what {
             Pick::EndfFolder | Pick::KovanRoot | Pick::PngFolder => self.dialog.pick_directory(),
             Pick::OpenRecipe => self.dialog.pick_file(),
-            Pick::SaveRecipeAs => self.dialog.save_file(),
+            Pick::SaveRecipeAs | Pick::Export(_) => self.dialog.save_file(),
         }
     }
 
@@ -309,6 +319,7 @@ impl App {
                 self.recipe_path = text;
                 self.save_recipe();
             }
+            Pick::Export(e) => crate::step11::picked(self, e, path),
         }
     }
 
@@ -485,11 +496,13 @@ impl App {
                         });
                     self.mc.outcomes.push(o);
                     self.mc.shown = self.mc.outcomes.len() - 1;
+                    crate::step6::after_run(self);
                 }
                 Ev::Error(e) => {
                     self.mc.running = false;
                     self.mc.loading_data = false;
                     self.lit.loading = false;
+                    crate::step6::on_error(self);
                     self.say(e, true);
                 }
                 Ev::Slice { .. } | Ev::Page { .. } | Ev::View3d { .. } => {}

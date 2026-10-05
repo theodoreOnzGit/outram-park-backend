@@ -303,6 +303,8 @@ fn main_view(app: &mut App, ui: &mut egui::Ui) {
                 crate::results::tape_table(app, ui);
             });
         }
+        WizardStep::Branch => crate::step6::main_view(app, ui),
+        WizardStep::PostProcessing => crate::step11::main_view(app, ui),
         s if !s.implemented() => {
             egui::Frame::central_panel(ui.style()).inner_margin(20.0).show(ui, |ui| {
                 ui.set_min_size(ui.available_size());
@@ -376,7 +378,7 @@ fn building_blocks(s: WizardStep) -> Vec<&'static str> {
     match s {
         WizardStep::Branch => vec![
             "multiphysics: nee_soon::mgxs (MC-tallied MGXS) and nee_soon::genfoam_xs",
-            "reactivity map: Chebyshev fits exist only in tampines-steam-tables; export as plain TOML (decided)",
+            "reactivity map: built 2026-10-05 on petir's Chebyshev basis and QR least squares (workbench::reactivity_map)",
         ],
         WizardStep::Meshing => vec![
             "outram-park-fork-cfmesh tet -> dual -> boundary-layer pipeline (mesh_studio drives it)",
@@ -388,7 +390,7 @@ fn building_blocks(s: WizardStep) -> Vec<&'static str> {
             "outram-foam-appbuilder-lib GeN-Foam port; tampines pebble_bed (friction, effective conductivity)",
             "farrer-park (FEM structural)",
         ],
-        WizardStep::PostProcessing => vec!["the recipe already saves as kovan markdown (Save recipe, top bar)"],
+        WizardStep::PostProcessing => vec!["built 2026-10-05: workbench::exports (CSV, kovan report, recipe round trip)"],
         _ => Vec::new(),
     }
 }
@@ -569,6 +571,8 @@ fn settings(app: &mut App, ui: &mut egui::Ui) {
         }
         WizardStep::Review => review(app, ui),
         WizardStep::MonteCarlo => changed |= monte_carlo(app, ui),
+        WizardStep::Branch => crate::step6::settings(app, ui),
+        WizardStep::PostProcessing => crate::step11::settings(app, ui),
         s => {
             ui.label(format!(
                 "Nothing to set: {} is not built yet (gh:#{}).",

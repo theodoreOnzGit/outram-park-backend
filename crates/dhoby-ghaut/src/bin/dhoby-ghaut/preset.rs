@@ -219,6 +219,9 @@ pub fn htr10() -> Recipe {
                 "the paper ran 10 000 × [5 + 135]; the prefill is the workspace's QUICK record statistics, 2000 × [30 + 70]",
             )],
         },
+        // Step 6: multiphysics by default; the map's planner spans 300-1200 K
+        // (a workbench default, not a value from a source).
+        branch: Default::default(),
     }
 }
 

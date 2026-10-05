@@ -4,8 +4,10 @@
 //! generation, Basic or Advanced, the HTGR core, then Steps 0–11 with every
 //! value prefilled and cited, a literature pane beside the model, and a
 //! recipe (kovan markdown) to save and load. Steps 0–5 work for HTGR →
-//! Basic → pebble bed (HTR-10); Steps 6–11 are shown with the issue that will
-//! build each.
+//! Basic → pebble bed (HTR-10); ~~Steps 6–11 are shown with the issue that will
+//! build each~~ **UPDATED 2026-10-05:** Step 6 (branch; the reactivity map,
+//! `step6.rs`) and Step 11 (exports, `step11.rs`) work too; Steps 7–10 are
+//! shown with the issue that will build each.
 //!
 //! ```text
 //! cargo run --release -p dhoby-ghaut --bin dhoby-ghaut
@@ -15,6 +17,8 @@
 //! cargo run --release -p dhoby-ghaut --bin dhoby-ghaut -- --render-review out_dir
 //! cargo run --release -p dhoby-ghaut --bin dhoby-ghaut -- --headless-keff \
 //!     [--particles 500 --inactive 10 --active 20 --threads 8] [--out out_dir]
+//! cargo run --release -p dhoby-ghaut --bin dhoby-ghaut -- --headless-map \
+//!     [--synthetic | --sweep 300,600,900] [--order 1] [--basis sqrt|ln|linear] [--out out_dir]
 //! ```
 //!
 //! **Research, education and V&V only.** The HTR-10 model is the TENTATIVE
@@ -28,6 +32,9 @@
 //! writes the review gate's images. `--headless-keff` runs Step 5 with no
 //! window, prints the console and the spectrum, and saves the recipe with the
 //! run appended. No test runs it: the nuclear data alone take minutes.
+//! `--headless-map` (`headless_map.rs`) fits the reactivity map over the
+//! recipe's runs, SYNTHETIC runs (`--synthetic`, pinned by a test) or a real
+//! Monte Carlo sweep (`--sweep 300,600,900`), and writes Step 11's exports.
 
 #[cfg(not(any(target_os = "android", target_arch = "wasm32")))]
 mod app;
@@ -43,6 +50,12 @@ mod preset;
 mod results;
 #[cfg(not(any(target_os = "android", target_arch = "wasm32")))]
 mod slice_view;
+#[cfg(not(any(target_os = "android", target_arch = "wasm32")))]
+mod headless_map;
+#[cfg(not(any(target_os = "android", target_arch = "wasm32")))]
+mod step11;
+#[cfg(not(any(target_os = "android", target_arch = "wasm32")))]
+mod step6;
 #[cfg(not(any(target_os = "android", target_arch = "wasm32")))]
 mod steps_ui;
 #[cfg(not(any(target_os = "android", target_arch = "wasm32")))]
@@ -93,6 +106,9 @@ fn main() -> Result<(), String> {
         let r = recipe.unwrap_or_else(preset::htr10);
         return headless::render_review(&r, std::path::Path::new(&dir), arg("--centres").as_deref().map(std::path::Path::new));
     }
+    if args.iter().any(|a| a == "--headless-map") {
+        return headless_map::run(&args, recipe);
+    }
     if args.iter().any(|a| a == "--headless-keff") {
         let mut r = recipe.unwrap_or_else(preset::htr10);
         let num = |k: &str| arg(k).and_then(|v| v.parse::<usize>().ok());
@@ -104,6 +120,7 @@ fn main() -> Result<(), String> {
         let out = arg("--out").unwrap_or_else(|| "target/dhoby-ghaut_out".into());
         return headless::keff(r, std::path::Path::new(&out));
     }
+    let start_step: Option<u8> = arg("--step").and_then(|v| v.parse().ok());
     let options = eframe::NativeOptions {
         viewport: egui::ViewportBuilder::default()
             .with_inner_size([1500.0, 950.0])
@@ -113,7 +130,18 @@ fn main() -> Result<(), String> {
     eframe::run_native(
         "Dhoby Ghaut workbench",
         options,
-        Box::new(move |cc| Ok(Box::new(app::App::new(cc, recipe)))),
+        Box::new(move |cc| {
+            let mut a = app::App::new(cc, recipe);
+            // `--step N` (with `--recipe`): open the wizard at Step N, e.g.
+            // for screenshots. Navigation only: the review gate still guards
+            // every Monte Carlo run.
+            if let Some(n) = start_step {
+                if let Some(s) = dhoby_ghaut::workbench::steps::WizardStep::ALL.into_iter().find(|s| s.number() == Some(n)) {
+                    a.step = s;
+                }
+            }
+            Ok(Box::new(a))
+        }),
     )
     .map_err(|e| e.to_string())
 }
