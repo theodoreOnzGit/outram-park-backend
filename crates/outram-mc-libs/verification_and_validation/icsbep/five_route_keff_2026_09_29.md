@@ -350,8 +350,12 @@ Per-seed rows:
 
 | worth of the 24 dropped nuclides (full − 11) | value [pcm] | significance |
 |---|---|---|
-| **unpaired, full 16 vs 11-nuclide 96 (primary)** | **−65 ± 21** | **3.2σ** |
-| paired, seeds 1–16 (as #533 asked) | −35 ± 26 | 1.3σ; seed-to-seed correlation between the arms −0.14 |
+| ~~**unpaired, full 16 vs 11-nuclide 96 (primary)**~~ | ~~**−65 ± 21**~~ | ~~**3.2σ**~~ |
+| ~~paired, seeds 1–16 (as #533 asked)~~ | ~~−35 ± 26~~ | ~~1.3σ; seed-to-seed correlation between the arms −0.14~~ |
+
+**Superseded 2026-10-05 by the 32-seed extension below:** −75 ± 14 pcm
+unpaired (primary), −50 ± 16 paired. The 16-seed rows above are kept as
+measured; they are seeds 1–16 of the 32.
 
 - **The prediction held** in sign and in range: −65 ± 21 against −100
   predicted (−40 to −250). The dropped nuclides are worth a few tens of pcm,
@@ -360,13 +364,93 @@ Per-seed rows:
   arm's seeds 1–16 (+205 ± 16) against its 96-seed mean (+236 ± 8). The
   pairing gained nothing (correlation −0.14), as expected.
 - **What it means for the quoted lattice result.** The full model would sit at
-  about **+171 ± 19 pcm**, not +236 ± 8. The 11-nuclide figure stays the one
-  to quote for the code-to-code comparison, because OpenMC ran the same 11
-  nuclides. Against k = 1, the simplification is worth about −65 pcm.
-- **Not done: the request in full.** #533 asks for at least 32 pairs. This is
+  about ~~**+171 ± 19 pcm**~~ **+161 ± 12 pcm (32 seeds, below)**, not
+  +236 ± 8. The 11-nuclide figure stays the one to quote for the code-to-code
+  comparison, because OpenMC ran the same 11 nuclides. Against k = 1, the
+  simplification is worth about ~~−65~~ **−75** pcm.
+- ~~**Not done: the request in full.** #533 asks for at least 32 pairs. This is
   16 full seeds, so the worth is resolved at 3.2σ, not at the precision 32
-  seeds would give (about ±16 pcm). #533 stays open for the rest. The worth is
+  seeds would give (about ±16 pcm). #533 stays open for the rest.~~ **Done
+  2026-10-05:** seeds 17–32 were run; see the next subsection. The worth is
   not split by nuclide.
+
+### LCT-008 lattice: dropped-nuclide worth at 32 full-model seeds (GitHub #533)
+
+**Prediction ([posted on #533](https://github.com/theodoreOnzGit/outram-park-backend/issues/533#issuecomment-5997622924)
+before any of seeds 17–32 ran).**
+1. Unpaired worth at 32 full seeds against the 96 11-nuclide seeds: about
+   **−70 pcm, ±16 expected, plausible range −105 to −35**. This combines the
+   capture estimate (−100) with the 16-seed −65 ± 21, weighted toward the
+   measurement.
+2. The full arm's seeds 17–32 alone fall within 2σ of seeds 1–16, i.e. in
+   [+117, +225] pcm.
+3. Paired over seeds 1–32, the correlation between the arms stays near zero,
+   |r| < 0.35.
+
+Refutation: a positive worth resolved beyond 2σ, or a worth more negative than
+−130 resolved beyond 2σ. The stopping point, 32 seeds, was declared with the
+prediction, and the batch was not extended after its results were seen.
+
+**Method.** The first 16 seeds' driver, rebuilt from `8b17079bc`
+(`icsbep_five_route_keff --case lct008 --route endf --full-nuclides
+--particles 10000 --inactive 250 --active 400`). Same loader, URR on 10 of 35
+nuclides, DBRC on 35 of 35, S(α,β) on. Seeds 17–32 ran as four processes, one
+per logical core (`taskset -c <core>`), at `--threads 1` instead of 2. The
+multi-thread transport documents its eigenvalue as independent of thread
+count. That was tested before the batch was used: **full seed 1, re-run at 1
+thread, reproduces the 2-thread `k = 1.002295`, σ = 0.000619 to every printed
+digit.** It is the `route4-full35-recheck1t` row of the CSV. The 11-nuclide
+arm is again the 96 recorded route-4 seeds. The estimators are the ones fixed
+for the first measurement: unpaired is primary, and paired is reported beside
+it.
+
+**Hardware.** Intel Xeon Processor @ 2.10 GHz, all 4 logical cores (one
+1-thread process each), 15.7 GB RAM (about 560 MB per process), Linux 6.18,
+CPU only. Data took 314–317 s per process. Transport took 2005–2130 s per seed
+at 1 thread, with four processes sharing the machine. Per-seed rows are in the
+same
+[`data/per_seed_keff_lct008_full35_route4_2026_10_05.csv`](five_route_keff/data/per_seed_keff_lct008_full35_route4_2026_10_05.csv).
+
+**Results.**
+
+| arm | seeds | k_eff ± sem | seed sd [pcm] | Δ vs k=1 [pcm] |
+|---|---|---|---|---|
+| 11 nuclides (route 4, recorded) | 96 | 1.00236 ± 0.00008 | 74 | +236 ± 8 |
+| 11 nuclides, seeds 1–32 only | 32 | 1.00211 ± 0.00010 | 56 | +211 ± 10 |
+| full, 35 nuclides, seeds 1–16 (first measurement) | 16 | 1.00171 ± 0.00019 | 76 | +171 ± 19 |
+| full, 35 nuclides, seeds 17–32 (this batch) | 16 | 1.00152 ± 0.00014 | 56 | +152 ± 14 |
+| **full, 35 nuclides, seeds 1–32** | **32** | **1.00161 ± 0.00012** | 66 | **+161 ± 12** |
+
+| worth of the 24 dropped nuclides (full − 11) | value [pcm] | significance |
+|---|---|---|
+| **unpaired, full 32 vs 11-nuclide 96 (primary)** | **−75 ± 14** | **5.4σ** |
+| paired, seeds 1–32 | −50 ± 16 | 3.1σ; correlation between the arms −0.09 |
+
+- **All three predictions held.**
+  1. −75 ± 14 against a predicted −70, inside the −105 to −35 range. The
+     paired −50 is inside it too.
+  2. Seeds 17–32 give +152 ± 14, inside [+117, +225]. That is −19 ± 24
+     (0.8σ) from seeds 1–16.
+  3. The correlation is −0.09.
+  Neither refutation condition was met.
+- **The worth is resolved: the 24 dropped nuclides are worth −75 ± 14 pcm**
+  on the lattice. It is negative, as parasitic capture in the clad trace
+  elements and B-11 predicts, and smaller than the −100 capture estimate.
+- **The two estimators differ by 2.3σ, and that is reported, not chosen
+  between after the fact.** Their difference is exactly the 11-nuclide arm's
+  seeds 1–32 (+211 ± 10) against its own 96-seed mean (+236 ± 8). A 32-seed
+  subset of a 96-seed sample has σ = 11 pcm about the full mean, so this subset
+  sits 2.3σ low. Within route 4, seeds 1–32 sit −37 ± 14 below seeds 33–96.
+  Routes 3 and 5 split less (+4 ± 13 and −16 ± 13). Route 4's settings,
+  commit (`0414bc8277`) and thread count are identical across the split. This reads
+  as a low draw, not as a seed-dependent bias: if seed numbers carried a bias
+  into both arms, the arms would correlate, and they do not (r = −0.09). The
+  unpaired estimator stays primary, as declared before either measurement.
+- **What it means for the quoted lattice result.** The full model sits at
+  **+161 ± 12 pcm** against k = 1. The 11-nuclide model sits at +236 ± 8. The
+  11-nuclide figure stays the one quoted for the code-to-code comparison,
+  because OpenMC ran the same 11 nuclides.
+- **Still not done:** a per-nuclide split. #533 did not require one.
 
 ## Results — FINAL (2026-09-29, routes 3/4/5 at `f78b5180d5`) — *superseded 2026-09-30, above*
 
@@ -466,8 +550,10 @@ cross-check is running.
 - **Data library.** Only ENDF/B-VIII.0 at 293.6 K is covered.
 - **LCT-008 nuclide list.** The lattice runs an 11-nuclide tier, not the full
   model `lct008_keff.rs` runs by default (35 nuclides in case 1). The dropped
-  24 are worth **−65 ± 21 pcm**, measured 2026-10-05 with 16 full-tier seeds
-  (see "Later measurements"; #533).
+  24 are worth ~~**−65 ± 21 pcm**, measured 2026-10-05 with 16 full-tier
+  seeds~~ **−75 ± 14 pcm**, measured 2026-10-05 with 32 full-tier seeds
+  (corrected the same day from the 16-seed figure; see "Later measurements";
+  #533).
 
 ## Appendix — OpenMC provenance and driver script (verbatim)
 

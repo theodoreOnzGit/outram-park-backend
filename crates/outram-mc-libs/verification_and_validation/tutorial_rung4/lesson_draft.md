@@ -408,12 +408,15 @@ How to read it:
   clad, 1.86 % of its atoms) are dropped, not renormalised, identically on
   both codes. `lct008_keff.rs` runs all 36 by default (35 are in case 1);
   ~~the worth of the dropped nuclides on the lattice has not been measured in
-  this record.~~ **Measured 2026-10-05 (GitHub #533, code `8b17079bc`):** 16
-  full-model seeds on route 4 give +171 ± 19 pcm against the 11-nuclide
-  +236 ± 8 (96 seeds), a worth of **−65 ± 21 pcm** (3.2σ; paired over seeds
-  1–16, −35 ± 26). That is negative as predicted (−100, range −40 to −250).
-  The record is "Later measurements" in `five_route_keff_2026_09_29.md`.
-  #533 asked for at least 32 seeds and stays open.
+  this record.~~ **Measured 2026-10-05 (GitHub #533, code `8b17079bc`):**
+  ~~16 full-model seeds on route 4 give +171 ± 19 pcm against the 11-nuclide
+  +236 ± 8 (96 seeds), a worth of −65 ± 21 pcm (3.2σ; paired over seeds
+  1–16, −35 ± 26).~~ **Extended the same day to 32 seeds:** 32 full-model
+  seeds on route 4 give +161 ± 12 pcm against the 11-nuclide +236 ± 8 (96
+  seeds), a worth of **−75 ± 14 pcm** (5.4σ; paired over seeds 1–32,
+  −50 ± 16). That is negative as predicted (−100 from capture, range −40 to
+  −250; −70 predicted for the 32-seed result). The record is "Later
+  measurements" in `five_route_keff_2026_09_29.md`.
 - Route 3 (outram-mc on NJOY2016 ACE) is the one cell outside 2σ of OpenMC:
   −18 ± 8 pcm (2.3σ). It is shown, not hidden.
 - "Route 1" in that record is OpenMC, not us.
@@ -444,10 +447,10 @@ expensive enough that **delta tracking** is worth teaching.
 
 | liberty | why | cost |
 |---|---|---|
-| 11-nuclide tier in the quoted result | the OpenMC NJOY2016 library was built for it, so both codes run the same model | ~~not measured on the lattice~~ −65 ± 21 pcm (16 full-tier seeds, 2026-10-05, #533) |
+| 11-nuclide tier in the quoted result | the OpenMC NJOY2016 library was built for it, so both codes run the same model | ~~not measured on the lattice~~ ~~−65 ± 21 pcm (16 full-tier seeds)~~ −75 ± 14 pcm (32 full-tier seeds, 2026-10-05, #533) |
 | k = 1 reference with no uncertainty | handbook is licence-restricted | readers cannot judge σ from experiment |
 | pin cell for the pitch sweep is an infinite lattice | isolates moderation from leakage | k∞ ≠ k_eff; the real core leaks |
-| pitch sweep on the 11-nuclide tier | the OpenMC library carries only those; the 36-nuclide default was run at 3 pitches, differences ±250 pcm, unresolved | on the pin cell not measured; on the lattice −65 ± 21 pcm (#533) |
+| pitch sweep on the 11-nuclide tier | the OpenMC library carries only those; the 36-nuclide default was run at 3 pitches, differences ±250 pcm, unresolved | on the pin cell not measured; on the lattice ~~−65 ± 21~~ −75 ± 14 pcm (#533) |
 | pitch sweep keeps case-1 water (1511 ppm boron) | the actual critical configuration | the unborated optimum differs; `--no-soluble-boron` measures it |
 | 293.6 K for the sweep, not 296 K | the LCT-008 model's own `TEMP_K`, the tabulated temperature of `H(H2O)` | none intended; no thermal interpolation needed |
 
