@@ -999,7 +999,17 @@ pub fn parse_type2_direct_library(bytes: &[u8]) -> Result<Vec<RawAceTable>, Njoy
     Ok(out)
 }
 
-/// Inflate a gzip member to a `String`.
+/// Inflate a gzip member to its bytes, with this crate's pure-Rust decoder
+/// (the one [`read_library`] and `Tape::read_file` use). `path` only labels
+/// errors.
+///
+/// # Errors
+/// [`NjoyError::EndfParse`] for a malformed or truncated gzip member.
+pub fn inflate_gzip(bytes: &[u8], path: &Path) -> Result<Vec<u8>, NjoyError> {
+    gunzip(bytes, path)
+}
+
+/// Inflate a gzip member to its bytes (~~a `String`~~; it returns `Vec<u8>`).
 ///
 /// `miniz_oxide` implements raw DEFLATE and zlib, **not** gzip, so the
 /// container has to be unwrapped here: a 10-byte fixed header, the optional
@@ -1010,7 +1020,7 @@ pub fn parse_type2_direct_library(bytes: &[u8]) -> Result<Vec<RawAceTable>, Njoy
 /// That trailer is used as the inflate **limit** rather than trusted as the
 /// answer: it bounds the allocation for a hostile or corrupt file, while a
 /// short read is still caught by the decoder returning fewer bytes.
-fn gunzip(bytes: &[u8], path: &Path) -> Result<Vec<u8>, NjoyError> {
+pub(crate) fn gunzip(bytes: &[u8], path: &Path) -> Result<Vec<u8>, NjoyError> {
     let bad = |m: String| NjoyError::EndfParse(format!("{}: {m}", path.display()));
     if bytes.len() < 18 {
         return Err(bad("gzip file is too short to hold a header and trailer".into()));
