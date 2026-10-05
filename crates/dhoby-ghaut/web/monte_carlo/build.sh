@@ -57,8 +57,9 @@ cp "$geo_src"/*.png "$dist/geometry/"
   echo '<p>Every pixel is the material <code>Geometry::locate</code> finds there, on the assembled'
   echo 'geometry, drawn with <code>outram_mc_libs::geometry::plot::render_material_slice</code> (the port of'
   echo "OpenMC's plotter), for every rung the Watch mode transports through: the Godiva sphere (godiva_*),"
-  echo 'the uranium-graphite cube (ugraphite_*), the lumped cell (lumped_*), the LCT-008 core (lct008_*)'
-  echo 'and the TRISO pebble cell (files 1-5). Regenerate with <code>--render-geometry</code>.'
+  echo 'the uranium-graphite cube (ugraphite_*), the lumped cell (lumped_*), the LCT-008 core (lct008_*),'
+  echo 'the HTR-10 core at N = 12 with the zoom ladder planes (htr10_*; the full set is nee_soon'"'"'s'
+  echo 'htr10_geometry_images) and the TRISO pebble cell (files 1-5). Regenerate with <code>--render-geometry</code>.'
   echo '<a href="../">Back to the demo</a>.</p>'
   for f in "$dist"/geometry/*.png; do
     n="$(basename "$f")"

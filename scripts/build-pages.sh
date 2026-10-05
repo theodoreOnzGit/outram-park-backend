@@ -227,7 +227,9 @@ while read -r r; do
 done < <(grep -rhoE 'demos/monte-carlo/\?rung=[a-z0-9_-]+' "$OUT" --include='*.html' | sed 's/.*rung=//' | sort -u)
 # Every tape a rung processes must have been published for the browser.
 for t in n-092_U_234-ENDF8.0.endf n-092_U_235-ENDF8.0.endf n-092_U_238.endf \
-  n-006_C_012-ENDF8.0.endf n-006_C_013-ENDF8.0.endf tsl-crystalline-graphite.endf; do
+  n-006_C_012-ENDF8.0.endf n-006_C_013-ENDF8.0.endf tsl-crystalline-graphite.endf \
+  n-008_O_016-ENDF8.0.endf n-005_B_010-ENDF8.0.endf n-005_B_011-ENDF8.0.endf \
+  tsl-reactor-graphite-30P.endf; do
   [[ -f "$OUT/demos/monte-carlo/data/$t.zz" ]] || { echo "missing demo tape $t" >&2; exit 1; }
 done
 

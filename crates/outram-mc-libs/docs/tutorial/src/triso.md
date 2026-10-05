@@ -169,6 +169,23 @@ example's doc comment and the rung-5 record):
   corresponds to it. Only the difference is a measurement, and it is a
   comparison of the code with itself: **verification**.
 
+**Run it in your browser.** The demo's HTR-10 rung runs the same cube (the
+same model file, `examples/common/htr10_fuel_zone.rs`, and the same
+delta tracking, stepped one generation at a time) with the kernels resolved
+or smeared, at 1000 neutrons × [20 + 60] generations per case. Run both and
+it prints your own difference.
+
+<div class="mcw-demo" data-mc-widget="demo" data-src="../../demos/monte-carlo/?rung=htr10&amp;mode=watch&amp;view=fuel" data-label="▶ Resolve or smear the kernels yourself (demo, k∞)"></div>
+
+*Measured 2026-10-05 in headless Chromium (software rendering, 2 shared
+cores of a 2.1 GHz Xeon): processing the eight ENDF/B-VIII.0 tapes at NJOY's
+tolerance took 278–304 s, then each case 15–16 s (majorant and source) plus
+51–53 s of transport, 0.64 ms per neutron. It gave resolved
+1.5681 ± 0.0044, homogenised 1.4514 ± 0.0047, difference
+−11 673 ± 643 pcm, 1.2σ from the recorded −12 452 ± 126 pcm. Natively, one
+thread, the same seed gives the same digits in 0.33 ms per neutron. One
+run's ± understates the true spread.*
+
 <div class="history">
 
 **History of this number.** The example's first recorded result (2026-09-11)
@@ -738,6 +755,13 @@ below, the reflector around. Zoom in one level:*
 *One fuel pebble: the fuel zone's particles on a cubic lattice, the fuel-free
 shell, neighbouring pebbles and helium. And one more:*
 
+<div class="mcw-demo" data-mc-widget="demo" data-src="../../demos/monte-carlo/?rung=htr10&amp;mode=watch&amp;view=geometry" data-label="▶ Zoom from the core to one kernel (demo, geometry)"></div>
+
+*The demo slices the same assembled core (`nee_soon`'s
+`assemble_explicit_triso`, N = 12) live in your browser, from the whole
+reactor down to one kernel; each slice is the material
+`Geometry::locate` finds at each pixel, 0.5–2 s per slice there.*
+
 ![One HTR-10 TRISO particle, x-y slice](https://raw.githubusercontent.com/theodoreOnzGit/outram-park-backend/@@COMMIT@@/crates/nee_soon/verification_and_validation/htr10_geometry_images/htr10_xy_triso.png)
 
 The model is
@@ -793,6 +817,13 @@ and σ columns are the record's.)
   codes' models of the same benchmark, so **verification**, not validation.
   Here $k$ crosses 1 between N = 12 and 13 on both libraries; this page does
   not compare that with the loading height measured in the experiment.
+
+<div class="mcw-demo" data-mc-widget="demo" data-src="../../demos/monte-carlo/?rung=htr10&amp;mode=watch&amp;view=layers" data-label="▶ Load the core layer by layer (demo, recorded k)"></div>
+
+*In the demo's layers view the slider picks N; the bed beside the plot is
+built at that N, and the plot shows the recorded points (dotted) against
+RMC and MCNP (solid). Nothing is computed: a k for the whole core takes
+about 9–15 ms of CPU per neutron here, hours for one browser thread.*
 
 ### The deliberate liberties
 
@@ -860,8 +891,13 @@ This is the last rung of the ladder so far. You can now read every part of
 the [demo](../../demos/monte-carlo/?rung=triso&mode=watch) the tutorial
 opened with: the fast birth in a kernel, the slow-down in graphite, the
 virtual collisions that delta tracking throws away, and why the fuel is in
-grains at all. A demo rung for the whole HTR-10 core is planned
-([#528](https://github.com/theodoreOnzGit/outram-park-backend/issues/528)).
+grains at all. ~~A demo rung for the whole HTR-10 core is planned~~
+**Built 2026-10-05**
+([#528](https://github.com/theodoreOnzGit/outram-park-backend/issues/528)):
+the demo's [HTR-10 rung](../../demos/monte-carlo/?rung=htr10&mode=watch)
+zooms from the core to a kernel, reads the recorded k against loading
+height, and runs the fuel-zone comparison of step 2. It has no k of the
+whole core: that is hours for one browser thread.
 
 ## Deliberate liberties on this page
 

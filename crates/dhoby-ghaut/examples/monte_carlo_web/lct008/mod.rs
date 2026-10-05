@@ -157,6 +157,7 @@ impl McRung for Lct008 {
             param: ("pitch", "cm"),
             range: (1.25, 3.30),
             default: PITCH_LCT008,
+            choices: Vec::new(),
             marks: vec![(PITCH_LCT008, "LCT-008")],
             cfg: KeffConfig { n_particles: 1000, n_inactive: 20, n_active: 30, seed: 1, point_source: false, want_sites: false },
             curves: vec![

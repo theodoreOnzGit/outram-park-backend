@@ -189,6 +189,19 @@ pub mod js {
     pub fn f64s(v: &[f64]) -> JsValue {
         Float64Array::from(v).into()
     }
+    /// Bytes as a `Uint8Array` (an image or a material map: 8 times smaller
+    /// than the same numbers as `f64`s).
+    pub fn u8s(v: &[u8]) -> JsValue {
+        js_sys::Uint8Array::from(v).into()
+    }
+    /// A `Uint8Array` field as a `Vec<u8>`.
+    pub fn get_u8s(o: &JsValue, k: &str) -> Vec<u8> {
+        Reflect::get(o, &k.into())
+            .ok()
+            .and_then(|d| d.dyn_into::<js_sys::Uint8Array>().ok())
+            .map(|a| a.to_vec())
+            .unwrap_or_default()
+    }
 }
 
 #[cfg(target_arch = "wasm32")]

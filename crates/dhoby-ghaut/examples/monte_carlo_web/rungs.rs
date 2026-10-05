@@ -39,6 +39,8 @@ use crate::anim::Spectrum;
 use crate::engine::Tier;
 use crate::history::History;
 use crate::keff::{Generation, KeffConfig, KinfCase, KinfGeneration, Reference};
+use crate::raster::{RasterInfo, RasterReq};
+use crate::sweep::RecordedSweep;
 use crate::xs::XsCurve;
 use dhoby_ghaut::web_demo::view::View;
 
@@ -115,6 +117,11 @@ pub trait LoadedRung {
     fn xs_curves(&self) -> Vec<XsCurve> {
         Vec::new()
     }
+    /// Rasterise a window of the assembled geometry ([`crate::raster`]);
+    /// only for a rung with [`McRung::raster_info`].
+    fn raster(&mut self, _req: &RasterReq) -> Result<Vec<u8>, String> {
+        Err("this rung has no live geometry slice".into())
+    }
 }
 
 /// Everything about one rung that the engine and the app need. Implemented
@@ -159,6 +166,25 @@ pub trait McRung {
     fn kinf_case() -> Option<KinfCase> {
         None
     }
+    /// The tapes a load at `tier` processes. A rung whose Watch views need
+    /// no nuclear data (the `htr10` geometry and recorded sweep) loads none
+    /// until a view that computes asks for the full tier. Defaults to
+    /// [`McRung::jobs`].
+    fn jobs_for(_tier: Tier) -> &'static [(&'static str, &'static str)] {
+        Self::jobs()
+    }
+    /// Whether Watch has "one neutron at a time" (default yes).
+    fn has_tracks() -> bool {
+        true
+    }
+    /// A live slice of the assembled geometry (the zoom ladder), gh:#528.
+    fn raster_info() -> Option<RasterInfo> {
+        None
+    }
+    /// A recorded sweep read with a slider, gh:#528.
+    fn sweep() -> Option<RecordedSweep> {
+        None
+    }
 }
 
 /// Generates, from a list `module: Marker`, the `mod` declarations, the
@@ -177,6 +203,8 @@ macro_rules! rung_table {
             use $crate::history::History;
             use $crate::keff::{Generation, KeffConfig, KinfCase, KinfGeneration, Reference};
             use $crate::xs::XsCurve;
+            use $crate::raster::{RasterInfo, RasterReq};
+            use $crate::sweep::RecordedSweep;
 
             /// The rungs, in ladder order (the order of `rung_table!`).
             #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -228,6 +256,18 @@ macro_rules! rung_table {
                 pub fn legend(self, ui: &mut egui::Ui) {
                     match self { $( Rung::$t => <$crate::$m::$t as McRung>::legend(ui), )+ }
                 }
+                pub fn jobs_for(self, tier: Tier) -> &'static [(&'static str, &'static str)] {
+                    match self { $( Rung::$t => <$crate::$m::$t as McRung>::jobs_for(tier), )+ }
+                }
+                pub fn has_tracks(self) -> bool {
+                    match self { $( Rung::$t => <$crate::$m::$t as McRung>::has_tracks(), )+ }
+                }
+                pub fn raster_info(self) -> Option<RasterInfo> {
+                    match self { $( Rung::$t => <$crate::$m::$t as McRung>::raster_info(), )+ }
+                }
+                pub fn sweep(self) -> Option<RecordedSweep> {
+                    match self { $( Rung::$t => <$crate::$m::$t as McRung>::sweep(), )+ }
+                }
                 pub fn kinf_case(self) -> Option<KinfCase> {
                     match self { $( Rung::$t => <$crate::$m::$t as McRung>::kinf_case(), )+ }
                 }
@@ -278,6 +318,9 @@ macro_rules! rung_table {
                 }
                 pub fn xs_curves(&self) -> Vec<XsCurve> {
                     match self { $( Loaded::$t(l) => l.xs_curves(), )+ }
+                }
+                pub fn raster(&mut self, req: &RasterReq) -> Result<Vec<u8>, String> {
+                    match self { $( Loaded::$t(l) => l.raster(req), )+ }
                 }
             }
         }

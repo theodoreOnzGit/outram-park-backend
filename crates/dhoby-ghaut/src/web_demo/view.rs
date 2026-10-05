@@ -23,19 +23,27 @@ pub struct View {
     /// before the canvas reached device-pixel size, gh:#556).
     pub fit_size: Vec2,
     pub touched: bool,
+    /// The world point Reset centres on (the origin unless set).
+    pub home: [f64; 2],
 }
 
 impl View {
     pub fn new(half_extent: f64) -> Self {
-        Self { centre: [0.0, 0.0], scale: 1.0, half_extent, fitted: false, fit_size: Vec2::ZERO, touched: false }
+        Self { centre: [0.0, 0.0], scale: 1.0, half_extent, fitted: false, fit_size: Vec2::ZERO, touched: false, home: [0.0, 0.0] }
     }
     /// Pixels per cm that make the subject fill 94 % of the smaller side.
     pub fn fit_scale(&self, rect: Rect) -> f64 {
         (rect.width().min(rect.height()) as f64) * 0.94 / (2.0 * self.half_extent)
     }
+    /// A view whose Reset centres on `home` rather than the origin.
+    pub fn with_home(mut self, home: [f64; 2]) -> Self {
+        self.home = home;
+        self.centre = home;
+        self
+    }
     /// Reset: centre the subject and fit it to the screen.
     pub fn fit(&mut self, rect: Rect) {
-        self.centre = [0.0, 0.0];
+        self.centre = self.home;
         self.scale = self.fit_scale(rect);
         self.fitted = true;
         self.fit_size = rect.size();

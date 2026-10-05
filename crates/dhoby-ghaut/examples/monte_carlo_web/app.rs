@@ -11,6 +11,8 @@ use crate::anim::{self, animated_speed, draw_track, energy_colour, fmt_energy, f
 use crate::engine::{Event, Request, Tier};
 use crate::history::{outcome_name, History, Stats};
 use crate::keff::{console_line, summary_lines, Generation, KeffConfig, KinfCase, KinfGeneration, LineStyle, CONSOLE_HEADER};
+use crate::raster::Slicer;
+use crate::sweep::RecordedSweep;
 use crate::xs::{self, XsCurve};
 use crate::rungs::Mode;
 use crate::table::Rung;
@@ -44,7 +46,7 @@ struct LoadState {
 impl LoadState {
     fn new(rung: Rung, requested: Tier) -> Self {
         let tier = rung.tier(requested);
-        let labels = rung.jobs().iter().map(|j| j.0).collect();
+        let labels = rung.jobs_for(tier).iter().map(|j| j.0).collect();
         Self { rung, tier, loading: Loading::new(labels, rung.job_weights(tier)) }
     }
     fn tolerance(&self) -> &'static str {
@@ -347,6 +349,8 @@ enum Screen {
     Generations(Iteration),
     Run(Iteration),
     Kinf(KinfRun),
+    Geometry(Slicer),
+    Layers(Layers),
 }
 
 #[allow(clippy::large_enum_variant)]
@@ -363,6 +367,10 @@ enum WatchView {
     Generations,
     /// The rung's small `k_inf` case (gh:#549).
     Kinf,
+    /// A live slice of the assembled geometry, the zoom ladder (gh:#528).
+    Geometry,
+    /// A recorded sweep read with a slider, beside the geometry (gh:#528).
+    Layers,
 }
 
 impl WatchView {
@@ -372,11 +380,40 @@ impl WatchView {
             WatchView::Neutrons => "neutrons",
             WatchView::Generations => "generations",
             WatchView::Kinf => "pitch",
+            WatchView::Geometry => "geometry",
+            WatchView::Layers => "layers",
         }
     }
     fn parse(s: &str) -> Option<Self> {
-        [WatchView::Neutrons, WatchView::Generations, WatchView::Kinf].into_iter().find(|v| v.name() == s)
+        let all = [WatchView::Neutrons, WatchView::Generations, WatchView::Kinf, WatchView::Geometry, WatchView::Layers];
+        // `fuel` is the htr10 rung's name for its k_inf view.
+        if s == "fuel" {
+            return Some(WatchView::Kinf);
+        }
+        all.into_iter().find(|v| v.name() == s)
     }
+    /// The view a rung can show: a rung without tracks opens on its geometry,
+    /// and a view the rung does not have falls back to the first it has.
+    fn for_rung(self, rung: Rung) -> Self {
+        let has = |v: WatchView| match v {
+            WatchView::Neutrons => rung.has_tracks(),
+            WatchView::Generations => rung.watch_generations().is_some(),
+            WatchView::Kinf => rung.kinf_case().is_some(),
+            WatchView::Geometry => rung.raster_info().is_some(),
+            WatchView::Layers => rung.sweep().is_some(),
+        };
+        if has(self) {
+            return self;
+        }
+        [WatchView::Neutrons, WatchView::Geometry, WatchView::Layers, WatchView::Kinf].into_iter().find(|&v| has(v)).unwrap_or(WatchView::Neutrons)
+    }
+}
+
+/// The `layers` view: the recorded sweep and the bed at the slider's N.
+struct Layers {
+    sweep: RecordedSweep,
+    n: f64,
+    slicer: Slicer,
 }
 
 pub struct McApp {
@@ -468,10 +505,13 @@ impl McApp {
     /// The tier a mode asks for: Run k_eff processes at NJOY's tolerance so
     /// its `k` is comparable with the record; Watch may use the loosened
     /// tier. The rung has the last word ([`crate::rungs::McRung::tier`]).
-    fn tier_for(mode: Mode) -> Tier {
-        match mode {
-            Mode::Run => Tier::Exact,
-            Mode::Watch => Tier::Loose,
+    /// The k_inf view computes too, so it asks for the full tier (a rung such
+    /// as `lct008` processes one tier whatever is asked; `htr10` loads its
+    /// tapes only for this view).
+    fn tier_for(mode: Mode, view: WatchView) -> Tier {
+        match (mode, view) {
+            (Mode::Run, _) | (Mode::Watch, WatchView::Kinf) => Tier::Exact,
+            (Mode::Watch, _) => Tier::Loose,
         }
     }
 
@@ -490,8 +530,9 @@ impl McApp {
         }
         self.rung = rung;
         self.mode = mode;
+        self.watch_view = self.watch_view.for_rung(rung);
         self.set_url();
-        let need = rung.tier(Self::tier_for(mode));
+        let need = rung.tier(Self::tier_for(mode, self.watch_view));
         let ok = match self.loaded {
             // Exact data serve Watch too; loose data do not serve Run.
             Some((r, t)) => r == rung && (t == need || t == Tier::Exact),
@@ -537,6 +578,17 @@ impl McApp {
                 it.start(link);
                 Screen::Generations(it)
             }
+            (Mode::Watch, WatchView::Geometry, _) if self.rung.raster_info().is_some() => {
+                let info = self.rung.raster_info().expect("checked");
+                let (start, param) = (info.start, info.param);
+                Screen::Geometry(Slicer::new(info, start, param))
+            }
+            (Mode::Watch, WatchView::Layers, _) if self.rung.sweep().is_some() => {
+                let sweep = self.rung.sweep().expect("checked");
+                let n = sweep.default;
+                let info = self.rung.raster_info().expect("a sweep rung draws its geometry");
+                Screen::Layers(Layers { slicer: Slicer::new(info, 0, n), sweep, n })
+            }
             (Mode::Watch, WatchView::Kinf, _) if self.rung.kinf_case().is_some() => {
                 let mut k = KinfRun::new(self.rung.kinf_case().expect("checked"));
                 if self.autostart {
@@ -548,7 +600,7 @@ impl McApp {
         });
     }
 
-    fn handle(&mut self, events: Vec<Event>) {
+    fn handle(&mut self, ctx: &egui::Context, events: Vec<Event>) {
         let rung = self.rung;
         for e in events {
             match (&mut self.phase, e) {
@@ -565,6 +617,8 @@ impl McApp {
                         link.send(Request::XsCurves);
                     }
                 }
+                (Phase::Ready(Screen::Geometry(sl)), Event::Raster { req, map, secs }) => sl.receive(ctx, req, map, secs),
+                (Phase::Ready(Screen::Layers(ly)), Event::Raster { req, map, secs }) => ly.slicer.receive(ctx, req, map, secs),
                 (_, Event::XsCurves(c)) => {
                     self.xs_shown = vec![true; c.len()];
                     self.xs = c;
@@ -596,7 +650,19 @@ impl McApp {
                 format!("{name} · generation {}/{} · {:?}", it.gens.len(), it.total_gens(), it.state)
             }
             Phase::Ready(Screen::Kinf(k)) => {
-                format!("{name} · k∞ at {} {:.4} {} · generation {}/{} · {:?}", k.case.param.0, k.running_param, k.case.param.1, k.gens.len(), k.cfg.n_inactive + k.cfg.n_active, k.state)
+                let at = match k.case.choices.iter().find(|c| c.0 == k.running_param) {
+                    Some((_, label)) => format!("{} {label}", k.case.param.0),
+                    None => format!("{} {:.4} {}", k.case.param.0, k.running_param, k.case.param.1),
+                };
+                format!("{name} · k∞, {at} · generation {}/{} · {:?}", k.gens.len(), k.cfg.n_inactive + k.cfg.n_active, k.state)
+            }
+            Phase::Ready(Screen::Geometry(sl)) => {
+                let state = if sl.busy() { "slicing" } else if sl.settled() { "slice ready" } else { "waiting" };
+                format!("{name} · geometry: {} · {state}", sl.info.ladder[sl.preset].label)
+            }
+            Phase::Ready(Screen::Layers(ly)) => {
+                let state = if ly.slicer.busy() { "slicing" } else if ly.slicer.settled() { "slice ready" } else { "waiting" };
+                format!("{name} · layers N = {} · {state}", ly.n)
             }
             Phase::Failed(e) => format!("{name} · FAILED · {e}"),
         };
@@ -612,7 +678,7 @@ impl eframe::App for McApp {
         let ctx = ui.ctx().clone();
         if let Some(link) = &self.link {
             let events = link.drain();
-            self.handle(events);
+            self.handle(&ctx, events);
         }
         if let (Phase::Ready(s), Some(link)) = (&mut self.phase, &self.link) {
             match s {
@@ -629,6 +695,8 @@ impl eframe::App for McApp {
                         ctx.request_repaint_after(std::time::Duration::from_millis(100));
                     }
                 }
+                // Raster requests go out from the main view, which knows its size.
+                Screen::Geometry(_) | Screen::Layers(_) => {}
             }
         }
         if matches!(self.phase, Phase::Loading(_)) {
@@ -667,37 +735,48 @@ impl McApp {
         let mut want_view: Option<WatchView> = None;
         let link = self.link.as_ref();
         let rung = self.rung;
-        let has_generations = rung.watch_generations().is_some();
-        let has_kinf = rung.kinf_case().is_some();
-        let views = (has_generations, has_kinf);
+        let views = [WatchView::Neutrons, WatchView::Geometry, WatchView::Layers, WatchView::Generations, WatchView::Kinf]
+            .into_iter()
+            .filter(|&v| v.for_rung(rung) == v)
+            .collect::<Vec<_>>();
+        let many = views.len() > 1;
         match &mut self.phase {
             Phase::Loading(l) => Self::loading_panel(ui, l),
             Phase::Failed(e) => {
                 ui.colored_label(Color32::from_rgb(255, 90, 90), format!("Failed: {e}"));
             }
             Phase::Ready(Screen::Tracks(t)) => {
-                if has_generations || has_kinf {
-                    want_view = Self::watch_view_picker(ui, WatchView::Neutrons, views);
+                if many {
+                    want_view = Self::watch_view_picker(ui, WatchView::Neutrons, &views);
                 }
                 Self::tracks_panel(ui, t, link, rung, &mut self.speed_at_1ev);
                 Self::xs_controls(ui, &self.xs, &mut self.xs_shown, &mut self.xs_on);
             }
             Phase::Ready(Screen::Generations(it)) => {
-                want_view = Self::watch_view_picker(ui, WatchView::Generations, views);
+                want_view = Self::watch_view_picker(ui, WatchView::Generations, &views);
                 Self::generations_panel(ui, it, link);
             }
             Phase::Ready(Screen::Kinf(k)) => {
-                want_view = Self::watch_view_picker(ui, WatchView::Kinf, views);
+                want_view = Self::watch_view_picker(ui, WatchView::Kinf, &views);
                 if let Some(p) = Self::kinf_panel(ui, k, link, &self.kinf_points) {
                     self.kinf_points.push(p);
                 }
             }
             Phase::Ready(Screen::Run(it)) => Self::run_panel(ui, it, link, &mut self.run_cfg, rung),
+            Phase::Ready(Screen::Geometry(sl)) => {
+                want_view = Self::watch_view_picker(ui, WatchView::Geometry, &views);
+                Self::geometry_panel(ui, sl);
+            }
+            Phase::Ready(Screen::Layers(ly)) => {
+                want_view = Self::watch_view_picker(ui, WatchView::Layers, &views);
+                Self::layers_panel(ui, ly);
+            }
         }
         if let Some(v) = want_view {
+            // A view may need other data (htr10's k_inf loads its tapes):
+            // `switch` reloads only if what is loaded will not do.
             self.watch_view = v;
-            self.set_url();
-            self.enter_screen();
+            self.switch(self.rung, self.mode);
         }
 
         ui.separator();
@@ -715,20 +794,66 @@ impl McApp {
         }
     }
 
-    /// `views`: (has whole generations, has a k_inf case).
-    fn watch_view_picker(ui: &mut egui::Ui, now: WatchView, views: (bool, bool)) -> Option<WatchView> {
+    /// The rung's views (`views`, from [`WatchView::for_rung`]).
+    fn watch_view_picker(ui: &mut egui::Ui, now: WatchView, views: &[WatchView]) -> Option<WatchView> {
         let mut v = now;
         ui.horizontal_wrapped(|ui| {
             ui.label("Watch:");
-            ui.selectable_value(&mut v, WatchView::Neutrons, "one neutron at a time");
-            if views.0 {
-                ui.selectable_value(&mut v, WatchView::Generations, "whole generations");
-            }
-            if views.1 {
-                ui.selectable_value(&mut v, WatchView::Kinf, "pitch k∞ (true MC)");
+            for &w in views {
+                let label = match w {
+                    WatchView::Neutrons => "one neutron at a time",
+                    WatchView::Generations => "whole generations",
+                    WatchView::Kinf => "k∞ (true MC)",
+                    WatchView::Geometry => "geometry (zoom ladder)",
+                    WatchView::Layers => "layers (recorded k)",
+                };
+                ui.selectable_value(&mut v, w, label);
             }
         });
         (v != now).then_some(v)
+    }
+
+    fn geometry_panel(ui: &mut egui::Ui, sl: &mut Slicer) {
+        ui.label("Zoom ladder: each step is a slice of the core the recorded runs used, drawn in this tab's worker.");
+        let mut go = None;
+        ui.horizontal_wrapped(|ui| {
+            for (i, p) in sl.info.ladder.iter().enumerate() {
+                if ui.selectable_label(i == sl.preset, p.label).clicked() {
+                    go = Some(i);
+                }
+            }
+        });
+        if let Some(i) = go {
+            sl.go(i);
+        }
+        Self::slice_legend(ui, sl);
+    }
+
+    fn slice_legend(ui: &mut egui::Ui, sl: &Slicer) {
+        ui.weak(format!("Source: {}. Last slice: {:.1} s in the worker.", sl.info.source, sl.last_secs));
+        ui.strong("In this slice");
+        for (c, name) in sl.present() {
+            ui.horizontal(|ui| {
+                let (r, _) = ui.allocate_exact_size(Vec2::splat(12.0), Sense::hover());
+                ui.painter().rect_filled(r, 2.0, c);
+                ui.label(name.to_lowercase());
+            });
+        }
+    }
+
+    fn layers_panel(ui: &mut egui::Ui, ly: &mut Layers) {
+        ui.add(egui::Slider::new(&mut ly.n, ly.sweep.range.0..=ly.sweep.range.1).step_by(1.0).fixed_decimals(0).text(ly.sweep.param));
+        ly.slicer.param = ly.n;
+        for d in ly.sweep.details(ly.n) {
+            ui.label(d);
+        }
+        ui.weak("Recorded results only: nothing is computed here. The bed beside the plot is built in the worker at this N.");
+        egui::CollapsingHeader::new("Deliberate liberties of the record").default_open(true).show(ui, |ui| {
+            for n in &ly.sweep.notes {
+                ui.label(format!("• {n}"));
+            }
+        });
+        Self::slice_legend(ui, &ly.slicer);
     }
 
     /// The σ(E) panel's switch and one toggle per curve.
@@ -783,18 +908,20 @@ impl McApp {
                 if ui.button("■ Stop").clicked() {
                     stopped = k.finish(false);
                 }
-            } else if ui.button(format!("▶ Run at {:.3} {}", k.param, k.case.param.1)).clicked() {
+            } else if ui.button("▶ Run").clicked() {
                 if let Some(link) = link {
                     k.start(link);
                 }
             }
         });
+        let at = |v: f64| match k.case.choices.iter().find(|c| c.0 == v) {
+            Some((_, label)) => format!("{} {label}", k.case.param.0),
+            None => format!("{} {v:.4} {}", k.case.param.0, k.case.param.1),
+        };
         if let Some(g) = k.gens.last() {
             ui.label(format!(
-                "{} {:.4} {}: generation {} of {} ({}), k = {:.4}{} · {:.0} s",
-                k.case.param.0,
-                g.param,
-                k.case.param.1,
+                "{}: generation {} of {} ({}), k = {:.4}{} · {:.0} s",
+                at(g.param),
                 g.index + 1,
                 g.total,
                 if g.active { "active" } else { "inactive" },
@@ -808,7 +935,7 @@ impl McApp {
             ui.strong("Your runs");
             egui::Grid::new("kinf_done").num_columns(3).show(ui, |ui| {
                 for p in done {
-                    ui.label(format!("{:.4} {}", p.param, k.case.param.1));
+                    ui.label(at(p.param));
                     ui.label(format!("{:.4} ± {:.4}", p.mean, p.sem));
                     ui.label(if p.complete { format!("{:.0} s", p.secs) } else { "stopped".into() });
                     ui.end_row();
@@ -826,6 +953,18 @@ impl McApp {
     /// The parameter slider, `width` px wide (0: the default width).
     fn kinf_slider(ui: &mut egui::Ui, k: &mut KinfRun, width: f32) {
         let (name, unit) = k.case.param;
+        if !k.case.choices.is_empty() {
+            // Discrete cases: one finger-sized button each.
+            ui.horizontal(|ui| {
+                ui.label(format!("{name}:"));
+                for &(v, label) in &k.case.choices {
+                    if ui.add(egui::Button::selectable(k.param == v, RichText::new(label).size(15.0)).min_size(Vec2::new(0.0, 30.0))).clicked() {
+                        k.param = v;
+                    }
+                }
+            });
+            return;
+        }
         ui.scope(|ui| {
             if width > 0.0 {
                 ui.spacing_mut().slider_width = width;
@@ -1258,7 +1397,10 @@ impl McApp {
         // The σ(E) panel (gh:#549) beside the geometry on a wide screen,
         // under it on a narrow (portrait) one.
         let xs_on = self.xs_on && !self.xs.is_empty() && matches!(self.phase, Phase::Ready(Screen::Tracks(_)));
-        let (rect, xs_rect) = if !xs_on {
+        // The layers view splits the same way: the bed beside its plot.
+        let is_layers = matches!(self.phase, Phase::Ready(Screen::Layers(_)));
+        let is_slice = is_layers || matches!(self.phase, Phase::Ready(Screen::Geometry(_)));
+        let (rect, xs_rect) = if !(xs_on || is_layers) {
             (full, None)
         } else if full.width() >= 700.0 && full.width() > full.height() {
             let (a, b) = full.split_left_right_at_fraction(0.58);
@@ -1269,7 +1411,7 @@ impl McApp {
         };
         let painter = full_painter.with_clip_rect(rect);
         let geo_resp = ui.interact(rect, ui.id().with("geometry"), Sense::click_and_drag());
-        if !is_run && !is_kinf {
+        if !is_run && !is_kinf && !is_slice {
             self.view.handle_input(ui, &geo_resp);
             self.rung.draw(&painter, rect, &self.view);
         }
@@ -1363,9 +1505,54 @@ impl McApp {
                     self.kinf_points.push(p);
                 }
             }
+            Phase::Ready(Screen::Geometry(sl)) => {
+                Self::slice_view(ui, rect, &painter, &geo_resp, sl, self.link.as_ref());
+                // The ladder, finger-sized, along the bottom of the main view.
+                let n = sl.info.ladder.len();
+                let bw = ((rect.width() - 20.0 - 6.0 * (n as f32 - 1.0)) / n as f32).min(110.0);
+                let mut go = None;
+                for (i, p) in sl.info.ladder.iter().enumerate() {
+                    // Above the scale bar.
+                    let b = Rect::from_min_size(Pos2::new(rect.left() + 10.0 + i as f32 * (bw + 6.0), rect.bottom() - 76.0), Vec2::new(bw, 36.0));
+                    if ui.put(b, egui::Button::selectable(i == sl.preset, RichText::new(p.label).size(13.0))).clicked() {
+                        go = Some(i);
+                    }
+                }
+                if let Some(i) = go {
+                    sl.go(i);
+                }
+            }
+            Phase::Ready(Screen::Layers(ly)) => {
+                Self::slice_view(ui, rect, &painter, &geo_resp, &mut ly.slicer, self.link.as_ref());
+                if let Some(pr) = xs_rect {
+                    // The N slider on the main view (the panel is folded on a phone).
+                    let row = Rect::from_min_size(pr.left_top() + Vec2::new(4.0, 2.0), Vec2::new(pr.width() - 8.0, 32.0));
+                    ui.scope_builder(egui::UiBuilder::new().max_rect(row), |ui| {
+                        ui.spacing_mut().slider_width = (row.width() - 120.0).max(80.0);
+                        ui.spacing_mut().interact_size.y = 30.0;
+                        ui.add(egui::Slider::new(&mut ly.n, ly.sweep.range.0..=ly.sweep.range.1).step_by(1.0).fixed_decimals(0).text(ly.sweep.param));
+                    });
+                    ly.slicer.param = ly.n;
+                    // The selected row, short, so a phone shows it with the panel folded.
+                    let mut y = row.bottom() + 4.0;
+                    for d in ly.sweep.details(ly.n).iter().map(|d| d.split(';').next().unwrap_or("").to_string()) {
+                        full_painter.text(Pos2::new(pr.left() + 6.0, y), egui::Align2::LEFT_TOP, d, egui::FontId::proportional(12.0), Color32::from_rgb(210, 216, 226));
+                        y += 16.0;
+                    }
+                    let plot = Rect::from_min_max(Pos2::new(pr.left(), y + 2.0), pr.right_bottom());
+                    crate::sweep::draw(&full_painter, plot, &ly.sweep, ly.n, (self.run_text * 0.92).max(9.0));
+                }
+            }
         }
 
-        if !is_run && !is_kinf {
+        let (sview, sview_rect) = match &mut self.phase {
+            Phase::Ready(Screen::Geometry(sl)) => (Some(&mut sl.view), rect),
+            Phase::Ready(Screen::Layers(ly)) => (Some(&mut ly.slicer.view), rect),
+            _ => (None, rect),
+        };
+        if let Some(v) = &sview {
+            scale_bar(&painter, sview_rect, v);
+        } else if !is_run && !is_kinf {
             scale_bar(&painter, rect, &self.view);
         }
         self.panel.reopen_button(ui, full);
@@ -1373,11 +1560,30 @@ impl McApp {
         // they scale the text.
         if let Some(z) = zoom_buttons(ui, rect) {
             match (is_run || is_kinf, z) {
-                (false, z) => apply_zoom(&mut self.view, rect, z),
+                (false, z) => match sview {
+                    Some(v) => apply_zoom(v, rect, z),
+                    None => apply_zoom(&mut self.view, rect, z),
+                },
                 (true, Zoom::In) => self.run_text = (self.run_text * 1.2).min(28.0),
                 (true, Zoom::Out) => self.run_text = (self.run_text / 1.2).max(8.0),
                 (true, Zoom::Reset) => self.run_text = 13.0,
             }
+        }
+    }
+
+    /// A live slice: gestures, the newest image under the current view, a new
+    /// raster asked for once the view settles, and its status.
+    fn slice_view(ui: &mut egui::Ui, rect: Rect, painter: &egui::Painter, resp: &egui::Response, sl: &mut Slicer, link: Option<&McLink>) {
+        sl.view.handle_input(ui, resp);
+        if let (Some(req), Some(link)) = (sl.pump(rect), link) {
+            link.send(Request::Raster(req));
+        }
+        sl.draw(painter, rect);
+        if sl.busy() || !sl.settled() {
+            ui.ctx().request_repaint_after(std::time::Duration::from_millis(80));
+        }
+        if sl.busy() {
+            painter.text(rect.left_bottom() + Vec2::new(16.0, -88.0), egui::Align2::LEFT_BOTTOM, "slicing the assembled core in the worker…", egui::FontId::proportional(12.0), Color32::from_rgb(250, 200, 80));
         }
     }
 
@@ -1402,7 +1608,10 @@ impl McApp {
         });
         let label = match k.state {
             RunState::Running => format!("■ Stop · gen {}/{} · {:.0} s", k.gens.len(), k.cfg.n_inactive + k.cfg.n_active, k.elapsed),
-            _ => format!("▶ Run k∞ at {:.3} {}", k.param, k.case.param.1),
+            _ => match k.case.choices.iter().find(|c| c.0 == k.param) {
+                Some((_, label)) => format!("▶ Run k∞, {label}"),
+                None => format!("▶ Run k∞ at {:.3} {}", k.param, k.case.param.1),
+            },
         };
         if ui.put(brow, egui::Button::new(RichText::new(label).size(15.0))).clicked() {
             if k.state == RunState::Running {
@@ -1479,7 +1688,8 @@ fn draw_kinf(painter: &egui::Painter, rect: Rect, k: &KinfRun, done: &[KinfPoint
     let mine = Color32::from_rgb(120, 230, 150);
     let live = Color32::from_rgb(255, 200, 80);
     // Ranges: the case's parameter range; k from the curves and the runs.
-    let (x0, x1) = (k.case.range.0 - 0.05, k.case.range.1 + 0.05);
+    let categorical = !k.case.choices.is_empty();
+    let (x0, x1) = if categorical { (k.case.range.0 - 0.6, k.case.range.1 + 0.6) } else { (k.case.range.0 - 0.05, k.case.range.1 + 0.05) };
     let (mut y0, mut y1) = (f64::INFINITY, f64::NEG_INFINITY);
     let mut see = |v: f64| {
         if v.is_finite() {
@@ -1510,10 +1720,13 @@ fn draw_kinf(painter: &egui::Painter, rect: Rect, k: &KinfRun, done: &[KinfPoint
         )
     };
     let gridc = Color32::from_rgb(40, 45, 56);
-    // Ticks at least ~48 px apart.
+    // Ticks at least ~48 px apart; a categorical case labels its cases.
     let px_per = plot.width() as f64 / (x1 - x0);
     let xstep = [0.25, 0.5, 1.0].into_iter().find(|s| s * px_per >= 48.0).unwrap_or(1.0);
-    let mut x = (x0 / xstep).ceil() * xstep;
+    for &(v, label) in &k.case.choices {
+        painter.text(Pos2::new(p(v, y0).x, plot.bottom() + 2.0), egui::Align2::CENTER_TOP, label, small.clone(), grey);
+    }
+    let mut x = if categorical { f64::INFINITY } else { (x0 / xstep).ceil() * xstep };
     while x <= x1 {
         let a = p(x, y0);
         painter.line_segment([a, Pos2::new(a.x, plot.top())], Stroke::new(1.0, gridc));
@@ -1528,7 +1741,9 @@ fn draw_kinf(painter: &egui::Painter, rect: Rect, k: &KinfRun, done: &[KinfPoint
         painter.text(Pos2::new(plot.left() - 3.0, a.y), egui::Align2::RIGHT_CENTER, format!("{y:.2}"), small.clone(), grey);
         y += ystep;
     }
-    painter.text(Pos2::new(plot.right(), plot.bottom() + text * 1.15 + 2.0), egui::Align2::RIGHT_TOP, format!("{} ({})", k.case.param.0, k.case.param.1), small.clone(), grey);
+    if !categorical {
+        painter.text(Pos2::new(plot.right(), plot.bottom() + text * 1.15 + 2.0), egui::Align2::RIGHT_TOP, format!("{} ({})", k.case.param.0, k.case.param.1), small.clone(), grey);
+    }
     painter.text(Pos2::new(plot.left() + 4.0, plot.top() + 2.0), egui::Align2::LEFT_TOP, "k∞", small.clone(), grey);
     let clip = painter.with_clip_rect(plot.expand(4.0));
     for (v, name) in &k.case.marks {
@@ -1543,6 +1758,8 @@ fn draw_kinf(painter: &egui::Painter, rect: Rect, k: &KinfRun, done: &[KinfPoint
         let col = if c.style == LineStyle::Reference { reference } else { ours };
         let pts: Vec<Pos2> = c.points.iter().map(|q| p(q.0, q.1)).collect();
         match c.style {
+            // Separate cases are not joined by a line.
+            _ if categorical => {}
             LineStyle::Published => {
                 clip.add(egui::Shape::line(pts.clone(), Stroke::new(1.5, col)));
             }
@@ -1583,6 +1800,20 @@ fn draw_kinf(painter: &egui::Painter, rect: Rect, k: &KinfRun, done: &[KinfPoint
                 // Inactive generations: this generation's k, faint.
                 clip.circle_stroke(p(g.param, g.k.clamp(y0, y1)), 5.0, Stroke::new(1.5, live.gamma_multiply(0.6)));
             }
+        }
+    }
+    // With two cases, the reader's own difference between them.
+    if categorical && k.case.choices.len() == 2 {
+        let last = |v: f64| done.iter().rev().find(|d| d.param == v && d.complete);
+        if let (Some(a), Some(b)) = (last(k.case.choices[0].0), last(k.case.choices[1].0)) {
+            let (d, e) = ((a.mean - b.mean) * 1e5, (a.sem * a.sem + b.sem * b.sem).sqrt() * 1e5);
+            painter.text(
+                Pos2::new(plot.left() + 6.0, plot.top() + text * 1.3),
+                egui::Align2::LEFT_TOP,
+                format!("your runs: {} − {} = {d:+.0} ± {e:.0} pcm", k.case.choices[0].1, k.case.choices[1].1),
+                egui::FontId::proportional(text),
+                Color32::from_rgb(120, 230, 150),
+            );
         }
     }
     // Legend under the axis.

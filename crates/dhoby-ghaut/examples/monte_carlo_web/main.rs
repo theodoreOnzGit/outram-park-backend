@@ -52,6 +52,10 @@ mod rungs;
 mod tapes;
 #[cfg(not(target_os = "android"))]
 mod xs;
+#[cfg(not(target_os = "android"))]
+mod raster;
+#[cfg(not(target_os = "android"))]
+mod sweep;
 
 // THE RUNG TABLE, in ladder order: one line per rung, `module: MarkerType`,
 // for `examples/monte_carlo_web/<module>/mod.rs` (see `rungs.rs`). Adding a
@@ -63,6 +67,7 @@ rung_table! {
     lumped: Lumped,
     lct008: Lct008,
     triso: Triso,
+    htr10: Htr10,
 }
 
 /// Android stub: windowing GUIs are out of scope on Termux (the workspace
@@ -86,7 +91,7 @@ fn native_tape(tape: &str) -> Result<Vec<u8>, String> {
 /// and seconds.
 #[cfg(all(not(target_os = "android"), not(target_arch = "wasm32")))]
 fn load_native(rung: table::Rung, tier: engine::Tier, mut report: impl FnMut(&str, f64)) -> Result<table::Loaded, String> {
-    let jobs = rung.jobs();
+    let jobs = rung.jobs_for(rung.tier(tier));
     let mut post = |e: engine::Event| {
         if let engine::Event::JobDone { index, secs, .. } = e {
             report(jobs[index].0, secs);
@@ -170,6 +175,7 @@ fn main() -> Result<(), String> {
             ugraphite::render::render_all(dir)?;
             lumped::render::render_all(dir)?;
             lct008::render::render_all(dir)?;
+            htr10::render::render_all(dir)?;
             godiva::render::render_all(dir)
         }
         Some("--prepare-web-data") => {

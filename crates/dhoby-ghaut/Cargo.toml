@@ -106,10 +106,16 @@ boon-lay = { workspace = true }
 # The nuclear data demo's THERMR rung names energies and cross sections in
 # njoy-outram-park-fork's `uom` units (gh:#529).
 uom = { workspace = true }
+# The Monte Carlo demo's `htr10` rung (gh:#528): the HTR-10 core built by
+# nee_soon's `assemble_explicit_triso`, the builder the recorded runs use, so
+# the zoom ladder shows the solver's geometry, not a re-model. A wasm in-scope
+# crate.
+nee_soon = { workspace = true }
 
 # Native only: the two studios' stacks. Gated off wasm32 because dev-deps
 # resolve for EVERY example in the package, and outram-blender's `gpu` feature
-# and nee_soon have no business in the browser build of the pebble demo.
+# has no business in the browser build of the pebble demo. (~~and nee_soon~~:
+# moved to the shared table 2026-10-05 for the `htr10` rung, gh:#528.)
 [target.'cfg(all(not(target_os = "android"), not(target_arch = "wasm32")))'.dev-dependencies]
 egui_plot = { workspace = true }
 env_logger = { workspace = true }
@@ -122,8 +128,9 @@ env_logger = { workspace = true }
 # drives `nee_soon::sim`. The volume-meshing bridge (`foam-mesh`) is LIBRARY
 # code and stays in outram-blender; this crate only hosts the GUI that drives it.
 outram-blender = { workspace = true, features = ["foam-mesh", "gpu"] }
-# MC Studio's backend (`nee_soon::sim`, `nee_soon::blender_bridge`).
-nee_soon = { workspace = true }
+# MC Studio's backend (`nee_soon::sim`, `nee_soon::blender_bridge`) is now in
+# the table above: `nee_soon` also builds for wasm32 since the Monte Carlo
+# demo's `htr10` rung (gh:#528) rasterises its assembled core in the browser.
 
 # MC Studio -- author geometry, set up and run an outram-mc calculation.
 #

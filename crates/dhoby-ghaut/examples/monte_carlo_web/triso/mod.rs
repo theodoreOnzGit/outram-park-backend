@@ -38,7 +38,7 @@ impl McRung for Triso {
         name: "triso",
         title: "TRISO pebble: one neutron at a time",
         // No tutorial page for this rung yet; the deep dive explains the code it runs.
-        lesson: "deep-dives/monte-carlo/index.html",
+        lesson: "tutorials/monte-carlo/triso.html",
         spectrum: Spectrum::Thermal,
     };
     type Builder = model::DataBuilder;

@@ -66,6 +66,8 @@ pub enum Request {
     KinfStep,
     /// Send the σ(E) panel's curves (once per load).
     XsCurves,
+    /// Rasterise a window of the rung's assembled geometry (gh:#528).
+    Raster(crate::raster::RasterReq),
 }
 
 pub enum Event {
@@ -83,6 +85,8 @@ pub enum Event {
     KinfDone,
     /// The σ(E) panel's curves (empty: the rung has no panel).
     XsCurves(Vec<crate::xs::XsCurve>),
+    /// A raster: one byte per pixel ([`crate::raster`]), and how long it took.
+    Raster { req: crate::raster::RasterReq, map: Vec<u8>, secs: f64 },
     Error(String),
 }
 
@@ -124,6 +128,13 @@ pub fn serve(l: &mut Loaded, r: Request, post: &mut impl FnMut(Event)) {
             None => post(Event::KinfDone),
         },
         Request::XsCurves => post(Event::XsCurves(l.xs_curves())),
+        Request::Raster(req) => {
+            let t = dhoby_ghaut::web_demo::platform::now_s();
+            match l.raster(&req) {
+                Ok(map) => post(Event::Raster { req, map, secs: dhoby_ghaut::web_demo::platform::now_s() - t }),
+                Err(e) => post(Event::Error(e)),
+            }
+        }
     }
 }
 
@@ -176,7 +187,7 @@ impl dhoby_ghaut::web_demo::link::NativeEngine for McEngine {
 #[cfg(not(target_arch = "wasm32"))]
 pub fn native_load(id: u32, rung: Rung, tier: Tier, post: &mut impl FnMut(Event)) -> Result<Loaded, String> {
     let mut b = rung.builder(tier);
-    for (index, (label, tape)) in rung.jobs().iter().enumerate() {
+    for (index, (label, tape)) in rung.jobs_for(rung.tier(tier)).iter().enumerate() {
         post(Event::JobStarted { id, index });
         let t = std::time::Instant::now();
         crate::native_tape(tape).and_then(|bytes| b.step(&bytes)).map_err(|e| format!("{label}: {e}"))?;
@@ -401,6 +412,10 @@ mod web {
                 }
                 Request::KinfStep => js::set(&o, "kind", "kinf_step"),
                 Request::XsCurves => js::set(&o, "kind", "xs_curves"),
+                Request::Raster(r) => {
+                    js::set(&o, "kind", "raster");
+                    js::set(&o, "req", js::f64s(&r.encode()));
+                }
             }
             o.into()
         }
@@ -449,6 +464,7 @@ mod web {
                 }
                 "kinf_step" => Request::KinfStep,
                 "xs_curves" => Request::XsCurves,
+                "raster" => Request::Raster(crate::raster::RasterReq::decode(&js::get_f64s(v, "req"))?),
                 other => return Err(format!("unknown request '{other}'")),
             })
         }
@@ -493,6 +509,12 @@ mod web {
                     js::set(&o, "data", js::f64s(&encode_kinf(g)));
                 }
                 Event::KinfDone => js::set(&o, "kind", "kinf_done"),
+                Event::Raster { req, map, secs } => {
+                    js::set(&o, "kind", "raster");
+                    js::set(&o, "req", js::f64s(&req.encode()));
+                    js::set(&o, "map", js::u8s(map));
+                    js::set(&o, "secs", *secs);
+                }
                 Event::XsCurves(c) => {
                     let (v, labels) = crate::xs::encode(c);
                     js::set(&o, "kind", "xs_curves");
@@ -524,6 +546,11 @@ mod web {
                 "keff_done" => Event::KeffDone,
                 "kinf_generation" => Event::KinfGeneration(decode_kinf(&js::get_f64s(v, "data"))?),
                 "kinf_done" => Event::KinfDone,
+                "raster" => Event::Raster {
+                    req: crate::raster::RasterReq::decode(&js::get_f64s(v, "req"))?,
+                    map: js::get_u8s(v, "map"),
+                    secs: js::get_f64(v, "secs").unwrap_or(0.0),
+                },
                 "xs_curves" => Event::XsCurves(crate::xs::decode(&js::get_f64s(v, "data"), &js::get_str(v, "labels"))?),
                 "error" => Event::Error(js::get_str(v, "message")),
                 other => return Err(format!("unknown message '{other}' from the physics worker")),
@@ -576,7 +603,7 @@ mod web {
     /// asked for meanwhile (checked between tapes).
     async fn load(id: u32, rung: Rung, tier: Tier, st: &Arc<RwLock<McEngine>>, post: Poster<Event>) -> Result<Option<Loaded>, String> {
         let superseded = || st.read().map(|g| g.newest_load != id).unwrap_or(true);
-        let jobs = rung.jobs();
+        let jobs = rung.jobs_for(rung.tier(tier));
         // Every request is issued before the first (blocking) job, so the
         // downloads proceed while the first tape is being processed.
         let urls: Vec<String> = jobs.iter().map(|(_, t)| format!("data/{}", crate::tapes::wire_name(t))).collect();

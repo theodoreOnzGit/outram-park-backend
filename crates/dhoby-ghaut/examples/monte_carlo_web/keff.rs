@@ -127,6 +127,9 @@ pub struct KinfCase {
     pub param: (&'static str, &'static str),
     pub range: (f64, f64),
     pub default: f64,
+    /// Discrete cases instead of a continuous parameter, `(value, name)`
+    /// (e.g. kernels homogenised / resolved); empty for a slider.
+    pub choices: Vec<(f64, &'static str)>,
     /// Marked values on the axis, e.g. the benchmark's own pitch.
     pub marks: Vec<(f64, &'static str)>,
     /// Neutrons and generations of one run (point_source / want_sites unused).
