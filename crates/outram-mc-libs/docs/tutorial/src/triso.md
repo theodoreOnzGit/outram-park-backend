@@ -785,8 +785,13 @@ generations (the reference paper's own statistics), one seed per point.
 > ⚠️ **Caution (2026-10-05, [#589](https://github.com/theodoreOnzGit/outram-park-backend/issues/589)):**
 > these k values were measured on a majorant under-bound 14× at 661 eV in the
 > kernel, so delta tracking silently lost U-238 resonance collisions.
-> Re-measurement is pending; the expected shift is −500 to −3000 pcm (k lower).
-> The table is left as measured until then.
+> ~~Re-measurement is pending; the expected shift is −500 to −3000 pcm (k lower).
+> The table is left as measured until then.~~
+> **Re-measured 2026-10-05, at 5 of the 22 points**: see the table after this
+> one. The shift came out far smaller than the −500 to −3000 pcm predicted:
+> −263 ± 147 pcm on average on VIII.0. The table below is left as measured on
+> the under-bound majorant. For the 17 points not re-measured, read each k as
+> about 300 pcm too high, a shift known only to about ±150 pcm.
 
 ![k_eff against loading height, both libraries, with RMC and MCNP](https://raw.githubusercontent.com/theodoreOnzGit/outram-park-backend/@@COMMIT@@/crates/nee_soon/verification_and_validation/htr10_seker_2026_10_01_10k/keff_vs_height_endf8_endf7.png)
 
@@ -810,10 +815,45 @@ height where the reference model holds the same number of balls as ours.
 | 20 | 1.16172 ± 0.00096 | +310 ± 96 | **+3.2** | 1.16495 ± 0.00101 | +634 ± 101 | **+6.3** |
 
 (k rounded to five places from the record's `results_table.md`; the residuals
-and σ columns are the record's.)
+and σ columns are the record's. **Every row above was measured on the
+under-bound majorant.**)
 
-- **All 22 points are within ±1000 pcm of RMC**, the crate's acceptance
-  band, and 18 of 22 within ±500 pcm.
+**Re-measured on the bounded majorant** (2026-10-05, `develop` at
+`e09030a3cf`,
+[`htr10_seker_2026_10_05_majorant_fix/`](https://github.com/theodoreOnzGit/outram-park-backend/tree/@@COMMIT@@/crates/nee_soon/verification_and_validation/htr10_seker_2026_10_05_majorant_fix)).
+These points ran at 10 000 neutrons × [5 + 20] generations, not [5 + 135],
+because of the time available, so σ is about 2.7× larger:
+
+| N | library | old k (under-bound) | new k ± 1σ | new − old (pcm) | σ | new − RMC (pcm) |
+|---|---|---|---|---|---|---|
+| 10 | VIII.0 | 0.92645 | 0.92095 ± 0.00260 | −550 ± 281 | −2.0 | **−1075 ± 260** |
+| 14 | VIII.0 | 1.05134 | 1.05124 ± 0.00290 | −10 ± 309 | −0.0 | −105 ± 290 |
+| 17 | VIII.0 | 1.11352 | 1.10842 ± 0.00335 | −510 ± 351 | −1.5 | −268 ± 335 |
+| 20 | VIII.0 | 1.16172 | 1.16109 ± 0.00241 | −63 ± 259 | −0.2 | +247 ± 241 |
+| 14 | VII.0 | 1.05394 | 1.05062 ± 0.00298 | −332 ± 316 | −1.1 | −166 ± 298 |
+
+![Re-measured points (filled) against the superseded ones (hollow), with the control](https://raw.githubusercontent.com/theodoreOnzGit/outram-park-backend/@@COMMIT@@/crates/nee_soon/verification_and_validation/htr10_seker_2026_10_05_majorant_fix/keff_vs_height_endf8_endf7.png)
+
+A control run separates the majorant from everything else that changed since
+2026-10-01. It is VIII.0 at N = 14, on today's code, with the old majorant
+switched back on (`OUTRAM_HTR10_MAJORANT_WITHOUT_BREAKPOINTS=1`). It gives
+1.05273 ± 0.00245, which is +139 ± 268 pcm from the old record: the old number
+comes back. No other change since 2026-10-01 moved k measurably.
+
+- **k went down, but by much less than predicted.** The prediction, posted
+  before any run, was −500 to −3000 pcm, about −1500 pcm in the middle. The
+  measured average is −263 ± 147 pcm on VIII.0, and no single point shifts by
+  more than 2σ. **On size, the prediction missed.** A majorant 14× too low
+  turned out to cost few collisions here: real collisions per neutron changed
+  by under 0.5 % at every height.
+- **The fix moved VIII.0 at N = 10 to −1075 ± 260 pcm from RMC**, just
+  outside the ±1000 pcm band. It is the one re-measured point outside it.
+
+- ~~**All 22 points are within ±1000 pcm of RMC**, the crate's acceptance
+  band, and 18 of 22 within ±500 pcm.~~ **Corrected 2026-10-05 (#589):**
+  that held on the under-bound majorant. On the bounded one, VIII.0 at
+  N = 10 sits at −1075 ± 260 pcm, outside the band; the other 4 re-measured
+  points are inside ±500 pcm.
 - **The misses are real, and shown.** 5 of 11 VIII.0 points and 7 of 11 VII.0
   points sit 3σ or more from RMC, up to 6.3σ. With σ now about 100 pcm, the
   residual is not noise.

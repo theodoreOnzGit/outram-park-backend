@@ -1538,12 +1538,31 @@ impl McApp {
                     ly.slicer.param = ly.n;
                     // The selected row, short, so a phone shows it with the panel folded.
                     let mut y = row.bottom() + 4.0;
-                    for d in ly.sweep.details(ly.n).iter().map(|d| d.split(';').next().unwrap_or("").to_string()) {
-                        full_painter.text(Pos2::new(pr.left() + 6.0, y), egui::Align2::LEFT_TOP, d, egui::FontId::proportional(12.0), Color32::from_rgb(210, 216, 226));
+                    // Wrapped to the view's width (a phone is narrower than one
+                    // row), newest curve first (a sweep lists superseded curves
+                    // before the ones that replace them, #589), and only as many
+                    // rows as leave the plot room to draw; the rest are in the
+                    // panel.
+                    let text = (self.run_text * 0.92).max(9.0);
+                    let plot_needs = ly.sweep.curves.len() as f32 * text * 1.3 + text * 3.5 + 8.0 + 90.0;
+                    let rows: Vec<String> = ly.sweep.details(ly.n).iter().rev().map(|d| d.split(';').next().unwrap_or("").to_string()).collect();
+                    let mut shown = 0;
+                    for d in &rows {
+                        let g = full_painter.layout(d.clone(), egui::FontId::proportional(12.0), Color32::from_rgb(210, 216, 226), pr.width() - 12.0);
+                        let h = g.size().y;
+                        if pr.bottom() - (y + h + 18.0) < plot_needs {
+                            break;
+                        }
+                        full_painter.galley(Pos2::new(pr.left() + 6.0, y), g, Color32::from_rgb(210, 216, 226));
+                        y += h + 2.0;
+                        shown += 1;
+                    }
+                    if shown < rows.len() {
+                        full_painter.text(Pos2::new(pr.left() + 6.0, y), egui::Align2::LEFT_TOP, format!("+{} more at this N under Controls", rows.len() - shown), egui::FontId::proportional(11.0), Color32::from_rgb(150, 156, 170));
                         y += 16.0;
                     }
                     let plot = Rect::from_min_max(Pos2::new(pr.left(), y + 2.0), pr.right_bottom());
-                    crate::sweep::draw(&full_painter, plot, &ly.sweep, ly.n, (self.run_text * 0.92).max(9.0));
+                    crate::sweep::draw(&full_painter, plot, &ly.sweep, ly.n, text);
                 }
             }
         }

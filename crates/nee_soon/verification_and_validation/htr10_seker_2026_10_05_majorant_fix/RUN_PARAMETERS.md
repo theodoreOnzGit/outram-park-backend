@@ -39,6 +39,11 @@ cd crates/nee_soon/verification_and_validation/htr10_seker_2026_10_05_majorant_f
 python3 plot_keff_vs_height.py logs .
 ```
 
+`run_control.sh` is the same-code control: VIII.0 N = 14 with
+`OUTRAM_HTR10_MAJORANT_WITHOUT_BREAKPOINTS=1` (the pre-#589 majorant),
+otherwise identical, written to `logs/run_e8_N14_control_old_majorant.log`.
+It ran after `run_all.sh` finished, on the same cores.
+
 `run_all.sh` is the exact launcher: VIII.0 N = 14, 10, 20, 17, then VII.0
 N = 14, one run at a time on cores 0-3 (`taskset -c 0-3`), each with the
 environment in section 3. It also samples the process's peak RSS (VmHWM)
@@ -62,6 +67,7 @@ cycles were cut (section 4).
 | `OUTRAM_HTR10_THREADS` | `4` | pinned thread count (**differs**: 5) |
 | `OUTRAM_HTR10_ENDF7` | set for the VII.0 run only | library switch (same) |
 | `OUTRAM_HTR10_SEED` | unset → default `20260917` | RNG seed (same) |
+| `OUTRAM_HTR10_MAJORANT_WITHOUT_BREAKPOINTS` | set for the control run only | ablation back to the pre-#589 log-grid majorant (new knob, `28eb371b9`) |
 
 Every other `OUTRAM_HTR10_*` knob was unset, as in the record.
 

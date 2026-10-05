@@ -73,3 +73,8 @@ example (`water_critical_point_iapws95.md`).
 - [`htr10_seker_2026_10_01_10k/`](htr10_seker_2026_10_01_10k/README.md) — the
   same sweep on VIII.0 and VII.0 at 10 000 × [5 + 135], run through
   `htr10_rmc_keff`.
+  Measured on a majorant under-bound 14× at 661 eV (gh:#589).
+- [`htr10_seker_2026_10_05_majorant_fix/`](htr10_seker_2026_10_05_majorant_fix/README.md):
+  the re-measurement on the bounded majorant (gh:#589). It covers 4 of the
+  heights on VIII.0 and 1 on VII.0, at 10 000 × [5 + 20], and includes a
+  same-code control that switches back to the old majorant.

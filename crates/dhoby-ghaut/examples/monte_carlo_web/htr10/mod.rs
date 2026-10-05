@@ -110,7 +110,7 @@ impl McRung for Htr10 {
     fn notes() -> &'static [&'static str] {
         &[
             "Geometry: the HTR-10 core exactly as nee_soon assembles it for the recorded runs (assemble_explicit_triso, 14 rings, N Şeker layers): every slice is the material Geometry::locate finds at each pixel, drawn in this tab's worker. Nothing is re-modelled for the picture.",
-            "Layers: recorded results only (ENDF/B-VIII.0 and VII.0, 10 000 × [5 + 135] per point, 2026-10-01) against RMC (Li, Yu & Wei 2014) and MCNP (Şeker & Çolak 2003). Nothing is computed in this tab. CAUTION (2026-10-05, #589): these k were measured on a majorant under-bound 14× at 661 eV in the kernel; re-measurement pending, expected shift −500 to −3000 pcm.",
+            "Layers: recorded results only (ENDF/B-VIII.0 and VII.0: 10 000 × [5 + 135] per point on 2026-10-01, and 10 000 × [5 + 20] at 5 points on 2026-10-05) against RMC (Li, Yu & Wei 2014) and MCNP (Şeker & Çolak 2003). Nothing is computed in this tab. CAUTION (2026-10-05, #589): the 2026-10-01 k were measured on a majorant under-bound 14× at 661 eV in the kernel. Re-measured 2026-10-05 on the bounded majorant at 5 of the 22 points (bright), 10 000 × [5 + 20]: the shift new − old is −263 ± 147 pcm on average on VIII.0 (−10 to −550 pcm per point) and −332 ± 316 pcm on VII.0 at N = 14, far smaller than the −500 to −3000 pcm predicted. The faded points that were not re-measured were not checked; expect each to carry a shift about this size.",
             "Fuel-zone k∞: a real single-threaded power iteration in this tab's worker, on ENDF/B-VIII.0 processed here at NJOY's tolerance, with delta tracking. A fuel-zone cube, not the reactor.",
             "No k_eff of the core and no neutron tracks here: the recorded core runs took about 9–15 ms of CPU per history (hours for one browser thread) and would need every core material's data.",
             "Education and research only. Not for reactor operation, licensing or safety decisions.",
@@ -200,7 +200,7 @@ impl McRung for Htr10 {
                 c
             },
             notes: vec![
-                "Bright points: re-measured 2026-10-05 on the bounded delta-tracking majorant (#589), 10 000 × [5 + 20] per point (σ about 290 pcm), at a subset of N only. Faded points: the 2026-10-01 record (10 000 × [5 + 135]), measured on a majorant under-bound 14× at 661 eV in the kernel, SUPERSEDED; shown for the N not re-measured and for comparison.",
+                "Bright points: re-measured 2026-10-05 on the bounded delta-tracking majorant (#589), 10 000 × [5 + 20] per point (σ about 290 pcm), at a subset of N only. Faded points: the 2026-10-01 record (10 000 × [5 + 135]), measured on a majorant under-bound 14× at 661 eV in the kernel, SUPERSEDED; shown for the N not re-measured and for comparison. Where both exist, new − old averages −263 ± 147 pcm on VIII.0, so read a faded point as about 300 pcm too high.",
                 "Pebbles on Şeker & Çolak (2003)'s regular 13-ball lattice cell, not the real random bed. The references use the same lattice, so the comparison is like for like with them, not with the reactor.",
                 "Every pebble whole: balls crossing the wall are rejected (gh:#472), so the built height (9.798 N + 6 cm) holds fewer balls than Şeker's; points are compared at equal ball count, by interpolation.",
                 "TRISO particles on a lattice inside each fuel pebble, not randomly packed.",
