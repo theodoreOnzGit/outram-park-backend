@@ -23,7 +23,9 @@
 //!
 //! # Output
 //!
-//! Markdown (a nested list for mdBook `{{#include}}`), Mermaid, or JSON. Each
+//! Markdown (a nested list for mdBook `{{#include}}`; in a lesson block, a
+//! concept path is numbered steps with each hop's code inline, see
+//! `render`'s module doc), Mermaid, or JSON. Each
 //! hop carries a permalink with the `@@COMMIT@@` placeholder the Pages build
 //! fills in, its signature, the first sentence of its doc comment and the
 //! line it is called from. A call the tool cannot follow — a trait method, a closure or fn
@@ -48,7 +50,7 @@ pub(crate) mod lesson;
 pub mod render;
 pub(crate) mod source;
 
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 use builder::{HandHop, Workspace};
 use render::Header;
@@ -56,7 +58,8 @@ use render::Header;
 /// Output format.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default, clap::ValueEnum)]
 pub enum Format {
-    /// Nested Markdown list.
+    /// Nested Markdown list (numbered steps with inline code for a concept
+    /// path in a lesson block).
     #[default]
     Markdown,
     /// A Mermaid flowchart in a fenced block.
@@ -106,7 +109,14 @@ pub(crate) struct WalkOutput {
     pub(crate) redundant_hand: Vec<String>,
 }
 
-pub(crate) fn generate(ws: &mut Workspace, spec: &WalkSpec, repo_url: &str) -> Result<WalkOutput, String> {
+/// `lesson` is the Markdown file the walk is written into: a concept path
+/// for a lesson shows each hop's code inline (`render::Inline`).
+pub(crate) fn generate(
+    ws: &mut Workspace,
+    spec: &WalkSpec,
+    repo_url: &str,
+    lesson: Option<&Path>,
+) -> Result<WalkOutput, String> {
     let mut walk = ws.start(&spec.hand)?;
     let from = ws.locate(&spec.from)?;
     let from = walk.graph.intern(from);
@@ -125,11 +135,25 @@ pub(crate) fn generate(ws: &mut Workspace, spec: &WalkSpec, repo_url: &str) -> R
     // `depth` layers are expanded; functions first reached at the limit are
     // shown but not entered (tree mode says so on each of them).
     ws.bfs(&mut walk, from, to, depth, MAX_NODES)?;
+    let inline = match (lesson, to) {
+        (Some(md), Some(_)) => Some(render::Inline {
+            to_root: path_to_root(&ws.root, md)?,
+            spans: (0..walk.graph.nodes.len())
+                .map(|i| {
+                    let n = &walk.graph.nodes[i];
+                    let (file, line) = (n.file.clone(), n.line);
+                    ws.span(&file, line)
+                })
+                .collect(),
+        }),
+        _ => None,
+    };
     let header = Header {
         from: spec.from.clone(),
         to: spec.to.clone(),
         depth,
         repo_url: repo_url.to_string(),
+        inline,
     };
     let g = &walk.graph;
     let (lines, chains, connected) = match to {
@@ -157,6 +181,19 @@ pub(crate) fn generate(ws: &mut Workspace, spec: &WalkSpec, repo_url: &str) -> R
     })
 }
 
+/// `../../../` from the directory holding `md` up to the workspace `root`,
+/// for mdBook `{{#include}}` paths (which are relative to the page).
+fn path_to_root(root: &Path, md: &Path) -> Result<String, String> {
+    let abs = std::fs::canonicalize(md).map_err(|e| format!("{}: {e}", md.display()))?;
+    let dir = abs
+        .parent()
+        .ok_or_else(|| format!("{} has no parent directory", md.display()))?;
+    let rel = dir
+        .strip_prefix(root)
+        .map_err(|_| format!("{} is outside the workspace {}", md.display(), root.display()))?;
+    Ok("../".repeat(rel.components().count()))
+}
+
 /// `kovan-cli code-walk`.
 #[allow(clippy::too_many_arguments)]
 pub fn run(
@@ -182,7 +219,7 @@ pub fn run(
         hand,
     };
     let mut ws = Workspace::open(&root)?;
-    let out = generate(&mut ws, &spec, &repo_url);
+    let out = generate(&mut ws, &spec, &repo_url, None);
     ws.close();
     let out = out?;
     println!("{}", out.text.trim_end());
@@ -227,7 +264,7 @@ pub fn run_check(paths: Vec<PathBuf>, update: bool, root: PathBuf, repo_url: Str
         for b in blocks {
             let place = format!("{}:{}", file.display(), b.line);
             let current = &text[b.body.0..b.body.1];
-            let fresh = match generate(&mut ws, &b.spec, &repo_url) {
+            let fresh = match generate(&mut ws, &b.spec, &repo_url, Some(file.as_path())) {
                 Ok(out) => {
                     for r in &out.redundant_hand {
                         println!("note {place}: hand-filled hop {r} is now resolved by the tool");

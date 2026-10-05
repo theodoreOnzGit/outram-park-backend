@@ -239,6 +239,17 @@ kovan-cli code-walk-check crates/outram-mc-libs/docs/lessons [--update]
   `scripts/build-pages.sh`), the signature, the first doc sentence, and the
   line it is called from. In tree mode each function is expanded once; later
   calls to it are back-references.
+- **Code inline in lessons (since 2026-10-05).** A concept path written into
+  a lesson block is rendered as numbered steps, each followed by its code as
+  mdBook `{{#include <file>:<start>:<end>}}` (relative to the page): the whole
+  function for the last hop (up to 40 lines), and for each caller its
+  signature and the lines around the call (or everything down to the call
+  when that fits in 30 lines). The reader sees the code without clicking.
+  Each snippet carries `<!-- snippet-check: <file>:<line> <text> -->`
+  comments, which `scripts/build-pages.sh` verifies without rust-analyzer: a
+  range that drifted since the walk was regenerated fails the site build.
+  The command line (`code-walk`) and tree-mode blocks (the exhaustive call
+  tree, an architecture map) stay link-only.
 - **Gaps are explicit.** A call the tool cannot follow is printed as
   `UNRESOLVED(<kind>)` (JSON: `gaps[].kind`): `trait` (resolves to a trait
   method declaration), `closure` (a closure, fn-typed binding or

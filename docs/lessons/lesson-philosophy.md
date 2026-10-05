@@ -101,6 +101,11 @@ documentation of the code's architecture.
   so CI can regenerate them and fail when a function moves or a chain breaks.
 - **Every hop links to its exact lines** at the commit the site was built
   from.
+- **Every hop shows its code on the page** (maintainer direction,
+  2026-10-05: "I don't want to have to click to see code snippets"). The
+  generator puts each hop's lines inline, pulled from the source by mdBook
+  `{{#include}}`: the whole concept function, and the signature and call site
+  of each function on the way to it. A link alone is not a code walk.
 - **Code shown inline is pulled from the source at build time**, never copied
   by hand.
 - **Each lesson ends with an exhaustive call tree**: everything its entry

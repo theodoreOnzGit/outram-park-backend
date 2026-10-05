@@ -7,6 +7,17 @@
 //! `super::lesson`) or explain it in prose. Hand-filled hops are labelled
 //! `filled by hand` in every format. Output is deterministic: no dates, no
 //! timings, no query counts, so the check mode can compare it byte for byte.
+//!
+//! **Inline code (lesson blocks, 2026-10-05).** A concept path rendered for a
+//! lesson shows each hop's code on the page, not only a link to it: every
+//! function on the chain is followed by an mdBook `{{#include}}` of its lines
+//! (the whole function for the last hop, the signature and the lines around
+//! each call for the others), so a reader sees the code without clicking. The
+//! line ranges are fixed when the walk is generated and re-checked by
+//! `code-walk-check`; each snippet also carries a `<!-- snippet-check: -->`
+//! comment (file, line, the text that line must hold) that
+//! `scripts/build-pages.sh` verifies without rust-analyzer, so a range that
+//! drifted fails the site build instead of showing the wrong lines.
 
 use serde::Serialize;
 
@@ -23,7 +34,37 @@ pub(crate) struct Header {
     pub(crate) to: Option<String>,
     pub(crate) depth: usize,
     pub(crate) repo_url: String,
+    /// Set for a concept path rendered into a lesson: show each hop's code.
+    pub(crate) inline: Option<Inline>,
 }
+
+/// Where a function's code is, 1-based inclusive lines.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct Span {
+    /// The line holding `fn <name>`.
+    pub(crate) decl: u32,
+    /// The line of the body's opening `{` (`decl` for a bodiless `fn f();`).
+    pub(crate) open: u32,
+    /// The body's closing `}` (`open` when bodiless).
+    pub(crate) end: u32,
+}
+
+/// What the inline rendering needs: the path from the lesson's directory to
+/// the workspace root (mdBook resolves `{{#include}}` relative to the page),
+/// and each node's span (`None` when its file could not be indexed).
+#[derive(Debug, Clone, Default)]
+pub(crate) struct Inline {
+    pub(crate) to_root: String,
+    pub(crate) spans: Vec<Option<Span>>,
+}
+
+/// The last hop is shown whole up to this many lines.
+const LEAF_MAX_LINES: u32 = 40;
+/// A caller is shown from its signature to its last call when that fits in
+/// this many lines; otherwise the signature and a window around each call.
+const CALLER_MAX_LINES: u32 = 30;
+/// Signature lines shown at most, when the body is cut.
+const SIGNATURE_MAX_LINES: u32 = 8;
 
 fn permalink(repo: &str, file: &str, line: u32) -> String {
     format!("{repo}/blob/@@COMMIT@@/{file}#L{line}")
@@ -114,6 +155,9 @@ pub(crate) fn markdown_lines(h: &Header, g: &CallGraph, lines: &[TreeLine]) -> S
 /// the unresolved calls inside the functions on the chains (where a longer
 /// or alternative route could hide).
 pub(crate) fn markdown_path(h: &Header, g: &CallGraph, chains: &[Vec<NodeId>]) -> String {
+    if let (Some(inline), false) = (&h.inline, chains.is_empty()) {
+        return markdown_path_inline(h, inline, g, chains);
+    }
     let to = h.to.as_deref().unwrap_or("");
     let mut out = String::new();
     if chains.is_empty() {
@@ -148,6 +192,148 @@ pub(crate) fn markdown_path(h: &Header, g: &CallGraph, chains: &[Vec<NodeId>]) -
     let gaps = gap_list(h, g, &on_chain);
     if !gaps.is_empty() {
         out.push_str("\nUnresolved calls inside the functions on this chain:\n\n");
+        out.push_str(&gaps);
+    }
+    out
+}
+
+/// The bare function name of a node (`Type::name` → `name`).
+fn bare_name(n: &FnNode) -> &str {
+    n.qualname.rsplit("::").next().unwrap_or(&n.qualname)
+}
+
+/// The line ranges to show for one function: the whole of it (capped) when
+/// it calls nothing on the chain, else the signature and the lines around
+/// each call site. Returns the ranges and whether the function continues
+/// past the last one.
+pub(crate) fn snippet_ranges(span: Span, calls: &[u32]) -> (Vec<(u32, u32)>, bool) {
+    let Span { decl, open, end } = span;
+    let mut calls: Vec<u32> = calls.iter().copied().filter(|&c| c >= decl && c <= end).collect();
+    calls.sort_unstable();
+    calls.dedup();
+    if calls.is_empty() {
+        let last = end.min(decl + LEAF_MAX_LINES - 1);
+        return (vec![(decl, last)], last < end);
+    }
+    let last_call = *calls.last().unwrap_or(&decl);
+    let through = (last_call + 1).min(end);
+    if through + 1 - decl <= CALLER_MAX_LINES {
+        return (vec![(decl, through)], through < end);
+    }
+    let mut ranges: Vec<(u32, u32)> = vec![(decl, open.min(decl + SIGNATURE_MAX_LINES - 1))];
+    for c in calls {
+        let (a, b) = (c.saturating_sub(2).max(decl), (c + 1).min(end));
+        match ranges.last_mut() {
+            // Overlapping or adjacent: one range.
+            Some(r) if a <= r.1 + 1 => r.1 = r.1.max(b),
+            _ => ranges.push((a, b)),
+        }
+    }
+    let shown_to = ranges.last().map(|r| r.1).unwrap_or(decl);
+    (ranges, shown_to < end)
+}
+
+/// One hop's code as a fenced block of `{{#include}}`s, `// …` between the
+/// pieces, preceded by the checks the Pages build runs on it.
+fn snippet(inline: &Inline, n: &FnNode, span: Span, calls: &[(u32, &str)]) -> String {
+    let lines: Vec<u32> = calls.iter().map(|c| c.0).collect();
+    let (ranges, more) = snippet_ranges(span, &lines);
+    let mut out = format!("<!-- snippet-check: {}:{} fn {} -->\n", n.file, span.decl, bare_name(n));
+    for (line, callee) in calls {
+        if *line >= span.decl && *line <= span.end {
+            out.push_str(&format!("<!-- snippet-check: {}:{line} {callee} -->\n", n.file));
+        }
+    }
+    out.push_str("\n```rust,ignore\n");
+    for (i, (a, b)) in ranges.iter().enumerate() {
+        if i > 0 {
+            out.push_str("    // …\n");
+        }
+        out.push_str(&format!("{{{{#include {}{}:{a}:{b}}}}}\n", inline.to_root, n.file));
+    }
+    if more {
+        out.push_str("    // … (the rest of the function: follow the link above)\n");
+    }
+    out.push_str("```\n");
+    out
+}
+
+/// The concept path for a lesson: one numbered step per function, each with
+/// its code inline (see the module doc). Branches of a multi-chain walk say
+/// which step they continue from.
+fn markdown_path_inline(h: &Header, inline: &Inline, g: &CallGraph, chains: &[Vec<NodeId>]) -> String {
+    let hops = chains[0].len() - 1;
+    let mut out = format!(
+        "Call chain from `{}` to `{}`: {hops} hop{}, {} shortest chain{}. Each step shows \
+         its code; the name links to it on GitHub.\n\n",
+        g.node(chains[0][0]).label(),
+        g.node(*chains[0].last().unwrap_or(&chains[0][0])).label(),
+        if hops == 1 { "" } else { "s" },
+        chains.len(),
+        if chains.len() == 1 { "" } else { "s" },
+    );
+    let lines = super::graph::chains_tree(g, chains);
+    // Step numbers in display order, and the call sites each node makes into
+    // its children on the chains (hand-filled hops have no call site).
+    let mut step_of: Vec<Option<usize>> = vec![None; g.nodes.len()];
+    let mut calls_of: Vec<Vec<(u32, String)>> = vec![Vec::new(); g.nodes.len()];
+    let mut step = 0usize;
+    for l in &lines {
+        if let TreeLine::Node { node, via, .. } = l {
+            step += 1;
+            step_of[node.0] = Some(step);
+            if let Some(e) = via {
+                if matches!(e.kind, EdgeKind::Call | EdgeKind::FnValue) {
+                    let callee = bare_name(g.node(e.to)).to_string();
+                    if !calls_of[e.from.0].iter().any(|c| c.0 == e.call_line) {
+                        calls_of[e.from.0].push((e.call_line, callee));
+                    }
+                }
+            }
+        }
+    }
+    let mut prev: Option<NodeId> = None;
+    for l in &lines {
+        let TreeLine::Node { node, via, .. } = l else { continue };
+        let n = g.node(*node);
+        out.push_str(&format!("**{}.** ", step_of[node.0].unwrap_or(0)));
+        if let Some(e) = via {
+            if prev != Some(e.from) {
+                out.push_str(&format!("(from step {}) ", step_of[e.from.0].unwrap_or(0)));
+            }
+            out.push_str("→ ");
+        }
+        out.push_str(&node_link(h, n));
+        if let Some(e) = via {
+            out.push_str(&via_text(h, g, e));
+        }
+        if !n.doc.is_empty() {
+            out.push_str(&format!(" — {}", n.doc));
+        }
+        out.push_str("\n\n");
+        match inline.spans.get(node.0).copied().flatten() {
+            Some(span) => {
+                let calls: Vec<(u32, &str)> =
+                    calls_of[node.0].iter().map(|(l, c)| (*l, c.as_str())).collect();
+                out.push_str(&snippet(inline, n, span, &calls));
+            }
+            None if !n.signature.is_empty() => {
+                out.push_str(&format!("`{}`\n", n.signature.replace('`', "'")));
+            }
+            None => {}
+        }
+        out.push('\n');
+        prev = Some(*node);
+    }
+    let mut on_chain: Vec<NodeId> = chains
+        .iter()
+        .flat_map(|c| c[..c.len() - 1].iter().copied())
+        .collect();
+    on_chain.sort();
+    on_chain.dedup();
+    let gaps = gap_list(h, g, &on_chain);
+    if !gaps.is_empty() {
+        out.push_str("Unresolved calls inside the functions on this chain:\n\n");
         out.push_str(&gaps);
     }
     out
@@ -368,6 +554,7 @@ mod tests {
             to: Some("crates/x/src/lib.rs::Sphere::distance".into()),
             depth: 12,
             repo_url: DEFAULT_REPO_URL.into(),
+            inline: None,
         };
         (g, h)
     }
@@ -414,6 +601,53 @@ mod tests {
         let (g, h) = sample();
         let md = markdown_path(&h, &g, &[]);
         assert!(md.starts_with("**No call chain found**"));
+        assert!(md.contains("UNRESOLVED(trait)"));
+    }
+    /// Methodology: the line ranges for a short and a long last hop, and for
+    /// a caller whose calls fit in one range and one whose do not (windows
+    /// around each call, merged when they touch).
+    ///
+    /// Result (2026-10-05): a 10-line leaf is shown whole; a 100-line leaf
+    /// is cut at 40 lines and says so; a caller calling at +5 is shown to
+    /// +6; a caller calling at +50 and +52 shows its signature to the `{`
+    /// and one merged window 48..53.
+    #[test]
+    fn snippet_ranges_show_the_signature_and_each_call() {
+        let leaf = Span { decl: 10, open: 10, end: 19 };
+        assert_eq!(snippet_ranges(leaf, &[]), (vec![(10, 19)], false));
+        let long = Span { decl: 10, open: 12, end: 109 };
+        assert_eq!(snippet_ranges(long, &[]), (vec![(10, 49)], true));
+        assert_eq!(snippet_ranges(long, &[15]), (vec![(10, 16)], true));
+        assert_eq!(
+            snippet_ranges(long, &[60, 62]),
+            (vec![(10, 12), (58, 63)], true)
+        );
+        // A call line outside the function (a hand hop) is ignored.
+        assert_eq!(snippet_ranges(leaf, &[200]), (vec![(10, 19)], false));
+    }
+
+    /// Methodology: the sample chain rendered with inline code, as a lesson
+    /// block is.
+    ///
+    /// Result (2026-10-05): each step carries an mdBook include relative to
+    /// the page and a `snippet-check` comment naming the `fn` line; the hand
+    /// hop is still labelled `filled by hand`.
+    #[test]
+    fn lesson_paths_show_each_hop_inline() {
+        let (g, mut h) = sample();
+        h.inline = Some(Inline {
+            to_root: "../../".into(),
+            spans: vec![
+                Some(Span { decl: 3, open: 3, end: 8 }),
+                Some(Span { decl: 40, open: 40, end: 45 }),
+            ],
+        });
+        let md = markdown_path(&h, &g, &[vec![NodeId(0), NodeId(1)]]);
+        assert!(md.contains("{{#include ../../crates/x/examples/demo.rs:3:8}}"));
+        assert!(md.contains("{{#include ../../crates/x/src/lib.rs:40:45}}"));
+        assert!(md.contains("<!-- snippet-check: crates/x/src/lib.rs:40 fn distance -->"));
+        assert!(md.contains("**2.** → [`lib.rs::Sphere::distance`]"));
+        assert!(md.contains("**filled by hand**"));
         assert!(md.contains("UNRESOLVED(trait)"));
     }
 }

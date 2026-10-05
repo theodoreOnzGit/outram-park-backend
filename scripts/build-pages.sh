@@ -67,6 +67,22 @@ if grep -rqs -- '<!-- code-walk:' "${walk_dirs[@]}"; then
     echo "warning: rust-analyzer not installed (gh:#544); code walks NOT checked" >&2
   fi
 fi
+# Code walks show each hop's code inline (2026-10-05) through mdBook
+# `{{#include file:start:end}}`, with ranges fixed when the walk was
+# generated. Each snippet carries `<!-- snippet-check: <file>:<line> <text> -->`
+# comments; check them here, without rust-analyzer, so a range that drifted
+# since the walk was regenerated fails the build instead of showing the wrong
+# lines. The fix is `kovan-cli code-walk-check --update <book>`.
+bad=0
+while read -r loc needle; do
+  file="${loc%:*}"; line="${loc##*:}"
+  if ! sed -n "${line}p" "$file" 2>/dev/null | grep -qF -- "$needle"; then
+    echo "stale code-walk snippet: $file:$line no longer holds '$needle'" >&2
+    bad=1
+  fi
+done < <(grep -rhoE -- '<!-- snippet-check: [^ ]+:[0-9]+ [^>]*-->' "${walk_dirs[@]}" \
+           | sed -E 's/^<!-- snippet-check: //; s/ -->$//' | sort -u)
+(( bad == 0 )) || { echo "regenerate with: kovan-cli code-walk-check --update <book>" >&2; exit 1; }
 
 # Deep-dive books.
 while read -r name dir; do

@@ -176,6 +176,10 @@ fn run_rest(root: &Path, root_s: &str, _v: &serde_json::Value, _names: &[String]
     let text = std::fs::read_to_string(&lesson).unwrap();
     assert!(text.contains("**filled by hand**: Measure is implemented"), "{text}");
     assert!(text.contains("UNRESOLVED(trait)"), "{text}");
+    // Each hop's code inline, relative to the lesson (here at the root), with
+    // the check the Pages build runs without rust-analyzer.
+    assert!(text.contains("{{#include src/lib.rs:"), "{text}");
+    assert!(text.contains("<!-- snippet-check: src/lib.rs:"), "{text}");
     assert!(text.contains("<!-- /code-walk -->"));
     let out = kovan(&["code-walk-check", "--root", root_s, lesson_s]);
     assert!(out.status.success(), "fresh block must pass: {}", String::from_utf8_lossy(&out.stderr));

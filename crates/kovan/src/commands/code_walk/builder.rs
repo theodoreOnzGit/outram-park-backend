@@ -157,6 +157,27 @@ impl Workspace {
         Ok(&self.files[rel])
     }
 
+    /// The 1-based span of the declaration whose identifier is on `line`
+    /// (1-based) of `rel`, for inline snippets; `None` when the file cannot
+    /// be read or holds no `fn` there.
+    pub(crate) fn span(&mut self, rel: &str, line: u32) -> Option<super::render::Span> {
+        let idx = self.index(rel).ok()?;
+        let d = idx.fn_at_line(line.checked_sub(1)?)?;
+        let decl = d.line + 1;
+        Some(match d.body {
+            Some((open, end)) => super::render::Span {
+                decl,
+                open: open + 1,
+                end: end + 1,
+            },
+            None => super::render::Span {
+                decl,
+                open: decl,
+                end: decl,
+            },
+        })
+    }
+
     /// Workspace-relative `/` path for an absolute one, or `None` when it is
     /// outside the workspace (std, the cargo registry) or in a build tree.
     fn relative(&self, abs: &Path) -> Option<String> {

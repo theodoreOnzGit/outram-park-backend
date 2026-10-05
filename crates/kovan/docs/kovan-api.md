@@ -7949,6 +7949,17 @@ agent can find each one and either fill it by hand (a `hand:` line, see
 `filled by hand` in every format. Output is deterministic: no dates, no
 timings, no query counts, so the check mode can compare it byte for byte.
 
+**Inline code (lesson blocks, 2026-10-05).** A concept path rendered for a
+lesson shows each hop's code on the page, not only a link to it: every
+function on the chain is followed by an mdBook `{{#include}}` of its lines
+(the whole function for the last hop, the signature and the lines around
+each call for the others), so a reader sees the code without clicking. The
+line ranges are fixed when the walk is generated and re-checked by
+`code-walk-check`; each snippet also carries a `<!-- snippet-check: -->`
+comment (file, line, the text that line must hold) that
+`scripts/build-pages.sh` verifies without rust-analyzer, so a range that
+drifted fails the site build instead of showing the wrong lines.
+
 ```rust
 pub mod render { /* ... */ }
 ```
@@ -7983,7 +7994,8 @@ pub enum Format {
 
 ###### `Markdown`
 
-Nested Markdown list.
+Nested Markdown list (numbered steps with inline code for a concept
+path in a lesson block).
 
 ###### `Mermaid`
 
