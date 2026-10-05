@@ -19,7 +19,10 @@ it may wander out of the kernel.
 > simulate that without following every jump?* Then: *does a crowd of such
 > atoms reproduce the release that the diffusion equation predicts?*
 
-The demo rung for this page will be `?rung=walk` (not built yet; gh:#521).
+**Demo:** [open this rung](../../demos/triso-atops/?rung=walk). Four hundred Cs-137 atoms walking
+out of a CRP-6 particle with the crate's `LiveEnsemble` (step 3's
+Walk-on-Spheres), with the released fraction as it grows; one button runs
+step 4's CRP-6 Case 1 check in your browser at 400 histories per point.
 
 ---
 
@@ -249,9 +252,12 @@ not test the interfaces (rung 4 does) and there is **no full multilayer
 CRP-6 release record**: the five-layer walk is exercised only qualitatively
 by `multilayer_walk_transmits_across_interfaces`.
 
-**Predict.** Put the SiC around the kernel. Its $D$ is about a million times
-smaller than in the carbon around it. What should the walk do when an atom
-arrives at the SiC? That is [rung 4](./layers.md).
+**Predict.** Put the SiC around the kernel. Its $D$ is ~~about a million
+times~~ **13 to 4100 times** (**CORRECTED 2026-10-05**: "a million" compared
+the correlations' prefactors and left out the exponentials; the contrast the
+walker sees is [rung 4's table](./layers.md), from the walker's own lookup)
+smaller than in the pyrolytic carbon around it. What should the walk do when
+an atom arrives at the SiC? That is [rung 4](./layers.md).
 
 ## Use, modify, create
 

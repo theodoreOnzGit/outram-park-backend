@@ -500,6 +500,7 @@ pub fn assemble_six_factors(
     let s_tr = Estimate::sum(&[a[0], l[0], a[1], l[1]]); // + A_r + L_r
     let s_trf = Estimate::sum(&[s_tr, l[2]]); // + L_f
 
+    // ANCHOR: six_factors (mdBook include, Monte Carlo tutorial rung 2, gh:#524)
     let eta = Estimate::ratio(p[0], a_thermal_fuel);
     let f = Estimate::ratio(a_thermal_fuel, a[0]);
     let p_tnl = Estimate::ratio(a[0], s_t);
@@ -514,6 +515,7 @@ pub fn assemble_six_factors(
     ]);
 
     let k_from_factors = Estimate::product(&[eta, f, p_esc, epsilon, p_fnl, p_tnl]);
+    // ANCHOR_END: six_factors
 
     SixFactors {
         eta,

@@ -209,6 +209,202 @@
     draw();
   }
 
+  // Targets for the slowing-down widgets: AWR from each ENDF/B-VIII.0 tape
+  // (the table on the rung-2 and rung-4 pages, computed 2026-10-04).
+  const TARGETS = [
+    { label: "H-1 (water)", awr: 0.9991673 },
+    { label: "C-12 (graphite)", awr: 11.89365 },
+    { label: "U-238", awr: 236.0058 },
+  ];
+  const alphaOf = (a) => ((a - 1) / (a + 1)) ** 2;
+  const xiOf = (a) => { const al = alphaOf(a); return al < 1e-12 ? 1 : 1 + (al * Math.log(al)) / (1 - al); };
+  function targetSelect(parent, init, fn) {
+    const sel = el("select", {}, parent);
+    TARGETS.forEach((t, i) => el("option", { value: i }, sel, t.label));
+    sel.value = String(init);
+    sel.addEventListener("change", () => fn(TARGETS[+sel.value]));
+    return TARGETS[init];
+  }
+
+  // ── One elastic collision: the centre-of-mass circle and the lab energy ───
+  // Target at rest, isotropic in the CM. In velocity space the neutron's
+  // outgoing velocity is v_cm + (A/(A+1)) v on a circle; E'/E is the squared
+  // length of that vector, which lands uniformly in [alpha, 1].
+  function collision(root) {
+    let t = TARGETS[+(root.dataset.target || 1)], last = null;
+    const nBins = 40;
+    let bins = new Array(nBins).fill(0), n = 0;
+    const ctl = el("div", { class: "mcw-controls" }, root);
+    const cv = el("canvas", {}, root);
+    const info = el("p", { class: "mcw-info" }, root);
+    const reset = () => { bins.fill(0); n = 0; last = null; };
+    const draw = () => {
+      const { g, w, h } = setupCanvas(cv, 260);
+      g.clearRect(0, 0, w, h);
+      const A = t.awr, al = alphaOf(A);
+      // Left: velocity space, incident v = 1 along +x.
+      const s = Math.min(w * 0.45, h - 40) / 2.2, ox = 16 + s * 0.2, oy = h / 2;
+      const vcm = 1 / (A + 1), rc = A / (A + 1);
+      g.strokeStyle = fg(); g.lineWidth = 1;
+      g.beginPath(); g.arc(ox + vcm * s, oy, rc * s, 0, 7); g.stroke();
+      g.fillStyle = fg(); g.font = "12px system-ui, sans-serif";
+      g.fillText("CM circle", ox + vcm * s - 24, oy - rc * s - 6);
+      g.strokeStyle = "#888"; g.beginPath(); g.moveTo(ox, oy); g.lineTo(ox + s, oy); g.stroke();
+      g.fillText("v in", ox + s - 20, oy + 14);
+      if (last) {
+        const px = ox + (vcm + rc * last.mu) * s, py = oy - rc * Math.sqrt(1 - last.mu * last.mu) * s;
+        g.strokeStyle = accent(); g.lineWidth = 2.5;
+        g.beginPath(); g.moveTo(ox, oy); g.lineTo(px, py); g.stroke();
+        g.fillStyle = accent(); g.beginPath(); g.arc(px, py, 4, 0, 7); g.fill();
+      }
+      // Right: the lab energy bar [alpha E, E] and the histogram of E'/E.
+      const L = w * 0.52, W = w - L - 10, B = h - 30, H = B - 40;
+      g.fillStyle = "rgba(128,128,128,0.25)"; g.fillRect(L + al * W, 14, (1 - al) * W, 10);
+      g.fillStyle = fg(); g.fillText("αE", L + al * W - 8, 40); g.fillText("E", L + W - 6, 40);
+      if (last) { g.fillStyle = accent(); g.fillRect(L + last.r * W - 2, 8, 4, 22); }
+      const peak = Math.max(1, ...bins);
+      g.fillStyle = accent();
+      bins.forEach((c, i) => { const hh = (c / peak) * H; g.fillRect(L + (i / nBins) * W, B - hh, W / nBins - 1, hh); });
+      g.strokeStyle = fg(); g.lineWidth = 1; g.beginPath(); g.moveTo(L, B); g.lineTo(L + W, B); g.stroke();
+      g.fillStyle = fg(); g.fillText("0", L - 4, B + 14); g.fillText("E′/E = 1", L + W - 44, B + 14);
+      info.textContent = `${t.label}: A = ${A}, α = ${al.toPrecision(4)}, so one collision leaves between ${(100 * al).toFixed(al > 0.01 ? 1 : 5)} % and 100 % of the energy; ξ = ${xiOf(A).toPrecision(4)}.` +
+        (last ? ` Last: μ_cm = ${last.mu.toFixed(3)}, E′/E = ${last.r.toFixed(4)}.` : "") +
+        (n ? ` ${n} collisions, mean E′/E ${(sum / n).toFixed(3)} (exact (1+α)/2 = ${((1 + al) / 2).toFixed(3)}).` : "");
+    };
+    let sum = 0;
+    const collide = (k, muFixed) => {
+      const al = alphaOf(t.awr);
+      for (let i = 0; i < k; i++) {
+        const mu = muFixed === undefined ? 2 * Math.random() - 1 : muFixed;
+        const r = 0.5 * ((1 + al) + (1 - al) * mu);
+        last = { mu, r }; n++; sum += r;
+        bins[Math.min(nBins - 1, Math.floor(r * nBins))]++;
+      }
+      draw();
+    };
+    targetSelect(ctl, +(root.dataset.target || 1), (nt) => { t = nt; reset(); sum = 0; draw(); });
+    const row = el("div", { class: "mcw-buttons" }, ctl);
+    button(row, "Collide", () => collide(1));
+    button(row, "Collide 1000", () => collide(1000));
+    button(row, "μ_cm = −1 (head-on)", () => collide(1, -1));
+    button(row, "μ_cm = +1 (grazing)", () => collide(1, 1));
+    button(row, "Clear", () => { reset(); sum = 0; draw(); });
+    window.addEventListener("resize", draw);
+    draw();
+  }
+
+  // ── Slowing down: energy against collision number, and how many it takes ──
+  function slowdown(root) {
+    let t = TARGETS[+(root.dataset.target || 1)], path = [], counts = [];
+    const E0 = 2.0e6, ET = 0.025;
+    const ctl = el("div", { class: "mcw-controls" }, root);
+    const cv = el("canvas", {}, root);
+    const info = el("p", { class: "mcw-info" }, root);
+    const walk = () => {
+      const al = alphaOf(t.awr);
+      let e = E0, p = [e], k = 0;
+      while (e > ET && k < 20000) { e *= 0.5 * ((1 + al) + (1 - al) * (2 * Math.random() - 1)); p.push(e); k++; }
+      return p;
+    };
+    const draw = () => {
+      const { g, w, h } = setupCanvas(cv, 240);
+      g.clearRect(0, 0, w, h);
+      const L = 58, B = h - 24, W = w - L - 10, H = B - 10;
+      const nExp = Math.log(E0 / ET) / xiOf(t.awr);
+      const nMax = Math.max(20, 1.6 * nExp, path.length);
+      const y = (e) => B - ((Math.log10(e) - Math.log10(ET / 3)) / (Math.log10(E0) - Math.log10(ET / 3))) * H;
+      g.strokeStyle = fg(); g.lineWidth = 1; g.beginPath(); g.moveTo(L, 10); g.lineTo(L, B); g.lineTo(L + W, B); g.stroke();
+      g.fillStyle = fg(); g.font = "12px system-ui, sans-serif";
+      [[2e6, "2 MeV"], [1e3, "1 keV"], [1, "1 eV"], [ET, "0.025 eV"]].forEach(([e, lb]) => g.fillText(lb, 2, y(e) + 4));
+      g.fillText("collision number", L + W / 2 - 40, B + 16); g.fillText(String(Math.round(nMax)), L + W - 24, B + 16);
+      // The average line: ln E falls by xi per collision.
+      g.strokeStyle = "#999"; g.setLineDash([5, 4]); g.beginPath(); g.moveTo(L, y(E0)); g.lineTo(L + (nExp / nMax) * W, y(ET)); g.stroke(); g.setLineDash([]);
+      if (path.length) {
+        g.strokeStyle = accent(); g.lineWidth = 2; g.beginPath();
+        path.forEach((e, i) => { const X = L + (i / nMax) * W; i ? g.lineTo(X, y(e)) : g.moveTo(X, y(e)); });
+        g.stroke();
+      }
+      const m = counts.length ? counts.reduce((a, b) => a + b, 0) / counts.length : 0;
+      info.textContent = `${t.label}: ξ = ${xiOf(t.awr).toPrecision(4)}, so on average n = ln(2 MeV / 0.025 eV)/ξ = ${nExp.toFixed(1)} collisions (dashed line).` +
+        (path.length ? ` This neutron took ${path.length - 1}.` : "") +
+        (counts.length ? ` ${counts.length} neutrons: mean ${m.toFixed(1)} collisions, fewest ${Math.min(...counts)}, most ${Math.max(...counts)}.` : "") +
+        " (Target at rest, isotropic in the centre of mass: below a few eV this is wrong, which is step 4.)";
+    };
+    targetSelect(ctl, +(root.dataset.target || 1), (nt) => { t = nt; path = []; counts = []; draw(); });
+    const row = el("div", { class: "mcw-buttons" }, ctl);
+    button(row, "One neutron", () => { path = walk(); counts.push(path.length - 1); draw(); });
+    button(row, "1000 neutrons", () => { for (let i = 0; i < 1000; i++) { const p = walk(); counts.push(p.length - 1); path = p; } draw(); });
+    button(row, "Clear", () => { path = []; counts = []; draw(); });
+    window.addEventListener("resize", draw);
+    draw();
+  }
+
+  // ── Spatial self-shielding: neutrons entering a lump, at one energy ───────
+  // A sphere of radius r and absorption cross section Sigma (one energy, pure
+  // absorber). Neutrons enter through the surface from an isotropic flux
+  // outside (cosine law: mu = sqrt(xi) to the inward normal), so the chord is
+  // 2 r mu, and each is absorbed if its sampled flight -ln(xi)/Sigma is
+  // shorter. The dilute limit absorbs Sigma * (mean chord 4r/3) per entering
+  // neutron; the ratio of the two is how effective each atom still is.
+  function lump(root) {
+    let tau = parseFloat(root.dataset.tau || "1"); // Sigma * r
+    let shots = [], n = 0, absorbed = 0;
+    const ctl = el("div", { class: "mcw-controls" }, root);
+    const cv = el("canvas", {}, root);
+    const info = el("p", { class: "mcw-info" }, root);
+    const exact = (t) => {
+      // P_abs for a sphere in an isotropic flux: 1 - escape over the
+      // cosine-weighted chords, P = 1 - (1 - (1 + 2t) e^{-2t}) / (2 t^2).
+      if (t < 1e-6) return (4 / 3) * t;
+      return 1 - (1 - (1 + 2 * t) * Math.exp(-2 * t)) / (2 * t * t);
+    };
+    const draw = () => {
+      const { g, w, h } = setupCanvas(cv, 250);
+      g.clearRect(0, 0, w, h);
+      const R = Math.min(w, h) * 0.4, cx = Math.min(w * 0.3, R + 20), cy = h / 2;
+      g.fillStyle = "rgba(214,120,46,0.35)"; g.beginPath(); g.arc(cx, cy, R, 0, 7); g.fill();
+      g.strokeStyle = "#d6782e"; g.lineWidth = 2; g.stroke();
+      shots.slice(-300).forEach((s) => {
+        const y0 = cy - s.b * R, x0 = cx - Math.sqrt(Math.max(0, 1 - s.b * s.b)) * R;
+        g.strokeStyle = s.abs ? "rgba(208,64,64,0.55)" : "rgba(90,122,208,0.35)"; g.lineWidth = 1;
+        g.beginPath(); g.moveTo(x0, y0); g.lineTo(x0 + s.d * R, y0); g.stroke();
+        if (s.abs) { g.fillStyle = "#d04040"; g.beginPath(); g.arc(x0 + s.d * R, y0, 2.2, 0, 7); g.fill(); }
+      });
+      const P = exact(tau), dil = (4 / 3) * tau;
+      const L = cx + R + 30, W = w - L - 10;
+      if (W > 60) {
+        g.fillStyle = fg(); g.font = "12px system-ui, sans-serif";
+        g.fillText("per atom, vs dilute", L, 30);
+        g.fillStyle = accent(); g.fillRect(L, 40, W * Math.min(1, P / dil), 16);
+        g.strokeStyle = fg(); g.strokeRect(L, 40, W, 16);
+        g.fillStyle = fg(); g.fillText(`${(100 * P / dil).toFixed(1)} %`, L, 72);
+      }
+      info.textContent = `Σr = ${tau.toFixed(2)} (the lump's radius in mean free paths). Exact for a sphere: an entering neutron is absorbed with probability ${P.toFixed(3)}; ` +
+        `if the same atoms were spread thin they would absorb Σ·(4r/3) = ${dil.toFixed(3)} per entering neutron, so each atom in the lump is ${(100 * P / dil).toFixed(1)} % as effective.` +
+        (n ? ` Sampled: ${absorbed} of ${n} absorbed (${(absorbed / n).toFixed(3)}).` : "") +
+        " Red dots: absorptions. At a resonance peak (Σr large) they crowd the surface.";
+    };
+    const shoot = (k) => {
+      for (let i = 0; i < k; i++) {
+        const mu = Math.sqrt(Math.random()); // cosine-law entry
+        const chord = 2 * mu; // in units of r
+        const d = -Math.log(1 - Math.random()) / tau; // in units of r
+        const abs = d < chord;
+        shots.push({ b: Math.sqrt(1 - mu * mu) * (Math.random() < 0.5 ? 1 : -1), d: Math.min(d, chord), abs });
+        n++; absorbed += abs;
+      }
+      if (shots.length > 2000) shots = shots.slice(-1000);
+      draw();
+    };
+    slider(ctl, "Σr", -2, 2, 0.01, Math.log10(tau), (v) => { tau = 10 ** v; shots = []; n = 0; absorbed = 0; draw(); return tau.toFixed(2); });
+    const row = el("div", { class: "mcw-buttons" }, ctl);
+    button(row, "Send 1", () => shoot(1));
+    button(row, "Send 100", () => shoot(100));
+    button(row, "Send 10 000", () => shoot(10000));
+    window.addEventListener("resize", draw);
+    draw();
+  }
+
   // ── The demo, embedded on demand (it downloads and processes nuclear data) ─
   function demo(root) {
     const src = root.dataset.src;
@@ -222,7 +418,7 @@
     });
   }
 
-  const kinds = { flights, surface, reaction, demo };
+  const kinds = { flights, surface, reaction, collision, slowdown, lump, demo };
   document.querySelectorAll("[data-mc-widget]").forEach((e) => {
     const k = kinds[e.dataset.mcWidget];
     if (k) k(e);

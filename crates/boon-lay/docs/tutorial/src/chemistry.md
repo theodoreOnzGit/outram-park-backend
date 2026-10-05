@@ -17,8 +17,10 @@ steam. It is the thinnest rung in the crate, and the page says so.
 > lets go of gas it was holding. *How fast, and what does this crate
 > actually model?*
 
-The demo rung for this page will be `?rung=chemistry` (not built yet;
-gh:#521).
+**Demo:** [open this rung](../../demos/triso-atops/?rung=chemistry). The three rate laws against
+temperature, computed in your browser by the code this page walks, with
+sliders for the oxygen, steam and hydrogen partial pressures; each curve is
+dotted inside its measured range and dashed where it is extrapolated.
 
 What exists is **three cited rate laws**, each a transcription of one
 published correlation with its validity range, added on 2026-09-29 for the

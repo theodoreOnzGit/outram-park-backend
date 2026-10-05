@@ -20,7 +20,10 @@ something simpler.
 > And if we follow a million atoms one at a time, does the familiar decay law
 > come out, without ever writing it down?
 
-The demo rung for this page will be `?rung=decay` (not built yet; gh:#521).
+**Demo:** [open this rung](../../demos/triso-atops/?rung=decay). Five hundred atoms of one parent,
+each with its own sampled branch and lifetimes from the crate's decay data,
+coloured by what they are now, beside the surviving fraction and the decay
+law it should follow.
 
 ---
 

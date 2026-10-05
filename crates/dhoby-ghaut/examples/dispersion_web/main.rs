@@ -10,6 +10,9 @@
 //!
 //! In the browser, `?rung=<name>` picks the rung ([`rungs::TABLE`]):
 //! `plume`, `sigmas`, `rise-wake`, `puffs`, `deposition`, `dose`, `capstone`.
+//! `&step=<name>` opens one of a rung's step animations (gh:#548,
+//! [`steps::STEPS`]): `tracers`, `slice`, `mirror` (plume), `day-night`
+//! (sigmas), `rise` (rise-wake), `single-puff` (puffs).
 //!
 //! - **Physics**: none written here. `buangkok`'s pyDOSEIA plume, rise, wake
 //!   and deposition velocities; `changi`'s Pasquill-Gifford sigmas, puff field
@@ -33,6 +36,10 @@ mod engine;
 mod recorded;
 #[cfg(not(target_os = "android"))]
 mod rungs;
+#[cfg(not(target_os = "android"))]
+mod step_view;
+#[cfg(not(target_os = "android"))]
+mod steps;
 
 /// Android stub: windowing GUIs are out of scope on Termux (the workspace
 /// example rule: a blanked file gives "main function not found").

@@ -134,6 +134,16 @@ fn main() {
         ),
     ];
 
+    // ── Explicit ablation (GitHub #524, step 4a of the rung-2 lesson) ──────
+    // `TARGET_AT_REST=1` re-runs ONLY the thermal-equilibrium walk with every
+    // elastic collision off a target held at rest (the pre-`op-50vu` kernel),
+    // to re-measure the defect the free-gas kernel fixed. No gate: the walk is
+    // expected to have no equilibrium. Results in `thermalization_demo`'s docs.
+    if std::env::var("TARGET_AT_REST").as_deref() == Ok("1") {
+        let _ = thermalization_demo_with(&cases, TargetMotion::AtRest);
+        return;
+    }
+
     let mut seed = 20_260_911_u64;
     let mut any_violation = false;
     let mut kinematics: Vec<KinRow> = Vec::new();
@@ -250,7 +260,9 @@ const ANISOTROPY_ONSET_EV: f64 = 1.0e4;
 /// `<E'/E>` and nothing more. In absolute terms the two quantities agree to the
 /// same 1e-4, uniformly across mass number, which is what this envelope checks.
 ///
-/// Worst measured: **7.7e-4** (Be-9 at 20.87 eV), against the 1.5e-3 bound.
+/// Worst measured: ~~**7.7e-4** (Be-9 at 20.87 eV)~~ **CORRECTED 2026-10-05:
+/// 1.08e-3 (Li-7 at 100 eV), re-measured 2026-10-04 at `bfeb81a083`** (the
+/// "Re-measured" section of the module docs), against the 1.5e-3 bound.
 const XI_ABS_TOL: f64 = 1.5e-3;
 
 /// One row of the per-collision kinematics sweep, kept for the V&V gate.
@@ -573,6 +585,49 @@ fn scattering_cross_sections(cases: &[(String, Nuclide)]) {
 ///
 /// Graphite is the control: it carries the S(α,β) law, so it must equilibrate.
 fn thermalization_demo(cases: &[(String, Nuclide)]) -> Vec<(String, f64)> {
+    thermalization_demo_with(cases, TargetMotion::Transport)
+}
+
+/// Which elastic kernel the thermal-equilibrium walk uses.
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum TargetMotion {
+    /// The transport kernel's own branch (free gas below 400 kT), the default.
+    Transport,
+    /// **Ablation** (`TARGET_AT_REST=1`): the target held at rest at every
+    /// energy, `two_body_scatter_with_mu`, the kernel before bead `op-50vu`.
+    /// The S(a,b) branch is kept: it was never the defect.
+    ///
+    /// **Measured 2026-10-05** (GitHub #524, rung-2 lesson step 4a;
+    /// `develop` at `f39501b8bd` plus this knob; `TARGET_AT_REST=1`), same
+    /// 20 000 walkers x 400 scatters from 1 eV, seed and 600 K as the default;
+    /// 98 s wall including data on an Intel Xeon @ 2.10 GHz, one thread
+    /// pinned to 2 of 4 shared logical cores, 15 GB, Linux, CPU only:
+    ///
+    /// ```text
+    ///   medium                  <E> final [eV]   <E>/2kT     median [eV]
+    ///   C12 (graphite S(a,b))   1.0226e-1        0.98892     8.5043e-2
+    ///   C12 (free gas kernel)   1.4967e-27       1.45e-26    2.2755e-28
+    ///   Be9  (FLiBe)            1.9873e-35       1.92e-34    7.6149e-37
+    ///   F19  (FLiBe)            3.2946e-18       3.19e-17    1.5538e-18
+    ///   Li7  (FLiBe)            9.5210e-44       9.21e-43    3.3777e-46
+    ///   O16  (UCO kernel)       2.8792e-21       2.78e-20    9.6950e-22
+    ///   Si28 (SiC coating)      8.3177e-13       8.04e-12    5.8433e-13
+    ///   U238 (heavy control)    3.4236e-2        0.33108     3.4042e-2
+    /// ```
+    ///
+    /// Every nucleus without a bound-atom law cools by tens of decades below
+    /// `kT`; graphite carbon with its S(a,b) law equilibrates exactly as in
+    /// the default run (0.98892, the same value), because that branch never
+    /// held the target at rest. U-238 has not cooled far in 400 collisions
+    /// (its `xi` is 0.008). The depth reached differs by nuclide (with the
+    /// evaluation's MF=4 angular laws: Li-7 to 1e-43 eV, Si-28 only to
+    /// 1e-12 eV), so the old single figure "1e-27 eV and below" in
+    /// `free_gas_elastic_scatter`'s doc is true of carbon, Be-9 and Li-7 and
+    /// not of F-19, O-16 or Si-28; corrected there the same day.
+    AtRest,
+}
+
+fn thermalization_demo_with(cases: &[(String, Nuclide)], motion: TargetMotion) -> Vec<(String, f64)> {
     const SCATTERS: usize = 400;
     const WALKERS: usize = 20_000;
     let kt = K_BOLTZMANN_EV_PER_K * TEMP;
@@ -613,7 +668,10 @@ fn thermalization_demo(cases: &[(String, Nuclide)]) -> Vec<(String, f64)> {
                     let mu_cm = nuc
                         .sample_elastic_mu_cm(e, &mut seed)
                         .unwrap_or_else(|| 2.0 * outram_mc_libs::rng::lcg::prn(&mut seed) - 1.0);
-                    free_gas_elastic_scatter(e, u, a, kt, mu_cm, &mut seed).0
+                    match motion {
+                        TargetMotion::Transport => free_gas_elastic_scatter(e, u, a, kt, mu_cm, &mut seed).0,
+                        TargetMotion::AtRest => two_body_scatter_with_mu(e, u, a, 0.0, mu_cm, &mut seed).0,
+                    }
                 };
                 if !(e > 0.0) || !e.is_finite() {
                     e = f64::MIN_POSITIVE;

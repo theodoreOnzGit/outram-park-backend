@@ -57,6 +57,8 @@ mod tapes;
 #[cfg(not(target_os = "android"))]
 rung_table! {
     godiva: Godiva,
+    ugraphite: Ugraphite,
+    lumped: Lumped,
     lct008: Lct008,
     triso: Triso,
 }
@@ -163,6 +165,8 @@ fn main() -> Result<(), String> {
         Some("--render-geometry") => {
             let dir = std::path::Path::new(arg(1).ok_or("--render-geometry needs an output directory")?);
             triso::render::render_all(dir)?;
+            ugraphite::render::render_all(dir)?;
+            lumped::render::render_all(dir)?;
             lct008::render::render_all(dir)?;
             godiva::render::render_all(dir)
         }

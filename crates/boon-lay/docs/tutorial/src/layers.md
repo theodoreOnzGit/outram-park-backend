@@ -16,7 +16,10 @@ the layer and on the temperature.
 > does most of it still stay inside the particle? And if we only need the
 > *fraction* that gets out, do we have to walk atoms at all?
 
-The demo rung for this page will be `?rung=layers` (not built yet; gh:#521).
+**Demo:** [open this rung](../../demos/triso-atops/?rung=layers). $D(T)$ in every layer for Cs-137,
+Sr-90, Ag-110m or Kr-85, through the walker's own lookup, and the PyC → SiC
+transmission probability at a temperature you choose. Kr-85 in the buffer
+has no curve: that coefficient is a `todo!()` in the code (gh:#541).
 
 ---
 

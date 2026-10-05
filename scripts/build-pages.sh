@@ -3,7 +3,7 @@
 # (docs/site/), every deep-dive mdBook (docs/site/deep-dives.txt), rustdoc
 # for the crates that have lessons (docs/site/lesson-crates.txt), without
 # source pages, the tutorial mdBooks (docs/site/tutorials.txt, gh:#520) and
-# the browser demos (gh:#519, #521). The demos need the
+# the browser demos (gh:#519, #521, #530, #529, #540). The demos need the
 # wasm32-unknown-unknown target and the wasm-bindgen CLI at the Cargo.lock
 # version; the demo's own build script checks the latter. Run by .github/workflows/pages.yml; runnable locally:
 #   scripts/build-pages.sh target/pages
@@ -94,6 +94,9 @@ bash crates/dhoby-ghaut/web/dispersion/build.sh "$OUT/demos/dispersion"
 # The nuclear data demo (gh:#529): one app, a rung of the nuclear data track
 # at a time; ENDF/B-VIII.0 tapes processed in the browser by njoy-outram-park-fork.
 bash crates/dhoby-ghaut/web/nuclear_data/build.sh "$OUT/demos/nuclear-data"
+# The TRISO-ATOPS and fuel failure demo (gh:#540): one app, a rung of the
+# boon-lay lessons at a time; computed in the browser from boon-lay, no data files.
+bash crates/dhoby-ghaut/web/triso_atops/build.sh "$OUT/demos/triso-atops"
 mkdir -p "$OUT/demos/triso-pebble/geometry"
 cp crates/dhoby-ghaut/web/monte_carlo/triso-pebble-redirect.html "$OUT/demos/triso-pebble/index.html"
 printf '%s\n' '<!DOCTYPE html><html lang="en"><head><meta charset="utf-8">' \
@@ -163,11 +166,14 @@ for f in index.html api/outram_mc_libs/index.html api/changi/index.html \
   demos/monte-carlo/geometry/index.html \
   demos/triso-pebble/index.html demos/triso-pebble/geometry/index.html \
   tutorials/monte-carlo/index.html tutorials/monte-carlo/godiva.html \
+  tutorials/monte-carlo/ugraphite.html tutorials/monte-carlo/lumped.html \
   demos/dispersion/index.html demos/dispersion/dispersion_web_bg.wasm \
   api/sembawang/index.html \
   deep-dives/nuclear-data/index.html api/njoy_outram_park_fork/index.html \
   demos/nuclear-data/index.html demos/nuclear-data/nuclear_data_web_bg.wasm \
-  tutorials/monte-carlo/lct008.html; do
+  tutorials/monte-carlo/lct008.html \
+  demos/triso-atops/index.html demos/triso-atops/triso_atops_web_bg.wasm \
+  tutorials/triso-atops/index.html; do
   [[ -f "$OUT/$f" ]] || { echo "missing $OUT/$f" >&2; exit 1; }
 done
 
@@ -191,7 +197,8 @@ while read -r r; do
   grep -qx "$r" <<< "$rung_names" || { echo "a page links to demo rung '$r', not in the rung table" >&2; exit 1; }
 done < <(grep -rhoE 'demos/monte-carlo/\?rung=[a-z0-9_-]+' "$OUT" --include='*.html' | sed 's/.*rung=//' | sort -u)
 # Every tape a rung processes must have been published for the browser.
-for t in n-092_U_234-ENDF8.0.endf n-092_U_235-ENDF8.0.endf n-092_U_238.endf; do
+for t in n-092_U_234-ENDF8.0.endf n-092_U_235-ENDF8.0.endf n-092_U_238.endf \
+  n-006_C_012-ENDF8.0.endf n-006_C_013-ENDF8.0.endf tsl-crystalline-graphite.endf; do
   [[ -f "$OUT/demos/monte-carlo/data/$t.zz" ]] || { echo "missing demo tape $t" >&2; exit 1; }
 done
 
@@ -226,6 +233,19 @@ done < <(grep -rhoE 'demos/nuclear-data/\?rung=[a-z0-9_-]+' "$OUT" --include='*.
 for t in n-092_U_238.endf tsl-crystalline-graphite.endf tsl-HinH2O.endf; do
   [[ -f "$OUT/demos/nuclear-data/data/$t.zz" ]] || { echo "missing nuclear data demo tape $t" >&2; exit 1; }
 done
+
+# The TRISO-ATOPS demo's rung table (gh:#540), the same two checks
+# (examples/triso_atops_web/rungs.rs, one `name:` and one `lesson:` line per rung).
+tt=crates/dhoby-ghaut/examples/triso_atops_web/rungs.rs
+t_names="$(sed -n 's/^ *name: "\([a-z0-9_-]*\)",$/\1/p' "$tt")"
+t_lessons="$(sed -n 's/^ *lesson: "\([^"]*\)",$/\1/p' "$tt")"
+[[ -n "$t_names" && -n "$t_lessons" ]] || { echo "no rungs read from $tt" >&2; exit 1; }
+for l in $t_lessons; do
+  [[ -f "$OUT/$l" ]] || { echo "TRISO-ATOPS rung lesson page missing: $l ($tt)" >&2; exit 1; }
+done
+while read -r r; do
+  grep -qx "$r" <<< "$t_names" || { echo "a page links to TRISO-ATOPS demo rung '$r', not in $tt" >&2; exit 1; }
+done < <(grep -rhoE 'demos/triso-atops/\?rung=[a-z0-9_-]+' "$OUT" --include='*.html' | sed 's/.*rung=//' | sort -u)
 
 # Every relative link from the main menu, the deep dives and the tutorials must land on a
 # page in the site (a lesson link into the API 404s silently otherwise).

@@ -72,6 +72,12 @@ pub enum Request {
     Dose { id: u32, class: u8, wind: f64 },
     /// Advance the puff population `steps` steps and return its field.
     Puffs { id: u32, q: PuffParams },
+    /// One step animation's numbers (gh:#548, [`crate::steps`]).
+    Step {
+        id: u32,
+        step: u8,
+        p: crate::steps::StepParams,
+    },
 }
 
 /// The steady-plume map's inputs.
@@ -139,6 +145,12 @@ pub enum Event {
         series: Vec<Series>,
         ms: f64,
     },
+    /// A step animation's numbers.
+    Step {
+        id: u32,
+        frame: crate::steps::StepFrame,
+        ms: f64,
+    },
     /// A worker failure (constructed by the browser worker's error path).
     #[cfg_attr(not(target_arch = "wasm32"), allow(dead_code))]
     Error(String),
@@ -178,9 +190,27 @@ pub fn plume_chi_over_q(class: u8, u10: f64, h: f64, x: f64, y: f64) -> f64 {
         .seconds_per_cubic_meter()
 }
 
+/// Plume rise, m, at `x` m downwind, for wind `u_stack` at stack height and
+/// exit velocity `w0`, with upstream pyDOSEIA's default stack diameters
+/// (inner 5 m, outer 8 m): the neutral/unstable formula for A-D, the stable
+/// windy formula with the class's own `S` for E and F (the labelled
+/// divergence from upstream's always-F, defect D6). Unchecked against the
+/// formulas' sources (#542).
+pub fn plume_rise_m(class: u8, w0: f64, u_stack: f64, x: f64) -> f64 {
+    use buangkok::pydoseia::plume_rise::{
+        plume_rise_neutral_unstable, plume_rise_stable_both_formulas, StableClass,
+    };
+    let (d_i, d_e) = (5.0, 8.0);
+    match class {
+        4 => plume_rise_stable_both_formulas(w0, u_stack, d_i, StableClass::E).windy_formula,
+        5 => plume_rise_stable_both_formulas(w0, u_stack, d_i, StableClass::F).windy_formula,
+        _ => plume_rise_neutral_unstable(w0, x, u_stack, d_i, d_e),
+    }
+}
+
 /// The plume frame of a map point: `(along, across)` for wind blowing towards
 /// bearing `dir_deg`.
-fn to_plume_frame(east: f64, north: f64, dir_deg: f64) -> (f64, f64) {
+pub fn to_plume_frame(east: f64, north: f64, dir_deg: f64) -> (f64, f64) {
     let t = dir_deg.to_radians();
     let (dx, dy) = (t.sin(), t.cos());
     (east * dx + north * dy, -east * dy + north * dx)
@@ -188,7 +218,7 @@ fn to_plume_frame(east: f64, north: f64, dir_deg: f64) -> (f64, f64) {
 
 /// Cell centre `(east, north)`, row 0 north (the convention of
 /// `changi::puff::wgsl::FieldGrid`).
-fn cell_centre(cells: u32, half: f64, col: u32, row: u32) -> (f64, f64) {
+pub fn cell_centre(cells: u32, half: f64, col: u32, row: u32) -> (f64, f64) {
     let step = 2.0 * half / cells as f64;
     (
         -half + (col as f64 + 0.5) * step,
@@ -196,7 +226,7 @@ fn cell_centre(cells: u32, half: f64, col: u32, row: u32) -> (f64, f64) {
     )
 }
 
-fn plume_field(p: &PlumeParams, per_cell: impl Fn(f64, f64) -> f64) -> Vec<f64> {
+pub fn plume_field(p: &PlumeParams, per_cell: impl Fn(f64, f64) -> f64) -> Vec<f64> {
     let n = p.cells.clamp(8, 160);
     let mut out = Vec::with_capacity((n * n) as usize);
     for row in 0..n {
@@ -366,10 +396,7 @@ impl Engine {
                 w0,
                 area,
             } => {
-                use buangkok::pydoseia::plume_rise::{
-                    building_wake_gifford, plume_rise_neutral_unstable,
-                    plume_rise_stable_both_formulas, StableClass,
-                };
+                use buangkok::pydoseia::plume_rise::building_wake_gifford;
                 let pc = plume_class(class);
                 let u_stack = wind
                     * height_correction_factor(
@@ -378,18 +405,7 @@ impl Engine {
                         Length::new::<meter>(MEASUREMENT_HEIGHT_M),
                     );
                 let xs = log_space(50.0, 20_000.0, 160);
-                let (d_i, d_e) = (5.0, 8.0); // upstream's default stack diameters
-                let rise = |x: f64| match class {
-                    4 => {
-                        plume_rise_stable_both_formulas(w0, u_stack, d_i, StableClass::E)
-                            .windy_formula
-                    }
-                    5 => {
-                        plume_rise_stable_both_formulas(w0, u_stack, d_i, StableClass::F)
-                            .windy_formula
-                    }
-                    _ => plume_rise_neutral_unstable(w0, x, u_stack, d_i, d_e),
-                };
+                let rise = |x: f64| plume_rise_m(class, w0, u_stack, x);
                 let no_rise: Vec<f64> = xs
                     .iter()
                     .map(|&x| plume_chi_over_q(class, wind, h, x, 0.0))
@@ -466,6 +482,16 @@ impl Engine {
                     series: dose_series(Some((class, wind))),
                     ms: ms(t0),
                 });
+            }
+            Request::Step { id, step, p } => {
+                match crate::steps::Step::from_code(step) {
+                    Some(st) => post(Event::Step {
+                        id,
+                        frame: crate::steps::compute(st, p),
+                        ms: ms(t0),
+                    }),
+                    None => post(Event::Error(format!("unknown step {step}"))),
+                }
             }
             Request::Puffs { id, q } => {
                 let values = self.step_puffs(&q);
@@ -707,6 +733,16 @@ impl Request {
                 q.cells as f64,
                 q.half_width,
             ],
+            Request::Step { id, step, p } => vec![
+                6.0,
+                *id as f64,
+                *step as f64,
+                p.class as f64,
+                p.wind,
+                p.h,
+                p.x,
+                p.w0,
+            ],
         }
     }
 
@@ -767,6 +803,17 @@ impl Request {
                     half_width: g(11)?,
                 },
             },
+            6 => Request::Step {
+                id,
+                step: g(2)? as u8,
+                p: crate::steps::StepParams {
+                    class: g(3)? as u8,
+                    wind: g(4)?,
+                    h: g(5)?,
+                    x: g(6)?,
+                    w0: g(7)?,
+                },
+            },
             k => return Err(format!("unknown request kind {k}")),
         })
     }
@@ -815,6 +862,12 @@ impl Event {
                 (d, text)
             }
             Event::Error(m) => (vec![2.0], m.clone()),
+            Event::Step { id, frame, ms } => {
+                let (f, text) = frame.to_wire();
+                let mut d = vec![3.0, *id as f64, *ms];
+                d.extend(f);
+                (d, text)
+            }
         }
     }
 
@@ -869,6 +922,11 @@ impl Event {
                 }
             }
             2 => Event::Error(text.to_string()),
+            3 => Event::Step {
+                id: g(1)? as u32,
+                ms: g(2)?,
+                frame: crate::steps::StepFrame::from_wire(&d[3..], text)?,
+            },
             k => return Err(format!("unknown event kind {k}")),
         })
     }

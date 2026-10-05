@@ -31,9 +31,11 @@ constants with page numbers, and no prose or figure is copied.
 > rises, the SiC is slowly eaten away, and above about 2000 °C the SiC itself
 > decomposes. *What fraction of particles fails, and when?*
 
-The demo rung for this page will be `?rung=failure`: a temperature–time
-slider, pressure and stress gauges, and a population of particles failing
-over a transient (not built yet; gh:#521).
+**Demo:** [open this rung](../../demos/triso-atops/?rung=failure). Irradiation temperature, hold
+temperature and hold time as sliders; φ₁, φ₂ and the in-service total, and
+the gas pressure and SiC stress, from `AccidentHistory` step by step; and a
+drawn population of 400 particles that fail as the fraction passes each
+one's random draw (a picture of the fraction, not 400 simulated particles).
 
 ---
 

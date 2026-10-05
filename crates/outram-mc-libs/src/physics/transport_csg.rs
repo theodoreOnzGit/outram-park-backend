@@ -2065,6 +2065,7 @@ pub(crate) fn transport_history_vr(
                     // S(α,β) table thermalizes via the bound-atom law (lab-frame
                     // outgoing energy + cosine, up-scatter allowed); otherwise the
                     // free-gas / anisotropic-elastic kernel applies as before.
+                    // ANCHOR: scatter_fork (mdBook include, Monte Carlo tutorial rung 2, gh:#524)
                     let (e2, u2) = if let Some((e_out, mu_lab)) = nuc.sample_thermal(e, seed) {
                         (e_out, rotate_direction(u, mu_lab, seed))
                     } else {
@@ -2092,6 +2093,7 @@ pub(crate) fn transport_history_vr(
                             )
                         }
                     };
+                    // ANCHOR_END: scatter_fork
                     // Scattering-matrix estimator: score the (E_in, E_out) pair
                     // BEFORE `e` is overwritten, so a tally carrying both an
                     // EnergyFilter and an EnergyOutFilter bins one element of

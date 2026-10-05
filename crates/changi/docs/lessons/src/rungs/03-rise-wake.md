@@ -98,8 +98,9 @@ port:
   cap binds (see the run below). Filed with the reference check as a gap issue
   (linked at the bottom).
 
-**Animation.** *Not yet built* ([gh:#548](https://github.com/theodoreOnzGit/outram-park-backend/issues/548)): the plume leaving the stack, rising and bending
-over, with `H_e` marked.
+**Animation.** [In the demo](../../../demos/dispersion/?rung=rise-wake&step=rise): the plume leaving the stack, rising and bending
+over, with `H_e` marked; the centreline is the stack plus the rise formulas
+above, so it carries their open questions (gh:#542).
 
 **The code walk.** There is no caller in the library, so the walk starts from
 the example written for this rung:

@@ -64,7 +64,8 @@
 //!    boundary would show here. Shrinking the lump does **not** reach this
 //!    limit at an affordable radius: U-238's 6.67 eV resonance has a mean free
 //!    path of order 10 um in uranium metal, so even a 0.1 mm lump is black at
-//!    the peak.
+//!    the peak. **Pass criterion, fixed 2026-10-05 before the control was
+//!    run:** the two `k_inf` agree within 3 combined standard deviations.
 //! 2. **Telescoping**, as rung 2.
 //! 3. **OpenMC code-to-code** at a few radii:
 //!    `verification_and_validation/tutorial_rung3/openmc_inputs/lumped_openmc.py`.

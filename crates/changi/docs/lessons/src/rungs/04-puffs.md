@@ -48,8 +48,9 @@ with `sigma` evaluated at the distance the puff has **travelled** (rung 2's
   and upstream maps the result to 0. A modelling artefact, not physics, and
   the doc comment says so.
 
-**Animation.** *Not yet built* ([gh:#548](https://github.com/theodoreOnzGit/outram-park-backend/issues/548)): a single puff drifting and growing, then a train of
-them merging into something that looks like a plume.
+**Animation.** [In the demo](../../../demos/dispersion/?rung=puffs&step=single-puff): a single puff drifting and growing; then
+[the rung view](../../../demos/dispersion/?rung=puffs) runs a train of them merging into
+something that looks like a plume.
 
 **The code walk.** From the puff example to the kernel:
 
@@ -156,7 +157,7 @@ On a constant wind the two agree algebraically (`n` steps of `u dt` is
 90°. Under the default the old puffs keep their place and the train bends;
 tick "frozen wind" (upstream's rule) and every puff keeps flying the bearing
 it was born on. (Both policies side by side in one view is not built:
-[gh:#548](https://github.com/theodoreOnzGit/outram-park-backend/issues/548).)
+[gh:#555](https://github.com/theodoreOnzGit/outram-park-backend/issues/555).)
 
 **The code walk.** The step that marches each puff:
 

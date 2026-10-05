@@ -53,14 +53,19 @@ to a page, a code walk and a V&V record.
 
 ## The demo
 
-There will be **one demo for this track**, `triso_atops_web`, with a rung
-setting named after each page (`triso`, `decay`, `walk`, `layers`,
-`failure`, `chemistry`, `release`, `source-term`). It waits for the Monte
-Carlo track's shared demo framework (gh:#521) and is tracked as
-[gh:#540](https://github.com/theodoreOnzGit/outram-park-backend/issues/540).
-Until then, the illustrations on each page are small JavaScript drawings,
-labelled as such, and the [TRISO pebble demo](../../demos/triso-pebble/) shows
-the particles from the neutron's side.
+~~There will be **one demo for this track**, `triso_atops_web` … it waits
+for the Monte Carlo track's shared demo framework (gh:#521).~~ **Built
+2026-10-05** ([gh:#540](https://github.com/theodoreOnzGit/outram-park-backend/issues/540)):
+**[the TRISO-ATOPS demo](../../demos/triso-atops/?rung=triso)**, one app with
+a rung setting named after each page (`triso`, `decay`, `walk`, `layers`,
+`failure`, `chemistry`, `release`, `source-term`). Every number it shows is a
+call into `boon-lay`, made in a background Web Worker so the page never
+freezes; the source-term rung shows recorded results with their provenance,
+because that chain is too heavy for a phone. Each page links its rung, and
+the demo's "What's happening here?" links back. The illustrations on each
+page are small JavaScript drawings, labelled as such, and the
+[TRISO pebble demo](../../demos/triso-pebble/) shows the particles from the
+neutron's side.
 
 ## Numbers
 

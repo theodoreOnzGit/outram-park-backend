@@ -206,6 +206,7 @@ use ugraphite_common::{
     CaseResult, E_MAX_EV, E_MIN_EV, N_FINE, RES_UPPER_EV, TEMP_K, THERMAL_CUT_EV,
 };
 
+// ANCHOR: model (mdBook include, Monte Carlo tutorial rung 2, gh:#524)
 /// Half-width of the reflective cube \[cm\]. Irrelevant to `k_inf` (no
 /// leakage); large enough that a flight rarely crosses a face.
 const HALF_CM: f64 = 50.0;
@@ -216,6 +217,7 @@ fn run_homogeneous(label: &str, mix: Mix, nuclides: &[Nuclide], seed: u64) -> Ca
     let mats = vec![mix.material(1, label)];
     run_case(&geom, &mats, nuclides, seed, HALF_CM, FuelSplit::ByNuclide(mix))
 }
+// ANCHOR_END: model
 
 fn main() {
     let mode = std::env::var("MODE").unwrap_or_else(|_| "main".into());
