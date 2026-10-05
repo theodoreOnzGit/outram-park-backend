@@ -7,7 +7,7 @@
 //! toolbox and the Monte Carlo studio — and for any future GUI that drives
 //! physics rather than merely displaying it.
 //!
-//! # STATUS: ~~PLACEHOLDER. Nothing is implemented.~~ ~~The LIBRARY is a placeholder; the two studios are examples.~~ The library holds the web-demo framework and, since 2026-10-05, the high-fidelity workbench's catalogue, steps and recipe format (`workbench`); the studios, demos and the workbench window are examples.
+//! # STATUS: ~~PLACEHOLDER. Nothing is implemented.~~ ~~The LIBRARY is a placeholder; the two studios are examples.~~ The library holds the web-demo framework and, since 2026-10-05, the high-fidelity workbench's catalogue, steps and recipe format (`workbench`); the workbench window is the `dhoby-ghaut` binary (`src/bin/dhoby-ghaut/`); the studios and demos are examples.
 //!
 //! ~~This crate was created on 2026-09-17 to hold a decision, not code. It has
 //! no GUI, no dependencies, and no behaviour. Do not describe it as providing

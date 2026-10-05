@@ -4,7 +4,7 @@
 //! wizard offers ([`catalogue`]), the steps it walks through ([`steps`]), and
 //! the **recipe**, the input deck a session saves and loads ([`recipe`]).
 //! The window itself, and everything that calls a solver, is the
-//! `hifi_workbench` example, because the solver crates are this crate's
+//! `dhoby-ghaut` binary, because the solver crates are this crate's
 //! dev-dependencies.
 //!
 //! **Design (maintainer interview, 2026-10-05).** A guided wizard. The user

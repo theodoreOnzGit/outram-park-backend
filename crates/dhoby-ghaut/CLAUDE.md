@@ -120,7 +120,7 @@ copy `monte_carlo_web`. It gives, ready-made and tested:
 
 ## The high-fidelity workbench (gh:#561)
 
-**Maintainer design, 2026-10-05.** `examples/hifi_workbench/` is the guided
+**Maintainer design, 2026-10-05.** `src/bin/dhoby-ghaut/` is the guided
 high-fidelity simulator; `src/workbench/` is its library half (catalogue,
 steps, recipe). Rules that bind changes to it:
 

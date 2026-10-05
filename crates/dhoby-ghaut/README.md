@@ -42,7 +42,7 @@ each built on `web_demo` (Monte Carlo, dispersion, nuclear data, TRISO-ATOPS):
 
 | Example | What it does |
 |---|---|
-| `hifi_workbench` | **The guided high-fidelity workbench, first slice** (gh:#561): pick a reactor type by generation, Basic or Advanced, the HTGR core, then Steps 0–11 with every value prefilled and cited, a kovan literature pane beside the model, and recipes saved and loaded as kovan markdown. Steps 0–5 work for HTGR → Basic → pebble bed (HTR-10, the TENTATIVE `nee_soon::htr10_rmc` model); Steps 6–11 are shown with the issue that builds each. See [below](#the-high-fidelity-workbench) |
+| `dhoby-ghaut` (**binary**) | **The guided high-fidelity workbench, first slice** (gh:#561): pick a reactor type by generation, Basic or Advanced, the HTGR core, then Steps 0–11 with every value prefilled and cited, a kovan literature pane beside the model, and recipes saved and loaded as kovan markdown. Steps 0–5 work for HTGR → Basic → pebble bed (HTR-10, the TENTATIVE `nee_soon::htr10_rmc` model); Steps 6–11 are shown with the issue that builds each. See [below](#the-high-fidelity-workbench) |
 | `mc_studio` | Author a geometry, set a material and run settings, run a basic `outram-mc` k-eigenvalue calculation through `nee_soon::sim` (~~`outram_blender::sim`~~, moved 2026-10-02, #486), and read `k_eff ± σ` with the per-generation plot |
 | `mesh_studio` | Author a surface in `outram-blender`, volume-mesh it through `outram-park-fork-cfmesh`'s tet → dual → boundary-layer pipeline, show the mesh statistics, and export an OpenFOAM `polyMesh` |
 | `monte_carlo_web` (~~`triso_pebble_web`~~, renamed 2026-10-04) | **One demo, a rung of the Monte Carlo tutorial at a time** (gh:#520, #521): `godiva`, a bare uranium sphere, with a Watch mode and a true **Run k_eff** mode (a live power iteration with an `openmc.run()`-style console), and `triso`, one neutron at a time through a 2D HTR-10 pebble. Real ENDF/B-VIII.0 data; single-threaded; also runs **in the browser** — see [below](#the-monte-carlo-demo-in-the-browser) |
@@ -91,11 +91,11 @@ Monte Carlo bridge moved to `nee_soon` (`nee_soon::sim`,
 ## The high-fidelity workbench
 
 ```bash
-cargo run -p dhoby-ghaut --example hifi_workbench --release
-KOVAN_ROOT=~/your-kovan-library cargo run -p dhoby-ghaut --example hifi_workbench --release
-cargo run -p dhoby-ghaut --example hifi_workbench --release -- --headless-geometry
-cargo run -p dhoby-ghaut --example hifi_workbench --release -- --render-review out_dir
-cargo run -p dhoby-ghaut --example hifi_workbench --release -- --headless-keff --particles 500 --inactive 10 --active 20
+cargo run --release -p dhoby-ghaut --bin dhoby-ghaut
+KOVAN_ROOT=~/your-kovan-library cargo run --release -p dhoby-ghaut --bin dhoby-ghaut
+cargo run --release -p dhoby-ghaut --bin dhoby-ghaut -- --headless-geometry
+cargo run --release -p dhoby-ghaut --bin dhoby-ghaut -- --render-review out_dir
+cargo run --release -p dhoby-ghaut --bin dhoby-ghaut -- --headless-keff --particles 500 --inactive 10 --active 20
 ```
 
 The design was agreed with the maintainer on 2026-10-05 (gh:#561). A native
@@ -135,7 +135,7 @@ window walks a guided build:
 
 What was checked on 2026-10-05:
 
-- `--headless-geometry` is pinned by `tests/fixtures/hifi_workbench_geometry.csv`:
+- `--headless-geometry` is pinned by `tests/fixtures/dhoby_ghaut_geometry.csv`:
   43 445 cells, 22 974 tiles and 16 681 balls at 14 rings × 12 layers.
 - The review images were inspected for whole pebbles and five TRISO layers.
 - A preview run, 500 × [10 + 20] with 14 threads, took 87 s of nuclear data

@@ -344,7 +344,7 @@ impl Engine {
                 }
             };
             post(Ev::DataPlan(planned_items(&layout)));
-            let mut diag = RunDiagnostics::new("hifi_workbench");
+            let mut diag = RunDiagnostics::new("dhoby-ghaut");
             let t = Instant::now();
             let loaded =
                 load_htr10_nuclides_with_progress(&cfg, &layout, &mut diag, |p| post(Ev::Data(p)));

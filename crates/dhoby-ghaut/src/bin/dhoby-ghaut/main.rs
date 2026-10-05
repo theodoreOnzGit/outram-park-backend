@@ -8,11 +8,11 @@
 //! build each.
 //!
 //! ```text
-//! cargo run -p dhoby-ghaut --example hifi_workbench --release
-//! cargo run -p dhoby-ghaut --example hifi_workbench --release -- --recipe my_recipe.md
-//! cargo run -p dhoby-ghaut --example hifi_workbench --release -- --headless-geometry
-//! cargo run -p dhoby-ghaut --example hifi_workbench --release -- --render-review out_dir
-//! cargo run -p dhoby-ghaut --example hifi_workbench --release -- --headless-keff \
+//! cargo run --release -p dhoby-ghaut --bin dhoby-ghaut
+//! cargo run --release -p dhoby-ghaut --bin dhoby-ghaut -- --recipe my_recipe.md
+//! cargo run --release -p dhoby-ghaut --bin dhoby-ghaut -- --headless-geometry
+//! cargo run --release -p dhoby-ghaut --bin dhoby-ghaut -- --render-review out_dir
+//! cargo run --release -p dhoby-ghaut --bin dhoby-ghaut -- --headless-keff \
 //!     [--particles 500 --inactive 10 --active 20 --threads 8] [--out out_dir]
 //! ```
 //!
@@ -23,7 +23,7 @@
 //!
 //! **Headless modes.** `--headless-geometry` assembles the recipe's
 //! geometry and prints one CSV row of its facts (cells, tiles, balls, …),
-//! pinned by `tests/fixtures/hifi_workbench_geometry.csv`. `--render-review`
+//! pinned by `tests/fixtures/dhoby_ghaut_geometry.csv`. `--render-review`
 //! writes the review gate's images. `--headless-keff` runs Step 5 with no
 //! window, prints the console and the spectrum, and saves the recipe with the
 //! run appended. No test runs it: the nuclear data alone take minutes.
@@ -46,7 +46,7 @@ mod steps_ui;
 #[cfg(any(target_os = "android", target_arch = "wasm32"))]
 fn main() {
     eprintln!(
-        "hifi_workbench is a native desktop GUI; it is not built for Android or the browser."
+        "dhoby-ghaut is a native desktop GUI; it is not built for Android or the browser."
     );
 }
 
@@ -86,7 +86,7 @@ fn main() -> Result<(), String> {
         mc.inactive = num("--inactive").unwrap_or(mc.inactive);
         mc.active = num("--active").unwrap_or(mc.active);
         mc.threads = num("--threads").unwrap_or(mc.threads);
-        let out = arg("--out").unwrap_or_else(|| "target/hifi_workbench_out".into());
+        let out = arg("--out").unwrap_or_else(|| "target/dhoby-ghaut_out".into());
         return headless::keff(r, std::path::Path::new(&out));
     }
     let options = eframe::NativeOptions {
@@ -282,7 +282,7 @@ mod tests {
     fn the_headless_geometry_matches_the_committed_fixture() {
         let got = super::headless::geometry_csv(&super::preset::htr10());
         let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
-            .join("tests/fixtures/hifi_workbench_geometry.csv");
+            .join("tests/fixtures/dhoby_ghaut_geometry.csv");
         let want = std::fs::read_to_string(&path).expect("fixture");
         assert_eq!(
             got.trim(),

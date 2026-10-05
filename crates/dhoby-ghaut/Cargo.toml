@@ -21,6 +21,12 @@ categories.workspace = true
 # themselves are still examples, carried by the dev-dependencies below.
 # ---------------------------------------------------------------------------
 
+# The workbench binary, `cargo run -p dhoby-ghaut --release` (gh:#561).
+# Carries an Android/wasm stub `main`.
+[[bin]]
+name = "dhoby-ghaut"
+path = "src/bin/dhoby-ghaut/main.rs"
+
 [dependencies]
 
 # `kovan`: the workbench's recipes (input decks) and every file it writes are
@@ -42,6 +48,21 @@ uom = { workspace = true }
 
 [target.'cfg(not(target_os = "android"))'.dependencies]
 egui = { workspace = true }
+
+# The `dhoby-ghaut` BINARY (src/bin/dhoby-ghaut/): the guided high-fidelity
+# workbench (gh:#561). Maintainer, 2026-10-05: "dhoby-ghaut is to be a
+# binary". A binary cannot use dev-dependencies, so its stack is here, gated
+# off Android (the windowing exemption) and off wasm32 (a native desktop app;
+# the browser demos build this library for wasm and must not pull nee_soon).
+[target.'cfg(all(not(target_os = "android"), not(target_arch = "wasm32")))'.dependencies]
+eframe = { workspace = true }
+egui_plot = { workspace = true }
+nee_soon = { workspace = true }
+outram-mc-libs = { workspace = true }
+# The literature pane renders PDF pages with the engine kovan's own reader
+# uses (AGPL-3.0-only, like this crate since 2026-10-05; see NOTICE). Same
+# version and features as `crates/kovan`.
+kopitiam-pdf = { version = "0.4.3", default-features = false, features = ["egui"] }
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 wasm-bindgen = { workspace = true }
@@ -98,10 +119,6 @@ env_logger = { workspace = true }
 outram-blender = { workspace = true, features = ["foam-mesh", "gpu"] }
 # MC Studio's backend (`nee_soon::sim`, `nee_soon::blender_bridge`).
 nee_soon = { workspace = true }
-# The high-fidelity workbench's literature pane renders PDF pages with the
-# engine kovan's own reader uses (AGPL-3.0-only, like this crate since
-# 2026-10-05; see NOTICE). Same version and features as `crates/kovan`.
-kopitiam-pdf = { version = "0.4.3", default-features = false, features = ["egui"] }
 
 # MC Studio -- author geometry, set up and run an outram-mc calculation.
 #
@@ -187,15 +204,3 @@ path = "examples/triso_atops_web/main.rs"
 [[example]]
 name = "nuclear_data_web"
 path = "examples/nuclear_data_web/main.rs"
-
-# The guided high-fidelity workbench (gh:#561, first slice): generation
-# picker, Basic/Advanced, HTGR → pebble bed (HTR-10), Steps 0-11 (0-5 built),
-# kovan literature pane, recipes as kovan markdown. Native desktop only.
-#
-#   cargo run -p dhoby-ghaut --example hifi_workbench --release
-#   cargo run -p dhoby-ghaut --example hifi_workbench --release -- --headless-geometry
-#
-# Carries an Android/wasm stub `main`.
-[[example]]
-name = "hifi_workbench"
-path = "examples/hifi_workbench/main.rs"
