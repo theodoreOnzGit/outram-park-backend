@@ -49,6 +49,11 @@
 //! on 2026-09-28/29 and was **deleted 2026-09-29 at the maintainer's direction**
 //! because it was the wrong model.
 //!
+//! `--full-nuclides` (route `endf` only) runs the lattice on the full model
+//! nuclide list instead, the arm GitHub #533 pairs against the 11-nuclide tier
+//! to measure the worth of the dropped nuclides. Its CSV rows carry the larger
+//! `n_nuclides`; the campaign launcher never passes it.
+//!
 //! # Usage
 //!
 //! ```text
@@ -207,7 +212,7 @@ fn case(name: &str) -> Case {
             },
             defaults: (5000, 40, 120),
         },
-        "lct008" => lct008_lattice_case(),
+        "lct008" => lct008_lattice_case(false),
         other => panic!("--case must be godiva|jemima|hst009|lct008, got {other}"),
     }
 }
@@ -219,10 +224,21 @@ fn case(name: &str) -> Case {
 /// (`TAPES_CHEAP`, 11 nuclides). Model nuclides outside the tier are **dropped,
 /// not renormalised**, exactly as `lct008_keff.rs --cheap-nuclides` does; the
 /// list is printed on every run and recorded in the five-route V&V record.
-fn lct008_lattice_case() -> Case {
+///
+/// `full = true` (`--full-nuclides`, GitHub #533) keeps every nuclide of
+/// `lct008_keff.rs`'s default `TAPES` instead, so the worth of the 24 dropped
+/// nuclides can be measured on route 4 with everything else unchanged. It is a
+/// study arm, not the campaign: the campaign never passes the flag, and the
+/// ACE routes refuse it (their libraries carry only the 11).
+fn lct008_lattice_case(full: bool) -> Case {
     let _ = lct008_model::ACTIVE_CASE.set(1);
     let spec = lct008_model::parse_materials(lct008_model::materials_xml());
-    let keep = |n: &str| lct008_model::TAPES_CHEAP.iter().any(|(m, _)| *m == n);
+    let tier = if full {
+        lct008_model::TAPES
+    } else {
+        lct008_model::TAPES_CHEAP
+    };
+    let keep = |n: &str| tier.iter().any(|(m, _)| *m == n);
     let mut slots: BTreeMap<String, usize> = BTreeMap::new();
     let mut omitted: BTreeMap<String, f64> = BTreeMap::new();
     for m in &spec {
@@ -354,8 +370,12 @@ fn flag(args: &[String], name: &str) -> Option<String> {
 }
 
 fn load_endf(name: &str) -> Nuclide {
+    // The lattice's full tier (`--full-nuclides`, GitHub #533) names nuclides
+    // this study's own table does not carry; they come from the LCT-008 model's
+    // full tape list, the one `lct008_keff.rs` loads by default.
     let file = TAPES
         .iter()
+        .chain(lct008_model::TAPES.iter())
         .find(|(n, _)| *n == name)
         .expect("known nuclide")
         .1;
@@ -391,7 +411,15 @@ fn main() {
         .filter(|s| !s.is_empty())
         .map(|s| s.parse().expect("seed"))
         .collect();
-    let mut c = case(&case_name);
+    let full_nuclides = args.iter().any(|a| a == "--full-nuclides");
+    let mut c = if full_nuclides {
+        assert_eq!(case_name, "lct008", "--full-nuclides is defined for lct008 only");
+        assert_eq!(route, "endf", "--full-nuclides needs --route endf (the ACE libraries hold 11)");
+        eprintln!("  TIER: full lct008 model nuclide list (--full-nuclides, GitHub #533)");
+        lct008_lattice_case(true)
+    } else {
+        case(&case_name)
+    };
     // `--variant solution-inf|solution-bare` (diagnostic A/B, GitHub #367, HST-009
     // only): the solution sphere alone, with a REFLECTIVE boundary (its k_inf) or
     // with vacuum outside (no tank, no water). Splits a residual between the
