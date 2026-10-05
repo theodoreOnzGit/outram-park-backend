@@ -332,6 +332,47 @@ much of each material exists.
 
 ---
 
+## 2026-10-05 — Every element plates out at one rate: an upstream simplification a faithful port inherits
+
+**Crates:** `boon-lay` (`triso_atops_fork::normal_operation::normal_operation_node`),
+`dhoby-ghaut` (TRISO-ATOPS demo, release rung)
+**Severity:** moderate. Not a translation error; a modelling simplification
+that HTR-10's own source data contradicts.
+**Issue:** gh:#583
+
+### What was reported
+
+The TRISO-ATOPS port agrees with upstream code to code, and the demo's
+release rung reported the coolant pools for every nuclide, with every input
+cited.
+
+### What was actually wrong
+
+TRISO-ATOPS uses **one** plate-out constant and **one** purification constant
+per reactor. The element only switches each one on or off: noble gases do not
+plate out, and metals are never purified. Iodine, caesium, strontium and silver
+therefore all plate out at the same rate per circulating atom. HTR-10's source
+(Liu & Cao 2002, §2.4.1) gives plate-out per cycle of 20 % for I and 50 % for
+Cs, and 90 % purification of Sr, Ag, Cs and Rb.
+
+### Why the AI process missed it
+
+Each match arm in the routing reads as reasonable on its own, and the port is
+*meant* to reproduce upstream, so code-to-code agreement was the target and
+was met. The verification the AI would write encodes upstream's model, so it
+could only confirm the simplification. The maintainer caught it within minutes
+of **seeing** all 19 nuclides drawn through the circuit at once, coloured by
+transport group. That produced a standing practice:
+[`docs/claude-md/visual-review-first.md`](claude-md/visual-review-first.md).
+
+### Check that would have caught it
+
+Draw the model's structure for the whole population at once, grouped by the
+dimension the physics should depend on (here, the element), and ask of every
+rate shared across a group whether the physics shares it.
+
+---
+
 ## Recurring failure modes
 
 Patterns visible across entries, worth checking against before trusting AI work
@@ -381,3 +422,9 @@ in this workspace:
     carries its geometry with it; an R-Z zone map is part of the problem
     statement, not an implementation suggestion. *Check: what geometry is the
     reference posed in, and does your model share it?*
+11. **A faithful port inherits upstream's simplifications.** Code-to-code
+    agreement certifies the translation, not the physics: a rate, constant or
+    switch that upstream lumps across a group is reproduced exactly, and every
+    test written against upstream confirms it. *Check: draw the model across
+    the whole population, grouped by what the physics depends on, and ask of
+    every shared parameter whether the physics shares it (gh:#583).*

@@ -21,6 +21,7 @@ exactly as if it were here.
 | adding a dependency, test or example (Android/Termux, wasm), or a deep file path (170-char cap) | [`docs/claude-md/portability-android-wasm-paths.md`](docs/claude-md/portability-android-wasm-paths.md) |
 | writing a slow test, or touching CI (`long-tests` tiers, TUAS parallel runs) | [`docs/claude-md/long-tests-and-ci.md`](docs/claude-md/long-tests-and-ci.md) |
 | building an egui simulator (headless mode is mandatory) | [`crates/outram-park-digital-twin-engine/CLAUDE.md`](crates/outram-park-digital-twin-engine/CLAUDE.md) |
+| preparing anything for **human review** (the bottleneck): every practice that makes it cheaper, including building the picture before the code is read | [`docs/claude-md/human-review.md`](docs/claude-md/human-review.md) |
 | writing a tutorial, deep dive or interactive demo (**mobile-first is a HARD RULE**) | [`docs/claude-md/mobile-first-tutorials-and-demos.md`](docs/claude-md/mobile-first-tutorials-and-demos.md) |
 | designing or writing any lesson, tutorial or deep dive (question chain, rung ladder, code walks, honest numbers) | [`docs/lessons/lesson-philosophy.md`](docs/lessons/lesson-philosophy.md) |
 | asked to enable the working-hours guardrail (opt-in, off by default) | [`docs/claude-md/working-hours-guardrail.md`](docs/claude-md/working-hours-guardrail.md) |
@@ -412,6 +413,20 @@ claim holds now — **re-check the claim, never trust the stamp.**
 is a claim the *code contradicts* — a falsifiable mismatch you have checked,
 not a wording preference. Fixing style while claiming to fix staleness is how
 a review pass becomes an unreviewable diff.
+
+## Human review is the bottleneck: make it cheap
+
+**Maintainer direction, 2026-10-05.** AI output stays untrusted until a human
+reviews it, and AI produces work far faster than one maintainer can review it.
+So **review time is the scarcest resource in this workspace.** Before handing
+anything to the maintainer, prepare it the way
+[`docs/claude-md/human-review.md`](docs/claude-md/human-review.md) lists. That
+file is the index of every practice that spends less review time per finding:
+the picture before the code
+([`visual-review-first.md`](docs/claude-md/visual-review-first.md)), drawn
+geometry, V&V docs with results, predictions written before runs, inline code
+walks, struck-through corrections, the Bookkeeping status axes, and the
+human-corrections log. When a new review practice is adopted, add a row there.
 
 # Part 2 — Compliance and workflow
 
