@@ -231,35 +231,83 @@ fn splitmix(state: &mut u64) -> f64 {
     (z >> 11) as f64 / (1u64 << 53) as f64
 }
 
-/// `n` pebble centres in a loose, jittered square lattice (pitch 1.1 d)
-/// filling the vessel from the valve upward: each layer stays inside the wall
-/// radius at its height, less a radius and a millimetre. Loose (solid
-/// fraction ~0.39), so the pour then settles under gravity. Deterministic in
-/// `seed`. Ported from `examples/bake_htr10_conus_slab.rs` `seed_column`,
-/// extended from a straight tube to the tube + conus + barrel.
+/// Solid fraction of the loose seed (random sequential placement).
+const SEED_SOLID_FRACTION: f64 = 0.30;
+
+/// `n` pebble centres placed at random without overlap in the vessel, filling
+/// it from the valve upward at a loose solid fraction (0.30), the way
+/// LIGGGHTS' `fix insert/pack` seeds a region: random positions, rejected if
+/// they overlap a placed pebble or the wall. Deterministic in `seed`
+/// (SplitMix64, no RNG dependency). The pour then settles under gravity.
+///
+/// ~~A jittered square lattice (pitch 1.1 d), from `bake_htr10_conus_slab.rs`
+/// `seed_column`.~~ **REPLACED 2026-10-05:** a 16 890-pebble pour from that
+/// lattice kept its order through the short drop: g(√3 d) 2.90 and g(√2 d)
+/// 0.898 against 1.29 and 0.599 for the LIGGGHTS-port reference bed
+/// (`htr10_conus_presettled_mu10_mur00.csv`), and a whole-core φ of 0.6227.
+/// A seed with no lattice in it carries no order to freeze in. Measured
+/// with this seed, same 16 890 pebbles: g(√2 d) 0.619, g(√3 d) 1.284, g(2 d)
+/// 1.202, contact peak 19.55, against 0.599 / 1.286 / 1.190 / 19.56 for the
+/// reference random bed (core region, `examples/bed_rdf_check.rs`); settled
+/// after 26 000 steps (307 s, 12 threads) at whole-core φ 0.5954. That φ is
+/// not compared with the package's 0.6047, which is a 27 554-pebble core.
 pub fn seed_loose(n: usize, seed: u64) -> Vec<Vec3> {
-    let d = 2.0 * PEBBLE_RADIUS_M;
-    let pitch = 1.1 * d;
+    let r = PEBBLE_RADIUS_M;
+    let d = 2.0 * r;
     let mut state = seed;
-    let mut out = Vec::with_capacity(n);
-    let mut z = VALVE_Z_M + PEBBLE_RADIUS_M + 1.0e-3;
+    let mut out: Vec<Vec3> = Vec::with_capacity(n);
+    // Spatial hash of placed centres on a d-sized grid, for O(1) overlap checks.
+    let mut grid: std::collections::BTreeMap<(i64, i64, i64), Vec<usize>> = std::collections::BTreeMap::new();
+    let cell = |p: Vec3| ((p.x / d).floor() as i64, (p.y / d).floor() as i64, (p.z / d).floor() as i64);
+    let v_pebble = 4.0 / 3.0 * std::f64::consts::PI * r.powi(3);
+    // Fill slab by slab (one diameter thick) from the valve up, each slab to
+    // the target solid fraction, so the seed is uniformly loose.
+    let mut z0 = VALVE_Z_M;
     while out.len() < n {
-        // The narrowest wall radius this layer's spheres touch.
-        let reach = wall_radius_at(z - PEBBLE_RADIUS_M).min(wall_radius_at(z + PEBBLE_RADIUS_M))
-            - PEBBLE_RADIUS_M
-            - 1.0e-3;
-        let (ox, oy) = (splitmix(&mut state) * pitch, splitmix(&mut state) * pitch);
-        let span = (reach / pitch).ceil() as i64 + 1;
-        for i in -span..=span {
-            for j in -span..=span {
-                let x = i as f64 * pitch + ox - 0.5 * pitch + (splitmix(&mut state) - 0.5) * 0.08 * d;
-                let y = j as f64 * pitch + oy - 0.5 * pitch + (splitmix(&mut state) - 0.5) * 0.08 * d;
-                if reach > 0.0 && (x * x + y * y).sqrt() <= reach && out.len() < n {
-                    out.push(Vec3::new(x, y, z));
+        let z1 = z0 + d;
+        // The narrowest wall any sphere centred in this slab can touch.
+        let reach = wall_radius_at(z0 - r).min(wall_radius_at(z1 + r)) - r - 1.0e-3;
+        if reach <= 0.0 {
+            z0 = z1;
+            continue;
+        }
+        let slab_volume = std::f64::consts::PI * (reach + r).powi(2) * d;
+        let target = ((SEED_SOLID_FRACTION * slab_volume / v_pebble).round() as usize).max(1);
+        let (mut placed, mut tries) = (0usize, 0usize);
+        while placed < target && out.len() < n && tries < 200 * target {
+            tries += 1;
+            // Uniform in the disc of radius `reach`, uniform in z within the slab.
+            let rr = reach * splitmix(&mut state).sqrt();
+            let th = std::f64::consts::TAU * splitmix(&mut state);
+            let p = Vec3::new(rr * th.cos(), rr * th.sin(), z0 + (z1 - z0) * splitmix(&mut state));
+            if p.z - r <= VALVE_Z_M {
+                continue;
+            }
+            let (cx, cy, cz) = cell(p);
+            let mut clear = true;
+            'scan: for dx in -1..=1 {
+                for dy in -1..=1 {
+                    for dz in -1..=1 {
+                        if let Some(ids) = grid.get(&(cx + dx, cy + dy, cz + dz)) {
+                            for &k in ids {
+                                let q = out[k];
+                                if (p.x - q.x).powi(2) + (p.y - q.y).powi(2) + (p.z - q.z).powi(2) < d * d {
+                                    clear = false;
+                                    break 'scan;
+                                }
+                            }
+                        }
+                    }
                 }
             }
+            if !clear {
+                continue;
+            }
+            grid.entry((cx, cy, cz)).or_default().push(out.len());
+            out.push(p);
+            placed += 1;
         }
-        z += pitch;
+        z0 = z1;
     }
     out
 }

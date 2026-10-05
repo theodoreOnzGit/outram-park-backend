@@ -55,6 +55,14 @@ pub enum Screen {
     Wizard,
 }
 
+/// What a geometry was built from: the lattice at `(rings, layers)`, or a
+/// particular DEM pour (identified by its run number in this session).
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum BedKey {
+    Lattice(usize, usize),
+    Dem(u64),
+}
+
 /// Step 1's DEM pour: where it is, and what it produced.
 pub struct DemUi {
     pub running: bool,
@@ -68,6 +76,8 @@ pub struct DemUi {
     pub stopped: bool,
     pub started_at: f64,
     pub view: crate::dem::DemView,
+    /// Counts pours; identifies which pour a geometry was built from.
+    pub run_id: u64,
 }
 
 impl Default for DemUi {
@@ -81,6 +91,7 @@ impl Default for DemUi {
             stopped: false,
             started_at: 0.0,
             view: crate::dem::DemView::new(),
+            run_id: 0,
         }
     }
 }
@@ -124,7 +135,8 @@ pub struct App {
     pub assembly: Option<AssemblyInfo>,
     pub core: Option<Arc<AssembledCore>>,
     pub assembling: bool,
-    pub assembled_for: Option<(usize, usize)>,
+    /// What the current geometry was built from.
+    pub assembled_for: Option<BedKey>,
     pub slice: SliceView,
     /// The Blender-like 3D viewport, and whether the main view shows it (else
     /// the 2D slice).
@@ -308,21 +320,47 @@ impl App {
         });
     }
 
+    /// The bed Step 1 currently asks for (always `Some`; kept an `Option` for
+    /// a future source with nothing to build).
+    pub fn wanted_bed(&self) -> Option<BedKey> {
+        use dhoby_ghaut::workbench::recipe::BedSource;
+        match self.recipe.pebble_bed.source {
+            BedSource::Lattice => Some(BedKey::Lattice(self.recipe.pebble_bed.rings, self.recipe.pebble_bed.layers)),
+            // Until a pour has finished, the preset lattice stands in (Step 1
+            // says so).
+            BedSource::Dem => Some(match &self.dem.result {
+                Some(_) => BedKey::Dem(self.dem.run_id),
+                None => BedKey::Lattice(self.recipe.pebble_bed.rings, self.recipe.pebble_bed.layers),
+            }),
+        }
+    }
+
+    /// Build the geometry Step 1 asks for: the lattice, or the finished DEM
+    /// pour's bed. With a DEM source and no finished pour there is nothing to
+    /// build yet; the current geometry stays.
     pub fn assemble(&mut self) {
-        let key = (self.recipe.pebble_bed.rings, self.recipe.pebble_bed.layers);
+        let Some(key) = self.wanted_bed() else { return };
         self.assembling = true;
         self.assembled_for = Some(key);
         self.core = None;
         self.slice.invalidate();
         self.view3d.invalidate();
-        self.geo.send(Req::Assemble {
-            rings: key.0,
-            layers: key.1,
-        });
+        self.shown_step = None;
+        match key {
+            BedKey::Lattice(rings, layers) => self.geo.send(Req::Assemble { rings, layers }),
+            BedKey::Dem(_) => {
+                let centres_m = self.dem.result.clone().unwrap_or_default();
+                let rings = self.recipe.pebble_bed.rings;
+                self.geo.send(Req::AssembleFromCentres { centres_m, rings });
+            }
+        }
+        // A new geometry needs a new look before Monte Carlo.
+        self.recipe.review = Default::default();
+        self.review_seen.clear();
     }
 
     pub fn geometry_stale(&self) -> bool {
-        self.assembled_for != Some((self.recipe.pebble_bed.rings, self.recipe.pebble_bed.layers))
+        self.wanted_bed().is_some() && self.assembled_for != self.wanted_bed()
     }
 
     /// Mark the recipe edited if any MODEL input differs from the preset:
@@ -513,6 +551,7 @@ impl App {
                         format!("DEM pour hit its step cap at {} without settling", progress.steps)
                     };
                     self.say(msg, !progress.settled);
+                    self.dem.run_id += 1;
                     self.dem.result = Some(centres);
                 }
                 DemEv::Error(e) => {

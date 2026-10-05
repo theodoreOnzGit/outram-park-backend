@@ -88,6 +88,20 @@ write the figure script, results table and parameters. The shared machinery
 (majorant, source box, entropy mesh, reference interpolation, emitters) is
 `htr10_rmc::keff_vs_height`; use it rather than copying it into a new example.
 
+**HTR-10 bed options (2026-10-05).** Two builders share everything outside
+the bed (`htr10_rmc::core_shell`, extracted from `assemble_explicit_triso`,
+geometry verified byte-identical before/after by its `Debug` hash):
+- `core_model::assemble_explicit_triso(n_rings, layers, majorant)` — Şeker &
+  Çolak (2003)'s ordered 13-ball bed (`PebbleBed::Seker`), the default and the
+  one every recorded `k` is on.
+- `explicit_bed::assemble_explicit_triso_from_centres(centres, is_fuel,
+  n_rings, majorant)` — an explicit ball list in the DEM frame (metres,
+  `z = 0` the bed floor), e.g. a LIGGGHTS-port pour (`PebbleBed::Explicit`).
+  Soft-sphere overlaps are split by the bisector plane (nothing shrunk); the
+  tube below the DEM column is filled with Şeker's tube balls; see the module
+  docs. Drawn in `verification_and_validation/htr10_dem_bed_images/`
+  (`examples/htr10_dem_bed_images.rs`). **No validated `k` on it yet.**
+
 **Do not add physics kernels here** — only orchestration / facade /
 cross-crate glue belongs in this crate.
 

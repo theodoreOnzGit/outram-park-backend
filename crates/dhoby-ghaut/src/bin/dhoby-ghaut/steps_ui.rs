@@ -726,11 +726,38 @@ fn dem_controls(app: &mut App, ui: &mut egui::Ui) -> bool {
             ui.colored_label(Color32::from_rgb(170, 90, 0), "Stopped before settling: not a settled bed.");
         }
     }
-    if app.dem.result.is_some() {
-        ui.colored_label(
-            Color32::from_rgb(170, 90, 0),
-            "Building the Monte Carlo geometry from this bed is being wired in (gh:#561); until then Steps 2–5 use the preset lattice.",
-        );
+    let built_from_pour = matches!(app.assembled_for, Some(crate::app::BedKey::Dem(id)) if id == app.dem.run_id);
+    match (&app.dem.result, built_from_pour) {
+        (None, _) => {
+            ui.colored_label(
+                Color32::from_rgb(170, 90, 0),
+                "No finished pour yet: Steps 2–5 use the preset lattice until one finishes.",
+            );
+        }
+        (Some(c), false) => {
+            let n = c.len();
+            if ui
+                .add_enabled(!app.assembling, egui::Button::new(RichText::new(format!("Build the Monte Carlo core from this pour ({n} pebbles)")).strong()))
+                .on_hover_text("nee_soon explicit bed: pebbles kept whole, soft-sphere overlaps split by the bisector plane, the tube below the DEM column filled with the lattice model's dummy balls; fuel 57:43 above the floor, conus and tube all dummy")
+                .clicked()
+            {
+                app.assemble();
+            }
+            if app.dem.stopped || app.dem.progress.is_some_and(|p| !p.settled) {
+                ui.colored_label(Color32::from_rgb(170, 90, 0), "This pour did not settle; a core built from it is from an unsettled bed.");
+            }
+        }
+        (Some(c), true) => {
+            ui.colored_label(
+                Color32::from_rgb(30, 120, 60),
+                format!("The Monte Carlo core is built from this pour ({} pebbles). It has no validated k: a new bed, not the reference's.", c.len()),
+            );
+            if let Some(a) = &app.assembly {
+                if let Some(b) = a.balls {
+                    ui.label(format!("{b} balls above the conus floor; bed top at {:.1} cm.", a.bed_height));
+                }
+            }
+        }
     }
     ui.separator();
     changed

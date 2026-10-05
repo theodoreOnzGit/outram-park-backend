@@ -83,12 +83,15 @@ fn main() -> Result<(), String> {
     }
     if args.iter().any(|a| a == "--headless-geometry") {
         let r = recipe.unwrap_or_else(preset::htr10);
-        println!("{}", headless::geometry_csv(&r));
+        match arg("--centres") {
+            Some(f) => println!("{}", headless::geometry_csv_from_centres(&r, std::path::Path::new(&f))?),
+            None => println!("{}", headless::geometry_csv(&r)),
+        }
         return Ok(());
     }
     if let Some(dir) = arg("--render-review") {
         let r = recipe.unwrap_or_else(preset::htr10);
-        return headless::render_review(&r, std::path::Path::new(&dir));
+        return headless::render_review(&r, std::path::Path::new(&dir), arg("--centres").as_deref().map(std::path::Path::new));
     }
     if args.iter().any(|a| a == "--headless-keff") {
         let mut r = recipe.unwrap_or_else(preset::htr10);
@@ -170,9 +173,64 @@ mod headless {
         )
     }
 
-    pub fn render_review(r: &Recipe, dir: &Path) -> Result<(), String> {
+    /// Pebble centres \[m, DEM frame\] from a `reference-data/liggghts/`-format
+    /// CSV (`id,x,y,z,...`).
+    fn read_centres(csv: &Path) -> Result<Vec<[f64; 3]>, String> {
+        let text = std::fs::read_to_string(csv).map_err(|e| format!("{}: {e}", csv.display()))?;
+        text.lines()
+            .skip(1)
+            .filter(|l| !l.trim().is_empty())
+            .map(|l| {
+                let f: Vec<f64> = l.split(',').filter_map(|v| v.trim().parse().ok()).collect();
+                if f.len() < 4 { Err(format!("bad row: {l}")) } else { Ok([f[1], f[2], f[3]]) }
+            })
+            .collect()
+    }
+
+    /// [`geometry_csv`] for a bed of pebble centres read from a CSV in the
+    /// `reference-data/liggghts/` format (`id,x,y,z,...`, metres, DEM frame),
+    /// e.g. the output of `outram-park-fork-liggghts`' `htr10_fresh_fill`.
+    pub fn geometry_csv_from_centres(r: &Recipe, csv: &Path) -> Result<String, String> {
+        let centres_m = read_centres(csv)?;
         let mut engine = Engine::default();
-        let a = assemble(&mut engine, r).ok_or("assembly failed")?;
+        let mut info = None;
+        engine.handle(Req::AssembleFromCentres { centres_m, rings: r.pebble_bed.rings }, &mut |e| match e {
+            Ev::Assembled(i, _) => info = Some(i),
+            Ev::Error(m) => eprintln!("{m}"),
+            _ => {}
+        });
+        let a = info.ok_or("assembly from centres failed")?;
+        Ok(format!(
+            "dem_pebbles,tiles,cells,universes,core_balls,bed_height_cm,z_bottom_cm,z_top_cm,fuel_pebble_found,seconds\n\
+             {},{},{},{},{},{:.4},{:.4},{:.4},{},{:.1}",
+            a.dem_pebbles.unwrap_or(0),
+            a.tiles,
+            a.cells,
+            a.universes,
+            a.balls.map_or("none".into(), |b| b.to_string()),
+            a.bed_height,
+            a.z_range[0],
+            a.z_range[1],
+            a.pebble.is_some(),
+            a.seconds
+        ))
+    }
+
+    pub fn render_review(r: &Recipe, dir: &Path, centres: Option<&Path>) -> Result<(), String> {
+        let mut engine = Engine::default();
+        let a = match centres {
+            None => assemble(&mut engine, r).ok_or("assembly failed")?,
+            Some(csv) => {
+                let centres_m = read_centres(csv)?;
+                let mut info = None;
+                engine.handle(Req::AssembleFromCentres { centres_m, rings: r.pebble_bed.rings }, &mut |e| {
+                    if let Ev::Assembled(i, _) = e {
+                        info = Some(i);
+                    }
+                });
+                info.ok_or("assembly from centres failed")?
+            }
+        };
         let presets = crate::steps_ui::review_presets_for(&a);
         for p in presets {
             let origin = crate::slice_view::SliceView::origin(p.basis, p.depth, p.centre);

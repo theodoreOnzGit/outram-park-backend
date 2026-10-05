@@ -176,6 +176,24 @@ What was checked on 2026-10-05:
   `run_keff_csg_hybrid_with_progress` (#579). A test pins that the callback
   changes nothing about the run.
 
+**Fresh DEM pour in Step 1 (2026-10-05).** Step 1's bed source is either the
+preset lattice (Şeker's 13-ball cell) or a **fresh DEM pour**:
+`outram-park-fork-liggghts`' `htr10_fill` pours N pebbles (default 27 000,
+the full core the quoted 0.61 refers to) with the publications package's
+contact settings, on its own thread, drawn live. Once a pour finishes, "Build
+the Monte Carlo core from this pour" assembles it with `nee_soon`'s explicit
+bed (`assemble_explicit_triso_from_centres`):
+- pebbles are kept whole;
+- soft-sphere overlaps are split by the bisector plane;
+- the tube below the DEM column is filled with the lattice model's dummy
+  balls;
+- fuel is 57:43 above the floor, with the conus and tube all dummy.
+
+Steps 2–5 then run on that core; until a pour finishes they use the lattice.
+Headless: `--headless-geometry --centres bed.csv` and
+`--render-review DIR --centres bed.csv`. A core built from a pour has no
+validated k: it is a new bed, not the reference's.
+
 Limits, each with an issue:
 
 - ~~The k_eff console fills at the end of a run, not live (#579).~~

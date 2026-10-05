@@ -112,6 +112,8 @@ pub struct KeffOutcome {
 /// Geometry facts the UI shows after assembly.
 #[derive(Clone, Debug, PartialEq)]
 pub struct AssemblyInfo {
+    /// `Some(n)` when built from `n` DEM pebble centres; `None` for the lattice.
+    pub dem_pebbles: Option<usize>,
     pub rings: usize,
     pub layers: usize,
     pub tiles: usize,
@@ -140,6 +142,10 @@ pub enum Req {
     },
     /// Steps 1-4: build the geometry (geometry engine).
     Assemble { rings: usize, layers: usize },
+    /// Build it from a DEM pour's pebble centres \[m, DEM frame\] with
+    /// `nee_soon`'s explicit bed (paper fuel assignment: 57:43 above the
+    /// floor, conus and tube all dummy).
+    AssembleFromCentres { centres_m: Vec<[f64; 3]>, rings: usize },
     /// Hand an assembled core to the physics engine.
     UseCore(Arc<AssembledCore>),
     /// A slice of the assembled geometry, raw pixels for the main view.
@@ -261,6 +267,7 @@ impl Req {
         match self {
             Req::ScanEndf { .. } => "ENDF scan",
             Req::Assemble { .. } => "geometry assembly",
+            Req::AssembleFromCentres { .. } => "geometry assembly from the DEM bed",
             Req::UseCore(_) => "geometry hand-over",
             Req::Render { .. } => "slice rendering",
             Req::Render3d(_) => "3D rendering",
@@ -286,24 +293,24 @@ impl Engine {
             Req::Assemble { rings, layers } => {
                 let t = Instant::now();
                 let core = Arc::new(assemble_explicit_triso(rings, layers, 0));
-                let found = find_fuel_pebble(&core.geometry);
-                let info = AssemblyInfo {
-                    rings,
-                    layers,
-                    tiles: core.tiles,
-                    cells: core.cells,
-                    universes: core.universes,
-                    bed_radius: core.bed_radius,
-                    bed_height: 2.0 * core.bed_half_height,
-                    balls: core.bed.as_ref().and_then(|b| b.core_balls()),
-                    z_range: [core.refl_bottom, core.refl_top],
-                    bed_half_height: core.bed_half_height,
-                    conus_floor: core.conus_floor,
-                    cavity_top: core.cavity_top,
-                    pebble: found.map(|f| f.0),
-                    particle: found.map(|f| f.1),
-                    seconds: t.elapsed().as_secs_f64(),
+                let info = assembly_info(&core, rings, layers, None, t);
+                self.core = Some(core.clone());
+                post(Ev::Assembled(info, core));
+            }
+            Req::AssembleFromCentres { centres_m, rings } => {
+                use nee_soon::htr10_rmc::explicit_bed::{
+                    assemble_explicit_triso_from_centres, paper_fuel_assignment,
                 };
+                use uom::si::f64::Length;
+                use uom::si::length::meter;
+                let t = Instant::now();
+                let centres: Vec<[Length; 3]> = centres_m
+                    .iter()
+                    .map(|c| c.map(Length::new::<meter>))
+                    .collect();
+                let fuel = paper_fuel_assignment(&centres);
+                let core = Arc::new(assemble_explicit_triso_from_centres(&centres, &fuel, rings, 0));
+                let info = assembly_info(&core, rings, 0, Some(centres.len()), t);
                 self.core = Some(core.clone());
                 post(Ev::Assembled(info, core));
             }
@@ -521,6 +528,34 @@ impl Engine {
             phi_per_lethargy,
             notes: data.notes.clone(),
         }));
+    }
+}
+
+fn assembly_info(
+    core: &AssembledCore,
+    rings: usize,
+    layers: usize,
+    dem_pebbles: Option<usize>,
+    t: Instant,
+) -> AssemblyInfo {
+    let found = find_fuel_pebble(&core.geometry);
+    AssemblyInfo {
+        dem_pebbles,
+        rings,
+        layers,
+        tiles: core.tiles,
+        cells: core.cells,
+        universes: core.universes,
+        bed_radius: core.bed_radius,
+        bed_height: 2.0 * core.bed_half_height,
+        balls: core.bed.as_ref().and_then(|b| b.core_balls()),
+        z_range: [core.refl_bottom, core.refl_top],
+        bed_half_height: core.bed_half_height,
+        conus_floor: core.conus_floor,
+        cavity_top: core.cavity_top,
+        pebble: found.map(|f| f.0),
+        particle: found.map(|f| f.1),
+        seconds: t.elapsed().as_secs_f64(),
     }
 }
 

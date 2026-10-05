@@ -363,9 +363,9 @@ fn the_built_triso_lattice_holds_the_stated_8335_particles() {
 /// One piece of a pebble, as the BUILT geometry holds it: the global centre of
 /// its sphere (tile centre + the sphere's tile-local centre) and whether the
 /// tile draws it as a fuelled pebble.
-struct BallPiece {
-    centre: [f64; 3],
-    fuel: bool,
+pub(crate) struct BallPiece {
+    pub(crate) centre: [f64; 3],
+    pub(crate) fuel: bool,
 }
 
 /// Every pebble piece in every valid tile of the built bed lattice.
@@ -375,7 +375,7 @@ struct BallPiece {
 /// never from the bed's ball list (~~`TwoBallBed`~~ `bed::PebbleBed`, Şeker's
 /// bed since 2026-10-01), so it checks what transport sees rather than the
 /// description it was built from.
-fn built_ball_pieces(c: &crate::htr10_rmc::core_model::AssembledCore) -> Vec<BallPiece> {
+pub(crate) fn built_ball_pieces(c: &crate::htr10_rmc::core_model::AssembledCore) -> Vec<BallPiece> {
     use crate::htr10_rmc::core_model::{tile_cell_role, TileCellRole};
     use outram_mc_libs::geometry::cell::{HalfSpaceSense, RegionToken};
     use outram_mc_libs::geometry::lattice::Lattice;
@@ -431,7 +431,7 @@ fn built_ball_pieces(c: &crate::htr10_rmc::core_model::AssembledCore) -> Vec<Bal
 
 /// Pieces grouped into balls by global centre (to 1e-6 cm): `(centre, fuel
 /// flags of every piece)`.
-fn built_balls(pieces: &[BallPiece]) -> Vec<([f64; 3], Vec<bool>)> {
+pub(crate) fn built_balls(pieces: &[BallPiece]) -> Vec<([f64; 3], Vec<bool>)> {
     let key = |c: &[f64; 3]| c.map(|x| (x * 1.0e6).round() as i64);
     let mut m: std::collections::BTreeMap<[i64; 3], ([f64; 3], Vec<bool>)> =
         std::collections::BTreeMap::new();
