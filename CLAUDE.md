@@ -282,9 +282,16 @@ flag would have pre-empted.
 **A second-order consequence, worth knowing.** Because neither code broadens
 above `thnmax`, a shared-grid comparison against NJOY at 293.6 K that does
 *not* split at the limit measures only the **unbroadened** table — on all
-three uranium nuclides, **zero** shared grid points fall below it. This port's
+three uranium nuclides, **zero** shared grid points fall below it. ~~This port's
 Doppler broadening is therefore **not verified against NJOY at all**, despite
-a 293.6 K comparison that reads as ~1e-6 agreement. See
+a 293.6 K comparison that reads as ~1e-6 agreement.~~ **CORRECTED 2026-10-05**
+— that shared-grid comparison verified nothing about broadening, and the lesson
+stands, but broadening itself has since been verified by other instruments:
+grid-independent band integrals below `thnmax` agree to 3.5–6.7e-4 on U-234,
+U-235 and U-238, inside `errthn = 1e-3` (2026-09-20, gated by
+`tests/acer_broadening_vs_njoy2016.rs`), and BROADR at 293.6 K reproduces
+NJOY2016's own PENDFs word for word on 7 cases (2026-09-26,
+`tests/pendf_stages_vs_njoy2016.rs`). See
 `crates/njoy-outram-park-fork/verification_and_validation/acer_ce_vs_njoy2016_multi_nuclide.md`.
 
 > Full original text of all four sections, with the complete worked-example
