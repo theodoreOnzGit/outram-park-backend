@@ -31,6 +31,8 @@ web-sys = { workspace = true, features = [
     "Window", "Document", "Location", "History", "Response",
     "Worker", "WorkerOptions", "WorkerType", "WorkerGlobalScope",
     "DedicatedWorkerGlobalScope", "MessageEvent", "ErrorEvent", "console",
+    # `platform::keep_canvas_at_device_pixels` (gh:#556).
+    "Element", "HtmlCanvasElement", "NodeList", "DomRect",
 ] }
 
 # The windowing stack, and the whole reason this crate exists. Target-gated OFF

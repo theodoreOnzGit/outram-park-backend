@@ -25,8 +25,15 @@ impl Default for Panel {
 impl Panel {
     /// Draw the panel on the left with a heading and "« Hide", and `contents`
     /// below in a scroll area. Call before the main view's `CentralPanel`.
+    ///
+    /// Also keeps the page's canvas at device-pixel size
+    /// ([`keep_canvas_at_device_pixels`](super::platform::keep_canvas_at_device_pixels),
+    /// gh:#556): every demo calls this once a frame, so every demo is
+    /// covered without a call of its own. The fold decision waits for a
+    /// frame laid out at the corrected size.
     pub fn show(&mut self, ui: &mut egui::Ui, heading: &str, contents: impl FnOnce(&mut egui::Ui)) {
-        if !self.decided {
+        let resized = super::platform::keep_canvas_at_device_pixels(ui.ctx());
+        if !self.decided && !resized {
             self.open = ui.max_rect().width() >= NARROW_PX;
             self.decided = true;
         }
