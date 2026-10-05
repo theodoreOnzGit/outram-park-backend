@@ -105,6 +105,7 @@
 //!   with the Lindhard partition and the NJOY `E_d` table.
 
 mod damage;
+pub mod driver;
 mod kerma;
 mod spectra;
 mod twobody;
@@ -112,6 +113,7 @@ mod twobody;
 mod tests;
 
 pub use damage::{default_displacement_energy, DamageEnergy};
+pub use driver::{heatr, HeatrInput, HeatrOutput, HeatrUnits};
 pub use kerma::Kerma;
 pub use spectra::{build_emission_spectra, EmissionSpectrum};
 
