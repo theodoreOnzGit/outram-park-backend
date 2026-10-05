@@ -124,6 +124,7 @@ use super::core_model::{
     TILE_FUEL_SHELL_CELL_ID, TILE_FUEL_ZONE_CELL_ID, TILE_HELIUM_CELL_ID, TILE_SITE_STRIDE,
     TILE_VARIANTS_MAX,
 };
+use super::core_design::Htr10CoreDesign;
 use super::core_shell::{ins, out, CoreFrame, CoreShell};
 use super::reflector_geometry::Rgn;
 
@@ -267,7 +268,15 @@ pub fn lens_volume(r: f64, d: f64) -> f64 {
 /// dummy (Terry 2005 sec. 2, TECDOC-1382 p. 235, Şeker & Çolak 2003 p. 267).
 #[must_use]
 pub fn paper_fuel_assignment(centres: &[[Length; 3]]) -> Vec<bool> {
-    let f = super::table1::FUEL_BALL_FRACTION;
+    fuel_assignment_at(centres, super::table1::FUEL_BALL_FRACTION)
+}
+
+/// [`paper_fuel_assignment`] with fraction `f` (clamped to `[0, 1]`) of the
+/// balls above the floor fuelled instead of 0.57 (gh:#566): the same
+/// eligibility, order and low-discrepancy rule.
+#[must_use]
+pub fn fuel_assignment_at(centres: &[[Length; 3]], f: f64) -> Vec<bool> {
+    let f = f.clamp(0.0, 1.0);
     let mut eligible: Vec<(f64, f64, f64, usize)> = centres
         .iter()
         .enumerate()
@@ -394,6 +403,7 @@ impl ExplicitBed {
         n_rings: usize,
         bed_half_height: f64,
         explicit_tube: bool,
+        r_fuel_zone: f64,
     ) -> Self {
         let r = PEBBLE_RADIUS_CM;
         let cell = SekerCell::from_paper();
@@ -535,9 +545,9 @@ impl ExplicitBed {
                             dmin = dmin.min(d);
                             if d < 2.0 * r - TOUCH_TOLERANCE_CM {
                                 assert!(
-                                    d >= 2.0 * FUEL_ZONE_RADIUS_CM,
+                                    d >= 2.0 * r_fuel_zone,
                                     "balls {i} and {j} are {d:.4} cm apart: the bisector would cut a \
-                                     {FUEL_ZONE_RADIUS_CM} cm fuel zone. Refusing the bed rather than \
+                                     {r_fuel_zone} cm fuel zone. Refusing the bed rather than \
                                      clipping fuel."
                                 );
                                 lens += lens_volume(r, d);
@@ -605,13 +615,41 @@ impl ExplicitBed {
 /// cut), the bed is taller than the core cavity, or a tile would hold more
 /// than [`TILE_SITE_STRIDE`] balls.
 #[must_use]
-#[allow(clippy::too_many_lines)]
 pub fn assemble_explicit_triso_from_centres(
     centres: &[[Length; 3]],
     is_fuel: &[bool],
     n_rings: usize,
     majorant_index: usize,
 ) -> AssembledCore {
+    assemble_explicit_triso_from_centres_with(
+        centres,
+        is_fuel,
+        n_rings,
+        majorant_index,
+        &Htr10CoreDesign::default(),
+    )
+}
+
+/// [`assemble_explicit_triso_from_centres`] built to `design` (gh:#566,
+/// gh:#580): its fuel-zone radius, TRISO radii and count, and rod insertion.
+/// The fuel identity is the caller's `is_fuel` (use [`fuel_assignment_at`]
+/// for the design's fraction); the design's `fuel_ball_fraction` is not read
+/// here. Default design: the same geometry as before it existed.
+///
+/// # Panics
+/// As [`assemble_explicit_triso_from_centres`], and if `design` fails
+/// [`Htr10CoreDesign::check`]; two centres must be at least twice the
+/// design's fuel-zone radius apart.
+#[must_use]
+#[allow(clippy::too_many_lines)]
+pub fn assemble_explicit_triso_from_centres_with(
+    centres: &[[Length; 3]],
+    is_fuel: &[bool],
+    n_rings: usize,
+    majorant_index: usize,
+    design: &Htr10CoreDesign,
+) -> AssembledCore {
+    let r_fz = design.fuel_zone_radius_cm;
     assert_eq!(centres.len(), is_fuel.len(), "one fuel flag per centre");
     assert!(!centres.is_empty(), "no pebbles");
     let r = PEBBLE_RADIUS_CM;
@@ -643,9 +681,10 @@ pub fn assemble_explicit_triso_from_centres(
         n_rings,
         bed_half_height,
         frame.explicit_tube,
+        r_fz,
     );
 
-    let mut sh = CoreShell::new(&frame, [0.0; 3], FUEL_ZONE_RADIUS_CM, r, majorant_index);
+    let mut sh = CoreShell::new(&frame, [0.0; 3], design, r, majorant_index);
     debug_assert!((sh.conus_floor - bed.conus_floor).abs() < 1e-9);
     // The reflector first: its z-plane de-duplication scans every surface, and
     // the tiles below add hundreds of thousands. Only the order of entries in
@@ -745,7 +784,7 @@ pub fn assemble_explicit_triso_from_centres(
             let clip = |rg: Rgn| cuts[k].iter().fold(rg, |acc, &t| acc.and(Rgn(vec![t])));
             if bed.fuel[i] {
                 let fz = surfaces.len();
-                surfaces.push(sphere(lc, FUEL_ZONE_RADIUS_CM));
+                surfaces.push(sphere(lc, r_fz));
                 idx.push(cells.len());
                 cells.push(Cell::fill(
                     TILE_FUEL_ZONE_CELL_ID + id,

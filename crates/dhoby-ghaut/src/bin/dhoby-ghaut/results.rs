@@ -31,21 +31,44 @@ pub fn tape_table(app: &mut App, ui: &mut egui::Ui) {
     }
     ui.small("Needed tapes are matched by MAT and sub-library from their headers, so a library's own file names work.");
     let in_folder = needed.iter().filter(|n| n.in_folder).count();
+    // Where the k_eff run reads (gh:#581): this folder for every tape, unless
+    // it is the workspace's own ENDF folder.
+    let workspace = crate::engine::tape_source(dir) == nee_soon::htr10_rmc::data::TapeSource::Workspace;
+    if !workspace {
+        let missing: Vec<_> = needed.iter().filter(|n| !n.in_folder).collect();
+        ui.label(format!(
+            "The k_eff run reads every tape from this folder: {} of the {} the HTR-10 data plan needs are here.",
+            in_folder,
+            needed.len()
+        ));
+        if missing.is_empty() {
+            ui.colored_label(Color32::from_rgb(30, 120, 60), "Every needed tape is in this folder.");
+        }
+        for n in &missing {
+            ui.colored_label(
+                Color32::from_rgb(220, 60, 60),
+                format!("MISSING here: {} (MAT {:?}): the run will stop and name it", n.file, n.mat),
+            );
+        }
+        ui.small("Nothing falls back to the workspace copy; pick the workspace's reference-data/endf to use it.");
+    }
     let elsewhere: Vec<_> = needed
         .iter()
-        .filter(|n| !n.in_folder && n.at_default)
+        .filter(|n| workspace && !n.in_folder && n.at_default)
         .collect();
     let missing: Vec<_> = needed
         .iter()
-        .filter(|n| !n.in_folder && !n.at_default)
+        .filter(|n| workspace && !n.in_folder && !n.at_default)
         .collect();
-    ui.label(format!(
-        "The HTR-10 data plan reads {} tapes: {} in this folder, {} elsewhere, {} missing.",
-        needed.len(),
-        in_folder,
-        elsewhere.len(),
-        missing.len()
-    ));
+    if workspace {
+        ui.label(format!(
+            "The HTR-10 data plan reads {} tapes: {} in this folder, {} elsewhere, {} missing.",
+            needed.len(),
+            in_folder,
+            elsewhere.len(),
+            missing.len()
+        ));
+    }
     // Group the tapes found elsewhere by the folder they are read from (the
     // ENDF folder and the ACE submodule's, for HTR-10).
     let mut dirs: Vec<std::path::PathBuf> = Vec::new();
@@ -78,17 +101,6 @@ pub fn tape_table(app: &mut App, ui: &mut egui::Ui) {
             format!("MISSING: {}", n.file),
         );
         ui.small(format!("expected at {}", n.default_path.display()));
-    }
-    let default_dir = nee_soon::htr10_rmc::data::DataDir::Endf.path();
-    let default_dir = std::fs::canonicalize(&default_dir).unwrap_or(default_dir);
-    if std::fs::canonicalize(dir).ok() != std::fs::canonicalize(&default_dir).ok() {
-        ui.colored_label(
-            Color32::from_rgb(170, 90, 0),
-            format!(
-                "This folder is checked, but the HTR-10 loader still reads {} (gh:#581).",
-                default_dir.display()
-            ),
-        );
     }
     ui.separator();
     egui::ScrollArea::vertical().show(ui, |ui| {
@@ -387,6 +399,7 @@ mod tests {
             edges: vec![],
             phi_per_lethargy: vec![],
             notes: vec![],
+            rod_insertion: 0.0,
         };
         let l = console_lines(&o, 2);
         assert_eq!(l.len(), 4);

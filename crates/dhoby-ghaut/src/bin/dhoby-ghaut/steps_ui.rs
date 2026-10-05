@@ -59,7 +59,27 @@ pub fn review_presets_for(a: &crate::engine::AssemblyInfo) -> Vec<Preset> {
             centre: [100.0, 0.0],
             half_extent: 25.0,
         },
+        // The plane through one control rod's axis, its whole height: where
+        // the rods are (withdrawn or inserted, gh:#580).
+        Preset {
+            name: "X-Z through a control rod",
+            basis: PlotBasis::Xz,
+            depth: a.rod_xy[1],
+            centre: [a.rod_xy[0], zmid],
+            half_extent: half,
+        },
     ];
+    // Zoomed on that rod's lower end: the steel end cap, the first B4C
+    // section and the joint above it, at the height the design put them.
+    if let Some(zt) = a.rod_lower_end_zt_cm {
+        v.push(Preset {
+            name: "X-Z zoom on the lower end of a control rod",
+            basis: PlotBasis::Xz,
+            depth: a.rod_xy[1],
+            centre: [a.rod_xy[0], a.z_range[1] - zt + 20.0],
+            half_extent: 30.0,
+        });
+    }
     if let (Some(p), Some(t)) = (a.pebble, a.particle) {
         v.push(Preset {
             name: "X-Y through one fuel pebble",
@@ -503,20 +523,17 @@ fn settings(app: &mut App, ui: &mut egui::Ui) {
             changed |= num(ui, "  moderator", &mut pb.mix.moderator, 0.01, 0.0..=1.0);
             changed |= num(ui, "  fertile", &mut pb.mix.fertile, 0.01, 0.0..=1.0);
             changed |= num(ui, "  poison", &mut pb.mix.poison, 0.01, 0.0..=1.0);
-            let mix_is_preset = pb.mix == app.preset.pebble_bed.mix;
             if (pb.mix.total() - 1.0).abs() > 1e-9 {
                 ui.colored_label(
                     Color32::from_rgb(190, 30, 30),
                     format!("The mix sums to {:.3}, not 1.", pb.mix.total()),
                 );
             }
-            if !mix_is_preset {
-                ui.colored_label(
-                    Color32::from_rgb(170, 90, 0),
-                    "The HTR-10 geometry builder places fuel and moderator balls by its own rule; a changed mix is \
-                     recorded in the recipe but not yet built (gh:#566).",
-                );
-            }
+            ui.small(
+                "The fuel fraction is built: the same low-discrepancy rule hands it out over the balls above \
+                 the bed floor, the conus and tube staying all graphite (Terry 2005). Fertile and poison \
+                 balls do not exist in the model (listed below if set).",
+            );
             if let Some(a) = &app.assembly {
                 ui.separator();
                 ui.label(format!(
@@ -526,42 +543,14 @@ fn settings(app: &mut App, ui: &mut egui::Ui) {
                 if let Some(b) = a.balls {
                     ui.label(format!("{b} balls in the core (Şeker count)"));
                 }
+                ui.label(format!("fuel fraction built: {:.3}", a.design.fuel_ball_fraction));
                 ui.label(format!(
                     "{} cells, {} universes, {} tiles; assembled in {:.1} s",
                     a.cells, a.universes, a.tiles, a.seconds
                 ));
             }
         }
-        WizardStep::PebbleDesign => {
-            ui.label(format!(
-                "Voids between pebbles: {}",
-                app.recipe.pebble_design.interstitial
-            ));
-            for p in &app.recipe.pebble_design.pebbles {
-                ui.separator();
-                ui.label(RichText::new(format!("{} pebble", p.kind)).strong());
-                ui.label(format!(
-                    "outer radius {:.3} cm, matrix {}",
-                    p.outer_radius_cm, p.matrix
-                ));
-                if let Some(r) = p.fuel_zone_radius_cm {
-                    ui.label(format!("fuelled zone radius {r:.3} cm"));
-                }
-                if let Some(t) = &p.triso {
-                    ui.label(format!(
-                        "TRISO: {} kernel r {:.4} cm, {:.0} wt% U-235, {} per pebble",
-                        t.kernel,
-                        t.kernel_radius_cm,
-                        100.0 * t.enrichment,
-                        t.particles_per_pebble
-                    ));
-                    for (n, r) in &t.layers {
-                        ui.label(format!("   {n}: outer r {r:.4} cm"));
-                    }
-                }
-            }
-            ui.small("Pebble designs are read-only in this build: the HTR-10 builder takes them from the paper's tables (gh:#566).");
-        }
+        WizardStep::PebbleDesign => changed |= pebble_design(app, ui),
         WizardStep::Reflector => {
             let r = &app.recipe.reflector;
             ui.label(format!(
@@ -580,6 +569,13 @@ fn settings(app: &mut App, ui: &mut egui::Ui) {
                 i.b4c_outer_radius_cm,
                 i.b4c_density_g_per_cm3
             ));
+            ui.small("Rod insertion is set per run in Step 5; all ten rods move together.");
+            if let Some(a) = &app.assembly {
+                ui.label(match a.rod_lower_end_zt_cm {
+                    Some(zt) => format!("Built: rod lower end at z_T = {zt:.1} cm (119.2 withdrawn, 394.2 fully in)."),
+                    None => "Built: no rods in the channels.".to_string(),
+                });
+            }
             ui.separator();
             elements(ui, &i.elements.clone());
         }
@@ -652,13 +648,26 @@ fn slice_controls(app: &mut App, ui: &mut egui::Ui) {
     }
 }
 
-/// The re-assemble prompt and the edited flag, after every step's settings.
+/// The re-assemble prompt, what the builder cannot represent, and the
+/// edited flag, after every step's settings.
 fn finish_settings(app: &mut App, ui: &mut egui::Ui, changed: bool) {
+    let not_built = crate::design::plan(&app.recipe).not_built;
+    if !not_built.is_empty() {
+        ui.separator();
+        ui.colored_label(
+            Color32::from_rgb(190, 30, 30),
+            RichText::new("NOT in the built model (gh:#566)").strong(),
+        );
+        for n in &not_built {
+            ui.colored_label(Color32::from_rgb(190, 30, 30), format!("• {n}"));
+        }
+    }
     if app.geometry_stale() && !app.assembling {
         ui.separator();
         ui.colored_label(
             Color32::from_rgb(170, 90, 0),
-            "The bed settings changed since the geometry was built.",
+            "A model input (bed, pebble mix or design, rod insertion) changed since the geometry was \
+             built. Re-assemble it; the review gate must then be passed again.",
         );
         if ui.button("Re-assemble the geometry").clicked() {
             app.assemble();
@@ -746,7 +755,10 @@ fn dem_controls(app: &mut App, ui: &mut egui::Ui) -> bool {
             ui.colored_label(Color32::from_rgb(170, 90, 0), "Stopped before settling: not a settled bed.");
         }
     }
-    let built_from_pour = matches!(app.assembled_for, Some(crate::app::BedKey::Dem(id)) if id == app.dem.run_id);
+    let built_from_pour = matches!(
+        app.assembled_for,
+        Some(crate::app::BuildKey { bed: crate::app::BedKey::Dem(id), .. }) if id == app.dem.run_id
+    );
     match (&app.dem.result, built_from_pour) {
         (None, _) => {
             ui.colored_label(
@@ -895,12 +907,19 @@ fn monte_carlo(app: &mut App, ui: &mut egui::Ui) -> bool {
     );
     ui.horizontal(|ui| {
         ui.label("Control-rod insertion");
-        ui.add_enabled(
-            false,
-            egui::Slider::new(&mut app.recipe.monte_carlo.rod_insertion, 0.0..=1.0),
-        );
+        changed |= ui
+            .add_enabled(
+                !busy,
+                egui::Slider::new(&mut app.recipe.monte_carlo.rod_insertion, 0.0..=1.0),
+            )
+            .changed();
     });
-    ui.small("Rods are explicit but only WITHDRAWN in this model (the benchmark state); insertion is not modelled yet (gh:#580).");
+    ui.small(
+        "Fraction of the published travel, all ten rods together: 0 = withdrawn (lower end at z_T 119.2 cm, \
+         the benchmark state), 1 = fully inserted (394.2 cm), TECDOC-1382 § 4.1.1.5. It moves the explicit \
+         rods in the geometry, so a change re-assembles the core and the review gate is passed again \
+         (gh:#580). One rod alone is not representable.",
+    );
     ui.separator();
     ui.label(RichText::new("Statistics").strong());
     let mc = &mut app.recipe.monte_carlo;
@@ -949,7 +968,8 @@ fn monte_carlo(app: &mut App, ui: &mut egui::Ui) -> bool {
         );
     }
     ui.separator();
-    let ready = app.core.is_some() && app.recipe.review.passed();
+    let stale = app.geometry_stale();
+    let ready = app.core.is_some() && app.recipe.review.passed() && !stale && !app.assembling;
     let label = format!("Run {}", app.recipe.monte_carlo.runs.len() + 1);
     if ui
         .add_enabled(
@@ -969,17 +989,75 @@ fn monte_carlo(app: &mut App, ui: &mut egui::Ui) -> bool {
             threads: mc.threads,
             temperature_k: app.recipe.nuclear_data.temperature_k,
             bins_per_decade: mc.spectrum_bins_per_decade,
+            tapes: crate::engine::tape_source(std::path::Path::new(&app.recipe.nuclear_data.endf_dir)),
         };
         app.mc.running = true;
         app.mc.items.clear();
         app.results_open = true;
         app.phys.send(Req::RunKeff(job));
     }
-    if !app.recipe.review.passed() {
+    if stale {
+        ui.colored_label(
+            Color32::from_rgb(170, 90, 0),
+            "The geometry does not match the inputs: re-assemble it (below), then pass the review gate.",
+        );
+    } else if !app.recipe.review.passed() {
         ui.colored_label(
             Color32::from_rgb(170, 90, 0),
             "Pass the geometry review gate first.",
         );
+    }
+    changed
+}
+
+/// Step 2: the pebble designs. The fuel pebble's fuelled zone, TRISO radii
+/// and particle count are built (gh:#566); the rest is shown, and listed
+/// as NOT built by `finish_settings` if a recipe changed it.
+fn pebble_design(app: &mut App, ui: &mut egui::Ui) -> bool {
+    let mut changed = false;
+    ui.label(format!("Voids between pebbles: {}", app.recipe.pebble_design.interstitial));
+    for p in &mut app.recipe.pebble_design.pebbles {
+        ui.separator();
+        ui.label(RichText::new(format!("{} pebble", p.kind)).strong());
+        ui.label(format!("outer radius {:.3} cm, matrix {} (fixed in the model)", p.outer_radius_cm, p.matrix));
+        if p.kind != "fuel" {
+            continue;
+        }
+        if let Some(r) = p.fuel_zone_radius_cm.as_mut() {
+            changed |= num(ui, "fuelled zone radius [cm]", r, 0.01, 0.1..=2.99);
+        }
+        if let Some(t) = p.triso.as_mut() {
+            ui.label(format!(
+                "TRISO: {} kernel, {:.0} wt% U-235 (material fixed in the model)",
+                t.kernel,
+                100.0 * t.enrichment
+            ));
+            changed |= num(ui, "   kernel radius [cm]", &mut t.kernel_radius_cm, 0.0005, 0.001..=0.1);
+            for (n, r) in &mut t.layers {
+                changed |= num(ui, &format!("   {n} outer radius [cm]"), r, 0.0005, 0.001..=0.2);
+            }
+            changed |= int(ui, "particles per pebble", &mut t.particles_per_pebble, 1..=30_000);
+        }
+    }
+    ui.small(
+        "Built: the fuelled zone, the five TRISO radii and the particle count (the lattice pitch is solved \
+         for it). Not built: the ball radius (the bed lattice is made for 6 cm balls), materials and \
+         enrichment. Edits make the geometry stale; re-assemble to see them.",
+    );
+    if let Some(a) = &app.assembly {
+        if let Some(n) = a.triso_particles {
+            ui.label(format!("Built: {n} whole particles per fuel zone."));
+            if n != a.design.particles_per_pebble {
+                ui.colored_label(
+                    Color32::from_rgb(170, 90, 0),
+                    format!(
+                        "The pitch search reached {n}, not the {} asked for: the closest count a cubic \
+                         lattice gives.",
+                        a.design.particles_per_pebble
+                    ),
+                );
+            }
+        }
     }
     changed
 }

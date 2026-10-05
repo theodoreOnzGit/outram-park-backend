@@ -237,9 +237,20 @@ Limits, each with an issue:
 
 - ~~The k_eff console fills at the end of a run, not live (#579).~~
   **FIXED 2026-10-05**: it fills live (above).
-- Rod insertion is not modelled (#580).
-- A custom ENDF folder is scanned but not used for the load (#581).
-- Pebble designs and the pebble-type mix are recorded, not rebuilt (#566).
+- ~~Rod insertion is not modelled (#580).~~ **DONE 2026-10-05**: Step 5's
+  slider moves all ten explicit rods (0 withdrawn to 1 fully inserted) and
+  re-assembles the core; drawings and a TENTATIVE rods-out/in k in
+  `verification_and_validation/htr10_rod_insertion/`. One rod alone is not
+  representable.
+- ~~A custom ENDF folder is scanned but not used for the load (#581).~~
+  **DONE 2026-10-05**: the k_eff load reads every tape from the Step 0 folder
+  (flat or an extracted library), found by MAT and NSUB; a tape the folder
+  lacks stops the run with its name, never falling back.
+- ~~Pebble designs and the pebble-type mix are recorded, not rebuilt
+  (#566).~~ **DONE 2026-10-05**: the fuel fraction, fuel-zone radius, TRISO
+  radii and particle count are rebuilt into the core; what the builder cannot
+  represent (ball radius, materials, enrichment, fertile and poison pebbles,
+  Steps 3-4 hardware) is listed in red as NOT in the built model.
 - The refuelling chute, absorber spheres and irradiation-channel pebbles are
   not in the HTR-10 model (#570).
 

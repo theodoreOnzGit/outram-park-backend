@@ -1344,6 +1344,10 @@ pub struct SekerBed {
     pub container_bottom: f64,
     /// The rule the identities were assigned by.
     pub assignment: FuelAssignment,
+    /// Fraction of the eligible balls that are fuel under
+    /// [`FuelAssignment::Paper`] / [`FuelAssignment::FuelledConus`]: the
+    /// paper's 0.57 unless [`Self::with_fuel_fraction`] changed it (gh:#566).
+    pub fuel_fraction: f64,
     /// Balls that took part in the 57:43 split.
     pub eligible_balls: usize,
     /// Of which fuelled.
@@ -1411,6 +1415,7 @@ impl SekerBed {
             tube_radius,
             container_bottom,
             assignment,
+            fuel_fraction: super::table1::FUEL_BALL_FRACTION,
             eligible_balls: 0,
             fuel_balls: 0,
             rejected_balls: 0,
@@ -1423,6 +1428,20 @@ impl SekerBed {
         bed.reject();
         bed.assign();
         bed
+    }
+
+    /// The same bed with fraction `f` (clamped to `[0, 1]`) of its eligible
+    /// balls fuelled instead of the paper's 0.57, by the same
+    /// low-discrepancy rule in the same order (gh:#566). Which balls are
+    /// eligible is unchanged: the conus and tube stay all dummy under
+    /// [`FuelAssignment::Paper`].
+    #[must_use]
+    pub fn with_fuel_fraction(mut self, f: f64) -> Self {
+        self.fuel_fraction = f.clamp(0.0, 1.0);
+        self.flower_fuel.iter_mut().for_each(|v| *v = false);
+        self.central_fuel.iter_mut().for_each(|v| *v = false);
+        self.assign();
+        self
     }
 
     /// z \[cm\] of the lattice centre, to pass to `HexLattice::from_rings_3d`.
@@ -1630,7 +1649,7 @@ impl SekerBed {
     }
 
     fn assign(&mut self) {
-        let f = super::table1::FUEL_BALL_FRACTION;
+        let f = self.fuel_fraction;
         let mut eligible: Vec<(i32, f64, f64, SekerBallId)> = Vec::new();
         for id in self.all_balls() {
             let [x, y, z] = self.centre(id);

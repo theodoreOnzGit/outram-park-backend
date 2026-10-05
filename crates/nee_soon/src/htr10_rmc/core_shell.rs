@@ -30,6 +30,7 @@ use outram_mc_libs::geometry::universe::Universe;
 use outram_mc_libs::pebble_beds::sphere_packing::cubic_pitch_for_count;
 
 use super::bed::PebbleBed;
+use super::core_design::Htr10CoreDesign;
 use super::core_model::{
     cavity_above_bed, mat, AssembledCore, HTR10_AXIAL_REFLECTOR_CM, HTR10_BOTTOM_REFLECTOR_CM,
     HTR10_CONTROL_ROD_INNER_CM, HTR10_CONTROL_ROD_OUTER_CM, HTR10_CONUS_HEIGHT_CM,
@@ -159,6 +160,10 @@ pub(super) struct CoreShell {
     pub cavity_top: f64,
     zone_map: bool,
     withdrawn_rods: bool,
+    /// `z_T` \[cm\] of the rods' lower end (gh:#580).
+    rod_lower_end_zt_cm: f64,
+    /// Whole particles the TRISO lattice holds per fuel zone.
+    triso_particles: usize,
     triso_lattice: RectLattice,
     reflector_built: bool,
 }
@@ -166,15 +171,25 @@ pub(super) struct CoreShell {
 impl CoreShell {
     /// Build everything but the bed tiles and the reflector. `site0` is the
     /// tile-local centre \[cm\] given to surfaces 5 (fuel zone) and 6
-    /// (pebble); `r_fuel_zone` and `r_pebble` \[cm\]; `majorant_index` as
-    /// for `assemble_explicit_triso`.
+    /// (pebble); `r_pebble` \[cm\]; `majorant_index` as for
+    /// `assemble_explicit_triso`. The fuel-zone radius, the TRISO radii, the
+    /// particle count and the rod position come from `design` (gh:#566,
+    /// gh:#580); its default is the record's model, built exactly as before.
+    ///
+    /// # Panics
+    /// If `design` fails [`Htr10CoreDesign::check`].
     pub(super) fn new(
         frame: &CoreFrame,
         site0: [f64; 3],
-        r_fuel_zone: f64,
+        design: &Htr10CoreDesign,
         r_pebble: f64,
         majorant_index: usize,
     ) -> Self {
+        if let Err(e) = design.check() {
+            panic!("HTR-10 design refused: {e}");
+        }
+        let r_fuel_zone = design.fuel_zone_radius_cm;
+        let rod_lower_end_zt_cm = design.rod_lower_end_zt_cm();
         let CoreFrame {
             bed_radius,
             bed_half_height,
@@ -186,8 +201,9 @@ impl CoreShell {
             has_refl,
             explicit_tube,
         } = *frame;
-        // Adjudicated radii (op-867c.12): TECDOC-1382, 90 um buffer.
-        let tr = [0.0250_f64, 0.0340, 0.0380, 0.0415, 0.0455];
+        // Adjudicated radii (op-867c.12): TECDOC-1382, 90 um buffer -- the
+        // default design's `core_design::TRISO_RADII_CM` (gh:#566).
+        let tr = design.triso_radii_cm;
         let r_part = tr[4];
         // ONE offset, used both to COUNT the particles and to BUILD the lattice
         // (gh:#316). Until 2026-09-25 the count used [0.5, 0.5, 0.0] -- 8340
@@ -208,7 +224,7 @@ impl CoreShell {
         // built lattice holds exactly the counted number.
         const TRISO_OFFSET: [f64; 3] = [0.13, 0.37, 0.71];
         let (pitch_triso, n_particles) =
-            cubic_pitch_for_count(r_part, r_fuel_zone, 8335, TRISO_OFFSET);
+            cubic_pitch_for_count(r_part, r_fuel_zone, design.particles_per_pebble, TRISO_OFFSET);
         // A cubic lattice spanning the fuel zone; tiles outside it fall through to
         // `outer` = matrix graphite, which is exactly the "not occupied is filled
         // with graphite" the paper specifies.
@@ -593,6 +609,8 @@ impl CoreShell {
             cavity_top,
             zone_map,
             withdrawn_rods,
+            rod_lower_end_zt_cm,
+            triso_particles: n_particles,
             triso_lattice,
             reflector_built: false,
         }
@@ -605,6 +623,7 @@ impl CoreShell {
         self.reflector_built = true;
         let zone_map = self.zone_map;
         let withdrawn_rods = self.withdrawn_rods;
+        let rod_lower_end_zt_cm = self.rod_lower_end_zt_cm;
         let refl_top = self.frame.refl_top;
         let has_refl = self.frame.has_refl;
         let (surfaces, cells, universes) =
@@ -626,7 +645,10 @@ impl CoreShell {
                 cells,
                 universes,
                 ReflectorFrame { refl_top },
-                ReflectorOptions { withdrawn_rods },
+                ReflectorOptions {
+                    withdrawn_rods,
+                    rod_lower_end_zt_cm,
+                },
                 ReflectorMaterials {
                     helium: mat::HELIUM,
                     b4c: mat::ROD_B4C,
@@ -658,6 +680,9 @@ impl CoreShell {
             conus_floor,
             cavity_top,
             triso_lattice,
+            triso_particles,
+            rod_lower_end_zt_cm,
+            withdrawn_rods,
             ..
         } = self;
         let CoreFrame {
@@ -665,6 +690,7 @@ impl CoreShell {
             bed_half_height,
             refl_top,
             refl_bottom,
+            has_refl,
             ..
         } = frame;
         let geometry = Geometry {
@@ -689,6 +715,8 @@ impl CoreShell {
             refl_top,
             refl_bottom,
             bed: Some(bed),
+            triso_particles: Some(triso_particles),
+            rod_lower_end_zt_cm: (has_refl && withdrawn_rods).then_some(rod_lower_end_zt_cm),
         }
     }
 }

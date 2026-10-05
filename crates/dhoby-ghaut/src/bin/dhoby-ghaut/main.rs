@@ -25,6 +25,11 @@
 //!     [--synthetic | --sweep 300,600,900] [--order 1] [--basis sqrt|ln|linear] [--out out_dir]
 //! ```
 //!
+//! Every headless mode also takes `--rod-insertion F` (0 withdrawn to 1 fully
+//! inserted, gh:#580) and `--endf-dir DIR` (the folder the k_eff load reads
+//! its tapes from, flat or an extracted library, gh:#581), overriding the
+//! recipe. `--scan-endf DIR` also prints where the load would read each tape.
+//!
 //! **Research, education and V&V only.** The HTR-10 model is the TENTATIVE
 //! model of the RMC code-to-code record (`nee_soon::htr10_rmc`); see the V&V
 //! status the preset card shows. An offline demonstration: never connect it
@@ -53,6 +58,8 @@ mod coupled;
 mod coupled_ui;
 #[cfg(not(any(target_os = "android", target_arch = "wasm32")))]
 mod dem;
+#[cfg(not(any(target_os = "android", target_arch = "wasm32")))]
+mod design;
 #[cfg(not(any(target_os = "android", target_arch = "wasm32")))]
 mod engine;
 #[cfg(not(any(target_os = "android", target_arch = "wasm32")))]
@@ -107,12 +114,51 @@ fn main() -> Result<(), String> {
         }
         None => None,
     };
+    // Overrides of the recipe for the headless modes: the rods' insertion
+    // (fraction of travel, gh:#580) and the ENDF folder (gh:#581).
+    let mut recipe = recipe;
+    let overrides = |r: &mut dhoby_ghaut::workbench::recipe::Recipe| -> Result<(), String> {
+        if let Some(v) = arg("--rod-insertion") {
+            r.monte_carlo.rod_insertion = v.parse().map_err(|e| format!("--rod-insertion {v}: {e}"))?;
+        }
+        if let Some(d) = arg("--endf-dir") {
+            r.nuclear_data.endf_dir = d;
+        }
+        Ok(())
+    };
+    if arg("--rod-insertion").is_some() || arg("--endf-dir").is_some() {
+        let mut r = recipe.take().unwrap_or_else(preset::htr10);
+        overrides(&mut r)?;
+        recipe = Some(r);
+    }
     if let Some(dir) = arg("--scan-endf") {
         let (layout, tapes) = engine::scan_endf(std::path::Path::new(&dir));
         println!("{dir}: {layout:?}, {} tapes", tapes.len());
         for n in engine::needed_tapes() {
-            let found = tapes.iter().find(|t| n.matches(t)).map(|t| t.file.clone());
-            println!("{:<34} MAT {:>5?} NSUB {:>6?} -> {}", n.file, n.mat, n.nsub, found.unwrap_or_else(|| "MISSING".into()));
+            let found = n.identity().find(&tapes).map(|t| t.file.clone());
+            println!(
+                "{:<34} MAT {:>5?} NSUB {:>6?} -> {}",
+                n.file,
+                n.mat,
+                n.nsub,
+                found.unwrap_or_else(|e| format!("MISSING ({e:?})"))
+            );
+        }
+        // What the k_eff load would read, resolved the way it resolves them.
+        use nee_soon::htr10_rmc::data::{resolve_tapes, Htr10DataConfig, Htr10NuclideLayout};
+        let cfg = Htr10DataConfig {
+            tapes: engine::tape_source(std::path::Path::new(&dir)),
+            ..Htr10DataConfig::default()
+        };
+        let layout = Htr10NuclideLayout::plan(&cfg).map_err(|e| e.to_string())?;
+        match resolve_tapes(&cfg, &layout) {
+            Ok(v) => {
+                println!("the k_eff load would read ({:?}):", cfg.tapes);
+                for (n, p) in v {
+                    println!("  {n:<20} {}", p.display());
+                }
+            }
+            Err(e) => println!("the k_eff load would stop: {e}"),
         }
         return Ok(());
     }
@@ -192,17 +238,24 @@ mod headless {
 
     use crate::engine::{AssemblyInfo, Engine, Ev, KeffJob, Req};
 
+    /// Assemble `r`'s geometry, built to its design ([`crate::design::plan`]);
+    /// what the design cannot represent is printed to stderr.
     fn assemble(engine: &mut Engine, r: &Recipe) -> Option<AssemblyInfo> {
+        let plan = crate::design::plan(r);
+        for n in &plan.not_built {
+            eprintln!("NOT built: {n}");
+        }
         let mut info = None;
         engine.handle(
             Req::Assemble {
                 rings: r.pebble_bed.rings,
                 layers: r.pebble_bed.layers,
+                design: plan.design,
             },
-            &mut |e| {
-                if let Ev::Assembled(i, _) = e {
-                    info = Some(i);
-                }
+            &mut |e| match e {
+                Ev::Assembled(i, _) => info = Some(i),
+                Ev::Error(m) => eprintln!("{m}"),
+                _ => {}
             },
         );
         info
@@ -259,7 +312,8 @@ mod headless {
         let centres_m = read_centres(csv)?;
         let mut engine = Engine::default();
         let mut info = None;
-        engine.handle(Req::AssembleFromCentres { centres_m, rings: r.pebble_bed.rings }, &mut |e| match e {
+        let design = crate::design::plan(r).design;
+        engine.handle(Req::AssembleFromCentres { centres_m, rings: r.pebble_bed.rings, design }, &mut |e| match e {
             Ev::Assembled(i, _) => info = Some(i),
             Ev::Error(m) => eprintln!("{m}"),
             _ => {}
@@ -288,7 +342,8 @@ mod headless {
             Some(csv) => {
                 let centres_m = read_centres(csv)?;
                 let mut info = None;
-                engine.handle(Req::AssembleFromCentres { centres_m, rings: r.pebble_bed.rings }, &mut |e| {
+                let design = crate::design::plan(r).design;
+                engine.handle(Req::AssembleFromCentres { centres_m, rings: r.pebble_bed.rings, design }, &mut |e| {
                     if let Ev::Assembled(i, _) = e {
                         info = Some(i);
                     }
@@ -302,9 +357,10 @@ mod headless {
             let name = p.name.to_lowercase().replace([' ', '(', ')', '-'], "_");
             let path = dir.join(format!("review_{name}.png"));
             let title = format!(
-                "HTR-10 {}X{}: {}",
+                "HTR-10 {}X{}{}: {}",
                 r.pebble_bed.rings,
                 r.pebble_bed.layers,
+                rods_label(a.design.rod_insertion),
                 p.name.to_uppercase()
             );
             let w = 2.0 * p.half_extent;
@@ -327,13 +383,24 @@ mod headless {
         Ok(())
     }
 
+    /// ", RODS 0.50 IN" in an image title when the rods are not withdrawn.
+    pub fn rods_label(f: f64) -> String {
+        if f > 0.0 {
+            format!(", RODS {f:.2} IN")
+        } else {
+            String::new()
+        }
+    }
+
     pub fn keff(mut r: Recipe, out: &Path) -> Result<(), String> {
         let mut engine = Engine::default();
         let a = assemble(&mut engine, &r).ok_or("assembly failed")?;
         println!(
-            "assembled: {} cells, {} tiles, {:?} balls ({:.1} s)",
-            a.cells, a.tiles, a.balls, a.seconds
+            "assembled: {} cells, {} tiles, {:?} balls, rods at z_T {:?} cm ({:.1} s)",
+            a.cells, a.tiles, a.balls, a.rod_lower_end_zt_cm, a.seconds
         );
+        let tapes = crate::engine::tape_source(Path::new(&r.nuclear_data.endf_dir));
+        println!("tapes: {tapes:?}");
         let mc = r.monte_carlo.clone();
         let label = format!("Run {}", mc.runs.len() + 1);
         let job = KeffJob {
@@ -346,6 +413,7 @@ mod headless {
             threads: mc.threads,
             temperature_k: r.nuclear_data.temperature_k,
             bins_per_decade: mc.spectrum_bins_per_decade,
+            tapes,
         };
         let mut outcome = None;
         let mut err = None;
@@ -389,7 +457,7 @@ mod headless {
         std::fs::write(&spec, csv).map_err(|e| e.to_string())?;
         r.monte_carlo.runs.push(RunRecord {
             label,
-            rod_insertion: mc.rod_insertion,
+            rod_insertion: o.rod_insertion,
             temperature_k: r.nuclear_data.temperature_k,
             particles: mc.particles,
             inactive: mc.inactive,

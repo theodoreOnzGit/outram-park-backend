@@ -23,10 +23,13 @@ use std::sync::Arc;
 use std::time::Instant;
 
 use dhoby_ghaut::web_demo::link::NativeEngine;
-use nee_soon::htr10_rmc::core_model::{assemble_explicit_triso, AssembledCore};
+use nee_soon::htr10_rmc::core_design::Htr10CoreDesign;
+use nee_soon::htr10_rmc::core_model::{assemble_explicit_triso_with, AssembledCore};
 use nee_soon::htr10_rmc::data::{
-    load_htr10_nuclides_with_progress, Htr10DataConfig, Htr10NuclideLayout, LoadProgress,
+    load_htr10_nuclides_with_progress, DataDir, Htr10DataConfig, Htr10NuclideLayout, LoadProgress,
+    TapeSource,
 };
+use njoy_outram_park_fork::endf_folder::{scan_endf_folder, TapeIdentity};
 use nee_soon::htr10_rmc::keff_vs_height::{bed_majorant, fissile_entropy_mesh, fissile_source_box};
 use nee_soon::htr10_rmc::materials::{htr10_material_set, Htr10MaterialConfig};
 use outram_mc_libs::geometry::plot::{render_material_slice, ImageData, PlotBasis, SlicePlot};
@@ -41,30 +44,29 @@ use outram_mc_libs::tally::tally::{ScoreType, Tally, TallyBin};
 use uom::si::f64::ThermodynamicTemperature;
 use uom::si::thermodynamic_temperature::kelvin;
 
-/// One tape found by the Step 0 scan.
-#[derive(Clone, Debug, PartialEq)]
-pub struct TapeInfo {
-    /// File name.
-    pub file: String,
-    /// MAT number (header line 2, columns 67-70).
-    pub mat: Option<i32>,
-    /// `ZSYMAM` (MF1/MT451 line 5, columns 1-11), e.g. ` 92-U -235 `.
-    pub symbol: String,
-    /// Sub-library (`NSUB`): 10 incident neutron, 12 thermal scattering, ...
-    pub nsub: Option<i64>,
-}
+/// One tape found by the Step 0 scan: `njoy_outram_park_fork`'s
+/// [`TapeHeader`](njoy_outram_park_fork::endf_folder::TapeHeader) (the scan
+/// moved there on 2026-10-05, gh:#581, so the nuclear-data load finds tapes
+/// with the same code the scan shows).
+pub type TapeInfo = njoy_outram_park_fork::endf_folder::TapeHeader;
 
-impl TapeInfo {
-    /// What the sub-library number means, for the table.
-    pub fn kind(&self) -> &'static str {
-        match self.nsub {
-            Some(10) => "neutron",
-            Some(12) => "thermal scattering",
-            Some(20_040) => "alpha",
-            Some(0) => "photo-nuclear",
-            Some(_) => "other",
-            None => "unreadable header",
-        }
+/// How a scanned ENDF folder is laid out (flat, or an extracted library).
+pub type EndfLayout = njoy_outram_park_fork::endf_folder::EndfFolderLayout;
+
+/// Where the k_eff run reads its tapes for the Step 0 folder `endf_dir`
+/// (gh:#581): the workspace layout (`reference-data/endf/` plus the ACE
+/// submodule's nickel) when the folder IS the workspace's ENDF folder, else
+/// every tape from that folder.
+pub fn tape_source(endf_dir: &Path) -> TapeSource {
+    let default = DataDir::Endf.path();
+    let same = match (std::fs::canonicalize(endf_dir), std::fs::canonicalize(&default)) {
+        (Ok(a), Ok(b)) => a == b,
+        _ => endf_dir == default,
+    };
+    if same {
+        TapeSource::Workspace
+    } else {
+        TapeSource::Folder(endf_dir.to_path_buf())
     }
 }
 
@@ -86,6 +88,8 @@ pub struct KeffJob {
     pub threads: usize,
     pub temperature_k: f64,
     pub bins_per_decade: usize,
+    /// Where the tapes are read from (Step 0's folder, gh:#581).
+    pub tapes: TapeSource,
 }
 
 /// What a k_eff run returns.
@@ -107,6 +111,8 @@ pub struct KeffOutcome {
     /// Modelling notes the data layout records (mixed libraries,
     /// substitutions, ablations).
     pub notes: Vec<String>,
+    /// Control-rod insertion of the geometry the run transported.
+    pub rod_insertion: f64,
 }
 
 /// Geometry facts the UI shows after assembly.
@@ -132,6 +138,16 @@ pub struct AssemblyInfo {
     pub pebble: Option<[f64; 3]>,
     pub particle: Option<[f64; 3]>,
     pub seconds: f64,
+    /// The design the geometry was built to (gh:#566, gh:#580).
+    pub design: Htr10CoreDesign,
+    /// Whole TRISO particles per fuel zone as built.
+    pub triso_particles: Option<usize>,
+    /// TECDOC `z_T` \[cm\] of the rods' lower end as built; `None` with no
+    /// rods.
+    pub rod_lower_end_zt_cm: Option<f64>,
+    /// Centre `(x, y)` \[cm\] of the first control-rod channel, for the
+    /// review gate's rod slice.
+    pub rod_xy: [f64; 2],
 }
 
 pub enum Req {
@@ -140,12 +156,20 @@ pub enum Req {
         dir: PathBuf,
         needed: Vec<NeededTape>,
     },
-    /// Steps 1-4: build the geometry (geometry engine).
-    Assemble { rings: usize, layers: usize },
+    /// Steps 1-4: build the geometry (geometry engine) to `design`.
+    Assemble {
+        rings: usize,
+        layers: usize,
+        design: Htr10CoreDesign,
+    },
     /// Build it from a DEM pour's pebble centres \[m, DEM frame\] with
-    /// `nee_soon`'s explicit bed (paper fuel assignment: 57:43 above the
-    /// floor, conus and tube all dummy).
-    AssembleFromCentres { centres_m: Vec<[f64; 3]>, rings: usize },
+    /// `nee_soon`'s explicit bed (the paper's fuel rule at the design's
+    /// fraction above the floor, conus and tube all dummy).
+    AssembleFromCentres {
+        centres_m: Vec<[f64; 3]>,
+        rings: usize,
+        design: Htr10CoreDesign,
+    },
     /// Hand an assembled core to the physics engine.
     UseCore(Arc<AssembledCore>),
     /// A slice of the assembled geometry, raw pixels for the main view.
@@ -221,6 +245,7 @@ pub enum Ev {
 /// Nuclear data processed at one temperature, kept for the next run.
 struct DataCache {
     temperature_k: f64,
+    tapes: TapeSource,
     nuclides: Vec<Nuclide>,
     materials: Vec<Material>,
     notes: Vec<String>,
@@ -284,22 +309,24 @@ impl Engine {
             Req::ScanEndf { dir, mut needed } => {
                 let (layout, tapes) = scan_endf(&dir);
                 for n in &mut needed {
-                    n.found = tapes.iter().find(|t| n.matches(t)).map(|t| t.file.clone());
+                    // The same rule the load uses (`TapeIdentity::find`):
+                    // MAT and NSUB, the file name breaking a tie.
+                    n.found = n.identity().find(&tapes).ok().map(|t| t.file.clone());
                     n.in_folder = n.found.is_some();
                     n.at_default = n.default_path.exists();
                 }
                 post(Ev::Scan { dir, layout, tapes, needed });
             }
-            Req::Assemble { rings, layers } => {
+            Req::Assemble { rings, layers, design } => {
                 let t = Instant::now();
-                let core = Arc::new(assemble_explicit_triso(rings, layers, 0));
-                let info = assembly_info(&core, rings, layers, None, t);
+                let core = Arc::new(assemble_explicit_triso_with(rings, layers, 0, &design));
+                let info = assembly_info(&core, rings, layers, None, design, t);
                 self.core = Some(core.clone());
                 post(Ev::Assembled(info, core));
             }
-            Req::AssembleFromCentres { centres_m, rings } => {
+            Req::AssembleFromCentres { centres_m, rings, design } => {
                 use nee_soon::htr10_rmc::explicit_bed::{
-                    assemble_explicit_triso_from_centres, paper_fuel_assignment,
+                    assemble_explicit_triso_from_centres_with, fuel_assignment_at,
                 };
                 use uom::si::f64::Length;
                 use uom::si::length::meter;
@@ -308,9 +335,11 @@ impl Engine {
                     .iter()
                     .map(|c| c.map(Length::new::<meter>))
                     .collect();
-                let fuel = paper_fuel_assignment(&centres);
-                let core = Arc::new(assemble_explicit_triso_from_centres(&centres, &fuel, rings, 0));
-                let info = assembly_info(&core, rings, 0, Some(centres.len()), t);
+                let fuel = fuel_assignment_at(&centres, design.fuel_ball_fraction);
+                let core = Arc::new(assemble_explicit_triso_from_centres_with(
+                    &centres, &fuel, rings, 0, &design,
+                ));
+                let info = assembly_info(&core, rings, 0, Some(centres.len()), design, t);
                 self.core = Some(core.clone());
                 post(Ev::Assembled(info, core));
             }
@@ -399,14 +428,14 @@ impl Engine {
             return;
         };
         let core = core.as_ref();
-        // Nuclear data, processed once per temperature.
-        let fresh = self
-            .data
-            .as_ref()
-            .is_none_or(|d| (d.temperature_k - job.temperature_k).abs() > 1e-9);
+        // Nuclear data, processed once per temperature and tape folder.
+        let fresh = self.data.as_ref().is_none_or(|d| {
+            (d.temperature_k - job.temperature_k).abs() > 1e-9 || d.tapes != job.tapes
+        });
         if fresh {
             let cfg = Htr10DataConfig {
                 temperature: ThermodynamicTemperature::new::<kelvin>(job.temperature_k),
+                tapes: job.tapes.clone(),
                 ..Htr10DataConfig::default()
             };
             let layout = match Htr10NuclideLayout::plan(&cfg) {
@@ -434,6 +463,7 @@ impl Engine {
             );
             self.data = Some(DataCache {
                 temperature_k: job.temperature_k,
+                tapes: job.tapes.clone(),
                 nuclides,
                 materials,
                 notes: layout.notes.clone(),
@@ -527,6 +557,10 @@ impl Engine {
             edges,
             phi_per_lethargy,
             notes: data.notes.clone(),
+            rod_insertion: core.rod_lower_end_zt_cm.map_or(0.0, |zt| {
+                use nee_soon::htr10_rmc::control_rod::{LOWER_END_INSERTED_CM, LOWER_END_WITHDRAWN_CM};
+                (zt - LOWER_END_WITHDRAWN_CM) / (LOWER_END_INSERTED_CM - LOWER_END_WITHDRAWN_CM)
+            }),
         }));
     }
 }
@@ -536,9 +570,15 @@ fn assembly_info(
     rings: usize,
     layers: usize,
     dem_pebbles: Option<usize>,
+    design: Htr10CoreDesign,
     t: Instant,
 ) -> AssemblyInfo {
+    use nee_soon::htr10_rmc::reflector_geometry::{reflector_channels, ChannelKind};
     let found = find_fuel_pebble(&core.geometry);
+    let rod_xy = reflector_channels()
+        .into_iter()
+        .find(|c| c.kind == ChannelKind::ControlRod)
+        .map_or([0.0; 2], |c| c.centre_xy());
     AssemblyInfo {
         dem_pebbles,
         rings,
@@ -556,6 +596,10 @@ fn assembly_info(
         pebble: found.map(|f| f.0),
         particle: found.map(|f| f.1),
         seconds: t.elapsed().as_secs_f64(),
+        design,
+        triso_particles: core.triso_particles,
+        rod_lower_end_zt_cm: core.rod_lower_end_zt_cm,
+        rod_xy,
     }
 }
 
@@ -715,7 +759,7 @@ pub struct NeededTape {
 
 /// The tapes a run at the default configuration reads.
 pub fn needed_tapes() -> Vec<NeededTape> {
-    use nee_soon::htr10_rmc::data::{DataDir, ThermalLaw};
+    use nee_soon::htr10_rmc::data::ThermalLaw;
     let cfg = Htr10DataConfig::default();
     let Ok(layout) = Htr10NuclideLayout::plan(&cfg) else {
         return Vec::new();
@@ -726,7 +770,7 @@ pub fn needed_tapes() -> Vec<NeededTape> {
             return;
         };
         if !v.iter().any(|x| x.file == f) {
-            let h = read_header(&p, f.clone());
+            let h = TapeIdentity::of_tape(&p);
             v.push(NeededTape {
                 file: f,
                 mat: h.mat,
@@ -757,115 +801,27 @@ pub fn log_edges(lo: f64, hi: f64, per_decade: usize) -> Vec<f64> {
 }
 
 impl NeededTape {
+    /// What identifies it: file name, MAT and sub-library.
+    pub fn identity(&self) -> TapeIdentity {
+        TapeIdentity {
+            file: self.file.clone(),
+            mat: self.mat,
+            nsub: self.nsub,
+        }
+    }
+
     /// Whether scanned tape `t` is this one: same MAT and sub-library, read
-    /// from the headers; by file name only if a header could not be read.
+    /// from the headers; by file name only if a header could not be read
+    /// ([`TapeIdentity::matches`]).
     pub fn matches(&self, t: &TapeInfo) -> bool {
-        match (self.mat, self.nsub, t.mat, t.nsub) {
-            (Some(m), Some(s), Some(tm), Some(ts)) => m == tm && s == ts,
-            _ => t.file.rsplit('/').next() == Some(self.file.as_str()),
-        }
+        self.identity().matches(t)
     }
 }
 
-/// How a scanned ENDF folder is laid out.
-#[derive(Clone, Debug, PartialEq)]
-pub enum EndfLayout {
-    /// Tapes directly in the folder (`reference-data/endf/`, or a library's
-    /// `neutrons/` picked on its own).
-    Flat,
-    /// A freshly extracted library (e.g. `ENDF-B-VIII.0/`), its tapes in
-    /// sub-library folders. `scanned` are the ones read (incident neutrons and
-    /// thermal scattering, what transport needs); `others` are listed only.
-    Library { scanned: Vec<String>, others: Vec<String> },
-}
-
-/// The sub-library folders transport reads, in an extracted ENDF library.
-const LIBRARY_SUBDIRS: [&str; 2] = ["neutrons", "thermal_scatt"];
-
-/// Read every `*.endf` (and `*.dat`) tape `dir` holds: MAT, ZSYMAM and NSUB
-/// from the MF1/MT451 header. Understands both a flat folder of tapes and a
-/// freshly extracted library with `neutrons/`, `thermal_scatt/`, ...
-/// sub-folders; tape names are then relative to `dir` (`neutrons/n-001_H_001.endf`).
+/// Read every tape `dir` holds: a flat folder or an extracted library
+/// ([`njoy_outram_park_fork::endf_folder::scan_endf_folder`], gh:#581).
 pub fn scan_endf(dir: &Path) -> (EndfLayout, Vec<TapeInfo>) {
-    let subdirs: Vec<String> = std::fs::read_dir(dir)
-        .map(|es| {
-            es.flatten()
-                .filter(|e| e.path().is_dir())
-                .filter_map(|e| e.file_name().to_str().map(str::to_string))
-                .collect()
-        })
-        .unwrap_or_default();
-    let is_library = LIBRARY_SUBDIRS.iter().any(|s| subdirs.iter().any(|d| d == s));
-    if !is_library {
-        return (EndfLayout::Flat, scan_flat(dir, ""));
-    }
-    let mut scanned = Vec::new();
-    let mut tapes = Vec::new();
-    for s in LIBRARY_SUBDIRS {
-        if subdirs.iter().any(|d| d == s) {
-            scanned.push(s.to_string());
-            tapes.extend(scan_flat(&dir.join(s), &format!("{s}/")));
-        }
-    }
-    let mut others: Vec<String> = subdirs.into_iter().filter(|d| !LIBRARY_SUBDIRS.contains(&d.as_str())).collect();
-    others.sort();
-    // Tapes at the top level too, if any.
-    tapes.extend(scan_flat(dir, ""));
-    tapes.sort_by(|a, b| a.file.cmp(&b.file));
-    (EndfLayout::Library { scanned, others }, tapes)
-}
-
-fn scan_flat(dir: &Path, prefix: &str) -> Vec<TapeInfo> {
-    let mut out = Vec::new();
-    let Ok(entries) = std::fs::read_dir(dir) else {
-        return out;
-    };
-    for e in entries.flatten() {
-        let p = e.path();
-        let is_tape = p.is_file()
-            && p.extension().and_then(|x| x.to_str()).is_some_and(|x| x == "endf" || x == "dat");
-        if !is_tape {
-            continue;
-        }
-        let file = format!("{prefix}{}", p.file_name().and_then(|f| f.to_str()).unwrap_or_default());
-        out.push(read_header(&p, file));
-    }
-    out.sort_by(|a, b| a.file.cmp(&b.file));
-    out
-}
-
-fn read_header(path: &Path, file: String) -> TapeInfo {
-    use std::io::{BufRead, BufReader};
-    let mut info = TapeInfo {
-        file,
-        mat: None,
-        symbol: String::new(),
-        nsub: None,
-    };
-    let Ok(f) = std::fs::File::open(path) else {
-        return info;
-    };
-    let lines: Vec<String> = BufReader::new(f)
-        .lines()
-        .take(6)
-        .map_while(Result::ok)
-        .collect();
-    let field = |l: &str, a: usize, b: usize| {
-        l.get(a..b.min(l.len()))
-            .map(str::trim)
-            .unwrap_or("")
-            .to_string()
-    };
-    if let Some(l) = lines.get(1) {
-        info.mat = field(l, 66, 70).parse().ok();
-    }
-    if let Some(l) = lines.get(3) {
-        info.nsub = field(l, 44, 55).parse().ok();
-    }
-    if let Some(l) = lines.get(5) {
-        info.symbol = field(l, 0, 11);
-    }
-    info
+    scan_endf_folder(dir)
 }
 
 /// Rasterise page `page` (0-based) of `pdf` with kovan's PDF engine.
@@ -948,22 +904,6 @@ mod tests {
         assert!((e.last().copied().unwrap_or(0.0) - 2.0e7).abs() < 1e-3);
         assert_eq!(e.len(), 125);
         assert!(e.windows(2).all(|w| w[1] > w[0]));
-    }
-
-    /// The scan reads the reference library's own headers: U-235 is MAT 9228,
-    /// an incident-neutron tape.
-    #[test]
-    fn the_scan_reads_mat_and_sublibrary_from_the_reference_tapes() {
-        let dir = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../reference-data/endf");
-        let (layout, tapes) = scan_endf(&dir);
-        assert_eq!(layout, EndfLayout::Flat);
-        let u235 = tapes
-            .iter()
-            .find(|t| t.file.starts_with("n-092_U_235"))
-            .expect("U-235 tape");
-        assert_eq!(u235.mat, Some(9228));
-        assert_eq!(u235.kind(), "neutron");
-        assert!(u235.symbol.contains("235"), "{:?}", u235.symbol);
     }
 
     /// Every tape the HTR-10 data plan reads is in `reference-data/endf/` or
