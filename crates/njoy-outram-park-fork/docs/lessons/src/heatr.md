@@ -87,6 +87,17 @@ Most of the old 1.9–2.9× was MT=4 heated beside its own levels. Numbers:
 [`heatr_vs_njoy2016.md`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/njoy-outram-park-fork/verification_and_validation/heatr_vs_njoy2016.md)
 §4–§5 and the [re-measurement log](./remeasured.md).
 
+**And then the whole module (2026-10-05, the full port).** Everything above
+is `Kerma`, a reduced-order model built from HEATR's pieces. The rest of
+`heatr.f90` (`conbar`, `sixbar`, the MF=6 capture path, `kchk`, the plot
+file, the listing) has since been translated routine by routine as
+[`heatr::heatr`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/njoy-outram-park-fork/src/heatr/driver/mod.rs), and its output tape is
+**identical in every byte** to NJOY2016's on all 62 neutron evaluations in
+`reference-data/endf/`, at `local = 0` and again at `local = 1` with the
+kinematic check on. The ACE heating column now comes from it
+(`heatr::heatr_kerma`), so the 0.39 % and 0.74 % above describe `Kerma`, not
+what the ACE table carries. The record is §6 of the same V&V file.
+
 ## The code walk
 
 <!-- code-walk: from=crates/njoy-outram-park-fork/src/heatr/kerma.rs::Kerma::from_reconr to=crates/njoy-outram-park-fork/src/heatr/spectra.rs::single_neutron_factor

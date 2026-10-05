@@ -527,24 +527,26 @@ pub struct PowerIteration {
 impl PowerIteration {
     /// Start a run on a bare sphere of radius `radius_cm` (centred at the
     /// origin, vacuum outside), from the initial source
-    /// [`run_keff_cpu_single`] has always used: uniform in the volume,
+    /// [`run_keff_cpu_single`] uses: uniform in the volume,
     /// isotropic, Watt energy.
     pub fn new(radius_cm: f64, settings: &KeffSettings) -> Self {
         let mut seed = settings.seed;
         // ANCHOR: initial_source
         // Initial source: uniform in the sphere volume, isotropic, Watt energy.
-        // NOTE (2026-10-04, gh:#527): the SAME random direction places each
-        // neutron and aims it, so every first-generation neutron flies
-        // radially outward and generation 1 leaks too much (Godiva: k_1 =
-        // 0.468 at 5000 neutrons). Kept so recorded runs stay bit-identical;
-        // the inactive generations forget it. See the issue for the fix.
+        // The position's direction and the flight direction are two
+        // INDEPENDENT isotropic draws (gh:#527, fixed 2026-10-05): until then
+        // one draw did both, so every first-generation neutron flew radially
+        // outward and generation 1 leaked far too much (Godiva: k_1 = 0.468
+        // at 5000 neutrons, seed 1).
         let source: Vec<Site> = (0..settings.n_particles)
             .map(|_| {
                 let (dx, dy, dz) = isotropic_direction(&mut seed);
                 let rr = radius_cm * prn(&mut seed).r_cbrt(); // uniform-in-volume radius
+                // Aim independently of the position (gh:#527).
+                let (ux, uy, uz) = isotropic_direction(&mut seed);
                 Site {
                     r: Position::new(rr * dx, rr * dy, rr * dz),
-                    u: Direction::new(dx, dy, dz),
+                    u: Direction::new(ux, uy, uz),
                     e: watt(&mut seed, settings.watt_a, settings.watt_b),
                 }
             })
@@ -853,9 +855,11 @@ pub fn run_keff_cpu_multi(
         .map(|_| {
             let (dx, dy, dz) = isotropic_direction(&mut src_seed);
             let rr = radius_cm * prn(&mut src_seed).r_cbrt(); // uniform-in-volume radius
+            // Aim independently of the position (gh:#527).
+            let (ux, uy, uz) = isotropic_direction(&mut src_seed);
             Site {
                 r: Position::new(rr * dx, rr * dy, rr * dz),
-                u: Direction::new(dx, dy, dz),
+                u: Direction::new(ux, uy, uz),
                 e: watt(&mut src_seed, settings.watt_a, settings.watt_b),
             }
         })
@@ -1054,9 +1058,11 @@ pub fn run_keff_gpu_inner(
         .map(|_| {
             let (dx, dy, dz) = isotropic_direction(&mut seed);
             let rr = radius_cm * prn(&mut seed).r_cbrt();
+            // Aim independently of the position (gh:#527).
+            let (ux, uy, uz) = isotropic_direction(&mut seed);
             Site {
                 r: Position::new(rr * dx, rr * dy, rr * dz),
-                u: Direction::new(dx, dy, dz),
+                u: Direction::new(ux, uy, uz),
                 e: watt(&mut seed, settings.watt_a, settings.watt_b),
             }
         })
@@ -1248,9 +1254,11 @@ pub fn run_keff_gpu_batched(
         .map(|_| {
             let (dx, dy, dz) = isotropic_direction(&mut src_seed);
             let rr = radius_cm * prn(&mut src_seed).r_cbrt();
+            // Aim independently of the position (gh:#527).
+            let (ux, uy, uz) = isotropic_direction(&mut src_seed);
             Site {
                 r: Position::new(rr * dx, rr * dy, rr * dz),
-                u: Direction::new(dx, dy, dz),
+                u: Direction::new(ux, uy, uz),
                 e: watt(&mut src_seed, settings.watt_a, settings.watt_b),
             }
         })
@@ -1625,9 +1633,11 @@ fn run_event_power_iteration(
         .map(|_| {
             let (dx, dy, dz) = isotropic_direction(&mut src_seed);
             let rr = radius_cm * prn(&mut src_seed).r_cbrt();
+            // Aim independently of the position (gh:#527).
+            let (ux, uy, uz) = isotropic_direction(&mut src_seed);
             Site {
                 r: Position::new(rr * dx, rr * dy, rr * dz),
-                u: Direction::new(dx, dy, dz),
+                u: Direction::new(ux, uy, uz),
                 e: watt(&mut src_seed, settings.watt_a, settings.watt_b),
             }
         })

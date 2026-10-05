@@ -58,50 +58,50 @@ broken file while a word-for-word comparison cannot.
 
 Call chain from `mod.rs::build_full_with_purr` to `unr.rs::unr_words`: 4 hops, 1 shortest chain. Each step shows its code; the name links to it on GitHub.
 
-**1.** [`mod.rs::build_full_with_purr`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/njoy-outram-park-fork/src/acer/mod.rs#L590) — `build_full` **with PURR**: the same table plus the UNR probability-table block, i.e.
+**1.** [`mod.rs::build_full_with_purr`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/njoy-outram-park-fork/src/acer/mod.rs#L587) — `build_full` **with PURR**: the same table plus the UNR probability-table block, i.e.
 
-<!-- snippet-check: crates/njoy-outram-park-fork/src/acer/mod.rs:590 fn build_full_with_purr -->
-<!-- snippet-check: crates/njoy-outram-park-fork/src/acer/mod.rs:600 build_deck -->
+<!-- snippet-check: crates/njoy-outram-park-fork/src/acer/mod.rs:587 fn build_full_with_purr -->
+<!-- snippet-check: crates/njoy-outram-park-fork/src/acer/mod.rs:597 build_deck -->
 
 ```rust,ignore
-{{#include ../../../../../crates/njoy-outram-park-fork/src/acer/mod.rs:590:601}}
+{{#include ../../../../../crates/njoy-outram-park-fork/src/acer/mod.rs:587:598}}
 ```
 
-**2.** → [`mod.rs::build_deck`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/njoy-outram-park-fork/src/acer/mod.rs#L456) · called at [L600](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/njoy-outram-park-fork/src/acer/mod.rs#L600) — Assemble a continuous-energy `AceTable` for the given `AceDeck`.
+**2.** → [`mod.rs::build_deck`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/njoy-outram-park-fork/src/acer/mod.rs#L456) · called at [L597](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/njoy-outram-park-fork/src/acer/mod.rs#L597) — Assemble a continuous-energy `AceTable` for the given `AceDeck`.
 
 <!-- snippet-check: crates/njoy-outram-park-fork/src/acer/mod.rs:456 fn build_deck -->
-<!-- snippet-check: crates/njoy-outram-park-fork/src/acer/mod.rs:507 from_reconr_full_with_extras -->
+<!-- snippet-check: crates/njoy-outram-park-fork/src/acer/mod.rs:504 from_reconr_full_with_extras -->
 
 ```rust,ignore
 {{#include ../../../../../crates/njoy-outram-park-fork/src/acer/mod.rs:456:463}}
     // …
-{{#include ../../../../../crates/njoy-outram-park-fork/src/acer/mod.rs:505:508}}
+{{#include ../../../../../crates/njoy-outram-park-fork/src/acer/mod.rs:502:505}}
     // … (the rest of the function: follow the link above)
 ```
 
-**3.** → [`build.rs::AceTable::from_reconr_full_with_extras`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/njoy-outram-park-fork/src/acer/build.rs#L384) · called at [L507](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/njoy-outram-park-fork/src/acer/mod.rs#L507) — [`from_reconr_full`][Self::from_reconr_full] plus the optional blocks a full NJOY deck writes: the UNR probability tables (PURR, GitHub #325) and the **delayed-neutron blocks** DNU/BDD/DNEDL/DNED (`super::delayed_blocks`).
+**3.** → [`build.rs::AceTable::from_reconr_full_with_extras`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/njoy-outram-park-fork/src/acer/build.rs#L385) · called at [L504](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/njoy-outram-park-fork/src/acer/mod.rs#L504) — [`from_reconr_full`][Self::from_reconr_full] plus the optional blocks a full NJOY deck writes: the UNR probability tables (PURR, GitHub #325) and the **delayed-neutron blocks** DNU/BDD/DNEDL/DNED (`super::delayed_blocks`).
 
-<!-- snippet-check: crates/njoy-outram-park-fork/src/acer/build.rs:384 fn from_reconr_full_with_extras -->
-<!-- snippet-check: crates/njoy-outram-park-fork/src/acer/build.rs:397 build -->
+<!-- snippet-check: crates/njoy-outram-park-fork/src/acer/build.rs:385 fn from_reconr_full_with_extras -->
+<!-- snippet-check: crates/njoy-outram-park-fork/src/acer/build.rs:398 build -->
 
 ```rust,ignore
-{{#include ../../../../../crates/njoy-outram-park-fork/src/acer/build.rs:384:398}}
+{{#include ../../../../../crates/njoy-outram-park-fork/src/acer/build.rs:385:399}}
     // … (the rest of the function: follow the link above)
 ```
 
-**4.** → [`build.rs::AceTable::build`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/njoy-outram-park-fork/src/acer/build.rs#L403) · called at [L397](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/njoy-outram-park-fork/src/acer/build.rs#L397) — Shared assembly for the `from_reconr*` constructors.
+**4.** → [`build.rs::AceTable::build`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/njoy-outram-park-fork/src/acer/build.rs#L404) · called at [L398](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/njoy-outram-park-fork/src/acer/build.rs#L398) — Shared assembly for the `from_reconr*` constructors.
 
-<!-- snippet-check: crates/njoy-outram-park-fork/src/acer/build.rs:403 fn build -->
-<!-- snippet-check: crates/njoy-outram-park-fork/src/acer/build.rs:782 unr_words -->
+<!-- snippet-check: crates/njoy-outram-park-fork/src/acer/build.rs:404 fn build -->
+<!-- snippet-check: crates/njoy-outram-park-fork/src/acer/build.rs:797 unr_words -->
 
 ```rust,ignore
-{{#include ../../../../../crates/njoy-outram-park-fork/src/acer/build.rs:403:410}}
+{{#include ../../../../../crates/njoy-outram-park-fork/src/acer/build.rs:404:411}}
     // …
-{{#include ../../../../../crates/njoy-outram-park-fork/src/acer/build.rs:780:783}}
+{{#include ../../../../../crates/njoy-outram-park-fork/src/acer/build.rs:795:798}}
     // … (the rest of the function: follow the link above)
 ```
 
-**5.** → [`unr.rs::unr_words`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/njoy-outram-park-fork/src/acer/unr.rs#L61) · called at [L782](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/njoy-outram-park-fork/src/acer/build.rs#L782) — The UNR block as `(value, is_integer)` words, ready to append to `XSS`.
+**5.** → [`unr.rs::unr_words`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/njoy-outram-park-fork/src/acer/unr.rs#L61) · called at [L797](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/njoy-outram-park-fork/src/acer/build.rs#L797) — The UNR block as `(value, is_integer)` words, ready to append to `XSS`.
 
 <!-- snippet-check: crates/njoy-outram-park-fork/src/acer/unr.rs:61 fn unr_words -->
 

@@ -18,17 +18,21 @@ use egui::{Color32, Rect, Stroke, Vec2};
 pub struct Godiva;
 
 /// The recorded result for this model and data, to compare a reader's run
-/// with: **route 4** (outram-mc reading ENDF/B-VIII.0 directly) of
-/// `crates/outram-mc-libs/verification_and_validation/icsbep/five_route_keff_2026_09_29.md`,
-/// "Results — after the OpenMC-parity audit": **0.99948 ± 0.00027
-/// (−52 ± 27 pcm)**, 32 seeds × 5000 histories × [40 inactive + 120 active],
-/// 2026-09-30, commit `0414bc8277`. The ± is the standard error of the
-/// 32-seed mean (seed-to-seed sd 151 pcm). Quoted, not re-measured here.
+/// with: **0.99994 ± 0.00005 (−6 ± 5 pcm)**, 1024 seeds × 5000 histories ×
+/// [40 inactive + 120 active], seed-to-seed sd 165 pcm,
+/// `crates/outram-mc-libs/examples/godiva_keff_ensemble.rs` "Results
+/// (2026-10-05)", commit `6faff1ed8` (#546), the number the Godiva lesson
+/// quotes. ~~Route 4 of the five-route record, 0.99948 ± 0.00027 (−52 ±
+/// 27 pcm), 32 seeds, 2026-09-30, `0414bc8277`, sd 151 pcm~~: **CORRECTED
+/// 2026-10-05** (#527): that record was superseded the same day (its 32 seeds
+/// had come out low, #546) but this demo still compared with it. A 512-seed
+/// re-check after #527's source fix gave −7 ± 8 pcm. Quoted, not re-measured
+/// here.
 pub const REFERENCE: Reference = Reference {
-    label: "32 seeds x 5000 x [40+120], 2026-09-30",
-    k: 0.99948,
-    sem: 0.00027,
-    sd_one_run: 0.00151,
+    label: "1024 seeds x 5000 x [40+120], 2026-10-05, godiva_keff_ensemble.rs at 6faff1ed8",
+    k: 0.99994,
+    sem: 0.00005,
+    sd_one_run: 0.00165,
     histories_one_run: 5000.0 * 120.0,
     experiment: Some(("ICSBEP HEU-MET-FAST-001", outram_mc_libs::vv::godiva::BENCHMARK_K, outram_mc_libs::vv::godiva::BENCHMARK_SIGMA)),
 };
@@ -88,17 +92,22 @@ impl McRung for Godiva {
         ]
     }
     /// **The recorded result's own settings**, 5000 neutrons × [40 inactive
-    /// + 120 active], seed 1, so a reader's run is one seed of the 32 the
+    /// + 120 active], seed 1, so a reader's run is one seed of the ~~32~~ 1024 the
     /// record pools.
     ///
     /// Sized on a measurement: natively (i9-13900K, 16 logical cores, 1
     /// thread used, 62 GB, Linux, CPU only, shared with other builds) the
     /// transport of these 800 000 histories took **2.9 s** on 2026-10-04 and
     /// processing the three tapes at tolerance 0.001 took 62 s. That run
-    /// (`--headless-keff 5000 40 120 1`) gave **k = 0.99942 ± 0.00183
-    /// (−58 ± 183 pcm)**: one draw, consistent with the record's
-    /// −52 ± 27 pcm. In headless Chromium at 390 × 844 the demo printed the
-    /// same k and counts (8 s of transport, 125 s of data on 4 shared cores).
+    /// (`--headless-keff 5000 40 120 1`) gave ~~**k = 0.99942 ± 0.00183
+    /// (−58 ± 183 pcm)**~~ on the old initial source; **re-run 2026-10-05
+    /// after #527** (independent source directions; Intel Xeon @ 2.10 GHz,
+    /// 1 of 4 shared logical cores, 15.7 GB, Linux, CPU only): **k = 0.99689
+    /// ± 0.00178 (−311 ± 178 pcm)**, transport 5.6 s, data 98.6 s. One draw,
+    /// 1.7σ of its own ± from the 1024-seed record's −6 ± 5 pcm. Headless
+    /// Chromium (1280 × 800, swiftshader, same shared machine) printed the
+    /// same k and counts digit for digit, after 232 s of data processing and
+    /// 21 s of transport.
     fn run_default() -> Option<KeffConfig> {
         Some(KeffConfig { n_particles: 5000, n_inactive: 40, n_active: 120, seed: 1, point_source: false, want_sites: false })
     }

@@ -118,6 +118,40 @@
 //! - **Against the experiment:** inside its ±100 pcm band. As below, `−6`
 //!   is not "6 pcm accuracy": the reference's own band is ±100.
 //!
+//! # Re-check after the initial-source fix (2026-10-05, 512 seeds, GitHub #527)
+//!
+//! `run_keff`'s bare-sphere initial source had aimed every first-generation
+//! neutron radially outward (one random direction both placed and aimed it);
+//! #527 draws the flight direction independently. That changes the random
+//! stream of every seed, so it was re-measured. **Predicted before the run:**
+//! generation-1 `k` rises (it went 0.468 → 0.897 on seed 1), the active `k`
+//! does not move.
+//!
+//! ```text
+//!   seeds         512
+//!   mean          -7 pcm
+//!   seed-to-seed  sd  179 pcm
+//!   uncertainty   sem ±8 pcm
+//!   seed consistency: chi2/dof 1.17 (dof 511, 95 % band [0.88, 1.13],
+//!     p 0.005 => flagged OverDispersed), no outlier seed,
+//!     1/sqrt(N) check over 128 groups of 4 = 1.07 +/- 0.06
+//!   gates: no regression (-7 vs -6, 0.1 sigma of 9); benchmark |-7| <= 100
+//! ```
+//!
+//! **Against the 1024-seed record above: −1 ± 9 pcm, 0.1 σ. The active `k`
+//! did not move**, as predicted; `RECORDED_PCM` stays at −6 (the larger,
+//! earlier ensemble). Not explained, and stated rather than smoothed: this
+//! run's χ²/dof of 1.17 is outside its 95 % band, where the 1024-seed run gave
+//! 0.97. The initial source only touches the inactive generations, so it is
+//! not an expected consequence of #527; whether it is a 1-in-200 draw or
+//! something in how the shared machine ran is not resolved.
+//!
+//! Hardware: Intel Xeon Processor @ 2.10 GHz, 2 of 4 shared logical cores
+//! (`taskset -c 0,1`, two single-threaded workers), 15.7 GB RAM, Linux 6.18,
+//! CPU only, shared with another agent's runs and this session's builds and
+//! browser checks. Data 102 s; transport 2149 s.
+//! `OUTRAM_GODIVA_SEEDS=512`, on `848f83f12` plus the #527 change.
+//!
 //! # ~~Results (2026-09-15, 256 seeds, ENDF/B-VIII.0)~~ — superseded 2026-10-05, kept as history
 //!
 //! ```text

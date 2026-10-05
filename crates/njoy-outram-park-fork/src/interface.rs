@@ -313,19 +313,11 @@ impl NuclearDataLibrary {
             .map(crate::acer::angular::parse_elastic_angular)
             .transpose()?;
 
-        // HEATR MT=301 heating (KERMA) for the ESZ heating column: H1–H5.
-        // ν̄/χ drive the fission term (H4); the emission spectra drive H5. All
-        // default to a benign no-op for materials that lack the corresponding
-        // data (non-fissionable ⇒ MT=18 absent ⇒ ν̄/χ never evaluated).
-        let nu = crate::nuclear_data::secondary::NuBar::from_endf(&self.tape, self.mat)?
-            .unwrap_or_default();
-        let chi =
-            crate::nuclear_data::secondary::FissionSpectrum::from_endf_mf5(&self.tape, self.mat)?
-                .unwrap_or_default();
-        let emission = crate::heatr::build_emission_spectra(&self.tape, self.mat);
-        let photons = crate::photon::PhotonProduction::from_endf(&self.tape, self.mat, r);
-        let kerma = crate::heatr::Kerma::from_endf(&self.tape, self.mat, r, &nu, &chi, &emission)
-            .with_energy_balance(&photons, r);
+        // HEATR MT=301 for the ESZ heating column: the translation of
+        // `heatr.f90` (photons transported), as ACER takes it from HEATR's
+        // tape. ~~`Kerma::from_endf(..).with_energy_balance(..)`~~, an
+        // approximation, until 2026-10-05.
+        let kerma = crate::heatr::heatr_kerma(&self.tape, self.mat, r)?;
 
         // Fission nu-bar (the ACE NU block). None for a non-fissile nuclide,
         // which leaves JXS(2)=0 -- correct, not a gap.

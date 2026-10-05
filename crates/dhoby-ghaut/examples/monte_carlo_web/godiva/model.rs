@@ -4,8 +4,9 @@
 //! **Nothing is retyped here.** Radius, temperature, the three nuclides, their
 //! tapes and atom densities all come from [`outram_mc_libs::vv::godiva`], the
 //! model `examples/godiva_keff_endf_local.rs` runs, i.e. the model the
-//! recorded result (route 4 of the five-route study, −52 ± 27 pcm) was
-//! measured on.
+//! recorded result (~~route 4 of the five-route study, −52 ± 27 pcm~~,
+//! superseded 2026-10-05 by `godiva_keff_ensemble.rs`'s 1024 seeds, −6 ± 5 pcm,
+//! #546) was measured on.
 //!
 //! **Data tier.** Run k_eff processes the tapes at NJOY's tolerance 0.001
 //! ([`SpeedTier::Fast`], the library default and exactly the record's data),

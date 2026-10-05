@@ -110,26 +110,27 @@ consequence on U-234, where `LSSF = 0`: rung 4 tells that half.
 
 Call chain from `tape.rs::Tape::read_file` to `parse.rs::parse_endf_float`: 3 hops, 1 shortest chain. Each step shows its code; the name links to it on GitHub.
 
-**1.** [`tape.rs::Tape::read_file`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/njoy-outram-park-fork/src/endf/tape.rs#L95) — Parse an ENDF ASCII tape from a file on disk.
+**1.** [`tape.rs::Tape::read_file`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/njoy-outram-park-fork/src/endf/tape.rs#L98) — Parse an ENDF ASCII tape from a file on disk.
 
-<!-- snippet-check: crates/njoy-outram-park-fork/src/endf/tape.rs:95 fn read_file -->
-<!-- snippet-check: crates/njoy-outram-park-fork/src/endf/tape.rs:97 read -->
-
-```rust,ignore
-{{#include ../../../../../crates/njoy-outram-park-fork/src/endf/tape.rs:95:98}}
-```
-
-**2.** → [`tape.rs::Tape::read`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/njoy-outram-park-fork/src/endf/tape.rs#L106) · called at [L97](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/njoy-outram-park-fork/src/endf/tape.rs#L97) — Parse an ENDF ASCII tape from any `Read` source.
-
-<!-- snippet-check: crates/njoy-outram-park-fork/src/endf/tape.rs:106 fn read -->
-<!-- snippet-check: crates/njoy-outram-park-fork/src/endf/tape.rs:126 parse_line -->
+<!-- snippet-check: crates/njoy-outram-park-fork/src/endf/tape.rs:98 fn read_file -->
+<!-- snippet-check: crates/njoy-outram-park-fork/src/endf/tape.rs:102 read -->
 
 ```rust,ignore
-{{#include ../../../../../crates/njoy-outram-park-fork/src/endf/tape.rs:106:127}}
+{{#include ../../../../../crates/njoy-outram-park-fork/src/endf/tape.rs:98:103}}
     // … (the rest of the function: follow the link above)
 ```
 
-**3.** → [`parse.rs::parse_line`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/njoy-outram-park-fork/src/endf/parse.rs#L322) · called at [L126](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/njoy-outram-park-fork/src/endf/tape.rs#L126) — Parse one 80-character ENDF ASCII line.
+**2.** → [`tape.rs::Tape::read`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/njoy-outram-park-fork/src/endf/tape.rs#L113) · called at [L102](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/njoy-outram-park-fork/src/endf/tape.rs#L102) — Parse an ENDF ASCII tape from any `Read` source.
+
+<!-- snippet-check: crates/njoy-outram-park-fork/src/endf/tape.rs:113 fn read -->
+<!-- snippet-check: crates/njoy-outram-park-fork/src/endf/tape.rs:133 parse_line -->
+
+```rust,ignore
+{{#include ../../../../../crates/njoy-outram-park-fork/src/endf/tape.rs:113:134}}
+    // … (the rest of the function: follow the link above)
+```
+
+**3.** → [`parse.rs::parse_line`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/njoy-outram-park-fork/src/endf/parse.rs#L322) · called at [L133](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/njoy-outram-park-fork/src/endf/tape.rs#L133) — Parse one 80-character ENDF ASCII line.
 
 <!-- snippet-check: crates/njoy-outram-park-fork/src/endf/parse.rs:322 fn parse_line -->
 <!-- snippet-check: crates/njoy-outram-park-fork/src/endf/parse.rs:332 parse_endf_float -->

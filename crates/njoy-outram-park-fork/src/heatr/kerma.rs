@@ -140,6 +140,9 @@ impl Kerma {
     /// Not covered: an `nqa` override (HEATR card 4), MT=458's fission-Q
     /// adjustment, and `nheat`'s own continuum and MF=6 neutron means
     /// (`conbar`, `sixbar`), for which the kinematic H5 estimate stays.
+    /// For NJOY's MT=301 itself, with all of those, use
+    /// [`crate::heatr::heatr_kerma`] (the whole-module translation, byte-identical
+    /// to NJOY2016's HEATR); since 2026-10-05 `acer` and `interface` do.
     pub fn from_endf(
         tape: &crate::endf::tape::Tape,
         mat: i32,
@@ -256,20 +259,23 @@ impl Kerma {
     /// so their energy `Σ E_γ,prod(E)` must be removed (`heatr.f90`'s `gheat`).
     /// The subtraction happens on this KERMA's own energy grid (dense — the union
     /// of the modeled reactions' grids, which already includes the
-    /// photon-producing reactions). The result is clamped at 0: heating is a
-    /// physical (non-negative) energy deposition, ~~and until the **capture
+    /// photon-producing reactions). ~~The result is clamped at 0: heating is a
+    /// physical (non-negative) energy deposition, and until the **capture
     /// momentum-recoil** refinement (`disgam`) lands, a capture reaction with
-    /// MF=12/13 photon data could otherwise over-subtract (its photons carry
-    /// nearly all of `E+Q`, leaving only the small recoil the clamp preserves as
-    /// 0 rather than a spurious negative)~~. **CORRECTED 2026-10-05 (#535):**
-    /// `disgam`'s capture recoil is in [`PhotonProduction`] (H6a), so that
-    /// reason is gone. **NJOY does not clamp**: `heatr.f90` has no lower bound
-    /// on MT=301 (checked: its only zero floors are `disbar`'s damage energy,
-    /// `:2002`, and the MF=6 recoil distributions `h6ddx`/`h6dis`), so a
-    /// negative energy balance, which
-    /// signals an evaluation whose photons carry more than `E + Q`, is
-    /// written as NJOY computes it there and zeroed here. Where they differ
-    /// is recorded on GitHub #535 (H6c, with `kchk`).
+    /// MF=12/13 photon data could otherwise over-subtract.~~
+    ///
+    /// **CHANGED 2026-10-05 (GitHub #535): no clamp at 0.** This used to
+    /// return `max(0, kinematic − MT442)`. `heatr.f90` has no lower bound on
+    /// MT=301 (checked: its only zero floors are `disbar`'s damage energy,
+    /// `:2002`, and the MF=6 recoil distributions `h6ddx`/`h6dis`), and the
+    /// clamp's stated reason, the missing capture recoil, went with H6a's
+    /// `disgam`. A negative energy balance means the evaluation's photons
+    /// carry more than `E + Q` minus the outgoing particles' energy: an
+    /// inconsistency in the data that NJOY writes as it finds it (its
+    /// `kchk` exists to expose it), and zeroing it hid exactly that signal
+    /// while biasing any group or ACE average over it upwards. Pinned by
+    /// `tests/heatr_mt442_vs_njoy2016.rs`,
+    /// `energy_balance_subtracts_mt442_and_nothing_else`.
     ///
     /// A no-op when `photon` is empty (no photon files ⇒ the kinematic limit is
     /// already the energy-balance answer, per NJOY's documented fallback).
@@ -282,7 +288,7 @@ impl Kerma {
             return self;
         }
         for (i, &e) in self.energy.iter().enumerate() {
-            self.h[i] = (self.h[i] - photon.eval(e, recon)).max(0.0);
+            self.h[i] -= photon.eval(e, recon);
         }
         self
     }

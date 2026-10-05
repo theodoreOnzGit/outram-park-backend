@@ -35,7 +35,7 @@
 //!
 //! | case | fingerprint | k (bits) |
 //! |---|---|---|
-//! | `godiva_run_keff` | `0xe78387f55e2fa2fd` | `0x3ff00f0eaccb9f03 +/- 0x3f737285e6855dbd` |
+//! | `godiva_run_keff` | ~~`0xe78387f55e2fa2fd`~~ **`0xb525169aa6d32f38`, re-pinned 2026-10-05 (#527)** | ~~`0x3ff00f0eaccb9f03 +/- 0x3f737285e6855dbd`~~ `0x3ff02b99706b5644 +/- 0x3f75eea63987d4a7` |
 //! | `godiva_csg_entropy_trigger` (trigger stopped at 33 of 40 generations; 33 entropy values) | `0x0f90e5295c6cbcae` | `0x3ff067ac7ac2dc28 +/- 0x3f83ff11d76e40a5` |
 //! | `mg_sphere` | `0xcafa58c94439199d` | `0x3fe5281b4e81b4e6 +/- 0x3f7a2fd2977f13b2` |
 //! | `fhr_explicit_triso_delta` | `0x86e84b60e8278ec3` | `0x3fface4d94cf76ff +/- 0x3f833745b17635e5` |
@@ -43,6 +43,17 @@
 //! | `shannon_entropy` | `0x5c785611104f059b` | `H = 0x4012bef1a747a582` |
 //!
 //! After the move: identical, all six.
+//!
+//! **Re-pinned 2026-10-05, `godiva_run_keff` only (GitHub #527).** The
+//! bare-sphere initial source now draws the flight direction independently
+//! of the position's direction (it had aimed every first-generation neutron
+//! radially outward). That adds one isotropic draw per source site, so the
+//! whole random stream shifts: `k` went 1.00368 ± 0.00475 → 1.01064 ±
+//! 0.00535 at these settings (1500 × [20 + 40], embedded LOW-tier data), a
+//! +696 pcm move at 1.0 σ of the combined single-run σ, as a reshuffled stream
+//! should give. The pooled check that the active `k` did not move is in
+//! `examples/godiva_keff_ensemble.rs` (2026-10-05, #527). The other pins do
+//! not go through that source and did not move with this change.
 //!
 //! **Added 2026-10-02 for GitHub issue #486** (CSG description, navigation
 //! kernel and tally-mesh description move to `outram-blender`), pinned on
@@ -181,7 +192,9 @@ fn godiva_run_keff_is_bit_identical() {
     check(
         "godiva_run_keff",
         fp.0,
-        0xe78387f55e2fa2fd,
+        // Re-pinned 2026-10-05 for gh:#527 (independent source direction);
+        // was 0xe78387f55e2fa2fd.
+        0xb525169aa6d32f38,
         &format!(
             "k = {:#018x} +/- {:#018x}",
             r.k_mean.to_bits(),

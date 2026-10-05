@@ -28,9 +28,21 @@
 //! and `nheat`'s skip list (MT=4 was heated beside its own levels). Above the
 //! first inelastic threshold the energy-balance MT=301 is now within 0.39 %
 //! (Fe-58) and 0.74 % (Si-28) of NJOY's in median, and Si-28 below it matches
-//! at print precision. The continuum and MF=6 neutron means (`conbar`,
+//! at print precision. ~~The continuum and MF=6 neutron means (`conbar`,
 //! `sixbar`, H6b part 2) are still the kinematic estimate and carry the
-//! 14-150 MeV residual.
+//! 14-150 MeV residual.~~
+//!
+//! **CORRECTED 2026-10-05 (#535, the full port):** all of `heatr.f90` is now
+//! translated routine by routine in [`driver`] ([`heatr()`], audit:
+//! `verification_and_validation/heatr_upstream_audit.md`), and its output
+//! tape is **byte-identical** to NJOY2016's HEATR on all 62 neutron
+//! evaluations in `reference-data/endf/` at `local = 0` and again at
+//! `local = 1, iprint = 2`, plus 8 regression decks (user Q, `qbar`, `ed`,
+//! two temperatures, the `viewr` plot file and the listing) in
+//! `tests/heatr_driver_vs_njoy2016.rs`. The ACE route (`acer` with HEATR in
+//! the deck) and `interface` now take MT=301 from [`heatr_kerma`], so the
+//! ACE heating column is NJOY's. [`Kerma`] (H1-H5 and the partial H6 above)
+//! stays as the reduced-order model and is no longer on the ACE route.
 //!
 //! Ported in phases (`docs/porting-plan.md` §HEATR sub-phases) — see the
 //! module's own progress:
@@ -66,9 +78,11 @@
 //!   with `disbar`/`conbar`/`sixbar` for the neutron side and `hconvr`/`gheat`
 //!   for photons). **H6a, the photon side, is done** (2026-10-05, see above),
 //!   together with `nheat`'s deposited-Q rule. **H6b part 1, the two-body
-//!   neutron side (`disbar`), is done** (2026-10-05). H6b part 2 (`conbar`,
+//!   neutron side (`disbar`), is done** (2026-10-05). ~~H6b part 2 (`conbar`,
 //!   `sixbar`: continuum and MF=6 neutron means) and H6c (MF=6 capture
-//!   recoil, `kchk`) are planned on GitHub #535.
+//!   recoil, `kchk`) are planned on GitHub #535.~~ **Done 2026-10-05** as
+//!   the whole-module translation in [`driver`] (byte-identical to NJOY2016;
+//!   see above).
 //!
 //! ## Elastic kinematics (H1)
 //!
@@ -103,8 +117,11 @@
 //!   (H1–H5).
 //! - [`DamageEnergy`] (`damage.rs`) — MT=444 damage-energy production (H7),
 //!   with the Lindhard partition and the NJOY `E_d` table.
+//! - [`driver`] — the routine-by-routine translation of `heatr.f90`
+//!   ([`heatr()`], [`HeatrInput`], [`heatr_kerma`], [`pendf_for_heatr`]).
 
 mod damage;
+pub mod driver;
 mod kerma;
 mod spectra;
 mod twobody;
@@ -112,17 +129,20 @@ mod twobody;
 mod tests;
 
 pub use damage::{default_displacement_energy, DamageEnergy};
+pub use driver::{heatr, heatr_kerma, pendf_for_heatr, HeatrInput, HeatrOutput, HeatrUnits};
 pub use kerma::Kerma;
 pub use spectra::{build_emission_spectra, EmissionSpectrum};
 
 /// Run the HEATR card-input driver (NJOY module entry point).
 ///
-/// **Status:** this module's processing physics is ported (see its `README.md`
+/// **Status:** ~~this module's processing physics is ported (see its `README.md`
 /// and the typed API above); the NJOY *card-input driver* itself is not yet
-/// ported, so this returns [`crate::NjoyError::NotPorted`]. Use the module's
-/// typed API directly rather than this driver.
+/// ported~~ **CORRECTED 2026-10-05:** HEATR itself, cards included, is ported
+/// as [`heatr()`] (cards via [`HeatrInput::from_cards`]). What this entry point
+/// lacks is the deck-level runner that binds NJOY unit numbers to tapes, which
+/// no module has yet, so it still returns [`crate::NjoyError::NotPorted`].
 pub fn run() -> Result<(), crate::NjoyError> {
     Err(crate::NjoyError::NotPorted(
-        "heatr driver (physics ported — use the module API)",
+        "heatr deck runner (use heatr::heatr with HeatrInput::from_cards)",
     ))
 }

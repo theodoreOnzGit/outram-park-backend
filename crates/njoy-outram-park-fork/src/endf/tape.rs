@@ -92,9 +92,16 @@ impl Tape {
     /// Prefer this over `File::open` + [`Tape::read`] for a file on disk. The
     /// generic [`Tape::read`] is for the cases this cannot serve — a socket, a
     /// decompressor, an in-memory buffer.
+    ///
+    /// A gzipped file (the `1f 8b` magic bytes) is inflated first (since
+    /// 2026-10-05), with the same pure-Rust decoder the ACE reader uses.
     pub fn read_file(path: &std::path::Path) -> Result<Self, NjoyError> {
-        let file = std::fs::File::open(path).map_err(NjoyError::Io)?;
-        Self::read(file)
+        let bytes = std::fs::read(path).map_err(NjoyError::Io)?;
+        if bytes.len() > 2 && bytes[0] == 0x1f && bytes[1] == 0x8b {
+            let text = crate::acer::read::gunzip(&bytes, path)?;
+            return Self::read(&text[..]);
+        }
+        Self::read(&bytes[..])
     }
 
     /// Parse an ENDF ASCII tape from any [`Read`] source.
@@ -437,12 +444,17 @@ impl Tape {
             seq = 1;
 
             let next_key = iter.peek().map(|s| s.key);
-            if next_key.is_none_or(|n| n.mf != k.mf || n.mat != k.mat) {
+            // A material repeats on a multi-temperature PENDF: its next
+            // occurrence starts at MF=1/MT=451, and the previous one is
+            // closed with FEND and MEND, as on NJOY's tapes (since
+            // 2026-10-05; before, the two temperatures ran together).
+            let new_occurrence = |n: crate::endf::EndfKey| n.mf == 1 && n.mt == 451;
+            if next_key.is_none_or(|n| n.mf != k.mf || n.mat != k.mat || new_occurrence(n)) {
                 // FEND (`afend`): sequence 0.
                 writeln!(w, "{blank66}{:4}{:2}{:3}{:5}", k.mat, 0, 0, 0).map_err(io)?;
                 seq = 1;
             }
-            if next_key.is_none_or(|n| n.mat != k.mat) {
+            if next_key.is_none_or(|n| n.mat != k.mat || new_occurrence(n)) {
                 // MEND (`amend`).
                 writeln!(w, "{blank66}{:4}{:2}{:3}{:5}", 0, 0, 0, 0).map_err(io)?;
                 seq = 1;
