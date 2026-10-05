@@ -10,7 +10,7 @@
 <body>
 <header class="top">
   <h1>OUTRAM PARK — code deep dives</h1>
-  <p class="lede">How the <a href="https://github.com/theodoreOnzGit/outram-park-backend">outram-park-backend</a> crates are built, and why, read beside their code and API reference. The concept lessons for students will live on the <a href="https://theodoreonzgit.github.io/outram-park/">OUTRAM PARK teaching site</a> (not live yet).</p>
+  <p class="lede">How the <a href="https://github.com/theodoreOnzGit/outram-park-backend">outram-park-backend</a> crates are built, and why, read beside their code and API reference. The concept lessons for students will live on the <a href="https://theodoreonzgit.github.io/outram-park/">OUTRAM PARK teaching site</a> (not live yet). The code is translated from many open-source projects: see <a href="#credits">Credits &amp; upstream code</a>.</p>
   <p class="banner" role="note"><strong>This site always tracks the <code>develop</code> branch, never <code>main</code>.</strong> It is rebuilt on every push to <code>develop</code>, and every code link points at the exact <code>develop</code> commit it was built from (see the footer). A released version on <code>main</code> may differ from what you read here.</p>
   <p class="banner" role="note"><strong>Research, education and V&amp;V only.</strong> Not for reactor operation, licensing, safety decisions or emergency response. These pages are AI-assisted drafts until a human has reviewed them; each page states its review status.</p>
 </header>
@@ -106,11 +106,1017 @@
       <p class="status">2026-10-04/05: eight-rung core lessons (particle, decay, walk, layers, failure, chemistry, release, source term) and a demo with one rung per lesson, every number a call into <code>boon-lay</code> in a Web Worker; not yet human-reviewed. Tracking issues <a href="https://github.com/theodoreOnzGit/outram-park-backend/issues/531">#531</a>, <a href="https://github.com/theodoreOnzGit/outram-park-backend/issues/540">#540</a>.</p>
     </section>
   </nav>
+
+  <section class="credits" id="credits" aria-labelledby="credits-h">
+    <h2 id="credits-h">Credits and upstream code</h2>
+    <p class="credits-lede"><strong>Thank you.</strong> Most of the Rust code in this workspace is translated from the open-source projects below; <strong>the credit for their design and physics belongs to their authors.</strong> Each entry names the people the upstream project itself credits, its licence, the version or commit the port was read at where one is recorded, and the crate it went into, with an APA&nbsp;7 citation and a BibTeX entry. If you use a crate, please cite the upstream work it derives from as well.</p>
+    <p class="banner" role="note"><strong>Independent forks and ports, not affiliated with or endorsed by any upstream.</strong> OUTRAM PARK honours the trademarks, identities and licensing of each upstream project and is not affiliated with, endorsed by, or connected to any of them (<a href="https://github.com/theodoreOnzGit/outram-park-backend/blob/develop/TRADEMARKS.md">TRADEMARKS.md</a>). The workspace is <strong>GPL-3.0</strong> (<code>kovan</code> and <code>dhoby-ghaut</code> are AGPL-3.0-only); each upstream's licence and copyright notice is kept in the crate's <code>NOTICE</code> or <code>LICENSE.*</code> file, and every ported source file keeps its attribution header block. Defects in a port are this project's, not the upstream authors'. OpenFOAM&reg; is a registered trademark of OpenCFD Ltd.; LIGGGHTS&reg; is a registered trademark of DCS Computing GmbH.</p>
+    <p class="note">Where a citation detail could not be checked against this repository or the upstream's own record, the entry says so; please check it against the upstream before citing.</p>
+
+    <h3>Monte Carlo and nuclear data <span class="track">(Monte Carlo and Nuclear data tracks)</span></h3>
+    <div class="credit-grid">
+      <article class="credit" id="c-openmc">
+        <h4>OpenMC</h4>
+        <dl>
+          <dt>Authors</dt><dd>Paul K. Romano, Nicholas E. Horelik, Bryan R. Herman, Adam G. Nelson, Benoit Forget, Kord Smith and the OpenMC contributors; &copy; Massachusetts Institute of Technology, UChicago Argonne LLC</dd>
+          <dt>Licence</dt><dd>MIT</dd>
+          <dt>Upstream</dt><dd><a href="https://github.com/openmc-dev/openmc">github.com/openmc-dev/openmc</a></dd>
+          <dt>Version</dt><dd><code>develop</code> branch, no commit pinned</dd>
+          <dt>Ported into</dt><dd><a href="https://github.com/theodoreOnzGit/outram-park-backend/tree/develop/crates/outram-mc-libs">outram-mc-libs</a>, <a href="https://github.com/theodoreOnzGit/outram-park-backend/tree/develop/crates/outram-blender">outram-blender</a> (CSG, plotter), <a href="https://github.com/theodoreOnzGit/outram-park-backend/tree/develop/crates/petir">petir</a> (RNG)</dd>
+        </dl>
+        <p class="cite">Romano, P. K., Horelik, N. E., Herman, B. R., Nelson, A. G., Forget, B., &amp; Smith, K. (2015). OpenMC: A state-of-the-art Monte Carlo code for research and development. <em>Annals of Nuclear Energy, 82</em>, 90&ndash;97. https://doi.org/10.1016/j.anucene.2014.07.048</p>
+        <details><summary>BibTeX</summary><pre><code>@article{romano2015openmc,
+  author  = {Romano, Paul K. and Horelik, Nicholas E. and Herman, Bryan R.
+             and Nelson, Adam G. and Forget, Benoit and Smith, Kord},
+  title   = {{OpenMC}: A State-of-the-Art {M}onte {C}arlo Code for
+             Research and Development},
+  journal = {Annals of Nuclear Energy},
+  volume  = {82},
+  pages   = {90--97},
+  year    = {2015},
+  doi     = {10.1016/j.anucene.2014.07.048}
+}</code></pre></details>
+      </article>
+
+      <article class="credit" id="c-njoy">
+        <h4>NJOY2016</h4>
+        <dl>
+          <dt>Authors</dt><dd>R. E. MacFarlane, D. W. Muir, R. M. Boicourt, A. C. Kahler, J. L. Conlin; Los Alamos National Laboratory and the NJOY development team</dd>
+          <dt>Licence</dt><dd>Modified BSD 3-Clause (LANL/DOE variant)</dd>
+          <dt>Upstream</dt><dd><a href="https://github.com/njoy/NJOY2016">github.com/njoy/NJOY2016</a></dd>
+          <dt>Version</dt><dd>2016.79, commit <code>ac5adf5</code></dd>
+          <dt>Ported into</dt><dd><a href="https://github.com/theodoreOnzGit/outram-park-backend/tree/develop/crates/njoy-outram-park-fork">njoy-outram-park-fork</a>. A derivative work: it is not the version available from LANL, and LANL does not endorse or support it.</dd>
+        </dl>
+        <p class="cite">MacFarlane, R. E., Muir, D. W., Boicourt, R. M., Kahler, A. C., &amp; Conlin, J. L. (2017). <em>The NJOY nuclear data processing system, version 2016</em> (Report No. LA-UR-17-20093). Los Alamos National Laboratory.</p>
+        <details><summary>BibTeX</summary><pre><code>@techreport{macfarlane2017njoy2016,
+  author      = {MacFarlane, R. E. and Muir, D. W. and Boicourt, R. M.
+                 and Kahler, A. C. and Conlin, J. L.},
+  title       = {The {NJOY} Nuclear Data Processing System, Version 2016},
+  institution = {Los Alamos National Laboratory},
+  number      = {LA-UR-17-20093},
+  year        = {2017}
+}</code></pre></details>
+      </article>
+
+      <article class="credit" id="c-wmp">
+        <h4>WMP_Library (windowed multipole data)</h4>
+        <dl>
+          <dt>Authors</dt><dd>MIT Computational Reactor Physics Group; method by Colin Josey, Paul Romano, Benoit Forget and Kord Smith</dd>
+          <dt>Licence</dt><dd>MIT (&copy; 2018&ndash;2021 Massachusetts Institute of Technology)</dd>
+          <dt>Upstream</dt><dd><a href="https://github.com/mit-crpg/WMP_Library">github.com/mit-crpg/WMP_Library</a></dd>
+          <dt>Version</dt><dd>ENDF/B-VII.1-based CORE set (125 nuclides), embedded as data</dd>
+          <dt>Used in</dt><dd><a href="https://github.com/theodoreOnzGit/outram-park-backend/tree/develop/crates/njoy-outram-park-fork">njoy-outram-park-fork</a> (<code>wmp</code>; evaluation re-implemented with reference to OpenMC's <code>wmp.cpp</code>)</dd>
+        </dl>
+        <p class="cite">MIT Computational Reactor Physics Group. (2021). <em>WMP_Library: Windowed multipole library</em> [Data set]. https://github.com/mit-crpg/WMP_Library</p>
+        <p class="note">The method paper (J. Comput. Phys., 2016) is not in this repository's bibliography, so its full citation is not given here; see the upstream.</p>
+        <details><summary>BibTeX</summary><pre><code>@misc{mitcrpg_wmp_library,
+  author       = {{MIT Computational Reactor Physics Group}},
+  title        = {{WMP\_Library}: Windowed Multipole Library},
+  howpublished = {\url{https://github.com/mit-crpg/WMP_Library}},
+  note         = {MIT licence; method of Josey, Romano, Forget and Smith,
+                  J. Comput. Phys. (2016)}
+}</code></pre></details>
+      </article>
+    </div>
+
+    <h3>Dispersion and dose <span class="track">(Gaussian plume &amp; puff track)</span></h3>
+    <div class="credit-grid">
+      <article class="credit" id="c-puff">
+        <h4>puff (R package)</h4>
+        <dl>
+          <dt>Authors</dt><dd>Teagan Ward, Philip Waggoner, Will Daniels, Meng Jia, Dorit Hammerling (thesis supervisor), Callan Okenberg (maintainer); Hammerling Research Group, Colorado School of Mines</dd>
+          <dt>Licence</dt><dd>MIT</dd>
+          <dt>Upstream</dt><dd><a href="https://github.com/Hammerling-Research-Group/puff">github.com/Hammerling-Research-Group/puff</a> (also on <a href="https://cran.r-project.org/package=puff">CRAN</a>)</dd>
+          <dt>Version</dt><dd>0.1.1, commit <code>5213d58</code></dd>
+          <dt>Ported into</dt><dd><a href="https://github.com/theodoreOnzGit/outram-park-backend/tree/develop/crates/changi">changi</a> (<code>puff</code>)</dd>
+        </dl>
+        <p class="cite">Ward, T., Waggoner, P., Daniels, W., Jia, M., Hammerling, D., &amp; Okenberg, C. (2025). <em>puff: Simulate and visualize the Gaussian puff forward atmospheric model</em> (Version 0.1.1) [R package]. https://github.com/Hammerling-Research-Group/puff</p>
+        <p class="cite">Model: Jia, M., Fish, R., Daniels, W., Sprinkle, B., &amp; Hammerling, D. (2024). [Preprint]. ChemRxiv. https://doi.org/10.26434/chemrxiv-2023-hc95q-v3</p>
+        <p class="note">The model preprint's title is not recorded in this repository; see the DOI.</p>
+        <details><summary>BibTeX</summary><pre><code>@misc{ward2025puff,
+  author       = {Ward, Teagan and Waggoner, Philip and Daniels, Will
+                  and Jia, Meng and Hammerling, Dorit and Okenberg, Callan},
+  title        = {puff: Simulate and Visualize the {G}aussian Puff
+                  Forward Atmospheric Model},
+  year         = {2025},
+  note         = {R package version 0.1.1, commit 5213d58},
+  howpublished = {\url{https://github.com/Hammerling-Research-Group/puff}}
+}
+@misc{jia2024puffmodel,
+  author = {Jia, Meng and Fish, R. and Daniels, Will
+            and Sprinkle, B. and Hammerling, Dorit},
+  year   = {2024},
+  doi    = {10.26434/chemrxiv-2023-hc95q-v3},
+  note   = {ChemRxiv preprint}
+}</code></pre></details>
+      </article>
+
+      <article class="credit" id="c-flexpart">
+        <h4>FLEXPART</h4>
+        <dl>
+          <dt>Authors</dt><dd>Ignacio Pisso and co-authors; NILU (Norwegian Institute for Air Research) and the FLEXPART community (FLEXPART 1998&ndash;2019)</dd>
+          <dt>Licence</dt><dd>GPL-3.0-or-later</dd>
+          <dt>Upstream</dt><dd><a href="https://github.com/flexpart/flexpart">github.com/flexpart/flexpart</a></dd>
+          <dt>Version</dt><dd>10.4, commit <code>3d7eebf</code></dd>
+          <dt>Ported into</dt><dd><a href="https://github.com/theodoreOnzGit/outram-park-backend/tree/develop/crates/changi">changi</a> (<code>flexpart</code>, scalar kernels)</dd>
+        </dl>
+        <p class="cite">Pisso, I., Sollum, E., Grythe, H., et al. (2019). The Lagrangian particle dispersion model FLEXPART version 10.4. <em>Geoscientific Model Development, 12</em>, 4955&ndash;4997. https://doi.org/10.5194/gmd-12-4955-2019</p>
+        <p class="note">Author list abbreviated; the full list is at the DOI.</p>
+        <details><summary>BibTeX</summary><pre><code>@article{pisso2019flexpart,
+  author  = {Pisso, Ignacio and Sollum, Espen and Grythe, Henrik
+             and others},
+  title   = {The {L}agrangian particle dispersion model {FLEXPART}
+             version 10.4},
+  journal = {Geoscientific Model Development},
+  volume  = {12},
+  pages   = {4955--4997},
+  year    = {2019},
+  doi     = {10.5194/gmd-12-4955-2019}
+}</code></pre></details>
+      </article>
+
+      <article class="credit" id="c-pydoseia">
+        <h4>pyDOSEIA</h4>
+        <dl>
+          <dt>Authors</dt><dd>Biswajit Sadhu, T. Sarkar, S. Anand, K. D. Singh, D. K. Aswal</dd>
+          <dt>Licence</dt><dd>MIT (&copy; 2024 Dr. Biswajit Sadhu)</dd>
+          <dt>Upstream</dt><dd><a href="https://github.com/BiswajitSadhu/pyDOSEIA">github.com/BiswajitSadhu/pyDOSEIA</a></dd>
+          <dt>Version</dt><dd>commit <code>dca4cdc</code></dd>
+          <dt>Ported into</dt><dd><a href="https://github.com/theodoreOnzGit/outram-park-backend/tree/develop/crates/buangkok">buangkok</a> (<code>pydoseia</code>)</dd>
+        </dl>
+        <p class="cite">Sadhu, B., Sarkar, T., Anand, S., Singh, K. D., &amp; Aswal, D. K. (2026). pyDOSEIA: A Python package for radiological impact assessment during long-term or accidental atmospheric releases. <em>Health Physics, 130</em>(1), 94&ndash;110. https://doi.org/10.1097/HP.0000000000002014</p>
+                <details><summary>BibTeX</summary><pre><code>@article{sadhu2026pydoseia,
+  author  = {Sadhu, B. and Sarkar, T. and Anand, S. and Singh, K. D.
+             and Aswal, D. K.},
+  title   = {{pyDOSEIA}: A {P}ython Package for Radiological Impact
+             Assessment during Long-term or Accidental Atmospheric
+             Releases},
+  journal = {Health Physics},
+  volume  = {130},
+  number  = {1},
+  pages   = {94--110},
+  year    = {2026},
+  doi     = {10.1097/HP.0000000000002014}
+}</code></pre></details>
+      </article>
+
+      <article class="credit" id="c-quadpack">
+        <h4>QUADPACK, via SciPy</h4>
+        <dl>
+          <dt>Authors</dt><dd>QUADPACK: Robert Piessens, Elise de Doncker-Kapenga, Christoph W. &Uuml;berhuber, David K. Kahaner. C translation: the SciPy developers</dd>
+          <dt>Licence</dt><dd>QUADPACK public domain; SciPy's <code>__quadpack.c</code> BSD 3-Clause</dd>
+          <dt>Upstream</dt><dd><a href="https://www.netlib.org/quadpack/">netlib.org/quadpack</a>; SciPy <code>scipy/integrate/__quadpack.c</code></dd>
+          <dt>Version</dt><dd>SciPy tag v1.18.1</dd>
+          <dt>Ported into</dt><dd><a href="https://github.com/theodoreOnzGit/outram-park-backend/tree/develop/crates/buangkok">buangkok</a> (plume-shine integral)</dd>
+        </dl>
+        <p class="cite">Piessens, R., de Doncker-Kapenga, E., &Uuml;berhuber, C. W., &amp; Kahaner, D. K. (1983). <em>QUADPACK: A subroutine package for automatic integration</em>. Springer.</p>
+        <p class="cite">Virtanen, P., Gommers, R., Oliphant, T. E., et al. (2020). SciPy 1.0: Fundamental algorithms for scientific computing in Python. <em>Nature Methods, 17</em>, 261&ndash;272. https://doi.org/10.1038/s41592-019-0686-2</p>
+        <details><summary>BibTeX</summary><pre><code>@book{piessens1983quadpack,
+  author    = {Piessens, Robert and de Doncker-Kapenga, Elise
+               and {\"U}berhuber, Christoph W. and Kahaner, David K.},
+  title     = {{QUADPACK}: A Subroutine Package for Automatic Integration},
+  publisher = {Springer},
+  year      = {1983}
+}
+@article{virtanen2020scipy,
+  author  = {Virtanen, Pauli and Gommers, Ralf and Oliphant, Travis E.
+             and others},
+  title   = {{SciPy} 1.0: Fundamental Algorithms for Scientific
+             Computing in {P}ython},
+  journal = {Nature Methods},
+  volume  = {17},
+  pages   = {261--272},
+  year    = {2020},
+  doi     = {10.1038/s41592-019-0686-2}
+}</code></pre></details>
+      </article>
+    </div>
+
+    <h3>Fuel and TRISO <span class="track">(TRISO-ATOPS &amp; fuel failure track)</span></h3>
+    <div class="credit-grid">
+      <article class="credit" id="c-triso-atops">
+        <h4>TRISO-ATOPS</h4>
+        <dl>
+          <dt>Authors</dt><dd>Benjamin D. Stoyer, David A. Petti, Alexandra C. Raichart (the user manual also credits Kyler E. Egan); Idaho National Laboratory, &copy; 2026 Battelle Energy Alliance, LLC</dd>
+          <dt>Licence</dt><dd>MIT</dd>
+          <dt>Upstream</dt><dd><a href="https://github.com/IdahoLabResearch/TRISO-ATOPS">github.com/IdahoLabResearch/TRISO-ATOPS</a></dd>
+          <dt>Version</dt><dd>commit <code>de374c8</code></dd>
+          <dt>Ported into</dt><dd><a href="https://github.com/theodoreOnzGit/outram-park-backend/tree/develop/crates/boon-lay">boon-lay</a> (<code>triso_atops_fork</code>); used by <a href="https://github.com/theodoreOnzGit/outram-park-backend/tree/develop/crates/sembawang">sembawang</a></dd>
+        </dl>
+        <p class="cite">Stoyer, B. D., Petti, D. A., &amp; Raichart, A. C. (2026). <em>TRISO-ATOPS: TRISO Analysis TOol for Predictive Source terms</em> [Computer software]. Idaho National Laboratory. https://github.com/IdahoLabResearch/TRISO-ATOPS</p>
+        <p class="note">Its physics equations originate in E. Anderson et al., &ldquo;Generic Reactor Plant Description and Source Terms Volume 1,&rdquo; EG&amp;G Idaho Inc., 1989 (NP-MHTGR programme).</p>
+        <details><summary>BibTeX</summary><pre><code>@misc{stoyer2026trisoatops,
+  author       = {Stoyer, Benjamin D. and Petti, David A.
+                  and Raichart, Alexandra C.},
+  title        = {{TRISO-ATOPS}: {TRISO} Analysis TOol for Predictive
+                  Source terms},
+  year         = {2026},
+  organization = {Idaho National Laboratory},
+  note         = {Computer software, commit de374c8},
+  howpublished = {\url{https://github.com/IdahoLabResearch/TRISO-ATOPS}}
+}</code></pre></details>
+      </article>
+
+      <article class="credit" id="c-offbeat">
+        <h4>OFFBEAT</h4>
+        <dl>
+          <dt>Authors</dt><dd>Alessandro Scolaro, Ivor Clifford, Carlo Fiorina, Andreas Pautz and the OFFBEAT contributors (&copy; 2018&ndash;2026); EPFL LRS, Paul Scherrer Institute LRT, Texas A&amp;M MEDAL</dd>
+          <dt>Licence</dt><dd>GPL-3.0</dd>
+          <dt>Upstream</dt><dd><a href="https://gitlab.com/foam-for-nuclear/offbeat">gitlab.com/foam-for-nuclear/offbeat</a></dd>
+          <dt>Version</dt><dd>commit <code>80e8445</code></dd>
+          <dt>Ported into</dt><dd><a href="https://github.com/theodoreOnzGit/outram-park-backend/tree/develop/crates/outram-park-fork-offbeat">outram-park-fork-offbeat</a></dd>
+        </dl>
+        <p class="cite">Scolaro, A., Clifford, I., Fiorina, C., &amp; Pautz, A. (2020). The OFFBEAT multi-dimensional fuel behavior solver. <em>Nuclear Engineering and Design, 358</em>, 110416.</p>
+        <p class="note">The title is from the crate's NOTICE; the authors, volume and article number are unverified here, and the NOTICE deliberately records no DOI. See the publisher record.</p>
+        <details><summary>BibTeX</summary><pre><code>@article{scolaro2020offbeat,
+  author  = {Scolaro, Alessandro and Clifford, Ivor and Fiorina, Carlo
+             and Pautz, Andreas},
+  title   = {The {OFFBEAT} multi-dimensional fuel behavior solver},
+  journal = {Nuclear Engineering and Design},
+  volume  = {358},
+  pages   = {110416},
+  year    = {2020}
+}</code></pre></details>
+      </article>
+
+      <article class="credit" id="c-code-aster">
+        <h4>code_aster</h4>
+        <dl>
+          <dt>Authors</dt><dd>EDF R&amp;D (&copy; 1991&ndash;2026)</dd>
+          <dt>Licence</dt><dd>GPL-3.0-or-later</dd>
+          <dt>Upstream</dt><dd><a href="https://gitlab.com/codeaster/src">gitlab.com/codeaster/src</a></dd>
+          <dt>Version</dt><dd>commit <code>b504ea0</code></dd>
+          <dt>Ported into</dt><dd><a href="https://github.com/theodoreOnzGit/outram-park-backend/tree/develop/crates/outram-park-fork-offbeat">outram-park-fork-offbeat</a> (viscoplastic and metallurgy laws)</dd>
+        </dl>
+        <p class="cite">EDF R&amp;D. (2026). <em>code_aster</em> [Computer software]. https://gitlab.com/codeaster/src</p>
+        <details><summary>BibTeX</summary><pre><code>@misc{edf_code_aster,
+  author       = {{EDF R\&amp;D}},
+  title        = {code\_aster},
+  year         = {2026},
+  note         = {Computer software, commit b504ea0},
+  howpublished = {\url{https://gitlab.com/codeaster/src}}
+}</code></pre></details>
+      </article>
+    </div>
+
+    <h3>CFD and meshing</h3>
+    <div class="credit-grid">
+      <article class="credit" id="c-openfoam">
+        <h4>OpenFOAM&reg;</h4>
+        <dl>
+          <dt>Authors</dt><dd>Henry G. Weller, Gavin Tabor, Hrvoje Jasak, Christer Fureby (original paper); &copy; OpenFOAM Foundation and OpenCFD Ltd. Trademark: OpenCFD Ltd.</dd>
+          <dt>Licence</dt><dd>GPL-3.0-or-later</dd>
+          <dt>Upstream</dt><dd><a href="https://github.com/OpenFOAM/OpenFOAM-dev">github.com/OpenFOAM/OpenFOAM-dev</a>; <a href="https://www.openfoam.com">openfoam.com</a></dd>
+          <dt>Version</dt><dd>OpenFOAM-dev <code>master</code>, no commit pinned; OpenFOAM core v2606 (<code>481094fd</code>) vendored as a reference</dd>
+          <dt>Ported into</dt><dd><a href="https://github.com/theodoreOnzGit/outram-park-backend/tree/develop/crates/outram-foam-basic-lib">outram-foam-basic-lib</a>, <a href="https://github.com/theodoreOnzGit/outram-park-backend/tree/develop/crates/outram-foam-turbulence-lib">-turbulence-lib</a>, <a href="https://github.com/theodoreOnzGit/outram-park-backend/tree/develop/crates/outram-foam-appbuilder-lib">-appbuilder-lib</a>, <a href="https://github.com/theodoreOnzGit/outram-park-backend/tree/develop/crates/outram-foam-mesh">-mesh</a>, <a href="https://github.com/theodoreOnzGit/outram-park-backend/tree/develop/crates/outram-foam-cli">-cli</a>, <a href="https://github.com/theodoreOnzGit/outram-park-backend/tree/develop/crates/outram-foam-multiphase">-multiphase</a>; the LDU solvers in <a href="https://github.com/theodoreOnzGit/outram-park-backend/tree/develop/crates/tampines-steam-tables">tampines-steam-tables</a></dd>
+        </dl>
+        <p class="cite">Weller, H. G., Tabor, G., Jasak, H., &amp; Fureby, C. (1998). A tensorial approach to computational continuum mechanics using object-oriented techniques. <em>Computers in Physics, 12</em>(6), 620&ndash;631. https://doi.org/10.1063/1.168744</p>
+        <details><summary>BibTeX</summary><pre><code>@article{weller1998openfoam,
+  author  = {Weller, H. G. and Tabor, G. and Jasak, H. and Fureby, C.},
+  title   = {A Tensorial Approach to Computational Continuum Mechanics
+             Using Object-Oriented Techniques},
+  journal = {Computers in Physics},
+  volume  = {12},
+  number  = {6},
+  pages   = {620--631},
+  year    = {1998},
+  doi     = {10.1063/1.168744}
+}</code></pre></details>
+      </article>
+
+      <article class="credit" id="c-genfoam">
+        <h4>GeN-Foam</h4>
+        <dl>
+          <dt>Authors</dt><dd>Carlo Fiorina, Thomas Guilbaud, Stefan Radman, Konstantin Mikityuk, Nordine Kerkar, Eymeric Simonnot and co-workers (EPFL, &copy; 2015&ndash;2022)</dd>
+          <dt>Licence</dt><dd>GPL-3.0</dd>
+          <dt>Upstream</dt><dd><a href="https://gitlab.com/foam-for-nuclear/GeN-Foam">gitlab.com/foam-for-nuclear/GeN-Foam</a></dd>
+          <dt>Version</dt><dd>commit <code>652b3da</code></dd>
+          <dt>Ported into</dt><dd><a href="https://github.com/theodoreOnzGit/outram-park-backend/tree/develop/crates/outram-foam-appbuilder-lib">outram-foam-appbuilder-lib</a> (<code>genfoam</code>)</dd>
+        </dl>
+        <p class="cite">Fiorina, C., Clifford, I., Aufiero, M., &amp; Mikityuk, K. (2015). GeN-Foam: A novel OpenFOAM&reg; based multi-physics solver for 2D/3D transient analysis of nuclear reactors. <em>Nuclear Engineering and Design, 294</em>, 24&ndash;37. https://doi.org/10.1016/j.nucengdes.2015.05.035</p>
+        <details><summary>BibTeX</summary><pre><code>@article{fiorina2015genfoam,
+  author  = {Fiorina, Carlo and Clifford, Ivor and Aufiero, Manuele
+             and Mikityuk, Konstantin},
+  title   = {{GeN-Foam}: a novel {OpenFOAM} based multi-physics solver
+             for {2D/3D} transient analysis of nuclear reactors},
+  journal = {Nuclear Engineering and Design},
+  volume  = {294},
+  pages   = {24--37},
+  year    = {2015},
+  doi     = {10.1016/j.nucengdes.2015.05.035}
+}</code></pre></details>
+      </article>
+
+      <article class="credit" id="c-cfmesh">
+        <h4>cfMesh</h4>
+        <dl>
+          <dt>Authors</dt><dd>Franjo Jureti&#263;, Creative Fields, Ltd. (&copy; 2014&ndash;2017)</dd>
+          <dt>Licence</dt><dd>GPL-3.0</dd>
+          <dt>Upstream</dt><dd><a href="https://github.com/wyldckat/cfMesh">github.com/wyldckat/cfMesh</a></dd>
+          <dt>Version</dt><dd>commit <code>6cf1d21</code></dd>
+          <dt>Ported into</dt><dd><a href="https://github.com/theodoreOnzGit/outram-park-backend/tree/develop/crates/outram-park-fork-cfmesh">outram-park-fork-cfmesh</a></dd>
+        </dl>
+        <p class="cite">Jureti&#263;, F. (2014). <em>cfMesh</em> [Computer software]. Creative Fields, Ltd. https://github.com/wyldckat/cfMesh</p>
+        <p class="note">The repository names Creative Fields, Ltd. as the copyright holder; the author's personal name is unverified here.</p>
+        <details><summary>BibTeX</summary><pre><code>@misc{juretic2014cfmesh,
+  author       = {Jureti{\'c}, Franjo},
+  title        = {{cfMesh}},
+  year         = {2014},
+  organization = {Creative Fields, Ltd.},
+  note         = {Computer software, commit 6cf1d21},
+  howpublished = {\url{https://github.com/wyldckat/cfMesh}}
+}</code></pre></details>
+      </article>
+
+      <article class="credit" id="c-voro">
+        <h4>voro++</h4>
+        <dl>
+          <dt>Authors</dt><dd>Chris H. Rycroft; The Regents of the University of California, through Lawrence Berkeley National Laboratory</dd>
+          <dt>Licence</dt><dd>Modified BSD (LBNL)</dd>
+          <dt>Upstream</dt><dd><a href="https://github.com/chr1shr/voro">github.com/chr1shr/voro</a></dd>
+          <dt>Version</dt><dd>commit <code>b0dac57</code></dd>
+          <dt>Used by</dt><dd><a href="https://github.com/theodoreOnzGit/outram-park-backend/tree/develop/crates/outram-park-fork-cfmesh">outram-park-fork-cfmesh</a> (Voronoi reference)</dd>
+        </dl>
+        <p class="cite">Rycroft, C. H. (2009). VORO++: A three-dimensional Voronoi cell library in C++. <em>Chaos, 19</em>(4), 041111. https://doi.org/10.1063/1.3215722</p>
+        <details><summary>BibTeX</summary><pre><code>@article{rycroft2009voro,
+  author  = {Rycroft, Chris H.},
+  title   = {{VORO++}: A three-dimensional {V}oronoi cell library
+             in {C++}},
+  journal = {Chaos},
+  volume  = {19},
+  number  = {4},
+  pages   = {041111},
+  year    = {2009},
+  doi     = {10.1063/1.3215722}
+}</code></pre></details>
+      </article>
+
+      <article class="credit" id="c-blender">
+        <h4>Blender</h4>
+        <dl>
+          <dt>Authors</dt><dd>Blender Authors, Blender Foundation (NaN Holding BV on the oldest files)</dd>
+          <dt>Licence</dt><dd>GPL-2.0-or-later</dd>
+          <dt>Upstream</dt><dd><a href="https://github.com/blender/blender">github.com/blender/blender</a></dd>
+          <dt>Version</dt><dd>commit <code>786af64</code>; <code>math_boolean</code> from <code>96294be</code></dd>
+          <dt>Ported into</dt><dd><a href="https://github.com/theodoreOnzGit/outram-park-backend/tree/develop/crates/outram-blender">outram-blender</a> (mesh-authoring architecture; one file ported literally). Not affiliated with the Blender Foundation.</dd>
+        </dl>
+        <p class="cite">Blender Online Community. (2026). <em>Blender: A 3D modelling and rendering package</em> [Computer software]. Blender Foundation. https://www.blender.org</p>
+        <details><summary>BibTeX</summary><pre><code>@misc{blender,
+  author       = {{Blender Online Community}},
+  title        = {Blender -- a {3D} modelling and rendering package},
+  organization = {Blender Foundation},
+  year         = {2026},
+  note         = {Commit 786af64},
+  howpublished = {\url{https://www.blender.org}}
+}</code></pre></details>
+      </article>
+
+      <article class="credit" id="c-shewchuk">
+        <h4>Robust geometric predicates</h4>
+        <dl>
+          <dt>Authors</dt><dd>Jonathan Richard Shewchuk (Carnegie Mellon University)</dd>
+          <dt>Licence</dt><dd>Public domain (<code>predicates.c</code>), reached through Blender's adaptation</dd>
+          <dt>Used in</dt><dd><a href="https://github.com/theodoreOnzGit/outram-park-backend/tree/develop/crates/outram-blender">outram-blender</a> (<code>boolean_predicates</code>)</dd>
+        </dl>
+        <p class="cite">Shewchuk, J. R. (1997). Adaptive precision floating-point arithmetic and fast robust geometric predicates. <em>Discrete &amp; Computational Geometry, 18</em>(3), 305&ndash;363. https://doi.org/10.1007/PL00009321</p>
+        <details><summary>BibTeX</summary><pre><code>@article{shewchuk1997predicates,
+  author  = {Shewchuk, Jonathan Richard},
+  title   = {Adaptive Precision Floating-Point Arithmetic and Fast
+             Robust Geometric Predicates},
+  journal = {Discrete \&amp; Computational Geometry},
+  volume  = {18},
+  number  = {3},
+  pages   = {305--363},
+  year    = {1997},
+  doi     = {10.1007/PL00009321}
+}</code></pre></details>
+      </article>
+    </div>
+
+    <h3>Thermal-hydraulics, properties and process</h3>
+    <div class="credit-grid">
+      <article class="credit" id="c-coolprop">
+        <h4>CoolProp</h4>
+        <dl>
+          <dt>Authors</dt><dd>Ian H. Bell, Jorrit Wronski, Sylvain Quoilin, Vincent Lemort and the CoolProp developers. Individual equations of state keep their own authors (e.g. IAPWS-95: Wagner &amp; Pru&szlig;, 2002)</dd>
+          <dt>Licence</dt><dd>MIT</dd>
+          <dt>Upstream</dt><dd><a href="https://github.com/CoolProp/CoolProp">github.com/CoolProp/CoolProp</a></dd>
+          <dt>Ported into</dt><dd><a href="https://github.com/theodoreOnzGit/outram-park-backend/tree/develop/crates/outram-park-fork-coolprop">outram-park-fork-coolprop</a></dd>
+        </dl>
+        <p class="cite">Bell, I. H., Wronski, J., Quoilin, S., &amp; Lemort, V. (2014). Pure and pseudo-pure fluid thermophysical property evaluation and the open-source thermophysical property library CoolProp. <em>Industrial &amp; Engineering Chemistry Research, 53</em>(6), 2498&ndash;2508. https://doi.org/10.1021/ie4033999</p>
+        <details><summary>BibTeX</summary><pre><code>@article{bell2014coolprop,
+  author  = {Bell, Ian H. and Wronski, Jorrit and Quoilin, Sylvain
+             and Lemort, Vincent},
+  title   = {Pure and Pseudo-pure Fluid Thermophysical Property
+             Evaluation and the Open-Source Thermophysical Property
+             Library {CoolProp}},
+  journal = {Industrial \&amp; Engineering Chemistry Research},
+  volume  = {53},
+  number  = {6},
+  pages   = {2498--2508},
+  year    = {2014},
+  doi     = {10.1021/ie4033999}
+}</code></pre></details>
+      </article>
+
+      <article class="credit" id="c-dwsim">
+        <h4>DWSIM</h4>
+        <dl>
+          <dt>Authors</dt><dd>Daniel Wagner Oliveira de Medeiros and the DWSIM contributors. Trademark: DWSIM Inc.</dd>
+          <dt>Licence</dt><dd>GPL-3.0</dd>
+          <dt>Upstream</dt><dd><a href="https://github.com/DanWBR/dwsim">github.com/DanWBR/dwsim</a>; <a href="https://dwsim.org">dwsim.org</a></dd>
+          <dt>Version</dt><dd>no commit pinned</dd>
+          <dt>Ported into</dt><dd><a href="https://github.com/theodoreOnzGit/outram-park-backend/tree/develop/crates/outram-park-fork-dwsim-libs">outram-park-fork-dwsim-libs</a> (used by <a href="https://github.com/theodoreOnzGit/outram-park-backend/tree/develop/crates/dover">dover</a>)</dd>
+        </dl>
+        <p class="cite">Medeiros, D. W. O. (2026). <em>DWSIM</em> [Computer software]. https://dwsim.org</p>
+        <details><summary>BibTeX</summary><pre><code>@misc{medeiros_dwsim,
+  author       = {de Medeiros, Daniel Wagner Oliveira},
+  title        = {{DWSIM}},
+  year         = {2026},
+  note         = {Computer software},
+  howpublished = {\url{https://github.com/DanWBR/dwsim}}
+}</code></pre></details>
+      </article>
+
+      <article class="credit" id="c-iapws-if97">
+        <h4>IAPWS_IF97 (MATLAB) and BEDOK</h4>
+        <dl>
+          <dt>Authors</dt><dd>Mark Mikofski (IAPWS_IF97, &copy; 2013). The rest of BEDOK translates Than Yan Ren's (Singapore Nuclear Research and Safety Institute) MATLAB code, with the author's permission.</dd>
+          <dt>Licence</dt><dd>BSD-2-Clause (IAPWS_IF97)</dd>
+          <dt>Upstream</dt><dd><a href="https://github.com/mikofski/IAPWS_IF97">github.com/mikofski/IAPWS_IF97</a></dd>
+          <dt>Ported into</dt><dd><a href="https://github.com/theodoreOnzGit/outram-park-backend/tree/develop/crates/bedok">bedok</a></dd>
+        </dl>
+        <p class="cite">Mikofski, M. (2013). <em>IAPWS_IF97</em> [Computer software]. https://github.com/mikofski/IAPWS_IF97</p>
+        <details><summary>BibTeX</summary><pre><code>@misc{mikofski2013iapwsif97,
+  author       = {Mikofski, Mark},
+  title        = {{IAPWS\_IF97}},
+  year         = {2013},
+  note         = {Computer software, BSD-2-Clause},
+  howpublished = {\url{https://github.com/mikofski/IAPWS_IF97}}
+}</code></pre></details>
+      </article>
+
+      <article class="credit" id="c-rusteam">
+        <h4>rusteam</h4>
+        <dl>
+          <dt>Authors</dt><dd>GitHub user marciorvneto; see the crate's README</dd>
+          <dt>Licence</dt><dd>MIT</dd>
+          <dt>Upstream</dt><dd><a href="https://github.com/marciorvneto/rusteam">github.com/marciorvneto/rusteam</a></dd>
+          <dt>Version</dt><dd><code>main</code>, no commit pinned</dd>
+          <dt>Used in</dt><dd><a href="https://github.com/theodoreOnzGit/outram-park-backend/tree/develop/crates/tampines-steam-tables">tampines-steam-tables</a> (draws from it)</dd>
+        </dl>
+        <p class="cite">marciorvneto. (2023). <em>rusteam</em> [Computer software]. https://github.com/marciorvneto/rusteam</p>
+        <details><summary>BibTeX</summary><pre><code>@misc{rusteam2023,
+  author       = {marciorvneto},
+  title        = {rusteam},
+  year         = {2023},
+  note         = {Computer software, MIT licence},
+  howpublished = {\url{https://github.com/marciorvneto/rusteam}}
+}</code></pre></details>
+      </article>
+
+      <article class="credit" id="c-octave-control">
+        <h4>GNU Octave control package</h4>
+        <dl>
+          <dt>Authors</dt><dd>Lukas Reichlin; maintainers Doug Stewart, Torsten Lilge</dd>
+          <dt>Licence</dt><dd>GPL-3.0-or-later; BSD 3-Clause for the SLICOT files</dd>
+          <dt>Upstream</dt><dd><a href="https://github.com/gnu-octave/pkg-control">github.com/gnu-octave/pkg-control</a></dd>
+          <dt>Version</dt><dd>control 4.2.2+, commit <code>f39e262</code></dd>
+          <dt>Ported into</dt><dd><a href="https://github.com/theodoreOnzGit/outram-park-backend/tree/develop/crates/chem-eng-real-time-process-control-simulator">chem-eng-real-time-process-control-simulator</a>, <a href="https://github.com/theodoreOnzGit/outram-park-backend/tree/develop/crates/petir">petir</a></dd>
+        </dl>
+        <p class="cite">Reichlin, L. (2026). <em>control: Computer-aided control system design package for GNU Octave</em> (Version 4.2.2+) [Computer software]. https://github.com/gnu-octave/pkg-control</p>
+        <p class="note">Package title from general knowledge of the package, unverified here.</p>
+        <details><summary>BibTeX</summary><pre><code>@misc{reichlin_octave_control,
+  author       = {Reichlin, Lukas},
+  title        = {control: {GNU} {O}ctave control package},
+  year         = {2026},
+  note         = {Version 4.2.2+, commit f39e262},
+  howpublished = {\url{https://github.com/gnu-octave/pkg-control}}
+}</code></pre></details>
+      </article>
+    </div>
+
+    <h3>Structural mechanics</h3>
+    <div class="credit-grid">
+      <article class="credit" id="c-moose">
+        <h4>MOOSE</h4>
+        <dl>
+          <dt>Authors</dt><dd>Derek Gaston, Chris Newman, Glen Hansen, Damien Lebrun-Grandi&eacute; (2009); Alexander D. Lindsay, Derek R. Gaston, Cody J. Permann and the MOOSE team (2022); Idaho National Laboratory / Battelle Energy Alliance</dd>
+          <dt>Licence</dt><dd>LGPL-2.1 (not &ldquo;or later&rdquo;)</dd>
+          <dt>Upstream</dt><dd><a href="https://github.com/idaholab/moose">github.com/idaholab/moose</a></dd>
+          <dt>Ported into</dt><dd><a href="https://github.com/theodoreOnzGit/outram-park-backend/tree/develop/crates/farrer-park">farrer-park</a></dd>
+        </dl>
+        <p class="cite">Lindsay, A. D., Gaston, D. R., Permann, C. J., et al. (2022). 2.0 &ndash; MOOSE: Enabling massively parallel multiphysics simulation. <em>SoftwareX, 20</em>, 101202. https://doi.org/10.1016/j.softx.2022.101202</p>
+        <p class="cite">Gaston, D., Newman, C., Hansen, G., &amp; Lebrun-Grandi&eacute;, D. (2009). MOOSE: A parallel computational framework for coupled systems of nonlinear equations. <em>Nuclear Engineering and Design, 239</em>(10), 1768&ndash;1778.</p>
+        <details><summary>BibTeX</summary><pre><code>@article{lindsay2022moose,
+  author  = {Lindsay, Alexander D. and Gaston, Derek R.
+             and Permann, Cody J. and others},
+  title   = {2.0 - {MOOSE}: Enabling massively parallel multiphysics
+             simulation},
+  journal = {SoftwareX},
+  volume  = {20},
+  pages   = {101202},
+  year    = {2022},
+  doi     = {10.1016/j.softx.2022.101202}
+}
+@article{gaston2009moose,
+  author  = {Gaston, Derek and Newman, Chris and Hansen, Glen
+             and Lebrun-Grandi{\'e}, Damien},
+  title   = {{MOOSE}: A Parallel Computational Framework for Coupled
+             Systems of Nonlinear Equations},
+  journal = {Nuclear Engineering and Design},
+  volume  = {239},
+  number  = {10},
+  pages   = {1768--1778},
+  year    = {2009}
+}</code></pre></details>
+      </article>
+
+      <article class="credit" id="c-prisms-plasticity">
+        <h4>PRISMS-Plasticity</h4>
+        <dl>
+          <dt>Authors</dt><dd>Mohammadreza Yaghoobi, Veera Sundararaghavan and co-authors; PRISMS Center, University of Michigan (&copy; 2016 The Regents of the University of Michigan)</dd>
+          <dt>Licence</dt><dd>LGPL-2.1-or-later</dd>
+          <dt>Upstream</dt><dd><a href="https://github.com/prisms-center/plasticity">github.com/prisms-center/plasticity</a></dd>
+          <dt>Ported into</dt><dd><a href="https://github.com/theodoreOnzGit/outram-park-backend/tree/develop/crates/farrer-park">farrer-park</a></dd>
+        </dl>
+        <p class="cite">Yaghoobi, M., Ganesan, S., Sundar, S., Lakshmanan, A., Rudraraju, S., Allison, J. E., &amp; Sundararaghavan, V. (2019). PRISMS-Plasticity: An open-source crystal plasticity finite element software. <em>Computational Materials Science, 169</em>, 109078.</p>
+        <p class="note">Citation details unverified in this repository (it records only the project, centre and licence); see upstream.</p>
+        <details><summary>BibTeX</summary><pre><code>@article{yaghoobi2019prismsplasticity,
+  author  = {Yaghoobi, Mohammadreza and Ganesan, Sriram
+             and Sundar, Srihari and Lakshmanan, Aaditya
+             and Rudraraju, Shiva and Allison, John E.
+             and Sundararaghavan, Veera},
+  title   = {{PRISMS-Plasticity}: An open-source crystal plasticity
+             finite element software},
+  journal = {Computational Materials Science},
+  volume  = {169},
+  pages   = {109078},
+  year    = {2019}
+}</code></pre></details>
+      </article>
+
+      <article class="credit" id="c-prisms-fatigue">
+        <h4>PRISMS-Fatigue</h4>
+        <dl>
+          <dt>Authors</dt><dd>Mohammadreza Yaghoobi, Krzysztof S. Stopka and co-authors; PRISMS Center, University of Michigan</dd>
+          <dt>Licence</dt><dd>LGPL-2.1</dd>
+          <dt>Upstream</dt><dd><a href="https://github.com/prisms-center/Fatigue">github.com/prisms-center/Fatigue</a></dd>
+          <dt>Ported into</dt><dd><a href="https://github.com/theodoreOnzGit/outram-park-backend/tree/develop/crates/farrer-park">farrer-park</a></dd>
+        </dl>
+        <p class="cite">Yaghoobi, M., Stopka, K. S., Lakshmanan, A., Sundararaghavan, V., Allison, J. E., &amp; McDowell, D. L. (2021). PRISMS-Fatigue computational framework for fatigue analysis in polycrystalline metals and alloys. <em>npj Computational Materials, 7</em>, 38.</p>
+        <p class="note">Citation details unverified in this repository; see upstream.</p>
+        <details><summary>BibTeX</summary><pre><code>@article{yaghoobi2021prismsfatigue,
+  author  = {Yaghoobi, Mohammadreza and Stopka, Krzysztof S.
+             and Lakshmanan, Aaditya and Sundararaghavan, Veera
+             and Allison, John E. and McDowell, David L.},
+  title   = {{PRISMS-Fatigue} computational framework for fatigue
+             analysis in polycrystalline metals and alloys},
+  journal = {npj Computational Materials},
+  volume  = {7},
+  pages   = {38},
+  year    = {2021}
+}</code></pre></details>
+      </article>
+    </div>
+
+    <h3>Granular DEM</h3>
+    <div class="credit-grid">
+      <article class="credit" id="c-liggghts">
+        <h4>LIGGGHTS&reg;-PUBLIC</h4>
+        <dl>
+          <dt>Authors</dt><dd>Christoph Kloss, Christoph Goniva, Alice Hager, Stefan Amberger, Stefan Pirker; DCS Computing GmbH and the CFDEM&reg;project</dd>
+          <dt>Licence</dt><dd>GPL-2.0-or-later</dd>
+          <dt>Upstream</dt><dd><a href="https://github.com/CFDEMproject/LIGGGHTS-PUBLIC">github.com/CFDEMproject/LIGGGHTS-PUBLIC</a></dd>
+          <dt>Ported into</dt><dd><a href="https://github.com/theodoreOnzGit/outram-park-backend/tree/develop/crates/outram-park-fork-liggghts">outram-park-fork-liggghts</a></dd>
+        </dl>
+        <p class="cite">Kloss, C., Goniva, C., Hager, A., Amberger, S., &amp; Pirker, S. (2012). Models, algorithms and validation for opensource DEM and CFD-DEM. <em>Progress in Computational Fluid Dynamics, 12</em>(2/3), 140&ndash;152.</p>
+        <details><summary>BibTeX</summary><pre><code>@article{kloss2012liggghts,
+  author  = {Kloss, Christoph and Goniva, Christoph and Hager, Alice
+             and Amberger, Stefan and Pirker, Stefan},
+  title   = {Models, Algorithms and Validation for Opensource {DEM}
+             and {CFD-DEM}},
+  journal = {Progress in Computational Fluid Dynamics},
+  volume  = {12},
+  number  = {2/3},
+  pages   = {140--152},
+  year    = {2012}
+}</code></pre></details>
+      </article>
+
+      <article class="credit" id="c-lammps">
+        <h4>LAMMPS</h4>
+        <dl>
+          <dt>Authors</dt><dd>Aidan P. Thompson, Steven J. Plimpton and the LAMMPS developers; Sandia National Laboratories</dd>
+          <dt>Licence</dt><dd>GPL (per-file headers carry no version; LIGGGHTS-PUBLIC, the derivative this crate forks, is GPL-2.0-or-later)</dd>
+          <dt>Upstream</dt><dd><a href="https://github.com/lammps/lammps">github.com/lammps/lammps</a></dd>
+          <dt>Used in</dt><dd><a href="https://github.com/theodoreOnzGit/outram-park-backend/tree/develop/crates/outram-park-fork-liggghts">outram-park-fork-liggghts</a>, through LIGGGHTS</dd>
+        </dl>
+        <p class="cite">Thompson, A. P., Aktulga, H. M., Berger, R., et al. (2022). LAMMPS &ndash; a flexible simulation tool for particle-based materials modeling at the atomic, meso, and continuum scales. <em>Computer Physics Communications, 271</em>, 108171. https://doi.org/10.1016/j.cpc.2021.108171</p>
+        <p class="note">Not in this repository's bibliography; author list abbreviated, see the DOI.</p>
+        <details><summary>BibTeX</summary><pre><code>@article{thompson2022lammps,
+  author  = {Thompson, Aidan P. and Aktulga, H. Metin
+             and Berger, Richard and others},
+  title   = {{LAMMPS} -- a flexible simulation tool for particle-based
+             materials modeling at the atomic, meso, and continuum
+             scales},
+  journal = {Computer Physics Communications},
+  volume  = {271},
+  pages   = {108171},
+  year    = {2022},
+  doi     = {10.1016/j.cpc.2021.108171}
+}</code></pre></details>
+      </article>
+    </div>
+
+    <h3>Reactor physics, molten salt and fuel cycle</h3>
+    <div class="credit-grid">
+      <article class="credit" id="c-moltres">
+        <h4>Moltres</h4>
+        <dl>
+          <dt>Authors</dt><dd>Alexander Lindsay, Gavin Ridley, Andrei Rykhlevskii, Kathryn Huff; ARFC group, University of Illinois Urbana-Champaign</dd>
+          <dt>Licence</dt><dd>LGPL-2.1</dd>
+          <dt>Upstream</dt><dd><a href="https://github.com/arfc/moltres">github.com/arfc/moltres</a></dd>
+          <dt>Version</dt><dd>commit <code>3dd2ce7</code> (formulation only, no code reused)</dd>
+          <dt>Used in</dt><dd><a href="https://github.com/theodoreOnzGit/outram-park-backend/tree/develop/crates/outram-park-fork-moltres">outram-park-fork-moltres</a></dd>
+        </dl>
+        <p class="cite">Lindsay, A., Ridley, G., Rykhlevskii, A., &amp; Huff, K. (2018). Introduction to Moltres: An application for simulation of molten salt reactors. <em>Annals of Nuclear Energy, 114</em>, 530&ndash;540.</p>
+        <details><summary>BibTeX</summary><pre><code>@article{lindsay2018moltres,
+  author  = {Lindsay, Alexander and Ridley, Gavin
+             and Rykhlevskii, Andrei and Huff, Kathryn},
+  title   = {Introduction to {Moltres}: An Application for Simulation
+             of Molten Salt Reactors},
+  journal = {Annals of Nuclear Energy},
+  volume  = {114},
+  pages   = {530--540},
+  year    = {2018}
+}</code></pre></details>
+      </article>
+
+      <article class="credit" id="c-onix">
+        <h4>ONIX</h4>
+        <dl>
+          <dt>Authors</dt><dd>Julien de Lanversin and co-authors</dd>
+          <dt>Licence</dt><dd>MIT</dd>
+          <dt>Upstream</dt><dd><a href="https://github.com/jlanversin/ONIX">github.com/jlanversin/ONIX</a></dd>
+          <dt>Version</dt><dd>commit <code>7328dc6</code></dd>
+          <dt>Ported into</dt><dd><a href="https://github.com/theodoreOnzGit/outram-park-backend/tree/develop/crates/outram-park-fork-onix">outram-park-fork-onix</a></dd>
+        </dl>
+        <p class="cite">de Lanversin, J., K&uuml;tt, M., &amp; Glaser, A. (2021). ONIX: An open-source depletion code. <em>Annals of Nuclear Energy, 151</em>, 107903.</p>
+        <p class="note">The repository records only the upstream URL, commit and licence; author names and citation details are unverified here. See upstream.</p>
+        <details><summary>BibTeX</summary><pre><code>@article{delanversin2021onix,
+  author  = {de Lanversin, Julien and K{\"u}tt, Moritz
+             and Glaser, Alexander},
+  title   = {{ONIX}: An open-source depletion code},
+  journal = {Annals of Nuclear Energy},
+  volume  = {151},
+  pages   = {107903},
+  year    = {2021}
+}</code></pre></details>
+      </article>
+
+      <article class="credit" id="c-thermochimica">
+        <h4>Thermochimica</h4>
+        <dl>
+          <dt>Authors</dt><dd>M. H. A. Piro, S. Simunovic, T. M. Besmann, B. J. Lewis, W. T. Thompson; Oak Ridge National Laboratory</dd>
+          <dt>Licence</dt><dd>BSD-3-Clause</dd>
+          <dt>Upstream</dt><dd><a href="https://github.com/ORNL-CEES/thermochimica">github.com/ORNL-CEES/thermochimica</a></dd>
+          <dt>Version</dt><dd>commit <code>0c35c8d</code></dd>
+          <dt>Ported into</dt><dd><a href="https://github.com/theodoreOnzGit/outram-park-backend/tree/develop/crates/outram-park-fork-thermochimica">outram-park-fork-thermochimica</a></dd>
+        </dl>
+        <p class="cite">Piro, M. H. A., Simunovic, S., Besmann, T. M., Lewis, B. J., &amp; Thompson, W. T. (2011). The Thermochimica software package for modeling multi-component thermodynamic equilibria. <em>Journal of Nuclear Materials, 414</em>(3), 399&ndash;407.</p>
+        <details><summary>BibTeX</summary><pre><code>@article{piro2011thermochimica,
+  author  = {Piro, M. H. A. and Simunovic, S. and Besmann, T. M.
+             and Lewis, B. J. and Thompson, W. T.},
+  title   = {The {Thermochimica} Software Package for Modeling
+             Multi-Component Thermodynamic Equilibria},
+  journal = {Journal of Nuclear Materials},
+  volume  = {414},
+  number  = {3},
+  pages   = {399--407},
+  year    = {2011}
+}</code></pre></details>
+      </article>
+
+      <article class="credit" id="c-cyclus">
+        <h4>CYCLUS, CYCAMORE and PyNE</h4>
+        <dl>
+          <dt>Authors</dt><dd>University of Wisconsin Computational Nuclear Engineering Research Group (CNERG), &copy; 2010&ndash;2016; PyNE developers. <code>position.h</code> adapts Jaime Olivares' <a href="https://github.com/jaime-olivares/coordinate">coordinate</a> (MIT, &copy; 2015)</dd>
+          <dt>Licence</dt><dd>BSD-3-Clause (CYCLUS, CYCAMORE); BSD-2-Clause (PyNE)</dd>
+          <dt>Upstream</dt><dd><a href="https://github.com/cyclus/cyclus">github.com/cyclus/cyclus</a>, <a href="https://github.com/cyclus/cycamore">github.com/cyclus/cycamore</a></dd>
+          <dt>Version</dt><dd>CYCLUS <code>d4faab7</code>, CYCAMORE <code>fee8c80</code></dd>
+          <dt>Ported into</dt><dd><a href="https://github.com/theodoreOnzGit/outram-park-backend/tree/develop/crates/kaki-bukit">kaki-bukit</a></dd>
+        </dl>
+        <p class="cite">Huff, K. D., Gidden, M. J., Carlsen, R. W., et al. (2016). Fundamental concepts in the Cyclus nuclear fuel cycle simulation framework. <em>Advances in Engineering Software, 94</em>, 46&ndash;59.</p>
+        <p class="note">Not in this repository's bibliography (it records the projects, commits and licences); citation details unverified here. See upstream.</p>
+        <details><summary>BibTeX</summary><pre><code>@article{huff2016cyclus,
+  author  = {Huff, Kathryn D. and Gidden, Matthew J.
+             and Carlsen, Robert W. and others},
+  title   = {Fundamental concepts in the {Cyclus} nuclear fuel cycle
+             simulation framework},
+  journal = {Advances in Engineering Software},
+  volume  = {94},
+  pages   = {46--59},
+  year    = {2016}
+}
+@misc{cycamore,
+  author       = {{University of Wisconsin CNERG}},
+  title        = {{CYCAMORE}: {CYClus} Additional MOdules for
+                  REactor research},
+  note         = {Commit fee8c80, BSD-3-Clause},
+  howpublished = {\url{https://github.com/cyclus/cycamore}}
+}</code></pre></details>
+      </article>
+    </div>
+
+    <h3>Risk, uncertainty and learning</h3>
+    <div class="credit-grid">
+      <article class="credit" id="c-raven">
+        <h4>RAVEN</h4>
+        <dl>
+          <dt>Authors</dt><dd>Andrea Alfonsi, Cristian Rabiti, Diego Mandelli, Joshua Cogliati, Congjian Wang, Daniel Maljovec, Paul Talbot, Sonat Sen, Robert Kinoshita, Jun Chen; Idaho National Laboratory, &copy; 2017 Battelle Energy Alliance, LLC</dd>
+          <dt>Licence</dt><dd>Apache-2.0</dd>
+          <dt>Upstream</dt><dd><a href="https://github.com/idaholab/raven">github.com/idaholab/raven</a></dd>
+          <dt>Version</dt><dd><code>devel</code>, commit <code>0121693</code></dd>
+          <dt>Ported into</dt><dd><a href="https://github.com/theodoreOnzGit/outram-park-backend/tree/develop/crates/raffles">raffles</a></dd>
+        </dl>
+        <p class="cite">Alfonsi, A., Rabiti, C., Mandelli, D., Cogliati, J., Kinoshita, R., &amp; Naviglio, A. (2014). RAVEN and dynamic probabilistic risk assessment: Software overview. In <em>Proceedings of ESREL 2014</em>.</p>
+        <details><summary>BibTeX</summary><pre><code>@inproceedings{alfonsi2014raven,
+  author    = {Alfonsi, Andrea and Rabiti, Cristian and Mandelli, Diego
+               and Cogliati, Joshua and Kinoshita, Robert
+               and Naviglio, Antonio},
+  title     = {{RAVEN} and Dynamic Probabilistic Risk Assessment:
+               Software Overview},
+  booktitle = {Proceedings of ESREL},
+  year      = {2014}
+}</code></pre></details>
+      </article>
+
+      <article class="credit" id="c-scram">
+        <h4>SCRAM</h4>
+        <dl>
+          <dt>Authors</dt><dd>Olzhas Rakhimov (&copy; 2014&ndash;2018)</dd>
+          <dt>Licence</dt><dd>GPL-3.0-or-later</dd>
+          <dt>Upstream</dt><dd><a href="https://github.com/rakhimov/scram">github.com/rakhimov/scram</a></dd>
+          <dt>Version</dt><dd>commit <code>b85b789</code></dd>
+          <dt>Ported into</dt><dd><a href="https://github.com/theodoreOnzGit/outram-park-backend/tree/develop/crates/raffles">raffles</a> (<code>scram</code>)</dd>
+        </dl>
+        <p class="cite">Rakhimov, O. (2019). <em>SCRAM: Probabilistic risk analysis tool</em> [Computer software]. https://github.com/rakhimov/scram</p>
+        <details><summary>BibTeX</summary><pre><code>@misc{rakhimov_scram,
+  author       = {Rakhimov, Olzhas},
+  title        = {{SCRAM}: probabilistic risk analysis tool},
+  year         = {2019},
+  note         = {Computer software, commit b85b789},
+  howpublished = {\url{https://github.com/rakhimov/scram}}
+}</code></pre></details>
+      </article>
+
+      <article class="credit" id="c-pgmpnn">
+        <h4>Physics-guided Message Passing Iterations</h4>
+        <dl>
+          <dt>Authors</dt><dd>L. Tesan, M. M. Iparraguirre et al.</dd>
+          <dt>Licence</dt><dd>GPL-3.0</dd>
+          <dt>Upstream</dt><dd><a href="https://github.com/mikelunizar/Physics-guided-MPNN">github.com/mikelunizar/Physics-guided-MPNN</a></dd>
+          <dt>Version</dt><dd>commit <code>12b75ac</code></dd>
+          <dt>Ported into</dt><dd><a href="https://github.com/theodoreOnzGit/outram-park-backend/tree/develop/crates/raffles">raffles</a> (<code>gnn</code>)</dd>
+        </dl>
+        <p class="cite">Tesan, L., Iparraguirre, M. M., et al. (n.d.). <em>Physics-guided message passing iterations</em> [Computer software]. https://github.com/mikelunizar/Physics-guided-MPNN</p>
+        <p class="note">Full author list and any associated paper unverified here; see upstream.</p>
+        <details><summary>BibTeX</summary><pre><code>@misc{tesan_pgmpnn,
+  author       = {Tesan, L. and Iparraguirre, M. M. and others},
+  title        = {Physics-guided Message Passing Iterations},
+  note         = {Computer software, commit 12b75ac},
+  howpublished = {\url{https://github.com/mikelunizar/Physics-guided-MPNN}}
+}</code></pre></details>
+      </article>
+
+      <article class="credit" id="c-bmu">
+        <h4>Bayesian Model Updating Tutorials</h4>
+        <dl>
+          <dt>Authors</dt><dd>Adolphus Lye</dd>
+          <dt>Licence</dt><dd>GPL-3.0</dd>
+          <dt>Upstream</dt><dd><a href="https://github.com/Adolphus8/Bayesian-Model-Updating-Tutorials">github.com/Adolphus8/Bayesian-Model-Updating-Tutorials</a></dd>
+          <dt>Version</dt><dd>commit <code>f88cbbc</code></dd>
+          <dt>Ported into</dt><dd><a href="https://github.com/theodoreOnzGit/outram-park-backend/tree/develop/crates/raffles">raffles</a> (<code>bayesian</code>)</dd>
+        </dl>
+        <p class="cite">Lye, A. (n.d.). <em>Bayesian model updating tutorials</em> [Computer software]. https://github.com/Adolphus8/Bayesian-Model-Updating-Tutorials</p>
+        <details><summary>BibTeX</summary><pre><code>@misc{lye_bmu_tutorials,
+  author       = {Lye, Adolphus},
+  title        = {Bayesian Model Updating Tutorials},
+  note         = {Computer software, commit f88cbbc},
+  howpublished = {\url{https://github.com/Adolphus8/Bayesian-Model-Updating-Tutorials}}
+}</code></pre></details>
+      </article>
+    </div>
+
+    <h3>Subsurface and infrastructure</h3>
+    <div class="credit-grid">
+      <article class="credit" id="c-pflotran">
+        <h4>PFLOTRAN</h4>
+        <dl>
+          <dt>Authors</dt><dd>Peter C. Lichtner, Glenn E. Hammond, Chuan Lu, Satish Karra, Gautam Bisht, Benjamin Andre, Richard T. Mills, Jitendra Kumar and the PFLOTRAN team (PNNL, SNL, LANL, ORNL, LBNL); &copy; Battelle Memorial Institute 2023 (v5.X)</dd>
+          <dt>Licence</dt><dd>LGPL-3.0 (v5.X; earlier eras differ, see the crate's NOTICE)</dd>
+          <dt>Upstream</dt><dd><a href="https://www.pflotran.org">pflotran.org</a> (code: <a href="https://bitbucket.org/pflotran/pflotran">bitbucket.org/pflotran/pflotran</a>)</dd>
+          <dt>Version</dt><dd>clone at commit <code>669fbce</code></dd>
+          <dt>Ported into</dt><dd><a href="https://github.com/theodoreOnzGit/outram-park-backend/tree/develop/crates/outram-park-fork-pflotran">outram-park-fork-pflotran</a></dd>
+        </dl>
+        <p class="cite">Lichtner, P. C., Hammond, G. E., Lu, C., Karra, S., Bisht, G., Andre, B., Mills, R. T., &amp; Kumar, J. (2015). <em>PFLOTRAN user manual: A massively parallel reactive flow and transport model for describing surface and subsurface processes</em>. Los Alamos National Laboratory, Sandia National Laboratories, Lawrence Berkeley National Laboratory, Oak Ridge National Laboratory.</p>
+        <details><summary>BibTeX</summary><pre><code>@techreport{lichtner2015pflotran,
+  author      = {Lichtner, Peter C. and Hammond, Glenn E. and Lu, Chuan
+                 and Karra, Satish and Bisht, Gautam and Andre, Benjamin
+                 and Mills, Richard T. and Kumar, Jitendra},
+  title       = {{PFLOTRAN} User Manual: A Massively Parallel Reactive
+                 Flow and Transport Model for Describing Surface and
+                 Subsurface Processes},
+  institution = {Los Alamos National Laboratory, Sandia National
+                 Laboratories, Lawrence Berkeley National Laboratory,
+                 Oak Ridge National Laboratory},
+  year        = {2015}
+}</code></pre></details>
+      </article>
+
+      <article class="credit" id="c-mpich">
+        <h4>MPICH</h4>
+        <dl>
+          <dt>Authors</dt><dd>Argonne National Laboratory and the MPICH collaboration</dd>
+          <dt>Licence</dt><dd>BSD-style (the crate's NOTICE marks this as not yet verified against the upstream COPYRIGHT)</dd>
+          <dt>Upstream</dt><dd><a href="https://www.mpich.org">mpich.org</a> (code: <a href="https://github.com/pmodels/mpich">github.com/pmodels/mpich</a>)</dd>
+          <dt>Used in</dt><dd><a href="https://github.com/theodoreOnzGit/outram-park-backend/tree/develop/crates/outram-park-mpi">outram-park-mpi</a> (MPI-3 semantics re-implemented; no MPICH source copied)</dd>
+        </dl>
+        <p class="cite">Argonne National Laboratory. (n.d.). <em>MPICH</em> [Computer software]. https://www.mpich.org</p>
+        <details><summary>BibTeX</summary><pre><code>@misc{mpich,
+  author       = {{Argonne National Laboratory}},
+  title        = {{MPICH}: a high-performance, portable implementation
+                  of {MPI}},
+  howpublished = {\url{https://www.mpich.org}}
+}</code></pre></details>
+      </article>
+    </div>
+
+    <h3>Numerics</h3>
+    <div class="credit-grid">
+      <article class="credit" id="c-gsl">
+        <h4>GNU Scientific Library (GSL)</h4>
+        <dl>
+          <dt>Authors</dt><dd>Mark Galassi, Jim Davies, James Theiler, Brian Gough, Gerard Jungman, Patrick Alken, Michael Booth, Fabrice Rossi; copyright per module with its authors and the Free Software Foundation</dd>
+          <dt>Licence</dt><dd>GPL-3.0-or-later</dd>
+          <dt>Upstream</dt><dd><a href="https://git.savannah.gnu.org/git/gsl.git">git.savannah.gnu.org/git/gsl.git</a> (read from the <a href="https://github.com/ampl/gsl">ampl/gsl</a> mirror)</dd>
+          <dt>Version</dt><dd>GSL 2.8, commit <code>cf180cd</code></dd>
+          <dt>Ported into</dt><dd><a href="https://github.com/theodoreOnzGit/outram-park-backend/tree/develop/crates/petir">petir</a></dd>
+        </dl>
+        <p class="cite">Galassi, M., Davies, J., Theiler, J., Gough, B., Jungman, G., Alken, P., Booth, M., &amp; Rossi, F. (2009). <em>GNU scientific library reference manual</em> (3rd ed.). Network Theory Ltd.</p>
+        <details><summary>BibTeX</summary><pre><code>@book{galassi2009gsl,
+  author    = {Galassi, Mark and Davies, Jim and Theiler, James
+               and Gough, Brian and Jungman, Gerard and Alken, Patrick
+               and Booth, Michael and Rossi, Fabrice},
+  title     = {{GNU} Scientific Library Reference Manual},
+  publisher = {Network Theory Ltd.},
+  edition   = {3},
+  year      = {2009}
+}</code></pre></details>
+      </article>
+
+      <article class="credit" id="c-arm-or">
+        <h4>ARM optimized-routines</h4>
+        <dl>
+          <dt>Authors</dt><dd>Arm and the optimized-routines contributors</dd>
+          <dt>Licence</dt><dd>MIT OR Apache-2.0 WITH LLVM-exception</dd>
+          <dt>Upstream</dt><dd><a href="https://github.com/ARM-software/optimized-routines">github.com/ARM-software/optimized-routines</a></dd>
+          <dt>Version</dt><dd>commit <code>f2e4faf</code></dd>
+          <dt>Ported into</dt><dd><a href="https://github.com/theodoreOnzGit/outram-park-backend/tree/develop/crates/petir">petir</a> (<code>exp</code>, <code>log</code>, <code>pow</code>)</dd>
+        </dl>
+        <p class="cite">Arm. (2026). <em>optimized-routines</em> [Computer software]. https://github.com/ARM-software/optimized-routines</p>
+        <details><summary>BibTeX</summary><pre><code>@misc{arm_optimized_routines,
+  author       = {{Arm}},
+  title        = {optimized-routines},
+  year         = {2026},
+  note         = {Computer software, commit f2e4faf},
+  howpublished = {\url{https://github.com/ARM-software/optimized-routines}}
+}</code></pre></details>
+      </article>
+
+      <article class="credit" id="c-peroxide">
+        <h4>peroxide and roots (Rust crates)</h4>
+        <dl>
+          <dt>Authors</dt><dd>peroxide: Tae Geun Kim (axect). roots: Mikhail Vorotilov (&copy; 2015)</dd>
+          <dt>Licence</dt><dd>peroxide: MIT OR Apache-2.0 (taken under MIT). roots: BSD-2-Clause</dd>
+          <dt>Upstream</dt><dd><a href="https://github.com/Axect/Peroxide">github.com/Axect/Peroxide</a>, <a href="https://github.com/vorot/roots">github.com/vorot/roots</a></dd>
+          <dt>Version</dt><dd>peroxide 0.41.2; roots 0.0.8</dd>
+          <dt>Ported into</dt><dd><a href="https://github.com/theodoreOnzGit/outram-park-backend/tree/develop/crates/petir">petir</a> (<code>poly</code>)</dd>
+        </dl>
+        <p class="cite">Kim, T. G. (n.d.). <em>Peroxide</em> (Version 0.41.2) [Computer software]. https://github.com/Axect/Peroxide</p>
+        <p class="cite">Vorotilov, M. (2015). <em>roots</em> (Version 0.0.8) [Computer software]. https://github.com/vorot/roots</p>
+        <details><summary>BibTeX</summary><pre><code>@misc{kim_peroxide,
+  author       = {Kim, Tae Geun},
+  title        = {Peroxide},
+  note         = {Rust crate, version 0.41.2},
+  howpublished = {\url{https://github.com/Axect/Peroxide}}
+}
+@misc{vorotilov_roots,
+  author       = {Vorotilov, Mikhail},
+  title        = {roots},
+  year         = {2015},
+  note         = {Rust crate, version 0.0.8},
+  howpublished = {\url{https://github.com/vorot/roots}}
+}</code></pre></details>
+      </article>
+    </div>
+
+    <h3>Data and benchmarks</h3>
+    <div class="credit-grid">
+      <article class="credit" id="c-endf">
+        <h4>ENDF/B-VIII.0</h4>
+        <dl>
+          <dt>Authors</dt><dd>D. A. Brown, M. B. Chadwick, R. Capote and co-authors (68 in all); the Cross Section Evaluation Working Group (CSEWG); distributed by the National Nuclear Data Center (NNDC), Brookhaven National Laboratory</dd>
+          <dt>Source</dt><dd><a href="https://www.nndc.bnl.gov/endf-b8.0/download.html">nndc.bnl.gov/endf-b8.0</a></dd>
+          <dt>Used by</dt><dd>every demo on this site: the Monte Carlo and nuclear data demos download and process neutron and thermal-scattering tapes in your browser; the TRISO demo's decay data are compiled into <a href="https://github.com/theodoreOnzGit/outram-park-backend/tree/develop/crates/boon-lay">boon-lay</a>. Tapes and provenance: <a href="https://github.com/theodoreOnzGit/outram-park-backend/blob/develop/reference-data/endf/README.md">reference-data/endf</a></dd>
+        </dl>
+        <p class="cite">Brown, D. A., Chadwick, M. B., Capote, R., et al. (2018). ENDF/B-VIII.0: The 8th major release of the nuclear reaction data library with CIELO-project cross sections, new standards and thermal scattering data. <em>Nuclear Data Sheets, 148</em>, 1&ndash;142. https://doi.org/10.1016/j.nds.2018.02.001</p>
+        <details><summary>BibTeX</summary><pre><code>@article{brown2018endfb8,
+  author  = {Brown, D. A. and Chadwick, M. B. and Capote, R.
+             and others},
+  title   = {{ENDF/B-VIII.0}: The 8th Major Release of the Nuclear
+             Reaction Data Library with {CIELO}-project Cross
+             Sections, New Standards and Thermal Scattering Data},
+  journal = {Nuclear Data Sheets},
+  volume  = {148},
+  pages   = {1--142},
+  year    = {2018},
+  doi     = {10.1016/j.nds.2018.02.001}
+}</code></pre></details>
+      </article>
+
+      <article class="credit" id="c-icsbep">
+        <h4>ICSBEP handbook: Godiva and LEU-COMP-THERM-008</h4>
+        <dl>
+          <dt>Authors</dt><dd>OECD Nuclear Energy Agency, International Criticality Safety Benchmark Evaluation Project</dd>
+          <dt>Benchmarks</dt><dd>HEU-MET-FAST-001 (&ldquo;Godiva&rdquo;); LEU-COMP-THERM-008 (Babcock &amp; Wilcox critical cores). The handbook is licence-restricted and is not quoted on this site.</dd>
+          <dt>Used by</dt><dd>Monte Carlo lessons and demo, rungs 1 and 4; V&amp;V in <a href="https://github.com/theodoreOnzGit/outram-park-backend/tree/develop/crates/outram-mc-libs">outram-mc-libs</a></dd>
+        </dl>
+        <p class="cite">Nuclear Energy Agency. (2020). <em>International handbook of evaluated criticality safety benchmark experiments</em> (NEA/NSC/DOC(95)03). OECD Nuclear Energy Agency.</p>
+        <details><summary>BibTeX</summary><pre><code>@techreport{icsbep,
+  author      = {{Nuclear Energy Agency}},
+  title       = {International Handbook of Evaluated Criticality Safety
+                 Benchmark Experiments},
+  institution = {OECD Nuclear Energy Agency},
+  number      = {NEA/NSC/DOC(95)03},
+  year        = {2020}
+}</code></pre></details>
+      </article>
+
+      <article class="credit" id="c-mitcrpg-benchmarks">
+        <h4>mit-crpg/benchmarks (LEU-COMP-THERM-008 model)</h4>
+        <dl>
+          <dt>Authors</dt><dd>Paul Romano and other contributors (&copy; 2011&ndash;2024)</dd>
+          <dt>Licence</dt><dd>MIT</dd>
+          <dt>Upstream</dt><dd><a href="https://github.com/mit-crpg/benchmarks">github.com/mit-crpg/benchmarks</a></dd>
+          <dt>Used in</dt><dd><a href="https://github.com/theodoreOnzGit/outram-park-backend/tree/develop/crates/outram-mc-libs/verification_and_validation/icsbep/leu-comp-therm-008">outram-mc-libs V&amp;V</a>, committed and parsed as written; rung 4 of the Monte Carlo demo</dd>
+        </dl>
+        <p class="cite">Romano, P., et al. (2024). <em>benchmarks</em> [Data set]. https://github.com/mit-crpg/benchmarks</p>
+        <details><summary>BibTeX</summary><pre><code>@misc{mitcrpg_benchmarks,
+  author       = {Romano, Paul and others},
+  title        = {benchmarks: {ICSBEP} benchmark models},
+  year         = {2024},
+  note         = {MIT licence},
+  howpublished = {\url{https://github.com/mit-crpg/benchmarks}}
+}</code></pre></details>
+      </article>
+
+      <article class="credit" id="c-htr10">
+        <h4>HTR-10 benchmark</h4>
+        <dl>
+          <dt>Authors</dt><dd>International Atomic Energy Agency</dd>
+          <dt>Used by</dt><dd>the TRISO pebble rung of the Monte Carlo demo and the HTR-10 capstones of the dispersion and TRISO tracks</dd>
+        </dl>
+        <p class="cite">International Atomic Energy Agency. (2003). <em>Evaluation of high temperature gas cooled reactor performance: Benchmark analysis related to initial testing of the HTTR and HTR-10</em> (IAEA-TECDOC-1382). IAEA.</p>
+        <details><summary>BibTeX</summary><pre><code>@techreport{iaea2003htr10,
+  author      = {{International Atomic Energy Agency}},
+  title       = {Evaluation of High Temperature Gas Cooled Reactor
+                 Performance: Benchmark Analysis Related to Initial
+                 Testing of the {HTTR} and {HTR-10}},
+  institution = {IAEA},
+  number      = {IAEA-TECDOC-1382},
+  year        = {2003}
+}</code></pre></details>
+      </article>
+    </div>
+
+    <h3>Site and demo tooling</h3>
+    <p>The site is built with these tools; no code from them is ported, and the credit for them belongs to their maintainers.</p>
+    <ul class="tool-list">
+      <li><a href="https://github.com/emilk/egui">egui, eframe and egui_plot</a> (Emil Ernerfeldt and contributors; MIT OR Apache-2.0): every live demo's user interface.</li>
+      <li><a href="https://crates.io/crates/wasm-bindgen">wasm-bindgen, js-sys and web-sys</a> (the wasm-bindgen developers; MIT OR Apache-2.0): runs the demos in your browser.</li>
+      <li><a href="https://github.com/rust-lang/mdBook">mdBook</a> (the Rust project; MPL-2.0): the lessons and deep dives.</li>
+      <li><a href="https://doc.rust-lang.org/rustdoc/">rustdoc</a> (the Rust project; MIT OR Apache-2.0): the API reference pages.</li>
+      <li><a href="https://github.com/rust-lang/rust-analyzer">rust-analyzer</a> (the Rust project; MIT OR Apache-2.0): checks the code walks in the lessons.</li>
+      <li>Elsewhere in the workspace, the <code>kovan</code> GUI translates part of James Taylor's <a href="https://github.com/jbt/markdown-editor">markdown-editor</a> (ISC) and uses the <a href="https://github.com/morhetz/gruvbox">gruvbox</a> colour values (MIT).</li>
+    </ul>
+  </section>
 </main>
 
 <footer>
   <p>Found something that doesn't tally between a lesson and its code? <a href="https://github.com/theodoreOnzGit/outram-park-backend/issues/new">Open an issue</a> (a structured report form is coming, <a href="https://github.com/theodoreOnzGit/outram-park-backend/issues/511">#511</a>).</p>
-  <p>Built from commit <a href="https://github.com/theodoreOnzGit/outram-park-backend/commit/@@COMMIT@@"><code>@@COMMIT_SHORT@@</code></a> on <code>develop</code>, @@BUILD_DATE@@. GPL-3.0. Written with AI assistance (see <a href="https://github.com/theodoreOnzGit/outram-park-backend/blob/develop/AI_USAGE.md">AI_USAGE.md</a>).</p>
+  <p>Built from commit <a href="https://github.com/theodoreOnzGit/outram-park-backend/commit/@@COMMIT@@"><code>@@COMMIT_SHORT@@</code></a> on <code>develop</code>, @@BUILD_DATE@@. GPL-3.0. Written with AI assistance (see <a href="https://github.com/theodoreOnzGit/outram-park-backend/blob/develop/AI_USAGE.md">AI_USAGE.md</a>). <a href="#credits">Credits &amp; upstream code</a>.</p>
 </footer>
 <script>
   // index.html#monte-carlo (etc.) opens that track's tab: the "Up" links of
