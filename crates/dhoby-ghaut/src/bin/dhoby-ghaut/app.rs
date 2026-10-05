@@ -158,6 +158,8 @@ pub struct App {
     pub main_rect: egui::Rect,
     /// The step the main view and the literature pane were last set up for.
     pub shown_step: Option<WizardStep>,
+    /// Steps 7-8 (meshing, MGXS): their own engine thread and state.
+    pub s78: crate::steps78::S78,
 }
 
 impl App {
@@ -218,6 +220,7 @@ impl App {
             t0: std::time::Instant::now(),
             main_rect: egui::Rect::NOTHING,
             shown_step: None,
+            s78: crate::steps78::S78::new(cc.egui_ctx.clone()),
         };
         if loaded {
             app.refresh_edited();
@@ -836,6 +839,7 @@ impl eframe::App for App {
         self.handle(&ctx, events);
         let dem_events = self.dem_link.drain();
         self.handle_dem(dem_events);
+        crate::steps78::handle(self, &ctx);
         self.dialog.update(&ctx);
         if let Some(path) = self.dialog.take_picked() {
             self.picked(path);

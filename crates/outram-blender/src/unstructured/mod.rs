@@ -72,6 +72,7 @@ pub mod geometry;
 pub mod locator;
 pub mod mesh;
 pub mod one_d;
+pub mod overlap;
 pub mod plot;
 
 pub use build::DEFAULT_PATCH;

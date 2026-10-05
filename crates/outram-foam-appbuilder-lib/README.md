@@ -240,9 +240,13 @@ real limitations** as of version 0.1.1 — grounded in the code, not aspirationa
   `pointKineticNeutronics` couplings — temperature/density feedback fields,
   GEM and control-rod-driveline reactivity, external-source power modulation,
   FMU inputs, and the liquid-fuel precursor-advection variant — are deferred.
-- **Cross sections are not read from disk.** The `xs` data structures exist and
+- ~~**Cross sections are not read from disk.** The `xs` data structures exist and
   are unit-tested, but GeN-Foam `nuclearData` dictionary-file parsing is not
-  wired through `io`.
+  wired through `io`.~~ **CORRECTED 2026-10-05:** `io::nuclear_data::read_nuclear_data`
+  reads a GeN-Foam `nuclearData` dictionary (with `#include`s) into
+  `NuclearDataInput`, and `io::nuclear_data::write_nuclear_data` writes one
+  (round-trip test `written_nuclear_data_reads_back_identically`). Checked by
+  reading `src/io/nuclear_data/`.
 
 ### GeN-Foam thermal-hydraulics
 

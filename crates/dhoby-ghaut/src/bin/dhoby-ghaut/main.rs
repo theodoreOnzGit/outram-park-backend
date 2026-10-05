@@ -3,9 +3,13 @@
 //! A native window that walks a guided build: pick a reactor type by
 //! generation, Basic or Advanced, the HTGR core, then Steps 0–11 with every
 //! value prefilled and cited, a literature pane beside the model, and a
-//! recipe (kovan markdown) to save and load. Steps 0–5 work for HTGR →
+//! recipe (kovan markdown) to save and load. ~~Steps 0–5 work for HTGR →
 //! Basic → pebble bed (HTR-10); Steps 6–11 are shown with the issue that will
-//! build each.
+//! build each.~~ **UPDATED 2026-10-05:** Steps 0–5, 7 (meshing, gh:#572) and 8
+//! (MGXS, gh:#573) work for HTGR → Basic → pebble bed (HTR-10); the others
+//! are shown with the issue that will build each ([`WizardStep::issue`]).
+//!
+//! [`WizardStep::issue`]: dhoby_ghaut::workbench::steps::WizardStep::issue
 //!
 //! ```text
 //! cargo run --release -p dhoby-ghaut --bin dhoby-ghaut
@@ -15,6 +19,9 @@
 //! cargo run --release -p dhoby-ghaut --bin dhoby-ghaut -- --render-review out_dir
 //! cargo run --release -p dhoby-ghaut --bin dhoby-ghaut -- --headless-keff \
 //!     [--particles 500 --inactive 10 --active 20 --threads 8] [--out out_dir]
+//! cargo run --release -p dhoby-ghaut --bin dhoby-ghaut -- --headless-mesh [--out case_dir]
+//! cargo run --release -p dhoby-ghaut --bin dhoby-ghaut -- --headless-mgxs [--out case_dir] \
+//!     [--temperatures 300.15,600 --groups 2 --particles 2000 --inactive 10 --active 20 --threads 8]
 //! ```
 //!
 //! **Research, education and V&V only.** The HTR-10 model is the TENTATIVE
@@ -28,6 +35,11 @@
 //! writes the review gate's images. `--headless-keff` runs Step 5 with no
 //! window, prints the console and the spectrum, and saves the recipe with the
 //! run appended. No test runs it: the nuclear data alone take minutes.
+//! `--headless-mesh` builds Step 7's three meshes and six maps, writes the
+//! GeN-Foam case (`constant/<region>/polyMesh` with cellZones), the review
+//! images (`images/`) and `meshes.csv`; a test runs it at a coarse size.
+//! `--headless-mgxs` does that and then Step 8's state points, writing
+//! `constant/neutroRegion/nuclearData` and `mgxs.csv` (minutes: no test).
 
 #[cfg(not(any(target_os = "android", target_arch = "wasm32")))]
 mod app;
@@ -37,6 +49,12 @@ mod dem;
 mod engine;
 #[cfg(not(any(target_os = "android", target_arch = "wasm32")))]
 mod literature;
+#[cfg(not(any(target_os = "android", target_arch = "wasm32")))]
+mod meshing;
+#[cfg(not(any(target_os = "android", target_arch = "wasm32")))]
+mod mgxs_run;
+#[cfg(not(any(target_os = "android", target_arch = "wasm32")))]
+mod steps78;
 #[cfg(not(any(target_os = "android", target_arch = "wasm32")))]
 mod preset;
 #[cfg(not(any(target_os = "android", target_arch = "wasm32")))]
@@ -93,6 +111,29 @@ fn main() -> Result<(), String> {
         let r = recipe.unwrap_or_else(preset::htr10);
         return headless::render_review(&r, std::path::Path::new(&dir), arg("--centres").as_deref().map(std::path::Path::new));
     }
+    if args.iter().any(|a| a == "--headless-mesh") || args.iter().any(|a| a == "--headless-mgxs") {
+        let r = recipe.unwrap_or_else(preset::htr10);
+        let out = arg("--out").unwrap_or_else(|| "target/dhoby-ghaut_out/genfoam_case".into());
+        let mut plan78 = dhoby_ghaut::workbench::mgxs::MgxsPlan::default();
+        let num = |k: &str| arg(k).and_then(|v| v.parse::<usize>().ok());
+        plan78.particles = num("--particles").unwrap_or(plan78.particles);
+        plan78.inactive = num("--inactive").unwrap_or(plan78.inactive);
+        plan78.active = num("--active").unwrap_or(plan78.active);
+        plan78.threads = num("--threads").unwrap_or(plan78.threads);
+        if let Some(t) = arg("--temperatures") {
+            plan78.temperatures_k = t.split(',').filter_map(|x| x.trim().parse().ok()).collect();
+        }
+        if let Some(g) = num("--groups") {
+            use dhoby_ghaut::workbench::mgxs::GroupPreset;
+            plan78.groups = match g {
+                4 => GroupPreset::Four,
+                8 => GroupPreset::Eight,
+                _ => GroupPreset::Two,
+            };
+        }
+        let mgxs = args.iter().any(|a| a == "--headless-mgxs");
+        return headless::mesh_and_mgxs(&r, std::path::Path::new(&out), mgxs.then_some(plan78));
+    }
     if args.iter().any(|a| a == "--headless-keff") {
         let mut r = recipe.unwrap_or_else(preset::htr10);
         let num = |k: &str| arg(k).and_then(|v| v.parse::<usize>().ok());
@@ -110,10 +151,24 @@ fn main() -> Result<(), String> {
             .with_title("Dhoby Ghaut workbench"),
         ..Default::default()
     };
+    // `--open-step N` opens the wizard at step N (for review screenshots);
+    // `--auto-build` then builds Step 7's meshes as soon as the geometry is in.
+    let open_step = arg("--open-step").and_then(|v| v.parse::<u8>().ok());
+    let auto_build = args.iter().any(|a| a == "--auto-build");
     eframe::run_native(
         "Dhoby Ghaut workbench",
         options,
-        Box::new(move |cc| Ok(Box::new(app::App::new(cc, recipe)))),
+        Box::new(move |cc| {
+            let mut a = app::App::new(cc, recipe);
+            if let Some(n) = open_step {
+                a.enter_wizard();
+                if let Some(s) = dhoby_ghaut::workbench::steps::WizardStep::ALL.iter().find(|s| s.number() == Some(n)) {
+                    a.step = *s;
+                }
+            }
+            a.s78.auto_build = auto_build;
+            Ok(Box::new(a))
+        }),
     )
     .map_err(|e| e.to_string())
 }
@@ -126,6 +181,12 @@ mod headless {
     use dhoby_ghaut::workbench::recipe::{now_rfc3339, Recipe, RunRecord};
 
     use crate::engine::{AssemblyInfo, Engine, Ev, KeffJob, Req};
+
+    /// [`assemble`] for the tests.
+    #[cfg(test)]
+    pub fn assemble_for_test(engine: &mut Engine, r: &Recipe) -> Option<AssemblyInfo> {
+        assemble(engine, r)
+    }
 
     fn assemble(engine: &mut Engine, r: &Recipe) -> Option<AssemblyInfo> {
         let mut info = None;
@@ -262,6 +323,80 @@ mod headless {
         Ok(())
     }
 
+    /// Steps 7 (and, with a plan, 8) with no window: assemble, mesh, map,
+    /// write the GeN-Foam case and the review images, print the summary CSV;
+    /// then the MGXS state points, printing their CSV.
+    pub fn mesh_and_mgxs(
+        r: &Recipe,
+        out: &Path,
+        mgxs: Option<dhoby_ghaut::workbench::mgxs::MgxsPlan>,
+    ) -> Result<(), String> {
+        let mut engine = Engine::default();
+        let a = assemble(&mut engine, r).ok_or("assembly failed")?;
+        let d = crate::meshing::domain_from(&a);
+        let plan = dhoby_ghaut::workbench::meshes::MeshPlan::default_for(&d);
+        let t = std::time::Instant::now();
+        let built = crate::meshing::build(&d, &plan, out, &mut |p| {
+            let crate::meshing::MeshProgress::Stage(s, f) = p;
+            eprintln!("[{:5.1} s] {:3.0} % {s}", t.elapsed().as_secs_f64(), 100.0 * f);
+        })?;
+        let mut imgs = built.images.clone();
+        imgs.push(("regions_rz".into(), crate::meshing::draw_region_map(&d, &plan.regions, 900)));
+        for p in crate::meshing::write_images(&imgs, &out.join("images"))? {
+            eprintln!("wrote {}", p.display());
+        }
+        let csv = crate::meshing::summary_csv(&built.set);
+        std::fs::write(out.join("meshes.csv"), &csv).map_err(|e| e.to_string())?;
+        println!("{csv}");
+        let Some(mplan) = mgxs else { return Ok(()) };
+        let core = engine_core(&mut engine, r).ok_or("no core")?;
+        let nm = &built.meshes[dhoby_ghaut::workbench::meshes::MeshRole::Neutronics.index()];
+        let job = crate::mgxs_run::MgxsJob {
+            plan: mplan,
+            core,
+            mesh: std::sync::Arc::new(nm.with_unit(outram_blender::unstructured::LengthUnit::Centimetre)),
+            cell_region: built.set.meshes[0].cell_region.clone(),
+            regions: plan.regions.regions.clone(),
+            out_dir: out.to_path_buf(),
+            live: Default::default(),
+        };
+        let t = std::time::Instant::now();
+        let set = crate::mgxs_run::run(&job, &mut |p| match p {
+            crate::mgxs_run::MgxsProgress::Stage { state, what } => eprintln!("[{:6.1} s] state {}: {what}", t.elapsed().as_secs_f64(), state + 1),
+            crate::mgxs_run::MgxsProgress::StateDone(s) => eprintln!(
+                "[{:6.1} s] state {} K: k = {:.5} +/- {:.5}, data {:.1} s, transport {:.1} s",
+                t.elapsed().as_secs_f64(),
+                s.temperature_k,
+                s.k,
+                s.k_sigma,
+                s.data_s,
+                s.transport_s
+            ),
+            _ => {}
+        })?;
+        let p = crate::mgxs_run::write_csv(&set, out)?;
+        println!("{}", crate::mgxs_run::csv(&set));
+        for n in &set.notes {
+            println!("note: {n}");
+        }
+        eprintln!("wrote {} and {}", p.display(), set.nuclear_data_path.clone().unwrap_or_default());
+        Ok(())
+    }
+
+    /// The assembled core the engine holds (assembling again if needed).
+    fn engine_core(engine: &mut Engine, r: &Recipe) -> Option<std::sync::Arc<nee_soon::htr10_rmc::core_model::AssembledCore>> {
+        let mut core = None;
+        engine.handle(
+            Req::Assemble { rings: r.pebble_bed.rings, layers: r.pebble_bed.layers },
+            &mut |e| {
+                if let Ev::Assembled(_, c) = e {
+                    core = Some(c);
+                }
+            },
+        );
+        core
+    }
+
     pub fn keff(mut r: Recipe, out: &Path) -> Result<(), String> {
         let mut engine = Engine::default();
         let a = assemble(&mut engine, &r).ok_or("assembly failed")?;
@@ -361,5 +496,89 @@ mod tests {
             "regenerate {} only after reviewing the geometry",
             path.display()
         );
+    }
+
+    /// Step 7 headless, at a coarse size (gh:#572). Builds the three meshes of
+    /// the assembled HTR-10 preset and checks what the hand-off promises:
+    ///
+    /// - **Methodology.** Assemble the preset, derive the R-Z domain, mesh at
+    ///   40 / 25 / 40 cm (neutronics / TH / structural), write the GeN-Foam
+    ///   case into a temporary folder, read every `polyMesh` and `cellZones`
+    ///   back with the GeN-Foam port's own reader, convert the structural
+    ///   mesh to farrer-park, and check the six maps.
+    /// - **Pass criteria.** Each mesh's volume within 3 % of the exact R-Z
+    ///   volume (the inscribed 32-gon alone is −0.64 %); the structural mesh
+    ///   is all `Tet4` and converts to farrer-park; the TH mesh carries
+    ///   `inlet`, `outlet`, `cavity_wall` and `bed_wall` and holds only the
+    ///   two in-core regions; the neutronics map covers the TH and structural
+    ///   meshes to ≥ 99 %; a constant maps to itself on every covered cell;
+    ///   a power density mapped neutronics → TH keeps its integral over the
+    ///   overlap to 1e-4 (the TH cells' coverage by the neutronics mesh).
+    /// - **Results (2026-10-05, default sizes, `--headless-mesh`).** 14 041 /
+    ///   20 952 / 94 392 cells; volumes −1.24 % / −1.29 % / −0.91 % against
+    ///   exact; N → TH covers 99.9999 %, N → S 99.70 %; 18 s on 16 threads.
+    ///   The region volumes differ from exact by up to +90 % for the 10 cm
+    ///   cold-gas plenum band on the 30 cm neutronics mesh (centroid
+    ///   assignment, gh:#594); the bed is within 0.3 %.
+    #[test]
+    fn the_headless_meshes_hold_what_the_hand_off_promises() {
+        use dhoby_ghaut::workbench::meshes::{MeshPlan, MeshRole};
+        let r = super::preset::htr10();
+        let mut engine = crate::engine::Engine::default();
+        let a = super::headless::assemble_for_test(&mut engine, &r).expect("assembly");
+        let d = crate::meshing::domain_from(&a);
+        let mut plan = MeshPlan::default_for(&d);
+        plan.roles[0].cell_size_cm = 40.0;
+        plan.roles[1].cell_size_cm = 25.0;
+        plan.roles[2].cell_size_cm = 40.0;
+        let dir = std::env::temp_dir().join(format!("dhoby_ghaut_mesh_test_{}", std::process::id()));
+        let b = crate::meshing::build(&d, &plan, &dir, &mut |_| {}).expect("meshes");
+        for m in &b.set.meshes {
+            let rel = m.volume_cm3 / m.exact_cm3 - 1.0;
+            assert!(rel.abs() < 0.03, "{:?} volume off by {rel}", m.role);
+            let pm = std::path::PathBuf::from(m.polymesh_dir.clone().expect("written"));
+            let fv = outram_foam_appbuilder_lib::io::poly_mesh::read_poly_mesh(&pm).expect("polyMesh reads back");
+            assert_eq!(fv.n_cells, m.cells);
+            let zones = outram_foam_appbuilder_lib::io::poly_mesh::read_cell_zones(&pm).expect("cellZones read back");
+            let in_zones: usize = zones.iter().map(|z| z.cells.len()).sum();
+            assert_eq!(in_zones, m.cells, "{:?}: every cell in exactly one zone", m.role);
+        }
+        let s = &b.meshes[MeshRole::Structural.index()];
+        assert!((0..s.n_cells()).all(|c| s.cell_kind(c) == outram_blender::unstructured::ElementKind::Tet4));
+        outram_blender::unstructured::convert::fem::to_fem_mesh(s).expect("structural -> farrer-park");
+        let th = b.set.mesh(MeshRole::ThermalHydraulics).unwrap();
+        for p in ["inlet", "outlet", "cavity_wall", "bed_wall"] {
+            assert!(th.patches.iter().any(|q| q.0 == p && q.1 > 0), "TH patch {p}");
+        }
+        assert!(th.regions.iter().all(|r| r.cells == 0 || plan.regions.regions[r.region].in_core));
+        for to in [MeshRole::ThermalHydraulics, MeshRole::Structural] {
+            let m = b.set.mapping(MeshRole::Neutronics, to).unwrap();
+            assert!(m.to_coverage > 0.99, "N -> {to:?} covers {}", m.to_coverage);
+        }
+        for m in &b.set.mappings {
+            let n_from = b.meshes[m.from.index()].n_cells();
+            let n_to = b.meshes[m.to.index()].n_cells();
+            let mut out = vec![-1.0; n_to];
+            m.map(&vec![3.5; n_from], &mut out);
+            for (c, row) in m.weights.iter().enumerate() {
+                if !row.is_empty() {
+                    assert!((out[c] - 3.5).abs() < 1e-9, "{:?}->{:?} cell {c}", m.from, m.to);
+                }
+            }
+        }
+        // Power density neutronics -> TH: the integral over the overlap is kept.
+        let nm = &b.meshes[0];
+        let tm = &b.meshes[1];
+        let o = outram_blender::unstructured::overlap::MeshOverlap::new(nm, tm);
+        let q: Vec<f64> = (0..nm.n_cells()).map(|c| 1.0 + nm.cell_centre(c)[2].abs()).collect();
+        let mut qt = vec![0.0; tm.n_cells()];
+        o.map_onto_target(&q, &mut qt);
+        let vt = outram_blender::unstructured::overlap::cell_volumes_cm3(tm);
+        let lhs: f64 = (0..tm.n_cells()).map(|t| vt[t] * qt[t]).sum();
+        // What the neutronics cells put into the TH domain: each source
+        // value times its overlap volume with the TH mesh.
+        let rhs: f64 = o.src_to_tgt.iter().enumerate().map(|(c, row)| q[c] * row.iter().map(|x| x.1).sum::<f64>()).sum();
+        assert!((lhs - rhs).abs() < 1e-4 * rhs.abs(), "power on TH {lhs} vs deposited {rhs}");
+        let _ = std::fs::remove_dir_all(&dir);
     }
 }

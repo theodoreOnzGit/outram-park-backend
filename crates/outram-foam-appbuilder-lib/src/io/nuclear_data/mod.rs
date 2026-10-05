@@ -80,6 +80,7 @@
 //!
 //! | key | default | meaning |
 //! |---|---|---|
+//! | `precGroups` | `1` | delayed-neutron precursor groups (`0` allowed, as upstream) |
 //! | `polyharmonicSplineMode` | `1` | `phi(r) = |r|`, linear interpolation |
 //! | `fastNeutrons` | `false` | log vs sqrt Doppler transform (metadata only) |
 //! | `doNotParametrize` | empty | groups pinned to their reference values |
@@ -95,6 +96,9 @@
 
 use std::collections::BTreeMap;
 use std::path::Path;
+
+mod writer;
+pub use writer::write_nuclear_data;
 
 use outram_foam_basic_lib::io::dict::{FoamDict, FoamEntry, FoamFile, FoamValue};
 
@@ -141,7 +145,15 @@ pub fn read_nuclear_data(path: &Path) -> Result<NuclearDataInput, AppBuilderErro
     let d = &file.dict;
 
     let energy_groups = required_count(d, "energyGroups", &name)?;
-    let prec_groups = required_count(d, "precGroups", &name)?;
+    // Upstream `XS.C`: `precGroups_(nuclearData_.lookupOrDefault("precGroups", 1))`
+    // -- optional with a default of 1, and any label, so 0 (no delayed data,
+    // a steady-state eigenvalue case) is legal. ~~Required, >= 1.~~
+    // CORRECTED 2026-10-05 to upstream's default and range.
+    let prec_groups = match d.get("precGroups") {
+        None => 1,
+        Some(FoamEntry::Scalar(x)) if *x >= 0.0 && x.fract() == 0.0 => *x as usize,
+        Some(_) => return Err(parse_err(&name, "`precGroups` must be a whole number >= 0")),
+    };
     let poly_spline_mode = optional_count(d, "polyharmonicSplineMode", &name)?.unwrap_or(1);
     let fast_neutrons = optional_bool(d, "fastNeutrons", &name)?.unwrap_or(false);
 

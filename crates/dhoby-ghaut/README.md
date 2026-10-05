@@ -42,7 +42,7 @@ each built on `web_demo` (Monte Carlo, dispersion, nuclear data, TRISO-ATOPS):
 
 | Example | What it does |
 |---|---|
-| `dhoby-ghaut` (**binary**) | **The guided high-fidelity workbench, first slice** (gh:#561): pick a reactor type by generation, Basic or Advanced, the HTGR core, then Steps 0–11 with every value prefilled and cited, a kovan literature pane beside the model, and recipes saved and loaded as kovan markdown. Steps 0–5 work for HTGR → Basic → pebble bed (HTR-10, the TENTATIVE `nee_soon::htr10_rmc` model); Steps 6–11 are shown with the issue that builds each. See [below](#the-high-fidelity-workbench) |
+| `dhoby-ghaut` (**binary**) | **The guided high-fidelity workbench, first slice** (gh:#561): pick a reactor type by generation, Basic or Advanced, the HTGR core, then Steps 0–11 with every value prefilled and cited, a kovan literature pane beside the model, and recipes saved and loaded as kovan markdown. ~~Steps 0–5 work for HTGR → Basic → pebble bed (HTR-10, the TENTATIVE `nee_soon::htr10_rmc` model); Steps 6–11 are shown with the issue that builds each.~~ **Updated 2026-10-05:** Steps 0–5, 7 (three meshes, regions, mesh-to-mesh maps, gh:#572) and 8 (MGXS per region, gh:#573) work for HTGR → Basic → pebble bed (HTR-10, the TENTATIVE `nee_soon::htr10_rmc` model); the others are shown with the issue that builds each. See [below](#the-high-fidelity-workbench) |
 | `mc_studio` | Author a geometry, set a material and run settings, run a basic `outram-mc` k-eigenvalue calculation through `nee_soon::sim` (~~`outram_blender::sim`~~, moved 2026-10-02, #486), and read `k_eff ± σ` with the per-generation plot |
 | `mesh_studio` | Author a surface in `outram-blender`, volume-mesh it through `outram-park-fork-cfmesh`'s tet → dual → boundary-layer pipeline, show the mesh statistics, and export an OpenFOAM `polyMesh` |
 | `monte_carlo_web` (~~`triso_pebble_web`~~, renamed 2026-10-04) | **One demo, a rung of the Monte Carlo tutorial at a time** (gh:#520, #521): `godiva`, a bare uranium sphere, with a Watch mode and a true **Run k_eff** mode (a live power iteration with an `openmc.run()`-style console), and `triso`, one neutron at a time through a 2D HTR-10 pebble. Real ENDF/B-VIII.0 data; single-threaded; also runs **in the browser** — see [below](#the-monte-carlo-demo-in-the-browser) |
@@ -123,7 +123,17 @@ window walks a guided build:
   - Step 5: Monte Carlo. Per-run state, nuclide-by-nuclide data progress, the
     console, k by generation, the lethargy-normalised spectrum and a table of
     runs.
-  - Steps 6–11: placeholders naming their issues.
+  - ~~Steps 6–11: placeholders naming their issues.~~ **Updated 2026-10-05:**
+  - Step 7: three GeN-Foam-style meshes of the assembled reactor's R-Z map
+    (neutronics: tet-dual; thermal-hydraulics: tet-dual with prism layers on
+    the cavity's fluid wall; structural: Tet4 FEM), Basic or Advanced
+    regions, GeN-Foam's cell-volume-weight map for all six directed pairs,
+    a GeN-Foam case folder (`constant/<region>/polyMesh` with `cellZones`)
+    and review images. Gaps shown as NOT available (gh:#594).
+  - Step 8: Monte Carlo at state points, tallied on the neutronics mesh,
+    condensed per region, interpolated in ln T by default, written as a
+    GeN-Foam `constant/neutroRegion/nuclearData`. Gaps shown (gh:#595).
+  - Steps 6, 9–11: placeholders naming their issues.
 - **The main view** is a slice of the *assembled* geometry, from the solver's
   own cell lookups, re-rendered at screen resolution for whatever window is in
   view. It works from the whole reactor down to one TRISO particle. Slices

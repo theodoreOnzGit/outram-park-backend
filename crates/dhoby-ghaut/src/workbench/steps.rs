@@ -119,7 +119,7 @@ impl WizardStep {
     /// Whether this build implements the step.
     #[must_use]
     pub fn implemented(self) -> bool {
-        self <= Self::MonteCarlo
+        self <= Self::MonteCarlo || matches!(self, Self::Meshing | Self::Mgxs)
     }
 
     /// The GitHub issue that builds a step this build does not.
@@ -127,8 +127,6 @@ impl WizardStep {
     pub fn issue(self) -> Option<u32> {
         match self {
             Self::Branch => Some(571),
-            Self::Meshing => Some(572),
-            Self::Mgxs => Some(573),
             Self::Setup | Self::Run | Self::PostProcessing => Some(574),
             _ => None,
         }
