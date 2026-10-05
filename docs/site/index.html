@@ -31,12 +31,15 @@
       <h2>Monte Carlo — inside <code>outram-mc-libs</code></h2>
       <p>A Rust port of selected OpenMC kernels: CSG geometry and nested lattices, surface and delta tracking, collisions, k-eigenvalue power iteration, tallies, variance reduction and multigroup mode. Each lesson sits beside the code it describes.</p>
       <h3>Tutorial: Monte Carlo, one rung at a time</h3>
-      <p>Lessons that start from a question and answer it with the real code, one rung of physics at a time, each with its rung of the live demo. Rung 1, <strong>Godiva</strong>: free flights, the surface, collisions, fission generations, leakage and fast fission by counting, and whether a sphere of uranium is critical.</p>
+      <p>Lessons that start from a question and answer it with the real code, one rung of physics at a time, each with its rung of the live demo. Rung 1, <strong>Godiva</strong>: free flights, the surface, collisions, fission generations, leakage and fast fission by counting, and whether a sphere of uranium is critical. Rung 2, <strong>uranium in graphite</strong>: slowing down, S(&alpha;,&beta;), resonance escape, the four-factor formula, and why a homogeneous natural-uranium mixture fails. Rung 3, <strong>lumping</strong>: spatial self-shielding, and k&infin; against lump size. Rung 4, <strong>LEU-COMP-THERM-008</strong>: water, rods and lattices.</p>
       <p class="actions">
         <a class="btn" href="tutorials/monte-carlo/godiva.html">Rung 1: Godiva</a>
+        <a class="btn" href="tutorials/monte-carlo/ugraphite.html">Rung 2: uranium in graphite</a>
+        <a class="btn" href="tutorials/monte-carlo/lumped.html">Rung 3: lumping</a>
+        <a class="btn" href="tutorials/monte-carlo/lct008.html">Rung 4: LCT-008</a>
         <a class="btn ghost" href="tutorials/monte-carlo/">How the lessons work</a>
       </p>
-      <p class="status">Status: first draft (2026-10-04), not yet human-reviewed. Tracking issues <a href="https://github.com/theodoreOnzGit/outram-park-backend/issues/520">#520</a>, <a href="https://github.com/theodoreOnzGit/outram-park-backend/issues/521">#521</a>.</p>
+      <p class="status">Status: first drafts (rung 1 2026-10-04; rungs 2&ndash;4 2026-10-05), not yet human-reviewed. Tracking issues <a href="https://github.com/theodoreOnzGit/outram-park-backend/issues/520">#520</a>, <a href="https://github.com/theodoreOnzGit/outram-park-backend/issues/521">#521</a>, <a href="https://github.com/theodoreOnzGit/outram-park-backend/issues/524">#524</a>, <a href="https://github.com/theodoreOnzGit/outram-park-backend/issues/525">#525</a>, <a href="https://github.com/theodoreOnzGit/outram-park-backend/issues/526">#526</a>.</p>
       <h3>Deep dive: inside the code</h3>
       <p class="actions">
         <a class="btn" href="deep-dives/monte-carlo/">Open the deep dive</a>
@@ -44,10 +47,13 @@
       </p>
       <p class="status">Status: first draft (2026-10-03), not yet human-reviewed. Tracking issue <a href="https://github.com/theodoreOnzGit/outram-park-backend/issues/514">#514</a>.</p>
       <h3>Live demo: the Monte Carlo demo, a rung at a time</h3>
-      <p>One app with a rung setting. <strong>Godiva</strong>, a bare sphere of uranium: watch real neutron histories, then run a true k-eigenvalue calculation in your browser, one console line per generation. <strong>TRISO pebble</strong>: one neutron at a time through a 2D analogue of an HTR-10 fuel pebble. Every neutron is transported by <code>outram-mc-libs</code> on real ENDF/B-VIII.0 data, which your browser downloads and processes with the workspace's NJOY port in a background worker before the first neutron flies &mdash; expect a minute or two (more for Godiva's Run k_eff, which processes at NJOY's full tolerance); the page stays responsive meanwhile, and on a phone the control panel folds away to the left.</p>
+      <p>One app with a rung setting. <strong>Godiva</strong>, a bare sphere of uranium: watch real neutron histories, then run a true k-eigenvalue calculation in your browser, one console line per generation. <strong>Uranium in graphite</strong> and <strong>a uranium lump in graphite</strong>: watch neutrons slow down through a hundred-odd carbon collisions, and see where U-238's resonances catch them. <strong>LCT-008</strong>: one neutron at a time through a real benchmark lattice of 4961 rods. <strong>TRISO pebble</strong>: one neutron at a time through a 2D analogue of an HTR-10 fuel pebble. Every neutron is transported by <code>outram-mc-libs</code> on real ENDF/B-VIII.0 data, which your browser downloads and processes with the workspace's NJOY port in a background worker before the first neutron flies &mdash; expect a minute or two (more for Godiva's Run k_eff, which processes at NJOY's full tolerance); the page stays responsive meanwhile, and on a phone the control panel folds away to the left.</p>
       <p class="actions">
         <a class="btn" href="demos/monte-carlo/?rung=godiva&amp;mode=watch">Godiva: watch</a>
         <a class="btn" href="demos/monte-carlo/?rung=godiva&amp;mode=run">Godiva: run k_eff</a>
+        <a class="btn" href="demos/monte-carlo/?rung=ugraphite&amp;mode=watch">Uranium in graphite</a>
+        <a class="btn" href="demos/monte-carlo/?rung=lumped&amp;mode=watch">Uranium lump</a>
+        <a class="btn" href="demos/monte-carlo/?rung=lct008&amp;mode=watch">LCT-008 lattice</a>
         <a class="btn" href="demos/monte-carlo/?rung=triso&amp;mode=watch">TRISO pebble</a>
         <a class="btn ghost" href="demos/monte-carlo/geometry/">Geometry images</a>
       </p>

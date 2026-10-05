@@ -166,6 +166,7 @@ for f in index.html api/outram_mc_libs/index.html api/changi/index.html \
   demos/monte-carlo/geometry/index.html \
   demos/triso-pebble/index.html demos/triso-pebble/geometry/index.html \
   tutorials/monte-carlo/index.html tutorials/monte-carlo/godiva.html \
+  tutorials/monte-carlo/ugraphite.html tutorials/monte-carlo/lumped.html \
   demos/dispersion/index.html demos/dispersion/dispersion_web_bg.wasm \
   api/sembawang/index.html \
   deep-dives/nuclear-data/index.html api/njoy_outram_park_fork/index.html \
@@ -196,7 +197,8 @@ while read -r r; do
   grep -qx "$r" <<< "$rung_names" || { echo "a page links to demo rung '$r', not in the rung table" >&2; exit 1; }
 done < <(grep -rhoE 'demos/monte-carlo/\?rung=[a-z0-9_-]+' "$OUT" --include='*.html' | sed 's/.*rung=//' | sort -u)
 # Every tape a rung processes must have been published for the browser.
-for t in n-092_U_234-ENDF8.0.endf n-092_U_235-ENDF8.0.endf n-092_U_238.endf; do
+for t in n-092_U_234-ENDF8.0.endf n-092_U_235-ENDF8.0.endf n-092_U_238.endf \
+  n-006_C_012-ENDF8.0.endf n-006_C_013-ENDF8.0.endf tsl-crystalline-graphite.endf; do
   [[ -f "$OUT/demos/monte-carlo/data/$t.zz" ]] || { echo "missing demo tape $t" >&2; exit 1; }
 done
 
