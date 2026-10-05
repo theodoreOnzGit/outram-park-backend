@@ -315,8 +315,8 @@ envelope in brackets):
 |---|---|---|---|
 | Fe-58, `local = 1` | 3.3e-2 (3.3e-2) | 1.7e-2 (5.5e-2) | **3.3e-4** (0.99 at 140 MeV) |
 | Si-28, `local = 1` | 5.3e-8 (1.7e-7) | **8.0e-8 (4.0e-7)** | **2.3e-3** (1.00 at 150 MeV) |
-| Fe-58, `local = 0` | 755 (755) | 6.3e-2 (850 at 37.8 keV) | **3.9e-3** (1.00 at 25.7 MeV) |
-| Si-28, `local = 0` | 5.9e-8 (2.0e-7) | **7.3e-8 (4.7e-7)** | **7.4e-3** (1.00 at 20.2 MeV) |
+| Fe-58, `local = 0` | 755 (755) | 6.3e-2 (850 at 37.8 keV) | **3.9e-3** (~~1.00 at 25.7 MeV~~ 1.51 at 28 MeV, no clamp) |
+| Si-28, `local = 0` | 5.9e-8 (2.0e-7) | **7.3e-8 (4.7e-7)** | **7.4e-3** (~~1.00 at 20.2 MeV~~ 1.64 at 20.2 MeV, no clamp) |
 
 Above the first inelastic threshold, the medians were 0.11, 0.31, 1.35 and
 0.99 after section 4. MT=4 test: ours − NJOY = 4.75e2 eV·b at 2 MeV, against
@@ -338,6 +338,28 @@ Above the first inelastic threshold, the medians were 0.11, 0.31, 1.35 and
   deposits the 208 keV photon deficit. That is H6c, and it is 3.3 % at
   `local = 1` and 755× at `local = 0` below 1 eV, where the deficit is all
   that is left after the photons are removed.
+
+**Flagged modification, 2026-10-05: the energy balance is no longer clamped
+at 0.** `Kerma::with_energy_balance` returned `max(0, kinematic − MT442)`;
+`heatr.f90` has no lower bound on MT=301 (its only zero floors are `disbar`'s
+damage energy, `:2002`, and the MF=6 recoil distributions `h6ddx`/`h6dis`),
+and the clamp's stated reason, the missing capture recoil, went with H6a. It
+now subtracts MT=442 and nothing else, pinned by
+`energy_balance_subtracts_mt442_and_nothing_else`, which also counts the
+negative points:
+
+| nuclide | NJOY `local = 0` MT=301 < 0 | ours < 0 | where ours is negative |
+|---|---|---|---|
+| Fe-58 | 0 of 34 277 | 25 of 34 277 | 24-150 MeV |
+| Si-28 | 0 of 9 210 | 151 of 9 210 | 20-150 MeV |
+
+Ours is negative only above 20 MeV, where `conbar` and `sixbar` are not ported
+and the kinematic estimate gives the outgoing neutrons more energy than NJOY's
+means do. With the clamp those points read 0 (a miss of exactly 1.00); without
+it they read negative (worst 1.51 on Fe-58, 1.64 on Si-28). The medians do not
+move. Both are wrong there; the unclamped value is the one that says by how
+much, and it is what NJOY's algorithm gives on our inputs. Until H6b part 2,
+**the ACE heating column of these nuclides is negative above ~20 MeV**.
 
 ## What this does NOT establish
 

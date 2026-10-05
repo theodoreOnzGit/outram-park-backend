@@ -1082,5 +1082,14 @@ Details: `verification_and_validation/heatr_vs_njoy2016.md` §5.
 - **The fission skip rule is ported but untested by any oracle:** MT=18 is
   skipped when MT=19 has its own MF=5 spectrum, otherwise MT=19/20/21/38 are.
   Neither oracle nuclide is fissile.
-- **`with_energy_balance` clamps MT=301 at 0; NJOY does not** (no lower
-  bound in `heatr.f90`). Left as it was; raised on #535.
+- ~~**`with_energy_balance` clamps MT=301 at 0; NJOY does not** (no lower
+  bound in `heatr.f90`). Left as it was; raised on #535.~~ **CHANGED
+  2026-10-05 (flagged modification, maintainer-approved): the clamp is
+  removed**, as `heatr.f90` has none. NJOY's `local = 0` MT=301 is never
+  negative on Fe-58 or Si-28; ours goes negative at 25 and 151 grid points,
+  all between 20 and 150 MeV, where `conbar`/`sixbar` are not ported and
+  the kinematic estimate over-states the outgoing neutrons' energy. The clamp
+  had been writing 0 there and hiding that gap; the worst-point figure above
+  20 MeV moved from 1.0 to 1.5-1.6, medians unchanged. Until H6b part 2
+  lands, **the ACE heating column of these nuclides is negative above
+  ~20 MeV**. Pinned by `energy_balance_subtracts_mt442_and_nothing_else`.

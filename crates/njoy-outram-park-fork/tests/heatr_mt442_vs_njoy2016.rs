@@ -420,3 +420,48 @@ fn mt4_is_not_heated_beside_the_levels() {
     println!("[{tag}] ours - NJOY at 2 MeV: {diff:.3e} eV·b; a double count would add {double_count:.3e}");
     assert!(diff.abs() < 0.5 * double_count, "MT=4 looks heated beside its levels: {diff:.3e} vs {double_count:.3e}");
 }
+
+/// **The energy balance is not clamped** (changed 2026-10-05, GitHub #535):
+/// `with_energy_balance` returns the kinematic KERMA minus MT=442 at every
+/// grid point, negative values included, as `heatr.f90` does (it has no lower
+/// bound on MT=301). Also records how many points go negative, in NJOY's
+/// `local = 0` MT=301 and in ours; a negative balance is a data
+/// inconsistency both codes should show rather than hide.
+///
+/// Result (2026-10-05): exact at every grid point. NJOY's MT=301 is never
+/// negative (0 of 34 277 Fe-58 points, 0 of 9 210 Si-28); ours is negative at
+/// 25 Fe-58 grid points (24-150 MeV) and 151 Si-28 points (20-150 MeV), where
+/// `conbar`/`sixbar` are not ported and the kinematic neutron energy is too
+/// high. The clamp used to write 0 there. Recorded in
+/// `verification_and_validation/heatr_vs_njoy2016.md` §5.
+#[test]
+fn energy_balance_subtracts_mt442_and_nothing_else() {
+    for case in CASES {
+        let tag = format!("no-clamp {}", case.label);
+        let Some((tape, recon, njoy0)) = setup(case, &tag) else { return };
+        let photons = PhotonProduction::from_endf(&tape, case.mat, &recon);
+        let (_, kin) = kermas(&tape, &recon, case.mat);
+        let bal = kin.clone().with_energy_balance(&photons, &recon);
+        assert_eq!(bal.energy, kin.energy);
+        let mut ours_neg = 0usize;
+        let mut neg_range = (f64::INFINITY, 0.0f64);
+        for (i, &e) in kin.energy.iter().enumerate() {
+            let want = kin.h[i] - photons.eval(e, &recon);
+            assert_eq!(bal.h[i], want, "[{tag}] E={e:e}: balance is not kinematic − MT442");
+            if bal.h[i] < 0.0 {
+                ours_neg += 1;
+                neg_range = (neg_range.0.min(e), neg_range.1.max(e));
+            }
+        }
+        let n301 = njoy_mt(&njoy0, case.mat, 301);
+        let njoy_neg = n301.iter().filter(|p| p.1 < 0.0).count();
+        let njoy_neg_ours = n301.iter().filter(|p| p.1 < 0.0 && bal.eval(p.0) < 0.0).count();
+        println!(
+            "[{tag}] negative MT=301: NJOY {njoy_neg} of {} points (ours also negative at {njoy_neg_ours}); ours {ours_neg} of {} grid points, between {:.4e} and {:.4e} eV",
+            n301.len(),
+            kin.energy.len(),
+            neg_range.0,
+            neg_range.1
+        );
+    }
+}

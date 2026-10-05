@@ -103,7 +103,11 @@ Write-up: `verification_and_validation/heatr_vs_njoy2016.md`.
   MT=4 no longer heated beside its levels). Above the first inelastic
   threshold the energy-balance MT=301 is within 0.39 % (Fe-58) and 0.74 %
   (Si-28) of NJOY's in median; Si-28 below it matches at print precision.
-  `conbar`/`sixbar` (H6b part 2) carry the 14-150 MeV residual. Fe-58's MF=6 capture deposits
+  `conbar`/`sixbar` (H6b part 2) carry the 14-150 MeV residual.
+  **Flagged modification (2026-10-05):** the energy balance is no longer
+  clamped at 0, as NJOY's is not; ours now goes negative at 20-150 MeV on
+  Fe-58 and Si-28 (NJOY's never does), which is that same unported residual
+  made visible rather than zeroed. V&V §5. Fe-58's MF=6 capture deposits
   its 208 keV photon deficit where NJOY deposits only the photon recoil
   (H6c). Numbers in `verification_and_validation/heatr_vs_njoy2016.md` §4.
 
