@@ -34,7 +34,7 @@ cross-code record; **N** `NotPorted` stub; **T** tooling, no physics.
 | `gaspr` | [Rung 6](./heatr.md) | `GasProduction::from_reconr_and_tape` | `gaspr_light_nuclides_vs_njoy2016.md` | V |
 | `photon` | [Consumer surface](./consumer-surface.md) | `PhotonProduction::from_endf` (appendix) | indirect: ACE photon blocks word-identical (rung 9); `tests/photon.rs` | P; MF=12 `LO = 2` not ported |
 | `groupr` | [Rung 7](./groupr.md) | `self_shielded_group_xs` | `groupr_gaminr_covr_leapr_vs_njoy2016.md` §3, five `tests/groupr_*_golden.rs` | V |
-| `gaminr` | [Rung 7](./groupr.md) | `gaminr::run_with_input` (appendix) | `gaminr_u_photoatomic_vs_njoy2016.md` | **P — gap**: MF=26 coherent/incoherent matrices disagree with NJOY on real uranium |
+| `gaminr` | [Rung 7](./groupr.md) | `gaminr::run_with_input` (appendix) | `gaminr_u_photoatomic_vs_njoy2016.md` | ~~**P — gap**: MF=26 coherent/incoherent matrices disagree with NJOY on real uranium~~ **V** (2026-10-05): all reactions incl. MF=26 matrices ≤ 3.7e-7 on real uranium once NJOY's deck uses separate units ([#534](https://github.com/theodoreOnzGit/outram-park-backend/issues/534)) |
 | `errorr` | [Rung 8](./errorr.md) | `errorr::run_mf33` | `tests/errorr_mf33_golden.rs`, three `errorr_mf32_*` records | V (MF=33, MF=32 paths named); MF=31/34/35/40 not ported |
 | `covr` | [Rung 8](./errorr.md) | `covr::run_library` | `tests/covr_boxer_golden.rs` | V (library option); plotting not ported |
 | `acer` | [Rung 9](./acer.md) | `build_full_with_purr` | `ace_block_parity_2026_09_26.md`, `acer_*_vs_njoy2016.md` (9 records) | V |
@@ -62,9 +62,11 @@ cross-code record; **N** `NotPorted` stub; **T** tooling, no physics.
 
 Each is tracked as a GitHub issue, filed 2026-10-04 by this track:
 
-1. **GAMINR's MF=26 coherent and incoherent scattering matrices disagree with
+1. ~~**GAMINR's MF=26 coherent and incoherent scattering matrices disagree with
    NJOY2016** on the real ENDF/B-VIII.0 uranium photo-atomic evaluation;
-   undiagnosed. [#534](https://github.com/theodoreOnzGit/outram-park-backend/issues/534)
+   undiagnosed.~~ **Resolved 2026-10-05:** the NJOY deck shared one unit
+   between the ENDF and PENDF inputs; with separate units the port agrees to
+   3.7e-7 everywhere, unchanged. [#534](https://github.com/theodoreOnzGit/outram-park-backend/issues/534)
 2. **HEATR's energy-balance method (H6) is not ported**, so the port's KERMA is
    the kinematic limit; plus the open MT=445 damage threshold discrepancy on
    Fe-58. [#535](https://github.com/theodoreOnzGit/outram-park-backend/issues/535)

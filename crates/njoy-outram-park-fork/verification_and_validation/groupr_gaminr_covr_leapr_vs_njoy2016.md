@@ -129,7 +129,11 @@ scope:** this is a *synthetic* evaluation. A real photoatomic tape
 (`photoat-006_C_000` or similar) could not be obtained in this environment
 — `www-nds.iaea.org` and `www.nndc.bnl.gov` both answer 403 — so the
 photoatomic path is verified against NJOY's arithmetic on a tape with the
-right *structure*, not against an evaluated library. That gap stands.
+right *structure*, not against an evaluated library. ~~That gap stands.~~
+**CORRECTED 2026-10-05:** closed. The real ENDF/B-VIII.0 uranium photoatomic
+evaluation is committed (`reference-data/endf/photoat-092_U_000-ENDF8.0.endf`)
+and every GAMINR reaction agrees with NJOY2016 on it to 3.71e-7
+(`gaminr_u_photoatomic_vs_njoy2016.md`, GitHub #534).
 
 ### 4.2 COVR (`tests/covr_boxer_golden.rs`)
 
@@ -201,8 +205,9 @@ the upstream `rpxlc12` pointer defect.
 
 Open, stated as such:
 
-1. GAMINR on a **real** photoatomic evaluation — blocked by the data hosts'
-   403; the synthetic tape verifies arithmetic, not an evaluation.
+1. ~~GAMINR on a **real** photoatomic evaluation — blocked by the data hosts'
+   403; the synthetic tape verifies arithmetic, not an evaluation.~~ Closed
+   2026-10-05 (uranium, 3.71e-7 worst; see above).
 2. DTFR with `ntherm > 0` (thermal upscatter groups) — no oracle yet.
 3. The U-238 tier-1 goldens that need NJOY's 40 MB PENDF are env-gated
    (`OUTRAM_PARK_NJOY_U238_PENDF`); the deck to regenerate it is committed

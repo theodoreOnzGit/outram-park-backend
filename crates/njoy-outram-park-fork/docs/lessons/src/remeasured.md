@@ -33,7 +33,7 @@ the old one.
 | `tests/errorr_mf33_golden.rs` | test | tier 1 worst ≤ 4.8e-7 on every compared block; **U-234 and U-238 tier 1 skipped** (they need NJOY's 293.6 K PENDF in an environment variable) | no | 3 s |
 | `tests/gaspr_vs_njoy2016.rs` | test | worst **4.6e-7** over all 17 sections (B-10 MT=207) | **yes**: was 4.9e-3 (2026-09-17), grid interpolation removed by #340; test doc and V&V record updated | < 1 s |
 | `tests/heatr_vs_njoy2016.rs` | test | Fe-58 capture deficit 2.04–2.08e5 eV (3.164 % of Q); Si-28 ratio 1.000000 below 100 eV; damage mean +0.16 % (Fe-58), +0.31 % (Si-28) | no | 3 s |
-| `tests/gaminr_vs_njoy2016.rs` | test | synthetic: worst 4.35e-7; real U: vectors ≤ 2.73e-7; MF=26 MT=502/504 **still disagree** (printed, not asserted) | no (#534) | 5 s |
+| `tests/gaminr_vs_njoy2016.rs` | test | synthetic: worst 4.35e-7; real U: vectors ≤ 2.73e-7; MF=26 MT=502/504 **still disagree** (printed, not asserted) | no (#534; ~~open~~ resolved 2026-10-05, see the 2026-10-05 table below) | 5 s |
 | `tests/unr_block_write_vs_njoy2016.rs` (PURR bands, ACE UNR block) | test, with the main checkout's `reference-data/ace` | U-234 / U-235 / U-238: **0** of 3 152 / 2 305 / 10 049 words differ, both read-write and generated bands; energy grids 26 / 19 / 83 points, worst 1.0e-13 | no | 236 s |
 | `examples/seam_stage_probe.rs` (U-238 seam at 600 K, `--features urr-diagnostics`) | example | all 6 gates pass: bounded +0.000 % above the seam; unbounded −46.73 % at 2.000001e4 eV, MT=18 19.6 %, (n,2n) leak 1.009e-6 b | **partly**: unbounded no longer 13 % low at 23 keV (agrees from 20.5 keV); cause not established; doc updated | 420 s |
 

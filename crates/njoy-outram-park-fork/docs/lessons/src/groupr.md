@@ -115,16 +115,30 @@ Transfer matrices (same record): elastic P0–P3 at the 7-figure floor
 (2 064 words at `lord = 3`); discrete inelastic levels ≤ 1e-5; MF=10 isomer
 production on U-235 ≤ 2.2e-6.
 
-**GAMINR: a real disagreement, open.** On the synthetic Z = 6 photo-atomic
+~~**GAMINR: a real disagreement, open.**~~ **GAMINR: a disagreement that was
+the oracle's, resolved 2026-10-05.** On the synthetic Z = 6 photo-atomic
 tape every section agrees to ≤ 4.4e-7. On the **real** ENDF/B-VIII.0 uranium
 photo-atomic evaluation (record
 [`gaminr_u_photoatomic_vs_njoy2016.md`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/njoy-outram-park-fork/verification_and_validation/gaminr_u_photoatomic_vs_njoy2016.md),
-2026-09-17) every vector agrees to ≤ 2.7e-7, but the **coherent and
-incoherent scattering matrices (MF=26 MT=502, 504) disagree**: they are the two
-that consume MF=27 form factors, and the record does not diagnose why. The
-total-heating edit is off by 0.61 % through MT=504's heating slot. A lesson
-may not present those matrices as working; the gap is
-[#534](https://github.com/theodoreOnzGit/outram-park-backend/issues/534).
+2026-09-17) every vector agreed to ≤ 2.7e-7, but the **coherent and
+incoherent scattering matrices (MF=26 MT=502, 504) disagreed**. They are the
+two that consume MF=27 form factors, and the total-heating edit was off by
+0.61 % through MT=504's heating slot.
+
+Reading `gaminr.f90` found the cause in the **NJOY input deck**, not in either
+code. The deck gave NJOY the same file unit for the ENDF tape and the PENDF
+tape (`gaminr 20 20 0 21`). NJOY reads the cross section from the PENDF unit
+one 153-point page at a time, and reading the form factor from the ENDF unit
+moves that same file to MF=27. So every page after the first came from the
+wrong section. The prediction, written before the run: with separate units,
+NJOY's coherent `l = 0` in group 1 rises from 139.48 to 182.23 (its own
+MF=23 value) and the unchanged port agrees. It did. Every word of every
+reaction now agrees to **≤ 3.7e-7**, heating included, and all are asserted
+([#534](https://github.com/theodoreOnzGit/outram-park-backend/issues/534)).
+The lesson generalises: **an oracle is a deck as well as a program**. The
+synthetic tape could never have shown this, because its 53 points fit in one
+page.
+
 
 All of this is **verification** of the averaging against NJOY2016. Whether a
 1/E-weighted, Bondarenko-shielded 29-group set is good enough for a given

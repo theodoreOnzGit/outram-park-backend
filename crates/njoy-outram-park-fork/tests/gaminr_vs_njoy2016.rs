@@ -52,11 +52,48 @@
 //! 182.232750 — which is *this port's* MF=26 `l = 0` — while NJOY's own MF=26
 //! `l = 0` is 139.482685.
 //!
-//! These three reactions are **printed, not asserted**, while that is open
+//! ~~These three reactions are **printed, not asserted**, while that is open
 //! (`unasserted` on the `Case`). Asserting them would mean either freezing
 //! wrong numbers or widening a gate past the point where it says anything.
 //! Everything else on the real evaluation **is** asserted, at the same 1e-5 the
-//! synthetic case uses.
+//! synthetic case uses.~~
+//!
+//! # CORRECTED 2026-10-05 (GitHub #534): the oracle was wrong, not the port
+//!
+//! The 2026-09-17 deck ran `gaminr 20 20 0 21`, the same Fortran unit for
+//! `nendf` and `npend`. `gtsig` reads the MF=23 cross section from `npend`
+//! lazily through `gety1`, one `npage = 306`-word page (153 pairs) at a time
+//! (`endf.f90` `gety1` -> `moreio(itape, ...)`); `gtff`'s initialisation for
+//! MF=26 MT=502/504 calls `findf(matd,27,mtd,nendf)` and reads the whole
+//! MF=27 table (`gaminr.f90:1229-1246`). With one unit, that `findf` moves the
+//! file under `gety1`, and every MF=23 point past the first page is read from
+//! MF=27 records. MF=23 vectors and the MT=516 matrix never read MF=27, so they
+//! agreed; the synthetic tape's 53-point MF=23 fits in one page, so it agreed.
+//!
+//! **Hypothesis stated before measuring, with sign and size:** rerun NJOY with
+//! distinct units and its MF=26/502 `l = 0` in group 1 rises from 139.48 to
+//! 182.232750 (+30.7 %, equal to its own MF=23/502 as `ff(1) = 1` requires),
+//! and this port, unchanged, agrees with that run to the existing 1e-5 gate on
+//! MT=502, 504 and 525. NJOY2016 `ac5adf5` was rebuilt here (gfortran 13.3.0;
+//! the shared-unit deck reproduced the committed tape byte for byte) and run as
+//! `gaminr 20 22 0 21` with `tape22` a copy of `tape20`. Both held: NJOY's group
+//! 1 is `182.232750 127.870004 98.8498513 72.5955151`, this port's row above,
+//! and NJOY now writes all 12 records per matrix, as this port does. The golden
+//! is now `photoat-U000-ENDF8.0-lanl12-iwt3-lord3-sepunits.gendf`, and every
+//! reaction is asserted. The old tape stays in `reference-data/gendf/` as the
+//! evidence. Measured 2026-10-05 on the real evaluation:
+//!
+//! | reaction | worst relative deviation |
+//! |---|---|
+//! | MF=23 MT=501 / 502 / 504 / 516 / 522 | 3.6e-9 / 2.7e-7 / 3.4e-9 / 3.0e-9 / 1.8e-8 |
+//! | MF=26 MT=502 coherent matrix (96 words) | **2.75e-7** |
+//! | MF=26 MT=504 incoherent matrix (320 words) | **3.71e-7** |
+//! | MF=26 MT=516 pair matrix | 3.0e-9 |
+//! | MF=23 MT=525 total heating | **2.40e-7** (was 0.61 %) |
+//!
+//! Worst overall 3.71e-7 (MF=26/504, group 5), at NJOY's seven-figure storage.
+//! The lesson: a cross-code oracle is an input deck as well as a program, and a
+//! deck can be wrong in a way only the data size exposes.
 //!
 //! # Oracle (synthetic case)
 //! No photoatomic evaluation is available offline (both public data hosts
@@ -121,9 +158,11 @@ struct Case {
     endf: &'static str,
     golden: &'static str,
     /// `(mf, mt)` pairs that are compared but **not** asserted, only printed.
-    /// Empty on the synthetic case; on U it holds the two MF=27-driven
-    /// matrices and the heating edit that depends on one of them, while the
-    /// discrepancy described in the module docs is open.
+    /// Empty on both cases since 2026-10-05 (GitHub #534). ~~On U it held the two
+    /// MF=27-driven matrices and the heating edit that depends on one of them~~,
+    /// until the discrepancy turned out to be the oracle deck's shared unit
+    /// (module docs). Kept so a future open discrepancy can be printed
+    /// without being asserted.
     unasserted: &'static [(i32, i32)],
 }
 
@@ -139,12 +178,13 @@ const SYNTHETIC: Case = Case {
 
 /// A **real** ENDF/B-VIII.0 photoatomic evaluation: uranium, MAT 9200. Added
 /// 2026-09-17, when it turned out one *was* available offline after all.
+/// Golden: NJOY run with distinct `nendf`/`npend` units (2026-10-05, #534).
 const U_PHOTOAT: Case = Case {
     label: "gaminr-u-photoat",
     mat: 9200,
     endf: "photoat-092_U_000-ENDF8.0.endf",
-    golden: "photoat-U000-ENDF8.0-lanl12-iwt3-lord3.gendf",
-    unasserted: &[(26, 502), (26, 504), (23, 525)],
+    golden: "photoat-U000-ENDF8.0-lanl12-iwt3-lord3-sepunits.gendf",
+    unasserted: &[],
 };
 
 fn tab1(tape: &Tape, mat: i32, mf: i32, mt: i32) -> (f64, f64, PhotonTab1) {
