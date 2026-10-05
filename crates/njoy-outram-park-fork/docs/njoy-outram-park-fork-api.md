@@ -8647,17 +8647,6 @@ pub fn parse_type2_direct_library(bytes: &[u8]) -> Result<Vec<RawAceTable>, crat
 
 #### Function `inflate_gzip`
 
-Inflate a gzip member to a `String`.
-
-`miniz_oxide` implements raw DEFLATE and zlib, **not** gzip, so the
-container has to be unwrapped here: a 10-byte fixed header, the optional
-FEXTRA/FNAME/FCOMMENT/FHCRC fields named by the flag byte, the DEFLATE
-stream, and an 8-byte trailer whose second word is the uncompressed size
-mod 2^32 (RFC 1952 sections 2.2-2.3).
-
-That trailer is used as the inflate **limit** rather than trusted as the
-answer: it bounds the allocation for a hostile or corrupt file, while a
-short read is still caught by the decoder returning fewer bytes.
 Inflate a gzip member to its bytes, with this crate's pure-Rust decoder
 (the one [`read_library`] and `Tape::read_file` use). `path` only labels
 errors.
