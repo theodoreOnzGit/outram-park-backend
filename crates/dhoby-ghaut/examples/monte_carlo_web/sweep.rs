@@ -43,9 +43,10 @@ pub struct RecordedSweep {
 }
 
 impl RecordedSweep {
-    /// The selected points' details, one line each.
+    /// The selected points' details, one line each (points with nothing to
+    /// say, such as a reference curve's, give no line).
     pub fn details(&self, at: f64) -> Vec<String> {
-        self.curves.iter().flat_map(|c| c.points.iter()).filter(|p| p.tag == Some(at)).map(|p| p.detail.clone()).collect()
+        self.curves.iter().flat_map(|c| c.points.iter()).filter(|p| p.tag == Some(at) && !p.detail.is_empty()).map(|p| p.detail.clone()).collect()
     }
 }
 
