@@ -44,9 +44,12 @@ converter, exactly as planned:
   SEND/FEND/MEND/TEND sentinels, using a new
   [`crate::endf::parse::format_endf_float`] — a faithful line-for-line port of
   `a11` (`endf.f90:882-981`), including its extended nine-significant-figure
-  branch and the two post-hoc fallback rewrites, verified by hand against the
+  branch and the two post-hoc fallback rewrites, ~~verified by hand against the
   values already used in `endf::parse`'s pre-existing `parse_endf_float` tests
-  (`" 2.004000+3"`, `" 9.991673-1"`).
+  (`" 2.004000+3"`, `" 9.991673-1"`)~~ **verified against NJOY2016 on
+  2026-10-05** (GitHub #536): all 59 098 float fields of a two-material
+  selection are character-identical to the tape NJOY's MODER writes (see
+  *Testing*).
 - **NJOY blocked-binary** — not ported. A fully in-memory Rust pipeline that
   passes typed `Tape` values between modules has no use for it (per
   `porting-plan.md` §5); port only if interchange with the upstream Fortran
@@ -54,12 +57,27 @@ converter, exactly as planned:
 
 ## Testing
 
-**TODO** (Opus verification pass). Gate (from `porting-plan.md` Phase 1): read
+~~**TODO** (Opus verification pass). Gate (from `porting-plan.md` Phase 1): read
 a reference ENDF tape, run it through `select_materials` and `Tape::write`, and
 assert structural equality against the original (MAT/MF/MT sections and record
 values within a tight float tolerance — not byte equality, since formatting
 differs). No tests were written as part of this translation pass, per the
-crate's model-division-of-labour rule (`CLAUDE.md`).
+crate's model-division-of-labour rule (`CLAUDE.md`).~~
+
+**Cross-code gate since 2026-10-05 (GitHub #536):**
+`tests/moder_vs_njoy2016.rs`, record
+`verification_and_validation/moder_vs_njoy2016.md`. NJOY2016 (`ac5adf5`) MODER
+selects H-2 (MAT 128) and Li-6 (MAT 325) from two ENDF/B-VIII.0 tapes onto one
+coded tape; the port does the same with `select_materials` + `Tape::write`, and
+the two are compared line by line. Measured: same 11 793 lines and the same
+MAT/MF/MT on every line; **59 098 / 59 098 `a11` float fields
+character-identical**; every parsed value bit-identical; **1 / 11 793 lines
+byte-identical**, the rest differing exactly in the classes listed under
+*Caveats* below. One of them is data loss, not formatting: **the MF=1/MT=451
+descriptive text does not survive** (616 rows written as numbers).
+
+The test pins those divergences, so fixing one fails it and asks for the
+record to be updated.
 
 ## Caveats
 
@@ -86,6 +104,11 @@ crate's model-division-of-labour rule (`CLAUDE.md`).
   oracle demands it.
 - ASCII round-trips are structural, not byte-identical (field formatting differs,
   and see the CONT-field caveat above).
+- **MF=1/MT=451 descriptive text is lost on write** (measured 2026-10-05,
+  GitHub #536): `parse_endf_float` maps Hollerith to 0.0, so the row model
+  keeps no text and `Tape::write` emits numbers in its place. Blank fields
+  (the directory rows' `22x`) and NJOY's blank-field sentinels (`asend` and
+  friends, sequence 99999 on a SEND) are written as `a11` zeros too.
 
 ## References
 

@@ -20,7 +20,7 @@ cross-code record; **N** `NotPorted` stub; **T** tooling, no physics.
 | module | lesson section | code walk | V&V record | status |
 |---|---|---|---|---|
 | `endf` | [Rung 1](./endf.md) | `Tape::read_file` (rung 1) | indirect: every NJOY comparison reads through it; float-parser defect record in `endf/parse.rs` | V |
-| `moder` | [Rung 1](./endf.md), supporting modules | `moder::select_materials` ([appendix](./call-trees.md)) | none against NJOY; README says verified by hand | **U — gap** |
+| `moder` | [Rung 1](./endf.md), supporting modules | `moder::select_materials` ([appendix](./call-trees.md)) | ~~none against NJOY; README says verified by hand~~ `moder_vs_njoy2016.md` (2026-10-05): selection and every `a11` field match NJOY2016's MODER; text, `i11` and blank fields do not ([#536](https://github.com/theodoreOnzGit/outram-park-backend/issues/536)) | ~~**U — gap**~~ **P** |
 | `reference_data` | [Rung 1](./endf.md) | appendix | `tests/no_endf_inside_crates.rs` (layout) | T |
 | `acquire` | [Rung 1](./endf.md) | — | none (cache substrate; download path behind `net-fetch`) | T |
 | `reconr` | [Rung 2](./reconr.md) | `reconr::reconr` | `tests/pendf_stages_vs_njoy2016.rs`, `tests/reconr_lrf7_threshold_channels_vs_njoy2016.rs`, `reconr_sr88_lrf7_kbk_vs_njoy2016.md` | V |
@@ -48,7 +48,7 @@ cross-code record; **N** `NotPorted` stub; **T** tooling, no physics.
 | `plotr` | [Output formats](./output-formats.md) | — | — | **N** |
 | `viewr` | [Output formats](./output-formats.md) | — | — | **N** |
 | `hdf5` | [OpenMC interchange](./openmc-interchange.md) | `write_nuclide` | `hdf5_nuclide_write/`, `nuclide_h5_fissile/`, `nuclide_h5_read/`, `depletion_chain_xml/` | P; fissile `k` comparison and read-side `k` comparison not yet run |
-| `wmp` | [Windowed multipole](./wmp.md) | `XsProvider::micro` → `evaluate` | `wmp_h5_write_2026_09_24.md`, `tests/wmp_arbitrary_temperature.rs` | P; WMP vs direct BROADR not done; **pole-count discrepancy (602 vs 4 062) between two records, not re-checked** |
+| `wmp` | [Windowed multipole](./wmp.md) | `XsProvider::micro` → `evaluate` | `wmp_h5_write_2026_09_24.md`, `tests/wmp_arbitrary_temperature.rs` | P; WMP vs direct BROADR not done; ~~pole-count discrepancy (602 vs 4 062) between two records, not re-checked~~ pole count re-checked 2026-10-05: **4 062** (602 was a KB size, [#536](https://github.com/theodoreOnzGit/outram-park-backend/issues/536)) |
 | `gpu_wmp` | [Windowed multipole](./wmp.md) | `wmp_evaluate_batch_cpu` | per-machine report only (methodology template) | P |
 | `gpu` | [Windowed multipole](./wmp.md) | — | `gpu::probe` unit tests | T |
 | `nuclear_data` | [Rung 0](./where-sigma-comes-from.md), [Consumer surface](./consumer-surface.md) | `XsProvider::micro` | consumers' records (`outram-mc-libs` ICSBEP five-route) | P |
@@ -68,7 +68,15 @@ Each is tracked as a GitHub issue, filed 2026-10-04 by this track:
 2. **HEATR's energy-balance method (H6) is not ported**, so the port's KERMA is
    the kinematic limit; plus the open MT=445 damage threshold discrepancy on
    Fe-58. [#535](https://github.com/theodoreOnzGit/outram-park-backend/issues/535)
-3. **MODER has no cross-code comparison** of a tape it writes. [#536](https://github.com/theodoreOnzGit/outram-park-backend/issues/536)
-4. **WMP: two records disagree on U-238's pole count** (602 against 4 062). [#536](https://github.com/theodoreOnzGit/outram-park-backend/issues/536)
+3. ~~**MODER has no cross-code comparison** of a tape it writes.~~ **Compared
+   2026-10-05:** the selection and all 59 098 `a11` number fields match the
+   tape NJOY2016's MODER writes; the writer is not byte-faithful (`i11`
+   integers, blank fields and the MF=1/MT=451 text are not reproduced, and
+   the text is lost). [#536](https://github.com/theodoreOnzGit/outram-park-backend/issues/536)
+4. ~~**WMP: two records disagree on U-238's pole count** (602 against 4 062).~~
+   **Resolved 2026-10-05:** `WmpLibrary::core().get("U238")` has **4 062 poles
+   in 4 309 windows**; the 602 was U-238's size in KB in
+   `docs/wmp-nuclide-manifest.md`, copied into the GPU benchmark's docs as a
+   pole count. Corrected with strike-throughs there. [#536](https://github.com/theodoreOnzGit/outram-park-backend/issues/536)
 5. **Not ported by design** (visible, no issue needed unless the maintainer
    wants them): MATXSR, CCCCR, POWR, PLOTR, VIEWR, every card-deck `run()`.

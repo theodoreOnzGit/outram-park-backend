@@ -31,7 +31,10 @@ sum over each window's pole range, for all three reaction channels
 - **GPU path:** `GpuContext::wmp_evaluate_batch` (`f32`, WGSL compute) —
   acceleration only; it does not bit-match the CPU.
 
-Nuclide: **U-238** from the embedded CORE WMP library (602 poles), at **300 K**.
+Nuclide: **U-238** from the embedded CORE WMP library (~~602 poles~~
+**CORRECTED 2026-10-05 (GitHub #536): 4 062 poles in 4 309 windows**, counted
+with `WmpLibrary::core().get("U238")`; 602 is U-238's size in KB in
+`docs/wmp-nuclide-manifest.md`, misread as a pole count), at **300 K**.
 The kernel is **compute-bound** (many floating-point Faddeeva pole terms per
 energy, little memory traffic), so a GPU is expected to win once the grid is
 large enough to amortise dispatch/transfer overhead — the sweep locates that
