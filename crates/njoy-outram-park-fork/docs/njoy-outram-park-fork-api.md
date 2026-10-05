@@ -8645,6 +8645,30 @@ this reader could not read the direct-access one.
 pub fn parse_type2_direct_library(bytes: &[u8]) -> Result<Vec<RawAceTable>, crate::NjoyError> { /* ... */ }
 ```
 
+#### Function `inflate_gzip`
+
+Inflate a gzip member to a `String`.
+
+`miniz_oxide` implements raw DEFLATE and zlib, **not** gzip, so the
+container has to be unwrapped here: a 10-byte fixed header, the optional
+FEXTRA/FNAME/FCOMMENT/FHCRC fields named by the flag byte, the DEFLATE
+stream, and an 8-byte trailer whose second word is the uncompressed size
+mod 2^32 (RFC 1952 sections 2.2-2.3).
+
+That trailer is used as the inflate **limit** rather than trusted as the
+answer: it bounds the allocation for a hostile or corrupt file, while a
+short read is still caught by the decoder returning fewer bytes.
+Inflate a gzip member to its bytes, with this crate's pure-Rust decoder
+(the one [`read_library`] and `Tape::read_file` use). `path` only labels
+errors.
+
+# Errors
+[`NjoyError::EndfParse`] for a malformed or truncated gzip member.
+
+```rust
+pub fn inflate_gzip(bytes: &[u8], path: &std::path::Path) -> Result<Vec<u8>, crate::NjoyError> { /* ... */ }
+```
+
 ## Module `thermal`
 
 Thermal scattering **S(α,β)** ACE table writer (`…t` tables).
@@ -16250,9 +16274,21 @@ discrete levels without MF=6 (`twobody.rs`), `σ·(E + q0)` for MT=600-849,
 and `nheat`'s skip list (MT=4 was heated beside its own levels). Above the
 first inelastic threshold the energy-balance MT=301 is now within 0.39 %
 (Fe-58) and 0.74 % (Si-28) of NJOY's in median, and Si-28 below it matches
-at print precision. The continuum and MF=6 neutron means (`conbar`,
+at print precision. ~~The continuum and MF=6 neutron means (`conbar`,
 `sixbar`, H6b part 2) are still the kinematic estimate and carry the
-14-150 MeV residual.
+14-150 MeV residual.~~
+
+**CORRECTED 2026-10-05 (#535, the full port):** all of `heatr.f90` is now
+translated routine by routine in [`driver`] ([`heatr()`], audit:
+`verification_and_validation/heatr_upstream_audit.md`), and its output
+tape is **byte-identical** to NJOY2016's HEATR on all 62 neutron
+evaluations in `reference-data/endf/` at `local = 0` and again at
+`local = 1, iprint = 2`, plus 8 regression decks (user Q, `qbar`, `ed`,
+two temperatures, the `viewr` plot file and the listing) in
+`tests/heatr_driver_vs_njoy2016.rs`. The ACE route (`acer` with HEATR in
+the deck) and `interface` now take MT=301 from [`heatr_kerma`], so the
+ACE heating column is NJOY's. [`Kerma`] (H1-H5 and the partial H6 above)
+stays as the reduced-order model and is no longer on the ACE route.
 
 Ported in phases (`docs/porting-plan.md` §HEATR sub-phases) — see the
 module's own progress:
@@ -16288,9 +16324,11 @@ module's own progress:
   with `disbar`/`conbar`/`sixbar` for the neutron side and `hconvr`/`gheat`
   for photons). **H6a, the photon side, is done** (2026-10-05, see above),
   together with `nheat`'s deposited-Q rule. **H6b part 1, the two-body
-  neutron side (`disbar`), is done** (2026-10-05). H6b part 2 (`conbar`,
+  neutron side (`disbar`), is done** (2026-10-05). ~~H6b part 2 (`conbar`,
   `sixbar`: continuum and MF=6 neutron means) and H6c (MF=6 capture
-  recoil, `kchk`) are planned on GitHub #535.
+  recoil, `kchk`) are planned on GitHub #535.~~ **Done 2026-10-05** as
+  the whole-module translation in [`driver`] (byte-identical to NJOY2016;
+  see above).
 
 ## Elastic kinematics (H1)
 
@@ -16324,9 +16362,522 @@ Split by functional group (crate file-size rule, `docs/porting-plan.md` §5):
   (H1–H5).
 - [`DamageEnergy`] (`damage.rs`) — MT=444 damage-energy production (H7),
   with the Lindhard partition and the NJOY `E_d` table.
+- [`driver`] — the routine-by-routine translation of `heatr.f90`
+  ([`heatr()`], [`HeatrInput`], [`heatr_kerma`], [`pendf_for_heatr`]).
 
 ```rust
 pub mod heatr { /* ... */ }
+```
+
+### Modules
+
+## Module `driver`
+
+**HEATR as NJOY runs it**: an ENDF tape and a PENDF tape in, the PENDF
+with the heating MTs added out.
+
+This is a translation of the whole of `heatr.f90`, one function per
+upstream routine (GitHub #535; audit in
+`verification_and_validation/heatr_upstream_audit.md`):
+
+| upstream | here |
+|---|---|
+| `heatr`, `horder` | [`heatr`], [`HeatrInput::from_cards`], `state::horder` |
+| `hinit` | `hinit.rs` |
+| `nheat`, `indx` | `nheat.rs`, `state::indx` |
+| `disbar`, `capdam`, `df` | `disbar.rs`, `state.rs` |
+| `conbar`, `hgtyld`, `anabar`, `anadam`, `sed`, `tabbar`, `tabdam` | `conbar.rs` |
+| `sixbar` | `sixbar.rs` |
+| `getsix`, `tabsq6`, `hgam102` | `getsix.rs` |
+| `h6cm`, `h6ddx`, `h6dis`, `bacha`, `h6psp` | `h6.rs` |
+| `hgtfle`, `hgetco` | `hgtfle.rs` |
+| `hconvr` | `hconvr.rs` |
+| `gheat`, `gambar`, `tabsqr`, `disgam` | `gheat.rs` |
+| `hout` | `hout.rs` |
+
+Upstream's scratch tapes are in memory: `iold`/`inew` (the kerma table)
+is one table updated in place, `nscr`/`nend4` is the material after
+`hconvr`, and `nend6` is the MF=6 sections read once. Each routine's
+Fortran `save` state is an explicit struct (`state.rs`).
+
+**Status.** Translated in full on 2026-10-05; ~~it has **not yet been
+compared with NJOY2016's output**, which is the next step. Until then this
+is untrusted draft, and `crate::heatr::Kerma` remains what the ACE route
+uses.~~ **Compared the same day:** the output tape is byte-identical to
+NJOY2016's HEATR on all 62 neutron evaluations in `reference-data/endf/`
+at `local = 0` and at `local = 1, iprint = 2`, and on the 8 decks of
+`tests/heatr_driver_vs_njoy2016.rs` (plot file and listing included);
+`verification_and_validation/heatr_vs_njoy2016.md` §6. The ACE route
+(`acer`, `interface`) now uses [`heatr_kerma`]. Still AI-assisted draft
+pending human review, per `RESPONSIBLE_USE.md`.
+
+```rust
+pub mod driver { /* ... */ }
+```
+
+### Types
+
+#### Struct `HeatrInput`
+
+HEATR's input cards 2-5 (card 1's units are the caller's tapes).
+
+```rust
+pub struct HeatrInput {
+    pub matd: i32,
+    pub partial_kermas: Vec<i32>,
+    pub user_q: Vec<(i32, f64)>,
+    pub qbar: Vec<Vec<f64>>,
+    pub ntemp: usize,
+    pub local: bool,
+    pub iprint: i32,
+    pub ed: f64,
+    pub plot: bool,
+    pub units: HeatrUnits,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `matd` | `i32` | `matd`: the material to process. |
+| `partial_kermas` | `Vec<i32>` | `mtk`: the partial kermas wanted besides MT=301 (card 3): `MT + 300`<br>for a reaction, or 303 (non-elastic), 304 (inelastic), 318<br>(fission), 401 (disappearance), 442 (photon energy), 443 (kinematic<br>limit), 444-447 (damage energy: total, elastic, inelastic,<br>disappearance). |
+| `user_q` | `Vec<(i32, f64)>` | `(mta, qa)`: user Q values (cards 4-5) \[eV\]. A `qa >= 99e6` takes<br>its energy-dependent Q from the matching entry of `qbar`. |
+| `qbar` | `Vec<Vec<f64>>` | Card 5a: for each `qa >= 99e6`, in order, a TAB1 of Q against<br>incident energy, flat as NJOY reads it (`C1 C2 L1 L2 NR NP NBT INT x y …`). |
+| `ntemp` | `usize` | `ntemp`: temperatures to process, 0 for all on the PENDF. |
+| `local` | `bool` | `local`: `false` transports the photons (energy balance), `true`<br>deposits their energy locally. |
+| `iprint` | `i32` | `iprint`: 0 minimal, 1 more, 2 also the kinematic-limit check. |
+| `ed` | `f64` | `ed`: the displacement energy for damage \[eV\], 0 for the built-in<br>table. |
+| `plot` | `bool` | `nplot != 0`: also produce the `viewr` energy-balance plot. |
+| `units` | `HeatrUnits` | Card 1's units, as the listing echoes them (the tapes themselves are<br>[`heatr`]'s arguments). |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn from_cards(text: &str) -> Result<(HeatrUnits, HeatrInput), NjoyError> { /* ... */ }
+  ```
+  Read HEATR's cards from the text that follows the `heatr` module card
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Default**
+  - ```rust
+    fn default() -> Self { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Struct `HeatrUnits`
+
+Card 1's units.
+
+```rust
+pub struct HeatrUnits {
+    pub nendf: i32,
+    pub nin: i32,
+    pub nout: i32,
+    pub nplot: i32,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `nendf` | `i32` | `nendf`. |
+| `nin` | `i32` | `nin`. |
+| `nout` | `i32` | `nout`. |
+| `nplot` | `i32` | `nplot`. |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Default**
+  - ```rust
+    fn default() -> Self { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Struct `HeatrOutput`
+
+What a HEATR run produces.
+
+```rust
+pub struct HeatrOutput {
+    pub tape: crate::endf::tape::Tape,
+    pub listing: String,
+    pub plot: Option<String>,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `tape` | `crate::endf::tape::Tape` | The output PENDF: `matd` at each temperature processed, with<br>MF=3/MT=301 and the partial MTs added and the directory revised. |
+| `listing` | `String` | Upstream's listing (`nsyso`): messages, and with `iprint >= 1` the<br>per-reaction tables. |
+| `plot` | `Option<String>` | The `viewr` plot file, when [`HeatrInput::plot`] is set. |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **Sync**
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+### Functions
+
+#### Function `heatr`
+
+Run HEATR (`heatr.f90`'s `heatr`) on material `input.matd` of `endf`, using
+the pointwise cross sections of `pendf` (a RECONR/BROADR tape).
+
+# Errors
+Upstream's fatal conditions as [`NjoyError`]: too many partial kermas or Q
+values, a missing section a routine needs, an MF=4 or MF=15 request above
+the last tabulated energy, malformed records, and the paths upstream does
+not code either (`hgetco`'s lab-to-CM conversion, LO=2 in `gheat`).
+
+```rust
+pub fn heatr(endf: &crate::endf::tape::Tape, pendf: &crate::endf::tape::Tape, input: &HeatrInput) -> Result<HeatrOutput, crate::NjoyError> { /* ... */ }
+```
+
+#### Function `pendf_for_heatr`
+
+A PENDF tape for [`heatr`] from a RECONR (or BROADR) result for material
+`mat`: MF=1/MT=451
+and every reconstructed MF=3 section, with the TAB1 heads HEATR reads
+(`QM`, `QI`, `LR`).
+
+RECONR copies each reaction's `QM` from the evaluation; `ReconrResult`
+does not carry it, so it is taken from `endf`'s MF=3 head for the same MT
+(0 for a section RECONR builds itself, as RECONR writes for its sums).
+The values stay at full precision, as on RECONR's binary tape.
+
+```rust
+pub fn pendf_for_heatr(endf: &crate::endf::tape::Tape, mat: i32, recon: &crate::reconr::ReconrResult) -> crate::endf::tape::Tape { /* ... */ }
+```
+
+#### Function `heatr_kerma`
+
+MT=301 as an ACE build needs it: HEATR (this translation) run on
+[`pendf_for_heatr`]`(endf, mat, recon)` with photons transported
+(`local = 0`), and the MT=301 TAB1 of its output returned as a
+[`crate::heatr::Kerma`] (energies and values exactly as HEATR wrote them).
+
+# Errors
+Whatever [`heatr`] returns, or [`NjoyError::SectionNotFound`] if its tape
+has no MT=301 (it always writes one).
+
+```rust
+pub fn heatr_kerma(endf: &crate::endf::tape::Tape, mat: i32, recon: &crate::reconr::ReconrResult) -> Result<crate::heatr::Kerma, crate::NjoyError> { /* ... */ }
 ```
 
 ### Functions
@@ -16335,10 +16886,12 @@ pub mod heatr { /* ... */ }
 
 Run the HEATR card-input driver (NJOY module entry point).
 
-**Status:** this module's processing physics is ported (see its `README.md`
+**Status:** ~~this module's processing physics is ported (see its `README.md`
 and the typed API above); the NJOY *card-input driver* itself is not yet
-ported, so this returns [`crate::NjoyError::NotPorted`]. Use the module's
-typed API directly rather than this driver.
+ported~~ **CORRECTED 2026-10-05:** HEATR itself, cards included, is ported
+as [`heatr()`] (cards via [`HeatrInput::from_cards`]). What this entry point
+lacks is the deck-level runner that binds NJOY unit numbers to tapes, which
+no module has yet, so it still returns [`crate::NjoyError::NotPorted`].
 
 ```rust
 pub fn run() -> Result<(), crate::NjoyError> { /* ... */ }
@@ -16356,6 +16909,42 @@ pub use damage::default_displacement_energy;
 
 ```rust
 pub use damage::DamageEnergy;
+```
+
+#### Re-export `heatr`
+
+```rust
+pub use driver::heatr;
+```
+
+#### Re-export `heatr_kerma`
+
+```rust
+pub use driver::heatr_kerma;
+```
+
+#### Re-export `pendf_for_heatr`
+
+```rust
+pub use driver::pendf_for_heatr;
+```
+
+#### Re-export `HeatrInput`
+
+```rust
+pub use driver::HeatrInput;
+```
+
+#### Re-export `HeatrOutput`
+
+```rust
+pub use driver::HeatrOutput;
+```
+
+#### Re-export `HeatrUnits`
+
+```rust
+pub use driver::HeatrUnits;
 ```
 
 #### Re-export `Kerma`
