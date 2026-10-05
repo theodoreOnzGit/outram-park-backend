@@ -1,5 +1,9 @@
 <!DOCTYPE html>
-<html lang="en">
+<!-- __BUILD__ is the commit, written by build.sh: every file URL carries it,
+     so each deploy is fetched fresh and the page, its wasm and its worker
+     always come from the same build (GitHub Pages caches each file for 10
+     minutes under an unchanged name). -->
+<html lang="en" data-build="__BUILD__">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -31,8 +35,8 @@
   </div>
 </div>
 <script type="module">
-  import init from "./triso_atops_web.js";
-  init().catch((e) => {
+  import init from "./triso_atops_web.js?v=__BUILD__";
+  init({ module_or_path: "./triso_atops_web_bg.wasm?v=__BUILD__" }).catch((e) => {
     const el = document.getElementById("loading");
     if (el) el.innerHTML = '<p class="err">Could not start: ' + String(e) + "</p>";
     console.error(e);

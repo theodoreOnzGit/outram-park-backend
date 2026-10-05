@@ -134,6 +134,21 @@ enum Key {
     None,
 }
 
+/// The worker's URL, stamped with the build the page came from
+/// (`<html data-build>`, written by `web/triso_atops/build.sh`), so a
+/// cached worker from an earlier deploy can never serve this page: GitHub
+/// Pages caches every file for 10 minutes under the same name, and a page
+/// and worker from different builds would disagree on the message format.
+#[cfg(target_arch = "wasm32")]
+fn worker_url() -> String {
+    let build = web_sys::window()
+        .and_then(|w| w.document())
+        .and_then(|d| d.document_element())
+        .and_then(|e| e.get_attribute("data-build"))
+        .unwrap_or_default();
+    format!("./worker.js?v={build}")
+}
+
 pub struct TrisoApp {
     link: Option<TLink>,
     error: Option<String>,
@@ -174,7 +189,7 @@ impl TrisoApp {
         #[cfg(target_arch = "wasm32")]
         let link = dhoby_ghaut::web_demo::link::start_web::<Request, Event>(
             cc.egui_ctx.clone(),
-            "./worker.js",
+            &worker_url(),
             Event::Error,
         );
         let (link, error) = match link {

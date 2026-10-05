@@ -37,6 +37,13 @@ mkdir -p "$dist"
 wasm-bindgen --target web --no-typescript --out-dir "$dist" --out-name triso_atops_web \
   "$root/target/wasm32-unknown-unknown/release/examples/triso_atops_web.wasm"
 cp "$here/index.html" "$here/worker.js" "$dist/"
+# Stamp the build into every file URL the page and worker load (they carry
+# `__BUILD__`): GitHub Pages caches each file for 10 minutes under the same
+# name, so without this a reader can get an earlier deploy, or a page and a
+# worker from different deploys. A dirty tree gets a `-dirty` suffix.
+build="$(git -C "$root" rev-parse --short=10 HEAD 2>/dev/null || echo local)"
+if ! git -C "$root" diff --quiet 2>/dev/null; then build="$build-dirty"; fi
+sed -i "s/__BUILD__/$build/g" "$dist/index.html" "$dist/worker.js"
 
 echo
 echo "Built $dist ($(du -sh "$dist" | cut -f1)). Serve it with any static file server, e.g.:"
