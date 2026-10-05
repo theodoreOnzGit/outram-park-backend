@@ -111,3 +111,74 @@ pub fn summary_lines(c: &HistoryCounts, production: f64, cfg: KeffConfig, k_mean
     }
     v
 }
+
+// ─── A small k_inf case (gh:#549) ────────────────────────────────────────────
+
+/// A rung's "run a small `k_inf` case at parameter `x`" request: what the
+/// parameter is, its range, the run's default settings and the recorded
+/// curves the reader's points are drawn against. The `lct008` rung's pitch
+/// slider is the first user; any rung whose lesson sweeps one parameter of an
+/// infinite lattice can offer one ([`crate::rungs::McRung::kinf_case`]).
+#[derive(Clone, Debug)]
+pub struct KinfCase {
+    /// Heading of the view, e.g. "k∞ against pitch".
+    pub title: &'static str,
+    /// Name and unit of the parameter, e.g. ("pitch", "cm").
+    pub param: (&'static str, &'static str),
+    pub range: (f64, f64),
+    pub default: f64,
+    /// Marked values on the axis, e.g. the benchmark's own pitch.
+    pub marks: Vec<(f64, &'static str)>,
+    /// Neutrons and generations of one run (point_source / want_sites unused).
+    pub cfg: KeffConfig,
+    /// The recorded curves, quoted from their record.
+    pub curves: Vec<RecordedCurve>,
+    /// What the run is and is not, one bullet each.
+    pub notes: Vec<&'static str>,
+}
+
+/// The workspace's plotting convention: published curves solid, ours dotted,
+/// other codes (references) dashed, recorded points as markers.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum LineStyle {
+    Published,
+    Ours,
+    Reference,
+}
+
+/// A recorded curve: `(x, k, sigma)` points, with where they come from.
+#[derive(Clone, Debug)]
+pub struct RecordedCurve {
+    pub label: String,
+    pub style: LineStyle,
+    pub points: Vec<(f64, f64, f64)>,
+}
+
+/// One generation of a running `k_inf` case, as the page sees it.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct KinfGeneration {
+    /// The parameter the case runs at.
+    pub param: f64,
+    /// Generation index, from 0, and the run's total.
+    pub index: usize,
+    pub total: usize,
+    pub active: bool,
+    pub k: f64,
+    /// Mean and standard error over the active generations so far (NaN before).
+    pub mean: f64,
+    pub sem: f64,
+}
+
+/// Read `(x, k, sigma)` columns, by header name, from a recorded CSV.
+pub fn csv_points(csv: &str, x: &str, k: &str, s: &str) -> Vec<(f64, f64, f64)> {
+    let mut lines = csv.lines();
+    let head: Vec<&str> = lines.next().unwrap_or("").split(',').collect();
+    let col = |n: &str| head.iter().position(|h| h.trim() == n);
+    let (Some(ix), Some(ik), Some(is)) = (col(x), col(k), col(s)) else { return Vec::new() };
+    lines
+        .filter_map(|l| {
+            let f: Vec<&str> = l.split(',').collect();
+            Some((f.get(ix)?.trim().parse().ok()?, f.get(ik)?.trim().parse().ok()?, f.get(is)?.trim().parse().ok()?))
+        })
+        .collect()
+}

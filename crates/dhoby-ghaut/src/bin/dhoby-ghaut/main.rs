@@ -1,0 +1,294 @@
+//! # Dhoby Ghaut's guided high-fidelity workbench (gh:#561), first slice
+//!
+//! A native window that walks a guided build: pick a reactor type by
+//! generation, Basic or Advanced, the HTGR core, then Steps 0–11 with every
+//! value prefilled and cited, a literature pane beside the model, and a
+//! recipe (kovan markdown) to save and load. Steps 0–5 work for HTGR →
+//! Basic → pebble bed (HTR-10); Steps 6–11 are shown with the issue that will
+//! build each.
+//!
+//! ```text
+//! cargo run --release -p dhoby-ghaut --bin dhoby-ghaut
+//! cargo run --release -p dhoby-ghaut --bin dhoby-ghaut -- --recipe my_recipe.md
+//! cargo run --release -p dhoby-ghaut --bin dhoby-ghaut -- --headless-geometry
+//! cargo run --release -p dhoby-ghaut --bin dhoby-ghaut -- --render-review out_dir
+//! cargo run --release -p dhoby-ghaut --bin dhoby-ghaut -- --headless-keff \
+//!     [--particles 500 --inactive 10 --active 20 --threads 8] [--out out_dir]
+//! ```
+//!
+//! **Research, education and V&V only.** The HTR-10 model is the TENTATIVE
+//! model of the RMC code-to-code record (`nee_soon::htr10_rmc`); see the V&V
+//! status the preset card shows. An offline demonstration: never connect it
+//! to an operational system.
+//!
+//! **Headless modes.** `--headless-geometry` assembles the recipe's
+//! geometry and prints one CSV row of its facts (cells, tiles, balls, …),
+//! pinned by `tests/fixtures/dhoby_ghaut_geometry.csv`. `--render-review`
+//! writes the review gate's images. `--headless-keff` runs Step 5 with no
+//! window, prints the console and the spectrum, and saves the recipe with the
+//! run appended. No test runs it: the nuclear data alone take minutes.
+
+#[cfg(not(any(target_os = "android", target_arch = "wasm32")))]
+mod app;
+#[cfg(not(any(target_os = "android", target_arch = "wasm32")))]
+mod engine;
+#[cfg(not(any(target_os = "android", target_arch = "wasm32")))]
+mod literature;
+#[cfg(not(any(target_os = "android", target_arch = "wasm32")))]
+mod preset;
+#[cfg(not(any(target_os = "android", target_arch = "wasm32")))]
+mod results;
+#[cfg(not(any(target_os = "android", target_arch = "wasm32")))]
+mod slice_view;
+#[cfg(not(any(target_os = "android", target_arch = "wasm32")))]
+mod steps_ui;
+
+#[cfg(any(target_os = "android", target_arch = "wasm32"))]
+fn main() {
+    eprintln!(
+        "dhoby-ghaut is a native desktop GUI; it is not built for Android or the browser."
+    );
+}
+
+#[cfg(not(any(target_os = "android", target_arch = "wasm32")))]
+fn main() -> Result<(), String> {
+    let args: Vec<String> = std::env::args().skip(1).collect();
+    let arg = |k: &str| {
+        args.iter()
+            .position(|a| a == k)
+            .and_then(|i| args.get(i + 1))
+            .cloned()
+    };
+    let recipe = match arg("--recipe") {
+        Some(p) => {
+            let text = std::fs::read_to_string(&p).map_err(|e| format!("{p}: {e}"))?;
+            Some(
+                dhoby_ghaut::workbench::recipe::Recipe::from_markdown(&text)
+                    .map_err(|e| format!("{p}: {e}"))?,
+            )
+        }
+        None => None,
+    };
+    if args.iter().any(|a| a == "--headless-geometry") {
+        let r = recipe.unwrap_or_else(preset::htr10);
+        println!("{}", headless::geometry_csv(&r));
+        return Ok(());
+    }
+    if let Some(dir) = arg("--render-review") {
+        let r = recipe.unwrap_or_else(preset::htr10);
+        return headless::render_review(&r, std::path::Path::new(&dir));
+    }
+    if args.iter().any(|a| a == "--headless-keff") {
+        let mut r = recipe.unwrap_or_else(preset::htr10);
+        let num = |k: &str| arg(k).and_then(|v| v.parse::<usize>().ok());
+        let mc = &mut r.monte_carlo;
+        mc.particles = num("--particles").unwrap_or(mc.particles);
+        mc.inactive = num("--inactive").unwrap_or(mc.inactive);
+        mc.active = num("--active").unwrap_or(mc.active);
+        mc.threads = num("--threads").unwrap_or(mc.threads);
+        let out = arg("--out").unwrap_or_else(|| "target/dhoby-ghaut_out".into());
+        return headless::keff(r, std::path::Path::new(&out));
+    }
+    let options = eframe::NativeOptions {
+        viewport: egui::ViewportBuilder::default()
+            .with_inner_size([1500.0, 950.0])
+            .with_title("Dhoby Ghaut workbench"),
+        ..Default::default()
+    };
+    eframe::run_native(
+        "Dhoby Ghaut workbench",
+        options,
+        Box::new(move |cc| Ok(Box::new(app::App::new(cc, recipe)))),
+    )
+    .map_err(|e| e.to_string())
+}
+
+#[cfg(not(any(target_os = "android", target_arch = "wasm32")))]
+mod headless {
+    use std::path::Path;
+
+    use dhoby_ghaut::web_demo::link::NativeEngine;
+    use dhoby_ghaut::workbench::recipe::{now_rfc3339, Recipe, RunRecord};
+
+    use crate::engine::{AssemblyInfo, Engine, Ev, KeffJob, Req};
+
+    fn assemble(engine: &mut Engine, r: &Recipe) -> Option<AssemblyInfo> {
+        let mut info = None;
+        engine.handle(
+            Req::Assemble {
+                rings: r.pebble_bed.rings,
+                layers: r.pebble_bed.layers,
+            },
+            &mut |e| {
+                if let Ev::Assembled(i, _) = e {
+                    info = Some(i);
+                }
+            },
+        );
+        info
+    }
+
+    /// One CSV header and row of the assembled geometry's facts. Timing is
+    /// left out so the row is reproducible.
+    pub fn geometry_csv(r: &Recipe) -> String {
+        let mut engine = Engine::default();
+        let Some(a) = assemble(&mut engine, r) else {
+            return "assembly failed".into();
+        };
+        let f = |v: Option<[f64; 3]>| {
+            v.map_or("none".to_string(), |p| {
+                format!("{:.4} {:.4} {:.4}", p[0] + 0.0, p[1] + 0.0, p[2] + 0.0)
+            })
+        };
+        format!(
+            "rings,layers,tiles,cells,universes,balls,bed_radius_cm,bed_height_cm,z_bottom_cm,z_top_cm,fuel_pebble_cm,triso_cm\n\
+             {},{},{},{},{},{},{:.4},{:.4},{:.4},{:.4},{},{}",
+            a.rings,
+            a.layers,
+            a.tiles,
+            a.cells,
+            a.universes,
+            a.balls.map_or("none".into(), |b| b.to_string()),
+            a.bed_radius,
+            a.bed_height,
+            a.z_range[0],
+            a.z_range[1],
+            f(a.pebble),
+            f(a.particle),
+        )
+    }
+
+    pub fn render_review(r: &Recipe, dir: &Path) -> Result<(), String> {
+        let mut engine = Engine::default();
+        let a = assemble(&mut engine, r).ok_or("assembly failed")?;
+        let presets = crate::steps_ui::review_presets_for(&a);
+        for p in presets {
+            let origin = crate::slice_view::SliceView::origin(p.basis, p.depth, p.centre);
+            let name = p.name.to_lowercase().replace([' ', '(', ')', '-'], "_");
+            let path = dir.join(format!("review_{name}.png"));
+            let title = format!(
+                "HTR-10 {}X{}: {}",
+                r.pebble_bed.rings,
+                r.pebble_bed.layers,
+                p.name.to_uppercase()
+            );
+            let w = 2.0 * p.half_extent;
+            engine.handle(
+                Req::ExportPng {
+                    basis: p.basis,
+                    origin,
+                    width: [w, w],
+                    pixels: [1000, 1000],
+                    title,
+                    path,
+                },
+                &mut |e| match e {
+                    Ev::Exported(p) => println!("wrote {}", p.display()),
+                    Ev::Error(m) => eprintln!("{m}"),
+                    _ => {}
+                },
+            );
+        }
+        Ok(())
+    }
+
+    pub fn keff(mut r: Recipe, out: &Path) -> Result<(), String> {
+        let mut engine = Engine::default();
+        let a = assemble(&mut engine, &r).ok_or("assembly failed")?;
+        println!(
+            "assembled: {} cells, {} tiles, {:?} balls ({:.1} s)",
+            a.cells, a.tiles, a.balls, a.seconds
+        );
+        let mc = r.monte_carlo.clone();
+        let label = format!("Run {}", mc.runs.len() + 1);
+        let job = KeffJob {
+            label: label.clone(),
+            particles: mc.particles,
+            inactive: mc.inactive,
+            active: mc.active,
+            seed: mc.seed,
+            threads: mc.threads,
+            temperature_k: r.nuclear_data.temperature_k,
+            bins_per_decade: mc.spectrum_bins_per_decade,
+        };
+        let mut outcome = None;
+        let mut err = None;
+        engine.handle(Req::RunKeff(job), &mut |e| match e {
+            Ev::Data(nee_soon::htr10_rmc::data::LoadProgress::Finished { item, seconds }) => {
+                println!("  data {item:<20} {seconds:6.1} s")
+            }
+            Ev::DataReady { seconds, .. } => println!("nuclear data ready ({seconds:.1} s)"),
+            Ev::KeffStarted { planned_histories } => {
+                println!("transport: {planned_histories} histories planned")
+            }
+            Ev::KeffDone(o) => outcome = Some(o),
+            Ev::Error(m) => err = Some(m),
+            _ => {}
+        });
+        if let Some(m) = err {
+            return Err(m);
+        }
+        let o = outcome.ok_or("no result")?;
+        println!(" Bat./Gen.      k       Entropy         Average k");
+        for l in crate::results::console_lines(&o, mc.inactive) {
+            println!("{l}");
+        }
+        println!(
+            " k-effective = {:.5} +/- {:.5}  ({} histories, {} lost, {:.1} s)",
+            o.k, o.sigma, o.histories, o.lost_locate, o.transport_s
+        );
+        for n in &o.notes {
+            println!(" note: {n}");
+        }
+        std::fs::create_dir_all(out).map_err(|e| e.to_string())?;
+        let mut csv = String::from("e_lo_ev,e_hi_ev,phi_per_lethargy,rel_err\n");
+        for (i, (v, e)) in o.phi_per_lethargy.iter().enumerate() {
+            csv.push_str(&format!(
+                "{:.6e},{:.6e},{v:.6e},{e:.4e}\n",
+                o.edges[i],
+                o.edges[i + 1]
+            ));
+        }
+        let spec = out.join("spectrum.csv");
+        std::fs::write(&spec, csv).map_err(|e| e.to_string())?;
+        r.monte_carlo.runs.push(RunRecord {
+            label,
+            rod_insertion: mc.rod_insertion,
+            temperature_k: r.nuclear_data.temperature_k,
+            particles: mc.particles,
+            inactive: mc.inactive,
+            active: mc.active,
+            seed: mc.seed,
+            k: o.k,
+            sigma: o.sigma,
+            transport_s: o.transport_s,
+        });
+        let md = r.to_markdown(&now_rfc3339()).map_err(|e| e.to_string())?;
+        let rp = out.join("recipe.md");
+        std::fs::write(&rp, md).map_err(|e| e.to_string())?;
+        println!("wrote {} and {}", spec.display(), rp.display());
+        Ok(())
+    }
+}
+
+#[cfg(all(test, not(any(target_os = "android", target_arch = "wasm32"))))]
+mod tests {
+    /// The assembled HTR-10 preset geometry matches the committed fixture:
+    /// cell and tile counts, the Şeker ball count, the model's extent, and
+    /// the fuel pebble the review gate zooms to. A change to the geometry
+    /// builder shows up here (regenerate with `--headless-geometry` once the
+    /// change is reviewed, with images).
+    #[test]
+    fn the_headless_geometry_matches_the_committed_fixture() {
+        let got = super::headless::geometry_csv(&super::preset::htr10());
+        let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("tests/fixtures/dhoby_ghaut_geometry.csv");
+        let want = std::fs::read_to_string(&path).expect("fixture");
+        assert_eq!(
+            got.trim(),
+            want.trim(),
+            "regenerate {} only after reviewing the geometry",
+            path.display()
+        );
+    }
+}

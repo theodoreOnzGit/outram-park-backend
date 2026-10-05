@@ -79,12 +79,9 @@
 //! ```
 
 use njoy_outram_park_fork::reference_data::reference_endf;
-use outram_mc_libs::geometry::cell::{Cell, HalfSpaceSense, RegionToken};
 use outram_mc_libs::geometry::geometry::Geometry;
 use outram_mc_libs::geometry::plot::{render_material_slice, PlotBasis, Rgb, SlicePlot};
 use outram_mc_libs::geometry::position::Position;
-use outram_mc_libs::geometry::surface::{BoundaryType, SurfaceKind, XPlane, YPlane, ZCylinder, ZPlane};
-use outram_mc_libs::geometry::universe::Universe;
 use outram_mc_libs::material::nuclide::Nuclide;
 use outram_mc_libs::material::thermal::ThermalScattering;
 use outram_mc_libs::physics::compute::ComputeType;
@@ -97,6 +94,9 @@ use std::time::Instant;
 
 #[path = "common/lct008_model.rs"]
 mod lct008_model;
+#[path = "common/lct008_pin_cell.rs"]
+mod lct008_pin_cell;
+use lct008_pin_cell::HALF_Z;
 use lct008_model::{R_CLAD, R_FUEL, TEMP_K};
 
 /// LCT-008's own lattice pitch [cm], from the committed `geometry.xml`
@@ -121,9 +121,6 @@ const DEFAULT_PITCHES: [f64; 11] = [
     3.30,
 ];
 
-/// Half-height of the reflective cell [cm]. With reflective z-planes the value
-/// does not change k∞; it only bounds the initial source box.
-const HALF_Z: f64 = 10.0;
 
 fn main() {
     let args: Vec<String> = std::env::args().skip(1).collect();
@@ -317,83 +314,10 @@ fn main() {
     }
 }
 
-/// The reflective square pin cell, centred on the origin: fuel, clad, water.
-/// Material slots are the case-1 order (water 0, fuel 1, clad 2).
+/// The reflective square pin cell, centred on the origin: fuel, clad, water
+/// (`common/lct008_pin_cell.rs`, shared with the web demo's pitch slider).
 fn pin_cell(half: f64) -> Geometry {
-    let hs = |surface_idx: usize, inside: bool| RegionToken::HalfSpace {
-        surface_idx,
-        sense: if inside {
-            HalfSpaceSense::Inside
-        } else {
-            HalfSpaceSense::Outside
-        },
-    };
-    let cyl = |r: f64| {
-        SurfaceKind::ZCylinder(ZCylinder {
-            x0: 0.0,
-            y0: 0.0,
-            r,
-            bc: BoundaryType::Transmissive,
-        })
-    };
-    let refl = BoundaryType::Reflective;
-    let surfaces = vec![
-        cyl(R_FUEL), // 0
-        cyl(R_CLAD), // 1
-        SurfaceKind::XPlane(XPlane {
-            x0: -half,
-            bc: refl,
-        }), // 2
-        SurfaceKind::XPlane(XPlane { x0: half, bc: refl }), // 3
-        SurfaceKind::YPlane(YPlane {
-            y0: -half,
-            bc: refl,
-        }), // 4
-        SurfaceKind::YPlane(YPlane { y0: half, bc: refl }), // 5
-        SurfaceKind::ZPlane(ZPlane {
-            z0: -HALF_Z,
-            bc: refl,
-        }), // 6
-        SurfaceKind::ZPlane(ZPlane {
-            z0: HALF_Z,
-            bc: refl,
-        }), // 7
-    ];
-    // Every cell is bounded by the box, so nothing is defined outside it.
-    let in_box = |mut r: Vec<RegionToken>| {
-        for (s, inside) in [
-            (2, false),
-            (3, true),
-            (4, false),
-            (5, true),
-            (6, false),
-            (7, true),
-        ] {
-            r.push(hs(s, inside));
-            r.push(RegionToken::Intersection);
-        }
-        r
-    };
-    let cells = vec![
-        Cell::material(1, in_box(vec![hs(0, true)]), 1, TEMP_K),
-        Cell::material(
-            2,
-            in_box(vec![hs(0, false), hs(1, true), RegionToken::Intersection]),
-            2,
-            TEMP_K,
-        ),
-        Cell::material(3, in_box(vec![hs(1, false)]), 0, TEMP_K),
-    ];
-    Geometry {
-        surfaces,
-        cells,
-        universes: vec![Universe {
-            id: 0,
-            cell_indices: vec![0, 1, 2],
-        }],
-        lattices: vec![],
-        root_universe: 0,
-    }
+    lct008_pin_cell::pin_cell(half, R_FUEL, R_CLAD, TEMP_K)
 }
 
 /// Draw what the solver sees: an x-y slice of the ASSEMBLED pin cell, by

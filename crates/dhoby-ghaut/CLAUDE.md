@@ -103,7 +103,12 @@ copy `monte_carlo_web`. It gives, ready-made and tested:
    per `step`) producing a type implementing `LoadedRung` (`run_next` traced
    history; `keff_start` / `keff_step` / `keff_finished`, or an error for a
    rung without Run). `godiva/` is the worked example with Run k_eff,
-   `triso/` without. Add `render.rs` for the geometry review images (the
+   `triso/` without. Optional since 2026-10-05 (gh:#549): a small `k_inf`
+   case the reader runs at a parameter of their choice (`McRung::kinf_case`
+   with `LoadedRung::kinf_start` / `kinf_step`, one generation per request;
+   `lct008/`'s pitch slider, on `transport_csg::CsgPowerIteration`), and
+   the σ(E) panel beside the geometry (`LoadedRung::xs_curves`, `xs::curves`).
+   Add `render.rs` for the geometry review images (the
    drawing rule above) and wire it into `--render-geometry` in `main.rs`.
 2. **One line** in the `rung_table!` invocation in `main.rs`
    (`<module>: <Marker>,`, in ladder order). The macro declares the module and
@@ -117,3 +122,31 @@ copy `monte_carlo_web`. It gives, ready-made and tested:
    not in the table.
 4. Any new tape must be in `reference-data/endf/`; `--prepare-web-data`
    publishes every rung's tapes (shared ones once).
+
+## The high-fidelity workbench (gh:#561)
+
+**Maintainer design, 2026-10-05.** `src/bin/dhoby-ghaut/` is the guided
+high-fidelity simulator; `src/workbench/` is its library half (catalogue,
+steps, recipe). Rules that bind changes to it:
+
+- **Recipes are kovan markdown, read and written through `kovan::artifact`.**
+  Do not write a second markdown or TOML-in-markdown parser. Plain TOML is
+  for light data transfer only (the reactivity map, gh:#571; #576).
+- **Every input and output file is kovan-compatible, and this crate depends
+  on `kovan` directly**, which is why it is AGPL-3.0-only (`NOTICE`). A crate
+  that depends on `dhoby-ghaut` as a library inherits that: confirm with the
+  maintainer first.
+- **Prefill from the model's own constants wherever it exports them**
+  (`preset.rs` reads `nee_soon::htr10_rmc`); a value it does not export is
+  marked at the line that types it. Cite each value; give a page only where a
+  source states one.
+- **State what the model lacks.** Every part of the reactor is *in model*,
+  *simplified* or *NOT in model*, with an issue. The pre-built card shows the
+  preset's V&V status from its record, never "validated"; an edited recipe is
+  "derived", with no V&V standing.
+- **The review gate stays in front of Monte Carlo.** It draws the drawing
+  rule's minimum set from the assembled geometry.
+- **The UI thread only draws.** Two engine threads (geometry, physics) share
+  the assembled core as an `Arc`.
+- **A step that is not built says so** and names its issue
+  (`WizardStep::issue`); nothing is simulated behind a placeholder.

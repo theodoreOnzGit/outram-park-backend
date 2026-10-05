@@ -50,6 +50,8 @@ mod keff;
 mod rungs;
 #[cfg(not(target_os = "android"))]
 mod tapes;
+#[cfg(not(target_os = "android"))]
+mod xs;
 
 // THE RUNG TABLE, in ladder order: one line per rung, `module: MarkerType`,
 // for `examples/monte_carlo_web/<module>/mod.rs` (see `rungs.rs`). Adding a

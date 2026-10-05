@@ -332,12 +332,12 @@ pub const JOBS: [Job; 11] = [
 
 /// Nuclide indices in the assembled list.
 pub const N_U235: usize = 0;
-const N_U238: usize = 1;
+pub const N_U238: usize = 1;
 const N_O16: usize = 2;
 const N_B10: usize = 3;
 const N_B11: usize = 4;
 /// Carbon bound in graphite — carries the crystalline-graphite S(alpha,beta).
-const N_C12_GR: usize = 5;
+pub const N_C12_GR: usize = 5;
 const N_C13_GR: usize = 6;
 /// Carbon in SiC — free gas (see [`NuclearData::assemble`]).
 const N_C12_FREE: usize = 7;

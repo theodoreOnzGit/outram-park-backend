@@ -3,8 +3,11 @@ name = "dhoby-ghaut"
 version = "0.0.1"
 authors.workspace = true
 edition.workspace = true
-license.workspace = true
-description = "Digital High-fidelity Orchestration by GUI for a Human-friendly Automated Unified Toolkit — DHOBY GHAUT, the GUI home for OUTRAM PARK's meshing and Monte Carlo studios. The library is a placeholder; the MC Studio and Mesh Studio GUIs, and a browser-capable TRISO pebble neutron-track demo, live here as examples."
+# AGPL-3.0-only, NOT `license.workspace = true` (GPL-3.0-only): relicensed
+# 2026-10-05 at the maintainer's direction (gh:#561/#562) so the workbench can
+# depend on `kovan` (AGPL-3.0-only) as a library. See NOTICE in this directory.
+license = "AGPL-3.0-only"
+description = "Digital High-fidelity Orchestration by GUI for a Human-friendly Automated Unified Toolkit — DHOBY GHAUT, OUTRAM PARK's GUI home: the guided high-fidelity simulation workbench, the meshing and Monte Carlo studios, and the web-demo framework of the tutorial tracks."
 homepage.workspace = true
 repository.workspace = true
 categories.workspace = true
@@ -18,10 +21,48 @@ categories.workspace = true
 # themselves are still examples, carried by the dev-dependencies below.
 # ---------------------------------------------------------------------------
 
+# The workbench binary, `cargo run -p dhoby-ghaut --release` (gh:#561).
+# Carries an Android/wasm stub `main`.
+[[bin]]
+name = "dhoby-ghaut"
+path = "src/bin/dhoby-ghaut/main.rs"
+
 [dependencies]
+
+# `kovan`: the workbench's recipes (input decks) and every file it writes are
+# kovan-compatible markdown + TOML artifacts, parsed by kovan's own artifact
+# parser rather than a second one (maintainer, 2026-10-05, gh:#561/#562).
+# AGPL-3.0-only -- which is why this crate is too (NOTICE). Declared here with
+# a path, NOT in the root `[workspace.dependencies]`, so no other crate picks
+# it up by accident (the boundary rule in `crates/kovan/NOTICE`).
+# `default-features = false` drops kovan's own egui GUI binary stack.
+# Gated off wasm32: kovan carries gix, directories and the kopitiam crates,
+# none of which belong in the browser demos that build this library for wasm.
+[target.'cfg(not(target_arch = "wasm32"))'.dependencies]
+kovan = { path = "../kovan", default-features = false }
+# The recipe schema (`src/workbench/recipe.rs`): serde for the settings
+# tables, toml to read/write them, uom for the quantities that leave it.
+serde = { workspace = true }
+toml = { workspace = true }
+uom = { workspace = true }
 
 [target.'cfg(not(target_os = "android"))'.dependencies]
 egui = { workspace = true }
+
+# The `dhoby-ghaut` BINARY (src/bin/dhoby-ghaut/): the guided high-fidelity
+# workbench (gh:#561). Maintainer, 2026-10-05: "dhoby-ghaut is to be a
+# binary". A binary cannot use dev-dependencies, so its stack is here, gated
+# off Android (the windowing exemption) and off wasm32 (a native desktop app;
+# the browser demos build this library for wasm and must not pull nee_soon).
+[target.'cfg(all(not(target_os = "android"), not(target_arch = "wasm32")))'.dependencies]
+eframe = { workspace = true }
+egui_plot = { workspace = true }
+nee_soon = { workspace = true }
+outram-mc-libs = { workspace = true }
+# The literature pane renders PDF pages with the engine kovan's own reader
+# uses (AGPL-3.0-only, like this crate since 2026-10-05; see NOTICE). Same
+# version and features as `crates/kovan`.
+kopitiam-pdf = { version = "0.4.3", default-features = false, features = ["egui"] }
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 wasm-bindgen = { workspace = true }

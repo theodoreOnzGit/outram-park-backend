@@ -478,6 +478,47 @@ fn nuclides() -> Vec<Nuclide> {
     ]
 }
 
+/// `OUTRAM_DH_VV_AUDIT=1`: does the majorant `DhUniverse::keff` builds bound
+/// `Sigma_t`? Diagnostic only, never fatal.
+///
+/// `DhUniverse::keff` builds `Majorant::bounding(reachable, 1e-4, 2e7, 4096,
+/// 32, 0.3)` over the materials an arm can reach. Any reachable set that
+/// contains a material bounds it at least as well as that material **alone**
+/// does (same sample energies, a larger or equal maximum), so this checks the
+/// worst case: for each of the universe's materials, the same construction
+/// over that one material, scanned at 200 001 log-spaced energies plus every
+/// node of every nuclide's own pointwise grid. A pass therefore holds for
+/// every arm's reachable set. Added 2026-10-05 (#528) after the same
+/// construction (at margin 0.1) was found to under-bound on the HTR-10 fuel
+/// zone (`examples/htr10_fuel_zone_kinf.rs`).
+fn audit_majorant(label: &str, materials: &[Material], nuclides: &[Nuclide]) {
+    let (lo, hi): (f64, f64) = (1.0e-5, 2.0e7);
+    let n = 200_000usize;
+    let mut energies: Vec<f64> = (0..=n).map(|i| lo * (hi / lo).powf(i as f64 / n as f64)).collect();
+    for nuc in nuclides {
+        energies.extend(nuc.native_energy_grid(lo, hi));
+    }
+    let (mut worst, mut worst_e, mut worst_m) = (0.0_f64, 0.0_f64, String::new());
+    for mat in materials {
+        let own = std::slice::from_ref(mat);
+        let maj = Majorant::bounding(own, nuclides, 1.0e-4, 2.0e7, 4096, 32, 0.3);
+        for &e in &energies {
+            let r = mat.macro_xs_total_upper_bound(e, nuclides) / maj.at(e);
+            if r > worst {
+                worst = r;
+                worst_e = e;
+                worst_m = mat.name.clone();
+            }
+        }
+    }
+    println!(
+        "  majorant audit [{label}]: worst Sigma_t/Sigma_maj = {worst:.4} at {worst_e:.4e} eV \
+         in '{worst_m}', each material against its own majorant ({} energies){}",
+        energies.len(),
+        if worst > 1.0 { "  ** UNDER-BOUND **" } else { "" }
+    );
+}
+
 /// `(delta_pcm, sigma_distance)` between two eigenvalues with independent
 /// statistics.
 fn delta(k: f64, s: f64, k0: f64, s0: f64) -> (f64, f64) {
@@ -653,6 +694,9 @@ fn main() {
                     continue;
                 }
             };
+            if draw == 1 && std::env::var("OUTRAM_DH_VV_AUDIT").is_ok() {
+                audit_majorant(treatment.name(), universe.materials(), &nucs);
+            }
             let particles = universe.particle_count();
             let t0 = Instant::now();
             let result = universe.keff(&nucs, &settings);

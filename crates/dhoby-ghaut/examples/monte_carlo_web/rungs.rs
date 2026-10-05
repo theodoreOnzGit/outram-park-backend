@@ -23,6 +23,14 @@
 //! workspace's Rust rules.) `godiva/` is the worked example of a rung with a
 //! Run k_eff mode, `triso/` of one without.
 //!
+//! Two optional pieces any rung can add (gh:#549), with no change outside its
+//! directory: a **small `k_inf` case** at a parameter the reader picks
+//! ([`McRung::kinf_case`] with [`LoadedRung::kinf_start`] /
+//! [`LoadedRung::kinf_step`]; the engine streams it one generation per
+//! request and the app gives it a slider and a plot against the recorded
+//! curve), and the **σ(E) panel** beside the geometry
+//! ([`LoadedRung::xs_curves`]).
+//!
 //! `scripts/build-pages.sh` reads every rung's `name:` and `lesson:` lines
 //! (in `<rung>/mod.rs`, one line each) and fails the site build if the lesson
 //! page is missing or a page links to a rung that does not exist.
@@ -30,7 +38,8 @@
 use crate::anim::Spectrum;
 use crate::engine::Tier;
 use crate::history::History;
-use crate::keff::{Generation, KeffConfig, Reference};
+use crate::keff::{Generation, KeffConfig, KinfCase, KinfGeneration, Reference};
+use crate::xs::XsCurve;
 use dhoby_ghaut::web_demo::view::View;
 
 /// What the demo shows for a rung.
@@ -91,6 +100,21 @@ pub trait LoadedRung {
     /// Run the next generation; `None` once the run is over.
     fn keff_step(&mut self) -> Option<Generation>;
     fn keff_finished(&self) -> bool;
+    /// Start a small `k_inf` case at parameter `param` (the rung's
+    /// [`McRung::kinf_case`]), replacing any running one. A rung without one
+    /// returns an error.
+    fn kinf_start(&mut self, _param: f64, _cfg: KeffConfig) -> Result<(), String> {
+        Err("this rung has no k_inf case".into())
+    }
+    /// Run the case's next generation; `None` once it is over.
+    fn kinf_step(&mut self) -> Option<KinfGeneration> {
+        None
+    }
+    /// The σ(E) panel's curves from the processed data, decimated
+    /// ([`crate::xs::curves`]); empty for a rung without the panel.
+    fn xs_curves(&self) -> Vec<XsCurve> {
+        Vec::new()
+    }
 }
 
 /// Everything about one rung that the engine and the app need. Implemented
@@ -129,6 +153,12 @@ pub trait McRung {
     /// The rung's own legend in the side panel (materials, say), under the
     /// shared energy colour bar and track markers.
     fn legend(_ui: &mut egui::Ui) {}
+    /// A small `k_inf` case the reader can run at a parameter of their
+    /// choice (gh:#549); `None` means the rung has none. Its engine side is
+    /// [`LoadedRung::kinf_start`] / [`LoadedRung::kinf_step`].
+    fn kinf_case() -> Option<KinfCase> {
+        None
+    }
 }
 
 /// Generates, from a list `module: Marker`, the `mod` declarations, the
@@ -145,7 +175,8 @@ macro_rules! rung_table {
             use $crate::rungs::{McRung, RungBuilder, LoadedRung, RungInfo};
             use $crate::engine::Tier;
             use $crate::history::History;
-            use $crate::keff::{Generation, KeffConfig, Reference};
+            use $crate::keff::{Generation, KeffConfig, KinfCase, KinfGeneration, Reference};
+            use $crate::xs::XsCurve;
 
             /// The rungs, in ladder order (the order of `rung_table!`).
             #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -197,6 +228,9 @@ macro_rules! rung_table {
                 pub fn legend(self, ui: &mut egui::Ui) {
                     match self { $( Rung::$t => <$crate::$m::$t as McRung>::legend(ui), )+ }
                 }
+                pub fn kinf_case(self) -> Option<KinfCase> {
+                    match self { $( Rung::$t => <$crate::$m::$t as McRung>::kinf_case(), )+ }
+                }
                 pub fn has_run(self) -> bool {
                     self.run_default().is_some()
                 }
@@ -235,6 +269,15 @@ macro_rules! rung_table {
                 }
                 pub fn keff_finished(&self) -> bool {
                     match self { $( Loaded::$t(l) => l.keff_finished(), )+ }
+                }
+                pub fn kinf_start(&mut self, param: f64, cfg: KeffConfig) -> Result<(), String> {
+                    match self { $( Loaded::$t(l) => l.kinf_start(param, cfg), )+ }
+                }
+                pub fn kinf_step(&mut self) -> Option<KinfGeneration> {
+                    match self { $( Loaded::$t(l) => l.kinf_step(), )+ }
+                }
+                pub fn xs_curves(&self) -> Vec<XsCurve> {
+                    match self { $( Loaded::$t(l) => l.xs_curves(), )+ }
                 }
             }
         }

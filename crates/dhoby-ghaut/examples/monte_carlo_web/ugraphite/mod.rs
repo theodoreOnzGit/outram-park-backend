@@ -147,6 +147,21 @@ impl LoadedRung for Loaded {
     fn keff_finished(&self) -> bool {
         true
     }
+    /// The σ(E) panel (gh:#549): U-238 capture, U-235 fission, and C-12
+    /// scattering with graphite's S(α,β) law below its cutoff (C-12 is 98.9 %
+    /// of the carbon; C-13 is not drawn).
+    fn xs_curves(&self) -> Vec<crate::xs::XsCurve> {
+        use crate::xs::Channel;
+        crate::xs::curves(
+            &self.phys.nuclides,
+            model::TEMPERATURE_K,
+            &[
+                ("U-238 capture", model::N_U238, Channel::Capture),
+                ("U-235 fission", model::N_U235, Channel::Fission),
+                ("C-12 scattering (bound in graphite below the S(α,β) cutoff)", model::N_C12, Channel::Scatter),
+            ],
+        )
+    }
 }
 
 #[cfg(all(test, not(target_arch = "wasm32")))]

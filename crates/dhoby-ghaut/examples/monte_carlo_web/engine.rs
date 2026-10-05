@@ -21,7 +21,7 @@
 #![cfg_attr(not(target_arch = "wasm32"), allow(dead_code))]
 
 use crate::history::History;
-use crate::keff::{Generation, KeffConfig};
+use crate::keff::{Generation, KeffConfig, KinfGeneration};
 use crate::table::{Loaded, Rung};
 use outram_mc_libs::geometry::position::{Direction, Position};
 use outram_mc_libs::material::speed::SpeedTier;
@@ -59,6 +59,13 @@ pub enum Request {
     KeffStart(KeffConfig),
     /// Run its next generation.
     KeffStep,
+    /// Start the rung's small `k_inf` case at `param` (gh:#549), replacing
+    /// any running one. Like a power iteration, it runs ONE generation per
+    /// [`Request::KinfStep`], so it streams and the UI stops it by not asking.
+    KinfStart { param: f64, cfg: KeffConfig },
+    KinfStep,
+    /// Send the σ(E) panel's curves (once per load).
+    XsCurves,
 }
 
 pub enum Event {
@@ -71,6 +78,11 @@ pub enum Event {
     Generation(Generation),
     /// The iteration has run every generation.
     KeffDone,
+    /// A generation of the `k_inf` case, and its end.
+    KinfGeneration(KinfGeneration),
+    KinfDone,
+    /// The σ(E) panel's curves (empty: the rung has no panel).
+    XsCurves(Vec<crate::xs::XsCurve>),
     Error(String),
 }
 
@@ -96,7 +108,35 @@ pub fn serve(l: &mut Loaded, r: Request, post: &mut impl FnMut(Event)) {
             }
             None => post(Event::KeffDone),
         },
+        Request::KinfStart { param, cfg } => {
+            if let Err(e) = l.kinf_start(param, cfg) {
+                post(Event::Error(e));
+            }
+        }
+        Request::KinfStep => match l.kinf_step() {
+            Some(g) => {
+                let last = g.index + 1 >= g.total;
+                post(Event::KinfGeneration(g));
+                if last {
+                    post(Event::KinfDone);
+                }
+            }
+            None => post(Event::KinfDone),
+        },
+        Request::XsCurves => post(Event::XsCurves(l.xs_curves())),
     }
+}
+
+/// A `k_inf` generation as `f64`s (NaN for "no mean yet").
+pub fn encode_kinf(g: &KinfGeneration) -> Vec<f64> {
+    vec![g.param, g.index as f64, g.total as f64, g.active as u8 as f64, g.k, g.mean, g.sem]
+}
+
+pub fn decode_kinf(v: &[f64]) -> Result<KinfGeneration, String> {
+    if v.len() != 7 {
+        return Err(format!("k_inf message: {} values", v.len()));
+    }
+    Ok(KinfGeneration { param: v[0], index: v[1] as usize, total: v[2] as usize, active: v[3] != 0.0, k: v[4], mean: v[5], sem: v[6] })
 }
 
 /// The engine: what is loaded, and (in the browser) the newest load asked for.
@@ -353,6 +393,14 @@ mod web {
                     js::set(&o, "cfg", js::f64s(&v));
                 }
                 Request::KeffStep => js::set(&o, "kind", "keff_step"),
+                Request::KinfStart { param, cfg: c } => {
+                    js::set(&o, "kind", "kinf_start");
+                    js::set(&o, "param", *param);
+                    let v = [c.n_particles as f64, c.n_inactive as f64, c.n_active as f64, c.seed as f64];
+                    js::set(&o, "cfg", js::f64s(&v));
+                }
+                Request::KinfStep => js::set(&o, "kind", "kinf_step"),
+                Request::XsCurves => js::set(&o, "kind", "xs_curves"),
             }
             o.into()
         }
@@ -382,6 +430,25 @@ mod web {
                     })
                 }
                 "keff_step" => Request::KeffStep,
+                "kinf_start" => {
+                    let c = js::get_f64s(v, "cfg");
+                    if c.len() != 4 {
+                        return Err("bad k_inf config".into());
+                    }
+                    Request::KinfStart {
+                        param: js::get_f64(v, "param").ok_or("k_inf: no parameter")?,
+                        cfg: KeffConfig {
+                            n_particles: c[0] as usize,
+                            n_inactive: c[1] as usize,
+                            n_active: c[2] as usize,
+                            seed: c[3] as u64,
+                            point_source: false,
+                            want_sites: false,
+                        },
+                    }
+                }
+                "kinf_step" => Request::KinfStep,
+                "xs_curves" => Request::XsCurves,
                 other => return Err(format!("unknown request '{other}'")),
             })
         }
@@ -421,6 +488,17 @@ mod web {
                     js::set(&o, "data", js::f64s(&encode_generation(g)));
                 }
                 Event::KeffDone => js::set(&o, "kind", "keff_done"),
+                Event::KinfGeneration(g) => {
+                    js::set(&o, "kind", "kinf_generation");
+                    js::set(&o, "data", js::f64s(&encode_kinf(g)));
+                }
+                Event::KinfDone => js::set(&o, "kind", "kinf_done"),
+                Event::XsCurves(c) => {
+                    let (v, labels) = crate::xs::encode(c);
+                    js::set(&o, "kind", "xs_curves");
+                    js::set(&o, "data", js::f64s(&v));
+                    js::set(&o, "labels", labels.as_str());
+                }
                 Event::Error(m) => {
                     js::set(&o, "kind", "error");
                     js::set(&o, "message", m.as_str());
@@ -444,6 +522,9 @@ mod web {
                 },
                 "generation" => Event::Generation(decode_generation(&js::get_f64s(v, "data"))?),
                 "keff_done" => Event::KeffDone,
+                "kinf_generation" => Event::KinfGeneration(decode_kinf(&js::get_f64s(v, "data"))?),
+                "kinf_done" => Event::KinfDone,
+                "xs_curves" => Event::XsCurves(crate::xs::decode(&js::get_f64s(v, "data"), &js::get_str(v, "labels"))?),
                 "error" => Event::Error(js::get_str(v, "message")),
                 other => return Err(format!("unknown message '{other}' from the physics worker")),
             })

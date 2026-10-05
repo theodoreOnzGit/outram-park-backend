@@ -155,10 +155,15 @@
 //!
 //! ## What this is not
 //!
-//! Not a V&V case and not a k-eff comparison. The CLS family has no eigenvalue
+//! Not a V&V case and not a k-eff comparison. ~~The CLS family has no eigenvalue
 //! path in this crate, so a common k-eff benchmark across all five arms is not
-//! currently possible; cost per history on a shared fixed-source walk is what
-//! *is* comparable. Absolute microseconds are machine-specific — the speedup
+//! currently possible;~~ **CORRECTED 2026-10-05 (#528):** the CLS family does
+//! have an eigenvalue path: `DhUniverse::keff` runs `DhTreatment::ChordLength`
+//! and `DhTreatment::Scls` (and their kernel-level variants) through
+//! `run_keff_delta_in`, and `examples/dh_keff_vv.rs` compares their k against
+//! exact delta tracking. This example still has no surface-tracking k arm, so
+//! cost per history on a shared fixed-source walk is what *is* comparable
+//! here. Absolute microseconds are machine-specific — the speedup
 //! ratios are the portable quantity.
 
 use std::collections::HashMap;

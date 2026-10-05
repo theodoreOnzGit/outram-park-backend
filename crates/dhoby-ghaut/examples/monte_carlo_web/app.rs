@@ -10,7 +10,8 @@
 use crate::anim::{self, animated_speed, draw_track, energy_colour, fmt_energy, fmt_speed, fmt_time, Anim};
 use crate::engine::{Event, Request, Tier};
 use crate::history::{outcome_name, History, Stats};
-use crate::keff::{console_line, summary_lines, Generation, KeffConfig, CONSOLE_HEADER};
+use crate::keff::{console_line, summary_lines, Generation, KeffConfig, KinfCase, KinfGeneration, LineStyle, CONSOLE_HEADER};
+use crate::xs::{self, XsCurve};
 use crate::rungs::Mode;
 use crate::table::Rung;
 use dhoby_ghaut::web_demo::lesson::{self, Rung as _};
@@ -254,6 +255,89 @@ impl Iteration {
     }
 }
 
+// ─── A small k_inf case (gh:#549) ────────────────────────────────────────────
+
+/// A finished (or stopped) `k_inf` run, kept for the session so the reader
+/// builds up their own curve.
+#[derive(Clone, Copy, Debug)]
+struct KinfPoint {
+    param: f64,
+    mean: f64,
+    sem: f64,
+    /// Every generation ran (false: stopped early, drawn hollow).
+    complete: bool,
+    secs: f64,
+}
+
+/// The `k_inf` case as the UI follows it: one generation per request, so
+/// stopping is not asking for the next.
+struct KinfRun {
+    case: KinfCase,
+    /// The slider: where the NEXT run goes.
+    param: f64,
+    cfg: KeffConfig,
+    state: RunState,
+    /// The parameter the current (or last) run is at.
+    running_param: f64,
+    gens: Vec<KinfGeneration>,
+    waiting: bool,
+    started_at: f64,
+    elapsed: f64,
+}
+
+impl KinfRun {
+    fn new(case: KinfCase) -> Self {
+        Self {
+            param: case.default,
+            cfg: case.cfg,
+            running_param: case.default,
+            case,
+            state: RunState::Idle,
+            gens: Vec::new(),
+            waiting: false,
+            started_at: 0.0,
+            elapsed: 0.0,
+        }
+    }
+    fn start(&mut self, link: &McLink) {
+        self.state = RunState::Running;
+        self.running_param = self.param;
+        self.gens.clear();
+        self.started_at = now_s();
+        self.elapsed = 0.0;
+        link.send(Request::KinfStart { param: self.param, cfg: self.cfg });
+        link.send(Request::KinfStep);
+        self.waiting = true;
+    }
+    fn pump(&mut self, link: &McLink) {
+        if self.state == RunState::Running {
+            self.elapsed = now_s() - self.started_at;
+            if !self.waiting {
+                link.send(Request::KinfStep);
+                self.waiting = true;
+            }
+        }
+    }
+    fn receive(&mut self, g: KinfGeneration) {
+        // A late generation of a run already replaced is ignored.
+        if self.state == RunState::Running && g.param == self.running_param {
+            self.waiting = false;
+            self.gens.push(g);
+        }
+    }
+    /// End the run (finished, or stopped by the reader); the point it reached.
+    fn finish(&mut self, complete: bool) -> Option<KinfPoint> {
+        if !matches!(self.state, RunState::Running | RunState::Paused) {
+            return None;
+        }
+        self.state = RunState::Done;
+        self.waiting = false;
+        self.elapsed = now_s() - self.started_at;
+        let g = self.gens.last()?;
+        (g.sem.is_finite() && g.sem > 0.0).then_some(KinfPoint { param: g.param, mean: g.mean, sem: g.sem, complete, secs: self.elapsed })
+    }
+}
+
 // ─── The app ─────────────────────────────────────────────────────────────────
 
 /// What the main view shows.
@@ -262,6 +346,7 @@ enum Screen {
     Tracks(Tracks),
     Generations(Iteration),
     Run(Iteration),
+    Kinf(KinfRun),
 }
 
 #[allow(clippy::large_enum_variant)]
@@ -276,6 +361,22 @@ enum Phase {
 enum WatchView {
     Neutrons,
     Generations,
+    /// The rung's small `k_inf` case (gh:#549).
+    Kinf,
+}
+
+impl WatchView {
+    /// `?view=` in the URL (`neutrons`, `generations`, `pitch`).
+    fn name(self) -> &'static str {
+        match self {
+            WatchView::Neutrons => "neutrons",
+            WatchView::Generations => "generations",
+            WatchView::Kinf => "pitch",
+        }
+    }
+    fn parse(s: &str) -> Option<Self> {
+        [WatchView::Neutrons, WatchView::Generations, WatchView::Kinf].into_iter().find(|v| v.name() == s)
+    }
 }
 
 pub struct McApp {
@@ -301,6 +402,14 @@ pub struct McApp {
     run_text: f32,
     /// `?autostart`, read once at start-up (the URL is rewritten later).
     autostart: bool,
+    /// The σ(E) panel (gh:#549): curves from the loaded data (empty until
+    /// the worker sends them, and for a rung without the panel), which are
+    /// shown, and whether the panel is on.
+    xs: Vec<XsCurve>,
+    xs_shown: Vec<bool>,
+    xs_on: bool,
+    /// The reader's finished `k_inf` runs this session, for the loaded rung.
+    kinf_points: Vec<KinfPoint>,
 }
 
 impl McApp {
@@ -319,7 +428,9 @@ impl McApp {
             link: None,
             rung,
             mode,
-            watch_view: WatchView::Neutrons,
+            watch_view: dhoby_ghaut::web_demo::platform::query_value(&dhoby_ghaut::web_demo::platform::query_pairs(), "view")
+                .and_then(WatchView::parse)
+                .unwrap_or(WatchView::Neutrons),
             load_id: 0,
             loaded: None,
             phase: Phase::Failed(String::new()),
@@ -339,6 +450,10 @@ impl McApp {
             }),
             run_text: 13.0,
             autostart: autostart(),
+            xs: Vec::new(),
+            xs_shown: Vec::new(),
+            xs_on: true,
+            kinf_points: Vec::new(),
         };
         match link {
             Ok(l) => {
@@ -368,13 +483,14 @@ impl McApp {
             self.speed_at_1ev = rung.info().spectrum.default_speed_at_1ev();
             self.view = View::new(rung.half_extent());
             self.watch_view = WatchView::Neutrons;
+            self.kinf_points.clear();
             if let Some(c) = rung.run_default() {
                 self.run_cfg = c;
             }
         }
         self.rung = rung;
         self.mode = mode;
-        set_query(&[("rung", rung.name()), ("mode", mode.name())]);
+        self.set_url();
         let need = rung.tier(Self::tier_for(mode));
         let ok = match self.loaded {
             // Exact data serve Watch too; loose data do not serve Run.
@@ -386,10 +502,21 @@ impl McApp {
         } else {
             self.load_id += 1;
             self.loaded = None;
+            self.xs.clear();
+            self.xs_shown.clear();
             self.phase = Phase::Loading(LoadState::new(rung, need));
             if let Some(link) = &self.link {
                 link.send(Request::Load { id: self.load_id, rung, tier: need });
             }
+        }
+    }
+
+    /// The URL says what is on screen, so a shared link opens it.
+    fn set_url(&self) {
+        let view = (self.mode == Mode::Watch && self.watch_view != WatchView::Neutrons).then(|| self.watch_view.name());
+        match view {
+            Some(v) => set_query(&[("rung", self.rung.name()), ("mode", self.mode.name()), ("view", v)]),
+            None => set_query(&[("rung", self.rung.name()), ("mode", self.mode.name())]),
         }
     }
 
@@ -410,6 +537,13 @@ impl McApp {
                 it.start(link);
                 Screen::Generations(it)
             }
+            (Mode::Watch, WatchView::Kinf, _) if self.rung.kinf_case().is_some() => {
+                let mut k = KinfRun::new(self.rung.kinf_case().expect("checked"));
+                if self.autostart {
+                    k.start(link);
+                }
+                Screen::Kinf(k)
+            }
             (Mode::Watch, _, _) => Screen::Tracks(Tracks::new(link, fast, self.autostart)),
         });
     }
@@ -426,6 +560,20 @@ impl McApp {
                     self.load_total_s = now_s() - l.loading.started;
                     self.loaded = Some((l.rung, l.tier));
                     self.enter_screen();
+                    // The σ(E) panel's curves, computed once in the worker.
+                    if let Some(link) = &self.link {
+                        link.send(Request::XsCurves);
+                    }
+                }
+                (_, Event::XsCurves(c)) => {
+                    self.xs_shown = vec![true; c.len()];
+                    self.xs = c;
+                }
+                (Phase::Ready(Screen::Kinf(k)), Event::KinfGeneration(g)) => k.receive(g),
+                (Phase::Ready(Screen::Kinf(k)), Event::KinfDone) => {
+                    if let Some(p) = k.finish(true) {
+                        self.kinf_points.push(p);
+                    }
                 }
                 (Phase::Ready(Screen::Tracks(t)), Event::History { h, animate }) => t.receive(h, animate),
                 (Phase::Ready(Screen::Generations(it) | Screen::Run(it)), Event::KeffStarted { sites }) => it.sites = sites,
@@ -446,6 +594,9 @@ impl McApp {
             ),
             Phase::Ready(Screen::Generations(it) | Screen::Run(it)) => {
                 format!("{name} · generation {}/{} · {:?}", it.gens.len(), it.total_gens(), it.state)
+            }
+            Phase::Ready(Screen::Kinf(k)) => {
+                format!("{name} · k∞ at {} {:.4} {} · generation {}/{} · {:?}", k.case.param.0, k.running_param, k.case.param.1, k.gens.len(), k.cfg.n_inactive + k.cfg.n_active, k.state)
             }
             Phase::Failed(e) => format!("{name} · FAILED · {e}"),
         };
@@ -469,6 +620,12 @@ impl eframe::App for McApp {
                 Screen::Generations(it) | Screen::Run(it) => {
                     it.pump(link);
                     if it.state == RunState::Running {
+                        ctx.request_repaint_after(std::time::Duration::from_millis(100));
+                    }
+                }
+                Screen::Kinf(k) => {
+                    k.pump(link);
+                    if k.state == RunState::Running {
                         ctx.request_repaint_after(std::time::Duration::from_millis(100));
                     }
                 }
@@ -511,25 +668,35 @@ impl McApp {
         let link = self.link.as_ref();
         let rung = self.rung;
         let has_generations = rung.watch_generations().is_some();
+        let has_kinf = rung.kinf_case().is_some();
+        let views = (has_generations, has_kinf);
         match &mut self.phase {
             Phase::Loading(l) => Self::loading_panel(ui, l),
             Phase::Failed(e) => {
                 ui.colored_label(Color32::from_rgb(255, 90, 90), format!("Failed: {e}"));
             }
             Phase::Ready(Screen::Tracks(t)) => {
-                if has_generations {
-                    want_view = Self::watch_view_picker(ui, WatchView::Neutrons);
+                if has_generations || has_kinf {
+                    want_view = Self::watch_view_picker(ui, WatchView::Neutrons, views);
                 }
                 Self::tracks_panel(ui, t, link, rung, &mut self.speed_at_1ev);
+                Self::xs_controls(ui, &self.xs, &mut self.xs_shown, &mut self.xs_on);
             }
             Phase::Ready(Screen::Generations(it)) => {
-                want_view = Self::watch_view_picker(ui, WatchView::Generations);
+                want_view = Self::watch_view_picker(ui, WatchView::Generations, views);
                 Self::generations_panel(ui, it, link);
+            }
+            Phase::Ready(Screen::Kinf(k)) => {
+                want_view = Self::watch_view_picker(ui, WatchView::Kinf, views);
+                if let Some(p) = Self::kinf_panel(ui, k, link, &self.kinf_points) {
+                    self.kinf_points.push(p);
+                }
             }
             Phase::Ready(Screen::Run(it)) => Self::run_panel(ui, it, link, &mut self.run_cfg, rung),
         }
         if let Some(v) = want_view {
             self.watch_view = v;
+            self.set_url();
             self.enter_screen();
         }
 
@@ -548,14 +715,123 @@ impl McApp {
         }
     }
 
-    fn watch_view_picker(ui: &mut egui::Ui, now: WatchView) -> Option<WatchView> {
+    /// `views`: (has whole generations, has a k_inf case).
+    fn watch_view_picker(ui: &mut egui::Ui, now: WatchView, views: (bool, bool)) -> Option<WatchView> {
         let mut v = now;
         ui.horizontal_wrapped(|ui| {
             ui.label("Watch:");
             ui.selectable_value(&mut v, WatchView::Neutrons, "one neutron at a time");
-            ui.selectable_value(&mut v, WatchView::Generations, "whole generations");
+            if views.0 {
+                ui.selectable_value(&mut v, WatchView::Generations, "whole generations");
+            }
+            if views.1 {
+                ui.selectable_value(&mut v, WatchView::Kinf, "pitch k∞ (true MC)");
+            }
         });
         (v != now).then_some(v)
+    }
+
+    /// The σ(E) panel's switch and one toggle per curve.
+    fn xs_controls(ui: &mut egui::Ui, curves: &[XsCurve], shown: &mut [bool], on: &mut bool) {
+        if curves.is_empty() {
+            return;
+        }
+        ui.separator();
+        ui.checkbox(on, "σ(E) panel beside the picture");
+        if *on {
+            for (c, s) in curves.iter().zip(shown.iter_mut()) {
+                ui.horizontal(|ui| {
+                    let (r, _) = ui.allocate_exact_size(Vec2::new(14.0, 12.0), Sense::hover());
+                    ui.painter().line_segment([r.left_center(), r.right_center()], Stroke::new(2.0, xs::colour(c.channel)));
+                    ui.checkbox(s, c.label.as_str());
+                });
+            }
+            ui.weak(
+                "The cross sections this tab processed for transport (RECONR + BROADR, and the moderator's S(α,β) law below its \
+                 cutoff), read through the same call the collisions use, decimated for drawing (each of 900 log bins keeps its \
+                 highest and lowest point). The dot rides the neutron's energy; a cross marks where it was captured or fissioned.",
+            );
+        }
+    }
+
+    /// The `k_inf` case's controls. Returns a point if the reader stopped a run.
+    fn kinf_panel(ui: &mut egui::Ui, k: &mut KinfRun, link: Option<&McLink>, done: &[KinfPoint]) -> Option<KinfPoint> {
+        let mut stopped = None;
+        ui.strong(k.case.title);
+        Self::kinf_slider(ui, k, 0.0);
+        ui.add_enabled_ui(k.state != RunState::Running, |ui| {
+            egui::Grid::new("kinf_cfg").num_columns(2).show(ui, |ui| {
+                ui.label("neutrons / generation");
+                ui.add(egui::DragValue::new(&mut k.cfg.n_particles).range(100..=20_000).speed(50));
+                ui.end_row();
+                ui.label("inactive generations");
+                ui.add(egui::DragValue::new(&mut k.cfg.n_inactive).range(1..=200));
+                ui.end_row();
+                ui.label("active generations");
+                ui.add(egui::DragValue::new(&mut k.cfg.n_active).range(2..=1000));
+                ui.end_row();
+                ui.label("seed");
+                ui.add(egui::DragValue::new(&mut k.cfg.seed).range(1..=1_000_000));
+                ui.end_row();
+            });
+            if ui.button("Defaults").clicked() {
+                k.cfg = k.case.cfg;
+            }
+        });
+        ui.horizontal(|ui| {
+            if k.state == RunState::Running {
+                if ui.button("■ Stop").clicked() {
+                    stopped = k.finish(false);
+                }
+            } else if ui.button(format!("▶ Run at {:.3} {}", k.param, k.case.param.1)).clicked() {
+                if let Some(link) = link {
+                    k.start(link);
+                }
+            }
+        });
+        if let Some(g) = k.gens.last() {
+            ui.label(format!(
+                "{} {:.4} {}: generation {} of {} ({}), k = {:.4}{} · {:.0} s",
+                k.case.param.0,
+                g.param,
+                k.case.param.1,
+                g.index + 1,
+                g.total,
+                if g.active { "active" } else { "inactive" },
+                g.k,
+                if g.sem.is_finite() { format!(", mean {:.4} ± {:.4}", g.mean, g.sem) } else { String::new() },
+                k.elapsed
+            ));
+        }
+        if !done.is_empty() {
+            ui.separator();
+            ui.strong("Your runs");
+            egui::Grid::new("kinf_done").num_columns(3).show(ui, |ui| {
+                for p in done {
+                    ui.label(format!("{:.4} {}", p.param, k.case.param.1));
+                    ui.label(format!("{:.4} ± {:.4}", p.mean, p.sem));
+                    ui.label(if p.complete { format!("{:.0} s", p.secs) } else { "stopped".into() });
+                    ui.end_row();
+                }
+            });
+        }
+        egui::CollapsingHeader::new("What this run is — and is not").default_open(false).show(ui, |ui| {
+            for n in &k.case.notes {
+                ui.label(format!("• {n}"));
+            }
+        });
+        stopped
+    }
+
+    /// The parameter slider, `width` px wide (0: the default width).
+    fn kinf_slider(ui: &mut egui::Ui, k: &mut KinfRun, width: f32) {
+        let (name, unit) = k.case.param;
+        ui.scope(|ui| {
+            if width > 0.0 {
+                ui.spacing_mut().slider_width = width;
+            }
+            ui.add(egui::Slider::new(&mut k.param, k.case.range.0..=k.case.range.1).step_by(0.005).text(format!("{name} ({unit})")));
+        });
     }
 
     fn loading_panel(ui: &mut egui::Ui, l: &LoadState) {
@@ -935,9 +1211,11 @@ fn draw_k(painter: &egui::Painter, rect: Rect, it: &Iteration, experiment: Optio
     let n = it.total_gens().max(2) as f64;
     let mut lo = 0.98f64;
     let mut hi = 1.02f64;
-    // The first generations come from the guessed source (generation 1
-    // leaks far too much on a bare sphere, gh:#527) and would squash the
-    // rest: they are drawn clamped to the frame instead of setting its range.
+    // The first generations come from the guessed source (on a bare sphere
+    // generation 1 leaks more than the settled source: k_1 = 0.897 for
+    // Godiva, seed 1, and 0.468 before gh:#527 was fixed) and would squash
+    // the rest: they are drawn clamped to the frame instead of setting its
+    // range.
     for g in it.gens.iter().filter(|g| g.index >= 2) {
         lo = lo.min(g.k);
         hi = hi.max(g.k);
@@ -972,12 +1250,27 @@ fn draw_k(painter: &egui::Painter, rect: Rect, it: &Iteration, experiment: Optio
 
 impl McApp {
     fn canvas(&mut self, ui: &mut egui::Ui) {
-        let (resp, painter) = ui.allocate_painter(ui.available_size(), Sense::click_and_drag());
-        let rect = resp.rect;
-        painter.rect_filled(rect, 0.0, BG);
+        let (resp, full_painter) = ui.allocate_painter(ui.available_size(), Sense::hover());
+        let full = resp.rect;
+        full_painter.rect_filled(full, 0.0, BG);
         let is_run = matches!(self.phase, Phase::Ready(Screen::Run(_)));
-        if !is_run {
-            self.view.handle_input(ui, &resp);
+        let is_kinf = matches!(self.phase, Phase::Ready(Screen::Kinf(_)));
+        // The σ(E) panel (gh:#549) beside the geometry on a wide screen,
+        // under it on a narrow (portrait) one.
+        let xs_on = self.xs_on && !self.xs.is_empty() && matches!(self.phase, Phase::Ready(Screen::Tracks(_)));
+        let (rect, xs_rect) = if !xs_on {
+            (full, None)
+        } else if full.width() >= 700.0 && full.width() > full.height() {
+            let (a, b) = full.split_left_right_at_fraction(0.58);
+            (a, Some(b.shrink2(Vec2::new(6.0, 8.0)).translate(Vec2::new(-2.0, 0.0))))
+        } else {
+            let (a, b) = full.split_top_bottom_at_fraction(0.55);
+            (a, Some(b.shrink2(Vec2::new(8.0, 4.0))))
+        };
+        let painter = full_painter.with_clip_rect(rect);
+        let geo_resp = ui.interact(rect, ui.id().with("geometry"), Sense::click_and_drag());
+        if !is_run && !is_kinf {
+            self.view.handle_input(ui, &geo_resp);
             self.rung.draw(&painter, rect, &self.view);
         }
 
@@ -1018,6 +1311,22 @@ impl McApp {
                     draw_track(&painter, to_screen, &a.hist, upto, 255, r.dots, trail);
                 }
                 painter.text(rect.left_bottom() + Vec2::new(16.0, -40.0), egui::Align2::LEFT_BOTTOM, "illustration: real histories, chained by hand", egui::FontId::proportional(12.0), Color32::from_rgb(170, 176, 190));
+                if let Some(xr) = xs_rect {
+                    // The marker rides the animated neutron; once it is
+                    // absorbed it leaves both views and a cross marks where.
+                    let marker = r.current.as_ref().and_then(|a| {
+                        if !a.finished() {
+                            return Some(xs::Marker { energy_ev: a.energy_now(), ended: None });
+                        }
+                        let ended = match a.hist.outcome {
+                            Some(TrackEvent::Absorption) => "captured",
+                            Some(TrackEvent::Fission) => "fission",
+                            _ => return None,
+                        };
+                        Some(xs::Marker { energy_ev: a.hist.track.states.last()?.energy, ended: Some(ended) })
+                    });
+                    xs::draw(&full_painter, xr, &self.xs, &self.xs_shown, marker, 12.0);
+                }
             }
             Phase::Ready(Screen::Generations(it)) => {
                 for s in &it.sites {
@@ -1049,22 +1358,62 @@ impl McApp {
                     RunAction::None => {}
                 }
             }
+            Phase::Ready(Screen::Kinf(k)) => {
+                if let Some(p) = Self::kinf_view(ui, rect, &painter, k, &self.kinf_points, self.link.as_ref(), self.run_text) {
+                    self.kinf_points.push(p);
+                }
+            }
         }
 
-        if !is_run {
+        if !is_run && !is_kinf {
             scale_bar(&painter, rect, &self.view);
         }
-        self.panel.reopen_button(ui, rect);
-        // + / − / Reset. In Run mode there is no geometry: they scale the
-        // console and plots' text.
+        self.panel.reopen_button(ui, full);
+        // + / − / Reset. In Run mode and the k∞ plot there is no geometry:
+        // they scale the text.
         if let Some(z) = zoom_buttons(ui, rect) {
-            match (is_run, z) {
+            match (is_run || is_kinf, z) {
                 (false, z) => apply_zoom(&mut self.view, rect, z),
                 (true, Zoom::In) => self.run_text = (self.run_text * 1.2).min(28.0),
                 (true, Zoom::Out) => self.run_text = (self.run_text / 1.2).max(8.0),
                 (true, Zoom::Reset) => self.run_text = 13.0,
             }
         }
+    }
+
+    /// The `k_inf` case's main view: the plot against the recorded curves,
+    /// with the slider and Run / Stop on it (the panel is folded on a phone).
+    /// Returns a point if the reader stopped a run here.
+    fn kinf_view(ui: &mut egui::Ui, rect: Rect, painter: &egui::Painter, k: &mut KinfRun, done: &[KinfPoint], link: Option<&McLink>, text: f32) -> Option<KinfPoint> {
+        let mut stopped = None;
+        let top = rect.top() + 52.0;
+        // Controls row: slider, then Run / Stop.
+        let row = Rect::from_min_size(Pos2::new(rect.left() + 10.0, top), Vec2::new(rect.width() - 20.0, 36.0));
+        let narrow = rect.width() < 560.0;
+        let (srow, brow) = if narrow {
+            (row, Rect::from_min_size(row.left_bottom() + Vec2::new(0.0, 6.0), Vec2::new(row.width().min(360.0), 36.0)))
+        } else {
+            let b = Rect::from_min_size(Pos2::new(row.right() - 230.0, row.top()), Vec2::new(230.0, 36.0));
+            (row.with_max_x(b.left() - 10.0), b)
+        };
+        ui.scope_builder(egui::UiBuilder::new().max_rect(srow), |ui| {
+            ui.spacing_mut().interact_size.y = 30.0;
+            Self::kinf_slider(ui, k, (srow.width() - 150.0).max(80.0));
+        });
+        let label = match k.state {
+            RunState::Running => format!("■ Stop · gen {}/{} · {:.0} s", k.gens.len(), k.cfg.n_inactive + k.cfg.n_active, k.elapsed),
+            _ => format!("▶ Run k∞ at {:.3} {}", k.param, k.case.param.1),
+        };
+        if ui.put(brow, egui::Button::new(RichText::new(label).size(15.0))).clicked() {
+            if k.state == RunState::Running {
+                stopped = k.finish(false);
+            } else if let Some(link) = link {
+                k.start(link);
+            }
+        }
+        let plot = Rect::from_min_max(Pos2::new(rect.left() + 10.0, brow.bottom() + 10.0), Pos2::new(rect.right() - 10.0, rect.bottom() - 10.0));
+        draw_kinf(painter, plot, k, done, text);
+        stopped
     }
 
     /// Run k_eff's main view: the two plots, then the console, scrolling,
@@ -1112,4 +1461,155 @@ impl McApp {
         });
         action
     }
+}
+
+/// `k_inf` against the parameter: the recorded curves in the workspace's
+/// plotting convention (ours dotted, a reference code dashed, recorded points
+/// as markers with ±1σ bars), the reader's finished runs as filled markers
+/// (hollow if stopped early), the running mean ± σ of the run in progress,
+/// the marked values and the slider's position.
+fn draw_kinf(painter: &egui::Painter, rect: Rect, k: &KinfRun, done: &[KinfPoint], text: f32) {
+    let f = egui::FontId::proportional(text);
+    let small = egui::FontId::proportional((text * 0.85).max(8.0));
+    let grey = Color32::from_rgb(170, 176, 190);
+    painter.rect_filled(rect, 4.0, Color32::from_rgb(18, 21, 28));
+    painter.text(rect.left_top() + Vec2::new(8.0, 5.0), egui::Align2::LEFT_TOP, k.case.title, f.clone(), Color32::WHITE);
+    let ours = Color32::from_rgb(120, 170, 255);
+    let reference = Color32::from_rgb(200, 200, 200);
+    let mine = Color32::from_rgb(120, 230, 150);
+    let live = Color32::from_rgb(255, 200, 80);
+    // Ranges: the case's parameter range; k from the curves and the runs.
+    let (x0, x1) = (k.case.range.0 - 0.05, k.case.range.1 + 0.05);
+    let (mut y0, mut y1) = (f64::INFINITY, f64::NEG_INFINITY);
+    let mut see = |v: f64| {
+        if v.is_finite() {
+            y0 = y0.min(v);
+            y1 = y1.max(v);
+        }
+    };
+    k.case.curves.iter().flat_map(|c| &c.points).for_each(|p| see(p.1));
+    done.iter().for_each(|p| see(p.mean));
+    if let Some(g) = k.gens.last() {
+        see(g.mean);
+    }
+    if !y0.is_finite() {
+        (y0, y1) = (0.0, 1.5);
+    }
+    let pad = 0.06 * (y1 - y0).max(0.05);
+    let (y0, y1) = (y0 - pad, y1 + pad);
+    let legend_lines = k.case.curves.len() + 2;
+    let legend_h = legend_lines as f32 * text * 1.3 + 8.0;
+    let plot = Rect::from_min_max(rect.left_top() + Vec2::new(text * 3.4, text * 1.8 + 8.0), rect.right_bottom() - Vec2::new(10.0, text * 1.7 + legend_h));
+    if plot.height() < 40.0 {
+        return;
+    }
+    let p = |x: f64, y: f64| {
+        Pos2::new(
+            plot.left() + ((x - x0) / (x1 - x0)) as f32 * plot.width(),
+            plot.bottom() - ((y - y0) / (y1 - y0)) as f32 * plot.height(),
+        )
+    };
+    let gridc = Color32::from_rgb(40, 45, 56);
+    // Ticks at least ~48 px apart.
+    let px_per = plot.width() as f64 / (x1 - x0);
+    let xstep = [0.25, 0.5, 1.0].into_iter().find(|s| s * px_per >= 48.0).unwrap_or(1.0);
+    let mut x = (x0 / xstep).ceil() * xstep;
+    while x <= x1 {
+        let a = p(x, y0);
+        painter.line_segment([a, Pos2::new(a.x, plot.top())], Stroke::new(1.0, gridc));
+        painter.text(Pos2::new(a.x, plot.bottom() + 2.0), egui::Align2::CENTER_TOP, format!("{x:.2}"), small.clone(), grey);
+        x += xstep;
+    }
+    let ystep = if y1 - y0 > 0.5 { 0.1 } else { 0.05 };
+    let mut y = (y0 / ystep).ceil() * ystep;
+    while y <= y1 {
+        let a = p(x0, y);
+        painter.line_segment([a, Pos2::new(plot.right(), a.y)], Stroke::new(1.0, gridc));
+        painter.text(Pos2::new(plot.left() - 3.0, a.y), egui::Align2::RIGHT_CENTER, format!("{y:.2}"), small.clone(), grey);
+        y += ystep;
+    }
+    painter.text(Pos2::new(plot.right(), plot.bottom() + text * 1.15 + 2.0), egui::Align2::RIGHT_TOP, format!("{} ({})", k.case.param.0, k.case.param.1), small.clone(), grey);
+    painter.text(Pos2::new(plot.left() + 4.0, plot.top() + 2.0), egui::Align2::LEFT_TOP, "k∞", small.clone(), grey);
+    let clip = painter.with_clip_rect(plot.expand(4.0));
+    for (v, name) in &k.case.marks {
+        let a = p(*v, y1);
+        clip.extend(egui::Shape::dashed_line(&[a, p(*v, y0)], Stroke::new(1.0, Color32::from_rgb(190, 170, 230)), 4.0, 4.0));
+        clip.text(a + Vec2::new(3.0, 2.0), egui::Align2::LEFT_TOP, *name, small.clone(), Color32::from_rgb(190, 170, 230));
+    }
+    // The slider's position.
+    let s = p(k.param, y1);
+    clip.line_segment([s, p(k.param, y0)], Stroke::new(1.0, live.gamma_multiply(0.5)));
+    for c in &k.case.curves {
+        let col = if c.style == LineStyle::Reference { reference } else { ours };
+        let pts: Vec<Pos2> = c.points.iter().map(|q| p(q.0, q.1)).collect();
+        match c.style {
+            LineStyle::Published => {
+                clip.add(egui::Shape::line(pts.clone(), Stroke::new(1.5, col)));
+            }
+            LineStyle::Ours => clip.extend(egui::Shape::dotted_line(&pts, col, 5.0, 1.3)),
+            LineStyle::Reference => clip.extend(egui::Shape::dashed_line(&pts, Stroke::new(1.3, col), 7.0, 5.0)),
+        }
+        for q in &c.points {
+            let a = p(q.0, q.1);
+            clip.line_segment([p(q.0, q.1 - q.2), p(q.0, q.1 + q.2)], Stroke::new(1.0, col));
+            if c.style == LineStyle::Reference {
+                clip.rect_stroke(Rect::from_center_size(a, Vec2::splat(6.0)), 0.0, Stroke::new(1.2, col), StrokeKind::Middle);
+            } else {
+                clip.circle_stroke(a, 3.0, Stroke::new(1.2, col));
+            }
+        }
+    }
+    let bar = |y: f64, e: f64, x: f64, col: Color32| {
+        clip.line_segment([p(x, y - e), p(x, y + e)], Stroke::new(2.0, col));
+        for yy in [y - e, y + e] {
+            let a = p(x, yy);
+            clip.line_segment([a - Vec2::new(4.0, 0.0), a + Vec2::new(4.0, 0.0)], Stroke::new(2.0, col));
+        }
+    };
+    for d in done {
+        bar(d.mean, d.sem, d.param, mine);
+        if d.complete {
+            clip.circle_filled(p(d.param, d.mean), 4.5, mine);
+        } else {
+            clip.circle_stroke(p(d.param, d.mean), 4.5, Stroke::new(1.5, mine));
+        }
+    }
+    if k.state == RunState::Running {
+        if let Some(g) = k.gens.last() {
+            if g.sem.is_finite() {
+                bar(g.mean, g.sem, g.param, live);
+                clip.circle_filled(p(g.param, g.mean), 5.0, live);
+            } else {
+                // Inactive generations: this generation's k, faint.
+                clip.circle_stroke(p(g.param, g.k.clamp(y0, y1)), 5.0, Stroke::new(1.5, live.gamma_multiply(0.6)));
+            }
+        }
+    }
+    // Legend under the axis.
+    let mut ly = plot.bottom() + text * 1.7 + 8.0;
+    let mut line = |draw: &dyn Fn(Pos2), label: &str| {
+        let a = Pos2::new(rect.left() + 12.0, ly + text * 0.55);
+        draw(a);
+        painter.text(a + Vec2::new(30.0, 0.0), egui::Align2::LEFT_CENTER, label, small.clone(), Color32::from_rgb(210, 216, 226));
+        ly += text * 1.3;
+    };
+    for c in &k.case.curves {
+        let col = if c.style == LineStyle::Reference { reference } else { ours };
+        let style = c.style;
+        line(
+            &|a: Pos2| {
+                let seg = [a, a + Vec2::new(24.0, 0.0)];
+                match style {
+                    LineStyle::Published => {
+                        painter.line_segment(seg, Stroke::new(1.5, col));
+                    }
+                    LineStyle::Ours => painter.extend(egui::Shape::dotted_line(&seg, col, 5.0, 1.3)),
+                    LineStyle::Reference => painter.extend(egui::Shape::dashed_line(&seg, Stroke::new(1.3, col), 7.0, 5.0)),
+                }
+            },
+            &c.label,
+        );
+    }
+    line(&|a: Pos2| { painter.circle_filled(a + Vec2::new(12.0, 0.0), 4.5, mine); }, "your runs (hollow: stopped early), ± 1σ");
+    line(&|a: Pos2| { painter.circle_filled(a + Vec2::new(12.0, 0.0), 5.0, live); }, "the run in progress, mean ± σ");
 }
