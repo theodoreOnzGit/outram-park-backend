@@ -119,7 +119,9 @@ impl WizardStep {
     /// Whether this build implements the step.
     #[must_use]
     pub fn implemented(self) -> bool {
-        self <= Self::MonteCarlo
+        // Steps 9 and 10 run a SIMPLIFIED coupled case (gh:#574); their
+        // panels say what is and is not modelled.
+        self <= Self::MonteCarlo || matches!(self, Self::Setup | Self::Run)
     }
 
     /// The GitHub issue that builds a step this build does not.
@@ -129,7 +131,7 @@ impl WizardStep {
             Self::Branch => Some(571),
             Self::Meshing => Some(572),
             Self::Mgxs => Some(573),
-            Self::Setup | Self::Run | Self::PostProcessing => Some(574),
+            Self::PostProcessing => Some(574),
             _ => None,
         }
     }
@@ -184,9 +186,14 @@ impl WizardStep {
             Self::Mgxs => "Multigroup cross sections per region, interpolated in ln T by default.",
             Self::Setup => {
                 "Boundary conditions, solvers and models for the OUTRAM-Foam and farrer-park \
-                 sides, all prefilled."
+                 sides, all prefilled from the HTR-10 literature. The panel lists what the \
+                 coupled run models, simplifies, and leaves out."
             }
-            Self::Run => "Run the coupled case off the UI thread, with live residuals.",
+            Self::Run => {
+                "Run the coupled case off the UI thread: the porous core's thermal-hydraulics \
+                 with a prescribed power shape and lumped temperature feedback, with live \
+                 residuals, temperatures and k. A simplified run, labelled as one."
+            }
             Self::PostProcessing => {
                 "Plots and slices; export CSV, kovan markdown reports and the recipe."
             }
@@ -212,6 +219,16 @@ mod tests {
     fn unimplemented_steps_name_their_issue() {
         for s in WizardStep::ALL {
             assert_eq!(s.implemented(), s.issue().is_none(), "{s:?}");
+        }
+    }
+
+    /// Steps 9 and 10 are built (a simplified coupled run, gh:#574); Steps
+    /// 6-8 and 11 are not.
+    #[test]
+    fn steps_nine_and_ten_are_built() {
+        assert!(WizardStep::Setup.implemented() && WizardStep::Run.implemented());
+        for s in [WizardStep::Branch, WizardStep::Meshing, WizardStep::Mgxs, WizardStep::PostProcessing] {
+            assert!(!s.implemented(), "{s:?}");
         }
     }
 }

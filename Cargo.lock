@@ -2174,6 +2174,7 @@ dependencies = [
  "outram-mc-libs",
  "outram-park-fork-liggghts",
  "serde",
+ "tampines",
  "toml",
  "uom",
  "wasm-bindgen",

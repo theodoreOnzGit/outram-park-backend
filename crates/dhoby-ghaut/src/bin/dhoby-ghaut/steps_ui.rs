@@ -228,6 +228,7 @@ fn cites_for(app: &App, step: WizardStep) -> Vec<Citation> {
         WizardStep::Reflector => r.reflector.cites.clone(),
         WizardStep::Inserts => r.inserts.cites.clone(),
         WizardStep::MonteCarlo => r.monte_carlo.cites.clone(),
+        WizardStep::Setup | WizardStep::Run => crate::coupled_ui::cites(app),
         _ => Vec::new(),
     }
 }
@@ -289,6 +290,16 @@ pub fn panes(app: &mut App, ui: &mut egui::Ui) {
             });
         app.results_open = open;
     }
+    // Step 10's console and convergence plots, bottom.
+    if step == WizardStep::Run {
+        let mut open = app.results_open;
+        egui::Panel::bottom("mp_results")
+            .default_size(260.0)
+            .size_range(160.0..=520.0)
+            .resizable(true)
+            .show_collapsible(ui, &mut open, |ui| crate::coupled_ui::results(app, ui));
+        app.results_open = open;
+    }
     egui::CentralPanel::default()
         .frame(egui::Frame::NONE)
         .show(ui, |ui| main_view(app, ui));
@@ -302,6 +313,9 @@ fn main_view(app: &mut App, ui: &mut egui::Ui) {
                 ui.set_min_size(ui.available_size());
                 crate::results::tape_table(app, ui);
             });
+        }
+        WizardStep::Setup | WizardStep::Run => {
+            crate::coupled_ui::main_view(app, ui, step == WizardStep::Run);
         }
         s if !s.implemented() => {
             egui::Frame::central_panel(ui.style()).inner_margin(20.0).show(ui, |ui| {
@@ -569,6 +583,8 @@ fn settings(app: &mut App, ui: &mut egui::Ui) {
         }
         WizardStep::Review => review(app, ui),
         WizardStep::MonteCarlo => changed |= monte_carlo(app, ui),
+        WizardStep::Setup => crate::coupled_ui::setup_settings(app, ui),
+        WizardStep::Run => crate::coupled_ui::run_settings(app, ui),
         s => {
             ui.label(format!(
                 "Nothing to set: {} is not built yet (gh:#{}).",

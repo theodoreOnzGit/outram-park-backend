@@ -184,7 +184,7 @@ impl ReactorType {
     pub fn note(self) -> &'static str {
         match self {
             Self::Htgr => {
-                "Basic -> pebble bed (HTR-10) runs Steps 0–5; prismatic (HTTR) awaits \
+                "Basic -> pebble bed (HTR-10) runs Steps 0–5 and 9–10; prismatic (HTTR) awaits \
                  its reference literature"
             }
             Self::Pwr => {
