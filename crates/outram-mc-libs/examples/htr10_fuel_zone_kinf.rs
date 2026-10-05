@@ -648,12 +648,12 @@ fn main() {
 /// homogenised, i.e. bounded at every node with the 10 % margin).
 /// 10 000 histories x [50 inactive + 200 active] per case, RNG seed 1, packing
 /// seed 20260811 (1018 kernels, realised f = 0.008328), `THREADS=1`
-/// (single-thread backend). Binary built from `5eb40da10` (`develop` +
-/// this example's change); hardware Intel Xeon @ 2.10 GHz (KVM, 4 vCPU, 260 MiB
+/// (single-thread backend). Binary built from `f0d701bfc` (built locally as
+/// `5eb40da10` before the rebase onto `develop`; same content); hardware Intel Xeon @ 2.10 GHz (KVM, 4 vCPU, 260 MiB
 /// L3, 15 GiB), pinned to one core with `taskset`, Linux 6.18.44, rustc
 /// 1.95.0, `--release`. Prediction written first, in
 /// `verification_and_validation/tutorial_rung5/README.md` (commit
-/// `071962748`).
+/// `61adc0a4a`).
 ///
 /// ```text
 ///   heterogeneous (kernels explicit)   k_inf = 1.57136 +/- 0.00088   (703.6 s)
