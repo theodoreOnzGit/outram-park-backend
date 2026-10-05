@@ -8,8 +8,10 @@
 //! build each.~~ **UPDATED 2026-10-05:** all twelve steps work for HTGR →
 //! Basic → pebble bed (HTR-10): Step 6 (branch; the reactivity map,
 //! `step6.rs`), Step 7 (meshing, gh:#572), Step 8 (MGXS, gh:#573), Steps 9–10
-//! (a SIMPLIFIED coupled case, gh:#574: r-z porous-core thermal-hydraulics,
-//! prescribed power shape, lumped feedback) and Step 11 (exports,
+//! (a SIMPLIFIED coupled case, gh:#574: r-z porous-core thermal-hydraulics;
+//! ~~prescribed power shape, lumped feedback~~ since gh:#591 the power and k
+//! are solved by diffusion on Steps 7-8, the prescribed shape an ablation)
+//! and Step 11 (exports,
 //! `step11.rs`). What each step does not model is listed in its panel.
 //!
 //! ```text
@@ -19,7 +21,10 @@
 //! cargo run --release -p dhoby-ghaut --bin dhoby-ghaut -- --scan-endf ~/ENDF-B-VIII.0
 //! cargo run --release -p dhoby-ghaut --bin dhoby-ghaut -- --render-review out_dir
 //! cargo run --release -p dhoby-ghaut --bin dhoby-ghaut -- --headless-multiphysics \
-//!     [--rings 5 --axial 40 --uniform-power] [--out out_dir]
+//!     --case mgxs_case_dir [--boundary face|cell|zero] [--n-cell 30 --th-cell 15] \
+//!     [--rings 40 --axial 200] [--isothermal-k-only] [--out out_dir]
+//! cargo run --release -p dhoby-ghaut --bin dhoby-ghaut -- --headless-multiphysics \
+//!     --prescribed-power [--uniform-power] [--rings 5 --axial 40] [--out out_dir]
 //! cargo run --release -p dhoby-ghaut --bin dhoby-ghaut -- --headless-keff \
 //!     [--particles 500 --inactive 10 --active 20 --threads 8] [--out out_dir]
 //! cargo run --release -p dhoby-ghaut --bin dhoby-ghaut -- --headless-map \
@@ -49,9 +54,14 @@
 //! recipe's runs, SYNTHETIC runs (`--synthetic`, pinned by a test) or a real
 //! Monte Carlo sweep (`--sweep 300,600,900`), and writes Step 11's exports.
 //!
-//! `--headless-multiphysics` runs Steps 9-10 (the simplified coupled case)
-//! and prints the coupling console and the TENTATIVE comparison with Gao &
-//! Shi (2002); its summary is pinned by
+//! `--headless-multiphysics` runs Steps 9-10 and prints the coupling console
+//! and the TENTATIVE comparison with Gao & Shi (2002). By default the power
+//! is solved (gh:#591): it rebuilds Step 7's meshes, reads Step 8's
+//! `mgxs_set.toml` + `nuclearData` from `--case DIR` (written by
+//! `--headless-mgxs --out DIR`), compares the isothermal diffusion `k` with
+//! Step 8's Monte Carlo `k` at each state point, then runs the Picard
+//! coupling (`spatial.rs`). `--prescribed-power` is the ablation with the
+//! J0 x cosine shape and lumped feedback; its summary is pinned by
 //! `tests/fixtures/dhoby_ghaut_multiphysics.csv`.
 //!
 //! `--headless-mesh` builds Step 7's three meshes and six maps, writes the
@@ -82,6 +92,10 @@ mod mp_headless;
 mod mp_preset;
 #[cfg(not(any(target_os = "android", target_arch = "wasm32")))]
 mod porous_core;
+#[cfg(not(any(target_os = "android", target_arch = "wasm32")))]
+mod spatial;
+#[cfg(not(any(target_os = "android", target_arch = "wasm32")))]
+mod spatial_draw;
 mod meshing;
 #[cfg(not(any(target_os = "android", target_arch = "wasm32")))]
 mod mgxs_run;
@@ -237,11 +251,38 @@ fn main() -> Result<(), String> {
         let num = |k: &str| arg(k).and_then(|v| v.parse::<usize>().ok());
         setup.foam.radial_rings = num("--rings").unwrap_or(setup.foam.radial_rings);
         setup.foam.axial_nodes = num("--axial").unwrap_or(setup.foam.axial_nodes);
+        // The prescribed shape is an explicit, labelled ablation (gh:#591).
+        if args.iter().any(|a| a == "--prescribed-power" || a == "--uniform-power") {
+            setup = mp_preset::prescribed(setup);
+        }
         if args.iter().any(|a| a == "--uniform-power") {
             setup.neutronics.shape = dhoby_ghaut::workbench::multiphysics::PowerShape::Uniform;
         }
         let out = arg("--out").unwrap_or_else(|| "target/dhoby-ghaut_out".into());
-        return mp_headless::headless(&r, &setup, std::path::Path::new(&out));
+        let out = std::path::Path::new(&out);
+        if !setup.neutronics.shape.is_solved() {
+            return mp_headless::headless(&r, &setup, out);
+        }
+        let case = arg("--case").ok_or(
+            "the solved power shape needs Step 8's output: run `--headless-mgxs --out DIR` first \
+             and pass `--case DIR`, or ask for the ablation with `--prescribed-power`",
+        )?;
+        let boundary = match arg("--boundary").as_deref() {
+            None | Some("face") => spatial::NeutronBoundary::MarshakFace,
+            Some("cell") => spatial::NeutronBoundary::MarshakCell,
+            Some("zero") => spatial::NeutronBoundary::ZeroFlux,
+            Some(o) => return Err(format!("--boundary {o}: face, cell or zero")),
+        };
+        let fnum = |k: &str| arg(k).and_then(|v| v.parse::<f64>().ok());
+        let mgxs = mp_headless::load_mgxs(std::path::Path::new(&case))?;
+        let built = headless::build_meshes(
+            &r,
+            &out.join("genfoam_case"),
+            fnum("--n-cell"),
+            fnum("--th-cell"),
+        )?;
+        let only_k = args.iter().any(|a| a == "--isothermal-k-only");
+        return mp_headless::headless_spatial(&r, &setup, built, mgxs, boundary, out, only_k);
     }
     let start_step: Option<u8> = arg("--step").and_then(|v| v.parse().ok());
     let options = eframe::NativeOptions {
@@ -254,6 +295,14 @@ fn main() -> Result<(), String> {
     // `--auto-build` then builds Step 7's meshes as soon as the geometry is in.
     let open_step = arg("--open-step").and_then(|v| v.parse::<u8>().ok());
     let auto_build = args.iter().any(|a| a == "--auto-build");
+    // `--load-mgxs DIR` takes Step 8's result from a `--headless-mgxs` case
+    // folder; `--auto-run` then starts Step 10 as soon as Step 7's meshes are
+    // in (both for review screenshots of the solved coupled run, gh:#591).
+    let load_mgxs = match arg("--load-mgxs") {
+        Some(d) => Some(mp_headless::load_mgxs(std::path::Path::new(&d))?),
+        None => None,
+    };
+    let auto_run = args.iter().any(|a| a == "--auto-run");
     eframe::run_native(
         "Dhoby Ghaut workbench",
         options,
@@ -269,6 +318,10 @@ fn main() -> Result<(), String> {
                 }
             }
             a.s78.auto_build = auto_build;
+            if let Some(m) = load_mgxs {
+                a.s78.mgxs = Some(m);
+            }
+            a.mp.auto_run = auto_run;
             Ok(Box::new(a))
         }),
     )
@@ -447,6 +500,31 @@ mod headless {
     /// Steps 7 (and, with a plan, 8) with no window: assemble, mesh, map,
     /// write the GeN-Foam case and the review images, print the summary CSV;
     /// then the MGXS state points, printing their CSV.
+    /// Step 7's meshes (default plan, or the neutronics / TH cell sizes
+    /// given, cm) built into `out`, for the headless Step 10.
+    pub fn build_meshes(
+        r: &Recipe,
+        out: &Path,
+        n_cell_cm: Option<f64>,
+        th_cell_cm: Option<f64>,
+    ) -> Result<crate::meshing::BuiltMeshes, String> {
+        let mut engine = Engine::default();
+        let a = assemble(&mut engine, r).ok_or("assembly failed")?;
+        let d = crate::meshing::domain_from(&a);
+        let mut plan = dhoby_ghaut::workbench::meshes::MeshPlan::default_for(&d);
+        if let Some(h) = n_cell_cm {
+            plan.roles[0].cell_size_cm = h;
+        }
+        if let Some(h) = th_cell_cm {
+            plan.roles[1].cell_size_cm = h;
+        }
+        let t = std::time::Instant::now();
+        crate::meshing::build(&d, &plan, out, &mut |p| {
+            let crate::meshing::MeshProgress::Stage(s, f) = p;
+            eprintln!("[{:5.1} s] {:3.0} % {s}", t.elapsed().as_secs_f64(), 100.0 * f);
+        })
+    }
+
     pub fn mesh_and_mgxs(
         r: &Recipe,
         out: &Path,

@@ -2,12 +2,9 @@
 //!
 //! Two things live here, both plain data (no solver):
 //!
-//! 1. **The hand-off from Steps 7 and 8** ([`MultiphysicsInputs`]): the meshes
-//!    and the per-region group constants the coupled solve needs. Steps 7
-//!    (meshes + mapping, gh:#572) and 8 (MGXS, gh:#573) are built in
-//!    parallel with this module and define their own output types; the
-//!    coordinator adapts those to these at merge time. **What Steps 7/8 must
-//!    supply** is stated on each type below.
+//! 1. **The hand-off from Steps 7 and 8** ([`MultiphysicsInputs`]): Step 7's
+//!    [`MeshSet`] and Step 8's [`MgxsSet`], held as they are (one definition
+//!    each, gh:#591), with the check that a spatial solve can start from them.
 //! 2. **Step 9's case setup** ([`MultiphysicsSetup`]): boundary conditions,
 //!    models and solver settings for the OUTRAM-Foam (GeN-Foam port) side, the
 //!    neutronics side, the coupling loop and the `farrer-park` (FEM
@@ -23,16 +20,22 @@
 //! [`super::recipe::Recipe::from_markdown`] ignores artifacts it does not
 //! know). It can be folded into `Recipe` once the steps settle.
 //!
-//! **Status (2026-10-05).** What the coupled run (Step 10) actually solves is
-//! stated by [`MultiphysicsSetup::elements`]: every piece is *in model*,
-//! *simplified* or *NOT in model*, never silent. In short: the porous-core
-//! thermal-hydraulics runs on an r-z multi-channel march built from
-//! `tampines::pebble_bed` correlations; the power shape is **prescribed**
-//! (spatial diffusion on Step 8's MGXS is not wired); k comes from a lumped
-//! temperature feedback; the structural side does not run.
+//! **Status (2026-10-05, gh:#591).** What the coupled run (Step 10) actually
+//! solves is stated by [`MultiphysicsSetup::elements`]: every piece is *in
+//! model*, *simplified* or *NOT in model*, never silent. In short: the
+//! porous-core thermal-hydraulics runs on an r-z multi-channel march built
+//! from `tampines::pebble_bed` correlations; by default
+//! ([`PowerShape::Diffusion`]) the power shape and `k` come from the GeN-Foam
+//! port's multigroup diffusion eigenvalue solve on Step 7's neutronics mesh
+//! with Step 8's constants at each cell's temperature, Picard-coupled to the
+//! march through Step 7's maps; the prescribed J0 x cosine shape with lumped
+//! feedback is kept as an explicit ablation ([`PowerShape::J0Cosine`]); the
+//! structural side does not run.
 
 use serde::{Deserialize, Serialize};
 
+use super::meshes::{MeshRole, MeshSet};
+use super::mgxs::MgxsSet;
 use super::recipe::{Citation, ElementStatus, ModelElement};
 
 /// The kovan artifact id of Step 9's recipe section.
@@ -42,142 +45,97 @@ pub const SECTION_HEADING: &str = "Step 9: Multiphysics case setup";
 
 // ─── The hand-off from Steps 7 and 8 ────────────────────────────────────────
 
-/// Which physics a mesh serves (GeN-Foam's three-mesh layout).
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub enum MeshRole {
-    /// Neutronics (diffusion / SP3) mesh.
-    Neutronics,
-    /// Thermal-hydraulics (porous-medium fluid + structure) mesh.
-    ThermalHydraulics,
-    /// Structural FEM mesh (`farrer-park`, Tet4).
-    Structural,
-}
-
-/// A mesh Step 7 built. **Step 7 must supply** one per role: where it is on
-/// disk (an OpenFOAM `polyMesh` directory for the FV meshes, the FEM mesh
-/// file for the structural one), its cell count, and the name of every
-/// region (cell zone) it carries, in the names [`RegionConstants::region`]
-/// uses.
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-pub struct MeshHandle {
-    /// Which physics it serves.
-    pub role: MeshRole,
-    /// Path of the mesh on disk (a `polyMesh` folder or FEM mesh file).
-    pub path: String,
-    /// Number of cells (elements).
-    pub cells: usize,
-    /// Cell-zone (region) names present in the mesh.
-    pub regions: Vec<String>,
-    /// How it was made, for the record ("tet-dual polyhedral + 3 boundary
-    /// layers", "Tet4").
-    pub kind: String,
-}
-
-/// One state point of one region's few-group constants. **Step 8 must
-/// supply** these from Monte Carlo at each state point, in cm and 1/cm,
-/// groups ordered fast to thermal.
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-pub struct GroupConstantsAtT {
-    /// The fuel (Doppler) temperature of the state point \[K\].
-    pub temperature_k: f64,
-    /// Diffusion coefficient per group \[cm\].
-    pub diffusion_cm: Vec<f64>,
-    /// Absorption cross section per group \[1/cm\].
-    pub sigma_a_per_cm: Vec<f64>,
-    /// nu × fission cross section per group \[1/cm\].
-    pub nu_sigma_f_per_cm: Vec<f64>,
-    /// Energy release per fission × fission cross section per group
-    /// \[J/cm\], for the power density.
-    pub kappa_sigma_f_j_per_cm: Vec<f64>,
-    /// Fission spectrum per group (sums to 1).
-    pub chi: Vec<f64>,
-    /// Group-to-group scattering, `sigma_s[from][to]` \[1/cm\], P0.
-    pub sigma_s_per_cm: Vec<Vec<f64>>,
-}
-
-/// What a region is.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub enum RegionKind {
-    /// Pebble-bed core (fuel + moderator pebbles + helium, homogenised).
-    Core,
-    /// Graphite reflector.
-    Reflector,
-    /// Boronated carbon bricks.
-    BoronatedCarbon,
-    /// Cavity / plenum (helium).
-    Cavity,
-    /// Anything else (named in the region name).
-    Other,
-}
-
-/// A neutronics region and its constants against temperature. **Step 8 must
-/// supply** one per region of the neutronics mesh, with at least one state
-/// point (two or more for temperature feedback; Step 8 interpolates in
-/// `ln T` by default).
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-pub struct RegionConstants {
-    /// Cell-zone name, as in [`MeshHandle::regions`].
-    pub region: String,
-    /// What it is.
-    pub kind: RegionKind,
-    /// State points, ascending in temperature.
-    pub table: Vec<GroupConstantsAtT>,
-}
-
-/// Everything Steps 7 and 8 hand to the coupled solve.
-#[derive(Debug, Clone, PartialEq, Default, Serialize, Deserialize)]
+/// Everything Steps 7 and 8 hand to the coupled solve, **as they produced
+/// it**: Step 7's [`MeshSet`] and Step 8's [`MgxsSet`]. There is no second
+/// copy of either; the coupled run reads these types (gh:#591).
+///
+/// What Step 10 takes from them:
+///
+/// - the neutronics and thermal-hydraulics `polyMesh` folders
+///   ([`super::meshes::MeshSummary::polymesh_dir`]), read with the GeN-Foam
+///   port's own reader, their cellZones (= region ids) and
+///   [`super::meshes::MeshSummary::cell_region`];
+/// - the two maps neutronics → TH (power) and TH → neutronics
+///   (temperature), [`super::meshes::MeshMapping::map`];
+/// - the bed's place in the R-Z domain ([`super::meshes::RzDomain`]) and
+///   which regions are the bed ([`super::meshes::RegionMap::is_bed`]);
+/// - the GeN-Foam `nuclearData` Step 8 wrote
+///   ([`MgxsSet::nuclear_data_path`]), read with
+///   `outram_foam_appbuilder_lib::io::nuclear_data::read_nuclear_data` and
+///   interpolated per cell by the port (upstream `xsVariables`, `TFuel` with
+///   [`MgxsSet::law`]); and the Monte Carlo `k` of each state point, to
+///   compare the diffusion eigenvalue with.
+#[derive(Debug, Clone, PartialEq)]
 pub struct MultiphysicsInputs {
-    /// One mesh per role.
-    pub meshes: Vec<MeshHandle>,
-    /// Number of energy groups (every region has the same).
-    pub groups: usize,
-    /// Per-region constants.
-    pub regions: Vec<RegionConstants>,
+    /// Step 7's meshes and maps.
+    pub meshes: MeshSet,
+    /// Step 8's cross sections.
+    pub mgxs: MgxsSet,
 }
 
 impl MultiphysicsInputs {
-    /// The mesh for `role`, if Step 7 supplied one.
-    #[must_use]
-    pub fn mesh(&self, role: MeshRole) -> Option<&MeshHandle> {
-        self.meshes.iter().find(|m| m.role == role)
-    }
-
-    /// Whether a spatial neutronics solve could be set up from these inputs:
-    /// a neutronics mesh, at least one region, every table non-empty and
-    /// every vector `groups` long. Returns what is missing otherwise.
+    /// Whether a spatial neutronics solve can be set up from these inputs.
+    /// Checks that the neutronics and TH meshes were written, that both maps
+    /// between them exist, that Step 8 wrote its `nuclearData`, and that
+    /// every region holding neutronics cells has constants at every state
+    /// point. Returns what is missing otherwise.
     ///
     /// # Errors
     ///
     /// A sentence naming the first missing or inconsistent item.
     pub fn check_for_neutronics(&self) -> Result<(), String> {
-        if self.mesh(MeshRole::Neutronics).is_none() {
-            return Err("no neutronics mesh from Step 7 (gh:#572)".into());
+        let m = &self.meshes;
+        for role in [MeshRole::Neutronics, MeshRole::ThermalHydraulics] {
+            let Some(s) = m.mesh(role) else {
+                return Err(format!("no {} mesh from Step 7 (gh:#572)", role.name()));
+            };
+            if s.polymesh_dir.is_none() {
+                return Err(format!(
+                    "the {} mesh was not written as a polyMesh (gh:#572)",
+                    role.name()
+                ));
+            }
         }
-        if self.regions.is_empty() {
-            return Err("no region constants from Step 8 (gh:#573)".into());
+        for (from, to) in [
+            (MeshRole::Neutronics, MeshRole::ThermalHydraulics),
+            (MeshRole::ThermalHydraulics, MeshRole::Neutronics),
+        ] {
+            if m.mapping(from, to).is_none() {
+                return Err(format!(
+                    "no {} -> {} map from Step 7 (gh:#572)",
+                    from.name(),
+                    to.name()
+                ));
+            }
         }
-        let g = self.groups;
-        if g == 0 {
+        let x = &self.mgxs;
+        if x.states.is_empty() {
+            return Err("no state points from Step 8 (gh:#573)".into());
+        }
+        if x.n_groups() == 0 {
             return Err("zero energy groups".into());
         }
-        for r in &self.regions {
-            if r.table.is_empty() {
-                return Err(format!("region {} has no state points", r.region));
+        if x.nuclear_data_path.is_none() {
+            return Err("Step 8 did not write its nuclearData (gh:#573)".into());
+        }
+        let n = m.mesh(MeshRole::Neutronics).expect("checked above");
+        for (gi, reg) in m.plan.regions.regions.iter().enumerate() {
+            if !n.cell_region.contains(&gi) {
+                continue;
             }
-            for s in &r.table {
-                let ok = s.diffusion_cm.len() == g
-                    && s.sigma_a_per_cm.len() == g
-                    && s.nu_sigma_f_per_cm.len() == g
-                    && s.kappa_sigma_f_j_per_cm.len() == g
-                    && s.chi.len() == g
-                    && s.sigma_s_per_cm.len() == g
-                    && s.sigma_s_per_cm.iter().all(|row| row.len() == g);
-                if !ok {
+            for s in &x.states {
+                let Some(r) = s.regions.iter().find(|r| r.region == reg.id) else {
                     return Err(format!(
-                        "region {} at {} K: a vector is not {g} groups long",
-                        r.region, s.temperature_k
+                        "region {} holds neutronics cells but has no constants at {} K (gh:#573)",
+                        reg.id, s.temperature_k
+                    ));
+                };
+                if r.total.len() != x.n_groups() {
+                    return Err(format!(
+                        "region {} at {} K: not {} groups",
+                        reg.id,
+                        s.temperature_k,
+                        x.n_groups()
                     ));
                 }
             }
@@ -245,6 +203,13 @@ pub struct FoamSide {
 #[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
 #[serde(tag = "kind", rename_all = "snake_case")]
 pub enum PowerShape {
+    /// **The default (gh:#591).** Solved: the GeN-Foam port's multigroup
+    /// diffusion k-eigenvalue (`DiffusionNeutronics`) on Step 7's neutronics
+    /// mesh, with Step 8's constants evaluated at each cell's temperature,
+    /// coupled to the thermal-hydraulics by Picard iteration through Step 7's
+    /// maps. `k` is the eigenvalue; the lumped coefficient is unused. Needs
+    /// [`MultiphysicsInputs`].
+    Diffusion,
     /// The bare-cylinder fundamental mode `J0(2.405 r/R_e) cos(pi z/H_e)`
     /// with one extrapolation length `delta` on the radius and on each axial
     /// end (`R_e = R + delta`, `H_e = H + 2 delta`). `delta` is solved so the
@@ -255,6 +220,15 @@ pub enum PowerShape {
     },
     /// Uniform power density (an ablation).
     Uniform,
+}
+
+impl PowerShape {
+    /// Whether the shape is solved by neutronics (needs Steps 7 and 8), as
+    /// opposed to prescribed with lumped feedback (an ablation).
+    #[must_use]
+    pub fn is_solved(self) -> bool {
+        matches!(self, Self::Diffusion)
+    }
 }
 
 /// How the lumped feedback averages the core temperature.
@@ -268,7 +242,10 @@ pub enum FeedbackWeighting {
     Volume,
 }
 
-/// The neutronics side.
+/// The neutronics side. `isothermal_coefficient_per_k`,
+/// `reference_temperature_k` and `weighting` drive only the lumped feedback
+/// of the prescribed-shape ablations; with [`PowerShape::Diffusion`] the
+/// feedback is the cross sections' own temperature dependence.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct NeutronicsSide {
     /// Core thermal power \[MW\].
@@ -284,7 +261,18 @@ pub struct NeutronicsSide {
     pub weighting: FeedbackWeighting,
 }
 
-/// The coupling loop (Picard over flow split, properties and feedback).
+fn default_power_relaxation() -> f64 {
+    0.5
+}
+fn default_power_tolerance() -> f64 {
+    1e-4
+}
+fn default_k_tolerance() -> f64 {
+    1e-6
+}
+
+/// The coupling loop (Picard over flow split, properties, power and
+/// feedback).
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct CouplingSettings {
     /// Maximum outer iterations.
@@ -296,6 +284,19 @@ pub struct CouplingSettings {
     pub temperature_tolerance_k: f64,
     /// Under-relaxation of the ring flow update (0–1].
     pub flow_relaxation: f64,
+    /// [`PowerShape::Diffusion`] only: under-relaxation of the node power
+    /// handed from the neutronics to the march, (0–1]. (Upstream GeN-Foam
+    /// couples once per time step; this loop seeks a steady fixed point, so
+    /// it relaxes.)
+    #[serde(default = "default_power_relaxation")]
+    pub power_relaxation: f64,
+    /// … converged when no node's power moved by more than this fraction of
+    /// the largest node power …
+    #[serde(default = "default_power_tolerance")]
+    pub power_tolerance: f64,
+    /// … and `k` by less than this.
+    #[serde(default = "default_k_tolerance")]
+    pub k_tolerance: f64,
 }
 
 /// The `farrer-park` (MOOSE-port FEM) side.
@@ -494,6 +495,9 @@ mod tests {
                 pressure_tolerance: 1e-4,
                 temperature_tolerance_k: 0.01,
                 flow_relaxation: 0.7,
+                power_relaxation: 0.5,
+                power_tolerance: 1e-4,
+                k_tolerance: 1e-6,
             },
             structural: StructuralSide {
                 enabled: false,
@@ -548,35 +552,101 @@ mod tests {
         assert!(MultiphysicsSetup::from_recipe_markdown("# Nothing\n").is_none());
     }
 
-    /// The input check names what Steps 7/8 have not supplied.
+    /// The input check names what Steps 7/8 have not supplied, and accepts
+    /// a [`MeshSet`] + [`MgxsSet`] that carry everything Step 10 reads.
     #[test]
     fn neutronics_inputs_say_what_is_missing() {
-        let mut i = MultiphysicsInputs::default();
-        assert!(i.check_for_neutronics().unwrap_err().contains("#572"));
-        i.meshes.push(MeshHandle {
-            role: MeshRole::Neutronics,
-            path: "n".into(),
-            cells: 10,
-            regions: vec!["core".into()],
-            kind: "tet-dual".into(),
-        });
+        use crate::workbench::meshes::{
+            CellType, MeshMapping, MeshPlan, MeshSummary, RegionMap,
+        };
+        use crate::workbench::mgxs::{InterpLaw, RegionXs, StateXs};
+        let d = crate::workbench::meshes::tests::htr10_like();
+        let plan = MeshPlan::default_for(&d);
+        let bed = plan.regions.bed_first;
+        let summary = |role: MeshRole, dir: Option<&str>| MeshSummary {
+            role,
+            cell_type: CellType::TetDual,
+            cells: 1,
+            points: 4,
+            faces: 4,
+            kinds: vec![],
+            volume_cm3: 1.0,
+            exact_cm3: 1.0,
+            non_star_cells: 0,
+            max_non_orthogonality_deg: 0.0,
+            max_skewness: 0.0,
+            patches: vec![],
+            notes: vec![],
+            regions: vec![],
+            cell_region: vec![bed],
+            polymesh_dir: dir.map(String::from),
+            seconds: 0.0,
+        };
+        let map = |from, to| MeshMapping {
+            from,
+            to,
+            weights: vec![vec![(0, 1.0)]],
+            overlap_cm3: 1.0,
+            to_coverage: 1.0,
+            uncovered_cells: 0,
+            fields: vec![],
+            seconds: 0.0,
+        };
+        let mut i = MultiphysicsInputs {
+            meshes: MeshSet {
+                domain: d.clone(),
+                plan: plan.clone(),
+                meshes: vec![summary(MeshRole::Neutronics, None)],
+                mappings: vec![],
+            },
+            mgxs: MgxsSet {
+                edges_ev_desc: vec![2e7, 0.625, 1e-5],
+                law: InterpLaw::LnT,
+                states: vec![],
+                nuclear_data_path: None,
+                notes: vec![],
+            },
+        };
+        assert!(i.check_for_neutronics().unwrap_err().contains("polyMesh"));
+        i.meshes.meshes = vec![
+            summary(MeshRole::Neutronics, Some("n")),
+            summary(MeshRole::ThermalHydraulics, Some("t")),
+        ];
+        assert!(i.check_for_neutronics().unwrap_err().contains("map"));
+        i.meshes.mappings = vec![
+            map(MeshRole::Neutronics, MeshRole::ThermalHydraulics),
+            map(MeshRole::ThermalHydraulics, MeshRole::Neutronics),
+        ];
         assert!(i.check_for_neutronics().unwrap_err().contains("#573"));
-        i.groups = 2;
-        i.regions.push(RegionConstants {
-            region: "core".into(),
-            kind: RegionKind::Core,
-            table: vec![GroupConstantsAtT {
-                temperature_k: 300.0,
-                diffusion_cm: vec![1.0, 1.0],
-                sigma_a_per_cm: vec![0.01, 0.1],
-                nu_sigma_f_per_cm: vec![0.01, 0.2],
-                kappa_sigma_f_j_per_cm: vec![1e-13, 1e-12],
-                chi: vec![1.0, 0.0],
-                sigma_s_per_cm: vec![vec![0.0, 0.02], vec![0.0, 0.0]],
-            }],
+        let rx = |id: &str| RegionXs {
+            region: id.into(),
+            volume_cm3: 1.0,
+            flux: vec![1.0; 2],
+            flux_rel_sigma: vec![0.0; 2],
+            total: vec![0.3, 0.4],
+            absorption: vec![0.001, 0.005],
+            nu_fission: vec![0.0005, 0.008],
+            kappa_fission: vec![1e-13, 1e-12],
+            chi: vec![1.0, 0.0],
+            scatter: vec![vec![0.29, 0.009], vec![0.0, 0.395]],
+            rel_sigma_total: vec![0.0; 2],
+            rel_sigma_absorption: vec![0.0; 2],
+            rel_sigma_nu_fission: vec![0.0; 2],
+        };
+        i.mgxs.states.push(StateXs {
+            temperature_k: 300.0,
+            k: 1.0,
+            k_sigma: 0.0,
+            histories: 0,
+            data_s: 0.0,
+            transport_s: 0.0,
+            regions: vec![rx("not_the_bed")],
         });
+        i.mgxs.nuclear_data_path = Some("nuclearData".into());
+        let e = i.check_for_neutronics().unwrap_err();
+        assert!(e.contains(&plan.regions.regions[bed].id), "{e}");
+        let _: &RegionMap = &plan.regions;
+        i.mgxs.states[0].regions.push(rx(&plan.regions.regions[bed].id));
         assert!(i.check_for_neutronics().is_ok());
-        i.regions[0].table[0].chi.pop();
-        assert!(i.check_for_neutronics().is_err());
     }
 }

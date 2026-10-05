@@ -559,6 +559,13 @@ impl RegionMap {
         }
     }
 
+    /// Whether region `g` is (a sub-region of) the pebble bed above the conus.
+    #[must_use]
+    pub fn is_bed(&self, g: usize) -> bool {
+        let n = self.bed_split[0] * self.bed_split[1];
+        g >= self.bed_first && g < self.bed_first + n
+    }
+
     /// The region at `(r, z)` \[cm\].
     #[must_use]
     pub fn region_at(&self, d: &RzDomain, r: f64, z: f64) -> Option<usize> {
@@ -885,10 +892,10 @@ pub fn not_available() -> Vec<NotAvailable> {
 }
 
 #[cfg(test)]
-mod tests {
+pub(crate) mod tests {
     use super::*;
 
-    fn htr10_like() -> RzDomain {
+    pub(crate) fn htr10_like() -> RzDomain {
         RzDomain {
             r_outer: 190.0,
             core_radius: 90.0,

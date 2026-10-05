@@ -72,6 +72,34 @@ pub const PUBLISHED: [(&str, f64, &str); 5] = [
     ),
 ];
 
+/// Gao & Shi (2002) for the **initial** core (13 500 fuel elements, graphite
+/// balls half the bed; §4.2, §4.3, §5), as transcribed in
+/// `docs/reactor-scoping/htr10-plant-data.md` §7.6: (what, value, note). The
+/// solved Step 10 run on the preset's initial-core recipe compares with
+/// these, the equilibrium-core [`PUBLISHED`] being a different core.
+pub const PUBLISHED_INITIAL: [(&str, f64, &str); 4] = [
+    (
+        "Max power density [W/cm³]",
+        2.84,
+        "§4.2: at R = 0, Z = 90 cm (equilibrium core 2.57)",
+    ),
+    (
+        "Mean fuel temperature [°C]",
+        605.7,
+        "§4.3 average",
+    ),
+    (
+        "Max fuel centre [°C]",
+        995.0,
+        "§4.3 'about 995'; §5 says 1049 (unresolved, see the transcription)",
+    ),
+    (
+        "Reactor outlet helium [°C]",
+        700.0,
+        "Table 2 design value",
+    ),
+];
+
 fn cite(field: &str, citekey: &str, what: &str) -> Citation {
     Citation {
         field: field.into(),
@@ -98,15 +126,98 @@ pub fn elements() -> Vec<ModelElement> {
         el("Pebble-to-helium heat transfer", InModel, "Wakao-Funazkri (1978) on local Re, Pr and k (tampines::pebble_bed::cht)."),
         el("Pebble and TRISO conduction", InModel, "Two-zone pebble + hottest TRISO at the pebble centre (tampines::pebble_bed::Pebble::htr10), fluence from Step 9."),
         el("Bed friction and flow split", InModel, "KTA 3102.3 per node; rings share one plenum-to-plenum pressure drop (the coupling loop)."),
-        el("Thermal-hydraulic mesh", Simplified, "Equal-area rings x axial nodes (r-z multi-channel), not Step 7's tet-dual porous mesh (gh:#572, gh:#592)."),
+        el("Thermal-hydraulic mesh", Simplified, "Equal-area rings x axial nodes (r-z multi-channel). Step 7's tet-dual TH mesh carries power and temperature between the neutronics mesh and the rings but is not solved on (gh:#592)."),
         el("OUTRAM-Foam porous solver", NotInModel, "outram-foam-appbuilder-lib's OnePhaseSolver has constant properties and one-cell tests only; not used (gh:#592)."),
         el("Radial conduction and radiation between rings", NotInModel, "ZBS effective conductivity (tampines::pebble_bed::zbs) is not applied across rings (gh:#592)."),
         el("Side wall", Simplified, "Adiabatic: no heat to the side reflector or the RCCS (gh:#592)."),
         el("Reflector, plenums, bypass channels", Simplified, "Not modelled thermally; the bypass (total minus core flow) is mixed at the inlet temperature."),
-        el("Power shape", Simplified, "PRESCRIBED J0 x cosine; its one length fixed by the published peak/mean, not by a neutronics solve. Spatial diffusion on Step 8's MGXS is not wired (gh:#591)."),
-        el("Reactivity", Simplified, "Lumped: rho = alpha_iso (T_bed - T_ref); k is relative to a cold-critical reference, not an eigenvalue (gh:#591)."),
+        el("Power shape and k", InModel, "Solved (gh:#591): GeN-Foam port multigroup diffusion k-eigenvalue on Step 7's neutronics mesh, Step 8's constants at each cell's TFuel (ln T, extrapolated linearly outside the state points as upstream), Marshak vacuum boundary, Picard-coupled to the march through Step 7's maps with relaxed power. Ablation: --prescribed-power (J0 x cosine with lumped feedback)."),
+        el("Neutronics data", Simplified, "2 groups by default, P0 scattering, D = 1/(3 Sigma_t), no discontinuity factors, no delayed neutrons (steady state only), Monte Carlo statistics of a short run (gh:#595)."),
+        el("Neutronics regions", Simplified, "Cells take their region by centroid on the 30 cm neutronics mesh: region boundaries are stair-stepped, borings not explicit (gh:#594). Fission power landing outside the TH bed is reported and the bed power rescaled to the thermal power."),
+        el("Temperature feedback", Simplified, "One temperature per cell drives every material's constants: the fuel-pebble volume average in the bed (state points are isothermal, gh:#595); no separate moderator / coolant-density feedback."),
+        el("Reflector, conus, tube temperatures (for the cross sections)", Simplified, "Held at the inlet helium temperature: no reflector heat balance (gh:#592)."),
+        el("Neutronics -> ring grid transfer", Simplified, "Power: Step 7's volume-weighted map to the TH mesh, then each bed cell's power shared over the ring nodes its nearest-cell samples fall in (conservative). Temperature: TH cell takes its centroid's node, then Step 7's map to the neutronics mesh."),
         el("Structural (farrer-park)", NotInModel, "farrer-park is FEM mechanics only (no heat conduction) and has no mapping from the TH mesh yet (gh:#593); not run."),
     ]
+}
+
+/// With the solved power shape, the coupled case is **the reactor Steps 1-8
+/// built**: the march's bed takes Step 7's bed (radius, and height = the
+/// recipe's loading) and the recipe's fuel-pebble share and filling
+/// fraction, so the thermal-hydraulics and the neutronics describe one core.
+/// The Step 9 prefill describes Gao & Shi's 197 cm all-fuel equilibrium core;
+/// the HTR-10 preset recipe is the 57 % fuel initial core loaded to first
+/// criticality, so the two differ and every line that moves is returned.
+pub fn on_built_core(
+    mut s: MultiphysicsSetup,
+    d: &dhoby_ghaut::workbench::meshes::RzDomain,
+    recipe: &dhoby_ghaut::workbench::recipe::Recipe,
+) -> (MultiphysicsSetup, Vec<String>) {
+    let mut notes = Vec::new();
+    let mut set = |what: &str, v: &mut f64, new: f64, unit: &str| {
+        if (*v - new).abs() > 1e-6 * new.abs().max(1.0) {
+            notes.push(format!(
+                "{what}: {:.4} -> {:.4} {unit} (the reactor Steps 1-8 built)",
+                *v, new
+            ));
+            *v = new;
+        }
+    };
+    let f = &mut s.foam;
+    set("bed radius", &mut f.core_radius_cm, d.core_radius, "cm");
+    set("bed height", &mut f.core_height_cm, d.bed_top - d.conus_top, "cm");
+    let mix = &recipe.pebble_bed.mix;
+    if mix.total() > 0.0 {
+        set(
+            "fuel-pebble share",
+            &mut f.fuel_pebble_fraction,
+            mix.fuel / mix.total(),
+            "",
+        );
+    }
+    set(
+        "filling fraction",
+        &mut f.filling_fraction,
+        recipe.pebble_bed.filling_fraction,
+        "",
+    );
+    (s, notes)
+}
+
+/// The prescribed-shape ablation of [`htr10`] (`--prescribed-power`): the
+/// J0 x cosine shape fixed by Gao & Shi's peak/mean, with the lumped
+/// isothermal-coefficient feedback. The element list says so.
+pub fn prescribed(mut s: MultiphysicsSetup) -> MultiphysicsSetup {
+    s.neutronics.shape = PowerShape::J0Cosine {
+        peak_to_mean: MAX_POWER_DENSITY_W_CM3 / MEAN_POWER_DENSITY_MW_M3,
+    };
+    s.coupling.max_iterations = 60;
+    s.elements = elements_for(false);
+    s
+}
+
+/// The element list for a solved (`true`) or prescribed power shape.
+pub fn elements_for(solved: bool) -> Vec<ModelElement> {
+    let mut v = elements();
+    if !solved {
+        for e in &mut v {
+            if e.name == "Power shape and k" {
+                e.status = ElementStatus::Simplified;
+                e.note = "ABLATION (--prescribed-power): PRESCRIBED shape (J0 x cosine with its one length fixed by the published peak/mean, or uniform); k is LUMPED, rho = alpha_iso (T_bed - T_ref), relative to a cold-critical reference, not an eigenvalue. The default solves it by diffusion (gh:#591).".into();
+            }
+        }
+        v.retain(|e| {
+            !matches!(
+                e.name.as_str(),
+                "Neutronics data"
+                    | "Neutronics regions"
+                    | "Temperature feedback"
+                    | "Reflector, conus, tube temperatures (for the cross sections)"
+                    | "Neutronics -> ring grid transfer"
+            )
+        });
+    }
+    v
 }
 
 /// The HTR-10 Step 9 case. `reference_temperature_k` is Step 5's data
@@ -143,16 +254,20 @@ pub fn htr10(reference_temperature_k: f64) -> MultiphysicsSetup {
         },
         neutronics: NeutronicsSide {
             thermal_power_mw: table1::THERMAL_POWER_MW,
-            shape: PowerShape::J0Cosine { peak_to_mean: MAX_POWER_DENSITY_W_CM3 / MEAN_POWER_DENSITY_MW_M3 },
+            // Solved by default (gh:#591); `prescribed()` is the ablation.
+            shape: PowerShape::Diffusion,
             isothermal_coefficient_per_k: ISOTHERMAL_COEFFICIENT_PER_K,
             reference_temperature_k,
             weighting: FeedbackWeighting::Power,
         },
         coupling: CouplingSettings {
-            max_iterations: 60,
+            max_iterations: 150,
             pressure_tolerance: 1e-4,
             temperature_tolerance_k: 0.01,
             flow_relaxation: 0.8,
+            power_relaxation: 0.5,
+            power_tolerance: 1e-4,
+            k_tolerance: 1e-6,
         },
         structural: StructuralSide {
             enabled: false,
@@ -173,7 +288,7 @@ pub fn htr10(reference_temperature_k: f64) -> MultiphysicsSetup {
             cite("foam.flow_downward", GAO2002, "§2: cold helium from the top plenum flows downward through the bed"),
             cite("foam.fuel_pebble_fraction", GAO2002, "§4.1: equilibrium core, fuel element heat factor 1.0 (no graphite balls)"),
             cite("neutronics.thermal_power_mw", LI2014, "Table 1: thermal power 10 MW"),
-            cite("neutronics.shape", GAO2002, "§4.2: max power density 2.57 W/cm³ (equilibrium core) against Table 2's 2 MW/m³ mean"),
+            cite("neutronics.shape", GAO2002, "§4.2: max power density 2.57 W/cm³ (equilibrium core) against Table 2's 2 MW/m³ mean (the prescribed-shape ablation's input; the comparison for the solved shape)"),
             cite("neutronics.isothermal_coefficient_per_k", CHEN2009, "Table 1: -1.4e-4 dk/k per °C (as transcribed in htgr_sim_v1 kinetics.rs; not in the kovan corpus)"),
         ],
     }

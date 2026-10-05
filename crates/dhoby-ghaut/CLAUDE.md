@@ -154,14 +154,20 @@ report). Rules that bind changes to it:
   `Arc`), the Step 1 DEM pour (`dem.rs`) and the Step 10 coupled run
   (`coupled.rs`).
 - **Steps 9–10 (gh:#574) run a SIMPLIFIED coupled case** (`porous_core.rs`:
-  r-z porous-core TH on `tampines` correlations, prescribed power shape,
-  lumped feedback). Every gap is in `mp_preset.rs::elements` with its issue
-  (gh:#591, #592, #593); keep that list true when the solver changes, and
-  re-run the mesh study in
-  `verification_and_validation/htr10_multiphysics_step10/` before moving the
-  default mesh. Step 9 is saved as its own kovan artifact (`step-9`,
-  `src/workbench/multiphysics.rs`), which also holds the input types Steps 7
-  and 8 hand over.
+  r-z porous-core TH on `tampines` correlations; ~~prescribed power shape,
+  lumped feedback~~ **UPDATED 2026-10-05 (gh:#591):** by default the power
+  and k are solved, `spatial.rs`: the GeN-Foam port's `DiffusionNeutronics`
+  on Step 7's neutronics polyMesh with Step 8's `nuclearData` per cell,
+  Picard-coupled to the march through Step 7's `MeshMapping`s; the
+  prescribed shape is the explicit ablation `--prescribed-power`). Every
+  gap is in `mp_preset.rs::elements` with its issue (gh:#592, #593, #594,
+  #595); keep that list true when the solver changes, and re-run the mesh
+  study in `verification_and_validation/htr10_multiphysics_step10/` before
+  moving the default mesh. Step 9 is saved as its own kovan artifact
+  (`step-9`, `src/workbench/multiphysics.rs`); ~~which also holds the input
+  types Steps 7 and 8 hand over~~ its `MultiphysicsInputs` is just
+  `MeshSet` + `MgxsSet` (no duplicate types). With the solved shape the
+  march's bed is the reactor Steps 1-8 built (`mp_preset::on_built_core`).
 - **Ray tracing is the GPU's job** (maintainer, 2026-10-05, gh:#587): the 3D
   view and the slices are traced by `outram_blender::csg::gpu` on eframe's
   wgpu device (`src/bin/dhoby-ghaut/gpu_view.rs`); the UI thread only
