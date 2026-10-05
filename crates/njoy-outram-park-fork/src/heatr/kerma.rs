@@ -105,6 +105,69 @@ impl Kerma {
         Kerma { energy, h }
     }
 
+    /// The kinematic-limit KERMA with each reaction's **locally deposited Q**
+    /// chosen as HEATR's `nheat` chooses it, rather than always `QI`. This is
+    /// the constructor to use; [`Kerma::from_reconr`] is the `QI`-only variant.
+    ///
+    /// `nheat` deposits `E + q0 − Ē_n` per reaction (`heatr.f90:1176-1247`),
+    /// with `QI` used only for the neutron's kinematics and `q0`:
+    ///
+    /// | reaction | `q0` |
+    /// |---|---|
+    /// | has MF=6 data | `QM` (`:1245`) |
+    /// | MT ≤ 15 or 51–100 (incl. 91), no MF=6 | `0`, or `QM` when `LR ≠ 0, 31` (`:1180-1181`) |
+    /// | MT 16–50, no MF=6 | `QI` (`:1193`) |
+    /// | MT 600–849 | `QM` (`:1226`, `:1235`) |
+    /// | anything else, fission included | `QI` (`:1204`) |
+    ///
+    /// For a discrete inelastic level `QM = 0` while `QI = −E_level`, so `q0`
+    /// keeps the level's de-excitation energy: with photons deposited locally
+    /// (NJOY's `local = 1`) that energy is heating, and the energy-balance
+    /// method ([`Kerma::with_energy_balance`]) then removes exactly the part
+    /// the evaluation's photons carry away. `QI` alone leaves it out, which
+    /// makes the kinematic limit too low above the first inelastic threshold
+    /// and makes the energy balance subtract photon energy that was never
+    /// deposited.
+    ///
+    /// Every heating model here is linear in the deposited Q with unit
+    /// coefficient (H3's `Q/(A+1)` recoil term is kinematics and keeps `QI`;
+    /// `E − Ē_n` with isotropic two-body `Ē_n` gives `E·2A/(A+1)² + QI/(A+1) +
+    /// (q0 − QI)`), so this is [`Kerma::from_reconr`] plus
+    /// `Σ_r σ_r(E)·(q0_r − QI_r)` over the modeled reactions.
+    ///
+    /// Not covered: an `nqa` override (HEATR card 4's user Q values), and
+    /// MT=458's fission-Q adjustment.
+    pub fn from_endf(
+        tape: &crate::endf::tape::Tape,
+        mat: i32,
+        recon: &ReconrResult,
+        nu: &NuBar,
+        chi: &FissionSpectrum,
+        emission: &[(MtReaction, EmissionSpectrum)],
+    ) -> Self {
+        let mut k = Kerma::from_reconr(recon, nu, chi, emission);
+        for sec in &recon.sections {
+            let model = heating_model(sec.mt);
+            if model == HeatingModel::NotModeled
+                || (model == HeatingModel::MultiNeutron && emission_spectrum(emission, sec.mt).is_none())
+            {
+                continue;
+            }
+            let mt = sec.mt.number();
+            let dq = deposited_q(tape, mat, mt, sec.lr, sec.qi) - sec.qi;
+            if dq == 0.0 {
+                continue;
+            }
+            for (i, &e) in k.energy.iter().enumerate() {
+                let sigma = eval_lin_lin(&sec.pairs, e);
+                if sigma != 0.0 {
+                    k.h[i] += sigma * dq;
+                }
+            }
+        }
+        k
+    }
+
     /// Apply HEATR's **energy-balance correction**: subtract the escaping-photon
     /// energy production ([`PhotonProduction`], ENDF MT=442) from this
     /// kinematic-limit KERMA, giving the energy-balance MT=301 heating.
@@ -151,4 +214,34 @@ impl Kerma {
             .collect();
         eval_lin_lin(&pairs, e)
     }
+}
+
+/// HEATR's deposited Q, `q0`, for reaction `mt` (see [`Kerma::from_endf`]).
+fn deposited_q(tape: &crate::endf::tape::Tape, mat: i32, mt: i32, lr: i32, qi: f64) -> f64 {
+    let qm = || -> f64 {
+        tape.section(mat, 3, mt)
+            .and_then(|s| {
+                let mut c = crate::endf::records::SectionCursor::new(&s.rows);
+                c.read_cont().ok()?;
+                Some(c.read_tab1().ok()?.head.c1)
+            })
+            .unwrap_or(qi)
+    };
+    let fission = (18..=21).contains(&mt) || mt == 38;
+    if fission {
+        return qi;
+    }
+    if tape.section(mat, 6, mt).is_some() {
+        return qm();
+    }
+    if mt <= 15 || (51..=100).contains(&mt) {
+        return if lr != 0 && lr != 31 { qm() } else { 0.0 };
+    }
+    if (16..=50).contains(&mt) {
+        return qi;
+    }
+    if (600..=849).contains(&mt) {
+        return qm();
+    }
+    qi
 }

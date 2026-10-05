@@ -235,7 +235,9 @@ fn build_impl(tape: &Tape, mat: i32, pendf: Option<&crate::reconr::ReconrResult>
             if is_yield && head.l1 == 2 && pendf.is_some() {
                 use crate::mixr::mix::sigfig;
                 let Ok(list) = cur.read_list() else { return None };
-                let res = cascade.section(mt, head.c2, head.l2, &list, &eeth)?;
+                let awr = head.c2;
+                let level = |m: i32| eeth(m).map(|e| e * awr / (awr + 1.0));
+                let res = cascade.section(mt, head.l2, &list, &level)?;
                 let Some(res) = res else { continue };
                 let elow = rt(eeth(mt).unwrap_or(0.0));
                 let (lo, hi) = (sigfig(elow / EMEV, 7, 0), sigfig(rt(elim) / EMEV, 7, 0));
@@ -715,7 +717,9 @@ pub fn gpd(tape: &Tape, mat: i32, pendf: &crate::reconr::ReconrResult) -> Option
             // `convr`'s LO=2 conversion: a flat total yield from the PENDF
             // threshold to `elim` (`acefc.f90:4173-4350`).
             let list = cur.read_list().ok()?;
-            let out = cascade.section(sec.key.mt, head.c2, head.l2, &list, &eeth)?;
+            let awr = head.c2;
+            let level = |m: i32| eeth(m).map(|e| e * awr / (awr + 1.0));
+            let out = cascade.section(sec.key.mt, head.l2, &list, &level)?;
             let Some(out) = out else { continue };
             let ysum = out.ysum;
             let elow = eeth(sec.key.mt).unwrap_or(0.0);
@@ -827,7 +831,14 @@ fn mf6_photon_yields(sec: &crate::endf::tape::Section) -> Vec<crate::endf::recor
 /// `convr`'s LO=2 state (`acefc.f90:4173-4300`): the level energies `ee`
 /// and the transition matrices `aa`/`rr`. The matrices persist across
 /// sections, and across level series, exactly as upstream's do.
-struct Lo2Cascade {
+///
+/// HEATR's `hconvr` (`heatr.f90:4553-5044`) does the same algebra, with the
+/// same `mt0` series rules and the same `1e-4` level match; it differs only
+/// in where a level's starting energy comes from. So
+/// [`crate::photon::PhotonProduction`] reuses this type rather than a second
+/// copy, and each caller supplies its own `level_energy` to
+/// [`Lo2Cascade::section`].
+pub(crate) struct Lo2Cascade {
     ee: Vec<f64>,
     aa: Vec<f64>,
     rr: Vec<f64>,
@@ -839,13 +850,13 @@ const LO2_IMAX: usize = 50;
 
 /// One LO=2 section after `convr`: the total yield and each photon's
 /// `(E_gamma, E_level, yield)`, in descending `E_gamma`.
-struct Lo2Out {
-    ysum: f64,
-    photons: Vec<(f64, f64, f64)>,
+pub(crate) struct Lo2Out {
+    pub(crate) ysum: f64,
+    pub(crate) photons: Vec<(f64, f64, f64)>,
 }
 
 impl Lo2Cascade {
-    fn new() -> Self {
+    pub(crate) fn new() -> Self {
         let n = LO2_IMAX;
         let mut rr = vec![0.0; n * n];
         for i in 0..n {
@@ -858,15 +869,19 @@ impl Lo2Cascade {
         (k - 1) * LO2_IMAX + (j - 1)
     }
 
-    /// Process one LO=2 section (`mt`, AWR `awr`, `LG`, its LIST); returns
-    /// `Some(Some(ysum))`, or `Some(None)` when it produces no photon.
-    fn section(
+    /// Process one LO=2 section (`mt`, `LG`, its LIST); returns
+    /// `Some(Some(out))`, or `Some(None)` when it produces no photon.
+    ///
+    /// `level_energy(m)` is the starting energy \[eV\] of the level reaction
+    /// `m` populates, used for a level whose own MF=12 has not been read yet.
+    /// ACER passes the PENDF threshold times `awr/(awr+1)` (`acefc.f90:4214`);
+    /// HEATR passes MF=3's `-QI` (`heatr.f90:4659`, `eeq`).
+    pub(crate) fn section(
         &mut self,
         mt: i32,
-        awr: f64,
         lg: i32,
         list: &crate::endf::records::List,
-        eeth: &impl Fn(i32) -> Option<f64>,
+        level_energy: &impl Fn(i32) -> Option<f64>,
     ) -> Option<Option<Lo2Out>> {
         let mt0 = match mt {
             51..=90 => 49,
@@ -891,10 +906,10 @@ impl Lo2Cascade {
                 m1 + 15
             };
             for m in m1..=m2 {
-                if let Some(e) = eeth(m) {
+                if let Some(e) = level_energy(m) {
                     let k = (m - mt0) as usize;
                     if k < self.ee.len() {
-                        self.ee[k] = e * awr / (awr + 1.0);
+                        self.ee[k] = e;
                     }
                 }
             }

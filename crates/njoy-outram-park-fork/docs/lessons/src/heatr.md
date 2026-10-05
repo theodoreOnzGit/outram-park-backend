@@ -59,17 +59,28 @@ computes the kinematic limit only**~~ **This port computes the kinematic limit**
 (sub-phases H1–H5), **and** (corrected 2026-10-05,
 [#535](https://github.com/theodoreOnzGit/outram-park-backend/issues/535))
 `Kerma::with_energy_balance` subtracts the evaluation's photon energy
-production from it (MT=442 from MF=12 `LO=1`, MF=13 and MF=15 via the `photon`
-module; no `LO=2` cascades, no MF=6 photons, no capture recoil). ~~the photon
-energy-balance method (H6) is deferred~~ The full energy-balance method (H6,
-NJOY's `nheat`, which also takes each reaction's *neutron* energies from the
-evaluation) is not ported and the damage-energy port (H7) covers
-two-body recoils only (elastic and discrete levels, isotropic in the centre of
-mass). See the module doc of
+production from it (MT=442 via the `photon` module). ~~no `LO=2` cascades, no
+MF=6 photons, no capture recoil~~ **Since H6a (later on 2026-10-05) MT=442 is
+complete**: `LO=2` cascades, MF=6 photons, and capture by energy balance with
+the photon recoil, each as HEATR does it, and it matches NJOY2016's MT=442 at
+its print precision on Fe-58 and Si-28. The kinematic arm deposits each
+reaction's Q as NJOY's `nheat` does (`Kerma::from_endf`): for a discrete level
+that is the excitation energy too, which `QI` alone left out. ~~the photon
+energy-balance method (H6) is deferred~~ What is **not** ported is the rest of
+`nheat`: each reaction's *neutron* energies taken from the evaluation (H6b),
+and NJOY's treatment of a capture whose photons are in MF=6 (H6c). The
+damage-energy port (H7) covers two-body recoils only (elastic and discrete
+levels, isotropic in the centre of mass). See the module doc of
 [`heatr/mod.rs`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/njoy-outram-park-fork/src/heatr/mod.rs).
 ~~That KERMA feeds the ACE heating column (rung 9).~~ The ACE heating column
-(rung 9) gets the photon-corrected value, which has **no NJOY comparison** of
-its own: the HEATR record below compares the uncorrected kinematic limit.
+(rung 9) gets the energy-balance value. ~~which has **no NJOY comparison** of
+its own: the HEATR record below compares the uncorrected kinematic limit.~~
+Against NJOY's energy-balance MT=301 it agrees below the first inelastic
+threshold where capture photons are in MF=12 (Si-28, 6e-8), and is **1.9–2.9×
+NJOY between 2 and 5 MeV** on both nuclides: the photons it subtracts are
+right, the neutron energies it keeps are the kinematic estimate. Numbers:
+[`heatr_vs_njoy2016.md`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/njoy-outram-park-fork/verification_and_validation/heatr_vs_njoy2016.md)
+§4 and the [re-measurement log](./remeasured.md).
 
 ## The code walk
 

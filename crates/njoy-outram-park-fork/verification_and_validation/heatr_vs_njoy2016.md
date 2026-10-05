@@ -211,6 +211,70 @@ Two side notes from the same reading, neither affecting these two nuclides:
   to adopt the same 10 % node stepping. That would make it less accurate at
   threshold, so it is a maintainer decision, not something to do by default.
 
+### 4. Photon energy production (MT=442) and the energy-balance KERMA — H6a (2026-10-05, GitHub #535)
+
+**Methodology.** NJOY2016 (`ac5adf5f33`) HEATR re-run on the same two
+evaluations with `local = 0` and `442` added to `npk`; tapes and decks are
+`reference-data/heatr/{fe58,si28}-ENDF8.0-0K-local0.*`. `local = 0` is needed
+because HEATR runs `gheat`, its MF=12/13 pass, only then (`heatr.f90:378`).
+MT=301 and MT=443–446 are byte-identical between this run and the committed
+`local = 1` run with `npk` unchanged, so adding 442 changes nothing else.
+
+The port's MT=442 (`photon::PhotonProduction`) now follows HEATR's four
+routes: MF=6 photons through `nheat` (mean energy × yield × σ), MF=12 LO=2
+cascades through `hconvr` (reusing ACER's `Lo2Cascade` with HEATR's level
+energies), MF=12/13 through `gheat`, and capture with MF=12 photons by energy
+balance minus the photon recoil (`disgam`, `tabsqr`).
+
+HEATR prints energies to 7 figures, coarser than its grid inside narrow
+resonances, so each NJOY value is compared with the envelope of ours over its
+abscissa's ±5e-7 interval (both ends, the point, and every node of our RECONR
+grid inside it). Pass criterion for MT=442: every point within 1e-6 of the
+envelope. Gate: `tests/heatr_mt442_vs_njoy2016.rs`,
+`mt442_matches_njoy_at_print_precision`.
+
+**Results, MT=442** (worst distance outside the envelope; median plain
+`|ours/njoy − 1|` in brackets):
+
+| nuclide | points | E < 1 eV | 1 eV – first inelastic | above |
+|---|---|---|---|---|
+| Fe-58 | 34 277 | 2.2e-7 (7.5e-8) | 4.6e-7 (7.8e-8) | 3.2e-7 (5.5e-8) |
+| Si-28 | 9 210 | 1.7e-7 (5.7e-8) | 3.4e-7 (6.7e-8) | 4.1e-7 (7.5e-8) |
+
+Before H6a: Fe-58's MT=442 was 0 everywhere (all its photons are MF=6 or LO=2);
+Si-28's was +6.8e-4 below 1 eV, 8 % median to the first inelastic threshold,
+and 0.04–1.5 % of NJOY's value above it.
+
+**Results, MT=301** (recorded, not asserted; median `|ours/njoy − 1|` above the
+first inelastic threshold):
+
+| comparison | `QI` only | `nheat` Q rule (`Kerma::from_endf`) |
+|---|---|---|
+| Fe-58, `local = 1` | 0.76 | **0.11** |
+| Si-28, `local = 1` | 0.38 | **0.31** |
+| Fe-58, `local = 0` | 1.00 (clamped to 0) | 1.35 |
+| Si-28, `local = 0` | 1.00 (clamped to 0) | 0.99 |
+
+**Interpretation.**
+
+- **Most of the `−75 %` in the caveat below was the deposited Q.** `nheat`
+  deposits `E + q0 − Ē_n` with `q0 = 0` for a discrete level (`:1180`), i.e.
+  recoil plus excitation; the port deposited `QI`, the recoil alone.
+  `Kerma::from_endf` applies `nheat`'s whole `q0` table, and is now what the
+  ACE route uses.
+- **The `local = 0` residual is the `local = 1` residual, amplified.** NJOY's
+  values satisfy `local0 = local1 − MT442` exactly, and so do ours. Fe-58 at
+  2 MeV is 10 % high at `local = 1` and 1.9× at `local = 0`, because MT=442
+  removes 89 % of the total there. The cause is the neutron side's kinematic
+  estimate (isotropic two-body, H5 spectra), which H6b replaces with
+  `nheat`'s own `disbar`/`conbar`/`sixbar` means.
+- **Fe-58 below 1 eV at `local = 0` is 756× NJOY.** Its capture photons are
+  MF=6. For that case NJOY deposits only the photon recoil (`sixbar`'s
+  `tabsq6`) and no energy balance; the port deposits the 208 keV by which the
+  photon lines fall short of `Q` (section 1). H6c.
+- Si-28 below 1 eV agrees to 6e-8 at `local = 0`: capture with MF=12 photons,
+  energy balance and recoil, as NJOY.
+
 ## What this does NOT establish
 
 - **No validation.** Agreement with another code on the same evaluation is not
@@ -223,9 +287,13 @@ Two side notes from the same reading, neither affecting these two nuclides:
   dependence.
 - **The KERMA comparison is asserted only below the first inelastic threshold.**
   Above ~1 MeV the two codes' H5 treatments diverge by −75 % (Fe-58) to +73 %
-  (Si-28) for reasons this comparison cannot separate — the kinematic limit and
+  (Si-28) ~~for reasons this comparison cannot separate — the kinematic limit and
   the energy-balance method are different quantities there, and untangling them
-  needs the photon-production side (MT=442), which is not compared here.
+  needs the photon-production side (MT=442), which is not compared here~~.
+  **CORRECTED 2026-10-05:** MT=442 is now compared (section 4) and matches;
+  most of Fe-58's gap was the deposited Q, and with `nheat`'s rule the median
+  miss above threshold at `local = 1` is 11 % (Fe-58) and 31 % (Si-28). What
+  remains is the neutron side (H6b), recorded and not asserted.
 - **The damage port remains deliberately partial**: no MF=4 anisotropy, no
   MT=447 disappearance recoil, no continuum or `(n,xn)` recoil. Sections 2 and 3
   above now quantify that rather than merely naming it.

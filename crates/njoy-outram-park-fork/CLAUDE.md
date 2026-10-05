@@ -989,3 +989,49 @@ Three lessons worth more than the fixes:
   documented as choices. Both were visible in NJOY's table: MTR, and
   `LQR = 0` for the redundant sums. Both now follow upstream. A divergence
   argued from the cross section alone can still show up in another block.
+
+## HEATR's photon side matches NJOY, and QI was the wrong deposited Q (2026-10-05, GitHub #535 H6a)
+
+`photon::PhotonProduction` (MT=442, the energy HEATR's energy balance
+subtracts) now follows HEATR's four routes, and matches NJOY2016's MT=442 at
+its 7-figure print precision on Fe-58 and Si-28: every one of 43 487 points
+within 4.6e-7. Gate: `tests/heatr_mt442_vs_njoy2016.rs`. Record:
+`verification_and_validation/heatr_vs_njoy2016.md` §4.
+
+- **MF=12 LO=2 cascades reuse ACER's `Lo2Cascade`** (`acer::photon_blocks`).
+  HEATR's `hconvr` is the same matrix algebra as ACER's `convr`; only the
+  starting level energies differ (MF=3 `−QI` against PENDF thresholds), so
+  `Lo2Cascade::section` now takes a `level_energy` closure instead of a second
+  copy existing.
+- **MF=6 photons** (`photon/mf6.rs`, `nheat`/`sixbar`/`getsix`), and an MT
+  with MF=6 photons has its MF=12/13 skipped, as `gheat` skips it.
+- **Capture with MF=12 photons is an energy balance** (`photon/capture.rs`):
+  `σ(E + Q − E/(A+1)) − Σ y·σ·E_R`, not the sum of its lines.
+
+Three things worth carrying forward:
+
+- **A `local = 1` HEATR run cannot be the MT=442 oracle.** HEATR calls `gheat`
+  (the MF=12/13 pass) only when `local = 0` (`heatr.f90:378`); a `local = 1`
+  MT=442 holds the MF=6 photons alone, and on Si-28 it is zero below 7.1 MeV.
+  The `local = 0` oracles are committed beside the `local = 1` ones.
+- **HEATR prints energies to 7 figures, coarser than its own grid inside
+  narrow resonances** (204189.888 and 204189.925 eV both print as
+  `2.041899+5`). Comparing at the printed energy produced "38 % errors" that
+  were the abscissa's rounding. The test judges each NJOY value against the
+  envelope of ours over the ±5e-7 interval, including our grid nodes inside
+  it, and excludes nothing. Two earlier instruments excluded points instead
+  and were dropped.
+- **The kinematic arm deposited `QI`; `nheat` deposits `q0`.** For a discrete
+  level `q0 = 0` (`:1180`), so its excitation energy is heating until the
+  photons take it away; `QI` alone left it out. That was most of the "−75 %"
+  above threshold the 2026-09-17 record could not separate, and once MT=442
+  was complete it drove the energy-balance KERMA negative. `Kerma::from_endf`
+  applies `nheat`'s whole `q0` table and is what `acer` and `interface` use;
+  `Kerma::from_reconr` is the `QI`-only variant. Median miss above threshold
+  at `local = 1`: Fe-58 76 % → 11 %, Si-28 38 % → 31 %.
+
+**Still open (#535):** the energy-balance MT=301 is 1.9–2.9× NJOY's between 2
+and 5 MeV, which is the `local = 1` neutron-side residual amplified by
+subtracting a photon term that is ~89 % of the total (H6b); and Fe-58's MF=6
+capture deposits its 208 keV photon deficit where NJOY deposits only the
+photon recoil (H6c).

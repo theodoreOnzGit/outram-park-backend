@@ -33,13 +33,35 @@
 //!
 //! ## What is not (yet) ported
 //!
-//! - **MF=12, LO=2** — transition-probability arrays (discrete-level γ cascades).
-//!   `heatr.f90` converts these to LO=1 yields in `hconvr` before the balance;
-//!   that cascade conversion is a follow-up. A reaction whose only photon data is
-//!   LO=2 contributes 0 here (its photon energy stays deposited locally, i.e. the
-//!   kinematic limit — an over-count, not a silent error).
-//! - **MF=6** photon (ZAP=0) subsections, and the **capture** momentum-recoil
-//!   refinement (`disgam`) — both follow-ups.
+//! ~~**MF=12, LO=2** — transition-probability arrays (discrete-level γ
+//! cascades) … that cascade conversion is a follow-up. A reaction whose only
+//! photon data is LO=2 contributes 0 here.~~ ~~**MF=6** photon (ZAP=0)
+//! subsections, and the **capture** momentum-recoil refinement (`disgam`) —
+//! both follow-ups.~~ **CORRECTED 2026-10-05 (GitHub #535, H6a):** all three
+//! are ported, each as HEATR does it rather than as the ACE photon block does:
+//!
+//! - **LO=2** cascades become constant yields through `hconvr`'s algebra
+//!   (`heatr.f90:4553-5044`), reusing ACER's port of it
+//!   ([`crate::acer::photon_blocks`]'s `Lo2Cascade`) with HEATR's level
+//!   energies (MF=12 `ES`, else MF=3 `−QI`).
+//! - **MF=6** photons add `ebar·yld·σ` (`nheat`, [`mf6`]); any MF=12/13 data
+//!   for an MT that also has MF=6 photons is skipped, as `gheat` skips it.
+//! - **Capture** with MF=12 photons is the energy balance minus the photon
+//!   recoil ([`capture`]), not the sum of its lines.
+//!
+//! Still not ported: an MF=6 photon with `LAW ≠ 1`, or with `AWP > 0` on
+//! MT=102 (`hgam102`); both are counted in [`PhotonProduction::unhandled`].
+//! MF=15 continua with `LF ≠ 1` are skipped, as before.
+//!
+//! ## Verification
+//!
+//! `tests/heatr_mt442_vs_njoy2016.rs` compares [`PhotonProduction::eval`] with
+//! NJOY2016's MT=442 (HEATR, `local = 0`) on Fe-58 and Si-28. Results are in
+//! that test's doc comment and in
+//! `verification_and_validation/heatr_vs_njoy2016.md`.
+
+mod capture;
+mod mf6;
 
 use crate::endf::interp::eval_tab1;
 use crate::endf::records::{SectionCursor, Tab1};
@@ -78,34 +100,54 @@ impl PhotonEnergy {
     }
 }
 
-/// One photon subsection of a reaction: its per-event production `tab`
-/// (a yield `y_k(E)` for MF=12, or a cross section `σ_γ,k(E)` \[barn\] for MF=13)
-/// and its mean photon energy model.
+/// How a photon subsection states its per-event production.
+#[derive(Debug, Clone)]
+enum Production {
+    /// A tabulated yield (MF=12) or production cross section (MF=13).
+    Tab(Tab1),
+    /// A constant yield: an LO=2 photon after `hconvr`, which writes each as
+    /// a two-point TAB1 with the same value at `ebot` and `etop`
+    /// (`heatr.f90:4895-4928`).
+    Const(f64),
+}
+
+/// One photon subsection of a reaction: its per-event production and its
+/// mean photon energy model.
 #[derive(Debug, Clone)]
 struct PhotonSub {
     /// Yield (MF=12) or production cross section (MF=13) vs incident energy.
-    tab: Tab1,
+    tab: Production,
     /// Mean-photon-energy model (discrete line or MF=15 continuum).
     energy: PhotonEnergy,
 }
 
 impl PhotonSub {
     fn production(&self, e: f64) -> f64 {
-        eval_tab1(e, &self.tab.interp, &self.tab.pairs).unwrap_or(0.0)
+        match &self.tab {
+            Production::Tab(t) => eval_tab1(e, &t.interp, &t.pairs).unwrap_or(0.0),
+            Production::Const(y) => *y,
+        }
     }
 }
 
 /// The photon production of one reaction MT.
 #[derive(Debug, Clone)]
 struct ReactionPhotons {
-    /// The reaction's MT (its MF=3 cross section is the production rate for
-    /// MF=12).
+    /// The MT whose MF=3 cross section multiplies an MF=12 yield. For MF=12
+    /// MT=3 this is 1 on one pass and 2 on a second, as `gheat` does it
+    /// (`heatr.f90:5168`, `5401`).
     mt: i32,
+    /// `+1`, or `−1` for the MT=2 pass: `gheat` adds `y·σ·Ē` for every MT
+    /// except 2, which it subtracts (`:5319-5320`).
+    sign: f64,
     /// `true` for MF=12 (yields — multiply by the MF=3 reaction cross section);
     /// `false` for MF=13 (the subsections already *are* cross sections).
     is_yield: bool,
     /// The photon lines/continua.
     subs: Vec<PhotonSub>,
+    /// `gheat`'s `[elow, ehigh]`: where the leading TAB1 is non-zero. Outside
+    /// it the reaction contributes nothing (`:5262`).
+    range: (f64, f64),
 }
 
 /// Total photon energy production of a material — ENDF **MT=442** \[eV·barn\] —
@@ -119,36 +161,90 @@ struct ReactionPhotons {
 pub struct PhotonProduction {
     awr: f64,
     reactions: Vec<ReactionPhotons>,
+    /// MF=6 photon products (`nheat`'s contribution).
+    mf6: mf6::Mf6Photons,
+    /// Capture's energy-balance term, when its photons are in MF=12.
+    capture: Option<capture::CaptureBalance>,
 }
 
 impl PhotonProduction {
-    /// Parse the photon-production data (MF=12 LO=1 and MF=13, with MF=15 for the
-    /// continuum spectra) for material `mat`, using `recon` for the MF=3 reaction
-    /// cross sections the MF=12 yields multiply.
+    /// Parse the photon-production data for material `mat`, using `recon`
+    /// for the MF=3 reaction cross sections the yields multiply.
     ///
-    /// Reactions whose only photon data is MF=12 **LO=2** (transition
-    /// probabilities) or an unported form are skipped (contribute 0). Never
-    /// fails: malformed or unported sections are silently omitted, so the caller
-    /// gets whatever photon energy could be read (the rest stays deposited
-    /// locally, the kinematic limit).
+    /// Reads, in HEATR's terms: MF=6 photons (`nheat`); MF=12 LO=1 and MF=13
+    /// (`gheat`), with LO=2 cascades converted first (`hconvr`); MF=15 for
+    /// continua; capture by energy balance. An MT with MF=6 photons has its
+    /// MF=12/13 skipped. Never fails: a malformed or unported section is
+    /// omitted, and its photon energy stays deposited locally (the kinematic
+    /// limit).
     pub fn from_endf(tape: &Tape, mat: i32, recon: &ReconrResult) -> Self {
         let awr = recon.material.awr;
+        let mf6 = mf6::Mf6Photons::from_endf(tape, mat);
+        let skipped = |mt: i32| mf6.photon_mts.contains(&mt);
+        let capture = if skipped(102) { None } else { capture::CaptureBalance::from_endf(tape, mat, awr) };
+
+        // `hconvr`'s level energies for a level without MF=12 yet: MF=3 −QI.
+        let minus_qi = |m: i32| -> Option<f64> {
+            let s3 = tape.section(mat, 3, m)?;
+            let mut c = SectionCursor::new(&s3.rows);
+            c.read_cont().ok()?;
+            Some(-c.read_tab1().ok()?.head.c2)
+        };
+        let etop = tape
+            .section(mat, 1, 451)
+            .and_then(|s| s.rows.get(2).map(|r| r[1]))
+            .filter(|&e| e > 2.0e7)
+            .unwrap_or(2.0e7);
+        let mut cascade = crate::acer::photon_blocks::Lo2Cascade::new();
+
         let mut reactions = Vec::new();
         for sec in tape.sections() {
             let (mf, mt) = (sec.key.mf, sec.key.mt);
-            if sec.key.mat != mat || (mf != 12 && mf != 13) {
+            if sec.key.mat != mat || (mf != 12 && mf != 13) || mt == 0 {
                 continue;
             }
             if mt == 460 {
                 continue; // delayed fission photons: not deposited via this path
             }
-            if let Some(rxn) = parse_reaction(tape, mat, mf, mt, awr) {
-                if !rxn.subs.is_empty() {
-                    reactions.push(rxn);
-                }
+            if mf == 12 && mt == 102 && capture.is_some() {
+                continue; // energy balance, in `capture`
+            }
+            let lo2 = mf == 12 && {
+                let mut c = SectionCursor::new(&sec.rows);
+                c.read_cont().map(|h| h.l1 == 2).unwrap_or(false)
+            };
+            let rxn = if lo2 {
+                // Every LO=2 section feeds the cascade state, as `hconvr`
+                // converts them all before `gheat` decides what to skip.
+                let subs = lo2_subs(sec, &mut cascade, &minus_qi);
+                (!skipped(mt)).then_some(subs).flatten().map(|subs| (subs, (1.0e-5, etop)))
+            } else if skipped(mt) {
+                None
+            } else {
+                parse_reaction(tape, mat, mf, mt, awr)
+            };
+            let Some((subs, range)) = rxn else { continue };
+            if subs.is_empty() {
+                continue;
+            }
+            if mf == 12 && mt == 3 {
+                // Nonelastic photons: once against σ_1, then against σ_2 with
+                // the MT=2 sign (`gheat`'s `mtd = 1` and `mtd = 2` passes).
+                reactions.push(ReactionPhotons { mt: 1, sign: 1.0, is_yield: true, subs: subs.clone(), range });
+                reactions.push(ReactionPhotons { mt: 2, sign: -1.0, is_yield: true, subs, range });
+            } else {
+                let sign = if mf == 12 && mt == 2 { -1.0 } else { 1.0 };
+                reactions.push(ReactionPhotons { mt, sign, is_yield: mf == 12, subs, range });
             }
         }
-        PhotonProduction { awr, reactions }
+        PhotonProduction { awr, reactions, mf6, capture }
+    }
+
+    /// `(MT, LAW)` of photon subsections whose energy this port does not
+    /// value (an MF=6 photon with `LAW ≠ 1`, or `hgam102`'s case), so the
+    /// caller can tell a complete MT=442 from a partial one.
+    pub fn unhandled(&self) -> &[(i32, i32)] {
+        &self.mf6.unhandled
     }
 
     /// Total photon energy production `Σ_reactions E_γ,prod(E)` \[eV·barn\] at
@@ -158,8 +254,18 @@ impl PhotonProduction {
     /// `recon` supplies the MF=3 reaction cross sections that the MF=12 yields
     /// multiply (pass the same [`ReconrResult`] used to build this).
     pub fn eval(&self, e: f64, recon: &ReconrResult) -> f64 {
+        let sigma_of = |mt: i32| -> f64 {
+            recon
+                .sections
+                .iter()
+                .find(|s| i32::from(s.mt) == mt)
+                .map_or(0.0, |s| eval_lin_lin(&s.pairs, e))
+        };
         let mut total = 0.0;
         for rxn in &self.reactions {
+            if !capture::in_range(rxn.range, e) {
+                continue;
+            }
             let e_gamma: f64 = rxn
                 .subs
                 .iter()
@@ -169,16 +275,20 @@ impl PhotonProduction {
                 continue;
             }
             if rxn.is_yield {
-                // MF=12: multiply Σ y·Ē_γ by the reaction's MF=3 cross section.
-                let sigma = recon
-                    .sections
-                    .iter()
-                    .find(|s| i32::from(s.mt) == rxn.mt)
-                    .map_or(0.0, |s| eval_lin_lin(&s.pairs, e));
-                total += sigma * e_gamma;
+                // MF=12: multiply Σ y·Ē_γ by the reaction's MF=3 cross section.
+                total += rxn.sign * sigma_of(rxn.mt) * e_gamma;
             } else {
-                total += e_gamma; // MF=13: already σ_γ·Ē_γ.
+                total += rxn.sign * e_gamma; // MF=13: already σ_γ·Ē_γ.
             }
+        }
+        for (mt, subs) in &self.mf6.reactions {
+            let per = mf6::Mf6Photons::energy_per_reaction(subs, e);
+            if per != 0.0 {
+                total += sigma_of(*mt) * per;
+            }
+        }
+        if let Some(cap) = &self.capture {
+            total += cap.eval(e, sigma_of(102));
         }
         total
     }
@@ -186,14 +296,14 @@ impl PhotonProduction {
     /// Whether any photon-production data was found (i.e. the energy-balance
     /// correction is non-trivial).
     pub fn is_empty(&self) -> bool {
-        self.reactions.is_empty()
+        self.reactions.is_empty() && self.mf6.reactions.is_empty() && self.capture.is_none()
     }
 }
 
-/// Parse one MF=12/MF=13 section into a [`ReactionPhotons`]. Returns `None` for
-/// LO=2 (transition probabilities — the `hconvr` cascade is a follow-up) or a
-/// malformed section.
-fn parse_reaction(tape: &Tape, mat: i32, mf: i32, mt: i32, awr: f64) -> Option<ReactionPhotons> {
+/// Parse one MF=12 (LO=1) or MF=13 section into its photon subsections and
+/// `gheat`'s non-zero range. Returns `None` for LO=2 (handled by
+/// [`lo2_subs`]) or a malformed section.
+fn parse_reaction(tape: &Tape, mat: i32, mf: i32, mt: i32, awr: f64) -> Option<(Vec<PhotonSub>, (f64, f64))> {
     let sec = tape.section(mat, mf, mt)?;
     let mut cur = SectionCursor::new(&sec.rows);
     let head = cur.read_cont().ok()?;
@@ -204,10 +314,9 @@ fn parse_reaction(tape: &Tape, mat: i32, mf: i32, mt: i32, awr: f64) -> Option<R
             return None; // LO=2 transition probabilities — not ported yet.
         }
     }
-    // For NK>1 a total (yield or xs) TAB1 leads the subsections; skip it.
-    if nk > 1 {
-        cur.read_tab1().ok()?;
-    }
+    // For NK>1 a total (yield or xs) TAB1 leads the subsections; `gheat`
+    // takes the reaction's range from it.
+    let lead = if nk > 1 { Some(cur.read_tab1().ok()?) } else { None };
     let mut subs = Vec::with_capacity(nk.max(1) as usize);
     for _ in 0..nk.max(1) {
         let tab = cur.read_tab1().ok()?;
@@ -227,13 +336,34 @@ fn parse_reaction(tape: &Tape, mat: i32, mf: i32, mt: i32, awr: f64) -> Option<R
                 None => continue, // no MF=15 ⇒ cannot value this continuum
             }
         };
-        subs.push(PhotonSub { tab, energy });
+        subs.push(PhotonSub { tab: Production::Tab(tab), energy });
     }
-    Some(ReactionPhotons {
-        mt,
-        is_yield: mf == 12,
-        subs,
-    })
+    let range = match (&lead, subs.first()) {
+        (Some(t), _) => capture::nonzero_range(t),
+        (None, Some(PhotonSub { tab: Production::Tab(t), .. })) => capture::nonzero_range(t),
+        _ => (0.0, 0.0),
+    };
+    Some((subs, range))
+}
+
+/// One MF=12 LO=2 section through `hconvr`'s cascade: a constant-yield
+/// discrete line per photon. Returns `None` when the section is malformed or
+/// produces no photon.
+fn lo2_subs(
+    sec: &crate::endf::tape::Section,
+    cascade: &mut crate::acer::photon_blocks::Lo2Cascade,
+    level_energy: &impl Fn(i32) -> Option<f64>,
+) -> Option<Vec<PhotonSub>> {
+    let mut cur = SectionCursor::new(&sec.rows);
+    let head = cur.read_cont().ok()?;
+    let list = cur.read_list().ok()?;
+    let out = cascade.section(sec.key.mt, head.l2, &list, level_energy)??;
+    Some(
+        out.photons
+            .iter()
+            .map(|&(eg, _es, y)| PhotonSub { tab: Production::Const(y), energy: PhotonEnergy::Discrete { eg, primary: false } })
+            .collect(),
+    )
 }
 
 /// Build the `(E_in, Ē_γ)` mean-photon-energy curve from ENDF **MF=15** for

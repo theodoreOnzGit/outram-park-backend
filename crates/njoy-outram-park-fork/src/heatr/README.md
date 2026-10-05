@@ -88,9 +88,18 @@ Write-up: `verification_and_validation/heatr_vs_njoy2016.md`.
   from the 550 eV node (zero crossing measured at 549.97 eV). Not a port
   defect. Magnitude 0.86 eV·b against a scale of 1e5.
 - **The ACE heating column is photon-corrected** (`Kerma::with_energy_balance`
-  subtracts MF=12 `LO=1`, MF=13 and MF=15 photon energy), a partial H6 with no
-  NJOY comparison of its own; the record above compares the uncorrected
-  kinematic limit.
+  subtracts ~~MF=12 `LO=1`, MF=13 and MF=15 photon energy), a partial H6 with no
+  NJOY comparison of its own~~ the evaluation's photon energy, MT=442).
+  **CORRECTED 2026-10-05 (#535, H6a):** MT=442 now includes LO=2 cascades,
+  MF=6 photons and capture by energy balance, and matches NJOY2016's HEATR
+  at print precision on Fe-58 and Si-28 (`tests/heatr_mt442_vs_njoy2016.rs`).
+  The kinematic arm is built with `Kerma::from_endf`, which deposits
+  `nheat`'s Q per reaction (`q0 = 0` for a discrete level, so its excitation
+  energy is heating until the photons take it away). The energy-balance
+  MT=301 is still 1.9–2.9× NJOY's between 2 and 5 MeV: the neutron side is
+  the kinematic estimate (H6b, not ported). Fe-58's MF=6 capture deposits
+  its 208 keV photon deficit where NJOY deposits only the photon recoil
+  (H6c). Numbers in `verification_and_validation/heatr_vs_njoy2016.md` §4.
 
 ## References
 

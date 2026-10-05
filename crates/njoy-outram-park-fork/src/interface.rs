@@ -324,7 +324,7 @@ impl NuclearDataLibrary {
                 .unwrap_or_default();
         let emission = crate::heatr::build_emission_spectra(&self.tape, self.mat);
         let photons = crate::photon::PhotonProduction::from_endf(&self.tape, self.mat, r);
-        let kerma = crate::heatr::Kerma::from_reconr(r, &nu, &chi, &emission)
+        let kerma = crate::heatr::Kerma::from_endf(&self.tape, self.mat, r, &nu, &chi, &emission)
             .with_energy_balance(&photons, r);
 
         // Fission nu-bar (the ACE NU block). None for a non-fissile nuclide,

@@ -47,3 +47,18 @@ capture (5–200 eV) within 0.007 % at 294, 900 and 2500 K; PURR at 8 ladders ×
 2.9e-4 of 1 at all 83 energies; the 30-group capture resonance integral over
 1 eV–10 keV is 273.51 b infinitely dilute and 18.42 b at σ₀ = 50 b.
 
+
+## 2026-10-05
+
+**Settings.** `develop` at `6faff1ed8` plus the H6a change of GitHub
+[#535](https://github.com/theodoreOnzGit/outram-park-backend/issues/535) for the
+HEATR rows; `--release`; `-j 2`; the crate's 12 GB address-space cap. NJOY2016
+`ac5adf5f33`, built from source with gfortran, for the new oracles.
+
+| record | what was run | result 2026-10-05 | moved? |
+|---|---|---|---|
+| `tests/gaminr_vs_njoy2016.rs` (real U photo-atomic) | test (run by the 2026-10-05 nuclear-data session, [#534](https://github.com/theodoreOnzGit/outram-park-backend/issues/534); passed again in this session's full-suite run) | every reaction, the MF=26 MT=502/504 matrices included, ≤ 3.7e-7 once NJOY's deck reads the ENDF and PENDF from separate units | **yes**: the earlier disagreement was NJOY's deck, not the port |
+| `tests/heatr_mt442_vs_njoy2016.rs`, MT=442 (new oracle: HEATR `local = 0`, `npk` with 442) | test, the H6a gate | Fe-58 (34 277 points) and Si-28 (9 210): every point within **4.6e-7** of NJOY at its 7-figure print precision | **yes**: before H6a, Fe-58's MT=442 was 0 everywhere and Si-28's was 8 % median below the first inelastic threshold |
+| same file, MT=301 at `local = 1` | recorded | median miss above the first inelastic threshold: Fe-58 **11 %**, Si-28 **31 %** | **yes**: were 76 % and 38 %; the port now deposits `nheat`'s Q (`Kerma::from_endf`) |
+| same file, MT=301 at `local = 0` (energy balance) | recorded | Si-28 below 1 eV agrees to 6e-8; above the first inelastic threshold 1.9–2.9× NJOY on both nuclides (the neutron side, H6b); Fe-58 below 1 eV 756× (MF=6 capture deficit, H6c) | **first recorded result** |
+| full `cargo test -p njoy-outram-park-fork --lib --tests` on `6faff1ed8` | suite | 109 test binaries, 1 054 passed, 0 failed, 9 ignored | first full run after the 2026-10-05 nuclear-data session |

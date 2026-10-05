@@ -12,6 +12,26 @@ Each tape is the deck's `tape24` **trimmed to MF=1 plus MF=3/MT=301, 443, 444,
 445, 446**. The `.njoy-input` beside each tape is the verbatim deck that produced
 it, so the reference regenerates rather than being trusted.
 
+## The `local = 0` tapes (added 2026-10-05, GitHub #535)
+
+`{fe58,si28}-ENDF8.0-0K-local0.heatr.pendf` come from the same decks with two
+changes, visible in the `.njoy-input` beside each: `local = 0` on card 2, and
+`442` added to `npk` (card 3), so `npk = 5`. Each tape is trimmed to MF=1 plus
+MF=3/MT=301, 442, 443, 444, 445, 446. They are the oracle for MT=442 (total
+photon energy production) and for the energy-balance MT=301, read by
+`crates/njoy-outram-park-fork/tests/heatr_mt442_vs_njoy2016.rs`.
+
+`local = 0` is not optional for MT=442: HEATR calls `gheat`, the routine that
+adds MF=12/MF=13 photons, only when `local = 0` (`heatr.f90:378`). A
+`local = 1` MT=442 holds the MF=6 photons alone (on Si-28 it is zero below
+7.1 MeV).
+
+Adding 442 to a `local = 1` run leaves MT=301 and MT=443–446 byte-identical
+(checked on both nuclides), so the `local = 1` tapes stand as they are.
+
+Provenance as below: NJOY2016 `ac5adf5f33`, built from source with gfortran,
+executed 2026-10-05 on the committed ENDF/B-VIII.0 evaluations.
+
 ## `local = 1` — and why it matters
 
 The decks pass `local = 1` on HEATR's card 2, which deposits photon energy

@@ -317,7 +317,9 @@ impl AceTable {
     /// (n,xn)); their secondary angular distribution is left isotropic (an
     /// AND-block upgrade is future work). NXS(5)=NR is set to the producer count.
     /// `heating` is the MT=301 KERMA cross section (build it with
-    /// [`Kerma::from_reconr`][crate::heatr::Kerma::from_reconr]); when supplied,
+    /// ~~[`Kerma::from_reconr`][crate::heatr::Kerma::from_reconr]~~
+    /// [`Kerma::from_endf`][crate::heatr::Kerma::from_endf], which deposits
+    /// HEATR's Q per reaction; **CHANGED 2026-10-05**, GitHub #535); when supplied,
     /// the ESZ heating column is filled with the ACE heating number
     /// `KERMA(E) / σ_total(E)` \[MeV\] (`acefc`'s `xss(ih+j)`). `None` leaves it
     /// zero.

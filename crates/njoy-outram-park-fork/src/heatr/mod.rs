@@ -11,9 +11,17 @@
 //! [`Kerma::with_energy_balance`] subtracts the evaluation's photon energy
 //! production (MT=442, from [`crate::photon`]: MF=12 `LO=1`, MF=13, MF=15)
 //! from it, and the ACE route (`acer`, when the deck runs HEATR) uses that
-//! corrected value. It is a partial H6: no MF=12 `LO=2` cascades, no MF=6
+//! corrected value. ~~It is a partial H6: no MF=12 `LO=2` cascades, no MF=6
 //! photons, no capture recoil (`disgam`), and the neutron side stays the
-//! kinematic limit. It has no NJOY comparison of its own.
+//! kinematic limit. It has no NJOY comparison of its own.~~ **CORRECTED
+//! 2026-10-05 (#535, H6a):** the photon side is complete (LO=2 cascades,
+//! MF=6 photons, capture by energy balance with `disgam`'s recoil) and
+//! matches NJOY's MT=442 at its 7-figure print precision on Fe-58 and Si-28
+//! (`tests/heatr_mt442_vs_njoy2016.rs`). The kinematic arm now deposits
+//! HEATR's Q per reaction ([`Kerma::from_endf`]; `QI` alone left a discrete
+//! level's excitation out). The neutron side is still the kinematic
+//! estimate (H6b), which leaves the energy-balance MT=301 1.9–2.9× NJOY's
+//! between 2 and 5 MeV on both nuclides.
 //!
 //! Ported in phases (`docs/porting-plan.md` §HEATR sub-phases) — see the
 //! module's own progress:
@@ -45,10 +53,12 @@
 //!   isotropic-CM integral. MF=4 anisotropy and the continuum/(n,xn)/capture
 //!   channels share the same [`damage::lindhard_damage`] partition and follow. Distinct
 //!   output quantity from the MT=301 heating KERMA above.
-//! - **H6** (deferred): the full ~~photon~~ energy-balance method (`nheat` with
-//!   `disbar`/`conbar`/`sixbar` for the neutron side and `hconvr`/`gheat` for
-//!   photons). The photon subtraction above is the part that exists; the plan
-//!   for the rest is on GitHub #535.
+//! - **H6** (in progress): the full ~~photon~~ energy-balance method (`nheat`
+//!   with `disbar`/`conbar`/`sixbar` for the neutron side and `hconvr`/`gheat`
+//!   for photons). **H6a, the photon side, is done** (2026-10-05, see above),
+//!   together with `nheat`'s deposited-Q rule. H6b (the neutron side's mean
+//!   outgoing energies) and H6c (MF=6 capture recoil, `kchk`) are planned on
+//!   GitHub #535.
 //!
 //! ## Elastic kinematics (H1)
 //!

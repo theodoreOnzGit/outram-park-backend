@@ -493,7 +493,7 @@ pub fn build_deck(
         let emission = crate::heatr::build_emission_spectra(tape, mat);
         let photons = crate::photon::PhotonProduction::from_endf(tape, mat, recon);
         Some(
-            crate::heatr::Kerma::from_reconr(recon, &nu, &chi, &emission)
+            crate::heatr::Kerma::from_endf(tape, mat, recon, &nu, &chi, &emission)
                 .with_energy_balance(&photons, recon),
         )
     } else {
