@@ -523,6 +523,27 @@ fn main() {
 /// **missed**; not resolved from zero). Full record:
 /// `verification_and_validation/tutorial_rung5/README.md`.
 ///
+/// # Confirmatory re-run with the library majorant (GitHub #585, 2026-10-05)
+///
+/// The record above used the example-local union-grid majorant. It was
+/// re-run on the library `Majorant::bounding` (`149f7aff0`; audit 0.9091 on
+/// both cases) at the same settings, `THREADS=2` on cores 2-3. Prediction,
+/// posted on #585 first: each k moves by under ~250 pcm (2 sigma of two
+/// independent runs), and delta k stays inside 2 sigma.
+///
+/// ```text
+///   heterogeneous   k_inf = 1.57287 +/- 0.00083   (608.0 s, 2 threads)
+///   homogenised     k_inf = 1.44795 +/- 0.00085   (479.3 s, 2 threads)
+///   delta k (hom - het)     -12493 +/- 119 pcm  (105.4 sigma)
+/// ```
+///
+/// Movement against the record: heterogeneous +151 ± 121 pcm (1.2 sigma),
+/// homogenised +111 ± 124 pcm (0.9 sigma), delta k −41 ± 173 pcm
+/// (0.2 sigma). The prediction held. The majorant change moves nothing
+/// resolvable, as expected of two valid bounds. The predicted 0–10 %
+/// slowdown was **not testable**: the thread counts differ. The record
+/// stands as the quoted number.
+///
 /// # Results (2026-09-11, LOW tier, free-gas thermal, reflective cube) — superseded
 ///
 /// Kept as the record; superseded by the ENDF re-measurement above.

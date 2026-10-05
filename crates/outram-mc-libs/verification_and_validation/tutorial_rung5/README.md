@@ -141,7 +141,8 @@ The first pilot (200 × [5 + 10]) stopped on the new audit:
 - **Not measured:** how much k the under-bound moved. Its k at 50 histories is not a result.
 - The fix changed the protocol, not the margin: the majorant is tabulated on the data's own grid nodes, where linear-linear data attains its maximum. See `build_majorant` in the example.
 - The same construction at margin 0.3, as `DhUniverse::keff` uses it, was audited on the FHR unit cell of `dh_keff_vv.rs` (`OUTRAM_DH_VV_AUDIT=1`; each material against its own majorant; 200 001 log energies plus every grid node). Worst ratio **0.8970** (SiC, 0.772 MeV): bounded.
-- `examples/triso_delta_tracking.rs` and other users of `bounding` were **not audited**.
+- ~~`examples/triso_delta_tracking.rs` and other users of `bounding` were **not audited**.~~ **CORRECTED 2026-10-05 (GitHub #585):** every caller has now been audited (`examples/majorant_bound_audit.rs`, table in its header). No recorded ENDF/B-VIII.0 number used an under-bound majorant. `Majorant::bounding` itself now tabulates on every nuclide breakpoint (`282d22d35`, `149f7aff0`), and the example uses it in place of its local `build_majorant`.
+- **Confirmatory re-run on the library majorant** (#585, prediction posted first; same settings, `THREADS=2`): heterogeneous **1.57287 ± 0.00083** (+151 ± 121 pcm vs the record, 1.2σ), homogenised **1.44795 ± 0.00085** (+111 ± 124 pcm, 0.9σ), Δk **−12 493 ± 119 pcm** (−41 ± 173 pcm vs the record, 0.2σ). The prediction held: nothing resolvable moved. The record stands.
 
 ### R3. DH shortcuts (`examples/dh_keff_vv.rs`): handed over, partial only
 
