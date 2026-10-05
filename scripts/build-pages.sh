@@ -16,7 +16,7 @@ DATE="$(date -u +%Y-%m-%d)"
 
 rm -rf "$OUT"
 mkdir -p "$OUT/deep-dives"
-cp docs/site/index.html docs/site/style.css "$OUT/"
+cp docs/site/index.html docs/site/style.css docs/site/site-nav.js "$OUT/"
 
 # Rustdoc, release profile (root CLAUDE.md), no dependencies' docs. Source
 # pages are not published: lessons show anchored snippets and link to GitHub.
@@ -158,8 +158,21 @@ done < <(grep -rhoE '@@L:[^@]+@@' "$OUT" --include='*.html' | sort -u)
 grep -rlZ -e '@@COMMIT@@' -e '@@COMMIT_SHORT@@' -e '@@BUILD_DATE@@' "$OUT" \
   | xargs -0 -r sed -i -e "s/@@COMMIT@@/$COMMIT/g" -e "s/@@COMMIT_SHORT@@/$SHORT/g" -e "s/@@BUILD_DATE@@/$DATE/g"
 
+# Site navigation (maintainer, 2026-10-05): every page except the main menu
+# gets a "Home" breadcrumb and an "Up" link to the page one level up, from one
+# script (docs/site/site-nav.js) added before </head> with the relative path
+# back to the site root. Books, demos and rustdoc need no per-page edits.
+while IFS= read -r -d '' d; do
+  rel="${d#"$OUT"/}"
+  up=""
+  IFS=/ read -ra segs <<< "$rel"
+  for _ in "${segs[@]}"; do up+="../"; done
+  find "$d" -maxdepth 1 -name '*.html' -print0 \
+    | xargs -0 -r sed -i "0,/<\/head>/s|</head>|<script src=\"${up}site-nav.js\" defer></script></head>|"
+done < <(find "$OUT" -mindepth 1 -type d -print0)
+
 # Every page must exist where the main menu points.
-for f in index.html api/outram_mc_libs/index.html api/changi/index.html \
+for f in index.html site-nav.js api/outram_mc_libs/index.html api/changi/index.html \
   api/buangkok/index.html api/boon_lay/index.html \
   deep-dives/{monte-carlo,dispersion,triso-atops}/index.html \
   demos/monte-carlo/index.html demos/monte-carlo/monte_carlo_web_bg.wasm \

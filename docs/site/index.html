@@ -112,5 +112,20 @@
   <p>Found something that doesn't tally between a lesson and its code? <a href="https://github.com/theodoreOnzGit/outram-park-backend/issues/new">Open an issue</a> (a structured report form is coming, <a href="https://github.com/theodoreOnzGit/outram-park-backend/issues/511">#511</a>).</p>
   <p>Built from commit <a href="https://github.com/theodoreOnzGit/outram-park-backend/commit/@@COMMIT@@"><code>@@COMMIT_SHORT@@</code></a> on <code>develop</code>, @@BUILD_DATE@@. GPL-3.0. Written with AI assistance (see <a href="https://github.com/theodoreOnzGit/outram-park-backend/blob/develop/AI_USAGE.md">AI_USAGE.md</a>).</p>
 </footer>
+<script>
+  // index.html#monte-carlo (etc.) opens that track's tab: the "Up" links of
+  // the books, demos and API pages land here (docs/site/site-nav.js). The
+  // tabs still work without script.
+  (function () {
+    var tab = { "monte-carlo": "t-mc", "nuclear-data": "t-nd", "dispersion": "t-plume", "triso-atops": "t-triso" };
+    function show() {
+      var id = tab[location.hash.slice(1)];
+      var el = id && document.getElementById(id);
+      if (el) el.checked = true;
+    }
+    show();
+    window.addEventListener("hashchange", show);
+  })();
+</script>
 </body>
 </html>
