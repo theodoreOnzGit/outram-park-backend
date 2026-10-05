@@ -5,6 +5,12 @@
 
 ## What this is
 
+> **Extensions are not in this module (2026-10-05).** boon-lay's own additions
+> to the TRISO-ATOPS model, such as plate-out and purification rates per
+> transport group or per element (gh:#583), live in
+> `boon_lay::triso_atops_extensions`, which calls this port unchanged and is
+> labelled NOT a port. This module stays a faithful fork of upstream.
+
 `boon_lay::triso_atops_fork` is a Rust **fork of Idaho National Laboratory's
 TRISO-ATOPS** (TRISO Analysis TOol for Predictive Source terms). It provides the
 **Eulerian / continuum-diffusion** TRISO fission-product release model as the

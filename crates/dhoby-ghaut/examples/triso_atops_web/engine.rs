@@ -16,7 +16,7 @@
 //! | 4 `layers` | `try_get_diffusion_coeff_jiang` per layer, `first_passage::interface::transmission_probability` |
 //! | 5 `failure` | `fuel_failure::htr10::particle` / `end_of_irradiation_failure`, `AccidentHistory::step`, `pressure_at`, `induced_stress_with_thinning_factor` |
 //! | 6 `chemistry` | `chemistry::{graphite_air, graphite_steam, kernel_hydrolysis}` |
-//! | 7 `release` | every nuclide of the inventory that TRISO-ATOPS's table carries (19 of 22), each through `normal_operation_node`'s chain: `diffusion_coefficient`, `rb_fail`, `release_rate`, `base_activities`, upstream's removal routing, then `live_pools::step` through rung 5's history; inventory from `changi::activity::inventory` (Liu & Cao 2002 Table 1); the pool diagram's arrows are the terms of `live_pools`' balances evaluated on the pools it returned |
+//! | 7 `release` | every nuclide of the inventory that TRISO-ATOPS's table carries (19 of 22), each through `normal_operation_node`'s chain: `diffusion_coefficient`, `rb_fail`, `release_rate`, `base_activities`, upstream's removal routing (via `triso_atops_extensions::RemovalRates::upstream`), then `live_pools::step` through rung 5's history; inventory from `changi::activity::inventory` (Liu & Cao 2002 Table 1); the pool diagram's arrows are the terms of `live_pools`' balances evaluated on the pools it returned |
 //!
 //! The demo's own logic is bookkeeping only: which atom is which species at a
 //! time (rung 2), slicing each walker's walk into frames (rung 3: hop while
@@ -65,11 +65,12 @@ use boon_lay::lagrangian_decay_simulator::lagrangian_diffusion::temperature_depe
 use boon_lay::lagrangian_decay_simulator::StochasticDecayChain;
 use boon_lay::prelude::decay_library::DecayLibrary;
 use boon_lay::prelude::{HalfLifeAndDecayEnergyInfo, SingleNuclideSimulatorMC};
-use boon_lay::triso_atops_fork::activities::live_pools::{self, PoolRates, PrimaryPools};
+use boon_lay::triso_atops_fork::activities::live_pools::{self, PrimaryPools};
 use boon_lay::triso_atops_fork::activities::source_terms::{
     base_activities, release_rate, FailureFractions,
 };
 use boon_lay::triso_atops_fork::diffusion::diffusion_coefficient;
+use boon_lay::triso_atops_extensions::RemovalRates;
 use boon_lay::triso_atops_fork::nuclide_model::nuclide_database::find_nuclide;
 use boon_lay::triso_atops_fork::release_models::rb_fail;
 use boon_lay::triso_atops_fork::TrisoAtopsNuclide;
@@ -231,19 +232,13 @@ fn release_one(
     let lambda = nuc.decay_constant();
     let lam = lambda.get::<hertz>();
     let short_lived = nuc.half_life.get::<second>() / t_irr.get::<second>() < 0.2;
-    // Upstream's routing (normal_operation_node): noble gases do not plate
-    // out; the HPS scrubs noble gases and halogens only.
-    let (kp, kc) = match group {
-        ElementGroup::NobleGas => (0.0, k_clean),
-        ElementGroup::Halogen => (k_plate, k_clean),
-        _ => (k_plate, 0.0),
-    };
-    let rates = PoolRates {
-        decay: lam,
-        plate_out: kp,
-        clean_up: kc,
-        leak: k_leak,
-    };
+    // Upstream's routing (noble gases do not plate out; the HPS takes noble
+    // gases and halogens only), from boon-lay's TRISO-ATOPS extension, which
+    // reproduces the port's routing exactly and can give each group or element
+    // its own rates (gh:#583).
+    let rates = RemovalRates::upstream(Frequency::new::<hertz>(k_plate), Frequency::new::<hertz>(k_clean))
+        .pool_rates(nuc.z, lambda, Frequency::new::<hertz>(k_leak));
+    let (kp, kc) = (rates.plate_out, rates.clean_up);
     let source = |temp_c: f64, f_inc: f64| -> (f64, f64) {
         let t = celsius(temp_c);
         let diff = diffusion_coefficient(nuc.z, t, t);

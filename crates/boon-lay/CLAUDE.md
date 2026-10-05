@@ -140,6 +140,9 @@ src/
     run_selection/mod.rs                  ← nuclide selection (sl, parent_decay), name normalisation, half-life screens
     run_file/mod.rs                       ← the port's own RunFile / RunConfig format
     run_file/upstream.rs                  ← reads UPSTREAM / GUI-written run files; code-to-code verified vs process_run_file (#449)
+  triso_atops_extensions/                 ← **NOT a port** (2026-10-05, gh:#583): boon-lay's own extensions of TRISO-ATOPS, kept OUT of triso_atops_fork (which they call unchanged and never modify)
+    removal_rates.rs                      ← RemovalRates: k_plate / k_clean per transport group or per element (Z); ::upstream reproduces upstream's routing; per-cycle conversions; liu_cao_2002_htr10 table
+    normal_operation.rs                   ← normal_operation_node_with_rates: the ported chain with the rates from a RemovalRates; bit-for-bit equal to the port under ::upstream (336 cases)
   chemistry/                              ← cited rate laws: graphite_air, graphite_steam, kernel_hydrolysis (gh:#401). Added to this map 2026-10-04 (gh:#531)
   compute.rs                              ← ComputeType / ThreadCount backend selector (CPU single, CPU rayon, wgpu). Added 2026-10-04
   gpu.rs                                  ← optional wgpu Walk-on-Spheres kernel, off Android and wasm; UNVERIFIED (CPU fallback only). Added 2026-10-04
@@ -167,6 +170,19 @@ a dimensional-analysis pass (its upstream units mix atoms/Ci/Bq).~~ **CORRECTED
 implemented and covered by `docs/triso-atops-code-to-code.md` (two passes). Full details,
 Python→Rust module map, and V&V results: **`docs/triso-atops-fork.md`**.
 
+
+## triso_atops_extensions — what goes in the fork, and what does not
+
+**The fork stays a faithful port; extensions live in `triso_atops_extensions`**
+(maintainer direction, 2026-10-05). Do not change `triso_atops_fork` to add
+capability upstream does not have: its contract is code-to-code agreement
+with upstream `de374c8`. Put the addition in `triso_atops_extensions`, label
+the file **NOT a port** in its header, call the ported functions rather than
+copying them, and add a test that the extension **reduces to the port** when
+its addition is switched off (bit for bit where the arithmetic is the same,
+as `normal_operation_node_with_rates` does under `RemovalRates::upstream`).
+`activities/live_pools.rs` predates this rule and stays where it is, labelled
+NOT a port.
 
 ## fuel_failure — boon-lay fuel failure (NOT PANAMA)
 

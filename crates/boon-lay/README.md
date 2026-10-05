@@ -22,6 +22,7 @@ started from the other side, and now carries both:
 |---|---|---|
 | **Lagrangian** | `lagrangian_decay_simulator`, `lagrangian_transmutation_and_fission_simulator` | Tracks representative atoms. Each one walks its decay chain, samples competing decay / `(n,gamma)` / `(n,2n)` / fission clocks, and diffuses through the kernel and coating shells. No burnup matrix: the population emerges from the ensemble. Built for watching radionuclide transport in real time, for outreach and open research. |
 | **Eulerian / continuum** | `triso_atops_fork` | A Rust fork of INL's **TRISO-ATOPS** (MIT, upstream commit `de374c8`). Closed-form Booth, breakthrough and attenuation release fractions; normal-operation and accident release; coolant activity and source terms for 84 nuclides. |
+| **Eulerian, extended** (NOT a port) | `triso_atops_extensions` | boon-lay's own additions to the TRISO-ATOPS model, kept apart from the port, which they do not modify. Today: plate-out and purification rates **per transport group or per element** instead of one `k_plate` and one `k_clean` per reactor, conversions from per-cycle data, and Liu & Cao's (2002) cited HTR-10 per-cycle table (GitHub #583). With upstream's rates it reproduces the port bit for bit on all 84 nuclides. |
 
 The two are complements, not rivals. The Lagrangian model shows *how* atoms
 get out. The TRISO-ATOPS fork gives the release fractions that the offsite
@@ -94,6 +95,13 @@ via the `openmc-endf-8-depletion-lib-b` crate.
   (an Ag-110m row). Methodology, results and the two deliberate
   divergences from upstream are in
   [`docs/triso-atops-code-to-code.md`](docs/triso-atops-code-to-code.md).
+- **TRISO-ATOPS extensions (not a port; 2026-10-05, GitHub #583):** no
+  upstream to compare with, so each extension is checked by reducing to the
+  port. With upstream's rates, `normal_operation_node_with_rates` equals the
+  ported `normal_operation_node` bit for bit on all 84 supported nuclides, at
+  700 °C and 1100 °C, with purification on and off and parent pools chained
+  (336 cases). The element-dependent rates themselves are not validated, and
+  the HTR-10 cycle time and purified flow fraction they need are not sourced.
 - **Lagrangian simulator:** unit-tested. Monte Carlo half-lives are checked
   against ENDF/B-VIII.0, and the release fraction against the IAEA CRP-6
   Case 1a/1b analytical solution. There is no cross-code comparison yet.
