@@ -12,6 +12,7 @@ Writes into <out dir>:
   keff_vs_height_endf7.png         ENDF/B-VII.0 only (if a VII.0 run exists)
   results_table.md / results_table.csv   new points, same columns as the old record
   shift_table.md / shift_table.csv       new minus old at each re-measured N
+  summary.md                             mean shift, and residual statistics new vs old at the same N
 
 Reads `run_{e7,e8}_N{10..20}.log` (the bounded-majorant runs) and
 `control_e8_N14_old_majorant.log` (same code, old majorant) if present. The old
@@ -281,8 +282,38 @@ def main():
                   f"| {r['shift_pcm']} | {r['combined_sigma_pcm']} | {r['shift_n_sigma']} | {r['old_d_rmc_pcm']} "
                   f"| {r['new_d_rmc_pcm']} | {r['new_d_t3_pcm']} | {r['new_d_t4_pcm']} |")
     (outdir / "shift_table.md").write_text("\n".join(sm) + "\n")
+    # Summary: weighted mean shift per library (chi2 about it), and residual
+    # statistics new vs old at the SAME N (old record restricted to those N).
+    su = ["| library | points | weighted mean shift [pcm] | ±1σ | χ² / dof about the mean |",
+          "|---|---|---|---|---|"]
+    for lib in ("VIII.0", "VII.0"):
+        sh = [r for r in shifts if r["library"] == lib]
+        if not sh:
+            continue
+        v = [float(r["shift_pcm"]) for r in sh]
+        e = [float(r["combined_sigma_pcm"]) for r in sh]
+        w = [1 / x ** 2 for x in e]
+        m = sum(a * b for a, b in zip(v, w)) / sum(w)
+        chi = sum(((a - m) / b) ** 2 for a, b in zip(v, e))
+        su.append(f"| {lib} | {len(sh)} | {m:+.0f} | {sum(w) ** -0.5:.0f} | "
+                  + (f"{chi:.2f} / {len(sh) - 1} |" if len(sh) > 1 else "n/a |"))
+    su += ["", "| library | which | vs | mean [pcm] | RMS [pcm] | max abs [pcm] | within ±500 | within ±1000 |",
+           "|---|---|---|---|---|---|---|---|"]
+    for lib, key in (("VIII.0", "e8"), ("VII.0", "e7")):
+        p = runs[key]
+        if not p:
+            continue
+        o = [old[(key, r["n"])] for r in p]
+        for which, pts in (("new (bounded)", p), ("old, same N", o)):
+            for vs, ref in (("RMC", None), ("MCNP T3", t3), ("MCNP T4", t4)):
+                d = [(r["k"] - (r["rmc"] if ref is None else interp(ref, r["h"]))) * 1e5 for r in pts]
+                su.append(f"| {lib} | {which} | {vs} | {sum(d) / len(d):+.0f} | {(sum(x * x for x in d) / len(d)) ** 0.5:.0f} "
+                          f"| {max(abs(x) for x in d):.0f} | {sum(abs(x) <= 500 for x in d)}/{len(d)} "
+                          f"| {sum(abs(x) <= 1000 for x in d)}/{len(d)} |")
+    (outdir / "summary.md").write_text("\n".join(su) + "\n")
     print("\n".join(md))
     print("\n".join(sm))
+    print("\n".join(su))
     for r in rows:
         print(f"{r['library']} N={r['N']} lost={r['lost_locates']} data={r['data_s']} s "
               f"transport={r['transport_s']} s")
