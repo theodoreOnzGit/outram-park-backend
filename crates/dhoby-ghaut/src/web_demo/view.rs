@@ -17,11 +17,17 @@ pub struct View {
     /// Fitted to the canvas yet? (Fit happens on the first frame, when the
     /// canvas size is known.)
     pub fitted: bool,
+    /// The main view's size at the last fit, and whether the reader has
+    /// zoomed or panned since. An untouched view refits when its size changes
+    /// (the panel folds, the phone turns, or the first frames were laid out
+    /// before the canvas reached device-pixel size, gh:#556).
+    pub fit_size: Vec2,
+    pub touched: bool,
 }
 
 impl View {
     pub fn new(half_extent: f64) -> Self {
-        Self { centre: [0.0, 0.0], scale: 1.0, half_extent, fitted: false }
+        Self { centre: [0.0, 0.0], scale: 1.0, half_extent, fitted: false, fit_size: Vec2::ZERO, touched: false }
     }
     /// Pixels per cm that make the subject fill 94 % of the smaller side.
     pub fn fit_scale(&self, rect: Rect) -> f64 {
@@ -32,6 +38,8 @@ impl View {
         self.centre = [0.0, 0.0];
         self.scale = self.fit_scale(rect);
         self.fitted = true;
+        self.fit_size = rect.size();
+        self.touched = false;
     }
     pub fn to_screen(&self, rect: Rect, x: f64, y: f64) -> Pos2 {
         let c = rect.center();
@@ -46,6 +54,7 @@ impl View {
     pub fn zoom_about(&mut self, rect: Rect, p: Pos2, factor: f64) {
         let before = self.to_world(rect, p);
         let fit = self.fit_scale(rect);
+        self.touched = true;
         self.scale = (self.scale * factor).clamp(fit * 0.5, fit * 600.0);
         let after = self.to_world(rect, p);
         self.centre[0] += before[0] - after[0];
@@ -56,7 +65,8 @@ impl View {
     /// supplement [`zoom_buttons`], never replace them.
     pub fn handle_input(&mut self, ui: &egui::Ui, resp: &egui::Response) {
         let rect = resp.rect;
-        if !self.fitted || resp.double_clicked() {
+        let resized = (rect.size() - self.fit_size).length() > 0.5;
+        if !self.fitted || resp.double_clicked() || (resized && !self.touched) {
             self.fit(rect);
         }
         if resp.hovered() {
@@ -72,6 +82,7 @@ impl View {
             let d = resp.drag_delta();
             self.centre[0] -= d.x as f64 / self.scale;
             self.centre[1] += d.y as f64 / self.scale;
+            self.touched = true;
         }
     }
 }
@@ -134,6 +145,9 @@ mod tests {
         assert_eq!(v.centre, [0.0, 0.0]);
         v.zoom_about(rect, rect.center(), 1e-6);
         assert!((v.scale - 0.5 * v.fit_scale(rect)).abs() < 1e-12, "zoom out is clamped at half the fit");
+        assert!(v.touched, "zooming marks the view as the reader's");
+        apply_zoom(&mut v, rect, Zoom::Reset);
+        assert!(!v.touched && v.fit_size == rect.size(), "Reset hands it back");
     }
 }
 

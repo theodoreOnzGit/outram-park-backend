@@ -64,12 +64,12 @@ copy `monte_carlo_web`. It gives, ready-made and tested:
 
 | piece | module | what it does |
 |---|---|---|
-| main view | `web_demo::view` | `View` (world cm to screen, `fit`, `zoom_about`, `handle_input`: wheel / pinch / drag / double-click), `zoom_buttons` + `apply_zoom` (+ / − / Reset, 36 px, top right), `scale_bar` |
+| main view | `web_demo::view` | `View` (world cm to screen, `fit`, `zoom_about`, `handle_input`: wheel / pinch / drag / double-click; refits on a size change until the reader zooms or pans), `zoom_buttons` + `apply_zoom` (+ / − / Reset, 36 px, top right), `scale_bar` |
 | side panel | `web_demo::panel` | `Panel::show(ui, heading, contents)`: folds, "« Hide" inside, opens folded under 700 px, at most 85 % of a phone; `reopen_button` draws "Controls »" on the main view |
 | no-lag plumbing | `web_demo::link` | `Link<Req, Ev>` (UI side, `send` / non-blocking `drain`), `NativeEngine` + `start_native` (a thread), `WorkerEngine` + `worker_main` + `start_web` (a module Web Worker on the same wasm, with the hello handshake), `Message` + `js` helpers, `fetch_start` / `fetch_promise` |
 | loading | `web_demo::loading` | `Loading`: per-job progress weighted by cost, `card` on the main view, `grid` in the panel |
 | rungs and lessons | `web_demo::lesson` | trait `Rung` (`all`, `name`, `title`, `lesson`), `from_query` (`?rung=`), `lesson_url`, `whats_happening`, `picker` |
-| platform | `web_demo::platform` | `now_s` (no `Instant` on wasm), `set_title`, `query_pairs` (URL query, or `--key value` natively), `set_query`, `autostart` |
+| platform | `web_demo::platform` | `now_s` (no `Instant` on wasm), `set_title`, `query_pairs` (URL query, or `--key value` natively), `set_query`, `autostart`, `keep_canvas_at_device_pixels` (canvas backing store = CSS size × `devicePixelRatio`; `Panel::show` calls it every frame, gh:#556) |
 
 ### A new track's demo (nuclear data, dispersion, fuel performance, …)
 
