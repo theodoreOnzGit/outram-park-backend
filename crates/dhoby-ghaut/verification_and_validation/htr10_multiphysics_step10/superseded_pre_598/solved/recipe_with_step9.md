@@ -4,8 +4,8 @@
 [kovan]
 id = "recipe"
 kind = "note"
-created = "2026-10-05T17:22:25Z"
-modified = "2026-10-05T17:22:25Z"
+created = "2026-10-05T15:56:44Z"
+modified = "2026-10-05T15:56:44Z"
 ```
 
 A Dhoby Ghaut recipe: the input deck of a guided high-fidelity build. Load it in the workbench to reopen the build, or read it as a record of what was chosen and why. Research, education and V&V only.
@@ -27,8 +27,8 @@ vv_status = "TENTATIVE. Code-to-code against RMC (Li, Yu & Wei 2014), not agains
 [kovan]
 id = "step-0"
 kind = "note"
-created = "2026-10-05T17:22:25Z"
-modified = "2026-10-05T17:22:25Z"
+created = "2026-10-05T15:56:44Z"
+modified = "2026-10-05T15:56:44Z"
 ```
 
 The folder of evaluated tapes the run reads, the library and the data temperature.
@@ -50,8 +50,8 @@ what = "the benchmark is at 27 °C (300.15 K) throughout; Şeker & Çolak (2003)
 [kovan]
 id = "step-1"
 kind = "note"
-created = "2026-10-05T17:22:25Z"
-modified = "2026-10-05T17:22:25Z"
+created = "2026-10-05T15:56:44Z"
+modified = "2026-10-05T15:56:44Z"
 ```
 
 How the pebbles pack, how high the bed is loaded and the pebble-type mix.
@@ -98,8 +98,8 @@ what = "Table 3: 1346 N + 733 balls for N layers; the bed is built to this inven
 [kovan]
 id = "step-2"
 kind = "note"
-created = "2026-10-05T17:22:25Z"
-modified = "2026-10-05T17:22:25Z"
+created = "2026-10-05T15:56:44Z"
+modified = "2026-10-05T15:56:44Z"
 ```
 
 One design per pebble type in the mix. The voids between pebbles are the interstitial coolant.
@@ -164,8 +164,8 @@ what = "Table 2: 2.5 cm fuelled zone"
 [kovan]
 id = "step-3"
 kind = "note"
-created = "2026-10-05T17:22:25Z"
-modified = "2026-10-05T17:22:25Z"
+created = "2026-10-05T15:56:44Z"
+modified = "2026-10-05T15:56:44Z"
 ```
 
 Reflector, boronated bricks, borings, chutes, plenums and risers, each with its status in the model.
@@ -247,8 +247,8 @@ what = "Table 1: core diameter 180 cm"
 [kovan]
 id = "step-4"
 kind = "note"
-created = "2026-10-05T17:22:25Z"
-modified = "2026-10-05T17:22:25Z"
+created = "2026-10-05T15:56:44Z"
+modified = "2026-10-05T15:56:44Z"
 ```
 
 What fills the borings, each with its status in the model.
@@ -291,8 +291,8 @@ what = "control-rod geometry and B4C composition"
 [kovan]
 id = "review"
 kind = "note"
-created = "2026-10-05T17:22:25Z"
-modified = "2026-10-05T17:22:25Z"
+created = "2026-10-05T15:56:44Z"
+modified = "2026-10-05T15:56:44Z"
 ```
 
 The assembled-geometry slices a human looked at before Monte Carlo ran.
@@ -307,8 +307,8 @@ viewed = []
 [kovan]
 id = "step-5"
 kind = "note"
-created = "2026-10-05T17:22:25Z"
-modified = "2026-10-05T17:22:25Z"
+created = "2026-10-05T15:56:44Z"
+modified = "2026-10-05T15:56:44Z"
 ```
 
 Run settings, the ablations (if any) and the runs made.
@@ -336,8 +336,8 @@ what = "the paper ran 10 000 × [5 + 135]; the prefill is the workspace's QUICK 
 [kovan]
 id = "step-6"
 kind = "note"
-created = "2026-10-05T17:22:25Z"
-modified = "2026-10-05T17:22:25Z"
+created = "2026-10-05T15:56:44Z"
+modified = "2026-10-05T15:56:44Z"
 ```
 
 The branch (multiphysics, the default, or a reactivity map) and the reactivity map's fit settings and state-point plan.
@@ -359,8 +359,8 @@ temperature_basis = "sqrt"
 [kovan]
 id = "step-9"
 kind = "note"
-created = "2026-10-05T17:22:25Z"
-modified = "2026-10-05T17:22:25Z"
+created = "2026-10-05T15:56:44Z"
+modified = "2026-10-05T15:56:44Z"
 ```
 
 Boundary conditions, models and solver settings of the coupled case: the OUTRAM-Foam porous-core side, neutronics, the coupling loop and the farrer-park structural side. Each part of the model is listed as in model, simplified or NOT in model.
@@ -463,7 +463,7 @@ note = "Solved (gh:#591): GeN-Foam port multigroup diffusion k-eigenvalue on Ste
 [[element]]
 name = "Neutronics data"
 status = "simplified"
-note = "2 groups by default, P0 scattering, D = 1/(3 Sigma_t), no discontinuity factors, no delayed neutrons (steady state only), Monte Carlo statistics of a short run (gh:#595). KNOWN DEFECT: Step 8's pebble-bed constants are about 1/0.61 too large (its collision-estimator flux misses the helium voids of the delta-tracked bed, gh:#598); diffusion k is then ~+25 000 pcm above Step 8's Monte Carlo and the shape too peaked (V&V record)."
+note = "2 groups by default, P0 scattering, D = 1/(3 Sigma_t), no discontinuity factors, no delayed neutrons (steady state only), Monte Carlo statistics of a short run (gh:#595)."
 
 [[element]]
 name = "Neutronics regions"

@@ -14,6 +14,14 @@
 //!    KappaFission`, and `[Mesh, Energy, EnergyOut]` with `ScatterN,
 //!    NuFission`. The unstructured mesh filter splits track lengths across
 //!    cells (OpenMC's MOAB `bins_crossed`, `outram_mc_libs::tally::mesh_unstructured`).
+//!    **In the delta-tracked pebble bed there is no track length**: flux and
+//!    reaction rates there come from the tentative-collision estimator
+//!    (`w/Σ_maj` and `w·Σ_x/Σ_maj` at every virtual and real collision site,
+//!    binned at the site; `KeffSettings::delta_tally_estimator`, default
+//!    since gh:#598). ~~Before gh:#598 the bed flux was the real-collision
+//!    estimator split along the mesh as if `1/Σ_t` were a track, which
+//!    dropped the helium's flux and left every bed Σ ~1/0.61 too large.~~
+//!    Fixed; the old numbers are struck through in the V&V records.
 //! 3. **Condensation** with [`nee_soon::mgxs::condense`] (one zone per mesh
 //!    cell), then [`nee_soon::mgxs::MgxsLibrary::homogenised_subset`] over
 //!    each region's cells (flux-weighted, the same as tallying the region
@@ -196,6 +204,13 @@ pub fn run(job: &MgxsJob, post: &mut impl FnMut(MgxsProgress)) -> Result<MgxsSet
             }
         }
         let data_s = t0.elapsed().as_secs_f64();
+        let estimator_note = format!(
+            "delta-tracked bed tallied with the {:?} estimator (gh:#598)",
+            KeffSettings::default().delta_tally_estimator
+        );
+        if !notes.contains(&estimator_note) {
+            notes.push(estimator_note);
+        }
         let settings = KeffSettings {
             n_particles: plan.particles,
             n_inactive: plan.inactive,

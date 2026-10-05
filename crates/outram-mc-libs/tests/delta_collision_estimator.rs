@@ -45,7 +45,12 @@
 //!
 //! # Results
 //!
-//! Recorded in each test's doc comment.
+//! Recorded in each test's doc comment, and with the HTR-10 re-run in
+//! `crates/dhoby-ghaut/verification_and_validation/workbench_steps_7_8/README.md`
+//! (gh:#598 section). Test 2 confirmed the predictions. Test 3 first FAILED
+//! (−1.9 % in both groups, 15 σ): tentative sites past the nearest surface
+//! were scored and then re-sampled after the particle stopped there. Fixed
+//! in `transport_csg.rs` (score only before `d_bound`), then passed.
 
 use std::sync::Arc;
 
@@ -53,15 +58,11 @@ use outram_blender::unstructured::{Element, ElementKind, LengthUnit, Unstructure
 use outram_mc_libs::geometry::cell::{Cell, CellFill, HalfSpaceSense, RegionToken};
 use outram_mc_libs::geometry::geometry::Geometry;
 use outram_mc_libs::geometry::position::{Direction, Position};
-use outram_mc_libs::geometry::surface::{
-    BoundaryType, Sphere, SurfaceKind, XPlane, YPlane, ZPlane,
-};
+use outram_mc_libs::geometry::surface::{BoundaryType, Sphere, SurfaceKind, XPlane, YPlane, ZPlane};
 use outram_mc_libs::geometry::universe::Universe;
 use outram_mc_libs::material::material::{Material, NuclideComponent};
 use outram_mc_libs::material::nuclide::Nuclide;
-use outram_mc_libs::pebble_beds::delta_tracking::{
-    bounded_delta_flight_visiting, DeltaStep, Majorant,
-};
+use outram_mc_libs::pebble_beds::delta_tracking::{bounded_delta_flight_visiting, DeltaStep, Majorant};
 use outram_mc_libs::physics::keff::{ComputeType, KeffSettings};
 use outram_mc_libs::physics::transport_csg::{
     run_keff_csg, run_keff_csg_hybrid, DeltaTallyEstimator, SourceBox,
@@ -130,9 +131,14 @@ fn score_collision_point_bins_at_the_point() {
         kind: ElementKind::Hex8,
         nodes: (0..8).map(|k| 4 * i + k).collect(),
     };
-    let mesh =
-        UnstructuredMesh::from_elements(LengthUnit::Centimetre, pts, vec![el(0), el(1)], vec![], vec![])
-            .unwrap();
+    let mesh = UnstructuredMesh::from_elements(
+        LengthUnit::Centimetre,
+        pts,
+        vec![el(0), el(1)],
+        vec![],
+        vec![],
+    )
+    .unwrap();
     let tally = Tally {
         id: 1,
         name: "point".into(),
@@ -145,11 +151,27 @@ fn score_collision_point_bins_at_the_point() {
     let at = Position::new(0.5, 0.5, 0.5);
     let u = Direction::new(1.0, 0.0, 0.0);
     let mut point = vec![0.0; 2];
-    score_collision_point(&mut point, &tally, 0, 0, 0, 1.0, 5.0e4, at, None, 1.0, None, 0.0, u);
+    score_collision_point(
+        &mut point, &tally, 0, 0, 0, 1.0, 5.0e4, at, None, 1.0, None, 0.0, u,
+    );
     assert_eq!(point, vec![5.0e4, 0.0]);
 
     let mut smeared = vec![0.0; 2];
-    score_track_length(&mut smeared, &tally, 0, 0, 0, 1.0, 5.0e4, at, None, 1.0, None, 0.0, u);
+    score_track_length(
+        &mut smeared,
+        &tally,
+        0,
+        0,
+        0,
+        1.0,
+        5.0e4,
+        at,
+        None,
+        1.0,
+        None,
+        0.0,
+        u,
+    );
     assert!(
         (smeared[0] - 1.0).abs() < 1e-9 && (smeared[1] - 1.0).abs() < 1e-9,
         "the contrast case changed: {smeared:?}"
@@ -228,7 +250,9 @@ fn flat_flux_run(gas_density: f64, n_hist: usize, l: f64, seed0: u64) -> FlatFlu
                     &nuclides,
                     1_000_000,
                     |q: Position, _| {
-                        left - ((q.x - start.x) * dir.u + (q.y - start.y) * dir.v + (q.z - start.z) * dir.w)
+                        left - ((q.x - start.x) * dir.u
+                            + (q.y - start.y) * dir.v
+                            + (q.z - start.z) * dir.w)
                     },
                     |q: Position| Some(if in_bcc_sphere(q, a, r_s) { 0 } else { 1 }),
                     &mut seed,
@@ -239,7 +263,9 @@ fn flat_flux_run(gas_density: f64, n_hist: usize, l: f64, seed0: u64) -> FlatFlu
                     },
                 );
                 match step {
-                    DeltaStep::Collision { position, material, .. } => {
+                    DeltaStep::Collision {
+                        position, material, ..
+                    } => {
                         fr += 1.0 / sig[material];
                         rr += 1.0;
                         let d = (position.x - start.x) * dir.u
@@ -286,9 +312,16 @@ fn flat_flux_run(gas_density: f64, n_hist: usize, l: f64, seed0: u64) -> FlatFlu
 /// real-collision estimator gives exactly `Σ_p` (the defect class this
 /// estimator has, independent of gh:#598's binning bug).
 ///
-/// Results (2026-10-06, this test's printout): see the record in
-/// `crates/dhoby-ghaut/verification_and_validation/workbench_steps_7_8/README.md`
-/// (gh:#598 section) for the numbers of the first run.
+/// Results (2026-10-06, release, seed 0x5eed_0598):
+///
+/// | gas | volume-weighted Σ_t | tentative | real-collision |
+/// |---|---|---|---|
+/// | helium-like | 0.233190 | 0.233231 ± 0.000393 (+0.017 %, 0.10 σ), flux path 39.935 cm | 0.27799 ± 0.02930 (+19 %), flux path 45.29 cm |
+/// | void | 0.233183 | 0.233260 ± 0.000394 (+0.033 %, 0.19 σ), flux path 39.937 cm | 0.382267 = Σ_p exactly (+63.9 %), flux path 24.37 cm |
+///
+/// Interpretation: the tentative estimator samples the gas as often as the
+/// pebbles; the real-collision estimator either never sees a void or sees a
+/// near-void through rare, enormous scores.
 #[test]
 fn tentative_collision_estimator_recovers_the_volume_weighted_sigma() {
     for (label, gas) in [("helium-like", 0.09 * 5.0e-5), ("void", 0.0)] {
@@ -344,12 +377,30 @@ fn bcc_cell_geometry(a: f64, delta: bool) -> Geometry {
     let h = 0.5 * a;
     let r = bcc_radius(a);
     let mut surfaces = vec![
-        SurfaceKind::XPlane(XPlane { x0: -h, bc: BoundaryType::Reflective }),
-        SurfaceKind::XPlane(XPlane { x0: h, bc: BoundaryType::Reflective }),
-        SurfaceKind::YPlane(YPlane { y0: -h, bc: BoundaryType::Reflective }),
-        SurfaceKind::YPlane(YPlane { y0: h, bc: BoundaryType::Reflective }),
-        SurfaceKind::ZPlane(ZPlane { z0: -h, bc: BoundaryType::Reflective }),
-        SurfaceKind::ZPlane(ZPlane { z0: h, bc: BoundaryType::Reflective }),
+        SurfaceKind::XPlane(XPlane {
+            x0: -h,
+            bc: BoundaryType::Reflective,
+        }),
+        SurfaceKind::XPlane(XPlane {
+            x0: h,
+            bc: BoundaryType::Reflective,
+        }),
+        SurfaceKind::YPlane(YPlane {
+            y0: -h,
+            bc: BoundaryType::Reflective,
+        }),
+        SurfaceKind::YPlane(YPlane {
+            y0: h,
+            bc: BoundaryType::Reflective,
+        }),
+        SurfaceKind::ZPlane(ZPlane {
+            z0: -h,
+            bc: BoundaryType::Reflective,
+        }),
+        SurfaceKind::ZPlane(ZPlane {
+            z0: h,
+            bc: BoundaryType::Reflective,
+        }),
     ];
     let mut centres = vec![(0.0, 0.0, 0.0)];
     for sx in [-h, h] {
@@ -369,7 +420,10 @@ fn bcc_cell_geometry(a: f64, delta: bool) -> Geometry {
             bc: BoundaryType::Transmissive,
         }));
     }
-    let hs = |i: usize, sense| RegionToken::HalfSpace { surface_idx: i, sense };
+    let hs = |i: usize, sense| RegionToken::HalfSpace {
+        surface_idx: i,
+        sense,
+    };
     // Universe 1: nine sphere cells (pebble, material 0) and the gas between
     // them (material 1). The spheres do not overlap (centre-corner 0.866 a,
     // corner-corner a, both > 2 r = 0.835 a).
@@ -377,7 +431,12 @@ fn bcc_cell_geometry(a: f64, delta: bool) -> Geometry {
     let mut inner = Vec::new();
     for k in 0..centres.len() {
         inner.push(cells.len());
-        cells.push(Cell::material(10 + k as i32, vec![hs(first_sphere + k, HalfSpaceSense::Inside)], 0, TEMP));
+        cells.push(Cell::material(
+            10 + k as i32,
+            vec![hs(first_sphere + k, HalfSpaceSense::Inside)],
+            0,
+            TEMP,
+        ));
     }
     let mut gas_region = vec![hs(first_sphere, HalfSpaceSense::Outside)];
     for k in 1..centres.len() {
@@ -408,8 +467,14 @@ fn bcc_cell_geometry(a: f64, delta: bool) -> Geometry {
         surfaces,
         cells,
         universes: vec![
-            Universe { id: 0, cell_indices: vec![root_idx] },
-            Universe { id: 1, cell_indices: inner },
+            Universe {
+                id: 0,
+                cell_indices: vec![root_idx],
+            },
+            Universe {
+                id: 1,
+                cell_indices: inner,
+            },
         ],
         lattices: vec![],
         root_universe: 0,
@@ -426,7 +491,9 @@ fn region_tally(a: f64) -> Tally {
             FilterKind::Mesh(MeshFilter {
                 mesh: MeshKind::Unstructured(Arc::new(one_hex_mesh(0.5 * a))),
             }),
-            FilterKind::Energy(EnergyFilter { bins: GROUPS.to_vec() }),
+            FilterKind::Energy(EnergyFilter {
+                bins: GROUPS.to_vec(),
+            }),
         ],
         scores: vec![ScoreType::Flux, ScoreType::Total],
         bins: vec![TallyBin::default(); 2 * 2],
@@ -460,8 +527,16 @@ fn sigma_t(t: &Tally, n: u64) -> Vec<(f64, f64)> {
 /// combined (ratio σ with the flux/rate correlation ignored, so
 /// conservative) in both groups; the two delta arms give bit-identical `k`.
 ///
-/// Results: see the gh:#598 section of
-/// `crates/dhoby-ghaut/verification_and_validation/workbench_steps_7_8/README.md`.
+/// Results (2026-10-06, release, single thread, this configuration):
+///
+/// | group | surface (track length) | delta, tentative (default) | delta, real-collision (ablation) |
+/// |---|---|---|---|
+/// | fast | 0.263476 ± 0.00147 | 0.263307 ± 0.00124 (−0.06 %, 0.09 σ) | 0.240284 ± 0.0118 (−8.8 %) |
+/// | thermal | 0.226307 ± 0.00022 | 0.226347 ± 0.00025 (+0.02 %, 0.12 σ) | 0.231125 ± 0.0059 (+2.1 %) |
+///
+/// `k`: surface 1.956899 ± 0.003915; both delta arms 1.958613 (bit-identical).
+/// Before the `d_bound` guard (3000 × (20 + 40)): delta tentative −1.87 % and
+/// −1.89 % (3.8 σ, 15.3 σ), the defect this test exists to catch. 169 s.
 #[test]
 fn delta_tally_matches_surface_track_length_on_a_bcc_cell() {
     let (Some(u5), Some(c12), Some(he4)) = (
@@ -479,15 +554,24 @@ fn delta_tally_matches_surface_track_length_on_a_bcc_cell() {
             name: "fuelled graphite".into(),
             temperature: TEMP,
             components: vec![
-                NuclideComponent { nuclide_idx: 0, atom_density: 2.0e-5 },
-                NuclideComponent { nuclide_idx: 1, atom_density: 8.67e-2 },
+                NuclideComponent {
+                    nuclide_idx: 0,
+                    atom_density: 2.0e-5,
+                },
+                NuclideComponent {
+                    nuclide_idx: 1,
+                    atom_density: 8.67e-2,
+                },
             ],
         },
         Material {
             id: 2,
             name: "helium".into(),
             temperature: TEMP,
-            components: vec![NuclideComponent { nuclide_idx: 2, atom_density: 2.4452e-5 }],
+            components: vec![NuclideComponent {
+                nuclide_idx: 2,
+                atom_density: 2.4452e-5,
+            }],
         },
     ];
     let a = 6.0;
@@ -544,9 +628,15 @@ fn delta_tally_matches_surface_track_length_on_a_bcc_cell() {
         Some(&mut t_real),
     );
 
-    let (s, d, rc) = (sigma_t(&t_surf, n), sigma_t(&t_tent, n), sigma_t(&t_real, n));
-    println!("k: surface {:.6} ± {:.6}, delta {:.6} ± {:.6}, delta (real-collision tally) {:.6}",
-        surf.k_mean, surf.k_std, tent.k_mean, tent.k_std, real.k_mean);
+    let (s, d, rc) = (
+        sigma_t(&t_surf, n),
+        sigma_t(&t_tent, n),
+        sigma_t(&t_real, n),
+    );
+    println!(
+        "k: surface {:.6} ± {:.6}, delta {:.6} ± {:.6}, delta (real-collision tally) {:.6}",
+        surf.k_mean, surf.k_std, tent.k_mean, tent.k_std, real.k_mean
+    );
     println!("delta virtual collisions: {}", tent.virtual_collisions);
     for g in 0..2 {
         let z = (d[g].0 - s[g].0).abs()
@@ -565,7 +655,10 @@ fn delta_tally_matches_surface_track_length_on_a_bcc_cell() {
             s[g].0
         );
     }
-    assert!(tent.virtual_collisions > 0, "the delta region was never entered");
+    assert!(
+        tent.virtual_collisions > 0,
+        "the delta region was never entered"
+    );
     assert_eq!(
         tent.k_mean.to_bits(),
         real.k_mean.to_bits(),

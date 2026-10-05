@@ -212,6 +212,13 @@ pub fn load_mgxs(case: &Path) -> Result<dhoby_ghaut::workbench::mgxs::MgxsSet, S
 /// helium voids (flux low by the filling fraction, so every bed `Σ` high by
 /// its inverse). Never the default; the fix belongs in Step 8.
 ///
+/// **SUPERSEDED 2026-10-06 (gh:#598).** The hypothesis held, and the cause
+/// was fixed in the Monte Carlo tally (the delta-tracked bed is now scored
+/// with the tentative-collision estimator, binned at the site). Step 8 data
+/// written after that fix already carry the helium's flux, so applying this
+/// scale to them double-corrects. It is kept only to reproduce the gh:#591
+/// record on the pre-fix data, and the run prints a warning.
+///
 /// # Errors
 ///
 /// A file failure.

@@ -1,3 +1,13 @@
+[  0.0 s]   0 % meshing: Neutronics
+[  0.6 s]   8 % drawing: Neutronics
+[  0.6 s]  17 % meshing: Thermal-hydraulics
+[  1.4 s]  25 % drawing: Thermal-hydraulics
+[  1.5 s]  33 % meshing: Structural (FEM)
+[  2.0 s]  42 % drawing: Structural (FEM)
+[  2.0 s]  50 % mapping: Neutronics <-> Thermal-hydraulics
+[  4.3 s]  67 % mapping: Neutronics <-> Structural (FEM)
+[ 11.1 s]  83 % mapping: Thermal-hydraulics <-> Structural (FEM)
+[ 11.3 s] 100 % done
 Step 10 coupled run, power SOLVED by diffusion (TENTATIVE; see the element list)
   [in model] Helium energy balance: Exact enthalpy march per ring with the coolprop-port helium EOS ((p, h) flash).
   [in model] Pebble-to-helium heat transfer: Wakao-Funazkri (1978) on local Re, Pr and k (tampines::pebble_bed::cht).
@@ -9,7 +19,7 @@ Step 10 coupled run, power SOLVED by diffusion (TENTATIVE; see the element list)
   [simplified] Side wall: Adiabatic: no heat to the side reflector or the RCCS (gh:#592).
   [simplified] Reflector, plenums, bypass channels: Not modelled thermally; the bypass (total minus core flow) is mixed at the inlet temperature.
   [in model] Power shape and k: Solved (gh:#591): GeN-Foam port multigroup diffusion k-eigenvalue on Step 7's neutronics mesh, Step 8's constants at each cell's TFuel (ln T, extrapolated linearly outside the state points as upstream), Marshak vacuum boundary, Picard-coupled to the march through Step 7's maps with relaxed power. Ablation: --prescribed-power (J0 x cosine with lumped feedback).
-  [simplified] Neutronics data: 2 groups by default, P0 scattering, D = 1/(3 Sigma_t), no discontinuity factors, no delayed neutrons (steady state only), Monte Carlo statistics of a short run (gh:#595).
+  [simplified] Neutronics data: 2 groups by default, P0 scattering, D = 1/(3 Sigma_t), no discontinuity factors, no delayed neutrons (steady state only), Monte Carlo statistics of a short run (gh:#595). KNOWN DEFECT: Step 8's pebble-bed constants are about 1/0.61 too large (its collision-estimator flux misses the helium voids of the delta-tracked bed, gh:#598); diffusion k is then ~+25 000 pcm above Step 8's Monte Carlo and the shape too peaked (V&V record).
   [simplified] Neutronics regions: Cells take their region by centroid on the 30 cm neutronics mesh: region boundaries are stair-stepped, borings not explicit (gh:#594). Fission power landing outside the TH bed is reported and the bed power rescaled to the thermal power.
   [simplified] Temperature feedback: One temperature per cell drives every material's constants: the fuel-pebble volume average in the bed (state points are isothermal, gh:#595); no separate moderator / coolant-density feedback.
   [simplified] Reflector, conus, tube temperatures (for the cross sections): Held at the inlet helium temperature: no reflector heat balance (gh:#592).
@@ -20,73 +30,73 @@ Step 9 adjusted: fuel-pebble share: 1.0000 -> 0.5700  (the reactor Steps 1-8 bui
 meshes: neutronics 14041 cells (30 cm), TH 12888 cells (15 cm); 2 groups, state points [300.15, 600.0, 900.0, 1200.0] K, law log
 isothermal k (every neutronics cell at the state temperature), boundary: Marshak vacuum (albedo 1/2, face closure)
    T [K]   k diffusion   k Monte Carlo (Step 8)       diff [pcm]     P/A diffusion  P/A Monte Carlo
-   300.15   1.39343       1.14617 ± 0.00678        +24726 (+36.5 σ)   1.40076        1.14208
-   600.00   1.35444       1.10254 ± 0.00734        +25190 (+34.3 σ)   1.36283        1.10548
-   900.00   1.31881       1.06975 ± 0.00627        +24906 (+39.7 σ)   1.32652        1.06767
-  1200.00   1.29751       1.02742 ± 0.00714        +27009 (+37.8 σ)   1.30479        1.02480
+   300.15   1.18637       1.14617 ± 0.00678         +4020 (+5.9 σ)   1.19261        1.13785
+   600.00   1.14537       1.10254 ± 0.00734         +4283 (+5.8 σ)   1.15331        1.10692
+   900.00   1.10627       1.06975 ± 0.00627         +3652 (+5.8 σ)   1.11487        1.06708
+  1200.00   1.08570       1.02742 ± 0.00714         +5828 (+8.2 σ)   1.09406        1.02682
 region balance at 300.15 K (shares of production / absorption; flux per group scaled to the MC production):
   region               prod D   prod MC   abs D    abs MC   flux D (fast, ...)          flux MC
-  pebble_bed            0.9829   0.9708    0.7978   0.6396   3.834e3 2.483e3            3.591e5 2.460e5
-  conus                 0.0101   0.0127    0.0119   0.0123   9.037e1 1.968e2            1.424e4 2.450e4
-  discharge_tube        0.0000   0.0000    0.0011   0.0016   1.183e0 1.310e1            3.748e2 2.447e3
-  core_cavity           0.0000   0.0000    0.0015   0.0026   9.701e1 1.407e2            2.138e4 3.020e4
-  top_reflector         0.0000   0.0000    0.0118   0.0224   4.008e1 1.767e2            1.025e4 4.092e4
-  cold_gas_plenum       0.0000   0.0000    0.0081   0.0166   1.676e1 8.699e1            3.807e3 2.193e4
-  side_reflector        0.0053   0.0127    0.0863   0.1690   2.892e2 1.593e3            6.965e4 3.827e5
-  control_rod_band      0.0008   0.0018    0.0198   0.0344   2.259e2 6.292e2            5.237e4 1.337e5
-  coolant_band          0.0000   0.0000    0.0056   0.0119   8.340e0 1.633e2            1.885e3 4.287e4
-  carbon_bricks         0.0000   0.0000    0.0353   0.0409   3.925e0 1.863e1            5.117e2 2.649e3
-  bottom_structures     0.0000   0.0000    0.0154   0.0384   8.192e0 1.496e2            3.357e3 4.563e4
-  conus_graphite        0.0009   0.0021    0.0054   0.0104   3.070e1 1.422e2            9.301e3 3.341e4
-isothermal 300.15 K shape at 10.0 MW: node peak/mean 1.831 (max 3.745 W/cm³ at ring 0 node 104 of 200), neutronics-cell peak 3.449 W/cm³; split bed/cavity/outside 0.902/0.025/0.073
+  pebble_bed            0.9766   0.9707    0.6750   0.6383   5.766e3 3.775e3            5.535e5 3.759e5
+  conus                 0.0103   0.0125    0.0104   0.0121   1.828e2 3.146e2            2.244e4 3.841e4
+  discharge_tube        0.0000   0.0000    0.0014   0.0016   4.151e0 3.076e1            5.475e2 3.670e3
+  core_cavity           0.0000   0.0000    0.0025   0.0027   1.881e2 2.726e2            2.180e4 3.090e4
+  top_reflector         0.0000   0.0000    0.0205   0.0224   7.770e1 3.516e2            9.492e3 4.015e4
+  cold_gas_plenum       0.0000   0.0000    0.0138   0.0166   3.182e1 1.718e2            3.743e3 2.191e4
+  side_reflector        0.0097   0.0125    0.1377   0.1696   6.066e2 3.011e3            7.497e4 3.889e5
+  control_rod_band      0.0018   0.0022    0.0308   0.0347   4.450e2 1.152e3            5.424e4 1.360e5
+  coolant_band          0.0000   0.0000    0.0093   0.0119   1.844e1 3.184e2            1.766e3 4.283e4
+  carbon_bricks         0.0000   0.0000    0.0619   0.0410   3.345e0 3.522e1            1.200e2 2.512e3
+  bottom_structures     0.0000   0.0000    0.0285   0.0386   1.984e1 3.234e2            2.929e3 4.591e4
+  conus_graphite        0.0015   0.0021    0.0081   0.0104   7.640e1 2.723e2            1.101e4 3.668e4
+isothermal 300.15 K shape at 10.0 MW: node peak/mean 1.543 (max 3.155 W/cm³ at ring 0 node 104 of 200), neutronics-cell peak 2.834 W/cm³; split bed/cavity/outside 0.880/0.032/0.088
  iter  flow res.  max dT[K]  power res.  k_eff     |dk|      T_he,max [C]  T_kern,max [C]  P bed/cav/out      rescale  outers  extrap  t_n[s]
 note: neutronics boundary: Marshak vacuum (albedo 1/2, face closure)
 note: ring grid <- TH mesh: 512000 samples, 11202 (2.19 %) outside every bed cell and given to the nearest one
 note: 88 of 7917 TH bed cells hold no node sample; each takes the temperature of the node at its centroid
-    1    1.71e-1  1301.7812    4.50e-1   1.36407       NaN        870.72        1028.63  0.901/0.025/0.074  1.0971    57      0    0.4
-    2    1.50e-1   103.2325    2.26e-1   1.32079    4.3e-2        943.15        1097.43  0.896/0.030/0.074  1.1027    68      0    0.5
-    3    9.38e-2    51.5781    1.09e-1   1.31929    1.5e-3        985.46        1136.58  0.895/0.031/0.074  1.1037    43     23    0.3
-    4    5.14e-2    25.7192    5.37e-2   1.31841    8.8e-4       1007.61        1156.09  0.894/0.031/0.075  1.1042    44     41    0.3
-    5    2.62e-2    12.3653    2.81e-2   1.31792    5.0e-4       1018.24        1164.81  0.894/0.031/0.075  1.1045    42     53    0.4
-    6    1.28e-2     5.7982    1.50e-2   1.31765    2.7e-4       1022.96        1168.30  0.894/0.031/0.075  1.1046    37     58    0.4
-    7    6.00e-3     2.6496    7.88e-3   1.31752    1.3e-4       1024.92        1169.51  0.894/0.031/0.075  1.1047    32     58    0.3
-    8    2.73e-3     1.2433    4.09e-3   1.31745    6.5e-5       1025.66        1169.83  0.894/0.031/0.075  1.1047    26     60    0.3
-    9    1.22e-3     0.5875    2.09e-3   1.31742    3.1e-5       1025.91        1169.85  0.894/0.031/0.075  1.1048    11     64    0.1
-   10    5.29e-4     0.2783    1.06e-3   1.31741    1.5e-5       1025.98        1169.79  0.894/0.031/0.075  1.1048    10     64    0.1
-   11    2.30e-4     0.1323    5.32e-4   1.31740    7.0e-6       1025.99        1169.74  0.894/0.031/0.075  1.1048     9     64    0.1
-   12    1.03e-4     0.0630    2.64e-4   1.31740    3.4e-6       1025.98        1169.70  0.894/0.031/0.075  1.1048     3     64    0.0
-   13    4.72e-5     0.0303    1.30e-4   1.31739    1.4e-6       1025.97        1169.68  0.894/0.031/0.075  1.1048     7     64    0.0
-   14    2.18e-5     0.0158    6.38e-5   1.31739    7.2e-7       1025.97        1169.66  0.894/0.031/0.075  1.1048     3     64    0.0
-   15    1.03e-5     0.0084    3.11e-5   1.31739    3.2e-7       1025.96        1169.66  0.894/0.031/0.075  1.1048     3     64    0.0
+    1    1.27e-1  1256.9482    4.19e-1   1.15546       NaN        831.46         983.80  0.880/0.032/0.088  1.1213    35      0    0.4
+    2    1.13e-1    90.7707    2.43e-1   1.10768    4.8e-2        879.81        1028.81  0.874/0.038/0.089  1.1279    41      0    0.5
+    3    7.13e-2    46.2770    1.20e-1   1.10667    1.0e-3        907.96        1054.84  0.873/0.038/0.089  1.1286    25      0    0.3
+    4    3.94e-2    22.6789    5.87e-2   1.10615    5.2e-4        922.87        1068.28  0.873/0.038/0.089  1.1290    19      7    0.1
+    5    2.03e-2    10.9526    2.87e-2   1.10588    2.7e-4        930.22        1074.60  0.873/0.038/0.090  1.1293    15     18    0.1
+    6    1.00e-2     5.2533    1.50e-2   1.10574    1.4e-4        933.64        1077.35  0.872/0.038/0.090  1.1294    13     18    0.1
+    7    4.82e-3     2.5112    7.76e-3   1.10567    7.2e-5        935.17        1078.46  0.872/0.038/0.090  1.1294    12     21    0.1
+    8    2.27e-3     1.1983    4.00e-3   1.10563    3.6e-5        935.83        1078.88  0.872/0.038/0.090  1.1294    11     21    0.1
+    9    1.05e-3     0.5717    2.05e-3   1.10561    1.8e-5        936.10        1079.01  0.872/0.038/0.090  1.1294    10     21    0.1
+   10    4.81e-4     0.2729    1.04e-3   1.10561    8.7e-6        936.21        1079.05  0.872/0.038/0.090  1.1294     9     21    0.0
+   11    2.18e-4     0.1305    5.26e-4   1.10560    4.2e-6        936.25        1079.05  0.872/0.038/0.090  1.1294     8     21    0.0
+   12    9.84e-5     0.0626    2.64e-4   1.10560    2.0e-6        936.26        1079.04  0.872/0.038/0.090  1.1294     7     21    0.0
+   13    4.43e-5     0.0301    1.32e-4   1.10560    9.9e-7        936.27        1079.04  0.872/0.038/0.090  1.1294     6     21    0.0
+   14    1.99e-5     0.0145    6.59e-5   1.10560    4.8e-7        936.27        1079.03  0.872/0.038/0.090  1.1294     5     21    0.0
+   15    8.99e-6     0.0070    3.27e-5   1.10560    2.4e-7        936.27        1079.03  0.872/0.038/0.090  1.1294     3     21    0.0
 CONVERGED after 15 coupling iterations
-power shape SOLVED (diffusion): node peak/mean 1.7433, max node power density 3.565 W/cm³ (Gao & Shi: 2.57 max, 2.0 mean; the prescribed ablation: 2.57/2.0 = 1.285)
+power shape SOLVED (diffusion): node peak/mean 1.5051, max node power density 3.078 W/cm³ (Gao & Shi: 2.57 max, 2.0 mean; the prescribed ablation: 2.57/2.0 = 1.285)
 bed exit (mixed) 760.9 °C; vessel outlet with bypass 695.9 °C
-max helium 1026.0 °C; max fuel-pebble surface 1098.6 °C; max pebble centre 1155.6 °C
-max kernel (peak fuel) 1169.7 °C; power-weighted mean fuel pebble 672.1 °C
-bed pressure drop 0.501 kPa; superficial velocity at the inlet 0.54 m/s (interstitial 1.39), largest at a ring exit 1.21 m/s (interstitial 3.10)
-k_eff = 1.31739 (diffusion eigenvalue at the converged temperatures; power-weighted fuel-pebble T 609.1 °C)
-energy balance (heat to helium / power - 1) 1.53e-14
-particle Re 1448-3373; 0 nodes outside Wakao's 15-8500
+max helium 936.3 °C; max fuel-pebble surface 1010.2 °C; max pebble centre 1065.5 °C
+max kernel (peak fuel) 1079.0 °C; power-weighted mean fuel pebble 655.6 °C
+bed pressure drop 0.503 kPa; superficial velocity at the inlet 0.54 m/s (interstitial 1.39), largest at a ring exit 1.16 m/s (interstitial 2.98)
+k_eff = 1.10560 (diffusion eigenvalue at the converged temperatures; power-weighted fuel-pebble T 595.5 °C)
+energy balance (heat to helium / power - 1) 1.15e-14
+particle Re 1573-3313; 0 nodes outside Wakao's 15-8500
 TENTATIVE comparison with Gao & Shi (2002), INITIAL core (the preset recipe is an initial-core loading; ours is nominal, theirs may include the §4.1 factors):
-  Max power density [W/cm³]          ours     3.57  published     2.84  diff    +0.73  (§4.2: at R = 0, Z = 90 cm (equilibrium core 2.57))
-  Mean fuel temperature [°C]         ours   672.14  published   605.70  diff   +66.44  (§4.3 average)
-  Max fuel centre [°C]               ours  1169.66  published   995.00  diff  +174.66  (§4.3 'about 995'; §5 says 1049 (unresolved, see the transcription))
+  Max power density [W/cm³]          ours     3.08  published     2.84  diff    +0.24  (§4.2: at R = 0, Z = 90 cm (equilibrium core 2.57))
+  Mean fuel temperature [°C]         ours   655.61  published   605.70  diff   +49.91  (§4.3 average)
+  Max fuel centre [°C]               ours  1079.03  published   995.00  diff   +84.03  (§4.3 'about 995'; §5 says 1049 (unresolved, see the transcription))
   Reactor outlet helium [°C]         ours   695.89  published   700.00  diff    -4.11  (Table 2 design value)
 TENTATIVE comparison with Gao & Shi (2002), equilibrium core, 100 %:
   Reactor outlet helium [°C]         ours   695.89  published   700.00  diff    -4.11  (Table 2 (design value; mixed outlet))
-  Max coolant temperature [°C]       ours  1025.96  published   818.00  diff  +207.96  (Table 2)
-  Max fuel temperature [°C]          ours  1169.66  published   918.70  diff  +250.96  (Table 2; includes the §4.1 uncertainty factors)
-  Max fuel surface temperature [°C]  ours  1098.56  published   876.70  diff  +221.86  (Table 2; includes the §4.1 uncertainty factors)
+  Max coolant temperature [°C]       ours   936.27  published   818.00  diff  +118.27  (Table 2)
+  Max fuel temperature [°C]          ours  1079.03  published   918.70  diff  +160.33  (Table 2; includes the §4.1 uncertainty factors)
+  Max fuel surface temperature [°C]  ours  1010.16  published   876.70  diff  +133.46  (Table 2; includes the §4.1 uncertainty factors)
   Core pressure drop [kPa]           ours     0.50  published     1.30  diff    -0.80  (Table 1/2: pebble bed AND bottom reflector)
-wall clock 20.7 s
+wall clock 17.2 s
 ABLATION on the same core (--prescribed-power): power shape and k prescribed
   quantity                         solved     prescribed
-  node peak/mean power density           1.743      1.280
-  max node power density [W/cm3]         3.565      2.618
-  max kernel [C]                      1169.655   1035.328
-  max fuel-pebble surface [C]         1098.562    968.287
-  max helium [C]                      1025.963    870.541
+  node peak/mean power density           1.505      1.280
+  max node power density [W/cm3]         3.078      2.618
+  max kernel [C]                      1079.030   1035.328
+  max fuel-pebble surface [C]         1010.159    968.287
+  max helium [C]                       936.268    870.541
   vessel outlet [C]                    695.886    695.886
-  bed pressure drop [kPa]                0.501      0.497
-  power-weighted mean fuel pebble [C]   672.141    642.998
-wrote the fields, summary, isothermal_k.csv, neutronics_mesh_fields.csv and the PNGs into crates/dhoby-ghaut/verification_and_validation/htr10_multiphysics_step10/solved
+  bed pressure drop [kPa]                0.503      0.497
+  power-weighted mean fuel pebble [C]   655.613    642.998
+wrote the fields, summary, isothermal_k.csv, neutronics_mesh_fields.csv and the PNGs into /tmp/claude-1000/-home-teddy0-Documents-research-outram-park-backend/9b92ab18-0742-4e99-9d44-5760134f7d83/scratchpad/solved_598

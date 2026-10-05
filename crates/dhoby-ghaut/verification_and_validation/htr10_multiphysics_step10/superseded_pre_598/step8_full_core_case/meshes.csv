@@ -7,8 +7,8 @@ mesh,region,cells,mesh_cm3,exact_cm3,rel_diff
 neutronics,pebble_bed,922,5.260500e6,4.898528e6,7.3894e-2
 neutronics,conus,105,4.725000e5,4.203628e5,1.2403e-1
 neutronics,discharge_tube,67,4.557061e5,4.339325e5,5.0177e-2
-neutronics,core_cavity,133,6.733750e5,7.506836e5,-1.0298e-1
-neutronics,top_reflector,1405,7.681390e6,8.201548e6,-6.3422e-2
+neutronics,core_cavity,132,6.573750e5,7.506836e5,-1.2430e-1
+neutronics,top_reflector,1406,7.697390e6,8.201548e6,-6.1471e-2
 neutronics,cold_gas_plenum,150,1.313666e6,6.927919e5,8.9619e-1
 neutronics,side_reflector,2476,1.488349e7,1.478623e7,6.5775e-3
 neutronics,control_rod_band,387,2.111625e6,2.157859e6,-2.1426e-2
@@ -28,9 +28,9 @@ structural,bottom_structures,28360,1.890622e7,1.916176e7,-1.3336e-2
 structural,conus_graphite,938,5.198626e5,5.211725e5,-2.5135e-3
 
 from,to,overlap_cm3,to_coverage,uncovered_target_cells,seconds
-neutronics,thermal_hydraulics,5.576737e6,0.999999,0,1.7
-thermal_hydraulics,neutronics,5.576737e6,0.081621,12635,1.7
-neutronics,structural,6.192191e7,0.997029,0,5.4
-structural,neutronics,6.192191e7,0.906293,843,5.4
+neutronics,thermal_hydraulics,5.576737e6,0.999999,0,2.0
+thermal_hydraulics,neutronics,5.576737e6,0.081621,12635,2.0
+neutronics,structural,6.192191e7,0.997029,0,6.0
+structural,neutronics,6.192191e7,0.906293,843,6.0
 thermal_hydraulics,structural,8.125534e4,0.001308,92812,0.2
 structural,thermal_hydraulics,8.125534e4,0.014570,7792,0.2

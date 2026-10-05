@@ -23,7 +23,7 @@
 //! cargo run --release -p dhoby-ghaut --bin dhoby-ghaut -- --headless-multiphysics \
 //!     --case mgxs_case_dir [--boundary face|cell|zero] [--n-cell 30 --th-cell 15] \
 //!     [--rings 40 --axial 200] [--isothermal-k-only] [--out out_dir] \
-//!     [--diagnostic-bed-sigma-scale 0.61]
+//!     [--diagnostic-bed-sigma-scale 0.61 (pre-gh:#598 data only; superseded)]
 //! cargo run --release -p dhoby-ghaut --bin dhoby-ghaut -- --headless-multiphysics \
 //!     --prescribed-power [--uniform-power] [--rings 5 --axial 40] [--out out_dir]
 //! cargo run --release -p dhoby-ghaut --bin dhoby-ghaut -- --headless-keff \
@@ -287,6 +287,10 @@ fn main() -> Result<(), String> {
         if let Some(f) = fnum("--diagnostic-bed-sigma-scale") {
             let bed = mp_headless::diagnostic_bed_scale(&mut mgxs, &built.set, f, out)?;
             println!("DIAGNOSTIC: regions {bed:?} scaled by {f} (Sigma x f, D / f); NOT Step 8's data");
+            println!(
+                "WARNING: superseded by the gh:#598 fix. Step 8 data written after it already \
+                 carry the bed's helium flux; scaling them double-corrects. Use only on pre-#598 data."
+            );
         }
         let only_k = args.iter().any(|a| a == "--isothermal-k-only");
         return mp_headless::headless_spatial(&r, &setup, built, mgxs, boundary, out, only_k);
