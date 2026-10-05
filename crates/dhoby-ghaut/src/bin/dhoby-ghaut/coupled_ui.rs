@@ -543,6 +543,8 @@ pub fn run_settings(app: &mut App, ui: &mut egui::Ui) {
                         inputs,
                         b.meshes[dhoby_ghaut::workbench::meshes::MeshRole::Neutronics.index()]
                             .clone(),
+                        b.meshes[dhoby_ghaut::workbench::meshes::MeshRole::ThermalHydraulics.index()]
+                            .clone(),
                     )),
                     Err(e) => Err(e),
                 }
@@ -569,7 +571,7 @@ pub fn run_settings(app: &mut App, ui: &mut egui::Ui) {
         {
             app.mp.auto_run = false;
             match job {
-                Ok((inputs, n_mesh)) if solved => {
+                Ok((inputs, n_mesh, th_mesh)) if solved => {
                     let (setup, moved) = crate::mp_preset::on_built_core(
                         app.mp.setup.clone(),
                         &inputs.meshes.domain,
@@ -581,6 +583,7 @@ pub fn run_settings(app: &mut App, ui: &mut egui::Ui) {
                         Some(SpatialJob {
                             inputs: std::sync::Arc::new(inputs),
                             n_mesh,
+                            th_mesh,
                         }),
                         moved,
                     );

@@ -30,20 +30,24 @@
 //!    (`sum_g phi_g sigmaPow_g`) is scaled to the thermal power.
 //! 2. **Neutronics → TH.** Step 7's `MeshMapping` neutronics → TH (upstream
 //!    `mapTgtToSrc`, volume-weighted) gives the power density on the TH mesh;
-//!    each bed cell's power `q V` is then shared among the ring-grid nodes
-//!    in proportion to how many of the nodes' sample points (2 radii × 64
-//!    azimuths per node) have that cell as their nearest bed
-//!    cell, which keeps the bed power exactly; a cell no sample reached gives
-//!    its power to the node at its centroid. Power the neutronics puts in TH
-//!    cavity cells or outside the TH mesh (region stair-stepping, gh:#594) is
-//!    reported, and the node power is rescaled to the thermal power (all of
-//!    it is deposited in the bed: no gamma heating of the reflectors).
+//!    each ring-grid node then takes its volume times the mean TH power
+//!    density over its sample points (2 radii × 32 azimuths per node,
+//!    uniform in volume; the bed cell containing each by exact point
+//!    location, `UnstructuredMeshExt::locate`, or the nearest bed cell
+//!    centroid for a sample in a cavity cell or outside the faceted mesh):
+//!    the volume-overlap transfer `sum_c q_c |c ∩ node|`, estimated by
+//!    sampling, which never exceeds the largest cell value. Power the
+//!    neutronics puts in TH cavity cells or outside the TH mesh (region
+//!    stair-stepping, gh:#594) is reported, and the node power is rescaled
+//!    to the thermal power (all of it is deposited in the bed: no gamma
+//!    heating of the reflectors).
 //! 3. **Relaxation.** The node power is under-relaxed (Step 9's
 //!    `power_relaxation`) and handed to the march
 //!    ([`crate::porous_core::PorousCore::set_node_power`]), which then does
 //!    one outer iteration (march + flow split).
 //! 4. **TH → neutronics.** Each TH bed cell takes the fuel-pebble volume
-//!    average temperature of the node at its centroid; cavity cells the
+//!    average temperature of the nodes whose samples fell in it, weighted by
+//!    sample count (the node at its centroid if none did); cavity cells the
 //!    inlet helium temperature; Step 7's TH → neutronics map gives `TFuel`
 //!    on the neutronics cells it covers; the rest (the reflectors, the
 //!    conus, the discharge tube) are held at the inlet helium temperature.
@@ -71,7 +75,10 @@ use outram_foam_appbuilder_lib::genfoam::neutronics::diffusion::{
 use outram_foam_appbuilder_lib::genfoam::neutronics::xs::CrossSectionData;
 use outram_foam_appbuilder_lib::io::nuclear_data::read_nuclear_data;
 use outram_foam_appbuilder_lib::io::poly_mesh::{read_cell_zones, read_poly_mesh, zone_of_cell};
+use outram_blender::unstructured::UnstructuredMesh;
 use outram_foam_basic_lib::prelude::{BoundaryCondition, FvMesh};
+use outram_mc_libs::geometry::position::Position;
+use outram_mc_libs::tally::mesh_unstructured::UnstructuredMeshExt;
 
 use crate::porous_core::{Fields, IterationReport, PorousCore, Summary};
 
@@ -156,7 +163,11 @@ impl Neutronics {
         inputs.check_for_neutronics()?;
         let ms = &inputs.meshes;
         let n = ms.mesh(MeshRole::Neutronics).ok_or("no neutronics mesh")?;
-        let dir = PathBuf::from(n.polymesh_dir.clone().ok_or("neutronics mesh not written")?);
+        let dir = PathBuf::from(
+            n.polymesh_dir
+                .clone()
+                .ok_or("neutronics mesh not written")?,
+        );
         let mesh = read_poly_mesh(&dir).map_err(|e| format!("{}: {e}", dir.display()))?;
         if mesh.n_cells != n.cells {
             return Err(format!(
@@ -308,7 +319,11 @@ impl Neutronics {
             .map(|f| f.internal.as_slice().to_vec())
             .collect();
         let pd = st.power_density().internal.as_slice();
-        let total: f64 = pd.iter().zip(&self.mesh.cell_volumes).map(|(q, v)| q * v).sum();
+        let total: f64 = pd
+            .iter()
+            .zip(&self.mesh.cell_volumes)
+            .map(|(q, v)| q * v)
+            .sum();
         if !(total > 0.0) {
             return Err("the diffusion solution carries no fission power".into());
         }
@@ -344,11 +359,14 @@ pub struct Transfer {
     n_cells_n: usize,
     th_vol_m3: Vec<f64>,
     th_bed: Vec<bool>,
-    /// Per TH bed cell: `(node, share)` with shares summing to 1.
-    cell_share: Vec<Vec<(usize, f64)>>,
-    /// Node containing each TH bed cell's centroid.
-    cell_node: Vec<usize>,
-    n_nodes: usize,
+    /// Per node: `(TH bed cell, fraction of the node's samples in it)`,
+    /// fractions summing to 1.
+    node_cells: Vec<Vec<(usize, f64)>>,
+    /// Per TH bed cell: `(node, fraction of the cell's samples in it)`, or
+    /// the node at its centroid when no sample fell in the cell.
+    cell_nodes: Vec<Vec<(usize, f64)>>,
+    /// Node volumes \[m³\].
+    node_vol_m3: Vec<f64>,
 }
 
 /// Uniform-grid nearest-point search over a few thousand centroids.
@@ -437,6 +455,7 @@ impl Transfer {
     /// A missing mesh or a TH mesh with no bed cells.
     pub fn new(
         inputs: &MultiphysicsInputs,
+        th_mesh: &UnstructuredMesh,
         core: &PorousCore,
         note: &mut Vec<String>,
     ) -> Result<Self, String> {
@@ -445,8 +464,29 @@ impl Transfer {
         let n = ms.mesh(MeshRole::Neutronics).ok_or("no neutronics mesh")?;
         let dir = PathBuf::from(th.polymesh_dir.clone().ok_or("TH mesh not written")?);
         let fv = read_poly_mesh(&dir).map_err(|e| format!("{}: {e}", dir.display()))?;
-        if fv.n_cells != th.cells || th.cell_region.len() != th.cells {
+        if fv.n_cells != th.cells
+            || th.cell_region.len() != th.cells
+            || th_mesh.n_cells() != th.cells
+        {
             return Err("the TH polyMesh does not match Step 7's TH summary".into());
+        }
+        // The in-memory mesh (point location) and the polyMesh on disk must
+        // number their cells alike.
+        let s_cm = th_mesh.unit().cm_per_unit() / 100.0;
+        let worst = (0..th.cells)
+            .map(|c| {
+                let a = th_mesh.cell_centre(c);
+                let b = fv.cell_centres[c];
+                ((a[0] * s_cm - b.x).powi(2)
+                    + (a[1] * s_cm - b.y).powi(2)
+                    + (a[2] * s_cm - b.z).powi(2))
+                .sqrt()
+            })
+            .fold(0.0, f64::max);
+        if worst > 1e-6 {
+            return Err(format!(
+                "the TH mesh in memory and its polyMesh disagree on cell centres by up to {worst:e} m"
+            ));
         }
         let regions = &ms.plan.regions;
         let th_bed: Vec<bool> = th.cell_region.iter().map(|&g| regions.is_bed(g)).collect();
@@ -486,9 +526,12 @@ impl Transfer {
             })
             .collect();
         let near = Nearest::new(pts, 0.1);
+        let mut by_nearest = 0usize;
+        let mut samples = 0usize;
         let mut hits: Vec<Vec<(usize, f64)>> = vec![Vec::new(); th.cells];
+        let mut node_cells: Vec<Vec<(usize, f64)>> = vec![Vec::new(); n_r * n_z];
         const NR: usize = 2;
-        const NT: usize = 64;
+        const NT: usize = 32;
         const NZ: usize = 1;
         for i in 0..n_r {
             let a0 = if i == 0 { 0.0 } else { r_frac[i - 1] };
@@ -498,15 +541,34 @@ impl Transfer {
                 for ir in 0..NR {
                     let r = r_bed * (a0 + (a1 - a0) * (ir as f64 + 0.5) / NR as f64).sqrt();
                     for it in 0..NT {
-                        let th_ang = (it as f64 + 0.5 + 0.5 * ir as f64) * std::f64::consts::TAU
-                            / NT as f64;
+                        let th_ang =
+                            (it as f64 + 0.5 + 0.5 * ir as f64) * std::f64::consts::TAU / NT as f64;
                         for iz in 0..NZ {
                             let depth = (j as f64 + (iz as f64 + 0.5) / NZ as f64) / n_z as f64;
                             let z = z_top - depth * h_bed;
-                            let c = bed_cells[near.nearest([r * th_ang.cos(), r * th_ang.sin(), z])];
+                            let (x, y) = (r * th_ang.cos(), r * th_ang.sin());
+                            // The bed cell containing the sample; where the
+                            // sample is in a cavity cell or outside the
+                            // faceted mesh, the nearest bed cell.
+                            samples += 1;
+                            let c = match th_mesh.locate(Position::new(
+                                100.0 * x,
+                                100.0 * y,
+                                100.0 * z,
+                            )) {
+                                Some(c) if th_bed[c] => c,
+                                _ => {
+                                    by_nearest += 1;
+                                    bed_cells[near.nearest([x, y, z])]
+                                }
+                            };
                             match hits[c].last_mut() {
                                 Some(last) if last.0 == k => last.1 += 1.0,
                                 _ => hits[c].push((k, 1.0)),
+                            }
+                            match node_cells[k].iter_mut().find(|e| e.0 == c) {
+                                Some(e) => e.1 += 1.0,
+                                None => node_cells[k].push((c, 1.0)),
                             }
                         }
                     }
@@ -533,9 +595,19 @@ impl Transfer {
                 unreached += 1;
             }
         }
+        for row in &mut node_cells {
+            let tot: f64 = row.iter().map(|e| e.1).sum();
+            for e in row.iter_mut() {
+                e.1 /= tot;
+            }
+        }
+        note.push(format!(
+            "ring grid <- TH mesh: {samples} samples, {by_nearest} ({:.2} %) outside every bed cell and given to the nearest one",
+            100.0 * by_nearest as f64 / samples.max(1) as f64
+        ));
         if unreached > 0 {
             note.push(format!(
-                "{unreached} of {} TH bed cells were nearest to no node sample; each gives its power to the node at its centroid",
+                "{unreached} of {} TH bed cells hold no node sample; each takes the temperature of the node at its centroid",
                 bed_cells.len()
             ));
         }
@@ -543,14 +615,19 @@ impl Transfer {
             n_cells_n: n.cells,
             th_vol_m3: fv.cell_volumes.clone(),
             th_bed,
-            cell_share: hits,
-            cell_node,
-            n_nodes: n_r * n_z,
+            node_cells,
+            cell_nodes: hits,
+            node_vol_m3: (0..n_r * n_z).map(|k| core.node_volume_m3(k)).collect(),
         })
     }
 
     /// Neutronics power density \[W/m³\] → node power \[W\], before the
-    /// rescale; with where the power went. `p_total` is the neutronics total.
+    /// rescale; with where the power went and the power in the TH bed cells.
+    /// `p_total` is the neutronics total. A node's power is its volume times
+    /// the mean of the TH power density over its samples: the volume overlap
+    /// `sum_c q_c |c ∩ node|`, estimated by uniform samples, so the node
+    /// total matches the bed cells' power to the sampling error (the caller
+    /// rescales to the thermal power and reports the factor).
     pub fn power_to_nodes_raw(
         &self,
         inputs: &MultiphysicsInputs,
@@ -563,19 +640,20 @@ impl Transfer {
             .ok_or("no neutronics -> TH map")?;
         let mut q_th = vec![0.0; self.th_vol_m3.len()];
         map.map(q_n, &mut q_th);
-        let mut p_nodes = vec![0.0; self.n_nodes];
         let (mut bed, mut cav) = (0.0, 0.0);
         for (c, (&q, &v)) in q_th.iter().zip(&self.th_vol_m3).enumerate() {
-            let p = q * v;
             if self.th_bed[c] {
-                bed += p;
-                for &(k, w) in &self.cell_share[c] {
-                    p_nodes[k] += p * w;
-                }
+                bed += q * v;
             } else {
-                cav += p;
+                cav += q * v;
             }
         }
+        let p_nodes: Vec<f64> = self
+            .node_cells
+            .iter()
+            .zip(&self.node_vol_m3)
+            .map(|(row, v)| v * row.iter().map(|&(c, w)| w * q_th[c]).sum::<f64>())
+            .collect();
         let split = PowerSplit {
             bed: bed / p_total,
             cavity: cav / p_total,
@@ -600,7 +678,10 @@ impl Transfer {
         let t_th: Vec<f64> = (0..self.th_vol_m3.len())
             .map(|c| {
                 if self.th_bed[c] {
-                    t_node_k[self.cell_node[c]]
+                    self.cell_nodes[c]
+                        .iter()
+                        .map(|&(k, w)| w * t_node_k[k])
+                        .sum()
                 } else {
                     t_outside_k
                 }
@@ -626,6 +707,8 @@ pub struct SpatialReport {
     pub outer_iterations: usize,
     /// Where the neutronics power landed.
     pub split: PowerSplit,
+    /// Thermal power / the ring grid's sampled power before the rescale.
+    pub rescale: f64,
     /// Neutronics cells whose temperature was outside the state points.
     pub extrapolated_cells: usize,
     /// Seconds in the neutronics this iteration.
@@ -662,6 +745,7 @@ pub fn node_feedback_temperature(f: &Fields, fuel_fraction: f64) -> Vec<f64> {
 pub fn solve(
     setup: &MultiphysicsSetup,
     inputs: &MultiphysicsInputs,
+    th_mesh: &UnstructuredMesh,
     boundary: NeutronBoundary,
     stop: impl Fn() -> bool,
     mut started: impl FnMut(&[String]),
@@ -670,7 +754,7 @@ pub fn solve(
     let mut core = PorousCore::new(setup)?;
     let mut notes = vec![format!("neutronics boundary: {}", boundary.label())];
     let mut neut = Neutronics::new(inputs, boundary)?;
-    let tr = Transfer::new(inputs, &core, &mut notes)?;
+    let tr = Transfer::new(inputs, th_mesh, &core, &mut notes)?;
     started(&notes);
     let p_w = setup.neutronics.thermal_power_mw * 1e6;
     let t_in = setup.foam.inlet_temperature_c + 273.15;
@@ -685,8 +769,8 @@ pub fn solve(
     let mut q_n = Vec::new();
     for _ in 0..c.max_iterations.max(1) {
         let sol = neut.solve(&t_n, p_w)?;
-        let (raw, split, bed) = tr.power_to_nodes_raw(inputs, &sol.q_w_m3, p_w)?;
-        let scale = p_w / bed;
+        let (raw, split, _bed) = tr.power_to_nodes_raw(inputs, &sol.q_w_m3, p_w)?;
+        let scale = p_w / raw.iter().sum::<f64>();
         let new: Vec<f64> = raw.iter().map(|p| p * scale).collect();
         let (p_nodes, power_change) = match &p_prev {
             None => (new, f64::INFINITY),
@@ -720,6 +804,7 @@ pub fn solve(
             power_change,
             outer_iterations: sol.outer_iterations,
             split,
+            rescale: scale,
             extrapolated_cells: sol.extrapolated_cells,
             neutronics_s: sol.seconds,
         });
@@ -981,7 +1066,10 @@ mod tests {
                 groups: groups.clone(),
                 zones: ids.iter().map(|id| xs(id, t).zone(id)).collect(),
             };
-            nds.push((t, nee_soon::genfoam_xs::to_nuclear_data_input(&lib).unwrap()));
+            nds.push((
+                t,
+                nee_soon::genfoam_xs::to_nuclear_data_input(&lib).unwrap(),
+            ));
             states.push(StateXs {
                 temperature_k: t,
                 k: 1.0,
@@ -1067,8 +1155,11 @@ mod tests {
     ///   mesh equals `Σ_s q_s ov_s`, with `ov_s` each neutronics cell's
     ///   overlap with the TH mesh recovered from the weights (an independent
     ///   path through the same data), and no cell deposits more than its
-    ///   volume; the nodes receive exactly the bed cells' power (1e-12); the
-    ///   march carries the thermal power away (energy balance 1e-6);
+    ///   volume; a uniform power density arrives on every ring-grid node
+    ///   unchanged (1e-6: the grid transfer is a proper volume average), and
+    ///   no node exceeds the largest TH cell value
+    ///   (a node can only average cells, never concentrate them); the march
+    ///   carries the thermal power away (energy balance 1e-6);
     /// - **the loop converges** (march residuals, node power 1e-4, k 1e-6)
     ///   within Step 9's iteration limit, and the hot `k` is below the first
     ///   (cold) one: negative feedback through the constants.
@@ -1108,7 +1199,8 @@ mod tests {
         let mut neut = Neutronics::new(&inp, NeutronBoundary::MarshakFace).unwrap();
         let core = crate::porous_core::PorousCore::new(&setup).unwrap();
         let mut notes = Vec::new();
-        let tr = Transfer::new(&inp, &core, &mut notes).unwrap();
+        let th_mesh = meshes().0.meshes[MeshRole::ThermalHydraulics.index()].clone();
+        let tr = Transfer::new(&inp, &th_mesh, &core, &mut notes).unwrap();
         let sol = neut.solve(&vec![500.0; neut.mesh().n_cells], p_w).unwrap();
         let vn = neut.mesh().cell_volumes.clone();
         let p_n: f64 = sol.q_w_m3.iter().zip(&vn).map(|(q, v)| q * v).sum();
@@ -1125,7 +1217,10 @@ mod tests {
             }
         }
         for (s, (&o, &v)) in ov.iter().zip(&vn).enumerate() {
-            assert!(o <= v * (1.0 + 1e-3), "neutronics cell {s} deposits {o} m3 > its {v} m3");
+            assert!(
+                o <= v * (1.0 + 1e-3),
+                "neutronics cell {s} deposits {o} m3 > its {v} m3"
+            );
         }
         let deposited: f64 = sol.q_w_m3.iter().zip(&ov).map(|(q, o)| q * o).sum();
         let on_th = (split.bed + split.cavity) * p_w;
@@ -1133,8 +1228,50 @@ mod tests {
             (on_th - deposited).abs() < 1e-9 * p_w,
             "TH receives {on_th} W, neutronics deposits {deposited} W"
         );
+        // The ring grid samples the bed cells' power density over its own
+        // volume: equal to the bed cells' power up to sampling and the
+        // faceted / stair-stepped bed edge; the solver rescales the rest.
+        // The ring grid is a sampled volume overlap over the exact bed
+        // cylinder, the bed cells the faceted, stair-stepped bed region, so
+        // the grid's total is not the cells' total (the solver rescales and
+        // reports the factor). What must hold is consistency: a uniform
+        // power density arrives as the same uniform density on every node.
         let nodes: f64 = raw.iter().sum();
-        assert!((nodes - bed).abs() < 1e-12 * p_w, "nodes {nodes} vs bed cells {bed}");
+        let v_grid: f64 = (0..raw.len()).map(|k| core.node_volume_m3(k)).sum();
+        let v_bed: f64 = (0..tr.th_vol_m3.len())
+            .filter(|&c| tr.th_bed[c])
+            .map(|c| tr.th_vol_m3[c])
+            .sum();
+        eprintln!(
+            "ring grid / bed cells: power {:.4}, volume {:.4}, mean power density {:.4}",
+            nodes / bed,
+            v_grid / v_bed,
+            (nodes / v_grid) / (bed / v_bed)
+        );
+        let (flat, _, _) = tr
+            .power_to_nodes_raw(&inp, &vec![1.0; vn.len()], 1.0)
+            .unwrap();
+        for (k, p) in flat.iter().enumerate() {
+            let q = p / core.node_volume_m3(k);
+            assert!(
+                (q - 1.0).abs() < 1e-6,
+                "uniform field arrives as {q} on node {k}"
+            );
+        }
+        let qmax_th = {
+            let mut q_th = vec![0.0; tr.th_vol_m3.len()];
+            map.map(&sol.q_w_m3, &mut q_th);
+            q_th.iter().copied().fold(0.0, f64::max)
+        };
+        let qmax_node = raw
+            .iter()
+            .enumerate()
+            .map(|(k, p)| p / core.node_volume_m3(k))
+            .fold(0.0, f64::max);
+        assert!(
+            qmax_node <= qmax_th * (1.0 + 1e-9),
+            "a node {qmax_node} exceeds every TH cell {qmax_th}"
+        );
         eprintln!(
             "power split bed {:.4} cavity {:.4} outside {:.4}; notes {notes:?}",
             split.bed, split.cavity, split.outside
@@ -1145,6 +1282,7 @@ mod tests {
         let (sum, _, sf) = solve(
             &setup,
             &inp,
+            &th_mesh,
             NeutronBoundary::MarshakFace,
             || false,
             |_| {},
@@ -1161,9 +1299,16 @@ mod tests {
             sum.node_peak_to_mean,
             sum.energy_balance_rel
         );
-        assert!(sum.converged, "did not converge in {} iterations", sum.iterations);
+        assert!(
+            sum.converged,
+            "did not converge in {} iterations",
+            sum.iterations
+        );
         assert!(sum.energy_balance_rel.abs() < 1e-6);
-        assert!(sum.k_eff.unwrap() < k_hist[0], "hot k should be below the first (cold) k");
+        assert!(
+            sum.k_eff.unwrap() < k_hist[0],
+            "hot k should be below the first (cold) k"
+        );
         assert!(sf.t_n_k.iter().all(|t| t.is_finite() && *t > 500.0));
     }
 }

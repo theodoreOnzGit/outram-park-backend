@@ -159,7 +159,7 @@ pub fn summary_csv(s: &Summary) -> String {
 pub fn spatial_line(r: &crate::porous_core::IterationReport) -> String {
     let sp = r.spatial.as_ref();
     format!(
-        "{:5}  {:9.2e}  {:9.4}  {:9.2e}  {:8.5}  {:8.1e}  {:12.2}  {:13.2}  {:5.3}/{:5.3}/{:5.3}  {:4}  {:5}  {:5.1}",
+        "{:5}  {:9.2e}  {:9.4}  {:9.2e}  {:8.5}  {:8.1e}  {:12.2}  {:13.2}  {:5.3}/{:5.3}/{:5.3}  {:6.4}  {:4}  {:5}  {:5.1}",
         r.iteration,
         r.flow_residual,
         r.temperature_change_k,
@@ -171,6 +171,7 @@ pub fn spatial_line(r: &crate::porous_core::IterationReport) -> String {
         sp.map_or(f64::NAN, |s| s.split.bed),
         sp.map_or(f64::NAN, |s| s.split.cavity),
         sp.map_or(f64::NAN, |s| s.split.outside),
+        sp.map_or(f64::NAN, |s| s.rescale),
         sp.map_or(0, |s| s.outer_iterations),
         sp.map_or(0, |s| s.extrapolated_cells),
         sp.map_or(0.0, |s| s.neutronics_s),
@@ -178,7 +179,7 @@ pub fn spatial_line(r: &crate::porous_core::IterationReport) -> String {
 }
 
 /// The header of [`spatial_line`].
-pub const SPATIAL_HEADER: &str = " iter  flow res.  max dT[K]  power res.  k_eff     |dk|      T_he,max [C]  T_kern,max [C]  P bed/cav/out      outers  extrap  t_n[s]";
+pub const SPATIAL_HEADER: &str = " iter  flow res.  max dT[K]  power res.  k_eff     |dk|      T_he,max [C]  T_kern,max [C]  P bed/cav/out      rescale  outers  extrap  t_n[s]";
 
 /// Read Step 8's set from a `--headless-mgxs` case folder (`mgxs_set.toml`);
 /// if the `nuclearData` path it records is not there (run from elsewhere),
@@ -201,6 +202,61 @@ pub fn load_mgxs(case: &Path) -> Result<dhoby_ghaut::workbench::mgxs::MgxsSet, S
         set.nuclear_data_path = Some(here.display().to_string());
     }
     Ok(set)
+}
+
+/// **Diagnostic only** (`--diagnostic-bed-sigma-scale F`, the gh:#591 V&V
+/// record): a copy of Step 8's `nuclearData` with every bed region's
+/// macroscopic constants multiplied by `f` (`D` divided by it), written into
+/// `out/diagnostic_nuclear_data/` and pointed at. It tests the hypothesis
+/// that Step 8's collision-estimator flux in the delta-tracked bed misses the
+/// helium voids (flux low by the filling fraction, so every bed `Σ` high by
+/// its inverse). Never the default; the fix belongs in Step 8.
+///
+/// # Errors
+///
+/// A file failure.
+pub fn diagnostic_bed_scale(
+    mgxs: &mut dhoby_ghaut::workbench::mgxs::MgxsSet,
+    meshes: &dhoby_ghaut::workbench::meshes::MeshSet,
+    f: f64,
+    out: &Path,
+) -> Result<Vec<String>, String> {
+    use outram_foam_appbuilder_lib::io::nuclear_data::{read_nuclear_data, write_nuclear_data};
+    let src = mgxs.nuclear_data_path.clone().ok_or("no nuclearData")?;
+    let mut nd = read_nuclear_data(Path::new(&src)).map_err(|e| e.to_string())?;
+    let regions = &meshes.plan.regions;
+    let bed: Vec<String> = regions
+        .regions
+        .iter()
+        .enumerate()
+        .filter(|(g, _)| regions.is_bed(*g))
+        .map(|(_, r)| r.id.clone())
+        .collect();
+    for st in &mut nd.states {
+        for z in &mut st.zones {
+            if !bed.contains(&z.name) {
+                continue;
+            }
+            for v in [&mut z.nu_sigma_eff, &mut z.sigma_pow, &mut z.sigma_removal] {
+                v.iter_mut().for_each(|x| *x *= f);
+            }
+            z.d.iter_mut().for_each(|x| *x /= f);
+            for m in &mut z.scattering {
+                for row in m {
+                    row.iter_mut().for_each(|x| *x *= f);
+                }
+            }
+        }
+    }
+    let dir = out.join("diagnostic_nuclear_data");
+    std::fs::create_dir_all(&dir).map_err(|e| e.to_string())?;
+    let p = dir.join("nuclearData");
+    let header = format!(
+        "DIAGNOSTIC COPY (gh:#591 V&V), NOT Step 8's data: zones {bed:?} scaled by f = {f} (Sigma x f, D / f)\nto test whether Step 8's bed flux misses the helium voids. Source: {src}"
+    );
+    std::fs::write(&p, write_nuclear_data(&nd, &header)).map_err(|e| e.to_string())?;
+    mgxs.nuclear_data_path = Some(p.display().to_string());
+    Ok(bed)
 }
 
 /// The solved-shape run (gh:#591): the isothermal `k` comparison, then the
@@ -227,6 +283,7 @@ pub fn headless_spatial(
         println!("  [{}] {}: {}", e.status.badge(), e.name, e.note);
     }
     let n_mesh = built.meshes[MeshRole::Neutronics.index()].clone();
+    let th_mesh = built.meshes[MeshRole::ThermalHydraulics.index()].clone();
     let inputs = dhoby_ghaut::workbench::multiphysics::MultiphysicsInputs {
         meshes: built.set,
         mgxs,
@@ -297,6 +354,58 @@ pub fn headless_spatial(
     std::fs::create_dir_all(out).map_err(|e| e.to_string())?;
     std::fs::write(out.join("isothermal_k.csv"), krows).map_err(|e| e.to_string())?;
     std::fs::write(out.join("isothermal_region_balance.csv"), regrows).map_err(|e| e.to_string())?;
+    // The cold isothermal shape on its own (no TH): what the first coupling
+    // iteration hands the march, and the diffusion shape at the reference
+    // state, drawn on the mesh.
+    {
+        let t_ref = inputs.mgxs.states[0].temperature_k;
+        let mut neut = crate::spatial::Neutronics::new(&inputs, boundary)?;
+        let core = crate::porous_core::PorousCore::new(setup)?;
+        let mut notes = Vec::new();
+        let tr = crate::spatial::Transfer::new(&inputs, &th_mesh, &core, &mut notes)?;
+        let p_w = setup.neutronics.thermal_power_mw * 1e6;
+        let sol = neut.solve(&vec![t_ref; neut.mesh().n_cells], p_w)?;
+        let (raw, split, _bed) = tr.power_to_nodes_raw(&inputs, &sol.q_w_m3, p_w)?;
+        let q: Vec<f64> = raw
+            .iter()
+            .enumerate()
+            .map(|(k, p)| p * p_w / raw.iter().sum::<f64>() / core.node_volume_m3(k))
+            .collect();
+        let mean = p_w / (0..q.len()).map(|k| core.node_volume_m3(k)).sum::<f64>();
+        let (kmax, qmax) = q
+            .iter()
+            .copied()
+            .enumerate()
+            .fold((0, 0.0), |a, (k, v)| if v > a.1 { (k, v) } else { a });
+        let nz = core.fields().n_z;
+        let qn_max = sol.q_w_m3.iter().copied().fold(0.0, f64::max);
+        println!(
+            "isothermal {t_ref} K shape at {:.1} MW: node peak/mean {:.3} (max {:.3} W/cm³ at ring {} node {} of {}), neutronics-cell peak {:.3} W/cm³; split bed/cavity/outside {:.3}/{:.3}/{:.3}",
+            p_w * 1e-6,
+            qmax / mean,
+            qmax * 1e-6,
+            kmax / nz,
+            kmax % nz,
+            nz,
+            qn_max * 1e-6,
+            split.bed,
+            split.cavity,
+            split.outside
+        );
+        let img = crate::spatial_draw::draw_field(
+            &n_mesh,
+            &sol.q_w_m3.iter().map(|q| q * 1e-6).collect::<Vec<_>>(),
+            PlotBasis::Xz,
+            [0.0; 3],
+            &format!("ISOTHERMAL {t_ref} K DIFFUSION POWER DENSITY (NO FEEDBACK), X-Z"),
+            "W/CM3",
+            1e-9,
+            "NO FISSION POWER",
+            900,
+        )?;
+        img.write_png(&out.join("neutronics_power_isothermal_xz.png"))
+            .map_err(|e| e.to_string())?;
+    }
     if only_k {
         return Ok(());
     }
@@ -304,6 +413,7 @@ pub fn headless_spatial(
     let (s, f, sf) = crate::spatial::solve(
         setup,
         &inputs,
+        &th_mesh,
         boundary,
         || false,
         |notes| {

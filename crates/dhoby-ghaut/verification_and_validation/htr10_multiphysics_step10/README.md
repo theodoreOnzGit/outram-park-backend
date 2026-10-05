@@ -2,9 +2,357 @@
 
 **Status: TENTATIVE.** AI-drafted, awaiting human review. Research, education
 and V&V only: not for facility operation, licensing or safety decisions.
-Recorded 2026-10-05 (gh:#574).
 
-## What is computed
+This record has two parts.
+
+- **Part 1 (2026-10-05/06, gh:#591): the power and k are SOLVED.** Step 10
+  computes the power shape and `k` with multigroup diffusion on Step 7's
+  neutronics mesh, using Step 8's cross sections. It is Picard-coupled to the
+  porous-core thermal-hydraulics. This is the default.
+- **Part 2 (2026-10-05, gh:#574): the first build.** It used a PRESCRIBED
+  J0 × cosine power shape and lumped feedback. That is now the explicit
+  ablation `--prescribed-power`. Its files moved to
+  `prescribed_equilibrium_core/`.
+
+## Headline (read this first)
+
+1. **The diffusion `k` is 24 700–27 000 pcm above Step 8's own Monte Carlo
+   `k`.** That is 35–40 σ, at all four state points.
+2. **The cause is mostly found, and it is upstream of Step 10.** Step 8's
+   pebble-bed cross sections are about 1/0.61 too large. The bed is
+   delta-tracked, and its flux is scored with a collision estimator. That
+   estimator scores nothing in the helium voids, so the bed flux is low by
+   about the void fraction and every bed `Σ = RR/φ` is high by the inverse.
+   - **A diagnostic test supports this.** Multiplying only the bed's
+     constants by the recipe's filling fraction, 0.61, brings `k` to within
+     +1600 to +3400 pcm of Monte Carlo (2.5–4.8 σ). It also brings the
+     region absorption shares into line.
+   - **The test cannot fail on the fit.** 0.61 is a geometric input, not a
+     fitted number.
+   - **It is not the default.** The fix belongs in Step 8 (filed as
+     gh:#598).
+3. **Coupled results, as-is Step 8 data.** HTR-10 initial-core recipe, 19
+   layers (192 cm), 10 MW. Converged in 15 Picard iterations, 21 s:
+   - `k_eff` 1.31739;
+   - node peak/mean power 1.74, maximum 3.57 W/cm³ (Gao & Shi initial core:
+     2.84);
+   - peak kernel 1170 °C (Gao & Shi: 995 or 1049 °C);
+   - vessel outlet 695.9 °C (design 700 °C).
+4. **The same run with the diagnostic bed constants** gives:
+   - `k_eff` 1.08299;
+   - peak/mean 1.45, maximum 2.97 W/cm³ (+0.13 against 2.84);
+   - peak kernel 1082 °C.
+5. **The prescribed J0 × cosine ablation on the same core** gives peak/mean
+   1.28 and peak kernel 1035 °C. The solved shape is more peaked than the
+   prescribed one in both arms.
+
+## Part 1. Solved power (gh:#591)
+
+### What is computed
+
+The code is `crates/dhoby-ghaut/src/bin/dhoby-ghaut/spatial.rs`. It is
+driven by `mp_headless.rs` with no window, and by `coupled.rs` and
+`coupled_ui.rs` in the workbench. Each Picard iteration:
+
+1. **Neutronics.** It uses `DiffusionNeutronics::new_with_cell_parameters`
+   from `outram-foam-appbuilder-lib`, the port of GeN-Foam's
+   `diffusionNeutronics` (upstream commit 652b3da).
+   - **Mesh and constants.** It runs on Step 7's neutronics `polyMesh`, read
+     with the port's reader, with its `cellZones` as the regions. Step 8's
+     `nuclearData` is evaluated at each cell's own `TFuel`, by the port's
+     polyharmonic-spline interpolation in `log` (linear in ln T, extrapolated
+     linearly outside the state points, as upstream does).
+   - **Boundary.** The outer boundary is a Marshak vacuum: albedo γ = 1/2
+     with the exact face closure.
+   - **Warm start.** Each solve starts from the last flux and `k`, through
+     the new `DiffusionNeutronics::set_initial_guess`.
+   - **Power.** The power density `Σ_g φ_g sigmaPow_g` is scaled to 10 MW.
+2. **Neutronics → TH mesh.** This uses Step 7's `MeshMapping` (upstream
+   `mapTgtToSrc`, volume weights).
+3. **TH mesh → ring grid.** Each of the 40 × 200 nodes takes its volume
+   times the mean TH power density over its samples. There are 64 samples
+   per node, uniform in volume. Each sample is placed by exact point location
+   in the TH mesh, or by the nearest bed-cell centroid when it falls outside
+   every bed cell (2.2 % of samples).
+   - Power that the neutronics puts in TH cavity cells (3.1 %), or outside
+     the TH mesh (7.5 %, stair-stepped regions, gh:#594), is not used.
+   - The grid is then rescaled to 10 MW (factor 1.105 at convergence).
+4. **Relaxation.** The node power is under-relaxed (ω = 0.5), and the march
+   (`porous_core.rs`) does one outer iteration.
+5. **TH → neutronics.** Each TH bed cell takes the fuel-pebble
+   volume-average temperature of the nodes sampled in it. Cavity cells take
+   the inlet helium temperature. Step 7's TH → neutronics map then gives
+   `TFuel`. Neutronics cells outside the TH mesh (reflectors, conus, tube)
+   are held at the inlet helium temperature, 523 K.
+6. **Convergence.** It stops when the ring Δp spread is below 1e-4, the
+   largest ΔT is below 0.01 K, the unrelaxed node-power change is below
+   1e-4 of the maximum, and |Δk| is below 1e-6.
+
+**The core is the reactor Steps 1–8 built** (`mp_preset::on_built_core`):
+
+- The Step 9 prefill describes Gao & Shi's 197 cm, all-fuel equilibrium
+  core. With the solved shape, the march takes the bed of Step 7's domain
+  and the recipe's fuel-pebble share.
+- This run used the preset recipe with 19 layers, a 192.2 cm bed and 0.57
+  fuel pebbles. That is the HTR-10 initial-core composition at roughly full
+  height. The file is `step8_full_core_case/recipe_19_layers.md`.
+- The preset's 12-layer first-criticality loading (123.6 cm) cannot run at
+  10 MW. Kernels pass the 2000 K range of the TRISO correlation, and the
+  march stops with an error rather than extrapolate.
+
+### Inputs and their sources
+
+The inputs are those of Part 2, except for the rows below.
+
+| Input | Value | Source |
+|---|---|---|
+| Bed | 19 lattice layers: 192.2 cm high, 90 cm radius, 0.57 fuel / 0.43 moderator pebbles, filling 0.61 | preset recipe (Li, Yu & Wei 2014 Table 1; Şeker 2003 Table 3 inventory), layers 12 → 19 for this record |
+| Cross sections | Step 8, 2 groups (0.625 eV), states 300.15 / 600 / 900 / 1200 K, 2000 × (10 + 20) histories per pass | `step8_full_core_case/` (`nuclearData`, `mgxs.csv`, `mgxs_set.toml`, `run.log`) |
+| Meshes | Step 7 defaults: neutronics 30 cm tet-dual (14 041 cells), TH 15 cm (12 888 cells) | `step8_full_core_case/meshes.csv` |
+| Thermal power | 10 MW | Step 9 (Li 2014 Table 1) |
+
+Reproduce:
+
+```text
+cargo run --release -p dhoby-ghaut --bin dhoby-ghaut -- \
+  --recipe crates/dhoby-ghaut/verification_and_validation/htr10_multiphysics_step10/step8_full_core_case/recipe_19_layers.md \
+  --headless-multiphysics \
+  --case crates/dhoby-ghaut/verification_and_validation/htr10_multiphysics_step10/step8_full_core_case \
+  --out <dir> [--diagnostic-bed-sigma-scale 0.61]
+```
+
+### Verification tests, with what they measured
+
+Run them with `cargo test --release -p dhoby-ghaut --bin dhoby-ghaut spatial`.
+
+- **`bare_cylinder_k_on_the_neutronics_mesh_matches_the_analytic_value`.**
+  - *Setup.* One homogeneous 2-group medium on the Step 7 neutronics mesh
+    (40 cm cells), with zero flux on the boundary. It goes through the whole
+    hand-off: polyMesh, cellZones, and a `nuclearData` from Step 8's writer.
+  - *Reference.* The analytic bare cylinder
+    `k = [νΣf1 (Σa2 + D2 B²) + νΣf2 Σ12] / [(Σr1 + D1 B²)(Σa2 + D2 B²)]`.
+    `R` is the radius of the circle with the inscribed 32-gon's area.
+  - *Result.* **−219 pcm** (gate 1 %).
+- **`the_coupled_loop_conserves_power_across_the_maps_and_converges`.**
+  Coarse Step 7 meshes, synthetic constants, 3 MW.
+  - The neutronics power equals the requested power to 1e-12.
+  - The power the N → TH map puts on the TH mesh equals `Σ_s q_s ov_s` to
+    1e-9. Here `ov_s` is each neutronics cell's overlap with the TH mesh,
+    rebuilt from the weights, and no cell deposits more than its volume.
+  - A uniform power density reaches every ring node unchanged (1e-6).
+  - No node exceeds the largest TH cell value.
+  - The march's energy balance holds to 1e-6. It measured 0.
+  - It converged in 14 iterations, and the hot `k` is below the first, cold
+    one.
+- **`warm_start_reaches_the_same_k_in_fewer_iterations`**
+  (`outram-foam-appbuilder-lib`). The same `k` to 1e-7, in 1 outer
+  iteration instead of 11.
+
+**A defect of this work, found and fixed before recording.** The first
+transfer gave each TH cell's power to the nodes that sampled it, with
+nearest-centroid sampling. A cell that no sample reached dumped all its power
+into one node.
+
+- **What it did.** It produced nodes at 7.3× the mean, and up to 6.1 W/cm³
+  when no neutronics cell exceeded 3.45 W/cm³.
+- **How it was found.** By comparing the node peak with the neutronics-cell
+  peak. That diagnostic line is now printed on every run.
+- **The fix.** The node-sampled overlap above can only average, never
+  concentrate, and the test above now gates it.
+
+### Results
+
+All runs used the 30 cm neutronics mesh, 15 cm TH mesh and 40 × 200 ring
+grid, unless stated. The files are in `solved/` and
+`solved_bed_sigma_diagnostic/`.
+
+#### 1. Diffusion `k` against Step 8's Monte Carlo `k`, every cell at the state temperature
+
+| T [K] | MC `k` (Step 8) | diffusion, as-is | diff [pcm] | diffusion, bed Σ × 0.61 (diagnostic) | diff [pcm] |
+|---|---|---|---|---|---|
+| 300.15 | 1.14617 ± 0.00678 | 1.39343 | **+24 726 (36.5 σ)** | 1.16629 | +2012 (3.0 σ) |
+| 600 | 1.10254 ± 0.00734 | 1.35445 | +25 190 | 1.12289 | +2035 |
+| 900 | 1.06975 ± 0.00627 | 1.31881 | +24 906 | 1.08574 | +1599 |
+| 1200 | 1.02742 ± 0.00714 | 1.29751 | +27 009 | 1.06166 | +3424 |
+
+Sources: `solved/isothermal_k.csv` and
+`solved_bed_sigma_diagnostic/isothermal_k.csv`. The earlier 12-layer core
+(123.6 cm), with Step 7/8's committed 2-state data, gave +29 658 and
++30 218 pcm.
+
+**Expected discrepancy sources, stated before measuring, and what each
+turned out to be worth.**
+
+| Source | Predicted | Measured |
+|---|---|---|
+| Neutronics mesh (stair-stepped regions, gh:#594) | hundreds of pcm | 30 → 20 cm cells: −971 pcm at 300 K, −1271 pcm hot |
+| Outer boundary | small: 100 cm of reflector | Marshak face / Marshak cell / zero flux: **< 1 pcm** apart |
+| Two groups, `D = 1/(3Σt)` (no transport correction) | thousands of pcm, too high | 8 groups at 300 K: **−212 pcm** only |
+
+**On the group-structure prediction.** I predicted that a broad fast group
+under-states the migration area, by roughly a factor of 3 against graphite's
+Fermi age. I predicted that 8 groups would recover most of the gap. They did
+not, so that hypothesis is **refuted**, and recorded as such.
+
+**The source found: the bed constants themselves.**
+
+- **What the constants show.** Step 8's pebble-bed total cross section is
+  0.40 /cm in the epithermal groups. The graphite side reflector is 0.38 /cm,
+  at 1.76 g/cm³. A bed at 0.61 packing of about 1.75 g/cm³ graphite should
+  carry about 0.61 × 0.41 ≈ 0.25 /cm. The fastest group (1.35–20 MeV) shows
+  the same: 0.156 /cm tallied, against about 0.09–0.11 expected.
+- **Why.** The MC transports the bed by delta tracking. In delta-tracked
+  regions it scores flux with the collision estimator,
+  `crates/outram-mc-libs/src/physics/transport_csg.rs`, "Delta tracking:
+  COLLISION estimator". That estimator scores `w/Σt` only at real
+  collisions.
+  - In the helium voids (1 atm in this model) real collisions essentially
+    never happen, so 39 % of the bed's volume contributes no flux.
+  - Reaction rates are unaffected, which is why the Monte Carlo `k` and its
+    production/absorption balance stay consistent.
+  - The flux denominator of every bed constant is low by about the filling
+    fraction. So `Σ` is high by about 1/0.61, `D` low by 0.61, and the
+    diffusion area low by about 2.7×.
+- **What it does downstream.** It confines neutrons to the bed. The diffusion
+  reflector flux is 2.4–2.6× below the MC's in every group, and the bed's
+  share of absorption is 0.80 against 0.64. The `k` comes out high. See
+  `solved/isothermal_region_balance.csv`.
+- **The test** (`--diagnostic-bed-sigma-scale 0.61`, with predicted sign and
+  size). Multiply the bed's `Σ` by 0.61 and divide its `D` by 0.61. The gap
+  should close by most of its 25 000 pcm.
+  - It closed to +1600 to +3400 pcm.
+  - Absorption shares now agree: bed 0.658 against 0.640, side reflector
+    0.145 against 0.169.
+  - The refined-mesh and 8-group checks above leave this conclusion
+    unchanged.
+- **What remains.** +2000 pcm (3 σ) after the diagnostic is the size the
+  remaining approximations (2 groups, P0, no transport correction, coarse
+  mesh) are expected to leave. It is not attributed further.
+- **The fix belongs in Step 8, not here** (gh:#598). Options: score the
+  MGXS flux by track length on a surface-tracked bed, or apply the void
+  correction in the MC tally. Step 10 uses Step 8's data as delivered.
+
+#### 2. Coupled run, 10 MW
+
+| Quantity | As-is Step 8 | Diagnostic (bed Σ × 0.61) | Prescribed J0 × cos ablation, same core | Gao & Shi 2002, **initial** core |
+|---|---|---|---|---|
+| Iterations / wall clock | 15 / 21 s | 15 / 27 s | 10 / ~5 s | — |
+| `k_eff` (hot) | 1.31739 | 1.08299 | (lumped) | — |
+| Cold → hot reactivity (diffusion, isothermal 300 K → coupled) | −4140 pcm | −6595 pcm | −8150 pcm (lumped α) | — |
+| Node peak / mean power | **1.743** | **1.450** | 1.280 (input 2.57/2.0) | 2.84 / 2.0 = 1.42 (§4.2) |
+| Maximum node power density [W/cm³] | 3.57 | 2.97 | 2.62 | 2.84 at R = 0, Z = 90 cm |
+| Position of the maximum | ring 0, 100 cm below the bed top | ring 0, 109 cm below | mid-height | Z = 90 cm (origin not stated) |
+| Peak kernel [°C] | 1169.7 | 1081.6 | 1035.3 | "about 995" (§4.3) / 1049 (§5) |
+| Peak fuel-pebble surface [°C] | 1098.6 | 1005.5 | 968.3 | — |
+| Peak helium [°C] | 1026.0 | 924.8 | 870.5 | 818 (equilibrium, Table 2) |
+| Power-weighted mean fuel pebble [°C] | 672.1 | 653.1 | 643.0 | 605.7 mean fuel (§4.3) |
+| Vessel outlet [°C] | 695.9 | 695.9 | 695.9 | 700 (design) |
+| Bed Δp [kPa] | 0.501 | 0.499 | 0.497 | 1.3 (bed and bottom reflector) |
+| Neutronics cells with `TFuel` above 1200 K (extrapolated) | 64 | 18 | — | — |
+
+**Reading the table.**
+
+- **Only the outlet temperature is an energy balance.** Everything else
+  depends on the shape.
+- **The as-is shape is too peaked, and the diagnostic arm explains why.**
+  The as-is shape gives 3.57 W/cm³ against Gao & Shi's 2.84. With the bed
+  constants corrected for the void flux, the solved peak/mean is 1.45 and
+  the maximum 2.97 W/cm³, within 0.13 W/cm³ (+4.4 %) of the published
+  initial-core value. That is consistent with the bed-flux defect above.
+- **The temperatures are still high in every arm.** This one is not
+  explained here. Gao & Shi's figures may include uncertainty factors; ours
+  are nominal.
+  - The march still has no conduction or radiation between rings, and an
+    adiabatic wall (gh:#592).
+  - Part 2's mesh study showed that these alone put 40–50 K on the peaks.
+  - The comparison is not like for like: 0.57 fuel share against their 0.5,
+    and 192 against 197 cm.
+- **The 64 cells above 1200 K** are extrapolated in ln T beyond the hottest
+  state point, as upstream does. A 1500 K state point would remove that.
+
+#### 3. Mesh and iteration convergence (as-is data)
+
+| Change | `k_eff` hot | Node peak/mean | Peak kernel [°C] |
+|---|---|---|---|
+| Default (neutronics 30 cm, rings 40 × 200) | 1.31739 | 1.743 | 1169.7 |
+| Neutronics 20 cm (45 669 cells) | 1.30468 (−1271 pcm) | 1.770 | 1191.8 |
+| Rings 20 × 100 | 1.31742 | 1.732 | 1157.1 |
+
+- **The neutronics mesh is not converged.** It moves `k` by about 1300 pcm
+  and the peak by 22 K. Part of that is the region map: at 20 cm the bed
+  holds 92.7 % of the fission power instead of 90.2 %.
+- **The Picard loop converges linearly.** Each iteration roughly halves
+  every residual, as the relaxation of 0.5 implies. That took 15 iterations
+  to 1e-4 node power and 3e-7 |Δk|. See `solved/console.txt`.
+- **The warm-started eigenvalue** drops from 57 to 3 outer iterations.
+
+### Images (the drawing rule)
+
+Every image is drawn from the solver's own cells, not from constants.
+
+- **`solved/neutronics_power_xz.png`, `solved/neutronics_power_xy.png`:**
+  the computed power on the neutronics mesh.
+  - *Checked.* Fission power sits only in the bed and the stair-stepped
+    cells around it.
+  - The thin ring at 0–0.2 W/cm³ in the side reflector and control-rod band
+    is those regions' small `νΣf`. Step 8 tallied it from bed material that
+    the 30 cm cells smear in (gh:#594).
+  - The x-y slice is not quite axisymmetric, because the tet-dual cells are
+    not.
+- **`solved/neutronics_power_isothermal_xz.png`:** the cold shape, with no
+  feedback.
+- **`solved/neutronics_tfuel_xz.png`:** `TFuel` as the cross sections see
+  it. *Checked:* 250 °C at the bed top, rising downward to about 1090 °C at
+  the bottom on the axis, with the reflectors at 250 °C. One column of
+  side-reflector cells beyond r = 90 cm takes bed temperatures; that is
+  upstream's normalised weights on partly covered cells.
+- **`solved/multiphysics_rz_power_density.png`:** the node power on the
+  ring grid. *Checked:* smooth, peaking on the axis slightly above
+  mid-height. The first transfer's stripes and spikes are gone.
+- **`solved/multiphysics_rz_kernel_temperature.png`** and
+  **`multiphysics_rz_helium_temperature.png`.**
+- **`solved/ablation_prescribed_rz_power_density.png`:** the prescribed
+  ablation on the same core.
+- **`solved_bed_sigma_diagnostic/`:** the same images for the diagnostic
+  arm.
+
+**Not checked.** No image of the TH-mesh field is drawn; only the ring grid
+and the neutronics mesh are. The meshes themselves are as in the Step 7
+record (`../workbench_steps_7_8/images/`). This run's 19-layer meshes were
+regenerated by the run, and only their CSV is committed.
+
+### What is not done
+
+- **The cause of the +25 000 pcm needs a fix in Step 8's bed flux
+  estimator** (gh:#598). Step 10 runs on Step 8's data as delivered.
+- **Steady state only.** There is no delayed-neutron data (gh:#595).
+- **Feedback uses one temperature per cell** (gh:#595). There is no
+  reflector heat balance (gh:#592).
+- **SP3 is not used.** The port has `Sp3Neutronics`; with P0 data and no
+  transport correction it would add little until gh:#595 is done.
+- **The workbench GUI path** was run once, under Xvfb:
+  `--recipe step8_full_core_case/recipe_19_layers.md --load-mgxs
+  step8_full_core_case --open-step 10 --auto-build --auto-run`.
+  - *Result.* Step 7 built its meshes in the window, and Step 10 converged
+    in 14.7 s with `k_eff` 1.31736 (the headless run gave 1.31739, on its
+    own meshes). The screenshot is `solved/gui_step10.png`: the kernel field
+    on the ring grid, the console, the residual / temperature / `k` plots,
+    and the computed power on the neutronics mesh.
+  - *Not checked.* Responsiveness during the run was not measured. The run
+    is on the engine thread and the UI only drains events, as before.
+
+---
+
+## Part 2. The first build: prescribed power shape (2026-10-05, gh:#574)
+
+**Superseded as the default on 2026-10-05 by Part 1.** It is kept as the
+record of the `--prescribed-power` ablation. Its console, CSVs and images
+are now in `prescribed_equilibrium_core/`. Its element list was the one
+before gh:#591: "Power shape: PRESCRIBED", "Reactivity: Lumped". It ran Gao
+& Shi's 197 cm, all-fuel equilibrium core from the Step 9 prefill, not the
+recipe's core.
+
+### What is computed
 
 Step 10 of the `dhoby-ghaut` workbench runs the Step 9 case. This record uses
 the HTR-10 prefill, `crates/dhoby-ghaut/src/bin/dhoby-ghaut/mp_preset.rs`.
@@ -33,7 +381,7 @@ the HTR-10 prefill, `crates/dhoby-ghaut/src/bin/dhoby-ghaut/mp_preset.rs`.
   power density (section 4.2) and the 2.0 is their 100 % mean (Table 2). The
   result is 107.2 cm.
 
-### Inputs and their sources
+#### Inputs and their sources
 
 | Input | Value | Source |
 |---|---|---|
@@ -52,7 +400,7 @@ in `docs/reactor-scoping/htr10-plant-data.md`, sections 7.4–7.6. That document
 records that the column assignment of Table 2 was reconstructed by
 monotonicity.
 
-## Pass criteria (verification) and how they are tested
+### Pass criteria (verification) and how they are tested
 
 These tests run in `cargo test --release -p dhoby-ghaut --bin dhoby-ghaut`.
 
@@ -70,10 +418,10 @@ These tests run in `cargo test --release -p dhoby-ghaut --bin dhoby-ghaut`.
 - **Regression.** The summary row is pinned by
   `tests/fixtures/dhoby_ghaut_multiphysics.csv`.
 
-## Results (2026-10-05, 40 × 200 mesh)
+### Results (2026-10-05, 40 × 200 mesh)
 
 The run converged after 10 iterations in about 10 s. The full console is in
-`console.txt`, and the node fields are in `multiphysics_fields.csv`.
+`prescribed_equilibrium_core/console.txt`, and the node fields are in `prescribed_equilibrium_core/multiphysics_fields.csv`.
 
 | Quantity | Ours | Gao & Shi 2002, 100 % | Difference |
 |---|---|---|---|
@@ -88,7 +436,7 @@ The run converged after 10 iterations in about 10 s. The full console is in
 | Lumped reactivity, cold to hot | −7785 pcm | — | — |
 | k relative to a cold-critical reference | 0.92777 | — | — |
 
-### Mesh study
+#### Mesh study
 
 The peaks are **mesh dependent**: no heat crosses between rings, so finer
 rings resolve a hotter centreline. The default mesh was chosen by
@@ -106,7 +454,7 @@ The first draft defaulted to 5 × 40. It reads 13 K closer to the published
 maximum fuel temperature only because the coarse mesh averages the peak away.
 It was replaced.
 
-### Ablation: power shape
+#### Ablation: power shape
 
 With a uniform power density (`--uniform-power`):
 
@@ -118,8 +466,12 @@ With a uniform power density (`--uniform-power`):
 
 The prescribed shape carries about 110 K of the peaks. The peaks therefore
 depend mostly on an input that no neutronics solve has checked (gh:#591).
+**UPDATED 2026-10-05:** Part 1 now solves the shape. On the recipe's core it
+comes out MORE peaked than this prescribed one (1.74 as-is, 1.45 with the
+bed-flux diagnostic, against 1.28), so the prescribed shape was not hiding
+an over-estimate.
 
-## Interpretation, and the disagreements
+### Interpretation, and the disagreements
 
 1. **The outlet temperature is an energy balance, not evidence.** 10 MW in
    4.32 kg/s of helium gives 695.9 °C. Gao & Shi's 700 °C is the design value.
@@ -146,28 +498,29 @@ depend mostly on an input that no neutronics solve has checked (gh:#591).
    over 20–250 °C) differ from it by up to a factor of 2. Read the −7785 pcm
    as an order of magnitude, not a result.
 
-## What is not modelled
+### What was not modelled (at the first build)
 
 See the element list on the Step 9 panel and in `mp_preset.rs::elements`:
 
 - the OUTRAM-Foam porous solver (gh:#592);
 - conduction and radiation between rings (gh:#592);
 - the reflector, plenums and bypass, thermally;
-- spatial neutronics, which needs Step 8's cross sections (gh:#591);
+- ~~spatial neutronics, which needs Step 8's cross sections (gh:#591);~~
+  **DONE 2026-10-05, Part 1** (default; this record is now its ablation);
 - the farrer-park structural side (gh:#593).
 
-## Images (the crate's drawing rule)
+### Images (the crate's drawing rule)
 
 These images are drawn from the solver's own node fields on its mesh, not
 from the input constants. They are an axial section, mirrored about the axis,
 with every 2nd ring line and every 3rd axial line drawn. Each comes with a
 legend.
 
-- `multiphysics_rz_power_density.png`: the prescribed shape. Checked: it is
+- `prescribed_equilibrium_core/multiphysics_rz_power_density.png`: the prescribed shape. Checked: it is
   symmetric about mid-height, peaks on the axis, and the node averages span 1.36–2.55 W/cm³ (the 2.57 peak is a point value).
-- `multiphysics_rz_helium_temperature.png`: the helium heats downward, and the
+- `prescribed_equilibrium_core/multiphysics_rz_helium_temperature.png`: the helium heats downward, and the
   centre runs hottest.
-- `multiphysics_rz_kernel_temperature.png`: the peak is at the bottom of the
+- `prescribed_equilibrium_core/multiphysics_rz_kernel_temperature.png`: the peak is at the bottom of the
   centre ring (z = 192–197 cm from the top of the bed).
 
 Not checked: whether the HTR-10 bed's conus and discharge tube matter. They

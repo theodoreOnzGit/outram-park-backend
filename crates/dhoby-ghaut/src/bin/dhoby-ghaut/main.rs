@@ -22,7 +22,8 @@
 //! cargo run --release -p dhoby-ghaut --bin dhoby-ghaut -- --render-review out_dir
 //! cargo run --release -p dhoby-ghaut --bin dhoby-ghaut -- --headless-multiphysics \
 //!     --case mgxs_case_dir [--boundary face|cell|zero] [--n-cell 30 --th-cell 15] \
-//!     [--rings 40 --axial 200] [--isothermal-k-only] [--out out_dir]
+//!     [--rings 40 --axial 200] [--isothermal-k-only] [--out out_dir] \
+//!     [--diagnostic-bed-sigma-scale 0.61]
 //! cargo run --release -p dhoby-ghaut --bin dhoby-ghaut -- --headless-multiphysics \
 //!     --prescribed-power [--uniform-power] [--rings 5 --axial 40] [--out out_dir]
 //! cargo run --release -p dhoby-ghaut --bin dhoby-ghaut -- --headless-keff \
@@ -274,13 +275,17 @@ fn main() -> Result<(), String> {
             Some(o) => return Err(format!("--boundary {o}: face, cell or zero")),
         };
         let fnum = |k: &str| arg(k).and_then(|v| v.parse::<f64>().ok());
-        let mgxs = mp_headless::load_mgxs(std::path::Path::new(&case))?;
+        let mut mgxs = mp_headless::load_mgxs(std::path::Path::new(&case))?;
         let built = headless::build_meshes(
             &r,
             &out.join("genfoam_case"),
             fnum("--n-cell"),
             fnum("--th-cell"),
         )?;
+        if let Some(f) = fnum("--diagnostic-bed-sigma-scale") {
+            let bed = mp_headless::diagnostic_bed_scale(&mut mgxs, &built.set, f, out)?;
+            println!("DIAGNOSTIC: regions {bed:?} scaled by {f} (Sigma x f, D / f); NOT Step 8's data");
+        }
         let only_k = args.iter().any(|a| a == "--isothermal-k-only");
         return mp_headless::headless_spatial(&r, &setup, built, mgxs, boundary, out, only_k);
     }
@@ -319,7 +324,8 @@ fn main() -> Result<(), String> {
             }
             a.s78.auto_build = auto_build;
             if let Some(m) = load_mgxs {
-                a.s78.mgxs = Some(m);
+                a.s78.mgxs = Some(m.clone());
+                a.s78.preloaded_mgxs = Some(m);
             }
             a.mp.auto_run = auto_run;
             Ok(Box::new(a))

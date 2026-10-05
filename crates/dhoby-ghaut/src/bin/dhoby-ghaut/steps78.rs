@@ -135,6 +135,8 @@ pub struct S78 {
     pub live: LiveMgxs,
     pub partial: Vec<StateXs>,
     pub mgxs: Option<MgxsSet>,
+    /// A Step 8 result given with `--load-mgxs`, applied when Step 7 builds.
+    pub preloaded_mgxs: Option<MgxsSet>,
     pub mgxs_csv: Option<PathBuf>,
     pub shown_state: usize,
     pub error: Option<String>,
@@ -167,6 +169,7 @@ impl S78 {
             live: Default::default(),
             partial: Vec::new(),
             mgxs: None,
+            preloaded_mgxs: None,
             mgxs_csv: None,
             shown_state: 0,
             error: None,
@@ -212,7 +215,10 @@ pub fn handle(app: &mut App, ctx: &egui::Context) {
                     .collect();
                 app.s78.written = paths;
                 app.s78.shown = 1;
-                app.s78.mgxs = None;
+                // New meshes invalidate Step 8, except a set given with
+                // `--load-mgxs`, which is meant for the first meshes built
+                // (Step 10 checks it holds every region they carry).
+                app.s78.mgxs = app.s78.preloaded_mgxs.take();
                 app.say(
                     format!(
                         "Step 7: three meshes built and written to {}",

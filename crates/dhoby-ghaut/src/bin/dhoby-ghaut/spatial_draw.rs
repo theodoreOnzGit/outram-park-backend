@@ -25,7 +25,11 @@ fn colour(t: f64) -> Rgb {
         (1.0, [250.0, 200.0, 30.0]),
     ];
     let t = t.clamp(0.0, 1.0);
-    let i = STOPS.iter().rposition(|s| s.0 <= t).unwrap_or(0).min(STOPS.len() - 2);
+    let i = STOPS
+        .iter()
+        .rposition(|s| s.0 <= t)
+        .unwrap_or(0)
+        .min(STOPS.len() - 2);
     let (a, b) = (STOPS[i], STOPS[i + 1]);
     let w = (t - a.0) / (b.0 - a.0);
     let c = |k: usize| (a.1[k] + w * (b.1[k] - a.1[k])).round() as u8;
@@ -48,7 +52,11 @@ pub fn draw_field(
     px: usize,
 ) -> Result<ImageData, String> {
     if values.len() != mesh.n_cells() {
-        return Err(format!("{} values for {} cells", values.len(), mesh.n_cells()));
+        return Err(format!(
+            "{} values for {} cells",
+            values.len(),
+            mesh.n_cells()
+        ));
     }
     let live: Vec<f64> = values.iter().copied().filter(|v| *v > zero_below).collect();
     let lo = live.iter().copied().fold(f64::MAX, f64::min);
@@ -91,7 +99,7 @@ pub fn draw_field(
             *p = cols[z];
         }
     }
-    let mut legend: Vec<LegendEntry> = (0..BINS)
+    let mut legend: Vec<LegendEntry> = (0..BINS - 1)
         .step_by(3)
         .map(|i| {
             let a = lo + span * i as f64 / BINS as f64;
@@ -101,9 +109,14 @@ pub fn draw_field(
         .collect();
     legend.push(LegendEntry::new(
         cols[BINS - 1],
-        format!("{:.3}-{hi:.3} {unit} (max)", lo + span * (BINS - 1) as f64 / BINS as f64),
+        format!(
+            "{:.3}-{hi:.3} {unit} (max)",
+            lo + span * (BINS - 1) as f64 / BINS as f64
+        ),
     ));
-    legend.push(LegendEntry::new(grey, zero_label.to_string()));
+    if !zero_label.is_empty() {
+        legend.push(LegendEntry::new(grey, zero_label.to_string()));
+    }
     let frame = SlicePlot::new(
         basis,
         Position::new(sl.origin[0], sl.origin[1], sl.origin[2]),

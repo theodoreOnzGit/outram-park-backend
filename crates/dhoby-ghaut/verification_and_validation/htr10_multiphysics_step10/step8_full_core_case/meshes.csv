@@ -1,0 +1,36 @@
+mesh,cell_type,cells,points,faces,volume_cm3,exact_cm3,volume_rel_diff,non_star_cells,max_non_orth_deg,patches
+neutronics,tet-dual polyhedral,14041,207273,93116,6.832438e7,6.918101e7,-1.2382e-2,354,73.5,walls:15528
+thermal_hydraulics,tet-dual polyhedral + boundary layers,12888,141952,73983,5.576740e6,5.649212e6,-1.2829e-2,224,86.5,outlet:1408 bed_wall:7616 cavity_wall:1624 inlet:1784
+structural,tetrahedral FEM (Tet4),94392,21913,193228,6.210644e7,6.267750e7,-9.1112e-3,0,88.0,walls:8888
+
+mesh,region,cells,mesh_cm3,exact_cm3,rel_diff
+neutronics,pebble_bed,922,5.260500e6,4.898528e6,7.3894e-2
+neutronics,conus,105,4.725000e5,4.203628e5,1.2403e-1
+neutronics,discharge_tube,67,4.557061e5,4.339325e5,5.0177e-2
+neutronics,core_cavity,132,6.573750e5,7.506836e5,-1.2430e-1
+neutronics,top_reflector,1406,7.697390e6,8.201548e6,-6.1471e-2
+neutronics,cold_gas_plenum,150,1.313666e6,6.927919e5,8.9619e-1
+neutronics,side_reflector,2476,1.488349e7,1.478623e7,6.5775e-3
+neutronics,control_rod_band,387,2.111625e6,2.157859e6,-2.1426e-2
+neutronics,coolant_band,395,1.998972e6,2.062795e6,-3.0940e-2
+neutronics,carbon_bricks,4461,1.363732e7,1.509334e7,-9.6468e-2
+neutronics,bottom_structures,3415,1.924383e7,1.916176e7,4.2830e-3
+neutronics,conus_graphite,125,5.920000e5,5.211725e5,1.3590e-1
+thermal_hydraulics,pebble_bed,7917,4.786725e6,4.898528e6,-2.2824e-2
+thermal_hydraulics,core_cavity,4971,7.900151e5,7.506836e5,5.2394e-2
+structural,top_reflector,11126,8.038981e6,8.201548e6,-1.9822e-2
+structural,cold_gas_plenum,1336,8.703394e5,6.927919e5,2.5628e-1
+structural,side_reflector,20894,1.423318e7,1.478623e7,-3.7403e-2
+structural,control_rod_band,3470,2.381426e6,2.157859e6,1.0361e-1
+structural,coolant_band,3014,1.968265e6,2.062795e6,-4.5826e-2
+structural,carbon_bricks,25254,1.518817e7,1.509334e7,6.2826e-3
+structural,bottom_structures,28360,1.890622e7,1.916176e7,-1.3336e-2
+structural,conus_graphite,938,5.198626e5,5.211725e5,-2.5135e-3
+
+from,to,overlap_cm3,to_coverage,uncovered_target_cells,seconds
+neutronics,thermal_hydraulics,5.576737e6,0.999999,0,2.0
+thermal_hydraulics,neutronics,5.576737e6,0.081621,12635,2.0
+neutronics,structural,6.192191e7,0.997029,0,6.0
+structural,neutronics,6.192191e7,0.906293,843,6.0
+thermal_hydraulics,structural,8.125534e4,0.001308,92812,0.2
+structural,thermal_hydraulics,8.125534e4,0.014570,7792,0.2

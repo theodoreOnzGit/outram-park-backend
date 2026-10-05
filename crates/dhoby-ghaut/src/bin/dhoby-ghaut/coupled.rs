@@ -25,6 +25,8 @@ pub struct SpatialJob {
     pub inputs: Arc<MultiphysicsInputs>,
     /// The neutronics mesh in memory, to draw the computed power on.
     pub n_mesh: Arc<UnstructuredMesh>,
+    /// The TH mesh in memory (point location for the ring-grid transfer).
+    pub th_mesh: Arc<UnstructuredMesh>,
 }
 
 pub enum MpReq {
@@ -87,9 +89,14 @@ impl NativeEngine for MpEngine {
                 let res = crate::spatial::solve(
                     &setup,
                     &job.inputs,
+                    &job.th_mesh,
                     crate::spatial::NeutronBoundary::MarshakFace,
                     stopped,
-                    |notes| (*post_cell.borrow_mut())(MpEv::Started { notes: notes.to_vec() }),
+                    |notes| {
+                        (*post_cell.borrow_mut())(MpEv::Started {
+                            notes: notes.to_vec(),
+                        })
+                    },
                     |r, f| {
                         (*post_cell.borrow_mut())(MpEv::Iteration {
                             report: r.clone(),
