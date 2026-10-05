@@ -1,0 +1,463 @@
+FoamFile
+{
+    version 2.0;
+    format ascii;
+    class dictionary;
+    location "constant/neutroRegion";
+    object nuclearData;
+}
+// Written by the Dhoby Ghaut workbench, Step 8 (gh:#573), 2026-10-05T14:14:51Z.
+// TENTATIVE: research, education and V&V only. Monte Carlo MGXS of the HTR-10
+// preset (nee_soon::htr10_rmc), 2 groups, 2000 histories x 20 active generations per pass,
+// per region of the Step 7 neutronics mesh. Each state point puts EVERY material at
+// TFuel (isothermal core); no delayed-neutron data (precGroups 0, gh:#595).
+// Zones are the neutronics polyMesh cellZones. Units: MKSA (1/m).
+
+fastNeutrons false;
+energyGroups 2;
+precGroups 0;
+polyharmonicSplineMode 1;
+xsVariables
+{
+    TFuel log;
+}
+
+states
+(
+    reference
+    {
+        TFuel 3.001500000e2;
+        zones
+        (
+            pebble_bed
+            {
+                fuelFraction 1.000000000e0;
+                secondaryPowerVolumeFraction 0.000000000e0;
+                fractionToSecondaryPower 0.000000000e0;
+                dfAdjust false;
+                IV nonuniform List<scalar> 2 ( 1.215906859e-6 1.445965088e-3 );
+                D nonuniform List<scalar> 2 ( 9.248074298e-3 8.105929755e-3 );
+                nuSigmaEff nonuniform List<scalar> 2 ( 3.408865616e-2 8.829969738e-1 );
+                sigmaPow nonuniform List<scalar> 2 ( 4.339128164e-13 1.125815264e-11 );
+                scatteringMatrixP0 2 2 (
+                    ( 3.569555497e1 3.026946036e-1 )
+                    ( 2.875568291e-2 4.062527157e1 )
+                );
+                sigmaRemoval nonuniform List<scalar> 2 ( 3.479847517e-1 4.968875647e-1 );
+                chiPrompt nonuniform List<scalar> 2 ( 1.000000000e0 0.000000000e0 );
+                chiDelayed nonuniform List<scalar> 2 ( 1.000000000e0 0.000000000e0 );
+                Beta nonuniform List<scalar> 0 ( );
+                lambda nonuniform List<scalar> 0 ( );
+                discFactor nonuniform List<scalar> 2 ( 1.000000000e0 1.000000000e0 );
+                integralFlux nonuniform List<scalar> 2 ( 3.139467928e5 2.020470186e5 );
+            }
+            conus
+            {
+                fuelFraction 1.000000000e0;
+                secondaryPowerVolumeFraction 0.000000000e0;
+                fractionToSecondaryPower 0.000000000e0;
+                dfAdjust false;
+                IV nonuniform List<scalar> 2 ( 1.215906859e-6 1.445965088e-3 );
+                D nonuniform List<scalar> 2 ( 8.927401276e-3 8.070010326e-3 );
+                nuSigmaEff nonuniform List<scalar> 2 ( 8.180133178e-3 1.219981931e-1 );
+                sigmaPow nonuniform List<scalar> 2 ( 1.038100301e-13 1.555499310e-12 );
+                scatteringMatrixP0 2 2 (
+                    ( 3.691718483e1 4.072833587e-1 )
+                    ( 1.571234496e-2 4.119210173e1 )
+                );
+                sigmaRemoval nonuniform List<scalar> 2 ( 4.210419421e-1 1.130911888e-1 );
+                chiPrompt nonuniform List<scalar> 2 ( 1.000000000e0 0.000000000e0 );
+                chiDelayed nonuniform List<scalar> 2 ( 1.000000000e0 0.000000000e0 );
+                Beta nonuniform List<scalar> 0 ( );
+                lambda nonuniform List<scalar> 0 ( );
+                discFactor nonuniform List<scalar> 2 ( 1.000000000e0 1.000000000e0 );
+                integralFlux nonuniform List<scalar> 2 ( 2.506854204e4 3.882297657e4 );
+            }
+            discharge_tube
+            {
+                fuelFraction 1.000000000e0;
+                secondaryPowerVolumeFraction 0.000000000e0;
+                fractionToSecondaryPower 0.000000000e0;
+                dfAdjust false;
+                IV nonuniform List<scalar> 2 ( 1.215906859e-6 1.445965088e-3 );
+                D nonuniform List<scalar> 2 ( 8.758555194e-3 8.210089640e-3 );
+                nuSigmaEff nonuniform List<scalar> 2 ( 0.000000000e0 0.000000000e0 );
+                sigmaPow nonuniform List<scalar> 2 ( 0.000000000e0 0.000000000e0 );
+                scatteringMatrixP0 2 2 (
+                    ( 3.729407108e1 7.464242755e-1 )
+                    ( 1.025573228e-2 4.043037570e1 )
+                );
+                sigmaRemoval nonuniform List<scalar> 2 ( 7.639562985e-1 1.700742335e-1 );
+                chiPrompt nonuniform List<scalar> 2 ( 0.000000000e0 0.000000000e0 );
+                chiDelayed nonuniform List<scalar> 2 ( 0.000000000e0 0.000000000e0 );
+                Beta nonuniform List<scalar> 0 ( );
+                lambda nonuniform List<scalar> 0 ( );
+                discFactor nonuniform List<scalar> 2 ( 1.000000000e0 1.000000000e0 );
+                integralFlux nonuniform List<scalar> 2 ( 7.368463460e2 4.387790045e3 );
+            }
+            core_cavity
+            {
+                fuelFraction 1.000000000e0;
+                secondaryPowerVolumeFraction 0.000000000e0;
+                fractionToSecondaryPower 0.000000000e0;
+                dfAdjust false;
+                IV nonuniform List<scalar> 2 ( 1.215906859e-6 1.445965088e-3 );
+                D nonuniform List<scalar> 2 ( 7.493923260e-2 5.707338471e-2 );
+                nuSigmaEff nonuniform List<scalar> 2 ( 7.383941629e-4 1.284460039e-2 );
+                sigmaPow nonuniform List<scalar> 2 ( 9.352035928e-15 1.637707521e-13 );
+                scatteringMatrixP0 2 2 (
+                    ( 4.399466598e0 4.761721508e-2 )
+                    ( 1.485042169e-3 5.824935115e0 )
+                );
+                sigmaRemoval nonuniform List<scalar> 2 ( 4.858179718e-2 1.549882936e-2 );
+                chiPrompt nonuniform List<scalar> 2 ( 1.000000000e0 0.000000000e0 );
+                chiDelayed nonuniform List<scalar> 2 ( 1.000000000e0 0.000000000e0 );
+                Beta nonuniform List<scalar> 0 ( );
+                lambda nonuniform List<scalar> 0 ( );
+                discFactor nonuniform List<scalar> 2 ( 1.000000000e0 1.000000000e0 );
+                integralFlux nonuniform List<scalar> 2 ( 1.043740167e5 1.750792034e5 );
+            }
+            top_reflector
+            {
+                fuelFraction 1.000000000e0;
+                secondaryPowerVolumeFraction 0.000000000e0;
+                fractionToSecondaryPower 0.000000000e0;
+                dfAdjust false;
+                IV nonuniform List<scalar> 2 ( 1.215906859e-6 1.445965088e-3 );
+                D nonuniform List<scalar> 2 ( 1.100527211e-2 8.888170138e-3 );
+                nuSigmaEff nonuniform List<scalar> 2 ( 0.000000000e0 0.000000000e0 );
+                sigmaPow nonuniform List<scalar> 2 ( 0.000000000e0 0.000000000e0 );
+                scatteringMatrixP0 2 2 (
+                    ( 2.978528651e1 4.872399680e-1 )
+                    ( 5.377864638e-3 3.739290165e1 )
+                );
+                sigmaRemoval nonuniform List<scalar> 2 ( 5.032270204e-1 1.101308303e-1 );
+                chiPrompt nonuniform List<scalar> 2 ( 0.000000000e0 0.000000000e0 );
+                chiDelayed nonuniform List<scalar> 2 ( 0.000000000e0 0.000000000e0 );
+                Beta nonuniform List<scalar> 0 ( );
+                lambda nonuniform List<scalar> 0 ( );
+                discFactor nonuniform List<scalar> 2 ( 1.000000000e0 1.000000000e0 );
+                integralFlux nonuniform List<scalar> 2 ( 9.112552935e3 4.927606361e4 );
+            }
+            cold_gas_plenum
+            {
+                fuelFraction 1.000000000e0;
+                secondaryPowerVolumeFraction 0.000000000e0;
+                fractionToSecondaryPower 0.000000000e0;
+                dfAdjust false;
+                IV nonuniform List<scalar> 2 ( 1.215906859e-6 1.445965088e-3 );
+                D nonuniform List<scalar> 2 ( 1.399162584e-2 1.252069232e-2 );
+                nuSigmaEff nonuniform List<scalar> 2 ( 0.000000000e0 0.000000000e0 );
+                sigmaPow nonuniform List<scalar> 2 ( 0.000000000e0 0.000000000e0 );
+                scatteringMatrixP0 2 2 (
+                    ( 2.334619828e1 3.998142111e-1 )
+                    ( 3.004346256e-3 2.649025980e1 )
+                );
+                sigmaRemoval nonuniform List<scalar> 2 ( 4.775758191e-1 1.323362165e-1 );
+                chiPrompt nonuniform List<scalar> 2 ( 0.000000000e0 0.000000000e0 );
+                chiDelayed nonuniform List<scalar> 2 ( 0.000000000e0 0.000000000e0 );
+                Beta nonuniform List<scalar> 0 ( );
+                lambda nonuniform List<scalar> 0 ( );
+                discFactor nonuniform List<scalar> 2 ( 1.000000000e0 1.000000000e0 );
+                integralFlux nonuniform List<scalar> 2 ( 3.726730963e3 2.662808917e4 );
+            }
+            side_reflector
+            {
+                fuelFraction 1.000000000e0;
+                secondaryPowerVolumeFraction 0.000000000e0;
+                fractionToSecondaryPower 0.000000000e0;
+                dfAdjust false;
+                IV nonuniform List<scalar> 2 ( 1.215906859e-6 1.445965088e-3 );
+                D nonuniform List<scalar> 2 ( 1.002750404e-2 8.450158771e-3 );
+                nuSigmaEff nonuniform List<scalar> 2 ( 1.514371259e-3 5.552375065e-3 );
+                sigmaPow nonuniform List<scalar> 2 ( 1.924931335e-14 7.079259935e-14 );
+                scatteringMatrixP0 2 2 (
+                    ( 3.272263636e1 5.136309415e-1 )
+                    ( 5.250342390e-3 3.935645830e1 )
+                );
+                sigmaRemoval nonuniform List<scalar> 2 ( 5.192682936e-1 9.053226577e-2 );
+                chiPrompt nonuniform List<scalar> 2 ( 1.000000000e0 0.000000000e0 );
+                chiDelayed nonuniform List<scalar> 2 ( 1.000000000e0 0.000000000e0 );
+                Beta nonuniform List<scalar> 0 ( );
+                lambda nonuniform List<scalar> 0 ( );
+                discFactor nonuniform List<scalar> 2 ( 1.000000000e0 1.000000000e0 );
+                integralFlux nonuniform List<scalar> 2 ( 7.996987074e4 4.618746397e5 );
+            }
+            control_rod_band
+            {
+                fuelFraction 1.000000000e0;
+                secondaryPowerVolumeFraction 0.000000000e0;
+                fractionToSecondaryPower 0.000000000e0;
+                dfAdjust false;
+                IV nonuniform List<scalar> 2 ( 1.215906859e-6 1.445965088e-3 );
+                D nonuniform List<scalar> 2 ( 1.048148011e-2 9.394379065e-3 );
+                nuSigmaEff nonuniform List<scalar> 2 ( 2.281410040e-4 2.409936871e-3 );
+                sigmaPow nonuniform List<scalar> 2 ( 2.902985653e-15 3.072798671e-14 );
+                scatteringMatrixP0 2 2 (
+                    ( 3.137674344e1 4.230815728e-1 )
+                    ( 9.715158069e-3 3.542258484e1 )
+                );
+                sigmaRemoval nonuniform List<scalar> 2 ( 4.253808803e-1 5.962542732e-2 );
+                chiPrompt nonuniform List<scalar> 2 ( 1.000000000e0 0.000000000e0 );
+                chiDelayed nonuniform List<scalar> 2 ( 1.000000000e0 0.000000000e0 );
+                Beta nonuniform List<scalar> 0 ( );
+                lambda nonuniform List<scalar> 0 ( );
+                discFactor nonuniform List<scalar> 2 ( 1.000000000e0 1.000000000e0 );
+                integralFlux nonuniform List<scalar> 2 ( 5.719937136e4 1.564565382e5 );
+            }
+            coolant_band
+            {
+                fuelFraction 1.000000000e0;
+                secondaryPowerVolumeFraction 0.000000000e0;
+                fractionToSecondaryPower 0.000000000e0;
+                dfAdjust false;
+                IV nonuniform List<scalar> 2 ( 1.215906859e-6 1.445965088e-3 );
+                D nonuniform List<scalar> 2 ( 9.212088871e-3 8.550645149e-3 );
+                nuSigmaEff nonuniform List<scalar> 2 ( 0.000000000e0 0.000000000e0 );
+                sigmaPow nonuniform List<scalar> 2 ( 0.000000000e0 0.000000000e0 );
+                scatteringMatrixP0 2 2 (
+                    ( 3.535148536e1 8.280924224e-1 )
+                    ( 1.395076313e-3 3.892581789e1 )
+                );
+                sigmaRemoval nonuniform List<scalar> 2 ( 8.328522005e-1 5.759535322e-2 );
+                chiPrompt nonuniform List<scalar> 2 ( 0.000000000e0 0.000000000e0 );
+                chiDelayed nonuniform List<scalar> 2 ( 0.000000000e0 0.000000000e0 );
+                Beta nonuniform List<scalar> 0 ( );
+                lambda nonuniform List<scalar> 0 ( );
+                discFactor nonuniform List<scalar> 2 ( 1.000000000e0 1.000000000e0 );
+                integralFlux nonuniform List<scalar> 2 ( 2.046872975e3 5.017646657e4 );
+            }
+            carbon_bricks
+            {
+                fuelFraction 1.000000000e0;
+                secondaryPowerVolumeFraction 0.000000000e0;
+                fractionToSecondaryPower 0.000000000e0;
+                dfAdjust false;
+                IV nonuniform List<scalar> 2 ( 1.215906859e-6 1.445965088e-3 );
+                D nonuniform List<scalar> 2 ( 3.389526017e-2 7.743922532e-3 );
+                nuSigmaEff nonuniform List<scalar> 2 ( 0.000000000e0 0.000000000e0 );
+                sigmaPow nonuniform List<scalar> 2 ( 0.000000000e0 0.000000000e0 );
+                scatteringMatrixP0 2 2 (
+                    ( 9.501368053e0 7.422943792e-2 )
+                    ( 0.000000000e0 3.999943360e1 )
+                );
+                sigmaRemoval nonuniform List<scalar> 2 ( 3.328486386e-1 3.045074129e0 );
+                chiPrompt nonuniform List<scalar> 2 ( 0.000000000e0 0.000000000e0 );
+                chiDelayed nonuniform List<scalar> 2 ( 0.000000000e0 0.000000000e0 );
+                Beta nonuniform List<scalar> 0 ( );
+                lambda nonuniform List<scalar> 0 ( );
+                discFactor nonuniform List<scalar> 2 ( 1.000000000e0 1.000000000e0 );
+                integralFlux nonuniform List<scalar> 2 ( 4.715110471e2 3.067043429e3 );
+            }
+            bottom_structures
+            {
+                fuelFraction 1.000000000e0;
+                secondaryPowerVolumeFraction 0.000000000e0;
+                fractionToSecondaryPower 0.000000000e0;
+                dfAdjust false;
+                IV nonuniform List<scalar> 2 ( 1.215906859e-6 1.445965088e-3 );
+                D nonuniform List<scalar> 2 ( 1.032735937e-2 8.644689255e-3 );
+                nuSigmaEff nonuniform List<scalar> 2 ( 0.000000000e0 0.000000000e0 );
+                sigmaPow nonuniform List<scalar> 2 ( 0.000000000e0 0.000000000e0 );
+                scatteringMatrixP0 2 2 (
+                    ( 3.159673111e1 6.605173421e-1 )
+                    ( 2.689485397e-3 3.839743821e1 )
+                );
+                sigmaRemoval nonuniform List<scalar> 2 ( 6.799934167e-1 1.618811032e-1 );
+                chiPrompt nonuniform List<scalar> 2 ( 0.000000000e0 0.000000000e0 );
+                chiDelayed nonuniform List<scalar> 2 ( 0.000000000e0 0.000000000e0 );
+                Beta nonuniform List<scalar> 0 ( );
+                lambda nonuniform List<scalar> 0 ( );
+                discFactor nonuniform List<scalar> 2 ( 1.000000000e0 1.000000000e0 );
+                integralFlux nonuniform List<scalar> 2 ( 5.457843073e3 7.250457660e4 );
+            }
+            conus_graphite
+            {
+                fuelFraction 1.000000000e0;
+                secondaryPowerVolumeFraction 0.000000000e0;
+                fractionToSecondaryPower 0.000000000e0;
+                dfAdjust false;
+                IV nonuniform List<scalar> 2 ( 1.215906859e-6 1.445965088e-3 );
+                D nonuniform List<scalar> 2 ( 8.850226692e-3 8.283147742e-3 );
+                nuSigmaEff nonuniform List<scalar> 2 ( 1.914874963e-3 1.016395942e-2 );
+                sigmaPow nonuniform List<scalar> 2 ( 2.433673813e-14 1.295963909e-13 );
+                scatteringMatrixP0 2 2 (
+                    ( 3.714181062e1 5.179421855e-1 )
+                    ( 9.452112480e-3 4.017403011e1 )
+                );
+                sigmaRemoval nonuniform List<scalar> 2 ( 5.220080466e-1 6.832022903e-2 );
+                chiPrompt nonuniform List<scalar> 2 ( 1.000000000e0 0.000000000e0 );
+                chiDelayed nonuniform List<scalar> 2 ( 1.000000000e0 0.000000000e0 );
+                Beta nonuniform List<scalar> 0 ( );
+                lambda nonuniform List<scalar> 0 ( );
+                discFactor nonuniform List<scalar> 2 ( 1.000000000e0 1.000000000e0 );
+                integralFlux nonuniform List<scalar> 2 ( 1.643040524e4 5.289822789e4 );
+            }
+        );
+    }
+    T600K
+    {
+        TFuel 6.000000000e2;
+        zones
+        (
+            pebble_bed
+            {
+                D nonuniform List<scalar> 2 ( 9.232265695e-3 8.024822260e-3 );
+                nuSigmaEff nonuniform List<scalar> 2 ( 3.492852953e-2 6.724863564e-1 );
+                sigmaPow nonuniform List<scalar> 2 ( 4.447099350e-13 8.573792825e-12 );
+                scatteringMatrixP0 2 2 (
+                    ( 3.573550865e1 3.202565215e-1 )
+                    ( 5.206805809e-2 4.112722711e1 )
+                );
+                sigmaRemoval nonuniform List<scalar> 2 ( 3.697491902e-1 4.105568461e-1 );
+                chiPrompt nonuniform List<scalar> 2 ( 1.000000000e0 0.000000000e0 );
+                chiDelayed nonuniform List<scalar> 2 ( 1.000000000e0 0.000000000e0 );
+            }
+            conus
+            {
+                D nonuniform List<scalar> 2 ( 8.875912945e-3 7.968009144e-3 );
+                nuSigmaEff nonuniform List<scalar> 2 ( 7.064255763e-3 8.781382996e-2 );
+                sigmaPow nonuniform List<scalar> 2 ( 9.008041713e-14 1.119602378e-12 );
+                scatteringMatrixP0 2 2 (
+                    ( 3.708732139e1 4.545300529e-1 )
+                    ( 3.211627198e-2 4.173077636e1 )
+                );
+                sigmaRemoval nonuniform List<scalar> 2 ( 4.675009003e-1 1.031783116e-1 );
+                chiPrompt nonuniform List<scalar> 2 ( 1.000000000e0 0.000000000e0 );
+                chiDelayed nonuniform List<scalar> 2 ( 1.000000000e0 0.000000000e0 );
+            }
+            discharge_tube
+            {
+                D nonuniform List<scalar> 2 ( 8.777470936e-3 8.094793764e-3 );
+                nuSigmaEff nonuniform List<scalar> 2 ( 0.000000000e0 0.000000000e0 );
+                sigmaPow nonuniform List<scalar> 2 ( 0.000000000e0 0.000000000e0 );
+                scatteringMatrixP0 2 2 (
+                    ( 3.721210867e1 7.520636351e-1 )
+                    ( 1.441360223e-2 4.102934829e1 )
+                );
+                sigmaRemoval nonuniform List<scalar> 2 ( 7.639023930e-1 1.493825106e-1 );
+                chiPrompt nonuniform List<scalar> 2 ( 0.000000000e0 0.000000000e0 );
+                chiDelayed nonuniform List<scalar> 2 ( 0.000000000e0 0.000000000e0 );
+            }
+            core_cavity
+            {
+                D nonuniform List<scalar> 2 ( 7.383986530e-2 5.622811027e-2 );
+                nuSigmaEff nonuniform List<scalar> 2 ( 7.523799159e-4 1.053299091e-2 );
+                sigmaPow nonuniform List<scalar> 2 ( 9.566251748e-15 1.342935925e-13 );
+                scatteringMatrixP0 2 2 (
+                    ( 4.459363831e0 5.353845482e-2 )
+                    ( 3.302847232e-3 5.914055476e0 )
+                );
+                sigmaRemoval nonuniform List<scalar> 2 ( 5.490948202e-2 1.417742660e-2 );
+                chiPrompt nonuniform List<scalar> 2 ( 1.000000000e0 0.000000000e0 );
+                chiDelayed nonuniform List<scalar> 2 ( 1.000000000e0 0.000000000e0 );
+            }
+            top_reflector
+            {
+                D nonuniform List<scalar> 2 ( 1.076646565e-2 8.724537298e-3 );
+                nuSigmaEff nonuniform List<scalar> 2 ( 0.000000000e0 0.000000000e0 );
+                sigmaPow nonuniform List<scalar> 2 ( 0.000000000e0 0.000000000e0 );
+                scatteringMatrixP0 2 2 (
+                    ( 3.043262703e1 5.137588990e-1 )
+                    ( 9.824150143e-3 3.810476742e1 )
+                );
+                sigmaRemoval nonuniform List<scalar> 2 ( 5.277033375e-1 1.016522374e-1 );
+                chiPrompt nonuniform List<scalar> 2 ( 0.000000000e0 0.000000000e0 );
+                chiDelayed nonuniform List<scalar> 2 ( 0.000000000e0 0.000000000e0 );
+            }
+            cold_gas_plenum
+            {
+                D nonuniform List<scalar> 2 ( 1.376817138e-2 1.218835115e-2 );
+                nuSigmaEff nonuniform List<scalar> 2 ( 0.000000000e0 0.000000000e0 );
+                sigmaPow nonuniform List<scalar> 2 ( 0.000000000e0 0.000000000e0 );
+                scatteringMatrixP0 2 2 (
+                    ( 2.367025225e1 4.668959659e-1 )
+                    ( 6.936916021e-3 2.722332371e1 )
+                );
+                sigmaRemoval nonuniform List<scalar> 2 ( 5.401765900e-1 1.251936641e-1 );
+                chiPrompt nonuniform List<scalar> 2 ( 0.000000000e0 0.000000000e0 );
+                chiDelayed nonuniform List<scalar> 2 ( 0.000000000e0 0.000000000e0 );
+            }
+            side_reflector
+            {
+                D nonuniform List<scalar> 2 ( 9.925581521e-3 8.326132849e-3 );
+                nuSigmaEff nonuniform List<scalar> 2 ( 1.250764206e-3 4.144314803e-3 );
+                sigmaPow nonuniform List<scalar> 2 ( 1.589634901e-14 5.283771108e-14 );
+                scatteringMatrixP0 2 2 (
+                    ( 3.301479761e1 5.622079649e-1 )
+                    ( 1.080495601e-2 3.995387972e1 )
+                );
+                sigmaRemoval nonuniform List<scalar> 2 ( 5.684571998e-1 8.071250065e-2 );
+                chiPrompt nonuniform List<scalar> 2 ( 1.000000000e0 0.000000000e0 );
+                chiDelayed nonuniform List<scalar> 2 ( 1.000000000e0 0.000000000e0 );
+            }
+            control_rod_band
+            {
+                D nonuniform List<scalar> 2 ( 1.042469370e-2 9.238610118e-3 );
+                nuSigmaEff nonuniform List<scalar> 2 ( 2.864370368e-4 1.557892252e-3 );
+                sigmaPow nonuniform List<scalar> 2 ( 3.675998627e-15 1.986398688e-14 );
+                scatteringMatrixP0 2 2 (
+                    ( 3.151607571e1 4.569908566e-1 )
+                    ( 1.807530747e-2 3.602589533e1 )
+                );
+                sigmaRemoval nonuniform List<scalar> 2 ( 4.592842181e-1 5.456797668e-2 );
+                chiPrompt nonuniform List<scalar> 2 ( 1.000000000e0 0.000000000e0 );
+                chiDelayed nonuniform List<scalar> 2 ( 1.000000000e0 0.000000000e0 );
+            }
+            coolant_band
+            {
+                D nonuniform List<scalar> 2 ( 8.892846571e-3 8.382026816e-3 );
+                nuSigmaEff nonuniform List<scalar> 2 ( 0.000000000e0 0.000000000e0 );
+                sigmaPow nonuniform List<scalar> 2 ( 0.000000000e0 0.000000000e0 );
+                scatteringMatrixP0 2 2 (
+                    ( 3.664793407e1 8.324082807e-1 )
+                    ( 4.251430082e-3 3.972315824e1 )
+                );
+                sigmaRemoval nonuniform List<scalar> 2 ( 8.353768886e-1 4.447083413e-2 );
+                chiPrompt nonuniform List<scalar> 2 ( 0.000000000e0 0.000000000e0 );
+                chiDelayed nonuniform List<scalar> 2 ( 0.000000000e0 0.000000000e0 );
+            }
+            carbon_bricks
+            {
+                D nonuniform List<scalar> 2 ( 2.054271739e-2 7.384092270e-3 );
+                nuSigmaEff nonuniform List<scalar> 2 ( 0.000000000e0 0.000000000e0 );
+                sigmaPow nonuniform List<scalar> 2 ( 0.000000000e0 0.000000000e0 );
+                scatteringMatrixP0 2 2 (
+                    ( 1.527345926e1 2.545576543e-1 )
+                    ( 2.500260610e-3 4.201312916e1 )
+                );
+                sigmaRemoval nonuniform List<scalar> 2 ( 9.528912812e-1 3.128957523e0 );
+                chiPrompt nonuniform List<scalar> 2 ( 0.000000000e0 0.000000000e0 );
+                chiDelayed nonuniform List<scalar> 2 ( 0.000000000e0 0.000000000e0 );
+            }
+            bottom_structures
+            {
+                D nonuniform List<scalar> 2 ( 9.724183922e-3 8.481596363e-3 );
+                nuSigmaEff nonuniform List<scalar> 2 ( 0.000000000e0 0.000000000e0 );
+                sigmaPow nonuniform List<scalar> 2 ( 0.000000000e0 0.000000000e0 );
+                scatteringMatrixP0 2 2 (
+                    ( 3.349582013e1 7.655650031e-1 )
+                    ( 7.351751430e-3 3.914719854e1 )
+                );
+                sigmaRemoval nonuniform List<scalar> 2 ( 7.829775579e-1 1.535791729e-1 );
+                chiPrompt nonuniform List<scalar> 2 ( 0.000000000e0 0.000000000e0 );
+                chiDelayed nonuniform List<scalar> 2 ( 0.000000000e0 0.000000000e0 );
+            }
+            conus_graphite
+            {
+                D nonuniform List<scalar> 2 ( 8.873042203e-3 8.152821594e-3 );
+                nuSigmaEff nonuniform List<scalar> 2 ( 3.625868434e-4 1.015618634e-2 );
+                sigmaPow nonuniform List<scalar> 2 ( 4.528189036e-15 1.294908223e-13 );
+                scatteringMatrixP0 2 2 (
+                    ( 3.698799662e1 5.758602760e-1 )
+                    ( 1.924202624e-2 4.082184087e1 )
+                );
+                sigmaRemoval nonuniform List<scalar> 2 ( 5.789759842e-1 6.379970339e-2 );
+                chiPrompt nonuniform List<scalar> 2 ( 1.000000000e0 0.000000000e0 );
+                chiDelayed nonuniform List<scalar> 2 ( 1.000000000e0 0.000000000e0 );
+            }
+        );
+    }
+);
+
+// ************************************************************************* //

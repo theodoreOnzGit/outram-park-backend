@@ -172,6 +172,16 @@ report). Rules that bind changes to it:
   `outram-blender`) and records the mismatch fraction it prints.
 - **A step that is not built says so** and names its issue
   (`WizardStep::issue`); nothing is simulated behind a placeholder.
+- **Steps 7-8 hand off through library types** (2026-10-05, gh:#572/#573):
+  `workbench::meshes::MeshSet` (three meshes as GeN-Foam `polyMesh` +
+  `cellZones`, the region map, six `MeshMapping`s with upstream `mapTgtToSrc`
+  semantics) and `workbench::mgxs::MgxsSet` (a GeN-Foam `nuclearData`, zone
+  names = region ids = cellZone names). Steps 9-10 read those; the module
+  docs say exactly what is in them. The meshing calls `outram-blender` and the
+  cfMesh port; the mesh-to-mesh overlap is
+  `outram_blender::unstructured::overlap` (a port of OpenFOAM's
+  `tetOverlapVolume` / `cellVolumeWeightMethod`, as GeN-Foam's `meshHandler`
+  uses). Nothing meshes or maps in this crate itself.
 
 ## Files and folders are chosen with a file picker (HARD RULE)
 

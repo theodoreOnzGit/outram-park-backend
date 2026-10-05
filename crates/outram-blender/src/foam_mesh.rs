@@ -586,6 +586,147 @@ pub fn cylinder_tet_dual(
     outram_park_fork_cfmesh::pipeline::cylinder_tet_dual(base, radius, height, n_seg, opts)
 }
 
+/// Closed, outward-wound triangulated surface of an **R-Z profile revolved**
+/// about the z axis (metres in, metres out): the body of revolution an
+/// axisymmetric reactor domain is (a core cavity, a reflector annulus with a
+/// conus, ...), in the form
+/// [`outram_park_fork_cfmesh::pipeline::surface_to_tet_dual_mesh`] meshes.
+///
+/// `profile` is a simple polygon in the `(r, z)` half-plane (`r >= 0`), in
+/// either orientation. Each edge sweeps a band of `n_seg` quads (two
+/// triangles each); a vertex on the axis (`r == 0`) becomes one point, so the
+/// bands touching it are triangle fans and an edge lying on the axis sweeps
+/// nothing. Winding is set per triangle from the profile's outward edge
+/// normal, so non-convex profiles (a reflector with a conus) are wound
+/// correctly, unlike a centroid test.
+///
+/// Original OUTRAM PARK code (dhoby-ghaut workbench Step 7, gh:#572).
+///
+/// # Panics
+/// If `n_seg < 3` or the profile has fewer than 3 vertices.
+pub fn revolved_profile_surface(profile: &[[f64; 2]], n_seg: usize) -> (Vec<Vec3>, Vec<[usize; 3]>) {
+    assert!(n_seg >= 3 && profile.len() >= 3, "need n_seg >= 3 and a polygon");
+    // Orientation: positive shoelace area = counter-clockwise in (r, z).
+    let n = profile.len();
+    let area2: f64 = (0..n)
+        .map(|i| {
+            let (a, b) = (profile[i], profile[(i + 1) % n]);
+            a[0] * b[1] - b[0] * a[1]
+        })
+        .sum();
+    let ccw = area2 > 0.0;
+    let on_axis = |p: [f64; 2]| p[0].abs() < 1e-12;
+    let mut pts: Vec<Vec3> = Vec::new();
+    // Per profile vertex: the indices of its ring (one index repeated if on the axis).
+    let mut ring: Vec<Vec<usize>> = Vec::with_capacity(n);
+    for p in profile {
+        if on_axis(*p) {
+            pts.push(Vec3::new(0.0, 0.0, p[1]));
+            ring.push(vec![pts.len() - 1; n_seg]);
+        } else {
+            let mut r = Vec::with_capacity(n_seg);
+            for j in 0..n_seg {
+                let phi = 2.0 * std::f64::consts::PI * j as f64 / n_seg as f64;
+                pts.push(Vec3::new(p[0] * phi.cos(), p[0] * phi.sin(), p[1]));
+                r.push(pts.len() - 1);
+            }
+            ring.push(r);
+        }
+    }
+    let mut tris: Vec<[usize; 3]> = Vec::new();
+    for i in 0..n {
+        let (a, b) = (profile[i], profile[(i + 1) % n]);
+        if on_axis(a) && on_axis(b) {
+            continue;
+        }
+        // Outward normal of the edge in (r, z): to the right of the direction
+        // of travel for a counter-clockwise polygon.
+        let (dr, dz) = (b[0] - a[0], b[1] - a[1]);
+        let (nr, nz) = if ccw { (dz, -dr) } else { (-dz, dr) };
+        let (ra, rb) = (ring[i].clone(), ring[(i + 1) % n].clone());
+        for j in 0..n_seg {
+            let k = (j + 1) % n_seg;
+            for t in [[ra[j], ra[k], rb[k]], [ra[j], rb[k], rb[j]]] {
+                if t[0] == t[1] || t[1] == t[2] || t[0] == t[2] {
+                    continue;
+                }
+                let (p0, p1, p2) = (pts[t[0]], pts[t[1]], pts[t[2]]);
+                let nrm = p1.sub(p0).cross(p2.sub(p0));
+                let c = p0.add(p1).add(p2).scale(1.0 / 3.0);
+                let rc = (c.x * c.x + c.y * c.y).sqrt().max(1e-300);
+                let out = Vec3::new(nr * c.x / rc, nr * c.y / rc, nz);
+                if nrm.dot(out) < 0.0 {
+                    tris.push([t[0], t[2], t[1]]);
+                } else {
+                    tris.push(t);
+                }
+            }
+        }
+    }
+    (pts, tris)
+}
+
+/// Tet-dual (or, with `opts.dual = false`, tetrahedral) volume mesh of a
+/// revolved R-Z profile: [`revolved_profile_surface`] checked closed and
+/// manifold, then the cfMesh pipeline. Metres.
+///
+/// # Errors
+/// A leaky surface, or the pipeline's own error.
+pub fn revolved_tet_dual(
+    profile: &[[f64; 2]],
+    n_seg: usize,
+    opts: &TetDualOptions,
+) -> Result<(VolumeMesh, TetDualReport), String> {
+    let (p, t) = revolved_profile_surface(profile, n_seg);
+    check_closed_manifold(&p, &t).map_err(|e| e.to_string())?;
+    outram_park_fork_cfmesh::pipeline::surface_to_tet_dual_mesh(&p, &t, opts)
+}
+
+#[cfg(test)]
+mod revolve_tests {
+    use super::*;
+
+    /// A reflector-like profile (an annulus whose inner wall has a conus,
+    /// closed on top by a reflector over the axis) is closed and manifold,
+    /// and encloses exactly the inscribed-polygon volume of revolution: every
+    /// z-section is an n-gon annulus, so the volume is the exact solid's
+    /// times `n sin(2 pi / n) / (2 pi)`. Listed clockwise, the same volume.
+    #[test]
+    fn a_revolved_conus_annulus_is_closed_with_the_inscribed_volume() {
+        let prof = [
+            [0.0, 2.5],
+            [1.0, 2.5],
+            [1.0, 2.0],
+            [0.5, 1.5],
+            [0.5, 0.0],
+            [2.0, 0.0],
+            [2.0, 3.0],
+            [0.0, 3.0],
+        ];
+        let n = 48;
+        let (p, t) = revolved_profile_surface(&prof, n);
+        check_closed_manifold(&p, &t).expect("closed manifold");
+        let v = outram_park_fork_cfmesh::shapes::surface_volume(&p, &t);
+        // Pappus on the polygon: V = 2 pi * integral of r dA, with
+        // integral r dA = (1/6) sum (r_i + r_j)(r_i z_j - r_j z_i).
+        let m = prof.len();
+        let mut ir = 0.0;
+        for i in 0..m {
+            let (a, b) = (prof[i], prof[(i + 1) % m]);
+            ir += (a[0] + b[0]) * (a[0] * b[1] - b[0] * a[1]);
+        }
+        let tau = 2.0 * std::f64::consts::PI;
+        let exact = tau * (ir / 6.0).abs();
+        let k = n as f64 * (tau / n as f64).sin() / tau;
+        assert!((v - exact * k).abs() < 1e-9 * exact, "{v} vs {}", exact * k);
+        let mut rev = prof.to_vec();
+        rev.reverse();
+        let (p2, t2) = revolved_profile_surface(&rev, n);
+        let v2 = outram_park_fork_cfmesh::shapes::surface_volume(&p2, &t2);
+        assert!((v2 - v).abs() < 1e-9 * v);
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

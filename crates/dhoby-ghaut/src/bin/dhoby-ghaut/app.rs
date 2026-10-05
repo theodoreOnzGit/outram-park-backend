@@ -174,6 +174,8 @@ pub struct App {
     pub main_rect: egui::Rect,
     /// The step the main view and the literature pane were last set up for.
     pub shown_step: Option<WizardStep>,
+    /// Steps 7-8 (meshing, MGXS): their own engine thread and state.
+    pub s78: crate::steps78::S78,
 }
 
 impl App {
@@ -248,6 +250,7 @@ impl App {
             t0: std::time::Instant::now(),
             main_rect: egui::Rect::NOTHING,
             shown_step: None,
+            s78: crate::steps78::S78::new(cc.egui_ctx.clone()),
         };
         // Ray tracing is the GPU's job (gh:#587); the CPU is the fallback.
         match crate::gpu_view::Gpu::new(cc) {
@@ -918,6 +921,7 @@ impl eframe::App for App {
         for (msg, err) in self.mp.handle() {
             self.say(msg, err);
         }
+        crate::steps78::handle(self, &ctx);
         self.dialog.update(&ctx);
         if let Some(path) = self.dialog.take_picked() {
             self.picked(path);

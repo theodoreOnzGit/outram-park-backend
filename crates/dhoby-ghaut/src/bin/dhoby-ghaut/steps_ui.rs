@@ -339,6 +339,7 @@ fn main_view(app: &mut App, ui: &mut egui::Ui) {
         WizardStep::Setup | WizardStep::Run => {
             crate::coupled_ui::main_view(app, ui, step == WizardStep::Run);
         }
+        WizardStep::Meshing | WizardStep::Mgxs => crate::steps78::main_view(app, ui),
         s if !s.implemented() => {
             egui::Frame::central_panel(ui.style()).inner_margin(20.0).show(ui, |ui| {
                 ui.set_min_size(ui.available_size());
@@ -585,13 +586,8 @@ fn settings(app: &mut App, ui: &mut egui::Ui) {
         WizardStep::PostProcessing => crate::step11::settings(app, ui),
         WizardStep::Setup => crate::coupled_ui::setup_settings(app, ui),
         WizardStep::Run => crate::coupled_ui::run_settings(app, ui),
-        s => {
-            ui.label(format!(
-                "Nothing to set: {} is not built yet (gh:#{}).",
-                s.name(),
-                s.issue().unwrap_or(561)
-            ));
-        }
+        WizardStep::Meshing => crate::steps78::mesh_settings(app, ui),
+        WizardStep::Mgxs => crate::steps78::mgxs_settings(app, ui),
     }
     if matches!(
         app.step,

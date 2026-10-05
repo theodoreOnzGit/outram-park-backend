@@ -119,21 +119,18 @@ impl WizardStep {
     /// Whether this build implements the step.
     #[must_use]
     pub fn implemented(self) -> bool {
-        // Step 6 (branch + reactivity map, gh:#571), Steps 9-10 (a SIMPLIFIED
-        // coupled case, gh:#574) and Step 11 (exports, gh:#574) were built
-        // 2026-10-05; their panels say what is and is not modelled.
-        self <= Self::MonteCarlo
-            || matches!(self, Self::Branch | Self::Setup | Self::Run | Self::PostProcessing)
+        // Every step is built since 2026-10-05: Step 6 (gh:#571), 7 (gh:#572),
+        // 8 (gh:#573), 9-10 (a SIMPLIFIED coupled case) and 11 (gh:#574);
+        // their panels say what is and is not modelled.
+        let _ = self;
+        true
     }
 
     /// The GitHub issue that builds a step this build does not.
     #[must_use]
     pub fn issue(self) -> Option<u32> {
-        match self {
-            Self::Meshing => Some(572),
-            Self::Mgxs => Some(573),
-            _ => None,
-        }
+        let _ = self;
+        None
     }
 
     /// What the step does, one paragraph, shown under the top bar.
@@ -223,14 +220,10 @@ mod tests {
         }
     }
 
-    /// Steps 6, 9, 10 (a simplified coupled run, gh:#574) and 11 are built;
-    /// Steps 7 and 8 are not.
+    /// Every step is built since 2026-10-05 (6: gh:#571, 7: #572, 8: #573,
+    /// 9-11: #574); the panels list what each does not model.
     #[test]
-    fn steps_nine_and_ten_are_built() {
-        assert!(WizardStep::Setup.implemented() && WizardStep::Run.implemented());
-        assert!(WizardStep::Branch.implemented() && WizardStep::PostProcessing.implemented());
-        for s in [WizardStep::Meshing, WizardStep::Mgxs] {
-            assert!(!s.implemented(), "{s:?}");
-        }
+    fn every_step_is_built() {
+        assert!(WizardStep::ALL.iter().all(|s| s.implemented()));
     }
 }

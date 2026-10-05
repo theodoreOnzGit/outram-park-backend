@@ -73,13 +73,20 @@ outram-mc-libs = { workspace = true }
 # The GPU ray tracer of the 3D view and the slices (gh:#587,
 # `outram_blender::csg::gpu`): its `gpu` feature, on eframe's own wgpu
 # device. Same wgpu as eframe's (the workspace pins them together).
-outram-blender = { workspace = true, features = ["gpu"] }
+outram-blender = { workspace = true, features = ["gpu", "foam-mesh", "fem-export"] }
 # Step 1's fresh DEM pour (`htr10_fill`, the LIGGGHTS port's GranularSystem).
 outram-park-fork-liggghts = { workspace = true }
 # Step 10's coupled run (gh:#574): helium properties, KTA bed friction, Wakao
 # film coefficient and the HTR-10 pebble conduction (`tampines::gas_phase`,
 # `tampines::pebble_bed`).
 tampines = { workspace = true }
+# Steps 7-8 (gh:#572, #573): outram-blender's meshing nexus (its `foam-mesh`
+# and `fem-export` features, on the line above: (neutral mesh, cfMesh bridge,
+# farrer-park FEM bridge, mesh-to-mesh overlap, mesh plots); the cfMesh port
+# itself (named patches, boundary layers on one patch, polyMesh writer,
+# quality checks), and the GeN-Foam port's nuclearData writer/reader.
+outram-park-fork-cfmesh = { workspace = true, features = ["foam-export"] }
+outram-foam-appbuilder-lib = { workspace = true }
 # The literature pane renders PDF pages with the engine kovan's own reader
 # uses (AGPL-3.0-only, like this crate since 2026-10-05; see NOTICE). Same
 # version and features as `crates/kovan`.
