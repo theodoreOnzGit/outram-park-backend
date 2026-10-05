@@ -9,7 +9,7 @@ use crate::app::App;
 use crate::engine::KeffOutcome;
 
 pub fn tape_table(app: &mut App, ui: &mut egui::Ui) {
-    let Some((dir, tapes, needed)) = &app.scan else {
+    let Some((dir, layout, tapes, needed)) = &app.scan else {
         ui.horizontal(|ui| {
             ui.spinner();
             ui.label("Scanning the ENDF folder…");
@@ -17,6 +17,19 @@ pub fn tape_table(app: &mut App, ui: &mut egui::Ui) {
         return;
     };
     ui.heading(format!("{} tapes in {}", tapes.len(), dir.display()));
+    match layout {
+        crate::engine::EndfLayout::Flat => {
+            ui.label("Layout: a flat folder of tapes.");
+        }
+        crate::engine::EndfLayout::Library { scanned, others } => {
+            ui.label(format!(
+                "Layout: an extracted ENDF library. Read: {}. Not needed for transport, listed only: {}.",
+                scanned.join(", "),
+                if others.is_empty() { "none".to_string() } else { others.join(", ") }
+            ));
+        }
+    }
+    ui.small("Needed tapes are matched by MAT and sub-library from their headers, so a library's own file names work.");
     let in_folder = needed.iter().filter(|n| n.in_folder).count();
     let elsewhere: Vec<_> = needed
         .iter()
@@ -92,7 +105,7 @@ pub fn tape_table(app: &mut App, ui: &mut egui::Ui) {
                     ui.label(t.mat.map_or("?".into(), |m| m.to_string()));
                     ui.label(&t.symbol);
                     ui.label(t.kind());
-                    ui.label(if needed.iter().any(|n| n.file == t.file) {
+                    ui.label(if needed.iter().any(|n| n.matches(t)) {
                         "yes"
                     } else {
                         ""
@@ -106,9 +119,9 @@ pub fn tape_table(app: &mut App, ui: &mut egui::Ui) {
 pub fn show(app: &mut App, ui: &mut egui::Ui) {
     // Fixed widths for the two text columns; the plots take the rest. The
     // height is the panel's own, never the window's.
-    let h = 430.0;
+    let h = 270.0;
     let w = ui.available_width();
-    let (wp, wc) = (340.0_f32.min(w * 0.25), 640.0_f32.min(w * 0.42));
+    let (wp, wc) = (210.0_f32.min(w * 0.22), 400.0_f32.min(w * 0.4));
     ui.horizontal_top(|ui| {
         ui.allocate_ui(egui::vec2(wp, h), |ui| {
             ui.set_width(wp);
@@ -133,7 +146,7 @@ fn progress(app: &mut App, ui: &mut egui::Ui) {
     ui.label(RichText::new("Nuclear data").strong());
     egui::ScrollArea::vertical()
         .id_salt("nuc")
-        .max_height(380.0)
+        .max_height(230.0)
         .show(ui, |ui| {
             let n_done = app.mc.items.iter().filter(|i| i.1.is_some()).count();
             if !app.mc.items.is_empty() {
@@ -234,7 +247,7 @@ fn console(app: &mut App, ui: &mut egui::Ui) {
     }
     egui::ScrollArea::both()
         .id_salt("console")
-        .max_height(380.0)
+        .max_height(230.0)
         .max_width(ui.available_width())
         .stick_to_bottom(true)
         .auto_shrink([false, false])
@@ -291,7 +304,7 @@ fn plots(app: &mut App, ui: &mut egui::Ui) {
         .enumerate()
         .map(|(i, k)| [(i + 1) as f64, *k])
         .collect();
-    Plot::new("kgen").height(130.0).show(ui, |p| {
+    Plot::new("kgen").height(80.0).show(ui, |p| {
         p.points(Points::new("k per generation", PlotPoints::from(pts)).radius(2.0));
         let n = o.k_by_generation.len() as f64;
         p.line(Line::new(
@@ -308,7 +321,7 @@ fn plots(app: &mut App, ui: &mut egui::Ui) {
         .map(|(i, v)| [(o.edges[i] * o.edges[i + 1]).sqrt().log10(), v.0])
         .collect();
     Plot::new("spectrum")
-        .height(170.0)
+        .height(100.0)
         .x_axis_label("log10 E [eV]")
         .show(ui, |p| p.line(Line::new("φ(u)", PlotPoints::from(spec))));
     runs_table(app, ui);

@@ -11,6 +11,7 @@
 //! cargo run --release -p dhoby-ghaut --bin dhoby-ghaut
 //! cargo run --release -p dhoby-ghaut --bin dhoby-ghaut -- --recipe my_recipe.md
 //! cargo run --release -p dhoby-ghaut --bin dhoby-ghaut -- --headless-geometry
+//! cargo run --release -p dhoby-ghaut --bin dhoby-ghaut -- --scan-endf ~/ENDF-B-VIII.0
 //! cargo run --release -p dhoby-ghaut --bin dhoby-ghaut -- --render-review out_dir
 //! cargo run --release -p dhoby-ghaut --bin dhoby-ghaut -- --headless-keff \
 //!     [--particles 500 --inactive 10 --active 20 --threads 8] [--out out_dir]
@@ -30,6 +31,8 @@
 
 #[cfg(not(any(target_os = "android", target_arch = "wasm32")))]
 mod app;
+#[cfg(not(any(target_os = "android", target_arch = "wasm32")))]
+mod dem;
 #[cfg(not(any(target_os = "android", target_arch = "wasm32")))]
 mod engine;
 #[cfg(not(any(target_os = "android", target_arch = "wasm32")))]
@@ -69,6 +72,15 @@ fn main() -> Result<(), String> {
         }
         None => None,
     };
+    if let Some(dir) = arg("--scan-endf") {
+        let (layout, tapes) = engine::scan_endf(std::path::Path::new(&dir));
+        println!("{dir}: {layout:?}, {} tapes", tapes.len());
+        for n in engine::needed_tapes() {
+            let found = tapes.iter().find(|t| n.matches(t)).map(|t| t.file.clone());
+            println!("{:<34} MAT {:>5?} NSUB {:>6?} -> {}", n.file, n.mat, n.nsub, found.unwrap_or_else(|| "MISSING".into()));
+        }
+        return Ok(());
+    }
     if args.iter().any(|a| a == "--headless-geometry") {
         let r = recipe.unwrap_or_else(preset::htr10);
         println!("{}", headless::geometry_csv(&r));
@@ -91,7 +103,7 @@ fn main() -> Result<(), String> {
     }
     let options = eframe::NativeOptions {
         viewport: egui::ViewportBuilder::default()
-            .with_inner_size([1900.0, 1150.0])
+            .with_inner_size([1500.0, 950.0])
             .with_title("Dhoby Ghaut workbench"),
         ..Default::default()
     };

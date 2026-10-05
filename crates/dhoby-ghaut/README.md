@@ -164,7 +164,9 @@ What was checked on 2026-10-05:
   - A quarter-resolution preview while moving, the full trace once still. The
     HTR-10 half-section takes 5–7 s at full resolution on the 16-core
     development machine, under a software-rendered display.
-- **Every font is twice egui's default** (`FONT_SCALE` in `app.rs`).
+- ~~**Every font is twice egui's default** (`FONT_SCALE` in `app.rs`).~~
+  **REVERTED the same day** at the maintainer's request, pending a systematic
+  style settlement (#586); `FONT_SCALE` is 1.0 and is the hook for it.
 - **Files and folders are chosen with a file picker**: the ENDF folder, the
   kovan root, the PNG folder, and recipe open / save / save-as. This is a hard
   rule in this crate, kovan and dover (`CLAUDE.md`).

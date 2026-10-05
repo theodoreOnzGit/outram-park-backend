@@ -105,6 +105,8 @@ fn apply_3d_preset(app: &mut App, step: WizardStep) {
     let n = crate::engine::palette().len();
     let pebble = |i: usize| i <= mat::GRAPHITE || i == mat::HOMOG_DUMMY;
     let v = &mut app.view3d;
+    // Drop any picture traced before this step's view applied.
+    v.invalidate();
     match step {
         // The reactor in half-section (the near half, y < 0, cut away), the
         // bed inside it.
@@ -331,19 +333,34 @@ fn main_view(app: &mut App, ui: &mut egui::Ui) {
                 apply_3d_preset(app, step);
                 app.shown_step = Some(step);
             }
+            let dem_step = step == WizardStep::PebbleBed
+                && app.recipe.pebble_bed.source == dhoby_ghaut::workbench::recipe::BedSource::Dem;
+            let tab = |t: &str| RichText::new(t).size(crate::app::fs(13.0));
             ui.horizontal(|ui| {
                 ui.add_space(8.0);
-                ui.selectable_value(
-                    &mut app.show_3d,
-                    true,
-                    RichText::new("3D view").size(crate::app::fs(13.0)),
-                );
-                ui.selectable_value(
-                    &mut app.show_3d,
-                    false,
-                    RichText::new("2D slice").size(crate::app::fs(13.0)),
-                );
+                if dem_step {
+                    if ui.selectable_label(app.show_dem, tab("DEM pour")).clicked() {
+                        app.show_dem = true;
+                    }
+                    if ui.selectable_label(!app.show_dem, tab("Geometry")).clicked() {
+                        app.show_dem = false;
+                    }
+                    ui.separator();
+                }
+                if !(dem_step && app.show_dem) {
+                    ui.selectable_value(&mut app.show_3d, true, tab("3D view"));
+                    ui.selectable_value(&mut app.show_3d, false, tab("2D slice"));
+                }
             });
+            if dem_step && app.show_dem {
+                if app.dem.running {
+                    ui.ctx().request_repaint_after(std::time::Duration::from_millis(250));
+                }
+                let progress = app.dem.progress;
+                let rect = app.dem.view.show(ui, &app.dem.preview, progress.as_ref());
+                app.main_rect = rect;
+                return;
+            }
             let geo = &app.geo;
             let rect = if app.show_3d {
                 app.view3d.show(ui, now, have, &mut |r| geo.send(r))
@@ -454,6 +471,7 @@ fn settings(app: &mut App, ui: &mut egui::Ui) {
             ui.small("Every nuclide is reconstructed and Doppler-broadened at this temperature (RECONR + BROADR, tol 1e-3) when Step 5 runs.");
         }
         WizardStep::PebbleBed => {
+            changed |= dem_controls(app, ui);
             let pb = &mut app.recipe.pebble_bed;
             ui.label(RichText::new(&pb.packing).italics());
             changed |= int(ui, "Radial rings of the tiling", &mut pb.rings, 1..=20);
@@ -637,6 +655,85 @@ fn finish_settings(app: &mut App, ui: &mut egui::Ui, changed: bool) {
     if changed {
         app.refresh_edited();
     }
+}
+
+/// Step 1's bed source and, for a DEM pour, its settings, Run / Stop and the
+/// live numbers. Returns whether a model input changed.
+fn dem_controls(app: &mut App, ui: &mut egui::Ui) -> bool {
+    use dhoby_ghaut::workbench::recipe::BedSource;
+    let mut changed = false;
+    ui.label(RichText::new("Bed source").strong());
+    let before = app.recipe.pebble_bed.source;
+    ui.horizontal_wrapped(|ui| {
+        ui.selectable_value(&mut app.recipe.pebble_bed.source, BedSource::Lattice, "Preset lattice (Şeker)");
+        ui.selectable_value(&mut app.recipe.pebble_bed.source, BedSource::Dem, "Fresh DEM pour");
+    });
+    if app.recipe.pebble_bed.source != before {
+        changed = true;
+        app.show_dem = app.recipe.pebble_bed.source == BedSource::Dem;
+    }
+    if app.recipe.pebble_bed.source == BedSource::Lattice {
+        ui.small("Şeker & Çolak (2003)'s 13-ball hexagonal cell, built analytically: the bed the RMC code-to-code record uses.");
+        ui.separator();
+        return changed;
+    }
+    let busy = app.dem.running;
+    let Some(d) = app.recipe.pebble_bed.dem.as_mut() else { return changed };
+    ui.add_enabled_ui(!busy, |ui| {
+        changed |= int(ui, "Pebbles to pour", &mut d.n_pebbles, 100..=40_000);
+        changed |= num(ui, "Sliding friction µ", &mut d.friction, 0.01, 0.0..=1.0);
+        changed |= num(ui, "Rolling friction µ_r", &mut d.rolling_friction, 0.01, 0.0..=1.0);
+        changed |= num(ui, "Young's modulus [Pa]", &mut d.youngs_modulus_pa, 1.0e7, 1.0e7..=1.0e10);
+        ui.horizontal(|ui| {
+            ui.label("Seed");
+            changed |= ui.add(egui::DragValue::new(&mut d.seed)).changed();
+        });
+    });
+    ui.small(
+        "Defaults: the HTR-10 pebble-bed DEM package (publications repo, pebble_bed_dem): \
+         µ = 0.1, µ_r = 0, E = 5e8 Pa (softened from ~9 GPa graphite), ν = 0.2, e = 0.5, dt = 35 µs; \
+         27 000 pebbles is the full core the quoted 0.61 refers to. µ = 0.1 rests on \
+         \"graphite-on-graphite 0.1–0.2\" with no specific paper cited: an assumption, ablated not tuned.",
+    );
+    ui.horizontal(|ui| {
+        if ui.add_enabled(!busy, egui::Button::new(RichText::new("Run DEM pour").strong())).clicked() {
+            app.start_dem();
+        }
+        if ui.add_enabled(busy, egui::Button::new("Stop")).clicked() {
+            if let Ok(mut s) = app.dem.stop.write() {
+                *s = true;
+            }
+        }
+        if busy {
+            ui.spinner();
+        }
+    });
+    if let Some(p) = app.dem.progress {
+        let wall = if busy { format!(", {:.0} s wall", app.now() - app.dem.started_at) } else { String::new() };
+        ui.label(format!("step {}  ({:.2} s simulated{wall})", p.steps, p.time.get::<uom::si::time::second>()));
+        ui.label(format!("KE / one-radius drop (core): {:.2e}  (settled below 1e-3)", p.ke_ratio_core));
+        ui.label(format!(
+            "whole-core φ {:.4}  ·  surface {:.1} cm  ·  {} pebbles above the conus",
+            p.phi_whole_core,
+            p.surface_height.get::<uom::si::length::centimeter>(),
+            p.n_in_core
+        ));
+        if p.settled {
+            ui.colored_label(Color32::from_rgb(30, 120, 60), "Settled.");
+        } else if p.gave_up {
+            ui.colored_label(Color32::from_rgb(190, 30, 30), "Hit the step cap without settling: not a settled bed.");
+        } else if app.dem.stopped {
+            ui.colored_label(Color32::from_rgb(170, 90, 0), "Stopped before settling: not a settled bed.");
+        }
+    }
+    if app.dem.result.is_some() {
+        ui.colored_label(
+            Color32::from_rgb(170, 90, 0),
+            "Building the Monte Carlo geometry from this bed is being wired in (gh:#561); until then Steps 2–5 use the preset lattice.",
+        );
+    }
+    ui.separator();
+    changed
 }
 
 fn export_view(app: &mut App) {

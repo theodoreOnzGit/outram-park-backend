@@ -24,10 +24,12 @@ use crate::literature::Literature;
 use crate::preset;
 use crate::slice_view::SliceView;
 
-/// Every font in the workbench is this many times egui's default (maintainer,
-/// 2026-10-05: "all fonts in dhoby ghaut twice the size"). Applied to egui's
-/// text styles at start-up and, through [`fs`], to every explicit size.
-pub const FONT_SCALE: f32 = 2.0;
+/// Every font in the workbench is this many times its base size, applied to
+/// egui's text styles at start-up and, through [`fs`], to every explicit size.
+/// ~~2.0 (maintainer, 2026-10-05: "all fonts twice the size")~~ **REVERTED to
+/// 1.0 the same day** at the maintainer's request, pending a systematic style
+/// settlement (gh:#586); this constant is the one hook for it.
+pub const FONT_SCALE: f32 = 1.0;
 
 /// An explicit font size, scaled by [`FONT_SCALE`].
 pub fn fs(px: f32) -> f32 {
@@ -53,6 +55,36 @@ pub enum Screen {
     Wizard,
 }
 
+/// Step 1's DEM pour: where it is, and what it produced.
+pub struct DemUi {
+    pub running: bool,
+    pub stop: crate::dem::StopFlag,
+    pub progress: Option<outram_park_fork_liggghts::htr10_fill::FillProgress>,
+    /// Latest positions for drawing \[m\].
+    pub preview: Vec<[f32; 3]>,
+    /// The finished bed's centres \[m\], DEM frame.
+    pub result: Option<Vec<[f64; 3]>>,
+    /// The pour stopped by the user before it settled.
+    pub stopped: bool,
+    pub started_at: f64,
+    pub view: crate::dem::DemView,
+}
+
+impl Default for DemUi {
+    fn default() -> Self {
+        Self {
+            running: false,
+            stop: Default::default(),
+            progress: None,
+            preview: Vec::new(),
+            result: None,
+            stopped: false,
+            started_at: 0.0,
+            view: crate::dem::DemView::new(),
+        }
+    }
+}
+
 /// Step 5's live state.
 #[derive(Default)]
 pub struct McState {
@@ -72,6 +104,11 @@ pub struct McState {
 pub struct App {
     pub geo: Link<Req, Ev>,
     pub phys: Link<Req, Ev>,
+    /// The DEM pour's own thread (minutes of work; slices stay live).
+    pub dem_link: Link<crate::dem::DemReq, crate::dem::DemEv>,
+    pub dem: DemUi,
+    /// Step 1's main view shows the DEM pour (else the geometry).
+    pub show_dem: bool,
     pub screen: Screen,
     pub step: WizardStep,
     pub recipe: Recipe,
@@ -81,7 +118,7 @@ pub struct App {
     /// The one file picker, and what it is open for.
     pub dialog: egui_file_dialog::FileDialog,
     pub pick: Option<Pick>,
-    pub scan: Option<(PathBuf, Vec<TapeInfo>, Vec<NeededTape>)>,
+    pub scan: Option<(PathBuf, crate::engine::EndfLayout, Vec<TapeInfo>, Vec<NeededTape>)>,
     pub scanning: bool,
     // Geometry
     pub assembly: Option<AssemblyInfo>,
@@ -120,8 +157,10 @@ impl App {
         });
         let ctx = cc.egui_ctx.clone();
         let c2 = ctx.clone();
+        let c3 = ctx.clone();
         let geo = start_native(Engine::default(), move || ctx.request_repaint());
         let phys = start_native(Engine::default(), move || c2.request_repaint());
+        let dem_link = start_native(crate::dem::DemEngine, move || c3.request_repaint());
         let preset = preset::htr10();
         let loaded = recipe.is_some();
         let recipe = recipe.unwrap_or_else(|| preset.clone());
@@ -129,6 +168,9 @@ impl App {
         let mut app = Self {
             geo,
             phys,
+            dem_link,
+            dem: DemUi::default(),
+            show_dem: false,
             screen: if loaded {
                 Screen::Wizard
             } else {
@@ -318,13 +360,13 @@ impl App {
                 continue;
             }
             match ev {
-                Ev::Scan { dir, tapes, needed } => {
+                Ev::Scan { dir, layout, tapes, needed } => {
                     self.scanning = false;
                     self.say(
                         format!("Scanned {}: {} tapes", dir.display(), tapes.len()),
                         false,
                     );
-                    self.scan = Some((dir, tapes, needed));
+                    self.scan = Some((dir, layout, tapes, needed));
                 }
                 Ev::Assembled(info, core) => {
                     self.assembling = false;
@@ -417,6 +459,73 @@ impl App {
         }
     }
 
+    /// Start a fresh DEM pour with Step 1's settings.
+    pub fn start_dem(&mut self) {
+        use outram_park_fork_liggghts::compute::ThreadCount;
+        use outram_park_fork_liggghts::htr10_fill::Htr10FillSettings;
+        use uom::si::f64::Pressure;
+        use uom::si::pressure::pascal;
+        let Some(d) = self.recipe.pebble_bed.dem.clone() else { return };
+        let settings = Htr10FillSettings {
+            n_pebbles: d.n_pebbles,
+            friction: d.friction,
+            rolling_friction: d.rolling_friction,
+            youngs_modulus: Pressure::new::<pascal>(d.youngs_modulus_pa),
+            seed: d.seed,
+            threads: ThreadCount::Fixed(self.recipe.monte_carlo.threads.max(1)),
+            ..Htr10FillSettings::default()
+        };
+        if let Ok(mut s) = self.dem.stop.write() {
+            *s = false;
+        }
+        self.dem.running = true;
+        self.dem.stopped = false;
+        self.dem.result = None;
+        self.dem.progress = None;
+        self.dem.started_at = self.now();
+        self.show_dem = true;
+        self.dem_link.send(crate::dem::DemReq::Run { settings, chunk: 1000, stop: self.dem.stop.clone() });
+        self.say(format!("DEM pour started: {} pebbles", d.n_pebbles), false);
+    }
+
+    fn handle_dem(&mut self, events: Vec<crate::dem::DemEv>) {
+        use crate::dem::DemEv;
+        for ev in events {
+            match ev {
+                DemEv::Progress { progress, centres } => {
+                    self.dem.progress = Some(progress);
+                    self.dem.preview = centres;
+                }
+                DemEv::Done { progress, centres, stopped } => {
+                    self.dem.running = false;
+                    self.dem.stopped = stopped;
+                    self.dem.progress = Some(progress);
+                    self.dem.preview = centres.iter().map(|c| [c[0] as f32, c[1] as f32, c[2] as f32]).collect();
+                    if let Some(d) = self.recipe.pebble_bed.dem.as_mut() {
+                        d.settled_steps = progress.settled.then_some(progress.steps);
+                        d.phi_whole_core = progress.settled.then_some(progress.phi_whole_core);
+                    }
+                    let msg = if progress.settled {
+                        format!("DEM pour settled after {} steps: phi {:.4}", progress.steps, progress.phi_whole_core)
+                    } else if stopped {
+                        format!("DEM pour stopped at step {} (not settled)", progress.steps)
+                    } else {
+                        format!("DEM pour hit its step cap at {} without settling", progress.steps)
+                    };
+                    self.say(msg, !progress.settled);
+                    self.dem.result = Some(centres);
+                }
+                DemEv::Error(e) => {
+                    self.dem.running = false;
+                    self.say(e, true);
+                }
+            }
+        }
+        if self.dem.running {
+            // The elapsed clock keeps moving between chunks.
+        }
+    }
+
     pub fn save_recipe(&mut self) {
         self.refresh_edited();
         let path = PathBuf::from(&self.recipe_path);
@@ -467,7 +576,7 @@ impl App {
                     .into_iter()
                     .filter(|t| t.generation() == g)
                     .collect();
-                let per_row = ((ui.available_width() / 450.0).floor() as usize).max(1);
+                let per_row = ((ui.available_width() / 290.0).floor() as usize).max(1);
                 for row in types.chunks(per_row) {
                     ui.horizontal(|ui| {
                         for &t in row {
@@ -479,7 +588,7 @@ impl App {
                             };
                             let card = egui::Frame::group(ui.style()).inner_margin(10.0);
                             card.show(ui, |ui| {
-                                ui.set_width(420.0);
+                                ui.set_width(260.0);
                                 ui.vertical(|ui| {
                                     ui.label(
                                         RichText::new(t.label())
@@ -520,7 +629,7 @@ impl App {
         ui.add_space(8.0);
         ui.horizontal(|ui| {
             egui::Frame::group(ui.style()).inner_margin(12.0).show(ui, |ui| {
-                ui.set_width(560.0);
+                ui.set_width(340.0);
                 ui.vertical(|ui| {
                     ui.label(RichText::new("Basic").size(crate::app::fs(20.0)).strong());
                     ui.label("Start from a pre-built model and modify from there. Every value prefilled, every value cited.");
@@ -531,7 +640,7 @@ impl App {
                 });
             });
             egui::Frame::group(ui.style()).inner_margin(12.0).show(ui, |ui| {
-                ui.set_width(560.0);
+                ui.set_width(340.0);
                 ui.vertical(|ui| {
                     ui.label(RichText::new("Advanced").size(crate::app::fs(20.0)).strong());
                     ui.label("Build from scratch, more customisable.");
@@ -553,7 +662,7 @@ impl App {
                 egui::Frame::group(ui.style())
                     .inner_margin(12.0)
                     .show(ui, |ui| {
-                        ui.set_width(560.0);
+                        ui.set_width(340.0);
                         ui.vertical(|ui| {
                             ui.label(RichText::new(c.label()).size(crate::app::fs(19.0)).strong());
                             ui.small(c.note());
@@ -686,6 +795,8 @@ impl eframe::App for App {
         let mut events = self.geo.drain();
         events.extend(self.phys.drain());
         self.handle(&ctx, events);
+        let dem_events = self.dem_link.drain();
+        self.handle_dem(dem_events);
         self.dialog.update(&ctx);
         if let Some(path) = self.dialog.take_picked() {
             self.picked(path);

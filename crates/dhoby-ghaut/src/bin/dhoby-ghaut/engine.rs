@@ -170,6 +170,7 @@ pub enum Req {
 pub enum Ev {
     Scan {
         dir: PathBuf,
+        layout: EndfLayout,
         tapes: Vec<TapeInfo>,
         needed: Vec<NeededTape>,
     },
@@ -274,12 +275,13 @@ impl Engine {
     fn handle_inner(&mut self, req: Req, post: &mut impl FnMut(Ev)) {
         match req {
             Req::ScanEndf { dir, mut needed } => {
-                let tapes = scan_endf(&dir);
+                let (layout, tapes) = scan_endf(&dir);
                 for n in &mut needed {
-                    n.in_folder = tapes.iter().any(|t| t.file == n.file);
+                    n.found = tapes.iter().find(|t| n.matches(t)).map(|t| t.file.clone());
+                    n.in_folder = n.found.is_some();
                     n.at_default = n.default_path.exists();
                 }
-                post(Ev::Scan { dir, tapes, needed });
+                post(Ev::Scan { dir, layout, tapes, needed });
             }
             Req::Assemble { rings, layers } => {
                 let t = Instant::now();
@@ -658,8 +660,15 @@ pub fn planned_items(layout: &Htr10NuclideLayout) -> Vec<String> {
 /// One tape the data plan reads, and where it was found.
 #[derive(Clone, Debug, PartialEq)]
 pub struct NeededTape {
-    /// File name.
+    /// File name (the workspace copy's).
     pub file: String,
+    /// MAT and sub-library read from that copy's header: the tape's identity,
+    /// which survives a library's own file naming (`n-092_U_235.endf` in an
+    /// extracted ENDF/B-VIII.0 against `n-092_U_235-ENDF8.0.endf` here).
+    pub mat: Option<i32>,
+    pub nsub: Option<i64>,
+    /// The scanned tape that matched, as a path relative to the folder.
+    pub found: Option<String>,
     /// Where the HTR-10 loader reads it (`reference-data/endf/` or the ACE
     /// submodule's ENDF/B-VIII.0 folder).
     pub default_path: PathBuf,
@@ -682,8 +691,12 @@ pub fn needed_tapes() -> Vec<NeededTape> {
             return;
         };
         if !v.iter().any(|x| x.file == f) {
+            let h = read_header(&p, f.clone());
             v.push(NeededTape {
                 file: f,
+                mat: h.mat,
+                nsub: h.nsub,
+                found: None,
                 default_path: p,
                 in_folder: false,
                 at_default: false,
@@ -708,27 +721,78 @@ pub fn log_edges(lo: f64, hi: f64, per_decade: usize) -> Vec<f64> {
         .collect()
 }
 
-/// Read every `*.endf` (and `*.dat`) in `dir`: MAT, ZSYMAM and NSUB from the
-/// MF1/MT451 header.
-pub fn scan_endf(dir: &Path) -> Vec<TapeInfo> {
+impl NeededTape {
+    /// Whether scanned tape `t` is this one: same MAT and sub-library, read
+    /// from the headers; by file name only if a header could not be read.
+    pub fn matches(&self, t: &TapeInfo) -> bool {
+        match (self.mat, self.nsub, t.mat, t.nsub) {
+            (Some(m), Some(s), Some(tm), Some(ts)) => m == tm && s == ts,
+            _ => t.file.rsplit('/').next() == Some(self.file.as_str()),
+        }
+    }
+}
+
+/// How a scanned ENDF folder is laid out.
+#[derive(Clone, Debug, PartialEq)]
+pub enum EndfLayout {
+    /// Tapes directly in the folder (`reference-data/endf/`, or a library's
+    /// `neutrons/` picked on its own).
+    Flat,
+    /// A freshly extracted library (e.g. `ENDF-B-VIII.0/`), its tapes in
+    /// sub-library folders. `scanned` are the ones read (incident neutrons and
+    /// thermal scattering, what transport needs); `others` are listed only.
+    Library { scanned: Vec<String>, others: Vec<String> },
+}
+
+/// The sub-library folders transport reads, in an extracted ENDF library.
+const LIBRARY_SUBDIRS: [&str; 2] = ["neutrons", "thermal_scatt"];
+
+/// Read every `*.endf` (and `*.dat`) tape `dir` holds: MAT, ZSYMAM and NSUB
+/// from the MF1/MT451 header. Understands both a flat folder of tapes and a
+/// freshly extracted library with `neutrons/`, `thermal_scatt/`, ...
+/// sub-folders; tape names are then relative to `dir` (`neutrons/n-001_H_001.endf`).
+pub fn scan_endf(dir: &Path) -> (EndfLayout, Vec<TapeInfo>) {
+    let subdirs: Vec<String> = std::fs::read_dir(dir)
+        .map(|es| {
+            es.flatten()
+                .filter(|e| e.path().is_dir())
+                .filter_map(|e| e.file_name().to_str().map(str::to_string))
+                .collect()
+        })
+        .unwrap_or_default();
+    let is_library = LIBRARY_SUBDIRS.iter().any(|s| subdirs.iter().any(|d| d == s));
+    if !is_library {
+        return (EndfLayout::Flat, scan_flat(dir, ""));
+    }
+    let mut scanned = Vec::new();
+    let mut tapes = Vec::new();
+    for s in LIBRARY_SUBDIRS {
+        if subdirs.iter().any(|d| d == s) {
+            scanned.push(s.to_string());
+            tapes.extend(scan_flat(&dir.join(s), &format!("{s}/")));
+        }
+    }
+    let mut others: Vec<String> = subdirs.into_iter().filter(|d| !LIBRARY_SUBDIRS.contains(&d.as_str())).collect();
+    others.sort();
+    // Tapes at the top level too, if any.
+    tapes.extend(scan_flat(dir, ""));
+    tapes.sort_by(|a, b| a.file.cmp(&b.file));
+    (EndfLayout::Library { scanned, others }, tapes)
+}
+
+fn scan_flat(dir: &Path, prefix: &str) -> Vec<TapeInfo> {
     let mut out = Vec::new();
     let Ok(entries) = std::fs::read_dir(dir) else {
         return out;
     };
     for e in entries.flatten() {
         let p = e.path();
-        let is_tape = p
-            .extension()
-            .and_then(|x| x.to_str())
-            .is_some_and(|x| x == "endf" || x == "dat");
+        let is_tape = p.is_file()
+            && p.extension().and_then(|x| x.to_str()).is_some_and(|x| x == "endf" || x == "dat");
         if !is_tape {
             continue;
         }
-        let file = p
-            .file_name()
-            .and_then(|f| f.to_str())
-            .unwrap_or_default()
-            .to_string();
+        let file = format!("{prefix}{}", p.file_name().and_then(|f| f.to_str()).unwrap_or_default());
         out.push(read_header(&p, file));
     }
     out.sort_by(|a, b| a.file.cmp(&b.file));
@@ -856,7 +920,8 @@ mod tests {
     #[test]
     fn the_scan_reads_mat_and_sublibrary_from_the_reference_tapes() {
         let dir = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../reference-data/endf");
-        let tapes = scan_endf(&dir);
+        let (layout, tapes) = scan_endf(&dir);
+        assert_eq!(layout, EndfLayout::Flat);
         let u235 = tapes
             .iter()
             .find(|t| t.file.starts_with("n-092_U_235"))
@@ -880,5 +945,39 @@ mod tests {
                 t.default_path.display()
             );
         }
+    }
+
+    /// An extracted ENDF library (sub-library folders, the library's own file
+    /// names) is recognised, and the needed tapes are found in it by MAT and
+    /// sub-library, not by name. Built from copies of three reference tapes
+    /// renamed the way the official ENDF/B-VIII.0 archive names them.
+    #[test]
+    fn an_extracted_library_is_scanned_and_matched_by_identity() {
+        let src = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../reference-data/endf");
+        let root = std::env::temp_dir().join(format!("dhoby_endf_layout_{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&root);
+        std::fs::create_dir_all(root.join("neutrons")).expect("dir");
+        std::fs::create_dir_all(root.join("thermal_scatt")).expect("dir");
+        std::fs::create_dir_all(root.join("decay")).expect("dir");
+        for (from, to) in [
+            ("n-092_U_235-ENDF8.0.endf", "neutrons/n-092_U_235.endf"),
+            ("n-008_O_016-ENDF8.0.endf", "neutrons/n-008_O_016.endf"),
+        ] {
+            std::fs::copy(src.join(from), root.join(to)).expect("copy");
+        }
+        let (layout, tapes) = scan_endf(&root);
+        assert_eq!(
+            layout,
+            EndfLayout::Library { scanned: vec!["neutrons".into(), "thermal_scatt".into()], others: vec!["decay".into()] }
+        );
+        assert!(tapes.iter().any(|t| t.file == "neutrons/n-092_U_235.endf"));
+        let need: Vec<NeededTape> = needed_tapes();
+        let u235 = need.iter().find(|n| n.file.starts_with("n-092_U_235")).expect("U-235 is needed");
+        let found: Vec<&TapeInfo> = tapes.iter().filter(|t| u235.matches(t)).collect();
+        assert_eq!(found.len(), 1, "U-235 found by MAT {:?} / NSUB {:?}", u235.mat, u235.nsub);
+        assert_eq!(found[0].file, "neutrons/n-092_U_235.endf");
+        let u238 = need.iter().find(|n| n.file.starts_with("n-092_U_238")).expect("U-238 is needed");
+        assert!(!tapes.iter().any(|t| u238.matches(t)), "U-238 is not in this small library");
+        let _ = std::fs::remove_dir_all(&root);
     }
 }
