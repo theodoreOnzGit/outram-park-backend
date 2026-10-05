@@ -257,11 +257,48 @@ fn region_sense(cell: &Cell, i_surf: usize) -> Option<HalfSpaceSense> {
     })
 }
 
-/// Upstream's signed boundary token for a crossing of `i_surf` computed from
-/// `cell`'s region: `i_surf = -token` (`Region::distance_to_nearest_surface`,
-/// `src/cell.cpp:989`), i.e. the side **opposite** the one the cell's region
-/// selects.
-fn boundary_token(cell: &Cell, i_surf: usize) -> SurfaceToken {
+/// Upstream's signed boundary token for a crossing of `i_surf` out of
+/// `cell` at `r` along `u` (the side of the surface opposite the cell).
+///
+/// - A **simple** region (half-spaces and intersections only):
+///   `i_surf = -token` (`Region::distance_to_nearest_surface`,
+///   `src/cell.cpp:989`), the side **opposite** the one the region selects.
+/// - Any other region: the side the ray is heading into, from the surface
+///   normal (`Region::distance_complex`, `src/cell.cpp:1013-1018`:
+///   `u . n <= 0` is the negative side).
+///
+/// ~~Every region used the first rule.~~ **CORRECTED 2026-10-05 (gh:#587):**
+/// upstream never applies it to a region with a complement: `Region::Region`
+/// removes complements by De Morgan's laws (`src/cell.cpp:640-671`), which
+/// flips the senses under them, and a region with a union is "complex". A
+/// complemented half-space (a reflector written as `box & ~core`) gave the
+/// ray the wrong side of the core's surface, so it was re-located in the
+/// reflector it had just left and drawn as reflector all the way through
+/// the core. Found by the GPU tracer's grid index, which (searching only the
+/// voxel's cells) did not reproduce the error.
+fn boundary_token(
+    geom: &Geometry,
+    cell: &Cell,
+    i_surf: usize,
+    r: Position,
+    u: Direction,
+) -> SurfaceToken {
+    let simple = cell
+        .region
+        .iter()
+        .all(|t| matches!(t, RegionToken::HalfSpace { .. } | RegionToken::Intersection));
+    if !simple {
+        let n = geom.surfaces[i_surf].normal(r);
+        let into_positive = u.u * n.u + u.v * n.v + u.w * n.w > 0.0;
+        return SurfaceToken::on(
+            i_surf,
+            if into_positive {
+                HalfSpaceSense::Outside
+            } else {
+                HalfSpaceSense::Inside
+            },
+        );
+    }
     match region_sense(cell, i_surf) {
         Some(s) => SurfaceToken::on(i_surf, flip(s)),
         None => SurfaceToken::NONE,
@@ -305,7 +342,10 @@ where
         }
         let (c, s) = best_hit.unwrap_or((0, 0));
         r = advance(r, u, best + TINY_BIT);
-        entry = Some((s, boundary_token(&geom.cells[c], s)));
+        // The token is the side opposite the cell entered: the side a ray
+        // leaving it backwards would be on.
+        let back = Direction::new(-u.u, -u.v, -u.w);
+        entry = Some((s, boundary_token(geom, &geom.cells[c], s, r, back)));
         path = geom.locate(r, u, SurfaceToken::NONE);
         if path.is_some() {
             break;
@@ -362,7 +402,7 @@ where
         let (surface_index, token) = match bh.crossing {
             Crossing::Surface(s) => {
                 let left = &geom.cells[path.levels[level].cell];
-                (Some(s), boundary_token(left, s))
+                (Some(s), boundary_token(geom, left, s, r, u))
             }
             Crossing::Lattice | Crossing::None => (None, SurfaceToken::NONE),
         };

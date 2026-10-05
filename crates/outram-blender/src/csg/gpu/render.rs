@@ -198,7 +198,19 @@ impl CsgGpuRenderer {
     }
 
     /// Upload a flattened geometry (replacing any earlier one).
-    pub fn set_geometry(&mut self, flat: &FlatGeometry) {
+    ///
+    /// # Errors
+    /// [`GpuRenderError::Unsupported`] when the buffer is larger than this
+    /// device lets one storage binding be (`max_storage_buffer_binding_size`,
+    /// 128 MiB by default); nothing is uploaded and the CPU draws instead.
+    pub fn set_geometry(&mut self, flat: &FlatGeometry) -> Result<(), GpuRenderError> {
+        let limit = u64::from(self.device.limits().max_storage_buffer_binding_size);
+        if flat.bytes() as u64 > limit {
+            self.clear_geometry();
+            return Err(GpuRenderError::Unsupported(
+                "a geometry larger than the device's storage-buffer limit",
+            ));
+        }
         let bytes = flat.to_le_bytes();
         let buf = self.device.create_buffer(&wgpu::BufferDescriptor {
             label: Some("csg-geometry"),
@@ -212,6 +224,7 @@ impl CsgGpuRenderer {
             words: Vec::new(),
             ..flat.clone()
         });
+        Ok(())
     }
 
     /// Whether a geometry is uploaded.
@@ -576,9 +589,19 @@ impl CsgGpuRenderer {
     /// # Errors
     /// [`GpuRenderError::Gpu`] if the copy or the map fails.
     pub fn read_steps(&self, frame: &GpuFrame) -> Result<Vec<u32>, GpuRenderError> {
+        Ok(self.read_work(frame)?.into_iter().map(|(c, _)| c).collect())
+    }
+
+    /// A solid frame's work per pixel (blocking): `(boundary crossings,
+    /// silent voxel steps)`, each saturating at 65 535. Voxel steps are the
+    /// grid index's ([`super::index`]); zero for a universe without one.
+    ///
+    /// # Errors
+    /// [`GpuRenderError::Gpu`] if the copy or the map fails.
+    pub fn read_work(&self, frame: &GpuFrame) -> Result<Vec<(u32, u32)>, GpuRenderError> {
         let aux = self.read_buffer(&frame.aux)?;
         Ok((0..frame.width * frame.height)
-            .map(|i| aux[2 * i + 1])
+            .map(|i| (aux[2 * i + 1] & 0xFFFF, aux[2 * i + 1] >> 16))
             .collect())
     }
 

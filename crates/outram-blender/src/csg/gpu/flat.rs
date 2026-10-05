@@ -37,6 +37,7 @@
 //! | cell indices | the universes' cell lists |
 //! | lattice maps | universe per tile (`i32`, `-1` = none) |
 //! | crossing hints | per universe, sorted `[half-space, cand_start, n_cand]` triples, then the candidate cell lists |
+//! | grid index | per universe the offset of its grid record (or [`NONE`]); per grid `[lo x y z, d x y z, nx, ny, nz, flags, voxels, 0]`; per voxel the offset of its candidate list (or [`NONE`]); lists `[n, n x (cell, tok_start, tok_len, flags)]`. Offsets are from the section start; `tok_start` is in the region-token section |
 //!
 //! **Crossing hints** are OpenMC's neighbour lists in a static form: after a
 //! ray leaves a cell across surface `s` onto side `σ`, the cell it enters
@@ -47,6 +48,13 @@
 //! assumes anyway: it returns the first match), at a fraction of the cost in
 //! HTR-10's 128-cell root universe.
 //!
+//! **Grid index** ([`super::index`], since 2026-10-05): a universe with many
+//! region tokens (HTR-10's root: 128 cells, 1 675 tokens, up to 124 in one
+//! cell) gets a uniform grid; each voxel lists the cells that reach it, each
+//! cut down to the surfaces passing through the voxel. Those folded tokens
+//! are appended to the region-token section. Same answer as the full scan
+//! inside the voxel; the tracer treats voxel faces as silent boundaries.
+//!
 //! `outer` and empty tiles are `-1` (as `u32`, [`NONE`]) when absent.
 
 use crate::csg::cell::{CellFill, HalfSpaceSense, RegionToken};
@@ -55,7 +63,7 @@ use crate::csg::lattice::{HexOrientation, Lattice};
 use crate::csg::surface::SurfaceKind;
 
 /// Words of header at the start of [`FlatGeometry::words`].
-pub const HEADER_WORDS: usize = 16;
+pub const HEADER_WORDS: usize = 20;
 /// Words per surface: a tag and 11 coefficients.
 pub const SURF_WORDS: usize = 12;
 /// Words per cell.
@@ -117,8 +125,17 @@ pub const H_N_MAT: usize = 14;
 /// Header word: offset of the crossing-hint section.
 pub const H_HINTS: usize = 15;
 
+/// Header word: offset of the grid-index section ([`super::index`]).
+pub const H_GRIDS: usize = 16;
+/// Words per grid record in the grid-index section.
+pub const GRID_WORDS: usize = 12;
+/// Words per candidate in a voxel list: `[cell, tok_start, tok_len, flags]`.
+pub const CAND_WORDS: usize = 4;
+/// Grid flag: some cell's box is unbounded (scan the universe outside it).
+pub const GRID_OPEN: u32 = 1;
+
 /// Version of this layout; the shader is written against it.
-pub const FORMAT_VERSION: u32 = 2;
+pub const FORMAT_VERSION: u32 = 3;
 
 /// Why a geometry cannot be flattened. Every case means "draw it on the CPU".
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -166,6 +183,28 @@ pub struct FlatGeometry {
     pub universe_contents: Vec<UniverseContents>,
     /// The distinct universes each lattice places (tiles and `outer`).
     pub lattice_universes: Vec<Vec<usize>>,
+    /// The universes given a grid index, and its size.
+    pub grids: Vec<GridStats>,
+}
+
+/// One universe's grid index, in numbers (see [`FlatGeometry::grids`]).
+#[derive(Debug, Clone, PartialEq)]
+pub struct GridStats {
+    /// Universe index.
+    pub universe: usize,
+    /// Voxels per axis.
+    pub n: [usize; 3],
+    /// Distinct candidate lists after de-duplication.
+    pub lists: usize,
+    /// Mean candidate cells per non-empty voxel.
+    pub mean_candidates: f64,
+    /// Mean folded region tokens per non-empty voxel (all candidates).
+    pub mean_tokens: f64,
+    /// Region tokens of the universe's cells, unfolded.
+    pub full_tokens: usize,
+    /// Some cell is unbounded even by the tightened box, so points outside
+    /// the grid are looked up by scanning the universe.
+    pub open: bool,
 }
 
 /// One universe's direct contents (see [`FlatGeometry::universe_contents`]).
@@ -375,6 +414,16 @@ fn universe_depth(
 /// than [`MAX_DEPTH`]) or does not fit 32-bit indices. The caller draws on
 /// the CPU instead.
 pub fn flatten(g: &Geometry) -> Result<FlatGeometry, FlattenError> {
+    flatten_with(g, true)
+}
+
+/// [`flatten`] without the grid index (`index = false`): every universe is
+/// scanned whole, as before 2026-10-05. For the ablation in the parity
+/// tests; the workbench always indexes.
+///
+/// # Errors
+/// As [`flatten`].
+pub fn flatten_with(g: &Geometry, index: bool) -> Result<FlatGeometry, FlattenError> {
     let mut memo = vec![None; g.universes.len()];
     let mut on_stack = vec![false; g.universes.len()];
     let depth = universe_depth(g, g.root_universe, &mut memo, &mut on_stack)?;
@@ -451,6 +500,79 @@ pub fn flatten(g: &Geometry) -> Result<FlatGeometry, FlattenError> {
         hints.extend(list);
     }
 
+    // Grid indices: folded tokens go on the end of the token section.
+    let mut grid_words: Vec<u32> = vec![NONE; g.universes.len()];
+    let mut grids = Vec::new();
+    // Root first, then the universes with the most region tokens, while the
+    // budget lasts.
+    let tokens_of = |u: usize| -> usize {
+        g.universes[u]
+            .cell_indices
+            .iter()
+            .map(|&c| g.cells[c].region.len())
+            .sum()
+    };
+    let mut order: Vec<usize> = (0..g.universes.len())
+        .filter(|&u| index && super::index::wants_index(g, u))
+        .collect();
+    order.sort_by_key(|&u| (u != g.root_universe, std::cmp::Reverse(tokens_of(u)), u));
+    for u in order {
+        if grid_words.len() >= super::index::BUDGET_WORDS {
+            break;
+        }
+        let Some(gi) = super::index::build(g, u) else {
+            continue;
+        };
+        let (mean_candidates, mean_tokens) = gi.mean_load();
+        grids.push(GridStats {
+            universe: u,
+            n: gi.n,
+            lists: gi.lists.len(),
+            mean_candidates,
+            mean_tokens,
+            full_tokens: tokens_of(u),
+            open: gi.open,
+        });
+        grid_words[u] = idx(grid_words.len())?;
+        let rec = grid_words.len();
+        grid_words.extend_from_slice(&[
+            f(gi.lo[0]),
+            f(gi.lo[1]),
+            f(gi.lo[2]),
+            f(gi.d[0]),
+            f(gi.d[1]),
+            f(gi.d[2]),
+            idx(gi.n[0])?,
+            idx(gi.n[1])?,
+            idx(gi.n[2])?,
+            if gi.open { GRID_OPEN } else { 0 },
+            0,
+            0,
+        ]);
+        let vox_at = grid_words.len();
+        grid_words[rec + 10] = idx(vox_at)?;
+        grid_words.resize(vox_at + gi.voxels.len(), NONE);
+        let mut list_at = Vec::with_capacity(gi.lists.len());
+        for l in &gi.lists {
+            list_at.push(idx(grid_words.len())?);
+            grid_words.push(idx(l.len())?);
+            for c in l {
+                grid_words.extend_from_slice(&[
+                    c.cell,
+                    idx(toks.len())?,
+                    idx(c.tokens.len())?,
+                    if c.simple { CELL_SIMPLE } else { 0 },
+                ]);
+                toks.extend_from_slice(&c.tokens);
+            }
+        }
+        for (i, v) in gi.voxels.iter().enumerate() {
+            if let Some(l) = v {
+                grid_words[vox_at + i] = list_at[*l as usize];
+            }
+        }
+    }
+
     let mut latmap: Vec<u32> = Vec::new();
     let mut lats = Vec::with_capacity(g.lattices.len() * LAT_WORDS);
     for l in &g.lattices {
@@ -512,6 +634,7 @@ pub fn flatten(g: &Geometry) -> Result<FlatGeometry, FlattenError> {
     let cellidx_at = section(&mut words, &cellidx)?;
     let latmap_at = section(&mut words, &latmap)?;
     let hints_at = section(&mut words, &hints)?;
+    let grids_at = section(&mut words, &grid_words)?;
     words[H_VERSION] = FORMAT_VERSION;
     words[H_ROOT] = idx(g.root_universe)?;
     words[H_N_SURF] = idx(g.surfaces.len())?;
@@ -528,6 +651,7 @@ pub fn flatten(g: &Geometry) -> Result<FlatGeometry, FlattenError> {
     words[H_DEPTH] = idx(depth)?;
     words[H_N_MAT] = idx(n_materials)?;
     words[H_HINTS] = hints_at;
+    words[H_GRIDS] = grids_at;
     let universe_contents = g
         .universes
         .iter()
@@ -573,6 +697,7 @@ pub fn flatten(g: &Geometry) -> Result<FlatGeometry, FlattenError> {
         depth,
         universe_contents,
         lattice_universes,
+        grids,
     })
 }
 

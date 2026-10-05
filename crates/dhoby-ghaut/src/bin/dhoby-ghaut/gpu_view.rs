@@ -14,12 +14,23 @@
 //! the GPU tracer does not carry (a torus), or the moment between assembly
 //! and the flattened geometry reaching the GPU. The review gate's PNGs and
 //! `--render-review` are always drawn on the CPU, the reference.
+//!
+//! The flattened geometry carries a grid index on its root universe
+//! (`outram_blender::csg::gpu::index`, 2026-10-05): HTR-10's half-sections
+//! trace in 20-60 ms instead of ~0.36 s, so the 3D view traces at full
+//! resolution while the camera moves once a full frame takes under 30 ms.
+//!
+//! [`PebbleGpu`] draws Step 1's DEM pour (`crate::dem`) on the same device:
+//! every pebble a sphere impostor (`pebbles.wgsl`), with a depth buffer, in
+//! an offscreen target egui shows as a texture.
 
 use std::sync::mpsc::{channel, Receiver};
 use std::sync::{Arc, Mutex};
+use std::future::Future;
 use std::time::Instant;
 
 use eframe::egui_wgpu;
+use eframe::egui_wgpu::wgpu;
 use nee_soon::htr10_rmc::core_model::AssembledCore;
 use outram_blender::csg::gpu::flat::{flatten, FlatGeometry, FlattenError};
 use outram_blender::csg::gpu::render::{CsgGpuRenderer, GpuFrame, GpuPlot, PendingIds};
@@ -175,8 +186,10 @@ impl Gpu {
                 match result {
                     Ok(flat) => {
                         s.n_materials = flat.n_materials;
-                        s.renderer.set_geometry(&flat);
-                        s.status = GpuStatus::Ready;
+                        s.status = match s.renderer.set_geometry(&flat) {
+                            Ok(()) => GpuStatus::Ready,
+                            Err(e) => GpuStatus::Refused(e.to_string()),
+                        };
                     }
                     Err(e) => s.status = GpuStatus::Refused(e.to_string()),
                 }
@@ -204,7 +217,7 @@ impl Gpu {
         slot: &mut GpuSlot,
         plot: &GpuPlot,
         scheme: &ColourScheme,
-        filter: egui_wgpu::wgpu::FilterMode,
+        filter: wgpu::FilterMode,
         want_ids: bool,
     ) -> bool {
         let Ok(s) = self.0.lock() else { return false };
@@ -241,5 +254,299 @@ impl Gpu {
         slot.frame = Some(frame);
         slot.generation = s.generation;
         true
+    }
+}
+
+// ── Step 1's DEM pour as sphere impostors ────────────────────────────────────
+
+/// The camera of the pebble view, as `pebbles.wgsl`'s uniform reads it.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct PebbleCamera {
+    pub yaw: f32,
+    pub pitch: f32,
+    /// NDC units per metre across and down.
+    pub ndc_per_m: [f32; 2],
+    /// z of the view centre \[m\].
+    pub z_mid: f32,
+    /// Pebble radius \[m\].
+    pub radius: f32,
+    /// Largest |depth| a pebble centre can have \[m\] (sets the depth range).
+    pub depth_extent: f32,
+    /// Show only the half y >= 0.
+    pub half: bool,
+}
+
+struct PebbleTarget {
+    size: [u32; 2],
+    _colour: wgpu::Texture,
+    view: wgpu::TextureView,
+    _depth: wgpu::Texture,
+    depth_view: wgpu::TextureView,
+    tex: egui::TextureId,
+}
+
+/// **The DEM pour drawn on the GPU** (gh:#587): every pebble a sphere
+/// impostor (an instanced quad, an exact per-fragment ray-sphere hit with
+/// its own depth) in an offscreen colour + depth target that egui shows as a
+/// texture. Replaces painting 27 000 egui circles sorted on the CPU each
+/// frame; the egui painter stays the fallback when eframe has no wgpu
+/// device. The UI thread only uploads the centres and submits the pass.
+pub struct PebbleGpu {
+    rs: egui_wgpu::RenderState,
+    pipeline: wgpu::RenderPipeline,
+    uniform: wgpu::Buffer,
+    bind: wgpu::BindGroup,
+    instances: Option<(wgpu::Buffer, usize)>,
+    target: Option<PebbleTarget>,
+    /// Wall time of the last submitted frame's CPU side (upload + encode).
+    pub last_submit_ms: f64,
+}
+
+const PEBBLE_SHADER: &str = include_str!("pebbles.wgsl");
+const COLOUR_FORMAT: wgpu::TextureFormat = wgpu::TextureFormat::Rgba8Unorm;
+const DEPTH_FORMAT: wgpu::TextureFormat = wgpu::TextureFormat::Depth32Float;
+
+impl Gpu {
+    /// eframe's wgpu state, for the other GPU views.
+    pub fn render_state(&self) -> Option<egui_wgpu::RenderState> {
+        self.0.lock().ok().map(|s| s.rs.clone())
+    }
+}
+
+impl PebbleGpu {
+    /// The pipeline on eframe's device, or the reason it cannot be built.
+    pub fn new(rs: &egui_wgpu::RenderState) -> Result<Self, String> {
+        let dev = &rs.device;
+        let scope = dev.push_error_scope(wgpu::ErrorFilter::Validation);
+        let module = dev.create_shader_module(wgpu::ShaderModuleDescriptor {
+            label: Some("dem-pebbles"),
+            source: wgpu::ShaderSource::Wgsl(PEBBLE_SHADER.into()),
+        });
+        let pipeline = dev.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
+            label: Some("dem-pebbles"),
+            layout: None,
+            vertex: wgpu::VertexState {
+                module: &module,
+                entry_point: Some("vs"),
+                buffers: &[Some(wgpu::VertexBufferLayout {
+                    array_stride: 12,
+                    step_mode: wgpu::VertexStepMode::Instance,
+                    attributes: &wgpu::vertex_attr_array![0 => Float32x3],
+                })],
+                compilation_options: wgpu::PipelineCompilationOptions::default(),
+            },
+            primitive: wgpu::PrimitiveState::default(),
+            depth_stencil: Some(wgpu::DepthStencilState {
+                format: DEPTH_FORMAT,
+                depth_write_enabled: Some(true),
+                depth_compare: Some(wgpu::CompareFunction::Less),
+                stencil: wgpu::StencilState::default(),
+                bias: wgpu::DepthBiasState::default(),
+            }),
+            multisample: wgpu::MultisampleState::default(),
+            fragment: Some(wgpu::FragmentState {
+                module: &module,
+                entry_point: Some("fs"),
+                targets: &[Some(wgpu::ColorTargetState {
+                    format: COLOUR_FORMAT,
+                    blend: None,
+                    write_mask: wgpu::ColorWrites::ALL,
+                })],
+                compilation_options: wgpu::PipelineCompilationOptions::default(),
+            }),
+            multiview_mask: None,
+            cache: None,
+        });
+        let uniform = dev.create_buffer(&wgpu::BufferDescriptor {
+            label: Some("dem-pebbles-uniform"),
+            size: 48,
+            usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
+            mapped_at_creation: false,
+        });
+        let bind = dev.create_bind_group(&wgpu::BindGroupDescriptor {
+            label: Some("dem-pebbles"),
+            layout: &pipeline.get_bind_group_layout(0),
+            entries: &[wgpu::BindGroupEntry {
+                binding: 0,
+                resource: uniform.as_entire_binding(),
+            }],
+        });
+        if let Some(e) = pollster_free_pop(scope) {
+            return Err(e);
+        }
+        Ok(Self {
+            rs: rs.clone(),
+            pipeline,
+            uniform,
+            bind,
+            instances: None,
+            target: None,
+            last_submit_ms: 0.0,
+        })
+    }
+
+    fn ensure_target(&mut self, size: [u32; 2]) {
+        if self.target.as_ref().is_some_and(|t| t.size == size) {
+            return;
+        }
+        let dev = &self.rs.device;
+        let extent = wgpu::Extent3d {
+            width: size[0],
+            height: size[1],
+            depth_or_array_layers: 1,
+        };
+        let make = |format, usage| {
+            dev.create_texture(&wgpu::TextureDescriptor {
+                label: Some("dem-pebbles-target"),
+                size: extent,
+                mip_level_count: 1,
+                sample_count: 1,
+                dimension: wgpu::TextureDimension::D2,
+                format,
+                usage,
+                view_formats: &[],
+            })
+        };
+        let colour = make(
+            COLOUR_FORMAT,
+            wgpu::TextureUsages::RENDER_ATTACHMENT | wgpu::TextureUsages::TEXTURE_BINDING,
+        );
+        let depth = make(DEPTH_FORMAT, wgpu::TextureUsages::RENDER_ATTACHMENT);
+        let view = colour.create_view(&wgpu::TextureViewDescriptor::default());
+        let depth_view = depth.create_view(&wgpu::TextureViewDescriptor::default());
+        let tex = {
+            let mut r = self.rs.renderer.write();
+            match self.target.take() {
+                Some(old) => {
+                    r.update_egui_texture_from_wgpu_texture(
+                        dev,
+                        &view,
+                        wgpu::FilterMode::Linear,
+                        old.tex,
+                    );
+                    old.tex
+                }
+                None => r.register_native_texture(dev, &view, wgpu::FilterMode::Linear),
+            }
+        };
+        self.target = Some(PebbleTarget {
+            size,
+            _colour: colour,
+            view,
+            _depth: depth,
+            depth_view,
+            tex,
+        });
+    }
+
+    /// Draw `centres` (metres, DEM frame) into a `size`-pixel picture and
+    /// return its texture. Submits and returns at once.
+    pub fn draw(
+        &mut self,
+        size: [u32; 2],
+        centres: &[[f32; 3]],
+        cam: &PebbleCamera,
+    ) -> egui::TextureId {
+        let t = std::time::Instant::now();
+        let size = [size[0].clamp(1, 8192), size[1].clamp(1, 8192)];
+        self.ensure_target(size);
+        let dev = self.rs.device.clone();
+        let queue = self.rs.queue.clone();
+        let n = centres.len();
+        if self
+            .instances
+            .as_ref()
+            .is_none_or(|(_, cap)| *cap < n.max(1))
+        {
+            let cap = n.max(1).next_power_of_two();
+            self.instances = Some((
+                dev.create_buffer(&wgpu::BufferDescriptor {
+                    label: Some("dem-pebbles-centres"),
+                    size: (cap * 12) as u64,
+                    usage: wgpu::BufferUsages::VERTEX | wgpu::BufferUsages::COPY_DST,
+                    mapped_at_creation: false,
+                }),
+                cap,
+            ));
+        }
+        let Some((inst, _)) = &self.instances else {
+            unreachable!("created above")
+        };
+        if n > 0 {
+            let bytes: Vec<u8> = centres
+                .iter()
+                .flat_map(|c| c.iter().flat_map(|v| v.to_le_bytes()))
+                .collect();
+            queue.write_buffer(inst, 0, &bytes);
+        }
+        let u: [f32; 12] = [
+            cam.yaw.cos(),
+            cam.yaw.sin(),
+            cam.pitch.cos(),
+            cam.pitch.sin(),
+            cam.ndc_per_m[0],
+            cam.ndc_per_m[1],
+            cam.z_mid,
+            cam.radius,
+            0.5 / cam.depth_extent.max(1e-3),
+            if cam.half { 1.0 } else { 0.0 },
+            0.0,
+            0.0,
+        ];
+        let ub: Vec<u8> = u.iter().flat_map(|v| v.to_le_bytes()).collect();
+        queue.write_buffer(&self.uniform, 0, &ub);
+        let Some(target) = &self.target else {
+            unreachable!("ensured above")
+        };
+        let mut enc = dev.create_command_encoder(&wgpu::CommandEncoderDescriptor {
+            label: Some("dem-pebbles"),
+        });
+        {
+            let mut pass = enc.begin_render_pass(&wgpu::RenderPassDescriptor {
+                label: Some("dem-pebbles"),
+                color_attachments: &[Some(wgpu::RenderPassColorAttachment {
+                    view: &target.view,
+                    resolve_target: None,
+                    ops: wgpu::Operations {
+                        load: wgpu::LoadOp::Clear(wgpu::Color::TRANSPARENT),
+                        store: wgpu::StoreOp::Store,
+                    },
+                    depth_slice: None,
+                })],
+                depth_stencil_attachment: Some(wgpu::RenderPassDepthStencilAttachment {
+                    view: &target.depth_view,
+                    depth_ops: Some(wgpu::Operations {
+                        load: wgpu::LoadOp::Clear(1.0),
+                        store: wgpu::StoreOp::Discard,
+                    }),
+                    stencil_ops: None,
+                }),
+                timestamp_writes: None,
+                occlusion_query_set: None,
+                multiview_mask: None,
+            });
+            if n > 0 {
+                pass.set_pipeline(&self.pipeline);
+                pass.set_bind_group(0, &self.bind, &[]);
+                pass.set_vertex_buffer(0, inst.slice(..(n * 12) as u64));
+                pass.draw(0..6, 0..n as u32);
+            }
+        }
+        queue.submit(Some(enc.finish()));
+        self.last_submit_ms = 1e3 * t.elapsed().as_secs_f64();
+        target.tex
+    }
+}
+
+/// Pop a validation error scope without blocking the UI thread: one poll
+/// with a no-op waker. On native backends wgpu validates the creation calls
+/// synchronously, so the result is ready; if it is not, assume success (a
+/// later error surfaces through wgpu's uncaptured-error handler).
+fn pollster_free_pop(scope: wgpu::ErrorScopeGuard) -> Option<String> {
+    let mut fut = std::pin::pin!(scope.pop());
+    let mut cx = std::task::Context::from_waker(std::task::Waker::noop());
+    match fut.as_mut().poll(&mut cx) {
+        std::task::Poll::Ready(e) => e.map(|e| e.to_string()),
+        std::task::Poll::Pending => None,
     }
 }

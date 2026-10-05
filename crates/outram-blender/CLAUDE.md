@@ -66,7 +66,7 @@ worked example. For meshes, plot the mesh itself (cells, patches, zones).
 
 | feature | default | pulls | what it gates |
 |---|---|---|---|
-| `gpu` | **on** | `wgpu` (never on Android) | `src/gpu.rs`, the GPU attempt in `Affine3::transform_points_best_effort`, and (since 2026-10-05, gh:#587; also never on wasm32) `csg::gpu::render`, the GPU ray tracer of the assembled CSG geometry. `csg::gpu::flat`, its encoding, is ungated |
+| `gpu` | **on** | `wgpu` (never on Android) | `src/gpu.rs`, the GPU attempt in `Affine3::transform_points_best_effort`, and (since 2026-10-05, gh:#587; also never on wasm32) `csg::gpu::render`, the GPU ray tracer of the assembled CSG geometry. `csg::gpu::flat`, its encoding, and `csg::gpu::index`, its grid index (2026-10-05), are ungated |
 | ~~`mc-export`~~ | — | — | **RETIRED 2026-10-02** (#486): `to_mc_geometry`, `sim` and the `mc_godiva_keff` example moved to `nee_soon` |
 | `foam-export` | off | `outram-foam-basic-lib` | polyMesh read/write bridge |
 | `foam-mesh` | off | `outram-park-fork-cfmesh` | `foam_mesh` volume-meshing bridge |

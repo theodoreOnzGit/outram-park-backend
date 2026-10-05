@@ -25,11 +25,17 @@
 //! it). Pass criterion: at most 1 % of pixels differ. Timing: wall time of
 //! one full-resolution render, CPU (`create_image_with_ids` / `id_map`) and
 //! GPU (submit to completion, `CsgGpuRenderer::wait`, read-back excluded,
-//! after one warm-up render). Skips, with a printed message, when no GPU
-//! adapter is found.
+//! after one warm-up render; since the second run below, the fastest of
+//! three). Skips, with a printed message, when no GPU adapter is found.
 //!
-//! # Results (2026-10-05, NVIDIA RTX A5000 (Vulkan) against 16 CPU threads
-//! of the same machine, shared with other jobs)
+//! Since 2026-10-05 (second run) every view is drawn on the GPU twice: with
+//! the grid index (`flatten`, what the workbench uses) and without it
+//! (`flatten_with(.., false)`, the tracer as it was in the first run), and
+//! the same views are drawn for a **DEM-poured bed**
+//! ([`dem_bed_views_gpu_match_cpu`]).
+//!
+//! # Results, first run (2026-10-05, NVIDIA RTX A5000 (Vulkan) against 16
+//! CPU threads of the same machine, shared with other jobs)
 //!
 //! Geometry: 43 445 cells, 174 surfaces, 1 502 universes, 2 lattices (root
 //! universe 128 cells, 1 675 region tokens); flattened to 3.6 MB in 0.5-0.7 s
@@ -49,9 +55,19 @@
 //! and GPU times vary by about 2x between runs (0.32-0.44 s, bed). So: the
 //! GPU is 10-50x faster here, **not** interactive at full resolution on the
 //! half-sections (~2.5 frames/s), which is why the workbench traces at half
-//! resolution while the camera moves. The cost per crossing is high (~90 ns
+//! resolution while the camera moves. ~~The cost per crossing is high (~90 ns
 //! of whole-GPU time) because a step in the reflector evaluates root cells
-//! of up to 124 region tokens; a per-cell spatial index is not built.
+//! of up to 124 region tokens; a per-cell spatial index is not built.~~
+//! **CORRECTED 2026-10-05 (second run, below):** the diagnosis was wrong.
+//! Counting the work per pixel showed ~10 full scans of the 128-cell root
+//! universe per pixel, made almost all by rays **outside the model**: a ray
+//! that has not reached the model steps from one root-cell surface to the
+//! next, and the root cells' planes, cones and borings extend to infinity,
+//! so a ray crossed ~9 (half-section) to ~22 (whole view) of those
+//! extensions before it reached the reflector, scanning all 1 675 tokens at
+//! each. The "crossings per pixel" above are mostly those entry steps.
+//! Folding the reflector's 124-token cells alone (the index without a
+//! closed grid) made the frame *slower* (0.32 s against 0.21 s).
 //!
 //! The bed view's 0.36 % of differing pixels sit along columns of pebbles
 //! cut by the section plane y = 0 and on the reflector's silhouette edge
@@ -62,8 +78,57 @@
 //! having walked every hidden TRISO lattice in `f32`; skipping them took it
 //! to 0.0006 % and its time from 0.74 s to 0.41 s.
 //!
+//! # Results, second run (2026-10-05, same machine and GPU, the GPU shared with
+//! the desktop; GPU s = fastest of three runs)
+//!
+//! The grid index (`outram_blender::csg::gpu::index`) on the root universe:
+//! 30 x 30 x 47 voxels, 1 966 distinct lists, 2.07 candidate cells and 3.7
+//! folded tokens per voxel (1 675 unfolded). The grid is **closed** (no root
+//! cell outside it) once eight cells whose OpenMC bounding box is unbounded
+//! (the seven small-absorber-sphere channels, whose slot section lies
+//! between oblique planes, and the core cell, whose conus is cut from a
+//! cone) are bounded by `index`'s tightened box; outside a closed grid a
+//! ray jumps straight to the grid. Flattened: 4.1 MB (3.6 MB without the index)
+//! in 0.7 s.
+//!
+//! Şeker lattice bed (`htr10_views_gpu_match_cpu`):
+//!
+//! | view | pixels | mismatch, indexed / unindexed | CPU s | GPU s indexed | GPU s unindexed | crossings / pixel, indexed (unindexed) |
+//! |---|---|---|---|---|---|---|
+//! | bed, half-section | 504 000 | 0.371 % / 0.363 % | 4.27 | 0.024-0.060 | 0.356-0.386 | mean 0.2, max 13 (9.0, 35); voxel steps mean 1.9 |
+//! | reflector, half-section | 504 000 | 0.0006 % / 0.0006 % | 5.32 | 0.019-0.021 | 0.356-0.359 | mean 0.2, max 26 (9.1, 35); voxel steps mean 3.8 |
+//! | one pebble, cut through a particle | 504 000 | 0.006 % / 0.006 % | 0.070 | 0.0058 | 0.0063 | mean 0.2 |
+//! | x-z slice, whole model | 900 000 | 0 % / 0 % | 0.362 | 0.0014 | 0.0176 | — |
+//! | x-y slice, mid-bed | 810 000 | 0 % / 0 % | 0.326 | 0.0021 | 0.0166 | — |
+//! | x-z slice, one fuel pebble | 810 000 | 0.0036 % / 0.0036 % | 0.048 | 0.0045 | 0.0053 | — |
+//!
+//! DEM bed (`dem_bed_views_gpu_match_cpu`; 125 620 cells, 248 066 surfaces,
+//! 3 034 universes; flattened to 28.7 MB, 28.1 MB without the index; a
+//! second universe indexed, a 72-cell, 516-token tile):
+//!
+//! | view | pixels | mismatch, indexed / unindexed | CPU s | GPU s indexed | GPU s unindexed |
+//! |---|---|---|---|---|---|
+//! | bed, half-section | 504 000 | 0.306 % / 0.297 % | 4.28 | 0.033 | 0.388 |
+//! | reflector, half-section | 504 000 | 0.0008 % / 0.0008 % | 6.83 | 0.020 | 0.353 |
+//! | one pebble, cut through a particle | 504 000 | 0.0042 % / 0.0042 % | 0.245 | 0.018 | 0.018 |
+//! | x-z slice, whole model | 900 000 | 0 % / 0 % | 0.391 | 0.0024 | 0.018 |
+//! | x-y slice, mid-bed | 810 000 | 0.0004 % / 0.0004 % | 0.325 | 0.0047 | 0.017 |
+//! | x-z slice, one fuel pebble | 810 000 | 0.0017 % / 0.0017 % | 0.105 | 0.0054 | 0.0055 |
+//!
+//! Interpretation. The index changes almost no pixel: the indexed and
+//! unindexed GPU pictures differ from the CPU's by the same fraction to
+//! within 0.01 % of pixels (the few that differ between them lie on the
+//! same grazing boundaries). The half-sections drop from ~0.36 s to 20-60
+//! ms a frame at full resolution, the target of < 50 ms met for the
+//! reflector view and, in a dedicated five-run benchmark (min 17 ms), for
+//! the bed view; the spread is the shared GPU (a single run varies 2-4x).
+//! In the running workbench (Xvfb, Step 3) the status line read "GPU
+//! ray-traced in 27 ms" (was 643 ms) and the x-ray 117 ms (was 2.2 s). The
+//! CPU plotter takes the same entry walk; it is not changed here (it is the
+//! reference, and the OpenMC port).
+//!
 //! Re-run with
-//! `cargo test --release -p dhoby-ghaut --test gpu_csg_parity -- --nocapture`
+//! `cargo test --release -p dhoby-ghaut --test gpu_csg_parity -- --nocapture --test-threads=1`
 //! (`GPU_PARITY_DUMP=<dir>` writes every CPU and GPU picture).
 
 #![cfg(all(not(target_os = "android"), not(target_arch = "wasm32")))]
@@ -71,7 +136,7 @@
 use std::time::Instant;
 
 use nee_soon::htr10_rmc::core_model::{assemble_explicit_triso, mat};
-use outram_blender::csg::gpu::flat::flatten;
+use outram_blender::csg::gpu::flat::{flatten, flatten_with};
 use outram_blender::csg::gpu::render::{probe_renderer, CsgGpuRenderer, GpuPlot};
 use outram_mc_libs::geometry::cell::SurfaceToken;
 use outram_mc_libs::geometry::geometry::Geometry;
@@ -145,16 +210,25 @@ fn dump(name: &str, cpu: &ImageData, gpu: &ImageData) {
 }
 
 fn gpu_time(gpu: &CsgGpuRenderer, plot: &GpuPlot, s: &ColourScheme) -> (f64, ImageData, Vec<i32>) {
-    // Warm-up (pipeline caches, first-touch of buffers), then the timed run.
+    // Warm-up (pipeline caches, first-touch of buffers, GPU clocks out of
+    // idle), then the fastest of three timed runs: the GPU is shared with
+    // the desktop, and a single run varies by 2-4x (2026-10-05).
     let f = gpu.render(plot, s).expect("renders");
     gpu.wait().expect("runs");
-    let t = Instant::now();
-    let f2 = gpu.render(plot, s).expect("renders");
-    gpu.wait().expect("runs");
-    let secs = t.elapsed().as_secs_f64();
     drop(f);
-    let (img, ids) = gpu.read_back(&f2).expect("reads back");
-    (secs, img, ids)
+    let mut best = f64::INFINITY;
+    let mut last = None;
+    for _ in 0..3 {
+        let t = Instant::now();
+        let f2 = gpu.render(plot, s).expect("renders");
+        gpu.wait().expect("runs");
+        best = best.min(t.elapsed().as_secs_f64());
+        last = Some(f2);
+    }
+    let (img, ids) = gpu
+        .read_back(&last.expect("three runs"))
+        .expect("reads back");
+    (best, img, ids)
 }
 
 /// A fuel pebble's centre and one TRISO particle's centre (the workbench's
@@ -180,20 +254,90 @@ fn fuel_pebble(g: &Geometry) -> ([f64; 3], [f64; 3]) {
 
 #[test]
 fn htr10_views_gpu_match_cpu() {
-    let Some(mut gpu) = probe_renderer() else {
+    let (Some(gpu), Some(gpu_u)) = (probe_renderer(), probe_renderer()) else {
         println!("SKIP htr10_views_gpu_match_cpu: no GPU adapter");
         return;
     };
     let t = Instant::now();
     let core = assemble_explicit_triso(14, 12, 0);
+    println!(
+        "Seker lattice bed assembled in {:.1} s",
+        t.elapsed().as_secs_f64()
+    );
+    let worst = compare_views("htr10", &core, gpu, gpu_u);
+    assert!(
+        worst <= 0.01,
+        "worst view: {:.3} % of pixels differ",
+        100.0 * worst
+    );
+}
+
+/// **A DEM-poured bed through the same GPU path** (Step 1 with a finished
+/// pour, `Req::AssembleFromCentres` in the workbench): the 27 554 pebble
+/// centres of `reference-data/liggghts/htr10_conus_presettled_mu10_mur00.csv`
+/// (an `outram-park-fork-liggghts` pour, DEM frame, metres), fuel assigned
+/// by `fuel_assignment_at` at the default design's 0.57, assembled by
+/// `nee_soon::htr10_rmc::explicit_bed::assemble_explicit_triso_from_centres_with`
+/// exactly as the workbench's engine does, then the same views, the same
+/// comparison and the same 1 % criterion as the lattice bed.
+///
+/// Results: see the module docs.
+#[test]
+fn dem_bed_views_gpu_match_cpu() {
+    use nee_soon::htr10_rmc::core_design::Htr10CoreDesign;
+    use nee_soon::htr10_rmc::explicit_bed::{
+        assemble_explicit_triso_from_centres_with, fuel_assignment_at,
+    };
+    use uom::si::f64::Length;
+    use uom::si::length::meter;
+    let (Some(gpu), Some(gpu_u)) = (probe_renderer(), probe_renderer()) else {
+        println!("SKIP dem_bed_views_gpu_match_cpu: no GPU adapter");
+        return;
+    };
+    let csv = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("../../reference-data/liggghts/htr10_conus_presettled_mu10_mur00.csv");
+    let text = std::fs::read_to_string(&csv).expect("the pour CSV is in the repository");
+    let centres: Vec<[Length; 3]> = text
+        .lines()
+        .skip(1)
+        .filter(|l| !l.trim().is_empty())
+        .map(|l| {
+            let f: Vec<f64> = l.split(',').filter_map(|v| v.trim().parse().ok()).collect();
+            [f[1], f[2], f[3]].map(Length::new::<meter>)
+        })
+        .collect();
+    let t = Instant::now();
+    let design = Htr10CoreDesign::default();
+    let fuel = fuel_assignment_at(&centres, design.fuel_ball_fraction);
+    let core = assemble_explicit_triso_from_centres_with(&centres, &fuel, 14, 0, &design);
+    println!(
+        "DEM bed: {} pebbles assembled in {:.1} s",
+        centres.len(),
+        t.elapsed().as_secs_f64()
+    );
+    let worst = compare_views("dem_bed", &core, gpu, gpu_u);
+    assert!(
+        worst <= 0.01,
+        "worst view: {:.3} % of pixels differ",
+        100.0 * worst
+    );
+}
+
+/// Every view, CPU against the GPU with and without the grid index; the
+/// worst mismatch fraction.
+fn compare_views(
+    label: &str,
+    core: &nee_soon::htr10_rmc::core_model::AssembledCore,
+    mut gpu: CsgGpuRenderer,
+    mut gpu_u: CsgGpuRenderer,
+) -> f64 {
     let g = &core.geometry;
     println!(
-        "assembled: {} cells, {} surfaces, {} universes, {} lattices in {:.1} s",
+        "geometry: {} cells, {} surfaces, {} universes, {} lattices",
         g.cells.len(),
         g.surfaces.len(),
         g.universes.len(),
         g.lattices.len(),
-        t.elapsed().as_secs_f64()
     );
     let root = &g.universes[g.root_universe].cell_indices;
     let toks: Vec<usize> = root.iter().map(|&c| g.cells[c].region.len()).collect();
@@ -207,7 +351,7 @@ fn htr10_views_gpu_match_cpu() {
     let flat = flatten(g).expect("HTR-10 flattens");
     let t_flat = t.elapsed().as_secs_f64();
     let t = Instant::now();
-    gpu.set_geometry(&flat);
+    gpu.set_geometry(&flat).expect("fits the device");
     gpu.wait().expect("upload");
     println!(
         "flattened: {:.1} MB, depth {}, in {:.3} s; uploaded in {:.3} s",
@@ -216,6 +360,30 @@ fn htr10_views_gpu_match_cpu() {
         t_flat,
         t.elapsed().as_secs_f64()
     );
+    for st in &flat.grids {
+        println!(
+            "  grid index on universe {} ({} cells): {:?} voxels, {} lists, \
+             {:.2} candidates and {:.1} tokens per voxel (full: {})",
+            st.universe,
+            g.universes[st.universe].cell_indices.len(),
+            st.n,
+            st.lists,
+            st.mean_candidates,
+            st.mean_tokens,
+            st.full_tokens
+        );
+    }
+    // The ablation: every universe scanned whole (the tracer before the
+    // grid index, 2026-10-05).
+    let t = Instant::now();
+    let flat_u = flatten_with(g, false).expect("HTR-10 flattens");
+    println!(
+        "flattened without the index: {:.1} MB in {:.3} s",
+        flat_u.bytes() as f64 / 1e6,
+        t.elapsed().as_secs_f64()
+    );
+    gpu_u.set_geometry(&flat_u).expect("fits the device");
+    gpu_u.wait().expect("upload");
 
     let s3d = scheme(g, Rgb::new(48, 48, 52));
     let n = s3d.colours.len();
@@ -224,7 +392,9 @@ fn htr10_views_gpu_match_cpu() {
     let (pebble, particle) = fuel_pebble(g);
     let is_pebble = |i: usize| i <= mat::GRAPHITE || i == mat::HOMOG_DUMMY;
 
-    println!("view | pixels | index mismatch | CPU s | GPU s | speed-up");
+    println!(
+        "view | pixels | index mismatch (indexed / unindexed) | CPU s | GPU s indexed | GPU s unindexed"
+    );
     let mut worst: f64 = 0.0;
     let solids = [
         (
@@ -250,22 +420,30 @@ fn htr10_views_gpu_match_cpu() {
         let t_cpu = t.elapsed().as_secs_f64();
         let gplot = GpuPlot::Solid(plot);
         let (t_gpu, gpu_img, gpu_ids) = gpu_time(&gpu, &gplot, &s3d);
-        let steps = gpu
-            .read_steps(&gpu.render(&gplot, &s3d).expect("renders"))
-            .expect("reads back");
-        let mean = steps.iter().map(|&s| f64::from(s)).sum::<f64>() / steps.len() as f64;
-        println!(
-            "  {name}: boundary crossings per pixel, mean {mean:.1}, max {}",
-            steps.iter().max().copied().unwrap_or(0)
-        );
-        dump(name, &cpu_img, &gpu_img);
+        let (t_gpu_u, _, gpu_ids_u) = gpu_time(&gpu_u, &gplot, &s3d);
+        for (label, r) in [("indexed", &gpu), ("unindexed", &gpu_u)] {
+            let work = r
+                .read_work(&r.render(&gplot, &s3d).expect("renders"))
+                .expect("reads back");
+            let n = work.len() as f64;
+            let mean_c = work.iter().map(|w| f64::from(w.0)).sum::<f64>() / n;
+            let mean_v = work.iter().map(|w| f64::from(w.1)).sum::<f64>() / n;
+            println!(
+                "  {name}, {label}: per pixel, boundary crossings mean {mean_c:.1} max {}, \
+                 voxel steps mean {mean_v:.1} max {}",
+                work.iter().map(|w| w.0).max().unwrap_or(0),
+                work.iter().map(|w| w.1).max().unwrap_or(0)
+            );
+        }
+        dump(&format!("{label} {name}"), &cpu_img, &gpu_img);
         let m = mismatch(&cpu_ids, &gpu_ids);
-        worst = worst.max(m);
+        let mu = mismatch(&cpu_ids, &gpu_ids_u);
+        worst = worst.max(m).max(mu);
         println!(
-            "{name} | {} | {:.4} % | {t_cpu:.3} | {t_gpu:.4} | {:.0}x",
+            "{name} | {} | {:.4} % / {:.4} % | {t_cpu:.3} | {t_gpu:.4} | {t_gpu_u:.4}",
             cpu_ids.len(),
             100.0 * m,
-            t_cpu / t_gpu
+            100.0 * mu
         );
         assert!(
             cpu_ids.iter().filter(|&&i| i >= 0).count() > cpu_ids.len() / 20,
@@ -320,20 +498,19 @@ fn htr10_views_gpu_match_cpu() {
             .collect();
         let t_cpu = t.elapsed().as_secs_f64();
         let cpu_img = plot.create_image(g, &s2d);
-        let (t_gpu, gpu_img, gpu_ids) = gpu_time(&gpu, &GpuPlot::Slice(plot), &s2d);
-        dump(name, &cpu_img, &gpu_img);
+        let gplot = GpuPlot::Slice(plot);
+        let (t_gpu, gpu_img, gpu_ids) = gpu_time(&gpu, &gplot, &s2d);
+        let (t_gpu_u, _, gpu_ids_u) = gpu_time(&gpu_u, &gplot, &s2d);
+        dump(&format!("{label} {name}"), &cpu_img, &gpu_img);
         let m = mismatch(&cpu, &gpu_ids);
-        worst = worst.max(m);
+        let mu = mismatch(&cpu, &gpu_ids_u);
+        worst = worst.max(m).max(mu);
         println!(
-            "{name} | {} | {:.4} % | {t_cpu:.3} | {t_gpu:.4} | {:.0}x",
+            "{name} | {} | {:.4} % / {:.4} % | {t_cpu:.3} | {t_gpu:.4} | {t_gpu_u:.4}",
             cpu.len(),
             100.0 * m,
-            t_cpu / t_gpu
+            100.0 * mu
         );
     }
-    assert!(
-        worst <= 0.01,
-        "worst view: {:.3} % of pixels differ",
-        100.0 * worst
-    );
+    worst
 }
