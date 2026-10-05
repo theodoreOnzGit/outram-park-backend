@@ -31,6 +31,7 @@
 //! | ray tracer (private) | `Ray::trace`, `advance_to_boundary_from_void` | `ray.cpp:14-143`, `particle_data.cpp:59-84` |
 //! | [`raytrace::WireframeRayTracePlot`] | `WireframeRayTracePlot::create_image`, `trackstack_equivalent`, `ProjectionRay` | `plot.cpp:1369-1529`, `:1265-1324`, `:1750-1763` |
 //! | [`raytrace::SolidRayTracePlot`] | `SolidRayTracePlot::create_image`, `PhongRay` | `plot.cpp:1683-1701`, `:1765-1891` |
+//! | [`raytrace::ClipPlane`] | **none: an extension, not a port** (a section plane for the Dhoby Ghaut 3D viewport, 2026-10-05; off by default) | n/a |
 //! | [`image::ImageData::write_png`] / [`image::ImageData::write_ppm`] | `output_png` / `output_ppm` | `plot.cpp:887-935` / `:857-881` |
 //!
 //! Every function above carries its own upstream line range in its doc
@@ -86,7 +87,7 @@ pub use model_plot::{
     AxisUnits, BoundingBox, ColorBy, DomainColour, MaterialIdentity, ModelPlot, ModelPlotError,
     Outline, Pixels, PlotColour,
 };
-pub use raytrace::{Camera, Projection, SolidRayTracePlot, WireframeRayTracePlot};
+pub use raytrace::{Camera, ClipPlane, Projection, SolidRayTracePlot, WireframeRayTracePlot};
 pub use script::{emit_python, sample_slice, ColourBy, Slice};
 pub use slice::{IdMap, MeshLines, PlotBasis, SliceHit, SlicePlot};
 

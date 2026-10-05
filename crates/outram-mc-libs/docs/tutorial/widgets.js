@@ -405,6 +405,112 @@
     draw();
   }
 
+  // ── Delta (Woodcock) tracking on a line with small dense "kernels" ────────
+  // A neutron starts at x = 0 heading +x through a 10 cm line of matrix
+  // (Sigma_m) holding six 0.2 cm kernels (Sigma_k). Delta tracking samples
+  // every flight at Sigma_maj, never looks for a surface, and at each stopping
+  // point accepts a real collision with probability Sigma(x)/Sigma_maj
+  // (capped at 1). The first-collision density it produces is compared with
+  // the exact one, Sigma(x) exp(-tau(x)). A majorant below Sigma_k
+  // under-samples the kernels: the bias is visible in the histogram and in
+  // the fraction of first collisions that land in a kernel.
+  function woodcock(root) {
+    const L = 10, SM = 0.3, SK = 6, KW = 0.2;
+    const kernels = [1.1, 2.7, 3.4, 5.6, 7.2, 8.5];
+    const sig = (x) => (kernels.some((a) => x >= a && x < a + KW) ? SK : SM);
+    const inK = (x) => sig(x) === SK;
+    let ratio = parseFloat(root.dataset.ratio || "1.5"); // Sigma_maj / Sigma_k
+    const NB = 100;
+    let hist = new Array(NB).fill(0), n = 0, real = 0, virt = 0, inKern = 0, last = null;
+    // Exact first-collision density on a fine grid, per bin, and the exact
+    // probability that the first collision is in a kernel.
+    const exact = new Array(NB).fill(0);
+    let pK = 0;
+    (() => {
+      const M = 20000, dx = L / M;
+      let tau = 0;
+      for (let i = 0; i < M; i++) {
+        const x = (i + 0.5) * dx, s = sig(x);
+        const p = s * Math.exp(-tau - 0.5 * s * dx) * dx;
+        exact[Math.min(NB - 1, Math.floor(x / L * NB))] += p;
+        if (s === SK) pK += p;
+        tau += s * dx;
+      }
+    })();
+    const ctl = el("div", { class: "mcw-controls" }, root);
+    const cv = el("canvas", {}, root);
+    const info = el("p", { class: "mcw-info" }, root);
+    const one = () => {
+      const maj = ratio * SK;
+      let x = 0;
+      const path = [];
+      for (;;) {
+        x += -Math.log(1 - Math.random()) / maj;
+        if (x >= L) { path.push({ x: L, kind: "esc" }); break; }
+        if (Math.random() < Math.min(1, sig(x) / maj)) {
+          real++; path.push({ x, kind: "real" });
+          hist[Math.min(NB - 1, Math.floor(x / L * NB))]++;
+          if (inK(x)) inKern++;
+          break;
+        }
+        virt++; path.push({ x, kind: "virt" });
+      }
+      n++;
+      return path;
+    };
+    const draw = () => {
+      const { g, w, h } = setupCanvas(cv, 230);
+      g.clearRect(0, 0, w, h);
+      const X = (x) => 10 + (w - 20) * x / L;
+      const y0 = 40;
+      g.strokeStyle = fg(); g.lineWidth = 1; g.beginPath(); g.moveTo(X(0), y0); g.lineTo(X(L), y0); g.stroke();
+      g.fillStyle = "rgba(214,120,46,0.8)";
+      kernels.forEach((a) => g.fillRect(X(a), y0 - 9, Math.max(2, X(a + KW) - X(a)), 18));
+      g.fillStyle = fg(); g.font = "12px system-ui, sans-serif";
+      g.fillText("one neutron: ○ virtual, ● real collision", 10, 16);
+      if (last) {
+        last.forEach((p) => {
+          g.beginPath(); g.arc(X(p.x), y0, 4, 0, 7);
+          if (p.kind === "real") { g.fillStyle = "#d04040"; g.fill(); }
+          else if (p.kind === "virt") { g.strokeStyle = accent(); g.lineWidth = 1.5; g.stroke(); }
+        });
+      }
+      // Histogram of first-collision positions against the exact density.
+      const top = 75, H = h - top - 12;
+      const peak = Math.max(...exact) * 1.15;
+      const bw = (w - 20) / NB;
+      if (real > 0) {
+        g.fillStyle = "rgba(90,122,208,0.55)";
+        hist.forEach((c, i) => {
+          const hh = Math.min(H, H * (c / n) / peak);
+          g.fillRect(10 + i * bw, top + H - hh, Math.max(1, bw - 0.5), hh);
+        });
+      }
+      g.strokeStyle = fg(); g.lineWidth = 2; g.beginPath();
+      exact.forEach((v, i) => {
+        const yy = top + H - H * v / peak;
+        if (i === 0) g.moveTo(10, yy); else g.lineTo(10 + i * bw, yy);
+        g.lineTo(10 + (i + 1) * bw, yy);
+      });
+      g.stroke();
+      g.fillStyle = fg(); g.fillText("first-collision density: bars sampled, line exact", 10, top - 4);
+      const maj = ratio * SK;
+      info.textContent = `Σ_maj = ${maj.toFixed(2)} /cm against Σ_kernel = ${SK} and Σ_matrix = ${SM} /cm. ` +
+        (n ? `${n} neutrons: ${(virt / n).toFixed(1)} virtual collisions per neutron; first collision in a kernel ${(100 * inKern / n).toFixed(1)} % (exact ${(100 * pK).toFixed(1)} %).` : "") +
+        (ratio < 1
+          ? " The majorant is BELOW the kernel's cross section: inside a kernel every stop is accepted, but there are too few stops, so the kernels are under-sampled. Nothing warns you: that is a silent bias."
+          : " The majorant bounds every Σ, so the sampled density follows the exact one. A larger majorant only costs more virtual collisions.");
+    };
+    const reset = () => { hist = new Array(NB).fill(0); n = 0; real = 0; virt = 0; inKern = 0; last = null; };
+    slider(ctl, "Σ_maj / Σ_kernel", -0.6, 0.6, 0.01, Math.log10(ratio), (v) => { ratio = 10 ** v; reset(); draw(); return ratio.toFixed(2); });
+    const row = el("div", { class: "mcw-buttons" }, ctl);
+    button(row, "Send 1", () => { last = one(); draw(); });
+    button(row, "Send 10 000", () => { for (let i = 0; i < 10000; i++) one(); draw(); });
+    button(row, "Clear", () => { reset(); draw(); });
+    window.addEventListener("resize", draw);
+    draw();
+  }
+
   // ── The demo, embedded on demand (it downloads and processes nuclear data) ─
   function demo(root) {
     const src = root.dataset.src;
@@ -418,7 +524,7 @@
     });
   }
 
-  const kinds = { flights, surface, reaction, collision, slowdown, lump, demo };
+  const kinds = { flights, surface, reaction, collision, slowdown, lump, woodcock, demo };
   document.querySelectorAll("[data-mc-widget]").forEach((e) => {
     const k = kinds[e.dataset.mcWidget];
     if (k) k(e);

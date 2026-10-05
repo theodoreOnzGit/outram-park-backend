@@ -10428,6 +10428,7 @@ behaviour, in [`script`] (re-exported here as [`sample_slice`],
 | ray tracer (private) | `Ray::trace`, `advance_to_boundary_from_void` | `ray.cpp:14-143`, `particle_data.cpp:59-84` |
 | [`raytrace::WireframeRayTracePlot`] | `WireframeRayTracePlot::create_image`, `trackstack_equivalent`, `ProjectionRay` | `plot.cpp:1369-1529`, `:1265-1324`, `:1750-1763` |
 | [`raytrace::SolidRayTracePlot`] | `SolidRayTracePlot::create_image`, `PhongRay` | `plot.cpp:1683-1701`, `:1765-1891` |
+| [`raytrace::ClipPlane`] | **none: an extension, not a port** (a section plane for the Dhoby Ghaut 3D viewport, 2026-10-05; off by default) | n/a |
 | [`image::ImageData::write_png`] / [`image::ImageData::write_ppm`] | `output_png` / `output_ppm` | `plot.cpp:887-935` / `:857-881` |
 
 Every function above carries its own upstream line range in its doc
@@ -13784,6 +13785,7 @@ pub struct SolidRayTracePlot {
     pub opaque: Vec<bool>,
     pub light_position: Option<crate::csg::position::Position>,
     pub diffuse_fraction: f64,
+    pub clip: Option<ClipPlane>,
 }
 ```
 
@@ -13795,6 +13797,7 @@ pub struct SolidRayTracePlot {
 | `opaque` | `Vec<bool>` | Which colour indices are opaque (`opaque_ids_`); everything else is<br>invisible. |
 | `light_position` | `Option<crate::csg::position::Position>` | Light position; `None` = at the camera (upstream default,<br>`src/plot.cpp:1735-1737`). |
 | `diffuse_fraction` | `f64` | Share of ambient light, `[0, 1]`. Default 0.1. |
+| `clip` | `Option<ClipPlane>` | A section plane (**not in OpenMC**, see [`ClipPlane`]); `None`, the<br>default, is upstream's behaviour exactly. |
 
 ##### Implementations
 
@@ -13804,6 +13807,11 @@ pub struct SolidRayTracePlot {
   pub fn new(camera: Camera, n_domains: usize) -> Self { /* ... */ }
   ```
   Defaults: nothing opaque, light at the camera, diffuse fraction 0.1.
+
+- ```rust
+  pub fn with_clip(self: Self, clip: ClipPlane) -> Self { /* ... */ }
+  ```
+  Cut the view with a section plane (see [`ClipPlane`]; not in OpenMC).
 
 - ```rust
   pub fn with_opaque(self: Self, index: usize) -> Self { /* ... */ }
@@ -13895,6 +13903,166 @@ pub struct SolidRayTracePlot {
 - **RefUnwindSafe**
 - **Same**
 - **Send**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Struct `ClipPlane`
+
+A section plane for [`SolidRayTracePlot`]: everything on the side
+`normal · x < offset` is cut away, as Blender's clipping does.
+
+**An extension, not a port.** OpenMC's ray-traced plots have no clip plane
+(`src/plot.cpp`); this was added on 2026-10-05 for the Dhoby Ghaut 3D
+viewport (gh:#561) so a reactor can be seen in section. A ray whose start
+lies on the cut side begins at the plane instead. If that point is inside
+an opaque material it is painted as a cut face: that material's colour,
+lit by the same diffuse model as a surface, with the plane as its normal.
+Otherwise the ray is traced from the plane as usual.
+
+```rust
+pub struct ClipPlane {
+    pub normal: [f64; 3],
+    pub offset: f64,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `normal` | `[f64; 3]` | Normal pointing into the KEPT half-space (need not be unit length). |
+| `offset` | `f64` | The plane is `normal · x = offset` (same units as `normal · x`). |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn start(self: &Self, r: Position, u: Direction) -> Option<(Position, bool)> { /* ... */ }
+  ```
+  Where a ray from `r` along `u` starts once the cut is applied:
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Boilerplate**
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **ByRef**
+  - ```rust
+    fn by_ref(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> ClipPlane { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **DistributionExt**
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Imply**
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &ClipPlane) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
 - **Sync**
 - **ToOwned**
   - ```rust
@@ -15402,6 +15570,12 @@ pub use model_plot::PlotColour;
 
 ```rust
 pub use raytrace::Camera;
+```
+
+#### Re-export `ClipPlane`
+
+```rust
+pub use raytrace::ClipPlane;
 ```
 
 #### Re-export `Projection`

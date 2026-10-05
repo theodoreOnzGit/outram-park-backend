@@ -33,14 +33,30 @@ pub fn tape_table(app: &mut App, ui: &mut egui::Ui) {
         elsewhere.len(),
         missing.len()
     ));
-    if let Some(first) = elsewhere.first() {
-        let dir = first
+    // Group the tapes found elsewhere by the folder they are read from (the
+    // ENDF folder and the ACE submodule's, for HTR-10).
+    let mut dirs: Vec<std::path::PathBuf> = Vec::new();
+    for n in &elsewhere {
+        let d = n
             .default_path
             .parent()
-            .map(|d| d.display().to_string())
+            .map(std::path::Path::to_path_buf)
             .unwrap_or_default();
-        let names: Vec<&str> = elsewhere.iter().map(|n| n.file.as_str()).collect();
-        ui.label(RichText::new(format!("Read from {dir}:")).color(Color32::from_rgb(70, 130, 190)));
+        if !dirs.contains(&d) {
+            dirs.push(d);
+        }
+    }
+    for d in &dirs {
+        let names: Vec<&str> = elsewhere
+            .iter()
+            .filter(|n| n.default_path.parent() == Some(d.as_path()))
+            .map(|n| n.file.as_str())
+            .collect();
+        let shown = std::fs::canonicalize(d).unwrap_or_else(|_| d.clone());
+        ui.label(
+            RichText::new(format!("Read from {} ({}):", shown.display(), names.len()))
+                .color(Color32::from_rgb(70, 130, 190)),
+        );
         ui.label(names.join(", "));
     }
     for n in &missing {
@@ -51,6 +67,7 @@ pub fn tape_table(app: &mut App, ui: &mut egui::Ui) {
         ui.small(format!("expected at {}", n.default_path.display()));
     }
     let default_dir = nee_soon::htr10_rmc::data::DataDir::Endf.path();
+    let default_dir = std::fs::canonicalize(&default_dir).unwrap_or(default_dir);
     if std::fs::canonicalize(dir).ok() != std::fs::canonicalize(&default_dir).ok() {
         ui.colored_label(
             Color32::from_rgb(170, 90, 0),
@@ -89,9 +106,9 @@ pub fn tape_table(app: &mut App, ui: &mut egui::Ui) {
 pub fn show(app: &mut App, ui: &mut egui::Ui) {
     // Fixed widths for the two text columns; the plots take the rest. The
     // height is the panel's own, never the window's.
-    let h = 270.0;
+    let h = 430.0;
     let w = ui.available_width();
-    let (wp, wc) = (210.0_f32.min(w * 0.22), 400.0_f32.min(w * 0.4));
+    let (wp, wc) = (340.0_f32.min(w * 0.25), 640.0_f32.min(w * 0.42));
     ui.horizontal_top(|ui| {
         ui.allocate_ui(egui::vec2(wp, h), |ui| {
             ui.set_width(wp);
@@ -116,7 +133,7 @@ fn progress(app: &mut App, ui: &mut egui::Ui) {
     ui.label(RichText::new("Nuclear data").strong());
     egui::ScrollArea::vertical()
         .id_salt("nuc")
-        .max_height(230.0)
+        .max_height(380.0)
         .show(ui, |ui| {
             let n_done = app.mc.items.iter().filter(|i| i.1.is_some()).count();
             if !app.mc.items.is_empty() {
@@ -148,8 +165,11 @@ fn progress(app: &mut App, ui: &mut egui::Ui) {
                 app.mc.planned_histories
             ));
         });
-        ui.small(
-            "The CSG driver returns all generations at the end; the console fills then (gh:#579).",
+        let done = app.mc.live.read().map_or(0, |l| l.len());
+        let total = app.recipe.monte_carlo.inactive + app.recipe.monte_carlo.active;
+        ui.add(
+            egui::ProgressBar::new(done as f32 / total.max(1) as f32)
+                .text(format!("generation {done} of {total}")),
         );
     }
 }
@@ -167,38 +187,65 @@ fn console(app: &mut App, ui: &mut egui::Ui) {
             }
         }
     });
-    let Some(o) = app.mc.outcomes.get(app.mc.shown) else {
+    // While a run is going, its generations stream in live; afterwards the
+    // finished run (or the one picked above) is shown.
+    let live: Vec<(f64, Option<f64>)> = if app.mc.running {
+        app.mc
+            .live
+            .read()
+            .map(|l| l.iter().map(|g| (g.k, g.entropy)).collect())
+            .unwrap_or_default()
+    } else {
+        Vec::new()
+    };
+    let inactive = |shown: usize| {
+        let mc = &app.recipe.monte_carlo;
+        mc.runs.get(shown).map_or(mc.inactive, |r| r.inactive)
+    };
+    let mut lines = vec![
+        " Bat./Gen.      k       Entropy         Average k".to_string(),
+        " =========   ========   ========   ====================".to_string(),
+    ];
+    if app.mc.running {
+        if live.is_empty() {
+            lines.push(if app.mc.loading_data {
+                " (processing nuclear data…)".into()
+            } else {
+                " (first generation running…)".into()
+            });
+        }
+        let ks: Vec<f64> = live.iter().map(|x| x.0).collect();
+        let hs: Vec<f64> = live.iter().filter_map(|x| x.1).collect();
+        lines.extend(generation_lines(&ks, &hs, app.recipe.monte_carlo.inactive));
+    } else if let Some(o) = app.mc.outcomes.get(app.mc.shown) {
+        lines.extend(console_lines(o, inactive(app.mc.shown)));
+        lines.push(String::new());
+        lines.push(format!(" k-effective = {:.5} +/- {:.5}", o.k, o.sigma));
+        lines.push(format!(
+            " histories {}, lost (locate) {}, transport {:.1} s",
+            o.histories, o.lost_locate, o.transport_s
+        ));
+        for n in &o.notes {
+            lines.push(format!(" note: {n}"));
+        }
+    } else {
         ui.label("No run yet.");
         return;
-    };
-    let mc = &app.recipe.monte_carlo;
-    let inactive = app
-        .recipe
-        .monte_carlo
-        .runs
-        .get(app.mc.shown)
-        .map_or(mc.inactive, |r| r.inactive);
+    }
     egui::ScrollArea::both()
         .id_salt("console")
-        .max_height(230.0)
+        .max_height(380.0)
         .max_width(ui.available_width())
+        .stick_to_bottom(true)
+        .auto_shrink([false, false])
         .show(ui, |ui| {
-            let mut lines = vec![
-                " Bat./Gen.      k       Entropy         Average k".to_string(),
-                " =========   ========   ========   ====================".to_string(),
-            ];
-            lines.extend(console_lines(o, inactive));
-            lines.push(String::new());
-            lines.push(format!(" k-effective = {:.5} +/- {:.5}", o.k, o.sigma));
-            lines.push(format!(
-                " histories {}, lost (locate) {}, transport {:.1} s",
-                o.histories, o.lost_locate, o.transport_s
-            ));
-            for n in &o.notes {
-                lines.push(format!(" note: {n}"));
-            }
             ui.add(
-                egui::Label::new(RichText::new(lines.join("\n")).monospace().size(11.0)).extend(),
+                egui::Label::new(
+                    RichText::new(lines.join("\n"))
+                        .monospace()
+                        .size(crate::app::fs(11.0)),
+                )
+                .extend(),
             );
         });
 }
@@ -206,11 +253,15 @@ fn console(app: &mut App, ui: &mut egui::Ui) {
 /// One console line per generation, as `openmc.run()` prints them: the
 /// running mean and its standard error over the active generations so far.
 pub fn console_lines(o: &KeffOutcome, inactive: usize) -> Vec<String> {
+    generation_lines(&o.k_by_generation, &o.entropy, inactive)
+}
+
+/// [`console_lines`] from the raw per-generation k and entropy.
+pub fn generation_lines(ks: &[f64], entropy: &[f64], inactive: usize) -> Vec<String> {
     let mut out = Vec::new();
     let mut active: Vec<f64> = Vec::new();
-    for (i, k) in o.k_by_generation.iter().enumerate() {
-        let h = o
-            .entropy
+    for (i, k) in ks.iter().enumerate() {
+        let h = entropy
             .get(i)
             .map_or("        ".to_string(), |h| format!("{h:8.5}"));
         let mut s = format!("{:>8}/1    {k:7.5}   {h}", i + 1);
@@ -240,7 +291,7 @@ fn plots(app: &mut App, ui: &mut egui::Ui) {
         .enumerate()
         .map(|(i, k)| [(i + 1) as f64, *k])
         .collect();
-    Plot::new("kgen").height(80.0).show(ui, |p| {
+    Plot::new("kgen").height(130.0).show(ui, |p| {
         p.points(Points::new("k per generation", PlotPoints::from(pts)).radius(2.0));
         let n = o.k_by_generation.len() as f64;
         p.line(Line::new(
@@ -257,7 +308,7 @@ fn plots(app: &mut App, ui: &mut egui::Ui) {
         .map(|(i, v)| [(o.edges[i] * o.edges[i + 1]).sqrt().log10(), v.0])
         .collect();
     Plot::new("spectrum")
-        .height(100.0)
+        .height(170.0)
         .x_axis_label("log10 E [eV]")
         .show(ui, |p| p.line(Line::new("φ(u)", PlotPoints::from(spec))));
     runs_table(app, ui);

@@ -586,3 +586,36 @@ fn compare_quiet(name: &str, ours: &ImageData) -> usize {
     eprintln!("negative control vs {name}: {n} pixels differ");
     n
 }
+
+/// The clip plane (an extension, not in OpenMC) leaves the default image
+/// untouched, and cutting the sphere through its centre with the near half
+/// removed shows a flat cut face: lit head-on (light at the camera), it stays
+/// as bright out toward the rim as at the centre, where the uncut sphere's
+/// surface darkens toward its limb.
+#[test]
+fn clip_plane_is_off_by_default_and_shows_the_cut_face() {
+    use outram_mc_libs::geometry::plot::ClipPlane;
+    let g = sphere_in_box();
+    let mut seed = DEFAULT_PLOTTER_SEED;
+    let eye = (20.0, 15.0, 10.0);
+    let cam = camera(eye, (0.0, 0.0, 0.0), [61, 61], 45.0);
+    let scheme = ColourScheme::new(PlotColourBy::Material, 2, &mut seed);
+    let plain = SolidRayTracePlot::new(cam, 2).with_opaque(0);
+    let default_image = plain.create_image(&g, &scheme);
+    // `clip: None` is upstream's behaviour exactly.
+    assert!(plain.clip.is_none());
+    assert_eq!(default_image, plain.clone().create_image(&g, &scheme));
+    // Keep the half-space facing away from the camera: normal = -eye.
+    let cut = plain.with_clip(ClipPlane { normal: [-eye.0, -eye.1, -eye.2], offset: 0.0 });
+    let cut_image = cut.create_image(&g, &scheme);
+    let px = |img: &ImageData, x: usize| img.pixels[30 * img.width + x];
+    let lum = |c: Rgb| u32::from(c.r) + u32::from(c.g) + u32::from(c.b);
+    // The sphere's extent along the centre row in the uncut image.
+    let edge = (30..61).take_while(|&x| px(&default_image, x) != scheme.background).last().unwrap_or(30);
+    assert!(edge > 36, "the sphere should span several pixels, edge at {edge}");
+    let near_rim = 30 + (edge - 30) * 4 / 5;
+    let (c0, c_rim) = (lum(px(&cut_image, 30)), lum(px(&cut_image, near_rim)));
+    let (d0, d_rim) = (lum(px(&default_image, 30)), lum(px(&default_image, near_rim)));
+    assert!(c0.abs_diff(c_rim) <= 12, "cut face should be flat-lit: centre {c0}, rim {c_rim}");
+    assert!(d0 > d_rim + 40, "the uncut sphere should darken toward its limb: centre {d0}, rim {d_rim}");
+}
