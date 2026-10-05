@@ -67,8 +67,10 @@ its print precision on Fe-58 and Si-28. The kinematic arm deposits each
 reaction's Q as NJOY's `nheat` does (`Kerma::from_endf`): for a discrete level
 that is the excitation energy too, which `QI` alone left out. ~~the photon
 energy-balance method (H6) is deferred~~ What is **not** ported is the rest of
-`nheat`: each reaction's *neutron* energies taken from the evaluation (H6b),
-and NJOY's treatment of a capture whose photons are in MF=6 (H6c). The
+`nheat`: ~~each reaction's *neutron* energies taken from the evaluation (H6b),~~
+the continuum and MF=6 *neutron* energies (`conbar`, `sixbar`, H6b part 2;
+since H6b part 1, later on 2026-10-05, elastic and the discrete levels take
+theirs from MF=4 through `disbar`, as NJOY does), and NJOY's treatment of a capture whose photons are in MF=6 (H6c). The
 damage-energy port (H7) covers two-body recoils only (elastic and discrete
 levels, isotropic in the centre of mass). See the module doc of
 [`heatr/mod.rs`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/njoy-outram-park-fork/src/heatr/mod.rs).
@@ -76,11 +78,14 @@ levels, isotropic in the centre of mass). See the module doc of
 (rung 9) gets the energy-balance value. ~~which has **no NJOY comparison** of
 its own: the HEATR record below compares the uncorrected kinematic limit.~~
 Against NJOY's energy-balance MT=301 it agrees below the first inelastic
-threshold where capture photons are in MF=12 (Si-28, 6e-8), and is **1.9–2.9×
-NJOY between 2 and 5 MeV** on both nuclides: the photons it subtracts are
-right, the neutron energies it keeps are the kinematic estimate. Numbers:
+threshold where capture photons are in MF=12 (Si-28, ~~6e-8~~ every point
+within 4.7e-7 since H6b part 1), and ~~is **1.9–2.9× NJOY between 2 and 5
+MeV** on both nuclides: the photons it subtracts are right, the neutron
+energies it keeps are the kinematic estimate~~ above that threshold is within
+**0.39 % (Fe-58) and 0.74 % (Si-28)** of NJOY in median since H6b part 1.
+Most of the old 1.9–2.9× was MT=4 heated beside its own levels. Numbers:
 [`heatr_vs_njoy2016.md`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/njoy-outram-park-fork/verification_and_validation/heatr_vs_njoy2016.md)
-§4 and the [re-measurement log](./remeasured.md).
+§4–§5 and the [re-measurement log](./remeasured.md).
 
 ## The code walk
 

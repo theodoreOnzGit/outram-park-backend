@@ -16241,9 +16241,18 @@ MF=6 photons, capture by energy balance with `disgam`'s recoil) and
 matches NJOY's MT=442 at its 7-figure print precision on Fe-58 and Si-28
 (`tests/heatr_mt442_vs_njoy2016.rs`). The kinematic arm now deposits
 HEATR's Q per reaction ([`Kerma::from_endf`]; `QI` alone left a discrete
-level's excitation out). The neutron side is still the kinematic
+level's excitation out). ~~The neutron side is still the kinematic
 estimate (H6b), which leaves the energy-balance MT=301 1.9–2.9× NJOY's
-between 2 and 5 MeV on both nuclides.
+between 2 and 5 MeV on both nuclides.~~ **CORRECTED 2026-10-05 (#535, H6b
+part 1):** [`Kerma::from_endf`] now follows `nheat` for the two-body
+channels: `disbar`'s MF=4 mean outgoing energy for elastic and the
+discrete levels without MF=6 (`twobody.rs`), `σ·(E + q0)` for MT=600-849,
+and `nheat`'s skip list (MT=4 was heated beside its own levels). Above the
+first inelastic threshold the energy-balance MT=301 is now within 0.39 %
+(Fe-58) and 0.74 % (Si-28) of NJOY's in median, and Si-28 below it matches
+at print precision. The continuum and MF=6 neutron means (`conbar`,
+`sixbar`, H6b part 2) are still the kinematic estimate and carry the
+14-150 MeV residual.
 
 Ported in phases (`docs/porting-plan.md` §HEATR sub-phases) — see the
 module's own progress:
@@ -16278,9 +16287,10 @@ module's own progress:
 - **H6** (in progress): the full ~~photon~~ energy-balance method (`nheat`
   with `disbar`/`conbar`/`sixbar` for the neutron side and `hconvr`/`gheat`
   for photons). **H6a, the photon side, is done** (2026-10-05, see above),
-  together with `nheat`'s deposited-Q rule. H6b (the neutron side's mean
-  outgoing energies) and H6c (MF=6 capture recoil, `kchk`) are planned on
-  GitHub #535.
+  together with `nheat`'s deposited-Q rule. **H6b part 1, the two-body
+  neutron side (`disbar`), is done** (2026-10-05). H6b part 2 (`conbar`,
+  `sixbar`: continuum and MF=6 neutron means) and H6c (MF=6 capture
+  recoil, `kchk`) are planned on GitHub #535.
 
 ## Elastic kinematics (H1)
 
@@ -35026,6 +35036,11 @@ pub struct File4Angular {
   Read `MF=4/MT=mt` of `mat` and convert every record with `getco`
 
 - ```rust
+  pub fn from_tape_with(tape: &Tape, mat: i32, mt: i32, nl_max: usize, opts: &File4Options) -> Result<Self, NjoyError> { /* ... */ }
+  ```
+  [`File4Angular::from_tape`] with the reading rules of `opts`, so
+
+- ```rust
   pub fn len(self: &Self) -> usize { /* ... */ }
   ```
   Number of tabulated incident energies.
@@ -35078,6 +35093,144 @@ pub struct File4Angular {
     unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
     ```
 
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Struct `File4Options`
+
+How [`File4Angular::from_tape_with`] reads a section: GROUPR's `getfle` /
+`getco` ([`File4Options::GROUPR`]) or HEATR's `hgtfle` / `hgetco`
+([`File4Options::HEATR`]), which are the same routine with three
+differences.
+
+```rust
+pub struct File4Options {
+    pub toler: f64,
+    pub lab_as_cm: bool,
+    pub log_sign_fallback: bool,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `toler` | `f64` | Rounding of tabulated-record coefficients: `1e-8` in `getco`<br>(`groupr.f90:10530`), `1e-6` in `hgetco` (`heatr.f90:4474`). |
+| `lab_as_cm` | `bool` | Accept a lab-frame (`LCT = 1`) section as if it were CM. `hgtfle`<br>does this for MT=51-90 when `AWR >= 10` (`heatr.f90:4252-4260`);<br>both routines otherwise refuse lab data. |
+| `log_sign_fallback` | `bool` | `hgtfle`'s log-law sign fallback (see the field of the same name). |
+
+##### Implementations
+
+###### Methods
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
 - **Debug**
   - ```rust
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }

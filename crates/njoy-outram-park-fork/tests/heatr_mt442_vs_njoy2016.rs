@@ -78,12 +78,20 @@
 //! **MT=301, recorded and not asserted** (median `|ours/njoy − 1|` above the
 //! first inelastic threshold; below it, unchanged by either constructor):
 //!
-//! | comparison | `QI` only (`from_reconr`) | `nheat` Q (`from_endf`) |
-//! |---|---|---|
-//! | Fe-58, `local = 1` | 0.76 (ours 0.23× NJOY at 2 MeV) | **0.11** (1.10× at 2 and 5 MeV) |
-//! | Si-28, `local = 1` | 0.38 | **0.31** |
-//! | Fe-58, `local = 0` | 1.00 (clamped to 0) | 1.35 (1.9× at 2 MeV, 2.9× at 5 MeV) |
-//! | Si-28, `local = 0` | 1.00 (clamped to 0) | 0.99 (1.9× at 2 MeV) |
+//! | comparison | `QI` only (`from_reconr`) | `nheat` Q (`from_endf`), H6a | `from_endf`, H6b part 1 |
+//! |---|---|---|---|
+//! | Fe-58, `local = 1` | 0.76 (ours 0.23× NJOY at 2 MeV) | 0.11 (1.10× at 2 and 5 MeV) | **3.3e-4** |
+//! | Si-28, `local = 1` | 0.38 | 0.31 | **2.3e-3** |
+//! | Fe-58, `local = 0` | 1.00 (clamped to 0) | 1.35 (1.9× at 2 MeV, 2.9× at 5 MeV) | **3.9e-3** |
+//! | Si-28, `local = 0` | 1.00 (clamped to 0) | 0.99 (1.9× at 2 MeV) | **7.4e-3** |
+//!
+//! The H6b column is `nheat`'s neutron side for the two-body channels
+//! (2026-10-05): `disbar`'s anisotropic mean outgoing energy for elastic and
+//! the discrete levels without MF=6, `σ·(E + q0)` for MT=600-849, and
+//! `nheat`'s skip list (MT=4 beside its levels, the 103-107 sums beside
+//! their partials, 16 beside 875-890, 18 beside 19). The worst points in
+//! every column are at 14-150 MeV, where the continuum and MF=6 neutron means
+//! (`conbar`, `sixbar`, H6b part 2) are still the kinematic estimate.
 //!
 //! How to read it:
 //!
@@ -95,17 +103,28 @@
 //! - **The `local = 0` miss is the `local = 1` miss, amplified.** NJOY's own
 //!   values obey `local0 = local1 − MT442` exactly (Fe-58 at 2 MeV:
 //!   1.40741e6 − 1.24625e6 = 1.6116e5), and so do ours, with MT=442 exact. At
-//!   2 MeV ours is 10 % high at `local = 1`, which is 90 % of what is left
-//!   after the photons are removed. That residual is the neutron side (H6b,
-//!   not ported).
+//!   2 MeV ours was 10 % high at `local = 1` after H6a, which is 90 % of what
+//!   is left after the photons are removed. ~~That residual is the neutron
+//!   side (H6b, not ported).~~ **CORRECTED 2026-10-05 (H6b part 1):** it was
+//!   the neutron side, and two defects in it: MT=4 heated beside its own
+//!   levels (RECONR rebuilds MT=4, `nheat` skips it), and the levels'
+//!   isotropic mean energy where NJOY uses MF=4's. Both fixed; see the H6b
+//!   column.
 //! - **Below 1 eV:** Si-28 agrees to 6e-8 at `local = 0` (capture with MF=12:
-//!   the energy balance and the recoil). Fe-58 is 756× NJOY: its capture
-//!   photons are MF=6, for which NJOY deposits only the photon recoil
-//!   (`tabsq6`), and its photon lines fall 208 keV short of `Q`, which ours
-//!   deposits. That is H6c's (capture recoil, `kchk`).
-//! - **1 eV to the first inelastic threshold:** 4–17 % medians, unchanged by
+//!   the energy balance and the recoil). Fe-58 is 755× NJOY at `local = 0`
+//!   and 3.3 % at `local = 1`: its capture photons are MF=6, for which NJOY
+//!   deposits only the photon recoil (`tabsq6`), and its photon lines fall
+//!   208 keV short of `Q`, which ours deposits. That is H6c's (capture
+//!   recoil, `kchk`).
+//! - **1 eV to the first inelastic threshold:** ~~4–17 % medians, unchanged by
 //!   this work; elastic heating here is isotropic in the CM, NJOY uses MF=4's
-//!   mean cosine (H6b/H7).
+//!   mean cosine (H6b/H7).~~ **CORRECTED 2026-10-05 (H6b part 1):** elastic
+//!   now uses MF=4's mean cosine through `disbar`'s node chain. Si-28, whose
+//!   capture photons are MF=12, matches NJOY at print precision here at both
+//!   `local` settings (worst 4.0e-7 and 4.7e-7, gated by
+//!   [`heating_matches_njoy_where_elastic_and_mf12_capture_are_the_only_channels`]).
+//!   Fe-58's medians are 1.7 % (`local = 1`) and 6.3 % (`local = 0`), from
+//!   its MF=6 capture (H6c); `from_reconr` stays at 4–17 %.
 //!
 //! Set `MT442_DEBUG=1` to print the eight worst points of each comparison.
 
@@ -289,8 +308,11 @@ fn kermas(tape: &Tape, recon: &ReconrResult, mat: i32) -> (Kerma, Kerma) {
 /// against NJOY's `local = 1` MT=301 (photons deposited locally), for the
 /// `QI`-only constructor and for [`Kerma::from_endf`]'s `nheat` Q rule.
 ///
-/// The neutron side is the kinematic estimate either way (isotropic two-body,
-/// H5 spectra); H6b ports `nheat`'s own mean outgoing energies.
+/// ~~The neutron side is the kinematic estimate either way (isotropic two-body,
+/// H5 spectra); H6b ports `nheat`'s own mean outgoing energies.~~
+/// **CORRECTED 2026-10-05 (H6b part 1):** `from_endf` now uses `disbar`'s
+/// mean outgoing energy for elastic and the discrete levels; the continuum
+/// and MF=6 channels are still the kinematic estimate (H6b part 2).
 #[test]
 fn mt301_local1_kinematic_against_njoy_is_recorded() {
     for case in CASES {
@@ -313,10 +335,13 @@ fn mt301_local1_kinematic_against_njoy_is_recorded() {
 /// `local = 0` MT=301, by the same measure; the `QI`-only kinematic arm is
 /// shown beside it.
 ///
-/// The photon side is H6a's and matches NJOY. The neutron side is still the
+/// The photon side is H6a's and matches NJOY. ~~The neutron side is still the
 /// kinematic estimate, because H6b (`nheat`'s per-reaction mean outgoing
 /// neutron energy) is not ported, so agreement is expected only where
-/// capture and elastic are the only open channels.
+/// capture and elastic are the only open channels.~~ **CORRECTED 2026-10-05
+/// (H6b part 1):** the two-body channels use `disbar`; only the continuum
+/// and MF=6 neutron means (`conbar`, `sixbar`) remain kinematic. Results in
+/// the module docs.
 #[test]
 fn mt301_energy_balance_against_njoy_is_recorded() {
     for case in CASES {
@@ -331,23 +356,67 @@ fn mt301_energy_balance_against_njoy_is_recorded() {
     }
 }
 
-/// **Pins the default:** [`Kerma::from_endf`] deposits each discrete level's
-/// excitation energy (`nheat`'s `q0 = 0` for `LR = 0`, `heatr.f90:1180`).
-/// On Fe-58, whose levels MT=51..89 have no MF=6, it must exceed the
-/// `QI`-only [`Kerma::from_reconr`] by exactly `Σ_levels σ·(−QI)`.
+/// NJOY's `local = 1` HEATR tape for a case (the 2026-09-17 oracle).
+fn njoy_local1(case: &Case, tag: &str) -> Option<Tape> {
+    let path = reference_file_or_skip("heatr", &format!("{}-ENDF8.0-0K-local1.heatr.pendf", case.label), tag)?;
+    Some(Tape::read_file(&path).expect("NJOY local=1 PENDF"))
+}
+
+/// **The H6b-part-1 gate:** where elastic scattering and MF=12 capture are
+/// the only open channels (Si-28 below its first inelastic threshold),
+/// `Kerma::from_endf` matches NJOY's MT=301 at print precision, with photons
+/// deposited (`local = 1`) and with the energy balance (`local = 0`).
+///
+/// That tests three ports at once: `disbar`'s anisotropic elastic mean
+/// energy with its 10 % node chain, capture's energy balance with the photon
+/// recoil (H6a), and the MT=442 subtraction. Criterion: 1e-6 of the envelope
+/// (module docs), fixed before the run.
+///
+/// Result (2026-10-05): `local = 1` worst 4.0e-7, `local = 0` worst 4.7e-7.
 #[test]
-fn from_endf_deposits_the_level_energy() {
+fn heating_matches_njoy_where_elastic_and_mf12_capture_are_the_only_channels() {
+    let case = &CASES[1];
+    let tag = "heating-elastic-capture si28";
+    let Some((tape, recon, njoy0)) = setup(case, tag) else { return };
+    let Some(njoy1) = njoy_local1(case, tag) else { return };
+    let (_, kin) = kermas(&tape, &recon, case.mat);
+    let photons = PhotonProduction::from_endf(&tape, case.mat, &recon);
+    let bal = kin.clone().with_energy_balance(&photons, &recon);
+    for (label, njoy, k) in [("local=1", &njoy1, &kin), ("local=0", &njoy0, &bal)] {
+        let bands = envelope_compare(&format!("{tag} {label}"), &njoy_mt(njoy, case.mat, 301), &recon, |e| k.eval(e));
+        for (band, worst, _, n) in bands.into_iter().take(2) {
+            assert!(n > 0, "[{label}] no points in {band}");
+            assert!(worst <= MT442_TOL, "[{label}] {band}: {worst:.3e} outside the envelope");
+        }
+    }
+}
+
+/// **MT=4 is heated once.** RECONR rebuilds MT=4 as the sum of the levels,
+/// and `nheat` never heats it (`heatr.f90:1074`). Heating it beside the
+/// levels would add at least its recoil term `σ_4·E·2A/(A+1)²` (Q = 0 on
+/// the rebuilt sum). Criterion, derived from that and not from the result:
+/// at 2 MeV on Fe-58 ours is within **half** that amount of NJOY's
+/// `local = 1` MT=301.
+///
+/// Result (2026-10-05): ours − NJOY = 4.75e2 eV·b; a double count would add
+/// 8.00e4, so the bound is 4.0e4.
+#[test]
+fn mt4_is_not_heated_beside_the_levels() {
     let case = &CASES[0];
-    let Some((tape, recon, _)) = setup(case, "from_endf_deposits_the_level_energy") else { return };
-    let (qi_only, nheat_q) = kermas(&tape, &recon, case.mat);
+    let tag = "mt4-once fe58";
+    let Some((tape, recon, _)) = setup(case, tag) else { return };
+    let Some(njoy1) = njoy_local1(case, tag) else { return };
+    let (_, kin) = kermas(&tape, &recon, case.mat);
     let e = 2.0e6;
-    let expected: f64 = recon
+    let a = recon.material.awr;
+    let sigma4 = recon
         .sections
         .iter()
-        .filter(|s| (51..=90).contains(&i32::from(s.mt)) && s.lr == 0)
-        .map(|s| eval_lin_lin(&s.pairs, e) * -s.qi)
-        .sum();
-    assert!(expected > 0.0, "no open discrete level at {e:e} eV");
-    let got = nheat_q.eval(e) - qi_only.eval(e);
-    assert!((got - expected).abs() <= 1.0e-9 * expected, "from_endf adds {got:.9e}, expected {expected:.9e}");
+        .find(|s| i32::from(s.mt) == 4)
+        .map(|s| eval_lin_lin(&s.pairs, e))
+        .expect("RECONR carries the redundant MT=4");
+    let double_count = sigma4 * e * 2.0 * a / ((a + 1.0) * (a + 1.0));
+    let diff = kin.eval(e) - eval_lin_lin(&njoy_mt(&njoy1, case.mat, 301), e);
+    println!("[{tag}] ours - NJOY at 2 MeV: {diff:.3e} eV·b; a double count would add {double_count:.3e}");
+    assert!(diff.abs() < 0.5 * double_count, "MT=4 looks heated beside its levels: {diff:.3e} vs {double_count:.3e}");
 }

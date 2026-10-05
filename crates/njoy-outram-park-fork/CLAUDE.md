@@ -1030,11 +1030,12 @@ Three things worth carrying forward:
   `Kerma::from_reconr` is the `QI`-only variant. Median miss above threshold
   at `local = 1`: Fe-58 76 % → 11 %, Si-28 38 % → 31 %.
 
-**Still open (#535):** the energy-balance MT=301 is 1.9–2.9× NJOY's between 2
+**Still open (#535):** ~~the energy-balance MT=301 is 1.9–2.9× NJOY's between 2
 and 5 MeV, which is the `local = 1` neutron-side residual amplified by
-subtracting a photon term that is ~89 % of the total (H6b); and Fe-58's MF=6
+subtracting a photon term that is ~89 % of the total (H6b); and~~ Fe-58's MF=6
 capture deposits its 208 keV photon deficit where NJOY deposits only the
-photon recoil (H6c).
+photon recoil (H6c). **CORRECTED 2026-10-05:** the 1.9–2.9× was closed by
+H6b part 1 (next section).
 
 ## `Tape::write` is byte-faithful to NJOY's MODER (2026-10-05, GitHub #553)
 
@@ -1057,3 +1058,29 @@ case). GENDF and ERRORR materials now skip the layout, as MODER skips them
 blank a non-zero field. **A value is never dropped to match a format.**
 
 Not covered: MF=32 and group materials, still written all-`a11`.
+
+## HEATR's two-body neutron side follows `nheat` (2026-10-05, GitHub #535 H6b part 1)
+
+`Kerma::from_endf` now deposits `σ·(E + q0 − yld·Ē')` for elastic and the
+discrete levels without MF=6, with `Ē'` from `disbar` (`src/heatr/twobody.rs`):
+MF=4's mean cosine through `File4Angular::from_tape_with(.., &File4Options::HEATR)`
+(`hgtfle`: `toler = 1e-6`, MT=51-90 lab data read as CM when `A ≥ 10`, the
+log-law sign fallback), evaluated at nodes 10 % apart and interpolated
+between them, exactly as NJOY walks it. MT=600-849 deposit `σ·(E + q0)`.
+`nheat`'s skip list is ported with `hinit`'s flags. **MT=4 had been heated
+beside its own levels** (RECONR rebuilds it as their sum), which is most of
+what the "1.9–2.9×" was.
+
+Medians above the first inelastic threshold against NJOY2016: Fe-58
+`local = 1` 11 % → 0.033 %, Si-28 31 % → 0.23 %; energy balance (`local = 0`)
+Fe-58 1.35 → 0.39 %, Si-28 0.99 → 0.74 %. Si-28 below the threshold is now
+**asserted** at print precision at both `local` settings (worst 4.7e-7).
+Details: `verification_and_validation/heatr_vs_njoy2016.md` §5.
+
+- **Not covered yet:** `conbar`/`sixbar` (continuum and MF=6 neutron means,
+  H6b part 2; they carry the 14-150 MeV residual) and MF=6 capture (H6c).
+- **The fission skip rule is ported but untested by any oracle:** MT=18 is
+  skipped when MT=19 has its own MF=5 spectrum, otherwise MT=19/20/21/38 are.
+  Neither oracle nuclide is fissile.
+- **`with_energy_balance` clamps MT=301 at 0; NJOY does not** (no lower
+  bound in `heatr.f90`). Left as it was; raised on #535.

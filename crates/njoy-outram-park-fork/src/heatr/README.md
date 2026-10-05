@@ -95,9 +95,15 @@ Write-up: `verification_and_validation/heatr_vs_njoy2016.md`.
   at print precision on Fe-58 and Si-28 (`tests/heatr_mt442_vs_njoy2016.rs`).
   The kinematic arm is built with `Kerma::from_endf`, which deposits
   `nheat`'s Q per reaction (`q0 = 0` for a discrete level, so its excitation
-  energy is heating until the photons take it away). The energy-balance
+  energy is heating until the photons take it away). ~~The energy-balance
   MT=301 is still 1.9–2.9× NJOY's between 2 and 5 MeV: the neutron side is
-  the kinematic estimate (H6b, not ported). Fe-58's MF=6 capture deposits
+  the kinematic estimate (H6b, not ported).~~ **CORRECTED 2026-10-05 (#535,
+  H6b part 1):** the two-body neutron side follows `nheat` (`disbar`'s MF=4
+  mean energy for elastic and discrete levels, `σ·(E + q0)` for MT=600-849,
+  MT=4 no longer heated beside its levels). Above the first inelastic
+  threshold the energy-balance MT=301 is within 0.39 % (Fe-58) and 0.74 %
+  (Si-28) of NJOY's in median; Si-28 below it matches at print precision.
+  `conbar`/`sixbar` (H6b part 2) carry the 14-150 MeV residual. Fe-58's MF=6 capture deposits
   its 208 keV photon deficit where NJOY deposits only the photon recoil
   (H6c). Numbers in `verification_and_validation/heatr_vs_njoy2016.md` §4.
 

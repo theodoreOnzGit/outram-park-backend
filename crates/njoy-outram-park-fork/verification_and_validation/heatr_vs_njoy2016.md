@@ -267,13 +267,77 @@ first inelastic threshold):
   2 MeV is 10 % high at `local = 1` and 1.9× at `local = 0`, because MT=442
   removes 89 % of the total there. The cause is the neutron side's kinematic
   estimate (isotropic two-body, H5 spectra), which H6b replaces with
-  `nheat`'s own `disbar`/`conbar`/`sixbar` means.
+  `nheat`'s own `disbar`/`conbar`/`sixbar` means. (Section 5 shows this
+  was the neutron side, and that most of it was two defects rather than
+  the kinematic estimate as such.)
 - **Fe-58 below 1 eV at `local = 0` is 756× NJOY.** Its capture photons are
   MF=6. For that case NJOY deposits only the photon recoil (`sixbar`'s
   `tabsq6`) and no energy balance; the port deposits the 208 keV by which the
   photon lines fall short of `Q` (section 1). H6c.
 - Si-28 below 1 eV agrees to 6e-8 at `local = 0`: capture with MF=12 photons,
   energy balance and recoil, as NJOY.
+
+### 5. The two-body neutron side — H6b part 1 (2026-10-05, GitHub #535)
+
+**Methodology.** Same oracles as section 4 (NJOY2016 `ac5adf5f33`, Fe-58 and
+Si-28, ENDF/B-VIII.0, 0 K, `local = 1` and `local = 0`), same envelope
+measure. `Kerma::from_endf` was changed to follow `nheat`
+(`heatr.f90:1050-1460`) for the channels with a two-body outgoing neutron,
+read line by line from upstream before any number was compared:
+
+- **`disbar`** (`:1829-2013`, ported as `heatr/twobody.rs`) for elastic and
+  for the discrete levels MT=51-90 without MF=6: the deposited energy is
+  `σ·(E + q0 − yld·Ē')`, with `Ē' = E·(1 + 2bw̄ + b²)/(A+1)²`, `b = A·√(1 −
+  E_th/E)`, and `w̄` MF=4's first Legendre coefficient from `hgtfle`
+  (`File4Angular` with `File4Options::HEATR`: `toler = 1e-6`, MT=51-90
+  lab data taken as CM when `A ≥ 10`, the log-law sign fallback). `c = Ē'/E`
+  is evaluated at nodes 10 % apart, pulled down to the next MF=4 energy, and
+  interpolated lin-lin between them, walked from the reaction's threshold
+  energy as `nheat` does.
+- **MT=600-849:** `σ·(E + q0)` (`disbar` leaves `c = 0` for a charged
+  outgoing particle).
+- **`nheat`'s skip list** (`:1066-1110`): MT=3, 4, 10, 26, 27, 101, 121-151,
+  201-599, MT=103-107 when their partials MT=600-849 exist, MT=16 when
+  875-890 exist, MT=18 when MT=19 exists. RECONR rebuilds MT=4 as the sum of
+  the levels, and the port had been heating it beside them.
+
+Gates in `tests/heatr_mt442_vs_njoy2016.rs`:
+`heating_matches_njoy_where_elastic_and_mf12_capture_are_the_only_channels`
+(Si-28 MT=301 below the first inelastic threshold, both `local` settings,
+every point within 1e-6 of the envelope, the MT=442 criterion, fixed before
+the run) and `mt4_is_not_heated_beside_the_levels` (at 2 MeV on Fe-58, ours
+within half of the double-count term `σ_4·E·2A/(A+1)²` of NJOY).
+
+**Results, MT=301** (median `|ours/njoy − 1|`; worst distance outside the
+envelope in brackets):
+
+| comparison | E < 1 eV | 1 eV – first inelastic | above first inelastic |
+|---|---|---|---|
+| Fe-58, `local = 1` | 3.3e-2 (3.3e-2) | 1.7e-2 (5.5e-2) | **3.3e-4** (0.99 at 140 MeV) |
+| Si-28, `local = 1` | 5.3e-8 (1.7e-7) | **8.0e-8 (4.0e-7)** | **2.3e-3** (1.00 at 150 MeV) |
+| Fe-58, `local = 0` | 755 (755) | 6.3e-2 (850 at 37.8 keV) | **3.9e-3** (1.00 at 25.7 MeV) |
+| Si-28, `local = 0` | 5.9e-8 (2.0e-7) | **7.3e-8 (4.7e-7)** | **7.4e-3** (1.00 at 20.2 MeV) |
+
+Above the first inelastic threshold, the medians were 0.11, 0.31, 1.35 and
+0.99 after section 4. MT=4 test: ours − NJOY = 4.75e2 eV·b at 2 MeV, against
+8.00e4 for a double count.
+
+**Interpretation.**
+
+- **Si-28 below the first inelastic threshold is exact at print precision.**
+  Elastic and MF=12 capture are the only open channels, so this verifies
+  `disbar` (anisotropic mean cosine, node chain), capture's energy balance
+  and recoil (H6a), and the MT=442 subtraction together.
+- **Above the threshold the medians fell by 30-350×.** The two-body port and
+  the MT=4 skip carry it; `nheat`'s `q0` rule (section 4) was already in.
+- **The worst points are at 14-150 MeV** (and at a few near-zero values),
+  where the continuum and MF=6 neutron means are still the kinematic
+  estimate: `conbar` and `sixbar`, H6b part 2.
+- **Fe-58's residual below the threshold is its capture**, whose photons are
+  MF=6: NJOY deposits only the photon recoil (`tabsq6`), where the port
+  deposits the 208 keV photon deficit. That is H6c, and it is 3.3 % at
+  `local = 1` and 755× at `local = 0` below 1 eV, where the deficit is all
+  that is left after the photons are removed.
 
 ## What this does NOT establish
 
@@ -292,8 +356,13 @@ first inelastic threshold):
   needs the photon-production side (MT=442), which is not compared here~~.
   **CORRECTED 2026-10-05:** MT=442 is now compared (section 4) and matches;
   most of Fe-58's gap was the deposited Q, and with `nheat`'s rule the median
-  miss above threshold at `local = 1` is 11 % (Fe-58) and 31 % (Si-28). What
-  remains is the neutron side (H6b), recorded and not asserted.
+  miss above threshold at `local = 1` is 11 % (Fe-58) and 31 % (Si-28). ~~What
+  remains is the neutron side (H6b), recorded and not asserted.~~
+  **CORRECTED 2026-10-05 (H6b part 1, section 5):** with `disbar` and
+  `nheat`'s skip list the medians above threshold are 3.3e-4 (Fe-58) and
+  2.3e-3 (Si-28) at `local = 1`, recorded and not asserted. Below the
+  threshold Si-28 is now asserted at both `local` settings. `conbar`,
+  `sixbar` and Fe-58's MF=6 capture (H6c) remain.
 - **The damage port remains deliberately partial**: no MF=4 anisotropy, no
   MT=447 disappearance recoil, no continuum or `(n,xn)` recoil. Sections 2 and 3
   above now quantify that rather than merely naming it.

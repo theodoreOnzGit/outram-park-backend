@@ -19,9 +19,18 @@
 //! matches NJOY's MT=442 at its 7-figure print precision on Fe-58 and Si-28
 //! (`tests/heatr_mt442_vs_njoy2016.rs`). The kinematic arm now deposits
 //! HEATR's Q per reaction ([`Kerma::from_endf`]; `QI` alone left a discrete
-//! level's excitation out). The neutron side is still the kinematic
+//! level's excitation out). ~~The neutron side is still the kinematic
 //! estimate (H6b), which leaves the energy-balance MT=301 1.9–2.9× NJOY's
-//! between 2 and 5 MeV on both nuclides.
+//! between 2 and 5 MeV on both nuclides.~~ **CORRECTED 2026-10-05 (#535, H6b
+//! part 1):** [`Kerma::from_endf`] now follows `nheat` for the two-body
+//! channels: `disbar`'s MF=4 mean outgoing energy for elastic and the
+//! discrete levels without MF=6 (`twobody.rs`), `σ·(E + q0)` for MT=600-849,
+//! and `nheat`'s skip list (MT=4 was heated beside its own levels). Above the
+//! first inelastic threshold the energy-balance MT=301 is now within 0.39 %
+//! (Fe-58) and 0.74 % (Si-28) of NJOY's in median, and Si-28 below it matches
+//! at print precision. The continuum and MF=6 neutron means (`conbar`,
+//! `sixbar`, H6b part 2) are still the kinematic estimate and carry the
+//! 14-150 MeV residual.
 //!
 //! Ported in phases (`docs/porting-plan.md` §HEATR sub-phases) — see the
 //! module's own progress:
@@ -56,9 +65,10 @@
 //! - **H6** (in progress): the full ~~photon~~ energy-balance method (`nheat`
 //!   with `disbar`/`conbar`/`sixbar` for the neutron side and `hconvr`/`gheat`
 //!   for photons). **H6a, the photon side, is done** (2026-10-05, see above),
-//!   together with `nheat`'s deposited-Q rule. H6b (the neutron side's mean
-//!   outgoing energies) and H6c (MF=6 capture recoil, `kchk`) are planned on
-//!   GitHub #535.
+//!   together with `nheat`'s deposited-Q rule. **H6b part 1, the two-body
+//!   neutron side (`disbar`), is done** (2026-10-05). H6b part 2 (`conbar`,
+//!   `sixbar`: continuum and MF=6 neutron means) and H6c (MF=6 capture
+//!   recoil, `kchk`) are planned on GitHub #535.
 //!
 //! ## Elastic kinematics (H1)
 //!
@@ -97,6 +107,7 @@
 mod damage;
 mod kerma;
 mod spectra;
+mod twobody;
 #[cfg(test)]
 mod tests;
 

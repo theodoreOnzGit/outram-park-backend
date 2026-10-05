@@ -30,7 +30,7 @@ cross-code record; **N** `NotPorted` stub; **T** tooling, no physics.
 | `purr` | [Rung 4](./purr.md) | `UrrProbabilityTables::from_endf` | `unr_block_write_2026_09_26.md`, `tests/unr_block_write_vs_njoy2016.rs` | V; PENDF MT=153 writer not ported |
 | `thermr` | [Rung 5](./thermr.md) | `IncoherentInelasticScattering::from_tape`, `calcem_inelastic_xs` | `tests/thermr_calcem_vs_njoy2016_golden.rs` | V; `nmix > 1` and the card driver not ported |
 | `leapr` | [Rung 5](./thermr.md) | `leapr::run_deck` (appendix) | `groupr_gaminr_covr_leapr_vs_njoy2016.md` §4.3–4.4, `examples/graphite_sab_generation.rs` | V; `coldh` self-consistency only |
-| `heatr` | [Rung 6](./heatr.md) | `Kerma::from_reconr` | `heatr_vs_njoy2016.md` | **P** — kinematic limit, plus ~~a photon-only energy-balance correction on the ACE route (not compared with NJOY)~~ the photon energy balance, whose MT=442 matches NJOY at print precision (2026-10-05, H6a; `Kerma::from_endf` deposits `nheat`'s Q); the neutron side of the energy balance (H6b), MF=6 capture (H6c) and most damage channels not ported; ~~MT=445 threshold discrepancy open~~ MT=445 threshold diagnosed 2026-10-05 (NJOY interpolates between 10 % nodes) |
+| `heatr` | [Rung 6](./heatr.md) | `Kerma::from_reconr` | `heatr_vs_njoy2016.md` | **P** — kinematic limit, plus ~~a photon-only energy-balance correction on the ACE route (not compared with NJOY)~~ the photon energy balance, whose MT=442 matches NJOY at print precision (2026-10-05, H6a; `Kerma::from_endf` deposits `nheat`'s Q); ~~the neutron side of the energy balance (H6b)~~ the continuum and MF=6 neutron means (H6b part 2; the two-body side follows `disbar` since 2026-10-05), MF=6 capture (H6c) and most damage channels not ported; ~~MT=445 threshold discrepancy open~~ MT=445 threshold diagnosed 2026-10-05 (NJOY interpolates between 10 % nodes) |
 | `gaspr` | [Rung 6](./heatr.md) | `GasProduction::from_reconr_and_tape` | `gaspr_light_nuclides_vs_njoy2016.md` | V |
 | `photon` | [Consumer surface](./consumer-surface.md) | `PhotonProduction::from_endf` (appendix) | ~~indirect: ACE photon blocks word-identical (rung 9)~~ `heatr_vs_njoy2016.md` §4: MT=442 matches NJOY2016's HEATR at print precision (Fe-58, Si-28, 2026-10-05); `tests/photon.rs` | ~~P; MF=12 `LO = 2` not ported~~ **V** (MF=6 photons with `LAW ≠ 1` not valued) |
 | `groupr` | [Rung 7](./groupr.md) | `self_shielded_group_xs` | `groupr_gaminr_covr_leapr_vs_njoy2016.md` §3, five `tests/groupr_*_golden.rs` | V |
@@ -70,9 +70,12 @@ Each is tracked as a GitHub issue, filed 2026-10-04 by this track:
 2. **HEATR's energy-balance method (H6) is ~~not ported~~ half ported**:
    ~~so the port's KERMA is the kinematic limit (with a photon-only correction
    on the ACE route)~~ since 2026-10-05 the photon side (H6a) matches NJOY's
-   MT=442 at print precision, and the energy-balance MT=301 is 1.9–2.9× NJOY's
+   MT=442 at print precision, and ~~the energy-balance MT=301 is 1.9–2.9× NJOY's
    between 2 and 5 MeV because the neutron side (H6b) is the kinematic
-   estimate; ~~plus
+   estimate~~ since H6b part 1 (`disbar`, `nheat`'s skip list) the
+   energy-balance MT=301 is within 0.39 % (Fe-58) and 0.74 % (Si-28) of
+   NJOY's in median above the first inelastic threshold, and exact at print
+   precision below it on Si-28; `conbar`/`sixbar` and MF=6 capture remain; ~~plus
    the open MT=445 damage threshold discrepancy on Fe-58~~ the MT=445 threshold
    difference on Fe-58 is diagnosed (2026-10-05): it is `disbar`'s 10 %-node
    interpolation in NJOY, not a port defect. [#535](https://github.com/theodoreOnzGit/outram-park-backend/issues/535)
