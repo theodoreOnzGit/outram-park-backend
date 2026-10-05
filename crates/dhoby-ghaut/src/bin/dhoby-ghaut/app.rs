@@ -120,6 +120,8 @@ pub struct App {
     /// The DEM pour's own thread (minutes of work; slices stay live).
     pub dem_link: Link<crate::dem::DemReq, crate::dem::DemEv>,
     pub dem: DemUi,
+    /// Steps 9 and 10: the multiphysics case and its run (own engine thread).
+    pub mp: crate::coupled_ui::MpUi,
     /// Step 1's main view shows the DEM pour (else the geometry).
     pub show_dem: bool,
     pub screen: Screen,
@@ -166,7 +168,11 @@ pub struct App {
 }
 
 impl App {
-    pub fn new(cc: &eframe::CreationContext<'_>, recipe: Option<Recipe>) -> Self {
+    pub fn new(
+        cc: &eframe::CreationContext<'_>,
+        recipe: Option<Recipe>,
+        recipe_step9: Option<Result<dhoby_ghaut::workbench::multiphysics::MultiphysicsSetup, String>>,
+    ) -> Self {
         cc.egui_ctx.all_styles_mut(|style| {
             for font in style.text_styles.values_mut() {
                 font.size *= FONT_SCALE;
@@ -179,6 +185,13 @@ impl App {
         let phys = start_native(Engine::default(), move || c2.request_repaint());
         let dem_link = start_native(crate::dem::DemEngine, move || c3.request_repaint());
         let preset = preset::htr10();
+        let mut mp = crate::coupled_ui::MpUi::new(
+            cc.egui_ctx.clone(),
+            recipe.as_ref().map_or(preset.nuclear_data.temperature_k, |r| r.nuclear_data.temperature_k),
+        );
+        if let Some(Ok(s)) = recipe_step9 {
+            mp.setup = s;
+        }
         let loaded = recipe.is_some();
         let recipe = recipe.unwrap_or_else(|| preset.clone());
         let endf_dir = recipe.nuclear_data.endf_dir.clone();
@@ -187,6 +200,7 @@ impl App {
             phys,
             dem_link,
             dem: DemUi::default(),
+            mp,
             show_dem: false,
             screen: if loaded {
                 Screen::Wizard
@@ -585,6 +599,11 @@ impl App {
             Ok(m) => m,
             Err(e) => return self.say(e.to_string(), true),
         };
+        // Step 9's section (gh:#574), appended as its own kovan artifact.
+        let md = match self.mp.setup.write_into(&md, &now_rfc3339()) {
+            Ok(m) => m,
+            Err(e) => return self.say(e.to_string(), true),
+        };
         if let Some(p) = path.parent() {
             let _ = std::fs::create_dir_all(p);
         }
@@ -600,6 +619,11 @@ impl App {
             Ok(t) => t,
             Err(e) => return self.say(format!("Could not read {}: {e}", path.display()), true),
         };
+        match dhoby_ghaut::workbench::multiphysics::MultiphysicsSetup::from_recipe_markdown(&text) {
+            Some(Ok(s)) => self.mp.setup = s,
+            Some(Err(e)) => self.say(format!("{}: Step 9 not loaded: {e}", path.display()), true),
+            None => {}
+        }
         match Recipe::from_markdown(&text) {
             Ok(r) => {
                 self.recipe = r;
@@ -817,7 +841,12 @@ impl App {
                 if !s.implemented() {
                     text = text.color(Color32::GRAY);
                 }
-                let reachable = s <= WizardStep::Review || self.recipe.review.passed();
+                // Steps 9-10 do not compute on the reviewed CSG geometry (their
+                // TH mesh is drawn in their own main view), so the gate does
+                // not hold them; once Step 8's MGXS feed them it must (gh:#591).
+                let reachable = s <= WizardStep::Review
+                    || self.recipe.review.passed()
+                    || matches!(s, WizardStep::Setup | WizardStep::Run);
                 if ui
                     .add_enabled(reachable, egui::Button::selectable(s == self.step, text))
                     .clicked()
@@ -849,11 +878,14 @@ impl eframe::App for App {
         self.handle(&ctx, events);
         let dem_events = self.dem_link.drain();
         self.handle_dem(dem_events);
+        for (msg, err) in self.mp.handle() {
+            self.say(msg, err);
+        }
         self.dialog.update(&ctx);
         if let Some(path) = self.dialog.take_picked() {
             self.picked(path);
         }
-        if self.mc.running || self.assembling || self.scanning {
+        if self.mc.running || self.assembling || self.scanning || self.mp.running {
             ctx.request_repaint_after(std::time::Duration::from_millis(200));
         }
         match self.screen {

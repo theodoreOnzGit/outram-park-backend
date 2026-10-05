@@ -148,8 +148,20 @@ report). Rules that bind changes to it:
   "derived", with no V&V standing.
 - **The review gate stays in front of Monte Carlo.** It draws the drawing
   rule's minimum set from the assembled geometry.
-- **The UI thread only draws.** Two engine threads (geometry, physics) share
-  the assembled core as an `Arc`.
+- **The UI thread only draws.** ~~Two engine threads (geometry, physics) share
+  the assembled core as an `Arc`.~~ **CORRECTED 2026-10-05:** four engine
+  threads: geometry and physics (which share the assembled core as an
+  `Arc`), the Step 1 DEM pour (`dem.rs`) and the Step 10 coupled run
+  (`coupled.rs`).
+- **Steps 9–10 (gh:#574) run a SIMPLIFIED coupled case** (`porous_core.rs`:
+  r-z porous-core TH on `tampines` correlations, prescribed power shape,
+  lumped feedback). Every gap is in `mp_preset.rs::elements` with its issue
+  (gh:#591, #592, #593); keep that list true when the solver changes, and
+  re-run the mesh study in
+  `verification_and_validation/htr10_multiphysics_step10/` before moving the
+  default mesh. Step 9 is saved as its own kovan artifact (`step-9`,
+  `src/workbench/multiphysics.rs`), which also holds the input types Steps 7
+  and 8 hand over.
 - **A step that is not built says so** and names its issue
   (`WizardStep::issue`); nothing is simulated behind a placeholder.
 

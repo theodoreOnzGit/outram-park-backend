@@ -47,7 +47,9 @@
 //! Section ids are fixed (`recipe`, `step-0` … `step-5`, `review`, and the
 //! optional `step-6`, added 2026-10-05 for gh:#571), so a
 //! reworded heading does not break a recipe (kovan §40: the id, not the
-//! heading, is the identity).
+//! heading, is the identity). Step 9's case is one more artifact, id
+//! `step-9`, appended after these and read and written by
+//! [`super::multiphysics`] (it is optional, so older recipes still load).
 //!
 //! ## Units
 //!

@@ -6,8 +6,10 @@
 //! recipe (kovan markdown) to save and load. Steps 0–5 work for HTGR →
 //! Basic → pebble bed (HTR-10); ~~Steps 6–11 are shown with the issue that will
 //! build each~~ **UPDATED 2026-10-05:** Step 6 (branch; the reactivity map,
-//! `step6.rs`) and Step 11 (exports, `step11.rs`) work too; Steps 7–10 are
-//! shown with the issue that will build each.
+//! `step6.rs`), Steps 9–10 (a SIMPLIFIED coupled case, gh:#574: r-z porous-core
+//! thermal-hydraulics, prescribed power shape, lumped feedback) and Step 11
+//! (exports, `step11.rs`) work too; Steps 7–8 are shown with the issue that
+//! will build each.
 //!
 //! ```text
 //! cargo run --release -p dhoby-ghaut --bin dhoby-ghaut
@@ -15,6 +17,8 @@
 //! cargo run --release -p dhoby-ghaut --bin dhoby-ghaut -- --headless-geometry
 //! cargo run --release -p dhoby-ghaut --bin dhoby-ghaut -- --scan-endf ~/ENDF-B-VIII.0
 //! cargo run --release -p dhoby-ghaut --bin dhoby-ghaut -- --render-review out_dir
+//! cargo run --release -p dhoby-ghaut --bin dhoby-ghaut -- --headless-multiphysics \
+//!     [--rings 5 --axial 40 --uniform-power] [--out out_dir]
 //! cargo run --release -p dhoby-ghaut --bin dhoby-ghaut -- --headless-keff \
 //!     [--particles 500 --inactive 10 --active 20 --threads 8] [--out out_dir]
 //! cargo run --release -p dhoby-ghaut --bin dhoby-ghaut -- --headless-map \
@@ -35,15 +39,30 @@
 //! `--headless-map` (`headless_map.rs`) fits the reactivity map over the
 //! recipe's runs, SYNTHETIC runs (`--synthetic`, pinned by a test) or a real
 //! Monte Carlo sweep (`--sweep 300,600,900`), and writes Step 11's exports.
+//!
+//! `--headless-multiphysics` runs Steps 9-10 (the simplified coupled case)
+//! and prints the coupling console and the TENTATIVE comparison with Gao &
+//! Shi (2002); its summary is pinned by
+//! `tests/fixtures/dhoby_ghaut_multiphysics.csv`.
 
 #[cfg(not(any(target_os = "android", target_arch = "wasm32")))]
 mod app;
+#[cfg(not(any(target_os = "android", target_arch = "wasm32")))]
+mod coupled;
+#[cfg(not(any(target_os = "android", target_arch = "wasm32")))]
+mod coupled_ui;
 #[cfg(not(any(target_os = "android", target_arch = "wasm32")))]
 mod dem;
 #[cfg(not(any(target_os = "android", target_arch = "wasm32")))]
 mod engine;
 #[cfg(not(any(target_os = "android", target_arch = "wasm32")))]
 mod literature;
+#[cfg(not(any(target_os = "android", target_arch = "wasm32")))]
+mod mp_headless;
+#[cfg(not(any(target_os = "android", target_arch = "wasm32")))]
+mod mp_preset;
+#[cfg(not(any(target_os = "android", target_arch = "wasm32")))]
+mod porous_core;
 #[cfg(not(any(target_os = "android", target_arch = "wasm32")))]
 mod preset;
 #[cfg(not(any(target_os = "android", target_arch = "wasm32")))]
@@ -75,9 +94,12 @@ fn main() -> Result<(), String> {
             .and_then(|i| args.get(i + 1))
             .cloned()
     };
+    let mut recipe_step9 = None;
     let recipe = match arg("--recipe") {
         Some(p) => {
             let text = std::fs::read_to_string(&p).map_err(|e| format!("{p}: {e}"))?;
+            recipe_step9 = dhoby_ghaut::workbench::multiphysics::MultiphysicsSetup::from_recipe_markdown(&text)
+                .map(|r| r.map_err(|e| format!("{p}: {e}")));
             Some(
                 dhoby_ghaut::workbench::recipe::Recipe::from_markdown(&text)
                     .map_err(|e| format!("{p}: {e}"))?,
@@ -120,6 +142,21 @@ fn main() -> Result<(), String> {
         let out = arg("--out").unwrap_or_else(|| "target/dhoby-ghaut_out".into());
         return headless::keff(r, std::path::Path::new(&out));
     }
+    if args.iter().any(|a| a == "--headless-multiphysics") {
+        let r = recipe.unwrap_or_else(preset::htr10);
+        let mut setup = match recipe_step9 {
+            Some(s) => s?,
+            None => mp_preset::htr10(r.nuclear_data.temperature_k),
+        };
+        let num = |k: &str| arg(k).and_then(|v| v.parse::<usize>().ok());
+        setup.foam.radial_rings = num("--rings").unwrap_or(setup.foam.radial_rings);
+        setup.foam.axial_nodes = num("--axial").unwrap_or(setup.foam.axial_nodes);
+        if args.iter().any(|a| a == "--uniform-power") {
+            setup.neutronics.shape = dhoby_ghaut::workbench::multiphysics::PowerShape::Uniform;
+        }
+        let out = arg("--out").unwrap_or_else(|| "target/dhoby-ghaut_out".into());
+        return mp_headless::headless(&r, &setup, std::path::Path::new(&out));
+    }
     let start_step: Option<u8> = arg("--step").and_then(|v| v.parse().ok());
     let options = eframe::NativeOptions {
         viewport: egui::ViewportBuilder::default()
@@ -131,7 +168,7 @@ fn main() -> Result<(), String> {
         "Dhoby Ghaut workbench",
         options,
         Box::new(move |cc| {
-            let mut a = app::App::new(cc, recipe);
+            let mut a = app::App::new(cc, recipe, recipe_step9);
             // `--step N` (with `--recipe`): open the wizard at Step N, e.g.
             // for screenshots. Navigation only: the review gate still guards
             // every Monte Carlo run.

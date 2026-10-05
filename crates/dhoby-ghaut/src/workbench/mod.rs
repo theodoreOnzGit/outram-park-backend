@@ -18,7 +18,8 @@
 //! **Status (2026-10-05): first slice.** The wizard shows all twelve steps;
 //! Steps 0–5 work for HTGR → Basic → pebble bed (HTR-10); ~~Steps 6–11 are
 //! listed with the issue that will build each~~ **UPDATED 2026-10-05:**
-//! Step 6 (branch choice and the reactivity map, [`reactivity_map`]) and
+//! Step 6 (branch choice and the reactivity map, [`reactivity_map`]),
+//! Steps 9–10 (a SIMPLIFIED coupled run, [`multiphysics`], gh:#574) and
 //! Step 11 (CSV, kovan-markdown report and recipe exports, [`exports`]) work
 //! too; a step not built is listed with the issue that will build it
 //! ([`steps::WizardStep::issue`]).
@@ -28,5 +29,6 @@
 pub mod catalogue;
 pub mod exports;
 pub mod reactivity_map;
+pub mod multiphysics;
 pub mod recipe;
 pub mod steps;

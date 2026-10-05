@@ -119,9 +119,11 @@ impl WizardStep {
     /// Whether this build implements the step.
     #[must_use]
     pub fn implemented(self) -> bool {
-        // Step 6 (branch + reactivity map, gh:#571) and Step 11 (exports,
-        // gh:#574) were built 2026-10-05.
-        self <= Self::MonteCarlo || matches!(self, Self::Branch | Self::PostProcessing)
+        // Step 6 (branch + reactivity map, gh:#571), Steps 9-10 (a SIMPLIFIED
+        // coupled case, gh:#574) and Step 11 (exports, gh:#574) were built
+        // 2026-10-05; their panels say what is and is not modelled.
+        self <= Self::MonteCarlo
+            || matches!(self, Self::Branch | Self::Setup | Self::Run | Self::PostProcessing)
     }
 
     /// The GitHub issue that builds a step this build does not.
@@ -130,7 +132,6 @@ impl WizardStep {
         match self {
             Self::Meshing => Some(572),
             Self::Mgxs => Some(573),
-            Self::Setup | Self::Run => Some(574),
             _ => None,
         }
     }
@@ -185,9 +186,14 @@ impl WizardStep {
             Self::Mgxs => "Multigroup cross sections per region, interpolated in ln T by default.",
             Self::Setup => {
                 "Boundary conditions, solvers and models for the OUTRAM-Foam and farrer-park \
-                 sides, all prefilled."
+                 sides, all prefilled from the HTR-10 literature. The panel lists what the \
+                 coupled run models, simplifies, and leaves out."
             }
-            Self::Run => "Run the coupled case off the UI thread, with live residuals.",
+            Self::Run => {
+                "Run the coupled case off the UI thread: the porous core's thermal-hydraulics \
+                 with a prescribed power shape and lumped temperature feedback, with live \
+                 residuals, temperatures and k. A simplified run, labelled as one."
+            }
             Self::PostProcessing => {
                 "Export CSV (runs, spectra, the reactivity map on a grid), a kovan markdown \
                  report and the recipe; load a recipe back and check it round-trips."
@@ -214,6 +220,17 @@ mod tests {
     fn unimplemented_steps_name_their_issue() {
         for s in WizardStep::ALL {
             assert_eq!(s.implemented(), s.issue().is_none(), "{s:?}");
+        }
+    }
+
+    /// Steps 6, 9, 10 (a simplified coupled run, gh:#574) and 11 are built;
+    /// Steps 7 and 8 are not.
+    #[test]
+    fn steps_nine_and_ten_are_built() {
+        assert!(WizardStep::Setup.implemented() && WizardStep::Run.implemented());
+        assert!(WizardStep::Branch.implemented() && WizardStep::PostProcessing.implemented());
+        for s in [WizardStep::Meshing, WizardStep::Mgxs] {
+            assert!(!s.implemented(), "{s:?}");
         }
     }
 }
