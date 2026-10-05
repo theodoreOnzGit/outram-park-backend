@@ -286,6 +286,15 @@ pub fn main_view(app: &mut App, ui: &mut egui::Ui) {
                     f.held_out_max_pcm.map_or("n/a".into(), |x| format!("{x:.0} pcm")),
                     f.chi2_per_dof.map_or("n/a".into(), |x| format!("{x:.2}"))
                 ));
+                if f.n_runs < f.n_terms + 3 {
+                    ui.colored_label(
+                        AMBER,
+                        format!(
+                            "Only {} runs for {} terms: the held-out error rests on very few refits and can land far from σ by chance. Plan more runs before quoting it.",
+                            f.n_runs, f.n_terms
+                        ),
+                    );
+                }
             }
         }
         let h = (ui.available_height() * 0.55).max(200.0);
