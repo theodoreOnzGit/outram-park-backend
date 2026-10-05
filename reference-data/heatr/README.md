@@ -71,3 +71,23 @@ checks it against closed-form kinematics at machine precision.
 
 The write-up, including the two measured gaps this comparison quantified, is
 `../../crates/njoy-outram-park-fork/verification_and_validation/heatr_vs_njoy2016.md`.
+
+## `driver/`: whole-tape oracles for the full HEATR port (added 2026-10-05, GitHub #535)
+
+`driver/` holds the oracles for `tests/heatr_driver_vs_njoy2016.rs`, which
+compares `heatr::heatr`'s **entire** output tape with NJOY2016's byte for
+byte. Unlike the trimmed tapes above, these are whole and gzipped
+(`gzip -9n`, about 12 MB in all). Each case has:
+
+- `<case>.njoy-input`: the deck, with a `# endf:` line naming its tape in `../../endf/`;
+- `<case>.pendf.gz`: RECONR's ASCII PENDF (`tape32`), which **both** codes' HEATR read;
+- `<case>.heatr.gz`: NJOY's HEATR tape after `moder 33 34`;
+- `<case>.listing.gz`: HEATR's part of NJOY's listing;
+- `<case>.plot.gz`: the `viewr` plot file, for `si28-kchk-plot` only.
+
+The cases are `si28-local0`, `si28-kchk-plot`, `fe58-userq-ed`,
+`si28-two-temperatures`, `h2-local0`, `li6-local1`, `be9-local0` and
+`o16-local0`. The test's doc says what each one exercises. `regenerate.sh <njoy
+executable>` rebuilds all of them from the decks. Generator: NJOY2016
+`ac5adf5f33`, built from source with gfortran 13.3.0, run 2026-10-05.
+Provenance of the ENDF inputs: `../endf/README.md`.

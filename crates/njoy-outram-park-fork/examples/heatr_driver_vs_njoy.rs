@@ -97,6 +97,18 @@ fn main() {
         total_diff += ndiff + usize::from(!same_len);
     }
     println!("total differing words or sections: {total_diff}");
+    // The viewr plot file, when NJOY's is given.
+    if let Ok(pp) = std::env::var("HEATR_PLOT") {
+        let theirs_plot = std::fs::read_to_string(&pp).unwrap_or_default();
+        let ours_plot = out.plot.clone().unwrap_or_default();
+        let tl: Vec<&str> = theirs_plot.lines().collect();
+        let ol: Vec<&str> = ours_plot.lines().collect();
+        let same = ol.iter().zip(tl.iter()).filter(|(x, y)| x == y).count();
+        println!("plot file: {same} / {} lines identical (ours {} lines)", tl.len(), ol.len());
+        for (i, (x, y)) in ol.iter().zip(tl.iter()).enumerate().filter(|(_, (x, y))| x != y).take(4) {
+            println!("  plot line {}:\n    ours  |{x}|\n    njoy  |{y}|", i + 1);
+        }
+    }
     // The whole tape, byte for byte.
     let ours_text = String::from_utf8_lossy(&buf).to_string();
     let theirs_text = std::fs::read_to_string(&a[3]).unwrap_or_default();
