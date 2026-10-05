@@ -1,0 +1,33 @@
+[  0.0 s]   0 % meshing: Neutronics
+[  1.8 s]   8 % drawing: Neutronics
+[  1.9 s]  17 % meshing: Thermal-hydraulics
+[  3.7 s]  25 % drawing: Thermal-hydraulics
+[  3.8 s]  33 % meshing: Structural (FEM)
+[  4.4 s]  42 % drawing: Structural (FEM)
+[  4.5 s]  50 % mapping: Neutronics <-> Thermal-hydraulics
+[  7.1 s]  67 % mapping: Neutronics <-> Structural (FEM)
+[ 14.1 s]  83 % mapping: Thermal-hydraulics <-> Structural (FEM)
+[ 14.5 s] 100 % done
+[   0.0 s] state 1: nuclear data at 300.15 K
+  carbon: natural, C-12 / C-13 at 98.93 / 1.07 at.% (IUPAC)
+  coolant: natural helium (He-3 1.343e-6 at.), ideal gas at 300.15 K and 101.33 kPa (pressure ASSUMED atmospheric, after Seker & Colak 2003 p.267)
+  rod metal: FULL: real Ni-58/60/61/62/64 and Fe-54/56/57/58
+  graphite S(a,b): tsl-reactor-graphite-30P.endf (MAT 32)
+[ 114.9 s] state 1: reaction-rate pass at 300.15 K
+[ 271.1 s] state 1: scattering-matrix pass at 300.15 K
+[ 448.5 s] state 300.15 K: k = 0.99696 +/- 0.00723, data 114.8 s, transport 333.7 s
+[ 448.5 s] state 2: nuclear data at 600 K
+  carbon: natural, C-12 / C-13 at 98.93 / 1.07 at.% (IUPAC)
+  coolant: natural helium (He-3 1.343e-6 at.), ideal gas at 600.00 K and 101.33 kPa (pressure ASSUMED atmospheric, after Seker & Colak 2003 p.267)
+  rod metal: FULL: real Ni-58/60/61/62/64 and Fe-54/56/57/58
+  graphite S(a,b): tsl-reactor-graphite-30P.endf (MAT 32)
+[ 568.7 s] state 2: reaction-rate pass at 600 K
+[ 720.8 s] state 2: scattering-matrix pass at 600 K
+[ 885.1 s] state 600 K: k = 0.94228 +/- 0.00635, data 120.1 s, transport 316.5 s
+note: carbon: natural, C-12 / C-13 at 98.93 / 1.07 at.% (IUPAC)
+note: coolant: natural helium (He-3 1.343e-6 at.), ideal gas at 300.15 K and 101.33 kPa (pressure ASSUMED atmospheric, after Seker & Colak 2003 p.267)
+note: rod metal: FULL: real Ni-58/60/61/62/64 and Fe-54/56/57/58
+note: coolant: natural helium (He-3 1.343e-6 at.), ideal gas at 600.00 K and 101.33 kPa (pressure ASSUMED atmospheric, after Seker & Colak 2003 p.267)
+real	15m3.031s
+user	96m10.945s
+sys	0m11.836s
