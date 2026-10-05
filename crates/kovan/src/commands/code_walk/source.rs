@@ -566,6 +566,17 @@ fn decl_at(
     }
 }
 
+/// How many lines past the `fn` identifier the signature scan looks for its
+/// `{` or `;` before giving up (and reporting the function as bodiless).
+///
+/// It was 40 until 2026-10-05: gh:#598 added a parameter and its comment to
+/// `transport_csg.rs::transport_history_vr`, taking that signature from 41 to
+/// 44 lines, and the scan silently stopped finding its body. With no body the
+/// walk scanned no calls at all ("0 definition queries", "No call chain
+/// found"), which broke nine lesson walks at once. The bound only guards
+/// against a runaway scan; a long rustfmt'd parameter list is ordinary.
+const MAX_SIGNATURE_LINES: u32 = 400;
+
 fn body_and_signature(
     code: &[String],
     blocks: &[Block],
@@ -608,7 +619,7 @@ fn body_and_signature(
                 _ => {}
             }
         }
-        if ln as u32 > line + 40 {
+        if ln as u32 > line + MAX_SIGNATURE_LINES {
             break;
         }
     }
@@ -1044,6 +1055,26 @@ pub trait Geometry {
         assert!(!b.contains("'\\''"));
         // Attributes hold no calls.
         assert!(!b.contains("cfg"));
+    }
+
+    /// Methodology: a free fn whose rustfmt'd signature spans 60 lines (one
+    /// parameter per line, as `transport_history_vr` has 44 since gh:#598)
+    /// must still be found to have a body, and the call in it a candidate.
+    ///
+    /// Result (2026-10-05): passes. Under the old 40-line bound the body would be
+    /// `None` and the call list empty.
+    #[test]
+    fn long_signature_still_has_a_body() {
+        let mut src = String::from("pub fn many(\n");
+        for k in 0..58 {
+            src.push_str(&format!("    a{k}: f64,\n"));
+        }
+        src.push_str(") -> f64 {\n    helper(a0)\n}\n");
+        let idx = FileIndex::parse(&src);
+        let f = &idx.fns[0];
+        assert_eq!(f.body, Some((59, 61)));
+        let c = idx.candidates(f);
+        assert!(c.iter().any(|c| c.name == "helper"));
     }
 
     #[test]
