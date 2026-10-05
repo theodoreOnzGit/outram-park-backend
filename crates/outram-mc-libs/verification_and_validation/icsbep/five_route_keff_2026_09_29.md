@@ -295,6 +295,79 @@ transport 3.3 s per seed.
 - **Route 4 now agrees with route 1** within 1.1σ. Godiva no longer
   qualifies the "every cell within 2σ" statement.
 
+### LCT-008 lattice: worth of the 24 dropped nuclides, first measurement (GitHub #533)
+
+**Question.** The lattice runs the 11-nuclide tier. What is the worth of the 24
+nuclides that tier drops? They are B-11 in the water and Mg, Ti, Cr, Fe, Cu
+and Zn in the Al-6061 clad. The case-1 cards name 35 nuclides; `lct008_keff.rs`'s
+default `TAPES` lists 36, and Na-23 is not in this case.
+
+**Prediction (written before any run).** The dropped nuclides are almost all
+parasitic absorbers in the clad. From nominal Al-6061 shares and 2200 m/s
+cross sections, they add about 9e-4 /cm of absorption, about 7 % on top of the
+clad's own. That puts the worth, full minus 11, at about **−100 pcm**, with a
+plausible range of −40 to −250. A positive worth resolved at more than 2σ would
+refute the prediction.
+
+**Method.**
+- **Full arm.** `icsbep_five_route_keff --case lct008 --route endf
+  --full-nuclides`, a new arm built at `8b17079bc`. Everything else is route 4
+  unchanged: loader, URR and DBRC defaults, S(α,β), 10 000 × [250 + 400] and
+  the seeds. 35 nuclides; URR on 10, DBRC on 35.
+- **11-nuclide arm.** The 96 route-4 seeds already in this record
+  (`0414bc8277`). They were not re-run, because route 4 reproduces at
+  `8b17079bc`: seeds 1 and 16, re-run, match the recorded `k` and internal σ to
+  every printed digit.
+
+**Size.** #533 asks for at least 32 paired seeds. The timed pilot gave 684 s
+per full-arm seed and 368 s per 11-nuclide seed. Both used 2 threads on the
+hardware below. 32 full seeds is therefore about 6 h of transport, more than
+was available here. **16 full seeds** were run, about 3 h.
+
+**Estimator, fixed after 3 of the 16 seeds and before anything was
+resolved.** The two arms' random streams diverge at the first collision with a
+dropped nuclide, so same-seed pairing carries almost no correlation. The
+**primary** estimator is therefore unpaired: full (16) minus the 11-nuclide
+arm (96). The paired 16-seed difference, which #533 asked for, is reported
+beside it.
+
+**Hardware.** Intel Xeon Processor @ 2.10 GHz, 2 of 4 shared logical cores
+(`taskset -c 2,3`), 2 threads, 15.7 GB RAM, Linux 6.18, CPU only. Data took
+155 s for the full arm and 134 s for the 11-nuclide arm. Transport took
+597–730 s per full seed (seed 2 took 1162 s, run beside a build of mine) and
+368–384 s per 11-nuclide seed. The full tier costs 1.8× per seed.
+
+Per-seed rows:
+[`data/per_seed_keff_lct008_full35_route4_2026_10_05.csv`](five_route_keff/data/per_seed_keff_lct008_full35_route4_2026_10_05.csv).
+
+**Results.**
+
+| arm | seeds | k_eff ± sem | seed sd [pcm] | Δ vs k=1 [pcm] |
+|---|---|---|---|---|
+| 11 nuclides (route 4, recorded) | 96 | 1.00236 ± 0.00008 | 74 | +236 ± 8 |
+| 11 nuclides, seeds 1–16 only | 16 | 1.00205 ± 0.00016 | 64 | +205 ± 16 |
+| **full, 35 nuclides** | **16** | **1.00171 ± 0.00019** | 76 | **+171 ± 19** |
+
+| worth of the 24 dropped nuclides (full − 11) | value [pcm] | significance |
+|---|---|---|
+| **unpaired, full 16 vs 11-nuclide 96 (primary)** | **−65 ± 21** | **3.2σ** |
+| paired, seeds 1–16 (as #533 asked) | −35 ± 26 | 1.3σ; seed-to-seed correlation between the arms −0.14 |
+
+- **The prediction held** in sign and in range: −65 ± 21 against −100
+  predicted (−40 to −250). The dropped nuclides are worth a few tens of pcm,
+  and in the direction parasitic capture gives.
+- **The two estimators agree to 1.3σ.** Their difference is the 11-nuclide
+  arm's seeds 1–16 (+205 ± 16) against its 96-seed mean (+236 ± 8). The
+  pairing gained nothing (correlation −0.14), as expected.
+- **What it means for the quoted lattice result.** The full model would sit at
+  about **+171 ± 19 pcm**, not +236 ± 8. The 11-nuclide figure stays the one
+  to quote for the code-to-code comparison, because OpenMC ran the same 11
+  nuclides. Against k = 1, the simplification is worth about −65 pcm.
+- **Not done: the request in full.** #533 asks for at least 32 pairs. This is
+  16 full seeds, so the worth is resolved at 3.2σ, not at the precision 32
+  seeds would give (about ±16 pcm). #533 stays open for the rest. The worth is
+  not split by nuclide.
+
 ## Results — FINAL (2026-09-29, routes 3/4/5 at `f78b5180d5`) — *superseded 2026-09-30, above*
 
 - **Routes 1 and 2** are unchanged from the interim campaign.
@@ -392,7 +465,9 @@ cross-check is running.
   Jemima, HST-009 and LCT-008 bands are stand-ins.
 - **Data library.** Only ENDF/B-VIII.0 at 293.6 K is covered.
 - **LCT-008 nuclide list.** The lattice runs an 11-nuclide tier, not the full
-  36-nuclide model `lct008_keff.rs` runs by default.
+  model `lct008_keff.rs` runs by default (35 nuclides in case 1). The dropped
+  24 are worth **−65 ± 21 pcm**, measured 2026-10-05 with 16 full-tier seeds
+  (see "Later measurements"; #533).
 
 ## Appendix — OpenMC provenance and driver script (verbatim)
 
