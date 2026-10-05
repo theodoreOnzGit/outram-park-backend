@@ -650,6 +650,47 @@ pub struct SolidRayTracePlot {
     pub light_position: Option<Position>,
     /// Share of ambient light, `[0, 1]`. Default 0.1.
     pub diffuse_fraction: f64,
+    /// A section plane (**not in OpenMC**, see [`ClipPlane`]); `None`, the
+    /// default, is upstream's behaviour exactly.
+    pub clip: Option<ClipPlane>,
+}
+
+/// A section plane for [`SolidRayTracePlot`]: everything on the side
+/// `normal · x < offset` is cut away, as Blender's clipping does.
+///
+/// **An extension, not a port.** OpenMC's ray-traced plots have no clip plane
+/// (`src/plot.cpp`); this was added on 2026-10-05 for the Dhoby Ghaut 3D
+/// viewport (gh:#561) so a reactor can be seen in section. A ray whose start
+/// lies on the cut side begins at the plane instead. If that point is inside
+/// an opaque material it is painted as a cut face: that material's colour,
+/// lit by the same diffuse model as a surface, with the plane as its normal.
+/// Otherwise the ray is traced from the plane as usual.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct ClipPlane {
+    /// Normal pointing into the KEPT half-space (need not be unit length).
+    pub normal: [f64; 3],
+    /// The plane is `normal · x = offset` (same units as `normal · x`).
+    pub offset: f64,
+}
+
+impl ClipPlane {
+    /// Where a ray from `r` along `u` starts once the cut is applied:
+    /// `Some((r, false))` if `r` is already kept, `Some((point on the plane,
+    /// true))` if the ray crosses into the kept side, `None` if it never does.
+    #[must_use]
+    pub fn start(&self, r: Position, u: Direction) -> Option<(Position, bool)> {
+        let n = self.normal;
+        let nr = n[0] * r.x + n[1] * r.y + n[2] * r.z;
+        if nr >= self.offset {
+            return Some((r, false));
+        }
+        let nu = n[0] * u.u + n[1] * u.v + n[2] * u.w;
+        if nu <= 0.0 {
+            return None;
+        }
+        let t = (self.offset - nr) / nu + TINY_BIT;
+        Some((advance(r, u, t), true))
+    }
 }
 
 impl SolidRayTracePlot {
@@ -661,7 +702,15 @@ impl SolidRayTracePlot {
             opaque: vec![false; n_domains],
             light_position: None,
             diffuse_fraction: 0.1,
+            clip: None,
         }
+    }
+
+    /// Cut the view with a section plane (see [`ClipPlane`]; not in OpenMC).
+    #[must_use]
+    pub fn with_clip(mut self, clip: ClipPlane) -> Self {
+        self.clip = Some(clip);
+        self
     }
 
     /// Make one domain opaque (`<opaque_ids>`).
@@ -685,6 +734,17 @@ impl SolidRayTracePlot {
                 (0..w)
                     .map(|x| {
                         let (r, u) = self.camera.pixel_ray(&m, x, v);
+                        let r = match self.clip.map(|c| (c, c.start(r, u))) {
+                            None => r,
+                            Some((_, None)) => return scheme.background,
+                            Some((_, Some((r, false)))) => r,
+                            Some((c, Some((r, true)))) => {
+                                if let Some(face) = self.cut_face(geom, scheme, light, c, r, u) {
+                                    return face;
+                                }
+                                r
+                            }
+                        };
                         let mut ray = PhongRay {
                             reflected: false,
                             orig_hit: None,
@@ -703,6 +763,39 @@ impl SolidRayTracePlot {
             height: h,
             pixels: rows.into_iter().flatten().collect(),
         }
+    }
+}
+
+impl SolidRayTracePlot {
+    /// The colour of the cut face at `r` (a point on `clip`), if `r` is in an
+    /// opaque material: that material's colour, lit like a surface whose
+    /// normal is the plane's (turned toward the camera). Not in OpenMC.
+    fn cut_face(
+        &self,
+        geom: &Geometry,
+        scheme: &ColourScheme,
+        light: Position,
+        clip: ClipPlane,
+        r: Position,
+        u: Direction,
+    ) -> Option<Rgb> {
+        let path = geom.locate(r, u, SurfaceToken::NONE)?;
+        let id = match scheme.colour_by {
+            PlotColourBy::Material => path.material?,
+            PlotColourBy::Cell => path.levels.last()?.cell,
+        };
+        if !self.opaque.get(id).copied().unwrap_or(false) {
+            return None;
+        }
+        let mut n = scale(clip.normal, norm(clip.normal));
+        if n[0] * u.u + n[1] * u.v + n[2] * u.w > 0.0 {
+            n = [-n[0], -n[1], -n[2]];
+        }
+        let tl = [light.x - r.x, light.y - r.y, light.z - r.z];
+        let tl = scale(tl, norm(tl).max(f64::MIN_POSITIVE));
+        let dot = (n[0] * tl[0] + n[1] * tl[1] + n[2] * tl[2]).max(0.0);
+        let df = self.diffuse_fraction;
+        Some(scheme.colours[id].scaled(df + (1.0 - df) * dot))
     }
 }
 

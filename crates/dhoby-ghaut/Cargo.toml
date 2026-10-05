@@ -57,6 +57,9 @@ egui = { workspace = true }
 [target.'cfg(all(not(target_os = "android"), not(target_arch = "wasm32")))'.dependencies]
 eframe = { workspace = true }
 egui_plot = { workspace = true }
+# Step 0's folder picker for the unzipped ENDF library (the same picker kovan
+# and tampines-steam-tables-gui use).
+egui-file-dialog = { workspace = true }
 nee_soon = { workspace = true }
 outram-mc-libs = { workspace = true }
 # The literature pane renders PDF pages with the engine kovan's own reader

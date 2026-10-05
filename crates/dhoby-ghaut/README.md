@@ -144,9 +144,40 @@ What was checked on 2026-10-05:
 - The spectrum has its thermal peak near 0.05 eV and is flat per unit lethargy
   through the slowing-down range.
 
+**Added later on 2026-10-05, at the maintainer's request:**
+
+- **A Blender-like 3D viewport for Steps 1–3**, with the 2D slices one click
+  away. It is a ray trace through the solver's own geometry (the OpenMC-port
+  solid and wireframe ray tracers in `outram-blender`), not a mesh: there is
+  no CSG tessellator in the workspace, and the trace shows what the solver
+  sees.
+  - Navigation: orbit (left or middle drag), pan (right drag, or Shift +
+    middle), zoom (wheel, + / −), and Front / Right / Top / Iso / Frame all,
+    with Persp/Ortho and Solid/X-ray toggles.
+  - An axis gizmo and an outliner of materials to show or hide.
+  - A **section cut** (off, X, Y or Z, flip, offset). It uses a clip plane
+    added to `SolidRayTracePlot` as a flagged extension of the port (OpenMC
+    has none), and the cut face is painted in its material's colour.
+  - Each step opens on its own view: Step 1 the reactor in half-section with
+    the bed; Step 2 one fuel pebble cut through its centre (TRISO in the cut
+    face); Step 3 the reflector in half-section.
+  - A quarter-resolution preview while moving, the full trace once still. The
+    HTR-10 half-section takes 5–7 s at full resolution on the 16-core
+    development machine, under a software-rendered display.
+- **Every font is twice egui's default** (`FONT_SCALE` in `app.rs`).
+- **Files and folders are chosen with a file picker**: the ENDF folder, the
+  kovan root, the PNG folder, and recipe open / save / save-as. This is a hard
+  rule in this crate, kovan and dover (`CLAUDE.md`).
+- **The k_eff console fills live**, one line per generation as
+  `openmc.run()` prints them, in a scroll area that follows the newest line.
+  Generations stream through `outram-mc-libs`'
+  `run_keff_csg_hybrid_with_progress` (#579). A test pins that the callback
+  changes nothing about the run.
+
 Limits, each with an issue:
 
-- The k_eff console fills at the end of a run, not live (#579).
+- ~~The k_eff console fills at the end of a run, not live (#579).~~
+  **FIXED 2026-10-05**: it fills live (above).
 - Rod insertion is not modelled (#580).
 - A custom ENDF folder is scanned but not used for the load (#581).
 - Pebble designs and the pebble-type mix are recorded, not rebuilt (#566).

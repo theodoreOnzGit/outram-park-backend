@@ -30,10 +30,8 @@ pub struct Literature {
 impl Literature {
     pub fn new() -> Self {
         let root = std::env::var("KOVAN_ROOT").unwrap_or_else(|_| {
-            Path::new(env!("CARGO_MANIFEST_DIR"))
-                .join("../kovan-literature/reactor-literature")
-                .display()
-                .to_string()
+            let p = Path::new(env!("CARGO_MANIFEST_DIR")).join("../kovan-literature/reactor-literature");
+            std::fs::canonicalize(&p).unwrap_or(p).display().to_string()
         });
         Self {
             root,
@@ -105,12 +103,20 @@ impl Literature {
         }
     }
 
-    pub fn show(&mut self, ui: &mut egui::Ui, cites: &[Citation], send: &mut impl FnMut(Req)) {
+    /// Draw the pane. Returns `true` when the reader asked to choose a new
+    /// kovan root (the caller opens the folder picker).
+    pub fn show(
+        &mut self,
+        ui: &mut egui::Ui,
+        cites: &[Citation],
+        send: &mut impl FnMut(Req),
+    ) -> bool {
         ui.label(RichText::new("Literature (kovan)").strong());
-        ui.horizontal(|ui| {
-            ui.label("Root");
-            ui.add(egui::TextEdit::singleline(&mut self.root).desired_width(f32::INFINITY));
-        });
+        ui.label(RichText::new(format!("Root: {}", self.root)).color(Color32::GRAY));
+        let choose = ui
+            .button("Choose kovan root...")
+            .on_hover_text("Pick your kovan library folder")
+            .clicked();
         ui.separator();
         if cites.is_empty() {
             ui.label("No values in this step carry a citation.");
@@ -170,6 +176,7 @@ impl Literature {
             let s = t.size_vec2();
             ui.image((t.id(), egui::vec2(w, w * s.y / s.x.max(1.0))));
         }
+        choose
     }
 }
 

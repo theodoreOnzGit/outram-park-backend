@@ -24,6 +24,27 @@ use crate::literature::Literature;
 use crate::preset;
 use crate::slice_view::SliceView;
 
+/// Every font in the workbench is this many times egui's default (maintainer,
+/// 2026-10-05: "all fonts in dhoby ghaut twice the size"). Applied to egui's
+/// text styles at start-up and, through [`fs`], to every explicit size.
+pub const FONT_SCALE: f32 = 2.0;
+
+/// An explicit font size, scaled by [`FONT_SCALE`].
+pub fn fs(px: f32) -> f32 {
+    px * FONT_SCALE
+}
+
+/// What the shared file picker was opened for. Every file or folder the user
+/// chooses goes through it (crate HARD RULE: pickers, never typed paths).
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Pick {
+    EndfFolder,
+    KovanRoot,
+    PngFolder,
+    OpenRecipe,
+    SaveRecipeAs,
+}
+
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Screen {
     Picker,
@@ -44,6 +65,8 @@ pub struct McState {
     pub planned_histories: u64,
     pub outcomes: Vec<KeffOutcome>,
     pub shown: usize,
+    /// Generations of the run in progress, streamed by the physics thread.
+    pub live: crate::engine::LiveGenerations,
 }
 
 pub struct App {
@@ -55,6 +78,9 @@ pub struct App {
     pub preset: Recipe,
     // Step 0
     pub endf_dir: String,
+    /// The one file picker, and what it is open for.
+    pub dialog: egui_file_dialog::FileDialog,
+    pub pick: Option<Pick>,
     pub scan: Option<(PathBuf, Vec<TapeInfo>, Vec<NeededTape>)>,
     pub scanning: bool,
     // Geometry
@@ -63,6 +89,10 @@ pub struct App {
     pub assembling: bool,
     pub assembled_for: Option<(usize, usize)>,
     pub slice: SliceView,
+    /// The Blender-like 3D viewport, and whether the main view shows it (else
+    /// the 2D slice).
+    pub view3d: crate::view3d::View3d,
+    pub show_3d: bool,
     pub review_seen: Vec<&'static str>,
     // Step 5
     pub mc: McState,
@@ -83,6 +113,11 @@ pub struct App {
 
 impl App {
     pub fn new(cc: &eframe::CreationContext<'_>, recipe: Option<Recipe>) -> Self {
+        cc.egui_ctx.all_styles_mut(|style| {
+            for font in style.text_styles.values_mut() {
+                font.size *= FONT_SCALE;
+            }
+        });
         let ctx = cc.egui_ctx.clone();
         let c2 = ctx.clone();
         let geo = start_native(Engine::default(), move || ctx.request_repaint());
@@ -103,6 +138,11 @@ impl App {
             recipe,
             preset,
             endf_dir,
+            dialog: egui_file_dialog::FileDialog::new()
+                .add_file_filter_extensions("Recipes (kovan markdown)", vec!["md"])
+                .default_file_filter("Recipes (kovan markdown)")
+                .add_save_extension("Recipe (.md)", "md"),
+            pick: None,
             scan: None,
             scanning: false,
             assembly: None,
@@ -110,6 +150,8 @@ impl App {
             assembling: false,
             assembled_for: None,
             slice: SliceView::new(),
+            view3d: crate::view3d::View3d::new(),
+            show_3d: true,
             review_seen: Vec::new(),
             mc: McState::default(),
             lit: Literature::new(),
@@ -151,6 +193,71 @@ impl App {
         self.assemble();
     }
 
+    /// Open the shared picker for `what`, starting where its current value is.
+    pub fn open_picker(&mut self, what: Pick) {
+        let current = match what {
+            Pick::EndfFolder => PathBuf::from(&self.endf_dir),
+            Pick::KovanRoot => PathBuf::from(&self.lit.root),
+            Pick::PngFolder => PathBuf::from(&self.out_dir),
+            Pick::OpenRecipe | Pick::SaveRecipeAs => PathBuf::from(&self.recipe_path)
+                .parent()
+                .map(PathBuf::from)
+                .unwrap_or_default(),
+        };
+        let start = if current.is_dir() {
+            current
+        } else {
+            std::env::current_dir().unwrap_or_default()
+        };
+        let cfg = self.dialog.config_mut();
+        cfg.initial_directory = start;
+        cfg.default_file_name = PathBuf::from(&self.recipe_path)
+            .file_name()
+            .map_or("recipe.md".into(), |f| f.to_string_lossy().into_owned());
+        cfg.title = Some(
+            match what {
+                Pick::EndfFolder => "Pick the unzipped ENDF folder",
+                Pick::KovanRoot => "Pick the kovan root (your literature library)",
+                Pick::PngFolder => "Pick the folder for exported PNGs",
+                Pick::OpenRecipe => "Open a recipe",
+                Pick::SaveRecipeAs => "Save the recipe as",
+            }
+            .into(),
+        );
+        self.pick = Some(what);
+        match what {
+            Pick::EndfFolder | Pick::KovanRoot | Pick::PngFolder => self.dialog.pick_directory(),
+            Pick::OpenRecipe => self.dialog.pick_file(),
+            Pick::SaveRecipeAs => self.dialog.save_file(),
+        }
+    }
+
+    /// Act on whatever the picker returned.
+    fn picked(&mut self, path: PathBuf) {
+        let Some(what) = self.pick.take() else { return };
+        let text = path.display().to_string();
+        match what {
+            Pick::EndfFolder => {
+                self.endf_dir = text.clone();
+                self.recipe.nuclear_data.endf_dir = text;
+                self.scan_endf();
+            }
+            Pick::KovanRoot => {
+                self.lit.root = text;
+                self.lit.clear();
+            }
+            Pick::PngFolder => self.out_dir = text,
+            Pick::OpenRecipe => {
+                self.recipe_path = text;
+                self.load_recipe();
+            }
+            Pick::SaveRecipeAs => {
+                self.recipe_path = text;
+                self.save_recipe();
+            }
+        }
+    }
+
     pub fn scan_endf(&mut self) {
         self.scanning = true;
         self.geo.send(Req::ScanEndf {
@@ -165,6 +272,7 @@ impl App {
         self.assembled_for = Some(key);
         self.core = None;
         self.slice.invalidate();
+        self.view3d.invalidate();
         self.geo.send(Req::Assemble {
             rings: key.0,
             layers: key.1,
@@ -195,6 +303,9 @@ impl App {
 
     fn handle(&mut self, ctx: &egui::Context, events: Vec<Ev>) {
         for ev in events {
+            if self.view3d.on_event(ctx, &ev) {
+                continue;
+            }
             if self.slice.on_event(ctx, &ev) {
                 if let Some(p) = self.slice.at_preset {
                     if !self.review_seen.contains(&p) {
@@ -228,6 +339,8 @@ impl App {
                     self.core = Some(core);
                     self.assembly = Some(info);
                     self.slice.invalidate();
+                    self.view3d.invalidate();
+                    self.shown_step = None;
                 }
                 Ev::Exported(p) => self.say(format!("Wrote {}", p.display()), false),
                 Ev::DataPlan(items) => {
@@ -299,7 +412,7 @@ impl App {
                     self.lit.loading = false;
                     self.say(e, true);
                 }
-                Ev::Slice { .. } | Ev::Page { .. } => {}
+                Ev::Slice { .. } | Ev::Page { .. } | Ev::View3d { .. } => {}
             }
         }
     }
@@ -343,18 +456,18 @@ impl App {
     fn picker(&mut self, ui: &mut egui::Ui) {
         ui.vertical_centered(|ui| {
             ui.add_space(12.0);
-            ui.heading(RichText::new("DHOBY GHAUT: what do you want to build?").size(26.0));
+            ui.heading(RichText::new("DHOBY GHAUT: what do you want to build?").size(crate::app::fs(26.0)));
             ui.label("A guided high-fidelity build. Research, education and V&V only: not for facility operation, licensing or safety decisions.");
         });
         ui.add_space(10.0);
         egui::ScrollArea::vertical().show(ui, |ui| {
             for g in Generation::ALL {
-                ui.label(RichText::new(g.title()).size(18.0).strong());
+                ui.label(RichText::new(g.title()).size(crate::app::fs(18.0)).strong());
                 let types: Vec<ReactorType> = ReactorType::ALL
                     .into_iter()
                     .filter(|t| t.generation() == g)
                     .collect();
-                let per_row = ((ui.available_width() / 290.0).floor() as usize).max(1);
+                let per_row = ((ui.available_width() / 450.0).floor() as usize).max(1);
                 for row in types.chunks(per_row) {
                     ui.horizontal(|ui| {
                         for &t in row {
@@ -366,9 +479,13 @@ impl App {
                             };
                             let card = egui::Frame::group(ui.style()).inner_margin(10.0);
                             card.show(ui, |ui| {
-                                ui.set_width(260.0);
+                                ui.set_width(420.0);
                                 ui.vertical(|ui| {
-                                    ui.label(RichText::new(t.label()).size(17.0).strong());
+                                    ui.label(
+                                        RichText::new(t.label())
+                                            .size(crate::app::fs(17.0))
+                                            .strong(),
+                                    );
                                     ui.colored_label(colour, s.badge());
                                     ui.small(t.note());
                                     if ui
@@ -391,9 +508,8 @@ impl App {
             ui.separator();
             ui.horizontal(|ui| {
                 ui.label("Or open a recipe:");
-                ui.text_edit_singleline(&mut self.recipe_path);
-                if ui.button("Load").clicked() {
-                    self.load_recipe();
+                if ui.button("Open recipe...").clicked() {
+                    self.open_picker(Pick::OpenRecipe);
                 }
             });
         });
@@ -404,9 +520,9 @@ impl App {
         ui.add_space(8.0);
         ui.horizontal(|ui| {
             egui::Frame::group(ui.style()).inner_margin(12.0).show(ui, |ui| {
-                ui.set_width(340.0);
+                ui.set_width(560.0);
                 ui.vertical(|ui| {
-                    ui.label(RichText::new("Basic").size(20.0).strong());
+                    ui.label(RichText::new("Basic").size(crate::app::fs(20.0)).strong());
                     ui.label("Start from a pre-built model and modify from there. Every value prefilled, every value cited.");
                     if ui.button("Basic »").clicked() {
                         self.recipe.header.mode = Mode::Basic;
@@ -415,9 +531,9 @@ impl App {
                 });
             });
             egui::Frame::group(ui.style()).inner_margin(12.0).show(ui, |ui| {
-                ui.set_width(340.0);
+                ui.set_width(560.0);
                 ui.vertical(|ui| {
-                    ui.label(RichText::new("Advanced").size(20.0).strong());
+                    ui.label(RichText::new("Advanced").size(crate::app::fs(20.0)).strong());
                     ui.label("Build from scratch, more customisable.");
                     ui.colored_label(Color32::GRAY, "Not built yet: Advanced mode details are deferred (gh:#561).");
                     ui.add_enabled(false, egui::Button::new("Advanced »"));
@@ -437,9 +553,9 @@ impl App {
                 egui::Frame::group(ui.style())
                     .inner_margin(12.0)
                     .show(ui, |ui| {
-                        ui.set_width(340.0);
+                        ui.set_width(560.0);
                         ui.vertical(|ui| {
-                            ui.label(RichText::new(c.label()).size(19.0).strong());
+                            ui.label(RichText::new(c.label()).size(crate::app::fs(19.0)).strong());
                             ui.small(c.note());
                             if c == HtgrCore::PebbleBed {
                                 ui.add_space(4.0);
@@ -469,37 +585,66 @@ impl App {
             .position(|s| *s == self.step)
             .unwrap_or(0);
         ui.horizontal(|ui| {
-            if ui.add_enabled(i > 0, egui::Button::new(RichText::new("« Back").size(16.0))).clicked() {
+            if ui
+                .add_enabled(
+                    i > 0,
+                    egui::Button::new(RichText::new("« Back").size(crate::app::fs(16.0))),
+                )
+                .clicked()
+            {
                 self.step = WizardStep::ALL[i - 1];
             }
-            ui.label(RichText::new(self.step.title()).size(20.0).strong());
+            ui.label(
+                RichText::new(self.step.title())
+                    .size(crate::app::fs(20.0))
+                    .strong(),
+            );
             let next = WizardStep::ALL.get(i + 1).copied();
             let blocked = self.step == WizardStep::Review && !self.recipe.review.passed();
             if let Some(n) = next {
-                let b = ui.add_enabled(!blocked, egui::Button::new(RichText::new("Next »").size(16.0)));
-                let b = if blocked { b.on_disabled_hover_text("Look at every review view and confirm first") } else { b };
+                let b = ui.add_enabled(
+                    !blocked,
+                    egui::Button::new(RichText::new("Next »").size(crate::app::fs(16.0))),
+                );
+                let b = if blocked {
+                    b.on_disabled_hover_text("Look at every review view and confirm first")
+                } else {
+                    b
+                };
                 if b.clicked() {
                     self.step = n;
                 }
             }
             ui.separator();
             ui.label(RichText::new(self.step.phase()).color(Color32::GRAY));
+        });
+        ui.horizontal_wrapped(|ui| {
+            if self.recipe.header.edited {
+                ui.colored_label(Color32::from_rgb(170, 90, 0), "derived from HTR-10: edited, no V&V standing")
+                    .on_hover_text("A value differs from the preset, so the preset's V&V record no longer describes this model.");
+            } else {
+                ui.colored_label(Color32::from_rgb(30, 100, 150), "HTR-10 preset (TENTATIVE)")
+                    .on_hover_text(preset::VV_STATUS);
+            }
             ui.separator();
             ui.toggle_value(&mut self.lit_open, "Literature");
             ui.toggle_value(&mut self.settings_open, "Settings");
-            ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                if ui.button("Save recipe").clicked() {
-                    self.save_recipe();
-                }
-                ui.add(egui::TextEdit::singleline(&mut self.recipe_path).desired_width(240.0));
-                if self.recipe.header.edited {
-                    ui.colored_label(Color32::from_rgb(170, 90, 0), "derived from HTR-10: edited, no V&V standing")
-                        .on_hover_text("A value differs from the preset, so the preset's V&V record no longer describes this model.");
-                } else {
-                    ui.colored_label(Color32::from_rgb(30, 100, 150), "HTR-10 preset (TENTATIVE)")
-                        .on_hover_text(preset::VV_STATUS);
-                }
-            });
+            ui.separator();
+            ui.label("Recipe");
+            if ui.button("Open...").clicked() {
+                self.open_picker(Pick::OpenRecipe);
+            }
+            if ui.button("Save").on_hover_text(&self.recipe_path).clicked() {
+                self.save_recipe();
+            }
+            if ui.button("Save as...").clicked() {
+                self.open_picker(Pick::SaveRecipeAs);
+            }
+            let name = PathBuf::from(&self.recipe_path)
+                .file_name()
+                .map(|f| f.to_string_lossy().into_owned())
+                .unwrap_or_default();
+            ui.label(RichText::new(name).color(Color32::GRAY)).on_hover_text(&self.recipe_path);
         });
         ui.horizontal_wrapped(|ui| {
             for s in WizardStep::ALL {
@@ -541,6 +686,10 @@ impl eframe::App for App {
         let mut events = self.geo.drain();
         events.extend(self.phys.drain());
         self.handle(&ctx, events);
+        self.dialog.update(&ctx);
+        if let Some(path) = self.dialog.take_picked() {
+            self.picked(path);
+        }
         if self.mc.running || self.assembling || self.scanning {
             ctx.request_repaint_after(std::time::Duration::from_millis(200));
         }

@@ -292,6 +292,138 @@ pub fn run_keff_csg(
     )
 }
 
+/// One finished generation, reported to the `on_generation` callback of
+/// [`run_keff_csg_hybrid_with_progress`] as the run goes, so a UI can print
+/// an `openmc.run()`-style console line while transport continues, as
+/// upstream OpenMC prints one per generation (dhoby-ghaut workbench,
+/// gh:#579). Purely an observer: the run, its RNG streams and its result are
+/// exactly those of the call without a callback.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct GenerationProgress {
+    /// 0-based generation index (inactive generations included).
+    pub index: usize,
+    /// This generation's k.
+    pub k: f64,
+    /// Shannon entropy of this generation's source \[bits\], when an entropy
+    /// mesh is given.
+    pub entropy: Option<f64>,
+    /// Whether this generation is an active (tallied) one.
+    pub active: bool,
+}
+
+/// [`run_keff_csg_hybrid`], calling `on_generation` after every generation.
+/// The callback runs between generations, never inside the parallel history
+/// loop; it must be `Send` because the multi-thread path runs the generation
+/// loop inside its rayon pool.
+#[allow(clippy::too_many_arguments)]
+pub fn run_keff_csg_hybrid_with_progress<G: FnMut(GenerationProgress) + Send>(
+    geom: &Geometry,
+    materials: &[Material],
+    nuclides: &[Nuclide],
+    majorants: &[Majorant],
+    entropy_mesh: Option<&crate::tally::mesh::RegularMesh>,
+    source_box: SourceBox,
+    settings: &KeffSettings,
+    tally: Option<&mut Tally>,
+    mut on_generation: G,
+) -> KeffResult {
+    let threads = match settings.compute {
+        ComputeType::CpuSingleThread => {
+            return run_keff_csg_seq_progress(
+                geom,
+                materials,
+                nuclides,
+                majorants,
+                entropy_mesh,
+                source_box,
+                settings,
+                tally,
+                &[],
+                None,
+                &mut on_generation,
+            );
+        }
+        ComputeType::CpuMultiThread(tc) => tc,
+        ComputeType::Gpu => ThreadCount::Auto,
+    };
+    run_keff_csg_par_progress(
+        geom,
+        materials,
+        nuclides,
+        majorants,
+        entropy_mesh,
+        source_box,
+        settings,
+        tally,
+        &[],
+        None,
+        threads,
+        &mut on_generation,
+    )
+}
+
+/// [`run_keff_csg_seq_progress`] without a progress callback: the scalar,
+/// bit-reproducible reference path (its full documentation is there).
+#[allow(clippy::too_many_arguments)]
+pub fn run_keff_csg_seq(
+    geom: &Geometry,
+    materials: &[Material],
+    nuclides: &[Nuclide],
+    majorants: &[Majorant],
+    entropy_mesh: Option<&crate::tally::mesh::RegularMesh>,
+    source_box: SourceBox,
+    settings: &KeffSettings,
+    tally: Option<&mut Tally>,
+    leak_edges: &[f64],
+    leak_bins: Option<&mut Vec<TallyBin>>,
+) -> KeffResult {
+    run_keff_csg_seq_progress(
+        geom,
+        materials,
+        nuclides,
+        majorants,
+        entropy_mesh,
+        source_box,
+        settings,
+        tally,
+        leak_edges,
+        leak_bins,
+        &mut |_| {},
+    )
+}
+
+/// [`run_keff_csg_par_progress`] without a progress callback (its full
+/// documentation is there).
+#[allow(clippy::too_many_arguments)]
+pub fn run_keff_csg_par(
+    geom: &Geometry,
+    materials: &[Material],
+    nuclides: &[Nuclide],
+    majorants: &[Majorant],
+    entropy_mesh: Option<&crate::tally::mesh::RegularMesh>,
+    source_box: SourceBox,
+    settings: &KeffSettings,
+    tally: Option<&mut Tally>,
+    leak_edges: &[f64],
+    leak_bins: Option<&mut Vec<TallyBin>>,
+    thread_count: ThreadCount,
+) -> KeffResult {
+    run_keff_csg_par_progress(
+        geom,
+        materials,
+        nuclides,
+        majorants,
+        entropy_mesh,
+        source_box,
+        settings,
+        tally,
+        leak_edges,
+        leak_bins,
+        thread_count,
+        &mut |_| {},
+    )
+}
+
 fn run_keff_csg_inner(
     geom: &Geometry,
     materials: &[Material],
@@ -445,7 +577,7 @@ pub fn run_keff_csg_reactor_physics(
 /// (one realization per bin). Pass `&[]` / `None` to disable it — the path
 /// [`run_keff_csg`] takes.
 #[allow(clippy::too_many_arguments)]
-pub fn run_keff_csg_seq(
+pub fn run_keff_csg_seq_progress<G: FnMut(GenerationProgress) + Send>(
     geom: &Geometry,
     materials: &[Material],
     nuclides: &[Nuclide],
@@ -460,6 +592,7 @@ pub fn run_keff_csg_seq(
     mut tally: Option<&mut Tally>,
     leak_edges: &[f64],
     mut leak_bins: Option<&mut Vec<TallyBin>>,
+    on_generation: &mut G,
 ) -> KeffResult {
     let mut seed = settings.seed;
 
@@ -629,6 +762,12 @@ pub fn run_keff_csg_seq(
         if active {
             active_k.push(k_gen);
         }
+        on_generation(GenerationProgress {
+            index: gen,
+            k: k_gen,
+            entropy: (entropy.len() == gen + 1).then(|| entropy[gen]),
+            active,
+        });
 
         if next_bank.is_empty() {
             break;
@@ -861,7 +1000,7 @@ impl CsgPowerIteration {
 /// history-index order (a deterministic reduction) into the generation leak
 /// batch, and flushed once per active generation. `&[]` / `None` disables it.
 #[allow(clippy::too_many_arguments)]
-pub fn run_keff_csg_par(
+pub fn run_keff_csg_par_progress<G: FnMut(GenerationProgress) + Send>(
     geom: &Geometry,
     materials: &[Material],
     nuclides: &[Nuclide],
@@ -877,6 +1016,7 @@ pub fn run_keff_csg_par(
     leak_edges: &[f64],
     mut leak_bins: Option<&mut Vec<TallyBin>>,
     thread_count: ThreadCount,
+    on_generation: &mut G,
 ) -> KeffResult {
     #[cfg(not(target_arch = "wasm32"))]
     use rayon::prelude::*;
@@ -1107,6 +1247,12 @@ pub fn run_keff_csg_par(
             if active {
                 active_k.push(k_gen);
             }
+            on_generation(GenerationProgress {
+                index: gen,
+                k: k_gen,
+                entropy: (entropy.len() == gen + 1).then(|| entropy[gen]),
+                active,
+            });
 
             if next_bank.is_empty() {
                 break;
@@ -2642,5 +2788,47 @@ mod leakage_tests {
             a.k_by_generation, b.k_by_generation,
             "single-thread run_keff_csg must be bit-reproducible"
         );
+    }
+
+    /// The progress callback only observes (gh:#579): it is called once per
+    /// generation, in order, with each generation's k, and the run's result
+    /// is bit-identical to the run without it, on both the single-thread and
+    /// the multi-thread path.
+    #[test]
+    fn the_progress_callback_observes_without_changing_the_run() {
+        use crate::physics::keff::{ComputeType, ThreadCount};
+        let (mats, nucs) = godiva();
+        let geom = heu_sphere(8.7407, BoundaryType::Vacuum);
+        let paths = [
+            ComputeType::CpuSingleThread,
+            ComputeType::CpuMultiThread(ThreadCount::Fixed(3)),
+        ];
+        for compute in paths {
+            let s = KeffSettings {
+                compute,
+                ..settings()
+            };
+            let plain = run_keff_csg_hybrid(&geom, &mats, &nucs, &[], None, src(), &s, None);
+            let mut seen = Vec::new();
+            let watched = run_keff_csg_hybrid_with_progress(
+                &geom,
+                &mats,
+                &nucs,
+                &[],
+                None,
+                src(),
+                &s,
+                None,
+                |g| seen.push(g),
+            );
+            assert_eq!(plain.k_by_generation, watched.k_by_generation, "{compute:?}");
+            assert_eq!(plain.k_mean, watched.k_mean, "{compute:?}");
+            assert_eq!(seen.len(), s.n_inactive + s.n_active);
+            for (i, g) in seen.iter().enumerate() {
+                assert_eq!(g.index, i);
+                assert_eq!(g.k, watched.k_by_generation[i]);
+                assert_eq!(g.active, i >= s.n_inactive);
+            }
+        }
     }
 }

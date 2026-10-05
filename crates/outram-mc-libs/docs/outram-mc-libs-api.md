@@ -18410,6 +18410,8 @@ that iterate them over a geometry.
 
 - [`keff::run_keff`] — k-eigenvalue power iteration for a homogeneous bare
   sphere (the reference criticality driver; `CPU`/`GPU` backends).
+  [`keff::PowerIteration`] is its single-thread backend one generation at
+  a time, for live output and convergence plots.
 - [`transport_csg::run_keff_csg`] — k-eigenvalue power iteration over
   **general CSG geometry** (surfaces/cells/universes/lattices), with track-
   length tallies. Generalises `keff`.
@@ -18419,7 +18421,9 @@ that iterate them over a geometry.
   iteration; the second canonical MC mode (shielding / detector response).
   Reuses [`transport_csg::transport_history_vr`] for the per-history physics.
 - [`physics_mg`] — multigroup transport (group-averaged cross sections;
-  pending / partial).
+  ~~pending / partial~~ **CORRECTED 2026-10-03:** implemented as
+  [`physics_mg::run_keff_mg`], verified against OpenMC MG on GitHub #265; no
+  variance reduction or delayed-neutron separation yet).
 - [`reactor_physics::run_keff_reactor_physics`] — k-eigenvalue **plus**
   auto-captured 3-group six-factor decomposition (η, f, p, ε, P_FNL, P_TNL)
   and lethargy-normalised flux spectrum, from one combined tally + explicit
@@ -19115,6 +19119,159 @@ pub struct SourceBox {
 - **WasmNotSend**
 - **WasmNotSendSync**
 - **WasmNotSync**
+#### Struct `GenerationProgress`
+
+One finished generation, reported to the `on_generation` callback of
+[`run_keff_csg_hybrid_with_progress`] as the run goes, so a UI can print
+an `openmc.run()`-style console line while transport continues, as
+upstream OpenMC prints one per generation (dhoby-ghaut workbench,
+gh:#579). Purely an observer: the run, its RNG streams and its result are
+exactly those of the call without a callback.
+
+```rust
+pub struct GenerationProgress {
+    pub index: usize,
+    pub k: f64,
+    pub entropy: Option<f64>,
+    pub active: bool,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `index` | `usize` | 0-based generation index (inactive generations included). |
+| `k` | `f64` | This generation's k. |
+| `entropy` | `Option<f64>` | Shannon entropy of this generation's source \[bits\], when an entropy<br>mesh is given. |
+| `active` | `bool` | Whether this generation is an active (tallied) one. |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Boilerplate**
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **ByRef**
+  - ```rust
+    fn by_ref(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> GenerationProgress { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **DistributionExt**
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Imply**
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &GenerationProgress) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
 ### Functions
 
 #### Function `run_keff_csg_hybrid`
@@ -19191,6 +19348,47 @@ pub fn run_keff_csg_hybrid(geom: &crate::geometry::geometry::Geometry, materials
 pub fn run_keff_csg(geom: &crate::geometry::geometry::Geometry, materials: &[crate::material::material::Material], nuclides: &[crate::material::nuclide::Nuclide], source_box: SourceBox, settings: &crate::physics::keff::KeffSettings, tally: Option<&mut crate::tally::tally::Tally>) -> crate::physics::keff::KeffResult { /* ... */ }
 ```
 
+#### Function `run_keff_csg_hybrid_with_progress`
+
+**Attributes:**
+
+- `Other("#[allow(clippy::too_many_arguments)]")`
+
+[`run_keff_csg_hybrid`], calling `on_generation` after every generation.
+The callback runs between generations, never inside the parallel history
+loop; it must be `Send` because the multi-thread path runs the generation
+loop inside its rayon pool.
+
+```rust
+pub fn run_keff_csg_hybrid_with_progress<G: FnMut(GenerationProgress) + Send>(geom: &crate::geometry::geometry::Geometry, materials: &[crate::material::material::Material], nuclides: &[crate::material::nuclide::Nuclide], majorants: &[crate::pebble_beds::delta_tracking::Majorant], entropy_mesh: Option<&crate::tally::mesh::RegularMesh>, source_box: SourceBox, settings: &crate::physics::keff::KeffSettings, tally: Option<&mut crate::tally::tally::Tally>, on_generation: G) -> crate::physics::keff::KeffResult { /* ... */ }
+```
+
+#### Function `run_keff_csg_seq`
+
+**Attributes:**
+
+- `Other("#[allow(clippy::too_many_arguments)]")`
+
+[`run_keff_csg_seq_progress`] without a progress callback: the scalar,
+bit-reproducible reference path (its full documentation is there).
+
+```rust
+pub fn run_keff_csg_seq(geom: &crate::geometry::geometry::Geometry, materials: &[crate::material::material::Material], nuclides: &[crate::material::nuclide::Nuclide], majorants: &[crate::pebble_beds::delta_tracking::Majorant], entropy_mesh: Option<&crate::tally::mesh::RegularMesh>, source_box: SourceBox, settings: &crate::physics::keff::KeffSettings, tally: Option<&mut crate::tally::tally::Tally>, leak_edges: &[f64], leak_bins: Option<&mut Vec<crate::tally::tally::TallyBin>>) -> crate::physics::keff::KeffResult { /* ... */ }
+```
+
+#### Function `run_keff_csg_par`
+
+**Attributes:**
+
+- `Other("#[allow(clippy::too_many_arguments)]")`
+
+[`run_keff_csg_par_progress`] without a progress callback (its full
+documentation is there).
+
+```rust
+pub fn run_keff_csg_par(geom: &crate::geometry::geometry::Geometry, materials: &[crate::material::material::Material], nuclides: &[crate::material::nuclide::Nuclide], majorants: &[crate::pebble_beds::delta_tracking::Majorant], entropy_mesh: Option<&crate::tally::mesh::RegularMesh>, source_box: SourceBox, settings: &crate::physics::keff::KeffSettings, tally: Option<&mut crate::tally::tally::Tally>, leak_edges: &[f64], leak_bins: Option<&mut Vec<crate::tally::tally::TallyBin>>, thread_count: crate::physics::compute::ThreadCount) -> crate::physics::keff::KeffResult { /* ... */ }
+```
+
 #### Function `run_keff_csg_reactor_physics`
 
 **Attributes:**
@@ -19221,7 +19419,7 @@ dispatch mirrors [`run_keff_csg`] (`Gpu` ⇒ multi-threaded CPU).
 pub fn run_keff_csg_reactor_physics(geom: &crate::geometry::geometry::Geometry, materials: &[crate::material::material::Material], nuclides: &[crate::material::nuclide::Nuclide], source_box: SourceBox, settings: &crate::physics::keff::KeffSettings, tally: &mut crate::tally::tally::Tally, leak_edges: &[f64], leak_bins: &mut Vec<crate::tally::tally::TallyBin>) -> crate::physics::keff::KeffResult { /* ... */ }
 ```
 
-#### Function `run_keff_csg_seq`
+#### Function `run_keff_csg_seq_progress`
 
 **Attributes:**
 
@@ -19244,10 +19442,10 @@ escape energy, flushed once per active generation exactly like the tally
 [`run_keff_csg`] takes.
 
 ```rust
-pub fn run_keff_csg_seq(geom: &crate::geometry::geometry::Geometry, materials: &[crate::material::material::Material], nuclides: &[crate::material::nuclide::Nuclide], majorants: &[crate::pebble_beds::delta_tracking::Majorant], entropy_mesh: Option<&crate::tally::mesh::RegularMesh>, source_box: SourceBox, settings: &crate::physics::keff::KeffSettings, tally: Option<&mut crate::tally::tally::Tally>, leak_edges: &[f64], leak_bins: Option<&mut Vec<crate::tally::tally::TallyBin>>) -> crate::physics::keff::KeffResult { /* ... */ }
+pub fn run_keff_csg_seq_progress<G: FnMut(GenerationProgress) + Send>(geom: &crate::geometry::geometry::Geometry, materials: &[crate::material::material::Material], nuclides: &[crate::material::nuclide::Nuclide], majorants: &[crate::pebble_beds::delta_tracking::Majorant], entropy_mesh: Option<&crate::tally::mesh::RegularMesh>, source_box: SourceBox, settings: &crate::physics::keff::KeffSettings, tally: Option<&mut crate::tally::tally::Tally>, leak_edges: &[f64], leak_bins: Option<&mut Vec<crate::tally::tally::TallyBin>>, on_generation: &mut G) -> crate::physics::keff::KeffResult { /* ... */ }
 ```
 
-#### Function `run_keff_csg_par`
+#### Function `run_keff_csg_par_progress`
 
 **Attributes:**
 
@@ -19290,7 +19488,7 @@ history-index order (a deterministic reduction) into the generation leak
 batch, and flushed once per active generation. `&[]` / `None` disables it.
 
 ```rust
-pub fn run_keff_csg_par(geom: &crate::geometry::geometry::Geometry, materials: &[crate::material::material::Material], nuclides: &[crate::material::nuclide::Nuclide], majorants: &[crate::pebble_beds::delta_tracking::Majorant], entropy_mesh: Option<&crate::tally::mesh::RegularMesh>, source_box: SourceBox, settings: &crate::physics::keff::KeffSettings, tally: Option<&mut crate::tally::tally::Tally>, leak_edges: &[f64], leak_bins: Option<&mut Vec<crate::tally::tally::TallyBin>>, thread_count: crate::physics::compute::ThreadCount) -> crate::physics::keff::KeffResult { /* ... */ }
+pub fn run_keff_csg_par_progress<G: FnMut(GenerationProgress) + Send>(geom: &crate::geometry::geometry::Geometry, materials: &[crate::material::material::Material], nuclides: &[crate::material::nuclide::Nuclide], majorants: &[crate::pebble_beds::delta_tracking::Majorant], entropy_mesh: Option<&crate::tally::mesh::RegularMesh>, source_box: SourceBox, settings: &crate::physics::keff::KeffSettings, tally: Option<&mut crate::tally::tally::Tally>, leak_edges: &[f64], leak_bins: Option<&mut Vec<crate::tally::tally::TallyBin>>, thread_count: crate::physics::compute::ThreadCount, on_generation: &mut G) -> crate::physics::keff::KeffResult { /* ... */ }
 ```
 
 ## Module `particle_restart`
@@ -24042,11 +24240,14 @@ is confined to `[α·E, E]`: the neutron can only lose energy. That is correct
 far above the thermal range and **wrong inside it**, where it removes the
 up-scatter that gives a neutron population its fixed point. Without up-scatter
 there is no Maxwellian equilibrium at all: a neutron random-walking in such a
-medium cools without bound (measured: `⟨E⟩ → 1e-27 eV` and below in FLiBe,
-graphite kernel carbon, O-16 and SiC after 400 collisions at 600 K, against
+medium cools without bound (measured: ~~`⟨E⟩ → 1e-27 eV` and below in FLiBe,
+graphite kernel carbon, O-16 and SiC~~ after 400 collisions at 600 K, against
 the correct `1.5·kT = 0.0776 eV` — `examples/epithermal_slowing_down.rs`,
-bead `op-50vu`). Only a nuclide carrying an S(α,β) table escaped, because that
-law does model lattice recoil.
+bead `op-50vu`). **CORRECTED 2026-10-05** (re-measured with that example's
+`TARGET_AT_REST=1` ablation, GitHub #524): free-gas C-12 `1.5e-27 eV`, Be-9
+`2e-35`, Li-7 `1e-43`, but F-19 `3e-18`, O-16 `3e-21` and Si-28 `8e-13 eV`:
+all tens of decades below `kT`, not all below `1e-27`. Only a nuclide carrying
+an S(α,β) table escaped, because that law does model lattice recoil.
 
 This is a port of OpenMC `elastic_scatter` + `sample_target_velocity`
 (`src/physics.cpp`) in the **constant cross-section (CXS)** approximation:
@@ -24289,13 +24490,29 @@ C++ source: `src/physics.cpp` — `fission()`, `create_fission_sites()`.
 
 For a k-eigenvalue calculation each fission collision banks an integer number
 of secondary neutrons for the *next* generation. This module ports the
-neutron-count sampler; the fission-site energy/direction come from the source
+neutron-count sampler ~~; the fission-site energy/direction come from the source
 samplers ([`crate::rng::distributions::watt`],
 [`crate::rng::distributions::isotropic_direction`]) and the banking itself is
-driven by the eigenvalue loop ([`crate::physics::keff`]).
+driven by the eigenvalue loop ([`crate::physics::keff`]).~~
+and the fission-bank resampler ([`comb_resample`]).
 
-**Delayed neutrons** are folded into the total ν̄ and treated as prompt — the
+**CORRECTED 2026-10-03.** In the continuous-energy kernels a fission site's
+direction is [`crate::rng::distributions::isotropic_direction`], but its
+energy is drawn by
+[`Nuclide::sample_fission_energy_below`](crate::material::nuclide::Nuclide::sample_fission_energy_below)
+from the nuclide's own χ (ENDF MF=5, or the Watt stand-in only where no law
+is carried). [`crate::rng::distributions::watt`] seeds only the *initial*
+source of the [`crate::physics::keff`] and
+[`crate::pebble_beds::keff_delta`] drivers. The banking is done in
+[`crate::physics::keff`] and in
+[`crate::physics::transport_csg`]'s history loop.
+
+**Delayed neutrons** are folded into the total ν̄ — the
 standard eigenvalue approximation (prompt + delayed born at the same instant).
+~~and treated as prompt~~ **CORRECTED 2026-10-03:** they are *counted* in ν̄
+and born at the same instant, but where the nuclide carries delayed-neutron
+spectra a delayed neutron's energy is drawn from its group's spectrum, not
+the prompt χ (`Nuclide::sample_fission_energy_below`, GitHub #365).
 
 ```rust
 pub mod fission { /* ... */ }
@@ -24788,6 +25005,576 @@ pub struct KeffResult {
 - **WasmNotSend**
 - **WasmNotSendSync**
 - **WasmNotSync**
+#### Struct `HistoryCounts`
+
+**Analog counts of how neutrons ended**, from the bare-sphere transport
+itself (gh:#521: the Godiva lesson teaches leakage and fast fission by
+counting).
+
+Every neutron the transport follows ends exactly one way, so
+`leaked + captured + fissions() == tracked`. `tracked` counts the source
+neutrons **and** the same-generation `(n,2n)`, `(n,3n)` and `(n,anything)`
+secondaries (they are followed to the end like any other neutron), so it is
+slightly more than the number of source neutrons. Counting draws no random
+numbers: `k` is unchanged
+(`stepping_the_power_iteration_is_the_single_thread_run_bit_for_bit`).
+
+- **leaked**: crossed the vacuum boundary (the sphere's surface), or had
+  `Σ_t = 0` and would have streamed out.
+- **captured**: absorbed without fission: radiative capture, or an
+  `(n,anything)` / other emission arm whose sampled neutron yield is zero.
+- **fissions**: binned by the INCIDENT neutron's energy at
+  [`Self::FISSION_BIN_EDGES_EV`] (0.625 eV, the cadmium cut-off, and
+  100 keV).
+
+What the counts give, per generation or summed: the non-leakage
+probability `P_NL = 1 - leaked / tracked`, and `k_inf = nu_bar F / (F + C)`,
+so that `k_inf * P_NL = nu_bar F / tracked`, which is `k` up to the ratio
+`tracked / n_particles` (the secondaries). These are tallies of one run;
+their statistical uncertainty is the caller's to estimate.
+
+```rust
+pub struct HistoryCounts {
+    pub tracked: u64,
+    pub leaked: u64,
+    pub captured: u64,
+    pub fissions_by_energy: [u64; 3],
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `tracked` | `u64` | Neutrons followed to the end: source neutrons plus same-generation<br>secondaries. |
+| `leaked` | `u64` | Ended by leaking out through the surface. |
+| `captured` | `u64` | Ended by absorption without fission. |
+| `fissions_by_energy` | `[u64; 3]` | Ended in fission, by incident energy: `[< 0.625 eV, 0.625 eV - 100 keV, > 100 keV]`. |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn fissions(self: &Self) -> u64 { /* ... */ }
+  ```
+  All fissions.
+
+- ```rust
+  pub fn add(self: &mut Self, other: &HistoryCounts) { /* ... */ }
+  ```
+  Add another set of counts (e.g. one generation's) to these.
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Boilerplate**
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **ByRef**
+  - ```rust
+    fn by_ref(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> HistoryCounts { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Default**
+  - ```rust
+    fn default() -> HistoryCounts { /* ... */ }
+    ```
+
+- **DistributionExt**
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Imply**
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &HistoryCounts) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Struct `GenerationReport`
+
+What one generation of a [`PowerIteration`] produced.
+
+```rust
+pub struct GenerationReport {
+    pub index: usize,
+    pub active: bool,
+    pub k: f64,
+    pub entropy: Option<f64>,
+    pub k_mean: Option<(f64, f64)>,
+    pub bank_size: usize,
+    pub production: f64,
+    pub counts: HistoryCounts,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `index` | `usize` | Generation index, from 0. Generations `0..n_inactive` are inactive. |
+| `active` | `bool` | Whether this generation counts towards the reported `k`. |
+| `k` | `f64` | This generation's estimate, `k_gen = (sum of nu-bar over fissions) / n_particles`. |
+| `entropy` | `Option<f64>` | Shannon entropy \[bits\] of this generation's fission bank, before it<br>is resampled (OpenMC `src/eigenvalue.cpp:587` takes it at the same<br>point). `None` without an entropy mesh, or for an empty bank. |
+| `k_mean` | `Option<(f64, f64)>` | Mean and standard error of the mean over the active generations so<br>far, this one included; `None` while still inactive. The error is 0<br>after the first active generation (one sample has no spread). |
+| `bank_size` | `usize` | Fission sites banked this generation, before resampling. |
+| `production` | `f64` | Fission production, `sum of nu-bar` over this generation's fissions<br>(so `k = production / n_particles`, and the mean `nu-bar` is<br>`production / counts.fissions()`). |
+| `counts` | `HistoryCounts` | How this generation's neutrons ended: leaked, captured, fissioned. |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Boilerplate**
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **ByRef**
+  - ```rust
+    fn by_ref(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> GenerationReport { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **DistributionExt**
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Imply**
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &GenerationReport) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Struct `PowerIteration`
+
+The single-thread power iteration of [`run_keff_cpu_single`], **one
+generation at a time**.
+
+[`run_keff_cpu_single`] is exactly [`Self::new`], [`Self::step`] until it
+returns `None`, then [`Self::result`]. So this is the reference backend
+itself, not a copy of it: the same random numbers are drawn in the same
+order and the eigenvalue is bit-for-bit the same. It exists for callers
+that need to see a run as it happens: a live console printing one line per
+generation the way `openmc.run()` does, a convergence plot, or a run that
+pauses between generations. The `dhoby-ghaut` Monte Carlo web demo runs
+Godiva this way, in a browser worker (gh:#521).
+
+It holds no reference to the material or the nuclides (the workspace
+forbids lifetime parameters on structs). Pass the same ones to every
+[`Self::step`].
+
+```no_run
+# use outram_mc_libs::material::material::Material;
+# use outram_mc_libs::material::nuclide::Nuclide;
+use outram_mc_libs::physics::keff::{KeffSettings, PowerIteration};
+# fn demo(material: &Material, nuclides: &[Nuclide]) {
+let r = 8.7407; // Godiva, cm
+let mut it = PowerIteration::new(r, &KeffSettings::default())
+    .with_entropy_mesh(PowerIteration::bounding_box_mesh(r, 5));
+while let Some(g) = it.step(material, nuclides) {
+    println!("{:>5}  {:.5}  {:?}  {:?}", g.index + 1, g.k, g.entropy, g.k_mean);
+}
+let result = it.result();
+# }
+```
+
+```rust
+pub struct PowerIteration {
+    // Some fields omitted
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| *private fields* | ... | *Some fields have been omitted* |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn new(radius_cm: f64, settings: &KeffSettings) -> Self { /* ... */ }
+  ```
+  Start a run on a bare sphere of radius `radius_cm` (centred at the
+
+- ```rust
+  pub fn new_point_source(radius_cm: f64, settings: &KeffSettings, at: Position) -> Self { /* ... */ }
+  ```
+  Start with every neutron at one point `at` (isotropic, Watt energy)
+
+- ```rust
+  pub fn with_entropy_mesh(self: Self, mesh: crate::tally::mesh::RegularMesh) -> Self { /* ... */ }
+  ```
+  Also compute the Shannon entropy of every generation's fission bank
+
+- ```rust
+  pub fn bounding_box_mesh(radius_cm: f64, n: usize) -> crate::tally::mesh::RegularMesh { /* ... */ }
+  ```
+  An `n x n x n` mesh on the sphere's bounding box `[-R, R]^3`. With
+
+- ```rust
+  pub fn step(self: &mut Self, material: &Material, nuclides: &[Nuclide]) -> Option<GenerationReport> { /* ... */ }
+  ```
+  Transport one generation and resample its fission bank into the next
+
+- ```rust
+  pub fn generations_done(self: &Self) -> usize { /* ... */ }
+  ```
+  Generations run so far.
+
+- ```rust
+  pub fn finished(self: &Self) -> bool { /* ... */ }
+  ```
+  Whether every generation has run (or the population died out).
+
+- ```rust
+  pub fn settings(self: &Self) -> &KeffSettings { /* ... */ }
+  ```
+  The settings this run was started with.
+
+- ```rust
+  pub fn source_positions(self: &Self) -> Vec<Position> { /* ... */ }
+  ```
+  Where the neutrons of the NEXT generation start: the resampled
+
+- ```rust
+  pub fn result(self: &Self) -> KeffResult { /* ... */ }
+  ```
+  The result so far, as [`run_keff_cpu_single`] returns it: mean and
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **ByRef**
+  - ```rust
+    fn by_ref(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> PowerIteration { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **DistributionExt**
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Imply**
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
 ### Functions
 
 #### Function `run_keff`
@@ -24934,7 +25721,7 @@ pub fn run_keff_gpu(radius_cm: f64, material: &crate::material::material::Materi
 
 **Attributes:**
 
-- `Other("#[attr = CfgTrace([Not(NameValue { name: \"target_os\", value: Some(\"android\"), span: crates/outram-mc-libs/src/physics/keff.rs:750:11: 750:32 (#0) }, crates/outram-mc-libs/src/physics/keff.rs:750:10: 750:33 (#0))])]")`
+- `Other("#[attr = CfgTrace([Not(NameValue { name: \"target_os\", value: Some(\"android\"), span: crates/outram-mc-libs/src/physics/keff.rs:1033:11: 1033:32 (#0) }, crates/outram-mc-libs/src/physics/keff.rs:1033:10: 1033:33 (#0))])]")`
 
 The genuine GPU path behind [`run_keff_gpu`] (desktop / non-Android only).
 
@@ -24984,7 +25771,7 @@ pub fn run_keff_gpu_inner(ctx: &crate::gpu::GpuContext, radius_cm: f64, material
 
 **Attributes:**
 
-- `Other("#[attr = CfgTrace([Not(NameValue { name: \"target_os\", value: Some(\"android\"), span: crates/outram-mc-libs/src/physics/keff.rs:937:11: 937:32 (#0) }, crates/outram-mc-libs/src/physics/keff.rs:937:10: 937:33 (#0))])]")`
+- `Other("#[attr = CfgTrace([Not(NameValue { name: \"target_os\", value: Some(\"android\"), span: crates/outram-mc-libs/src/physics/keff.rs:1222:11: 1222:32 (#0) }, crates/outram-mc-libs/src/physics/keff.rs:1222:10: 1222:33 (#0))])]")`
 
 **Event-based, batched-flight GPU power iteration** ([`ComputeType::Gpu`]) —
 the deep GPU penetration of beads op-u6s.7. Desktop / non-Android only.
@@ -25060,7 +25847,7 @@ pub fn run_keff_event_cpu_mirror(radius_cm: f64, material: &crate::material::mat
 
 **Attributes:**
 
-- `Other("#[attr = CfgTrace([Not(NameValue { name: \"target_os\", value: Some(\"android\"), span: crates/outram-mc-libs/src/physics/keff.rs:1295:11: 1295:32 (#0) }, crates/outram-mc-libs/src/physics/keff.rs:1295:10: 1295:33 (#0))])]")`
+- `Other("#[attr = CfgTrace([Not(NameValue { name: \"target_os\", value: Some(\"android\"), span: crates/outram-mc-libs/src/physics/keff.rs:1582:11: 1582:32 (#0) }, crates/outram-mc-libs/src/physics/keff.rs:1582:10: 1582:33 (#0))])]")`
 
 **Event-based COLLISION-on-GPU power iteration** ([`ComputeType::Gpu`]) — the
 op-u6s.8 deep-penetration path. Desktop / non-Android only.
@@ -33545,8 +34332,16 @@ flight-distance sample, and the real/virtual decision — plus a
 geometry (lattices of TRISO universes, stochastic packings) plugs in.
 
 Reference: E. R. Woodcock et al., "Techniques used in the GEM code…", ANL-7050
-(1965); the method is standard in modern MC codes (OpenMC `delta_tracking`,
+(1965); the method is standard in modern MC codes (~~OpenMC `delta_tracking`,~~
 Serpent, RMC). See also [`super::references`] for the pebble-bed geometry work.
+
+**CORRECTED 2026-10-03:** OpenMC is struck from that list. The OpenMC source
+this crate ports (`/home/teddy0/Documents/research/openmc/`, checkout
+`608a1c338`) has no delta tracking: a case-insensitive search of its `src/`,
+`include/` and `openmc/` trees for "delta tracking", "woodcock" and
+"majorant" finds nothing. That agrees with
+[`crate::geometry::cell::TrackingMethod`], which calls this NEW WORK because
+"OpenMC is pure surface tracking".
 
 ```rust
 pub mod delta_tracking { /* ... */ }
@@ -55293,6 +56088,11 @@ Worst deviation **−0.14 %**, at the top of the range. This is what a ported
 thermal law looks like when it is right, and it is the control against which
 [`H2O_KERNEL`]'s −5.5 % is read.
 
+**Re-measured 2026-10-04 (GitHub #524; `develop` at `bfeb81a083`, 600 K, the
+examples' own seeds):** worst **+0.060 % at 1 meV** (all 12 points inside
+0.5 %; `examples/graphite_vs_njoy_thermr.rs`). The `// ours` comments below
+are the earlier values (worst −0.14 % at 3.9 eV) and are superseded.
+
 ```rust
 pub const GRAPHITE_XS_INELASTIC: &[XsPoint] = _;
 ```
@@ -55306,6 +56106,10 @@ Worst deviation **−0.09 %**. The two points below the first Bragg edge are
 exactly zero on both sides, which is a *structural* agreement rather than a
 numerical one: a code that has the Bragg cutoff in the wrong place, or that
 smears it, cannot produce an exact zero there.
+
+**Re-measured 2026-10-04 (GitHub #524; `develop` at `bfeb81a083`, 600 K, the
+examples' own seeds):** worst **−0.085 % at 3.0 eV**, exact zero below
+the first Bragg edge (`examples/graphite_vs_njoy_thermr.rs`).
 
 ```rust
 pub const GRAPHITE_XS_COHERENT: &[XsPoint] = _;
@@ -55351,6 +56155,14 @@ asserted separately.
 The third column of each comment is the coherent-elastic share of the total
 cross section at that energy, which is why the low-energy points carry the
 larger deviations: little inelastic signal is left to measure.
+
+**Re-measured 2026-10-04 (GitHub #524; `develop` at `bfeb81a083`, 600 K, the
+examples' own seeds):** `<E'>/E` against these rows, ours − NJOY:
+0.01 eV +0.30 % (sampling 1σ 0.35 %), 0.0253 +0.20 %, 0.05 +0.11 %,
+0.11157 +0.02 %, 0.2 +0.07 %, 0.41704 −0.01 %, 0.625 +0.06 %, 1.05 +0.02 %,
+1.855 −0.02 %, 3.75 −0.01 %: worst **+0.30 % at 0.01 eV**, ≤ 0.07 % at and
+above 0.2 eV (`examples/graphite_kernel_vs_njoy_thermr.rs`). The row comments
+below are the earlier values and are superseded.
 
 ```rust
 pub const GRAPHITE_KERNEL: &[KernelPoint] = _;
@@ -55459,6 +56271,13 @@ edge table.
 
 Comments carry this crate's own value on the date above.
 
+**Re-measured 2026-10-04 (GitHub #524; `develop` at `bfeb81a083`, 600 K, the
+examples' own seeds):** worst inelastic deviation **−0.0040 at 5 meV**
+(was +0.0085 at 0.0253 eV on 2026-09-12, then −0.0084 at 0.01 eV after the
+emission resize), worst Bragg **+0.0021 at 0.2 eV**; all 13 rows inside the
+envelopes (`examples/graphite_sab_angle_and_width_vs_njoy_thermr.rs`). The
+row comments below are the earlier values and are superseded.
+
 ```rust
 pub const GRAPHITE_MUBAR: &[(f64, f64, f64, f64)] = _;
 ```
@@ -55566,9 +56385,16 @@ Same deck, same seed, `examples/fhr_ring_rpt_endf.rs` with
 `OUTRAM_RINGRPT_ONLY=csg`, 4000 x [30 + 80]:
 
 ```text
-  2026-09-12  N_EMIT_GRID = 48   N_OUTGOING = 16   k = <PEB_OLD>
-  2026-09-12  N_EMIT_GRID = 384  N_OUTGOING = 64   k = <PEB_NEW>
+  2026-09-12  N_EMIT_GRID = 48   N_OUTGOING = 16   k = 1.40745 ± 0.00214
+  2026-09-12  N_EMIT_GRID = 384  N_OUTGOING = 64   k = 1.40546 ± 0.00234
 ```
+
+(**FILLED 2026-10-04**: the two `k` were left as the placeholders
+`<PEB_OLD>` / `<PEB_NEW>`; the values are the ones recorded for this run in
+`verification_and_validation/thermal_sab/emission_tabulation_rebaseline.md`
+§4.1, −199 ± 317 pcm, which that record calls a non-measurement. The
+resolvable k-worth is the homogeneous-medium one in the same section, from
+`examples/thermal_kernel_keff_worth.rs`.)
 
 The earlier grid-only comparison (48 → 192 at 16 bins, 2026-09-12) gave
 1.40745 ± 0.00214 against 1.40682 ± 0.00221, i.e. **−63 pcm** — inside its
@@ -55581,6 +56407,15 @@ same session — [`GRAPHITE_MUBAR`], which excluded the angle — is bead
 Comments carry this crate's own value at the current defaults.
 
 [GitHub #190]: https://github.com/theodoreOnzGit/outram-park-backend/issues/190
+
+**Re-measured 2026-10-04 (GitHub #524; `develop` at `bfeb81a083`, 600 K, the
+examples' own seeds):** ours − NJOY by row: −0.58, −1.14, −0.66,
+−0.15, −0.52, −0.55, −0.90, −0.43, −0.53, −0.30, −0.06, −0.25, −0.01 %, i.e.
+still one-signed narrow, worst **−1.14 % at 2.6 meV** (400 000 samples,
+`examples/graphite_sab_angle_and_width_vs_njoy_thermr.rs`). The row comments
+below (worst −2.33 %) are superseded; the narrowing roughly halved between
+2026-09-12 and now, plausibly through the 2026-09-29/30 S(a,b) sampling
+changes (#407, #459), which was not isolated.
 
 ```rust
 pub const GRAPHITE_KERNEL_WIDTH: &[(f64, f64)] = _;
@@ -55668,6 +56503,544 @@ energy by a factor of 29.
 
 ```rust
 pub const GRAPHITE_KERNEL_WIDTH_BROAD_CEILING: f64 = 0.012;
+```
+
+## Module `ugraphite`
+
+The uranium-graphite compositions of tutorial rungs 2 and 3 (GitHub #524,
+#525), shared by their examples and the web demo's rungs.
+**Uranium and graphite at 296 K: the compositions of tutorial rungs 2 and 3**
+(GitHub #524, #525).
+
+One home for the numbers so that `examples/ugraphite_four_factor.rs`,
+`examples/lumped_ugraphite_kinf.rs` and the `ugraphite` / `lumped` rungs of
+the `dhoby-ghaut` Monte Carlo web demo run **the same** mixtures; nothing is
+retyped (the pattern of [`super::godiva`]). Pure arithmetic, no I/O.
+
+- **Main case of rung 2** ([`htr10_pebble_mix`]): the uranium and carbon of
+  one HTR-10 fuel pebble, smeared over the 3 cm ball, from the published
+  specification in [`crate::pebble_beds::htr10`] (Li, Yu & Wei 2014
+  Table 2; IAEA-TECDOC-1382 Table 4-2 for the 17 wt% basis and the
+  1.73 g/cm3 graphite) and [`TrisoSpec::HTR10_LI2014`]. O, Si and B are left
+  out on purpose (the rung is uranium and graphite). `N_C/N_U` = 767.2.
+- **Step 7 sweep and rung 3** ([`natural_mix`], [`uranium_metal`]):
+  natural uranium in graphite at 1.73 g/cm3, and natural uranium metal at
+  [`RHO_U_METAL`] for the lumps.
+
+The recorded results these compositions produced are in the two examples'
+module docs and in `verification_and_validation/tutorial_rung2/README.md`
+and `tutorial_rung3/README.md`.
+
+```rust
+pub mod ugraphite { /* ... */ }
+```
+
+### Types
+
+#### Struct `Mix`
+
+A U + C composition \[atoms/barn-cm\]. Either part may be zero (a pure
+uranium lump, a pure graphite moderator).
+
+```rust
+pub struct Mix {
+    pub u: [f64; 3],
+    pub c: f64,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `u` | `[f64; 3]` | U-234, U-235, U-238. |
+| `c` | `f64` | Natural carbon (split 98.93 / 1.07 at% into C-12 / C-13). |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn c_per_u(self: &Self) -> f64 { /* ... */ }
+  ```
+  Carbon atoms per uranium atom.
+
+- ```rust
+  pub fn densities(self: &Self) -> [f64; 5] { /* ... */ }
+  ```
+  Atom densities in [`TAPES`] order: U-234, U-235, U-238, C-12, C-13.
+
+- ```rust
+  pub fn material(self: &Self, id: i32, name: &str) -> Material { /* ... */ }
+  ```
+  The material, with nuclide indices in [`TAPES`] order and zero
+
+- ```rust
+  pub fn scaled(self: &Self, factor: f64) -> Mix { /* ... */ }
+  ```
+  The same atoms scaled by `factor` (used to homogenise a cell).
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Boilerplate**
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **ByRef**
+  - ```rust
+    fn by_ref(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Mix { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **DistributionExt**
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Imply**
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Mix) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Struct `PebbleInventory`
+
+One HTR-10 fuel pebble's inventory, as [`htr10_pebble_mix`] computes it.
+
+```rust
+pub struct PebbleInventory {
+    pub particles: f64,
+    pub uranium_g: f64,
+    pub carbon_g: f64,
+    pub c_per_u: f64,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `particles` | `f64` | TRISO particles (8335 by construction of the packing fraction). |
+| `uranium_g` | `f64` | Uranium mass \[g\] (5.0 g in the specification). |
+| `carbon_g` | `f64` | Carbon mass \[g\]: matrix, shell, buffer, both PyC layers, SiC carbon. |
+| `c_per_u` | `f64` | Carbon atoms per uranium atom. |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Boilerplate**
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **ByRef**
+  - ```rust
+    fn by_ref(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> PebbleInventory { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **DistributionExt**
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Imply**
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &PebbleInventory) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+### Functions
+
+#### Function `htr10_pebble_mix`
+
+One HTR-10 fuel pebble's uranium and carbon, smeared over the 3 cm ball,
+and the inventory it came from. See the module docs.
+
+```rust
+pub fn htr10_pebble_mix() -> (Mix, PebbleInventory) { /* ... */ }
+```
+
+#### Function `graphite_density`
+
+Graphite at 1.73 g/cm3 ([`RHO_GRAPHITE`]) \[atoms/b-cm\].
+
+```rust
+pub fn graphite_density() -> f64 { /* ... */ }
+```
+
+#### Function `natural_mix`
+
+Natural uranium in graphite at 1.73 g/cm3 carbon, `c_per_u` carbon atoms
+per uranium atom. (In an infinite homogeneous medium `k_inf` depends only
+on the ratios, not on the absolute density.)
+
+```rust
+pub fn natural_mix(c_per_u: f64) -> Mix { /* ... */ }
+```
+
+#### Function `uranium_metal`
+
+Natural uranium metal at [`RHO_U_METAL`] \[atoms/b-cm\].
+
+```rust
+pub fn uranium_metal() -> Mix { /* ... */ }
+```
+
+#### Function `graphite`
+
+Pure graphite at 1.73 g/cm3, as a [`Mix`].
+
+```rust
+pub fn graphite() -> Mix { /* ... */ }
+```
+
+#### Function `uranium_volume_fraction`
+
+Uranium volume fraction of a cell whose uranium-metal lump and pure
+graphite give a cell-average `c_per_u`: `(1 - v) N_C / (v N_U) = c_per_u`.
+
+```rust
+pub fn uranium_volume_fraction(c_per_u: f64) -> f64 { /* ... */ }
+```
+
+#### Function `cell_radius`
+
+Wigner-Seitz cell radius for a lump of radius `r_lump` at cell-average
+`c_per_u` \[cm\].
+
+```rust
+pub fn cell_radius(r_lump: f64, c_per_u: f64) -> f64 { /* ... */ }
+```
+
+### Constants and Statics
+
+#### Constant `TEMPERATURE_K`
+
+Temperature of every material and nuclide in rungs 2 and 3 \[K\]: the
+lowest tabulated temperature of the crystalline-graphite S(alpha,beta)
+law, so no thermal-law interpolation enters.
+
+```rust
+pub const TEMPERATURE_K: f64 = 296.0;
+```
+
+#### Constant `NAT_U`
+
+Natural uranium, atom fractions U-234, U-235, U-238: the IUPAC
+representative isotopic composition (0.0054 %, 0.7204 %, 99.2742 %).
+Recalled, not page-checked in the change that added it.
+
+```rust
+pub const NAT_U: [f64; 3] = _;
+```
+
+#### Constant `RHO_U_METAL`
+
+Natural uranium metal density \[g/cm3\], the lumps of rung 3. A handbook
+value, not page-checked.
+
+```rust
+pub const RHO_U_METAL: f64 = 19.05;
+```
+
+#### Constant `TAPES`
+
+The ENDF/B-VIII.0 tapes, `(nuclide name, file in reference-data/endf/)`, in
+the order of [`Mix::densities`], followed by the graphite thermal law.
+
+```rust
+pub const TAPES: [(&str, &str); 5] = _;
+```
+
+#### Constant `GRAPHITE_TSL`
+
+Crystalline graphite S(alpha,beta), MAT 30 (OpenMC's `c_Graphite`),
+attached to C-12 and C-13.
+
+```rust
+pub const GRAPHITE_TSL: (&str, i32) = _;
+```
+
+#### Constant `NA_B`
+
+Avogadro's number times 1e-24 \[atoms cm2 / (mol barn)\].
+
+```rust
+pub const NA_B: f64 = 0.602_214_076;
+```
+
+## Module `godiva`
+
+**ICSBEP HEU-MET-FAST-001 (Godiva)**, the bare HEU metal sphere, as this
+crate's ENDF examples model it: one sphere, one homogeneous material,
+U-234/235/238 at the evaluation's atom densities, vacuum outside.
+
+These are the numbers `examples/godiva_keff_endf_local.rs` (the crate's
+maturity evidence, and the model of the five-route study,
+`verification_and_validation/icsbep/five_route_keff_2026_09_29.md`) has
+always run. They were typed into that example and into many tests beside
+it; they are collected here (2026-10-04, gh:#521) so the tutorial and the
+web demo use the model the record was measured on, not another copy of it.
+Changing a value here changes that example.
+
+```rust
+pub mod godiva { /* ... */ }
+```
+
+### Functions
+
+#### Function `material`
+
+The Godiva material, indexing nuclides `0, 1, 2` in [`NUCLIDES`] order.
+
+```rust
+pub fn material() -> crate::material::material::Material { /* ... */ }
+```
+
+### Constants and Statics
+
+#### Constant `RADIUS_CM`
+
+Sphere radius \[cm\].
+
+```rust
+pub const RADIUS_CM: f64 = 8.7407;
+```
+
+#### Constant `TEMPERATURE_K`
+
+Material temperature \[K\]: room temperature (a metal assembly).
+
+```rust
+pub const TEMPERATURE_K: f64 = 293.6;
+```
+
+#### Constant `NUCLIDES`
+
+`(name, ENDF/B-VIII.0 tape in reference-data/endf/, atoms per barn-cm)`.
+
+```rust
+pub const NUCLIDES: [(&str, &str, f64); 3] = _;
+```
+
+#### Constant `BENCHMARK_K`
+
+The benchmark `k_eff`: the assembly was critical, so 1.0000 by
+construction.
+
+```rust
+pub const BENCHMARK_K: f64 = 1.0000;
+```
+
+#### Constant `BENCHMARK_SIGMA`
+
+The evaluation's stated uncertainty on [`BENCHMARK_K`].
+
+```rust
+pub const BENCHMARK_SIGMA: f64 = 0.0010;
 ```
 
 ### Functions
@@ -55781,6 +57154,14 @@ source (`entropy`) is the companion check and is reported when present.
 `drift_pcm` is returned so a caller can gate on it rather than eyeball it.
 A drift comparable to, or larger than, the residual being interpreted means
 that residual cannot be attributed to nuclear data at all.
+
+**See also (2026-10-03, GitHub #496):**
+[`crate::stats::convergence::SourceConvergence`] runs MSER-5, Geweke and a
+change-point test over the WHOLE entropy and `k` traces (inactive
+included) and recommends an inactive count with its evidence; and
+[`crate::stats::correlated_sigma::KeffUncertainty`] gives the
+autocorrelation-corrected `σ` that the lower-bound error below lacks.
+This function is unchanged and still what the ICSBEP examples print.
 
 ```rust
 pub fn report_source_convergence(label: &str, r: &crate::physics::keff::KeffResult, n_inactive: usize) -> f64 { /* ... */ }
@@ -55903,6 +57284,3671 @@ for byte; this path re-exports it, and the bench knobs below stay here.
 
 ```rust
 pub use raffles::estimators::pooled;
+```
+
+## Module `stats`
+
+Statistics for Monte Carlo results on top of RAFFLES (epic GitHub #493):
+seed ensembles, correlated-sample `σ`, source-convergence diagnostics,
+learned weight windows, UQ and surrogate sweeps. Report-only or opt-in;
+no driver calls it. See [`stats`].
+**Statistics for Monte Carlo results** — epic GitHub #493, built on
+RAFFLES (`raffles`, Adolphus Lye's crate).
+
+# The split, and why
+
+**The maths on numbers lives in RAFFLES; deciding what is counted, and
+running the transport, stays here** (the rule from GitHub #500, and the
+ownership comment on #493: simulation drivers and adaptive /
+model-in-the-loop samplers are outside RAFFLES' declared scope). So each
+submodule here is a thin driver or adapter: it knows what a
+[`KeffResult`](crate::physics::keff::KeffResult), a tally or a weight-window
+mesh is, and it hands arrays of numbers to `raffles` for the statistics.
+
+| module | issue | what it does | changes transport? |
+|---|---|---|---|
+| [`ensemble`] | #494 | runs `N` independent seeds, pools them, checks `χ²/dof` of the seeds against their own internal `σ`, flags outlier seeds | no — runs the caller's closure unchanged |
+| [`correlated_sigma`] | #495 | autocorrelation-corrected `σ` for `k` and tally series, **alongside** the naive `σ` | no — post-processing |
+| [`convergence`] | #496 | stationarity diagnostics on the entropy and `k` traces, recommended inactive count | no — post-processing |
+| [`learned_importance`] | #497 | weight windows from early-cycle tallies with a RAFFLES surrogate filling unresolved cells; FOM and unbiasedness comparison | **only if a caller attaches the windows** — off by default |
+| [`uq`] | #498 | input-uncertainty propagation and sensitivity by sampling | no — runs the caller's closure |
+| [`sweep`] | #499 | surrogate interpolation of a parameter sweep with jackknife+ prediction intervals, held-out validation, next-run proposals | no |
+
+# Default-path guarantee
+
+**Nothing in this module is called by any driver.** A default
+`run_keff` / `run_keff_csg*` / `run_fixed_source` run is bit-for-bit what
+it was before the module existed: every function here either reads a
+finished result or runs a closure the caller wrote. The one module that can
+change transport, [`learned_importance`], only *builds* a
+[`WeightWindows`](crate::physics::weight_windows::WeightWindows); the
+transport changes only if a caller attaches it to a
+[`VarianceReduction`](crate::physics::variance_reduction::VarianceReduction),
+whose default stays analog.
+
+# Status
+
+Draft, AI-assisted, with **no V&V measured yet**: the maintainer deferred
+all test and benchmark runs on 2026-10-03, so every V&V gate named in these
+modules' docs reads "NOT YET MEASURED". The unit tests are written and
+compile; they have not been run. V&V stubs live under
+`verification_and_validation/stats_epic_493/`.
+
+```rust
+pub mod stats { /* ... */ }
+```
+
+### Modules
+
+## Module `convergence`
+
+**Source-convergence diagnostics and an inactive-cycle recommendation** —
+GitHub #496.
+
+# The question
+
+How many inactive generations does *this* case need? The usual answer is a
+number copied from somewhere else — the HTR-10 reference used 5 on a 1.8 m
+pebble core, which `htr10_rmc_keff.rs` flags as a possible bias. A source
+still relaxing while `k` is scored is a **bias**, not a variance: it does
+not shrink with more seeds, and no `σ` reports it.
+
+# What this does
+
+[`SourceConvergence::from_result`] reads a finished
+[`KeffResult`](crate::physics::keff::KeffResult) — its Shannon-entropy
+trace (when an entropy mesh was supplied) and its `k` trace, **all**
+generations including the inactive ones, since that is where the
+transient is — and runs three independent tests from
+[`raffles::estimators::stationarity`] on each:
+
+1. **MSER-5 truncation** — where the transient ends; fails (trace "not
+   converged") if the optimum lies in the second half of the trace.
+2. **Geweke two-window test** on what remains after that truncation, with
+   batch-means errors — `|z| > 1.96` is drift.
+3. **A Bayesian single change-point** — where the mean most probably
+   shifted, and how strongly BIC favours a shift at all.
+
+The **recommended inactive count** is the larger of the entropy and `k`
+MSER truncations, and is given only when every analysed trace passes
+(MSER optimum in the first half and no Geweke drift after it). Otherwise
+the recommendation is `None` with the failing evidence — a number is never
+invented for a trace that has not settled.
+
+Entropy is the primary signal (it sees the spatial shape of the source,
+which `k` integrates away); `k` is analysed too, because a case with no
+entropy mesh has nothing else.
+
+# Report-only
+
+Nothing here changes transport or any result. No driver calls it; the
+caller decides what to do with a recommendation, and changing `n_inactive`
+is a new run.
+
+# V&V gate (from #496, fixed in advance)
+
+On a case with a deliberately bad initial source, the diagnostic must flag
+non-convergence where entropy is still drifting and pass once it is flat;
+the recommended count is compared against a long reference run.
+
+**Result: NOT YET MEASURED (testing deferred by maintainer, 2026-10-03).**
+Protocol: `verification_and_validation/stats_epic_493/496_source_convergence.md`.
+
+```rust
+pub mod convergence { /* ... */ }
+```
+
+### Types
+
+#### Struct `TraceDiagnosis`
+
+The three tests on one trace.
+
+```rust
+pub struct TraceDiagnosis {
+    pub name: &'static str,
+    pub n: usize,
+    pub mser: Option<raffles::estimators::stationarity::MserTruncation>,
+    pub geweke_after_truncation: Option<raffles::estimators::stationarity::GewekeTest>,
+    pub change_point: Option<raffles::estimators::stationarity::ChangePoint>,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `name` | `&'static str` | `"entropy"` or `"k"`. |
+| `n` | `usize` | Generations in the trace. |
+| `mser` | `Option<raffles::estimators::stationarity::MserTruncation>` | MSER-5 truncation; `None` if the trace is too short (< 20 values). |
+| `geweke_after_truncation` | `Option<raffles::estimators::stationarity::GewekeTest>` | Geweke on the trace after the MSER truncation. |
+| `change_point` | `Option<raffles::estimators::stationarity::ChangePoint>` | Change-point posterior over the whole trace (batch means of 5). |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn analyse(name: &'static str, trace: &[f64]) -> Self { /* ... */ }
+  ```
+  Run the three tests on `trace`.
+
+- ```rust
+  pub fn converged(self: &Self) -> bool { /* ... */ }
+  ```
+  Converged: MSER found its optimum in the first half **and** Geweke sees
+
+- ```rust
+  pub fn discard(self: &Self) -> Option<usize> { /* ... */ }
+  ```
+  The generations to discard by this trace's MSER rule, when converged.
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **ByRef**
+  - ```rust
+    fn by_ref(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> TraceDiagnosis { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **DistributionExt**
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Imply**
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &TraceDiagnosis) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Struct `SourceConvergence`
+
+Source-convergence evidence for one run, and a recommendation.
+
+```rust
+pub struct SourceConvergence {
+    pub n_inactive_used: usize,
+    pub entropy: Option<TraceDiagnosis>,
+    pub k: TraceDiagnosis,
+    pub recommended_inactive: Option<usize>,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `n_inactive_used` | `usize` | The inactive count the run actually used. |
+| `entropy` | `Option<TraceDiagnosis>` | Entropy trace diagnosis; `None` when the run carried no entropy. |
+| `k` | `TraceDiagnosis` | `k` trace diagnosis. |
+| `recommended_inactive` | `Option<usize>` | `max` of the MSER discards over the analysed traces, only if every<br>analysed trace converged. |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn from_result(r: &KeffResult, n_inactive: usize) -> Self { /* ... */ }
+  ```
+  Analyse `r`, which ran with `n_inactive` inactive generations.
+
+- ```rust
+  pub fn from_traces(k_by_generation: &[f64], entropy: &[f64], n_inactive: usize) -> Self { /* ... */ }
+  ```
+  As [`Self::from_result`], from the two traces (an empty `entropy`
+
+- ```rust
+  pub fn inactive_sufficient(self: &Self) -> Option<bool> { /* ... */ }
+  ```
+  `Some(true)` when a recommendation exists and the run discarded at
+
+- ```rust
+  pub fn summary(self: &Self, label: &str) -> String { /* ... */ }
+  ```
+  Multi-line report. Report-only.
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **ByRef**
+  - ```rust
+    fn by_ref(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> SourceConvergence { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **DistributionExt**
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Imply**
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &SourceConvergence) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+## Module `correlated_sigma`
+
+**Autocorrelation-corrected uncertainties for `k_eff` and tallies** —
+GitHub #495.
+
+# Why the reported `σ` is too small
+
+Power iteration feeds generation `g`'s fission sites into generation
+`g + 1` as its source, so successive generation estimates of `k` (and of
+every tally) are positively correlated. The `k_std` this crate's drivers
+report is the textbook `s/√n` over the active generations
+(`raffles::estimators::mean_and_stderr`), which assumes independence and
+therefore **under-states** the true uncertainty by `sqrt(τ_int)`. The
+effect is largest in loosely coupled cores — a 1.8 m pebble bed such as the
+HTR-10 — where the dominance ratio is close to 1 (Ueki et al. 2004).
+
+# What this adds, and what it never does
+
+[`KeffUncertainty`] reads a finished
+[`KeffResult`](crate::physics::keff::KeffResult) and reports the corrected
+`σ` by batch means (default batch `⌊√n⌋`, fixed) and by the integrated
+autocorrelation time / effective sample size — **next to the naive
+`k_std`, which it carries unchanged**. It never writes `k_std` and no
+driver calls it, so no recorded result moves.
+
+For tallies, the drivers accumulate running sums and keep no per-batch
+history, so a correlated `σ` needs the per-batch realisations recorded by
+the caller. [`TallyBatchRecorder`] does that by differencing a
+[`Tally`](crate::tally::tally::Tally)'s bin sums between batches. **No
+driver exposes a per-batch hook yet**, so today it serves a caller that
+steps batches itself; wiring a report-only hook into the drivers is a
+follow-up (filed against #495), not done here, because it would touch the
+drivers' inner loop.
+
+# V&V gate (from #495, fixed in advance)
+
+On a loosely coupled case (HTR-10 at 10k × [5 + 135]) the corrected `σ`
+must agree with the seed-to-seed spread from the ensemble (#494); the naive
+`σ` is expected to under-predict it, and the result is recorded either
+way. Agreement criterion, fixed here before measuring: the ratio
+`seed-to-seed sd / mean corrected σ` lies within `1 ± 2·u`, with `u` the
+combined relative uncertainty of the two `σ` estimates
+(`u² = 1/(2(N_seeds − 1)) + 1/(2(a − 1))/N_seeds`, `a` the number of
+batches).
+
+**Result: NOT YET MEASURED (testing deferred by maintainer, 2026-10-03).**
+Protocol: `verification_and_validation/stats_epic_493/495_correlated_sigma.md`.
+
+```rust
+pub mod correlated_sigma { /* ... */ }
+```
+
+### Types
+
+#### Struct `KeffUncertainty`
+
+The naive and corrected uncertainties of a run's `k_eff`.
+
+```rust
+pub struct KeffUncertainty {
+    pub n_active: usize,
+    pub k_mean: f64,
+    pub naive_sigma: f64,
+    pub estimate: raffles::estimators::autocorrelation::CorrelatedMean,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `n_active` | `usize` | Active generations the estimate covers. |
+| `k_mean` | `f64` | The run's own `k_mean`, carried unchanged. |
+| `naive_sigma` | `f64` | The run's own `k_std` (naive, assumes independent generations),<br>carried unchanged. |
+| `estimate` | `raffles::estimators::autocorrelation::CorrelatedMean` | Batch means, autocorrelation time and ESS over the active generations. |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn from_result(r: &KeffResult, n_inactive: usize) -> Option<Self> { /* ... */ }
+  ```
+  Analyse the active part of `r.k_by_generation`, i.e. everything after
+
+- ```rust
+  pub fn from_parts(k_by_generation: &[f64], k_mean: f64, k_std: f64, n_inactive: usize) -> Option<Self> { /* ... */ }
+  ```
+  As [`Self::from_result`], from the three fields it reads — for results
+
+- ```rust
+  pub fn batch_sigma(self: &Self) -> Option<f64> { /* ... */ }
+  ```
+  Batch-means `σ`, if at least two batches fit.
+
+- ```rust
+  pub fn summary(self: &Self) -> String { /* ... */ }
+  ```
+  One report line per estimator, in pcm. Report-only.
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **ByRef**
+  - ```rust
+    fn by_ref(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> KeffUncertainty { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **DistributionExt**
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Imply**
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &KeffUncertainty) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Struct `TallyBatchRecorder`
+
+Records per-batch realisations of every bin of a [`Tally`] by differencing
+its running sums between batches, so a correlated `σ` can be computed per
+bin.
+
+Call [`Self::new`] on the tally before the first active batch and
+[`Self::record`] after each active batch. Nothing here mutates the tally.
+
+```rust
+pub struct TallyBatchRecorder {
+    pub series: Vec<Vec<f64>>,
+    // Some fields omitted
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `series` | `Vec<Vec<f64>>` | `series[bin][batch]`: that bin's score in that batch. |
+| *private fields* | ... | *Some fields have been omitted* |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn new(tally: &Tally) -> Self { /* ... */ }
+  ```
+  Snapshot `tally`'s current bin sums as the baseline.
+
+- ```rust
+  pub fn record(self: &mut Self, tally: &Tally) -> Result<(), String> { /* ... */ }
+  ```
+  Append one batch: each bin's `sum` minus its value at the previous
+
+- ```rust
+  pub fn bin_estimate(self: &Self, bin: usize) -> Option<CorrelatedMean> { /* ... */ }
+  ```
+  Naive and corrected uncertainty of bin `bin`'s per-batch mean.
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **ByRef**
+  - ```rust
+    fn by_ref(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> TallyBatchRecorder { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **DistributionExt**
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Imply**
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &TallyBatchRecorder) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+### Functions
+
+#### Function `series_estimate`
+
+Corrected uncertainty of any per-batch series a caller already has (a
+tally bin, a leakage, a derived quantity) — the series route when no
+[`Tally`] is involved.
+
+```rust
+pub fn series_estimate(per_batch: &[f64]) -> raffles::estimators::autocorrelation::CorrelatedMean { /* ... */ }
+```
+
+## Module `ensemble`
+
+**Seed-pooled ensembles as a library feature** — GitHub #494.
+
+# What this replaces
+
+Every pooled number in this crate's record came from an example that
+re-implemented the same loop: spawn threads, chunk the seeds, run each,
+pool with `vv::pooled`. This module is that loop, once, plus the check the
+per-example copies never made: **does the seed-to-seed scatter agree with
+each run's own internal `σ`?** (`χ²/dof` against a fixed two-sided 95 %
+band, and leave-one-out outlier flags — the statistics are
+[`raffles::estimators::seed_consistency`].)
+
+# What is run is the caller's business
+
+The runner takes a closure `Fn(u64) -> (value, sigma)` for one seed, so a
+`k`-eigenvalue case, a fixed-source tally or anything else plugs in
+unchanged. The closure is run exactly as the caller wrote it, so an
+ensemble's per-seed values are bit-identical to running those seeds one at
+a time.
+
+# Thread-count independence
+
+Seeds are split **in order** into `ceil(N / workers)`-sized chunks and each
+seed writes its own slot, so the per-seed vector — not just the mean — is
+independent of the worker count. This is exactly the scheme
+`examples/godiva_keff_ensemble.rs` used before it was migrated here.
+
+# V&V gate (from #494, fixed in advance)
+
+On Godiva (and one TRISO case): the pooled `σ` shrinks as `1/√N` within its
+own uncertainty — measured by [`EnsembleReport::group_scatter`], the
+scatter of disjoint group means against `sd/√m` — and the between-seed
+spread agrees with the internal `σ` (`χ²/dof` inside its 95 % band). If
+not, the gap is the inter-cycle-correlation finding for #495.
+
+**Result: NOT YET MEASURED (testing deferred by maintainer, 2026-10-03).**
+Protocol: `verification_and_validation/stats_epic_493/494_seed_ensembles.md`.
+
+```rust
+pub mod ensemble { /* ... */ }
+```
+
+### Types
+
+#### Struct `SeedRun`
+
+One seed's result: its estimate and that run's own internal 1σ, in one
+unit (the caller's — `k`, pcm, a tally unit).
+
+```rust
+pub struct SeedRun {
+    pub seed: u64,
+    pub value: f64,
+    pub sigma: f64,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `seed` | `u64` | The master seed this run used. |
+| `value` | `f64` | The run's estimate. |
+| `sigma` | `f64` | The run's own internal standard error (e.g. `KeffResult::k_std`). |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Boilerplate**
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **ByRef**
+  - ```rust
+    fn by_ref(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> SeedRun { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **DistributionExt**
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Imply**
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &SeedRun) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Struct `EnsembleReport`
+
+Pooled statistics and the consistency check for a finished ensemble.
+
+```rust
+pub struct EnsembleReport {
+    pub runs: Vec<SeedRun>,
+    pub mean: f64,
+    pub sd: f64,
+    pub sem: f64,
+    pub consistency: Option<raffles::estimators::seed_consistency::SeedConsistency>,
+    pub group_scatter: Option<raffles::estimators::seed_consistency::GroupMeanScatter>,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `runs` | `Vec<SeedRun>` | The per-seed results, in seed order. |
+| `mean` | `f64` | Unweighted pooled mean, `raffles::estimators::pooled` — the number this<br>crate's ensembles have always quoted. |
+| `sd` | `f64` | Seed-to-seed sample sd: what ONE run scatters by. |
+| `sem` | `f64` | `sd/√N`: the uncertainty on [`Self::mean`]. |
+| `consistency` | `Option<raffles::estimators::seed_consistency::SeedConsistency>` | `χ²/dof` of the seeds against their internal `σ`, verdict and outliers.<br>`None` for fewer than two seeds or any non-positive internal `σ`. |
+| `group_scatter` | `Option<raffles::estimators::seed_consistency::GroupMeanScatter>` | Disjoint-group-mean scatter at [`GROUP_SIZE`] (the measured `1/√N`<br>check). `None` with fewer than three groups. |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn from_runs(runs: Vec<SeedRun>) -> Self { /* ... */ }
+  ```
+  Pool `runs`.
+
+- ```rust
+  pub fn values(self: &Self) -> Vec<f64> { /* ... */ }
+  ```
+  The per-seed values, in seed order.
+
+- ```rust
+  pub fn consistency_summary(self: &Self, unit: &str) -> String { /* ... */ }
+  ```
+  A multi-line report of the consistency check, in `unit`. Report-only.
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **ByRef**
+  - ```rust
+    fn by_ref(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> EnsembleReport { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **DistributionExt**
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Imply**
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &EnsembleReport) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+### Functions
+
+#### Function `default_workers`
+
+Worker threads from the machine, `available_parallelism` or 4.
+
+The result never depends on it (see the module docs); only the wall clock
+does.
+
+```rust
+pub fn default_workers() -> usize { /* ... */ }
+```
+
+#### Function `run_seeds`
+
+Run `run` once per seed on `workers` threads, returning results in seed
+order. See [`run_seeds_with_progress`].
+
+```rust
+pub fn run_seeds<F>(seeds: &[u64], workers: usize, run: F) -> Vec<SeedRun>
+where
+    F: Fn(u64) -> (f64, f64) + Sync { /* ... */ }
+```
+
+#### Function `run_seeds_with_progress`
+
+Run `run` once per seed on `workers` threads; `progress(n)` is called after
+each seed with the number finished so far (from whichever worker finished
+it). Results come back in seed order.
+
+`workers` is clamped to `1..=seeds.len()`. On `wasm32` (no threads) the
+seeds run serially, in order, with identical results.
+
+```rust
+pub fn run_seeds_with_progress<F, P>(seeds: &[u64], workers: usize, run: F, progress: P) -> Vec<SeedRun>
+where
+    F: Fn(u64) -> (f64, f64) + Sync,
+    P: Fn(usize) + Sync { /* ... */ }
+```
+
+#### Function `consecutive_seeds`
+
+Seeds `1..=n`, the convention `godiva_keff_ensemble` uses.
+
+```rust
+pub fn consecutive_seeds(n: usize) -> Vec<u64> { /* ... */ }
+```
+
+### Constants and Statics
+
+#### Constant `GROUP_SIZE`
+
+Group size for [`EnsembleReport::group_scatter`], fixed in advance: 32
+seeds (this workspace's standard) give 8 disjoint groups of 4.
+
+```rust
+pub const GROUP_SIZE: usize = 4;
+```
+
+## Module `learned_importance`
+
+**Variance reduction from learned importance** — weight windows built from
+early-batch tallies, with a RAFFLES surrogate filling the cells the tally
+could not resolve. GitHub #497.
+
+# OFF by default, and why that is not a breach of "correct physics is the
+default"
+
+The root `CLAUDE.md` rule binds **physics** terms. A weight window is an
+**estimator** — it splits and rouletted particles in fair games that leave
+every expected score unchanged — so it is an acceleration, not physics, and
+the correct default is analog (the same position as
+[`crate::physics::variance_reduction`]). Nothing in this module runs unless
+a caller builds the windows here **and** attaches them to a
+[`VarianceReduction`](crate::physics::variance_reduction::VarianceReduction)
+(`with_weight_windows`); `VarianceReduction::default()` stays analog, so a
+default run is untouched.
+
+# What "learned" means here
+
+MAGIC ([`WeightWindows::update_magic`]) sets each window's lower bound
+proportional to the forward flux in that cell, and marks every cell whose
+tally is empty or too noisy as **"no window" (`-1`)**. In a deep-penetration
+problem those are exactly the cells that most need importance. This module
+keeps MAGIC's rule where the tally resolves the flux and, in each energy
+group, fits a [`raffles::surrogate::PolynomialSurrogate`] to
+`ln(flux density)` against the cell-centre coordinates of the **resolved**
+cells, then fills the unresolved cells from the surrogate. `ln` because flux
+attenuates roughly exponentially through a shield, so a low-order
+polynomial in `ln φ` is the physically natural reduced model.
+
+- **Extrapolation is bounded**, at a limit fixed in advance: a filled value
+  may not exceed the group's largest measured density, nor fall more than
+  [`LearnedImportanceSettings::max_extrapolation_decades`] decades below its
+  smallest. A polynomial in `ln φ` extrapolated far enough produces
+  astronomically large or small windows; the clamp is reported, never
+  silent.
+- **The surrogate's held-out error is reported** (leave-one-out RMSE in
+  `ln φ`, [`raffles::surrogate::validation`]), so a reader can see how good
+  the fill is, rather than trusting it.
+- Too few resolved cells to identify the polynomial: the group is left as
+  MAGIC left it (unresolved = no window) and the report says so.
+
+**Source biasing** from the same importance map is NOT implemented here;
+the existing `physics/ufs.rs` uniform-fission-site weights remain the only
+source-side scheme.
+
+# Why the mean cannot be biased in principle — and why that is still tested
+
+Any set of positive window bounds plays fair split/roulette games, so the
+expected tally is the analog one whatever the surrogate predicts; a bad
+surrogate costs variance, not bias. **That is an argument, not a
+measurement.** A defect in the game (the `max_split` weight-creation bug in
+`weight_windows.rs`' history) is invisible except by comparing against the
+analog arm, which is why [`FomComparison`] carries the unbiasedness check
+and treats it as the gate.
+
+# V&V gate (from #497, fixed in advance)
+
+An unbiased mean (agreement with the analog result within combined `σ`)
+and a measured FOM ratio `FOM = 1/(σ²T)` with uncertainty, against analog
+**and** against plain MAGIC (`weight_windows.rs`). A biased answer fails
+regardless of the FOM. "Within combined `σ`" is implemented as
+`|z| ≤ UNBIASED_Z_BAND = 2` (95 %); the issue's wording could be read as
+1σ, which a correct estimator fails 32 % of the time — **flagged for the
+maintainer to confirm, not decided after seeing a result.**
+
+**Result: NOT YET MEASURED (testing deferred by maintainer, 2026-10-03).**
+Protocol: `verification_and_validation/stats_epic_493/497_learned_importance.md`.
+
+```rust
+pub mod learned_importance { /* ... */ }
+```
+
+### Types
+
+#### Struct `LearnedImportanceSettings`
+
+Settings for [`learned_weight_windows`]. Defaults are fixed in advance and
+documented per field; none is tuned to a result.
+
+```rust
+pub struct LearnedImportanceSettings {
+    pub threshold: f64,
+    pub ratio: f64,
+    pub degree: usize,
+    pub ridge: f64,
+    pub max_extrapolation_decades: f64,
+    pub smooth_resolved: bool,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `threshold` | `f64` | MAGIC's relative-error threshold: a cell with a larger relative error<br>is "unresolved". Default `0.5`, the usual MAGIC choice. |
+| `ratio` | `f64` | `upper = ratio · lower`. Default `5.0` (OpenMC's default<br>`upper_bound_ratio`). |
+| `degree` | `usize` | Total degree of the `ln φ(x, y, z)` polynomial. Default `2`: an<br>exponential attenuation is degree 1 in `ln φ`, and one more degree<br>admits curvature (geometric spreading) without the wild extrapolation<br>of higher orders. |
+| `ridge` | `f64` | Ridge on the normal equations. Default `1e-8` (the polynomial module's<br>own suggested start), for near-degenerate cell layouts. |
+| `max_extrapolation_decades` | `f64` | Decades below the smallest measured density a filled cell may go.<br>Default `3`. |
+| `smooth_resolved` | `bool` | Replace resolved cells' measured values by the surrogate as well<br>(smoothing). Default `false`: measured values are kept. |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **ByRef**
+  - ```rust
+    fn by_ref(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> LearnedImportanceSettings { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Default**
+  - ```rust
+    fn default() -> Self { /* ... */ }
+    ```
+
+- **DistributionExt**
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Imply**
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &LearnedImportanceSettings) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Struct `GroupFill`
+
+Per-energy-group account of what was measured, filled and left empty.
+
+```rust
+pub struct GroupFill {
+    pub group: usize,
+    pub resolved: usize,
+    pub filled: usize,
+    pub clamped: usize,
+    pub empty: usize,
+    pub loo_rmse_ln: Option<f64>,
+    pub note: Option<String>,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `group` | `usize` | Energy group index. |
+| `resolved` | `usize` | Cells whose tally resolved the flux (MAGIC's windows). |
+| `filled` | `usize` | Unresolved cells given a window from the surrogate. |
+| `clamped` | `usize` | Of those, how many hit the extrapolation clamp. |
+| `empty` | `usize` | Cells still without a window. |
+| `loo_rmse_ln` | `Option<f64>` | Leave-one-out RMSE of the surrogate in `ln φ` over the resolved cells;<br>`None` when no surrogate was fitted. |
+| `note` | `Option<String>` | Why no surrogate was fitted, when none was. |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **ByRef**
+  - ```rust
+    fn by_ref(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> GroupFill { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **DistributionExt**
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Imply**
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &GroupFill) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Struct `VrArm`
+
+One arm of a variance-reduction comparison: a tally's estimate, its 1σ,
+the wall-clock it cost and the number of batches its `σ` came from.
+
+Timings are only comparable as ratios on one machine (crate `CLAUDE.md`,
+"Every timing carries its hardware") — record the hardware with them.
+
+```rust
+pub struct VrArm {
+    pub mean: f64,
+    pub sigma: f64,
+    pub seconds: f64,
+    pub n_batches: usize,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `mean` | `f64` | The estimate. |
+| `sigma` | `f64` | Its 1σ standard error. |
+| `seconds` | `f64` | Wall-clock seconds. |
+| `n_batches` | `usize` | Independent batches (or seeds) the `σ` is estimated from. |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn fom(self: &Self) -> f64 { /* ... */ }
+  ```
+  `FOM = 1/(R² T)` with `R = σ/|mean|` the relative error — the issue's
+
+- ```rust
+  pub fn fom_relative_sigma(self: &Self) -> f64 { /* ... */ }
+  ```
+  Relative 1σ of [`Self::fom`] from the statistical error of `σ` alone:
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Boilerplate**
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **ByRef**
+  - ```rust
+    fn by_ref(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> VrArm { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **DistributionExt**
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Imply**
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &VrArm) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Struct `FomComparison`
+
+Analog against variance-reduced: the unbiasedness gate and the FOM ratio.
+
+```rust
+pub struct FomComparison {
+    pub z: f64,
+    pub unbiased: bool,
+    pub fom_ratio: f64,
+    pub fom_ratio_sigma: f64,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `z` | `f64` | `(vr.mean − analog.mean) / sqrt(σ_a² + σ_v²)`. |
+| `unbiased` | `bool` | `|z| ≤ UNBIASED_Z_BAND`. **The gate**: a `false` here fails the scheme<br>whatever its FOM. |
+| `fom_ratio` | `f64` | `FOM_vr / FOM_analog`. |
+| `fom_ratio_sigma` | `f64` | 1σ on `fom_ratio`, combining both arms' relative FOM errors. |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn new(analog: VrArm, vr: VrArm) -> Self { /* ... */ }
+  ```
+  Compare `vr` against `analog`.
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Boilerplate**
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **ByRef**
+  - ```rust
+    fn by_ref(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> FomComparison { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **DistributionExt**
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Imply**
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &FomComparison) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+### Functions
+
+#### Function `learned_weight_windows`
+
+Build weight windows from early-batch flux moments.
+
+`sum`, `sum_sq` (per-batch first and second moments summed over `n`
+batches, laid out `[energy][mesh]` exactly as for
+[`WeightWindows::update_magic`]) and `volumes` (per mesh cell) describe the
+early tally; `energy_bounds` are the windows' energy groups.
+
+# Errors
+
+Anything [`WeightWindows::new`] or [`WeightWindows::update_magic`] rejects.
+
+```rust
+pub fn learned_weight_windows(mesh: crate::tally::mesh::RegularMesh, energy_bounds: Vec<f64>, sum: &[f64], sum_sq: &[f64], volumes: &[f64], n: usize, settings: &LearnedImportanceSettings) -> Result<(crate::physics::weight_windows::WeightWindows, Vec<GroupFill>), String> { /* ... */ }
+```
+
+### Constants and Statics
+
+#### Constant `UNBIASED_Z_BAND`
+
+`|z|` band for the unbiasedness gate (two-sided 95 %), fixed in advance.
+See the module docs for why 2 and not 1.
+
+```rust
+pub const UNBIASED_Z_BAND: f64 = 2.0;
+```
+
+## Module `sweep`
+
+**Surrogate-accelerated parameter sweeps** — GitHub #499.
+
+# The rule that shapes this module
+
+**A surrogate value is never reported as a transport result.** It is a
+[`SurrogatePrediction`] — its own type, with an interval, a distance to the
+nearest real run and no `σ` field that could be mistaken for a Monte
+Carlo standard error — never a `KeffResult` or a bare `f64`. Every sweep
+keeps its full runs, and the surrogate's leave-one-out residuals on them
+are its V&V.
+
+# What it does
+
+- [`SweepSurrogate::fit`]: a `raffles` [`PolynomialSurrogate`] of fixed
+  degree through the full runs, with the `n` leave-one-out refits
+  ([`raffles::surrogate::validation::LeaveOneOut`]).
+- [`SweepSurrogate::predict`]: the full-data fit plus a **jackknife+**
+  interval (coverage ≥ `1 − 2α` with no assumption on the polynomial being
+  the right shape; Barber et al. 2021). The interval covers a new *noisy
+  run* at `x`, so it can be no narrower than the run-to-run scatter.
+- [`SweepSurrogate::loo_gate`]: the held-out comparison #499 asks for.
+- [`SweepSurrogate::propose_next_runs`]: active sampling — rank candidate
+  inputs by the spread of the leave-one-out models' predictions there
+  (where the fit is least stable), weighted by distance to existing and
+  already-proposed runs so proposals spread out. A heuristic, documented
+  as one; it decides where to spend full runs, never what a result is.
+
+A categorical input (e.g. the nuclear-data library in the HTR-10 sweep)
+is not a polynomial variable: fit one surrogate per category.
+
+# V&V gate (from #499, fixed in advance), and a caveat found writing it
+
+On the 22 runs of `nee_soon/verification_and_validation/htr10_seker_2026_10_01_10k`
+(11 heights × 2 libraries, one surrogate per library): leave-out
+cross-validation error within the per-run MC `σ`, i.e.
+`loo_rmse ≤ rms(σ_i)`.
+
+**Caveat, stated before any measurement:** a held-out residual contains
+the held-out run's own noise (variance `σ²`) *plus* the refit's error at
+that point, so even a perfect surrogate has an expected LOO RMS of about
+`σ·sqrt(1 + p/n)` (`p` coefficients) — **above** `σ`. Read literally, the
+gate is expected to fail for a correct surrogate. [`LooGate`] therefore
+reports the literal comparison, the noise-floor-aware one
+(`χ²` per point against `1 + p/(n − p)`), and both verdicts; which one the
+gate means is the maintainer's call, flagged on #499, not decided here.
+
+**Result: NOT YET MEASURED (testing deferred by maintainer, 2026-10-03).**
+Protocol: `verification_and_validation/stats_epic_493/499_surrogate_sweeps.md`;
+runner: `examples/stats_sweep_loo.rs` (reads the committed CSV, no
+transport).
+
+```rust
+pub mod sweep { /* ... */ }
+```
+
+### Types
+
+#### Struct `SweepRun`
+
+One full transport run in a sweep: inputs, value, its MC `σ`.
+
+```rust
+pub struct SweepRun {
+    pub x: Vec<f64>,
+    pub value: f64,
+    pub sigma: f64,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `x` | `Vec<f64>` | Input coordinates (e.g. `[height_cm]`). |
+| `value` | `f64` | The transport result. |
+| `sigma` | `f64` | Its Monte Carlo 1σ. |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **ByRef**
+  - ```rust
+    fn by_ref(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> SweepRun { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **DistributionExt**
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Imply**
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &SweepRun) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Struct `SurrogatePrediction`
+
+A surrogate's estimate at an input. **Not a transport result.**
+
+```rust
+pub struct SurrogatePrediction {
+    pub x: Vec<f64>,
+    pub value: f64,
+    pub interval: (f64, f64),
+    pub alpha: f64,
+    pub nearest_run_distance: f64,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `x` | `Vec<f64>` | Where. |
+| `value` | `f64` | The full-data polynomial at `x`. |
+| `interval` | `(f64, f64)` | Jackknife+ interval at miscoverage `alpha` (coverage ≥ `1 − 2α`);<br>a bound is infinite when there are too few runs for it. |
+| `alpha` | `f64` | The `α` used. |
+| `nearest_run_distance` | `f64` | Euclidean distance from `x` to the nearest full run, in input units —<br>a reader's cue for interpolation versus extrapolation. |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **ByRef**
+  - ```rust
+    fn by_ref(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> SurrogatePrediction { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **DistributionExt**
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Imply**
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &SurrogatePrediction) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Struct `LooGate`
+
+The held-out comparison #499 asks for, both readings.
+
+```rust
+pub struct LooGate {
+    pub n: usize,
+    pub terms: usize,
+    pub loo_rmse: f64,
+    pub rms_sigma: f64,
+    pub literal_pass: bool,
+    pub chi2_per_point: f64,
+    pub noise_floor: f64,
+    pub floor_aware_pass: bool,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `n` | `usize` | Number of full runs. |
+| `terms` | `usize` | Polynomial coefficients `p`. |
+| `loo_rmse` | `f64` | RMS leave-one-out residual. |
+| `rms_sigma` | `f64` | RMS of the runs' own `σ`. |
+| `literal_pass` | `bool` | Literal gate: `loo_rmse ≤ rms_sigma`. |
+| `chi2_per_point` | `f64` | `Σ (r_i/σ_i)² / n`. |
+| `noise_floor` | `f64` | Expected `chi2_per_point` for a perfect surrogate, `1 + p/(n − p)`<br>(the noise floor; infinite when `n ≤ p`). |
+| `floor_aware_pass` | `bool` | Noise-floor gate: `chi2_per_point / noise_floor` within the two-sided<br>95 % band of `χ²_n / n`. Approximate: LOO residuals are not<br>independent, so the band is a guide, not an exact test. |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Boilerplate**
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **ByRef**
+  - ```rust
+    fn by_ref(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> LooGate { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **DistributionExt**
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Imply**
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &LooGate) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Struct `SweepSurrogate`
+
+A fitted sweep surrogate with its leave-one-out validation.
+
+```rust
+pub struct SweepSurrogate {
+    pub runs: Vec<SweepRun>,
+    pub loo: raffles::surrogate::validation::LeaveOneOut,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `runs` | `Vec<SweepRun>` | The full runs, as given. |
+| `loo` | `raffles::surrogate::validation::LeaveOneOut` | Full fit and LOO refits. |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn fit(runs: Vec<SweepRun>, degree: usize, ridge: f64) -> Result<Self, String> { /* ... */ }
+  ```
+  Fit at total degree `degree` and ridge `ridge` (fixed for every
+
+- ```rust
+  pub fn model(self: &Self) -> &PolynomialSurrogate { /* ... */ }
+  ```
+  The full-data polynomial.
+
+- ```rust
+  pub fn predict(self: &Self, x: &[f64], alpha: f64) -> Result<SurrogatePrediction, String> { /* ... */ }
+  ```
+  Predict at `x` with a jackknife+ interval at miscoverage `alpha`.
+
+- ```rust
+  pub fn loo_gate(self: &Self) -> LooGate { /* ... */ }
+  ```
+  The held-out gate, both readings (see the module docs).
+
+- ```rust
+  pub fn propose_next_runs(self: &Self, candidates: &[Vec<f64>], count: usize) -> Vec<usize> { /* ... */ }
+  ```
+  Indices into `candidates` of up to `count` proposed next full runs.
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **ByRef**
+  - ```rust
+    fn by_ref(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> SweepSurrogate { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **DistributionExt**
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Imply**
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &SweepSurrogate) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+## Module `uq`
+
+**Uncertainty quantification and sensitivity by sampling inputs** —
+GitHub #498.
+
+# What this is, and what it is not
+
+**Quantification only.** Input uncertainties (material densities, packing
+fraction, impurity content, dimensions — nuclear-data covariances later,
+from the njoy ERRORR port) are sampled, the caller's Monte Carlo model is
+run at each sample, and the spread of the outputs is reported with each
+input's share of it. **Nothing is fitted to a reference here.** A later
+Bayesian calibration (`raffles::bayesian`, `raffles::abc`) must follow the
+root `CLAUDE.md` model-hierarchy rule: uncalibrated first, then ablation,
+never tuning until a comparison passes.
+
+# The pieces
+
+- [`UncertainInput`]: a named input with a `raffles` [`Distribution`].
+- [`UqDesign::sampled`]: a design from any `raffles` [`Sampler`] (Monte
+  Carlo, Latin hypercube, grid), mapped through each input's inverse CDF.
+- [`UqDesign::sobol`]: a Saltelli design for first-order and total Sobol
+  indices (`raffles::sensitivity::SobolSampleLayout`).
+- [`UqDesign::evaluate`]: runs the caller's closure at every point on the
+  [`super::ensemble`] runner (in order, worker-count independent).
+- [`UqReport::analyse`]: output mean, total sd, the part of the variance
+  that is the runs' own Monte Carlo noise, empirical quantiles, and per
+  input Pearson / Spearman correlations and a marginal least-squares slope
+  (sampled designs), or Sobol indices (Sobol designs).
+- [`DirectPerturbation`]: the central-difference derivative the sampled
+  slope is checked against.
+
+# Monte Carlo noise is separated, not ignored
+
+Each output carries its own statistical `σ_i`. The observed output
+variance is input variance **plus** that noise, so
+`var_inputs ≈ var_total − mean(σ_i²)` is reported beside the total, and
+the noise fraction is stated. Sensitivity indices from noise-dominated
+outputs are not interpretable, and the report says when that is the case
+rather than quoting them bare.
+
+# V&V gate (from #498, fixed in advance)
+
+On a case with a known analytic sensitivity (a bare sphere's `k` against
+density), the sampled sensitivity matches the analytic or
+direct-perturbation value within its uncertainty: here, the marginal
+least-squares slope agrees with [`DirectPerturbation`] at
+`|z| ≤ 2` ([`DirectPerturbation::agreement`]).
+
+**Result: NOT YET MEASURED (testing deferred by maintainer, 2026-10-03).**
+Protocol: `verification_and_validation/stats_epic_493/498_uq_sensitivity.md`.
+
+```rust
+pub mod uq { /* ... */ }
+```
+
+### Types
+
+#### Struct `UncertainInput`
+
+One uncertain input.
+
+```rust
+pub struct UncertainInput {
+    pub name: String,
+    pub distribution: raffles::distributions::Distribution,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `name` | `String` | How the input is named in reports. |
+| `distribution` | `raffles::distributions::Distribution` | Its distribution, in the input's own unit. |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **ByRef**
+  - ```rust
+    fn by_ref(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> UncertainInput { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **DistributionExt**
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Imply**
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &UncertainInput) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Enum `DesignKind`
+
+How a design was built, which decides what can be estimated from it.
+
+```rust
+pub enum DesignKind {
+    Sampled,
+    Sobol(raffles::sensitivity::SobolSampleLayout),
+}
+```
+
+##### Variants
+
+###### `Sampled`
+
+Independent or stratified samples: correlations and slopes.
+
+###### `Sobol`
+
+A Saltelli stack for Sobol indices.
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `raffles::sensitivity::SobolSampleLayout` |  |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Boilerplate**
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **ByRef**
+  - ```rust
+    fn by_ref(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> DesignKind { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **DistributionExt**
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Imply**
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &DesignKind) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Struct `UqDesign`
+
+A set of input points to run the model at.
+
+```rust
+pub struct UqDesign {
+    pub inputs: Vec<UncertainInput>,
+    pub points: Vec<Vec<f64>>,
+    pub kind: DesignKind,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `inputs` | `Vec<UncertainInput>` | The inputs, in column order. |
+| `points` | `Vec<Vec<f64>>` | `points[j][i]`: run `j`'s value of input `i`, in the input's unit. |
+| `kind` | `DesignKind` | How the points were generated. |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn sampled(inputs: Vec<UncertainInput>, sampler: &Sampler, master_seed: i64) -> Result<Self, String> { /* ... */ }
+  ```
+  Map `sampler`'s unit-hypercube design through each input's inverse CDF.
+
+- ```rust
+  pub fn sobol(inputs: Vec<UncertainInput>, base_samples: usize, master_seed: i64) -> Result<Self, String> { /* ... */ }
+  ```
+  A Saltelli design for Sobol indices: `base_samples · (k + 2)` runs.
+
+- ```rust
+  pub fn evaluate<F>(self: &Self, workers: usize, model: F) -> Vec<(f64, f64)>
+where
+    F: Fn(&[f64], usize) -> (f64, f64) + Sync { /* ... */ }
+  ```
+  Run `model(point, index) -> (value, sigma)` at every point on `workers`
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **ByRef**
+  - ```rust
+    fn by_ref(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> UqDesign { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **DistributionExt**
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Imply**
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &UqDesign) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Struct `InputSensitivity`
+
+One input's sensitivity measures from a sampled design.
+
+```rust
+pub struct InputSensitivity {
+    pub name: String,
+    pub pearson: f64,
+    pub spearman: f64,
+    pub slope: (f64, f64),
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `name` | `String` | The input's name. |
+| `pearson` | `f64` | Pearson correlation of output with input. |
+| `spearman` | `f64` | Spearman rank correlation. |
+| `slope` | `(f64, f64)` | Marginal least-squares slope `d(output)/d(input)` with its 1σ — the<br>quantity the #498 gate compares with a direct perturbation. Marginal:<br>other inputs' variation is in the residual, which is correct for<br>independent inputs and inflates the slope's error otherwise. |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **ByRef**
+  - ```rust
+    fn by_ref(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> InputSensitivity { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **DistributionExt**
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Imply**
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &InputSensitivity) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Struct `UqReport`
+
+What [`UqReport::analyse`] measured.
+
+```rust
+pub struct UqReport {
+    pub n: usize,
+    pub mean: f64,
+    pub sd_total: f64,
+    pub mc_noise_variance: f64,
+    pub sd_inputs: f64,
+    pub noise_fraction: f64,
+    pub quantiles: [f64; 3],
+    pub sensitivities: Vec<InputSensitivity>,
+    pub sobol: Option<raffles::sensitivity::SobolIndices>,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `n` | `usize` | Number of runs. |
+| `mean` | `f64` | Mean output. |
+| `sd_total` | `f64` | Total sample sd of the outputs. |
+| `mc_noise_variance` | `f64` | `mean(σ_i²)`: the runs' own Monte Carlo noise variance. |
+| `sd_inputs` | `f64` | `sqrt(max(0, sd_total² − mc_noise_variance))`: the spread attributable<br>to the inputs. |
+| `noise_fraction` | `f64` | `mc_noise_variance / sd_total²` (≥ 0.5 means noise-dominated: the<br>sensitivity measures are not interpretable). |
+| `quantiles` | `[f64; 3]` | Empirical 2.5 %, 50 %, 97.5 % quantiles of the outputs. |
+| `sensitivities` | `Vec<InputSensitivity>` | Per-input measures (sampled designs only). |
+| `sobol` | `Option<raffles::sensitivity::SobolIndices>` | Sobol indices (Sobol designs only). |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn analyse(design: &UqDesign, outputs: &[(f64, f64)]) -> Result<Self, String> { /* ... */ }
+  ```
+  Analyse `outputs[j] = (value, sigma)` for `design.points[j]`.
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **ByRef**
+  - ```rust
+    fn by_ref(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> UqReport { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **DistributionExt**
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Imply**
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &UqReport) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Struct `DirectPerturbation`
+
+A central-difference derivative from two independent runs at `x0 ± dx`.
+
+```rust
+pub struct DirectPerturbation {
+    pub derivative: f64,
+    pub sigma: f64,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `derivative` | `f64` | `(v₊ − v₋) / (2 dx)`. |
+| `sigma` | `f64` | `sqrt(σ₊² + σ₋²) / (2 dx)` — statistical only; the truncation error of<br>the central difference is `O(dx²)` and is the caller's to keep small. |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn new(dx: f64, plus: (f64, f64), minus: (f64, f64)) -> Self { /* ... */ }
+  ```
+  From the runs at `x0 + dx` (`plus`) and `x0 − dx` (`minus`), each
+
+- ```rust
+  pub fn agreement(self: &Self, slope: (f64, f64)) -> (f64, bool) { /* ... */ }
+  ```
+  `(z, agrees)` of a sampled slope `(value, sigma)` against this
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Boilerplate**
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **ByRef**
+  - ```rust
+    fn by_ref(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> DirectPerturbation { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **DistributionExt**
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Imply**
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &DirectPerturbation) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+### Constants and Statics
+
+#### Constant `AGREEMENT_Z_BAND`
+
+`|z|` band for the direct-perturbation agreement gate, fixed in advance.
+
+```rust
+pub const AGREEMENT_Z_BAND: f64 = 2.0;
 ```
 
 ## Module `prelude`
@@ -56501,6 +61547,18 @@ pub use crate::physics::compute::ThreadCount;
 pub use crate::physics::keff::run_keff;
 ```
 
+#### Re-export `GenerationReport`
+
+```rust
+pub use crate::physics::keff::GenerationReport;
+```
+
+#### Re-export `HistoryCounts`
+
+```rust
+pub use crate::physics::keff::HistoryCounts;
+```
+
 #### Re-export `KeffResult`
 
 ```rust
@@ -56511,6 +61569,12 @@ pub use crate::physics::keff::KeffResult;
 
 ```rust
 pub use crate::physics::keff::KeffSettings;
+```
+
+#### Re-export `PowerIteration`
+
+```rust
+pub use crate::physics::keff::PowerIteration;
 ```
 
 #### Re-export `search_for_keff`
@@ -57127,6 +62191,108 @@ pub use crate::perf_report::PerfRow;
 
 ```rust
 pub use crate::NjoyError;
+```
+
+#### Re-export `run_seeds`
+
+```rust
+pub use crate::stats::ensemble::run_seeds;
+```
+
+#### Re-export `EnsembleReport`
+
+```rust
+pub use crate::stats::ensemble::EnsembleReport;
+```
+
+#### Re-export `SeedRun`
+
+```rust
+pub use crate::stats::ensemble::SeedRun;
+```
+
+#### Re-export `KeffUncertainty`
+
+```rust
+pub use crate::stats::correlated_sigma::KeffUncertainty;
+```
+
+#### Re-export `TallyBatchRecorder`
+
+```rust
+pub use crate::stats::correlated_sigma::TallyBatchRecorder;
+```
+
+#### Re-export `SourceConvergence`
+
+```rust
+pub use crate::stats::convergence::SourceConvergence;
+```
+
+#### Re-export `learned_weight_windows`
+
+```rust
+pub use crate::stats::learned_importance::learned_weight_windows;
+```
+
+#### Re-export `FomComparison`
+
+```rust
+pub use crate::stats::learned_importance::FomComparison;
+```
+
+#### Re-export `LearnedImportanceSettings`
+
+```rust
+pub use crate::stats::learned_importance::LearnedImportanceSettings;
+```
+
+#### Re-export `VrArm`
+
+```rust
+pub use crate::stats::learned_importance::VrArm;
+```
+
+#### Re-export `DirectPerturbation`
+
+```rust
+pub use crate::stats::uq::DirectPerturbation;
+```
+
+#### Re-export `UncertainInput`
+
+```rust
+pub use crate::stats::uq::UncertainInput;
+```
+
+#### Re-export `UqDesign`
+
+```rust
+pub use crate::stats::uq::UqDesign;
+```
+
+#### Re-export `UqReport`
+
+```rust
+pub use crate::stats::uq::UqReport;
+```
+
+#### Re-export `SurrogatePrediction`
+
+```rust
+pub use crate::stats::sweep::SurrogatePrediction;
+```
+
+#### Re-export `SweepRun`
+
+```rust
+pub use crate::stats::sweep::SweepRun;
+```
+
+#### Re-export `SweepSurrogate`
+
+```rust
+pub use crate::stats::sweep::SweepSurrogate;
 ```
 
 ## Re-exports

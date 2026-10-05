@@ -8,7 +8,7 @@
 //! the previous one stays on screen, placed in world coordinates, so panning
 //! never waits.
 
-use dhoby_ghaut::web_demo::view::{apply_zoom, scale_bar, zoom_buttons, View};
+use dhoby_ghaut::web_demo::view::{apply_zoom, scale_bar_sized, zoom_buttons_sized, View};
 use egui::{Color32, Pos2, Rect, RichText, TextureHandle, TextureOptions, Vec2};
 use outram_mc_libs::geometry::plot::{ImageData, PlotBasis};
 
@@ -173,11 +173,11 @@ impl SliceView {
                 rect.center(),
                 egui::Align2::CENTER_CENTER,
                 "Assembling the geometry…",
-                egui::FontId::proportional(18.0),
+                egui::FontId::proportional(crate::app::fs(18.0)),
                 Color32::DARK_GRAY,
             );
         }
-        scale_bar(&painter, rect, &self.view);
+        scale_bar_sized(&painter, rect, &self.view, crate::app::fs(12.0));
         let label = format!(
             "{} slice at {} = {:.1} cm{}",
             self.basis.name().to_uppercase(),
@@ -197,10 +197,10 @@ impl SliceView {
             rect.left_bottom() + Vec2::new(8.0, -30.0),
             egui::Align2::LEFT_BOTTOM,
             label,
-            egui::FontId::proportional(13.0),
+            egui::FontId::proportional(crate::app::fs(13.0)),
             Color32::BLACK,
         );
-        if let Some(z) = zoom_buttons(ui, rect) {
+        if let Some(z) = zoom_buttons_sized(ui, rect, crate::app::fs(18.0)) {
             apply_zoom(&mut self.view, rect, z);
         }
         if (self.view.centre, self.view.scale) != before {

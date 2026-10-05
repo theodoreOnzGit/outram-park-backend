@@ -92,6 +92,131 @@ fn step_preset(app: &App, step: WizardStep) -> Option<Preset> {
     }
 }
 
+/// Which materials the 3D view draws, and from where, on entering a step:
+/// Step 1 the bed alone (reflector and helium hidden), Step 2 one fuel pebble
+/// up close, Step 3 the reflector and its borings in X-ray. The review gate,
+/// Step 4 and Step 5 open on the 2D slices (the drawing rule's minimum set).
+fn apply_3d_preset(app: &mut App, step: WizardStep) {
+    use crate::engine::Shading;
+    use nee_soon::htr10_rmc::core_model::mat;
+    let Some(a) = app.assembly.clone() else {
+        return;
+    };
+    let n = crate::engine::palette().len();
+    let pebble = |i: usize| i <= mat::GRAPHITE || i == mat::HOMOG_DUMMY;
+    let v = &mut app.view3d;
+    match step {
+        // The reactor in half-section (the near half, y < 0, cut away), the
+        // bed inside it.
+        WizardStep::PebbleBed => {
+            v.visible = (0..n).map(|i| i != mat::HELIUM).collect();
+            v.shading = Shading::Solid;
+            v.cut = Some((1, 0.0, true));
+            v.frame([0.0, 0.0, 0.5 * (a.z_range[0] + a.z_range[1])], 0.5 * (a.z_range[1] - a.z_range[0]));
+            v.yaw = -1.1;
+            v.pitch = 0.3;
+            app.show_3d = true;
+        }
+        // One fuel pebble cut through its centre: the TRISO particles in the
+        // cut face, its neighbours behind.
+        WizardStep::PebbleDesign => {
+            let p = a.particle.or(a.pebble).unwrap_or([0.0; 3]);
+            v.visible = (0..n).map(|i| i != mat::HELIUM).collect();
+            v.shading = Shading::Solid;
+            v.cut = Some((1, p[1], true));
+            v.frame(a.pebble.unwrap_or([0.0; 3]), 4.0);
+            v.yaw = -1.3;
+            v.pitch = 0.25;
+            app.show_3d = true;
+        }
+        // The reflector in half-section, the bed hidden: the borings, the
+        // zones, the cavity and the chutes.
+        WizardStep::Reflector => {
+            v.visible = (0..n).map(|i| i != mat::HELIUM && !pebble(i)).collect();
+            v.shading = Shading::Solid;
+            v.cut = Some((1, 0.0, true));
+            v.frame([0.0, 0.0, 0.5 * (a.z_range[0] + a.z_range[1])], 0.5 * (a.z_range[1] - a.z_range[0]));
+            v.yaw = -1.1;
+            v.pitch = 0.3;
+            app.show_3d = true;
+        }
+        _ => app.show_3d = false,
+    }
+}
+
+/// The outliner: show or hide each material in the 3D view.
+fn outliner(app: &mut App, ui: &mut egui::Ui) {
+    use nee_soon::htr10_rmc::core_model::mat;
+    let pal = crate::engine::palette();
+    if app.view3d.visible.len() != pal.len() {
+        app.view3d.visible = vec![true; pal.len()];
+    }
+    ui.horizontal_wrapped(|ui| {
+        if ui.button("Show all").clicked() {
+            app.view3d.visible.iter_mut().for_each(|v| *v = true);
+        }
+        if ui.button("Hide helium").clicked() {
+            app.view3d.visible[mat::HELIUM] = false;
+        }
+        if ui.button("Pebbles only").clicked() {
+            for (i, v) in app.view3d.visible.iter_mut().enumerate() {
+                *v = i <= mat::GRAPHITE || i == mat::HOMOG_DUMMY;
+            }
+        }
+        if ui.button("Reflector only").clicked() {
+            for (i, v) in app.view3d.visible.iter_mut().enumerate() {
+                *v = i > mat::HELIUM && i != mat::HOMOG_DUMMY;
+            }
+        }
+    });
+    egui::CollapsingHeader::new("Materials (outliner)")
+        .default_open(false)
+        .show(ui, |ui| {
+            for (i, (c, label)) in pal.iter().enumerate() {
+                if label.is_empty() {
+                    continue;
+                }
+                ui.horizontal(|ui| {
+                    let (r, _) =
+                        ui.allocate_exact_size(egui::vec2(14.0, 14.0), egui::Sense::hover());
+                    ui.painter()
+                        .rect_filled(r, 2.0, Color32::from_rgb(c.r, c.g, c.b));
+                    ui.checkbox(&mut app.view3d.visible[i], *label);
+                });
+            }
+        });
+    ui.separator();
+    ui.label(RichText::new("Section cut").strong());
+    let v = &mut app.view3d;
+    ui.horizontal_wrapped(|ui| {
+        let current = v.cut.map(|c| c.0);
+        if ui.selectable_label(current.is_none(), "Off").clicked() {
+            v.cut = None;
+        }
+        for (axis, name) in [(0, "X"), (1, "Y"), (2, "Z")] {
+            if ui.selectable_label(current == Some(axis), name).clicked() {
+                let keep = v.cut.map_or(true, |c| c.2);
+                let offset = if current == Some(axis) { v.cut.map_or(0.0, |c| c.1) } else { v.target[axis] };
+                v.cut = Some((axis, offset, keep));
+            }
+        }
+        if let Some(c) = v.cut.as_mut() {
+            if ui.button("Flip").on_hover_text("Keep the other side").clicked() {
+                c.2 = !c.2;
+            }
+        }
+    });
+    if let Some(c) = v.cut.as_mut() {
+        ui.horizontal(|ui| {
+            ui.label("Plane at [cm]");
+            ui.add(egui::DragValue::new(&mut c.1).speed(0.5));
+        });
+    }
+    if v.shading == crate::engine::Shading::XRay && v.cut.is_some() {
+        ui.small("The section applies to Solid shading; X-ray shows everything visible.");
+    }
+}
+
 fn cites_for(app: &App, step: WizardStep) -> Vec<Citation> {
     let r = &app.recipe;
     match step {
@@ -130,7 +255,9 @@ pub fn panes(app: &mut App, ui: &mut egui::Ui) {
         .show_collapsible(ui, &mut lit_open, |ui| {
             egui::ScrollArea::vertical().show(ui, |ui| {
                 let geo = &app.geo;
-                app.lit.show(ui, &cites, &mut |r| geo.send(r));
+                if app.lit.show(ui, &cites, &mut |r| geo.send(r)) {
+                    app.open_picker(crate::app::Pick::KovanRoot);
+                }
             });
         });
     app.lit_open = lit_open;
@@ -201,10 +328,28 @@ fn main_view(app: &mut App, ui: &mut egui::Ui) {
                     let rect = app.main_rect;
                     app.slice.go(&p, rect);
                 }
+                apply_3d_preset(app, step);
                 app.shown_step = Some(step);
             }
+            ui.horizontal(|ui| {
+                ui.add_space(8.0);
+                ui.selectable_value(
+                    &mut app.show_3d,
+                    true,
+                    RichText::new("3D view").size(crate::app::fs(13.0)),
+                );
+                ui.selectable_value(
+                    &mut app.show_3d,
+                    false,
+                    RichText::new("2D slice").size(crate::app::fs(13.0)),
+                );
+            });
             let geo = &app.geo;
-            let rect = app.slice.show(ui, now, have, &mut |r| geo.send(r));
+            let rect = if app.show_3d {
+                app.view3d.show(ui, now, have, &mut |r| geo.send(r))
+            } else {
+                app.slice.show(ui, now, have, &mut |r| geo.send(r))
+            };
             app.main_rect = rect;
         }
     }
@@ -282,9 +427,16 @@ fn settings(app: &mut App, ui: &mut egui::Ui) {
     match app.step {
         WizardStep::NuclearData => {
             ui.label("ENDF folder (unzipped tapes)");
-            ui.text_edit_singleline(&mut app.endf_dir);
+            ui.label(RichText::new(&app.endf_dir).color(Color32::GRAY));
             ui.horizontal(|ui| {
-                if ui.button("Scan").clicked() {
+                if ui
+                    .button("Choose folder...")
+                    .on_hover_text("Pick the folder of unzipped ENDF tapes")
+                    .clicked()
+                {
+                    app.open_picker(crate::app::Pick::EndfFolder);
+                }
+                if ui.button("Rescan").clicked() {
                     app.scan_endf();
                 }
                 if app.scanning {
@@ -417,10 +569,29 @@ fn settings(app: &mut App, ui: &mut egui::Ui) {
     ) {
         ui.separator();
         ui.label(RichText::new("Main view").strong());
-        plane_controls(ui, &mut app.slice);
         ui.horizontal(|ui| {
+            ui.selectable_value(&mut app.show_3d, true, "3D view");
+            ui.selectable_value(&mut app.show_3d, false, "2D slice");
+        });
+        if app.show_3d {
+            outliner(app, ui);
+        } else {
+            slice_controls(app, ui);
+        }
+    }
+    finish_settings(app, ui, changed);
+}
+
+/// The 2D slice's plane, PNG export and legend.
+fn slice_controls(app: &mut App, ui: &mut egui::Ui) {
+    {
+        plane_controls(ui, &mut app.slice);
+        ui.horizontal_wrapped(|ui| {
             ui.label("PNG folder");
-            ui.text_edit_singleline(&mut app.out_dir);
+            ui.label(RichText::new(&app.out_dir).color(Color32::GRAY));
+            if ui.button("Choose...").clicked() {
+                app.open_picker(crate::app::Pick::PngFolder);
+            }
         });
         if ui.button("Export this view as PNG").clicked() {
             export_view(app);
@@ -441,6 +612,10 @@ fn settings(app: &mut App, ui: &mut egui::Ui) {
             }
         });
     }
+}
+
+/// The re-assemble prompt and the edited flag, after every step's settings.
+fn finish_settings(app: &mut App, ui: &mut egui::Ui, changed: bool) {
     if app.geometry_stale() && !app.assembling {
         ui.separator();
         ui.colored_label(
@@ -635,12 +810,13 @@ fn monte_carlo(app: &mut App, ui: &mut egui::Ui) -> bool {
     if ui
         .add_enabled(
             ready && !busy,
-            egui::Button::new(RichText::new(format!("Run: {label}")).size(18.0)),
+            egui::Button::new(RichText::new(format!("Run: {label}")).size(crate::app::fs(18.0))),
         )
         .clicked()
     {
         let mc = &app.recipe.monte_carlo;
         let job = KeffJob {
+            live: app.mc.live.clone(),
             label,
             particles: mc.particles,
             inactive: mc.inactive,

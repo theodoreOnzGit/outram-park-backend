@@ -3,11 +3,11 @@
 //! The UI thread only draws and handles input (the no-lag HARD RULE); every
 //! request below runs here, on the thread `web_demo::link::start_native`
 //! starts, and posts its result back as an [`Ev`]. Each request is one
-//! self-contained job. A k_eff run is the longest: the CSG driver
-//! (`run_keff_csg_hybrid`) runs every generation in one call and returns the
-//! per-generation k afterwards, so the UI shows a running clock and the
-//! console when the run ends (per-generation streaming would need a stepped
-//! CSG power iteration in `outram-mc-libs`; gh:#579).
+//! self-contained job. A k_eff run is the longest. ~~The CSG driver returns
+//! the per-generation k only at the end, so the console fills then (gh:#579).~~
+//! **UPDATED 2026-10-05:** it now runs through
+//! `run_keff_csg_hybrid_with_progress`, which reports every generation as it
+//! finishes (as `openmc.run()` prints one), so the console fills live.
 //!
 //! Two engines run: a **geometry** engine (assembly, slices, PDF pages) and a
 //! **physics** engine (data and k_eff), sharing the assembled core as an
@@ -34,7 +34,7 @@ use outram_mc_libs::geometry::position::Position;
 use outram_mc_libs::material::material::Material;
 use outram_mc_libs::material::nuclide::Nuclide;
 use outram_mc_libs::physics::keff::{ComputeType, KeffSettings, ThreadCount};
-use outram_mc_libs::physics::transport_csg::run_keff_csg_hybrid;
+use outram_mc_libs::physics::transport_csg::{run_keff_csg_hybrid_with_progress, GenerationProgress};
 use outram_mc_libs::run_diagnostics::RunDiagnostics;
 use outram_mc_libs::tally::filter::{EnergyFilter, FilterKind};
 use outram_mc_libs::tally::tally::{ScoreType, Tally, TallyBin};
@@ -68,9 +68,16 @@ impl TapeInfo {
     }
 }
 
+/// Generations of the running k_eff, written by the physics thread as each
+/// finishes and read by the UI every frame (shared mutable state is
+/// `Arc<RwLock<T>>`, the workspace rule).
+pub type LiveGenerations = Arc<std::sync::RwLock<Vec<GenerationProgress>>>;
+
 /// The k_eff job of Step 5.
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug)]
 pub struct KeffJob {
+    /// Where each finished generation is appended while the run goes.
+    pub live: LiveGenerations,
     pub label: String,
     pub particles: usize,
     pub inactive: usize,
@@ -143,6 +150,8 @@ pub enum Req {
         width: [f64; 2],
         pixels: [usize; 2],
     },
+    /// A ray-traced 3D view of the assembled geometry (the 3D viewport).
+    Render3d(View3dJob),
     /// The same slice with title, legend and axes, written as a PNG.
     ExportPng {
         basis: PlotBasis,
@@ -165,6 +174,11 @@ pub enum Ev {
         needed: Vec<NeededTape>,
     },
     Assembled(AssemblyInfo, Arc<AssembledCore>),
+    View3d {
+        id: u64,
+        image: ImageData,
+        seconds: f64,
+    },
     Slice {
         id: u64,
         basis: PlotBasis,
@@ -220,7 +234,44 @@ impl NativeEngine for Engine {
     type Req = Req;
     type Ev = Ev;
 
+    /// Every request runs under `catch_unwind`: a panic in a solver call
+    /// (an assembly the builder refuses, a data load that asserts) becomes an
+    /// [`Ev::Error`] the UI shows, and this thread stays alive for the next
+    /// request instead of dying silently and leaving the UI waiting.
     fn handle(&mut self, req: Req, post: &mut impl FnMut(Ev)) {
+        let what = req.name();
+        let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+            self.handle_inner(req, post)
+        }));
+        if let Err(e) = result {
+            let msg = e
+                .downcast_ref::<String>()
+                .cloned()
+                .or_else(|| e.downcast_ref::<&str>().map(|s| (*s).to_string()))
+                .unwrap_or_else(|| "unknown panic".into());
+            post(Ev::Error(format!("{what} failed: {msg}")));
+        }
+    }
+}
+
+impl Req {
+    /// What the request does, for error messages.
+    pub fn name(&self) -> &'static str {
+        match self {
+            Req::ScanEndf { .. } => "ENDF scan",
+            Req::Assemble { .. } => "geometry assembly",
+            Req::UseCore(_) => "geometry hand-over",
+            Req::Render { .. } => "slice rendering",
+            Req::Render3d(_) => "3D rendering",
+            Req::ExportPng { .. } => "PNG export",
+            Req::RunKeff(_) => "Monte Carlo run",
+            Req::RenderPage { .. } => "PDF page rendering",
+        }
+    }
+}
+
+impl Engine {
+    fn handle_inner(&mut self, req: Req, post: &mut impl FnMut(Ev)) {
         match req {
             Req::ScanEndf { dir, mut needed } => {
                 let tapes = scan_endf(&dir);
@@ -310,6 +361,19 @@ impl NativeEngine for Engine {
                         path.display()
                     ))),
                 }
+            }
+            Req::Render3d(job) => {
+                let Some(core) = &self.core else {
+                    post(Ev::Error("no geometry assembled yet".into()));
+                    return;
+                };
+                let t = Instant::now();
+                let image = render_3d(&core.geometry, &job);
+                post(Ev::View3d {
+                    id: job.id,
+                    image,
+                    seconds: t.elapsed().as_secs_f64(),
+                });
             }
             Req::RunKeff(job) => self.run_keff(job, post),
             Req::RenderPage { pdf, page } => post(render_page(&pdf, page)),
@@ -406,7 +470,11 @@ impl Engine {
         let majorant = bed_majorant(&data.materials, &data.nuclides);
         let mesh = fissile_entropy_mesh(core);
         let t = Instant::now();
-        let res = run_keff_csg_hybrid(
+        if let Ok(mut l) = job.live.write() {
+            l.clear();
+        }
+        let live = job.live.clone();
+        let res = run_keff_csg_hybrid_with_progress(
             &core.geometry,
             &data.materials,
             &data.nuclides,
@@ -415,6 +483,11 @@ impl Engine {
             fissile_source_box(core),
             &settings,
             Some(&mut tally),
+            move |g| {
+                if let Ok(mut l) = live.write() {
+                    l.push(g);
+                }
+            },
         );
         let transport_s = t.elapsed().as_secs_f64();
         let n = job.active as u64;
@@ -446,6 +519,94 @@ impl Engine {
             phi_per_lethargy,
             notes: data.notes.clone(),
         }));
+    }
+}
+
+/// How the 3D viewport draws.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Shading {
+    /// Phong-shaded opaque surfaces (OpenMC's solid ray trace).
+    Solid,
+    /// Every material faintly transparent, boundaries outlined (OpenMC's
+    /// wireframe ray trace, "x-ray").
+    XRay,
+}
+
+/// One 3D render: the camera, and which materials are drawn.
+#[derive(Clone, Debug, PartialEq)]
+pub struct View3dJob {
+    pub id: u64,
+    pub eye: [f64; 3],
+    pub look_at: [f64; 3],
+    pub pixels: [usize; 2],
+    /// `None` is perspective (degrees of horizontal field of view in
+    /// `fov_deg`); `Some(width)` is orthographic, `width` cm across.
+    pub ortho_width: Option<f64>,
+    pub fov_deg: f64,
+    pub shading: Shading,
+    /// Per material index: drawn or hidden (the cutaway).
+    pub visible: Vec<bool>,
+    /// A section plane `(normal into the kept side, offset)`; solid shading
+    /// only (`outram-blender`'s `ClipPlane`, an extension of the OpenMC port).
+    pub clip: Option<([f64; 3], f64)>,
+}
+
+/// Ray-trace `job` through `geom` with `outram_mc_libs::geometry::plot`'s
+/// port of OpenMC's ray-traced plots (rows in parallel). Hidden materials are
+/// left out of the solid plot's opaque set, or given a near-zero attenuation
+/// in x-ray mode, so the view sees through them.
+pub fn render_3d(
+    geom: &outram_mc_libs::geometry::geometry::Geometry,
+    job: &View3dJob,
+) -> ImageData {
+    use outram_mc_libs::geometry::plot::{
+        material_count, Camera, ClipPlane, ColourScheme, PlotColourBy, Projection, Rgb, SolidRayTracePlot,
+        WireframeRayTracePlot, DEFAULT_PLOTTER_SEED,
+    };
+    use outram_mc_libs::geometry::position::Direction;
+    let pal = palette();
+    let n = material_count(geom).max(pal.len());
+    let mut seed = DEFAULT_PLOTTER_SEED;
+    let mut scheme = ColourScheme::new(PlotColourBy::Material, n, &mut seed)
+        .with_background(Rgb::new(48, 48, 52));
+    for (i, (c, _)) in pal.iter().enumerate() {
+        scheme = scheme.with_colour(i, *c);
+    }
+    let camera = Camera {
+        position: Position::new(job.eye[0], job.eye[1], job.eye[2]),
+        look_at: Position::new(job.look_at[0], job.look_at[1], job.look_at[2]),
+        up: Direction::new(0.0, 0.0, 1.0),
+        pixels: job.pixels,
+        projection: match job.ortho_width {
+            Some(width) => Projection::Orthographic { width },
+            None => Projection::Perspective {
+                horizontal_fov_deg: job.fov_deg,
+            },
+        },
+    };
+    let shown = |i: usize| job.visible.get(i).copied().unwrap_or(true);
+    match job.shading {
+        Shading::Solid => {
+            let mut plot = SolidRayTracePlot::new(camera, n);
+            for i in (0..n).filter(|&i| shown(i)) {
+                plot = plot.with_opaque(i);
+            }
+            plot.diffuse_fraction = 0.35;
+            if let Some((normal, offset)) = job.clip {
+                plot = plot.with_clip(ClipPlane { normal, offset });
+            }
+            plot.create_image(geom, &scheme)
+        }
+        Shading::XRay => {
+            let mut plot = WireframeRayTracePlot::new(camera, n);
+            for i in 0..n {
+                plot = plot.with_xs(i, if shown(i) { 0.02 } else { 0.0 });
+            }
+            // Outline only what is shown: hidden pebbles' boundaries would
+            // otherwise cover the picture.
+            plot.wireframe_ids = (0..n).filter(|&i| shown(i)).collect();
+            plot.create_image(geom, &scheme)
+        }
     }
 }
 
@@ -622,27 +783,59 @@ fn render_page(pdf: &Path, page: usize) -> Ev {
     let pages = doc.page_count();
     let page = page.min(pages.saturating_sub(1));
     match rasterize_page(&doc, page, 110.0) {
-        Ok(px) => {
-            let (w, h) = (px.w as usize, px.h as usize);
-            let rgba = if px.alpha {
-                px.samples.clone()
-            } else {
-                px.samples
-                    .chunks(3)
-                    .flat_map(|c| [c[0], c[1], c[2], 255])
-                    .collect()
-            };
-            Ev::Page {
+        Ok(px) => match pixmap_rgba(&px) {
+            Some(rgba) => Ev::Page {
                 pdf: pdf.to_path_buf(),
                 page,
                 pages,
-                width: w,
-                height: h,
+                width: px.w as usize,
+                height: px.h as usize,
                 rgba,
-            }
-        }
+            },
+            None => Ev::Error(format!(
+                "page {} came back in an unexpected pixel format (n = {}, alpha = {}, stride = {})",
+                page + 1,
+                px.n,
+                px.alpha,
+                px.stride
+            )),
+        },
         Err(e) => Ev::Error(format!("could not render page {}: {e:?}", page + 1)),
     }
+}
+
+/// RGBA bytes from a `kopitiam-pdf` pixmap of any layout: grey, RGB or CMYK,
+/// with or without alpha, rows padded to `stride`. `None` (never a panic) if
+/// the buffer is shorter than its own header says.
+fn pixmap_rgba(px: &kopitiam_pdf::mupdf::Pixmap) -> Option<Vec<u8>> {
+    let (w, h, n) = (px.w as usize, px.h as usize, px.n as usize);
+    let colour = n.checked_sub(usize::from(px.alpha))?;
+    if n == 0
+        || !matches!(colour, 1 | 3 | 4)
+        || px.stride < w * n
+        || px.samples.len() < px.stride * h.saturating_sub(1) + w * n
+    {
+        return None;
+    }
+    let mut out = Vec::with_capacity(w * h * 4);
+    for row in 0..h {
+        let line = &px.samples[row * px.stride..row * px.stride + w * n];
+        for p in line.chunks_exact(n) {
+            let a = if px.alpha { p[n - 1] } else { 255 };
+            let [r, g, b] = match colour {
+                1 => [p[0]; 3],
+                3 => [p[0], p[1], p[2]],
+                // CMYK, naive conversion: good enough to read a page by.
+                _ => {
+                    let k = 255 - u16::from(p[3]);
+                    let f = |c: u8| ((255 - u16::from(c)) * k / 255) as u8;
+                    [f(p[0]), f(p[1]), f(p[2])]
+                }
+            };
+            out.extend_from_slice(&[r, g, b, a]);
+        }
+    }
+    Some(out)
 }
 
 #[cfg(test)]

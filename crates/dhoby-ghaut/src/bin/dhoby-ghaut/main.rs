@@ -42,12 +42,12 @@ mod results;
 mod slice_view;
 #[cfg(not(any(target_os = "android", target_arch = "wasm32")))]
 mod steps_ui;
+#[cfg(not(any(target_os = "android", target_arch = "wasm32")))]
+mod view3d;
 
 #[cfg(any(target_os = "android", target_arch = "wasm32"))]
 fn main() {
-    eprintln!(
-        "dhoby-ghaut is a native desktop GUI; it is not built for Android or the browser."
-    );
+    eprintln!("dhoby-ghaut is a native desktop GUI; it is not built for Android or the browser.");
 }
 
 #[cfg(not(any(target_os = "android", target_arch = "wasm32")))]
@@ -91,7 +91,7 @@ fn main() -> Result<(), String> {
     }
     let options = eframe::NativeOptions {
         viewport: egui::ViewportBuilder::default()
-            .with_inner_size([1500.0, 950.0])
+            .with_inner_size([1900.0, 1150.0])
             .with_title("Dhoby Ghaut workbench"),
         ..Default::default()
     };
@@ -202,6 +202,7 @@ mod headless {
         let mc = r.monte_carlo.clone();
         let label = format!("Run {}", mc.runs.len() + 1);
         let job = KeffJob {
+            live: Default::default(),
             label: label.clone(),
             particles: mc.particles,
             inactive: mc.inactive,
