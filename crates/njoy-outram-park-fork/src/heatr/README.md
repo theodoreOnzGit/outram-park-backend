@@ -110,6 +110,17 @@ Write-up: `verification_and_validation/heatr_vs_njoy2016.md`.
   made visible rather than zeroed. V&V §5. Fe-58's MF=6 capture deposits
   its 208 keV photon deficit where NJOY deposits only the photon recoil
   (H6c). Numbers in `verification_and_validation/heatr_vs_njoy2016.md` §4.
+- **CORRECTED 2026-10-05 (#535): the ACE heating column is now NJOY's
+  HEATR, not `Kerma`.** `heatr.f90` is translated routine by routine in
+  `driver/` (`heatr::heatr`, cards via `HeatrInput::from_cards`; audit in
+  `verification_and_validation/heatr_upstream_audit.md`). Its output tape is
+  byte-identical to NJOY2016's on all 62 neutron evaluations in
+  `reference-data/endf/` at `local = 0` and at `local = 1, iprint = 2`, and on
+  8 committed regression decks (`tests/heatr_driver_vs_njoy2016.rs`, which also
+  compares the `viewr` plot file and the listing). `acer` and `interface`
+  take MT=301 from `heatr::heatr_kerma`. The negative-above-20-MeV and
+  208 keV capture notes above describe `Kerma`, which is no longer on the ACE
+  route; HEATR's own MT=301 is whatever NJOY's is. V&V §6.
 
 ## References
 

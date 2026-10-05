@@ -60,3 +60,25 @@ against NJOY2016's own HEATR tapes.
 
 The existing `Kerma`, `DamageEnergy` and `PhotonProduction` are left in place
 until the port is tested: they are what the ACE route uses today.
+
+## Result (2026-10-05)
+
+The plan was carried out: every routine in the table above now has a
+translation in `src/heatr/driver/` (`heatr::heatr`), including the ones marked
+**missing** or **partial** here, which describe the state *before* the port.
+Tested as planned, against NJOY2016's own HEATR output tapes: **byte-identical
+on all 62 neutron evaluations** in `reference-data/endf/` at `local = 0`
+and at `local = 1, iprint = 2`, and on 8 committed regression decks that also
+compare the `viewr` plot file and the listing. Methodology and numbers:
+`heatr_vs_njoy2016.md` §6. ~~The existing `Kerma` … are what the ACE route uses
+today.~~ The ACE route now uses `heatr::heatr_kerma`; `Kerma`, `DamageEnergy`
+and `PhotonProduction` remain as the reduced-order typed API.
+
+Deliberate divergences from upstream, all of which raise an error where
+upstream would carry on silently:
+
+- `sixbar` returns an error if the energy walk asks for more records than
+  a subsection holds. Upstream would read the next subsection's records.
+- Card or tape errors are `NjoyError` values, not `error()` aborts.
+
+None of these was triggered by any of the 62 evaluations.

@@ -140,6 +140,9 @@ impl Kerma {
     /// Not covered: an `nqa` override (HEATR card 4), MT=458's fission-Q
     /// adjustment, and `nheat`'s own continuum and MF=6 neutron means
     /// (`conbar`, `sixbar`), for which the kinematic H5 estimate stays.
+    /// For NJOY's MT=301 itself, with all of those, use
+    /// [`crate::heatr::heatr_kerma`] (the whole-module translation, byte-identical
+    /// to NJOY2016's HEATR); since 2026-10-05 `acer` and `interface` do.
     pub fn from_endf(
         tape: &crate::endf::tape::Tape,
         mat: i32,

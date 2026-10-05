@@ -358,8 +358,76 @@ and the kinematic estimate gives the outgoing neutrons more energy than NJOY's
 means do. With the clamp those points read 0 (a miss of exactly 1.00); without
 it they read negative (worst 1.51 on Fe-58, 1.64 on Si-28). The medians do not
 move. Both are wrong there; the unclamped value is the one that says by how
-much, and it is what NJOY's algorithm gives on our inputs. Until H6b part 2,
-**the ACE heating column of these nuclides is negative above ~20 MeV**.
+much, and it is what NJOY's algorithm gives on our inputs. ~~Until H6b part 2,
+**the ACE heating column of these nuclides is negative above ~20 MeV**.~~
+**CORRECTED 2026-10-05:** the ACE route now takes MT=301 from the whole-module
+port (section 6), so this paragraph describes `Kerma` only.
+
+### 6. HEATR ported whole: the output tape, byte for byte (2026-10-05, GitHub #535)
+
+Sections 4 and 5 compare `Kerma`, a model assembled from HEATR's pieces. This
+section compares a routine-by-routine translation of all of `heatr.f90`
+(`src/heatr/driver/`, entry point `heatr::heatr`; audit and routine map:
+`heatr_upstream_audit.md`).
+
+**Methodology.**
+
+- **Oracle:** NJOY2016 `ac5adf5f33`, built from source with gfortran 13.3.0.
+  Deck: `moder` → `reconr` (`err = 0.001`, 0 K) → `moder -22 32` (ASCII
+  PENDF) → `heatr` reading **that ASCII PENDF** (`nin = 32`) → `moder 33 34`.
+- **Ours:** `heatr(endf, pendf, input)` on the same ENDF tape and NJOY's
+  ASCII PENDF, cards parsed by `HeatrInput::from_cards`, tape written by
+  `Tape::write`.
+- **Why the ASCII PENDF on both sides.** From RECONR's binary tape NJOY's
+  HEATR sees energies the 7-figure text cannot hold, and the two codes then
+  differ where a grid energy and a threshold agree to the last bit in one and
+  not the other (measured: Si-28 MT=304, one point at 1.843139 MeV).
+- **Why MODER.** HEATR numbers its lines continuously; MODER restarts them
+  per section, as `Tape::write` does (#553). After MODER, columns 76-80 are
+  compared as well as 1-75.
+- **Criterion:** every line identical, no tolerance. Where the deck writes a
+  `viewr` plot file it is compared line for line too, and so is HEATR's
+  listing (from the `heatr...` banner to the next module) with only the CPU
+  time fields masked.
+- **Instrument:** `examples/heatr_driver_vs_njoy.rs` (per-MT word counts, whole
+  tape, plot, listing). **Gate:** `tests/heatr_driver_vs_njoy2016.rs` on the
+  committed decks and oracles in `reference-data/heatr/driver/`
+  (`regenerate.sh` rebuilds them).
+
+**Results.**
+
+| run | cards | tapes | result |
+|---|---|---|---|
+| sweep A | `local = 0`, `iprint = 0`; MT 302 303 304 318 402 442 443 444 445 446 447 | all 62 neutron evaluations in `reference-data/endf/` | **62 / 62 byte-identical** |
+| sweep B | `local = 1`, `iprint = 2` (kinematic check); MT 302 304 318 402 443 444 445 | the same 62 | **62 / 62 byte-identical** |
+| regression gate | 8 decks (table in the test's doc) | Be-9, H-2, Li-6, O-16, Si-28 (×3), Fe-58 | **8 / 8 identical**: tapes, the 13 850-line plot file, the listings; 3.7 s |
+
+The 62 cover H-1 to Pu-239 across ENDF/B-VII.0, -VII.1, -VIII.0, -VIII.1,
+JENDL-3.3 and TENDL-2023, including U-234, U-235 (VII.0 and VIII.0), three
+U-238 evaluations and Pu-239. The largest tape is U-235 ENDF/B-VIII.0 at
+**4 312 867 lines** (sweep A). The sweep tapes are too large to commit; the
+regression decks cover the code paths (user Q, energy-dependent `qbar`, user
+`ed`, two temperatures, MF=6 LAW=6 and LAW=7, Kalbach-Mann,
+charged-particle levels, the plot).
+
+**Defects found on the way, all in the port:** `hconvr` must overwrite the
+module's `za`/`awr` (`heatr.f90:4751-4752`; Fe-58's HEAD ZA differed);
+`qbar` parsing must keep values up to the last one above `-1e-9` (`nz0`,
+`:178-181`), not filter out every negative; and `Tape::write` was joining two
+temperatures of one MAT without the FEND/MEND that ends each occurrence.
+
+**What changed downstream.** `acer` (when the deck runs HEATR) and
+`interface` now take MT=301 from `heatr::heatr_kerma`, and the ACE heating
+number is `acefc.f90:5636-5645`'s `sigfig(sigfig(gety1(MT301), 7)/1e6/σt, 7)`.
+`tests/acer.rs::esz_heating_column_is_physical` re-measured on U-235: peak
+**142.8833 MeV**, against the evaluation's own estimate EFR (169.13 MeV,
+MF=1/458) × max σ_f/σ_t (0.84481) = 142.8830 MeV, **+2.0e-6**. Its old
+`[150, 200]` MeV band had been set from the earlier approximation and was
+replaced by that criterion, fixed before the run (flagged in the test).
+
+**Interpretation.** HEATR is verified against NJOY2016 to the byte on every
+neutron evaluation held here. That is verification of the translation, not
+validation of the heating physics or of the evaluations.
 
 ## What this does NOT establish
 
@@ -368,7 +436,8 @@ much, and it is what NJOY's algorithm gives on our inputs. Until H6b part 2,
   damage data is right — indeed Fe-58's capture photon data is shown to be
   208 keV short of its own Q.
 - **No human review.** Per `RESPONSIBLE_USE.md`, untrusted AI-assisted draft.
-- **Two nuclides, both mid-mass, at 0 K.** Says nothing about actinides (U-238's
+- ~~**Two nuclides, both mid-mass, at 0 K.**~~ (Sections 1-5. Section 6 covers
+  62 evaluations including the actinides, and two temperatures.) Says nothing about actinides (U-238's
   HEATR tape is 144 MB and is not committed; its deck is) or about temperature
   dependence.
 - **The KERMA comparison is asserted only below the first inelastic threshold.**
@@ -383,8 +452,9 @@ much, and it is what NJOY's algorithm gives on our inputs. Until H6b part 2,
   **CORRECTED 2026-10-05 (H6b part 1, section 5):** with `disbar` and
   `nheat`'s skip list the medians above threshold are 3.3e-4 (Fe-58) and
   2.3e-3 (Si-28) at `local = 1`, recorded and not asserted. Below the
-  threshold Si-28 is now asserted at both `local` settings. `conbar`,
-  `sixbar` and Fe-58's MF=6 capture (H6c) remain.
+  threshold Si-28 is now asserted at both `local` settings. ~~`conbar`,
+  `sixbar` and Fe-58's MF=6 capture (H6c) remain.~~ They remain missing from
+  `Kerma`; the whole-module port (section 6) has them and is byte-identical.
 - **The damage port remains deliberately partial**: no MF=4 anisotropy, no
   MT=447 disappearance recoil, no continuum or `(n,xn)` recoil. Sections 2 and 3
   above now quantify that rather than merely naming it.

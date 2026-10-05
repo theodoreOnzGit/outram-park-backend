@@ -1026,7 +1026,8 @@ Three things worth carrying forward:
   photons take it away; `QI` alone left it out. That was most of the "−75 %"
   above threshold the 2026-09-17 record could not separate, and once MT=442
   was complete it drove the energy-balance KERMA negative. `Kerma::from_endf`
-  applies `nheat`'s whole `q0` table and is what `acer` and `interface` use;
+  applies `nheat`'s whole `q0` table and ~~is what `acer` and `interface` use~~
+  was what `acer` and `interface` used until the full port below;
   `Kerma::from_reconr` is the `QI`-only variant. Median miss above threshold
   at `local = 1`: Fe-58 76 % → 11 %, Si-28 38 % → 31 %.
 
@@ -1077,11 +1078,15 @@ Fe-58 1.35 → 0.39 %, Si-28 0.99 → 0.74 %. Si-28 below the threshold is now
 **asserted** at print precision at both `local` settings (worst 4.7e-7).
 Details: `verification_and_validation/heatr_vs_njoy2016.md` §5.
 
-- **Not covered yet:** `conbar`/`sixbar` (continuum and MF=6 neutron means,
-  H6b part 2; they carry the 14-150 MeV residual) and MF=6 capture (H6c).
-- **The fission skip rule is ported but untested by any oracle:** MT=18 is
+- ~~**Not covered yet:** `conbar`/`sixbar` (continuum and MF=6 neutron means,
+  H6b part 2; they carry the 14-150 MeV residual) and MF=6 capture (H6c).~~
+  **CORRECTED 2026-10-05:** covered by the whole-module port (next section);
+  `Kerma` itself still lacks them.
+- **The fission skip rule is ported ~~but untested by any oracle~~:** MT=18 is
   skipped when MT=19 has its own MF=5 spectrum, otherwise MT=19/20/21/38 are.
-  Neither oracle nuclide is fissile.
+  ~~Neither oracle nuclide is fissile.~~ **CORRECTED 2026-10-05:** the
+  driver's copy of the rule is exercised by the 62-tape sweep (U-234, U-235,
+  three U-238 evaluations, Pu-239), all byte-identical.
 - ~~**`with_energy_balance` clamps MT=301 at 0; NJOY does not** (no lower
   bound in `heatr.f90`). Left as it was; raised on #535.~~ **CHANGED
   2026-10-05 (flagged modification, maintainer-approved): the clamp is
@@ -1090,6 +1095,55 @@ Details: `verification_and_validation/heatr_vs_njoy2016.md` §5.
   all between 20 and 150 MeV, where `conbar`/`sixbar` are not ported and
   the kinematic estimate over-states the outgoing neutrons' energy. The clamp
   had been writing 0 there and hiding that gap; the worst-point figure above
-  20 MeV moved from 1.0 to 1.5-1.6, medians unchanged. Until H6b part 2
+  20 MeV moved from 1.0 to 1.5-1.6, medians unchanged. ~~Until H6b part 2
   lands, **the ACE heating column of these nuclides is negative above
-  ~20 MeV**. Pinned by `energy_balance_subtracts_mt442_and_nothing_else`.
+  ~20 MeV**.~~ **CORRECTED 2026-10-05:** the ACE route no longer uses
+  `Kerma` (next section), so this describes `Kerma` only. Pinned by
+  `energy_balance_subtracts_mt442_and_nothing_else`.
+
+## HEATR is ported whole, and its tape is NJOY's byte for byte (2026-10-05, GitHub #535)
+
+`src/heatr/driver/` translates `heatr.f90` routine by routine (`hinit`,
+`nheat`, `disbar`, `conbar`, `sixbar`, `getsix`, `hgtfle`, `hconvr`, `gheat`,
+`df`, `tabsq6`, `hgam102`, `hout`, the `viewr` plot and the listing). The audit
+that drove it, with each routine's upstream line range and the port's file, is
+`verification_and_validation/heatr_upstream_audit.md`. Entry points:
+`heatr::heatr(endf, pendf, &HeatrInput)` (cards via
+`HeatrInput::from_cards`), `heatr::heatr_kerma` and `heatr::pendf_for_heatr`
+for the ACE route. Fortran `save` variables are explicit state structs and
+NJOY's scratch tapes are in-memory; `sixbar` errors where upstream would run
+off the end of a subsection into the next one.
+
+**Measured.** NJOY2016's HEATR reads the same ASCII PENDF as ours, and both
+tapes go through MODER. The output tape is **identical in every byte** on all
+**62** neutron evaluations in `reference-data/endf/` at `local = 0` with 11
+partial MTs, and again at `local = 1, iprint = 2` (kinematic check on). That
+includes U-235's 4 312 867 lines. Eight committed decks
+(`reference-data/heatr/driver/`, gated by `tests/heatr_driver_vs_njoy2016.rs`,
+3.7 s) cover user Q, `qbar`, `ed`, two temperatures, `LAW = 6/7`,
+Kalbach-Mann, charged-particle levels, the plot file and the listing. Record:
+`verification_and_validation/heatr_vs_njoy2016.md` §6.
+
+**The ACE heating column now comes from it.** `acer` (with HEATR in the deck)
+and `interface` call `heatr_kerma`, and `acer::build` applies `acefc.f90`'s
+`sigfig(sigfig(gety1(MT301),7)/1e6/σt,7)`. U-235's peak heating number is
+142.8833 MeV, +2.0e-6 from EFR × max σ_f/σ_t (the evaluation's own MF=1/458
+estimate); the old `[150, 200]` band in `esz_heating_column_is_physical` had
+been set from the earlier approximation, and was replaced (flagged there).
+
+Three things worth carrying forward:
+
+- **Feed NJOY's HEATR the ASCII PENDF.** Read from RECONR's binary tape, NJOY
+  sees energies the 7-figure text cannot carry, and the two codes differ at a
+  threshold that agrees to the last bit in one and not the other (Si-28
+  MT=304, one point). Identical input is the only fair test.
+- **`hconvr` overwrites the module's `za`/`awr`** from MF=12 `LO = 2` heads
+  (`heatr.f90:4751-4752`), and later MF=3 HEADs echo them. A port that keeps
+  them local writes a different ZA on Fe-58.
+- **Every occurrence of a MAT on a multi-temperature PENDF ends with FEND and
+  MEND.** `Tape::write` had joined them; it now starts a new occurrence at
+  each MF=1/MT=451.
+
+`Kerma` (H1-H5 plus the partial H6 above) stays as the reduced-order model;
+`run()` still returns `NotPorted` because no module has the deck runner that
+binds unit numbers to tapes (task tracked as the deck reader).
