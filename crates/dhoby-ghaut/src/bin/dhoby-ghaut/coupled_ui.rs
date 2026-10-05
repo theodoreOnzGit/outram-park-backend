@@ -12,7 +12,7 @@ use egui::{Color32, Pos2, Rect, RichText, Stroke, Vec2};
 use egui_plot::{Legend, Line, Plot, PlotPoints};
 
 use crate::app::App;
-use crate::coupled::{MpEngine, MpEv, MpReq, StopFlag};
+use crate::coupled::{MpEngine, MpEv, MpReq, SpatialJob, StopFlag};
 use crate::porous_core::{Fields, IterationReport, Summary};
 
 /// Which field the main view shows.
@@ -75,6 +75,14 @@ pub struct MpUi {
     pub elapsed: f64,
     /// The power shape of the current setup (Step 9 preview).
     preview: Option<(MultiphysicsSetup, Result<Fields, String>)>,
+    /// The last solved run's power drawn on the neutronics mesh, and its
+    /// texture once uploaded.
+    pub mesh_power: Option<outram_blender::csg::plot::ImageData>,
+    pub mesh_power_tex: Option<egui::TextureHandle>,
+    /// Whether the run in progress / last run solved the power.
+    pub solved: bool,
+    /// Start the run as soon as it can (`--auto-run`, for screenshots).
+    pub auto_run: bool,
 }
 
 impl MpUi {
@@ -96,25 +104,47 @@ impl MpUi {
             started_at: 0.0,
             elapsed: 0.0,
             preview: None,
+            mesh_power: None,
+            mesh_power_tex: None,
+            solved: false,
+            auto_run: false,
         }
     }
 
-    pub fn start(&mut self, now: f64) {
+    /// Start a run of `setup` (Step 9's case, adjusted to the built core
+    /// when the power is solved; `moved` says what the adjustment changed).
+    pub fn start(
+        &mut self,
+        now: f64,
+        setup: MultiphysicsSetup,
+        spatial: Option<SpatialJob>,
+        moved: Vec<String>,
+    ) {
         if let Ok(mut s) = self.stop.write() {
             *s = false;
         }
         self.running = true;
         self.history.clear();
         self.summary = None;
-        self.console = vec![
-            "Step 10 coupled run, HTR-10 porous core (TENTATIVE).".into(),
-            "SIMPLIFIED: prescribed power shape, lumped feedback, r-z rings without inter-ring conduction; see the element list.".into(),
-            " iter  flow resid   max dT [K]  T_he,max [C]  T_kernel,max [C]  rho [pcm]  k(cold-crit)".into(),
-        ];
+        self.mesh_power = None;
+        self.mesh_power_tex = None;
+        self.solved = setup.neutronics.shape.is_solved();
+        self.console = vec!["Step 10 coupled run, HTR-10 porous core (TENTATIVE).".into()];
+        if self.solved {
+            self.console.push("Power and k SOLVED: GeN-Foam-port diffusion on Step 7's neutronics mesh with Step 8's cross sections, Picard-coupled to the r-z march (no inter-ring conduction); see the element list.".into());
+            for m in moved {
+                self.console.push(format!("Step 9 adjusted: {m}"));
+            }
+            self.console.push(crate::mp_headless::SPATIAL_HEADER.into());
+        } else {
+            self.console.push("ABLATION: prescribed power shape, lumped feedback, r-z rings without inter-ring conduction; see the element list.".into());
+            self.console.push(" iter  flow resid   max dT [K]  T_he,max [C]  T_kernel,max [C]  rho [pcm]  k(cold-crit)".into());
+        }
         self.started_at = now;
         self.link.send(MpReq::Run {
-            setup: self.setup.clone(),
+            setup,
             stop: self.stop.clone(),
+            spatial,
         });
     }
 
@@ -129,7 +159,21 @@ impl MpUi {
         let mut said = Vec::new();
         for ev in self.link.drain() {
             match ev {
-                MpEv::Started { delta_note } => self.console.push(delta_note),
+                MpEv::Started { notes } => {
+                    for n in notes {
+                        self.console.push(format!("note: {n}"));
+                    }
+                }
+                MpEv::Iteration {
+                    report: r,
+                    fields,
+                    seconds,
+                } if r.spatial.is_some() => {
+                    self.console.push(crate::mp_headless::spatial_line(&r));
+                    self.history.push(r);
+                    self.fields = Some(fields);
+                    self.elapsed = seconds;
+                }
                 MpEv::Iteration {
                     report: r,
                     fields,
@@ -154,8 +198,11 @@ impl MpUi {
                     fields,
                     stopped,
                     seconds,
+                    mesh_power,
                 } => {
                     self.running = false;
+                    self.mesh_power = mesh_power;
+                    self.mesh_power_tex = None;
                     self.elapsed = seconds;
                     if stopped {
                         self.console
@@ -257,8 +304,9 @@ pub fn setup_settings(app: &mut App, ui: &mut egui::Ui) {
     let mut changed = false;
     ui.colored_label(
         Color32::from_rgb(170, 90, 0),
-        "What runs at Step 10 is SIMPLIFIED: a prescribed power shape, lumped feedback and an r-z \
-         multi-channel porous core. The parts below marked NOT in model do not run.",
+        "What runs at Step 10 is SIMPLIFIED: an r-z multi-channel porous core with, by default, the power \
+         and k solved by diffusion on Steps 7-8 (prescribed shapes are ablations). The parts below marked \
+         NOT in model do not run.",
     );
     egui::CollapsingHeader::new(
         RichText::new("OUTRAM-Foam side: porous-core thermal-hydraulics").strong(),
@@ -360,26 +408,45 @@ pub fn setup_settings(app: &mut App, ui: &mut egui::Ui) {
     egui::CollapsingHeader::new(RichText::new("Neutronics side").strong()).default_open(true).show(ui, |ui| {
         let n = &mut s.neutronics;
         changed |= num(ui, "Thermal power [MW]", &mut n.thermal_power_mw, 0.1, 0.01..=100.0);
-        let mut j0 = matches!(n.shape, PowerShape::J0Cosine { .. });
-        ui.horizontal(|ui| {
-            changed |= ui.radio_value(&mut j0, true, "J0 x cosine").changed();
-            changed |= ui.radio_value(&mut j0, false, "uniform (ablation)").changed();
-        });
-        match (&mut n.shape, j0) {
-            (PowerShape::J0Cosine { peak_to_mean }, true) => {
+        // 0 solved (default), 1 J0 x cosine, 2 uniform.
+        let was = match n.shape {
+            PowerShape::Diffusion => 0,
+            PowerShape::J0Cosine { .. } => 1,
+            PowerShape::Uniform => 2,
+        };
+        let mut pick = was;
+        ui.label("Power shape and k");
+        changed |= ui.radio_value(&mut pick, 0, "SOLVED: diffusion on Step 7's mesh with Step 8's cross sections (default)").changed();
+        changed |= ui.radio_value(&mut pick, 1, "prescribed J0 x cosine, lumped feedback (ablation)").changed();
+        changed |= ui.radio_value(&mut pick, 2, "prescribed uniform, lumped feedback (ablation)").changed();
+        if pick != was {
+            n.shape = match pick {
+                0 => PowerShape::Diffusion,
+                1 => PowerShape::J0Cosine { peak_to_mean: 2.57 / 2.0 },
+                _ => PowerShape::Uniform,
+            };
+            s.elements = crate::mp_preset::elements_for(pick == 0);
+        }
+        let n = &mut s.neutronics;
+        match &mut n.shape {
+            PowerShape::Diffusion => {
+                ui.small("The GeN-Foam port's multigroup diffusion k-eigenvalue on Step 7's neutronics mesh, Step 8's constants at each cell's temperature, Marshak vacuum boundary, Picard-coupled to the march (gh:#591). Needs Steps 7 and 8; the bed takes Step 7's dimensions and the recipe's fuel share.");
+            }
+            PowerShape::J0Cosine { peak_to_mean } => {
                 changed |= num(ui, "  peak / mean power density", peak_to_mean, 0.001, 1.001..=3.6);
             }
-            (shape, true) => *shape = PowerShape::J0Cosine { peak_to_mean: 2.57 / 2.0 },
-            (shape, false) => *shape = PowerShape::Uniform,
+            PowerShape::Uniform => {}
         }
-        ui.small("The shape is PRESCRIBED, not solved: spatial diffusion on Step 8's cross sections is not wired (gh:#591).");
-        changed |= num(ui, "Isothermal coefficient [1/K]", &mut n.isothermal_coefficient_per_k, 1e-6, -1e-3..=1e-3);
-        changed |= num(ui, "Cold reference temperature [K]", &mut n.reference_temperature_k, 0.1, 1.0..=3000.0);
-        ui.horizontal(|ui| {
-            ui.label("Feedback weighting");
-            changed |= ui.radio_value(&mut n.weighting, FeedbackWeighting::Power, "power").changed();
-            changed |= ui.radio_value(&mut n.weighting, FeedbackWeighting::Volume, "volume").changed();
-        });
+        if !n.shape.is_solved() {
+            ui.small("ABLATION: the shape is PRESCRIBED and k is a lumped isothermal-coefficient estimate.");
+            changed |= num(ui, "Isothermal coefficient [1/K]", &mut n.isothermal_coefficient_per_k, 1e-6, -1e-3..=1e-3);
+            changed |= num(ui, "Cold reference temperature [K]", &mut n.reference_temperature_k, 0.1, 1.0..=3000.0);
+            ui.horizontal(|ui| {
+                ui.label("Feedback weighting");
+                changed |= ui.radio_value(&mut n.weighting, FeedbackWeighting::Power, "power").changed();
+                changed |= ui.radio_value(&mut n.weighting, FeedbackWeighting::Volume, "volume").changed();
+            });
+        }
     });
     egui::CollapsingHeader::new(RichText::new("Coupling loop").strong())
         .default_open(false)
@@ -407,6 +474,11 @@ pub fn setup_settings(app: &mut App, ui: &mut egui::Ui) {
                 0.01,
                 0.05..=1.0,
             );
+            if s.neutronics.shape.is_solved() {
+                changed |= num(ui, "Power relaxation", &mut c.power_relaxation, 0.01, 0.05..=1.0);
+                changed |= num(ui, "Node power tolerance (relative)", &mut c.power_tolerance, 1e-5, 1e-8..=0.1);
+                changed |= num(ui, "k tolerance", &mut c.k_tolerance, 1e-7, 1e-9..=1e-2);
+            }
         });
     egui::CollapsingHeader::new(RichText::new("farrer-park side: structural FEM").strong())
         .default_open(false)
@@ -446,17 +518,81 @@ pub fn setup_settings(app: &mut App, ui: &mut egui::Ui) {
 /// Step 10's settings panel: Run / Stop and the results.
 pub fn run_settings(app: &mut App, ui: &mut egui::Ui) {
     let now = app.now();
+    let solved = app.mp.setup.neutronics.shape.is_solved();
     ui.colored_label(
         Color32::from_rgb(170, 90, 0),
-        "SIMPLIFIED coupled run: TH march on tampines correlations with a PRESCRIBED power shape and \
-         lumped temperature feedback. Not a GeN-Foam/farrer-park run (gh:#591, #592, #593).",
+        if solved {
+            "SIMPLIFIED coupled run: power and k SOLVED by the GeN-Foam port's diffusion on Steps 7-8, \
+             Picard-coupled to an r-z TH march on tampines correlations (no inter-ring conduction, \
+             adiabatic wall; gh:#592). Not the OUTRAM-Foam porous solver; no structural side (gh:#593)."
+        } else {
+            "ABLATION: TH march on tampines correlations with a PRESCRIBED power shape and lumped \
+             temperature feedback (the default solves the power, gh:#591)."
+        },
     );
+    // What the solved shape needs from Steps 7 and 8.
+    let job = if solved {
+        match (app.s78.built.clone(), app.s78.mgxs.clone()) {
+            (Some(b), Some(x)) => {
+                let inputs = dhoby_ghaut::workbench::multiphysics::MultiphysicsInputs {
+                    meshes: b.set.clone(),
+                    mgxs: x,
+                };
+                match inputs.check_for_neutronics() {
+                    Ok(()) => Ok((
+                        inputs,
+                        b.meshes[dhoby_ghaut::workbench::meshes::MeshRole::Neutronics.index()]
+                            .clone(),
+                        b.meshes[dhoby_ghaut::workbench::meshes::MeshRole::ThermalHydraulics.index()]
+                            .clone(),
+                    )),
+                    Err(e) => Err(e),
+                }
+            }
+            (None, _) => Err("build Step 7's meshes first".to_string()),
+            (_, None) => Err("run Step 8's cross sections first".to_string()),
+        }
+    } else {
+        Err(String::new())
+    };
+    if let (true, Err(e)) = (solved, &job) {
+        ui.colored_label(
+            Color32::from_rgb(190, 30, 30),
+            format!("Cannot run the solved shape yet: {e}. Or choose a prescribed shape (ablation) in Step 9."),
+        );
+    }
+    let can_run = !app.mp.running && (!solved || job.is_ok());
     ui.horizontal(|ui| {
+        let auto = app.mp.auto_run && can_run;
         if ui
-            .add_enabled(!app.mp.running, egui::Button::new("Run coupled case"))
+            .add_enabled(can_run, egui::Button::new("Run coupled case"))
             .clicked()
+            || auto
         {
-            app.mp.start(now);
+            app.mp.auto_run = false;
+            match job {
+                Ok((inputs, n_mesh, th_mesh)) if solved => {
+                    let (setup, moved) = crate::mp_preset::on_built_core(
+                        app.mp.setup.clone(),
+                        &inputs.meshes.domain,
+                        &app.recipe,
+                    );
+                    app.mp.start(
+                        now,
+                        setup,
+                        Some(SpatialJob {
+                            inputs: std::sync::Arc::new(inputs),
+                            n_mesh,
+                            th_mesh,
+                        }),
+                        moved,
+                    );
+                }
+                _ => {
+                    let setup = app.mp.setup.clone();
+                    app.mp.start(now, setup, None, Vec::new());
+                }
+            }
             app.say("Coupled run started", false);
         }
         if ui
@@ -539,8 +675,35 @@ pub fn run_settings(app: &mut App, ui: &mut egui::Ui) {
                 }
             });
         ui.small("Gao & Shi's temperatures include their §4.1 uncertainty factors (burnup peaking 1.2, hot spot 1.05, heat transfer 1.2); ours are nominal. Their pressure drop includes the bottom reflector.");
+        if let Some(k) = s.k_eff {
+            ui.label(format!(
+                "k_eff = {k:.5}: the diffusion eigenvalue at the converged temperatures. Node peak/mean power {:.3}, max {:.2} W/cm³ (Gao & Shi: 2.84 initial core, 2.57 equilibrium; the prescribed ablation 2.57/2.0).",
+                s.node_peak_to_mean, s.max_power_density_w_cm3
+            ));
+            if app.mp.mesh_power_tex.is_none() {
+                if let Some(img) = &app.mp.mesh_power {
+                    let mut bytes = Vec::with_capacity(img.pixels.len() * 3);
+                    for p in &img.pixels {
+                        bytes.extend_from_slice(&[p.r, p.g, p.b]);
+                    }
+                    let ci = egui::ColorImage::from_rgb([img.width, img.height], &bytes);
+                    app.mp.mesh_power_tex = Some(ui.ctx().load_texture(
+                        "step10_mesh_power",
+                        ci,
+                        egui::TextureOptions::LINEAR,
+                    ));
+                }
+            }
+            if let Some(t) = &app.mp.mesh_power_tex {
+                ui.label(RichText::new("Computed power on the neutronics mesh (X-Z)").strong());
+                let w = ui.available_width().min(520.0);
+                let sz = t.size_vec2();
+                ui.image((t.id(), Vec2::new(w, w * sz.y / sz.x)));
+            }
+        } else {
         ui.label(format!("k = {:.5} relative to a cold-critical reference ({:+.0} pcm at {:.0} °C feedback temperature): LUMPED, not an eigenvalue.", s.k_vs_cold_critical, s.rho_pcm, s.t_feedback_c));
-        if let Some(run) = app.recipe.monte_carlo.runs.last() {
+        }
+        if let (None, Some(run)) = (s.k_eff, app.recipe.monte_carlo.runs.last()) {
             let rho_ref = 1.0 - 1.0 / run.k;
             let k_hot = 1.0 / (1.0 - rho_ref - s.rho_pcm * 1e-5);
             ui.label(format!(
@@ -596,6 +759,16 @@ pub fn results(app: &mut App, ui: &mut egui::Ui) {
                         "max ΔT [K]",
                         pts(|r| r.temperature_change_k.max(1e-16).log10()),
                     ));
+                    if mp.solved {
+                        p.line(Line::new(
+                            "node power",
+                            pts(|r| r.spatial.as_ref().map_or(0.0, |s| s.power_change).max(1e-16).log10()),
+                        ));
+                        p.line(Line::new(
+                            "|Δk|",
+                            pts(|r| r.spatial.as_ref().map_or(0.0, |s| s.k_change).max(1e-16).log10()),
+                        ));
+                    }
                 });
         });
         ui.vertical(|ui| {
@@ -613,9 +786,20 @@ pub fn results(app: &mut App, ui: &mut egui::Ui) {
         });
         ui.vertical(|ui| {
             ui.set_width(pw);
-            ui.label("k (lumped, vs cold-critical)");
+            ui.label(if mp.solved {
+                "k_eff (diffusion eigenvalue)"
+            } else {
+                "k (lumped, vs cold-critical)"
+            });
             Plot::new("mp_k").width(pw).height(h - 24.0).show(ui, |p| {
-                p.line(Line::new("k", pts(|r| r.k_vs_cold_critical)));
+                if mp.solved {
+                    p.line(Line::new(
+                        "k_eff",
+                        pts(|r| r.spatial.as_ref().map_or(f64::NAN, |s| s.k_eff)),
+                    ));
+                } else {
+                    p.line(Line::new("k", pts(|r| r.k_vs_cold_critical)));
+                }
             });
         });
     });
@@ -784,10 +968,17 @@ pub fn main_view(app: &mut App, ui: &mut egui::Ui, run_step: bool) {
                 let f = f.clone();
                 let v = FieldKind::Power.values(&f);
                 draw_rz(&painter, rect, &f, &v, zoom);
-                lines.push(format!(
-                    "Prescribed power density [W/cm³] on the TH mesh ({} rings x {} nodes)",
-                    f.n_r, f.n_z
-                ));
+                lines.push(if app.mp.setup.neutronics.shape.is_solved() {
+                    format!(
+                        "The r-z TH grid ({} rings x {} nodes); the power is SOLVED at Step 10 (uniform shown until then)",
+                        f.n_r, f.n_z
+                    )
+                } else {
+                    format!(
+                        "Prescribed power density [W/cm³] on the TH mesh ({} rings x {} nodes), ABLATION",
+                        f.n_r, f.n_z
+                    )
+                });
                 let fo = &app.mp.setup.foam;
                 let r = f.ring_outer_m.last().copied().unwrap_or(1.0);
                 let scale = (rect.width() / (2.0 * r as f32 * 1.25))
@@ -843,9 +1034,11 @@ pub fn main_view(app: &mut App, ui: &mut egui::Ui, run_step: bool) {
             }
         }
     }
-    lines.push(
-        "SIMPLIFIED: prescribed power shape; no inter-ring conduction; lumped feedback".into(),
-    );
+    lines.push(if app.mp.setup.neutronics.shape.is_solved() {
+        "SIMPLIFIED: power solved by 2-group diffusion on Steps 7-8; no inter-ring conduction; adiabatic wall".into()
+    } else {
+        "ABLATION: prescribed power shape; lumped feedback; no inter-ring conduction".into()
+    });
     painter.text(
         rect.left_bottom() + Vec2::new(10.0, -10.0),
         egui::Align2::LEFT_BOTTOM,

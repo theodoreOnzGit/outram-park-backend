@@ -318,10 +318,42 @@ pub fn run(job: &MgxsJob, post: &mut impl FnMut(MgxsProgress)) -> Result<MgxsSet
         post(MgxsProgress::StateDone(st.clone()));
         states.push(st);
     }
-    // Stack the states: GeN-Foam's `reference` is the first temperature the
-    // user listed.
+    let nd = stack_states(&inputs, reference, plan.law);
+    let header = format!(
+        "Written by the Dhoby Ghaut workbench, Step 8 (gh:#573), {}.\n\
+         TENTATIVE: research, education and V&V only. Monte Carlo MGXS of the HTR-10\n\
+         preset (nee_soon::htr10_rmc), {} groups, {} histories x {} active generations per pass,\n\
+         per region of the Step 7 neutronics mesh. Each state point puts EVERY material at\n\
+         TFuel (isothermal core); no delayed-neutron data (precGroups 0, gh:#595).\n\
+         Zones are the neutronics polyMesh cellZones. Units: MKSA (1/m).",
+        dhoby_ghaut::workbench::recipe::now_rfc3339(),
+        n_g,
+        plan.particles,
+        plan.active
+    );
+    let path = write_nuclear_data_checked(&nd, &header, &job.out_dir)?;
+    let mut edges = groups.edges().to_vec();
+    edges.reverse();
+    Ok(MgxsSet {
+        edges_ev_desc: edges,
+        law: plan.law,
+        states,
+        nuclear_data_path: Some(path.display().to_string()),
+        notes,
+    })
+}
+
+/// Stack one single-state `nuclearData` per temperature into one file with
+/// `xsVariables { TFuel <law>; }`. GeN-Foam's `reference` state is the one
+/// at `reference` \[K\] (the first temperature the user listed); the others
+/// follow in the order given.
+pub fn stack_states(
+    inputs: &[(f64, NuclearDataInput)],
+    reference: f64,
+    law: dhoby_ghaut::workbench::mgxs::InterpLaw,
+) -> NuclearDataInput {
     let ri = inputs.iter().position(|x| x.0 == reference).unwrap_or(0);
-    let law = match plan.law {
+    let law = match law {
         dhoby_ghaut::workbench::mgxs::InterpLaw::LnT => VariableLaw::Log,
         dhoby_ghaut::workbench::mgxs::InterpLaw::SqrtT => VariableLaw::Sqrt,
         dhoby_ghaut::workbench::mgxs::InterpLaw::Linear => VariableLaw::Linear,
@@ -343,38 +375,27 @@ pub fn run(job: &MgxsJob, post: &mut impl FnMut(MgxsProgress)) -> Result<MgxsSet
         s.parameters.insert("TFuel".into(), *t_k);
         nd.states.push(s);
     }
-    let header = format!(
-        "Written by the Dhoby Ghaut workbench, Step 8 (gh:#573), {}.\n\
-         TENTATIVE: research, education and V&V only. Monte Carlo MGXS of the HTR-10\n\
-         preset (nee_soon::htr10_rmc), {} groups, {} histories x {} active generations per pass,\n\
-         per region of the Step 7 neutronics mesh. Each state point puts EVERY material at\n\
-         TFuel (isothermal core); no delayed-neutron data (precGroups 0, gh:#595).\n\
-         Zones are the neutronics polyMesh cellZones. Units: MKSA (1/m).",
-        dhoby_ghaut::workbench::recipe::now_rfc3339(),
-        n_g,
-        plan.particles,
-        plan.active
-    );
-    let text = outram_foam_appbuilder_lib::io::nuclear_data::write_nuclear_data(&nd, &header);
-    let dir = job.out_dir.join("constant").join("neutroRegion");
+    nd
+}
+
+/// Write `nd` as `<case>/constant/neutroRegion/nuclearData` and read it back
+/// through the solver's reader and `CrossSectionData::from_input`, so a file
+/// the multiphysics step cannot read is an error here and not there.
+pub fn write_nuclear_data_checked(
+    nd: &NuclearDataInput,
+    header: &str,
+    case_dir: &Path,
+) -> Result<PathBuf, String> {
+    let text = outram_foam_appbuilder_lib::io::nuclear_data::write_nuclear_data(nd, header);
+    let dir = case_dir.join("constant").join("neutroRegion");
     std::fs::create_dir_all(&dir).map_err(|e| e.to_string())?;
     let path = dir.join("nuclearData");
     std::fs::write(&path, text).map_err(|e| format!("{}: {e}", path.display()))?;
-    // Read it back through the solver's reader, so a file the multiphysics
-    // step cannot read is an error here and not there.
     let back = outram_foam_appbuilder_lib::io::nuclear_data::read_nuclear_data(&path)
         .map_err(|e| e.to_string())?;
     outram_foam_appbuilder_lib::genfoam::neutronics::xs::CrossSectionData::from_input(&back)
         .map_err(|e| format!("the written nuclearData does not build CrossSectionData: {e:?}"))?;
-    let mut edges = groups.edges().to_vec();
-    edges.reverse();
-    Ok(MgxsSet {
-        edges_ev_desc: edges,
-        law: plan.law,
-        states,
-        nuclear_data_path: Some(path.display().to_string()),
-        notes,
-    })
+    Ok(path)
 }
 
 /// The run as CSV rows (one per state, region, group), for the headless mode.
@@ -412,10 +433,13 @@ pub fn csv(set: &MgxsSet) -> String {
     s
 }
 
-/// Write the CSV beside the case.
+/// Write the CSV beside the case, and the set itself as `mgxs_set.toml` (the
+/// hand-off a later `--headless-multiphysics --case` reads).
 pub fn write_csv(set: &MgxsSet, dir: &Path) -> Result<PathBuf, String> {
     std::fs::create_dir_all(dir).map_err(|e| e.to_string())?;
     let p = dir.join("mgxs.csv");
     std::fs::write(&p, csv(set)).map_err(|e| e.to_string())?;
+    let t = dir.join("mgxs_set.toml");
+    std::fs::write(&t, set.to_toml()?).map_err(|e| e.to_string())?;
     Ok(p)
 }

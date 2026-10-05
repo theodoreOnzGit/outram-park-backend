@@ -321,3 +321,52 @@ fn null_transient_holds_steady() {
         "null transient drifted: relative change {rel:e}"
     );
 }
+
+/// A warm start from a converged solution (`set_initial_guess`) reaches the
+/// same `k_eff` as the cold start, in far fewer outer iterations — what a
+/// coupling loop that rebuilds the model each Picard pass relies on
+/// (dhoby-ghaut Step 10, gh:#591). Measured 2026-10-05: see the message.
+#[test]
+fn warm_start_reaches_the_same_k_in_fewer_iterations() {
+    let gc = OneGroup {
+        d: 0.02,
+        nu_sigma_f: 0.30,
+        sigma_a: 0.10,
+    };
+    let xs = one_group_xs(&gc);
+    let mesh = slab_mesh(200);
+    let bc = vec![
+        BoundaryCondition::FixedValue(0.0),
+        BoundaryCondition::FixedValue(0.0),
+    ];
+    let zone_of_cell = vec![0usize; mesh.n_cells];
+    let build = || {
+        DiffusionNeutronics::new(
+            mesh.clone(),
+            &xs,
+            &zone_of_cell,
+            &[],
+            &bc,
+            DiffusionSettings::default(),
+        )
+        .unwrap()
+    };
+    let mut cold = build();
+    let r0 = cold.solve_eigenvalue().unwrap();
+    let flux: Vec<Vec<f64>> = cold
+        .state()
+        .flux()
+        .iter()
+        .map(|f| f.internal.as_slice().to_vec())
+        .collect();
+    let mut warm = build();
+    warm.set_initial_guess(&flux, r0.k_eff);
+    let r1 = warm.solve_eigenvalue().unwrap();
+    eprintln!(
+        "cold: k {:.8} in {} outers; warm: k {:.8} in {} outers",
+        r0.k_eff, r0.outer_iterations, r1.k_eff, r1.outer_iterations
+    );
+    assert!(r1.converged);
+    assert!((r1.k_eff - r0.k_eff).abs() < 1e-7);
+    assert!(r1.outer_iterations * 5 < r0.outer_iterations);
+}

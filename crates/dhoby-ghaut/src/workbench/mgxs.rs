@@ -176,7 +176,8 @@ pub struct RegionXs {
     pub absorption: Vec<f64>,
     /// νΣ_f.
     pub nu_fission: Vec<f64>,
-    /// κΣ_f \[eV/cm\].
+    /// κΣ_f \[J/cm\] (~~eV/cm~~ **CORRECTED 2026-10-05**: `nee_soon::mgxs::ZoneMgxs::kappa_fission`
+    /// is J/cm, and the written `sigmaPow` agrees: 4.3e-13 J/m fast in the bed).
     pub kappa_fission: Vec<f64>,
     /// χ (measured fission spectrum; zero in a region with no fission).
     pub chi: Vec<f64>,
@@ -245,6 +246,26 @@ impl MgxsSet {
     #[must_use]
     pub fn n_groups(&self) -> usize {
         self.edges_ev_desc.len().saturating_sub(1)
+    }
+
+    /// The set as plain TOML (light data transfer, as the reactivity map):
+    /// the headless Step 8 writes it beside `mgxs.csv` as `mgxs_set.toml`, so
+    /// a later headless Step 10 can start from a finished Step 8.
+    ///
+    /// # Errors
+    ///
+    /// A serialiser message.
+    pub fn to_toml(&self) -> Result<String, String> {
+        toml::to_string(self).map_err(|e| e.to_string())
+    }
+
+    /// Read [`Self::to_toml`]'s output back.
+    ///
+    /// # Errors
+    ///
+    /// A parser message.
+    pub fn from_toml(text: &str) -> Result<Self, String> {
+        toml::from_str(text).map_err(|e| e.to_string())
     }
 
     /// Region `id` at state `s`.
@@ -385,5 +406,8 @@ mod tests {
         assert!((x.total[0] - 2.0).abs() < 1e-12);
         let (y, e2) = set.interpolate("bed", 2000.0).unwrap();
         assert!(e2 && (y.total[0] - 3.0).abs() < 1e-12);
+        // The TOML hand-off round-trips exactly.
+        let back = MgxsSet::from_toml(&set.to_toml().unwrap()).unwrap();
+        assert_eq!(back, set);
     }
 }

@@ -164,12 +164,17 @@ window walks a guided build:
     HTR-10 from Gao & Shi (2002) and Li, Yu & Wei (2014), saved in the
     recipe as its own `step-9` kovan artifact.
   - Step 10: the coupled run on its own thread: an r-z multi-channel porous
-    core (tampines helium, KTA, Wakao and pebble conduction) under a
-    PRESCRIBED power shape, with the ring flow split and a lumped
-    temperature feedback iterated to convergence. Console, residual,
-    temperature and k plots, the field on the TH mesh, a Stop button, and
-    a TENTATIVE comparison with Gao & Shi. What it does not model is listed
-    on screen (gh:#591, #592, #593). V&V record:
+    core (tampines helium, KTA, Wakao and pebble conduction) whose power
+    and k are **solved** (gh:#591) by the GeN-Foam port's multigroup
+    diffusion eigenvalue on Step 7's neutronics mesh with Step 8's cross
+    sections at each cell's temperature, mapped to and from the TH mesh
+    with Step 7's maps and Picard-iterated with the ring flow split to
+    convergence. ~~under a PRESCRIBED power shape~~ The prescribed J0 x
+    cosine shape with lumped feedback stays as an explicit ablation
+    (`--prescribed-power`). Console, residual, temperature and k plots,
+    the field on the TH mesh, the computed power on the neutronics mesh, a
+    Stop button, and a TENTATIVE comparison with Gao & Shi. What it does
+    not model is listed on screen (gh:#592, #593, #594, #595). V&V record:
     `verification_and_validation/htr10_multiphysics_step10/`.
 - **The main view** is a slice of the *assembled* geometry, from the solver's
   own cell lookups, re-rendered at screen resolution for whatever window is in

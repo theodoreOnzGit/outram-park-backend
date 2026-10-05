@@ -2172,6 +2172,7 @@ dependencies = [
  "njoy-outram-park-fork",
  "outram-blender",
  "outram-foam-appbuilder-lib",
+ "outram-foam-basic-lib",
  "outram-mc-libs",
  "outram-park-fork-cfmesh",
  "outram-park-fork-liggghts",

@@ -384,6 +384,31 @@ impl DiffusionNeutronics {
         &self.state
     }
 
+    /// Seed the next [`Self::solve_eigenvalue`] with a previous solution — a
+    /// **warm start**: the group fluxes (internal values, one `Vec` per group,
+    /// one value per cell) and `k_eff`. Upstream gets this for free, because
+    /// GeN-Foam's flux fields persist between coupling iterations and time
+    /// steps and each power iteration starts from them; a model rebuilt with
+    /// new cross sections here would otherwise restart from a flat flux.
+    ///
+    /// The amplitude does not matter (the power iteration renormalises), and
+    /// the boundary conditions are kept.
+    ///
+    /// # Panics
+    ///
+    /// If `flux` does not hold one vector per energy group, each one value per
+    /// mesh cell, or if `k_eff` is not positive and finite.
+    pub fn set_initial_guess(&mut self, flux: &[Vec<f64>], k_eff: f64) {
+        let n = self.state.mesh().n_cells;
+        assert_eq!(flux.len(), self.energy_groups(), "one flux per energy group");
+        assert!(k_eff.is_finite() && k_eff > 0.0, "k_eff must be positive");
+        for (field, values) in self.state.flux_mut().iter_mut().zip(flux) {
+            assert_eq!(values.len(), n, "one flux value per cell");
+            field.internal.as_mut_slice().copy_from_slice(values);
+        }
+        self.state.set_k_eff_raw(k_eff);
+    }
+
     /// The materialised cross-section fields.
     #[must_use]
     pub fn xs_fields(&self) -> &DiffusionXsFields {

@@ -187,9 +187,11 @@ impl WizardStep {
                  coupled run models, simplifies, and leaves out."
             }
             Self::Run => {
-                "Run the coupled case off the UI thread: the porous core's thermal-hydraulics \
-                 with a prescribed power shape and lumped temperature feedback, with live \
-                 residuals, temperatures and k. A simplified run, labelled as one."
+                "Run the coupled case off the UI thread: the power and k solved by multigroup \
+                 diffusion on Step 7's mesh with Step 8's cross sections, Picard-coupled to \
+                 the porous core's thermal-hydraulics, with live residuals, temperatures, k \
+                 and the computed power. A simplified run, labelled as one; the prescribed \
+                 power shape is an ablation."
             }
             Self::PostProcessing => {
                 "Export CSV (runs, spectra, the reactivity map on a grid), a kovan markdown \

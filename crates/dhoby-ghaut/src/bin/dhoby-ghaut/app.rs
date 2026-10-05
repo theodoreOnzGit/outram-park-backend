@@ -883,7 +883,11 @@ impl App {
                 }
                 // Steps 9-10 do not compute on the reviewed CSG geometry (their
                 // TH mesh is drawn in their own main view), so the gate does
-                // not hold them; once Step 8's MGXS feed them it must (gh:#591).
+                // not hold the panels. ~~once Step 8's MGXS feed them it must
+                // (gh:#591)~~ UPDATED 2026-10-05: the solved run needs Step 8's
+                // MGXS, which only exist after the gate (Monte Carlo is behind
+                // it), so the gate holds the solved run; the prescribed
+                // ablation still runs without it.
                 let reachable = s <= WizardStep::Review
                     || self.recipe.review.passed()
                     || matches!(s, WizardStep::Setup | WizardStep::Run);

@@ -1,5 +1,8 @@
-//! Step 10's coupled solve: an r-z multi-channel porous-core march with a
-//! prescribed power shape and lumped temperature feedback.
+//! Step 10's porous-core thermal-hydraulics: an r-z multi-channel march.
+//! With [`PowerShape::Diffusion`] (the default) its node power comes from
+//! the spatial neutronics through [`PorousCore::set_node_power`] and the
+//! coupling loop is `spatial.rs`; with a prescribed shape (an ablation) the
+//! power is fixed here and `k` is a lumped temperature feedback.
 //!
 //! ```text
 //!   helium in (top plenum, T_in, p_out)          common plenum: every ring
@@ -29,13 +32,14 @@
 //! every property and temperature, and re-evaluates the lumped reactivity
 //! feedback each pass.
 //!
-//! **What is not (stated loudly in the UI):** the power shape is
-//! *prescribed* (not a neutronics solve); no radial conduction or
+//! **What is not (stated loudly in the UI):** in the prescribed-shape
+//! ablation, the power shape is not a neutronics solve; no radial conduction or
 //! radiation between rings (ZBS effective conductivity is not used); no
 //! heat crosses the side wall (adiabatic); the reflector, bypass channels
 //! and plenums are not modelled thermally (the bypass is mixed at the inlet
-//! temperature); properties are evaluated at the outlet pressure; k is a
-//! lumped isothermal-coefficient estimate, not an eigenvalue.
+//! temperature); properties are evaluated at the outlet pressure; in the
+//! prescribed-shape ablation k is a lumped isothermal-coefficient estimate,
+//! not an eigenvalue.
 
 use dhoby_ghaut::workbench::multiphysics::{FeedbackWeighting, MultiphysicsSetup, PowerShape};
 use tampines::gas_phase::kta_bed::KtaBed;
@@ -123,6 +127,8 @@ pub struct IterationReport {
     pub max_kernel_k: f64,
     pub max_helium_k: f64,
     pub core_exit_k: f64,
+    /// The neutronics half, when the power is solved (`spatial.rs`).
+    pub spatial: Option<crate::spatial::SpatialReport>,
 }
 
 /// Converged (or stopped) result.
@@ -162,6 +168,15 @@ pub struct Summary {
     pub shape_delta_cm: f64,
     /// Peak / mean power density of the shape as built.
     pub peak_to_mean: f64,
+    /// Largest node-average power density / core mean (what the r-z grid
+    /// actually carries; for the J0 x cosine shape a little below the point
+    /// value `peak_to_mean`).
+    pub node_peak_to_mean: f64,
+    /// Largest node-average power density \[W/cm³\].
+    pub max_power_density_w_cm3: f64,
+    /// The diffusion eigenvalue at the converged state, when the power is
+    /// solved ([`PowerShape::Diffusion`]); `None` in the prescribed ablation.
+    pub k_eff: Option<f64>,
     /// Nodes whose particle Re is outside Wakao's [15, 8500].
     pub wakao_out_of_range: usize,
     pub re_min: f64,
@@ -233,7 +248,8 @@ impl PorousCore {
         let dz_m = h / n_z as f64;
         // Shape.
         let (delta_m, node_shape) = match n.shape {
-            PowerShape::Uniform => (f64::INFINITY, vec![1.0; n_r * n_z]),
+            // Solved: start uniform; the coupling loop overwrites it.
+            PowerShape::Uniform | PowerShape::Diffusion => (f64::INFINITY, vec![1.0; n_r * n_z]),
             PowerShape::J0Cosine { peak_to_mean } => {
                 let max = Self::peak_to_mean_of(r, h, 0.0);
                 if !(1.0 < peak_to_mean && peak_to_mean < max) {
@@ -366,9 +382,33 @@ impl PorousCore {
     }
 
     /// Node power \[W\] (ring-major).
-    #[cfg(test)]
     pub fn node_power_w(&self) -> &[f64] {
         &self.node_power_w
+    }
+
+    /// Volume of node `k` \[m³\] (equal-area rings, so every node has the
+    /// same volume).
+    pub fn node_volume_m3(&self, k: usize) -> f64 {
+        self.ring_area_m2[k / self.n_z] * self.dz_m
+    }
+
+    /// Replace the node power \[W\] (ring-major), as the spatial neutronics
+    /// hands it over. The march uses it from the next [`Self::iterate`].
+    ///
+    /// # Panics
+    ///
+    /// If `p` is not one value per node.
+    pub fn set_node_power(&mut self, p: &[f64]) {
+        assert_eq!(p.len(), self.node_power_w.len(), "one power per node");
+        self.node_power_w.copy_from_slice(p);
+        for (k, q) in p.iter().enumerate() {
+            self.fields.q_w_m3[k] = q / self.node_volume_m3(k);
+        }
+    }
+
+    /// The setup it was built from.
+    pub fn setup(&self) -> &MultiphysicsSetup {
+        &self.setup
     }
 
     /// Current fields.
@@ -535,6 +575,7 @@ impl PorousCore {
                 .fold(f64::MIN, f64::max),
             max_helium_k: self.max_helium_k()?,
             core_exit_k,
+            spatial: None,
         })
     }
 
@@ -652,6 +693,8 @@ impl PorousCore {
             .filter(|&&re| !(15.0..=8500.0).contains(&re))
             .count();
         let dp = self.ring_dp.iter().sum::<f64>() / self.n_r as f64;
+        let q_max = fl.q_w_m3.iter().copied().fold(0.0, f64::max);
+        let v_tot: f64 = (0..self.n_r * self.n_z).map(|k| self.node_volume_m3(k)).sum();
         Ok(Summary {
             converged,
             iterations: self.iteration,
@@ -671,7 +714,14 @@ impl PorousCore {
             k_vs_cold_critical: 1.0 / (1.0 - rho),
             energy_balance_rel: carried / p_w - 1.0,
             shape_delta_cm: self.delta_m * 100.0,
-            peak_to_mean: self.peak_to_mean,
+            peak_to_mean: if self.setup.neutronics.shape.is_solved() {
+                q_max / (p_w / v_tot)
+            } else {
+                self.peak_to_mean
+            },
+            node_peak_to_mean: q_max / (p_w / v_tot),
+            max_power_density_w_cm3: q_max * 1e-6,
+            k_eff: None,
             wakao_out_of_range: out_of_range,
             re_min: fl.reynolds.iter().copied().fold(f64::MAX, f64::min),
             re_max: max(&fl.reynolds),
