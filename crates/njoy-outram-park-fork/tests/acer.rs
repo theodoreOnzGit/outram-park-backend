@@ -20,9 +20,6 @@ use std::fs::File;
 use njoy_outram_park_fork::{
     acer::{angular::parse_elastic_angular, energy::build_emissions, jxs, nxs, AceTable},
     endf::tape::Tape,
-    heatr::{build_emission_spectra, Kerma},
-    nuclear_data::secondary::{FissionSpectrum, NuBar},
-    photon::PhotonProduction,
     reconr::{reconr, ReconrConfig},
 };
 
@@ -87,8 +84,13 @@ fn build_full(name: &str, mat: i32) -> AceTable {
     )
 }
 
-/// Build the full table **with the HEATR heating column** (ESZ column 5).
-fn build_heated(name: &str, mat: i32) -> AceTable {
+/// Build the full table **with the HEATR heating column** (ESZ column 5), as
+/// the production ACE route builds it: `acer::build_full` runs the HEATR
+/// translation (`heatr::heatr`, byte-identical to NJOY2016's HEATR on all 62
+/// neutron evaluations in `reference-data/endf/`) and takes MT=301 from it.
+/// ~~It used to assemble `Kerma::from_reconr(..).with_energy_balance(..)`
+/// here, a separate approximation of the same column.~~ (changed 2026-10-05)
+fn build_heated(name: &str, mat: i32) -> (AceTable, Tape, njoy_outram_park_fork::reconr::ReconrResult) {
     let tape = Tape::read(File::open(fixture(name)).unwrap()).unwrap();
     let cfg = ReconrConfig {
         mat,
@@ -96,33 +98,8 @@ fn build_heated(name: &str, mat: i32) -> AceTable {
         temperature: 0.0,
     };
     let res = reconr(&tape, &cfg).unwrap();
-    let partials: Vec<(i32, f64)> = res
-        .sections
-        .iter()
-        .map(|s| (i32::from(s.mt), s.qi))
-        .collect();
-    let emissions = build_emissions(&tape, mat, res.material.awr, &partials);
-    let ang = tape
-        .section(mat, 4, 2)
-        .map(|s| parse_elastic_angular(s).unwrap());
-    let nu = NuBar::from_endf(&tape, mat).unwrap().unwrap_or_default();
-    let chi = FissionSpectrum::from_endf_mf5(&tape, mat)
-        .unwrap()
-        .unwrap_or_default();
-    let emission = build_emission_spectra(&tape, mat);
-    let photons = PhotonProduction::from_endf(&tape, mat, &res);
-    let kerma = Kerma::from_reconr(&res, &nu, &chi, &emission).with_energy_balance(&photons, &res);
-    AceTable::from_reconr_full(
-        &res,
-        0.0,
-        0,
-        ang.as_ref(),
-        &emissions,
-        Some(&kerma),
-        None,
-        false,
-        None,
-    )
+    let ace = njoy_outram_park_fork::acer::build_full(&tape, mat, &res, 0.0, 0).unwrap();
+    (ace, tape, res)
 }
 
 /// A minimal parsed Type-1 ACE table: just the arrays we need to validate.
@@ -571,25 +548,29 @@ fn angular_table_roundtrips_through_file() {
 
 /// **HEATR → ACE 4e (heating column) V&V.**
 ///
-/// **Methodology.** Build the U-235 (MAT=9228, ENDF/B-VIII.0) ACE table with the
-/// HEATR MT=301 KERMA wired into the ESZ heating column (H1–H5 kinematic terms
-/// **plus H6 energy balance**: the ~7 MeV/fission of prompt photon energy is
-/// subtracted as escaping). The heating column stores the ACE "heating number"
-/// `H(E) = KERMA(E)/σ_total(E)` in MeV (`acefc`'s `xss(ih+j)`). Assert it is
-/// (a) present and non-trivial (not the all-zero placeholder), (b) physically
-/// bounded — every value ≥ 0 and below the ~200 MeV/fission ceiling, and
-/// (c) fission-dominated at low energy: the peak heating number is
-/// ~150–200 MeV/collision (U-235's ~185 MeV fission deposition, minus escaping
-/// photons, times the thermal fission/total fraction).
+/// **Methodology.** Build the U-235 (MAT=9228, ENDF/B-VIII.0) ACE table through
+/// the production route (`acer::build_full`), whose heating column is HEATR's
+/// MT=301 (`heatr::heatr`, `local = 0`) divided by the total, as NJOY's ACER
+/// writes it (`acefc.f90:5641-5645`). Assert the column is (a) present and
+/// non-trivial, (b) never negative and below 200 MeV, and (c) at its peak
+/// within **3 %** of the evaluation's own estimate, `max_E EFR·σ_f(E)/σ_t(E)`:
+/// in thermal fission the locally deposited energy is the fragments' kinetic
+/// energy, EFR (MF=1/MT=458), while the neutrons and, with `local = 0`, the
+/// photons leave. The 3 % was fixed before the run from the terms that
+/// estimate omits, each under 1 % of EFR: the difference between MT=458's
+/// prompt-photon energy and the photon files' (the energy balance removes
+/// the latter), and the capture and elastic recoils.
 ///
-/// **Results (2026-07-04, ENDF/B-VIII.0).** Peak heating number ≈ 154
-/// MeV/collision (fission-dominated thermal region; ~6 MeV lower than the
-/// kinematic limit's ~160, the escaping prompt-γ energy); all values in
-/// `[0, 200] MeV`; the column is non-zero (many hundreds of positive entries).
-/// The `write_ace` example prints the same ~1.54e2 MeV peak.
+/// **Results.** ~~(2026-07-04) Peak heating number ≈ 154 MeV/collision~~,
+/// from the old `Kerma` approximation, against a `150..200 MeV` band that
+/// was set from that same result. **CHANGED 2026-10-05**: through the HEATR
+/// translation (byte-identical to NJOY2016's HEATR) the peak is **142.88
+/// MeV**; the band's own reasoning, done with EFR (169 MeV) instead of the
+/// 185 MeV total, predicts ~142. Criterion (c): peak 142.8833 MeV against
+/// EFR 169.13 MeV × max σ_f/σ_t 0.84481 = 142.8830 MeV, **+2.0e-6**.
 #[test]
 fn esz_heating_column_is_physical() {
-    let ace = build_heated("n-092_U_235-ENDF8.0.endf", 9228);
+    let (ace, tape, res) = build_heated("n-092_U_235-ENDF8.0.endf", 9228);
     let nes = ace.nxs[nxs::NES] as usize;
     let esz = ace.jxs[jxs::ESZ] as usize - 1; // 1-based locator
     let heat = &ace.xss[esz + 4 * nes..esz + 5 * nes];
@@ -598,24 +579,27 @@ fn esz_heating_column_is_physical() {
     let hmax = heat.iter().copied().fold(0.0_f64, f64::max);
 
     // (a) not the all-zero placeholder.
-    assert!(
-        n_positive > 100,
-        "heating column should be populated, got {n_positive} > 0"
-    );
-    // (b) physically bounded: no negatives, nothing above the ~200 MeV ceiling.
-    assert!(
-        heat.iter().all(|&h| h >= 0.0),
-        "heating numbers must be ≥ 0"
-    );
-    assert!(
-        heat.iter().all(|&h| h < 200.0),
-        "heating numbers must be < 200 MeV"
-    );
-    // (c) fission-dominated peak, ~150–200 MeV/collision for U-235.
-    assert!(
-        (150.0..200.0).contains(&hmax),
-        "peak heating {hmax} MeV should be ~185 MeV (thermal-fission dominated)"
-    );
+    assert!(n_positive > 100, "heating column should be populated, got {n_positive} > 0");
+    // (b) never negative, nothing above the ~200 MeV ceiling.
+    assert!(heat.iter().all(|&h| h >= 0.0), "heating numbers must be >= 0");
+    assert!(heat.iter().all(|&h| h < 200.0), "heating numbers must be < 200 MeV");
+    // (c) the peak against EFR·σ_f/σ_t from the evaluation itself.
+    let efr_mev = {
+        let s = tape.section(9228, 1, 458).expect("MT=458");
+        let mut c = njoy_outram_park_fork::endf::records::SectionCursor::new(&s.rows);
+        c.read_cont().unwrap();
+        c.read_list().unwrap().data[0] * 1.0e-6
+    };
+    let xs = |mt: i32| res.sections.iter().find(|s| i32::from(s.mt) == mt).map(|s| s.pairs.clone()).unwrap();
+    let (tot, fis) = (xs(1), xs(18));
+    let ratio_max = tot
+        .iter()
+        .map(|&(e, t)| if t > 0.0 { njoy_outram_park_fork::reconr::eval_lin_lin(&fis, e) / t } else { 0.0 })
+        .fold(0.0_f64, f64::max);
+    let estimate = efr_mev * ratio_max;
+    let rel = (hmax - estimate) / estimate;
+    println!("peak heating {hmax:.4} MeV; EFR {efr_mev:.4} MeV x max(sf/st) {ratio_max:.5} = {estimate:.4} MeV; rel {rel:+.3e}");
+    assert!(rel.abs() < 0.03, "peak heating {hmax} MeV is {rel:+.3e} from EFR*sf/st = {estimate} MeV");
 }
 
 

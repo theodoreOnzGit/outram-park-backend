@@ -318,8 +318,9 @@ impl AceTable {
     /// AND-block upgrade is future work). NXS(5)=NR is set to the producer count.
     /// `heating` is the MT=301 KERMA cross section (build it with
     /// ~~[`Kerma::from_reconr`][crate::heatr::Kerma::from_reconr]~~
-    /// [`Kerma::from_endf`][crate::heatr::Kerma::from_endf], which deposits
-    /// HEATR's Q per reaction; **CHANGED 2026-10-05**, GitHub #535); when supplied,
+    /// ~~[`Kerma::from_endf`][crate::heatr::Kerma::from_endf], which deposits
+    /// HEATR's Q per reaction~~ [`heatr_kerma`][crate::heatr::heatr_kerma],
+    /// NJOY's HEATR translated whole; **CHANGED 2026-10-05**, GitHub #535); when supplied,
     /// the ESZ heating column is filled with the ACE heating number
     /// `KERMA(E) / σ_total(E)` \[MeV\] (`acefc`'s `xss(ih+j)`). `None` leaves it
     /// zero.
@@ -629,10 +630,24 @@ impl AceTable {
         // (acefc's `xss(ih+j) = s/emev/xss(it+j)`), where KERMA(E) is the MT=301
         // heating cross section [eV·barn]. Zero where no HEATR result is supplied
         // or the total vanishes.
+        // Upstream reads MT=301 with `gety1` (zero below the first point, the
+        // last value held above the last) and rounds it to 7 figures before
+        // dividing (`acefc.f90:5636-5645`).
+        let mut g301 = heating.map(|k| {
+            let n = k.energy.len();
+            crate::endf::gety1::Gety1::new(&crate::endf::records::Tab1 {
+                head: crate::endf::records::Cont { c1: 0.0, c2: 0.0, l1: 0, l2: 0, n1: 1, n2: n as i32 },
+                interp: vec![(n as u32, 2)],
+                pairs: k.energy.iter().copied().zip(k.h.iter().copied()).collect(),
+            })
+        });
         for (j, &e) in egrid.iter().enumerate() {
-            let h = match heating {
-                Some(k) if total[j] != 0.0 => sigfig(k.eval(e) / EMEV / total[j], 7),
-                _ => 0.0,
+            let h = match g301.as_mut() {
+                Some(g) => {
+                    let s = sigfig(g.get(e).y, 7);
+                    if total[j] != 0.0 { sigfig(s / EMEV / total[j], 7) } else { 0.0 }
+                }
+                None => 0.0,
             };
             b.real(h);
         }

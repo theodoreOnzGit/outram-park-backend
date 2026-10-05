@@ -486,16 +486,13 @@ pub fn build_deck(
         .map(|s| (i32::from(s.mt), s.qi))
         .collect();
     let emissions = crate::acer::energy::build_emissions(tape, mat, recon.material.awr, &partials);
+    // HEATR, as the deck runs it: the full translation of `heatr.f90` on this
+    // PENDF, photons transported (`local = 0`); ACER takes MT=301 from its
+    // tape as upstream's ACER takes it from HEATR's (`acefc.f90:5641-5645`).
+    // Before 2026-10-05 this was `Kerma::from_endf(..).with_energy_balance`,
+    // an approximation of `nheat`/`gheat` on its own grid.
     let kerma = if deck.heatr {
-        let nu = crate::nuclear_data::secondary::NuBar::from_endf(tape, mat)?.unwrap_or_default();
-        let chi = crate::nuclear_data::secondary::FissionSpectrum::from_endf_mf5(tape, mat)?
-            .unwrap_or_default();
-        let emission = crate::heatr::build_emission_spectra(tape, mat);
-        let photons = crate::photon::PhotonProduction::from_endf(tape, mat, recon);
-        Some(
-            crate::heatr::Kerma::from_endf(tape, mat, recon, &nu, &chi, &emission)
-                .with_energy_balance(&photons, recon),
-        )
+        Some(crate::heatr::heatr_kerma(tape, mat, recon)?)
     } else {
         None
     };
