@@ -76,11 +76,21 @@ Write-up: `verification_and_validation/heatr_vs_njoy2016.md`.
   missing, and MT=444 is not yet emitted as its own ACE MTR reaction. The
   anisotropy's cost is measured above; do not read MT=444 above ~50 keV as
   usable.
-- **Open, measured, unexplained:** NJOY's MT=445 is non-zero ~5 % *below* the
+- ~~**Open, measured, unexplained:**~~ **Diagnosed 2026-10-05 (GitHub #535):**
+  NJOY's MT=445 is non-zero ~5 % *below* the
   two-body kinematic threshold `E_d` implies (562.5 eV vs 594.5 eV on Fe-58).
   NJOY's `df` cut and its `E_d` table were both read and match this port
-  exactly, so the difference is in `disbar`'s recoil bounds, which have not
-  been. Magnitude 0.86 eV·b against a scale of 1e5.
+  exactly, ~~so the difference is in `disbar`'s recoil bounds, which have not
+  been~~ and `disbar`, now read, does not bound the recoil differently. It runs
+  the recoil integral only at nodes 10 % apart in energy and interpolates
+  linearly between them, so a node below threshold and the next above it put a
+  chord across the threshold. NJOY's two sub-threshold points lie on the chord
+  from the 550 eV node (zero crossing measured at 549.97 eV). Not a port
+  defect. Magnitude 0.86 eV·b against a scale of 1e5.
+- **The ACE heating column is photon-corrected** (`Kerma::with_energy_balance`
+  subtracts MF=12 `LO=1`, MF=13 and MF=15 photon energy), a partial H6 with no
+  NJOY comparison of its own; the record above compares the uncorrected
+  kinematic limit.
 
 ## References
 

@@ -6,7 +6,14 @@
 //! particles, and — per NJOY's own documented fallback — photon energy when no
 //! photon-production data is processed) deposits locally. `heatr.f90` computes
 //! this exact quantity as a **check** (`kchk`) against its full photon
-//! energy-balance method; here it is the primary (and, for now, only) result.
+//! energy-balance method; here it is the primary ~~(and, for now, only)~~ result.
+//! **CORRECTED 2026-10-05 (GitHub #535):** not the only one.
+//! [`Kerma::with_energy_balance`] subtracts the evaluation's photon energy
+//! production (MT=442, from [`crate::photon`]: MF=12 `LO=1`, MF=13, MF=15)
+//! from it, and the ACE route (`acer`, when the deck runs HEATR) uses that
+//! corrected value. It is a partial H6: no MF=12 `LO=2` cascades, no MF=6
+//! photons, no capture recoil (`disgam`), and the neutron side stays the
+//! kinematic limit. It has no NJOY comparison of its own.
 //!
 //! Ported in phases (`docs/porting-plan.md` §HEATR sub-phases) — see the
 //! module's own progress:
@@ -38,7 +45,10 @@
 //!   isotropic-CM integral. MF=4 anisotropy and the continuum/(n,xn)/capture
 //!   channels share the same [`damage::lindhard_damage`] partition and follow. Distinct
 //!   output quantity from the MT=301 heating KERMA above.
-//! - **H6** (deferred): the full photon energy-balance method.
+//! - **H6** (deferred): the full ~~photon~~ energy-balance method (`nheat` with
+//!   `disbar`/`conbar`/`sixbar` for the neutron side and `hconvr`/`gheat` for
+//!   photons). The photon subtraction above is the part that exists; the plan
+//!   for the rest is on GitHub #535.
 //!
 //! ## Elastic kinematics (H1)
 //!

@@ -157,9 +157,59 @@ Two candidate causes were **read and eliminated**, not assumed:
   as this port's `default_displacement_energy` does. The whole table was
   compared entry by entry and matches.
 
-So the difference is in how `disbar` bounds the recoil, which has **not** been
+~~So the difference is in how `disbar` bounds the recoil, which has **not** been
 read. Magnitude: 0.86 eV·b against a scale reaching 1e5, confined to a ~45 eV
-window at threshold. Recorded as an open question rather than guessed at.
+window at threshold. Recorded as an open question rather than guessed at.~~
+
+### Diagnosed 2026-10-05 (GitHub #535): `disbar` interpolates between nodes
+
+`disbar` (`heatr.f90:1829-2013`) was read. It does **not** bound the recoil
+differently; it does not evaluate the damage at the requested energy at all.
+
+- It keeps two nodes, `(el, daml)` and `(en, damn)`. When a request `ee` passes
+  `en`, the next node is `e = step*el` with `step = 1.1`, lowered to the next
+  MF=4 energy (`enext`) if that comes first and raised to `ee` if the request
+  is further still (`heatr.f90:1953-1955`).
+- The 64-point Gauss-Legendre recoil integral with `df` runs **only at the
+  node** (`:1992-2001`).
+- The value returned for `ee` is `terp1(el,daml,en,damn,ee,dame,2)`
+  (`:2010`): a straight line between nodes.
+
+So when one node sits below the kinematic threshold (damage 0) and the next
+above it, every request between them gets a positive chord value.
+
+**Prediction, then the check on NJOY's own tape.** If this is the cause, the
+MT=445 points below 594.5 eV lie on one straight line that reaches zero at a
+node between 594.5/1.1 = 540.5 eV and 594.5 eV. From
+`reference-data/heatr/fe58-ENDF8.0-0K-local1.heatr.pendf`:
+
+| E (eV) | NJOY MT=445 (eV·b) | on the chord? |
+|---|---:|---|
+| 562.5 | 0.85851 | defines it |
+| 593.75 | 2.99995 | defines it |
+| zero crossing | **549.97 eV** | the node `500 × 1.1 = 550` eV |
+| 605 (next node, `550 × 1.1`) | 3.771 (chord) | |
+| 625 | 10.571 | chord from (605, 3.771) through 656.25 gives **10.53** |
+
+The zero crossing lands on a 10 % step from a 500 eV node to within 0.03 eV,
+and the next segment is consistent to 0.4 %. **The sub-threshold values are
+NJOY's interpolation, not physics.** This port runs the recoil integral at
+every requested energy, so its first non-zero point (607.7 eV, its first grid
+node above 594.5 eV) is the kinematic threshold. **Not a port defect**; the
+two codes differ by NJOY's chord error, which is largest where the damage
+curve bends most, i.e. at threshold.
+
+Two side notes from the same reading, neither affecting these two nuclides:
+
+- `disbar`'s elastic shortcut skips nodes below
+  `enx = edis*arat/(4*afact)` with **`edis = 25` eV hard-coded**
+  (`:1891, :1938-1943`), not the material's `E_d`. For Fe-58 `enx` = 371.6 eV
+  and for Si-28 186.1 eV, both at or below the real threshold, so it changes
+  nothing here; for a material with `E_d < 25` eV it would zero real damage
+  below `enx`.
+- If byte parity with NJOY's MT=444/445 were ever wanted, the port would have
+  to adopt the same 10 % node stepping. That would make it less accurate at
+  threshold, so it is a maintainer decision, not something to do by default.
 
 ## What this does NOT establish
 
