@@ -33,6 +33,8 @@
 use crate::endf::tape::{Section, Tape};
 use crate::NjoyError;
 
+pub(crate) mod layout;
+
 /// One material-selection request — the Rust analogue of a single card-3
 /// `(nin, matd)` pair in `moder.f90`'s selection loop (labels 130-205).
 ///
@@ -153,7 +155,13 @@ pub fn select_materials(
         last_mat = sel.mat;
     }
 
-    Ok(Tape::from_sections(tpid.to_string(), out_sections))
+    let mut out = Tape::from_sections(tpid.to_string(), out_sections);
+    // Keep each input's MF=1/MT=451 text (and raw MF=32 rows), so the
+    // written tape carries the evaluation's description (GitHub #553).
+    for tape in inputs {
+        out.copy_raw_mf32_from(tape);
+    }
+    Ok(out)
 }
 
 /// Run the MODER card-input driver. Placeholder — material selection is

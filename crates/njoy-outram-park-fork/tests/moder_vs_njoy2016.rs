@@ -53,9 +53,29 @@
 //! differ (NJOY writes blank fields); and the sequence column differs on
 //! almost every line. Values should agree everywhere except Hollerith rows.
 //!
-//! # Results (2026-10-05, branch `claude/nuclear-data-gaps`, release)
+//! # Results
 //!
-//! Full table and causes: `verification_and_validation/moder_vs_njoy2016.md`.
+//! **2026-10-05, after GitHub #553** (MODER's record walkers ported as
+//! `moder::layout`; `Tape::write` formats each line by its record kind and
+//! keeps the MF=1/MT=451 text):
+//!
+//! ```text
+//! lines: port 11793 / NJOY 11793
+//!       tpid:      1 lines, cols 1-75 identical      1, seq 76-80 identical      1
+//!   sentinel:    120 lines, cols 1-75 identical    120, seq 76-80 identical    120
+//!  hollerith:    616 lines, cols 1-75 identical    616, seq 76-80 identical    616
+//!    numeric:  11056 lines, cols 1-75 identical  11056, seq 76-80 identical  11056
+//! float (a11) fields on numeric lines: 59098 / 59098 identical
+//! integer (i11) fields on numeric lines: 4998 / 4998 identical
+//! blank fields on numeric lines (directory rows): 2240 / 2240 identical
+//! whole lines byte-identical: 11793 / 11793
+//! ```
+//!
+//! **The port's tape is NJOY's, byte for byte**, on the first run after the
+//! change. The test now asserts whole-line identity.
+//!
+//! ~~**2026-10-05, before #553** (branch `claude/nuclear-data-gaps`):~~
+//! superseded, kept for the record:
 //!
 //! ```text
 //! lines: port 11793 / NJOY 11793
@@ -69,14 +89,11 @@
 //! whole lines byte-identical: 1 / 11793
 //! ```
 //!
-//! The prediction held in every class. The **section structure is
-//! identical** (same MAT/MF/MT on every line); **all 59 098 `a11` float
-//! fields are character-identical to NJOY's**; **every parsed value on a
-//! numeric line agrees bit for bit**. The byte differences are the CONT
-//! integer fields, blank directory fields, sentinels, sequence numbers and
-//! the **MF=1/MT=451 descriptive text, which the port loses** (616 rows,
-//! read as 0.0). So the selection is NJOY's, and the writer is not a
-//! byte-faithful MODER: `Section`'s `[f64; 6]` rows carry no record type.
+//! Then, the prediction held in every class: the section structure, the
+//! `a11` floats and every parsed value matched, and the CONT integers, blank
+//! fields, sentinels, sequence numbers and the MF=1/MT=451 text did not,
+//! because `Section`'s `[f64; 6]` rows carry no record type. Full history:
+//! `verification_and_validation/moder_vs_njoy2016.md`.
 
 use njoy_outram_park_fork::endf::parse::parse_line;
 use njoy_outram_park_fork::endf::tape::Tape;
@@ -297,14 +314,14 @@ fn moder_selection_matches_njoy2016_tape() {
         hollerith.lines > 0,
         "no MF=1/MT=451 text rows found; the classifier is wrong"
     );
-    // The documented divergences, pinned so a fix shows up as a failure that
-    // asks for this record to be updated rather than passing silently.
+    // Byte identity, GitHub #553 (2026-10-05). These replace the #536 pins
+    // (`int_same == 0`, `hollerith.identical_1_75 == 0`), which recorded the
+    // divergences and failed, as designed, when the writer was fixed.
+    assert_eq!(int_same, int_fields, "CONT/table integer fields differ from NJOY's i11");
+    assert_eq!(blank_same, blank_fields, "blank fields differ from NJOY's");
     assert_eq!(
-        int_same, 0,
-        "CONT integer fields now match NJOY's i11: update the record (#536)"
+        hollerith.identical_1_75, hollerith.lines,
+        "MF=1/MT=451 text differs from NJOY's (the description must survive)"
     );
-    assert_eq!(
-        hollerith.identical_1_75, 0,
-        "Hollerith text now survives: update the record (#536)"
-    );
+    assert_eq!(whole, theirs.len(), "not every line is byte-identical to NJOY's MODER tape");
 }

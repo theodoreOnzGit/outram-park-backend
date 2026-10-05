@@ -110,9 +110,9 @@ consequence on U-234, where `LSSF = 0`: rung 4 tells that half.
 
 Call chain from `tape.rs::Tape::read_file` to `parse.rs::parse_endf_float`: 3 hops, 1 shortest chain.
 
-- [`tape.rs::Tape::read_file`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/njoy-outram-park-fork/src/endf/tape.rs#L86) `pub fn read_file(path: &std::path::Path) -> Result<Self, NjoyError>` — Parse an ENDF ASCII tape from a file on disk.
-  - [`tape.rs::Tape::read`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/njoy-outram-park-fork/src/endf/tape.rs#L97) `pub fn read<R: Read>(reader: R) -> Result<Self, NjoyError>` — Parse an ENDF ASCII tape from any `Read` source. · called at [L88](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/njoy-outram-park-fork/src/endf/tape.rs#L88)
-    - [`parse.rs::parse_line`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/njoy-outram-park-fork/src/endf/parse.rs#L322) `pub fn parse_line(line: &str) -> Result<RawLine, NjoyError>` — Parse one 80-character ENDF ASCII line. · called at [L117](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/njoy-outram-park-fork/src/endf/tape.rs#L117)
+- [`tape.rs::Tape::read_file`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/njoy-outram-park-fork/src/endf/tape.rs#L95) `pub fn read_file(path: &std::path::Path) -> Result<Self, NjoyError>` — Parse an ENDF ASCII tape from a file on disk.
+  - [`tape.rs::Tape::read`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/njoy-outram-park-fork/src/endf/tape.rs#L106) `pub fn read<R: Read>(reader: R) -> Result<Self, NjoyError>` — Parse an ENDF ASCII tape from any `Read` source. · called at [L97](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/njoy-outram-park-fork/src/endf/tape.rs#L97)
+    - [`parse.rs::parse_line`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/njoy-outram-park-fork/src/endf/parse.rs#L322) `pub fn parse_line(line: &str) -> Result<RawLine, NjoyError>` — Parse one 80-character ENDF ASCII line. · called at [L126](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/njoy-outram-park-fork/src/endf/tape.rs#L126)
       - [`parse.rs::parse_endf_float`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/njoy-outram-park-fork/src/endf/parse.rs#L27) `pub fn parse_endf_float(s: &str) -> Result<f64, NjoyError>` — Parse one ENDF 11-column float field. · called at [L332](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/njoy-outram-park-fork/src/endf/parse.rs#L332)
 <!-- /code-walk -->
 
@@ -174,13 +174,18 @@ letter (`1.00000E-5`). Before the fix those fields **silently became 0.0**.
   2026-10-05** ([#536](https://github.com/theodoreOnzGit/outram-park-backend/issues/536)):
   selecting H-2 and Li-6 from two ENDF/B-VIII.0 tapes gives the same 11 793
   lines with the same MAT/MF/MT on each, all **59 098** `a11` number fields
-  character-identical and every value bit-identical. It is **not** a
+  character-identical and every value bit-identical. ~~It is **not** a
   byte-faithful MODER: one line in 11 793 is byte-identical, because a row of
   six floats cannot say which fields NJOY writes as integers (`i11`), which
   it leaves blank, or which are text. The text is the one that matters:
   **the evaluation's MF=1/MT=451 description does not survive** a write by
-  this port. Record:
-  [`moder_vs_njoy2016.md`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@@/crates/njoy-outram-park-fork/verification_and_validation/moder_vs_njoy2016.md).
+  this port.~~ **Since #553 (later on 2026-10-05) it is byte-faithful on that
+  tape: all 11 793 lines identical**, the description included. The port
+  recovers each line's record type by walking the section the way MODER
+  does ([#553](https://github.com/theodoreOnzGit/outram-park-backend/issues/553)).
+  MF=32 and GENDF/ERRORR materials are still written in the old all-`a11`
+  form. Record:
+  [`moder_vs_njoy2016.md`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/njoy-outram-park-fork/verification_and_validation/moder_vs_njoy2016.md).
 - **`reference_data`** — where the workspace's reference tapes live. They sit
   at the repository root in `reference-data/endf/` (82 entries on
   2026-10-04: ENDF/B-VII.0, -VII.1, -VIII.0, -VIII.1, JENDL-3.3, TENDL-2023,

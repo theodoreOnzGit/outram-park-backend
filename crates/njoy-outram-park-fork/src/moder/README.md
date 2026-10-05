@@ -71,44 +71,46 @@ selects H-2 (MAT 128) and Li-6 (MAT 325) from two ENDF/B-VIII.0 tapes onto one
 coded tape; the port does the same with `select_materials` + `Tape::write`, and
 the two are compared line by line. Measured: same 11 793 lines and the same
 MAT/MF/MT on every line; **59 098 / 59 098 `a11` float fields
-character-identical**; every parsed value bit-identical; **1 / 11 793 lines
+character-identical**; every parsed value bit-identical; ~~**1 / 11 793 lines
 byte-identical**, the rest differing exactly in the classes listed under
 *Caveats* below. One of them is data loss, not formatting: **the MF=1/MT=451
-descriptive text does not survive** (616 rows written as numbers).
+descriptive text does not survive** (616 rows written as numbers).~~
 
-The test pins those divergences, so fixing one fails it and asks for the
-record to be updated.
+~~The test pins those divergences, so fixing one fails it and asks for the
+record to be updated.~~ **CHANGED 2026-10-05 (GitHub #553): all 11 793 lines
+byte-identical**, the MF=1/MT=451 text included. `layout.rs` ports MODER's
+record walkers (`file1` … `file40`, not `file32`), and `Tape::write` formats
+each line by the record it belongs to. The test asserts whole-line identity.
 
 ## Caveats
 
-- **CONT-record integer fields are not distinguished from LIST-record float
-  fields.** `crate::endf::tape::Section` stores every row as a uniform
-  `[f64; 6]` with no per-row tag, so `format_line`/`Tape::write` writes *every*
-  field (including a CONT record's L1/L2/N1/N2 integer control fields) in
-  exponential `a11` form, not upstream's plain right-justified `i11` integers.
-  The written **value** round-trips exactly through this crate's own reader
-  (e.g. an integer `5` becomes `5.000000+0`, which parses back to exactly
-  `5.0`), but the column layout does not byte-match genuine NJOY output for
-  those four fields per CONT record.
+- ~~**CONT-record integer fields are not distinguished from LIST-record float
+  fields.** … the column layout does not byte-match genuine NJOY output for
+  those four fields per CONT record.~~ **Fixed by #553:** `layout.rs` recovers
+  each line's record kind, and CONT integers are written as `i11`.
+- **Not byte-faithful for MF=32 and for GENDF/ERRORR materials**: `file32` is
+  not ported, and group materials take MODER's separate path. Those sections,
+  and any whose layout would blank a non-zero field, are written with every
+  field as `a11`; no value is dropped.
 - **Ascending-MAT-order check applied unconditionally.** Fortran only enforces
   it for the ENDF/PENDF path (`inout=1`); GENDF/covariance tapes do not require
   it. This port doesn't distinguish tape "kind", so the check always applies —
   a documented divergence for GENDF/covariance material selection.
-- **Sequence numbers (tape columns 76-80) are a simple monotonic counter**
+- ~~**Sequence numbers (tape columns 76-80) are a simple monotonic counter**
   across the whole written tape, not NJOY's per-file `nsh`/`nsp`/`nsc` reset
-  convention. This column is documented as cosmetic/ignored on read by every
-  reader in this crate (see `parse_line`), so it carries no information either
-  way.
+  convention.~~ **Fixed by #553:** each section counts from 1, SEND carries
+  99999, FEND/MEND/TEND carry 0.
 - The blocked-binary format is an NJOY implementation detail; a fully in-memory
   Rust pipeline may never need it. Port it only when interchange with the Fortran
   oracle demands it.
-- ASCII round-trips are structural, not byte-identical (field formatting differs,
-  and see the CONT-field caveat above).
-- **MF=1/MT=451 descriptive text is lost on write** (measured 2026-10-05,
-  GitHub #536): `parse_endf_float` maps Hollerith to 0.0, so the row model
-  keeps no text and `Tape::write` emits numbers in its place. Blank fields
-  (the directory rows' `22x`) and NJOY's blank-field sentinels (`asend` and
-  friends, sequence 99999 on a SEND) are written as `a11` zeros too.
+- ~~ASCII round-trips are structural, not byte-identical~~ **byte-identical to
+  NJOY's MODER on the H-2 + Li-6 selection since #553.**
+- ~~**MF=1/MT=451 descriptive text is lost on write** (measured 2026-10-05,
+  GitHub #536) …~~ **Fixed by #553:** `Tape::read` keeps MF=1/MT=451's raw
+  text, `select_materials` carries it to the new tape, and `Tape::write`
+  writes it verbatim; blank directory fields and blank sentinels are written
+  blank. A tape built in memory (`Tape::from_sections`) has no text to keep,
+  so its text lines are blank.
 
 ## References
 

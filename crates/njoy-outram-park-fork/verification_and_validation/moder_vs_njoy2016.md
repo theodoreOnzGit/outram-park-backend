@@ -67,7 +67,59 @@ documented in `Tape::write` and `src/moder/README.md`: `a11` fields identical;
 `[f64; 6]` row model reads text as 0.0); sentinels and sequence numbers
 different; values identical outside the text.
 
-## Results (2026-10-05)
+## Results after GitHub #553 (2026-10-05, later the same day)
+
+**Change.** `moder.f90`'s record walkers (`file1` … `file40`, all but
+`file32`) are ported as `src/moder/layout.rs`. It walks each section's rows
+with the same `contio` / `listio` / `tab1io` / `tab2io` / `hdatio` / `dictio`
+sequence MODER uses and records each line's kind. `Tape::write` formats each
+line with `endf.f90`'s descriptor for that kind:
+- `2a11,4i11` for a CONT;
+- `a11` with blank fields past a count for data;
+- `i11` pairs for interpolation tables;
+- verbatim text for MF=1/MT=451, which `Tape` now keeps;
+- `22x,4i11` for the directory.
+
+It writes NJOY's blank sentinels and per-section sequence numbers. A section
+the walker cannot account for, a GENDF or ERRORR material, or a layout that
+would blank a non-zero field keeps the old all-`a11` form.
+
+**Prediction.** Every class byte-identical on this tape, since nothing in it
+is MF=32 or a group material.
+
+| class (by NJOY's line) | lines | columns 1-75 identical | columns 76-80 identical |
+|---|---:|---:|---:|
+| TPID | 1 | 1 | 1 |
+| sentinel | 120 | **120** | **120** |
+| MF=1/MT=451 text | 616 | **616** | **616** |
+| numeric | 11 056 | **11 056** | **11 056** |
+
+| field class on numeric lines | fields | identical |
+|---|---:|---:|
+| `a11` float | 59 098 | 59 098 |
+| `i11` integer | 4 998 | **4 998** |
+| blank | 2 240 | **2 240** |
+
+**Whole lines byte-identical: 11 793 of 11 793.** The tape is NJOY's, byte
+for byte, and the evaluation's description survives. The test now asserts
+whole-line identity; the #536 pins below failed, as designed, on the first
+run after the change and were replaced.
+
+**A regression caught, and the guard it left.** The first run broke
+`covr_boxer_golden`'s Li-6 tier-2 case: an ERRORR output tape (MF=1/MT=451
+`N1 = -11`) has group-wise LISTs, which the walker read as ENDF structure,
+blanking a field that held 5.981. MODER sends such materials down a separate
+path (`moder.f90:161`, `:271-273`), and so does the port now
+(`moder::layout::is_group_material`). The writer also refuses any layout
+that would blank a non-zero field, so a misread structure can no longer drop
+a value. With both, `covr_boxer_golden`, `errorr_mf33_golden`,
+`mixr_h2_be9_njoy_golden` and `resxsr_h2_njoy_golden` pass unchanged.
+
+**Not covered:** MF=32 (`file32` not ported) and GENDF/ERRORR materials are
+still written with every field as `a11`.
+
+## Results before #553 (2026-10-05), superseded
+
 
 | class (by NJOY's line) | lines | columns 1-75 identical | columns 76-80 (sequence) identical |
 |---|---:|---:|---:|
@@ -131,8 +183,10 @@ the cause is the tape model, not `a11`: a row of six floats cannot say which
 fields are integers, which are blank or which are text. Item 3 is the one that
 matters to a user, because it silently drops an evaluation's provenance from
 any tape this crate writes. Byte parity needs per-record type information
-(CONT/LIST/TAB/TEXT) in `Section`; filed as a follow-up rather than patched
-here, because changing `Section` touches every module that builds one.
+(CONT/LIST/TAB/TEXT) ~~in `Section`; filed as a follow-up rather than patched
+here, because changing `Section` touches every module that builds one~~.
+**RESOLVED by #553 (above):** the record type is recovered at write time by
+porting MODER's own walkers, so `Section` did not have to change.
 
 ## Reference
 

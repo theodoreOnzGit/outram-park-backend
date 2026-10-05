@@ -1035,3 +1035,25 @@ and 5 MeV, which is the `local = 1` neutron-side residual amplified by
 subtracting a photon term that is ~89 % of the total (H6b); and Fe-58's MF=6
 capture deposits its 208 keV photon deficit where NJOY deposits only the
 photon recoil (H6c).
+
+## `Tape::write` is byte-faithful to NJOY's MODER (2026-10-05, GitHub #553)
+
+A row of six floats cannot say which fields NJOY writes as `i11`, which it
+leaves blank or which are text, so the written tape matched NJOY's on 1 line
+in 11 793 and dropped the evaluation's MF=1/MT=451 description. `Section` did
+not have to change: `src/moder/layout.rs` ports MODER's own record walkers
+(`moder.f90`'s `file1` … `file40`, not `file32`), which recover each line's
+record kind from the counts in the heads, exactly as MODER does when it reads.
+`Tape::write` formats each kind with `endf.f90`'s descriptor, and `Tape` keeps
+MF=1/MT=451's raw text (beside the MF=32 text it already kept). On the H-2 +
+Li-6 selection all **11 793 / 11 793** lines are byte-identical to NJOY2016's
+tape (`tests/moder_vs_njoy2016.rs`, which now asserts it).
+
+**Two guards, both from a regression the first run caused.** An ERRORR output
+tape (MF=1/MT=451 `N1 = -11`) is group-wise LISTs, and the walker read it as
+ENDF structure and blanked a field holding 5.981 (`covr_boxer_golden`'s Li-6
+case). GENDF and ERRORR materials now skip the layout, as MODER skips them
+(`moder.f90:161`, `:271-273`); and the writer refuses any layout that would
+blank a non-zero field. **A value is never dropped to match a format.**
+
+Not covered: MF=32 and group materials, still written all-`a11`.

@@ -781,6 +781,12 @@ ACER is simply not ported.
   | the eight blocks + their locator arithmetic | **absent** |
   | MTRP's `MT·1000 + line` numbering (how U-235 reaches 583 entries) | **absent** |
 
+  **Updated 2026-10-05:** this table is the state when the record was
+  written. Every row has since landed: the eight photon blocks are built and
+  word-identical to NJOY2016's on U-234, U-235 and U-238 (2026-09-26,
+  `acer::photon_blocks`), LO=2 cascades included, and HEATR's photon side
+  (MT=442) matches NJOY since #535's H6a. `photon.rs` is now `photon/mod.rs`.
+
   **The table above is the COST ESTIMATE as it stood before the work, kept as
   the record of what was actually built. Every "absent"/"not parsed" row in it
   is now done** — `acer/photon_blocks.rs` parses MF=12 LO=1 and LO=2, MF=13 and

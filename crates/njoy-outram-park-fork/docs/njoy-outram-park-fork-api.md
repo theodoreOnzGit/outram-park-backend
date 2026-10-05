@@ -15118,7 +15118,7 @@ pub struct Tape {
 - ```rust
   pub fn copy_raw_mf32_from(self: &mut Self, other: &Tape) { /* ... */ }
   ```
-  Carry another tape's raw MF=32 text over (a tape rebuilt with
+  Carry another tape's raw text over (MF=32 rows and MF=1/MT=451 text)
 
 - ```rust
   pub fn raw_mf32_lines(self: &Self, mat: i32, mt: i32) -> Option<&[String]> { /* ... */ }

@@ -20,7 +20,7 @@ cross-code record; **N** `NotPorted` stub; **T** tooling, no physics.
 | module | lesson section | code walk | V&V record | status |
 |---|---|---|---|---|
 | `endf` | [Rung 1](./endf.md) | `Tape::read_file` (rung 1) | indirect: every NJOY comparison reads through it; float-parser defect record in `endf/parse.rs` | V |
-| `moder` | [Rung 1](./endf.md), supporting modules | `moder::select_materials` ([appendix](./call-trees.md)) | ~~none against NJOY; README says verified by hand~~ `moder_vs_njoy2016.md` (2026-10-05): selection and every `a11` field match NJOY2016's MODER; text, `i11` and blank fields do not ([#536](https://github.com/theodoreOnzGit/outram-park-backend/issues/536)) | ~~**U — gap**~~ **P** |
+| `moder` | [Rung 1](./endf.md), supporting modules | `moder::select_materials` ([appendix](./call-trees.md)) | ~~none against NJOY; README says verified by hand~~ `moder_vs_njoy2016.md` (2026-10-05): selection and every `a11` field match NJOY2016's MODER; ~~text, `i11` and blank fields do not~~ all 11 793 lines byte-identical since [#553](https://github.com/theodoreOnzGit/outram-park-backend/issues/553) ([#536](https://github.com/theodoreOnzGit/outram-park-backend/issues/536)) | ~~**U — gap**~~ ~~**P**~~ **V** (MF=32 and group materials not covered) |
 | `reference_data` | [Rung 1](./endf.md) | appendix | `tests/no_endf_inside_crates.rs` (layout) | T |
 | `acquire` | [Rung 1](./endf.md) | — | none (cache substrate; download path behind `net-fetch`) | T |
 | `reconr` | [Rung 2](./reconr.md) | `reconr::reconr` | `tests/pendf_stages_vs_njoy2016.rs`, `tests/reconr_lrf7_threshold_channels_vs_njoy2016.rs`, `reconr_sr88_lrf7_kbk_vs_njoy2016.md` | V |
@@ -32,7 +32,7 @@ cross-code record; **N** `NotPorted` stub; **T** tooling, no physics.
 | `leapr` | [Rung 5](./thermr.md) | `leapr::run_deck` (appendix) | `groupr_gaminr_covr_leapr_vs_njoy2016.md` §4.3–4.4, `examples/graphite_sab_generation.rs` | V; `coldh` self-consistency only |
 | `heatr` | [Rung 6](./heatr.md) | `Kerma::from_reconr` | `heatr_vs_njoy2016.md` | **P** — kinematic limit, plus ~~a photon-only energy-balance correction on the ACE route (not compared with NJOY)~~ the photon energy balance, whose MT=442 matches NJOY at print precision (2026-10-05, H6a; `Kerma::from_endf` deposits `nheat`'s Q); the neutron side of the energy balance (H6b), MF=6 capture (H6c) and most damage channels not ported; ~~MT=445 threshold discrepancy open~~ MT=445 threshold diagnosed 2026-10-05 (NJOY interpolates between 10 % nodes) |
 | `gaspr` | [Rung 6](./heatr.md) | `GasProduction::from_reconr_and_tape` | `gaspr_light_nuclides_vs_njoy2016.md` | V |
-| `photon` | [Consumer surface](./consumer-surface.md) | `PhotonProduction::from_endf` (appendix) | indirect: ACE photon blocks word-identical (rung 9); `tests/photon.rs` | P; MF=12 `LO = 2` not ported |
+| `photon` | [Consumer surface](./consumer-surface.md) | `PhotonProduction::from_endf` (appendix) | ~~indirect: ACE photon blocks word-identical (rung 9)~~ `heatr_vs_njoy2016.md` §4: MT=442 matches NJOY2016's HEATR at print precision (Fe-58, Si-28, 2026-10-05); `tests/photon.rs` | ~~P; MF=12 `LO = 2` not ported~~ **V** (MF=6 photons with `LAW ≠ 1` not valued) |
 | `groupr` | [Rung 7](./groupr.md) | `self_shielded_group_xs` | `groupr_gaminr_covr_leapr_vs_njoy2016.md` §3, five `tests/groupr_*_golden.rs` | V |
 | `gaminr` | [Rung 7](./groupr.md) | `gaminr::run_with_input` (appendix) | `gaminr_u_photoatomic_vs_njoy2016.md` | ~~**P — gap**: MF=26 coherent/incoherent matrices disagree with NJOY on real uranium~~ **V** (2026-10-05): all reactions incl. MF=26 matrices ≤ 3.7e-7 on real uranium once NJOY's deck uses separate units ([#534](https://github.com/theodoreOnzGit/outram-park-backend/issues/534)) |
 | `errorr` | [Rung 8](./errorr.md) | `errorr::run_mf33` | `tests/errorr_mf33_golden.rs`, three `errorr_mf32_*` records | V (MF=33, MF=32 paths named); MF=31/34/35/40 not ported |
@@ -78,9 +78,10 @@ Each is tracked as a GitHub issue, filed 2026-10-04 by this track:
    interpolation in NJOY, not a port defect. [#535](https://github.com/theodoreOnzGit/outram-park-backend/issues/535)
 3. ~~**MODER has no cross-code comparison** of a tape it writes.~~ **Compared
    2026-10-05:** the selection and all 59 098 `a11` number fields match the
-   tape NJOY2016's MODER writes; the writer is not byte-faithful (`i11`
+   tape NJOY2016's MODER writes; ~~the writer is not byte-faithful (`i11`
    integers, blank fields and the MF=1/MT=451 text are not reproduced, and
-   the text is lost). [#536](https://github.com/theodoreOnzGit/outram-park-backend/issues/536)
+   the text is lost)~~ since #553 the written tape is byte-identical,
+   description included. [#536](https://github.com/theodoreOnzGit/outram-park-backend/issues/536), [#553](https://github.com/theodoreOnzGit/outram-park-backend/issues/553)
 4. ~~**WMP: two records disagree on U-238's pole count** (602 against 4 062).~~
    **Resolved 2026-10-05:** `WmpLibrary::core().get("U238")` has **4 062 poles
    in 4 309 windows**; the 602 was U-238's size in KB in

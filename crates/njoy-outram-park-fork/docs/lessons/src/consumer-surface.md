@@ -74,11 +74,19 @@ from). The table below is the same path with what each hop does:
   comparison"). `seam_stage_probe`, `endf_to_broadened_xs`,
   `tutorial_resonance_to_groups`, `temperature_thinning_study` and
   `graphite_sab_generation` are gated this way.
-- **`photon`:** feeds `acer::photon_blocks` and the HEATR energy-balance
-  correction; its parse is exercised by `tests/photon.rs` and, through ACER,
-  by the photon blocks being word-identical to NJOY2016's on U-234/235/238
-  (rung 9). Not ported: MF=12 `LO = 2` cascades (`hconvr`); such a reaction
-  keeps its photon energy local, an over-count stated in the module doc.
+- **`photon`:** ~~feeds `acer::photon_blocks` and~~ feeds the HEATR
+  energy-balance correction (MT=442). **CORRECTED 2026-10-05:** it does not
+  feed `acer::photon_blocks`, which has its own parser (its module doc says
+  why); since #535's H6a the dependency runs the other way, `photon` reusing
+  `photon_blocks`'s LO=2 cascade (`Lo2Cascade`). ~~its parse is exercised by
+  `tests/photon.rs` and, through ACER, by the photon blocks being
+  word-identical to NJOY2016's on U-234/235/238 (rung 9). Not ported: MF=12
+  `LO = 2` cascades (`hconvr`); such a reaction keeps its photon energy local,
+  an over-count stated in the module doc.~~ Its parse is exercised by
+  `tests/photon.rs`, and its MT=442 matches NJOY2016's HEATR at print
+  precision on Fe-58 and Si-28 (`tests/heatr_mt442_vs_njoy2016.rs`), with
+  LO=2 cascades, MF=6 photons and capture by energy balance all ported
+  ([rung 6](./heatr.md)).
 - **`interface`:** its query path is the same `reconr` + `broaden_result` the
   rungs verify; there is no separate oracle for the wrapper.
 - **`njoy-tui`, `perf_report`, `wasm_par`:** tooling, not physics. `wasm_par`
