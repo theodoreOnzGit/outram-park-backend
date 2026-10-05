@@ -427,7 +427,7 @@ maturity gate in that file for what this means and how the bar is revised.
      temperature. Says nothing about thermal systems or the crate's other cases.
 
   **`RECORDED_PCM` now lives in `examples/godiva_keff_ensemble.rs`** and is
-  `16.0`. That example is new and closes a real gap: the previous `+214` and
+  ~~`16.0`~~ `-6.0` since 2026-10-05 (see that date's entry below). That example is new and closes a real gap: the previous `+214` and
   `+314` rested on pooled studies run ad hoc that **nothing in the repository
   could reproduce**. Its gates are sized off what a run can resolve rather than
   off the accuracy achieved — a `|mean| ≤ 30 pcm` gate would fail a correct
@@ -439,11 +439,41 @@ maturity gate in that file for what this means and how the bar is revised.
   `RECORDED_PCM = 16.0` and `RECORDED_SEM_PCM = 11.0` (`:267`, `:269`) and
   gates through `RecordedKeff::pooled` (`:192`), i.e. it was re-pointed at the
   256-seed pooled result at some point after this paragraph was written. The
-  follow-up it describes is **done**.
+  follow-up it describes is **done**. (Both constants were re-pointed again on
+  2026-10-05, to `-6.0` / `5.0`; see below.)
 
   It remains a **single-seed tutorial** whose own docs say it cannot resolve
   the 500 pcm bar — that part was and is true, and is why it gates against the
   pooled number rather than its own draw.
+
+- **2026-10-05 — `+16 ± 11` superseded by `−6 ± 5 pcm` over 1024 seeds
+  (GitHub #546). The bar stays at 500 pcm; moving it is a maintainer
+  decision and has not been made.**
+
+  **Why re-measured.** `+16` predates the URR/DBRC defaults (2026-09-20) and
+  the OpenMC-parity audit (#407), and the five-route study's route 4 had
+  recorded `−52 ± 27` (32 seeds, 2026-09-30) on the same model.
+
+  **Measured:** `examples/godiva_keff_ensemble.rs`, `OUTRAM_GODIVA_SEEDS=1024`,
+  commit `6faff1ed8`, 5000 × [40 + 120], ENDF/B-VIII.0, single-threaded per
+  seed: **mean −6 pcm, sd 165, sem ±5** (`k = 0.99994 ± 0.00005`);
+  `χ²/dof 0.97`, no outlier seed. Intel Xeon @ 2.10 GHz, 2 of 4 shared
+  logical cores (two seed workers), 15.7 GB RAM, Linux 6.18, CPU only; data
+  114 s, transport 2995 s.
+
+  **The route-4 `−52 ± 27` was a 32-seed low draw, checked:** the route
+  driver at `8b17079bc` reproduces its 32 per-seed `k` to every printed digit
+  (the code did not move), and seeds 33–288 give `−5 ± 12` (all 288:
+  `−10 ± 11`). Against `+16 ± 11` the new value is `−22 ± 12` (1.8 σ), not
+  decomposed. Against OpenMC (route 1, `+16 ± 21`): `−22 ± 22`, 1.0 σ.
+
+  **Against the 500 pcm bar:** inside it with ~100 σ of margin. Inside the
+  ICSBEP ±100 pcm band; the same caveat as before applies — `−6` is not "6 pcm
+  accuracy" against a reference known to ±100.
+
+  `godiva_keff_endf_local.rs` (and its CI smoke copy) gate against
+  `RECORDED_PCM = -6.0`, `RECORDED_SEM_PCM = 5.0`; the ensemble's own
+  `RECORDED_PCM` / `RECORDED_SD` are `-6.0` / `165.0`.
 
 **Upstream license:** OpenMC is MIT-licensed. This Rust port is GPL-3.0-only
 per the workspace default; the port constitutes new copyrightable expression.

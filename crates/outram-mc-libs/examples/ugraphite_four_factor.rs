@@ -175,9 +175,87 @@
 //! statistics. Record and deck:
 //! `verification_and_validation/tutorial_rung2/README.md`.
 //!
-//! ## Step 7 sweep (natural uranium)
+//! ## What graphite S(alpha,beta) is worth here (ablation, 2026-10-05)
 //!
-//! Running; recorded in the next commit.
+//! The main case again with `GRAPHITE_SAB=0` (carbon as free gas, the
+//! explicit ablation in `common/ugraphite_common.rs`), at the record's own
+//! settings (20 000 x [20 + 100], seed 20 261 004, 2 threads), binary with the
+//! knob (`develop` at `f39501b8bd` + the knob, physics otherwise identical).
+//! 993 s transport on an Intel Xeon @ 2.10 GHz, 2 threads pinned to 2 of 4
+//! shared logical cores, 15 GB, Linux, CPU only.
+//!
+//! ```text
+//!                      S(a,b) (record)        free gas (ablation)
+//!   k_inf              1.56777 +/- 0.00081    1.57038 +/- 0.00075
+//!   eta                2.02809                2.02923
+//!   f                  0.97470                0.97511
+//!   p                  0.71398                0.71422
+//!   epsilon            1.11144                1.11063
+//! ```
+//!
+//! **Worth of the bound-atom law: -261 +/- 110 pcm (2.4 sigma)** on the
+//! power-iteration `k_inf`. The products of the factors differ by only
+//! -0.06 % (1.56867 vs 1.56959), inside their conservative sigmas, and no
+//! single factor moves by more than ~0.1 %, so **which factor carries the
+//! shift is not resolved** by these runs. The two share seed and settings but
+//! are not paired (their random streams part at the first differing
+//! collision); the sigma is the independent combination. Measured, not
+//! explained.
+//!
+//! ## Step 7 sweep (natural uranium), 2026-10-05
+//!
+//! `MODE=sweep`, binary built from `develop` at `f39501b8bd` (the commits
+//! after it in this series change comments and an off-by-default ablation
+//! knob only). **5000 neutrons x [20 inactive + 50 active]** per point, seed
+//! 20 261 004 + point index, 2 threads; sized for the 2 cores available
+//! (a ~7 min point gives sigma ~ 200 pcm, small against the thousands of pcm
+//! the curve spans). Hardware: Intel Xeon @ 2.10 GHz, 2 threads pinned to 2 of
+//! 4 logical cores, 15 GB, Linux, CPU only; the machine was shared with
+//! another agent's jobs and this session's own builds and browser checks
+//! (load average up to ~8), so the wall times are upper bounds. Data
+//! 112 s; the run 2026-10-05 00:09-02:07 UTC.
+//!
+//! ```text
+//!  N_C/N_U   k_inf +/- sigma      eta      f        p        epsilon  wall s
+//!      50   0.49117 0.00185    1.31230  0.97457  0.30725  1.23959    153
+//!     100   0.61994 0.00197    1.32213  0.95077  0.45311  1.09216    190
+//!     200   0.72553 0.00229    1.32821  0.90663  0.58182  1.03976    220
+//!     300   0.76517 0.00169    1.33054  0.86645  0.64808  1.02534    366
+//!     400   0.77850 0.00217    1.33178  0.82970  0.69192  1.01853    476
+//!     500   0.77774 0.00254    1.33253  0.79594  0.72371  1.01491    633
+//!     600   0.77153 0.00243    1.33304  0.76483  0.74684  1.01248    707
+//!     800   0.74798 0.00213    1.33368  0.70937  0.78376  1.00942    832
+//!    1000   0.71898 0.00219    1.33410  0.66142  0.80868  1.00772    806
+//!    1500   0.64640 0.00196    1.33464  0.56580  0.85134  1.00559   1129
+//!    2500   0.52621 0.00193    1.33507  0.43890  0.89470  1.00400   1422
+//! ```
+//!
+//! Factor sigmas are 0.0008-0.0033 (eta), 0.0003-0.0024 (f), 0.0006-0.0009
+//! (p), 0.0010-0.0037 (epsilon), largest at the densest uranium. At every point the product telescopes to
+//! `P/A` exactly, `(k - k_factors)/k` is inside the band (-0.4 % .. +0.8 %),
+//! and the binning check is 0.999992-0.999993.
+//!
+//! **Against the prediction written before the run:**
+//! - **Never reaches `k_inf = 1`: held.** The maximum on the grid is
+//!   0.77850 +/- 0.00217 at `N_C/N_U = 400`, ~100 sigma below 1.
+//! - **Rises, peaks, falls, with `p` rising and `f` falling: held.** `p` goes
+//!   0.31 -> 0.89 and `f` 0.97 -> 0.44 across the grid; `eta` is 1.31-1.34
+//!   throughout (predicted ~1.33).
+//! - **Maximum ~0.75-0.8: held** (0.7785).
+//! - **Location ~500-800: partly refuted.** The top is flat between 400
+//!   (0.77850) and 500 (0.77774, 0.2 sigma apart); 600 is already 2.2 sigma
+//!   lower and 800 is 0.748. The optimum is at the low edge of the predicted
+//!   range or below it: my hand `p` was too low at low ratios, so it put the
+//!   balance point too far towards dilution. Not investigated further.
+//! - The fast fission factor grows strongly when the uranium is dense
+//!   (`epsilon` 1.24 at `N_C/N_U = 50`), which the hand estimate did not
+//!   consider; it is a real feature (most absorption there is in the
+//!   resonance group, so the thermal fissions epsilon divides by are few).
+//!
+//! **OpenMC code-to-code for the sweep: not run** (no OpenMC on the machine
+//! that ran it). The deck supports it unchanged:
+//! `verification_and_validation/tutorial_rung2/openmc_inputs/ugraphite_openmc.py --case natural --cu R`.
+//! Pending the maintainer.
 //!
 //! # Running
 //!

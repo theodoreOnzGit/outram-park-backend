@@ -16,7 +16,7 @@
 //!
 //! | benchmark | spectrum | U-238 | `p` | result |
 //! |---|---|---|---|---|
-//! | HEU-MET-FAST-001 (Godiva) | fast | 5 % of HM | — | +16 ± 11 pcm (256 seeds) |
+//! | HEU-MET-FAST-001 (Godiva) | fast | 5 % of HM | — | ~~+16 ± 11 pcm (256 seeds)~~ −6 ± 5 pcm (1024 seeds, 2026-10-05, #546) |
 //! | IEU-MET-FAST-002 (Jemima) | fast | 83 % / 99.3 % | — | +6 ± 173 pcm |
 //! | HEU-SOL-THERM-009 case 1 | thermal | 5 % of HM | ≈ 0.95 | −18 ± 171 pcm |
 //! | **this case** | **thermal** | **97.5 % of HM** | **≈ 0.75** | ? |
@@ -114,7 +114,7 @@
 //! `+214 ± 20` was **64** seeds, not 96 (the 96-seed study gave `+228 ± 18`
 //! before the MT=91 Q-value cap and `+314 ± 21` after); and `+214` is itself
 //! **superseded** by **`+16 ± 11 pcm` over 256 seeds**, after the discrete
-//! inelastic angular distributions landed (`op-tm9f`). Use `+16 ± 11`.
+//! inelastic angular distributions landed (`op-tm9f`). ~~Use `+16 ± 11`.~~ **Use `−6 ± 5` (1024 seeds; CORRECTED 2026-10-05, #546).**
 //!
 //! The comparison it was making still stands: Godiva is a *fast bare sphere*
 //! with no lattice at all, and is structurally untouched by the fix above

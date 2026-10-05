@@ -49,6 +49,12 @@
 //! seeds it cannot be. That is an accepted cost of the decision above, stated
 //! here so it is not mistaken for a clean reproduction.
 //!
+//! **RESOLVED 2026-10-05 (GitHub #546), at 1024 seeds:** the current code sits
+//! at **`−6 ± 5 pcm`**, see "Results (2026-10-05)" below. The two 32-seed
+//! numbers that read low (`−55 ± 34` here on 2026-09-18, `−52 ± 27` on the
+//! five-route study's route 4 on 2026-09-30) were 32-seed draws; the route-4
+//! one was checked seed for seed (see below).
+//!
 //! **Consequence for quoting.** `+16 +/- 11` is a 256-seed figure and must not
 //! be quoted off a 32-seed run, which yields +/-34. Against the benchmark's
 //! own +/-100 pcm band `+16` and `-55` are the same answer, so report
@@ -70,7 +76,49 @@
 //! | 128 | ±17 pcm |
 //! | 256 | ±12 pcm |
 //!
-//! # Results (2026-09-15, 256 seeds, ENDF/B-VIII.0)
+//! # Results (2026-10-05, 1024 seeds, ENDF/B-VIII.0) — the current record
+//!
+//! ```text
+//!   seeds         1024
+//!   mean          -6 pcm
+//!   seed-to-seed  sd  165 pcm   (what ONE run scatters by)
+//!   uncertainty   sem ±5 pcm    (on this pooled mean)
+//!   distance from benchmark: 1.1 sem
+//!   seed consistency: chi2/dof 0.97 (dof 1023, 95 % band [0.92, 1.09]),
+//!     no outlier seed, 1/sqrt(N) check over 256 groups of 4 = 1.01 +/- 0.04
+//! ```
+//!
+//! **`k = 0.99994 ± 0.00005`, i.e. `−6 ± 5 pcm` from HEU-MET-FAST-001**, at
+//! commit `6faff1ed8`, measured 2026-10-05 for GitHub #546 with
+//! `OUTRAM_GODIVA_SEEDS=1024`. Both gates passed (no regression from the
+//! then-recorded `+16`: 1.8 σ of 12 pcm; benchmark `|−6| ≤ 100`). It is now
+//! `RECORDED_PCM` (in `mod desktop`).
+//!
+//! - **Seed count.** From a timed pilot (4 seeds, 12.5 s of transport on two
+//!   workers): 1024 seeds is ~50 min here, and `sem ≈ 5 pcm` already makes
+//!   the comparison with the `−52 ± 27` it was run to check limited by that
+//!   record's own σ. This exceeds the 32-seed standard deliberately: it
+//!   re-points a drift gate, and that gate's `σ_recorded` should not be the
+//!   larger term.
+//! - **Hardware and time.** Intel Xeon Processor @ 2.10 GHz, **2 of 4 shared
+//!   logical cores** (`taskset -c 2,3`; `default_workers()` = 2, each seed
+//!   single-threaded), 15.7 GB RAM, Linux 6.18, CPU only, shared with another
+//!   agent's runs. Data 114 s; transport 2995 s (2.9 s per seed per two
+//!   workers).
+//! - **Against `+16 ± 11`** (2026-09-15): −22 ± 12 pcm, 1.8 σ. Between the two,
+//!   URR and DBRC became defaults and the #407 audit landed; their sum on
+//!   Godiva is not decomposed here, and 1.8 σ is not claimed as a move.
+//! - **Against route 4's `−52 ± 27`** (2026-09-30, 32 seeds): +46 ± 27 pcm,
+//!   1.7 σ. Checked rather than accepted: `icsbep_five_route_keff` at
+//!   `8b17079bc` reproduces route 4's per-seed `k` for seeds 1–32 **to every
+//!   printed digit**, so the code did not move, and its seeds 33–288 give
+//!   `−5 ± 12` (all 288: `−10 ± 11`, sd 183). That driver is multi-threaded
+//!   and draws different streams per seed than this one, so the samples are
+//!   independent; they agree to −4 ± 12 pcm. The −52 was a low draw.
+//! - **Against the experiment:** inside its ±100 pcm band. As below, `−6`
+//!   is not "6 pcm accuracy": the reference's own band is ±100.
+//!
+//! # ~~Results (2026-09-15, 256 seeds, ENDF/B-VIII.0)~~ — superseded 2026-10-05, kept as history
 //!
 //! ```text
 //!   seeds         256
@@ -117,8 +165,10 @@
 //! pooling formula, so the numbers above are reproduced unchanged; the run
 //! additionally prints a seed-consistency report (`χ²/dof` of the seeds
 //! against each run's internal `σ`, outlier seeds, and a disjoint-group check
-//! of the `1/√N` law). That report has **NOT YET been measured** (testing
-//! deferred by maintainer, 2026-10-03).
+//! of the `1/√N` law). ~~That report has **NOT YET been measured** (testing
+//! deferred by maintainer, 2026-10-03).~~ **First measured 2026-10-05** on the
+//! 1024-seed run above: `χ²/dof = 0.97`, no outliers, `1/√N` ratio
+//! `1.01 ± 0.04`, all consistent.
 //!
 //! `OUTRAM_SPEED=standard|fast|very-fast` picks the nuclides' `SpeedTier`.
 //! Unset means `fast` (the default, exactly the same `k` as `standard`);
@@ -339,8 +389,9 @@ mod desktop {
     ///    *weaker* than gate 2 by construction: it is the physics claim, while
     ///    gate 2 is what actually catches a code change.
     fn gate(mean: f64, sem: f64, sd: f64, n: usize) {
-        /// `sem` on [`RECORDED_PCM`]: 173/sqrt(256).
-        const RECORDED_SEM: f64 = 11.0;
+        /// `sem` on [`RECORDED_PCM`]: 165/sqrt(1024), 2026-10-05
+        /// (~~173/sqrt(256) = 11~~ before).
+        const RECORDED_SEM: f64 = 5.0;
         /// Sigma multiplier. 4 rather than 2 so a correct build essentially
         /// never trips it; a real regression here is hundreds of pcm, not tens.
         const K_SIGMA: f64 = 4.0;
@@ -350,7 +401,7 @@ mod desktop {
         println!();
         if sem > 50.0 {
             println!(
-                "  NOTE: {n} seeds give sem ±{sem:.0} pcm, too coarse to resolve this case's                  ~16 pcm offset. The gates below still run, but they are wide. Use                  OUTRAM_GODIVA_SEEDS=256 (sem ±11) for a number worth quoting."
+                "  NOTE: {n} seeds give sem ±{sem:.0} pcm, too coarse to resolve this case's                  recorded {RECORDED_PCM:+.0} pcm offset. The gates below still run, but they are                  wide. Use OUTRAM_GODIVA_SEEDS=256 (sem ±10) or more for a number worth quoting."
             );
         }
 
@@ -389,8 +440,11 @@ mod desktop {
     }
 
     /// The pooled Godiva offset from ICSBEP HEU-MET-FAST-001, in pcm, as last
-    /// measured by this example: **`+16 pcm`, 256 seeds, `sem ±11`,
-    /// seed-to-seed `sd 173`, 2026-09-15**.
+    /// measured by this example: **`−6 pcm`, 1024 seeds, `sem ±5`,
+    /// seed-to-seed `sd 165`, 2026-10-05, commit `6faff1ed8`** (GitHub #546;
+    /// method, hardware and the checks against `+16` and route 4 in this
+    /// file's "Results (2026-10-05)"). ~~`+16 pcm`, 256 seeds, `sem ±11`,
+    /// seed-to-seed `sd 173`, 2026-09-15~~.
     ///
     /// History, so a reader can see which numbers were resolvable and which
     /// were single draws read as answers:
@@ -401,15 +455,17 @@ mod desktop {
     /// | `+57 ± 173` | 1 seed | three nuclides; unresolvable |
     /// | `+314 ± 21` | 96 seeds | after the MT=91 Q-value cap (gh:#192) |
     /// | `+214 ± 20` | 64 seeds | after reading the evaluated MF=6 continuum law |
-    /// | **`+16 ± 11`** | **256 seeds** | **after sampling the MF=4 discrete inelastic angular laws (`op-tm9f`)** |
+    /// | ~~`+16 ± 11`~~ | 256 seeds | after sampling the MF=4 discrete inelastic angular laws (`op-tm9f`); superseded 2026-10-05 |
+    /// | **`−6 ± 5`** | **1024 seeds** | **after URR + DBRC became defaults and the #407 audit (−22 ± 12 vs the row above, 1.8 σ, not decomposed)** |
     ///
     /// Note the two single-draw rows: both were superseded by pooled runs that
     /// moved them by more than their own quoted uncertainty. That is why this
     /// example exists and why the gate below is sized off `sem`, not off one
     /// run.
-    pub const RECORDED_PCM: f64 = 16.0;
+    pub const RECORDED_PCM: f64 = -6.0;
 
     /// Seed-to-seed standard deviation of a single run \[pcm\], measured at
-    /// 256 seeds. Quoted so a reader can size their own run: `sem = SD / √N`.
-    pub const RECORDED_SD: f64 = 173.0;
+    /// 1024 seeds on 2026-10-05 (~~173 at 256 seeds~~). Quoted so a reader can
+    /// size their own run: `sem = SD / √N`.
+    pub const RECORDED_SD: f64 = 165.0;
 }

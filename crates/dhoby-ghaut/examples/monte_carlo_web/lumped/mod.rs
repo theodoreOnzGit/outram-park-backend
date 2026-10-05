@@ -66,12 +66,12 @@ impl McRung for Lumped {
     }
     fn notes() -> &'static [&'static str] {
         &[
-            "Model: rung 3's Wigner-Seitz cell. A sphere of natural uranium metal (19.05 g/cm³), radius 2 cm, at the centre of a graphite sphere (1.73 g/cm³), sized so the cell holds 600 carbon atoms per uranium atom, the same proportion as the homogeneous mixture it is compared with. The atoms are outram-mc-libs' `vv::ugraphite`, the cell `examples/lumped_ugraphite_kinf.rs`'s.",
+            "Model: rung 3's Wigner-Seitz cell. A sphere of natural uranium metal (19.05 g/cm³), radius 3 mm (the scan's best radius, k_inf = 0.959), at the centre of a graphite sphere (1.73 g/cm³) of radius 2.08 cm, sized so the cell holds 600 carbon atoms per uranium atom, the same proportion as the homogeneous mixture it is compared with. The atoms are outram-mc-libs' `vv::ugraphite`, the cell `examples/lumped_ugraphite_kinf.rs`'s.",
             "Boundary: white. A neutron reaching the outer sphere is sent back in with a cosine-law direction, as if from a neighbouring cell. That approximates an infinite lattice of lumps; a mirror (specular) sphere would not, because it traps neutrons that miss the lump for ever.",
             "Data: ENDF/B-VIII.0 (U-234, U-235, U-238, C-12, C-13), processed in this browser by OUTRAM PARK's NJOY port at tolerance 0.01 (NJOY uses 0.001). Carbon carries the crystalline-graphite S(α,β) law; U-238 its URR probability tables and DBRC.",
             "Each track is one real history (a one-particle fixed-source run), drawn projected onto the slice. Chaining one neutron after the next is the illustration: a fission's next neutron is born at its site, a capture's somewhere random in the lump.",
             "Watch where captures happen: neutrons slowing down in the graphite are caught at the lump's surface by U-238's resonances, and few reach the inside. That is spatial self-shielding.",
-            "There is no Run k_eff for this rung: the recorded k_inf against lump radius is on the lesson page.",
+            "There is no Run k_eff for this rung: the recorded k_inf against lump radius (it peaks at 0.959, below 1, at this ratio) is on the lesson page.",
             "Animation speed is proportional to the neutron's real speed (classical kinetic energy, v proportional to √E).",
             "Education and research only. Not for reactor operation, licensing or safety decisions.",
         ]
@@ -172,11 +172,17 @@ mod tests {
             thermal += h.thermalised() as usize;
         }
         eprintln!("  {n} histories in {:.2} s, {thermal} thermalised, {in_lump} ended in the lump", t.elapsed().as_secs_f64());
-        // How many end in the lump is reported, not gated: the expected share
-        // (resonance capture plus f times the thermal absorptions) comes from
-        // the rung-3 scan's measured factors at this radius, and a threshold
-        // guessed before that run is not a check.
-        assert!(in_lump > 0, "no history ended in the lump");
+        // Expected share of histories ending (capture or fission) in the lump,
+        // from the rung-3 scan at r = 0.3 cm (2026-10-05, the example's doc
+        // comment): absorption per source neutron [thermal 0.93428, resonance
+        // 0.05517, fast 0.00779], f = 0.74922, so (0.05517 + 0.00779 +
+        // 0.74922 x 0.93428) / 0.99724 = 0.765. The chain's sources are not
+        // the eigenvalue run's, so the band is wide: 5 binomial sigma, fixed
+        // before this test was run at this radius. A harness check, not V&V.
+        assert_eq!(model::LUMP_R_CM, 0.3, "the expectation below is for r = 0.3 cm");
+        let (share, sd) = (0.765, (0.765_f64 * 0.235 / n as f64).sqrt());
+        let got = in_lump as f64 / n as f64;
+        assert!((got - share).abs() < 5.0 * sd, "{in_lump} of {n} ended in the lump; expected {share} +/- {sd:.3}");
         assert!(thermal > n / 3, "got {thermal} of {n} thermalised");
     }
 }
