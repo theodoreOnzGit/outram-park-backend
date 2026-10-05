@@ -21,12 +21,12 @@ material the neutron could be in. Then:
 
 The neutron only ever asks "what material am I in *here*?". The two primitives
 are a few lines each in
-[`pebble_beds/delta_tracking.rs`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/pebble_beds/delta_tracking.rs#L289-L324):
+[`physics/delta_tracking/flight.rs`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/physics/delta_tracking/flight.rs#L37-L64):
 
 ```rust,ignore
-{{#include ../../../src/pebble_beds/delta_tracking.rs:647:652}}
+{{#include ../../../src/physics/delta_tracking/flight.rs:37:42}}
 
-{{#include ../../../src/pebble_beds/delta_tracking.rs:664:674}}
+{{#include ../../../src/physics/delta_tracking/flight.rs:54:64}}
 ```
 
 The method is **unbiased for any valid majorant**. A loose majorant costs time (more
@@ -47,7 +47,7 @@ the method,
 2026-10-03 the module doc of `delta_tracking.rs` was corrected to stop listing
 OpenMC among the codes that have it: a search of the OpenMC source tree for "delta
 tracking", "woodcock" and "majorant" finds nothing
-([module doc](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/pebble_beds/delta_tracking.rs#L27-L37)).
+([module doc](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/physics/delta_tracking/mod.rs#L1-L12); the module moved to `physics::delta_tracking` on 2026-10-06, gh:#718).
 The references are Woodcock et al., ANL-7050 (1965), and the codes that do use it,
 Serpent and RMC.
 

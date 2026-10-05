@@ -50,6 +50,7 @@
 //! the live per-history loop is in [`transport_csg`].
 
 pub mod compute;
+pub mod delta_tracking;
 pub mod transport;
 pub mod transport_csg;
 pub mod particle_restart;
