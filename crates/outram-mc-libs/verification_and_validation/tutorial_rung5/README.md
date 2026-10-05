@@ -93,7 +93,7 @@ landed.
   - The audit result: worst `Sigma_t/Sigma_maj` = **0.9091** (heterogeneous) and **0.9092** (homogenised), so it is bounded everywhere it was checked.
 - **Pass criterion:** the example's gate, hom − het < 0 at more than 3 sigma. No absolute k is gated, because no reference exists for this problem.
 - **Build and hardware:**
-  - Built from `5eb40da10`.
+  - Built from `f0d701bfc` (built as `5eb40da10` before the rebase onto `develop`; same content).
   - Intel Xeon @ 2.10 GHz (KVM, 4 vCPU, 260 MiB L3, 15 GiB), pinned to one core with `taskset -c 2`. The machine was shared with another agent's work on cores 0-1.
   - Linux 6.18.44, rustc 1.95.0, `--release`.
 
