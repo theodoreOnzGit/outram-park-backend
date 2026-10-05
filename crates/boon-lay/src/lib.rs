@@ -64,6 +64,13 @@ pub mod gpu;
 /// fractions. See `docs/triso-atops-fork.md` and the module-level docs.
 pub mod triso_atops_fork;
 
+/// **Extensions of the TRISO-ATOPS model — NOT a port.** boon-lay's own
+/// additions built on [`triso_atops_fork`] without modifying it: removal rates
+/// per transport group or per element instead of one `k_plate` / `k_clean` per
+/// reactor (gh:#583). Each reduces exactly to the port when given upstream's
+/// inputs. See the module docs.
+pub mod triso_atops_extensions;
+
 /// **boon-lay fuel failure** — TRISO coated-particle failure fractions. This
 /// is boon-lay's own model: a Rust implementation of the *formulas* published
 /// in the PANAMA-I report (Verfondern & Nabielek, Jülich HTA-IB-03/90, 1990),
