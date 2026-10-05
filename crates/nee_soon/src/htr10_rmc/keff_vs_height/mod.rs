@@ -167,6 +167,13 @@ pub fn majorant_energy_grid() -> Vec<f64> {
 /// coolant, `0..=mat::HELIUM`), with a 0.3 safety margin. The reflector is
 /// surface-tracked, so it must not raise the bed's tracking cost. It depends
 /// on the materials only, so a sweep builds it once for every height.
+///
+/// **GitHub #589 (2026-10-05):** until then `over_indices` tabulated only on
+/// this 4096-point log grid, which left the UO2 kernel 14x above the majorant
+/// at 661 eV on ENDF/B-VIII.0. Every k-vs-height record before that date
+/// used it. `over_indices` now adds every nuclide breakpoint
+/// (`Majorant::from_materials`); the old construction is the ablation
+/// `Majorant::over_indices_without_breakpoints`.
 #[must_use]
 pub fn bed_majorant(mats: &[Material], nucs: &[Nuclide]) -> Majorant {
     let bed_mats: Vec<usize> = (0..=mat::HELIUM).collect();

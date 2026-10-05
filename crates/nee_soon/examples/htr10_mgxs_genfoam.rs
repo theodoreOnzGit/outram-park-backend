@@ -236,6 +236,15 @@ fn main() {
         .collect();
     let bed_mats: Vec<usize> = (0..=mat::HELIUM).collect();
     let maj = Majorant::over_indices(&mats, &bed_mats, &nucs, &grid, 0.3);
+    // `OUTRAM_MAJORANT_AUDIT=1`: audit this majorant on the bed materials and stop (GitHub #589).
+    if std::env::var_os("OUTRAM_MAJORANT_AUDIT").is_some() {
+        let a = maj.audit(&mats[..=6], &nucs, 1.0e-5, 2.0e7, 2_000_000);
+        println!(
+            "MAJORANT-AUDIT htr10_mgxs_genfoam | worst {:.4} at {:.5e} eV in '{}' | {} nodes",
+            a.worst_ratio, a.energy_ev, mats[a.material].name, maj.len()
+        );
+        return;
+    }
 
     let settings = KeffSettings {
         n_particles: histories,

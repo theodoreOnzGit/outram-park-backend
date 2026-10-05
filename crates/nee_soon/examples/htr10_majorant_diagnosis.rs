@@ -102,6 +102,15 @@ fn main() {
         .map(|i| (1.0e-4_f64.ln() + (2.0e7_f64.ln() - 1.0e-4_f64.ln()) * i as f64 / 4095.0).exp())
         .collect();
     let maj = Majorant::over_indices(&mats, &(0..=6).collect::<Vec<_>>(), &nucs, &grid, 0.3);
+    // `OUTRAM_MAJORANT_AUDIT=1`: audit this majorant on the bed materials and stop (GitHub #589).
+    if std::env::var_os("OUTRAM_MAJORANT_AUDIT").is_some() {
+        let a = maj.audit(&mats[..=6], &nucs, 1.0e-5, 2.0e7, 2_000_000);
+        println!(
+            "MAJORANT-AUDIT htr10_majorant_diagnosis | worst {:.4} at {:.5e} eV in '{}' | {} nodes",
+            a.worst_ratio, a.energy_ev, mats[a.material].name, maj.len()
+        );
+        return;
+    }
 
     println!("Why a whole-bed delta region rejects 18,801 times per history");
     println!("=============================================================\n");

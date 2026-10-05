@@ -5,6 +5,14 @@
 > sense of gh:#336. Research, education and V&V only; not for any operational
 > use. AI-assisted run and write-up, not yet reviewed by the maintainer.
 
+> ⚠️ **CAUTION, added 2026-10-05 (GitHub #589):** every k in this record was
+> measured on a delta-tracking majorant (`bed_majorant`: `over_indices` on a
+> 4096-point log grid, margin 0.3) that **under-bounds `Sigma_t` by 14x at 661 eV
+> in the UO2 kernel** (13.8x on the VII.0 arm). An under-bound majorant silently
+> drops collisions in the U-238 resonances. **Re-measurement is pending; the
+> expected shift is −500 to −3000 pcm (k lower) at every height.** The numbers
+> below are left as measured until the re-measurement exists.
+
 ![k vs height, both libraries](keff_vs_height_endf8_endf7.png)
 
 **Generated:** runs 2026-10-01 ~18:56 to 2026-10-02 03:01 (+08:00);

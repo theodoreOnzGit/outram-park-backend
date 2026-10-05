@@ -24,9 +24,9 @@ are a few lines each in
 [`pebble_beds/delta_tracking.rs`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/pebble_beds/delta_tracking.rs#L289-L324):
 
 ```rust,ignore
-{{#include ../../../src/pebble_beds/delta_tracking.rs:563:568}}
+{{#include ../../../src/pebble_beds/delta_tracking.rs:647:652}}
 
-{{#include ../../../src/pebble_beds/delta_tracking.rs:580:590}}
+{{#include ../../../src/pebble_beds/delta_tracking.rs:664:674}}
 ```
 
 The method is **unbiased for any valid majorant**. A loose majorant costs time (more

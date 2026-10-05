@@ -103,7 +103,7 @@ impl McRung for Htr10 {
     fn notes() -> &'static [&'static str] {
         &[
             "Geometry: the HTR-10 core exactly as nee_soon assembles it for the recorded runs (assemble_explicit_triso, 14 rings, N Şeker layers): every slice is the material Geometry::locate finds at each pixel, drawn in this tab's worker. Nothing is re-modelled for the picture.",
-            "Layers: recorded results only (ENDF/B-VIII.0 and VII.0, 10 000 × [5 + 135] per point, 2026-10-01) against RMC (Li, Yu & Wei 2014) and MCNP (Şeker & Çolak 2003). Nothing is computed in this tab.",
+            "Layers: recorded results only (ENDF/B-VIII.0 and VII.0, 10 000 × [5 + 135] per point, 2026-10-01) against RMC (Li, Yu & Wei 2014) and MCNP (Şeker & Çolak 2003). Nothing is computed in this tab. CAUTION (2026-10-05, #589): these k were measured on a majorant under-bound 14× at 661 eV in the kernel; re-measurement pending, expected shift −500 to −3000 pcm.",
             "Fuel-zone k∞: a real single-threaded power iteration in this tab's worker, on ENDF/B-VIII.0 processed here at NJOY's tolerance, with delta tracking. A fuel-zone cube, not the reactor.",
             "No k_eff of the core and no neutron tracks here: the recorded core runs took about 9–15 ms of CPU per history (hours for one browser thread) and would need every core material's data.",
             "Education and research only. Not for reactor operation, licensing or safety decisions.",

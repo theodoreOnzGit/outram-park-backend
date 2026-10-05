@@ -504,6 +504,23 @@ fn main() {
     // surface-tracked, so it must NOT raise the bed's tracking cost.
     let maj = nee_soon::htr10_rmc::keff_vs_height::bed_majorant(&mats, &nucs);
 
+    // `OUTRAM_MAJORANT_AUDIT=1`: audit the bed majorant this run would use on
+    // the bed's own materials, then stop (GitHub #589).
+    if std::env::var_os("OUTRAM_MAJORANT_AUDIT").is_some() {
+        let bed = &mats[..=nee_soon::htr10_rmc::core_model::mat::HELIUM];
+        let a = maj.audit(bed, &nucs, 1.0e-5, 2.0e7, 2_000_000);
+        println!(
+            "MAJORANT-AUDIT htr10_rmc_keff bed_majorant | worst {:.4} at {:.5e} eV in '{}' | \
+             {} nodes | {} energies",
+            a.worst_ratio,
+            a.energy_ev,
+            bed[a.material].name,
+            maj.len(),
+            a.energies_checked
+        );
+        return;
+    }
+
     let settings = KeffSettings {
         n_particles: histories,
         // Tunable so source convergence can be MEASURED rather than assumed.

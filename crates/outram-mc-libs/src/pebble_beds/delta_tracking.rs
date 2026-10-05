@@ -70,21 +70,87 @@ impl Majorant {
         }
     }
 
-    /// Build the majorant `Σ_maj(E) = max_m Σ_t,m(E)` over `materials` on the
-    /// supplied energy grid, with a small `margin` fraction added for safety.
+    /// Build the majorant `Σ_maj(E) ≥ max_m Σ_t,m(E)` over `materials`, on the
+    /// supplied energy grid **plus every breakpoint of every nuclide the
+    /// materials use** ([`Nuclide::majorant_breakpoints`]), times `1 + margin`.
     ///
-    /// For each grid energy this takes the maximum macroscopic total over every
-    /// material (each evaluated at its own temperature), then multiplies by
-    /// `1 + margin` so floating-point round-off at the exact grid points can never
-    /// let a real `Σ_t` slip above the bound. Pass `margin = 0.0` for the tight
-    /// bound, or e.g. `0.01` for a 1 % cushion.
+    /// Each node reads `Σ_t` at itself and one ulp either side, so a step in
+    /// the data is inside the bound. Each node is also floored by the
+    /// point-sampled majorant on `energies` alone (the pre-#589
+    /// construction), so this is never below it. On pointwise and S(α,β)
+    /// data `Σ_t` is linear or convex between breakpoints, and [`Self::at`]
+    /// takes the larger bracketing node, so this is a bound by construction
+    /// there. On WMP (LOW tier) data the pole peaks are nodes, but the shape
+    /// between them is only sampled. See [`Self::bounding`] for the argument
+    /// and `tests/majorant_bounds_endf.rs` for the pins.
+    ///
+    /// ~~For each grid energy this takes the maximum macroscopic total over
+    /// every material, then multiplies by `1 + margin`~~ **CHANGED 2026-10-05
+    /// (GitHub #589):** grid points alone under-bound resonance data, and by a
+    /// lot. The HTR-10 bed majorant of `nee_soon`'s k-vs-height record (4096
+    /// log points, margin 0.3, ENDF/B-VIII.0) left the UO₂ kernel's `Σ_t` at
+    /// **14.0×** the majorant at 661 eV. The CORE-data `fhr_pebble_quickstart`
+    /// (150 points, margin 0.05) was 97× under. The old construction is kept
+    /// as the ablation [`Self::from_materials_without_breakpoints`].
+    ///
+    /// The grid is clipped to `[energies.first(), energies.last()]`. Below it,
+    /// [`Self::at`] extrapolates as 1/v. Cost: about three `Σ_t` evaluations
+    /// per material per node, and on ENDF data a few hundred thousand nodes.
     ///
     /// # Parameters
     /// - `materials` — every material the neutron might enter (fuel, matrix, …).
     /// - `nuclides` — the global nuclide array the materials index into.
-    /// - `energies` — ascending energy grid \[eV\] to tabulate the majorant on.
+    /// - `energies` — ascending energy grid \[eV\]. It sets the range and adds
+    ///   nodes; the breakpoints are added on top.
     /// - `margin` — non-negative safety fraction added to each majorant value.
     pub fn from_materials(
+        materials: &[Material],
+        nuclides: &[Nuclide],
+        energies: &[f64],
+        margin: f64,
+    ) -> Self {
+        let floor = Self::from_materials_without_breakpoints(materials, nuclides, energies, 0.0);
+        let (Some(&lo), Some(&hi)) = (energies.first(), energies.last()) else {
+            return floor;
+        };
+        let scale = 1.0 + margin.max(0.0);
+        let sigma_t_max = |e: f64| {
+            materials
+                .iter()
+                .map(|m| m.macro_xs_total_upper_bound(e, nuclides))
+                .fold(0.0_f64, f64::max)
+        };
+        let mut grid = energies.to_vec();
+        for i in used_nuclides(materials) {
+            if let Some(n) = nuclides.get(i) {
+                grid.extend(n.majorant_breakpoints(lo, hi));
+            }
+        }
+        grid.retain(|&e| e.is_finite() && e >= lo && e <= hi);
+        grid.sort_by(|a, b| a.partial_cmp(b).expect("finite energies"));
+        grid.dedup();
+        let sigma = grid
+            .iter()
+            .map(|&e| {
+                let own = sigma_t_max(e.next_down())
+                    .max(sigma_t_max(e))
+                    .max(sigma_t_max(e.next_up()));
+                own.max(floor.at(e)) * scale
+            })
+            .collect();
+        Majorant {
+            energy: grid,
+            sigma,
+        }
+    }
+
+    /// **ABLATION — not a bound on resonance data.** The pre-#589
+    /// [`Self::from_materials`]: `Σ_t` at the supplied grid points only, times
+    /// `1 + margin`. On ENDF/B-VIII.0 the HTR-10 bed majorant built this way
+    /// (4096 log points, margin 0.3) was 14× under at 661 eV (GitHub #589).
+    /// Kept so a recorded number taken with it can be reproduced. **Do not
+    /// transport on it.**
+    pub fn from_materials_without_breakpoints(
         materials: &[Material],
         nuclides: &[Nuclide],
         energies: &[f64],
@@ -136,7 +202,8 @@ impl Majorant {
     /// # Parameters
     /// - `materials` — the global material table.
     /// - `indices` — indices into it that the region can actually reach.
-    /// - `energies` — the grid to tabulate on.
+    /// - `energies` — the grid to tabulate on; since GitHub #589 every nuclide
+    ///   breakpoint is added to it ([`Self::from_materials`]).
     /// - `margin` — fractional headroom, e.g. `0.3` for 30 %.
     ///
     /// Indices outside `materials` are ignored rather than panicking, because a
@@ -154,6 +221,23 @@ impl Majorant {
             .filter_map(|&i| materials.get(i).cloned())
             .collect();
         Majorant::from_materials(&subset, nuclides, energies, margin)
+    }
+
+    /// **ABLATION — not a bound on resonance data.** [`Self::over_indices`] on
+    /// [`Self::from_materials_without_breakpoints`], the pre-#589
+    /// construction. Kept to reproduce old records. **Do not transport on it.**
+    pub fn over_indices_without_breakpoints(
+        materials: &[Material],
+        indices: &[usize],
+        nuclides: &[Nuclide],
+        energies: &[f64],
+        margin: f64,
+    ) -> Self {
+        let subset: Vec<Material> = indices
+            .iter()
+            .filter_map(|&i| materials.get(i).cloned())
+            .collect();
+        Majorant::from_materials_without_breakpoints(&subset, nuclides, energies, margin)
     }
 
     /// Build a majorant that bounds `Σ_t` **by construction** wherever the data

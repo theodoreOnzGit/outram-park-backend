@@ -236,6 +236,15 @@ fn main() {
     let ratio = (e_max / e_min).powf(1.0 / (n_grid as f64 - 1.0));
     let grid: Vec<f64> = (0..n_grid as i32).map(|i| e_min * ratio.powi(i)).collect();
     let majorant = Majorant::from_materials(&materials, &nuclides, &grid, 0.05);
+    // `OUTRAM_MAJORANT_AUDIT=1`: audit this majorant and stop (GitHub #589).
+    if std::env::var_os("OUTRAM_MAJORANT_AUDIT").is_some() {
+        let a = majorant.audit(&materials, &nuclides, 1.0e-5, 2.0e7, 2_000_000);
+        println!(
+            "MAJORANT-AUDIT fhr_pebble_quickstart | worst {:.4} at {:.5e} eV in '{}'",
+            a.worst_ratio, a.energy_ev, materials[a.material].name
+        );
+        return;
+    }
 
     // ── 6. k-eigenvalue by delta tracking ───────────────────────────────────
     let domain = DeltaDomain::Sphere { radius: R_ROOT };
