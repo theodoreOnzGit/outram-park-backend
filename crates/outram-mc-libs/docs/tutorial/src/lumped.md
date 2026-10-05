@@ -19,7 +19,10 @@ the neutrons that slow down in the graphite are caught.*
 
 [Rung 2](ugraphite.md) mixed natural uranium evenly through graphite and asked
 whether any ratio of carbon to uranium could sustain a chain reaction.
-Its answer (the natural-uranium sweep of step 7) is being measured: *Running on 2026-10-05; the measured result is recorded here in the next update of this page.*
+It could not: the best ratio, about 400–500 carbon atoms per uranium atom,
+gave $k_\infty = 0.7785 \pm 0.0022$ (rung 2, step 7, measured 2026-10-05).
+More carbon helps the neutrons past U-238's resonances ($p$ rises) but steals
+the thermal neutrons ($f$ falls).
 
 > *History placeholder: the 1942 Chicago pile put its natural uranium (metal
 > and oxide) in lumps inside graphite blocks. No source on its design is in

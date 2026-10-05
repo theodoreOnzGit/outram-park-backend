@@ -700,7 +700,44 @@ with a lot of carbon, carbon's own capture takes the thermal neutrons and $f$
 falls. So $k_\infty$ rises, peaks and falls. The hand estimate put the
 **maximum at about 0.75–0.8, near $N_C/N_U \approx 500$–800**.
 
-*Running on 2026-10-05; the measured result is recorded here in the next update of this page.*
+**What the code gives** (2026-10-05, recorded in the doc comment of
+`ugraphite_four_factor.rs` and in `verification_and_validation/tutorial_rung2/README.md`;
+5000 neutrons × [20 + 50] generations per point, so each $k$ is good to about
+±0.002):
+
+| $N_C/N_U$ | $k_\infty$ | $\eta$ | $f$ | $p$ | $\varepsilon$ |
+|---|---|---|---|---|---|
+| 50 | 0.49117 ± 0.00185 | 1.31230 | 0.97457 | 0.30725 | 1.23959 |
+| 100 | 0.61994 ± 0.00197 | 1.32213 | 0.95077 | 0.45311 | 1.09216 |
+| 200 | 0.72553 ± 0.00229 | 1.32821 | 0.90663 | 0.58182 | 1.03976 |
+| 300 | 0.76517 ± 0.00169 | 1.33054 | 0.86645 | 0.64808 | 1.02534 |
+| 400 | **0.77850 ± 0.00217** | 1.33178 | 0.82970 | 0.69192 | 1.01853 |
+| 500 | 0.77774 ± 0.00254 | 1.33253 | 0.79594 | 0.72371 | 1.01491 |
+| 600 | 0.77153 ± 0.00243 | 1.33304 | 0.76483 | 0.74684 | 1.01248 |
+| 800 | 0.74798 ± 0.00213 | 1.33368 | 0.70937 | 0.78376 | 1.00942 |
+| 1000 | 0.71898 ± 0.00219 | 1.33410 | 0.66142 | 0.80868 | 1.00772 |
+| 1500 | 0.64640 ± 0.00196 | 1.33464 | 0.56580 | 0.85134 | 1.00559 |
+| 2500 | 0.52621 ± 0.00193 | 1.33507 | 0.43890 | 0.89470 | 1.00400 |
+
+- **It never reaches 1.** The best ratio gives $k_\infty = 0.7785 \pm 0.0022$,
+  about a hundred standard deviations short. The prediction held.
+- **The shape is the predicted one, and the factors say why.** Going right,
+  $p$ climbs from 0.31 to 0.89 (more carbon, more collisions between
+  resonances), while $f$ falls from 0.97 to 0.44 (more carbon, more of the
+  thermal neutrons absorbed in carbon). $\eta$ is natural uranium's, 1.31 to
+  1.34 everywhere: far below the 17 % mixture's 2.03.
+- **The maximum sits a little lower than predicted.** The top is flat between
+  400 and 500 carbon atoms per uranium atom (0.7785 and 0.7777, the same
+  within statistics), already 2σ lower at 600, and 0.748 at 800. The
+  prediction said 500–800: partly refuted, and recorded as such.
+- **A surprise:** at very little carbon ($N_C/N_U = 50$), $\varepsilon$ is
+  1.24. The uranium is dense, most neutrons are absorbed before they are
+  thermal, and fast fission of U-238 is a large share of what fissions remain.
+
+**Not yet checked against another code.** The OpenMC deck that verified the
+main case runs the sweep unchanged (`ugraphite_openmc.py --case natural --cu
+R`); it was not available on the machine that ran the sweep, so that
+comparison is pending.
 
 **So the graphite does two jobs that pull against each other** in a
 homogeneous mixture: more of it slows the neutrons past the resonances

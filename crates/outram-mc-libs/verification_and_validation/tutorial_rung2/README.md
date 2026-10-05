@@ -86,4 +86,37 @@ difference is stated, not corrected.
 
 ## Step 7 sweep: natural uranium, k_inf against N_C/N_U
 
-Running (2026-10-05); recorded in the next commit.
+Recorded 2026-10-05 (00:09-02:15 UTC), `MODE=sweep`, binary built from
+`develop` at `f39501b8bd` (later commits in the series touch comments and an
+off-by-default ablation knob only). 5000 neutrons x [20 + 50] per point, seed
+20 261 004 + point index, 2 threads. **Sizing:** 2 cores available; one point
+at this size takes ~3-24 min and gives sigma ~200 pcm, small against the
+~25 000 pcm the curve spans. Hardware: Intel Xeon @ 2.10 GHz, 2 threads
+pinned to 2 of 4 logical cores, 15 GB, Linux, CPU only, machine shared with
+another agent and this session's builds (load average up to ~8). Data 112 s.
+
+| N_C/N_U | k_inf | eta | f | p | epsilon |
+|---|---|---|---|---|---|
+| 50 | 0.49117 +/- 0.00185 | 1.31230 | 0.97457 | 0.30725 | 1.23959 |
+| 100 | 0.61994 +/- 0.00197 | 1.32213 | 0.95077 | 0.45311 | 1.09216 |
+| 200 | 0.72553 +/- 0.00229 | 1.32821 | 0.90663 | 0.58182 | 1.03976 |
+| 300 | 0.76517 +/- 0.00169 | 1.33054 | 0.86645 | 0.64808 | 1.02534 |
+| 400 | 0.77850 +/- 0.00217 | 1.33178 | 0.82970 | 0.69192 | 1.01853 |
+| 500 | 0.77774 +/- 0.00254 | 1.33253 | 0.79594 | 0.72371 | 1.01491 |
+| 600 | 0.77153 +/- 0.00243 | 1.33304 | 0.76483 | 0.74684 | 1.01248 |
+| 800 | 0.74798 +/- 0.00213 | 1.33368 | 0.70937 | 0.78376 | 1.00942 |
+| 1000 | 0.71898 +/- 0.00219 | 1.33410 | 0.66142 | 0.80868 | 1.00772 |
+| 1500 | 0.64640 +/- 0.00196 | 1.33464 | 0.56580 | 0.85134 | 1.00559 |
+| 2500 | 0.52621 +/- 0.00193 | 1.33507 | 0.43890 | 0.89470 | 1.00400 |
+
+Telescoping exact at every point; `(k - k_factors)/k` from -0.41 % to +0.83 %,
+inside the band; binning check 0.999992-0.999993.
+
+**Against the prediction (written before the run, `c199b7dc1`):** never reaches
+1 (held: maximum 0.77850 +/- 0.00217 at 400); rises then falls with `p` up
+and `f` down (held); maximum ~0.75-0.8 (held); location ~500-800 (**partly
+refuted**: flat top at 400-500, 600 already 2.2 sigma lower).
+
+**OpenMC code-to-code for the sweep: not run** (no OpenMC on that machine).
+`openmc_inputs/ugraphite_openmc.py --case natural --cu R --particles 5000
+--inactive 20 --active 50` runs it unchanged; pending the maintainer.
