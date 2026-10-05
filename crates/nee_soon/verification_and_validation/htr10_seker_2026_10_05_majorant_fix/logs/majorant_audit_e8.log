@@ -1,0 +1,56 @@
+HTR-10 core k-eff vs Li, Yu & Wei (2014), RMC 1.004288
+=========================================================
+  ENDF/B-VIII.0 (RMC used VII.0 -- offset NOT corrected)
+  explicit TRISO, hybrid delta/surface tracking, TECDOC reflector
+
+Reconstructing cross sections:
+  rod metal: FULL: real Ni-58/60/61/62/64 and Fe-54/56/57/58
+  carbon: natural, C-12 / C-13 at 98.93 / 1.07 at.% (IUPAC)
+  coolant: natural helium (He-3 1.343e-6 at.), ideal gas at 300.15 K and 101.33 kPa (pressure ASSUMED atmospheric, after Seker & Colak 2003 p.267)
+  rod metal: FULL: real Ni-58/60/61/62/64 and Fe-54/56/57/58
+  U_UO2    LEAPR 16.4s
+  O_UO2    LEAPR 24.2s
+  graphite S(a,b): tsl-reactor-graphite-30P.endf (MAT 32)
+  U235   81.8s
+  U238   64.6s
+  O16    925.6ms
+  C12    137.9ms
+  C12    146.0ms
+  Si28   404.4ms
+  B10    151.3ms
+  C12    136.9ms
+  Si29   285.1ms
+  Si30   216.0ms
+  B11    160.5ms
+  C13    114.4ms
+  C13    116.5ms
+  C13    116.1ms
+  He3    117.1ms
+  He4    54.1ms
+  Fe54   3.8s
+  Fe56   3.6s
+  Fe57   1.5s
+  Fe58   1.5s
+  Cr50   1.5s
+  Cr52   1.2s
+  Cr53   1.1s
+  Cr54   512.3ms
+  Ni58   2.4s
+  Ni60   2.0s
+  Ni61   386.3ms
+  Ni62   655.7ms
+  Ni64   384.9ms
+  Mn55   2.2s
+  Ti46   673.5ms
+  Ti47   231.4ms
+  Ti48   694.0ms
+  Ti49   277.3ms
+  Ti50   164.3ms
+  Si28   393.6ms
+  Si29   270.0ms
+  Si30   210.9ms
+  reflector zone: 22 (C 8.8242e-2 x1.000, natural B 4.7377e-7)
+  fuel zone: explicit TRISO lattice
+  tracking: hybrid (delta bed)
+  geometry: 24068 tiles, 44611 cells, 1537 universes
+MAJORANT-AUDIT htr10_rmc_keff bed_majorant | worst 0.7696 at 1.40599e-5 eV in 'UO2 kernel' | 251920 nodes | 2991984 energies
