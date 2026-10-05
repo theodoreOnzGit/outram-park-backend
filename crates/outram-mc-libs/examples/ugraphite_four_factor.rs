@@ -175,6 +175,33 @@
 //! statistics. Record and deck:
 //! `verification_and_validation/tutorial_rung2/README.md`.
 //!
+//! ## What graphite S(alpha,beta) is worth here (ablation, 2026-10-05)
+//!
+//! The main case again with `GRAPHITE_SAB=0` (carbon as free gas, the
+//! explicit ablation in `common/ugraphite_common.rs`), at the record's own
+//! settings (20 000 x [20 + 100], seed 20 261 004, 2 threads), binary with the
+//! knob (`develop` at `f39501b8bd` + the knob, physics otherwise identical).
+//! 993 s transport on an Intel Xeon @ 2.10 GHz, 2 threads pinned to 2 of 4
+//! shared logical cores, 15 GB, Linux, CPU only.
+//!
+//! ```text
+//!                      S(a,b) (record)        free gas (ablation)
+//!   k_inf              1.56777 +/- 0.00081    1.57038 +/- 0.00075
+//!   eta                2.02809                2.02923
+//!   f                  0.97470                0.97511
+//!   p                  0.71398                0.71422
+//!   epsilon            1.11144                1.11063
+//! ```
+//!
+//! **Worth of the bound-atom law: -261 +/- 110 pcm (2.4 sigma)** on the
+//! power-iteration `k_inf`. The products of the factors differ by only
+//! -0.06 % (1.56867 vs 1.56959), inside their conservative sigmas, and no
+//! single factor moves by more than ~0.1 %, so **which factor carries the
+//! shift is not resolved** by these runs. The two share seed and settings but
+//! are not paired (their random streams part at the first differing
+//! collision); the sigma is the independent combination. Measured, not
+//! explained.
+//!
 //! ## Step 7 sweep (natural uranium), 2026-10-05
 //!
 //! `MODE=sweep`, binary built from `develop` at `f39501b8bd` (the commits

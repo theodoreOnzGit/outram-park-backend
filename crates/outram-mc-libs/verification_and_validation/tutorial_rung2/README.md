@@ -84,6 +84,18 @@ ENDF/B-VIII.0 HDF5 library (294 K neutron data by nearest-temperature lookup,
 Agreement within statistics on `k` and on every factor. The 2 K temperature
 difference is stated, not corrected.
 
+## Graphite S(alpha,beta) worth on the main case (ablation, 2026-10-05)
+
+`GRAPHITE_SAB=0` (carbon as free gas), the record's settings (20 000 x
+[20 + 100], seed 20 261 004, 2 threads); 993 s transport, Intel Xeon @
+2.10 GHz, 2 threads on 2 of 4 shared logical cores, CPU only.
+k_inf 1.57038 +/- 0.00075 (free gas) vs 1.56777 +/- 0.00081 (S(a,b), the
+record): **worth of the law -261 +/- 110 pcm (2.4 sigma)**; eta 2.02923 vs
+2.02809, f 0.97511 vs 0.97470, p 0.71422 vs 0.71398, epsilon 1.11063 vs
+1.11144; the factor products differ by only -0.06 %, so which factor
+carries the shift is not resolved. Not paired (streams diverge); sigma
+combined independently.
+
 ## Step 7 sweep: natural uranium, k_inf against N_C/N_U
 
 Recorded 2026-10-05 (00:09-02:07 UTC), `MODE=sweep`, binary built from
