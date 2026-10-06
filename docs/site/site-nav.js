@@ -13,6 +13,9 @@
 // at the top and the page below it is shortened, so it never covers the
 // demo's own buttons (mobile-first rule, docs/claude-md/).
 //
+// Under the bar, deep dives, tutorials and API pages get the code map as a
+// navigation strip (code-map-bar.js, loaded from here; see its header).
+//
 // Demo links open in a new tab (maintainer request, 2026-10-05): any link
 // into `demos/<demo>/` opens in a new tab unless the page is already inside
 // that demo, so a reader keeps the lesson they came from. It is done here
@@ -134,6 +137,13 @@
     var main = document.querySelector("main");
     if (main) {
       main.insertBefore(bar, main.firstChild);
+      // The code map as a navbar under the breadcrumb (maintainer,
+      // 2026-10-06): lessons and API pages only, never a demo's screen.
+      if (kind !== "demos") {
+        var cm = document.createElement("script");
+        cm.src = new URL("code-map-bar.js", root).href;
+        document.head.appendChild(cm);
+      }
       return;
     }
     // Full-screen demo or plain page: a fixed bar, and the page starts below it.

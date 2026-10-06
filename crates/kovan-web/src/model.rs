@@ -631,11 +631,25 @@ mod tests {
             doc: String::new(),
             source: String::new(),
             unresolved: Vec::new(),
+            test_fn: false,
+            reached_by: None,
+            cited_by: Vec::new(),
         }
     }
 
     fn module(file: &str, path: &str, parent: Option<&str>, fns: Vec<Function>) -> Module {
-        Module { file: file.into(), path: path.into(), parent: parent.map(Into::into), test: false, maturity: Some(1), functions: fns }
+        Module {
+            file: file.into(),
+            path: path.into(),
+            parent: parent.map(Into::into),
+            test: false,
+            maturity: Some(1),
+            functions: fns,
+            upstream: None,
+            upstream_unparsed: None,
+            history: Vec::new(),
+            concepts: Vec::new(),
+        }
     }
 
     /// A crate shaped like boon-lay's `triso_atops_fork::activities::live_pools`.
@@ -645,6 +659,7 @@ mod tests {
             name: "bl".into(),
             dir: "crates/bl".into(),
             maturity: Some(1),
+            tests: Vec::new(),
             targets: vec![
                 Target {
                     kind: TargetKind::Lib,
@@ -820,6 +835,8 @@ mod tests {
             module_calls: vec![],
             crate_calls: vec![],
             outside: vec![],
+            commit: None,
+            site_base: None,
             files: vec![],
         };
         let none = Facts::new(&[]);

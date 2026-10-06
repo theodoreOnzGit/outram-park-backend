@@ -95,6 +95,12 @@ pub struct CrateSlice {
     pub crate_calls: Vec<AggregateCall>,
     /// The out-of-scope workspace functions this crate's calls reach.
     pub outside: Vec<OutsideFn>,
+    /// Schema 2: the commit the graph was built at, and the site base the
+    /// `cited_by[].site` paths are relative to.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub commit: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub site_base: Option<String>,
     /// One per module file, sorted by file.
     pub files: Vec<SourceFile>,
 }
@@ -205,7 +211,7 @@ pub fn split(doc: &CallGraphDoc) -> Vec<CrateSlice> {
     let mut fn_crate: BTreeMap<&str, &str> = BTreeMap::new();
     let mut file_crate: BTreeMap<&str, &str> = BTreeMap::new();
     for c in &doc.crates {
-        for t in &c.targets {
+        for t in c.targets.iter().chain(c.tests.iter()) {
             for m in &t.modules {
                 file_crate.insert(m.file.as_str(), c.name.as_str());
                 for f in &m.functions {
@@ -229,7 +235,7 @@ pub fn split(doc: &CallGraphDoc) -> Vec<CrateSlice> {
             let crate_calls = doc.crate_calls.iter().filter(|a| a.from == name || a.to == name).cloned().collect();
             let mut krate = c.clone();
             let mut files = Vec::new();
-            for t in &mut krate.targets {
+            for t in krate.targets.iter_mut().chain(krate.tests.iter_mut()) {
                 for m in &mut t.modules {
                     files.push(SourceFile { file: m.file.clone(), links: Vec::new() });
                     for f in &mut m.functions {
@@ -239,7 +245,17 @@ pub fn split(doc: &CallGraphDoc) -> Vec<CrateSlice> {
             }
             files.sort_by(|a, b| a.file.cmp(&b.file));
             files.dedup_by(|a, b| a.file == b.file);
-            CrateSlice { schema: SPLIT_SCHEMA, krate, calls, module_calls, crate_calls, outside, files }
+            CrateSlice {
+                schema: SPLIT_SCHEMA,
+                krate,
+                calls,
+                module_calls,
+                crate_calls,
+                outside,
+                commit: doc.commit.clone(),
+                site_base: doc.site_base.clone(),
+                files,
+            }
         })
         .collect()
 }
