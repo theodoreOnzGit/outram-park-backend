@@ -436,6 +436,21 @@ enum Command {
         #[arg(long, default_value = commands::code_walk::render::DEFAULT_REPO_URL)]
         repo_url: String,
     },
+    /// The workspace's code map (GitHub #734): every crate placed by its
+    /// `[package.metadata.kovan]` tag, with its required dependencies, from
+    /// `cargo metadata` (no rust-analyzer). `--format json` writes the data,
+    /// `--format svg` the drawn map; the same Cargo.tomls give byte-identical
+    /// output.
+    CodeMap {
+        /// Workspace root; found from the current directory when omitted.
+        #[arg(long)]
+        workspace: Option<PathBuf>,
+        #[arg(long, value_enum, default_value_t = commands::code_map::Format::Json)]
+        format: commands::code_map::Format,
+        /// Output file; stdout when omitted.
+        #[arg(short, long)]
+        out: Option<PathBuf>,
+    },
     /// Regenerates every `<!-- code-walk: ... -->` block in the Markdown
     /// under the given paths and fails if one is stale, a concept path no
     /// longer connects, or a hand-filled hop names a function that no longer
@@ -642,6 +657,11 @@ fn run(command: Command) -> Result<(), String> {
             root,
             repo_url,
         } => commands::code_walk::run(from, to, depth, format, max_paths, hand, root, repo_url),
+        Command::CodeMap { workspace, format, out } => {
+            let (root, _) = commands::workspace::resolve(workspace.as_deref())
+                .map_err(|error| error.to_string())?;
+            commands::code_map::run(&root, format, out)
+        }
         Command::CodeWalkCheck {
             paths,
             update,
