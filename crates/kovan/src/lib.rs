@@ -54,8 +54,9 @@ pub mod app;
 pub mod artifact;
 pub mod autocomplete;
 /// The workspace call graph, crate → module → function, with function
-/// source (GitHub #737). GUI-free; see [`call_graph`].
-pub mod call_graph;
+/// source (GitHub #737). Moved 2026-10-06 to the wasm-clean
+/// [`kovan_common::call_graph`] for web-kovan (#736); re-exported here.
+pub use kovan_common::call_graph;
 pub mod classify;
 /// The code map of a Cargo workspace from its `[package.metadata.kovan]`
 /// tags (GitHub #734): model, layout and SVG. GUI-free; see [`code_map`].
@@ -70,13 +71,17 @@ pub mod corpus_tiers;
 pub mod digitiser;
 pub mod entity;
 pub mod fingerprint;
-pub mod fuzzy;
+/// Moved 2026-10-06 to the wasm-clean [`kovan_common::fuzzy`] (web-kovan's
+/// search bar, #736); re-exported here under its old path.
+pub use kovan_common::fuzzy;
 pub mod graph;
 pub mod index;
 pub mod mindmap;
 pub mod mindmap_layout;
 pub mod mindmap_model;
-pub mod mindmap_view;
+/// Moved 2026-10-06 to the wasm-clean [`kovan_common::mindmap_view`] for
+/// web-kovan (#736); re-exported here under its old path.
+pub use kovan_common::mindmap_view;
 pub mod navigation;
 pub mod node_id;
 pub mod page_rotation;

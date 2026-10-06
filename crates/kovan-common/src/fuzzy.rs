@@ -1,4 +1,6 @@
-//! Fuzzy matching for Kovan's finders (the PDF reader's literature finder).
+//! Fuzzy matching for Kovan's finders (the PDF reader's literature finder,
+//! and since 2026-10-06 web-kovan's search bar; moved here from `kovan` that
+//! day so the wasm page can use it, `kovan::fuzzy` re-exports it).
 //!
 //! Ported from `fuzzy_score` in
 //! `crates/njoy-outram-park-fork/src/bin/njoy-tui/nuclides.rs` (the njoy TUI's

@@ -7,7 +7,10 @@
 //! JSON. web-kovan reads that JSON as a static file; desktop kovan can build
 //! it live. This module is the data model and the pure assembly step: plain
 //! `serde` + `std`, no GUI, no I/O, no rust-analyzer, so it can move to a
-//! wasm-clean crate unchanged.
+//! wasm-clean crate unchanged. ~~can move~~ **Moved 2026-10-06** to
+//! `kovan_common::call_graph` (web-kovan, #736); `kovan::call_graph`
+//! re-exports it. [`split`] cuts a document into one file per crate for the
+//! web.
 //!
 //! # Shape
 //!
@@ -81,6 +84,7 @@ pub mod citations;
 pub mod history;
 pub mod modules;
 pub mod reach;
+pub mod split;
 pub mod upstream;
 
 use std::collections::{BTreeMap, BTreeSet};
@@ -535,6 +539,55 @@ impl CallGraphDoc {
         doc
     }
 
+    /// One document from several built separately (one per crate, for the
+    /// incremental site build, #745): every crate once (the first copy
+    /// wins), every call site, the outside functions that are still outside
+    /// the merged scope, the external-call counts added, assembled again.
+    ///
+    /// Each function's calls are found from its own body alone, so a crate
+    /// built on its own gives the same calls as in a whole-workspace run;
+    /// what changes with the scope is only which callees count as
+    /// `outside`, and that is recomputed here. So merging single-crate
+    /// documents gives the bytes a run over all of them gives (test
+    /// `merging_single_crate_documents_equals_one_run`, and the script check
+    /// in `crates/kovan-web/web/data.sh --check`).
+    pub fn merge(docs: Vec<CallGraphDoc>) -> CallGraphDoc {
+        let mut crates: Vec<CrateGraph> = Vec::new();
+        let mut raw = Vec::new();
+        let mut outside = Vec::new();
+        let mut external = 0;
+        // Schema 2: every run records the same HEAD and site base.
+        let commit = docs.iter().find_map(|d| d.commit.clone());
+        let site_base = docs.iter().find_map(|d| d.site_base.clone());
+        for d in docs {
+            external += d.totals.external_calls;
+            for c in d.crates {
+                if !crates.iter().any(|k| k.name == c.name) {
+                    crates.push(c);
+                }
+            }
+            for c in d.calls {
+                for line in c.lines {
+                    raw.push(RawCall { from: c.from.clone(), to: c.to.clone(), kind: c.kind, line });
+                }
+            }
+            outside.extend(d.outside);
+        }
+        let in_scope: BTreeSet<String> = crates
+            .iter()
+            .flat_map(|c| c.targets.iter().chain(c.tests.iter()))
+            .flat_map(|t| t.modules.iter())
+            .flat_map(|m| m.functions.iter().map(|f| f.id.clone()))
+            .collect();
+        outside.retain(|o| !in_scope.contains(&o.id));
+        // `assemble` recomputes `reached_by` over the merged calls, so a test
+        // reaching into another crate counts as in one run.
+        let mut doc = CallGraphDoc::assemble(crates, raw, outside, external);
+        doc.commit = commit;
+        doc.site_base = site_base;
+        doc
+    }
+
     /// Pretty JSON with a trailing newline: the file `kovan-cli call-graph`
     /// writes.
     pub fn to_json(&self) -> String {
@@ -608,7 +661,7 @@ mod tests {
 
     /// A two-crate fixture: `app` (lib with two modules, one example) calls
     /// into `core`; one call leaves the scope.
-    fn fixture() -> (Vec<CrateGraph>, Vec<RawCall>, Vec<OutsideFn>) {
+    pub(crate) fn fixture() -> (Vec<CrateGraph>, Vec<RawCall>, Vec<OutsideFn>) {
         let gap = Unresolved {
             line: 4,
             kind: "trait".into(),
@@ -766,6 +819,31 @@ mod tests {
             .map(|f| f.name.as_str())
             .collect();
         assert_eq!(fns, vec!["go", "step"]);
+    }
+
+    /// Methodology: assemble the two-crate fixture in one run, then as two
+    /// single-crate runs would see it (each crate's own calls; calls into
+    /// the other crate listed as `outside`), and merge those.
+    ///
+    /// Result (2026-10-06): byte-identical JSON.
+    #[test]
+    fn merging_single_crate_documents_equals_one_run() {
+        let (crates, calls, outside) = fixture();
+        let full = CallGraphDoc::assemble(crates.clone(), calls.clone(), outside.clone(), 7).to_json();
+        let single = |name: &str, external: usize| {
+            let c: Vec<CrateGraph> = crates.iter().filter(|c| c.name == name).cloned().collect();
+            let prefix = format!("crates/{name}/");
+            let mine: Vec<RawCall> = calls.iter().filter(|r| r.from.starts_with(&prefix)).cloned().collect();
+            let mut out: Vec<OutsideFn> = outside.clone();
+            for r in &mine {
+                if !r.to.starts_with(&prefix) && !out.iter().any(|o| o.id == r.to) {
+                    out.push(OutsideFn { id: r.to.clone(), krate: None, file: r.to.split("::").next().unwrap().into(), line: 1 });
+                }
+            }
+            CallGraphDoc::assemble(c, mine, out, external)
+        };
+        let merged = CallGraphDoc::merge(vec![single("core", 0), single("app", 7)]).to_json();
+        assert_eq!(merged, full);
     }
 
     /// Methodology: the fixture plus an integration-test target whose

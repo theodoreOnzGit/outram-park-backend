@@ -8,7 +8,12 @@
 //!   crate, side by side, centred over the pyramid.
 //! - **Topic boxes** ([`Topic::COLUMNS`]) are columns through the
 //!   topic rows (3 and 2, plus any other row a topic crate declares). Every
-//!   topic gets a box, even an empty one.
+//!   topic gets a box, even an empty one. **Since 2026-10-06** (maintainer,
+//!   #734) the eight boxes wrap onto **bands of [`BOXES_PER_BAND`]** (two
+//!   rows of four) instead of one row of eight, which made the map about
+//!   7:1 wide. Order is kept (left to right, then the next band). Each box
+//!   labels its own rows in a strip at its left ([`ROW_TAG`]); within a
+//!   band a row's cards line up across the boxes.
 //! - Inside a topic box, **fidelity columns** run from the highest level on
 //!   the left to the lowest on the right. The columns are the levels a crate
 //!   in the box sits at, plus both ends of every range. A column is as wide
@@ -19,8 +24,8 @@
 //!   its `lo` column, on its own lane below the single-level crates of its
 //!   row (lanes assigned greedily, widest range first, so ranges that do not
 //!   overlap share one). `raffles` `[0, 4]` therefore spans the whole Risk box.
-//! - Rows line up across the boxes: a row's band is as tall as the most
-//!   lanes any box needs in it.
+//! - Rows line up across the boxes of a band: a row is as tall as the most
+//!   lanes any box of that band needs in it.
 //! - The **utilities base** (rows 1, then 0) spans the pyramid's width below
 //!   the topic boxes, each row's crates centred.
 //! - The **knowledge-management box** stands to the right, from the app band
@@ -55,6 +60,35 @@ pub const GUTTER: f64 = 70.0;
 /// maintainer's rules: without it the six `outram-foam-*` crates at
 /// fidelity 3 made the map about seven times wider than tall.
 pub const MAX_TIES: usize = 3;
+/// Topic boxes per band (maintainer, 2026-10-06: two rows of four).
+pub const BOXES_PER_BAND: usize = 4;
+/// Width of the strip inside a topic box's left edge that labels its rows.
+pub const ROW_TAG: f64 = 30.0;
+
+/// What a row means (hover text of the row labels; the tag documentation in
+/// `crates/kovan/tests/code_map_tags.rs`).
+pub fn row_meaning(row: u8) -> &'static str {
+    match row {
+        4 => "Row 4: integrated GUI apps",
+        3 => "Row 3: coupled multiphysics",
+        2 => "Row 2: domain solvers",
+        1 => "Row 1: utilities built on another crate",
+        0 => "Row 0: standalone utilities",
+        _ => "Row: unknown",
+    }
+}
+
+/// What a fidelity column means (hover text of the F labels).
+pub fn fidelity_meaning(level: i8) -> &'static str {
+    match level {
+        4 => "F4: brute force (Monte Carlo, first-principles data)",
+        3 => "F3: three resolved dimensions (CFD, diffusion)",
+        2 => "F2: two (subchannel)",
+        1 => "F1: one (system code)",
+        0 => "F0: lumped",
+        _ => "F?: no fidelity tag",
+    }
+}
 
 /// An axis-aligned rectangle: top-left corner and size.
 #[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
@@ -128,6 +162,10 @@ pub struct Label {
     pub x: f64,
     pub y: f64,
     pub text: String,
+    /// What the label means, shown on hover ([`row_meaning`],
+    /// [`fidelity_meaning`]).
+    #[serde(default, skip_serializing_if = "String::is_empty")]
+    pub tip: String,
 }
 
 /// Everything the map draws, world units.
@@ -261,30 +299,34 @@ pub fn layout(map: &CodeMap) -> Layout {
     let km = by_topic(Topic::KnowledgeManagement);
     let boxes: Vec<TopicBox> = Topic::COLUMNS.iter().map(|&t| topic_box(t, &by_topic(t))).collect();
 
-    // Row bands: topic rows (3, 2 and any other a topic crate uses), then
-    // the base's rows (1, 0 and any other a utility uses), high to low.
-    let mut topic_rows: BTreeSet<u8> = [3, 2].into();
-    for b in &boxes {
-        topic_rows.extend(b.rows.keys());
-    }
+    // Topic boxes wrap onto bands of BOXES_PER_BAND; each band has its own
+    // rows (3, 2 and any other a crate of that band uses), high to low.
+    let bands: Vec<&[TopicBox]> = boxes.chunks(BOXES_PER_BAND).collect();
+    let band_rows: Vec<BTreeSet<u8>> = bands
+        .iter()
+        .map(|band| {
+            let mut r: BTreeSet<u8> = [3, 2].into();
+            for b in band.iter() {
+                r.extend(b.rows.keys());
+            }
+            r
+        })
+        .collect();
+    let topic_rows: BTreeSet<u8> = band_rows.iter().flatten().copied().collect();
     let mut base_rows: BTreeSet<u8> = [1, 0].into();
     base_rows.extend(utilities.iter().map(|c| c.row));
     base_rows.retain(|r| !topic_rows.contains(r));
-    let lanes_in = |row: u8| -> usize {
-        boxes.iter().filter_map(|b| b.rows.get(&row)).map(Vec::len).max().unwrap_or(0).max(1)
+    let lanes_in = |band: &[TopicBox], row: u8| -> usize {
+        band.iter().filter_map(|b| b.rows.get(&row)).map(Vec::len).max().unwrap_or(0).max(1)
     };
+    let box_w = |b: &TopicBox| ROW_TAG + b.inner_w + 2.0 * PAD;
+    let band_w: Vec<f64> =
+        bands.iter().map(|band| band.iter().map(box_w).sum::<f64>() + (band.len() - 1) as f64 * BOX_GAP).collect();
 
-    // Horizontal: topic boxes from x = 0.
     let mut frames = Vec::new();
     let mut cards: BTreeMap<String, Card> = BTreeMap::new();
     let mut labels = Vec::new();
-    let mut box_x = Vec::new();
-    let mut x = 0.0;
-    for b in &boxes {
-        box_x.push(x);
-        x += b.inner_w + 2.0 * PAD + BOX_GAP;
-    }
-    let pyramid_w = x - BOX_GAP;
+    let pyramid_w = band_w.iter().copied().fold(0.0, f64::max);
     let base_need = base_rows
         .iter()
         .map(|r| {
@@ -298,28 +340,34 @@ pub fn layout(map: &CodeMap) -> Layout {
     let root = Rect { x: 0.5 * base_w - 0.5 * ROOT_W, y: 0.0, w: ROOT_W, h: ROOT_H };
     let app_top = root.bottom() + 2.0 * BOX_GAP;
     let app_box_h = HEADER + CARD_H + PAD;
-    let topic_top = app_top + app_box_h + 2.0 * BOX_GAP;
-    let mut band_y: BTreeMap<u8, (f64, f64)> = BTreeMap::new();
-    let mut y = topic_top + HEADER;
-    for &r in topic_rows.iter().rev() {
-        let h = lanes_in(r) as f64 * CARD_H + (lanes_in(r) - 1) as f64 * GAP;
-        band_y.insert(r, (y, h));
-        y += h + BAND_GAP;
+    // (band, row) -> (top y, height); the first band's rows also serve the
+    // knowledge-management box.
+    let mut band_y: BTreeMap<(usize, u8), (f64, f64)> = BTreeMap::new();
+    let mut band_top = app_top + app_box_h + 2.0 * BOX_GAP;
+    let mut band_span = Vec::new();
+    for (i, band) in bands.iter().enumerate() {
+        let mut y = band_top + HEADER;
+        for &r in band_rows[i].iter().rev() {
+            let n = lanes_in(band, r);
+            let h = n as f64 * CARD_H + (n - 1) as f64 * GAP;
+            band_y.insert((i, r), (y, h));
+            y += h + BAND_GAP;
+        }
+        let bottom = y - BAND_GAP + PAD;
+        band_span.push((band_top, bottom));
+        band_top = bottom + 2.0 * BOX_GAP;
     }
-    let topic_bottom = y - BAND_GAP + PAD;
+    let topic_bottom = band_span.last().map(|s| s.1).unwrap_or(band_top);
     let base_top = topic_bottom + 2.0 * BOX_GAP;
     let mut y = base_top + HEADER;
+    let mut base_y: BTreeMap<u8, f64> = BTreeMap::new();
     for &r in base_rows.iter().rev() {
-        band_y.insert(r, (y, CARD_H));
+        base_y.insert(r, y);
+        labels.push(Label { x: -0.5 * GUTTER, y: y + 0.5 * CARD_H, text: format!("row {r}"), tip: row_meaning(r).into() });
         y += CARD_H + BAND_GAP;
     }
     let base_bottom = y - BAND_GAP + PAD;
-    band_y.entry(4).or_insert((app_top + HEADER, CARD_H));
-
-    // Row labels in the gutter.
-    for (&r, &(y, h)) in band_y.iter().rev() {
-        labels.push(Label { x: -0.5 * GUTTER, y: y + 0.5 * h, text: format!("row {r}") });
-    }
+    labels.push(Label { x: -0.5 * GUTTER, y: app_top + HEADER + 0.5 * CARD_H, text: "row 4".into(), tip: row_meaning(4).into() });
 
     // App boxes, centred over the pyramid.
     let app_w = CARD_W + 2.0 * PAD;
@@ -333,24 +381,33 @@ pub fn layout(map: &CodeMap) -> Layout {
         ax += app_w + BOX_GAP;
     }
 
-    // Topic boxes.
-    for (b, &bx) in boxes.iter().zip(&box_x) {
-        let rect = Rect { x: bx, y: topic_top, w: b.inner_w + 2.0 * PAD, h: topic_bottom - topic_top };
-        frames.push(Frame { kind: FrameKind::Topic, topic: b.topic, title: b.topic.title().into(), rect });
-        let f = frames.len() - 1;
-        let left = bx + PAD;
-        for (k, cx, w) in &b.cols {
-            let text = if *k < 0 { "F?".to_string() } else { format!("F{k}") };
-            labels.push(Label { x: left + cx + 0.5 * w, y: topic_top + 34.0, text });
-        }
-        for (row, lanes) in &b.rows {
-            let (y0, _) = band_y[row];
-            for (i, lane) in lanes.iter().enumerate() {
-                for (c, cx, w) in lane {
-                    let r = Rect { x: left + cx, y: y0 + i as f64 * (CARD_H + GAP), w: *w, h: CARD_H };
-                    cards.insert(c.name.clone(), Card { name: c.name.clone(), rect: r, frame: f });
+    // Topic boxes, band by band, each band centred.
+    for (i, band) in bands.iter().enumerate() {
+        let (top, bottom) = band_span[i];
+        let mut bx = 0.5 * base_w - 0.5 * band_w[i];
+        for b in band.iter() {
+            let rect = Rect { x: bx, y: top, w: box_w(b), h: bottom - top };
+            frames.push(Frame { kind: FrameKind::Topic, topic: b.topic, title: b.topic.title().into(), rect });
+            let f = frames.len() - 1;
+            for &r in &band_rows[i] {
+                let (y0, h) = band_y[&(i, r)];
+                labels.push(Label { x: bx + PAD + 0.5 * ROW_TAG - 4.0, y: y0 + 0.5 * h, text: format!("{r}"), tip: row_meaning(r).into() });
+            }
+            let left = bx + PAD + ROW_TAG;
+            for (k, cx, w) in &b.cols {
+                let text = if *k < 0 { "F?".to_string() } else { format!("F{k}") };
+                labels.push(Label { x: left + cx + 0.5 * w, y: top + 34.0, text, tip: fidelity_meaning(*k).into() });
+            }
+            for (row, lanes) in &b.rows {
+                let (y0, _) = band_y[&(i, *row)];
+                for (j, lane) in lanes.iter().enumerate() {
+                    for (c, cx, w) in lane {
+                        let r = Rect { x: left + cx, y: y0 + j as f64 * (CARD_H + GAP), w: *w, h: CARD_H };
+                        cards.insert(c.name.clone(), Card { name: c.name.clone(), rect: r, frame: f });
+                    }
                 }
             }
+            bx += box_w(b) + BOX_GAP;
         }
     }
 
@@ -363,7 +420,7 @@ pub fn layout(map: &CodeMap) -> Layout {
         let w = row.len() as f64 * CARD_W + row.len().saturating_sub(1) as f64 * GAP;
         let mut cx = 0.5 * base_w - 0.5 * w;
         for c in row {
-            let rect = Rect { x: cx, y: band_y[&r].0, w: CARD_W, h: CARD_H };
+            let rect = Rect { x: cx, y: base_y[&r], w: CARD_W, h: CARD_H };
             cards.insert(c.name.clone(), Card { name: c.name.clone(), rect, frame: f });
             cx += CARD_W + GAP;
         }
@@ -387,7 +444,7 @@ pub fn layout(map: &CodeMap) -> Layout {
         let w = row.len() as f64 * CARD_W + (row.len() - 1) as f64 * GAP;
         let mut cx = km_x + 0.5 * km_w - 0.5 * w;
         // A row with no band of its own (row 4 is the app band) still has one.
-        let y = band_y.get(&r).map(|b| b.0).unwrap_or(app_top + HEADER);
+        let y = band_y.get(&(0, r)).map(|b| b.0).or_else(|| base_y.get(&r).copied()).unwrap_or(app_top + HEADER);
         for c in row {
             let rect = Rect { x: cx, y, w: CARD_W, h: CARD_H };
             cards.insert(c.name.clone(), Card { name: c.name.clone(), rect, frame: f });
@@ -426,13 +483,37 @@ mod tests {
         let l = layout(&m);
         let risk = l.frames.iter().find(|f| f.topic == Topic::Risk).unwrap().rect;
         let raffles = l.card("raffles").unwrap().rect;
-        assert!((raffles.x - (risk.x + PAD)).abs() < 1e-9);
+        assert!((raffles.x - (risk.x + PAD + ROW_TAG)).abs() < 1e-9);
         assert!((raffles.right() - (risk.right() - PAD)).abs() < 1e-9);
         let changi = l.card("changi").unwrap().rect;
         assert!(changi.w > CARD_W && changi.w < raffles.w);
         // changi [1, 3]: from the F3 column (pflotran, redhill) to F1 (buangkok).
         assert!((changi.x - l.card("pflotran").unwrap().rect.x).abs() < 1e-9);
         assert!((changi.right() - l.card("buangkok").unwrap().rect.right()).abs() < 1e-9);
+    }
+
+    /// Methodology: lay out the fixture (two topics with crates, six
+    /// empty) and check the wrap: two bands of four boxes, the second band
+    /// below the first, rows aligned within a band, every row and fidelity
+    /// label carrying its meaning.
+    ///
+    /// Result (2026-10-06): passes.
+    #[test]
+    fn topic_boxes_wrap_onto_two_bands_with_rows_aligned() {
+        let m = map();
+        let l = layout(&m);
+        let topics: Vec<&Frame> = l.frames.iter().filter(|f| f.kind == FrameKind::Topic).collect();
+        assert_eq!(topics.len(), 8);
+        let tops: BTreeSet<i64> = topics.iter().map(|f| f.rect.y as i64).collect();
+        assert_eq!(tops.len(), 2, "two bands");
+        for (i, f) in topics.iter().enumerate() {
+            assert_eq!(f.topic, Topic::COLUMNS[i], "order kept");
+        }
+        assert!(topics[4].rect.y > topics[0].rect.bottom());
+        assert!(l.labels.iter().all(|x| !x.tip.is_empty()));
+        assert!(l.labels.iter().any(|x| x.tip == "Row 3: coupled multiphysics"));
+        assert!(l.labels.iter().any(|x| x.tip == "F4: brute force (Monte Carlo, first-principles data)"));
+        assert!(check(&m, &l).is_empty(), "{:#?}", check(&m, &l));
     }
 
     #[test]
@@ -493,6 +574,28 @@ pub fn check(map: &CodeMap, l: &Layout) -> Vec<String> {
             if ca.row > cb.row && a.rect.y > b.rect.y + 1e-9 {
                 p.push(format!("{} (row {}) drawn below {} (row {})", a.name, ca.row, b.name, cb.row));
             }
+        }
+    }
+    // Rows line up across the topic boxes of a band: the top card of a row
+    // sits at the same height in every box of the band that has that row.
+    let mut row_top: BTreeMap<(i64, u8), Vec<(String, f64)>> = BTreeMap::new();
+    for a in &l.cards {
+        let f = &l.frames[a.frame];
+        if f.kind != FrameKind::Topic {
+            continue;
+        }
+        let row = map.get(&a.name).map(|c| c.row).unwrap_or(0);
+        row_top.entry((f.rect.y as i64, row)).or_default().push((f.title.clone(), a.rect.y));
+    }
+    for ((_, row), v) in &row_top {
+        let mut by_box: BTreeMap<&str, f64> = BTreeMap::new();
+        for (t, y) in v {
+            let e = by_box.entry(t.as_str()).or_insert(*y);
+            *e = e.min(*y);
+        }
+        let ys: Vec<f64> = by_box.values().copied().collect();
+        if ys.iter().any(|y| (y - ys[0]).abs() > 1e-9) {
+            p.push(format!("row {row} is not aligned across a band: {by_box:?}"));
         }
     }
     p

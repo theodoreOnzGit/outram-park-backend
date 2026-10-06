@@ -1,0 +1,41 @@
+NOTICE — kovan-web
+==================
+
+Licence: AGPL-3.0-only (from its creation, 2026-10-06)
+------------------------------------------------------
+
+kovan-web is web-kovan, the Code Review UI of the kovan family (GitHub
+#736). ~~The maintainer directed that it be AGPL-3.0-only "since it is part of
+the kovan family"~~ **CORRECTED 2026-10-06:** AGPL-3.0-only was set by the
+session's brief to the building agent ("like the kovan family"), not by a
+maintainer direction. The maintainer has since noted that `kovan` is AGPL only
+because of MuPDF (via kopitiam-pdf), which this crate does not use, so
+whether kovan-web should be GPL-3.0-only instead is an OPEN maintainer
+decision.
+
+It does NOT depend on `kovan` or on any other AGPL crate: its data and layout
+types come from `kovan-common` (GPL-3.0-only), which desktop kovan will also
+use. Desktop kovan is expected to depend on this crate to embed the same UI,
+so this crate must never depend on `kovan` or `dhoby-ghaut` (that would be a
+cycle).
+
+Code moved into kovan-common for it (2026-10-06)
+------------------------------------------------
+
+To build for wasm32, the pure data and layout modules this UI needs were moved
+out of `kovan` (AGPL-3.0-only) into `kovan-common` (GPL-3.0-only):
+`code_map` (model, layout, SVG), `call_graph` (model, module scanner),
+`mindmap_view` (star layout, canvas arithmetic), `fuzzy` (the finders'
+scorer), and `Point` / `Bounds` (now `kovan_common::geometry`). The
+maintainer is the copyright holder of that code and directed on #743 that
+the kovan family's shared schema live in kovan-common; `kovan` re-exports
+each module under its old path. **CONFIRMED by the maintainer 2026-10-06:**
+"Kovan common is GPLv3, it doesn't have mupdf there" -- kovan's AGPL comes
+only from MuPDF (via kopitiam-pdf), which none of the moved code uses.
+
+Ported pieces
+-------------
+
+`src/ui/camera.rs` ports the pan/zoom view, zoom buttons and canvas-size fix
+of `dhoby_ghaut::web_demo` (same workspace, same copyright holder) rather
+than depending on dhoby-ghaut, which depends on `kovan`.

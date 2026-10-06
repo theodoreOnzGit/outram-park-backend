@@ -84,6 +84,18 @@ fi
 cp -r "$DOC_TARGET/doc" "$OUT/api"
 rm -rf "$OUT/api/src" "$OUT/api/.lock"
 
+# web-kovan (gh:#736, #745): the read-only Code Review UI at code-review/,
+# egui built for wasm32. data.sh writes its data (code map, the call graph of
+# every crate, incremental through target/kovan-index, needs rust-analyzer,
+# skipped with a warning without it; and the rustdoc pages above, so it only
+# links to pages that exist). Source text is not copied: the page fetches it
+# from the repository at $COMMIT. The JS code-map/ page stays for now.
+PAGES_COMMIT="$COMMIT" bash crates/kovan-web/web/data.sh "$OUT/code-review/data" "$OUT/api"
+bash crates/kovan-web/web/build.sh "$OUT/code-review"
+for f in index.html kovan_web_bg.wasm data/build.json data/code_map.json; do
+  [[ -f "$OUT/code-review/$f" ]] || { echo "missing $OUT/code-review/$f" >&2; exit 1; }
+done
+
 # Code walks (gh:#523, the lesson CI of #512): every `<!-- code-walk: ... -->`
 # block in a deep dive or a tutorial is regenerated with rust-analyzer and must match what is
 # committed; a stale walk, a broken chain or a hand-filled hop whose function

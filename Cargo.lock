@@ -5424,6 +5424,21 @@ dependencies = [
 ]
 
 [[package]]
+name = "kovan-web"
+version = "0.0.1"
+dependencies = [
+ "eframe",
+ "egui",
+ "js-sys",
+ "kovan-common",
+ "serde",
+ "serde_json",
+ "wasm-bindgen",
+ "wasm-bindgen-futures",
+ "web-sys",
+]
+
+[[package]]
 name = "kstring"
 version = "2.0.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"

@@ -52,6 +52,9 @@ members = [
     # Consolidated 2026-08-21 from the former separate kovan-cli/kovan-tui
     # crates into binaries `kovan`/`kovan-tui`/`kovan-gui` in one crate.
     "crates/kovan",
+    # kovan-web — web-kovan, the read-only Code Review UI (egui, wasm32 and
+    # native; GitHub #736). AGPL-3.0-only like kovan.
+    "crates/kovan-web",
     # outram-blender — Blender-inspired mesh-authoring frontend (MC Studio +
     # tet-dual Mesh Studio; real mc-export / foam-mesh solver bridges).
     # NAME/TRADEMARK NOTE: workspace convention (op-ahi) is

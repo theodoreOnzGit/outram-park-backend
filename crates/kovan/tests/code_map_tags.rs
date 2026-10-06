@@ -79,6 +79,6 @@ fn the_real_workspace_lays_out_cleanly() {
     assert!(problems.is_empty(), "{}", problems.join("\n"));
     let risk = l.frames.iter().find(|f| f.topic == Topic::Risk).unwrap().rect;
     let raffles = l.card("raffles").expect("raffles is a member").rect;
-    assert!((raffles.x - (risk.x + layout::PAD)).abs() < 1e-6 && (raffles.right() - (risk.right() - layout::PAD)).abs() < 1e-6,
+    assert!((raffles.x - (risk.x + layout::PAD + layout::ROW_TAG)).abs() < 1e-6 && (raffles.right() - (risk.right() - layout::PAD)).abs() < 1e-6,
         "raffles spans the whole Risk box: {raffles:?} in {risk:?}");
 }

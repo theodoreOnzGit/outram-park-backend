@@ -50,49 +50,10 @@ use crate::mindmap_model::{MapNode, MindmapModel};
 const ZOOM_MIN: f64 = 0.25;
 const ZOOM_MAX: f64 = 3.0;
 
-/// A point in world space (the same space [`layout`] places nodes in).
-#[derive(Debug, Clone, Copy, PartialEq)]
-pub struct Point {
-    pub x: f64,
-    pub y: f64,
-}
-
-impl Point {
-    pub fn new(x: f64, y: f64) -> Self {
-        Self { x, y }
-    }
-}
-
-/// An axis-aligned bounding box in world space, as produced by
-/// [`bounds_for`].
-#[derive(Debug, Clone, Copy, PartialEq)]
-pub struct Bounds {
-    pub min_x: f64,
-    pub min_y: f64,
-    pub max_x: f64,
-    pub max_y: f64,
-}
-
-impl Bounds {
-    /// Width, floored at `1.0` so a single-point or degenerate bounds
-    /// never divides by zero in [`Camera::fit`].
-    pub fn width(&self) -> f64 {
-        (self.max_x - self.min_x).max(1.0)
-    }
-
-    /// Height, floored at `1.0` — see [`width`](Self::width).
-    pub fn height(&self) -> f64 {
-        (self.max_y - self.min_y).max(1.0)
-    }
-
-    /// The bounds' centre point.
-    pub fn centre(&self) -> Point {
-        Point::new(
-            (self.min_x + self.max_x) / 2.0,
-            (self.min_y + self.max_y) / 2.0,
-        )
-    }
-}
+/// [`Point`] and [`Bounds`] moved 2026-10-06 to `kovan_common::geometry`
+/// (wasm-clean, for web-kovan, GitHub #736); re-exported so every
+/// `crate::mindmap_layout::Point` path keeps working.
+pub use kovan_common::geometry::{Bounds, Point};
 
 /// The mindmap camera: a viewport size, a zoom factor, and a world-space
 /// centre point. GUI-independent — `crate::app`/`crate::mindmap` reads

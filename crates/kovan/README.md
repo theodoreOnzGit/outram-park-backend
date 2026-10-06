@@ -753,7 +753,8 @@ cargo test --release -p kovan
   agrees with the dependency graph, and the real workspace lays out with no
   overlapping cards, each crate once, fidelity in order and raffles across
   the Risk box. The parser, layout and SVG determinism are unit-tested in
-  `src/code_map/`.
+  ~~`src/code_map/`~~ `crates/kovan-common/src/code_map/` (**moved
+  2026-10-06**, #736, for web-kovan; `kovan::code_map` re-exports it).
 - `tests/call_graph_rust_analyzer.rs` — `call-graph` end to end against a
   real rust-analyzer on a throwaway two-crate workspace: lib and multi-file
   example module trees, a `#[cfg(test)]` module, a cross-crate method call
@@ -762,7 +763,9 @@ cargo test --release -p kovan
   run; schema 2's integration-test target, reach, header link and lesson
   citation. Skips when `rust-analyzer` is not on PATH. Assembly
   order-independence, the module-file rules, reach, header parsing,
-  citations and history parsing are unit-tested in `src/call_graph/`.
+  citations and history parsing are unit-tested in ~~`src/call_graph/`~~
+  `crates/kovan-common/src/call_graph/` (**moved 2026-10-06**, #736;
+  `kovan::call_graph` re-exports it).
 - `tests/upstream_header_survey.rs` (`--ignored`, a measuring instrument) —
   the attribution-header parser over every `.rs` file in `crates/`, with
   per-crate counts and every unparsed header.
