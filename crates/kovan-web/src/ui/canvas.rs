@@ -114,6 +114,8 @@ impl CodeReview {
             Level::Module { krate, file } => self.draw_module(&painter, rect, snap, krate, file, &mut hits),
         };
         let cam = self.cams.entry(level.clone()).or_default();
+        // The code map (3.8:1) opens fitted to its height (2026-10-06).
+        cam.open_to_height = level == Level::Map;
         if let Some(s) = subject {
             if cam.subject != s {
                 cam.subject = s;

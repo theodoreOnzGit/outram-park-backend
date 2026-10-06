@@ -30,11 +30,17 @@ pub struct Camera {
     fit_size: Vec2,
     /// The reader has zoomed or panned since the last fit.
     pub touched: bool,
+    /// Open fitted to the subject's HEIGHT rather than its whole extent:
+    /// everything visible top to bottom, wider subjects run off the sides to
+    /// be panned (maintainer, 2026-10-06, for the 3.8:1 code map: "the
+    /// default zoom should be 1:1 so I can see everything top to bottom, but
+    /// not full width"). The Fit button still fits everything.
+    pub open_to_height: bool,
 }
 
 impl Default for Camera {
     fn default() -> Self {
-        Camera { centre: [0.0, 0.0], scale: 1.0, subject: [-1.0, -1.0, 1.0, 1.0], home: [0.0, 0.0], fitted: false, fit_size: Vec2::ZERO, touched: false }
+        Camera { centre: [0.0, 0.0], scale: 1.0, subject: [-1.0, -1.0, 1.0, 1.0], home: [0.0, 0.0], fitted: false, fit_size: Vec2::ZERO, touched: false, open_to_height: false }
     }
 }
 
@@ -56,6 +62,16 @@ impl Camera {
         self.fitted = true;
         self.fit_size = rect.size();
         self.touched = false;
+    }
+
+    /// The opening view: [`Self::fit`], or, with [`Self::open_to_height`],
+    /// the subject's full height on screen, centred.
+    pub fn open(&mut self, rect: Rect) {
+        self.fit(rect);
+        if self.open_to_height {
+            let h = (self.subject[3] - self.subject[1]).max(1.0);
+            self.scale = (rect.height() as f64 / h) * 0.94;
+        }
     }
 
     /// One world unit per point, centred on `home`.
@@ -97,7 +113,9 @@ impl Camera {
     pub fn handle_input(&mut self, ui: &egui::Ui, resp: &egui::Response) {
         let rect = resp.rect;
         let resized = (rect.size() - self.fit_size).length() > 0.5;
-        if !self.fitted || resp.double_clicked() || (resized && !self.touched) {
+        if !self.fitted || (resized && !self.touched) {
+            self.open(rect);
+        } else if resp.double_clicked() {
             self.fit(rect);
         }
         if resp.hovered() {

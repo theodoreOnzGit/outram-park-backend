@@ -8,10 +8,13 @@ kovan-web is web-kovan, the Code Review UI of the kovan family (GitHub
 #736). ~~The maintainer directed that it be AGPL-3.0-only "since it is part of
 the kovan family"~~ **CORRECTED 2026-10-06:** AGPL-3.0-only was set by the
 session's brief to the building agent ("like the kovan family"), not by a
-maintainer direction. The maintainer has since noted that `kovan` is AGPL only
-because of MuPDF (via kopitiam-pdf), which this crate does not use, so
-whether kovan-web should be GPL-3.0-only instead is an OPEN maintainer
-decision.
+maintainer direction. **Confirmed AGPL-3.0-only by the maintainer the same
+day:** "I thought kovan web needed pdf reader that's why I did AGPLv3".
+web-kovan is to open literature PDFs in kovan's own reader, fetched from the
+corpus repository's raw GitHub URL (decided on #729), which means carrying
+`kopitiam-pdf`, MuPDF-derived and AGPL-3.0-only. The PDF reader is not in
+this crate yet; the licence anticipates it. Whether `kopitiam-pdf` builds
+for wasm32 has not been checked.
 
 It does NOT depend on `kovan` or on any other AGPL crate: its data and layout
 types come from `kovan-common` (GPL-3.0-only), which desktop kovan will also
