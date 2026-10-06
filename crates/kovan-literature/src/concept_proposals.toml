@@ -1204,35 +1204,36 @@ path = "08-radiation-protection/radiation-protection/alara"
 title = "Assuring occupational radiation exposures are as low as is reasonably achievable"
 origin = "nrc"
 sources = [{ document = "nureg-0800-toc-rev6", section = "12.1" }, { document = "nureg-1537-part1", section = "11.1.3 ALARA Program" }, { document = "nureg-1520-rev2", section = "4.4.2" }]
-status = "proposed"
+status = "approved"
 
 [[concept]]
 path = "08-radiation-protection/radiation-protection/radiation-sources"
 title = "Radiation sources"
 origin = "nrc"
 sources = [{ document = "nureg-0800-toc-rev6", section = "12.2" }, { document = "nureg-1537-part1", section = "11.1.1" }]
-status = "proposed"
+status = "approved"
 
 [[concept]]
 path = "08-radiation-protection/radiation-protection/shielding"
 title = "Radiation protection design features and biological shielding"
 origin = "nrc"
 sources = [{ document = "nureg-0800-toc-rev6", section = "12.3-12.4" }, { document = "nureg-1537-part1", section = "4.4 Biological Shield" }]
-status = "proposed"
+cross_links = ["02-nuclear-safety/nuclear-design/neutron-transport"]
+status = "approved"
 
 [[concept]]
 path = "08-radiation-protection/radiation-protection/monitoring-exposure-control-and-dosimetry"
 title = "Radiation monitoring, exposure control and dosimetry"
 origin = "nrc"
 sources = [{ document = "nureg-1537-part1", section = "11.1.4; 11.1.5; 11.1.6" }, { document = "nureg-1520-rev2", section = "4.4.7" }]
-status = "proposed"
+status = "approved"
 
 [[concept]]
 path = "08-radiation-protection/radiation-protection/operational-radiation-protection-program"
 title = "Operational radiation protection program"
 origin = "nrc"
 sources = [{ document = "nureg-0800-toc-rev6", section = "12.5" }, { document = "nureg-1537-part1", section = "11.1.2" }]
-status = "proposed"
+status = "approved"
 
 # ============================================================================
 # 09-electrical-grid / electric-power   (SRP Ch. 8)
@@ -1243,21 +1244,22 @@ path = "09-electrical-grid/electric-power/offsite-power-system"
 title = "Offsite power system (incl. stability of offsite power systems)"
 origin = "nrc"
 sources = [{ document = "nureg-0800-toc-rev6", section = "8.2; BTP 8-3" }]
-status = "proposed"
+status = "approved"
 
 [[concept]]
 path = "09-electrical-grid/electric-power/onsite-power-systems"
 title = "Onsite AC and DC power systems; emergency electrical power"
 origin = "nrc"
 sources = [{ document = "nureg-0800-toc-rev6", section = "8.3.1; 8.3.2" }, { document = "nureg-1537-part1", section = "8.2 Emergency Electrical Power Systems" }]
-status = "proposed"
+status = "approved"
 
 [[concept]]
 path = "09-electrical-grid/electric-power/station-blackout"
 title = "Station blackout"
 origin = "nrc"
 sources = [{ document = "nureg-0800-toc-rev6", section = "8.4" }]
-status = "proposed"
+cross_links = ["02-nuclear-safety/accident-analysis/decrease-in-heat-removal"]
+status = "approved"
 
 # ============================================================================
 # 10-human-resource-development / knowledge-management-and-education
@@ -3654,4 +3656,45 @@ path = "07-regulatory-framework/reactor-licensing/general-design-criteria"
 title = "General design criteria (and their non-LWR adaptations)"
 origin = "nrc"
 sources = [{ document = "10cfr50", section = "Appendix A, General Design Criteria for Nuclear Power Plants" }, { document = "rg-1.232-rev0", section = "Appendices A-C (ARDC, SFR-DC, MHTGR-DC)" }]
+status = "approved"
+
+[[concept]]
+path = "08-radiation-protection/radiation-protection/shielding/radiation-transport"
+title = "Radiation transport for shielding (neutrons, photons, coupled, charged particles)"
+origin = "outram-park"
+sources = [{ document = "nureg-0800-toc-rev6", section = "12.3-12.4 Radiation Protection Design Features" }, { document = "nureg-1537-part1", section = "4.4 Biological Shield" }]
+why = "maintainer 2026-10-06: shielding needs radiation transport generally, not neutron transport alone."
+status = "approved"
+
+[[concept]]
+path = "08-radiation-protection/radiation-protection/shielding/radiation-transport/neutron-shielding-transport"
+title = "Neutron transport for shielding (deep penetration, fixed source)"
+origin = "outram-park"
+sources = [{ document = "nureg-0800-toc-rev6", section = "12.3-12.4 Radiation Protection Design Features" }, { document = "nureg-1537-part1", section = "4.4 Biological Shield" }]
+why = "fixed-source, deep-penetration neutron transport; shares methods with nuclear design."
+cross_links = ["02-nuclear-safety/nuclear-design/neutron-transport"]
+status = "approved"
+
+[[concept]]
+path = "08-radiation-protection/radiation-protection/shielding/radiation-transport/photon-transport"
+title = "Photon (gamma) transport"
+origin = "outram-park"
+sources = [{ document = "nureg-0800-toc-rev6", section = "12.3-12.4 Radiation Protection Design Features" }, { document = "nureg-1537-part1", section = "4.4 Biological Shield" }]
+why = "gamma shielding and dose; needs photo-atomic data (njoy's photo-atomic ACE class) and photon collision physics."
+status = "approved"
+
+[[concept]]
+path = "08-radiation-protection/radiation-protection/shielding/radiation-transport/coupled-neutron-photon-transport"
+title = "Coupled neutron-photon transport (secondary gammas)"
+origin = "outram-park"
+sources = [{ document = "nureg-0800-toc-rev6", section = "12.3-12.4 Radiation Protection Design Features" }, { document = "nureg-1537-part1", section = "4.4 Biological Shield" }]
+why = "capture and inelastic gammas produced by neutrons; the usual reactor-shielding calculation."
+status = "approved"
+
+[[concept]]
+path = "08-radiation-protection/radiation-protection/shielding/radiation-transport/charged-particle-transport"
+title = "Charged-particle (electron, positron, ion) transport"
+origin = "outram-park"
+sources = [{ document = "nureg-0800-toc-rev6", section = "12.3-12.4 Radiation Protection Design Features" }, { document = "nureg-1537-part1", section = "4.4 Biological Shield" }]
+why = "bremsstrahlung and energy deposition; where detector and medical codes (e.g. Geant4) lead."
 status = "approved"

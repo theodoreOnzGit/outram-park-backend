@@ -6,7 +6,7 @@
 
 ## Counts
 
-- **L3 concepts: 218** (175 from the NRC/ORNL text, `nrc`; 43 needed by outram-park and named only implicitly, `outram-park`).
+- **L3 concepts: 223** (175 from the NRC/ORNL text, `nrc`; 48 needed by outram-park and named only implicitly, `outram-park`).
 - **L4 seed tags: 192** across 39 crates.
 
 | Crate | Seed tags |
@@ -779,12 +779,29 @@
   - sources: `nureg-0800-toc-rev6` 12.2; `nureg-1537-part1` 11.1.1
 - [ ] **Radiation protection design features and biological shielding** · `shielding` · origin `nrc`
   - sources: `nureg-0800-toc-rev6` 12.3-12.4; `nureg-1537-part1` 4.4 Biological Shield
+  - cross-links: `02-nuclear-safety/nuclear-design/neutron-transport`
   - proposed kovan-concept tags:
     - [ ] add `//! kovan-concept: 08-radiation-protection/radiation-protection/shielding` to `crates/outram-mc-libs/src/physics/weight_windows.rs`: Weight windows for deep penetration. Variance reduction that makes shielding problems tractable. (port of OpenMC src/weight_windows.cpp)
 - [ ] **Radiation monitoring, exposure control and dosimetry** · `monitoring-exposure-control-and-dosimetry` · origin `nrc`
   - sources: `nureg-1537-part1` 11.1.4; 11.1.5; 11.1.6; `nureg-1520-rev2` 4.4.7
 - [ ] **Operational radiation protection program** · `operational-radiation-protection-program` · origin `nrc`
   - sources: `nureg-0800-toc-rev6` 12.5; `nureg-1537-part1` 11.1.2
+  - [ ] **Radiation transport for shielding (neutrons, photons, coupled, charged particles)** · `shielding/radiation-transport` · origin `outram-park`
+    - sources: `nureg-0800-toc-rev6` 12.3-12.4 Radiation Protection Design Features; `nureg-1537-part1` 4.4 Biological Shield
+    - why: maintainer 2026-10-06: shielding needs radiation transport generally, not neutron transport alone.
+    - [ ] **Neutron transport for shielding (deep penetration, fixed source)** · `shielding/radiation-transport/neutron-shielding-transport` · origin `outram-park`
+      - sources: `nureg-0800-toc-rev6` 12.3-12.4 Radiation Protection Design Features; `nureg-1537-part1` 4.4 Biological Shield
+      - why: fixed-source, deep-penetration neutron transport; shares methods with nuclear design.
+      - cross-links: `02-nuclear-safety/nuclear-design/neutron-transport`
+    - [ ] **Photon (gamma) transport** · `shielding/radiation-transport/photon-transport` · origin `outram-park`
+      - sources: `nureg-0800-toc-rev6` 12.3-12.4 Radiation Protection Design Features; `nureg-1537-part1` 4.4 Biological Shield
+      - why: gamma shielding and dose; needs photo-atomic data (njoy's photo-atomic ACE class) and photon collision physics.
+    - [ ] **Coupled neutron-photon transport (secondary gammas)** · `shielding/radiation-transport/coupled-neutron-photon-transport` · origin `outram-park`
+      - sources: `nureg-0800-toc-rev6` 12.3-12.4 Radiation Protection Design Features; `nureg-1537-part1` 4.4 Biological Shield
+      - why: capture and inelastic gammas produced by neutrons; the usual reactor-shielding calculation.
+    - [ ] **Charged-particle (electron, positron, ion) transport** · `shielding/radiation-transport/charged-particle-transport` · origin `outram-park`
+      - sources: `nureg-0800-toc-rev6` 12.3-12.4 Radiation Protection Design Features; `nureg-1537-part1` 4.4 Biological Shield
+      - why: bremsstrahlung and energy deposition; where detector and medical codes (e.g. Geant4) lead.
 
 ## Electrical grid (`09-electrical-grid`)
 
@@ -796,6 +813,7 @@
   - sources: `nureg-0800-toc-rev6` 8.3.1; 8.3.2; `nureg-1537-part1` 8.2 Emergency Electrical Power Systems
 - [ ] **Station blackout** · `station-blackout` · origin `nrc`
   - sources: `nureg-0800-toc-rev6` 8.4
+  - cross-links: `02-nuclear-safety/accident-analysis/decrease-in-heat-removal`
 
 ## Human resource development (`10-human-resource-development`)
 
