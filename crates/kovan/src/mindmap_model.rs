@@ -396,7 +396,11 @@ fn map_node_kind_for_artifact(kind: ArtifactKind) -> Option<MapNodeKind> {
         | ArtifactKind::SourceReference
         | ArtifactKind::Formula
         | ArtifactKind::DigitisedTable
-        | ArtifactKind::DigitisedGraph => Some(MapNodeKind::Artifact(kind)),
+        | ArtifactKind::DigitisedGraph
+        | ArtifactKind::LessonSection
+        | ArtifactKind::WalkStep
+        | ArtifactKind::CodeWalk
+        | ArtifactKind::RecipeStep => Some(MapNodeKind::Artifact(kind)),
     }
 }
 

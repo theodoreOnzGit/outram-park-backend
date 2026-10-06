@@ -2381,3 +2381,57 @@ target a Markdown **artifact** instead of a function.
   silently counted as supported.
 - `review/stamps.toml` is **not** created in the repository yet; the first
   stamp creates it from the documented header (`review_stamps::TEMPLATE`).
+
+
+## One Markdown schema for notes, lessons, walkthroughs and recipes: four kinds, `origin`, `[[relation]]` anchors (2026-10-06, GH #743)
+
+**Maintainer direction** (#743 comments, 2026-10-06): the literature-note
+schema is the schema for lessons, deep dives, review walkthroughs and recipes
+too. `#` + `[kovan]` is an artifact and the page title is the header
+artifact; `##` is prose; `###` is data (CSV series or embedded code); the
+last `##` is the generated review sign-off. "Add first, I will try it out and
+send feedback": the additions go in now, in place in `artifact.rs` and
+`relation.rs`, and move to `kovan-common` after web-kovan merges.
+
+**What was added.**
+- `ArtifactKind::{LessonSection, WalkStep, CodeWalk, RecipeStep}`
+  (`lesson_section`, `walk_step`, `code_walk`, `recipe_step`), plus
+  `ArtifactKind::ALL`/`as_str`. They behave as text artifacts like a note:
+  counted as notes on a literature card, note-coloured, mindmap nodes, and
+  deletable (only `paper` is protected).
+- `[kovan] origin = "ai" | "human"` (`Origin`, `ArtifactMeta::origin`), an
+  `Option` on disk: absent reads as human and is not written back, so an old
+  note re-serialises byte for byte. Desktop kovan shows an **AI** badge in
+  the kvim tab's Markdown preview and `[AI]` in the PDF reader's page list.
+- `ArtifactToml::relation` is now `Option<Relations>`, untagged: `One`
+  (`[relation]`, a mindmap relation artifact, unchanged) or `Many`
+  (`[[relation]]`, an artifact's anchors). `RelationRecord` gained optional
+  `page`, `quote`, `commit`; its `source` may be omitted (an anchor's source
+  is the artifact). Every new field is `skip_serializing_if` absent.
+- `code:<file>::<Type::name>[@L<line>]` targets (`relation::CodeTarget`).
+  Neither `NodeId::parse` nor `NodeId::from_graph_id` reads one, so the
+  mindmap, the index and the connection menu, which already skip an end they
+  cannot read, skip it. The kvim preview shows each anchor as a link card,
+  `code:` ones non-navigable (navigation comes with web-kovan).
+
+**Choices made here that the maintainer has not ruled on.**
+- Anchors are read only by the preview: `relation::connections` still reads
+  the mindmap's relation artifacts, so an anchor is not a graph edge yet.
+- An unknown `origin` value is a malformed block (reported, the rest of the
+  document loads), like an unknown `kind`.
+- `@L<line>` must be a positive integer; `code:` with an empty file or item,
+  or whitespace in either, is not a code target (it stays an unreadable end).
+
+**Verification.** `tests/schema_743.rs`: synthetic fixtures shaped like the
+real notes (paper header with BibTeX, annotation with page/region, CSV
+series, relation artifact) parse to the expected fields and re-render byte
+for byte; the new kinds, `origin` and anchors do too; every example on the
+site's schema page (`docs/site/kovan-schema/index.html`) parses, and the
+marked ones round-trip. `tests/local_library_compat.rs` (read-only, opt-in by
+`KOVAN_COMPAT_ROOT`) on the maintainer's folder: 39 files, 234 artifacts,
+0 problems, 234/234 identical re-renders and the same digest before and
+after.
+
+**Not done here:** generating the `## Review:` sign-off (#739), the move to
+`kovan-common`, migrating the lessons' `<!-- code-walk: -->` comments, and
+rendering the TOML blocks as badges on the site.

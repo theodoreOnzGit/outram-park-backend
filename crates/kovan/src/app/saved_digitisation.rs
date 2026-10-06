@@ -475,6 +475,7 @@ mod tests {
                 created: "2026-09-28T00:00:00Z".into(),
                 modified: "2026-09-28T00:00:00Z".into(),
                 reviewed: None,
+                origin: None,
             },
             source: Some(crate::artifact::SourceAnchor {
                 page: Some(12),

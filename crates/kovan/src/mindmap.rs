@@ -182,9 +182,15 @@ pub fn literature_card(
                 // A connector is an edge, and a saved mindmap is a view of
                 // the graph — neither is a note/table/figure of the paper.
                 ArtifactKind::Paper | ArtifactKind::Relation | ArtifactKind::Mindmap => {}
-                ArtifactKind::Note | ArtifactKind::Annotation | ArtifactKind::SourceReference => {
-                    card.note_count += 1
-                }
+                // The #743 prose kinds are text artifacts too, so they count
+                // as notes on the card rather than adding a column.
+                ArtifactKind::Note
+                | ArtifactKind::Annotation
+                | ArtifactKind::SourceReference
+                | ArtifactKind::LessonSection
+                | ArtifactKind::WalkStep
+                | ArtifactKind::CodeWalk
+                | ArtifactKind::RecipeStep => card.note_count += 1,
                 ArtifactKind::Formula => card.formula_count += 1,
                 ArtifactKind::DigitisedTable => card.table_count += 1,
                 ArtifactKind::DigitisedGraph => card.graph_count += 1,

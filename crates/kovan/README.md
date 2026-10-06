@@ -35,6 +35,23 @@ principles (deterministic-first, local-first, Android-first) and mission.
 > library functionality and covered by unit + end-to-end tests, but not yet
 > exercised against a real literature/repository corpus by a human reviewer.
 
+## The Markdown schema (notes, lessons, walkthroughs, recipes)
+
+Every Kovan document is plain Markdown: a `#` heading followed by a fenced
+`toml` block with a `[kovan]` table is an **artifact**; `##` is prose; `###`
+is data (CSV series or embedded code); the last `##` is the review sign-off.
+The same rules cover literature notes, lessons, deep dives, review
+walkthroughs and recipes (GitHub #743). The kinds are `paper`, `note`,
+`annotation`, `source_reference`, `formula`, `digitised_table`,
+`digitised_graph`, `relation`, `mindmap` and, since 2026-10-06,
+`lesson_section`, `walk_step`, `code_walk` and `recipe_step`.
+`[kovan] origin = "ai" | "human"` (human when absent) records who wrote it,
+and `[[relation]]` tables anchor an artifact to literature or to code
+(`code:<file>::<Type::name>[@L<line>]`, optional `page`, `quote`, `commit`).
+Existing notes parse and re-serialise unchanged. The reference with worked
+examples is `docs/site/kovan-schema/index.html`, published on the workspace's
+GitHub Pages site; the parser's own docs are in `src/artifact.rs`.
+
 ## License — AGPL-3.0-only (differs from the workspace default)
 
 `kovan` is licensed **AGPL-3.0-only**, not the workspace's usual

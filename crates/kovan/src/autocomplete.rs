@@ -209,6 +209,10 @@ fn artifact_kind_label(kind: ArtifactKind) -> &'static str {
         ArtifactKind::Formula => "formula",
         ArtifactKind::DigitisedTable => "digitised table",
         ArtifactKind::DigitisedGraph => "digitised graph",
+        ArtifactKind::LessonSection => "lesson section",
+        ArtifactKind::WalkStep => "walk step",
+        ArtifactKind::CodeWalk => "code walk",
+        ArtifactKind::RecipeStep => "recipe step",
     }
 }
 

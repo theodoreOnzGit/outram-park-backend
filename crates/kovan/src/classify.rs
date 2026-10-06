@@ -251,6 +251,7 @@ pub fn insert_artifact(
             created: now.clone(),
             modified: now,
             reviewed: None,
+            origin: None,
         },
         source: anchor,
         classification,
@@ -626,7 +627,15 @@ where
             }
         }
 
-        if let Some(rel) = toml.relation.as_mut() {
+        // Both shapes: a relation artifact's one `[relation]` and another
+        // artifact's `[[relation]]` anchors (GH issue #743). An anchor's
+        // empty `source` and a `code:` target are not collection paths, so
+        // `endpoint_path` leaves them alone.
+        let records = toml
+            .relation
+            .as_mut()
+            .map_or(&mut [][..], crate::relation::Relations::records_mut);
+        for rel in records.iter_mut() {
             for end in [&mut rel.source, &mut rel.target] {
                 if let Some(path) = endpoint_path(end) {
                     match map(&path) {
@@ -2002,6 +2011,7 @@ pub fn ensure_paper_header(
             created: now.clone(),
             modified: now,
             reviewed: None,
+            origin: None,
         },
         source: None,
         classification: Classification::default(),
