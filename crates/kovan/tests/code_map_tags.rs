@@ -7,8 +7,13 @@
 //! - `row`, its degree of integration: 0-1 utilities and standalone crates,
 //!   2 domain solvers, 3 coupled multiphysics, 4 integrated GUI apps;
 //! - `topic`, the box kovan's code map draws it in;
-//! - `fidelity`, its order in that box (1 = highest fidelity), or `"all"`
-//!   for a crate spanning every fidelity level (raffles);
+//! - `fidelity` (maintainer, 2026-10-06): 0 lumped (no spatial
+//!   discretisation), 1 one resolved dimension (system-code-like), 2 two
+//!   (subchannel), 3 three (full CFD, diffusion), 4 brute force (Monte Carlo,
+//!   first-principles data). A resolved non-spatial axis (nuclides, pointwise
+//!   energy, time) counts as a dimension. `[lo, hi]` when the crate spans
+//!   levels (changi, raffles); absent for utilities and knowledge management.
+//!   The map draws a box's crates highest fidelity first;
 //! - `maturity`, 0 concept, 1 AI draft, 2 AI V&V, 3 human reviewed, 4 human
 //!   V&V (ready): the crate's **lowest** part (maintainer, 2026-10-06: "by
 //!   default, we go with lowest level to be fair");
@@ -24,7 +29,6 @@
 //! - no crate sits in a lower row than a required dependency (optional and
 //!   dev-dependencies do not count: the row is what the crate needs to
 //!   build);
-//! - no two crates share a slot (topic, row, fidelity);
 //! - every listed module exists in the crate's source, is rated above the
 //!   crate itself, and says why.
 
@@ -48,8 +52,6 @@ const TOPICS: [&str; 11] = [
 
 struct Tag {
     row: u64,
-    topic: String,
-    fidelity: String,
 }
 
 fn workspace() -> serde_json::Value {
@@ -77,11 +79,24 @@ fn every_crate_is_placed_on_the_code_map_consistently_with_its_dependencies() {
         assert!(t.is_object(), "{name}: no [package.metadata.kovan] tag");
         let row = t["row"].as_u64().unwrap_or_else(|| panic!("{name}: row"));
         let topic = t["topic"].as_str().unwrap_or_else(|| panic!("{name}: topic"));
-        let fidelity = match &t["fidelity"] {
-            serde_json::Value::Number(n) if n.as_u64().is_some_and(|f| f >= 1) => n.to_string(),
-            serde_json::Value::String(s) if s == "all" => s.clone(),
-            other => panic!("{name}: fidelity {other}"),
-        };
+        let level = |v: &serde_json::Value| v.as_u64().filter(|f| *f <= 4);
+        match &t["fidelity"] {
+            serde_json::Value::Null => assert!(
+                matches!(topic, "utility" | "knowledge-management"),
+                "{name}: fidelity is required outside utilities and knowledge management"
+            ),
+            serde_json::Value::Array(r) => {
+                let (lo, hi) = match r.as_slice() {
+                    [lo, hi] => (level(lo), level(hi)),
+                    _ => (None, None),
+                };
+                assert!(
+                    matches!((lo, hi), (Some(lo), Some(hi)) if lo < hi),
+                    "{name}: fidelity range {r:?} must be [lo, hi], 0 <= lo < hi <= 4"
+                );
+            }
+            v => assert!(level(v).is_some(), "{name}: fidelity {v} must be 0..=4"),
+        }
         assert!(row <= 4, "{name}: row {row}");
         assert!(TOPICS.contains(&topic), "{name}: topic {topic}");
         assert_eq!(row == 4, topic == "app", "{name}: row 4 is the app row, and only it");
@@ -113,25 +128,7 @@ fn every_crate_is_placed_on_the_code_map_consistently_with_its_dependencies() {
                 assert!(exists, "{name}: module {module} not found under {}", base.display());
             }
         }
-        tags.insert(
-            name,
-            Tag {
-                row,
-                topic: topic.to_string(),
-                fidelity,
-            },
-        );
-    }
-
-    let mut slots = BTreeSet::new();
-    for (name, t) in &tags {
-        assert!(
-            slots.insert((t.topic.clone(), t.row, t.fidelity.clone())),
-            "{name}: shares topic {} row {} fidelity {} with another crate",
-            t.topic,
-            t.row,
-            t.fidelity
-        );
+        tags.insert(name, Tag { row });
     }
 
     for p in packages {
