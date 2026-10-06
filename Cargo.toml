@@ -131,8 +131,8 @@ members = [
     # slides made visible in the workspace; no code, no deps. Boundary with
     # SEMBAWANG's severe-accident scope is an open maintainer decision.
     "crates/bishan",
-    # pasir-ris — PASIR RIS (Probabilistic Assessment of Safety, Initiating
-    # events and Release: Risk & Reliability Integrated Studio): the reserved
+    # pasir-ris — PASIR RIS (Probabilistic Assessment of Safety In
+    # Reactors: Risk & Reliability Integrated Studio): the reserved
     # integrated risk and reliability GUI over raffles, bishan, sembawang,
     # changi and buangkok. PLACEHOLDER (2026-10-06): no code, no deps.
     "crates/pasir-ris",

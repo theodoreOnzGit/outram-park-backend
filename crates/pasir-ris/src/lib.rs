@@ -1,7 +1,7 @@
 //! # PASIR RIS
 //!
-//! **P**robabilistic **A**ssessment of **S**afety, **I**nitiating events and
-//! **R**elease: **R**isk & **R**eliability **I**ntegrated **S**tudio.
+//! **P**robabilistic **A**ssessment of **S**afety **I**n **R**eactors:
+//! **R**isk & Reliability **I**ntegrated **S**tudio.
 //!
 //! The reserved home for an integrated risk and reliability GUI: one studio
 //! over the workspace's safety crates, at the top of their column in kovan's

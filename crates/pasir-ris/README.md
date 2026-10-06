@@ -1,7 +1,7 @@
 # PASIR RIS
 
-**P**robabilistic **A**ssessment of **S**afety, **I**nitiating events and
-**R**elease: **R**isk & **R**eliability **I**ntegrated **S**tudio.
+**P**robabilistic **A**ssessment of **S**afety **I**n **R**eactors:
+ **R**isk & Reliability **I**ntegrated **S**tudio.
 
 > ⚠️ **Research, education and V&V only.** Not for nuclear facility operation,
 > reactor control, licensing, safety-critical decisions or emergency response.
