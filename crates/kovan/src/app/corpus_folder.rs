@@ -34,9 +34,6 @@ pub(super) struct CorpusFolderDialog {
     /// The folder path, typed or picked.
     pub(super) folder: String,
     message: String,
-    /// Open the first-run setup dialog once this window closes, so the two
-    /// never sit on top of each other.
-    pub(super) then_setup: bool,
 }
 
 impl CorpusFolderDialog {

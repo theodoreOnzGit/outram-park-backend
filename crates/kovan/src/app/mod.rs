@@ -848,28 +848,31 @@ impl DigitiseApp {
         }
     }
 
-    /// Ctrl+P opens the literature finder whenever a Kovan folder is open;
-    /// a PDF chosen there opens in the reader.
+    /// The literature list for the open folder, or for the standard corpus
+    /// alone when no folder is open (2026-10-06), built when missing or when
+    /// the folder changed.
+    fn ensure_literature_list(&mut self) {
+        let root = self.home.root().cloned();
+        let want = root.as_ref().map(|r| r.path().to_path_buf());
+        if self.literature.as_ref().is_none_or(|l| l.root != want) {
+            self.literature = Some(literature_list::LiteratureList::build(
+                root.as_ref(),
+                &crate::standard_corpus::StandardCorpus::for_root(root.as_ref()),
+            ));
+        }
+    }
+
+    /// Ctrl+P opens the literature finder, ~~whenever a Kovan folder is
+    /// open~~ with or without a folder (2026-10-06: the standard corpus is
+    /// always there); a PDF chosen there opens in the reader.
     fn literature_finder_ui(&mut self, ctx: &egui::Context) {
-        let Some(root) = self.home.root().cloned() else {
-            return;
-        };
         if ctx.input_mut(|i| i.consume_key(egui::Modifiers::COMMAND, egui::Key::P)) {
             self.literature_finder.show();
         }
         if !self.literature_finder.open {
             return;
         }
-        if self
-            .literature
-            .as_ref()
-            .is_none_or(|l| l.root != root.path())
-        {
-            self.literature = Some(literature_list::LiteratureList::build(
-                &root,
-                &crate::standard_corpus::StandardCorpus::for_root(Some(&root)),
-            ));
-        }
+        self.ensure_literature_list();
         let chosen = self
             .literature
             .as_ref()
@@ -3074,25 +3077,22 @@ impl DigitiseApp {
 impl DigitiseApp {
     /// What the real application does once at start, and tests never do
     /// (they build the app with `default()`): ~~begin cloning the standard
-    /// corpus in the background (#253)~~ **CHANGED 2026-10-06:** refresh the
-    /// standard corpus in the folder the user chose for it, in the background
-    /// ([`Self::refresh_standard_corpus`]), or ask for that folder when none
-    /// is chosen yet ([`corpus_folder`]); and open the setup dialog on first
-    /// run unless a Kovan folder was given on the command line (#255), after
-    /// the folder window if that is showing.
-    pub fn start_up(&mut self, folder_given: bool) {
+    /// corpus in the background (#253), and open the setup dialog on first
+    /// run unless a Kovan folder was given on the command line (#255)~~
+    /// **CHANGED 2026-10-06** (maintainer: *"during startup i should only be
+    /// prompted for the standard corpus folder and use kovan as is. The local
+    /// corpus will be loaded through the usual setup button"*): refresh the
+    /// standard corpus in the folder the user chose for it, in the
+    /// background ([`Self::refresh_standard_corpus`]), or ask for that folder
+    /// when none is chosen yet ([`corpus_folder`]). Nothing else is asked;
+    /// the user's own Kovan folder is opened from Home or set up with the
+    /// "⚙ Setup" button. `_folder_given` is kept for the caller's signature.
+    pub fn start_up(&mut self, _folder_given: bool) {
         match crate::corpus_repos::chosen_standard_corpus_dir() {
             Some(dir) => self.refresh_standard_corpus(dir),
             None => self
                 .corpus_folder
                 .show(crate::corpus_repos::default_standard_corpus_dir()),
-        }
-        if !folder_given && setup::is_first_run() {
-            if self.corpus_folder.open {
-                self.corpus_folder.then_setup = true;
-            } else {
-                self.setup.show_for(None);
-            }
         }
     }
 
@@ -3149,9 +3149,6 @@ impl DigitiseApp {
         };
         if close {
             self.corpus_folder.open = false;
-            if std::mem::take(&mut self.corpus_folder.then_setup) {
-                self.setup.show_for(None);
-            }
         }
     }
 
@@ -3167,6 +3164,9 @@ impl DigitiseApp {
             .partition(|j| j.is_finished());
         self.background_jobs = running;
         for job in done {
+            // A finished job may have downloaded or refreshed a corpus:
+            // re-list the literature.
+            self.literature = None;
             match job.join() {
                 Ok(message) if !message.is_empty() => self.set_status(message),
                 Ok(_) => {}
@@ -3611,18 +3611,10 @@ impl eframe::App for DigitiseApp {
                 // renders the *shared* kvim editor (same buffer as the Kvim
                 // Editor view) in place, with citation/wiki completion.
                 let root = self.home.root().cloned();
-                // The open folder's literature, on the left (2026-09-22).
-                if let Some(root) = root.as_ref() {
-                    if self
-                        .literature
-                        .as_ref()
-                        .is_none_or(|l| l.root != root.path())
-                    {
-                        self.literature = Some(literature_list::LiteratureList::build(
-                            root,
-                            &crate::standard_corpus::StandardCorpus::for_root(Some(root)),
-                        ));
-                    }
+                // The open folder's literature, on the left (2026-09-22);
+                // with no folder open, the standard corpus (2026-10-06).
+                {
+                    self.ensure_literature_list();
                     let current = self.reader_path.clone();
                     let action = egui::Panel::left("pdf_literature")
                         .resizable(true)

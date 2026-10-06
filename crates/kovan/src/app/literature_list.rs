@@ -130,9 +130,11 @@ impl LiteratureItem {
     }
 }
 
-/// The list for one Kovan folder.
+/// The list for one Kovan folder, or for no folder (the standard corpus only).
 pub(super) struct LiteratureList {
-    pub(super) root: PathBuf,
+    /// The Kovan folder listed; `None` when no folder is open, and the list
+    /// is the standard corpus alone (2026-10-06).
+    pub(super) root: Option<PathBuf>,
     pub(super) groups: Vec<LiteratureGroup>,
     filter: String,
 }
@@ -164,7 +166,9 @@ fn pdfs_under(dir: &Path) -> Vec<PathBuf> {
 }
 
 impl LiteratureList {
-    /// Build the list for `root`.
+    /// Build the list for `root`, or, with no folder open (`None`,
+    /// 2026-10-06: *"the pdf reader should have all standard corpus pdfs
+    /// available"*), for the standard corpus alone.
     ///
     /// - **Standard corpus:** every [`crate::corpus::LITERATURE`] entry,
     ///   downloaded or not (see the module doc), then any other PDF in the
@@ -179,10 +183,11 @@ impl LiteratureList {
     /// Each tier covers **every** repository of that tier
     /// ([`crate::corpus_tiers`], GitHub issue #458); when a tier holds more
     /// than one, each item's label starts with its repository's name.
-    pub(super) fn build(root: &KovanRoot, corpus: &StandardCorpus) -> Self {
-        let owners: BTreeMap<PathBuf, String> = root
-            .paper_dirs()
-            .into_iter()
+    pub(super) fn build(root: Option<&KovanRoot>, corpus: &StandardCorpus) -> Self {
+        let paper_dirs: Vec<PathBuf> = root.map(|r| r.paper_dirs()).unwrap_or_default();
+        let owners: BTreeMap<PathBuf, String> = paper_dirs
+            .iter()
+            .cloned()
             .filter_map(|dir| {
                 let config = EntityConfig::load(&dir).ok()?;
                 let pdf = dir.join(config.source?.pdf?).canonicalize().ok()?;
@@ -204,9 +209,9 @@ impl LiteratureList {
         };
 
         // Papers holding a corpus document's notes, by corpus id.
-        let corpus_notes: BTreeMap<String, String> = root
-            .paper_dirs()
-            .into_iter()
+        let corpus_notes: BTreeMap<String, String> = paper_dirs
+            .iter()
+            .cloned()
             .filter_map(|dir| {
                 let config = EntityConfig::load(&dir).ok()?;
                 Some((config.source?.corpus?, config.id))
@@ -235,7 +240,7 @@ impl LiteratureList {
             })
             .collect();
         use crate::corpus_tiers::Tier;
-        let repos = root.corpus_repos();
+        let repos = root.map(|r| r.corpus_repos()).unwrap_or_default();
         // The repositories of one tier, each checkout once, with the label
         // prefix its items get (its name, when the tier has several).
         let tier_dirs = |tier: Tier| -> Vec<(PathBuf, String)> {
@@ -268,13 +273,33 @@ impl LiteratureList {
             .filter_map(|i| i.path.as_ref()?.canonicalize().ok())
             .collect();
         let mut standard_dirs = tier_dirs(Tier::Standard);
-        if standard_dirs.is_empty() {
+        if let Some(root) = root.filter(|_| standard_dirs.is_empty()) {
             standard_dirs.push((root.standard_corpus_dir(), String::new()));
         }
+        // Every other checkout the corpus is searched in, so PDFs Kovan's
+        // own clone (the folder chosen at start) holds are listed too, with
+        // or without a folder open.
+        for dir in corpus.checkouts() {
+            let same = |(d, _): &(PathBuf, String)| {
+                d == dir || matches!((d.canonicalize(), dir.canonicalize()), (Ok(a), Ok(b)) if a == b)
+            };
+            if !standard_dirs.iter().any(same) {
+                standard_dirs.push((dir.clone(), String::new()));
+            }
+        }
+        // A document is listed once, however many checkouts hold it.
+        let mut seen: std::collections::BTreeSet<PathBuf> = crate::corpus::LITERATURE
+            .iter()
+            .filter_map(|l| l.corpus_file.map(PathBuf::from))
+            .collect();
         for (standard_dir, prefix) in &standard_dirs {
             let standard: Vec<PathBuf> = pdfs_under(&standard_dir.join(STANDARD_CORPUS_FOLDER))
                 .into_iter()
                 .filter(|p| p.canonicalize().map_or(true, |c| !known.contains(&c)))
+                .filter(|p| {
+                    p.strip_prefix(standard_dir)
+                        .map_or(true, |rel| seen.insert(rel.to_path_buf()))
+                })
                 .collect();
             standard_items.extend(
                 standard
@@ -344,7 +369,7 @@ impl LiteratureList {
             });
         }
         Self {
-            root: root.path().to_path_buf(),
+            root: root.map(|r| r.path().to_path_buf()),
             groups,
             filter: String::new(),
         }
@@ -542,6 +567,42 @@ mod tests {
         std::fs::write(p, b"pdf").unwrap();
     }
 
+    /// With no Kovan folder open, the list is the standard corpus alone:
+    /// every compiled-in entry, downloaded ones opening from Kovan's own
+    /// clone, plus any other PDF in that clone's standard folder, each once
+    /// however many checkouts hold it (2026-10-06).
+    #[test]
+    fn with_no_folder_the_standard_corpus_is_listed() {
+        let tmp = tempfile::tempdir().unwrap();
+        let clone = tmp.path().join("standard-corpus");
+        let wash = crate::standard_corpus::entry("wash-1400").unwrap();
+        let pdf = clone.join(wash.corpus_file.unwrap());
+        touch(&pdf);
+        touch(&clone.join("kovan-standard-open-corpus/new/extra.pdf"));
+        let second = tmp.path().join("second");
+        touch(&second.join("kovan-standard-open-corpus/new/extra.pdf"));
+        let list = LiteratureList::build(
+            None,
+            &StandardCorpus::with_checkouts(vec![clone.clone(), second]),
+        );
+        assert!(list.root.is_none());
+        assert_eq!(list.groups.len(), 3, "standard, open, proprietary");
+        let standard = &list.groups[0];
+        assert_eq!(
+            standard.items.iter().filter(|i| i.corpus.is_some()).count(),
+            crate::corpus::LITERATURE.len()
+        );
+        let item = standard
+            .items
+            .iter()
+            .find(|i| i.corpus.map(|l| l.id) == Some("wash-1400"))
+            .unwrap();
+        assert_eq!(item.path.as_deref(), Some(pdf.as_path()));
+        let extras: Vec<_> = standard.items.iter().filter(|i| i.corpus.is_none()).collect();
+        assert_eq!(extras.len(), 1, "listed once");
+        assert!(list.groups[1].items.is_empty() && list.groups[2].items.is_empty());
+    }
+
     /// The corpus searched only inside `root` (never this machine's real
     /// application-data clone).
     fn folder_corpus(root: &KovanRoot) -> StandardCorpus {
@@ -576,7 +637,7 @@ mod tests {
         );
         touch(&root.restricted_sources_dir().join("papers/c.pdf"));
         touch(&root.restricted_sources_dir().join(".git/objects/x.pdf"));
-        let list = LiteratureList::build(&root, &folder_corpus(&root));
+        let list = LiteratureList::build(Some(&root), &folder_corpus(&root));
         // The standard group lists every compiled entry (none downloaded in
         // this folder), then the stray PDF in the standard folder.
         let n = crate::corpus::LITERATURE.len();
@@ -620,7 +681,7 @@ mod tests {
         // corpus, not at literature/standard-corpus/.
         let pdf = root.open_corpus_dir().join(wash.corpus_file.unwrap());
         touch(&pdf);
-        let list = LiteratureList::build(&root, &folder_corpus(&root));
+        let list = LiteratureList::build(Some(&root), &folder_corpus(&root));
         let standard = &list.groups[0];
         assert_eq!(standard.title, "Standard corpus");
         let item = standard
@@ -665,7 +726,7 @@ mod tests {
 
         // Once its notes paper exists, the item names that paper.
         crate::standard_corpus::ensure_paper(&root, &folder_corpus(&root), wash).unwrap();
-        let list = LiteratureList::build(&root, &folder_corpus(&root));
+        let list = LiteratureList::build(Some(&root), &folder_corpus(&root));
         let item = list.groups[0]
             .items
             .iter()

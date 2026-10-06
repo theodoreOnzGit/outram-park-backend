@@ -1,7 +1,9 @@
-//! The first-run setup dialog (GitHub issue #255).
+//! The setup dialog (GitHub issue #255).
 //!
-//! What belongs here: the window that asks, on first launch, for the Kovan
-//! folder and then, optionally, the user's three GitHub repositories: their
+//! What belongs here: the window that asks ~~on first launch~~ (**CHANGED
+//! 2026-10-06:** only when the user presses "⚙ Setup" or "Set up
+//! repositories…"; at start Kovan asks for the standard-corpus folder alone,
+//! [`super::corpus_folder`]) for the Kovan folder and then, optionally, the user's three GitHub repositories: their
 //! own **Kovan repository** (the folder itself), **open corpus** and
 //! **proprietary corpus**; and the marker that remembers first run is over.
 //! Kovan's standard corpus is not asked for here: every folder gets it.
@@ -354,13 +356,6 @@ fn first_run_marker() -> Option<PathBuf> {
     }
     directories::ProjectDirs::from("org", "OUTRAM PARK", "kovan")
         .map(|d| d.config_dir().join("setup_done"))
-}
-
-/// Whether this is Kovan's first run (the setup dialog has never been
-/// finished or skipped). `false` when there is no config folder, so a
-/// platform without one is not nagged every launch.
-pub(super) fn is_first_run() -> bool {
-    first_run_marker().is_some_and(|p| !p.exists())
 }
 
 /// Record that first run is over. Best effort: failing to write the marker

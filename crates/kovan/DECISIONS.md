@@ -2082,7 +2082,19 @@ of the 2026-10-06 NRC, DOE, EC and CFR documents.
   with the reason. The choice is remembered in the config folder
   (`standard_corpus.toml`). The old application-data folder is the suggested
   value, so an earlier clone is adopted. "Not now" closes the window for the
-  session only. The first-run setup dialog opens after it, never on top.
+  session only. ~~The first-run setup dialog opens after it, never on
+  top.~~ **CHANGED the same day** (maintainer: *"during startup i should only
+  be prompted for the standard corpus folder and use kovan as is. The local
+  corpus will be loaded through the usual setup button"*): this window is the
+  only thing asked at start. The first-run setup dialog no longer opens by
+  itself; the user's own folder is opened from Home or "⚙ Setup".
+- The PDF reader's literature panel and the Ctrl+P finder work with no Kovan
+  folder open, listing the standard corpus alone, and list every PDF in
+  Kovan's own clone as well as the folder's (`LiteratureList::build(None,
+  …)`). The list is rebuilt when a background job (the refresh) finishes.
+- In the mind map's right-click citation list, a standard-corpus document
+  opens with one click (it has no other action); a library paper keeps its
+  sub-menu.
 - At every start, the chosen folder is cloned or fast-forwarded in the
   background (`corpus_repos::update_standard_corpus`, sharing
   `save_push::follow_branch` with the folder's Pull). A clone with local

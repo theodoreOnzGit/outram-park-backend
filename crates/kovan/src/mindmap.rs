@@ -893,7 +893,9 @@ pub(crate) fn citations_hover(ui: &mut egui::Ui, title: &str, citations: &[Citat
 const HOVER_CITATION_LIMIT: usize = 12;
 
 /// The actionable citation list in a concept's right-click menu: every
-/// citation as a sub-menu with "Open" and each of `actions`. ~~Corpus
+/// library citation as a sub-menu with "Open" and each of `actions`, and
+/// every standard-corpus citation as one button that opens it (2026-10-06).
+/// ~~Corpus
 /// citations are listed but not yet actionable: they open through the source
 /// resolver (#253).~~ **CORRECTED 2026-09-30**: a corpus citation's "Open"
 /// is enabled ([`CitationPick::OpenCorpus`]); its other actions stay
@@ -916,6 +918,20 @@ pub(crate) fn citations_menu(
         .show(ui, |ui| {
             for c in citations {
                 let actionable = c.namespace == crate::node_id::Namespace::Library;
+                // A standard-corpus document has nothing to do but open, so
+                // one click opens it (2026-10-06: "pdfs should be able to
+                // open from the mindmap"); a library paper keeps its menu.
+                if !actionable {
+                    if ui
+                        .button(format!("\u{1F4C4} {}", c.label()))
+                        .on_hover_text("Open in the PDF reader")
+                        .clicked()
+                    {
+                        pick = Some(CitationPick::OpenCorpus(c.citekey.clone()));
+                        ui.close();
+                    }
+                    continue;
+                }
                 ui.menu_button(format!("\u{1F4C4} {}", c.label()), |ui| {
                     let not_yet = "Open the corpus document first; its notes paper is \
                                    filed then";
