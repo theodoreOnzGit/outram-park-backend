@@ -918,8 +918,11 @@ bounded by a reflective *sphere*. Re-run on the sphere, the conclusions invert.
    `∫σ_γ dE/E` on our own grid **is** the resonance integral the Monte Carlo
    sees. Measured exactly (segment-wise closed form) in
    `examples/u238_resonance_integral.rs`: **274.637 b on our grid (291 322
-   points) against 274.634 b on NJOY's (130 444 points) — +0.00 %**, and against
-   the published infinite-dilution `RI_∞ = 275.7 b` for ENDF/B-VIII.0. Our grid
+   points) against 274.634 b on NJOY's (130 444 points) — +0.00 %**~~, and against
+   the published infinite-dilution `RI_∞ = 275.7 b` for ENDF/B-VIII.0~~
+   (**Not re-checked**, 2026-10-06: no source for the 275.7 b figure is cited
+   anywhere in the workspace, gh:#547; the sourced comparison is the NJOY
+   reconstruction above). Our grid
    is more than twice as dense as NJOY's over the band. U-238 capture is exact in
    both value and area.
 

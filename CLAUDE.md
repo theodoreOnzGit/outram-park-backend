@@ -288,11 +288,15 @@ Doppler broadening is therefore **not verified against NJOY at all**, despite
 a 293.6 K comparison that reads as ~1e-6 agreement.~~ **CORRECTED 2026-10-05**
 — that shared-grid comparison verified nothing about broadening, and the lesson
 stands, but broadening itself has since been verified by other instruments:
-grid-independent band integrals below `thnmax` agree to 3.5–6.7e-4 on U-234,
+grid-independent band integrals below `thnmax` agree to ~~3.5–6.7e-4 on U-234,
 U-235 and U-238, inside `errthn = 1e-3` (2026-09-20, gated by
-`tests/acer_broadening_vs_njoy2016.rs`), and BROADR at 293.6 K reproduces
-NJOY2016's own PENDFs word for word on 7 cases (2026-09-26,
-`tests/pendf_stages_vs_njoy2016.rs`). See
+`tests/acer_broadening_vs_njoy2016.rs`)~~ **7.8e-12 on U-235** (re-run
+2026-10-06, gh:#616; the 3.5–6.7e-4 figures were the 2026-09-20 record on
+U-234/235/238, and only U-235 is gated by
+`tests/acer_broadening_vs_njoy2016.rs`, at `errthn = 1e-3`), and BROADR at
+293.6 K reproduces NJOY2016's own PENDFs word for word on ~~7~~ **8** nuclides
+(2026-09-26, `tests/pendf_stages_vs_njoy2016.rs`: five light LRP=0 nuclides,
+Si-30, Cl-35, Ar-37; corrected 2026-10-06, gh:#616). See
 `crates/njoy-outram-park-fork/verification_and_validation/acer_ce_vs_njoy2016_multi_nuclide.md`.
 
 > Full original text of all four sections, with the complete worked-example
