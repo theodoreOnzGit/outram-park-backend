@@ -13,6 +13,8 @@
 //! graph/search.json     the same run's SearchIndex, for the search bar
 //! graph/<crate>.json    one CrateSlice, fetched when the crate is opened
 //! api/<crate>.json      the rustdoc pages the site has for that crate
+//! site_links.json       the deep dives, tutorials and rustdoc the site has
+//!                       (the navbar's file, scripts/build-pages.sh); optional
 //! ```
 //!
 //! and source files themselves, fetched on demand from
@@ -37,6 +39,37 @@ use serde::Deserialize;
 
 /// The default repository the source is fetched from.
 pub const DEFAULT_REPO: &str = "theodoreOnzGit/outram-park-backend";
+
+/// The published site, for links when the page is not served from it
+/// (natively).
+pub const SITE_URL: &str = "https://theodoreonzgit.github.io/outram-park-backend/";
+
+/// One book in `site_links.json`: its URL relative to the site root and the
+/// mdBook folder it is built from.
+#[derive(Debug, Clone, Deserialize, PartialEq, Eq)]
+pub struct Book {
+    pub url: String,
+    pub dir: String,
+}
+
+/// `site_links.json`, the same file the navbar strip reads
+/// (`docs/site/code-map-bar.js`).
+#[derive(Debug, Clone, Default, Deserialize, PartialEq, Eq)]
+pub struct SiteLinks {
+    #[serde(default)]
+    pub deep_dives: Vec<Book>,
+    #[serde(default)]
+    pub tutorials: Vec<Book>,
+}
+
+impl SiteLinks {
+    /// The deep dives built from a folder inside crate folder `dir` (the
+    /// navbar's `ownsDir`).
+    pub fn deep_dives_of(&self, dir: &str) -> Vec<&Book> {
+        let prefix = format!("{}/", dir.trim_end_matches('/'));
+        self.deep_dives.iter().filter(|b| b.dir.starts_with(&prefix)).collect()
+    }
+}
 
 /// One thing being loaded.
 #[derive(Debug, Clone)]
@@ -85,6 +118,7 @@ pub struct Shared {
     pub layout: Option<Arc<Layout>>,
     pub index: Option<Load<SplitIndex>>,
     pub search: Option<Load<SearchIndex>>,
+    pub site_links: Option<Load<SiteLinks>>,
     pub crates: BTreeMap<String, Load<CrateSlice>>,
     /// Per crate, the rustdoc pages that exist (paths under `api/`).
     pub api: BTreeMap<String, Load<BTreeSet<String>>>,
@@ -124,6 +158,15 @@ impl Store {
         }
     }
 
+    /// The site root as links on the page use it: next to `api/` on the
+    /// web, the published site natively.
+    pub fn site_root(&self) -> String {
+        match &self.source {
+            DataSource::Http { api, .. } => api.strip_suffix("api/").unwrap_or("../").to_string(),
+            DataSource::Dir { .. } => SITE_URL.to_string(),
+        }
+    }
+
     /// Start the first loads: build info, code map, call-graph index.
     pub fn start(&self, repaint: impl Fn() + Clone + Send + 'static) {
         {
@@ -141,7 +184,8 @@ impl Store {
             s.code_map = Some(v);
         });
         self.load_json::<SplitIndex>("graph/index.json", repaint.clone(), |s, v| s.index = Some(v));
-        self.load_json::<SearchIndex>("graph/search.json", repaint, |s, v| s.search = Some(v));
+        self.load_json::<SearchIndex>("graph/search.json", repaint.clone(), |s, v| s.search = Some(v));
+        self.load_json::<SiteLinks>("site_links.json", repaint, |s, v| s.site_links = Some(v));
     }
 
     /// Load crate `name`'s call graph (and its rustdoc page list) unless it
@@ -319,5 +363,21 @@ mod tests {
         wait(&|s| matches!(s.crates.get("a"), Some(Load::Ready(_))) && matches!(s.api.get("a"), Some(Load::Ready(_))));
         assert!(matches!(store.shared.read().unwrap().crates.get("zz"), Some(Load::Failed(_))));
         std::fs::remove_dir_all(&dir).ok();
+    }
+
+    /// A crate owns the deep dives built from a folder inside its own, the
+    /// navbar's rule (`ownsDir` in docs/site/code-map-bar.js): `crates/kovan`
+    /// must not claim `crates/kovan-web`'s book.
+    #[test]
+    fn deep_dives_belong_to_the_crate_folder_they_live_in() {
+        let l: SiteLinks = serde_json::from_str(
+            r#"{"deep_dives":[{"url":"deep-dives/mc/","dir":"crates/outram-mc-libs/docs/lessons"},
+                {"url":"deep-dives/w/","dir":"crates/kovan-web/docs/lessons"}],"tutorials":[],"api":["x"]}"#,
+        )
+        .unwrap();
+        assert_eq!(l.deep_dives_of("crates/outram-mc-libs").len(), 1);
+        assert_eq!(l.deep_dives_of("crates/outram-mc-libs/").len(), 1);
+        assert!(l.deep_dives_of("crates/kovan").is_empty());
+        assert!(l.deep_dives_of("crates/outram-mc").is_empty());
     }
 }

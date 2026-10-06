@@ -129,8 +129,14 @@ impl CodeReview {
         let pointer = resp.interact_pointer_pos().or(resp.hover_pos());
         let hit_at = |p: Option<Pos2>| p.and_then(|p| hits.iter().rev().find(|(r, _)| r.contains(p)).map(|(_, h)| h.clone()));
         if resp.clicked() {
-            if let Some(h) = hit_at(pointer) {
-                self.click(h, snap);
+            match hit_at(pointer) {
+                // A crate on the code map asks where to go (2026-10-06).
+                Some(Hit::MapCrate(c)) => {
+                    let at = pointer.unwrap_or(rect.center());
+                    self.crate_choice = Some((c, at, ui.ctx().cumulative_pass_nr()));
+                }
+                Some(h) => self.click(h, snap),
+                None => {}
             }
         }
         if resp.secondary_clicked() {
@@ -146,6 +152,7 @@ impl CodeReview {
             }
         }
         resp.context_menu(|ui| self.menu_ui(ui, snap));
+        self.crate_choice_ui(ui, snap);
         self.cams.entry(level).or_default().buttons(ui, rect);
         if !self.panel_open {
             let b = Rect::from_min_size(rect.left_top() + Vec2::new(8.0, 8.0), Vec2::new(104.0, 36.0));
@@ -264,8 +271,7 @@ impl CodeReview {
                 }
             }
             Hit::MapCrate(c) | Hit::MapToggle(c) => {
-                if ui.button("Open crate").clicked() {
-                    self.go(Place::at(Level::Crate(c.clone())));
+                if self.crate_actions(ui, &c, snap) {
                     ui.close();
                 }
                 let on = self.map_expanded.contains(&c);
@@ -277,6 +283,56 @@ impl CodeReview {
             Hit::TreeToggle(_) | Hit::ModuleCard | Hit::Label(_) => {
                 ui.close();
             }
+        }
+    }
+
+    /// Where a crate on the code map can go: its module root (the crate
+    /// view) or its deep dive, when the site has one. Shared by the
+    /// left-click popup and the right-click menu. True when one was taken.
+    fn crate_actions(&mut self, ui: &mut egui::Ui, krate: &str, snap: &Snap) -> bool {
+        let mut taken = false;
+        if ui.button("Module root").on_hover_text("This crate's modules, laid out as its file tree").clicked() {
+            self.go(Place::at(Level::Crate(krate.to_string())));
+            taken = true;
+        }
+        let dir = snap.map.as_ref().and_then(|m| m.get(krate)).and_then(|c| c.dir.clone());
+        let books = match (&snap.site_links, &dir) {
+            (Some(l), Some(d)) => l.deep_dives_of(d).into_iter().cloned().collect(),
+            _ => Vec::new(),
+        };
+        if books.is_empty() {
+            ui.add_enabled(false, egui::Button::new("Deep dive")).on_disabled_hover_text("This crate has no deep dive yet");
+        }
+        let root = self.store.site_root();
+        for b in &books {
+            let label = if books.len() == 1 { "Deep dive".to_string() } else { format!("Deep dive: {}", b.url.trim_end_matches('/').rsplit('/').next().unwrap_or(&b.url)) };
+            if ui.button(label).on_hover_text(format!("{root}{}", b.url)).clicked() {
+                ui.ctx().open_url(egui::OpenUrl::same_tab(format!("{root}{}", b.url)));
+                taken = true;
+            }
+        }
+        taken
+    }
+
+    /// The popup a left click on a crate opens, at the click.
+    fn crate_choice_ui(&mut self, ui: &mut egui::Ui, snap: &Snap) {
+        let Some((krate, at, opened)) = self.crate_choice.clone() else { return };
+        let mut taken = false;
+        let shown = egui::Area::new(egui::Id::new("kw_crate_choice"))
+            .order(egui::Order::Foreground)
+            .fixed_pos(at + Vec2::new(4.0, 4.0))
+            .constrain(true)
+            .show(ui.ctx(), |ui| {
+                egui::Frame::popup(ui.style()).show(ui, |ui| {
+                    ui.label(egui::RichText::new(&krate).strong());
+                    ui.spacing_mut().button_padding = Vec2::new(10.0, 6.0);
+                    taken = self.crate_actions(ui, &krate, snap);
+                });
+            });
+        let escape = ui.input(|i| i.key_pressed(egui::Key::Escape));
+        let elsewhere = shown.response.clicked_elsewhere() && ui.ctx().cumulative_pass_nr() > opened;
+        if taken || escape || elsewhere {
+            self.crate_choice = None;
         }
     }
 

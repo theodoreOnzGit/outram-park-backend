@@ -35,7 +35,7 @@ use kovan_common::code_map::CodeMap;
 pub use bar::{review_bar, BarAction, BarInfo};
 pub use camera::Camera;
 
-use crate::data::{BuildInfo, DataSource, Load, Store, Timing};
+use crate::data::{BuildInfo, DataSource, Load, SiteLinks, Store, Timing};
 use crate::model::{self, crate_of, file_of, DeepLink, Dir, Facts};
 use crate::search::{search, Hit as SearchHit, SearchResult};
 use crate::Mode;
@@ -88,6 +88,8 @@ pub(crate) struct Snap {
     pub layout: Option<Arc<Layout>>,
     pub index: Option<Arc<SplitIndex>>,
     pub search: Option<Arc<SearchIndex>>,
+    /// Missing in a local build: then the map offers no deep dives.
+    pub site_links: Option<Arc<SiteLinks>>,
     pub build: Option<Arc<BuildInfo>>,
     pub crates: BTreeMap<String, Load<CrateSlice>>,
     pub api: BTreeMap<String, Arc<BTreeSet<String>>>,
@@ -132,6 +134,9 @@ pub struct CodeReview {
     source: Option<String>,
     bar_expanded: bool,
     menu: Option<Hit>,
+    /// The code map's left-click choice (2026-10-06): the crate, where the
+    /// popup opens, and the pass it opened on.
+    crate_choice: Option<(String, egui::Pos2, u64)>,
     query: String,
     results: Vec<SearchResult>,
     results_for: String,
@@ -162,6 +167,7 @@ impl CodeReview {
             source: None,
             bar_expanded: false,
             menu: None,
+            crate_choice: None,
             query: String::new(),
             results: Vec::new(),
             results_for: String::new(),
@@ -194,6 +200,7 @@ impl CodeReview {
             layout: s.layout.clone(),
             index: ready(&s.index),
             search: ready(&s.search),
+            site_links: ready(&s.site_links),
             build: ready(&s.build),
             crates: s.crates.clone(),
             api: s.api.iter().filter_map(|(k, v)| v.ready().map(|v| (k.clone(), v.clone()))).collect(),

@@ -92,6 +92,9 @@ rm -rf "$OUT/api/src" "$OUT/api/.lock"
 # from the repository at $COMMIT. The JS code-map/ page stays for now.
 PAGES_COMMIT="$COMMIT" bash crates/kovan-web/web/data.sh "$OUT/code-review/data" "$OUT/api"
 bash crates/kovan-web/web/build.sh "$OUT/code-review"
+# The navbar's list of deep dives: a crate on web-kovan's map offers its deep
+# dive from it (2026-10-06).
+cp "$OUT/code-map/site_links.json" "$OUT/code-review/data/site_links.json"
 for f in index.html kovan_web_bg.wasm data/build.json data/code_map.json; do
   [[ -f "$OUT/code-review/$f" ]] || { echo "missing $OUT/code-review/$f" >&2; exit 1; }
 done
