@@ -2452,9 +2452,10 @@ wasm-clean crate, decided on #743): `code_map` (model, layout, SVG),
 citations, history), `mindmap_view`, `fuzzy`, and `Point`/`Bounds` (now
 `kovan_common::geometry`). `kovan` re-exports every one under its old path;
 `kovan::code_map` keeps `run_cargo_metadata`/`load_workspace`. Nothing else
-changed for callers. kovan-common is GPL-3.0-only while kovan is
-AGPL-3.0-only; the maintainer holds the copyright of the moved code (flagged
-in the #736 hand-off).
+changed for callers. ~~kovan-common is GPL-3.0-only while kovan is
+AGPL-3.0-only;~~ (**2026-10-07:** both are AGPL-3.0-only now, see "All of kovan
+is AGPL-3.0-only" below;) the maintainer holds the copyright of the moved code
+(flagged in the #736 hand-off).
 
 **Why not reuse `dhoby_ghaut::web_demo`.** dhoby-ghaut depends on kovan and
 desktop kovan will embed kovan-web, so a dependency would be a cycle. The
@@ -2472,3 +2473,27 @@ bands of four, each box labels its rows, rows align within a band, and row
 and fidelity labels carry their meaning on hover. Real workspace: 6779 x 958
 (7.1:1) before, 4870 x 1288 (3.8:1) after, not the hoped-for 2:1: the first
 band holds the two widest boxes (neutronics, thermal-hydraulics).
+
+## All of kovan is AGPL-3.0-only, ahead of the Zotero port (2026-10-07)
+
+**Decision (maintainer, 2026-10-07):** "I want all kovan to be AGPLv3".
+`kovan-common`, `kovan-literature`, `kovan-discovery`, `kovan-semantics`,
+`kovan-metrics` and `kovan-codegen` go from GPL-3.0-only to AGPL-3.0-only,
+joining `kovan` (2026-08-21) and `kovan-web` (2026-10-06).
+
+**Why.** The maintainer wants an exhaustive port of Zotero (AGPL-3.0) into
+kovan *and its libraries*. AGPL code cannot go into a GPL-3.0-only crate.
+Three placements were offered: relicense the libraries, one new AGPL crate
+holding the port, or a clean-room rewrite from Zotero's formats. The
+maintainer chose to relicense the whole family.
+
+**Checked before relicensing.** No third-party code in the six crates (the
+one "ported" module, `kovan_common::fuzzy`, comes from the njoy TUI in this
+workspace, same copyright holder). No crate outside the family depends on
+them (`cargo metadata`); `dhoby-ghaut` is already AGPL. Published versions
+(`kovan-common`, `kovan-discovery`, `kovan-codegen` 0.0.1) stay GPL-3.0-only;
+the AGPL applies from the next release. Each crate carries a `NOTICE`.
+
+**Consequence.** The licence boundary is now the family, not `kovan` alone:
+a crate outside it that takes any kovan crate as a library dependency
+inherits the AGPL question (see `NOTICE`, "Workspace boundary").

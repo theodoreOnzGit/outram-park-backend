@@ -1,0 +1,27 @@
+NOTICE — kovan-literature
+=========================
+
+Relicense: GPL-3.0-only -> AGPL-3.0-only (2026-10-07)
+-----------------------------------------------------
+
+Maintainer direction, 2026-10-07: "I want all kovan to be AGPLv3". Every
+crate of the kovan family is AGPL-3.0-only from this date: kovan (since
+2026-08-21), kovan-web (since its creation, 2026-10-06), and kovan-common,
+kovan-literature, kovan-discovery, kovan-semantics, kovan-metrics and
+kovan-codegen (this change).
+
+Why: the planned port of Zotero (AGPL-3.0) into kovan and its libraries.
+AGPL code cannot go into a GPL-3.0-only crate, so the libraries that receive
+it must be AGPL; the maintainer chose to make the whole family AGPL rather
+than confine the port to one crate.
+
+Copyright: the maintainer holds the copyright of this crate's code. It was
+checked for third-party code before the relicense (2026-10-07): none. The
+one "ported" module in the family's libraries, kovan-common's `fuzzy`, is
+ported from the njoy TUI in this same workspace, same copyright holder.
+
+No version of this crate had been published to crates.io.
+
+Dependents: no crate outside the kovan family depends on this one (checked
+with `cargo metadata`, 2026-10-07); `dhoby-ghaut`, which depends on `kovan`,
+has been AGPL-3.0-only since 2026-10-05.

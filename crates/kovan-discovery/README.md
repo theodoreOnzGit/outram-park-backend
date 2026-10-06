@@ -72,4 +72,4 @@ cargo run -p kovan-discovery --release --example discover_and_search
 
 ## License
 
-GPL-3.0. Part of the [OUTRAM PARK](../../README.md) workspace.
+~~GPL-3.0.~~ **AGPL-3.0-only since 2026-10-07**, like all of kovan (see [`NOTICE`](NOTICE)). Part of the [OUTRAM PARK](../../README.md) workspace.

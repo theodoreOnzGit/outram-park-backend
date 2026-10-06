@@ -568,7 +568,10 @@ Screen-specific:
 `src/digitiser/`) — see `NOTICE` for why: only the digitiser needs
 `kopitiam-pdf` (GitHub issue #30's PDF-native work), which is why this
 crate alone is relicensed AGPL-3.0-only, and `kovan-literature` — used well
-beyond the GUI — must not be dragged into that. See the workspace
+beyond the GUI — must not be dragged into that. (~~must not be dragged into
+that~~ **2026-10-07:** `kovan-literature` and the rest of the kovan family are
+AGPL-3.0-only too, by maintainer direction; see `NOTICE`. The digitiser stays
+here.) See the workspace
 `CLAUDE.md` "Graph digitisation: dogfood kovan-digitise" for the
 mandated-tool context; that section's `-p kovan-literature` invocations now
 read `-p kovan`.

@@ -693,7 +693,7 @@ Several crates that used to live as independent GitHub repositories under
 `github.com/theodoreOnzGit` are now consolidated here under `crates/` and are
 built, tested, and published from this single repository.
 
-~~**47 member crates**~~ **48 member crates** (`kovan-web` added 2026-10-06), all GPL-3.0 except ~~`kovan` (AGPL-3.0-only)~~ `kovan` and, since 2026-10-05, `dhoby-ghaut`, which depends on it, and since 2026-10-06 `kovan-web` (all AGPL-3.0-only). The roster,
+~~**47 member crates**~~ **48 member crates** (`kovan-web` added 2026-10-06), all GPL-3.0 except ~~`kovan` (AGPL-3.0-only)~~ the **whole kovan family** (`kovan`, `kovan-web`, and since 2026-10-07 `kovan-common`, `kovan-literature`, `kovan-discovery`, `kovan-semantics`, `kovan-metrics`, `kovan-codegen`) and, since 2026-10-05, `dhoby-ghaut`, which depends on `kovan` (all AGPL-3.0-only). The roster,
 maturity marks, internal dependency edges and the dependency policy (all
 versions in the root `[workspace.dependencies]`) are in
 [`docs/claude-md/members-and-dependencies.md`](docs/claude-md/members-and-dependencies.md).

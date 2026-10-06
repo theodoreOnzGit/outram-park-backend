@@ -108,4 +108,4 @@ runs inside git hooks, where `git` is present by construction.
 
 ## Licence
 
-GPL-3.0, as the rest of the workspace.
+~~GPL-3.0.~~ **AGPL-3.0-only since 2026-10-07**, like all of kovan (see [`NOTICE`](NOTICE)).

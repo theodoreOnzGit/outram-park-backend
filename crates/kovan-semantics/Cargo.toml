@@ -3,7 +3,7 @@ name = "kovan-semantics"
 description = "KOVAN repository-understanding engine — ripgrep-first, escalating to language-native tooling."
 version = "0.0.1"
 edition.workspace = true
-license.workspace = true
+license = "AGPL-3.0-only"  # all of kovan is AGPL since 2026-10-07 (NOTICE)
 # `docs/` is repo-only: the rustdoc->markdown API mirror and the V&V
 # write-ups. Excluded so it never ships to crates.io (size, and it is
 # not part of the published API surface).

@@ -13,11 +13,13 @@ not a status record, and must not be cited as evidence of anything.
 > it stood on 2026-09-21:
 > [`docs/claude-md-rationale/crate-roster.md`](../claude-md-rationale/crate-roster.md).
 
-All crates are **GPL-3.0** except `kovan` (**AGPL-3.0-only**, workspace
-exception — see `crates/kovan/NOTICE`), `dhoby-ghaut` (**AGPL-3.0-only since
-2026-10-05**, because it depends on `kovan` — see `crates/dhoby-ghaut/NOTICE`),
-`kovan-web` (**AGPL-3.0-only from its creation, 2026-10-06**, as part of the
-kovan family; it depends on no AGPL crate — see `crates/kovan-web/NOTICE`) and
+All crates are **GPL-3.0** except **the whole kovan family** (**AGPL-3.0-only**:
+`kovan` since 2026-08-21, see `crates/kovan/NOTICE`; `kovan-web` from its
+creation, 2026-10-06; and since **2026-10-07** `kovan-common`,
+`kovan-literature`, `kovan-discovery`, `kovan-semantics`, `kovan-metrics` and
+`kovan-codegen`, maintainer: "I want all kovan to be AGPLv3", ahead of the
+Zotero port — see each crate's `NOTICE`), `dhoby-ghaut` (**AGPL-3.0-only since
+2026-10-05**, because it depends on `kovan` — see `crates/dhoby-ghaut/NOTICE`) and
 `chem-eng-real-time-process-control-simulator` (GPL-3.0 since 2026-08-11;
 published versions <= 0.1.1 stay Apache-2.0 — see its `NOTICE`). "Mature" in
 the last column means the maintainer has declared it so — see "When this

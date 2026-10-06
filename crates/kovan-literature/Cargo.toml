@@ -3,7 +3,7 @@ name = "kovan-literature"
 description = "KOVAN nuclear-engineering knowledge archive: PDF → Markdown → KovanDocument → BibTeX."
 version = "0.0.1"
 edition.workspace = true
-license.workspace = true
+license = "AGPL-3.0-only"  # all of kovan is AGPL since 2026-10-07 (NOTICE)
 repository.workspace = true
 
 # What ships to crates.io vs what only lives in the GitHub repo.

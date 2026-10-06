@@ -33,7 +33,9 @@ Per `src/lib.rs`:
 | `extract_assets` | Extracts embedded images already stored as standalone files (JPEG via `DCTDecode`, JPEG-2000 via `JPXDecode`). Images under other filters are reported as skipped, not re-encoded. |
 
 The graph digitiser is **not** in this crate. It moved to `kovan` on
-2026-08-21 (`kovan::digitiser`) so this crate could stay GPL-3.0-only.
+2026-08-21 (`kovan::digitiser`) so this crate could stay GPL-3.0-only
+(~~stay GPL-3.0-only~~ **2026-10-07:** this crate is AGPL-3.0-only too, like all
+of kovan; see [`NOTICE`](NOTICE). The digitiser has not moved back).
 
 ## The archive
 
@@ -160,4 +162,4 @@ From the CLI: `kovan-cli lit`. The public API mirror is
 
 ## License
 
-GPL-3.0. Part of the [OUTRAM PARK](../../README.md) workspace.
+~~GPL-3.0.~~ **AGPL-3.0-only since 2026-10-07**, like all of kovan (see [`NOTICE`](NOTICE)). Part of the [OUTRAM PARK](../../README.md) workspace.

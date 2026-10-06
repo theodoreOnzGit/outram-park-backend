@@ -99,6 +99,16 @@ workspace `[workspace.dependencies]`; `dhoby-ghaut` declares it by path. The
 maintainer has also said `dover` should depend on `kovan` (GitHub #577); that
 needs the same relicence and has not been done.
 
+**UPDATED 2026-10-07:** `kovan` is no longer the only AGPL crate of its family.
+The maintainer directed "I want all kovan to be AGPLv3" (ahead of porting
+Zotero, AGPL-3.0, into kovan and its libraries): `kovan-common`,
+`kovan-literature`, `kovan-discovery`, `kovan-semantics`, `kovan-metrics` and
+`kovan-codegen` are AGPL-3.0-only from that date (see each crate's `NOTICE`),
+as `kovan-web` has been since its creation. No crate outside the kovan family
+depends on any of them; the boundary above now applies to the family as a
+whole: a crate that adds any kovan crate as a library dependency inherits the
+AGPL question.
+
 Android / Termux
 -----------------
 

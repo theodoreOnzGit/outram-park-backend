@@ -57,7 +57,8 @@ cargo run -p kovan-web --example web --release -- --data <out>/data --workspace 
 
 ## Licence
 
-AGPL-3.0-only, like the rest of the kovan front ends (see `NOTICE`).
+AGPL-3.0-only, like ~~the rest of the kovan front ends~~ all of kovan since
+2026-10-07 (see `NOTICE`).
 
 ## Bookkeeping status
 

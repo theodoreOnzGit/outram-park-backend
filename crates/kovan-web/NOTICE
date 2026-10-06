@@ -16,9 +16,11 @@ corpus repository's raw GitHub URL (decided on #729), which means carrying
 this crate yet; the licence anticipates it. Whether `kopitiam-pdf` builds
 for wasm32 has not been checked.
 
-It does NOT depend on `kovan` or on any other AGPL crate: its data and layout
-types come from `kovan-common` (GPL-3.0-only), which desktop kovan will also
-use. Desktop kovan is expected to depend on this crate to embed the same UI,
+It does NOT depend on `kovan`: its data and layout types come from
+`kovan-common`, which desktop kovan will also use. ~~It does not depend on any
+other AGPL crate; `kovan-common` is GPL-3.0-only.~~ **UPDATED 2026-10-07:**
+`kovan-common` is AGPL-3.0-only too, as is the whole kovan family, by
+maintainer direction (see `crates/kovan-common/NOTICE`). Desktop kovan is expected to depend on this crate to embed the same UI,
 so this crate must never depend on `kovan` or `dhoby-ghaut` (that would be a
 cycle).
 
@@ -35,6 +37,9 @@ the kovan family's shared schema live in kovan-common; `kovan` re-exports
 each module under its old path. **CONFIRMED by the maintainer 2026-10-06:**
 "Kovan common is GPLv3, it doesn't have mupdf there" -- kovan's AGPL comes
 only from MuPDF (via kopitiam-pdf), which none of the moved code uses.
+**SUPERSEDED 2026-10-07:** the maintainer relicensed kovan-common, with the
+rest of the kovan family, to AGPL-3.0-only ("I want all kovan to be
+AGPLv3"), ahead of porting Zotero (AGPL-3.0) into kovan and its libraries.
 
 Ported pieces
 -------------
