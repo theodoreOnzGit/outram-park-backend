@@ -33,8 +33,12 @@
 //! #743, 2026-10-06). The schema accepts artifact stamps now; hashing them
 //! is not implemented, so `check` reports them as UNCHECKED, never as valid.
 //!
-//! Stamps are appended, never rewritten: a stamp that goes void stays in the
-//! file, and a re-review appends a new stamp for the same function.
+//! **One stamp per target.** ~~Stamps are appended, never rewritten: a stamp
+//! that goes void stays in the file, and a re-review appends a new stamp for
+//! the same function.~~ **CHANGED 2026-10-06** (maintainer: "re-review
+//! replaces new stamp, old stamp only lives in git history"): a re-review
+//! **replaces** the target's stamp in place ([`upsert`]); the earlier stamp
+//! survives only in git history. Two stamps of one target is a load error.
 //!
 //! # Valid and void
 //!
@@ -46,10 +50,9 @@
 //! comparing the two parts: code changed, doc comment changed, both, function
 //! not found, path ambiguous, file missing, or file not parseable.
 //!
-//! A void stamp followed later in the file by a **valid** stamp of the same
-//! function is *superseded*: still reported as stale, not a failure. Any
-//! other void stamp in scope is a failure, and `kovan-cli stamps-check`
-//! exits non-zero, so CI can gate on it. With `--diff A..B` only stamps whose
+//! Every void stamp in scope is a failure (there is no superseded state, since
+//! a re-review replaces the stamp), and `kovan-cli stamps-check` exits
+//! non-zero, so CI can gate on it. With `--diff A..B` only stamps whose
 //! function lines the diff touches (at `A` or at `B`) are in scope, and they
 //! are judged at `B`; without it every stamp is judged on the working tree.
 //!
@@ -84,8 +87,9 @@ pub const TEMPLATE: &str = "\
 # stamp records a HUMAN review, and only the maintainer adds one.
 #
 # Never edit or delete a stamp by hand. `kovan-cli stamps-check` reports a
-# stamp whose function has changed as VOID; it stays here as the record of
-# what was reviewed, and a re-review appends a new stamp.
+# stamp whose function has changed as VOID. One stamp per function: a
+# re-review REPLACES its stamp here, and the earlier one lives only in git
+# history.
 #
 # Fields: function (code-walk path) OR artifact (file.md#id, not checked
 # yet), file, lines = [start, end] and commit
@@ -215,6 +219,16 @@ pub fn load(workspace: &Path) -> Result<Vec<Stamp>, String> {
             ));
         }
     }
+    let mut seen = std::collections::BTreeSet::new();
+    for (i, s) in f.stamp.iter().enumerate() {
+        if !seen.insert(s.target_name().to_string()) {
+            errors.push(format!(
+                "stamp {} ({}): a second stamp of the same target; a re-review replaces the stamp",
+                i + 1,
+                s.target_name()
+            ));
+        }
+    }
     if errors.is_empty() {
         Ok(f.stamp)
     } else {
@@ -222,25 +236,32 @@ pub fn load(workspace: &Path) -> Result<Vec<Stamp>, String> {
     }
 }
 
-/// Appends `stamp` to `<workspace>/review/stamps.toml`, creating the file
-/// (with [`TEMPLATE`]) and the `review/` folder when missing. Existing text
-/// is kept byte for byte.
-pub fn append(workspace: &Path, stamp: &Stamp) -> Result<(), String> {
+/// Writes `stamp` into `<workspace>/review/stamps.toml`: it **replaces** the
+/// existing stamp of the same target in place, or is added at the end when
+/// the target has none (maintainer, 2026-10-06: a re-review replaces the
+/// stamp; the old one lives only in git history). The file is rewritten as
+/// [`TEMPLATE`] plus one `[[stamp]]` block per stamp, in file order, so the
+/// same stamps always give the same bytes. Creates the file and the
+/// `review/` folder when missing.
+pub fn upsert(workspace: &Path, stamp: &Stamp) -> Result<(), String> {
     let path = workspace.join(STAMPS_FILE);
-    let mut text = match std::fs::read_to_string(&path) {
-        Ok(t) => t,
-        Err(e) if e.kind() == std::io::ErrorKind::NotFound => TEMPLATE.to_string(),
-        Err(e) => return Err(format!("reading {}: {e}", path.display())),
-    };
-    let block = toml::to_string(&StampsFile {
-        stamp: vec![stamp.clone()],
-    })
-    .map_err(|e| e.to_string())?;
-    if !text.ends_with('\n') {
-        text.push('\n');
+    let mut stamps = load(workspace)?;
+    match stamps
+        .iter_mut()
+        .find(|s| s.target_name() == stamp.target_name())
+    {
+        Some(old) => *old = stamp.clone(),
+        None => stamps.push(stamp.clone()),
     }
-    text.push('\n');
-    text.push_str(&block);
+    let mut text = TEMPLATE.to_string();
+    for s in &stamps {
+        let block = toml::to_string(&StampsFile {
+            stamp: vec![s.clone()],
+        })
+        .map_err(|e| e.to_string())?;
+        text.push('\n');
+        text.push_str(&block);
+    }
     if let Some(dir) = path.parent() {
         std::fs::create_dir_all(dir).map_err(|e| format!("creating {}: {e}", dir.display()))?;
     }
@@ -252,7 +273,8 @@ pub fn append(workspace: &Path, stamp: &Stamp) -> Result<(), String> {
 ///
 /// Locates `function_path` (code-walk form) in the file as committed at
 /// `HEAD`, records its lines, `HEAD`'s commit id and its hash, dates it
-/// today (UTC), appends it to `review/stamps.toml` and returns it. Refuses
+/// today (UTC), writes it to `review/stamps.toml` ([`upsert`]: replacing the
+/// function's earlier stamp, if any) and returns it. Refuses
 /// when `rung` is not 3 or 4, the reviewer is blank, the path does not name
 /// exactly one function, or the function's file has uncommitted changes
 /// (staged, unstaged or untracked) — so the hash and the permalink are of
@@ -296,7 +318,7 @@ pub fn stamp_function(
         note: note.to_string(),
         walkthrough: None,
     };
-    append(workspace, &stamp)?;
+    upsert(workspace, &stamp)?;
     Ok(stamp)
 }
 
@@ -370,15 +392,12 @@ pub struct StampCheck {
     pub now_lines: Option<[u32; 2]>,
     /// `Type::name` / `name` of the function found, when found.
     pub qualname: Option<String>,
-    /// For a void stamp: the index of a later valid stamp of the same
-    /// function, which makes this one stale but not a failure.
-    pub superseded_by: Option<usize>,
 }
 
 impl StampCheck {
-    /// Void and not superseded: what makes `stamps-check` fail.
+    /// Void: what makes `stamps-check` fail.
     pub fn is_failure(&self) -> bool {
-        matches!(self.verdict, Verdict::Void(_)) && self.superseded_by.is_none()
+        matches!(self.verdict, Verdict::Void(_))
     }
 }
 
@@ -457,7 +476,6 @@ pub fn check(workspace: &Path, scope: &Scope) -> Result<CheckReport, String> {
                 verdict: Verdict::Unchecked("artifact stamps are not checked yet (#743)".into()),
                 now_lines: None,
                 qualname: None,
-                superseded_by: None,
             });
             continue;
         };
@@ -480,21 +498,7 @@ pub fn check(workspace: &Path, scope: &Scope) -> Result<CheckReport, String> {
             verdict,
             now_lines: found.as_ref().map(|f| f.lines),
             qualname: found.as_ref().map(FnEntry::qualname),
-            superseded_by: None,
         });
-    }
-    let valid: Vec<(usize, String)> = checked
-        .iter()
-        .filter(|c| c.verdict == Verdict::Valid)
-        .map(|c| (c.index, c.stamp.target_name().to_string()))
-        .collect();
-    for c in &mut checked {
-        if matches!(c.verdict, Verdict::Void(_)) {
-            c.superseded_by = valid
-                .iter()
-                .find(|(i, f)| *i > c.index && f == c.stamp.target_name())
-                .map(|(i, _)| *i);
-        }
     }
     Ok(CheckReport {
         recorded,
@@ -566,13 +570,7 @@ pub fn render_report(r: &CheckReport, repo_url: &str) -> String {
             Verdict::Valid => out.push_str(&format!("VALID  {head}  {now}\n")),
             Verdict::Unchecked(why) => out.push_str(&format!("UNCHECKED {head}  {why}\n")),
             Verdict::Void(why) => {
-                let tag = match c.superseded_by {
-                    Some(i) => {
-                        format!("STALE  {head}  {why}; superseded by valid stamp #{}", i + 1)
-                    }
-                    None => format!("VOID   {head}  {why}"),
-                };
-                out.push_str(&tag);
+                out.push_str(&format!("VOID   {head}  {why}"));
                 if !now.is_empty() {
                     out.push_str(&format!("  {now}"));
                 }
@@ -581,12 +579,6 @@ pub fn render_report(r: &CheckReport, repo_url: &str) -> String {
         }
     }
     let fails = r.failures().count();
-    let stale = r
-        .checked
-        .iter()
-        .filter(|c| matches!(c.verdict, Verdict::Void(_)))
-        .count()
-        - fails;
     let unchecked = r
         .checked
         .iter()
@@ -598,7 +590,7 @@ pub fn render_report(r: &CheckReport, repo_url: &str) -> String {
         .filter(|c| c.verdict == Verdict::Valid)
         .count();
     out.push_str(&format!(
-        "{valid} valid, {fails} void, {stale} stale but superseded, {unchecked} unchecked\n"
+        "{valid} valid, {fails} void, {unchecked} unchecked\n"
     ));
     out
 }

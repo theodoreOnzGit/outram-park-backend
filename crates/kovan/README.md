@@ -398,10 +398,11 @@ kovan-cli stamps-levels tampines-steam-tables # which rung-3/4 tags stamps suppo
 - The hash covers the function's code tokens (parsed with `syn`) and its
   `///` doc text; `//` comments, whitespace and the function's position do
   not count. The exact rule is in `src/review_stamps/parse.rs`.
-- `stamps-check` prints `VALID`, `VOID` with the reason (code changed, doc
-  comment changed, function not found, …) and the stamped permalink, or
-  `STALE` when a later valid stamp of the same function supersedes a void
-  one, and exits non-zero on any `VOID`. It never edits the file.
+- `stamps-check` prints `VALID`, or `VOID` with the reason (code changed, doc
+  comment changed, function not found, …) and the stamped permalink, and
+  exits non-zero on any `VOID`. It never edits the file.
+- One stamp per function: a re-review replaces it in place, and the earlier
+  stamp lives only in git history.
 - `stamps-levels` reports only; it never changes a `Cargo.toml`.
 
 ### `code-map` — the workspace's code map (`commands::code_map`, GitHub #734)

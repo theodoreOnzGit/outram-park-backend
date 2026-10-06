@@ -235,7 +235,7 @@ fn each_kind_of_edit_keeps_or_voids_the_stamp_as_specified() {
         "{report}"
     );
     assert!(
-        report.ends_with("0 valid, 1 void, 0 stale but superseded, 0 unchecked\n"),
+        report.ends_with("0 valid, 1 void, 0 unchecked\n"),
         "{report}"
     );
 }
@@ -244,13 +244,14 @@ fn each_kind_of_edit_keeps_or_voids_the_stamp_as_specified() {
 /// changes only an unstamped function puts nothing in `--diff` scope; a
 /// commit that changes the method puts only its stamp in scope, void,
 /// judged at the range's end even after the working tree is restored; a
-/// diff over both commits covers it too. Then a re-stamp of the method makes
-/// the old stamp superseded (stale, not a failure); and `check` never
-/// rewrites `stamps.toml`.
+/// diff over both commits covers it too; `check` never rewrites
+/// `stamps.toml`. Then a re-stamp of the method REPLACES its stamp in place
+/// (maintainer, 2026-10-06): the file still holds two stamps, the method's
+/// now valid at the new commit, and the free function's is byte-identical.
 ///
 /// Result (2026-10-06): passes.
 #[test]
-fn diff_limits_scope_and_a_restamp_supersedes() {
+fn diff_limits_scope_and_a_restamp_replaces() {
     let repo = Repo::new();
     repo.stamp("double");
     repo.stamp("S::half");
@@ -281,26 +282,22 @@ fn diff_limits_scope_and_a_restamp_supersedes() {
     );
     assert!(check(repo.path(), &Scope::Diff("HEAD".into())).is_err());
 
+    let unchanged = std::fs::read_to_string(repo.path().join(STAMPS_FILE)).unwrap();
+    assert_eq!(unchanged, before, "check never rewrites stamps.toml");
     repo.edit("x / 2.0", "x * 0.5");
+    let old = load(repo.path()).unwrap()[1].clone();
     repo.stamp("S::half");
+    let stamps = load(repo.path()).unwrap();
+    assert_eq!(stamps.len(), 2, "a re-review replaces, it does not add");
+    assert_eq!(stamps[1].function.as_deref(), Some("crates/demo/src/lib.rs::S::half"));
+    assert_ne!(stamps[1].commit, old.commit);
     let r = check(repo.path(), &Scope::All).unwrap();
-    let verdicts: Vec<_> = r
-        .checked
-        .iter()
-        .map(|c| (c.verdict.clone(), c.superseded_by))
-        .collect();
-    assert_eq!(
-        verdicts,
-        vec![
-            (Verdict::Valid, None),
-            (Verdict::Void(VoidReason::CodeChanged), Some(2)),
-            (Verdict::Valid, None)
-        ]
-    );
+    let verdicts: Vec<_> = r.checked.iter().map(|c| c.verdict.clone()).collect();
+    assert_eq!(verdicts, vec![Verdict::Valid, Verdict::Valid]);
     assert_eq!(r.failures().count(), 0);
-    assert!(render_report(&r, DEFAULT_REPO_URL).contains("STALE  #2"));
     let after = std::fs::read_to_string(repo.path().join(STAMPS_FILE)).unwrap();
-    assert!(after.starts_with(&before), "stamps are only ever appended");
+    let first_block = |t: &str| t.split("[[stamp]]").nth(1).unwrap().to_string();
+    assert_eq!(first_block(&after), first_block(&before), "other stamps untouched");
 }
 
 /// Methodology: the schema is not function-only (#743): an `artifact`

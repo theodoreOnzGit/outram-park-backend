@@ -3,7 +3,7 @@
 //!
 //! - `stamps-check [--workspace DIR] [--diff A..B]` prints one line per
 //!   stamp in scope (VALID, VOID with the reason and the stamped permalink,
-//!   STALE when a later valid stamp supersedes it, UNCHECKED for artifact
+//!   UNCHECKED for artifact
 //!   stamps) and exits non-zero when any stamp in scope is VOID. It never
 //!   edits `review/stamps.toml`.
 //! - `stamps-levels <crate>` reports which human-rung maturity claims in the

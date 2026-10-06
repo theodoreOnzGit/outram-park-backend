@@ -2251,9 +2251,9 @@ target a Markdown **artifact** instead of a function.
   Reformatting, `//` edits, re-wrapping a doc paragraph and moving the
   function keep it; any token, doc word or paragraph break changes it.
 - `check`: VALID / VOID with the reason, found by re-locating the function at
-  the stamped commit and comparing code and doc separately; a void stamp
+  the stamped commit and comparing code and doc separately; ~~a void stamp
   followed by a valid stamp of the same function is STALE (superseded), not a
-  failure. `--diff A..B` takes the stamps whose function lines a
+  failure~~ (superseded state removed, see below). `--diff A..B` takes the stamps whose function lines a
   zero-context `git diff --no-renames` touches at A or at B, judged at B.
 - `stamp_function` (desktop kovan's entry point) stamps the code as
   committed at `HEAD` and refuses a function whose file is dirty; `kovan-cli
@@ -2263,8 +2263,12 @@ target a Markdown **artifact** instead of a function.
   stamp at that rung or above. Report only (`kovan-cli stamps-levels`).
 
 **Choices made here that the maintainer has not ruled on.**
-- Re-review appends a new stamp; the old void one stays as history and is
-  reported STALE. CI fails only on void stamps nothing supersedes.
+- ~~Re-review appends a new stamp; the old void one stays as history and is
+  reported STALE. CI fails only on void stamps nothing supersedes.~~
+  **RULED 2026-10-06** (maintainer: "re-review replaces new stamp, old stamp
+  only lives in git history"): one stamp per target; a re-review replaces it
+  in place (`upsert`), a second stamp of one target is a load error, and
+  every void stamp fails `stamps-check`.
 - `artifact = "<file.md>#<id>"` is accepted in place of `function` (exactly
   one required), and reported UNCHECKED: artifact hashing and the
   `## Review: …` sign-off exclusion (#743) are not implemented.
