@@ -1,0 +1,36 @@
+NOTICE — kovan-web
+==================
+
+Licence: AGPL-3.0-only (from its creation, 2026-10-06)
+------------------------------------------------------
+
+kovan-web is web-kovan, the Code Review UI of the kovan family (GitHub
+#736). The maintainer directed that it be AGPL-3.0-only "since it is part of
+the kovan family", like `kovan` (see crates/kovan/NOTICE). It is not
+GPL-3.0-only like the workspace default.
+
+It does NOT depend on `kovan` or on any other AGPL crate: its data and layout
+types come from `kovan-common` (GPL-3.0-only), which desktop kovan will also
+use. Desktop kovan is expected to depend on this crate to embed the same UI,
+so this crate must never depend on `kovan` or `dhoby-ghaut` (that would be a
+cycle).
+
+Code moved into kovan-common for it (2026-10-06)
+------------------------------------------------
+
+To build for wasm32, the pure data and layout modules this UI needs were moved
+out of `kovan` (AGPL-3.0-only) into `kovan-common` (GPL-3.0-only):
+`code_map` (model, layout, SVG), `call_graph` (model, module scanner),
+`mindmap_view` (star layout, canvas arithmetic), `fuzzy` (the finders'
+scorer), and `Point` / `Bounds` (now `kovan_common::geometry`). The
+maintainer is the copyright holder of that code and directed on #743 that
+the kovan family's shared schema live in kovan-common; `kovan` re-exports
+each module under its old path. Flagged for the maintainer's confirmation
+in the hand-off of #736.
+
+Ported pieces
+-------------
+
+`src/ui/camera.rs` ports the pan/zoom view, zoom buttons and canvas-size fix
+of `dhoby_ghaut::web_demo` (same workspace, same copyright holder) rather
+than depending on dhoby-ghaut, which depends on `kovan`.
