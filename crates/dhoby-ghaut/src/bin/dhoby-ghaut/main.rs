@@ -242,6 +242,10 @@ fn main() -> Result<(), String> {
         mc.inactive = num("--inactive").unwrap_or(mc.inactive);
         mc.active = num("--active").unwrap_or(mc.active);
         mc.threads = num("--threads").unwrap_or(mc.threads);
+        // `--temperature T` [K]: the isothermal data temperature of the run.
+        if let Some(t) = arg("--temperature").and_then(|v| v.parse::<f64>().ok()) {
+            r.nuclear_data.temperature_k = t;
+        }
         let out = arg("--out").unwrap_or_else(|| "target/dhoby-ghaut_out".into());
         return headless::keff(r, std::path::Path::new(&out));
     }
@@ -659,6 +663,10 @@ mod headless {
         println!(
             " k-effective = {:.5} +/- {:.5}  ({} histories, {} lost, {:.1} s)",
             o.k, o.sigma, o.histories, o.lost_locate, o.transport_s
+        );
+        println!(
+            " delta tracking: {} majorant violations, {} histories lost in the bed (gh:#721)",
+            o.majorant_violations, o.delta_lost
         );
         for n in &o.notes {
             println!(" note: {n}");

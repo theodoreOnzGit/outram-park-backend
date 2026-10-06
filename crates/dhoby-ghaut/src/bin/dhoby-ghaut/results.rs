@@ -400,6 +400,8 @@ mod tests {
             phi_per_lethargy: vec![],
             notes: vec![],
             rod_insertion: 0.0,
+            majorant_violations: 0,
+            delta_lost: 0,
         };
         let l = console_lines(&o, 2);
         assert_eq!(l.len(), 4);

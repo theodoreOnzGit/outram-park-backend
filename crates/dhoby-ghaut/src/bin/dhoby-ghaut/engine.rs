@@ -113,6 +113,11 @@ pub struct KeffOutcome {
     pub notes: Vec<String>,
     /// Control-rod insertion of the geometry the run transported.
     pub rod_insertion: f64,
+    /// Delta-tracking sites where Σt exceeded the majorant (gh:#721); any
+    /// non-zero count means the bed's majorant is not a bound.
+    pub majorant_violations: u64,
+    /// Histories lost inside a delta-tracked region (gh:#721).
+    pub delta_lost: u64,
 }
 
 /// Geometry facts the UI shows after assembly.
@@ -553,6 +558,8 @@ impl Engine {
             entropy: res.entropy,
             histories: res.histories,
             lost_locate: res.lost_locate,
+            majorant_violations: res.majorant_violations,
+            delta_lost: res.delta_lost,
             transport_s,
             edges,
             phi_per_lethargy,
