@@ -1128,7 +1128,7 @@
     - [ ] add `//! kovan-concept: 18-industrial-involvement/process-heat-and-industrial-applications/chemical-process-simulation` to `crates/outram-park-fork-dwsim-libs/src/dynamics/mod.rs`: Dynamic flowsheet simulation. Schedules, integrators, events and cause-and-effect matrices. (port of DWSIM)
     - [ ] add `//! kovan-concept: 18-industrial-involvement/process-heat-and-industrial-applications/chemical-process-simulation` to `crates/dover/src/smr.rs`: Steam-methane-reforming CSTR deck. Deck-driven SMR reactor model on the DWSIM fork. (new work)
 - [ ] **Nuclear techniques against plastic pollution (radiation-assisted recycling; isotopic tracing of marine microplastics)** · `nuclear-techniques-for-plastic-pollution` · origin `iaea`
-  - sources: `iaea-nutec-plastics` brochure
+  - sources: `iaea-nutec-plastics` whole document (8 pp.)
 
 ## Leaves attached directly to skeleton nodes
 

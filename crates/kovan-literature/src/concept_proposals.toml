@@ -3708,7 +3708,7 @@ status = "approved"
 path = "18-industrial-involvement/process-heat-and-industrial-applications/nuclear-techniques-for-plastic-pollution"
 title = "Nuclear techniques against plastic pollution (radiation-assisted recycling; isotopic tracing of marine microplastics)"
 origin = "iaea"
-sources = [{ document = "iaea-nutec-plastics", section = "brochure" }]
+sources = [{ document = "iaea-nutec-plastics", section = "whole document (8 pp.)" }]
 status = "approved"
 
 [[concept]]
