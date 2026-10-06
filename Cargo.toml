@@ -305,6 +305,14 @@ grep-searcher = "0.1"        # ripgrep engine — deterministic text search ...
 grep-regex = "0.1"           # ... its regex matcher
 grep-matcher = "0.1"         # ... shared matcher trait
 regex = "1"                  # pure-Rust, Android-friendly regex — capture extraction in kovan-semantics' ripgrep-first symbol scanner
+# Rust parser for kovan's review stamps (GitHub #739): locating a function by
+# its code-walk path and hashing its tokens. Already in Cargo.lock through the
+# proc-macro stack (syn 2.0.118, proc-macro2 1.0.106, quote 1.0.45), so no new
+# crate enters the tree; pure Rust, Android- and wasm-clean. `span-locations`
+# (set by the consumer) gives line numbers outside a proc macro.
+syn = { version = "2.0", default-features = false }
+proc-macro2 = "1.0"
+quote = { version = "1.0", default-features = false }
 # gitoxide (gix) *library* — pure-Rust git implementation (no libgit2/C), so it
 # builds clean on Android and stays offline (reads the local repo only). Powers
 # kovan-discovery's git-awareness module (repo discover/open, HEAD/branch,

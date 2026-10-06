@@ -38,6 +38,8 @@
 //! kovan-cli code-walk --from crates/x/examples/demo.rs::main --to crates/x/src/geom.rs::Sphere::distance
 //! kovan-cli code-walk --from crates/x/src/keff.rs::transport_history --depth 2 --format json
 //! kovan-cli code-walk-check crates/x/docs/lessons --update
+//! kovan-cli stamps-check --diff HEAD~1..HEAD
+//! kovan-cli stamps-levels tampines-steam-tables
 //! kovan-cli lsp-daemon-stop --root .
 //! kovan-cli project regen /path/to/my-kovan-folder
 //! ```
@@ -467,6 +469,51 @@ enum Command {
         #[arg(long, default_value = commands::code_walk::render::DEFAULT_REPO_URL)]
         repo_url: String,
     },
+    /// Re-hashes the functions recorded in `review/stamps.toml` (GitHub #739)
+    /// and prints which human review stamps are VOID and why (code changed,
+    /// doc comment changed, function not found), with the permalink to the
+    /// stamped code. `--diff A..B` limits it to stamps whose function lines
+    /// that range touches, judged at B. Exits non-zero if a stamp in scope is
+    /// void. Never edits the file.
+    StampsCheck {
+        /// Workspace root; found from the current directory when omitted.
+        #[arg(long)]
+        workspace: Option<PathBuf>,
+        /// Revision range, e.g. `HEAD~1..HEAD` or `origin/develop...HEAD`.
+        #[arg(long)]
+        diff: Option<String>,
+        #[arg(long, default_value = commands::code_walk::render::DEFAULT_REPO_URL)]
+        repo_url: String,
+    },
+    /// Which human-rung maturity claims (3, 4) in a crate's
+    /// `[package.metadata.kovan]` tag are supported by valid review stamps
+    /// (GitHub #739, #735). Report only; never edits a Cargo.toml.
+    StampsLevels {
+        /// The member crate's name.
+        crate_name: String,
+        #[arg(long)]
+        workspace: Option<PathBuf>,
+    },
+    /// Creates a human review stamp in `review/stamps.toml` (GitHub #739).
+    /// AI AGENTS MUST NEVER RUN THIS: a stamp records a human review and is
+    /// the maintainer's alone. Refuses without `--i-am-the-reviewer`, and
+    /// refuses a function whose file has uncommitted changes.
+    Stamp {
+        /// `path/to/file.rs::name` or `path/to/file.rs::Type::name`.
+        function: String,
+        /// 3 human reviewed, 4 human V&V.
+        #[arg(long)]
+        rung: u8,
+        #[arg(long)]
+        reviewer: String,
+        #[arg(long, default_value = "")]
+        note: String,
+        /// Confirms a human reviewer is running this.
+        #[arg(long)]
+        i_am_the_reviewer: bool,
+        #[arg(long)]
+        workspace: Option<PathBuf>,
+    },
     /// Internal: runs the keep-warm rust-analyzer daemon in the foreground
     /// for one workspace root (op-fdph). Spawned automatically and detached
     /// by `def`/`sig`/`refs`'s client-side logic the first time one of them
@@ -668,6 +715,35 @@ fn run(command: Command) -> Result<(), String> {
             root,
             repo_url,
         } => commands::code_walk::run_check(paths, update, root, repo_url),
+        Command::StampsCheck {
+            workspace,
+            diff,
+            repo_url,
+        } => {
+            let (root, _) = commands::workspace::resolve(workspace.as_deref())
+                .map_err(|error| error.to_string())?;
+            commands::stamps::run_check(&root, diff, &repo_url)
+        }
+        Command::StampsLevels {
+            crate_name,
+            workspace,
+        } => {
+            let (root, _) = commands::workspace::resolve(workspace.as_deref())
+                .map_err(|error| error.to_string())?;
+            commands::stamps::run_levels(&root, &crate_name)
+        }
+        Command::Stamp {
+            function,
+            rung,
+            reviewer,
+            note,
+            i_am_the_reviewer,
+            workspace,
+        } => {
+            let (root, _) = commands::workspace::resolve(workspace.as_deref())
+                .map_err(|error| error.to_string())?;
+            commands::stamps::run_stamp(&root, &function, rung, &reviewer, &note, i_am_the_reviewer)
+        }
         Command::LspDaemonServe { root } => commands::lsp_daemon::serve(root),
         Command::LspDaemonStop { root } => commands::lsp_daemon::stop(root),
     }
