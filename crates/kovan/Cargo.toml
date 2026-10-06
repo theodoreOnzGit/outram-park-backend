@@ -242,6 +242,15 @@ sha2.workspace = true
 # GitHub issue #30's final interface spec, whose stated reason for wanting
 # exactly `kovan`/`kovan-cli`/`kovan-tui` was Android usability.
 ratatui.workspace = true
+# `src/review_stamps/` (GitHub #739): the human review stamps. A stamp's hash
+# is taken over the function's TOKENS, so the function is found and tokenised
+# by a real Rust parser, not a brace counter: `syn` (`full` for items, impls
+# and traits; `printing` + `quote` to turn an item back into tokens) and
+# `proc-macro2`'s `span-locations` for the line numbers a permalink needs.
+# All three were already in Cargo.lock via the proc-macro stack.
+syn = { workspace = true, features = ["full", "parsing", "printing", "clone-impls"] }
+proc-macro2 = { workspace = true, features = ["span-locations"] }
+quote.workspace = true
 # 0.2.5 (2026-09-24): insert-mode Backspace at column 0 joined the lines and
 # silently ate one character of the note with the newline ("ab" + "cd" gave
 # "acd"). kovan's annotation editor and page-context panel are both this

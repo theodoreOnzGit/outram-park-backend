@@ -38,6 +38,7 @@ pub mod semq;
 pub mod setup;
 pub mod skill_gen;
 pub mod slice;
+pub mod stamps;
 pub mod symbols;
 pub mod tokens;
 pub mod workspace;

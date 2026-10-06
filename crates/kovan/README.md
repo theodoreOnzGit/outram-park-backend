@@ -183,6 +183,9 @@ kovan-cli code-walk-check crates/x/docs/lessons --update
 kovan-cli code-map --format svg -o code_map.svg
 kovan-cli code-map --format json -o code_map.json
 kovan-cli call-graph --crates outram-park-digital-twin-engine,boon-lay -o call_graph.json
+
+kovan-cli stamps-check --diff HEAD~1..HEAD
+kovan-cli stamps-levels tampines-steam-tables
 ```
 
 Every command's own `--help` documents its flags; the summary below is the
@@ -376,6 +379,30 @@ kovan-cli code-walk-check crates/outram-mc-libs/docs/lessons [--update]
   kopitiam's recursion past hop 1), comments/literals/attributes blanked
   before scanning, every call site resolved. `callers` and `impls` are not
   implemented.
+
+### `stamps-check` / `stamps-levels` / `stamp` — human review stamps (`review_stamps`, GitHub #739)
+
+`review/stamps.toml` at the workspace root records one `[[stamp]]` per
+function a **human** reviewed (rung 3) or whose V&V a human checked
+(rung 4): its code-walk path, file, lines and commit (the permalink), a
+hash, the rung, reviewer, date, a note and an optional walkthrough link.
+**AI agents never stamp**; stamping is the maintainer's, in desktop kovan
+(#740) or with `kovan-cli stamp ... --i-am-the-reviewer`.
+
+```text
+kovan-cli stamps-check                        # every stamp, on the working tree
+kovan-cli stamps-check --diff HEAD~1..HEAD    # only stamps this range touches (CI)
+kovan-cli stamps-levels tampines-steam-tables # which rung-3/4 tags stamps support
+```
+
+- The hash covers the function's code tokens (parsed with `syn`) and its
+  `///` doc text; `//` comments, whitespace and the function's position do
+  not count. The exact rule is in `src/review_stamps/parse.rs`.
+- `stamps-check` prints `VALID`, `VOID` with the reason (code changed, doc
+  comment changed, function not found, …) and the stamped permalink, or
+  `STALE` when a later valid stamp of the same function supersedes a void
+  one, and exits non-zero on any `VOID`. It never edits the file.
+- `stamps-levels` reports only; it never changes a `Cargo.toml`.
 
 ### `code-map` — the workspace's code map (`commands::code_map`, GitHub #734)
 
