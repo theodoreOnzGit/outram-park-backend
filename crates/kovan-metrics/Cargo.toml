@@ -27,6 +27,10 @@ topic = "knowledge-management"
 maturity = 1
 
 [dependencies]
+# Zotero library/import accounting (`zotero`, GitHub #751) is built on
+# kovan-common's Zotero data model and its KovanDocument conversion (#748).
+# kovan-common depends on no other kovan crate, so this adds no cycle.
+kovan-common.workspace = true
 # Repo-root discovery reuses kovan-discovery's git layer rather than a second
 # implementation (see `git::repo_root`). kovan (the crate) already links it, so this
 # adds no weight to the shipped `kovan` binary.

@@ -81,6 +81,36 @@ binary, which `kovan-discovery`'s typed `CommitInfo` cannot express (it carries
 no message body and no diff statistics). That is safe here because this code
 runs inside git hooks, where `git` is present by construction.
 
+## Zotero library and import accounting (`zotero`, GitHub #751)
+
+Kovan's own accounting over a Zotero library, built on `kovan-common`'s port
+of the Zotero data model and its `ZoteroItem` -> `KovanDocument` conversion
+(#748). Not a port: Zotero has no import report.
+
+| API | What |
+|---|---|
+| `LibraryCounts::of(&lib)` | items per item type, per collection (direct and including subcollections), per tag (manual/automatic), per attachment link mode, per annotation type, per relation predicate; top-level, child, trashed and unfiled totals |
+| `import_library(&lib) -> (Vec<KovanDocument>, ImportReport)` | converts every top-level, non-trashed regular item with a key; skips children, standalone notes/attachments/annotations, trashed, keyless and duplicate-key items, each with its reason |
+| `.to_markdown()` on both | deterministic Markdown reports (sorted; no time, locale or file system) |
+
+**How "lossy" is measured.** Empirically, from the conversion itself: each
+item goes Zotero -> kovan -> Zotero with the verbatim `zotero_item` copy
+removed, and every property the round trip does not reproduce is reported as
+*dropped*, *altered* (e.g. `date` kept only as a year) or *moved to Extra*.
+Fields are compared through their base field. "Lossy" means **not carried by
+kovan's own document fields**: the item itself is kept in `zotero_item`, so
+the full round trip is lossless. Skipped child items are preserved nowhere.
+
+**V&V** (`tests/zotero_accounting.rs`, methodology and results in its doc
+comment). On Zotero's own `itemJSON` fixture (one item of each of the 37
+regular item types, every field filled) the report gives 37 imported, 0
+skipped, 839 loss entries over 105 properties; the journal article's 28
+losses were predicted from kovan-common's documented field map before the
+first run and matched exactly. Seven tests, all passing on the first run
+(2026-10-07).
+
+**Maturity: AI draft (1).**
+
 ## Bookkeeping status
 
 > Maintainer sign-off tracker (see the workspace `CLAUDE.md` "Bookkeeping

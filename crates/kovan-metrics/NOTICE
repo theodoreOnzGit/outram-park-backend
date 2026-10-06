@@ -25,3 +25,21 @@ No version of this crate had been published to crates.io.
 Dependents: no crate outside the kovan family depends on this one (checked
 with `cargo metadata`, 2026-10-07); `dhoby-ghaut`, which depends on `kovan`,
 has been AGPL-3.0-only since 2026-10-05.
+
+Upstream: Zotero (src/zotero/, 2026-10-07, GitHub #747, #751)
+-------------------------------------------------------------
+
+`src/zotero/` ports no upstream code. It is kovan's own accounting (library
+counts and an import report), written over kovan-common's port of the Zotero
+data model (`kovan_common::zotero`), which is a port of Zotero, AGPL-3.0:
+
+  Copyright (c) Corporation for Digital Scholarship, Vienna, Virginia, USA.
+  https://www.zotero.org, https://github.com/zotero/zotero (commit
+  9cbba8c4d281). See kovan-common's NOTICE, "Upstream: Zotero".
+
+Its vocabulary (item types, link modes, annotation types, relation
+predicates, `parentItem`, `deleted`) is Zotero's, used through that port.
+The test fixture `itemJSON.json` is read in place from
+crates/kovan-common/tests/data/zotero/ (copied there verbatim from Zotero's
+test/tests/data/itemJSON.js; AGPL-3.0, same copyright); it is not copied
+into this crate.
