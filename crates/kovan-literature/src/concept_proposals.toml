@@ -851,7 +851,7 @@ path = "02-nuclear-safety/instrumentation-and-control/digital-i-and-c-software"
 title = "Digital instrumentation and control: software reviews"
 origin = "nrc"
 sources = [{ document = "nureg-0800-toc-rev6", section = "7.0-A; BTP 7-14 Guidance on Software Reviews for Digital Computer-Based Instrumentation and Controls Systems" }]
-cross_links = ["07-regulatory-framework/quality-assurance/software-quality-assurance", "07-regulatory-framework/quality-assurance"]
+cross_links = ["07-regulatory-framework/quality-assurance/software-quality-assurance"]
 status = "approved"
 
 # ============================================================================
@@ -1492,7 +1492,7 @@ sources = [{ document = "iaea-ng-g-3.1-rev1", section = "3.18" }, { document = "
 why = "the DWSIM port (chemical processes; process heat applications), maintainer 2026-10-06."
 note = "Provisional (maintainer, 2026-10-06): under 18 industrial involvement, cross-linked to fuel-cycle chemical process safety."
 cross_links = ["16-nuclear-fuel-cycle/chemical-process-safety"]
-status = "proposed"
+status = "approved"
 
 [[concept]]
 path = "16-nuclear-fuel-cycle/fuel-depletion/depletion-solvers"
@@ -1527,42 +1527,44 @@ path = "17-radioactive-waste-management/radioactive-waste-management/liquid-wast
 title = "Liquid waste management system"
 origin = "nrc"
 sources = [{ document = "nureg-0800-toc-rev6", section = "11.2" }, { document = "ornl-tm-2018-976", section = "3.5.2" }]
-status = "proposed"
+status = "approved"
 
 [[concept]]
 path = "17-radioactive-waste-management/radioactive-waste-management/gaseous-waste-management"
 title = "Gaseous waste management system (incl. MSR off-gas)"
 origin = "nrc"
 sources = [{ document = "nureg-0800-toc-rev6", section = "11.3" }, { document = "ornl-tm-2018-976", section = "3.5.3" }]
-status = "proposed"
+cross_links = ["13-environmental-protection/meteorology-and-air-quality/long-term-routine-dispersion"]
+status = "approved"
 
 [[concept]]
 path = "17-radioactive-waste-management/radioactive-waste-management/solid-waste-management"
 title = "Solid waste management system"
 origin = "nrc"
 sources = [{ document = "nureg-0800-toc-rev6", section = "11.4" }, { document = "ornl-tm-2018-976", section = "3.5.4" }]
-status = "proposed"
+status = "approved"
 
 [[concept]]
 path = "17-radioactive-waste-management/radioactive-waste-management/effluent-monitoring-and-release"
 title = "Process and effluent radiological monitoring; release of radioactive waste"
 origin = "nrc"
 sources = [{ document = "nureg-0800-toc-rev6", section = "11.5" }, { document = "nureg-1537-part1", section = "11.2.3 Release of Radioactive Waste" }]
-status = "proposed"
+cross_links = ["13-environmental-protection/environmental-monitoring/radiological-monitoring"]
+status = "approved"
 
 [[concept]]
 path = "17-radioactive-waste-management/decommissioning/decommissioning-plan-and-alternatives"
 title = "Decommissioning plan and alternatives"
 origin = "nrc"
 sources = [{ document = "nureg-1537-part1", section = "17.1.1-17.1.3" }]
-status = "proposed"
+status = "approved"
 
 [[concept]]
 path = "17-radioactive-waste-management/decommissioning/release-criteria-and-final-survey"
 title = "Release criteria and final survey"
 origin = "nrc"
 sources = [{ document = "nureg-1537-part1", section = "17.1.4" }]
-status = "proposed"
+status = "approved"
 
 # ############################################################################
 # LEVEL 4 — outram-park implementation leaves (seed kovan-concept tags)

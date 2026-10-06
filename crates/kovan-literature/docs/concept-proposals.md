@@ -574,7 +574,7 @@
   - sources: `nureg-1537-part1` 7.7
 - [ ] **Digital instrumentation and control: software reviews** · `digital-i-and-c-software` · origin `nrc`
   - sources: `nureg-0800-toc-rev6` 7.0-A; BTP 7-14 Guidance on Software Reviews for Digital Computer-Based Instrumentation and Controls Systems
-  - cross-links: `07-regulatory-framework/quality-assurance/software-quality-assurance`, `07-regulatory-framework/quality-assurance`
+  - cross-links: `07-regulatory-framework/quality-assurance/software-quality-assurance`
 
 ### Auxiliary systems (`02-nuclear-safety/auxiliary-systems`)
 
@@ -977,10 +977,12 @@
   - sources: `nureg-0800-toc-rev6` 11.2; `ornl-tm-2018-976` 3.5.2
 - [ ] **Gaseous waste management system (incl. MSR off-gas)** · `gaseous-waste-management` · origin `nrc`
   - sources: `nureg-0800-toc-rev6` 11.3; `ornl-tm-2018-976` 3.5.3
+  - cross-links: `13-environmental-protection/meteorology-and-air-quality/long-term-routine-dispersion`
 - [ ] **Solid waste management system** · `solid-waste-management` · origin `nrc`
   - sources: `nureg-0800-toc-rev6` 11.4; `ornl-tm-2018-976` 3.5.4
 - [ ] **Process and effluent radiological monitoring; release of radioactive waste** · `effluent-monitoring-and-release` · origin `nrc`
   - sources: `nureg-0800-toc-rev6` 11.5; `nureg-1537-part1` 11.2.3 Release of Radioactive Waste
+  - cross-links: `13-environmental-protection/environmental-monitoring/radiological-monitoring`
 
 ### Decommissioning (`17-radioactive-waste-management/decommissioning`)
 
