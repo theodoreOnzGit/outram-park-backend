@@ -53,6 +53,9 @@ pub mod advanced_git;
 pub mod app;
 pub mod artifact;
 pub mod autocomplete;
+/// The workspace call graph, crate → module → function, with function
+/// source (GitHub #737). GUI-free; see [`call_graph`].
+pub mod call_graph;
 pub mod classify;
 /// The code map of a Cargo workspace from its `[package.metadata.kovan]`
 /// tags (GitHub #734): model, layout and SVG. GUI-free; see [`code_map`].
