@@ -6,7 +6,7 @@
 
 ## Counts
 
-- **L3 concepts: 260** (211 from the NRC/ORNL text, `nrc`; 49 needed by outram-park and named only implicitly, `outram-park`).
+- **L3 concepts: 263** (214 from the NRC/ORNL text, `nrc`; 49 needed by outram-park and named only implicitly, `outram-park`).
 - **L4 seed tags: 192** across 39 crates.
 
 | Crate | Seed tags |
@@ -746,7 +746,7 @@
 - [ ] **Defense in depth** · `defense-in-depth` · origin `nrc`
   - sources: `10cfr53` § 53.250 Defense in depth; `10cfr53` § 53.020 Definitions (Defense in depth); `10cfr53` § 53.450 Analysis requirements, (b)(3)
   - **note for review:** Placement is a judgement call: Part 53 ties defense in depth to the uncertainties in the analysis of licensing-basis events other than DBAs (§ 53.250(a)-(c)), hence accident-analysis; it is cross-cutting and could equally sit under design-of-structures-systems-and-components.
-  - cross-links: `02-nuclear-safety/severe-accidents/probabilistic-risk-assessment`, `02-nuclear-safety/containment/functional-containment`
+  - cross-links: `02-nuclear-safety/design-of-structures-systems-and-components/safety-functions`, `02-nuclear-safety/fuel-system-design/triso-coated-particle-fuel`, `02-nuclear-safety/containment/functional-containment`, `02-nuclear-safety/severe-accidents`, `02-nuclear-safety/severe-accidents/probabilistic-risk-assessment`, `02-nuclear-safety/containment/functional-containment`
   - [ ] **Qualification of analytical codes** · `transient-and-accident-analysis-methods/qualification-of-analytical-codes` · origin `nrc`
     - sources: `10cfr53` § 53.450 Analysis requirements, (d) Qualification of analytical codes; `10cfr50` § 50.43 Additional standards and provisions affecting class 103 licenses and certifications for commercial power, (e)(1)(iii)
     - **note for review:** § 53.450(d) names thermodynamics, reactor physics, fuel performance and mechanistic source term codes: the regulatory home of outram-park's V&V work.
@@ -827,6 +827,10 @@
   - sources: `10cfr50` § 50.59 Changes, tests, and experiments; `10cfr53` § 53.1540 Updating licensing-basis information and determining the need for NRC approval; `10cfr53` § 53.1550 Evaluating changes to facility as described in Final Safety Analysis Reports
 - [ ] **Backfitting** · `backfitting` · origin `nrc`
   - sources: `10cfr50` § 50.109 Backfitting; `10cfr53` § 53.1590 Backfitting
+- [ ] **License renewal** · `license-renewal` · origin `nrc`
+  - sources: `10cfr50` § 50.135 Renewal of non-power production or utilization facility licenses issued under § 50.22; `10cfr52` § 52.29-52.33, 52.57-52.61, 52.107, 52.177-52.181 (application, criteria and duration of renewal); `10cfr53` § 53.1173-53.1179, 53.1254-53.1260, 53.1295, 53.1402, 53.1458 (renewal)
+  - **note for review:** Power-reactor operating-license renewal is 10 CFR Part 54 (not in the corpus yet); the integrity assessment programs of § 53.870 cover plant aging.
+  - cross-links: `02-nuclear-safety/design-of-structures-systems-and-components/integrity-assessment-programs`
 
 ### Quality assurance (incl. software QA) (`07-regulatory-framework/quality-assurance`)
 
@@ -928,6 +932,10 @@
     - [ ] add `//! kovan-concept: 10-human-resource-development/knowledge-management-and-education/education-and-outreach` to `crates/dhoby-ghaut/src/workbench/mod.rs`: Guided simulation workbench. The wizard that walks a learner through a high-fidelity simulation. (new work)
     - [ ] add `//! kovan-concept: 10-human-resource-development/knowledge-management-and-education/education-and-outreach` to `crates/outram-park-digital-twin-engine/src/app_scaffold/mod.rs`: Digital-twin engine: offline educational plant simulators. The egui simulator framework behind htgr_sim_v1, fhr_sim_v2 and distillation_sim_v1: offline demonstrations only (RESPONSIBLE_USE.md). (new work)
     - [ ] add `//! kovan-concept: 10-human-resource-development/knowledge-management-and-education/education-and-outreach` to `crates/outram-park-digital-twin-engine/src/htr10/mod.rs`: Digital-twin engine: HTR-10 plant model. The HTR-10 plant model the htgr_sim_v1 simulator runs: offline, educational. (new work)
+- [ ] **Nuclear history and lessons learned (TMI, Chernobyl, Fukushima)** · `nuclear-history-and-lessons-learned` · origin `nrc`
+  - sources: `10cfr50` § 50.34 Contents of applications; technical information, (f) Additional TMI-related requirements; `wash-1400` Executive Summary and Main Report
+  - **note for review:** Maintainer 2026-10-06: TMI fits here. Chernobyl and Fukushima await literature.
+  - cross-links: `02-nuclear-safety/conduct-of-operations/operating-experience`, `02-nuclear-safety/severe-accidents`
 
 ## Site and supporting facilities (`12-site-and-supporting-facilities`)
 
@@ -1035,11 +1043,16 @@
 
 ## Nuclear security (`15-nuclear-security`)
 
+### Cybersecurity and information security (`15-nuclear-security/cybersecurity`)
+
+- [ ] **Information security** · `information-security` · origin `nrc`
+  - sources: `10cfr53` § 53.860 Security programs, (e) Information security
+- [ ] **Cybersecurity program** · `cybersecurity-program` · origin `nrc`
+  - sources: `10cfr53` § 53.860 Security programs, (d) Cybersecurity; `10cfr50` § 50.34 Contents of applications; technical information, (c)(2)
+  - cross-links: `02-nuclear-safety/instrumentation-and-control/digital-i-and-c-software`
+
 ### Physical protection (`15-nuclear-security/physical-protection`)
 
-- [ ] **Cybersecurity program** · `cybersecurity` · origin `nrc`
-  - sources: `10cfr53` § 53.860 Security programs, (d) Cybersecurity; `10cfr50` § 50.34 Contents of applications; technical information, (c)(2)
-  - **note for review:** Placed under physical-protection because it is the only nuclear-security L2 today; cybersecurity is not physical protection, so it may warrant its own L2 later.
 - [ ] **Access authorization and fitness-for-duty programs** · `access-authorization-and-fitness-for-duty` · origin `nrc`
   - sources: `10cfr53` § 53.860 Security programs, (b) Fitness-for-duty; (c) Access authorization; `10cfr52` § 52.79 Contents of applications; technical information in final safety analysis report, (a)(44)
 - [ ] **Safety and security considered together in the design process** · `safety-and-security-in-design` · origin `nrc`

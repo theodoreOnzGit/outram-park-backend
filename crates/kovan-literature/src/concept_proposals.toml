@@ -3717,7 +3717,7 @@ title = "Licensing-basis events (anticipated, unlikely and very unlikely event s
 origin = "nrc"
 sources = [{ document = "10cfr53", section = "§ 53.240 Licensing-basis events" }, { document = "10cfr53", section = "§ 53.450 Analysis requirements, (e) Analyses of licensing-basis events other than design-basis accidents; (f) Analysis of design-basis accidents" }, { document = "10cfr53", section = "§ 53.020 Definitions (Licensing-basis events; Design-basis accidents)" }]
 cross_links = ["02-nuclear-safety/severe-accidents/probabilistic-risk-assessment", "02-nuclear-safety/accident-analysis/transient-and-accident-analysis-methods"]
-status = "proposed"
+status = "approved"
 
 [[concept]]
 path = "02-nuclear-safety/accident-analysis/licensing-basis-events/safety-criteria-for-design-basis-accidents"
@@ -3725,7 +3725,7 @@ title = "Safety criteria for design-basis accidents (25 rem TEDE at the exclusio
 origin = "nrc"
 sources = [{ document = "10cfr53", section = "§ 53.210 Safety criteria for design-basis accidents" }, { document = "10cfr53", section = "§ 53.530 Population-related considerations, (a)" }, { document = "10cfr50", section = "§ 50.34 Contents of applications; technical information, (a)(1)(ii)(D)" }, { document = "10cfr52", section = "§ 52.47 Contents of applications; technical information, (a)(2)(iv)" }]
 cross_links = ["02-nuclear-safety/source-terms/accident-source-terms", "12-site-and-supporting-facilities/site-characteristics/geography-and-demography"]
-status = "proposed"
+status = "approved"
 
 [[concept]]
 path = "02-nuclear-safety/accident-analysis/licensing-basis-events/safety-criteria-for-licensing-basis-events-other-than-dbas"
@@ -3733,16 +3733,16 @@ title = "Safety criteria for licensing-basis events other than design-basis acci
 origin = "nrc"
 sources = [{ document = "10cfr53", section = "§ 53.220 Safety criteria for licensing-basis events other than design-basis accidents" }, { document = "10cfr53", section = "§ 53.450 Analysis requirements, (e)" }]
 cross_links = ["02-nuclear-safety/severe-accidents/probabilistic-risk-assessment"]
-status = "proposed"
+status = "approved"
 
 [[concept]]
 path = "02-nuclear-safety/accident-analysis/defense-in-depth"
 title = "Defense in depth"
 origin = "nrc"
 sources = [{ document = "10cfr53", section = "§ 53.250 Defense in depth" }, { document = "10cfr53", section = "§ 53.020 Definitions (Defense in depth)" }, { document = "10cfr53", section = "§ 53.450 Analysis requirements, (b)(3)" }]
-cross_links = ["02-nuclear-safety/severe-accidents/probabilistic-risk-assessment", "02-nuclear-safety/containment/functional-containment"]
+cross_links = ["02-nuclear-safety/design-of-structures-systems-and-components/safety-functions", "02-nuclear-safety/fuel-system-design/triso-coated-particle-fuel", "02-nuclear-safety/containment/functional-containment", "02-nuclear-safety/severe-accidents", "02-nuclear-safety/severe-accidents/probabilistic-risk-assessment", "02-nuclear-safety/containment/functional-containment"]
 note = "Placement is a judgement call: Part 53 ties defense in depth to the uncertainties in the analysis of licensing-basis events other than DBAs (§ 53.250(a)-(c)), hence accident-analysis; it is cross-cutting and could equally sit under design-of-structures-systems-and-components."
-status = "proposed"
+status = "approved"
 
 [[concept]]
 path = "02-nuclear-safety/accident-analysis/transient-and-accident-analysis-methods/qualification-of-analytical-codes"
@@ -3751,7 +3751,7 @@ origin = "nrc"
 sources = [{ document = "10cfr53", section = "§ 53.450 Analysis requirements, (d) Qualification of analytical codes" }, { document = "10cfr50", section = "§ 50.43 Additional standards and provisions affecting class 103 licenses and certifications for commercial power, (e)(1)(iii)" }]
 cross_links = ["07-regulatory-framework/quality-assurance/software-quality-assurance/verification-and-validation-records", "02-nuclear-safety/engineered-safety-features/emergency-core-cooling"]
 note = "§ 53.450(d) names thermodynamics, reactor physics, fuel performance and mechanistic source term codes: the regulatory home of outram-park's V&V work."
-status = "proposed"
+status = "approved"
 
 [[concept]]
 path = "02-nuclear-safety/design-of-structures-systems-and-components/safety-functions"
@@ -3759,14 +3759,14 @@ title = "Safety functions (primary: limiting the release of radioactive material
 origin = "nrc"
 sources = [{ document = "10cfr53", section = "§ 53.230 Safety functions" }, { document = "10cfr53", section = "§ 53.400 Design features for licensing-basis events" }]
 cross_links = ["02-nuclear-safety/containment/functional-containment", "02-nuclear-safety/accident-analysis/licensing-basis-events"]
-status = "proposed"
+status = "approved"
 
 [[concept]]
 path = "02-nuclear-safety/design-of-structures-systems-and-components/safety-functions/functional-design-criteria"
 title = "Functional design criteria"
 origin = "nrc"
 sources = [{ document = "10cfr53", section = "§ 53.410 Functional design criteria for design-basis accidents" }, { document = "10cfr53", section = "§ 53.420 Functional design criteria for licensing-basis events other than design-basis accidents" }, { document = "10cfr53", section = "§ 53.425 Design features and functional design criteria for normal operations" }, { document = "10cfr53", section = "§ 53.430 Design features and functional design criteria for protection of plant workers" }, { document = "10cfr53", section = "§ 53.440 Design requirements, (a)" }]
-status = "proposed"
+status = "approved"
 
 [[concept]]
 path = "02-nuclear-safety/design-of-structures-systems-and-components/safety-categorization-and-special-treatments"
@@ -3774,7 +3774,7 @@ title = "Safety categorization and special treatments (safety-related; non-safet
 origin = "nrc"
 sources = [{ document = "10cfr53", section = "§ 53.460 Safety categorization and special treatments" }, { document = "10cfr50", section = "§ 50.69 Risk-informed categorization and treatment of structures, systems and components for nuclear power reactors" }]
 cross_links = ["02-nuclear-safety/severe-accidents/probabilistic-risk-assessment", "07-regulatory-framework/quality-assurance/quality-assurance-program"]
-status = "proposed"
+status = "approved"
 
 [[concept]]
 path = "02-nuclear-safety/design-of-structures-systems-and-components/codes-and-standards"
@@ -3782,7 +3782,7 @@ title = "Codes and standards"
 origin = "nrc"
 sources = [{ document = "10cfr50", section = "§ 50.55a Codes and standards" }, { document = "10cfr53", section = "§ 53.440 Design requirements, (b)" }]
 cross_links = ["02-nuclear-safety/design-of-structures-systems-and-components/mechanical-systems-and-components"]
-status = "proposed"
+status = "approved"
 
 [[concept]]
 path = "02-nuclear-safety/design-of-structures-systems-and-components/inservice-inspection-and-inservice-testing"
@@ -3790,7 +3790,7 @@ title = "Inservice inspection and inservice testing"
 origin = "nrc"
 sources = [{ document = "10cfr53", section = "§ 53.880 Inservice inspection and inservice testing" }, { document = "10cfr50", section = "§ 50.55a Codes and standards, (f) Preservice and inservice testing requirements; (g) Preservice and inservice inspection requirements" }]
 cross_links = ["02-nuclear-safety/design-of-structures-systems-and-components/codes-and-standards", "07-regulatory-framework/quality-assurance/maintenance-rule"]
-status = "proposed"
+status = "approved"
 
 [[concept]]
 path = "02-nuclear-safety/design-of-structures-systems-and-components/integrity-assessment-programs"
@@ -3798,7 +3798,7 @@ title = "Integrity assessment programs (plant aging, cyclic or transient load li
 origin = "nrc"
 sources = [{ document = "10cfr53", section = "§ 53.870 Integrity assessment programs" }, { document = "10cfr53", section = "§ 53.440 Design requirements, (d)" }]
 cross_links = ["02-nuclear-safety/reactor-coolant-system/reactor-vessel-integrity", "07-regulatory-framework/quality-assurance/maintenance-rule", "02-nuclear-safety/engineered-safety-features/esf-materials"]
-status = "proposed"
+status = "approved"
 
 [[concept]]
 path = "02-nuclear-safety/design-of-structures-systems-and-components/aircraft-impact-assessment"
@@ -3807,7 +3807,7 @@ origin = "nrc"
 sources = [{ document = "10cfr50", section = "§ 50.150 Aircraft impact assessment" }, { document = "10cfr52", section = "§ 52.47 Contents of applications; technical information, (a)(28)" }, { document = "10cfr52", section = "§ 52.79 Contents of applications; technical information in final safety analysis report, (a)(47)" }, { document = "10cfr53", section = "§ 53.910 Procedures and guidelines, (b)(7) (potential aircraft threat)" }]
 cross_links = ["02-nuclear-safety/design-of-structures-systems-and-components/missile-protection", "02-nuclear-safety/severe-accidents/severe-accident-evaluation", "15-nuclear-security/physical-protection"]
 note = "Part 53 has no design-specific aircraft impact assessment of its own; it only requires procedures for a notified aircraft threat (§ 53.910(b)(7)). § 50.150 is a beyond-design-basis assessment, distinct from SRP 3.5.1.6 aircraft hazards already cited under missile-protection."
-status = "proposed"
+status = "approved"
 
 [[concept]]
 path = "02-nuclear-safety/severe-accidents/mitigation-of-beyond-design-basis-events"
@@ -3815,7 +3815,7 @@ title = "Mitigation of beyond-design-basis events (mitigation strategies; extens
 origin = "nrc"
 sources = [{ document = "10cfr50", section = "§ 50.155 Mitigation of beyond-design-basis events" }]
 cross_links = ["09-electrical-grid/electric-power/station-blackout", "02-nuclear-safety/auxiliary-systems/cooling-water-and-ultimate-heat-sink"]
-status = "proposed"
+status = "approved"
 
 [[concept]]
 path = "02-nuclear-safety/initial-test-program/safety-feature-testing-and-prototype-plants"
@@ -3823,21 +3823,21 @@ title = "Demonstration of safety-feature performance for innovative designs; pro
 origin = "nrc"
 sources = [{ document = "10cfr50", section = "§ 50.43 Additional standards and provisions affecting class 103 licenses and certifications for commercial power, (e)" }, { document = "10cfr52", section = "§ 52.1 Definitions (Prototype plant)" }, { document = "10cfr53", section = "§ 53.440 Design requirements, (a)(1)" }]
 cross_links = ["02-nuclear-safety/thermal-hydraulic-design/experimental-loops-and-test-reactor-support", "02-nuclear-safety/accident-analysis/transient-and-accident-analysis-methods/qualification-of-analytical-codes"]
-status = "proposed"
+status = "approved"
 
 [[concept]]
 path = "02-nuclear-safety/reactor-coolant-system/reactor-coolant-system-venting"
 title = "Reactor coolant system venting systems"
 origin = "nrc"
 sources = [{ document = "10cfr50", section = "§ 50.46a Acceptance criteria for reactor coolant system venting systems" }]
-status = "proposed"
+status = "approved"
 
 [[concept]]
 path = "02-nuclear-safety/reactor-coolant-system/reactor-vessel-integrity/pressurized-thermal-shock"
 title = "Fracture toughness requirements for protection against pressurized thermal shock events"
 origin = "nrc"
 sources = [{ document = "10cfr50", section = "§ 50.61 Fracture toughness requirements for protection against pressurized thermal shock events" }, { document = "10cfr50", section = "§ 50.61a Alternate fracture toughness requirements for protection against pressurized thermal shock events" }]
-status = "proposed"
+status = "approved"
 
 [[concept]]
 path = "02-nuclear-safety/conduct-of-operations/self-reliant-mitigation-facilities"
@@ -3845,7 +3845,7 @@ title = "Self-reliant-mitigation facilities and generally licensed reactor opera
 origin = "nrc"
 sources = [{ document = "10cfr53", section = "§ 53.725 General staffing, training, personnel qualifications, and human factors requirements, (a)" }, { document = "10cfr53", section = "§ 53.800 Facility licensees for self-reliant-mitigation facilities" }, { document = "10cfr53", section = "§ 53.805 Facility licensee requirements related to generally licensed reactor operators" }, { document = "10cfr53", section = "§ 53.810 Generally licensed reactor operators" }, { document = "10cfr53", section = "§ 53.815 Generally licensed reactor operator training, examination, and proficiency programs" }]
 cross_links = ["02-nuclear-safety/human-factors-engineering", "02-nuclear-safety/conduct-of-operations/operator-training-and-requalification"]
-status = "proposed"
+status = "approved"
 
 [[concept]]
 path = "02-nuclear-safety/conduct-of-operations/operator-training-and-requalification/simulation-facilities"
@@ -3854,21 +3854,21 @@ origin = "nrc"
 sources = [{ document = "10cfr53", section = "§ 53.780 Training, examination, and proficiency program, (e) Simulation facilities" }, { document = "10cfr53", section = "§ 53.815 Generally licensed reactor operator training, examination, and proficiency programs, (e) Simulation facilities" }, { document = "10cfr53", section = "§ 53.725 General staffing, training, personnel qualifications, and human factors requirements, (c) (Simulation facility; Performance testing; Reference plant)" }]
 cross_links = ["10-human-resource-development/knowledge-management-and-education/education-and-outreach"]
 note = "outram-park's egui simulators are offline educational demonstrations (RESPONSIBLE_USE.md), not simulation facilities in the § 53.780(e) sense; any link from them should be an 'aspiration', never a home."
-status = "proposed"
+status = "approved"
 
 [[concept]]
 path = "02-nuclear-safety/conduct-of-operations/staffing-plan"
 title = "Staffing plan (on-shift staffing and engineering expertise)"
 origin = "nrc"
 sources = [{ document = "10cfr53", section = "§ 53.730 Defining, fulfilling, and maintaining the role of personnel in ensuring safe operations, (f) Staffing plan" }, { document = "10cfr53", section = "§ 53.740 Facility licensee requirements—general, (b)" }, { document = "10cfr50", section = "§ 50.54 Conditions of licenses, (m)" }]
-status = "proposed"
+status = "approved"
 
 [[concept]]
 path = "02-nuclear-safety/conduct-of-operations/operating-experience"
 title = "Operating experience program"
 origin = "nrc"
 sources = [{ document = "10cfr53", section = "§ 53.730 Defining, fulfilling, and maintaining the role of personnel in ensuring safe operations, (e) Operating experience" }, { document = "10cfr53", section = "§ 53.440 Design requirements, (a)(2)" }, { document = "10cfr52", section = "§ 52.47 Contents of applications; technical information, (a)(22)" }]
-status = "proposed"
+status = "approved"
 
 [[concept]]
 path = "02-nuclear-safety/conduct-of-operations/event-notification-and-reporting"
@@ -3876,7 +3876,7 @@ title = "Immediate notification requirements and the licensee event report syste
 origin = "nrc"
 sources = [{ document = "10cfr50", section = "§ 50.72 Immediate notification requirements for operating nuclear power reactors" }, { document = "10cfr50", section = "§ 50.73 Licensee event report system" }, { document = "10cfr53", section = "§ 53.1630 Immediate notification requirements for operating commercial nuclear plants" }, { document = "10cfr53", section = "§ 53.1640 Licensee event report system" }]
 cross_links = ["14-emergency-planning/notification-methods-and-procedures"]
-status = "proposed"
+status = "approved"
 
 [[concept]]
 path = "02-nuclear-safety/human-factors-engineering/concept-of-operations-and-function-allocation"
@@ -3884,14 +3884,14 @@ title = "Concept of operations; functional requirements analysis and function al
 origin = "nrc"
 sources = [{ document = "10cfr53", section = "§ 53.730 Defining, fulfilling, and maintaining the role of personnel in ensuring safe operations, (c) Concept of operations; (d) Functional requirements analysis and function allocation" }, { document = "10cfr53", section = "§ 53.440 Design requirements, (n)(3)-(4)" }]
 cross_links = ["02-nuclear-safety/design-of-structures-systems-and-components/safety-functions"]
-status = "proposed"
+status = "approved"
 
 [[concept]]
 path = "04-funding-and-financing/financial-qualifications/financial-protection-and-accident-insurance"
 title = "Financial protection; insurance required to stabilize and decontaminate plant following an accident"
 origin = "nrc"
 sources = [{ document = "10cfr53", section = "§ 53.1710 Financial protection" }, { document = "10cfr53", section = "§ 53.1720 Insurance required to stabilize and decontaminate plant following an accident" }, { document = "10cfr53", section = "§ 53.1730 Financial protection requirements" }, { document = "10cfr50", section = "§ 50.54 Conditions of licenses, (w)" }]
-status = "proposed"
+status = "approved"
 
 [[concept]]
 path = "07-regulatory-framework/reactor-licensing/manufacturing-licenses"
@@ -3899,42 +3899,42 @@ title = "Manufacturing licenses (manufactured reactors installed at sites not id
 origin = "nrc"
 sources = [{ document = "10cfr52", section = "§ 52.151 Scope of subpart (Subpart F, Manufacturing Licenses)" }, { document = "10cfr53", section = "§ 53.1270 Manufacturing licenses" }, { document = "10cfr53", section = "§ 53.620 Manufacturing" }]
 cross_links = ["18-industrial-involvement"]
-status = "proposed"
+status = "approved"
 
 [[concept]]
 path = "07-regulatory-framework/reactor-licensing/standard-design-approvals"
 title = "Standard design approvals"
 origin = "nrc"
 sources = [{ document = "10cfr52", section = "§ 52.131 Scope of subpart (Subpart E, Standard Design Approvals)" }, { document = "10cfr53", section = "§ 53.1200 Standard design approvals" }]
-status = "proposed"
+status = "approved"
 
 [[concept]]
 path = "07-regulatory-framework/reactor-licensing/standardization-at-multiple-sites"
 title = "Standardization of nuclear power plant designs: reactors of identical design at multiple sites"
 origin = "nrc"
 sources = [{ document = "10cfr50", section = "Appendix N, Standardization of Nuclear Power Plant Designs: Permits To Construct and Licenses To Operate Nuclear Power Reactors of Identical Design at Multiple Sites" }, { document = "10cfr52", section = "Appendix N, Standardization of Nuclear Power Plant Designs: Combined Licenses To Construct and Operate Nuclear Power Reactors of Identical Design at Multiple Sites" }, { document = "10cfr53", section = "§ 53.1470 Standardization of commercial nuclear plant designs: licenses to construct and operate nuclear power reactors of identical design at multiple sites" }]
-status = "proposed"
+status = "approved"
 
 [[concept]]
 path = "07-regulatory-framework/reactor-licensing/limited-work-authorization"
 title = "Limited work authorization"
 origin = "nrc"
 sources = [{ document = "10cfr50", section = "§ 50.10 License required; limited work authorization" }, { document = "10cfr52", section = "§ 52.91 Authorization to conduct limited work authorization activities" }, { document = "10cfr53", section = "§ 53.1130 Limited work authorizations" }]
-status = "proposed"
+status = "approved"
 
 [[concept]]
 path = "07-regulatory-framework/reactor-licensing/changes-tests-and-experiments"
 title = "Changes, tests, and experiments (evaluating changes to the facility as described in the Final Safety Analysis Report)"
 origin = "nrc"
 sources = [{ document = "10cfr50", section = "§ 50.59 Changes, tests, and experiments" }, { document = "10cfr53", section = "§ 53.1540 Updating licensing-basis information and determining the need for NRC approval" }, { document = "10cfr53", section = "§ 53.1550 Evaluating changes to facility as described in Final Safety Analysis Reports" }]
-status = "proposed"
+status = "approved"
 
 [[concept]]
 path = "07-regulatory-framework/reactor-licensing/backfitting"
 title = "Backfitting"
 origin = "nrc"
 sources = [{ document = "10cfr50", section = "§ 50.109 Backfitting" }, { document = "10cfr53", section = "§ 53.1590 Backfitting" }]
-status = "proposed"
+status = "approved"
 
 [[concept]]
 path = "08-radiation-protection/radiation-protection/protection-of-plant-workers"
@@ -3943,7 +3943,7 @@ origin = "nrc"
 sources = [{ document = "10cfr53", section = "§ 53.270 Protection of plant workers" }, { document = "10cfr53", section = "§ 53.430 Design features and functional design criteria for protection of plant workers" }]
 cross_links = ["08-radiation-protection/radiation-protection/alara"]
 note = "Close to the existing ALARA concept (occupational exposure); kept separate because Part 53 makes it a top-level safety requirement (Subpart B) with its own functional design criteria. Merging into alara as extra sources is the alternative."
-status = "proposed"
+status = "approved"
 
 [[concept]]
 path = "14-emergency-planning/emergency-plan-development-and-review/performance-based-emergency-preparedness"
@@ -3952,7 +3952,7 @@ origin = "nrc"
 sources = [{ document = "10cfr50", section = "§ 50.160 Emergency preparedness for small modular reactors, non-light-water reactors, and non-power production or utilization facilities" }, { document = "10cfr53", section = "§ 53.855 Emergency preparedness, (a)" }]
 cross_links = ["14-emergency-planning/exercises-and-drills", "14-emergency-planning/accident-assessment"]
 note = "Placed under planning standard P (planning effort) because § 50.160 is an alternative to the whole § 50.47(b)/Appendix E plan; its performance objectives are demonstrated by drills, hence the cross-link to exercises-and-drills."
-status = "proposed"
+status = "approved"
 
 [[concept]]
 path = "14-emergency-planning/protective-response/plume-exposure-pathway-epz-size"
@@ -3961,29 +3961,21 @@ origin = "nrc"
 sources = [{ document = "10cfr50", section = "§ 50.33 Contents of applications; general information, (g)(1)-(2)" }, { document = "10cfr50", section = "§ 50.160 Emergency preparedness for small modular reactors, non-light-water reactors, and non-power production or utilization facilities, (b)(3) Emergency planning zone" }, { document = "10cfr53", section = "§ 53.1109 Contents of applications; general information, (g)" }]
 cross_links = ["14-emergency-planning/accident-assessment/dose-projection", "13-environmental-protection/meteorology-and-air-quality/short-term-accident-dispersion"]
 note = "EPZ sizing under § 50.33(g)(2)(i) is a consequence calculation (accident likelihood, source term, timing, meteorology). Per #724 the dispersion crates may link here only as 'aspiration'."
-status = "proposed"
-
-[[concept]]
-path = "15-nuclear-security/physical-protection/cybersecurity"
-title = "Cybersecurity program"
-origin = "nrc"
-sources = [{ document = "10cfr53", section = "§ 53.860 Security programs, (d) Cybersecurity" }, { document = "10cfr50", section = "§ 50.34 Contents of applications; technical information, (c)(2)" }]
-note = "Placed under physical-protection because it is the only nuclear-security L2 today; cybersecurity is not physical protection, so it may warrant its own L2 later."
-status = "proposed"
+status = "approved"
 
 [[concept]]
 path = "15-nuclear-security/physical-protection/access-authorization-and-fitness-for-duty"
 title = "Access authorization and fitness-for-duty programs"
 origin = "nrc"
 sources = [{ document = "10cfr53", section = "§ 53.860 Security programs, (b) Fitness-for-duty; (c) Access authorization" }, { document = "10cfr52", section = "§ 52.79 Contents of applications; technical information in final safety analysis report, (a)(44)" }]
-status = "proposed"
+status = "approved"
 
 [[concept]]
 path = "15-nuclear-security/physical-protection/safety-and-security-in-design"
 title = "Safety and security considered together in the design process"
 origin = "nrc"
 sources = [{ document = "10cfr53", section = "§ 53.440 Design requirements, (f)" }]
-status = "proposed"
+status = "approved"
 
 [[concept]]
 path = "17-radioactive-waste-management/decommissioning/decommissioning-financial-assurance"
@@ -3991,4 +3983,38 @@ title = "Financial assurance and cost estimates for decommissioning"
 origin = "nrc"
 sources = [{ document = "10cfr50", section = "§ 50.75 Reporting and recordkeeping for decommissioning planning" }, { document = "10cfr53", section = "§ 53.1010 Financial assurance for decommissioning" }, { document = "10cfr53", section = "§ 53.1020 Cost estimates for decommissioning" }, { document = "10cfr53", section = "§ 53.1030 Annual adjustments to cost estimates for decommissioning" }, { document = "10cfr53", section = "§ 53.1040 Methods for providing financial assurance for decommissioning" }, { document = "10cfr53", section = "§ 53.1045 Limitations on the use of decommissioning trust funds" }]
 cross_links = ["04-funding-and-financing/financial-qualifications"]
-status = "proposed"
+status = "approved"
+
+[[concept]]
+path = "15-nuclear-security/cybersecurity/information-security"
+title = "Information security"
+origin = "nrc"
+sources = [{ document = "10cfr53", section = "§ 53.860 Security programs, (e) Information security" }]
+status = "approved"
+
+[[concept]]
+path = "15-nuclear-security/cybersecurity/cybersecurity-program"
+title = "Cybersecurity program"
+origin = "nrc"
+sources = [{ document = "10cfr53", section = "§ 53.860 Security programs, (d) Cybersecurity" }, { document = "10cfr50", section = "§ 50.34 Contents of applications; technical information, (c)(2)" }]
+cross_links = ["02-nuclear-safety/instrumentation-and-control/digital-i-and-c-software"]
+status = "approved"
+
+[[concept]]
+path = "07-regulatory-framework/reactor-licensing/license-renewal"
+title = "License renewal"
+origin = "nrc"
+sources = [{ document = "10cfr50", section = "§ 50.135 Renewal of non-power production or utilization facility licenses issued under § 50.22" }, { document = "10cfr52", section = "§ 52.29-52.33, 52.57-52.61, 52.107, 52.177-52.181 (application, criteria and duration of renewal)" }, { document = "10cfr53", section = "§ 53.1173-53.1179, 53.1254-53.1260, 53.1295, 53.1402, 53.1458 (renewal)" }]
+cross_links = ["02-nuclear-safety/design-of-structures-systems-and-components/integrity-assessment-programs"]
+note = "Power-reactor operating-license renewal is 10 CFR Part 54 (not in the corpus yet); the integrity assessment programs of § 53.870 cover plant aging."
+status = "approved"
+
+[[concept]]
+path = "10-human-resource-development/knowledge-management-and-education/nuclear-history-and-lessons-learned"
+title = "Nuclear history and lessons learned (TMI, Chernobyl, Fukushima)"
+origin = "nrc"
+sources = [{ document = "10cfr50", section = "§ 50.34 Contents of applications; technical information, (f) Additional TMI-related requirements" }, { document = "wash-1400", section = "Executive Summary and Main Report" }]
+cross_links = ["02-nuclear-safety/conduct-of-operations/operating-experience", "02-nuclear-safety/severe-accidents"]
+note = "Maintainer 2026-10-06: TMI fits here. Chernobyl and Fukushima await literature."
+status = "approved"
+

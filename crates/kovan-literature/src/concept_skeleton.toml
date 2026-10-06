@@ -147,6 +147,15 @@ tier = "private"
 file = "reports/iaea2026-nutec-plastics-scaling-up.pdf"
 licence = "no reuse licence found; cited only"
 
+[[document]]
+id = "wash-1400"
+title = "WASH-1400 (NUREG-75/014), Reactor Safety Study: An Assessment of Accident Risks in U.S. Commercial Nuclear Power Plants"
+publisher = "U.S. NRC"
+date = "October 1975"
+tier = "standard"
+file = "kovan-standard-open-corpus/nrc/ML15334A199.pdf"
+licence = "U.S. Government work"
+
 [[node]]
 path = "01-national-position"
 title = "National position"
@@ -537,6 +546,11 @@ sources = [{ document = "nureg-1520-rev2", section = "Ch. 8" }]
 path = "15-nuclear-security"
 title = "Nuclear security"
 sources = [{ document = "iaea-ng-g-3.1-rev1", section = "3.15", page = "52" }]
+
+[[node]]
+path = "15-nuclear-security/cybersecurity"
+title = "Cybersecurity and information security"
+sources = [{ document = "10cfr53", section = "§ 53.860 Security programs, (d) Cybersecurity; (e) Information security" }, { document = "10cfr50", section = "§ 50.34 Contents of applications; technical information, (c)(2)" }]
 
 [[node]]
 path = "15-nuclear-security/physical-protection"
