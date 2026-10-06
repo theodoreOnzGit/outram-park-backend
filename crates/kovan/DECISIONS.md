@@ -2108,3 +2108,47 @@ of the 2026-10-06 NRC, DOE, EC and CFR documents.
   use its real size (test `the_centre_card_has_room_at_every_ring_size`).
 - Level-1 titles carry their IAEA issue number, "2. Nuclear safety", from the
   `NN-` path segment (`corpus::numbered_title`). Deeper nodes are unnumbered.
+
+## The code map: drawn from the Cargo.toml tags, in the app and on the site (2026-10-06, GH #734)
+
+**Maintainer direction** (#729, #734): kovan draws a deterministic map of
+outram-park-backend from the `[package.metadata.kovan]` tags (#733). Root on
+top; each row-4 app in its own box; topic boxes as columns through rows 3
+and 2, highest fidelity left; a fidelity range spans its columns (raffles
+the whole Risk box); utilities base for rows 1-0; the kovan family in a
+full-height knowledge-management box to the right; maturity on every card,
+maturity 0 greyed; required dependencies faint, lit for a selection. Later
+the same day: publish it on the Pages site as well, as an MVP.
+
+**What was built.**
+- `src/code_map/` (plain serde + std, no GUI): `CodeMap::from_cargo_metadata`
+  (crates sorted by name, required internal edges only, every malformed tag
+  reported), `placement_problems`, `layout::layout` and `layout::check`,
+  `svg::render`. The integration test `tests/code_map_tags.rs` now reads the
+  tags through this parser and checks the real workspace's layout too.
+- `kovan-cli code-map [--workspace] [--format json|svg] [-o]`.
+- The desktop **Code Map** view (`src/app/code_map_view.rs`): cargo metadata
+  on a background thread, folder and file pickers, the mind map's card style,
+  canvas and zoom controls, a collapsible details panel.
+- The Pages site: `docs/site/code-map/index.html` (inlines the SVG, pan, zoom
+  buttons, details from the JSON, `#<crate>` links) and a preview on the main
+  menu; `scripts/build-pages.sh` generates both files, never committed.
+
+**Choices made here that the maintainer has not ruled on.**
+- **At most three crates of one fidelity side by side** in a row
+  (`layout::MAX_TIES`); more wrap to a lane below. Without it the six
+  `outram-foam-*` crates at fidelity 3 widened the map further. The map is
+  still about seven times wider than tall (6779 x 958 world units with 47
+  crates), so Fit on a phone shows a strip; links and the selection zoom in.
+- **Columns** in a topic box are the levels a crate sits at plus both ends of
+  every range; a column only a range reaches (the Risk box's F4) is half a
+  card wide.
+- **Edges** use the mind map's edge-to-edge curve
+  (`mindmap_view::connector_sized`, made public). Edges between crates in the
+  same row run horizontally through the cards between them; no routing.
+- **Long names** are shrunk to 11 px, then cut with an ellipsis
+  (`code_map::fit_label`); the full name is in the tooltip and the panel.
+
+**rust-analyzer is not used** anywhere in this; phones only render the
+static SVG and JSON.
+

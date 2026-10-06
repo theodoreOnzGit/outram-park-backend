@@ -58,6 +58,7 @@ impl AppLocation {
             View::Home => "Home",
             View::Wiki => "Wiki",
             View::Mindmap => "Mindmap",
+            View::CodeMap => "Code Map",
             View::AdvancedGit => "Save Repository",
             View::Digitiser => "Digitiser",
             View::PdfReader => "PDF Reader",

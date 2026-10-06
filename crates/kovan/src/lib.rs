@@ -54,6 +54,9 @@ pub mod app;
 pub mod artifact;
 pub mod autocomplete;
 pub mod classify;
+/// The code map of a Cargo workspace from its `[package.metadata.kovan]`
+/// tags (GitHub #734): model, layout and SVG. GUI-free; see [`code_map`].
+pub mod code_map;
 pub(crate) mod collection_picker;
 pub mod concept_ops;
 pub mod commands;

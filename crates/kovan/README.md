@@ -180,6 +180,8 @@ kovan-cli digitise --image fig7.png --x-scale log --x-range 1,1e6 \
     --y-scale log --y-range 0.1,10 --figure "Fig. 7" --json fig7.json
 kovan-cli code-walk --from crates/x/examples/demo.rs::main --to crates/x/src/geom.rs::Sphere::distance
 kovan-cli code-walk-check crates/x/docs/lessons --update
+kovan-cli code-map --format svg -o code_map.svg
+kovan-cli code-map --format json -o code_map.json
 ```
 
 Every command's own `--help` documents its flags; the summary below is the
@@ -373,6 +375,21 @@ kovan-cli code-walk-check crates/outram-mc-libs/docs/lessons [--update]
   kopitiam's recursion past hop 1), comments/literals/attributes blanked
   before scanning, every call site resolved. `callers` and `impls` are not
   implemented.
+
+### `code-map` — the workspace's code map (`commands::code_map`, GitHub #734)
+
+Every crate placed by the `[package.metadata.kovan]` tag in its
+`Cargo.toml` (row, topic, fidelity, maturity, higher-rated modules; the tags
+are documented in `tests/code_map_tags.rs`), with its required dependencies.
+`--format json` (default) writes the data, `--format svg` the drawn map:
+the outram-park root, one box per row-4 app, the topic boxes as columns
+through rows 3 and 2 with fidelity high to low left to right, the shared
+utilities base and the knowledge-management side box. Built from
+`cargo metadata --no-deps`; **rust-analyzer is not used**. The same
+`Cargo.toml`s give byte-identical files. The library is `kovan::code_map`
+(model, `layout::layout`, `svg::render`), plain serde + std. The Pages
+build (`scripts/build-pages.sh`) writes both files for the site's
+`code-map/` page; the desktop app's **Code Map** view draws the same layout.
 
 ### Determinism & offline guarantees
 
@@ -649,6 +666,11 @@ cargo test --release -p kovan
   proprietary PDF ever ships as a fixture) and assert on stdout/stderr/exit
   code. Targets `kovan-cli` specifically — `kovan` is the GUI binary and
   needs a display, so it cannot run headlessly here.
+- `tests/code_map_tags.rs` — every member's code-map tag is well formed,
+  agrees with the dependency graph, and the real workspace lays out with no
+  overlapping cards, each crate once, fidelity in order and raffles across
+  the Risk box. The parser, layout and SVG determinism are unit-tested in
+  `src/code_map/`.
 - `tests/code_walk_rust_analyzer.rs` — `code-walk` and `code-walk-check`
   end to end against a real rust-analyzer on a throwaway crate (shortest
   chain, method resolution, trait and closure gaps, a lesson block with a

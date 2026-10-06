@@ -18,6 +18,13 @@
 </header>
 
 <main>
+  <section class="codemap-preview" aria-labelledby="codemap-h">
+    <h2 id="codemap-h">The code map</h2>
+    <p>Every crate in the workspace, placed by how integrated it is (rows), what it is about (topic boxes) and its fidelity (high on the left of a box, low on the right), with its maturity badge and its required dependencies. Generated from the crates' own <code>Cargo.toml</code> tags at this commit.</p>
+    <a class="codemap-img" href="code-map/"><img src="code-map/code_map.svg" alt="Code map of outram-park-backend: apps at the top, topic boxes for neutronics, thermal-hydraulics, fuel performance, structural mechanics, chemistry, fuel cycle, granular/DEM and risk, shared utilities at the base and the kovan knowledge-management family to the right." loading="lazy"></a>
+    <p class="actions"><a class="btn" href="code-map/">Open the code map</a></p>
+  </section>
+
   <nav class="tabs" aria-label="Deep dives">
     <!-- One radio + label + panel per deep dive. CSS-only: no script. -->
     <input type="radio" name="dive" id="t-mc" checked>

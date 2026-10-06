@@ -31,120 +31,54 @@
 //!   build);
 //! - every listed module exists in the crate's source, is rated above the
 //!   crate itself, and says why.
+//!
+//! Since 2026-10-06 (#734) the tags are read by the same parser the map is
+//! drawn from, `kovan::code_map::CodeMap::from_cargo_metadata` (which reports
+//! every malformed tag), and the placement rules are
+//! `CodeMap::placement_problems`. A second test lays the real workspace out
+//! and runs `kovan::code_map::layout::check` on it: every crate placed once,
+//! no overlapping cards, fidelity high to low left to right, raffles across
+//! the whole Risk box.
 
-use std::collections::{BTreeMap, BTreeSet};
-use std::path::PathBuf;
-use std::process::Command;
+use std::path::{Path, PathBuf};
 
-const TOPICS: [&str; 11] = [
-    "app",
-    "neutronics",
-    "thermal-hydraulics",
-    "fuel-performance",
-    "structural-mechanics",
-    "chemistry",
-    "fuel-cycle",
-    "granular-dem",
-    "risk",
-    "utility",
-    "knowledge-management",
-];
+use kovan::code_map::{layout, CodeMap, Topic};
 
-struct Tag {
-    row: u64,
-}
-
-fn workspace() -> serde_json::Value {
+fn workspace() -> CodeMap {
     let root = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../..");
-    let cargo = std::env::var("CARGO").unwrap_or_else(|_| "cargo".into());
-    let out = Command::new(cargo)
-        .current_dir(&root)
-        .args(["metadata", "--format-version", "1", "--no-deps", "--offline"])
-        .output()
-        .expect("cargo metadata runs");
-    assert!(out.status.success(), "{}", String::from_utf8_lossy(&out.stderr));
-    serde_json::from_slice(&out.stdout).expect("cargo metadata is JSON")
+    let json = kovan::code_map::run_cargo_metadata(&root, true).expect("cargo metadata runs");
+    CodeMap::from_cargo_metadata(&json).unwrap_or_else(|errors| panic!("{}", errors.join("\n")))
 }
 
 #[test]
 fn every_crate_is_placed_on_the_code_map_consistently_with_its_dependencies() {
-    let meta = workspace();
-    let packages = meta["packages"].as_array().unwrap();
-    let names: BTreeSet<&str> = packages.iter().map(|p| p["name"].as_str().unwrap()).collect();
-
-    let mut tags: BTreeMap<&str, Tag> = BTreeMap::new();
-    for p in packages {
-        let name = p["name"].as_str().unwrap();
-        let t = &p["metadata"]["kovan"];
-        assert!(t.is_object(), "{name}: no [package.metadata.kovan] tag");
-        let row = t["row"].as_u64().unwrap_or_else(|| panic!("{name}: row"));
-        let topic = t["topic"].as_str().unwrap_or_else(|| panic!("{name}: topic"));
-        let level = |v: &serde_json::Value| v.as_u64().filter(|f| *f <= 4);
-        match &t["fidelity"] {
-            serde_json::Value::Null => assert!(
-                matches!(topic, "utility" | "knowledge-management"),
-                "{name}: fidelity is required outside utilities and knowledge management"
-            ),
-            serde_json::Value::Array(r) => {
-                let (lo, hi) = match r.as_slice() {
-                    [lo, hi] => (level(lo), level(hi)),
-                    _ => (None, None),
-                };
-                assert!(
-                    matches!((lo, hi), (Some(lo), Some(hi)) if lo < hi),
-                    "{name}: fidelity range {r:?} must be [lo, hi], 0 <= lo < hi <= 4"
-                );
-            }
-            v => assert!(level(v).is_some(), "{name}: fidelity {v} must be 0..=4"),
+    let map = workspace();
+    let problems = map.placement_problems();
+    assert!(problems.is_empty(), "{}", problems.join("\n"));
+    for c in &map.crates {
+        if c.maturity_modules.is_empty() {
+            continue;
         }
-        assert!(row <= 4, "{name}: row {row}");
-        assert!(TOPICS.contains(&topic), "{name}: topic {topic}");
-        assert_eq!(row == 4, topic == "app", "{name}: row 4 is the app row, and only it");
-        if topic == "utility" {
-            assert!(row <= 1, "{name}: a utility sits in row 0 or 1");
-        }
-        let maturity = t["maturity"]
-            .as_u64()
-            .filter(|m| *m <= 4)
-            .unwrap_or_else(|| panic!("{name}: maturity must be 0..=4"));
-        if let Some(list) = t.get("maturity_modules") {
-            let lib = p["targets"]
-                .as_array()
-                .unwrap()
-                .iter()
-                .find(|t| t["kind"].as_array().unwrap().iter().any(|k| k == "lib"))
-                .unwrap_or_else(|| panic!("{name}: maturity_modules needs a library"));
-            let src = PathBuf::from(lib["src_path"].as_str().unwrap());
-            let base = src.parent().unwrap();
-            for m in list.as_array().unwrap() {
-                let module = m["module"].as_str().unwrap_or_else(|| panic!("{name}: module"));
-                let level = m["level"].as_u64().unwrap_or_else(|| panic!("{name}: {module} level"));
-                let why = m["why"].as_str().unwrap_or_default();
-                assert!(level <= 4 && level > maturity, "{name}: {module} level {level} must be above the crate's {maturity}");
-                assert!(!why.trim().is_empty(), "{name}: {module} needs a why");
-                let rel: PathBuf = module.split("::").collect();
-                let exists = base.join(&rel).with_extension("rs").is_file()
-                    || base.join(&rel).join("mod.rs").is_file();
-                assert!(exists, "{name}: module {module} not found under {}", base.display());
-            }
-        }
-        tags.insert(name, Tag { row });
-    }
-
-    for p in packages {
-        let name = p["name"].as_str().unwrap();
-        for d in p["dependencies"].as_array().unwrap() {
-            let dep = d["name"].as_str().unwrap();
-            let required = d["kind"].is_null() && !d["optional"].as_bool().unwrap_or(false);
-            if !required || !names.contains(dep) {
-                continue;
-            }
-            assert!(
-                tags[name].row >= tags[dep].row,
-                "{name} (row {}) sits below {dep} (row {}), which it depends on",
-                tags[name].row,
-                tags[dep].row
-            );
+        let base = PathBuf::from(
+            c.lib_dir.as_deref().unwrap_or_else(|| panic!("{}: maturity_modules needs a library", c.name)),
+        );
+        for m in &c.maturity_modules {
+            let rel: PathBuf = m.module.split("::").collect();
+            let exists = base.join(&rel).with_extension("rs").is_file()
+                || base.join(&rel).join("mod.rs").is_file();
+            assert!(exists, "{}: module {} not found under {}", c.name, m.module, Path::new(&base).display());
         }
     }
+}
+
+#[test]
+fn the_real_workspace_lays_out_cleanly() {
+    let map = workspace();
+    let l = layout::layout(&map);
+    let problems = layout::check(&map, &l);
+    assert!(problems.is_empty(), "{}", problems.join("\n"));
+    let risk = l.frames.iter().find(|f| f.topic == Topic::Risk).unwrap().rect;
+    let raffles = l.card("raffles").expect("raffles is a member").rect;
+    assert!((raffles.x - (risk.x + layout::PAD)).abs() < 1e-6 && (raffles.right() - (risk.right() - layout::PAD)).abs() < 1e-6,
+        "raffles spans the whole Risk box: {raffles:?} in {risk:?}");
 }

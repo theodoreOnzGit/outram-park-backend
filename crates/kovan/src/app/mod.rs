@@ -11,6 +11,7 @@
 
 mod advanced_git_view;
 mod bibliography;
+mod code_map_view;
 mod box_handles;
 mod corpus_folder;
 mod csv_preview;
@@ -111,6 +112,10 @@ enum View {
     /// The Advanced Git tab (§38, `op-9vo6.20`) — a separate area, per that
     /// section's own wording, from ordinary Save Document/Save Repository.
     AdvancedGit,
+    /// The code map of a Cargo workspace from its crates'
+    /// `[package.metadata.kovan]` tags (GitHub #734); see
+    /// [`code_map_view`].
+    CodeMap,
 }
 
 /// Which action a pending file-dialog pick should feed into. One
@@ -144,6 +149,10 @@ enum FileDialogTarget {
     SetupFolder,
     /// Picked directory fills the standard-corpus folder field (2026-10-06).
     StandardCorpusFolder,
+    /// Picked directory is the workspace the Code Map view draws (#734).
+    CodeMapWorkspace,
+    /// Picked file is a `code_map.json` for the Code Map view (#734).
+    CodeMapJson,
 }
 
 impl FileDialogTarget {
@@ -156,6 +165,7 @@ impl FileDialogTarget {
                 | Self::KovanRootCreate
                 | Self::SetupFolder
                 | Self::StandardCorpusFolder
+                | Self::CodeMapWorkspace
         )
     }
 
@@ -178,12 +188,13 @@ impl FileDialogTarget {
         match self {
             Self::Image => Some("Images"),
             Self::Pdf | Self::PdfIngest => Some("PDF"),
-            Self::JsonExport => Some("JSON"),
+            Self::JsonExport | Self::CodeMapJson => Some("JSON"),
             Self::CsvExport => Some("CSV"),
             Self::KovanRootOpen
             | Self::KovanRootCreate
             | Self::SetupFolder
             | Self::StandardCorpusFolder
+            | Self::CodeMapWorkspace
             | Self::KvimFile => None,
         }
     }
@@ -368,6 +379,8 @@ pub struct DigitiseApp {
     /// (2026-09-28). The buffer itself stays the shared `kvim_editor`.
     kvim_tab: kvim_tab::KvimTab,
     mindmap: MindmapState,
+    /// The Code Map view (#734).
+    code_map: code_map_view::CodeMapView,
     advanced_git: AdvancedGitState,
     /// The paper currently in focus, if any — GitHub issue #35's
     /// "unify root and active-paper context" comment (op-sr4n). Set only by
@@ -612,6 +625,7 @@ impl Default for DigitiseApp {
             file_dialog: FileDialog::new()
                 .add_file_filter_extensions("Images", vec!["png", "jpg", "jpeg"])
                 .add_file_filter_extensions("PDF", vec!["pdf"])
+                .add_file_filter_extensions("JSON", vec!["json"])
                 .default_file_filter("Images"),
             file_dialog_target: None,
             home: HomeState::default(),
@@ -619,6 +633,7 @@ impl Default for DigitiseApp {
             kvim_editor: KvimEditorState::default(),
             kvim_tab: kvim_tab::KvimTab::default(),
             mindmap: MindmapState::default(),
+            code_map: code_map_view::CodeMapView::default(),
             advanced_git: AdvancedGitState::default(),
             active_paper: None,
             workspace: None,
@@ -2980,6 +2995,7 @@ impl DigitiseApp {
             ui.selectable_value(&mut self.view, View::Home, "Home");
             ui.selectable_value(&mut self.view, View::Wiki, "Wiki");
             ui.selectable_value(&mut self.view, View::Mindmap, "Mindmap");
+            ui.selectable_value(&mut self.view, View::CodeMap, "Code Map");
             // op-wqaw (GH issue #35's 2026-09-01 checkpoint §21): the
             // user-facing label is "Save Repository", not "Advanced Git" —
             // most users shouldn't need Git vocabulary as the primary frame.
@@ -3058,6 +3074,10 @@ impl DigitiseApp {
             }
             FileDialogTarget::SetupFolder => self.setup.folder = path,
             FileDialogTarget::StandardCorpusFolder => self.corpus_folder.folder = path,
+            FileDialogTarget::CodeMapWorkspace => {
+                self.code_map.load_workspace(std::path::PathBuf::from(path))
+            }
+            FileDialogTarget::CodeMapJson => self.code_map.load_json(std::path::PathBuf::from(path)),
             FileDialogTarget::PdfIngest => {
                 if let Some(root) = self.home.root().cloned() {
                     self.begin_ingest(&root, std::path::Path::new(&path));
@@ -3567,6 +3587,21 @@ impl eframe::App for DigitiseApp {
                     // rather than each view picking its own paper-
                     // opening behaviour.
                     self.activate_paper_and_navigate(&citekey);
+                }
+            }
+            View::CodeMap => {
+                let mut request = None;
+                egui::CentralPanel::default().show(ui, |ui| {
+                    request = self.code_map.ui(ui);
+                });
+                match request {
+                    Some(code_map_view::CodeMapRequest::ChooseWorkspace) => {
+                        self.open_picker(FileDialogTarget::CodeMapWorkspace)
+                    }
+                    Some(code_map_view::CodeMapRequest::ChooseJson) => {
+                        self.open_picker(FileDialogTarget::CodeMapJson)
+                    }
+                    None => {}
                 }
             }
             View::AdvancedGit => {
