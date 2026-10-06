@@ -4026,3 +4026,27 @@ cross_links = ["02-nuclear-safety/conduct-of-operations/operating-experience", "
 note = "Maintainer 2026-10-06: TMI fits here. Chernobyl and Fukushima await literature."
 status = "approved"
 
+[[concept]]
+path = "02-nuclear-safety/nuclear-design/core-configurations/light-water-cooled"
+title = "Light-water-cooled reactor cores (PWR, BWR, light-water SMRs)"
+origin = "nrc"
+sources = [{ document = "nureg-0800-toc-rev6", section = "Ch. 4 Reactor; Ch. 5 Reactor Coolant System and Connected Systems (the LWR review plan)" }, { document = "10cfr50", section = "Appendix A, General Design Criteria for Nuclear Power Plants (water-cooled)" }]
+note = "Added 2026-10-06 for the maintainer's corpus re-filing (6 papers: WASH-1400, NUREG-1465, RG 1.183, NuScale SER ch. 6 and ER, NUREG/KM-0004)."
+status = "approved"
+
+[[concept]]
+path = "02-nuclear-safety/design-of-structures-systems-and-components/structural-materials"
+title = "Structural materials"
+origin = "nrc"
+sources = [{ document = "nureg-0800-toc-rev6", section = "4.5.1 Control Rod Drive Structural Materials; 4.5.2 Reactor Internal and Core Support Structure Materials; 5.2.3 Reactor Coolant Pressure Boundary Materials; 5.3.1 Reactor Vessel Materials; 6.1.1 Engineered Safety Features Materials" }]
+cross_links = ["02-nuclear-safety/control-rods-and-drives/control-rod-drive-structural-materials", "02-nuclear-safety/reactor-coolant-system/reactor-vessel-integrity", "02-nuclear-safety/engineered-safety-features/esf-materials", "02-nuclear-safety/msr-coolant-loop/coolant-loop-materials-and-chemistry", "02-nuclear-safety/moderator-and-reflector"]
+status = "approved"
+
+[[concept]]
+path = "08-radiation-protection/radiation-protection/dose-limits-and-criteria"
+title = "Dose limits and criteria (workers, public, design-basis accidents)"
+origin = "nrc"
+sources = [{ document = "10cfr53", section = "§ 53.210 Safety criteria for design-basis accidents (25 rem total effective dose equivalent); § 53.020 Definitions (total effective dose equivalent); § 53.270 Protection of plant workers (10 CFR part 20)" }, { document = "nureg-1555", section = "5.4.2 Radiation Doses to Members of the Public" }]
+cross_links = ["02-nuclear-safety/accident-analysis/licensing-basis-events/safety-criteria-for-design-basis-accidents", "13-environmental-protection/radiological-impacts-of-normal-operation/doses-to-members-of-the-public", "08-radiation-protection/radiation-protection/protection-of-plant-workers"]
+note = "10 CFR part 20 (standards for protection against radiation: occupational and public dose limits) is the primary rule and is not in the corpus yet."
+status = "approved"

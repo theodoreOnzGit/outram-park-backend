@@ -6,7 +6,7 @@
 
 ## Counts
 
-- **L3 concepts: 263** (214 from the NRC/ORNL text, `nrc`; 49 needed by outram-park and named only implicitly, `outram-park`).
+- **L3 concepts: 266** (217 from the NRC/ORNL text, `nrc`; 49 needed by outram-park and named only implicitly, `outram-park`).
 - **L4 seed tags: 192** across 39 crates.
 
 | Crate | Seed tags |
@@ -116,6 +116,9 @@
     - sources: `10cfr50` § 50.150 Aircraft impact assessment; `10cfr52` § 52.47 Contents of applications; technical information, (a)(28); `10cfr52` § 52.79 Contents of applications; technical information in final safety analysis report, (a)(47); `10cfr53` § 53.910 Procedures and guidelines, (b)(7) (potential aircraft threat)
     - **note for review:** Part 53 has no design-specific aircraft impact assessment of its own; it only requires procedures for a notified aircraft threat (§ 53.910(b)(7)). § 50.150 is a beyond-design-basis assessment, distinct from SRP 3.5.1.6 aircraft hazards already cited under missile-protection.
     - cross-links: `02-nuclear-safety/design-of-structures-systems-and-components/missile-protection`, `02-nuclear-safety/severe-accidents/severe-accident-evaluation`, `15-nuclear-security/physical-protection`
+- [ ] **Structural materials** · `structural-materials` · origin `nrc`
+  - sources: `nureg-0800-toc-rev6` 4.5.1 Control Rod Drive Structural Materials; 4.5.2 Reactor Internal and Core Support Structure Materials; 5.2.3 Reactor Coolant Pressure Boundary Materials; 5.3.1 Reactor Vessel Materials; 6.1.1 Engineered Safety Features Materials
+  - cross-links: `02-nuclear-safety/control-rods-and-drives/control-rod-drive-structural-materials`, `02-nuclear-safety/reactor-coolant-system/reactor-vessel-integrity`, `02-nuclear-safety/engineered-safety-features/esf-materials`, `02-nuclear-safety/msr-coolant-loop/coolant-loop-materials-and-chemistry`, `02-nuclear-safety/moderator-and-reflector`
 
 ### Fuel system design (`02-nuclear-safety/fuel-system-design`)
 
@@ -380,6 +383,9 @@
   - [ ] **Supercritical-water-cooled reactor cores (SCWR)** · `core-configurations/supercritical-water-cooled` · origin `nrc`
     - sources: 
     - **note for review:** No NRC guidance specific to SCWR (RG 1.232 covers non-LWRs only); world reference to obtain: Generation IV International Forum SCWR documents.
+  - [ ] **Light-water-cooled reactor cores (PWR, BWR, light-water SMRs)** · `core-configurations/light-water-cooled` · origin `nrc`
+    - sources: `nureg-0800-toc-rev6` Ch. 4 Reactor; Ch. 5 Reactor Coolant System and Connected Systems (the LWR review plan); `10cfr50` Appendix A, General Design Criteria for Nuclear Power Plants (water-cooled)
+    - **note for review:** Added 2026-10-06 for the maintainer's corpus re-filing (6 papers: WASH-1400, NUREG-1465, RG 1.183, NuScale SER ch. 6 and ER, NUREG/KM-0004).
 
 ### Moderator and reflector (`02-nuclear-safety/moderator-and-reflector`)
 
@@ -905,6 +911,10 @@
   - sources: `10cfr53` § 53.270 Protection of plant workers; `10cfr53` § 53.430 Design features and functional design criteria for protection of plant workers
   - **note for review:** Close to the existing ALARA concept (occupational exposure); kept separate because Part 53 makes it a top-level safety requirement (Subpart B) with its own functional design criteria. Merging into alara as extra sources is the alternative.
   - cross-links: `08-radiation-protection/radiation-protection/protection-of-plant-workers/alara`
+- [ ] **Dose limits and criteria (workers, public, design-basis accidents)** · `dose-limits-and-criteria` · origin `nrc`
+  - sources: `10cfr53` § 53.210 Safety criteria for design-basis accidents (25 rem total effective dose equivalent); § 53.020 Definitions (total effective dose equivalent); § 53.270 Protection of plant workers (10 CFR part 20); `nureg-1555` 5.4.2 Radiation Doses to Members of the Public
+  - **note for review:** 10 CFR part 20 (standards for protection against radiation: occupational and public dose limits) is the primary rule and is not in the corpus yet.
+  - cross-links: `02-nuclear-safety/accident-analysis/licensing-basis-events/safety-criteria-for-design-basis-accidents`, `13-environmental-protection/radiological-impacts-of-normal-operation/doses-to-members-of-the-public`, `08-radiation-protection/radiation-protection/protection-of-plant-workers`
 
 ## Electrical grid (`09-electrical-grid`)
 
