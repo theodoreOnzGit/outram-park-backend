@@ -6,7 +6,7 @@
 
 ## Counts
 
-- **L3 concepts: 209** (166 from the NRC/ORNL text, `nrc`; 43 needed by outram-park and named only implicitly, `outram-park`).
+- **L3 concepts: 214** (171 from the NRC/ORNL text, `nrc`; 43 needed by outram-park and named only implicitly, `outram-park`).
 - **L4 seed tags: 192** across 39 crates.
 
 | Crate | Seed tags |
@@ -618,6 +618,19 @@
     - [ ] add `//! kovan-concept: 02-nuclear-safety/steam-and-power-conversion/power-cycle-flowsheet-simulation` to `crates/outram-park-fork-dwsim-libs/src/heat_exchanger/mod.rs`: Heat exchanger rating. LMTD, effectiveness-NTU, multi-pass correction and Tinker's method. (port of DWSIM)
     - [ ] add `//! kovan-concept: 02-nuclear-safety/steam-and-power-conversion/power-cycle-flowsheet-simulation` to `crates/outram-park-fork-dwsim-libs/src/compressor/mod.rs`: Compressor. Compressor unit operation. (port of DWSIM)
     - [ ] add `//! kovan-concept: 02-nuclear-safety/steam-and-power-conversion/power-cycle-flowsheet-simulation` to `crates/outram-park-fork-dwsim-libs/src/expander/mod.rs`: Expander (isentropic). Expander/turbine unit operation. (port of DWSIM)
+- [ ] **Alternate (non-steam) power conversion cycles** · `alternate-power-cycles` · origin `nrc`
+  - sources: `rg-1.232-rev0` App. C, MHTGR-DC 4 rationale (very high-speed, very high-energy gas turbines inside the reactor helium pressure boundary); `jrc-eur-28712` power conversion: direct-cycle helium gas turbine (Brayton); combined cycles
+  - [ ] **Direct-cycle helium gas turbine (Brayton)** · `alternate-power-cycles/direct-cycle-helium-brayton` · origin `nrc`
+    - sources: `rg-1.232-rev0` App. C, MHTGR-DC 4 rationale; `jrc-eur-28712` Brayton cycle with a gas turbine placed directly in the hot gas
+    - cross-links: `02-nuclear-safety/reactor-coolant-system/coolant-pumps-and-circulators`
+  - [ ] **Combined cycles (helium / gas mixtures)** · `alternate-power-cycles/combined-cycles` · origin `nrc`
+    - sources: `jrc-eur-28712` power conversion options table (He/mixture: combined cycles)
+  - [ ] **Supercritical CO2 power cycles** · `alternate-power-cycles/supercritical-co2-cycles` · origin `nrc`
+    - sources: 
+    - **note for review:** No source in the corpus yet; deferred until literature is supplied.
+  - [ ] **Air-Brayton combined cycle (FHR)** · `alternate-power-cycles/air-brayton-combined-cycle` · origin `nrc`
+    - sources: 
+    - **note for review:** No source in the corpus yet; deferred until literature is supplied.
 
 ### Conduct of operations (`02-nuclear-safety/conduct-of-operations`)
 

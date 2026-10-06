@@ -102,6 +102,15 @@ tier = "standard"
 file = "kovan-standard-open-corpus/nrc/nureg-0654-fema-rep-1-rev2-2019.pdf"
 licence = "U.S. Government work"
 
+[[document]]
+id = "jrc-eur-28712"
+title = "K. Kugeler, H. Nabielek, D. Buckthorpe, The High Temperature Gas-cooled Reactor: Safety considerations of the (V)HTR-Modul, EUR 28712 EN"
+publisher = "European Commission, Joint Research Centre (Publications Office of the European Union)"
+date = "2017"
+tier = "standard"
+file = "kovan-standard-open-corpus/eu-jrc/kjna28712enn.pdf"
+licence = "reuse authorised provided the source is acknowledged (Decision 2011/833/EU)"
+
 [[node]]
 path = "01-national-position"
 title = "National position"

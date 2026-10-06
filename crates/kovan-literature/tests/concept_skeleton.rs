@@ -96,9 +96,12 @@ fn every_source_links_to_a_declared_document_and_every_document_is_used() {
             used.insert(src.document.as_str());
         }
     }
+    // A document may be cited by the skeleton or by the concept proposals.
+    let proposals = include_str!("../src/concept_proposals.toml");
     for d in &s.document {
         assert!(matches!(d.tier.as_str(), "standard" | "private"), "{}: tier {}", d.id, d.tier);
-        assert!(used.contains(d.id.as_str()), "document {} is never cited", d.id);
+        let cited = used.contains(d.id.as_str()) || proposals.contains(&format!("document = \"{}\"", d.id));
+        assert!(cited, "document {} is never cited", d.id);
     }
 }
 

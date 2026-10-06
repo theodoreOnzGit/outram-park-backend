@@ -10,7 +10,8 @@
 //             (EC Decision 2011/833/EU). OPEN literature.
 // In-repo   : crates/kovan-literature/generated/markdown/open/vhtr-modul-safety-jrc.md
 //             (catalogue entry `kugeler2017vhtr`; PDF in the `reactor-literature`
-//             submodule as theodore-open-corpus/jrc/kjna28712enn.pdf).
+//             submodule as kovan-standard-open-corpus/eu-jrc/kjna28712enn.pdf;
+//             moved there from theodore-open-corpus/jrc/ on 2026-10-06).
 // Scope     : only the published burn-leach and free-uranium TABLES are
 //             reproduced here, with citation, as scientific facts.
 
