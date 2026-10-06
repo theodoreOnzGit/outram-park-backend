@@ -736,35 +736,35 @@ path = "02-nuclear-safety/engineered-safety-features/emergency-core-cooling"
 title = "Emergency core cooling system"
 origin = "nrc"
 sources = [{ document = "nureg-0800-toc-rev6", section = "6.3" }, { document = "nureg-1537-part1", section = "6.2.3" }, { document = "rg-1.232-rev0", section = "App. C, MHTGR-DC 35" }]
-status = "proposed"
+status = "approved"
 
 [[concept]]
 path = "02-nuclear-safety/engineered-safety-features/confinement"
 title = "Confinement"
 origin = "nrc"
 sources = [{ document = "nureg-1537-part1", section = "6.2.1 Confinement" }]
-status = "proposed"
+status = "approved"
 
 [[concept]]
 path = "02-nuclear-safety/engineered-safety-features/control-room-habitability"
 title = "Control room habitability system"
 origin = "nrc"
 sources = [{ document = "nureg-0800-toc-rev6", section = "6.4" }, { document = "ornl-tm-2018-976", section = "3.3.4" }]
-status = "proposed"
+status = "approved"
 
 [[concept]]
 path = "02-nuclear-safety/engineered-safety-features/fission-product-cleanup-systems"
 title = "ESF atmosphere cleanup and fission product control systems"
 origin = "nrc"
 sources = [{ document = "nureg-0800-toc-rev6", section = "6.5.1-6.5.5" }]
-status = "proposed"
+status = "approved"
 
 [[concept]]
 path = "02-nuclear-safety/engineered-safety-features/esf-materials"
 title = "Engineered safety features materials"
 origin = "nrc"
 sources = [{ document = "nureg-0800-toc-rev6", section = "6.1.1; 6.1.2" }, { document = "ornl-tm-2018-976", section = "3.3.1" }]
-status = "proposed"
+status = "approved"
 
 # ============================================================================
 # 02-nuclear-safety / containment
@@ -784,28 +784,28 @@ path = "02-nuclear-safety/containment/containment-functional-design"
 title = "Containment functional design (incl. mass and energy release analyses)"
 origin = "nrc"
 sources = [{ document = "nureg-0800-toc-rev6", section = "6.2.1-6.2.1.5" }]
-status = "proposed"
+status = "approved"
 
 [[concept]]
 path = "02-nuclear-safety/containment/containment-heat-removal"
 title = "Containment heat removal systems"
 origin = "nrc"
 sources = [{ document = "nureg-0800-toc-rev6", section = "6.2.2" }]
-status = "proposed"
+status = "approved"
 
 [[concept]]
 path = "02-nuclear-safety/containment/containment-isolation-and-leakage-testing"
 title = "Containment isolation and leakage testing"
 origin = "nrc"
 sources = [{ document = "nureg-0800-toc-rev6", section = "6.2.4; 6.2.6" }]
-status = "proposed"
+status = "approved"
 
 [[concept]]
 path = "02-nuclear-safety/containment/combustible-gas-control"
 title = "Combustible gas control in containment"
 origin = "nrc"
 sources = [{ document = "nureg-0800-toc-rev6", section = "6.2.5" }]
-status = "proposed"
+status = "approved"
 
 # ============================================================================
 # 02-nuclear-safety / instrumentation-and-control
@@ -816,43 +816,43 @@ path = "02-nuclear-safety/instrumentation-and-control/reactor-protection-system"
 title = "Reactor trip (protection) system"
 origin = "nrc"
 sources = [{ document = "nureg-0800-toc-rev6", section = "7.2 Reactor Trip System" }, { document = "nureg-1537-part1", section = "7.4 Reactor Protection System" }, { document = "rg-1.232-rev0", section = "App. C, MHTGR-DC 20-25" }]
-status = "proposed"
+status = "approved"
 
 [[concept]]
 path = "02-nuclear-safety/instrumentation-and-control/engineered-safety-features-actuation"
 title = "Engineered safety features (actuation) systems"
 origin = "nrc"
 sources = [{ document = "nureg-0800-toc-rev6", section = "7.3" }, { document = "nureg-1537-part1", section = "7.5" }]
-status = "proposed"
+status = "approved"
 
 [[concept]]
 path = "02-nuclear-safety/instrumentation-and-control/control-systems"
 title = "Control systems"
 origin = "nrc"
 sources = [{ document = "nureg-0800-toc-rev6", section = "7.7 Control Systems" }, { document = "rg-1.232-rev0", section = "App. C, MHTGR-DC 13 Instrumentation and control" }]
-status = "proposed"
+status = "approved"
 
 [[concept]]
 path = "02-nuclear-safety/instrumentation-and-control/information-systems-and-displays"
 title = "Information systems important to safety; control console and display instruments"
 origin = "nrc"
 sources = [{ document = "nureg-0800-toc-rev6", section = "7.5" }, { document = "nureg-1537-part1", section = "7.6" }]
-status = "proposed"
+status = "approved"
 
 [[concept]]
 path = "02-nuclear-safety/instrumentation-and-control/radiation-monitoring-systems"
 title = "Radiation monitoring systems"
 origin = "nrc"
 sources = [{ document = "nureg-1537-part1", section = "7.7" }]
-status = "proposed"
+status = "approved"
 
 [[concept]]
 path = "02-nuclear-safety/instrumentation-and-control/digital-i-and-c-software"
 title = "Digital instrumentation and control: software reviews"
 origin = "nrc"
 sources = [{ document = "nureg-0800-toc-rev6", section = "7.0-A; BTP 7-14 Guidance on Software Reviews for Digital Computer-Based Instrumentation and Controls Systems" }]
-cross_links = ["07-regulatory-framework/quality-assurance"]
-status = "proposed"
+cross_links = ["07-regulatory-framework/quality-assurance/software-quality-assurance", "07-regulatory-framework/quality-assurance"]
+status = "approved"
 
 # ============================================================================
 # 02-nuclear-safety / auxiliary-systems
@@ -864,35 +864,35 @@ title = "Fuel storage and handling (incl. criticality safety of fresh and spent 
 origin = "nrc"
 sources = [{ document = "nureg-0800-toc-rev6", section = "9.1.1-9.1.5" }, { document = "rg-1.232-rev0", section = "App. C, MHTGR-DC 61, 62" }, { document = "ornl-tm-2018-976", section = "3.4.1" }]
 cross_links = ["16-nuclear-fuel-cycle/nuclear-criticality-safety"]
-status = "proposed"
+status = "approved"
 
 [[concept]]
 path = "02-nuclear-safety/auxiliary-systems/cooling-water-and-ultimate-heat-sink"
 title = "Cooling fluids and ultimate heat sink"
 origin = "nrc"
 sources = [{ document = "nureg-0800-toc-rev6", section = "9.2.1-9.2.6 (9.2.5 Ultimate Heat Sink)" }, { document = "ornl-tm-2018-976", section = "3.4.2 (incl. fuel salt drain tank cooling system)" }]
-status = "proposed"
+status = "approved"
 
 [[concept]]
 path = "02-nuclear-safety/auxiliary-systems/ventilation-systems"
 title = "Heating, ventilation, and air conditioning systems"
 origin = "nrc"
 sources = [{ document = "nureg-0800-toc-rev6", section = "9.4.1-9.4.5" }, { document = "nureg-1537-part1", section = "9.1" }]
-status = "proposed"
+status = "approved"
 
 [[concept]]
 path = "02-nuclear-safety/auxiliary-systems/fire-protection"
 title = "Fire protection program"
 origin = "nrc"
 sources = [{ document = "nureg-0800-toc-rev6", section = "9.5.1" }]
-status = "proposed"
+status = "approved"
 
 [[concept]]
 path = "02-nuclear-safety/auxiliary-systems/cover-gas-control"
 title = "Cover gas control in closed primary coolant systems"
 origin = "nrc"
 sources = [{ document = "nureg-1537-part1", section = "9.6" }]
-status = "proposed"
+status = "approved"
 
 # ============================================================================
 # 02-nuclear-safety / steam-and-power-conversion   (SRP Ch. 10)

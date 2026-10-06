@@ -574,7 +574,7 @@
   - sources: `nureg-1537-part1` 7.7
 - [ ] **Digital instrumentation and control: software reviews** · `digital-i-and-c-software` · origin `nrc`
   - sources: `nureg-0800-toc-rev6` 7.0-A; BTP 7-14 Guidance on Software Reviews for Digital Computer-Based Instrumentation and Controls Systems
-  - cross-links: `07-regulatory-framework/quality-assurance`
+  - cross-links: `07-regulatory-framework/quality-assurance/software-quality-assurance`, `07-regulatory-framework/quality-assurance`
 
 ### Auxiliary systems (`02-nuclear-safety/auxiliary-systems`)
 
