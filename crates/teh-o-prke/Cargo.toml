@@ -30,7 +30,7 @@ exclude = ["pki", "docs", "verification_and_validation/*.csv"]
 row = 2
 topic = "neutronics"
 fidelity = 0
-maturity = 2
+maturity = 1
 
 [dependencies]
 approx.workspace = true
