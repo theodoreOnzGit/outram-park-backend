@@ -16,6 +16,16 @@ categories.workspace = true
 # record) stays in the package.
 exclude = ["docs", "upstream_source/cfMesh", "upstream_source/voro"]
 
+# Where this crate sits in kovan's code map (GitHub #729, #733; maintainer
+# decisions 2026-10-06). row: degree of integration, 0-1 utilities and
+# standalone crates, 2 domain solvers, 3 coupled multiphysics, 4 integrated
+# GUI apps. topic: the box it is drawn in. fidelity: its order in that box,
+# 1 = highest fidelity (longest crunch time, fewest assumptions).
+[package.metadata.kovan]
+row = 0
+topic = "utility"
+fidelity = 5
+
 # The volume-meshing core (VolumeMesh, cartesian, carve, snap) is pure Rust
 # with no dependencies, so the crate stays Android/Termux-buildable by default.
 # The optional `foam-export` feature adds the bridge to the real

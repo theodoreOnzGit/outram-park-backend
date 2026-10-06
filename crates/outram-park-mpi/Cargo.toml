@@ -17,6 +17,16 @@ categories.workspace = true
 # docs/ is a repo-only provenance/design aid, never shipped in the package.
 exclude = ["docs"]
 
+# Where this crate sits in kovan's code map (GitHub #729, #733; maintainer
+# decisions 2026-10-06). row: degree of integration, 0-1 utilities and
+# standalone crates, 2 domain solvers, 3 coupled multiphysics, 4 integrated
+# GUI apps. topic: the box it is drawn in. fidelity: its order in that box,
+# 1 = highest fidelity (longest crunch time, fewest assumptions).
+[package.metadata.kovan]
+row = 0
+topic = "utility"
+fidelity = 2
+
 [dependencies]
 # Pure-Rust, Android-safe deps only (std threads/sync for the shared-memory
 # transport; no C/FFI, no system MPI). `thiserror` provides the crate error enum.

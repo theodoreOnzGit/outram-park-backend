@@ -21,6 +21,16 @@ categories.workspace = true
 # 10 MiB limit (10.5 MiB compressed), so exclude them (kept in-repo for tests).
 exclude = ["verification_and_validation/*.csv", "docs", "upstream_source/GeN-Foam", "tutorials"]
 
+# Where this crate sits in kovan's code map (GitHub #729, #733; maintainer
+# decisions 2026-10-06). row: degree of integration, 0-1 utilities and
+# standalone crates, 2 domain solvers, 3 coupled multiphysics, 4 integrated
+# GUI apps. topic: the box it is drawn in. fidelity: its order in that box,
+# 1 = highest fidelity (longest crunch time, fewest assumptions).
+[package.metadata.kovan]
+row = 2
+topic = "thermal-hydraulics"
+fidelity = 2
+
 [dependencies]
 thiserror.workspace = true
 uom.workspace = true

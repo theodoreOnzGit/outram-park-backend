@@ -13,6 +13,17 @@ categories.workspace = true
 # write-ups). Excluded so it never ships to crates.io.
 exclude = ["docs"]
 
+# Where this crate sits in kovan's code map (GitHub #729, #733; maintainer
+# decisions 2026-10-06). row: degree of integration, 0-1 utilities and
+# standalone crates, 2 domain solvers, 3 coupled multiphysics, 4 integrated
+# GUI apps. topic: the box it is drawn in. fidelity: its order in that box,
+# 1 = highest fidelity (longest crunch time, fewest assumptions).
+[package.metadata.kovan]
+row = 4
+topic = "app"
+fidelity = 4
+maturity = "placeholder"
+
 # Every PSA-related crate, all three levels, declared by maintainer direction
 # (2026-10-06: "pasir ris should depend on any PSA related crate yeah... all 3
 # levels at lower-ish fidelity") before any code calls into them, so the code

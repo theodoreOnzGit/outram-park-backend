@@ -35,6 +35,16 @@ include = [
 # and never shipped in the packaged crate.
 exclude = ["docs", "verification_and_validation/*.csv"]
 
+# Where this crate sits in kovan's code map (GitHub #729, #733; maintainer
+# decisions 2026-10-06). row: degree of integration, 0-1 utilities and
+# standalone crates, 2 domain solvers, 3 coupled multiphysics, 4 integrated
+# GUI apps. topic: the box it is drawn in. fidelity: its order in that box,
+# 1 = highest fidelity (longest crunch time, fewest assumptions).
+[package.metadata.kovan]
+row = 2
+topic = "neutronics"
+fidelity = 2
+
 [dependencies]
 # PETIR supplies the special functions ACER's MF=5 LF=12 (Madland-Nix) needs:
 # the exponential integral E_1 and the lower incomplete gamma, both ported from
