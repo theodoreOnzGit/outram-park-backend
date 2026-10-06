@@ -28,6 +28,9 @@ maturity = 1
 
 [dependencies]
 kovan-common.workspace = true
+# The Zotero schema generator (`zotero` module, GitHub #748) reads schema.json.
+serde.workspace = true
+serde_json.workspace = true
 # Placeholder stage: no macro/codegen crates yet. When implementing, `syn`,
 # `quote`, and `proc-macro2` are the expected additions for procedural macros;
 # declarative macros and `build.rs` generation need no extra deps.

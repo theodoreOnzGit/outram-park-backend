@@ -39,6 +39,23 @@ complete. The templates are plain-`f64` kernels and carry no `uom` types.
 The correctness checks behind each generated method (methodology and the
 tolerances reached) are listed in `DECISIONS.md`.
 
+## Zotero schema tables
+
+`kovan_codegen::zotero::generate_schema_rs` (GitHub #748) reads Zotero's
+`schema.json` and emits the Rust tables committed as
+`kovan-common/src/zotero/schema_generated.rs`. Unlike the method templates it
+reads input, but it is still deterministic: the output is a pure function of
+the input text. Regenerate and check with
+
+```bash
+cargo run --release -p kovan-codegen --example zotero_schema -- \
+    vendor/zotero-schema/schema.json crates/kovan-common/src/zotero/schema_generated.rs
+cargo test --release -p kovan-codegen --test zotero_schema_regen
+```
+
+The test skips (and says so) when `vendor/zotero-schema/` is absent, as on CI.
+Ported from Zotero (AGPL-3.0); see [`NOTICE`](NOTICE).
+
 ## Example
 
 ```bash

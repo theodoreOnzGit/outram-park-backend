@@ -16,9 +16,12 @@ it must be AGPL; the maintainer chose to make the whole family AGPL rather
 than confine the port to one crate.
 
 Copyright: the maintainer holds the copyright of this crate's code. It was
-checked for third-party code before the relicense (2026-10-07): none. The
+checked for third-party code before the relicense (2026-10-07): none. ~~The
 one "ported" module in the family's libraries, kovan-common's `fuzzy`, is
-ported from the njoy TUI in this same workspace, same copyright holder.
+ported from the njoy TUI in this same workspace, same copyright holder.~~
+CORRECTED 2026-10-07: that was true when the relicense was made; the Zotero
+port (below) has since added third-party AGPL code. `fuzzy` remains ported
+from the njoy TUI in this workspace, same copyright holder.
 
 Versions already published on crates.io (kovan-codegen <= 0.0.1) stay
 GPL-3.0-only; the AGPL applies from the next published version.
@@ -26,3 +29,26 @@ GPL-3.0-only; the AGPL applies from the next published version.
 Dependents: no crate outside the kovan family depends on this one (checked
 with `cargo metadata`, 2026-10-07); `dhoby-ghaut`, which depends on `kovan`,
 has been AGPL-3.0-only since 2026-10-05.
+
+Upstream: Zotero (2026-10-07, GitHub #747, #748)
+------------------------------------------------
+
+`src/zotero/` generates kovan-common's Zotero schema tables from Zotero's
+schema. It follows the order in which the Zotero client registers fields and
+creator types (zotero xpcom/schema.js `_updateGlobalSchema`) and the CSL
+tables of Zotero utilities' schema.js `Schema.init`. Zotero is free software
+under the GNU Affero General Public License, version 3 or later; this crate
+takes it under AGPL-3.0-only.
+
+  Copyright (c) Corporation for Digital Scholarship, Vienna, Virginia, USA.
+  https://www.zotero.org
+
+  zotero         https://github.com/zotero/zotero         commit 9cbba8c4d281
+  utilities      https://github.com/zotero/utilities      commit 4051881d59c6
+  zotero-schema  https://github.com/zotero/zotero-schema  commit b86c79b56479
+                 schema.json (version 45). No licence text upstream; treated
+                 as AGPLv3 as part of Zotero, maintainer decision 2026-10-07,
+                 #747. (The repository has no LICENSE file; Zotero ships it as
+                 a submodule of the AGPL client.)
+
+Upstream code was read, not run.

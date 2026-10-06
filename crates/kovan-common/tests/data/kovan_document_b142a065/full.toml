@@ -1,0 +1,37 @@
+id = "icsbep-heu-met-fast-001"
+slug = "godiva-heu-met-fast-001"
+visibility = "Open"
+document_type = "Benchmark"
+title = "HEU-MET-FAST-001 (Godiva) bare critical sphere"
+abstract_text = "Bare, highly-enriched uranium metal critical sphere."
+year = 2016
+doi = "10.1234/icsbep"
+journal = "International Handbook of Evaluated Criticality Safety Benchmarks"
+institution = "OECD Nuclear Energy Agency"
+publisher = "OECD/NEA"
+volume = "I"
+pages = "1-120"
+number = "HEU-MET-FAST-001"
+keywords = ["criticality"]
+tags = ["bare-sphere"]
+source_url = "https://www.oecd-nea.org/"
+source_path = "open/benchmarks/heu-met-fast-001.pdf"
+source_sha256 = "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+page_count = 120
+assets = ["heu-met-fast-001-img000.jpg"]
+related_symbols = ["sym-godiva-model"]
+related_repositories = ["repo-outram-mc-libs"]
+related_benchmarks = ["bench-godiva"]
+markdown_body = """
+# Godiva
+
+Bare critical sphere benchmark."""
+
+[[authors]]
+family = "ICSBEP"
+given = ""
+affiliation = "OECD/NEA"
+
+[[authors]]
+family = "Smith"
+given = "Jane"

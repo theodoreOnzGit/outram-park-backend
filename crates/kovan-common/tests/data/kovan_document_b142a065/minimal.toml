@@ -1,0 +1,14 @@
+id = "doc-1"
+slug = "smith2020"
+visibility = "Proprietary"
+document_type = "Paper"
+title = "A Title"
+authors = []
+abstract_text = ""
+keywords = []
+tags = []
+assets = []
+related_symbols = []
+related_repositories = []
+related_benchmarks = []
+markdown_body = ""

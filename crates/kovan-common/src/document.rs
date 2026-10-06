@@ -162,6 +162,15 @@ pub struct KovanDocument {
     /// The document body as Markdown (generated from the source PDF). Empty
     /// string before the PDF-import pipeline has run (see `kovan-literature`).
     pub markdown_body: String,
+
+    /// The Zotero item this document was imported from, verbatim (GitHub
+    /// #748), so that exporting back to Zotero loses nothing kovan does not
+    /// hold. `None` for documents that did not come from Zotero, and for every
+    /// document written before 2026-10-07: the field is optional, defaults to
+    /// `None` and is not written when `None`, so existing JSON/TOML files load
+    /// and serialise exactly as before. See [`crate::zotero::kovan`].
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub zotero_item: Option<crate::zotero::ZoteroItem>,
 }
 
 impl KovanDocument {
@@ -204,6 +213,7 @@ impl KovanDocument {
             related_repositories: Vec::new(),
             related_benchmarks: Vec::new(),
             markdown_body: String::new(),
+            zotero_item: None,
         }
     }
 
@@ -380,6 +390,12 @@ impl KovanDocumentBuilder {
     /// Set the generated Markdown body.
     pub fn markdown_body(mut self, body: impl Into<String>) -> Self {
         self.doc.markdown_body = body.into();
+        self
+    }
+
+    /// Attach the Zotero item the document was imported from.
+    pub fn zotero_item(mut self, item: crate::zotero::ZoteroItem) -> Self {
+        self.doc.zotero_item = Some(item);
         self
     }
 
