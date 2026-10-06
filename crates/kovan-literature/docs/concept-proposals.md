@@ -6,20 +6,21 @@
 
 ## Counts
 
-- **L3 concepts: 194** (151 from the NRC/ORNL text, `nrc`; 43 needed by outram-park and named only implicitly, `outram-park`).
-- **L4 seed tags: 188** across 37 crates.
+- **L3 concepts: 195** (152 from the NRC/ORNL text, `nrc`; 43 needed by outram-park and named only implicitly, `outram-park`).
+- **L4 seed tags: 190** across 38 crates.
 
 | Crate | Seed tags |
 |---|---|
 | `bedok` | 6 |
 | `bishan` | 1 |
-| `boon-lay` | 7 |
+| `boon-lay` | 8 |
 | `buangkok` | 6 |
 | `changi` | 7 |
 | `chem-eng-real-time-process-control-simulator` | 1 |
 | `dhoby-ghaut` | 2 |
 | `dover` | 1 |
 | `farrer-park` | 3 |
+| `kaki-bukit` | 1 |
 | `kovan` | 4 |
 | `kovan-literature` | 1 |
 | `kovan-metrics` | 2 |
@@ -122,6 +123,7 @@
     - [ ] add `//! kovan-concept: 02-nuclear-safety/fuel-system-design/fuel-salt-chemistry` to `crates/outram-park-fork-thermochimica/src/gem.rs`: CALPHAD Gibbs-energy minimisation. Molten-salt equilibrium thermochemistry: fission-product speciation, redox and solubility. (port of ORNL Thermochimica (BSD-3))
 - [ ] **TRISO coated-particle fuel as the primary fission-product barrier** · `triso-coated-particle-fuel` · origin `nrc`
   - sources: `rg-1.232-rev0` App. C, MHTGR-DC 10 Reactor design (rationale: TRISO is the primary fission product barrier; SARRDLs)
+  - cross-links: `02-nuclear-safety/containment/functional-containment`
   - [ ] **TRISO coated-particle failure (pressure-vessel failure under accident conditions)** · `triso-coated-particle-fuel/triso-particle-failure` · origin `outram-park`
     - sources: `rg-1.232-rev0` App. C, MHTGR-DC 10 rationale
     - why: boon-lay computes particle failure fractions; the RG names TRISO retention, not the failure mechanisms.
@@ -501,6 +503,7 @@
 - [ ] **Functional containment** · `functional-containment` · origin `nrc`
   - sources: `rg-1.232-rev0` App. C, MHTGR-DC 16 Containment design (and its rationale); `ornl-tm-2018-976` 3.3.2
   - **note for review:** The brief suggested functional containment under fuel-system-design; the skeleton's containment node names it, so it is placed here (TRISO retention stays under fuel-system-design).
+  - cross-links: `02-nuclear-safety/fuel-system-design/triso-coated-particle-fuel`
   - proposed kovan-concept tags:
     - [ ] add `//! kovan-concept: 02-nuclear-safety/containment/functional-containment` to `crates/bishan/src/building.rs`: HTR-10 vented confinement as one control volume. The reactor building's lumped response, the outermost barrier of functional containment. (new work)
 - [ ] **Containment functional design (incl. mass and energy release analyses)** · `containment-functional-design` · origin `nrc`
@@ -621,6 +624,10 @@
   - sources: `nureg-1537-part1` 13.1.1
 - [ ] **External events; experiment malfunction; mishandling or malfunction of equipment** · `external-events-and-experiment-malfunction` · origin `nrc`
   - sources: `nureg-1537-part1` 13.1.6; 13.1.8; 13.1.9
+- [ ] **Air and moisture (water) ingress** · `air-and-moisture-ingress` · origin `nrc`
+  - sources: `rg-1.232-rev0` Appendix C, MHTGR-DC 14 (reactor helium pressure boundary: unacceptable ingress of moisture, air, secondary coolant); MHTGR-DC 30 (means of detecting ingress)
+  - proposed kovan-concept tags:
+    - [ ] add `//! kovan-concept: 02-nuclear-safety/accident-analysis/air-and-moisture-ingress` to `crates/boon-lay/src/chemistry/mod.rs`: Graphite and fuel chemical attack. IG-110 graphite oxidation by steam and air, and UO2 kernel hydrolysis: cited closed-form rate laws used by htgr_sim_v1's water-ingress stage. (new work)
 
 ### Technical specifications (`02-nuclear-safety/technical-specifications`)
 
@@ -843,19 +850,6 @@
 - [ ] **Criticality accident alarm system** · `criticality-accident-alarm-system` · origin `nrc`
   - sources: `nureg-1520-rev2` 5.4.3.1.2
 
-### Chemical process safety (`16-nuclear-fuel-cycle/chemical-process-safety`)
-
-- [ ] **Chemical process simulation (flowsheets, reactors, separation columns)** · `chemical-process-simulation` · origin `outram-park`
-  - sources: `nureg-1520-rev2` Ch. 6 Chemical Process Safety
-  - why: the DWSIM port; the maintainer's scope for issue 18 (industrial involvement: chemical processes) has no L2 node yet, so it is parked here.
-  - **note for review:** Placement is provisional: 18-industrial-involvement has no L2 node. Consider adding one (IAEA §3.18) and moving this concept there.
-  - proposed kovan-concept tags:
-    - [ ] add `//! kovan-concept: 16-nuclear-fuel-cycle/chemical-process-safety/chemical-process-simulation` to `crates/outram-park-fork-dwsim-libs/src/flowsheet_solver/mod.rs`: Sequential-modular flowsheet solver. Ordering, recycle and spec handling for process flowsheets. (port of DWSIM)
-    - [ ] add `//! kovan-concept: 16-nuclear-fuel-cycle/chemical-process-safety/chemical-process-simulation` to `crates/outram-park-fork-dwsim-libs/src/reactors/mod.rs`: Chemical reactor unit operations. Conversion, equilibrium, Gibbs, CSTR and PFR reactors. (port of DWSIM.UnitOperations/Reactors)
-    - [ ] add `//! kovan-concept: 16-nuclear-fuel-cycle/chemical-process-safety/chemical-process-simulation` to `crates/outram-park-fork-dwsim-libs/src/columns/mod.rs`: Rigorous distillation and absorption columns. MESH column models and solvers. (port of DWSIM (commit 1abf72d))
-    - [ ] add `//! kovan-concept: 16-nuclear-fuel-cycle/chemical-process-safety/chemical-process-simulation` to `crates/outram-park-fork-dwsim-libs/src/dynamics/mod.rs`: Dynamic flowsheet simulation. Schedules, integrators, events and cause-and-effect matrices. (port of DWSIM)
-    - [ ] add `//! kovan-concept: 16-nuclear-fuel-cycle/chemical-process-safety/chemical-process-simulation` to `crates/dover/src/smr.rs`: Steam-methane-reforming CSTR deck. Deck-driven SMR reactor model on the DWSIM fork. (new work)
-
 ### Fuel depletion and burnup (`16-nuclear-fuel-cycle/fuel-depletion`)
 
 - [ ] **Depletion solvers (Bateman equations, matrix exponential, Monte Carlo transmutation)** · `depletion-solvers` · origin `outram-park`
@@ -897,7 +891,27 @@
 - [ ] **Release criteria and final survey** · `release-criteria-and-final-survey` · origin `nrc`
   - sources: `nureg-1537-part1` 17.1.4
 
-## L2 nodes with no proposed concept (37)
+## Industrial involvement (`18-industrial-involvement`)
+
+### Process heat and industrial applications (`18-industrial-involvement/process-heat-and-industrial-applications`)
+
+- [ ] **Chemical process simulation (flowsheets, reactors, separation columns)** · `chemical-process-simulation` · origin `outram-park`
+  - sources: `iaea-ng-g-3.1-rev1` 3.18; `nureg-1520-rev2` Ch. 6 Chemical Process Safety
+  - why: the DWSIM port (chemical processes; process heat applications), maintainer 2026-10-06.
+  - **note for review:** Provisional (maintainer, 2026-10-06): under 18 industrial involvement, cross-linked to fuel-cycle chemical process safety.
+  - cross-links: `16-nuclear-fuel-cycle/chemical-process-safety`
+  - proposed kovan-concept tags:
+    - [ ] add `//! kovan-concept: 18-industrial-involvement/process-heat-and-industrial-applications/chemical-process-simulation` to `crates/outram-park-fork-dwsim-libs/src/flowsheet_solver/mod.rs`: Sequential-modular flowsheet solver. Ordering, recycle and spec handling for process flowsheets. (port of DWSIM)
+    - [ ] add `//! kovan-concept: 18-industrial-involvement/process-heat-and-industrial-applications/chemical-process-simulation` to `crates/outram-park-fork-dwsim-libs/src/reactors/mod.rs`: Chemical reactor unit operations. Conversion, equilibrium, Gibbs, CSTR and PFR reactors. (port of DWSIM.UnitOperations/Reactors)
+    - [ ] add `//! kovan-concept: 18-industrial-involvement/process-heat-and-industrial-applications/chemical-process-simulation` to `crates/outram-park-fork-dwsim-libs/src/columns/mod.rs`: Rigorous distillation and absorption columns. MESH column models and solvers. (port of DWSIM (commit 1abf72d))
+    - [ ] add `//! kovan-concept: 18-industrial-involvement/process-heat-and-industrial-applications/chemical-process-simulation` to `crates/outram-park-fork-dwsim-libs/src/dynamics/mod.rs`: Dynamic flowsheet simulation. Schedules, integrators, events and cause-and-effect matrices. (port of DWSIM)
+    - [ ] add `//! kovan-concept: 18-industrial-involvement/process-heat-and-industrial-applications/chemical-process-simulation` to `crates/dover/src/smr.rs`: Steam-methane-reforming CSTR deck. Deck-driven SMR reactor model on the DWSIM fork. (new work)
+
+## Leaves attached directly to skeleton nodes
+
+- [ ] `16-nuclear-fuel-cycle/fuel-cycle-scenarios`: `kaki-bukit` `agents`
+
+## L2 nodes with no proposed concept (39)
 
 Left empty on purpose: a single short source chapter, a fuel-cycle-facility or environmental-review chapter with no outram-park work and no subsection grain worth splitting, or an L2 whose only source is the IAEA text. They stay greyed until content arrives.
 
@@ -935,6 +949,8 @@ Left empty on purpose: a single short source chapter, a fuel-cycle-facility or e
 - `14-emergency-planning/emergency-plan-development-and-review` (Responsibility for the planning effort)
 - `14-emergency-planning/emergency-management` (Emergency management (fuel cycle facilities))
 - `15-nuclear-security/physical-protection` (Physical protection)
+- `16-nuclear-fuel-cycle/fuel-cycle-scenarios` (Fuel cycle scenarios and material flows)
 - `16-nuclear-fuel-cycle/fuel-cycle-facility-general-information` (General information (fuel cycle facilities))
+- `16-nuclear-fuel-cycle/chemical-process-safety` (Chemical process safety)
 - `16-nuclear-fuel-cycle/fire-safety` (Fire safety)
 - `16-nuclear-fuel-cycle/heu-to-leu-conversion` (HEU to LEU conversion)

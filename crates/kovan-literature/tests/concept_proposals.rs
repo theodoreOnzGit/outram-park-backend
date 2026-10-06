@@ -78,6 +78,8 @@ struct Implementation {
     kind: String,
     #[serde(default)]
     upstream: Option<String>,
+    #[serde(default)]
+    cross_links: Vec<String>,
     status: String,
 }
 
@@ -138,7 +140,7 @@ fn concepts_are_unique_and_hang_under_existing_nodes() {
         assert!(seen.insert(c.path.as_str()), "duplicate concept path {}", c.path);
         assert!(c.path.split('/').count() >= 3, "{}: a concept sits below an L2 node", c.path);
         assert!(!c.title.is_empty(), "{}: no title", c.path);
-        assert_eq!(c.status, "proposed", "{}", c.path);
+        assert!(matches!(c.status.as_str(), "proposed" | "approved"), "{}: status {}", c.path, c.status);
         for seg in c.path.split('/').skip(1) {
             assert!(
                 !seg.is_empty() && seg.chars().all(|ch| ch.is_ascii_lowercase() || ch.is_ascii_digit() || ch == '-'),
@@ -190,10 +192,13 @@ fn implementations_name_existing_concepts_crates_and_modules() {
     let mut missing = Vec::new();
     for i in &p.implementation {
         assert!(concepts.contains(i.concept.as_str()), "{}::{}: concept {} does not exist", i.krate, i.module, i.concept);
+        for x in &i.cross_links {
+            assert!(concepts.contains(x.as_str()), "{}::{}: cross-link {x} does not exist", i.krate, i.module);
+        }
         assert!(members.contains(&i.krate), "{}: not a workspace member under crates/", i.krate);
         assert!(seen.insert((i.concept.as_str(), i.krate.as_str(), i.module.as_str())), "duplicate leaf {} {}::{}", i.concept, i.krate, i.module);
         assert!(!i.title.is_empty() && !i.what.is_empty(), "{}::{}: title and what are required", i.krate, i.module);
-        assert_eq!(i.status, "proposed", "{}::{}", i.krate, i.module);
+        assert!(matches!(i.status.as_str(), "proposed" | "approved"), "{}::{}: status {}", i.krate, i.module, i.status);
         match i.kind.as_str() {
             "port" => assert!(i.upstream.is_some(), "{}::{}: a port names its upstream", i.krate, i.module),
             "new-work" => {}
