@@ -451,6 +451,24 @@ enum Command {
         #[arg(short, long)]
         out: Option<PathBuf>,
     },
+    /// The workspace call graph (GitHub #737): crate -> module/example ->
+    /// function, every resolved call with its call-site lines, unresolved
+    /// calls per function, module and crate aggregates, and each function's
+    /// source, as deterministic JSON for the code-review UI. Calls are
+    /// resolved by rust-analyzer as in `code-walk`; nothing is guessed.
+    /// The whole workspace is slow (one definition query per call-shaped
+    /// token); `--crates` restricts the scope.
+    CallGraph {
+        /// Workspace root; found from the current directory when omitted.
+        #[arg(long)]
+        workspace: Option<PathBuf>,
+        /// Comma-separated crate names; every member when omitted.
+        #[arg(long)]
+        crates: Option<String>,
+        /// Output file; stdout when omitted.
+        #[arg(short, long)]
+        out: Option<PathBuf>,
+    },
     /// Regenerates every `<!-- code-walk: ... -->` block in the Markdown
     /// under the given paths and fails if one is stale, a concept path no
     /// longer connects, or a hand-filled hop names a function that no longer
@@ -661,6 +679,12 @@ fn run(command: Command) -> Result<(), String> {
             let (root, _) = commands::workspace::resolve(workspace.as_deref())
                 .map_err(|error| error.to_string())?;
             commands::code_map::run(&root, format, out)
+        }
+        Command::CallGraph { workspace, crates, out } => {
+            let (root, _) = commands::workspace::resolve(workspace.as_deref())
+                .map_err(|error| error.to_string())?;
+            let crates = crates.as_deref().map(commands::call_graph::parse_crates);
+            commands::call_graph::run(&root, crates, out)
         }
         Command::CodeWalkCheck {
             paths,

@@ -18,6 +18,7 @@
 pub mod affected;
 pub mod agent_docs_gen;
 pub mod api_docs;
+pub mod call_graph;
 pub mod ci;
 pub mod code_map;
 pub mod code_walk;
