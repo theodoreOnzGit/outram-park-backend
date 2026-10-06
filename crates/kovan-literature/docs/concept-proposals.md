@@ -940,6 +940,7 @@
   - sources: `nureg-1520-rev2` 5.4.3.1.4
 - [ ] **Calculational method validation (criticality code validation, margin of subcriticality)** · `calculational-method-validation` · origin `nrc`
   - sources: `nureg-1520-rev2` 5.4.3.1.7.1; Appendix 5-B (margin of subcriticality)
+  - cross-links: `02-nuclear-safety/nuclear-design/neutron-transport`, `07-regulatory-framework/quality-assurance/software-quality-assurance/verification-and-validation-records`
   - proposed kovan-concept tags:
     - [ ] add `//! kovan-concept: 16-nuclear-fuel-cycle/nuclear-criticality-safety/calculational-method-validation` to `crates/outram-mc-libs/src/vv.rs`: ICSBEP and oracle validation of the transport code. Benchmark gates that validate the criticality method. (new work)
 - [ ] **Criticality safety evaluations and controlled parameters** · `criticality-safety-evaluations` · origin `nrc`

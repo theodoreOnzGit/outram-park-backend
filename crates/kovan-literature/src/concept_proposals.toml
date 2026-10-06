@@ -1453,35 +1453,36 @@ path = "16-nuclear-fuel-cycle/nuclear-criticality-safety/subcriticality-and-doub
 title = "Subcriticality and double-contingency principle"
 origin = "nrc"
 sources = [{ document = "nureg-1520-rev2", section = "5.4.3.1.4" }]
-status = "proposed"
+status = "approved"
 
 [[concept]]
 path = "16-nuclear-fuel-cycle/nuclear-criticality-safety/calculational-method-validation"
 title = "Calculational method validation (criticality code validation, margin of subcriticality)"
 origin = "nrc"
 sources = [{ document = "nureg-1520-rev2", section = "5.4.3.1.7.1; Appendix 5-B (margin of subcriticality)" }]
-status = "proposed"
+cross_links = ["02-nuclear-safety/nuclear-design/neutron-transport", "07-regulatory-framework/quality-assurance/software-quality-assurance/verification-and-validation-records"]
+status = "approved"
 
 [[concept]]
 path = "16-nuclear-fuel-cycle/nuclear-criticality-safety/criticality-safety-evaluations"
 title = "Criticality safety evaluations and controlled parameters"
 origin = "nrc"
 sources = [{ document = "nureg-1520-rev2", section = "5.4.3.1.7.2; 5.4.3.1.7.3" }]
-status = "proposed"
+status = "approved"
 
 [[concept]]
 path = "16-nuclear-fuel-cycle/nuclear-criticality-safety/criticality-accident-alarm-system"
 title = "Criticality accident alarm system"
 origin = "nrc"
 sources = [{ document = "nureg-1520-rev2", section = "5.4.3.1.2" }]
-status = "proposed"
+status = "approved"
 
 [[concept]]
 path = "16-nuclear-fuel-cycle/integrated-safety-analysis/isa-methodology-and-summary"
 title = "Integrated safety analysis: methodology, documentation and summary"
 origin = "nrc"
 sources = [{ document = "nureg-1520-rev2", section = "3.3.1; 3.3.2; 5.4.3.2.1-5.4.3.2.3" }]
-status = "proposed"
+status = "approved"
 
 [[concept]]
 path = "18-industrial-involvement/process-heat-and-industrial-applications/chemical-process-simulation"
@@ -1499,7 +1500,7 @@ title = "Depletion solvers (Bateman equations, matrix exponential, Monte Carlo t
 origin = "outram-park"
 sources = [{ document = "nureg-1537-part1", section = "4.5.1 (changes in core reactivity with fuel burnup, plutonium buildup, and poisons)" }, { document = "iaea-ng-g-3.1-rev1", section = "3.16" }]
 why = "outram-mc's burnup loop, ONIX's CRAM and boon-lay's Lagrangian transmutation."
-status = "proposed"
+status = "approved"
 
 [[concept]]
 path = "16-nuclear-fuel-cycle/fuel-depletion/decay-data"
@@ -1507,7 +1508,7 @@ title = "Radioactive decay data and decay chains"
 origin = "outram-park"
 sources = [{ document = "iaea-ng-g-3.1-rev1", section = "3.16" }]
 why = "boon-lay's nuclide decay library feeds depletion and source terms."
-status = "proposed"
+status = "approved"
 
 [[concept]]
 path = "16-nuclear-fuel-cycle/fuel-depletion/irradiation-history"
@@ -1515,7 +1516,7 @@ title = "Burnup and fast-fluence accumulation (irradiation history)"
 origin = "outram-park"
 sources = [{ document = "nureg-0800-4.2-rev3", section = "II.3.C.i (burnup distribution in the fuel)" }]
 why = "fuel-performance bookkeeping that feeds the fuel-system models."
-status = "proposed"
+status = "approved"
 
 # ============================================================================
 # 17-radioactive-waste-management
