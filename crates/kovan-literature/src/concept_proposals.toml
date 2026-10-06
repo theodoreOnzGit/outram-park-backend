@@ -1414,35 +1414,35 @@ path = "14-emergency-planning/accident-assessment/release-magnitude-and-isotopic
 title = "Magnitude and isotopic composition of an ongoing or potential release"
 origin = "nrc"
 sources = [{ document = "nureg-0654-rev2", section = "I.1.a; I.4" }]
-status = "proposed"
+status = "approved"
 
 [[concept]]
 path = "14-emergency-planning/accident-assessment/airborne-radiological-assessment-model"
 title = "Radiological assessment model for airborne releases (dispersion model)"
 origin = "nrc"
 sources = [{ document = "nureg-0654-rev2", section = "I.1.b" }]
-status = "proposed"
+status = "approved"
 
 [[concept]]
 path = "14-emergency-planning/accident-assessment/field-monitoring-and-plume-tracking"
 title = "Field monitoring teams, plume location and tracking"
 origin = "nrc"
 sources = [{ document = "nureg-0654-rev2", section = "I.1.c; I.5; I.7; I.9" }]
-status = "proposed"
+status = "approved"
 
 [[concept]]
 path = "14-emergency-planning/accident-assessment/dose-projection"
 title = "Dose projection and its validation with field data"
 origin = "nrc"
 sources = [{ document = "nureg-0654-rev2", section = "I.8; I.10" }]
-status = "proposed"
+status = "approved"
 
 [[concept]]
 path = "14-emergency-planning/accident-assessment/drinking-water-contamination"
 title = "Contamination of drinking water through liquid release or deposition"
 origin = "nrc"
 sources = [{ document = "nureg-0654-rev2", section = "I.2" }]
-status = "proposed"
+status = "approved"
 
 # ============================================================================
 # 16-nuclear-fuel-cycle
