@@ -129,6 +129,10 @@ pub(crate) struct Walk {
     pub(crate) external_calls: usize,
     /// Set when the node cap stopped the search early.
     pub(crate) truncated: bool,
+    /// Every resolved call site, one entry per site (`graph.edges` keeps
+    /// only the first site per pair). `kovan-cli call-graph` (#737) reads
+    /// these for its per-edge line lists and call counts.
+    pub(crate) sites: Vec<Edge>,
 }
 
 impl Workspace {
@@ -148,7 +152,7 @@ impl Workspace {
         self.resolver.finish();
     }
 
-    fn index(&mut self, rel: &str) -> Result<&FileIndex, String> {
+    pub(crate) fn index(&mut self, rel: &str) -> Result<&FileIndex, String> {
         if !self.files.contains_key(rel) {
             let text = std::fs::read_to_string(self.root.join(rel))
                 .map_err(|e| format!("cannot read {rel}: {e}"))?;
@@ -194,7 +198,7 @@ impl Workspace {
         Some(s)
     }
 
-    fn node(rel: &str, d: &FnDecl) -> FnNode {
+    pub(crate) fn node(rel: &str, d: &FnDecl) -> FnNode {
         FnNode {
             file: rel.to_string(),
             qualname: d.qualname(),
@@ -232,6 +236,7 @@ impl Workspace {
             redundant_hand: Vec::new(),
             external_calls: 0,
             truncated: false,
+            sites: Vec::new(),
         };
         for h in hand {
             let a = self
@@ -354,7 +359,7 @@ impl Workspace {
                         continue;
                     }
                     let to = walk.graph.intern(Self::node(&rel, &d));
-                    walk.graph.add_edge(Edge {
+                    let edge = Edge {
                         from: id,
                         to,
                         call_line,
@@ -362,7 +367,9 @@ impl Workspace {
                             CandidateKind::FnValue => EdgeKind::FnValue,
                             _ => EdgeKind::Call,
                         },
-                    });
+                    };
+                    walk.sites.push(edge.clone());
+                    walk.graph.add_edge(edge);
                     continue;
                 }
                 if cand.kind == CandidateKind::FnValue || is_constructor(&target_text, &cand.name) {
