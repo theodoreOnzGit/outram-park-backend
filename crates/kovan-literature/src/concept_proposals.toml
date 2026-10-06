@@ -1323,84 +1323,86 @@ path = "13-environmental-protection/meteorology-and-air-quality/climatology-and-
 title = "Regional climatology and local meteorology"
 origin = "nrc"
 sources = [{ document = "nureg-0800-toc-rev6", section = "2.3.1; 2.3.2" }, { document = "nureg-1537-part1", section = "2.3.1; 2.3.2" }, { document = "nureg-1555", section = "2.7" }]
-status = "proposed"
+status = "approved"
 
 [[concept]]
 path = "13-environmental-protection/meteorology-and-air-quality/onsite-meteorological-measurements"
 title = "Onsite meteorological measurements programs"
 origin = "nrc"
 sources = [{ document = "nureg-0800-toc-rev6", section = "2.3.3" }, { document = "nureg-1555", section = "6.4 Meteorological Monitoring" }]
-status = "proposed"
+status = "approved"
 
 [[concept]]
 path = "13-environmental-protection/meteorology-and-air-quality/short-term-accident-dispersion"
 title = "Short term atmospheric dispersion estimates for accident releases"
 origin = "nrc"
 sources = [{ document = "nureg-0800-toc-rev6", section = "2.3.4" }]
-status = "proposed"
+cross_links = ["14-emergency-planning/accident-assessment"]
+status = "approved"
 
 [[concept]]
 path = "13-environmental-protection/meteorology-and-air-quality/long-term-routine-dispersion"
 title = "Long-term atmospheric dispersion estimates for routine releases"
 origin = "nrc"
 sources = [{ document = "nureg-0800-toc-rev6", section = "2.3.5" }]
-status = "proposed"
+status = "approved"
 
 [[concept]]
 path = "13-environmental-protection/meteorology-and-air-quality/relative-concentration-and-deposition"
 title = "Relative concentration (chi/Q) and relative deposition (D/Q), incl. wet deposition and decay in transit"
 origin = "nrc"
 sources = [{ document = "nureg-1555", section = "2.7, III. Review Procedures, item (5)" }]
-status = "proposed"
+status = "approved"
 
 [[concept]]
 path = "13-environmental-protection/radiological-impacts-of-normal-operation/exposure-pathways"
 title = "Exposure pathways"
 origin = "nrc"
 sources = [{ document = "nureg-1555", section = "5.4.1" }]
-status = "proposed"
+status = "approved"
 
 [[concept]]
 path = "13-environmental-protection/radiological-impacts-of-normal-operation/doses-to-members-of-the-public"
 title = "Radiation doses to members of the public"
 origin = "nrc"
 sources = [{ document = "nureg-1555", section = "5.4.2; 5.4.3" }]
-status = "proposed"
+cross_links = ["08-radiation-protection/radiation-protection"]
+status = "approved"
 
 [[concept]]
 path = "13-environmental-protection/radiological-impacts-of-normal-operation/impacts-to-biota"
 title = "Impacts to biota other than members of the public"
 origin = "nrc"
 sources = [{ document = "nureg-1555", section = "5.4.4" }]
-status = "proposed"
+status = "approved"
 
 [[concept]]
 path = "13-environmental-protection/environmental-monitoring/radiological-monitoring"
 title = "Radiological monitoring"
 origin = "nrc"
 sources = [{ document = "nureg-1555", section = "6.2" }, { document = "nureg-1537-part1", section = "11.1.7 Environmental Monitoring" }]
-status = "proposed"
+status = "approved"
 
 [[concept]]
 path = "13-environmental-protection/postulated-accident-impacts/design-basis-accident-consequences"
 title = "Environmental consequences of design basis accidents"
 origin = "nrc"
 sources = [{ document = "nureg-1555", section = "7.1" }]
-status = "proposed"
+status = "approved"
 
 [[concept]]
 path = "13-environmental-protection/postulated-accident-impacts/severe-accident-consequences"
 title = "Severe accidents and severe accident mitigation alternatives"
 origin = "nrc"
 sources = [{ document = "nureg-1555", section = "7.2; 7.3" }]
-status = "proposed"
+status = "approved"
 
 [[concept]]
 path = "13-environmental-protection/postulated-accident-impacts/transportation-accidents"
 title = "Transportation accidents"
 origin = "nrc"
 sources = [{ document = "nureg-1555", section = "7.4" }]
-status = "proposed"
+status = "approved"
 
 # ============================================================================
 # 14-emergency-planning / accident-assessment   (NUREG-0654 Rev. 2, Planning standard I)

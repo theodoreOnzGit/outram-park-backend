@@ -863,6 +863,7 @@
   - sources: `nureg-0800-toc-rev6` 2.3.3; `nureg-1555` 6.4 Meteorological Monitoring
 - [ ] **Short term atmospheric dispersion estimates for accident releases** · `short-term-accident-dispersion` · origin `nrc`
   - sources: `nureg-0800-toc-rev6` 2.3.4
+  - cross-links: `14-emergency-planning/accident-assessment`
   - proposed kovan-concept tags:
     - [ ] add `//! kovan-concept: 13-environmental-protection/meteorology-and-air-quality/short-term-accident-dispersion` to `crates/changi/src/flexpart/mod.rs`: FLEXPART Lagrangian particle dispersion. Advection, turbulence, convection and deposition of computational particles. (port of FLEXPART v10.4 (GPL-3.0))
     - [ ] add `//! kovan-concept: 13-environmental-protection/meteorology-and-air-quality/short-term-accident-dispersion` to `crates/changi/src/puff/mod.rs`: Gaussian puff forward dispersion. A continuous release as a train of Gaussian puffs. (port of puff R package 0.1.1 (MIT))
@@ -888,6 +889,7 @@
     - [ ] add `//! kovan-concept: 13-environmental-protection/radiological-impacts-of-normal-operation/exposure-pathways` to `crates/buangkok/src/pydoseia/plume_shine/mod.rs`: Plume shine. External gamma dose from the passing cloud (finite-cloud model). (port of pyDOSEIA)
 - [ ] **Radiation doses to members of the public** · `doses-to-members-of-the-public` · origin `nrc`
   - sources: `nureg-1555` 5.4.2; 5.4.3
+  - cross-links: `08-radiation-protection/radiation-protection`
   - proposed kovan-concept tags:
     - [ ] add `//! kovan-concept: 13-environmental-protection/radiological-impacts-of-normal-operation/doses-to-members-of-the-public` to `crates/buangkok/src/pydoseia/dose.rs`: Five-pathway dose. Dose to members of the public summed over pathways (research use only). (port of pyDOSEIA)
     - [ ] add `//! kovan-concept: 13-environmental-protection/radiological-impacts-of-normal-operation/doses-to-members-of-the-public` to `crates/buangkok/src/coefficients.rs`: EPA Federal Guidance Report dose coefficients. FGR-11/13/15 coefficients for the tracked nuclides. (new work, from US EPA FGR-11, FGR-13, FGR-15)
