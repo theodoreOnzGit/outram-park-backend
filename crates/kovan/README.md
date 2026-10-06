@@ -437,6 +437,19 @@ Function ids are `code-walk`'s `file.rs::name` / `file.rs::Type::name` (a
 use. The same commit gives byte-identical JSON. The model is
 `kovan::call_graph` (plain serde + std).
 
+**Schema 2 (#746, additions only).** Integration-test targets (`tests/*.rs`)
+are built too, in `CrateGraph::tests`; each non-test function lists the
+tests and examples that reach it through resolved calls, nearest 10 by hop
+count with totals (`reached_by`, a lower bound: unresolved calls are not
+followed); each file records its upstream counterpart from its attribution
+header (`upstream`, with a link only when a github/gitlab repository and a
+commit are both recorded, never guessed), its newest 10 commits from one
+history pass (`history`) and its `kovan-concept:` tags; each function lists
+the lesson, deep-dive and tutorial pages whose code-walk blocks pass
+through it (`cited_by`, with the Pages-site path and heading anchor); the
+document records the `commit` it was built at. On the measured pair:
+14.0 MB, 37 s warm.
+
 Measured 2026-10-06 (16-core desktop, rust-analyzer 1.98.0) on
 `outram-park-digital-twin-engine` (lib + 4 examples) and `boon-lay` (lib + 5
 examples): 3632 functions, 7288 calls (10536 sites), 1728 unresolved, 37641
@@ -729,8 +742,13 @@ cargo test --release -p kovan
   example module trees, a `#[cfg(test)]` module, a cross-crate method call
   from an example with both call-site lines, a function value, a trait gap,
   the module and crate aggregates, and byte-identical output on a second
-  run. Skips when `rust-analyzer` is not on PATH. Assembly order-independence
-  and the module-file rules are unit-tested in `src/call_graph/`.
+  run; schema 2's integration-test target, reach, header link and lesson
+  citation. Skips when `rust-analyzer` is not on PATH. Assembly
+  order-independence, the module-file rules, reach, header parsing,
+  citations and history parsing are unit-tested in `src/call_graph/`.
+- `tests/upstream_header_survey.rs` (`--ignored`, a measuring instrument) —
+  the attribution-header parser over every `.rs` file in `crates/`, with
+  per-crate counts and every unparsed header.
 - `tests/code_walk_rust_analyzer.rs` — `code-walk` and `code-walk-check`
   end to end against a real rust-analyzer on a throwaway crate (shortest
   chain, method resolution, trait and closure gaps, a lesson block with a

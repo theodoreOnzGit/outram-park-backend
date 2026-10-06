@@ -24,6 +24,39 @@
 //!   totals           counts of all of the above
 //! ```
 //!
+//! # Schema 2 (2026-10-06, GitHub #746): additions only
+//!
+//! Every schema-1 field keeps its name, type and meaning; a reader that
+//! ignores unknown fields reads schema 2 unchanged. Added (all omitted from
+//! the JSON when empty):
+//!
+//! ```text
+//! CallGraphDoc.commit            HEAD the data was built at
+//! CallGraphDoc.site_base         base URL of Citation.site paths
+//! CrateGraph.tests[]             integration-test targets (tests/*.rs),
+//!                                Target with kind "test"; same shape
+//! Module.upstream                {style, line, project, repository, version,
+//!                                 commit, source, files[], licence, url}
+//!                                from the attribution header; url only when
+//!                                repository (github/gitlab) and commit are
+//!                                both recorded: see [`upstream`]
+//! Module.upstream_unparsed       a provenance marker that could not be read
+//! Module.history[]               {sha, date, author, subject}, newest first,
+//!                                at most 10: see [`history`]
+//! Module.concepts[]              `//! kovan-concept:` tags
+//! Function.test_fn               carries #[test] (an entry point)
+//! Function.reached_by            {tests_total, tests[{hops, id}],
+//!                                 examples_total,
+//!                                 examples[{hops, crate, example, via}]},
+//!                                nearest 10 of each; resolved calls only,
+//!                                so a LOWER BOUND: see [`reach`]
+//! Function.cited_by[]            {kind: code_walk|concept_tag|relation,
+//!                                 page, line, anchor, site}: see [`citations`]
+//! Totals.{test_targets, test_fns, non_test_functions, reached_by_tests,
+//!   reached_by_examples, upstream_files, upstream_links, upstream_unparsed,
+//!   cited_functions, citations, history_files}
+//! ```
+//!
 //! # Function ids
 //!
 //! A function's `id` is `code-walk`'s form, `path/to/file.rs::name` for a
@@ -44,14 +77,20 @@
 //! byte-identical JSON (test `assembly_is_order_independent`). Nothing
 //! machine-specific (absolute paths, timings) is stored.
 
+pub mod citations;
+pub mod history;
 pub mod modules;
+pub mod reach;
+pub mod upstream;
 
 use std::collections::{BTreeMap, BTreeSet};
 
 use serde::{Deserialize, Serialize};
 
 /// Version of the JSON layout; bumped on any breaking change.
-pub const SCHEMA_VERSION: u32 = 1;
+/// Schema 2 (2026-10-06, #746) only adds fields; a schema-1 reader that
+/// ignores unknown fields reads it unchanged.
+pub const SCHEMA_VERSION: u32 = 2;
 
 /// The whole graph for one scope of crates.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -66,6 +105,13 @@ pub struct CallGraphDoc {
     pub crate_calls: Vec<AggregateCall>,
     pub outside: Vec<OutsideFn>,
     pub totals: Totals,
+    /// Schema 2: the commit (`git rev-parse HEAD`) the data was built at;
+    /// absent outside a git checkout.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub commit: Option<String>,
+    /// Schema 2: the base URL that `Citation::site` paths are relative to.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub site_base: Option<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -77,6 +123,10 @@ pub struct CrateGraph {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub maturity: Option<u8>,
     pub targets: Vec<Target>,
+    /// Schema 2: the integration-test targets (`tests/*.rs`, kind `test`),
+    /// kept apart from `targets` so a schema-1 reader is unaffected.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub tests: Vec<Target>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
@@ -84,6 +134,8 @@ pub struct CrateGraph {
 pub enum TargetKind {
     Lib,
     Example,
+    /// Schema 2: an integration-test target; only in `CrateGraph::tests`.
+    Test,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -115,6 +167,20 @@ pub struct Module {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub maturity: Option<u8>,
     pub functions: Vec<Function>,
+    /// Schema 2: the upstream counterpart from the file's attribution
+    /// header ([`upstream`]); absent when the file has none.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub upstream: Option<upstream::Upstream>,
+    /// Schema 2: a provenance marker was seen but could not be parsed (the
+    /// reason and the line); no `upstream` is guessed.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub upstream_unparsed: Option<String>,
+    /// Schema 2: the newest commits that touched the file ([`history`]).
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub history: Vec<history::CommitRef>,
+    /// Schema 2: `//! kovan-concept:` tags in the file ([`citations`]).
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub concepts: Vec<String>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
@@ -148,6 +214,10 @@ pub struct Function {
     /// A `#[test]` function, or inside `#[cfg(test)]` code.
     #[serde(default, skip_serializing_if = "std::ops::Not::not")]
     pub test: bool,
+    /// Schema 2: carries a test attribute (`#[test]`, `#[tokio::test]`,
+    /// `#[rstest]`): an entry point for [`reach`]. `test` is also set.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub test_fn: bool,
     /// 1-based first line: the start of the `///` doc comment and attributes
     /// directly above the declaration, else the declaration.
     pub start_line: u32,
@@ -164,6 +234,14 @@ pub struct Function {
     /// Every call in the body the tool could not follow, by line.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub unresolved: Vec<Unresolved>,
+    /// Schema 2: the tests and examples that reach this (non-test) function
+    /// through resolved calls, nearest first; a lower bound ([`reach`]).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub reached_by: Option<reach::Reach>,
+    /// Schema 2: the pages (and concept tags) that cite this function
+    /// ([`citations`]).
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub cited_by: Vec<citations::Citation>,
 }
 
 /// A call `code-walk` marks `UNRESOLVED(<kind>)`: never guessed, never
@@ -233,6 +311,38 @@ pub struct Totals {
     pub outside: usize,
     /// Calls into std or third-party dependencies, filtered out.
     pub external_calls: usize,
+    /// Schema 2: integration-test targets.
+    #[serde(default)]
+    pub test_targets: usize,
+    /// Schema 2: functions carrying a test attribute.
+    #[serde(default)]
+    pub test_fns: usize,
+    /// Schema 2: non-test functions reached by at least one test.
+    #[serde(default)]
+    pub reached_by_tests: usize,
+    /// Schema 2: non-test functions reached by at least one example.
+    #[serde(default)]
+    pub reached_by_examples: usize,
+    /// Schema 2: non-test functions.
+    #[serde(default)]
+    pub non_test_functions: usize,
+    /// Schema 2: modules with a parsed `upstream`.
+    #[serde(default)]
+    pub upstream_files: usize,
+    /// Schema 2: of those, the ones with a `url`.
+    #[serde(default)]
+    pub upstream_links: usize,
+    /// Schema 2: modules with `upstream_unparsed`.
+    #[serde(default)]
+    pub upstream_unparsed: usize,
+    /// Schema 2: functions with at least one citation, and all citations.
+    #[serde(default)]
+    pub cited_functions: usize,
+    #[serde(default)]
+    pub citations: usize,
+    /// Schema 2: modules with history.
+    #[serde(default)]
+    pub history_files: usize,
 }
 
 /// Call sites and distinct `(caller, callee)` pairs per `(from, to)` key.
@@ -282,7 +392,8 @@ impl CallGraphDoc {
         for c in &mut crates {
             c.targets
                 .sort_by(|a, b| (a.kind, &a.name).cmp(&(b.kind, &b.name)));
-            for t in &mut c.targets {
+            c.tests.sort_by(|a, b| a.name.cmp(&b.name));
+            for t in c.targets.iter_mut().chain(c.tests.iter_mut()) {
                 t.modules.sort_by(|a, b| a.file.cmp(&b.file));
                 for m in &mut t.modules {
                     m.functions
@@ -290,14 +401,18 @@ impl CallGraphDoc {
                     for f in &mut m.functions {
                         f.unresolved.sort();
                         f.unresolved.dedup();
+                        f.cited_by.sort();
+                        f.cited_by.dedup();
                     }
+                    m.concepts.sort();
+                    m.concepts.dedup();
                 }
             }
         }
         // Where each in-scope function lives.
         let mut home: BTreeMap<&str, (&str, &str)> = BTreeMap::new();
         for c in &crates {
-            for t in &c.targets {
+            for t in c.targets.iter().chain(c.tests.iter()) {
                 for m in &t.modules {
                     for f in &m.functions {
                         home.insert(f.id.as_str(), (m.file.as_str(), c.name.as_str()));
@@ -367,11 +482,22 @@ impl CallGraphDoc {
         };
         for c in &crates {
             totals.targets += c.targets.len();
-            for t in &c.targets {
+            totals.test_targets += c.tests.len();
+            for t in c.targets.iter().chain(c.tests.iter()) {
                 totals.modules += t.modules.len();
                 for m in &t.modules {
                     totals.functions += m.functions.len();
+                    if let Some(u) = &m.upstream {
+                        totals.upstream_files += 1;
+                        totals.upstream_links += usize::from(u.url.is_some());
+                    }
+                    totals.upstream_unparsed += usize::from(m.upstream_unparsed.is_some());
+                    totals.history_files += usize::from(!m.history.is_empty());
                     for f in &m.functions {
+                        totals.test_fns += usize::from(f.test_fn);
+                        totals.non_test_functions += usize::from(!f.test);
+                        totals.cited_functions += usize::from(!f.cited_by.is_empty());
+                        totals.citations += f.cited_by.len();
                         totals.unresolved += f.unresolved.len();
                         for u in &f.unresolved {
                             *totals.unresolved_by_kind.entry(u.kind.clone()).or_default() += 1;
@@ -384,7 +510,7 @@ impl CallGraphDoc {
         totals.call_sites = calls.iter().map(|c| c.lines.len()).sum();
         let outside: Vec<OutsideFn> = outside_map.into_values().collect();
         totals.outside = outside.len();
-        CallGraphDoc {
+        let mut doc = CallGraphDoc {
             schema: SCHEMA_VERSION,
             scope: crates.iter().map(|c| c.name.clone()).collect(),
             crates,
@@ -393,7 +519,20 @@ impl CallGraphDoc {
             crate_calls: agg(by_crate),
             outside,
             totals,
+            commit: None,
+            site_base: None,
+        };
+        reach::fill(&mut doc);
+        let (mut by_tests, mut by_examples) = (0, 0);
+        for (_, _, f) in doc.functions() {
+            if let Some(r) = &f.reached_by {
+                by_tests += usize::from(r.tests_total > 0);
+                by_examples += usize::from(r.examples_total > 0);
+            }
         }
+        doc.totals.reached_by_tests = by_tests;
+        doc.totals.reached_by_examples = by_examples;
+        doc
     }
 
     /// Pretty JSON with a trailing newline: the file `kovan-cli call-graph`
@@ -407,7 +546,7 @@ impl CallGraphDoc {
     /// Every function, with the crate and module it is in.
     pub fn functions(&self) -> impl Iterator<Item = (&CrateGraph, &Module, &Function)> {
         self.crates.iter().flat_map(|c| {
-            c.targets.iter().flat_map(move |t| {
+            c.targets.iter().chain(c.tests.iter()).flat_map(move |t| {
                 t.modules
                     .iter()
                     .flat_map(move |m| m.functions.iter().map(move |f| (c, m, f)))
@@ -446,6 +585,9 @@ mod tests {
             doc: String::new(),
             source: format!("fn {name}() {{\n}}"),
             unresolved,
+            test_fn: false,
+            reached_by: None,
+            cited_by: Vec::new(),
         }
     }
 
@@ -457,6 +599,10 @@ mod tests {
             test: false,
             maturity: Some(1),
             functions,
+            upstream: None,
+            upstream_unparsed: None,
+            history: Vec::new(),
+            concepts: Vec::new(),
         }
     }
 
@@ -473,6 +619,7 @@ mod tests {
             name: "app".into(),
             dir: "crates/app".into(),
             maturity: Some(1),
+            tests: Vec::new(),
             targets: vec![
                 Target {
                     kind: TargetKind::Example,
@@ -506,6 +653,7 @@ mod tests {
             name: "core".into(),
             dir: "crates/core".into(),
             maturity: None,
+            tests: Vec::new(),
             targets: vec![Target {
                 kind: TargetKind::Lib,
                 name: "core".into(),
@@ -618,6 +766,95 @@ mod tests {
             .map(|f| f.name.as_str())
             .collect();
         assert_eq!(fns, vec!["go", "step"]);
+    }
+
+    /// Methodology: the fixture plus an integration-test target whose
+    /// `#[test]` `t_step` calls `run.rs::step` (which calls `go`, which calls
+    /// `core::leaf`), and 12 more tests calling `go` directly. `leaf` must be
+    /// reached by `t_step` at 3 hops and by the `demo` example at 2 hops via
+    /// its `main`; `go` must list 10 of its 13 tests, nearest first, with
+    /// the total; test functions themselves get no `reached_by`.
+    ///
+    /// Result (2026-10-06): passes.
+    #[test]
+    fn tests_and_examples_reach_functions() {
+        let (mut crates, mut calls, outside) = fixture();
+        let file = "crates/app/tests/it.rs";
+        let mut fns = vec![func(file, "t_step", 1, vec![])];
+        for k in 0..12 {
+            fns.push(func(file, &format!("t{k:02}"), 10 + k, vec![]));
+        }
+        for f in &mut fns {
+            f.test = true;
+            f.test_fn = true;
+        }
+        crates[0].tests.push(Target {
+            kind: TargetKind::Test,
+            name: "it".into(),
+            root: file.into(),
+            modules: vec![module(file, "", fns)],
+        });
+        let c = |from: String, to: &str| RawCall {
+            from,
+            to: to.into(),
+            kind: CallKind::Call,
+            line: 1,
+        };
+        calls.push(c(format!("{file}::t_step"), "crates/app/src/run.rs::step"));
+        for k in 0..12 {
+            calls.push(c(format!("{file}::t{k:02}"), "crates/app/src/run.rs::go"));
+        }
+        let doc = CallGraphDoc::assemble(crates, calls, outside, 0);
+        let leaf = doc.function("crates/core/src/lib.rs::leaf").unwrap();
+        let r = leaf.reached_by.as_ref().unwrap();
+        assert_eq!(r.tests_total, 13);
+        assert_eq!(r.tests[0].hops, 2);
+        let t_step = r.tests.iter().find(|t| t.id.ends_with("::t_step"));
+        assert!(t_step.is_none(), "t_step is 3 hops, beyond the nearest 10");
+        assert_eq!(r.examples_total, 1);
+        assert_eq!(
+            (
+                r.examples[0].hops,
+                r.examples[0].example.as_str(),
+                r.examples[0].via.as_str()
+            ),
+            (2, "demo", "crates/app/examples/demo.rs::main")
+        );
+        let go = doc.function("crates/app/src/run.rs::go").unwrap();
+        let r = go.reached_by.as_ref().unwrap();
+        assert_eq!((r.tests_total, r.tests.len()), (13, 10));
+        assert_eq!(
+            r.tests[0],
+            reach::TestReach {
+                hops: 1,
+                id: format!("{file}::t00")
+            }
+        );
+        let step = doc.function("crates/app/src/run.rs::step").unwrap();
+        let r = step.reached_by.as_ref().unwrap();
+        assert_eq!(
+            r.tests,
+            vec![reach::TestReach {
+                hops: 1,
+                id: format!("{file}::t_step")
+            }]
+        );
+        assert_eq!(r.examples_total, 0);
+        assert!(doc
+            .function(&format!("{file}::t00"))
+            .unwrap()
+            .reached_by
+            .is_none());
+        assert_eq!(doc.totals.test_targets, 1);
+        assert_eq!(doc.totals.test_fns, 13);
+        assert_eq!(doc.totals.reached_by_tests, 3);
+        // Determinism with the new data.
+        assert_eq!(
+            doc.to_json(),
+            serde_json::from_str::<CallGraphDoc>(&doc.to_json())
+                .unwrap()
+                .to_json()
+        );
     }
 
     /// Methodology: a file with a unique free function and two methods that

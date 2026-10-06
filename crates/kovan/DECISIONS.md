@@ -2184,8 +2184,10 @@ on them.
   modules; their functions belong to the file. A `#[cfg(test)]` module file
   is a module marked `test`; functions in test code are kept and marked
   `test`, so the UI can hide them.
-- **Targets:** the lib and every example. Bins, integration tests and
-  benches are not included.
+- **Targets:** the lib and every example. ~~Bins, integration tests and
+  benches are not included.~~ **CORRECTED 2026-10-06** (#746, schema 2):
+  integration tests are now included, in `CrateGraph::tests`; bins and
+  benches are not.
 - **Ambiguous ids:** where `file.rs::Type::name` is not unique in its file
   (two trait impls both defining `fmt`), each gets `#k` in source order and
   `ambiguous: true`. 16 of 3632 functions in the run below. `code-walk
@@ -2222,6 +2224,104 @@ only a bare name is (found writing `tests/call_graph_rust_analyzer.rs`).
 Trait calls stop at `UNRESOLVED(trait)`. Not done: the whole-workspace run
 (not measured), wiring into `scripts/build-pages.sh`, and the `kovan_skill.md`
 entry.
+
+
+## Call graph schema 2: tests that reach a function, upstream counterparts, citing pages, file history (2026-10-06, GH #746)
+
+**Maintainer direction** (#746, 2026-10-06): of the ranked navigation aids,
+"tests that reach this function" and "upstream counterpart" (then items 7,
+docs that cite the code, and 8, recent history); the data goes in
+`kovan-cli call-graph`, deterministic JSON (#743), the UI in web-kovan.
+
+**What was built.** Schema 2 only **adds** fields (listed in
+`src/call_graph/mod.rs`'s module doc); a schema-1 reader that ignores
+unknown fields reads it unchanged. New pure modules beside the model:
+`reach.rs`, `upstream.rs`, `citations.rs`, `history.rs`; the command reads
+the files and runs one `git log`.
+
+**Choices made here that the maintainer has not ruled on.**
+- **Integration tests are now built** (`tests/*.rs`, one module tree per
+  target, through the same `modules` + `code-walk` machinery) and kept in a
+  new `CrateGraph::tests` list, not in `targets`, so the schema-1 module
+  tree is unchanged. ~~Bins, integration tests and benches are not
+  included.~~ **CORRECTED 2026-10-06**: integration tests are; bins and
+  benches are not.
+- **Entry points.** A test is a function with a test attribute
+  (`Function::test_fn`, new); `#[cfg(test)]` helpers are walked through
+  but are not entries. An example is the whole example target: every
+  non-test function is a start at hop 0, `via` names the nearest, because
+  an egui example is entered through trait callbacks the graph cannot
+  follow, and a walk from `main` alone would find almost nothing.
+- **Cap:** the nearest 10 tests and 10 examples per function, by
+  `(hops, id)`, with the totals. **A lower bound:** only resolved calls are
+  followed (no closures, trait or derived methods, macro bodies), and the
+  walk stops at the scope's edge.
+- **Upstream links are never guessed.** A URL needs a recorded repository
+  on github.com or gitlab.com **and** a recorded commit hash; a version
+  number is kept but not turned into a tag. Only the leading `//` comment
+  block is read; `//!`-only provenance is reported as `upstream_unparsed`.
+- **Citations** come from the code-walk blocks' `snippet-check … fn` lines
+  (every hop, by file and declaration line) and their `from=`/`to=`/`hand:`
+  ids; matched by line, else by unique file + name (+ owner). `site` is the
+  Pages path for pages in the books of `docs/site/deep-dives.txt` and
+  `tutorials.txt`, relative to the new top-level `site_base`; `anchor` is
+  mdBook's id of the heading above (its `-1` de-duplication suffix is not
+  reproduced). `kovan-concept:` tags are read too: **0 found** in source on
+  2026-10-06. The `relation` kind is a reserved slot for #743's
+  `[[relation]] to = "code:…"` links.
+- **History:** one `git log --no-merges --no-renames --name-only HEAD --
+  <crate dirs>`, the newest 10 commits per file (sha, author date, author
+  name, subject), no diffs; `commit` records HEAD. It does not follow
+  renames.
+- **Per crate and lazy:** all new data sits on the module or function it
+  belongs to, so the per-crate split of the JSON carries it with its crate.
+
+**Measured (2026-10-06, develop at 2f2cf7d599, 16-core desktop,
+rust-analyzer 1.98.0)** on `--crates outram-park-digital-twin-engine,boon-lay`:
+- 9 integration-test targets (boon-lay 6, digital-twin engine 3), 287
+  modules, 3764 functions, 1089 with a test attribute; of 2379 non-test
+  functions, 1584 are reached by at least one test and 456 by an example.
+  37 s warm; two runs byte-identical (`cmp`).
+- `crates/boon-lay/src/triso_atops_fork/activities/live_pools.rs::step` is
+  reached by **56 tests**: at 1 hop its own
+  `atoms_are_conserved_and_small_steps_equal_one_big_step` and
+  `one_step_from_empty_reproduces_the_ported_closed_forms`; at 2 hops
+  eight `htgr_sim_v1` tests (e.g.
+  `physics/fission_product_release.rs::the_accident_pool_operations_conserve_atoms`,
+  `…::the_release_is_compared_uncalibrated_with_liu_cao_tables_2_and_3`,
+  `app/map_tab.rs::the_chi_over_q_table_is_the_maps_dilution_factor`,
+  `physics/mod.rs::where_the_plant_step_spends_its_time`); 46 more beyond
+  the cap. One example, `htgr_sim_v1`, at 1 hop via
+  `TrisoAtopsReleaseChannel::evaluate_with_sic`.
+- Upstream: 15 of 287 files parsed (all boon-lay `triso_atops_fork/`,
+  key-value style, all 15 with a link to TRISO-ATOPS at `de374c8`);
+  `live_pools.rs` is correctly unattributed (its header says "NOT a
+  port"). 10 files flagged `upstream_unparsed` (doc-comment provenance).
+- Citations: 148 code-walk blocks read, 349 citations on 198 functions, 0
+  in-scope references left unmatched.
+- Size: 14.0 MB (was 10.5 MB at schema 1); `reached_by` about 2.7 MB of it,
+  `history` 0.33 MB, test targets 0.26 MB, `cited_by` 0.13 MB, `upstream`
+  0.01 MB.
+
+**Workspace-wide header survey** (`tests/upstream_header_survey.rs`,
+`--ignored`): 879 of 4172 `.rs` files under `crates/*/{src,examples,tests}`
+parse, 255 with a link; 314 are flagged unparsed. Styles not parsed: (1)
+provenance only in a `//!` doc comment (most of the 313 doc-comment flags:
+`njoy-outram-park-fork` 60, `outram-park-fork-dwsim-libs` 118,
+`outram-mc-libs` 36, `buangkok` 18), which also flags in-workspace or
+negated wording for a person to read; (2) attribution blocks that are not
+the leading comment (per-routine headers further down, as in
+`outram-mc-libs`); (3) a recorded repository on a host other than
+github/gitlab (GSL's gnu.org page, OpenFOAM's develop.openfoam.com): fields
+kept, no link. No-link but parsed: NJOY2016 (commit, no repository URL, 128
+files), GeN-Foam's path-only `Upstream:` form (commit, no URL, 41), the
+OpenFOAM prose headers (340, neither).
+
+**Not done.** UI (web-kovan, #736/#738). Per-function history and the
+stamp diff (by design: the browser fetches the two raw files). #743's
+relations (slot only). A whole-workspace call-graph run. Adding repository
+URLs to the NJOY2016 and GeN-Foam headers would turn on their links; that
+is an edit to those crates' headers, not made here.
 
 
 ## Human review stamps: `review/stamps.toml`, hashed with `syn`, voided from git (2026-10-06, GH #739)
