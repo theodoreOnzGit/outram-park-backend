@@ -46,6 +46,12 @@
 //!   helpers).
 //! * [`macros_support`] — the macro-support framework (declarative macro +
 //!   proc-macro/`build.rs` scaffolds).
+//! * [`zotero`] — the Zotero schema generator (GitHub #748): reads Zotero's
+//!   `schema.json` and emits the tables committed as
+//!   `kovan_common::zotero::schema_generated`. Unlike the numerical-method
+//!   templates above it reads input data, so it is not compile-time-constant;
+//!   it is still deterministic (the output is a pure function of the input
+//!   text). Ported from Zotero (AGPL-3.0); see `NOTICE`.
 
 #![forbid(unsafe_code)]
 
@@ -56,6 +62,7 @@ pub mod ode;
 pub mod patterns;
 pub mod pde;
 pub mod root_finding;
+pub mod zotero;
 
 pub use kovan_common::GeneratedArtifact;
 pub use pde::PdeScheme;

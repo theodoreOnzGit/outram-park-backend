@@ -27,6 +27,7 @@ Everything is re-exported at the crate root (`kovan_common::KovanDocument`).
 | `code_map` | the workspace code map: `CodeMap`, `layout`, `svg` (moved from `kovan`, 2026-10-06) |
 | `call_graph` | the call graph `CallGraphDoc` (schema 2), `split` for the web, `merge` (moved from `kovan`, 2026-10-06) |
 | `mindmap_view`, `geometry`, `fuzzy` | star layout and canvas arithmetic, `Point`/`Bounds`, the finders' scorer (moved from `kovan`, 2026-10-06) |
+| `zotero` | Zotero's item model, schema, CSL-JSON conversion and the `KovanDocument` mapping (2026-10-07, see below) |
 
 ~~A plain data crate … with no pipeline logic~~ **UPDATED 2026-10-06** (#736):
 the last four modules are pure logic (layout, assembly, scoring), moved here
@@ -39,7 +40,32 @@ states that every public type is implemented and round-trip tested through
 `Vec` fields of `KovanDocument`, so older stored documents still parse) are
 recorded in [`DECISIONS.md`](DECISIONS.md).
 
-Dependencies: `serde`, `serde_json`, `toml`.
+~~Dependencies: `serde`, `serde_json`, `toml`.~~ **UPDATED 2026-10-07**:
+`serde`, `serde_json`, `toml`, and `regex` (for the Zotero date parser).
+
+## Zotero
+
+`zotero` (GitHub #748, epic #747) ports Zotero's data model so a Zotero
+library can be imported into kovan and exported back. It is ported from
+Zotero, which is AGPL-3.0; see [`NOTICE`](NOTICE), "Upstream: Zotero".
+**Maturity: AI draft**, not yet human-reviewed.
+
+| Module | What |
+|---|---|
+| `zotero::schema_generated` | `ItemType` (40), `Field` (123), `CreatorType` (37); every item type's fields in order with base fields; CSL mappings; en-US labels only. Generated from zotero-schema `schema.json` v45 by `kovan-codegen`'s `zotero` module; do not edit by hand |
+| `zotero::schema` | field validity, base field to type-specific field (`publicationTitle` to `websiteTitle`), primary creator types (`itemFields.js`) |
+| `zotero::item` | `ZoteroItem`, `ZoteroCollection`, `ZoteroLibrary`, in Zotero's Web API / translator JSON shape (attachments, Zotero 7 annotations, tags, relations) |
+| `zotero::validate` | `ZoteroItem::validate`, and `normalize_fields`, Zotero's move of invalid fields into Extra |
+| `zotero::csl` | `item_to_csl_json`, `item_from_csl_json` (`utilities_item.js`) |
+| `zotero::date` | Zotero's date parsing (`strToDate`, `parseEDTF`), en-US months |
+| `zotero::kovan` | `ZoteroItem` to and from `KovanDocument`, with every lossy field listed |
+
+`KovanDocument` gained one optional field, `zotero_item`, which keeps the
+imported item so that Zotero -> kovan -> Zotero loses nothing. Documents
+without it load and serialise byte for byte as before
+(`tests/kovan_document_schema_compat.rs`). The V&V (methodology and results)
+is in the doc comments of `tests/zotero_port.rs`; expected values come from
+Zotero's own test data, since running upstream is not yet authorised (#752).
 
 ## Example
 

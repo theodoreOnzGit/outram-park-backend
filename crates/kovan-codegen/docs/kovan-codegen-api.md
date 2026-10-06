@@ -1,8 +1,8 @@
 # Crate Documentation
 
-**Version:** 0.0.0
+**Version:** 0.0.1
 
-**Format Version:** 61
+**Format Version:** 60
 
 # Module `kovan_codegen`
 
@@ -54,6 +54,12 @@ diffable. Procedural macros (`syn`/`quote`) are *scaffolded* in
   helpers).
 * [`macros_support`] — the macro-support framework (declarative macro +
   proc-macro/`build.rs` scaffolds).
+* [`zotero`] — the Zotero schema generator (GitHub #748): reads Zotero's
+  `schema.json` and emits the tables committed as
+  `kovan_common::zotero::schema_generated`. Unlike the numerical-method
+  templates above it reads input data, so it is not compile-time-constant;
+  it is still deterministic (the output is a pure function of the input
+  text). Ported from Zotero (AGPL-3.0); see `NOTICE`.
 
 ## Modules
 
@@ -1356,6 +1362,426 @@ variants (Illinois, Pegasus).
 
 ```rust
 pub fn generate(method: crate::RootFinder) -> Result<String, crate::CodegenError> { /* ... */ }
+```
+
+## Module `zotero`
+
+Deterministic generator for the Zotero schema tables in
+`kovan_common::zotero` (GitHub #748).
+
+[`generate_schema_rs`] reads Zotero's `schema.json` (the file in
+`zotero/zotero-schema`, also served at `https://api.zotero.org/schema`) and
+returns the Rust source of `crates/kovan-common/src/zotero/schema_generated.rs`:
+
+* the `ItemType`, `Field` and `CreatorType` enums, with `as_str`,
+  `from_name` and `ALL`;
+* `ITEM_TYPE_SCHEMAS`: each item type's fields **in schema order**, each
+  field's base field (`baseField`), its creator types and its primary
+  creator type;
+* `META_FIELD_TYPES` (the schema's `meta.fields`, e.g. which fields are
+  dates);
+* the CSL mappings `CSL_TYPES`, `CSL_TEXT_FIELDS`, `CSL_DATE_FIELDS`,
+  `CSL_NAMES`, in schema order;
+* the **en-US** labels only (`EN_US_ITEM_TYPE_LABELS`,
+  `EN_US_FIELD_LABELS`, `EN_US_CREATOR_TYPE_LABELS`). The other 47 locales
+  in `schema.json` are deliberately not emitted.
+
+Field and creator-type order follow Zotero's own registration order
+(`_updateGlobalSchema`, zotero `xpcom/schema.js:486-497`): walk item types
+in order, each one's fields in order, adding `field` then `baseField` the
+first time each name is seen.
+
+Unlike the numerical-method templates, this generator reads data, but it
+is still deterministic: the output is a pure function of the input text
+(no hash maps, no clock, no environment), so the same `schema.json` gives
+byte-identical source. Regenerate the committed file with
+
+```text
+cargo run --release -p kovan-codegen --example zotero_schema -- \
+    vendor/zotero-schema/schema.json crates/kovan-common/src/zotero/schema_generated.rs
+```
+
+and check it with the `zotero_schema_regen` test.
+
+```rust
+pub mod zotero { /* ... */ }
+```
+
+### Modules
+
+## Module `ordered_json`
+
+An order-preserving JSON value, read through `serde_json`.
+
+`serde_json::Value` sorts object keys (its `Map` is a `BTreeMap` unless the
+`preserve_order` feature is on, and turning that feature on would change
+every crate in the workspace build through feature unification). This
+type keeps object members as a `Vec` in document order instead.
+
+```rust
+pub mod ordered_json { /* ... */ }
+```
+
+### Types
+
+#### Enum `OrderedJson`
+
+A JSON value whose objects keep their members in document order.
+
+```rust
+pub enum OrderedJson {
+    Null,
+    Bool(bool),
+    Number(serde_json::Number),
+    String(String),
+    Array(Vec<OrderedJson>),
+    Object(Vec<(String, OrderedJson)>),
+}
+```
+
+##### Variants
+
+###### `Null`
+
+`null`.
+
+###### `Bool`
+
+`true` / `false`.
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `bool` |  |
+
+###### `Number`
+
+Any JSON number.
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `serde_json::Number` |  |
+
+###### `String`
+
+A string.
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `String` |  |
+
+###### `Array`
+
+An array.
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `Vec<OrderedJson>` |  |
+
+###### `Object`
+
+An object, members in document order.
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `Vec<(String, OrderedJson)>` |  |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn parse(text: &str) -> Result<Self, serde_json::Error> { /* ... */ }
+  ```
+  Parse JSON text, keeping object member order.
+
+- ```rust
+  pub fn get(self: &Self, key: &str) -> Option<&OrderedJson> { /* ... */ }
+  ```
+  The member `key` of an object, or `None` (also for a non-object).
+
+- ```rust
+  pub fn as_object(self: &Self) -> Option<&[(String, OrderedJson)]> { /* ... */ }
+  ```
+  The members of an object, in document order.
+
+- ```rust
+  pub fn as_array(self: &Self) -> Option<&[OrderedJson]> { /* ... */ }
+  ```
+  The elements of an array.
+
+- ```rust
+  pub fn as_str(self: &Self) -> Option<&str> { /* ... */ }
+  ```
+  The string, for a string value.
+
+- ```rust
+  pub fn as_bool(self: &Self) -> Option<bool> { /* ... */ }
+  ```
+  The boolean, for a boolean value.
+
+- ```rust
+  pub fn as_u64(self: &Self) -> Option<u64> { /* ... */ }
+  ```
+  The value as an unsigned integer, for a non-negative integer number.
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> OrderedJson { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Deserialize**
+  - ```rust
+    fn deserialize<D: Deserializer<''de>>(deserializer: D) -> Result<Self, <D as >::Error> { /* ... */ }
+    ```
+
+- **DeserializeOwned**
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &OrderedJson) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+### Types
+
+#### Enum `ZoteroSchemaError`
+
+Why `schema.json` could not be turned into Rust source.
+
+```rust
+pub enum ZoteroSchemaError {
+    Json(String),
+    Shape(String),
+}
+```
+
+##### Variants
+
+###### `Json`
+
+The text is not JSON.
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `String` |  |
+
+###### `Shape`
+
+The JSON does not have the shape of a Zotero schema; the payload says
+what was missing or malformed.
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `String` |  |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> ZoteroSchemaError { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Display**
+  - ```rust
+    fn fmt(self: &Self, f: &mut std::fmt::Formatter<''_>) -> std::fmt::Result { /* ... */ }
+    ```
+
+- **Eq**
+- **Error**
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &ZoteroSchemaError) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **ToString**
+  - ```rust
+    fn to_string(self: &Self) -> String { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+### Functions
+
+#### Function `variant_name`
+
+Turn a Zotero identifier into a Rust enum variant name.
+
+`journalArticle` -> `JournalArticle`; an all-caps acronym is title-cased
+(`DOI` -> `Doi`, `PMCID` -> `Pmcid`) so the variant is idiomatic Rust.
+
+```rust
+pub fn variant_name(name: &str) -> String { /* ... */ }
+```
+
+#### Function `generate_schema_rs`
+
+Generate the Rust source of `kovan_common::zotero::schema_generated` from
+the text of Zotero's `schema.json`.
+
+`source_commit` is recorded in the header (the zotero-schema commit the
+file came from; [`SCHEMA_SOURCE_COMMIT`] for the committed tables).
+
+# Errors
+[`ZoteroSchemaError::Json`] when the text is not JSON;
+[`ZoteroSchemaError::Shape`] when a required member is missing or of the
+wrong type, when a `baseField`/CSL mapping names a field or item type the
+schema does not define, or when two names would produce the same Rust
+variant.
+
+```rust
+pub fn generate_schema_rs(schema_json: &str, source_commit: &str) -> Result<String, ZoteroSchemaError> { /* ... */ }
+```
+
+### Constants and Statics
+
+#### Constant `SCHEMA_SOURCE_COMMIT`
+
+The zotero-schema commit the committed tables were generated from.
+
+```rust
+pub const SCHEMA_SOURCE_COMMIT: &str = "b86c79b56479";
 ```
 
 ## Types

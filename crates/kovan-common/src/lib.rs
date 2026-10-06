@@ -16,7 +16,11 @@
 //! repositories, correlations, benchmarks, validation cases, generated-code
 //! provenance, and the small enums/records they contain. Do **not** put
 //! pipeline logic (PDF parsing, semantic extraction, code generation) here —
-//! that lives in the respective feature crate.
+//! that lives in the respective feature crate. The one exception is
+//! [`zotero`] (2026-10-07, GitHub #748): Zotero's item model comes with the
+//! conversions that define it (schema validation, CSL-JSON both ways, dates),
+//! placed here by maintainer direction so every kovan crate can read and
+//! write Zotero libraries.
 //!
 //! ## Module map
 //!
@@ -30,6 +34,8 @@
 //!   out of `kovan` on 2026-10-06 so the wasm web view (`kovan-web`, GitHub
 //!   #736) can use them. Plain `serde` + `std`; `kovan` re-exports each one
 //!   under its old path.
+//! - [`zotero`] — Zotero's item model, schema, CSL-JSON conversion and the
+//!   [`KovanDocument`] mapping (GitHub #748), ported from Zotero (AGPL-3.0).
 //!
 //! Everything is re-exported at the crate root, so downstream crates can keep
 //! importing `kovan_common::KovanDocument` directly.
@@ -71,6 +77,10 @@ pub mod fuzzy;
 /// The star (ring) layout and the scrollable-canvas arithmetic of kovan's
 /// map views. Moved here from `kovan::mindmap_view` on 2026-10-06.
 pub mod mindmap_view;
+// Zotero's data model (GitHub #748); documented by its own `//!` block (an
+// outer `///` here would make rustdoc resolve that block's links from the
+// crate root).
+pub mod zotero;
 
 pub use document::{Author, DocumentType, KovanDocument, KovanDocumentBuilder, Visibility};
 pub use knowledge::{GeneratedArtifact, KovanBenchmark, KovanCorrelation, KovanValidationCase};

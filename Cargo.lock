@@ -5366,12 +5366,15 @@ name = "kovan-codegen"
 version = "0.0.1"
 dependencies = [
  "kovan-common",
+ "serde",
+ "serde_json",
 ]
 
 [[package]]
 name = "kovan-common"
 version = "0.0.1"
 dependencies = [
+ "regex",
  "serde",
  "serde_json",
  "toml",
