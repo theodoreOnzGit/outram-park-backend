@@ -1272,7 +1272,7 @@ origin = "outram-park"
 sources = [{ document = "iaea-ng-g-3.1-rev1", section = "3.10" }]
 why = "kovan; the L2 node's only source is the IAEA issue itself, which names no sub-concepts."
 note = "The NRC guides have no knowledge-management chapter, so this sits on the IAEA text (private tier, cited by section)."
-status = "proposed"
+status = "approved"
 
 [[concept]]
 path = "10-human-resource-development/knowledge-management-and-education/education-and-outreach"
@@ -1280,7 +1280,7 @@ title = "Education and outreach (lessons, tutorials, interactive demos)"
 origin = "outram-park"
 sources = [{ document = "iaea-ng-g-3.1-rev1", section = "3.10" }]
 why = "the maintainer's scope note for issue 10: outreach and education; dhoby-ghaut's web-demo framework and workbench."
-status = "proposed"
+status = "approved"
 
 # ============================================================================
 # 12-site-and-supporting-facilities / site-characteristics
@@ -1291,28 +1291,28 @@ path = "12-site-and-supporting-facilities/site-characteristics/geography-and-dem
 title = "Geography and demography (site location, exclusion area, population distribution)"
 origin = "nrc"
 sources = [{ document = "nureg-0800-toc-rev6", section = "2.1.1-2.1.3" }, { document = "nureg-1537-part1", section = "2.1" }]
-status = "proposed"
+status = "approved"
 
 [[concept]]
 path = "12-site-and-supporting-facilities/site-characteristics/nearby-industrial-transportation-and-military-facilities"
 title = "Nearby industrial, transportation, and military facilities"
 origin = "nrc"
 sources = [{ document = "nureg-0800-toc-rev6", section = "2.2.1-2.2.3" }, { document = "nureg-1537-part1", section = "2.2" }]
-status = "proposed"
+status = "approved"
 
 [[concept]]
 path = "12-site-and-supporting-facilities/site-characteristics/hydrologic-engineering"
 title = "Hydrology (floods, groundwater, accidental releases of radioactive liquid effluents)"
 origin = "nrc"
 sources = [{ document = "nureg-0800-toc-rev6", section = "2.4.1-2.4.14 (2.4.12 Groundwater; 2.4.13 Accidental Releases of Radioactive Liquid Effluents in Ground and Surface Waters)" }, { document = "nureg-1537-part1", section = "2.4" }]
-status = "proposed"
+status = "approved"
 
 [[concept]]
 path = "12-site-and-supporting-facilities/site-characteristics/geology-seismology-and-geotechnical-engineering"
 title = "Geology, seismology, and geotechnical engineering"
 origin = "nrc"
 sources = [{ document = "nureg-0800-toc-rev6", section = "2.5.1-2.5.5" }, { document = "nureg-1537-part1", section = "2.5" }]
-status = "proposed"
+status = "approved"
 
 # ============================================================================
 # 13-environmental-protection
