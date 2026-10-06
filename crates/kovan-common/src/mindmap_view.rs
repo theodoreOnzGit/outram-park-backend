@@ -11,9 +11,9 @@
 //! day, for more horizontal room; see [`HORIZONTAL_PAN_VIEWPORT_FRACTION`]).
 //!
 //! What does not belong here: drawing, input, or which nodes exist. The egui
-//! page is [`crate::mindmap`]; the node set comes from the knowledge index.
+//! page is `kovan::mindmap`; the node set comes from the knowledge index.
 //!
-//! # Why not `crate::mindmap_layout::Camera`
+//! # Why not `kovan::mindmap_layout::Camera`
 //!
 //! That camera maps world space straight onto the viewport, with no scroll
 //! bars and nothing that limits panning. The page instead draws on an
@@ -29,7 +29,7 @@
 //! World units are points at zoom 1. A card is [`CARD_SIZE`] world units; at
 //! zoom `z` it is drawn `z` times that size, text included.
 
-use crate::mindmap_layout::{Bounds, Point};
+use crate::geometry::{Bounds, Point};
 use std::f64::consts::PI;
 
 /// A card's size in world units (points at zoom 1). A drawing choice.

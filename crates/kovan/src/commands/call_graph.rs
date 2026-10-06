@@ -491,6 +491,202 @@ pub fn run(root: &Path, crates: Option<Vec<String>>, out: Option<PathBuf>) -> Re
     Ok(())
 }
 
+/// `kovan-cli call-graph --split-dir <dir>`: build, then write one
+/// `<crate>.json` per crate (no source text) and an `index.json`
+/// ([`crate::call_graph::split`], for web-kovan, GitHub #736). The index
+/// carries every review stamp's state, judged on the working tree by
+/// [`crate::review_stamps::check`]; with no `review/stamps.toml` it is
+/// empty. Files already in `dir` that the split does not name are left
+/// alone.
+pub fn run_split(root: &Path, crates: Option<Vec<String>>, dir: &Path) -> Result<(), String> {
+    let doc = build(root, crates.as_deref())?;
+    write_split(root, &doc, dir)
+}
+
+/// `kovan-cli call-graph --merge <files> [-o | --split-dir]`: merge
+/// documents written by separate runs (one per crate, the incremental site
+/// build, #745) with [`crate::call_graph::CallGraphDoc::merge`], then write
+/// them as one document or split.
+pub fn run_merge(root: &Path, files: &[PathBuf], out: Option<PathBuf>, split_dir: Option<PathBuf>) -> Result<(), String> {
+    let mut docs = Vec::new();
+    for f in files {
+        let text = std::fs::read_to_string(f).map_err(|e| format!("reading {}: {e}", f.display()))?;
+        let d: crate::call_graph::CallGraphDoc =
+            serde_json::from_str(&text).map_err(|e| format!("{}: {e}", f.display()))?;
+        if d.schema != crate::call_graph::SCHEMA_VERSION {
+            return Err(format!("{}: schema {}, expected {}", f.display(), d.schema, crate::call_graph::SCHEMA_VERSION));
+        }
+        docs.push(d);
+    }
+    let doc = crate::call_graph::CallGraphDoc::merge(docs);
+    match split_dir {
+        Some(dir) => write_split(root, &doc, &dir),
+        None => {
+            let text = doc.to_json();
+            match out {
+                Some(path) => std::fs::write(&path, text).map_err(|e| format!("writing {}: {e}", path.display())),
+                None => {
+                    print!("{text}");
+                    Ok(())
+                }
+            }
+        }
+    }
+}
+
+fn write_split(root: &Path, doc: &crate::call_graph::CallGraphDoc, dir: &Path) -> Result<(), String> {
+    let stamps = stamp_states(root)?;
+    std::fs::create_dir_all(dir).map_err(|e| format!("creating {}: {e}", dir.display()))?;
+    let files = crate::call_graph::split::split_files(doc, stamps);
+    let total: usize = files.iter().map(|(_, t)| t.len()).sum();
+    for (name, text) in &files {
+        let path = dir.join(name);
+        std::fs::write(&path, text).map_err(|e| format!("writing {}: {e}", path.display()))?;
+    }
+    eprintln!("call-graph: wrote {} files ({total} bytes) to {}", files.len(), dir.display());
+    Ok(())
+}
+
+/// Every stamp in `review/stamps.toml`, judged on the working tree, in the
+/// form the web reads. Artifact stamps and unchecked ones are left out
+/// (the web shows functions only).
+pub fn stamp_states(root: &Path) -> Result<Vec<crate::call_graph::split::StampState>, String> {
+    use crate::call_graph::split::{StampState, StampVerdict};
+    use crate::review_stamps::{check, Scope, Verdict, DEFAULT_REPO_URL};
+    let report = check(root, &Scope::All)?;
+    Ok(report
+        .checked
+        .iter()
+        .filter_map(|c| {
+            let function = c.stamp.function.clone()?;
+            let (verdict, reason) = match &c.verdict {
+                Verdict::Valid => (StampVerdict::Valid, String::new()),
+                Verdict::Void(r) => (StampVerdict::Stale, r.to_string()),
+                Verdict::Unchecked(_) => return None,
+            };
+            Some(StampState {
+                function,
+                verdict,
+                reason,
+                rung: c.stamp.rung,
+                reviewer: c.stamp.reviewer.clone(),
+                date: c.stamp.date.to_string(),
+                note: c.stamp.note.clone(),
+                permalink: c.stamp.permalink(DEFAULT_REPO_URL),
+            })
+        })
+        .collect())
+}
+
+/// `kovan-cli call-graph-keys`: one line `<crate> <key>` per workspace
+/// member (or `crates`), the cache key of its call-graph data in the
+/// incremental site build (#745, maintainer 2026-10-06). The key is the
+/// SHA-256 of:
+///
+/// - every file `cargo package --list` puts in the crate that exists on disk
+///   (path and contents; files cargo generates, such as `Cargo.toml.orig`
+///   and `.cargo_vcs_info.json`, are not on disk and do not count), so
+///   whatever `exclude` leaves out cannot invalidate it;
+/// - the keys of its workspace dependencies (normal and build, optional
+///   included), so it is transitive: a change anywhere below a crate
+///   re-indexes it, since its calls resolve into that code;
+/// - `rust-analyzer --version` and the call graph's schema version.
+///
+/// Deterministic: same tree, same keys.
+pub fn run_keys(root: &Path, crates: Option<Vec<String>>) -> Result<(), String> {
+    use sha2::{Digest, Sha256};
+    use std::collections::BTreeMap;
+    #[derive(Deserialize)]
+    struct Meta {
+        packages: Vec<Pkg>,
+    }
+    #[derive(Deserialize)]
+    struct Pkg {
+        name: String,
+        manifest_path: String,
+        #[serde(default)]
+        dependencies: Vec<Dep>,
+    }
+    #[derive(Deserialize)]
+    struct Dep {
+        name: String,
+        #[serde(default)]
+        kind: Option<String>,
+    }
+    let json = crate::code_map::run_cargo_metadata(root, true)?;
+    let meta: Meta = serde_json::from_str(&json).map_err(|e| format!("cargo metadata: {e}"))?;
+    let names: BTreeSet<String> = meta.packages.iter().map(|p| p.name.clone()).collect();
+    let ra = std::process::Command::new("rust-analyzer")
+        .arg("--version")
+        .output()
+        .map(|o| String::from_utf8_lossy(&o.stdout).trim().to_string())
+        .unwrap_or_else(|_| "rust-analyzer missing".into());
+    let cargo = std::env::var("CARGO").unwrap_or_else(|_| "cargo".into());
+    let mut own: BTreeMap<String, String> = BTreeMap::new();
+    let mut deps: BTreeMap<String, Vec<String>> = BTreeMap::new();
+    for p in &meta.packages {
+        let dir = Path::new(&p.manifest_path).parent().unwrap_or(root).to_path_buf();
+        let out = std::process::Command::new(&cargo)
+            .current_dir(root)
+            .args(["package", "--list", "--allow-dirty", "--offline", "-p", &p.name])
+            .output()
+            .map_err(|e| format!("cargo package --list -p {}: {e}", p.name))?;
+        if !out.status.success() {
+            return Err(format!("cargo package --list -p {}: {}", p.name, String::from_utf8_lossy(&out.stderr).trim()));
+        }
+        let mut files: Vec<String> = String::from_utf8_lossy(&out.stdout).lines().map(str::to_string).collect();
+        files.sort();
+        let mut h = Sha256::new();
+        for f in files {
+            if let Ok(bytes) = std::fs::read(dir.join(&f)) {
+                h.update(f.as_bytes());
+                h.update([0]);
+                h.update(Sha256::digest(&bytes));
+            }
+        }
+        own.insert(p.name.clone(), format!("{:x}", h.finalize()));
+        let mut d: Vec<String> = p
+            .dependencies
+            .iter()
+            .filter(|d| d.kind.as_deref() != Some("dev") && names.contains(&d.name) && d.name != p.name)
+            .map(|d| d.name.clone())
+            .collect();
+        d.sort();
+        d.dedup();
+        deps.insert(p.name.clone(), d);
+    }
+    fn key(
+        name: &str,
+        own: &BTreeMap<String, String>,
+        deps: &BTreeMap<String, Vec<String>>,
+        tail: &str,
+        memo: &mut BTreeMap<String, String>,
+    ) -> String {
+        if let Some(k) = memo.get(name) {
+            return k.clone();
+        }
+        let mut h = Sha256::new();
+        h.update(own[name].as_bytes());
+        for d in &deps[name] {
+            h.update(key(d, own, deps, tail, memo).as_bytes());
+        }
+        h.update(tail.as_bytes());
+        let k = format!("{:x}", h.finalize());
+        memo.insert(name.to_string(), k.clone());
+        k
+    }
+    let tail = format!("{ra}\nschema {}\nsplit {}", crate::call_graph::SCHEMA_VERSION, crate::call_graph::split::SPLIT_SCHEMA);
+    let mut memo = BTreeMap::new();
+    let wanted: Vec<String> = crates.unwrap_or_else(|| names.iter().cloned().collect());
+    for c in wanted {
+        if !names.contains(&c) {
+            return Err(format!("{c}: not a workspace member"));
+        }
+        println!("{c} {}", key(&c, &own, &deps, &tail, &mut memo));
+    }
+    Ok(())
+}
+
 /// Splits `a,b , c` into crate names.
 pub fn parse_crates(s: &str) -> Vec<String> {
     s.split(',')

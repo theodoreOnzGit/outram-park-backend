@@ -468,8 +468,31 @@ enum Command {
         #[arg(long)]
         crates: Option<String>,
         /// Output file; stdout when omitted.
-        #[arg(short, long)]
+        #[arg(short, long, conflicts_with = "split_dir")]
         out: Option<PathBuf>,
+        /// Write one `<crate>.json` per crate (no source text) and an
+        /// `index.json` (with review stamp states) into this directory, for
+        /// web-kovan (GitHub #736), instead of one document.
+        #[arg(long)]
+        split_dir: Option<PathBuf>,
+        /// Merge these call-graph documents (one per crate, written by
+        /// earlier runs) instead of building: the incremental site build
+        /// (#745). The result is the bytes one run over all of them gives.
+        #[arg(long, num_args = 1.., conflicts_with = "crates")]
+        merge: Vec<PathBuf>,
+    },
+    /// One line `<crate> <key>` per workspace member: the cache key of its
+    /// call-graph data in the incremental site build (#745). SHA-256 of the
+    /// files `cargo package --list` ships, the keys of its workspace
+    /// dependencies (transitively), the rust-analyzer version and the
+    /// schema versions.
+    CallGraphKeys {
+        /// Workspace root; found from the current directory when omitted.
+        #[arg(long)]
+        workspace: Option<PathBuf>,
+        /// Comma-separated crate names; every member when omitted.
+        #[arg(long)]
+        crates: Option<String>,
     },
     /// Regenerates every `<!-- code-walk: ... -->` block in the Markdown
     /// under the given paths and fails if one is stale, a concept path no
@@ -727,11 +750,22 @@ fn run(command: Command) -> Result<(), String> {
                 .map_err(|error| error.to_string())?;
             commands::code_map::run(&root, format, out)
         }
-        Command::CallGraph { workspace, crates, out } => {
+        Command::CallGraph { workspace, crates, out, split_dir, merge } => {
             let (root, _) = commands::workspace::resolve(workspace.as_deref())
                 .map_err(|error| error.to_string())?;
             let crates = crates.as_deref().map(commands::call_graph::parse_crates);
-            commands::call_graph::run(&root, crates, out)
+            if !merge.is_empty() {
+                return commands::call_graph::run_merge(&root, &merge, out, split_dir);
+            }
+            match split_dir {
+                Some(dir) => commands::call_graph::run_split(&root, crates, &dir),
+                None => commands::call_graph::run(&root, crates, out),
+            }
+        }
+        Command::CallGraphKeys { workspace, crates } => {
+            let (root, _) = commands::workspace::resolve(workspace.as_deref())
+                .map_err(|error| error.to_string())?;
+            commands::call_graph::run_keys(&root, crates.as_deref().map(commands::call_graph::parse_crates))
         }
         Command::CodeWalkCheck {
             paths,

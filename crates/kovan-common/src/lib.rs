@@ -25,6 +25,11 @@
 //! - [`symbol`] — [`KovanSymbol`], [`KovanRepository`], the [`Language`] enum.
 //! - [`knowledge`] — [`KovanCorrelation`], [`KovanBenchmark`],
 //!   [`KovanValidationCase`], [`GeneratedArtifact`].
+//! - [`code_map`], [`call_graph`], [`geometry`], [`mindmap_view`] — the
+//!   pure data and layout behind the code map and the Code Review UI, moved
+//!   out of `kovan` on 2026-10-06 so the wasm web view (`kovan-web`, GitHub
+//!   #736) can use them. Plain `serde` + `std`; `kovan` re-exports each one
+//!   under its old path.
 //!
 //! Everything is re-exported at the crate root, so downstream crates can keep
 //! importing `kovan_common::KovanDocument` directly.
@@ -49,6 +54,23 @@
 pub mod document;
 pub mod knowledge;
 pub mod symbol;
+
+/// The workspace call graph's data model, crate -> module -> function
+/// (GitHub #737), and its per-crate split for the web (#736). Moved here
+/// from `kovan::call_graph` on 2026-10-06; `kovan` re-exports it.
+pub mod call_graph;
+/// The code map of a Cargo workspace (GitHub #734): model, layout and SVG.
+/// Moved here from `kovan::code_map` on 2026-10-06; `kovan` re-exports it
+/// and keeps the `cargo metadata` call.
+pub mod code_map;
+/// World-space [`geometry::Point`] and [`geometry::Bounds`].
+pub mod geometry;
+/// The fuzzy scorer of kovan's finders, moved here from `kovan::fuzzy` on
+/// 2026-10-06 for web-kovan's search bar.
+pub mod fuzzy;
+/// The star (ring) layout and the scrollable-canvas arithmetic of kovan's
+/// map views. Moved here from `kovan::mindmap_view` on 2026-10-06.
+pub mod mindmap_view;
 
 pub use document::{Author, DocumentType, KovanDocument, KovanDocumentBuilder, Visibility};
 pub use knowledge::{GeneratedArtifact, KovanBenchmark, KovanCorrelation, KovanValidationCase};

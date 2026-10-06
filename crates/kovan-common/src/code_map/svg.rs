@@ -25,7 +25,7 @@ use std::fmt::Write;
 
 use super::layout::{FrameKind, Layout, Rect};
 use super::{maturity_label, CodeMap, CrateNode, Fidelity, Topic};
-use crate::mindmap_layout::Point;
+use crate::geometry::Point;
 
 /// Escape text for XML content and attribute values.
 pub fn escape(s: &str) -> String {
@@ -263,10 +263,11 @@ pub fn render(map: &CodeMap, layout: &Layout) -> String {
     }
     out.push_str("</g>\n<g class=\"labels\">\n");
     for l in &layout.labels {
-        let class = if l.text.starts_with("row") { "row-label" } else { "label" };
+        let class = if l.text.starts_with('F') { "label" } else { "row-label" };
+        let title = if l.tip.is_empty() { String::new() } else { format!("<title>{}</title>", escape(&l.tip)) };
         let _ = writeln!(
             out,
-            "<text class=\"{class}\" x=\"{}\" y=\"{}\" text-anchor=\"middle\" dominant-baseline=\"middle\">{}</text>",
+            "<text class=\"{class}\" x=\"{}\" y=\"{}\" text-anchor=\"middle\" dominant-baseline=\"middle\">{title}{}</text>",
             n(l.x),
             n(l.y),
             escape(&l.text)
@@ -357,6 +358,22 @@ mod tests {
         assert!(s.contains("region_1 at 3 (human reviewed): reviewed"));
         assert!(s.contains("M2 \u{b7} parts at 3 \u{b7} F0"));
     }
+
+    /// The fixture's SVG, pinned by length and an FNV-1a hash (re-pinned
+    /// 2026-10-06 for the two-band layout and the label tooltips, #734): a
+    /// change here is a change to the drawing, to be looked at, not only
+    /// re-pinned.
+    #[test]
+    fn the_fixture_svg_is_pinned() {
+        let m = CodeMap::from_cargo_metadata(&fixture::json()).unwrap();
+        let s = render(&m, &layout(&m));
+        let h = s.bytes().fold(0xcbf29ce484222325u64, |h, b| (h ^ b as u64).wrapping_mul(0x100000001b3));
+        assert!(s.contains("<title>Row 3: coupled multiphysics</title>3</text>"));
+        assert_eq!((s.len(), format!("{h:016x}")), (PINNED_LEN, PINNED_HASH.to_string()), "SVG changed");
+    }
+
+    const PINNED_LEN: usize = 20068;
+    const PINNED_HASH: &str = "2193b7d0b0f5fbd7";
 
     #[test]
     fn text_is_escaped() {
