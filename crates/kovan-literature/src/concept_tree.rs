@@ -138,7 +138,7 @@ impl ConceptNode {
 #[derive(Debug)]
 pub struct ConceptTree {
     documents: Vec<ConceptDocument>,
-    /// Skeleton nodes in file order, then the level-3 concepts in file order.
+    /// Depth-first tree order (see [`ConceptTree::nodes`]).
     nodes: Vec<ConceptNode>,
     by_path: HashMap<String, usize>,
     /// Parent path (`""` for level 1) to child indices, in file order.
@@ -296,23 +296,50 @@ impl ConceptTree {
             });
         }
 
-        let mut by_path = HashMap::with_capacity(nodes.len());
+        // Validate on the file order, then put the nodes in depth-first tree
+        // order (roots in IAEA order, each node's children in file order), so
+        // a parent always precedes its children even where the concepts
+        // file lists a child before its parent.
+        let mut file_index: HashMap<String, usize> = HashMap::with_capacity(nodes.len());
         for (i, n) in nodes.iter().enumerate() {
-            if by_path.insert(n.path.clone(), i).is_some() {
+            if file_index.insert(n.path.clone(), i).is_some() {
                 return Err(ConceptTreeError(format!("duplicate path {}", n.path)));
             }
         }
-        let mut children: HashMap<String, Vec<usize>> = HashMap::new();
-        let mut linked_from: HashMap<String, Vec<usize>> = HashMap::new();
+        let mut file_children: HashMap<String, Vec<usize>> = HashMap::new();
         for (i, n) in nodes.iter().enumerate() {
             let parent = n.parent_path().unwrap_or("");
-            if !parent.is_empty() && !by_path.contains_key(parent) {
+            if !parent.is_empty() && !file_index.contains_key(parent) {
                 return Err(ConceptTreeError(format!(
                     "{}: parent {parent} missing",
                     n.path
                 )));
             }
-            children.entry(parent.to_string()).or_default().push(i);
+            file_children.entry(parent.to_string()).or_default().push(i);
+        }
+        let mut order = Vec::with_capacity(nodes.len());
+        let mut stack: Vec<usize> = file_children
+            .get("")
+            .map(|v| v.iter().rev().copied().collect())
+            .unwrap_or_default();
+        while let Some(i) = stack.pop() {
+            order.push(i);
+            if let Some(kids) = file_children.get(&nodes[i].path) {
+                stack.extend(kids.iter().rev().copied());
+            }
+        }
+        let mut slots: Vec<Option<ConceptNode>> = nodes.into_iter().map(Some).collect();
+        let nodes: Vec<ConceptNode> = order.into_iter().filter_map(|i| slots[i].take()).collect();
+
+        let mut by_path = HashMap::with_capacity(nodes.len());
+        let mut children: HashMap<String, Vec<usize>> = HashMap::new();
+        let mut linked_from: HashMap<String, Vec<usize>> = HashMap::new();
+        for (i, n) in nodes.iter().enumerate() {
+            by_path.insert(n.path.clone(), i);
+            children
+                .entry(n.parent_path().unwrap_or("").to_string())
+                .or_default()
+                .push(i);
             for x in &n.cross_links {
                 linked_from.entry(x.clone()).or_default().push(i);
             }
@@ -326,8 +353,9 @@ impl ConceptTree {
         })
     }
 
-    /// Every node, levels 1–3: the skeleton's in file order, then the
-    /// concepts'. Parents always come before their children.
+    /// Every node, levels 1–3, in depth-first tree order: each level-1
+    /// issue in IAEA order, followed by everything below it, children in
+    /// file order. A parent always comes before its children.
     pub fn nodes(&self) -> &[ConceptNode] {
         &self.nodes
     }
@@ -540,6 +568,22 @@ status = "proposed"
         assert_eq!(t.document("d").unwrap().tier, DocumentTier::Standard);
         assert!(ConceptTree::is_within("01-a/b/c", "01-a"));
         assert!(!ConceptTree::is_within("01-ab", "01-a"));
+    }
+
+    /// The concepts file lists some children before their parents
+    /// (`.../pebble-bed/pebble-bed-packing` before `.../pebble-bed`); the
+    /// tree's order puts every parent first anyway.
+    #[test]
+    fn nodes_are_in_depth_first_order_with_parents_first() {
+        let t = concept_tree();
+        let mut seen = std::collections::HashSet::new();
+        for n in t.nodes() {
+            if let Some(p) = n.parent_path() {
+                assert!(seen.contains(p), "{} before its parent", n.path);
+            }
+            seen.insert(n.path.as_str());
+        }
+        assert_eq!(t.nodes()[0].path, "01-national-position");
     }
 
     #[test]

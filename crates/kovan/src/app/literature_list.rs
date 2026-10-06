@@ -76,7 +76,7 @@ impl LiteratureItem {
             fields.push(lit.id);
             fields.push(lit.title);
             fields.extend(lit.authors.iter().copied());
-            fields.extend(lit.topics.iter().copied());
+            fields.extend(lit.filed_under());
             fields.extend(lit.corpus_file);
         }
         fields

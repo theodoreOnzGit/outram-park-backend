@@ -345,7 +345,7 @@ pub fn library_candidates(
     // `CorpusLiterature::id`, so they cannot collide with a user node of the
     // same path, and the detail text says which is which.
     if want(CandidateKind::Topic) {
-        for topic in crate::corpus::TOPICS {
+        for topic in crate::corpus::topics() {
             if !matches_query(query, &[topic.path, topic.title]) {
                 continue;
             }
@@ -567,8 +567,10 @@ mod tests {
     fn library_candidates_finds_artifacts_across_every_paper() {
         let (_dir, root, index) = make_library();
 
-        // "conduction" only lives in wang2018multiphysics's artifact.
-        let hits = library_candidates(&root, &index, "conduction", &[]);
+        // "conduction coefficient" only lives in wang2018multiphysics's artifact
+        // (bare "conduction" also names a corpus concept since 2026-10-06:
+        // the TRISO particle-conduction node of the standard map).
+        let hits = library_candidates(&root, &index, "conduction coefficient", &[]);
         assert_eq!(hits.len(), 1, "{hits:?}");
         assert_eq!(hits[0].kind, CandidateKind::Artifact);
         assert_eq!(
@@ -692,7 +694,7 @@ mod tests {
         let hits = library_candidates(
             &root,
             &index,
-            "conduction",
+            "conduction coefficient",
             &[
                 CandidateKind::Paper,
                 CandidateKind::Topic,

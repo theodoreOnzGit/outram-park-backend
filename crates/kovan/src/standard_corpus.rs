@@ -196,8 +196,13 @@ pub fn describe(lit: &CorpusLiterature, availability: &Availability) -> String {
         out.push_str(&format!(" ({y})"));
     }
     out.push_str(&format!("\nstandard corpus: {}", lit.id));
-    if !lit.topics.is_empty() {
-        out.push_str(&format!("\ntopics: {}", lit.topics.join(", ")));
+    let topics = lit.classification_topics();
+    if !topics.is_empty() {
+        out.push_str(&format!("\ntopics: {}", topics.join(", ")));
+    }
+    let filed = lit.filed_under().len();
+    if filed > topics.len() {
+        out.push_str(&format!("\ncited by {filed} concept-map nodes"));
     }
     out.push_str(&format!("\nlicence: {}", status_label(lit.status)));
     match availability {
@@ -333,7 +338,11 @@ pub fn ensure_paper(
     } else {
         Access::Restricted
     };
-    let topics: Vec<String> = lit.topics.iter().map(|t| t.to_string()).collect();
+    let topics: Vec<String> = lit
+        .classification_topics()
+        .iter()
+        .map(|t| t.to_string())
+        .collect();
     crate::entity::ensure_classification_paths(root, &topics, &[])
         .map_err(StandardPaperError::Entity)?;
     let mut config = EntityConfig::paper(citekey, access).with_corpus(lit.id);
@@ -455,7 +464,9 @@ mod tests {
         assert!(config
             .classification
             .topics
-            .contains(&"nuclear-engineering/pra".to_string()));
+            .contains(
+                &"02-nuclear-safety/severe-accidents/probabilistic-risk-assessment".to_string()
+            ));
         assert_eq!(
             paper_pdf(&root, &corpus, "wash-1400")
                 .unwrap()

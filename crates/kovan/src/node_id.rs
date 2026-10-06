@@ -28,8 +28,9 @@ use std::fmt;
 /// Which source a node comes from.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub enum Namespace {
-    /// The built-in nuclear-engineering corpus compiled into Kovan
-    /// ([`crate::corpus`]). Read-only.
+    /// The built-in standard map and the standard corpus's metadata, both
+    /// compiled into Kovan ([`crate::corpus`]; the corpus PDFs are not:
+    /// they are opened from the corpus repository's checkout). Read-only.
     Corpus,
     /// The Kovan folder the user has open.
     Library,

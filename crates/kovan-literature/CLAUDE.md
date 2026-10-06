@@ -12,7 +12,7 @@ extracted Markdown and BibTeX; the documents themselves live in three places:
 
 | Where | What | Tracked here? |
 |---|---|---|
-| `reactor-literature/` (Git submodule of [`theodoreOnzGit/reactor-literature`](https://github.com/theodoreOnzGit/reactor-literature), public) | `kovan-standard-open-corpus/`: the documents Kovan hardcodes as its built-in nuclear-engineering corpus (`crates/kovan/src/corpus.rs`). `theodore-open-corpus/`: the maintainer's other open literature, not hardcoded. Each folder's README states every document's licence basis | As a submodule pointer only |
+| `reactor-literature/` (Git submodule of [`theodoreOnzGit/reactor-literature`](https://github.com/theodoreOnzGit/reactor-literature), public) | `kovan-standard-open-corpus/`: the standard corpus, whose documents' metadata Kovan compiles in (`crates/kovan/src/corpus.rs` `LITERATURE`; the PDFs stay here and open from the checkout), including every document the concept tree (`src/concept_skeleton.toml`) cites. `theodore-open-corpus/`: the maintainer's other open literature, not hardcoded. Each folder's README states every document's licence basis | As a submodule pointer only |
 | The private repository `propreitrary-literature-theodore` (maintainer's machine, not a submodule) | Proprietary documents with their extracted text | Never |
 | `proprietary/`, `generated/*/proprietary/` | Local, git-ignored proprietary working copies | Never |
 

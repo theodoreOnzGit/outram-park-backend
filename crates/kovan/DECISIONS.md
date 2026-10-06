@@ -1996,3 +1996,65 @@ column alignment, images (shown as links — no image loaders are installed).
   repository, cross-repository duplicates, per-repository save and push,
   writable standard, the proprietary-remote guard, pull, size warning, the
   maintainer's single-repository file and the refused nested layout).
+
+
+## The standard mind map is the concept tree, levels 1–3 (2026-10-06, GH #724, #727)
+
+**Maintainer direction:** "Levels 1–3 should be in the standard kovan mindmap
+(replacing the existing one) and standard corpus. Kovan should not need the
+user's literature repository to populate it. The standard corpus suffices."
+And: "the mindmapping should be same aesthetics, but now populated with this
+tree."
+
+**What changed.**
+
+- `kovan-literature/src/concept_tree.rs` (new, wasm-clean): parses
+  `concept_skeleton.toml` and `concept_proposals.toml` once (`OnceLock`) into
+  a typed `ConceptTree` of levels 1–3. Level 3 is the `approved` and
+  `deferred` concepts (deferred flagged); `proposed` concepts and the
+  `[[implementation]]` seeds are not part of it. API: `concept_tree()`,
+  `roots`, `children`, `node`, `parent`, `cross_links`, `cross_linked_from`,
+  `documents`, `document`, `documents_cited_by`, `nodes_citing`.
+- `corpus.rs`: ~~`TOPICS` (44 rows), `ROOT_TOPIC = "nuclear-engineering"`~~
+  replaced by `topics()`, built from the tree, under a **virtual root**
+  `ROOT_TOPIC = "iaea_milestones"`, titled "Nuclear knowledge (IAEA
+  Milestones)". Its children are the 19 issues in IAEA order. Topic paths
+  are the concept paths with **no root prefix**, so a classification names
+  them directly; `CorpusTopic::parent_path` (and
+  `runtime_graph::parent_of`, used by Up and the breadcrumb) supplies the
+  root as a level-1 issue's parent. The id cannot collide: every concept
+  path starts with a numbered `NN-` segment, and the underscore is outside
+  Kovan's slug alphabet, so no user topic can take it either.
+- Ontology links kept only where a node *is* the concept: neutron
+  transport (`Neutronics::Transport`), natural-convection cooling
+  (`ThermalHydraulics::NaturalCirculation`), liquid-fuelled cores (MSR)
+  (`Reactor::Msr`). Diffusion, HTGR and FHR have no node that is that
+  concept and lost their links.
+- Literature: the 14 existing entries re-filed under concept paths (the
+  list is in the commit and the hand-off report); 13 more added, one per
+  tree `[[document]]` not already present (11 standard-tier with
+  `corpus_file`, 2 private-tier IAEA documents citation-only). A new field,
+  `concept_document`, ties an entry to its tree document, and every node
+  citing that document files the entry (`filed_under`), so a node's sources
+  are among its citations. Only metadata is compiled in; PDFs stay in the
+  `reactor-literature` repository.
+- Cross-links are curated connections (`curated_connections`,
+  `ConnectionOrigin::KovanCorpus`), drawn as the existing light-blue link
+  cards with the subtitle "cross-link (built-in)" and no "Remove" entry;
+  shown with or without a folder.
+- Map style unchanged: same star, cards, colours, pan/zoom and menus.
+
+**User libraries.** The `Library` namespace is untouched. Old
+`topics/nuclear-engineering/...` folders were mirrors of corpus topics and
+were hidden behind the corpus cards; now that those paths are not corpus
+topics, they draw as the user's own (light-green) topics, with their papers
+and classifications as before (`runtime_graph` test
+`old_nuclear_engineering_folders_stay_user_topics`). Mirrors under the new
+concept paths behave as the old ones did.
+
+**Not done.** The "show empty nodes" toggle UI (the model exposes
+`corpus::has_literature`, counting a node's own sources, which makes nearly
+every node non-empty, and `has_classified_literature`, hand filings only;
+the maintainer has not chosen which "empty" means); source hyperlinks on
+cards (#729); public URLs for the four `nureg-…` files supplied without an
+ADAMS accession number; the Code Review tab and level 4.
