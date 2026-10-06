@@ -9,25 +9,32 @@
 > licensing-adjacent: nothing in this crate supports licensing or
 > safety-critical decisions.
 
-The reserved home for an integrated risk and reliability GUI. It would sit at
+The reserved home for an integrated risk and reliability GUI. It is **mostly
+a GUI**: an egui studio with a thin library under it, the physics and
+probabilistic machinery staying in the crates below. It would sit at
 the top of the safety column of the workspace, one studio over the crates that
 already hold the pieces. It answers **"how do the safety pieces fit together,
 on one screen?"**
 
 ```text
-                        PASIR RIS (GUI)
-    ┌──────────┬───────────┼────────────┬─────────────┐
-  RAFFLES    BISHAN     SEMBAWANG     CHANGI  ──►  BUANGKOK
-  fault      in-plant   source term,  dispersion   dose
-  trees, UQ  building   offsite chain
+                              PASIR RIS (GUI)
+    ┌──────────┬───────────┬──────┴─────┬─────────────┬───────────┐
+  RAFFLES    BISHAN     SEMBAWANG     CHANGI  ──►  BUANGKOK     REDHILL
+  fault      in-plant   source term,  dispersion   dose         ground
+  trees, UQ  building   offsite chain                           transport
+  ─ Level 1 ─  ──── Level 2 ────────  ──────────── Level 3 ─────────────
 ```
 
 ## Status: placeholder, nothing is implemented
 
 Created 2026-10-06 to reserve the name and state the scope. The crate has no
-dependencies and no behaviour. Its only public item is the `SCOPE` string
-constant. None of the edges above is declared yet; each is added when code
-here calls into that crate.
+behaviour. Its only public item is the `SCOPE` string constant.
+
+By your direction the same day, it depends on every crate above, across all
+three levels: it will drive their **lower-fidelity** models, and the
+high-fidelity solvers stay in their own crates and studios. The edges are
+declared before code calls into them, so kovan's code map shows where the
+studio sits.
 
 ## Naming fence
 

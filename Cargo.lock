@@ -7045,6 +7045,14 @@ dependencies = [
 [[package]]
 name = "pasir-ris"
 version = "0.0.1"
+dependencies = [
+ "bishan",
+ "buangkok",
+ "changi",
+ "raffles",
+ "redhill",
+ "sembawang",
+]
 
 [[package]]
 name = "paste"

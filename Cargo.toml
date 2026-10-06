@@ -134,7 +134,8 @@ members = [
     # pasir-ris — PASIR RIS (Probabilistic Assessment of Safety In
     # Reactors: Risk & Reliability Integrated Studio): the reserved
     # integrated risk and reliability GUI over raffles, bishan, sembawang,
-    # changi and buangkok. PLACEHOLDER (2026-10-06): no code, no deps.
+    # changi and buangkok. PLACEHOLDER (2026-10-06): no code yet; depends on
+    # every PSA-related crate, all three levels (maintainer, 2026-10-06).
     "crates/pasir-ris",
     # buangkok — BUANGKOK (Bioeffects, Uncertainty and ALARA for Nuclear
     # Guidance, Keeping Operational Knowledge): radiation dose and bioeffects
@@ -455,6 +456,7 @@ changi                       = { path = "crates/changi",                       v
 bishan                       = { path = "crates/bishan",                       version = "0.0.1" }
 buangkok                     = { path = "crates/buangkok",                     version = "0.0.1" }
 sembawang                    = { path = "crates/sembawang",                    version = "0.0.1" }
+redhill                      = { path = "crates/redhill",                      version = "0.0.1" }
 outram-foam-turbulence-lib   = { path = "crates/outram-foam-turbulence-lib",   version = "0.1.2" }
 outram-foam-appbuilder-lib   = { path = "crates/outram-foam-appbuilder-lib",   version = "0.1.3" }
 outram-foam-multiphase       = { path = "crates/outram-foam-multiphase",       version = "0.0.2" }

@@ -3,7 +3,9 @@
 //! **P**robabilistic **A**ssessment of **S**afety **I**n **R**eactors:
 //! **R**isk & Reliability **I**ntegrated **S**tudio.
 //!
-//! The reserved home for an integrated risk and reliability GUI: one studio
+//! The reserved home for an integrated risk and reliability GUI, **mostly a
+//! GUI** (maintainer, 2026-10-06): an egui studio with a thin library under
+//! it. One studio
 //! over the workspace's safety crates, at the top of their column in kovan's
 //! code map. The question it answers is **"how do the safety pieces fit
 //! together, on one screen?"**
@@ -11,21 +13,26 @@
 //! # STATUS: PLACEHOLDER. Nothing is implemented.
 //!
 //! Created 2026-10-06 by maintainer direction, to reserve the name and state
-//! the scope. It has no dependencies and no behaviour. **Do not describe it as
-//! providing anything.**
+//! the scope. It has no behaviour. **Do not describe it as providing
+//! anything.**
+//!
+//! It depends on every PSA-related crate, all three levels, by maintainer
+//! direction the same day (*"pasir ris should depend on any PSA related crate
+//! yeah... all 3 levels at lower-ish fidelity"*): it will drive their
+//! lower-fidelity models, and the high-fidelity solvers stay where they are.
+//! The edges are declared before code calls into them so kovan's code map
+//! shows where the studio sits.
 //!
 //! # What it would drive
 //!
 //! ```text
-//!                         PASIR RIS (GUI)
-//!     ┌──────────┬───────────┼────────────┬─────────────┐
-//!   RAFFLES    BISHAN     SEMBAWANG     CHANGI  ──►  BUANGKOK
-//!   fault      in-plant   source term,  dispersion   dose
-//!   trees, UQ  building   offsite chain
+//!                               PASIR RIS (GUI)
+//!     ┌──────────┬───────────┬──────┴─────┬─────────────┬───────────┐
+//!   RAFFLES    BISHAN     SEMBAWANG     CHANGI  ──►  BUANGKOK     REDHILL
+//!   fault      in-plant   source term,  dispersion   dose         ground
+//!   trees, UQ  building   offsite chain                           transport
+//!   ─ Level 1 ─  ──── Level 2 ────────  ──────────── Level 3 ─────────────
 //! ```
-//!
-//! None of these edges is declared yet; each is added when code here calls
-//! into that crate.
 //!
 //! # Naming fence
 //!
