@@ -6,7 +6,7 @@
 
 ## Counts
 
-- **L3 concepts: 223** (175 from the NRC/ORNL text, `nrc`; 48 needed by outram-park and named only implicitly, `outram-park`).
+- **L3 concepts: 224** (175 from the NRC/ORNL text, `nrc`; 49 needed by outram-park and named only implicitly, `outram-park`).
 - **L4 seed tags: 192** across 39 crates.
 
 | Crate | Seed tags |
@@ -1006,6 +1006,8 @@
     - [ ] add `//! kovan-concept: 18-industrial-involvement/process-heat-and-industrial-applications/chemical-process-simulation` to `crates/outram-park-fork-dwsim-libs/src/columns/mod.rs`: Rigorous distillation and absorption columns. MESH column models and solvers. (port of DWSIM (commit 1abf72d))
     - [ ] add `//! kovan-concept: 18-industrial-involvement/process-heat-and-industrial-applications/chemical-process-simulation` to `crates/outram-park-fork-dwsim-libs/src/dynamics/mod.rs`: Dynamic flowsheet simulation. Schedules, integrators, events and cause-and-effect matrices. (port of DWSIM)
     - [ ] add `//! kovan-concept: 18-industrial-involvement/process-heat-and-industrial-applications/chemical-process-simulation` to `crates/dover/src/smr.rs`: Steam-methane-reforming CSTR deck. Deck-driven SMR reactor model on the DWSIM fork. (new work)
+- [ ] **Nuclear techniques against plastic pollution (radiation-assisted recycling; isotopic tracing of marine microplastics)** · `nuclear-techniques-for-plastic-pollution` · origin `iaea`
+  - sources: `iaea-nutec-plastics` brochure
 
 ## Leaves attached directly to skeleton nodes
 

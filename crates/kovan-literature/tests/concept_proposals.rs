@@ -6,7 +6,7 @@
 //! - every proposed concept path is unique, collides with no skeleton node,
 //!   sits under an L2 node (depth >= 3), and its parent exists in the
 //!   skeleton or among the proposals; segments are plain lower-case words;
-//! - `origin` is `nrc` or `outram-park`, and an `outram-park` concept says
+//! - `origin` is `nrc`, `iaea` or `outram-park`, and an `outram-park` concept says
 //!   `why`; every source names a skeleton `[[document]]`; cross-links resolve;
 //! - every implementation names an existing concept, a crate that is a
 //!   workspace member directory under `crates/`, and a module that exists as
@@ -175,7 +175,8 @@ fn origins_and_sources_are_declared() {
     let docs: BTreeSet<&str> = s.document.iter().map(|d| d.id.as_str()).collect();
     for c in &p.concept {
         match c.origin.as_str() {
-            "nrc" => {}
+            // `iaea`: named by an IAEA document (added 2026-10-06, NUTEC Plastics).
+            "nrc" | "iaea" => {}
             "outram-park" => assert!(c.why.as_deref().is_some_and(|w| !w.is_empty()), "{}: outram-park concept needs `why`", c.path),
             o => panic!("{}: unknown origin {o}", c.path),
         }

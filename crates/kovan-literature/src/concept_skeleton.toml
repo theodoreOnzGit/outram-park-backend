@@ -138,6 +138,15 @@ tier = "standard"
 file = "kovan-standard-open-corpus/cfr/10cfr53-ecfr-2026-10-02.pdf"
 licence = "U.S. Government work (17 U.S.C. 105); eCFR: authoritative but unofficial"
 
+[[document]]
+id = "iaea-nutec-plastics"
+title = "IAEA, NUTEC Plastics: A nuclear solution to plastic pollution (brochure)"
+publisher = "IAEA"
+date = "2021"
+tier = "private"
+file = "reports/iaea2021-nutec-plastics.pdf"
+licence = "no reuse licence found; cited only"
+
 [[node]]
 path = "01-national-position"
 title = "National position"

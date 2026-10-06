@@ -3703,3 +3703,10 @@ origin = "outram-park"
 sources = [{ document = "nureg-0800-toc-rev6", section = "12.3-12.4 Radiation Protection Design Features" }, { document = "nureg-1537-part1", section = "4.4 Biological Shield" }]
 why = "bremsstrahlung and energy deposition; where detector and medical codes (e.g. Geant4) lead."
 status = "approved"
+
+[[concept]]
+path = "18-industrial-involvement/process-heat-and-industrial-applications/nuclear-techniques-for-plastic-pollution"
+title = "Nuclear techniques against plastic pollution (radiation-assisted recycling; isotopic tracing of marine microplastics)"
+origin = "iaea"
+sources = [{ document = "iaea-nutec-plastics", section = "brochure" }]
+status = "approved"
