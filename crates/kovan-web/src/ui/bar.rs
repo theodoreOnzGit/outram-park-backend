@@ -29,6 +29,11 @@ pub struct BarInfo {
     pub callees: usize,
     /// The callee list is still loading.
     pub loading: bool,
+    /// Schema 2 (#746): the nearest tests reaching this function (id, hops),
+    /// the total, and the examples reaching it (name, hops).
+    pub tests: Vec<(String, u32)>,
+    pub tests_total: usize,
+    pub examples: Vec<(String, u32)>,
 }
 
 /// What the reader did in the bar.
@@ -79,7 +84,7 @@ pub fn review_bar(ui: &mut egui::Ui, mode: Mode, info: &BarInfo, expanded: &mut 
         } else {
             format!("{} blocked by {n} function{} underneath", if *expanded { "hide" } else { "show" }, if n == 1 { "" } else { "s" })
         };
-        if n > 0 && !info.loading {
+        if (n > 0 && !info.loading) || info.tests_total > 0 {
             if ui.button(blocked).on_hover_text("The workspace functions this one calls that have no valid stamp. Bottom-up: they are reviewed first.").clicked() {
                 *expanded = !*expanded;
             }
@@ -120,7 +125,21 @@ pub fn review_bar(ui: &mut egui::Ui, mode: Mode, info: &BarInfo, expanded: &mut 
             });
         });
     }
-    // Hook (#746, call-graph schema 2): "Tests that reach this" goes here,
-    // below the blocked-by list, once the data carries it.
+    // Tests that reach this (#746): resolved calls only, so a lower bound.
+    if *expanded && (info.tests_total > 0 || !info.examples.is_empty()) {
+        ui.horizontal_wrapped(|ui| {
+            ui.weak(format!("reached by {} test{} (nearest {} shown):", info.tests_total, if info.tests_total == 1 { "" } else { "s" }, info.tests.len()));
+            for (id, hops) in &info.tests {
+                if ui.link(RichText::new(format!("{} ({hops})", crate::model::short_name(id))).monospace()).on_hover_text(format!("{id}\n{hops} call(s) away")).clicked() {
+                    action = Some(BarAction::Goto(id.clone()));
+                }
+            }
+            for (ex, hops) in &info.examples {
+                ui.weak(format!("example {ex} ({hops})"));
+            }
+        });
+    } else if !*expanded && info.tests_total > 0 {
+        ui.weak(format!("reached by {} tests", info.tests_total));
+    }
     action
 }

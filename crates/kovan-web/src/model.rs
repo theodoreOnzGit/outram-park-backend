@@ -425,18 +425,20 @@ impl Facts {
     }
 }
 
-/// A function and the module it is in, by id.
+/// A function and the module it is in, by id (integration-test targets
+/// included, schema 2).
 pub fn find_function<'a>(krate: &'a CrateGraph, id: &str) -> Option<(&'a Module, &'a Function, TargetKind)> {
-    krate.targets.iter().find_map(|t| {
+    krate.targets.iter().chain(krate.tests.iter()).find_map(|t| {
         t.modules.iter().find_map(|m| m.functions.iter().find(|f| f.id == id).map(|f| (m, f, t.kind)))
     })
 }
 
-/// The module with this file.
+/// The module with this file (integration-test targets included).
 pub fn find_module<'a>(krate: &'a CrateGraph, file: &str) -> Option<(&'a Module, TargetKind, &'a str)> {
     krate
         .targets
         .iter()
+        .chain(krate.tests.iter())
         .find_map(|t| t.modules.iter().find(|m| m.file == file).map(|m| (m, t.kind, t.name.as_str())))
 }
 

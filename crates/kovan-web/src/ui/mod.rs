@@ -585,7 +585,16 @@ impl CodeReview {
             }
             None => (Vec::new(), 0, true),
         };
-        Some(BarInfo { name, id: id.clone(), review: facts.review(id), maturity, blocked, callees, loading })
+        let reach = slice.and_then(|s| model::find_function(&s.krate, id)).and_then(|(_, f, _)| f.reached_by.clone());
+        let (tests, tests_total, examples) = match reach {
+            Some(r) => (
+                r.tests.iter().map(|t| (t.id.clone(), t.hops)).collect(),
+                r.tests_total,
+                r.examples.iter().map(|e| (format!("{}::{}", e.krate, e.example), e.hops)).collect(),
+            ),
+            None => (Vec::new(), 0, Vec::new()),
+        };
+        Some(BarInfo { name, id: id.clone(), review: facts.review(id), maturity, blocked, callees, loading, tests, tests_total, examples })
     }
 
     fn bar_action(&mut self, a: BarAction, snap: &Snap) {
@@ -720,6 +729,14 @@ impl CodeReview {
             ui.horizontal(|ui| {
                 ui.label(RichText::new(if module.path.is_empty() { "crate root" } else { module.path.as_str() }).monospace());
                 self.api_link(ui, snap, &api, &model::rustdoc_module_page(krate, &module.path), "");
+            });
+        }
+        if let Some(u) = &module.upstream {
+            ui.horizontal_wrapped(|ui| {
+                ui.weak(format!("ported from {}", u.project.clone().unwrap_or_default()));
+                if let Some(url) = &u.url {
+                    ui.add(egui::Hyperlink::from_label_and_url("Upstream", url).open_in_new_tab(true));
+                }
             });
         }
         ui.separator();

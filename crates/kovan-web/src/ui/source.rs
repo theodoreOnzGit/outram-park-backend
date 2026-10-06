@@ -66,17 +66,52 @@ impl CodeReview {
                 let url = format!("https://github.com/{}/blob/{}/{}#L{}-L{}", b.repo, b.commit, file, f.start_line, f.end_line);
                 ui.add(egui::Hyperlink::from_label_and_url("GitHub", url).open_in_new_tab(true));
             }
-            // Hook (#746, call-graph schema 2): "view upstream ↗" per file goes here.
+            // The ported-from counterpart (#746), only when the header gives
+            // a linkable repository and commit.
+            if let Some(url) = found.as_ref().and_then(|(m, _)| m.upstream.as_ref()).and_then(|u| u.url.clone()) {
+                ui.add(egui::Hyperlink::from_label_and_url("Upstream", url).open_in_new_tab(true)).on_hover_text("The upstream file this one was ported from, at the recorded commit");
+            }
             if !sheet && ui.button("×").on_hover_text("Close the source panel").clicked() {
                 self.source = None;
                 self.sync_hash();
             }
         });
-        let Some((_module, f)) = found else {
+        let Some((module, f)) = found else {
             ui.weak("Loading the function's data…");
             return;
         };
         ui.label(RichText::new(format!("{file}:{}-{}", f.start_line, f.end_line)).small().weak());
+        // Pages that cite this function (#746): code walks and concept tags.
+        if !f.cited_by.is_empty() {
+            let base = if self.store.api_url().is_some() { "../".to_string() } else { slice.as_ref().and_then(|s| s.site_base.clone()).unwrap_or_default() };
+            ui.collapsing(format!("Cited by {} page{}", f.cited_by.len(), if f.cited_by.len() == 1 { "" } else { "s" }), |ui| {
+                for c in &f.cited_by {
+                    match &c.site {
+                        Some(site) => {
+                            let anchor = if c.anchor.is_empty() || site.contains('#') { String::new() } else { format!("#{}", c.anchor) };
+                            ui.add(egui::Hyperlink::from_label_and_url(format!("{} (line {})", c.page, c.line), format!("{base}{site}{anchor}")).open_in_new_tab(true));
+                        }
+                        None => {
+                            ui.weak(format!("{} (line {}, not on the site)", c.page, c.line));
+                        }
+                    }
+                }
+            });
+        }
+        // The file's recent history (#746).
+        if !module.history.is_empty() {
+            let repo = snap.build.as_ref().map(|b| b.repo.clone()).unwrap_or_else(|| crate::data::DEFAULT_REPO.to_string());
+            ui.collapsing(format!("File history ({} newest)", module.history.len()), |ui| {
+                for c in &module.history {
+                    ui.horizontal_wrapped(|ui| {
+                        let short: String = c.sha.chars().take(10).collect();
+                        ui.add(egui::Hyperlink::from_label_and_url(RichText::new(short).monospace(), format!("https://github.com/{repo}/commit/{}", c.sha)).open_in_new_tab(true));
+                        ui.weak(c.date.chars().take(10).collect::<String>());
+                        ui.label(RichText::new(&c.subject).small());
+                    });
+                }
+            });
+        }
         ui.separator();
         let text = match snap.files.get(&file) {
             Some(Load::Ready(t)) => t.clone(),
