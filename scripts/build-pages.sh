@@ -16,7 +16,7 @@ DATE="$(date -u +%Y-%m-%d)"
 
 rm -rf "$OUT"
 mkdir -p "$OUT/deep-dives"
-cp docs/site/index.html docs/site/style.css docs/site/site-nav.js "$OUT/"
+cp docs/site/index.html docs/site/style.css docs/site/site-nav.js docs/site/code-map-bar.js "$OUT/"
 
 # The code map (gh:#734): every crate placed by its [package.metadata.kovan]
 # tag, drawn from `cargo metadata` of THIS checkout by kovan-cli (no
@@ -31,6 +31,29 @@ code_map() {
 }
 code_map --format svg -o "$OUT/code-map/code_map.svg"
 code_map --format json -o "$OUT/code-map/code_map.json"
+# The code map is also a navigation strip on every lesson and API page
+# (docs/site/code-map-bar.js, maintainer 2026-10-06). It sends a tap on a
+# crate to the crate's deep dive or rustdoc, so it needs to know which books
+# the site has and where their sources live; that comes from the same lists
+# this script builds from, never from a second hand-kept list.
+books_json() {
+  local sep="" name dir
+  while read -r name dir; do
+    [[ -z "$name" || "$name" == \#* ]] && continue
+    printf '%s{"url":"%s/%s/","dir":"%s"}' "$sep" "$2" "$name" "$dir"
+    sep=","
+  done < "$1"
+}
+{
+  printf '{"deep_dives":[%s],' "$(books_json docs/site/deep-dives.txt deep-dives)"
+  printf '"tutorials":[%s],"api":[' "$(books_json docs/site/tutorials.txt tutorials)"
+  sep=""
+  while read -r c; do
+    [[ -z "$c" || "$c" == \#* ]] && continue
+    printf '%s"%s"' "$sep" "$c"; sep=","
+  done < docs/site/lesson-crates.txt
+  printf ']}\n'
+} > "$OUT/code-map/site_links.json"
 
 # Rustdoc, release profile (root CLAUDE.md), no dependencies' docs. Source
 # pages are not published: lessons show anchored snippets and link to GitHub.
@@ -202,7 +225,8 @@ while IFS= read -r -d '' d; do
 done < <(find "$OUT" -mindepth 1 -type d -print0)
 
 # Every page must exist where the main menu points.
-for f in index.html site-nav.js code-map/index.html code-map/code_map.svg code-map/code_map.json \
+for f in index.html site-nav.js code-map-bar.js code-map/index.html code-map/code_map.svg \
+  code-map/code_map.json code-map/site_links.json \
   api/outram_mc_libs/index.html api/changi/index.html \
   api/buangkok/index.html api/boon_lay/index.html \
   deep-dives/{monte-carlo,dispersion,triso-atops}/index.html \
