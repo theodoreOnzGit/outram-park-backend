@@ -2152,3 +2152,74 @@ the same day: publish it on the Pages site as well, as an MVP.
 **rust-analyzer is not used** anywhere in this; phones only render the
 static SVG and JSON.
 
+## The call graph: crate → module → function, with source, as JSON (2026-10-06, GH #737)
+
+**Maintainer direction** (#735, #737): `kovan-cli` precomputes the call graph
+at three levels and each function's source, deterministically, for the
+code-review UI; web-kovan reads it statically, desktop kovan can compute it
+live. Function paths must be `code-walk`'s, because review stamps (#739) key
+on them.
+
+**What was built.**
+- `src/call_graph/` (plain serde + std, no GUI, no I/O): the model
+  (`CallGraphDoc`: crates → targets → modules → functions; `calls` with every
+  call-site line; `module_calls` and `crate_calls` with site and pair counts;
+  `outside`; `totals`), `CallGraphDoc::assemble` (sorts everything,
+  `BTreeMap`s only), `function_ids`, and `modules` (the Rust reference's
+  `mod` file lookup, `#[path]`, inline modules, `#[cfg(test)]` ranges).
+- `src/commands/call_graph.rs` and `kovan-cli call-graph [--workspace]
+  [--crates a,b] [-o]`.
+- **Reused, not rewritten:** `code_walk::source::FileIndex` finds every `fn`
+  (qualified name, signature, doc sentence, body range);
+  `code_walk::builder::Workspace::expand` resolves each body through
+  rust-analyzer via the keep-warm `lsp_daemon` and classifies what it cannot
+  follow as `UNRESOLVED(<kind>)`; `code_map::run_cargo_metadata` and
+  `CodeMap::from_cargo_metadata` supply the targets and the maturity tags.
+  The only change to code-walk: `Walk` now also keeps every call site
+  (`sites`), since its graph keeps the first per pair, and `index`/`node`
+  became `pub(crate)`.
+
+**Choices made here that the maintainer has not ruled on.**
+- **A module is a source file.** Inline `mod x { }` blocks are not separate
+  modules; their functions belong to the file. A `#[cfg(test)]` module file
+  is a module marked `test`; functions in test code are kept and marked
+  `test`, so the UI can hide them.
+- **Targets:** the lib and every example. Bins, integration tests and
+  benches are not included.
+- **Ambiguous ids:** where `file.rs::Type::name` is not unique in its file
+  (two trait impls both defining `fmt`), each gets `#k` in source order and
+  `ambiguous: true`. 16 of 3632 functions in the run below. `code-walk
+  --from` cannot name these either; #739 should decide what a stamp on one
+  keys on.
+- **Maturity** is the crate tag's, and for a library module the deepest
+  `maturity_modules` entry covering it. Per-function maturity waits for
+  stamps (#739).
+- **`start_line`** includes the `///` doc comment and attributes above the
+  `fn`, so `source` is what a stamp's hash covers (#735: code and `///`
+  docs). No hash is computed here; that is #739's.
+
+**Measured (2026-10-06, 16-core desktop, rust-analyzer 1.98.0)** on the
+#742 case, `--crates outram-park-digital-twin-engine,boon-lay` (lib + 4
+examples, lib + 5 examples): 276 modules, 3632 functions (1253 test),
+7288 calls (10536 sites; 6 function values), 1728 unresolved (1464 closure,
+216 other, 38 trait, 10 no-definition), 290 outside functions, 27560 calls
+into std or dependencies dropped, 37641 definition queries. 127 s with a
+cold rust-analyzer in a fresh worktree (about 60 s indexing), 50 s warm;
+10.5 MB of JSON; two runs byte-identical (`cmp`). The `htgr_sim_v1` example
+analyses like a library: 26 function pairs (28 sites) from it into
+boon-lay, including
+`examples/htgr_sim_v1/physics/fission_product_release.rs::TrisoAtopsReleaseChannel::update`
+→ `crates/boon-lay/src/triso_atops_fork/activities/live_pools.rs::step` (line
+876) and `::new_htr10` → `nuclide_model/nuclide_database.rs::supported_nuclides`
+(line 770). #742 calls the type `FissionProductRelease`; in the code it is
+`TrisoAtopsReleaseChannel`.
+
+**Known gaps (code-walk's, now visible in bulk).** `UNRESOLVED(other)` is
+213 of 216 times a derived method (`Default::default()`, `clone()` on a `#[derive]`
+type), which rust-analyzer resolves to the derive attribute. A function
+value written as a path (`.map(other_crate::leaf)`) is not detected at all,
+only a bare name is (found writing `tests/call_graph_rust_analyzer.rs`).
+Trait calls stop at `UNRESOLVED(trait)`. Not done: the whole-workspace run
+(not measured), wiring into `scripts/build-pages.sh`, and the `kovan_skill.md`
+entry.
+

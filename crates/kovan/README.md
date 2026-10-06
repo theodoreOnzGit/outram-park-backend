@@ -182,6 +182,7 @@ kovan-cli code-walk --from crates/x/examples/demo.rs::main --to crates/x/src/geo
 kovan-cli code-walk-check crates/x/docs/lessons --update
 kovan-cli code-map --format svg -o code_map.svg
 kovan-cli code-map --format json -o code_map.json
+kovan-cli call-graph --crates outram-park-digital-twin-engine,boon-lay -o call_graph.json
 ```
 
 Every command's own `--help` documents its flags; the summary below is the
@@ -390,6 +391,30 @@ utilities base and the knowledge-management side box. Built from
 (model, `layout::layout`, `svg::render`), plain serde + std. The Pages
 build (`scripts/build-pages.sh`) writes both files for the site's
 `code-map/` page; the desktop app's **Code Map** view draws the same layout.
+
+### `call-graph` — crate → module → function call graph with source (`commands::call_graph`, GitHub #737)
+
+The data behind the code-review UI (#735): per crate its lib target and every
+example, each a tree of modules (one per source file, read from the `mod`
+declarations, so multi-file examples like `examples/htgr_sim_v1/` are trees
+too), each module's functions (free, inherent, trait impl, trait declaration)
+with file, start/identifier/end lines, signature, first doc sentence and
+source text; every resolved call with all its call-site lines (within and
+across crates; targets outside `--crates` are listed in `outside`); each
+function's `UNRESOLVED(<kind>)` calls; and module→module and crate→crate
+aggregates with site and pair counts. Calls are resolved by rust-analyzer
+with `code-walk`'s machinery (`Workspace::expand`), so nothing is guessed.
+Function ids are `code-walk`'s `file.rs::name` / `file.rs::Type::name` (a
+`#k` suffix only when that is not unique in its file), the key review stamps
+use. The same commit gives byte-identical JSON. The model is
+`kovan::call_graph` (plain serde + std).
+
+Measured 2026-10-06 (16-core desktop, rust-analyzer 1.98.0) on
+`outram-park-digital-twin-engine` (lib + 4 examples) and `boon-lay` (lib + 5
+examples): 3632 functions, 7288 calls (10536 sites), 1728 unresolved, 37641
+definition queries; 127 s with a cold rust-analyzer (about 60 s of it
+indexing), 50 s warm; 10.5 MB of JSON. The whole workspace is
+correspondingly slower, so restrict with `--crates`.
 
 ### Determinism & offline guarantees
 
@@ -671,6 +696,13 @@ cargo test --release -p kovan
   overlapping cards, each crate once, fidelity in order and raffles across
   the Risk box. The parser, layout and SVG determinism are unit-tested in
   `src/code_map/`.
+- `tests/call_graph_rust_analyzer.rs` — `call-graph` end to end against a
+  real rust-analyzer on a throwaway two-crate workspace: lib and multi-file
+  example module trees, a `#[cfg(test)]` module, a cross-crate method call
+  from an example with both call-site lines, a function value, a trait gap,
+  the module and crate aggregates, and byte-identical output on a second
+  run. Skips when `rust-analyzer` is not on PATH. Assembly order-independence
+  and the module-file rules are unit-tested in `src/call_graph/`.
 - `tests/code_walk_rust_analyzer.rs` — `code-walk` and `code-walk-check`
   end to end against a real rust-analyzer on a throwaway crate (shortest
   chain, method resolution, trait and closure gaps, a lesson block with a
