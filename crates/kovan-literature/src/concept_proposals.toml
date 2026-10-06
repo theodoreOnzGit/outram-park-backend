@@ -3158,6 +3158,8 @@ title = "FLEXPART Lagrangian particle dispersion"
 what = "Advection, turbulence, convection and deposition of computational particles."
 kind = "port"
 upstream = "FLEXPART v10.4 (GPL-3.0)"
+aspirations = ["14-emergency-planning/accident-assessment"]
+aspiration_prerequisites = ["validation", "risk assessment", "licensing"]
 status = "proposed"
 
 [[implementation]]
@@ -3168,6 +3170,8 @@ title = "Gaussian puff forward dispersion"
 what = "A continuous release as a train of Gaussian puffs."
 kind = "port"
 upstream = "puff R package 0.1.1 (MIT)"
+aspirations = ["14-emergency-planning/accident-assessment"]
+aspiration_prerequisites = ["validation", "risk assessment", "licensing"]
 status = "proposed"
 
 [[implementation]]
@@ -3177,6 +3181,8 @@ module = "activity/accident_airborne_release"
 title = "Published HTR-10 accident airborne release"
 what = "Design-basis-accident release stored as cited reference data."
 kind = "new-work"
+aspirations = ["14-emergency-planning/accident-assessment"]
+aspiration_prerequisites = ["validation", "risk assessment", "licensing"]
 status = "proposed"
 
 [[implementation]]
@@ -3187,6 +3193,8 @@ title = "Gaussian-plume dilution for routine releases"
 what = "pyDOSEIA's plume dilution factors."
 kind = "port"
 upstream = "pyDOSEIA"
+aspirations = ["14-emergency-planning/accident-assessment"]
+aspiration_prerequisites = ["validation", "risk assessment", "licensing"]
 status = "proposed"
 
 [[implementation]]
@@ -3196,6 +3204,8 @@ module = "activity/chi_over_q"
 title = "Unit-release dilution factors by travel time"
 what = "chi/Q from a unit release, binned by travel time."
 kind = "new-work"
+aspirations = ["14-emergency-planning/accident-assessment"]
+aspiration_prerequisites = ["validation", "risk assessment", "licensing"]
 status = "proposed"
 
 [[implementation]]
@@ -3206,6 +3216,8 @@ title = "Dry deposition"
 what = "Resistance model for gases and particle deposition velocity."
 kind = "port"
 upstream = "FLEXPART v10.4"
+aspirations = ["14-emergency-planning/accident-assessment"]
+aspiration_prerequisites = ["validation", "risk assessment", "licensing"]
 status = "proposed"
 
 [[implementation]]
@@ -3216,6 +3228,8 @@ title = "Wet deposition"
 what = "Below- and in-cloud scavenging and mass loss."
 kind = "port"
 upstream = "FLEXPART v10.4"
+aspirations = ["14-emergency-planning/accident-assessment"]
+aspiration_prerequisites = ["validation", "risk assessment", "licensing"]
 status = "proposed"
 
 [[implementation]]
@@ -3226,6 +3240,8 @@ title = "Radioactive decay in transit"
 what = "Per-species decay of airborne and deposited activity."
 kind = "port"
 upstream = "FLEXPART v10.4"
+aspirations = ["14-emergency-planning/accident-assessment"]
+aspiration_prerequisites = ["validation", "risk assessment", "licensing"]
 status = "proposed"
 
 [[implementation]]
@@ -3236,6 +3252,8 @@ title = "Terrestrial food-chain ingestion pathway"
 what = "IAEA SRS 19 screening equations and H-3/C-14 specific-activity models."
 kind = "port"
 upstream = "pyDOSEIA"
+aspirations = ["14-emergency-planning/accident-assessment"]
+aspiration_prerequisites = ["validation", "risk assessment", "licensing"]
 status = "proposed"
 
 [[implementation]]
@@ -3246,6 +3264,8 @@ title = "Plume shine"
 what = "External gamma dose from the passing cloud (finite-cloud model)."
 kind = "port"
 upstream = "pyDOSEIA"
+aspirations = ["14-emergency-planning/accident-assessment"]
+aspiration_prerequisites = ["validation", "risk assessment", "licensing"]
 status = "proposed"
 
 [[implementation]]
@@ -3256,6 +3276,8 @@ title = "Five-pathway dose"
 what = "Dose to members of the public summed over pathways (research use only)."
 kind = "port"
 upstream = "pyDOSEIA"
+aspirations = ["14-emergency-planning/accident-assessment"]
+aspiration_prerequisites = ["validation", "risk assessment", "licensing"]
 status = "proposed"
 
 [[implementation]]
@@ -3266,6 +3288,8 @@ title = "EPA Federal Guidance Report dose coefficients"
 what = "FGR-11/13/15 coefficients for the tracked nuclides."
 kind = "new-work"
 upstream = "US EPA FGR-11, FGR-13, FGR-15"
+aspirations = ["14-emergency-planning/accident-assessment"]
+aspiration_prerequisites = ["validation", "risk assessment", "licensing"]
 status = "proposed"
 
 [[implementation]]
@@ -3275,6 +3299,8 @@ module = "published/accident_dose_by_distance"
 title = "Published accident dose by distance"
 what = "Cited reference dose tables; computes nothing."
 kind = "new-work"
+aspirations = ["14-emergency-planning/accident-assessment"]
+aspiration_prerequisites = ["validation", "risk assessment", "licensing"]
 status = "proposed"
 
 # ---- nuclear fuel cycle ---------------------------------------------------
@@ -3419,4 +3445,27 @@ title = "Agent-based fuel-cycle simulation"
 what = "Facilities as agents exchanging material over time: fuel-cycle flows and inventories."
 kind = "port"
 upstream = "CYCLUS"
+status = "proposed"
+
+
+[[implementation]]
+concept = "10-human-resource-development/knowledge-management-and-education/education-and-outreach"
+crate = "outram-park-digital-twin-engine"
+module = "app_scaffold"
+title = "Digital-twin engine: offline educational plant simulators"
+what = "The egui simulator framework behind htgr_sim_v1, fhr_sim_v2 and distillation_sim_v1: offline demonstrations only (RESPONSIBLE_USE.md)."
+kind = "new-work"
+aspirations = ["02-nuclear-safety/conduct-of-operations/operator-training-and-requalification", "02-nuclear-safety/instrumentation-and-control/information-systems-and-displays", "02-nuclear-safety/accident-analysis/transient-and-accident-analysis-methods"]
+aspiration_prerequisites = ["validation", "risk assessment", "licensing"]
+status = "proposed"
+
+[[implementation]]
+concept = "10-human-resource-development/knowledge-management-and-education/education-and-outreach"
+crate = "outram-park-digital-twin-engine"
+module = "htr10"
+title = "Digital-twin engine: HTR-10 plant model"
+what = "The HTR-10 plant model the htgr_sim_v1 simulator runs: offline, educational."
+kind = "new-work"
+aspirations = ["02-nuclear-safety/conduct-of-operations/operator-training-and-requalification", "02-nuclear-safety/instrumentation-and-control/information-systems-and-displays", "02-nuclear-safety/accident-analysis/transient-and-accident-analysis-methods"]
+aspiration_prerequisites = ["validation", "risk assessment", "licensing"]
 status = "proposed"

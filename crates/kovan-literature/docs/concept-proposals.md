@@ -7,7 +7,7 @@
 ## Counts
 
 - **L3 concepts: 195** (152 from the NRC/ORNL text, `nrc`; 43 needed by outram-park and named only implicitly, `outram-park`).
-- **L4 seed tags: 190** across 38 crates.
+- **L4 seed tags: 192** across 39 crates.
 
 | Crate | Seed tags |
 |---|---|
@@ -33,6 +33,7 @@
 | `outram-foam-multiphase` | 3 |
 | `outram-foam-turbulence-lib` | 2 |
 | `outram-mc-libs` | 27 |
+| `outram-park-digital-twin-engine` | 2 |
 | `outram-park-fork-cfmesh` | 1 |
 | `outram-park-fork-coolprop` | 2 |
 | `outram-park-fork-dwsim-libs` | 7 |
@@ -741,6 +742,8 @@
   - proposed kovan-concept tags:
     - [ ] add `//! kovan-concept: 10-human-resource-development/knowledge-management-and-education/education-and-outreach` to `crates/dhoby-ghaut/src/web_demo/mod.rs`: Web-demo framework. The track-independent half of every browser tutorial demo. (new work)
     - [ ] add `//! kovan-concept: 10-human-resource-development/knowledge-management-and-education/education-and-outreach` to `crates/dhoby-ghaut/src/workbench/mod.rs`: Guided simulation workbench. The wizard that walks a learner through a high-fidelity simulation. (new work)
+    - [ ] add `//! kovan-concept: 10-human-resource-development/knowledge-management-and-education/education-and-outreach` to `crates/outram-park-digital-twin-engine/src/app_scaffold/mod.rs`: Digital-twin engine: offline educational plant simulators. The egui simulator framework behind htgr_sim_v1, fhr_sim_v2 and distillation_sim_v1: offline demonstrations only (RESPONSIBLE_USE.md). (new work)
+    - [ ] add `//! kovan-concept: 10-human-resource-development/knowledge-management-and-education/education-and-outreach` to `crates/outram-park-digital-twin-engine/src/htr10/mod.rs`: Digital-twin engine: HTR-10 plant model. The HTR-10 plant model the htgr_sim_v1 simulator runs: offline, educational. (new work)
 
 ## Site and supporting facilities (`12-site-and-supporting-facilities`)
 

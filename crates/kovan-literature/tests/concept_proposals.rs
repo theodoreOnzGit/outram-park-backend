@@ -80,6 +80,12 @@ struct Implementation {
     upstream: Option<String>,
     #[serde(default)]
     cross_links: Vec<String>,
+    /// Concepts the work aims to support but is not validated, risk-assessed
+    /// or licensed for (an "aspiration" link: shown dashed, never as a home).
+    #[serde(default)]
+    aspirations: Vec<String>,
+    #[serde(default)]
+    aspiration_prerequisites: Vec<String>,
     status: String,
 }
 
@@ -192,6 +198,10 @@ fn implementations_name_existing_concepts_crates_and_modules() {
     let mut missing = Vec::new();
     for i in &p.implementation {
         assert!(concepts.contains(i.concept.as_str()), "{}::{}: concept {} does not exist", i.krate, i.module, i.concept);
+        for x in &i.aspirations {
+            assert!(concepts.contains(x.as_str()), "{}::{}: aspiration {x} does not exist", i.krate, i.module);
+        }
+        assert_eq!(i.aspirations.is_empty(), i.aspiration_prerequisites.is_empty(), "{}::{}: an aspiration must state its prerequisites", i.krate, i.module);
         for x in &i.cross_links {
             assert!(concepts.contains(x.as_str()), "{}::{}: cross-link {x} does not exist", i.krate, i.module);
         }
