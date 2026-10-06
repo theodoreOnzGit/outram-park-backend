@@ -3469,3 +3469,36 @@ kind = "new-work"
 aspirations = ["02-nuclear-safety/conduct-of-operations/operator-training-and-requalification", "02-nuclear-safety/instrumentation-and-control/information-systems-and-displays", "02-nuclear-safety/accident-analysis/transient-and-accident-analysis-methods"]
 aspiration_prerequisites = ["validation", "risk assessment", "licensing"]
 status = "proposed"
+
+[[concept]]
+path = "01-national-position/need-for-power/power-system-description"
+title = "Description of power system"
+origin = "nrc"
+sources = [{ document = "nureg-1555", section = "8.1" }]
+status = "approved"
+
+[[concept]]
+path = "01-national-position/need-for-power/power-demand"
+title = "Power demand (power and energy requirements; factors affecting growth of demand)"
+origin = "nrc"
+sources = [{ document = "nureg-1555", section = "8.2 (8.2.1, 8.2.2)" }]
+status = "approved"
+
+[[concept]]
+path = "01-national-position/need-for-power/power-supply"
+title = "Power supply"
+origin = "nrc"
+sources = [{ document = "nureg-1555", section = "8.3" }]
+status = "approved"
+
+[[concept]]
+path = "01-national-position/need-for-power/need-for-power-assessment"
+title = "Assessment of need for power"
+origin = "nrc"
+sources = [{ document = "nureg-1555", section = "8.4" }]
+status = "approved"
+
+# DEFERRED until a citation is in the corpus (maintainer, 2026-10-06), under
+# 01-national-position, beside need-for-power:
+#   - industrial process (process heat / non-electric applications)
+#   - medical isotope production
