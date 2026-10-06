@@ -610,21 +610,21 @@ path = "02-nuclear-safety/control-rods-and-drives/control-rods"
 title = "Control rods"
 origin = "nrc"
 sources = [{ document = "nureg-1537-part1", section = "4.2.2 Control Rods" }]
-status = "proposed"
+status = "approved"
 
 [[concept]]
 path = "02-nuclear-safety/control-rods-and-drives/control-rod-drive-structural-materials"
 title = "Control rod drive structural materials"
 origin = "nrc"
 sources = [{ document = "nureg-0800-toc-rev6", section = "4.5.1" }, { document = "ornl-tm-2018-976", section = "3.1.4" }]
-status = "proposed"
+status = "approved"
 
 [[concept]]
 path = "02-nuclear-safety/control-rods-and-drives/functional-design-of-control-rod-drive-system"
 title = "Functional design of control rod drive system"
 origin = "nrc"
 sources = [{ document = "nureg-0800-toc-rev6", section = "4.6" }, { document = "ornl-tm-2018-976", section = "3.1.6" }]
-status = "proposed"
+status = "approved"
 
 # ============================================================================
 # 02-nuclear-safety / reactor-coolant-system
@@ -635,63 +635,65 @@ path = "02-nuclear-safety/reactor-coolant-system/reactor-coolant-pressure-bounda
 title = "Reactor coolant (helium) pressure boundary"
 origin = "nrc"
 sources = [{ document = "nureg-0800-toc-rev6", section = "5.2.1.1-5.2.5" }, { document = "rg-1.232-rev0", section = "App. C, MHTGR-DC 14, 15, 30-32" }, { document = "ornl-tm-2018-976", section = "3.2.1" }]
-status = "proposed"
+cross_links = ["02-nuclear-safety/accident-analysis/air-and-moisture-ingress"]
+status = "approved"
 
 [[concept]]
 path = "02-nuclear-safety/reactor-coolant-system/reactor-vessel-integrity"
 title = "Reactor vessel materials and integrity"
 origin = "nrc"
 sources = [{ document = "nureg-0800-toc-rev6", section = "5.3.1-5.3.3" }, { document = "ornl-tm-2018-976", section = "3.2.2" }]
-status = "proposed"
+status = "approved"
 
 [[concept]]
 path = "02-nuclear-safety/reactor-coolant-system/residual-heat-removal"
 title = "Residual heat removal (passive, in the MHTGR criteria)"
 origin = "nrc"
 sources = [{ document = "nureg-0800-toc-rev6", section = "5.4.7 Residual Heat Removal (RHR) System" }, { document = "rg-1.232-rev0", section = "App. C, MHTGR-DC 34, 36, 37" }, { document = "ornl-tm-2018-976", section = "3.2.3" }]
-status = "proposed"
+cross_links = ["02-nuclear-safety/thermal-hydraulic-design/natural-convection-cooling"]
+status = "approved"
 
 [[concept]]
 path = "02-nuclear-safety/reactor-coolant-system/steam-generators"
 title = "Steam generators"
 origin = "nrc"
 sources = [{ document = "nureg-0800-toc-rev6", section = "5.4.2.1 Steam Generator Materials; 5.4.2.2 Steam Generator Program" }]
-status = "proposed"
+status = "approved"
 
 [[concept]]
 path = "02-nuclear-safety/reactor-coolant-system/primary-heat-exchangers"
 title = "Primary heat exchanger"
 origin = "nrc"
 sources = [{ document = "ornl-tm-2018-976", section = "3.2.3 (proposed MSR subsection)" }, { document = "nureg-1537-part1", section = "5.2 Primary Coolant System; 5.3 Secondary Coolant System" }]
-status = "proposed"
+status = "approved"
 
 [[concept]]
 path = "02-nuclear-safety/reactor-coolant-system/coolant-pumps-and-circulators"
 title = "Reactor coolant pumps (fuel salt pump; gas circulator)"
 origin = "nrc"
 sources = [{ document = "nureg-0800-toc-rev6", section = "5.4.1.1 Pump Flywheel Integrity (PWR)" }, { document = "ornl-tm-2018-976", section = "3.2.3 (fuel salt pump)" }]
-status = "proposed"
+status = "approved"
 
 [[concept]]
 path = "02-nuclear-safety/reactor-coolant-system/primary-coolant-cleanup-and-makeup"
 title = "Primary coolant cleanup and makeup water systems"
 origin = "nrc"
 sources = [{ document = "nureg-1537-part1", section = "5.4; 5.5" }, { document = "rg-1.232-rev0", section = "App. C, MHTGR-DC 33 Reactor coolant makeup" }]
-status = "proposed"
+status = "approved"
 
 [[concept]]
 path = "02-nuclear-safety/reactor-coolant-system/nitrogen-16-control"
 title = "Nitrogen-16 control system"
 origin = "nrc"
 sources = [{ document = "nureg-1537-part1", section = "5.6" }]
-status = "proposed"
+status = "approved"
 
 [[concept]]
 path = "02-nuclear-safety/reactor-coolant-system/fuel-salt-drain-tank-and-freeze-valve"
 title = "Fuel salt drain tank and freeze valve boundary (MSR)"
 origin = "nrc"
 sources = [{ document = "ornl-tm-2018-976", section = "3.2.3 (proposed 5.4.20, 5.4.21)" }]
-status = "proposed"
+status = "approved"
 
 # ============================================================================
 # 02-nuclear-safety / msr-coolant-loop   (ORNL 3.2.4, proposed SRP 5.5)
@@ -702,28 +704,28 @@ path = "02-nuclear-safety/msr-coolant-loop/coolant-loop-materials-and-chemistry"
 title = "Coolant loop materials and chemistry"
 origin = "nrc"
 sources = [{ document = "ornl-tm-2018-976", section = "3.2.4 (coolant loop materials; coolant loop chemistry)" }]
-status = "proposed"
+status = "approved"
 
 [[concept]]
 path = "02-nuclear-safety/msr-coolant-loop/coolant-loop-cleanup-sampling-and-makeup"
 title = "Coolant loop cleanup, sampling and makeup systems"
 origin = "nrc"
 sources = [{ document = "ornl-tm-2018-976", section = "3.2.4" }]
-status = "proposed"
+status = "approved"
 
 [[concept]]
 path = "02-nuclear-safety/msr-coolant-loop/coolant-loop-pump-and-heat-exchangers"
 title = "Coolant loop pump and coolant heat exchangers"
 origin = "nrc"
 sources = [{ document = "ornl-tm-2018-976", section = "3.2.4" }]
-status = "proposed"
+status = "approved"
 
 [[concept]]
 path = "02-nuclear-safety/msr-coolant-loop/coolant-loop-drain-tank-and-isolation"
 title = "Coolant loop drain tank, in-service inspection and testing, isolation valves"
 origin = "nrc"
 sources = [{ document = "ornl-tm-2018-976", section = "3.2.4" }]
-status = "proposed"
+status = "approved"
 
 # ============================================================================
 # 02-nuclear-safety / engineered-safety-features
@@ -3531,6 +3533,8 @@ path = "02-nuclear-safety/nuclear-design/core-configurations/liquid-fuelled"
 title = "Liquid-fuelled cores (MSR)"
 origin = "nrc"
 sources = [{ document = "ornl-tm-2018-976", section = "2 (homogeneous fuel; fuel salt boundary as the first fission-product barrier)" }]
+cross_links = ["02-nuclear-safety/thermal-hydraulic-design/gas-generation-and-entrainment", "02-nuclear-safety/msr-coolant-loop/coolant-loop-materials-and-chemistry"]
+note = "For MSRs, thermal hydraulics becomes more of a feedback and structural-materials issue (maintainer, 2026-10-06): hence its links to gas generation, coolant-loop materials and (via precursor drift) reactivity."
 status = "approved"
 
 [[concept]]
@@ -3567,6 +3571,7 @@ path = "02-nuclear-safety/thermal-hydraulic-design/gas-generation-and-entrainmen
 title = "Gas generation and entrainment (MSR flow-instability mechanisms)"
 origin = "nrc"
 sources = [{ document = "ornl-tm-2018-976", section = "3.1.3 (LWR DNB/CHF/CPR measures are not applicable to MSR technology, 'but other mechanisms may exist, such as gas generation or entrainment')" }]
+cross_links = ["02-nuclear-safety/nuclear-design/reactivity-coefficients", "02-nuclear-safety/msr-coolant-loop/coolant-loop-materials-and-chemistry"]
 status = "approved"
 
 [[concept]]

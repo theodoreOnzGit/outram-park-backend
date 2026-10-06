@@ -349,6 +349,8 @@
     - sources: `rg-1.232-rev0` Appendix C (MHTGR-DC)
   - [ ] **Liquid-fuelled cores (MSR)** · `core-configurations/liquid-fuelled` · origin `nrc`
     - sources: `ornl-tm-2018-976` 2 (homogeneous fuel; fuel salt boundary as the first fission-product barrier)
+    - **note for review:** For MSRs, thermal hydraulics becomes more of a feedback and structural-materials issue (maintainer, 2026-10-06): hence its links to gas generation, coolant-loop materials and (via precursor drift) reactivity.
+    - cross-links: `02-nuclear-safety/thermal-hydraulic-design/gas-generation-and-entrainment`, `02-nuclear-safety/msr-coolant-loop/coolant-loop-materials-and-chemistry`
   - [ ] **Liquid-metal-cooled fast reactor cores (SFR, LFR)** · `core-configurations/liquid-metal-cooled` · origin `nrc`
     - sources: `rg-1.232-rev0` Appendix B (SFR-DC); Appendix A (ARDC)
   - [ ] **Gas-cooled fast reactor cores (GFR)** · `core-configurations/gas-cooled-fast` · origin `nrc`
@@ -469,6 +471,7 @@
   - sources: `nureg-1537-part1` 4.6 (a detailed description of the analytical methods used in the thermal-hydraulic design); `ornl-tm-2018-976` 3.1.3 (acceptable analytical methods)
 - [ ] **Gas generation and entrainment (MSR flow-instability mechanisms)** · `gas-generation-and-entrainment` · origin `nrc`
   - sources: `ornl-tm-2018-976` 3.1.3 (LWR DNB/CHF/CPR measures are not applicable to MSR technology, 'but other mechanisms may exist, such as gas generation or entrainment')
+  - cross-links: `02-nuclear-safety/nuclear-design/reactivity-coefficients`, `02-nuclear-safety/msr-coolant-loop/coolant-loop-materials-and-chemistry`
 - [ ] **Experimental loops and test-reactor support for thermal-hydraulic design (MSR)** · `experimental-loops-and-test-reactor-support` · origin `nrc`
   - sources: `ornl-tm-2018-976` 3.1.3 (justified extrapolation from proven designs 'will rely heavily on experimental loops and perhaps a test reactor')
 
@@ -485,10 +488,12 @@
 
 - [ ] **Reactor coolant (helium) pressure boundary** · `reactor-coolant-pressure-boundary` · origin `nrc`
   - sources: `nureg-0800-toc-rev6` 5.2.1.1-5.2.5; `rg-1.232-rev0` App. C, MHTGR-DC 14, 15, 30-32; `ornl-tm-2018-976` 3.2.1
+  - cross-links: `02-nuclear-safety/accident-analysis/air-and-moisture-ingress`
 - [ ] **Reactor vessel materials and integrity** · `reactor-vessel-integrity` · origin `nrc`
   - sources: `nureg-0800-toc-rev6` 5.3.1-5.3.3; `ornl-tm-2018-976` 3.2.2
 - [ ] **Residual heat removal (passive, in the MHTGR criteria)** · `residual-heat-removal` · origin `nrc`
   - sources: `nureg-0800-toc-rev6` 5.4.7 Residual Heat Removal (RHR) System; `rg-1.232-rev0` App. C, MHTGR-DC 34, 36, 37; `ornl-tm-2018-976` 3.2.3
+  - cross-links: `02-nuclear-safety/thermal-hydraulic-design/natural-convection-cooling`
   - proposed kovan-concept tags:
     - [ ] add `//! kovan-concept: 02-nuclear-safety/reactor-coolant-system/residual-heat-removal` to `crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_three_branch_plus_dracs/mod.rs`: CIET primary loop plus DRACS. Three-branch primary loop coupled to the passive DRACS decay-heat removal loop. (new work, from Ong, Xiao & Peterson (2025) (peer reviewed))
 - [ ] **Steam generators** · `steam-generators` · origin `nrc`
