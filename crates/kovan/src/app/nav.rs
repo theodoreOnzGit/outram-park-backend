@@ -308,7 +308,7 @@ mod tests {
     fn the_wiki_and_mindmap_share_one_concept_through_history() {
         let reactors = NodeId::concept(Namespace::Library, "reactors");
         let htgr = NodeId::concept(Namespace::Library, "reactors/htgr");
-        let th = NodeId::concept(Namespace::Corpus, "nuclear-engineering/thermal-hydraulics");
+        let th = NodeId::concept(Namespace::Corpus, "02-nuclear-safety/thermal-hydraulic-design");
         let mut app = DigitiseApp::default();
         app.wiki = Some(WikiState::new());
 

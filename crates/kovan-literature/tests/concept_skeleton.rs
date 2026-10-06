@@ -52,14 +52,25 @@ fn skeleton() -> Skeleton {
 
 #[test]
 fn level_one_is_the_nineteen_iaea_issues_in_order() {
-    let s = skeleton();
-    let l1: Vec<&str> = s.node.iter().map(|n| n.path.as_str()).filter(|p| !p.contains('/')).collect();
+    // Read through the typed module Kovan uses (`kovan_literature::concept_tree`),
+    // so the map and this gate cannot disagree about what level 1 is.
+    let tree = kovan_literature::concept_tree();
+    let l1: Vec<&str> = tree.roots().map(|n| n.path.as_str()).collect();
     assert_eq!(l1.len(), 19, "{l1:?}");
     for (i, p) in l1.iter().enumerate() {
         let (num, rest) = p.split_once('-').expect("NN-segment");
         assert_eq!(num, format!("{:02}", i + 1), "{p}");
         assert!(!rest.is_empty() && rest.chars().all(|c| c.is_ascii_lowercase() || c == '-'), "{p}");
     }
+    // The raw file and the typed tree agree on every skeleton node.
+    let s = skeleton();
+    for n in &s.node {
+        let typed = tree.node(&n.path).unwrap_or_else(|| panic!("{} missing from the typed tree", n.path));
+        assert_eq!(typed.title, n.title);
+        assert_eq!(typed.level, n.path.split('/').count());
+        assert_eq!(typed.sources.len(), n.sources.len(), "{}", n.path);
+    }
+    assert_eq!(tree.documents().len(), s.document.len());
 }
 
 #[test]

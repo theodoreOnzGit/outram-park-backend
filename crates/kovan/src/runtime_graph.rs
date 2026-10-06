@@ -326,7 +326,22 @@ pub fn citations(
 /// concept, or the top from a top-level concept. `None` when already at the
 /// top, where there is nowhere to go.
 pub fn up_one_level(current: Option<&NodeId>) -> Option<Option<NodeId>> {
-    current.map(|id| id.parent_concept().map(|p| canonical_concept(&p)))
+    current.map(parent_of)
+}
+
+/// The concept one level above `id`, canonicalised: the path's parent, or
+/// for a level-1 corpus issue the corpus root ([`corpus::ROOT_TOPIC`]),
+/// whose path is not a prefix of theirs (2026-10-06: the standard map's
+/// paths are the concept paths, with no root segment). `None` at the top.
+pub fn parent_of(id: &NodeId) -> Option<NodeId> {
+    if id.kind == EntryKind::Concept && id.namespace == Namespace::Corpus {
+        if let Some(t) = corpus::topic_at(&id.path) {
+            return t
+                .parent_path()
+                .map(|p| NodeId::concept(Namespace::Corpus, p));
+        }
+    }
+    id.parent_concept().map(|p| canonical_concept(&p))
 }
 
 /// The identity a concept should actually be addressed by.
@@ -363,7 +378,7 @@ pub fn breadcrumb(index: Option<&KnowledgeIndex>, id: &NodeId) -> Vec<(NodeId, S
                 .unwrap_or(&node.path)
                 .to_string()
         });
-        at = node.parent_concept().map(|p| canonical_concept(&p));
+        at = parent_of(&node);
         chain.push((node, title));
     }
     chain.reverse();
@@ -378,7 +393,7 @@ mod tests {
     #[test]
     fn up_from_a_mirrored_branch_lands_on_the_corpus_node() {
         use super::*;
-        let parent = "nuclear-engineering/fuel-and-materials/triso";
+        let parent = "02-nuclear-safety/fuel-system-design/triso-coated-particle-fuel";
         assert!(corpus::topic_at(parent).is_some(), "fixture assumption");
 
         let mine = NodeId::concept(Namespace::Library, &format!("{parent}/my-notes"));
@@ -419,16 +434,114 @@ mod tests {
         (dir, root, index)
     }
 
-    /// With no folder open the graph is the corpus: the top is Nuclear
-    /// Engineering, whose children are the nine branches.
+    /// With no folder open the graph is the corpus: the top is the virtual
+    /// root, whose children are the 19 IAEA Milestones issues in order
+    /// (2026-10-06; was Nuclear Engineering and its nine branches).
     #[test]
     fn with_no_folder_the_graph_is_the_corpus() {
         let top = top_level(None);
         assert_eq!(top.len(), 1);
-        assert_eq!(top[0].title, "Nuclear Engineering");
+        assert_eq!(top[0].title, corpus::ROOT_TITLE);
         assert_eq!(top[0].kind, ConceptKind::CorpusTopic);
-        assert_eq!(children(None, Some(&top[0].id)).len(), 9);
-        assert_eq!(top[0].sub_concepts, 9);
+        let issues = children(None, Some(&top[0].id));
+        assert_eq!(issues.len(), 19);
+        assert_eq!(top[0].sub_concepts, 19);
+        assert_eq!(issues[0].id.path, "01-national-position");
+        assert_eq!(issues[1].title, "Nuclear safety");
+        assert_eq!(issues[18].id.path, "19-procurement");
+        // The whole tree is reachable with no folder: drill to a deep node.
+        let deep = NodeId::concept(
+            Namespace::Corpus,
+            "02-nuclear-safety/nuclear-design/neutron-transport/delta-tracking",
+        );
+        let kids = children(None, Some(&deep));
+        assert!(kids.iter().any(|c| c.title == "The majorant cross section"));
+    }
+
+    /// A fresh, empty Kovan folder (no corpus checkout, no private
+    /// repository) shows the same full standard map as no folder at all, and
+    /// the corpus documents' metadata as citations (#253: the map never
+    /// depends on the corpus checkout).
+    #[test]
+    fn an_empty_folder_shows_the_full_standard_map() {
+        let dir = tempfile::tempdir().unwrap();
+        let root = KovanRoot::create(dir.path(), RootConfig::new("lib", "Lib"), false).unwrap();
+        let index = KnowledgeIndex::rebuild(&root);
+        assert!(!root
+            .standard_corpus_dir()
+            .join("kovan-standard-open-corpus")
+            .exists());
+        let top = top_level(Some(&index));
+        assert_eq!(top.len(), 1);
+        assert_eq!(children(Some(&index), Some(&top[0].id)).len(), 19);
+        let mut seen = 0;
+        let mut stack = vec![top[0].id.clone()];
+        while let Some(id) = stack.pop() {
+            seen += 1;
+            stack.extend(children(Some(&index), Some(&id)).into_iter().map(|c| c.id));
+        }
+        assert_eq!(
+            seen,
+            corpus::topics().len(),
+            "every L1-L3 node is reachable"
+        );
+        let fuel = NodeId::concept(Namespace::Corpus, "02-nuclear-safety/fuel-system-design");
+        let keys: Vec<String> = citations(Some(&index), &HashMap::new(), &fuel)
+            .into_iter()
+            .map(|c| c.citekey)
+            .collect();
+        assert!(
+            keys.contains(&"nureg-0800-toc-rev6".to_string()),
+            "{keys:?}"
+        );
+    }
+
+    /// A user library whose own topics sit under the old
+    /// `topics/nuclear-engineering/...` folders keeps them, unchanged, as
+    /// library (user-namespace) topics: the old paths are no longer corpus
+    /// mirrors, so they draw as the user's own cards, and a paper classified
+    /// under one is still cited there.
+    #[test]
+    fn old_nuclear_engineering_folders_stay_user_topics() {
+        let dir = tempfile::tempdir().unwrap();
+        let root = KovanRoot::create(dir.path(), RootConfig::new("lib", "Lib"), false).unwrap();
+        for (path, name) in [
+            ("nuclear-engineering", "nuclear-engineering"),
+            ("nuclear-engineering/safety", "safety"),
+            ("nuclear-engineering/safety/dose-limits", "dose-limits"),
+        ] {
+            EntityConfig::topic(path.rsplit('/').next().unwrap(), name)
+                .save(&root.topics_dir().join(path))
+                .unwrap();
+        }
+        EntityConfig::paper(CiteKey::parse("icrp2007").unwrap(), Access::Open)
+            .with_topics(["nuclear-engineering/safety/dose-limits"])
+            .save_paper(&root.paper_dir("icrp2007"))
+            .unwrap();
+        let index = KnowledgeIndex::rebuild(&root);
+        assert!(!is_corpus_mirror("nuclear-engineering"));
+        let top = top_level(Some(&index));
+        let ne = top
+            .iter()
+            .find(|c| c.id == NodeId::concept(Namespace::Library, "nuclear-engineering"))
+            .expect("the old root is the user's own top-level topic");
+        assert_eq!(ne.kind, ConceptKind::Topic);
+        assert_eq!(
+            top[0].title,
+            corpus::ROOT_TITLE,
+            "the standard map is still first"
+        );
+        let dose = NodeId::concept(Namespace::Library, "nuclear-engineering/safety/dose-limits");
+        assert_eq!(
+            concept(Some(&index), &dose).unwrap().kind,
+            ConceptKind::Topic
+        );
+        let cites = citations(Some(&index), &HashMap::new(), &dose);
+        assert_eq!(cites[0].citekey, "icrp2007");
+        assert_eq!(
+            up_one_level(Some(&dose)).flatten().unwrap(),
+            NodeId::concept(Namespace::Library, "nuclear-engineering/safety")
+        );
     }
 
     /// Opening a folder adds the user's concepts beside the corpus; it does
@@ -441,7 +554,7 @@ mod tests {
         // "Recently opened" rides along once the library has any papers --
         // it is a synthetic inbox beside Unsorted, not one of the user's
         // own concepts, so it is asserted separately from them.
-        assert_eq!(titles, ["Nuclear Engineering", "HTGRs", "Recently opened"]);
+        assert_eq!(titles, [corpus::ROOT_TITLE, "HTGRs", "Recently opened"]);
         assert_eq!(
             top.last().map(|c| c.kind),
             Some(ConceptKind::Recent),
@@ -462,8 +575,14 @@ mod tests {
     #[test]
     fn concepts_resolve_in_their_own_namespace() {
         let (_d, _r, index) = library();
-        let th = NodeId::concept(Namespace::Corpus, "nuclear-engineering/thermal-hydraulics");
-        assert_eq!(concept(None, &th).unwrap().title, "Thermal Hydraulics");
+        let th = NodeId::concept(
+            Namespace::Corpus,
+            "02-nuclear-safety/thermal-hydraulic-design",
+        );
+        assert_eq!(
+            concept(None, &th).unwrap().title,
+            "Thermal-hydraulic design"
+        );
         assert_eq!(
             concept(Some(&index), &th).unwrap().kind,
             ConceptKind::CorpusTopic
@@ -488,55 +607,84 @@ mod tests {
     }
 
     /// Corpus literature appears as citations of the topics it is filed
-    /// under, labelled from its compiled metadata, with no folder open.
+    /// under (by hand, or as a node's own source), labelled from its
+    /// compiled metadata, with no folder open.
     #[test]
     fn corpus_literature_is_cited_by_its_topics() {
-        let pra = NodeId::concept(Namespace::Corpus, "nuclear-engineering/pra");
+        let pra = NodeId::concept(
+            Namespace::Corpus,
+            "02-nuclear-safety/severe-accidents/probabilistic-risk-assessment",
+        );
         let cites = citations(None, &HashMap::new(), &pra);
         let keys: Vec<&str> = cites.iter().map(|c| c.citekey.as_str()).collect();
-        assert_eq!(
-            keys,
-            ["nureg-2201", "wash-1400"],
+        assert!(
+            keys.contains(&"nureg-2201") && keys.contains(&"wash-1400"),
+            "{keys:?}"
+        );
+        let pos = |k: &str| keys.iter().position(|x| *x == k).unwrap();
+        assert!(
+            pos("nureg-2201") < pos("wash-1400"),
             "sorted by author and year"
         );
-        assert_eq!(cites[0].author_year, "Siu 2016");
-        assert_eq!(
-            cites[1].author_year,
-            "U.S. Nuclear Regulatory Commission 1975"
-        );
+        assert!(cites.iter().any(|c| c.author_year == "Siu 2016"));
+        assert!(cites
+            .iter()
+            .any(|c| c.author_year == "U.S. Nuclear Regulatory Commission 1975"));
         assert!(cites.iter().all(|c| c.namespace == Namespace::Corpus));
+        let sorted = {
+            let mut v: Vec<(String, String)> = cites
+                .iter()
+                .map(|c| (c.author_year.clone(), c.citekey.clone()))
+                .collect();
+            v.sort();
+            v
+        };
+        assert_eq!(
+            sorted,
+            cites
+                .iter()
+                .map(|c| (c.author_year.clone(), c.citekey.clone()))
+                .collect::<Vec<_>>()
+        );
 
-        let msr = NodeId::concept(Namespace::Corpus, "nuclear-engineering/reactor-systems/msr");
+        let msr = NodeId::concept(
+            Namespace::Corpus,
+            "02-nuclear-safety/nuclear-design/core-configurations/liquid-fuelled",
+        );
         let keys: Vec<String> = citations(None, &HashMap::new(), &msr)
             .into_iter()
             .map(|c| c.citekey)
             .collect();
-        assert_eq!(
-            keys,
-            ["nureg-cr-7289", "krpan2026physor"],
-            "sorted by author and year"
-        );
+        assert!(keys.contains(&"nureg-cr-7289".to_string()), "{keys:?}");
+        assert!(keys.contains(&"krpan2026physor".to_string()), "{keys:?}");
     }
 
-    /// Up goes to the parent, from a top-level concept to the top, and
-    /// nowhere from the top.
+    const MAJORANT: &str =
+        "02-nuclear-safety/nuclear-design/neutron-transport/delta-tracking/majorant";
+
+    /// Up goes to the parent, from a level-1 issue to the virtual root, from
+    /// the root to the top, and nowhere from the top.
     #[test]
     fn up_one_level_climbs_to_the_top_and_stops() {
-        let chf = NodeId::concept(
-            Namespace::Corpus,
-            "nuclear-engineering/thermal-hydraulics/two-phase-flow/critical-heat-flux",
-        );
-        let tpf = up_one_level(Some(&chf)).unwrap().unwrap();
+        let mut at = NodeId::concept(Namespace::Corpus, MAJORANT);
+        let mut chain = Vec::new();
+        while let Some(Some(up)) = up_one_level(Some(&at)) {
+            chain.push(up.path.clone());
+            at = up;
+        }
         assert_eq!(
-            tpf.path,
-            "nuclear-engineering/thermal-hydraulics/two-phase-flow"
+            chain,
+            [
+                "02-nuclear-safety/nuclear-design/neutron-transport/delta-tracking",
+                "02-nuclear-safety/nuclear-design/neutron-transport",
+                "02-nuclear-safety/nuclear-design",
+                "02-nuclear-safety",
+                corpus::ROOT_TOPIC,
+            ]
         );
-        let th = up_one_level(Some(&tpf)).unwrap().unwrap();
-        assert_eq!(th.path, "nuclear-engineering/thermal-hydraulics");
-        let ne = up_one_level(Some(&th)).unwrap().unwrap();
-        assert_eq!(ne.path, "nuclear-engineering");
+        assert!(chain.len() == 5);
         assert_eq!(
-            up_one_level(Some(&ne)),
+            up_one_level(Some(&at)),
             Some(None),
             "the root goes to the top"
         );
@@ -547,18 +695,20 @@ mod tests {
 
     #[test]
     fn the_breadcrumb_names_every_ancestor() {
-        let chf = NodeId::concept(
-            Namespace::Corpus,
-            "nuclear-engineering/thermal-hydraulics/two-phase-flow/critical-heat-flux",
-        );
-        let titles: Vec<String> = breadcrumb(None, &chf).into_iter().map(|(_, t)| t).collect();
+        let majorant = NodeId::concept(Namespace::Corpus, MAJORANT);
+        let titles: Vec<String> = breadcrumb(None, &majorant)
+            .into_iter()
+            .map(|(_, t)| t)
+            .collect();
         assert_eq!(
             titles,
             [
-                "Nuclear Engineering",
-                "Thermal Hydraulics",
-                "Two-Phase Flow",
-                "Critical Heat Flux"
+                corpus::ROOT_TITLE,
+                "Nuclear safety",
+                "Nuclear design and core physics",
+                "Neutron transport methods",
+                "Delta (Woodcock) tracking",
+                "The majorant cross section",
             ]
         );
     }

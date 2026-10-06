@@ -629,6 +629,30 @@ struct LinkCard {
     target: LinkTarget,
     /// The other end, for the tooltip and for "Remove hyperlink".
     node: crate::node_id::NodeId,
+    /// Whose link it is. A [`crate::corpus::ConnectionOrigin::KovanCorpus`]
+    /// link (a concept-tree cross-link, 2026-10-06) is drawn the same way
+    /// but cannot be removed.
+    origin: crate::corpus::ConnectionOrigin,
+}
+
+/// The curated (built-in, read-only) links on `current`: the concept tree's
+/// cross-links, from [`crate::corpus::curated_connections_for`], as link
+/// cards. Needs no Kovan folder.
+#[cfg(all(feature = "gui", not(target_os = "android")))]
+fn curated_link_cards(
+    index: Option<&KnowledgeIndex>,
+    current: &crate::node_id::NodeId,
+) -> Vec<LinkCard> {
+    let here = crate::runtime_graph::canonical_concept(current);
+    crate::corpus::curated_connections_for(&here)
+        .into_iter()
+        .map(|(c, other)| LinkCard {
+            label: node_title(index, other),
+            target: link_target(other),
+            node: other.clone(),
+            origin: c.origin,
+        })
+        .collect()
 }
 
 /// One artifact or paper joined to a concept by a [`crate::relation`] — an
@@ -715,6 +739,7 @@ impl LinkCache {
                 label: node_title(index, other),
                 target: link_target(other),
                 node: other.clone(),
+                origin: crate::corpus::ConnectionOrigin::User,
             })
             .collect()
     }
@@ -1025,7 +1050,8 @@ pub struct MindmapState {
 
 #[cfg(all(feature = "gui", not(target_os = "android")))]
 impl Default for MindmapState {
-    /// Opens on the corpus root, so a fresh Kovan shows Nuclear Engineering
+    /// Opens on the corpus root, so a fresh Kovan shows the standard map
+    /// (~~Nuclear Engineering~~ the 19 IAEA issues since 2026-10-06)
     /// and its branches (maintainer brief, 2026-09-22).
     fn default() -> Self {
         Self {
@@ -1250,9 +1276,22 @@ impl MindmapState {
         };
         // #285: the user's own hyperlinks sit on the ring beside the
         // sub-concepts, so the layout spaces them like any other card.
-        let links: Vec<LinkCard> = match (root, self.current.clone()) {
-            (Some(r), Some(current)) => self.links.hyperlinks(r, index, &current),
-            _ => Vec::new(),
+        // 2026-10-06: the concept tree's cross-links come first, read-only
+        // and present with no folder open; a user link to the same node is
+        // not drawn twice.
+        let links: Vec<LinkCard> = {
+            let mut links = match &self.current {
+                Some(current) => curated_link_cards(index, current),
+                None => Vec::new(),
+            };
+            if let (Some(r), Some(current)) = (root, self.current.clone()) {
+                for l in self.links.hyperlinks(r, index, &current) {
+                    if !links.iter().any(|k| k.node == l.node) {
+                        links.push(l);
+                    }
+                }
+            }
+            links
         };
         // #286, as corrected 2026-09-23: a relation from a paper is *not* a
         // card — it is listed on the right-click menu of the concept it is
@@ -1864,7 +1903,11 @@ impl MindmapState {
                 text.text(
                     egui::pos2(left, r.center().y + 10.0 * z),
                     egui::Align2::LEFT_CENTER,
-                    "\u{1F517} hyperlink",
+                    if link.origin.user_editable() {
+                        "\u{1F517} hyperlink"
+                    } else {
+                        "\u{1F517} cross-link (built-in)"
+                    },
                     egui::FontId::proportional((0.78 * CARD_FONT_SIZE * zoom) as f32),
                     LINK_TEXT.gamma_multiply(0.75),
                 );
@@ -1894,7 +1937,9 @@ impl MindmapState {
                         }
                         ui.close();
                     }
-                    if ui.button("Remove hyperlink").clicked() {
+                    if !link.origin.user_editable() {
+                        ui.weak("built-in cross-link (read-only)");
+                    } else if ui.button("Remove hyperlink").clicked() {
                         remove_link = Some(link.node.clone());
                         ui.close();
                     }
@@ -2832,7 +2877,7 @@ mod tests {
         let (_dir, root) = make_root();
         // A corpus topic path, mirrored into the user's library — the shape
         // `runtime_graph::is_corpus_mirror` is about.
-        let mirrored = crate::corpus::TOPICS[1].path;
+        let mirrored = crate::corpus::topics()[1].path;
         assert!(crate::runtime_graph::is_corpus_mirror(mirrored));
         let mut dir = root.topics_dir();
         for segment in mirrored.split('/') {
@@ -2931,7 +2976,10 @@ mod tests {
         // user's concepts once the library has papers (2026-09-24). It
         // carries no citations of its own: its membership is local state,
         // not a classification, so nothing is filed under it.
-        assert_eq!(titles, ["Nuclear Engineering", "HTGRs", "Recently opened"]);
+        assert_eq!(
+            titles,
+            [crate::corpus::ROOT_TITLE, "HTGRs", "Recently opened"]
+        );
         assert!(
             ring.last().is_some_and(|c| c.citations.is_empty()),
             "the recents inbox is not a topic papers are filed under"
@@ -2977,7 +3025,7 @@ mod tests {
         use crate::runtime_graph::{children, top_level, ConceptKind};
 
         let (_dir, root) = make_root();
-        let parent = "nuclear-engineering/fuel-and-materials/triso";
+        let parent = "02-nuclear-safety/fuel-system-design/triso-coated-particle-fuel";
         assert!(
             crate::corpus::topic_at(parent).is_some(),
             "fixture assumes this corpus topic exists"
@@ -3012,13 +3060,16 @@ mod tests {
             .map(|c| c.title)
             .collect();
         assert!(
-            !tops.iter().any(|t| t == "nuclear-engineering"),
+            !tops.iter().any(|t| t == "02-nuclear-safety"),
             "the mirrored corpus path must not become its own branch: {tops:?}"
         );
 
         for (parent, twin) in [
-            ("nuclear-engineering", "fuel-and-materials"),
-            ("nuclear-engineering/fuel-and-materials", "triso"),
+            ("02-nuclear-safety", "fuel-system-design"),
+            (
+                "02-nuclear-safety/fuel-system-design",
+                "triso-coated-particle-fuel",
+            ),
         ] {
             let kids: Vec<String> = children(
                 Some(&index),
@@ -3055,15 +3106,17 @@ mod tests {
     }
 
     /// A fresh map with no folder open is centred on the corpus root and
-    /// shows its nine branches (the brief's acceptance test, headless).
+    /// shows the 19 IAEA Milestones issues (the brief's acceptance test,
+    /// headless; nine Nuclear Engineering branches until 2026-10-06).
     #[test]
     #[cfg(all(feature = "gui", not(target_os = "android")))]
     fn a_fresh_map_shows_the_corpus_with_no_folder() {
         let state = MindmapState::default();
         let (centre, ring) =
             MindmapState::star_cards(None, &std::collections::HashMap::new(), state.current());
-        assert_eq!(centre.unwrap().concept.title, "Nuclear Engineering");
-        assert_eq!(ring.len(), 9);
+        assert_eq!(centre.unwrap().concept.title, crate::corpus::ROOT_TITLE);
+        assert_eq!(ring.len(), 19);
+        assert_eq!(ring[1].concept.title, "Nuclear safety");
     }
 
     /// The citation cache formats labels as `bib_display` does, sorts a

@@ -116,11 +116,25 @@ it: this crate builds for `wasm32-unknown-unknown`)**
 
 **Status (2026-10-06).** Levels 1–3 are reviewed and approved: 19 issues,
 89 level-2 categories and 263 concepts (3 deferred awaiting sources), with
-over 90 cross-links. **Kovan does not read the tree yet**: the mind map, the
-Code Review tab, level-4 generation from code tags, the drift report and the
-maturity rungs are the next implementation work (#727, #729). The older
-`topics/` folders and `corpus.rs` topics keep working beside it until the
-maintainer retires them.
+over 90 cross-links. ~~**Kovan does not read the tree yet**~~ **Since
+2026-10-06 Kovan's standard mind map is levels 1–3 of this tree**, replacing
+the 44 hand-written `nuclear-engineering/...` topics: `kovan-literature`'s
+`concept_tree` module parses both TOML files once into a typed `ConceptTree`,
+and Kovan's `corpus.rs` draws it under one virtual root, "Nuclear knowledge
+(IAEA Milestones)" (id `corpus:concept/iaea_milestones`), in the map's
+existing style. Node ids are the concept paths themselves, so a `kovan.toml`
+classification such as `02-nuclear-safety/nuclear-design/neutron-transport`
+resolves directly; cross-links are drawn as built-in, read-only link cards;
+deferred concepts are in the tree and flagged. Every `[[document]]` the tree
+cites is a standard-corpus literature entry (its metadata is compiled into
+Kovan; the PDF opens from the `reactor-literature` checkout when one is
+present), the two IAEA ones as citation-only entries, so the map needs
+neither the corpus checkout nor the private repository. A user's own
+`topics/` folders (including old `nuclear-engineering/...` ones) keep working
+as the user's topics. Still to do: the Code Review tab, level-4 generation
+from code tags, the drift report, the maturity rungs (#729), the "show empty
+nodes" toggle (the model's `corpus::has_literature` /
+`has_classified_literature` are the hook), and source hyperlinks on cards.
 
 ## Example
 

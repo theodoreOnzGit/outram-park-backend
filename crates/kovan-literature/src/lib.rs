@@ -74,6 +74,7 @@ use std::path::{Path, PathBuf};
 pub use kovan_common::{Author, DocumentType, KovanBenchmark, KovanDocument, Visibility};
 
 mod bibtex;
+pub mod concept_tree;
 mod markdown;
 mod metadata;
 mod pdf_import;
@@ -84,6 +85,10 @@ mod test_pdf;
 pub use bibtex::{parse_bib_entries, render_entries, render_entry, to_bibtex, BibEntry, BibParseError};
 pub use markdown::{
     markdown_outline, split_markdown_by_page_limit, text_to_markdown, Heading, PAGE_SEPARATOR,
+};
+pub use concept_tree::{
+    concept_tree, ConceptDocument, ConceptNode, ConceptOrigin, ConceptSource, ConceptStatus,
+    ConceptTree, ConceptTreeError, DocumentTier,
 };
 pub use metadata::extract_metadata;
 pub use pdf_import::{extract_assets, extract_pdf_text, pdf_to_markdown};
