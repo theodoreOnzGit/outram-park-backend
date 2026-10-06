@@ -51,8 +51,9 @@
 //!
 //! # Provenance
 //!
-//! The delta-tracking method is standard (Woodcock, ANL-7050, 1965; used in OpenMC,
-//! Serpent, RMC). The collision partition mirrors OpenMC `src/physics.cpp`
+//! The delta-tracking method is standard (Woodcock, ANL-7050, 1965; used in
+//! ~~OpenMC,~~ Serpent, RMC; **CORRECTED 2026-10-06**: OpenMC has no delta
+//! tracking, see [`crate::physics::delta_tracking`]). The collision partition mirrors OpenMC `src/physics.cpp`
 //! (`collision` / `inelastic_scatter`). The reflective-cube flight is new pebble-bed
 //! assembly built on this crate's primitives.
 
@@ -60,9 +61,10 @@ use crate::geometry::position::{Direction, Position};
 use crate::material::material::Material;
 use crate::material::nuclide::library_energy_max_ev;
 use crate::material::nuclide::{Inelastic, Nuclide};
-use crate::pebble_beds::delta_tracking::{
-    classify_collision, sample_delta_distance, DeltaEvent, Majorant,
+use crate::physics::delta_tracking::flight::{
+    fly, Advance, DeltaRegion, FlightEnd, SiteContent, SiteTotal,
 };
+use crate::physics::delta_tracking::Majorant;
 use crate::physics::compute::{ComputeType, ThreadCount};
 use crate::physics::fission::sample_num_neutrons;
 use crate::physics::keff::{KeffResult, KeffSettings};
@@ -498,15 +500,41 @@ fn advance_reflective_cube(
     (r, u)
 }
 
-/// Fly a neutron to its next **real** collision inside the reflective cube by
-/// delta tracking, returning the collision position, the material index there, and
-/// the direction it arrived along (for post-collision scattering).
-///
-/// Loops over virtual collisions internally: sample a flight on `majorant.at(e)`,
-/// reflect-advance the ray, look up the local material and its Σ_t, and accept a
-/// real collision with probability `Σ_t/Σ_maj`. Returns `None` if the virtual
-/// budget is exhausted (a pathologically loose majorant) or the material lookup
-/// unexpectedly fails — both leak the history, as in the surface-tracked drivers.
+/// A [`DeltaDomain`] and its material lookup, as the flight loop's
+/// [`DeltaRegion`]: segments advance through the domain (reflecting off a
+/// reflective wall), and a point the lookup cannot place is
+/// [`SiteContent::Lost`] — for a vacuum domain, that is how an escape shows.
+struct DomainRegion<L> {
+    domain: DeltaDomain,
+    /// [`MaterialQuery::material_at`] of the run's lookup.
+    material_at: L,
+}
+
+impl<L: Fn(Position) -> Option<usize>> DeltaRegion for DomainRegion<L> {
+    #[inline]
+    fn advance(&self, r: Position, u: Direction, s: f64) -> Advance {
+        let (position, direction) = self.domain.advance(r, u, s);
+        Advance::To {
+            position,
+            direction,
+        }
+    }
+
+    #[inline]
+    fn content(&self, r: Position) -> SiteContent {
+        match (self.material_at)(r) {
+            Some(m) => SiteContent::Material(m),
+            None => SiteContent::Lost,
+        }
+    }
+}
+
+/// Fly a neutron to its next **real** collision inside `domain` by delta
+/// tracking ([`crate::physics::delta_tracking::flight::fly`]), returning the
+/// collision position, the material there, and the direction it arrived
+/// along. `None` if the history leaked (vacuum domain), the lookup failed, or
+/// the virtual budget ran out; the caller ends the history.
+#[allow(clippy::too_many_arguments)]
 fn delta_flight<Q>(
     start: Position,
     direction: Direction,
@@ -523,70 +551,35 @@ fn delta_flight<Q>(
 where
     Q: MaterialQuery,
 {
-    let maj = majorant.at(energy);
-    if !(maj > 0.0) {
-        return None;
+    let region = DomainRegion {
+        domain,
+        material_at: |p: Position| material_at.material_at(p),
+    };
+    // The band total the collision will use (GitHub #407); the majorant
+    // bounds it (`Majorant` builds on `macro_xs_total_upper_bound`).
+    match fly(
+        start,
+        direction,
+        energy,
+        majorant.at(energy),
+        &region,
+        materials,
+        nuclides,
+        SiteTotal::UrrBand(urr_seed),
+        max_virtual,
+        seed,
+        |_| {},
+    ) {
+        FlightEnd::Collision {
+            position,
+            direction,
+            material,
+            ..
+        } => Some((position, material, direction)),
+        FlightEnd::Exit { .. } | FlightEnd::Lost { .. } => None,
     }
-    let mut r = start;
-    let mut u = direction;
-    for _ in 0..max_virtual {
-        let s = sample_delta_distance(maj, seed);
-        let (r_next, u_next) = domain.advance(r, u, s);
-        r = r_next;
-        u = u_next;
-        let m = material_at.material_at(r)?;
-        // The band total the collision will use (GitHub #407); the majorant
-        // bounds it (`Majorant` builds on `macro_xs_total_upper_bound`).
-        let sigma_t = materials[m].macro_xs_total_urr(energy, nuclides, urr_seed);
-        match classify_collision(sigma_t, maj, seed) {
-            DeltaEvent::Real => return Some((r, m, u)),
-            DeltaEvent::Virtual => continue,
-        }
-    }
-    None
 }
 
-/// Run fission-source power iteration over a **reflective cube** filled with a
-/// two-(or-more-)material dispersion medium, transporting each history by delta
-/// (Woodcock) tracking.
-///
-/// # Parameters
-/// - `half_width` — half-width \[cm\] of the reflective cube (infinite-medium cell).
-/// - `materials` — global material array; `material_at` returns indices into it.
-/// - `nuclides` — global nuclide array the materials index into.
-/// - `majorant` — a [`Majorant`] bounding `Σ_t(E)` of **every** material over the
-///   full energy range the histories span (build it with
-///   [`Majorant::from_materials`] on a broad grid).
-/// - `material_at` — geometry lookup: the material index at a point inside the cube
-///   (e.g. kernel → fuel, matrix → moderator). Must be defined everywhere inside
-///   the closed cube; returning `None` leaks the history.
-/// - `settings` — power-iteration controls (reuses [`KeffSettings`]).
-///
-/// Returns the mean eigenvalue and its standard error over the active generations.
-/// The initial source is rejection-sampled uniformly in the cube for points in a
-/// fissile material.
-///
-/// # Compute backend
-///
-/// This is a thin **dispatcher** over [`settings.compute`](KeffSettings::compute),
-/// mirroring [`crate::physics::keff::run_keff`] and
-/// [`crate::physics::transport_csg::run_keff_csg`]. The physics is identical
-/// across backends; only the execution strategy differs:
-///
-/// - [`ComputeType::CpuSingleThread`] → [`run_keff_delta_seq_in`], the scalar,
-///   single-RNG-stream **reference** — deterministic and bit-reproducible for a
-///   fixed seed.
-/// - [`ComputeType::CpuMultiThread`] → [`run_keff_delta_par_in`], [`rayon`]-parallel
-///   histories per generation, each with an independent jump-ahead RNG stream so
-///   the result is reproducible independent of thread count. It does **not**
-///   bit-match the single-thread reference but agrees within combined statistical
-///   uncertainty. (The `material_at` closure must be [`Sync`] to be shared across
-///   threads — every geometry lookup in this crate already is.)
-/// - [`ComputeType::Gpu`] → **no GPU kernel exists for delta-tracked
-///   doubly-heterogeneous geometry**, so this transparently runs the
-///   multi-threaded CPU path and emits a `log::debug!` line. It never errors on
-///   the selection. Wiring a genuine GPU path into CSG/delta transport is tracked
-///   as follow-up work (bead op-fla).
 /// Cube shorthand for [`run_keff_delta_in`] — a reflective cube of half-width
 /// `half_width` \[cm\].
 ///
@@ -617,6 +610,48 @@ where
     )
 }
 
+/// Run fission-source power iteration over a [`DeltaDomain`] filled with a
+/// two-(or-more-)material dispersion medium, transporting each history by delta
+/// (Woodcock) tracking.
+///
+/// # Parameters
+/// - `domain` — the tracking domain: a reflective cube or sphere (an
+///   infinite-medium cell) or a vacuum sphere or cylinder (a bare body).
+/// - `materials` — global material array; `material_at` returns indices into it.
+/// - `nuclides` — global nuclide array the materials index into.
+/// - `majorant` — a [`Majorant`] bounding `Σ_t(E)` of **every** material over the
+///   full energy range the histories span (build it with
+///   [`Majorant::from_materials`] on a broad grid).
+/// - `material_at` — geometry lookup: the material index at a point inside the cube
+///   (e.g. kernel → fuel, matrix → moderator). Must be defined everywhere inside
+///   the closed domain; returning `None` leaks the history.
+/// - `settings` — power-iteration controls (reuses [`KeffSettings`]).
+///
+/// Returns the mean eigenvalue and its standard error over the active generations.
+/// The initial source is rejection-sampled uniformly in the domain for points in a
+/// fissile material.
+///
+/// # Compute backend
+///
+/// This is a thin **dispatcher** over [`settings.compute`](KeffSettings::compute),
+/// mirroring [`crate::physics::keff::run_keff`] and
+/// [`crate::physics::transport_csg::run_keff_csg`]. The physics is identical
+/// across backends; only the execution strategy differs:
+///
+/// - [`ComputeType::CpuSingleThread`] → [`run_keff_delta_seq_in`], the scalar,
+///   single-RNG-stream **reference** — deterministic and bit-reproducible for a
+///   fixed seed.
+/// - [`ComputeType::CpuMultiThread`] → [`run_keff_delta_par_in`], [`rayon`]-parallel
+///   histories per generation, each with an independent jump-ahead RNG stream so
+///   the result is reproducible independent of thread count. It does **not**
+///   bit-match the single-thread reference but agrees within combined statistical
+///   uncertainty. (The `material_at` closure must be [`Sync`] to be shared across
+///   threads — every geometry lookup in this crate already is.)
+/// - [`ComputeType::Gpu`] → **no GPU kernel exists for delta-tracked
+///   doubly-heterogeneous geometry**, so this transparently runs the
+///   multi-threaded CPU path and emits a `log::debug!` line. It never errors on
+///   the selection. Wiring a genuine GPU path into CSG/delta transport is tracked
+///   as follow-up work (bead op-fla).
 pub fn run_keff_delta_in<Q>(
     domain: DeltaDomain,
     materials: &[Material],
@@ -681,30 +716,8 @@ where
     Q: MaterialQuery,
 {
     let mut seed = settings.seed;
-    let temp = settings.temperature_k;
 
-    // Initial source: rejection-sample the cube for points in a fissile material.
-    let mut source: Vec<Site> = Vec::with_capacity(settings.n_particles);
-    let mut guard = 0usize;
-    while source.len() < settings.n_particles {
-        guard += 1;
-        if guard > settings.n_particles * 10_000 {
-            break; // pathological: fuel fills a vanishing fraction of the cube
-        }
-        let r = domain.sample_point(&mut seed);
-        let fissile = material_at
-            .material_at(r)
-            .map(|m| materials[m].macro_xs(1.0e6, nuclides).nu_fission > 0.0)
-            .unwrap_or(false);
-        if fissile {
-            let (dx, dy, dz) = isotropic_direction(&mut seed);
-            source.push(Site {
-                r,
-                u: Direction::new(dx, dy, dz),
-                e: watt(&mut seed, settings.watt_a, settings.watt_b),
-            });
-        }
-    }
+    let mut source = sample_initial_source(domain, materials, nuclides, &material_at, settings, &mut seed);
 
     let n_gen = settings.n_inactive + settings.n_active;
     let mut k_by_generation = Vec::with_capacity(n_gen);
@@ -722,7 +735,6 @@ where
                 materials,
                 nuclides,
                 majorant,
-                temp,
                 k_running,
                 &material_at,
                 &mut next_bank,
@@ -744,27 +756,7 @@ where
     }
 
     let (k_mean, k_std) = mean_and_stderr(&active_k);
-    KeffResult {
-        // Not instrumented in this driver (bn:op-867c.5 wired the CSG path only).
-        collisions: 0,
-        lost_locate: 0,
-        stuck_events: 0,
-        stuck_path_cm: 0.0,
-        stuck_last_e: 0.0,
-        neg_dist: 0,
-        neg_level: 0,
-        neg_worst: 0.0,
-        neg_from_lattice: 0,
-        neg_from_surface: 0,
-        leak_vacuum: 0,
-        leak_infinity: 0,
-        histories: 0,
-        k_mean,
-        k_std,
-        k_by_generation,
-        entropy: Vec::new(),
-        virtual_collisions: 0,
-    }
+    delta_keff_result(k_mean, k_std, k_by_generation)
 }
 
 /// One generation of a [`DeltaPowerIteration`].
@@ -810,23 +802,7 @@ impl DeltaPowerIteration {
         settings: &KeffSettings,
     ) -> Self {
         let mut seed = settings.seed;
-        let mut source: Vec<Site> = Vec::with_capacity(settings.n_particles);
-        let mut guard = 0usize;
-        while source.len() < settings.n_particles {
-            guard += 1;
-            if guard > settings.n_particles * 10_000 {
-                break;
-            }
-            let r = domain.sample_point(&mut seed);
-            let fissile = material_at
-                .material_at(r)
-                .map(|m| materials[m].macro_xs(1.0e6, nuclides).nu_fission > 0.0)
-                .unwrap_or(false);
-            if fissile {
-                let (dx, dy, dz) = isotropic_direction(&mut seed);
-                source.push(Site { r, u: Direction::new(dx, dy, dz), e: watt(&mut seed, settings.watt_a, settings.watt_b) });
-            }
-        }
+        let source = sample_initial_source(domain, materials, nuclides, material_at, settings, &mut seed);
         let n_gen = settings.n_inactive + settings.n_active;
         Self {
             domain,
@@ -863,7 +839,6 @@ impl DeltaPowerIteration {
                 materials,
                 nuclides,
                 majorant,
-                self.settings.temperature_k,
                 self.k_running,
                 material_at,
                 &mut next_bank,
@@ -936,7 +911,6 @@ where
     #[cfg(target_arch = "wasm32")]
     use crate::wasm_par as rayon;
 
-    let temp = settings.temperature_k;
 
     // Dedicated, explicitly sized rayon pool. `resolve()` maps the ThreadCount to
     // a concrete worker count (>= 1); the per-history seeding below is
@@ -951,29 +925,9 @@ where
     // separate from the per-history transport streams so both stay deterministic.
     let mut src_seed = settings.seed;
 
-    // Initial source: rejection-sample the cube for points in a fissile material
-    // (identical to the single-thread path, on the sequential src stream).
-    let mut source: Vec<Site> = Vec::with_capacity(settings.n_particles);
-    let mut guard = 0usize;
-    while source.len() < settings.n_particles {
-        guard += 1;
-        if guard > settings.n_particles * 10_000 {
-            break; // pathological: fuel fills a vanishing fraction of the cube
-        }
-        let r = domain.sample_point(&mut src_seed);
-        let fissile = material_at
-            .material_at(r)
-            .map(|m| materials[m].macro_xs(1.0e6, nuclides).nu_fission > 0.0)
-            .unwrap_or(false);
-        if fissile {
-            let (dx, dy, dz) = isotropic_direction(&mut src_seed);
-            source.push(Site {
-                r,
-                u: Direction::new(dx, dy, dz),
-                e: watt(&mut src_seed, settings.watt_a, settings.watt_b),
-            });
-        }
-    }
+    // Initial source, as the single-thread path, on the sequential src stream.
+    let mut source =
+        sample_initial_source(domain, materials, nuclides, &material_at, settings, &mut src_seed);
 
     let n_gen = settings.n_inactive + settings.n_active;
     let mut k_by_generation = Vec::with_capacity(n_gen);
@@ -1004,7 +958,6 @@ where
                         materials,
                         nuclides,
                         majorant,
-                        temp,
                         k_running,
                         &material_at,
                         &mut local_bank,
@@ -1038,27 +991,7 @@ where
     });
 
     let (k_mean, k_std) = mean_and_stderr(&active_k);
-    KeffResult {
-        // Not instrumented in this driver (bn:op-867c.5 wired the CSG path only).
-        collisions: 0,
-        lost_locate: 0,
-        stuck_events: 0,
-        stuck_path_cm: 0.0,
-        stuck_last_e: 0.0,
-        neg_dist: 0,
-        neg_level: 0,
-        neg_worst: 0.0,
-        neg_from_lattice: 0,
-        neg_from_surface: 0,
-        leak_vacuum: 0,
-        leak_infinity: 0,
-        histories: 0,
-        k_mean,
-        k_std,
-        k_by_generation,
-        entropy: Vec::new(),
-        virtual_collisions: 0,
-    }
+    delta_keff_result(k_mean, k_std, k_by_generation)
 }
 
 /// Transport one source neutron (plus its same-generation `(n,2n)` secondaries) to
@@ -1075,7 +1008,6 @@ fn transport_history<Q>(
     materials: &[Material],
     nuclides: &[Nuclide],
     majorant: &Majorant,
-    temp: f64,
     k_running: f64,
     material_at: &Q,
     next_bank: &mut Vec<Site>,
@@ -1133,6 +1065,12 @@ where
             u = u_arr;
 
             let material = &materials[m];
+            // THE COLLISION MATERIAL'S OWN TEMPERATURE, as the flight used
+            // (`macro_xs_total_urr` reads it) and as the CSG drivers have since
+            // GitHub #313. ~~`settings.temperature_k`~~ until gh:#720
+            // (2026-10-06): on multipole data with materials at 1200 K and the
+            // run at 293.6 K that moved k by +1053 +/- 131 pcm (8.0 sigma).
+            let temp = material.temperature;
             let ci = material.sample_nuclide_urr(e, seed, nuclides, urr_seed);
             let nuc_idx = material.components[ci].nuclide_idx;
             let nuc = &nuclides[nuc_idx];
@@ -1328,6 +1266,71 @@ fn resample(bank: &[Site], n: usize, seed: &mut u64) -> Vec<Site> {
     // the `n` sites was drawn independently with replacement~~ until
     // 2026-09-30.
     crate::physics::fission::comb_resample(bank, n, seed)
+}
+
+/// Rejection-sample the first generation's source uniformly over `domain`,
+/// keeping points whose material can fission (`νΣ_f(1 MeV) > 0`), with an
+/// isotropic direction and a Watt energy. Gives up after `10 000·n` tries.
+/// Shared by every driver in this module, so they consume the stream
+/// identically.
+fn sample_initial_source<Q: MaterialQuery>(
+    domain: DeltaDomain,
+    materials: &[Material],
+    nuclides: &[Nuclide],
+    material_at: &Q,
+    settings: &KeffSettings,
+    seed: &mut u64,
+) -> Vec<Site> {
+    let mut source: Vec<Site> = Vec::with_capacity(settings.n_particles);
+    let mut guard = 0usize;
+    while source.len() < settings.n_particles {
+        guard += 1;
+        if guard > settings.n_particles * 10_000 {
+            break; // pathological: fuel fills a vanishing fraction of the domain
+        }
+        let r = domain.sample_point(seed);
+        let fissile = material_at
+            .material_at(r)
+            .map(|m| materials[m].macro_xs(1.0e6, nuclides).nu_fission > 0.0)
+            .unwrap_or(false);
+        if fissile {
+            let (dx, dy, dz) = isotropic_direction(seed);
+            source.push(Site {
+                r,
+                u: Direction::new(dx, dy, dz),
+                e: watt(seed, settings.watt_a, settings.watt_b),
+            });
+        }
+    }
+    source
+}
+
+/// The [`KeffResult`] of a delta-tracked run. The run diagnostics are not
+/// instrumented in this module's drivers (bn:op-867c.5 wired the CSG path
+/// only), so they read zero.
+fn delta_keff_result(k_mean: f64, k_std: f64, k_by_generation: Vec<f64>) -> KeffResult {
+    KeffResult {
+        collisions: 0,
+        lost_locate: 0,
+        stuck_events: 0,
+        stuck_path_cm: 0.0,
+        stuck_last_e: 0.0,
+        neg_dist: 0,
+        neg_level: 0,
+        neg_worst: 0.0,
+        neg_from_lattice: 0,
+        neg_from_surface: 0,
+        leak_vacuum: 0,
+        leak_infinity: 0,
+        histories: 0,
+        k_mean,
+        k_std,
+        k_by_generation,
+        entropy: Vec::new(),
+        virtual_collisions: 0,
+        majorant_violations: 0,
+        delta_lost: 0,
+    }
 }
 
 /// Mean and standard error of the mean (1σ) of the active-generation

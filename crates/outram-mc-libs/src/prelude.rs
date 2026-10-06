@@ -63,7 +63,7 @@ pub use crate::dh_universe::{
     fit_ring_rpt_inner_radius, DhError, DhTreatment, DhUniverse, DispersedParams, PebbleParams,
     RingRptFit,
 };
-pub use crate::pebble_beds::delta_tracking::{track_to_collision, DeltaEvent, DeltaFlight, Majorant};
+pub use crate::physics::delta_tracking::{track_to_collision, DeltaEvent, DeltaFlight, Majorant};
 pub use crate::pebble_beds::fhr_pebble::{
     fhr_pebble_geometry, homogeneous_cube, homogenise_by_volume, rpt_fuel_outer_radius,
     triso_layer_at, ExplicitTrisoPebble, TrisoLayer, TrisoSpec,

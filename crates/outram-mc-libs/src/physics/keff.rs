@@ -285,6 +285,20 @@ pub struct KeffResult {
     /// the count away, so no HTR-10 run in this crate has ever had a measured
     /// rejection rate.
     pub virtual_collisions: u64,
+    /// **Tentative collision sites where `Σ_t > Σ_maj`** over the whole run:
+    /// places where the majorant did not bound the cross section, so the
+    /// accept probability was clamped to 1 and collisions were silently lost.
+    /// Must be `0`; anything else means the majorant is not a bound for the
+    /// materials as they are now (e.g. built at another temperature, gh:#721)
+    /// and the run is biased. The hybrid CSG driver counts it; the
+    /// `keff_delta` drivers report `0` (not instrumented).
+    pub majorant_violations: u64,
+    /// **Histories lost inside a delta-tracked region**: the virtual-collision
+    /// budget ran out, or a tentative site could not be placed by
+    /// `Geometry::locate`. Scored as leaks so the balance closes, and so,
+    /// like [`Self::lost_locate`], invisible in `k` alone (gh:#721; counted
+    /// nowhere before). Hybrid CSG driver only.
+    pub delta_lost: u64,
     /// **Real collisions over the whole run.** Divided by the history count
     /// this is the mean collisions per neutron, which separates a model that
     /// absorbs its neutrons from one that loses them before they interact.
@@ -753,6 +767,8 @@ impl PowerIteration {
             k_by_generation: self.k_by_generation.clone(),
             entropy: self.entropy.clone(),
             virtual_collisions: 0,
+            majorant_violations: 0,
+            delta_lost: 0,
         }
     }
 }
@@ -962,6 +978,8 @@ pub fn run_keff_cpu_multi(
         k_by_generation,
         entropy: Vec::new(),
         virtual_collisions: 0,
+        majorant_violations: 0,
+        delta_lost: 0,
     }
 }
 
@@ -1144,6 +1162,8 @@ pub fn run_keff_gpu_inner(
         k_by_generation,
         entropy: Vec::new(),
         virtual_collisions: 0,
+        majorant_violations: 0,
+        delta_lost: 0,
     }
 }
 
@@ -1439,6 +1459,8 @@ pub fn run_keff_gpu_batched(
         k_by_generation,
         entropy: Vec::new(),
         virtual_collisions: 0,
+        majorant_violations: 0,
+        delta_lost: 0,
     }
 }
 
@@ -1732,6 +1754,8 @@ fn run_event_power_iteration(
         k_by_generation,
         entropy: Vec::new(),
         virtual_collisions: 0,
+        majorant_violations: 0,
+        delta_lost: 0,
     }
 }
 

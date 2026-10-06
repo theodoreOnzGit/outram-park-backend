@@ -588,6 +588,8 @@ pub fn run_keff_mg(
         k_by_generation,
         entropy: Vec::new(),
         virtual_collisions: 0,
+        majorant_violations: 0,
+        delta_lost: 0,
     }
 }
 

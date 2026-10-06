@@ -60,39 +60,16 @@
 //! *thermal* LWR pin-cell tractable; see the `pincell` verification test.
 
 use crate::geometry::cell::{SurfaceToken, TrackingMethod};
-use crate::pebble_beds::delta_tracking::{bounded_delta_flight_visiting, DeltaStep, Majorant};
+use crate::physics::delta_tracking::handoff::{
+    fly_delta_region, score_real_collision, FlightStart, RegionFlightEnd, StartBins,
+};
+use crate::physics::delta_tracking::Majorant;
+/// Re-exported from [`crate::physics::delta_tracking`], where it now lives
+/// (gh:#599); this path is kept for every existing caller.
+pub use crate::physics::delta_tracking::DeltaTallyEstimator;
 use crate::geometry::crossing::GeometryExt;
 use crate::tally::mesh::RegularMeshExt;
 
-/// **Which collision estimator a tally uses inside a delta-tracked region**
-/// (gh:#598). A track-length estimator is not available there (see the
-/// scoring block in [`transport_history_vr`]).
-///
-/// NEW WORK: OpenMC has no delta tracking. Serpent, which does, scores its
-/// collision flux at every tentative collision (Leppänen 2010, cited at
-/// [`crate::pebble_beds::delta_tracking::bounded_delta_flight_visiting`]).
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
-pub enum DeltaTallyEstimator {
-    /// **The default.** At every tentative collision site, virtual and real,
-    /// score `w/Σ_maj` (flux) and `w·Σ_x(r)/Σ_maj` (reaction rates), with
-    /// `Σ_x` of the material AT the site. The sites have density
-    /// `φ·Σ_maj` everywhere in the region, so this samples the near-void
-    /// helium between pebbles as often as the graphite. Costs one
-    /// `Material::macro_xs` per tentative site while a tally is attached.
-    #[default]
-    TentativeCollision,
-    /// **Ablation**: `w/Σ_t` and `w·Σ_x/Σ_t` at REAL collisions only, as
-    /// OpenMC's collision estimator does (`tally_scoring.cpp`,
-    /// `score_general_ce_nonanalog`). Unbiased, but where `Σ_t ≪ Σ_maj`
-    /// (helium, `Σ_t/Σ_maj ~ 5e-5`) its support is almost never sampled, so
-    /// a finite run sees a void's flux as rare enormous scores or not at all.
-    RealCollision,
-}
-
-/// Virtual-collision budget for a delta-tracked region before the history is
-/// declared lost. Matches `keff_delta.rs`'s `MAX_VIRTUAL` so the two paths
-/// agree on what counts as a stuck history.
-const MAX_VIRTUAL_COLLISIONS: u32 = 100_000;
 use crate::geometry::geometry::{Crossing, Geometry};
 use crate::geometry::position::{stream, Direction, Position};
 use crate::material::material::Material;
@@ -115,7 +92,7 @@ use crate::physics::variance_reduction::{
 use crate::rng::distributions::isotropic_direction;
 use crate::rng::lcg::{future_seed, prn};
 use crate::tally::scoring::{
-    flush_batch, flush_bins, score_collision_point, score_fission_birth, score_scatter_matrix,
+    flush_batch, flush_bins, score_fission_birth, score_scatter_matrix,
     score_track_length,
 };
 use crate::tally::tally::{Tally, TallyBin};
@@ -169,7 +146,7 @@ pub(crate) struct Site {
 /// particle at `E = 0` has no speed, so no time can elapse for it; the
 /// alternative is an infinity that propagates into every downstream bin.
 #[inline]
-fn flight_time(d: f64, e: f64) -> f64 {
+pub(crate) fn flight_time(d: f64, e: f64) -> f64 {
     let v = crate::tally::scoring::neutron_speed_cm_per_s(e);
     if v > 0.0 {
         d / v
@@ -218,6 +195,62 @@ const HIST_STRIDE: u64 = crate::rng::lcg::DEFAULT_STRIDE;
 /// generation's sub-streams overlap the next generation's.
 const GEN_STRIDE: u64 = 1 << 40;
 
+/// **Hybrid k-eigenvalue: delta tracking where a region asks for it, surface
+/// tracking everywhere else** (`bn:op-867c`, gh #214).
+///
+/// Identical to [`run_keff_csg`] except that it takes a majorant table.
+/// A cell declares `Cell::delta_tracked(i)` to be transported by delta
+/// (Woodcock) tracking against `majorants[i]`, and everything else -- including
+/// regions nested inside it that declare `surface_tracked()` -- uses ordinary
+/// surface tracking.
+///
+/// # The majorant must bound its region, or the answer is silently wrong
+///
+/// Build each entry with [`Majorant::over_indices`] over **every** material the
+/// region's geometry can present. An under-bound majorant does not crash: delta
+/// tracking rejects collisions it should have accepted and returns a biased `k`.
+/// Over-bounding only costs time, and [`KeffResult::virtual_collisions`]
+/// reports how much.
+///
+/// # Why scope it at all
+///
+/// Measured 2026-09-17 (`examples/majorant_absorber_price.rs`): adding one B4C
+/// control rod to a globally-bounded material set costs **26.3x** in tracking
+/// steps at the thermal peak, and it costs that in reflector graphite metres
+/// from the rod as much as inside it. Above ~1 keV it costs nothing.
+///
+/// # How delta and surface tracking hand off, and what it costs
+///
+/// See [`crate::physics::delta_tracking::handoff`]: each flight inside a
+/// delta region is sampled on the majorant but stops at the nearest surface
+/// over every level, so the answer is exact while internal surfaces are NOT
+/// skipped. Measured 2026-10-06 (gh:#599 audit, `tests/delta_tracking_audit.rs`,
+/// i9-13900K, 1 thread, machine loaded): 2.5x the wall time of surface
+/// tracking on a three-shell sphere, at equal `k`.
+///
+/// Passing an empty table makes this exactly [`run_keff_csg`].
+pub fn run_keff_csg_hybrid(
+    geom: &Geometry,
+    materials: &[Material],
+    nuclides: &[Nuclide],
+    majorants: &[Majorant],
+    entropy_mesh: Option<&crate::tally::mesh::RegularMesh>,
+    source_box: SourceBox,
+    settings: &KeffSettings,
+    tally: Option<&mut Tally>,
+) -> KeffResult {
+    run_keff_csg_inner(
+        geom,
+        materials,
+        nuclides,
+        majorants,
+        entropy_mesh,
+        source_box,
+        settings,
+        tally,
+    )
+}
+
 /// Run fission-source power iteration over an arbitrary CSG [`Geometry`].
 ///
 /// # Parameters
@@ -254,53 +287,6 @@ const GEN_STRIDE: u64 = 1 << 40;
 ///   `log::debug!` line. It never errors on the selection. Wiring a genuine GPU
 ///   Sigma_t lookup into CSG/delta transport is tracked as follow-up work
 ///   (bead op-fla).
-/// **Hybrid k-eigenvalue: delta tracking where a region asks for it, surface
-/// tracking everywhere else** (`bn:op-867c`, gh #214).
-///
-/// Identical to [`run_keff_csg`] except that it takes a majorant table.
-/// A cell declares `Cell::delta_tracked(i)` to be transported by delta
-/// (Woodcock) tracking against `majorants[i]`, and everything else -- including
-/// regions nested inside it that declare `surface_tracked()` -- uses ordinary
-/// surface tracking.
-///
-/// # The majorant must bound its region, or the answer is silently wrong
-///
-/// Build each entry with [`Majorant::over_indices`] over **every** material the
-/// region's geometry can present. An under-bound majorant does not crash: delta
-/// tracking rejects collisions it should have accepted and returns a biased `k`.
-/// Over-bounding only costs time, and [`KeffResult::virtual_collisions`]
-/// reports how much.
-///
-/// # Why scope it at all
-///
-/// Measured 2026-09-17 (`examples/majorant_absorber_price.rs`): adding one B4C
-/// control rod to a globally-bounded material set costs **26.3x** in tracking
-/// steps at the thermal peak, and it costs that in reflector graphite metres
-/// from the rod as much as inside it. Above ~1 keV it costs nothing.
-///
-/// Passing an empty table makes this exactly [`run_keff_csg`].
-pub fn run_keff_csg_hybrid(
-    geom: &Geometry,
-    materials: &[Material],
-    nuclides: &[Nuclide],
-    majorants: &[Majorant],
-    entropy_mesh: Option<&crate::tally::mesh::RegularMesh>,
-    source_box: SourceBox,
-    settings: &KeffSettings,
-    tally: Option<&mut Tally>,
-) -> KeffResult {
-    run_keff_csg_inner(
-        geom,
-        materials,
-        nuclides,
-        majorants,
-        entropy_mesh,
-        source_box,
-        settings,
-        tally,
-    )
-}
-
 pub fn run_keff_csg(
     geom: &Geometry,
     materials: &[Material],
@@ -625,37 +611,14 @@ pub fn run_keff_csg_seq_progress<G: FnMut(GenerationProgress) + Send>(
 ) -> KeffResult {
     let mut seed = settings.seed;
 
-    // Initial source: rejection-sample the box for points in a fissile cell.
-    let mut source: Vec<Site> = Vec::with_capacity(settings.n_particles);
-    let mut guard = 0usize;
-    while source.len() < settings.n_particles {
-        guard += 1;
-        if guard > settings.n_particles * 10_000 {
-            break; // pathological: box barely overlaps fuel; take what we have
-        }
-        let r = Position::new(
-            source_box.lower.x + (source_box.upper.x - source_box.lower.x) * prn(&mut seed),
-            source_box.lower.y + (source_box.upper.y - source_box.lower.y) * prn(&mut seed),
-            source_box.lower.z + (source_box.upper.z - source_box.lower.z) * prn(&mut seed),
-        );
-        let (dx, dy, dz) = isotropic_direction(&mut seed);
-        let u = Direction::new(dx, dy, dz);
-        let fissile = geom
-            .locate(r, u, SurfaceToken::NONE)
-            .and_then(|p| p.material)
-            .map(|m| materials[m].macro_xs(1.0e6, nuclides).nu_fission > 0.0)
-            .unwrap_or(false);
-        if fissile {
-            source.push(Site {
-                r,
-                u,
-                e: 2.0e6,
-                // The synthetic first-generation source is prompt: it has no
-                // fission ancestor to have come from.
-                delayed_group: None,
-            });
-        }
-    }
+    let mut source = sample_box_source(
+        geom,
+        materials,
+        nuclides,
+        source_box,
+        settings.n_particles,
+        &mut seed,
+    );
 
     let n_gen = settings.n_inactive + settings.n_active;
     let mut k_by_generation = Vec::with_capacity(n_gen);
@@ -679,21 +642,8 @@ pub fn run_keff_csg_seq_progress<G: FnMut(GenerationProgress) + Send>(
         Vec::new()
     };
 
-    // Run-level total; the per-generation count is folded in below.
-    let mut virtual_run_total: u64 = 0;
-    let mut collisions_run_total: u64 = 0;
-    let mut lost_locate_run_total: u64 = 0;
-    let mut stuck_events_run_total: u64 = 0;
-    let mut stuck_path_run_total = 0.0_f64;
-    let mut neg_dist_run: u64 = 0;
-    let mut neg_level_run: u64 = 0;
-    let mut neg_worst_run = 0.0_f64;
-    let mut neg_lat_run: u64 = 0;
-    let mut neg_surf_run: u64 = 0;
-    let mut stuck_e_run = 0.0_f64;
-    let mut leak_vacuum_run_total: u64 = 0;
-    let mut leak_infinity_run_total: u64 = 0;
-    let mut histories_run_total: u64 = 0;
+    // Run-level diagnostics, folded in history by history.
+    let mut totals = RunTotals::default();
     let mut entropy: Vec<f64> = Vec::new();
 
     for gen in 0..n_gen {
@@ -736,24 +686,7 @@ pub fn run_keff_csg_seq_progress<G: FnMut(GenerationProgress) + Send>(
                     1.0,
                 );
                 production += outcome.production;
-                virtual_run_total += outcome.virtual_collisions;
-                collisions_run_total += outcome.collisions;
-                lost_locate_run_total += outcome.lost_locate;
-                stuck_events_run_total += outcome.stuck_events;
-                stuck_path_run_total += outcome.stuck_path_cm;
-                neg_dist_run += outcome.neg_dist;
-                neg_lat_run += outcome.neg_from_lattice;
-                neg_surf_run += outcome.neg_from_surface;
-                if outcome.neg_dist > 0 {
-                    neg_level_run = outcome.neg_level;
-                }
-                neg_worst_run = neg_worst_run.min(outcome.neg_worst);
-                if outcome.stuck_last_e > 0.0 {
-                    stuck_e_run = outcome.stuck_last_e;
-                }
-                leak_vacuum_run_total += outcome.leak_vacuum;
-                leak_infinity_run_total += outcome.leak_infinity;
-                histories_run_total += 1;
+                totals.absorb(&outcome);
             }
         }
         // Close the batch: flush this generation's track-length totals into the
@@ -772,20 +705,8 @@ pub fn run_keff_csg_seq_progress<G: FnMut(GenerationProgress) + Send>(
         // bank is resampled. Ported from OpenMC `src/eigenvalue.cpp:587` --
         // the bank must be the pre-synchronisation one, which is why this sits
         // here and not after `resample`.
-        if let Some(mesh) = entropy_mesh {
-            let sites: Vec<crate::particle::bank::BankSite> = next_bank
-                .iter()
-                .map(|s| crate::particle::bank::BankSite {
-                    r: s.r,
-                    u: s.u,
-                    e: s.e,
-                    wgt: 1.0,
-                    seed: 0,
-                })
-                .collect();
-            if let Some(h) = mesh.shannon_entropy(&sites) {
-                entropy.push(h);
-            }
+        if let Some(h) = entropy_mesh.and_then(|mesh| bank_entropy(mesh, &next_bank)) {
+            entropy.push(h);
         }
         k_by_generation.push(k_gen);
         k_running = k_gen.max(1.0e-6);
@@ -811,26 +732,7 @@ pub fn run_keff_csg_seq_progress<G: FnMut(GenerationProgress) + Send>(
     }
 
     let (k_mean, k_std) = mean_and_stderr(&active_k);
-    KeffResult {
-        k_mean,
-        k_std,
-        k_by_generation,
-        entropy,
-        virtual_collisions: virtual_run_total,
-        collisions: collisions_run_total,
-        lost_locate: lost_locate_run_total,
-        stuck_events: stuck_events_run_total,
-        stuck_path_cm: stuck_path_run_total,
-        neg_dist: neg_dist_run,
-        neg_level: neg_level_run,
-        neg_worst: neg_worst_run,
-        neg_from_lattice: neg_lat_run,
-        neg_from_surface: neg_surf_run,
-        stuck_last_e: stuck_e_run,
-        leak_vacuum: leak_vacuum_run_total,
-        leak_infinity: leak_infinity_run_total,
-        histories: histories_run_total,
-    }
+    totals.into_result(k_mean, k_std, k_by_generation, entropy)
 }
 
 /// One generation of a [`CsgPowerIteration`].
@@ -887,29 +789,14 @@ impl CsgPowerIteration {
         settings: &KeffSettings,
     ) -> Self {
         let mut seed = settings.seed;
-        let mut source: Vec<Site> = Vec::with_capacity(settings.n_particles);
-        let mut guard = 0usize;
-        while source.len() < settings.n_particles {
-            guard += 1;
-            if guard > settings.n_particles * 10_000 {
-                break;
-            }
-            let r = Position::new(
-                source_box.lower.x + (source_box.upper.x - source_box.lower.x) * prn(&mut seed),
-                source_box.lower.y + (source_box.upper.y - source_box.lower.y) * prn(&mut seed),
-                source_box.lower.z + (source_box.upper.z - source_box.lower.z) * prn(&mut seed),
-            );
-            let (dx, dy, dz) = isotropic_direction(&mut seed);
-            let u = Direction::new(dx, dy, dz);
-            let fissile = geom
-                .locate(r, u, SurfaceToken::NONE)
-                .and_then(|p| p.material)
-                .map(|m| materials[m].macro_xs(1.0e6, nuclides).nu_fission > 0.0)
-                .unwrap_or(false);
-            if fissile {
-                source.push(Site { r, u, e: 2.0e6, delayed_group: None });
-            }
-        }
+        let source = sample_box_source(
+            geom,
+            materials,
+            nuclides,
+            source_box,
+            settings.n_particles,
+            &mut seed,
+        );
         let n_gen = settings.n_inactive + settings.n_active;
         Self {
             settings: settings.clone(),
@@ -1073,38 +960,15 @@ pub fn run_keff_csg_par_progress<G: FnMut(GenerationProgress) + Send>(
     // separate from the per-history transport streams so both stay deterministic.
     let mut src_seed = settings.seed;
 
-    // Initial source: rejection-sample the box for points in a fissile cell
-    // (identical to the single-thread path, on the sequential src stream).
-    let mut source: Vec<Site> = Vec::with_capacity(settings.n_particles);
-    let mut guard = 0usize;
-    while source.len() < settings.n_particles {
-        guard += 1;
-        if guard > settings.n_particles * 10_000 {
-            break; // pathological: box barely overlaps fuel; take what we have
-        }
-        let r = Position::new(
-            source_box.lower.x + (source_box.upper.x - source_box.lower.x) * prn(&mut src_seed),
-            source_box.lower.y + (source_box.upper.y - source_box.lower.y) * prn(&mut src_seed),
-            source_box.lower.z + (source_box.upper.z - source_box.lower.z) * prn(&mut src_seed),
-        );
-        let (dx, dy, dz) = isotropic_direction(&mut src_seed);
-        let u = Direction::new(dx, dy, dz);
-        let fissile = geom
-            .locate(r, u, SurfaceToken::NONE)
-            .and_then(|p| p.material)
-            .map(|m| materials[m].macro_xs(1.0e6, nuclides).nu_fission > 0.0)
-            .unwrap_or(false);
-        if fissile {
-            source.push(Site {
-                r,
-                u,
-                e: 2.0e6,
-                // The synthetic first-generation source is prompt: it has no
-                // fission ancestor to have come from.
-                delayed_group: None,
-            });
-        }
-    }
+    // Initial source, as the single-thread path, on the sequential src stream.
+    let mut source = sample_box_source(
+        geom,
+        materials,
+        nuclides,
+        source_box,
+        settings.n_particles,
+        &mut src_seed,
+    );
 
     let n_gen = settings.n_inactive + settings.n_active;
     let mut k_by_generation = Vec::with_capacity(n_gen);
@@ -1113,22 +977,9 @@ pub fn run_keff_csg_par_progress<G: FnMut(GenerationProgress) + Send>(
 
     // Run the whole generation loop inside the dedicated pool so every
     // `into_par_iter()` dispatches onto exactly `n_threads` workers.
-    // Run-level total for the parallel driver. Declared OUTSIDE pool.install so
-    // the result built after it can read it; rayon's closure borrows it mutably.
-    let mut virtual_run_total: u64 = 0;
-    let mut collisions_run_total: u64 = 0;
-    let mut lost_locate_run_total: u64 = 0;
-    let mut stuck_events_run_total: u64 = 0;
-    let mut stuck_path_run_total = 0.0_f64;
-    let mut neg_dist_run: u64 = 0;
-    let mut neg_level_run: u64 = 0;
-    let mut neg_worst_run = 0.0_f64;
-    let mut neg_lat_run: u64 = 0;
-    let mut neg_surf_run: u64 = 0;
-    let mut stuck_e_run = 0.0_f64;
-    let mut leak_vacuum_run_total: u64 = 0;
-    let mut leak_infinity_run_total: u64 = 0;
-    let mut histories_run_total: u64 = 0;
+    // Run-level diagnostics. Declared OUTSIDE pool.install so the result built
+    // after it can read them; rayon's closure borrows them mutably.
+    let mut totals = RunTotals::default();
     let mut entropy: Vec<f64> = Vec::new();
     pool.install(|| {
         for gen in 0..n_gen {
@@ -1210,24 +1061,7 @@ pub fn run_keff_csg_par_progress<G: FnMut(GenerationProgress) + Send>(
             };
             for (outcome, bank, local_batch, local_leak) in results {
                 production += outcome.production;
-                virtual_run_total += outcome.virtual_collisions;
-                collisions_run_total += outcome.collisions;
-                lost_locate_run_total += outcome.lost_locate;
-                stuck_events_run_total += outcome.stuck_events;
-                stuck_path_run_total += outcome.stuck_path_cm;
-                neg_dist_run += outcome.neg_dist;
-                neg_lat_run += outcome.neg_from_lattice;
-                neg_surf_run += outcome.neg_from_surface;
-                if outcome.neg_dist > 0 {
-                    neg_level_run = outcome.neg_level;
-                }
-                neg_worst_run = neg_worst_run.min(outcome.neg_worst);
-                if outcome.stuck_last_e > 0.0 {
-                    stuck_e_run = outcome.stuck_last_e;
-                }
-                leak_vacuum_run_total += outcome.leak_vacuum;
-                leak_infinity_run_total += outcome.leak_infinity;
-                histories_run_total += 1;
+                totals.absorb(&outcome);
                 next_bank.extend(bank);
                 if !local_batch.is_empty() {
                     for (b, v) in batch.iter_mut().zip(local_batch) {
@@ -1259,20 +1093,8 @@ pub fn run_keff_csg_par_progress<G: FnMut(GenerationProgress) + Send>(
             // bank is resampled. Ported from OpenMC `src/eigenvalue.cpp:587` --
             // the bank must be the pre-synchronisation one, which is why this sits
             // here and not after `resample`.
-            if let Some(mesh) = entropy_mesh {
-                let sites: Vec<crate::particle::bank::BankSite> = next_bank
-                    .iter()
-                    .map(|s| crate::particle::bank::BankSite {
-                        r: s.r,
-                        u: s.u,
-                        e: s.e,
-                        wgt: 1.0,
-                        seed: 0,
-                    })
-                    .collect();
-                if let Some(h) = mesh.shannon_entropy(&sites) {
-                    entropy.push(h);
-                }
+            if let Some(h) = entropy_mesh.and_then(|mesh| bank_entropy(mesh, &next_bank)) {
+                entropy.push(h);
             }
             k_by_generation.push(k_gen);
             k_running = k_gen.max(1.0e-6);
@@ -1299,26 +1121,7 @@ pub fn run_keff_csg_par_progress<G: FnMut(GenerationProgress) + Send>(
     });
 
     let (k_mean, k_std) = mean_and_stderr(&active_k);
-    KeffResult {
-        k_mean,
-        k_std,
-        k_by_generation,
-        entropy,
-        virtual_collisions: virtual_run_total,
-        collisions: collisions_run_total,
-        lost_locate: lost_locate_run_total,
-        stuck_events: stuck_events_run_total,
-        stuck_path_cm: stuck_path_run_total,
-        neg_dist: neg_dist_run,
-        neg_level: neg_level_run,
-        neg_worst: neg_worst_run,
-        neg_from_lattice: neg_lat_run,
-        neg_from_surface: neg_surf_run,
-        stuck_last_e: stuck_e_run,
-        leak_vacuum: leak_vacuum_run_total,
-        leak_infinity: leak_infinity_run_total,
-        histories: histories_run_total,
-    }
+    totals.into_result(k_mean, k_std, k_by_generation, entropy)
 }
 
 /// Bin one leaked neutron of weight `w` into the per-generation leakage
@@ -1347,22 +1150,6 @@ fn score_leak(leak: &mut [f64], edges: &[f64], e: f64, w: f64) {
     leak[i] += w;
 }
 
-/// Transport one source neutron (plus its same-generation `(n,2n)` secondaries)
-/// to death over the CSG geometry, banking fission neutrons and scoring the
-/// optional **track-length** flux/reaction-rate tally. Returns the fission
-/// production ν̄ summed over the history's fission events.
-///
-/// If `tally` is `Some`, every streamed free-flight segment deposits its
-/// track-length contribution (`w·d` flux, `w·d·Σ_x` reaction rates) into `batch`
-/// (the caller's per-generation accumulator); `batch` is flushed into the tally's
-/// persistent bins once per active generation.
-///
-/// If `leak_edges` is non-empty, every history that ends by **escaping** the
-/// geometry deposits its weight into `leak_batch` at its escape energy (see
-/// [`score_leak`]); `leak_batch` has length `leak_edges.len() - 1` and is
-/// flushed once per active generation by the caller. Pass an empty `leak_edges`
-/// (and any `leak_batch`, e.g. `&mut []`) to disable leakage accounting.
-#[allow(clippy::too_many_arguments)]
 /// What one history produced.
 ///
 /// `production` is the fission neutron yield, as before. `virtual_collisions`
@@ -1379,6 +1166,10 @@ pub(crate) struct HistoryOutcome {
     pub production: f64,
     /// Virtual collisions rejected inside delta regions.
     pub virtual_collisions: u64,
+    /// Tentative sites inside delta regions where `Σ_t > Σ_maj` (gh:#721).
+    pub majorant_violations: u64,
+    /// Histories lost inside a delta region (gh:#721), scored as leaks.
+    pub delta_lost: u64,
     /// **Real** collisions this history underwent. A model where this is near
     /// zero is not absorbing neutrons, it is losing them before they interact.
     pub collisions: u64,
@@ -1426,6 +1217,23 @@ pub(crate) struct HistoryOutcome {
 /// collision "is" a fission, the weight is then reduced by `Σ_a/Σ_t` rather
 /// than the particle being killed, the outgoing reaction is drawn from the
 /// scattering channels alone, and Russian roulette is played last.
+///
+/// Transport one source neutron (plus its same-generation `(n,2n)` secondaries)
+/// to death over the CSG geometry, banking fission neutrons and scoring the
+/// optional **track-length** flux/reaction-rate tally. Returns a
+/// [`HistoryOutcome`]: the fission production ν̄ summed over the history's fission
+/// events, and the diagnostics counted on the way.
+///
+/// If `tally` is `Some`, every streamed free-flight segment deposits its
+/// track-length contribution (`w·d` flux, `w·d·Σ_x` reaction rates) into `batch`
+/// (the caller's per-generation accumulator); `batch` is flushed into the tally's
+/// persistent bins once per active generation.
+///
+/// If `leak_edges` is non-empty, every history that ends by **escaping** the
+/// geometry deposits its weight into `leak_batch` at its escape energy (see
+/// [`score_leak`]); `leak_batch` has length `leak_edges.len() - 1` and is
+/// flushed once per active generation by the caller. Pass an empty `leak_edges`
+/// (and any `leak_batch`, e.g. `&mut []`) to disable leakage accounting.
 #[allow(clippy::too_many_arguments)]
 pub(crate) fn transport_history_vr(
     site: Site,
@@ -1477,6 +1285,8 @@ pub(crate) fn transport_history_vr(
     // Virtual collisions rejected inside delta regions (bn:op-867c.5).
     // Stays zero on a purely surface-tracked model.
     let mut virtual_collisions: u64 = 0;
+    let mut majorant_violations: u64 = 0;
+    let mut delta_lost: u64 = 0;
     let mut collisions: u64 = 0;
     let mut lost_locate: u64 = 0;
     let mut stuck_events: u64 = 0;
@@ -1844,108 +1654,42 @@ pub(crate) fn transport_history_vr(
                         score_leak(leak_batch, leak_edges, e, w);
                         break 'history;
                     };
-                    // The region's OWN extent, not the nearest surface -- a bed
-                    // is full of internal surfaces the tracker exists to cross.
-                    let exit_at = geom.distance_out_of_level(&path, path.tracking_level);
-                    // ── Delta tracking: TENTATIVE-COLLISION estimator ──────
-                    // (gh:#598, the default; see `DeltaTallyEstimator`.)
-                    // Every tentative site inside the region, virtual and
-                    // real, scores `w/Σ_maj` (flux) and `w·Σ_x/Σ_maj` (rates)
-                    // in the material AT the site, binned at the site. Draws
-                    // no randomness, so `k` is unchanged by it.
-                    let tentative_tally = match (tally, delta_estimator) {
-                        (Some(t), DeltaTallyEstimator::TentativeCollision) => Some(t),
+                    // Delta tracking inside the region, handed back at the
+                    // nearest surface (`physics::delta_tracking::handoff`).
+                    // The tentative-collision estimator scores inside it.
+                    let tentative = match (tally, delta_estimator) {
+                        (Some(t), DeltaTallyEstimator::TentativeCollision) => {
+                            Some((t, &mut *batch))
+                        }
                         _ => None,
                     };
-                    let batch_ref = &mut *batch;
-                    // ONLY the sites before `d_bound` are scored. The flight
-                    // runs to the region's exit, but the particle advances at
-                    // most to the nearest surface (an internal pebble or
-                    // kernel surface, usually): a real collision beyond it is
-                    // discarded and the remainder re-sampled from the surface
-                    // on the next flight (memoryless, so unbiased). Scoring
-                    // the sites past `d_bound` would count that stretch twice.
-                    // Measured before this guard, on the BCC cell of
-                    // `tests/delta_collision_estimator.rs`: region Σ_t -1.9 %
-                    // in both groups against surface track-length (15 σ).
-                    let d_scored = d_bound.distance;
-                    let visit = |p: Position, m: usize, maj_e: f64| {
-                        let Some(t) = tentative_tally else { return };
-                        if !(maj_e > 0.0) {
-                            return;
-                        }
-                        let travelled =
-                            (p.x - r.x) * u.u + (p.y - r.y) * u.v + (p.z - r.z) * u.w;
-                        if !(travelled < d_scored) {
-                            return;
-                        }
-                        let mxs = materials[m].macro_xs(e, nuclides);
-                        score_collision_point(
-                            batch_ref,
-                            t,
-                            cell_idx,
-                            m,
-                            leaf.universe,
-                            e,
-                            1.0 / maj_e,
-                            p,
-                            Some(&mxs),
-                            w,
-                            cell_instance,
-                            time_s + flight_time(travelled, e),
-                            u,
-                        );
-                    };
-                    let step = bounded_delta_flight_visiting(
-                        r,
-                        u,
-                        e,
+                    let flight = fly_delta_region(
+                        geom,
+                        &path,
                         maj,
                         materials,
                         nuclides,
-                        MAX_VIRTUAL_COLLISIONS,
-                        // `exit_at` is measured from `r`; convert a probe point
-                        // back to remaining distance along the ray.
-                        |p: Position, _d: Direction| {
-                            let travelled =
-                                (p.x - r.x) * u.u + (p.y - r.y) * u.v + (p.z - r.z) * u.w;
-                            exit_at - travelled
+                        FlightStart { r, u, e, w, time_s },
+                        d_bound.distance,
+                        StartBins {
+                            cell: cell_idx,
+                            universe: leaf.universe,
+                            instance: cell_instance,
                         },
-                        |p: Position| {
-                            geom.locate(p, u, SurfaceToken::NONE)
-                                .and_then(|q| q.material)
-                        },
+                        tentative,
                         seed,
-                        Some(urr_seed),
-                        visit,
+                        urr_seed,
                     );
-                    match step {
-                        DeltaStep::Collision {
-                            position,
-                            material,
-                            virtual_collisions: v,
-                            ..
-                        } => {
-                            virtual_collisions += u64::from(v);
-                            let d = (position.x - r.x) * u.u
-                                + (position.y - r.y) * u.v
-                                + (position.z - r.z) * u.w;
-                            (d, Some(material))
+                    virtual_collisions += u64::from(flight.virtual_collisions);
+                    majorant_violations += u64::from(flight.majorant_violations);
+                    match flight.end {
+                        RegionFlightEnd::Collision { distance, material } => {
+                            (distance, Some(material))
                         }
-                        // Left the delta region: stream to its edge and let the
-                        // enclosing method take over on the next `locate`.
                         // `d_col = INFINITY` sends it down the crossing arm.
-                        DeltaStep::Exit {
-                            virtual_collisions: v,
-                            ..
-                        } => {
-                            virtual_collisions += u64::from(v);
-                            (f64::INFINITY, path.material)
-                        }
-                        DeltaStep::Exhausted {
-                            virtual_collisions: v,
-                        } => {
-                            virtual_collisions += u64::from(v);
+                        RegionFlightEnd::StreamToSurface => (f64::INFINITY, path.material),
+                        RegionFlightEnd::Lost => {
+                            delta_lost += 1;
                             score_leak(leak_batch, leak_edges, e, w);
                             break 'history;
                         }
@@ -1984,76 +1728,30 @@ pub(crate) fn transport_history_vr(
                             u,
                         );
                     }
-                    // ── Delta tracking: COLLISION estimator ────────────────
-                    //
-                    // A TRACK-LENGTH ESTIMATOR IS INVALID HERE. Under delta
-                    // tracking the flight crosses materials virtually and ends
-                    // wherever the real collision happened, so there is no
-                    // single material whose cross sections describe the
-                    // segment. Scoring `seg` against `path.material` — the
-                    // material `locate` reported at the START of the flight —
-                    // attributes the whole path to the wrong material with the
-                    // wrong cross sections.
-                    //
-                    // That was the defect (`bn:op-ra9f`). It is the same trap
-                    // the collision branch below already documents for the
-                    // reaction physics under `bn:op-867c.4`: that one was fixed
-                    // by reading `col_material`, and this estimator was left
-                    // behind. Measured on the HTR-10 bed, 8-group: the tallied
-                    // `k_inf` fell 4175 pcm below what the run's own
-                    // `k_eff/(1-L)` balance implies, and came out BELOW `k_eff`
-                    // — impossible for a leaking system. Surface-tracking the
-                    // same geometry closed that balance to -133 pcm.
-                    //
-                    // ~~The collision estimator is what OpenMC and Serpent use in
-                    // delta-tracked regions for exactly this reason: it scores
-                    // `w/Sigma_t` at the resolved collision site, where the
-                    // material IS known. A flight that exits the region without
-                    // colliding scores nothing — correct, not an omission: the
-                    // estimator's support is collisions, and it is unbiased
-                    // over a history.~~ **CORRECTED 2026-10-06 (gh:#598).**
-                    // OpenMC has no delta tracking at all. Serpent scores its
-                    // collision flux at every TENTATIVE collision, `w/Σ_maj`,
-                    // and that is now the default (`DeltaTallyEstimator::
-                    // TentativeCollision`, scored inside the flight above).
-                    // The real-collision `w/Σ_t` form below is unbiased in
-                    // expectation but, in near-void helium (`Σ_t/Σ_maj ~
-                    // 5e-5`), almost never sampled; it is kept as the explicit
-                    // ablation `DeltaTallyEstimator::RealCollision`.
-                    //
-                    // gh:#598 DEFECT, fixed here: the real-collision score was
-                    // passed through `score_track_length` with `1/Σ_t` as a
-                    // "length". On an unstructured mesh filter (gh:#492) that
-                    // length was rebuilt as a segment around the site and split
-                    // across the cells it crossed; a helium collision's
-                    // `1/Σ_t ~ 5e4 cm` segment fell almost wholly outside the
-                    // mesh and was dropped. The HTR-10 Step 8 bed lost its
-                    // helium flux that way: bed Σ ~ 1/0.61 too large.
-                    // `score_collision_point` bins at the site instead.
+                    // ── Delta tracking: no track length exists here ────────
+                    // The tentative-collision estimator (the default) was
+                    // scored inside the flight; the real-collision ablation
+                    // is scored here. Both, and the history of this
+                    // estimator: `physics::delta_tracking::handoff`.
                     TrackingMethod::Delta { .. } => {
                         if delta_estimator == DeltaTallyEstimator::RealCollision
                             && d_col < d_bound.distance
                         {
                             if let Some(m) = col_material {
-                                let mxs = materials[m].macro_xs(e, nuclides);
-                                if mxs.total > 0.0 {
-                                    let at = stream(r, u, d_col);
-                                    score_collision_point(
-                                        batch,
-                                        t,
-                                        cell_idx,
-                                        m,
-                                        leaf.universe,
-                                        e,
-                                        1.0 / mxs.total,
-                                        at,
-                                        Some(&mxs),
-                                        w,
-                                        cell_instance,
-                                        time_s + flight_time(d_col, e),
-                                        u,
-                                    );
-                                }
+                                score_real_collision(
+                                    t,
+                                    batch,
+                                    materials,
+                                    nuclides,
+                                    FlightStart { r, u, e, w, time_s },
+                                    StartBins {
+                                        cell: cell_idx,
+                                        universe: leaf.universe,
+                                        instance: cell_instance,
+                                    },
+                                    d_col,
+                                    m,
+                                );
                             }
                         }
                     }
@@ -2614,6 +2312,8 @@ pub(crate) fn transport_history_vr(
     HistoryOutcome {
         production,
         virtual_collisions,
+        majorant_violations,
+        delta_lost,
         collisions,
         lost_locate,
         stuck_events,
@@ -2655,6 +2355,158 @@ fn resample(bank: &[Site], n: usize, seed: &mut u64) -> Vec<Site> {
     // the `n` sites was drawn independently with replacement~~ until
     // 2026-09-30.
     crate::physics::fission::comb_resample(bank, n, seed)
+}
+
+/// Rejection-sample the synthetic first-generation source: points uniform in
+/// `source_box` with an isotropic direction, kept where the located cell's
+/// material can fission (`νΣ_f(1 MeV) > 0`), born prompt at 2 MeV. Gives up
+/// after `10 000·n` tries (a box that barely overlaps the fuel) and returns
+/// what it has. Shared by every CSG power iteration, so they consume the
+/// stream identically.
+fn sample_box_source(
+    geom: &Geometry,
+    materials: &[Material],
+    nuclides: &[Nuclide],
+    source_box: SourceBox,
+    n: usize,
+    seed: &mut u64,
+) -> Vec<Site> {
+    let mut source: Vec<Site> = Vec::with_capacity(n);
+    let mut guard = 0usize;
+    while source.len() < n {
+        guard += 1;
+        if guard > n * 10_000 {
+            break; // pathological: box barely overlaps fuel; take what we have
+        }
+        let r = Position::new(
+            source_box.lower.x + (source_box.upper.x - source_box.lower.x) * prn(seed),
+            source_box.lower.y + (source_box.upper.y - source_box.lower.y) * prn(seed),
+            source_box.lower.z + (source_box.upper.z - source_box.lower.z) * prn(seed),
+        );
+        let (dx, dy, dz) = isotropic_direction(seed);
+        let u = Direction::new(dx, dy, dz);
+        let fissile = geom
+            .locate(r, u, SurfaceToken::NONE)
+            .and_then(|p| p.material)
+            .map(|m| materials[m].macro_xs(1.0e6, nuclides).nu_fission > 0.0)
+            .unwrap_or(false);
+        if fissile {
+            source.push(Site {
+                r,
+                u,
+                e: 2.0e6,
+                // The synthetic first-generation source is prompt: it has no
+                // fission ancestor to have come from.
+                delayed_group: None,
+            });
+        }
+    }
+    source
+}
+
+/// Shannon entropy \[bits\] of a generation's fission bank on `mesh`, taken
+/// BEFORE the bank is resampled (OpenMC `src/eigenvalue.cpp:587`).
+fn bank_entropy(mesh: &crate::tally::mesh::RegularMesh, bank: &[Site]) -> Option<f64> {
+    let sites: Vec<crate::particle::bank::BankSite> = bank
+        .iter()
+        .map(|s| crate::particle::bank::BankSite {
+            r: s.r,
+            u: s.u,
+            e: s.e,
+            wgt: 1.0,
+            seed: 0,
+        })
+        .collect();
+    mesh.shannon_entropy(&sites)
+}
+
+/// The run-level diagnostics of a CSG power iteration, folded in from each
+/// history's [`HistoryOutcome`] in history order (so the sequential and
+/// parallel drivers reduce identically).
+#[derive(Debug, Clone, Copy, Default)]
+struct RunTotals {
+    virtual_collisions: u64,
+    majorant_violations: u64,
+    delta_lost: u64,
+    collisions: u64,
+    lost_locate: u64,
+    stuck_events: u64,
+    stuck_path_cm: f64,
+    stuck_last_e: f64,
+    neg_dist: u64,
+    neg_level: u64,
+    neg_worst: f64,
+    neg_from_lattice: u64,
+    neg_from_surface: u64,
+    leak_vacuum: u64,
+    leak_infinity: u64,
+    histories: u64,
+}
+
+impl RunTotals {
+    /// Fold in one history.
+    fn absorb(&mut self, o: &HistoryOutcome) {
+        self.virtual_collisions += o.virtual_collisions;
+        self.majorant_violations += o.majorant_violations;
+        self.delta_lost += o.delta_lost;
+        self.collisions += o.collisions;
+        self.lost_locate += o.lost_locate;
+        self.stuck_events += o.stuck_events;
+        self.stuck_path_cm += o.stuck_path_cm;
+        self.neg_dist += o.neg_dist;
+        self.neg_from_lattice += o.neg_from_lattice;
+        self.neg_from_surface += o.neg_from_surface;
+        if o.neg_dist > 0 {
+            self.neg_level = o.neg_level;
+        }
+        self.neg_worst = self.neg_worst.min(o.neg_worst);
+        if o.stuck_last_e > 0.0 {
+            self.stuck_last_e = o.stuck_last_e;
+        }
+        self.leak_vacuum += o.leak_vacuum;
+        self.leak_infinity += o.leak_infinity;
+        self.histories += 1;
+    }
+
+    /// The run's [`KeffResult`].
+    fn into_result(
+        self,
+        k_mean: f64,
+        k_std: f64,
+        k_by_generation: Vec<f64>,
+        entropy: Vec<f64>,
+    ) -> KeffResult {
+        if self.majorant_violations > 0 {
+            log::warn!(
+                "{} tentative collision sites had Sigma_t above the majorant: the \
+                 majorant does not bound these materials as they are now (rebuild it \
+                 after changing a temperature or density) and k is biased (gh:#721)",
+                self.majorant_violations
+            );
+        }
+        KeffResult {
+            k_mean,
+            k_std,
+            k_by_generation,
+            entropy,
+            virtual_collisions: self.virtual_collisions,
+            majorant_violations: self.majorant_violations,
+            delta_lost: self.delta_lost,
+            collisions: self.collisions,
+            lost_locate: self.lost_locate,
+            stuck_events: self.stuck_events,
+            stuck_path_cm: self.stuck_path_cm,
+            neg_dist: self.neg_dist,
+            neg_level: self.neg_level,
+            neg_worst: self.neg_worst,
+            neg_from_lattice: self.neg_from_lattice,
+            neg_from_surface: self.neg_from_surface,
+            stuck_last_e: self.stuck_last_e,
+            leak_vacuum: self.leak_vacuum,
+            leak_infinity: self.leak_infinity,
+            histories: self.histories,
+        }
+    }
 }
 
 /// Mean and standard error of the mean (1σ) of the active-generation
