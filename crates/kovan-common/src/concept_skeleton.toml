@@ -1,0 +1,550 @@
+# Kovan's concept-tree skeleton (OUTRAM PARK GitHub #724, #726, #727).
+# Lives in kovan-common (wasm-clean) because the Code Review tab is built for
+# the browser as well as the desktop; kovan's desktop app reads it from here.
+#
+# Two fixed levels, shared by the Literature and Code Review tabs:
+#   L1: the 19 infrastructure issues of IAEA NG-G-3.1 (Rev. 1), numbered so
+#       `NN-` is the document's section 3.NN (decided 2026-10-06);
+#   L2: categories from the open NRC guides (NUREG-0800, NUREG-1537 Part 1,
+#       RG 1.232, NUREG-1520, NUREG-1555, NUREG-0654/FEMA-REP-1) and ORNL's
+#       MSR gap analysis, plain-word segments with no number.
+# The owner's concepts hang below L2 as folders, as today.
+#
+# Every source names a [[document]] by `id`; each document names its file in
+# a corpus repository (`tier = "standard"`: reactor-literature; `"private"`:
+# the owner's private corpus). This is the INITIAL linking, at document and
+# section level (2026-10-06); finer artifact links (page anchors, quotes) are
+# the owner's, added later. Section numbers are the documents' own.
+# A node is shown greyed (and hidden by the 'show empty nodes' toggle) when
+# nothing is classified under it; that is computed, not stored here.
+
+[[document]]
+id = "iaea-ng-g-3.1-rev1"
+title = "IAEA Nuclear Energy Series No. NG-G-3.1 (Rev. 1), Milestones in the Development of a National Infrastructure for Nuclear Power"
+publisher = "IAEA, Vienna"
+date = "2015"
+tier = "private"
+file = "reports/iaea2015ngg31rev1-milestones.pdf"
+licence = "(c) IAEA; cited by section and page only"
+
+[[document]]
+id = "nureg-0800-toc-rev6"
+title = "NUREG-0800, Standard Review Plan for the Review of Safety Analysis Reports for Nuclear Power Plants, Table of Contents, Revision 6"
+publisher = "U.S. NRC"
+date = "March 2007"
+tier = "standard"
+file = "kovan-standard-open-corpus/nrc/ML070810350.pdf"
+licence = "U.S. Government work"
+
+[[document]]
+id = "nureg-0800-4.2-rev3"
+title = "NUREG-0800, Standard Review Plan, Section 4.2, Revision 3, Fuel System Design"
+publisher = "U.S. NRC"
+date = "March 2007"
+tier = "standard"
+file = "kovan-standard-open-corpus/nrc/ML070740002.pdf"
+licence = "U.S. Government work"
+
+[[document]]
+id = "nureg-1537-part1"
+title = "NUREG-1537, Part 1, Guidelines for Preparing and Reviewing Applications for the Licensing of Non-Power Reactors: Format and Content"
+publisher = "U.S. NRC, Office of Nuclear Reactor Regulation"
+date = "February 1996"
+tier = "standard"
+file = "kovan-standard-open-corpus/nrc/nureg-1537-part1-1996.pdf"
+licence = "U.S. Government work"
+
+[[document]]
+id = "rg-1.232-rev0"
+title = "Regulatory Guide 1.232, Revision 0, Guidance for Developing Principal Design Criteria for Non-Light-Water Reactors"
+publisher = "U.S. NRC"
+date = "April 2018"
+tier = "standard"
+file = "kovan-standard-open-corpus/nrc/ML17325A611.pdf"
+licence = "U.S. Government work"
+
+[[document]]
+id = "ornl-tm-2018-976"
+title = "ORNL/TM-2018/976, Regulatory Gap Analysis of Select NUREG-0800 Chapters for Applicability to Molten Salt Reactors (Belles, Flanagan)"
+publisher = "Oak Ridge National Laboratory for U.S. DOE"
+date = "October 2018"
+tier = "standard"
+file = "kovan-standard-open-corpus/us-doe/ornl-tm-2018-976-msr-nureg0800-gap-analysis.pdf"
+licence = "approved for public release, distribution unlimited"
+
+[[document]]
+id = "nureg-1520-rev2"
+title = "NUREG-1520, Revision 2, Standard Review Plan for Fuel Cycle Facilities License Applications"
+publisher = "U.S. NRC, Office of Nuclear Material Safety and Safeguards"
+date = "2015"
+tier = "standard"
+file = "kovan-standard-open-corpus/nrc/nureg-1520-rev2-2015.pdf"
+licence = "U.S. Government work"
+
+[[document]]
+id = "nureg-1555"
+title = "NUREG-1555, Standard Review Plans for Environmental Reviews for Nuclear Power Plants"
+publisher = "U.S. NRC, Office of Nuclear Reactor Regulation"
+date = "October 1999"
+tier = "standard"
+file = "kovan-standard-open-corpus/nrc/nureg-1555-1999.pdf"
+licence = "U.S. Government work"
+
+[[document]]
+id = "nureg-0654-rev2"
+title = "NUREG-0654/FEMA-REP-1, Revision 2, Criteria for Preparation and Evaluation of Radiological Emergency Response Plans and Preparedness in Support of Nuclear Power Plants"
+publisher = "U.S. NRC and FEMA"
+date = "December 2019"
+tier = "standard"
+file = "kovan-standard-open-corpus/nrc/nureg-0654-fema-rep-1-rev2-2019.pdf"
+licence = "U.S. Government work"
+
+[[node]]
+path = "01-national-position"
+title = "National position"
+sources = [{ document = "iaea-ng-g-3.1-rev1", section = "3.1", page = "10" }]
+
+[[node]]
+path = "01-national-position/need-for-power"
+title = "Need for power"
+sources = [{ document = "nureg-1555", section = "Ch. 8" }]
+
+[[node]]
+path = "02-nuclear-safety"
+title = "Nuclear safety"
+sources = [{ document = "iaea-ng-g-3.1-rev1", section = "3.2", page = "14" }]
+
+[[node]]
+path = "02-nuclear-safety/facility-description"
+title = "Facility description"
+sources = [{ document = "nureg-0800-toc-rev6", section = "Ch. 1" }, { document = "nureg-1537-part1", section = "Ch. 1" }, { document = "rg-1.232-rev0", section = "Sec. I, Overall requirements" }]
+
+[[node]]
+path = "02-nuclear-safety/design-of-structures-systems-and-components"
+title = "Design of structures, systems and components"
+sources = [{ document = "nureg-0800-toc-rev6", section = "Ch. 3" }, { document = "nureg-1537-part1", section = "Ch. 3" }]
+
+[[node]]
+path = "02-nuclear-safety/fuel-system-design"
+title = "Fuel system design"
+sources = [{ document = "nureg-0800-toc-rev6", section = "4.2" }, { document = "nureg-0800-4.2-rev3", section = "whole section" }, { document = "nureg-1537-part1", section = "4.2.1" }, { document = "rg-1.232-rev0", section = "Sec. II, Multiple barriers (MHTGR-DC 10, 16 functional containment)" }, { document = "ornl-tm-2018-976", section = "3.1.1" }]
+
+[[node]]
+path = "02-nuclear-safety/nuclear-design"
+title = "Nuclear design and core physics"
+sources = [{ document = "nureg-0800-toc-rev6", section = "4.3" }, { document = "nureg-1537-part1", section = "4.5 (4.5.2 core physics parameters)" }, { document = "rg-1.232-rev0", section = "Sec. III, Reactivity control" }, { document = "ornl-tm-2018-976", section = "3.1.2" }]
+
+[[node]]
+path = "02-nuclear-safety/moderator-and-reflector"
+title = "Moderator and reflector"
+sources = [{ document = "nureg-1537-part1", section = "4.2.3" }]
+
+[[node]]
+path = "02-nuclear-safety/thermal-hydraulic-design"
+title = "Thermal-hydraulic design"
+sources = [{ document = "nureg-0800-toc-rev6", section = "4.4" }, { document = "nureg-1537-part1", section = "4.6" }, { document = "rg-1.232-rev0", section = "Sec. IV, Fluid systems" }, { document = "ornl-tm-2018-976", section = "3.1.3" }]
+
+[[node]]
+path = "02-nuclear-safety/control-rods-and-drives"
+title = "Control rods and drives"
+sources = [{ document = "nureg-0800-toc-rev6", section = "4.5, 4.6" }, { document = "nureg-1537-part1", section = "4.2.2" }, { document = "ornl-tm-2018-976", section = "3.1.4, 3.1.6" }]
+
+[[node]]
+path = "02-nuclear-safety/reactor-coolant-system"
+title = "Reactor coolant system"
+sources = [{ document = "nureg-0800-toc-rev6", section = "Ch. 5" }, { document = "nureg-1537-part1", section = "Ch. 5" }, { document = "rg-1.232-rev0", section = "Sec. IV" }, { document = "ornl-tm-2018-976", section = "3.2 (proposed 5.4.20 fuel salt drain tank, 5.4.21 freeze valve boundary)" }]
+
+[[node]]
+path = "02-nuclear-safety/msr-coolant-loop"
+title = "MSR coolant loop"
+sources = [{ document = "ornl-tm-2018-976", section = "3.2.4 (proposed SRP Section 5.5)" }]
+
+[[node]]
+path = "02-nuclear-safety/engineered-safety-features"
+title = "Engineered safety features"
+sources = [{ document = "nureg-0800-toc-rev6", section = "Ch. 6" }, { document = "nureg-1537-part1", section = "Ch. 6" }, { document = "ornl-tm-2018-976", section = "3.3" }]
+
+[[node]]
+path = "02-nuclear-safety/containment"
+title = "Containment (incl. functional containment)"
+sources = [{ document = "nureg-0800-toc-rev6", section = "6.2" }, { document = "rg-1.232-rev0", section = "Sec. V, Reactor containment" }, { document = "ornl-tm-2018-976", section = "3.3.2" }]
+
+[[node]]
+path = "02-nuclear-safety/instrumentation-and-control"
+title = "Instrumentation and control"
+sources = [{ document = "nureg-0800-toc-rev6", section = "Ch. 7" }, { document = "nureg-1537-part1", section = "Ch. 7" }]
+
+[[node]]
+path = "02-nuclear-safety/auxiliary-systems"
+title = "Auxiliary systems"
+sources = [{ document = "nureg-0800-toc-rev6", section = "Ch. 9" }, { document = "nureg-1537-part1", section = "Ch. 9" }, { document = "ornl-tm-2018-976", section = "3.4 (proposed 9.2.X drain tank cooling)" }]
+
+[[node]]
+path = "02-nuclear-safety/steam-and-power-conversion"
+title = "Steam and power conversion system"
+sources = [{ document = "nureg-0800-toc-rev6", section = "Ch. 10" }]
+
+[[node]]
+path = "02-nuclear-safety/experimental-facilities-and-utilization"
+title = "Experimental facilities and utilization"
+sources = [{ document = "nureg-1537-part1", section = "Ch. 10" }]
+
+[[node]]
+path = "02-nuclear-safety/conduct-of-operations"
+title = "Conduct of operations"
+sources = [{ document = "nureg-0800-toc-rev6", section = "Ch. 13" }, { document = "nureg-1537-part1", section = "Ch. 12" }]
+
+[[node]]
+path = "02-nuclear-safety/initial-test-program"
+title = "Initial test program and ITAAC"
+sources = [{ document = "nureg-0800-toc-rev6", section = "Ch. 14" }]
+
+[[node]]
+path = "02-nuclear-safety/accident-analysis"
+title = "Accident analysis"
+sources = [{ document = "nureg-0800-toc-rev6", section = "Ch. 15 (15.0.2 review of transient and accident analysis methods)" }, { document = "nureg-1537-part1", section = "Ch. 13" }]
+
+[[node]]
+path = "02-nuclear-safety/technical-specifications"
+title = "Technical specifications"
+sources = [{ document = "nureg-0800-toc-rev6", section = "Ch. 16" }, { document = "nureg-1537-part1", section = "Ch. 14" }]
+
+[[node]]
+path = "02-nuclear-safety/human-factors-engineering"
+title = "Human factors engineering"
+sources = [{ document = "nureg-0800-toc-rev6", section = "Ch. 18" }]
+
+[[node]]
+path = "02-nuclear-safety/severe-accidents"
+title = "Severe accidents"
+sources = [{ document = "nureg-0800-toc-rev6", section = "Ch. 19" }]
+
+[[node]]
+path = "03-management"
+title = "Management"
+sources = [{ document = "iaea-ng-g-3.1-rev1", section = "3.3", page = "17" }]
+
+[[node]]
+path = "03-management/organization-and-administration"
+title = "Organization and administration"
+sources = [{ document = "nureg-1520-rev2", section = "Ch. 2" }]
+
+[[node]]
+path = "03-management/management-measures"
+title = "Management measures"
+sources = [{ document = "nureg-1520-rev2", section = "Ch. 11" }]
+
+[[node]]
+path = "04-funding-and-financing"
+title = "Funding and financing"
+sources = [{ document = "iaea-ng-g-3.1-rev1", section = "3.4", page = "20" }]
+
+[[node]]
+path = "04-funding-and-financing/financial-qualifications"
+title = "Financial qualifications"
+sources = [{ document = "nureg-1537-part1", section = "Ch. 15" }]
+
+[[node]]
+path = "05-legal-framework"
+title = "Legal framework"
+sources = [{ document = "iaea-ng-g-3.1-rev1", section = "3.5", page = "25" }]
+
+[[node]]
+path = "06-safeguards"
+title = "Safeguards"
+sources = [{ document = "iaea-ng-g-3.1-rev1", section = "3.6", page = "28" }]
+
+[[node]]
+path = "06-safeguards/material-control-and-accounting"
+title = "Material control and accounting"
+sources = [{ document = "nureg-1520-rev2", section = "Ch. 12" }]
+
+[[node]]
+path = "07-regulatory-framework"
+title = "Regulatory framework"
+sources = [{ document = "iaea-ng-g-3.1-rev1", section = "3.7", page = "30" }]
+
+[[node]]
+path = "07-regulatory-framework/quality-assurance"
+title = "Quality assurance (incl. software QA)"
+sources = [{ document = "nureg-0800-toc-rev6", section = "Ch. 17" }]
+
+[[node]]
+path = "07-regulatory-framework/other-license-considerations"
+title = "Other license considerations"
+sources = [{ document = "nureg-1537-part1", section = "Ch. 16" }]
+
+[[node]]
+path = "08-radiation-protection"
+title = "Radiation protection"
+sources = [{ document = "iaea-ng-g-3.1-rev1", section = "3.8", page = "35" }]
+
+[[node]]
+path = "08-radiation-protection/radiation-protection"
+title = "Radiation protection"
+sources = [{ document = "nureg-0800-toc-rev6", section = "Ch. 12" }, { document = "nureg-1537-part1", section = "Ch. 11" }, { document = "nureg-1520-rev2", section = "Ch. 4" }]
+
+[[node]]
+path = "09-electrical-grid"
+title = "Electrical grid"
+sources = [{ document = "iaea-ng-g-3.1-rev1", section = "3.9", page = "36" }]
+
+[[node]]
+path = "09-electrical-grid/electric-power"
+title = "Electric power"
+sources = [{ document = "nureg-0800-toc-rev6", section = "Ch. 8" }, { document = "nureg-1537-part1", section = "Ch. 8" }]
+
+[[node]]
+path = "10-human-resource-development"
+title = "Human resource development"
+sources = [{ document = "iaea-ng-g-3.1-rev1", section = "3.10", page = "38" }]
+
+[[node]]
+path = "10-human-resource-development/knowledge-management-and-education"
+title = "Knowledge management and education"
+sources = [{ document = "iaea-ng-g-3.1-rev1", section = "§3.10, p. 38" }]
+
+[[node]]
+path = "11-stakeholder-involvement"
+title = "Stakeholder involvement"
+sources = [{ document = "iaea-ng-g-3.1-rev1", section = "3.11", page = "42" }]
+
+[[node]]
+path = "12-site-and-supporting-facilities"
+title = "Site and supporting facilities"
+sources = [{ document = "iaea-ng-g-3.1-rev1", section = "3.12", page = "45" }]
+
+[[node]]
+path = "12-site-and-supporting-facilities/site-characteristics"
+title = "Site characteristics"
+sources = [{ document = "nureg-0800-toc-rev6", section = "Ch. 2" }, { document = "nureg-1537-part1", section = "Ch. 2" }]
+
+[[node]]
+path = "13-environmental-protection"
+title = "Environmental protection"
+sources = [{ document = "iaea-ng-g-3.1-rev1", section = "3.13", page = "48" }]
+
+[[node]]
+path = "13-environmental-protection/environmental-impact-statement"
+title = "Environmental impact statement"
+sources = [{ document = "nureg-1555", section = "Ch. 1" }]
+
+[[node]]
+path = "13-environmental-protection/environmental-description"
+title = "Environmental description"
+sources = [{ document = "nureg-1555", section = "Ch. 2" }]
+
+[[node]]
+path = "13-environmental-protection/meteorology-and-air-quality"
+title = "Meteorology and air quality (atmospheric dispersion)"
+sources = [{ document = "nureg-1555", section = "2.7" }, { document = "nureg-0800-toc-rev6", section = "2.3 (2.3.4 short-term, 2.3.5 long-term dispersion)" }, { document = "nureg-1537-part1", section = "2.3" }]
+
+[[node]]
+path = "13-environmental-protection/plant-description"
+title = "Plant description"
+sources = [{ document = "nureg-1555", section = "Ch. 3" }]
+
+[[node]]
+path = "13-environmental-protection/construction-impacts"
+title = "Environmental impacts of construction"
+sources = [{ document = "nureg-1555", section = "Ch. 4" }]
+
+[[node]]
+path = "13-environmental-protection/station-operation-impacts"
+title = "Environmental impacts of station operation"
+sources = [{ document = "nureg-1555", section = "Ch. 5" }]
+
+[[node]]
+path = "13-environmental-protection/radiological-impacts-of-normal-operation"
+title = "Radiological impacts of normal operation"
+sources = [{ document = "nureg-1555", section = "5.4" }]
+
+[[node]]
+path = "13-environmental-protection/environmental-monitoring"
+title = "Environmental measurements and monitoring programs"
+sources = [{ document = "nureg-1555", section = "Ch. 6" }]
+
+[[node]]
+path = "13-environmental-protection/postulated-accident-impacts"
+title = "Environmental impacts of postulated accidents"
+sources = [{ document = "nureg-1555", section = "Ch. 7" }]
+
+[[node]]
+path = "13-environmental-protection/alternatives"
+title = "Alternatives to the proposed action"
+sources = [{ document = "nureg-1555", section = "Ch. 9" }]
+
+[[node]]
+path = "13-environmental-protection/environmental-consequences"
+title = "Environmental consequences of the proposed action"
+sources = [{ document = "nureg-1555", section = "Ch. 10" }]
+
+[[node]]
+path = "13-environmental-protection/facility-environmental-protection"
+title = "Environmental protection (fuel cycle facilities)"
+sources = [{ document = "nureg-1520-rev2", section = "Ch. 9" }]
+
+[[node]]
+path = "14-emergency-planning"
+title = "Emergency planning"
+sources = [{ document = "iaea-ng-g-3.1-rev1", section = "3.14", page = "50" }]
+
+[[node]]
+path = "14-emergency-planning/assignment-of-responsibility"
+title = "Assignment of responsibility"
+sources = [{ document = "nureg-0654-rev2", section = "Planning standard A" }]
+
+[[node]]
+path = "14-emergency-planning/emergency-response-organization"
+title = "Emergency response organization"
+sources = [{ document = "nureg-0654-rev2", section = "Planning standard B" }]
+
+[[node]]
+path = "14-emergency-planning/emergency-response-support-and-resources"
+title = "Emergency response support and resources"
+sources = [{ document = "nureg-0654-rev2", section = "Planning standard C" }]
+
+[[node]]
+path = "14-emergency-planning/emergency-classification-system"
+title = "Emergency classification system"
+sources = [{ document = "nureg-0654-rev2", section = "Planning standard D" }]
+
+[[node]]
+path = "14-emergency-planning/notification-methods-and-procedures"
+title = "Notification methods and procedures"
+sources = [{ document = "nureg-0654-rev2", section = "Planning standard E" }]
+
+[[node]]
+path = "14-emergency-planning/emergency-communications"
+title = "Emergency communications"
+sources = [{ document = "nureg-0654-rev2", section = "Planning standard F" }]
+
+[[node]]
+path = "14-emergency-planning/public-education-and-information"
+title = "Public education and information"
+sources = [{ document = "nureg-0654-rev2", section = "Planning standard G" }]
+
+[[node]]
+path = "14-emergency-planning/emergency-facilities-and-equipment"
+title = "Emergency facilities and equipment"
+sources = [{ document = "nureg-0654-rev2", section = "Planning standard H" }]
+
+[[node]]
+path = "14-emergency-planning/accident-assessment"
+title = "Accident assessment"
+sources = [{ document = "nureg-0654-rev2", section = "Planning standard I" }]
+
+[[node]]
+path = "14-emergency-planning/protective-response"
+title = "Protective response"
+sources = [{ document = "nureg-0654-rev2", section = "Planning standard J" }]
+
+[[node]]
+path = "14-emergency-planning/radiological-exposure-control"
+title = "Radiological exposure control"
+sources = [{ document = "nureg-0654-rev2", section = "Planning standard K" }]
+
+[[node]]
+path = "14-emergency-planning/medical-and-public-health-support"
+title = "Medical and public health support"
+sources = [{ document = "nureg-0654-rev2", section = "Planning standard L" }]
+
+[[node]]
+path = "14-emergency-planning/recovery-reentry-and-post-accident-operations"
+title = "Recovery, reentry, and post-accident operations"
+sources = [{ document = "nureg-0654-rev2", section = "Planning standard M" }]
+
+[[node]]
+path = "14-emergency-planning/exercises-and-drills"
+title = "Exercises and drills"
+sources = [{ document = "nureg-0654-rev2", section = "Planning standard N" }]
+
+[[node]]
+path = "14-emergency-planning/radiological-emergency-response-training"
+title = "Radiological emergency response training"
+sources = [{ document = "nureg-0654-rev2", section = "Planning standard O" }]
+
+[[node]]
+path = "14-emergency-planning/emergency-plan-development-and-review"
+title = "Responsibility for the planning effort"
+sources = [{ document = "nureg-0654-rev2", section = "Planning standard P" }]
+
+[[node]]
+path = "14-emergency-planning/emergency-management"
+title = "Emergency management (fuel cycle facilities)"
+sources = [{ document = "nureg-1520-rev2", section = "Ch. 8" }]
+
+[[node]]
+path = "15-nuclear-security"
+title = "Nuclear security"
+sources = [{ document = "iaea-ng-g-3.1-rev1", section = "3.15", page = "52" }]
+
+[[node]]
+path = "15-nuclear-security/physical-protection"
+title = "Physical protection"
+sources = [{ document = "nureg-1520-rev2", section = "Ch. 13" }]
+
+[[node]]
+path = "16-nuclear-fuel-cycle"
+title = "Nuclear fuel cycle"
+sources = [{ document = "iaea-ng-g-3.1-rev1", section = "3.16", page = "54" }]
+
+[[node]]
+path = "16-nuclear-fuel-cycle/fuel-cycle-facility-general-information"
+title = "General information (fuel cycle facilities)"
+sources = [{ document = "nureg-1520-rev2", section = "Ch. 1" }]
+
+[[node]]
+path = "16-nuclear-fuel-cycle/integrated-safety-analysis"
+title = "Integrated safety analysis"
+sources = [{ document = "nureg-1520-rev2", section = "Ch. 3" }]
+
+[[node]]
+path = "16-nuclear-fuel-cycle/nuclear-criticality-safety"
+title = "Nuclear criticality safety"
+sources = [{ document = "nureg-1520-rev2", section = "Ch. 5" }]
+
+[[node]]
+path = "16-nuclear-fuel-cycle/chemical-process-safety"
+title = "Chemical process safety"
+sources = [{ document = "nureg-1520-rev2", section = "Ch. 6" }]
+
+[[node]]
+path = "16-nuclear-fuel-cycle/fire-safety"
+title = "Fire safety"
+sources = [{ document = "nureg-1520-rev2", section = "Ch. 7" }]
+
+[[node]]
+path = "16-nuclear-fuel-cycle/heu-to-leu-conversion"
+title = "HEU to LEU conversion"
+sources = [{ document = "nureg-1537-part1", section = "Ch. 18" }]
+
+[[node]]
+path = "16-nuclear-fuel-cycle/fuel-depletion-and-source-terms"
+title = "Fuel depletion and source terms"
+sources = [{ document = "nureg-0800-toc-rev6", section = "11.1 (source terms; placement under the fuel cycle is a draft, #726)" }]
+
+[[node]]
+path = "17-radioactive-waste-management"
+title = "Radioactive waste management"
+sources = [{ document = "iaea-ng-g-3.1-rev1", section = "3.17", page = "56" }]
+
+[[node]]
+path = "17-radioactive-waste-management/radioactive-waste-management"
+title = "Radioactive waste management"
+sources = [{ document = "nureg-0800-toc-rev6", section = "Ch. 11" }, { document = "nureg-1537-part1", section = "Ch. 11" }, { document = "ornl-tm-2018-976", section = "3.5" }]
+
+[[node]]
+path = "17-radioactive-waste-management/decommissioning"
+title = "Decommissioning"
+sources = [{ document = "nureg-1537-part1", section = "Ch. 17" }, { document = "nureg-1520-rev2", section = "Ch. 10" }]
+
+[[node]]
+path = "18-industrial-involvement"
+title = "Industrial involvement"
+sources = [{ document = "iaea-ng-g-3.1-rev1", section = "3.18", page = "58" }]
+
+[[node]]
+path = "19-procurement"
+title = "Procurement"
+sources = [{ document = "iaea-ng-g-3.1-rev1", section = "3.19", page = "60" }]
