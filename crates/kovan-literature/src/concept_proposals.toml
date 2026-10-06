@@ -473,14 +473,15 @@ path = "02-nuclear-safety/moderator-and-reflector/moderator-and-reflector-nuclea
 title = "Nuclear design of the moderator and reflector"
 origin = "nrc"
 sources = [{ document = "nureg-1537-part1", section = "4.2.3 (the nuclear design of the moderator and reflector should be discussed in Section 4.5)" }]
-status = "proposed"
+cross_links = ["02-nuclear-safety/nuclear-design/nuclear-data-processing/thermal-scattering"]
+status = "approved"
 
 [[concept]]
 path = "02-nuclear-safety/moderator-and-reflector/cooling-radiation-damage-and-encapsulation"
 title = "Provisions for cooling, radiation damage, and failure of encapsulation"
 origin = "nrc"
 sources = [{ document = "nureg-1537-part1", section = "4.2.3" }]
-status = "proposed"
+status = "approved"
 
 # ============================================================================
 # 02-nuclear-safety / thermal-hydraulic-design   (SRP 4.4, NUREG-1537 4.6)
@@ -491,35 +492,35 @@ path = "02-nuclear-safety/thermal-hydraulic-design/core-coolant-hydraulics"
 title = "Coolant hydraulic characteristics of the core (flow rates, pressures, frictional and buoyant forces)"
 origin = "nrc"
 sources = [{ document = "nureg-1537-part1", section = "4.6 Thermal-Hydraulic Design, first item" }]
-status = "proposed"
+status = "approved"
 
 [[concept]]
 path = "02-nuclear-safety/thermal-hydraulic-design/power-density-and-heat-flux-distribution"
 title = "Thermal power density distribution and heat fluxes into the coolant"
 origin = "nrc"
 sources = [{ document = "nureg-1537-part1", section = "4.6, second item" }]
-status = "proposed"
+status = "approved"
 
 [[concept]]
 path = "02-nuclear-safety/thermal-hydraulic-design/heat-transfer-to-coolant"
 title = "Transfer of heat to the coolant (thermal-hydraulic methodology)"
 origin = "nrc"
 sources = [{ document = "nureg-1537-part1", section = "4.6, third item" }]
-status = "proposed"
+status = "approved"
 
 [[concept]]
 path = "02-nuclear-safety/thermal-hydraulic-design/fuel-heat-removal-limits"
 title = "Fuel heat-removal limits (onset of nucleate boiling, departure from nucleate boiling, flow instability)"
 origin = "nrc"
 sources = [{ document = "nureg-1537-part1", section = "4.6, fifth item" }, { document = "nureg-0800-4.2-rev3", section = "I (SRP 4.4 provides DNBR and CPR criteria)" }]
-status = "proposed"
+status = "approved"
 
 [[concept]]
 path = "02-nuclear-safety/thermal-hydraulic-design/thermal-hydraulic-stability"
 title = "Susceptibility to thermal-hydraulic instability"
 origin = "nrc"
 sources = [{ document = "ornl-tm-2018-976", section = "3.1.3 (quoting SRP 4.4: '(4) is not susceptible to thermal-hydraulic instability')" }]
-status = "proposed"
+status = "approved"
 
 [[concept]]
 path = "02-nuclear-safety/thermal-hydraulic-design/natural-convection-cooling"
@@ -534,70 +535,70 @@ path = "02-nuclear-safety/thermal-hydraulic-design/shutdown-decay-heat"
 title = "Shutdown decay heat"
 origin = "nrc"
 sources = [{ document = "nureg-1537-part1", section = "4.6, fourth item (operating conditions should include ... shutdown decay heat)" }]
-status = "proposed"
+status = "approved"
 
 [[concept]]
 path = "02-nuclear-safety/thermal-hydraulic-design/pulsing-reactor-analysis"
 title = "Pulse analysis (feedback coefficients and thermal-hydraulic evolution during a pulse)"
 origin = "nrc"
 sources = [{ document = "nureg-1537-part1", section = "4.6, last item" }]
-status = "proposed"
+status = "approved"
 
 [[concept]]
-path = "02-nuclear-safety/thermal-hydraulic-design/computational-fluid-dynamics"
+path = "02-nuclear-safety/thermal-hydraulic-design/thermal-hydraulic-methods/computational-fluid-dynamics"
 title = "Computational fluid dynamics (finite volume)"
 origin = "outram-park"
 sources = [{ document = "nureg-1537-part1", section = "4.6 (a detailed description of the analytical methods used in the thermal-hydraulic design)" }]
 why = "the OpenFOAM port (outram-foam-*); the NRC asks for methods without naming them."
-status = "proposed"
+status = "approved"
 
 [[concept]]
-path = "02-nuclear-safety/thermal-hydraulic-design/computational-fluid-dynamics/mesh-generation"
+path = "02-nuclear-safety/thermal-hydraulic-design/thermal-hydraulic-methods/computational-fluid-dynamics/mesh-generation"
 title = "Mesh generation for finite-volume and finite-element solvers"
 origin = "outram-park"
 sources = [{ document = "nureg-1537-part1", section = "4.6 (introduction)" }]
 why = "blockMesh/snappyHexMesh/cfMesh ports and the neutral unstructured mesh (#492)."
-status = "proposed"
+status = "approved"
 
 [[concept]]
-path = "02-nuclear-safety/thermal-hydraulic-design/system-thermal-hydraulics"
+path = "02-nuclear-safety/thermal-hydraulic-design/thermal-hydraulic-methods/system-thermal-hydraulics"
 title = "System (1-D network) thermal hydraulics"
 origin = "outram-park"
 sources = [{ document = "nureg-1537-part1", section = "4.6 (introduction)" }, { document = "ornl-tm-2018-976", section = "3.1.3 (focus on acceptable analytical methods)" }]
 why = "TUAS and TAMPINES control-volume networks; the peer-reviewed TUAS work sits here."
-status = "proposed"
+status = "approved"
 
 [[concept]]
-path = "02-nuclear-safety/thermal-hydraulic-design/two-phase-flow"
+path = "02-nuclear-safety/thermal-hydraulic-design/thermal-hydraulic-methods/two-phase-flow"
 title = "Two-phase flow and boiling"
 origin = "outram-park"
 sources = [{ document = "nureg-1537-part1", section = "4.6, fifth item" }]
 why = "two-fluid, drift-flux and homogeneous models behind the boiling limits."
-status = "proposed"
+status = "approved"
 
 [[concept]]
-path = "02-nuclear-safety/thermal-hydraulic-design/coolant-thermophysical-properties"
+path = "02-nuclear-safety/thermal-hydraulic-design/thermal-hydraulic-methods/coolant-thermophysical-properties"
 title = "Coolant and structure thermophysical properties"
 origin = "outram-park"
 sources = [{ document = "nureg-1537-part1", section = "4.6, third item (uncertainties in thermal-hydraulic ... parameters)" }]
 why = "IAPWS-IF97, CoolProp's Helmholtz EOS, and TUAS's salt and solid property library."
-status = "proposed"
+status = "approved"
 
 [[concept]]
-path = "02-nuclear-safety/thermal-hydraulic-design/pebble-bed-thermal-hydraulics"
+path = "02-nuclear-safety/thermal-hydraulic-design/thermal-hydraulic-methods/pebble-bed-thermal-hydraulics"
 title = "Pebble-bed thermal hydraulics (packed-bed pressure drop, effective conductivity)"
 origin = "outram-park"
 sources = [{ document = "nureg-1537-part1", section = "4.6, first and third items" }]
 why = "KTA 3102 correlations, ZBS conductivity and contact conduction in the bed."
-status = "proposed"
+status = "approved"
 
 [[concept]]
-path = "02-nuclear-safety/thermal-hydraulic-design/neutronics-thermal-hydraulics-coupling"
+path = "02-nuclear-safety/thermal-hydraulic-design/thermal-hydraulic-methods/neutronics-thermal-hydraulics-coupling"
 title = "Neutronics and thermal-hydraulics coupling"
 origin = "outram-park"
 sources = [{ document = "nureg-1537-part1", section = "4.6, second item (heat fluxes derived from the fuel loading and neutron flux characteristics)" }]
 why = "multiphysics coupling in GeN-Foam, nee_soon and BEDOK."
-status = "proposed"
+status = "approved"
 
 # ============================================================================
 # 02-nuclear-safety / control-rods-and-drives
@@ -2464,7 +2465,7 @@ kind = "new-work"
 status = "proposed"
 
 [[implementation]]
-concept = "02-nuclear-safety/thermal-hydraulic-design/computational-fluid-dynamics"
+concept = "02-nuclear-safety/thermal-hydraulic-design/thermal-hydraulic-methods/computational-fluid-dynamics"
 crate = "outram-foam-basic-lib"
 module = "fv_operators"
 title = "Finite-volume operators (fvm, fvc)"
@@ -2474,7 +2475,7 @@ upstream = "OpenFOAM finiteVolume"
 status = "proposed"
 
 [[implementation]]
-concept = "02-nuclear-safety/thermal-hydraulic-design/computational-fluid-dynamics"
+concept = "02-nuclear-safety/thermal-hydraulic-design/thermal-hydraulic-methods/computational-fluid-dynamics"
 crate = "outram-foam-basic-lib"
 module = "ldu_matrix"
 title = "LDU matrices and solvers"
@@ -2484,7 +2485,7 @@ upstream = "OpenFOAM lduMatrix"
 status = "proposed"
 
 [[implementation]]
-concept = "02-nuclear-safety/thermal-hydraulic-design/computational-fluid-dynamics"
+concept = "02-nuclear-safety/thermal-hydraulic-design/thermal-hydraulic-methods/computational-fluid-dynamics"
 crate = "outram-foam-appbuilder-lib"
 module = "solvers/pimple_foam"
 title = "pimpleFoam / icoFoam"
@@ -2494,7 +2495,7 @@ upstream = "OpenFOAM pimpleFoam"
 status = "proposed"
 
 [[implementation]]
-concept = "02-nuclear-safety/thermal-hydraulic-design/computational-fluid-dynamics"
+concept = "02-nuclear-safety/thermal-hydraulic-design/thermal-hydraulic-methods/computational-fluid-dynamics"
 crate = "outram-foam-appbuilder-lib"
 module = "solvers/rho_pimple_foam"
 title = "rhoPimpleFoam"
@@ -2504,7 +2505,7 @@ upstream = "OpenFOAM rhoPimpleFoam"
 status = "proposed"
 
 [[implementation]]
-concept = "02-nuclear-safety/thermal-hydraulic-design/computational-fluid-dynamics"
+concept = "02-nuclear-safety/thermal-hydraulic-design/thermal-hydraulic-methods/computational-fluid-dynamics"
 crate = "outram-foam-turbulence-lib"
 module = "k_omega_sst"
 title = "k-omega SST turbulence model"
@@ -2514,7 +2515,7 @@ upstream = "OpenFOAM kOmegaSST"
 status = "proposed"
 
 [[implementation]]
-concept = "02-nuclear-safety/thermal-hydraulic-design/computational-fluid-dynamics"
+concept = "02-nuclear-safety/thermal-hydraulic-design/thermal-hydraulic-methods/computational-fluid-dynamics"
 crate = "outram-foam-turbulence-lib"
 module = "wall_functions"
 title = "Turbulence wall functions"
@@ -2524,7 +2525,7 @@ upstream = "OpenFOAM wall functions"
 status = "proposed"
 
 [[implementation]]
-concept = "02-nuclear-safety/thermal-hydraulic-design/computational-fluid-dynamics"
+concept = "02-nuclear-safety/thermal-hydraulic-design/thermal-hydraulic-methods/computational-fluid-dynamics"
 crate = "outram-foam-appbuilder-lib"
 module = "genfoam/thermal_hydraulics"
 title = "GeN-Foam reactor thermal hydraulics"
@@ -2534,7 +2535,7 @@ upstream = "GeN-Foam thermalHydraulics"
 status = "proposed"
 
 [[implementation]]
-concept = "02-nuclear-safety/thermal-hydraulic-design/computational-fluid-dynamics/mesh-generation"
+concept = "02-nuclear-safety/thermal-hydraulic-design/thermal-hydraulic-methods/computational-fluid-dynamics/mesh-generation"
 crate = "outram-foam-mesh"
 module = "block_mesh"
 title = "blockMesh"
@@ -2544,7 +2545,7 @@ upstream = "OpenFOAM blockMesh"
 status = "proposed"
 
 [[implementation]]
-concept = "02-nuclear-safety/thermal-hydraulic-design/computational-fluid-dynamics/mesh-generation"
+concept = "02-nuclear-safety/thermal-hydraulic-design/thermal-hydraulic-methods/computational-fluid-dynamics/mesh-generation"
 crate = "outram-foam-mesh"
 module = "snappy_hex_mesh"
 title = "snappyHexMesh"
@@ -2554,7 +2555,7 @@ upstream = "OpenFOAM snappyHexMesh"
 status = "proposed"
 
 [[implementation]]
-concept = "02-nuclear-safety/thermal-hydraulic-design/computational-fluid-dynamics/mesh-generation"
+concept = "02-nuclear-safety/thermal-hydraulic-design/thermal-hydraulic-methods/computational-fluid-dynamics/mesh-generation"
 crate = "outram-park-fork-cfmesh"
 module = "pipeline"
 title = "cfMesh tet-dual pipeline"
@@ -2564,7 +2565,7 @@ upstream = "cfMesh (GPL-3.0)"
 status = "proposed"
 
 [[implementation]]
-concept = "02-nuclear-safety/thermal-hydraulic-design/computational-fluid-dynamics/mesh-generation"
+concept = "02-nuclear-safety/thermal-hydraulic-design/thermal-hydraulic-methods/computational-fluid-dynamics/mesh-generation"
 crate = "outram-blender"
 module = "foam_mesh"
 title = "Volume-meshing bridge"
@@ -2573,7 +2574,7 @@ kind = "new-work"
 status = "proposed"
 
 [[implementation]]
-concept = "02-nuclear-safety/thermal-hydraulic-design/computational-fluid-dynamics/mesh-generation"
+concept = "02-nuclear-safety/thermal-hydraulic-design/thermal-hydraulic-methods/computational-fluid-dynamics/mesh-generation"
 crate = "outram-blender"
 module = "unstructured"
 title = "Neutral unstructured mesh"
@@ -2582,7 +2583,7 @@ kind = "new-work"
 status = "proposed"
 
 [[implementation]]
-concept = "02-nuclear-safety/thermal-hydraulic-design/system-thermal-hydraulics"
+concept = "02-nuclear-safety/thermal-hydraulic-design/thermal-hydraulic-methods/system-thermal-hydraulics"
 crate = "tuas_boussinesq_solver"
 module = "lib/single_control_vol"
 title = "Single control-volume node"
@@ -2592,7 +2593,7 @@ upstream = "Ong, Xiao & Peterson (2025) (peer reviewed)"
 status = "proposed"
 
 [[implementation]]
-concept = "02-nuclear-safety/thermal-hydraulic-design/system-thermal-hydraulics"
+concept = "02-nuclear-safety/thermal-hydraulic-design/thermal-hydraulic-methods/system-thermal-hydraulics"
 crate = "tuas_boussinesq_solver"
 module = "lib/array_fluid_collections"
 title = "Array control volumes and fluid networks"
@@ -2601,7 +2602,7 @@ kind = "new-work"
 status = "proposed"
 
 [[implementation]]
-concept = "02-nuclear-safety/thermal-hydraulic-design/two-phase-flow"
+concept = "02-nuclear-safety/thermal-hydraulic-design/thermal-hydraulic-methods/two-phase-flow"
 crate = "tampines"
 module = "multiphase_1d"
 title = "1-D two-phase system-code solvers"
@@ -2610,7 +2611,7 @@ kind = "new-work"
 status = "proposed"
 
 [[implementation]]
-concept = "02-nuclear-safety/thermal-hydraulic-design/two-phase-flow"
+concept = "02-nuclear-safety/thermal-hydraulic-design/thermal-hydraulic-methods/two-phase-flow"
 crate = "outram-foam-multiphase"
 module = "two_fluid"
 title = "Euler-Euler two-fluid model"
@@ -2620,7 +2621,7 @@ upstream = "OpenFOAM multiphaseEuler"
 status = "proposed"
 
 [[implementation]]
-concept = "02-nuclear-safety/thermal-hydraulic-design/two-phase-flow"
+concept = "02-nuclear-safety/thermal-hydraulic-design/thermal-hydraulic-methods/two-phase-flow"
 crate = "outram-foam-appbuilder-lib"
 module = "solvers/hrm_foam"
 title = "HRMFoam flashing flow"
@@ -2630,7 +2631,7 @@ upstream = "HRMFoam"
 status = "proposed"
 
 [[implementation]]
-concept = "02-nuclear-safety/thermal-hydraulic-design/coolant-thermophysical-properties"
+concept = "02-nuclear-safety/thermal-hydraulic-design/thermal-hydraulic-methods/coolant-thermophysical-properties"
 crate = "tampines-steam-tables"
 module = "interfaces"
 title = "IAPWS-IF97 steam tables"
@@ -2640,7 +2641,7 @@ upstream = "IAPWS-IF97 formulation"
 status = "proposed"
 
 [[implementation]]
-concept = "02-nuclear-safety/thermal-hydraulic-design/coolant-thermophysical-properties"
+concept = "02-nuclear-safety/thermal-hydraulic-design/thermal-hydraulic-methods/coolant-thermophysical-properties"
 crate = "outram-park-fork-coolprop"
 module = "eos"
 title = "Helmholtz-energy equations of state"
@@ -2650,7 +2651,7 @@ upstream = "CoolProp (MIT)"
 status = "proposed"
 
 [[implementation]]
-concept = "02-nuclear-safety/thermal-hydraulic-design/coolant-thermophysical-properties"
+concept = "02-nuclear-safety/thermal-hydraulic-design/thermal-hydraulic-methods/coolant-thermophysical-properties"
 crate = "outram-park-fork-coolprop"
 module = "flash"
 title = "Single-phase flashes"
@@ -2660,7 +2661,7 @@ upstream = "CoolProp"
 status = "proposed"
 
 [[implementation]]
-concept = "02-nuclear-safety/thermal-hydraulic-design/coolant-thermophysical-properties"
+concept = "02-nuclear-safety/thermal-hydraulic-design/thermal-hydraulic-methods/coolant-thermophysical-properties"
 crate = "tuas_boussinesq_solver"
 module = "lib/boussinesq_thermophysical_properties"
 title = "Liquid and solid property library"
@@ -2669,7 +2670,7 @@ kind = "new-work"
 status = "proposed"
 
 [[implementation]]
-concept = "02-nuclear-safety/thermal-hydraulic-design/pebble-bed-thermal-hydraulics"
+concept = "02-nuclear-safety/thermal-hydraulic-design/thermal-hydraulic-methods/pebble-bed-thermal-hydraulics"
 crate = "tampines"
 module = "gas_phase/kta_bed"
 title = "KTA 3102.3 packed-bed pressure drop"
@@ -2679,7 +2680,7 @@ upstream = "KTA 3102.3 correlation"
 status = "proposed"
 
 [[implementation]]
-concept = "02-nuclear-safety/thermal-hydraulic-design/pebble-bed-thermal-hydraulics"
+concept = "02-nuclear-safety/thermal-hydraulic-design/thermal-hydraulic-methods/pebble-bed-thermal-hydraulics"
 crate = "tampines"
 module = "pebble_bed/zbs"
 title = "Zehner-Bauer-Schlunder effective conductivity"
@@ -2689,7 +2690,7 @@ upstream = "ZBS model as in KTA 3102.4"
 status = "proposed"
 
 [[implementation]]
-concept = "02-nuclear-safety/thermal-hydraulic-design/pebble-bed-thermal-hydraulics"
+concept = "02-nuclear-safety/thermal-hydraulic-design/thermal-hydraulic-methods/pebble-bed-thermal-hydraulics"
 crate = "tampines"
 module = "pebble_bed/cht"
 title = "Pebble-bed conjugate heat transfer"
@@ -2698,7 +2699,7 @@ kind = "new-work"
 status = "proposed"
 
 [[implementation]]
-concept = "02-nuclear-safety/thermal-hydraulic-design/pebble-bed-thermal-hydraulics"
+concept = "02-nuclear-safety/thermal-hydraulic-design/thermal-hydraulic-methods/pebble-bed-thermal-hydraulics"
 crate = "outram-park-fork-liggghts"
 module = "thermal"
 title = "Thermal DEM contact conduction"
@@ -2708,7 +2709,7 @@ upstream = "LIGGGHTS heat transfer"
 status = "proposed"
 
 [[implementation]]
-concept = "02-nuclear-safety/thermal-hydraulic-design/pebble-bed-thermal-hydraulics"
+concept = "02-nuclear-safety/thermal-hydraulic-design/thermal-hydraulic-methods/pebble-bed-thermal-hydraulics"
 crate = "outram-park-fork-liggghts"
 module = "thermal_radiation"
 title = "Radiative and gas-gap heat transfer between particles"
@@ -2717,7 +2718,7 @@ kind = "new-work"
 status = "proposed"
 
 [[implementation]]
-concept = "02-nuclear-safety/thermal-hydraulic-design/pebble-bed-thermal-hydraulics"
+concept = "02-nuclear-safety/thermal-hydraulic-design/thermal-hydraulic-methods/pebble-bed-thermal-hydraulics"
 crate = "tuas_boussinesq_solver"
 module = "lib/pre_built_components/insulated_porous_media_fluid_components"
 title = "Porous-media fluid components"
@@ -2726,7 +2727,7 @@ kind = "new-work"
 status = "proposed"
 
 [[implementation]]
-concept = "02-nuclear-safety/thermal-hydraulic-design/neutronics-thermal-hydraulics-coupling"
+concept = "02-nuclear-safety/thermal-hydraulic-design/thermal-hydraulic-methods/neutronics-thermal-hydraulics-coupling"
 crate = "outram-foam-appbuilder-lib"
 module = "genfoam/multi_region"
 title = "Multi-mesh coupling"
@@ -2736,7 +2737,7 @@ upstream = "GeN-Foam multiRegion"
 status = "proposed"
 
 [[implementation]]
-concept = "02-nuclear-safety/thermal-hydraulic-design/neutronics-thermal-hydraulics-coupling"
+concept = "02-nuclear-safety/thermal-hydraulic-design/thermal-hydraulic-methods/neutronics-thermal-hydraulics-coupling"
 crate = "nee_soon"
 module = "coupling"
 title = "Monte Carlo to GeN-Foam via MGXS"
@@ -2745,7 +2746,7 @@ kind = "new-work"
 status = "proposed"
 
 [[implementation]]
-concept = "02-nuclear-safety/thermal-hydraulic-design/neutronics-thermal-hydraulics-coupling"
+concept = "02-nuclear-safety/thermal-hydraulic-design/thermal-hydraulic-methods/neutronics-thermal-hydraulics-coupling"
 crate = "nee_soon"
 module = "direct_coupling"
 title = "Monte Carlo directly against GeN-Foam thermal hydraulics"
@@ -2754,7 +2755,7 @@ kind = "new-work"
 status = "proposed"
 
 [[implementation]]
-concept = "02-nuclear-safety/thermal-hydraulic-design/neutronics-thermal-hydraulics-coupling"
+concept = "02-nuclear-safety/thermal-hydraulic-design/thermal-hydraulic-methods/neutronics-thermal-hydraulics-coupling"
 crate = "outram-park-fork-moltres"
 module = "thermal"
 title = "Reduced fuel-salt thermal model and feedback loop"
@@ -2764,7 +2765,7 @@ upstream = "Moltres (formulation)"
 status = "proposed"
 
 [[implementation]]
-concept = "02-nuclear-safety/thermal-hydraulic-design/neutronics-thermal-hydraulics-coupling"
+concept = "02-nuclear-safety/thermal-hydraulic-design/thermal-hydraulic-methods/neutronics-thermal-hydraulics-coupling"
 crate = "bedok"
 module = "thdiffusion_solverxyz"
 title = "Coupled TH and nodal diffusion"
@@ -3552,3 +3553,10 @@ origin = "nrc"
 sources = []
 note = "No NRC guidance specific to SCWR (RG 1.232 covers non-LWRs only); world reference to obtain: Generation IV International Forum SCWR documents."
 status = "deferred"
+
+[[concept]]
+path = "02-nuclear-safety/thermal-hydraulic-design/thermal-hydraulic-methods"
+title = "Thermal-hydraulic analysis methods"
+origin = "nrc"
+sources = [{ document = "nureg-1537-part1", section = "4.6 (a detailed description of the analytical methods used in the thermal-hydraulic design)" }, { document = "ornl-tm-2018-976", section = "3.1.3 (acceptable analytical methods)" }]
+status = "approved"

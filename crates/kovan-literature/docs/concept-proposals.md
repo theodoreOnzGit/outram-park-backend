@@ -6,7 +6,7 @@
 
 ## Counts
 
-- **L3 concepts: 206** (163 from the NRC/ORNL text, `nrc`; 43 needed by outram-park and named only implicitly, `outram-park`).
+- **L3 concepts: 207** (164 from the NRC/ORNL text, `nrc`; 43 needed by outram-park and named only implicitly, `outram-park`).
 - **L4 seed tags: 192** across 39 crates.
 
 | Crate | Seed tags |
@@ -361,6 +361,7 @@
 
 - [ ] **Nuclear design of the moderator and reflector** · `moderator-and-reflector-nuclear-design` · origin `nrc`
   - sources: `nureg-1537-part1` 4.2.3 (the nuclear design of the moderator and reflector should be discussed in Section 4.5)
+  - cross-links: `02-nuclear-safety/nuclear-design/nuclear-data-processing/thermal-scattering`
   - proposed kovan-concept tags:
     - [ ] add `//! kovan-concept: 02-nuclear-safety/moderator-and-reflector/moderator-and-reflector-nuclear-design` to `crates/nee_soon/src/htr10_rmc/reflector.rs`: HTR-10 graphite reflector. Reflector materials and channels of the HTR-10 model. (new work)
     - [ ] add `//! kovan-concept: 02-nuclear-safety/moderator-and-reflector/moderator-and-reflector-nuclear-design` to `crates/nee_soon/src/htr10_rmc/reflector_geometry.rs`: HTR-10 reflector geometry. CSG geometry of the HTR-10 side, top and bottom reflectors. (new work)
@@ -403,66 +404,68 @@
   - sources: `nureg-1537-part1` 4.6, last item
   - proposed kovan-concept tags:
     - [ ] add `//! kovan-concept: 02-nuclear-safety/thermal-hydraulic-design/pulsing-reactor-analysis` to `crates/teh-o-prke/src/nordheim_fuchs.rs`: Nordheim-Fuchs exact timestepper. Closed-form prompt excursion with adiabatic fuel-temperature feedback. (new work)
-- [ ] **Computational fluid dynamics (finite volume)** · `computational-fluid-dynamics` · origin `outram-park`
-  - sources: `nureg-1537-part1` 4.6 (a detailed description of the analytical methods used in the thermal-hydraulic design)
-  - why: the OpenFOAM port (outram-foam-*); the NRC asks for methods without naming them.
-  - proposed kovan-concept tags:
-    - [ ] add `//! kovan-concept: 02-nuclear-safety/thermal-hydraulic-design/computational-fluid-dynamics` to `crates/outram-foam-basic-lib/src/fv_operators/mod.rs`: Finite-volume operators (fvm, fvc). Implicit and explicit FV discretisation operators. (port of OpenFOAM finiteVolume)
-    - [ ] add `//! kovan-concept: 02-nuclear-safety/thermal-hydraulic-design/computational-fluid-dynamics` to `crates/outram-foam-basic-lib/src/ldu_matrix/mod.rs`: LDU matrices and solvers. Face-addressed sparse matrices with PCG and GAMG. (port of OpenFOAM lduMatrix)
-    - [ ] add `//! kovan-concept: 02-nuclear-safety/thermal-hydraulic-design/computational-fluid-dynamics` to `crates/outram-foam-appbuilder-lib/src/solvers/pimple_foam/mod.rs`: pimpleFoam / icoFoam. Incompressible PISO/PIMPLE solver. (port of OpenFOAM pimpleFoam)
-    - [ ] add `//! kovan-concept: 02-nuclear-safety/thermal-hydraulic-design/computational-fluid-dynamics` to `crates/outram-foam-appbuilder-lib/src/solvers/rho_pimple_foam/mod.rs`: rhoPimpleFoam. Compressible transient PIMPLE solver. (port of OpenFOAM rhoPimpleFoam)
-    - [ ] add `//! kovan-concept: 02-nuclear-safety/thermal-hydraulic-design/computational-fluid-dynamics` to `crates/outram-foam-turbulence-lib/src/k_omega_sst/mod.rs`: k-omega SST turbulence model. Menter (1994) RAS model. (port of OpenFOAM kOmegaSST)
-    - [ ] add `//! kovan-concept: 02-nuclear-safety/thermal-hydraulic-design/computational-fluid-dynamics` to `crates/outram-foam-turbulence-lib/src/wall_functions/mod.rs`: Turbulence wall functions. Near-wall treatment for RAS models. (port of OpenFOAM wall functions)
-    - [ ] add `//! kovan-concept: 02-nuclear-safety/thermal-hydraulic-design/computational-fluid-dynamics` to `crates/outram-foam-appbuilder-lib/src/genfoam/thermal_hydraulics/mod.rs`: GeN-Foam reactor thermal hydraulics. Single- and two-phase porous-medium reactor thermal hydraulics. (port of GeN-Foam thermalHydraulics)
-  - [ ] **Mesh generation for finite-volume and finite-element solvers** · `computational-fluid-dynamics/mesh-generation` · origin `outram-park`
-    - sources: `nureg-1537-part1` 4.6 (introduction)
-    - why: blockMesh/snappyHexMesh/cfMesh ports and the neutral unstructured mesh (#492).
+  - [ ] **Computational fluid dynamics (finite volume)** · `thermal-hydraulic-methods/computational-fluid-dynamics` · origin `outram-park`
+    - sources: `nureg-1537-part1` 4.6 (a detailed description of the analytical methods used in the thermal-hydraulic design)
+    - why: the OpenFOAM port (outram-foam-*); the NRC asks for methods without naming them.
     - proposed kovan-concept tags:
-      - [ ] add `//! kovan-concept: 02-nuclear-safety/thermal-hydraulic-design/computational-fluid-dynamics/mesh-generation` to `crates/outram-foam-mesh/src/block_mesh.rs`: blockMesh. Structured hexahedral block meshing from a blockMeshDict. (port of OpenFOAM blockMesh)
-      - [ ] add `//! kovan-concept: 02-nuclear-safety/thermal-hydraulic-design/computational-fluid-dynamics/mesh-generation` to `crates/outram-foam-mesh/src/snappy_hex_mesh.rs`: snappyHexMesh. Split-hex meshing around STL surfaces. (port of OpenFOAM snappyHexMesh)
-      - [ ] add `//! kovan-concept: 02-nuclear-safety/thermal-hydraulic-design/computational-fluid-dynamics/mesh-generation` to `crates/outram-park-fork-cfmesh/src/pipeline.rs`: cfMesh tet-dual pipeline. Tetrahedralisation, polyhedral dual and boundary layers to a volume mesh. (port of cfMesh (GPL-3.0))
-      - [ ] add `//! kovan-concept: 02-nuclear-safety/thermal-hydraulic-design/computational-fluid-dynamics/mesh-generation` to `crates/outram-blender/src/foam_mesh.rs`: Volume-meshing bridge. Blender surface mesh to cfMesh pipeline to OpenFOAM polyMesh. (new work)
-      - [ ] add `//! kovan-concept: 02-nuclear-safety/thermal-hydraulic-design/computational-fluid-dynamics/mesh-generation` to `crates/outram-blender/src/unstructured/mod.rs`: Neutral unstructured mesh. One mesh description shared by the FV, FEM and Monte Carlo solvers (#492). (new work)
-- [ ] **System (1-D network) thermal hydraulics** · `system-thermal-hydraulics` · origin `outram-park`
-  - sources: `nureg-1537-part1` 4.6 (introduction); `ornl-tm-2018-976` 3.1.3 (focus on acceptable analytical methods)
-  - why: TUAS and TAMPINES control-volume networks; the peer-reviewed TUAS work sits here.
-  - proposed kovan-concept tags:
-    - [ ] add `//! kovan-concept: 02-nuclear-safety/thermal-hydraulic-design/system-thermal-hydraulics` to `crates/tuas_boussinesq_solver/src/lib/single_control_vol/mod.rs`: Single control-volume node. The lumped thermal node and its node-to-node interactions. (new work, from Ong, Xiao & Peterson (2025) (peer reviewed))
-    - [ ] add `//! kovan-concept: 02-nuclear-safety/thermal-hydraulic-design/system-thermal-hydraulics` to `crates/tuas_boussinesq_solver/src/lib/array_fluid_collections/mod.rs`: Array control volumes and fluid networks. Spatially resolved 1-D components and networks of them. (new work)
-- [ ] **Two-phase flow and boiling** · `two-phase-flow` · origin `outram-park`
-  - sources: `nureg-1537-part1` 4.6, fifth item
-  - why: two-fluid, drift-flux and homogeneous models behind the boiling limits.
-  - proposed kovan-concept tags:
-    - [ ] add `//! kovan-concept: 02-nuclear-safety/thermal-hydraulic-design/two-phase-flow` to `crates/tampines/src/multiphase_1d/mod.rs`: 1-D two-phase system-code solvers. Two-fluid and drift-flux 1-D solvers reduced from the 3-D reference. (new work)
-    - [ ] add `//! kovan-concept: 02-nuclear-safety/thermal-hydraulic-design/two-phase-flow` to `crates/outram-foam-multiphase/src/two_fluid.rs`: Euler-Euler two-fluid model. Phase and interfacial-momentum-transfer foundation. (port of OpenFOAM multiphaseEuler)
-    - [ ] add `//! kovan-concept: 02-nuclear-safety/thermal-hydraulic-design/two-phase-flow` to `crates/outram-foam-appbuilder-lib/src/solvers/hrm_foam/mod.rs`: HRMFoam flashing flow. Homogeneous relaxation model for flashing two-phase flow. (port of HRMFoam)
-- [ ] **Coolant and structure thermophysical properties** · `coolant-thermophysical-properties` · origin `outram-park`
-  - sources: `nureg-1537-part1` 4.6, third item (uncertainties in thermal-hydraulic ... parameters)
-  - why: IAPWS-IF97, CoolProp's Helmholtz EOS, and TUAS's salt and solid property library.
-  - proposed kovan-concept tags:
-    - [ ] add `//! kovan-concept: 02-nuclear-safety/thermal-hydraulic-design/coolant-thermophysical-properties` to `crates/tampines-steam-tables/src/interfaces/mod.rs`: IAPWS-IF97 steam tables. Water and steam properties by region, with forward and backward equations. (new work, from IAPWS-IF97 formulation)
-    - [ ] add `//! kovan-concept: 02-nuclear-safety/thermal-hydraulic-design/coolant-thermophysical-properties` to `crates/outram-park-fork-coolprop/src/eos.rs`: Helmholtz-energy equations of state. Reduced Helmholtz energy and derivatives for ~120 fluids. (port of CoolProp (MIT))
-    - [ ] add `//! kovan-concept: 02-nuclear-safety/thermal-hydraulic-design/coolant-thermophysical-properties` to `crates/outram-park-fork-coolprop/src/flash.rs`: Single-phase flashes. (p,T), (p,h), (p,s) to a full fluid state. (port of CoolProp)
-    - [ ] add `//! kovan-concept: 02-nuclear-safety/thermal-hydraulic-design/coolant-thermophysical-properties` to `crates/tuas_boussinesq_solver/src/lib/boussinesq_thermophysical_properties/mod.rs`: Liquid and solid property library. Salt, oil and solid thermophysical properties for Boussinesq models. (new work)
-- [ ] **Pebble-bed thermal hydraulics (packed-bed pressure drop, effective conductivity)** · `pebble-bed-thermal-hydraulics` · origin `outram-park`
-  - sources: `nureg-1537-part1` 4.6, first and third items
-  - why: KTA 3102 correlations, ZBS conductivity and contact conduction in the bed.
-  - proposed kovan-concept tags:
-    - [ ] add `//! kovan-concept: 02-nuclear-safety/thermal-hydraulic-design/pebble-bed-thermal-hydraulics` to `crates/tampines/src/gas_phase/kta_bed.rs`: KTA 3102.3 packed-bed pressure drop. Gas pressure gradient through a randomly packed bed of spheres. (new work, from KTA 3102.3 correlation)
-    - [ ] add `//! kovan-concept: 02-nuclear-safety/thermal-hydraulic-design/pebble-bed-thermal-hydraulics` to `crates/tampines/src/pebble_bed/zbs.rs`: Zehner-Bauer-Schlunder effective conductivity. Analytic effective thermal conductivity of a packed bed. (new work, from ZBS model as in KTA 3102.4)
-    - [ ] add `//! kovan-concept: 02-nuclear-safety/thermal-hydraulic-design/pebble-bed-thermal-hydraulics` to `crates/tampines/src/pebble_bed/cht.rs`: Pebble-bed conjugate heat transfer. Pebble-to-coolant heat transfer in the nested conduction stack. (new work)
-    - [ ] add `//! kovan-concept: 02-nuclear-safety/thermal-hydraulic-design/pebble-bed-thermal-hydraulics` to `crates/outram-park-fork-liggghts/src/thermal.rs`: Thermal DEM contact conduction. Particle-particle and particle-wall contact conduction. (port of LIGGGHTS heat transfer)
-    - [ ] add `//! kovan-concept: 02-nuclear-safety/thermal-hydraulic-design/pebble-bed-thermal-hydraulics` to `crates/outram-park-fork-liggghts/src/thermal_radiation.rs`: Radiative and gas-gap heat transfer between particles. Particle-scale radiation and near-field gas-gap conduction. (new work)
-    - [ ] add `//! kovan-concept: 02-nuclear-safety/thermal-hydraulic-design/pebble-bed-thermal-hydraulics` to `crates/tuas_boussinesq_solver/src/lib/pre_built_components/insulated_porous_media_fluid_components/mod.rs`: Porous-media fluid components. Fluid flowing through a porous solid matrix (packed bed). (new work)
-- [ ] **Neutronics and thermal-hydraulics coupling** · `neutronics-thermal-hydraulics-coupling` · origin `outram-park`
-  - sources: `nureg-1537-part1` 4.6, second item (heat fluxes derived from the fuel loading and neutron flux characteristics)
-  - why: multiphysics coupling in GeN-Foam, nee_soon and BEDOK.
-  - proposed kovan-concept tags:
-    - [ ] add `//! kovan-concept: 02-nuclear-safety/thermal-hydraulic-design/neutronics-thermal-hydraulics-coupling` to `crates/outram-foam-appbuilder-lib/src/genfoam/multi_region/mod.rs`: Multi-mesh coupling. Couples the neutronics, TH and thermo-mechanics meshes with outer iterations. (port of GeN-Foam multiRegion)
-    - [ ] add `//! kovan-concept: 02-nuclear-safety/thermal-hydraulic-design/neutronics-thermal-hydraulics-coupling` to `crates/nee_soon/src/coupling.rs`: Monte Carlo to GeN-Foam via MGXS. Carries one reactor model from Monte Carlo to a deterministic solve on the same geometry. (new work)
-    - [ ] add `//! kovan-concept: 02-nuclear-safety/thermal-hydraulic-design/neutronics-thermal-hydraulics-coupling` to `crates/nee_soon/src/direct_coupling.rs`: Monte Carlo directly against GeN-Foam thermal hydraulics. outram-mc as the neutronics solver in the coupled loop. (new work)
-    - [ ] add `//! kovan-concept: 02-nuclear-safety/thermal-hydraulic-design/neutronics-thermal-hydraulics-coupling` to `crates/outram-park-fork-moltres/src/thermal.rs`: Reduced fuel-salt thermal model and feedback loop. Power/temperature feedback coupling for the circulating-fuel solve. (port of Moltres (formulation))
-    - [ ] add `//! kovan-concept: 02-nuclear-safety/thermal-hydraulic-design/neutronics-thermal-hydraulics-coupling` to `crates/bedok/src/thdiffusion_solverxyz.rs`: Coupled TH and nodal diffusion. Steady thermal-hydraulics coupled to the 3-D diffusion solve. (port of BEDOK MATLAB)
+      - [ ] add `//! kovan-concept: 02-nuclear-safety/thermal-hydraulic-design/thermal-hydraulic-methods/computational-fluid-dynamics` to `crates/outram-foam-basic-lib/src/fv_operators/mod.rs`: Finite-volume operators (fvm, fvc). Implicit and explicit FV discretisation operators. (port of OpenFOAM finiteVolume)
+      - [ ] add `//! kovan-concept: 02-nuclear-safety/thermal-hydraulic-design/thermal-hydraulic-methods/computational-fluid-dynamics` to `crates/outram-foam-basic-lib/src/ldu_matrix/mod.rs`: LDU matrices and solvers. Face-addressed sparse matrices with PCG and GAMG. (port of OpenFOAM lduMatrix)
+      - [ ] add `//! kovan-concept: 02-nuclear-safety/thermal-hydraulic-design/thermal-hydraulic-methods/computational-fluid-dynamics` to `crates/outram-foam-appbuilder-lib/src/solvers/pimple_foam/mod.rs`: pimpleFoam / icoFoam. Incompressible PISO/PIMPLE solver. (port of OpenFOAM pimpleFoam)
+      - [ ] add `//! kovan-concept: 02-nuclear-safety/thermal-hydraulic-design/thermal-hydraulic-methods/computational-fluid-dynamics` to `crates/outram-foam-appbuilder-lib/src/solvers/rho_pimple_foam/mod.rs`: rhoPimpleFoam. Compressible transient PIMPLE solver. (port of OpenFOAM rhoPimpleFoam)
+      - [ ] add `//! kovan-concept: 02-nuclear-safety/thermal-hydraulic-design/thermal-hydraulic-methods/computational-fluid-dynamics` to `crates/outram-foam-turbulence-lib/src/k_omega_sst/mod.rs`: k-omega SST turbulence model. Menter (1994) RAS model. (port of OpenFOAM kOmegaSST)
+      - [ ] add `//! kovan-concept: 02-nuclear-safety/thermal-hydraulic-design/thermal-hydraulic-methods/computational-fluid-dynamics` to `crates/outram-foam-turbulence-lib/src/wall_functions/mod.rs`: Turbulence wall functions. Near-wall treatment for RAS models. (port of OpenFOAM wall functions)
+      - [ ] add `//! kovan-concept: 02-nuclear-safety/thermal-hydraulic-design/thermal-hydraulic-methods/computational-fluid-dynamics` to `crates/outram-foam-appbuilder-lib/src/genfoam/thermal_hydraulics/mod.rs`: GeN-Foam reactor thermal hydraulics. Single- and two-phase porous-medium reactor thermal hydraulics. (port of GeN-Foam thermalHydraulics)
+    - [ ] **Mesh generation for finite-volume and finite-element solvers** · `thermal-hydraulic-methods/computational-fluid-dynamics/mesh-generation` · origin `outram-park`
+      - sources: `nureg-1537-part1` 4.6 (introduction)
+      - why: blockMesh/snappyHexMesh/cfMesh ports and the neutral unstructured mesh (#492).
+      - proposed kovan-concept tags:
+        - [ ] add `//! kovan-concept: 02-nuclear-safety/thermal-hydraulic-design/thermal-hydraulic-methods/computational-fluid-dynamics/mesh-generation` to `crates/outram-foam-mesh/src/block_mesh.rs`: blockMesh. Structured hexahedral block meshing from a blockMeshDict. (port of OpenFOAM blockMesh)
+        - [ ] add `//! kovan-concept: 02-nuclear-safety/thermal-hydraulic-design/thermal-hydraulic-methods/computational-fluid-dynamics/mesh-generation` to `crates/outram-foam-mesh/src/snappy_hex_mesh.rs`: snappyHexMesh. Split-hex meshing around STL surfaces. (port of OpenFOAM snappyHexMesh)
+        - [ ] add `//! kovan-concept: 02-nuclear-safety/thermal-hydraulic-design/thermal-hydraulic-methods/computational-fluid-dynamics/mesh-generation` to `crates/outram-park-fork-cfmesh/src/pipeline.rs`: cfMesh tet-dual pipeline. Tetrahedralisation, polyhedral dual and boundary layers to a volume mesh. (port of cfMesh (GPL-3.0))
+        - [ ] add `//! kovan-concept: 02-nuclear-safety/thermal-hydraulic-design/thermal-hydraulic-methods/computational-fluid-dynamics/mesh-generation` to `crates/outram-blender/src/foam_mesh.rs`: Volume-meshing bridge. Blender surface mesh to cfMesh pipeline to OpenFOAM polyMesh. (new work)
+        - [ ] add `//! kovan-concept: 02-nuclear-safety/thermal-hydraulic-design/thermal-hydraulic-methods/computational-fluid-dynamics/mesh-generation` to `crates/outram-blender/src/unstructured/mod.rs`: Neutral unstructured mesh. One mesh description shared by the FV, FEM and Monte Carlo solvers (#492). (new work)
+  - [ ] **System (1-D network) thermal hydraulics** · `thermal-hydraulic-methods/system-thermal-hydraulics` · origin `outram-park`
+    - sources: `nureg-1537-part1` 4.6 (introduction); `ornl-tm-2018-976` 3.1.3 (focus on acceptable analytical methods)
+    - why: TUAS and TAMPINES control-volume networks; the peer-reviewed TUAS work sits here.
+    - proposed kovan-concept tags:
+      - [ ] add `//! kovan-concept: 02-nuclear-safety/thermal-hydraulic-design/thermal-hydraulic-methods/system-thermal-hydraulics` to `crates/tuas_boussinesq_solver/src/lib/single_control_vol/mod.rs`: Single control-volume node. The lumped thermal node and its node-to-node interactions. (new work, from Ong, Xiao & Peterson (2025) (peer reviewed))
+      - [ ] add `//! kovan-concept: 02-nuclear-safety/thermal-hydraulic-design/thermal-hydraulic-methods/system-thermal-hydraulics` to `crates/tuas_boussinesq_solver/src/lib/array_fluid_collections/mod.rs`: Array control volumes and fluid networks. Spatially resolved 1-D components and networks of them. (new work)
+  - [ ] **Two-phase flow and boiling** · `thermal-hydraulic-methods/two-phase-flow` · origin `outram-park`
+    - sources: `nureg-1537-part1` 4.6, fifth item
+    - why: two-fluid, drift-flux and homogeneous models behind the boiling limits.
+    - proposed kovan-concept tags:
+      - [ ] add `//! kovan-concept: 02-nuclear-safety/thermal-hydraulic-design/thermal-hydraulic-methods/two-phase-flow` to `crates/tampines/src/multiphase_1d/mod.rs`: 1-D two-phase system-code solvers. Two-fluid and drift-flux 1-D solvers reduced from the 3-D reference. (new work)
+      - [ ] add `//! kovan-concept: 02-nuclear-safety/thermal-hydraulic-design/thermal-hydraulic-methods/two-phase-flow` to `crates/outram-foam-multiphase/src/two_fluid.rs`: Euler-Euler two-fluid model. Phase and interfacial-momentum-transfer foundation. (port of OpenFOAM multiphaseEuler)
+      - [ ] add `//! kovan-concept: 02-nuclear-safety/thermal-hydraulic-design/thermal-hydraulic-methods/two-phase-flow` to `crates/outram-foam-appbuilder-lib/src/solvers/hrm_foam/mod.rs`: HRMFoam flashing flow. Homogeneous relaxation model for flashing two-phase flow. (port of HRMFoam)
+  - [ ] **Coolant and structure thermophysical properties** · `thermal-hydraulic-methods/coolant-thermophysical-properties` · origin `outram-park`
+    - sources: `nureg-1537-part1` 4.6, third item (uncertainties in thermal-hydraulic ... parameters)
+    - why: IAPWS-IF97, CoolProp's Helmholtz EOS, and TUAS's salt and solid property library.
+    - proposed kovan-concept tags:
+      - [ ] add `//! kovan-concept: 02-nuclear-safety/thermal-hydraulic-design/thermal-hydraulic-methods/coolant-thermophysical-properties` to `crates/tampines-steam-tables/src/interfaces/mod.rs`: IAPWS-IF97 steam tables. Water and steam properties by region, with forward and backward equations. (new work, from IAPWS-IF97 formulation)
+      - [ ] add `//! kovan-concept: 02-nuclear-safety/thermal-hydraulic-design/thermal-hydraulic-methods/coolant-thermophysical-properties` to `crates/outram-park-fork-coolprop/src/eos.rs`: Helmholtz-energy equations of state. Reduced Helmholtz energy and derivatives for ~120 fluids. (port of CoolProp (MIT))
+      - [ ] add `//! kovan-concept: 02-nuclear-safety/thermal-hydraulic-design/thermal-hydraulic-methods/coolant-thermophysical-properties` to `crates/outram-park-fork-coolprop/src/flash.rs`: Single-phase flashes. (p,T), (p,h), (p,s) to a full fluid state. (port of CoolProp)
+      - [ ] add `//! kovan-concept: 02-nuclear-safety/thermal-hydraulic-design/thermal-hydraulic-methods/coolant-thermophysical-properties` to `crates/tuas_boussinesq_solver/src/lib/boussinesq_thermophysical_properties/mod.rs`: Liquid and solid property library. Salt, oil and solid thermophysical properties for Boussinesq models. (new work)
+  - [ ] **Pebble-bed thermal hydraulics (packed-bed pressure drop, effective conductivity)** · `thermal-hydraulic-methods/pebble-bed-thermal-hydraulics` · origin `outram-park`
+    - sources: `nureg-1537-part1` 4.6, first and third items
+    - why: KTA 3102 correlations, ZBS conductivity and contact conduction in the bed.
+    - proposed kovan-concept tags:
+      - [ ] add `//! kovan-concept: 02-nuclear-safety/thermal-hydraulic-design/thermal-hydraulic-methods/pebble-bed-thermal-hydraulics` to `crates/tampines/src/gas_phase/kta_bed.rs`: KTA 3102.3 packed-bed pressure drop. Gas pressure gradient through a randomly packed bed of spheres. (new work, from KTA 3102.3 correlation)
+      - [ ] add `//! kovan-concept: 02-nuclear-safety/thermal-hydraulic-design/thermal-hydraulic-methods/pebble-bed-thermal-hydraulics` to `crates/tampines/src/pebble_bed/zbs.rs`: Zehner-Bauer-Schlunder effective conductivity. Analytic effective thermal conductivity of a packed bed. (new work, from ZBS model as in KTA 3102.4)
+      - [ ] add `//! kovan-concept: 02-nuclear-safety/thermal-hydraulic-design/thermal-hydraulic-methods/pebble-bed-thermal-hydraulics` to `crates/tampines/src/pebble_bed/cht.rs`: Pebble-bed conjugate heat transfer. Pebble-to-coolant heat transfer in the nested conduction stack. (new work)
+      - [ ] add `//! kovan-concept: 02-nuclear-safety/thermal-hydraulic-design/thermal-hydraulic-methods/pebble-bed-thermal-hydraulics` to `crates/outram-park-fork-liggghts/src/thermal.rs`: Thermal DEM contact conduction. Particle-particle and particle-wall contact conduction. (port of LIGGGHTS heat transfer)
+      - [ ] add `//! kovan-concept: 02-nuclear-safety/thermal-hydraulic-design/thermal-hydraulic-methods/pebble-bed-thermal-hydraulics` to `crates/outram-park-fork-liggghts/src/thermal_radiation.rs`: Radiative and gas-gap heat transfer between particles. Particle-scale radiation and near-field gas-gap conduction. (new work)
+      - [ ] add `//! kovan-concept: 02-nuclear-safety/thermal-hydraulic-design/thermal-hydraulic-methods/pebble-bed-thermal-hydraulics` to `crates/tuas_boussinesq_solver/src/lib/pre_built_components/insulated_porous_media_fluid_components/mod.rs`: Porous-media fluid components. Fluid flowing through a porous solid matrix (packed bed). (new work)
+  - [ ] **Neutronics and thermal-hydraulics coupling** · `thermal-hydraulic-methods/neutronics-thermal-hydraulics-coupling` · origin `outram-park`
+    - sources: `nureg-1537-part1` 4.6, second item (heat fluxes derived from the fuel loading and neutron flux characteristics)
+    - why: multiphysics coupling in GeN-Foam, nee_soon and BEDOK.
+    - proposed kovan-concept tags:
+      - [ ] add `//! kovan-concept: 02-nuclear-safety/thermal-hydraulic-design/thermal-hydraulic-methods/neutronics-thermal-hydraulics-coupling` to `crates/outram-foam-appbuilder-lib/src/genfoam/multi_region/mod.rs`: Multi-mesh coupling. Couples the neutronics, TH and thermo-mechanics meshes with outer iterations. (port of GeN-Foam multiRegion)
+      - [ ] add `//! kovan-concept: 02-nuclear-safety/thermal-hydraulic-design/thermal-hydraulic-methods/neutronics-thermal-hydraulics-coupling` to `crates/nee_soon/src/coupling.rs`: Monte Carlo to GeN-Foam via MGXS. Carries one reactor model from Monte Carlo to a deterministic solve on the same geometry. (new work)
+      - [ ] add `//! kovan-concept: 02-nuclear-safety/thermal-hydraulic-design/thermal-hydraulic-methods/neutronics-thermal-hydraulics-coupling` to `crates/nee_soon/src/direct_coupling.rs`: Monte Carlo directly against GeN-Foam thermal hydraulics. outram-mc as the neutronics solver in the coupled loop. (new work)
+      - [ ] add `//! kovan-concept: 02-nuclear-safety/thermal-hydraulic-design/thermal-hydraulic-methods/neutronics-thermal-hydraulics-coupling` to `crates/outram-park-fork-moltres/src/thermal.rs`: Reduced fuel-salt thermal model and feedback loop. Power/temperature feedback coupling for the circulating-fuel solve. (port of Moltres (formulation))
+      - [ ] add `//! kovan-concept: 02-nuclear-safety/thermal-hydraulic-design/thermal-hydraulic-methods/neutronics-thermal-hydraulics-coupling` to `crates/bedok/src/thdiffusion_solverxyz.rs`: Coupled TH and nodal diffusion. Steady thermal-hydraulics coupled to the 3-D diffusion solve. (port of BEDOK MATLAB)
+- [ ] **Thermal-hydraulic analysis methods** · `thermal-hydraulic-methods` · origin `nrc`
+  - sources: `nureg-1537-part1` 4.6 (a detailed description of the analytical methods used in the thermal-hydraulic design); `ornl-tm-2018-976` 3.1.3 (acceptable analytical methods)
 
 ### Control rods and drives (`02-nuclear-safety/control-rods-and-drives`)
 
