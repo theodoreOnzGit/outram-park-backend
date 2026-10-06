@@ -170,7 +170,7 @@ sources = [{ document = "nureg-0800-toc-rev6", section = "Ch. 1" }, { document =
 [[node]]
 path = "02-nuclear-safety/design-of-structures-systems-and-components"
 title = "Design of structures, systems and components"
-sources = [{ document = "nureg-0800-toc-rev6", section = "Ch. 3" }, { document = "nureg-1537-part1", section = "Ch. 3" }]
+sources = [{ document = "nureg-0800-toc-rev6", section = "Ch. 3" }, { document = "nureg-1537-part1", section = "Ch. 3" }, { document = "10cfr53", section = "§ 53.415 Protection against external hazards" }]
 
 [[node]]
 path = "02-nuclear-safety/fuel-system-design"
@@ -255,12 +255,12 @@ sources = [{ document = "nureg-0800-toc-rev6", section = "Ch. 15 (15.0.2 review 
 [[node]]
 path = "02-nuclear-safety/technical-specifications"
 title = "Technical specifications"
-sources = [{ document = "nureg-0800-toc-rev6", section = "Ch. 16" }, { document = "nureg-1537-part1", section = "Ch. 14" }]
+sources = [{ document = "nureg-0800-toc-rev6", section = "Ch. 16" }, { document = "nureg-1537-part1", section = "Ch. 14" }, { document = "10cfr50", section = "§ 50.36 Technical specifications" }, { document = "10cfr53", section = "§ 53.710 Maintaining capabilities and availability of structures, systems, and components, (a)" }]
 
 [[node]]
 path = "02-nuclear-safety/human-factors-engineering"
 title = "Human factors engineering"
-sources = [{ document = "nureg-0800-toc-rev6", section = "Ch. 18" }]
+sources = [{ document = "nureg-0800-toc-rev6", section = "Ch. 18" }, { document = "10cfr53", section = "§ 53.730 Defining, fulfilling, and maintaining the role of personnel in ensuring safe operations, (a) Human factors engineering design requirements" }, { document = "10cfr53", section = "§ 53.440 Design requirements, (n)(1)" }]
 
 [[node]]
 path = "02-nuclear-safety/severe-accidents"
@@ -296,7 +296,7 @@ sources = [{ document = "iaea-ng-g-3.1-rev1", section = "3.4", page = "20" }]
 [[node]]
 path = "04-funding-and-financing/financial-qualifications"
 title = "Financial qualifications"
-sources = [{ document = "nureg-1537-part1", section = "Ch. 15" }]
+sources = [{ document = "nureg-1537-part1", section = "Ch. 15" }, { document = "10cfr50", section = "§ 50.33 Contents of applications; general information, (f)" }, { document = "10cfr50", section = "Appendix C, A Guide for the Financial Data and Related Information Required To Establish Financial Qualifications for Construction Permits and Combined Licenses" }, { document = "10cfr50", section = "§ 50.76 Licensee's change of status; financial qualifications" }, { document = "10cfr53", section = "§ 53.1670 Financial qualifications" }]
 
 [[node]]
 path = "05-legal-framework"
@@ -311,7 +311,7 @@ sources = [{ document = "iaea-ng-g-3.1-rev1", section = "3.6", page = "28" }]
 [[node]]
 path = "06-safeguards/material-control-and-accounting"
 title = "Material control and accounting"
-sources = [{ document = "nureg-1520-rev2", section = "Ch. 12" }]
+sources = [{ document = "nureg-1520-rev2", section = "Ch. 12" }, { document = "10cfr50", section = "§ 50.78 Facility information and verification" }, { document = "10cfr53", section = "§ 53.1650 Facility information and verification" }]
 
 [[node]]
 path = "07-regulatory-framework"
@@ -376,7 +376,7 @@ sources = [{ document = "iaea-ng-g-3.1-rev1", section = "3.12", page = "45" }]
 [[node]]
 path = "12-site-and-supporting-facilities/site-characteristics"
 title = "Site characteristics"
-sources = [{ document = "nureg-0800-toc-rev6", section = "Ch. 2" }, { document = "nureg-1537-part1", section = "Ch. 2" }]
+sources = [{ document = "nureg-0800-toc-rev6", section = "Ch. 2" }, { document = "nureg-1537-part1", section = "Ch. 2" }, { document = "10cfr53", section = "§ 53.500 General siting and siting assessment" }, { document = "10cfr53", section = "§ 53.520 Site characteristics" }, { document = "10cfr50", section = "Appendix Q, Pre-Application Early Review of Site Suitability Issues" }]
 
 [[node]]
 path = "13-environmental-protection"
@@ -421,7 +421,7 @@ sources = [{ document = "nureg-1555", section = "5.4" }]
 [[node]]
 path = "13-environmental-protection/environmental-monitoring"
 title = "Environmental measurements and monitoring programs"
-sources = [{ document = "nureg-1555", section = "Ch. 6" }]
+sources = [{ document = "nureg-1555", section = "Ch. 6" }, { document = "10cfr50", section = "§ 50.36b Environmental conditions" }, { document = "10cfr53", section = "§ 53.1112 Environmental conditions" }]
 
 [[node]]
 path = "13-environmental-protection/postulated-accident-impacts"
@@ -451,82 +451,82 @@ sources = [{ document = "iaea-ng-g-3.1-rev1", section = "3.14", page = "50" }]
 [[node]]
 path = "14-emergency-planning/assignment-of-responsibility"
 title = "Assignment of responsibility"
-sources = [{ document = "nureg-0654-rev2", section = "Planning standard A" }]
+sources = [{ document = "nureg-0654-rev2", section = "Planning standard A" }, { document = "10cfr50", section = "§ 50.47 Emergency plans, (b)(1)" }]
 
 [[node]]
 path = "14-emergency-planning/emergency-response-organization"
 title = "Emergency response organization"
-sources = [{ document = "nureg-0654-rev2", section = "Planning standard B" }]
+sources = [{ document = "nureg-0654-rev2", section = "Planning standard B" }, { document = "10cfr50", section = "§ 50.47 Emergency plans, (b)(2)" }]
 
 [[node]]
 path = "14-emergency-planning/emergency-response-support-and-resources"
 title = "Emergency response support and resources"
-sources = [{ document = "nureg-0654-rev2", section = "Planning standard C" }]
+sources = [{ document = "nureg-0654-rev2", section = "Planning standard C" }, { document = "10cfr50", section = "§ 50.47 Emergency plans, (b)(3)" }]
 
 [[node]]
 path = "14-emergency-planning/emergency-classification-system"
 title = "Emergency classification system"
-sources = [{ document = "nureg-0654-rev2", section = "Planning standard D" }]
+sources = [{ document = "nureg-0654-rev2", section = "Planning standard D" }, { document = "10cfr50", section = "§ 50.47 Emergency plans, (b)(4)" }]
 
 [[node]]
 path = "14-emergency-planning/notification-methods-and-procedures"
 title = "Notification methods and procedures"
-sources = [{ document = "nureg-0654-rev2", section = "Planning standard E" }]
+sources = [{ document = "nureg-0654-rev2", section = "Planning standard E" }, { document = "10cfr50", section = "§ 50.47 Emergency plans, (b)(5)" }]
 
 [[node]]
 path = "14-emergency-planning/emergency-communications"
 title = "Emergency communications"
-sources = [{ document = "nureg-0654-rev2", section = "Planning standard F" }]
+sources = [{ document = "nureg-0654-rev2", section = "Planning standard F" }, { document = "10cfr50", section = "§ 50.47 Emergency plans, (b)(6)" }]
 
 [[node]]
 path = "14-emergency-planning/public-education-and-information"
 title = "Public education and information"
-sources = [{ document = "nureg-0654-rev2", section = "Planning standard G" }]
+sources = [{ document = "nureg-0654-rev2", section = "Planning standard G" }, { document = "10cfr50", section = "§ 50.47 Emergency plans, (b)(7)" }]
 
 [[node]]
 path = "14-emergency-planning/emergency-facilities-and-equipment"
 title = "Emergency facilities and equipment"
-sources = [{ document = "nureg-0654-rev2", section = "Planning standard H" }]
+sources = [{ document = "nureg-0654-rev2", section = "Planning standard H" }, { document = "10cfr50", section = "§ 50.47 Emergency plans, (b)(8)" }]
 
 [[node]]
 path = "14-emergency-planning/accident-assessment"
 title = "Accident assessment"
-sources = [{ document = "nureg-0654-rev2", section = "Planning standard I" }]
+sources = [{ document = "nureg-0654-rev2", section = "Planning standard I" }, { document = "10cfr50", section = "§ 50.47 Emergency plans, (b)(9)" }]
 
 [[node]]
 path = "14-emergency-planning/protective-response"
 title = "Protective response"
-sources = [{ document = "nureg-0654-rev2", section = "Planning standard J" }]
+sources = [{ document = "nureg-0654-rev2", section = "Planning standard J" }, { document = "10cfr50", section = "§ 50.47 Emergency plans, (b)(10)" }]
 
 [[node]]
 path = "14-emergency-planning/radiological-exposure-control"
 title = "Radiological exposure control"
-sources = [{ document = "nureg-0654-rev2", section = "Planning standard K" }]
+sources = [{ document = "nureg-0654-rev2", section = "Planning standard K" }, { document = "10cfr50", section = "§ 50.47 Emergency plans, (b)(11)" }]
 
 [[node]]
 path = "14-emergency-planning/medical-and-public-health-support"
 title = "Medical and public health support"
-sources = [{ document = "nureg-0654-rev2", section = "Planning standard L" }]
+sources = [{ document = "nureg-0654-rev2", section = "Planning standard L" }, { document = "10cfr50", section = "§ 50.47 Emergency plans, (b)(12)" }]
 
 [[node]]
 path = "14-emergency-planning/recovery-reentry-and-post-accident-operations"
 title = "Recovery, reentry, and post-accident operations"
-sources = [{ document = "nureg-0654-rev2", section = "Planning standard M" }]
+sources = [{ document = "nureg-0654-rev2", section = "Planning standard M" }, { document = "10cfr50", section = "§ 50.47 Emergency plans, (b)(13)" }]
 
 [[node]]
 path = "14-emergency-planning/exercises-and-drills"
 title = "Exercises and drills"
-sources = [{ document = "nureg-0654-rev2", section = "Planning standard N" }]
+sources = [{ document = "nureg-0654-rev2", section = "Planning standard N" }, { document = "10cfr50", section = "§ 50.47 Emergency plans, (b)(14)" }]
 
 [[node]]
 path = "14-emergency-planning/radiological-emergency-response-training"
 title = "Radiological emergency response training"
-sources = [{ document = "nureg-0654-rev2", section = "Planning standard O" }]
+sources = [{ document = "nureg-0654-rev2", section = "Planning standard O" }, { document = "10cfr50", section = "§ 50.47 Emergency plans, (b)(15)" }]
 
 [[node]]
 path = "14-emergency-planning/emergency-plan-development-and-review"
 title = "Responsibility for the planning effort"
-sources = [{ document = "nureg-0654-rev2", section = "Planning standard P" }]
+sources = [{ document = "nureg-0654-rev2", section = "Planning standard P" }, { document = "10cfr50", section = "§ 50.47 Emergency plans, (b)(16)" }, { document = "10cfr50", section = "Appendix E, Emergency Planning and Preparedness for Production and Utilization Facilities" }, { document = "10cfr53", section = "§ 53.855 Emergency preparedness" }]
 
 [[node]]
 path = "14-emergency-planning/emergency-management"
@@ -541,7 +541,7 @@ sources = [{ document = "iaea-ng-g-3.1-rev1", section = "3.15", page = "52" }]
 [[node]]
 path = "15-nuclear-security/physical-protection"
 title = "Physical protection"
-sources = [{ document = "nureg-1520-rev2", section = "Ch. 13" }]
+sources = [{ document = "nureg-1520-rev2", section = "Ch. 13" }, { document = "10cfr53", section = "§ 53.860 Security programs, (a) Physical protection program" }, { document = "10cfr50", section = "§ 50.34 Contents of applications; technical information, (c) Physical security plan" }]
 
 [[node]]
 path = "16-nuclear-fuel-cycle"
@@ -582,7 +582,7 @@ sources = [{ document = "nureg-1520-rev2", section = "Ch. 7" }]
 [[node]]
 path = "16-nuclear-fuel-cycle/heu-to-leu-conversion"
 title = "HEU to LEU conversion"
-sources = [{ document = "nureg-1537-part1", section = "Ch. 18" }]
+sources = [{ document = "nureg-1537-part1", section = "Ch. 18" }, { document = "10cfr50", section = "§ 50.64 Limitations on the use of highly enriched uranium (HEU) in domestic non-power reactors" }]
 
 [[node]]
 path = "16-nuclear-fuel-cycle/fuel-depletion"
@@ -597,12 +597,12 @@ sources = [{ document = "iaea-ng-g-3.1-rev1", section = "3.17", page = "56" }]
 [[node]]
 path = "17-radioactive-waste-management/radioactive-waste-management"
 title = "Radioactive waste management"
-sources = [{ document = "nureg-0800-toc-rev6", section = "Ch. 11" }, { document = "nureg-1537-part1", section = "Ch. 11" }, { document = "ornl-tm-2018-976", section = "3.5" }]
+sources = [{ document = "nureg-0800-toc-rev6", section = "Ch. 11" }, { document = "nureg-1537-part1", section = "Ch. 11" }, { document = "ornl-tm-2018-976", section = "3.5" }, { document = "10cfr50", section = "§ 50.34a Design objectives for equipment to control releases of radioactive material in effluents—nuclear power reactors" }, { document = "10cfr50", section = "Appendix F, Policy Relating to the Siting of Fuel Reprocessing Plants and Related Waste Management Facilities" }]
 
 [[node]]
 path = "17-radioactive-waste-management/decommissioning"
 title = "Decommissioning"
-sources = [{ document = "nureg-1537-part1", section = "Ch. 17" }, { document = "nureg-1520-rev2", section = "Ch. 10" }]
+sources = [{ document = "nureg-1537-part1", section = "Ch. 17" }, { document = "nureg-1520-rev2", section = "Ch. 10" }, { document = "10cfr53", section = "§ 53.1000 Scope and purpose (Subpart G, Decommissioning Requirements)" }]
 
 [[node]]
 path = "18-industrial-involvement"
