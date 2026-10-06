@@ -26,6 +26,13 @@
 # Without rust-analyzer the call graph is skipped with a warning and the page
 # shows the code map only. A crate whose run fails is skipped with a warning.
 #
+# KOVAN_INDEX_BUDGET=<seconds> (CI sets it; default 0 = no limit): once that
+# much time has gone on indexing, crates not yet in the cache are skipped for
+# this run (the page lacks their call graph) instead of letting a cold cache
+# run the job into its timeout. CI saves the cache even when the build fails,
+# so the next run starts where this one stopped and a cold cache warms up
+# over a few runs.
+#
 # KOVAN_WEB_CRATES=a,b limits the call graph to those crates (local runs).
 # Never commits anything. Release build (workspace rule).
 set -euo pipefail
@@ -33,6 +40,7 @@ root="$(git rev-parse --show-toplevel)"
 cd "$root"
 JOBS="${PAGES_JOBS:-3}"
 CACHE="${KOVAN_INDEX_CACHE:-$root/target/kovan-index}"
+BUDGET="${KOVAN_INDEX_BUDGET:-0}"
 cargo build --release -q -j "$JOBS" -p kovan --no-default-features --bin kovan-cli
 kc="$root/target/release/kovan-cli"
 trap '"$kc" lsp-daemon-stop --root "$root" >/dev/null 2>&1 || true' EXIT
@@ -68,11 +76,16 @@ if command -v rust-analyzer >/dev/null 2>&1; then
   [[ -n "${KOVAN_WEB_CRATES:-}" ]] && keys_args=(--crates "$KOVAN_WEB_CRATES")
   docs=()
   fresh=0
+  deferred=0
   t0=$SECONDS
   while read -r c key; do
     dir="$CACHE/$c"
     f="$dir/$key.json"
     if [[ ! -f "$f" ]]; then
+      if (( BUDGET > 0 && SECONDS - t0 >= BUDGET )); then
+        deferred=$((deferred + 1))
+        continue
+      fi
       mkdir -p "$dir"
       rm -f "$dir"/*.json
       if "$kc" call-graph --workspace . --crates "$c" -o "$f.tmp" 2> "$dir/log.txt"; then
@@ -87,6 +100,9 @@ if command -v rust-analyzer >/dev/null 2>&1; then
     docs+=("$f")
   done < <("$kc" call-graph-keys --workspace . "${keys_args[@]}")
   echo "data.sh: call graph of ${#docs[@]} crates, $fresh re-indexed, $((SECONDS - t0)) s"
+  if (( deferred > 0 )); then
+    echo "data.sh: WARNING: index budget of $BUDGET s spent; $deferred crates not indexed this run (the next run continues from the cache)" >&2
+  fi
   if (( ${#docs[@]} > 0 )); then
     "$kc" call-graph --workspace . --merge "${docs[@]}" --split-dir "$out/graph"
   fi

@@ -55,9 +55,10 @@ jobs:
         with:
           key: pages
       # web-kovan's per-crate call-graph cache: a crate is re-indexed only
-      # when its key changes (kovan-cli call-graph-keys). Saved every run,
-      # restored from the newest; never committed.
-      - uses: actions/cache@v4
+      # when its key changes (kovan-cli call-graph-keys). Restored from the
+      # newest, saved by the step after the build even when the build fails,
+      # so a cold cache warms up over a few runs; never committed.
+      - uses: actions/cache/restore@v4
         with:
           path: target/kovan-index
           key: kovan-index-${{ github.sha }}
@@ -75,7 +76,16 @@ jobs:
         with:
           tool: wasm-bindgen@${{ steps.wb.outputs.version }}
       - name: Build the site
+        # A cold index (all 48 crates) does not fit in the job's timeout on a
+        # 4-core runner: stop indexing new crates after 40 min (data.sh).
+        env:
+          KOVAN_INDEX_BUDGET: "2400"
         run: scripts/build-pages.sh target/pages
+      - uses: actions/cache/save@v4
+        if: always()
+        with:
+          path: target/kovan-index
+          key: kovan-index-${{ github.sha }}
       - uses: actions/upload-pages-artifact@v3
         with:
           path: target/pages
