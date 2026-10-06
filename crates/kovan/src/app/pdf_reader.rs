@@ -541,6 +541,12 @@ pub(super) fn saved_artifact_menu_entries(
         ArtifactKind::DigitisedTable => "Edit table",
         ArtifactKind::Formula => "Edit formula",
         ArtifactKind::SourceReference => "Edit source reference",
+        // The #743 prose kinds are not source-anchored either; the arms
+        // exist so the menu names what is being edited.
+        ArtifactKind::LessonSection => "Edit lesson section",
+        ArtifactKind::WalkStep => "Edit walk step",
+        ArtifactKind::CodeWalk => "Edit code walk",
+        ArtifactKind::RecipeStep => "Edit recipe step",
     };
     let is_csv = matches!(
         kind,
@@ -867,6 +873,15 @@ pub(super) fn artifact_overlays_for_page<'a>(
             Some((artifact, rect))
         })
         .collect()
+}
+
+/// A short suffix marking an AI-written artifact (`[kovan] origin = "ai"`,
+/// GH issue #743) in the page-context list; empty for a human one.
+fn ai_badge(artifact: &crate::artifact::Artifact) -> &'static str {
+    match artifact.origin() {
+        crate::artifact::Origin::Ai => "  [AI]",
+        crate::artifact::Origin::Human => "",
+    }
 }
 
 /// The "other" endpoint of `rel` as seen from `node`, plus which arrow to
@@ -2855,7 +2870,11 @@ impl PdfReaderState {
                                             } else {
                                                 "\u{1F4C8}"
                                             };
-                                        ui.label(format!("{icon} {}", artifact.heading));
+                                        ui.label(format!(
+                                            "{icon} {}{}",
+                                            artifact.heading,
+                                            ai_badge(artifact)
+                                        ));
                                         if show_summaries {
                                             if let Some(csv) = artifact.csv_block() {
                                                 // Copy CSV stays here too: reinstated
@@ -2872,7 +2891,11 @@ impl PdfReaderState {
                                     }
                                     _ => {
                                         open_on_single_click = true;
-                                        ui.label(format!("\u{1F4DD} {}", artifact.heading));
+                                        ui.label(format!(
+                                            "\u{1F4DD} {}{}",
+                                            artifact.heading,
+                                            ai_badge(artifact)
+                                        ));
                                         if show_summaries {
                                             if !artifact.body.trim().is_empty() {
                                                 ui.monospace(body_preview(&artifact.body));
@@ -5738,6 +5761,7 @@ mod tests {
                     created: "c".to_string(),
                     modified: "m".to_string(),
                     reviewed: None,
+                    origin: None,
                 },
                 source,
                 classification: Classification::default(),

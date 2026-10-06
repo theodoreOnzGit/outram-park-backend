@@ -760,9 +760,66 @@ pub fn sync_offset(blocks: &[BlockPos], line: usize) -> Option<f32> {
     )
 }
 
+/// What the preview shows above a fenced `toml` block that is an artifact's
+/// `[kovan]` metadata (GH issue #743): its kind, an "AI" badge when
+/// `origin = "ai"`, and one card per `[relation]`/`[[relation]]` record.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ArtifactStrip {
+    /// The kind's wire name, e.g. `walk_step`.
+    pub kind: &'static str,
+    /// Whether `origin = "ai"`.
+    pub ai: bool,
+    /// One `(relation kind label, target text, navigable)` per record. A
+    /// `code:` target is not navigable yet (it arrives with web-kovan).
+    pub links: Vec<(String, String, bool)>,
+}
+
+/// [`ArtifactStrip`] for a code block, or `None` when it is not `toml`, has
+/// no `[kovan]` table, or does not parse as one (the raw block still shows).
+pub fn artifact_strip(lang: &str, code: &str) -> Option<ArtifactStrip> {
+    if lang.split(',').next().unwrap_or("").trim() != "toml" || !code.contains("[kovan]") {
+        return None;
+    }
+    let toml: crate::artifact::ArtifactToml = toml::from_str(code).ok()?;
+    let links = toml
+        .relation
+        .as_ref()
+        .map_or(&[][..], crate::relation::Relations::records)
+        .iter()
+        .map(|r| {
+            let mut text = r.target.clone();
+            if let Some(p) = r.page {
+                text.push_str(&format!(" p. {p}"));
+            }
+            let navigable = !crate::relation::CodeTarget::is_code(&r.target);
+            (r.kind.label().to_string(), text, navigable)
+        })
+        .collect();
+    Some(ArtifactStrip {
+        kind: toml.kovan.kind.as_str(),
+        ai: toml.kovan.origin() == crate::artifact::Origin::Ai,
+        links,
+    })
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn a_kovan_toml_block_gets_an_artifact_strip() {
+        let code = "[kovan]\nid = \"s1\"\nkind = \"walk_step\"\ncreated = \"t\"\nmodified = \"t\"\norigin = \"ai\"\n\n[[relation]]\ntarget = \"code:crates/x/src/a.rs::A::f@L12\"\nkind = \"implements\"\n\n[[relation]]\ntarget = \"paper:smith2020\"\nkind = \"supports\"\npage = 4\n";
+        let strip = artifact_strip("toml", code).expect("strip");
+        assert_eq!(strip.kind, "walk_step");
+        assert!(strip.ai);
+        assert_eq!(strip.links.len(), 2);
+        assert!(!strip.links[0].2, "a code: target is not navigable yet");
+        assert_eq!(strip.links[1].1, "paper:smith2020 p. 4");
+        assert!(strip.links[1].2);
+        // An ordinary TOML example and a non-toml block get none.
+        assert_eq!(artifact_strip("toml", "[package]\nname = \"x\"\n"), None);
+        assert_eq!(artifact_strip("rust", code), None);
+    }
 
     fn plain(spans: &[Span]) -> String {
         spans.iter().map(|s| s.text.as_str()).collect()

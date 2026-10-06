@@ -22,7 +22,7 @@
 
 use eframe::egui::{self, Color32, RichText, Stroke};
 
-use super::model::{AlertKind, Block, BlockKind, BlockPos, ListItem, Span};
+use super::model::{artifact_strip, AlertKind, Block, BlockKind, BlockPos, ListItem, Span};
 
 /// Heading size as a multiple of the body text size, by level (h1..h6).
 const HEADING_SCALE: [f32; 6] = [2.0, 1.5, 1.25, 1.0, 0.875, 0.85];
@@ -75,6 +75,9 @@ fn show_block(ui: &mut egui::Ui, block: &Block, salt: usize) {
             ui.add_space(body_size * 0.6);
         }
         BlockKind::CodeBlock { lang, code } => {
+            if let Some(strip) = artifact_strip(lang, code) {
+                show_artifact_strip(ui, &strip);
+            }
             egui::Frame::group(ui.style())
                 .fill(ui.visuals().extreme_bg_color)
                 .show(ui, |ui| {
@@ -168,6 +171,37 @@ fn show_item(ui: &mut egui::Ui, item: &ListItem, number: Option<u64>, salt: usiz
             }
         });
     });
+}
+
+/// The artifact strip above a `[kovan]` block (GH issue #743): kind, an
+/// "AI" badge for `origin = "ai"`, and a link card per relation. Cards are
+/// labels, not links: a `code:` target has nowhere to go until web-kovan,
+/// and says so on hover.
+fn show_artifact_strip(ui: &mut egui::Ui, strip: &super::model::ArtifactStrip) {
+    ui.horizontal_wrapped(|ui| {
+        ui.label(RichText::new(strip.kind).small().strong());
+        if strip.ai {
+            ui.label(
+                RichText::new(" AI ")
+                    .small()
+                    .strong()
+                    .color(Color32::WHITE)
+                    .background_color(Color32::from_rgb(150, 100, 220)),
+            )
+            .on_hover_text("origin = \"ai\": an AI-written draft until reviewed");
+        }
+    });
+    for (kind, target, navigable) in &strip.links {
+        egui::Frame::group(ui.style()).show(ui, |ui| {
+            ui.horizontal_wrapped(|ui| {
+                ui.weak(RichText::new(kind).small());
+                let r = ui.label(RichText::new(target).small().monospace());
+                if !navigable {
+                    r.on_hover_text("code link: navigation arrives with web-kovan");
+                }
+            });
+        });
+    }
 }
 
 fn alert_color(kind: AlertKind) -> Color32 {

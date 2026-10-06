@@ -1,0 +1,342 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Kovan Markdown schema</title>
+<meta name="description" content="The one Markdown schema for literature notes, lessons, deep dives, review walkthroughs and recipes: heading levels, the [kovan] table, artifact kinds and [[relation]] anchors, with worked examples.">
+<link rel="stylesheet" href="../style.css">
+<!--
+  The Kovan schema reference (GitHub #743). Static; scripts/build-pages.sh
+  copies it. Every block marked data-kovan-example is parsed by the real
+  kovan parser in crates/kovan/tests/schema_743.rs
+  (the_schema_page_examples_parse), and the ones marked data-kovan-roundtrip
+  must re-render byte for byte, so the page cannot show an example kovan
+  rejects. Escape < > & inside examples; the test unescapes them.
+  Mobile-first: tables and code scroll inside their own box at 400 px, never
+  the page.
+-->
+<style>
+.top, main, footer { max-width: 900px; }
+main h2 { font-size: 1.35rem; margin: 36px 0 8px; padding-bottom: 4px; border-bottom: 1px solid var(--line); }
+main h3 { font-size: 1.08rem; margin: 22px 0 6px; }
+main p, main li { overflow-wrap: anywhere; }
+.scroll { max-width: 100%; overflow-x: auto; border: 1px solid var(--line); border-radius: 6px; background: var(--panel); }
+table { border-collapse: collapse; width: 100%; font-size: 0.92rem; }
+th, td { text-align: left; vertical-align: top; padding: 7px 10px; border-bottom: 1px solid var(--line); }
+th { background: var(--bg); }
+td code { overflow-wrap: anywhere; }
+/* A name in the first column is never broken mid-word; the table scrolls in its box instead. */
+td:first-child code { white-space: nowrap; overflow-wrap: normal; }
+tr:last-child td { border-bottom: none; }
+pre { max-width: 100%; overflow-x: auto; margin: 8px 0 14px; padding: 10px 12px; background: var(--panel);
+  border: 1px solid var(--line); border-radius: 6px; font-size: 0.82rem; line-height: 1.45; }
+pre code { font-size: inherit; }
+.new { display: inline-block; font-size: 0.72rem; font-weight: 700; padding: 1px 6px; border-radius: 4px;
+  background: var(--accent); color: var(--accent-fg); vertical-align: middle; }
+.toc { display: flex; flex-wrap: wrap; gap: 6px 14px; padding: 0; list-style: none; font-size: 0.92rem; }
+.later li { margin: 4px 0; }
+.caption { color: var(--muted); font-size: 0.88rem; margin: -6px 0 14px; }
+</style>
+</head>
+<body>
+<header class="top">
+  <h1>Kovan Markdown schema</h1>
+  <p class="lede">One Markdown format for literature notes, lessons, deep dives, review walkthroughs and recipes. Any editor, GitHub and any coding agent can read a file in it. Kovan, the workspace's research-notes tool, also reads it as structured data. Decided in <a href="https://github.com/theodoreOnzGit/outram-park-backend/issues/743">issue #743</a> (2026-10-06).</p>
+  <p class="banner" role="note"><strong>Research, education and V&amp;V only.</strong> Not for reactor operation, licensing, safety decisions or emergency response. This page is an AI-assisted draft and has not been human-reviewed. The schema is being dogfooded: the maintainer is trying it on real documents and may change it.</p>
+  <ul class="toc">
+    <li><a href="#headings">Headings</a></li>
+    <li><a href="#kovan">The [kovan] table</a></li>
+    <li><a href="#kinds">Kinds</a></li>
+    <li><a href="#relations">Relations and anchors</a></li>
+    <li><a href="#formats">TOML, Markdown, JSON</a></li>
+    <li><a href="#examples">Worked examples</a></li>
+    <li><a href="#later">Not built yet</a></li>
+  </ul>
+</header>
+
+<main>
+  <h2 id="headings">Headings: what each level means</h2>
+  <p>An <strong>artifact</strong> is a <code>#</code> heading immediately followed by a fenced <code>toml</code> block that contains a <code>[kovan]</code> table. It runs until the next <code>#</code>. A <code>toml</code> block with no <code>[kovan]</code> table is an ordinary code example and is ignored.</p>
+  <div class="scroll"><table>
+    <thead><tr><th>Heading</th><th>Meaning</th></tr></thead>
+    <tbody>
+      <tr><td><code>#</code> + <code>[kovan]</code> block</td><td><strong>An artifact.</strong> The page's own <code>#</code> title is always the <strong>header artifact</strong>: <code># &lt;citekey&gt;</code> with <code>kind = "paper"</code> for a literature note, or the lesson or walkthrough title. No artifact starts at level 2.</td></tr>
+      <tr><td><code>##</code></td><td>Free prose structure inside the artifact.</td></tr>
+      <tr><td><code>###</code></td><td><strong>Data.</strong> Either CSV series (<code>### start of data series</code>, <code>### Series: &lt;name&gt;</code> with a fenced <code>csv</code> block, <code>### end of series</code>) or an embedded code block, such as a walk step's source snippet or a code walk's hops.</td></tr>
+      <tr><td>the <strong>last</strong> <code>##</code></td><td><strong>The review sign-off</strong>, e.g. <code>## Review: ✅ rung 3 · Theodore Ong · 2026-10-06 · valid</code> or <code>## Review: ⚠ AI draft, not reviewed</code>. It is to be generated from <code>review/stamps.toml</code> and excluded from the content hash (<a href="https://github.com/theodoreOnzGit/outram-park-backend/issues/739">#739</a>). It closes the artifact, so only the next <code>#</code> can follow it.</td></tr>
+    </tbody>
+  </table></div>
+  <p>To the parser, <code>##</code> and <code>###</code> are body text. Only a <code>#</code> outside a fence starts a new block, so a <code>#</code> line inside a code block never splits an artifact.</p>
+
+  <h2 id="kovan">The <code>[kovan]</code> table</h2>
+  <div class="scroll"><table>
+    <thead><tr><th>Key</th><th>Required</th><th>Meaning</th></tr></thead>
+    <tbody>
+      <tr><td><code>id</code></td><td>yes</td><td>Stable identifier, unique in the document. Rewording the heading keeps the id, so links survive.</td></tr>
+      <tr><td><code>kind</code></td><td>yes</td><td>One of the <a href="#kinds">kinds</a> below. An unknown kind is reported as a problem with that block, and the rest of the document still loads.</td></tr>
+      <tr><td><code>created</code>, <code>modified</code></td><td>yes</td><td>RFC 3339 timestamps, e.g. <code>2026-10-06T09:05:00+08:00</code>.</td></tr>
+      <tr><td><code>reviewed</code></td><td>no</td><td>RFC 3339 timestamp of human review. Absent means unreviewed.</td></tr>
+      <tr><td><code>origin</code> <span class="new">new</span></td><td>no</td><td><code>"ai"</code> or <code>"human"</code>: who wrote it. <strong>Absent means human</strong>, so older notes keep their meaning, and it is written back only if it was set. It records authorship, not review: an AI-written artifact stays <code>ai</code> after review, and the review shows in the sign-off. Desktop kovan shows an <strong>AI</strong> badge.</td></tr>
+    </tbody>
+  </table></div>
+  <p>Beside <code>[kovan]</code>, the same TOML block may hold <code>[source]</code> (where in a PDF: <code>page</code>, <code>page</code> + <code>region</code> in page fractions, or <code>pages = [start, end]</code>), <code>[classification]</code> (topics and projects), <code>[extraction]</code> (how a table or graph was digitised), <code>connections</code> (back-pointers to relation artifacts) and <code>relation</code> (see <a href="#relations">below</a>).</p>
+
+  <h2 id="kinds">Kinds</h2>
+  <div class="scroll"><table>
+    <thead><tr><th><code>kind</code></th><th>What it is</th></tr></thead>
+    <tbody>
+      <tr><td><code>paper</code></td><td>A literature note's header artifact: <code># &lt;citekey&gt;</code>, the BibTeX record in a <code>latex</code> fence, then a summary.</td></tr>
+      <tr><td><code>note</code></td><td>A free-standing note.</td></tr>
+      <tr><td><code>annotation</code></td><td>A remark anchored to a place in the source PDF (<code>[source]</code>).</td></tr>
+      <tr><td><code>source_reference</code></td><td>A pointer to a passage, with no text copied from it.</td></tr>
+      <tr><td><code>formula</code></td><td>An equation in GitHub math.</td></tr>
+      <tr><td><code>digitised_table</code></td><td>A table lifted from the source, carried as CSV.</td></tr>
+      <tr><td><code>digitised_graph</code></td><td>Curves read off a figure, carried as <code>###</code> CSV series.</td></tr>
+      <tr><td><code>relation</code></td><td>A typed connector in <code>mindmap.md</code>, with one <code>[relation]</code> table.</td></tr>
+      <tr><td><code>mindmap</code></td><td>The mindmap document's header artifact.</td></tr>
+      <tr><td><code>lesson_section</code> <span class="new">new</span></td><td>A section of a lesson or deep dive: teaching prose, anchored to the code and literature it explains.</td></tr>
+      <tr><td><code>walk_step</code> <span class="new">new</span></td><td>One step of a review walkthrough: a claim about one piece of code, its <code>code:</code> anchor, the literature that backs it and the snippet as <code>###</code> data.</td></tr>
+      <tr><td><code>code_walk</code> <span class="new">new</span></td><td>A chain of calls through the code, each hop a <code>code:</code> target, with the generated hops carried as <code>###</code> data.</td></tr>
+      <tr><td><code>recipe_step</code> <span class="new">new</span></td><td>One step of a recipe, such as an input deck or a workflow followed by hand.</td></tr>
+    </tbody>
+  </table></div>
+
+  <h2 id="relations">Relations and anchors</h2>
+  <p>An artifact's links to code and literature are <strong>relations</strong>, with the existing relation kinds: <code>related_to</code>, <code>supports</code>, <code>contradicts</code>, <code>derived_from</code>, <code>uses_data_from</code>, <code>validates</code>, <code>verified_against</code> and <code>implements</code>. The <code>relation</code> key takes one of two shapes:</p>
+  <ul>
+    <li><strong><code>[relation]</code></strong>, a single table. This is the body of a <code>kind = "relation"</code> artifact in <code>mindmap.md</code>, with both <code>source</code> and <code>target</code> written out (unchanged).</li>
+    <li><strong><code>[[relation]]</code></strong>, one or more tables <span class="new">new</span>. These are the anchors of any other artifact. <code>source</code> is omitted because it is the artifact itself.</li>
+  </ul>
+  <div class="scroll"><table>
+    <thead><tr><th>Field</th><th>Meaning</th></tr></thead>
+    <tbody>
+      <tr><td><code>target</code></td><td>What it points at (forms below).</td></tr>
+      <tr><td><code>kind</code></td><td>One of the relation kinds above.</td></tr>
+      <tr><td><code>source</code></td><td>Written only in a <code>[relation]</code> artifact.</td></tr>
+      <tr><td><code>page</code> <span class="new">new</span></td><td>Optional: the 1-based page of a literature target.</td></tr>
+      <tr><td><code>quote</code> <span class="new">new</span></td><td>Optional: a short quotation from the target, as you would search for it.</td></tr>
+      <tr><td><code>commit</code> <span class="new">new</span></td><td>Optional: the git commit a <code>code:</code> target was read at.</td></tr>
+    </tbody>
+  </table></div>
+  <h3>Target forms</h3>
+  <div class="scroll"><table>
+    <thead><tr><th>Form</th><th>Example</th></tr></thead>
+    <tbody>
+      <tr><td>A paper</td><td><code>paper:&lt;citekey&gt;</code></td></tr>
+      <tr><td>An artifact in a paper</td><td><code>artifact:&lt;citekey&gt;#&lt;id&gt;</code></td></tr>
+      <tr><td>A topic or project</td><td><code>collection:htgrs/materials</code></td></tr>
+      <tr><td>A typed node</td><td><code>corpus:concept/nuclear-engineering/thermal-hydraulics</code>, <code>library:literature/&lt;citekey&gt;#&lt;id&gt;</code></td></tr>
+      <tr><td>Code <span class="new">new</span></td><td><code>code:&lt;path/to/file.rs&gt;::&lt;Type::name&gt;[@L&lt;line&gt;]</code>, e.g. <code>code:crates/kovan/src/artifact.rs::parse_document</code>. The path is repo-relative, as in a code walk. <code>@L&lt;line&gt;</code> is optional and only tells apart two items with the same name in one file, such as <code>cfg</code> twins.</td></tr>
+    </tbody>
+  </table></div>
+  <p>Desktop kovan shows a <code>code:</code> target as a link card that does not navigate yet; navigation comes with web-kovan. A <code>code:</code> target is never a mindmap node, so it cannot break the map, the wiki or the graph.</p>
+
+  <h2 id="formats">TOML, Markdown, JSON</h2>
+  <ul>
+    <li><strong>TOML and Markdown</strong> are for anything a person or an AI writes or reads: literature notes, lessons, walkthroughs, review stamps, <code>Cargo.toml</code> tags and the concept tree.</li>
+    <li><strong>JSON</strong> is for machine-generated data that is rebuilt and never edited by hand: <code>code_map.json</code>, the call graph and the link index. It is deterministic (sorted, so the same commit gives the same bytes) and never committed; CI or desktop kovan builds it.</li>
+  </ul>
+
+  <h2 id="examples">Worked examples</h2>
+  <p>Each example below is parsed by the real kovan parser in the test suite (<code>crates/kovan/tests/schema_743.rs</code>). Examples marked round-trip are also re-rendered by kovan and must match byte for byte.</p>
+
+  <h3>A review walkthrough: header and one walk step (round-trip)</h3>
+  <p class="caption">An AI-written walkthrough. The step anchors one function at a pinned commit and cites a page of a paper. Its snippet is <code>###</code> data, and its last <code>##</code> is the sign-off, which is hand-written for now. <code>paper:synthetic2020example</code> is a placeholder citekey.</p>
+<pre data-kovan-example="walk-step" data-kovan-roundtrip><code># How kovan finds an artifact's end
+
+```toml
+[kovan]
+id = "artifact-span-walkthrough"
+kind = "lesson_section"
+created = "2026-10-06T09:00:00+08:00"
+modified = "2026-10-06T09:00:00+08:00"
+origin = "ai"
+
+[[relation]]
+target = "code:crates/kovan/src/artifact.rs::heading_span"
+kind = "related_to"
+```
+
+The page title is the header artifact. Each step below is its own `#`
+artifact.
+
+## Review: ⚠ AI draft, not reviewed
+
+# Step 1: a fence hides a heading
+
+```toml
+[kovan]
+id = "step-1-fence-hides-heading"
+kind = "walk_step"
+created = "2026-10-06T09:05:00+08:00"
+modified = "2026-10-06T09:05:00+08:00"
+origin = "ai"
+
+[[relation]]
+target = "code:crates/kovan/src/artifact.rs::heading_span@L943"
+kind = "implements"
+commit = "2f2cf7d599"
+
+[[relation]]
+target = "paper:synthetic2020example"
+kind = "supports"
+page = 87
+quote = "nominal operating conditions"
+```
+
+A `#` at the start of a line inside a fenced block is data, not a
+heading, so the span skips fences.
+
+### Code
+
+```rust
+if line.trim_start().starts_with("```") {
+    in_fence = !in_fence;
+    continue;
+}
+```
+
+## Review: ⚠ AI draft, not reviewed</code></pre>
+
+  <h3>A literature note: paper header and an annotation (round-trip)</h3>
+  <p class="caption">Kovan writes this shape when you annotate a PDF. It has no <code>origin</code>, so it reads as human-written, and it is written back exactly as it was read. <code>region</code> is a rectangle in page fractions, <code>[x0, y0, x1, y1]</code>, measured from the top-left.</p>
+<pre data-kovan-example="literature-annotation" data-kovan-roundtrip><code># synthetic2020example
+
+```toml
+[kovan]
+id = "synthetic2020example"
+kind = "paper"
+created = "2026-08-31T15:04:32+08:00"
+modified = "2026-08-31T15:04:32+08:00"
+
+[classification]
+topics = ["htgrs/materials"]
+```
+
+```latex
+@article{synthetic2020example,
+  author  = {Example, Ada and Placeholder, Ben},
+  title   = {A Synthetic Paper Used Only as an Example},
+  journal = {Journal of Examples},
+  year    = {2020}
+}
+```
+
+## Summary
+
+A placeholder paper, not a real reference.
+
+# Graphite temperature assumption
+
+```toml
+[kovan]
+id = "graphite-temperature-assumption"
+kind = "annotation"
+created = "2026-08-31T15:04:32+08:00"
+modified = "2026-08-31T15:04:32+08:00"
+
+[source]
+page = 87
+region = [
+    0.214,
+    0.341,
+    0.721,
+    0.508,
+]
+```
+
+Graphite temperature here appears to represent nominal operating conditions.</code></pre>
+
+  <h3>A digitised graph with two series</h3>
+<pre data-kovan-example="digitised-graph" data-kovan-roundtrip><code># Fig. 3 specific heat
+
+```toml
+[kovan]
+id = "fig-3-specific-heat"
+kind = "digitised_graph"
+created = "2026-09-24T10:00:00+08:00"
+modified = "2026-09-24T10:00:00+08:00"
+
+[source]
+page = 12
+
+[extraction]
+method = "manual_digitisation"
+figure = "Fig. 3"
+x_label = "T (K)"
+y_label = "cp (J/kg/K)"
+review = "UNREVIEWED — points not yet human-verified"
+```
+
+### start of data series
+
+### Series: sample A
+
+```csv
+T (K),cp (J/kg/K)
+300,710
+600,1180
+```
+
+### end of series</code></pre>
+
+  <h3>A code walk</h3>
+<pre data-kovan-example="code-walk" data-kovan-roundtrip><code># Walk: parse to span
+
+```toml
+[kovan]
+id = "walk-parse-to-span"
+kind = "code_walk"
+created = "2026-10-06T09:10:00+08:00"
+modified = "2026-10-06T09:10:00+08:00"
+origin = "human"
+
+[[relation]]
+target = "code:crates/kovan/src/artifact.rs::parse_document"
+kind = "related_to"
+
+[[relation]]
+target = "code:crates/kovan/src/artifact.rs::block_span"
+kind = "related_to"
+```
+
+### Hops
+
+```text
+parse_document -&gt; Artifact { line, level }
+block_span -&gt; heading_span
+```</code></pre>
+
+  <h3>A relation artifact in <code>mindmap.md</code> (unchanged)</h3>
+<pre data-kovan-example="relation-artifact" data-kovan-roundtrip><code># relation: artifact:synthetic2020example#graphite-temperature-assumption supports collection:htgrs/materials
+
+```toml
+[kovan]
+id = "a1b2c3d4e5f6"
+kind = "relation"
+created = "2026-09-08T12:01:00+08:00"
+modified = "2026-09-08T12:01:00+08:00"
+
+[relation]
+source = "artifact:synthetic2020example#graphite-temperature-assumption"
+target = "collection:htgrs/materials"
+kind = "supports"
+```</code></pre>
+
+  <h2 id="later">Not built yet</h2>
+  <ul class="later">
+    <li><strong>Generating the <code>## Review:</code> sign-off</strong> from <code>review/stamps.toml</code>, and the CI check that it matches (<a href="https://github.com/theodoreOnzGit/outram-park-backend/issues/739">#739</a>). For now, write the line by hand or leave it out.</li>
+    <li><strong>Following <code>code:</code> links</strong>: they arrive with web-kovan.</li>
+    <li><strong>Moving the schema into <code>kovan-common</code></strong> so web-kovan and desktop kovan share it. It lives in <code>crates/kovan/src/artifact.rs</code> and <code>relation.rs</code> until the web-kovan work has merged.</li>
+    <li><strong>Migrating</strong> the lessons' <code>&lt;!-- code-walk: --&gt;</code> comments to <code>code_walk</code> artifacts.</li>
+    <li><strong>Rendering</strong> the TOML blocks on this site as badges and link lines rather than raw TOML.</li>
+    <li><strong>Anchors in the graph</strong>: a <code>[[relation]]</code> anchor is not yet an edge in the mindmap or the connection lists. Desktop kovan shows anchors as link cards in the editor's Markdown preview only.</li>
+  </ul>
+</main>
+
+<footer>
+  Built from <a href="https://github.com/theodoreOnzGit/outram-park-backend/tree/@@COMMIT@@">@@COMMIT_SHORT@@</a> on @@BUILD_DATE@@. Source: <a href="https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/kovan/src/artifact.rs">crates/kovan/src/artifact.rs</a>, <a href="https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/kovan/src/relation.rs">relation.rs</a>, <a href="https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/kovan/tests/schema_743.rs">the tests that parse these examples</a>.
+</footer>
+</body>
+</html>

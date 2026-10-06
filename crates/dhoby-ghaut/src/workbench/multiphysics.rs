@@ -396,6 +396,7 @@ impl MultiphysicsSetup {
                 created: timestamp.to_string(),
                 modified: timestamp.to_string(),
                 reviewed: None,
+                origin: None,
             },
             source: None,
             classification: Default::default(),

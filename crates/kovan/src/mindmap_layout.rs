@@ -374,6 +374,10 @@ fn icon(node: &MapNode) -> &'static str {
         MapNodeKind::Artifact(ArtifactKind::DigitisedTable) => "TABLE",
         MapNodeKind::Artifact(ArtifactKind::Formula) => "FORMULA",
         MapNodeKind::Artifact(ArtifactKind::SourceReference) => "REF",
+        MapNodeKind::Artifact(ArtifactKind::LessonSection) => "LESSON",
+        MapNodeKind::Artifact(ArtifactKind::WalkStep) => "STEP",
+        MapNodeKind::Artifact(ArtifactKind::CodeWalk) => "WALK",
+        MapNodeKind::Artifact(ArtifactKind::RecipeStep) => "RECIPE",
     }
 }
 

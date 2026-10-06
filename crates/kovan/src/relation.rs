@@ -248,14 +248,159 @@ impl RelationKind {
 /// record nested inside the thing it starts from, so nothing about it is
 /// implied by where it is written. The id lives in `[kovan] id`, like every
 /// other artifact's.
+///
+/// The same record is also an **anchor** (GH issue #743): a `[[relation]]`
+/// table on a lesson, walk-step or any other artifact, naming the code it
+/// explains or the literature it cites. An anchor omits `source` (it is the
+/// artifact the table is in) and may carry `page`, `quote` and `commit`.
+/// Every one of those is optional and skipped when absent, so a relation
+/// written before #743 re-serialises byte for byte.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct RelationRecord {
-    /// The node this relation starts at.
+    /// The node this relation starts at. Empty in an anchor, where it is
+    /// implicitly the artifact the `[[relation]]` table belongs to.
+    #[serde(default, skip_serializing_if = "String::is_empty")]
     pub source: NodeId,
-    /// The node this relation points at.
+    /// The node this relation points at: a graph id (`paper:`, `artifact:`,
+    /// `collection:`), a typed [`crate::node_id::NodeId`] string, or a
+    /// `code:` target ([`CodeTarget`]).
     pub target: NodeId,
     /// What kind of relationship this is.
     pub kind: RelationKind,
+    /// The 1-based page of a literature target the anchor points at.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub page: Option<u32>,
+    /// A short quotation from the target, as the reader would search for it.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub quote: Option<String>,
+    /// The git commit a `code:` target was read at, so a later reader can
+    /// see the code the claim was made about.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub commit: Option<String>,
+}
+
+impl RelationRecord {
+    /// A record with only `source`, `target` and `kind`: the shape every
+    /// relation artifact had before GH issue #743.
+    pub fn new(source: impl Into<String>, target: impl Into<String>, kind: RelationKind) -> Self {
+        Self {
+            source: source.into(),
+            target: target.into(),
+            kind,
+            page: None,
+            quote: None,
+            commit: None,
+        }
+    }
+
+    /// The `code:` target, when the target is one.
+    pub fn code_target(&self) -> Option<CodeTarget> {
+        CodeTarget::parse(&self.target)
+    }
+}
+
+/// An artifact's `relation` key, in the shape it was written
+/// ([`crate::artifact::ArtifactToml::relation`]).
+///
+/// Untagged, so each shape reads from and writes back to its own TOML form:
+/// a single `[relation]` table, or an array of `[[relation]]` tables.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(untagged)]
+pub enum Relations {
+    /// `[relation]`: the body of a `kind = "relation"` artifact.
+    One(RelationRecord),
+    /// `[[relation]]`: an artifact's anchors (GH issue #743).
+    Many(Vec<RelationRecord>),
+}
+
+impl Relations {
+    /// The records, in file order.
+    pub fn records(&self) -> &[RelationRecord] {
+        match self {
+            Self::One(r) => std::slice::from_ref(r),
+            Self::Many(v) => v,
+        }
+    }
+
+    /// The records, mutably.
+    pub fn records_mut(&mut self) -> &mut [RelationRecord] {
+        match self {
+            Self::One(r) => std::slice::from_mut(r),
+            Self::Many(v) => v,
+        }
+    }
+
+    /// The single record of a relation artifact; `None` for the array form.
+    pub fn one(&self) -> Option<&RelationRecord> {
+        match self {
+            Self::One(r) => Some(r),
+            Self::Many(_) => None,
+        }
+    }
+}
+
+/// The prefix of a code target.
+pub const CODE_PREFIX: &str = "code:";
+
+/// A `code:` relation target (GH issue #743), in the code-walk path form:
+///
+/// ```text
+/// code:<path/to/file.rs>::<Type::name>[@L<line>]
+/// code:crates/boon-lay/src/release.rs::FuelParticle::release_fraction
+/// code:crates/kovan/src/artifact.rs::parse_document@L640
+/// ```
+///
+/// `@L<line>` is optional and only disambiguates two items with the same
+/// path in one file, such as `cfg` twins (GH issue #739). The path is
+/// repo-relative. Kovan does not resolve the target yet; desktop kovan shows
+/// it as a link card with no navigation, which arrives with web-kovan.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct CodeTarget {
+    /// The repo-relative file path, e.g. `crates/kovan/src/artifact.rs`.
+    pub file: String,
+    /// The item path inside the file, e.g. `Artifact::csv_block`.
+    pub item: String,
+    /// The 1-based line that disambiguates same-named items, if given.
+    pub line: Option<u32>,
+}
+
+impl CodeTarget {
+    /// Read `code:<file>::<item>[@L<line>]`. `None` for anything else,
+    /// including a `code:` string with an empty file or item, or a line
+    /// suffix that is not `@L` followed by a positive number.
+    pub fn parse(target: &str) -> Option<Self> {
+        let rest = target.strip_prefix(CODE_PREFIX)?;
+        let (file, item) = rest.split_once("::")?;
+        let (item, line) = match item.rsplit_once("@L") {
+            Some((item, n)) => (item, Some(n.parse::<u32>().ok().filter(|n| *n > 0)?)),
+            None => (item, None),
+        };
+        let bad = |s: &str| s.is_empty() || s.chars().any(char::is_whitespace);
+        if bad(file) || bad(item) {
+            return None;
+        }
+        Some(Self {
+            file: file.to_string(),
+            item: item.to_string(),
+            line,
+        })
+    }
+
+    /// Whether `target` is in the `code:` namespace at all (well-formed or
+    /// not), so a caller can keep it out of graph-node resolution.
+    pub fn is_code(target: &str) -> bool {
+        target.starts_with(CODE_PREFIX)
+    }
+}
+
+impl std::fmt::Display for CodeTarget {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{CODE_PREFIX}{}::{}", self.file, self.item)?;
+        if let Some(l) = self.line {
+            write!(f, "@L{l}")?;
+        }
+        Ok(())
+    }
 }
 
 /// Errors from the connection CRUD operations.
@@ -360,6 +505,7 @@ fn open_mindmap(root: &KovanRoot) -> Result<(std::path::PathBuf, String), Relati
                 created: utc_now_iso8601(),
                 modified: utc_now_iso8601(),
                 reviewed: None,
+                origin: None,
             },
             source: None,
             classification: Classification::default(),
@@ -440,16 +586,17 @@ fn render_relation_artifact(rel: &UserRelation, created: &str) -> Result<String,
             created: created.to_string(),
             modified: utc_now_iso8601(),
             reviewed: None,
+            origin: None,
         },
         source: None,
         classification: Classification::default(),
         extraction: None,
         connections: Vec::new(),
-        relation: Some(RelationRecord {
-            source: rel.source.clone(),
-            target: rel.target.clone(),
-            kind: rel.kind,
-        }),
+        relation: Some(Relations::One(RelationRecord::new(
+            rel.source.clone(),
+            rel.target.clone(),
+            rel.kind,
+        ))),
     };
     render_artifact_block(ARTIFACT_LEVEL, &relation_heading(rel), &toml, "")
         .map_err(RelationError::Render)
@@ -477,7 +624,7 @@ fn all_relations(root: &KovanRoot, _index: &KnowledgeIndex) -> Vec<UserRelation>
         .iter()
         .filter(|a| a.kind() == ArtifactKind::Relation)
         .filter_map(|a| {
-            a.toml.relation.as_ref().map(|r| UserRelation {
+            a.toml.relation.as_ref().and_then(Relations::one).map(|r| UserRelation {
                 id: a.id().to_string(),
                 source: r.source.clone(),
                 target: r.target.clone(),
@@ -735,7 +882,12 @@ mod tests {
         let map_doc = parse_document(&mindmap);
         let a = map_doc.get(&rel.id).expect("relation artifact in mindmap.md");
         assert_eq!(a.kind(), ArtifactKind::Relation);
-        let record = a.toml.relation.as_ref().expect("[relation] table");
+        let record = a
+            .toml
+            .relation
+            .as_ref()
+            .and_then(Relations::one)
+            .expect("[relation] table");
         assert_eq!(record.source, source, "names the artifact it came from");
         assert_eq!(record.target, target);
         assert_eq!(record.kind, RelationKind::Supports);

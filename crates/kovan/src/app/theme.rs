@@ -156,7 +156,14 @@ pub fn artifact_accent(kind: ArtifactKind, theme: GuiTheme) -> egui::Color32 {
                 GRUVBOX_NEUTRAL_YELLOW
             }
         }
-        ArtifactKind::Annotation | ArtifactKind::Note => {
+        // The #743 prose kinds have no page region either; they read as
+        // notes.
+        ArtifactKind::Annotation
+        | ArtifactKind::Note
+        | ArtifactKind::LessonSection
+        | ArtifactKind::WalkStep
+        | ArtifactKind::CodeWalk
+        | ArtifactKind::RecipeStep => {
             if dark {
                 GRUVBOX_BRIGHT_YELLOW
             } else {

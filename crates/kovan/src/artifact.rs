@@ -15,7 +15,7 @@
 //! anything about Kovan.
 //!
 //! ````markdown
-//! ## Graphite temperature assumption
+//! # Graphite temperature assumption
 //!
 //! ```toml
 //! [kovan]
@@ -34,6 +34,42 @@
 //!
 //! Graphite temperature here appears to represent nominal operating conditions.
 //! ````
+//!
+//! ~~`## Graphite temperature assumption`~~ **CORRECTED 2026-10-06**: the
+//! example above used a level-2 heading, which [`parse_document`] has not
+//! read as an artifact since GH issue #35 (2026-09-08) made a single `#` the
+//! only artifact level ([`ARTIFACT_LEVEL`]).
+//!
+//! # Heading levels: one schema for notes, lessons, walkthroughs and recipes
+//!
+//! Decided in GH issue #743 (2026-10-06). The same rules hold for a
+//! literature note, a lesson, a deep dive, a review walkthrough and a recipe:
+//!
+//! | Heading | Meaning |
+//! |---|---|
+//! | `#` + a fenced `toml` block holding `[kovan]` | **An artifact.** The page's own `#` title is always the **header artifact** (`# <citekey>` with `kind = "paper"` for a literature note). There is no level-2 artifact. |
+//! | `##` | Free prose structure inside the artifact. |
+//! | `###` | **Data**: a CSV series ([`SERIES_START`], [`SERIES_PREFIX`], [`SERIES_END`]) or an embedded code block (a walk step's snippet, a code walk's hops). |
+//! | the **last** `##` | The **review sign-off**, e.g. `## Review: ⚠ AI draft, not reviewed`. It is to be *generated* from `review/stamps.toml` (GH issue #739) and excluded from the content hash; nothing here generates or checks it yet. It closes the artifact. |
+//!
+//! All of these are body text to the parser: only a `#` starts a block, so
+//! `##`/`###` (and a fence's own `#` lines) never split an artifact.
+//!
+//! # Who wrote it: `origin`
+//!
+//! `[kovan] origin = "ai" | "human"` ([`Origin`], GH issue #743) records
+//! authorship. It is optional, **human when absent**, and written back only
+//! when it was set, so a note from before the field existed re-serialises
+//! byte for byte.
+//!
+//! # Anchors: `[[relation]]`
+//!
+//! An artifact names the code it explains and the literature it cites with
+//! `[[relation]]` tables ([`crate::relation::Relations`]): the existing
+//! relation kinds, a target that may be a `code:` path
+//! (`code:<file>::<Type::name>[@L<line>]`, [`crate::relation::CodeTarget`]),
+//! and optional `page`, `quote` and `commit`. A relation artifact in
+//! `mindmap.md` keeps its single `[relation]` table.
 //!
 //! # An ordinary TOML fence stays ordinary
 //!
@@ -70,7 +106,9 @@ use serde::{Deserialize, Serialize};
 /// direction, GH issue #35, 2026-09-08).
 pub const ARTIFACT_LEVEL: u8 = 1;
 
-/// The kinds of artifact §14 defines.
+/// The kinds of artifact §14 defines, plus the four GH issue #743 added for
+/// lessons, walkthroughs, code walks and recipes (2026-10-06, added for the
+/// maintainer to dogfood).
 ///
 /// Deliberately a small vocabulary — §14: "Keep the vocabulary small until
 /// dogfooding proves more types necessary." Adding a variant forces every
@@ -109,6 +147,95 @@ pub enum ArtifactKind {
     /// A saved mindmap — its own metadata in the same `[kovan]`/TOML shape
     /// as every other artifact, rather than a private file format.
     Mindmap,
+    /// One section of a lesson (a tutorial rung page or a deep-dive
+    /// chapter): prose that teaches, anchored by `[[relation]]` links to the
+    /// code and literature it explains (GH issue #743, 2026-10-06).
+    LessonSection,
+    /// One step of a review walkthrough: a claim about one piece of code,
+    /// its `code:` anchor and the literature that backs it, with the source
+    /// snippet as a `###` data block (GH issue #743).
+    WalkStep,
+    /// A code walk: a chain of calls through the code, each hop a `code:`
+    /// target, its generated hops carried as `###` data (GH issue #743; the
+    /// artifact form of a lesson's `<!-- code-walk: -->` block).
+    CodeWalk,
+    /// One step of a recipe (an input deck or workflow a reader follows by
+    /// hand), anchored to the code it drives (GH issue #743).
+    RecipeStep,
+}
+
+impl ArtifactKind {
+    /// Every kind, in declaration order.
+    pub const ALL: [ArtifactKind; 13] = [
+        Self::Paper,
+        Self::Note,
+        Self::Annotation,
+        Self::SourceReference,
+        Self::Formula,
+        Self::DigitisedTable,
+        Self::DigitisedGraph,
+        Self::Relation,
+        Self::Mindmap,
+        Self::LessonSection,
+        Self::WalkStep,
+        Self::CodeWalk,
+        Self::RecipeStep,
+    ];
+
+    /// The snake_case wire name, as written in `[kovan] kind`.
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::Paper => "paper",
+            Self::Note => "note",
+            Self::Annotation => "annotation",
+            Self::SourceReference => "source_reference",
+            Self::Formula => "formula",
+            Self::DigitisedTable => "digitised_table",
+            Self::DigitisedGraph => "digitised_graph",
+            Self::Relation => "relation",
+            Self::Mindmap => "mindmap",
+            Self::LessonSection => "lesson_section",
+            Self::WalkStep => "walk_step",
+            Self::CodeWalk => "code_walk",
+            Self::RecipeStep => "recipe_step",
+        }
+    }
+
+    /// Whether this is one of the prose kinds GH issue #743 added for
+    /// lessons, walkthroughs, code walks and recipes. They are text
+    /// artifacts like a note: no page region, no CSV payload.
+    pub fn is_lesson_kind(self) -> bool {
+        matches!(
+            self,
+            Self::LessonSection | Self::WalkStep | Self::CodeWalk | Self::RecipeStep
+        )
+    }
+}
+
+/// Who wrote an artifact: `[kovan] origin = "ai" | "human"` (GH issue #743).
+///
+/// Optional on disk, and **human when absent**, so every note written before
+/// the field existed reads as it always did. It records authorship, not
+/// review: an AI-written artifact a human has reviewed is still `ai`; its
+/// review state is the generated `## Review:` sign-off (GH issue #739).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum Origin {
+    /// Written by an AI assistant (an untrusted draft until reviewed).
+    Ai,
+    /// Written by a person. The default.
+    #[default]
+    Human,
+}
+
+impl Origin {
+    /// The wire name, `"ai"` or `"human"`.
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::Ai => "ai",
+            Self::Human => "human",
+        }
+    }
 }
 
 /// Errors from reading one artifact's metadata.
@@ -456,6 +583,20 @@ pub struct ArtifactMeta {
     /// state a machine may ever write.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub reviewed: Option<String>,
+    /// Who wrote it, as written (GH issue #743). `None` when the key is
+    /// absent, which means human ([`ArtifactMeta::origin`]); kept as an
+    /// `Option` so a note without the key re-serialises without it, byte for
+    /// byte.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub origin: Option<Origin>,
+}
+
+impl ArtifactMeta {
+    /// Who wrote the artifact, with an absent `origin` read as
+    /// [`Origin::Human`].
+    pub fn origin(&self) -> Origin {
+        self.origin.unwrap_or_default()
+    }
 }
 
 /// The full fenced-TOML payload of one artifact.
@@ -473,16 +614,24 @@ pub struct ArtifactToml {
     /// Extraction provenance (§19, §20). Digitised kinds only.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub extraction: Option<Extraction>,
-    /// User-authored relations to other nodes, **sourced from this
-    /// artifact** (op-30um.1) — one `[[relation]]` table per
-    /// [`crate::relation::UserRelation`], with the `source` half of that
-    /// triple implicit (it is always the artifact this TOML belongs to).
-    /// Omitted from the written TOML when empty, so an artifact with no
-    /// hand-drawn connections stays exactly as terse as it was before this
-    /// field existed. See `crate::relation`'s module docs for why this is
-    /// the relation's on-disk home rather than a separate store.
+    /// The artifact's relations, in either of two shapes
+    /// ([`crate::relation::Relations`]):
+    ///
+    /// - a single `[relation]` table, the body of a `kind = "relation"`
+    ///   artifact in `mindmap.md`, with both `source` and `target` explicit;
+    /// - one or more `[[relation]]` tables, the **anchors** of any other
+    ///   artifact (GH issue #743): the code it explains (`code:` targets) and
+    ///   the literature it cites, `source` omitted because it is this
+    ///   artifact.
+    ///
+    /// ~~One `[[relation]]` table per `UserRelation`, with the `source`
+    /// implicit.~~ **CORRECTED 2026-10-06**: the field held a single
+    /// `[relation]` table with an explicit `source` (GH issue #35,
+    /// 2026-09-08); the array form was added by GH issue #743. Omitted from
+    /// the written TOML when absent, and each shape re-serialises as the
+    /// shape it was read in.
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub relation: Option<crate::relation::RelationRecord>,
+    pub relation: Option<crate::relation::Relations>,
     /// Ids of the relation artifacts in the mindmap document that name this
     /// artifact at either end — the back half of a two-way reference.
     ///
@@ -527,6 +676,21 @@ impl Artifact {
     /// Whether a human has marked this reviewed (§14).
     pub fn is_reviewed(&self) -> bool {
         self.toml.kovan.reviewed.is_some()
+    }
+
+    /// Who wrote it (GH issue #743); human when `origin` is absent.
+    pub fn origin(&self) -> Origin {
+        self.toml.kovan.origin()
+    }
+
+    /// Every relation record this artifact carries, in file order: the one
+    /// `[relation]` of a relation artifact, or the `[[relation]]` anchors of
+    /// any other kind. Empty when it has none.
+    pub fn relations(&self) -> &[crate::relation::RelationRecord] {
+        self.toml
+            .relation
+            .as_ref()
+            .map_or(&[], crate::relation::Relations::records)
     }
 
     /// The first fenced `csv` block in the body, if any — the payload of a
@@ -750,19 +914,6 @@ pub fn parse_document(markdown: &str) -> ParsedDocument {
     out
 }
 
-/// Render `heading`/`toml`/`body` as the Markdown block §13 defines:
-/// heading, immediately followed by a fenced `toml` block, followed by the
-/// body. The exact counterpart to [`parse_document`] — text produced here
-/// re-parses to an equivalent [`Artifact`] (see the round-trip test below).
-///
-/// `level` is the heading depth, 1 for `#` through 6 for `######` — same
-/// meaning as [`Artifact::level`].
-///
-/// # Errors
-///
-/// Only if `toml`'s own TOML serialisation fails, which cannot happen for
-/// its field types (see [`ArtifactToml`]'s fields) — the `Result` spares
-/// callers an `unwrap`.
 /// Wrap `csv_data` — the header row plus data rows, and nothing else — as a
 /// sentinel-delimited fenced CSV body ready for
 /// [`render_artifact_block`].
@@ -903,6 +1054,22 @@ pub fn render_latex_body(latex: &str) -> String {
     format!("```latex\n{}\n```\n", latex.trim_end())
 }
 
+/// Render `heading`/`toml`/`body` as the Markdown block §13 defines:
+/// heading, immediately followed by a fenced `toml` block, followed by the
+/// body. The exact counterpart to [`parse_document`] — text produced here
+/// re-parses to an equivalent [`Artifact`] (see the round-trip test below).
+///
+/// `level` is the heading depth, 1 for `#` through 6 for `######` — same
+/// meaning as [`Artifact::level`].
+///
+/// (This comment used to sit on [`render_csv_body`] by mistake; moved
+/// 2026-10-06.)
+///
+/// # Errors
+///
+/// Only if `toml`'s own TOML serialisation fails, which cannot happen for
+/// its field types (see [`ArtifactToml`]'s fields) — the `Result` spares
+/// callers an `unwrap`.
 pub fn render_artifact_block(
     level: u8,
     heading: &str,
@@ -999,6 +1166,7 @@ mod tests {
                 created: "t".into(),
                 modified: "t".into(),
                 reviewed: None,
+                origin: None,
             },
             source: None,
             classification: Classification::default(),
@@ -1035,6 +1203,7 @@ mod tests {
                     created: "t".into(),
                     modified: "t".into(),
                     reviewed: None,
+                    origin: None,
                 },
                 source: None,
                 classification: Classification::default(),
@@ -1569,6 +1738,7 @@ modified = "m"
                 created: "2026-08-31T15:10:12+08:00".to_string(),
                 modified: "2026-08-31T15:10:12+08:00".to_string(),
                 reviewed: None,
+                origin: None,
             },
             source: Some(SourceAnchor {
                 page: None,
@@ -1609,6 +1779,7 @@ modified = "m"
                 created: "c".to_string(),
                 modified: "m".to_string(),
                 reviewed: None,
+                origin: None,
             },
             source: None,
             classification: Classification::default(),
@@ -1642,6 +1813,7 @@ modified = "m"
                 created: "t".into(),
                 modified: "t".into(),
                 reviewed: None,
+                origin: None,
             },
             source: None,
             classification: Classification::default(),

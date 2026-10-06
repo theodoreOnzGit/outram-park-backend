@@ -25,6 +25,10 @@ cp docs/site/index.html docs/site/style.css docs/site/site-nav.js docs/site/code
 # page shows the SVG as a preview.
 mkdir -p "$OUT/code-map"
 cp docs/site/code-map/index.html "$OUT/code-map/"
+# The Kovan Markdown schema reference (gh:#743): static; its examples are
+# parsed by crates/kovan/tests/schema_743.rs, so it cannot drift from the parser.
+mkdir -p "$OUT/kovan-schema"
+cp docs/site/kovan-schema/index.html "$OUT/kovan-schema/"
 code_map() {
   cargo run --release -q -j "${PAGES_JOBS:-3}" -p kovan --no-default-features --bin kovan-cli -- \
     code-map --workspace . "$@"
@@ -226,6 +230,7 @@ done < <(find "$OUT" -mindepth 1 -type d -print0)
 
 # Every page must exist where the main menu points.
 for f in index.html site-nav.js code-map-bar.js code-map/index.html code-map/code_map.svg \
+  kovan-schema/index.html \
   code-map/code_map.json code-map/site_links.json \
   api/outram_mc_libs/index.html api/changi/index.html \
   api/buangkok/index.html api/boon_lay/index.html \
