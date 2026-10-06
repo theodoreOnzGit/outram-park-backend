@@ -39,6 +39,16 @@ adopted, and keep the rule itself in its owning file.
 | **Only the maintainer flips a crate's Bookkeeping status** (V&V, and human or user interface) | The axes record *human* review; an AI-flipped tick is worthless | [`bookkeeping-and-api-docs.md`](bookkeeping-and-api-docs.md) |
 | **Log what only a human caught** in the corrections file, with the check that would have caught it | Turning a war story into a standing check; its "Recurring failure modes" list is a pre-review checklist | [`docs/human-corrections-to-ai-work.md`](../human-corrections-to-ai-work.md) |
 | **Findings go to an issue**, and closures are proposed with evidence, never made by the AI | Nothing the review raised is lost; the human decides what is done | Workspace `CLAUDE.md`, "Issue tracking" |
+| **Review stamps** in `review/stamps.toml`: one per function a human reviewed (rung 3) or V&V-checked (rung 4), hashed over its code and `///` docs. `kovan-cli stamps-check [--diff A..B]` lists exactly which stamps a change voids | A review is not silently carried over to code that has changed since; re-review is asked for function by function | [`crates/kovan/src/review_stamps/`](../../crates/kovan/src/review_stamps/mod.rs), GitHub #739 |
+
+### Review stamps: AI never stamps (HARD RULE)
+
+A stamp records that **a human** reviewed the code. AI agents never create,
+edit or delete a stamp, never run `kovan-cli stamp` or
+`review_stamps::stamp_function`, and never pass `--i-am-the-reviewer`,
+whoever asks. Agents may run `kovan-cli stamps-check` and `stamps-levels`,
+and must report a VOID stamp their change causes rather than work around it.
+Stamping is done by the maintainer in desktop kovan (#740).
 
 ## What none of this replaces
 

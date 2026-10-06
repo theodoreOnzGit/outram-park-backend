@@ -2152,3 +2152,57 @@ the same day: publish it on the Pages site as well, as an MVP.
 **rust-analyzer is not used** anywhere in this; phones only render the
 static SVG and JSON.
 
+
+## Human review stamps: `review/stamps.toml`, hashed with `syn`, voided from git (2026-10-06, GH #739)
+
+**Maintainer direction** (#735 comments, 2026-10-06): stamps live in
+`review/stamps.toml`, lightweight TOML; each links to the exact file, lines
+and commit; the hash covers the function's code **and its `///` doc
+comments**, with `//` comments and formatting normalised away; voiding is
+deterministic from git, `kovan-cli stamps-check [--diff <range>]` says
+exactly which stamps a change voids and never edits the file; stamping
+happens only in desktop kovan (#740). Later the same day (#743): a stamp may
+target a Markdown **artifact** instead of a function.
+
+**What was built** (`src/review_stamps/`, `src/commands/stamps.rs`).
+- `parse`: the function is found and tokenised by `syn` (`full`) with
+  `proc-macro2`'s `span-locations` for lines, not by a brace counter. All
+  three crates (`syn`, `proc-macro2`, `quote`) were already in `Cargo.lock`
+  through the proc-macro stack; they were added to the root
+  `[workspace.dependencies]`, so no new crate entered the tree. The path rule
+  is `code-walk`'s (`FileIndex::find`), and `split_spec` is reused from it.
+- **The normalisation** (pinned by `parse` tests): doc text = the outer
+  literal `#[doc]` attributes (`///`, `/** */`), split into lines, blank
+  lines as paragraph breaks, words single-spaced; code = every other token of
+  the item, identifiers and literals as written, punctuation one character
+  at a time with joint/alone spacing dropped. Hash =
+  `sha256("kovan-review-stamp-v1\ndoc\n" + doc + "\ncode\n" + code)`.
+  Reformatting, `//` edits, re-wrapping a doc paragraph and moving the
+  function keep it; any token, doc word or paragraph break changes it.
+- `check`: VALID / VOID with the reason, found by re-locating the function at
+  the stamped commit and comparing code and doc separately; a void stamp
+  followed by a valid stamp of the same function is STALE (superseded), not a
+  failure. `--diff A..B` takes the stamps whose function lines a
+  zero-context `git diff --no-renames` touches at A or at B, judged at B.
+- `stamp_function` (desktop kovan's entry point) stamps the code as
+  committed at `HEAD` and refuses a function whose file is dirty; `kovan-cli
+  stamp` refuses without `--i-am-the-reviewer`. **AI agents never stamp.**
+- `levels::derived_levels`: for a crate, each rung-3/4 claim in its tag is
+  SUPPORTED when every non-test library function in its scope has a valid
+  stamp at that rung or above. Report only (`kovan-cli stamps-levels`).
+
+**Choices made here that the maintainer has not ruled on.**
+- Re-review appends a new stamp; the old void one stays as history and is
+  reported STALE. CI fails only on void stamps nothing supersedes.
+- `artifact = "<file.md>#<id>"` is accepted in place of `function` (exactly
+  one required), and reported UNCHECKED: artifact hashing and the
+  `## Review: …` sign-off exclusion (#743) are not implemented.
+- A function nested inside another's body is part of that function and
+  cannot be stamped alone (code-walk's scanner does list nested `fn`s).
+- `derived_levels` excludes `#[cfg(test)]` modules and `#[test]` functions,
+  examples and binaries. Only functions are stampable: `const`s, statics and
+  types are not counted, so a module of constants alone cannot be supported
+  yet, and says so. A `#[path]` module is reported as a problem, never
+  silently counted as supported.
+- `review/stamps.toml` is **not** created in the repository yet; the first
+  stamp creates it from the documented header (`review_stamps::TEMPLATE`).
