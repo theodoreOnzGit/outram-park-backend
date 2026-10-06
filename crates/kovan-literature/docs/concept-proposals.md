@@ -6,7 +6,7 @@
 
 ## Counts
 
-- **L3 concepts: 214** (171 from the NRC/ORNL text, `nrc`; 43 needed by outram-park and named only implicitly, `outram-park`).
+- **L3 concepts: 218** (175 from the NRC/ORNL text, `nrc`; 43 needed by outram-park and named only implicitly, `outram-park`).
 - **L4 seed tags: 192** across 39 crates.
 
 | Crate | Seed tags |
@@ -729,10 +729,21 @@
 
 ## Regulatory framework (`07-regulatory-framework`)
 
+### Reactor licensing (`07-regulatory-framework/reactor-licensing`)
+
+- [ ] **Two-step licensing: construction permit, then operating license** · `two-step-licensing` · origin `nrc`
+  - sources: `10cfr50` Part 50
+- [ ] **Design certification, early site permit and combined license** · `one-step-licensing` · origin `nrc`
+  - sources: `10cfr52` Part 52
+- [ ] **Risk-informed, technology-inclusive framework (advanced reactors)** · `risk-informed-technology-inclusive-framework` · origin `nrc`
+  - sources: `10cfr53` Part 53, Subparts A-J, M
+- [ ] **General design criteria (and their non-LWR adaptations)** · `general-design-criteria` · origin `nrc`
+  - sources: `10cfr50` Appendix A, General Design Criteria for Nuclear Power Plants; `rg-1.232-rev0` Appendices A-C (ARDC, SFR-DC, MHTGR-DC)
+
 ### Quality assurance (incl. software QA) (`07-regulatory-framework/quality-assurance`)
 
 - [ ] **Quality assurance during design, construction and operations; QA program description** · `quality-assurance-program` · origin `nrc`
-  - sources: `nureg-0800-toc-rev6` 17.1; 17.2; 17.3; 17.5; `nureg-1537-part1` 12.9 Quality Assurance
+  - sources: `10cfr50` Appendix B, Quality Assurance Criteria for Nuclear Power Plants and Fuel Reprocessing Plants; `nureg-0800-toc-rev6` 17.1; 17.2; 17.3; 17.5; `nureg-1537-part1` 12.9 Quality Assurance
 - [ ] **Reliability assurance program** · `reliability-assurance-program` · origin `nrc`
   - sources: `nureg-0800-toc-rev6` 17.4
 - [ ] **Maintenance rule** · `maintenance-rule` · origin `nrc`

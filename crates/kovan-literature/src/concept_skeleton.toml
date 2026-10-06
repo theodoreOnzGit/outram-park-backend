@@ -111,6 +111,33 @@ tier = "standard"
 file = "kovan-standard-open-corpus/eu-jrc/kjna28712enn.pdf"
 licence = "reuse authorised provided the source is acknowledged (Decision 2011/833/EU)"
 
+[[document]]
+id = "10cfr50"
+title = "10 CFR Part 50, Domestic Licensing of Production and Utilization Facilities (eCFR, as of 2 Oct 2026)"
+publisher = "U.S. Government (Office of the Federal Register; NRC regulations, 10 CFR Chapter I)"
+date = "2 October 2026 (eCFR)"
+tier = "standard"
+file = "kovan-standard-open-corpus/cfr/10cfr50-ecfr-2026-10-02.pdf"
+licence = "U.S. Government work (17 U.S.C. 105); eCFR: authoritative but unofficial"
+
+[[document]]
+id = "10cfr52"
+title = "10 CFR Part 52, Licenses, Certifications, and Approvals for Nuclear Power Plants (eCFR, as of 2 Oct 2026)"
+publisher = "U.S. Government (Office of the Federal Register; NRC regulations, 10 CFR Chapter I)"
+date = "2 October 2026 (eCFR)"
+tier = "standard"
+file = "kovan-standard-open-corpus/cfr/10cfr52-ecfr-2026-10-02.pdf"
+licence = "U.S. Government work (17 U.S.C. 105); eCFR: authoritative but unofficial"
+
+[[document]]
+id = "10cfr53"
+title = "10 CFR Part 53, Risk-Informed, Technology-Inclusive Regulatory Framework for Commercial Nuclear Plants (eCFR, as of 2 Oct 2026; final rule 91 FR 15794, Mar. 30, 2026)"
+publisher = "U.S. Government (Office of the Federal Register; NRC regulations, 10 CFR Chapter I)"
+date = "2 October 2026 (eCFR)"
+tier = "standard"
+file = "kovan-standard-open-corpus/cfr/10cfr53-ecfr-2026-10-02.pdf"
+licence = "U.S. Government work (17 U.S.C. 105); eCFR: authoritative but unofficial"
+
 [[node]]
 path = "01-national-position"
 title = "National position"
@@ -281,6 +308,11 @@ sources = [{ document = "nureg-1520-rev2", section = "Ch. 12" }]
 path = "07-regulatory-framework"
 title = "Regulatory framework"
 sources = [{ document = "iaea-ng-g-3.1-rev1", section = "3.7", page = "30" }]
+
+[[node]]
+path = "07-regulatory-framework/reactor-licensing"
+title = "Reactor licensing"
+sources = [{ document = "10cfr50", section = "Part 50" }, { document = "10cfr52", section = "Part 52" }, { document = "10cfr53", section = "Part 53" }]
 
 [[node]]
 path = "07-regulatory-framework/quality-assurance"

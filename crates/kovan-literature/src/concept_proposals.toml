@@ -1146,22 +1146,22 @@ status = "approved"
 path = "07-regulatory-framework/quality-assurance/quality-assurance-program"
 title = "Quality assurance during design, construction and operations; QA program description"
 origin = "nrc"
-sources = [{ document = "nureg-0800-toc-rev6", section = "17.1; 17.2; 17.3; 17.5" }, { document = "nureg-1537-part1", section = "12.9 Quality Assurance" }]
-status = "proposed"
+sources = [{ document = "10cfr50", section = "Appendix B, Quality Assurance Criteria for Nuclear Power Plants and Fuel Reprocessing Plants" }, { document = "nureg-0800-toc-rev6", section = "17.1; 17.2; 17.3; 17.5" }, { document = "nureg-1537-part1", section = "12.9 Quality Assurance" }]
+status = "approved"
 
 [[concept]]
 path = "07-regulatory-framework/quality-assurance/reliability-assurance-program"
 title = "Reliability assurance program"
 origin = "nrc"
 sources = [{ document = "nureg-0800-toc-rev6", section = "17.4" }]
-status = "proposed"
+status = "approved"
 
 [[concept]]
 path = "07-regulatory-framework/quality-assurance/maintenance-rule"
 title = "Maintenance rule"
 origin = "nrc"
 sources = [{ document = "nureg-0800-toc-rev6", section = "17.6" }]
-status = "proposed"
+status = "approved"
 
 [[concept]]
 path = "07-regulatory-framework/quality-assurance/software-quality-assurance"
@@ -1169,7 +1169,7 @@ title = "Software quality assurance"
 origin = "outram-park"
 sources = [{ document = "nureg-0800-toc-rev6", section = "Ch. 17; BTP 7-14 (software reviews)" }, { document = "nureg-1520-rev2", section = "5.4.3.1.7.1 Calculational Method Validation" }]
 why = "agreed on #726 as the home of NQA-1-style software QA; the SRP names QA and I&C software reviews but not scientific-software QA."
-status = "proposed"
+status = "approved"
 
 [[concept]]
 path = "07-regulatory-framework/quality-assurance/software-quality-assurance/verification-and-validation-records"
@@ -1177,7 +1177,7 @@ title = "Verification and validation records (gates, oracles, recorded results)"
 origin = "outram-park"
 sources = [{ document = "nureg-1520-rev2", section = "5.4.3.1.7.1" }]
 why = "every outram-park V&V gate records methodology and results (root CLAUDE.md); these modules hold them."
-status = "proposed"
+status = "approved"
 
 [[concept]]
 path = "07-regulatory-framework/quality-assurance/software-quality-assurance/configuration-and-accounting-records"
@@ -1185,7 +1185,7 @@ title = "Configuration and accounting records (commit trailers, historian report
 origin = "outram-park"
 sources = [{ document = "nureg-0800-toc-rev6", section = "Ch. 17" }]
 why = "kovan-metrics keeps the per-commit records and the pre-merge historian report."
-status = "proposed"
+status = "approved"
 
 [[concept]]
 path = "07-regulatory-framework/quality-assurance/software-quality-assurance/code-review"
@@ -1193,7 +1193,7 @@ title = "Code review and code walks"
 origin = "outram-park"
 sources = [{ document = "nureg-0800-toc-rev6", section = "BTP 7-14" }]
 why = "kovan's Code Review tab and code walks: the review machinery itself."
-status = "proposed"
+status = "approved"
 
 # ============================================================================
 # 08-radiation-protection / radiation-protection
@@ -3627,3 +3627,31 @@ origin = "nrc"
 sources = []
 note = "No source in the corpus yet; deferred until literature is supplied."
 status = "deferred"
+
+[[concept]]
+path = "07-regulatory-framework/reactor-licensing/two-step-licensing"
+title = "Two-step licensing: construction permit, then operating license"
+origin = "nrc"
+sources = [{ document = "10cfr50", section = "Part 50" }]
+status = "approved"
+
+[[concept]]
+path = "07-regulatory-framework/reactor-licensing/one-step-licensing"
+title = "Design certification, early site permit and combined license"
+origin = "nrc"
+sources = [{ document = "10cfr52", section = "Part 52" }]
+status = "approved"
+
+[[concept]]
+path = "07-regulatory-framework/reactor-licensing/risk-informed-technology-inclusive-framework"
+title = "Risk-informed, technology-inclusive framework (advanced reactors)"
+origin = "nrc"
+sources = [{ document = "10cfr53", section = "Part 53, Subparts A-J, M" }]
+status = "approved"
+
+[[concept]]
+path = "07-regulatory-framework/reactor-licensing/general-design-criteria"
+title = "General design criteria (and their non-LWR adaptations)"
+origin = "nrc"
+sources = [{ document = "10cfr50", section = "Appendix A, General Design Criteria for Nuclear Power Plants" }, { document = "rg-1.232-rev0", section = "Appendices A-C (ARDC, SFR-DC, MHTGR-DC)" }]
+status = "approved"
