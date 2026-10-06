@@ -32,7 +32,7 @@ are a few lines each in
 The method is **unbiased for any valid majorant**. A loose majorant costs time (more
 virtual collisions), never accuracy. A majorant that is too *small* is the
 dangerous direction, which is why
-[`Majorant::bounding`](../../api/outram_mc_libs/pebble_beds/delta_tracking/struct.Majorant.html)
+[`Majorant::bounding`](../../api/outram_mc_libs/physics/delta_tracking/majorant/struct.Majorant.html)
 exists: on reconstructed resonance data a peak between two grid points would
 otherwise slip under the bound. ~~the bin-maximum constructor~~ **CORRECTED
 2026-10-05 (GitHub #585):** sampling each bin was not enough. On ENDF/B-VIII.0

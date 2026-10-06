@@ -38,7 +38,7 @@ short version:
 | CSG k-eigenvalue loop | [`physics::transport_csg`](../../api/outram_mc_libs/physics/transport_csg/index.html) | `physics.cpp`, `eigenvalue.cpp` | The live history loop |
 | Variance reduction | `physics::{variance_reduction, weight_windows, ufs}` | `physics_common.cpp`, `weight_windows.cpp`, `eigenvalue.cpp` | Off by default, on purpose (chapter 5) |
 | Multigroup | [`physics::physics_mg`](../../api/outram_mc_libs/physics/physics_mg/index.html) | `physics_mg.cpp`, `mgxs.cpp` | Chapter 7 |
-| Delta tracking | [`pebble_beds::delta_tracking`](../../api/outram_mc_libs/pebble_beds/delta_tracking/index.html) | — | **NEW WORK**, chapter 3 |
+| Delta tracking | [`physics::delta_tracking`](../../api/outram_mc_libs/physics/delta_tracking/index.html) (~~`pebble_beds::delta_tracking`~~ moved 2026-10-06, #718; the old path re-exports it) | — | **NEW WORK**, chapter 3 |
 | Depletion | `depletion` | `openmc/deplete` (Python) | New orchestration over ported pieces |
 
 The geometry move is worth noticing: the description of space (surfaces, cells,
