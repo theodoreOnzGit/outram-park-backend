@@ -168,10 +168,15 @@ It is conservative at short cooling times, but the radial gap conductance is unc
 /// before the match, so an 8-character insertion costs about 8 edits for
 /// the insertion and about 8 more for the old prefix's start falling out
 /// of the window (≈ 15 edits of 32). That is upstream's scoring, ported as
-/// is; an insertion of k characters in the context costs ≈ 2k. The bound
-/// is now `> 0.85`, derived from that mechanism ((50 + 20·17/32 + 20 +
-/// 2)/92 ≈ 0.90), and the pass criterion stays the anchored occurrence and
-/// strategy.
+/// is; an insertion of k characters in the context costs ≈ 2k.
+///
+/// ~~The bound is now `> 0.85`, derived from that mechanism.~~ **CORRECTED
+/// 2026-10-07** (main session): loosening a bound after it failed is
+/// moving a threshold to make a test pass (root CLAUDE.md), so the bound is
+/// gone. The pass criterion is the anchored occurrence and strategy; the
+/// score is pinned at its measured value (the algorithm is deterministic)
+/// so any change to the scoring shows up, and the refuted prediction stays
+/// recorded above.
 #[test]
 fn b_note_quote_survives_edits_around_it() {
     let quote = "It is conservative at short cooling times";
@@ -184,8 +189,9 @@ fn b_note_quote_survives_edits_around_it() {
     assert_eq!(a.start, NOTE_NEW.rfind(quote).unwrap());
     assert_eq!(&NOTE_NEW[a.start..a.end], quote);
     assert_eq!(a.strategy, AnchorStrategy::ExactQuote);
-    // Bound revised after the first run refuted the prediction; see above.
-    assert!(a.score > 0.85, "score {}", a.score);
+    // The measured score, pinned; the prediction (≈ 0.95, bound > 0.9) was
+    // refuted, see above.
+    assert!((a.score - 0.89893).abs() < 1e-5, "score {}", a.score);
 }
 
 /// **(b′) The quote itself lightly edited.**
