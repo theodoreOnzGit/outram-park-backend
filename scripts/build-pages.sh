@@ -18,6 +18,20 @@ rm -rf "$OUT"
 mkdir -p "$OUT/deep-dives"
 cp docs/site/index.html docs/site/style.css docs/site/site-nav.js "$OUT/"
 
+# The code map (gh:#734): every crate placed by its [package.metadata.kovan]
+# tag, drawn from `cargo metadata` of THIS checkout by kovan-cli (no
+# rust-analyzer). The SVG and the JSON the page reads are generated here and
+# never committed; the same Cargo.tomls give byte-identical files. The front
+# page shows the SVG as a preview.
+mkdir -p "$OUT/code-map"
+cp docs/site/code-map/index.html "$OUT/code-map/"
+code_map() {
+  cargo run --release -q -j "${PAGES_JOBS:-3}" -p kovan --no-default-features --bin kovan-cli -- \
+    code-map --workspace . "$@"
+}
+code_map --format svg -o "$OUT/code-map/code_map.svg"
+code_map --format json -o "$OUT/code-map/code_map.json"
+
 # Rustdoc, release profile (root CLAUDE.md), no dependencies' docs. Source
 # pages are not published: lessons show anchored snippets and link to GitHub.
 pkgs=()
@@ -188,7 +202,8 @@ while IFS= read -r -d '' d; do
 done < <(find "$OUT" -mindepth 1 -type d -print0)
 
 # Every page must exist where the main menu points.
-for f in index.html site-nav.js api/outram_mc_libs/index.html api/changi/index.html \
+for f in index.html site-nav.js code-map/index.html code-map/code_map.svg code-map/code_map.json \
+  api/outram_mc_libs/index.html api/changi/index.html \
   api/buangkok/index.html api/boon_lay/index.html \
   deep-dives/{monte-carlo,dispersion,triso-atops}/index.html \
   demos/monte-carlo/index.html demos/monte-carlo/monte_carlo_web_bg.wasm \

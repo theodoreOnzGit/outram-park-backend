@@ -64,3 +64,10 @@ footer { margin: 32px auto; color: var(--muted); font-size: 0.88rem; border-top:
   .credit dd { margin-bottom: 6px; }
   .credit { padding: 10px 12px; }
 }
+
+/* The code map preview at the top of the main menu (gh:#734): the whole SVG
+   at the page's width; the full page has zoom, pan and details. */
+.codemap-preview { margin-top: 24px; }
+.codemap-preview h2 { font-size: 1.3rem; margin-bottom: 4px; }
+.codemap-img { display: block; border: 1px solid var(--line); border-radius: 6px; background: var(--panel); padding: 6px; }
+.codemap-img img { display: block; width: 100%; height: auto; }
