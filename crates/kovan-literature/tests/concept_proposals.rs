@@ -168,6 +168,38 @@ fn concepts_are_unique_and_hang_under_existing_nodes() {
     }
 }
 
+/// The standard tree Kovan shows (`kovan_literature::concept_tree`) is
+/// exactly the skeleton plus the `approved` and `deferred` concepts: nothing
+/// `proposed` reaches it, every concept's parent is in it (so no approved
+/// concept hangs under one still proposed), and every cross-link of a tree
+/// node resolves inside the tree.
+#[test]
+fn the_standard_tree_is_the_skeleton_plus_approved_and_deferred_concepts() {
+    use kovan_literature::ConceptStatus;
+    let tree = kovan_literature::concept_tree();
+    let s = skeleton();
+    let p = proposals();
+    let in_tree = p.concept.iter().filter(|c| c.status != "proposed").count();
+    assert_eq!(tree.nodes().len(), s.node.len() + in_tree);
+    for c in &p.concept {
+        match (c.status.as_str(), tree.node(&c.path)) {
+            ("proposed", found) => assert!(found.is_none(), "{}: proposed but in the tree", c.path),
+            ("approved", Some(n)) => assert_eq!(n.status, ConceptStatus::Approved, "{}", c.path),
+            ("deferred", Some(n)) => assert_eq!(n.status, ConceptStatus::Deferred, "{}", c.path),
+            (st, None) => panic!("{}: {st} but missing from the tree", c.path),
+            (st, Some(_)) => panic!("{}: unknown status {st}", c.path),
+        }
+    }
+    for n in tree.nodes() {
+        if let Some(parent) = n.parent_path() {
+            assert!(tree.node(parent).is_some(), "{}: parent {parent} not in the standard tree", n.path);
+        }
+        for x in &n.cross_links {
+            assert!(tree.node(x).is_some(), "{}: cross-link {x} not in the standard tree", n.path);
+        }
+    }
+}
+
 #[test]
 fn origins_and_sources_are_declared() {
     let s = skeleton();
