@@ -612,6 +612,7 @@
 - [ ] **Power-conversion cycle and flowsheet simulation** · `power-cycle-flowsheet-simulation` · origin `outram-park`
   - sources: `nureg-0800-toc-rev6` Ch. 10 Steam and Power Conversion System
   - why: the Rankine cycle and the DWSIM equipment models (heat exchangers, compressors, expanders) assemble the Ch. 10 systems.
+  - cross-links: `18-industrial-involvement/process-heat-and-industrial-applications`
   - proposed kovan-concept tags:
     - [ ] add `//! kovan-concept: 02-nuclear-safety/steam-and-power-conversion/power-cycle-flowsheet-simulation` to `crates/tampines/src/balance_of_plant/mod.rs`: Balance of plant and Rankine cycle. System-level assembly of BOP components. (new work)
     - [ ] add `//! kovan-concept: 02-nuclear-safety/steam-and-power-conversion/power-cycle-flowsheet-simulation` to `crates/outram-park-fork-dwsim-libs/src/heat_exchanger/mod.rs`: Heat exchanger rating. LMTD, effectiveness-NTU, multi-pass correction and Tinker's method. (port of DWSIM)
@@ -622,6 +623,7 @@
 
 - [ ] **Operator training and requalification** · `operator-training-and-requalification` · origin `nrc`
   - sources: `nureg-0800-toc-rev6` 13.2.1; 13.2.2; `nureg-1537-part1` 12.10
+  - cross-links: `10-human-resource-development/knowledge-management-and-education`
 - [ ] **Administrative, operating and emergency operating procedures** · `procedures` · origin `nrc`
   - sources: `nureg-0800-toc-rev6` 13.5.1.1; 13.5.2.1; `nureg-1537-part1` 12.3
 - [ ] **Review and audit activities** · `review-and-audit` · origin `nrc`

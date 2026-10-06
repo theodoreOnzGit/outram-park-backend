@@ -903,35 +903,35 @@ path = "02-nuclear-safety/steam-and-power-conversion/turbine-generator"
 title = "Turbine generator"
 origin = "nrc"
 sources = [{ document = "nureg-0800-toc-rev6", section = "10.2; 10.2.3" }]
-status = "proposed"
+status = "approved"
 
 [[concept]]
 path = "02-nuclear-safety/steam-and-power-conversion/main-steam-supply"
 title = "Main steam supply system"
 origin = "nrc"
 sources = [{ document = "nureg-0800-toc-rev6", section = "10.3; 10.3.6" }]
-status = "proposed"
+status = "approved"
 
 [[concept]]
 path = "02-nuclear-safety/steam-and-power-conversion/main-condensers"
 title = "Main condensers"
 origin = "nrc"
 sources = [{ document = "nureg-0800-toc-rev6", section = "10.4.1; 10.4.2" }]
-status = "proposed"
+status = "approved"
 
 [[concept]]
 path = "02-nuclear-safety/steam-and-power-conversion/circulating-water-system"
 title = "Circulating water system"
 origin = "nrc"
 sources = [{ document = "nureg-0800-toc-rev6", section = "10.4.5" }]
-status = "proposed"
+status = "approved"
 
 [[concept]]
 path = "02-nuclear-safety/steam-and-power-conversion/condensate-and-feedwater"
 title = "Condensate and feedwater system"
 origin = "nrc"
 sources = [{ document = "nureg-0800-toc-rev6", section = "10.4.6; 10.4.7; 10.4.9" }]
-status = "proposed"
+status = "approved"
 
 [[concept]]
 path = "02-nuclear-safety/steam-and-power-conversion/power-cycle-flowsheet-simulation"
@@ -939,7 +939,8 @@ title = "Power-conversion cycle and flowsheet simulation"
 origin = "outram-park"
 sources = [{ document = "nureg-0800-toc-rev6", section = "Ch. 10 Steam and Power Conversion System" }]
 why = "the Rankine cycle and the DWSIM equipment models (heat exchangers, compressors, expanders) assemble the Ch. 10 systems."
-status = "proposed"
+cross_links = ["18-industrial-involvement/process-heat-and-industrial-applications"]
+status = "approved"
 
 # ============================================================================
 # 02-nuclear-safety / conduct-of-operations, initial-test-program, technical-specifications
@@ -950,63 +951,64 @@ path = "02-nuclear-safety/conduct-of-operations/operator-training-and-requalific
 title = "Operator training and requalification"
 origin = "nrc"
 sources = [{ document = "nureg-0800-toc-rev6", section = "13.2.1; 13.2.2" }, { document = "nureg-1537-part1", section = "12.10" }]
-status = "proposed"
+cross_links = ["10-human-resource-development/knowledge-management-and-education"]
+status = "approved"
 
 [[concept]]
 path = "02-nuclear-safety/conduct-of-operations/procedures"
 title = "Administrative, operating and emergency operating procedures"
 origin = "nrc"
 sources = [{ document = "nureg-0800-toc-rev6", section = "13.5.1.1; 13.5.2.1" }, { document = "nureg-1537-part1", section = "12.3" }]
-status = "proposed"
+status = "approved"
 
 [[concept]]
 path = "02-nuclear-safety/conduct-of-operations/review-and-audit"
 title = "Review and audit activities"
 origin = "nrc"
 sources = [{ document = "nureg-1537-part1", section = "12.2" }]
-status = "proposed"
+status = "approved"
 
 [[concept]]
 path = "02-nuclear-safety/conduct-of-operations/startup-plan"
 title = "Startup plan"
 origin = "nrc"
 sources = [{ document = "nureg-1537-part1", section = "12.11" }]
-status = "proposed"
+status = "approved"
 
 [[concept]]
 path = "02-nuclear-safety/initial-test-program/initial-plant-test-program"
 title = "Initial plant test program"
 origin = "nrc"
 sources = [{ document = "nureg-0800-toc-rev6", section = "14.2; 14.2.1" }]
-status = "proposed"
+status = "approved"
 
 [[concept]]
 path = "02-nuclear-safety/initial-test-program/itaac"
 title = "Inspections, tests, analyses, and acceptance criteria"
 origin = "nrc"
 sources = [{ document = "nureg-0800-toc-rev6", section = "14.3-14.3.12" }]
-status = "proposed"
+status = "approved"
 
 [[concept]]
 path = "02-nuclear-safety/technical-specifications/safety-limits-and-limiting-safety-system-settings"
 title = "Safety limits and limiting safety system settings"
 origin = "nrc"
 sources = [{ document = "nureg-1537-part1", section = "Ch. 14 appendix, 2.1 Safety Limits; 2.2 Limiting Safety System Settings" }]
-status = "proposed"
+status = "approved"
 
 [[concept]]
 path = "02-nuclear-safety/technical-specifications/limiting-conditions-for-operation"
 title = "Limiting conditions for operation and surveillance requirements"
 origin = "nrc"
 sources = [{ document = "nureg-1537-part1", section = "Ch. 14 appendix, 3.1-3.9 and 4.x" }, { document = "nureg-0800-toc-rev6", section = "16.0" }]
-status = "proposed"
+status = "approved"
 
 [[concept]]
 path = "02-nuclear-safety/technical-specifications/risk-informed-technical-specifications"
 title = "Risk-informed decision making: technical specifications"
 origin = "nrc"
 sources = [{ document = "nureg-0800-toc-rev6", section = "16.1" }]
-status = "proposed"
+status = "approved"
 
 # ============================================================================
 # 02-nuclear-safety / accident-analysis   (SRP Ch. 15 event categories; NUREG-1537 Ch. 13)
@@ -1099,35 +1101,35 @@ path = "02-nuclear-safety/severe-accidents/probabilistic-risk-assessment"
 title = "Probabilistic risk assessment (technical adequacy; risk-informed changes)"
 origin = "nrc"
 sources = [{ document = "nureg-0800-toc-rev6", section = "19.0; 19.1; 19.2" }]
-status = "proposed"
+status = "approved"
 
 [[concept]]
 path = "02-nuclear-safety/severe-accidents/severe-accident-evaluation"
 title = "Severe accident evaluation"
 origin = "nrc"
 sources = [{ document = "nureg-0800-toc-rev6", section = "19.0" }, { document = "nureg-1555", section = "7.2 Severe Accidents; 7.3 Severe Accident Mitigation Alternatives" }]
-status = "proposed"
+status = "approved"
 
 [[concept]]
 path = "02-nuclear-safety/source-terms/coolant-source-terms"
 title = "Coolant source terms (normal operation and anticipated operational occurrences)"
 origin = "nrc"
 sources = [{ document = "nureg-0800-toc-rev6", section = "11.1 Source Terms" }, { document = "ornl-tm-2018-976", section = "3.5.1 Section 11.1, Coolant Source Terms" }]
-status = "proposed"
+status = "approved"
 
 [[concept]]
 path = "02-nuclear-safety/source-terms/accident-source-terms"
 title = "Accident source terms and radiological consequence analyses"
 origin = "nrc"
 sources = [{ document = "nureg-0800-toc-rev6", section = "15.0.1 Radiological Consequence Analyses Using Alternate Source Terms; 15.0.3" }, { document = "nureg-1555", section = "7.1 Design Basis Accidents" }]
-status = "proposed"
+status = "approved"
 
 [[concept]]
 path = "02-nuclear-safety/source-terms/fission-product-inventory"
 title = "Fission product inventory (gap inventory as a release fraction)"
 origin = "nrc"
 sources = [{ document = "nureg-0800-4.2-rev3", section = "I (gap inventory); II.3.C.ix Fission Product Inventory; Appendix B, D. Fission Product Inventory" }]
-status = "proposed"
+status = "approved"
 
 # ============================================================================
 # 07-regulatory-framework / quality-assurance   (SRP Ch. 17)
