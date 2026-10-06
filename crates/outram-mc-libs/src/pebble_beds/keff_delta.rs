@@ -1328,6 +1328,8 @@ fn delta_keff_result(k_mean: f64, k_std: f64, k_by_generation: Vec<f64>) -> Keff
         k_by_generation,
         entropy: Vec::new(),
         virtual_collisions: 0,
+        majorant_violations: 0,
+        delta_lost: 0,
     }
 }
 

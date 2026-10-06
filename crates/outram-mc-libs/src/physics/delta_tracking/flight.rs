@@ -204,6 +204,18 @@ pub struct TentativeSite {
     pub material: Option<usize>,
     /// The majorant `Σ_maj(E)` \[cm⁻¹\] the flight was sampled on.
     pub majorant: f64,
+    /// The total `Σ_t` \[cm⁻¹\] the accept/reject step reads here (`0` in a
+    /// void). `sigma_t > majorant` is a majorant violation: the accept
+    /// probability is clamped to 1 and collisions are silently lost.
+    pub sigma_t: f64,
+}
+
+impl TentativeSite {
+    /// Does the majorant fail to bound `Σ_t` here?
+    #[inline]
+    pub fn violates_majorant(&self) -> bool {
+        self.sigma_t > self.majorant
+    }
 }
 
 /// The geometry a delta flight runs through, as the flight loop needs it:
@@ -411,6 +423,7 @@ where
                     position: r,
                     material: None,
                     majorant,
+                    sigma_t: 0.0,
                 });
                 virtual_collisions += 1;
                 continue;
@@ -428,6 +441,7 @@ where
             position: r,
             material: Some(m),
             majorant,
+            sigma_t,
         });
         match classify_collision(sigma_t, majorant, seed) {
             DeltaEvent::Real => {

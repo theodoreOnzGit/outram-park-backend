@@ -172,6 +172,8 @@ pub(crate) struct RegionFlight {
     pub end: RegionFlightEnd,
     /// Virtual collisions rejected: the measured price of the majorant.
     pub virtual_collisions: u32,
+    /// Tentative sites where `Σ_t > Σ_maj` (gh:#721); must be zero.
+    pub majorant_violations: u32,
 }
 
 /// Distance travelled from `r` along `u` to `p` \[cm\] (the projection, so a
@@ -221,13 +223,19 @@ pub(crate) fn fly_delta_region(
         return RegionFlight {
             end: RegionFlightEnd::StreamToSurface,
             virtual_collisions: 0,
+            majorant_violations: 0,
         };
     }
     // The tentative-collision scoring hook. ONLY sites before `d_surface` are
     // scored (module docs); it draws no random number. A void site scores its
     // flux `w/Σ_maj` with no material, as surface tracking's track length
     // scores a void cell.
+    let mut majorant_violations = 0_u32;
     let visit = |site: TentativeSite| {
+        // Counted, never clamped silently (gh:#721). Draws nothing.
+        if site.violates_majorant() {
+            majorant_violations += 1;
+        }
         let Some(t) = tally else { return };
         if !(site.majorant > 0.0) {
             return;
@@ -299,6 +307,7 @@ pub(crate) fn fly_delta_region(
                     RegionFlightEnd::StreamToSurface
                 },
                 virtual_collisions,
+                majorant_violations,
             }
         }
         // Left the region: stream to the nearest surface and let the
@@ -308,10 +317,12 @@ pub(crate) fn fly_delta_region(
         } => RegionFlight {
             end: RegionFlightEnd::StreamToSurface,
             virtual_collisions,
+            majorant_violations,
         },
         DeltaStep::Exhausted { virtual_collisions } => RegionFlight {
             end: RegionFlightEnd::Lost,
             virtual_collisions,
+            majorant_violations,
         },
     }
 }

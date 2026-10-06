@@ -415,6 +415,8 @@ mod tests {
             k_by_generation: vec![k],
             entropy: Vec::new(),
             virtual_collisions: 0,
+            majorant_violations: 0,
+            delta_lost: 0,
         }
     }
 

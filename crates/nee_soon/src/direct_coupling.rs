@@ -294,6 +294,15 @@ impl McGenFoamDirect {
     }
 
     /// Supply delta-tracking majorants for a delta-tracked model.
+    ///
+    /// **They are used as given for every outer iteration, while this loop
+    /// rewrites every material's temperature.** A majorant bounds `Σ_t` only
+    /// for the material state it was built from: on multipole (LOW-tier)
+    /// data a 293.6 K majorant is under the same fuel at 1200 K by 1.34x at
+    /// 6.5 eV (gh:#721). Build them over the hottest and the coldest state
+    /// the iteration can reach (or with margin), and check
+    /// `KeffResult::majorant_violations`, which must be zero. Pointwise
+    /// (ENDF/ACE) nuclides do not move with the material temperature.
     #[must_use]
     pub fn with_majorants(mut self, majorants: Vec<Majorant>) -> Self {
         self.majorants = majorants;

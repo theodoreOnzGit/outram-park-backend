@@ -537,3 +537,68 @@ fn keff_delta_run_temperature_worth() {
         d.abs() / s
     );
 }
+
+/// **D3 fix: the transport COUNTS sites where the majorant fails to bound
+/// `Σ_t`** (`KeffResult::majorant_violations`, gh:#721) instead of clamping
+/// them silently.
+///
+/// Methodology: the three-shell reflective sphere with every material at
+/// 1200 K (LOW-tier, Doppler-broadened at the material temperature), hybrid
+/// driver, 500 × [2 + 5], seed 13. Arm A: majorant built over the 1200 K
+/// materials. Arm B: majorant built over the same materials at 293.6 K, then
+/// the materials heated (the `DirectCoupling::with_majorants` pattern).
+/// Pass: A reports 0 violations and 0 delta-lost histories; B reports > 0
+/// violations. Counting draws no random number, so neither arm's history
+/// changes because of it.
+///
+/// Results (2026-10-06): hot majorant 0 violations, 0 delta-lost (k 1.076684
+/// ± 0.035910); cold majorant on the hot materials **94 502 violations**,
+/// 0 delta-lost (k 1.069428 ± 0.029139; the bias is not resolved at this
+/// size, which is why the count, not k, is the instrument).
+#[test]
+fn majorant_violations_are_counted_not_hidden() {
+    let nucs = nuclides();
+    let hot = materials(T_HOT);
+    let cold = materials(T_COLD);
+    let s = settings(500, 2, 5, T_HOT, 13);
+    let run = |maj: Majorant| {
+        run_keff_csg_hybrid(
+            &shells(5.0, Middle::Graphite, true),
+            &hot,
+            &nucs,
+            std::slice::from_ref(&maj),
+            None,
+            cube(5.0),
+            &s,
+            None,
+        )
+    };
+    let a = run(Majorant::over_indices(
+        &hot,
+        &[0, 1, 2],
+        &nucs,
+        &log_grid(1024),
+        0.1,
+    ));
+    let b = run(Majorant::over_indices(
+        &cold,
+        &[0, 1, 2],
+        &nucs,
+        &log_grid(1024),
+        0.0,
+    ));
+    println!(
+        "hot majorant: k {:.6} ± {:.6}, {} violations, {} delta-lost, {} virtual | cold majorant on hot materials: k {:.6} ± {:.6}, {} violations, {} delta-lost",
+        a.k_mean, a.k_std, a.majorant_violations, a.delta_lost, a.virtual_collisions,
+        b.k_mean, b.k_std, b.majorant_violations, b.delta_lost
+    );
+    assert_eq!(
+        a.majorant_violations, 0,
+        "a majorant built on the run's materials was violated"
+    );
+    assert_eq!(a.delta_lost, 0);
+    assert!(
+        b.majorant_violations > 0,
+        "a cold majorant on hot multipole materials should be violated somewhere"
+    );
+}

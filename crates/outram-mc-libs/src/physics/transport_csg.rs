@@ -1166,6 +1166,10 @@ pub(crate) struct HistoryOutcome {
     pub production: f64,
     /// Virtual collisions rejected inside delta regions.
     pub virtual_collisions: u64,
+    /// Tentative sites inside delta regions where `Σ_t > Σ_maj` (gh:#721).
+    pub majorant_violations: u64,
+    /// Histories lost inside a delta region (gh:#721), scored as leaks.
+    pub delta_lost: u64,
     /// **Real** collisions this history underwent. A model where this is near
     /// zero is not absorbing neutrons, it is losing them before they interact.
     pub collisions: u64,
@@ -1281,6 +1285,8 @@ pub(crate) fn transport_history_vr(
     // Virtual collisions rejected inside delta regions (bn:op-867c.5).
     // Stays zero on a purely surface-tracked model.
     let mut virtual_collisions: u64 = 0;
+    let mut majorant_violations: u64 = 0;
+    let mut delta_lost: u64 = 0;
     let mut collisions: u64 = 0;
     let mut lost_locate: u64 = 0;
     let mut stuck_events: u64 = 0;
@@ -1675,6 +1681,7 @@ pub(crate) fn transport_history_vr(
                         urr_seed,
                     );
                     virtual_collisions += u64::from(flight.virtual_collisions);
+                    majorant_violations += u64::from(flight.majorant_violations);
                     match flight.end {
                         RegionFlightEnd::Collision { distance, material } => {
                             (distance, Some(material))
@@ -1682,6 +1689,7 @@ pub(crate) fn transport_history_vr(
                         // `d_col = INFINITY` sends it down the crossing arm.
                         RegionFlightEnd::StreamToSurface => (f64::INFINITY, path.material),
                         RegionFlightEnd::Lost => {
+                            delta_lost += 1;
                             score_leak(leak_batch, leak_edges, e, w);
                             break 'history;
                         }
@@ -2304,6 +2312,8 @@ pub(crate) fn transport_history_vr(
     HistoryOutcome {
         production,
         virtual_collisions,
+        majorant_violations,
+        delta_lost,
         collisions,
         lost_locate,
         stuck_events,
@@ -2416,6 +2426,8 @@ fn bank_entropy(mesh: &crate::tally::mesh::RegularMesh, bank: &[Site]) -> Option
 #[derive(Debug, Clone, Copy, Default)]
 struct RunTotals {
     virtual_collisions: u64,
+    majorant_violations: u64,
+    delta_lost: u64,
     collisions: u64,
     lost_locate: u64,
     stuck_events: u64,
@@ -2435,6 +2447,8 @@ impl RunTotals {
     /// Fold in one history.
     fn absorb(&mut self, o: &HistoryOutcome) {
         self.virtual_collisions += o.virtual_collisions;
+        self.majorant_violations += o.majorant_violations;
+        self.delta_lost += o.delta_lost;
         self.collisions += o.collisions;
         self.lost_locate += o.lost_locate;
         self.stuck_events += o.stuck_events;
@@ -2462,12 +2476,22 @@ impl RunTotals {
         k_by_generation: Vec<f64>,
         entropy: Vec<f64>,
     ) -> KeffResult {
+        if self.majorant_violations > 0 {
+            log::warn!(
+                "{} tentative collision sites had Sigma_t above the majorant: the \
+                 majorant does not bound these materials as they are now (rebuild it \
+                 after changing a temperature or density) and k is biased (gh:#721)",
+                self.majorant_violations
+            );
+        }
         KeffResult {
             k_mean,
             k_std,
             k_by_generation,
             entropy,
             virtual_collisions: self.virtual_collisions,
+            majorant_violations: self.majorant_violations,
+            delta_lost: self.delta_lost,
             collisions: self.collisions,
             lost_locate: self.lost_locate,
             stuck_events: self.stuck_events,
