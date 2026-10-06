@@ -336,6 +336,23 @@ fn ingest_goes_to_the_chosen_repository_and_records_it() {
     );
     assert!(!f.root.paper_dir("leak").exists() && !f.root.paper_dir("ro").exists());
 
+    // ...and an open document may not be sent to a proprietary repository
+    // either (maintainer, 2026-10-06: open and proprietary kept apart).
+    let to_proprietary = Some(RepoRef {
+        tier: Tier::Proprietary,
+        name: "proprietary".into(),
+    });
+    let refused = ingest::ingest(
+        &f.root,
+        &p,
+        choice("openprop", crate::entity::Access::Open, to_proprietary),
+    );
+    assert!(
+        matches!(&refused, Err(IngestError::Target { reason }) if reason.contains("kept apart")),
+        "{refused:?}"
+    );
+    assert!(!f.root.paper_dir("openprop").exists());
+
     // The form's choices follow the access.
     let names = |access| {
         ingest::target_choices(&f.root, access)
@@ -347,9 +364,11 @@ fn ingest_goes_to_the_chosen_repository_and_records_it() {
         names(crate::entity::Access::Restricted),
         ["proprietary", "prop2"]
     );
+    // Open and proprietary are kept apart (maintainer, 2026-10-06): the
+    // dropdown for open literature lists no proprietary repository.
     assert_eq!(
         names(crate::entity::Access::Open),
-        ["open", "open2", "proprietary", "prop2"]
+        ["open", "open2"]
     );
 }
 

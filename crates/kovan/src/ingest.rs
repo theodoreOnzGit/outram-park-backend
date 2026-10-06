@@ -349,14 +349,18 @@ fn repo_pdfs(root: &KovanRoot) -> Vec<(crate::corpus_tiers::CorpusRepo, PathBuf)
 
 /// The repositories an ingest form may offer for a document with `access`
 /// (#458), in tier order: for a restricted document only the proprietary
-/// repositories; for an open one every writable repository (open,
-/// `writable` standard, and proprietary, where keeping an open document
-/// private is always safe). Each is accepted by [`resolve_target`].
+/// repositories; for an open one only the open tiers (open, and `writable`
+/// standard). ~~For an open one every writable repository, including
+/// proprietary, "where keeping an open document private is always safe".~~
+/// **CHANGED 2026-10-06 (maintainer):** open and proprietary literature are
+/// kept strictly apart, so the dropdown for open literature never lists a
+/// proprietary repository, and vice versa. Each is accepted by
+/// [`resolve_target`].
 pub fn target_choices(root: &KovanRoot, access: Access) -> Vec<crate::corpus_tiers::CorpusRepo> {
     use crate::corpus_tiers::Tier;
     let all = root.corpus_repos();
     let order: &[Tier] = if access.is_committable() {
-        &[Tier::Open, Tier::Standard, Tier::Proprietary]
+        &[Tier::Open, Tier::Standard]
     } else {
         &[Tier::Proprietary]
     };
@@ -402,6 +406,13 @@ pub fn resolve_target(
         None if access.is_committable() => Tier::Open,
         None => Tier::Proprietary,
     };
+    if access.is_committable() && tier == Tier::Proprietary {
+        return Err(IngestError::Target {
+            reason: "an open document goes in an open repository; proprietary repositories hold \
+                     restricted literature only (open and proprietary are kept apart)"
+                .to_string(),
+        });
+    }
     if !access.is_committable() && tier != Tier::Proprietary {
         return Err(IngestError::Target {
             reason: format!(
