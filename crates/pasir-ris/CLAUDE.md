@@ -1,8 +1,8 @@
 # CLAUDE.md — pasir-ris
 
 **PASIR RIS — Probabilistic Assessment of Safety In Reactors: Risk &
-Reliability Integrated Studio.** The reserved home for an integrated risk and reliability GUI over `raffles`, `bishan`, `sembawang`,
-`changi` and `buangkok`.
+Reliability Integrated Studio.** The reserved home for an integrated risk and reliability GUI over `raffles`, `bishan`,
+`sembawang`, `changi` and `buangkok`.
 
 The workspace root `CLAUDE.md` binds here in full. This file adds only what is
 specific to this crate.
