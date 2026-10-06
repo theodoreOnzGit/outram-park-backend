@@ -694,64 +694,900 @@ tool cannot follow are listed as such). `run_keff`'s other backends,
 
 Everything `crates/outram-mc-libs/src/physics/keff.rs::run_keff_cpu_single` reaches in the workspace, to 3 hops: 50 functions, 2 unresolved calls. A function is expanded once; later calls to it say *(expanded elsewhere in this walk)*.
 
-- [`keff.rs::run_keff_cpu_single`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/physics/keff.rs#L470) `pub fn run_keff_cpu_single(radius_cm: f64, material: &Material, nuclides: &[Nuclide], settings: &KeffSettings) -> KeffResult` — Scalar, single-thread fission-source power iteration — the **trusted, deterministic, bit-reproducible reference** backend (`ComputeType::CpuSingleThread`).
-  - [`keff.rs::PowerIteration::new`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/physics/keff.rs#L558) `pub fn new(radius_cm: f64, settings: &KeffSettings) -> Self` — Start a run on a bare sphere of radius `radius_cm` (centred at the origin, vacuum outside), from the initial source `run_keff_cpu_single` uses: uniform in the volume, isotropic, Watt energy. · called at [L476](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/physics/keff.rs#L476)
-    - [`distributions.rs::isotropic_direction`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/rng/distributions.rs#L54) `pub fn isotropic_direction(seed: &mut u64) -> (f64, f64, f64)` — Sample an isotropic direction on the unit sphere. · called at [L569](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/physics/keff.rs#L569)
-      - `lcg.rs::prn` *(expanded elsewhere in this walk)* · called at [L55](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/rng/distributions.rs#L55)
-      - [`mathf.rs::f64::r_cos`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/mathf.rs#L132) `fn r_cos(self) -> f64` · called at [L58](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/rng/distributions.rs#L58) · *(calls below the depth limit not shown)*
-      - [`mathf.rs::f64::r_sin`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/mathf.rs#L136) `fn r_sin(self) -> f64` · called at [L58](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/rng/distributions.rs#L58) · *(calls below the depth limit not shown)*
-    - [`lcg.rs::prn`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/petir/src/rng/lcg.rs#L127) `pub fn prn(seed: &mut u64) -> f64` — Advance the seed one step and return a uniform sample in [0, 1). · called at [L570](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/physics/keff.rs#L570)
-    - [`mathf.rs::f64::r_cbrt`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/mathf.rs#L124) `fn r_cbrt(self) -> f64` · called at [L570](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/physics/keff.rs#L570)
-    - [`position.rs::Position::new`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-blender/src/csg/position.rs#L64) `pub fn new(x: f64, y: f64, z: f64) -> Self` · called at [L574](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/physics/keff.rs#L574)
-    - [`position.rs::Direction::new`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-blender/src/csg/position.rs#L93) `pub fn new(u: f64, v: f64, w: f64) -> Self` — Construct a Direction from raw components — caller must ensure |d| ≈ 1. · called at [L575](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/physics/keff.rs#L575)
-    - [`distributions.rs::watt`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/rng/distributions.rs#L44) `pub fn watt(seed: &mut u64, a: f64, b: f64) -> f64` — Sample a Watt fission spectrum: f(E) ∝ exp(−E/a) · sinh(√(b·E)). · called at [L576](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/physics/keff.rs#L576)
-      - [`distributions.rs::maxwell`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/rng/distributions.rs#L27) `pub fn maxwell(seed: &mut u64, theta: f64) -> f64` — Sample a Maxwellian energy distribution: f(E) ∝ √E · exp(−E / θ). · called at [L45](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/rng/distributions.rs#L45) · *(calls below the depth limit not shown)*
-      - `lcg.rs::prn` *(expanded elsewhere in this walk)* · called at [L46](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/rng/distributions.rs#L46)
-    - [`keff.rs::PowerIteration::from_source`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/physics/keff.rs#L605) `fn from_source(radius_cm: f64, settings: &KeffSettings, source: Vec<Site>, seed: u64) -> Self` · called at [L581](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/physics/keff.rs#L581)
-      - UNRESOLVED(other): `clone` at [L615](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/physics/keff.rs#L615) (→ [`crates/outram-mc-libs/src/physics/keff.rs:123`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/physics/keff.rs#L123)) — resolves to `#[derive(Debug, Clone)]`, not a function body
-  - [`keff.rs::PowerIteration::step`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/physics/keff.rs#L653) `pub fn step(&mut self, material: &Material, nuclides: &[Nuclide]) -> Option<GenerationReport>` — Transport one generation and resample its fission bank into the next source. · called at [L477](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/physics/keff.rs#L477)
-    - UNRESOLVED(other): `default` at [L663](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/physics/keff.rs#L663) (→ [`crates/outram-mc-libs/src/physics/keff.rs:364`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/physics/keff.rs#L364)) — resolves to `#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]`, not a function body
-    - [`keff.rs::transport_history`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/physics/keff.rs#L2035) `fn transport_history(site: Site, sphere: &Sphere, material: &Material, nuclides: &[Nuclide], temp: f64, k_running: f64, next_bank: &mut Vec<Site>, seed: &mut u64, counts: &mut HistoryCounts) -> f64` — Transport one source neutron — plus any same-generation `(n,2n)` secondaries it spawns — to death (absorption or leakage), banking any fission neutrons. · called at [L666](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/physics/keff.rs#L666)
-      - [`nuclide.rs::library_energy_max_ev`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/material/nuclide.rs#L4074) `pub fn library_energy_max_ev(nuclides: &[Nuclide]) -> f64` — The lowest top energy \[eV\] of any pointwise nuclide in `nuclides`, or `f64::INFINITY` when none is pointwise: OpenMC's `data::energy_max[neutron]`, the bound below which fission neutrons are resampled (GitHub #463 item 2). · called at [L2047](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/physics/keff.rs#L2047) · *(calls below the depth limit not shown)*
-      - [`lcg.rs::future_seed`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/petir/src/rng/lcg.rs#L145) `pub fn future_seed(mut n: u64, seed: u64) -> u64` — Advance the seed `n` steps in O(log n) using the LCG jump-ahead identity. · called at [L2053](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/physics/keff.rs#L2053) · *(calls below the depth limit not shown)*
-      - [`material.rs::Material::macro_xs_total_urr`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/material/material.rs#L156) `pub fn macro_xs_total_urr(&self, e: f64, nuclides: &[Nuclide], urr_seed: u64) -> f64` — Σ_t(E) \[cm⁻¹\] as a neutron carrying the URR stream seed `urr_seed` sees it: each nuclide in its unresolved range contributes its **band** total, the band chosen by `future_prn(nuclide_idx, urr_seed)` (`urr_xi`), exactly as OpenMC's `Nuclide::calculate_urr_xs` draws it (`src/nuclide.cpp`; one stream, `STREAM_URR_PTABLE`, offset by the nuclide's global index). · called at [L2068](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/physics/keff.rs#L2068) · *(calls below the depth limit not shown)*
-      - `lcg.rs::prn` *(expanded elsewhere in this walk)* · called at [L2073](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/physics/keff.rs#L2073)
-      - [`mathf.rs::f64::r_ln`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/mathf.rs#L110) `fn r_ln(self) -> f64` · called at [L2073](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/physics/keff.rs#L2073) · *(calls below the depth limit not shown)*
-      - [`quadric.rs::Sphere::distance`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-blender/src/csg/surface/quadric.rs#L164) `fn distance(&self, r: Position, u: Direction, coincident: bool) -> f64` · called at [L2074](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/physics/keff.rs#L2074) · *(calls below the depth limit not shown)*
-      - [`position.rs::stream`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-blender/src/csg/position.rs#L188) `pub fn stream(pos: Position, dir: Direction, distance: f64) -> Position` — Advance a position by `distance` along `direction`. · called at [L2083](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/physics/keff.rs#L2083) · *(calls below the depth limit not shown)*
-      - [`material.rs::Material::sample_nuclide_urr`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/material/material.rs#L186) `pub fn sample_nuclide_urr(&self, e: f64, seed: &mut u64, nuclides: &[Nuclide], urr_seed: u64) -> usize` — `Self::sample_nuclide` with each nuclide weighted by its **band** total (see `Self::macro_xs_total_urr`), as OpenMC's `sample_nuclide` weights by the same cached micro total it flew on. · called at [L2084](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/physics/keff.rs#L2084) · *(calls below the depth limit not shown)*
-      - [`nuclide.rs::Nuclide::needs_urr_draw`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/material/nuclide.rs#L1210) `pub fn needs_urr_draw(&self, e: f64) -> bool` — Whether a collision on this nuclide at energy `e` \[eV\] requires a URR band draw. · called at [L2087](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/physics/keff.rs#L2087) · *(calls below the depth limit not shown)*
-      - [`nuclide.rs::Nuclide::xs_at_energy_urr`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/material/nuclide.rs#L1530) `pub fn xs_at_energy_urr(&self, e: f64, temp_k: f64, xi: f64) -> MicroXS` — This nuclide's microscopic cross sections at `e` \[eV\] and `temp_k` \[K\], **with unresolved-resonance self-shielding applied** from the sampled band `xi`. · called at [L2090](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/physics/keff.rs#L2090) · *(calls below the depth limit not shown)*
-      - [`material.rs::urr_xi`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/material/material.rs#L252) `pub fn urr_xi(nuclide_idx: usize, urr_seed: u64) -> f64` — The URR band variate of nuclide `nuclide_idx` (its index in the global nuclide array) for a neutron whose URR stream seed is `urr_seed`: OpenMC's `future_prn(index_, p.seeds(STREAM_URR_PTABLE))` (`src/nuclide.cpp`, `calculate_urr_xs`). · called at [L2090](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/physics/keff.rs#L2090) · *(calls below the depth limit not shown)*
-      - [`nuclide.rs::Nuclide::xs_at_energy`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/material/nuclide.rs#L3038) `pub fn xs_at_energy(&self, e: f64, temp_k: f64) -> MicroXS` · called at [L2092](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/physics/keff.rs#L2092) · *(calls below the depth limit not shown)*
-      - [`fission.rs::sample_num_neutrons`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/physics/fission.rs#L45) `pub fn sample_num_neutrons(nu_bar: f64, keff: f64, seed: &mut u64) -> usize` — Sample the integer number of fission neutrons to bank from one fission event. · called at [L2112](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/physics/keff.rs#L2112) · *(calls below the depth limit not shown)*
-      - `distributions.rs::isotropic_direction` *(expanded elsewhere in this walk)* · called at [L2114](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/physics/keff.rs#L2114)
-      - `position.rs::Direction::new` *(expanded elsewhere in this walk)* · called at [L2117](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/physics/keff.rs#L2117)
-      - [`nuclide.rs::Nuclide::sample_fission_energy_below`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/material/nuclide.rs#L3775) `pub fn sample_fission_energy_below(&self, e_in: f64, e_cap: f64, seed: &mut u64) -> f64` — `sample_fission_energy`, resampling until the birth energy is below `e_cap` \[eV\] as well as below this nuclide's own data top. · called at [L2121](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/physics/keff.rs#L2121) · *(calls below the depth limit not shown)*
-      - [`keff.rs::HistoryCounts::record_fission`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/physics/keff.rs#L397) `fn record_fission(&mut self, e_incident_ev: f64)` · called at [L2125](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/physics/keff.rs#L2125) · *(calls below the depth limit not shown)*
-      - [`nuclide.rs::Nuclide::sample_inelastic`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/material/nuclide.rs#L3281) `pub fn sample_inelastic(&self, e: f64, seed: &mut u64) -> Inelastic` — Sample which inelastic scattering channel a collision at energy `e` \[eV\] takes, proportional to each channel's cross section at `e`. · called at [L2136](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/physics/keff.rs#L2136) · *(calls below the depth limit not shown)*
-      - [`nuclide.rs::Nuclide::sample_inelastic_mu_cm`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/material/nuclide.rs#L3381) `pub fn sample_inelastic_mu_cm(&self, mt: i32, e: f64, seed: &mut u64) -> Option<f64>` — Sample a **discrete inelastic** (MT=51…90) scattering cosine in the **centre-of-mass frame** at incident energy `e` \[eV\], returning `Some(mu_cm)` when this nuclide carries an MF=4 distribution for that level, or `None` when it does not — the caller then falls back to isotropic-CM, which is what this crate did for *every* inelastic collision before bead `op-tm9f`. · called at [L2142](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/physics/keff.rs#L2142) · *(calls below the depth limit not shown)*
-      - [`scatter.rs::two_body_scatter_with_mu`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/physics/scatter.rs#L178) `pub fn two_body_scatter_with_mu(e: f64, u: Direction, awr: f64, q: f64, mu_cm: f64, seed: &mut u64) -> (f64, Direction)` — Two-body scatter with a **caller-supplied** centre-of-mass scattering cosine `mu_cm` — the anisotropic form of `two_body_scatter`. · called at [L2143](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/physics/keff.rs#L2143) · *(calls below the depth limit not shown)*
-      - [`scatter.rs::two_body_scatter`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/physics/scatter.rs#L157) `pub fn two_body_scatter(e: f64, u: Direction, awr: f64, q: f64, seed: &mut u64) -> (f64, Direction)` — Two-body scatter a neutron of energy `e` \[eV\] and direction `u` off a target of atomic weight ratio `awr` with reaction Q-value `q` \[eV\], isotropic in the centre-of-mass frame. · called at [L2144](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/physics/keff.rs#L2144) · *(calls below the depth limit not shown)*
-      - [`nuclide.rs::Nuclide::sample_inelastic_emission`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/material/nuclide.rs#L2745) `pub fn sample_inelastic_emission(&self, mt: i32, e: f64, u: crate::geometry::position::Direction, q: f64, seed: &mut u64) -> (f64, crate::geometry::position::Direction)` — Sample the outgoing state of an inelastic or multiplying collision on reaction `mt` (91, 16 or 17) at incident energy `e` \[eV\] and direction `u`, using **whichever emission law the evaluation actually supplies**. · called at [L2146](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/physics/keff.rs#L2146) · *(calls below the depth limit not shown)*
-      - [`nuclide.rs::Nuclide::has_evaluated_emission`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/material/nuclide.rs#L2988) `pub fn has_evaluated_emission(&self, mt: i32) -> bool` — Whether the evaluation supplies a real emission law for `mt`, in either representation — i.e. · called at [L2169](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/physics/keff.rs#L2169) · *(calls below the depth limit not shown)*
-      - [`nuclide.rs::Nuclide::emits_n2n_secondary`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/material/nuclide.rs#L1090) `pub fn emits_n2n_secondary(&self) -> bool` — Whether an (n,2n) collision on this nuclide emits its second neutron — `true` for the evaluated yield of 2, `false` when `with_unit_n2n_multiplicity` has ablated it. · called at [L2187](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/physics/keff.rs#L2187) · *(calls below the depth limit not shown)*
-      - [`nuclide.rs::Nuclide::sample_mt5_multiplicity`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/material/nuclide.rs#L2973) `pub fn sample_mt5_multiplicity(&self, e: f64, seed: &mut u64) -> usize` — Sample an **integer** MT=5 multiplicity at `e` \[eV\] from the tabulated average, by splitting the fractional part stochastically: `n = floor(y) + [xi < y - floor(y)]`. · called at [L2234](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/physics/keff.rs#L2234) · *(calls below the depth limit not shown)*
-      - [`nuclide.rs::Nuclide::sample_other_emission`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/material/nuclide.rs#L2807) `pub fn sample_other_emission(&self, e: f64, u: crate::geometry::position::Direction, seed: &mut u64) -> OtherEmission` — Sample a collision on the **other neutron-emitting reactions** at `e` \[eV\], direction `u` — GitHub #365 audit. · called at [L2257](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/physics/keff.rs#L2257) · *(calls below the depth limit not shown)*
-      - [`nuclide.rs::Nuclide::sample_thermal`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/material/nuclide.rs#L3412) `pub fn sample_thermal(&self, e: f64, seed: &mut u64) -> Option<(f64, f64)>` — Sample a bound-atom S(α,β) thermal scatter at incident energy `e` \[eV\], returning `Some((e_out, mu_lab))` — a **laboratory-frame** outgoing energy \[eV\] and scattering cosine — when this nuclide carries a `ThermalScattering` table and `e` is below its cutoff, or `None` otherwise (the caller then falls back to free-gas / anisotropic elastic). · called at [L2276](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/physics/keff.rs#L2276) · *(calls below the depth limit not shown)*
-      - [`scatter.rs::rotate_direction`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/physics/scatter.rs#L78) `pub fn rotate_direction(u: Direction, mu: f64, seed: &mut u64) -> Direction` — Rotate the unit direction `u` by scattering cosine `mu` and a uniformly sampled azimuth φ ∈ [0, 2π), returning the new unit direction. · called at [L2277](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/physics/keff.rs#L2277) · *(calls below the depth limit not shown)*
-      - [`nuclide.rs::Nuclide::free_gas_kt`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/material/nuclide.rs#L854) `pub fn free_gas_kt(&self, lookup_temp_k: f64) -> f64` — The `k_B·T` \[eV\] this nuclide's **elastic kinematics** (free gas and DBRC) use in a collision whose cross sections are looked up at `lookup_temp_k` \[K\]. · called at [L2284](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/physics/keff.rs#L2284) · *(calls below the depth limit not shown)*
-      - [`nuclide.rs::Nuclide::sample_elastic_mu_cm`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/material/nuclide.rs#L3337) `pub fn sample_elastic_mu_cm(&self, e: f64, seed: &mut u64) -> Option<f64>` — Sample an elastic scattering cosine in the **centre-of-mass frame** at incident energy `e` \[eV\], returning `Some(mu_cm)` for anisotropic elastic or `None` when the distribution is isotropic (the caller then falls back to isotropic-CM elastic). · called at [L2286](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/physics/keff.rs#L2286) · *(calls below the depth limit not shown)*
-      - [`scatter.rs::free_gas_elastic_scatter_dbrc`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/physics/scatter.rs#L265) `pub fn free_gas_elastic_scatter_dbrc(e: f64, u: Direction, awr: f64, kt_ev: f64, mu_cm: f64, seed: &mut u64, dbrc: Option<&DbrcTable>) -> (f64, Direction)` — `free_gas_elastic_scatter` with an optional **DBRC** correction. · called at [L2288](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/physics/keff.rs#L2288) · *(calls below the depth limit not shown)*
-      - [`nuclide.rs::Nuclide::dbrc_table`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/material/nuclide.rs#L1493) `pub fn dbrc_table(&self) -> Option<&DbrcTable>` — This nuclide's DBRC table, for the transport kernels to hand to `free_gas_elastic_scatter_dbrc`. · called at [L2295](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/physics/keff.rs#L2295) · *(calls below the depth limit not shown)*
-    - [`mesh.rs::RegularMesh::shannon_entropy`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/tally/mesh.rs#L270) `fn shannon_entropy(&self, sites: &[crate::particle::bank::BankSite]) -> Option<f64>` · called at [L693](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/physics/keff.rs#L693)
-      - [`mesh.rs::RegularMesh::count_sites`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/tally/mesh.rs#L258) `fn count_sites(&self, sites: &[crate::particle::bank::BankSite]) -> (Vec<f64>, bool)` · called at [L273](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/tally/mesh.rs#L273) · *(calls below the depth limit not shown)*
-      - [`mod.rs::shannon_entropy_bits`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/raffles/src/estimators/mod.rs#L147) `pub fn shannon_entropy_bits(counts: &[f64]) -> Option<f64>` — Shannon entropy, **in bits**, of the distribution given by non-negative `counts` (weights per bin): `H = -Σ p log₂ p` with `p = c / Σc`, empty bins contributing nothing. · called at [L274](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/tally/mesh.rs#L274) · *(calls below the depth limit not shown)*
-    - [`keff.rs::resample`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/physics/keff.rs#L2556) `fn resample(bank: &[Site], n: usize, seed: &mut u64) -> Vec<Site>` — Resample `n` sites for the next generation by uniform combing (`crate::physics::fission::comb_resample`, GitHub #460). · called at [L709](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/physics/keff.rs#L709)
-      - [`fission.rs::comb_resample`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/physics/fission.rs#L76) `pub fn comb_resample<T: Copy>(bank: &[T], n: usize, seed: &mut u64) -> Vec<T>` — Draw the next generation's `n` source sites from a fission bank by **uniform combing**, as OpenMC's `synchronize_bank` does (`src/eigenvalue.cpp:150-175`, Uniform Combing method, doi:10.1080/00295639.2022.2091906). · called at [L2560](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/physics/keff.rs#L2560) · *(calls below the depth limit not shown)*
-    - [`mod.rs::mean_and_stderr`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/raffles/src/estimators/mod.rs#L83) `pub fn mean_and_stderr(x: &[f64]) -> (f64, f64)` — Sample mean and **standard error of the mean** (1σ) of `x`. · called at [L716](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/physics/keff.rs#L716)
-  - [`keff.rs::PowerIteration::result`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/physics/keff.rs#L748) `pub fn result(&self) -> KeffResult` — The result so far, as `run_keff_cpu_single` returns it: mean and standard error over the active generations run, the per-generation `k` trace, and the entropy trace when a mesh was given. · called at [L478](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/physics/keff.rs#L478)
-    - `mod.rs::mean_and_stderr` *(expanded elsewhere in this walk)* · called at [L749](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/physics/keff.rs#L749)
+<div class="cw-node" style="margin-left:0.0em">
+
+[`keff.rs::run_keff_cpu_single`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/physics/keff.rs#L470) `pub fn run_keff_cpu_single(radius_cm: f64, material: &Material, nuclides: &[Nuclide], settings: &KeffSettings) -> KeffResult` — Scalar, single-thread fission-source power iteration — the **trusted, deterministic, bit-reproducible reference** backend (`ComputeType::CpuSingleThread`).
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/outram-mc-libs/src/physics/keff.rs:470 fn run_keff_cpu_single -->
+<!-- snippet-check: crates/outram-mc-libs/src/physics/keff.rs:476 new -->
+<!-- snippet-check: crates/outram-mc-libs/src/physics/keff.rs:477 step -->
+<!-- snippet-check: crates/outram-mc-libs/src/physics/keff.rs:478 result -->
+
+```rust,ignore
+{{#include ../../../../../crates/outram-mc-libs/src/physics/keff.rs:470:479}}
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:0.9em">
+
+[`keff.rs::PowerIteration::new`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/physics/keff.rs#L558) `pub fn new(radius_cm: f64, settings: &KeffSettings) -> Self` — Start a run on a bare sphere of radius `radius_cm` (centred at the origin, vacuum outside), from the initial source `run_keff_cpu_single` uses: uniform in the volume, isotropic, Watt energy. · called at [L476](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/physics/keff.rs#L476)
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/outram-mc-libs/src/physics/keff.rs:558 fn new -->
+<!-- snippet-check: crates/outram-mc-libs/src/physics/keff.rs:569 isotropic_direction -->
+<!-- snippet-check: crates/outram-mc-libs/src/physics/keff.rs:570 prn -->
+<!-- snippet-check: crates/outram-mc-libs/src/physics/keff.rs:574 new -->
+<!-- snippet-check: crates/outram-mc-libs/src/physics/keff.rs:575 new -->
+<!-- snippet-check: crates/outram-mc-libs/src/physics/keff.rs:576 watt -->
+<!-- snippet-check: crates/outram-mc-libs/src/physics/keff.rs:581 from_source -->
+
+```rust,ignore
+{{#include ../../../../../crates/outram-mc-libs/src/physics/keff.rs:558:582}}
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:1.8em">
+
+[`distributions.rs::isotropic_direction`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/rng/distributions.rs#L54) `pub fn isotropic_direction(seed: &mut u64) -> (f64, f64, f64)` — Sample an isotropic direction on the unit sphere. · called at [L569](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/physics/keff.rs#L569)
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/outram-mc-libs/src/rng/distributions.rs:54 fn isotropic_direction -->
+<!-- snippet-check: crates/outram-mc-libs/src/rng/distributions.rs:55 prn -->
+<!-- snippet-check: crates/outram-mc-libs/src/rng/distributions.rs:58 r_cos -->
+
+```rust,ignore
+{{#include ../../../../../crates/outram-mc-libs/src/rng/distributions.rs:54:59}}
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:2.7em">
+
+`lcg.rs::prn` *(expanded elsewhere in this walk)* · called at [L55](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/rng/distributions.rs#L55)
+
+</div>
+
+<div class="cw-node" style="margin-left:2.7em">
+
+[`mathf.rs::f64::r_cos`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/mathf.rs#L132) `fn r_cos(self) -> f64` · called at [L58](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/rng/distributions.rs#L58) · *(calls below the depth limit not shown)*
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/outram-mc-libs/src/mathf.rs:132 fn r_cos -->
+
+```rust,ignore
+{{#include ../../../../../crates/outram-mc-libs/src/mathf.rs:132:134}}
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:2.7em">
+
+[`mathf.rs::f64::r_sin`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/mathf.rs#L136) `fn r_sin(self) -> f64` · called at [L58](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/rng/distributions.rs#L58) · *(calls below the depth limit not shown)*
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/outram-mc-libs/src/mathf.rs:136 fn r_sin -->
+
+```rust,ignore
+{{#include ../../../../../crates/outram-mc-libs/src/mathf.rs:136:138}}
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:1.8em">
+
+[`lcg.rs::prn`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/petir/src/rng/lcg.rs#L127) `pub fn prn(seed: &mut u64) -> f64` — Advance the seed one step and return a uniform sample in [0, 1). · called at [L570](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/physics/keff.rs#L570)
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/petir/src/rng/lcg.rs:127 fn prn -->
+
+```rust,ignore
+{{#include ../../../../../crates/petir/src/rng/lcg.rs:127:138}}
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:1.8em">
+
+[`mathf.rs::f64::r_cbrt`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/mathf.rs#L124) `fn r_cbrt(self) -> f64` · called at [L570](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/physics/keff.rs#L570)
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/outram-mc-libs/src/mathf.rs:124 fn r_cbrt -->
+
+```rust,ignore
+{{#include ../../../../../crates/outram-mc-libs/src/mathf.rs:124:126}}
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:1.8em">
+
+[`position.rs::Position::new`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-blender/src/csg/position.rs#L64) `pub fn new(x: f64, y: f64, z: f64) -> Self` · called at [L574](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/physics/keff.rs#L574)
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/outram-blender/src/csg/position.rs:64 fn new -->
+
+```rust,ignore
+{{#include ../../../../../crates/outram-blender/src/csg/position.rs:64:66}}
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:1.8em">
+
+[`position.rs::Direction::new`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-blender/src/csg/position.rs#L93) `pub fn new(u: f64, v: f64, w: f64) -> Self` — Construct a Direction from raw components — caller must ensure |d| ≈ 1. · called at [L575](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/physics/keff.rs#L575)
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/outram-blender/src/csg/position.rs:93 fn new -->
+
+```rust,ignore
+{{#include ../../../../../crates/outram-blender/src/csg/position.rs:93:95}}
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:1.8em">
+
+[`distributions.rs::watt`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/rng/distributions.rs#L44) `pub fn watt(seed: &mut u64, a: f64, b: f64) -> f64` — Sample a Watt fission spectrum: f(E) ∝ exp(−E/a) · sinh(√(b·E)). · called at [L576](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/physics/keff.rs#L576)
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/outram-mc-libs/src/rng/distributions.rs:44 fn watt -->
+<!-- snippet-check: crates/outram-mc-libs/src/rng/distributions.rs:45 maxwell -->
+<!-- snippet-check: crates/outram-mc-libs/src/rng/distributions.rs:46 prn -->
+
+```rust,ignore
+{{#include ../../../../../crates/outram-mc-libs/src/rng/distributions.rs:44:47}}
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:2.7em">
+
+[`distributions.rs::maxwell`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/rng/distributions.rs#L27) `pub fn maxwell(seed: &mut u64, theta: f64) -> f64` — Sample a Maxwellian energy distribution: f(E) ∝ √E · exp(−E / θ). · called at [L45](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/rng/distributions.rs#L45) · *(calls below the depth limit not shown)*
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/outram-mc-libs/src/rng/distributions.rs:27 fn maxwell -->
+
+```rust,ignore
+{{#include ../../../../../crates/outram-mc-libs/src/rng/distributions.rs:27:35}}
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:2.7em">
+
+`lcg.rs::prn` *(expanded elsewhere in this walk)* · called at [L46](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/rng/distributions.rs#L46)
+
+</div>
+
+<div class="cw-node" style="margin-left:1.8em">
+
+[`keff.rs::PowerIteration::from_source`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/physics/keff.rs#L605) `fn from_source(radius_cm: f64, settings: &KeffSettings, source: Vec<Site>, seed: u64) -> Self` · called at [L581](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/physics/keff.rs#L581)
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/outram-mc-libs/src/physics/keff.rs:605 fn from_source -->
+<!-- snippet-check: crates/outram-mc-libs/src/physics/keff.rs:615 clone -->
+
+```rust,ignore
+{{#include ../../../../../crates/outram-mc-libs/src/physics/keff.rs:605:616}}
+    // … (the rest of the function: follow the link above)
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:2.7em">
+
+UNRESOLVED(other): `clone` at [L615](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/physics/keff.rs#L615) (→ [`crates/outram-mc-libs/src/physics/keff.rs:123`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/physics/keff.rs#L123)) — resolves to `#[derive(Debug, Clone)]`, not a function body
+
+</div>
+
+<div class="cw-node" style="margin-left:0.9em">
+
+[`keff.rs::PowerIteration::step`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/physics/keff.rs#L653) `pub fn step(&mut self, material: &Material, nuclides: &[Nuclide]) -> Option<GenerationReport>` — Transport one generation and resample its fission bank into the next source. · called at [L477](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/physics/keff.rs#L477)
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/outram-mc-libs/src/physics/keff.rs:653 fn step -->
+<!-- snippet-check: crates/outram-mc-libs/src/physics/keff.rs:663 default -->
+<!-- snippet-check: crates/outram-mc-libs/src/physics/keff.rs:666 transport_history -->
+<!-- snippet-check: crates/outram-mc-libs/src/physics/keff.rs:693 shannon_entropy -->
+<!-- snippet-check: crates/outram-mc-libs/src/physics/keff.rs:709 resample -->
+<!-- snippet-check: crates/outram-mc-libs/src/physics/keff.rs:716 mean_and_stderr -->
+
+```rust,ignore
+{{#include ../../../../../crates/outram-mc-libs/src/physics/keff.rs:653:653}}
+    // …
+{{#include ../../../../../crates/outram-mc-libs/src/physics/keff.rs:661:667}}
+    // …
+{{#include ../../../../../crates/outram-mc-libs/src/physics/keff.rs:691:694}}
+    // …
+{{#include ../../../../../crates/outram-mc-libs/src/physics/keff.rs:707:710}}
+    // …
+{{#include ../../../../../crates/outram-mc-libs/src/physics/keff.rs:714:717}}
+    // … (the rest of the function: follow the link above)
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:1.8em">
+
+UNRESOLVED(other): `default` at [L663](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/physics/keff.rs#L663) (→ [`crates/outram-mc-libs/src/physics/keff.rs:364`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/physics/keff.rs#L364)) — resolves to `#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]`, not a function body
+
+</div>
+
+<div class="cw-node" style="margin-left:1.8em">
+
+[`keff.rs::transport_history`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/physics/keff.rs#L2035) `fn transport_history(site: Site, sphere: &Sphere, material: &Material, nuclides: &[Nuclide], temp: f64, k_running: f64, next_bank: &mut Vec<Site>, seed: &mut u64, counts: &mut HistoryCounts) -> f64` — Transport one source neutron — plus any same-generation `(n,2n)` secondaries it spawns — to death (absorption or leakage), banking any fission neutrons. · called at [L666](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/physics/keff.rs#L666)
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/outram-mc-libs/src/physics/keff.rs:2035 fn transport_history -->
+<!-- snippet-check: crates/outram-mc-libs/src/physics/keff.rs:2047 library_energy_max_ev -->
+<!-- snippet-check: crates/outram-mc-libs/src/physics/keff.rs:2053 future_seed -->
+<!-- snippet-check: crates/outram-mc-libs/src/physics/keff.rs:2068 macro_xs_total_urr -->
+<!-- snippet-check: crates/outram-mc-libs/src/physics/keff.rs:2073 prn -->
+<!-- snippet-check: crates/outram-mc-libs/src/physics/keff.rs:2074 distance -->
+<!-- snippet-check: crates/outram-mc-libs/src/physics/keff.rs:2083 stream -->
+<!-- snippet-check: crates/outram-mc-libs/src/physics/keff.rs:2084 sample_nuclide_urr -->
+<!-- snippet-check: crates/outram-mc-libs/src/physics/keff.rs:2087 needs_urr_draw -->
+<!-- snippet-check: crates/outram-mc-libs/src/physics/keff.rs:2090 xs_at_energy_urr -->
+<!-- snippet-check: crates/outram-mc-libs/src/physics/keff.rs:2092 xs_at_energy -->
+<!-- snippet-check: crates/outram-mc-libs/src/physics/keff.rs:2112 sample_num_neutrons -->
+<!-- snippet-check: crates/outram-mc-libs/src/physics/keff.rs:2114 isotropic_direction -->
+<!-- snippet-check: crates/outram-mc-libs/src/physics/keff.rs:2117 new -->
+<!-- snippet-check: crates/outram-mc-libs/src/physics/keff.rs:2121 sample_fission_energy_below -->
+<!-- snippet-check: crates/outram-mc-libs/src/physics/keff.rs:2125 record_fission -->
+<!-- snippet-check: crates/outram-mc-libs/src/physics/keff.rs:2136 sample_inelastic -->
+<!-- snippet-check: crates/outram-mc-libs/src/physics/keff.rs:2142 sample_inelastic_mu_cm -->
+<!-- snippet-check: crates/outram-mc-libs/src/physics/keff.rs:2143 two_body_scatter_with_mu -->
+<!-- snippet-check: crates/outram-mc-libs/src/physics/keff.rs:2144 two_body_scatter -->
+<!-- snippet-check: crates/outram-mc-libs/src/physics/keff.rs:2146 sample_inelastic_emission -->
+<!-- snippet-check: crates/outram-mc-libs/src/physics/keff.rs:2169 has_evaluated_emission -->
+<!-- snippet-check: crates/outram-mc-libs/src/physics/keff.rs:2187 emits_n2n_secondary -->
+<!-- snippet-check: crates/outram-mc-libs/src/physics/keff.rs:2234 sample_mt5_multiplicity -->
+<!-- snippet-check: crates/outram-mc-libs/src/physics/keff.rs:2257 sample_other_emission -->
+<!-- snippet-check: crates/outram-mc-libs/src/physics/keff.rs:2276 sample_thermal -->
+<!-- snippet-check: crates/outram-mc-libs/src/physics/keff.rs:2277 rotate_direction -->
+<!-- snippet-check: crates/outram-mc-libs/src/physics/keff.rs:2284 free_gas_kt -->
+<!-- snippet-check: crates/outram-mc-libs/src/physics/keff.rs:2286 sample_elastic_mu_cm -->
+<!-- snippet-check: crates/outram-mc-libs/src/physics/keff.rs:2288 free_gas_elastic_scatter_dbrc -->
+<!-- snippet-check: crates/outram-mc-libs/src/physics/keff.rs:2295 dbrc_table -->
+
+```rust,ignore
+{{#include ../../../../../crates/outram-mc-libs/src/physics/keff.rs:2035:2042}}
+    // …
+{{#include ../../../../../crates/outram-mc-libs/src/physics/keff.rs:2045:2048}}
+    // …
+{{#include ../../../../../crates/outram-mc-libs/src/physics/keff.rs:2051:2054}}
+    // …
+{{#include ../../../../../crates/outram-mc-libs/src/physics/keff.rs:2066:2069}}
+    // …
+{{#include ../../../../../crates/outram-mc-libs/src/physics/keff.rs:2071:2075}}
+    // …
+{{#include ../../../../../crates/outram-mc-libs/src/physics/keff.rs:2081:2093}}
+    // …
+{{#include ../../../../../crates/outram-mc-libs/src/physics/keff.rs:2110:2126}}
+    // …
+{{#include ../../../../../crates/outram-mc-libs/src/physics/keff.rs:2134:2137}}
+    // …
+{{#include ../../../../../crates/outram-mc-libs/src/physics/keff.rs:2140:2147}}
+    // …
+{{#include ../../../../../crates/outram-mc-libs/src/physics/keff.rs:2167:2170}}
+    // …
+{{#include ../../../../../crates/outram-mc-libs/src/physics/keff.rs:2185:2188}}
+    // …
+{{#include ../../../../../crates/outram-mc-libs/src/physics/keff.rs:2232:2235}}
+    // …
+{{#include ../../../../../crates/outram-mc-libs/src/physics/keff.rs:2255:2258}}
+    // …
+{{#include ../../../../../crates/outram-mc-libs/src/physics/keff.rs:2274:2278}}
+    // …
+{{#include ../../../../../crates/outram-mc-libs/src/physics/keff.rs:2282:2289}}
+    // …
+{{#include ../../../../../crates/outram-mc-libs/src/physics/keff.rs:2293:2296}}
+    // … (the rest of the function: follow the link above)
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:2.7em">
+
+[`nuclide.rs::library_energy_max_ev`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/material/nuclide.rs#L4074) `pub fn library_energy_max_ev(nuclides: &[Nuclide]) -> f64` — The lowest top energy \[eV\] of any pointwise nuclide in `nuclides`, or `f64::INFINITY` when none is pointwise: OpenMC's `data::energy_max[neutron]`, the bound below which fission neutrons are resampled (GitHub #463 item 2). · called at [L2047](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/physics/keff.rs#L2047) · *(calls below the depth limit not shown)*
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/outram-mc-libs/src/material/nuclide.rs:4074 fn library_energy_max_ev -->
+
+```rust,ignore
+{{#include ../../../../../crates/outram-mc-libs/src/material/nuclide.rs:4074:4079}}
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:2.7em">
+
+[`lcg.rs::future_seed`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/petir/src/rng/lcg.rs#L145) `pub fn future_seed(mut n: u64, seed: u64) -> u64` — Advance the seed `n` steps in O(log n) using the LCG jump-ahead identity. · called at [L2053](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/physics/keff.rs#L2053) · *(calls below the depth limit not shown)*
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/petir/src/rng/lcg.rs:145 fn future_seed -->
+
+```rust,ignore
+{{#include ../../../../../crates/petir/src/rng/lcg.rs:145:160}}
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:2.7em">
+
+[`material.rs::Material::macro_xs_total_urr`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/material/material.rs#L156) `pub fn macro_xs_total_urr(&self, e: f64, nuclides: &[Nuclide], urr_seed: u64) -> f64` — Σ_t(E) \[cm⁻¹\] as a neutron carrying the URR stream seed `urr_seed` sees it: each nuclide in its unresolved range contributes its **band** total, the band chosen by `future_prn(nuclide_idx, urr_seed)` (`urr_xi`), exactly as OpenMC's `Nuclide::calculate_urr_xs` draws it (`src/nuclide.cpp`; one stream, `STREAM_URR_PTABLE`, offset by the nuclide's global index). · called at [L2068](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/physics/keff.rs#L2068) · *(calls below the depth limit not shown)*
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/outram-mc-libs/src/material/material.rs:156 fn macro_xs_total_urr -->
+
+```rust,ignore
+{{#include ../../../../../crates/outram-mc-libs/src/material/material.rs:156:169}}
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:2.7em">
+
+`lcg.rs::prn` *(expanded elsewhere in this walk)* · called at [L2073](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/physics/keff.rs#L2073)
+
+</div>
+
+<div class="cw-node" style="margin-left:2.7em">
+
+[`mathf.rs::f64::r_ln`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/mathf.rs#L110) `fn r_ln(self) -> f64` · called at [L2073](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/physics/keff.rs#L2073) · *(calls below the depth limit not shown)*
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/outram-mc-libs/src/mathf.rs:110 fn r_ln -->
+
+```rust,ignore
+{{#include ../../../../../crates/outram-mc-libs/src/mathf.rs:110:114}}
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:2.7em">
+
+[`quadric.rs::Sphere::distance`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-blender/src/csg/surface/quadric.rs#L164) `fn distance(&self, r: Position, u: Direction, coincident: bool) -> f64` · called at [L2074](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/physics/keff.rs#L2074) · *(calls below the depth limit not shown)*
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/outram-blender/src/csg/surface/quadric.rs:164 fn distance -->
+
+```rust,ignore
+{{#include ../../../../../crates/outram-blender/src/csg/surface/quadric.rs:164:192}}
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:2.7em">
+
+[`position.rs::stream`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-blender/src/csg/position.rs#L188) `pub fn stream(pos: Position, dir: Direction, distance: f64) -> Position` — Advance a position by `distance` along `direction`. · called at [L2083](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/physics/keff.rs#L2083) · *(calls below the depth limit not shown)*
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/outram-blender/src/csg/position.rs:188 fn stream -->
+
+```rust,ignore
+{{#include ../../../../../crates/outram-blender/src/csg/position.rs:188:194}}
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:2.7em">
+
+[`material.rs::Material::sample_nuclide_urr`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/material/material.rs#L186) `pub fn sample_nuclide_urr(&self, e: f64, seed: &mut u64, nuclides: &[Nuclide], urr_seed: u64) -> usize` — `Self::sample_nuclide` with each nuclide weighted by its **band** total (see `Self::macro_xs_total_urr`), as OpenMC's `sample_nuclide` weights by the same cached micro total it flew on. · called at [L2084](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/physics/keff.rs#L2084) · *(calls below the depth limit not shown)*
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/outram-mc-libs/src/material/material.rs:186 fn sample_nuclide_urr -->
+
+```rust,ignore
+{{#include ../../../../../crates/outram-mc-libs/src/material/material.rs:186:215}}
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:2.7em">
+
+[`nuclide.rs::Nuclide::needs_urr_draw`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/material/nuclide.rs#L1210) `pub fn needs_urr_draw(&self, e: f64) -> bool` — Whether a collision on this nuclide at energy `e` \[eV\] requires a URR band draw. · called at [L2087](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/physics/keff.rs#L2087) · *(calls below the depth limit not shown)*
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/outram-mc-libs/src/material/nuclide.rs:1210 fn needs_urr_draw -->
+
+```rust,ignore
+{{#include ../../../../../crates/outram-mc-libs/src/material/nuclide.rs:1210:1212}}
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:2.7em">
+
+[`nuclide.rs::Nuclide::xs_at_energy_urr`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/material/nuclide.rs#L1530) `pub fn xs_at_energy_urr(&self, e: f64, temp_k: f64, xi: f64) -> MicroXS` — This nuclide's microscopic cross sections at `e` \[eV\] and `temp_k` \[K\], **with unresolved-resonance self-shielding applied** from the sampled band `xi`. · called at [L2090](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/physics/keff.rs#L2090) · *(calls below the depth limit not shown)*
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/outram-mc-libs/src/material/nuclide.rs:1530 fn xs_at_energy_urr -->
+
+```rust,ignore
+{{#include ../../../../../crates/outram-mc-libs/src/material/nuclide.rs:1530:1560}}
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:2.7em">
+
+[`material.rs::urr_xi`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/material/material.rs#L252) `pub fn urr_xi(nuclide_idx: usize, urr_seed: u64) -> f64` — The URR band variate of nuclide `nuclide_idx` (its index in the global nuclide array) for a neutron whose URR stream seed is `urr_seed`: OpenMC's `future_prn(index_, p.seeds(STREAM_URR_PTABLE))` (`src/nuclide.cpp`, `calculate_urr_xs`). · called at [L2090](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/physics/keff.rs#L2090) · *(calls below the depth limit not shown)*
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/outram-mc-libs/src/material/material.rs:252 fn urr_xi -->
+
+```rust,ignore
+{{#include ../../../../../crates/outram-mc-libs/src/material/material.rs:252:255}}
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:2.7em">
+
+[`nuclide.rs::Nuclide::xs_at_energy`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/material/nuclide.rs#L3038) `pub fn xs_at_energy(&self, e: f64, temp_k: f64) -> MicroXS` · called at [L2092](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/physics/keff.rs#L2092) · *(calls below the depth limit not shown)*
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/outram-mc-libs/src/material/nuclide.rs:3038 fn xs_at_energy -->
+
+```rust,ignore
+{{#include ../../../../../crates/outram-mc-libs/src/material/nuclide.rs:3038:3062}}
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:2.7em">
+
+[`fission.rs::sample_num_neutrons`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/physics/fission.rs#L45) `pub fn sample_num_neutrons(nu_bar: f64, keff: f64, seed: &mut u64) -> usize` — Sample the integer number of fission neutrons to bank from one fission event. · called at [L2112](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/physics/keff.rs#L2112) · *(calls below the depth limit not shown)*
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/outram-mc-libs/src/physics/fission.rs:45 fn sample_num_neutrons -->
+
+```rust,ignore
+{{#include ../../../../../crates/outram-mc-libs/src/physics/fission.rs:45:57}}
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:2.7em">
+
+`distributions.rs::isotropic_direction` *(expanded elsewhere in this walk)* · called at [L2114](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/physics/keff.rs#L2114)
+
+</div>
+
+<div class="cw-node" style="margin-left:2.7em">
+
+`position.rs::Direction::new` *(expanded elsewhere in this walk)* · called at [L2117](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/physics/keff.rs#L2117)
+
+</div>
+
+<div class="cw-node" style="margin-left:2.7em">
+
+[`nuclide.rs::Nuclide::sample_fission_energy_below`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/material/nuclide.rs#L3775) `pub fn sample_fission_energy_below(&self, e_in: f64, e_cap: f64, seed: &mut u64) -> f64` — `sample_fission_energy`, resampling until the birth energy is below `e_cap` \[eV\] as well as below this nuclide's own data top. · called at [L2121](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/physics/keff.rs#L2121) · *(calls below the depth limit not shown)*
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/outram-mc-libs/src/material/nuclide.rs:3775 fn sample_fission_energy_below -->
+
+```rust,ignore
+{{#include ../../../../../crates/outram-mc-libs/src/material/nuclide.rs:3775:3807}}
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:2.7em">
+
+[`keff.rs::HistoryCounts::record_fission`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/physics/keff.rs#L397) `fn record_fission(&mut self, e_incident_ev: f64)` · called at [L2125](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/physics/keff.rs#L2125) · *(calls below the depth limit not shown)*
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/outram-mc-libs/src/physics/keff.rs:397 fn record_fission -->
+
+```rust,ignore
+{{#include ../../../../../crates/outram-mc-libs/src/physics/keff.rs:397:401}}
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:2.7em">
+
+[`nuclide.rs::Nuclide::sample_inelastic`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/material/nuclide.rs#L3281) `pub fn sample_inelastic(&self, e: f64, seed: &mut u64) -> Inelastic` — Sample which inelastic scattering channel a collision at energy `e` \[eV\] takes, proportional to each channel's cross section at `e`. · called at [L2136](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/physics/keff.rs#L2136) · *(calls below the depth limit not shown)*
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/outram-mc-libs/src/material/nuclide.rs:3281 fn sample_inelastic -->
+
+```rust,ignore
+{{#include ../../../../../crates/outram-mc-libs/src/material/nuclide.rs:3281:3315}}
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:2.7em">
+
+[`nuclide.rs::Nuclide::sample_inelastic_mu_cm`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/material/nuclide.rs#L3381) `pub fn sample_inelastic_mu_cm(&self, mt: i32, e: f64, seed: &mut u64) -> Option<f64>` — Sample a **discrete inelastic** (MT=51…90) scattering cosine in the **centre-of-mass frame** at incident energy `e` \[eV\], returning `Some(mu_cm)` when this nuclide carries an MF=4 distribution for that level, or `None` when it does not — the caller then falls back to isotropic-CM, which is what this crate did for *every* inelastic collision before bead `op-tm9f`. · called at [L2142](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/physics/keff.rs#L2142) · *(calls below the depth limit not shown)*
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/outram-mc-libs/src/material/nuclide.rs:3381 fn sample_inelastic_mu_cm -->
+
+```rust,ignore
+{{#include ../../../../../crates/outram-mc-libs/src/material/nuclide.rs:3381:3393}}
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:2.7em">
+
+[`scatter.rs::two_body_scatter_with_mu`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/physics/scatter.rs#L178) `pub fn two_body_scatter_with_mu(e: f64, u: Direction, awr: f64, q: f64, mu_cm: f64, seed: &mut u64) -> (f64, Direction)` — Two-body scatter with a **caller-supplied** centre-of-mass scattering cosine `mu_cm` — the anisotropic form of `two_body_scatter`. · called at [L2143](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/physics/keff.rs#L2143) · *(calls below the depth limit not shown)*
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/outram-mc-libs/src/physics/scatter.rs:178 fn two_body_scatter_with_mu -->
+
+```rust,ignore
+{{#include ../../../../../crates/outram-mc-libs/src/physics/scatter.rs:178:191}}
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:2.7em">
+
+[`scatter.rs::two_body_scatter`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/physics/scatter.rs#L157) `pub fn two_body_scatter(e: f64, u: Direction, awr: f64, q: f64, seed: &mut u64) -> (f64, Direction)` — Two-body scatter a neutron of energy `e` \[eV\] and direction `u` off a target of atomic weight ratio `awr` with reaction Q-value `q` \[eV\], isotropic in the centre-of-mass frame. · called at [L2144](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/physics/keff.rs#L2144) · *(calls below the depth limit not shown)*
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/outram-mc-libs/src/physics/scatter.rs:157 fn two_body_scatter -->
+
+```rust,ignore
+{{#include ../../../../../crates/outram-mc-libs/src/physics/scatter.rs:157:166}}
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:2.7em">
+
+[`nuclide.rs::Nuclide::sample_inelastic_emission`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/material/nuclide.rs#L2745) `pub fn sample_inelastic_emission(&self, mt: i32, e: f64, u: crate::geometry::position::Direction, q: f64, seed: &mut u64) -> (f64, crate::geometry::position::Direction)` — Sample the outgoing state of an inelastic or multiplying collision on reaction `mt` (91, 16 or 17) at incident energy `e` \[eV\] and direction `u`, using **whichever emission law the evaluation actually supplies**. · called at [L2146](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/physics/keff.rs#L2146) · *(calls below the depth limit not shown)*
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/outram-mc-libs/src/material/nuclide.rs:2745 fn sample_inelastic_emission -->
+
+```rust,ignore
+{{#include ../../../../../crates/outram-mc-libs/src/material/nuclide.rs:2745:2778}}
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:2.7em">
+
+[`nuclide.rs::Nuclide::has_evaluated_emission`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/material/nuclide.rs#L2988) `pub fn has_evaluated_emission(&self, mt: i32) -> bool` — Whether the evaluation supplies a real emission law for `mt`, in either representation — i.e. · called at [L2169](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/physics/keff.rs#L2169) · *(calls below the depth limit not shown)*
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/outram-mc-libs/src/material/nuclide.rs:2988 fn has_evaluated_emission -->
+
+```rust,ignore
+{{#include ../../../../../crates/outram-mc-libs/src/material/nuclide.rs:2988:2990}}
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:2.7em">
+
+[`nuclide.rs::Nuclide::emits_n2n_secondary`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/material/nuclide.rs#L1090) `pub fn emits_n2n_secondary(&self) -> bool` — Whether an (n,2n) collision on this nuclide emits its second neutron — `true` for the evaluated yield of 2, `false` when `with_unit_n2n_multiplicity` has ablated it. · called at [L2187](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/physics/keff.rs#L2187) · *(calls below the depth limit not shown)*
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/outram-mc-libs/src/material/nuclide.rs:1090 fn emits_n2n_secondary -->
+
+```rust,ignore
+{{#include ../../../../../crates/outram-mc-libs/src/material/nuclide.rs:1090:1092}}
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:2.7em">
+
+[`nuclide.rs::Nuclide::sample_mt5_multiplicity`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/material/nuclide.rs#L2973) `pub fn sample_mt5_multiplicity(&self, e: f64, seed: &mut u64) -> usize` — Sample an **integer** MT=5 multiplicity at `e` \[eV\] from the tabulated average, by splitting the fractional part stochastically: `n = floor(y) + [xi < y - floor(y)]`. · called at [L2234](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/physics/keff.rs#L2234) · *(calls below the depth limit not shown)*
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/outram-mc-libs/src/material/nuclide.rs:2973 fn sample_mt5_multiplicity -->
+
+```rust,ignore
+{{#include ../../../../../crates/outram-mc-libs/src/material/nuclide.rs:2973:2978}}
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:2.7em">
+
+[`nuclide.rs::Nuclide::sample_other_emission`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/material/nuclide.rs#L2807) `pub fn sample_other_emission(&self, e: f64, u: crate::geometry::position::Direction, seed: &mut u64) -> OtherEmission` — Sample a collision on the **other neutron-emitting reactions** at `e` \[eV\], direction `u` — GitHub #365 audit. · called at [L2257](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/physics/keff.rs#L2257) · *(calls below the depth limit not shown)*
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/outram-mc-libs/src/material/nuclide.rs:2807 fn sample_other_emission -->
+
+```rust,ignore
+{{#include ../../../../../crates/outram-mc-libs/src/material/nuclide.rs:2807:2846}}
+    // … (the rest of the function: follow the link above)
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:2.7em">
+
+[`nuclide.rs::Nuclide::sample_thermal`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/material/nuclide.rs#L3412) `pub fn sample_thermal(&self, e: f64, seed: &mut u64) -> Option<(f64, f64)>` — Sample a bound-atom S(α,β) thermal scatter at incident energy `e` \[eV\], returning `Some((e_out, mu_lab))` — a **laboratory-frame** outgoing energy \[eV\] and scattering cosine — when this nuclide carries a `ThermalScattering` table and `e` is below its cutoff, or `None` otherwise (the caller then falls back to free-gas / anisotropic elastic). · called at [L2276](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/physics/keff.rs#L2276) · *(calls below the depth limit not shown)*
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/outram-mc-libs/src/material/nuclide.rs:3412 fn sample_thermal -->
+
+```rust,ignore
+{{#include ../../../../../crates/outram-mc-libs/src/material/nuclide.rs:3412:3414}}
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:2.7em">
+
+[`scatter.rs::rotate_direction`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/physics/scatter.rs#L78) `pub fn rotate_direction(u: Direction, mu: f64, seed: &mut u64) -> Direction` — Rotate the unit direction `u` by scattering cosine `mu` and a uniformly sampled azimuth φ ∈ [0, 2π), returning the new unit direction. · called at [L2277](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/physics/keff.rs#L2277) · *(calls below the depth limit not shown)*
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/outram-mc-libs/src/physics/scatter.rs:78 fn rotate_direction -->
+
+```rust,ignore
+{{#include ../../../../../crates/outram-mc-libs/src/physics/scatter.rs:78:99}}
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:2.7em">
+
+[`nuclide.rs::Nuclide::free_gas_kt`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/material/nuclide.rs#L854) `pub fn free_gas_kt(&self, lookup_temp_k: f64) -> f64` — The `k_B·T` \[eV\] this nuclide's **elastic kinematics** (free gas and DBRC) use in a collision whose cross sections are looked up at `lookup_temp_k` \[K\]. · called at [L2284](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/physics/keff.rs#L2284) · *(calls below the depth limit not shown)*
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/outram-mc-libs/src/material/nuclide.rs:854 fn free_gas_kt -->
+
+```rust,ignore
+{{#include ../../../../../crates/outram-mc-libs/src/material/nuclide.rs:854:862}}
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:2.7em">
+
+[`nuclide.rs::Nuclide::sample_elastic_mu_cm`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/material/nuclide.rs#L3337) `pub fn sample_elastic_mu_cm(&self, e: f64, seed: &mut u64) -> Option<f64>` — Sample an elastic scattering cosine in the **centre-of-mass frame** at incident energy `e` \[eV\], returning `Some(mu_cm)` for anisotropic elastic or `None` when the distribution is isotropic (the caller then falls back to isotropic-CM elastic). · called at [L2286](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/physics/keff.rs#L2286) · *(calls below the depth limit not shown)*
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/outram-mc-libs/src/material/nuclide.rs:3337 fn sample_elastic_mu_cm -->
+
+```rust,ignore
+{{#include ../../../../../crates/outram-mc-libs/src/material/nuclide.rs:3337:3355}}
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:2.7em">
+
+[`scatter.rs::free_gas_elastic_scatter_dbrc`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/physics/scatter.rs#L265) `pub fn free_gas_elastic_scatter_dbrc(e: f64, u: Direction, awr: f64, kt_ev: f64, mu_cm: f64, seed: &mut u64, dbrc: Option<&DbrcTable>) -> (f64, Direction)` — `free_gas_elastic_scatter` with an optional **DBRC** correction. · called at [L2288](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/physics/keff.rs#L2288) · *(calls below the depth limit not shown)*
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/outram-mc-libs/src/physics/scatter.rs:265 fn free_gas_elastic_scatter_dbrc -->
+
+```rust,ignore
+{{#include ../../../../../crates/outram-mc-libs/src/physics/scatter.rs:265:304}}
+    // … (the rest of the function: follow the link above)
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:2.7em">
+
+[`nuclide.rs::Nuclide::dbrc_table`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/material/nuclide.rs#L1493) `pub fn dbrc_table(&self) -> Option<&DbrcTable>` — This nuclide's DBRC table, for the transport kernels to hand to `free_gas_elastic_scatter_dbrc`. · called at [L2295](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/physics/keff.rs#L2295) · *(calls below the depth limit not shown)*
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/outram-mc-libs/src/material/nuclide.rs:1493 fn dbrc_table -->
+
+```rust,ignore
+{{#include ../../../../../crates/outram-mc-libs/src/material/nuclide.rs:1493:1495}}
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:1.8em">
+
+[`mesh.rs::RegularMesh::shannon_entropy`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/tally/mesh.rs#L270) `fn shannon_entropy(&self, sites: &[crate::particle::bank::BankSite]) -> Option<f64>` · called at [L693](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/physics/keff.rs#L693)
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/outram-mc-libs/src/tally/mesh.rs:270 fn shannon_entropy -->
+<!-- snippet-check: crates/outram-mc-libs/src/tally/mesh.rs:273 count_sites -->
+<!-- snippet-check: crates/outram-mc-libs/src/tally/mesh.rs:274 shannon_entropy_bits -->
+
+```rust,ignore
+{{#include ../../../../../crates/outram-mc-libs/src/tally/mesh.rs:270:275}}
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:2.7em">
+
+[`mesh.rs::RegularMesh::count_sites`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/tally/mesh.rs#L258) `fn count_sites(&self, sites: &[crate::particle::bank::BankSite]) -> (Vec<f64>, bool)` · called at [L273](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/tally/mesh.rs#L273) · *(calls below the depth limit not shown)*
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/outram-mc-libs/src/tally/mesh.rs:258 fn count_sites -->
+
+```rust,ignore
+{{#include ../../../../../crates/outram-mc-libs/src/tally/mesh.rs:258:268}}
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:2.7em">
+
+[`mod.rs::shannon_entropy_bits`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/raffles/src/estimators/mod.rs#L147) `pub fn shannon_entropy_bits(counts: &[f64]) -> Option<f64>` — Shannon entropy, **in bits**, of the distribution given by non-negative `counts` (weights per bin): `H = -Σ p log₂ p` with `p = c / Σc`, empty bins contributing nothing. · called at [L274](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/tally/mesh.rs#L274) · *(calls below the depth limit not shown)*
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/raffles/src/estimators/mod.rs:147 fn shannon_entropy_bits -->
+
+```rust,ignore
+{{#include ../../../../../crates/raffles/src/estimators/mod.rs:147:160}}
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:1.8em">
+
+[`keff.rs::resample`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/physics/keff.rs#L2556) `fn resample(bank: &[Site], n: usize, seed: &mut u64) -> Vec<Site>` — Resample `n` sites for the next generation by uniform combing (`crate::physics::fission::comb_resample`, GitHub #460). · called at [L709](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/physics/keff.rs#L709)
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/outram-mc-libs/src/physics/keff.rs:2556 fn resample -->
+<!-- snippet-check: crates/outram-mc-libs/src/physics/keff.rs:2560 comb_resample -->
+
+```rust,ignore
+{{#include ../../../../../crates/outram-mc-libs/src/physics/keff.rs:2556:2561}}
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:2.7em">
+
+[`fission.rs::comb_resample`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/physics/fission.rs#L76) `pub fn comb_resample<T: Copy>(bank: &[T], n: usize, seed: &mut u64) -> Vec<T>` — Draw the next generation's `n` source sites from a fission bank by **uniform combing**, as OpenMC's `synchronize_bank` does (`src/eigenvalue.cpp:150-175`, Uniform Combing method, doi:10.1080/00295639.2022.2091906). · called at [L2560](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/physics/keff.rs#L2560) · *(calls below the depth limit not shown)*
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/outram-mc-libs/src/physics/fission.rs:76 fn comb_resample -->
+
+```rust,ignore
+{{#include ../../../../../crates/outram-mc-libs/src/physics/fission.rs:76:89}}
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:1.8em">
+
+[`mod.rs::mean_and_stderr`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/raffles/src/estimators/mod.rs#L83) `pub fn mean_and_stderr(x: &[f64]) -> (f64, f64)` — Sample mean and **standard error of the mean** (1σ) of `x`. · called at [L716](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/physics/keff.rs#L716)
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/raffles/src/estimators/mod.rs:83 fn mean_and_stderr -->
+
+```rust,ignore
+{{#include ../../../../../crates/raffles/src/estimators/mod.rs:83:94}}
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:0.9em">
+
+[`keff.rs::PowerIteration::result`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/physics/keff.rs#L748) `pub fn result(&self) -> KeffResult` — The result so far, as `run_keff_cpu_single` returns it: mean and standard error over the active generations run, the per-generation `k` trace, and the entropy trace when a mesh was given. · called at [L478](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/physics/keff.rs#L478)
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/outram-mc-libs/src/physics/keff.rs:748 fn result -->
+<!-- snippet-check: crates/outram-mc-libs/src/physics/keff.rs:749 mean_and_stderr -->
+
+```rust,ignore
+{{#include ../../../../../crates/outram-mc-libs/src/physics/keff.rs:748:750}}
+    // … (the rest of the function: follow the link above)
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:1.8em">
+
+`mod.rs::mean_and_stderr` *(expanded elsewhere in this walk)* · called at [L749](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/physics/keff.rs#L749)
+
+</div>
 <!-- /code-walk -->
 
 </div>
