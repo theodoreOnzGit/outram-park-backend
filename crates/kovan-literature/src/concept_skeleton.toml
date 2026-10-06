@@ -16,6 +16,8 @@
 # the owner's private corpus). This is the INITIAL linking, at document and
 # section level (2026-10-06); finer artifact links (page anchors, quotes) are
 # the owner's, added later. Section numbers are the documents' own.
+# `cross_links` names other nodes a node also belongs to (shown as a dotted
+# link; the node's home is its path).
 # A node is shown greyed (and hidden by the 'show empty nodes' toggle) when
 # nothing is classified under it; that is computed, not stored here.
 
@@ -219,6 +221,12 @@ sources = [{ document = "nureg-0800-toc-rev6", section = "Ch. 18" }]
 path = "02-nuclear-safety/severe-accidents"
 title = "Severe accidents"
 sources = [{ document = "nureg-0800-toc-rev6", section = "Ch. 19" }]
+
+[[node]]
+path = "02-nuclear-safety/source-terms"
+title = "Source terms"
+sources = [{ document = "nureg-0800-toc-rev6", section = "11.1 Source Terms; 15.0.1 Radiological Consequence Analyses Using Alternate Source Terms" }, { document = "nureg-1555", section = "Ch. 7 (postulated accidents)" }, { document = "ornl-tm-2018-976", section = "3.5.1 (coolant source terms, MSR)" }]
+cross_links = ["13-environmental-protection"]
 
 [[node]]
 path = "03-management"
@@ -521,9 +529,9 @@ title = "HEU to LEU conversion"
 sources = [{ document = "nureg-1537-part1", section = "Ch. 18" }]
 
 [[node]]
-path = "16-nuclear-fuel-cycle/fuel-depletion-and-source-terms"
-title = "Fuel depletion and source terms"
-sources = [{ document = "nureg-0800-toc-rev6", section = "11.1 (source terms; placement under the fuel cycle is a draft, #726)" }]
+path = "16-nuclear-fuel-cycle/fuel-depletion"
+title = "Fuel depletion and burnup"
+sources = [{ document = "iaea-ng-g-3.1-rev1", section = "3.16", page = "54" }]
 
 [[node]]
 path = "17-radioactive-waste-management"

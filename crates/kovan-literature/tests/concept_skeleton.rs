@@ -7,6 +7,7 @@
 //! - every node path is unique; L1 paths are exactly the 19 IAEA issues as
 //!   `NN-segment`, `NN` = 01..=19 in order (IAEA NG-G-3.1 Rev. 1, §3.NN);
 //! - every deeper node's parent exists; L2 segments carry no number;
+//! - every cross-link names an existing node other than itself;
 //! - every source names a declared `[[document]]`, and every document is used;
 //! - every `standard`-tier document's file exists in the `reactor-literature`
 //!   submodule when that submodule is checked out (skipped, with a note, when
@@ -36,6 +37,8 @@ struct Node {
     path: String,
     title: String,
     sources: Vec<Source>,
+    #[serde(default)]
+    cross_links: Vec<String>,
 }
 
 #[derive(Deserialize)]
@@ -73,6 +76,10 @@ fn paths_are_unique_parents_exist_and_level_two_is_unnumbered() {
             assert!(seen.contains(parent), "{}: parent {parent} missing", n.path);
             assert!(!seg.starts_with(|c: char| c.is_ascii_digit()), "{}: L2 segment is numbered", n.path);
             assert!(seg.chars().all(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || c == '-'), "{}", n.path);
+        }
+        for x in &n.cross_links {
+            assert!(seen.contains(x.as_str()), "{}: cross-link {x} is not a node", n.path);
+            assert!(x != &n.path, "{}: cross-links itself", n.path);
         }
     }
 }
