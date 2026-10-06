@@ -377,59 +377,775 @@ routes?
 
 Everything `crates/changi/examples/site_activity_survey.rs::main` reaches in the workspace, to 3 hops: 39 functions, 9 unresolved calls. A function is expanded once; later calls to it say *(expanded elsewhere in this walk)*.
 
-- [`site_activity_survey.rs::main`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/changi/examples/site_activity_survey.rs#L78) `fn main()`
-  - [`source.rs::ReleaseWindow::new`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/changi/src/activity/source.rs#L58) `pub fn new(start: Time, end: Time) -> Self` — A window from `start` to `end`. · called at [L90](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/changi/examples/site_activity_survey.rs#L90)
-  - [`source.rs::SourceTerm::new`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/changi/src/activity/source.rs#L125) `pub fn new(windows: Vec<ReleaseWindow>, nuclides: Vec<NuclideRelease>) -> Self` — Build and validate in one step. · called at [L98](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/changi/examples/site_activity_survey.rs#L98)
-    - [`source.rs::SourceTerm::validate`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/changi/src/activity/source.rs#L147) `pub fn validate(&self)` — Check the invariants the dispersion driver relies on. · called at [L127](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/changi/src/activity/source.rs#L127)
-  - UNRESOLVED(closure): `lambda` at [L103](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/changi/examples/site_activity_survey.rs#L103) (→ [`crates/changi/examples/site_activity_survey.rs:97`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/changi/examples/site_activity_survey.rs#L97)) — call through a closure or fn-typed binding `lambda`
-  - UNRESOLVED(closure): `lambda` at [L109](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/changi/examples/site_activity_survey.rs#L109) (→ [`crates/changi/examples/site_activity_survey.rs:97`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/changi/examples/site_activity_survey.rs#L97)) — call through a closure or fn-typed binding `lambda`
-  - UNRESOLVED(other): `default` at [L125](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/changi/examples/site_activity_survey.rs#L125) (→ [`crates/changi/src/puff/simulate.rs:96`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/changi/src/puff/simulate.rs#L96)) — resolves to `#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]`, not a function body
-  - [`simulate.rs::constant_wind`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/changi/src/puff/simulate.rs#L730) `pub fn constant_wind(u: Velocity, v: Velocity, n: usize) -> Vec<WindComponents>` — Build a constant wind series of `n` samples, a convenience for examples and tests that do not care about wind variability. · called at [L142](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/changi/examples/site_activity_survey.rs#L142)
-  - [`chi_over_q.rs::dilution_factors`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/changi/src/activity/chi_over_q.rs#L237) `pub fn dilution_factors(sources: &[Source], segment_boundaries: &[Time], wind: &[WindComponents], receptors: &[Receptor], config: &RunConfig, stability: StabilitySource) -> DilutionFactors` — Run the puff train once with unit mass and accumulate the binned response. · called at [L149](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/changi/examples/site_activity_survey.rs#L149)
-    - [`wind.rs::wind_speed`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/changi/src/puff/wind.rs#L174) `pub fn wind_speed(c: WindComponents) -> Velocity` — Scalar wind speed from components, `sqrt(u^2 + v^2)`. · called at [L288](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/changi/src/activity/chi_over_q.rs#L288)
-    - [`simulate.rs::advect`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/changi/src/puff/simulate.rs#L274) `pub(crate) fn advect(live: &mut [Puff], wind: WindComponents, dt: Time, policy: AdvectionPolicy)` — Advance every live puff by one step of `dt` on `wind`. · called at [L302](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/changi/src/activity/chi_over_q.rs#L302)
-    - [`simulate.rs::emits_at`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/changi/src/puff/simulate.rs#L474) `pub(crate) fn emits_at(step: usize, elapsed_s: f64, puff_dt_s: f64) -> bool` — Whether a step emits, matching upstream's `t_idx == 1 || elapsed %% puff_dt == 0`. · called at [L305](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/changi/src/activity/chi_over_q.rs#L305)
-    - [`chi_over_q.rs::StabilitySource::set`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/changi/src/activity/chi_over_q.rs#L98) `fn set(self, wind: WindComponents, start_hour: u32) -> StabilitySet` · called at [L307](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/changi/src/activity/chi_over_q.rs#L307)
-      - `wind.rs::wind_speed` *(expanded elsewhere in this walk)* · called at [L100](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/changi/src/activity/chi_over_q.rs#L100)
-      - [`stability.rs::stability_class`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/changi/src/puff/stability.rs#L206) `pub fn stability_class(wind_speed: Option<Velocity>, hour: u32) -> StabilitySet` — Pasquill stability class(es) for a wind speed and hour of day. · called at [L100](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/changi/src/activity/chi_over_q.rs#L100) · *(calls below the depth limit not shown)*
-    - [`simulate.rs::emit_with_classes`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/changi/src/puff/simulate.rs#L363) `pub(crate) fn emit_with_classes(live: &mut Vec<Puff>, elapsed_s: f64, wind: WindComponents, set: StabilitySet, config: &RunConfig, emission_rate: MassRate)` — `emit` with the stability classes supplied rather than derived from the wind speed and the hour. · called at [L308](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/changi/src/activity/chi_over_q.rs#L308)
-      - [`stability.rs::StabilitySet::primary`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/changi/src/puff/stability.rs#L116) `pub fn primary(self) -> StabilityClass` — The first class, which is the one upstream's `gpuff` actually uses. · called at [L382](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/changi/src/puff/simulate.rs#L382) · *(calls below the depth limit not shown)*
-      - [`stability.rs::StabilitySet::secondary`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/changi/src/puff/stability.rs#L124) `pub fn secondary(self) -> Option<StabilityClass>` — The second class where the condition is ambiguous. · called at [L389](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/changi/src/puff/simulate.rs#L389) · *(calls below the depth limit not shown)*
-    - [`chi_over_q.rs::segment_of`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/changi/src/activity/chi_over_q.rs#L381) `fn segment_of(bounds: &[f64], t: f64) -> Option<usize>` — Which segment contains `t`. · called at [L311](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/changi/src/activity/chi_over_q.rs#L311)
-    - [`simulate.rs::puff_unit_response`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/changi/src/puff/simulate.rs#L451) `pub(crate) fn puff_unit_response(p: &Puff, source: Source, receptor: Receptor, elapsed_s: f64, policy: AdvectionPolicy) -> f64` — One puff's contribution at one receptor, **per kilogram of puff mass**. · called at [L336](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/changi/src/activity/chi_over_q.rs#L336)
-      - [`simulate.rs::puff_offset`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/changi/src/puff/simulate.rs#L251) `fn puff_offset(p: &Puff, policy: AdvectionPolicy, elapsed_s: f64) -> (f64, f64, f64)` — A puff's displacement from its source and its dispersion distance, under whichever `AdvectionPolicy` is in force. · called at [L458](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/changi/src/puff/simulate.rs#L458) · *(calls below the depth limit not shown)*
-      - [`concentration.rs::gaussian_puff_concentration`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/changi/src/puff/concentration.rs#L80) `pub fn gaussian_puff_concentration(mass: Mass, class: StabilityClass, puff_x: Length, puff_y: Length, source_height: Length, receptor: (Length, Length, Length), travel_distance: Length) -> MassDensity` — Concentration at a receptor from one Gaussian puff, as a **mass density**. · called at [L461](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/changi/src/puff/simulate.rs#L461) · *(calls below the depth limit not shown)*
-  - UNRESOLVED(closure): `receptors_at` at [L153](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/changi/examples/site_activity_survey.rs#L153) (→ [`crates/changi/examples/site_activity_survey.rs:132`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/changi/examples/site_activity_survey.rs#L132)) — call through a closure or fn-typed binding `receptors_at`
-  - UNRESOLVED(closure): `factors_at` at [L158](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/changi/examples/site_activity_survey.rs#L158) (→ [`crates/changi/examples/site_activity_survey.rs:148`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/changi/examples/site_activity_survey.rs#L148)) — call through a closure or fn-typed binding `factors_at`
-  - UNRESOLVED(closure): `factors_at` at [L159](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/changi/examples/site_activity_survey.rs#L159) (→ [`crates/changi/examples/site_activity_survey.rs:148`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/changi/examples/site_activity_survey.rs#L148)) — call through a closure or fn-typed binding `factors_at`
-  - [`survey.rs::DepositionVelocities::order_of_magnitude_placeholder`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/changi/src/activity/survey.rs#L59) `pub fn order_of_magnitude_placeholder() -> Self` — **NOT CITED VALUES.** Order-of-magnitude placeholders, one per group — see `DryDepositionVelocity::order_of_magnitude_placeholder`, whose documentation is the one to read before quoting any deposition figure computed through this. · called at [L160](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/changi/examples/site_activity_survey.rs#L160)
-    - [`deposition.rs::DryDepositionVelocity::order_of_magnitude_placeholder`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/changi/src/activity/deposition.rs#L152) `pub fn order_of_magnitude_placeholder(group: DepositionGroup) -> Self` — **NOT A CITED VALUE.** An order-of-magnitude placeholder so an end-to-end run is possible before a source has been read. · called at [L61](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/changi/src/activity/survey.rs#L61)
-      - UNRESOLVED(other): `Self` at [L158](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/changi/src/activity/deposition.rs#L158) (→ [`crates/changi/src/activity/deposition.rs:116`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/changi/src/activity/deposition.rs#L116)) — resolves to `impl DryDepositionVelocity {`, not a function body
-  - [`survey.rs::survey`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/changi/src/activity/survey.rs#L162) `pub fn survey(source: &SourceTerm, air_factors: &DilutionFactors, ground_factors: &DilutionFactors, velocities: &DepositionVelocities) -> SiteSurvey` — Scale dilution factors by a source term, per nuclide, and deposit. · called at [L161](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/changi/examples/site_activity_survey.rs#L161)
-    - `source.rs::SourceTerm::validate` *(expanded elsewhere in this walk)* · called at [L168](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/changi/src/activity/survey.rs#L168)
-    - [`chi_over_q.rs::DilutionFactors::n_receptors`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/changi/src/activity/chi_over_q.rs#L129) `pub const fn n_receptors(&self) -> usize` — Number of receptors, in the order supplied. · called at [L170](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/changi/src/activity/survey.rs#L170)
-    - [`chi_over_q.rs::DilutionFactors::n_segments`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/changi/src/activity/chi_over_q.rs#L135) `pub const fn n_segments(&self) -> usize` — Number of release segments, in the order the boundaries defined them. · called at [L175](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/changi/src/activity/survey.rs#L175)
-    - UNRESOLVED(other): `default` at [L192](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/changi/src/activity/survey.rs#L192) (→ [`crates/changi/src/activity/units.rs:90`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/changi/src/activity/units.rs#L90)) — resolves to `#[derive(Debug, Clone, Copy, PartialEq, PartialOrd, Default)]`, not a function body
-    - UNRESOLVED(other): `default` at [L193](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/changi/src/activity/survey.rs#L193) (→ [`crates/changi/src/activity/units.rs:90`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/changi/src/activity/units.rs#L90)) — resolves to `#[derive(Debug, Clone, Copy, PartialEq, PartialOrd, Default)]`, not a function body
-    - [`chi_over_q.rs::DilutionFactors::dilution`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/changi/src/activity/chi_over_q.rs#L182) `pub fn dilution(&self, receptor: usize, segment: usize, decay_constant: Frequency) -> DilutionFactor` — The dilution factor for one receptor and segment, with decay in transit. · called at [L198](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/changi/src/activity/survey.rs#L198)
-      - [`chi_over_q.rs::DilutionFactors::index`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/changi/src/activity/chi_over_q.rs#L204) `fn index(&self, receptor: usize, segment: usize, bin: usize) -> usize` · called at [L195](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/changi/src/activity/chi_over_q.rs#L195) · *(calls below the depth limit not shown)*
-      - [`decay.rs::surviving_fraction`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/changi/src/flexpart/decay.rs#L99) `pub fn surviving_fraction(decay_constant: f64, dt_seconds: f64) -> f64` — Surviving fraction after `dt` seconds of decay: `exp(-lambda dt)`. · called at [L199](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/changi/src/activity/chi_over_q.rs#L199) · *(calls below the depth limit not shown)*
-      - [`units.rs::DilutionFactor::new`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/changi/src/activity/units.rs#L47) `pub const fn new(seconds_per_cubic_meter: f64) -> Self` — From a bare value in seconds per cubic metre. · called at [L201](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/changi/src/activity/chi_over_q.rs#L201) · *(calls below the depth limit not shown)*
-    - [`deposition.rs::dry_deposition`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/changi/src/activity/deposition.rs#L183) `pub fn dry_deposition(air: TimeIntegratedAirConcentration, velocity: DryDepositionVelocity) -> GroundDeposition` — Dry deposition from a ground-level time-integrated air concentration. · called at [L204](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/changi/src/activity/survey.rs#L204)
-      - `units.rs::TimeIntegratedAirConcentration::becquerel_seconds_per_cubic_meter` *(expanded elsewhere in this walk)* · called at [L187](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/changi/src/activity/deposition.rs#L187)
-      - `deposition.rs::DryDepositionVelocity::meters_per_second` *(expanded elsewhere in this walk)* · called at [L187](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/changi/src/activity/deposition.rs#L187)
-      - [`units.rs::GroundDeposition::new`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/changi/src/activity/units.rs#L152) `pub const fn new(becquerel_per_square_meter: f64) -> Self` — From a bare value in becquerels per square metre. · called at [L187](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/changi/src/activity/deposition.rs#L187) · *(calls below the depth limit not shown)*
-    - [`survey.rs::DepositionVelocities::for_group`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/changi/src/activity/survey.rs#L75) `pub const fn for_group(&self, group: DepositionGroup) -> DryDepositionVelocity` — The velocity for one group. · called at [L204](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/changi/src/activity/survey.rs#L204)
-  - [`stability.rs::StabilityClass::letter`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/changi/src/puff/stability.rs#L54) `pub fn letter(self) -> &'static str` — The single-letter label upstream uses (`"A"` … `"F"`). · called at [L168](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/changi/examples/site_activity_survey.rs#L168)
-  - [`source.rs::NuclideRelease::total_released`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/changi/src/activity/source.rs#L99) `pub fn total_released(&self) -> Radioactivity` — Total activity released across every window. · called at [L179](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/changi/examples/site_activity_survey.rs#L179)
-  - [`deposition.rs::DepositionGroup::label`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/changi/src/activity/deposition.rs#L100) `pub const fn label(self) -> &'static str` — A short label for printing. · called at [L185](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/changi/examples/site_activity_survey.rs#L185)
-  - [`survey.rs::total_released`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/changi/src/activity/survey.rs#L234) `pub fn total_released(source: &SourceTerm) -> Radioactivity` — Total activity released across every window and nuclide. · called at [L188](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/changi/examples/site_activity_survey.rs#L188)
-    - `source.rs::NuclideRelease::total_released` *(expanded elsewhere in this walk)* · called at [L239](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/changi/src/activity/survey.rs#L239)
-  - [`survey.rs::SiteSurvey::at`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/changi/src/activity/survey.rs#L118) `pub fn at(&self, receptor: usize) -> &[NuclideTotals]` — Every nuclide's totals at one receptor. · called at [L203](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/changi/examples/site_activity_survey.rs#L203)
-  - [`units.rs::TimeIntegratedAirConcentration::becquerel_seconds_per_cubic_meter`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/changi/src/activity/units.rs#L102) `pub const fn becquerel_seconds_per_cubic_meter(self) -> f64` — The value in becquerel-seconds per cubic metre. · called at [L207](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/changi/examples/site_activity_survey.rs#L207)
-  - [`units.rs::GroundDeposition::becquerel_per_square_meter`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/changi/src/activity/units.rs#L158) `pub const fn becquerel_per_square_meter(self) -> f64` — The value in becquerels per square metre. · called at [L209](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/changi/examples/site_activity_survey.rs#L209)
-  - [`deposition.rs::DryDepositionVelocity::meters_per_second`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/changi/src/activity/deposition.rs#L163) `pub fn meters_per_second(self) -> f64` — The value in metres per second. · called at [L221](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/changi/examples/site_activity_survey.rs#L221)
-  - [`chi_over_q.rs::DilutionFactors::reach`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/changi/src/activity/chi_over_q.rs#L154) `pub fn reach(&self) -> Length` — How far a puff travels before `puff_duration` drops it, at the fastest wind in the run. · called at [L243](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/changi/examples/site_activity_survey.rs#L243)
+<div class="cw-node" style="margin-left:0.0em">
+
+[`site_activity_survey.rs::main`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/changi/examples/site_activity_survey.rs#L78) `fn main()`
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/changi/examples/site_activity_survey.rs:78 fn main -->
+<!-- snippet-check: crates/changi/examples/site_activity_survey.rs:90 new -->
+<!-- snippet-check: crates/changi/examples/site_activity_survey.rs:98 new -->
+<!-- snippet-check: crates/changi/examples/site_activity_survey.rs:103 lambda -->
+<!-- snippet-check: crates/changi/examples/site_activity_survey.rs:109 lambda -->
+<!-- snippet-check: crates/changi/examples/site_activity_survey.rs:125 default -->
+<!-- snippet-check: crates/changi/examples/site_activity_survey.rs:142 constant_wind -->
+<!-- snippet-check: crates/changi/examples/site_activity_survey.rs:149 dilution_factors -->
+<!-- snippet-check: crates/changi/examples/site_activity_survey.rs:153 receptors_at -->
+<!-- snippet-check: crates/changi/examples/site_activity_survey.rs:158 factors_at -->
+<!-- snippet-check: crates/changi/examples/site_activity_survey.rs:159 factors_at -->
+<!-- snippet-check: crates/changi/examples/site_activity_survey.rs:160 order_of_magnitude_placeholder -->
+<!-- snippet-check: crates/changi/examples/site_activity_survey.rs:161 survey -->
+<!-- snippet-check: crates/changi/examples/site_activity_survey.rs:168 letter -->
+<!-- snippet-check: crates/changi/examples/site_activity_survey.rs:179 total_released -->
+<!-- snippet-check: crates/changi/examples/site_activity_survey.rs:185 label -->
+<!-- snippet-check: crates/changi/examples/site_activity_survey.rs:188 total_released -->
+<!-- snippet-check: crates/changi/examples/site_activity_survey.rs:203 at -->
+<!-- snippet-check: crates/changi/examples/site_activity_survey.rs:207 becquerel_seconds_per_cubic_meter -->
+<!-- snippet-check: crates/changi/examples/site_activity_survey.rs:209 becquerel_per_square_meter -->
+<!-- snippet-check: crates/changi/examples/site_activity_survey.rs:221 meters_per_second -->
+<!-- snippet-check: crates/changi/examples/site_activity_survey.rs:243 reach -->
+
+```rust,ignore
+{{#include ../../../../../../crates/changi/examples/site_activity_survey.rs:78:78}}
+    // …
+{{#include ../../../../../../crates/changi/examples/site_activity_survey.rs:88:91}}
+    // …
+{{#include ../../../../../../crates/changi/examples/site_activity_survey.rs:96:99}}
+    // …
+{{#include ../../../../../../crates/changi/examples/site_activity_survey.rs:101:104}}
+    // …
+{{#include ../../../../../../crates/changi/examples/site_activity_survey.rs:107:110}}
+    // …
+{{#include ../../../../../../crates/changi/examples/site_activity_survey.rs:123:126}}
+    // …
+{{#include ../../../../../../crates/changi/examples/site_activity_survey.rs:140:143}}
+    // …
+{{#include ../../../../../../crates/changi/examples/site_activity_survey.rs:147:154}}
+    // …
+{{#include ../../../../../../crates/changi/examples/site_activity_survey.rs:156:162}}
+    // …
+{{#include ../../../../../../crates/changi/examples/site_activity_survey.rs:166:169}}
+    // …
+{{#include ../../../../../../crates/changi/examples/site_activity_survey.rs:177:180}}
+    // …
+{{#include ../../../../../../crates/changi/examples/site_activity_survey.rs:183:189}}
+    // …
+{{#include ../../../../../../crates/changi/examples/site_activity_survey.rs:201:210}}
+    // …
+{{#include ../../../../../../crates/changi/examples/site_activity_survey.rs:219:222}}
+    // …
+{{#include ../../../../../../crates/changi/examples/site_activity_survey.rs:241:244}}
+    // … (the rest of the function: follow the link above)
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:0.9em">
+
+[`source.rs::ReleaseWindow::new`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/changi/src/activity/source.rs#L58) `pub fn new(start: Time, end: Time) -> Self` — A window from `start` to `end`. · called at [L90](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/changi/examples/site_activity_survey.rs#L90)
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/changi/src/activity/source.rs:58 fn new -->
+
+```rust,ignore
+{{#include ../../../../../../crates/changi/src/activity/source.rs:58:66}}
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:0.9em">
+
+[`source.rs::SourceTerm::new`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/changi/src/activity/source.rs#L125) `pub fn new(windows: Vec<ReleaseWindow>, nuclides: Vec<NuclideRelease>) -> Self` — Build and validate in one step. · called at [L98](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/changi/examples/site_activity_survey.rs#L98)
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/changi/src/activity/source.rs:125 fn new -->
+<!-- snippet-check: crates/changi/src/activity/source.rs:127 validate -->
+
+```rust,ignore
+{{#include ../../../../../../crates/changi/src/activity/source.rs:125:128}}
+    // … (the rest of the function: follow the link above)
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:1.8em">
+
+[`source.rs::SourceTerm::validate`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/changi/src/activity/source.rs#L147) `pub fn validate(&self)` — Check the invariants the dispersion driver relies on. · called at [L127](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/changi/src/activity/source.rs#L127)
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/changi/src/activity/source.rs:147 fn validate -->
+
+```rust,ignore
+{{#include ../../../../../../crates/changi/src/activity/source.rs:147:186}}
+    // … (the rest of the function: follow the link above)
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:0.9em">
+
+UNRESOLVED(closure): `lambda` at [L103](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/changi/examples/site_activity_survey.rs#L103) (→ [`crates/changi/examples/site_activity_survey.rs:97`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/changi/examples/site_activity_survey.rs#L97)) — call through a closure or fn-typed binding `lambda`
+
+</div>
+
+<div class="cw-node" style="margin-left:0.9em">
+
+UNRESOLVED(closure): `lambda` at [L109](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/changi/examples/site_activity_survey.rs#L109) (→ [`crates/changi/examples/site_activity_survey.rs:97`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/changi/examples/site_activity_survey.rs#L97)) — call through a closure or fn-typed binding `lambda`
+
+</div>
+
+<div class="cw-node" style="margin-left:0.9em">
+
+UNRESOLVED(other): `default` at [L125](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/changi/examples/site_activity_survey.rs#L125) (→ [`crates/changi/src/puff/simulate.rs:96`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/changi/src/puff/simulate.rs#L96)) — resolves to `#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]`, not a function body
+
+</div>
+
+<div class="cw-node" style="margin-left:0.9em">
+
+[`simulate.rs::constant_wind`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/changi/src/puff/simulate.rs#L730) `pub fn constant_wind(u: Velocity, v: Velocity, n: usize) -> Vec<WindComponents>` — Build a constant wind series of `n` samples, a convenience for examples and tests that do not care about wind variability. · called at [L142](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/changi/examples/site_activity_survey.rs#L142)
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/changi/src/puff/simulate.rs:730 fn constant_wind -->
+
+```rust,ignore
+{{#include ../../../../../../crates/changi/src/puff/simulate.rs:730:732}}
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:0.9em">
+
+[`chi_over_q.rs::dilution_factors`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/changi/src/activity/chi_over_q.rs#L237) `pub fn dilution_factors(sources: &[Source], segment_boundaries: &[Time], wind: &[WindComponents], receptors: &[Receptor], config: &RunConfig, stability: StabilitySource) -> DilutionFactors` — Run the puff train once with unit mass and accumulate the binned response. · called at [L149](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/changi/examples/site_activity_survey.rs#L149)
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/changi/src/activity/chi_over_q.rs:237 fn dilution_factors -->
+<!-- snippet-check: crates/changi/src/activity/chi_over_q.rs:288 wind_speed -->
+<!-- snippet-check: crates/changi/src/activity/chi_over_q.rs:302 advect -->
+<!-- snippet-check: crates/changi/src/activity/chi_over_q.rs:305 emits_at -->
+<!-- snippet-check: crates/changi/src/activity/chi_over_q.rs:307 set -->
+<!-- snippet-check: crates/changi/src/activity/chi_over_q.rs:308 emit_with_classes -->
+<!-- snippet-check: crates/changi/src/activity/chi_over_q.rs:311 segment_of -->
+<!-- snippet-check: crates/changi/src/activity/chi_over_q.rs:336 puff_unit_response -->
+
+```rust,ignore
+{{#include ../../../../../../crates/changi/src/activity/chi_over_q.rs:237:244}}
+    // …
+{{#include ../../../../../../crates/changi/src/activity/chi_over_q.rs:286:289}}
+    // …
+{{#include ../../../../../../crates/changi/src/activity/chi_over_q.rs:300:312}}
+    // …
+{{#include ../../../../../../crates/changi/src/activity/chi_over_q.rs:334:337}}
+    // … (the rest of the function: follow the link above)
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:1.8em">
+
+[`wind.rs::wind_speed`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/changi/src/puff/wind.rs#L174) `pub fn wind_speed(c: WindComponents) -> Velocity` — Scalar wind speed from components, `sqrt(u^2 + v^2)`. · called at [L288](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/changi/src/activity/chi_over_q.rs#L288)
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/changi/src/puff/wind.rs:174 fn wind_speed -->
+
+```rust,ignore
+{{#include ../../../../../../crates/changi/src/puff/wind.rs:174:178}}
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:1.8em">
+
+[`simulate.rs::advect`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/changi/src/puff/simulate.rs#L274) `pub(crate) fn advect(live: &mut [Puff], wind: WindComponents, dt: Time, policy: AdvectionPolicy)` — Advance every live puff by one step of `dt` on `wind`. · called at [L302](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/changi/src/activity/chi_over_q.rs#L302)
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/changi/src/puff/simulate.rs:274 fn advect -->
+
+```rust,ignore
+{{#include ../../../../../../crates/changi/src/puff/simulate.rs:274:290}}
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:1.8em">
+
+[`simulate.rs::emits_at`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/changi/src/puff/simulate.rs#L474) `pub(crate) fn emits_at(step: usize, elapsed_s: f64, puff_dt_s: f64) -> bool` — Whether a step emits, matching upstream's `t_idx == 1 || elapsed %% puff_dt == 0`. · called at [L305](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/changi/src/activity/chi_over_q.rs#L305)
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/changi/src/puff/simulate.rs:474 fn emits_at -->
+
+```rust,ignore
+{{#include ../../../../../../crates/changi/src/puff/simulate.rs:474:476}}
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:1.8em">
+
+[`chi_over_q.rs::StabilitySource::set`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/changi/src/activity/chi_over_q.rs#L98) `fn set(self, wind: WindComponents, start_hour: u32) -> StabilitySet` · called at [L307](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/changi/src/activity/chi_over_q.rs#L307)
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/changi/src/activity/chi_over_q.rs:98 fn set -->
+<!-- snippet-check: crates/changi/src/activity/chi_over_q.rs:100 wind_speed -->
+
+```rust,ignore
+{{#include ../../../../../../crates/changi/src/activity/chi_over_q.rs:98:101}}
+    // … (the rest of the function: follow the link above)
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:2.7em">
+
+`wind.rs::wind_speed` *(expanded elsewhere in this walk)* · called at [L100](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/changi/src/activity/chi_over_q.rs#L100)
+
+</div>
+
+<div class="cw-node" style="margin-left:2.7em">
+
+[`stability.rs::stability_class`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/changi/src/puff/stability.rs#L206) `pub fn stability_class(wind_speed: Option<Velocity>, hour: u32) -> StabilitySet` — Pasquill stability class(es) for a wind speed and hour of day. · called at [L100](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/changi/src/activity/chi_over_q.rs#L100) · *(calls below the depth limit not shown)*
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/changi/src/puff/stability.rs:206 fn stability_class -->
+
+```rust,ignore
+{{#include ../../../../../../crates/changi/src/puff/stability.rs:206:245}}
+    // … (the rest of the function: follow the link above)
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:1.8em">
+
+[`simulate.rs::emit_with_classes`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/changi/src/puff/simulate.rs#L363) `pub(crate) fn emit_with_classes(live: &mut Vec<Puff>, elapsed_s: f64, wind: WindComponents, set: StabilitySet, config: &RunConfig, emission_rate: MassRate)` — `emit` with the stability classes supplied rather than derived from the wind speed and the hour. · called at [L308](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/changi/src/activity/chi_over_q.rs#L308)
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/changi/src/puff/simulate.rs:363 fn emit_with_classes -->
+<!-- snippet-check: crates/changi/src/puff/simulate.rs:382 primary -->
+<!-- snippet-check: crates/changi/src/puff/simulate.rs:389 secondary -->
+
+```rust,ignore
+{{#include ../../../../../../crates/changi/src/puff/simulate.rs:363:390}}
+    // … (the rest of the function: follow the link above)
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:2.7em">
+
+[`stability.rs::StabilitySet::primary`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/changi/src/puff/stability.rs#L116) `pub fn primary(self) -> StabilityClass` — The first class, which is the one upstream's `gpuff` actually uses. · called at [L382](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/changi/src/puff/simulate.rs#L382) · *(calls below the depth limit not shown)*
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/changi/src/puff/stability.rs:116 fn primary -->
+
+```rust,ignore
+{{#include ../../../../../../crates/changi/src/puff/stability.rs:116:120}}
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:2.7em">
+
+[`stability.rs::StabilitySet::secondary`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/changi/src/puff/stability.rs#L124) `pub fn secondary(self) -> Option<StabilityClass>` — The second class where the condition is ambiguous. · called at [L389](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/changi/src/puff/simulate.rs#L389) · *(calls below the depth limit not shown)*
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/changi/src/puff/stability.rs:124 fn secondary -->
+
+```rust,ignore
+{{#include ../../../../../../crates/changi/src/puff/stability.rs:124:129}}
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:1.8em">
+
+[`chi_over_q.rs::segment_of`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/changi/src/activity/chi_over_q.rs#L381) `fn segment_of(bounds: &[f64], t: f64) -> Option<usize>` — Which segment contains `t`. · called at [L311](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/changi/src/activity/chi_over_q.rs#L311)
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/changi/src/activity/chi_over_q.rs:381 fn segment_of -->
+
+```rust,ignore
+{{#include ../../../../../../crates/changi/src/activity/chi_over_q.rs:381:390}}
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:1.8em">
+
+[`simulate.rs::puff_unit_response`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/changi/src/puff/simulate.rs#L451) `pub(crate) fn puff_unit_response(p: &Puff, source: Source, receptor: Receptor, elapsed_s: f64, policy: AdvectionPolicy) -> f64` — One puff's contribution at one receptor, **per kilogram of puff mass**. · called at [L336](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/changi/src/activity/chi_over_q.rs#L336)
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/changi/src/puff/simulate.rs:451 fn puff_unit_response -->
+<!-- snippet-check: crates/changi/src/puff/simulate.rs:458 puff_offset -->
+<!-- snippet-check: crates/changi/src/puff/simulate.rs:461 gaussian_puff_concentration -->
+
+```rust,ignore
+{{#include ../../../../../../crates/changi/src/puff/simulate.rs:451:462}}
+    // … (the rest of the function: follow the link above)
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:2.7em">
+
+[`simulate.rs::puff_offset`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/changi/src/puff/simulate.rs#L251) `fn puff_offset(p: &Puff, policy: AdvectionPolicy, elapsed_s: f64) -> (f64, f64, f64)` — A puff's displacement from its source and its dispersion distance, under whichever `AdvectionPolicy` is in force. · called at [L458](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/changi/src/puff/simulate.rs#L458) · *(calls below the depth limit not shown)*
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/changi/src/puff/simulate.rs:251 fn puff_offset -->
+
+```rust,ignore
+{{#include ../../../../../../crates/changi/src/puff/simulate.rs:251:261}}
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:2.7em">
+
+[`concentration.rs::gaussian_puff_concentration`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/changi/src/puff/concentration.rs#L80) `pub fn gaussian_puff_concentration(mass: Mass, class: StabilityClass, puff_x: Length, puff_y: Length, source_height: Length, receptor: (Length, Length, Length), travel_distance: Length) -> MassDensity` — Concentration at a receptor from one Gaussian puff, as a **mass density**. · called at [L461](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/changi/src/puff/simulate.rs#L461) · *(calls below the depth limit not shown)*
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/changi/src/puff/concentration.rs:80 fn gaussian_puff_concentration -->
+
+```rust,ignore
+{{#include ../../../../../../crates/changi/src/puff/concentration.rs:80:117}}
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:0.9em">
+
+UNRESOLVED(closure): `receptors_at` at [L153](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/changi/examples/site_activity_survey.rs#L153) (→ [`crates/changi/examples/site_activity_survey.rs:132`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/changi/examples/site_activity_survey.rs#L132)) — call through a closure or fn-typed binding `receptors_at`
+
+</div>
+
+<div class="cw-node" style="margin-left:0.9em">
+
+UNRESOLVED(closure): `factors_at` at [L158](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/changi/examples/site_activity_survey.rs#L158) (→ [`crates/changi/examples/site_activity_survey.rs:148`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/changi/examples/site_activity_survey.rs#L148)) — call through a closure or fn-typed binding `factors_at`
+
+</div>
+
+<div class="cw-node" style="margin-left:0.9em">
+
+UNRESOLVED(closure): `factors_at` at [L159](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/changi/examples/site_activity_survey.rs#L159) (→ [`crates/changi/examples/site_activity_survey.rs:148`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/changi/examples/site_activity_survey.rs#L148)) — call through a closure or fn-typed binding `factors_at`
+
+</div>
+
+<div class="cw-node" style="margin-left:0.9em">
+
+[`survey.rs::DepositionVelocities::order_of_magnitude_placeholder`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/changi/src/activity/survey.rs#L59) `pub fn order_of_magnitude_placeholder() -> Self` — **NOT CITED VALUES.** Order-of-magnitude placeholders, one per group — see `DryDepositionVelocity::order_of_magnitude_placeholder`, whose documentation is the one to read before quoting any deposition figure computed through this. · called at [L160](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/changi/examples/site_activity_survey.rs#L160)
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/changi/src/activity/survey.rs:59 fn order_of_magnitude_placeholder -->
+<!-- snippet-check: crates/changi/src/activity/survey.rs:61 order_of_magnitude_placeholder -->
+
+```rust,ignore
+{{#include ../../../../../../crates/changi/src/activity/survey.rs:59:62}}
+    // … (the rest of the function: follow the link above)
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:1.8em">
+
+[`deposition.rs::DryDepositionVelocity::order_of_magnitude_placeholder`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/changi/src/activity/deposition.rs#L152) `pub fn order_of_magnitude_placeholder(group: DepositionGroup) -> Self` — **NOT A CITED VALUE.** An order-of-magnitude placeholder so an end-to-end run is possible before a source has been read. · called at [L61](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/changi/src/activity/survey.rs#L61)
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/changi/src/activity/deposition.rs:152 fn order_of_magnitude_placeholder -->
+<!-- snippet-check: crates/changi/src/activity/deposition.rs:158 Self -->
+
+```rust,ignore
+{{#include ../../../../../../crates/changi/src/activity/deposition.rs:152:159}}
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:2.7em">
+
+UNRESOLVED(other): `Self` at [L158](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/changi/src/activity/deposition.rs#L158) (→ [`crates/changi/src/activity/deposition.rs:116`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/changi/src/activity/deposition.rs#L116)) — resolves to `impl DryDepositionVelocity {`, not a function body
+
+</div>
+
+<div class="cw-node" style="margin-left:0.9em">
+
+[`survey.rs::survey`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/changi/src/activity/survey.rs#L162) `pub fn survey(source: &SourceTerm, air_factors: &DilutionFactors, ground_factors: &DilutionFactors, velocities: &DepositionVelocities) -> SiteSurvey` — Scale dilution factors by a source term, per nuclide, and deposit. · called at [L161](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/changi/examples/site_activity_survey.rs#L161)
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/changi/src/activity/survey.rs:162 fn survey -->
+<!-- snippet-check: crates/changi/src/activity/survey.rs:168 validate -->
+<!-- snippet-check: crates/changi/src/activity/survey.rs:170 n_receptors -->
+<!-- snippet-check: crates/changi/src/activity/survey.rs:175 n_segments -->
+<!-- snippet-check: crates/changi/src/activity/survey.rs:192 default -->
+<!-- snippet-check: crates/changi/src/activity/survey.rs:193 default -->
+<!-- snippet-check: crates/changi/src/activity/survey.rs:198 dilution -->
+<!-- snippet-check: crates/changi/src/activity/survey.rs:204 dry_deposition -->
+
+```rust,ignore
+{{#include ../../../../../../crates/changi/src/activity/survey.rs:162:171}}
+    // …
+{{#include ../../../../../../crates/changi/src/activity/survey.rs:173:176}}
+    // …
+{{#include ../../../../../../crates/changi/src/activity/survey.rs:190:194}}
+    // …
+{{#include ../../../../../../crates/changi/src/activity/survey.rs:196:199}}
+    // …
+{{#include ../../../../../../crates/changi/src/activity/survey.rs:202:205}}
+    // … (the rest of the function: follow the link above)
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:1.8em">
+
+`source.rs::SourceTerm::validate` *(expanded elsewhere in this walk)* · called at [L168](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/changi/src/activity/survey.rs#L168)
+
+</div>
+
+<div class="cw-node" style="margin-left:1.8em">
+
+[`chi_over_q.rs::DilutionFactors::n_receptors`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/changi/src/activity/chi_over_q.rs#L129) `pub const fn n_receptors(&self) -> usize` — Number of receptors, in the order supplied. · called at [L170](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/changi/src/activity/survey.rs#L170)
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/changi/src/activity/chi_over_q.rs:129 fn n_receptors -->
+
+```rust,ignore
+{{#include ../../../../../../crates/changi/src/activity/chi_over_q.rs:129:131}}
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:1.8em">
+
+[`chi_over_q.rs::DilutionFactors::n_segments`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/changi/src/activity/chi_over_q.rs#L135) `pub const fn n_segments(&self) -> usize` — Number of release segments, in the order the boundaries defined them. · called at [L175](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/changi/src/activity/survey.rs#L175)
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/changi/src/activity/chi_over_q.rs:135 fn n_segments -->
+
+```rust,ignore
+{{#include ../../../../../../crates/changi/src/activity/chi_over_q.rs:135:137}}
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:1.8em">
+
+UNRESOLVED(other): `default` at [L192](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/changi/src/activity/survey.rs#L192) (→ [`crates/changi/src/activity/units.rs:90`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/changi/src/activity/units.rs#L90)) — resolves to `#[derive(Debug, Clone, Copy, PartialEq, PartialOrd, Default)]`, not a function body
+
+</div>
+
+<div class="cw-node" style="margin-left:1.8em">
+
+UNRESOLVED(other): `default` at [L193](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/changi/src/activity/survey.rs#L193) (→ [`crates/changi/src/activity/units.rs:90`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/changi/src/activity/units.rs#L90)) — resolves to `#[derive(Debug, Clone, Copy, PartialEq, PartialOrd, Default)]`, not a function body
+
+</div>
+
+<div class="cw-node" style="margin-left:1.8em">
+
+[`chi_over_q.rs::DilutionFactors::dilution`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/changi/src/activity/chi_over_q.rs#L182) `pub fn dilution(&self, receptor: usize, segment: usize, decay_constant: Frequency) -> DilutionFactor` — The dilution factor for one receptor and segment, with decay in transit. · called at [L198](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/changi/src/activity/survey.rs#L198)
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/changi/src/activity/chi_over_q.rs:182 fn dilution -->
+<!-- snippet-check: crates/changi/src/activity/chi_over_q.rs:195 index -->
+<!-- snippet-check: crates/changi/src/activity/chi_over_q.rs:199 surviving_fraction -->
+<!-- snippet-check: crates/changi/src/activity/chi_over_q.rs:201 new -->
+
+```rust,ignore
+{{#include ../../../../../../crates/changi/src/activity/chi_over_q.rs:182:202}}
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:2.7em">
+
+[`chi_over_q.rs::DilutionFactors::index`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/changi/src/activity/chi_over_q.rs#L204) `fn index(&self, receptor: usize, segment: usize, bin: usize) -> usize` · called at [L195](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/changi/src/activity/chi_over_q.rs#L195) · *(calls below the depth limit not shown)*
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/changi/src/activity/chi_over_q.rs:204 fn index -->
+
+```rust,ignore
+{{#include ../../../../../../crates/changi/src/activity/chi_over_q.rs:204:213}}
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:2.7em">
+
+[`decay.rs::surviving_fraction`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/changi/src/flexpart/decay.rs#L99) `pub fn surviving_fraction(decay_constant: f64, dt_seconds: f64) -> f64` — Surviving fraction after `dt` seconds of decay: `exp(-lambda dt)`. · called at [L199](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/changi/src/activity/chi_over_q.rs#L199) · *(calls below the depth limit not shown)*
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/changi/src/flexpart/decay.rs:99 fn surviving_fraction -->
+
+```rust,ignore
+{{#include ../../../../../../crates/changi/src/flexpart/decay.rs:99:108}}
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:2.7em">
+
+[`units.rs::DilutionFactor::new`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/changi/src/activity/units.rs#L47) `pub const fn new(seconds_per_cubic_meter: f64) -> Self` — From a bare value in seconds per cubic metre. · called at [L201](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/changi/src/activity/chi_over_q.rs#L201) · *(calls below the depth limit not shown)*
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/changi/src/activity/units.rs:47 fn new -->
+
+```rust,ignore
+{{#include ../../../../../../crates/changi/src/activity/units.rs:47:49}}
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:1.8em">
+
+[`deposition.rs::dry_deposition`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/changi/src/activity/deposition.rs#L183) `pub fn dry_deposition(air: TimeIntegratedAirConcentration, velocity: DryDepositionVelocity) -> GroundDeposition` — Dry deposition from a ground-level time-integrated air concentration. · called at [L204](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/changi/src/activity/survey.rs#L204)
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/changi/src/activity/deposition.rs:183 fn dry_deposition -->
+<!-- snippet-check: crates/changi/src/activity/deposition.rs:187 becquerel_seconds_per_cubic_meter -->
+
+```rust,ignore
+{{#include ../../../../../../crates/changi/src/activity/deposition.rs:183:188}}
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:2.7em">
+
+`units.rs::TimeIntegratedAirConcentration::becquerel_seconds_per_cubic_meter` *(expanded elsewhere in this walk)* · called at [L187](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/changi/src/activity/deposition.rs#L187)
+
+</div>
+
+<div class="cw-node" style="margin-left:2.7em">
+
+`deposition.rs::DryDepositionVelocity::meters_per_second` *(expanded elsewhere in this walk)* · called at [L187](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/changi/src/activity/deposition.rs#L187)
+
+</div>
+
+<div class="cw-node" style="margin-left:2.7em">
+
+[`units.rs::GroundDeposition::new`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/changi/src/activity/units.rs#L152) `pub const fn new(becquerel_per_square_meter: f64) -> Self` — From a bare value in becquerels per square metre. · called at [L187](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/changi/src/activity/deposition.rs#L187) · *(calls below the depth limit not shown)*
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/changi/src/activity/units.rs:152 fn new -->
+
+```rust,ignore
+{{#include ../../../../../../crates/changi/src/activity/units.rs:152:154}}
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:1.8em">
+
+[`survey.rs::DepositionVelocities::for_group`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/changi/src/activity/survey.rs#L75) `pub const fn for_group(&self, group: DepositionGroup) -> DryDepositionVelocity` — The velocity for one group. · called at [L204](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/changi/src/activity/survey.rs#L204)
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/changi/src/activity/survey.rs:75 fn for_group -->
+
+```rust,ignore
+{{#include ../../../../../../crates/changi/src/activity/survey.rs:75:81}}
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:0.9em">
+
+[`stability.rs::StabilityClass::letter`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/changi/src/puff/stability.rs#L54) `pub fn letter(self) -> &'static str` — The single-letter label upstream uses (`"A"` … `"F"`). · called at [L168](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/changi/examples/site_activity_survey.rs#L168)
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/changi/src/puff/stability.rs:54 fn letter -->
+
+```rust,ignore
+{{#include ../../../../../../crates/changi/src/puff/stability.rs:54:63}}
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:0.9em">
+
+[`source.rs::NuclideRelease::total_released`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/changi/src/activity/source.rs#L99) `pub fn total_released(&self) -> Radioactivity` — Total activity released across every window. · called at [L179](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/changi/examples/site_activity_survey.rs#L179)
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/changi/src/activity/source.rs:99 fn total_released -->
+
+```rust,ignore
+{{#include ../../../../../../crates/changi/src/activity/source.rs:99:106}}
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:0.9em">
+
+[`deposition.rs::DepositionGroup::label`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/changi/src/activity/deposition.rs#L100) `pub const fn label(self) -> &'static str` — A short label for printing. · called at [L185](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/changi/examples/site_activity_survey.rs#L185)
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/changi/src/activity/deposition.rs:100 fn label -->
+
+```rust,ignore
+{{#include ../../../../../../crates/changi/src/activity/deposition.rs:100:106}}
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:0.9em">
+
+[`survey.rs::total_released`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/changi/src/activity/survey.rs#L234) `pub fn total_released(source: &SourceTerm) -> Radioactivity` — Total activity released across every window and nuclide. · called at [L188](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/changi/examples/site_activity_survey.rs#L188)
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/changi/src/activity/survey.rs:234 fn total_released -->
+<!-- snippet-check: crates/changi/src/activity/survey.rs:239 total_released -->
+
+```rust,ignore
+{{#include ../../../../../../crates/changi/src/activity/survey.rs:234:240}}
+    // … (the rest of the function: follow the link above)
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:1.8em">
+
+`source.rs::NuclideRelease::total_released` *(expanded elsewhere in this walk)* · called at [L239](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/changi/src/activity/survey.rs#L239)
+
+</div>
+
+<div class="cw-node" style="margin-left:0.9em">
+
+[`survey.rs::SiteSurvey::at`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/changi/src/activity/survey.rs#L118) `pub fn at(&self, receptor: usize) -> &[NuclideTotals]` — Every nuclide's totals at one receptor. · called at [L203](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/changi/examples/site_activity_survey.rs#L203)
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/changi/src/activity/survey.rs:118 fn at -->
+
+```rust,ignore
+{{#include ../../../../../../crates/changi/src/activity/survey.rs:118:120}}
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:0.9em">
+
+[`units.rs::TimeIntegratedAirConcentration::becquerel_seconds_per_cubic_meter`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/changi/src/activity/units.rs#L102) `pub const fn becquerel_seconds_per_cubic_meter(self) -> f64` — The value in becquerel-seconds per cubic metre. · called at [L207](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/changi/examples/site_activity_survey.rs#L207)
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/changi/src/activity/units.rs:102 fn becquerel_seconds_per_cubic_meter -->
+
+```rust,ignore
+{{#include ../../../../../../crates/changi/src/activity/units.rs:102:104}}
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:0.9em">
+
+[`units.rs::GroundDeposition::becquerel_per_square_meter`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/changi/src/activity/units.rs#L158) `pub const fn becquerel_per_square_meter(self) -> f64` — The value in becquerels per square metre. · called at [L209](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/changi/examples/site_activity_survey.rs#L209)
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/changi/src/activity/units.rs:158 fn becquerel_per_square_meter -->
+
+```rust,ignore
+{{#include ../../../../../../crates/changi/src/activity/units.rs:158:160}}
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:0.9em">
+
+[`deposition.rs::DryDepositionVelocity::meters_per_second`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/changi/src/activity/deposition.rs#L163) `pub fn meters_per_second(self) -> f64` — The value in metres per second. · called at [L221](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/changi/examples/site_activity_survey.rs#L221)
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/changi/src/activity/deposition.rs:163 fn meters_per_second -->
+
+```rust,ignore
+{{#include ../../../../../../crates/changi/src/activity/deposition.rs:163:165}}
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:0.9em">
+
+[`chi_over_q.rs::DilutionFactors::reach`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/changi/src/activity/chi_over_q.rs#L154) `pub fn reach(&self) -> Length` — How far a puff travels before `puff_duration` drops it, at the fastest wind in the run. · called at [L243](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/changi/examples/site_activity_survey.rs#L243)
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/changi/src/activity/chi_over_q.rs:154 fn reach -->
+
+```rust,ignore
+{{#include ../../../../../../crates/changi/src/activity/chi_over_q.rs:154:156}}
+```
+
+</details>
+</div>
 <!-- /code-walk -->
 
 **Next:** [Rung 6: from air and ground to dose](./06-dose.md).

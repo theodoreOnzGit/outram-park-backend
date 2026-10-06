@@ -355,123 +355,1761 @@ cargo run --release -p sembawang --example htr10_air_ingress_kora_bound
 
 Everything `crates/sembawang/examples/htr10_air_ingress_kora_bound.rs::main` reaches in the workspace, to 2 hops: 95 functions, 11 unresolved calls. A function is expanded once; later calls to it say *(expanded elsewhere in this walk)*.
 
-- [`htr10_air_ingress_kora_bound.rs::main`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/sembawang/examples/htr10_air_ingress_kora_bound.rs#L306) `fn main()`
-  - [`htr10.rs::stand_in_irradiation_temperature`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/sembawang/src/htr10.rs#L599) `pub fn stand_in_irradiation_temperature() -> ThermodynamicTemperature` — `T_B` as a `uom` temperature, for callers that do not want to reach for the unit themselves. · called at [L315](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/sembawang/examples/htr10_air_ingress_kora_bound.rs#L315)
-  - [`htr10.rs::isothermal_failure`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/sembawang/src/htr10.rs#L609) `pub fn isothermal_failure(irradiation_temperature: ThermodynamicTemperature, accident: ThermodynamicTemperature, hold: Time, steps: usize) -> (f64, f64, f64)` — The in-service failure fraction PANAMA gives for an isothermal hold — the form the report's own heating experiments have, and the form the 1600 °C/200 h comparison in HTA-IB-03/90 page -504- is stated in. · called at [L318](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/sembawang/examples/htr10_air_ingress_kora_bound.rs#L318)
-    - [`mod.rs::particle`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/fuel_failure/htr10/mod.rs#L242) `pub fn particle(irradiation_temperature: ThermodynamicTemperature) -> ParticleState` — The HTR-10 particle as boon-lay fuel failure sees it, at a stated irradiation temperature. · called at [L615](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/sembawang/src/htr10.rs#L615) · *(calls below the depth limit not shown)*
-    - `mod.rs::end_of_irradiation_failure` *(expanded elsewhere in this walk)* · called at [L616](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/sembawang/src/htr10.rs#L616)
-    - [`history.rs::AccidentHistory::new`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/fuel_failure/history.rs#L487) `pub fn new(particle: ParticleState, end_of_irradiation_phi_1: FailureFraction) -> Self` — Start an accident from the end-of-irradiation state. · called at [L617](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/sembawang/src/htr10.rs#L617) · *(calls below the depth limit not shown)*
-    - [`history.rs::AccidentHistory::run_isothermal`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/fuel_failure/history.rs#L618) `pub fn run_isothermal(&mut self, temperature: ThermodynamicTemperature, total: Time, n: usize) -> FailureProgress` — Walk an isothermal hold split into `n` equal intervals — the shape every heating experiment in the report has. · called at [L618](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/sembawang/src/htr10.rs#L618) · *(calls below the depth limit not shown)*
-    - [`history.rs::FailureProgress::in_service_failure_fraction`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/fuel_failure/history.rs#L441) `pub fn in_service_failure_fraction(&self) -> FailureFraction` — The **in-service** failure fraction: `φ₁` and `φ₂` combined, with the as-manufactured population excluded. · called at [L622](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/sembawang/src/htr10.rs#L622) · *(calls below the depth limit not shown)*
-  - [`mod.rs::end_of_irradiation_failure`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/fuel_failure/htr10/mod.rs#L320) `pub fn end_of_irradiation_failure(irradiation_temperature: ThermodynamicTemperature) -> super::FailureFraction` — `φ₁` at the **end of irradiation** — the value the PANAMA-I report assigns to `t = 0` of an accident (page -482-), and the one that matters for normal operation. · called at [L319](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/sembawang/examples/htr10_air_ingress_kora_bound.rs#L319)
-    - [`mod.rs::end_of_irradiation_failure_for`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/fuel_failure/htr10/mod.rs#L335) `pub fn end_of_irradiation_failure_for(p: &ParticleState, irradiation_temperature: ThermodynamicTemperature, irradiation_time: Time) -> super::FailureFraction` — `end_of_irradiation_failure` for an arbitrary `ParticleState` — the form the sweeps need, since they vary `F_b`, `t_B` and `Γ`. · called at [L323](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/fuel_failure/htr10/mod.rs#L323) · *(calls below the depth limit not shown)*
-    - `mod.rs::particle` *(expanded elsewhere in this walk)* · called at [L324](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/fuel_failure/htr10/mod.rs#L324)
-  - [`htr10_air_ingress_kora_bound.rs::htr10_inventory`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/sembawang/examples/htr10_air_ingress_kora_bound.rs#L282) `fn htr10_inventory() -> (CoreInventory, Vec<(String, f64)>)` — Liu & Cao Table 1, kept where TRISO-ATOPS supports the nuclide. · called at [L353](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/sembawang/examples/htr10_air_ingress_kora_bound.rs#L353)
-    - `inventory.rs::htr10_equilibrium_core` *(expanded elsewhere in this walk)* · called at [L285](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/sembawang/examples/htr10_air_ingress_kora_bound.rs#L285)
-    - `nuclide_database.rs::find_nuclide` *(expanded elsewhere in this walk)* · called at [L286](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/sembawang/examples/htr10_air_ingress_kora_bound.rs#L286)
-    - [`inventory.rs::NuclideInventory::uniform`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/sembawang/src/inventory.rs#L49) `pub fn uniform(name: &str, per_ring: Radioactivity, n_radial: usize) -> Self` — Every ring carrying the same activity. · called at [L287](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/sembawang/examples/htr10_air_ingress_kora_bound.rs#L287) · *(calls below the depth limit not shown)*
-    - [`inventory.rs::CoreInventory::new`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/sembawang/src/inventory.rs#L100) `pub fn new(nuclides: Vec<NuclideInventory>, n_radial: usize, n_axial: usize) -> Self` — Build and validate. · called at [L292](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/sembawang/examples/htr10_air_ingress_kora_bound.rs#L292) · *(calls below the depth limit not shown)*
-  - [`htr10.rs::plant_parameters`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/sembawang/src/htr10.rs#L518) `pub fn plant_parameters(geometry: Htr10Geometry, fractions: AccidentFractions) -> PlantParameters` — Assemble `PlantParameters` for an HTR-10 DLOFC. · called at [L354](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/sembawang/examples/htr10_air_ingress_kora_bound.rs#L354)
-    - [`htr10.rs::primary_circuit_pools`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/sembawang/src/htr10.rs#L584) `pub fn primary_circuit_pools() -> PrimaryCircuitPools` — The HTR-10 **primary-circuit pools** an accident starts from: `PrimaryCircuitPools::FromNormalOperation` over · called at [L530](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/sembawang/src/htr10.rs#L530) · *(calls below the depth limit not shown)*
-  - [`htr10_air_ingress_kora_bound.rs::htr10_geometry`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/sembawang/examples/htr10_air_ingress_kora_bound.rs#L270) `fn htr10_geometry() -> Htr10Geometry` — HTR-10 geometry from `tampines` (TECDOC-1382 part 2 Table 4-17), as in the `htr10_dlofc_panama_source_term` example. · called at [L354](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/sembawang/examples/htr10_air_ingress_kora_bound.rs#L354)
-    - [`triso.rs::TrisoParticle::htr10`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/tampines/src/pebble_bed/triso.rs#L353) `pub fn htr10() -> Self` — The HTR-10 coated fuel particle, transcribed from **IAEA-TECDOC-1382 part 2, Chapter 4, Table 4-17** (Open tier). · called at [L271](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/sembawang/examples/htr10_air_ingress_kora_bound.rs#L271) · *(calls below the depth limit not shown)*
-    - [`pebble.rs::Pebble::htr10`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/tampines/src/pebble_bed/pebble.rs#L327) `pub fn htr10() -> Self` — The HTR-10 fuel element, transcribed from **IAEA-TECDOC-1382 part 2, Chapter 4** (Open tier): ball diameter 6.0 cm, fuelled-zone diameter 5.0 cm, 8335 coated particles per element (the figure that chapter's MCNP model states), with the HTR-10 particle of `TrisoParticle::htr10` and the `DispersionModel::ChiewGlandt` mixing rule the Virtual Test Bed pebble decks use. · called at [L272](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/sembawang/examples/htr10_air_ingress_kora_bound.rs#L272) · *(calls below the depth limit not shown)*
-  - [`release.rs::accident_release`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/sembawang/src/accident/release.rs#L486) `pub fn accident_release(inventory: &CoreInventory, transient: &TemperatureTransient, plant: &PlantParameters) -> Result<AccidentRelease>` — Run the accident release and assemble a source term. · called at [L358](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/sembawang/examples/htr10_air_ingress_kora_bound.rs#L358)
-    - `release.rs::accident_release_with_venting` *(expanded elsewhere in this walk)* · called at [L491](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/sembawang/src/accident/release.rs#L491)
-  - [`htr10_air_ingress_kora_bound.rs::flat_hold`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/sembawang/examples/htr10_air_ingress_kora_bound.rs#L297) `fn flat_hold() -> TemperatureTransient` — A flat `HOLD_CELSIUS` history over `DOSE_PERIOD_HOURS` (the release window), uniform over the nodes. · called at [L358](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/sembawang/examples/htr10_air_ingress_kora_bound.rs#L358)
-    - [`scenario.rs::TemperatureTransient::from_nodes`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/sembawang/src/scenario.rs#L64) `pub fn from_nodes(times: Vec<Time>, temperatures: Vec<Vec<Vec<ThermodynamicTemperature>>>) -> Result<Self>` — From an arbitrary per-node history. · called at [L303](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/sembawang/examples/htr10_air_ingress_kora_bound.rs#L303) · *(calls below the depth limit not shown)*
-  - [`release.rs::accident_release_with_venting`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/sembawang/src/accident/release.rs#L625) `pub fn accident_release_with_venting(inventory: &CoreInventory, transient: &TemperatureTransient, plant: &PlantParameters, venting_mode: &Venting) -> Result<AccidentRelease>` — `accident_release` with the core-venting (transport) mode chosen explicitly; see `Venting`. · called at [L360](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/sembawang/examples/htr10_air_ingress_kora_bound.rs#L360)
-    - [`scenario.rs::TemperatureTransient::len`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/sembawang/src/scenario.rs#L168) `pub fn len(&self) -> usize` — Number of time samples. · called at [L639](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/sembawang/src/accident/release.rs#L639) · *(calls below the depth limit not shown)*
-    - UNRESOLVED(other): `default` at [L643](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/sembawang/src/accident/release.rs#L643) (→ [`crates/sembawang/src/error.rs:92`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/sembawang/src/error.rs#L92)) — resolves to `#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]`, not a function body
-    - [`scenario.rs::TemperatureTransient::min_celsius`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/sembawang/src/scenario.rs#L234) `pub fn min_celsius(&self) -> f64` — The minimum temperature anywhere in the transient. · called at [L646](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/sembawang/src/accident/release.rs#L646) · *(calls below the depth limit not shown)*
-    - [`scenario.rs::TemperatureTransient::peak_celsius`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/sembawang/src/scenario.rs#L223) `pub fn peak_celsius(&self) -> f64` — The peak temperature anywhere in the transient, for checking it against the fitted range of the diffusion correlation. · called at [L647](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/sembawang/src/accident/release.rs#L647) · *(calls below the depth limit not shown)*
-    - [`inventory.rs::CoreInventory::names`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/sembawang/src/inventory.rs#L150) `pub fn names(&self) -> Vec<&str>` — The nuclide names, in order, for handing to `select_nuclides_accident`. · called at [L653](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/sembawang/src/accident/release.rs#L653) · *(calls below the depth limit not shown)*
-    - [`mod.rs::select_nuclides_accident`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/run_selection/mod.rs#L362) `pub fn select_nuclides_accident(supplied_names: &[&str], accident_time: Time, use_ratio: Option<f64>) -> (Vec<TrisoAtopsNuclide>, Vec<SelectionError>)` — Select the nuclides relevant to an **accident** window. · called at [L661](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/sembawang/src/accident/release.rs#L661) · *(calls below the depth limit not shown)*
-    - [`scenario.rs::TemperatureTransient::end`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/sembawang/src/scenario.rs#L181) `pub fn end(&self) -> Time` — When the transient ends. · called at [L661](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/sembawang/src/accident/release.rs#L661) · *(calls below the depth limit not shown)*
-    - [`mod.rs::normalise_nuclide_name`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/run_selection/mod.rs#L184) `pub fn normalise_nuclide_name(supplied: &str) -> Result<String, SelectionError>` — Normalise a nuclide name to the database's canonical spelling. · called at [L669](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/sembawang/src/accident/release.rs#L669) · *(calls below the depth limit not shown)*
-    - [`release.rs::TemperatureTransient::is_uniform_and_constant`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/sembawang/src/accident/release.rs#L605) `fn is_uniform_and_constant(&self) -> bool` — Whether every node at every time has exactly the first node's first temperature: upstream's test for skipping `coolant_release`. · called at [L683](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/sembawang/src/accident/release.rs#L683) · *(calls below the depth limit not shown)*
-    - [`venting.rs::VentingWindow::all_samples`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/sembawang/src/accident/venting.rs#L140) `pub fn all_samples(fractions: Vec<f64>) -> Self` — A window over **every** sample of an `n`-sample axis, with the given fraction at each, where `n = fractions.len()`. · called at [L685](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/sembawang/src/accident/release.rs#L685) · *(calls below the depth limit not shown)*
-    - [`release.rs::TemperatureTransient::is_constant_in_time`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/sembawang/src/accident/release.rs#L597) `fn is_constant_in_time(&self) -> bool` — Whether every node's temperature is the same at every time (spatial variation allowed): the non-uniform isothermal case (#447). · called at [L687](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/sembawang/src/accident/release.rs#L687) · *(calls below the depth limit not shown)*
-    - [`mod.rs::mean_temperature_rate`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/accident/mod.rs#L449) `pub fn mean_temperature_rate(times: &[Time], node_temperatures: &[Vec<ThermodynamicTemperature>]) -> Vec<f64>` — Mean `dT/dt` at each sample, averaged across the core. · called at [L696](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/sembawang/src/accident/release.rs#L696) · *(calls below the depth limit not shown)*
-    - [`scenario.rs::TemperatureTransient::all_node_histories`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/sembawang/src/scenario.rs#L199) `pub fn all_node_histories(&self) -> Vec<Vec<ThermodynamicTemperature>>` — Every node's history, flattened ring-major, as `mean_temperature_rate` wants it. · called at [L696](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/sembawang/src/accident/release.rs#L696) · *(calls below the depth limit not shown)*
-    - [`scenario.rs::TemperatureTransient::hot_node_history`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/sembawang/src/scenario.rs#L216) `pub fn hot_node_history(&self) -> Vec<ThermodynamicTemperature>` — The history of the node taken as hottest: innermost ring, mid-height. · called at [L697](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/sembawang/src/accident/release.rs#L697) · *(calls below the depth limit not shown)*
-    - [`mod.rs::coolant_release`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/accident/mod.rs#L362) `pub fn coolant_release(times: &[Time], mean_dtdt: &[f64], hot_node_temperature: &[ThermodynamicTemperature], pressure: Pressure) -> (Vec<f64>, Vec<Time>)` — Fraction of the primary coolant vented, over the venting window. · called at [L699](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/sembawang/src/accident/release.rs#L699) · *(calls below the depth limit not shown)*
-    - [`venting.rs::VentingWindow::from_coolant_release`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/sembawang/src/accident/venting.rs#L94) `pub fn from_coolant_release(full_times: &[Time], vent_times: &[Time], fractions: Vec<f64>) -> Result<Self>` — Recover the venting indices from `coolant_release`'s output. · called at [L701](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/sembawang/src/accident/release.rs#L701) · *(calls below the depth limit not shown)*
-    - [`venting.rs::VentingWindow::is_empty`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/sembawang/src/accident/venting.rs#L157) `pub fn is_empty(&self) -> bool` — Whether nothing vented. · called at [L702](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/sembawang/src/accident/release.rs#L702) · *(calls below the depth limit not shown)*
-    - [`venting.rs::VentingWindow::is_contiguous`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/sembawang/src/accident/venting.rs#L192) `pub fn is_contiguous(&self) -> bool` — Whether the venting samples form a contiguous run. · called at [L734](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/sembawang/src/accident/release.rs#L734) · *(calls below the depth limit not shown)*
-    - [`venting.rs::VentingWindow::len`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/sembawang/src/accident/venting.rs#L151) `pub fn len(&self) -> usize` — How many samples vented. · called at [L735](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/sembawang/src/accident/release.rs#L735) · *(calls below the depth limit not shown)*
-    - [`venting.rs::VentingWindow::times`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/sembawang/src/accident/venting.rs#L203) `pub fn times(&self, full_times: &[Time]) -> Vec<Time>` — The venting samples' times, gathered from the full axis. · called at [L740](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/sembawang/src/accident/release.rs#L740) · *(calls below the depth limit not shown)*
-    - [`release.rs::normal_operation_pools`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/sembawang/src/accident/release.rs#L360) `fn normal_operation_pools(inventory: &CoreInventory, transient: &TemperatureTransient, plant: &PlantParameters, op: &NormalOperation) -> HashMap<String, Vec<NodalActivities>>` — Upstream's `normal_operation`, per node, for every inventory nuclide the normal-operation selection keeps: the pools `PrimaryCircuitPools::FromNormalOperation` starts the accident from. · called at [L745](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/sembawang/src/accident/release.rs#L745) · *(calls below the depth limit not shown)*
-    - [`mod.rs::TrisoAtopsNuclide::element_group`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/mod.rs#L126) `pub fn element_group(&self) -> ElementGroup` — The transport `ElementGroup` this nuclide belongs to, from its `Z`. · called at [L754](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/sembawang/src/accident/release.rs#L754) · *(calls below the depth limit not shown)*
-    - `mod.rs::TrisoAtopsNuclide::decay_constant` *(expanded elsewhere in this walk)* · called at [L756](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/sembawang/src/accident/release.rs#L756)
-    - [`inventory.rs::NuclideInventory::axial_curies`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/sembawang/src/inventory.rs#L76) `pub fn axial_curies(&self, ring: usize, n_axial: usize) -> Vec<f64>` — This nuclide's inventory in one ring, spread over the axial nodes. · called at [L773](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/sembawang/src/accident/release.rs#L773) · *(calls below the depth limit not shown)*
-    - [`scenario.rs::TemperatureTransient::node_history`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/sembawang/src/scenario.rs#L190) `pub fn node_history(&self, ring: usize, axial: usize) -> Vec<ThermodynamicTemperature>` — One node's history, `[time]`. · called at [L778](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/sembawang/src/accident/release.rs#L778) · *(calls below the depth limit not shown)*
-    - [`venting.rs::VentingWindow::gather`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/sembawang/src/accident/venting.rs#L218) `pub fn gather<T: Copy>(&self, full: &[T]) -> Vec<T>` — Any per-sample quantity, gathered at the venting indices. · called at [L779](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/sembawang/src/accident/release.rs#L779) · *(calls below the depth limit not shown)*
-    - [`mod.rs::integrate_diffusion_over_time`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/diffusion/mod.rs#L242) `pub fn integrate_diffusion_over_time(z: u32, times: &[Time], temperatures: &[ThermodynamicTemperature], material: DiffusionMaterial) -> Vec<Area>` — Cumulative time-integral `∫₀ᵗ D(T(t')) dt'` along a temperature history. · called at [L781](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/sembawang/src/accident/release.rs#L781) · *(calls below the depth limit not shown)*
-    - [`release.rs::zero_pools`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/sembawang/src/accident/release.rs#L338) `pub fn zero_pools() -> boon_lay::triso_atops_fork::normal_operation::NodalActivities` — A normal-operation state with every pool empty: the `PrimaryCircuitPools::EmptyAblation` state. · passed as a function value at [L802](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/sembawang/src/accident/release.rs#L802) · *(calls below the depth limit not shown)*
-    - [`release.rs::bridge_node`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/sembawang/src/accident/release.rs#L430) `pub fn bridge_node(activities: &boon_lay::triso_atops_fork::normal_operation::NodalActivities, inventory_curies: f64, decay_constant: uom::si::f64::Frequency) -> NormalOperationNode` — Bridge `normal_operation_node`'s six channels to `release_activity`'s seven. · called at [L805](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/sembawang/src/accident/release.rs#L805) · *(calls below the depth limit not shown)*
-    - [`mod.rs::release_fraction_transient`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/release_models/mod.rs#L187) `pub fn release_fraction_transient(z: u32, element_group: ElementGroup, integrated_d: Area, primary_thickness: Length, secondary_thickness: Option<Length>, material: ReleaseMaterial) -> ReleaseFraction` — Accident (transient) release-fraction dispatcher. · called at [L808](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/sembawang/src/accident/release.rs#L808) · *(calls below the depth limit not shown)*
-    - [`mod.rs::release_activity`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/accident/mod.rs#L253) `pub fn release_activity(group: ElementGroup, fractions: AccidentFractions, node: NormalOperationNode, release_fraction: f64, clean: bool, material: ReleaseMaterial, upstream_cadmium_typo: bool, z: u32) -> f64` — The activity still available for accident release at one node, in atoms. · called at [L824](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/sembawang/src/accident/release.rs#L824) · *(calls below the depth limit not shown)*
-    - [`mod.rs::atoms_to_curies`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/accident/mod.rs#L570) `pub fn atoms_to_curies(atoms: f64, decay_constant: f64) -> f64` — Convert an activity in atoms to curies: `atoms * lambda / 3.7e10`. · called at [L847](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/sembawang/src/accident/release.rs#L847) · *(calls below the depth limit not shown)*
-    - [`mod.rs::accident_release_curies`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/accident/mod.rs#L532) `pub fn accident_release_curies(kernel_release_curies: &[f64], graphite_release_curies: &[f64], vent_fraction: &[f64], circulating_curies: f64, plate_out_curies: f64, x_liftoff: f64) -> Vec<f64>` — Total released activity for one nuclide over the accident, in **curies**. · called at [L853](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/sembawang/src/accident/release.rs#L853) · *(calls below the depth limit not shown)*
-    - [`venting.rs::VentingWindow::fractions`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/sembawang/src/accident/venting.rs#L181) `pub fn fractions(&self) -> &[f64]` — The released fraction at each venting sample. · called at [L856](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/sembawang/src/accident/release.rs#L856) · *(calls below the depth limit not shown)*
-    - [`units.rs::from_curies`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/sembawang/src/units.rs#L70) `pub fn from_curies(curies: f64) -> Radioactivity` — An activity given in curies. · called at [L864](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/sembawang/src/accident/release.rs#L864) · *(calls below the depth limit not shown)*
-    - [`release.rs::deposition_group_of`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/sembawang/src/accident/release.rs#L455) `pub fn deposition_group_of(nuclide: &TrisoAtopsNuclide) -> DepositionGroup` — Which `changi` deposition group a TRISO-ATOPS nuclide belongs to. · called at [L887](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/sembawang/src/accident/release.rs#L887) · *(calls below the depth limit not shown)*
-    - [`source.rs::ReleaseWindow::new`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/changi/src/activity/source.rs#L58) `pub fn new(start: Time, end: Time) -> Self` — A window from `start` to `end`. · called at [L895](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/sembawang/src/accident/release.rs#L895) · *(calls below the depth limit not shown)*
-    - [`source.rs::SourceTerm::new`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/changi/src/activity/source.rs#L125) `pub fn new(windows: Vec<ReleaseWindow>, nuclides: Vec<NuclideRelease>) -> Self` — Build and validate in one step. · called at [L899](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/sembawang/src/accident/release.rs#L899) · *(calls below the depth limit not shown)*
-  - [`source.rs::NuclideRelease::total_released`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/changi/src/activity/source.rs#L99) `pub fn total_released(&self) -> Radioactivity` — Total activity released across every window. · called at [L366](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/sembawang/examples/htr10_air_ingress_kora_bound.rs#L366)
-  - [`primary_helium.rs::htr10_primary_helium_end_of_life`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/changi/src/activity/primary_helium.rs#L83) `pub fn htr10_primary_helium_end_of_life() -> Vec<PrimaryHeliumActivityEntry>` — Every nuclide in the published HTR-10 end-of-life primary-helium activity. · called at [L375](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/sembawang/examples/htr10_air_ingress_kora_bound.rs#L375)
-    - [`inventory.rs::parse_nuclide_bq_csv`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/changi/src/activity/inventory.rs#L82) `pub(crate) fn parse_nuclide_bq_csv(csv: &'static str) -> Vec<(&'static str, Radioactivity)>` — Parse a compiled-in two-column `nuclide,<quantity>_bq` table. · called at [L84](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/changi/src/activity/primary_helium.rs#L84) · *(calls below the depth limit not shown)*
-  - [`inventory.rs::htr10_equilibrium_core`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/changi/src/activity/inventory.rs#L68) `pub fn htr10_equilibrium_core() -> Vec<InventoryEntry>` — Every nuclide in the published HTR-10 equilibrium-core inventory. · called at [L383](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/sembawang/examples/htr10_air_ingress_kora_bound.rs#L383)
-    - `inventory.rs::parse_nuclide_bq_csv` *(expanded elsewhere in this walk)* · called at [L69](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/changi/src/activity/inventory.rs#L69)
-  - UNRESOLVED(closure): `circ_bq` at [L395](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/sembawang/examples/htr10_air_ingress_kora_bound.rs#L395) (→ [`crates/sembawang/examples/htr10_air_ingress_kora_bound.rs:376`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/sembawang/examples/htr10_air_ingress_kora_bound.rs#L376)) — call through a closure or fn-typed binding `circ_bq`
-  - UNRESOLVED(closure): `core_bq` at [L396](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/sembawang/examples/htr10_air_ingress_kora_bound.rs#L396) (→ [`crates/sembawang/examples/htr10_air_ingress_kora_bound.rs:382`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/sembawang/examples/htr10_air_ingress_kora_bound.rs#L382)) — call through a closure or fn-typed binding `core_bq`
-  - UNRESOLVED(closure): `circ_bq` at [L404](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/sembawang/examples/htr10_air_ingress_kora_bound.rs#L404) (→ [`crates/sembawang/examples/htr10_air_ingress_kora_bound.rs:376`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/sembawang/examples/htr10_air_ingress_kora_bound.rs#L376)) — call through a closure or fn-typed binding `circ_bq`
-  - [`dispersion.rs::dilution_single_plume_no_met`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/dispersion.rs#L293) `pub fn dilution_single_plume_no_met(x: Length, geometry: PlumeGeometry, scaling: MeanSpeedScaling) -> [DilutionFactor; 6]` — Dilution factor for an **instantaneous (single-plume) release without met data**, one value per stability class A-F, s/m^3 (time-integrated concentration per Bq released, at unit wind speed times the height correction). · called at [L441](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/sembawang/examples/htr10_air_ingress_kora_bound.rs#L441)
-    - [`dispersion.rs::height_correction_factor`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/dispersion.rs#L137) `pub fn height_correction_factor(stability: StabilityClass, release_height: Length, measurement_height: Length) -> f64` — Wind-speed correction from measurement height to release height, `(H / H_m)^p` with `p = n / (2 - n)`, `n = 0.2` (A-C), `0.25` (D), `0.5` (E-F). · called at [L301](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/dispersion.rs#L301) · *(calls below the depth limit not shown)*
-    - [`dispersion.rs::master_equation_single_plume`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/dispersion.rs#L197) `pub fn master_equation_single_plume(sigma_y: Length, sigma_z: Length, speed_factor: f64, release_height: Length, receptor: Receptor) -> MasterEquationTerms` — Single (instantaneous / short-term) Gaussian plume, Hukkoo-Bapat eq. · called at [L302](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/dispersion.rs#L302) · *(calls below the depth limit not shown)*
-    - [`dispersion.rs::sigma_y`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/dispersion.rs#L94) `pub fn sigma_y(stability: StabilityClass, x: Length) -> Length` — Lateral plume spread `sigma_y = A_y x^0.9031`, m, for downwind distance `x`. · called at [L303](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/dispersion.rs#L303) · *(calls below the depth limit not shown)*
-    - [`dispersion.rs::sigma_z`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/dispersion.rs#L107) `pub fn sigma_z(stability: StabilityClass, x: Length) -> Length` — Vertical plume spread `sigma_z = A_z x^q + r`, m, with three distance bands (`x < 100 m`, `100 <= x <= 1000 m`, `x > 1000 m`) exactly as upstream. · called at [L304](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/dispersion.rs#L304) · *(calls below the depth limit not shown)*
-    - [`dispersion.rs::StabilityClass::index`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/dispersion.rs#L69) `pub const fn index(self) -> usize` — Zero-based index, 0 (A) to 5 (F). · called at [L309](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/dispersion.rs#L309) · *(calls below the depth limit not shown)*
-    - [`dispersion.rs::kqij`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/dispersion.rs#L268) `fn kqij(terms: MasterEquationTerms, sumnu: f64, hours_denominator: f64) -> f64` — Frequency-weighted accumulation used by all three modes, in upstream's operation order: `KQIJ = pre * expo * SUMNU; KQIJ = (KQIJ * 3600) / (hours * 3600)`. · called at [L309](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/dispersion.rs#L309) · *(calls below the depth limit not shown)*
-    - [`dispersion.rs::apply_scaling`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/dispersion.rs#L273) `fn apply_scaling(values: [f64; 6], scaling: MeanSpeedScaling) -> [DilutionFactor; 6]` · called at [L311](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/dispersion.rs#L311) · *(calls below the depth limit not shown)*
-  - [`units.rs::DilutionFactor::seconds_per_cubic_meter`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/changi/src/activity/units.rs#L53) `pub const fn seconds_per_cubic_meter(self) -> f64` — The value in seconds per cubic metre. · called at [L452](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/sembawang/examples/htr10_air_ingress_kora_bound.rs#L452)
-  - [`coefficients.rs::fgr15_air_submersion`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/coefficients.rs#L77) `pub fn fgr15_air_submersion() -> ExternalDcfTable` — FGR-15 (2025) Table 4-6, air submersion. · called at [L461](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/sembawang/examples/htr10_air_ingress_kora_bound.rs#L461)
-    - [`dcf.rs::ExternalDcfTable::from_csv`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/dcf.rs#L231) `pub fn from_csv(text: &str) -> Result<Self, String>` — Read a CSV export of upstream's `surface_dose` or `submersion_dose` sheet: columns `Nuclide` and `Self::AGE_COLUMNS`. · called at [L78](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/coefficients.rs#L78) · *(calls below the depth limit not shown)*
-  - [`coefficients.rs::fgr15_short_lived_progeny`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/coefficients.rs#L95) `pub fn fgr15_short_lived_progeny() -> ProgenyChains` — The one short-lived progeny link these nuclides need (Cs-137 -> Ba-137m). · called at [L462](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/sembawang/examples/htr10_air_ingress_kora_bound.rs#L462)
-    - [`dcf.rs::ProgenyChains::from_csv`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/dcf.rs#L295) `pub fn from_csv(links_csv: &str, half_lives_csv: &str) -> Result<Self, String>` — Read two CSVs: `parent,daughter,yield` and `nuclide,half_life`. · called at [L96](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/coefficients.rs#L96) · *(calls below the depth limit not shown)*
-  - [`coefficients.rs::fgr11_inhalation`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/coefficients.rs#L106) `pub fn fgr11_inhalation() -> InhalationDcfTable` — FGR-11 Table 2.1 inhalation, adult only, in the port's inhalation-table layout (the `Type` column holds FGR-11's D/W/Y clearance class). · called at [L463](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/sembawang/examples/htr10_air_ingress_kora_bound.rs#L463)
-    - [`dcf.rs::InhalationDcfTable::from_csv`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/dcf.rs#L158) `pub fn from_csv(text: &str) -> Result<Self, String>` — Read a CSV export of upstream's `Inhalation CED Sv per Bq Public` sheet: columns `Nuclide`, `Type` and `Self::AGE_COLUMNS` (others ignored). · called at [L107](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/coefficients.rs#L107) · *(calls below the depth limit not shown)*
-  - [`coefficients.rs::fgr15_ground_surface`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/coefficients.rs#L86) `pub fn fgr15_ground_surface() -> ExternalDcfTable` — FGR-15 (2025) Table 4-1, ground surface. · called at [L464](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/sembawang/examples/htr10_air_ingress_kora_bound.rs#L464)
-    - `dcf.rs::ExternalDcfTable::from_csv` *(expanded elsewhere in this walk)* · called at [L87](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/coefficients.rs#L87)
-  - UNRESOLVED(closure): `circ_bq` at [L473](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/sembawang/examples/htr10_air_ingress_kora_bound.rs#L473) (→ [`crates/sembawang/examples/htr10_air_ingress_kora_bound.rs:376`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/sembawang/examples/htr10_air_ingress_kora_bound.rs#L376)) — call through a closure or fn-typed binding `circ_bq`
-  - [`coefficients.rs::external_coefficient`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/coefficients.rs#L114) `pub fn external_coefficient(table: &ExternalDcfTable, chains: &ProgenyChains, nuclide: &str, age: AgeBracket) -> Option<f64>` — An external dose-rate coefficient through the port's own lookup (`dcf::external_dcf`, with `PROGENY`), or `None` when the table has no row for `nuclide` at that age. · called at [L476](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/sembawang/examples/htr10_air_ingress_kora_bound.rs#L476)
-    - [`dcf.rs::external_dcf`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/dcf.rs#L373) `pub fn external_dcf(table: &ExternalDcfTable, chains: &ProgenyChains, nuclide: &str, age: AgeBracket, progeny: ProgenyCorrection) -> ExternalDcfPair` — Upstream's `dcf_list_ecerman_*_include_progeny` for one nuclide. · called at [L120](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/coefficients.rs#L120) · *(calls below the depth limit not shown)*
-    - [`dcf.rs::ExternalDcfPair::selected`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/dcf.rs#L363) `pub fn selected(self, progeny: ProgenyCorrection) -> f64` — The coefficient a pathway uses: `corrected` when progeny are included. · called at [L120](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/coefficients.rs#L120) · *(calls below the depth limit not shown)*
-  - [`dose.rs::submersion_dose`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/dose.rs#L239) `pub fn submersion_dose(chi_over_q: DilutionFactor, release: Release, dcf_sub: f64) -> EffectiveDose` — Submersion dose for one nuclide: `chi/Q * Q * DCF_sub * 1000` (mSv, or mSv/y). · called at [L477](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/sembawang/examples/htr10_air_ingress_kora_bound.rs#L477)
-    - [`units.rs::EffectiveDose::from_millisieverts`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/units.rs#L42) `pub const fn from_millisieverts(msv: f64) -> Self` — From a value in millisieverts. · called at [L247](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/dose.rs#L247) · *(calls below the depth limit not shown)*
-    - [`dose.rs::submersion_dose_rate_msv_per_s`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/dose.rs#L269) `pub fn submersion_dose_rate_msv_per_s(air_concentration_bq_per_m3: f64, dcf_sub: f64) -> f64` — The submersion coefficient product `C * DCF_sub * 1000`: given an **instantaneous** air concentration `C` \[Bq/m^3\] and an air-submersion dose-rate coefficient \[Sv m^3 Bq^-1 s^-1\] (FGR-15 Table 4-6 is one), the effective dose **rate** \[mSv/s\]; given a time-integrated concentration \[Bq s/m^3\], the dose \[mSv\], which is how `submersion_dose` uses it. · called at [L247](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/dose.rs#L247) · *(calls below the depth limit not shown)*
-    - `units.rs::DilutionFactor::seconds_per_cubic_meter` *(expanded elsewhere in this walk)* · called at [L248](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/dose.rs#L248)
-    - [`dose.rs::Release::becquerels`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/dose.rs#L57) `pub fn becquerels(self) -> f64` — The Bq value upstream multiplies by (total Bq, or Bq per year). · called at [L248](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/dose.rs#L248) · *(calls below the depth limit not shown)*
-  - [`units.rs::EffectiveDose::sieverts`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/units.rs#L60) `pub fn sieverts(self) -> f64` — The dose in sieverts. · called at [L477](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/sembawang/examples/htr10_air_ingress_kora_bound.rs#L477)
-  - [`coefficients.rs::fgr11_inhalation_max_over_classes`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/coefficients.rs#L130) `pub fn fgr11_inhalation_max_over_classes(table: &InhalationDcfTable, nuclide: &str, age: AgeBracket) -> Option<f64>` — The FGR-11 inhalation coefficient for `nuclide` at `age`, taking the **largest over FGR-11's lung clearance classes** (the same rule as the port's `LungAbsorptionType::Max`; with no chemical-form information that is the conservative choice). · called at [L480](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/sembawang/examples/htr10_air_ingress_kora_bound.rs#L480)
-    - [`dcf.rs::nan_max`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/dcf.rs#L117) `pub(crate) fn nan_max(values: impl Iterator<Item = f64>) -> f64` — pandas' `Series.max()`: the maximum ignoring NaN; NaN if nothing remains. · called at [L135](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/coefficients.rs#L135) · *(calls below the depth limit not shown)*
-    - [`dcf.rs::AgeBracket::column`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/dcf.rs#L81) `pub const fn column(self) -> usize` — Column index, 0 (infant) to 5 (adult), in upstream's table order. · called at [L140](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/coefficients.rs#L140) · *(calls below the depth limit not shown)*
-  - [`dose.rs::deposition_velocity_m_per_s`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/dose.rs#L139) `pub fn deposition_velocity_m_per_s(element: &str) -> f64` — Upstream's total (dry + wet) deposition velocity by **element symbol**, m/s (`deposition_velocity_of_rad`, citing IAEA SRS 19 p. · called at [L487](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/sembawang/examples/htr10_air_ingress_kora_bound.rs#L487)
-  - [`nuclide_database.rs::find_nuclide`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L145) `pub fn find_nuclide(name: &str) -> Option<TrisoAtopsNuclide>` — Look a nuclide up by its canonical TRISO-ATOPS name (case-sensitive). · called at [L488](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/sembawang/examples/htr10_air_ingress_kora_bound.rs#L488)
-    - [`nuclide_database.rs::supported_nuclides`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L44) `pub fn supported_nuclides() -> Vec<TrisoAtopsNuclide>` — The full TRISO-ATOPS supported-nuclide table. · called at [L146](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L146) · *(calls below the depth limit not shown)*
-  - [`mod.rs::TrisoAtopsNuclide::decay_constant`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/mod.rs#L117) `pub fn decay_constant(&self) -> DecayConstant` — The radioactive decay constant `λ = ln 2 / t½`. · called at [L489](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/sembawang/examples/htr10_air_ingress_kora_bound.rs#L489)
-  - UNRESOLVED(closure): `fmt` at [L501](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/sembawang/examples/htr10_air_ingress_kora_bound.rs#L501) (→ [`crates/sembawang/examples/htr10_air_ingress_kora_bound.rs:498`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/sembawang/examples/htr10_air_ingress_kora_bound.rs#L498)) — call through a closure or fn-typed binding `fmt`
-  - UNRESOLVED(closure): `fmt` at [L502](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/sembawang/examples/htr10_air_ingress_kora_bound.rs#L502) (→ [`crates/sembawang/examples/htr10_air_ingress_kora_bound.rs:498`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/sembawang/examples/htr10_air_ingress_kora_bound.rs#L498)) — call through a closure or fn-typed binding `fmt`
-  - UNRESOLVED(closure): `fmt` at [L503](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/sembawang/examples/htr10_air_ingress_kora_bound.rs#L503) (→ [`crates/sembawang/examples/htr10_air_ingress_kora_bound.rs:498`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/sembawang/examples/htr10_air_ingress_kora_bound.rs#L498)) — call through a closure or fn-typed binding `fmt`
-  - [`accident_dose_by_distance.rs::htr10_accident_dose_by_distance`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/published/accident_dose_by_distance.rs#L164) `pub fn htr10_accident_dose_by_distance() -> Vec<PublishedAccidentDoseAtDistance>` — Every row of the published HTR-10 accident dose-versus-distance table, in the source's order (increasing distance, 0.25 km to 75 km). · called at [L538](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/sembawang/examples/htr10_air_ingress_kora_bound.rs#L538)
-  - [`htr10_air_ingress_kora_bound.rs::max_chi_over_q`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/sembawang/examples/htr10_air_ingress_kora_bound.rs#L255) `fn max_chi_over_q(x_m: f64, geometry: PlumeGeometry) -> (StabilityClass, f64)` — The largest single-plume χ/Q over classes A-F at `x_m`, and its class. · called at [L555](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/sembawang/examples/htr10_air_ingress_kora_bound.rs#L555)
-    - `dispersion.rs::dilution_single_plume_no_met` *(expanded elsewhere in this walk)* · called at [L256](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/sembawang/examples/htr10_air_ingress_kora_bound.rs#L256)
-    - `units.rs::DilutionFactor::seconds_per_cubic_meter` *(expanded elsewhere in this walk)* · called at [L264](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/sembawang/examples/htr10_air_ingress_kora_bound.rs#L264)
-  - UNRESOLVED(closure): `dose_at` at [L561](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/sembawang/examples/htr10_air_ingress_kora_bound.rs#L561) (→ [`crates/sembawang/examples/htr10_air_ingress_kora_bound.rs:560`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/sembawang/examples/htr10_air_ingress_kora_bound.rs#L560)) — call through a closure or fn-typed binding `dose_at`
-  - UNRESOLVED(closure): `dose_at` at [L563](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/sembawang/examples/htr10_air_ingress_kora_bound.rs#L563) (→ [`crates/sembawang/examples/htr10_air_ingress_kora_bound.rs:560`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/sembawang/examples/htr10_air_ingress_kora_bound.rs#L560)) — call through a closure or fn-typed binding `dose_at`
-  - UNRESOLVED(closure): `dose_at` at [L566](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/sembawang/examples/htr10_air_ingress_kora_bound.rs#L566) (→ [`crates/sembawang/examples/htr10_air_ingress_kora_bound.rs:560`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/sembawang/examples/htr10_air_ingress_kora_bound.rs#L560)) — call through a closure or fn-typed binding `dose_at`
-  - [`release.rs::Venting::gao_shi_htr10_cavity_ventilation`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/sembawang/src/accident/release.rs#L586) `pub fn gao_shi_htr10_cavity_ventilation() -> Self` — **HTR-10 air ingress, the reactor-cavity ventilation**, from Gao & Shi 2002 (NED 218:65-80) §5.3.2: after the hot-gas-duct rupture, *"the venting flow is 100 % d⁻¹ in the first 3 days. · called at [L589](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/sembawang/examples/htr10_air_ingress_kora_bound.rs#L589)
+<div class="cw-node" style="margin-left:0.0em">
+
+[`htr10_air_ingress_kora_bound.rs::main`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/sembawang/examples/htr10_air_ingress_kora_bound.rs#L306) `fn main()`
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/sembawang/examples/htr10_air_ingress_kora_bound.rs:306 fn main -->
+<!-- snippet-check: crates/sembawang/examples/htr10_air_ingress_kora_bound.rs:315 stand_in_irradiation_temperature -->
+<!-- snippet-check: crates/sembawang/examples/htr10_air_ingress_kora_bound.rs:318 isothermal_failure -->
+<!-- snippet-check: crates/sembawang/examples/htr10_air_ingress_kora_bound.rs:319 end_of_irradiation_failure -->
+<!-- snippet-check: crates/sembawang/examples/htr10_air_ingress_kora_bound.rs:353 htr10_inventory -->
+<!-- snippet-check: crates/sembawang/examples/htr10_air_ingress_kora_bound.rs:354 plant_parameters -->
+<!-- snippet-check: crates/sembawang/examples/htr10_air_ingress_kora_bound.rs:358 accident_release -->
+<!-- snippet-check: crates/sembawang/examples/htr10_air_ingress_kora_bound.rs:360 accident_release_with_venting -->
+<!-- snippet-check: crates/sembawang/examples/htr10_air_ingress_kora_bound.rs:366 total_released -->
+<!-- snippet-check: crates/sembawang/examples/htr10_air_ingress_kora_bound.rs:375 htr10_primary_helium_end_of_life -->
+<!-- snippet-check: crates/sembawang/examples/htr10_air_ingress_kora_bound.rs:383 htr10_equilibrium_core -->
+<!-- snippet-check: crates/sembawang/examples/htr10_air_ingress_kora_bound.rs:395 circ_bq -->
+<!-- snippet-check: crates/sembawang/examples/htr10_air_ingress_kora_bound.rs:396 core_bq -->
+<!-- snippet-check: crates/sembawang/examples/htr10_air_ingress_kora_bound.rs:404 circ_bq -->
+<!-- snippet-check: crates/sembawang/examples/htr10_air_ingress_kora_bound.rs:441 dilution_single_plume_no_met -->
+<!-- snippet-check: crates/sembawang/examples/htr10_air_ingress_kora_bound.rs:452 seconds_per_cubic_meter -->
+<!-- snippet-check: crates/sembawang/examples/htr10_air_ingress_kora_bound.rs:461 fgr15_air_submersion -->
+<!-- snippet-check: crates/sembawang/examples/htr10_air_ingress_kora_bound.rs:462 fgr15_short_lived_progeny -->
+<!-- snippet-check: crates/sembawang/examples/htr10_air_ingress_kora_bound.rs:463 fgr11_inhalation -->
+<!-- snippet-check: crates/sembawang/examples/htr10_air_ingress_kora_bound.rs:464 fgr15_ground_surface -->
+<!-- snippet-check: crates/sembawang/examples/htr10_air_ingress_kora_bound.rs:473 circ_bq -->
+<!-- snippet-check: crates/sembawang/examples/htr10_air_ingress_kora_bound.rs:476 external_coefficient -->
+<!-- snippet-check: crates/sembawang/examples/htr10_air_ingress_kora_bound.rs:477 submersion_dose -->
+<!-- snippet-check: crates/sembawang/examples/htr10_air_ingress_kora_bound.rs:480 fgr11_inhalation_max_over_classes -->
+<!-- snippet-check: crates/sembawang/examples/htr10_air_ingress_kora_bound.rs:487 deposition_velocity_m_per_s -->
+<!-- snippet-check: crates/sembawang/examples/htr10_air_ingress_kora_bound.rs:488 find_nuclide -->
+<!-- snippet-check: crates/sembawang/examples/htr10_air_ingress_kora_bound.rs:489 decay_constant -->
+<!-- snippet-check: crates/sembawang/examples/htr10_air_ingress_kora_bound.rs:501 fmt -->
+<!-- snippet-check: crates/sembawang/examples/htr10_air_ingress_kora_bound.rs:502 fmt -->
+<!-- snippet-check: crates/sembawang/examples/htr10_air_ingress_kora_bound.rs:503 fmt -->
+<!-- snippet-check: crates/sembawang/examples/htr10_air_ingress_kora_bound.rs:538 htr10_accident_dose_by_distance -->
+<!-- snippet-check: crates/sembawang/examples/htr10_air_ingress_kora_bound.rs:555 max_chi_over_q -->
+<!-- snippet-check: crates/sembawang/examples/htr10_air_ingress_kora_bound.rs:561 dose_at -->
+<!-- snippet-check: crates/sembawang/examples/htr10_air_ingress_kora_bound.rs:563 dose_at -->
+<!-- snippet-check: crates/sembawang/examples/htr10_air_ingress_kora_bound.rs:566 dose_at -->
+<!-- snippet-check: crates/sembawang/examples/htr10_air_ingress_kora_bound.rs:589 gao_shi_htr10_cavity_ventilation -->
+
+```rust,ignore
+{{#include ../../../../../../crates/sembawang/examples/htr10_air_ingress_kora_bound.rs:306:306}}
+    // …
+{{#include ../../../../../../crates/sembawang/examples/htr10_air_ingress_kora_bound.rs:313:320}}
+    // …
+{{#include ../../../../../../crates/sembawang/examples/htr10_air_ingress_kora_bound.rs:351:361}}
+    // …
+{{#include ../../../../../../crates/sembawang/examples/htr10_air_ingress_kora_bound.rs:364:367}}
+    // …
+{{#include ../../../../../../crates/sembawang/examples/htr10_air_ingress_kora_bound.rs:373:376}}
+    // …
+{{#include ../../../../../../crates/sembawang/examples/htr10_air_ingress_kora_bound.rs:381:384}}
+    // …
+{{#include ../../../../../../crates/sembawang/examples/htr10_air_ingress_kora_bound.rs:393:397}}
+    // …
+{{#include ../../../../../../crates/sembawang/examples/htr10_air_ingress_kora_bound.rs:402:405}}
+    // …
+{{#include ../../../../../../crates/sembawang/examples/htr10_air_ingress_kora_bound.rs:439:442}}
+    // …
+{{#include ../../../../../../crates/sembawang/examples/htr10_air_ingress_kora_bound.rs:450:453}}
+    // …
+{{#include ../../../../../../crates/sembawang/examples/htr10_air_ingress_kora_bound.rs:459:465}}
+    // …
+{{#include ../../../../../../crates/sembawang/examples/htr10_air_ingress_kora_bound.rs:471:481}}
+    // …
+{{#include ../../../../../../crates/sembawang/examples/htr10_air_ingress_kora_bound.rs:485:490}}
+    // …
+{{#include ../../../../../../crates/sembawang/examples/htr10_air_ingress_kora_bound.rs:499:504}}
+    // …
+{{#include ../../../../../../crates/sembawang/examples/htr10_air_ingress_kora_bound.rs:536:539}}
+    // …
+{{#include ../../../../../../crates/sembawang/examples/htr10_air_ingress_kora_bound.rs:553:556}}
+    // …
+{{#include ../../../../../../crates/sembawang/examples/htr10_air_ingress_kora_bound.rs:559:567}}
+    // …
+{{#include ../../../../../../crates/sembawang/examples/htr10_air_ingress_kora_bound.rs:587:590}}
+    // … (the rest of the function: follow the link above)
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:0.9em">
+
+[`htr10.rs::stand_in_irradiation_temperature`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/sembawang/src/htr10.rs#L599) `pub fn stand_in_irradiation_temperature() -> ThermodynamicTemperature` — `T_B` as a `uom` temperature, for callers that do not want to reach for the unit themselves. · called at [L315](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/sembawang/examples/htr10_air_ingress_kora_bound.rs#L315)
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/sembawang/src/htr10.rs:599 fn stand_in_irradiation_temperature -->
+
+```rust,ignore
+{{#include ../../../../../../crates/sembawang/src/htr10.rs:599:601}}
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:0.9em">
+
+[`htr10.rs::isothermal_failure`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/sembawang/src/htr10.rs#L609) `pub fn isothermal_failure(irradiation_temperature: ThermodynamicTemperature, accident: ThermodynamicTemperature, hold: Time, steps: usize) -> (f64, f64, f64)` — The in-service failure fraction PANAMA gives for an isothermal hold — the form the report's own heating experiments have, and the form the 1600 °C/200 h comparison in HTA-IB-03/90 page -504- is stated in. · called at [L318](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/sembawang/examples/htr10_air_ingress_kora_bound.rs#L318)
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/sembawang/src/htr10.rs:609 fn isothermal_failure -->
+<!-- snippet-check: crates/sembawang/src/htr10.rs:615 particle -->
+<!-- snippet-check: crates/sembawang/src/htr10.rs:616 end_of_irradiation_failure -->
+<!-- snippet-check: crates/sembawang/src/htr10.rs:617 new -->
+<!-- snippet-check: crates/sembawang/src/htr10.rs:618 run_isothermal -->
+<!-- snippet-check: crates/sembawang/src/htr10.rs:622 in_service_failure_fraction -->
+
+```rust,ignore
+{{#include ../../../../../../crates/sembawang/src/htr10.rs:609:623}}
+    // … (the rest of the function: follow the link above)
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:1.8em">
+
+[`mod.rs::particle`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/fuel_failure/htr10/mod.rs#L242) `pub fn particle(irradiation_temperature: ThermodynamicTemperature) -> ParticleState` — The HTR-10 particle as boon-lay fuel failure sees it, at a stated irradiation temperature. · called at [L615](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/sembawang/src/htr10.rs#L615) · *(calls below the depth limit not shown)*
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/boon-lay/src/fuel_failure/htr10/mod.rs:242 fn particle -->
+
+```rust,ignore
+{{#include ../../../../../../crates/boon-lay/src/fuel_failure/htr10/mod.rs:242:249}}
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:1.8em">
+
+`mod.rs::end_of_irradiation_failure` *(expanded elsewhere in this walk)* · called at [L616](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/sembawang/src/htr10.rs#L616)
+
+</div>
+
+<div class="cw-node" style="margin-left:1.8em">
+
+[`history.rs::AccidentHistory::new`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/fuel_failure/history.rs#L487) `pub fn new(particle: ParticleState, end_of_irradiation_phi_1: FailureFraction) -> Self` — Start an accident from the end-of-irradiation state. · called at [L617](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/sembawang/src/htr10.rs#L617) · *(calls below the depth limit not shown)*
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/boon-lay/src/fuel_failure/history.rs:487 fn new -->
+
+```rust,ignore
+{{#include ../../../../../../crates/boon-lay/src/fuel_failure/history.rs:487:491}}
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:1.8em">
+
+[`history.rs::AccidentHistory::run_isothermal`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/fuel_failure/history.rs#L618) `pub fn run_isothermal(&mut self, temperature: ThermodynamicTemperature, total: Time, n: usize) -> FailureProgress` — Walk an isothermal hold split into `n` equal intervals — the shape every heating experiment in the report has. · called at [L618](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/sembawang/src/htr10.rs#L618) · *(calls below the depth limit not shown)*
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/boon-lay/src/fuel_failure/history.rs:618 fn run_isothermal -->
+
+```rust,ignore
+{{#include ../../../../../../crates/boon-lay/src/fuel_failure/history.rs:618:633}}
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:1.8em">
+
+[`history.rs::FailureProgress::in_service_failure_fraction`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/fuel_failure/history.rs#L441) `pub fn in_service_failure_fraction(&self) -> FailureFraction` — The **in-service** failure fraction: `φ₁` and `φ₂` combined, with the as-manufactured population excluded. · called at [L622](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/sembawang/src/htr10.rs#L622) · *(calls below the depth limit not shown)*
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/boon-lay/src/fuel_failure/history.rs:441 fn in_service_failure_fraction -->
+
+```rust,ignore
+{{#include ../../../../../../crates/boon-lay/src/fuel_failure/history.rs:441:447}}
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:0.9em">
+
+[`mod.rs::end_of_irradiation_failure`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/fuel_failure/htr10/mod.rs#L320) `pub fn end_of_irradiation_failure(irradiation_temperature: ThermodynamicTemperature) -> super::FailureFraction` — `φ₁` at the **end of irradiation** — the value the PANAMA-I report assigns to `t = 0` of an accident (page -482-), and the one that matters for normal operation. · called at [L319](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/sembawang/examples/htr10_air_ingress_kora_bound.rs#L319)
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/boon-lay/src/fuel_failure/htr10/mod.rs:320 fn end_of_irradiation_failure -->
+<!-- snippet-check: crates/boon-lay/src/fuel_failure/htr10/mod.rs:323 end_of_irradiation_failure_for -->
+<!-- snippet-check: crates/boon-lay/src/fuel_failure/htr10/mod.rs:324 particle -->
+
+```rust,ignore
+{{#include ../../../../../../crates/boon-lay/src/fuel_failure/htr10/mod.rs:320:325}}
+    // … (the rest of the function: follow the link above)
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:1.8em">
+
+[`mod.rs::end_of_irradiation_failure_for`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/fuel_failure/htr10/mod.rs#L335) `pub fn end_of_irradiation_failure_for(p: &ParticleState, irradiation_temperature: ThermodynamicTemperature, irradiation_time: Time) -> super::FailureFraction` — `end_of_irradiation_failure` for an arbitrary `ParticleState` — the form the sweeps need, since they vary `F_b`, `t_B` and `Γ`. · called at [L323](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/fuel_failure/htr10/mod.rs#L323) · *(calls below the depth limit not shown)*
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/boon-lay/src/fuel_failure/htr10/mod.rs:335 fn end_of_irradiation_failure_for -->
+
+```rust,ignore
+{{#include ../../../../../../crates/boon-lay/src/fuel_failure/htr10/mod.rs:335:365}}
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:1.8em">
+
+`mod.rs::particle` *(expanded elsewhere in this walk)* · called at [L324](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/fuel_failure/htr10/mod.rs#L324)
+
+</div>
+
+<div class="cw-node" style="margin-left:0.9em">
+
+[`htr10_air_ingress_kora_bound.rs::htr10_inventory`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/sembawang/examples/htr10_air_ingress_kora_bound.rs#L282) `fn htr10_inventory() -> (CoreInventory, Vec<(String, f64)>)` — Liu & Cao Table 1, kept where TRISO-ATOPS supports the nuclide. · called at [L353](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/sembawang/examples/htr10_air_ingress_kora_bound.rs#L353)
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/sembawang/examples/htr10_air_ingress_kora_bound.rs:282 fn htr10_inventory -->
+<!-- snippet-check: crates/sembawang/examples/htr10_air_ingress_kora_bound.rs:285 htr10_equilibrium_core -->
+<!-- snippet-check: crates/sembawang/examples/htr10_air_ingress_kora_bound.rs:286 find_nuclide -->
+<!-- snippet-check: crates/sembawang/examples/htr10_air_ingress_kora_bound.rs:287 uniform -->
+<!-- snippet-check: crates/sembawang/examples/htr10_air_ingress_kora_bound.rs:292 new -->
+
+```rust,ignore
+{{#include ../../../../../../crates/sembawang/examples/htr10_air_ingress_kora_bound.rs:282:293}}
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:1.8em">
+
+`inventory.rs::htr10_equilibrium_core` *(expanded elsewhere in this walk)* · called at [L285](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/sembawang/examples/htr10_air_ingress_kora_bound.rs#L285)
+
+</div>
+
+<div class="cw-node" style="margin-left:1.8em">
+
+`nuclide_database.rs::find_nuclide` *(expanded elsewhere in this walk)* · called at [L286](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/sembawang/examples/htr10_air_ingress_kora_bound.rs#L286)
+
+</div>
+
+<div class="cw-node" style="margin-left:1.8em">
+
+[`inventory.rs::NuclideInventory::uniform`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/sembawang/src/inventory.rs#L49) `pub fn uniform(name: &str, per_ring: Radioactivity, n_radial: usize) -> Self` — Every ring carrying the same activity. · called at [L287](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/sembawang/examples/htr10_air_ingress_kora_bound.rs#L287) · *(calls below the depth limit not shown)*
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/sembawang/src/inventory.rs:49 fn uniform -->
+
+```rust,ignore
+{{#include ../../../../../../crates/sembawang/src/inventory.rs:49:54}}
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:1.8em">
+
+[`inventory.rs::CoreInventory::new`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/sembawang/src/inventory.rs#L100) `pub fn new(nuclides: Vec<NuclideInventory>, n_radial: usize, n_axial: usize) -> Self` — Build and validate. · called at [L292](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/sembawang/examples/htr10_air_ingress_kora_bound.rs#L292) · *(calls below the depth limit not shown)*
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/sembawang/src/inventory.rs:100 fn new -->
+
+```rust,ignore
+{{#include ../../../../../../crates/sembawang/src/inventory.rs:100:124}}
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:0.9em">
+
+[`htr10.rs::plant_parameters`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/sembawang/src/htr10.rs#L518) `pub fn plant_parameters(geometry: Htr10Geometry, fractions: AccidentFractions) -> PlantParameters` — Assemble `PlantParameters` for an HTR-10 DLOFC. · called at [L354](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/sembawang/examples/htr10_air_ingress_kora_bound.rs#L354)
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/sembawang/src/htr10.rs:518 fn plant_parameters -->
+<!-- snippet-check: crates/sembawang/src/htr10.rs:530 primary_circuit_pools -->
+
+```rust,ignore
+{{#include ../../../../../../crates/sembawang/src/htr10.rs:518:531}}
+    // … (the rest of the function: follow the link above)
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:1.8em">
+
+[`htr10.rs::primary_circuit_pools`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/sembawang/src/htr10.rs#L584) `pub fn primary_circuit_pools() -> PrimaryCircuitPools` — The HTR-10 **primary-circuit pools** an accident starts from: `PrimaryCircuitPools::FromNormalOperation` over · called at [L530](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/sembawang/src/htr10.rs#L530) · *(calls below the depth limit not shown)*
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/sembawang/src/htr10.rs:584 fn primary_circuit_pools -->
+
+```rust,ignore
+{{#include ../../../../../../crates/sembawang/src/htr10.rs:584:594}}
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:0.9em">
+
+[`htr10_air_ingress_kora_bound.rs::htr10_geometry`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/sembawang/examples/htr10_air_ingress_kora_bound.rs#L270) `fn htr10_geometry() -> Htr10Geometry` — HTR-10 geometry from `tampines` (TECDOC-1382 part 2 Table 4-17), as in the `htr10_dlofc_panama_source_term` example. · called at [L354](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/sembawang/examples/htr10_air_ingress_kora_bound.rs#L354)
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/sembawang/examples/htr10_air_ingress_kora_bound.rs:270 fn htr10_geometry -->
+<!-- snippet-check: crates/sembawang/examples/htr10_air_ingress_kora_bound.rs:271 htr10 -->
+<!-- snippet-check: crates/sembawang/examples/htr10_air_ingress_kora_bound.rs:272 htr10 -->
+
+```rust,ignore
+{{#include ../../../../../../crates/sembawang/examples/htr10_air_ingress_kora_bound.rs:270:273}}
+    // … (the rest of the function: follow the link above)
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:1.8em">
+
+[`triso.rs::TrisoParticle::htr10`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/tampines/src/pebble_bed/triso.rs#L353) `pub fn htr10() -> Self` — The HTR-10 coated fuel particle, transcribed from **IAEA-TECDOC-1382 part 2, Chapter 4, Table 4-17** (Open tier). · called at [L271](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/sembawang/examples/htr10_air_ingress_kora_bound.rs#L271) · *(calls below the depth limit not shown)*
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/tampines/src/pebble_bed/triso.rs:353 fn htr10 -->
+
+```rust,ignore
+{{#include ../../../../../../crates/tampines/src/pebble_bed/triso.rs:353:372}}
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:1.8em">
+
+[`pebble.rs::Pebble::htr10`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/tampines/src/pebble_bed/pebble.rs#L327) `pub fn htr10() -> Self` — The HTR-10 fuel element, transcribed from **IAEA-TECDOC-1382 part 2, Chapter 4** (Open tier): ball diameter 6.0 cm, fuelled-zone diameter 5.0 cm, 8335 coated particles per element (the figure that chapter's MCNP model states), with the HTR-10 particle of `TrisoParticle::htr10` and the `DispersionModel::ChiewGlandt` mixing rule the Virtual Test Bed pebble decks use. · called at [L272](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/sembawang/examples/htr10_air_ingress_kora_bound.rs#L272) · *(calls below the depth limit not shown)*
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/tampines/src/pebble_bed/pebble.rs:327 fn htr10 -->
+
+```rust,ignore
+{{#include ../../../../../../crates/tampines/src/pebble_bed/pebble.rs:327:336}}
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:0.9em">
+
+[`release.rs::accident_release`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/sembawang/src/accident/release.rs#L486) `pub fn accident_release(inventory: &CoreInventory, transient: &TemperatureTransient, plant: &PlantParameters) -> Result<AccidentRelease>` — Run the accident release and assemble a source term. · called at [L358](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/sembawang/examples/htr10_air_ingress_kora_bound.rs#L358)
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/sembawang/src/accident/release.rs:486 fn accident_release -->
+<!-- snippet-check: crates/sembawang/src/accident/release.rs:491 accident_release_with_venting -->
+
+```rust,ignore
+{{#include ../../../../../../crates/sembawang/src/accident/release.rs:486:492}}
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:1.8em">
+
+`release.rs::accident_release_with_venting` *(expanded elsewhere in this walk)* · called at [L491](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/sembawang/src/accident/release.rs#L491)
+
+</div>
+
+<div class="cw-node" style="margin-left:0.9em">
+
+[`htr10_air_ingress_kora_bound.rs::flat_hold`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/sembawang/examples/htr10_air_ingress_kora_bound.rs#L297) `fn flat_hold() -> TemperatureTransient` — A flat `HOLD_CELSIUS` history over `DOSE_PERIOD_HOURS` (the release window), uniform over the nodes. · called at [L358](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/sembawang/examples/htr10_air_ingress_kora_bound.rs#L358)
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/sembawang/examples/htr10_air_ingress_kora_bound.rs:297 fn flat_hold -->
+<!-- snippet-check: crates/sembawang/examples/htr10_air_ingress_kora_bound.rs:303 from_nodes -->
+
+```rust,ignore
+{{#include ../../../../../../crates/sembawang/examples/htr10_air_ingress_kora_bound.rs:297:304}}
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:1.8em">
+
+[`scenario.rs::TemperatureTransient::from_nodes`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/sembawang/src/scenario.rs#L64) `pub fn from_nodes(times: Vec<Time>, temperatures: Vec<Vec<Vec<ThermodynamicTemperature>>>) -> Result<Self>` — From an arbitrary per-node history. · called at [L303](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/sembawang/examples/htr10_air_ingress_kora_bound.rs#L303) · *(calls below the depth limit not shown)*
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/sembawang/src/scenario.rs:64 fn from_nodes -->
+
+```rust,ignore
+{{#include ../../../../../../crates/sembawang/src/scenario.rs:64:102}}
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:0.9em">
+
+[`release.rs::accident_release_with_venting`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/sembawang/src/accident/release.rs#L625) `pub fn accident_release_with_venting(inventory: &CoreInventory, transient: &TemperatureTransient, plant: &PlantParameters, venting_mode: &Venting) -> Result<AccidentRelease>` — `accident_release` with the core-venting (transport) mode chosen explicitly; see `Venting`. · called at [L360](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/sembawang/examples/htr10_air_ingress_kora_bound.rs#L360)
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/sembawang/src/accident/release.rs:625 fn accident_release_with_venting -->
+<!-- snippet-check: crates/sembawang/src/accident/release.rs:639 len -->
+<!-- snippet-check: crates/sembawang/src/accident/release.rs:643 default -->
+<!-- snippet-check: crates/sembawang/src/accident/release.rs:646 min_celsius -->
+<!-- snippet-check: crates/sembawang/src/accident/release.rs:647 peak_celsius -->
+<!-- snippet-check: crates/sembawang/src/accident/release.rs:653 names -->
+<!-- snippet-check: crates/sembawang/src/accident/release.rs:661 select_nuclides_accident -->
+<!-- snippet-check: crates/sembawang/src/accident/release.rs:669 normalise_nuclide_name -->
+<!-- snippet-check: crates/sembawang/src/accident/release.rs:683 is_uniform_and_constant -->
+<!-- snippet-check: crates/sembawang/src/accident/release.rs:685 all_samples -->
+<!-- snippet-check: crates/sembawang/src/accident/release.rs:687 is_constant_in_time -->
+<!-- snippet-check: crates/sembawang/src/accident/release.rs:696 mean_temperature_rate -->
+<!-- snippet-check: crates/sembawang/src/accident/release.rs:697 hot_node_history -->
+<!-- snippet-check: crates/sembawang/src/accident/release.rs:699 coolant_release -->
+<!-- snippet-check: crates/sembawang/src/accident/release.rs:701 from_coolant_release -->
+<!-- snippet-check: crates/sembawang/src/accident/release.rs:702 is_empty -->
+<!-- snippet-check: crates/sembawang/src/accident/release.rs:734 is_contiguous -->
+<!-- snippet-check: crates/sembawang/src/accident/release.rs:735 len -->
+<!-- snippet-check: crates/sembawang/src/accident/release.rs:740 times -->
+<!-- snippet-check: crates/sembawang/src/accident/release.rs:745 normal_operation_pools -->
+<!-- snippet-check: crates/sembawang/src/accident/release.rs:754 element_group -->
+<!-- snippet-check: crates/sembawang/src/accident/release.rs:756 decay_constant -->
+<!-- snippet-check: crates/sembawang/src/accident/release.rs:773 axial_curies -->
+<!-- snippet-check: crates/sembawang/src/accident/release.rs:778 node_history -->
+<!-- snippet-check: crates/sembawang/src/accident/release.rs:779 gather -->
+<!-- snippet-check: crates/sembawang/src/accident/release.rs:781 integrate_diffusion_over_time -->
+<!-- snippet-check: crates/sembawang/src/accident/release.rs:802 zero_pools -->
+<!-- snippet-check: crates/sembawang/src/accident/release.rs:805 bridge_node -->
+<!-- snippet-check: crates/sembawang/src/accident/release.rs:808 release_fraction_transient -->
+<!-- snippet-check: crates/sembawang/src/accident/release.rs:824 release_activity -->
+<!-- snippet-check: crates/sembawang/src/accident/release.rs:847 atoms_to_curies -->
+<!-- snippet-check: crates/sembawang/src/accident/release.rs:853 accident_release_curies -->
+<!-- snippet-check: crates/sembawang/src/accident/release.rs:856 fractions -->
+<!-- snippet-check: crates/sembawang/src/accident/release.rs:864 from_curies -->
+<!-- snippet-check: crates/sembawang/src/accident/release.rs:887 deposition_group_of -->
+<!-- snippet-check: crates/sembawang/src/accident/release.rs:895 new -->
+<!-- snippet-check: crates/sembawang/src/accident/release.rs:899 new -->
+
+```rust,ignore
+{{#include ../../../../../../crates/sembawang/src/accident/release.rs:625:630}}
+    // …
+{{#include ../../../../../../crates/sembawang/src/accident/release.rs:637:648}}
+    // …
+{{#include ../../../../../../crates/sembawang/src/accident/release.rs:651:654}}
+    // …
+{{#include ../../../../../../crates/sembawang/src/accident/release.rs:659:662}}
+    // …
+{{#include ../../../../../../crates/sembawang/src/accident/release.rs:667:670}}
+    // …
+{{#include ../../../../../../crates/sembawang/src/accident/release.rs:681:688}}
+    // …
+{{#include ../../../../../../crates/sembawang/src/accident/release.rs:694:703}}
+    // …
+{{#include ../../../../../../crates/sembawang/src/accident/release.rs:732:736}}
+    // …
+{{#include ../../../../../../crates/sembawang/src/accident/release.rs:738:741}}
+    // …
+{{#include ../../../../../../crates/sembawang/src/accident/release.rs:743:746}}
+    // …
+{{#include ../../../../../../crates/sembawang/src/accident/release.rs:752:757}}
+    // …
+{{#include ../../../../../../crates/sembawang/src/accident/release.rs:771:774}}
+    // …
+{{#include ../../../../../../crates/sembawang/src/accident/release.rs:776:782}}
+    // …
+{{#include ../../../../../../crates/sembawang/src/accident/release.rs:800:809}}
+    // …
+{{#include ../../../../../../crates/sembawang/src/accident/release.rs:822:825}}
+    // …
+{{#include ../../../../../../crates/sembawang/src/accident/release.rs:845:848}}
+    // …
+{{#include ../../../../../../crates/sembawang/src/accident/release.rs:851:857}}
+    // …
+{{#include ../../../../../../crates/sembawang/src/accident/release.rs:862:865}}
+    // …
+{{#include ../../../../../../crates/sembawang/src/accident/release.rs:885:888}}
+    // …
+{{#include ../../../../../../crates/sembawang/src/accident/release.rs:893:900}}
+    // … (the rest of the function: follow the link above)
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:1.8em">
+
+[`scenario.rs::TemperatureTransient::len`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/sembawang/src/scenario.rs#L168) `pub fn len(&self) -> usize` — Number of time samples. · called at [L639](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/sembawang/src/accident/release.rs#L639) · *(calls below the depth limit not shown)*
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/sembawang/src/scenario.rs:168 fn len -->
+
+```rust,ignore
+{{#include ../../../../../../crates/sembawang/src/scenario.rs:168:170}}
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:1.8em">
+
+UNRESOLVED(other): `default` at [L643](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/sembawang/src/accident/release.rs#L643) (→ [`crates/sembawang/src/error.rs:92`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/sembawang/src/error.rs#L92)) — resolves to `#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]`, not a function body
+
+</div>
+
+<div class="cw-node" style="margin-left:1.8em">
+
+[`scenario.rs::TemperatureTransient::min_celsius`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/sembawang/src/scenario.rs#L234) `pub fn min_celsius(&self) -> f64` — The minimum temperature anywhere in the transient. · called at [L646](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/sembawang/src/accident/release.rs#L646) · *(calls below the depth limit not shown)*
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/sembawang/src/scenario.rs:234 fn min_celsius -->
+
+```rust,ignore
+{{#include ../../../../../../crates/sembawang/src/scenario.rs:234:241}}
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:1.8em">
+
+[`scenario.rs::TemperatureTransient::peak_celsius`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/sembawang/src/scenario.rs#L223) `pub fn peak_celsius(&self) -> f64` — The peak temperature anywhere in the transient, for checking it against the fitted range of the diffusion correlation. · called at [L647](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/sembawang/src/accident/release.rs#L647) · *(calls below the depth limit not shown)*
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/sembawang/src/scenario.rs:223 fn peak_celsius -->
+
+```rust,ignore
+{{#include ../../../../../../crates/sembawang/src/scenario.rs:223:230}}
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:1.8em">
+
+[`inventory.rs::CoreInventory::names`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/sembawang/src/inventory.rs#L150) `pub fn names(&self) -> Vec<&str>` — The nuclide names, in order, for handing to `select_nuclides_accident`. · called at [L653](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/sembawang/src/accident/release.rs#L653) · *(calls below the depth limit not shown)*
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/sembawang/src/inventory.rs:150 fn names -->
+
+```rust,ignore
+{{#include ../../../../../../crates/sembawang/src/inventory.rs:150:152}}
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:1.8em">
+
+[`mod.rs::select_nuclides_accident`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/run_selection/mod.rs#L362) `pub fn select_nuclides_accident(supplied_names: &[&str], accident_time: Time, use_ratio: Option<f64>) -> (Vec<TrisoAtopsNuclide>, Vec<SelectionError>)` — Select the nuclides relevant to an **accident** window. · called at [L661](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/sembawang/src/accident/release.rs#L661) · *(calls below the depth limit not shown)*
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/boon-lay/src/triso_atops_fork/run_selection/mod.rs:362 fn select_nuclides_accident -->
+
+```rust,ignore
+{{#include ../../../../../../crates/boon-lay/src/triso_atops_fork/run_selection/mod.rs:362:389}}
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:1.8em">
+
+[`scenario.rs::TemperatureTransient::end`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/sembawang/src/scenario.rs#L181) `pub fn end(&self) -> Time` — When the transient ends. · called at [L661](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/sembawang/src/accident/release.rs#L661) · *(calls below the depth limit not shown)*
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/sembawang/src/scenario.rs:181 fn end -->
+
+```rust,ignore
+{{#include ../../../../../../crates/sembawang/src/scenario.rs:181:183}}
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:1.8em">
+
+[`mod.rs::normalise_nuclide_name`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/run_selection/mod.rs#L184) `pub fn normalise_nuclide_name(supplied: &str) -> Result<String, SelectionError>` — Normalise a nuclide name to the database's canonical spelling. · called at [L669](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/sembawang/src/accident/release.rs#L669) · *(calls below the depth limit not shown)*
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/boon-lay/src/triso_atops_fork/run_selection/mod.rs:184 fn normalise_nuclide_name -->
+
+```rust,ignore
+{{#include ../../../../../../crates/boon-lay/src/triso_atops_fork/run_selection/mod.rs:184:223}}
+    // … (the rest of the function: follow the link above)
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:1.8em">
+
+[`release.rs::TemperatureTransient::is_uniform_and_constant`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/sembawang/src/accident/release.rs#L605) `fn is_uniform_and_constant(&self) -> bool` — Whether every node at every time has exactly the first node's first temperature: upstream's test for skipping `coolant_release`. · called at [L683](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/sembawang/src/accident/release.rs#L683) · *(calls below the depth limit not shown)*
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/sembawang/src/accident/release.rs:605 fn is_uniform_and_constant -->
+
+```rust,ignore
+{{#include ../../../../../../crates/sembawang/src/accident/release.rs:605:612}}
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:1.8em">
+
+[`venting.rs::VentingWindow::all_samples`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/sembawang/src/accident/venting.rs#L140) `pub fn all_samples(fractions: Vec<f64>) -> Self` — A window over **every** sample of an `n`-sample axis, with the given fraction at each, where `n = fractions.len()`. · called at [L685](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/sembawang/src/accident/release.rs#L685) · *(calls below the depth limit not shown)*
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/sembawang/src/accident/venting.rs:140 fn all_samples -->
+
+```rust,ignore
+{{#include ../../../../../../crates/sembawang/src/accident/venting.rs:140:147}}
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:1.8em">
+
+[`release.rs::TemperatureTransient::is_constant_in_time`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/sembawang/src/accident/release.rs#L597) `fn is_constant_in_time(&self) -> bool` — Whether every node's temperature is the same at every time (spatial variation allowed): the non-uniform isothermal case (#447). · called at [L687](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/sembawang/src/accident/release.rs#L687) · *(calls below the depth limit not shown)*
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/sembawang/src/accident/release.rs:597 fn is_constant_in_time -->
+
+```rust,ignore
+{{#include ../../../../../../crates/sembawang/src/accident/release.rs:597:601}}
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:1.8em">
+
+[`mod.rs::mean_temperature_rate`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/accident/mod.rs#L449) `pub fn mean_temperature_rate(times: &[Time], node_temperatures: &[Vec<ThermodynamicTemperature>]) -> Vec<f64>` — Mean `dT/dt` at each sample, averaged across the core. · called at [L696](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/sembawang/src/accident/release.rs#L696) · *(calls below the depth limit not shown)*
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/boon-lay/src/triso_atops_fork/accident/mod.rs:449 fn mean_temperature_rate -->
+
+```rust,ignore
+{{#include ../../../../../../crates/boon-lay/src/triso_atops_fork/accident/mod.rs:449:476}}
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:1.8em">
+
+[`scenario.rs::TemperatureTransient::all_node_histories`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/sembawang/src/scenario.rs#L199) `pub fn all_node_histories(&self) -> Vec<Vec<ThermodynamicTemperature>>` — Every node's history, flattened ring-major, as `mean_temperature_rate` wants it. · called at [L696](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/sembawang/src/accident/release.rs#L696) · *(calls below the depth limit not shown)*
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/sembawang/src/scenario.rs:199 fn all_node_histories -->
+
+```rust,ignore
+{{#include ../../../../../../crates/sembawang/src/scenario.rs:199:207}}
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:1.8em">
+
+[`scenario.rs::TemperatureTransient::hot_node_history`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/sembawang/src/scenario.rs#L216) `pub fn hot_node_history(&self) -> Vec<ThermodynamicTemperature>` — The history of the node taken as hottest: innermost ring, mid-height. · called at [L697](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/sembawang/src/accident/release.rs#L697) · *(calls below the depth limit not shown)*
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/sembawang/src/scenario.rs:216 fn hot_node_history -->
+
+```rust,ignore
+{{#include ../../../../../../crates/sembawang/src/scenario.rs:216:218}}
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:1.8em">
+
+[`mod.rs::coolant_release`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/accident/mod.rs#L362) `pub fn coolant_release(times: &[Time], mean_dtdt: &[f64], hot_node_temperature: &[ThermodynamicTemperature], pressure: Pressure) -> (Vec<f64>, Vec<Time>)` — Fraction of the primary coolant vented, over the venting window. · called at [L699](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/sembawang/src/accident/release.rs#L699) · *(calls below the depth limit not shown)*
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/boon-lay/src/triso_atops_fork/accident/mod.rs:362 fn coolant_release -->
+
+```rust,ignore
+{{#include ../../../../../../crates/boon-lay/src/triso_atops_fork/accident/mod.rs:362:401}}
+    // … (the rest of the function: follow the link above)
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:1.8em">
+
+[`venting.rs::VentingWindow::from_coolant_release`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/sembawang/src/accident/venting.rs#L94) `pub fn from_coolant_release(full_times: &[Time], vent_times: &[Time], fractions: Vec<f64>) -> Result<Self>` — Recover the venting indices from `coolant_release`'s output. · called at [L701](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/sembawang/src/accident/release.rs#L701) · *(calls below the depth limit not shown)*
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/sembawang/src/accident/venting.rs:94 fn from_coolant_release -->
+
+```rust,ignore
+{{#include ../../../../../../crates/sembawang/src/accident/venting.rs:94:128}}
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:1.8em">
+
+[`venting.rs::VentingWindow::is_empty`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/sembawang/src/accident/venting.rs#L157) `pub fn is_empty(&self) -> bool` — Whether nothing vented. · called at [L702](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/sembawang/src/accident/release.rs#L702) · *(calls below the depth limit not shown)*
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/sembawang/src/accident/venting.rs:157 fn is_empty -->
+
+```rust,ignore
+{{#include ../../../../../../crates/sembawang/src/accident/venting.rs:157:159}}
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:1.8em">
+
+[`venting.rs::VentingWindow::is_contiguous`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/sembawang/src/accident/venting.rs#L192) `pub fn is_contiguous(&self) -> bool` — Whether the venting samples form a contiguous run. · called at [L734](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/sembawang/src/accident/release.rs#L734) · *(calls below the depth limit not shown)*
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/sembawang/src/accident/venting.rs:192 fn is_contiguous -->
+
+```rust,ignore
+{{#include ../../../../../../crates/sembawang/src/accident/venting.rs:192:196}}
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:1.8em">
+
+[`venting.rs::VentingWindow::len`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/sembawang/src/accident/venting.rs#L151) `pub fn len(&self) -> usize` — How many samples vented. · called at [L735](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/sembawang/src/accident/release.rs#L735) · *(calls below the depth limit not shown)*
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/sembawang/src/accident/venting.rs:151 fn len -->
+
+```rust,ignore
+{{#include ../../../../../../crates/sembawang/src/accident/venting.rs:151:153}}
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:1.8em">
+
+[`venting.rs::VentingWindow::times`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/sembawang/src/accident/venting.rs#L203) `pub fn times(&self, full_times: &[Time]) -> Vec<Time>` — The venting samples' times, gathered from the full axis. · called at [L740](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/sembawang/src/accident/release.rs#L740) · *(calls below the depth limit not shown)*
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/sembawang/src/accident/venting.rs:203 fn times -->
+
+```rust,ignore
+{{#include ../../../../../../crates/sembawang/src/accident/venting.rs:203:205}}
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:1.8em">
+
+[`release.rs::normal_operation_pools`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/sembawang/src/accident/release.rs#L360) `fn normal_operation_pools(inventory: &CoreInventory, transient: &TemperatureTransient, plant: &PlantParameters, op: &NormalOperation) -> HashMap<String, Vec<NodalActivities>>` — Upstream's `normal_operation`, per node, for every inventory nuclide the normal-operation selection keeps: the pools `PrimaryCircuitPools::FromNormalOperation` starts the accident from. · called at [L745](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/sembawang/src/accident/release.rs#L745) · *(calls below the depth limit not shown)*
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/sembawang/src/accident/release.rs:360 fn normal_operation_pools -->
+
+```rust,ignore
+{{#include ../../../../../../crates/sembawang/src/accident/release.rs:360:399}}
+    // … (the rest of the function: follow the link above)
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:1.8em">
+
+[`mod.rs::TrisoAtopsNuclide::element_group`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/mod.rs#L126) `pub fn element_group(&self) -> ElementGroup` — The transport `ElementGroup` this nuclide belongs to, from its `Z`. · called at [L754](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/sembawang/src/accident/release.rs#L754) · *(calls below the depth limit not shown)*
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/boon-lay/src/triso_atops_fork/nuclide_model/mod.rs:126 fn element_group -->
+
+```rust,ignore
+{{#include ../../../../../../crates/boon-lay/src/triso_atops_fork/nuclide_model/mod.rs:126:128}}
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:1.8em">
+
+`mod.rs::TrisoAtopsNuclide::decay_constant` *(expanded elsewhere in this walk)* · called at [L756](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/sembawang/src/accident/release.rs#L756)
+
+</div>
+
+<div class="cw-node" style="margin-left:1.8em">
+
+[`inventory.rs::NuclideInventory::axial_curies`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/sembawang/src/inventory.rs#L76) `pub fn axial_curies(&self, ring: usize, n_axial: usize) -> Vec<f64>` — This nuclide's inventory in one ring, spread over the axial nodes. · called at [L773](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/sembawang/src/accident/release.rs#L773) · *(calls below the depth limit not shown)*
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/sembawang/src/inventory.rs:76 fn axial_curies -->
+
+```rust,ignore
+{{#include ../../../../../../crates/sembawang/src/inventory.rs:76:78}}
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:1.8em">
+
+[`scenario.rs::TemperatureTransient::node_history`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/sembawang/src/scenario.rs#L190) `pub fn node_history(&self, ring: usize, axial: usize) -> Vec<ThermodynamicTemperature>` — One node's history, `[time]`. · called at [L778](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/sembawang/src/accident/release.rs#L778) · *(calls below the depth limit not shown)*
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/sembawang/src/scenario.rs:190 fn node_history -->
+
+```rust,ignore
+{{#include ../../../../../../crates/sembawang/src/scenario.rs:190:194}}
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:1.8em">
+
+[`venting.rs::VentingWindow::gather`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/sembawang/src/accident/venting.rs#L218) `pub fn gather<T: Copy>(&self, full: &[T]) -> Vec<T>` — Any per-sample quantity, gathered at the venting indices. · called at [L779](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/sembawang/src/accident/release.rs#L779) · *(calls below the depth limit not shown)*
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/sembawang/src/accident/venting.rs:218 fn gather -->
+
+```rust,ignore
+{{#include ../../../../../../crates/sembawang/src/accident/venting.rs:218:229}}
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:1.8em">
+
+[`mod.rs::integrate_diffusion_over_time`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/diffusion/mod.rs#L242) `pub fn integrate_diffusion_over_time(z: u32, times: &[Time], temperatures: &[ThermodynamicTemperature], material: DiffusionMaterial) -> Vec<Area>` — Cumulative time-integral `∫₀ᵗ D(T(t')) dt'` along a temperature history. · called at [L781](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/sembawang/src/accident/release.rs#L781) · *(calls below the depth limit not shown)*
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/boon-lay/src/triso_atops_fork/diffusion/mod.rs:242 fn integrate_diffusion_over_time -->
+
+```rust,ignore
+{{#include ../../../../../../crates/boon-lay/src/triso_atops_fork/diffusion/mod.rs:242:281}}
+    // … (the rest of the function: follow the link above)
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:1.8em">
+
+[`release.rs::zero_pools`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/sembawang/src/accident/release.rs#L338) `pub fn zero_pools() -> boon_lay::triso_atops_fork::normal_operation::NodalActivities` — A normal-operation state with every pool empty: the `PrimaryCircuitPools::EmptyAblation` state. · passed as a function value at [L802](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/sembawang/src/accident/release.rs#L802) · *(calls below the depth limit not shown)*
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/sembawang/src/accident/release.rs:338 fn zero_pools -->
+
+```rust,ignore
+{{#include ../../../../../../crates/sembawang/src/accident/release.rs:338:347}}
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:1.8em">
+
+[`release.rs::bridge_node`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/sembawang/src/accident/release.rs#L430) `pub fn bridge_node(activities: &boon_lay::triso_atops_fork::normal_operation::NodalActivities, inventory_curies: f64, decay_constant: uom::si::f64::Frequency) -> NormalOperationNode` — Bridge `normal_operation_node`'s six channels to `release_activity`'s seven. · called at [L805](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/sembawang/src/accident/release.rs#L805) · *(calls below the depth limit not shown)*
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/sembawang/src/accident/release.rs:430 fn bridge_node -->
+
+```rust,ignore
+{{#include ../../../../../../crates/sembawang/src/accident/release.rs:430:445}}
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:1.8em">
+
+[`mod.rs::release_fraction_transient`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/release_models/mod.rs#L187) `pub fn release_fraction_transient(z: u32, element_group: ElementGroup, integrated_d: Area, primary_thickness: Length, secondary_thickness: Option<Length>, material: ReleaseMaterial) -> ReleaseFraction` — Accident (transient) release-fraction dispatcher. · called at [L808](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/sembawang/src/accident/release.rs#L808) · *(calls below the depth limit not shown)*
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/boon-lay/src/triso_atops_fork/release_models/mod.rs:187 fn release_fraction_transient -->
+
+```rust,ignore
+{{#include ../../../../../../crates/boon-lay/src/triso_atops_fork/release_models/mod.rs:187:220}}
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:1.8em">
+
+[`mod.rs::release_activity`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/accident/mod.rs#L253) `pub fn release_activity(group: ElementGroup, fractions: AccidentFractions, node: NormalOperationNode, release_fraction: f64, clean: bool, material: ReleaseMaterial, upstream_cadmium_typo: bool, z: u32) -> f64` — The activity still available for accident release at one node, in atoms. · called at [L824](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/sembawang/src/accident/release.rs#L824) · *(calls below the depth limit not shown)*
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/boon-lay/src/triso_atops_fork/accident/mod.rs:253 fn release_activity -->
+
+```rust,ignore
+{{#include ../../../../../../crates/boon-lay/src/triso_atops_fork/accident/mod.rs:253:292}}
+    // … (the rest of the function: follow the link above)
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:1.8em">
+
+[`mod.rs::atoms_to_curies`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/accident/mod.rs#L570) `pub fn atoms_to_curies(atoms: f64, decay_constant: f64) -> f64` — Convert an activity in atoms to curies: `atoms * lambda / 3.7e10`. · called at [L847](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/sembawang/src/accident/release.rs#L847) · *(calls below the depth limit not shown)*
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/boon-lay/src/triso_atops_fork/accident/mod.rs:570 fn atoms_to_curies -->
+
+```rust,ignore
+{{#include ../../../../../../crates/boon-lay/src/triso_atops_fork/accident/mod.rs:570:572}}
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:1.8em">
+
+[`mod.rs::accident_release_curies`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/accident/mod.rs#L532) `pub fn accident_release_curies(kernel_release_curies: &[f64], graphite_release_curies: &[f64], vent_fraction: &[f64], circulating_curies: f64, plate_out_curies: f64, x_liftoff: f64) -> Vec<f64>` — Total released activity for one nuclide over the accident, in **curies**. · called at [L853](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/sembawang/src/accident/release.rs#L853) · *(calls below the depth limit not shown)*
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/boon-lay/src/triso_atops_fork/accident/mod.rs:532 fn accident_release_curies -->
+
+```rust,ignore
+{{#include ../../../../../../crates/boon-lay/src/triso_atops_fork/accident/mod.rs:532:558}}
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:1.8em">
+
+[`venting.rs::VentingWindow::fractions`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/sembawang/src/accident/venting.rs#L181) `pub fn fractions(&self) -> &[f64]` — The released fraction at each venting sample. · called at [L856](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/sembawang/src/accident/release.rs#L856) · *(calls below the depth limit not shown)*
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/sembawang/src/accident/venting.rs:181 fn fractions -->
+
+```rust,ignore
+{{#include ../../../../../../crates/sembawang/src/accident/venting.rs:181:183}}
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:1.8em">
+
+[`units.rs::from_curies`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/sembawang/src/units.rs#L70) `pub fn from_curies(curies: f64) -> Radioactivity` — An activity given in curies. · called at [L864](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/sembawang/src/accident/release.rs#L864) · *(calls below the depth limit not shown)*
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/sembawang/src/units.rs:70 fn from_curies -->
+
+```rust,ignore
+{{#include ../../../../../../crates/sembawang/src/units.rs:70:72}}
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:1.8em">
+
+[`release.rs::deposition_group_of`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/sembawang/src/accident/release.rs#L455) `pub fn deposition_group_of(nuclide: &TrisoAtopsNuclide) -> DepositionGroup` — Which `changi` deposition group a TRISO-ATOPS nuclide belongs to. · called at [L887](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/sembawang/src/accident/release.rs#L887) · *(calls below the depth limit not shown)*
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/sembawang/src/accident/release.rs:455 fn deposition_group_of -->
+
+```rust,ignore
+{{#include ../../../../../../crates/sembawang/src/accident/release.rs:455:457}}
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:1.8em">
+
+[`source.rs::ReleaseWindow::new`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/changi/src/activity/source.rs#L58) `pub fn new(start: Time, end: Time) -> Self` — A window from `start` to `end`. · called at [L895](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/sembawang/src/accident/release.rs#L895) · *(calls below the depth limit not shown)*
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/changi/src/activity/source.rs:58 fn new -->
+
+```rust,ignore
+{{#include ../../../../../../crates/changi/src/activity/source.rs:58:66}}
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:1.8em">
+
+[`source.rs::SourceTerm::new`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/changi/src/activity/source.rs#L125) `pub fn new(windows: Vec<ReleaseWindow>, nuclides: Vec<NuclideRelease>) -> Self` — Build and validate in one step. · called at [L899](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/sembawang/src/accident/release.rs#L899) · *(calls below the depth limit not shown)*
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/changi/src/activity/source.rs:125 fn new -->
+
+```rust,ignore
+{{#include ../../../../../../crates/changi/src/activity/source.rs:125:129}}
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:0.9em">
+
+[`source.rs::NuclideRelease::total_released`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/changi/src/activity/source.rs#L99) `pub fn total_released(&self) -> Radioactivity` — Total activity released across every window. · called at [L366](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/sembawang/examples/htr10_air_ingress_kora_bound.rs#L366)
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/changi/src/activity/source.rs:99 fn total_released -->
+
+```rust,ignore
+{{#include ../../../../../../crates/changi/src/activity/source.rs:99:106}}
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:0.9em">
+
+[`primary_helium.rs::htr10_primary_helium_end_of_life`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/changi/src/activity/primary_helium.rs#L83) `pub fn htr10_primary_helium_end_of_life() -> Vec<PrimaryHeliumActivityEntry>` — Every nuclide in the published HTR-10 end-of-life primary-helium activity. · called at [L375](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/sembawang/examples/htr10_air_ingress_kora_bound.rs#L375)
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/changi/src/activity/primary_helium.rs:83 fn htr10_primary_helium_end_of_life -->
+<!-- snippet-check: crates/changi/src/activity/primary_helium.rs:84 parse_nuclide_bq_csv -->
+
+```rust,ignore
+{{#include ../../../../../../crates/changi/src/activity/primary_helium.rs:83:85}}
+    // … (the rest of the function: follow the link above)
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:1.8em">
+
+[`inventory.rs::parse_nuclide_bq_csv`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/changi/src/activity/inventory.rs#L82) `pub(crate) fn parse_nuclide_bq_csv(csv: &'static str) -> Vec<(&'static str, Radioactivity)>` — Parse a compiled-in two-column `nuclide,<quantity>_bq` table. · called at [L84](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/changi/src/activity/primary_helium.rs#L84) · *(calls below the depth limit not shown)*
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/changi/src/activity/inventory.rs:82 fn parse_nuclide_bq_csv -->
+
+```rust,ignore
+{{#include ../../../../../../crates/changi/src/activity/inventory.rs:82:93}}
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:0.9em">
+
+[`inventory.rs::htr10_equilibrium_core`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/changi/src/activity/inventory.rs#L68) `pub fn htr10_equilibrium_core() -> Vec<InventoryEntry>` — Every nuclide in the published HTR-10 equilibrium-core inventory. · called at [L383](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/sembawang/examples/htr10_air_ingress_kora_bound.rs#L383)
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/changi/src/activity/inventory.rs:68 fn htr10_equilibrium_core -->
+<!-- snippet-check: crates/changi/src/activity/inventory.rs:69 parse_nuclide_bq_csv -->
+
+```rust,ignore
+{{#include ../../../../../../crates/changi/src/activity/inventory.rs:68:70}}
+    // … (the rest of the function: follow the link above)
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:1.8em">
+
+`inventory.rs::parse_nuclide_bq_csv` *(expanded elsewhere in this walk)* · called at [L69](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/changi/src/activity/inventory.rs#L69)
+
+</div>
+
+<div class="cw-node" style="margin-left:0.9em">
+
+UNRESOLVED(closure): `circ_bq` at [L395](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/sembawang/examples/htr10_air_ingress_kora_bound.rs#L395) (→ [`crates/sembawang/examples/htr10_air_ingress_kora_bound.rs:376`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/sembawang/examples/htr10_air_ingress_kora_bound.rs#L376)) — call through a closure or fn-typed binding `circ_bq`
+
+</div>
+
+<div class="cw-node" style="margin-left:0.9em">
+
+UNRESOLVED(closure): `core_bq` at [L396](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/sembawang/examples/htr10_air_ingress_kora_bound.rs#L396) (→ [`crates/sembawang/examples/htr10_air_ingress_kora_bound.rs:382`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/sembawang/examples/htr10_air_ingress_kora_bound.rs#L382)) — call through a closure or fn-typed binding `core_bq`
+
+</div>
+
+<div class="cw-node" style="margin-left:0.9em">
+
+UNRESOLVED(closure): `circ_bq` at [L404](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/sembawang/examples/htr10_air_ingress_kora_bound.rs#L404) (→ [`crates/sembawang/examples/htr10_air_ingress_kora_bound.rs:376`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/sembawang/examples/htr10_air_ingress_kora_bound.rs#L376)) — call through a closure or fn-typed binding `circ_bq`
+
+</div>
+
+<div class="cw-node" style="margin-left:0.9em">
+
+[`dispersion.rs::dilution_single_plume_no_met`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/dispersion.rs#L293) `pub fn dilution_single_plume_no_met(x: Length, geometry: PlumeGeometry, scaling: MeanSpeedScaling) -> [DilutionFactor; 6]` — Dilution factor for an **instantaneous (single-plume) release without met data**, one value per stability class A-F, s/m^3 (time-integrated concentration per Bq released, at unit wind speed times the height correction). · called at [L441](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/sembawang/examples/htr10_air_ingress_kora_bound.rs#L441)
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/buangkok/src/pydoseia/dispersion.rs:293 fn dilution_single_plume_no_met -->
+<!-- snippet-check: crates/buangkok/src/pydoseia/dispersion.rs:301 height_correction_factor -->
+<!-- snippet-check: crates/buangkok/src/pydoseia/dispersion.rs:302 master_equation_single_plume -->
+<!-- snippet-check: crates/buangkok/src/pydoseia/dispersion.rs:303 sigma_y -->
+<!-- snippet-check: crates/buangkok/src/pydoseia/dispersion.rs:304 sigma_z -->
+<!-- snippet-check: crates/buangkok/src/pydoseia/dispersion.rs:309 index -->
+<!-- snippet-check: crates/buangkok/src/pydoseia/dispersion.rs:311 apply_scaling -->
+
+```rust,ignore
+{{#include ../../../../../../crates/buangkok/src/pydoseia/dispersion.rs:293:312}}
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:1.8em">
+
+[`dispersion.rs::height_correction_factor`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/dispersion.rs#L137) `pub fn height_correction_factor(stability: StabilityClass, release_height: Length, measurement_height: Length) -> f64` — Wind-speed correction from measurement height to release height, `(H / H_m)^p` with `p = n / (2 - n)`, `n = 0.2` (A-C), `0.25` (D), `0.5` (E-F). · called at [L301](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/dispersion.rs#L301) · *(calls below the depth limit not shown)*
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/buangkok/src/pydoseia/dispersion.rs:137 fn height_correction_factor -->
+
+```rust,ignore
+{{#include ../../../../../../crates/buangkok/src/pydoseia/dispersion.rs:137:155}}
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:1.8em">
+
+[`dispersion.rs::master_equation_single_plume`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/dispersion.rs#L197) `pub fn master_equation_single_plume(sigma_y: Length, sigma_z: Length, speed_factor: f64, release_height: Length, receptor: Receptor) -> MasterEquationTerms` — Single (instantaneous / short-term) Gaussian plume, Hukkoo-Bapat eq. · called at [L302](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/dispersion.rs#L302) · *(calls below the depth limit not shown)*
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/buangkok/src/pydoseia/dispersion.rs:197 fn master_equation_single_plume -->
+
+```rust,ignore
+{{#include ../../../../../../crates/buangkok/src/pydoseia/dispersion.rs:197:214}}
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:1.8em">
+
+[`dispersion.rs::sigma_y`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/dispersion.rs#L94) `pub fn sigma_y(stability: StabilityClass, x: Length) -> Length` — Lateral plume spread `sigma_y = A_y x^0.9031`, m, for downwind distance `x`. · called at [L303](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/dispersion.rs#L303) · *(calls below the depth limit not shown)*
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/buangkok/src/pydoseia/dispersion.rs:94 fn sigma_y -->
+
+```rust,ignore
+{{#include ../../../../../../crates/buangkok/src/pydoseia/dispersion.rs:94:98}}
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:1.8em">
+
+[`dispersion.rs::sigma_z`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/dispersion.rs#L107) `pub fn sigma_z(stability: StabilityClass, x: Length) -> Length` — Vertical plume spread `sigma_z = A_z x^q + r`, m, with three distance bands (`x < 100 m`, `100 <= x <= 1000 m`, `x > 1000 m`) exactly as upstream. · called at [L304](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/dispersion.rs#L304) · *(calls below the depth limit not shown)*
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/buangkok/src/pydoseia/dispersion.rs:107 fn sigma_z -->
+
+```rust,ignore
+{{#include ../../../../../../crates/buangkok/src/pydoseia/dispersion.rs:107:128}}
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:1.8em">
+
+[`dispersion.rs::StabilityClass::index`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/dispersion.rs#L69) `pub const fn index(self) -> usize` — Zero-based index, 0 (A) to 5 (F). · called at [L309](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/dispersion.rs#L309) · *(calls below the depth limit not shown)*
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/buangkok/src/pydoseia/dispersion.rs:69 fn index -->
+
+```rust,ignore
+{{#include ../../../../../../crates/buangkok/src/pydoseia/dispersion.rs:69:71}}
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:1.8em">
+
+[`dispersion.rs::kqij`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/dispersion.rs#L268) `fn kqij(terms: MasterEquationTerms, sumnu: f64, hours_denominator: f64) -> f64` — Frequency-weighted accumulation used by all three modes, in upstream's operation order: `KQIJ = pre * expo * SUMNU; KQIJ = (KQIJ * 3600) / (hours * 3600)`. · called at [L309](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/dispersion.rs#L309) · *(calls below the depth limit not shown)*
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/buangkok/src/pydoseia/dispersion.rs:268 fn kqij -->
+
+```rust,ignore
+{{#include ../../../../../../crates/buangkok/src/pydoseia/dispersion.rs:268:271}}
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:1.8em">
+
+[`dispersion.rs::apply_scaling`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/dispersion.rs#L273) `fn apply_scaling(values: [f64; 6], scaling: MeanSpeedScaling) -> [DilutionFactor; 6]` · called at [L311](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/dispersion.rs#L311) · *(calls below the depth limit not shown)*
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/buangkok/src/pydoseia/dispersion.rs:273 fn apply_scaling -->
+
+```rust,ignore
+{{#include ../../../../../../crates/buangkok/src/pydoseia/dispersion.rs:273:282}}
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:0.9em">
+
+[`units.rs::DilutionFactor::seconds_per_cubic_meter`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/changi/src/activity/units.rs#L53) `pub const fn seconds_per_cubic_meter(self) -> f64` — The value in seconds per cubic metre. · called at [L452](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/sembawang/examples/htr10_air_ingress_kora_bound.rs#L452)
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/changi/src/activity/units.rs:53 fn seconds_per_cubic_meter -->
+
+```rust,ignore
+{{#include ../../../../../../crates/changi/src/activity/units.rs:53:55}}
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:0.9em">
+
+[`coefficients.rs::fgr15_air_submersion`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/coefficients.rs#L77) `pub fn fgr15_air_submersion() -> ExternalDcfTable` — FGR-15 (2025) Table 4-6, air submersion. · called at [L461](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/sembawang/examples/htr10_air_ingress_kora_bound.rs#L461)
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/buangkok/src/coefficients.rs:77 fn fgr15_air_submersion -->
+<!-- snippet-check: crates/buangkok/src/coefficients.rs:78 from_csv -->
+
+```rust,ignore
+{{#include ../../../../../../crates/buangkok/src/coefficients.rs:77:79}}
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:1.8em">
+
+[`dcf.rs::ExternalDcfTable::from_csv`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/dcf.rs#L231) `pub fn from_csv(text: &str) -> Result<Self, String>` — Read a CSV export of upstream's `surface_dose` or `submersion_dose` sheet: columns `Nuclide` and `Self::AGE_COLUMNS`. · called at [L78](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/coefficients.rs#L78) · *(calls below the depth limit not shown)*
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/buangkok/src/pydoseia/dcf.rs:231 fn from_csv -->
+
+```rust,ignore
+{{#include ../../../../../../crates/buangkok/src/pydoseia/dcf.rs:231:246}}
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:0.9em">
+
+[`coefficients.rs::fgr15_short_lived_progeny`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/coefficients.rs#L95) `pub fn fgr15_short_lived_progeny() -> ProgenyChains` — The one short-lived progeny link these nuclides need (Cs-137 -> Ba-137m). · called at [L462](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/sembawang/examples/htr10_air_ingress_kora_bound.rs#L462)
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/buangkok/src/coefficients.rs:95 fn fgr15_short_lived_progeny -->
+<!-- snippet-check: crates/buangkok/src/coefficients.rs:96 from_csv -->
+
+```rust,ignore
+{{#include ../../../../../../crates/buangkok/src/coefficients.rs:95:97}}
+    // … (the rest of the function: follow the link above)
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:1.8em">
+
+[`dcf.rs::ProgenyChains::from_csv`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/dcf.rs#L295) `pub fn from_csv(links_csv: &str, half_lives_csv: &str) -> Result<Self, String>` — Read two CSVs: `parent,daughter,yield` and `nuclide,half_life`. · called at [L96](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/coefficients.rs#L96) · *(calls below the depth limit not shown)*
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/buangkok/src/pydoseia/dcf.rs:295 fn from_csv -->
+
+```rust,ignore
+{{#include ../../../../../../crates/buangkok/src/pydoseia/dcf.rs:295:309}}
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:0.9em">
+
+[`coefficients.rs::fgr11_inhalation`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/coefficients.rs#L106) `pub fn fgr11_inhalation() -> InhalationDcfTable` — FGR-11 Table 2.1 inhalation, adult only, in the port's inhalation-table layout (the `Type` column holds FGR-11's D/W/Y clearance class). · called at [L463](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/sembawang/examples/htr10_air_ingress_kora_bound.rs#L463)
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/buangkok/src/coefficients.rs:106 fn fgr11_inhalation -->
+<!-- snippet-check: crates/buangkok/src/coefficients.rs:107 from_csv -->
+
+```rust,ignore
+{{#include ../../../../../../crates/buangkok/src/coefficients.rs:106:108}}
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:1.8em">
+
+[`dcf.rs::InhalationDcfTable::from_csv`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/dcf.rs#L158) `pub fn from_csv(text: &str) -> Result<Self, String>` — Read a CSV export of upstream's `Inhalation CED Sv per Bq Public` sheet: columns `Nuclide`, `Type` and `Self::AGE_COLUMNS` (others ignored). · called at [L107](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/coefficients.rs#L107) · *(calls below the depth limit not shown)*
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/buangkok/src/pydoseia/dcf.rs:158 fn from_csv -->
+
+```rust,ignore
+{{#include ../../../../../../crates/buangkok/src/pydoseia/dcf.rs:158:175}}
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:0.9em">
+
+[`coefficients.rs::fgr15_ground_surface`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/coefficients.rs#L86) `pub fn fgr15_ground_surface() -> ExternalDcfTable` — FGR-15 (2025) Table 4-1, ground surface. · called at [L464](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/sembawang/examples/htr10_air_ingress_kora_bound.rs#L464)
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/buangkok/src/coefficients.rs:86 fn fgr15_ground_surface -->
+<!-- snippet-check: crates/buangkok/src/coefficients.rs:87 from_csv -->
+
+```rust,ignore
+{{#include ../../../../../../crates/buangkok/src/coefficients.rs:86:88}}
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:1.8em">
+
+`dcf.rs::ExternalDcfTable::from_csv` *(expanded elsewhere in this walk)* · called at [L87](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/coefficients.rs#L87)
+
+</div>
+
+<div class="cw-node" style="margin-left:0.9em">
+
+UNRESOLVED(closure): `circ_bq` at [L473](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/sembawang/examples/htr10_air_ingress_kora_bound.rs#L473) (→ [`crates/sembawang/examples/htr10_air_ingress_kora_bound.rs:376`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/sembawang/examples/htr10_air_ingress_kora_bound.rs#L376)) — call through a closure or fn-typed binding `circ_bq`
+
+</div>
+
+<div class="cw-node" style="margin-left:0.9em">
+
+[`coefficients.rs::external_coefficient`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/coefficients.rs#L114) `pub fn external_coefficient(table: &ExternalDcfTable, chains: &ProgenyChains, nuclide: &str, age: AgeBracket) -> Option<f64>` — An external dose-rate coefficient through the port's own lookup (`dcf::external_dcf`, with `PROGENY`), or `None` when the table has no row for `nuclide` at that age. · called at [L476](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/sembawang/examples/htr10_air_ingress_kora_bound.rs#L476)
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/buangkok/src/coefficients.rs:114 fn external_coefficient -->
+<!-- snippet-check: crates/buangkok/src/coefficients.rs:120 external_dcf -->
+
+```rust,ignore
+{{#include ../../../../../../crates/buangkok/src/coefficients.rs:114:121}}
+    // … (the rest of the function: follow the link above)
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:1.8em">
+
+[`dcf.rs::external_dcf`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/dcf.rs#L373) `pub fn external_dcf(table: &ExternalDcfTable, chains: &ProgenyChains, nuclide: &str, age: AgeBracket, progeny: ProgenyCorrection) -> ExternalDcfPair` — Upstream's `dcf_list_ecerman_*_include_progeny` for one nuclide. · called at [L120](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/coefficients.rs#L120) · *(calls below the depth limit not shown)*
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/buangkok/src/pydoseia/dcf.rs:373 fn external_dcf -->
+
+```rust,ignore
+{{#include ../../../../../../crates/buangkok/src/pydoseia/dcf.rs:373:391}}
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:1.8em">
+
+[`dcf.rs::ExternalDcfPair::selected`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/dcf.rs#L363) `pub fn selected(self, progeny: ProgenyCorrection) -> f64` — The coefficient a pathway uses: `corrected` when progeny are included. · called at [L120](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/coefficients.rs#L120) · *(calls below the depth limit not shown)*
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/buangkok/src/pydoseia/dcf.rs:363 fn selected -->
+
+```rust,ignore
+{{#include ../../../../../../crates/buangkok/src/pydoseia/dcf.rs:363:368}}
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:0.9em">
+
+[`dose.rs::submersion_dose`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/dose.rs#L239) `pub fn submersion_dose(chi_over_q: DilutionFactor, release: Release, dcf_sub: f64) -> EffectiveDose` — Submersion dose for one nuclide: `chi/Q * Q * DCF_sub * 1000` (mSv, or mSv/y). · called at [L477](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/sembawang/examples/htr10_air_ingress_kora_bound.rs#L477)
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/buangkok/src/pydoseia/dose.rs:239 fn submersion_dose -->
+<!-- snippet-check: crates/buangkok/src/pydoseia/dose.rs:247 from_millisieverts -->
+<!-- snippet-check: crates/buangkok/src/pydoseia/dose.rs:248 seconds_per_cubic_meter -->
+
+```rust,ignore
+{{#include ../../../../../../crates/buangkok/src/pydoseia/dose.rs:239:249}}
+    // … (the rest of the function: follow the link above)
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:1.8em">
+
+[`units.rs::EffectiveDose::from_millisieverts`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/units.rs#L42) `pub const fn from_millisieverts(msv: f64) -> Self` — From a value in millisieverts. · called at [L247](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/dose.rs#L247) · *(calls below the depth limit not shown)*
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/buangkok/src/pydoseia/units.rs:42 fn from_millisieverts -->
+
+```rust,ignore
+{{#include ../../../../../../crates/buangkok/src/pydoseia/units.rs:42:44}}
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:1.8em">
+
+[`dose.rs::submersion_dose_rate_msv_per_s`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/dose.rs#L269) `pub fn submersion_dose_rate_msv_per_s(air_concentration_bq_per_m3: f64, dcf_sub: f64) -> f64` — The submersion coefficient product `C * DCF_sub * 1000`: given an **instantaneous** air concentration `C` \[Bq/m^3\] and an air-submersion dose-rate coefficient \[Sv m^3 Bq^-1 s^-1\] (FGR-15 Table 4-6 is one), the effective dose **rate** \[mSv/s\]; given a time-integrated concentration \[Bq s/m^3\], the dose \[mSv\], which is how `submersion_dose` uses it. · called at [L247](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/dose.rs#L247) · *(calls below the depth limit not shown)*
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/buangkok/src/pydoseia/dose.rs:269 fn submersion_dose_rate_msv_per_s -->
+
+```rust,ignore
+{{#include ../../../../../../crates/buangkok/src/pydoseia/dose.rs:269:271}}
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:1.8em">
+
+`units.rs::DilutionFactor::seconds_per_cubic_meter` *(expanded elsewhere in this walk)* · called at [L248](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/dose.rs#L248)
+
+</div>
+
+<div class="cw-node" style="margin-left:1.8em">
+
+[`dose.rs::Release::becquerels`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/dose.rs#L57) `pub fn becquerels(self) -> f64` — The Bq value upstream multiplies by (total Bq, or Bq per year). · called at [L248](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/dose.rs#L248) · *(calls below the depth limit not shown)*
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/buangkok/src/pydoseia/dose.rs:57 fn becquerels -->
+
+```rust,ignore
+{{#include ../../../../../../crates/buangkok/src/pydoseia/dose.rs:57:61}}
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:0.9em">
+
+[`units.rs::EffectiveDose::sieverts`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/units.rs#L60) `pub fn sieverts(self) -> f64` — The dose in sieverts. · called at [L477](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/sembawang/examples/htr10_air_ingress_kora_bound.rs#L477)
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/buangkok/src/pydoseia/units.rs:60 fn sieverts -->
+
+```rust,ignore
+{{#include ../../../../../../crates/buangkok/src/pydoseia/units.rs:60:62}}
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:0.9em">
+
+[`coefficients.rs::fgr11_inhalation_max_over_classes`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/coefficients.rs#L130) `pub fn fgr11_inhalation_max_over_classes(table: &InhalationDcfTable, nuclide: &str, age: AgeBracket) -> Option<f64>` — The FGR-11 inhalation coefficient for `nuclide` at `age`, taking the **largest over FGR-11's lung clearance classes** (the same rule as the port's `LungAbsorptionType::Max`; with no chemical-form information that is the conservative choice). · called at [L480](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/sembawang/examples/htr10_air_ingress_kora_bound.rs#L480)
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/buangkok/src/coefficients.rs:130 fn fgr11_inhalation_max_over_classes -->
+<!-- snippet-check: crates/buangkok/src/coefficients.rs:135 nan_max -->
+<!-- snippet-check: crates/buangkok/src/coefficients.rs:140 column -->
+
+```rust,ignore
+{{#include ../../../../../../crates/buangkok/src/coefficients.rs:130:141}}
+    // … (the rest of the function: follow the link above)
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:1.8em">
+
+[`dcf.rs::nan_max`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/dcf.rs#L117) `pub(crate) fn nan_max(values: impl Iterator<Item = f64>) -> f64` — pandas' `Series.max()`: the maximum ignoring NaN; NaN if nothing remains. · called at [L135](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/coefficients.rs#L135) · *(calls below the depth limit not shown)*
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/buangkok/src/pydoseia/dcf.rs:117 fn nan_max -->
+
+```rust,ignore
+{{#include ../../../../../../crates/buangkok/src/pydoseia/dcf.rs:117:121}}
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:1.8em">
+
+[`dcf.rs::AgeBracket::column`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/dcf.rs#L81) `pub const fn column(self) -> usize` — Column index, 0 (infant) to 5 (adult), in upstream's table order. · called at [L140](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/coefficients.rs#L140) · *(calls below the depth limit not shown)*
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/buangkok/src/pydoseia/dcf.rs:81 fn column -->
+
+```rust,ignore
+{{#include ../../../../../../crates/buangkok/src/pydoseia/dcf.rs:81:83}}
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:0.9em">
+
+[`dose.rs::deposition_velocity_m_per_s`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/dose.rs#L139) `pub fn deposition_velocity_m_per_s(element: &str) -> f64` — Upstream's total (dry + wet) deposition velocity by **element symbol**, m/s (`deposition_velocity_of_rad`, citing IAEA SRS 19 p. · called at [L487](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/sembawang/examples/htr10_air_ingress_kora_bound.rs#L487)
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/buangkok/src/pydoseia/dose.rs:139 fn deposition_velocity_m_per_s -->
+
+```rust,ignore
+{{#include ../../../../../../crates/buangkok/src/pydoseia/dose.rs:139:145}}
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:0.9em">
+
+[`nuclide_database.rs::find_nuclide`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L145) `pub fn find_nuclide(name: &str) -> Option<TrisoAtopsNuclide>` — Look a nuclide up by its canonical TRISO-ATOPS name (case-sensitive). · called at [L488](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/sembawang/examples/htr10_air_ingress_kora_bound.rs#L488)
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:145 fn find_nuclide -->
+<!-- snippet-check: crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:146 supported_nuclides -->
+
+```rust,ignore
+{{#include ../../../../../../crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:145:147}}
+    // … (the rest of the function: follow the link above)
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:1.8em">
+
+[`nuclide_database.rs::supported_nuclides`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L44) `pub fn supported_nuclides() -> Vec<TrisoAtopsNuclide>` — The full TRISO-ATOPS supported-nuclide table. · called at [L146](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L146) · *(calls below the depth limit not shown)*
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:44 fn supported_nuclides -->
+
+```rust,ignore
+{{#include ../../../../../../crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:44:83}}
+    // … (the rest of the function: follow the link above)
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:0.9em">
+
+[`mod.rs::TrisoAtopsNuclide::decay_constant`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/mod.rs#L117) `pub fn decay_constant(&self) -> DecayConstant` — The radioactive decay constant `λ = ln 2 / t½`. · called at [L489](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/sembawang/examples/htr10_air_ingress_kora_bound.rs#L489)
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/boon-lay/src/triso_atops_fork/nuclide_model/mod.rs:117 fn decay_constant -->
+
+```rust,ignore
+{{#include ../../../../../../crates/boon-lay/src/triso_atops_fork/nuclide_model/mod.rs:117:120}}
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:0.9em">
+
+UNRESOLVED(closure): `fmt` at [L501](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/sembawang/examples/htr10_air_ingress_kora_bound.rs#L501) (→ [`crates/sembawang/examples/htr10_air_ingress_kora_bound.rs:498`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/sembawang/examples/htr10_air_ingress_kora_bound.rs#L498)) — call through a closure or fn-typed binding `fmt`
+
+</div>
+
+<div class="cw-node" style="margin-left:0.9em">
+
+UNRESOLVED(closure): `fmt` at [L502](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/sembawang/examples/htr10_air_ingress_kora_bound.rs#L502) (→ [`crates/sembawang/examples/htr10_air_ingress_kora_bound.rs:498`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/sembawang/examples/htr10_air_ingress_kora_bound.rs#L498)) — call through a closure or fn-typed binding `fmt`
+
+</div>
+
+<div class="cw-node" style="margin-left:0.9em">
+
+UNRESOLVED(closure): `fmt` at [L503](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/sembawang/examples/htr10_air_ingress_kora_bound.rs#L503) (→ [`crates/sembawang/examples/htr10_air_ingress_kora_bound.rs:498`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/sembawang/examples/htr10_air_ingress_kora_bound.rs#L498)) — call through a closure or fn-typed binding `fmt`
+
+</div>
+
+<div class="cw-node" style="margin-left:0.9em">
+
+[`accident_dose_by_distance.rs::htr10_accident_dose_by_distance`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/published/accident_dose_by_distance.rs#L164) `pub fn htr10_accident_dose_by_distance() -> Vec<PublishedAccidentDoseAtDistance>` — Every row of the published HTR-10 accident dose-versus-distance table, in the source's order (increasing distance, 0.25 km to 75 km). · called at [L538](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/sembawang/examples/htr10_air_ingress_kora_bound.rs#L538)
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/buangkok/src/published/accident_dose_by_distance.rs:164 fn htr10_accident_dose_by_distance -->
+
+```rust,ignore
+{{#include ../../../../../../crates/buangkok/src/published/accident_dose_by_distance.rs:164:192}}
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:0.9em">
+
+[`htr10_air_ingress_kora_bound.rs::max_chi_over_q`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/sembawang/examples/htr10_air_ingress_kora_bound.rs#L255) `fn max_chi_over_q(x_m: f64, geometry: PlumeGeometry) -> (StabilityClass, f64)` — The largest single-plume χ/Q over classes A-F at `x_m`, and its class. · called at [L555](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/sembawang/examples/htr10_air_ingress_kora_bound.rs#L555)
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/sembawang/examples/htr10_air_ingress_kora_bound.rs:255 fn max_chi_over_q -->
+<!-- snippet-check: crates/sembawang/examples/htr10_air_ingress_kora_bound.rs:256 dilution_single_plume_no_met -->
+<!-- snippet-check: crates/sembawang/examples/htr10_air_ingress_kora_bound.rs:264 seconds_per_cubic_meter -->
+
+```rust,ignore
+{{#include ../../../../../../crates/sembawang/examples/htr10_air_ingress_kora_bound.rs:255:265}}
+    // … (the rest of the function: follow the link above)
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:1.8em">
+
+`dispersion.rs::dilution_single_plume_no_met` *(expanded elsewhere in this walk)* · called at [L256](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/sembawang/examples/htr10_air_ingress_kora_bound.rs#L256)
+
+</div>
+
+<div class="cw-node" style="margin-left:1.8em">
+
+`units.rs::DilutionFactor::seconds_per_cubic_meter` *(expanded elsewhere in this walk)* · called at [L264](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/sembawang/examples/htr10_air_ingress_kora_bound.rs#L264)
+
+</div>
+
+<div class="cw-node" style="margin-left:0.9em">
+
+UNRESOLVED(closure): `dose_at` at [L561](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/sembawang/examples/htr10_air_ingress_kora_bound.rs#L561) (→ [`crates/sembawang/examples/htr10_air_ingress_kora_bound.rs:560`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/sembawang/examples/htr10_air_ingress_kora_bound.rs#L560)) — call through a closure or fn-typed binding `dose_at`
+
+</div>
+
+<div class="cw-node" style="margin-left:0.9em">
+
+UNRESOLVED(closure): `dose_at` at [L563](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/sembawang/examples/htr10_air_ingress_kora_bound.rs#L563) (→ [`crates/sembawang/examples/htr10_air_ingress_kora_bound.rs:560`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/sembawang/examples/htr10_air_ingress_kora_bound.rs#L560)) — call through a closure or fn-typed binding `dose_at`
+
+</div>
+
+<div class="cw-node" style="margin-left:0.9em">
+
+UNRESOLVED(closure): `dose_at` at [L566](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/sembawang/examples/htr10_air_ingress_kora_bound.rs#L566) (→ [`crates/sembawang/examples/htr10_air_ingress_kora_bound.rs:560`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/sembawang/examples/htr10_air_ingress_kora_bound.rs#L560)) — call through a closure or fn-typed binding `dose_at`
+
+</div>
+
+<div class="cw-node" style="margin-left:0.9em">
+
+[`release.rs::Venting::gao_shi_htr10_cavity_ventilation`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/sembawang/src/accident/release.rs#L586) `pub fn gao_shi_htr10_cavity_ventilation() -> Self` — **HTR-10 air ingress, the reactor-cavity ventilation**, from Gao & Shi 2002 (NED 218:65-80) §5.3.2: after the hot-gas-duct rupture, *"the venting flow is 100 % d⁻¹ in the first 3 days. · called at [L589](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/sembawang/examples/htr10_air_ingress_kora_bound.rs#L589)
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/sembawang/src/accident/release.rs:586 fn gao_shi_htr10_cavity_ventilation -->
+
+```rust,ignore
+{{#include ../../../../../../crates/sembawang/src/accident/release.rs:586:591}}
+```
+
+</details>
+</div>
 <!-- /code-walk -->
 
 **Back to the start:** the [dispersion demo](../../../demos/dispersion/?rung=plume) runs the same chain,

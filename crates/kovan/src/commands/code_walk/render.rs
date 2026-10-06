@@ -423,8 +423,11 @@ fn markdown_lines_inline(
     };
     for l in lines {
         match l {
+            // A self-edge is skipped: rust-analyzer resolves a call through an
+            // `impl Fn` parameter (`cell_r(r)` in `draw`) to the enclosing
+            // function, so the callee's name is not on that line.
             TreeLine::Node { via: Some(e), .. } | TreeLine::BackRef { via: e, .. }
-                if matches!(e.kind, EdgeKind::Call | EdgeKind::FnValue) =>
+                if matches!(e.kind, EdgeKind::Call | EdgeKind::FnValue) && e.from != e.to =>
             {
                 add(e.from, e.call_line, bare_name(g.node(e.to)).to_string())
             }

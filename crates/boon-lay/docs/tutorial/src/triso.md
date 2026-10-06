@@ -301,7 +301,20 @@ need. Rung 4 shows why that is allowed and where it stops being a good idea.
 
 Everything `crates/boon-lay/src/fuel_failure/htr10/mod.rs::sic_layer` reaches in the workspace, to 1 hop: 1 function, 0 unresolved calls. A function is expanded once; later calls to it say *(expanded elsewhere in this walk)*.
 
-- [`mod.rs::sic_layer`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/fuel_failure/htr10/mod.rs#L205) `pub fn sic_layer() -> SicLayer` — The HTR-10 SiC layer (IAEA-TECDOC-1382 pt 2 Table 4-17).
+<div class="cw-node" style="margin-left:0.0em">
+
+[`mod.rs::sic_layer`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/fuel_failure/htr10/mod.rs#L205) `pub fn sic_layer() -> SicLayer` — The HTR-10 SiC layer (IAEA-TECDOC-1382 pt 2 Table 4-17).
+
+<details open><summary>code</summary>
+
+<!-- snippet-check: crates/boon-lay/src/fuel_failure/htr10/mod.rs:205 fn sic_layer -->
+
+```rust,ignore
+{{#include ../../../../../crates/boon-lay/src/fuel_failure/htr10/mod.rs:205:210}}
+```
+
+</details>
+</div>
 <!-- /code-walk -->
 
 

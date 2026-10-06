@@ -376,26 +376,286 @@ out):
 
 Everything `crates/buangkok/examples/plume_chi_over_q.rs::main` reaches in the workspace, to 4 hops: 15 functions, 1 unresolved call. A function is expanded once; later calls to it say *(expanded elsewhere in this walk)*.
 
-- [`plume_chi_over_q.rs::main`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/examples/plume_chi_over_q.rs#L102) `fn main()`
-  - [`plume_chi_over_q.rs::chi_over_q`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/examples/plume_chi_over_q.rs#L97) `fn chi_over_q(x_m: f64) -> [f64; 6]` · called at [L113](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/examples/plume_chi_over_q.rs#L113)
-    - [`dispersion.rs::dilution_single_plume_no_met`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/dispersion.rs#L293) `pub fn dilution_single_plume_no_met(x: Length, geometry: PlumeGeometry, scaling: MeanSpeedScaling) -> [DilutionFactor; 6]` — Dilution factor for an **instantaneous (single-plume) release without met data**, one value per stability class A-F, s/m^3 (time-integrated concentration per Bq released, at unit wind speed times the height correction). · called at [L98](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/examples/plume_chi_over_q.rs#L98)
-      - [`dispersion.rs::height_correction_factor`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/dispersion.rs#L137) `pub fn height_correction_factor(stability: StabilityClass, release_height: Length, measurement_height: Length) -> f64` — Wind-speed correction from measurement height to release height, `(H / H_m)^p` with `p = n / (2 - n)`, `n = 0.2` (A-C), `0.25` (D), `0.5` (E-F). · called at [L301](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/dispersion.rs#L301)
-      - [`dispersion.rs::master_equation_single_plume`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/dispersion.rs#L197) `pub fn master_equation_single_plume(sigma_y: Length, sigma_z: Length, speed_factor: f64, release_height: Length, receptor: Receptor) -> MasterEquationTerms` — Single (instantaneous / short-term) Gaussian plume, Hukkoo-Bapat eq. · called at [L302](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/dispersion.rs#L302)
-        - [`dispersion.rs::Receptor::yz`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/dispersion.rs#L174) `fn yz(self) -> (f64, f64)` · called at [L204](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/dispersion.rs#L204) · *(calls below the depth limit not shown)*
-      - [`dispersion.rs::sigma_y`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/dispersion.rs#L94) `pub fn sigma_y(stability: StabilityClass, x: Length) -> Length` — Lateral plume spread `sigma_y = A_y x^0.9031`, m, for downwind distance `x`. · called at [L303](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/dispersion.rs#L303)
-        - `dispersion.rs::StabilityClass::index` *(expanded elsewhere in this walk)* · called at [L97](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/dispersion.rs#L97)
-      - `dispersion.rs::sigma_z` *(expanded elsewhere in this walk)* · called at [L304](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/dispersion.rs#L304)
-      - `dispersion.rs::StabilityClass::index` *(expanded elsewhere in this walk)* · called at [L309](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/dispersion.rs#L309)
-      - [`dispersion.rs::kqij`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/dispersion.rs#L268) `fn kqij(terms: MasterEquationTerms, sumnu: f64, hours_denominator: f64) -> f64` — Frequency-weighted accumulation used by all three modes, in upstream's operation order: `KQIJ = pre * expo * SUMNU; KQIJ = (KQIJ * 3600) / (hours * 3600)`. · called at [L309](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/dispersion.rs#L309)
-      - [`dispersion.rs::apply_scaling`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/dispersion.rs#L273) `fn apply_scaling(values: [f64; 6], scaling: MeanSpeedScaling) -> [DilutionFactor; 6]` · called at [L311](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/dispersion.rs#L311)
-        - UNRESOLVED(other): `default` at [L274](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/dispersion.rs#L274) (→ [`crates/changi/src/activity/units.rs:41`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/changi/src/activity/units.rs#L41)) — resolves to `#[derive(Debug, Clone, Copy, PartialEq, PartialOrd, Default)]`, not a function body
-        - [`units.rs::DilutionFactor::new`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/changi/src/activity/units.rs#L47) `pub const fn new(seconds_per_cubic_meter: f64) -> Self` — From a bare value in seconds per cubic metre. · called at [L276](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/dispersion.rs#L276) · *(calls below the depth limit not shown)*
-    - [`plume_chi_over_q.rs::geometry`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/examples/plume_chi_over_q.rs#L85) `fn geometry() -> PlumeGeometry` · called at [L98](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/examples/plume_chi_over_q.rs#L98)
-    - [`plume_chi_over_q.rs::scaling`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/examples/plume_chi_over_q.rs#L93) `fn scaling() -> MeanSpeedScaling` · called at [L98](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/examples/plume_chi_over_q.rs#L98)
-    - [`units.rs::DilutionFactor::seconds_per_cubic_meter`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/changi/src/activity/units.rs#L53) `pub const fn seconds_per_cubic_meter(self) -> f64` — The value in seconds per cubic metre. · called at [L99](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/examples/plume_chi_over_q.rs#L99)
-  - [`dispersion.rs::StabilityClass::index`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/dispersion.rs#L69) `pub const fn index(self) -> usize` — Zero-based index, 0 (A) to 5 (F). · called at [L133](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/examples/plume_chi_over_q.rs#L133)
-  - [`dispersion.rs::sigma_z`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/dispersion.rs#L107) `pub fn sigma_z(stability: StabilityClass, x: Length) -> Length` — Vertical plume spread `sigma_z = A_z x^q + r`, m, with three distance bands (`x < 100 m`, `100 <= x <= 1000 m`, `x > 1000 m`) exactly as upstream. · called at [L139](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/examples/plume_chi_over_q.rs#L139)
-    - `dispersion.rs::StabilityClass::index` *(expanded elsewhere in this walk)* · called at [L109](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/dispersion.rs#L109)
+<div class="cw-node" style="margin-left:0.0em">
+
+[`plume_chi_over_q.rs::main`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/examples/plume_chi_over_q.rs#L102) `fn main()`
+
+<details open><summary>code</summary>
+
+<!-- snippet-check: crates/buangkok/examples/plume_chi_over_q.rs:102 fn main -->
+<!-- snippet-check: crates/buangkok/examples/plume_chi_over_q.rs:113 chi_over_q -->
+<!-- snippet-check: crates/buangkok/examples/plume_chi_over_q.rs:133 index -->
+<!-- snippet-check: crates/buangkok/examples/plume_chi_over_q.rs:139 sigma_z -->
+
+```rust,ignore
+{{#include ../../../../../../crates/buangkok/examples/plume_chi_over_q.rs:102:102}}
+    // …
+{{#include ../../../../../../crates/buangkok/examples/plume_chi_over_q.rs:111:114}}
+    // …
+{{#include ../../../../../../crates/buangkok/examples/plume_chi_over_q.rs:131:134}}
+    // …
+{{#include ../../../../../../crates/buangkok/examples/plume_chi_over_q.rs:137:140}}
+    // … (the rest of the function: follow the link above)
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:0.9em">
+
+[`plume_chi_over_q.rs::chi_over_q`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/examples/plume_chi_over_q.rs#L97) `fn chi_over_q(x_m: f64) -> [f64; 6]` · called at [L113](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/examples/plume_chi_over_q.rs#L113)
+
+<details open><summary>code</summary>
+
+<!-- snippet-check: crates/buangkok/examples/plume_chi_over_q.rs:97 fn chi_over_q -->
+<!-- snippet-check: crates/buangkok/examples/plume_chi_over_q.rs:98 dilution_single_plume_no_met -->
+<!-- snippet-check: crates/buangkok/examples/plume_chi_over_q.rs:99 seconds_per_cubic_meter -->
+
+```rust,ignore
+{{#include ../../../../../../crates/buangkok/examples/plume_chi_over_q.rs:97:100}}
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:1.8em">
+
+[`dispersion.rs::dilution_single_plume_no_met`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/dispersion.rs#L293) `pub fn dilution_single_plume_no_met(x: Length, geometry: PlumeGeometry, scaling: MeanSpeedScaling) -> [DilutionFactor; 6]` — Dilution factor for an **instantaneous (single-plume) release without met data**, one value per stability class A-F, s/m^3 (time-integrated concentration per Bq released, at unit wind speed times the height correction). · called at [L98](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/examples/plume_chi_over_q.rs#L98)
+
+<details open><summary>code</summary>
+
+<!-- snippet-check: crates/buangkok/src/pydoseia/dispersion.rs:293 fn dilution_single_plume_no_met -->
+<!-- snippet-check: crates/buangkok/src/pydoseia/dispersion.rs:301 height_correction_factor -->
+<!-- snippet-check: crates/buangkok/src/pydoseia/dispersion.rs:302 master_equation_single_plume -->
+<!-- snippet-check: crates/buangkok/src/pydoseia/dispersion.rs:303 sigma_y -->
+<!-- snippet-check: crates/buangkok/src/pydoseia/dispersion.rs:304 sigma_z -->
+<!-- snippet-check: crates/buangkok/src/pydoseia/dispersion.rs:309 index -->
+<!-- snippet-check: crates/buangkok/src/pydoseia/dispersion.rs:311 apply_scaling -->
+
+```rust,ignore
+{{#include ../../../../../../crates/buangkok/src/pydoseia/dispersion.rs:293:312}}
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:2.7em">
+
+[`dispersion.rs::height_correction_factor`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/dispersion.rs#L137) `pub fn height_correction_factor(stability: StabilityClass, release_height: Length, measurement_height: Length) -> f64` — Wind-speed correction from measurement height to release height, `(H / H_m)^p` with `p = n / (2 - n)`, `n = 0.2` (A-C), `0.25` (D), `0.5` (E-F). · called at [L301](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/dispersion.rs#L301)
+
+<details open><summary>code</summary>
+
+<!-- snippet-check: crates/buangkok/src/pydoseia/dispersion.rs:137 fn height_correction_factor -->
+
+```rust,ignore
+{{#include ../../../../../../crates/buangkok/src/pydoseia/dispersion.rs:137:155}}
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:2.7em">
+
+[`dispersion.rs::master_equation_single_plume`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/dispersion.rs#L197) `pub fn master_equation_single_plume(sigma_y: Length, sigma_z: Length, speed_factor: f64, release_height: Length, receptor: Receptor) -> MasterEquationTerms` — Single (instantaneous / short-term) Gaussian plume, Hukkoo-Bapat eq. · called at [L302](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/dispersion.rs#L302)
+
+<details open><summary>code</summary>
+
+<!-- snippet-check: crates/buangkok/src/pydoseia/dispersion.rs:197 fn master_equation_single_plume -->
+<!-- snippet-check: crates/buangkok/src/pydoseia/dispersion.rs:204 yz -->
+
+```rust,ignore
+{{#include ../../../../../../crates/buangkok/src/pydoseia/dispersion.rs:197:205}}
+    // … (the rest of the function: follow the link above)
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:3.6em">
+
+[`dispersion.rs::Receptor::yz`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/dispersion.rs#L174) `fn yz(self) -> (f64, f64)` · called at [L204](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/dispersion.rs#L204) · *(calls below the depth limit not shown)*
+
+<details open><summary>code</summary>
+
+<!-- snippet-check: crates/buangkok/src/pydoseia/dispersion.rs:174 fn yz -->
+
+```rust,ignore
+{{#include ../../../../../../crates/buangkok/src/pydoseia/dispersion.rs:174:179}}
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:2.7em">
+
+[`dispersion.rs::sigma_y`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/dispersion.rs#L94) `pub fn sigma_y(stability: StabilityClass, x: Length) -> Length` — Lateral plume spread `sigma_y = A_y x^0.9031`, m, for downwind distance `x`. · called at [L303](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/dispersion.rs#L303)
+
+<details open><summary>code</summary>
+
+<!-- snippet-check: crates/buangkok/src/pydoseia/dispersion.rs:94 fn sigma_y -->
+<!-- snippet-check: crates/buangkok/src/pydoseia/dispersion.rs:97 index -->
+
+```rust,ignore
+{{#include ../../../../../../crates/buangkok/src/pydoseia/dispersion.rs:94:98}}
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:3.6em">
+
+`dispersion.rs::StabilityClass::index` *(expanded elsewhere in this walk)* · called at [L97](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/dispersion.rs#L97)
+
+</div>
+
+<div class="cw-node" style="margin-left:2.7em">
+
+`dispersion.rs::sigma_z` *(expanded elsewhere in this walk)* · called at [L304](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/dispersion.rs#L304)
+
+</div>
+
+<div class="cw-node" style="margin-left:2.7em">
+
+`dispersion.rs::StabilityClass::index` *(expanded elsewhere in this walk)* · called at [L309](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/dispersion.rs#L309)
+
+</div>
+
+<div class="cw-node" style="margin-left:2.7em">
+
+[`dispersion.rs::kqij`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/dispersion.rs#L268) `fn kqij(terms: MasterEquationTerms, sumnu: f64, hours_denominator: f64) -> f64` — Frequency-weighted accumulation used by all three modes, in upstream's operation order: `KQIJ = pre * expo * SUMNU; KQIJ = (KQIJ * 3600) / (hours * 3600)`. · called at [L309](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/dispersion.rs#L309)
+
+<details open><summary>code</summary>
+
+<!-- snippet-check: crates/buangkok/src/pydoseia/dispersion.rs:268 fn kqij -->
+
+```rust,ignore
+{{#include ../../../../../../crates/buangkok/src/pydoseia/dispersion.rs:268:271}}
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:2.7em">
+
+[`dispersion.rs::apply_scaling`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/dispersion.rs#L273) `fn apply_scaling(values: [f64; 6], scaling: MeanSpeedScaling) -> [DilutionFactor; 6]` · called at [L311](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/dispersion.rs#L311)
+
+<details open><summary>code</summary>
+
+<!-- snippet-check: crates/buangkok/src/pydoseia/dispersion.rs:273 fn apply_scaling -->
+<!-- snippet-check: crates/buangkok/src/pydoseia/dispersion.rs:274 default -->
+<!-- snippet-check: crates/buangkok/src/pydoseia/dispersion.rs:276 new -->
+
+```rust,ignore
+{{#include ../../../../../../crates/buangkok/src/pydoseia/dispersion.rs:273:277}}
+    // … (the rest of the function: follow the link above)
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:3.6em">
+
+UNRESOLVED(other): `default` at [L274](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/dispersion.rs#L274) (→ [`crates/changi/src/activity/units.rs:41`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/changi/src/activity/units.rs#L41)) — resolves to `#[derive(Debug, Clone, Copy, PartialEq, PartialOrd, Default)]`, not a function body
+
+</div>
+
+<div class="cw-node" style="margin-left:3.6em">
+
+[`units.rs::DilutionFactor::new`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/changi/src/activity/units.rs#L47) `pub const fn new(seconds_per_cubic_meter: f64) -> Self` — From a bare value in seconds per cubic metre. · called at [L276](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/dispersion.rs#L276) · *(calls below the depth limit not shown)*
+
+<details open><summary>code</summary>
+
+<!-- snippet-check: crates/changi/src/activity/units.rs:47 fn new -->
+
+```rust,ignore
+{{#include ../../../../../../crates/changi/src/activity/units.rs:47:49}}
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:1.8em">
+
+[`plume_chi_over_q.rs::geometry`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/examples/plume_chi_over_q.rs#L85) `fn geometry() -> PlumeGeometry` · called at [L98](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/examples/plume_chi_over_q.rs#L98)
+
+<details open><summary>code</summary>
+
+<!-- snippet-check: crates/buangkok/examples/plume_chi_over_q.rs:85 fn geometry -->
+
+```rust,ignore
+{{#include ../../../../../../crates/buangkok/examples/plume_chi_over_q.rs:85:91}}
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:1.8em">
+
+[`plume_chi_over_q.rs::scaling`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/examples/plume_chi_over_q.rs#L93) `fn scaling() -> MeanSpeedScaling` · called at [L98](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/examples/plume_chi_over_q.rs#L98)
+
+<details open><summary>code</summary>
+
+<!-- snippet-check: crates/buangkok/examples/plume_chi_over_q.rs:93 fn scaling -->
+
+```rust,ignore
+{{#include ../../../../../../crates/buangkok/examples/plume_chi_over_q.rs:93:95}}
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:1.8em">
+
+[`units.rs::DilutionFactor::seconds_per_cubic_meter`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/changi/src/activity/units.rs#L53) `pub const fn seconds_per_cubic_meter(self) -> f64` — The value in seconds per cubic metre. · called at [L99](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/examples/plume_chi_over_q.rs#L99)
+
+<details open><summary>code</summary>
+
+<!-- snippet-check: crates/changi/src/activity/units.rs:53 fn seconds_per_cubic_meter -->
+
+```rust,ignore
+{{#include ../../../../../../crates/changi/src/activity/units.rs:53:55}}
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:0.9em">
+
+[`dispersion.rs::StabilityClass::index`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/dispersion.rs#L69) `pub const fn index(self) -> usize` — Zero-based index, 0 (A) to 5 (F). · called at [L133](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/examples/plume_chi_over_q.rs#L133)
+
+<details open><summary>code</summary>
+
+<!-- snippet-check: crates/buangkok/src/pydoseia/dispersion.rs:69 fn index -->
+
+```rust,ignore
+{{#include ../../../../../../crates/buangkok/src/pydoseia/dispersion.rs:69:71}}
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:0.9em">
+
+[`dispersion.rs::sigma_z`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/dispersion.rs#L107) `pub fn sigma_z(stability: StabilityClass, x: Length) -> Length` — Vertical plume spread `sigma_z = A_z x^q + r`, m, with three distance bands (`x < 100 m`, `100 <= x <= 1000 m`, `x > 1000 m`) exactly as upstream. · called at [L139](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/examples/plume_chi_over_q.rs#L139)
+
+<details open><summary>code</summary>
+
+<!-- snippet-check: crates/buangkok/src/pydoseia/dispersion.rs:107 fn sigma_z -->
+<!-- snippet-check: crates/buangkok/src/pydoseia/dispersion.rs:109 index -->
+
+```rust,ignore
+{{#include ../../../../../../crates/buangkok/src/pydoseia/dispersion.rs:107:110}}
+    // … (the rest of the function: follow the link above)
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:1.8em">
+
+`dispersion.rs::StabilityClass::index` *(expanded elsewhere in this walk)* · called at [L109](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/dispersion.rs#L109)
+
+</div>
 <!-- /code-walk -->
 
 **Next:** [Rung 2: how wide? Stability classes and sigma curves](./02-sigmas.md).

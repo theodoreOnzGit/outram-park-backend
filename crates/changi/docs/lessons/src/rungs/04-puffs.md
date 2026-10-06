@@ -326,19 +326,221 @@ runs, one per nuclide?
 
 Everything `crates/changi/src/puff/simulate.rs::simulate_sensor_mode` reaches in the workspace, to 3 hops: 13 functions, 0 unresolved calls. A function is expanded once; later calls to it say *(expanded elsewhere in this walk)*.
 
-- [`simulate.rs::simulate_sensor_mode`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/changi/src/puff/simulate.rs#L533) `pub fn simulate_sensor_mode(sources: &[Source], emission_rate: MassRate, wind: &[WindComponents], sensors: &[Receptor], config: &RunConfig) -> SensorSeries` — Simulate concentration at a set of sensors.
-  - [`simulate.rs::validate`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/changi/src/puff/simulate.rs#L318) `fn validate(config: &RunConfig)` · called at [L540](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/changi/src/puff/simulate.rs#L540)
-  - [`simulate.rs::advect`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/changi/src/puff/simulate.rs#L274) `pub(crate) fn advect(live: &mut [Puff], wind: WindComponents, dt: Time, policy: AdvectionPolicy)` — Advance every live puff by one step of `dt` on `wind`. · called at [L565](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/changi/src/puff/simulate.rs#L565)
-  - [`simulate.rs::step_population`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/changi/src/puff/simulate.rs#L486) `fn step_population(live: &mut Vec<Puff>, step: usize, elapsed_s: f64, wind: WindComponents, config: &RunConfig, emission_rate: MassRate)` — Advance the puff population for one step: emit, age, and drop the expired. · called at [L567](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/changi/src/puff/simulate.rs#L567)
-    - [`simulate.rs::emits_at`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/changi/src/puff/simulate.rs#L474) `pub(crate) fn emits_at(step: usize, elapsed_s: f64, puff_dt_s: f64) -> bool` — Whether a step emits, matching upstream's `t_idx == 1 || elapsed %% puff_dt == 0`. · called at [L494](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/changi/src/puff/simulate.rs#L494)
-    - [`simulate.rs::emit`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/changi/src/puff/simulate.rs#L343) `fn emit(live: &mut Vec<Puff>, elapsed_s: f64, wind: WindComponents, config: &RunConfig, emission_rate: MassRate)` — Emit the puffs due at one time step, appending them to `live`. · called at [L495](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/changi/src/puff/simulate.rs#L495)
-      - [`wind.rs::wind_speed`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/changi/src/puff/wind.rs#L174) `pub fn wind_speed(c: WindComponents) -> Velocity` — Scalar wind speed from components, `sqrt(u^2 + v^2)`. · called at [L350](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/changi/src/puff/simulate.rs#L350) · *(calls below the depth limit not shown)*
-      - [`stability.rs::stability_class`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/changi/src/puff/stability.rs#L206) `pub fn stability_class(wind_speed: Option<Velocity>, hour: u32) -> StabilitySet` — Pasquill stability class(es) for a wind speed and hour of day. · called at [L351](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/changi/src/puff/simulate.rs#L351) · *(calls below the depth limit not shown)*
-      - [`simulate.rs::emit_with_classes`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/changi/src/puff/simulate.rs#L363) `pub(crate) fn emit_with_classes(live: &mut Vec<Puff>, elapsed_s: f64, wind: WindComponents, set: StabilitySet, config: &RunConfig, emission_rate: MassRate)` — `emit` with the stability classes supplied rather than derived from the wind speed and the hour. · called at [L352](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/changi/src/puff/simulate.rs#L352) · *(calls below the depth limit not shown)*
-  - [`simulate.rs::sum_over_puffs`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/changi/src/puff/simulate.rs#L401) `fn sum_over_puffs(live: &[Puff], source: Source, receptor: Receptor, elapsed_s: f64, policy: AdvectionPolicy) -> f64` — Total concentration at one receptor from every live puff, in ppm. · called at [L573](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/changi/src/puff/simulate.rs#L573)
-    - [`simulate.rs::puff_offset`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/changi/src/puff/simulate.rs#L251) `fn puff_offset(p: &Puff, policy: AdvectionPolicy, elapsed_s: f64) -> (f64, f64, f64)` — A puff's displacement from its source and its dispersion distance, under whichever `AdvectionPolicy` is in force. · called at [L410](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/changi/src/puff/simulate.rs#L410)
-    - [`concentration.rs::gaussian_puff_methane_ppm`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/changi/src/puff/concentration.rs#L150) `pub fn gaussian_puff_methane_ppm(mass: Mass, class: StabilityClass, puff_x: Length, puff_y: Length, source_height: Length, receptor: (Length, Length, Length), travel_distance: Length) -> f64` — `gaussian_puff_concentration` expressed as parts-per-million of methane. · called at [L413](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/changi/src/puff/simulate.rs#L413)
-      - [`concentration.rs::gaussian_puff_concentration`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/changi/src/puff/concentration.rs#L80) `pub fn gaussian_puff_concentration(mass: Mass, class: StabilityClass, puff_x: Length, puff_y: Length, source_height: Length, receptor: (Length, Length, Length), travel_distance: Length) -> MassDensity` — Concentration at a receptor from one Gaussian puff, as a **mass density**. · called at [L159](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/changi/src/puff/concentration.rs#L159) · *(calls below the depth limit not shown)*
+<div class="cw-node" style="margin-left:0.0em">
+
+[`simulate.rs::simulate_sensor_mode`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/changi/src/puff/simulate.rs#L533) `pub fn simulate_sensor_mode(sources: &[Source], emission_rate: MassRate, wind: &[WindComponents], sensors: &[Receptor], config: &RunConfig) -> SensorSeries` — Simulate concentration at a set of sensors.
+
+<details open><summary>code</summary>
+
+<!-- snippet-check: crates/changi/src/puff/simulate.rs:533 fn simulate_sensor_mode -->
+<!-- snippet-check: crates/changi/src/puff/simulate.rs:540 validate -->
+<!-- snippet-check: crates/changi/src/puff/simulate.rs:565 advect -->
+<!-- snippet-check: crates/changi/src/puff/simulate.rs:567 step_population -->
+<!-- snippet-check: crates/changi/src/puff/simulate.rs:573 sum_over_puffs -->
+
+```rust,ignore
+{{#include ../../../../../../crates/changi/src/puff/simulate.rs:533:541}}
+    // …
+{{#include ../../../../../../crates/changi/src/puff/simulate.rs:563:568}}
+    // …
+{{#include ../../../../../../crates/changi/src/puff/simulate.rs:571:574}}
+    // … (the rest of the function: follow the link above)
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:0.9em">
+
+[`simulate.rs::validate`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/changi/src/puff/simulate.rs#L318) `fn validate(config: &RunConfig)` · called at [L540](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/changi/src/puff/simulate.rs#L540)
+
+<details open><summary>code</summary>
+
+<!-- snippet-check: crates/changi/src/puff/simulate.rs:318 fn validate -->
+
+```rust,ignore
+{{#include ../../../../../../crates/changi/src/puff/simulate.rs:318:340}}
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:0.9em">
+
+[`simulate.rs::advect`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/changi/src/puff/simulate.rs#L274) `pub(crate) fn advect(live: &mut [Puff], wind: WindComponents, dt: Time, policy: AdvectionPolicy)` — Advance every live puff by one step of `dt` on `wind`. · called at [L565](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/changi/src/puff/simulate.rs#L565)
+
+<details open><summary>code</summary>
+
+<!-- snippet-check: crates/changi/src/puff/simulate.rs:274 fn advect -->
+
+```rust,ignore
+{{#include ../../../../../../crates/changi/src/puff/simulate.rs:274:290}}
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:0.9em">
+
+[`simulate.rs::step_population`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/changi/src/puff/simulate.rs#L486) `fn step_population(live: &mut Vec<Puff>, step: usize, elapsed_s: f64, wind: WindComponents, config: &RunConfig, emission_rate: MassRate)` — Advance the puff population for one step: emit, age, and drop the expired. · called at [L567](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/changi/src/puff/simulate.rs#L567)
+
+<details open><summary>code</summary>
+
+<!-- snippet-check: crates/changi/src/puff/simulate.rs:486 fn step_population -->
+<!-- snippet-check: crates/changi/src/puff/simulate.rs:494 emits_at -->
+<!-- snippet-check: crates/changi/src/puff/simulate.rs:495 emit -->
+
+```rust,ignore
+{{#include ../../../../../../crates/changi/src/puff/simulate.rs:486:496}}
+    // … (the rest of the function: follow the link above)
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:1.8em">
+
+[`simulate.rs::emits_at`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/changi/src/puff/simulate.rs#L474) `pub(crate) fn emits_at(step: usize, elapsed_s: f64, puff_dt_s: f64) -> bool` — Whether a step emits, matching upstream's `t_idx == 1 || elapsed %% puff_dt == 0`. · called at [L494](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/changi/src/puff/simulate.rs#L494)
+
+<details open><summary>code</summary>
+
+<!-- snippet-check: crates/changi/src/puff/simulate.rs:474 fn emits_at -->
+
+```rust,ignore
+{{#include ../../../../../../crates/changi/src/puff/simulate.rs:474:476}}
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:1.8em">
+
+[`simulate.rs::emit`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/changi/src/puff/simulate.rs#L343) `fn emit(live: &mut Vec<Puff>, elapsed_s: f64, wind: WindComponents, config: &RunConfig, emission_rate: MassRate)` — Emit the puffs due at one time step, appending them to `live`. · called at [L495](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/changi/src/puff/simulate.rs#L495)
+
+<details open><summary>code</summary>
+
+<!-- snippet-check: crates/changi/src/puff/simulate.rs:343 fn emit -->
+<!-- snippet-check: crates/changi/src/puff/simulate.rs:350 wind_speed -->
+<!-- snippet-check: crates/changi/src/puff/simulate.rs:351 stability_class -->
+<!-- snippet-check: crates/changi/src/puff/simulate.rs:352 emit_with_classes -->
+
+```rust,ignore
+{{#include ../../../../../../crates/changi/src/puff/simulate.rs:343:353}}
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:2.7em">
+
+[`wind.rs::wind_speed`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/changi/src/puff/wind.rs#L174) `pub fn wind_speed(c: WindComponents) -> Velocity` — Scalar wind speed from components, `sqrt(u^2 + v^2)`. · called at [L350](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/changi/src/puff/simulate.rs#L350) · *(calls below the depth limit not shown)*
+
+<details open><summary>code</summary>
+
+<!-- snippet-check: crates/changi/src/puff/wind.rs:174 fn wind_speed -->
+
+```rust,ignore
+{{#include ../../../../../../crates/changi/src/puff/wind.rs:174:178}}
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:2.7em">
+
+[`stability.rs::stability_class`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/changi/src/puff/stability.rs#L206) `pub fn stability_class(wind_speed: Option<Velocity>, hour: u32) -> StabilitySet` — Pasquill stability class(es) for a wind speed and hour of day. · called at [L351](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/changi/src/puff/simulate.rs#L351) · *(calls below the depth limit not shown)*
+
+<details open><summary>code</summary>
+
+<!-- snippet-check: crates/changi/src/puff/stability.rs:206 fn stability_class -->
+
+```rust,ignore
+{{#include ../../../../../../crates/changi/src/puff/stability.rs:206:245}}
+    // … (the rest of the function: follow the link above)
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:2.7em">
+
+[`simulate.rs::emit_with_classes`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/changi/src/puff/simulate.rs#L363) `pub(crate) fn emit_with_classes(live: &mut Vec<Puff>, elapsed_s: f64, wind: WindComponents, set: StabilitySet, config: &RunConfig, emission_rate: MassRate)` — `emit` with the stability classes supplied rather than derived from the wind speed and the hour. · called at [L352](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/changi/src/puff/simulate.rs#L352) · *(calls below the depth limit not shown)*
+
+<details open><summary>code</summary>
+
+<!-- snippet-check: crates/changi/src/puff/simulate.rs:363 fn emit_with_classes -->
+
+```rust,ignore
+{{#include ../../../../../../crates/changi/src/puff/simulate.rs:363:398}}
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:0.9em">
+
+[`simulate.rs::sum_over_puffs`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/changi/src/puff/simulate.rs#L401) `fn sum_over_puffs(live: &[Puff], source: Source, receptor: Receptor, elapsed_s: f64, policy: AdvectionPolicy) -> f64` — Total concentration at one receptor from every live puff, in ppm. · called at [L573](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/changi/src/puff/simulate.rs#L573)
+
+<details open><summary>code</summary>
+
+<!-- snippet-check: crates/changi/src/puff/simulate.rs:401 fn sum_over_puffs -->
+<!-- snippet-check: crates/changi/src/puff/simulate.rs:410 puff_offset -->
+<!-- snippet-check: crates/changi/src/puff/simulate.rs:413 gaussian_puff_methane_ppm -->
+
+```rust,ignore
+{{#include ../../../../../../crates/changi/src/puff/simulate.rs:401:414}}
+    // … (the rest of the function: follow the link above)
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:1.8em">
+
+[`simulate.rs::puff_offset`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/changi/src/puff/simulate.rs#L251) `fn puff_offset(p: &Puff, policy: AdvectionPolicy, elapsed_s: f64) -> (f64, f64, f64)` — A puff's displacement from its source and its dispersion distance, under whichever `AdvectionPolicy` is in force. · called at [L410](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/changi/src/puff/simulate.rs#L410)
+
+<details open><summary>code</summary>
+
+<!-- snippet-check: crates/changi/src/puff/simulate.rs:251 fn puff_offset -->
+
+```rust,ignore
+{{#include ../../../../../../crates/changi/src/puff/simulate.rs:251:261}}
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:1.8em">
+
+[`concentration.rs::gaussian_puff_methane_ppm`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/changi/src/puff/concentration.rs#L150) `pub fn gaussian_puff_methane_ppm(mass: Mass, class: StabilityClass, puff_x: Length, puff_y: Length, source_height: Length, receptor: (Length, Length, Length), travel_distance: Length) -> f64` — `gaussian_puff_concentration` expressed as parts-per-million of methane. · called at [L413](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/changi/src/puff/simulate.rs#L413)
+
+<details open><summary>code</summary>
+
+<!-- snippet-check: crates/changi/src/puff/concentration.rs:150 fn gaussian_puff_methane_ppm -->
+<!-- snippet-check: crates/changi/src/puff/concentration.rs:159 gaussian_puff_concentration -->
+
+```rust,ignore
+{{#include ../../../../../../crates/changi/src/puff/concentration.rs:150:160}}
+    // … (the rest of the function: follow the link above)
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:2.7em">
+
+[`concentration.rs::gaussian_puff_concentration`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/changi/src/puff/concentration.rs#L80) `pub fn gaussian_puff_concentration(mass: Mass, class: StabilityClass, puff_x: Length, puff_y: Length, source_height: Length, receptor: (Length, Length, Length), travel_distance: Length) -> MassDensity` — Concentration at a receptor from one Gaussian puff, as a **mass density**. · called at [L159](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/changi/src/puff/concentration.rs#L159) · *(calls below the depth limit not shown)*
+
+<details open><summary>code</summary>
+
+<!-- snippet-check: crates/changi/src/puff/concentration.rs:80 fn gaussian_puff_concentration -->
+
+```rust,ignore
+{{#include ../../../../../../crates/changi/src/puff/concentration.rs:80:117}}
+```
+
+</details>
+</div>
 <!-- /code-walk -->
 
 **Next:** [Rung 5: decay in flight, and deposition](./05-deposition.md).

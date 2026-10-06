@@ -53,80 +53,1129 @@ e.g. `Venting::gao_shi_htr10_cavity_ventilation`).
 
 Everything `crates/sembawang/src/accident/release.rs::accident_release_with_venting` reaches in the workspace, to 2 hops: 60 functions, 4 unresolved calls. A function is expanded once; later calls to it say *(expanded elsewhere in this walk)*.
 
-- [`release.rs::accident_release_with_venting`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/sembawang/src/accident/release.rs#L625) `pub fn accident_release_with_venting(inventory: &CoreInventory, transient: &TemperatureTransient, plant: &PlantParameters, venting_mode: &Venting) -> Result<AccidentRelease>` — `accident_release` with the core-venting (transport) mode chosen explicitly; see `Venting`.
-  - [`scenario.rs::TemperatureTransient::len`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/sembawang/src/scenario.rs#L168) `pub fn len(&self) -> usize` — Number of time samples. · called at [L639](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/sembawang/src/accident/release.rs#L639)
-  - UNRESOLVED(other): `default` at [L643](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/sembawang/src/accident/release.rs#L643) (→ [`crates/sembawang/src/error.rs:92`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/sembawang/src/error.rs#L92)) — resolves to `#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]`, not a function body
-  - [`scenario.rs::TemperatureTransient::min_celsius`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/sembawang/src/scenario.rs#L234) `pub fn min_celsius(&self) -> f64` — The minimum temperature anywhere in the transient. · called at [L646](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/sembawang/src/accident/release.rs#L646)
-  - [`scenario.rs::TemperatureTransient::peak_celsius`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/sembawang/src/scenario.rs#L223) `pub fn peak_celsius(&self) -> f64` — The peak temperature anywhere in the transient, for checking it against the fitted range of the diffusion correlation. · called at [L647](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/sembawang/src/accident/release.rs#L647)
-  - [`inventory.rs::CoreInventory::names`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/sembawang/src/inventory.rs#L150) `pub fn names(&self) -> Vec<&str>` — The nuclide names, in order, for handing to `select_nuclides_accident`. · called at [L653](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/sembawang/src/accident/release.rs#L653)
-  - [`mod.rs::select_nuclides_accident`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/run_selection/mod.rs#L362) `pub fn select_nuclides_accident(supplied_names: &[&str], accident_time: Time, use_ratio: Option<f64>) -> (Vec<TrisoAtopsNuclide>, Vec<SelectionError>)` — Select the nuclides relevant to an **accident** window. · called at [L661](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/sembawang/src/accident/release.rs#L661)
-    - `mod.rs::normalise_nuclide_name` *(expanded elsewhere in this walk)* · called at [L374](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/run_selection/mod.rs#L374)
-    - [`nuclide_database.rs::find_nuclide`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L145) `pub fn find_nuclide(name: &str) -> Option<TrisoAtopsNuclide>` — Look a nuclide up by its canonical TRISO-ATOPS name (case-sensitive). · called at [L376](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/run_selection/mod.rs#L376) · *(calls below the depth limit not shown)*
-  - [`scenario.rs::TemperatureTransient::end`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/sembawang/src/scenario.rs#L181) `pub fn end(&self) -> Time` — When the transient ends. · called at [L661](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/sembawang/src/accident/release.rs#L661)
-  - [`mod.rs::normalise_nuclide_name`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/run_selection/mod.rs#L184) `pub fn normalise_nuclide_name(supplied: &str) -> Result<String, SelectionError>` — Normalise a nuclide name to the database's canonical spelling. · called at [L669](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/sembawang/src/accident/release.rs#L669)
-    - UNRESOLVED(closure): `unparseable` at [L197](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/run_selection/mod.rs#L197) (→ [`crates/boon-lay/src/triso_atops_fork/run_selection/mod.rs:185`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/run_selection/mod.rs#L185)) — call through a closure or fn-typed binding `unparseable`
-    - UNRESOLVED(closure): `unparseable` at [L212](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/run_selection/mod.rs#L212) (→ [`crates/boon-lay/src/triso_atops_fork/run_selection/mod.rs:185`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/run_selection/mod.rs#L185)) — call through a closure or fn-typed binding `unparseable`
-    - UNRESOLVED(closure): `unparseable` at [L225](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/run_selection/mod.rs#L225) (→ [`crates/boon-lay/src/triso_atops_fork/run_selection/mod.rs:185`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/run_selection/mod.rs#L185)) — call through a closure or fn-typed binding `unparseable`
-  - [`release.rs::TemperatureTransient::is_uniform_and_constant`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/sembawang/src/accident/release.rs#L605) `fn is_uniform_and_constant(&self) -> bool` — Whether every node at every time has exactly the first node's first temperature: upstream's test for skipping `coolant_release`. · called at [L683](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/sembawang/src/accident/release.rs#L683)
-  - [`venting.rs::VentingWindow::all_samples`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/sembawang/src/accident/venting.rs#L140) `pub fn all_samples(fractions: Vec<f64>) -> Self` — A window over **every** sample of an `n`-sample axis, with the given fraction at each, where `n = fractions.len()`. · called at [L685](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/sembawang/src/accident/release.rs#L685)
-  - [`release.rs::TemperatureTransient::is_constant_in_time`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/sembawang/src/accident/release.rs#L597) `fn is_constant_in_time(&self) -> bool` — Whether every node's temperature is the same at every time (spatial variation allowed): the non-uniform isothermal case (#447). · called at [L687](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/sembawang/src/accident/release.rs#L687)
-  - [`mod.rs::mean_temperature_rate`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/accident/mod.rs#L449) `pub fn mean_temperature_rate(times: &[Time], node_temperatures: &[Vec<ThermodynamicTemperature>]) -> Vec<f64>` — Mean `dT/dt` at each sample, averaged across the core. · called at [L696](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/sembawang/src/accident/release.rs#L696)
-  - [`scenario.rs::TemperatureTransient::all_node_histories`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/sembawang/src/scenario.rs#L199) `pub fn all_node_histories(&self) -> Vec<Vec<ThermodynamicTemperature>>` — Every node's history, flattened ring-major, as `mean_temperature_rate` wants it. · called at [L696](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/sembawang/src/accident/release.rs#L696)
-    - `scenario.rs::TemperatureTransient::node_history` *(expanded elsewhere in this walk)* · called at [L203](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/sembawang/src/scenario.rs#L203)
-  - [`scenario.rs::TemperatureTransient::hot_node_history`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/sembawang/src/scenario.rs#L216) `pub fn hot_node_history(&self) -> Vec<ThermodynamicTemperature>` — The history of the node taken as hottest: innermost ring, mid-height. · called at [L697](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/sembawang/src/accident/release.rs#L697)
-    - `scenario.rs::TemperatureTransient::node_history` *(expanded elsewhere in this walk)* · called at [L217](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/sembawang/src/scenario.rs#L217)
-  - [`mod.rs::coolant_release`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/accident/mod.rs#L362) `pub fn coolant_release(times: &[Time], mean_dtdt: &[f64], hot_node_temperature: &[ThermodynamicTemperature], pressure: Pressure) -> (Vec<f64>, Vec<Time>)` — Fraction of the primary coolant vented, over the venting window. · called at [L699](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/sembawang/src/accident/release.rs#L699)
-  - [`venting.rs::VentingWindow::from_coolant_release`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/sembawang/src/accident/venting.rs#L94) `pub fn from_coolant_release(full_times: &[Time], vent_times: &[Time], fractions: Vec<f64>) -> Result<Self>` — Recover the venting indices from `coolant_release`'s output. · called at [L701](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/sembawang/src/accident/release.rs#L701)
-  - [`venting.rs::VentingWindow::is_empty`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/sembawang/src/accident/venting.rs#L157) `pub fn is_empty(&self) -> bool` — Whether nothing vented. · called at [L702](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/sembawang/src/accident/release.rs#L702)
-  - [`venting.rs::VentingWindow::is_contiguous`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/sembawang/src/accident/venting.rs#L192) `pub fn is_contiguous(&self) -> bool` — Whether the venting samples form a contiguous run. · called at [L734](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/sembawang/src/accident/release.rs#L734)
-  - [`venting.rs::VentingWindow::len`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/sembawang/src/accident/venting.rs#L151) `pub fn len(&self) -> usize` — How many samples vented. · called at [L735](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/sembawang/src/accident/release.rs#L735)
-  - [`venting.rs::VentingWindow::times`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/sembawang/src/accident/venting.rs#L203) `pub fn times(&self, full_times: &[Time]) -> Vec<Time>` — The venting samples' times, gathered from the full axis. · called at [L740](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/sembawang/src/accident/release.rs#L740)
-    - `venting.rs::VentingWindow::gather` *(expanded elsewhere in this walk)* · called at [L204](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/sembawang/src/accident/venting.rs#L204)
-  - [`release.rs::normal_operation_pools`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/sembawang/src/accident/release.rs#L360) `fn normal_operation_pools(inventory: &CoreInventory, transient: &TemperatureTransient, plant: &PlantParameters, op: &NormalOperation) -> HashMap<String, Vec<NodalActivities>>` — Upstream's `normal_operation`, per node, for every inventory nuclide the normal-operation selection keeps: the pools `PrimaryCircuitPools::FromNormalOperation` starts the accident from. · called at [L745](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/sembawang/src/accident/release.rs#L745)
-    - `inventory.rs::CoreInventory::names` *(expanded elsewhere in this walk)* · called at [L366](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/sembawang/src/accident/release.rs#L366)
-    - [`mod.rs::select_nuclides`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/run_selection/mod.rs#L267) `pub fn select_nuclides(supplied_names: &[&str], irradiation_time: Time, short_lived_ratio: Option<f64>, policy: ParentDecayPolicy) -> (Vec<SelectedNuclide>, Vec<SelectionError>)` — Select and classify the nuclides for a **normal-operation** run. · called at [L368](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/sembawang/src/accident/release.rs#L368) · *(calls below the depth limit not shown)*
-    - `mod.rs::normalise_nuclide_name` *(expanded elsewhere in this walk)* · called at [L391](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/sembawang/src/accident/release.rs#L391)
-    - `inventory.rs::NuclideInventory::axial_curies` *(expanded elsewhere in this walk)* · called at [L402](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/sembawang/src/accident/release.rs#L402)
-    - [`mod.rs::ParentPools::none`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/normal_operation/mod.rs#L136) `pub fn none() -> Self` — No parent contribution (all pools zero). · called at [L406](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/sembawang/src/accident/release.rs#L406) · *(calls below the depth limit not shown)*
-    - [`mod.rs::NodalActivities::parent_pools`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/normal_operation/mod.rs#L167) `pub fn parent_pools(&self) -> ParentPools` — The parent-chaining pools (`ParentPools`) to feed into a daughter nuclide whose parent is this one. · called at [L406](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/sembawang/src/accident/release.rs#L406) · *(calls below the depth limit not shown)*
-    - [`mod.rs::normal_operation_node`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/normal_operation/mod.rs#L254) `pub fn normal_operation_node(nuclide: &TrisoAtopsNuclide, short_lived: bool, inventory: Activity, fractions: FailureFractions, plant: PlantConstants, node: NodeState, hps_enabled: bool, parent: ParentPools) -> NodalActivities` — Compute the normal-operation activity source term for one nuclide at one node. · called at [L407](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/sembawang/src/accident/release.rs#L407) · *(calls below the depth limit not shown)*
-    - `units.rs::from_curies` *(expanded elsewhere in this walk)* · called at [L410](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/sembawang/src/accident/release.rs#L410)
-    - [`units.rs::to_boon_lay_activity`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/sembawang/src/units.rs#L59) `pub fn to_boon_lay_activity(activity: Radioactivity) -> BoonLayActivity` — `Radioactivity` back into `boon-lay`'s activity type. · called at [L410](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/sembawang/src/accident/release.rs#L410) · *(calls below the depth limit not shown)*
-    - [`release.rs::NodeTemperatures::at`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/sembawang/src/accident/release.rs#L187) `fn at(&self, ring: usize, axial: usize) -> NodeState` · called at [L413](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/sembawang/src/accident/release.rs#L413) · *(calls below the depth limit not shown)*
-  - [`mod.rs::TrisoAtopsNuclide::element_group`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/mod.rs#L126) `pub fn element_group(&self) -> ElementGroup` — The transport `ElementGroup` this nuclide belongs to, from its `Z`. · called at [L754](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/sembawang/src/accident/release.rs#L754)
-    - [`mod.rs::ElementGroup::from_atomic_number`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/mod.rs#L174) `pub fn from_atomic_number(z: u32) -> Self` — Classify an atomic number `Z` into its TRISO-ATOPS transport group. · called at [L127](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/mod.rs#L127) · *(calls below the depth limit not shown)*
-  - [`mod.rs::TrisoAtopsNuclide::decay_constant`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/mod.rs#L117) `pub fn decay_constant(&self) -> DecayConstant` — The radioactive decay constant `λ = ln 2 / t½`. · called at [L756](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/sembawang/src/accident/release.rs#L756)
-  - [`inventory.rs::NuclideInventory::axial_curies`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/sembawang/src/inventory.rs#L76) `pub fn axial_curies(&self, ring: usize, n_axial: usize) -> Vec<f64>` — This nuclide's inventory in one ring, spread over the axial nodes. · called at [L773](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/sembawang/src/accident/release.rs#L773)
-    - [`mod.rs::distribute_inventory_axially`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/accident/mod.rs#L197) `pub fn distribute_inventory_axially(ring_inventory: f64, n_axial: usize) -> Vec<f64>` — Distribute a per-radial-ring inventory evenly over the axial nodes. · called at [L77](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/sembawang/src/inventory.rs#L77) · *(calls below the depth limit not shown)*
-    - [`units.rs::in_curies`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/sembawang/src/units.rs#L77) `pub fn in_curies(activity: Radioactivity) -> f64` — An activity read back out in curies, for comparison against TRISO-ATOPS output. · called at [L77](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/sembawang/src/inventory.rs#L77) · *(calls below the depth limit not shown)*
-  - [`scenario.rs::TemperatureTransient::node_history`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/sembawang/src/scenario.rs#L190) `pub fn node_history(&self, ring: usize, axial: usize) -> Vec<ThermodynamicTemperature>` — One node's history, `[time]`. · called at [L778](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/sembawang/src/accident/release.rs#L778)
-  - [`venting.rs::VentingWindow::gather`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/sembawang/src/accident/venting.rs#L218) `pub fn gather<T: Copy>(&self, full: &[T]) -> Vec<T>` — Any per-sample quantity, gathered at the venting indices. · called at [L779](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/sembawang/src/accident/release.rs#L779)
-  - [`mod.rs::integrate_diffusion_over_time`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/diffusion/mod.rs#L242) `pub fn integrate_diffusion_over_time(z: u32, times: &[Time], temperatures: &[ThermodynamicTemperature], material: DiffusionMaterial) -> Vec<Area>` — Cumulative time-integral `∫₀ᵗ D(T(t')) dt'` along a temperature history. · called at [L781](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/sembawang/src/accident/release.rs#L781)
-    - [`mod.rs::diffusion_coefficient_sic_ag`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/diffusion/mod.rs#L196) `pub fn diffusion_coefficient_sic_ag(sic_temperature: ThermodynamicTemperature) -> DiffusionCoefficient` — Diffusion coefficient for silver (Ag) through the **SiC** layer. · called at [L261](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/diffusion/mod.rs#L261) · *(calls below the depth limit not shown)*
-    - [`mod.rs::diffusion_coefficient`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/diffusion/mod.rs#L130) `pub fn diffusion_coefficient(z: u32, kernel_temperature: ThermodynamicTemperature, graphite_temperature: ThermodynamicTemperature) -> KernelGraphiteDiffusion` — Kernel and graphite diffusion coefficients for a nuclide, by atomic number. · called at [L263](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/diffusion/mod.rs#L263) · *(calls below the depth limit not shown)*
-  - [`release.rs::zero_pools`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/sembawang/src/accident/release.rs#L338) `pub fn zero_pools() -> boon_lay::triso_atops_fork::normal_operation::NodalActivities` — A normal-operation state with every pool empty: the `PrimaryCircuitPools::EmptyAblation` state. · passed as a function value at [L802](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/sembawang/src/accident/release.rs#L802)
-  - [`release.rs::bridge_node`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/sembawang/src/accident/release.rs#L430) `pub fn bridge_node(activities: &boon_lay::triso_atops_fork::normal_operation::NodalActivities, inventory_curies: f64, decay_constant: uom::si::f64::Frequency) -> NormalOperationNode` — Bridge `normal_operation_node`'s six channels to `release_activity`'s seven. · called at [L805](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/sembawang/src/accident/release.rs#L805)
-    - `units.rs::from_curies` *(expanded elsewhere in this walk)* · called at [L435](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/sembawang/src/accident/release.rs#L435)
-    - `units.rs::to_boon_lay_activity` *(expanded elsewhere in this walk)* · called at [L435](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/sembawang/src/accident/release.rs#L435)
-    - [`mod.rs::atom_count_from_activity`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/activities/mod.rs#L195) `pub fn atom_count_from_activity(activity: Activity, decay_constant: DecayConstant) -> f64` — Number of atoms whose activity is `activity`: `N = A / λ`. · called at [L437](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/sembawang/src/accident/release.rs#L437) · *(calls below the depth limit not shown)*
-  - [`mod.rs::release_fraction_transient`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/release_models/mod.rs#L187) `pub fn release_fraction_transient(z: u32, element_group: ElementGroup, integrated_d: Area, primary_thickness: Length, secondary_thickness: Option<Length>, material: ReleaseMaterial) -> ReleaseFraction` — Accident (transient) release-fraction dispatcher. · called at [L808](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/sembawang/src/accident/release.rs#L808)
-    - [`transient.rs::booth_transient`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/release_models/transient.rs#L125) `pub fn booth_transient(integrated_d_prime: Ratio) -> ReleaseFraction` — Transient Booth release fraction from the kernel. · called at [L201](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/release_models/mod.rs#L201) · *(calls below the depth limit not shown)*
-    - [`transient.rs::breakthrough_model_transient`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/release_models/transient.rs#L77) `pub fn breakthrough_model_transient(integrated_d_prime: Ratio, integrated_d: Area, layer_thickness: Length, kernel_radius: Length) -> ReleaseFraction` — Transient breakthrough release fraction from the kernel/barrier. · called at [L207](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/release_models/mod.rs#L207) · *(calls below the depth limit not shown)*
-    - [`transient.rs::rf_graph`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/release_models/transient.rs#L166) `pub fn rf_graph(integrated_d: Area, graphite_thickness: Length) -> ReleaseFraction` — Transient release fraction through the matrix **graphite**. · called at [L217](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/release_models/mod.rs#L217) · *(calls below the depth limit not shown)*
-  - [`mod.rs::release_activity`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/accident/mod.rs#L253) `pub fn release_activity(group: ElementGroup, fractions: AccidentFractions, node: NormalOperationNode, release_fraction: f64, clean: bool, material: ReleaseMaterial, upstream_cadmium_typo: bool, z: u32) -> f64` — The activity still available for accident release at one node, in atoms. · called at [L824](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/sembawang/src/accident/release.rs#L824)
-    - [`mod.rs::AccidentFractions::volatile_sum`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/accident/mod.rs#L127) `pub fn volatile_sum(&self) -> f64` — Upstream's `fractions[0] + fractions[2] + fractions[-2]` — the volatile path: heavy metal, incremental, and the accident incremental. · called at [L272](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/accident/mod.rs#L272) · *(calls below the depth limit not shown)*
-    - [`mod.rs::AccidentFractions::total`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/accident/mod.rs#L95) `pub fn total(&self) -> f64` — Upstream's `np.sum(fractions)` — all six. · called at [L276](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/accident/mod.rs#L276) · *(calls below the depth limit not shown)*
-    - [`mod.rs::AccidentFractions::normal_operation_sum`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/accident/mod.rs#L110) `pub fn normal_operation_sum(&self) -> f64` — Upstream's `np.sum(fractions[:4])` — the four normal-operation fractions. · called at [L279](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/accident/mod.rs#L279) · *(calls below the depth limit not shown)*
-    - [`mod.rs::AccidentFractions::accident_sum`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/accident/mod.rs#L116) `pub fn accident_sum(&self) -> f64` — Upstream's `np.sum(fractions[4:])` — the two accident-only fractions. · called at [L291](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/accident/mod.rs#L291) · *(calls below the depth limit not shown)*
-  - [`mod.rs::atoms_to_curies`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/accident/mod.rs#L570) `pub fn atoms_to_curies(atoms: f64, decay_constant: f64) -> f64` — Convert an activity in atoms to curies: `atoms * lambda / 3.7e10`. · called at [L847](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/sembawang/src/accident/release.rs#L847)
-  - [`mod.rs::accident_release_curies`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/accident/mod.rs#L532) `pub fn accident_release_curies(kernel_release_curies: &[f64], graphite_release_curies: &[f64], vent_fraction: &[f64], circulating_curies: f64, plate_out_curies: f64, x_liftoff: f64) -> Vec<f64>` — Total released activity for one nuclide over the accident, in **curies**. · called at [L853](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/sembawang/src/accident/release.rs#L853)
-  - [`venting.rs::VentingWindow::fractions`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/sembawang/src/accident/venting.rs#L181) `pub fn fractions(&self) -> &[f64]` — The released fraction at each venting sample. · called at [L856](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/sembawang/src/accident/release.rs#L856)
-  - [`units.rs::from_curies`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/sembawang/src/units.rs#L70) `pub fn from_curies(curies: f64) -> Radioactivity` — An activity given in curies. · called at [L864](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/sembawang/src/accident/release.rs#L864)
-  - [`release.rs::deposition_group_of`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/sembawang/src/accident/release.rs#L455) `pub fn deposition_group_of(nuclide: &TrisoAtopsNuclide) -> DepositionGroup` — Which `changi` deposition group a TRISO-ATOPS nuclide belongs to. · called at [L887](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/sembawang/src/accident/release.rs#L887)
-    - [`deposition.rs::DepositionGroup::from_atomic_number`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/changi/src/activity/deposition.rs#L90) `pub const fn from_atomic_number(z: u32) -> Self` — Classify by atomic number. · called at [L456](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/sembawang/src/accident/release.rs#L456) · *(calls below the depth limit not shown)*
-  - [`source.rs::ReleaseWindow::new`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/changi/src/activity/source.rs#L58) `pub fn new(start: Time, end: Time) -> Self` — A window from `start` to `end`. · called at [L895](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/sembawang/src/accident/release.rs#L895)
-  - [`source.rs::SourceTerm::new`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/changi/src/activity/source.rs#L125) `pub fn new(windows: Vec<ReleaseWindow>, nuclides: Vec<NuclideRelease>) -> Self` — Build and validate in one step. · called at [L899](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/sembawang/src/accident/release.rs#L899)
-    - [`source.rs::SourceTerm::validate`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/changi/src/activity/source.rs#L147) `pub fn validate(&self)` — Check the invariants the dispersion driver relies on. · called at [L127](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/changi/src/activity/source.rs#L127) · *(calls below the depth limit not shown)*
+<div class="cw-node" style="margin-left:0.0em">
+
+[`release.rs::accident_release_with_venting`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/sembawang/src/accident/release.rs#L625) `pub fn accident_release_with_venting(inventory: &CoreInventory, transient: &TemperatureTransient, plant: &PlantParameters, venting_mode: &Venting) -> Result<AccidentRelease>` — `accident_release` with the core-venting (transport) mode chosen explicitly; see `Venting`.
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/sembawang/src/accident/release.rs:625 fn accident_release_with_venting -->
+<!-- snippet-check: crates/sembawang/src/accident/release.rs:639 len -->
+<!-- snippet-check: crates/sembawang/src/accident/release.rs:643 default -->
+<!-- snippet-check: crates/sembawang/src/accident/release.rs:646 min_celsius -->
+<!-- snippet-check: crates/sembawang/src/accident/release.rs:647 peak_celsius -->
+<!-- snippet-check: crates/sembawang/src/accident/release.rs:653 names -->
+<!-- snippet-check: crates/sembawang/src/accident/release.rs:661 select_nuclides_accident -->
+<!-- snippet-check: crates/sembawang/src/accident/release.rs:669 normalise_nuclide_name -->
+<!-- snippet-check: crates/sembawang/src/accident/release.rs:683 is_uniform_and_constant -->
+<!-- snippet-check: crates/sembawang/src/accident/release.rs:685 all_samples -->
+<!-- snippet-check: crates/sembawang/src/accident/release.rs:687 is_constant_in_time -->
+<!-- snippet-check: crates/sembawang/src/accident/release.rs:696 mean_temperature_rate -->
+<!-- snippet-check: crates/sembawang/src/accident/release.rs:697 hot_node_history -->
+<!-- snippet-check: crates/sembawang/src/accident/release.rs:699 coolant_release -->
+<!-- snippet-check: crates/sembawang/src/accident/release.rs:701 from_coolant_release -->
+<!-- snippet-check: crates/sembawang/src/accident/release.rs:702 is_empty -->
+<!-- snippet-check: crates/sembawang/src/accident/release.rs:734 is_contiguous -->
+<!-- snippet-check: crates/sembawang/src/accident/release.rs:735 len -->
+<!-- snippet-check: crates/sembawang/src/accident/release.rs:740 times -->
+<!-- snippet-check: crates/sembawang/src/accident/release.rs:745 normal_operation_pools -->
+<!-- snippet-check: crates/sembawang/src/accident/release.rs:754 element_group -->
+<!-- snippet-check: crates/sembawang/src/accident/release.rs:756 decay_constant -->
+<!-- snippet-check: crates/sembawang/src/accident/release.rs:773 axial_curies -->
+<!-- snippet-check: crates/sembawang/src/accident/release.rs:778 node_history -->
+<!-- snippet-check: crates/sembawang/src/accident/release.rs:779 gather -->
+<!-- snippet-check: crates/sembawang/src/accident/release.rs:781 integrate_diffusion_over_time -->
+<!-- snippet-check: crates/sembawang/src/accident/release.rs:802 zero_pools -->
+<!-- snippet-check: crates/sembawang/src/accident/release.rs:805 bridge_node -->
+<!-- snippet-check: crates/sembawang/src/accident/release.rs:808 release_fraction_transient -->
+<!-- snippet-check: crates/sembawang/src/accident/release.rs:824 release_activity -->
+<!-- snippet-check: crates/sembawang/src/accident/release.rs:847 atoms_to_curies -->
+<!-- snippet-check: crates/sembawang/src/accident/release.rs:853 accident_release_curies -->
+<!-- snippet-check: crates/sembawang/src/accident/release.rs:856 fractions -->
+<!-- snippet-check: crates/sembawang/src/accident/release.rs:864 from_curies -->
+<!-- snippet-check: crates/sembawang/src/accident/release.rs:887 deposition_group_of -->
+<!-- snippet-check: crates/sembawang/src/accident/release.rs:895 new -->
+<!-- snippet-check: crates/sembawang/src/accident/release.rs:899 new -->
+
+```rust,ignore
+{{#include ../../../../../../crates/sembawang/src/accident/release.rs:625:630}}
+    // …
+{{#include ../../../../../../crates/sembawang/src/accident/release.rs:637:648}}
+    // …
+{{#include ../../../../../../crates/sembawang/src/accident/release.rs:651:654}}
+    // …
+{{#include ../../../../../../crates/sembawang/src/accident/release.rs:659:662}}
+    // …
+{{#include ../../../../../../crates/sembawang/src/accident/release.rs:667:670}}
+    // …
+{{#include ../../../../../../crates/sembawang/src/accident/release.rs:681:688}}
+    // …
+{{#include ../../../../../../crates/sembawang/src/accident/release.rs:694:703}}
+    // …
+{{#include ../../../../../../crates/sembawang/src/accident/release.rs:732:736}}
+    // …
+{{#include ../../../../../../crates/sembawang/src/accident/release.rs:738:741}}
+    // …
+{{#include ../../../../../../crates/sembawang/src/accident/release.rs:743:746}}
+    // …
+{{#include ../../../../../../crates/sembawang/src/accident/release.rs:752:757}}
+    // …
+{{#include ../../../../../../crates/sembawang/src/accident/release.rs:771:774}}
+    // …
+{{#include ../../../../../../crates/sembawang/src/accident/release.rs:776:782}}
+    // …
+{{#include ../../../../../../crates/sembawang/src/accident/release.rs:800:809}}
+    // …
+{{#include ../../../../../../crates/sembawang/src/accident/release.rs:822:825}}
+    // …
+{{#include ../../../../../../crates/sembawang/src/accident/release.rs:845:848}}
+    // …
+{{#include ../../../../../../crates/sembawang/src/accident/release.rs:851:857}}
+    // …
+{{#include ../../../../../../crates/sembawang/src/accident/release.rs:862:865}}
+    // …
+{{#include ../../../../../../crates/sembawang/src/accident/release.rs:885:888}}
+    // …
+{{#include ../../../../../../crates/sembawang/src/accident/release.rs:893:900}}
+    // … (the rest of the function: follow the link above)
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:0.9em">
+
+[`scenario.rs::TemperatureTransient::len`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/sembawang/src/scenario.rs#L168) `pub fn len(&self) -> usize` — Number of time samples. · called at [L639](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/sembawang/src/accident/release.rs#L639)
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/sembawang/src/scenario.rs:168 fn len -->
+
+```rust,ignore
+{{#include ../../../../../../crates/sembawang/src/scenario.rs:168:170}}
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:0.9em">
+
+UNRESOLVED(other): `default` at [L643](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/sembawang/src/accident/release.rs#L643) (→ [`crates/sembawang/src/error.rs:92`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/sembawang/src/error.rs#L92)) — resolves to `#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]`, not a function body
+
+</div>
+
+<div class="cw-node" style="margin-left:0.9em">
+
+[`scenario.rs::TemperatureTransient::min_celsius`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/sembawang/src/scenario.rs#L234) `pub fn min_celsius(&self) -> f64` — The minimum temperature anywhere in the transient. · called at [L646](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/sembawang/src/accident/release.rs#L646)
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/sembawang/src/scenario.rs:234 fn min_celsius -->
+
+```rust,ignore
+{{#include ../../../../../../crates/sembawang/src/scenario.rs:234:241}}
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:0.9em">
+
+[`scenario.rs::TemperatureTransient::peak_celsius`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/sembawang/src/scenario.rs#L223) `pub fn peak_celsius(&self) -> f64` — The peak temperature anywhere in the transient, for checking it against the fitted range of the diffusion correlation. · called at [L647](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/sembawang/src/accident/release.rs#L647)
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/sembawang/src/scenario.rs:223 fn peak_celsius -->
+
+```rust,ignore
+{{#include ../../../../../../crates/sembawang/src/scenario.rs:223:230}}
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:0.9em">
+
+[`inventory.rs::CoreInventory::names`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/sembawang/src/inventory.rs#L150) `pub fn names(&self) -> Vec<&str>` — The nuclide names, in order, for handing to `select_nuclides_accident`. · called at [L653](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/sembawang/src/accident/release.rs#L653)
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/sembawang/src/inventory.rs:150 fn names -->
+
+```rust,ignore
+{{#include ../../../../../../crates/sembawang/src/inventory.rs:150:152}}
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:0.9em">
+
+[`mod.rs::select_nuclides_accident`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/run_selection/mod.rs#L362) `pub fn select_nuclides_accident(supplied_names: &[&str], accident_time: Time, use_ratio: Option<f64>) -> (Vec<TrisoAtopsNuclide>, Vec<SelectionError>)` — Select the nuclides relevant to an **accident** window. · called at [L661](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/sembawang/src/accident/release.rs#L661)
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/boon-lay/src/triso_atops_fork/run_selection/mod.rs:362 fn select_nuclides_accident -->
+<!-- snippet-check: crates/boon-lay/src/triso_atops_fork/run_selection/mod.rs:374 normalise_nuclide_name -->
+<!-- snippet-check: crates/boon-lay/src/triso_atops_fork/run_selection/mod.rs:376 find_nuclide -->
+
+```rust,ignore
+{{#include ../../../../../../crates/boon-lay/src/triso_atops_fork/run_selection/mod.rs:362:377}}
+    // … (the rest of the function: follow the link above)
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:1.8em">
+
+`mod.rs::normalise_nuclide_name` *(expanded elsewhere in this walk)* · called at [L374](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/run_selection/mod.rs#L374)
+
+</div>
+
+<div class="cw-node" style="margin-left:1.8em">
+
+[`nuclide_database.rs::find_nuclide`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L145) `pub fn find_nuclide(name: &str) -> Option<TrisoAtopsNuclide>` — Look a nuclide up by its canonical TRISO-ATOPS name (case-sensitive). · called at [L376](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/run_selection/mod.rs#L376) · *(calls below the depth limit not shown)*
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:145 fn find_nuclide -->
+
+```rust,ignore
+{{#include ../../../../../../crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:145:149}}
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:0.9em">
+
+[`scenario.rs::TemperatureTransient::end`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/sembawang/src/scenario.rs#L181) `pub fn end(&self) -> Time` — When the transient ends. · called at [L661](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/sembawang/src/accident/release.rs#L661)
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/sembawang/src/scenario.rs:181 fn end -->
+
+```rust,ignore
+{{#include ../../../../../../crates/sembawang/src/scenario.rs:181:183}}
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:0.9em">
+
+[`mod.rs::normalise_nuclide_name`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/run_selection/mod.rs#L184) `pub fn normalise_nuclide_name(supplied: &str) -> Result<String, SelectionError>` — Normalise a nuclide name to the database's canonical spelling. · called at [L669](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/sembawang/src/accident/release.rs#L669)
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/boon-lay/src/triso_atops_fork/run_selection/mod.rs:184 fn normalise_nuclide_name -->
+<!-- snippet-check: crates/boon-lay/src/triso_atops_fork/run_selection/mod.rs:197 unparseable -->
+<!-- snippet-check: crates/boon-lay/src/triso_atops_fork/run_selection/mod.rs:212 unparseable -->
+<!-- snippet-check: crates/boon-lay/src/triso_atops_fork/run_selection/mod.rs:225 unparseable -->
+
+```rust,ignore
+{{#include ../../../../../../crates/boon-lay/src/triso_atops_fork/run_selection/mod.rs:184:184}}
+    // …
+{{#include ../../../../../../crates/boon-lay/src/triso_atops_fork/run_selection/mod.rs:195:198}}
+    // …
+{{#include ../../../../../../crates/boon-lay/src/triso_atops_fork/run_selection/mod.rs:210:213}}
+    // …
+{{#include ../../../../../../crates/boon-lay/src/triso_atops_fork/run_selection/mod.rs:223:226}}
+    // … (the rest of the function: follow the link above)
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:1.8em">
+
+UNRESOLVED(closure): `unparseable` at [L197](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/run_selection/mod.rs#L197) (→ [`crates/boon-lay/src/triso_atops_fork/run_selection/mod.rs:185`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/run_selection/mod.rs#L185)) — call through a closure or fn-typed binding `unparseable`
+
+</div>
+
+<div class="cw-node" style="margin-left:1.8em">
+
+UNRESOLVED(closure): `unparseable` at [L212](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/run_selection/mod.rs#L212) (→ [`crates/boon-lay/src/triso_atops_fork/run_selection/mod.rs:185`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/run_selection/mod.rs#L185)) — call through a closure or fn-typed binding `unparseable`
+
+</div>
+
+<div class="cw-node" style="margin-left:1.8em">
+
+UNRESOLVED(closure): `unparseable` at [L225](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/run_selection/mod.rs#L225) (→ [`crates/boon-lay/src/triso_atops_fork/run_selection/mod.rs:185`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/run_selection/mod.rs#L185)) — call through a closure or fn-typed binding `unparseable`
+
+</div>
+
+<div class="cw-node" style="margin-left:0.9em">
+
+[`release.rs::TemperatureTransient::is_uniform_and_constant`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/sembawang/src/accident/release.rs#L605) `fn is_uniform_and_constant(&self) -> bool` — Whether every node at every time has exactly the first node's first temperature: upstream's test for skipping `coolant_release`. · called at [L683](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/sembawang/src/accident/release.rs#L683)
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/sembawang/src/accident/release.rs:605 fn is_uniform_and_constant -->
+
+```rust,ignore
+{{#include ../../../../../../crates/sembawang/src/accident/release.rs:605:612}}
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:0.9em">
+
+[`venting.rs::VentingWindow::all_samples`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/sembawang/src/accident/venting.rs#L140) `pub fn all_samples(fractions: Vec<f64>) -> Self` — A window over **every** sample of an `n`-sample axis, with the given fraction at each, where `n = fractions.len()`. · called at [L685](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/sembawang/src/accident/release.rs#L685)
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/sembawang/src/accident/venting.rs:140 fn all_samples -->
+
+```rust,ignore
+{{#include ../../../../../../crates/sembawang/src/accident/venting.rs:140:147}}
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:0.9em">
+
+[`release.rs::TemperatureTransient::is_constant_in_time`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/sembawang/src/accident/release.rs#L597) `fn is_constant_in_time(&self) -> bool` — Whether every node's temperature is the same at every time (spatial variation allowed): the non-uniform isothermal case (#447). · called at [L687](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/sembawang/src/accident/release.rs#L687)
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/sembawang/src/accident/release.rs:597 fn is_constant_in_time -->
+
+```rust,ignore
+{{#include ../../../../../../crates/sembawang/src/accident/release.rs:597:601}}
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:0.9em">
+
+[`mod.rs::mean_temperature_rate`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/accident/mod.rs#L449) `pub fn mean_temperature_rate(times: &[Time], node_temperatures: &[Vec<ThermodynamicTemperature>]) -> Vec<f64>` — Mean `dT/dt` at each sample, averaged across the core. · called at [L696](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/sembawang/src/accident/release.rs#L696)
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/boon-lay/src/triso_atops_fork/accident/mod.rs:449 fn mean_temperature_rate -->
+
+```rust,ignore
+{{#include ../../../../../../crates/boon-lay/src/triso_atops_fork/accident/mod.rs:449:476}}
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:0.9em">
+
+[`scenario.rs::TemperatureTransient::all_node_histories`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/sembawang/src/scenario.rs#L199) `pub fn all_node_histories(&self) -> Vec<Vec<ThermodynamicTemperature>>` — Every node's history, flattened ring-major, as `mean_temperature_rate` wants it. · called at [L696](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/sembawang/src/accident/release.rs#L696)
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/sembawang/src/scenario.rs:199 fn all_node_histories -->
+<!-- snippet-check: crates/sembawang/src/scenario.rs:203 node_history -->
+
+```rust,ignore
+{{#include ../../../../../../crates/sembawang/src/scenario.rs:199:204}}
+    // … (the rest of the function: follow the link above)
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:1.8em">
+
+`scenario.rs::TemperatureTransient::node_history` *(expanded elsewhere in this walk)* · called at [L203](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/sembawang/src/scenario.rs#L203)
+
+</div>
+
+<div class="cw-node" style="margin-left:0.9em">
+
+[`scenario.rs::TemperatureTransient::hot_node_history`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/sembawang/src/scenario.rs#L216) `pub fn hot_node_history(&self) -> Vec<ThermodynamicTemperature>` — The history of the node taken as hottest: innermost ring, mid-height. · called at [L697](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/sembawang/src/accident/release.rs#L697)
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/sembawang/src/scenario.rs:216 fn hot_node_history -->
+<!-- snippet-check: crates/sembawang/src/scenario.rs:217 node_history -->
+
+```rust,ignore
+{{#include ../../../../../../crates/sembawang/src/scenario.rs:216:218}}
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:1.8em">
+
+`scenario.rs::TemperatureTransient::node_history` *(expanded elsewhere in this walk)* · called at [L217](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/sembawang/src/scenario.rs#L217)
+
+</div>
+
+<div class="cw-node" style="margin-left:0.9em">
+
+[`mod.rs::coolant_release`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/accident/mod.rs#L362) `pub fn coolant_release(times: &[Time], mean_dtdt: &[f64], hot_node_temperature: &[ThermodynamicTemperature], pressure: Pressure) -> (Vec<f64>, Vec<Time>)` — Fraction of the primary coolant vented, over the venting window. · called at [L699](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/sembawang/src/accident/release.rs#L699)
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/boon-lay/src/triso_atops_fork/accident/mod.rs:362 fn coolant_release -->
+
+```rust,ignore
+{{#include ../../../../../../crates/boon-lay/src/triso_atops_fork/accident/mod.rs:362:401}}
+    // … (the rest of the function: follow the link above)
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:0.9em">
+
+[`venting.rs::VentingWindow::from_coolant_release`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/sembawang/src/accident/venting.rs#L94) `pub fn from_coolant_release(full_times: &[Time], vent_times: &[Time], fractions: Vec<f64>) -> Result<Self>` — Recover the venting indices from `coolant_release`'s output. · called at [L701](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/sembawang/src/accident/release.rs#L701)
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/sembawang/src/accident/venting.rs:94 fn from_coolant_release -->
+
+```rust,ignore
+{{#include ../../../../../../crates/sembawang/src/accident/venting.rs:94:128}}
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:0.9em">
+
+[`venting.rs::VentingWindow::is_empty`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/sembawang/src/accident/venting.rs#L157) `pub fn is_empty(&self) -> bool` — Whether nothing vented. · called at [L702](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/sembawang/src/accident/release.rs#L702)
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/sembawang/src/accident/venting.rs:157 fn is_empty -->
+
+```rust,ignore
+{{#include ../../../../../../crates/sembawang/src/accident/venting.rs:157:159}}
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:0.9em">
+
+[`venting.rs::VentingWindow::is_contiguous`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/sembawang/src/accident/venting.rs#L192) `pub fn is_contiguous(&self) -> bool` — Whether the venting samples form a contiguous run. · called at [L734](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/sembawang/src/accident/release.rs#L734)
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/sembawang/src/accident/venting.rs:192 fn is_contiguous -->
+
+```rust,ignore
+{{#include ../../../../../../crates/sembawang/src/accident/venting.rs:192:196}}
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:0.9em">
+
+[`venting.rs::VentingWindow::len`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/sembawang/src/accident/venting.rs#L151) `pub fn len(&self) -> usize` — How many samples vented. · called at [L735](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/sembawang/src/accident/release.rs#L735)
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/sembawang/src/accident/venting.rs:151 fn len -->
+
+```rust,ignore
+{{#include ../../../../../../crates/sembawang/src/accident/venting.rs:151:153}}
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:0.9em">
+
+[`venting.rs::VentingWindow::times`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/sembawang/src/accident/venting.rs#L203) `pub fn times(&self, full_times: &[Time]) -> Vec<Time>` — The venting samples' times, gathered from the full axis. · called at [L740](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/sembawang/src/accident/release.rs#L740)
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/sembawang/src/accident/venting.rs:203 fn times -->
+<!-- snippet-check: crates/sembawang/src/accident/venting.rs:204 gather -->
+
+```rust,ignore
+{{#include ../../../../../../crates/sembawang/src/accident/venting.rs:203:205}}
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:1.8em">
+
+`venting.rs::VentingWindow::gather` *(expanded elsewhere in this walk)* · called at [L204](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/sembawang/src/accident/venting.rs#L204)
+
+</div>
+
+<div class="cw-node" style="margin-left:0.9em">
+
+[`release.rs::normal_operation_pools`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/sembawang/src/accident/release.rs#L360) `fn normal_operation_pools(inventory: &CoreInventory, transient: &TemperatureTransient, plant: &PlantParameters, op: &NormalOperation) -> HashMap<String, Vec<NodalActivities>>` — Upstream's `normal_operation`, per node, for every inventory nuclide the normal-operation selection keeps: the pools `PrimaryCircuitPools::FromNormalOperation` starts the accident from. · called at [L745](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/sembawang/src/accident/release.rs#L745)
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/sembawang/src/accident/release.rs:360 fn normal_operation_pools -->
+<!-- snippet-check: crates/sembawang/src/accident/release.rs:366 names -->
+<!-- snippet-check: crates/sembawang/src/accident/release.rs:368 select_nuclides -->
+<!-- snippet-check: crates/sembawang/src/accident/release.rs:391 normalise_nuclide_name -->
+<!-- snippet-check: crates/sembawang/src/accident/release.rs:402 axial_curies -->
+<!-- snippet-check: crates/sembawang/src/accident/release.rs:406 none -->
+<!-- snippet-check: crates/sembawang/src/accident/release.rs:407 normal_operation_node -->
+<!-- snippet-check: crates/sembawang/src/accident/release.rs:410 from_curies -->
+<!-- snippet-check: crates/sembawang/src/accident/release.rs:413 at -->
+
+```rust,ignore
+{{#include ../../../../../../crates/sembawang/src/accident/release.rs:360:369}}
+    // …
+{{#include ../../../../../../crates/sembawang/src/accident/release.rs:389:392}}
+    // …
+{{#include ../../../../../../crates/sembawang/src/accident/release.rs:400:414}}
+    // … (the rest of the function: follow the link above)
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:1.8em">
+
+`inventory.rs::CoreInventory::names` *(expanded elsewhere in this walk)* · called at [L366](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/sembawang/src/accident/release.rs#L366)
+
+</div>
+
+<div class="cw-node" style="margin-left:1.8em">
+
+[`mod.rs::select_nuclides`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/run_selection/mod.rs#L267) `pub fn select_nuclides(supplied_names: &[&str], irradiation_time: Time, short_lived_ratio: Option<f64>, policy: ParentDecayPolicy) -> (Vec<SelectedNuclide>, Vec<SelectionError>)` — Select and classify the nuclides for a **normal-operation** run. · called at [L368](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/sembawang/src/accident/release.rs#L368) · *(calls below the depth limit not shown)*
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/boon-lay/src/triso_atops_fork/run_selection/mod.rs:267 fn select_nuclides -->
+
+```rust,ignore
+{{#include ../../../../../../crates/boon-lay/src/triso_atops_fork/run_selection/mod.rs:267:306}}
+    // … (the rest of the function: follow the link above)
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:1.8em">
+
+`mod.rs::normalise_nuclide_name` *(expanded elsewhere in this walk)* · called at [L391](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/sembawang/src/accident/release.rs#L391)
+
+</div>
+
+<div class="cw-node" style="margin-left:1.8em">
+
+`inventory.rs::NuclideInventory::axial_curies` *(expanded elsewhere in this walk)* · called at [L402](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/sembawang/src/accident/release.rs#L402)
+
+</div>
+
+<div class="cw-node" style="margin-left:1.8em">
+
+[`mod.rs::ParentPools::none`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/normal_operation/mod.rs#L136) `pub fn none() -> Self` — No parent contribution (all pools zero). · called at [L406](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/sembawang/src/accident/release.rs#L406) · *(calls below the depth limit not shown)*
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/boon-lay/src/triso_atops_fork/normal_operation/mod.rs:136 fn none -->
+
+```rust,ignore
+{{#include ../../../../../../crates/boon-lay/src/triso_atops_fork/normal_operation/mod.rs:136:138}}
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:1.8em">
+
+[`mod.rs::NodalActivities::parent_pools`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/normal_operation/mod.rs#L167) `pub fn parent_pools(&self) -> ParentPools` — The parent-chaining pools (`ParentPools`) to feed into a daughter nuclide whose parent is this one. · called at [L406](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/sembawang/src/accident/release.rs#L406) · *(calls below the depth limit not shown)*
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/boon-lay/src/triso_atops_fork/normal_operation/mod.rs:167 fn parent_pools -->
+
+```rust,ignore
+{{#include ../../../../../../crates/boon-lay/src/triso_atops_fork/normal_operation/mod.rs:167:173}}
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:1.8em">
+
+[`mod.rs::normal_operation_node`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/normal_operation/mod.rs#L254) `pub fn normal_operation_node(nuclide: &TrisoAtopsNuclide, short_lived: bool, inventory: Activity, fractions: FailureFractions, plant: PlantConstants, node: NodeState, hps_enabled: bool, parent: ParentPools) -> NodalActivities` — Compute the normal-operation activity source term for one nuclide at one node. · called at [L407](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/sembawang/src/accident/release.rs#L407) · *(calls below the depth limit not shown)*
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/boon-lay/src/triso_atops_fork/normal_operation/mod.rs:254 fn normal_operation_node -->
+
+```rust,ignore
+{{#include ../../../../../../crates/boon-lay/src/triso_atops_fork/normal_operation/mod.rs:254:293}}
+    // … (the rest of the function: follow the link above)
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:1.8em">
+
+`units.rs::from_curies` *(expanded elsewhere in this walk)* · called at [L410](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/sembawang/src/accident/release.rs#L410)
+
+</div>
+
+<div class="cw-node" style="margin-left:1.8em">
+
+[`units.rs::to_boon_lay_activity`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/sembawang/src/units.rs#L59) `pub fn to_boon_lay_activity(activity: Radioactivity) -> BoonLayActivity` — `Radioactivity` back into `boon-lay`'s activity type. · called at [L410](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/sembawang/src/accident/release.rs#L410) · *(calls below the depth limit not shown)*
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/sembawang/src/units.rs:59 fn to_boon_lay_activity -->
+
+```rust,ignore
+{{#include ../../../../../../crates/sembawang/src/units.rs:59:61}}
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:1.8em">
+
+[`release.rs::NodeTemperatures::at`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/sembawang/src/accident/release.rs#L187) `fn at(&self, ring: usize, axial: usize) -> NodeState` · called at [L413](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/sembawang/src/accident/release.rs#L413) · *(calls below the depth limit not shown)*
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/sembawang/src/accident/release.rs:187 fn at -->
+
+```rust,ignore
+{{#include ../../../../../../crates/sembawang/src/accident/release.rs:187:198}}
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:0.9em">
+
+[`mod.rs::TrisoAtopsNuclide::element_group`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/mod.rs#L126) `pub fn element_group(&self) -> ElementGroup` — The transport `ElementGroup` this nuclide belongs to, from its `Z`. · called at [L754](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/sembawang/src/accident/release.rs#L754)
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/boon-lay/src/triso_atops_fork/nuclide_model/mod.rs:126 fn element_group -->
+<!-- snippet-check: crates/boon-lay/src/triso_atops_fork/nuclide_model/mod.rs:127 from_atomic_number -->
+
+```rust,ignore
+{{#include ../../../../../../crates/boon-lay/src/triso_atops_fork/nuclide_model/mod.rs:126:128}}
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:1.8em">
+
+[`mod.rs::ElementGroup::from_atomic_number`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/mod.rs#L174) `pub fn from_atomic_number(z: u32) -> Self` — Classify an atomic number `Z` into its TRISO-ATOPS transport group. · called at [L127](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/mod.rs#L127) · *(calls below the depth limit not shown)*
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/boon-lay/src/triso_atops_fork/nuclide_model/mod.rs:174 fn from_atomic_number -->
+
+```rust,ignore
+{{#include ../../../../../../crates/boon-lay/src/triso_atops_fork/nuclide_model/mod.rs:174:191}}
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:0.9em">
+
+[`mod.rs::TrisoAtopsNuclide::decay_constant`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/mod.rs#L117) `pub fn decay_constant(&self) -> DecayConstant` — The radioactive decay constant `λ = ln 2 / t½`. · called at [L756](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/sembawang/src/accident/release.rs#L756)
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/boon-lay/src/triso_atops_fork/nuclide_model/mod.rs:117 fn decay_constant -->
+
+```rust,ignore
+{{#include ../../../../../../crates/boon-lay/src/triso_atops_fork/nuclide_model/mod.rs:117:120}}
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:0.9em">
+
+[`inventory.rs::NuclideInventory::axial_curies`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/sembawang/src/inventory.rs#L76) `pub fn axial_curies(&self, ring: usize, n_axial: usize) -> Vec<f64>` — This nuclide's inventory in one ring, spread over the axial nodes. · called at [L773](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/sembawang/src/accident/release.rs#L773)
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/sembawang/src/inventory.rs:76 fn axial_curies -->
+<!-- snippet-check: crates/sembawang/src/inventory.rs:77 distribute_inventory_axially -->
+
+```rust,ignore
+{{#include ../../../../../../crates/sembawang/src/inventory.rs:76:78}}
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:1.8em">
+
+[`mod.rs::distribute_inventory_axially`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/accident/mod.rs#L197) `pub fn distribute_inventory_axially(ring_inventory: f64, n_axial: usize) -> Vec<f64>` — Distribute a per-radial-ring inventory evenly over the axial nodes. · called at [L77](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/sembawang/src/inventory.rs#L77) · *(calls below the depth limit not shown)*
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/boon-lay/src/triso_atops_fork/accident/mod.rs:197 fn distribute_inventory_axially -->
+
+```rust,ignore
+{{#include ../../../../../../crates/boon-lay/src/triso_atops_fork/accident/mod.rs:197:200}}
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:1.8em">
+
+[`units.rs::in_curies`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/sembawang/src/units.rs#L77) `pub fn in_curies(activity: Radioactivity) -> f64` — An activity read back out in curies, for comparison against TRISO-ATOPS output. · called at [L77](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/sembawang/src/inventory.rs#L77) · *(calls below the depth limit not shown)*
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/sembawang/src/units.rs:77 fn in_curies -->
+
+```rust,ignore
+{{#include ../../../../../../crates/sembawang/src/units.rs:77:79}}
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:0.9em">
+
+[`scenario.rs::TemperatureTransient::node_history`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/sembawang/src/scenario.rs#L190) `pub fn node_history(&self, ring: usize, axial: usize) -> Vec<ThermodynamicTemperature>` — One node's history, `[time]`. · called at [L778](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/sembawang/src/accident/release.rs#L778)
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/sembawang/src/scenario.rs:190 fn node_history -->
+
+```rust,ignore
+{{#include ../../../../../../crates/sembawang/src/scenario.rs:190:194}}
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:0.9em">
+
+[`venting.rs::VentingWindow::gather`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/sembawang/src/accident/venting.rs#L218) `pub fn gather<T: Copy>(&self, full: &[T]) -> Vec<T>` — Any per-sample quantity, gathered at the venting indices. · called at [L779](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/sembawang/src/accident/release.rs#L779)
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/sembawang/src/accident/venting.rs:218 fn gather -->
+
+```rust,ignore
+{{#include ../../../../../../crates/sembawang/src/accident/venting.rs:218:229}}
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:0.9em">
+
+[`mod.rs::integrate_diffusion_over_time`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/diffusion/mod.rs#L242) `pub fn integrate_diffusion_over_time(z: u32, times: &[Time], temperatures: &[ThermodynamicTemperature], material: DiffusionMaterial) -> Vec<Area>` — Cumulative time-integral `∫₀ᵗ D(T(t')) dt'` along a temperature history. · called at [L781](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/sembawang/src/accident/release.rs#L781)
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/boon-lay/src/triso_atops_fork/diffusion/mod.rs:242 fn integrate_diffusion_over_time -->
+<!-- snippet-check: crates/boon-lay/src/triso_atops_fork/diffusion/mod.rs:261 diffusion_coefficient_sic_ag -->
+<!-- snippet-check: crates/boon-lay/src/triso_atops_fork/diffusion/mod.rs:263 diffusion_coefficient -->
+
+```rust,ignore
+{{#include ../../../../../../crates/boon-lay/src/triso_atops_fork/diffusion/mod.rs:242:264}}
+    // … (the rest of the function: follow the link above)
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:1.8em">
+
+[`mod.rs::diffusion_coefficient_sic_ag`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/diffusion/mod.rs#L196) `pub fn diffusion_coefficient_sic_ag(sic_temperature: ThermodynamicTemperature) -> DiffusionCoefficient` — Diffusion coefficient for silver (Ag) through the **SiC** layer. · called at [L261](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/diffusion/mod.rs#L261) · *(calls below the depth limit not shown)*
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/boon-lay/src/triso_atops_fork/diffusion/mod.rs:196 fn diffusion_coefficient_sic_ag -->
+
+```rust,ignore
+{{#include ../../../../../../crates/boon-lay/src/triso_atops_fork/diffusion/mod.rs:196:201}}
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:1.8em">
+
+[`mod.rs::diffusion_coefficient`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/diffusion/mod.rs#L130) `pub fn diffusion_coefficient(z: u32, kernel_temperature: ThermodynamicTemperature, graphite_temperature: ThermodynamicTemperature) -> KernelGraphiteDiffusion` — Kernel and graphite diffusion coefficients for a nuclide, by atomic number. · called at [L263](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/diffusion/mod.rs#L263) · *(calls below the depth limit not shown)*
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/boon-lay/src/triso_atops_fork/diffusion/mod.rs:130 fn diffusion_coefficient -->
+
+```rust,ignore
+{{#include ../../../../../../crates/boon-lay/src/triso_atops_fork/diffusion/mod.rs:130:169}}
+    // … (the rest of the function: follow the link above)
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:0.9em">
+
+[`release.rs::zero_pools`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/sembawang/src/accident/release.rs#L338) `pub fn zero_pools() -> boon_lay::triso_atops_fork::normal_operation::NodalActivities` — A normal-operation state with every pool empty: the `PrimaryCircuitPools::EmptyAblation` state. · passed as a function value at [L802](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/sembawang/src/accident/release.rs#L802)
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/sembawang/src/accident/release.rs:338 fn zero_pools -->
+
+```rust,ignore
+{{#include ../../../../../../crates/sembawang/src/accident/release.rs:338:347}}
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:0.9em">
+
+[`release.rs::bridge_node`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/sembawang/src/accident/release.rs#L430) `pub fn bridge_node(activities: &boon_lay::triso_atops_fork::normal_operation::NodalActivities, inventory_curies: f64, decay_constant: uom::si::f64::Frequency) -> NormalOperationNode` — Bridge `normal_operation_node`'s six channels to `release_activity`'s seven. · called at [L805](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/sembawang/src/accident/release.rs#L805)
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/sembawang/src/accident/release.rs:430 fn bridge_node -->
+<!-- snippet-check: crates/sembawang/src/accident/release.rs:435 from_curies -->
+<!-- snippet-check: crates/sembawang/src/accident/release.rs:437 atom_count_from_activity -->
+
+```rust,ignore
+{{#include ../../../../../../crates/sembawang/src/accident/release.rs:430:438}}
+    // … (the rest of the function: follow the link above)
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:1.8em">
+
+`units.rs::from_curies` *(expanded elsewhere in this walk)* · called at [L435](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/sembawang/src/accident/release.rs#L435)
+
+</div>
+
+<div class="cw-node" style="margin-left:1.8em">
+
+`units.rs::to_boon_lay_activity` *(expanded elsewhere in this walk)* · called at [L435](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/sembawang/src/accident/release.rs#L435)
+
+</div>
+
+<div class="cw-node" style="margin-left:1.8em">
+
+[`mod.rs::atom_count_from_activity`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/activities/mod.rs#L195) `pub fn atom_count_from_activity(activity: Activity, decay_constant: DecayConstant) -> f64` — Number of atoms whose activity is `activity`: `N = A / λ`. · called at [L437](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/sembawang/src/accident/release.rs#L437) · *(calls below the depth limit not shown)*
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/boon-lay/src/triso_atops_fork/activities/mod.rs:195 fn atom_count_from_activity -->
+
+```rust,ignore
+{{#include ../../../../../../crates/boon-lay/src/triso_atops_fork/activities/mod.rs:195:197}}
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:0.9em">
+
+[`mod.rs::release_fraction_transient`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/release_models/mod.rs#L187) `pub fn release_fraction_transient(z: u32, element_group: ElementGroup, integrated_d: Area, primary_thickness: Length, secondary_thickness: Option<Length>, material: ReleaseMaterial) -> ReleaseFraction` — Accident (transient) release-fraction dispatcher. · called at [L808](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/sembawang/src/accident/release.rs#L808)
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/boon-lay/src/triso_atops_fork/release_models/mod.rs:187 fn release_fraction_transient -->
+<!-- snippet-check: crates/boon-lay/src/triso_atops_fork/release_models/mod.rs:201 booth_transient -->
+<!-- snippet-check: crates/boon-lay/src/triso_atops_fork/release_models/mod.rs:207 breakthrough_model_transient -->
+<!-- snippet-check: crates/boon-lay/src/triso_atops_fork/release_models/mod.rs:217 rf_graph -->
+
+```rust,ignore
+{{#include ../../../../../../crates/boon-lay/src/triso_atops_fork/release_models/mod.rs:187:194}}
+    // …
+{{#include ../../../../../../crates/boon-lay/src/triso_atops_fork/release_models/mod.rs:199:202}}
+    // …
+{{#include ../../../../../../crates/boon-lay/src/triso_atops_fork/release_models/mod.rs:205:208}}
+    // …
+{{#include ../../../../../../crates/boon-lay/src/triso_atops_fork/release_models/mod.rs:215:218}}
+    // … (the rest of the function: follow the link above)
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:1.8em">
+
+[`transient.rs::booth_transient`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/release_models/transient.rs#L125) `pub fn booth_transient(integrated_d_prime: Ratio) -> ReleaseFraction` — Transient Booth release fraction from the kernel. · called at [L201](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/release_models/mod.rs#L201) · *(calls below the depth limit not shown)*
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/boon-lay/src/triso_atops_fork/release_models/transient.rs:125 fn booth_transient -->
+
+```rust,ignore
+{{#include ../../../../../../crates/boon-lay/src/triso_atops_fork/release_models/transient.rs:125:142}}
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:1.8em">
+
+[`transient.rs::breakthrough_model_transient`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/release_models/transient.rs#L77) `pub fn breakthrough_model_transient(integrated_d_prime: Ratio, integrated_d: Area, layer_thickness: Length, kernel_radius: Length) -> ReleaseFraction` — Transient breakthrough release fraction from the kernel/barrier. · called at [L207](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/release_models/mod.rs#L207) · *(calls below the depth limit not shown)*
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/boon-lay/src/triso_atops_fork/release_models/transient.rs:77 fn breakthrough_model_transient -->
+
+```rust,ignore
+{{#include ../../../../../../crates/boon-lay/src/triso_atops_fork/release_models/transient.rs:77:99}}
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:1.8em">
+
+[`transient.rs::rf_graph`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/release_models/transient.rs#L166) `pub fn rf_graph(integrated_d: Area, graphite_thickness: Length) -> ReleaseFraction` — Transient release fraction through the matrix **graphite**. · called at [L217](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/release_models/mod.rs#L217) · *(calls below the depth limit not shown)*
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/boon-lay/src/triso_atops_fork/release_models/transient.rs:166 fn rf_graph -->
+
+```rust,ignore
+{{#include ../../../../../../crates/boon-lay/src/triso_atops_fork/release_models/transient.rs:166:177}}
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:0.9em">
+
+[`mod.rs::release_activity`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/accident/mod.rs#L253) `pub fn release_activity(group: ElementGroup, fractions: AccidentFractions, node: NormalOperationNode, release_fraction: f64, clean: bool, material: ReleaseMaterial, upstream_cadmium_typo: bool, z: u32) -> f64` — The activity still available for accident release at one node, in atoms. · called at [L824](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/sembawang/src/accident/release.rs#L824)
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/boon-lay/src/triso_atops_fork/accident/mod.rs:253 fn release_activity -->
+<!-- snippet-check: crates/boon-lay/src/triso_atops_fork/accident/mod.rs:272 volatile_sum -->
+<!-- snippet-check: crates/boon-lay/src/triso_atops_fork/accident/mod.rs:276 total -->
+<!-- snippet-check: crates/boon-lay/src/triso_atops_fork/accident/mod.rs:279 normal_operation_sum -->
+<!-- snippet-check: crates/boon-lay/src/triso_atops_fork/accident/mod.rs:291 accident_sum -->
+
+```rust,ignore
+{{#include ../../../../../../crates/boon-lay/src/triso_atops_fork/accident/mod.rs:253:260}}
+    // …
+{{#include ../../../../../../crates/boon-lay/src/triso_atops_fork/accident/mod.rs:270:280}}
+    // …
+{{#include ../../../../../../crates/boon-lay/src/triso_atops_fork/accident/mod.rs:289:292}}
+    // … (the rest of the function: follow the link above)
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:1.8em">
+
+[`mod.rs::AccidentFractions::volatile_sum`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/accident/mod.rs#L127) `pub fn volatile_sum(&self) -> f64` — Upstream's `fractions[0] + fractions[2] + fractions[-2]` — the volatile path: heavy metal, incremental, and the accident incremental. · called at [L272](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/accident/mod.rs#L272) · *(calls below the depth limit not shown)*
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/boon-lay/src/triso_atops_fork/accident/mod.rs:127 fn volatile_sum -->
+
+```rust,ignore
+{{#include ../../../../../../crates/boon-lay/src/triso_atops_fork/accident/mod.rs:127:129}}
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:1.8em">
+
+[`mod.rs::AccidentFractions::total`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/accident/mod.rs#L95) `pub fn total(&self) -> f64` — Upstream's `np.sum(fractions)` — all six. · called at [L276](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/accident/mod.rs#L276) · *(calls below the depth limit not shown)*
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/boon-lay/src/triso_atops_fork/accident/mod.rs:95 fn total -->
+
+```rust,ignore
+{{#include ../../../../../../crates/boon-lay/src/triso_atops_fork/accident/mod.rs:95:102}}
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:1.8em">
+
+[`mod.rs::AccidentFractions::normal_operation_sum`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/accident/mod.rs#L110) `pub fn normal_operation_sum(&self) -> f64` — Upstream's `np.sum(fractions[:4])` — the four normal-operation fractions. · called at [L279](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/accident/mod.rs#L279) · *(calls below the depth limit not shown)*
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/boon-lay/src/triso_atops_fork/accident/mod.rs:110 fn normal_operation_sum -->
+
+```rust,ignore
+{{#include ../../../../../../crates/boon-lay/src/triso_atops_fork/accident/mod.rs:110:112}}
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:1.8em">
+
+[`mod.rs::AccidentFractions::accident_sum`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/accident/mod.rs#L116) `pub fn accident_sum(&self) -> f64` — Upstream's `np.sum(fractions[4:])` — the two accident-only fractions. · called at [L291](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/accident/mod.rs#L291) · *(calls below the depth limit not shown)*
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/boon-lay/src/triso_atops_fork/accident/mod.rs:116 fn accident_sum -->
+
+```rust,ignore
+{{#include ../../../../../../crates/boon-lay/src/triso_atops_fork/accident/mod.rs:116:118}}
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:0.9em">
+
+[`mod.rs::atoms_to_curies`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/accident/mod.rs#L570) `pub fn atoms_to_curies(atoms: f64, decay_constant: f64) -> f64` — Convert an activity in atoms to curies: `atoms * lambda / 3.7e10`. · called at [L847](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/sembawang/src/accident/release.rs#L847)
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/boon-lay/src/triso_atops_fork/accident/mod.rs:570 fn atoms_to_curies -->
+
+```rust,ignore
+{{#include ../../../../../../crates/boon-lay/src/triso_atops_fork/accident/mod.rs:570:572}}
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:0.9em">
+
+[`mod.rs::accident_release_curies`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/accident/mod.rs#L532) `pub fn accident_release_curies(kernel_release_curies: &[f64], graphite_release_curies: &[f64], vent_fraction: &[f64], circulating_curies: f64, plate_out_curies: f64, x_liftoff: f64) -> Vec<f64>` — Total released activity for one nuclide over the accident, in **curies**. · called at [L853](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/sembawang/src/accident/release.rs#L853)
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/boon-lay/src/triso_atops_fork/accident/mod.rs:532 fn accident_release_curies -->
+
+```rust,ignore
+{{#include ../../../../../../crates/boon-lay/src/triso_atops_fork/accident/mod.rs:532:558}}
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:0.9em">
+
+[`venting.rs::VentingWindow::fractions`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/sembawang/src/accident/venting.rs#L181) `pub fn fractions(&self) -> &[f64]` — The released fraction at each venting sample. · called at [L856](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/sembawang/src/accident/release.rs#L856)
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/sembawang/src/accident/venting.rs:181 fn fractions -->
+
+```rust,ignore
+{{#include ../../../../../../crates/sembawang/src/accident/venting.rs:181:183}}
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:0.9em">
+
+[`units.rs::from_curies`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/sembawang/src/units.rs#L70) `pub fn from_curies(curies: f64) -> Radioactivity` — An activity given in curies. · called at [L864](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/sembawang/src/accident/release.rs#L864)
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/sembawang/src/units.rs:70 fn from_curies -->
+
+```rust,ignore
+{{#include ../../../../../../crates/sembawang/src/units.rs:70:72}}
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:0.9em">
+
+[`release.rs::deposition_group_of`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/sembawang/src/accident/release.rs#L455) `pub fn deposition_group_of(nuclide: &TrisoAtopsNuclide) -> DepositionGroup` — Which `changi` deposition group a TRISO-ATOPS nuclide belongs to. · called at [L887](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/sembawang/src/accident/release.rs#L887)
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/sembawang/src/accident/release.rs:455 fn deposition_group_of -->
+<!-- snippet-check: crates/sembawang/src/accident/release.rs:456 from_atomic_number -->
+
+```rust,ignore
+{{#include ../../../../../../crates/sembawang/src/accident/release.rs:455:457}}
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:1.8em">
+
+[`deposition.rs::DepositionGroup::from_atomic_number`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/changi/src/activity/deposition.rs#L90) `pub const fn from_atomic_number(z: u32) -> Self` — Classify by atomic number. · called at [L456](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/sembawang/src/accident/release.rs#L456) · *(calls below the depth limit not shown)*
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/changi/src/activity/deposition.rs:90 fn from_atomic_number -->
+
+```rust,ignore
+{{#include ../../../../../../crates/changi/src/activity/deposition.rs:90:96}}
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:0.9em">
+
+[`source.rs::ReleaseWindow::new`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/changi/src/activity/source.rs#L58) `pub fn new(start: Time, end: Time) -> Self` — A window from `start` to `end`. · called at [L895](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/sembawang/src/accident/release.rs#L895)
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/changi/src/activity/source.rs:58 fn new -->
+
+```rust,ignore
+{{#include ../../../../../../crates/changi/src/activity/source.rs:58:66}}
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:0.9em">
+
+[`source.rs::SourceTerm::new`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/changi/src/activity/source.rs#L125) `pub fn new(windows: Vec<ReleaseWindow>, nuclides: Vec<NuclideRelease>) -> Self` — Build and validate in one step. · called at [L899](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/sembawang/src/accident/release.rs#L899)
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/changi/src/activity/source.rs:125 fn new -->
+<!-- snippet-check: crates/changi/src/activity/source.rs:127 validate -->
+
+```rust,ignore
+{{#include ../../../../../../crates/changi/src/activity/source.rs:125:128}}
+    // … (the rest of the function: follow the link above)
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:1.8em">
+
+[`source.rs::SourceTerm::validate`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/changi/src/activity/source.rs#L147) `pub fn validate(&self)` — Check the invariants the dispersion driver relies on. · called at [L127](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/changi/src/activity/source.rs#L127) · *(calls below the depth limit not shown)*
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/changi/src/activity/source.rs:147 fn validate -->
+
+```rust,ignore
+{{#include ../../../../../../crates/changi/src/activity/source.rs:147:186}}
+    // … (the rest of the function: follow the link above)
+```
+
+</details>
+</div>
 <!-- /code-walk -->
 
 ## Caveats as data

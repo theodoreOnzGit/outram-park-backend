@@ -41,16 +41,175 @@ library is needed and the crate still builds for Android and wasm.
 
 Everything `crates/njoy-outram-park-fork/src/hdf5/nuclide_write.rs::write_nuclide` reaches in the workspace, to 2 hops: 9 functions, 0 unresolved calls. A function is expanded once; later calls to it say *(expanded elsewhere in this walk)*.
 
-- [`nuclide_write.rs::write_nuclide`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/njoy-outram-park-fork/src/hdf5/nuclide_write.rs#L287) `pub fn write_nuclide<P: AsRef<Path>>(path: P, n: &NuclideData) -> Result<(), NjoyError>` — Write a nuclide `.h5`.
-  - [`nuclide_laws.rs::EmissionMode::as_str`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/njoy-outram-park-fork/src/hdf5/nuclide_laws.rs#L707) `pub fn as_str(self) -> &'static str` — Upstream's string form. · called at [L448](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/njoy-outram-park-fork/src/hdf5/nuclide_write.rs#L448)
-  - [`nuclide_write.rs::ReactionData::skipped_by_upstream`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/njoy-outram-park-fork/src/hdf5/nuclide_write.rs#L230) `pub fn skipped_by_upstream(&self) -> bool` — Whether upstream would skip this reaction when exporting. · called at [L489](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/njoy-outram-park-fork/src/hdf5/nuclide_write.rs#L489)
-  - [`nuclide_laws.rs::reaction_label`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/njoy-outram-park-fork/src/hdf5/nuclide_laws.rs#L852) `pub fn reaction_label(mt: i32) -> String` — The standard OpenMC label for an MT, mirroring `REACTION_NAME`. · called at [L494](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/njoy-outram-park-fork/src/hdf5/nuclide_write.rs#L494)
-  - [`nuclide_laws.rs::Product::write`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/njoy-outram-park-fork/src/hdf5/nuclide_laws.rs#L753) `pub fn write(&self, pg: &mut GroupBuilder) -> Result<(), NjoyError>` — Write into an already-created `product_<i>` group. · called at [L512](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/njoy-outram-park-fork/src/hdf5/nuclide_write.rs#L512)
-    - `nuclide_laws.rs::EmissionMode::as_str` *(expanded elsewhere in this walk)* · called at [L777](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/njoy-outram-park-fork/src/hdf5/nuclide_laws.rs#L777)
-    - [`nuclide_laws.rs::Function1D::write`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/njoy-outram-park-fork/src/hdf5/nuclide_laws.rs#L178) `pub fn write(&self, g: &mut GroupBuilder, name: &str)` — Write as `<name>` in `g`. · called at [L782](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/njoy-outram-park-fork/src/hdf5/nuclide_laws.rs#L782) · *(calls below the depth limit not shown)*
-    - [`nuclide_laws.rs::Tabulated1D::write`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/njoy-outram-park-fork/src/hdf5/nuclide_laws.rs#L131) `pub fn write(&self, g: &mut GroupBuilder, name: &str)` — Write as `<name>` in `g`, mirroring `Tabulated1D.to_hdf5`. · called at [L790](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/njoy-outram-park-fork/src/hdf5/nuclide_laws.rs#L790) · *(calls below the depth limit not shown)*
-    - [`nuclide_laws.rs::AngleEnergy::write`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/njoy-outram-park-fork/src/hdf5/nuclide_laws.rs#L641) `pub fn write(&self, dg: &mut GroupBuilder) -> Result<(), NjoyError>` — Write into an already-created `distribution_<i>` group. · called at [L792](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/njoy-outram-park-fork/src/hdf5/nuclide_laws.rs#L792) · *(calls below the depth limit not shown)*
-  - [`nuclide_laws.rs::UrrTables::write`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/njoy-outram-park-fork/src/hdf5/nuclide_laws.rs#L823) `pub fn write(&self, g: &mut GroupBuilder) -> Result<(), NjoyError>` — Write into an already-created temperature group under `urr`. · called at [L533](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/njoy-outram-park-fork/src/hdf5/nuclide_write.rs#L533)
+<div class="cw-node" style="margin-left:0.0em">
+
+[`nuclide_write.rs::write_nuclide`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/njoy-outram-park-fork/src/hdf5/nuclide_write.rs#L287) `pub fn write_nuclide<P: AsRef<Path>>(path: P, n: &NuclideData) -> Result<(), NjoyError>` — Write a nuclide `.h5`.
+
+<details open><summary>code</summary>
+
+<!-- snippet-check: crates/njoy-outram-park-fork/src/hdf5/nuclide_write.rs:287 fn write_nuclide -->
+<!-- snippet-check: crates/njoy-outram-park-fork/src/hdf5/nuclide_write.rs:448 as_str -->
+<!-- snippet-check: crates/njoy-outram-park-fork/src/hdf5/nuclide_write.rs:489 skipped_by_upstream -->
+<!-- snippet-check: crates/njoy-outram-park-fork/src/hdf5/nuclide_write.rs:494 reaction_label -->
+<!-- snippet-check: crates/njoy-outram-park-fork/src/hdf5/nuclide_write.rs:512 write -->
+<!-- snippet-check: crates/njoy-outram-park-fork/src/hdf5/nuclide_write.rs:533 write -->
+
+```rust,ignore
+{{#include ../../../../../crates/njoy-outram-park-fork/src/hdf5/nuclide_write.rs:287:287}}
+    // …
+{{#include ../../../../../crates/njoy-outram-park-fork/src/hdf5/nuclide_write.rs:446:449}}
+    // …
+{{#include ../../../../../crates/njoy-outram-park-fork/src/hdf5/nuclide_write.rs:487:490}}
+    // …
+{{#include ../../../../../crates/njoy-outram-park-fork/src/hdf5/nuclide_write.rs:492:495}}
+    // …
+{{#include ../../../../../crates/njoy-outram-park-fork/src/hdf5/nuclide_write.rs:510:513}}
+    // …
+{{#include ../../../../../crates/njoy-outram-park-fork/src/hdf5/nuclide_write.rs:531:534}}
+    // … (the rest of the function: follow the link above)
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:0.9em">
+
+[`nuclide_laws.rs::EmissionMode::as_str`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/njoy-outram-park-fork/src/hdf5/nuclide_laws.rs#L707) `pub fn as_str(self) -> &'static str` — Upstream's string form. · called at [L448](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/njoy-outram-park-fork/src/hdf5/nuclide_write.rs#L448)
+
+<details open><summary>code</summary>
+
+<!-- snippet-check: crates/njoy-outram-park-fork/src/hdf5/nuclide_laws.rs:707 fn as_str -->
+
+```rust,ignore
+{{#include ../../../../../crates/njoy-outram-park-fork/src/hdf5/nuclide_laws.rs:707:713}}
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:0.9em">
+
+[`nuclide_write.rs::ReactionData::skipped_by_upstream`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/njoy-outram-park-fork/src/hdf5/nuclide_write.rs#L230) `pub fn skipped_by_upstream(&self) -> bool` — Whether upstream would skip this reaction when exporting. · called at [L489](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/njoy-outram-park-fork/src/hdf5/nuclide_write.rs#L489)
+
+<details open><summary>code</summary>
+
+<!-- snippet-check: crates/njoy-outram-park-fork/src/hdf5/nuclide_write.rs:230 fn skipped_by_upstream -->
+
+```rust,ignore
+{{#include ../../../../../crates/njoy-outram-park-fork/src/hdf5/nuclide_write.rs:230:239}}
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:0.9em">
+
+[`nuclide_laws.rs::reaction_label`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/njoy-outram-park-fork/src/hdf5/nuclide_laws.rs#L852) `pub fn reaction_label(mt: i32) -> String` — The standard OpenMC label for an MT, mirroring `REACTION_NAME`. · called at [L494](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/njoy-outram-park-fork/src/hdf5/nuclide_write.rs#L494)
+
+<details open><summary>code</summary>
+
+<!-- snippet-check: crates/njoy-outram-park-fork/src/hdf5/nuclide_laws.rs:852 fn reaction_label -->
+
+```rust,ignore
+{{#include ../../../../../crates/njoy-outram-park-fork/src/hdf5/nuclide_laws.rs:852:891}}
+    // … (the rest of the function: follow the link above)
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:0.9em">
+
+[`nuclide_laws.rs::Product::write`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/njoy-outram-park-fork/src/hdf5/nuclide_laws.rs#L753) `pub fn write(&self, pg: &mut GroupBuilder) -> Result<(), NjoyError>` — Write into an already-created `product_<i>` group. · called at [L512](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/njoy-outram-park-fork/src/hdf5/nuclide_write.rs#L512)
+
+<details open><summary>code</summary>
+
+<!-- snippet-check: crates/njoy-outram-park-fork/src/hdf5/nuclide_laws.rs:753 fn write -->
+<!-- snippet-check: crates/njoy-outram-park-fork/src/hdf5/nuclide_laws.rs:777 as_str -->
+<!-- snippet-check: crates/njoy-outram-park-fork/src/hdf5/nuclide_laws.rs:782 write -->
+<!-- snippet-check: crates/njoy-outram-park-fork/src/hdf5/nuclide_laws.rs:790 write -->
+<!-- snippet-check: crates/njoy-outram-park-fork/src/hdf5/nuclide_laws.rs:792 write -->
+
+```rust,ignore
+{{#include ../../../../../crates/njoy-outram-park-fork/src/hdf5/nuclide_laws.rs:753:753}}
+    // …
+{{#include ../../../../../crates/njoy-outram-park-fork/src/hdf5/nuclide_laws.rs:775:778}}
+    // …
+{{#include ../../../../../crates/njoy-outram-park-fork/src/hdf5/nuclide_laws.rs:780:783}}
+    // …
+{{#include ../../../../../crates/njoy-outram-park-fork/src/hdf5/nuclide_laws.rs:788:793}}
+    // … (the rest of the function: follow the link above)
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:1.8em">
+
+`nuclide_laws.rs::EmissionMode::as_str` *(expanded elsewhere in this walk)* · called at [L777](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/njoy-outram-park-fork/src/hdf5/nuclide_laws.rs#L777)
+
+</div>
+
+<div class="cw-node" style="margin-left:1.8em">
+
+[`nuclide_laws.rs::Function1D::write`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/njoy-outram-park-fork/src/hdf5/nuclide_laws.rs#L178) `pub fn write(&self, g: &mut GroupBuilder, name: &str)` — Write as `<name>` in `g`. · called at [L782](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/njoy-outram-park-fork/src/hdf5/nuclide_laws.rs#L782) · *(calls below the depth limit not shown)*
+
+<details open><summary>code</summary>
+
+<!-- snippet-check: crates/njoy-outram-park-fork/src/hdf5/nuclide_laws.rs:178 fn write -->
+
+```rust,ignore
+{{#include ../../../../../crates/njoy-outram-park-fork/src/hdf5/nuclide_laws.rs:178:183}}
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:1.8em">
+
+[`nuclide_laws.rs::Tabulated1D::write`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/njoy-outram-park-fork/src/hdf5/nuclide_laws.rs#L131) `pub fn write(&self, g: &mut GroupBuilder, name: &str)` — Write as `<name>` in `g`, mirroring `Tabulated1D.to_hdf5`. · called at [L790](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/njoy-outram-park-fork/src/hdf5/nuclide_laws.rs#L790) · *(calls below the depth limit not shown)*
+
+<details open><summary>code</summary>
+
+<!-- snippet-check: crates/njoy-outram-park-fork/src/hdf5/nuclide_laws.rs:131 fn write -->
+
+```rust,ignore
+{{#include ../../../../../crates/njoy-outram-park-fork/src/hdf5/nuclide_laws.rs:131:143}}
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:1.8em">
+
+[`nuclide_laws.rs::AngleEnergy::write`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/njoy-outram-park-fork/src/hdf5/nuclide_laws.rs#L641) `pub fn write(&self, dg: &mut GroupBuilder) -> Result<(), NjoyError>` — Write into an already-created `distribution_<i>` group. · called at [L792](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/njoy-outram-park-fork/src/hdf5/nuclide_laws.rs#L792) · *(calls below the depth limit not shown)*
+
+<details open><summary>code</summary>
+
+<!-- snippet-check: crates/njoy-outram-park-fork/src/hdf5/nuclide_laws.rs:641 fn write -->
+
+```rust,ignore
+{{#include ../../../../../crates/njoy-outram-park-fork/src/hdf5/nuclide_laws.rs:641:680}}
+    // … (the rest of the function: follow the link above)
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:0.9em">
+
+[`nuclide_laws.rs::UrrTables::write`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/njoy-outram-park-fork/src/hdf5/nuclide_laws.rs#L823) `pub fn write(&self, g: &mut GroupBuilder) -> Result<(), NjoyError>` — Write into an already-created temperature group under `urr`. · called at [L533](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/njoy-outram-park-fork/src/hdf5/nuclide_write.rs#L533)
+
+<details open><summary>code</summary>
+
+<!-- snippet-check: crates/njoy-outram-park-fork/src/hdf5/nuclide_laws.rs:823 fn write -->
+
+```rust,ignore
+{{#include ../../../../../crates/njoy-outram-park-fork/src/hdf5/nuclide_laws.rs:823:845}}
+```
+
+</details>
+</div>
 <!-- /code-walk -->
 
 **Reading the walk.** The block above is generated by `kovan-cli code-walk-check --update`

@@ -436,30 +436,388 @@ own:
 
 Everything `crates/buangkok/src/pydoseia/ingestion/corrected.rs::ingestion_dose_per_nuclide` reaches in the workspace, to 2 hops: 22 functions, 0 unresolved calls. A function is expanded once; later calls to it say *(expanded elsewhere in this walk)*.
 
-- [`corrected.rs::ingestion_dose_per_nuclide`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/ingestion/corrected.rs#L114) `pub fn ingestion_dose_per_nuclide(nuclides: &[IngestionNuclide], chi_over_q: DilutionFactor, s: &IngestionSettings) -> Vec<IngestionDoseByRoute>` — Ingestion dose for each nuclide, in input order (the corrected driver; see the module docs for what differs from upstream).
-  - [`units.rs::DilutionFactor::seconds_per_cubic_meter`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/changi/src/activity/units.rs#L53) `pub const fn seconds_per_cubic_meter(self) -> f64` — The value in seconds per cubic metre. · called at [L119](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/ingestion/corrected.rs#L119)
-  - [`mod.rs::SoilType::surface_densities`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/ingestion/mod.rs#L237) `pub const fn surface_densities(self) -> (f64, f64)` — `(rho_pasture_depth_lt_11, rho_crop_depth_ge_11)`, kg/m^2 dry soil. · called at [L125](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/ingestion/corrected.rs#L125)
-  - [`food_chain.rs::per_day`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/ingestion/food_chain.rs#L33) `pub fn per_day(lambda_per_s: f64) -> f64` — Decay constant per day as upstream converts it: `lambda * 24 * 3600`. · called at [L129](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/ingestion/corrected.rs#L129)
-  - [`food_chain.rs::deposition_rate_per_day`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/ingestion/food_chain.rs#L16) `pub fn deposition_rate_per_day(day_discharge: f64, v_d_m_per_s: f64, chi_over_q: f64) -> f64` — Upstream's per-day deposition rate `d * v_d * chi/Q`, Bq m^-2 d^-1 (with `d` the release per day: `Q / 365` for a long-term release, and the released Bq itself for a single plume, as upstream). · called at [L142](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/ingestion/corrected.rs#L142)
-  - [`food_chain.rs::effective_removal_rates`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/ingestion/food_chain.rs#L24) `pub fn effective_removal_rates(tf: TransferFactors, lambda_i_per_d: f64) -> (f64, f64)` — `ingestion_weathering_correction_real` for one element: effective removal rates from plants and from soil, 1/d, `(lambda_w + lambda_i, lambda_s + lambda_i)` with `lambda_i` the decay constant per day. · called at [L143](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/ingestion/corrected.rs#L143)
-  - [`food_chain.rs::food_crop`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/ingestion/food_chain.rs#L52) `pub fn food_crop(dep_per_day: f64, lambda_eiv: f64, lambda_eis: f64, fv2: f64, lambda_i_per_d: f64, rho_crop: f64, p: &IngestionParameters) -> CropConcentrations` — Food crops for human consumption (upstream's "veg route"). · called at [L144](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/ingestion/corrected.rs#L144)
-  - [`food_chain.rs::animal_products`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/ingestion/food_chain.rs#L98) `pub fn animal_products(dep_per_day: f64, lambda_eiv: f64, lambda_eis: f64, fv1: f64, fm: f64, ff: f64, lambda_i_per_d: f64, rho_pasture: f64, p: &IngestionParameters) -> AnimalConcentrations` — Upstream's milk and meat route for one nuclide. · called at [L153](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/ingestion/corrected.rs#L153)
-  - [`corrected.rs::msv`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/ingestion/corrected.rs#L107) `fn msv(v: f64) -> EffectiveDose` · called at [L165](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/ingestion/corrected.rs#L165)
-    - [`units.rs::EffectiveDose::from_millisieverts`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/units.rs#L42) `pub const fn from_millisieverts(msv: f64) -> Self` — From a value in millisieverts. · called at [L108](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/ingestion/corrected.rs#L108) · *(calls below the depth limit not shown)*
-  - [`food_chain.rs::tritium_in_plant`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/ingestion/food_chain.rs#L311) `pub fn tritium_in_plant(chi_over_q: f64, discharge: f64, climate: Climate, veg: VegetationType, cr_s: f64, gamma: f64, r_p: f64) -> TritiumPlant` — `conc_tritium_in_terrestrial_plant`: air HTO from the release (Bq/y times `chi/Q`, divided by `365 * 24 * 3600`), then air moisture, soil water, tissue-free water, HTO and OBT in the plant. · called at [L171](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/ingestion/corrected.rs#L171)
-    - [`food_chain.rs::Climate::humidity`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/ingestion/food_chain.rs#L149) `pub const fn humidity(self) -> (f64, f64, f64)` — `(latitude, H_a, RH)`. · called at [L321](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/ingestion/food_chain.rs#L321) · *(calls below the depth limit not shown)*
-    - [`food_chain.rs::VegetationType::weq_wcp`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/ingestion/food_chain.rs#L176) `pub const fn weq_wcp(self) -> (f64, f64)` — `(WEQ, WCp)`: water equivalent factor (L/kg dry) and water content (upstream's `veg_type_data`, TECDOC-1616 Table 3). · called at [L322](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/ingestion/food_chain.rs#L322) · *(calls below the depth limit not shown)*
-  - [`food_chain.rs::tritium_in_animal`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/ingestion/food_chain.rs#L341) `pub fn tritium_in_animal(c_tfwt: f64, c_f_hto: f64, product: AnimalProduct, feed: VegetationType, r_p: f64) -> (f64, f64, f64)` — `conc_tritium_in_terrestrial_animal`: `(C_afw_T_HTO, C_f_OBT, C_afw_T_OBT)`. · called at [L193](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/ingestion/corrected.rs#L193)
-    - `food_chain.rs::VegetationType::weq_wcp` *(expanded elsewhere in this walk)* · called at [L348](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/ingestion/food_chain.rs#L348)
-    - [`food_chain.rs::AnimalProduct::cr_hto`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/ingestion/food_chain.rs#L221) `pub const fn cr_hto(self) -> f64` — `CR_a_HTO`, the HTO concentration ratio. · called at [L349](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/ingestion/food_chain.rs#L349) · *(calls below the depth limit not shown)*
-    - [`food_chain.rs::AnimalProduct::cr_obt`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/ingestion/food_chain.rs#L234) `pub const fn cr_obt(self) -> f64` — `CR_a_OBT`, the OBT concentration ratio. · called at [L351](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/ingestion/food_chain.rs#L351) · *(calls below the depth limit not shown)*
-  - [`food_chain.rs::AnimalProduct::is_milk`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/ingestion/food_chain.rs#L263) `pub const fn is_milk(self) -> bool` — In upstream's milk list (`cow_milk`, `goat_milk`). · called at [L200](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/ingestion/corrected.rs#L200)
-  - [`food_chain.rs::AnimalProduct::is_meat`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/ingestion/food_chain.rs#L271) `pub const fn is_meat(self) -> bool` — In upstream's meat list (`goat_meat`, `lamb_meat`, `beef_meat`, `broiler_meat`, `pork_meat`; its `cow_meat` has no ratios and would raise `KeyError`). · called at [L204](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/ingestion/corrected.rs#L204)
-  - [`food_chain.rs::c14_in_plant`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/ingestion/food_chain.rs#L357) `pub fn c14_in_plant(c_air: f64, veg: VegetationType, s_air: f64) -> f64` — `conc_c14_in_terrestrial_plants`: `C_air S_p / S_air`, Bq/kg fresh. · called at [L222](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/ingestion/corrected.rs#L222)
-    - [`food_chain.rs::VegetationType::stable_carbon`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/ingestion/food_chain.rs#L188) `pub const fn stable_carbon(self) -> f64` — Stable carbon content `S_p`, gC/kg fresh weight (upstream's `veg_type_S_p_data`). · called at [L358](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/ingestion/food_chain.rs#L358) · *(calls below the depth limit not shown)*
-  - [`food_chain.rs::c14_in_animal`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/ingestion/food_chain.rs#L364) `pub fn c14_in_animal(c_pfw: f64, feed: VegetationType, product: AnimalProduct, f_c: f64) -> f64` — `conc_c14_in_terrestrial_animal`: `f_c C_pfw S_a / S_p`, Bq/kg fresh (upstream uses `f_c = 1`). · called at [L226](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/ingestion/corrected.rs#L226)
-    - `food_chain.rs::VegetationType::stable_carbon` *(expanded elsewhere in this walk)* · called at [L365](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/ingestion/food_chain.rs#L365)
-    - [`food_chain.rs::AnimalProduct::stable_carbon`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/ingestion/food_chain.rs#L248) `pub const fn stable_carbon(self) -> f64` — `S_a`, stable carbon in the product, gC/kg (TECDOC-1616 Table 12). · called at [L365](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/ingestion/food_chain.rs#L365) · *(calls below the depth limit not shown)*
+<div class="cw-node" style="margin-left:0.0em">
+
+[`corrected.rs::ingestion_dose_per_nuclide`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/ingestion/corrected.rs#L114) `pub fn ingestion_dose_per_nuclide(nuclides: &[IngestionNuclide], chi_over_q: DilutionFactor, s: &IngestionSettings) -> Vec<IngestionDoseByRoute>` — Ingestion dose for each nuclide, in input order (the corrected driver; see the module docs for what differs from upstream).
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/buangkok/src/pydoseia/ingestion/corrected.rs:114 fn ingestion_dose_per_nuclide -->
+<!-- snippet-check: crates/buangkok/src/pydoseia/ingestion/corrected.rs:119 seconds_per_cubic_meter -->
+<!-- snippet-check: crates/buangkok/src/pydoseia/ingestion/corrected.rs:125 surface_densities -->
+<!-- snippet-check: crates/buangkok/src/pydoseia/ingestion/corrected.rs:129 per_day -->
+<!-- snippet-check: crates/buangkok/src/pydoseia/ingestion/corrected.rs:142 deposition_rate_per_day -->
+<!-- snippet-check: crates/buangkok/src/pydoseia/ingestion/corrected.rs:143 effective_removal_rates -->
+<!-- snippet-check: crates/buangkok/src/pydoseia/ingestion/corrected.rs:144 food_crop -->
+<!-- snippet-check: crates/buangkok/src/pydoseia/ingestion/corrected.rs:153 animal_products -->
+<!-- snippet-check: crates/buangkok/src/pydoseia/ingestion/corrected.rs:165 msv -->
+<!-- snippet-check: crates/buangkok/src/pydoseia/ingestion/corrected.rs:171 tritium_in_plant -->
+<!-- snippet-check: crates/buangkok/src/pydoseia/ingestion/corrected.rs:193 tritium_in_animal -->
+<!-- snippet-check: crates/buangkok/src/pydoseia/ingestion/corrected.rs:200 is_milk -->
+<!-- snippet-check: crates/buangkok/src/pydoseia/ingestion/corrected.rs:204 is_meat -->
+<!-- snippet-check: crates/buangkok/src/pydoseia/ingestion/corrected.rs:222 c14_in_plant -->
+<!-- snippet-check: crates/buangkok/src/pydoseia/ingestion/corrected.rs:226 c14_in_animal -->
+
+```rust,ignore
+{{#include ../../../../../../crates/buangkok/src/pydoseia/ingestion/corrected.rs:114:120}}
+    // …
+{{#include ../../../../../../crates/buangkok/src/pydoseia/ingestion/corrected.rs:123:130}}
+    // …
+{{#include ../../../../../../crates/buangkok/src/pydoseia/ingestion/corrected.rs:140:145}}
+    // …
+{{#include ../../../../../../crates/buangkok/src/pydoseia/ingestion/corrected.rs:151:154}}
+    // …
+{{#include ../../../../../../crates/buangkok/src/pydoseia/ingestion/corrected.rs:163:166}}
+    // …
+{{#include ../../../../../../crates/buangkok/src/pydoseia/ingestion/corrected.rs:169:172}}
+    // …
+{{#include ../../../../../../crates/buangkok/src/pydoseia/ingestion/corrected.rs:191:194}}
+    // …
+{{#include ../../../../../../crates/buangkok/src/pydoseia/ingestion/corrected.rs:198:205}}
+    // …
+{{#include ../../../../../../crates/buangkok/src/pydoseia/ingestion/corrected.rs:220:227}}
+    // … (the rest of the function: follow the link above)
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:0.9em">
+
+[`units.rs::DilutionFactor::seconds_per_cubic_meter`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/changi/src/activity/units.rs#L53) `pub const fn seconds_per_cubic_meter(self) -> f64` — The value in seconds per cubic metre. · called at [L119](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/ingestion/corrected.rs#L119)
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/changi/src/activity/units.rs:53 fn seconds_per_cubic_meter -->
+
+```rust,ignore
+{{#include ../../../../../../crates/changi/src/activity/units.rs:53:55}}
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:0.9em">
+
+[`mod.rs::SoilType::surface_densities`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/ingestion/mod.rs#L237) `pub const fn surface_densities(self) -> (f64, f64)` — `(rho_pasture_depth_lt_11, rho_crop_depth_ge_11)`, kg/m^2 dry soil. · called at [L125](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/ingestion/corrected.rs#L125)
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/buangkok/src/pydoseia/ingestion/mod.rs:237 fn surface_densities -->
+
+```rust,ignore
+{{#include ../../../../../../crates/buangkok/src/pydoseia/ingestion/mod.rs:237:242}}
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:0.9em">
+
+[`food_chain.rs::per_day`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/ingestion/food_chain.rs#L33) `pub fn per_day(lambda_per_s: f64) -> f64` — Decay constant per day as upstream converts it: `lambda * 24 * 3600`. · called at [L129](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/ingestion/corrected.rs#L129)
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/buangkok/src/pydoseia/ingestion/food_chain.rs:33 fn per_day -->
+
+```rust,ignore
+{{#include ../../../../../../crates/buangkok/src/pydoseia/ingestion/food_chain.rs:33:35}}
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:0.9em">
+
+[`food_chain.rs::deposition_rate_per_day`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/ingestion/food_chain.rs#L16) `pub fn deposition_rate_per_day(day_discharge: f64, v_d_m_per_s: f64, chi_over_q: f64) -> f64` — Upstream's per-day deposition rate `d * v_d * chi/Q`, Bq m^-2 d^-1 (with `d` the release per day: `Q / 365` for a long-term release, and the released Bq itself for a single plume, as upstream). · called at [L142](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/ingestion/corrected.rs#L142)
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/buangkok/src/pydoseia/ingestion/food_chain.rs:16 fn deposition_rate_per_day -->
+
+```rust,ignore
+{{#include ../../../../../../crates/buangkok/src/pydoseia/ingestion/food_chain.rs:16:18}}
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:0.9em">
+
+[`food_chain.rs::effective_removal_rates`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/ingestion/food_chain.rs#L24) `pub fn effective_removal_rates(tf: TransferFactors, lambda_i_per_d: f64) -> (f64, f64)` — `ingestion_weathering_correction_real` for one element: effective removal rates from plants and from soil, 1/d, `(lambda_w + lambda_i, lambda_s + lambda_i)` with `lambda_i` the decay constant per day. · called at [L143](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/ingestion/corrected.rs#L143)
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/buangkok/src/pydoseia/ingestion/food_chain.rs:24 fn effective_removal_rates -->
+
+```rust,ignore
+{{#include ../../../../../../crates/buangkok/src/pydoseia/ingestion/food_chain.rs:24:29}}
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:0.9em">
+
+[`food_chain.rs::food_crop`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/ingestion/food_chain.rs#L52) `pub fn food_crop(dep_per_day: f64, lambda_eiv: f64, lambda_eis: f64, fv2: f64, lambda_i_per_d: f64, rho_crop: f64, p: &IngestionParameters) -> CropConcentrations` — Food crops for human consumption (upstream's "veg route"). · called at [L144](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/ingestion/corrected.rs#L144)
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/buangkok/src/pydoseia/ingestion/food_chain.rs:52 fn food_crop -->
+
+```rust,ignore
+{{#include ../../../../../../crates/buangkok/src/pydoseia/ingestion/food_chain.rs:52:72}}
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:0.9em">
+
+[`food_chain.rs::animal_products`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/ingestion/food_chain.rs#L98) `pub fn animal_products(dep_per_day: f64, lambda_eiv: f64, lambda_eis: f64, fv1: f64, fm: f64, ff: f64, lambda_i_per_d: f64, rho_pasture: f64, p: &IngestionParameters) -> AnimalConcentrations` — Upstream's milk and meat route for one nuclide. · called at [L153](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/ingestion/corrected.rs#L153)
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/buangkok/src/pydoseia/ingestion/food_chain.rs:98 fn animal_products -->
+
+```rust,ignore
+{{#include ../../../../../../crates/buangkok/src/pydoseia/ingestion/food_chain.rs:98:129}}
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:0.9em">
+
+[`corrected.rs::msv`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/ingestion/corrected.rs#L107) `fn msv(v: f64) -> EffectiveDose` · called at [L165](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/ingestion/corrected.rs#L165)
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/buangkok/src/pydoseia/ingestion/corrected.rs:107 fn msv -->
+<!-- snippet-check: crates/buangkok/src/pydoseia/ingestion/corrected.rs:108 from_millisieverts -->
+
+```rust,ignore
+{{#include ../../../../../../crates/buangkok/src/pydoseia/ingestion/corrected.rs:107:109}}
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:1.8em">
+
+[`units.rs::EffectiveDose::from_millisieverts`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/units.rs#L42) `pub const fn from_millisieverts(msv: f64) -> Self` — From a value in millisieverts. · called at [L108](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/ingestion/corrected.rs#L108) · *(calls below the depth limit not shown)*
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/buangkok/src/pydoseia/units.rs:42 fn from_millisieverts -->
+
+```rust,ignore
+{{#include ../../../../../../crates/buangkok/src/pydoseia/units.rs:42:44}}
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:0.9em">
+
+[`food_chain.rs::tritium_in_plant`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/ingestion/food_chain.rs#L311) `pub fn tritium_in_plant(chi_over_q: f64, discharge: f64, climate: Climate, veg: VegetationType, cr_s: f64, gamma: f64, r_p: f64) -> TritiumPlant` — `conc_tritium_in_terrestrial_plant`: air HTO from the release (Bq/y times `chi/Q`, divided by `365 * 24 * 3600`), then air moisture, soil water, tissue-free water, HTO and OBT in the plant. · called at [L171](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/ingestion/corrected.rs#L171)
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/buangkok/src/pydoseia/ingestion/food_chain.rs:311 fn tritium_in_plant -->
+<!-- snippet-check: crates/buangkok/src/pydoseia/ingestion/food_chain.rs:321 humidity -->
+<!-- snippet-check: crates/buangkok/src/pydoseia/ingestion/food_chain.rs:322 weq_wcp -->
+
+```rust,ignore
+{{#include ../../../../../../crates/buangkok/src/pydoseia/ingestion/food_chain.rs:311:323}}
+    // … (the rest of the function: follow the link above)
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:1.8em">
+
+[`food_chain.rs::Climate::humidity`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/ingestion/food_chain.rs#L149) `pub const fn humidity(self) -> (f64, f64, f64)` — `(latitude, H_a, RH)`. · called at [L321](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/ingestion/food_chain.rs#L321) · *(calls below the depth limit not shown)*
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/buangkok/src/pydoseia/ingestion/food_chain.rs:149 fn humidity -->
+
+```rust,ignore
+{{#include ../../../../../../crates/buangkok/src/pydoseia/ingestion/food_chain.rs:149:156}}
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:1.8em">
+
+[`food_chain.rs::VegetationType::weq_wcp`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/ingestion/food_chain.rs#L176) `pub const fn weq_wcp(self) -> (f64, f64)` — `(WEQ, WCp)`: water equivalent factor (L/kg dry) and water content (upstream's `veg_type_data`, TECDOC-1616 Table 3). · called at [L322](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/ingestion/food_chain.rs#L322) · *(calls below the depth limit not shown)*
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/buangkok/src/pydoseia/ingestion/food_chain.rs:176 fn weq_wcp -->
+
+```rust,ignore
+{{#include ../../../../../../crates/buangkok/src/pydoseia/ingestion/food_chain.rs:176:183}}
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:0.9em">
+
+[`food_chain.rs::tritium_in_animal`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/ingestion/food_chain.rs#L341) `pub fn tritium_in_animal(c_tfwt: f64, c_f_hto: f64, product: AnimalProduct, feed: VegetationType, r_p: f64) -> (f64, f64, f64)` — `conc_tritium_in_terrestrial_animal`: `(C_afw_T_HTO, C_f_OBT, C_afw_T_OBT)`. · called at [L193](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/ingestion/corrected.rs#L193)
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/buangkok/src/pydoseia/ingestion/food_chain.rs:341 fn tritium_in_animal -->
+<!-- snippet-check: crates/buangkok/src/pydoseia/ingestion/food_chain.rs:348 weq_wcp -->
+<!-- snippet-check: crates/buangkok/src/pydoseia/ingestion/food_chain.rs:349 cr_hto -->
+<!-- snippet-check: crates/buangkok/src/pydoseia/ingestion/food_chain.rs:351 cr_obt -->
+
+```rust,ignore
+{{#include ../../../../../../crates/buangkok/src/pydoseia/ingestion/food_chain.rs:341:352}}
+    // … (the rest of the function: follow the link above)
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:1.8em">
+
+`food_chain.rs::VegetationType::weq_wcp` *(expanded elsewhere in this walk)* · called at [L348](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/ingestion/food_chain.rs#L348)
+
+</div>
+
+<div class="cw-node" style="margin-left:1.8em">
+
+[`food_chain.rs::AnimalProduct::cr_hto`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/ingestion/food_chain.rs#L221) `pub const fn cr_hto(self) -> f64` — `CR_a_HTO`, the HTO concentration ratio. · called at [L349](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/ingestion/food_chain.rs#L349) · *(calls below the depth limit not shown)*
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/buangkok/src/pydoseia/ingestion/food_chain.rs:221 fn cr_hto -->
+
+```rust,ignore
+{{#include ../../../../../../crates/buangkok/src/pydoseia/ingestion/food_chain.rs:221:230}}
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:1.8em">
+
+[`food_chain.rs::AnimalProduct::cr_obt`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/ingestion/food_chain.rs#L234) `pub const fn cr_obt(self) -> f64` — `CR_a_OBT`, the OBT concentration ratio. · called at [L351](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/ingestion/food_chain.rs#L351) · *(calls below the depth limit not shown)*
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/buangkok/src/pydoseia/ingestion/food_chain.rs:234 fn cr_obt -->
+
+```rust,ignore
+{{#include ../../../../../../crates/buangkok/src/pydoseia/ingestion/food_chain.rs:234:244}}
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:0.9em">
+
+[`food_chain.rs::AnimalProduct::is_milk`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/ingestion/food_chain.rs#L263) `pub const fn is_milk(self) -> bool` — In upstream's milk list (`cow_milk`, `goat_milk`). · called at [L200](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/ingestion/corrected.rs#L200)
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/buangkok/src/pydoseia/ingestion/food_chain.rs:263 fn is_milk -->
+
+```rust,ignore
+{{#include ../../../../../../crates/buangkok/src/pydoseia/ingestion/food_chain.rs:263:265}}
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:0.9em">
+
+[`food_chain.rs::AnimalProduct::is_meat`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/ingestion/food_chain.rs#L271) `pub const fn is_meat(self) -> bool` — In upstream's meat list (`goat_meat`, `lamb_meat`, `beef_meat`, `broiler_meat`, `pork_meat`; its `cow_meat` has no ratios and would raise `KeyError`). · called at [L204](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/ingestion/corrected.rs#L204)
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/buangkok/src/pydoseia/ingestion/food_chain.rs:271 fn is_meat -->
+
+```rust,ignore
+{{#include ../../../../../../crates/buangkok/src/pydoseia/ingestion/food_chain.rs:271:276}}
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:0.9em">
+
+[`food_chain.rs::c14_in_plant`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/ingestion/food_chain.rs#L357) `pub fn c14_in_plant(c_air: f64, veg: VegetationType, s_air: f64) -> f64` — `conc_c14_in_terrestrial_plants`: `C_air S_p / S_air`, Bq/kg fresh. · called at [L222](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/ingestion/corrected.rs#L222)
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/buangkok/src/pydoseia/ingestion/food_chain.rs:357 fn c14_in_plant -->
+<!-- snippet-check: crates/buangkok/src/pydoseia/ingestion/food_chain.rs:358 stable_carbon -->
+
+```rust,ignore
+{{#include ../../../../../../crates/buangkok/src/pydoseia/ingestion/food_chain.rs:357:359}}
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:1.8em">
+
+[`food_chain.rs::VegetationType::stable_carbon`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/ingestion/food_chain.rs#L188) `pub const fn stable_carbon(self) -> f64` — Stable carbon content `S_p`, gC/kg fresh weight (upstream's `veg_type_S_p_data`). · called at [L358](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/ingestion/food_chain.rs#L358) · *(calls below the depth limit not shown)*
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/buangkok/src/pydoseia/ingestion/food_chain.rs:188 fn stable_carbon -->
+
+```rust,ignore
+{{#include ../../../../../../crates/buangkok/src/pydoseia/ingestion/food_chain.rs:188:194}}
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:0.9em">
+
+[`food_chain.rs::c14_in_animal`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/ingestion/food_chain.rs#L364) `pub fn c14_in_animal(c_pfw: f64, feed: VegetationType, product: AnimalProduct, f_c: f64) -> f64` — `conc_c14_in_terrestrial_animal`: `f_c C_pfw S_a / S_p`, Bq/kg fresh (upstream uses `f_c = 1`). · called at [L226](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/ingestion/corrected.rs#L226)
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/buangkok/src/pydoseia/ingestion/food_chain.rs:364 fn c14_in_animal -->
+<!-- snippet-check: crates/buangkok/src/pydoseia/ingestion/food_chain.rs:365 stable_carbon -->
+
+```rust,ignore
+{{#include ../../../../../../crates/buangkok/src/pydoseia/ingestion/food_chain.rs:364:366}}
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:1.8em">
+
+`food_chain.rs::VegetationType::stable_carbon` *(expanded elsewhere in this walk)* · called at [L365](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/ingestion/food_chain.rs#L365)
+
+</div>
+
+<div class="cw-node" style="margin-left:1.8em">
+
+[`food_chain.rs::AnimalProduct::stable_carbon`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/ingestion/food_chain.rs#L248) `pub const fn stable_carbon(self) -> f64` — `S_a`, stable carbon in the product, gC/kg (TECDOC-1616 Table 12). · called at [L365](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/ingestion/food_chain.rs#L365) · *(calls below the depth limit not shown)*
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/buangkok/src/pydoseia/ingestion/food_chain.rs:248 fn stable_carbon -->
+
+```rust,ignore
+{{#include ../../../../../../crates/buangkok/src/pydoseia/ingestion/food_chain.rs:248:259}}
+```
+
+</details>
+</div>
 <!-- /code-walk -->
 
 **The fork, and why it matters.** Upstream's ingestion driver has the
@@ -546,124 +904,1564 @@ dominate close to the site for a release rich in iodine and caesium?
 
 Everything `crates/buangkok/examples/pydoseia_assessment.rs::main` reaches in the workspace, to 3 hops: 71 functions, 16 unresolved calls. A function is expanded once; later calls to it say *(expanded elsewhere in this walk)*.
 
-- [`pydoseia_assessment.rs::main`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/examples/pydoseia_assessment.rs#L27) `fn main()`
-  - [`dcf.rs::InhalationDcfTable::from_csv`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/dcf.rs#L158) `pub fn from_csv(text: &str) -> Result<Self, String>` — Read a CSV export of upstream's `Inhalation CED Sv per Bq Public` sheet: columns `Nuclide`, `Type` and `Self::AGE_COLUMNS` (others ignored). · called at [L30](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/examples/pydoseia_assessment.rs#L30)
-    - [`csv.rs::split_csv`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/csv.rs#L7) `pub(crate) fn split_csv(text: &str) -> (Vec<String>, Vec<Vec<String>>)` — Split a simple CSV into a header and rows. · called at [L159](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/dcf.rs#L159)
-    - [`csv.rs::col`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/csv.rs#L24) `pub(crate) fn col(header: &[String], name: &str) -> Result<usize, String>` — Index of a named column. · called at [L160](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/dcf.rs#L160)
-    - [`csv.rs::num`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/csv.rs#L32) `pub(crate) fn num(field: Option<&String>) -> f64` — A field as `f64`, NaN if blank or unparsable. · called at [L171](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/dcf.rs#L171)
-  - [`dcf.rs::ExternalDcfTable::from_csv`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/dcf.rs#L231) `pub fn from_csv(text: &str) -> Result<Self, String>` — Read a CSV export of upstream's `surface_dose` or `submersion_dose` sheet: columns `Nuclide` and `Self::AGE_COLUMNS`. · called at [L34](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/examples/pydoseia_assessment.rs#L34)
-    - `csv.rs::split_csv` *(expanded elsewhere in this walk)* · called at [L232](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/dcf.rs#L232)
-    - `csv.rs::col` *(expanded elsewhere in this walk)* · called at [L233](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/dcf.rs#L233)
-    - `csv.rs::num` *(expanded elsewhere in this walk)* · called at [L242](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/dcf.rs#L242)
-  - [`dcf.rs::ProgenyChains::from_csv`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/dcf.rs#L295) `pub fn from_csv(links_csv: &str, half_lives_csv: &str) -> Result<Self, String>` — Read two CSVs: `parent,daughter,yield` and `nuclide,half_life`. · called at [L42](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/examples/pydoseia_assessment.rs#L42)
-    - `csv.rs::split_csv` *(expanded elsewhere in this walk)* · called at [L296](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/dcf.rs#L296)
-    - `csv.rs::col` *(expanded elsewhere in this walk)* · called at [L297](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/dcf.rs#L297)
-    - `csv.rs::num` *(expanded elsewhere in this walk)* · called at [L300](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/dcf.rs#L300)
-  - [`mod.rs::IngestionDcfTable::from_csv`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/ingestion/mod.rs#L361) `pub fn from_csv(text: &str) -> Result<Self, String>` — Read a CSV with columns `Nuclide` and the six `e_g_age_g_*_Sv/Bq`. · called at [L47](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/examples/pydoseia_assessment.rs#L47)
-    - `csv.rs::split_csv` *(expanded elsewhere in this walk)* · called at [L362](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/ingestion/mod.rs#L362)
-    - `csv.rs::col` *(expanded elsewhere in this walk)* · called at [L363](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/ingestion/mod.rs#L363)
-    - `csv.rs::num` *(expanded elsewhere in this walk)* · called at [L374](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/ingestion/mod.rs#L374)
-  - [`mod.rs::EcoParamTable::from_csv`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/ingestion/mod.rs#L287) `pub fn from_csv(text: &str) -> Result<Self, String>` — Read a CSV with upstream's columns `Element, lambda_s_per_d, Fv1, Fv2, lambda_w_per_d, Fm_Milk_d_per_L, Ff_Meat_d_per_kg`. · called at [L51](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/examples/pydoseia_assessment.rs#L51)
-    - `csv.rs::split_csv` *(expanded elsewhere in this walk)* · called at [L288](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/ingestion/mod.rs#L288)
-    - `csv.rs::col` *(expanded elsewhere in this walk)* · called at [L289](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/ingestion/mod.rs#L289)
-    - `csv.rs::num` *(expanded elsewhere in this walk)* · called at [L305](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/ingestion/mod.rs#L305)
-  - [`tables.rs::GammaLineTable::from_csv`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/plume_shine/tables.rs#L60) `pub fn from_csv(text: &str) -> Result<Self, String>` — Read a CSV in upstream's column layout: `nuclide, energy_kev, std_energy_kev, emmission_prob, std_emmission_prob` (upstream's spelling; the `std_*` columns are not used). · called at [L55](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/examples/pydoseia_assessment.rs#L55)
-    - `csv.rs::split_csv` *(expanded elsewhere in this walk)* · called at [L61](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/plume_shine/tables.rs#L61)
-    - `csv.rs::col` *(expanded elsewhere in this walk)* · called at [L62](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/plume_shine/tables.rs#L62)
-    - `csv.rs::num` *(expanded elsewhere in this walk)* · called at [L70](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/plume_shine/tables.rs#L70)
-  - [`tables.rs::AttenuationTable::from_csv`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/plume_shine/tables.rs#L190) `pub fn from_csv(text: &str) -> Result<Self, String>` — Read a CSV with columns `energy, total_atten_coeff, energy_atten_coeff` (upstream's column names). · called at [L59](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/examples/pydoseia_assessment.rs#L59)
-    - `csv.rs::split_csv` *(expanded elsewhere in this walk)* · called at [L191](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/plume_shine/tables.rs#L191)
-    - `csv.rs::col` *(expanded elsewhere in this walk)* · called at [L192](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/plume_shine/tables.rs#L192)
-    - UNRESOLVED(other): `default` at [L195](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/plume_shine/tables.rs#L195) (→ [`crates/buangkok/src/pydoseia/plume_shine/tables.rs:160`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/plume_shine/tables.rs#L160)) — resolves to `#[derive(Debug, Clone, PartialEq, Default)]`, not a function body
-    - `csv.rs::num` *(expanded elsewhere in this walk)* · called at [L197](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/plume_shine/tables.rs#L197)
-  - [`config.rs::PyDoseiaConfig::input_generator_defaults`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/config.rs#L166) `pub fn input_generator_defaults(release: ReleaseScenario) -> Self` — A configuration with the input generator's defaults for everything except the scenario-specific lists, which the caller sets. · called at [L64](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/examples/pydoseia_assessment.rs#L64)
-  - UNRESOLVED(closure): `d` at [L67](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/examples/pydoseia_assessment.rs#L67) (→ [`crates/buangkok/examples/pydoseia_assessment.rs:28`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/examples/pydoseia_assessment.rs#L28)) — call through a closure or fn-typed binding `d`
-  - UNRESOLVED(closure): `d` at [L68](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/examples/pydoseia_assessment.rs#L68) (→ [`crates/buangkok/examples/pydoseia_assessment.rs:28`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/examples/pydoseia_assessment.rs#L28)) — call through a closure or fn-typed binding `d`
-  - [`nuclide.rs::upstream_decay_constant`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/nuclide.rs#L37) `pub fn upstream_decay_constant(half_life_s: f64) -> f64` — Upstream's decay constant, `0.693 / T_half`, 1/s, for a half-life in s. · called at [L76](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/examples/pydoseia_assessment.rs#L76)
-  - [`nuclide.rs::parse_primary_half_life`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/nuclide.rs#L49) `pub fn parse_primary_half_life(text: &str) -> Option<f64>` — Parse a primary-table half-life string such as `"30.0 y"`, `"8.0 d"`, `"3.0 ms"` to seconds (upstream `convert_half_life_to_seconds`). · called at [L76](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/examples/pydoseia_assessment.rs#L76)
-  - [`assessment.rs::run_assessment`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/assessment.rs#L296) `pub fn run_assessment(cfg: &PyDoseiaConfig, tables: &AssessmentTables, decay_constants_per_s: &[f64], met: Option<&MetClimatology>) -> Result<AssessmentResults, AssessmentError>` — The whole run (`dose_calculation_script`). · called at [L79](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/examples/pydoseia_assessment.rs#L79)
-    - [`config.rs::PyDoseiaConfig::validate`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/config.rs#L232) `pub fn validate(&self) -> Result<(), ConfigError>` — Upstream's `__init__` checks, plus the list-length consistency upstream assumes without checking. · called at [L302](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/assessment.rs#L302)
-      - `config.rs::PyDoseiaConfig::distances_with_boundary` *(expanded elsewhere in this walk)* · called at [L241](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/config.rs#L241)
-      - `config.rs::PyDoseiaConfig::releases` *(expanded elsewhere in this walk)* · called at [L258](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/config.rs#L258)
-    - [`config.rs::PyDoseiaConfig::distances_with_boundary`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/config.rs#L206) `pub fn distances_with_boundary(&self) -> Vec<f64>` — The distances upstream computes at: `downwind_distances` with the plant boundary appended if it is not already there (upstream mutates the config list in place). · called at [L306](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/assessment.rs#L306)
-    - [`assessment.rs::dilution_for_distance`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/assessment.rs#L147) `pub fn dilution_for_distance(cfg: &PyDoseiaConfig, x_m: f64, met: Option<&MetClimatology>) -> Result<Vec<DilutionFactor>, AssessmentError>` — Dilution factor for one distance under the configured mode (`dil_fac_all_sectors_all_dist`). · called at [L312](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/assessment.rs#L312)
-      - `assessment.rs::m` *(expanded elsewhere in this walk)* · called at [L156](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/assessment.rs#L156)
-      - [`dispersion.rs::dilution_single_plume_no_met`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/dispersion.rs#L293) `pub fn dilution_single_plume_no_met(x: Length, geometry: PlumeGeometry, scaling: MeanSpeedScaling) -> [DilutionFactor; 6]` — Dilution factor for an **instantaneous (single-plume) release without met data**, one value per stability class A-F, s/m^3 (time-integrated concentration per Bq released, at unit wind speed times the height correction). · called at [L173](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/assessment.rs#L173) · *(calls below the depth limit not shown)*
-      - [`dispersion.rs::dilution_long_term_no_met`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/dispersion.rs#L320) `pub fn dilution_long_term_no_met(x: Length, geometry: PlumeGeometry, scaling: MeanSpeedScaling) -> [DilutionFactor; 6]` — Dilution factor for a **long-term release without met data** ("conservative assumptions"), one value per stability class A-F, s/m^3. · called at [L179](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/assessment.rs#L179) · *(calls below the depth limit not shown)*
-      - [`dispersion.rs::dilution_long_term_with_met`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/dispersion.rs#L387) `pub fn dilution_long_term_with_met(x: Length, geometry: PlumeGeometry, met: &MetClimatology, calm: CalmCorrection) -> [DilutionFactor; 16]` — Dilution factor for a **long-term (continuous) release with met data**, one value per 22.5-degree sector (upstream's 16 met-direction sectors, index 0 centred on 0 degrees), averaged over the years of `met`, s/m^3. · called at [L188](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/assessment.rs#L188) · *(calls below the depth limit not shown)*
-    - [`dispersion.rs::max_dilution_factor`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/dispersion.rs#L464) `pub fn max_dilution_factor(values: &[DilutionFactor]) -> DilutionFactor` — The largest dilution factor in a set (per stability class or per sector): what upstream's driver (`get_max_dilution_factor`) passes to every dose pathway for a given distance. · called at [L313](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/assessment.rs#L313)
-      - `units.rs::DilutionFactor::seconds_per_cubic_meter` *(expanded elsewhere in this walk)* · called at [L465](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/dispersion.rs#L465)
-      - `units.rs::DilutionFactor::new` *(expanded elsewhere in this walk)* · called at [L467](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/dispersion.rs#L467)
-    - [`units.rs::DilutionFactor::new`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/changi/src/activity/units.rs#L47) `pub const fn new(seconds_per_cubic_meter: f64) -> Self` — From a bare value in seconds per cubic metre. · called at [L322](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/assessment.rs#L322)
-      - UNRESOLVED(other): `Self` at [L48](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/changi/src/activity/units.rs#L48) (→ [`crates/changi/src/activity/units.rs:44`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/changi/src/activity/units.rs#L44)) — resolves to `impl DilutionFactor {`, not a function body
-    - [`assessment.rs::pathway_doses`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/assessment.rs#L196) `pub fn pathway_doses(cfg: &PyDoseiaConfig, tables: &AssessmentTables, decay_constants_per_s: &[f64], chi: DilutionFactor, age: f64) -> PathwayDoses` — Inhalation, ground shine and submersion for one (distance, age), with the configured progeny and weathering settings (`agewise_dose_inh_gs_submersion`). · called at [L333](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/assessment.rs#L333)
-      - UNRESOLVED(other): `default` at [L203](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/assessment.rs#L203) (→ [`crates/buangkok/src/pydoseia/assessment.rs:73`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/assessment.rs#L73)) — resolves to `#[derive(Debug, Clone, PartialEq, Default)]`, not a function body
-      - [`dcf.rs::AgeBracket::from_age_years`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/dcf.rs#L61) `pub fn from_age_years(age: f64) -> Option<Self>` — Upstream's bracket for an age in years; `None` for NaN (upstream raises `ValueError`). · called at [L204](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/assessment.rs#L204) · *(calls below the depth limit not shown)*
-      - `config.rs::PyDoseiaConfig::releases` *(expanded elsewhere in this walk)* · called at [L220](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/assessment.rs#L220)
-      - [`dcf.rs::InhalationDcfTable::lookup`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/dcf.rs#L182) `pub fn lookup(&self, nuclide: &str, absorption: LungAbsorptionType, age: AgeBracket) -> f64` — Upstream's `inhalation_dcf_list` for one nuclide: the largest coefficient among rows with exactly this nuclide name and a matching absorption type, Sv/Bq. · called at [L228](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/assessment.rs#L228) · *(calls below the depth limit not shown)*
-      - [`dose.rs::inhalation_dose`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/dose.rs#L87) `pub fn inhalation_dose(chi_over_q: DilutionFactor, release: Release, dcf_sv_per_bq: f64, age_years: f64) -> Option<EffectiveDose>` — Inhalation dose for one nuclide: `chi/Q * Q * DCF_inh * breathing rate * 1000` (mSv, or mSv/y). · called at [L230](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/assessment.rs#L230) · *(calls below the depth limit not shown)*
-      - [`units.rs::EffectiveDose::millisieverts`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/units.rs#L54) `pub const fn millisieverts(self) -> f64` — The dose in millisieverts (exactly the value upstream reports). · called at [L231](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/assessment.rs#L231) · *(calls below the depth limit not shown)*
-      - [`dcf.rs::external_dcf`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/dcf.rs#L373) `pub fn external_dcf(table: &ExternalDcfTable, chains: &ProgenyChains, nuclide: &str, age: AgeBracket, progeny: ProgenyCorrection) -> ExternalDcfPair` — Upstream's `dcf_list_ecerman_*_include_progeny` for one nuclide. · called at [L234](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/assessment.rs#L234) · *(calls below the depth limit not shown)*
-      - [`dcf.rs::ExternalDcfPair::selected`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/dcf.rs#L363) `pub fn selected(self, progeny: ProgenyCorrection) -> f64` — The coefficient a pathway uses: `corrected` when progeny are included. · called at [L234](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/assessment.rs#L234) · *(calls below the depth limit not shown)*
-      - [`dose.rs::effective_buildup_time_s`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/dose.rs#L167) `pub fn effective_buildup_time_s(decay_constant_per_s: f64, element: &str, weathering: Weathering, exposure_period_years: f64) -> f64` — Upstream's effective build-up time on the ground, s: `(1 - exp(-lambda_e T)) / lambda_e`, with `lambda_e` the decay constant plus the weathering rate and `T` the exposure period (years * 365 d). · called at [L235](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/assessment.rs#L235) · *(calls below the depth limit not shown)*
-      - [`dose.rs::ground_shine_dose`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/dose.rs#L205) `pub fn ground_shine_dose(chi_over_q: DilutionFactor, release: Release, deposition_velocity_m_per_s: f64, effective_buildup_time_s: f64, dcf_gs: f64) -> EffectiveDose` — Ground-shine dose for one nuclide, upstream's arithmetic: · called at [L242](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/assessment.rs#L242) · *(calls below the depth limit not shown)*
-      - [`dose.rs::deposition_velocity_m_per_s`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/dose.rs#L139) `pub fn deposition_velocity_m_per_s(element: &str) -> f64` — Upstream's total (dry + wet) deposition velocity by **element symbol**, m/s (`deposition_velocity_of_rad`, citing IAEA SRS 19 p. · called at [L245](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/assessment.rs#L245) · *(calls below the depth limit not shown)*
-      - [`dose.rs::submersion_dose`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/dose.rs#L239) `pub fn submersion_dose(chi_over_q: DilutionFactor, release: Release, dcf_sub: f64) -> EffectiveDose` — Submersion dose for one nuclide: `chi/Q * Q * DCF_sub * 1000` (mSv, or mSv/y). · called at [L254](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/assessment.rs#L254) · *(calls below the depth limit not shown)*
-    - [`mod.rs::Receiver::from_driver_age`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/ingestion/mod.rs#L214) `pub fn from_driver_age(age: f64) -> Option<Self>` — Upstream's driver (`agewise_ingestion_dose`): `age > 17` is an adult, `age == 1` an infant, and **any other age has no ingestion dose** (the driver then raises `UnboundLocalError`: defect D13). · called at [L334](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/assessment.rs#L334)
-    - [`upstream.rs::ingestion_dose_upstream`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/ingestion/upstream.rs#L121) `pub fn ingestion_dose_upstream(inp: &UpstreamIngestionInputs, eco: &EcoParamTable, dcf_table: &IngestionDcfTable, receiver: Receiver) -> Result<UpstreamIngestionOutput, UpstreamIngestionError>` — `DoseFunc.ingestion_dose` for one distance and receiver, with upstream's arithmetic and indexing. · called at [L336](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/assessment.rs#L336)
-      - `dose.rs::deposition_velocity_m_per_s` *(expanded elsewhere in this walk)* · called at [L142](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/ingestion/upstream.rs#L142)
-      - [`food_chain.rs::deposition_rate_per_day`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/ingestion/food_chain.rs#L16) `pub fn deposition_rate_per_day(day_discharge: f64, v_d_m_per_s: f64, chi_over_q: f64) -> f64` — Upstream's per-day deposition rate `d * v_d * chi/Q`, Bq m^-2 d^-1 (with `d` the release per day: `Q / 365` for a long-term release, and the released Bq itself for a single plume, as upstream). · called at [L146](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/ingestion/upstream.rs#L146) · *(calls below the depth limit not shown)*
-      - [`upstream.rs::at`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/ingestion/upstream.rs#L89) `fn at(v: &[f64], i: usize, what: &'static str) -> Result<f64, UpstreamIngestionError>` · called at [L148](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/ingestion/upstream.rs#L148) · *(calls below the depth limit not shown)*
-      - [`food_chain.rs::per_day`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/ingestion/food_chain.rs#L33) `pub fn per_day(lambda_per_s: f64) -> f64` — Decay constant per day as upstream converts it: `lambda * 24 * 3600`. · called at [L155](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/ingestion/upstream.rs#L155) · *(calls below the depth limit not shown)*
-      - UNRESOLVED(closure): `is_hc` at [L160](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/ingestion/upstream.rs#L160) (→ [`crates/buangkok/src/pydoseia/ingestion/upstream.rs:129`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/ingestion/upstream.rs#L129)) — call through a closure or fn-typed binding `is_hc`
-      - [`mod.rs::EcoParamTable::lookup`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/ingestion/mod.rs#L324) `pub fn lookup(&self, element: &str) -> Option<TransferFactors>` — Upstream's lookup in `fv_list_ecerman_ingestion`: the **first** row whose `Element` field contains the symbol as a whitespace-delimited token (regex `(?:\s|^)X(?:\s|$)`). · called at [L161](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/ingestion/upstream.rs#L161) · *(calls below the depth limit not shown)*
-      - UNRESOLVED(closure): `is_hc` at [L180](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/ingestion/upstream.rs#L180) (→ [`crates/buangkok/src/pydoseia/ingestion/upstream.rs:129`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/ingestion/upstream.rs#L129)) — call through a closure or fn-typed binding `is_hc`
-      - [`mod.rs::SoilType::surface_densities`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/ingestion/mod.rs#L237) `pub const fn surface_densities(self) -> (f64, f64)` — `(rho_pasture_depth_lt_11, rho_crop_depth_ge_11)`, kg/m^2 dry soil. · called at [L187](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/ingestion/upstream.rs#L187) · *(calls below the depth limit not shown)*
-      - UNRESOLVED(closure): `is_hc` at [L191](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/ingestion/upstream.rs#L191) (→ [`crates/buangkok/src/pydoseia/ingestion/upstream.rs:129`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/ingestion/upstream.rs#L129)) — call through a closure or fn-typed binding `is_hc`
-      - [`food_chain.rs::food_crop`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/ingestion/food_chain.rs#L52) `pub fn food_crop(dep_per_day: f64, lambda_eiv: f64, lambda_eis: f64, fv2: f64, lambda_i_per_d: f64, rho_crop: f64, p: &IngestionParameters) -> CropConcentrations` — Food crops for human consumption (upstream's "veg route"). · called at [L192](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/ingestion/upstream.rs#L192) · *(calls below the depth limit not shown)*
-      - UNRESOLVED(closure): `is_hc` at [L208](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/ingestion/upstream.rs#L208) (→ [`crates/buangkok/src/pydoseia/ingestion/upstream.rs:129`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/ingestion/upstream.rs#L129)) — call through a closure or fn-typed binding `is_hc`
-      - [`food_chain.rs::animal_products`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/ingestion/food_chain.rs#L98) `pub fn animal_products(dep_per_day: f64, lambda_eiv: f64, lambda_eis: f64, fv1: f64, fm: f64, ff: f64, lambda_i_per_d: f64, rho_pasture: f64, p: &IngestionParameters) -> AnimalConcentrations` — Upstream's milk and meat route for one nuclide. · called at [L209](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/ingestion/upstream.rs#L209) · *(calls below the depth limit not shown)*
-      - `dcf.rs::AgeBracket::from_age_years` *(expanded elsewhere in this walk)* · called at [L224](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/ingestion/upstream.rs#L224)
-      - [`mod.rs::Receiver::age_years`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/ingestion/mod.rs#L203) `pub const fn age_years(self) -> f64` — The age upstream uses for the coefficient lookup. · called at [L224](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/ingestion/upstream.rs#L224) · *(calls below the depth limit not shown)*
-      - [`mod.rs::IngestionDcfTable::lookup`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/ingestion/mod.rs#L394) `pub fn lookup(&self, nuclide: &str, age: AgeBracket) -> IngestionDcf` — Upstream's `dcf_list_ingestion` for one nuclide: the largest coefficient over rows named exactly `nuclide` (NaN if none); for `"H-3"` the `HTO` and `OBT` rows instead. · called at [L228](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/ingestion/upstream.rs#L228) · *(calls below the depth limit not shown)*
-      - UNRESOLVED(closure): `single` at [L251](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/ingestion/upstream.rs#L251) (→ [`crates/buangkok/src/pydoseia/ingestion/upstream.rs:239`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/ingestion/upstream.rs#L239)) — call through a closure or fn-typed binding `single`
-      - [`food_chain.rs::tritium_in_plant`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/ingestion/food_chain.rs#L311) `pub fn tritium_in_plant(chi_over_q: f64, discharge: f64, climate: Climate, veg: VegetationType, cr_s: f64, gamma: f64, r_p: f64) -> TritiumPlant` — `conc_tritium_in_terrestrial_plant`: air HTO from the release (Bq/y times `chi/Q`, divided by `365 * 24 * 3600`), then air moisture, soil water, tissue-free water, HTO and OBT in the plant. · called at [L266](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/ingestion/upstream.rs#L266) · *(calls below the depth limit not shown)*
-      - [`food_chain.rs::tritium_in_animal`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/ingestion/food_chain.rs#L341) `pub fn tritium_in_animal(c_tfwt: f64, c_f_hto: f64, product: AnimalProduct, feed: VegetationType, r_p: f64) -> (f64, f64, f64)` — `conc_tritium_in_terrestrial_animal`: `(C_afw_T_HTO, C_f_OBT, C_afw_T_OBT)`. · called at [L291](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/ingestion/upstream.rs#L291) · *(calls below the depth limit not shown)*
-      - [`food_chain.rs::AnimalProduct::is_milk`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/ingestion/food_chain.rs#L263) `pub const fn is_milk(self) -> bool` — In upstream's milk list (`cow_milk`, `goat_milk`). · called at [L298](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/ingestion/upstream.rs#L298) · *(calls below the depth limit not shown)*
-      - [`food_chain.rs::AnimalProduct::is_meat`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/ingestion/food_chain.rs#L271) `pub const fn is_meat(self) -> bool` — In upstream's meat list (`goat_meat`, `lamb_meat`, `beef_meat`, `broiler_meat`, `pork_meat`; its `cow_meat` has no ratios and would raise `KeyError`). · called at [L307](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/ingestion/upstream.rs#L307) · *(calls below the depth limit not shown)*
-      - UNRESOLVED(closure): `single` at [L317](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/ingestion/upstream.rs#L317) (→ [`crates/buangkok/src/pydoseia/ingestion/upstream.rs:239`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/ingestion/upstream.rs#L239)) — call through a closure or fn-typed binding `single`
-      - [`food_chain.rs::c14_in_plant`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/ingestion/food_chain.rs#L357) `pub fn c14_in_plant(c_air: f64, veg: VegetationType, s_air: f64) -> f64` — `conc_c14_in_terrestrial_plants`: `C_air S_p / S_air`, Bq/kg fresh. · called at [L319](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/ingestion/upstream.rs#L319) · *(calls below the depth limit not shown)*
-      - [`food_chain.rs::c14_in_animal`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/ingestion/food_chain.rs#L364) `pub fn c14_in_animal(c_pfw: f64, feed: VegetationType, product: AnimalProduct, f_c: f64) -> f64` — `conc_c14_in_terrestrial_animal`: `f_c C_pfw S_a / S_p`, Bq/kg fresh (upstream uses `f_c = 1`). · called at [L327](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/ingestion/upstream.rs#L327) · *(calls below the depth limit not shown)*
-      - UNRESOLVED(closure): `to_rows` at [L351](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/ingestion/upstream.rs#L351) (→ [`crates/buangkok/src/pydoseia/ingestion/upstream.rs:341`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/ingestion/upstream.rs#L341)) — call through a closure or fn-typed binding `to_rows`
-      - UNRESOLVED(closure): `to_rows` at [L355](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/ingestion/upstream.rs#L355) (→ [`crates/buangkok/src/pydoseia/ingestion/upstream.rs:341`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/ingestion/upstream.rs#L341)) — call through a closure or fn-typed binding `to_rows`
-      - UNRESOLVED(closure): `to_rows` at [L357](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/ingestion/upstream.rs#L357) (→ [`crates/buangkok/src/pydoseia/ingestion/upstream.rs:341`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/ingestion/upstream.rs#L341)) — call through a closure or fn-typed binding `to_rows`
-      - UNRESOLVED(closure): `to_rows` at [L359](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/ingestion/upstream.rs#L359) (→ [`crates/buangkok/src/pydoseia/ingestion/upstream.rs:341`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/ingestion/upstream.rs#L341)) — call through a closure or fn-typed binding `to_rows`
-      - UNRESOLVED(closure): `to_rows` at [L361](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/ingestion/upstream.rs#L361) (→ [`crates/buangkok/src/pydoseia/ingestion/upstream.rs:341`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/ingestion/upstream.rs#L341)) — call through a closure or fn-typed binding `to_rows`
-    - [`assessment.rs::ingestion_inputs`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/assessment.rs#L259) `fn ingestion_inputs(cfg: &PyDoseiaConfig, decay_constants_per_s: &[f64], chi: DilutionFactor) -> UpstreamIngestionInputs` · called at [L337](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/assessment.rs#L337)
-      - `config.rs::PyDoseiaConfig::releases` *(expanded elsewhere in this walk)* · called at [L268](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/assessment.rs#L268)
-      - `units.rs::DilutionFactor::seconds_per_cubic_meter` *(expanded elsewhere in this walk)* · called at [L273](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/assessment.rs#L273)
-    - [`tables.rs::GammaLineTable::plume_shine_lines`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/plume_shine/tables.rs#L106) `pub fn plume_shine_lines(&self, nuclide: &str) -> Vec<GammaLine>` — The lines plume shine integrates for one nuclide: `Self::lines_for`'s kept lines, or a single zero-energy, zero-yield placeholder when there are none (upstream's `[0]` for a nuclide not in the table, and `add_zero_energy_for_pure_beta` for one whose lines were all cut). · called at [L358](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/assessment.rs#L358)
-      - [`tables.rs::GammaLineTable::lines_for`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/plume_shine/tables.rs#L84) `pub fn lines_for(&self, nuclide: &str) -> NuclideGammaLines` — Upstream's `gamma_energy_abundaces` for one nuclide. · called at [L107](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/plume_shine/tables.rs#L107) · *(calls below the depth limit not shown)*
-    - [`config.rs::PyDoseiaConfig::releases`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/config.rs#L216) `pub fn releases(&self) -> &[f64]` — The release list of the active scenario. · called at [L365](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/assessment.rs#L365)
-    - [`assessment.rs::m`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/assessment.rs#L138) `fn m(v: f64) -> Length` · called at [L375](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/assessment.rs#L375)
-    - [`mod.rs::per_sector_with_met`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/plume_shine/mod.rs#L191) `pub fn per_sector_with_met(lines: &[GammaLine], table: &AttenuationTable, geometry: PlumeShineGeometry, met: &MetClimatology, measurement_height: Length, release: PlumeShineRelease, integrator: PlumeShineIntegrator) -> [f64; SECTOR_COUNT]` — Plume shine per 22.5-degree sector for one nuclide, long-term release **with met data**, averaged over the years of `met` and multiplied by the release (upstream's `have_met_data` branch). · called at [L380](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/assessment.rs#L380)
-      - [`dispersion.rs::height_correction_factor`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/dispersion.rs#L137) `pub fn height_correction_factor(stability: StabilityClass, release_height: Length, measurement_height: Length) -> f64` — Wind-speed correction from measurement height to release height, `(H / H_m)^p` with `p = n / (2 - n)`, `n = 0.2` (A-C), `0.25` (D), `0.5` (E-F). · called at [L202](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/plume_shine/mod.rs#L202) · *(calls below the depth limit not shown)*
-      - [`mod.rs::line_integrals`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/plume_shine/mod.rs#L90) `pub fn line_integrals(line: GammaLine, table: &AttenuationTable, geometry: PlumeShineGeometry, integrator: PlumeShineIntegrator) -> [f64; 6]` — The per-class integrals of one gamma line, `[A..F]` (upstream `all_integral_stab_cat_energy_wise[rad][line]`). · called at [L205](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/plume_shine/mod.rs#L205) · *(calls below the depth limit not shown)*
-      - [`tables.rs::AttenuationTable::air_coefficients`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/plume_shine/tables.rs#L209) `pub fn air_coefficients(&self, energy_mev: f64) -> AirPhotonCoefficients` — Upstream's `atten_coeff` + `get_k_mu_mua_MFP` for one energy (MeV): interpolate linearly (`numpy.interp`) and multiply by `AIR_DENSITY_G_PER_CM3` and 100 (cm^-1 to m^-1), then `k = (mu - mu_a) / mu_a` and `MFP = 1 / mu`. · called at [L214](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/plume_shine/mod.rs#L214) · *(calls below the depth limit not shown)*
-      - [`mod.rs::prefactor`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/plume_shine/mod.rs#L81) `pub fn prefactor() -> f64` — Upstream's plume-shine prefactor `5 * 10 ** (-4)`, evaluated as Python does (`10 ** -4` is `pow(10.0, -4.0)`). · called at [L215](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/plume_shine/mod.rs#L215) · *(calls below the depth limit not shown)*
-      - [`mod.rs::PlumeShineRelease::multiplier`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/plume_shine/mod.rs#L155) `pub fn multiplier(self) -> f64` — The factor upstream multiplies by. · called at [L245](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/plume_shine/mod.rs#L245) · *(calls below the depth limit not shown)*
-    - [`mod.rs::per_class`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/plume_shine/mod.rs#L166) `pub fn per_class(lines: &[GammaLine], table: &AttenuationTable, geometry: PlumeShineGeometry, release: PlumeShineRelease, integrator: PlumeShineIntegrator) -> [f64; 6]` — Plume shine per stability class for one nuclide (single plume, or long term without met data): `per_class_unit_release` times the release. · called at [L390](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/assessment.rs#L390)
-      - `mod.rs::PlumeShineRelease::multiplier` *(expanded elsewhere in this walk)* · called at [L173](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/plume_shine/mod.rs#L173)
-      - [`mod.rs::per_class_unit_release`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/plume_shine/mod.rs#L114) `pub fn per_class_unit_release(lines: &[GammaLine], table: &AttenuationTable, geometry: PlumeShineGeometry, integrator: PlumeShineIntegrator) -> [f64; 6]` — Plume shine per stability class for **unit release**, summed over the lines (upstream's `pl_sh_sectors` before the release multiplication, for the single-plume and the long-term no-met branches). · called at [L173](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/plume_shine/mod.rs#L173) · *(calls below the depth limit not shown)*
-  - [`units.rs::DilutionFactor::seconds_per_cubic_meter`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/changi/src/activity/units.rs#L53) `pub const fn seconds_per_cubic_meter(self) -> f64` — The value in seconds per cubic metre. · called at [L83](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/examples/pydoseia_assessment.rs#L83)
-  - [`assessment.rs::summary_rows`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/assessment.rs#L605) `pub fn summary_rows(results: &AssessmentResults, mode: SummaryIngestion) -> Vec<SummaryRow>` — The rows of upstream's summed summary, one per (distance, age), in upstream's final order (a stable sort by age). · called at [L88](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/examples/pydoseia_assessment.rs#L88)
-    - [`assessment.rs::driver_ingestion_matrix`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/assessment.rs#L420) `pub fn driver_ingestion_matrix(out: &UpstreamIngestionOutput) -> Vec<[f64; 3]>` — Upstream's driver reshapes each cell's ingestion array to `(nuclides, 3)` in C order (`INGESTION_DOSES.reshape(..., n, 3)`). · called at [L612](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/assessment.rs#L612)
-    - [`assessment.rs::pandas_sum`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/assessment.rs#L436) `pub fn pandas_sum(values: &[f64]) -> f64` — pandas' `sum(skipna=True)` over a short row or column: NaN counts as 0 and the sum is numpy's (pairwise for 8 or more values). · called at [L614](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/assessment.rs#L614)
-      - [`assessment.rs::numpy_pairwise_sum`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/assessment.rs#L447) `pub fn numpy_pairwise_sum(a: &[f64]) -> f64` — numpy's pairwise summation (`pairwise_sum_DOUBLE`, block size 128, eight accumulators). · called at [L441](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/assessment.rs#L441) · *(calls below the depth limit not shown)*
-    - [`assessment.rs::pandas_groupby_sum`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/assessment.rs#L480) `pub fn pandas_groupby_sum(values: &[f64]) -> f64` — pandas' groupby `sum` (Kahan-compensated, NaN skipped). · called at [L619](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/assessment.rs#L619)
-  - [`assessment.rs::plant_boundary_totals`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/assessment.rs#L525) `pub fn plant_boundary_totals(cfg: &PyDoseiaConfig, results: &AssessmentResults, zeroing: Zeroing, no_transfer_factor_elements: &[String]) -> Vec<Option<Vec<BoundaryTotal>>>` — The per-nuclide totals `output_to_txt` prints for each age at the plant boundary. · called at [L95](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/examples/pydoseia_assessment.rs#L95)
-    - `assessment.rs::driver_ingestion_matrix` *(expanded elsewhere in this walk)* · called at [L542](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/assessment.rs#L542)
-    - `assessment.rs::pandas_sum` *(expanded elsewhere in this walk)* · called at [L552](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/assessment.rs#L552)
+<div class="cw-node" style="margin-left:0.0em">
+
+[`pydoseia_assessment.rs::main`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/examples/pydoseia_assessment.rs#L27) `fn main()`
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/buangkok/examples/pydoseia_assessment.rs:27 fn main -->
+<!-- snippet-check: crates/buangkok/examples/pydoseia_assessment.rs:30 from_csv -->
+<!-- snippet-check: crates/buangkok/examples/pydoseia_assessment.rs:34 from_csv -->
+<!-- snippet-check: crates/buangkok/examples/pydoseia_assessment.rs:42 from_csv -->
+<!-- snippet-check: crates/buangkok/examples/pydoseia_assessment.rs:47 from_csv -->
+<!-- snippet-check: crates/buangkok/examples/pydoseia_assessment.rs:51 from_csv -->
+<!-- snippet-check: crates/buangkok/examples/pydoseia_assessment.rs:55 from_csv -->
+<!-- snippet-check: crates/buangkok/examples/pydoseia_assessment.rs:59 from_csv -->
+<!-- snippet-check: crates/buangkok/examples/pydoseia_assessment.rs:64 input_generator_defaults -->
+<!-- snippet-check: crates/buangkok/examples/pydoseia_assessment.rs:67 d -->
+<!-- snippet-check: crates/buangkok/examples/pydoseia_assessment.rs:68 d -->
+<!-- snippet-check: crates/buangkok/examples/pydoseia_assessment.rs:76 upstream_decay_constant -->
+<!-- snippet-check: crates/buangkok/examples/pydoseia_assessment.rs:79 run_assessment -->
+<!-- snippet-check: crates/buangkok/examples/pydoseia_assessment.rs:83 seconds_per_cubic_meter -->
+<!-- snippet-check: crates/buangkok/examples/pydoseia_assessment.rs:88 summary_rows -->
+<!-- snippet-check: crates/buangkok/examples/pydoseia_assessment.rs:95 plant_boundary_totals -->
+
+```rust,ignore
+{{#include ../../../../../../crates/buangkok/examples/pydoseia_assessment.rs:27:35}}
+    // …
+{{#include ../../../../../../crates/buangkok/examples/pydoseia_assessment.rs:40:43}}
+    // …
+{{#include ../../../../../../crates/buangkok/examples/pydoseia_assessment.rs:45:60}}
+    // …
+{{#include ../../../../../../crates/buangkok/examples/pydoseia_assessment.rs:62:69}}
+    // …
+{{#include ../../../../../../crates/buangkok/examples/pydoseia_assessment.rs:74:84}}
+    // …
+{{#include ../../../../../../crates/buangkok/examples/pydoseia_assessment.rs:86:89}}
+    // …
+{{#include ../../../../../../crates/buangkok/examples/pydoseia_assessment.rs:93:96}}
+    // … (the rest of the function: follow the link above)
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:0.9em">
+
+[`dcf.rs::InhalationDcfTable::from_csv`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/dcf.rs#L158) `pub fn from_csv(text: &str) -> Result<Self, String>` — Read a CSV export of upstream's `Inhalation CED Sv per Bq Public` sheet: columns `Nuclide`, `Type` and `Self::AGE_COLUMNS` (others ignored). · called at [L30](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/examples/pydoseia_assessment.rs#L30)
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/buangkok/src/pydoseia/dcf.rs:158 fn from_csv -->
+<!-- snippet-check: crates/buangkok/src/pydoseia/dcf.rs:159 split_csv -->
+<!-- snippet-check: crates/buangkok/src/pydoseia/dcf.rs:160 col -->
+<!-- snippet-check: crates/buangkok/src/pydoseia/dcf.rs:171 num -->
+
+```rust,ignore
+{{#include ../../../../../../crates/buangkok/src/pydoseia/dcf.rs:158:172}}
+    // … (the rest of the function: follow the link above)
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:1.8em">
+
+[`csv.rs::split_csv`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/csv.rs#L7) `pub(crate) fn split_csv(text: &str) -> (Vec<String>, Vec<Vec<String>>)` — Split a simple CSV into a header and rows. · called at [L159](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/dcf.rs#L159)
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/buangkok/src/pydoseia/csv.rs:7 fn split_csv -->
+
+```rust,ignore
+{{#include ../../../../../../crates/buangkok/src/pydoseia/csv.rs:7:21}}
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:1.8em">
+
+[`csv.rs::col`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/csv.rs#L24) `pub(crate) fn col(header: &[String], name: &str) -> Result<usize, String>` — Index of a named column. · called at [L160](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/dcf.rs#L160)
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/buangkok/src/pydoseia/csv.rs:24 fn col -->
+
+```rust,ignore
+{{#include ../../../../../../crates/buangkok/src/pydoseia/csv.rs:24:29}}
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:1.8em">
+
+[`csv.rs::num`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/csv.rs#L32) `pub(crate) fn num(field: Option<&String>) -> f64` — A field as `f64`, NaN if blank or unparsable. · called at [L171](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/dcf.rs#L171)
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/buangkok/src/pydoseia/csv.rs:32 fn num -->
+
+```rust,ignore
+{{#include ../../../../../../crates/buangkok/src/pydoseia/csv.rs:32:36}}
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:0.9em">
+
+[`dcf.rs::ExternalDcfTable::from_csv`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/dcf.rs#L231) `pub fn from_csv(text: &str) -> Result<Self, String>` — Read a CSV export of upstream's `surface_dose` or `submersion_dose` sheet: columns `Nuclide` and `Self::AGE_COLUMNS`. · called at [L34](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/examples/pydoseia_assessment.rs#L34)
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/buangkok/src/pydoseia/dcf.rs:231 fn from_csv -->
+<!-- snippet-check: crates/buangkok/src/pydoseia/dcf.rs:232 split_csv -->
+<!-- snippet-check: crates/buangkok/src/pydoseia/dcf.rs:233 col -->
+<!-- snippet-check: crates/buangkok/src/pydoseia/dcf.rs:242 num -->
+
+```rust,ignore
+{{#include ../../../../../../crates/buangkok/src/pydoseia/dcf.rs:231:243}}
+    // … (the rest of the function: follow the link above)
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:1.8em">
+
+`csv.rs::split_csv` *(expanded elsewhere in this walk)* · called at [L232](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/dcf.rs#L232)
+
+</div>
+
+<div class="cw-node" style="margin-left:1.8em">
+
+`csv.rs::col` *(expanded elsewhere in this walk)* · called at [L233](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/dcf.rs#L233)
+
+</div>
+
+<div class="cw-node" style="margin-left:1.8em">
+
+`csv.rs::num` *(expanded elsewhere in this walk)* · called at [L242](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/dcf.rs#L242)
+
+</div>
+
+<div class="cw-node" style="margin-left:0.9em">
+
+[`dcf.rs::ProgenyChains::from_csv`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/dcf.rs#L295) `pub fn from_csv(links_csv: &str, half_lives_csv: &str) -> Result<Self, String>` — Read two CSVs: `parent,daughter,yield` and `nuclide,half_life`. · called at [L42](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/examples/pydoseia_assessment.rs#L42)
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/buangkok/src/pydoseia/dcf.rs:295 fn from_csv -->
+<!-- snippet-check: crates/buangkok/src/pydoseia/dcf.rs:296 split_csv -->
+<!-- snippet-check: crates/buangkok/src/pydoseia/dcf.rs:297 col -->
+<!-- snippet-check: crates/buangkok/src/pydoseia/dcf.rs:300 num -->
+
+```rust,ignore
+{{#include ../../../../../../crates/buangkok/src/pydoseia/dcf.rs:295:301}}
+    // … (the rest of the function: follow the link above)
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:1.8em">
+
+`csv.rs::split_csv` *(expanded elsewhere in this walk)* · called at [L296](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/dcf.rs#L296)
+
+</div>
+
+<div class="cw-node" style="margin-left:1.8em">
+
+`csv.rs::col` *(expanded elsewhere in this walk)* · called at [L297](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/dcf.rs#L297)
+
+</div>
+
+<div class="cw-node" style="margin-left:1.8em">
+
+`csv.rs::num` *(expanded elsewhere in this walk)* · called at [L300](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/dcf.rs#L300)
+
+</div>
+
+<div class="cw-node" style="margin-left:0.9em">
+
+[`mod.rs::IngestionDcfTable::from_csv`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/ingestion/mod.rs#L361) `pub fn from_csv(text: &str) -> Result<Self, String>` — Read a CSV with columns `Nuclide` and the six `e_g_age_g_*_Sv/Bq`. · called at [L47](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/examples/pydoseia_assessment.rs#L47)
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/buangkok/src/pydoseia/ingestion/mod.rs:361 fn from_csv -->
+<!-- snippet-check: crates/buangkok/src/pydoseia/ingestion/mod.rs:362 split_csv -->
+<!-- snippet-check: crates/buangkok/src/pydoseia/ingestion/mod.rs:363 col -->
+<!-- snippet-check: crates/buangkok/src/pydoseia/ingestion/mod.rs:374 num -->
+
+```rust,ignore
+{{#include ../../../../../../crates/buangkok/src/pydoseia/ingestion/mod.rs:361:375}}
+    // … (the rest of the function: follow the link above)
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:1.8em">
+
+`csv.rs::split_csv` *(expanded elsewhere in this walk)* · called at [L362](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/ingestion/mod.rs#L362)
+
+</div>
+
+<div class="cw-node" style="margin-left:1.8em">
+
+`csv.rs::col` *(expanded elsewhere in this walk)* · called at [L363](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/ingestion/mod.rs#L363)
+
+</div>
+
+<div class="cw-node" style="margin-left:1.8em">
+
+`csv.rs::num` *(expanded elsewhere in this walk)* · called at [L374](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/ingestion/mod.rs#L374)
+
+</div>
+
+<div class="cw-node" style="margin-left:0.9em">
+
+[`mod.rs::EcoParamTable::from_csv`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/ingestion/mod.rs#L287) `pub fn from_csv(text: &str) -> Result<Self, String>` — Read a CSV with upstream's columns `Element, lambda_s_per_d, Fv1, Fv2, lambda_w_per_d, Fm_Milk_d_per_L, Ff_Meat_d_per_kg`. · called at [L51](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/examples/pydoseia_assessment.rs#L51)
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/buangkok/src/pydoseia/ingestion/mod.rs:287 fn from_csv -->
+<!-- snippet-check: crates/buangkok/src/pydoseia/ingestion/mod.rs:288 split_csv -->
+<!-- snippet-check: crates/buangkok/src/pydoseia/ingestion/mod.rs:289 col -->
+<!-- snippet-check: crates/buangkok/src/pydoseia/ingestion/mod.rs:305 num -->
+
+```rust,ignore
+{{#include ../../../../../../crates/buangkok/src/pydoseia/ingestion/mod.rs:287:306}}
+    // … (the rest of the function: follow the link above)
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:1.8em">
+
+`csv.rs::split_csv` *(expanded elsewhere in this walk)* · called at [L288](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/ingestion/mod.rs#L288)
+
+</div>
+
+<div class="cw-node" style="margin-left:1.8em">
+
+`csv.rs::col` *(expanded elsewhere in this walk)* · called at [L289](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/ingestion/mod.rs#L289)
+
+</div>
+
+<div class="cw-node" style="margin-left:1.8em">
+
+`csv.rs::num` *(expanded elsewhere in this walk)* · called at [L305](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/ingestion/mod.rs#L305)
+
+</div>
+
+<div class="cw-node" style="margin-left:0.9em">
+
+[`tables.rs::GammaLineTable::from_csv`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/plume_shine/tables.rs#L60) `pub fn from_csv(text: &str) -> Result<Self, String>` — Read a CSV in upstream's column layout: `nuclide, energy_kev, std_energy_kev, emmission_prob, std_emmission_prob` (upstream's spelling; the `std_*` columns are not used). · called at [L55](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/examples/pydoseia_assessment.rs#L55)
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/buangkok/src/pydoseia/plume_shine/tables.rs:60 fn from_csv -->
+<!-- snippet-check: crates/buangkok/src/pydoseia/plume_shine/tables.rs:61 split_csv -->
+<!-- snippet-check: crates/buangkok/src/pydoseia/plume_shine/tables.rs:62 col -->
+<!-- snippet-check: crates/buangkok/src/pydoseia/plume_shine/tables.rs:70 num -->
+
+```rust,ignore
+{{#include ../../../../../../crates/buangkok/src/pydoseia/plume_shine/tables.rs:60:71}}
+    // … (the rest of the function: follow the link above)
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:1.8em">
+
+`csv.rs::split_csv` *(expanded elsewhere in this walk)* · called at [L61](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/plume_shine/tables.rs#L61)
+
+</div>
+
+<div class="cw-node" style="margin-left:1.8em">
+
+`csv.rs::col` *(expanded elsewhere in this walk)* · called at [L62](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/plume_shine/tables.rs#L62)
+
+</div>
+
+<div class="cw-node" style="margin-left:1.8em">
+
+`csv.rs::num` *(expanded elsewhere in this walk)* · called at [L70](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/plume_shine/tables.rs#L70)
+
+</div>
+
+<div class="cw-node" style="margin-left:0.9em">
+
+[`tables.rs::AttenuationTable::from_csv`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/plume_shine/tables.rs#L190) `pub fn from_csv(text: &str) -> Result<Self, String>` — Read a CSV with columns `energy, total_atten_coeff, energy_atten_coeff` (upstream's column names). · called at [L59](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/examples/pydoseia_assessment.rs#L59)
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/buangkok/src/pydoseia/plume_shine/tables.rs:190 fn from_csv -->
+<!-- snippet-check: crates/buangkok/src/pydoseia/plume_shine/tables.rs:191 split_csv -->
+<!-- snippet-check: crates/buangkok/src/pydoseia/plume_shine/tables.rs:192 col -->
+<!-- snippet-check: crates/buangkok/src/pydoseia/plume_shine/tables.rs:195 default -->
+<!-- snippet-check: crates/buangkok/src/pydoseia/plume_shine/tables.rs:197 num -->
+
+```rust,ignore
+{{#include ../../../../../../crates/buangkok/src/pydoseia/plume_shine/tables.rs:190:198}}
+    // … (the rest of the function: follow the link above)
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:1.8em">
+
+`csv.rs::split_csv` *(expanded elsewhere in this walk)* · called at [L191](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/plume_shine/tables.rs#L191)
+
+</div>
+
+<div class="cw-node" style="margin-left:1.8em">
+
+`csv.rs::col` *(expanded elsewhere in this walk)* · called at [L192](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/plume_shine/tables.rs#L192)
+
+</div>
+
+<div class="cw-node" style="margin-left:1.8em">
+
+UNRESOLVED(other): `default` at [L195](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/plume_shine/tables.rs#L195) (→ [`crates/buangkok/src/pydoseia/plume_shine/tables.rs:160`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/plume_shine/tables.rs#L160)) — resolves to `#[derive(Debug, Clone, PartialEq, Default)]`, not a function body
+
+</div>
+
+<div class="cw-node" style="margin-left:1.8em">
+
+`csv.rs::num` *(expanded elsewhere in this walk)* · called at [L197](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/plume_shine/tables.rs#L197)
+
+</div>
+
+<div class="cw-node" style="margin-left:0.9em">
+
+[`config.rs::PyDoseiaConfig::input_generator_defaults`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/config.rs#L166) `pub fn input_generator_defaults(release: ReleaseScenario) -> Self` — A configuration with the input generator's defaults for everything except the scenario-specific lists, which the caller sets. · called at [L64](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/examples/pydoseia_assessment.rs#L64)
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/buangkok/src/pydoseia/config.rs:166 fn input_generator_defaults -->
+
+```rust,ignore
+{{#include ../../../../../../crates/buangkok/src/pydoseia/config.rs:166:200}}
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:0.9em">
+
+UNRESOLVED(closure): `d` at [L67](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/examples/pydoseia_assessment.rs#L67) (→ [`crates/buangkok/examples/pydoseia_assessment.rs:28`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/examples/pydoseia_assessment.rs#L28)) — call through a closure or fn-typed binding `d`
+
+</div>
+
+<div class="cw-node" style="margin-left:0.9em">
+
+UNRESOLVED(closure): `d` at [L68](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/examples/pydoseia_assessment.rs#L68) (→ [`crates/buangkok/examples/pydoseia_assessment.rs:28`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/examples/pydoseia_assessment.rs#L28)) — call through a closure or fn-typed binding `d`
+
+</div>
+
+<div class="cw-node" style="margin-left:0.9em">
+
+[`nuclide.rs::upstream_decay_constant`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/nuclide.rs#L37) `pub fn upstream_decay_constant(half_life_s: f64) -> f64` — Upstream's decay constant, `0.693 / T_half`, 1/s, for a half-life in s. · called at [L76](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/examples/pydoseia_assessment.rs#L76)
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/buangkok/src/pydoseia/nuclide.rs:37 fn upstream_decay_constant -->
+
+```rust,ignore
+{{#include ../../../../../../crates/buangkok/src/pydoseia/nuclide.rs:37:39}}
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:0.9em">
+
+[`nuclide.rs::parse_primary_half_life`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/nuclide.rs#L49) `pub fn parse_primary_half_life(text: &str) -> Option<f64>` — Parse a primary-table half-life string such as `"30.0 y"`, `"8.0 d"`, `"3.0 ms"` to seconds (upstream `convert_half_life_to_seconds`). · called at [L76](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/examples/pydoseia_assessment.rs#L76)
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/buangkok/src/pydoseia/nuclide.rs:49 fn parse_primary_half_life -->
+
+```rust,ignore
+{{#include ../../../../../../crates/buangkok/src/pydoseia/nuclide.rs:49:67}}
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:0.9em">
+
+[`assessment.rs::run_assessment`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/assessment.rs#L296) `pub fn run_assessment(cfg: &PyDoseiaConfig, tables: &AssessmentTables, decay_constants_per_s: &[f64], met: Option<&MetClimatology>) -> Result<AssessmentResults, AssessmentError>` — The whole run (`dose_calculation_script`). · called at [L79](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/examples/pydoseia_assessment.rs#L79)
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/buangkok/src/pydoseia/assessment.rs:296 fn run_assessment -->
+<!-- snippet-check: crates/buangkok/src/pydoseia/assessment.rs:302 validate -->
+<!-- snippet-check: crates/buangkok/src/pydoseia/assessment.rs:306 distances_with_boundary -->
+<!-- snippet-check: crates/buangkok/src/pydoseia/assessment.rs:312 dilution_for_distance -->
+<!-- snippet-check: crates/buangkok/src/pydoseia/assessment.rs:313 max_dilution_factor -->
+<!-- snippet-check: crates/buangkok/src/pydoseia/assessment.rs:322 new -->
+<!-- snippet-check: crates/buangkok/src/pydoseia/assessment.rs:333 pathway_doses -->
+<!-- snippet-check: crates/buangkok/src/pydoseia/assessment.rs:334 from_driver_age -->
+<!-- snippet-check: crates/buangkok/src/pydoseia/assessment.rs:336 ingestion_dose_upstream -->
+<!-- snippet-check: crates/buangkok/src/pydoseia/assessment.rs:337 ingestion_inputs -->
+<!-- snippet-check: crates/buangkok/src/pydoseia/assessment.rs:358 plume_shine_lines -->
+<!-- snippet-check: crates/buangkok/src/pydoseia/assessment.rs:365 releases -->
+<!-- snippet-check: crates/buangkok/src/pydoseia/assessment.rs:375 m -->
+<!-- snippet-check: crates/buangkok/src/pydoseia/assessment.rs:380 per_sector_with_met -->
+<!-- snippet-check: crates/buangkok/src/pydoseia/assessment.rs:390 per_class -->
+
+```rust,ignore
+{{#include ../../../../../../crates/buangkok/src/pydoseia/assessment.rs:296:307}}
+    // …
+{{#include ../../../../../../crates/buangkok/src/pydoseia/assessment.rs:310:314}}
+    // …
+{{#include ../../../../../../crates/buangkok/src/pydoseia/assessment.rs:320:323}}
+    // …
+{{#include ../../../../../../crates/buangkok/src/pydoseia/assessment.rs:331:338}}
+    // …
+{{#include ../../../../../../crates/buangkok/src/pydoseia/assessment.rs:356:359}}
+    // …
+{{#include ../../../../../../crates/buangkok/src/pydoseia/assessment.rs:363:366}}
+    // …
+{{#include ../../../../../../crates/buangkok/src/pydoseia/assessment.rs:373:376}}
+    // …
+{{#include ../../../../../../crates/buangkok/src/pydoseia/assessment.rs:378:381}}
+    // …
+{{#include ../../../../../../crates/buangkok/src/pydoseia/assessment.rs:388:391}}
+    // … (the rest of the function: follow the link above)
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:1.8em">
+
+[`config.rs::PyDoseiaConfig::validate`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/config.rs#L232) `pub fn validate(&self) -> Result<(), ConfigError>` — Upstream's `__init__` checks, plus the list-length consistency upstream assumes without checking. · called at [L302](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/assessment.rs#L302)
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/buangkok/src/pydoseia/config.rs:232 fn validate -->
+<!-- snippet-check: crates/buangkok/src/pydoseia/config.rs:241 distances_with_boundary -->
+<!-- snippet-check: crates/buangkok/src/pydoseia/config.rs:258 releases -->
+
+```rust,ignore
+{{#include ../../../../../../crates/buangkok/src/pydoseia/config.rs:232:259}}
+    // … (the rest of the function: follow the link above)
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:2.7em">
+
+`config.rs::PyDoseiaConfig::distances_with_boundary` *(expanded elsewhere in this walk)* · called at [L241](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/config.rs#L241)
+
+</div>
+
+<div class="cw-node" style="margin-left:2.7em">
+
+`config.rs::PyDoseiaConfig::releases` *(expanded elsewhere in this walk)* · called at [L258](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/config.rs#L258)
+
+</div>
+
+<div class="cw-node" style="margin-left:1.8em">
+
+[`config.rs::PyDoseiaConfig::distances_with_boundary`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/config.rs#L206) `pub fn distances_with_boundary(&self) -> Vec<f64>` — The distances upstream computes at: `downwind_distances` with the plant boundary appended if it is not already there (upstream mutates the config list in place). · called at [L306](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/assessment.rs#L306)
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/buangkok/src/pydoseia/config.rs:206 fn distances_with_boundary -->
+
+```rust,ignore
+{{#include ../../../../../../crates/buangkok/src/pydoseia/config.rs:206:212}}
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:1.8em">
+
+[`assessment.rs::dilution_for_distance`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/assessment.rs#L147) `pub fn dilution_for_distance(cfg: &PyDoseiaConfig, x_m: f64, met: Option<&MetClimatology>) -> Result<Vec<DilutionFactor>, AssessmentError>` — Dilution factor for one distance under the configured mode (`dil_fac_all_sectors_all_dist`). · called at [L312](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/assessment.rs#L312)
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/buangkok/src/pydoseia/assessment.rs:147 fn dilution_for_distance -->
+<!-- snippet-check: crates/buangkok/src/pydoseia/assessment.rs:156 m -->
+<!-- snippet-check: crates/buangkok/src/pydoseia/assessment.rs:173 dilution_single_plume_no_met -->
+<!-- snippet-check: crates/buangkok/src/pydoseia/assessment.rs:179 dilution_long_term_no_met -->
+<!-- snippet-check: crates/buangkok/src/pydoseia/assessment.rs:188 dilution_long_term_with_met -->
+
+```rust,ignore
+{{#include ../../../../../../crates/buangkok/src/pydoseia/assessment.rs:147:151}}
+    // …
+{{#include ../../../../../../crates/buangkok/src/pydoseia/assessment.rs:154:157}}
+    // …
+{{#include ../../../../../../crates/buangkok/src/pydoseia/assessment.rs:171:174}}
+    // …
+{{#include ../../../../../../crates/buangkok/src/pydoseia/assessment.rs:177:180}}
+    // …
+{{#include ../../../../../../crates/buangkok/src/pydoseia/assessment.rs:186:189}}
+    // … (the rest of the function: follow the link above)
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:2.7em">
+
+`assessment.rs::m` *(expanded elsewhere in this walk)* · called at [L156](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/assessment.rs#L156)
+
+</div>
+
+<div class="cw-node" style="margin-left:2.7em">
+
+[`dispersion.rs::dilution_single_plume_no_met`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/dispersion.rs#L293) `pub fn dilution_single_plume_no_met(x: Length, geometry: PlumeGeometry, scaling: MeanSpeedScaling) -> [DilutionFactor; 6]` — Dilution factor for an **instantaneous (single-plume) release without met data**, one value per stability class A-F, s/m^3 (time-integrated concentration per Bq released, at unit wind speed times the height correction). · called at [L173](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/assessment.rs#L173) · *(calls below the depth limit not shown)*
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/buangkok/src/pydoseia/dispersion.rs:293 fn dilution_single_plume_no_met -->
+
+```rust,ignore
+{{#include ../../../../../../crates/buangkok/src/pydoseia/dispersion.rs:293:312}}
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:2.7em">
+
+[`dispersion.rs::dilution_long_term_no_met`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/dispersion.rs#L320) `pub fn dilution_long_term_no_met(x: Length, geometry: PlumeGeometry, scaling: MeanSpeedScaling) -> [DilutionFactor; 6]` — Dilution factor for a **long-term release without met data** ("conservative assumptions"), one value per stability class A-F, s/m^3. · called at [L179](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/assessment.rs#L179) · *(calls below the depth limit not shown)*
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/buangkok/src/pydoseia/dispersion.rs:320 fn dilution_long_term_no_met -->
+
+```rust,ignore
+{{#include ../../../../../../crates/buangkok/src/pydoseia/dispersion.rs:320:339}}
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:2.7em">
+
+[`dispersion.rs::dilution_long_term_with_met`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/dispersion.rs#L387) `pub fn dilution_long_term_with_met(x: Length, geometry: PlumeGeometry, met: &MetClimatology, calm: CalmCorrection) -> [DilutionFactor; 16]` — Dilution factor for a **long-term (continuous) release with met data**, one value per 22.5-degree sector (upstream's 16 met-direction sectors, index 0 centred on 0 degrees), averaged over the years of `met`, s/m^3. · called at [L188](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/assessment.rs#L188) · *(calls below the depth limit not shown)*
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/buangkok/src/pydoseia/dispersion.rs:387 fn dilution_long_term_with_met -->
+
+```rust,ignore
+{{#include ../../../../../../crates/buangkok/src/pydoseia/dispersion.rs:387:426}}
+    // … (the rest of the function: follow the link above)
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:1.8em">
+
+[`dispersion.rs::max_dilution_factor`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/dispersion.rs#L464) `pub fn max_dilution_factor(values: &[DilutionFactor]) -> DilutionFactor` — The largest dilution factor in a set (per stability class or per sector): what upstream's driver (`get_max_dilution_factor`) passes to every dose pathway for a given distance. · called at [L313](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/assessment.rs#L313)
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/buangkok/src/pydoseia/dispersion.rs:464 fn max_dilution_factor -->
+<!-- snippet-check: crates/buangkok/src/pydoseia/dispersion.rs:465 seconds_per_cubic_meter -->
+<!-- snippet-check: crates/buangkok/src/pydoseia/dispersion.rs:467 new -->
+
+```rust,ignore
+{{#include ../../../../../../crates/buangkok/src/pydoseia/dispersion.rs:464:468}}
+    // … (the rest of the function: follow the link above)
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:2.7em">
+
+`units.rs::DilutionFactor::seconds_per_cubic_meter` *(expanded elsewhere in this walk)* · called at [L465](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/dispersion.rs#L465)
+
+</div>
+
+<div class="cw-node" style="margin-left:2.7em">
+
+`units.rs::DilutionFactor::new` *(expanded elsewhere in this walk)* · called at [L467](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/dispersion.rs#L467)
+
+</div>
+
+<div class="cw-node" style="margin-left:1.8em">
+
+[`units.rs::DilutionFactor::new`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/changi/src/activity/units.rs#L47) `pub const fn new(seconds_per_cubic_meter: f64) -> Self` — From a bare value in seconds per cubic metre. · called at [L322](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/assessment.rs#L322)
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/changi/src/activity/units.rs:47 fn new -->
+<!-- snippet-check: crates/changi/src/activity/units.rs:48 Self -->
+
+```rust,ignore
+{{#include ../../../../../../crates/changi/src/activity/units.rs:47:49}}
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:2.7em">
+
+UNRESOLVED(other): `Self` at [L48](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/changi/src/activity/units.rs#L48) (→ [`crates/changi/src/activity/units.rs:44`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/changi/src/activity/units.rs#L44)) — resolves to `impl DilutionFactor {`, not a function body
+
+</div>
+
+<div class="cw-node" style="margin-left:1.8em">
+
+[`assessment.rs::pathway_doses`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/assessment.rs#L196) `pub fn pathway_doses(cfg: &PyDoseiaConfig, tables: &AssessmentTables, decay_constants_per_s: &[f64], chi: DilutionFactor, age: f64) -> PathwayDoses` — Inhalation, ground shine and submersion for one (distance, age), with the configured progeny and weathering settings (`agewise_dose_inh_gs_submersion`). · called at [L333](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/assessment.rs#L333)
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/buangkok/src/pydoseia/assessment.rs:196 fn pathway_doses -->
+<!-- snippet-check: crates/buangkok/src/pydoseia/assessment.rs:203 default -->
+<!-- snippet-check: crates/buangkok/src/pydoseia/assessment.rs:204 from_age_years -->
+<!-- snippet-check: crates/buangkok/src/pydoseia/assessment.rs:220 releases -->
+<!-- snippet-check: crates/buangkok/src/pydoseia/assessment.rs:228 lookup -->
+<!-- snippet-check: crates/buangkok/src/pydoseia/assessment.rs:230 inhalation_dose -->
+<!-- snippet-check: crates/buangkok/src/pydoseia/assessment.rs:231 millisieverts -->
+<!-- snippet-check: crates/buangkok/src/pydoseia/assessment.rs:234 external_dcf -->
+<!-- snippet-check: crates/buangkok/src/pydoseia/assessment.rs:235 effective_buildup_time_s -->
+<!-- snippet-check: crates/buangkok/src/pydoseia/assessment.rs:242 ground_shine_dose -->
+<!-- snippet-check: crates/buangkok/src/pydoseia/assessment.rs:245 deposition_velocity_m_per_s -->
+<!-- snippet-check: crates/buangkok/src/pydoseia/assessment.rs:254 submersion_dose -->
+
+```rust,ignore
+{{#include ../../../../../../crates/buangkok/src/pydoseia/assessment.rs:196:205}}
+    // …
+{{#include ../../../../../../crates/buangkok/src/pydoseia/assessment.rs:218:221}}
+    // …
+{{#include ../../../../../../crates/buangkok/src/pydoseia/assessment.rs:226:236}}
+    // …
+{{#include ../../../../../../crates/buangkok/src/pydoseia/assessment.rs:240:246}}
+    // …
+{{#include ../../../../../../crates/buangkok/src/pydoseia/assessment.rs:252:255}}
+    // … (the rest of the function: follow the link above)
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:2.7em">
+
+UNRESOLVED(other): `default` at [L203](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/assessment.rs#L203) (→ [`crates/buangkok/src/pydoseia/assessment.rs:73`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/assessment.rs#L73)) — resolves to `#[derive(Debug, Clone, PartialEq, Default)]`, not a function body
+
+</div>
+
+<div class="cw-node" style="margin-left:2.7em">
+
+[`dcf.rs::AgeBracket::from_age_years`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/dcf.rs#L61) `pub fn from_age_years(age: f64) -> Option<Self>` — Upstream's bracket for an age in years; `None` for NaN (upstream raises `ValueError`). · called at [L204](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/assessment.rs#L204) · *(calls below the depth limit not shown)*
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/buangkok/src/pydoseia/dcf.rs:61 fn from_age_years -->
+
+```rust,ignore
+{{#include ../../../../../../crates/buangkok/src/pydoseia/dcf.rs:61:77}}
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:2.7em">
+
+`config.rs::PyDoseiaConfig::releases` *(expanded elsewhere in this walk)* · called at [L220](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/assessment.rs#L220)
+
+</div>
+
+<div class="cw-node" style="margin-left:2.7em">
+
+[`dcf.rs::InhalationDcfTable::lookup`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/dcf.rs#L182) `pub fn lookup(&self, nuclide: &str, absorption: LungAbsorptionType, age: AgeBracket) -> f64` — Upstream's `inhalation_dcf_list` for one nuclide: the largest coefficient among rows with exactly this nuclide name and a matching absorption type, Sv/Bq. · called at [L228](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/assessment.rs#L228) · *(calls below the depth limit not shown)*
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/buangkok/src/pydoseia/dcf.rs:182 fn lookup -->
+
+```rust,ignore
+{{#include ../../../../../../crates/buangkok/src/pydoseia/dcf.rs:182:194}}
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:2.7em">
+
+[`dose.rs::inhalation_dose`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/dose.rs#L87) `pub fn inhalation_dose(chi_over_q: DilutionFactor, release: Release, dcf_sv_per_bq: f64, age_years: f64) -> Option<EffectiveDose>` — Inhalation dose for one nuclide: `chi/Q * Q * DCF_inh * breathing rate * 1000` (mSv, or mSv/y). · called at [L230](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/assessment.rs#L230) · *(calls below the depth limit not shown)*
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/buangkok/src/pydoseia/dose.rs:87 fn inhalation_dose -->
+
+```rust,ignore
+{{#include ../../../../../../crates/buangkok/src/pydoseia/dose.rs:87:102}}
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:2.7em">
+
+[`units.rs::EffectiveDose::millisieverts`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/units.rs#L54) `pub const fn millisieverts(self) -> f64` — The dose in millisieverts (exactly the value upstream reports). · called at [L231](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/assessment.rs#L231) · *(calls below the depth limit not shown)*
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/buangkok/src/pydoseia/units.rs:54 fn millisieverts -->
+
+```rust,ignore
+{{#include ../../../../../../crates/buangkok/src/pydoseia/units.rs:54:56}}
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:2.7em">
+
+[`dcf.rs::external_dcf`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/dcf.rs#L373) `pub fn external_dcf(table: &ExternalDcfTable, chains: &ProgenyChains, nuclide: &str, age: AgeBracket, progeny: ProgenyCorrection) -> ExternalDcfPair` — Upstream's `dcf_list_ecerman_*_include_progeny` for one nuclide. · called at [L234](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/assessment.rs#L234) · *(calls below the depth limit not shown)*
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/buangkok/src/pydoseia/dcf.rs:373 fn external_dcf -->
+
+```rust,ignore
+{{#include ../../../../../../crates/buangkok/src/pydoseia/dcf.rs:373:391}}
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:2.7em">
+
+[`dcf.rs::ExternalDcfPair::selected`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/dcf.rs#L363) `pub fn selected(self, progeny: ProgenyCorrection) -> f64` — The coefficient a pathway uses: `corrected` when progeny are included. · called at [L234](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/assessment.rs#L234) · *(calls below the depth limit not shown)*
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/buangkok/src/pydoseia/dcf.rs:363 fn selected -->
+
+```rust,ignore
+{{#include ../../../../../../crates/buangkok/src/pydoseia/dcf.rs:363:368}}
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:2.7em">
+
+[`dose.rs::effective_buildup_time_s`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/dose.rs#L167) `pub fn effective_buildup_time_s(decay_constant_per_s: f64, element: &str, weathering: Weathering, exposure_period_years: f64) -> f64` — Upstream's effective build-up time on the ground, s: `(1 - exp(-lambda_e T)) / lambda_e`, with `lambda_e` the decay constant plus the weathering rate and `T` the exposure period (years * 365 d). · called at [L235](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/assessment.rs#L235) · *(calls below the depth limit not shown)*
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/buangkok/src/pydoseia/dose.rs:167 fn effective_buildup_time_s -->
+
+```rust,ignore
+{{#include ../../../../../../crates/buangkok/src/pydoseia/dose.rs:167:187}}
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:2.7em">
+
+[`dose.rs::ground_shine_dose`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/dose.rs#L205) `pub fn ground_shine_dose(chi_over_q: DilutionFactor, release: Release, deposition_velocity_m_per_s: f64, effective_buildup_time_s: f64, dcf_gs: f64) -> EffectiveDose` — Ground-shine dose for one nuclide, upstream's arithmetic: · called at [L242](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/assessment.rs#L242) · *(calls below the depth limit not shown)*
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/buangkok/src/pydoseia/dose.rs:205 fn ground_shine_dose -->
+
+```rust,ignore
+{{#include ../../../../../../crates/buangkok/src/pydoseia/dose.rs:205:221}}
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:2.7em">
+
+[`dose.rs::deposition_velocity_m_per_s`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/dose.rs#L139) `pub fn deposition_velocity_m_per_s(element: &str) -> f64` — Upstream's total (dry + wet) deposition velocity by **element symbol**, m/s (`deposition_velocity_of_rad`, citing IAEA SRS 19 p. · called at [L245](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/assessment.rs#L245) · *(calls below the depth limit not shown)*
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/buangkok/src/pydoseia/dose.rs:139 fn deposition_velocity_m_per_s -->
+
+```rust,ignore
+{{#include ../../../../../../crates/buangkok/src/pydoseia/dose.rs:139:145}}
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:2.7em">
+
+[`dose.rs::submersion_dose`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/dose.rs#L239) `pub fn submersion_dose(chi_over_q: DilutionFactor, release: Release, dcf_sub: f64) -> EffectiveDose` — Submersion dose for one nuclide: `chi/Q * Q * DCF_sub * 1000` (mSv, or mSv/y). · called at [L254](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/assessment.rs#L254) · *(calls below the depth limit not shown)*
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/buangkok/src/pydoseia/dose.rs:239 fn submersion_dose -->
+
+```rust,ignore
+{{#include ../../../../../../crates/buangkok/src/pydoseia/dose.rs:239:251}}
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:1.8em">
+
+[`mod.rs::Receiver::from_driver_age`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/ingestion/mod.rs#L214) `pub fn from_driver_age(age: f64) -> Option<Self>` — Upstream's driver (`agewise_ingestion_dose`): `age > 17` is an adult, `age == 1` an infant, and **any other age has no ingestion dose** (the driver then raises `UnboundLocalError`: defect D13). · called at [L334](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/assessment.rs#L334)
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/buangkok/src/pydoseia/ingestion/mod.rs:214 fn from_driver_age -->
+
+```rust,ignore
+{{#include ../../../../../../crates/buangkok/src/pydoseia/ingestion/mod.rs:214:222}}
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:1.8em">
+
+[`upstream.rs::ingestion_dose_upstream`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/ingestion/upstream.rs#L121) `pub fn ingestion_dose_upstream(inp: &UpstreamIngestionInputs, eco: &EcoParamTable, dcf_table: &IngestionDcfTable, receiver: Receiver) -> Result<UpstreamIngestionOutput, UpstreamIngestionError>` — `DoseFunc.ingestion_dose` for one distance and receiver, with upstream's arithmetic and indexing. · called at [L336](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/assessment.rs#L336)
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/buangkok/src/pydoseia/ingestion/upstream.rs:121 fn ingestion_dose_upstream -->
+<!-- snippet-check: crates/buangkok/src/pydoseia/ingestion/upstream.rs:142 deposition_velocity_m_per_s -->
+<!-- snippet-check: crates/buangkok/src/pydoseia/ingestion/upstream.rs:146 deposition_rate_per_day -->
+<!-- snippet-check: crates/buangkok/src/pydoseia/ingestion/upstream.rs:148 at -->
+<!-- snippet-check: crates/buangkok/src/pydoseia/ingestion/upstream.rs:155 per_day -->
+<!-- snippet-check: crates/buangkok/src/pydoseia/ingestion/upstream.rs:160 is_hc -->
+<!-- snippet-check: crates/buangkok/src/pydoseia/ingestion/upstream.rs:161 lookup -->
+<!-- snippet-check: crates/buangkok/src/pydoseia/ingestion/upstream.rs:180 is_hc -->
+<!-- snippet-check: crates/buangkok/src/pydoseia/ingestion/upstream.rs:187 surface_densities -->
+<!-- snippet-check: crates/buangkok/src/pydoseia/ingestion/upstream.rs:191 is_hc -->
+<!-- snippet-check: crates/buangkok/src/pydoseia/ingestion/upstream.rs:192 food_crop -->
+<!-- snippet-check: crates/buangkok/src/pydoseia/ingestion/upstream.rs:208 is_hc -->
+<!-- snippet-check: crates/buangkok/src/pydoseia/ingestion/upstream.rs:209 animal_products -->
+<!-- snippet-check: crates/buangkok/src/pydoseia/ingestion/upstream.rs:224 from_age_years -->
+<!-- snippet-check: crates/buangkok/src/pydoseia/ingestion/upstream.rs:228 lookup -->
+<!-- snippet-check: crates/buangkok/src/pydoseia/ingestion/upstream.rs:251 single -->
+<!-- snippet-check: crates/buangkok/src/pydoseia/ingestion/upstream.rs:266 tritium_in_plant -->
+<!-- snippet-check: crates/buangkok/src/pydoseia/ingestion/upstream.rs:291 tritium_in_animal -->
+<!-- snippet-check: crates/buangkok/src/pydoseia/ingestion/upstream.rs:298 is_milk -->
+<!-- snippet-check: crates/buangkok/src/pydoseia/ingestion/upstream.rs:307 is_meat -->
+<!-- snippet-check: crates/buangkok/src/pydoseia/ingestion/upstream.rs:317 single -->
+<!-- snippet-check: crates/buangkok/src/pydoseia/ingestion/upstream.rs:319 c14_in_plant -->
+<!-- snippet-check: crates/buangkok/src/pydoseia/ingestion/upstream.rs:327 c14_in_animal -->
+<!-- snippet-check: crates/buangkok/src/pydoseia/ingestion/upstream.rs:351 to_rows -->
+<!-- snippet-check: crates/buangkok/src/pydoseia/ingestion/upstream.rs:355 to_rows -->
+<!-- snippet-check: crates/buangkok/src/pydoseia/ingestion/upstream.rs:357 to_rows -->
+<!-- snippet-check: crates/buangkok/src/pydoseia/ingestion/upstream.rs:359 to_rows -->
+<!-- snippet-check: crates/buangkok/src/pydoseia/ingestion/upstream.rs:361 to_rows -->
+
+```rust,ignore
+{{#include ../../../../../../crates/buangkok/src/pydoseia/ingestion/upstream.rs:121:126}}
+    // …
+{{#include ../../../../../../crates/buangkok/src/pydoseia/ingestion/upstream.rs:140:149}}
+    // …
+{{#include ../../../../../../crates/buangkok/src/pydoseia/ingestion/upstream.rs:153:156}}
+    // …
+{{#include ../../../../../../crates/buangkok/src/pydoseia/ingestion/upstream.rs:158:162}}
+    // …
+{{#include ../../../../../../crates/buangkok/src/pydoseia/ingestion/upstream.rs:178:181}}
+    // …
+{{#include ../../../../../../crates/buangkok/src/pydoseia/ingestion/upstream.rs:185:193}}
+    // …
+{{#include ../../../../../../crates/buangkok/src/pydoseia/ingestion/upstream.rs:206:210}}
+    // …
+{{#include ../../../../../../crates/buangkok/src/pydoseia/ingestion/upstream.rs:222:229}}
+    // …
+{{#include ../../../../../../crates/buangkok/src/pydoseia/ingestion/upstream.rs:249:252}}
+    // …
+{{#include ../../../../../../crates/buangkok/src/pydoseia/ingestion/upstream.rs:264:267}}
+    // …
+{{#include ../../../../../../crates/buangkok/src/pydoseia/ingestion/upstream.rs:289:292}}
+    // …
+{{#include ../../../../../../crates/buangkok/src/pydoseia/ingestion/upstream.rs:296:299}}
+    // …
+{{#include ../../../../../../crates/buangkok/src/pydoseia/ingestion/upstream.rs:305:308}}
+    // …
+{{#include ../../../../../../crates/buangkok/src/pydoseia/ingestion/upstream.rs:315:320}}
+    // …
+{{#include ../../../../../../crates/buangkok/src/pydoseia/ingestion/upstream.rs:325:328}}
+    // …
+{{#include ../../../../../../crates/buangkok/src/pydoseia/ingestion/upstream.rs:349:362}}
+    // … (the rest of the function: follow the link above)
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:2.7em">
+
+`dose.rs::deposition_velocity_m_per_s` *(expanded elsewhere in this walk)* · called at [L142](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/ingestion/upstream.rs#L142)
+
+</div>
+
+<div class="cw-node" style="margin-left:2.7em">
+
+[`food_chain.rs::deposition_rate_per_day`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/ingestion/food_chain.rs#L16) `pub fn deposition_rate_per_day(day_discharge: f64, v_d_m_per_s: f64, chi_over_q: f64) -> f64` — Upstream's per-day deposition rate `d * v_d * chi/Q`, Bq m^-2 d^-1 (with `d` the release per day: `Q / 365` for a long-term release, and the released Bq itself for a single plume, as upstream). · called at [L146](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/ingestion/upstream.rs#L146) · *(calls below the depth limit not shown)*
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/buangkok/src/pydoseia/ingestion/food_chain.rs:16 fn deposition_rate_per_day -->
+
+```rust,ignore
+{{#include ../../../../../../crates/buangkok/src/pydoseia/ingestion/food_chain.rs:16:18}}
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:2.7em">
+
+[`upstream.rs::at`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/ingestion/upstream.rs#L89) `fn at(v: &[f64], i: usize, what: &'static str) -> Result<f64, UpstreamIngestionError>` · called at [L148](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/ingestion/upstream.rs#L148) · *(calls below the depth limit not shown)*
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/buangkok/src/pydoseia/ingestion/upstream.rs:89 fn at -->
+
+```rust,ignore
+{{#include ../../../../../../crates/buangkok/src/pydoseia/ingestion/upstream.rs:89:93}}
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:2.7em">
+
+[`food_chain.rs::per_day`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/ingestion/food_chain.rs#L33) `pub fn per_day(lambda_per_s: f64) -> f64` — Decay constant per day as upstream converts it: `lambda * 24 * 3600`. · called at [L155](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/ingestion/upstream.rs#L155) · *(calls below the depth limit not shown)*
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/buangkok/src/pydoseia/ingestion/food_chain.rs:33 fn per_day -->
+
+```rust,ignore
+{{#include ../../../../../../crates/buangkok/src/pydoseia/ingestion/food_chain.rs:33:35}}
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:2.7em">
+
+UNRESOLVED(closure): `is_hc` at [L160](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/ingestion/upstream.rs#L160) (→ [`crates/buangkok/src/pydoseia/ingestion/upstream.rs:129`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/ingestion/upstream.rs#L129)) — call through a closure or fn-typed binding `is_hc`
+
+</div>
+
+<div class="cw-node" style="margin-left:2.7em">
+
+[`mod.rs::EcoParamTable::lookup`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/ingestion/mod.rs#L324) `pub fn lookup(&self, element: &str) -> Option<TransferFactors>` — Upstream's lookup in `fv_list_ecerman_ingestion`: the **first** row whose `Element` field contains the symbol as a whitespace-delimited token (regex `(?:\s|^)X(?:\s|$)`). · called at [L161](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/ingestion/upstream.rs#L161) · *(calls below the depth limit not shown)*
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/buangkok/src/pydoseia/ingestion/mod.rs:324 fn lookup -->
+
+```rust,ignore
+{{#include ../../../../../../crates/buangkok/src/pydoseia/ingestion/mod.rs:324:331}}
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:2.7em">
+
+UNRESOLVED(closure): `is_hc` at [L180](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/ingestion/upstream.rs#L180) (→ [`crates/buangkok/src/pydoseia/ingestion/upstream.rs:129`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/ingestion/upstream.rs#L129)) — call through a closure or fn-typed binding `is_hc`
+
+</div>
+
+<div class="cw-node" style="margin-left:2.7em">
+
+[`mod.rs::SoilType::surface_densities`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/ingestion/mod.rs#L237) `pub const fn surface_densities(self) -> (f64, f64)` — `(rho_pasture_depth_lt_11, rho_crop_depth_ge_11)`, kg/m^2 dry soil. · called at [L187](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/ingestion/upstream.rs#L187) · *(calls below the depth limit not shown)*
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/buangkok/src/pydoseia/ingestion/mod.rs:237 fn surface_densities -->
+
+```rust,ignore
+{{#include ../../../../../../crates/buangkok/src/pydoseia/ingestion/mod.rs:237:242}}
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:2.7em">
+
+UNRESOLVED(closure): `is_hc` at [L191](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/ingestion/upstream.rs#L191) (→ [`crates/buangkok/src/pydoseia/ingestion/upstream.rs:129`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/ingestion/upstream.rs#L129)) — call through a closure or fn-typed binding `is_hc`
+
+</div>
+
+<div class="cw-node" style="margin-left:2.7em">
+
+[`food_chain.rs::food_crop`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/ingestion/food_chain.rs#L52) `pub fn food_crop(dep_per_day: f64, lambda_eiv: f64, lambda_eis: f64, fv2: f64, lambda_i_per_d: f64, rho_crop: f64, p: &IngestionParameters) -> CropConcentrations` — Food crops for human consumption (upstream's "veg route"). · called at [L192](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/ingestion/upstream.rs#L192) · *(calls below the depth limit not shown)*
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/buangkok/src/pydoseia/ingestion/food_chain.rs:52 fn food_crop -->
+
+```rust,ignore
+{{#include ../../../../../../crates/buangkok/src/pydoseia/ingestion/food_chain.rs:52:72}}
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:2.7em">
+
+UNRESOLVED(closure): `is_hc` at [L208](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/ingestion/upstream.rs#L208) (→ [`crates/buangkok/src/pydoseia/ingestion/upstream.rs:129`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/ingestion/upstream.rs#L129)) — call through a closure or fn-typed binding `is_hc`
+
+</div>
+
+<div class="cw-node" style="margin-left:2.7em">
+
+[`food_chain.rs::animal_products`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/ingestion/food_chain.rs#L98) `pub fn animal_products(dep_per_day: f64, lambda_eiv: f64, lambda_eis: f64, fv1: f64, fm: f64, ff: f64, lambda_i_per_d: f64, rho_pasture: f64, p: &IngestionParameters) -> AnimalConcentrations` — Upstream's milk and meat route for one nuclide. · called at [L209](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/ingestion/upstream.rs#L209) · *(calls below the depth limit not shown)*
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/buangkok/src/pydoseia/ingestion/food_chain.rs:98 fn animal_products -->
+
+```rust,ignore
+{{#include ../../../../../../crates/buangkok/src/pydoseia/ingestion/food_chain.rs:98:129}}
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:2.7em">
+
+`dcf.rs::AgeBracket::from_age_years` *(expanded elsewhere in this walk)* · called at [L224](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/ingestion/upstream.rs#L224)
+
+</div>
+
+<div class="cw-node" style="margin-left:2.7em">
+
+[`mod.rs::Receiver::age_years`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/ingestion/mod.rs#L203) `pub const fn age_years(self) -> f64` — The age upstream uses for the coefficient lookup. · called at [L224](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/ingestion/upstream.rs#L224) · *(calls below the depth limit not shown)*
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/buangkok/src/pydoseia/ingestion/mod.rs:203 fn age_years -->
+
+```rust,ignore
+{{#include ../../../../../../crates/buangkok/src/pydoseia/ingestion/mod.rs:203:208}}
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:2.7em">
+
+[`mod.rs::IngestionDcfTable::lookup`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/ingestion/mod.rs#L394) `pub fn lookup(&self, nuclide: &str, age: AgeBracket) -> IngestionDcf` — Upstream's `dcf_list_ingestion` for one nuclide: the largest coefficient over rows named exactly `nuclide` (NaN if none); for `"H-3"` the `HTO` and `OBT` rows instead. · called at [L228](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/ingestion/upstream.rs#L228) · *(calls below the depth limit not shown)*
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/buangkok/src/pydoseia/ingestion/mod.rs:394 fn lookup -->
+
+```rust,ignore
+{{#include ../../../../../../crates/buangkok/src/pydoseia/ingestion/mod.rs:394:403}}
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:2.7em">
+
+UNRESOLVED(closure): `single` at [L251](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/ingestion/upstream.rs#L251) (→ [`crates/buangkok/src/pydoseia/ingestion/upstream.rs:239`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/ingestion/upstream.rs#L239)) — call through a closure or fn-typed binding `single`
+
+</div>
+
+<div class="cw-node" style="margin-left:2.7em">
+
+[`food_chain.rs::tritium_in_plant`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/ingestion/food_chain.rs#L311) `pub fn tritium_in_plant(chi_over_q: f64, discharge: f64, climate: Climate, veg: VegetationType, cr_s: f64, gamma: f64, r_p: f64) -> TritiumPlant` — `conc_tritium_in_terrestrial_plant`: air HTO from the release (Bq/y times `chi/Q`, divided by `365 * 24 * 3600`), then air moisture, soil water, tissue-free water, HTO and OBT in the plant. · called at [L266](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/ingestion/upstream.rs#L266) · *(calls below the depth limit not shown)*
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/buangkok/src/pydoseia/ingestion/food_chain.rs:311 fn tritium_in_plant -->
+
+```rust,ignore
+{{#include ../../../../../../crates/buangkok/src/pydoseia/ingestion/food_chain.rs:311:335}}
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:2.7em">
+
+[`food_chain.rs::tritium_in_animal`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/ingestion/food_chain.rs#L341) `pub fn tritium_in_animal(c_tfwt: f64, c_f_hto: f64, product: AnimalProduct, feed: VegetationType, r_p: f64) -> (f64, f64, f64)` — `conc_tritium_in_terrestrial_animal`: `(C_afw_T_HTO, C_f_OBT, C_afw_T_OBT)`. · called at [L291](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/ingestion/upstream.rs#L291) · *(calls below the depth limit not shown)*
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/buangkok/src/pydoseia/ingestion/food_chain.rs:341 fn tritium_in_animal -->
+
+```rust,ignore
+{{#include ../../../../../../crates/buangkok/src/pydoseia/ingestion/food_chain.rs:341:353}}
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:2.7em">
+
+[`food_chain.rs::AnimalProduct::is_milk`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/ingestion/food_chain.rs#L263) `pub const fn is_milk(self) -> bool` — In upstream's milk list (`cow_milk`, `goat_milk`). · called at [L298](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/ingestion/upstream.rs#L298) · *(calls below the depth limit not shown)*
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/buangkok/src/pydoseia/ingestion/food_chain.rs:263 fn is_milk -->
+
+```rust,ignore
+{{#include ../../../../../../crates/buangkok/src/pydoseia/ingestion/food_chain.rs:263:265}}
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:2.7em">
+
+[`food_chain.rs::AnimalProduct::is_meat`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/ingestion/food_chain.rs#L271) `pub const fn is_meat(self) -> bool` — In upstream's meat list (`goat_meat`, `lamb_meat`, `beef_meat`, `broiler_meat`, `pork_meat`; its `cow_meat` has no ratios and would raise `KeyError`). · called at [L307](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/ingestion/upstream.rs#L307) · *(calls below the depth limit not shown)*
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/buangkok/src/pydoseia/ingestion/food_chain.rs:271 fn is_meat -->
+
+```rust,ignore
+{{#include ../../../../../../crates/buangkok/src/pydoseia/ingestion/food_chain.rs:271:276}}
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:2.7em">
+
+UNRESOLVED(closure): `single` at [L317](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/ingestion/upstream.rs#L317) (→ [`crates/buangkok/src/pydoseia/ingestion/upstream.rs:239`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/ingestion/upstream.rs#L239)) — call through a closure or fn-typed binding `single`
+
+</div>
+
+<div class="cw-node" style="margin-left:2.7em">
+
+[`food_chain.rs::c14_in_plant`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/ingestion/food_chain.rs#L357) `pub fn c14_in_plant(c_air: f64, veg: VegetationType, s_air: f64) -> f64` — `conc_c14_in_terrestrial_plants`: `C_air S_p / S_air`, Bq/kg fresh. · called at [L319](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/ingestion/upstream.rs#L319) · *(calls below the depth limit not shown)*
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/buangkok/src/pydoseia/ingestion/food_chain.rs:357 fn c14_in_plant -->
+
+```rust,ignore
+{{#include ../../../../../../crates/buangkok/src/pydoseia/ingestion/food_chain.rs:357:359}}
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:2.7em">
+
+[`food_chain.rs::c14_in_animal`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/ingestion/food_chain.rs#L364) `pub fn c14_in_animal(c_pfw: f64, feed: VegetationType, product: AnimalProduct, f_c: f64) -> f64` — `conc_c14_in_terrestrial_animal`: `f_c C_pfw S_a / S_p`, Bq/kg fresh (upstream uses `f_c = 1`). · called at [L327](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/ingestion/upstream.rs#L327) · *(calls below the depth limit not shown)*
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/buangkok/src/pydoseia/ingestion/food_chain.rs:364 fn c14_in_animal -->
+
+```rust,ignore
+{{#include ../../../../../../crates/buangkok/src/pydoseia/ingestion/food_chain.rs:364:366}}
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:2.7em">
+
+UNRESOLVED(closure): `to_rows` at [L351](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/ingestion/upstream.rs#L351) (→ [`crates/buangkok/src/pydoseia/ingestion/upstream.rs:341`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/ingestion/upstream.rs#L341)) — call through a closure or fn-typed binding `to_rows`
+
+</div>
+
+<div class="cw-node" style="margin-left:2.7em">
+
+UNRESOLVED(closure): `to_rows` at [L355](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/ingestion/upstream.rs#L355) (→ [`crates/buangkok/src/pydoseia/ingestion/upstream.rs:341`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/ingestion/upstream.rs#L341)) — call through a closure or fn-typed binding `to_rows`
+
+</div>
+
+<div class="cw-node" style="margin-left:2.7em">
+
+UNRESOLVED(closure): `to_rows` at [L357](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/ingestion/upstream.rs#L357) (→ [`crates/buangkok/src/pydoseia/ingestion/upstream.rs:341`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/ingestion/upstream.rs#L341)) — call through a closure or fn-typed binding `to_rows`
+
+</div>
+
+<div class="cw-node" style="margin-left:2.7em">
+
+UNRESOLVED(closure): `to_rows` at [L359](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/ingestion/upstream.rs#L359) (→ [`crates/buangkok/src/pydoseia/ingestion/upstream.rs:341`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/ingestion/upstream.rs#L341)) — call through a closure or fn-typed binding `to_rows`
+
+</div>
+
+<div class="cw-node" style="margin-left:2.7em">
+
+UNRESOLVED(closure): `to_rows` at [L361](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/ingestion/upstream.rs#L361) (→ [`crates/buangkok/src/pydoseia/ingestion/upstream.rs:341`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/ingestion/upstream.rs#L341)) — call through a closure or fn-typed binding `to_rows`
+
+</div>
+
+<div class="cw-node" style="margin-left:1.8em">
+
+[`assessment.rs::ingestion_inputs`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/assessment.rs#L259) `fn ingestion_inputs(cfg: &PyDoseiaConfig, decay_constants_per_s: &[f64], chi: DilutionFactor) -> UpstreamIngestionInputs` · called at [L337](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/assessment.rs#L337)
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/buangkok/src/pydoseia/assessment.rs:259 fn ingestion_inputs -->
+<!-- snippet-check: crates/buangkok/src/pydoseia/assessment.rs:268 releases -->
+<!-- snippet-check: crates/buangkok/src/pydoseia/assessment.rs:273 seconds_per_cubic_meter -->
+
+```rust,ignore
+{{#include ../../../../../../crates/buangkok/src/pydoseia/assessment.rs:259:274}}
+    // … (the rest of the function: follow the link above)
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:2.7em">
+
+`config.rs::PyDoseiaConfig::releases` *(expanded elsewhere in this walk)* · called at [L268](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/assessment.rs#L268)
+
+</div>
+
+<div class="cw-node" style="margin-left:2.7em">
+
+`units.rs::DilutionFactor::seconds_per_cubic_meter` *(expanded elsewhere in this walk)* · called at [L273](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/assessment.rs#L273)
+
+</div>
+
+<div class="cw-node" style="margin-left:1.8em">
+
+[`tables.rs::GammaLineTable::plume_shine_lines`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/plume_shine/tables.rs#L106) `pub fn plume_shine_lines(&self, nuclide: &str) -> Vec<GammaLine>` — The lines plume shine integrates for one nuclide: `Self::lines_for`'s kept lines, or a single zero-energy, zero-yield placeholder when there are none (upstream's `[0]` for a nuclide not in the table, and `add_zero_energy_for_pure_beta` for one whose lines were all cut). · called at [L358](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/assessment.rs#L358)
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/buangkok/src/pydoseia/plume_shine/tables.rs:106 fn plume_shine_lines -->
+<!-- snippet-check: crates/buangkok/src/pydoseia/plume_shine/tables.rs:107 lines_for -->
+
+```rust,ignore
+{{#include ../../../../../../crates/buangkok/src/pydoseia/plume_shine/tables.rs:106:108}}
+    // … (the rest of the function: follow the link above)
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:2.7em">
+
+[`tables.rs::GammaLineTable::lines_for`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/plume_shine/tables.rs#L84) `pub fn lines_for(&self, nuclide: &str) -> NuclideGammaLines` — Upstream's `gamma_energy_abundaces` for one nuclide. · called at [L107](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/plume_shine/tables.rs#L107) · *(calls below the depth limit not shown)*
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/buangkok/src/pydoseia/plume_shine/tables.rs:84 fn lines_for -->
+
+```rust,ignore
+{{#include ../../../../../../crates/buangkok/src/pydoseia/plume_shine/tables.rs:84:99}}
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:1.8em">
+
+[`config.rs::PyDoseiaConfig::releases`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/config.rs#L216) `pub fn releases(&self) -> &[f64]` — The release list of the active scenario. · called at [L365](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/assessment.rs#L365)
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/buangkok/src/pydoseia/config.rs:216 fn releases -->
+
+```rust,ignore
+{{#include ../../../../../../crates/buangkok/src/pydoseia/config.rs:216:225}}
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:1.8em">
+
+[`assessment.rs::m`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/assessment.rs#L138) `fn m(v: f64) -> Length` · called at [L375](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/assessment.rs#L375)
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/buangkok/src/pydoseia/assessment.rs:138 fn m -->
+
+```rust,ignore
+{{#include ../../../../../../crates/buangkok/src/pydoseia/assessment.rs:138:140}}
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:1.8em">
+
+[`mod.rs::per_sector_with_met`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/plume_shine/mod.rs#L191) `pub fn per_sector_with_met(lines: &[GammaLine], table: &AttenuationTable, geometry: PlumeShineGeometry, met: &MetClimatology, measurement_height: Length, release: PlumeShineRelease, integrator: PlumeShineIntegrator) -> [f64; SECTOR_COUNT]` — Plume shine per 22.5-degree sector for one nuclide, long-term release **with met data**, averaged over the years of `met` and multiplied by the release (upstream's `have_met_data` branch). · called at [L380](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/assessment.rs#L380)
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/buangkok/src/pydoseia/plume_shine/mod.rs:191 fn per_sector_with_met -->
+<!-- snippet-check: crates/buangkok/src/pydoseia/plume_shine/mod.rs:202 height_correction_factor -->
+<!-- snippet-check: crates/buangkok/src/pydoseia/plume_shine/mod.rs:205 line_integrals -->
+<!-- snippet-check: crates/buangkok/src/pydoseia/plume_shine/mod.rs:214 air_coefficients -->
+<!-- snippet-check: crates/buangkok/src/pydoseia/plume_shine/mod.rs:215 prefactor -->
+<!-- snippet-check: crates/buangkok/src/pydoseia/plume_shine/mod.rs:245 multiplier -->
+
+```rust,ignore
+{{#include ../../../../../../crates/buangkok/src/pydoseia/plume_shine/mod.rs:191:198}}
+    // …
+{{#include ../../../../../../crates/buangkok/src/pydoseia/plume_shine/mod.rs:200:206}}
+    // …
+{{#include ../../../../../../crates/buangkok/src/pydoseia/plume_shine/mod.rs:212:216}}
+    // …
+{{#include ../../../../../../crates/buangkok/src/pydoseia/plume_shine/mod.rs:243:246}}
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:2.7em">
+
+[`dispersion.rs::height_correction_factor`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/dispersion.rs#L137) `pub fn height_correction_factor(stability: StabilityClass, release_height: Length, measurement_height: Length) -> f64` — Wind-speed correction from measurement height to release height, `(H / H_m)^p` with `p = n / (2 - n)`, `n = 0.2` (A-C), `0.25` (D), `0.5` (E-F). · called at [L202](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/plume_shine/mod.rs#L202) · *(calls below the depth limit not shown)*
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/buangkok/src/pydoseia/dispersion.rs:137 fn height_correction_factor -->
+
+```rust,ignore
+{{#include ../../../../../../crates/buangkok/src/pydoseia/dispersion.rs:137:155}}
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:2.7em">
+
+[`mod.rs::line_integrals`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/plume_shine/mod.rs#L90) `pub fn line_integrals(line: GammaLine, table: &AttenuationTable, geometry: PlumeShineGeometry, integrator: PlumeShineIntegrator) -> [f64; 6]` — The per-class integrals of one gamma line, `[A..F]` (upstream `all_integral_stab_cat_energy_wise[rad][line]`). · called at [L205](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/plume_shine/mod.rs#L205) · *(calls below the depth limit not shown)*
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/buangkok/src/pydoseia/plume_shine/mod.rs:90 fn line_integrals -->
+
+```rust,ignore
+{{#include ../../../../../../crates/buangkok/src/pydoseia/plume_shine/mod.rs:90:105}}
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:2.7em">
+
+[`tables.rs::AttenuationTable::air_coefficients`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/plume_shine/tables.rs#L209) `pub fn air_coefficients(&self, energy_mev: f64) -> AirPhotonCoefficients` — Upstream's `atten_coeff` + `get_k_mu_mua_MFP` for one energy (MeV): interpolate linearly (`numpy.interp`) and multiply by `AIR_DENSITY_G_PER_CM3` and 100 (cm^-1 to m^-1), then `k = (mu - mu_a) / mu_a` and `MFP = 1 / mu`. · called at [L214](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/plume_shine/mod.rs#L214) · *(calls below the depth limit not shown)*
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/buangkok/src/pydoseia/plume_shine/tables.rs:209 fn air_coefficients -->
+
+```rust,ignore
+{{#include ../../../../../../crates/buangkok/src/pydoseia/plume_shine/tables.rs:209:225}}
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:2.7em">
+
+[`mod.rs::prefactor`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/plume_shine/mod.rs#L81) `pub fn prefactor() -> f64` — Upstream's plume-shine prefactor `5 * 10 ** (-4)`, evaluated as Python does (`10 ** -4` is `pow(10.0, -4.0)`). · called at [L215](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/plume_shine/mod.rs#L215) · *(calls below the depth limit not shown)*
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/buangkok/src/pydoseia/plume_shine/mod.rs:81 fn prefactor -->
+
+```rust,ignore
+{{#include ../../../../../../crates/buangkok/src/pydoseia/plume_shine/mod.rs:81:83}}
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:2.7em">
+
+[`mod.rs::PlumeShineRelease::multiplier`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/plume_shine/mod.rs#L155) `pub fn multiplier(self) -> f64` — The factor upstream multiplies by. · called at [L245](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/plume_shine/mod.rs#L245) · *(calls below the depth limit not shown)*
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/buangkok/src/pydoseia/plume_shine/mod.rs:155 fn multiplier -->
+
+```rust,ignore
+{{#include ../../../../../../crates/buangkok/src/pydoseia/plume_shine/mod.rs:155:160}}
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:1.8em">
+
+[`mod.rs::per_class`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/plume_shine/mod.rs#L166) `pub fn per_class(lines: &[GammaLine], table: &AttenuationTable, geometry: PlumeShineGeometry, release: PlumeShineRelease, integrator: PlumeShineIntegrator) -> [f64; 6]` — Plume shine per stability class for one nuclide (single plume, or long term without met data): `per_class_unit_release` times the release. · called at [L390](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/assessment.rs#L390)
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/buangkok/src/pydoseia/plume_shine/mod.rs:166 fn per_class -->
+<!-- snippet-check: crates/buangkok/src/pydoseia/plume_shine/mod.rs:173 multiplier -->
+
+```rust,ignore
+{{#include ../../../../../../crates/buangkok/src/pydoseia/plume_shine/mod.rs:166:174}}
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:2.7em">
+
+`mod.rs::PlumeShineRelease::multiplier` *(expanded elsewhere in this walk)* · called at [L173](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/plume_shine/mod.rs#L173)
+
+</div>
+
+<div class="cw-node" style="margin-left:2.7em">
+
+[`mod.rs::per_class_unit_release`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/plume_shine/mod.rs#L114) `pub fn per_class_unit_release(lines: &[GammaLine], table: &AttenuationTable, geometry: PlumeShineGeometry, integrator: PlumeShineIntegrator) -> [f64; 6]` — Plume shine per stability class for **unit release**, summed over the lines (upstream's `pl_sh_sectors` before the release multiplication, for the single-plume and the long-term no-met branches). · called at [L173](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/plume_shine/mod.rs#L173) · *(calls below the depth limit not shown)*
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/buangkok/src/pydoseia/plume_shine/mod.rs:114 fn per_class_unit_release -->
+
+```rust,ignore
+{{#include ../../../../../../crates/buangkok/src/pydoseia/plume_shine/mod.rs:114:140}}
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:0.9em">
+
+[`units.rs::DilutionFactor::seconds_per_cubic_meter`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/changi/src/activity/units.rs#L53) `pub const fn seconds_per_cubic_meter(self) -> f64` — The value in seconds per cubic metre. · called at [L83](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/examples/pydoseia_assessment.rs#L83)
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/changi/src/activity/units.rs:53 fn seconds_per_cubic_meter -->
+
+```rust,ignore
+{{#include ../../../../../../crates/changi/src/activity/units.rs:53:55}}
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:0.9em">
+
+[`assessment.rs::summary_rows`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/assessment.rs#L605) `pub fn summary_rows(results: &AssessmentResults, mode: SummaryIngestion) -> Vec<SummaryRow>` — The rows of upstream's summed summary, one per (distance, age), in upstream's final order (a stable sort by age). · called at [L88](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/examples/pydoseia_assessment.rs#L88)
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/buangkok/src/pydoseia/assessment.rs:605 fn summary_rows -->
+<!-- snippet-check: crates/buangkok/src/pydoseia/assessment.rs:612 driver_ingestion_matrix -->
+<!-- snippet-check: crates/buangkok/src/pydoseia/assessment.rs:614 pandas_sum -->
+<!-- snippet-check: crates/buangkok/src/pydoseia/assessment.rs:619 pandas_groupby_sum -->
+
+```rust,ignore
+{{#include ../../../../../../crates/buangkok/src/pydoseia/assessment.rs:605:620}}
+    // … (the rest of the function: follow the link above)
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:1.8em">
+
+[`assessment.rs::driver_ingestion_matrix`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/assessment.rs#L420) `pub fn driver_ingestion_matrix(out: &UpstreamIngestionOutput) -> Vec<[f64; 3]>` — Upstream's driver reshapes each cell's ingestion array to `(nuclides, 3)` in C order (`INGESTION_DOSES.reshape(..., n, 3)`). · called at [L612](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/assessment.rs#L612)
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/buangkok/src/pydoseia/assessment.rs:420 fn driver_ingestion_matrix -->
+
+```rust,ignore
+{{#include ../../../../../../crates/buangkok/src/pydoseia/assessment.rs:420:431}}
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:1.8em">
+
+[`assessment.rs::pandas_sum`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/assessment.rs#L436) `pub fn pandas_sum(values: &[f64]) -> f64` — pandas' `sum(skipna=True)` over a short row or column: NaN counts as 0 and the sum is numpy's (pairwise for 8 or more values). · called at [L614](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/assessment.rs#L614)
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/buangkok/src/pydoseia/assessment.rs:436 fn pandas_sum -->
+<!-- snippet-check: crates/buangkok/src/pydoseia/assessment.rs:441 numpy_pairwise_sum -->
+
+```rust,ignore
+{{#include ../../../../../../crates/buangkok/src/pydoseia/assessment.rs:436:442}}
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:2.7em">
+
+[`assessment.rs::numpy_pairwise_sum`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/assessment.rs#L447) `pub fn numpy_pairwise_sum(a: &[f64]) -> f64` — numpy's pairwise summation (`pairwise_sum_DOUBLE`, block size 128, eight accumulators). · called at [L441](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/assessment.rs#L441) · *(calls below the depth limit not shown)*
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/buangkok/src/pydoseia/assessment.rs:447 fn numpy_pairwise_sum -->
+
+```rust,ignore
+{{#include ../../../../../../crates/buangkok/src/pydoseia/assessment.rs:447:476}}
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:1.8em">
+
+[`assessment.rs::pandas_groupby_sum`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/assessment.rs#L480) `pub fn pandas_groupby_sum(values: &[f64]) -> f64` — pandas' groupby `sum` (Kahan-compensated, NaN skipped). · called at [L619](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/assessment.rs#L619)
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/buangkok/src/pydoseia/assessment.rs:480 fn pandas_groupby_sum -->
+
+```rust,ignore
+{{#include ../../../../../../crates/buangkok/src/pydoseia/assessment.rs:480:493}}
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:0.9em">
+
+[`assessment.rs::plant_boundary_totals`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/assessment.rs#L525) `pub fn plant_boundary_totals(cfg: &PyDoseiaConfig, results: &AssessmentResults, zeroing: Zeroing, no_transfer_factor_elements: &[String]) -> Vec<Option<Vec<BoundaryTotal>>>` — The per-nuclide totals `output_to_txt` prints for each age at the plant boundary. · called at [L95](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/examples/pydoseia_assessment.rs#L95)
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/buangkok/src/pydoseia/assessment.rs:525 fn plant_boundary_totals -->
+<!-- snippet-check: crates/buangkok/src/pydoseia/assessment.rs:542 driver_ingestion_matrix -->
+<!-- snippet-check: crates/buangkok/src/pydoseia/assessment.rs:552 pandas_sum -->
+
+```rust,ignore
+{{#include ../../../../../../crates/buangkok/src/pydoseia/assessment.rs:525:553}}
+    // … (the rest of the function: follow the link above)
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:1.8em">
+
+`assessment.rs::driver_ingestion_matrix` *(expanded elsewhere in this walk)* · called at [L542](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/assessment.rs#L542)
+
+</div>
+
+<div class="cw-node" style="margin-left:1.8em">
+
+`assessment.rs::pandas_sum` *(expanded elsewhere in this walk)* · called at [L552](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/src/pydoseia/assessment.rs#L552)
+
+</div>
 <!-- /code-walk -->
 
 **Next:** [Rung 7: capstone, HTR-10 air ingress from release to dose](./07-capstone.md).

@@ -397,54 +397,605 @@ The whole of `changi`'s puff example, as an architecture map (generated):
 
 Everything `crates/changi/examples/puff_site_survey.rs::main` reaches in the workspace, to 3 hops: 26 functions, 7 unresolved calls. A function is expanded once; later calls to it say *(expanded elsewhere in this walk)*.
 
-- [`puff_site_survey.rs::main`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/changi/examples/puff_site_survey.rs#L75) `fn main()`
-  - [`puff_site_survey.rs::part_1_a_single_leak`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/changi/examples/puff_site_survey.rs#L86) `fn part_1_a_single_leak()` — A 3.5 kg/hr leak from a 2.5 m stack, four sensors 30 m out on the compass points, a steady 4 m/s wind from the south-west, run for ten minutes. · called at [L79](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/changi/examples/puff_site_survey.rs#L79)
-    - [`climatology.rs::SingaporeWind::components`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/changi/src/puff/climatology.rs#L175) `pub fn components(self) -> WindComponents` — The wind as `(u, v)` components in the site's local Cartesian frame. · called at [L94](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/changi/examples/puff_site_survey.rs#L94)
-      - `climatology.rs::SingaporeWind::speed` *(expanded elsewhere in this walk)* · called at [L176](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/changi/src/puff/climatology.rs#L176)
-      - `climatology.rs::SingaporeWind::direction` *(expanded elsewhere in this walk)* · called at [L176](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/changi/src/puff/climatology.rs#L176)
-      - [`wind.rs::wind_vector_convert`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/changi/src/puff/wind.rs#L60) `pub fn wind_vector_convert(speed: Velocity, direction: Angle) -> WindComponents` — Convert meteorological wind speed and direction to `(u, v)` components. · called at [L176](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/changi/src/puff/climatology.rs#L176) · *(calls below the depth limit not shown)*
-    - [`climatology.rs::SingaporeWind::label`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/changi/src/puff/climatology.rs#L115) `pub fn label(self) -> &'static str` — A short human label, e.g. · called at [L97](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/changi/examples/puff_site_survey.rs#L97)
-    - [`climatology.rs::SingaporeWind::season`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/changi/src/puff/climatology.rs#L126) `pub fn season(self) -> &'static str` — The months this condition covers, as prose. · called at [L98](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/changi/examples/puff_site_survey.rs#L98)
-    - [`climatology.rs::SingaporeWind::speed`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/changi/src/puff/climatology.rs#L142) `pub fn speed(self) -> Velocity` — Representative scalar wind speed. · called at [L99](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/changi/examples/puff_site_survey.rs#L99)
-    - [`climatology.rs::SingaporeWind::direction`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/changi/src/puff/climatology.rs#L160) `pub fn direction(self) -> Angle` — Prevailing wind direction in the **meteorological convention** — the direction the wind blows *from*, degrees clockwise from north. · called at [L100](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/changi/examples/puff_site_survey.rs#L100)
-    - [`puff_site_survey.rs::m`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/changi/examples/puff_site_survey.rs#L63) `fn m(v: f64) -> Length` — Shorthand so the site layout below reads as coordinates rather than as constructor noise. · called at [L109](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/changi/examples/puff_site_survey.rs#L109)
-    - [`puff_site_survey.rs::s`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/changi/examples/puff_site_survey.rs#L66) `fn s(v: f64) -> Time` · called at [L132](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/changi/examples/puff_site_survey.rs#L132)
-    - UNRESOLVED(other): `default` at [L138](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/changi/examples/puff_site_survey.rs#L138) (→ [`crates/changi/src/puff/simulate.rs:136`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/changi/src/puff/simulate.rs#L136)) — resolves to `#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]`, not a function body
-    - UNRESOLVED(other): `default` at [L139](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/changi/examples/puff_site_survey.rs#L139) (→ [`crates/changi/src/puff/simulate.rs:96`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/changi/src/puff/simulate.rs#L96)) — resolves to `#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]`, not a function body
-    - [`simulate.rs::simulate_sensor_mode`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/changi/src/puff/simulate.rs#L533) `pub fn simulate_sensor_mode(sources: &[Source], emission_rate: MassRate, wind: &[WindComponents], sensors: &[Receptor], config: &RunConfig) -> SensorSeries` — Simulate concentration at a set of sensors. · called at [L143](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/changi/examples/puff_site_survey.rs#L143)
-      - [`simulate.rs::validate`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/changi/src/puff/simulate.rs#L318) `fn validate(config: &RunConfig)` · called at [L540](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/changi/src/puff/simulate.rs#L540) · *(calls below the depth limit not shown)*
-      - [`simulate.rs::advect`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/changi/src/puff/simulate.rs#L274) `pub(crate) fn advect(live: &mut [Puff], wind: WindComponents, dt: Time, policy: AdvectionPolicy)` — Advance every live puff by one step of `dt` on `wind`. · called at [L565](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/changi/src/puff/simulate.rs#L565) · *(calls below the depth limit not shown)*
-      - [`simulate.rs::step_population`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/changi/src/puff/simulate.rs#L486) `fn step_population(live: &mut Vec<Puff>, step: usize, elapsed_s: f64, wind: WindComponents, config: &RunConfig, emission_rate: MassRate)` — Advance the puff population for one step: emit, age, and drop the expired. · called at [L567](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/changi/src/puff/simulate.rs#L567) · *(calls below the depth limit not shown)*
-      - [`simulate.rs::sum_over_puffs`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/changi/src/puff/simulate.rs#L401) `fn sum_over_puffs(live: &[Puff], source: Source, receptor: Receptor, elapsed_s: f64, policy: AdvectionPolicy) -> f64` — Total concentration at one receptor from every live puff, in ppm. · called at [L573](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/changi/src/puff/simulate.rs#L573) · *(calls below the depth limit not shown)*
-    - [`puff_site_survey.rs::leak`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/changi/examples/puff_site_survey.rs#L71) `fn leak(kg_per_hour: f64) -> MassRate` — A leak of `kg_per_hour` expressed in SI. · called at [L145](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/changi/examples/puff_site_survey.rs#L145)
-    - [`simulate.rs::constant_wind`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/changi/src/puff/simulate.rs#L730) `pub fn constant_wind(u: Velocity, v: Velocity, n: usize) -> Vec<WindComponents>` — Build a constant wind series of `n` samples, a convenience for examples and tests that do not care about wind variability. · called at [L146](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/changi/examples/puff_site_survey.rs#L146)
-  - [`puff_site_survey.rs::part_2_what_stability_does`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/changi/examples/puff_site_survey.rs#L180) `fn part_2_what_stability_does()` — The same instantaneous release seen under two very different atmospheres. · called at [L80](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/changi/examples/puff_site_survey.rs#L80)
-    - `puff_site_survey.rs::m` *(expanded elsewhere in this walk)* · called at [L185](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/changi/examples/puff_site_survey.rs#L185)
-    - [`concentration.rs::gaussian_puff_concentration`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/changi/src/puff/concentration.rs#L80) `pub fn gaussian_puff_concentration(mass: Mass, class: StabilityClass, puff_x: Length, puff_y: Length, source_height: Length, receptor: (Length, Length, Length), travel_distance: Length) -> MassDensity` — Concentration at a receptor from one Gaussian puff, as a **mass density**. · called at [L189](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/changi/examples/puff_site_survey.rs#L189)
-      - [`dispersion.rs::pasquill_gifford_sigmas`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/changi/src/puff/dispersion.rs#L228) `pub fn pasquill_gifford_sigmas(class: StabilityClass, distance: Length) -> Option<DispersionSigmas>` — Pasquill–Gifford `sigma_y` and `sigma_z` at a travel distance. · called at [L89](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/changi/src/puff/concentration.rs#L89) · *(calls below the depth limit not shown)*
-    - [`stability.rs::StabilitySet::primary`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/changi/src/puff/stability.rs#L116) `pub fn primary(self) -> StabilityClass` — The first class, which is the one upstream's `gpuff` actually uses. · called at [L191](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/changi/examples/puff_site_survey.rs#L191)
-    - [`stability.rs::StabilityClass::letter`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/changi/src/puff/stability.rs#L54) `pub fn letter(self) -> &'static str` — The single-letter label upstream uses (`"A"` … `"F"`). · called at [L200](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/changi/examples/puff_site_survey.rs#L200)
-    - `climatology.rs::SingaporeWind::speed` *(expanded elsewhere in this walk)* · called at [L214](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/changi/examples/puff_site_survey.rs#L214)
-    - `climatology.rs::SingaporeWind::label` *(expanded elsewhere in this walk)* · called at [L215](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/changi/examples/puff_site_survey.rs#L215)
-    - [`climatology.rs::SingaporeWind::stability`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/changi/src/puff/climatology.rs#L187) `pub fn stability(self, hour: u32) -> StabilitySet` — The Pasquill class(es) this condition selects at a given hour. · called at [L215](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/changi/examples/puff_site_survey.rs#L215)
-      - `climatology.rs::SingaporeWind::speed` *(expanded elsewhere in this walk)* · called at [L188](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/changi/src/puff/climatology.rs#L188)
-      - [`stability.rs::stability_class`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/changi/src/puff/stability.rs#L206) `pub fn stability_class(wind_speed: Option<Velocity>, hour: u32) -> StabilitySet` — Pasquill stability class(es) for a wind speed and hour of day. · called at [L188](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/changi/src/puff/climatology.rs#L188) · *(calls below the depth limit not shown)*
-    - UNRESOLVED(closure): `report` at [L215](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/changi/examples/puff_site_survey.rs#L215) (→ [`crates/changi/examples/puff_site_survey.rs:188`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/changi/examples/puff_site_survey.rs#L188)) — call through a closure or fn-typed binding `report`
-    - UNRESOLVED(closure): `report` at [L216](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/changi/examples/puff_site_survey.rs#L216) (→ [`crates/changi/examples/puff_site_survey.rs:188`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/changi/examples/puff_site_survey.rs#L188)) — call through a closure or fn-typed binding `report`
-  - [`puff_site_survey.rs::part_3_the_one_deliberate_divergence`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/changi/examples/puff_site_survey.rs#L257) `fn part_3_the_one_deliberate_divergence()` — The emission-policy divergence, quantified rather than asserted. · called at [L81](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/changi/examples/puff_site_survey.rs#L81)
-    - `puff_site_survey.rs::m` *(expanded elsewhere in this walk)* · called at [L270](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/changi/examples/puff_site_survey.rs#L270)
-    - `climatology.rs::SingaporeWind::stability` *(expanded elsewhere in this walk)* · called at [L280](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/changi/examples/puff_site_survey.rs#L280)
-    - `climatology.rs::SingaporeWind::components` *(expanded elsewhere in this walk)* · called at [L281](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/changi/examples/puff_site_survey.rs#L281)
-    - `puff_site_survey.rs::s` *(expanded elsewhere in this walk)* · called at [L298](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/changi/examples/puff_site_survey.rs#L298)
-    - UNRESOLVED(other): `default` at [L305](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/changi/examples/puff_site_survey.rs#L305) (→ [`crates/changi/src/puff/simulate.rs:96`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/changi/src/puff/simulate.rs#L96)) — resolves to `#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]`, not a function body
-    - `simulate.rs::simulate_sensor_mode` *(expanded elsewhere in this walk)* · called at [L307](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/changi/examples/puff_site_survey.rs#L307)
-    - `puff_site_survey.rs::leak` *(expanded elsewhere in this walk)* · called at [L309](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/changi/examples/puff_site_survey.rs#L309)
-    - `simulate.rs::constant_wind` *(expanded elsewhere in this walk)* · called at [L310](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/changi/examples/puff_site_survey.rs#L310)
-    - UNRESOLVED(closure): `run` at [L319](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/changi/examples/puff_site_survey.rs#L319) (→ [`crates/changi/examples/puff_site_survey.rs:296`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/changi/examples/puff_site_survey.rs#L296)) — call through a closure or fn-typed binding `run`
-    - UNRESOLVED(closure): `run` at [L320](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/changi/examples/puff_site_survey.rs#L320) (→ [`crates/changi/examples/puff_site_survey.rs:296`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/changi/examples/puff_site_survey.rs#L296)) — call through a closure or fn-typed binding `run`
-    - `stability.rs::StabilityClass::letter` *(expanded elsewhere in this walk)* · called at [L322](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/changi/examples/puff_site_survey.rs#L322)
-    - `climatology.rs::SingaporeWind::label` *(expanded elsewhere in this walk)* · called at [L327](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/changi/examples/puff_site_survey.rs#L327)
-    - [`wind.rs::wind_speed`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/changi/src/puff/wind.rs#L174) `pub fn wind_speed(c: WindComponents) -> Velocity` — Scalar wind speed from components, `sqrt(u^2 + v^2)`. · called at [L328](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/changi/examples/puff_site_survey.rs#L328)
+<div class="cw-node" style="margin-left:0.0em">
+
+[`puff_site_survey.rs::main`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/changi/examples/puff_site_survey.rs#L75) `fn main()`
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/changi/examples/puff_site_survey.rs:75 fn main -->
+<!-- snippet-check: crates/changi/examples/puff_site_survey.rs:79 part_1_a_single_leak -->
+<!-- snippet-check: crates/changi/examples/puff_site_survey.rs:80 part_2_what_stability_does -->
+<!-- snippet-check: crates/changi/examples/puff_site_survey.rs:81 part_3_the_one_deliberate_divergence -->
+
+```rust,ignore
+{{#include ../../../../../../crates/changi/examples/puff_site_survey.rs:75:82}}
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:0.9em">
+
+[`puff_site_survey.rs::part_1_a_single_leak`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/changi/examples/puff_site_survey.rs#L86) `fn part_1_a_single_leak()` — A 3.5 kg/hr leak from a 2.5 m stack, four sensors 30 m out on the compass points, a steady 4 m/s wind from the south-west, run for ten minutes. · called at [L79](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/changi/examples/puff_site_survey.rs#L79)
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/changi/examples/puff_site_survey.rs:86 fn part_1_a_single_leak -->
+<!-- snippet-check: crates/changi/examples/puff_site_survey.rs:94 components -->
+<!-- snippet-check: crates/changi/examples/puff_site_survey.rs:97 label -->
+<!-- snippet-check: crates/changi/examples/puff_site_survey.rs:98 season -->
+<!-- snippet-check: crates/changi/examples/puff_site_survey.rs:99 speed -->
+<!-- snippet-check: crates/changi/examples/puff_site_survey.rs:100 direction -->
+<!-- snippet-check: crates/changi/examples/puff_site_survey.rs:109 m -->
+<!-- snippet-check: crates/changi/examples/puff_site_survey.rs:132 s -->
+<!-- snippet-check: crates/changi/examples/puff_site_survey.rs:138 default -->
+<!-- snippet-check: crates/changi/examples/puff_site_survey.rs:139 default -->
+<!-- snippet-check: crates/changi/examples/puff_site_survey.rs:143 simulate_sensor_mode -->
+<!-- snippet-check: crates/changi/examples/puff_site_survey.rs:145 leak -->
+<!-- snippet-check: crates/changi/examples/puff_site_survey.rs:146 constant_wind -->
+
+```rust,ignore
+{{#include ../../../../../../crates/changi/examples/puff_site_survey.rs:86:86}}
+    // …
+{{#include ../../../../../../crates/changi/examples/puff_site_survey.rs:92:101}}
+    // …
+{{#include ../../../../../../crates/changi/examples/puff_site_survey.rs:107:110}}
+    // …
+{{#include ../../../../../../crates/changi/examples/puff_site_survey.rs:130:133}}
+    // …
+{{#include ../../../../../../crates/changi/examples/puff_site_survey.rs:136:147}}
+    // … (the rest of the function: follow the link above)
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:1.8em">
+
+[`climatology.rs::SingaporeWind::components`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/changi/src/puff/climatology.rs#L175) `pub fn components(self) -> WindComponents` — The wind as `(u, v)` components in the site's local Cartesian frame. · called at [L94](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/changi/examples/puff_site_survey.rs#L94)
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/changi/src/puff/climatology.rs:175 fn components -->
+<!-- snippet-check: crates/changi/src/puff/climatology.rs:176 speed -->
+
+```rust,ignore
+{{#include ../../../../../../crates/changi/src/puff/climatology.rs:175:177}}
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:2.7em">
+
+`climatology.rs::SingaporeWind::speed` *(expanded elsewhere in this walk)* · called at [L176](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/changi/src/puff/climatology.rs#L176)
+
+</div>
+
+<div class="cw-node" style="margin-left:2.7em">
+
+`climatology.rs::SingaporeWind::direction` *(expanded elsewhere in this walk)* · called at [L176](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/changi/src/puff/climatology.rs#L176)
+
+</div>
+
+<div class="cw-node" style="margin-left:2.7em">
+
+[`wind.rs::wind_vector_convert`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/changi/src/puff/wind.rs#L60) `pub fn wind_vector_convert(speed: Velocity, direction: Angle) -> WindComponents` — Convert meteorological wind speed and direction to `(u, v)` components. · called at [L176](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/changi/src/puff/climatology.rs#L176) · *(calls below the depth limit not shown)*
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/changi/src/puff/wind.rs:60 fn wind_vector_convert -->
+
+```rust,ignore
+{{#include ../../../../../../crates/changi/src/puff/wind.rs:60:73}}
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:1.8em">
+
+[`climatology.rs::SingaporeWind::label`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/changi/src/puff/climatology.rs#L115) `pub fn label(self) -> &'static str` — A short human label, e.g. · called at [L97](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/changi/examples/puff_site_survey.rs#L97)
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/changi/src/puff/climatology.rs:115 fn label -->
+
+```rust,ignore
+{{#include ../../../../../../crates/changi/src/puff/climatology.rs:115:122}}
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:1.8em">
+
+[`climatology.rs::SingaporeWind::season`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/changi/src/puff/climatology.rs#L126) `pub fn season(self) -> &'static str` — The months this condition covers, as prose. · called at [L98](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/changi/examples/puff_site_survey.rs#L98)
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/changi/src/puff/climatology.rs:126 fn season -->
+
+```rust,ignore
+{{#include ../../../../../../crates/changi/src/puff/climatology.rs:126:133}}
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:1.8em">
+
+[`climatology.rs::SingaporeWind::speed`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/changi/src/puff/climatology.rs#L142) `pub fn speed(self) -> Velocity` — Representative scalar wind speed. · called at [L99](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/changi/examples/puff_site_survey.rs#L99)
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/changi/src/puff/climatology.rs:142 fn speed -->
+
+```rust,ignore
+{{#include ../../../../../../crates/changi/src/puff/climatology.rs:142:150}}
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:1.8em">
+
+[`climatology.rs::SingaporeWind::direction`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/changi/src/puff/climatology.rs#L160) `pub fn direction(self) -> Angle` — Prevailing wind direction in the **meteorological convention** — the direction the wind blows *from*, degrees clockwise from north. · called at [L100](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/changi/examples/puff_site_survey.rs#L100)
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/changi/src/puff/climatology.rs:160 fn direction -->
+
+```rust,ignore
+{{#include ../../../../../../crates/changi/src/puff/climatology.rs:160:167}}
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:1.8em">
+
+[`puff_site_survey.rs::m`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/changi/examples/puff_site_survey.rs#L63) `fn m(v: f64) -> Length` — Shorthand so the site layout below reads as coordinates rather than as constructor noise. · called at [L109](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/changi/examples/puff_site_survey.rs#L109)
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/changi/examples/puff_site_survey.rs:63 fn m -->
+
+```rust,ignore
+{{#include ../../../../../../crates/changi/examples/puff_site_survey.rs:63:65}}
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:1.8em">
+
+[`puff_site_survey.rs::s`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/changi/examples/puff_site_survey.rs#L66) `fn s(v: f64) -> Time` · called at [L132](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/changi/examples/puff_site_survey.rs#L132)
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/changi/examples/puff_site_survey.rs:66 fn s -->
+
+```rust,ignore
+{{#include ../../../../../../crates/changi/examples/puff_site_survey.rs:66:68}}
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:1.8em">
+
+UNRESOLVED(other): `default` at [L138](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/changi/examples/puff_site_survey.rs#L138) (→ [`crates/changi/src/puff/simulate.rs:136`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/changi/src/puff/simulate.rs#L136)) — resolves to `#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]`, not a function body
+
+</div>
+
+<div class="cw-node" style="margin-left:1.8em">
+
+UNRESOLVED(other): `default` at [L139](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/changi/examples/puff_site_survey.rs#L139) (→ [`crates/changi/src/puff/simulate.rs:96`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/changi/src/puff/simulate.rs#L96)) — resolves to `#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]`, not a function body
+
+</div>
+
+<div class="cw-node" style="margin-left:1.8em">
+
+[`simulate.rs::simulate_sensor_mode`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/changi/src/puff/simulate.rs#L533) `pub fn simulate_sensor_mode(sources: &[Source], emission_rate: MassRate, wind: &[WindComponents], sensors: &[Receptor], config: &RunConfig) -> SensorSeries` — Simulate concentration at a set of sensors. · called at [L143](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/changi/examples/puff_site_survey.rs#L143)
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/changi/src/puff/simulate.rs:533 fn simulate_sensor_mode -->
+<!-- snippet-check: crates/changi/src/puff/simulate.rs:540 validate -->
+<!-- snippet-check: crates/changi/src/puff/simulate.rs:565 advect -->
+<!-- snippet-check: crates/changi/src/puff/simulate.rs:567 step_population -->
+<!-- snippet-check: crates/changi/src/puff/simulate.rs:573 sum_over_puffs -->
+
+```rust,ignore
+{{#include ../../../../../../crates/changi/src/puff/simulate.rs:533:541}}
+    // …
+{{#include ../../../../../../crates/changi/src/puff/simulate.rs:563:568}}
+    // …
+{{#include ../../../../../../crates/changi/src/puff/simulate.rs:571:574}}
+    // … (the rest of the function: follow the link above)
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:2.7em">
+
+[`simulate.rs::validate`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/changi/src/puff/simulate.rs#L318) `fn validate(config: &RunConfig)` · called at [L540](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/changi/src/puff/simulate.rs#L540) · *(calls below the depth limit not shown)*
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/changi/src/puff/simulate.rs:318 fn validate -->
+
+```rust,ignore
+{{#include ../../../../../../crates/changi/src/puff/simulate.rs:318:340}}
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:2.7em">
+
+[`simulate.rs::advect`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/changi/src/puff/simulate.rs#L274) `pub(crate) fn advect(live: &mut [Puff], wind: WindComponents, dt: Time, policy: AdvectionPolicy)` — Advance every live puff by one step of `dt` on `wind`. · called at [L565](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/changi/src/puff/simulate.rs#L565) · *(calls below the depth limit not shown)*
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/changi/src/puff/simulate.rs:274 fn advect -->
+
+```rust,ignore
+{{#include ../../../../../../crates/changi/src/puff/simulate.rs:274:290}}
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:2.7em">
+
+[`simulate.rs::step_population`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/changi/src/puff/simulate.rs#L486) `fn step_population(live: &mut Vec<Puff>, step: usize, elapsed_s: f64, wind: WindComponents, config: &RunConfig, emission_rate: MassRate)` — Advance the puff population for one step: emit, age, and drop the expired. · called at [L567](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/changi/src/puff/simulate.rs#L567) · *(calls below the depth limit not shown)*
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/changi/src/puff/simulate.rs:486 fn step_population -->
+
+```rust,ignore
+{{#include ../../../../../../crates/changi/src/puff/simulate.rs:486:499}}
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:2.7em">
+
+[`simulate.rs::sum_over_puffs`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/changi/src/puff/simulate.rs#L401) `fn sum_over_puffs(live: &[Puff], source: Source, receptor: Receptor, elapsed_s: f64, policy: AdvectionPolicy) -> f64` — Total concentration at one receptor from every live puff, in ppm. · called at [L573](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/changi/src/puff/simulate.rs#L573) · *(calls below the depth limit not shown)*
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/changi/src/puff/simulate.rs:401 fn sum_over_puffs -->
+
+```rust,ignore
+{{#include ../../../../../../crates/changi/src/puff/simulate.rs:401:424}}
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:1.8em">
+
+[`puff_site_survey.rs::leak`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/changi/examples/puff_site_survey.rs#L71) `fn leak(kg_per_hour: f64) -> MassRate` — A leak of `kg_per_hour` expressed in SI. · called at [L145](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/changi/examples/puff_site_survey.rs#L145)
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/changi/examples/puff_site_survey.rs:71 fn leak -->
+
+```rust,ignore
+{{#include ../../../../../../crates/changi/examples/puff_site_survey.rs:71:73}}
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:1.8em">
+
+[`simulate.rs::constant_wind`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/changi/src/puff/simulate.rs#L730) `pub fn constant_wind(u: Velocity, v: Velocity, n: usize) -> Vec<WindComponents>` — Build a constant wind series of `n` samples, a convenience for examples and tests that do not care about wind variability. · called at [L146](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/changi/examples/puff_site_survey.rs#L146)
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/changi/src/puff/simulate.rs:730 fn constant_wind -->
+
+```rust,ignore
+{{#include ../../../../../../crates/changi/src/puff/simulate.rs:730:732}}
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:0.9em">
+
+[`puff_site_survey.rs::part_2_what_stability_does`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/changi/examples/puff_site_survey.rs#L180) `fn part_2_what_stability_does()` — The same instantaneous release seen under two very different atmospheres. · called at [L80](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/changi/examples/puff_site_survey.rs#L80)
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/changi/examples/puff_site_survey.rs:180 fn part_2_what_stability_does -->
+<!-- snippet-check: crates/changi/examples/puff_site_survey.rs:185 m -->
+<!-- snippet-check: crates/changi/examples/puff_site_survey.rs:189 gaussian_puff_concentration -->
+<!-- snippet-check: crates/changi/examples/puff_site_survey.rs:191 primary -->
+<!-- snippet-check: crates/changi/examples/puff_site_survey.rs:200 letter -->
+<!-- snippet-check: crates/changi/examples/puff_site_survey.rs:214 speed -->
+<!-- snippet-check: crates/changi/examples/puff_site_survey.rs:215 label -->
+<!-- snippet-check: crates/changi/examples/puff_site_survey.rs:216 report -->
+
+```rust,ignore
+{{#include ../../../../../../crates/changi/examples/puff_site_survey.rs:180:180}}
+    // …
+{{#include ../../../../../../crates/changi/examples/puff_site_survey.rs:183:192}}
+    // …
+{{#include ../../../../../../crates/changi/examples/puff_site_survey.rs:198:201}}
+    // …
+{{#include ../../../../../../crates/changi/examples/puff_site_survey.rs:212:217}}
+    // … (the rest of the function: follow the link above)
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:1.8em">
+
+`puff_site_survey.rs::m` *(expanded elsewhere in this walk)* · called at [L185](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/changi/examples/puff_site_survey.rs#L185)
+
+</div>
+
+<div class="cw-node" style="margin-left:1.8em">
+
+[`concentration.rs::gaussian_puff_concentration`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/changi/src/puff/concentration.rs#L80) `pub fn gaussian_puff_concentration(mass: Mass, class: StabilityClass, puff_x: Length, puff_y: Length, source_height: Length, receptor: (Length, Length, Length), travel_distance: Length) -> MassDensity` — Concentration at a receptor from one Gaussian puff, as a **mass density**. · called at [L189](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/changi/examples/puff_site_survey.rs#L189)
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/changi/src/puff/concentration.rs:80 fn gaussian_puff_concentration -->
+<!-- snippet-check: crates/changi/src/puff/concentration.rs:89 pasquill_gifford_sigmas -->
+
+```rust,ignore
+{{#include ../../../../../../crates/changi/src/puff/concentration.rs:80:90}}
+    // … (the rest of the function: follow the link above)
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:2.7em">
+
+[`dispersion.rs::pasquill_gifford_sigmas`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/changi/src/puff/dispersion.rs#L228) `pub fn pasquill_gifford_sigmas(class: StabilityClass, distance: Length) -> Option<DispersionSigmas>` — Pasquill–Gifford `sigma_y` and `sigma_z` at a travel distance. · called at [L89](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/changi/src/puff/concentration.rs#L89) · *(calls below the depth limit not shown)*
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/changi/src/puff/dispersion.rs:228 fn pasquill_gifford_sigmas -->
+
+```rust,ignore
+{{#include ../../../../../../crates/changi/src/puff/dispersion.rs:228:262}}
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:1.8em">
+
+[`stability.rs::StabilitySet::primary`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/changi/src/puff/stability.rs#L116) `pub fn primary(self) -> StabilityClass` — The first class, which is the one upstream's `gpuff` actually uses. · called at [L191](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/changi/examples/puff_site_survey.rs#L191)
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/changi/src/puff/stability.rs:116 fn primary -->
+
+```rust,ignore
+{{#include ../../../../../../crates/changi/src/puff/stability.rs:116:120}}
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:1.8em">
+
+[`stability.rs::StabilityClass::letter`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/changi/src/puff/stability.rs#L54) `pub fn letter(self) -> &'static str` — The single-letter label upstream uses (`"A"` … `"F"`). · called at [L200](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/changi/examples/puff_site_survey.rs#L200)
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/changi/src/puff/stability.rs:54 fn letter -->
+
+```rust,ignore
+{{#include ../../../../../../crates/changi/src/puff/stability.rs:54:63}}
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:1.8em">
+
+`climatology.rs::SingaporeWind::speed` *(expanded elsewhere in this walk)* · called at [L214](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/changi/examples/puff_site_survey.rs#L214)
+
+</div>
+
+<div class="cw-node" style="margin-left:1.8em">
+
+`climatology.rs::SingaporeWind::label` *(expanded elsewhere in this walk)* · called at [L215](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/changi/examples/puff_site_survey.rs#L215)
+
+</div>
+
+<div class="cw-node" style="margin-left:1.8em">
+
+[`climatology.rs::SingaporeWind::stability`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/changi/src/puff/climatology.rs#L187) `pub fn stability(self, hour: u32) -> StabilitySet` — The Pasquill class(es) this condition selects at a given hour. · called at [L215](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/changi/examples/puff_site_survey.rs#L215)
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/changi/src/puff/climatology.rs:187 fn stability -->
+<!-- snippet-check: crates/changi/src/puff/climatology.rs:188 speed -->
+
+```rust,ignore
+{{#include ../../../../../../crates/changi/src/puff/climatology.rs:187:189}}
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:2.7em">
+
+`climatology.rs::SingaporeWind::speed` *(expanded elsewhere in this walk)* · called at [L188](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/changi/src/puff/climatology.rs#L188)
+
+</div>
+
+<div class="cw-node" style="margin-left:2.7em">
+
+[`stability.rs::stability_class`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/changi/src/puff/stability.rs#L206) `pub fn stability_class(wind_speed: Option<Velocity>, hour: u32) -> StabilitySet` — Pasquill stability class(es) for a wind speed and hour of day. · called at [L188](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/changi/src/puff/climatology.rs#L188) · *(calls below the depth limit not shown)*
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/changi/src/puff/stability.rs:206 fn stability_class -->
+
+```rust,ignore
+{{#include ../../../../../../crates/changi/src/puff/stability.rs:206:245}}
+    // … (the rest of the function: follow the link above)
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:1.8em">
+
+UNRESOLVED(closure): `report` at [L215](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/changi/examples/puff_site_survey.rs#L215) (→ [`crates/changi/examples/puff_site_survey.rs:188`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/changi/examples/puff_site_survey.rs#L188)) — call through a closure or fn-typed binding `report`
+
+</div>
+
+<div class="cw-node" style="margin-left:1.8em">
+
+UNRESOLVED(closure): `report` at [L216](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/changi/examples/puff_site_survey.rs#L216) (→ [`crates/changi/examples/puff_site_survey.rs:188`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/changi/examples/puff_site_survey.rs#L188)) — call through a closure or fn-typed binding `report`
+
+</div>
+
+<div class="cw-node" style="margin-left:0.9em">
+
+[`puff_site_survey.rs::part_3_the_one_deliberate_divergence`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/changi/examples/puff_site_survey.rs#L257) `fn part_3_the_one_deliberate_divergence()` — The emission-policy divergence, quantified rather than asserted. · called at [L81](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/changi/examples/puff_site_survey.rs#L81)
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/changi/examples/puff_site_survey.rs:257 fn part_3_the_one_deliberate_divergence -->
+<!-- snippet-check: crates/changi/examples/puff_site_survey.rs:270 m -->
+<!-- snippet-check: crates/changi/examples/puff_site_survey.rs:280 stability -->
+<!-- snippet-check: crates/changi/examples/puff_site_survey.rs:281 components -->
+<!-- snippet-check: crates/changi/examples/puff_site_survey.rs:298 s -->
+<!-- snippet-check: crates/changi/examples/puff_site_survey.rs:305 default -->
+<!-- snippet-check: crates/changi/examples/puff_site_survey.rs:307 simulate_sensor_mode -->
+<!-- snippet-check: crates/changi/examples/puff_site_survey.rs:309 leak -->
+<!-- snippet-check: crates/changi/examples/puff_site_survey.rs:310 constant_wind -->
+<!-- snippet-check: crates/changi/examples/puff_site_survey.rs:319 run -->
+<!-- snippet-check: crates/changi/examples/puff_site_survey.rs:320 run -->
+<!-- snippet-check: crates/changi/examples/puff_site_survey.rs:322 letter -->
+<!-- snippet-check: crates/changi/examples/puff_site_survey.rs:327 label -->
+<!-- snippet-check: crates/changi/examples/puff_site_survey.rs:328 wind_speed -->
+
+```rust,ignore
+{{#include ../../../../../../crates/changi/examples/puff_site_survey.rs:257:257}}
+    // …
+{{#include ../../../../../../crates/changi/examples/puff_site_survey.rs:268:271}}
+    // …
+{{#include ../../../../../../crates/changi/examples/puff_site_survey.rs:278:282}}
+    // …
+{{#include ../../../../../../crates/changi/examples/puff_site_survey.rs:296:299}}
+    // …
+{{#include ../../../../../../crates/changi/examples/puff_site_survey.rs:303:311}}
+    // …
+{{#include ../../../../../../crates/changi/examples/puff_site_survey.rs:317:323}}
+    // …
+{{#include ../../../../../../crates/changi/examples/puff_site_survey.rs:325:329}}
+    // … (the rest of the function: follow the link above)
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:1.8em">
+
+`puff_site_survey.rs::m` *(expanded elsewhere in this walk)* · called at [L270](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/changi/examples/puff_site_survey.rs#L270)
+
+</div>
+
+<div class="cw-node" style="margin-left:1.8em">
+
+`climatology.rs::SingaporeWind::stability` *(expanded elsewhere in this walk)* · called at [L280](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/changi/examples/puff_site_survey.rs#L280)
+
+</div>
+
+<div class="cw-node" style="margin-left:1.8em">
+
+`climatology.rs::SingaporeWind::components` *(expanded elsewhere in this walk)* · called at [L281](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/changi/examples/puff_site_survey.rs#L281)
+
+</div>
+
+<div class="cw-node" style="margin-left:1.8em">
+
+`puff_site_survey.rs::s` *(expanded elsewhere in this walk)* · called at [L298](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/changi/examples/puff_site_survey.rs#L298)
+
+</div>
+
+<div class="cw-node" style="margin-left:1.8em">
+
+UNRESOLVED(other): `default` at [L305](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/changi/examples/puff_site_survey.rs#L305) (→ [`crates/changi/src/puff/simulate.rs:96`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/changi/src/puff/simulate.rs#L96)) — resolves to `#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]`, not a function body
+
+</div>
+
+<div class="cw-node" style="margin-left:1.8em">
+
+`simulate.rs::simulate_sensor_mode` *(expanded elsewhere in this walk)* · called at [L307](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/changi/examples/puff_site_survey.rs#L307)
+
+</div>
+
+<div class="cw-node" style="margin-left:1.8em">
+
+`puff_site_survey.rs::leak` *(expanded elsewhere in this walk)* · called at [L309](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/changi/examples/puff_site_survey.rs#L309)
+
+</div>
+
+<div class="cw-node" style="margin-left:1.8em">
+
+`simulate.rs::constant_wind` *(expanded elsewhere in this walk)* · called at [L310](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/changi/examples/puff_site_survey.rs#L310)
+
+</div>
+
+<div class="cw-node" style="margin-left:1.8em">
+
+UNRESOLVED(closure): `run` at [L319](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/changi/examples/puff_site_survey.rs#L319) (→ [`crates/changi/examples/puff_site_survey.rs:296`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/changi/examples/puff_site_survey.rs#L296)) — call through a closure or fn-typed binding `run`
+
+</div>
+
+<div class="cw-node" style="margin-left:1.8em">
+
+UNRESOLVED(closure): `run` at [L320](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/changi/examples/puff_site_survey.rs#L320) (→ [`crates/changi/examples/puff_site_survey.rs:296`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/changi/examples/puff_site_survey.rs#L296)) — call through a closure or fn-typed binding `run`
+
+</div>
+
+<div class="cw-node" style="margin-left:1.8em">
+
+`stability.rs::StabilityClass::letter` *(expanded elsewhere in this walk)* · called at [L322](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/changi/examples/puff_site_survey.rs#L322)
+
+</div>
+
+<div class="cw-node" style="margin-left:1.8em">
+
+`climatology.rs::SingaporeWind::label` *(expanded elsewhere in this walk)* · called at [L327](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/changi/examples/puff_site_survey.rs#L327)
+
+</div>
+
+<div class="cw-node" style="margin-left:1.8em">
+
+[`wind.rs::wind_speed`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/changi/src/puff/wind.rs#L174) `pub fn wind_speed(c: WindComponents) -> Velocity` — Scalar wind speed from components, `sqrt(u^2 + v^2)`. · called at [L328](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/changi/examples/puff_site_survey.rs#L328)
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/changi/src/puff/wind.rs:174 fn wind_speed -->
+
+```rust,ignore
+{{#include ../../../../../../crates/changi/src/puff/wind.rs:174:178}}
+```
+
+</details>
+</div>
 <!-- /code-walk -->
 
 **Next:** [Rung 3: how high? Plume rise, ground reflection, building wake](./03-rise-wake.md).

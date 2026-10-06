@@ -154,7 +154,20 @@ cited by page, not quoted.
 
 Everything `crates/boon-lay/src/chemistry/graphite_steam.rs::specific_rate` reaches in the workspace, to 1 hop: 1 function, 0 unresolved calls. A function is expanded once; later calls to it say *(expanded elsewhere in this walk)*.
 
-- [`graphite_steam.rs::specific_rate`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/chemistry/graphite_steam.rs#L114) `pub fn specific_rate(temperature: ThermodynamicTemperature, steam: Pressure, hydrogen: Pressure, c: &BlhCoefficients) -> (Frequency, Validity)` — The specific oxidation rate `R_spe` \[1/s\] (fraction of the graphite mass per second) and whether it is inside the fit's range.
+<div class="cw-node" style="margin-left:0.0em">
+
+[`graphite_steam.rs::specific_rate`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/chemistry/graphite_steam.rs#L114) `pub fn specific_rate(temperature: ThermodynamicTemperature, steam: Pressure, hydrogen: Pressure, c: &BlhCoefficients) -> (Frequency, Validity)` — The specific oxidation rate `R_spe` \[1/s\] (fraction of the graphite mass per second) and whether it is inside the fit's range.
+
+<details open><summary>code</summary>
+
+<!-- snippet-check: crates/boon-lay/src/chemistry/graphite_steam.rs:114 fn specific_rate -->
+
+```rust,ignore
+{{#include ../../../../../crates/boon-lay/src/chemistry/graphite_steam.rs:114:139}}
+```
+
+</details>
+</div>
 <!-- /code-walk -->
 
 

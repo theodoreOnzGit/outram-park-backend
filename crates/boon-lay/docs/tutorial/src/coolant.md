@@ -232,11 +232,89 @@ supplies the pieces, and callers compose them (gh:#447):
 
 Everything `crates/boon-lay/src/triso_atops_fork/accident/mod.rs::release_activity` reaches in the workspace, to 2 hops: 5 functions, 0 unresolved calls. A function is expanded once; later calls to it say *(expanded elsewhere in this walk)*.
 
-- [`mod.rs::release_activity`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/accident/mod.rs#L253) `pub fn release_activity(group: ElementGroup, fractions: AccidentFractions, node: NormalOperationNode, release_fraction: f64, clean: bool, material: ReleaseMaterial, upstream_cadmium_typo: bool, z: u32) -> f64` — The activity still available for accident release at one node, in atoms.
-  - [`mod.rs::AccidentFractions::volatile_sum`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/accident/mod.rs#L127) `pub fn volatile_sum(&self) -> f64` — Upstream's `fractions[0] + fractions[2] + fractions[-2]` — the volatile path: heavy metal, incremental, and the accident incremental. · called at [L272](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/accident/mod.rs#L272)
-  - [`mod.rs::AccidentFractions::total`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/accident/mod.rs#L95) `pub fn total(&self) -> f64` — Upstream's `np.sum(fractions)` — all six. · called at [L276](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/accident/mod.rs#L276)
-  - [`mod.rs::AccidentFractions::normal_operation_sum`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/accident/mod.rs#L110) `pub fn normal_operation_sum(&self) -> f64` — Upstream's `np.sum(fractions[:4])` — the four normal-operation fractions. · called at [L279](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/accident/mod.rs#L279)
-  - [`mod.rs::AccidentFractions::accident_sum`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/accident/mod.rs#L116) `pub fn accident_sum(&self) -> f64` — Upstream's `np.sum(fractions[4:])` — the two accident-only fractions. · called at [L291](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/accident/mod.rs#L291)
+<div class="cw-node" style="margin-left:0.0em">
+
+[`mod.rs::release_activity`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/accident/mod.rs#L253) `pub fn release_activity(group: ElementGroup, fractions: AccidentFractions, node: NormalOperationNode, release_fraction: f64, clean: bool, material: ReleaseMaterial, upstream_cadmium_typo: bool, z: u32) -> f64` — The activity still available for accident release at one node, in atoms.
+
+<details open><summary>code</summary>
+
+<!-- snippet-check: crates/boon-lay/src/triso_atops_fork/accident/mod.rs:253 fn release_activity -->
+<!-- snippet-check: crates/boon-lay/src/triso_atops_fork/accident/mod.rs:272 volatile_sum -->
+<!-- snippet-check: crates/boon-lay/src/triso_atops_fork/accident/mod.rs:276 total -->
+<!-- snippet-check: crates/boon-lay/src/triso_atops_fork/accident/mod.rs:279 normal_operation_sum -->
+<!-- snippet-check: crates/boon-lay/src/triso_atops_fork/accident/mod.rs:291 accident_sum -->
+
+```rust,ignore
+{{#include ../../../../../crates/boon-lay/src/triso_atops_fork/accident/mod.rs:253:260}}
+    // …
+{{#include ../../../../../crates/boon-lay/src/triso_atops_fork/accident/mod.rs:270:280}}
+    // …
+{{#include ../../../../../crates/boon-lay/src/triso_atops_fork/accident/mod.rs:289:292}}
+    // … (the rest of the function: follow the link above)
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:0.9em">
+
+[`mod.rs::AccidentFractions::volatile_sum`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/accident/mod.rs#L127) `pub fn volatile_sum(&self) -> f64` — Upstream's `fractions[0] + fractions[2] + fractions[-2]` — the volatile path: heavy metal, incremental, and the accident incremental. · called at [L272](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/accident/mod.rs#L272)
+
+<details open><summary>code</summary>
+
+<!-- snippet-check: crates/boon-lay/src/triso_atops_fork/accident/mod.rs:127 fn volatile_sum -->
+
+```rust,ignore
+{{#include ../../../../../crates/boon-lay/src/triso_atops_fork/accident/mod.rs:127:129}}
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:0.9em">
+
+[`mod.rs::AccidentFractions::total`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/accident/mod.rs#L95) `pub fn total(&self) -> f64` — Upstream's `np.sum(fractions)` — all six. · called at [L276](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/accident/mod.rs#L276)
+
+<details open><summary>code</summary>
+
+<!-- snippet-check: crates/boon-lay/src/triso_atops_fork/accident/mod.rs:95 fn total -->
+
+```rust,ignore
+{{#include ../../../../../crates/boon-lay/src/triso_atops_fork/accident/mod.rs:95:102}}
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:0.9em">
+
+[`mod.rs::AccidentFractions::normal_operation_sum`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/accident/mod.rs#L110) `pub fn normal_operation_sum(&self) -> f64` — Upstream's `np.sum(fractions[:4])` — the four normal-operation fractions. · called at [L279](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/accident/mod.rs#L279)
+
+<details open><summary>code</summary>
+
+<!-- snippet-check: crates/boon-lay/src/triso_atops_fork/accident/mod.rs:110 fn normal_operation_sum -->
+
+```rust,ignore
+{{#include ../../../../../crates/boon-lay/src/triso_atops_fork/accident/mod.rs:110:112}}
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:0.9em">
+
+[`mod.rs::AccidentFractions::accident_sum`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/accident/mod.rs#L116) `pub fn accident_sum(&self) -> f64` — Upstream's `np.sum(fractions[4:])` — the two accident-only fractions. · called at [L291](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/accident/mod.rs#L291)
+
+<details open><summary>code</summary>
+
+<!-- snippet-check: crates/boon-lay/src/triso_atops_fork/accident/mod.rs:116 fn accident_sum -->
+
+```rust,ignore
+{{#include ../../../../../crates/boon-lay/src/triso_atops_fork/accident/mod.rs:116:118}}
+```
+
+</details>
+</div>
 <!-- /code-walk -->
 
 

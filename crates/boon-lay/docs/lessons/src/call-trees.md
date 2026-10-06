@@ -32,34 +32,371 @@ Entry point: the geometry check `triso_cell_slice` ([rung 1](../../tutorials/tri
 
 Everything `crates/boon-lay/examples/triso_cell_slice.rs::main` reaches in the workspace, to 3 hops: 17 functions, 1 unresolved call. A function is expanded once; later calls to it say *(expanded elsewhere in this walk)*.
 
-- [`triso_cell_slice.rs::main`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/examples/triso_cell_slice.rs#L163) `fn main()`
-  - [`mod.rs::TrisoCell::new_crp6_geometry`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/single_particle_simulator/constructive_solid_geometry/mod.rs#L137) `pub fn new_crp6_geometry() -> Self` — gotten typical triso geometry from: Hales, J. · called at [L164](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/examples/triso_cell_slice.rs#L164)
-    - `mod.rs::TrisoCell::new` *(expanded elsewhere in this walk)* · called at [L151](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/single_particle_simulator/constructive_solid_geometry/mod.rs#L151)
-  - [`mod.rs::TrisoCell::new`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/single_particle_simulator/constructive_solid_geometry/mod.rs#L84) `pub fn new(fuel_radius: Length, buffer_radius: Length, ipyc_radius: Length, sic_radius: Length, opyc_radius: Length) -> Self` — creates a new triso cell based on the radii · called at [L168](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/examples/triso_cell_slice.rs#L168)
-    - [`mod.rs::Region::new_sphere`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/single_particle_simulator/constructive_solid_geometry/mod.rs#L17) `pub fn new_sphere(center: [Length; 3], radius: Length) -> Self` · called at [L100](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/single_particle_simulator/constructive_solid_geometry/mod.rs#L100)
-  - [`triso_cell_slice.rs::um`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/examples/triso_cell_slice.rs#L48) `fn um(x: f64) -> Length` · called at [L168](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/examples/triso_cell_slice.rs#L168)
-  - [`triso_cell_slice.rs::reported_radii`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/examples/triso_cell_slice.rs#L65) `fn reported_radii(cell: &TrisoCell) -> [(&'static str, Length); 5]` — The interfaces, innermost first: (name, radius the cell reports). · called at [L185](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/examples/triso_cell_slice.rs#L185)
-    - [`mod.rs::TrisoCell::get_fuel_radius`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/single_particle_simulator/constructive_solid_geometry/mod.rs#L315) `pub fn get_fuel_radius(&self) -> Length` · called at [L67](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/examples/triso_cell_slice.rs#L67)
-      - [`mod.rs::Region::try_return_center_and_radius_of_sphere`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/single_particle_simulator/constructive_solid_geometry/mod.rs#L34) `pub fn try_return_center_and_radius_of_sphere(&self) -> Option<([Length; 3], Length)>` · called at [L317](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/single_particle_simulator/constructive_solid_geometry/mod.rs#L317) · *(calls below the depth limit not shown)*
-    - [`mod.rs::TrisoCell::get_buffer_radius`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/single_particle_simulator/constructive_solid_geometry/mod.rs#L323) `pub fn get_buffer_radius(&self) -> Length` · called at [L68](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/examples/triso_cell_slice.rs#L68)
-      - `mod.rs::Region::try_return_center_and_radius_of_sphere` *(expanded elsewhere in this walk)* · called at [L325](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/single_particle_simulator/constructive_solid_geometry/mod.rs#L325)
-    - [`mod.rs::TrisoCell::get_ipyc_radius`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/single_particle_simulator/constructive_solid_geometry/mod.rs#L331) `pub fn get_ipyc_radius(&self) -> Length` · called at [L69](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/examples/triso_cell_slice.rs#L69)
-      - `mod.rs::Region::try_return_center_and_radius_of_sphere` *(expanded elsewhere in this walk)* · called at [L333](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/single_particle_simulator/constructive_solid_geometry/mod.rs#L333)
-    - [`mod.rs::TrisoCell::get_sic_radius`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/single_particle_simulator/constructive_solid_geometry/mod.rs#L339) `pub fn get_sic_radius(&self) -> Length` · called at [L70](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/examples/triso_cell_slice.rs#L70)
-      - `mod.rs::Region::try_return_center_and_radius_of_sphere` *(expanded elsewhere in this walk)* · called at [L341](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/single_particle_simulator/constructive_solid_geometry/mod.rs#L341)
-    - [`mod.rs::TrisoCell::get_opyc_radius`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/single_particle_simulator/constructive_solid_geometry/mod.rs#L347) `pub fn get_opyc_radius(&self) -> Length` · called at [L71](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/examples/triso_cell_slice.rs#L71)
-      - `mod.rs::Region::try_return_center_and_radius_of_sphere` *(expanded elsewhere in this walk)* · called at [L349](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/single_particle_simulator/constructive_solid_geometry/mod.rs#L349)
-  - [`triso_cell_slice.rs::recover_interface`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/examples/triso_cell_slice.rs#L89) `fn recover_interface(cell: &TrisoCell, dir: [f64; 3], k: usize) -> Length` — Bisect, along the unit direction `dir`, for the radius where the region lookup changes from rank `k` to rank `k + 1`. · called at [L186](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/examples/triso_cell_slice.rs#L186)
-    - [`triso_cell_slice.rs::rank`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/examples/triso_cell_slice.rs#L76) `fn rank(region: TrisoRegion) -> usize` — Region index along the ladder, so "inside" means a smaller index. · called at [L94](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/examples/triso_cell_slice.rs#L94)
-    - [`mod.rs::TrisoCell::get_triso_region`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/single_particle_simulator/constructive_solid_geometry/mod.rs#L162) `pub fn get_triso_region(&self, coordinates: [Length; 3]) -> TrisoRegion` — checks which region the particle is in chatgpt fixed · called at [L94](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/examples/triso_cell_slice.rs#L94)
-      - `mod.rs::Region::try_return_center_and_radius_of_sphere` *(expanded elsewhere in this walk)* · called at [L175](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/single_particle_simulator/constructive_solid_geometry/mod.rs#L175)
-    - UNRESOLVED(closure): `point` at [L94](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/examples/triso_cell_slice.rs#L94) (→ [`crates/boon-lay/examples/triso_cell_slice.rs:90`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/examples/triso_cell_slice.rs#L90)) — call through a closure or fn-typed binding `point`
-  - [`triso_cell_slice.rs::slice_svg`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/examples/triso_cell_slice.rs#L104) `fn slice_svg(cell: &TrisoCell, title: &str) -> String` — Draw the z = 0 slice as an SVG, from per-pixel region lookups. · called at [L198](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/examples/triso_cell_slice.rs#L198)
-    - `mod.rs::TrisoCell::get_opyc_radius` *(expanded elsewhere in this walk)* · called at [L105](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/examples/triso_cell_slice.rs#L105)
-    - `triso_cell_slice.rs::um` *(expanded elsewhere in this walk)* · called at [L122](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/examples/triso_cell_slice.rs#L122)
-    - `mod.rs::TrisoCell::get_triso_region` *(expanded elsewhere in this walk)* · called at [L122](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/examples/triso_cell_slice.rs#L122)
-    - [`triso_cell_slice.rs::style`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/examples/triso_cell_slice.rs#L53) `fn style(region: TrisoRegion) -> (&'static str, &'static str)` — Colour and label for each region (also the legend order). · called at [L129](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/examples/triso_cell_slice.rs#L129)
-    - `triso_cell_slice.rs::reported_radii` *(expanded elsewhere in this walk)* · called at [L146](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/examples/triso_cell_slice.rs#L146)
+<div class="cw-node" style="margin-left:0.0em">
+
+[`triso_cell_slice.rs::main`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/examples/triso_cell_slice.rs#L163) `fn main()`
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/boon-lay/examples/triso_cell_slice.rs:163 fn main -->
+<!-- snippet-check: crates/boon-lay/examples/triso_cell_slice.rs:164 new_crp6_geometry -->
+<!-- snippet-check: crates/boon-lay/examples/triso_cell_slice.rs:168 new -->
+<!-- snippet-check: crates/boon-lay/examples/triso_cell_slice.rs:185 reported_radii -->
+<!-- snippet-check: crates/boon-lay/examples/triso_cell_slice.rs:186 recover_interface -->
+<!-- snippet-check: crates/boon-lay/examples/triso_cell_slice.rs:198 slice_svg -->
+
+```rust,ignore
+{{#include ../../../../../crates/boon-lay/examples/triso_cell_slice.rs:163:169}}
+    // …
+{{#include ../../../../../crates/boon-lay/examples/triso_cell_slice.rs:183:187}}
+    // …
+{{#include ../../../../../crates/boon-lay/examples/triso_cell_slice.rs:196:199}}
+    // … (the rest of the function: follow the link above)
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:0.9em">
+
+[`mod.rs::TrisoCell::new_crp6_geometry`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/single_particle_simulator/constructive_solid_geometry/mod.rs#L137) `pub fn new_crp6_geometry() -> Self` — gotten typical triso geometry from: Hales, J. · called at [L164](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/examples/triso_cell_slice.rs#L164)
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/single_particle_simulator/constructive_solid_geometry/mod.rs:137 fn new_crp6_geometry -->
+<!-- snippet-check: crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/single_particle_simulator/constructive_solid_geometry/mod.rs:151 new -->
+
+```rust,ignore
+{{#include ../../../../../crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/single_particle_simulator/constructive_solid_geometry/mod.rs:137:152}}
+    // … (the rest of the function: follow the link above)
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:1.8em">
+
+`mod.rs::TrisoCell::new` *(expanded elsewhere in this walk)* · called at [L151](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/single_particle_simulator/constructive_solid_geometry/mod.rs#L151)
+
+</div>
+
+<div class="cw-node" style="margin-left:0.9em">
+
+[`mod.rs::TrisoCell::new`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/single_particle_simulator/constructive_solid_geometry/mod.rs#L84) `pub fn new(fuel_radius: Length, buffer_radius: Length, ipyc_radius: Length, sic_radius: Length, opyc_radius: Length) -> Self` — creates a new triso cell based on the radii · called at [L168](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/examples/triso_cell_slice.rs#L168)
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/single_particle_simulator/constructive_solid_geometry/mod.rs:84 fn new -->
+<!-- snippet-check: crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/single_particle_simulator/constructive_solid_geometry/mod.rs:100 new_sphere -->
+
+```rust,ignore
+{{#include ../../../../../crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/single_particle_simulator/constructive_solid_geometry/mod.rs:84:101}}
+    // … (the rest of the function: follow the link above)
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:1.8em">
+
+[`mod.rs::Region::new_sphere`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/single_particle_simulator/constructive_solid_geometry/mod.rs#L17) `pub fn new_sphere(center: [Length; 3], radius: Length) -> Self` · called at [L100](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/single_particle_simulator/constructive_solid_geometry/mod.rs#L100)
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/single_particle_simulator/constructive_solid_geometry/mod.rs:17 fn new_sphere -->
+
+```rust,ignore
+{{#include ../../../../../crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/single_particle_simulator/constructive_solid_geometry/mod.rs:17:26}}
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:0.9em">
+
+[`triso_cell_slice.rs::um`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/examples/triso_cell_slice.rs#L48) `fn um(x: f64) -> Length` · called at [L168](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/examples/triso_cell_slice.rs#L168)
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/boon-lay/examples/triso_cell_slice.rs:48 fn um -->
+
+```rust,ignore
+{{#include ../../../../../crates/boon-lay/examples/triso_cell_slice.rs:48:50}}
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:0.9em">
+
+[`triso_cell_slice.rs::reported_radii`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/examples/triso_cell_slice.rs#L65) `fn reported_radii(cell: &TrisoCell) -> [(&'static str, Length); 5]` — The interfaces, innermost first: (name, radius the cell reports). · called at [L185](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/examples/triso_cell_slice.rs#L185)
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/boon-lay/examples/triso_cell_slice.rs:65 fn reported_radii -->
+<!-- snippet-check: crates/boon-lay/examples/triso_cell_slice.rs:67 get_fuel_radius -->
+<!-- snippet-check: crates/boon-lay/examples/triso_cell_slice.rs:68 get_buffer_radius -->
+<!-- snippet-check: crates/boon-lay/examples/triso_cell_slice.rs:69 get_ipyc_radius -->
+<!-- snippet-check: crates/boon-lay/examples/triso_cell_slice.rs:70 get_sic_radius -->
+<!-- snippet-check: crates/boon-lay/examples/triso_cell_slice.rs:71 get_opyc_radius -->
+
+```rust,ignore
+{{#include ../../../../../crates/boon-lay/examples/triso_cell_slice.rs:65:72}}
+    // … (the rest of the function: follow the link above)
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:1.8em">
+
+[`mod.rs::TrisoCell::get_fuel_radius`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/single_particle_simulator/constructive_solid_geometry/mod.rs#L315) `pub fn get_fuel_radius(&self) -> Length` · called at [L67](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/examples/triso_cell_slice.rs#L67)
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/single_particle_simulator/constructive_solid_geometry/mod.rs:315 fn get_fuel_radius -->
+<!-- snippet-check: crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/single_particle_simulator/constructive_solid_geometry/mod.rs:317 try_return_center_and_radius_of_sphere -->
+
+```rust,ignore
+{{#include ../../../../../crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/single_particle_simulator/constructive_solid_geometry/mod.rs:315:318}}
+    // … (the rest of the function: follow the link above)
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:2.7em">
+
+[`mod.rs::Region::try_return_center_and_radius_of_sphere`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/single_particle_simulator/constructive_solid_geometry/mod.rs#L34) `pub fn try_return_center_and_radius_of_sphere(&self) -> Option<([Length; 3], Length)>` · called at [L317](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/single_particle_simulator/constructive_solid_geometry/mod.rs#L317) · *(calls below the depth limit not shown)*
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/single_particle_simulator/constructive_solid_geometry/mod.rs:34 fn try_return_center_and_radius_of_sphere -->
+
+```rust,ignore
+{{#include ../../../../../crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/single_particle_simulator/constructive_solid_geometry/mod.rs:34:43}}
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:1.8em">
+
+[`mod.rs::TrisoCell::get_buffer_radius`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/single_particle_simulator/constructive_solid_geometry/mod.rs#L323) `pub fn get_buffer_radius(&self) -> Length` · called at [L68](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/examples/triso_cell_slice.rs#L68)
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/single_particle_simulator/constructive_solid_geometry/mod.rs:323 fn get_buffer_radius -->
+<!-- snippet-check: crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/single_particle_simulator/constructive_solid_geometry/mod.rs:325 try_return_center_and_radius_of_sphere -->
+
+```rust,ignore
+{{#include ../../../../../crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/single_particle_simulator/constructive_solid_geometry/mod.rs:323:326}}
+    // … (the rest of the function: follow the link above)
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:2.7em">
+
+`mod.rs::Region::try_return_center_and_radius_of_sphere` *(expanded elsewhere in this walk)* · called at [L325](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/single_particle_simulator/constructive_solid_geometry/mod.rs#L325)
+
+</div>
+
+<div class="cw-node" style="margin-left:1.8em">
+
+[`mod.rs::TrisoCell::get_ipyc_radius`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/single_particle_simulator/constructive_solid_geometry/mod.rs#L331) `pub fn get_ipyc_radius(&self) -> Length` · called at [L69](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/examples/triso_cell_slice.rs#L69)
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/single_particle_simulator/constructive_solid_geometry/mod.rs:331 fn get_ipyc_radius -->
+<!-- snippet-check: crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/single_particle_simulator/constructive_solid_geometry/mod.rs:333 try_return_center_and_radius_of_sphere -->
+
+```rust,ignore
+{{#include ../../../../../crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/single_particle_simulator/constructive_solid_geometry/mod.rs:331:334}}
+    // … (the rest of the function: follow the link above)
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:2.7em">
+
+`mod.rs::Region::try_return_center_and_radius_of_sphere` *(expanded elsewhere in this walk)* · called at [L333](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/single_particle_simulator/constructive_solid_geometry/mod.rs#L333)
+
+</div>
+
+<div class="cw-node" style="margin-left:1.8em">
+
+[`mod.rs::TrisoCell::get_sic_radius`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/single_particle_simulator/constructive_solid_geometry/mod.rs#L339) `pub fn get_sic_radius(&self) -> Length` · called at [L70](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/examples/triso_cell_slice.rs#L70)
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/single_particle_simulator/constructive_solid_geometry/mod.rs:339 fn get_sic_radius -->
+<!-- snippet-check: crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/single_particle_simulator/constructive_solid_geometry/mod.rs:341 try_return_center_and_radius_of_sphere -->
+
+```rust,ignore
+{{#include ../../../../../crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/single_particle_simulator/constructive_solid_geometry/mod.rs:339:342}}
+    // … (the rest of the function: follow the link above)
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:2.7em">
+
+`mod.rs::Region::try_return_center_and_radius_of_sphere` *(expanded elsewhere in this walk)* · called at [L341](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/single_particle_simulator/constructive_solid_geometry/mod.rs#L341)
+
+</div>
+
+<div class="cw-node" style="margin-left:1.8em">
+
+[`mod.rs::TrisoCell::get_opyc_radius`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/single_particle_simulator/constructive_solid_geometry/mod.rs#L347) `pub fn get_opyc_radius(&self) -> Length` · called at [L71](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/examples/triso_cell_slice.rs#L71)
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/single_particle_simulator/constructive_solid_geometry/mod.rs:347 fn get_opyc_radius -->
+<!-- snippet-check: crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/single_particle_simulator/constructive_solid_geometry/mod.rs:349 try_return_center_and_radius_of_sphere -->
+
+```rust,ignore
+{{#include ../../../../../crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/single_particle_simulator/constructive_solid_geometry/mod.rs:347:350}}
+    // … (the rest of the function: follow the link above)
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:2.7em">
+
+`mod.rs::Region::try_return_center_and_radius_of_sphere` *(expanded elsewhere in this walk)* · called at [L349](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/single_particle_simulator/constructive_solid_geometry/mod.rs#L349)
+
+</div>
+
+<div class="cw-node" style="margin-left:0.9em">
+
+[`triso_cell_slice.rs::recover_interface`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/examples/triso_cell_slice.rs#L89) `fn recover_interface(cell: &TrisoCell, dir: [f64; 3], k: usize) -> Length` — Bisect, along the unit direction `dir`, for the radius where the region lookup changes from rank `k` to rank `k + 1`. · called at [L186](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/examples/triso_cell_slice.rs#L186)
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/boon-lay/examples/triso_cell_slice.rs:89 fn recover_interface -->
+<!-- snippet-check: crates/boon-lay/examples/triso_cell_slice.rs:94 rank -->
+
+```rust,ignore
+{{#include ../../../../../crates/boon-lay/examples/triso_cell_slice.rs:89:95}}
+    // … (the rest of the function: follow the link above)
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:1.8em">
+
+[`triso_cell_slice.rs::rank`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/examples/triso_cell_slice.rs#L76) `fn rank(region: TrisoRegion) -> usize` — Region index along the ladder, so "inside" means a smaller index. · called at [L94](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/examples/triso_cell_slice.rs#L94)
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/boon-lay/examples/triso_cell_slice.rs:76 fn rank -->
+
+```rust,ignore
+{{#include ../../../../../crates/boon-lay/examples/triso_cell_slice.rs:76:85}}
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:1.8em">
+
+[`mod.rs::TrisoCell::get_triso_region`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/single_particle_simulator/constructive_solid_geometry/mod.rs#L162) `pub fn get_triso_region(&self, coordinates: [Length; 3]) -> TrisoRegion` — checks which region the particle is in chatgpt fixed · called at [L94](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/examples/triso_cell_slice.rs#L94)
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/single_particle_simulator/constructive_solid_geometry/mod.rs:162 fn get_triso_region -->
+<!-- snippet-check: crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/single_particle_simulator/constructive_solid_geometry/mod.rs:175 try_return_center_and_radius_of_sphere -->
+
+```rust,ignore
+{{#include ../../../../../crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/single_particle_simulator/constructive_solid_geometry/mod.rs:162:176}}
+    // … (the rest of the function: follow the link above)
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:2.7em">
+
+`mod.rs::Region::try_return_center_and_radius_of_sphere` *(expanded elsewhere in this walk)* · called at [L175](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/single_particle_simulator/constructive_solid_geometry/mod.rs#L175)
+
+</div>
+
+<div class="cw-node" style="margin-left:1.8em">
+
+UNRESOLVED(closure): `point` at [L94](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/examples/triso_cell_slice.rs#L94) (→ [`crates/boon-lay/examples/triso_cell_slice.rs:90`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/examples/triso_cell_slice.rs#L90)) — call through a closure or fn-typed binding `point`
+
+</div>
+
+<div class="cw-node" style="margin-left:0.9em">
+
+[`triso_cell_slice.rs::slice_svg`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/examples/triso_cell_slice.rs#L104) `fn slice_svg(cell: &TrisoCell, title: &str) -> String` — Draw the z = 0 slice as an SVG, from per-pixel region lookups. · called at [L198](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/examples/triso_cell_slice.rs#L198)
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/boon-lay/examples/triso_cell_slice.rs:104 fn slice_svg -->
+<!-- snippet-check: crates/boon-lay/examples/triso_cell_slice.rs:105 get_opyc_radius -->
+<!-- snippet-check: crates/boon-lay/examples/triso_cell_slice.rs:122 um -->
+<!-- snippet-check: crates/boon-lay/examples/triso_cell_slice.rs:129 style -->
+<!-- snippet-check: crates/boon-lay/examples/triso_cell_slice.rs:146 reported_radii -->
+
+```rust,ignore
+{{#include ../../../../../crates/boon-lay/examples/triso_cell_slice.rs:104:106}}
+    // …
+{{#include ../../../../../crates/boon-lay/examples/triso_cell_slice.rs:120:123}}
+    // …
+{{#include ../../../../../crates/boon-lay/examples/triso_cell_slice.rs:127:130}}
+    // …
+{{#include ../../../../../crates/boon-lay/examples/triso_cell_slice.rs:144:147}}
+    // … (the rest of the function: follow the link above)
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:1.8em">
+
+`mod.rs::TrisoCell::get_opyc_radius` *(expanded elsewhere in this walk)* · called at [L105](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/examples/triso_cell_slice.rs#L105)
+
+</div>
+
+<div class="cw-node" style="margin-left:1.8em">
+
+`triso_cell_slice.rs::um` *(expanded elsewhere in this walk)* · called at [L122](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/examples/triso_cell_slice.rs#L122)
+
+</div>
+
+<div class="cw-node" style="margin-left:1.8em">
+
+`mod.rs::TrisoCell::get_triso_region` *(expanded elsewhere in this walk)* · called at [L122](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/examples/triso_cell_slice.rs#L122)
+
+</div>
+
+<div class="cw-node" style="margin-left:1.8em">
+
+[`triso_cell_slice.rs::style`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/examples/triso_cell_slice.rs#L53) `fn style(region: TrisoRegion) -> (&'static str, &'static str)` — Colour and label for each region (also the legend order). · called at [L129](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/examples/triso_cell_slice.rs#L129)
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/boon-lay/examples/triso_cell_slice.rs:53 fn style -->
+
+```rust,ignore
+{{#include ../../../../../crates/boon-lay/examples/triso_cell_slice.rs:53:62}}
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:1.8em">
+
+`triso_cell_slice.rs::reported_radii` *(expanded elsewhere in this walk)* · called at [L146](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/examples/triso_cell_slice.rs#L146)
+
+</div>
 <!-- /code-walk -->
 
 ## Rung 2 — an atom's clock {#rung-2}
@@ -71,25 +408,272 @@ Entry points: building one atom's future, then spending it ([rung 2](../../tutor
 
 Everything `crates/boon-lay/src/lagrangian_decay_simulator/monte_carlo_single_radionuclide_decay_simulator/mod.rs::new_decay_chain_simulation` reaches in the workspace, to 3 hops: 12 functions, 5 unresolved calls. A function is expanded once; later calls to it say *(expanded elsewhere in this walk)*.
 
-- [`mod.rs::SingleNuclideSimulatorMC::new_decay_chain_simulation`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/monte_carlo_single_radionuclide_decay_simulator/mod.rs#L79) `pub fn new_decay_chain_simulation(current_nuclide: Nuclide, decay_library: &mut DecayLibrary) -> Self` — generate a new decay chain simulation
-  - [`mod.rs::StochasticDecayChain::new_single_stochastic_chain_from_nuclide`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/stochastic_decay_chain/mod.rs#L22) `pub fn new_single_stochastic_chain_from_nuclide(starting_nuclide: Nuclide, decay_library: &mut DecayLibrary) -> StochasticDecayChain` — this function returns a single decay chain randomly picked from the various branching ratios inside · called at [L87](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/monte_carlo_single_radionuclide_decay_simulator/mod.rs#L87)
-    - `indexing_using_nuclide.rs::DecayLibrary::try_match_nuclides_to_decay_data` *(expanded elsewhere in this walk)* · called at [L32](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/stochastic_decay_chain/mod.rs#L32)
-    - [`get_random_number.rs::DecayLibrary::get_random_number_and_rng`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/nuclide_reaction_and_decay_data/decay_library/get_random_number.rs#L8) `pub fn get_random_number_and_rng(&mut self) -> (f64, Rand64)` — allows user to obtain a random number and a clone of the rng · called at [L49](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/stochastic_decay_chain/mod.rs#L49)
-      - `lcg.rs::Lcg64::rand_float` *(expanded elsewhere in this walk)* · called at [L9](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/nuclide_reaction_and_decay_data/decay_library/get_random_number.rs#L9)
-      - UNRESOLVED(other): `clone` at [L11](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/nuclide_reaction_and_decay_data/decay_library/get_random_number.rs#L11) (→ [`crates/petir/src/rng/lcg.rs:167`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/petir/src/rng/lcg.rs#L167)) — resolves to `#[derive(Debug, Clone, Copy, PartialEq)]`, not a function body
-    - [`mod.rs::NuclideReactionAndDecayData::get_next_target_nuclide_with_float`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/nuclide_reaction_and_decay_data/get_decay_info/mod.rs#L146) `pub fn get_next_target_nuclide_with_float(&self, mut random_num_between_0_and_1: f64) -> Option<(Nuclide, DecayType)>` · called at [L53](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/stochastic_decay_chain/mod.rs#L53)
-    - UNRESOLVED(other): `clone` at [L73](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/stochastic_decay_chain/mod.rs#L73) (→ [`crates/boon-lay/src/nuclide_reaction_and_decay_data/mod.rs:20`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/nuclide_reaction_and_decay_data/mod.rs#L20)) — resolves to `#[derive(Debug, PartialEq, Clone)]`, not a function body
-    - [`mod.rs::NuclideReactionAndDecayData::is_unstable`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/nuclide_reaction_and_decay_data/get_decay_info/mod.rs#L29) `pub fn is_unstable(&self) -> bool` — checks whether nuclide is unstable (just for readability sake) · called at [L79](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/stochastic_decay_chain/mod.rs#L79)
-      - [`mod.rs::NuclideReactionAndDecayData::is_stable`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/nuclide_reaction_and_decay_data/get_decay_info/mod.rs#L20) `pub fn is_stable(&self) -> bool` — checks whether the nuclide is stable · called at [L31](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/nuclide_reaction_and_decay_data/get_decay_info/mod.rs#L31) · *(calls below the depth limit not shown)*
-    - UNRESOLVED(other): `clone` at [L106](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/stochastic_decay_chain/mod.rs#L106) (→ [`crates/boon-lay/src/nuclide_reaction_and_decay_data/mod.rs:20`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/nuclide_reaction_and_decay_data/mod.rs#L20)) — resolves to `#[derive(Debug, PartialEq, Clone)]`, not a function body
-    - UNRESOLVED(other): `clone` at [L112](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/stochastic_decay_chain/mod.rs#L112) (→ [`crates/boon-lay/src/nuclide_reaction_and_decay_data/mod.rs:20`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/nuclide_reaction_and_decay_data/mod.rs#L20)) — resolves to `#[derive(Debug, PartialEq, Clone)]`, not a function body
-  - [`iterator_for_decay_chain.rs::StochasticDecayChain::iter`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/stochastic_decay_chain/iterator_for_decay_chain.rs#L10) `pub fn iter(&self) -> DecayChainIter<'_>` · called at [L96](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/monte_carlo_single_radionuclide_decay_simulator/mod.rs#L96)
-    - [`iterator_for_decay_chain.rs::'a StochasticDecayChain::into_iter`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/stochastic_decay_chain/iterator_for_decay_chain.rs#L74) `fn into_iter(self) -> Self::IntoIter` · called at [L11](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/stochastic_decay_chain/iterator_for_decay_chain.rs#L11)
-  - [`mod.rs::SingleNuclideSimulatorMC::get_time_to_decay_stochastic`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/monte_carlo_single_radionuclide_decay_simulator/mod.rs#L70) `pub fn get_time_to_decay_stochastic(rng: &mut Rand64, half_life: Time) -> Time` — this obtains a time to live stochastically for the decay chain using half life From: N = N\_0 exp(-lambda * t) · called at [L104](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/monte_carlo_single_radionuclide_decay_simulator/mod.rs#L104)
-    - [`lcg.rs::Lcg64::rand_float`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/petir/src/rng/lcg.rs#L184) `pub fn rand_float(&mut self) -> f64` — Return a uniform sample in [0, 1) and advance the state. · called at [L71](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/monte_carlo_single_radionuclide_decay_simulator/mod.rs#L71)
-      - [`lcg.rs::prn`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/petir/src/rng/lcg.rs#L127) `pub fn prn(seed: &mut u64) -> f64` — Advance the seed one step and return a uniform sample in [0, 1). · called at [L185](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/petir/src/rng/lcg.rs#L185) · *(calls below the depth limit not shown)*
-  - [`indexing_using_nuclide.rs::DecayLibrary::try_match_nuclides_to_decay_data`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/nuclide_reaction_and_decay_data/decay_library/indexing_using_nuclide.rs#L9) `pub fn try_match_nuclides_to_decay_data(&self, nuclide: Nuclide) -> Option<NuclideReactionAndDecayData>` · called at [L116](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/monte_carlo_single_radionuclide_decay_simulator/mod.rs#L116)
-    - UNRESOLVED(other): `clone` at [L159](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/nuclide_reaction_and_decay_data/decay_library/indexing_using_nuclide.rs#L159) (→ [`crates/boon-lay/src/nuclide_reaction_and_decay_data/mod.rs:6`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/nuclide_reaction_and_decay_data/mod.rs#L6)) — resolves to `#[derive(Debug, PartialEq, Clone)]`, not a function body
+<div class="cw-node" style="margin-left:0.0em">
+
+[`mod.rs::SingleNuclideSimulatorMC::new_decay_chain_simulation`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/monte_carlo_single_radionuclide_decay_simulator/mod.rs#L79) `pub fn new_decay_chain_simulation(current_nuclide: Nuclide, decay_library: &mut DecayLibrary) -> Self` — generate a new decay chain simulation
+
+<details open><summary>code</summary>
+
+<!-- snippet-check: crates/boon-lay/src/lagrangian_decay_simulator/monte_carlo_single_radionuclide_decay_simulator/mod.rs:79 fn new_decay_chain_simulation -->
+<!-- snippet-check: crates/boon-lay/src/lagrangian_decay_simulator/monte_carlo_single_radionuclide_decay_simulator/mod.rs:87 new_single_stochastic_chain_from_nuclide -->
+<!-- snippet-check: crates/boon-lay/src/lagrangian_decay_simulator/monte_carlo_single_radionuclide_decay_simulator/mod.rs:96 iter -->
+<!-- snippet-check: crates/boon-lay/src/lagrangian_decay_simulator/monte_carlo_single_radionuclide_decay_simulator/mod.rs:104 get_time_to_decay_stochastic -->
+<!-- snippet-check: crates/boon-lay/src/lagrangian_decay_simulator/monte_carlo_single_radionuclide_decay_simulator/mod.rs:116 try_match_nuclides_to_decay_data -->
+
+```rust,ignore
+{{#include ../../../../../crates/boon-lay/src/lagrangian_decay_simulator/monte_carlo_single_radionuclide_decay_simulator/mod.rs:79:82}}
+    // …
+{{#include ../../../../../crates/boon-lay/src/lagrangian_decay_simulator/monte_carlo_single_radionuclide_decay_simulator/mod.rs:85:88}}
+    // …
+{{#include ../../../../../crates/boon-lay/src/lagrangian_decay_simulator/monte_carlo_single_radionuclide_decay_simulator/mod.rs:94:97}}
+    // …
+{{#include ../../../../../crates/boon-lay/src/lagrangian_decay_simulator/monte_carlo_single_radionuclide_decay_simulator/mod.rs:102:105}}
+    // …
+{{#include ../../../../../crates/boon-lay/src/lagrangian_decay_simulator/monte_carlo_single_radionuclide_decay_simulator/mod.rs:114:117}}
+    // … (the rest of the function: follow the link above)
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:0.9em">
+
+[`mod.rs::StochasticDecayChain::new_single_stochastic_chain_from_nuclide`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/stochastic_decay_chain/mod.rs#L22) `pub fn new_single_stochastic_chain_from_nuclide(starting_nuclide: Nuclide, decay_library: &mut DecayLibrary) -> StochasticDecayChain` — this function returns a single decay chain randomly picked from the various branching ratios inside · called at [L87](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/monte_carlo_single_radionuclide_decay_simulator/mod.rs#L87)
+
+<details open><summary>code</summary>
+
+<!-- snippet-check: crates/boon-lay/src/lagrangian_decay_simulator/stochastic_decay_chain/mod.rs:22 fn new_single_stochastic_chain_from_nuclide -->
+<!-- snippet-check: crates/boon-lay/src/lagrangian_decay_simulator/stochastic_decay_chain/mod.rs:32 try_match_nuclides_to_decay_data -->
+<!-- snippet-check: crates/boon-lay/src/lagrangian_decay_simulator/stochastic_decay_chain/mod.rs:49 get_random_number_and_rng -->
+<!-- snippet-check: crates/boon-lay/src/lagrangian_decay_simulator/stochastic_decay_chain/mod.rs:53 get_next_target_nuclide_with_float -->
+<!-- snippet-check: crates/boon-lay/src/lagrangian_decay_simulator/stochastic_decay_chain/mod.rs:73 clone -->
+<!-- snippet-check: crates/boon-lay/src/lagrangian_decay_simulator/stochastic_decay_chain/mod.rs:79 is_unstable -->
+<!-- snippet-check: crates/boon-lay/src/lagrangian_decay_simulator/stochastic_decay_chain/mod.rs:106 clone -->
+<!-- snippet-check: crates/boon-lay/src/lagrangian_decay_simulator/stochastic_decay_chain/mod.rs:112 clone -->
+
+```rust,ignore
+{{#include ../../../../../crates/boon-lay/src/lagrangian_decay_simulator/stochastic_decay_chain/mod.rs:22:25}}
+    // …
+{{#include ../../../../../crates/boon-lay/src/lagrangian_decay_simulator/stochastic_decay_chain/mod.rs:30:33}}
+    // …
+{{#include ../../../../../crates/boon-lay/src/lagrangian_decay_simulator/stochastic_decay_chain/mod.rs:47:54}}
+    // …
+{{#include ../../../../../crates/boon-lay/src/lagrangian_decay_simulator/stochastic_decay_chain/mod.rs:71:74}}
+    // …
+{{#include ../../../../../crates/boon-lay/src/lagrangian_decay_simulator/stochastic_decay_chain/mod.rs:77:80}}
+    // …
+{{#include ../../../../../crates/boon-lay/src/lagrangian_decay_simulator/stochastic_decay_chain/mod.rs:104:107}}
+    // …
+{{#include ../../../../../crates/boon-lay/src/lagrangian_decay_simulator/stochastic_decay_chain/mod.rs:110:113}}
+    // … (the rest of the function: follow the link above)
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:1.8em">
+
+`indexing_using_nuclide.rs::DecayLibrary::try_match_nuclides_to_decay_data` *(expanded elsewhere in this walk)* · called at [L32](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/stochastic_decay_chain/mod.rs#L32)
+
+</div>
+
+<div class="cw-node" style="margin-left:1.8em">
+
+[`get_random_number.rs::DecayLibrary::get_random_number_and_rng`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/nuclide_reaction_and_decay_data/decay_library/get_random_number.rs#L8) `pub fn get_random_number_and_rng(&mut self) -> (f64, Rand64)` — allows user to obtain a random number and a clone of the rng · called at [L49](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/stochastic_decay_chain/mod.rs#L49)
+
+<details open><summary>code</summary>
+
+<!-- snippet-check: crates/boon-lay/src/nuclide_reaction_and_decay_data/decay_library/get_random_number.rs:8 fn get_random_number_and_rng -->
+<!-- snippet-check: crates/boon-lay/src/nuclide_reaction_and_decay_data/decay_library/get_random_number.rs:9 rand_float -->
+<!-- snippet-check: crates/boon-lay/src/nuclide_reaction_and_decay_data/decay_library/get_random_number.rs:11 clone -->
+
+```rust,ignore
+{{#include ../../../../../crates/boon-lay/src/nuclide_reaction_and_decay_data/decay_library/get_random_number.rs:8:12}}
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:2.7em">
+
+`lcg.rs::Lcg64::rand_float` *(expanded elsewhere in this walk)* · called at [L9](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/nuclide_reaction_and_decay_data/decay_library/get_random_number.rs#L9)
+
+</div>
+
+<div class="cw-node" style="margin-left:2.7em">
+
+UNRESOLVED(other): `clone` at [L11](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/nuclide_reaction_and_decay_data/decay_library/get_random_number.rs#L11) (→ [`crates/petir/src/rng/lcg.rs:167`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/petir/src/rng/lcg.rs#L167)) — resolves to `#[derive(Debug, Clone, Copy, PartialEq)]`, not a function body
+
+</div>
+
+<div class="cw-node" style="margin-left:1.8em">
+
+[`mod.rs::NuclideReactionAndDecayData::get_next_target_nuclide_with_float`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/nuclide_reaction_and_decay_data/get_decay_info/mod.rs#L146) `pub fn get_next_target_nuclide_with_float(&self, mut random_num_between_0_and_1: f64) -> Option<(Nuclide, DecayType)>` · called at [L53](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/stochastic_decay_chain/mod.rs#L53)
+
+<details open><summary>code</summary>
+
+<!-- snippet-check: crates/boon-lay/src/nuclide_reaction_and_decay_data/get_decay_info/mod.rs:146 fn get_next_target_nuclide_with_float -->
+
+```rust,ignore
+{{#include ../../../../../crates/boon-lay/src/nuclide_reaction_and_decay_data/get_decay_info/mod.rs:146:185}}
+    // … (the rest of the function: follow the link above)
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:1.8em">
+
+UNRESOLVED(other): `clone` at [L73](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/stochastic_decay_chain/mod.rs#L73) (→ [`crates/boon-lay/src/nuclide_reaction_and_decay_data/mod.rs:20`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/nuclide_reaction_and_decay_data/mod.rs#L20)) — resolves to `#[derive(Debug, PartialEq, Clone)]`, not a function body
+
+</div>
+
+<div class="cw-node" style="margin-left:1.8em">
+
+[`mod.rs::NuclideReactionAndDecayData::is_unstable`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/nuclide_reaction_and_decay_data/get_decay_info/mod.rs#L29) `pub fn is_unstable(&self) -> bool` — checks whether nuclide is unstable (just for readability sake) · called at [L79](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/stochastic_decay_chain/mod.rs#L79)
+
+<details open><summary>code</summary>
+
+<!-- snippet-check: crates/boon-lay/src/nuclide_reaction_and_decay_data/get_decay_info/mod.rs:29 fn is_unstable -->
+<!-- snippet-check: crates/boon-lay/src/nuclide_reaction_and_decay_data/get_decay_info/mod.rs:31 is_stable -->
+
+```rust,ignore
+{{#include ../../../../../crates/boon-lay/src/nuclide_reaction_and_decay_data/get_decay_info/mod.rs:29:32}}
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:2.7em">
+
+[`mod.rs::NuclideReactionAndDecayData::is_stable`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/nuclide_reaction_and_decay_data/get_decay_info/mod.rs#L20) `pub fn is_stable(&self) -> bool` — checks whether the nuclide is stable · called at [L31](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/nuclide_reaction_and_decay_data/get_decay_info/mod.rs#L31) · *(calls below the depth limit not shown)*
+
+<details open><summary>code</summary>
+
+<!-- snippet-check: crates/boon-lay/src/nuclide_reaction_and_decay_data/get_decay_info/mod.rs:20 fn is_stable -->
+
+```rust,ignore
+{{#include ../../../../../crates/boon-lay/src/nuclide_reaction_and_decay_data/get_decay_info/mod.rs:20:25}}
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:1.8em">
+
+UNRESOLVED(other): `clone` at [L106](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/stochastic_decay_chain/mod.rs#L106) (→ [`crates/boon-lay/src/nuclide_reaction_and_decay_data/mod.rs:20`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/nuclide_reaction_and_decay_data/mod.rs#L20)) — resolves to `#[derive(Debug, PartialEq, Clone)]`, not a function body
+
+</div>
+
+<div class="cw-node" style="margin-left:1.8em">
+
+UNRESOLVED(other): `clone` at [L112](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/stochastic_decay_chain/mod.rs#L112) (→ [`crates/boon-lay/src/nuclide_reaction_and_decay_data/mod.rs:20`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/nuclide_reaction_and_decay_data/mod.rs#L20)) — resolves to `#[derive(Debug, PartialEq, Clone)]`, not a function body
+
+</div>
+
+<div class="cw-node" style="margin-left:0.9em">
+
+[`iterator_for_decay_chain.rs::StochasticDecayChain::iter`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/stochastic_decay_chain/iterator_for_decay_chain.rs#L10) `pub fn iter(&self) -> DecayChainIter<'_>` · called at [L96](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/monte_carlo_single_radionuclide_decay_simulator/mod.rs#L96)
+
+<details open><summary>code</summary>
+
+<!-- snippet-check: crates/boon-lay/src/lagrangian_decay_simulator/stochastic_decay_chain/iterator_for_decay_chain.rs:10 fn iter -->
+<!-- snippet-check: crates/boon-lay/src/lagrangian_decay_simulator/stochastic_decay_chain/iterator_for_decay_chain.rs:11 into_iter -->
+
+```rust,ignore
+{{#include ../../../../../crates/boon-lay/src/lagrangian_decay_simulator/stochastic_decay_chain/iterator_for_decay_chain.rs:10:12}}
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:1.8em">
+
+[`iterator_for_decay_chain.rs::'a StochasticDecayChain::into_iter`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/stochastic_decay_chain/iterator_for_decay_chain.rs#L74) `fn into_iter(self) -> Self::IntoIter` · called at [L11](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/stochastic_decay_chain/iterator_for_decay_chain.rs#L11)
+
+<details open><summary>code</summary>
+
+<!-- snippet-check: crates/boon-lay/src/lagrangian_decay_simulator/stochastic_decay_chain/iterator_for_decay_chain.rs:74 fn into_iter -->
+
+```rust,ignore
+{{#include ../../../../../crates/boon-lay/src/lagrangian_decay_simulator/stochastic_decay_chain/iterator_for_decay_chain.rs:74:78}}
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:0.9em">
+
+[`mod.rs::SingleNuclideSimulatorMC::get_time_to_decay_stochastic`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/monte_carlo_single_radionuclide_decay_simulator/mod.rs#L70) `pub fn get_time_to_decay_stochastic(rng: &mut Rand64, half_life: Time) -> Time` — this obtains a time to live stochastically for the decay chain using half life From: N = N\_0 exp(-lambda * t) · called at [L104](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/monte_carlo_single_radionuclide_decay_simulator/mod.rs#L104)
+
+<details open><summary>code</summary>
+
+<!-- snippet-check: crates/boon-lay/src/lagrangian_decay_simulator/monte_carlo_single_radionuclide_decay_simulator/mod.rs:70 fn get_time_to_decay_stochastic -->
+<!-- snippet-check: crates/boon-lay/src/lagrangian_decay_simulator/monte_carlo_single_radionuclide_decay_simulator/mod.rs:71 rand_float -->
+
+```rust,ignore
+{{#include ../../../../../crates/boon-lay/src/lagrangian_decay_simulator/monte_carlo_single_radionuclide_decay_simulator/mod.rs:70:72}}
+    // … (the rest of the function: follow the link above)
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:1.8em">
+
+[`lcg.rs::Lcg64::rand_float`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/petir/src/rng/lcg.rs#L184) `pub fn rand_float(&mut self) -> f64` — Return a uniform sample in [0, 1) and advance the state. · called at [L71](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/monte_carlo_single_radionuclide_decay_simulator/mod.rs#L71)
+
+<details open><summary>code</summary>
+
+<!-- snippet-check: crates/petir/src/rng/lcg.rs:184 fn rand_float -->
+<!-- snippet-check: crates/petir/src/rng/lcg.rs:185 prn -->
+
+```rust,ignore
+{{#include ../../../../../crates/petir/src/rng/lcg.rs:184:186}}
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:2.7em">
+
+[`lcg.rs::prn`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/petir/src/rng/lcg.rs#L127) `pub fn prn(seed: &mut u64) -> f64` — Advance the seed one step and return a uniform sample in [0, 1). · called at [L185](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/petir/src/rng/lcg.rs#L185) · *(calls below the depth limit not shown)*
+
+<details open><summary>code</summary>
+
+<!-- snippet-check: crates/petir/src/rng/lcg.rs:127 fn prn -->
+
+```rust,ignore
+{{#include ../../../../../crates/petir/src/rng/lcg.rs:127:138}}
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:0.9em">
+
+[`indexing_using_nuclide.rs::DecayLibrary::try_match_nuclides_to_decay_data`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/nuclide_reaction_and_decay_data/decay_library/indexing_using_nuclide.rs#L9) `pub fn try_match_nuclides_to_decay_data(&self, nuclide: Nuclide) -> Option<NuclideReactionAndDecayData>` · called at [L116](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/monte_carlo_single_radionuclide_decay_simulator/mod.rs#L116)
+
+<details open><summary>code</summary>
+
+<!-- snippet-check: crates/boon-lay/src/nuclide_reaction_and_decay_data/decay_library/indexing_using_nuclide.rs:9 fn try_match_nuclides_to_decay_data -->
+<!-- snippet-check: crates/boon-lay/src/nuclide_reaction_and_decay_data/decay_library/indexing_using_nuclide.rs:159 clone -->
+
+```rust,ignore
+{{#include ../../../../../crates/boon-lay/src/nuclide_reaction_and_decay_data/decay_library/indexing_using_nuclide.rs:9:12}}
+    // …
+{{#include ../../../../../crates/boon-lay/src/nuclide_reaction_and_decay_data/decay_library/indexing_using_nuclide.rs:157:160}}
+    // … (the rest of the function: follow the link above)
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:1.8em">
+
+UNRESOLVED(other): `clone` at [L159](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/nuclide_reaction_and_decay_data/decay_library/indexing_using_nuclide.rs#L159) (→ [`crates/boon-lay/src/nuclide_reaction_and_decay_data/mod.rs:6`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/nuclide_reaction_and_decay_data/mod.rs#L6)) — resolves to `#[derive(Debug, PartialEq, Clone)]`, not a function body
+
+</div>
 <!-- /code-walk -->
 
 <!-- code-walk: from=crates/boon-lay/src/lagrangian_decay_simulator/monte_carlo_single_radionuclide_decay_simulator/mod.rs::advance_timestep depth=3 -->
@@ -97,12 +681,81 @@ Everything `crates/boon-lay/src/lagrangian_decay_simulator/monte_carlo_single_ra
 
 Everything `crates/boon-lay/src/lagrangian_decay_simulator/monte_carlo_single_radionuclide_decay_simulator/mod.rs::advance_timestep` reaches in the workspace, to 3 hops: 3 functions, 3 unresolved calls. A function is expanded once; later calls to it say *(expanded elsewhere in this walk)*.
 
-- [`mod.rs::SingleNuclideSimulatorMC::advance_timestep`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/monte_carlo_single_radionuclide_decay_simulator/mod.rs#L169) `pub fn advance_timestep(&mut self, timestep: Time) -> (Nuclide, HalfLifeAndDecayEnergyInfo)`
-  - [`iterator_for_decay_chain.rs::StochasticDecayChain::iter`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/stochastic_decay_chain/iterator_for_decay_chain.rs#L10) `pub fn iter(&self) -> DecayChainIter<'_>` · called at [L185](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/monte_carlo_single_radionuclide_decay_simulator/mod.rs#L185)
-    - [`iterator_for_decay_chain.rs::'a StochasticDecayChain::into_iter`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/stochastic_decay_chain/iterator_for_decay_chain.rs#L74) `fn into_iter(self) -> Self::IntoIter` · called at [L11](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/stochastic_decay_chain/iterator_for_decay_chain.rs#L11)
-  - UNRESOLVED(other): `clone` at [L208](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/monte_carlo_single_radionuclide_decay_simulator/mod.rs#L208) (→ [`crates/boon-lay/src/nuclide_reaction_and_decay_data/mod.rs:20`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/nuclide_reaction_and_decay_data/mod.rs#L20)) — resolves to `#[derive(Debug, PartialEq, Clone)]`, not a function body
-  - UNRESOLVED(other): `clone` at [L223](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/monte_carlo_single_radionuclide_decay_simulator/mod.rs#L223) (→ [`crates/boon-lay/src/nuclide_reaction_and_decay_data/mod.rs:20`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/nuclide_reaction_and_decay_data/mod.rs#L20)) — resolves to `#[derive(Debug, PartialEq, Clone)]`, not a function body
-  - UNRESOLVED(other): `clone` at [L290](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/monte_carlo_single_radionuclide_decay_simulator/mod.rs#L290) (→ [`crates/boon-lay/src/nuclide_reaction_and_decay_data/mod.rs:20`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/nuclide_reaction_and_decay_data/mod.rs#L20)) — resolves to `#[derive(Debug, PartialEq, Clone)]`, not a function body
+<div class="cw-node" style="margin-left:0.0em">
+
+[`mod.rs::SingleNuclideSimulatorMC::advance_timestep`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/monte_carlo_single_radionuclide_decay_simulator/mod.rs#L169) `pub fn advance_timestep(&mut self, timestep: Time) -> (Nuclide, HalfLifeAndDecayEnergyInfo)`
+
+<details open><summary>code</summary>
+
+<!-- snippet-check: crates/boon-lay/src/lagrangian_decay_simulator/monte_carlo_single_radionuclide_decay_simulator/mod.rs:169 fn advance_timestep -->
+<!-- snippet-check: crates/boon-lay/src/lagrangian_decay_simulator/monte_carlo_single_radionuclide_decay_simulator/mod.rs:185 iter -->
+<!-- snippet-check: crates/boon-lay/src/lagrangian_decay_simulator/monte_carlo_single_radionuclide_decay_simulator/mod.rs:208 clone -->
+<!-- snippet-check: crates/boon-lay/src/lagrangian_decay_simulator/monte_carlo_single_radionuclide_decay_simulator/mod.rs:223 clone -->
+<!-- snippet-check: crates/boon-lay/src/lagrangian_decay_simulator/monte_carlo_single_radionuclide_decay_simulator/mod.rs:290 clone -->
+
+```rust,ignore
+{{#include ../../../../../crates/boon-lay/src/lagrangian_decay_simulator/monte_carlo_single_radionuclide_decay_simulator/mod.rs:169:169}}
+    // …
+{{#include ../../../../../crates/boon-lay/src/lagrangian_decay_simulator/monte_carlo_single_radionuclide_decay_simulator/mod.rs:183:186}}
+    // …
+{{#include ../../../../../crates/boon-lay/src/lagrangian_decay_simulator/monte_carlo_single_radionuclide_decay_simulator/mod.rs:206:209}}
+    // …
+{{#include ../../../../../crates/boon-lay/src/lagrangian_decay_simulator/monte_carlo_single_radionuclide_decay_simulator/mod.rs:221:224}}
+    // …
+{{#include ../../../../../crates/boon-lay/src/lagrangian_decay_simulator/monte_carlo_single_radionuclide_decay_simulator/mod.rs:288:291}}
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:0.9em">
+
+[`iterator_for_decay_chain.rs::StochasticDecayChain::iter`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/stochastic_decay_chain/iterator_for_decay_chain.rs#L10) `pub fn iter(&self) -> DecayChainIter<'_>` · called at [L185](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/monte_carlo_single_radionuclide_decay_simulator/mod.rs#L185)
+
+<details open><summary>code</summary>
+
+<!-- snippet-check: crates/boon-lay/src/lagrangian_decay_simulator/stochastic_decay_chain/iterator_for_decay_chain.rs:10 fn iter -->
+<!-- snippet-check: crates/boon-lay/src/lagrangian_decay_simulator/stochastic_decay_chain/iterator_for_decay_chain.rs:11 into_iter -->
+
+```rust,ignore
+{{#include ../../../../../crates/boon-lay/src/lagrangian_decay_simulator/stochastic_decay_chain/iterator_for_decay_chain.rs:10:12}}
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:1.8em">
+
+[`iterator_for_decay_chain.rs::'a StochasticDecayChain::into_iter`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/stochastic_decay_chain/iterator_for_decay_chain.rs#L74) `fn into_iter(self) -> Self::IntoIter` · called at [L11](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/stochastic_decay_chain/iterator_for_decay_chain.rs#L11)
+
+<details open><summary>code</summary>
+
+<!-- snippet-check: crates/boon-lay/src/lagrangian_decay_simulator/stochastic_decay_chain/iterator_for_decay_chain.rs:74 fn into_iter -->
+
+```rust,ignore
+{{#include ../../../../../crates/boon-lay/src/lagrangian_decay_simulator/stochastic_decay_chain/iterator_for_decay_chain.rs:74:78}}
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:0.9em">
+
+UNRESOLVED(other): `clone` at [L208](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/monte_carlo_single_radionuclide_decay_simulator/mod.rs#L208) (→ [`crates/boon-lay/src/nuclide_reaction_and_decay_data/mod.rs:20`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/nuclide_reaction_and_decay_data/mod.rs#L20)) — resolves to `#[derive(Debug, PartialEq, Clone)]`, not a function body
+
+</div>
+
+<div class="cw-node" style="margin-left:0.9em">
+
+UNRESOLVED(other): `clone` at [L223](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/monte_carlo_single_radionuclide_decay_simulator/mod.rs#L223) (→ [`crates/boon-lay/src/nuclide_reaction_and_decay_data/mod.rs:20`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/nuclide_reaction_and_decay_data/mod.rs#L20)) — resolves to `#[derive(Debug, PartialEq, Clone)]`, not a function body
+
+</div>
+
+<div class="cw-node" style="margin-left:0.9em">
+
+UNRESOLVED(other): `clone` at [L290](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/monte_carlo_single_radionuclide_decay_simulator/mod.rs#L290) (→ [`crates/boon-lay/src/nuclide_reaction_and_decay_data/mod.rs:20`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/nuclide_reaction_and_decay_data/mod.rs#L20)) — resolves to `#[derive(Debug, PartialEq, Clone)]`, not a function body
+
+</div>
 <!-- /code-walk -->
 
 ## Rung 3 — an atom's walk {#rung-3}
@@ -114,47 +767,620 @@ Entry point: the CRP-6 Case 1 bare-kernel release ([rung 3](../../tutorials/tris
 
 Everything `crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/single_particle_simulator/release_fraction_crp_6_case_1a_1b/simulation_code.rs::mc_kernel_release_fraction` reaches in the workspace, to 4 hops: 35 functions, 0 unresolved calls. A function is expanded once; later calls to it say *(expanded elsewhere in this walk)*.
 
-- [`simulation_code.rs::mc_kernel_release_fraction`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/single_particle_simulator/release_fraction_crp_6_case_1a_1b/simulation_code.rs#L47) `pub fn mc_kernel_release_fraction(nuclide: Nuclide, kernel_radius: Length, temperature: ThermodynamicTemperature, time: Time, n_histories: usize, seed: u64) -> f64` — Monte-Carlo fractional release of `nuclide` from a bare spherical UO2 kernel.
-  - [`mod.rs::try_get_diffusion_coeff_jiang`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/temperature_dependent_collisions/mod.rs#L61) `pub fn try_get_diffusion_coeff_jiang(triso_layer: TrisoPebbleLayerMaterial, nuclide: Nuclide, temperature: ThermodynamicTemperature, gamma_neutron_fluence: Option<ArealNumberDensity>) -> Option<DiffusionCoefficient>` — diffusion coefficient from Jiang 2023 Jiang, W., Toptan, A., Hales, J. · called at [L55](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/single_particle_simulator/release_fraction_crp_6_case_1a_1b/simulation_code.rs#L55)
-    - [`mod.rs::get_d1_for_ag`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/temperature_dependent_collisions/diffusion_coeffs/mod.rs#L22) `pub fn get_d1_for_ag(triso_layer: TrisoPebbleLayerMaterial) -> DiffusionCoefficient` — from Jiang 2023 Jiang, W., Toptan, A., Hales, J. · called at [L72](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/temperature_dependent_collisions/mod.rs#L72)
-    - [`mod.rs::get_q1_for_ag`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/temperature_dependent_collisions/diffusion_coeffs/mod.rs#L44) `pub fn get_q1_for_ag(triso_layer: TrisoPebbleLayerMaterial) -> MolarEnergy` · called at [L73](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/temperature_dependent_collisions/mod.rs#L73)
-    - [`mod.rs::get_d1_for_cs`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/temperature_dependent_collisions/diffusion_coeffs/mod.rs#L66) `pub fn get_d1_for_cs(triso_layer: TrisoPebbleLayerMaterial, gamma_fast_neutron_fluence: ArealNumberDensity) -> DiffusionCoefficient` · called at [L96](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/temperature_dependent_collisions/mod.rs#L96)
-    - [`mod.rs::get_q1_for_cs`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/temperature_dependent_collisions/diffusion_coeffs/mod.rs#L99) `pub fn get_q1_for_cs(triso_layer: TrisoPebbleLayerMaterial) -> MolarEnergy` · called at [L97](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/temperature_dependent_collisions/mod.rs#L97)
-    - [`mod.rs::get_d2_for_cs`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/temperature_dependent_collisions/diffusion_coeffs/mod.rs#L121) `pub fn get_d2_for_cs(triso_layer: TrisoPebbleLayerMaterial) -> DiffusionCoefficient` · called at [L98](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/temperature_dependent_collisions/mod.rs#L98)
-    - [`mod.rs::get_q2_for_cs`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/temperature_dependent_collisions/diffusion_coeffs/mod.rs#L143) `pub fn get_q2_for_cs(triso_layer: TrisoPebbleLayerMaterial) -> MolarEnergy` · called at [L99](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/temperature_dependent_collisions/mod.rs#L99)
-    - [`mod.rs::get_d1_for_sr`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/temperature_dependent_collisions/diffusion_coeffs/mod.rs#L165) `pub fn get_d1_for_sr(triso_layer: TrisoPebbleLayerMaterial) -> DiffusionCoefficient` · called at [L115](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/temperature_dependent_collisions/mod.rs#L115)
-    - [`mod.rs::get_q1_for_sr`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/temperature_dependent_collisions/diffusion_coeffs/mod.rs#L187) `pub fn get_q1_for_sr(triso_layer: TrisoPebbleLayerMaterial) -> MolarEnergy` · called at [L116](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/temperature_dependent_collisions/mod.rs#L116)
-    - [`mod.rs::get_d2_for_sr`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/temperature_dependent_collisions/diffusion_coeffs/mod.rs#L209) `pub fn get_d2_for_sr(triso_layer: TrisoPebbleLayerMaterial) -> DiffusionCoefficient` · called at [L117](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/temperature_dependent_collisions/mod.rs#L117)
-    - [`mod.rs::get_q2_for_sr`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/temperature_dependent_collisions/diffusion_coeffs/mod.rs#L231) `pub fn get_q2_for_sr(triso_layer: TrisoPebbleLayerMaterial) -> MolarEnergy` · called at [L118](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/temperature_dependent_collisions/mod.rs#L118)
-    - [`mod.rs::get_d1_for_kr`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/temperature_dependent_collisions/diffusion_coeffs/mod.rs#L253) `pub fn get_d1_for_kr(triso_layer: TrisoPebbleLayerMaterial, temperature: ThermodynamicTemperature) -> DiffusionCoefficient` · called at [L135](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/temperature_dependent_collisions/mod.rs#L135)
-      - [`mod.rs::get_s_for_d_in_krypton`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/temperature_dependent_collisions/diffusion_coeffs/mod.rs#L446) `fn get_s_for_d_in_krypton(d_below_threshold_temperature: DiffusionCoefficient, d_above_threshold_temperature: DiffusionCoefficient, threshold_temperature: ThermodynamicTemperature, temperature: ThermodynamicTemperature) -> DiffusionCoefficient` — see table 2.10 function s(a,b,c) s(a, b, c) gives a if temperature is less than c (°C) and b otherwise. · called at [L268](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/temperature_dependent_collisions/diffusion_coeffs/mod.rs#L268)
-    - [`mod.rs::get_q1_for_kr`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/temperature_dependent_collisions/diffusion_coeffs/mod.rs#L310) `pub fn get_q1_for_kr(triso_layer: TrisoPebbleLayerMaterial, temperature: ThermodynamicTemperature) -> MolarEnergy` · called at [L136](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/temperature_dependent_collisions/mod.rs#L136)
-      - [`mod.rs::get_s_for_q_in_krypton`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/temperature_dependent_collisions/diffusion_coeffs/mod.rs#L471) `fn get_s_for_q_in_krypton(q_below_threshold_temperature: MolarEnergy, q_above_threshold_temperature: MolarEnergy, threshold_temperature: ThermodynamicTemperature, temperature: ThermodynamicTemperature) -> MolarEnergy` — see table 2.10 function s(a,b,c) s(a, b, c) gives a if temperature is less than c (°C) and b otherwise. · called at [L323](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/temperature_dependent_collisions/diffusion_coeffs/mod.rs#L323)
-    - [`mod.rs::get_d2_for_kr`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/temperature_dependent_collisions/diffusion_coeffs/mod.rs#L363) `pub fn get_d2_for_kr(triso_layer: TrisoPebbleLayerMaterial, temperature: ThermodynamicTemperature) -> DiffusionCoefficient` · called at [L137](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/temperature_dependent_collisions/mod.rs#L137)
-      - `mod.rs::get_s_for_d_in_krypton` *(expanded elsewhere in this walk)* · called at [L378](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/temperature_dependent_collisions/diffusion_coeffs/mod.rs#L378)
-    - [`mod.rs::get_q2_for_kr`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/temperature_dependent_collisions/diffusion_coeffs/mod.rs#L404) `pub fn get_q2_for_kr(triso_layer: TrisoPebbleLayerMaterial, temperature: ThermodynamicTemperature) -> MolarEnergy` · called at [L138](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/temperature_dependent_collisions/mod.rs#L138)
-      - `mod.rs::get_s_for_q_in_krypton` *(expanded elsewhere in this walk)* · called at [L417](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/temperature_dependent_collisions/diffusion_coeffs/mod.rs#L417)
-    - `mod.rs::try_get_diffusion_coeff_jiang` *(expanded elsewhere in this walk)* · called at [L155](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/temperature_dependent_collisions/mod.rs#L155)
-  - [`oorandom_rng.rs::OoRng64::from_u64`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/central_limit_theorem/oorandom_rng.rs#L22) `pub fn from_u64(seed: u64) -> Self` — Create from a 64-bit seed. · called at [L64](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/single_particle_simulator/release_fraction_crp_6_case_1a_1b/simulation_code.rs#L64)
-    - [`oorandom_rng.rs::OoRng64::from_u128`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/central_limit_theorem/oorandom_rng.rs#L15) `pub fn from_u128(seed: u128) -> Self` — Create from a 128-bit seed (same signature as the old `oorandom::Rand64::new`). · called at [L23](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/central_limit_theorem/oorandom_rng.rs#L23)
-  - [`walk_on_spheres.rs::sample_uniform_in_ball`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/walk_on_spheres.rs#L400) `pub fn sample_uniform_in_ball(seed: &mut u64, radius: Length) -> [Length; 3]` — Sample a point uniformly in the volume of a ball of radius `radius`, centred on the origin, returned as a `[uom]` `Length` triple. · called at [L68](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/single_particle_simulator/release_fraction_crp_6_case_1a_1b/simulation_code.rs#L68)
-    - [`lcg.rs::prn`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/petir/src/rng/lcg.rs#L127) `pub fn prn(seed: &mut u64) -> f64` — Advance the seed one step and return a uniform sample in [0, 1). · called at [L401](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/walk_on_spheres.rs#L401)
-    - [`sphere_fpt.rs::sample_uniform_direction`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/sphere_fpt.rs#L190) `pub fn sample_uniform_direction(seed: &mut u64) -> [f64; 3]` — Sample a direction uniform on the unit sphere, as a dimensionless `[x, y, z]` unit vector. · called at [L402](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/walk_on_spheres.rs#L402)
-      - [`distributions.rs::isotropic_direction`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/rng/distributions.rs#L54) `pub fn isotropic_direction(seed: &mut u64) -> (f64, f64, f64)` — Sample an isotropic direction on the unit sphere. · called at [L191](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/sphere_fpt.rs#L191)
-        - `lcg.rs::prn` *(expanded elsewhere in this walk)* · called at [L55](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/rng/distributions.rs#L55)
-        - [`mathf.rs::f64::r_cos`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/mathf.rs#L132) `fn r_cos(self) -> f64` · called at [L58](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/rng/distributions.rs#L58) · *(calls below the depth limit not shown)*
-        - [`mathf.rs::f64::r_sin`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/mathf.rs#L136) `fn r_sin(self) -> f64` · called at [L58](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/rng/distributions.rs#L58) · *(calls below the depth limit not shown)*
-  - [`oorandom_rng.rs::OoRng64::next_u64`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/central_limit_theorem/oorandom_rng.rs#L34) `pub fn next_u64(&mut self) -> u64` — Advance the state and return the raw 64-bit word. · called at [L69](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/single_particle_simulator/release_fraction_crp_6_case_1a_1b/simulation_code.rs#L69)
-  - [`walk_on_spheres.rs::WoSWalker::new`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/walk_on_spheres.rs#L122) `pub fn new(position: [Length; 3], nuclide: Nuclide, rng: OoRng64) -> Self` — Create a walker at an explicit position with a fresh time of zero. · called at [L70](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/single_particle_simulator/release_fraction_crp_6_case_1a_1b/simulation_code.rs#L70)
-  - [`walk_on_spheres.rs::WoSWalker::walk_to_absorbing_sphere`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/walk_on_spheres.rs#L217) `pub fn walk_to_absorbing_sphere(&mut self, sphere_radius: Length, diffusion_coefficient: DiffusionCoefficient, capture_eps: Length) -> Time` — Walk to the surface of a single homogeneous absorbing sphere and return the total first-passage (release) time. · called at [L72](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/single_particle_simulator/release_fraction_crp_6_case_1a_1b/simulation_code.rs#L72)
-    - [`walk_on_spheres.rs::WoSWalker::radius`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/walk_on_spheres.rs#L142) `pub fn radius(&self) -> Length` — Radial distance of the walker from the particle centre, `|position|`. · called at [L224](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/walk_on_spheres.rs#L224)
-      - [`walk_on_spheres.rs::radial_distance`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/walk_on_spheres.rs#L408) `pub fn radial_distance(position: [Length; 3]) -> Length` — Radial distance of a point from the particle centre, `sqrt(x^2+y^2+z^2)`. · called at [L143](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/walk_on_spheres.rs#L143)
-    - [`sphere_fpt.rs::sample_first_passage_time`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/sphere_fpt.rs#L176) `pub fn sample_first_passage_time(seed: &mut u64, radius: Length, diffusion_coefficient: DiffusionCoefficient) -> Time` — Sample the physical first-passage time for a hop of radius `radius` in a medium with diffusion coefficient `diffusion_coefficient`. · called at [L228](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/walk_on_spheres.rs#L228)
-      - [`sphere_fpt.rs::sample_dimensionless_exit_time`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/sphere_fpt.rs#L161) `pub fn sample_dimensionless_exit_time(seed: &mut u64) -> f64` — Sample the dimensionless exit time `theta = D * tau / R^2` for one hop. · called at [L181](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/sphere_fpt.rs#L181)
-        - `lcg.rs::prn` *(expanded elsewhere in this walk)* · called at [L162](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/sphere_fpt.rs#L162)
-        - [`sphere_fpt.rs::exit_time_cdf`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/sphere_fpt.rs#L151) `fn exit_time_cdf() -> &'static ExitTimeInverseCdf` — The process-wide exit-time table, built once on first use. · called at [L162](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/sphere_fpt.rs#L162) · *(calls below the depth limit not shown)*
-        - [`sphere_fpt.rs::ExitTimeInverseCdf::sample_theta`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/sphere_fpt.rs#L125) `fn sample_theta(&self, u: f64) -> f64` — Invert the CDF: given `u` in `[0, 1)`, return the corresponding `theta`. · called at [L162](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/sphere_fpt.rs#L162) · *(calls below the depth limit not shown)*
-    - `sphere_fpt.rs::sample_uniform_direction` *(expanded elsewhere in this walk)* · called at [L230](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/walk_on_spheres.rs#L230)
+<div class="cw-node" style="margin-left:0.0em">
+
+[`simulation_code.rs::mc_kernel_release_fraction`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/single_particle_simulator/release_fraction_crp_6_case_1a_1b/simulation_code.rs#L47) `pub fn mc_kernel_release_fraction(nuclide: Nuclide, kernel_radius: Length, temperature: ThermodynamicTemperature, time: Time, n_histories: usize, seed: u64) -> f64` — Monte-Carlo fractional release of `nuclide` from a bare spherical UO2 kernel.
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/single_particle_simulator/release_fraction_crp_6_case_1a_1b/simulation_code.rs:47 fn mc_kernel_release_fraction -->
+<!-- snippet-check: crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/single_particle_simulator/release_fraction_crp_6_case_1a_1b/simulation_code.rs:55 try_get_diffusion_coeff_jiang -->
+<!-- snippet-check: crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/single_particle_simulator/release_fraction_crp_6_case_1a_1b/simulation_code.rs:64 from_u64 -->
+<!-- snippet-check: crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/single_particle_simulator/release_fraction_crp_6_case_1a_1b/simulation_code.rs:68 sample_uniform_in_ball -->
+<!-- snippet-check: crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/single_particle_simulator/release_fraction_crp_6_case_1a_1b/simulation_code.rs:69 next_u64 -->
+<!-- snippet-check: crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/single_particle_simulator/release_fraction_crp_6_case_1a_1b/simulation_code.rs:70 new -->
+<!-- snippet-check: crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/single_particle_simulator/release_fraction_crp_6_case_1a_1b/simulation_code.rs:72 walk_to_absorbing_sphere -->
+
+```rust,ignore
+{{#include ../../../../../crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/single_particle_simulator/release_fraction_crp_6_case_1a_1b/simulation_code.rs:47:73}}
+    // … (the rest of the function: follow the link above)
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:0.9em">
+
+[`mod.rs::try_get_diffusion_coeff_jiang`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/temperature_dependent_collisions/mod.rs#L61) `pub fn try_get_diffusion_coeff_jiang(triso_layer: TrisoPebbleLayerMaterial, nuclide: Nuclide, temperature: ThermodynamicTemperature, gamma_neutron_fluence: Option<ArealNumberDensity>) -> Option<DiffusionCoefficient>` — diffusion coefficient from Jiang 2023 Jiang, W., Toptan, A., Hales, J. · called at [L55](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/single_particle_simulator/release_fraction_crp_6_case_1a_1b/simulation_code.rs#L55)
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/temperature_dependent_collisions/mod.rs:61 fn try_get_diffusion_coeff_jiang -->
+<!-- snippet-check: crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/temperature_dependent_collisions/mod.rs:72 get_d1_for_ag -->
+<!-- snippet-check: crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/temperature_dependent_collisions/mod.rs:73 get_q1_for_ag -->
+<!-- snippet-check: crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/temperature_dependent_collisions/mod.rs:96 get_d1_for_cs -->
+<!-- snippet-check: crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/temperature_dependent_collisions/mod.rs:97 get_q1_for_cs -->
+<!-- snippet-check: crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/temperature_dependent_collisions/mod.rs:98 get_d2_for_cs -->
+<!-- snippet-check: crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/temperature_dependent_collisions/mod.rs:99 get_q2_for_cs -->
+<!-- snippet-check: crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/temperature_dependent_collisions/mod.rs:115 get_d1_for_sr -->
+<!-- snippet-check: crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/temperature_dependent_collisions/mod.rs:116 get_q1_for_sr -->
+<!-- snippet-check: crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/temperature_dependent_collisions/mod.rs:117 get_d2_for_sr -->
+<!-- snippet-check: crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/temperature_dependent_collisions/mod.rs:118 get_q2_for_sr -->
+<!-- snippet-check: crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/temperature_dependent_collisions/mod.rs:135 get_d1_for_kr -->
+<!-- snippet-check: crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/temperature_dependent_collisions/mod.rs:136 get_q1_for_kr -->
+<!-- snippet-check: crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/temperature_dependent_collisions/mod.rs:137 get_d2_for_kr -->
+<!-- snippet-check: crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/temperature_dependent_collisions/mod.rs:138 get_q2_for_kr -->
+
+```rust,ignore
+{{#include ../../../../../crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/temperature_dependent_collisions/mod.rs:61:66}}
+    // …
+{{#include ../../../../../crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/temperature_dependent_collisions/mod.rs:70:74}}
+    // …
+{{#include ../../../../../crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/temperature_dependent_collisions/mod.rs:94:100}}
+    // …
+{{#include ../../../../../crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/temperature_dependent_collisions/mod.rs:113:119}}
+    // …
+{{#include ../../../../../crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/temperature_dependent_collisions/mod.rs:133:139}}
+    // … (the rest of the function: follow the link above)
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:1.8em">
+
+[`mod.rs::get_d1_for_ag`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/temperature_dependent_collisions/diffusion_coeffs/mod.rs#L22) `pub fn get_d1_for_ag(triso_layer: TrisoPebbleLayerMaterial) -> DiffusionCoefficient` — from Jiang 2023 Jiang, W., Toptan, A., Hales, J. · called at [L72](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/temperature_dependent_collisions/mod.rs#L72)
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/temperature_dependent_collisions/diffusion_coeffs/mod.rs:22 fn get_d1_for_ag -->
+
+```rust,ignore
+{{#include ../../../../../crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/temperature_dependent_collisions/diffusion_coeffs/mod.rs:22:34}}
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:1.8em">
+
+[`mod.rs::get_q1_for_ag`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/temperature_dependent_collisions/diffusion_coeffs/mod.rs#L44) `pub fn get_q1_for_ag(triso_layer: TrisoPebbleLayerMaterial) -> MolarEnergy` · called at [L73](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/temperature_dependent_collisions/mod.rs#L73)
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/temperature_dependent_collisions/diffusion_coeffs/mod.rs:44 fn get_q1_for_ag -->
+
+```rust,ignore
+{{#include ../../../../../crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/temperature_dependent_collisions/diffusion_coeffs/mod.rs:44:56}}
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:1.8em">
+
+[`mod.rs::get_d1_for_cs`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/temperature_dependent_collisions/diffusion_coeffs/mod.rs#L66) `pub fn get_d1_for_cs(triso_layer: TrisoPebbleLayerMaterial, gamma_fast_neutron_fluence: ArealNumberDensity) -> DiffusionCoefficient` · called at [L96](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/temperature_dependent_collisions/mod.rs#L96)
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/temperature_dependent_collisions/diffusion_coeffs/mod.rs:66 fn get_d1_for_cs -->
+
+```rust,ignore
+{{#include ../../../../../crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/temperature_dependent_collisions/diffusion_coeffs/mod.rs:66:89}}
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:1.8em">
+
+[`mod.rs::get_q1_for_cs`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/temperature_dependent_collisions/diffusion_coeffs/mod.rs#L99) `pub fn get_q1_for_cs(triso_layer: TrisoPebbleLayerMaterial) -> MolarEnergy` · called at [L97](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/temperature_dependent_collisions/mod.rs#L97)
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/temperature_dependent_collisions/diffusion_coeffs/mod.rs:99 fn get_q1_for_cs -->
+
+```rust,ignore
+{{#include ../../../../../crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/temperature_dependent_collisions/diffusion_coeffs/mod.rs:99:111}}
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:1.8em">
+
+[`mod.rs::get_d2_for_cs`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/temperature_dependent_collisions/diffusion_coeffs/mod.rs#L121) `pub fn get_d2_for_cs(triso_layer: TrisoPebbleLayerMaterial) -> DiffusionCoefficient` · called at [L98](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/temperature_dependent_collisions/mod.rs#L98)
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/temperature_dependent_collisions/diffusion_coeffs/mod.rs:121 fn get_d2_for_cs -->
+
+```rust,ignore
+{{#include ../../../../../crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/temperature_dependent_collisions/diffusion_coeffs/mod.rs:121:133}}
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:1.8em">
+
+[`mod.rs::get_q2_for_cs`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/temperature_dependent_collisions/diffusion_coeffs/mod.rs#L143) `pub fn get_q2_for_cs(triso_layer: TrisoPebbleLayerMaterial) -> MolarEnergy` · called at [L99](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/temperature_dependent_collisions/mod.rs#L99)
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/temperature_dependent_collisions/diffusion_coeffs/mod.rs:143 fn get_q2_for_cs -->
+
+```rust,ignore
+{{#include ../../../../../crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/temperature_dependent_collisions/diffusion_coeffs/mod.rs:143:155}}
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:1.8em">
+
+[`mod.rs::get_d1_for_sr`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/temperature_dependent_collisions/diffusion_coeffs/mod.rs#L165) `pub fn get_d1_for_sr(triso_layer: TrisoPebbleLayerMaterial) -> DiffusionCoefficient` · called at [L115](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/temperature_dependent_collisions/mod.rs#L115)
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/temperature_dependent_collisions/diffusion_coeffs/mod.rs:165 fn get_d1_for_sr -->
+
+```rust,ignore
+{{#include ../../../../../crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/temperature_dependent_collisions/diffusion_coeffs/mod.rs:165:177}}
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:1.8em">
+
+[`mod.rs::get_q1_for_sr`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/temperature_dependent_collisions/diffusion_coeffs/mod.rs#L187) `pub fn get_q1_for_sr(triso_layer: TrisoPebbleLayerMaterial) -> MolarEnergy` · called at [L116](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/temperature_dependent_collisions/mod.rs#L116)
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/temperature_dependent_collisions/diffusion_coeffs/mod.rs:187 fn get_q1_for_sr -->
+
+```rust,ignore
+{{#include ../../../../../crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/temperature_dependent_collisions/diffusion_coeffs/mod.rs:187:199}}
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:1.8em">
+
+[`mod.rs::get_d2_for_sr`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/temperature_dependent_collisions/diffusion_coeffs/mod.rs#L209) `pub fn get_d2_for_sr(triso_layer: TrisoPebbleLayerMaterial) -> DiffusionCoefficient` · called at [L117](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/temperature_dependent_collisions/mod.rs#L117)
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/temperature_dependent_collisions/diffusion_coeffs/mod.rs:209 fn get_d2_for_sr -->
+
+```rust,ignore
+{{#include ../../../../../crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/temperature_dependent_collisions/diffusion_coeffs/mod.rs:209:221}}
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:1.8em">
+
+[`mod.rs::get_q2_for_sr`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/temperature_dependent_collisions/diffusion_coeffs/mod.rs#L231) `pub fn get_q2_for_sr(triso_layer: TrisoPebbleLayerMaterial) -> MolarEnergy` · called at [L118](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/temperature_dependent_collisions/mod.rs#L118)
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/temperature_dependent_collisions/diffusion_coeffs/mod.rs:231 fn get_q2_for_sr -->
+
+```rust,ignore
+{{#include ../../../../../crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/temperature_dependent_collisions/diffusion_coeffs/mod.rs:231:243}}
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:1.8em">
+
+[`mod.rs::get_d1_for_kr`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/temperature_dependent_collisions/diffusion_coeffs/mod.rs#L253) `pub fn get_d1_for_kr(triso_layer: TrisoPebbleLayerMaterial, temperature: ThermodynamicTemperature) -> DiffusionCoefficient` · called at [L135](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/temperature_dependent_collisions/mod.rs#L135)
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/temperature_dependent_collisions/diffusion_coeffs/mod.rs:253 fn get_d1_for_kr -->
+<!-- snippet-check: crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/temperature_dependent_collisions/diffusion_coeffs/mod.rs:268 get_s_for_d_in_krypton -->
+
+```rust,ignore
+{{#include ../../../../../crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/temperature_dependent_collisions/diffusion_coeffs/mod.rs:253:269}}
+    // … (the rest of the function: follow the link above)
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:2.7em">
+
+[`mod.rs::get_s_for_d_in_krypton`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/temperature_dependent_collisions/diffusion_coeffs/mod.rs#L446) `fn get_s_for_d_in_krypton(d_below_threshold_temperature: DiffusionCoefficient, d_above_threshold_temperature: DiffusionCoefficient, threshold_temperature: ThermodynamicTemperature, temperature: ThermodynamicTemperature) -> DiffusionCoefficient` — see table 2.10 function s(a,b,c) s(a, b, c) gives a if temperature is less than c (°C) and b otherwise. · called at [L268](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/temperature_dependent_collisions/diffusion_coeffs/mod.rs#L268)
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/temperature_dependent_collisions/diffusion_coeffs/mod.rs:446 fn get_s_for_d_in_krypton -->
+
+```rust,ignore
+{{#include ../../../../../crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/temperature_dependent_collisions/diffusion_coeffs/mod.rs:446:457}}
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:1.8em">
+
+[`mod.rs::get_q1_for_kr`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/temperature_dependent_collisions/diffusion_coeffs/mod.rs#L310) `pub fn get_q1_for_kr(triso_layer: TrisoPebbleLayerMaterial, temperature: ThermodynamicTemperature) -> MolarEnergy` · called at [L136](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/temperature_dependent_collisions/mod.rs#L136)
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/temperature_dependent_collisions/diffusion_coeffs/mod.rs:310 fn get_q1_for_kr -->
+<!-- snippet-check: crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/temperature_dependent_collisions/diffusion_coeffs/mod.rs:323 get_s_for_q_in_krypton -->
+
+```rust,ignore
+{{#include ../../../../../crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/temperature_dependent_collisions/diffusion_coeffs/mod.rs:310:324}}
+    // … (the rest of the function: follow the link above)
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:2.7em">
+
+[`mod.rs::get_s_for_q_in_krypton`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/temperature_dependent_collisions/diffusion_coeffs/mod.rs#L471) `fn get_s_for_q_in_krypton(q_below_threshold_temperature: MolarEnergy, q_above_threshold_temperature: MolarEnergy, threshold_temperature: ThermodynamicTemperature, temperature: ThermodynamicTemperature) -> MolarEnergy` — see table 2.10 function s(a,b,c) s(a, b, c) gives a if temperature is less than c (°C) and b otherwise. · called at [L323](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/temperature_dependent_collisions/diffusion_coeffs/mod.rs#L323)
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/temperature_dependent_collisions/diffusion_coeffs/mod.rs:471 fn get_s_for_q_in_krypton -->
+
+```rust,ignore
+{{#include ../../../../../crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/temperature_dependent_collisions/diffusion_coeffs/mod.rs:471:482}}
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:1.8em">
+
+[`mod.rs::get_d2_for_kr`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/temperature_dependent_collisions/diffusion_coeffs/mod.rs#L363) `pub fn get_d2_for_kr(triso_layer: TrisoPebbleLayerMaterial, temperature: ThermodynamicTemperature) -> DiffusionCoefficient` · called at [L137](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/temperature_dependent_collisions/mod.rs#L137)
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/temperature_dependent_collisions/diffusion_coeffs/mod.rs:363 fn get_d2_for_kr -->
+<!-- snippet-check: crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/temperature_dependent_collisions/diffusion_coeffs/mod.rs:378 get_s_for_d_in_krypton -->
+
+```rust,ignore
+{{#include ../../../../../crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/temperature_dependent_collisions/diffusion_coeffs/mod.rs:363:379}}
+    // … (the rest of the function: follow the link above)
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:2.7em">
+
+`mod.rs::get_s_for_d_in_krypton` *(expanded elsewhere in this walk)* · called at [L378](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/temperature_dependent_collisions/diffusion_coeffs/mod.rs#L378)
+
+</div>
+
+<div class="cw-node" style="margin-left:1.8em">
+
+[`mod.rs::get_q2_for_kr`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/temperature_dependent_collisions/diffusion_coeffs/mod.rs#L404) `pub fn get_q2_for_kr(triso_layer: TrisoPebbleLayerMaterial, temperature: ThermodynamicTemperature) -> MolarEnergy` · called at [L138](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/temperature_dependent_collisions/mod.rs#L138)
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/temperature_dependent_collisions/diffusion_coeffs/mod.rs:404 fn get_q2_for_kr -->
+<!-- snippet-check: crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/temperature_dependent_collisions/diffusion_coeffs/mod.rs:417 get_s_for_q_in_krypton -->
+
+```rust,ignore
+{{#include ../../../../../crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/temperature_dependent_collisions/diffusion_coeffs/mod.rs:404:418}}
+    // … (the rest of the function: follow the link above)
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:2.7em">
+
+`mod.rs::get_s_for_q_in_krypton` *(expanded elsewhere in this walk)* · called at [L417](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/temperature_dependent_collisions/diffusion_coeffs/mod.rs#L417)
+
+</div>
+
+<div class="cw-node" style="margin-left:1.8em">
+
+`mod.rs::try_get_diffusion_coeff_jiang` *(expanded elsewhere in this walk)* · called at [L155](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/temperature_dependent_collisions/mod.rs#L155)
+
+</div>
+
+<div class="cw-node" style="margin-left:0.9em">
+
+[`oorandom_rng.rs::OoRng64::from_u64`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/central_limit_theorem/oorandom_rng.rs#L22) `pub fn from_u64(seed: u64) -> Self` — Create from a 64-bit seed. · called at [L64](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/single_particle_simulator/release_fraction_crp_6_case_1a_1b/simulation_code.rs#L64)
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/central_limit_theorem/oorandom_rng.rs:22 fn from_u64 -->
+<!-- snippet-check: crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/central_limit_theorem/oorandom_rng.rs:23 from_u128 -->
+
+```rust,ignore
+{{#include ../../../../../crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/central_limit_theorem/oorandom_rng.rs:22:24}}
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:1.8em">
+
+[`oorandom_rng.rs::OoRng64::from_u128`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/central_limit_theorem/oorandom_rng.rs#L15) `pub fn from_u128(seed: u128) -> Self` — Create from a 128-bit seed (same signature as the old `oorandom::Rand64::new`). · called at [L23](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/central_limit_theorem/oorandom_rng.rs#L23)
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/central_limit_theorem/oorandom_rng.rs:15 fn from_u128 -->
+
+```rust,ignore
+{{#include ../../../../../crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/central_limit_theorem/oorandom_rng.rs:15:19}}
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:0.9em">
+
+[`walk_on_spheres.rs::sample_uniform_in_ball`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/walk_on_spheres.rs#L400) `pub fn sample_uniform_in_ball(seed: &mut u64, radius: Length) -> [Length; 3]` — Sample a point uniformly in the volume of a ball of radius `radius`, centred on the origin, returned as a `[uom]` `Length` triple. · called at [L68](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/single_particle_simulator/release_fraction_crp_6_case_1a_1b/simulation_code.rs#L68)
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/walk_on_spheres.rs:400 fn sample_uniform_in_ball -->
+<!-- snippet-check: crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/walk_on_spheres.rs:401 prn -->
+<!-- snippet-check: crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/walk_on_spheres.rs:402 sample_uniform_direction -->
+
+```rust,ignore
+{{#include ../../../../../crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/walk_on_spheres.rs:400:403}}
+    // … (the rest of the function: follow the link above)
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:1.8em">
+
+[`lcg.rs::prn`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/petir/src/rng/lcg.rs#L127) `pub fn prn(seed: &mut u64) -> f64` — Advance the seed one step and return a uniform sample in [0, 1). · called at [L401](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/walk_on_spheres.rs#L401)
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/petir/src/rng/lcg.rs:127 fn prn -->
+
+```rust,ignore
+{{#include ../../../../../crates/petir/src/rng/lcg.rs:127:138}}
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:1.8em">
+
+[`sphere_fpt.rs::sample_uniform_direction`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/sphere_fpt.rs#L190) `pub fn sample_uniform_direction(seed: &mut u64) -> [f64; 3]` — Sample a direction uniform on the unit sphere, as a dimensionless `[x, y, z]` unit vector. · called at [L402](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/walk_on_spheres.rs#L402)
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/sphere_fpt.rs:190 fn sample_uniform_direction -->
+<!-- snippet-check: crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/sphere_fpt.rs:191 isotropic_direction -->
+
+```rust,ignore
+{{#include ../../../../../crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/sphere_fpt.rs:190:192}}
+    // … (the rest of the function: follow the link above)
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:2.7em">
+
+[`distributions.rs::isotropic_direction`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/rng/distributions.rs#L54) `pub fn isotropic_direction(seed: &mut u64) -> (f64, f64, f64)` — Sample an isotropic direction on the unit sphere. · called at [L191](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/sphere_fpt.rs#L191)
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/outram-mc-libs/src/rng/distributions.rs:54 fn isotropic_direction -->
+<!-- snippet-check: crates/outram-mc-libs/src/rng/distributions.rs:55 prn -->
+<!-- snippet-check: crates/outram-mc-libs/src/rng/distributions.rs:58 r_cos -->
+
+```rust,ignore
+{{#include ../../../../../crates/outram-mc-libs/src/rng/distributions.rs:54:59}}
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:3.6em">
+
+`lcg.rs::prn` *(expanded elsewhere in this walk)* · called at [L55](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/rng/distributions.rs#L55)
+
+</div>
+
+<div class="cw-node" style="margin-left:3.6em">
+
+[`mathf.rs::f64::r_cos`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/mathf.rs#L132) `fn r_cos(self) -> f64` · called at [L58](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/rng/distributions.rs#L58) · *(calls below the depth limit not shown)*
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/outram-mc-libs/src/mathf.rs:132 fn r_cos -->
+
+```rust,ignore
+{{#include ../../../../../crates/outram-mc-libs/src/mathf.rs:132:134}}
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:3.6em">
+
+[`mathf.rs::f64::r_sin`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/mathf.rs#L136) `fn r_sin(self) -> f64` · called at [L58](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/rng/distributions.rs#L58) · *(calls below the depth limit not shown)*
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/outram-mc-libs/src/mathf.rs:136 fn r_sin -->
+
+```rust,ignore
+{{#include ../../../../../crates/outram-mc-libs/src/mathf.rs:136:138}}
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:0.9em">
+
+[`oorandom_rng.rs::OoRng64::next_u64`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/central_limit_theorem/oorandom_rng.rs#L34) `pub fn next_u64(&mut self) -> u64` — Advance the state and return the raw 64-bit word. · called at [L69](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/single_particle_simulator/release_fraction_crp_6_case_1a_1b/simulation_code.rs#L69)
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/central_limit_theorem/oorandom_rng.rs:34 fn next_u64 -->
+
+```rust,ignore
+{{#include ../../../../../crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/central_limit_theorem/oorandom_rng.rs:34:37}}
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:0.9em">
+
+[`walk_on_spheres.rs::WoSWalker::new`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/walk_on_spheres.rs#L122) `pub fn new(position: [Length; 3], nuclide: Nuclide, rng: OoRng64) -> Self` — Create a walker at an explicit position with a fresh time of zero. · called at [L70](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/single_particle_simulator/release_fraction_crp_6_case_1a_1b/simulation_code.rs#L70)
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/walk_on_spheres.rs:122 fn new -->
+
+```rust,ignore
+{{#include ../../../../../crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/walk_on_spheres.rs:122:129}}
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:0.9em">
+
+[`walk_on_spheres.rs::WoSWalker::walk_to_absorbing_sphere`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/walk_on_spheres.rs#L217) `pub fn walk_to_absorbing_sphere(&mut self, sphere_radius: Length, diffusion_coefficient: DiffusionCoefficient, capture_eps: Length) -> Time` — Walk to the surface of a single homogeneous absorbing sphere and return the total first-passage (release) time. · called at [L72](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/single_particle_simulator/release_fraction_crp_6_case_1a_1b/simulation_code.rs#L72)
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/walk_on_spheres.rs:217 fn walk_to_absorbing_sphere -->
+<!-- snippet-check: crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/walk_on_spheres.rs:224 radius -->
+<!-- snippet-check: crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/walk_on_spheres.rs:228 sample_first_passage_time -->
+<!-- snippet-check: crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/walk_on_spheres.rs:230 sample_uniform_direction -->
+
+```rust,ignore
+{{#include ../../../../../crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/walk_on_spheres.rs:217:231}}
+    // … (the rest of the function: follow the link above)
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:1.8em">
+
+[`walk_on_spheres.rs::WoSWalker::radius`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/walk_on_spheres.rs#L142) `pub fn radius(&self) -> Length` — Radial distance of the walker from the particle centre, `|position|`. · called at [L224](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/walk_on_spheres.rs#L224)
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/walk_on_spheres.rs:142 fn radius -->
+<!-- snippet-check: crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/walk_on_spheres.rs:143 radial_distance -->
+
+```rust,ignore
+{{#include ../../../../../crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/walk_on_spheres.rs:142:144}}
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:2.7em">
+
+[`walk_on_spheres.rs::radial_distance`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/walk_on_spheres.rs#L408) `pub fn radial_distance(position: [Length; 3]) -> Length` — Radial distance of a point from the particle centre, `sqrt(x^2+y^2+z^2)`. · called at [L143](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/walk_on_spheres.rs#L143)
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/walk_on_spheres.rs:408 fn radial_distance -->
+
+```rust,ignore
+{{#include ../../../../../crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/walk_on_spheres.rs:408:412}}
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:1.8em">
+
+[`sphere_fpt.rs::sample_first_passage_time`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/sphere_fpt.rs#L176) `pub fn sample_first_passage_time(seed: &mut u64, radius: Length, diffusion_coefficient: DiffusionCoefficient) -> Time` — Sample the physical first-passage time for a hop of radius `radius` in a medium with diffusion coefficient `diffusion_coefficient`. · called at [L228](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/walk_on_spheres.rs#L228)
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/sphere_fpt.rs:176 fn sample_first_passage_time -->
+<!-- snippet-check: crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/sphere_fpt.rs:181 sample_dimensionless_exit_time -->
+
+```rust,ignore
+{{#include ../../../../../crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/sphere_fpt.rs:176:182}}
+    // … (the rest of the function: follow the link above)
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:2.7em">
+
+[`sphere_fpt.rs::sample_dimensionless_exit_time`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/sphere_fpt.rs#L161) `pub fn sample_dimensionless_exit_time(seed: &mut u64) -> f64` — Sample the dimensionless exit time `theta = D * tau / R^2` for one hop. · called at [L181](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/sphere_fpt.rs#L181)
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/sphere_fpt.rs:161 fn sample_dimensionless_exit_time -->
+<!-- snippet-check: crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/sphere_fpt.rs:162 prn -->
+
+```rust,ignore
+{{#include ../../../../../crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/sphere_fpt.rs:161:163}}
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:3.6em">
+
+`lcg.rs::prn` *(expanded elsewhere in this walk)* · called at [L162](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/sphere_fpt.rs#L162)
+
+</div>
+
+<div class="cw-node" style="margin-left:3.6em">
+
+[`sphere_fpt.rs::exit_time_cdf`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/sphere_fpt.rs#L151) `fn exit_time_cdf() -> &'static ExitTimeInverseCdf` — The process-wide exit-time table, built once on first use. · called at [L162](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/sphere_fpt.rs#L162) · *(calls below the depth limit not shown)*
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/sphere_fpt.rs:151 fn exit_time_cdf -->
+
+```rust,ignore
+{{#include ../../../../../crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/sphere_fpt.rs:151:154}}
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:3.6em">
+
+[`sphere_fpt.rs::ExitTimeInverseCdf::sample_theta`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/sphere_fpt.rs#L125) `fn sample_theta(&self, u: f64) -> f64` — Invert the CDF: given `u` in `[0, 1)`, return the corresponding `theta`. · called at [L162](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/sphere_fpt.rs#L162) · *(calls below the depth limit not shown)*
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/sphere_fpt.rs:125 fn sample_theta -->
+
+```rust,ignore
+{{#include ../../../../../crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/sphere_fpt.rs:125:145}}
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:1.8em">
+
+`sphere_fpt.rs::sample_uniform_direction` *(expanded elsewhere in this walk)* · called at [L230](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/walk_on_spheres.rs#L230)
+
+</div>
 <!-- /code-walk -->
 
 ## Rung 4 — through the layers {#rung-4}
@@ -167,45 +1393,553 @@ dispatcher ([rung 4](../../tutorials/triso-atops/layers.html)).
 
 Everything `crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/walk_on_spheres.rs::walk_until_released` reaches in the workspace, to 4 hops: 29 functions, 0 unresolved calls. A function is expanded once; later calls to it say *(expanded elsewhere in this walk)*.
 
-- [`walk_on_spheres.rs::WoSWalker::walk_until_released`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/walk_on_spheres.rs#L343) `pub fn walk_until_released(&mut self, triso_cell: &TrisoCell, params: &WalkParams) -> Option<Time>` — Run the multilayer walk until the walker is released from the OPyC outer surface, returning the release time, or `None` if the step cap in `params` is hit first.
-  - [`walk_on_spheres.rs::WoSWalker::step_multilayer`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/walk_on_spheres.rs#L249) `pub fn step_multilayer(&mut self, triso_cell: &TrisoCell, params: &WalkParams) -> HopOutcome` — Advance one multilayer step: either a genuine Walk-on-Spheres hop within the current shell, or — if the walker has reached an interface — one transmission/reflection resolution. · called at [L349](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/walk_on_spheres.rs#L349)
-    - [`walk_on_spheres.rs::shell_bounds`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/walk_on_spheres.rs#L452) `pub fn shell_bounds(triso_cell: &TrisoCell, position: [Length; 3]) -> Option<(Option<Length>, Length)>` — The inner and outer bounding-sphere radii of the shell containing `position`. · called at [L250](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/walk_on_spheres.rs#L250)
-      - [`mod.rs::TrisoCell::get_triso_region`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/single_particle_simulator/constructive_solid_geometry/mod.rs#L162) `pub fn get_triso_region(&self, coordinates: [Length; 3]) -> TrisoRegion` — checks which region the particle is in chatgpt fixed · called at [L456](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/walk_on_spheres.rs#L456)
-        - `mod.rs::Region::try_return_center_and_radius_of_sphere` *(expanded elsewhere in this walk)* · called at [L175](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/single_particle_simulator/constructive_solid_geometry/mod.rs#L175)
-      - [`mod.rs::TrisoCell::get_fuel_radius`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/single_particle_simulator/constructive_solid_geometry/mod.rs#L315) `pub fn get_fuel_radius(&self) -> Length` · called at [L457](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/walk_on_spheres.rs#L457)
-        - `mod.rs::Region::try_return_center_and_radius_of_sphere` *(expanded elsewhere in this walk)* · called at [L317](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/single_particle_simulator/constructive_solid_geometry/mod.rs#L317)
-      - [`mod.rs::TrisoCell::get_buffer_radius`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/single_particle_simulator/constructive_solid_geometry/mod.rs#L323) `pub fn get_buffer_radius(&self) -> Length` · called at [L460](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/walk_on_spheres.rs#L460)
-        - `mod.rs::Region::try_return_center_and_radius_of_sphere` *(expanded elsewhere in this walk)* · called at [L325](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/single_particle_simulator/constructive_solid_geometry/mod.rs#L325)
-      - [`mod.rs::TrisoCell::get_ipyc_radius`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/single_particle_simulator/constructive_solid_geometry/mod.rs#L331) `pub fn get_ipyc_radius(&self) -> Length` · called at [L464](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/walk_on_spheres.rs#L464)
-        - `mod.rs::Region::try_return_center_and_radius_of_sphere` *(expanded elsewhere in this walk)* · called at [L333](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/single_particle_simulator/constructive_solid_geometry/mod.rs#L333)
-      - [`mod.rs::TrisoCell::get_sic_radius`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/single_particle_simulator/constructive_solid_geometry/mod.rs#L339) `pub fn get_sic_radius(&self) -> Length` · called at [L468](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/walk_on_spheres.rs#L468)
-        - `mod.rs::Region::try_return_center_and_radius_of_sphere` *(expanded elsewhere in this walk)* · called at [L341](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/single_particle_simulator/constructive_solid_geometry/mod.rs#L341)
-      - `mod.rs::TrisoCell::get_opyc_radius` *(expanded elsewhere in this walk)* · called at [L472](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/walk_on_spheres.rs#L472)
-    - [`walk_on_spheres.rs::WoSWalker::radius`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/walk_on_spheres.rs#L142) `pub fn radius(&self) -> Length` — Radial distance of the walker from the particle centre, `|position|`. · called at [L253](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/walk_on_spheres.rs#L253)
-      - [`walk_on_spheres.rs::radial_distance`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/walk_on_spheres.rs#L408) `pub fn radial_distance(position: [Length; 3]) -> Length` — Radial distance of a point from the particle centre, `sqrt(x^2+y^2+z^2)`. · called at [L143](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/walk_on_spheres.rs#L143)
-    - [`walk_on_spheres.rs::WoSWalker::diffusion_at`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/walk_on_spheres.rs#L359) `fn diffusion_at(&self, triso_cell: &TrisoCell, position: [Length; 3]) -> DiffusionCoefficient` — Diffusion coefficient of the walker's current nuclide at `position`, falling back to the cracked-layer default outside every known region. · called at [L262](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/walk_on_spheres.rs#L262)
-      - [`mod.rs::TrisoCell::try_get_diffusion_coefficient`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/single_particle_simulator/constructive_solid_geometry/mod.rs#L213) `pub fn try_get_diffusion_coefficient(&self, coordinates: [Length; 3], nuclide: Nuclide) -> Option<DiffusionCoefficient>` — checks the diffusion coefficient based on coordinates of the triso particle · called at [L361](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/walk_on_spheres.rs#L361)
-        - [`mod.rs::Region::is_within_region`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/single_particle_simulator/constructive_solid_geometry/mod.rs#L28) `pub fn is_within_region(&self, point: [Length; 3]) -> bool` · called at [L218](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/single_particle_simulator/constructive_solid_geometry/mod.rs#L218) · *(calls below the depth limit not shown)*
-        - [`mod.rs::try_get_diffusion_coeff_jiang`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/temperature_dependent_collisions/mod.rs#L61) `pub fn try_get_diffusion_coeff_jiang(triso_layer: TrisoPebbleLayerMaterial, nuclide: Nuclide, temperature: ThermodynamicTemperature, gamma_neutron_fluence: Option<ArealNumberDensity>) -> Option<DiffusionCoefficient>` — diffusion coefficient from Jiang 2023 Jiang, W., Toptan, A., Hales, J. · called at [L221](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/single_particle_simulator/constructive_solid_geometry/mod.rs#L221) · *(calls below the depth limit not shown)*
-    - [`sphere_fpt.rs::sample_first_passage_time`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/sphere_fpt.rs#L176) `pub fn sample_first_passage_time(seed: &mut u64, radius: Length, diffusion_coefficient: DiffusionCoefficient) -> Time` — Sample the physical first-passage time for a hop of radius `radius` in a medium with diffusion coefficient `diffusion_coefficient`. · called at [L266](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/walk_on_spheres.rs#L266)
-      - [`sphere_fpt.rs::sample_dimensionless_exit_time`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/sphere_fpt.rs#L161) `pub fn sample_dimensionless_exit_time(seed: &mut u64) -> f64` — Sample the dimensionless exit time `theta = D * tau / R^2` for one hop. · called at [L181](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/sphere_fpt.rs#L181)
-        - `lcg.rs::prn` *(expanded elsewhere in this walk)* · called at [L162](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/sphere_fpt.rs#L162)
-        - [`sphere_fpt.rs::exit_time_cdf`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/sphere_fpt.rs#L151) `fn exit_time_cdf() -> &'static ExitTimeInverseCdf` — The process-wide exit-time table, built once on first use. · called at [L162](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/sphere_fpt.rs#L162) · *(calls below the depth limit not shown)*
-        - [`sphere_fpt.rs::ExitTimeInverseCdf::sample_theta`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/sphere_fpt.rs#L125) `fn sample_theta(&self, u: f64) -> f64` — Invert the CDF: given `u` in `[0, 1)`, return the corresponding `theta`. · called at [L162](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/sphere_fpt.rs#L162) · *(calls below the depth limit not shown)*
-    - [`sphere_fpt.rs::sample_uniform_direction`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/sphere_fpt.rs#L190) `pub fn sample_uniform_direction(seed: &mut u64) -> [f64; 3]` — Sample a direction uniform on the unit sphere, as a dimensionless `[x, y, z]` unit vector. · called at [L268](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/walk_on_spheres.rs#L268)
-      - [`distributions.rs::isotropic_direction`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/rng/distributions.rs#L54) `pub fn isotropic_direction(seed: &mut u64) -> (f64, f64, f64)` — Sample an isotropic direction on the unit sphere. · called at [L191](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/sphere_fpt.rs#L191)
-        - `lcg.rs::prn` *(expanded elsewhere in this walk)* · called at [L55](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/rng/distributions.rs#L55)
-        - [`mathf.rs::f64::r_cos`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/mathf.rs#L132) `fn r_cos(self) -> f64` · called at [L58](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/rng/distributions.rs#L58) · *(calls below the depth limit not shown)*
-        - [`mathf.rs::f64::r_sin`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/mathf.rs#L136) `fn r_sin(self) -> f64` · called at [L58](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/rng/distributions.rs#L58) · *(calls below the depth limit not shown)*
-    - [`mod.rs::TrisoCell::get_opyc_radius`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/single_particle_simulator/constructive_solid_geometry/mod.rs#L347) `pub fn get_opyc_radius(&self) -> Length` · called at [L288](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/walk_on_spheres.rs#L288)
-      - [`mod.rs::Region::try_return_center_and_radius_of_sphere`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/single_particle_simulator/constructive_solid_geometry/mod.rs#L34) `pub fn try_return_center_and_radius_of_sphere(&self) -> Option<([Length; 3], Length)>` · called at [L349](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/single_particle_simulator/constructive_solid_geometry/mod.rs#L349)
-    - [`walk_on_spheres.rs::WoSWalker::point_at_radius`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/walk_on_spheres.rs#L372) `fn point_at_radius(&self, target: Length) -> [Length; 3]` — The point at radial distance `target` from the centre, along the walker's current radial direction. · called at [L291](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/walk_on_spheres.rs#L291)
-      - `walk_on_spheres.rs::WoSWalker::radius` *(expanded elsewhere in this walk)* · called at [L373](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/walk_on_spheres.rs#L373)
-    - [`interface.rs::does_transmit`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/interface.rs#L91) `pub fn does_transmit(seed: &mut u64, d_current: DiffusionCoefficient, d_next: DiffusionCoefficient, partition_k: f64) -> bool` — Decide whether a walker arriving at a `D1 | D2` interface transmits. · called at [L292](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/walk_on_spheres.rs#L292)
-      - [`lcg.rs::prn`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/petir/src/rng/lcg.rs#L127) `pub fn prn(seed: &mut u64) -> f64` — Advance the seed one step and return a uniform sample in [0, 1). · called at [L97](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/interface.rs#L97)
-      - [`interface.rs::transmission_probability`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/interface.rs#L70) `pub fn transmission_probability(d_current: DiffusionCoefficient, d_next: DiffusionCoefficient, partition_k: f64) -> f64` — Probability that a walker arriving at a `D1 | D2` interface transmits into the `D2` side (rather than reflecting back into the `D1` side). · called at [L97](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/interface.rs#L97)
-    - [`walk_on_spheres.rs::WoSWalker::set_radius_to`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/walk_on_spheres.rs#L387) `fn set_radius_to(&mut self, target: Length)` — Move the walker radially to `target` (same direction, new radius). · called at [L293](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/walk_on_spheres.rs#L293)
-      - `walk_on_spheres.rs::WoSWalker::point_at_radius` *(expanded elsewhere in this walk)* · called at [L388](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/walk_on_spheres.rs#L388)
+<div class="cw-node" style="margin-left:0.0em">
+
+[`walk_on_spheres.rs::WoSWalker::walk_until_released`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/walk_on_spheres.rs#L343) `pub fn walk_until_released(&mut self, triso_cell: &TrisoCell, params: &WalkParams) -> Option<Time>` — Run the multilayer walk until the walker is released from the OPyC outer surface, returning the release time, or `None` if the step cap in `params` is hit first.
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/walk_on_spheres.rs:343 fn walk_until_released -->
+<!-- snippet-check: crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/walk_on_spheres.rs:349 step_multilayer -->
+
+```rust,ignore
+{{#include ../../../../../crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/walk_on_spheres.rs:343:350}}
+    // … (the rest of the function: follow the link above)
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:0.9em">
+
+[`walk_on_spheres.rs::WoSWalker::step_multilayer`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/walk_on_spheres.rs#L249) `pub fn step_multilayer(&mut self, triso_cell: &TrisoCell, params: &WalkParams) -> HopOutcome` — Advance one multilayer step: either a genuine Walk-on-Spheres hop within the current shell, or — if the walker has reached an interface — one transmission/reflection resolution. · called at [L349](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/walk_on_spheres.rs#L349)
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/walk_on_spheres.rs:249 fn step_multilayer -->
+<!-- snippet-check: crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/walk_on_spheres.rs:250 shell_bounds -->
+<!-- snippet-check: crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/walk_on_spheres.rs:253 radius -->
+<!-- snippet-check: crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/walk_on_spheres.rs:262 diffusion_at -->
+<!-- snippet-check: crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/walk_on_spheres.rs:266 sample_first_passage_time -->
+<!-- snippet-check: crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/walk_on_spheres.rs:268 sample_uniform_direction -->
+<!-- snippet-check: crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/walk_on_spheres.rs:288 get_opyc_radius -->
+<!-- snippet-check: crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/walk_on_spheres.rs:291 point_at_radius -->
+<!-- snippet-check: crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/walk_on_spheres.rs:292 does_transmit -->
+<!-- snippet-check: crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/walk_on_spheres.rs:293 set_radius_to -->
+
+```rust,ignore
+{{#include ../../../../../crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/walk_on_spheres.rs:249:254}}
+    // …
+{{#include ../../../../../crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/walk_on_spheres.rs:260:269}}
+    // …
+{{#include ../../../../../crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/walk_on_spheres.rs:286:294}}
+    // … (the rest of the function: follow the link above)
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:1.8em">
+
+[`walk_on_spheres.rs::shell_bounds`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/walk_on_spheres.rs#L452) `pub fn shell_bounds(triso_cell: &TrisoCell, position: [Length; 3]) -> Option<(Option<Length>, Length)>` — The inner and outer bounding-sphere radii of the shell containing `position`. · called at [L250](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/walk_on_spheres.rs#L250)
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/walk_on_spheres.rs:452 fn shell_bounds -->
+<!-- snippet-check: crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/walk_on_spheres.rs:456 get_triso_region -->
+<!-- snippet-check: crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/walk_on_spheres.rs:457 get_fuel_radius -->
+<!-- snippet-check: crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/walk_on_spheres.rs:460 get_buffer_radius -->
+<!-- snippet-check: crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/walk_on_spheres.rs:464 get_ipyc_radius -->
+<!-- snippet-check: crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/walk_on_spheres.rs:468 get_sic_radius -->
+<!-- snippet-check: crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/walk_on_spheres.rs:472 get_opyc_radius -->
+
+```rust,ignore
+{{#include ../../../../../crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/walk_on_spheres.rs:452:473}}
+    // … (the rest of the function: follow the link above)
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:2.7em">
+
+[`mod.rs::TrisoCell::get_triso_region`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/single_particle_simulator/constructive_solid_geometry/mod.rs#L162) `pub fn get_triso_region(&self, coordinates: [Length; 3]) -> TrisoRegion` — checks which region the particle is in chatgpt fixed · called at [L456](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/walk_on_spheres.rs#L456)
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/single_particle_simulator/constructive_solid_geometry/mod.rs:162 fn get_triso_region -->
+<!-- snippet-check: crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/single_particle_simulator/constructive_solid_geometry/mod.rs:175 try_return_center_and_radius_of_sphere -->
+
+```rust,ignore
+{{#include ../../../../../crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/single_particle_simulator/constructive_solid_geometry/mod.rs:162:176}}
+    // … (the rest of the function: follow the link above)
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:3.6em">
+
+`mod.rs::Region::try_return_center_and_radius_of_sphere` *(expanded elsewhere in this walk)* · called at [L175](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/single_particle_simulator/constructive_solid_geometry/mod.rs#L175)
+
+</div>
+
+<div class="cw-node" style="margin-left:2.7em">
+
+[`mod.rs::TrisoCell::get_fuel_radius`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/single_particle_simulator/constructive_solid_geometry/mod.rs#L315) `pub fn get_fuel_radius(&self) -> Length` · called at [L457](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/walk_on_spheres.rs#L457)
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/single_particle_simulator/constructive_solid_geometry/mod.rs:315 fn get_fuel_radius -->
+<!-- snippet-check: crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/single_particle_simulator/constructive_solid_geometry/mod.rs:317 try_return_center_and_radius_of_sphere -->
+
+```rust,ignore
+{{#include ../../../../../crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/single_particle_simulator/constructive_solid_geometry/mod.rs:315:318}}
+    // … (the rest of the function: follow the link above)
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:3.6em">
+
+`mod.rs::Region::try_return_center_and_radius_of_sphere` *(expanded elsewhere in this walk)* · called at [L317](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/single_particle_simulator/constructive_solid_geometry/mod.rs#L317)
+
+</div>
+
+<div class="cw-node" style="margin-left:2.7em">
+
+[`mod.rs::TrisoCell::get_buffer_radius`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/single_particle_simulator/constructive_solid_geometry/mod.rs#L323) `pub fn get_buffer_radius(&self) -> Length` · called at [L460](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/walk_on_spheres.rs#L460)
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/single_particle_simulator/constructive_solid_geometry/mod.rs:323 fn get_buffer_radius -->
+<!-- snippet-check: crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/single_particle_simulator/constructive_solid_geometry/mod.rs:325 try_return_center_and_radius_of_sphere -->
+
+```rust,ignore
+{{#include ../../../../../crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/single_particle_simulator/constructive_solid_geometry/mod.rs:323:326}}
+    // … (the rest of the function: follow the link above)
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:3.6em">
+
+`mod.rs::Region::try_return_center_and_radius_of_sphere` *(expanded elsewhere in this walk)* · called at [L325](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/single_particle_simulator/constructive_solid_geometry/mod.rs#L325)
+
+</div>
+
+<div class="cw-node" style="margin-left:2.7em">
+
+[`mod.rs::TrisoCell::get_ipyc_radius`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/single_particle_simulator/constructive_solid_geometry/mod.rs#L331) `pub fn get_ipyc_radius(&self) -> Length` · called at [L464](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/walk_on_spheres.rs#L464)
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/single_particle_simulator/constructive_solid_geometry/mod.rs:331 fn get_ipyc_radius -->
+<!-- snippet-check: crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/single_particle_simulator/constructive_solid_geometry/mod.rs:333 try_return_center_and_radius_of_sphere -->
+
+```rust,ignore
+{{#include ../../../../../crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/single_particle_simulator/constructive_solid_geometry/mod.rs:331:334}}
+    // … (the rest of the function: follow the link above)
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:3.6em">
+
+`mod.rs::Region::try_return_center_and_radius_of_sphere` *(expanded elsewhere in this walk)* · called at [L333](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/single_particle_simulator/constructive_solid_geometry/mod.rs#L333)
+
+</div>
+
+<div class="cw-node" style="margin-left:2.7em">
+
+[`mod.rs::TrisoCell::get_sic_radius`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/single_particle_simulator/constructive_solid_geometry/mod.rs#L339) `pub fn get_sic_radius(&self) -> Length` · called at [L468](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/walk_on_spheres.rs#L468)
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/single_particle_simulator/constructive_solid_geometry/mod.rs:339 fn get_sic_radius -->
+<!-- snippet-check: crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/single_particle_simulator/constructive_solid_geometry/mod.rs:341 try_return_center_and_radius_of_sphere -->
+
+```rust,ignore
+{{#include ../../../../../crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/single_particle_simulator/constructive_solid_geometry/mod.rs:339:342}}
+    // … (the rest of the function: follow the link above)
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:3.6em">
+
+`mod.rs::Region::try_return_center_and_radius_of_sphere` *(expanded elsewhere in this walk)* · called at [L341](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/single_particle_simulator/constructive_solid_geometry/mod.rs#L341)
+
+</div>
+
+<div class="cw-node" style="margin-left:2.7em">
+
+`mod.rs::TrisoCell::get_opyc_radius` *(expanded elsewhere in this walk)* · called at [L472](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/walk_on_spheres.rs#L472)
+
+</div>
+
+<div class="cw-node" style="margin-left:1.8em">
+
+[`walk_on_spheres.rs::WoSWalker::radius`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/walk_on_spheres.rs#L142) `pub fn radius(&self) -> Length` — Radial distance of the walker from the particle centre, `|position|`. · called at [L253](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/walk_on_spheres.rs#L253)
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/walk_on_spheres.rs:142 fn radius -->
+<!-- snippet-check: crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/walk_on_spheres.rs:143 radial_distance -->
+
+```rust,ignore
+{{#include ../../../../../crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/walk_on_spheres.rs:142:144}}
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:2.7em">
+
+[`walk_on_spheres.rs::radial_distance`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/walk_on_spheres.rs#L408) `pub fn radial_distance(position: [Length; 3]) -> Length` — Radial distance of a point from the particle centre, `sqrt(x^2+y^2+z^2)`. · called at [L143](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/walk_on_spheres.rs#L143)
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/walk_on_spheres.rs:408 fn radial_distance -->
+
+```rust,ignore
+{{#include ../../../../../crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/walk_on_spheres.rs:408:412}}
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:1.8em">
+
+[`walk_on_spheres.rs::WoSWalker::diffusion_at`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/walk_on_spheres.rs#L359) `fn diffusion_at(&self, triso_cell: &TrisoCell, position: [Length; 3]) -> DiffusionCoefficient` — Diffusion coefficient of the walker's current nuclide at `position`, falling back to the cracked-layer default outside every known region. · called at [L262](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/walk_on_spheres.rs#L262)
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/walk_on_spheres.rs:359 fn diffusion_at -->
+<!-- snippet-check: crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/walk_on_spheres.rs:361 try_get_diffusion_coefficient -->
+
+```rust,ignore
+{{#include ../../../../../crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/walk_on_spheres.rs:359:362}}
+    // … (the rest of the function: follow the link above)
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:2.7em">
+
+[`mod.rs::TrisoCell::try_get_diffusion_coefficient`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/single_particle_simulator/constructive_solid_geometry/mod.rs#L213) `pub fn try_get_diffusion_coefficient(&self, coordinates: [Length; 3], nuclide: Nuclide) -> Option<DiffusionCoefficient>` — checks the diffusion coefficient based on coordinates of the triso particle · called at [L361](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/walk_on_spheres.rs#L361)
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/single_particle_simulator/constructive_solid_geometry/mod.rs:213 fn try_get_diffusion_coefficient -->
+<!-- snippet-check: crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/single_particle_simulator/constructive_solid_geometry/mod.rs:218 is_within_region -->
+<!-- snippet-check: crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/single_particle_simulator/constructive_solid_geometry/mod.rs:221 try_get_diffusion_coeff_jiang -->
+
+```rust,ignore
+{{#include ../../../../../crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/single_particle_simulator/constructive_solid_geometry/mod.rs:213:222}}
+    // … (the rest of the function: follow the link above)
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:3.6em">
+
+[`mod.rs::Region::is_within_region`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/single_particle_simulator/constructive_solid_geometry/mod.rs#L28) `pub fn is_within_region(&self, point: [Length; 3]) -> bool` · called at [L218](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/single_particle_simulator/constructive_solid_geometry/mod.rs#L218) · *(calls below the depth limit not shown)*
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/single_particle_simulator/constructive_solid_geometry/mod.rs:28 fn is_within_region -->
+
+```rust,ignore
+{{#include ../../../../../crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/single_particle_simulator/constructive_solid_geometry/mod.rs:28:32}}
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:3.6em">
+
+[`mod.rs::try_get_diffusion_coeff_jiang`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/temperature_dependent_collisions/mod.rs#L61) `pub fn try_get_diffusion_coeff_jiang(triso_layer: TrisoPebbleLayerMaterial, nuclide: Nuclide, temperature: ThermodynamicTemperature, gamma_neutron_fluence: Option<ArealNumberDensity>) -> Option<DiffusionCoefficient>` — diffusion coefficient from Jiang 2023 Jiang, W., Toptan, A., Hales, J. · called at [L221](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/single_particle_simulator/constructive_solid_geometry/mod.rs#L221) · *(calls below the depth limit not shown)*
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/temperature_dependent_collisions/mod.rs:61 fn try_get_diffusion_coeff_jiang -->
+
+```rust,ignore
+{{#include ../../../../../crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/temperature_dependent_collisions/mod.rs:61:100}}
+    // … (the rest of the function: follow the link above)
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:1.8em">
+
+[`sphere_fpt.rs::sample_first_passage_time`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/sphere_fpt.rs#L176) `pub fn sample_first_passage_time(seed: &mut u64, radius: Length, diffusion_coefficient: DiffusionCoefficient) -> Time` — Sample the physical first-passage time for a hop of radius `radius` in a medium with diffusion coefficient `diffusion_coefficient`. · called at [L266](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/walk_on_spheres.rs#L266)
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/sphere_fpt.rs:176 fn sample_first_passage_time -->
+<!-- snippet-check: crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/sphere_fpt.rs:181 sample_dimensionless_exit_time -->
+
+```rust,ignore
+{{#include ../../../../../crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/sphere_fpt.rs:176:182}}
+    // … (the rest of the function: follow the link above)
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:2.7em">
+
+[`sphere_fpt.rs::sample_dimensionless_exit_time`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/sphere_fpt.rs#L161) `pub fn sample_dimensionless_exit_time(seed: &mut u64) -> f64` — Sample the dimensionless exit time `theta = D * tau / R^2` for one hop. · called at [L181](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/sphere_fpt.rs#L181)
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/sphere_fpt.rs:161 fn sample_dimensionless_exit_time -->
+<!-- snippet-check: crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/sphere_fpt.rs:162 prn -->
+
+```rust,ignore
+{{#include ../../../../../crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/sphere_fpt.rs:161:163}}
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:3.6em">
+
+`lcg.rs::prn` *(expanded elsewhere in this walk)* · called at [L162](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/sphere_fpt.rs#L162)
+
+</div>
+
+<div class="cw-node" style="margin-left:3.6em">
+
+[`sphere_fpt.rs::exit_time_cdf`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/sphere_fpt.rs#L151) `fn exit_time_cdf() -> &'static ExitTimeInverseCdf` — The process-wide exit-time table, built once on first use. · called at [L162](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/sphere_fpt.rs#L162) · *(calls below the depth limit not shown)*
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/sphere_fpt.rs:151 fn exit_time_cdf -->
+
+```rust,ignore
+{{#include ../../../../../crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/sphere_fpt.rs:151:154}}
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:3.6em">
+
+[`sphere_fpt.rs::ExitTimeInverseCdf::sample_theta`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/sphere_fpt.rs#L125) `fn sample_theta(&self, u: f64) -> f64` — Invert the CDF: given `u` in `[0, 1)`, return the corresponding `theta`. · called at [L162](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/sphere_fpt.rs#L162) · *(calls below the depth limit not shown)*
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/sphere_fpt.rs:125 fn sample_theta -->
+
+```rust,ignore
+{{#include ../../../../../crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/sphere_fpt.rs:125:145}}
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:1.8em">
+
+[`sphere_fpt.rs::sample_uniform_direction`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/sphere_fpt.rs#L190) `pub fn sample_uniform_direction(seed: &mut u64) -> [f64; 3]` — Sample a direction uniform on the unit sphere, as a dimensionless `[x, y, z]` unit vector. · called at [L268](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/walk_on_spheres.rs#L268)
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/sphere_fpt.rs:190 fn sample_uniform_direction -->
+<!-- snippet-check: crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/sphere_fpt.rs:191 isotropic_direction -->
+
+```rust,ignore
+{{#include ../../../../../crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/sphere_fpt.rs:190:192}}
+    // … (the rest of the function: follow the link above)
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:2.7em">
+
+[`distributions.rs::isotropic_direction`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/rng/distributions.rs#L54) `pub fn isotropic_direction(seed: &mut u64) -> (f64, f64, f64)` — Sample an isotropic direction on the unit sphere. · called at [L191](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/sphere_fpt.rs#L191)
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/outram-mc-libs/src/rng/distributions.rs:54 fn isotropic_direction -->
+<!-- snippet-check: crates/outram-mc-libs/src/rng/distributions.rs:55 prn -->
+<!-- snippet-check: crates/outram-mc-libs/src/rng/distributions.rs:58 r_cos -->
+
+```rust,ignore
+{{#include ../../../../../crates/outram-mc-libs/src/rng/distributions.rs:54:59}}
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:3.6em">
+
+`lcg.rs::prn` *(expanded elsewhere in this walk)* · called at [L55](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/rng/distributions.rs#L55)
+
+</div>
+
+<div class="cw-node" style="margin-left:3.6em">
+
+[`mathf.rs::f64::r_cos`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/mathf.rs#L132) `fn r_cos(self) -> f64` · called at [L58](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/rng/distributions.rs#L58) · *(calls below the depth limit not shown)*
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/outram-mc-libs/src/mathf.rs:132 fn r_cos -->
+
+```rust,ignore
+{{#include ../../../../../crates/outram-mc-libs/src/mathf.rs:132:134}}
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:3.6em">
+
+[`mathf.rs::f64::r_sin`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/mathf.rs#L136) `fn r_sin(self) -> f64` · called at [L58](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/rng/distributions.rs#L58) · *(calls below the depth limit not shown)*
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/outram-mc-libs/src/mathf.rs:136 fn r_sin -->
+
+```rust,ignore
+{{#include ../../../../../crates/outram-mc-libs/src/mathf.rs:136:138}}
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:1.8em">
+
+[`mod.rs::TrisoCell::get_opyc_radius`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/single_particle_simulator/constructive_solid_geometry/mod.rs#L347) `pub fn get_opyc_radius(&self) -> Length` · called at [L288](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/walk_on_spheres.rs#L288)
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/single_particle_simulator/constructive_solid_geometry/mod.rs:347 fn get_opyc_radius -->
+<!-- snippet-check: crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/single_particle_simulator/constructive_solid_geometry/mod.rs:349 try_return_center_and_radius_of_sphere -->
+
+```rust,ignore
+{{#include ../../../../../crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/single_particle_simulator/constructive_solid_geometry/mod.rs:347:350}}
+    // … (the rest of the function: follow the link above)
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:2.7em">
+
+[`mod.rs::Region::try_return_center_and_radius_of_sphere`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/single_particle_simulator/constructive_solid_geometry/mod.rs#L34) `pub fn try_return_center_and_radius_of_sphere(&self) -> Option<([Length; 3], Length)>` · called at [L349](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/single_particle_simulator/constructive_solid_geometry/mod.rs#L349)
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/single_particle_simulator/constructive_solid_geometry/mod.rs:34 fn try_return_center_and_radius_of_sphere -->
+
+```rust,ignore
+{{#include ../../../../../crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/single_particle_simulator/constructive_solid_geometry/mod.rs:34:43}}
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:1.8em">
+
+[`walk_on_spheres.rs::WoSWalker::point_at_radius`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/walk_on_spheres.rs#L372) `fn point_at_radius(&self, target: Length) -> [Length; 3]` — The point at radial distance `target` from the centre, along the walker's current radial direction. · called at [L291](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/walk_on_spheres.rs#L291)
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/walk_on_spheres.rs:372 fn point_at_radius -->
+<!-- snippet-check: crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/walk_on_spheres.rs:373 radius -->
+
+```rust,ignore
+{{#include ../../../../../crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/walk_on_spheres.rs:372:374}}
+    // … (the rest of the function: follow the link above)
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:2.7em">
+
+`walk_on_spheres.rs::WoSWalker::radius` *(expanded elsewhere in this walk)* · called at [L373](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/walk_on_spheres.rs#L373)
+
+</div>
+
+<div class="cw-node" style="margin-left:1.8em">
+
+[`interface.rs::does_transmit`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/interface.rs#L91) `pub fn does_transmit(seed: &mut u64, d_current: DiffusionCoefficient, d_next: DiffusionCoefficient, partition_k: f64) -> bool` — Decide whether a walker arriving at a `D1 | D2` interface transmits. · called at [L292](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/walk_on_spheres.rs#L292)
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/interface.rs:91 fn does_transmit -->
+<!-- snippet-check: crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/interface.rs:97 prn -->
+
+```rust,ignore
+{{#include ../../../../../crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/interface.rs:91:98}}
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:2.7em">
+
+[`lcg.rs::prn`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/petir/src/rng/lcg.rs#L127) `pub fn prn(seed: &mut u64) -> f64` — Advance the seed one step and return a uniform sample in [0, 1). · called at [L97](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/interface.rs#L97)
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/petir/src/rng/lcg.rs:127 fn prn -->
+
+```rust,ignore
+{{#include ../../../../../crates/petir/src/rng/lcg.rs:127:138}}
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:2.7em">
+
+[`interface.rs::transmission_probability`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/interface.rs#L70) `pub fn transmission_probability(d_current: DiffusionCoefficient, d_next: DiffusionCoefficient, partition_k: f64) -> f64` — Probability that a walker arriving at a `D1 | D2` interface transmits into the `D2` side (rather than reflecting back into the `D1` side). · called at [L97](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/interface.rs#L97)
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/interface.rs:70 fn transmission_probability -->
+
+```rust,ignore
+{{#include ../../../../../crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/interface.rs:70:83}}
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:1.8em">
+
+[`walk_on_spheres.rs::WoSWalker::set_radius_to`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/walk_on_spheres.rs#L387) `fn set_radius_to(&mut self, target: Length)` — Move the walker radially to `target` (same direction, new radius). · called at [L293](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/walk_on_spheres.rs#L293)
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/walk_on_spheres.rs:387 fn set_radius_to -->
+<!-- snippet-check: crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/walk_on_spheres.rs:388 point_at_radius -->
+
+```rust,ignore
+{{#include ../../../../../crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/walk_on_spheres.rs:387:389}}
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:2.7em">
+
+`walk_on_spheres.rs::WoSWalker::point_at_radius` *(expanded elsewhere in this walk)* · called at [L388](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/walk_on_spheres.rs#L388)
+
+</div>
 <!-- /code-walk -->
 
 <!-- code-walk: from=crates/boon-lay/src/triso_atops_fork/release_models/mod.rs::rb_fail depth=3 -->
@@ -213,102 +1947,797 @@ Everything `crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/
 
 Everything `crates/boon-lay/src/triso_atops_fork/release_models/mod.rs::rb_fail` reaches in the workspace, to 3 hops: 12 functions, 84 unresolved calls. A function is expanded once; later calls to it say *(expanded elsewhere in this walk)*.
 
-- [`mod.rs::rb_fail`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/release_models/mod.rs#L81) `pub fn rb_fail(z: u32, short_lived: bool, decay_constant: DecayConstant, temperature: ThermodynamicTemperature, irradiation_time: Time, grain_size: Length, sic_thickness: Length, kernel_radius: Length, kernel_diffusion_coefficient: DiffusionCoefficient) -> ReleaseFraction` — Normal-operation release-to-birth `<R/B>_fail` dispatcher.
-  - [`mod.rs::ElementGroup::from_atomic_number`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/mod.rs#L174) `pub fn from_atomic_number(z: u32) -> Self` — Classify an atomic number `Z` into its TRISO-ATOPS transport group. · called at [L97](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/release_models/mod.rs#L97)
-  - [`steady_state.rs::rb_fail_noble_gases`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/release_models/steady_state.rs#L86) `pub fn rb_fail_noble_gases(z: u32, decay_constant: DecayConstant, temperature: ThermodynamicTemperature) -> ReleaseFraction` — Empirical release-to-birth `<R/B>_fail` for noble gases and halogens. · called at [L99](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/release_models/mod.rs#L99)
-  - [`steady_state.rs::booth_shortlived_fast_diffuse`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/release_models/steady_state.rs#L225) `pub fn booth_shortlived_fast_diffuse(diffusion_coefficient: DiffusionCoefficient, decay_constant: DecayConstant, equivalent_sphere_radius: Length) -> ReleaseFraction` — Booth model `<R/B>` for a **short-lived** species that diffuses fast relative to decay. · called at [L103](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/release_models/mod.rs#L103)
-  - [`steady_state.rs::booth_longlived`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/release_models/steady_state.rs#L180) `pub fn booth_longlived(diffusion_coefficient: DiffusionCoefficient, time: Time, equivalent_sphere_radius: Length) -> ReleaseFraction` — Booth model release fraction for a **long-lived** species with large release. · called at [L109](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/release_models/mod.rs#L109)
-  - [`mod.rs::diffusion_coefficient_sic_ag`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/diffusion/mod.rs#L196) `pub fn diffusion_coefficient_sic_ag(sic_temperature: ThermodynamicTemperature) -> DiffusionCoefficient` — Diffusion coefficient for silver (Ag) through the **SiC** layer. · called at [L117](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/release_models/mod.rs#L117)
-    - [`mod.rs::arrhenius_term`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/diffusion/mod.rs#L77) `fn arrhenius_term(pre_exponential: f64, activation_energy_kj_per_mol: f64, temperature_kelvin: f64) -> f64` — Evaluate one Arrhenius term `D0 · exp(−Q / (R·T))`. · called at [L200](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/diffusion/mod.rs#L200)
-  - [`steady_state.rs::breakthrough_model`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/release_models/steady_state.rs#L132) `pub fn breakthrough_model(diffusion_coefficient: DiffusionCoefficient, time: Time, layer_thickness: Length, kernel_radius: Length) -> ReleaseFraction` — Booth "breakthrough" release fraction for a barrier-limited (low-release) species. · called at [L118](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/release_models/mod.rs#L118)
-    - [`steady_state.rs::clamp_release_fraction`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/release_models/steady_state.rs#L57) `fn clamp_release_fraction(rf: f64) -> ReleaseFraction` — Clamp a raw release fraction into the physical `[0, 1]` range. · called at [L151](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/release_models/steady_state.rs#L151)
-  - [`nuclide_database.rs::find_nuclide`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L145) `pub fn find_nuclide(name: &str) -> Option<TrisoAtopsNuclide>` — Look a nuclide up by its canonical TRISO-ATOPS name (case-sensitive). · called at [L126](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/release_models/mod.rs#L126)
-    - [`nuclide_database.rs::supported_nuclides`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L44) `pub fn supported_nuclides() -> Vec<TrisoAtopsNuclide>` — The full TRISO-ATOPS supported-nuclide table. · called at [L146](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L146)
-      - UNRESOLVED(closure): `n` at [L48](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L48) (→ [`crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:46`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L46)) — call through a closure or fn-typed binding `n`
-      - UNRESOLVED(closure): `n` at [L49](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L49) (→ [`crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:46`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L46)) — call through a closure or fn-typed binding `n`
-      - UNRESOLVED(closure): `n` at [L50](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L50) (→ [`crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:46`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L46)) — call through a closure or fn-typed binding `n`
-      - UNRESOLVED(closure): `n` at [L51](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L51) (→ [`crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:46`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L46)) — call through a closure or fn-typed binding `n`
-      - UNRESOLVED(closure): `n` at [L52](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L52) (→ [`crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:46`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L46)) — call through a closure or fn-typed binding `n`
-      - UNRESOLVED(closure): `n` at [L53](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L53) (→ [`crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:46`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L46)) — call through a closure or fn-typed binding `n`
-      - UNRESOLVED(closure): `n` at [L54](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L54) (→ [`crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:46`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L46)) — call through a closure or fn-typed binding `n`
-      - UNRESOLVED(closure): `n` at [L55](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L55) (→ [`crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:46`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L46)) — call through a closure or fn-typed binding `n`
-      - UNRESOLVED(closure): `n` at [L56](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L56) (→ [`crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:46`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L46)) — call through a closure or fn-typed binding `n`
-      - UNRESOLVED(closure): `n` at [L57](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L57) (→ [`crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:46`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L46)) — call through a closure or fn-typed binding `n`
-      - UNRESOLVED(closure): `n` at [L58](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L58) (→ [`crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:46`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L46)) — call through a closure or fn-typed binding `n`
-      - UNRESOLVED(closure): `n` at [L59](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L59) (→ [`crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:46`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L46)) — call through a closure or fn-typed binding `n`
-      - UNRESOLVED(closure): `n` at [L60](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L60) (→ [`crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:46`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L46)) — call through a closure or fn-typed binding `n`
-      - UNRESOLVED(closure): `n` at [L61](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L61) (→ [`crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:46`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L46)) — call through a closure or fn-typed binding `n`
-      - UNRESOLVED(closure): `n` at [L62](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L62) (→ [`crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:46`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L46)) — call through a closure or fn-typed binding `n`
-      - UNRESOLVED(closure): `n` at [L63](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L63) (→ [`crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:46`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L46)) — call through a closure or fn-typed binding `n`
-      - UNRESOLVED(closure): `n` at [L64](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L64) (→ [`crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:46`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L46)) — call through a closure or fn-typed binding `n`
-      - UNRESOLVED(closure): `n` at [L65](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L65) (→ [`crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:46`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L46)) — call through a closure or fn-typed binding `n`
-      - UNRESOLVED(closure): `n` at [L66](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L66) (→ [`crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:46`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L46)) — call through a closure or fn-typed binding `n`
-      - UNRESOLVED(closure): `n` at [L67](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L67) (→ [`crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:46`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L46)) — call through a closure or fn-typed binding `n`
-      - UNRESOLVED(closure): `n` at [L68](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L68) (→ [`crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:46`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L46)) — call through a closure or fn-typed binding `n`
-      - UNRESOLVED(closure): `n` at [L69](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L69) (→ [`crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:46`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L46)) — call through a closure or fn-typed binding `n`
-      - UNRESOLVED(closure): `n` at [L70](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L70) (→ [`crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:46`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L46)) — call through a closure or fn-typed binding `n`
-      - UNRESOLVED(closure): `n` at [L71](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L71) (→ [`crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:46`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L46)) — call through a closure or fn-typed binding `n`
-      - UNRESOLVED(closure): `n` at [L72](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L72) (→ [`crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:46`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L46)) — call through a closure or fn-typed binding `n`
-      - UNRESOLVED(closure): `n` at [L73](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L73) (→ [`crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:46`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L46)) — call through a closure or fn-typed binding `n`
-      - UNRESOLVED(closure): `n` at [L74](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L74) (→ [`crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:46`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L46)) — call through a closure or fn-typed binding `n`
-      - UNRESOLVED(closure): `n` at [L75](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L75) (→ [`crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:46`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L46)) — call through a closure or fn-typed binding `n`
-      - UNRESOLVED(closure): `n` at [L76](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L76) (→ [`crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:46`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L46)) — call through a closure or fn-typed binding `n`
-      - UNRESOLVED(closure): `n` at [L77](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L77) (→ [`crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:46`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L46)) — call through a closure or fn-typed binding `n`
-      - UNRESOLVED(closure): `n` at [L78](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L78) (→ [`crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:46`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L46)) — call through a closure or fn-typed binding `n`
-      - UNRESOLVED(closure): `n` at [L79](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L79) (→ [`crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:46`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L46)) — call through a closure or fn-typed binding `n`
-      - UNRESOLVED(closure): `n` at [L80](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L80) (→ [`crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:46`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L46)) — call through a closure or fn-typed binding `n`
-      - UNRESOLVED(closure): `n` at [L81](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L81) (→ [`crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:46`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L46)) — call through a closure or fn-typed binding `n`
-      - UNRESOLVED(closure): `n` at [L82](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L82) (→ [`crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:46`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L46)) — call through a closure or fn-typed binding `n`
-      - UNRESOLVED(closure): `n` at [L83](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L83) (→ [`crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:46`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L46)) — call through a closure or fn-typed binding `n`
-      - UNRESOLVED(closure): `n` at [L84](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L84) (→ [`crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:46`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L46)) — call through a closure or fn-typed binding `n`
-      - UNRESOLVED(closure): `n` at [L85](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L85) (→ [`crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:46`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L46)) — call through a closure or fn-typed binding `n`
-      - UNRESOLVED(closure): `n` at [L86](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L86) (→ [`crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:46`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L46)) — call through a closure or fn-typed binding `n`
-      - UNRESOLVED(closure): `n` at [L87](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L87) (→ [`crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:46`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L46)) — call through a closure or fn-typed binding `n`
-      - UNRESOLVED(closure): `n` at [L88](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L88) (→ [`crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:46`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L46)) — call through a closure or fn-typed binding `n`
-      - UNRESOLVED(closure): `n` at [L89](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L89) (→ [`crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:46`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L46)) — call through a closure or fn-typed binding `n`
-      - UNRESOLVED(closure): `n` at [L90](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L90) (→ [`crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:46`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L46)) — call through a closure or fn-typed binding `n`
-      - UNRESOLVED(closure): `n` at [L91](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L91) (→ [`crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:46`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L46)) — call through a closure or fn-typed binding `n`
-      - UNRESOLVED(closure): `n` at [L92](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L92) (→ [`crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:46`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L46)) — call through a closure or fn-typed binding `n`
-      - UNRESOLVED(closure): `n` at [L93](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L93) (→ [`crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:46`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L46)) — call through a closure or fn-typed binding `n`
-      - UNRESOLVED(closure): `n` at [L94](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L94) (→ [`crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:46`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L46)) — call through a closure or fn-typed binding `n`
-      - UNRESOLVED(closure): `n` at [L95](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L95) (→ [`crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:46`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L46)) — call through a closure or fn-typed binding `n`
-      - UNRESOLVED(closure): `n` at [L96](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L96) (→ [`crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:46`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L46)) — call through a closure or fn-typed binding `n`
-      - UNRESOLVED(closure): `n` at [L97](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L97) (→ [`crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:46`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L46)) — call through a closure or fn-typed binding `n`
-      - UNRESOLVED(closure): `n` at [L98](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L98) (→ [`crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:46`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L46)) — call through a closure or fn-typed binding `n`
-      - UNRESOLVED(closure): `n` at [L99](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L99) (→ [`crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:46`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L46)) — call through a closure or fn-typed binding `n`
-      - UNRESOLVED(closure): `n` at [L100](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L100) (→ [`crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:46`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L46)) — call through a closure or fn-typed binding `n`
-      - UNRESOLVED(closure): `n` at [L101](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L101) (→ [`crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:46`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L46)) — call through a closure or fn-typed binding `n`
-      - UNRESOLVED(closure): `n` at [L102](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L102) (→ [`crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:46`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L46)) — call through a closure or fn-typed binding `n`
-      - UNRESOLVED(closure): `n` at [L103](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L103) (→ [`crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:46`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L46)) — call through a closure or fn-typed binding `n`
-      - UNRESOLVED(closure): `n` at [L104](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L104) (→ [`crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:46`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L46)) — call through a closure or fn-typed binding `n`
-      - UNRESOLVED(closure): `n` at [L105](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L105) (→ [`crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:46`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L46)) — call through a closure or fn-typed binding `n`
-      - UNRESOLVED(closure): `n` at [L106](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L106) (→ [`crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:46`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L46)) — call through a closure or fn-typed binding `n`
-      - UNRESOLVED(closure): `n` at [L107](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L107) (→ [`crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:46`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L46)) — call through a closure or fn-typed binding `n`
-      - UNRESOLVED(closure): `n` at [L108](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L108) (→ [`crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:46`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L46)) — call through a closure or fn-typed binding `n`
-      - UNRESOLVED(closure): `n` at [L109](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L109) (→ [`crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:46`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L46)) — call through a closure or fn-typed binding `n`
-      - UNRESOLVED(closure): `n` at [L110](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L110) (→ [`crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:46`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L46)) — call through a closure or fn-typed binding `n`
-      - UNRESOLVED(closure): `n` at [L111](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L111) (→ [`crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:46`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L46)) — call through a closure or fn-typed binding `n`
-      - UNRESOLVED(closure): `n` at [L112](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L112) (→ [`crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:46`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L46)) — call through a closure or fn-typed binding `n`
-      - UNRESOLVED(closure): `n` at [L113](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L113) (→ [`crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:46`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L46)) — call through a closure or fn-typed binding `n`
-      - UNRESOLVED(closure): `n` at [L114](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L114) (→ [`crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:46`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L46)) — call through a closure or fn-typed binding `n`
-      - UNRESOLVED(closure): `n` at [L115](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L115) (→ [`crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:46`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L46)) — call through a closure or fn-typed binding `n`
-      - UNRESOLVED(closure): `n` at [L116](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L116) (→ [`crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:46`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L46)) — call through a closure or fn-typed binding `n`
-      - UNRESOLVED(closure): `n` at [L117](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L117) (→ [`crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:46`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L46)) — call through a closure or fn-typed binding `n`
-      - UNRESOLVED(closure): `n` at [L118](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L118) (→ [`crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:46`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L46)) — call through a closure or fn-typed binding `n`
-      - UNRESOLVED(closure): `n` at [L120](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L120) (→ [`crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:46`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L46)) — call through a closure or fn-typed binding `n`
-      - UNRESOLVED(closure): `n` at [L121](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L121) (→ [`crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:46`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L46)) — call through a closure or fn-typed binding `n`
-      - UNRESOLVED(closure): `n` at [L122](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L122) (→ [`crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:46`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L46)) — call through a closure or fn-typed binding `n`
-      - UNRESOLVED(closure): `n` at [L123](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L123) (→ [`crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:46`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L46)) — call through a closure or fn-typed binding `n`
-      - UNRESOLVED(closure): `n` at [L124](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L124) (→ [`crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:46`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L46)) — call through a closure or fn-typed binding `n`
-      - UNRESOLVED(closure): `n` at [L125](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L125) (→ [`crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:46`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L46)) — call through a closure or fn-typed binding `n`
-      - UNRESOLVED(closure): `n` at [L126](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L126) (→ [`crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:46`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L46)) — call through a closure or fn-typed binding `n`
-      - UNRESOLVED(closure): `n` at [L127](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L127) (→ [`crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:46`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L46)) — call through a closure or fn-typed binding `n`
-      - UNRESOLVED(closure): `n` at [L128](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L128) (→ [`crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:46`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L46)) — call through a closure or fn-typed binding `n`
-      - UNRESOLVED(closure): `n` at [L129](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L129) (→ [`crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:46`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L46)) — call through a closure or fn-typed binding `n`
-      - UNRESOLVED(closure): `n` at [L130](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L130) (→ [`crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:46`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L46)) — call through a closure or fn-typed binding `n`
-      - UNRESOLVED(closure): `n` at [L131](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L131) (→ [`crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:46`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L46)) — call through a closure or fn-typed binding `n`
-      - UNRESOLVED(closure): `n` at [L132](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L132) (→ [`crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:46`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L46)) — call through a closure or fn-typed binding `n`
-  - [`mod.rs::TrisoAtopsNuclide::decay_constant`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/mod.rs#L117) `pub fn decay_constant(&self) -> DecayConstant` — The radioactive decay constant `λ = ln 2 / t½`. · called at [L128](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/release_models/mod.rs#L128)
+<div class="cw-node" style="margin-left:0.0em">
+
+[`mod.rs::rb_fail`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/release_models/mod.rs#L81) `pub fn rb_fail(z: u32, short_lived: bool, decay_constant: DecayConstant, temperature: ThermodynamicTemperature, irradiation_time: Time, grain_size: Length, sic_thickness: Length, kernel_radius: Length, kernel_diffusion_coefficient: DiffusionCoefficient) -> ReleaseFraction` — Normal-operation release-to-birth `<R/B>_fail` dispatcher.
+
+<details open><summary>code</summary>
+
+<!-- snippet-check: crates/boon-lay/src/triso_atops_fork/release_models/mod.rs:81 fn rb_fail -->
+<!-- snippet-check: crates/boon-lay/src/triso_atops_fork/release_models/mod.rs:97 from_atomic_number -->
+<!-- snippet-check: crates/boon-lay/src/triso_atops_fork/release_models/mod.rs:99 rb_fail_noble_gases -->
+<!-- snippet-check: crates/boon-lay/src/triso_atops_fork/release_models/mod.rs:103 booth_shortlived_fast_diffuse -->
+<!-- snippet-check: crates/boon-lay/src/triso_atops_fork/release_models/mod.rs:109 booth_longlived -->
+<!-- snippet-check: crates/boon-lay/src/triso_atops_fork/release_models/mod.rs:117 diffusion_coefficient_sic_ag -->
+<!-- snippet-check: crates/boon-lay/src/triso_atops_fork/release_models/mod.rs:118 breakthrough_model -->
+<!-- snippet-check: crates/boon-lay/src/triso_atops_fork/release_models/mod.rs:126 find_nuclide -->
+<!-- snippet-check: crates/boon-lay/src/triso_atops_fork/release_models/mod.rs:128 decay_constant -->
+
+```rust,ignore
+{{#include ../../../../../crates/boon-lay/src/triso_atops_fork/release_models/mod.rs:81:88}}
+    // …
+{{#include ../../../../../crates/boon-lay/src/triso_atops_fork/release_models/mod.rs:95:104}}
+    // …
+{{#include ../../../../../crates/boon-lay/src/triso_atops_fork/release_models/mod.rs:107:110}}
+    // …
+{{#include ../../../../../crates/boon-lay/src/triso_atops_fork/release_models/mod.rs:115:119}}
+    // …
+{{#include ../../../../../crates/boon-lay/src/triso_atops_fork/release_models/mod.rs:124:129}}
+    // … (the rest of the function: follow the link above)
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:0.9em">
+
+[`mod.rs::ElementGroup::from_atomic_number`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/mod.rs#L174) `pub fn from_atomic_number(z: u32) -> Self` — Classify an atomic number `Z` into its TRISO-ATOPS transport group. · called at [L97](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/release_models/mod.rs#L97)
+
+<details open><summary>code</summary>
+
+<!-- snippet-check: crates/boon-lay/src/triso_atops_fork/nuclide_model/mod.rs:174 fn from_atomic_number -->
+
+```rust,ignore
+{{#include ../../../../../crates/boon-lay/src/triso_atops_fork/nuclide_model/mod.rs:174:191}}
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:0.9em">
+
+[`steady_state.rs::rb_fail_noble_gases`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/release_models/steady_state.rs#L86) `pub fn rb_fail_noble_gases(z: u32, decay_constant: DecayConstant, temperature: ThermodynamicTemperature) -> ReleaseFraction` — Empirical release-to-birth `<R/B>_fail` for noble gases and halogens. · called at [L99](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/release_models/mod.rs#L99)
+
+<details open><summary>code</summary>
+
+<!-- snippet-check: crates/boon-lay/src/triso_atops_fork/release_models/steady_state.rs:86 fn rb_fail_noble_gases -->
+
+```rust,ignore
+{{#include ../../../../../crates/boon-lay/src/triso_atops_fork/release_models/steady_state.rs:86:101}}
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:0.9em">
+
+[`steady_state.rs::booth_shortlived_fast_diffuse`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/release_models/steady_state.rs#L225) `pub fn booth_shortlived_fast_diffuse(diffusion_coefficient: DiffusionCoefficient, decay_constant: DecayConstant, equivalent_sphere_radius: Length) -> ReleaseFraction` — Booth model `<R/B>` for a **short-lived** species that diffuses fast relative to decay. · called at [L103](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/release_models/mod.rs#L103)
+
+<details open><summary>code</summary>
+
+<!-- snippet-check: crates/boon-lay/src/triso_atops_fork/release_models/steady_state.rs:225 fn booth_shortlived_fast_diffuse -->
+
+```rust,ignore
+{{#include ../../../../../crates/boon-lay/src/triso_atops_fork/release_models/steady_state.rs:225:236}}
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:0.9em">
+
+[`steady_state.rs::booth_longlived`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/release_models/steady_state.rs#L180) `pub fn booth_longlived(diffusion_coefficient: DiffusionCoefficient, time: Time, equivalent_sphere_radius: Length) -> ReleaseFraction` — Booth model release fraction for a **long-lived** species with large release. · called at [L109](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/release_models/mod.rs#L109)
+
+<details open><summary>code</summary>
+
+<!-- snippet-check: crates/boon-lay/src/triso_atops_fork/release_models/steady_state.rs:180 fn booth_longlived -->
+
+```rust,ignore
+{{#include ../../../../../crates/boon-lay/src/triso_atops_fork/release_models/steady_state.rs:180:196}}
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:0.9em">
+
+[`mod.rs::diffusion_coefficient_sic_ag`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/diffusion/mod.rs#L196) `pub fn diffusion_coefficient_sic_ag(sic_temperature: ThermodynamicTemperature) -> DiffusionCoefficient` — Diffusion coefficient for silver (Ag) through the **SiC** layer. · called at [L117](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/release_models/mod.rs#L117)
+
+<details open><summary>code</summary>
+
+<!-- snippet-check: crates/boon-lay/src/triso_atops_fork/diffusion/mod.rs:196 fn diffusion_coefficient_sic_ag -->
+<!-- snippet-check: crates/boon-lay/src/triso_atops_fork/diffusion/mod.rs:200 arrhenius_term -->
+
+```rust,ignore
+{{#include ../../../../../crates/boon-lay/src/triso_atops_fork/diffusion/mod.rs:196:201}}
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:1.8em">
+
+[`mod.rs::arrhenius_term`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/diffusion/mod.rs#L77) `fn arrhenius_term(pre_exponential: f64, activation_energy_kj_per_mol: f64, temperature_kelvin: f64) -> f64` — Evaluate one Arrhenius term `D0 · exp(−Q / (R·T))`. · called at [L200](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/diffusion/mod.rs#L200)
+
+<details open><summary>code</summary>
+
+<!-- snippet-check: crates/boon-lay/src/triso_atops_fork/diffusion/mod.rs:77 fn arrhenius_term -->
+
+```rust,ignore
+{{#include ../../../../../crates/boon-lay/src/triso_atops_fork/diffusion/mod.rs:77:85}}
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:0.9em">
+
+[`steady_state.rs::breakthrough_model`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/release_models/steady_state.rs#L132) `pub fn breakthrough_model(diffusion_coefficient: DiffusionCoefficient, time: Time, layer_thickness: Length, kernel_radius: Length) -> ReleaseFraction` — Booth "breakthrough" release fraction for a barrier-limited (low-release) species. · called at [L118](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/release_models/mod.rs#L118)
+
+<details open><summary>code</summary>
+
+<!-- snippet-check: crates/boon-lay/src/triso_atops_fork/release_models/steady_state.rs:132 fn breakthrough_model -->
+<!-- snippet-check: crates/boon-lay/src/triso_atops_fork/release_models/steady_state.rs:151 clamp_release_fraction -->
+
+```rust,ignore
+{{#include ../../../../../crates/boon-lay/src/triso_atops_fork/release_models/steady_state.rs:132:152}}
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:1.8em">
+
+[`steady_state.rs::clamp_release_fraction`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/release_models/steady_state.rs#L57) `fn clamp_release_fraction(rf: f64) -> ReleaseFraction` — Clamp a raw release fraction into the physical `[0, 1]` range. · called at [L151](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/release_models/steady_state.rs#L151)
+
+<details open><summary>code</summary>
+
+<!-- snippet-check: crates/boon-lay/src/triso_atops_fork/release_models/steady_state.rs:57 fn clamp_release_fraction -->
+
+```rust,ignore
+{{#include ../../../../../crates/boon-lay/src/triso_atops_fork/release_models/steady_state.rs:57:59}}
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:0.9em">
+
+[`nuclide_database.rs::find_nuclide`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L145) `pub fn find_nuclide(name: &str) -> Option<TrisoAtopsNuclide>` — Look a nuclide up by its canonical TRISO-ATOPS name (case-sensitive). · called at [L126](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/release_models/mod.rs#L126)
+
+<details open><summary>code</summary>
+
+<!-- snippet-check: crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:145 fn find_nuclide -->
+<!-- snippet-check: crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:146 supported_nuclides -->
+
+```rust,ignore
+{{#include ../../../../../crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:145:147}}
+    // … (the rest of the function: follow the link above)
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:1.8em">
+
+[`nuclide_database.rs::supported_nuclides`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L44) `pub fn supported_nuclides() -> Vec<TrisoAtopsNuclide>` — The full TRISO-ATOPS supported-nuclide table. · called at [L146](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L146)
+
+<details open><summary>code</summary>
+
+<!-- snippet-check: crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:44 fn supported_nuclides -->
+<!-- snippet-check: crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:48 n -->
+<!-- snippet-check: crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:49 n -->
+<!-- snippet-check: crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:50 n -->
+<!-- snippet-check: crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:51 n -->
+<!-- snippet-check: crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:52 n -->
+<!-- snippet-check: crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:53 n -->
+<!-- snippet-check: crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:54 n -->
+<!-- snippet-check: crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:55 n -->
+<!-- snippet-check: crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:56 n -->
+<!-- snippet-check: crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:57 n -->
+<!-- snippet-check: crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:58 n -->
+<!-- snippet-check: crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:59 n -->
+<!-- snippet-check: crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:60 n -->
+<!-- snippet-check: crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:61 n -->
+<!-- snippet-check: crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:62 n -->
+<!-- snippet-check: crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:63 n -->
+<!-- snippet-check: crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:64 n -->
+<!-- snippet-check: crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:65 n -->
+<!-- snippet-check: crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:66 n -->
+<!-- snippet-check: crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:67 n -->
+<!-- snippet-check: crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:68 n -->
+<!-- snippet-check: crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:69 n -->
+<!-- snippet-check: crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:70 n -->
+<!-- snippet-check: crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:71 n -->
+<!-- snippet-check: crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:72 n -->
+<!-- snippet-check: crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:73 n -->
+<!-- snippet-check: crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:74 n -->
+<!-- snippet-check: crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:75 n -->
+<!-- snippet-check: crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:76 n -->
+<!-- snippet-check: crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:77 n -->
+<!-- snippet-check: crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:78 n -->
+<!-- snippet-check: crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:79 n -->
+<!-- snippet-check: crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:80 n -->
+<!-- snippet-check: crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:81 n -->
+<!-- snippet-check: crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:82 n -->
+<!-- snippet-check: crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:83 n -->
+<!-- snippet-check: crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:84 n -->
+<!-- snippet-check: crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:85 n -->
+<!-- snippet-check: crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:86 n -->
+<!-- snippet-check: crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:87 n -->
+<!-- snippet-check: crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:88 n -->
+<!-- snippet-check: crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:89 n -->
+<!-- snippet-check: crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:90 n -->
+<!-- snippet-check: crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:91 n -->
+<!-- snippet-check: crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:92 n -->
+<!-- snippet-check: crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:93 n -->
+<!-- snippet-check: crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:94 n -->
+<!-- snippet-check: crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:95 n -->
+<!-- snippet-check: crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:96 n -->
+<!-- snippet-check: crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:97 n -->
+<!-- snippet-check: crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:98 n -->
+<!-- snippet-check: crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:99 n -->
+<!-- snippet-check: crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:100 n -->
+<!-- snippet-check: crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:101 n -->
+<!-- snippet-check: crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:102 n -->
+<!-- snippet-check: crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:103 n -->
+<!-- snippet-check: crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:104 n -->
+<!-- snippet-check: crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:105 n -->
+<!-- snippet-check: crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:106 n -->
+<!-- snippet-check: crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:107 n -->
+<!-- snippet-check: crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:108 n -->
+<!-- snippet-check: crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:109 n -->
+<!-- snippet-check: crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:110 n -->
+<!-- snippet-check: crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:111 n -->
+<!-- snippet-check: crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:112 n -->
+<!-- snippet-check: crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:113 n -->
+<!-- snippet-check: crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:114 n -->
+<!-- snippet-check: crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:115 n -->
+<!-- snippet-check: crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:116 n -->
+<!-- snippet-check: crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:117 n -->
+<!-- snippet-check: crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:118 n -->
+<!-- snippet-check: crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:120 n -->
+<!-- snippet-check: crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:121 n -->
+<!-- snippet-check: crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:122 n -->
+<!-- snippet-check: crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:123 n -->
+<!-- snippet-check: crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:124 n -->
+<!-- snippet-check: crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:125 n -->
+<!-- snippet-check: crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:126 n -->
+<!-- snippet-check: crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:127 n -->
+<!-- snippet-check: crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:128 n -->
+<!-- snippet-check: crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:129 n -->
+<!-- snippet-check: crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:130 n -->
+<!-- snippet-check: crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:131 n -->
+<!-- snippet-check: crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:132 n -->
+
+```rust,ignore
+{{#include ../../../../../crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:44:44}}
+    // …
+{{#include ../../../../../crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:46:133}}
+    // … (the rest of the function: follow the link above)
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:2.7em">
+
+UNRESOLVED(closure): `n` at [L48](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L48) (→ [`crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:46`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L46)) — call through a closure or fn-typed binding `n`
+
+</div>
+
+<div class="cw-node" style="margin-left:2.7em">
+
+UNRESOLVED(closure): `n` at [L49](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L49) (→ [`crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:46`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L46)) — call through a closure or fn-typed binding `n`
+
+</div>
+
+<div class="cw-node" style="margin-left:2.7em">
+
+UNRESOLVED(closure): `n` at [L50](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L50) (→ [`crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:46`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L46)) — call through a closure or fn-typed binding `n`
+
+</div>
+
+<div class="cw-node" style="margin-left:2.7em">
+
+UNRESOLVED(closure): `n` at [L51](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L51) (→ [`crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:46`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L46)) — call through a closure or fn-typed binding `n`
+
+</div>
+
+<div class="cw-node" style="margin-left:2.7em">
+
+UNRESOLVED(closure): `n` at [L52](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L52) (→ [`crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:46`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L46)) — call through a closure or fn-typed binding `n`
+
+</div>
+
+<div class="cw-node" style="margin-left:2.7em">
+
+UNRESOLVED(closure): `n` at [L53](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L53) (→ [`crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:46`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L46)) — call through a closure or fn-typed binding `n`
+
+</div>
+
+<div class="cw-node" style="margin-left:2.7em">
+
+UNRESOLVED(closure): `n` at [L54](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L54) (→ [`crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:46`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L46)) — call through a closure or fn-typed binding `n`
+
+</div>
+
+<div class="cw-node" style="margin-left:2.7em">
+
+UNRESOLVED(closure): `n` at [L55](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L55) (→ [`crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:46`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L46)) — call through a closure or fn-typed binding `n`
+
+</div>
+
+<div class="cw-node" style="margin-left:2.7em">
+
+UNRESOLVED(closure): `n` at [L56](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L56) (→ [`crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:46`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L46)) — call through a closure or fn-typed binding `n`
+
+</div>
+
+<div class="cw-node" style="margin-left:2.7em">
+
+UNRESOLVED(closure): `n` at [L57](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L57) (→ [`crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:46`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L46)) — call through a closure or fn-typed binding `n`
+
+</div>
+
+<div class="cw-node" style="margin-left:2.7em">
+
+UNRESOLVED(closure): `n` at [L58](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L58) (→ [`crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:46`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L46)) — call through a closure or fn-typed binding `n`
+
+</div>
+
+<div class="cw-node" style="margin-left:2.7em">
+
+UNRESOLVED(closure): `n` at [L59](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L59) (→ [`crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:46`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L46)) — call through a closure or fn-typed binding `n`
+
+</div>
+
+<div class="cw-node" style="margin-left:2.7em">
+
+UNRESOLVED(closure): `n` at [L60](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L60) (→ [`crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:46`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L46)) — call through a closure or fn-typed binding `n`
+
+</div>
+
+<div class="cw-node" style="margin-left:2.7em">
+
+UNRESOLVED(closure): `n` at [L61](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L61) (→ [`crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:46`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L46)) — call through a closure or fn-typed binding `n`
+
+</div>
+
+<div class="cw-node" style="margin-left:2.7em">
+
+UNRESOLVED(closure): `n` at [L62](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L62) (→ [`crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:46`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L46)) — call through a closure or fn-typed binding `n`
+
+</div>
+
+<div class="cw-node" style="margin-left:2.7em">
+
+UNRESOLVED(closure): `n` at [L63](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L63) (→ [`crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:46`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L46)) — call through a closure or fn-typed binding `n`
+
+</div>
+
+<div class="cw-node" style="margin-left:2.7em">
+
+UNRESOLVED(closure): `n` at [L64](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L64) (→ [`crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:46`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L46)) — call through a closure or fn-typed binding `n`
+
+</div>
+
+<div class="cw-node" style="margin-left:2.7em">
+
+UNRESOLVED(closure): `n` at [L65](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L65) (→ [`crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:46`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L46)) — call through a closure or fn-typed binding `n`
+
+</div>
+
+<div class="cw-node" style="margin-left:2.7em">
+
+UNRESOLVED(closure): `n` at [L66](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L66) (→ [`crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:46`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L46)) — call through a closure or fn-typed binding `n`
+
+</div>
+
+<div class="cw-node" style="margin-left:2.7em">
+
+UNRESOLVED(closure): `n` at [L67](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L67) (→ [`crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:46`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L46)) — call through a closure or fn-typed binding `n`
+
+</div>
+
+<div class="cw-node" style="margin-left:2.7em">
+
+UNRESOLVED(closure): `n` at [L68](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L68) (→ [`crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:46`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L46)) — call through a closure or fn-typed binding `n`
+
+</div>
+
+<div class="cw-node" style="margin-left:2.7em">
+
+UNRESOLVED(closure): `n` at [L69](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L69) (→ [`crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:46`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L46)) — call through a closure or fn-typed binding `n`
+
+</div>
+
+<div class="cw-node" style="margin-left:2.7em">
+
+UNRESOLVED(closure): `n` at [L70](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L70) (→ [`crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:46`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L46)) — call through a closure or fn-typed binding `n`
+
+</div>
+
+<div class="cw-node" style="margin-left:2.7em">
+
+UNRESOLVED(closure): `n` at [L71](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L71) (→ [`crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:46`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L46)) — call through a closure or fn-typed binding `n`
+
+</div>
+
+<div class="cw-node" style="margin-left:2.7em">
+
+UNRESOLVED(closure): `n` at [L72](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L72) (→ [`crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:46`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L46)) — call through a closure or fn-typed binding `n`
+
+</div>
+
+<div class="cw-node" style="margin-left:2.7em">
+
+UNRESOLVED(closure): `n` at [L73](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L73) (→ [`crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:46`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L46)) — call through a closure or fn-typed binding `n`
+
+</div>
+
+<div class="cw-node" style="margin-left:2.7em">
+
+UNRESOLVED(closure): `n` at [L74](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L74) (→ [`crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:46`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L46)) — call through a closure or fn-typed binding `n`
+
+</div>
+
+<div class="cw-node" style="margin-left:2.7em">
+
+UNRESOLVED(closure): `n` at [L75](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L75) (→ [`crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:46`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L46)) — call through a closure or fn-typed binding `n`
+
+</div>
+
+<div class="cw-node" style="margin-left:2.7em">
+
+UNRESOLVED(closure): `n` at [L76](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L76) (→ [`crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:46`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L46)) — call through a closure or fn-typed binding `n`
+
+</div>
+
+<div class="cw-node" style="margin-left:2.7em">
+
+UNRESOLVED(closure): `n` at [L77](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L77) (→ [`crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:46`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L46)) — call through a closure or fn-typed binding `n`
+
+</div>
+
+<div class="cw-node" style="margin-left:2.7em">
+
+UNRESOLVED(closure): `n` at [L78](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L78) (→ [`crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:46`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L46)) — call through a closure or fn-typed binding `n`
+
+</div>
+
+<div class="cw-node" style="margin-left:2.7em">
+
+UNRESOLVED(closure): `n` at [L79](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L79) (→ [`crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:46`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L46)) — call through a closure or fn-typed binding `n`
+
+</div>
+
+<div class="cw-node" style="margin-left:2.7em">
+
+UNRESOLVED(closure): `n` at [L80](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L80) (→ [`crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:46`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L46)) — call through a closure or fn-typed binding `n`
+
+</div>
+
+<div class="cw-node" style="margin-left:2.7em">
+
+UNRESOLVED(closure): `n` at [L81](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L81) (→ [`crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:46`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L46)) — call through a closure or fn-typed binding `n`
+
+</div>
+
+<div class="cw-node" style="margin-left:2.7em">
+
+UNRESOLVED(closure): `n` at [L82](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L82) (→ [`crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:46`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L46)) — call through a closure or fn-typed binding `n`
+
+</div>
+
+<div class="cw-node" style="margin-left:2.7em">
+
+UNRESOLVED(closure): `n` at [L83](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L83) (→ [`crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:46`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L46)) — call through a closure or fn-typed binding `n`
+
+</div>
+
+<div class="cw-node" style="margin-left:2.7em">
+
+UNRESOLVED(closure): `n` at [L84](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L84) (→ [`crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:46`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L46)) — call through a closure or fn-typed binding `n`
+
+</div>
+
+<div class="cw-node" style="margin-left:2.7em">
+
+UNRESOLVED(closure): `n` at [L85](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L85) (→ [`crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:46`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L46)) — call through a closure or fn-typed binding `n`
+
+</div>
+
+<div class="cw-node" style="margin-left:2.7em">
+
+UNRESOLVED(closure): `n` at [L86](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L86) (→ [`crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:46`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L46)) — call through a closure or fn-typed binding `n`
+
+</div>
+
+<div class="cw-node" style="margin-left:2.7em">
+
+UNRESOLVED(closure): `n` at [L87](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L87) (→ [`crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:46`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L46)) — call through a closure or fn-typed binding `n`
+
+</div>
+
+<div class="cw-node" style="margin-left:2.7em">
+
+UNRESOLVED(closure): `n` at [L88](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L88) (→ [`crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:46`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L46)) — call through a closure or fn-typed binding `n`
+
+</div>
+
+<div class="cw-node" style="margin-left:2.7em">
+
+UNRESOLVED(closure): `n` at [L89](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L89) (→ [`crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:46`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L46)) — call through a closure or fn-typed binding `n`
+
+</div>
+
+<div class="cw-node" style="margin-left:2.7em">
+
+UNRESOLVED(closure): `n` at [L90](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L90) (→ [`crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:46`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L46)) — call through a closure or fn-typed binding `n`
+
+</div>
+
+<div class="cw-node" style="margin-left:2.7em">
+
+UNRESOLVED(closure): `n` at [L91](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L91) (→ [`crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:46`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L46)) — call through a closure or fn-typed binding `n`
+
+</div>
+
+<div class="cw-node" style="margin-left:2.7em">
+
+UNRESOLVED(closure): `n` at [L92](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L92) (→ [`crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:46`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L46)) — call through a closure or fn-typed binding `n`
+
+</div>
+
+<div class="cw-node" style="margin-left:2.7em">
+
+UNRESOLVED(closure): `n` at [L93](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L93) (→ [`crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:46`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L46)) — call through a closure or fn-typed binding `n`
+
+</div>
+
+<div class="cw-node" style="margin-left:2.7em">
+
+UNRESOLVED(closure): `n` at [L94](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L94) (→ [`crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:46`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L46)) — call through a closure or fn-typed binding `n`
+
+</div>
+
+<div class="cw-node" style="margin-left:2.7em">
+
+UNRESOLVED(closure): `n` at [L95](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L95) (→ [`crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:46`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L46)) — call through a closure or fn-typed binding `n`
+
+</div>
+
+<div class="cw-node" style="margin-left:2.7em">
+
+UNRESOLVED(closure): `n` at [L96](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L96) (→ [`crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:46`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L46)) — call through a closure or fn-typed binding `n`
+
+</div>
+
+<div class="cw-node" style="margin-left:2.7em">
+
+UNRESOLVED(closure): `n` at [L97](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L97) (→ [`crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:46`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L46)) — call through a closure or fn-typed binding `n`
+
+</div>
+
+<div class="cw-node" style="margin-left:2.7em">
+
+UNRESOLVED(closure): `n` at [L98](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L98) (→ [`crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:46`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L46)) — call through a closure or fn-typed binding `n`
+
+</div>
+
+<div class="cw-node" style="margin-left:2.7em">
+
+UNRESOLVED(closure): `n` at [L99](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L99) (→ [`crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:46`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L46)) — call through a closure or fn-typed binding `n`
+
+</div>
+
+<div class="cw-node" style="margin-left:2.7em">
+
+UNRESOLVED(closure): `n` at [L100](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L100) (→ [`crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:46`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L46)) — call through a closure or fn-typed binding `n`
+
+</div>
+
+<div class="cw-node" style="margin-left:2.7em">
+
+UNRESOLVED(closure): `n` at [L101](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L101) (→ [`crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:46`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L46)) — call through a closure or fn-typed binding `n`
+
+</div>
+
+<div class="cw-node" style="margin-left:2.7em">
+
+UNRESOLVED(closure): `n` at [L102](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L102) (→ [`crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:46`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L46)) — call through a closure or fn-typed binding `n`
+
+</div>
+
+<div class="cw-node" style="margin-left:2.7em">
+
+UNRESOLVED(closure): `n` at [L103](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L103) (→ [`crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:46`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L46)) — call through a closure or fn-typed binding `n`
+
+</div>
+
+<div class="cw-node" style="margin-left:2.7em">
+
+UNRESOLVED(closure): `n` at [L104](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L104) (→ [`crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:46`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L46)) — call through a closure or fn-typed binding `n`
+
+</div>
+
+<div class="cw-node" style="margin-left:2.7em">
+
+UNRESOLVED(closure): `n` at [L105](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L105) (→ [`crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:46`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L46)) — call through a closure or fn-typed binding `n`
+
+</div>
+
+<div class="cw-node" style="margin-left:2.7em">
+
+UNRESOLVED(closure): `n` at [L106](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L106) (→ [`crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:46`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L46)) — call through a closure or fn-typed binding `n`
+
+</div>
+
+<div class="cw-node" style="margin-left:2.7em">
+
+UNRESOLVED(closure): `n` at [L107](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L107) (→ [`crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:46`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L46)) — call through a closure or fn-typed binding `n`
+
+</div>
+
+<div class="cw-node" style="margin-left:2.7em">
+
+UNRESOLVED(closure): `n` at [L108](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L108) (→ [`crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:46`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L46)) — call through a closure or fn-typed binding `n`
+
+</div>
+
+<div class="cw-node" style="margin-left:2.7em">
+
+UNRESOLVED(closure): `n` at [L109](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L109) (→ [`crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:46`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L46)) — call through a closure or fn-typed binding `n`
+
+</div>
+
+<div class="cw-node" style="margin-left:2.7em">
+
+UNRESOLVED(closure): `n` at [L110](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L110) (→ [`crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:46`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L46)) — call through a closure or fn-typed binding `n`
+
+</div>
+
+<div class="cw-node" style="margin-left:2.7em">
+
+UNRESOLVED(closure): `n` at [L111](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L111) (→ [`crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:46`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L46)) — call through a closure or fn-typed binding `n`
+
+</div>
+
+<div class="cw-node" style="margin-left:2.7em">
+
+UNRESOLVED(closure): `n` at [L112](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L112) (→ [`crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:46`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L46)) — call through a closure or fn-typed binding `n`
+
+</div>
+
+<div class="cw-node" style="margin-left:2.7em">
+
+UNRESOLVED(closure): `n` at [L113](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L113) (→ [`crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:46`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L46)) — call through a closure or fn-typed binding `n`
+
+</div>
+
+<div class="cw-node" style="margin-left:2.7em">
+
+UNRESOLVED(closure): `n` at [L114](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L114) (→ [`crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:46`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L46)) — call through a closure or fn-typed binding `n`
+
+</div>
+
+<div class="cw-node" style="margin-left:2.7em">
+
+UNRESOLVED(closure): `n` at [L115](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L115) (→ [`crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:46`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L46)) — call through a closure or fn-typed binding `n`
+
+</div>
+
+<div class="cw-node" style="margin-left:2.7em">
+
+UNRESOLVED(closure): `n` at [L116](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L116) (→ [`crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:46`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L46)) — call through a closure or fn-typed binding `n`
+
+</div>
+
+<div class="cw-node" style="margin-left:2.7em">
+
+UNRESOLVED(closure): `n` at [L117](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L117) (→ [`crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:46`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L46)) — call through a closure or fn-typed binding `n`
+
+</div>
+
+<div class="cw-node" style="margin-left:2.7em">
+
+UNRESOLVED(closure): `n` at [L118](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L118) (→ [`crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:46`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L46)) — call through a closure or fn-typed binding `n`
+
+</div>
+
+<div class="cw-node" style="margin-left:2.7em">
+
+UNRESOLVED(closure): `n` at [L120](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L120) (→ [`crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:46`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L46)) — call through a closure or fn-typed binding `n`
+
+</div>
+
+<div class="cw-node" style="margin-left:2.7em">
+
+UNRESOLVED(closure): `n` at [L121](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L121) (→ [`crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:46`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L46)) — call through a closure or fn-typed binding `n`
+
+</div>
+
+<div class="cw-node" style="margin-left:2.7em">
+
+UNRESOLVED(closure): `n` at [L122](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L122) (→ [`crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:46`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L46)) — call through a closure or fn-typed binding `n`
+
+</div>
+
+<div class="cw-node" style="margin-left:2.7em">
+
+UNRESOLVED(closure): `n` at [L123](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L123) (→ [`crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:46`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L46)) — call through a closure or fn-typed binding `n`
+
+</div>
+
+<div class="cw-node" style="margin-left:2.7em">
+
+UNRESOLVED(closure): `n` at [L124](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L124) (→ [`crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:46`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L46)) — call through a closure or fn-typed binding `n`
+
+</div>
+
+<div class="cw-node" style="margin-left:2.7em">
+
+UNRESOLVED(closure): `n` at [L125](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L125) (→ [`crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:46`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L46)) — call through a closure or fn-typed binding `n`
+
+</div>
+
+<div class="cw-node" style="margin-left:2.7em">
+
+UNRESOLVED(closure): `n` at [L126](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L126) (→ [`crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:46`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L46)) — call through a closure or fn-typed binding `n`
+
+</div>
+
+<div class="cw-node" style="margin-left:2.7em">
+
+UNRESOLVED(closure): `n` at [L127](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L127) (→ [`crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:46`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L46)) — call through a closure or fn-typed binding `n`
+
+</div>
+
+<div class="cw-node" style="margin-left:2.7em">
+
+UNRESOLVED(closure): `n` at [L128](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L128) (→ [`crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:46`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L46)) — call through a closure or fn-typed binding `n`
+
+</div>
+
+<div class="cw-node" style="margin-left:2.7em">
+
+UNRESOLVED(closure): `n` at [L129](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L129) (→ [`crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:46`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L46)) — call through a closure or fn-typed binding `n`
+
+</div>
+
+<div class="cw-node" style="margin-left:2.7em">
+
+UNRESOLVED(closure): `n` at [L130](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L130) (→ [`crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:46`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L46)) — call through a closure or fn-typed binding `n`
+
+</div>
+
+<div class="cw-node" style="margin-left:2.7em">
+
+UNRESOLVED(closure): `n` at [L131](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L131) (→ [`crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:46`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L46)) — call through a closure or fn-typed binding `n`
+
+</div>
+
+<div class="cw-node" style="margin-left:2.7em">
+
+UNRESOLVED(closure): `n` at [L132](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L132) (→ [`crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:46`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L46)) — call through a closure or fn-typed binding `n`
+
+</div>
+
+<div class="cw-node" style="margin-left:0.9em">
+
+[`mod.rs::TrisoAtopsNuclide::decay_constant`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/mod.rs#L117) `pub fn decay_constant(&self) -> DecayConstant` — The radioactive decay constant `λ = ln 2 / t½`. · called at [L128](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/release_models/mod.rs#L128)
+
+<details open><summary>code</summary>
+
+<!-- snippet-check: crates/boon-lay/src/triso_atops_fork/nuclide_model/mod.rs:117 fn decay_constant -->
+
+```rust,ignore
+{{#include ../../../../../crates/boon-lay/src/triso_atops_fork/nuclide_model/mod.rs:117:120}}
+```
+
+</details>
+</div>
 <!-- /code-walk -->
 
 ## Rung 5 — when the shell breaks {#rung-5}
@@ -321,37 +2750,481 @@ Entry points: the accident history, and the HTR-10 end-of-irradiation case
 
 Everything `crates/boon-lay/src/fuel_failure/history.rs::AccidentHistory::run` reaches in the workspace, to 4 hops: 27 functions, 3 unresolved calls. A function is expanded once; later calls to it say *(expanded elsewhere in this walk)*.
 
-- [`history.rs::AccidentHistory::run`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/fuel_failure/history.rs#L609) `pub fn run(&mut self, steps: &[AccidentStep]) -> FailureProgress` — Walk a whole temperature history and return the final state.
-  - [`history.rs::AccidentHistory::step`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/fuel_failure/history.rs#L552) `pub fn step(&mut self, step: AccidentStep) -> FailureProgress` — Advance one interval (pages -482-, -483-, -492-, -496-) and return the new state. · called at [L611](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/fuel_failure/history.rs#L611)
-    - [`geometry.rs::SicLayer::initial_thickness`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/fuel_failure/geometry.rs#L57) `pub fn initial_thickness(&self) -> Length` — The original layer thickness `d_o = r_a − r_i` (page -484-). · called at [L555](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/fuel_failure/history.rs#L555)
-    - [`corrosion.rs::advance_thinning_factor`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/fuel_failure/corrosion.rs#L125) `pub fn advance_thinning_factor(previous: Ratio, initial_thickness: Length, mean_temperature: ThermodynamicTemperature, step: Time) -> Ratio` — Advance `FKOR` across one time step at mean temperature `t_m` (page -492-): · called at [L560](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/fuel_failure/history.rs#L560)
-      - [`corrosion.rs::corrosion_rate`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/fuel_failure/corrosion.rs#L85) `pub fn corrosion_rate(temperature: ThermodynamicTemperature) -> Velocity` — The SiC volume-corrosion rate `v̇` \[m/s\] (page -492-, Montgomery 1981). · called at [L131](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/fuel_failure/corrosion.rs#L131)
-        - [`corrosion.rs::corrosion_rate_with`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/fuel_failure/corrosion.rs#L91) `pub fn corrosion_rate_with(prefactor: f64, temperature: ThermodynamicTemperature) -> Velocity` — `corrosion_rate` with an explicit pre-factor, so the printed-vs-figure discrepancy is reproducible rather than merely documented. · called at [L86](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/fuel_failure/corrosion.rs#L86) · *(calls below the depth limit not shown)*
-    - [`history.rs::AccidentHistory::pressure_vessel_failure_at`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/fuel_failure/history.rs#L509) `pub fn pressure_vessel_failure_at(&self, elapsed: Time, thinning_factor: Ratio, temperature: ThermodynamicTemperature) -> FailureFraction` — `φ₁(t, T_m)` for a given elapsed accident time and thinning factor — the full pressure-vessel chain evaluated at one instant. · called at [L563](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/fuel_failure/history.rs#L563)
-      - [`history.rs::AccidentHistory::pressure_at`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/fuel_failure/history.rs#L529) `pub fn pressure_at(&self, elapsed: Time, temperature: ThermodynamicTemperature) -> Pressure` — **Eq (3)** — the internal gas pressure at an instant, with `F_d` from Eq (4) at this elapsed accident time and `OPF` at this temperature. · called at [L515](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/fuel_failure/history.rs#L515)
-        - [`diffusion.rs::reduced_diffusion_coefficient`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/fuel_failure/diffusion.rs#L111) `pub fn reduced_diffusion_coefficient(kernel: KernelKind, temperature: ThermodynamicTemperature, burnup: Ratio) -> Frequency` — The reduced diffusion coefficient `D_S` \[s^-1\] (page -487-). · called at [L530](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/fuel_failure/history.rs#L530) · *(calls below the depth limit not shown)*
-        - [`booth.rs::dimensionless_time`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/fuel_failure/booth.rs#L181) `pub fn dimensionless_time(reduced_diffusion: Frequency, elapsed: Time) -> Ratio` — A dimensionless diffusion time `τ = D_S·t` (page -486-). · called at [L535](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/fuel_failure/history.rs#L535) · *(calls below the depth limit not shown)*
-        - [`booth.rs::released_gas_fraction`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/fuel_failure/booth.rs#L207) `pub fn released_gas_fraction(tau_irradiation: Ratio, tau_accident: Ratio) -> Ratio` — **Eq (4)** — the released fraction `F_d` of the stable fission gas (page -485-, Allelein 1983). · called at [L536](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/fuel_failure/history.rs#L536) · *(calls below the depth limit not shown)*
-        - [`history.rs::OxygenSource::oxygen_per_fission`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/fuel_failure/history.rs#L301) `pub fn oxygen_per_fission(self, accident_temperature: ThermodynamicTemperature) -> Ratio` — The `OPF` for this step's accident temperature. · called at [L537](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/fuel_failure/history.rs#L537) · *(calls below the depth limit not shown)*
-        - [`pressure.rs::internal_gas_pressure`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/fuel_failure/pressure.rs#L80) `pub fn internal_gas_pressure(released_gas_fraction: Ratio, stable_gas_yield: Ratio, oxygen_per_fission: Ratio, burnup: Ratio, free_volume: Volume, kernel_volume: Volume, molar_volume: MolarVolume, temperature: ThermodynamicTemperature) -> Pressure` — **Eq (3)** — internal gas pressure from the ideal gas law (page -484-). · called at [L538](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/fuel_failure/history.rs#L538) · *(calls below the depth limit not shown)*
-        - [`molar_volume.rs::molar_volume`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/fuel_failure/molar_volume.rs#L116) `pub fn molar_volume(kernel: KernelCompound) -> MolarVolume` — **Eqs (6a)/(6b)/(6c)** — the molar volume `V_m` of the heavy metal in the kernel (pages -491-, -492-). · called at [L545](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/fuel_failure/history.rs#L545) · *(calls below the depth limit not shown)*
-      - [`stress.rs::induced_stress_with_thinning_factor`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/fuel_failure/stress.rs#L107) `pub fn induced_stress_with_thinning_factor(layer: &SicLayer, pressure: Pressure, thinning_factor: Ratio) -> Pressure` — Eq (2) written against a **carried** `FKOR` rather than an elapsed time (pages -484-, -492-): · called at [L516](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/fuel_failure/history.rs#L516)
-        - `geometry.rs::SicLayer::initial_thickness` *(expanded elsewhere in this walk)* · called at [L113](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/fuel_failure/stress.rs#L113)
-        - [`geometry.rs::SicLayer::mean_radius`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/fuel_failure/geometry.rs#L50) `pub fn mean_radius(&self) -> Length` — The report's **average radius** `r = (0.5·(r_a³ + r_i³))^(1/3)` (page -484-). · called at [L114](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/fuel_failure/stress.rs#L114) · *(calls below the depth limit not shown)*
-      - [`grain_boundary.rs::corroded_weibull_modulus`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/fuel_failure/grain_boundary.rs#L171) `pub fn corroded_weibull_modulus(end_of_irradiation_modulus: f64, exposure: Ratio) -> f64` — **Eq (10b)** — the Weibull modulus after grain-boundary corrosion (page -495-): · called at [L519](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/fuel_failure/history.rs#L519)
-      - [`weibull.rs::weibull_failure_fraction`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/fuel_failure/weibull.rs#L49) `pub fn weibull_failure_fraction(induced_stress: Pressure, median_strength: Pressure, weibull_modulus: f64) -> FailureFraction` — **Eq (1)** — the fraction of particles failed by pressure-vessel overstress (page -483-, attributed to Nabielek 1984). · called at [L524](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/fuel_failure/history.rs#L524)
-    - [`decomposition.rs::advance_action_integral`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/fuel_failure/decomposition.rs#L155) `pub fn advance_action_integral(previous: Ratio, initial_thickness: Length, mean_temperature: ThermodynamicTemperature, step: Time) -> Ratio` — **Eq (11)** — advance the action integral `ζ` across one time step (page -496-): · called at [L570](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/fuel_failure/history.rs#L570)
-      - [`decomposition.rs::decomposition_rate_constant`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/fuel_failure/decomposition.rs#L129) `pub fn decomposition_rate_constant(initial_thickness: Length, mean_temperature: ThermodynamicTemperature) -> Frequency` — **Eq (12)** — the decomposition rate constant `k(T_m)` \[s⁻¹\] (page -496-). · called at [L161](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/fuel_failure/decomposition.rs#L161)
-    - [`decomposition.rs::thermal_decomposition_failure_fraction`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/fuel_failure/decomposition.rs#L213) `pub fn thermal_decomposition_failure_fraction(action_integral: Ratio, calibration: DecompositionCalibration) -> Ratio` — **Eq (13)** — the failed fraction from thermal decomposition (page -496-). · called at [L572](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/fuel_failure/history.rs#L572)
-      - [`decomposition.rs::thermal_decomposition_failure_fraction_with`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/fuel_failure/decomposition.rs#L229) `pub fn thermal_decomposition_failure_fraction_with(action_integral: Ratio, alpha: f64, beta: f64) -> Ratio` — `thermal_decomposition_failure_fraction` with an explicit `α` and `β`. · called at [L217](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/fuel_failure/decomposition.rs#L217)
-      - [`decomposition.rs::DecompositionCalibration::alpha`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/fuel_failure/decomposition.rs#L185) `pub const fn alpha(self) -> f64` — `α` of Eq (13). · called at [L219](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/fuel_failure/decomposition.rs#L219)
-      - [`decomposition.rs::DecompositionCalibration::beta`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/fuel_failure/decomposition.rs#L193) `pub const fn beta(self) -> f64` — `β` of Eq (13). · called at [L220](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/fuel_failure/decomposition.rs#L220)
-    - [`grain_boundary.rs::advance_grain_boundary_exposure`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/fuel_failure/grain_boundary.rs#L147) `pub fn advance_grain_boundary_exposure(previous: Ratio, mean_temperature: ThermodynamicTemperature, step: Time) -> Ratio` — Advance the accumulated grain-boundary exposure `∫η̇ dt` across one time step at its own mean temperature. · called at [L577](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/fuel_failure/history.rs#L577)
-      - [`grain_boundary.rs::grain_boundary_corrosion_rate`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/fuel_failure/grain_boundary.rs#L129) `pub fn grain_boundary_corrosion_rate(temperature: ThermodynamicTemperature) -> Frequency` — **Eq (10c)** — the SiC grain-boundary corrosion rate `η̇` \[s⁻¹\] (page -495-). · called at [L152](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/fuel_failure/grain_boundary.rs#L152)
-    - [`mod.rs::total_failure_fraction`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/fuel_failure/mod.rs#L249) `pub fn total_failure_fraction(as_manufactured: FailureFraction, pressure_vessel: FailureFraction, thermal_decomposition: FailureFraction) -> FailureFraction` — The combination of the three failure populations (page -480-). · called at [L582](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/fuel_failure/history.rs#L582)
-    - UNRESOLVED(closure): `rate` at [L601](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/fuel_failure/history.rs#L601) (→ [`crates/boon-lay/src/fuel_failure/history.rs:585`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/fuel_failure/history.rs#L585)) — call through a closure or fn-typed binding `rate`
-    - UNRESOLVED(closure): `rate` at [L602](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/fuel_failure/history.rs#L602) (→ [`crates/boon-lay/src/fuel_failure/history.rs:585`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/fuel_failure/history.rs#L585)) — call through a closure or fn-typed binding `rate`
-    - UNRESOLVED(closure): `rate` at [L603](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/fuel_failure/history.rs#L603) (→ [`crates/boon-lay/src/fuel_failure/history.rs:585`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/fuel_failure/history.rs#L585)) — call through a closure or fn-typed binding `rate`
+<div class="cw-node" style="margin-left:0.0em">
+
+[`history.rs::AccidentHistory::run`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/fuel_failure/history.rs#L609) `pub fn run(&mut self, steps: &[AccidentStep]) -> FailureProgress` — Walk a whole temperature history and return the final state.
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/boon-lay/src/fuel_failure/history.rs:609 fn run -->
+<!-- snippet-check: crates/boon-lay/src/fuel_failure/history.rs:611 step -->
+
+```rust,ignore
+{{#include ../../../../../crates/boon-lay/src/fuel_failure/history.rs:609:612}}
+    // … (the rest of the function: follow the link above)
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:0.9em">
+
+[`history.rs::AccidentHistory::step`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/fuel_failure/history.rs#L552) `pub fn step(&mut self, step: AccidentStep) -> FailureProgress` — Advance one interval (pages -482-, -483-, -492-, -496-) and return the new state. · called at [L611](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/fuel_failure/history.rs#L611)
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/boon-lay/src/fuel_failure/history.rs:552 fn step -->
+<!-- snippet-check: crates/boon-lay/src/fuel_failure/history.rs:555 initial_thickness -->
+<!-- snippet-check: crates/boon-lay/src/fuel_failure/history.rs:560 advance_thinning_factor -->
+<!-- snippet-check: crates/boon-lay/src/fuel_failure/history.rs:563 pressure_vessel_failure_at -->
+<!-- snippet-check: crates/boon-lay/src/fuel_failure/history.rs:570 advance_action_integral -->
+<!-- snippet-check: crates/boon-lay/src/fuel_failure/history.rs:572 thermal_decomposition_failure_fraction -->
+<!-- snippet-check: crates/boon-lay/src/fuel_failure/history.rs:577 advance_grain_boundary_exposure -->
+<!-- snippet-check: crates/boon-lay/src/fuel_failure/history.rs:582 total_failure_fraction -->
+<!-- snippet-check: crates/boon-lay/src/fuel_failure/history.rs:601 rate -->
+<!-- snippet-check: crates/boon-lay/src/fuel_failure/history.rs:602 rate -->
+<!-- snippet-check: crates/boon-lay/src/fuel_failure/history.rs:603 rate -->
+
+```rust,ignore
+{{#include ../../../../../crates/boon-lay/src/fuel_failure/history.rs:552:556}}
+    // …
+{{#include ../../../../../crates/boon-lay/src/fuel_failure/history.rs:558:564}}
+    // …
+{{#include ../../../../../crates/boon-lay/src/fuel_failure/history.rs:568:573}}
+    // …
+{{#include ../../../../../crates/boon-lay/src/fuel_failure/history.rs:575:578}}
+    // …
+{{#include ../../../../../crates/boon-lay/src/fuel_failure/history.rs:580:583}}
+    // …
+{{#include ../../../../../crates/boon-lay/src/fuel_failure/history.rs:599:604}}
+    // … (the rest of the function: follow the link above)
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:1.8em">
+
+[`geometry.rs::SicLayer::initial_thickness`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/fuel_failure/geometry.rs#L57) `pub fn initial_thickness(&self) -> Length` — The original layer thickness `d_o = r_a − r_i` (page -484-). · called at [L555](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/fuel_failure/history.rs#L555)
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/boon-lay/src/fuel_failure/geometry.rs:57 fn initial_thickness -->
+
+```rust,ignore
+{{#include ../../../../../crates/boon-lay/src/fuel_failure/geometry.rs:57:59}}
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:1.8em">
+
+[`corrosion.rs::advance_thinning_factor`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/fuel_failure/corrosion.rs#L125) `pub fn advance_thinning_factor(previous: Ratio, initial_thickness: Length, mean_temperature: ThermodynamicTemperature, step: Time) -> Ratio` — Advance `FKOR` across one time step at mean temperature `t_m` (page -492-): · called at [L560](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/fuel_failure/history.rs#L560)
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/boon-lay/src/fuel_failure/corrosion.rs:125 fn advance_thinning_factor -->
+<!-- snippet-check: crates/boon-lay/src/fuel_failure/corrosion.rs:131 corrosion_rate -->
+
+```rust,ignore
+{{#include ../../../../../crates/boon-lay/src/fuel_failure/corrosion.rs:125:132}}
+    // … (the rest of the function: follow the link above)
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:2.7em">
+
+[`corrosion.rs::corrosion_rate`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/fuel_failure/corrosion.rs#L85) `pub fn corrosion_rate(temperature: ThermodynamicTemperature) -> Velocity` — The SiC volume-corrosion rate `v̇` \[m/s\] (page -492-, Montgomery 1981). · called at [L131](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/fuel_failure/corrosion.rs#L131)
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/boon-lay/src/fuel_failure/corrosion.rs:85 fn corrosion_rate -->
+<!-- snippet-check: crates/boon-lay/src/fuel_failure/corrosion.rs:86 corrosion_rate_with -->
+
+```rust,ignore
+{{#include ../../../../../crates/boon-lay/src/fuel_failure/corrosion.rs:85:87}}
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:3.6em">
+
+[`corrosion.rs::corrosion_rate_with`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/fuel_failure/corrosion.rs#L91) `pub fn corrosion_rate_with(prefactor: f64, temperature: ThermodynamicTemperature) -> Velocity` — `corrosion_rate` with an explicit pre-factor, so the printed-vs-figure discrepancy is reproducible rather than merely documented. · called at [L86](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/fuel_failure/corrosion.rs#L86) · *(calls below the depth limit not shown)*
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/boon-lay/src/fuel_failure/corrosion.rs:91 fn corrosion_rate_with -->
+
+```rust,ignore
+{{#include ../../../../../crates/boon-lay/src/fuel_failure/corrosion.rs:91:98}}
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:1.8em">
+
+[`history.rs::AccidentHistory::pressure_vessel_failure_at`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/fuel_failure/history.rs#L509) `pub fn pressure_vessel_failure_at(&self, elapsed: Time, thinning_factor: Ratio, temperature: ThermodynamicTemperature) -> FailureFraction` — `φ₁(t, T_m)` for a given elapsed accident time and thinning factor — the full pressure-vessel chain evaluated at one instant. · called at [L563](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/fuel_failure/history.rs#L563)
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/boon-lay/src/fuel_failure/history.rs:509 fn pressure_vessel_failure_at -->
+<!-- snippet-check: crates/boon-lay/src/fuel_failure/history.rs:515 pressure_at -->
+<!-- snippet-check: crates/boon-lay/src/fuel_failure/history.rs:516 induced_stress_with_thinning_factor -->
+<!-- snippet-check: crates/boon-lay/src/fuel_failure/history.rs:519 corroded_weibull_modulus -->
+<!-- snippet-check: crates/boon-lay/src/fuel_failure/history.rs:524 weibull_failure_fraction -->
+
+```rust,ignore
+{{#include ../../../../../crates/boon-lay/src/fuel_failure/history.rs:509:525}}
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:2.7em">
+
+[`history.rs::AccidentHistory::pressure_at`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/fuel_failure/history.rs#L529) `pub fn pressure_at(&self, elapsed: Time, temperature: ThermodynamicTemperature) -> Pressure` — **Eq (3)** — the internal gas pressure at an instant, with `F_d` from Eq (4) at this elapsed accident time and `OPF` at this temperature. · called at [L515](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/fuel_failure/history.rs#L515)
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/boon-lay/src/fuel_failure/history.rs:529 fn pressure_at -->
+<!-- snippet-check: crates/boon-lay/src/fuel_failure/history.rs:530 reduced_diffusion_coefficient -->
+<!-- snippet-check: crates/boon-lay/src/fuel_failure/history.rs:535 dimensionless_time -->
+<!-- snippet-check: crates/boon-lay/src/fuel_failure/history.rs:536 released_gas_fraction -->
+<!-- snippet-check: crates/boon-lay/src/fuel_failure/history.rs:537 oxygen_per_fission -->
+<!-- snippet-check: crates/boon-lay/src/fuel_failure/history.rs:538 internal_gas_pressure -->
+<!-- snippet-check: crates/boon-lay/src/fuel_failure/history.rs:545 molar_volume -->
+
+```rust,ignore
+{{#include ../../../../../crates/boon-lay/src/fuel_failure/history.rs:529:546}}
+    // … (the rest of the function: follow the link above)
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:3.6em">
+
+[`diffusion.rs::reduced_diffusion_coefficient`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/fuel_failure/diffusion.rs#L111) `pub fn reduced_diffusion_coefficient(kernel: KernelKind, temperature: ThermodynamicTemperature, burnup: Ratio) -> Frequency` — The reduced diffusion coefficient `D_S` \[s^-1\] (page -487-). · called at [L530](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/fuel_failure/history.rs#L530) · *(calls below the depth limit not shown)*
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/boon-lay/src/fuel_failure/diffusion.rs:111 fn reduced_diffusion_coefficient -->
+
+```rust,ignore
+{{#include ../../../../../crates/boon-lay/src/fuel_failure/diffusion.rs:111:136}}
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:3.6em">
+
+[`booth.rs::dimensionless_time`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/fuel_failure/booth.rs#L181) `pub fn dimensionless_time(reduced_diffusion: Frequency, elapsed: Time) -> Ratio` — A dimensionless diffusion time `τ = D_S·t` (page -486-). · called at [L535](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/fuel_failure/history.rs#L535) · *(calls below the depth limit not shown)*
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/boon-lay/src/fuel_failure/booth.rs:181 fn dimensionless_time -->
+
+```rust,ignore
+{{#include ../../../../../crates/boon-lay/src/fuel_failure/booth.rs:181:183}}
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:3.6em">
+
+[`booth.rs::released_gas_fraction`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/fuel_failure/booth.rs#L207) `pub fn released_gas_fraction(tau_irradiation: Ratio, tau_accident: Ratio) -> Ratio` — **Eq (4)** — the released fraction `F_d` of the stable fission gas (page -485-, Allelein 1983). · called at [L536](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/fuel_failure/history.rs#L536) · *(calls below the depth limit not shown)*
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/boon-lay/src/fuel_failure/booth.rs:207 fn released_gas_fraction -->
+
+```rust,ignore
+{{#include ../../../../../crates/boon-lay/src/fuel_failure/booth.rs:207:217}}
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:3.6em">
+
+[`history.rs::OxygenSource::oxygen_per_fission`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/fuel_failure/history.rs#L301) `pub fn oxygen_per_fission(self, accident_temperature: ThermodynamicTemperature) -> Ratio` — The `OPF` for this step's accident temperature. · called at [L537](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/fuel_failure/history.rs#L537) · *(calls below the depth limit not shown)*
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/boon-lay/src/fuel_failure/history.rs:301 fn oxygen_per_fission -->
+
+```rust,ignore
+{{#include ../../../../../crates/boon-lay/src/fuel_failure/history.rs:301:320}}
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:3.6em">
+
+[`pressure.rs::internal_gas_pressure`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/fuel_failure/pressure.rs#L80) `pub fn internal_gas_pressure(released_gas_fraction: Ratio, stable_gas_yield: Ratio, oxygen_per_fission: Ratio, burnup: Ratio, free_volume: Volume, kernel_volume: Volume, molar_volume: MolarVolume, temperature: ThermodynamicTemperature) -> Pressure` — **Eq (3)** — internal gas pressure from the ideal gas law (page -484-). · called at [L538](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/fuel_failure/history.rs#L538) · *(calls below the depth limit not shown)*
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/boon-lay/src/fuel_failure/pressure.rs:80 fn internal_gas_pressure -->
+
+```rust,ignore
+{{#include ../../../../../crates/boon-lay/src/fuel_failure/pressure.rs:80:101}}
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:3.6em">
+
+[`molar_volume.rs::molar_volume`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/fuel_failure/molar_volume.rs#L116) `pub fn molar_volume(kernel: KernelCompound) -> MolarVolume` — **Eqs (6a)/(6b)/(6c)** — the molar volume `V_m` of the heavy metal in the kernel (pages -491-, -492-). · called at [L545](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/fuel_failure/history.rs#L545) · *(calls below the depth limit not shown)*
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/boon-lay/src/fuel_failure/molar_volume.rs:116 fn molar_volume -->
+
+```rust,ignore
+{{#include ../../../../../crates/boon-lay/src/fuel_failure/molar_volume.rs:116:120}}
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:2.7em">
+
+[`stress.rs::induced_stress_with_thinning_factor`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/fuel_failure/stress.rs#L107) `pub fn induced_stress_with_thinning_factor(layer: &SicLayer, pressure: Pressure, thinning_factor: Ratio) -> Pressure` — Eq (2) written against a **carried** `FKOR` rather than an elapsed time (pages -484-, -492-): · called at [L516](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/fuel_failure/history.rs#L516)
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/boon-lay/src/fuel_failure/stress.rs:107 fn induced_stress_with_thinning_factor -->
+<!-- snippet-check: crates/boon-lay/src/fuel_failure/stress.rs:113 initial_thickness -->
+<!-- snippet-check: crates/boon-lay/src/fuel_failure/stress.rs:114 mean_radius -->
+
+```rust,ignore
+{{#include ../../../../../crates/boon-lay/src/fuel_failure/stress.rs:107:115}}
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:3.6em">
+
+`geometry.rs::SicLayer::initial_thickness` *(expanded elsewhere in this walk)* · called at [L113](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/fuel_failure/stress.rs#L113)
+
+</div>
+
+<div class="cw-node" style="margin-left:3.6em">
+
+[`geometry.rs::SicLayer::mean_radius`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/fuel_failure/geometry.rs#L50) `pub fn mean_radius(&self) -> Length` — The report's **average radius** `r = (0.5·(r_a³ + r_i³))^(1/3)` (page -484-). · called at [L114](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/fuel_failure/stress.rs#L114) · *(calls below the depth limit not shown)*
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/boon-lay/src/fuel_failure/geometry.rs:50 fn mean_radius -->
+
+```rust,ignore
+{{#include ../../../../../crates/boon-lay/src/fuel_failure/geometry.rs:50:54}}
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:2.7em">
+
+[`grain_boundary.rs::corroded_weibull_modulus`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/fuel_failure/grain_boundary.rs#L171) `pub fn corroded_weibull_modulus(end_of_irradiation_modulus: f64, exposure: Ratio) -> f64` — **Eq (10b)** — the Weibull modulus after grain-boundary corrosion (page -495-): · called at [L519](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/fuel_failure/history.rs#L519)
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/boon-lay/src/fuel_failure/grain_boundary.rs:171 fn corroded_weibull_modulus -->
+
+```rust,ignore
+{{#include ../../../../../crates/boon-lay/src/fuel_failure/grain_boundary.rs:171:175}}
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:2.7em">
+
+[`weibull.rs::weibull_failure_fraction`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/fuel_failure/weibull.rs#L49) `pub fn weibull_failure_fraction(induced_stress: Pressure, median_strength: Pressure, weibull_modulus: f64) -> FailureFraction` — **Eq (1)** — the fraction of particles failed by pressure-vessel overstress (page -483-, attributed to Nabielek 1984). · called at [L524](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/fuel_failure/history.rs#L524)
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/boon-lay/src/fuel_failure/weibull.rs:49 fn weibull_failure_fraction -->
+
+```rust,ignore
+{{#include ../../../../../crates/boon-lay/src/fuel_failure/weibull.rs:49:62}}
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:1.8em">
+
+[`decomposition.rs::advance_action_integral`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/fuel_failure/decomposition.rs#L155) `pub fn advance_action_integral(previous: Ratio, initial_thickness: Length, mean_temperature: ThermodynamicTemperature, step: Time) -> Ratio` — **Eq (11)** — advance the action integral `ζ` across one time step (page -496-): · called at [L570](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/fuel_failure/history.rs#L570)
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/boon-lay/src/fuel_failure/decomposition.rs:155 fn advance_action_integral -->
+<!-- snippet-check: crates/boon-lay/src/fuel_failure/decomposition.rs:161 decomposition_rate_constant -->
+
+```rust,ignore
+{{#include ../../../../../crates/boon-lay/src/fuel_failure/decomposition.rs:155:162}}
+    // … (the rest of the function: follow the link above)
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:2.7em">
+
+[`decomposition.rs::decomposition_rate_constant`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/fuel_failure/decomposition.rs#L129) `pub fn decomposition_rate_constant(initial_thickness: Length, mean_temperature: ThermodynamicTemperature) -> Frequency` — **Eq (12)** — the decomposition rate constant `k(T_m)` \[s⁻¹\] (page -496-). · called at [L161](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/fuel_failure/decomposition.rs#L161)
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/boon-lay/src/fuel_failure/decomposition.rs:129 fn decomposition_rate_constant -->
+
+```rust,ignore
+{{#include ../../../../../crates/boon-lay/src/fuel_failure/decomposition.rs:129:142}}
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:1.8em">
+
+[`decomposition.rs::thermal_decomposition_failure_fraction`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/fuel_failure/decomposition.rs#L213) `pub fn thermal_decomposition_failure_fraction(action_integral: Ratio, calibration: DecompositionCalibration) -> Ratio` — **Eq (13)** — the failed fraction from thermal decomposition (page -496-). · called at [L572](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/fuel_failure/history.rs#L572)
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/boon-lay/src/fuel_failure/decomposition.rs:213 fn thermal_decomposition_failure_fraction -->
+<!-- snippet-check: crates/boon-lay/src/fuel_failure/decomposition.rs:217 thermal_decomposition_failure_fraction_with -->
+<!-- snippet-check: crates/boon-lay/src/fuel_failure/decomposition.rs:219 alpha -->
+<!-- snippet-check: crates/boon-lay/src/fuel_failure/decomposition.rs:220 beta -->
+
+```rust,ignore
+{{#include ../../../../../crates/boon-lay/src/fuel_failure/decomposition.rs:213:221}}
+    // … (the rest of the function: follow the link above)
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:2.7em">
+
+[`decomposition.rs::thermal_decomposition_failure_fraction_with`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/fuel_failure/decomposition.rs#L229) `pub fn thermal_decomposition_failure_fraction_with(action_integral: Ratio, alpha: f64, beta: f64) -> Ratio` — `thermal_decomposition_failure_fraction` with an explicit `α` and `β`. · called at [L217](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/fuel_failure/decomposition.rs#L217)
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/boon-lay/src/fuel_failure/decomposition.rs:229 fn thermal_decomposition_failure_fraction_with -->
+
+```rust,ignore
+{{#include ../../../../../crates/boon-lay/src/fuel_failure/decomposition.rs:229:239}}
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:2.7em">
+
+[`decomposition.rs::DecompositionCalibration::alpha`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/fuel_failure/decomposition.rs#L185) `pub const fn alpha(self) -> f64` — `α` of Eq (13). · called at [L219](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/fuel_failure/decomposition.rs#L219)
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/boon-lay/src/fuel_failure/decomposition.rs:185 fn alpha -->
+
+```rust,ignore
+{{#include ../../../../../crates/boon-lay/src/fuel_failure/decomposition.rs:185:190}}
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:2.7em">
+
+[`decomposition.rs::DecompositionCalibration::beta`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/fuel_failure/decomposition.rs#L193) `pub const fn beta(self) -> f64` — `β` of Eq (13). · called at [L220](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/fuel_failure/decomposition.rs#L220)
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/boon-lay/src/fuel_failure/decomposition.rs:193 fn beta -->
+
+```rust,ignore
+{{#include ../../../../../crates/boon-lay/src/fuel_failure/decomposition.rs:193:198}}
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:1.8em">
+
+[`grain_boundary.rs::advance_grain_boundary_exposure`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/fuel_failure/grain_boundary.rs#L147) `pub fn advance_grain_boundary_exposure(previous: Ratio, mean_temperature: ThermodynamicTemperature, step: Time) -> Ratio` — Advance the accumulated grain-boundary exposure `∫η̇ dt` across one time step at its own mean temperature. · called at [L577](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/fuel_failure/history.rs#L577)
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/boon-lay/src/fuel_failure/grain_boundary.rs:147 fn advance_grain_boundary_exposure -->
+<!-- snippet-check: crates/boon-lay/src/fuel_failure/grain_boundary.rs:152 grain_boundary_corrosion_rate -->
+
+```rust,ignore
+{{#include ../../../../../crates/boon-lay/src/fuel_failure/grain_boundary.rs:147:153}}
+    // … (the rest of the function: follow the link above)
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:2.7em">
+
+[`grain_boundary.rs::grain_boundary_corrosion_rate`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/fuel_failure/grain_boundary.rs#L129) `pub fn grain_boundary_corrosion_rate(temperature: ThermodynamicTemperature) -> Frequency` — **Eq (10c)** — the SiC grain-boundary corrosion rate `η̇` \[s⁻¹\] (page -495-). · called at [L152](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/fuel_failure/grain_boundary.rs#L152)
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/boon-lay/src/fuel_failure/grain_boundary.rs:129 fn grain_boundary_corrosion_rate -->
+
+```rust,ignore
+{{#include ../../../../../crates/boon-lay/src/fuel_failure/grain_boundary.rs:129:138}}
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:1.8em">
+
+[`mod.rs::total_failure_fraction`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/fuel_failure/mod.rs#L249) `pub fn total_failure_fraction(as_manufactured: FailureFraction, pressure_vessel: FailureFraction, thermal_decomposition: FailureFraction) -> FailureFraction` — The combination of the three failure populations (page -480-). · called at [L582](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/fuel_failure/history.rs#L582)
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/boon-lay/src/fuel_failure/mod.rs:249 fn total_failure_fraction -->
+
+```rust,ignore
+{{#include ../../../../../crates/boon-lay/src/fuel_failure/mod.rs:249:258}}
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:1.8em">
+
+UNRESOLVED(closure): `rate` at [L601](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/fuel_failure/history.rs#L601) (→ [`crates/boon-lay/src/fuel_failure/history.rs:585`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/fuel_failure/history.rs#L585)) — call through a closure or fn-typed binding `rate`
+
+</div>
+
+<div class="cw-node" style="margin-left:1.8em">
+
+UNRESOLVED(closure): `rate` at [L602](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/fuel_failure/history.rs#L602) (→ [`crates/boon-lay/src/fuel_failure/history.rs:585`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/fuel_failure/history.rs#L585)) — call through a closure or fn-typed binding `rate`
+
+</div>
+
+<div class="cw-node" style="margin-left:1.8em">
+
+UNRESOLVED(closure): `rate` at [L603](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/fuel_failure/history.rs#L603) (→ [`crates/boon-lay/src/fuel_failure/history.rs:585`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/fuel_failure/history.rs#L585)) — call through a closure or fn-typed binding `rate`
+
+</div>
 <!-- /code-walk -->
 
 <!-- code-walk: from=crates/boon-lay/src/fuel_failure/htr10/mod.rs::end_of_irradiation_failure depth=4 -->
@@ -359,29 +3232,383 @@ Everything `crates/boon-lay/src/fuel_failure/history.rs::AccidentHistory::run` r
 
 Everything `crates/boon-lay/src/fuel_failure/htr10/mod.rs::end_of_irradiation_failure` reaches in the workspace, to 4 hops: 23 functions, 0 unresolved calls. A function is expanded once; later calls to it say *(expanded elsewhere in this walk)*.
 
-- [`mod.rs::end_of_irradiation_failure`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/fuel_failure/htr10/mod.rs#L320) `pub fn end_of_irradiation_failure(irradiation_temperature: ThermodynamicTemperature) -> super::FailureFraction` — `φ₁` at the **end of irradiation** — the value the PANAMA-I report assigns to `t = 0` of an accident (page -482-), and the one that matters for normal operation.
-  - [`mod.rs::end_of_irradiation_failure_for`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/fuel_failure/htr10/mod.rs#L335) `pub fn end_of_irradiation_failure_for(p: &ParticleState, irradiation_temperature: ThermodynamicTemperature, irradiation_time: Time) -> super::FailureFraction` — `end_of_irradiation_failure` for an arbitrary `ParticleState` — the form the sweeps need, since they vary `F_b`, `t_B` and `Γ`. · called at [L323](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/fuel_failure/htr10/mod.rs#L323)
-    - [`oxygen.rs::oxygen_per_fission_uo2`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/fuel_failure/oxygen.rs#L154) `pub fn oxygen_per_fission_uo2(irradiation_temperature: ThermodynamicTemperature, irradiation_time: Time, regime: HeatingRegime) -> Ratio` — **Eqs (5b)/(5c)** — `OPF` for a `UO2` kernel (page -489-, Proksch 1982). · called at [L346](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/fuel_failure/htr10/mod.rs#L346)
-    - [`booth.rs::released_gas_fraction`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/fuel_failure/booth.rs#L207) `pub fn released_gas_fraction(tau_irradiation: Ratio, tau_accident: Ratio) -> Ratio` — **Eq (4)** — the released fraction `F_d` of the stable fission gas (page -485-, Allelein 1983). · called at [L351](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/fuel_failure/htr10/mod.rs#L351)
-      - [`booth.rs::booth_release_function`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/fuel_failure/booth.rs#L150) `pub fn booth_release_function(tau: Ratio) -> Ratio` — The Booth release function `f(τ)` (unnumbered, page -485-). · called at [L214](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/fuel_failure/booth.rs#L214)
-    - [`pressure.rs::internal_gas_pressure`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/fuel_failure/pressure.rs#L80) `pub fn internal_gas_pressure(released_gas_fraction: Ratio, stable_gas_yield: Ratio, oxygen_per_fission: Ratio, burnup: Ratio, free_volume: Volume, kernel_volume: Volume, molar_volume: MolarVolume, temperature: ThermodynamicTemperature) -> Pressure` — **Eq (3)** — internal gas pressure from the ideal gas law (page -484-). · called at [L352](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/fuel_failure/htr10/mod.rs#L352)
-    - [`molar_volume.rs::molar_volume`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/fuel_failure/molar_volume.rs#L116) `pub fn molar_volume(kernel: KernelCompound) -> MolarVolume` — **Eqs (6a)/(6b)/(6c)** — the molar volume `V_m` of the heavy metal in the kernel (pages -491-, -492-). · called at [L359](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/fuel_failure/htr10/mod.rs#L359)
-      - [`molar_volume.rs::KernelCompound::molar_mass_kg_per_mol`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/fuel_failure/molar_volume.rs#L82) `pub const fn molar_mass_kg_per_mol(self) -> f64` — The molar mass the report divides by, \[kg/mol\]. · called at [L118](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/fuel_failure/molar_volume.rs#L118)
-      - [`molar_volume.rs::KernelCompound::density_kg_per_m3`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/fuel_failure/molar_volume.rs#L91) `pub const fn density_kg_per_m3(self) -> f64` — The kernel density the report divides by, \[kg/m³\]. · called at [L118](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/fuel_failure/molar_volume.rs#L118)
-    - [`stress.rs::induced_stress_with_thinning_factor`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/fuel_failure/stress.rs#L107) `pub fn induced_stress_with_thinning_factor(layer: &SicLayer, pressure: Pressure, thinning_factor: Ratio) -> Pressure` — Eq (2) written against a **carried** `FKOR` rather than an elapsed time (pages -484-, -492-): · called at [L363](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/fuel_failure/htr10/mod.rs#L363)
-      - [`geometry.rs::SicLayer::initial_thickness`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/fuel_failure/geometry.rs#L57) `pub fn initial_thickness(&self) -> Length` — The original layer thickness `d_o = r_a − r_i` (page -484-). · called at [L113](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/fuel_failure/stress.rs#L113)
-      - [`geometry.rs::SicLayer::mean_radius`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/fuel_failure/geometry.rs#L50) `pub fn mean_radius(&self) -> Length` — The report's **average radius** `r = (0.5·(r_a³ + r_i³))^(1/3)` (page -484-). · called at [L114](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/fuel_failure/stress.rs#L114)
-    - [`weibull.rs::weibull_failure_fraction`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/fuel_failure/weibull.rs#L49) `pub fn weibull_failure_fraction(induced_stress: Pressure, median_strength: Pressure, weibull_modulus: f64) -> FailureFraction` — **Eq (1)** — the fraction of particles failed by pressure-vessel overstress (page -483-, attributed to Nabielek 1984). · called at [L364](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/fuel_failure/htr10/mod.rs#L364)
-  - [`mod.rs::particle`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/fuel_failure/htr10/mod.rs#L242) `pub fn particle(irradiation_temperature: ThermodynamicTemperature) -> ParticleState` — The HTR-10 particle as boon-lay fuel failure sees it, at a stated irradiation temperature. · called at [L324](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/fuel_failure/htr10/mod.rs#L324)
-    - [`mod.rs::particle_with`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/fuel_failure/htr10/mod.rs#L263) `pub fn particle_with(irradiation_temperature: ThermodynamicTemperature, burnup: Ratio, irradiation_time: Time, fluence_e25_per_m2: f64) -> ParticleState` — The same particle with `F_b`, `t_B` and `Γ` opened up, for sweeping the inputs that HTR-10 does not publish or that a sensitivity study needs. · called at [L243](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/fuel_failure/htr10/mod.rs#L243)
-      - [`mod.rs::sic_layer`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/fuel_failure/htr10/mod.rs#L205) `pub fn sic_layer() -> SicLayer` — The HTR-10 SiC layer (IAEA-TECDOC-1382 pt 2 Table 4-17). · called at [L271](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/fuel_failure/htr10/mod.rs#L271)
-      - [`mod.rs::kernel_volume`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/fuel_failure/htr10/mod.rs#L213) `pub fn kernel_volume() -> Volume` — The kernel volume `V_k`, from the published kernel radius. · called at [L274](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/fuel_failure/htr10/mod.rs#L274)
-      - [`mod.rs::free_volume`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/fuel_failure/htr10/mod.rs#L221) `pub fn free_volume() -> Volume` — The free volume `V_f` — **half the buffer shell**, which is the report's own definition of `V_f` (page -485-: "corresponding to 50 % of buffer volume"), applied to HTR-10's published buffer. · called at [L275](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/fuel_failure/htr10/mod.rs#L275)
-      - [`history.rs::irradiation_tau`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/fuel_failure/history.rs#L375) `pub fn irradiation_tau(kernel: KernelKind, irradiation_temperature: ThermodynamicTemperature, irradiation_time: Time, burnup: Ratio) -> Ratio` — `τ_i = D_S(T_B)·t_B` (page -486-), for the cases where `T_B` and `t_B` are both known. · called at [L278](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/fuel_failure/htr10/mod.rs#L278)
-        - [`booth.rs::dimensionless_time`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/fuel_failure/booth.rs#L181) `pub fn dimensionless_time(reduced_diffusion: Frequency, elapsed: Time) -> Ratio` — A dimensionless diffusion time `τ = D_S·t` (page -486-). · called at [L381](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/fuel_failure/history.rs#L381) · *(calls below the depth limit not shown)*
-        - [`diffusion.rs::reduced_diffusion_coefficient`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/fuel_failure/diffusion.rs#L111) `pub fn reduced_diffusion_coefficient(kernel: KernelKind, temperature: ThermodynamicTemperature, burnup: Ratio) -> Frequency` — The reduced diffusion coefficient `D_S` \[s^-1\] (page -487-). · called at [L382](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/fuel_failure/history.rs#L382) · *(calls below the depth limit not shown)*
-      - [`strength.rs::irradiated_strength`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/fuel_failure/strength.rs#L63) `pub fn irradiated_strength(unirradiated: Pressure, fluence_e25_per_m2: f64, irradiation_temperature: ThermodynamicTemperature) -> Pressure` — **Eq (8a)** — SiC tensile strength after irradiation (page -493-, attributed to Allelein 1983), with Eq (8b)'s floor applied. · called at [L284](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/fuel_failure/htr10/mod.rs#L284)
-      - [`strength.rs::irradiated_weibull_modulus`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/fuel_failure/strength.rs#L90) `pub fn irradiated_weibull_modulus(unirradiated: f64, fluence_e25_per_m2: f64, irradiation_temperature: ThermodynamicTemperature) -> f64` — **Eq (9a)** — the Weibull modulus after irradiation (page -494-, Allelein 1983), with Eq (9b)'s floor applied. · called at [L289](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/fuel_failure/htr10/mod.rs#L289)
+<div class="cw-node" style="margin-left:0.0em">
+
+[`mod.rs::end_of_irradiation_failure`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/fuel_failure/htr10/mod.rs#L320) `pub fn end_of_irradiation_failure(irradiation_temperature: ThermodynamicTemperature) -> super::FailureFraction` — `φ₁` at the **end of irradiation** — the value the PANAMA-I report assigns to `t = 0` of an accident (page -482-), and the one that matters for normal operation.
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/boon-lay/src/fuel_failure/htr10/mod.rs:320 fn end_of_irradiation_failure -->
+<!-- snippet-check: crates/boon-lay/src/fuel_failure/htr10/mod.rs:323 end_of_irradiation_failure_for -->
+<!-- snippet-check: crates/boon-lay/src/fuel_failure/htr10/mod.rs:324 particle -->
+
+```rust,ignore
+{{#include ../../../../../crates/boon-lay/src/fuel_failure/htr10/mod.rs:320:325}}
+    // … (the rest of the function: follow the link above)
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:0.9em">
+
+[`mod.rs::end_of_irradiation_failure_for`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/fuel_failure/htr10/mod.rs#L335) `pub fn end_of_irradiation_failure_for(p: &ParticleState, irradiation_temperature: ThermodynamicTemperature, irradiation_time: Time) -> super::FailureFraction` — `end_of_irradiation_failure` for an arbitrary `ParticleState` — the form the sweeps need, since they vary `F_b`, `t_B` and `Γ`. · called at [L323](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/fuel_failure/htr10/mod.rs#L323)
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/boon-lay/src/fuel_failure/htr10/mod.rs:335 fn end_of_irradiation_failure_for -->
+<!-- snippet-check: crates/boon-lay/src/fuel_failure/htr10/mod.rs:346 oxygen_per_fission_uo2 -->
+<!-- snippet-check: crates/boon-lay/src/fuel_failure/htr10/mod.rs:351 released_gas_fraction -->
+<!-- snippet-check: crates/boon-lay/src/fuel_failure/htr10/mod.rs:352 internal_gas_pressure -->
+<!-- snippet-check: crates/boon-lay/src/fuel_failure/htr10/mod.rs:359 molar_volume -->
+<!-- snippet-check: crates/boon-lay/src/fuel_failure/htr10/mod.rs:363 induced_stress_with_thinning_factor -->
+<!-- snippet-check: crates/boon-lay/src/fuel_failure/htr10/mod.rs:364 weibull_failure_fraction -->
+
+```rust,ignore
+{{#include ../../../../../crates/boon-lay/src/fuel_failure/htr10/mod.rs:335:339}}
+    // …
+{{#include ../../../../../crates/boon-lay/src/fuel_failure/htr10/mod.rs:344:347}}
+    // …
+{{#include ../../../../../crates/boon-lay/src/fuel_failure/htr10/mod.rs:349:353}}
+    // …
+{{#include ../../../../../crates/boon-lay/src/fuel_failure/htr10/mod.rs:357:365}}
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:1.8em">
+
+[`oxygen.rs::oxygen_per_fission_uo2`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/fuel_failure/oxygen.rs#L154) `pub fn oxygen_per_fission_uo2(irradiation_temperature: ThermodynamicTemperature, irradiation_time: Time, regime: HeatingRegime) -> Ratio` — **Eqs (5b)/(5c)** — `OPF` for a `UO2` kernel (page -489-, Proksch 1982). · called at [L346](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/fuel_failure/htr10/mod.rs#L346)
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/boon-lay/src/fuel_failure/oxygen.rs:154 fn oxygen_per_fission_uo2 -->
+
+```rust,ignore
+{{#include ../../../../../crates/boon-lay/src/fuel_failure/oxygen.rs:154:173}}
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:1.8em">
+
+[`booth.rs::released_gas_fraction`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/fuel_failure/booth.rs#L207) `pub fn released_gas_fraction(tau_irradiation: Ratio, tau_accident: Ratio) -> Ratio` — **Eq (4)** — the released fraction `F_d` of the stable fission gas (page -485-, Allelein 1983). · called at [L351](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/fuel_failure/htr10/mod.rs#L351)
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/boon-lay/src/fuel_failure/booth.rs:207 fn released_gas_fraction -->
+<!-- snippet-check: crates/boon-lay/src/fuel_failure/booth.rs:214 booth_release_function -->
+
+```rust,ignore
+{{#include ../../../../../crates/boon-lay/src/fuel_failure/booth.rs:207:215}}
+    // … (the rest of the function: follow the link above)
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:2.7em">
+
+[`booth.rs::booth_release_function`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/fuel_failure/booth.rs#L150) `pub fn booth_release_function(tau: Ratio) -> Ratio` — The Booth release function `f(τ)` (unnumbered, page -485-). · called at [L214](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/fuel_failure/booth.rs#L214)
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/boon-lay/src/fuel_failure/booth.rs:150 fn booth_release_function -->
+
+```rust,ignore
+{{#include ../../../../../crates/boon-lay/src/fuel_failure/booth.rs:150:172}}
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:1.8em">
+
+[`pressure.rs::internal_gas_pressure`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/fuel_failure/pressure.rs#L80) `pub fn internal_gas_pressure(released_gas_fraction: Ratio, stable_gas_yield: Ratio, oxygen_per_fission: Ratio, burnup: Ratio, free_volume: Volume, kernel_volume: Volume, molar_volume: MolarVolume, temperature: ThermodynamicTemperature) -> Pressure` — **Eq (3)** — internal gas pressure from the ideal gas law (page -484-). · called at [L352](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/fuel_failure/htr10/mod.rs#L352)
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/boon-lay/src/fuel_failure/pressure.rs:80 fn internal_gas_pressure -->
+
+```rust,ignore
+{{#include ../../../../../crates/boon-lay/src/fuel_failure/pressure.rs:80:101}}
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:1.8em">
+
+[`molar_volume.rs::molar_volume`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/fuel_failure/molar_volume.rs#L116) `pub fn molar_volume(kernel: KernelCompound) -> MolarVolume` — **Eqs (6a)/(6b)/(6c)** — the molar volume `V_m` of the heavy metal in the kernel (pages -491-, -492-). · called at [L359](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/fuel_failure/htr10/mod.rs#L359)
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/boon-lay/src/fuel_failure/molar_volume.rs:116 fn molar_volume -->
+<!-- snippet-check: crates/boon-lay/src/fuel_failure/molar_volume.rs:118 molar_mass_kg_per_mol -->
+
+```rust,ignore
+{{#include ../../../../../crates/boon-lay/src/fuel_failure/molar_volume.rs:116:119}}
+    // … (the rest of the function: follow the link above)
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:2.7em">
+
+[`molar_volume.rs::KernelCompound::molar_mass_kg_per_mol`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/fuel_failure/molar_volume.rs#L82) `pub const fn molar_mass_kg_per_mol(self) -> f64` — The molar mass the report divides by, \[kg/mol\]. · called at [L118](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/fuel_failure/molar_volume.rs#L118)
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/boon-lay/src/fuel_failure/molar_volume.rs:82 fn molar_mass_kg_per_mol -->
+
+```rust,ignore
+{{#include ../../../../../crates/boon-lay/src/fuel_failure/molar_volume.rs:82:88}}
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:2.7em">
+
+[`molar_volume.rs::KernelCompound::density_kg_per_m3`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/fuel_failure/molar_volume.rs#L91) `pub const fn density_kg_per_m3(self) -> f64` — The kernel density the report divides by, \[kg/m³\]. · called at [L118](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/fuel_failure/molar_volume.rs#L118)
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/boon-lay/src/fuel_failure/molar_volume.rs:91 fn density_kg_per_m3 -->
+
+```rust,ignore
+{{#include ../../../../../crates/boon-lay/src/fuel_failure/molar_volume.rs:91:97}}
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:1.8em">
+
+[`stress.rs::induced_stress_with_thinning_factor`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/fuel_failure/stress.rs#L107) `pub fn induced_stress_with_thinning_factor(layer: &SicLayer, pressure: Pressure, thinning_factor: Ratio) -> Pressure` — Eq (2) written against a **carried** `FKOR` rather than an elapsed time (pages -484-, -492-): · called at [L363](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/fuel_failure/htr10/mod.rs#L363)
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/boon-lay/src/fuel_failure/stress.rs:107 fn induced_stress_with_thinning_factor -->
+<!-- snippet-check: crates/boon-lay/src/fuel_failure/stress.rs:113 initial_thickness -->
+<!-- snippet-check: crates/boon-lay/src/fuel_failure/stress.rs:114 mean_radius -->
+
+```rust,ignore
+{{#include ../../../../../crates/boon-lay/src/fuel_failure/stress.rs:107:115}}
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:2.7em">
+
+[`geometry.rs::SicLayer::initial_thickness`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/fuel_failure/geometry.rs#L57) `pub fn initial_thickness(&self) -> Length` — The original layer thickness `d_o = r_a − r_i` (page -484-). · called at [L113](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/fuel_failure/stress.rs#L113)
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/boon-lay/src/fuel_failure/geometry.rs:57 fn initial_thickness -->
+
+```rust,ignore
+{{#include ../../../../../crates/boon-lay/src/fuel_failure/geometry.rs:57:59}}
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:2.7em">
+
+[`geometry.rs::SicLayer::mean_radius`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/fuel_failure/geometry.rs#L50) `pub fn mean_radius(&self) -> Length` — The report's **average radius** `r = (0.5·(r_a³ + r_i³))^(1/3)` (page -484-). · called at [L114](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/fuel_failure/stress.rs#L114)
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/boon-lay/src/fuel_failure/geometry.rs:50 fn mean_radius -->
+
+```rust,ignore
+{{#include ../../../../../crates/boon-lay/src/fuel_failure/geometry.rs:50:54}}
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:1.8em">
+
+[`weibull.rs::weibull_failure_fraction`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/fuel_failure/weibull.rs#L49) `pub fn weibull_failure_fraction(induced_stress: Pressure, median_strength: Pressure, weibull_modulus: f64) -> FailureFraction` — **Eq (1)** — the fraction of particles failed by pressure-vessel overstress (page -483-, attributed to Nabielek 1984). · called at [L364](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/fuel_failure/htr10/mod.rs#L364)
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/boon-lay/src/fuel_failure/weibull.rs:49 fn weibull_failure_fraction -->
+
+```rust,ignore
+{{#include ../../../../../crates/boon-lay/src/fuel_failure/weibull.rs:49:62}}
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:0.9em">
+
+[`mod.rs::particle`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/fuel_failure/htr10/mod.rs#L242) `pub fn particle(irradiation_temperature: ThermodynamicTemperature) -> ParticleState` — The HTR-10 particle as boon-lay fuel failure sees it, at a stated irradiation temperature. · called at [L324](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/fuel_failure/htr10/mod.rs#L324)
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/boon-lay/src/fuel_failure/htr10/mod.rs:242 fn particle -->
+<!-- snippet-check: crates/boon-lay/src/fuel_failure/htr10/mod.rs:243 particle_with -->
+
+```rust,ignore
+{{#include ../../../../../crates/boon-lay/src/fuel_failure/htr10/mod.rs:242:244}}
+    // … (the rest of the function: follow the link above)
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:1.8em">
+
+[`mod.rs::particle_with`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/fuel_failure/htr10/mod.rs#L263) `pub fn particle_with(irradiation_temperature: ThermodynamicTemperature, burnup: Ratio, irradiation_time: Time, fluence_e25_per_m2: f64) -> ParticleState` — The same particle with `F_b`, `t_B` and `Γ` opened up, for sweeping the inputs that HTR-10 does not publish or that a sensitivity study needs. · called at [L243](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/fuel_failure/htr10/mod.rs#L243)
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/boon-lay/src/fuel_failure/htr10/mod.rs:263 fn particle_with -->
+<!-- snippet-check: crates/boon-lay/src/fuel_failure/htr10/mod.rs:271 sic_layer -->
+<!-- snippet-check: crates/boon-lay/src/fuel_failure/htr10/mod.rs:274 kernel_volume -->
+<!-- snippet-check: crates/boon-lay/src/fuel_failure/htr10/mod.rs:275 free_volume -->
+<!-- snippet-check: crates/boon-lay/src/fuel_failure/htr10/mod.rs:278 irradiation_tau -->
+<!-- snippet-check: crates/boon-lay/src/fuel_failure/htr10/mod.rs:284 irradiated_strength -->
+<!-- snippet-check: crates/boon-lay/src/fuel_failure/htr10/mod.rs:289 irradiated_weibull_modulus -->
+
+```rust,ignore
+{{#include ../../../../../crates/boon-lay/src/fuel_failure/htr10/mod.rs:263:290}}
+    // … (the rest of the function: follow the link above)
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:2.7em">
+
+[`mod.rs::sic_layer`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/fuel_failure/htr10/mod.rs#L205) `pub fn sic_layer() -> SicLayer` — The HTR-10 SiC layer (IAEA-TECDOC-1382 pt 2 Table 4-17). · called at [L271](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/fuel_failure/htr10/mod.rs#L271)
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/boon-lay/src/fuel_failure/htr10/mod.rs:205 fn sic_layer -->
+
+```rust,ignore
+{{#include ../../../../../crates/boon-lay/src/fuel_failure/htr10/mod.rs:205:210}}
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:2.7em">
+
+[`mod.rs::kernel_volume`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/fuel_failure/htr10/mod.rs#L213) `pub fn kernel_volume() -> Volume` — The kernel volume `V_k`, from the published kernel radius. · called at [L274](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/fuel_failure/htr10/mod.rs#L274)
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/boon-lay/src/fuel_failure/htr10/mod.rs:213 fn kernel_volume -->
+
+```rust,ignore
+{{#include ../../../../../crates/boon-lay/src/fuel_failure/htr10/mod.rs:213:216}}
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:2.7em">
+
+[`mod.rs::free_volume`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/fuel_failure/htr10/mod.rs#L221) `pub fn free_volume() -> Volume` — The free volume `V_f` — **half the buffer shell**, which is the report's own definition of `V_f` (page -485-: "corresponding to 50 % of buffer volume"), applied to HTR-10's published buffer. · called at [L275](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/fuel_failure/htr10/mod.rs#L275)
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/boon-lay/src/fuel_failure/htr10/mod.rs:221 fn free_volume -->
+
+```rust,ignore
+{{#include ../../../../../crates/boon-lay/src/fuel_failure/htr10/mod.rs:221:227}}
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:2.7em">
+
+[`history.rs::irradiation_tau`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/fuel_failure/history.rs#L375) `pub fn irradiation_tau(kernel: KernelKind, irradiation_temperature: ThermodynamicTemperature, irradiation_time: Time, burnup: Ratio) -> Ratio` — `τ_i = D_S(T_B)·t_B` (page -486-), for the cases where `T_B` and `t_B` are both known. · called at [L278](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/fuel_failure/htr10/mod.rs#L278)
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/boon-lay/src/fuel_failure/history.rs:375 fn irradiation_tau -->
+<!-- snippet-check: crates/boon-lay/src/fuel_failure/history.rs:381 dimensionless_time -->
+<!-- snippet-check: crates/boon-lay/src/fuel_failure/history.rs:382 reduced_diffusion_coefficient -->
+
+```rust,ignore
+{{#include ../../../../../crates/boon-lay/src/fuel_failure/history.rs:375:383}}
+    // … (the rest of the function: follow the link above)
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:3.6em">
+
+[`booth.rs::dimensionless_time`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/fuel_failure/booth.rs#L181) `pub fn dimensionless_time(reduced_diffusion: Frequency, elapsed: Time) -> Ratio` — A dimensionless diffusion time `τ = D_S·t` (page -486-). · called at [L381](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/fuel_failure/history.rs#L381) · *(calls below the depth limit not shown)*
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/boon-lay/src/fuel_failure/booth.rs:181 fn dimensionless_time -->
+
+```rust,ignore
+{{#include ../../../../../crates/boon-lay/src/fuel_failure/booth.rs:181:183}}
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:3.6em">
+
+[`diffusion.rs::reduced_diffusion_coefficient`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/fuel_failure/diffusion.rs#L111) `pub fn reduced_diffusion_coefficient(kernel: KernelKind, temperature: ThermodynamicTemperature, burnup: Ratio) -> Frequency` — The reduced diffusion coefficient `D_S` \[s^-1\] (page -487-). · called at [L382](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/fuel_failure/history.rs#L382) · *(calls below the depth limit not shown)*
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/boon-lay/src/fuel_failure/diffusion.rs:111 fn reduced_diffusion_coefficient -->
+
+```rust,ignore
+{{#include ../../../../../crates/boon-lay/src/fuel_failure/diffusion.rs:111:136}}
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:2.7em">
+
+[`strength.rs::irradiated_strength`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/fuel_failure/strength.rs#L63) `pub fn irradiated_strength(unirradiated: Pressure, fluence_e25_per_m2: f64, irradiation_temperature: ThermodynamicTemperature) -> Pressure` — **Eq (8a)** — SiC tensile strength after irradiation (page -493-, attributed to Allelein 1983), with Eq (8b)'s floor applied. · called at [L284](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/fuel_failure/htr10/mod.rs#L284)
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/boon-lay/src/fuel_failure/strength.rs:63 fn irradiated_strength -->
+
+```rust,ignore
+{{#include ../../../../../crates/boon-lay/src/fuel_failure/strength.rs:63:72}}
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:2.7em">
+
+[`strength.rs::irradiated_weibull_modulus`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/fuel_failure/strength.rs#L90) `pub fn irradiated_weibull_modulus(unirradiated: f64, fluence_e25_per_m2: f64, irradiation_temperature: ThermodynamicTemperature) -> f64` — **Eq (9a)** — the Weibull modulus after irradiation (page -494-, Allelein 1983), with Eq (9b)'s floor applied. · called at [L289](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/fuel_failure/htr10/mod.rs#L289)
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/boon-lay/src/fuel_failure/strength.rs:90 fn irradiated_weibull_modulus -->
+
+```rust,ignore
+{{#include ../../../../../crates/boon-lay/src/fuel_failure/strength.rs:90:98}}
+```
+
+</details>
+</div>
 <!-- /code-walk -->
 
 ## Rung 6 — air and steam {#rung-6}
@@ -394,8 +3621,37 @@ The three chemistry functions are leaves or near-leaves
 
 Everything `crates/boon-lay/src/chemistry/graphite_air.rs::gasification_rate` reaches in the workspace, to 2 hops: 2 functions, 0 unresolved calls. A function is expanded once; later calls to it say *(expanded elsewhere in this walk)*.
 
-- [`graphite_air.rs::gasification_rate`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/chemistry/graphite_air.rs#L93) `pub fn gasification_rate(temperature: ThermodynamicTemperature, oxygen: Pressure, graphite_mass_kg: f64, oxygen_supply_mol_per_s: f64) -> (f64, Limit, Validity)` — Carbon gasified \[mol/s\] from `graphite_mass_kg` of graphite: the lesser of the kinetic rate and the O2 supply `oxygen_supply_mol_per_s` (one C per O2, the CO2 product).
-  - [`graphite_air.rs::kinetic_specific_rate`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/chemistry/graphite_air.rs#L63) `pub fn kinetic_specific_rate(temperature: ThermodynamicTemperature, oxygen: Pressure) -> (Frequency, Validity)` — The kinetic (Regime-1) specific rate \[1/s\] at `temperature` and O2 partial pressure `oxygen`, first order in O2 (assumption, module doc). · called at [L99](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/chemistry/graphite_air.rs#L99)
+<div class="cw-node" style="margin-left:0.0em">
+
+[`graphite_air.rs::gasification_rate`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/chemistry/graphite_air.rs#L93) `pub fn gasification_rate(temperature: ThermodynamicTemperature, oxygen: Pressure, graphite_mass_kg: f64, oxygen_supply_mol_per_s: f64) -> (f64, Limit, Validity)` — Carbon gasified \[mol/s\] from `graphite_mass_kg` of graphite: the lesser of the kinetic rate and the O2 supply `oxygen_supply_mol_per_s` (one C per O2, the CO2 product).
+
+<details open><summary>code</summary>
+
+<!-- snippet-check: crates/boon-lay/src/chemistry/graphite_air.rs:93 fn gasification_rate -->
+<!-- snippet-check: crates/boon-lay/src/chemistry/graphite_air.rs:99 kinetic_specific_rate -->
+
+```rust,ignore
+{{#include ../../../../../crates/boon-lay/src/chemistry/graphite_air.rs:93:100}}
+    // … (the rest of the function: follow the link above)
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:0.9em">
+
+[`graphite_air.rs::kinetic_specific_rate`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/chemistry/graphite_air.rs#L63) `pub fn kinetic_specific_rate(temperature: ThermodynamicTemperature, oxygen: Pressure) -> (Frequency, Validity)` — The kinetic (Regime-1) specific rate \[1/s\] at `temperature` and O2 partial pressure `oxygen`, first order in O2 (assumption, module doc). · called at [L99](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/chemistry/graphite_air.rs#L99)
+
+<details open><summary>code</summary>
+
+<!-- snippet-check: crates/boon-lay/src/chemistry/graphite_air.rs:63 fn kinetic_specific_rate -->
+
+```rust,ignore
+{{#include ../../../../../crates/boon-lay/src/chemistry/graphite_air.rs:63:79}}
+```
+
+</details>
+</div>
 <!-- /code-walk -->
 
 <!-- code-walk: from=crates/boon-lay/src/chemistry/graphite_steam.rs::specific_rate depth=2 -->
@@ -403,7 +3659,20 @@ Everything `crates/boon-lay/src/chemistry/graphite_air.rs::gasification_rate` re
 
 Everything `crates/boon-lay/src/chemistry/graphite_steam.rs::specific_rate` reaches in the workspace, to 2 hops: 1 function, 0 unresolved calls. A function is expanded once; later calls to it say *(expanded elsewhere in this walk)*.
 
-- [`graphite_steam.rs::specific_rate`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/chemistry/graphite_steam.rs#L114) `pub fn specific_rate(temperature: ThermodynamicTemperature, steam: Pressure, hydrogen: Pressure, c: &BlhCoefficients) -> (Frequency, Validity)` — The specific oxidation rate `R_spe` \[1/s\] (fraction of the graphite mass per second) and whether it is inside the fit's range.
+<div class="cw-node" style="margin-left:0.0em">
+
+[`graphite_steam.rs::specific_rate`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/chemistry/graphite_steam.rs#L114) `pub fn specific_rate(temperature: ThermodynamicTemperature, steam: Pressure, hydrogen: Pressure, c: &BlhCoefficients) -> (Frequency, Validity)` — The specific oxidation rate `R_spe` \[1/s\] (fraction of the graphite mass per second) and whether it is inside the fit's range.
+
+<details open><summary>code</summary>
+
+<!-- snippet-check: crates/boon-lay/src/chemistry/graphite_steam.rs:114 fn specific_rate -->
+
+```rust,ignore
+{{#include ../../../../../crates/boon-lay/src/chemistry/graphite_steam.rs:114:139}}
+```
+
+</details>
+</div>
 <!-- /code-walk -->
 
 <!-- code-walk: from=crates/boon-lay/src/chemistry/kernel_hydrolysis.rs::stored_gas_fraction depth=2 -->
@@ -411,7 +3680,20 @@ Everything `crates/boon-lay/src/chemistry/graphite_steam.rs::specific_rate` reac
 
 Everything `crates/boon-lay/src/chemistry/kernel_hydrolysis.rs::stored_gas_fraction` reaches in the workspace, to 2 hops: 1 function, 0 unresolved calls. A function is expanded once; later calls to it say *(expanded elsewhere in this walk)*.
 
-- [`kernel_hydrolysis.rs::stored_gas_fraction`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/chemistry/kernel_hydrolysis.rs#L57) `pub fn stored_gas_fraction(temperature: ThermodynamicTemperature, steam: Pressure) -> (Ratio, Validity)` — TECDOC-978 Eq.
+<div class="cw-node" style="margin-left:0.0em">
+
+[`kernel_hydrolysis.rs::stored_gas_fraction`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/chemistry/kernel_hydrolysis.rs#L57) `pub fn stored_gas_fraction(temperature: ThermodynamicTemperature, steam: Pressure) -> (Ratio, Validity)` — TECDOC-978 Eq.
+
+<details open><summary>code</summary>
+
+<!-- snippet-check: crates/boon-lay/src/chemistry/kernel_hydrolysis.rs:57 fn stored_gas_fraction -->
+
+```rust,ignore
+{{#include ../../../../../crates/boon-lay/src/chemistry/kernel_hydrolysis.rs:57:76}}
+```
+
+</details>
+</div>
 <!-- /code-walk -->
 
 ## Rung 7 — to the coolant {#rung-7}
@@ -424,32 +3706,420 @@ of one nuclide ([rung 7](../../tutorials/triso-atops/coolant.html)).
 
 Everything `crates/boon-lay/src/triso_atops_fork/normal_operation/mod.rs::normal_operation_node` reaches in the workspace, to 3 hops: 23 functions, 0 unresolved calls. A function is expanded once; later calls to it say *(expanded elsewhere in this walk)*.
 
-- [`mod.rs::normal_operation_node`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/normal_operation/mod.rs#L254) `pub fn normal_operation_node(nuclide: &TrisoAtopsNuclide, short_lived: bool, inventory: Activity, fractions: FailureFractions, plant: PlantConstants, node: NodeState, hps_enabled: bool, parent: ParentPools) -> NodalActivities` — Compute the normal-operation activity source term for one nuclide at one node.
-  - [`mod.rs::TrisoAtopsNuclide::decay_constant`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/mod.rs#L117) `pub fn decay_constant(&self) -> DecayConstant` — The radioactive decay constant `λ = ln 2 / t½`. · called at [L265](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/normal_operation/mod.rs#L265)
-  - [`mod.rs::TrisoAtopsNuclide::element_group`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/mod.rs#L126) `pub fn element_group(&self) -> ElementGroup` — The transport `ElementGroup` this nuclide belongs to, from its `Z`. · called at [L266](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/normal_operation/mod.rs#L266)
-    - [`mod.rs::ElementGroup::from_atomic_number`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/mod.rs#L174) `pub fn from_atomic_number(z: u32) -> Self` — Classify an atomic number `Z` into its TRISO-ATOPS transport group. · called at [L127](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/mod.rs#L127)
-  - [`mod.rs::diffusion_coefficient`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/diffusion/mod.rs#L130) `pub fn diffusion_coefficient(z: u32, kernel_temperature: ThermodynamicTemperature, graphite_temperature: ThermodynamicTemperature) -> KernelGraphiteDiffusion` — Kernel and graphite diffusion coefficients for a nuclide, by atomic number. · called at [L269](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/normal_operation/mod.rs#L269)
-    - [`mod.rs::celsius_to_kelvin`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/diffusion/mod.rs#L89) `fn celsius_to_kelvin(celsius: f64) -> f64` — °C → K, matching the upstream `T + 273.15`. · called at [L141](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/diffusion/mod.rs#L141)
-    - [`mod.rs::arrhenius_term`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/diffusion/mod.rs#L77) `fn arrhenius_term(pre_exponential: f64, activation_energy_kj_per_mol: f64, temperature_kelvin: f64) -> f64` — Evaluate one Arrhenius term `D0 · exp(−Q / (R·T))`. · called at [L143](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/diffusion/mod.rs#L143)
-  - [`mod.rs::rb_fail`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/release_models/mod.rs#L81) `pub fn rb_fail(z: u32, short_lived: bool, decay_constant: DecayConstant, temperature: ThermodynamicTemperature, irradiation_time: Time, grain_size: Length, sic_thickness: Length, kernel_radius: Length, kernel_diffusion_coefficient: DiffusionCoefficient) -> ReleaseFraction` — Normal-operation release-to-birth `<R/B>_fail` dispatcher. · called at [L272](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/normal_operation/mod.rs#L272)
-    - `mod.rs::ElementGroup::from_atomic_number` *(expanded elsewhere in this walk)* · called at [L97](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/release_models/mod.rs#L97)
-    - [`steady_state.rs::rb_fail_noble_gases`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/release_models/steady_state.rs#L86) `pub fn rb_fail_noble_gases(z: u32, decay_constant: DecayConstant, temperature: ThermodynamicTemperature) -> ReleaseFraction` — Empirical release-to-birth `<R/B>_fail` for noble gases and halogens. · called at [L99](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/release_models/mod.rs#L99)
-    - [`steady_state.rs::booth_shortlived_fast_diffuse`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/release_models/steady_state.rs#L225) `pub fn booth_shortlived_fast_diffuse(diffusion_coefficient: DiffusionCoefficient, decay_constant: DecayConstant, equivalent_sphere_radius: Length) -> ReleaseFraction` — Booth model `<R/B>` for a **short-lived** species that diffuses fast relative to decay. · called at [L103](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/release_models/mod.rs#L103)
-    - [`steady_state.rs::booth_longlived`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/release_models/steady_state.rs#L180) `pub fn booth_longlived(diffusion_coefficient: DiffusionCoefficient, time: Time, equivalent_sphere_radius: Length) -> ReleaseFraction` — Booth model release fraction for a **long-lived** species with large release. · called at [L109](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/release_models/mod.rs#L109)
-    - [`mod.rs::diffusion_coefficient_sic_ag`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/diffusion/mod.rs#L196) `pub fn diffusion_coefficient_sic_ag(sic_temperature: ThermodynamicTemperature) -> DiffusionCoefficient` — Diffusion coefficient for silver (Ag) through the **SiC** layer. · called at [L117](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/release_models/mod.rs#L117)
-      - `mod.rs::arrhenius_term` *(expanded elsewhere in this walk)* · called at [L200](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/diffusion/mod.rs#L200)
-    - [`steady_state.rs::breakthrough_model`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/release_models/steady_state.rs#L132) `pub fn breakthrough_model(diffusion_coefficient: DiffusionCoefficient, time: Time, layer_thickness: Length, kernel_radius: Length) -> ReleaseFraction` — Booth "breakthrough" release fraction for a barrier-limited (low-release) species. · called at [L118](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/release_models/mod.rs#L118)
-      - [`steady_state.rs::clamp_release_fraction`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/release_models/steady_state.rs#L57) `fn clamp_release_fraction(rf: f64) -> ReleaseFraction` — Clamp a raw release fraction into the physical `[0, 1]` range. · called at [L151](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/release_models/steady_state.rs#L151) · *(calls below the depth limit not shown)*
-    - [`nuclide_database.rs::find_nuclide`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L145) `pub fn find_nuclide(name: &str) -> Option<TrisoAtopsNuclide>` — Look a nuclide up by its canonical TRISO-ATOPS name (case-sensitive). · called at [L126](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/release_models/mod.rs#L126)
-      - [`nuclide_database.rs::supported_nuclides`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L44) `pub fn supported_nuclides() -> Vec<TrisoAtopsNuclide>` — The full TRISO-ATOPS supported-nuclide table. · called at [L146](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L146) · *(calls below the depth limit not shown)*
-    - `mod.rs::TrisoAtopsNuclide::decay_constant` *(expanded elsewhere in this walk)* · called at [L128](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/release_models/mod.rs#L128)
-  - [`source_terms.rs::release_rate`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/activities/source_terms.rs#L166) `pub fn release_rate(rb_fail: ReleaseFraction, element_group: ElementGroup, fractions: FailureFractions, inventory: Activity, short_lived: bool, time: Time, decay_constant: DecayConstant) -> f64` — Per-node fission-product **release rate** `R` from the fuel. · called at [L285](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/normal_operation/mod.rs#L285)
-    - [`source_terms.rs::FailureFractions::sum`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/activities/source_terms.rs#L123) `pub fn sum(&self) -> f64` — Sum of all four failure fractions, `f_hm + f_sic + f_inc + f_inc_sic`. · called at [L181](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/activities/source_terms.rs#L181)
-  - [`source_terms.rs::base_activities`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/activities/source_terms.rs#L234) `pub fn base_activities(element_group: ElementGroup, decay_constant: DecayConstant, time: Time, graphite_thickness: Length, graphite_diffusion_coefficient: DiffusionCoefficient, release_rate: f64) -> SourceAndGraphite` — Split a release rate into coolant **source rate** `S` and **graphite** `G`. · called at [L296](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/normal_operation/mod.rs#L296)
-    - [`steady_state.rs::attenuation_factor`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/release_models/steady_state.rs#L266) `pub fn attenuation_factor(graphite_diffusion_coefficient: DiffusionCoefficient, time: Time, graphite_thickness: Length) -> Ratio` — Graphite hold-up (attenuation) factor `Af` for a fission metal. · called at [L250](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/activities/source_terms.rs#L250)
-  - [`coolant_activity.rs::circulating`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/activities/coolant_activity.rs#L97) `pub fn circulating(source_rate: f64, k_plate: Frequency, decay_constant: DecayConstant, time: Time, k_clean: Frequency, circulating_parent: f64) -> f64` — Time-dependent circulating activity `C` at reactor run time `t`. · called at [L314](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/normal_operation/mod.rs#L314)
-  - [`coolant_activity.rs::plate_out`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/activities/coolant_activity.rs#L155) `pub fn plate_out(k_plate: Frequency, source_rate: f64, decay_constant: DecayConstant, time: Time, circulating: f64, k_clean: Frequency, plate_out_parent: f64) -> f64` — Time-dependent plate-out activity `P` at reactor run time `t`. · called at [L325](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/normal_operation/mod.rs#L325)
-  - [`coolant_activity.rs::clean_up`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/activities/coolant_activity.rs#L225) `pub fn clean_up(k_plate: Frequency, source_rate: f64, decay_constant: DecayConstant, time: Time, circulating: f64, k_clean: Frequency, clean_up_parent: f64) -> f64` — Time-dependent clean-up (HPS) activity `HPS` at reactor run time `t`. · called at [L337](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/normal_operation/mod.rs#L337)
+<div class="cw-node" style="margin-left:0.0em">
+
+[`mod.rs::normal_operation_node`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/normal_operation/mod.rs#L254) `pub fn normal_operation_node(nuclide: &TrisoAtopsNuclide, short_lived: bool, inventory: Activity, fractions: FailureFractions, plant: PlantConstants, node: NodeState, hps_enabled: bool, parent: ParentPools) -> NodalActivities` — Compute the normal-operation activity source term for one nuclide at one node.
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/boon-lay/src/triso_atops_fork/normal_operation/mod.rs:254 fn normal_operation_node -->
+<!-- snippet-check: crates/boon-lay/src/triso_atops_fork/normal_operation/mod.rs:265 decay_constant -->
+<!-- snippet-check: crates/boon-lay/src/triso_atops_fork/normal_operation/mod.rs:266 element_group -->
+<!-- snippet-check: crates/boon-lay/src/triso_atops_fork/normal_operation/mod.rs:269 diffusion_coefficient -->
+<!-- snippet-check: crates/boon-lay/src/triso_atops_fork/normal_operation/mod.rs:272 rb_fail -->
+<!-- snippet-check: crates/boon-lay/src/triso_atops_fork/normal_operation/mod.rs:285 release_rate -->
+<!-- snippet-check: crates/boon-lay/src/triso_atops_fork/normal_operation/mod.rs:296 base_activities -->
+<!-- snippet-check: crates/boon-lay/src/triso_atops_fork/normal_operation/mod.rs:314 circulating -->
+<!-- snippet-check: crates/boon-lay/src/triso_atops_fork/normal_operation/mod.rs:325 plate_out -->
+<!-- snippet-check: crates/boon-lay/src/triso_atops_fork/normal_operation/mod.rs:337 clean_up -->
+
+```rust,ignore
+{{#include ../../../../../crates/boon-lay/src/triso_atops_fork/normal_operation/mod.rs:254:261}}
+    // …
+{{#include ../../../../../crates/boon-lay/src/triso_atops_fork/normal_operation/mod.rs:263:273}}
+    // …
+{{#include ../../../../../crates/boon-lay/src/triso_atops_fork/normal_operation/mod.rs:283:286}}
+    // …
+{{#include ../../../../../crates/boon-lay/src/triso_atops_fork/normal_operation/mod.rs:294:297}}
+    // …
+{{#include ../../../../../crates/boon-lay/src/triso_atops_fork/normal_operation/mod.rs:312:315}}
+    // …
+{{#include ../../../../../crates/boon-lay/src/triso_atops_fork/normal_operation/mod.rs:323:326}}
+    // …
+{{#include ../../../../../crates/boon-lay/src/triso_atops_fork/normal_operation/mod.rs:335:338}}
+    // … (the rest of the function: follow the link above)
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:0.9em">
+
+[`mod.rs::TrisoAtopsNuclide::decay_constant`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/mod.rs#L117) `pub fn decay_constant(&self) -> DecayConstant` — The radioactive decay constant `λ = ln 2 / t½`. · called at [L265](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/normal_operation/mod.rs#L265)
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/boon-lay/src/triso_atops_fork/nuclide_model/mod.rs:117 fn decay_constant -->
+
+```rust,ignore
+{{#include ../../../../../crates/boon-lay/src/triso_atops_fork/nuclide_model/mod.rs:117:120}}
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:0.9em">
+
+[`mod.rs::TrisoAtopsNuclide::element_group`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/mod.rs#L126) `pub fn element_group(&self) -> ElementGroup` — The transport `ElementGroup` this nuclide belongs to, from its `Z`. · called at [L266](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/normal_operation/mod.rs#L266)
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/boon-lay/src/triso_atops_fork/nuclide_model/mod.rs:126 fn element_group -->
+<!-- snippet-check: crates/boon-lay/src/triso_atops_fork/nuclide_model/mod.rs:127 from_atomic_number -->
+
+```rust,ignore
+{{#include ../../../../../crates/boon-lay/src/triso_atops_fork/nuclide_model/mod.rs:126:128}}
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:1.8em">
+
+[`mod.rs::ElementGroup::from_atomic_number`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/mod.rs#L174) `pub fn from_atomic_number(z: u32) -> Self` — Classify an atomic number `Z` into its TRISO-ATOPS transport group. · called at [L127](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/mod.rs#L127)
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/boon-lay/src/triso_atops_fork/nuclide_model/mod.rs:174 fn from_atomic_number -->
+
+```rust,ignore
+{{#include ../../../../../crates/boon-lay/src/triso_atops_fork/nuclide_model/mod.rs:174:191}}
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:0.9em">
+
+[`mod.rs::diffusion_coefficient`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/diffusion/mod.rs#L130) `pub fn diffusion_coefficient(z: u32, kernel_temperature: ThermodynamicTemperature, graphite_temperature: ThermodynamicTemperature) -> KernelGraphiteDiffusion` — Kernel and graphite diffusion coefficients for a nuclide, by atomic number. · called at [L269](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/normal_operation/mod.rs#L269)
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/boon-lay/src/triso_atops_fork/diffusion/mod.rs:130 fn diffusion_coefficient -->
+<!-- snippet-check: crates/boon-lay/src/triso_atops_fork/diffusion/mod.rs:141 celsius_to_kelvin -->
+<!-- snippet-check: crates/boon-lay/src/triso_atops_fork/diffusion/mod.rs:143 arrhenius_term -->
+
+```rust,ignore
+{{#include ../../../../../crates/boon-lay/src/triso_atops_fork/diffusion/mod.rs:130:144}}
+    // … (the rest of the function: follow the link above)
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:1.8em">
+
+[`mod.rs::celsius_to_kelvin`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/diffusion/mod.rs#L89) `fn celsius_to_kelvin(celsius: f64) -> f64` — °C → K, matching the upstream `T + 273.15`. · called at [L141](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/diffusion/mod.rs#L141)
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/boon-lay/src/triso_atops_fork/diffusion/mod.rs:89 fn celsius_to_kelvin -->
+
+```rust,ignore
+{{#include ../../../../../crates/boon-lay/src/triso_atops_fork/diffusion/mod.rs:89:91}}
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:1.8em">
+
+[`mod.rs::arrhenius_term`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/diffusion/mod.rs#L77) `fn arrhenius_term(pre_exponential: f64, activation_energy_kj_per_mol: f64, temperature_kelvin: f64) -> f64` — Evaluate one Arrhenius term `D0 · exp(−Q / (R·T))`. · called at [L143](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/diffusion/mod.rs#L143)
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/boon-lay/src/triso_atops_fork/diffusion/mod.rs:77 fn arrhenius_term -->
+
+```rust,ignore
+{{#include ../../../../../crates/boon-lay/src/triso_atops_fork/diffusion/mod.rs:77:85}}
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:0.9em">
+
+[`mod.rs::rb_fail`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/release_models/mod.rs#L81) `pub fn rb_fail(z: u32, short_lived: bool, decay_constant: DecayConstant, temperature: ThermodynamicTemperature, irradiation_time: Time, grain_size: Length, sic_thickness: Length, kernel_radius: Length, kernel_diffusion_coefficient: DiffusionCoefficient) -> ReleaseFraction` — Normal-operation release-to-birth `<R/B>_fail` dispatcher. · called at [L272](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/normal_operation/mod.rs#L272)
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/boon-lay/src/triso_atops_fork/release_models/mod.rs:81 fn rb_fail -->
+<!-- snippet-check: crates/boon-lay/src/triso_atops_fork/release_models/mod.rs:97 from_atomic_number -->
+<!-- snippet-check: crates/boon-lay/src/triso_atops_fork/release_models/mod.rs:99 rb_fail_noble_gases -->
+<!-- snippet-check: crates/boon-lay/src/triso_atops_fork/release_models/mod.rs:103 booth_shortlived_fast_diffuse -->
+<!-- snippet-check: crates/boon-lay/src/triso_atops_fork/release_models/mod.rs:109 booth_longlived -->
+<!-- snippet-check: crates/boon-lay/src/triso_atops_fork/release_models/mod.rs:117 diffusion_coefficient_sic_ag -->
+<!-- snippet-check: crates/boon-lay/src/triso_atops_fork/release_models/mod.rs:118 breakthrough_model -->
+<!-- snippet-check: crates/boon-lay/src/triso_atops_fork/release_models/mod.rs:126 find_nuclide -->
+<!-- snippet-check: crates/boon-lay/src/triso_atops_fork/release_models/mod.rs:128 decay_constant -->
+
+```rust,ignore
+{{#include ../../../../../crates/boon-lay/src/triso_atops_fork/release_models/mod.rs:81:88}}
+    // …
+{{#include ../../../../../crates/boon-lay/src/triso_atops_fork/release_models/mod.rs:95:104}}
+    // …
+{{#include ../../../../../crates/boon-lay/src/triso_atops_fork/release_models/mod.rs:107:110}}
+    // …
+{{#include ../../../../../crates/boon-lay/src/triso_atops_fork/release_models/mod.rs:115:119}}
+    // …
+{{#include ../../../../../crates/boon-lay/src/triso_atops_fork/release_models/mod.rs:124:129}}
+    // … (the rest of the function: follow the link above)
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:1.8em">
+
+`mod.rs::ElementGroup::from_atomic_number` *(expanded elsewhere in this walk)* · called at [L97](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/release_models/mod.rs#L97)
+
+</div>
+
+<div class="cw-node" style="margin-left:1.8em">
+
+[`steady_state.rs::rb_fail_noble_gases`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/release_models/steady_state.rs#L86) `pub fn rb_fail_noble_gases(z: u32, decay_constant: DecayConstant, temperature: ThermodynamicTemperature) -> ReleaseFraction` — Empirical release-to-birth `<R/B>_fail` for noble gases and halogens. · called at [L99](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/release_models/mod.rs#L99)
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/boon-lay/src/triso_atops_fork/release_models/steady_state.rs:86 fn rb_fail_noble_gases -->
+
+```rust,ignore
+{{#include ../../../../../crates/boon-lay/src/triso_atops_fork/release_models/steady_state.rs:86:101}}
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:1.8em">
+
+[`steady_state.rs::booth_shortlived_fast_diffuse`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/release_models/steady_state.rs#L225) `pub fn booth_shortlived_fast_diffuse(diffusion_coefficient: DiffusionCoefficient, decay_constant: DecayConstant, equivalent_sphere_radius: Length) -> ReleaseFraction` — Booth model `<R/B>` for a **short-lived** species that diffuses fast relative to decay. · called at [L103](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/release_models/mod.rs#L103)
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/boon-lay/src/triso_atops_fork/release_models/steady_state.rs:225 fn booth_shortlived_fast_diffuse -->
+
+```rust,ignore
+{{#include ../../../../../crates/boon-lay/src/triso_atops_fork/release_models/steady_state.rs:225:236}}
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:1.8em">
+
+[`steady_state.rs::booth_longlived`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/release_models/steady_state.rs#L180) `pub fn booth_longlived(diffusion_coefficient: DiffusionCoefficient, time: Time, equivalent_sphere_radius: Length) -> ReleaseFraction` — Booth model release fraction for a **long-lived** species with large release. · called at [L109](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/release_models/mod.rs#L109)
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/boon-lay/src/triso_atops_fork/release_models/steady_state.rs:180 fn booth_longlived -->
+
+```rust,ignore
+{{#include ../../../../../crates/boon-lay/src/triso_atops_fork/release_models/steady_state.rs:180:196}}
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:1.8em">
+
+[`mod.rs::diffusion_coefficient_sic_ag`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/diffusion/mod.rs#L196) `pub fn diffusion_coefficient_sic_ag(sic_temperature: ThermodynamicTemperature) -> DiffusionCoefficient` — Diffusion coefficient for silver (Ag) through the **SiC** layer. · called at [L117](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/release_models/mod.rs#L117)
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/boon-lay/src/triso_atops_fork/diffusion/mod.rs:196 fn diffusion_coefficient_sic_ag -->
+<!-- snippet-check: crates/boon-lay/src/triso_atops_fork/diffusion/mod.rs:200 arrhenius_term -->
+
+```rust,ignore
+{{#include ../../../../../crates/boon-lay/src/triso_atops_fork/diffusion/mod.rs:196:201}}
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:2.7em">
+
+`mod.rs::arrhenius_term` *(expanded elsewhere in this walk)* · called at [L200](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/diffusion/mod.rs#L200)
+
+</div>
+
+<div class="cw-node" style="margin-left:1.8em">
+
+[`steady_state.rs::breakthrough_model`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/release_models/steady_state.rs#L132) `pub fn breakthrough_model(diffusion_coefficient: DiffusionCoefficient, time: Time, layer_thickness: Length, kernel_radius: Length) -> ReleaseFraction` — Booth "breakthrough" release fraction for a barrier-limited (low-release) species. · called at [L118](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/release_models/mod.rs#L118)
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/boon-lay/src/triso_atops_fork/release_models/steady_state.rs:132 fn breakthrough_model -->
+<!-- snippet-check: crates/boon-lay/src/triso_atops_fork/release_models/steady_state.rs:151 clamp_release_fraction -->
+
+```rust,ignore
+{{#include ../../../../../crates/boon-lay/src/triso_atops_fork/release_models/steady_state.rs:132:152}}
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:2.7em">
+
+[`steady_state.rs::clamp_release_fraction`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/release_models/steady_state.rs#L57) `fn clamp_release_fraction(rf: f64) -> ReleaseFraction` — Clamp a raw release fraction into the physical `[0, 1]` range. · called at [L151](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/release_models/steady_state.rs#L151) · *(calls below the depth limit not shown)*
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/boon-lay/src/triso_atops_fork/release_models/steady_state.rs:57 fn clamp_release_fraction -->
+
+```rust,ignore
+{{#include ../../../../../crates/boon-lay/src/triso_atops_fork/release_models/steady_state.rs:57:59}}
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:1.8em">
+
+[`nuclide_database.rs::find_nuclide`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L145) `pub fn find_nuclide(name: &str) -> Option<TrisoAtopsNuclide>` — Look a nuclide up by its canonical TRISO-ATOPS name (case-sensitive). · called at [L126](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/release_models/mod.rs#L126)
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:145 fn find_nuclide -->
+<!-- snippet-check: crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:146 supported_nuclides -->
+
+```rust,ignore
+{{#include ../../../../../crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:145:147}}
+    // … (the rest of the function: follow the link above)
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:2.7em">
+
+[`nuclide_database.rs::supported_nuclides`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L44) `pub fn supported_nuclides() -> Vec<TrisoAtopsNuclide>` — The full TRISO-ATOPS supported-nuclide table. · called at [L146](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L146) · *(calls below the depth limit not shown)*
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:44 fn supported_nuclides -->
+
+```rust,ignore
+{{#include ../../../../../crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:44:83}}
+    // … (the rest of the function: follow the link above)
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:1.8em">
+
+`mod.rs::TrisoAtopsNuclide::decay_constant` *(expanded elsewhere in this walk)* · called at [L128](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/release_models/mod.rs#L128)
+
+</div>
+
+<div class="cw-node" style="margin-left:0.9em">
+
+[`source_terms.rs::release_rate`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/activities/source_terms.rs#L166) `pub fn release_rate(rb_fail: ReleaseFraction, element_group: ElementGroup, fractions: FailureFractions, inventory: Activity, short_lived: bool, time: Time, decay_constant: DecayConstant) -> f64` — Per-node fission-product **release rate** `R` from the fuel. · called at [L285](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/normal_operation/mod.rs#L285)
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/boon-lay/src/triso_atops_fork/activities/source_terms.rs:166 fn release_rate -->
+<!-- snippet-check: crates/boon-lay/src/triso_atops_fork/activities/source_terms.rs:181 sum -->
+
+```rust,ignore
+{{#include ../../../../../crates/boon-lay/src/triso_atops_fork/activities/source_terms.rs:166:182}}
+    // … (the rest of the function: follow the link above)
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:1.8em">
+
+[`source_terms.rs::FailureFractions::sum`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/activities/source_terms.rs#L123) `pub fn sum(&self) -> f64` — Sum of all four failure fractions, `f_hm + f_sic + f_inc + f_inc_sic`. · called at [L181](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/activities/source_terms.rs#L181)
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/boon-lay/src/triso_atops_fork/activities/source_terms.rs:123 fn sum -->
+
+```rust,ignore
+{{#include ../../../../../crates/boon-lay/src/triso_atops_fork/activities/source_terms.rs:123:125}}
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:0.9em">
+
+[`source_terms.rs::base_activities`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/activities/source_terms.rs#L234) `pub fn base_activities(element_group: ElementGroup, decay_constant: DecayConstant, time: Time, graphite_thickness: Length, graphite_diffusion_coefficient: DiffusionCoefficient, release_rate: f64) -> SourceAndGraphite` — Split a release rate into coolant **source rate** `S` and **graphite** `G`. · called at [L296](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/normal_operation/mod.rs#L296)
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/boon-lay/src/triso_atops_fork/activities/source_terms.rs:234 fn base_activities -->
+<!-- snippet-check: crates/boon-lay/src/triso_atops_fork/activities/source_terms.rs:250 attenuation_factor -->
+
+```rust,ignore
+{{#include ../../../../../crates/boon-lay/src/triso_atops_fork/activities/source_terms.rs:234:251}}
+    // … (the rest of the function: follow the link above)
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:1.8em">
+
+[`steady_state.rs::attenuation_factor`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/release_models/steady_state.rs#L266) `pub fn attenuation_factor(graphite_diffusion_coefficient: DiffusionCoefficient, time: Time, graphite_thickness: Length) -> Ratio` — Graphite hold-up (attenuation) factor `Af` for a fission metal. · called at [L250](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/activities/source_terms.rs#L250)
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/boon-lay/src/triso_atops_fork/release_models/steady_state.rs:266 fn attenuation_factor -->
+
+```rust,ignore
+{{#include ../../../../../crates/boon-lay/src/triso_atops_fork/release_models/steady_state.rs:266:294}}
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:0.9em">
+
+[`coolant_activity.rs::circulating`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/activities/coolant_activity.rs#L97) `pub fn circulating(source_rate: f64, k_plate: Frequency, decay_constant: DecayConstant, time: Time, k_clean: Frequency, circulating_parent: f64) -> f64` — Time-dependent circulating activity `C` at reactor run time `t`. · called at [L314](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/normal_operation/mod.rs#L314)
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/boon-lay/src/triso_atops_fork/activities/coolant_activity.rs:97 fn circulating -->
+
+```rust,ignore
+{{#include ../../../../../crates/boon-lay/src/triso_atops_fork/activities/coolant_activity.rs:97:110}}
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:0.9em">
+
+[`coolant_activity.rs::plate_out`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/activities/coolant_activity.rs#L155) `pub fn plate_out(k_plate: Frequency, source_rate: f64, decay_constant: DecayConstant, time: Time, circulating: f64, k_clean: Frequency, plate_out_parent: f64) -> f64` — Time-dependent plate-out activity `P` at reactor run time `t`. · called at [L325](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/normal_operation/mod.rs#L325)
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/boon-lay/src/triso_atops_fork/activities/coolant_activity.rs:155 fn plate_out -->
+
+```rust,ignore
+{{#include ../../../../../crates/boon-lay/src/triso_atops_fork/activities/coolant_activity.rs:155:172}}
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:0.9em">
+
+[`coolant_activity.rs::clean_up`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/activities/coolant_activity.rs#L225) `pub fn clean_up(k_plate: Frequency, source_rate: f64, decay_constant: DecayConstant, time: Time, circulating: f64, k_clean: Frequency, clean_up_parent: f64) -> f64` — Time-dependent clean-up (HPS) activity `HPS` at reactor run time `t`. · called at [L337](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/normal_operation/mod.rs#L337)
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/boon-lay/src/triso_atops_fork/activities/coolant_activity.rs:225 fn clean_up -->
+
+```rust,ignore
+{{#include ../../../../../crates/boon-lay/src/triso_atops_fork/activities/coolant_activity.rs:225:240}}
+```
+
+</details>
+</div>
 <!-- /code-walk -->
 
 <!-- code-walk: from=crates/boon-lay/src/triso_atops_fork/accident/mod.rs::release_activity depth=3 -->
@@ -457,11 +4127,89 @@ Everything `crates/boon-lay/src/triso_atops_fork/normal_operation/mod.rs::normal
 
 Everything `crates/boon-lay/src/triso_atops_fork/accident/mod.rs::release_activity` reaches in the workspace, to 3 hops: 5 functions, 0 unresolved calls. A function is expanded once; later calls to it say *(expanded elsewhere in this walk)*.
 
-- [`mod.rs::release_activity`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/accident/mod.rs#L253) `pub fn release_activity(group: ElementGroup, fractions: AccidentFractions, node: NormalOperationNode, release_fraction: f64, clean: bool, material: ReleaseMaterial, upstream_cadmium_typo: bool, z: u32) -> f64` — The activity still available for accident release at one node, in atoms.
-  - [`mod.rs::AccidentFractions::volatile_sum`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/accident/mod.rs#L127) `pub fn volatile_sum(&self) -> f64` — Upstream's `fractions[0] + fractions[2] + fractions[-2]` — the volatile path: heavy metal, incremental, and the accident incremental. · called at [L272](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/accident/mod.rs#L272)
-  - [`mod.rs::AccidentFractions::total`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/accident/mod.rs#L95) `pub fn total(&self) -> f64` — Upstream's `np.sum(fractions)` — all six. · called at [L276](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/accident/mod.rs#L276)
-  - [`mod.rs::AccidentFractions::normal_operation_sum`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/accident/mod.rs#L110) `pub fn normal_operation_sum(&self) -> f64` — Upstream's `np.sum(fractions[:4])` — the four normal-operation fractions. · called at [L279](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/accident/mod.rs#L279)
-  - [`mod.rs::AccidentFractions::accident_sum`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/accident/mod.rs#L116) `pub fn accident_sum(&self) -> f64` — Upstream's `np.sum(fractions[4:])` — the two accident-only fractions. · called at [L291](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/accident/mod.rs#L291)
+<div class="cw-node" style="margin-left:0.0em">
+
+[`mod.rs::release_activity`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/accident/mod.rs#L253) `pub fn release_activity(group: ElementGroup, fractions: AccidentFractions, node: NormalOperationNode, release_fraction: f64, clean: bool, material: ReleaseMaterial, upstream_cadmium_typo: bool, z: u32) -> f64` — The activity still available for accident release at one node, in atoms.
+
+<details open><summary>code</summary>
+
+<!-- snippet-check: crates/boon-lay/src/triso_atops_fork/accident/mod.rs:253 fn release_activity -->
+<!-- snippet-check: crates/boon-lay/src/triso_atops_fork/accident/mod.rs:272 volatile_sum -->
+<!-- snippet-check: crates/boon-lay/src/triso_atops_fork/accident/mod.rs:276 total -->
+<!-- snippet-check: crates/boon-lay/src/triso_atops_fork/accident/mod.rs:279 normal_operation_sum -->
+<!-- snippet-check: crates/boon-lay/src/triso_atops_fork/accident/mod.rs:291 accident_sum -->
+
+```rust,ignore
+{{#include ../../../../../crates/boon-lay/src/triso_atops_fork/accident/mod.rs:253:260}}
+    // …
+{{#include ../../../../../crates/boon-lay/src/triso_atops_fork/accident/mod.rs:270:280}}
+    // …
+{{#include ../../../../../crates/boon-lay/src/triso_atops_fork/accident/mod.rs:289:292}}
+    // … (the rest of the function: follow the link above)
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:0.9em">
+
+[`mod.rs::AccidentFractions::volatile_sum`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/accident/mod.rs#L127) `pub fn volatile_sum(&self) -> f64` — Upstream's `fractions[0] + fractions[2] + fractions[-2]` — the volatile path: heavy metal, incremental, and the accident incremental. · called at [L272](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/accident/mod.rs#L272)
+
+<details open><summary>code</summary>
+
+<!-- snippet-check: crates/boon-lay/src/triso_atops_fork/accident/mod.rs:127 fn volatile_sum -->
+
+```rust,ignore
+{{#include ../../../../../crates/boon-lay/src/triso_atops_fork/accident/mod.rs:127:129}}
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:0.9em">
+
+[`mod.rs::AccidentFractions::total`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/accident/mod.rs#L95) `pub fn total(&self) -> f64` — Upstream's `np.sum(fractions)` — all six. · called at [L276](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/accident/mod.rs#L276)
+
+<details open><summary>code</summary>
+
+<!-- snippet-check: crates/boon-lay/src/triso_atops_fork/accident/mod.rs:95 fn total -->
+
+```rust,ignore
+{{#include ../../../../../crates/boon-lay/src/triso_atops_fork/accident/mod.rs:95:102}}
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:0.9em">
+
+[`mod.rs::AccidentFractions::normal_operation_sum`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/accident/mod.rs#L110) `pub fn normal_operation_sum(&self) -> f64` — Upstream's `np.sum(fractions[:4])` — the four normal-operation fractions. · called at [L279](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/accident/mod.rs#L279)
+
+<details open><summary>code</summary>
+
+<!-- snippet-check: crates/boon-lay/src/triso_atops_fork/accident/mod.rs:110 fn normal_operation_sum -->
+
+```rust,ignore
+{{#include ../../../../../crates/boon-lay/src/triso_atops_fork/accident/mod.rs:110:112}}
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:0.9em">
+
+[`mod.rs::AccidentFractions::accident_sum`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/accident/mod.rs#L116) `pub fn accident_sum(&self) -> f64` — Upstream's `np.sum(fractions[4:])` — the two accident-only fractions. · called at [L291](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/accident/mod.rs#L291)
+
+<details open><summary>code</summary>
+
+<!-- snippet-check: crates/boon-lay/src/triso_atops_fork/accident/mod.rs:116 fn accident_sum -->
+
+```rust,ignore
+{{#include ../../../../../crates/boon-lay/src/triso_atops_fork/accident/mod.rs:116:118}}
+```
+
+</details>
+</div>
 <!-- /code-walk -->
 
 ## Extended deep dives {#extended}
@@ -473,43 +4221,557 @@ Everything `crates/boon-lay/src/triso_atops_fork/accident/mod.rs::release_activi
 
 Everything `crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/depletion.rs::advance_until` reaches in the workspace, to 3 hops: 30 functions, 1 unresolved call. A function is expanded once; later calls to it say *(expanded elsewhere in this walk)*.
 
-- [`depletion.rs::WoSWalker::advance_until`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/depletion.rs#L190) `pub fn advance_until(&mut self, triso_cell: &TrisoCell, params: &WalkParams, decay_library: &DecayLibrary, transmutation: Transmutation, until: Time) -> DepletionOutcome` — Advance the walker — diffusing while decaying and transmuting — until it is released from the OPyC surface or its simulated time reaches `until`.
-  - [`depletion.rs::WoSWalker::decay_rate`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/depletion.rs#L152) `pub fn decay_rate(&self, decay_library: &DecayLibrary) -> Frequency` — Radioactive decay rate `ln2 / t_half` of the walker's current nuclide, or zero if it is stable or absent from the library. · called at [L206](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/depletion.rs#L206)
-    - [`indexing_using_nuclide.rs::DecayLibrary::try_match_nuclides_to_decay_data`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/nuclide_reaction_and_decay_data/decay_library/indexing_using_nuclide.rs#L9) `pub fn try_match_nuclides_to_decay_data(&self, nuclide: Nuclide) -> Option<NuclideReactionAndDecayData>` · called at [L153](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/depletion.rs#L153)
-      - UNRESOLVED(other): `clone` at [L159](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/nuclide_reaction_and_decay_data/decay_library/indexing_using_nuclide.rs#L159) (→ [`crates/boon-lay/src/nuclide_reaction_and_decay_data/mod.rs:6`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/nuclide_reaction_and_decay_data/mod.rs#L6)) — resolves to `#[derive(Debug, PartialEq, Clone)]`, not a function body
-  - [`depletion.rs::Transmutation::rate_for`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/depletion.rs#L78) `pub fn rate_for(&self, nuclide: Nuclide) -> Frequency` — Transmutation rate acting on `nuclide` under this field. · called at [L207](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/depletion.rs#L207)
-  - [`depletion.rs::sample_event_time`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/depletion.rs#L144) `pub fn sample_event_time(rate: Frequency, u: f64) -> Time` — Sample a waiting time `~ Exp(rate)` from a uniform deviate `u` in `[0, 1)`. · called at [L211](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/depletion.rs#L211)
-  - [`lcg.rs::prn`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/petir/src/rng/lcg.rs#L127) `pub fn prn(seed: &mut u64) -> f64` — Advance the seed one step and return a uniform sample in [0, 1). · called at [L211](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/depletion.rs#L211)
-  - [`walk_on_spheres.rs::WoSWalker::step_multilayer`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/walk_on_spheres.rs#L249) `pub fn step_multilayer(&mut self, triso_cell: &TrisoCell, params: &WalkParams) -> HopOutcome` — Advance one multilayer step: either a genuine Walk-on-Spheres hop within the current shell, or — if the walker has reached an interface — one transmission/reflection resolution. · called at [L218](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/depletion.rs#L218)
-    - [`walk_on_spheres.rs::shell_bounds`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/walk_on_spheres.rs#L452) `pub fn shell_bounds(triso_cell: &TrisoCell, position: [Length; 3]) -> Option<(Option<Length>, Length)>` — The inner and outer bounding-sphere radii of the shell containing `position`. · called at [L250](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/walk_on_spheres.rs#L250)
-      - [`mod.rs::TrisoCell::get_triso_region`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/single_particle_simulator/constructive_solid_geometry/mod.rs#L162) `pub fn get_triso_region(&self, coordinates: [Length; 3]) -> TrisoRegion` — checks which region the particle is in chatgpt fixed · called at [L456](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/walk_on_spheres.rs#L456) · *(calls below the depth limit not shown)*
-      - [`mod.rs::TrisoCell::get_fuel_radius`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/single_particle_simulator/constructive_solid_geometry/mod.rs#L315) `pub fn get_fuel_radius(&self) -> Length` · called at [L457](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/walk_on_spheres.rs#L457) · *(calls below the depth limit not shown)*
-      - [`mod.rs::TrisoCell::get_buffer_radius`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/single_particle_simulator/constructive_solid_geometry/mod.rs#L323) `pub fn get_buffer_radius(&self) -> Length` · called at [L460](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/walk_on_spheres.rs#L460) · *(calls below the depth limit not shown)*
-      - [`mod.rs::TrisoCell::get_ipyc_radius`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/single_particle_simulator/constructive_solid_geometry/mod.rs#L331) `pub fn get_ipyc_radius(&self) -> Length` · called at [L464](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/walk_on_spheres.rs#L464) · *(calls below the depth limit not shown)*
-      - [`mod.rs::TrisoCell::get_sic_radius`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/single_particle_simulator/constructive_solid_geometry/mod.rs#L339) `pub fn get_sic_radius(&self) -> Length` · called at [L468](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/walk_on_spheres.rs#L468) · *(calls below the depth limit not shown)*
-      - `mod.rs::TrisoCell::get_opyc_radius` *(expanded elsewhere in this walk)* · called at [L472](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/walk_on_spheres.rs#L472)
-    - [`walk_on_spheres.rs::WoSWalker::radius`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/walk_on_spheres.rs#L142) `pub fn radius(&self) -> Length` — Radial distance of the walker from the particle centre, `|position|`. · called at [L253](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/walk_on_spheres.rs#L253)
-      - [`walk_on_spheres.rs::radial_distance`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/walk_on_spheres.rs#L408) `pub fn radial_distance(position: [Length; 3]) -> Length` — Radial distance of a point from the particle centre, `sqrt(x^2+y^2+z^2)`. · called at [L143](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/walk_on_spheres.rs#L143) · *(calls below the depth limit not shown)*
-    - [`walk_on_spheres.rs::WoSWalker::diffusion_at`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/walk_on_spheres.rs#L359) `fn diffusion_at(&self, triso_cell: &TrisoCell, position: [Length; 3]) -> DiffusionCoefficient` — Diffusion coefficient of the walker's current nuclide at `position`, falling back to the cracked-layer default outside every known region. · called at [L262](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/walk_on_spheres.rs#L262)
-      - [`mod.rs::TrisoCell::try_get_diffusion_coefficient`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/single_particle_simulator/constructive_solid_geometry/mod.rs#L213) `pub fn try_get_diffusion_coefficient(&self, coordinates: [Length; 3], nuclide: Nuclide) -> Option<DiffusionCoefficient>` — checks the diffusion coefficient based on coordinates of the triso particle · called at [L361](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/walk_on_spheres.rs#L361) · *(calls below the depth limit not shown)*
-    - [`sphere_fpt.rs::sample_first_passage_time`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/sphere_fpt.rs#L176) `pub fn sample_first_passage_time(seed: &mut u64, radius: Length, diffusion_coefficient: DiffusionCoefficient) -> Time` — Sample the physical first-passage time for a hop of radius `radius` in a medium with diffusion coefficient `diffusion_coefficient`. · called at [L266](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/walk_on_spheres.rs#L266)
-      - [`sphere_fpt.rs::sample_dimensionless_exit_time`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/sphere_fpt.rs#L161) `pub fn sample_dimensionless_exit_time(seed: &mut u64) -> f64` — Sample the dimensionless exit time `theta = D * tau / R^2` for one hop. · called at [L181](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/sphere_fpt.rs#L181) · *(calls below the depth limit not shown)*
-    - [`sphere_fpt.rs::sample_uniform_direction`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/sphere_fpt.rs#L190) `pub fn sample_uniform_direction(seed: &mut u64) -> [f64; 3]` — Sample a direction uniform on the unit sphere, as a dimensionless `[x, y, z]` unit vector. · called at [L268](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/walk_on_spheres.rs#L268)
-      - [`distributions.rs::isotropic_direction`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/rng/distributions.rs#L54) `pub fn isotropic_direction(seed: &mut u64) -> (f64, f64, f64)` — Sample an isotropic direction on the unit sphere. · called at [L191](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/sphere_fpt.rs#L191) · *(calls below the depth limit not shown)*
-    - [`mod.rs::TrisoCell::get_opyc_radius`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/single_particle_simulator/constructive_solid_geometry/mod.rs#L347) `pub fn get_opyc_radius(&self) -> Length` · called at [L288](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/walk_on_spheres.rs#L288)
-      - [`mod.rs::Region::try_return_center_and_radius_of_sphere`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/single_particle_simulator/constructive_solid_geometry/mod.rs#L34) `pub fn try_return_center_and_radius_of_sphere(&self) -> Option<([Length; 3], Length)>` · called at [L349](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/single_particle_simulator/constructive_solid_geometry/mod.rs#L349) · *(calls below the depth limit not shown)*
-    - [`walk_on_spheres.rs::WoSWalker::point_at_radius`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/walk_on_spheres.rs#L372) `fn point_at_radius(&self, target: Length) -> [Length; 3]` — The point at radial distance `target` from the centre, along the walker's current radial direction. · called at [L291](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/walk_on_spheres.rs#L291)
-      - `walk_on_spheres.rs::WoSWalker::radius` *(expanded elsewhere in this walk)* · called at [L373](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/walk_on_spheres.rs#L373)
-    - [`interface.rs::does_transmit`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/interface.rs#L91) `pub fn does_transmit(seed: &mut u64, d_current: DiffusionCoefficient, d_next: DiffusionCoefficient, partition_k: f64) -> bool` — Decide whether a walker arriving at a `D1 | D2` interface transmits. · called at [L292](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/walk_on_spheres.rs#L292)
-      - `lcg.rs::prn` *(expanded elsewhere in this walk)* · called at [L97](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/interface.rs#L97)
-      - [`interface.rs::transmission_probability`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/interface.rs#L70) `pub fn transmission_probability(d_current: DiffusionCoefficient, d_next: DiffusionCoefficient, partition_k: f64) -> f64` — Probability that a walker arriving at a `D1 | D2` interface transmits into the `D2` side (rather than reflecting back into the `D1` side). · called at [L97](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/interface.rs#L97) · *(calls below the depth limit not shown)*
-    - [`walk_on_spheres.rs::WoSWalker::set_radius_to`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/walk_on_spheres.rs#L387) `fn set_radius_to(&mut self, target: Length)` — Move the walker radially to `target` (same direction, new radius). · called at [L293](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/walk_on_spheres.rs#L293)
-      - `walk_on_spheres.rs::WoSWalker::point_at_radius` *(expanded elsewhere in this walk)* · called at [L388](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/walk_on_spheres.rs#L388)
-  - [`depletion.rs::WoSWalker::decay_once`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/depletion.rs#L168) `pub fn decay_once(&mut self, decay_library: &DecayLibrary) -> bool` — Replace the current nuclide with a stochastically chosen decay daughter, drawn from the branching ratios using the walker's own RNG. · called at [L237](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/depletion.rs#L237)
-    - `indexing_using_nuclide.rs::DecayLibrary::try_match_nuclides_to_decay_data` *(expanded elsewhere in this walk)* · called at [L169](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/depletion.rs#L169)
-    - `lcg.rs::prn` *(expanded elsewhere in this walk)* · called at [L172](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/depletion.rs#L172)
-    - [`mod.rs::NuclideReactionAndDecayData::get_next_target_nuclide_with_float`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/nuclide_reaction_and_decay_data/get_decay_info/mod.rs#L146) `pub fn get_next_target_nuclide_with_float(&self, mut random_num_between_0_and_1: f64) -> Option<(Nuclide, DecayType)>` · called at [L173](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/depletion.rs#L173)
-  - [`depletion.rs::Transmutation::product_for`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/depletion.rs#L98) `pub fn product_for(&self, nuclide: Nuclide) -> Option<Nuclide>` — The product `nuclide` transmutes into under this field, if any channel applies. · called at [L238](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/depletion.rs#L238)
+<div class="cw-node" style="margin-left:0.0em">
+
+[`depletion.rs::WoSWalker::advance_until`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/depletion.rs#L190) `pub fn advance_until(&mut self, triso_cell: &TrisoCell, params: &WalkParams, decay_library: &DecayLibrary, transmutation: Transmutation, until: Time) -> DepletionOutcome` — Advance the walker — diffusing while decaying and transmuting — until it is released from the OPyC surface or its simulated time reaches `until`.
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/depletion.rs:190 fn advance_until -->
+<!-- snippet-check: crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/depletion.rs:206 decay_rate -->
+<!-- snippet-check: crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/depletion.rs:207 rate_for -->
+<!-- snippet-check: crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/depletion.rs:211 sample_event_time -->
+<!-- snippet-check: crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/depletion.rs:218 step_multilayer -->
+<!-- snippet-check: crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/depletion.rs:237 decay_once -->
+<!-- snippet-check: crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/depletion.rs:238 product_for -->
+
+```rust,ignore
+{{#include ../../../../../crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/depletion.rs:190:197}}
+    // …
+{{#include ../../../../../crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/depletion.rs:204:212}}
+    // …
+{{#include ../../../../../crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/depletion.rs:216:219}}
+    // …
+{{#include ../../../../../crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/depletion.rs:235:239}}
+    // … (the rest of the function: follow the link above)
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:0.9em">
+
+[`depletion.rs::WoSWalker::decay_rate`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/depletion.rs#L152) `pub fn decay_rate(&self, decay_library: &DecayLibrary) -> Frequency` — Radioactive decay rate `ln2 / t_half` of the walker's current nuclide, or zero if it is stable or absent from the library. · called at [L206](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/depletion.rs#L206)
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/depletion.rs:152 fn decay_rate -->
+<!-- snippet-check: crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/depletion.rs:153 try_match_nuclides_to_decay_data -->
+
+```rust,ignore
+{{#include ../../../../../crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/depletion.rs:152:154}}
+    // … (the rest of the function: follow the link above)
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:1.8em">
+
+[`indexing_using_nuclide.rs::DecayLibrary::try_match_nuclides_to_decay_data`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/nuclide_reaction_and_decay_data/decay_library/indexing_using_nuclide.rs#L9) `pub fn try_match_nuclides_to_decay_data(&self, nuclide: Nuclide) -> Option<NuclideReactionAndDecayData>` · called at [L153](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/depletion.rs#L153)
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/boon-lay/src/nuclide_reaction_and_decay_data/decay_library/indexing_using_nuclide.rs:9 fn try_match_nuclides_to_decay_data -->
+<!-- snippet-check: crates/boon-lay/src/nuclide_reaction_and_decay_data/decay_library/indexing_using_nuclide.rs:159 clone -->
+
+```rust,ignore
+{{#include ../../../../../crates/boon-lay/src/nuclide_reaction_and_decay_data/decay_library/indexing_using_nuclide.rs:9:12}}
+    // …
+{{#include ../../../../../crates/boon-lay/src/nuclide_reaction_and_decay_data/decay_library/indexing_using_nuclide.rs:157:160}}
+    // … (the rest of the function: follow the link above)
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:2.7em">
+
+UNRESOLVED(other): `clone` at [L159](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/nuclide_reaction_and_decay_data/decay_library/indexing_using_nuclide.rs#L159) (→ [`crates/boon-lay/src/nuclide_reaction_and_decay_data/mod.rs:6`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/nuclide_reaction_and_decay_data/mod.rs#L6)) — resolves to `#[derive(Debug, PartialEq, Clone)]`, not a function body
+
+</div>
+
+<div class="cw-node" style="margin-left:0.9em">
+
+[`depletion.rs::Transmutation::rate_for`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/depletion.rs#L78) `pub fn rate_for(&self, nuclide: Nuclide) -> Frequency` — Transmutation rate acting on `nuclide` under this field. · called at [L207](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/depletion.rs#L207)
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/depletion.rs:78 fn rate_for -->
+
+```rust,ignore
+{{#include ../../../../../crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/depletion.rs:78:93}}
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:0.9em">
+
+[`depletion.rs::sample_event_time`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/depletion.rs#L144) `pub fn sample_event_time(rate: Frequency, u: f64) -> Time` — Sample a waiting time `~ Exp(rate)` from a uniform deviate `u` in `[0, 1)`. · called at [L211](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/depletion.rs#L211)
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/depletion.rs:144 fn sample_event_time -->
+
+```rust,ignore
+{{#include ../../../../../crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/depletion.rs:144:146}}
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:0.9em">
+
+[`lcg.rs::prn`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/petir/src/rng/lcg.rs#L127) `pub fn prn(seed: &mut u64) -> f64` — Advance the seed one step and return a uniform sample in [0, 1). · called at [L211](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/depletion.rs#L211)
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/petir/src/rng/lcg.rs:127 fn prn -->
+
+```rust,ignore
+{{#include ../../../../../crates/petir/src/rng/lcg.rs:127:138}}
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:0.9em">
+
+[`walk_on_spheres.rs::WoSWalker::step_multilayer`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/walk_on_spheres.rs#L249) `pub fn step_multilayer(&mut self, triso_cell: &TrisoCell, params: &WalkParams) -> HopOutcome` — Advance one multilayer step: either a genuine Walk-on-Spheres hop within the current shell, or — if the walker has reached an interface — one transmission/reflection resolution. · called at [L218](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/depletion.rs#L218)
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/walk_on_spheres.rs:249 fn step_multilayer -->
+<!-- snippet-check: crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/walk_on_spheres.rs:250 shell_bounds -->
+<!-- snippet-check: crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/walk_on_spheres.rs:253 radius -->
+<!-- snippet-check: crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/walk_on_spheres.rs:262 diffusion_at -->
+<!-- snippet-check: crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/walk_on_spheres.rs:266 sample_first_passage_time -->
+<!-- snippet-check: crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/walk_on_spheres.rs:268 sample_uniform_direction -->
+<!-- snippet-check: crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/walk_on_spheres.rs:288 get_opyc_radius -->
+<!-- snippet-check: crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/walk_on_spheres.rs:291 point_at_radius -->
+<!-- snippet-check: crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/walk_on_spheres.rs:292 does_transmit -->
+<!-- snippet-check: crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/walk_on_spheres.rs:293 set_radius_to -->
+
+```rust,ignore
+{{#include ../../../../../crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/walk_on_spheres.rs:249:254}}
+    // …
+{{#include ../../../../../crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/walk_on_spheres.rs:260:269}}
+    // …
+{{#include ../../../../../crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/walk_on_spheres.rs:286:294}}
+    // … (the rest of the function: follow the link above)
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:1.8em">
+
+[`walk_on_spheres.rs::shell_bounds`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/walk_on_spheres.rs#L452) `pub fn shell_bounds(triso_cell: &TrisoCell, position: [Length; 3]) -> Option<(Option<Length>, Length)>` — The inner and outer bounding-sphere radii of the shell containing `position`. · called at [L250](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/walk_on_spheres.rs#L250)
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/walk_on_spheres.rs:452 fn shell_bounds -->
+<!-- snippet-check: crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/walk_on_spheres.rs:456 get_triso_region -->
+<!-- snippet-check: crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/walk_on_spheres.rs:457 get_fuel_radius -->
+<!-- snippet-check: crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/walk_on_spheres.rs:460 get_buffer_radius -->
+<!-- snippet-check: crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/walk_on_spheres.rs:464 get_ipyc_radius -->
+<!-- snippet-check: crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/walk_on_spheres.rs:468 get_sic_radius -->
+<!-- snippet-check: crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/walk_on_spheres.rs:472 get_opyc_radius -->
+
+```rust,ignore
+{{#include ../../../../../crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/walk_on_spheres.rs:452:473}}
+    // … (the rest of the function: follow the link above)
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:2.7em">
+
+[`mod.rs::TrisoCell::get_triso_region`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/single_particle_simulator/constructive_solid_geometry/mod.rs#L162) `pub fn get_triso_region(&self, coordinates: [Length; 3]) -> TrisoRegion` — checks which region the particle is in chatgpt fixed · called at [L456](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/walk_on_spheres.rs#L456) · *(calls below the depth limit not shown)*
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/single_particle_simulator/constructive_solid_geometry/mod.rs:162 fn get_triso_region -->
+
+```rust,ignore
+{{#include ../../../../../crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/single_particle_simulator/constructive_solid_geometry/mod.rs:162:201}}
+    // … (the rest of the function: follow the link above)
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:2.7em">
+
+[`mod.rs::TrisoCell::get_fuel_radius`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/single_particle_simulator/constructive_solid_geometry/mod.rs#L315) `pub fn get_fuel_radius(&self) -> Length` · called at [L457](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/walk_on_spheres.rs#L457) · *(calls below the depth limit not shown)*
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/single_particle_simulator/constructive_solid_geometry/mod.rs:315 fn get_fuel_radius -->
+
+```rust,ignore
+{{#include ../../../../../crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/single_particle_simulator/constructive_solid_geometry/mod.rs:315:320}}
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:2.7em">
+
+[`mod.rs::TrisoCell::get_buffer_radius`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/single_particle_simulator/constructive_solid_geometry/mod.rs#L323) `pub fn get_buffer_radius(&self) -> Length` · called at [L460](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/walk_on_spheres.rs#L460) · *(calls below the depth limit not shown)*
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/single_particle_simulator/constructive_solid_geometry/mod.rs:323 fn get_buffer_radius -->
+
+```rust,ignore
+{{#include ../../../../../crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/single_particle_simulator/constructive_solid_geometry/mod.rs:323:328}}
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:2.7em">
+
+[`mod.rs::TrisoCell::get_ipyc_radius`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/single_particle_simulator/constructive_solid_geometry/mod.rs#L331) `pub fn get_ipyc_radius(&self) -> Length` · called at [L464](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/walk_on_spheres.rs#L464) · *(calls below the depth limit not shown)*
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/single_particle_simulator/constructive_solid_geometry/mod.rs:331 fn get_ipyc_radius -->
+
+```rust,ignore
+{{#include ../../../../../crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/single_particle_simulator/constructive_solid_geometry/mod.rs:331:336}}
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:2.7em">
+
+[`mod.rs::TrisoCell::get_sic_radius`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/single_particle_simulator/constructive_solid_geometry/mod.rs#L339) `pub fn get_sic_radius(&self) -> Length` · called at [L468](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/walk_on_spheres.rs#L468) · *(calls below the depth limit not shown)*
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/single_particle_simulator/constructive_solid_geometry/mod.rs:339 fn get_sic_radius -->
+
+```rust,ignore
+{{#include ../../../../../crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/single_particle_simulator/constructive_solid_geometry/mod.rs:339:344}}
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:2.7em">
+
+`mod.rs::TrisoCell::get_opyc_radius` *(expanded elsewhere in this walk)* · called at [L472](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/walk_on_spheres.rs#L472)
+
+</div>
+
+<div class="cw-node" style="margin-left:1.8em">
+
+[`walk_on_spheres.rs::WoSWalker::radius`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/walk_on_spheres.rs#L142) `pub fn radius(&self) -> Length` — Radial distance of the walker from the particle centre, `|position|`. · called at [L253](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/walk_on_spheres.rs#L253)
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/walk_on_spheres.rs:142 fn radius -->
+<!-- snippet-check: crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/walk_on_spheres.rs:143 radial_distance -->
+
+```rust,ignore
+{{#include ../../../../../crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/walk_on_spheres.rs:142:144}}
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:2.7em">
+
+[`walk_on_spheres.rs::radial_distance`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/walk_on_spheres.rs#L408) `pub fn radial_distance(position: [Length; 3]) -> Length` — Radial distance of a point from the particle centre, `sqrt(x^2+y^2+z^2)`. · called at [L143](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/walk_on_spheres.rs#L143) · *(calls below the depth limit not shown)*
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/walk_on_spheres.rs:408 fn radial_distance -->
+
+```rust,ignore
+{{#include ../../../../../crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/walk_on_spheres.rs:408:412}}
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:1.8em">
+
+[`walk_on_spheres.rs::WoSWalker::diffusion_at`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/walk_on_spheres.rs#L359) `fn diffusion_at(&self, triso_cell: &TrisoCell, position: [Length; 3]) -> DiffusionCoefficient` — Diffusion coefficient of the walker's current nuclide at `position`, falling back to the cracked-layer default outside every known region. · called at [L262](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/walk_on_spheres.rs#L262)
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/walk_on_spheres.rs:359 fn diffusion_at -->
+<!-- snippet-check: crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/walk_on_spheres.rs:361 try_get_diffusion_coefficient -->
+
+```rust,ignore
+{{#include ../../../../../crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/walk_on_spheres.rs:359:362}}
+    // … (the rest of the function: follow the link above)
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:2.7em">
+
+[`mod.rs::TrisoCell::try_get_diffusion_coefficient`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/single_particle_simulator/constructive_solid_geometry/mod.rs#L213) `pub fn try_get_diffusion_coefficient(&self, coordinates: [Length; 3], nuclide: Nuclide) -> Option<DiffusionCoefficient>` — checks the diffusion coefficient based on coordinates of the triso particle · called at [L361](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/walk_on_spheres.rs#L361) · *(calls below the depth limit not shown)*
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/single_particle_simulator/constructive_solid_geometry/mod.rs:213 fn try_get_diffusion_coefficient -->
+
+```rust,ignore
+{{#include ../../../../../crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/single_particle_simulator/constructive_solid_geometry/mod.rs:213:252}}
+    // … (the rest of the function: follow the link above)
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:1.8em">
+
+[`sphere_fpt.rs::sample_first_passage_time`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/sphere_fpt.rs#L176) `pub fn sample_first_passage_time(seed: &mut u64, radius: Length, diffusion_coefficient: DiffusionCoefficient) -> Time` — Sample the physical first-passage time for a hop of radius `radius` in a medium with diffusion coefficient `diffusion_coefficient`. · called at [L266](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/walk_on_spheres.rs#L266)
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/sphere_fpt.rs:176 fn sample_first_passage_time -->
+<!-- snippet-check: crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/sphere_fpt.rs:181 sample_dimensionless_exit_time -->
+
+```rust,ignore
+{{#include ../../../../../crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/sphere_fpt.rs:176:182}}
+    // … (the rest of the function: follow the link above)
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:2.7em">
+
+[`sphere_fpt.rs::sample_dimensionless_exit_time`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/sphere_fpt.rs#L161) `pub fn sample_dimensionless_exit_time(seed: &mut u64) -> f64` — Sample the dimensionless exit time `theta = D * tau / R^2` for one hop. · called at [L181](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/sphere_fpt.rs#L181) · *(calls below the depth limit not shown)*
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/sphere_fpt.rs:161 fn sample_dimensionless_exit_time -->
+
+```rust,ignore
+{{#include ../../../../../crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/sphere_fpt.rs:161:163}}
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:1.8em">
+
+[`sphere_fpt.rs::sample_uniform_direction`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/sphere_fpt.rs#L190) `pub fn sample_uniform_direction(seed: &mut u64) -> [f64; 3]` — Sample a direction uniform on the unit sphere, as a dimensionless `[x, y, z]` unit vector. · called at [L268](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/walk_on_spheres.rs#L268)
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/sphere_fpt.rs:190 fn sample_uniform_direction -->
+<!-- snippet-check: crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/sphere_fpt.rs:191 isotropic_direction -->
+
+```rust,ignore
+{{#include ../../../../../crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/sphere_fpt.rs:190:192}}
+    // … (the rest of the function: follow the link above)
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:2.7em">
+
+[`distributions.rs::isotropic_direction`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/rng/distributions.rs#L54) `pub fn isotropic_direction(seed: &mut u64) -> (f64, f64, f64)` — Sample an isotropic direction on the unit sphere. · called at [L191](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/sphere_fpt.rs#L191) · *(calls below the depth limit not shown)*
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/outram-mc-libs/src/rng/distributions.rs:54 fn isotropic_direction -->
+
+```rust,ignore
+{{#include ../../../../../crates/outram-mc-libs/src/rng/distributions.rs:54:59}}
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:1.8em">
+
+[`mod.rs::TrisoCell::get_opyc_radius`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/single_particle_simulator/constructive_solid_geometry/mod.rs#L347) `pub fn get_opyc_radius(&self) -> Length` · called at [L288](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/walk_on_spheres.rs#L288)
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/single_particle_simulator/constructive_solid_geometry/mod.rs:347 fn get_opyc_radius -->
+<!-- snippet-check: crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/single_particle_simulator/constructive_solid_geometry/mod.rs:349 try_return_center_and_radius_of_sphere -->
+
+```rust,ignore
+{{#include ../../../../../crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/single_particle_simulator/constructive_solid_geometry/mod.rs:347:350}}
+    // … (the rest of the function: follow the link above)
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:2.7em">
+
+[`mod.rs::Region::try_return_center_and_radius_of_sphere`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/single_particle_simulator/constructive_solid_geometry/mod.rs#L34) `pub fn try_return_center_and_radius_of_sphere(&self) -> Option<([Length; 3], Length)>` · called at [L349](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/single_particle_simulator/constructive_solid_geometry/mod.rs#L349) · *(calls below the depth limit not shown)*
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/single_particle_simulator/constructive_solid_geometry/mod.rs:34 fn try_return_center_and_radius_of_sphere -->
+
+```rust,ignore
+{{#include ../../../../../crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/single_particle_simulator/constructive_solid_geometry/mod.rs:34:43}}
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:1.8em">
+
+[`walk_on_spheres.rs::WoSWalker::point_at_radius`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/walk_on_spheres.rs#L372) `fn point_at_radius(&self, target: Length) -> [Length; 3]` — The point at radial distance `target` from the centre, along the walker's current radial direction. · called at [L291](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/walk_on_spheres.rs#L291)
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/walk_on_spheres.rs:372 fn point_at_radius -->
+<!-- snippet-check: crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/walk_on_spheres.rs:373 radius -->
+
+```rust,ignore
+{{#include ../../../../../crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/walk_on_spheres.rs:372:374}}
+    // … (the rest of the function: follow the link above)
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:2.7em">
+
+`walk_on_spheres.rs::WoSWalker::radius` *(expanded elsewhere in this walk)* · called at [L373](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/walk_on_spheres.rs#L373)
+
+</div>
+
+<div class="cw-node" style="margin-left:1.8em">
+
+[`interface.rs::does_transmit`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/interface.rs#L91) `pub fn does_transmit(seed: &mut u64, d_current: DiffusionCoefficient, d_next: DiffusionCoefficient, partition_k: f64) -> bool` — Decide whether a walker arriving at a `D1 | D2` interface transmits. · called at [L292](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/walk_on_spheres.rs#L292)
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/interface.rs:91 fn does_transmit -->
+<!-- snippet-check: crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/interface.rs:97 prn -->
+
+```rust,ignore
+{{#include ../../../../../crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/interface.rs:91:98}}
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:2.7em">
+
+`lcg.rs::prn` *(expanded elsewhere in this walk)* · called at [L97](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/interface.rs#L97)
+
+</div>
+
+<div class="cw-node" style="margin-left:2.7em">
+
+[`interface.rs::transmission_probability`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/interface.rs#L70) `pub fn transmission_probability(d_current: DiffusionCoefficient, d_next: DiffusionCoefficient, partition_k: f64) -> f64` — Probability that a walker arriving at a `D1 | D2` interface transmits into the `D2` side (rather than reflecting back into the `D1` side). · called at [L97](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/interface.rs#L97) · *(calls below the depth limit not shown)*
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/interface.rs:70 fn transmission_probability -->
+
+```rust,ignore
+{{#include ../../../../../crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/interface.rs:70:83}}
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:1.8em">
+
+[`walk_on_spheres.rs::WoSWalker::set_radius_to`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/walk_on_spheres.rs#L387) `fn set_radius_to(&mut self, target: Length)` — Move the walker radially to `target` (same direction, new radius). · called at [L293](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/walk_on_spheres.rs#L293)
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/walk_on_spheres.rs:387 fn set_radius_to -->
+<!-- snippet-check: crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/walk_on_spheres.rs:388 point_at_radius -->
+
+```rust,ignore
+{{#include ../../../../../crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/walk_on_spheres.rs:387:389}}
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:2.7em">
+
+`walk_on_spheres.rs::WoSWalker::point_at_radius` *(expanded elsewhere in this walk)* · called at [L388](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/walk_on_spheres.rs#L388)
+
+</div>
+
+<div class="cw-node" style="margin-left:0.9em">
+
+[`depletion.rs::WoSWalker::decay_once`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/depletion.rs#L168) `pub fn decay_once(&mut self, decay_library: &DecayLibrary) -> bool` — Replace the current nuclide with a stochastically chosen decay daughter, drawn from the branching ratios using the walker's own RNG. · called at [L237](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/depletion.rs#L237)
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/depletion.rs:168 fn decay_once -->
+<!-- snippet-check: crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/depletion.rs:169 try_match_nuclides_to_decay_data -->
+<!-- snippet-check: crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/depletion.rs:172 prn -->
+<!-- snippet-check: crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/depletion.rs:173 get_next_target_nuclide_with_float -->
+
+```rust,ignore
+{{#include ../../../../../crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/depletion.rs:168:174}}
+    // … (the rest of the function: follow the link above)
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:1.8em">
+
+`indexing_using_nuclide.rs::DecayLibrary::try_match_nuclides_to_decay_data` *(expanded elsewhere in this walk)* · called at [L169](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/depletion.rs#L169)
+
+</div>
+
+<div class="cw-node" style="margin-left:1.8em">
+
+`lcg.rs::prn` *(expanded elsewhere in this walk)* · called at [L172](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/depletion.rs#L172)
+
+</div>
+
+<div class="cw-node" style="margin-left:1.8em">
+
+[`mod.rs::NuclideReactionAndDecayData::get_next_target_nuclide_with_float`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/nuclide_reaction_and_decay_data/get_decay_info/mod.rs#L146) `pub fn get_next_target_nuclide_with_float(&self, mut random_num_between_0_and_1: f64) -> Option<(Nuclide, DecayType)>` · called at [L173](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/depletion.rs#L173)
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/boon-lay/src/nuclide_reaction_and_decay_data/get_decay_info/mod.rs:146 fn get_next_target_nuclide_with_float -->
+
+```rust,ignore
+{{#include ../../../../../crates/boon-lay/src/nuclide_reaction_and_decay_data/get_decay_info/mod.rs:146:185}}
+    // … (the rest of the function: follow the link above)
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:0.9em">
+
+[`depletion.rs::Transmutation::product_for`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/depletion.rs#L98) `pub fn product_for(&self, nuclide: Nuclide) -> Option<Nuclide>` — The product `nuclide` transmutes into under this field, if any channel applies. · called at [L238](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/depletion.rs#L238)
+
+<details><summary>code</summary>
+
+<!-- snippet-check: crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/depletion.rs:98 fn product_for -->
+
+```rust,ignore
+{{#include ../../../../../crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/depletion.rs:98:111}}
+```
+
+</details>
+</div>
 <!-- /code-walk -->
 
 [Ensembles and compute backends](./compute-backends.md):
@@ -519,20 +4781,209 @@ Everything `crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/
 
 Everything `crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/live.rs::advance_frame` reaches in the workspace, to 3 hops: 11 functions, 1 unresolved call. A function is expanded once; later calls to it say *(expanded elsewhere in this walk)*.
 
-- [`live.rs::LiveEnsemble::advance_frame`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/live.rs#L185) `pub fn advance_frame(&mut self, compute: ComputeType, until: Time)` — Advance every still-contained atom by pure diffusion until its simulated time reaches `until`, using the chosen `compute` backend.
-  - [`live.rs::LiveEnsemble::advance_cpu_single`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/live.rs#L196) `fn advance_cpu_single(&mut self, until: Time)` · called at [L187](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/live.rs#L187)
-    - [`walk_on_spheres.rs::WoSWalker::diffuse_until`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/walk_on_spheres.rs#L319) `pub fn diffuse_until(&mut self, triso_cell: &TrisoCell, params: &WalkParams, until: Time) -> bool` — Advance the walker by pure diffusion until its simulated time reaches `until` or it is released from the OPyC surface. · called at [L200](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/live.rs#L200)
-      - [`walk_on_spheres.rs::WoSWalker::step_multilayer`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/walk_on_spheres.rs#L249) `pub fn step_multilayer(&mut self, triso_cell: &TrisoCell, params: &WalkParams) -> HopOutcome` — Advance one multilayer step: either a genuine Walk-on-Spheres hop within the current shell, or — if the walker has reached an interface — one transmission/reflection resolution. · called at [L329](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/walk_on_spheres.rs#L329) · *(calls below the depth limit not shown)*
-  - [`live.rs::LiveEnsemble::advance_cpu_multi`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/live.rs#L206) `fn advance_cpu_multi(&mut self, until: Time, thread_count: ThreadCount)` · called at [L188](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/live.rs#L188)
-    - [`compute.rs::ThreadCount::resolve`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/compute.rs#L120) `pub fn resolve(self) -> usize` — Resolve to a concrete worker-thread count (always `>= 1`). · called at [L207](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/live.rs#L207)
-      - [`compute.rs::logical_cores`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/compute.rs#L121) `fn logical_cores() -> usize` · called at [L121](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/compute.rs#L121) · *(calls below the depth limit not shown)*
-    - `walk_on_spheres.rs::WoSWalker::diffuse_until` *(expanded elsewhere in this walk)* · called at [L224](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/live.rs#L224)
-    - UNRESOLVED(closure): `run` at [L231](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/live.rs#L231) (→ [`crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/live.rs:219`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/live.rs#L219)) — call through a closure or fn-typed binding `run`
-  - [`live.rs::LiveEnsemble::advance_gpu`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/live.rs#L238) `fn advance_gpu(&mut self, until: Time)` — GPU-backed advance. · called at [L189](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/live.rs#L189)
-    - [`gpu.rs::advance_multilayer_best_effort`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/gpu.rs#L809) `pub fn advance_multilayer_best_effort(cell: &TrisoCell, params: &WalkParams, walkers: &mut [WoSWalker], released: &mut [bool], nuclide: Nuclide, until: Time) -> bool` — Advance an ensemble one frame using the GPU when available, updating `walkers`/`released` in place. · called at [L241](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/live.rs#L241)
-      - [`gpu.rs::cached_context`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/gpu.rs#L101) `pub fn cached_context() -> Option<&'static GpuContext>` — A process-wide cached `GpuContext`, probed once on first use. · called at [L817](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/gpu.rs#L817) · *(calls below the depth limit not shown)*
-      - [`gpu.rs::try_advance_multilayer_gpu`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/gpu.rs#L591) `pub fn try_advance_multilayer_gpu(ctx: &GpuContext, cell: &TrisoCell, params: &WalkParams, walkers: &mut [WoSWalker], released: &mut [bool], nuclide: Nuclide, until: Time) -> Result<(), GpuError>` — Advance an ensemble one frame on the GPU (fallible). · called at [L818](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/gpu.rs#L818) · *(calls below the depth limit not shown)*
-    - `live.rs::LiveEnsemble::advance_cpu_multi` *(expanded elsewhere in this walk)* · called at [L253](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/live.rs#L253)
+<div class="cw-node" style="margin-left:0.0em">
+
+[`live.rs::LiveEnsemble::advance_frame`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/live.rs#L185) `pub fn advance_frame(&mut self, compute: ComputeType, until: Time)` — Advance every still-contained atom by pure diffusion until its simulated time reaches `until`, using the chosen `compute` backend.
+
+<details open><summary>code</summary>
+
+<!-- snippet-check: crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/live.rs:185 fn advance_frame -->
+<!-- snippet-check: crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/live.rs:187 advance_cpu_single -->
+<!-- snippet-check: crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/live.rs:188 advance_cpu_multi -->
+<!-- snippet-check: crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/live.rs:189 advance_gpu -->
+
+```rust,ignore
+{{#include ../../../../../crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/live.rs:185:190}}
+    // … (the rest of the function: follow the link above)
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:0.9em">
+
+[`live.rs::LiveEnsemble::advance_cpu_single`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/live.rs#L196) `fn advance_cpu_single(&mut self, until: Time)` · called at [L187](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/live.rs#L187)
+
+<details open><summary>code</summary>
+
+<!-- snippet-check: crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/live.rs:196 fn advance_cpu_single -->
+<!-- snippet-check: crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/live.rs:200 diffuse_until -->
+
+```rust,ignore
+{{#include ../../../../../crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/live.rs:196:201}}
+    // … (the rest of the function: follow the link above)
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:1.8em">
+
+[`walk_on_spheres.rs::WoSWalker::diffuse_until`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/walk_on_spheres.rs#L319) `pub fn diffuse_until(&mut self, triso_cell: &TrisoCell, params: &WalkParams, until: Time) -> bool` — Advance the walker by pure diffusion until its simulated time reaches `until` or it is released from the OPyC surface. · called at [L200](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/live.rs#L200)
+
+<details open><summary>code</summary>
+
+<!-- snippet-check: crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/walk_on_spheres.rs:319 fn diffuse_until -->
+<!-- snippet-check: crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/walk_on_spheres.rs:329 step_multilayer -->
+
+```rust,ignore
+{{#include ../../../../../crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/walk_on_spheres.rs:319:330}}
+    // … (the rest of the function: follow the link above)
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:2.7em">
+
+[`walk_on_spheres.rs::WoSWalker::step_multilayer`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/walk_on_spheres.rs#L249) `pub fn step_multilayer(&mut self, triso_cell: &TrisoCell, params: &WalkParams) -> HopOutcome` — Advance one multilayer step: either a genuine Walk-on-Spheres hop within the current shell, or — if the walker has reached an interface — one transmission/reflection resolution. · called at [L329](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/walk_on_spheres.rs#L329) · *(calls below the depth limit not shown)*
+
+<details open><summary>code</summary>
+
+<!-- snippet-check: crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/walk_on_spheres.rs:249 fn step_multilayer -->
+
+```rust,ignore
+{{#include ../../../../../crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/walk_on_spheres.rs:249:288}}
+    // … (the rest of the function: follow the link above)
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:0.9em">
+
+[`live.rs::LiveEnsemble::advance_cpu_multi`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/live.rs#L206) `fn advance_cpu_multi(&mut self, until: Time, thread_count: ThreadCount)` · called at [L188](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/live.rs#L188)
+
+<details open><summary>code</summary>
+
+<!-- snippet-check: crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/live.rs:206 fn advance_cpu_multi -->
+<!-- snippet-check: crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/live.rs:207 resolve -->
+<!-- snippet-check: crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/live.rs:224 diffuse_until -->
+<!-- snippet-check: crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/live.rs:231 run -->
+
+```rust,ignore
+{{#include ../../../../../crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/live.rs:206:232}}
+    // … (the rest of the function: follow the link above)
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:1.8em">
+
+[`compute.rs::ThreadCount::resolve`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/compute.rs#L120) `pub fn resolve(self) -> usize` — Resolve to a concrete worker-thread count (always `>= 1`). · called at [L207](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/live.rs#L207)
+
+<details open><summary>code</summary>
+
+<!-- snippet-check: crates/boon-lay/src/compute.rs:120 fn resolve -->
+<!-- snippet-check: crates/boon-lay/src/compute.rs:121 logical_cores -->
+
+```rust,ignore
+{{#include ../../../../../crates/boon-lay/src/compute.rs:120:122}}
+    // … (the rest of the function: follow the link above)
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:2.7em">
+
+[`compute.rs::logical_cores`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/compute.rs#L121) `fn logical_cores() -> usize` · called at [L121](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/compute.rs#L121) · *(calls below the depth limit not shown)*
+
+<details open><summary>code</summary>
+
+<!-- snippet-check: crates/boon-lay/src/compute.rs:121 fn logical_cores -->
+
+```rust,ignore
+{{#include ../../../../../crates/boon-lay/src/compute.rs:121:125}}
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:1.8em">
+
+`walk_on_spheres.rs::WoSWalker::diffuse_until` *(expanded elsewhere in this walk)* · called at [L224](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/live.rs#L224)
+
+</div>
+
+<div class="cw-node" style="margin-left:1.8em">
+
+UNRESOLVED(closure): `run` at [L231](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/live.rs#L231) (→ [`crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/live.rs:219`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/live.rs#L219)) — call through a closure or fn-typed binding `run`
+
+</div>
+
+<div class="cw-node" style="margin-left:0.9em">
+
+[`live.rs::LiveEnsemble::advance_gpu`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/live.rs#L238) `fn advance_gpu(&mut self, until: Time)` — GPU-backed advance. · called at [L189](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/live.rs#L189)
+
+<details open><summary>code</summary>
+
+<!-- snippet-check: crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/live.rs:238 fn advance_gpu -->
+<!-- snippet-check: crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/live.rs:241 advance_multilayer_best_effort -->
+<!-- snippet-check: crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/live.rs:253 advance_cpu_multi -->
+
+```rust,ignore
+{{#include ../../../../../crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/live.rs:238:254}}
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:1.8em">
+
+[`gpu.rs::advance_multilayer_best_effort`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/gpu.rs#L809) `pub fn advance_multilayer_best_effort(cell: &TrisoCell, params: &WalkParams, walkers: &mut [WoSWalker], released: &mut [bool], nuclide: Nuclide, until: Time) -> bool` — Advance an ensemble one frame using the GPU when available, updating `walkers`/`released` in place. · called at [L241](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/live.rs#L241)
+
+<details open><summary>code</summary>
+
+<!-- snippet-check: crates/boon-lay/src/gpu.rs:809 fn advance_multilayer_best_effort -->
+<!-- snippet-check: crates/boon-lay/src/gpu.rs:817 cached_context -->
+<!-- snippet-check: crates/boon-lay/src/gpu.rs:818 try_advance_multilayer_gpu -->
+
+```rust,ignore
+{{#include ../../../../../crates/boon-lay/src/gpu.rs:809:819}}
+    // … (the rest of the function: follow the link above)
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:2.7em">
+
+[`gpu.rs::cached_context`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/gpu.rs#L101) `pub fn cached_context() -> Option<&'static GpuContext>` — A process-wide cached `GpuContext`, probed once on first use. · called at [L817](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/gpu.rs#L817) · *(calls below the depth limit not shown)*
+
+<details open><summary>code</summary>
+
+<!-- snippet-check: crates/boon-lay/src/gpu.rs:101 fn cached_context -->
+
+```rust,ignore
+{{#include ../../../../../crates/boon-lay/src/gpu.rs:101:104}}
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:2.7em">
+
+[`gpu.rs::try_advance_multilayer_gpu`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/gpu.rs#L591) `pub fn try_advance_multilayer_gpu(ctx: &GpuContext, cell: &TrisoCell, params: &WalkParams, walkers: &mut [WoSWalker], released: &mut [bool], nuclide: Nuclide, until: Time) -> Result<(), GpuError>` — Advance an ensemble one frame on the GPU (fallible). · called at [L818](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/gpu.rs#L818) · *(calls below the depth limit not shown)*
+
+<details open><summary>code</summary>
+
+<!-- snippet-check: crates/boon-lay/src/gpu.rs:591 fn try_advance_multilayer_gpu -->
+
+```rust,ignore
+{{#include ../../../../../crates/boon-lay/src/gpu.rs:591:630}}
+    // … (the rest of the function: follow the link above)
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:1.8em">
+
+`live.rs::LiveEnsemble::advance_cpu_multi` *(expanded elsewhere in this walk)* · called at [L253](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/live.rs#L253)
+
+</div>
 <!-- /code-walk -->
 
 [Running TRISO-ATOPS](./running-triso-atops.md):
@@ -542,98 +4993,709 @@ Everything `crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/
 
 Everything `crates/boon-lay/src/triso_atops_fork/run_selection/mod.rs::select_nuclides` reaches in the workspace, to 3 hops: 5 functions, 87 unresolved calls. A function is expanded once; later calls to it say *(expanded elsewhere in this walk)*.
 
-- [`mod.rs::select_nuclides`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/run_selection/mod.rs#L267) `pub fn select_nuclides(supplied_names: &[&str], irradiation_time: Time, short_lived_ratio: Option<f64>, policy: ParentDecayPolicy) -> (Vec<SelectedNuclide>, Vec<SelectionError>)` — Select and classify the nuclides for a **normal-operation** run.
-  - [`mod.rs::normalise_nuclide_name`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/run_selection/mod.rs#L184) `pub fn normalise_nuclide_name(supplied: &str) -> Result<String, SelectionError>` — Normalise a nuclide name to the database's canonical spelling. · called at [L284](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/run_selection/mod.rs#L284)
-    - UNRESOLVED(closure): `unparseable` at [L197](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/run_selection/mod.rs#L197) (→ [`crates/boon-lay/src/triso_atops_fork/run_selection/mod.rs:185`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/run_selection/mod.rs#L185)) — call through a closure or fn-typed binding `unparseable`
-    - UNRESOLVED(closure): `unparseable` at [L212](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/run_selection/mod.rs#L212) (→ [`crates/boon-lay/src/triso_atops_fork/run_selection/mod.rs:185`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/run_selection/mod.rs#L185)) — call through a closure or fn-typed binding `unparseable`
-    - UNRESOLVED(closure): `unparseable` at [L225](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/run_selection/mod.rs#L225) (→ [`crates/boon-lay/src/triso_atops_fork/run_selection/mod.rs:185`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/run_selection/mod.rs#L185)) — call through a closure or fn-typed binding `unparseable`
-  - [`nuclide_database.rs::find_nuclide`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L145) `pub fn find_nuclide(name: &str) -> Option<TrisoAtopsNuclide>` — Look a nuclide up by its canonical TRISO-ATOPS name (case-sensitive). · called at [L286](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/run_selection/mod.rs#L286)
-    - [`nuclide_database.rs::supported_nuclides`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L44) `pub fn supported_nuclides() -> Vec<TrisoAtopsNuclide>` — The full TRISO-ATOPS supported-nuclide table. · called at [L146](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L146)
-      - UNRESOLVED(closure): `n` at [L48](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L48) (→ [`crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:46`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L46)) — call through a closure or fn-typed binding `n`
-      - UNRESOLVED(closure): `n` at [L49](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L49) (→ [`crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:46`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L46)) — call through a closure or fn-typed binding `n`
-      - UNRESOLVED(closure): `n` at [L50](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L50) (→ [`crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:46`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L46)) — call through a closure or fn-typed binding `n`
-      - UNRESOLVED(closure): `n` at [L51](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L51) (→ [`crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:46`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L46)) — call through a closure or fn-typed binding `n`
-      - UNRESOLVED(closure): `n` at [L52](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L52) (→ [`crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:46`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L46)) — call through a closure or fn-typed binding `n`
-      - UNRESOLVED(closure): `n` at [L53](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L53) (→ [`crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:46`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L46)) — call through a closure or fn-typed binding `n`
-      - UNRESOLVED(closure): `n` at [L54](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L54) (→ [`crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:46`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L46)) — call through a closure or fn-typed binding `n`
-      - UNRESOLVED(closure): `n` at [L55](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L55) (→ [`crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:46`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L46)) — call through a closure or fn-typed binding `n`
-      - UNRESOLVED(closure): `n` at [L56](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L56) (→ [`crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:46`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L46)) — call through a closure or fn-typed binding `n`
-      - UNRESOLVED(closure): `n` at [L57](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L57) (→ [`crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:46`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L46)) — call through a closure or fn-typed binding `n`
-      - UNRESOLVED(closure): `n` at [L58](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L58) (→ [`crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:46`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L46)) — call through a closure or fn-typed binding `n`
-      - UNRESOLVED(closure): `n` at [L59](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L59) (→ [`crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:46`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L46)) — call through a closure or fn-typed binding `n`
-      - UNRESOLVED(closure): `n` at [L60](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L60) (→ [`crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:46`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L46)) — call through a closure or fn-typed binding `n`
-      - UNRESOLVED(closure): `n` at [L61](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L61) (→ [`crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:46`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L46)) — call through a closure or fn-typed binding `n`
-      - UNRESOLVED(closure): `n` at [L62](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L62) (→ [`crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:46`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L46)) — call through a closure or fn-typed binding `n`
-      - UNRESOLVED(closure): `n` at [L63](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L63) (→ [`crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:46`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L46)) — call through a closure or fn-typed binding `n`
-      - UNRESOLVED(closure): `n` at [L64](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L64) (→ [`crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:46`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L46)) — call through a closure or fn-typed binding `n`
-      - UNRESOLVED(closure): `n` at [L65](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L65) (→ [`crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:46`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L46)) — call through a closure or fn-typed binding `n`
-      - UNRESOLVED(closure): `n` at [L66](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L66) (→ [`crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:46`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L46)) — call through a closure or fn-typed binding `n`
-      - UNRESOLVED(closure): `n` at [L67](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L67) (→ [`crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:46`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L46)) — call through a closure or fn-typed binding `n`
-      - UNRESOLVED(closure): `n` at [L68](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L68) (→ [`crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:46`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L46)) — call through a closure or fn-typed binding `n`
-      - UNRESOLVED(closure): `n` at [L69](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L69) (→ [`crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:46`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L46)) — call through a closure or fn-typed binding `n`
-      - UNRESOLVED(closure): `n` at [L70](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L70) (→ [`crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:46`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L46)) — call through a closure or fn-typed binding `n`
-      - UNRESOLVED(closure): `n` at [L71](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L71) (→ [`crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:46`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L46)) — call through a closure or fn-typed binding `n`
-      - UNRESOLVED(closure): `n` at [L72](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L72) (→ [`crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:46`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L46)) — call through a closure or fn-typed binding `n`
-      - UNRESOLVED(closure): `n` at [L73](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L73) (→ [`crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:46`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L46)) — call through a closure or fn-typed binding `n`
-      - UNRESOLVED(closure): `n` at [L74](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L74) (→ [`crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:46`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L46)) — call through a closure or fn-typed binding `n`
-      - UNRESOLVED(closure): `n` at [L75](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L75) (→ [`crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:46`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L46)) — call through a closure or fn-typed binding `n`
-      - UNRESOLVED(closure): `n` at [L76](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L76) (→ [`crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:46`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L46)) — call through a closure or fn-typed binding `n`
-      - UNRESOLVED(closure): `n` at [L77](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L77) (→ [`crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:46`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L46)) — call through a closure or fn-typed binding `n`
-      - UNRESOLVED(closure): `n` at [L78](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L78) (→ [`crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:46`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L46)) — call through a closure or fn-typed binding `n`
-      - UNRESOLVED(closure): `n` at [L79](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L79) (→ [`crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:46`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L46)) — call through a closure or fn-typed binding `n`
-      - UNRESOLVED(closure): `n` at [L80](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L80) (→ [`crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:46`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L46)) — call through a closure or fn-typed binding `n`
-      - UNRESOLVED(closure): `n` at [L81](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L81) (→ [`crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:46`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L46)) — call through a closure or fn-typed binding `n`
-      - UNRESOLVED(closure): `n` at [L82](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L82) (→ [`crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:46`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L46)) — call through a closure or fn-typed binding `n`
-      - UNRESOLVED(closure): `n` at [L83](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L83) (→ [`crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:46`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L46)) — call through a closure or fn-typed binding `n`
-      - UNRESOLVED(closure): `n` at [L84](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L84) (→ [`crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:46`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L46)) — call through a closure or fn-typed binding `n`
-      - UNRESOLVED(closure): `n` at [L85](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L85) (→ [`crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:46`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L46)) — call through a closure or fn-typed binding `n`
-      - UNRESOLVED(closure): `n` at [L86](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L86) (→ [`crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:46`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L46)) — call through a closure or fn-typed binding `n`
-      - UNRESOLVED(closure): `n` at [L87](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L87) (→ [`crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:46`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L46)) — call through a closure or fn-typed binding `n`
-      - UNRESOLVED(closure): `n` at [L88](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L88) (→ [`crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:46`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L46)) — call through a closure or fn-typed binding `n`
-      - UNRESOLVED(closure): `n` at [L89](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L89) (→ [`crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:46`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L46)) — call through a closure or fn-typed binding `n`
-      - UNRESOLVED(closure): `n` at [L90](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L90) (→ [`crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:46`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L46)) — call through a closure or fn-typed binding `n`
-      - UNRESOLVED(closure): `n` at [L91](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L91) (→ [`crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:46`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L46)) — call through a closure or fn-typed binding `n`
-      - UNRESOLVED(closure): `n` at [L92](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L92) (→ [`crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:46`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L46)) — call through a closure or fn-typed binding `n`
-      - UNRESOLVED(closure): `n` at [L93](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L93) (→ [`crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:46`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L46)) — call through a closure or fn-typed binding `n`
-      - UNRESOLVED(closure): `n` at [L94](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L94) (→ [`crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:46`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L46)) — call through a closure or fn-typed binding `n`
-      - UNRESOLVED(closure): `n` at [L95](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L95) (→ [`crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:46`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L46)) — call through a closure or fn-typed binding `n`
-      - UNRESOLVED(closure): `n` at [L96](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L96) (→ [`crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:46`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L46)) — call through a closure or fn-typed binding `n`
-      - UNRESOLVED(closure): `n` at [L97](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L97) (→ [`crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:46`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L46)) — call through a closure or fn-typed binding `n`
-      - UNRESOLVED(closure): `n` at [L98](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L98) (→ [`crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:46`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L46)) — call through a closure or fn-typed binding `n`
-      - UNRESOLVED(closure): `n` at [L99](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L99) (→ [`crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:46`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L46)) — call through a closure or fn-typed binding `n`
-      - UNRESOLVED(closure): `n` at [L100](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L100) (→ [`crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:46`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L46)) — call through a closure or fn-typed binding `n`
-      - UNRESOLVED(closure): `n` at [L101](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L101) (→ [`crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:46`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L46)) — call through a closure or fn-typed binding `n`
-      - UNRESOLVED(closure): `n` at [L102](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L102) (→ [`crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:46`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L46)) — call through a closure or fn-typed binding `n`
-      - UNRESOLVED(closure): `n` at [L103](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L103) (→ [`crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:46`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L46)) — call through a closure or fn-typed binding `n`
-      - UNRESOLVED(closure): `n` at [L104](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L104) (→ [`crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:46`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L46)) — call through a closure or fn-typed binding `n`
-      - UNRESOLVED(closure): `n` at [L105](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L105) (→ [`crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:46`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L46)) — call through a closure or fn-typed binding `n`
-      - UNRESOLVED(closure): `n` at [L106](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L106) (→ [`crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:46`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L46)) — call through a closure or fn-typed binding `n`
-      - UNRESOLVED(closure): `n` at [L107](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L107) (→ [`crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:46`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L46)) — call through a closure or fn-typed binding `n`
-      - UNRESOLVED(closure): `n` at [L108](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L108) (→ [`crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:46`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L46)) — call through a closure or fn-typed binding `n`
-      - UNRESOLVED(closure): `n` at [L109](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L109) (→ [`crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:46`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L46)) — call through a closure or fn-typed binding `n`
-      - UNRESOLVED(closure): `n` at [L110](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L110) (→ [`crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:46`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L46)) — call through a closure or fn-typed binding `n`
-      - UNRESOLVED(closure): `n` at [L111](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L111) (→ [`crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:46`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L46)) — call through a closure or fn-typed binding `n`
-      - UNRESOLVED(closure): `n` at [L112](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L112) (→ [`crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:46`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L46)) — call through a closure or fn-typed binding `n`
-      - UNRESOLVED(closure): `n` at [L113](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L113) (→ [`crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:46`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L46)) — call through a closure or fn-typed binding `n`
-      - UNRESOLVED(closure): `n` at [L114](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L114) (→ [`crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:46`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L46)) — call through a closure or fn-typed binding `n`
-      - UNRESOLVED(closure): `n` at [L115](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L115) (→ [`crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:46`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L46)) — call through a closure or fn-typed binding `n`
-      - UNRESOLVED(closure): `n` at [L116](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L116) (→ [`crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:46`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L46)) — call through a closure or fn-typed binding `n`
-      - UNRESOLVED(closure): `n` at [L117](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L117) (→ [`crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:46`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L46)) — call through a closure or fn-typed binding `n`
-      - UNRESOLVED(closure): `n` at [L118](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L118) (→ [`crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:46`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L46)) — call through a closure or fn-typed binding `n`
-      - UNRESOLVED(closure): `n` at [L120](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L120) (→ [`crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:46`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L46)) — call through a closure or fn-typed binding `n`
-      - UNRESOLVED(closure): `n` at [L121](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L121) (→ [`crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:46`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L46)) — call through a closure or fn-typed binding `n`
-      - UNRESOLVED(closure): `n` at [L122](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L122) (→ [`crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:46`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L46)) — call through a closure or fn-typed binding `n`
-      - UNRESOLVED(closure): `n` at [L123](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L123) (→ [`crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:46`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L46)) — call through a closure or fn-typed binding `n`
-      - UNRESOLVED(closure): `n` at [L124](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L124) (→ [`crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:46`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L46)) — call through a closure or fn-typed binding `n`
-      - UNRESOLVED(closure): `n` at [L125](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L125) (→ [`crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:46`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L46)) — call through a closure or fn-typed binding `n`
-      - UNRESOLVED(closure): `n` at [L126](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L126) (→ [`crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:46`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L46)) — call through a closure or fn-typed binding `n`
-      - UNRESOLVED(closure): `n` at [L127](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L127) (→ [`crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:46`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L46)) — call through a closure or fn-typed binding `n`
-      - UNRESOLVED(closure): `n` at [L128](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L128) (→ [`crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:46`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L46)) — call through a closure or fn-typed binding `n`
-      - UNRESOLVED(closure): `n` at [L129](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L129) (→ [`crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:46`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L46)) — call through a closure or fn-typed binding `n`
-      - UNRESOLVED(closure): `n` at [L130](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L130) (→ [`crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:46`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L46)) — call through a closure or fn-typed binding `n`
-      - UNRESOLVED(closure): `n` at [L131](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L131) (→ [`crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:46`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L46)) — call through a closure or fn-typed binding `n`
-      - UNRESOLVED(closure): `n` at [L132](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L132) (→ [`crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:46`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L46)) — call through a closure or fn-typed binding `n`
-  - [`mod.rs::upstream_table_parent_decay`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/run_selection/mod.rs#L152) `pub fn upstream_table_parent_decay(name: &str) -> bool` — The nuclides upstream's table defaults to `parent_decay = True`. · called at [L324](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/run_selection/mod.rs#L324)
+<div class="cw-node" style="margin-left:0.0em">
+
+[`mod.rs::select_nuclides`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/run_selection/mod.rs#L267) `pub fn select_nuclides(supplied_names: &[&str], irradiation_time: Time, short_lived_ratio: Option<f64>, policy: ParentDecayPolicy) -> (Vec<SelectedNuclide>, Vec<SelectionError>)` — Select and classify the nuclides for a **normal-operation** run.
+
+<details open><summary>code</summary>
+
+<!-- snippet-check: crates/boon-lay/src/triso_atops_fork/run_selection/mod.rs:267 fn select_nuclides -->
+<!-- snippet-check: crates/boon-lay/src/triso_atops_fork/run_selection/mod.rs:284 normalise_nuclide_name -->
+<!-- snippet-check: crates/boon-lay/src/triso_atops_fork/run_selection/mod.rs:286 find_nuclide -->
+<!-- snippet-check: crates/boon-lay/src/triso_atops_fork/run_selection/mod.rs:324 upstream_table_parent_decay -->
+
+```rust,ignore
+{{#include ../../../../../crates/boon-lay/src/triso_atops_fork/run_selection/mod.rs:267:272}}
+    // …
+{{#include ../../../../../crates/boon-lay/src/triso_atops_fork/run_selection/mod.rs:282:287}}
+    // …
+{{#include ../../../../../crates/boon-lay/src/triso_atops_fork/run_selection/mod.rs:322:325}}
+    // … (the rest of the function: follow the link above)
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:0.9em">
+
+[`mod.rs::normalise_nuclide_name`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/run_selection/mod.rs#L184) `pub fn normalise_nuclide_name(supplied: &str) -> Result<String, SelectionError>` — Normalise a nuclide name to the database's canonical spelling. · called at [L284](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/run_selection/mod.rs#L284)
+
+<details open><summary>code</summary>
+
+<!-- snippet-check: crates/boon-lay/src/triso_atops_fork/run_selection/mod.rs:184 fn normalise_nuclide_name -->
+<!-- snippet-check: crates/boon-lay/src/triso_atops_fork/run_selection/mod.rs:197 unparseable -->
+<!-- snippet-check: crates/boon-lay/src/triso_atops_fork/run_selection/mod.rs:212 unparseable -->
+<!-- snippet-check: crates/boon-lay/src/triso_atops_fork/run_selection/mod.rs:225 unparseable -->
+
+```rust,ignore
+{{#include ../../../../../crates/boon-lay/src/triso_atops_fork/run_selection/mod.rs:184:184}}
+    // …
+{{#include ../../../../../crates/boon-lay/src/triso_atops_fork/run_selection/mod.rs:195:198}}
+    // …
+{{#include ../../../../../crates/boon-lay/src/triso_atops_fork/run_selection/mod.rs:210:213}}
+    // …
+{{#include ../../../../../crates/boon-lay/src/triso_atops_fork/run_selection/mod.rs:223:226}}
+    // … (the rest of the function: follow the link above)
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:1.8em">
+
+UNRESOLVED(closure): `unparseable` at [L197](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/run_selection/mod.rs#L197) (→ [`crates/boon-lay/src/triso_atops_fork/run_selection/mod.rs:185`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/run_selection/mod.rs#L185)) — call through a closure or fn-typed binding `unparseable`
+
+</div>
+
+<div class="cw-node" style="margin-left:1.8em">
+
+UNRESOLVED(closure): `unparseable` at [L212](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/run_selection/mod.rs#L212) (→ [`crates/boon-lay/src/triso_atops_fork/run_selection/mod.rs:185`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/run_selection/mod.rs#L185)) — call through a closure or fn-typed binding `unparseable`
+
+</div>
+
+<div class="cw-node" style="margin-left:1.8em">
+
+UNRESOLVED(closure): `unparseable` at [L225](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/run_selection/mod.rs#L225) (→ [`crates/boon-lay/src/triso_atops_fork/run_selection/mod.rs:185`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/run_selection/mod.rs#L185)) — call through a closure or fn-typed binding `unparseable`
+
+</div>
+
+<div class="cw-node" style="margin-left:0.9em">
+
+[`nuclide_database.rs::find_nuclide`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L145) `pub fn find_nuclide(name: &str) -> Option<TrisoAtopsNuclide>` — Look a nuclide up by its canonical TRISO-ATOPS name (case-sensitive). · called at [L286](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/run_selection/mod.rs#L286)
+
+<details open><summary>code</summary>
+
+<!-- snippet-check: crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:145 fn find_nuclide -->
+<!-- snippet-check: crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:146 supported_nuclides -->
+
+```rust,ignore
+{{#include ../../../../../crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:145:147}}
+    // … (the rest of the function: follow the link above)
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:1.8em">
+
+[`nuclide_database.rs::supported_nuclides`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L44) `pub fn supported_nuclides() -> Vec<TrisoAtopsNuclide>` — The full TRISO-ATOPS supported-nuclide table. · called at [L146](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L146)
+
+<details open><summary>code</summary>
+
+<!-- snippet-check: crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:44 fn supported_nuclides -->
+<!-- snippet-check: crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:48 n -->
+<!-- snippet-check: crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:49 n -->
+<!-- snippet-check: crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:50 n -->
+<!-- snippet-check: crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:51 n -->
+<!-- snippet-check: crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:52 n -->
+<!-- snippet-check: crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:53 n -->
+<!-- snippet-check: crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:54 n -->
+<!-- snippet-check: crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:55 n -->
+<!-- snippet-check: crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:56 n -->
+<!-- snippet-check: crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:57 n -->
+<!-- snippet-check: crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:58 n -->
+<!-- snippet-check: crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:59 n -->
+<!-- snippet-check: crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:60 n -->
+<!-- snippet-check: crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:61 n -->
+<!-- snippet-check: crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:62 n -->
+<!-- snippet-check: crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:63 n -->
+<!-- snippet-check: crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:64 n -->
+<!-- snippet-check: crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:65 n -->
+<!-- snippet-check: crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:66 n -->
+<!-- snippet-check: crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:67 n -->
+<!-- snippet-check: crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:68 n -->
+<!-- snippet-check: crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:69 n -->
+<!-- snippet-check: crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:70 n -->
+<!-- snippet-check: crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:71 n -->
+<!-- snippet-check: crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:72 n -->
+<!-- snippet-check: crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:73 n -->
+<!-- snippet-check: crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:74 n -->
+<!-- snippet-check: crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:75 n -->
+<!-- snippet-check: crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:76 n -->
+<!-- snippet-check: crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:77 n -->
+<!-- snippet-check: crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:78 n -->
+<!-- snippet-check: crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:79 n -->
+<!-- snippet-check: crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:80 n -->
+<!-- snippet-check: crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:81 n -->
+<!-- snippet-check: crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:82 n -->
+<!-- snippet-check: crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:83 n -->
+<!-- snippet-check: crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:84 n -->
+<!-- snippet-check: crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:85 n -->
+<!-- snippet-check: crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:86 n -->
+<!-- snippet-check: crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:87 n -->
+<!-- snippet-check: crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:88 n -->
+<!-- snippet-check: crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:89 n -->
+<!-- snippet-check: crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:90 n -->
+<!-- snippet-check: crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:91 n -->
+<!-- snippet-check: crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:92 n -->
+<!-- snippet-check: crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:93 n -->
+<!-- snippet-check: crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:94 n -->
+<!-- snippet-check: crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:95 n -->
+<!-- snippet-check: crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:96 n -->
+<!-- snippet-check: crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:97 n -->
+<!-- snippet-check: crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:98 n -->
+<!-- snippet-check: crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:99 n -->
+<!-- snippet-check: crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:100 n -->
+<!-- snippet-check: crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:101 n -->
+<!-- snippet-check: crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:102 n -->
+<!-- snippet-check: crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:103 n -->
+<!-- snippet-check: crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:104 n -->
+<!-- snippet-check: crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:105 n -->
+<!-- snippet-check: crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:106 n -->
+<!-- snippet-check: crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:107 n -->
+<!-- snippet-check: crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:108 n -->
+<!-- snippet-check: crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:109 n -->
+<!-- snippet-check: crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:110 n -->
+<!-- snippet-check: crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:111 n -->
+<!-- snippet-check: crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:112 n -->
+<!-- snippet-check: crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:113 n -->
+<!-- snippet-check: crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:114 n -->
+<!-- snippet-check: crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:115 n -->
+<!-- snippet-check: crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:116 n -->
+<!-- snippet-check: crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:117 n -->
+<!-- snippet-check: crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:118 n -->
+<!-- snippet-check: crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:120 n -->
+<!-- snippet-check: crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:121 n -->
+<!-- snippet-check: crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:122 n -->
+<!-- snippet-check: crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:123 n -->
+<!-- snippet-check: crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:124 n -->
+<!-- snippet-check: crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:125 n -->
+<!-- snippet-check: crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:126 n -->
+<!-- snippet-check: crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:127 n -->
+<!-- snippet-check: crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:128 n -->
+<!-- snippet-check: crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:129 n -->
+<!-- snippet-check: crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:130 n -->
+<!-- snippet-check: crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:131 n -->
+<!-- snippet-check: crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:132 n -->
+
+```rust,ignore
+{{#include ../../../../../crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:44:44}}
+    // …
+{{#include ../../../../../crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:46:133}}
+    // … (the rest of the function: follow the link above)
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:2.7em">
+
+UNRESOLVED(closure): `n` at [L48](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L48) (→ [`crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:46`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L46)) — call through a closure or fn-typed binding `n`
+
+</div>
+
+<div class="cw-node" style="margin-left:2.7em">
+
+UNRESOLVED(closure): `n` at [L49](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L49) (→ [`crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:46`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L46)) — call through a closure or fn-typed binding `n`
+
+</div>
+
+<div class="cw-node" style="margin-left:2.7em">
+
+UNRESOLVED(closure): `n` at [L50](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L50) (→ [`crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:46`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L46)) — call through a closure or fn-typed binding `n`
+
+</div>
+
+<div class="cw-node" style="margin-left:2.7em">
+
+UNRESOLVED(closure): `n` at [L51](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L51) (→ [`crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:46`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L46)) — call through a closure or fn-typed binding `n`
+
+</div>
+
+<div class="cw-node" style="margin-left:2.7em">
+
+UNRESOLVED(closure): `n` at [L52](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L52) (→ [`crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:46`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L46)) — call through a closure or fn-typed binding `n`
+
+</div>
+
+<div class="cw-node" style="margin-left:2.7em">
+
+UNRESOLVED(closure): `n` at [L53](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L53) (→ [`crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:46`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L46)) — call through a closure or fn-typed binding `n`
+
+</div>
+
+<div class="cw-node" style="margin-left:2.7em">
+
+UNRESOLVED(closure): `n` at [L54](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L54) (→ [`crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:46`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L46)) — call through a closure or fn-typed binding `n`
+
+</div>
+
+<div class="cw-node" style="margin-left:2.7em">
+
+UNRESOLVED(closure): `n` at [L55](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L55) (→ [`crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:46`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L46)) — call through a closure or fn-typed binding `n`
+
+</div>
+
+<div class="cw-node" style="margin-left:2.7em">
+
+UNRESOLVED(closure): `n` at [L56](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L56) (→ [`crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:46`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L46)) — call through a closure or fn-typed binding `n`
+
+</div>
+
+<div class="cw-node" style="margin-left:2.7em">
+
+UNRESOLVED(closure): `n` at [L57](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L57) (→ [`crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:46`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L46)) — call through a closure or fn-typed binding `n`
+
+</div>
+
+<div class="cw-node" style="margin-left:2.7em">
+
+UNRESOLVED(closure): `n` at [L58](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L58) (→ [`crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:46`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L46)) — call through a closure or fn-typed binding `n`
+
+</div>
+
+<div class="cw-node" style="margin-left:2.7em">
+
+UNRESOLVED(closure): `n` at [L59](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L59) (→ [`crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:46`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L46)) — call through a closure or fn-typed binding `n`
+
+</div>
+
+<div class="cw-node" style="margin-left:2.7em">
+
+UNRESOLVED(closure): `n` at [L60](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L60) (→ [`crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:46`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L46)) — call through a closure or fn-typed binding `n`
+
+</div>
+
+<div class="cw-node" style="margin-left:2.7em">
+
+UNRESOLVED(closure): `n` at [L61](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L61) (→ [`crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:46`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L46)) — call through a closure or fn-typed binding `n`
+
+</div>
+
+<div class="cw-node" style="margin-left:2.7em">
+
+UNRESOLVED(closure): `n` at [L62](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L62) (→ [`crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:46`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L46)) — call through a closure or fn-typed binding `n`
+
+</div>
+
+<div class="cw-node" style="margin-left:2.7em">
+
+UNRESOLVED(closure): `n` at [L63](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L63) (→ [`crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:46`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L46)) — call through a closure or fn-typed binding `n`
+
+</div>
+
+<div class="cw-node" style="margin-left:2.7em">
+
+UNRESOLVED(closure): `n` at [L64](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L64) (→ [`crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:46`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L46)) — call through a closure or fn-typed binding `n`
+
+</div>
+
+<div class="cw-node" style="margin-left:2.7em">
+
+UNRESOLVED(closure): `n` at [L65](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L65) (→ [`crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:46`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L46)) — call through a closure or fn-typed binding `n`
+
+</div>
+
+<div class="cw-node" style="margin-left:2.7em">
+
+UNRESOLVED(closure): `n` at [L66](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L66) (→ [`crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:46`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L46)) — call through a closure or fn-typed binding `n`
+
+</div>
+
+<div class="cw-node" style="margin-left:2.7em">
+
+UNRESOLVED(closure): `n` at [L67](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L67) (→ [`crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:46`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L46)) — call through a closure or fn-typed binding `n`
+
+</div>
+
+<div class="cw-node" style="margin-left:2.7em">
+
+UNRESOLVED(closure): `n` at [L68](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L68) (→ [`crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:46`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L46)) — call through a closure or fn-typed binding `n`
+
+</div>
+
+<div class="cw-node" style="margin-left:2.7em">
+
+UNRESOLVED(closure): `n` at [L69](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L69) (→ [`crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:46`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L46)) — call through a closure or fn-typed binding `n`
+
+</div>
+
+<div class="cw-node" style="margin-left:2.7em">
+
+UNRESOLVED(closure): `n` at [L70](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L70) (→ [`crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:46`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L46)) — call through a closure or fn-typed binding `n`
+
+</div>
+
+<div class="cw-node" style="margin-left:2.7em">
+
+UNRESOLVED(closure): `n` at [L71](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L71) (→ [`crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:46`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L46)) — call through a closure or fn-typed binding `n`
+
+</div>
+
+<div class="cw-node" style="margin-left:2.7em">
+
+UNRESOLVED(closure): `n` at [L72](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L72) (→ [`crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:46`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L46)) — call through a closure or fn-typed binding `n`
+
+</div>
+
+<div class="cw-node" style="margin-left:2.7em">
+
+UNRESOLVED(closure): `n` at [L73](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L73) (→ [`crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:46`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L46)) — call through a closure or fn-typed binding `n`
+
+</div>
+
+<div class="cw-node" style="margin-left:2.7em">
+
+UNRESOLVED(closure): `n` at [L74](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L74) (→ [`crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:46`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L46)) — call through a closure or fn-typed binding `n`
+
+</div>
+
+<div class="cw-node" style="margin-left:2.7em">
+
+UNRESOLVED(closure): `n` at [L75](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L75) (→ [`crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:46`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L46)) — call through a closure or fn-typed binding `n`
+
+</div>
+
+<div class="cw-node" style="margin-left:2.7em">
+
+UNRESOLVED(closure): `n` at [L76](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L76) (→ [`crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:46`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L46)) — call through a closure or fn-typed binding `n`
+
+</div>
+
+<div class="cw-node" style="margin-left:2.7em">
+
+UNRESOLVED(closure): `n` at [L77](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L77) (→ [`crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:46`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L46)) — call through a closure or fn-typed binding `n`
+
+</div>
+
+<div class="cw-node" style="margin-left:2.7em">
+
+UNRESOLVED(closure): `n` at [L78](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L78) (→ [`crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:46`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L46)) — call through a closure or fn-typed binding `n`
+
+</div>
+
+<div class="cw-node" style="margin-left:2.7em">
+
+UNRESOLVED(closure): `n` at [L79](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L79) (→ [`crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:46`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L46)) — call through a closure or fn-typed binding `n`
+
+</div>
+
+<div class="cw-node" style="margin-left:2.7em">
+
+UNRESOLVED(closure): `n` at [L80](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L80) (→ [`crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:46`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L46)) — call through a closure or fn-typed binding `n`
+
+</div>
+
+<div class="cw-node" style="margin-left:2.7em">
+
+UNRESOLVED(closure): `n` at [L81](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L81) (→ [`crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:46`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L46)) — call through a closure or fn-typed binding `n`
+
+</div>
+
+<div class="cw-node" style="margin-left:2.7em">
+
+UNRESOLVED(closure): `n` at [L82](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L82) (→ [`crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:46`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L46)) — call through a closure or fn-typed binding `n`
+
+</div>
+
+<div class="cw-node" style="margin-left:2.7em">
+
+UNRESOLVED(closure): `n` at [L83](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L83) (→ [`crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:46`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L46)) — call through a closure or fn-typed binding `n`
+
+</div>
+
+<div class="cw-node" style="margin-left:2.7em">
+
+UNRESOLVED(closure): `n` at [L84](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L84) (→ [`crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:46`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L46)) — call through a closure or fn-typed binding `n`
+
+</div>
+
+<div class="cw-node" style="margin-left:2.7em">
+
+UNRESOLVED(closure): `n` at [L85](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L85) (→ [`crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:46`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L46)) — call through a closure or fn-typed binding `n`
+
+</div>
+
+<div class="cw-node" style="margin-left:2.7em">
+
+UNRESOLVED(closure): `n` at [L86](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L86) (→ [`crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:46`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L46)) — call through a closure or fn-typed binding `n`
+
+</div>
+
+<div class="cw-node" style="margin-left:2.7em">
+
+UNRESOLVED(closure): `n` at [L87](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L87) (→ [`crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:46`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L46)) — call through a closure or fn-typed binding `n`
+
+</div>
+
+<div class="cw-node" style="margin-left:2.7em">
+
+UNRESOLVED(closure): `n` at [L88](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L88) (→ [`crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:46`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L46)) — call through a closure or fn-typed binding `n`
+
+</div>
+
+<div class="cw-node" style="margin-left:2.7em">
+
+UNRESOLVED(closure): `n` at [L89](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L89) (→ [`crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:46`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L46)) — call through a closure or fn-typed binding `n`
+
+</div>
+
+<div class="cw-node" style="margin-left:2.7em">
+
+UNRESOLVED(closure): `n` at [L90](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L90) (→ [`crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:46`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L46)) — call through a closure or fn-typed binding `n`
+
+</div>
+
+<div class="cw-node" style="margin-left:2.7em">
+
+UNRESOLVED(closure): `n` at [L91](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L91) (→ [`crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:46`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L46)) — call through a closure or fn-typed binding `n`
+
+</div>
+
+<div class="cw-node" style="margin-left:2.7em">
+
+UNRESOLVED(closure): `n` at [L92](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L92) (→ [`crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:46`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L46)) — call through a closure or fn-typed binding `n`
+
+</div>
+
+<div class="cw-node" style="margin-left:2.7em">
+
+UNRESOLVED(closure): `n` at [L93](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L93) (→ [`crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:46`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L46)) — call through a closure or fn-typed binding `n`
+
+</div>
+
+<div class="cw-node" style="margin-left:2.7em">
+
+UNRESOLVED(closure): `n` at [L94](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L94) (→ [`crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:46`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L46)) — call through a closure or fn-typed binding `n`
+
+</div>
+
+<div class="cw-node" style="margin-left:2.7em">
+
+UNRESOLVED(closure): `n` at [L95](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L95) (→ [`crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:46`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L46)) — call through a closure or fn-typed binding `n`
+
+</div>
+
+<div class="cw-node" style="margin-left:2.7em">
+
+UNRESOLVED(closure): `n` at [L96](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L96) (→ [`crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:46`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L46)) — call through a closure or fn-typed binding `n`
+
+</div>
+
+<div class="cw-node" style="margin-left:2.7em">
+
+UNRESOLVED(closure): `n` at [L97](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L97) (→ [`crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:46`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L46)) — call through a closure or fn-typed binding `n`
+
+</div>
+
+<div class="cw-node" style="margin-left:2.7em">
+
+UNRESOLVED(closure): `n` at [L98](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L98) (→ [`crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:46`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L46)) — call through a closure or fn-typed binding `n`
+
+</div>
+
+<div class="cw-node" style="margin-left:2.7em">
+
+UNRESOLVED(closure): `n` at [L99](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L99) (→ [`crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:46`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L46)) — call through a closure or fn-typed binding `n`
+
+</div>
+
+<div class="cw-node" style="margin-left:2.7em">
+
+UNRESOLVED(closure): `n` at [L100](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L100) (→ [`crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:46`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L46)) — call through a closure or fn-typed binding `n`
+
+</div>
+
+<div class="cw-node" style="margin-left:2.7em">
+
+UNRESOLVED(closure): `n` at [L101](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L101) (→ [`crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:46`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L46)) — call through a closure or fn-typed binding `n`
+
+</div>
+
+<div class="cw-node" style="margin-left:2.7em">
+
+UNRESOLVED(closure): `n` at [L102](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L102) (→ [`crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:46`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L46)) — call through a closure or fn-typed binding `n`
+
+</div>
+
+<div class="cw-node" style="margin-left:2.7em">
+
+UNRESOLVED(closure): `n` at [L103](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L103) (→ [`crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:46`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L46)) — call through a closure or fn-typed binding `n`
+
+</div>
+
+<div class="cw-node" style="margin-left:2.7em">
+
+UNRESOLVED(closure): `n` at [L104](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L104) (→ [`crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:46`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L46)) — call through a closure or fn-typed binding `n`
+
+</div>
+
+<div class="cw-node" style="margin-left:2.7em">
+
+UNRESOLVED(closure): `n` at [L105](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L105) (→ [`crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:46`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L46)) — call through a closure or fn-typed binding `n`
+
+</div>
+
+<div class="cw-node" style="margin-left:2.7em">
+
+UNRESOLVED(closure): `n` at [L106](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L106) (→ [`crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:46`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L46)) — call through a closure or fn-typed binding `n`
+
+</div>
+
+<div class="cw-node" style="margin-left:2.7em">
+
+UNRESOLVED(closure): `n` at [L107](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L107) (→ [`crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:46`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L46)) — call through a closure or fn-typed binding `n`
+
+</div>
+
+<div class="cw-node" style="margin-left:2.7em">
+
+UNRESOLVED(closure): `n` at [L108](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L108) (→ [`crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:46`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L46)) — call through a closure or fn-typed binding `n`
+
+</div>
+
+<div class="cw-node" style="margin-left:2.7em">
+
+UNRESOLVED(closure): `n` at [L109](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L109) (→ [`crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:46`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L46)) — call through a closure or fn-typed binding `n`
+
+</div>
+
+<div class="cw-node" style="margin-left:2.7em">
+
+UNRESOLVED(closure): `n` at [L110](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L110) (→ [`crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:46`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L46)) — call through a closure or fn-typed binding `n`
+
+</div>
+
+<div class="cw-node" style="margin-left:2.7em">
+
+UNRESOLVED(closure): `n` at [L111](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L111) (→ [`crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:46`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L46)) — call through a closure or fn-typed binding `n`
+
+</div>
+
+<div class="cw-node" style="margin-left:2.7em">
+
+UNRESOLVED(closure): `n` at [L112](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L112) (→ [`crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:46`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L46)) — call through a closure or fn-typed binding `n`
+
+</div>
+
+<div class="cw-node" style="margin-left:2.7em">
+
+UNRESOLVED(closure): `n` at [L113](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L113) (→ [`crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:46`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L46)) — call through a closure or fn-typed binding `n`
+
+</div>
+
+<div class="cw-node" style="margin-left:2.7em">
+
+UNRESOLVED(closure): `n` at [L114](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L114) (→ [`crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:46`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L46)) — call through a closure or fn-typed binding `n`
+
+</div>
+
+<div class="cw-node" style="margin-left:2.7em">
+
+UNRESOLVED(closure): `n` at [L115](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L115) (→ [`crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:46`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L46)) — call through a closure or fn-typed binding `n`
+
+</div>
+
+<div class="cw-node" style="margin-left:2.7em">
+
+UNRESOLVED(closure): `n` at [L116](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L116) (→ [`crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:46`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L46)) — call through a closure or fn-typed binding `n`
+
+</div>
+
+<div class="cw-node" style="margin-left:2.7em">
+
+UNRESOLVED(closure): `n` at [L117](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L117) (→ [`crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:46`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L46)) — call through a closure or fn-typed binding `n`
+
+</div>
+
+<div class="cw-node" style="margin-left:2.7em">
+
+UNRESOLVED(closure): `n` at [L118](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L118) (→ [`crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:46`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L46)) — call through a closure or fn-typed binding `n`
+
+</div>
+
+<div class="cw-node" style="margin-left:2.7em">
+
+UNRESOLVED(closure): `n` at [L120](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L120) (→ [`crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:46`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L46)) — call through a closure or fn-typed binding `n`
+
+</div>
+
+<div class="cw-node" style="margin-left:2.7em">
+
+UNRESOLVED(closure): `n` at [L121](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L121) (→ [`crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:46`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L46)) — call through a closure or fn-typed binding `n`
+
+</div>
+
+<div class="cw-node" style="margin-left:2.7em">
+
+UNRESOLVED(closure): `n` at [L122](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L122) (→ [`crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:46`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L46)) — call through a closure or fn-typed binding `n`
+
+</div>
+
+<div class="cw-node" style="margin-left:2.7em">
+
+UNRESOLVED(closure): `n` at [L123](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L123) (→ [`crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:46`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L46)) — call through a closure or fn-typed binding `n`
+
+</div>
+
+<div class="cw-node" style="margin-left:2.7em">
+
+UNRESOLVED(closure): `n` at [L124](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L124) (→ [`crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:46`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L46)) — call through a closure or fn-typed binding `n`
+
+</div>
+
+<div class="cw-node" style="margin-left:2.7em">
+
+UNRESOLVED(closure): `n` at [L125](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L125) (→ [`crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:46`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L46)) — call through a closure or fn-typed binding `n`
+
+</div>
+
+<div class="cw-node" style="margin-left:2.7em">
+
+UNRESOLVED(closure): `n` at [L126](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L126) (→ [`crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:46`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L46)) — call through a closure or fn-typed binding `n`
+
+</div>
+
+<div class="cw-node" style="margin-left:2.7em">
+
+UNRESOLVED(closure): `n` at [L127](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L127) (→ [`crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:46`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L46)) — call through a closure or fn-typed binding `n`
+
+</div>
+
+<div class="cw-node" style="margin-left:2.7em">
+
+UNRESOLVED(closure): `n` at [L128](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L128) (→ [`crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:46`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L46)) — call through a closure or fn-typed binding `n`
+
+</div>
+
+<div class="cw-node" style="margin-left:2.7em">
+
+UNRESOLVED(closure): `n` at [L129](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L129) (→ [`crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:46`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L46)) — call through a closure or fn-typed binding `n`
+
+</div>
+
+<div class="cw-node" style="margin-left:2.7em">
+
+UNRESOLVED(closure): `n` at [L130](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L130) (→ [`crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:46`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L46)) — call through a closure or fn-typed binding `n`
+
+</div>
+
+<div class="cw-node" style="margin-left:2.7em">
+
+UNRESOLVED(closure): `n` at [L131](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L131) (→ [`crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:46`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L46)) — call through a closure or fn-typed binding `n`
+
+</div>
+
+<div class="cw-node" style="margin-left:2.7em">
+
+UNRESOLVED(closure): `n` at [L132](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L132) (→ [`crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs:46`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs#L46)) — call through a closure or fn-typed binding `n`
+
+</div>
+
+<div class="cw-node" style="margin-left:0.9em">
+
+[`mod.rs::upstream_table_parent_decay`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/run_selection/mod.rs#L152) `pub fn upstream_table_parent_decay(name: &str) -> bool` — The nuclides upstream's table defaults to `parent_decay = True`. · called at [L324](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/run_selection/mod.rs#L324)
+
+<details open><summary>code</summary>
+
+<!-- snippet-check: crates/boon-lay/src/triso_atops_fork/run_selection/mod.rs:152 fn upstream_table_parent_decay -->
+
+```rust,ignore
+{{#include ../../../../../crates/boon-lay/src/triso_atops_fork/run_selection/mod.rs:152:160}}
+```
+
+</details>
+</div>
 <!-- /code-walk -->
 
 <!-- code-walk: from=crates/boon-lay/src/triso_atops_fork/run_file/upstream.rs::read_upstream_run_file depth=2 -->
@@ -641,29 +5703,268 @@ Everything `crates/boon-lay/src/triso_atops_fork/run_selection/mod.rs::select_nu
 
 Everything `crates/boon-lay/src/triso_atops_fork/run_file/upstream.rs::read_upstream_run_file` reaches in the workspace, to 2 hops: 10 functions, 13 unresolved calls. A function is expanded once; later calls to it say *(expanded elsewhere in this walk)*.
 
-- [`upstream.rs::read_upstream_run_file`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/run_file/upstream.rs#L155) `pub fn read_upstream_run_file(path: &Path) -> Result<UpstreamRunFile, Vec<UpstreamRunFileError>>` — Read and check an upstream-format run file.
-  - [`upstream.rs::parse`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/run_file/upstream.rs#L164) `fn parse(json: &Value, dir: &Path) -> Result<UpstreamRunFile, Vec<UpstreamRunFileError>>` · called at [L161](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/run_file/upstream.rs#L161)
-    - [`mod.rs::TimeUnit::parse`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/run_file/mod.rs#L95) `pub fn parse(unit: &str) -> Option<Self>` — Parse upstream's unit string (`"s"`, `"min"`, `"hr"`, `"d"`, `"yr"`). · called at [L203](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/run_file/upstream.rs#L203) · *(calls below the depth limit not shown)*
-    - [`mod.rs::TimeUnit::seconds`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/run_file/mod.rs#L79) `pub fn seconds(self) -> f64` — Seconds per unit. · called at [L204](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/run_file/upstream.rs#L204) · *(calls below the depth limit not shown)*
-    - UNRESOLVED(closure): `as_int` at [L221](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/run_file/upstream.rs#L221) (→ [`crates/boon-lay/src/triso_atops_fork/run_file/upstream.rs:215`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/run_file/upstream.rs#L215)) — call through a closure or fn-typed binding `as_int`
-    - UNRESOLVED(closure): `as_int` at [L225](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/run_file/upstream.rs#L225) (→ [`crates/boon-lay/src/triso_atops_fork/run_file/upstream.rs:215`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/run_file/upstream.rs#L215)) — call through a closure or fn-typed binding `as_int`
-    - [`upstream.rs::read_csv_strings`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/run_file/upstream.rs#L384) `fn read_csv_strings(path: &PathBuf) -> Result<Vec<String>, String>` — First column of a CSV with a header row, as strings (`Nuclides` path form). · called at [L239](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/run_file/upstream.rs#L239) · *(calls below the depth limit not shown)*
-    - [`upstream.rs::read_csv`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/run_file/upstream.rs#L369) `fn read_csv(path: &PathBuf, header: bool, drop_index: bool) -> Result<Vec<Vec<f64>>, String>` — A plain numeric CSV, optionally skipping a header row and dropping the first (index) column. · called at [L246](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/run_file/upstream.rs#L246) · *(calls below the depth limit not shown)*
-    - [`upstream.rs::inline_2d`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/run_file/upstream.rs#L398) `fn inline_2d(v: &Value) -> Result<Vec<Vec<f64>>, String>` · called at [L247](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/run_file/upstream.rs#L247) · *(calls below the depth limit not shown)*
-    - [`upstream.rs::read_profile`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/run_file/upstream.rs#L360) `fn read_profile(entry: &Value, dir: &Path) -> Result<Vec<Vec<f64>>, String>` — `read_profile`: `[path, has_header, has_index]`, 2-D. · called at [L250](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/run_file/upstream.rs#L250) · *(calls below the depth limit not shown)*
-    - [`upstream.rs::column`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/run_file/upstream.rs#L394) `fn column(table: &[Vec<f64>], c: usize) -> Vec<f64>` · called at [L269](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/run_file/upstream.rs#L269) · *(calls below the depth limit not shown)*
-    - [`upstream.rs::inline_3d`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/run_file/upstream.rs#L412) `fn inline_3d(v: &Value) -> Result<Vec<Vec<Vec<f64>>>, String>` · called at [L289](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/run_file/upstream.rs#L289) · *(calls below the depth limit not shown)*
-    - UNRESOLVED(closure): `shape` at [L317](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/run_file/upstream.rs#L317) (→ [`crates/boon-lay/src/triso_atops_fork/run_file/upstream.rs:312`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/run_file/upstream.rs#L312)) — call through a closure or fn-typed binding `shape`
-    - UNRESOLVED(closure): `rows` at [L317](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/run_file/upstream.rs#L317) (→ [`crates/boon-lay/src/triso_atops_fork/run_file/upstream.rs:310`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/run_file/upstream.rs#L310)) — call through a closure or fn-typed binding `rows`
-    - UNRESOLVED(closure): `shape` at [L318](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/run_file/upstream.rs#L318) (→ [`crates/boon-lay/src/triso_atops_fork/run_file/upstream.rs:312`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/run_file/upstream.rs#L312)) — call through a closure or fn-typed binding `shape`
-    - UNRESOLVED(closure): `cols` at [L318](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/run_file/upstream.rs#L318) (→ [`crates/boon-lay/src/triso_atops_fork/run_file/upstream.rs:311`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/run_file/upstream.rs#L311)) — call through a closure or fn-typed binding `cols`
-    - UNRESOLVED(closure): `shape` at [L320](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/run_file/upstream.rs#L320) (→ [`crates/boon-lay/src/triso_atops_fork/run_file/upstream.rs:312`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/run_file/upstream.rs#L312)) — call through a closure or fn-typed binding `shape`
-    - UNRESOLVED(closure): `rows` at [L320](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/run_file/upstream.rs#L320) (→ [`crates/boon-lay/src/triso_atops_fork/run_file/upstream.rs:310`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/run_file/upstream.rs#L310)) — call through a closure or fn-typed binding `rows`
-    - UNRESOLVED(closure): `shape` at [L321](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/run_file/upstream.rs#L321) (→ [`crates/boon-lay/src/triso_atops_fork/run_file/upstream.rs:312`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/run_file/upstream.rs#L312)) — call through a closure or fn-typed binding `shape`
-    - UNRESOLVED(closure): `cols` at [L321](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/run_file/upstream.rs#L321) (→ [`crates/boon-lay/src/triso_atops_fork/run_file/upstream.rs:311`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/run_file/upstream.rs#L311)) — call through a closure or fn-typed binding `cols`
-    - UNRESOLVED(closure): `shape` at [L327](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/run_file/upstream.rs#L327) (→ [`crates/boon-lay/src/triso_atops_fork/run_file/upstream.rs:312`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/run_file/upstream.rs#L312)) — call through a closure or fn-typed binding `shape`
-    - UNRESOLVED(closure): `shape` at [L328](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/run_file/upstream.rs#L328) (→ [`crates/boon-lay/src/triso_atops_fork/run_file/upstream.rs:312`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/run_file/upstream.rs#L312)) — call through a closure or fn-typed binding `shape`
-    - UNRESOLVED(closure): `shape` at [L332](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/run_file/upstream.rs#L332) (→ [`crates/boon-lay/src/triso_atops_fork/run_file/upstream.rs:312`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/run_file/upstream.rs#L312)) — call through a closure or fn-typed binding `shape`
+<div class="cw-node" style="margin-left:0.0em">
+
+[`upstream.rs::read_upstream_run_file`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/run_file/upstream.rs#L155) `pub fn read_upstream_run_file(path: &Path) -> Result<UpstreamRunFile, Vec<UpstreamRunFileError>>` — Read and check an upstream-format run file.
+
+<details open><summary>code</summary>
+
+<!-- snippet-check: crates/boon-lay/src/triso_atops_fork/run_file/upstream.rs:155 fn read_upstream_run_file -->
+<!-- snippet-check: crates/boon-lay/src/triso_atops_fork/run_file/upstream.rs:161 parse -->
+
+```rust,ignore
+{{#include ../../../../../crates/boon-lay/src/triso_atops_fork/run_file/upstream.rs:155:162}}
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:0.9em">
+
+[`upstream.rs::parse`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/run_file/upstream.rs#L164) `fn parse(json: &Value, dir: &Path) -> Result<UpstreamRunFile, Vec<UpstreamRunFileError>>` · called at [L161](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/run_file/upstream.rs#L161)
+
+<details open><summary>code</summary>
+
+<!-- snippet-check: crates/boon-lay/src/triso_atops_fork/run_file/upstream.rs:164 fn parse -->
+<!-- snippet-check: crates/boon-lay/src/triso_atops_fork/run_file/upstream.rs:203 parse -->
+<!-- snippet-check: crates/boon-lay/src/triso_atops_fork/run_file/upstream.rs:204 seconds -->
+<!-- snippet-check: crates/boon-lay/src/triso_atops_fork/run_file/upstream.rs:221 as_int -->
+<!-- snippet-check: crates/boon-lay/src/triso_atops_fork/run_file/upstream.rs:225 as_int -->
+<!-- snippet-check: crates/boon-lay/src/triso_atops_fork/run_file/upstream.rs:239 read_csv_strings -->
+<!-- snippet-check: crates/boon-lay/src/triso_atops_fork/run_file/upstream.rs:246 read_csv -->
+<!-- snippet-check: crates/boon-lay/src/triso_atops_fork/run_file/upstream.rs:247 inline_2d -->
+<!-- snippet-check: crates/boon-lay/src/triso_atops_fork/run_file/upstream.rs:250 read_profile -->
+<!-- snippet-check: crates/boon-lay/src/triso_atops_fork/run_file/upstream.rs:269 column -->
+<!-- snippet-check: crates/boon-lay/src/triso_atops_fork/run_file/upstream.rs:289 inline_3d -->
+<!-- snippet-check: crates/boon-lay/src/triso_atops_fork/run_file/upstream.rs:317 shape -->
+<!-- snippet-check: crates/boon-lay/src/triso_atops_fork/run_file/upstream.rs:318 shape -->
+<!-- snippet-check: crates/boon-lay/src/triso_atops_fork/run_file/upstream.rs:320 shape -->
+<!-- snippet-check: crates/boon-lay/src/triso_atops_fork/run_file/upstream.rs:321 shape -->
+<!-- snippet-check: crates/boon-lay/src/triso_atops_fork/run_file/upstream.rs:327 shape -->
+<!-- snippet-check: crates/boon-lay/src/triso_atops_fork/run_file/upstream.rs:328 shape -->
+<!-- snippet-check: crates/boon-lay/src/triso_atops_fork/run_file/upstream.rs:332 shape -->
+
+```rust,ignore
+{{#include ../../../../../crates/boon-lay/src/triso_atops_fork/run_file/upstream.rs:164:164}}
+    // …
+{{#include ../../../../../crates/boon-lay/src/triso_atops_fork/run_file/upstream.rs:201:205}}
+    // …
+{{#include ../../../../../crates/boon-lay/src/triso_atops_fork/run_file/upstream.rs:219:226}}
+    // …
+{{#include ../../../../../crates/boon-lay/src/triso_atops_fork/run_file/upstream.rs:237:240}}
+    // …
+{{#include ../../../../../crates/boon-lay/src/triso_atops_fork/run_file/upstream.rs:244:251}}
+    // …
+{{#include ../../../../../crates/boon-lay/src/triso_atops_fork/run_file/upstream.rs:267:270}}
+    // …
+{{#include ../../../../../crates/boon-lay/src/triso_atops_fork/run_file/upstream.rs:287:290}}
+    // …
+{{#include ../../../../../crates/boon-lay/src/triso_atops_fork/run_file/upstream.rs:315:322}}
+    // …
+{{#include ../../../../../crates/boon-lay/src/triso_atops_fork/run_file/upstream.rs:325:333}}
+    // … (the rest of the function: follow the link above)
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:1.8em">
+
+[`mod.rs::TimeUnit::parse`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/run_file/mod.rs#L95) `pub fn parse(unit: &str) -> Option<Self>` — Parse upstream's unit string (`"s"`, `"min"`, `"hr"`, `"d"`, `"yr"`). · called at [L203](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/run_file/upstream.rs#L203) · *(calls below the depth limit not shown)*
+
+<details open><summary>code</summary>
+
+<!-- snippet-check: crates/boon-lay/src/triso_atops_fork/run_file/mod.rs:95 fn parse -->
+
+```rust,ignore
+{{#include ../../../../../crates/boon-lay/src/triso_atops_fork/run_file/mod.rs:95:104}}
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:1.8em">
+
+[`mod.rs::TimeUnit::seconds`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/run_file/mod.rs#L79) `pub fn seconds(self) -> f64` — Seconds per unit. · called at [L204](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/run_file/upstream.rs#L204) · *(calls below the depth limit not shown)*
+
+<details open><summary>code</summary>
+
+<!-- snippet-check: crates/boon-lay/src/triso_atops_fork/run_file/mod.rs:79 fn seconds -->
+
+```rust,ignore
+{{#include ../../../../../crates/boon-lay/src/triso_atops_fork/run_file/mod.rs:79:87}}
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:1.8em">
+
+UNRESOLVED(closure): `as_int` at [L221](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/run_file/upstream.rs#L221) (→ [`crates/boon-lay/src/triso_atops_fork/run_file/upstream.rs:215`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/run_file/upstream.rs#L215)) — call through a closure or fn-typed binding `as_int`
+
+</div>
+
+<div class="cw-node" style="margin-left:1.8em">
+
+UNRESOLVED(closure): `as_int` at [L225](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/run_file/upstream.rs#L225) (→ [`crates/boon-lay/src/triso_atops_fork/run_file/upstream.rs:215`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/run_file/upstream.rs#L215)) — call through a closure or fn-typed binding `as_int`
+
+</div>
+
+<div class="cw-node" style="margin-left:1.8em">
+
+[`upstream.rs::read_csv_strings`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/run_file/upstream.rs#L384) `fn read_csv_strings(path: &PathBuf) -> Result<Vec<String>, String>` — First column of a CSV with a header row, as strings (`Nuclides` path form). · called at [L239](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/run_file/upstream.rs#L239) · *(calls below the depth limit not shown)*
+
+<details open><summary>code</summary>
+
+<!-- snippet-check: crates/boon-lay/src/triso_atops_fork/run_file/upstream.rs:384 fn read_csv_strings -->
+
+```rust,ignore
+{{#include ../../../../../crates/boon-lay/src/triso_atops_fork/run_file/upstream.rs:384:392}}
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:1.8em">
+
+[`upstream.rs::read_csv`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/run_file/upstream.rs#L369) `fn read_csv(path: &PathBuf, header: bool, drop_index: bool) -> Result<Vec<Vec<f64>>, String>` — A plain numeric CSV, optionally skipping a header row and dropping the first (index) column. · called at [L246](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/run_file/upstream.rs#L246) · *(calls below the depth limit not shown)*
+
+<details open><summary>code</summary>
+
+<!-- snippet-check: crates/boon-lay/src/triso_atops_fork/run_file/upstream.rs:369 fn read_csv -->
+
+```rust,ignore
+{{#include ../../../../../crates/boon-lay/src/triso_atops_fork/run_file/upstream.rs:369:381}}
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:1.8em">
+
+[`upstream.rs::inline_2d`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/run_file/upstream.rs#L398) `fn inline_2d(v: &Value) -> Result<Vec<Vec<f64>>, String>` · called at [L247](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/run_file/upstream.rs#L247) · *(calls below the depth limit not shown)*
+
+<details open><summary>code</summary>
+
+<!-- snippet-check: crates/boon-lay/src/triso_atops_fork/run_file/upstream.rs:398 fn inline_2d -->
+
+```rust,ignore
+{{#include ../../../../../crates/boon-lay/src/triso_atops_fork/run_file/upstream.rs:398:410}}
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:1.8em">
+
+[`upstream.rs::read_profile`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/run_file/upstream.rs#L360) `fn read_profile(entry: &Value, dir: &Path) -> Result<Vec<Vec<f64>>, String>` — `read_profile`: `[path, has_header, has_index]`, 2-D. · called at [L250](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/run_file/upstream.rs#L250) · *(calls below the depth limit not shown)*
+
+<details open><summary>code</summary>
+
+<!-- snippet-check: crates/boon-lay/src/triso_atops_fork/run_file/upstream.rs:360 fn read_profile -->
+
+```rust,ignore
+{{#include ../../../../../crates/boon-lay/src/triso_atops_fork/run_file/upstream.rs:360:365}}
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:1.8em">
+
+[`upstream.rs::column`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/run_file/upstream.rs#L394) `fn column(table: &[Vec<f64>], c: usize) -> Vec<f64>` · called at [L269](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/run_file/upstream.rs#L269) · *(calls below the depth limit not shown)*
+
+<details open><summary>code</summary>
+
+<!-- snippet-check: crates/boon-lay/src/triso_atops_fork/run_file/upstream.rs:394 fn column -->
+
+```rust,ignore
+{{#include ../../../../../crates/boon-lay/src/triso_atops_fork/run_file/upstream.rs:394:396}}
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:1.8em">
+
+[`upstream.rs::inline_3d`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/run_file/upstream.rs#L412) `fn inline_3d(v: &Value) -> Result<Vec<Vec<Vec<f64>>>, String>` · called at [L289](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/run_file/upstream.rs#L289) · *(calls below the depth limit not shown)*
+
+<details open><summary>code</summary>
+
+<!-- snippet-check: crates/boon-lay/src/triso_atops_fork/run_file/upstream.rs:412 fn inline_3d -->
+
+```rust,ignore
+{{#include ../../../../../crates/boon-lay/src/triso_atops_fork/run_file/upstream.rs:412:414}}
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:1.8em">
+
+UNRESOLVED(closure): `shape` at [L317](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/run_file/upstream.rs#L317) (→ [`crates/boon-lay/src/triso_atops_fork/run_file/upstream.rs:312`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/run_file/upstream.rs#L312)) — call through a closure or fn-typed binding `shape`
+
+</div>
+
+<div class="cw-node" style="margin-left:1.8em">
+
+UNRESOLVED(closure): `rows` at [L317](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/run_file/upstream.rs#L317) (→ [`crates/boon-lay/src/triso_atops_fork/run_file/upstream.rs:310`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/run_file/upstream.rs#L310)) — call through a closure or fn-typed binding `rows`
+
+</div>
+
+<div class="cw-node" style="margin-left:1.8em">
+
+UNRESOLVED(closure): `shape` at [L318](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/run_file/upstream.rs#L318) (→ [`crates/boon-lay/src/triso_atops_fork/run_file/upstream.rs:312`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/run_file/upstream.rs#L312)) — call through a closure or fn-typed binding `shape`
+
+</div>
+
+<div class="cw-node" style="margin-left:1.8em">
+
+UNRESOLVED(closure): `cols` at [L318](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/run_file/upstream.rs#L318) (→ [`crates/boon-lay/src/triso_atops_fork/run_file/upstream.rs:311`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/run_file/upstream.rs#L311)) — call through a closure or fn-typed binding `cols`
+
+</div>
+
+<div class="cw-node" style="margin-left:1.8em">
+
+UNRESOLVED(closure): `shape` at [L320](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/run_file/upstream.rs#L320) (→ [`crates/boon-lay/src/triso_atops_fork/run_file/upstream.rs:312`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/run_file/upstream.rs#L312)) — call through a closure or fn-typed binding `shape`
+
+</div>
+
+<div class="cw-node" style="margin-left:1.8em">
+
+UNRESOLVED(closure): `rows` at [L320](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/run_file/upstream.rs#L320) (→ [`crates/boon-lay/src/triso_atops_fork/run_file/upstream.rs:310`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/run_file/upstream.rs#L310)) — call through a closure or fn-typed binding `rows`
+
+</div>
+
+<div class="cw-node" style="margin-left:1.8em">
+
+UNRESOLVED(closure): `shape` at [L321](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/run_file/upstream.rs#L321) (→ [`crates/boon-lay/src/triso_atops_fork/run_file/upstream.rs:312`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/run_file/upstream.rs#L312)) — call through a closure or fn-typed binding `shape`
+
+</div>
+
+<div class="cw-node" style="margin-left:1.8em">
+
+UNRESOLVED(closure): `cols` at [L321](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/run_file/upstream.rs#L321) (→ [`crates/boon-lay/src/triso_atops_fork/run_file/upstream.rs:311`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/run_file/upstream.rs#L311)) — call through a closure or fn-typed binding `cols`
+
+</div>
+
+<div class="cw-node" style="margin-left:1.8em">
+
+UNRESOLVED(closure): `shape` at [L327](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/run_file/upstream.rs#L327) (→ [`crates/boon-lay/src/triso_atops_fork/run_file/upstream.rs:312`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/run_file/upstream.rs#L312)) — call through a closure or fn-typed binding `shape`
+
+</div>
+
+<div class="cw-node" style="margin-left:1.8em">
+
+UNRESOLVED(closure): `shape` at [L328](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/run_file/upstream.rs#L328) (→ [`crates/boon-lay/src/triso_atops_fork/run_file/upstream.rs:312`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/run_file/upstream.rs#L312)) — call through a closure or fn-typed binding `shape`
+
+</div>
+
+<div class="cw-node" style="margin-left:1.8em">
+
+UNRESOLVED(closure): `shape` at [L332](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/run_file/upstream.rs#L332) (→ [`crates/boon-lay/src/triso_atops_fork/run_file/upstream.rs:312`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/run_file/upstream.rs#L312)) — call through a closure or fn-typed binding `shape`
+
+</div>
 <!-- /code-walk -->
 
 [Decay-data plumbing](./decay-data.md):
@@ -673,7 +5974,54 @@ Everything `crates/boon-lay/src/triso_atops_fork/run_file/upstream.rs::read_upst
 
 Everything `crates/boon-lay/src/nuclide_reaction_and_decay_data/decay_library/mod.rs::new` reaches in the workspace, to 2 hops: 3 functions, 0 unresolved calls. A function is expanded once; later calls to it say *(expanded elsewhere in this walk)*.
 
-- [`mod.rs::DecayLibrary::new`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/nuclide_reaction_and_decay_data/decay_library/mod.rs#L132) `pub fn new() -> Self`
-  - [`lcg.rs::Lcg64::new`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/petir/src/rng/lcg.rs#L176) `pub fn new(seed: u128) -> Self` — Create a new generator from a 128-bit seed (matches `oorandom::Rand64::new`). · called at [L252](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/nuclide_reaction_and_decay_data/decay_library/mod.rs#L252)
-  - [`parse_nuclides_to_decay_data.rs::NuclideReactionAndDecayData::parse_nuclides_to_decay_data_vec_by_element`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/nuclide_reaction_and_decay_data/parse_nuclides_to_decay_data.rs#L25) `pub fn parse_nuclides_to_decay_data_vec_by_element(nuclide: &Nuclide) -> Vec<NuclideReactionAndDecayData>` — will parse nuclides to obtain decay information unless it is a neutron · called at [L255](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/nuclide_reaction_and_decay_data/decay_library/mod.rs#L255)
+<div class="cw-node" style="margin-left:0.0em">
+
+[`mod.rs::DecayLibrary::new`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/nuclide_reaction_and_decay_data/decay_library/mod.rs#L132) `pub fn new() -> Self`
+
+<details open><summary>code</summary>
+
+<!-- snippet-check: crates/boon-lay/src/nuclide_reaction_and_decay_data/decay_library/mod.rs:132 fn new -->
+<!-- snippet-check: crates/boon-lay/src/nuclide_reaction_and_decay_data/decay_library/mod.rs:252 new -->
+<!-- snippet-check: crates/boon-lay/src/nuclide_reaction_and_decay_data/decay_library/mod.rs:255 parse_nuclides_to_decay_data_vec_by_element -->
+
+```rust,ignore
+{{#include ../../../../../crates/boon-lay/src/nuclide_reaction_and_decay_data/decay_library/mod.rs:132:132}}
+    // …
+{{#include ../../../../../crates/boon-lay/src/nuclide_reaction_and_decay_data/decay_library/mod.rs:250:256}}
+    // … (the rest of the function: follow the link above)
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:0.9em">
+
+[`lcg.rs::Lcg64::new`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/petir/src/rng/lcg.rs#L176) `pub fn new(seed: u128) -> Self` — Create a new generator from a 128-bit seed (matches `oorandom::Rand64::new`). · called at [L252](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/nuclide_reaction_and_decay_data/decay_library/mod.rs#L252)
+
+<details open><summary>code</summary>
+
+<!-- snippet-check: crates/petir/src/rng/lcg.rs:176 fn new -->
+
+```rust,ignore
+{{#include ../../../../../crates/petir/src/rng/lcg.rs:176:180}}
+```
+
+</details>
+</div>
+
+<div class="cw-node" style="margin-left:0.9em">
+
+[`parse_nuclides_to_decay_data.rs::NuclideReactionAndDecayData::parse_nuclides_to_decay_data_vec_by_element`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/nuclide_reaction_and_decay_data/parse_nuclides_to_decay_data.rs#L25) `pub fn parse_nuclides_to_decay_data_vec_by_element(nuclide: &Nuclide) -> Vec<NuclideReactionAndDecayData>` — will parse nuclides to obtain decay information unless it is a neutron · called at [L255](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/nuclide_reaction_and_decay_data/decay_library/mod.rs#L255)
+
+<details open><summary>code</summary>
+
+<!-- snippet-check: crates/boon-lay/src/nuclide_reaction_and_decay_data/parse_nuclides_to_decay_data.rs:25 fn parse_nuclides_to_decay_data_vec_by_element -->
+
+```rust,ignore
+{{#include ../../../../../crates/boon-lay/src/nuclide_reaction_and_decay_data/parse_nuclides_to_decay_data.rs:25:64}}
+    // … (the rest of the function: follow the link above)
+```
+
+</details>
+</div>
 <!-- /code-walk -->
