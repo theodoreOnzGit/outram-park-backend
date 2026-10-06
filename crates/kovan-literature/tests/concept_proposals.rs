@@ -146,7 +146,7 @@ fn concepts_are_unique_and_hang_under_existing_nodes() {
         assert!(seen.insert(c.path.as_str()), "duplicate concept path {}", c.path);
         assert!(c.path.split('/').count() >= 3, "{}: a concept sits below an L2 node", c.path);
         assert!(!c.title.is_empty(), "{}: no title", c.path);
-        assert!(matches!(c.status.as_str(), "proposed" | "approved"), "{}: status {}", c.path, c.status);
+        assert!(matches!(c.status.as_str(), "proposed" | "approved" | "deferred"), "{}: status {}", c.path, c.status);
         for seg in c.path.split('/').skip(1) {
             assert!(
                 !seg.is_empty() && seg.chars().all(|ch| ch.is_ascii_lowercase() || ch.is_ascii_digit() || ch == '-'),
@@ -179,7 +179,7 @@ fn origins_and_sources_are_declared() {
             "outram-park" => assert!(c.why.as_deref().is_some_and(|w| !w.is_empty()), "{}: outram-park concept needs `why`", c.path),
             o => panic!("{}: unknown origin {o}", c.path),
         }
-        assert!(!c.sources.is_empty(), "{}: no source", c.path);
+        assert!(!c.sources.is_empty() || c.status == "deferred", "{}: no source (only a deferred concept may wait for one)", c.path);
         for src in &c.sources {
             assert!(docs.contains(src.document.as_str()), "{}: unknown document {}", c.path, src.document);
             assert!(!src.section.is_empty(), "{}: source without a section", c.path);

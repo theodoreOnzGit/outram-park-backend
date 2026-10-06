@@ -6,7 +6,7 @@
 
 ## Counts
 
-- **L3 concepts: 199** (156 from the NRC/ORNL text, `nrc`; 43 needed by outram-park and named only implicitly, `outram-park`).
+- **L3 concepts: 206** (163 from the NRC/ORNL text, `nrc`; 43 needed by outram-park and named only implicitly, `outram-park`).
 - **L4 seed tags: 192** across 39 crates.
 
 | Crate | Seed tags |
@@ -162,15 +162,15 @@
   - proposed kovan-concept tags:
     - [ ] add `//! kovan-concept: 02-nuclear-safety/nuclear-design/core-configuration-and-criticality` to `crates/nee_soon/src/htr10_rmc/mod.rs`: HTR-10 core model, code-to-code against RMC. HTR-10 first-criticality core built for outram-mc and verified against the published RMC benchmark. (new work, from Li, Yu & Wei (2014), HTR-10 benchmark with RMC)
     - [ ] add `//! kovan-concept: 02-nuclear-safety/nuclear-design/core-configuration-and-criticality` to `crates/nee_soon/src/det_six_factor.rs`: Six-factor decomposition of a deterministic solve. Breaks a diffusion/SP3 k_eff into the six-factor formula for comparison with Monte Carlo. (new work)
-  - [ ] **Pebble-bed packing (core geometry of a pebble-bed reactor)** · `core-configuration-and-criticality/pebble-bed-packing` · origin `outram-park`
-    - sources: `nureg-1537-part1` 4.5.1 (core geometry and configurations)
-    - why: the packing fraction and pebble positions are the core configuration of HTR-10 (gh #216); DEM and packing algorithms produce it.
-    - proposed kovan-concept tags:
-      - [ ] add `//! kovan-concept: 02-nuclear-safety/nuclear-design/core-configuration-and-criticality/pebble-bed-packing` to `crates/outram-park-fork-liggghts/src/granular.rs`: Granular contact pipeline (pair_style gran). Surface, normal and tangential contact models for settling a pebble bed. (port of LIGGGHTS (logic translated; see crate NOTICE on GPL-2))
-      - [ ] add `//! kovan-concept: 02-nuclear-safety/nuclear-design/core-configuration-and-criticality/pebble-bed-packing` to `crates/outram-park-fork-liggghts/src/integrator.rs`: Velocity-Verlet integration for spheres. Kick-drift-kick propagation of DEM spheres (nve/sphere). (port of LIGGGHTS FixNVESphere)
-      - [ ] add `//! kovan-concept: 02-nuclear-safety/nuclear-design/core-configuration-and-criticality/pebble-bed-packing` to `crates/outram-park-fork-liggghts/src/htr10_fill.rs`: HTR-10 pebble pour. Pours and settles the HTR-10 pebble bed under gravity, steppable from a UI. (new work)
-      - [ ] add `//! kovan-concept: 02-nuclear-safety/nuclear-design/core-configuration-and-criticality/pebble-bed-packing` to `crates/outram-mc-libs/src/pebble_beds/crp_packing.rs`: Close random packing of pebbles. Random sphere packing for pebble positions. (port of OpenMC openmc.model.pack_spheres)
-      - [ ] add `//! kovan-concept: 02-nuclear-safety/nuclear-design/core-configuration-and-criticality/pebble-bed-packing` to `crates/outram-mc-libs/src/pebble_beds/dem_bed.rs`: DEM-settled pebble beds for transport. Hands a bed settled by the LIGGGHTS fork to Monte Carlo transport. (new work)
+    - [ ] **Pebble-bed packing (core geometry of a pebble-bed reactor)** · `core-configurations/pebble-bed/pebble-bed-packing` · origin `outram-park`
+      - sources: `nureg-1537-part1` 4.5.1 (core geometry and configurations)
+      - why: the packing fraction and pebble positions are the core configuration of HTR-10 (gh #216); DEM and packing algorithms produce it.
+      - proposed kovan-concept tags:
+        - [ ] add `//! kovan-concept: 02-nuclear-safety/nuclear-design/core-configurations/pebble-bed/pebble-bed-packing` to `crates/outram-park-fork-liggghts/src/granular.rs`: Granular contact pipeline (pair_style gran). Surface, normal and tangential contact models for settling a pebble bed. (port of LIGGGHTS (logic translated; see crate NOTICE on GPL-2))
+        - [ ] add `//! kovan-concept: 02-nuclear-safety/nuclear-design/core-configurations/pebble-bed/pebble-bed-packing` to `crates/outram-park-fork-liggghts/src/integrator.rs`: Velocity-Verlet integration for spheres. Kick-drift-kick propagation of DEM spheres (nve/sphere). (port of LIGGGHTS FixNVESphere)
+        - [ ] add `//! kovan-concept: 02-nuclear-safety/nuclear-design/core-configurations/pebble-bed/pebble-bed-packing` to `crates/outram-park-fork-liggghts/src/htr10_fill.rs`: HTR-10 pebble pour. Pours and settles the HTR-10 pebble bed under gravity, steppable from a UI. (new work)
+        - [ ] add `//! kovan-concept: 02-nuclear-safety/nuclear-design/core-configurations/pebble-bed/pebble-bed-packing` to `crates/outram-mc-libs/src/pebble_beds/crp_packing.rs`: Close random packing of pebbles. Random sphere packing for pebble positions. (port of OpenMC openmc.model.pack_spheres)
+        - [ ] add `//! kovan-concept: 02-nuclear-safety/nuclear-design/core-configurations/pebble-bed/pebble-bed-packing` to `crates/outram-mc-libs/src/pebble_beds/dem_bed.rs`: DEM-settled pebble beds for transport. Hands a bed settled by the LIGGGHTS fork to Monte Carlo transport. (new work)
 - [ ] **Power distribution (axial and radial neutron flux densities, peaking)** · `power-distribution` · origin `nrc`
   - sources: `nureg-1537-part1` 4.5.2 Reactor Core Physics Parameters; `ornl-tm-2018-976` 3.1.2 (SRP 4.3 'focuses on the core power distribution and reactivity coefficients')
   - proposed kovan-concept tags:
@@ -212,13 +212,13 @@
   - proposed kovan-concept tags:
     - [ ] add `//! kovan-concept: 02-nuclear-safety/nuclear-design/accuracy-of-analytical-methods` to `crates/outram-mc-libs/src/stats/uq.rs`: Uncertainty quantification by input sampling. Propagates input uncertainties (densities, packing) to k_eff and tallies. (new work)
     - [ ] add `//! kovan-concept: 02-nuclear-safety/nuclear-design/accuracy-of-analytical-methods` to `crates/outram-mc-libs/src/tally/derivative.rs`: Tally derivatives. Sensitivity coefficients from a single run. (port of OpenMC src/tallies/derivative.cpp (afa7a14))
-- [ ] **Delayed-neutron precursor drift in circulating fuel (MSR)** · `delayed-neutron-precursor-drift` · origin `outram-park`
-  - sources: `ornl-tm-2018-976` 3.1.2 (MSRs may use ... intrinsic nuclear phenomena, such as flow, to provide reactor control)
-  - why: the MSRE reactivity effect; moltres and GeN-Foam's precursor_drift model it.
-  - proposed kovan-concept tags:
-    - [ ] add `//! kovan-concept: 02-nuclear-safety/nuclear-design/delayed-neutron-precursor-drift` to `crates/outram-park-fork-moltres/src/precursors.rs`: Precursor advection-decay transport. Delayed-neutron precursors carried by the moving fuel salt. (port of Moltres (formulation; LGPL))
-    - [ ] add `//! kovan-concept: 02-nuclear-safety/nuclear-design/delayed-neutron-precursor-drift` to `crates/outram-park-fork-moltres/src/circulating.rs`: Circulating-fuel k-eigenvalue. Multigroup diffusion coupled to advected precursors: the MSRE reactivity loss. (port of Moltres)
-    - [ ] add `//! kovan-concept: 02-nuclear-safety/nuclear-design/delayed-neutron-precursor-drift` to `crates/outram-foam-appbuilder-lib/src/genfoam/neutronics/diffusion/precursor_drift/mod.rs`: GeN-Foam precursor drift. Precursor transport with the fuel flow inside the diffusion solver. (port of GeN-Foam)
+    - [ ] **Delayed-neutron precursor drift in circulating fuel (MSR)** · `core-configurations/liquid-fuelled/delayed-neutron-precursor-drift` · origin `outram-park`
+      - sources: `ornl-tm-2018-976` 3.1.2 (MSRs may use ... intrinsic nuclear phenomena, such as flow, to provide reactor control)
+      - why: the MSRE reactivity effect; moltres and GeN-Foam's precursor_drift model it.
+      - proposed kovan-concept tags:
+        - [ ] add `//! kovan-concept: 02-nuclear-safety/nuclear-design/core-configurations/liquid-fuelled/delayed-neutron-precursor-drift` to `crates/outram-park-fork-moltres/src/precursors.rs`: Precursor advection-decay transport. Delayed-neutron precursors carried by the moving fuel salt. (port of Moltres (formulation; LGPL))
+        - [ ] add `//! kovan-concept: 02-nuclear-safety/nuclear-design/core-configurations/liquid-fuelled/delayed-neutron-precursor-drift` to `crates/outram-park-fork-moltres/src/circulating.rs`: Circulating-fuel k-eigenvalue. Multigroup diffusion coupled to advected precursors: the MSRE reactivity loss. (port of Moltres)
+        - [ ] add `//! kovan-concept: 02-nuclear-safety/nuclear-design/core-configurations/liquid-fuelled/delayed-neutron-precursor-drift` to `crates/outram-foam-appbuilder-lib/src/genfoam/neutronics/diffusion/precursor_drift/mod.rs`: GeN-Foam precursor drift. Precursor transport with the fuel flow inside the diffusion solver. (port of GeN-Foam)
 - [ ] **Neutron transport methods** · `neutron-transport` · origin `outram-park`
   - sources: `nureg-1537-part1` 4.5 Nuclear Design (introduction: a detailed description of the analytical methods ... computer codes)
   - why: the NRC asks for the analytical methods but does not name them; outram-park's transport solvers live here.
@@ -341,6 +341,21 @@
     - why: NJOY HEATR: where deposited power comes from.
     - proposed kovan-concept tags:
       - [ ] add `//! kovan-concept: 02-nuclear-safety/nuclear-design/nuclear-data-processing/heating-and-damage` to `crates/njoy-outram-park-fork/src/heatr/mod.rs`: HEATR. KERMA heating and damage cross sections. (port of NJOY2016 heatr.f90)
+- [ ] **Core configurations by reactor type** · `core-configurations` · origin `nrc`
+  - sources: `nureg-1537-part1` 4.5.1 (core configurations)
+  - [ ] **Prismatic (block-type) VHTR cores** · `core-configurations/prismatic` · origin `nrc`
+    - sources: `rg-1.232-rev0` Appendix C (MHTGR-DC)
+  - [ ] **Pebble-bed VHTR cores** · `core-configurations/pebble-bed` · origin `nrc`
+    - sources: `rg-1.232-rev0` Appendix C (MHTGR-DC)
+  - [ ] **Liquid-fuelled cores (MSR)** · `core-configurations/liquid-fuelled` · origin `nrc`
+    - sources: `ornl-tm-2018-976` 2 (homogeneous fuel; fuel salt boundary as the first fission-product barrier)
+  - [ ] **Liquid-metal-cooled fast reactor cores (SFR, LFR)** · `core-configurations/liquid-metal-cooled` · origin `nrc`
+    - sources: `rg-1.232-rev0` Appendix B (SFR-DC); Appendix A (ARDC)
+  - [ ] **Gas-cooled fast reactor cores (GFR)** · `core-configurations/gas-cooled-fast` · origin `nrc`
+    - sources: `rg-1.232-rev0` Appendix A (ARDC, developed with GFRs in view)
+  - [ ] **Supercritical-water-cooled reactor cores (SCWR)** · `core-configurations/supercritical-water-cooled` · origin `nrc`
+    - sources: 
+    - **note for review:** No NRC guidance specific to SCWR (RG 1.232 covers non-LWRs only); world reference to obtain: Generation IV International Forum SCWR documents.
 
 ### Moderator and reflector (`02-nuclear-safety/moderator-and-reflector`)
 
