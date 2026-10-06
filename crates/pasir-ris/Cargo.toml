@@ -1,0 +1,22 @@
+[package]
+name = "pasir-ris"
+version = "0.0.1"
+authors.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "PASIR RIS (Probabilistic Assessment of Safety, Initiating events and Release: Risk & Reliability Integrated Studio) — the reserved home for an integrated risk and reliability GUI over the workspace's safety crates. Placeholder: nothing is implemented."
+homepage.workspace = true
+repository.workspace = true
+readme = "README.md"
+categories.workspace = true
+# `docs/` is repo-only (the rustdoc->markdown API mirror and any V&V
+# write-ups). Excluded so it never ships to crates.io.
+exclude = ["docs"]
+
+# NO DEPENDENCIES YET, deliberately.
+#
+# PASIR RIS is expected to drive `raffles`, `bishan`, `sembawang`, `changi`
+# and `buangkok` through a GUI. Declaring those edges now would be an
+# architectural claim made before any code exists to justify it. Add each one
+# when something here actually calls into it.
+[dependencies]

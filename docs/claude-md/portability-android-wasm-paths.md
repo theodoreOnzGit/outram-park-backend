@@ -52,7 +52,8 @@ change. Tracking: the **`op-zfr` "Android support" epic**.
 a gate enforces it.** Added 2026-09-04. ~~**38 of the 44 members are in scope**~~ ~~**39 of the 45 members are in scope**~~ ~~**40 of the 46 members are in scope** (**updated 2026-09-28**, `bishan` and `buangkok` added; the script picks them up unedited); **6 are deliberately
 excluded** — `kovan`, `kovan-discovery`, `kovan-metrics`, `kovan-semantics`,
 `bedok` and `outram-blender`, each with its reason in the script.~~
-**CORRECTED 2026-10-02 (GitHub #486): 41 of the 46 members are in scope; 5 are
+~~**CORRECTED 2026-10-02 (GitHub #486): 41 of the 46 members are in scope**~~
+**42 of the 47 members are in scope** (updated 2026-10-06, `pasir-ris` added; the script picks it up unedited); **5 are
 excluded** — `kovan`, `kovan-discovery`, `kovan-metrics`, `kovan-semantics` and
 `bedok`, each with its reason in the script. `outram-blender` came off the list
 because `outram-mc-libs` takes its CSG description from it; its faer dependency
