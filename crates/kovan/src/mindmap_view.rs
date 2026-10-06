@@ -333,8 +333,10 @@ pub fn connector_from_centre(b: Point) -> Option<[Point; 4]> {
 }
 
 /// [`connector`] between a card of size `size_a` at `a` and one of size
-/// `size_b` at `b`.
-fn connector_sized(a: Point, size_a: (f64, f64), b: Point, size_b: (f64, f64)) -> Option<[Point; 4]> {
+/// `size_b` at `b` (centres and full sizes, world units). Public since
+/// 2026-10-06 so the code map ([`crate::code_map`]) draws its dependency
+/// edges with the same curve.
+pub fn connector_sized(a: Point, size_a: (f64, f64), b: Point, size_b: (f64, f64)) -> Option<[Point; 4]> {
     let (dx, dy) = (b.x - a.x, b.y - a.y);
     let gap_x = dx.abs() - 0.5 * (size_a.0 + size_b.0);
     let gap_y = dy.abs() - 0.5 * (size_a.1 + size_b.1);
