@@ -1,6 +1,7 @@
 # Kovan's concept-tree skeleton (OUTRAM PARK GitHub #724, #726, #727).
-# Lives in kovan-common (wasm-clean) because the Code Review tab is built for
-# the browser as well as the desktop; kovan's desktop app reads it from here.
+# Lives in kovan-literature, beside the corpus it links to (the reactor-literature
+# submodule is mounted in this crate); wasm-clean, so the Code Review tab can be
+# built for the browser as well as the desktop.
 #
 # Two fixed levels, shared by the Literature and Code Review tabs:
 #   L1: the 19 infrastructure issues of IAEA NG-G-3.1 (Rev. 1), numbered so

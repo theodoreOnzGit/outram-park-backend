@@ -1,5 +1,6 @@
 //! The concept-tree skeleton (`src/concept_skeleton.toml`, GitHub #724/#726/#727;
-//! in kovan-common because Code Review must build for wasm32, and kovan does not)
+//! in kovan-literature, beside the corpus it links to; it builds for wasm32,
+//! which Code Review needs, and kovan does not)
 //! is well formed, and every source links to a real document.
 //!
 //! What is checked:
@@ -96,7 +97,7 @@ fn every_source_links_to_a_declared_document_and_every_document_is_used() {
 
 #[test]
 fn standard_tier_files_exist_in_the_corpus_checkout() {
-    let corpus = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../kovan-literature/reactor-literature");
+    let corpus = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("reactor-literature");
     if !corpus.join("kovan-standard-open-corpus").is_dir() {
         eprintln!("skipped: reactor-literature submodule not checked out at {}", corpus.display());
         return;
