@@ -10,10 +10,15 @@
 //!    lists each crate's targets. The scope is every member, or `--crates`.
 //!    Maturity comes from the same `[package.metadata.kovan]` tags the code
 //!    map reads ([`crate::code_map::CodeMap::from_cargo_metadata`]).
-//! 2. For the lib target and every example target, the module tree is read
-//!    from the root file's `mod` declarations ([`crate::call_graph::modules`]),
-//!    so a multi-file example such as `examples/htgr_sim_v1/` is a tree of
-//!    modules too. Bins, tests and benches are not included.
+//! 2. For the lib target, every example target and (schema 2, #746) every
+//!    integration-test target (`tests/*.rs`, kept in `CrateGraph::tests`),
+//!    the module tree is read from the root file's `mod` declarations
+//!    ([`crate::call_graph::modules`]), so a multi-file example such as
+//!    `examples/htgr_sim_v1/` is a tree of modules too. Bins and benches are
+//!    not included. ~~Tests are not included.~~ **CORRECTED 2026-10-06**:
+//!    integration tests are, so the walk from a test can start there. Each
+//!    file's attribution header is read into `Module::upstream`
+//!    ([`crate::call_graph::upstream`]).
 //! 3. Every `fn` in those files is found by `code-walk`'s source scanner
 //!    (`code_walk::source::FileIndex`), which supplies the qualified name,
 //!    signature, doc sentence and body range.
@@ -23,6 +28,13 @@
 //!    request per function) and becomes a resolved call, a call into std or
 //!    a dependency (counted, dropped), or an `UNRESOLVED(<kind>)` gap. No
 //!    call is guessed. Every call site is kept, not only the first per pair.
+//! 5. Schema 2 (#746): the code-walk blocks of every Markdown page under
+//!    `docs/` and `crates/*/docs/` become `Function::cited_by`
+//!    ([`crate::call_graph::citations`]); one `git log` over the scope's
+//!    crate folders gives each file's `history`
+//!    ([`crate::call_graph::history`]); `assemble` then walks the graph
+//!    from every test and example into `Function::reached_by`
+//!    ([`crate::call_graph::reach`]).
 //!
 //! Known limits are `code-walk`'s: trait-method calls stop at
 //! `UNRESOLVED(trait)`; a call to a derived method (`Default::default()` on
@@ -42,7 +54,7 @@
 //! with a cold rust-analyzer (about 60 s of it indexing the workspace) and
 //! 50 s warm; the two runs' JSON (10.5 MB) was byte-identical.
 
-use std::collections::{BTreeSet, HashMap};
+use std::collections::{BTreeMap, BTreeSet, HashMap};
 use std::path::{Path, PathBuf};
 use std::time::Instant;
 
@@ -51,7 +63,9 @@ use serde::Deserialize;
 use super::code_walk::builder::Workspace;
 use super::code_walk::graph::EdgeKind;
 use super::code_walk::source::{Container, FileIndex};
-use crate::call_graph::modules;
+use crate::call_graph::citations::{self, Citation, CitationKind, FnRef};
+use crate::call_graph::history::{self, CommitRef};
+use crate::call_graph::{modules, upstream};
 use crate::call_graph::{
     function_ids, CallGraphDoc, CallKind, CrateGraph, FnKind, Function, Module, OutsideFn, RawCall,
     Target, TargetKind, Unresolved,
@@ -116,6 +130,8 @@ fn members(root: &Path, json: &str) -> Result<Vec<Member>, String> {
                 TargetKind::Lib
             } else if t.kind.iter().any(|k| k == "example") {
                 TargetKind::Example
+            } else if t.kind.iter().any(|k| k == "test") {
+                TargetKind::Test
             } else {
                 continue;
             };
@@ -229,10 +245,13 @@ fn build_with(
     let mut in_scope: HashMap<(String, u32), String> = HashMap::new();
     for m in selected {
         let mut targets = Vec::new();
+        let mut tests = Vec::new();
         for (kind, name, src) in &m.targets {
             let mut mods: Vec<Module> = Vec::new();
-            // (file, module path, parent, test, mod-rs)
-            let mut queue = vec![(src.clone(), String::new(), None::<String>, false, true)];
+            // (file, module path, parent, test, mod-rs); an integration-test
+            // target is test code throughout.
+            let root_test = *kind == TargetKind::Test;
+            let mut queue = vec![(src.clone(), String::new(), None::<String>, root_test, true)];
             while let Some((file, path, parent, test, mod_rs)) = queue.pop() {
                 if !claimed.insert(file.clone()) {
                     eprintln!("call-graph: {file} is reached twice; kept under its first module");
@@ -270,13 +289,40 @@ fn build_with(
                         child_mod_rs,
                     ));
                 }
-                let functions = functions_of(&file, &idx, &found.test_ranges, test);
+                let mut functions = functions_of(&file, &idx, &found.test_ranges, test);
+                let (upstream, upstream_unparsed) = match upstream::scan(&idx.lines) {
+                    upstream::Scan::None => (None, None),
+                    upstream::Scan::Parsed(u) => (Some(u), None),
+                    upstream::Scan::Unparsed(why) => (None, Some(why)),
+                };
+                let mut concepts = Vec::new();
+                for (line, kind, path) in citations::concept_tags(&idx.lines) {
+                    if kind == '!' {
+                        concepts.push(path);
+                        continue;
+                    }
+                    // A `///` tag belongs to the function whose doc block holds it.
+                    if let Some(f) = functions
+                        .iter_mut()
+                        .find(|f| f.start_line <= line + 1 && line + 1 < f.line)
+                    {
+                        f.cited_by.push(Citation {
+                            kind: CitationKind::ConceptTag,
+                            page: path,
+                            line: line + 1,
+                            anchor: String::new(),
+                            site: None,
+                        });
+                    }
+                }
                 for f in &functions {
                     in_scope.insert((file.clone(), f.line), f.id.clone());
                 }
                 let maturity = match kind {
                     TargetKind::Lib => module_maturity(map, &m.name, &path),
-                    TargetKind::Example => map.and_then(|mp| mp.get(&m.name)).map(|c| c.maturity),
+                    TargetKind::Example | TargetKind::Test => {
+                        map.and_then(|mp| mp.get(&m.name)).map(|c| c.maturity)
+                    }
                 };
                 mods.push(Module {
                     file,
@@ -285,20 +331,29 @@ fn build_with(
                     test,
                     maturity,
                     functions,
+                    upstream,
+                    upstream_unparsed,
+                    history: Vec::new(),
+                    concepts,
                 });
             }
-            targets.push(Target {
+            let t = Target {
                 kind: *kind,
                 name: name.clone(),
                 root: src.clone(),
                 modules: mods,
-            });
+            };
+            match kind {
+                TargetKind::Test => tests.push(t),
+                _ => targets.push(t),
+            }
         }
         crates.push(CrateGraph {
             name: m.name.clone(),
             dir: m.dir.clone(),
             maturity: map.and_then(|mp| mp.get(&m.name)).map(|c| c.maturity),
             targets,
+            tests,
         });
     }
 
@@ -402,7 +457,12 @@ fn build_with(
             }
         }
     }
-    let doc = CallGraphDoc::assemble(crates, raw, outside, walk.external_calls);
+    // 5. Pages that cite each function, and each file's recent history.
+    attach_citations(&root, &mut crates, &in_scope);
+    let commit = attach_history(&root, &mut crates);
+    let mut doc = CallGraphDoc::assemble(crates, raw, outside, walk.external_calls);
+    doc.commit = commit;
+    doc.site_base = Some(citations::SITE_BASE.to_string());
     eprintln!(
         "call-graph: done in {:.1} s: {} functions, {} calls ({} sites), {} unresolved, {} outside, {} queries",
         started.elapsed().as_secs_f64(),
@@ -414,6 +474,207 @@ fn build_with(
         ws.queries
     );
     Ok(doc)
+}
+
+/// Markdown pages under `docs/` and every `crates/*/docs/`, workspace-
+/// relative and sorted (`target`, `book` and dot folders skipped).
+fn doc_pages(root: &Path) -> Vec<String> {
+    fn walk(root: &Path, dir: &Path, out: &mut Vec<String>) {
+        let Ok(rd) = std::fs::read_dir(dir) else {
+            return;
+        };
+        for e in rd.flatten() {
+            let path = e.path();
+            let name = e.file_name().to_string_lossy().to_string();
+            if path.is_dir() {
+                if name != "target" && name != "book" && !name.starts_with('.') {
+                    walk(root, &path, out);
+                }
+            } else if name.ends_with(".md") {
+                if let Some(r) = relative(root, &path) {
+                    out.push(r);
+                }
+            }
+        }
+    }
+    let mut out = Vec::new();
+    walk(root, &root.join("docs"), &mut out);
+    if let Ok(rd) = std::fs::read_dir(root.join("crates")) {
+        for e in rd.flatten() {
+            walk(root, &e.path().join("docs"), &mut out);
+        }
+    }
+    out.sort();
+    out.dedup();
+    out
+}
+
+/// `(name, owner, id)` of every in-scope function, by file.
+type ByFile<'a> = HashMap<&'a str, Vec<(&'a str, Option<&'a str>, &'a str)>>;
+
+/// The file part of a code-walk path (`a/b.rs::T::f` -> `a/b.rs`).
+fn path_file(p: &str) -> Option<&str> {
+    let (f, _) = p.split_once(".rs::")?;
+    Some(&p[..f.len() + 3])
+}
+
+/// Resolves a page's function reference to an in-scope id: by declaration
+/// line first (`snippet-check`), else by file and name (and owner type when
+/// the path names one), and only when exactly one function matches.
+fn resolve_ref(
+    r: &FnRef,
+    in_scope: &HashMap<(String, u32), String>,
+    by_file: &ByFile,
+) -> Option<String> {
+    let (file, name, owner) = match r {
+        FnRef::At { file, line, name } => {
+            if let Some(id) = in_scope.get(&(file.clone(), *line)) {
+                if id.ends_with(&format!("::{name}")) || id.contains(&format!("::{name}#")) {
+                    return Some(id.clone());
+                }
+            }
+            (file.as_str(), name.as_str(), None)
+        }
+        FnRef::Path(p) => {
+            let file = path_file(p)?;
+            let qual = &p[file.len() + 2..];
+            match qual.split_once("::") {
+                Some((ty, name)) => (file, name, Some(ty)),
+                None => (file, qual, None),
+            }
+        }
+    };
+    let hits: Vec<&str> = by_file
+        .get(file)?
+        .iter()
+        .filter(|(n, o, _)| *n == name && (owner.is_none() || *o == owner))
+        .map(|(_, _, id)| *id)
+        .collect();
+    match hits.as_slice() {
+        [one] => Some(one.to_string()),
+        _ => None,
+    }
+}
+
+/// Fills `cited_by` from the code-walk blocks of every doc page.
+fn attach_citations(
+    root: &Path,
+    crates: &mut [CrateGraph],
+    in_scope: &HashMap<(String, u32), String>,
+) {
+    let mut books = Vec::new();
+    for (list, prefix) in [
+        ("deep-dives.txt", "deep-dives"),
+        ("tutorials.txt", "tutorials"),
+    ] {
+        if let Ok(t) = std::fs::read_to_string(root.join("docs/site").join(list)) {
+            books.extend(citations::parse_books(&t, prefix));
+        }
+    }
+    let mut found: HashMap<String, Vec<Citation>> = HashMap::new();
+    let (mut blocks, mut unmatched) = (0usize, 0usize);
+    {
+        let mut by_file: ByFile = HashMap::new();
+        for c in crates.iter() {
+            for t in c.targets.iter().chain(c.tests.iter()) {
+                for m in &t.modules {
+                    for f in &m.functions {
+                        by_file.entry(m.file.as_str()).or_default().push((
+                            f.name.as_str(),
+                            f.owner.as_deref(),
+                            f.id.as_str(),
+                        ));
+                    }
+                }
+            }
+        }
+        for page in doc_pages(root) {
+            let Ok(text) = std::fs::read_to_string(root.join(&page)) else {
+                continue;
+            };
+            for b in citations::scan_page(&text) {
+                blocks += 1;
+                let mut ids = BTreeSet::new();
+                for r in &b.refs {
+                    let file = match r {
+                        FnRef::At { file, .. } => Some(file.as_str()),
+                        FnRef::Path(p) => path_file(p),
+                    };
+                    match resolve_ref(r, in_scope, &by_file) {
+                        Some(id) => {
+                            ids.insert(id);
+                        }
+                        None if file.is_some_and(|f| by_file.contains_key(f)) => {
+                            eprintln!(
+                                "call-graph: {page}:{}: no unique function for {r:?}",
+                                b.line
+                            );
+                            unmatched += 1;
+                        }
+                        None => {}
+                    }
+                }
+                for id in ids {
+                    found.entry(id).or_default().push(Citation {
+                        kind: CitationKind::CodeWalk,
+                        page: page.clone(),
+                        line: b.line,
+                        anchor: b.anchor.clone(),
+                        site: citations::site_path(&books, &page, &b.anchor),
+                    });
+                }
+            }
+        }
+    }
+    for c in crates.iter_mut() {
+        for t in c.targets.iter_mut().chain(c.tests.iter_mut()) {
+            for m in &mut t.modules {
+                for f in &mut m.functions {
+                    if let Some(v) = found.remove(&f.id) {
+                        f.cited_by.extend(v);
+                    }
+                }
+            }
+        }
+    }
+    eprintln!(
+        "call-graph: {blocks} code-walk block(s) read; {unmatched} in-scope reference(s) matched no unique function"
+    );
+}
+
+/// Fills each module's `history` from one `git log` over the scope's crate
+/// folders and returns HEAD. Outside a git checkout both stay empty.
+fn attach_history(root: &Path, crates: &mut [CrateGraph]) -> Option<String> {
+    let run = |args: &[&str]| -> Option<String> {
+        let out = std::process::Command::new("git")
+            .arg("-C")
+            .arg(root)
+            .args(args)
+            .output()
+            .ok()?;
+        out.status
+            .success()
+            .then(|| String::from_utf8_lossy(&out.stdout).into_owned())
+    };
+    let head = run(&["rev-parse", "HEAD"]).map(|s| s.trim().to_string())?;
+    let mut args: Vec<&str> = history::GIT_LOG_ARGS.to_vec();
+    let dirs: Vec<String> = crates.iter().map(|c| c.dir.clone()).collect();
+    args.extend(dirs.iter().map(String::as_str));
+    let Some(log) = run(&args) else {
+        eprintln!("call-graph: git log failed; history omitted");
+        return Some(head);
+    };
+    let mut map: BTreeMap<String, Vec<CommitRef>> = history::parse(&log);
+    for c in crates.iter_mut() {
+        for t in c.targets.iter_mut().chain(c.tests.iter_mut()) {
+            for m in &mut t.modules {
+                if let Some(v) = map.remove(&m.file) {
+                    m.history = v;
+                }
+            }
+        }
+    }
+    Some(head)
 }
 
 fn owning_crate(all: &[Member], file: &str) -> Option<String> {
@@ -441,9 +702,9 @@ fn functions_of(
         let start = start_of_item(&idx.lines, d.line);
         let end = d.body.map_or(d.line, |b| b.1);
         let attrs = attributes_text(&idx.lines, start, d.line);
-        let test = module_test
-            || modules::is_test_attr(&attrs)
-            || test_ranges.iter().any(|&(a, b)| a <= d.line && d.line <= b);
+        let test_fn = modules::is_test_attr(&attrs);
+        let test =
+            module_test || test_fn || test_ranges.iter().any(|&(a, b)| a <= d.line && d.line <= b);
         let (kind, owner, trait_name) = match &d.container {
             Container::Free => (FnKind::Free, None, None),
             Container::Impl {
@@ -472,6 +733,9 @@ fn functions_of(
             doc: d.doc.clone(),
             source,
             unresolved: Vec::new(),
+            test_fn,
+            reached_by: None,
+            cited_by: Vec::new(),
         });
     }
     out

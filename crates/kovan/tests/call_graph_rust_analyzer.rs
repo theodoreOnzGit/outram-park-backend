@@ -14,13 +14,19 @@
 //! - mark the generic trait call `t.measure()` `UNRESOLVED(trait)`;
 //! - aggregate a module edge `physics.rs -> geom.rs` and a crate edge
 //!   `app -> kern`;
-//! - give byte-identical JSON on a second run (determinism).
+//! - give byte-identical JSON on a second run (determinism);
+//! - schema 2 (#746): build `kern`'s integration test `tests/it.rs` as a
+//!   `test` target; record that `leaf` is reached by the unit test at 1 hop,
+//!   the integration test at 2 (through `Shape::area`) and the example at 1;
+//!   parse `geom.rs`'s key-value header into a blob link at its commit; and
+//!   cite `leaf` from a lesson page's code-walk block under its heading.
 //!
 //! **Gate.** Needs `rust-analyzer` on `PATH`; without it the test prints why
 //! and passes without running, as `code_walk_rust_analyzer.rs` does. The
 //! temp workspace's keep-warm daemon is stopped at the end.
 //!
-//! **Result (2026-10-06, rust-analyzer 1.98.0):** passes.
+//! **Result (2026-10-06, rust-analyzer 1.98.0):** passes, including the
+//! schema-2 checks.
 
 use std::path::Path;
 use std::process::Command;
@@ -60,7 +66,11 @@ pub fn generic<T: Measure>(t: &T) -> f64 {
 mod tests;
 "#;
 
-const KERN_GEOM: &str = r#"pub struct Shape(pub f64);
+const KERN_GEOM: &str = r#"// Upstream project : Geo <https://github.com/example/geo>
+// Upstream commit  : 0123abc
+// Upstream source  : src/shape.cpp
+
+pub struct Shape(pub f64);
 
 impl Shape {
     /// Area of the shape.
@@ -75,6 +85,14 @@ fn leaf_doubles() {
     assert_eq!(crate::leaf(1.0), 2.0);
 }
 "#;
+
+const KERN_IT: &str = r#"#[test]
+fn area_is_positive() {
+    assert!(kern::geom::Shape(1.0).area() > 0.0);
+}
+"#;
+
+const LESSON: &str = "# Lesson\n\n## The area\n\n<!-- code-walk: from=crates/kern/src/geom.rs::Shape::area to=crates/kern/src/lib.rs::leaf -->\n<!-- snippet-check: crates/kern/src/geom.rs:9 fn area -->\n<!-- snippet-check: crates/kern/src/lib.rs:8 fn leaf -->\n<!-- /code-walk -->\n";
 
 const APP_LIB: &str = r#"pub fn run() -> f64 {
     kern::leaf(1.0)
@@ -132,6 +150,8 @@ fn call_graph_against_a_real_rust_analyzer() {
     write(root, "crates/kern/src/lib.rs", KERN_LIB);
     write(root, "crates/kern/src/geom.rs", KERN_GEOM);
     write(root, "crates/kern/src/tests.rs", KERN_TESTS);
+    write(root, "crates/kern/tests/it.rs", KERN_IT);
+    write(root, "crates/kern/docs/lesson.md", LESSON);
     write(
         root,
         "crates/app/Cargo.toml",
@@ -197,6 +217,53 @@ fn call_graph_against_a_real_rust_analyzer() {
         )
     });
     assert_eq!(c["lines"], serde_json::json!([10, 12]));
+
+    // Schema 2 (#746).
+    assert_eq!(v["schema"], 2);
+    let kern = &v["crates"][1];
+    assert_eq!(kern["tests"][0]["kind"], "test");
+    assert_eq!(kern["tests"][0]["root"], "crates/kern/tests/it.rs");
+    let it_fn = &kern["tests"][0]["modules"][0]["functions"][0];
+    assert_eq!(
+        (it_fn["test"].as_bool(), it_fn["test_fn"].as_bool()),
+        (Some(true), Some(true))
+    );
+    let geom = &kern["targets"][0]["modules"][0];
+    assert_eq!(geom["upstream"]["project"], "Geo");
+    assert_eq!(
+        geom["upstream"]["url"],
+        "https://github.com/example/geo/blob/0123abc/src/shape.cpp"
+    );
+    let leaf_fn = kern["targets"][0]["modules"][1]["functions"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|f| f["name"] == "leaf")
+        .unwrap();
+    let reach = &leaf_fn["reached_by"];
+    // Two tests reach `leaf`: the unit test directly, the integration test
+    // through `Shape::area`; the example through `Model::update`.
+    assert_eq!(reach["tests_total"], 2, "{reach}");
+    assert_eq!(
+        reach["tests"][0]["id"],
+        "crates/kern/src/tests.rs::leaf_doubles"
+    );
+    assert_eq!(reach["tests"][0]["hops"], 1);
+    assert_eq!(
+        reach["tests"][1]["id"],
+        "crates/kern/tests/it.rs::area_is_positive"
+    );
+    assert_eq!(reach["tests"][1]["hops"], 2);
+    assert_eq!(reach["examples"][0]["example"], "demo");
+    assert_eq!(reach["examples"][0]["hops"], 1);
+    let cited: Vec<&str> = leaf_fn["cited_by"]
+        .as_array()
+        .expect("leaf cited")
+        .iter()
+        .map(|c| c["page"].as_str().unwrap())
+        .collect();
+    assert_eq!(cited, vec!["crates/kern/docs/lesson.md"]);
+    assert_eq!(leaf_fn["cited_by"][0]["anchor"], "the-area");
     let fv = find(update, "crates/kern/src/lib.rs::leaf").expect(".map(leaf) resolved");
     assert_eq!(fv["kind"], "fn_value");
     assert!(find(
