@@ -562,6 +562,14 @@ path = "16-nuclear-fuel-cycle"
 title = "Nuclear fuel cycle"
 sources = [{ document = "iaea-ng-g-3.1-rev1", section = "3.16", page = "54" }]
 
+# Maintainer 2026-10-06: waste disposal sits in the fuel cycle (back end);
+# topics await 10 CFR Parts 61/63 or IAEA literature.
+[[node]]
+path = "16-nuclear-fuel-cycle/waste-disposal"
+title = "Waste disposal (near-surface and geological)"
+sources = [{ document = "iaea-ng-g-3.1-rev1", section = "3.16", page = "54" }]
+cross_links = ["17-radioactive-waste-management"]
+
 # Maintainer 2026-10-06: kaki-bukit (CYCLUS port) lives here.
 [[node]]
 path = "16-nuclear-fuel-cycle/fuel-cycle-scenarios"

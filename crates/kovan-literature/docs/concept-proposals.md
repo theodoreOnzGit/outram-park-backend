@@ -99,22 +99,23 @@
   - cross-links: `02-nuclear-safety/containment/functional-containment`, `02-nuclear-safety/accident-analysis/licensing-basis-events`
   - [ ] **Functional design criteria** · `safety-functions/functional-design-criteria` · origin `nrc`
     - sources: `10cfr53` § 53.410 Functional design criteria for design-basis accidents; `10cfr53` § 53.420 Functional design criteria for licensing-basis events other than design-basis accidents; `10cfr53` § 53.425 Design features and functional design criteria for normal operations; `10cfr53` § 53.430 Design features and functional design criteria for protection of plant workers; `10cfr53` § 53.440 Design requirements, (a)
+    - cross-links: `07-regulatory-framework/reactor-licensing/general-design-criteria`
 - [ ] **Safety categorization and special treatments (safety-related; non-safety-related but safety-significant; non-safety-significant)** · `safety-categorization-and-special-treatments` · origin `nrc`
   - sources: `10cfr53` § 53.460 Safety categorization and special treatments; `10cfr50` § 50.69 Risk-informed categorization and treatment of structures, systems and components for nuclear power reactors
-  - cross-links: `02-nuclear-safety/severe-accidents/probabilistic-risk-assessment`, `07-regulatory-framework/quality-assurance/quality-assurance-program`
+  - cross-links: `07-regulatory-framework/quality-assurance`, `02-nuclear-safety/severe-accidents/probabilistic-risk-assessment`, `07-regulatory-framework/quality-assurance/quality-assurance-program`
 - [ ] **Codes and standards** · `codes-and-standards` · origin `nrc`
   - sources: `10cfr50` § 50.55a Codes and standards; `10cfr53` § 53.440 Design requirements, (b)
   - cross-links: `02-nuclear-safety/design-of-structures-systems-and-components/mechanical-systems-and-components`
 - [ ] **Inservice inspection and inservice testing** · `inservice-inspection-and-inservice-testing` · origin `nrc`
   - sources: `10cfr53` § 53.880 Inservice inspection and inservice testing; `10cfr50` § 50.55a Codes and standards, (f) Preservice and inservice testing requirements; (g) Preservice and inservice inspection requirements
-  - cross-links: `02-nuclear-safety/design-of-structures-systems-and-components/codes-and-standards`, `07-regulatory-framework/quality-assurance/maintenance-rule`
+  - cross-links: `02-nuclear-safety/msr-coolant-loop/coolant-loop-drain-tank-and-isolation`, `02-nuclear-safety/fuel-system-design/testing-inspection-and-surveillance`, `02-nuclear-safety/design-of-structures-systems-and-components/codes-and-standards`, `07-regulatory-framework/quality-assurance/maintenance-rule`
 - [ ] **Integrity assessment programs (plant aging, cyclic or transient load limits, degradation mechanisms)** · `integrity-assessment-programs` · origin `nrc`
   - sources: `10cfr53` § 53.870 Integrity assessment programs; `10cfr53` § 53.440 Design requirements, (d)
   - cross-links: `02-nuclear-safety/reactor-coolant-system/reactor-vessel-integrity`, `07-regulatory-framework/quality-assurance/maintenance-rule`, `02-nuclear-safety/engineered-safety-features/esf-materials`
-- [ ] **Aircraft impact assessment** · `aircraft-impact-assessment` · origin `nrc`
-  - sources: `10cfr50` § 50.150 Aircraft impact assessment; `10cfr52` § 52.47 Contents of applications; technical information, (a)(28); `10cfr52` § 52.79 Contents of applications; technical information in final safety analysis report, (a)(47); `10cfr53` § 53.910 Procedures and guidelines, (b)(7) (potential aircraft threat)
-  - **note for review:** Part 53 has no design-specific aircraft impact assessment of its own; it only requires procedures for a notified aircraft threat (§ 53.910(b)(7)). § 50.150 is a beyond-design-basis assessment, distinct from SRP 3.5.1.6 aircraft hazards already cited under missile-protection.
-  - cross-links: `02-nuclear-safety/design-of-structures-systems-and-components/missile-protection`, `02-nuclear-safety/severe-accidents/severe-accident-evaluation`, `15-nuclear-security/physical-protection`
+  - [ ] **Aircraft impact assessment** · `missile-protection/aircraft-impact-assessment` · origin `nrc`
+    - sources: `10cfr50` § 50.150 Aircraft impact assessment; `10cfr52` § 52.47 Contents of applications; technical information, (a)(28); `10cfr52` § 52.79 Contents of applications; technical information in final safety analysis report, (a)(47); `10cfr53` § 53.910 Procedures and guidelines, (b)(7) (potential aircraft threat)
+    - **note for review:** Part 53 has no design-specific aircraft impact assessment of its own; it only requires procedures for a notified aircraft threat (§ 53.910(b)(7)). § 50.150 is a beyond-design-basis assessment, distinct from SRP 3.5.1.6 aircraft hazards already cited under missile-protection.
+    - cross-links: `02-nuclear-safety/design-of-structures-systems-and-components/missile-protection`, `02-nuclear-safety/severe-accidents/severe-accident-evaluation`, `15-nuclear-security/physical-protection`
 
 ### Fuel system design (`02-nuclear-safety/fuel-system-design`)
 
@@ -670,18 +671,19 @@
   - sources: `nureg-1537-part1` 12.11
 - [ ] **Self-reliant-mitigation facilities and generally licensed reactor operators** · `self-reliant-mitigation-facilities` · origin `nrc`
   - sources: `10cfr53` § 53.725 General staffing, training, personnel qualifications, and human factors requirements, (a); `10cfr53` § 53.800 Facility licensees for self-reliant-mitigation facilities; `10cfr53` § 53.805 Facility licensee requirements related to generally licensed reactor operators; `10cfr53` § 53.810 Generally licensed reactor operators; `10cfr53` § 53.815 Generally licensed reactor operator training, examination, and proficiency programs
-  - cross-links: `02-nuclear-safety/human-factors-engineering`, `02-nuclear-safety/conduct-of-operations/operator-training-and-requalification`
+  - cross-links: `10-human-resource-development`, `02-nuclear-safety/human-factors-engineering`, `02-nuclear-safety/conduct-of-operations/operator-training-and-requalification`
   - [ ] **Simulation facilities (scope, fidelity and performance testing)** · `operator-training-and-requalification/simulation-facilities` · origin `nrc`
     - sources: `10cfr53` § 53.780 Training, examination, and proficiency program, (e) Simulation facilities; `10cfr53` § 53.815 Generally licensed reactor operator training, examination, and proficiency programs, (e) Simulation facilities; `10cfr53` § 53.725 General staffing, training, personnel qualifications, and human factors requirements, (c) (Simulation facility; Performance testing; Reference plant)
     - **note for review:** outram-park's egui simulators are offline educational demonstrations (RESPONSIBLE_USE.md), not simulation facilities in the § 53.780(e) sense; any link from them should be an 'aspiration', never a home.
-    - cross-links: `10-human-resource-development/knowledge-management-and-education/education-and-outreach`
+    - cross-links: `10-human-resource-development`, `10-human-resource-development/knowledge-management-and-education/education-and-outreach`
 - [ ] **Staffing plan (on-shift staffing and engineering expertise)** · `staffing-plan` · origin `nrc`
   - sources: `10cfr53` § 53.730 Defining, fulfilling, and maintaining the role of personnel in ensuring safe operations, (f) Staffing plan; `10cfr53` § 53.740 Facility licensee requirements—general, (b); `10cfr50` § 50.54 Conditions of licenses, (m)
+  - cross-links: `02-nuclear-safety/human-factors-engineering/concept-of-operations-and-function-allocation`, `10-human-resource-development`
 - [ ] **Operating experience program** · `operating-experience` · origin `nrc`
   - sources: `10cfr53` § 53.730 Defining, fulfilling, and maintaining the role of personnel in ensuring safe operations, (e) Operating experience; `10cfr53` § 53.440 Design requirements, (a)(2); `10cfr52` § 52.47 Contents of applications; technical information, (a)(22)
 - [ ] **Immediate notification requirements and the licensee event report system** · `event-notification-and-reporting` · origin `nrc`
   - sources: `10cfr50` § 50.72 Immediate notification requirements for operating nuclear power reactors; `10cfr50` § 50.73 Licensee event report system; `10cfr53` § 53.1630 Immediate notification requirements for operating commercial nuclear plants; `10cfr53` § 53.1640 Licensee event report system
-  - cross-links: `14-emergency-planning/notification-methods-and-procedures`
+  - cross-links: `07-regulatory-framework`, `14-emergency-planning/notification-methods-and-procedures`
 
 ### Initial test program and ITAAC (`02-nuclear-safety/initial-test-program`)
 
@@ -689,9 +691,9 @@
   - sources: `nureg-0800-toc-rev6` 14.2; 14.2.1
 - [ ] **Inspections, tests, analyses, and acceptance criteria** · `itaac` · origin `nrc`
   - sources: `nureg-0800-toc-rev6` 14.3-14.3.12; `10cfr52` § 52.99 Inspection during construction; ITAAC schedules and notifications; NRC notices; `10cfr53` § 53.1449 Inspection during construction
-- [ ] **Demonstration of safety-feature performance for innovative designs; prototype plant testing** · `safety-feature-testing-and-prototype-plants` · origin `nrc`
-  - sources: `10cfr50` § 50.43 Additional standards and provisions affecting class 103 licenses and certifications for commercial power, (e); `10cfr52` § 52.1 Definitions (Prototype plant); `10cfr53` § 53.440 Design requirements, (a)(1)
-  - cross-links: `02-nuclear-safety/thermal-hydraulic-design/experimental-loops-and-test-reactor-support`, `02-nuclear-safety/accident-analysis/transient-and-accident-analysis-methods/qualification-of-analytical-codes`
+  - [ ] **Demonstration of safety-feature performance for innovative designs; prototype plant testing** · `initial-plant-test-program/safety-feature-testing-and-prototype-plants` · origin `nrc`
+    - sources: `10cfr50` § 50.43 Additional standards and provisions affecting class 103 licenses and certifications for commercial power, (e); `10cfr52` § 52.1 Definitions (Prototype plant); `10cfr53` § 53.440 Design requirements, (a)(1)
+    - cross-links: `02-nuclear-safety/thermal-hydraulic-design/experimental-loops-and-test-reactor-support`, `02-nuclear-safety/accident-analysis/transient-and-accident-analysis-methods/qualification-of-analytical-codes`
 
 ### Accident analysis (`02-nuclear-safety/accident-analysis`)
 
@@ -736,10 +738,10 @@
     - [ ] add `//! kovan-concept: 02-nuclear-safety/accident-analysis/air-and-moisture-ingress` to `crates/boon-lay/src/chemistry/mod.rs`: Graphite and fuel chemical attack. IG-110 graphite oxidation by steam and air, and UO2 kernel hydrolysis: cited closed-form rate laws used by htgr_sim_v1's water-ingress stage. (new work)
 - [ ] **Licensing-basis events (anticipated, unlikely and very unlikely event sequences, and design-basis accidents)** · `licensing-basis-events` · origin `nrc`
   - sources: `10cfr53` § 53.240 Licensing-basis events; `10cfr53` § 53.450 Analysis requirements, (e) Analyses of licensing-basis events other than design-basis accidents; (f) Analysis of design-basis accidents; `10cfr53` § 53.020 Definitions (Licensing-basis events; Design-basis accidents)
-  - cross-links: `02-nuclear-safety/severe-accidents/probabilistic-risk-assessment`, `02-nuclear-safety/accident-analysis/transient-and-accident-analysis-methods`
+  - cross-links: `02-nuclear-safety/accident-analysis/maximum-hypothetical-accident`, `02-nuclear-safety/accident-analysis/reactivity-and-power-distribution-anomalies`, `02-nuclear-safety/severe-accidents/probabilistic-risk-assessment`, `02-nuclear-safety/accident-analysis/transient-and-accident-analysis-methods`
   - [ ] **Safety criteria for design-basis accidents (25 rem TEDE at the exclusion area boundary and low-population zone)** · `licensing-basis-events/safety-criteria-for-design-basis-accidents` · origin `nrc`
     - sources: `10cfr53` § 53.210 Safety criteria for design-basis accidents; `10cfr53` § 53.530 Population-related considerations, (a); `10cfr50` § 50.34 Contents of applications; technical information, (a)(1)(ii)(D); `10cfr52` § 52.47 Contents of applications; technical information, (a)(2)(iv)
-    - cross-links: `02-nuclear-safety/source-terms/accident-source-terms`, `12-site-and-supporting-facilities/site-characteristics/geography-and-demography`
+    - cross-links: `13-environmental-protection/postulated-accident-impacts/design-basis-accident-consequences`, `02-nuclear-safety/source-terms/accident-source-terms`, `12-site-and-supporting-facilities/site-characteristics/geography-and-demography`
   - [ ] **Safety criteria for licensing-basis events other than design-basis accidents (comprehensive risk metrics)** · `licensing-basis-events/safety-criteria-for-licensing-basis-events-other-than-dbas` · origin `nrc`
     - sources: `10cfr53` § 53.220 Safety criteria for licensing-basis events other than design-basis accidents; `10cfr53` § 53.450 Analysis requirements, (e)
     - cross-links: `02-nuclear-safety/severe-accidents/probabilistic-risk-assessment`
@@ -777,7 +779,7 @@
   - sources: `nureg-0800-toc-rev6` 19.0; `nureg-1555` 7.2 Severe Accidents; 7.3 Severe Accident Mitigation Alternatives; `10cfr52` § 52.47 Contents of applications; technical information, (a)(23)
 - [ ] **Mitigation of beyond-design-basis events (mitigation strategies; extensive damage mitigation guidelines)** · `mitigation-of-beyond-design-basis-events` · origin `nrc`
   - sources: `10cfr50` § 50.155 Mitigation of beyond-design-basis events
-  - cross-links: `09-electrical-grid/electric-power/station-blackout`, `02-nuclear-safety/auxiliary-systems/cooling-water-and-ultimate-heat-sink`
+  - cross-links: `02-nuclear-safety/severe-accidents/severe-accident-evaluation`, `09-electrical-grid/electric-power/station-blackout`, `02-nuclear-safety/auxiliary-systems/cooling-water-and-ultimate-heat-sink`
 
 ### Source terms (`02-nuclear-safety/source-terms`)
 
@@ -801,6 +803,7 @@
 
 - [ ] **Financial protection; insurance required to stabilize and decontaminate plant following an accident** · `financial-protection-and-accident-insurance` · origin `nrc`
   - sources: `10cfr53` § 53.1710 Financial protection; `10cfr53` § 53.1720 Insurance required to stabilize and decontaminate plant following an accident; `10cfr53` § 53.1730 Financial protection requirements; `10cfr50` § 50.54 Conditions of licenses, (w)
+  - cross-links: `05-legal-framework`
 
 ## Regulatory framework (`07-regulatory-framework`)
 
@@ -816,13 +819,16 @@
   - sources: `10cfr50` Appendix A, General Design Criteria for Nuclear Power Plants; `rg-1.232-rev0` Appendices A-C (ARDC, SFR-DC, MHTGR-DC)
 - [ ] **Manufacturing licenses (manufactured reactors installed at sites not identified in the application)** · `manufacturing-licenses` · origin `nrc`
   - sources: `10cfr52` § 52.151 Scope of subpart (Subpart F, Manufacturing Licenses); `10cfr53` § 53.1270 Manufacturing licenses; `10cfr53` § 53.620 Manufacturing
-  - cross-links: `18-industrial-involvement`
+  - cross-links: `07-regulatory-framework/reactor-licensing/one-step-licensing`, `18-industrial-involvement`
 - [ ] **Standard design approvals** · `standard-design-approvals` · origin `nrc`
   - sources: `10cfr52` § 52.131 Scope of subpart (Subpart E, Standard Design Approvals); `10cfr53` § 53.1200 Standard design approvals
+  - cross-links: `07-regulatory-framework/reactor-licensing/one-step-licensing`
 - [ ] **Standardization of nuclear power plant designs: reactors of identical design at multiple sites** · `standardization-at-multiple-sites` · origin `nrc`
   - sources: `10cfr50` Appendix N, Standardization of Nuclear Power Plant Designs: Permits To Construct and Licenses To Operate Nuclear Power Reactors of Identical Design at Multiple Sites; `10cfr52` Appendix N, Standardization of Nuclear Power Plant Designs: Combined Licenses To Construct and Operate Nuclear Power Reactors of Identical Design at Multiple Sites; `10cfr53` § 53.1470 Standardization of commercial nuclear plant designs: licenses to construct and operate nuclear power reactors of identical design at multiple sites
+  - cross-links: `07-regulatory-framework/reactor-licensing/one-step-licensing`
 - [ ] **Limited work authorization** · `limited-work-authorization` · origin `nrc`
   - sources: `10cfr50` § 50.10 License required; limited work authorization; `10cfr52` § 52.91 Authorization to conduct limited work authorization activities; `10cfr53` § 53.1130 Limited work authorizations
+  - cross-links: `07-regulatory-framework/reactor-licensing/one-step-licensing`
 - [ ] **Changes, tests, and experiments (evaluating changes to the facility as described in the Final Safety Analysis Report)** · `changes-tests-and-experiments` · origin `nrc`
   - sources: `10cfr50` § 50.59 Changes, tests, and experiments; `10cfr53` § 53.1540 Updating licensing-basis information and determining the need for NRC approval; `10cfr53` § 53.1550 Evaluating changes to facility as described in Final Safety Analysis Reports
 - [ ] **Backfitting** · `backfitting` · origin `nrc`
@@ -836,6 +842,7 @@
 
 - [ ] **Quality assurance during design, construction and operations; QA program description** · `quality-assurance-program` · origin `nrc`
   - sources: `10cfr50` Appendix B, Quality Assurance Criteria for Nuclear Power Plants and Fuel Reprocessing Plants; `nureg-0800-toc-rev6` 17.1; 17.2; 17.3; 17.5; `nureg-1537-part1` 12.9 Quality Assurance; `10cfr53` § 53.865 Quality assurance
+  - cross-links: `03-management`
 - [ ] **Reliability assurance program** · `reliability-assurance-program` · origin `nrc`
   - sources: `nureg-0800-toc-rev6` 17.4
 - [ ] **Maintenance rule** · `maintenance-rule` · origin `nrc`
@@ -865,8 +872,8 @@
 
 ### Radiation protection (`08-radiation-protection/radiation-protection`)
 
-- [ ] **Assuring occupational radiation exposures are as low as is reasonably achievable** · `alara` · origin `nrc`
-  - sources: `nureg-0800-toc-rev6` 12.1; `nureg-1537-part1` 11.1.3 ALARA Program; `nureg-1520-rev2` 4.4.2
+  - [ ] **Assuring occupational radiation exposures are as low as is reasonably achievable** · `protection-of-plant-workers/alara` · origin `nrc`
+    - sources: `nureg-0800-toc-rev6` 12.1; `nureg-1537-part1` 11.1.3 ALARA Program; `nureg-1520-rev2` 4.4.2
 - [ ] **Radiation sources** · `radiation-sources` · origin `nrc`
   - sources: `nureg-0800-toc-rev6` 12.2; `nureg-1537-part1` 11.1.1
 - [ ] **Radiation protection design features and biological shielding** · `shielding` · origin `nrc`
@@ -897,7 +904,7 @@
 - [ ] **Protection of plant workers (occupational dose under 10 CFR part 20)** · `protection-of-plant-workers` · origin `nrc`
   - sources: `10cfr53` § 53.270 Protection of plant workers; `10cfr53` § 53.430 Design features and functional design criteria for protection of plant workers
   - **note for review:** Close to the existing ALARA concept (occupational exposure); kept separate because Part 53 makes it a top-level safety requirement (Subpart B) with its own functional design criteria. Merging into alara as extra sources is the alternative.
-  - cross-links: `08-radiation-protection/radiation-protection/alara`
+  - cross-links: `08-radiation-protection/radiation-protection/protection-of-plant-workers/alara`
 
 ## Electrical grid (`09-electrical-grid`)
 
@@ -1057,6 +1064,7 @@
   - sources: `10cfr53` § 53.860 Security programs, (b) Fitness-for-duty; (c) Access authorization; `10cfr52` § 52.79 Contents of applications; technical information in final safety analysis report, (a)(44)
 - [ ] **Safety and security considered together in the design process** · `safety-and-security-in-design` · origin `nrc`
   - sources: `10cfr53` § 53.440 Design requirements, (f)
+  - cross-links: `02-nuclear-safety/accident-analysis/defense-in-depth`, `02-nuclear-safety/design-of-structures-systems-and-components/safety-functions`
 
 ## Nuclear fuel cycle (`16-nuclear-fuel-cycle`)
 
@@ -1147,7 +1155,7 @@
 
 - [ ] `16-nuclear-fuel-cycle/fuel-cycle-scenarios`: `kaki-bukit` `agents`
 
-## L2 nodes with no proposed concept (33)
+## L2 nodes with no proposed concept (34)
 
 Left empty on purpose: a single short source chapter, a fuel-cycle-facility or environmental-review chapter with no outram-park work and no subsection grain worth splitting, or an L2 whose only source is the IAEA text. They stay greyed until content arrives.
 
@@ -1179,6 +1187,7 @@ Left empty on purpose: a single short source chapter, a fuel-cycle-facility or e
 - `14-emergency-planning/exercises-and-drills` (Exercises and drills)
 - `14-emergency-planning/radiological-emergency-response-training` (Radiological emergency response training)
 - `14-emergency-planning/emergency-management` (Emergency management (fuel cycle facilities))
+- `16-nuclear-fuel-cycle/waste-disposal` (Waste disposal (near-surface and geological))
 - `16-nuclear-fuel-cycle/fuel-cycle-scenarios` (Fuel cycle scenarios and material flows)
 - `16-nuclear-fuel-cycle/fuel-cycle-facility-general-information` (General information (fuel cycle facilities))
 - `16-nuclear-fuel-cycle/chemical-process-safety` (Chemical process safety)
