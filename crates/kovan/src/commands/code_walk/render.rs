@@ -18,6 +18,11 @@
 //! comment (file, line, the text that line must hold) that
 //! `scripts/build-pages.sh` verifies without rust-analyzer, so a range that
 //! drifted fails the site build instead of showing the wrong lines.
+//!
+//! **Trees too (2026-10-06).** A tree block in a lesson (no `to=`) shows each
+//! expanded function's code the same way, folded behind a `<details>` toggle
+//! when the tree has more than [`TREE_OPEN_MAX_NODES`] functions; see
+//! `markdown_lines_inline`.
 
 use serde::Serialize;
 
@@ -378,7 +383,113 @@ pub(crate) fn markdown_tree(h: &Header, g: &CallGraph, lines: &[TreeLine], trunc
     if truncated {
         out.push_str("**Truncated**: the function cap was reached before the depth limit.\n\n");
     }
-    out.push_str(&markdown_lines(h, g, lines));
+    match &h.inline {
+        Some(inline) => out.push_str(&markdown_lines_inline(h, inline, g, lines, shown)),
+        None => out.push_str(&markdown_lines(h, g, lines)),
+    }
+    out
+}
+
+/// A tree with this many functions or fewer opens every function's code;
+/// a larger one folds each behind a "code" toggle, so the page stays
+/// readable on a phone while every function's code is still on it.
+const TREE_OPEN_MAX_NODES: usize = 15;
+/// Indentation per depth level, and the deepest level indented further
+/// (deep trees must still fit a phone screen).
+const TREE_INDENT_EM: f64 = 0.9;
+const TREE_INDENT_MAX_DEPTH: usize = 6;
+
+/// The tree for a lesson (maintainer request, 2026-10-06: every walk shows
+/// its code inline as well as the links). Each line is a block indented by
+/// its depth; each expanded function carries its code as a fenced block of
+/// `{{#include}}`s (the same ranges and `snippet-check` comments as a
+/// concept path: the signature and the lines around each call it makes in
+/// the tree, or the whole function, capped, when it calls nothing shown).
+/// It is not a Markdown list because an included line starts at column 0
+/// and would end a list item.
+fn markdown_lines_inline(
+    h: &Header,
+    inline: &Inline,
+    g: &CallGraph,
+    lines: &[TreeLine],
+    shown: usize,
+) -> String {
+    // The call sites each function makes in this tree.
+    let mut calls_of: Vec<Vec<(u32, String)>> = vec![Vec::new(); g.nodes.len()];
+    let mut add = |from: NodeId, line: u32, callee: String| {
+        if !calls_of[from.0].iter().any(|c| c.0 == line) {
+            calls_of[from.0].push((line, callee));
+        }
+    };
+    for l in lines {
+        match l {
+            TreeLine::Node { via: Some(e), .. } | TreeLine::BackRef { via: e, .. }
+                if matches!(e.kind, EdgeKind::Call | EdgeKind::FnValue) =>
+            {
+                add(e.from, e.call_line, bare_name(g.node(e.to)).to_string())
+            }
+            TreeLine::Gap { gap, .. } => {
+                // Only a plain identifier is a checkable token on that line
+                // (a gap's callee can be `(expression)`).
+                let callee = gap.callee.trim_end_matches('!');
+                let callee = callee.rsplit("::").next().unwrap_or(callee).to_string();
+                if !callee.is_empty() && callee.chars().all(|c| c.is_alphanumeric() || c == '_') {
+                    add(gap.from, gap.call_line, callee)
+                }
+            }
+            _ => {}
+        }
+    }
+    let open = if shown <= TREE_OPEN_MAX_NODES { " open" } else { "" };
+    let indent = |d: usize| d.min(TREE_INDENT_MAX_DEPTH) as f64 * TREE_INDENT_EM;
+    let mut out = String::new();
+    for l in lines {
+        match l {
+            TreeLine::Node { depth, node, via, truncated } => {
+                let n = g.node(*node);
+                let mut text = node_link(h, n);
+                if !n.signature.is_empty() {
+                    text.push_str(&format!(" `{}`", n.signature.replace('`', "'")));
+                }
+                if !n.doc.is_empty() {
+                    text.push_str(&format!(" — {}", n.doc));
+                }
+                if let Some(e) = via {
+                    text.push_str(&via_text(h, g, e));
+                }
+                if *truncated {
+                    text.push_str(" · *(calls below the depth limit not shown)*");
+                }
+                out.push_str(&format!(
+                    "<div class=\"cw-node\" style=\"margin-left:{:.1}em\">\n\n{text}\n\n",
+                    indent(*depth)
+                ));
+                if let Some(span) = inline.spans.get(node.0).copied().flatten() {
+                    let calls: Vec<(u32, &str)> =
+                        calls_of[node.0].iter().map(|(l, c)| (*l, c.as_str())).collect();
+                    out.push_str(&format!("<details{open}><summary>code</summary>\n\n"));
+                    out.push_str(&snippet(inline, n, span, &calls));
+                    out.push_str("\n</details>\n");
+                }
+                out.push_str("</div>\n\n");
+            }
+            TreeLine::BackRef { depth, node, via } => {
+                out.push_str(&format!(
+                    "<div class=\"cw-node\" style=\"margin-left:{:.1}em\">\n\n`{}` *(expanded elsewhere in this walk)*{}\n\n</div>\n\n",
+                    indent(*depth),
+                    g.node(*node).label(),
+                    via_text(h, g, via)
+                ));
+            }
+            TreeLine::Gap { depth, gap } => {
+                out.push_str(&format!(
+                    "<div class=\"cw-node\" style=\"margin-left:{:.1}em\">\n\n{}\n\n</div>\n\n",
+                    indent(*depth),
+                    gap_line(h, g, gap)
+                ));
+            }
+        }
+    }
     out
 }
 
@@ -624,6 +735,45 @@ mod tests {
         );
         // A call line outside the function (a hand hop) is ignored.
         assert_eq!(snippet_ranges(leaf, &[200]), (vec![(10, 19)], false));
+    }
+
+    /// Methodology: the sample graph rendered as a lesson TREE (no `to=`),
+    /// as a tree block in a lesson is.
+    ///
+    /// Result (2026-10-06): both functions carry their code as includes with
+    /// `snippet-check` comments, inside an open `<details>` (small tree);
+    /// the links and the gap are kept; the output is indented blocks, not a
+    /// Markdown list.
+    #[test]
+    fn lesson_trees_show_each_function_inline() {
+        let (g, mut h) = sample();
+        h.to = None;
+        h.inline = Some(Inline {
+            to_root: "../../".into(),
+            spans: vec![
+                Some(Span { decl: 3, open: 3, end: 8 }),
+                Some(Span { decl: 40, open: 40, end: 45 }),
+            ],
+        });
+        let lines = vec![
+            TreeLine::Node { depth: 0, node: NodeId(0), via: None, truncated: false },
+            TreeLine::Node { depth: 1, node: NodeId(1), via: Some(g.edges[0].clone()), truncated: false },
+            TreeLine::Gap { depth: 1, gap: g.gaps[0].clone() },
+        ];
+        let md = markdown_tree(&h, &g, &lines, false);
+        // Code inline for both functions, links kept, open (small tree). The
+        // entry point is shown to the line after its one call in the tree
+        // (the gap at L5), as a concept path would show it.
+        assert!(md.contains("{{#include ../../crates/x/examples/demo.rs:3:6}}"));
+        assert!(md.contains("<!-- snippet-check: crates/x/examples/demo.rs:5 volume -->"));
+        assert!(md.contains("{{#include ../../crates/x/src/lib.rs:40:45}}"));
+        assert!(md.contains("<details open><summary>code</summary>"));
+        assert!(md.contains("[`lib.rs::Sphere::distance`]"));
+        assert!(md.contains("<!-- snippet-check: crates/x/src/lib.rs:40 fn distance -->"));
+        assert!(md.contains("UNRESOLVED(trait)"));
+        // Not a Markdown list: an included line at column 0 would end it.
+        assert!(!md.contains("\n- ["));
+        assert!(md.contains("margin-left:0.9em"));
     }
 
     /// Methodology: the sample chain rendered with inline code, as a lesson

@@ -248,8 +248,18 @@ kovan-cli code-walk-check crates/outram-mc-libs/docs/lessons [--update]
   Each snippet carries `<!-- snippet-check: <file>:<line> <text> -->`
   comments, which `scripts/build-pages.sh` verifies without rust-analyzer: a
   range that drifted since the walk was regenerated fails the site build.
-  The command line (`code-walk`) and tree-mode blocks (the exhaustive call
-  tree, an architecture map) stay link-only.
+  ~~The command line (`code-walk`) and tree-mode blocks (the exhaustive call
+  tree, an architecture map) stay link-only.~~ **Since 2026-10-06**
+  (maintainer request: every walk on the site shows its code inline as well
+  as its links) tree-mode blocks in a lesson show each expanded function's
+  code too, with the same ranges and `snippet-check` comments: the signature
+  and the lines around each call the tree shows, or the whole function (up to
+  40 lines) when it calls nothing shown. A tree is rendered as blocks indented
+  by depth rather than a Markdown list, because an included line starts at
+  column 0 and would end a list item. Each function's code sits in a
+  `<details>` toggle, open for a tree of 15 functions or fewer and folded for
+  a larger one so the page stays usable on a phone. The command line
+  (`code-walk`) stays link-only.
 - **Gaps are explicit.** A call the tool cannot follow is printed as
   `UNRESOLVED(<kind>)` (JSON: `gaps[].kind`): `trait` (resolves to a trait
   method declaration), `closure` (a closure, fn-typed binding or

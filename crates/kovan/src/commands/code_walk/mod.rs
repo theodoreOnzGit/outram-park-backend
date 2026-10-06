@@ -24,8 +24,9 @@
 //! # Output
 //!
 //! Markdown (a nested list for mdBook `{{#include}}`; in a lesson block, a
-//! concept path is numbered steps with each hop's code inline, see
-//! `render`'s module doc), Mermaid, or JSON. Each
+//! concept path is numbered steps with each hop's code inline and, since
+//! 2026-10-06, a tree is indented blocks with each function's code inline,
+//! see `render`'s module doc), Mermaid, or JSON. Each
 //! hop carries a permalink with the `@@COMMIT@@` placeholder the Pages build
 //! fills in, its signature, the first sentence of its doc comment and the
 //! line it is called from. A call the tool cannot follow — a trait method, a closure or fn
@@ -136,7 +137,7 @@ pub(crate) fn generate(
     // shown but not entered (tree mode says so on each of them).
     ws.bfs(&mut walk, from, to, depth, MAX_NODES)?;
     let inline = match (lesson, to) {
-        (Some(md), Some(_)) => Some(render::Inline {
+        (Some(md), _) => Some(render::Inline {
             to_root: path_to_root(&ws.root, md)?,
             spans: (0..walk.graph.nodes.len())
                 .map(|i| {
