@@ -2009,7 +2009,10 @@ impl MindmapState {
 
         // Ctrl + scroll over the map zooms it (egui reports a zoom delta, not
         // a scroll, so it does not also pan).
-        if ui.rect_contains_pointer(output.inner_rect) {
+        // A pinch has no hover position on a touch screen: take the point
+        // between the fingers instead (2026-10-06).
+        let pinch_here = ui.input(|i| i.multi_touch()).is_some_and(|t| output.inner_rect.contains(t.center_pos));
+        if pinch_here || ui.rect_contains_pointer(output.inner_rect) {
             let factor = ui.input(|i| i.zoom_delta()) as f64;
             if factor != 1.0 {
                 vp.zoom = Some((zoom * factor).clamp(ZOOM_LIMITS.0, ZOOM_LIMITS.1));

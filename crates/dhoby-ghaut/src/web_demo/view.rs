@@ -69,7 +69,8 @@ impl View {
         self.centre[1] += before[1] - after[1];
     }
     /// The gestures on the main view: fit on the first frame and on a double
-    /// click, wheel or pinch to zoom about the pointer, drag to pan. They
+    /// click, wheel to zoom about the pointer, pinch to zoom about the
+    /// fingers, drag (or two fingers) to pan. They
     /// supplement [`zoom_buttons`], never replace them.
     pub fn handle_input(&mut self, ui: &egui::Ui, resp: &egui::Response) {
         let rect = resp.rect;
@@ -77,16 +78,31 @@ impl View {
         if !self.fitted || resp.double_clicked() || (resized && !self.touched) {
             self.fit(rect);
         }
-        if resp.hovered() {
-            let (scroll, zoom) = ui.input(|i| (i.smooth_scroll_delta.y, i.zoom_delta()));
+        // A two-finger pinch zooms about the point between the fingers and
+        // pans with them. It is read from the touch state, not from hover:
+        // a touch screen reports no hover position during a pinch, which
+        // left pinch-zoom dead (maintainer, 2026-10-06; same fix as
+        // kovan-web's camera).
+        let (scroll, zoom, touch) = ui.input(|i| (i.smooth_scroll_delta.y, i.zoom_delta(), i.multi_touch()));
+        let centre = match touch {
+            Some(t) => Some(t.center_pos).filter(|p| rect.contains(*p)),
+            None => resp.hover_pos().filter(|_| resp.hovered()),
+        };
+        if let Some(p) = centre {
             let factor = zoom as f64 * (scroll as f64 * 0.0025).exp();
             if (factor - 1.0).abs() > 1e-6 {
-                if let Some(p) = resp.hover_pos() {
-                    self.zoom_about(rect, p, factor);
-                }
+                self.zoom_about(rect, p, factor);
+            }
+            if let Some(t) = touch {
+                // World y points up here (to_world), so screen +y is world -y.
+                self.centre[0] -= t.translation_delta.x as f64 / self.scale;
+                self.centre[1] += t.translation_delta.y as f64 / self.scale;
+                self.touched = true;
             }
         }
-        if resp.dragged() {
+        // One finger (or the mouse) drags; during a pinch the fingers' mean
+        // motion above pans instead, so the two do not add up.
+        if resp.dragged() && touch.is_none() {
             let d = resp.drag_delta();
             self.centre[0] -= d.x as f64 / self.scale;
             self.centre[1] += d.y as f64 / self.scale;
