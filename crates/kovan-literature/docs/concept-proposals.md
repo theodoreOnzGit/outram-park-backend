@@ -6,7 +6,7 @@
 
 ## Counts
 
-- **L3 concepts: 207** (164 from the NRC/ORNL text, `nrc`; 43 needed by outram-park and named only implicitly, `outram-park`).
+- **L3 concepts: 209** (166 from the NRC/ORNL text, `nrc`; 43 needed by outram-park and named only implicitly, `outram-park`).
 - **L4 seed tags: 192** across 39 crates.
 
 | Crate | Seed tags |
@@ -384,6 +384,7 @@
     - [ ] add `//! kovan-concept: 02-nuclear-safety/thermal-hydraulic-design/heat-transfer-to-coolant` to `crates/tuas_boussinesq_solver/src/lib/heat_transfer_correlations/mod.rs`: Heat-transfer correlations. Nusselt correlations, thermal resistances, view factors and parallel heat exchangers. (new work)
 - [ ] **Fuel heat-removal limits (onset of nucleate boiling, departure from nucleate boiling, flow instability)** · `fuel-heat-removal-limits` · origin `nrc`
   - sources: `nureg-1537-part1` 4.6, fifth item; `nureg-0800-4.2-rev3` I (SRP 4.4 provides DNBR and CPR criteria)
+  - **note for review:** LWR mechanisms (ONB, DNB, CHF, CPR): not applicable to MSR technology (ORNL/TM-2018/976 3.1.3); see gas-generation-and-entrainment.
   - proposed kovan-concept tags:
     - [ ] add `//! kovan-concept: 02-nuclear-safety/thermal-hydraulic-design/fuel-heat-removal-limits` to `crates/outram-foam-multiphase/src/chf.rs`: Critical heat flux correlations. CHF, DNB and dryout point correlations. (new work, from published CHF correlations)
     - [ ] add `//! kovan-concept: 02-nuclear-safety/thermal-hydraulic-design/fuel-heat-removal-limits` to `crates/outram-foam-multiphase/src/wall_boiling.rs`: Wall-boiling framework. Wall-boiling closure architecture for the two-fluid model. (port of OpenFOAM multiphaseEuler wall boiling)
@@ -466,6 +467,10 @@
       - [ ] add `//! kovan-concept: 02-nuclear-safety/thermal-hydraulic-design/thermal-hydraulic-methods/neutronics-thermal-hydraulics-coupling` to `crates/bedok/src/thdiffusion_solverxyz.rs`: Coupled TH and nodal diffusion. Steady thermal-hydraulics coupled to the 3-D diffusion solve. (port of BEDOK MATLAB)
 - [ ] **Thermal-hydraulic analysis methods** · `thermal-hydraulic-methods` · origin `nrc`
   - sources: `nureg-1537-part1` 4.6 (a detailed description of the analytical methods used in the thermal-hydraulic design); `ornl-tm-2018-976` 3.1.3 (acceptable analytical methods)
+- [ ] **Gas generation and entrainment (MSR flow-instability mechanisms)** · `gas-generation-and-entrainment` · origin `nrc`
+  - sources: `ornl-tm-2018-976` 3.1.3 (LWR DNB/CHF/CPR measures are not applicable to MSR technology, 'but other mechanisms may exist, such as gas generation or entrainment')
+- [ ] **Experimental loops and test-reactor support for thermal-hydraulic design (MSR)** · `experimental-loops-and-test-reactor-support` · origin `nrc`
+  - sources: `ornl-tm-2018-976` 3.1.3 (justified extrapolation from proven designs 'will rely heavily on experimental loops and perhaps a test reactor')
 
 ### Control rods and drives (`02-nuclear-safety/control-rods-and-drives`)
 

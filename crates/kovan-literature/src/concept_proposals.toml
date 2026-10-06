@@ -513,6 +513,7 @@ path = "02-nuclear-safety/thermal-hydraulic-design/fuel-heat-removal-limits"
 title = "Fuel heat-removal limits (onset of nucleate boiling, departure from nucleate boiling, flow instability)"
 origin = "nrc"
 sources = [{ document = "nureg-1537-part1", section = "4.6, fifth item" }, { document = "nureg-0800-4.2-rev3", section = "I (SRP 4.4 provides DNBR and CPR criteria)" }]
+note = "LWR mechanisms (ONB, DNB, CHF, CPR): not applicable to MSR technology (ORNL/TM-2018/976 3.1.3); see gas-generation-and-entrainment."
 status = "approved"
 
 [[concept]]
@@ -3559,4 +3560,18 @@ path = "02-nuclear-safety/thermal-hydraulic-design/thermal-hydraulic-methods"
 title = "Thermal-hydraulic analysis methods"
 origin = "nrc"
 sources = [{ document = "nureg-1537-part1", section = "4.6 (a detailed description of the analytical methods used in the thermal-hydraulic design)" }, { document = "ornl-tm-2018-976", section = "3.1.3 (acceptable analytical methods)" }]
+status = "approved"
+
+[[concept]]
+path = "02-nuclear-safety/thermal-hydraulic-design/gas-generation-and-entrainment"
+title = "Gas generation and entrainment (MSR flow-instability mechanisms)"
+origin = "nrc"
+sources = [{ document = "ornl-tm-2018-976", section = "3.1.3 (LWR DNB/CHF/CPR measures are not applicable to MSR technology, 'but other mechanisms may exist, such as gas generation or entrainment')" }]
+status = "approved"
+
+[[concept]]
+path = "02-nuclear-safety/thermal-hydraulic-design/experimental-loops-and-test-reactor-support"
+title = "Experimental loops and test-reactor support for thermal-hydraulic design (MSR)"
+origin = "nrc"
+sources = [{ document = "ornl-tm-2018-976", section = "3.1.3 (justified extrapolation from proven designs 'will rely heavily on experimental loops and perhaps a test reactor')" }]
 status = "approved"
