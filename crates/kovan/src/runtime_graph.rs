@@ -447,7 +447,7 @@ mod tests {
         assert_eq!(issues.len(), 19);
         assert_eq!(top[0].sub_concepts, 19);
         assert_eq!(issues[0].id.path, "01-national-position");
-        assert_eq!(issues[1].title, "Nuclear safety");
+        assert_eq!(issues[1].title, "2. Nuclear safety");
         assert_eq!(issues[18].id.path, "19-procurement");
         // The whole tree is reachable with no folder: drill to a deep node.
         let deep = NodeId::concept(
@@ -704,7 +704,7 @@ mod tests {
             titles,
             [
                 corpus::ROOT_TITLE,
-                "Nuclear safety",
+                "2. Nuclear safety",
                 "Nuclear design and core physics",
                 "Neutron transport methods",
                 "Delta (Woodcock) tracking",

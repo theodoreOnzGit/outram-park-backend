@@ -35,6 +35,12 @@ use std::f64::consts::PI;
 /// A card's size in world units (points at zoom 1). A drawing choice.
 pub const CARD_SIZE: (f64, f64) = (170.0, 46.0);
 
+/// The centre card's size, world units: larger than a ring card, with larger
+/// text, so the concept you are on stands out (maintainer direction,
+/// 2026-10-06: "the central node needs to be bigger in font size"). Its title
+/// wraps onto two lines. A drawing choice.
+pub const CENTRE_CARD_SIZE: (f64, f64) = (260.0, 72.0);
+
 /// Least clear space between two cards, world units. A drawing choice.
 pub const CARD_GAP: f64 = 24.0;
 
@@ -56,6 +62,12 @@ pub const HORIZONTAL_PAN_VIEWPORT_FRACTION: f64 = 0.5;
 /// cards cannot overlap, whatever direction one lies from the other.
 fn card_diagonal() -> f64 {
     CARD_SIZE.0.hypot(CARD_SIZE.1)
+}
+
+/// The least distance from the centre to a ring card's centre at which the
+/// two cannot touch at any angle: half of each diagonal plus [`CARD_GAP`].
+fn centre_clearance() -> f64 {
+    0.5 * (card_diagonal() + CENTRE_CARD_SIZE.0.hypot(CENTRE_CARD_SIZE.1)) + CARD_GAP
 }
 
 /// Where the `n` cards around the centre of the star go, in world units, with
@@ -89,7 +101,7 @@ fn star_positions_offset(n: usize, offset: f64) -> Vec<Point> {
     } else {
         spacing / (2.0 * (PI / n as f64).sin())
     };
-    let r = for_neighbours.max(spacing);
+    let r = for_neighbours.max(spacing).max(centre_clearance());
     (0..n)
         .map(|i| {
             // Angle from straight up, clockwise (screen y grows downward).
@@ -158,6 +170,13 @@ fn cards_collide(a: Point, b: Point) -> bool {
     (a.x - b.x).abs() < CARD_SIZE.0 + CARD_GAP && (a.y - b.y).abs() < CARD_SIZE.1 + CARD_GAP
 }
 
+/// [`cards_collide`] between the centre card (at the origin, sized
+/// [`CENTRE_CARD_SIZE`]) and an ordinary card at `b`.
+fn collides_with_centre(b: Point) -> bool {
+    b.x.abs() < 0.5 * (CARD_SIZE.0 + CENTRE_CARD_SIZE.0) + CARD_GAP
+        && b.y.abs() < 0.5 * (CARD_SIZE.1 + CENTRE_CARD_SIZE.1) + CARD_GAP
+}
+
 /// Lay out a star whose ring card `i` has `fan_sizes[i]` sub-concepts shown
 /// (zero for a collapsed card), with no two cards overlapping.
 ///
@@ -220,12 +239,12 @@ fn star_layout_offset(fan_sizes: &[usize], offset: f64) -> StarLayout {
             .map(|(p, &m)| fan_positions(*p, m))
             .collect();
         layout = StarLayout { ring, fans };
-        let mut cards: Vec<Point> = vec![Point::new(0.0, 0.0)];
-        cards.extend(layout.all_points());
-        let clash = cards
-            .iter()
-            .enumerate()
-            .any(|(i, a)| cards[i + 1..].iter().any(|b| cards_collide(*a, *b)));
+        let cards: Vec<Point> = layout.all_points().collect();
+        let clash = cards.iter().any(|b| collides_with_centre(*b))
+            || cards
+                .iter()
+                .enumerate()
+                .any(|(i, a)| cards[i + 1..].iter().any(|b| cards_collide(*a, *b)));
         if !clash || base_r == 0.0 {
             break;
         }
@@ -270,7 +289,7 @@ pub fn parent_position(layout: &StarLayout) -> Point {
 /// needs both axes to be close.
 pub fn up_button_centre(layout: &StarLayout) -> Point {
     let parent = parent_position(layout);
-    let top_of_centre = -0.5 * CARD_SIZE.1;
+    let top_of_centre = -0.5 * CENTRE_CARD_SIZE.1;
     let bottom_of_parent = parent.y + 0.5 * CARD_SIZE.1;
     let middle = 0.5 * (top_of_centre + bottom_of_parent);
     let furthest = layout
@@ -303,17 +322,29 @@ pub const MAX_RING_GROWTH_STEPS: usize = 200;
 /// there is no clear edge to join, and a curve through the cards would be
 /// noise. A drawing rule, nothing physical.
 pub fn connector(a: Point, b: Point) -> Option<[Point; 4]> {
-    let (w, h) = CARD_SIZE;
+    connector_sized(a, CARD_SIZE, b, CARD_SIZE)
+}
+
+/// [`connector`] from the centre card, at the origin and sized
+/// [`CENTRE_CARD_SIZE`], to an ordinary card at `b`: the curve leaves the
+/// larger card's own edge, so it never shows through the card.
+pub fn connector_from_centre(b: Point) -> Option<[Point; 4]> {
+    connector_sized(Point::new(0.0, 0.0), CENTRE_CARD_SIZE, b, CARD_SIZE)
+}
+
+/// [`connector`] between a card of size `size_a` at `a` and one of size
+/// `size_b` at `b`.
+fn connector_sized(a: Point, size_a: (f64, f64), b: Point, size_b: (f64, f64)) -> Option<[Point; 4]> {
     let (dx, dy) = (b.x - a.x, b.y - a.y);
-    let gap_x = dx.abs() - w;
-    let gap_y = dy.abs() - h;
+    let gap_x = dx.abs() - 0.5 * (size_a.0 + size_b.0);
+    let gap_y = dy.abs() - 0.5 * (size_a.1 + size_b.1);
     if gap_x < 0.0 && gap_y < 0.0 {
         return None;
     }
     if gap_x >= gap_y {
         let s = dx.signum();
-        let start = Point::new(a.x + s * 0.5 * w, a.y);
-        let end = Point::new(b.x - s * 0.5 * w, b.y);
+        let start = Point::new(a.x + s * 0.5 * size_a.0, a.y);
+        let end = Point::new(b.x - s * 0.5 * size_b.0, b.y);
         let pull = (0.5 * (end.x - start.x).abs()).max(CARD_GAP);
         Some([
             start,
@@ -323,8 +354,8 @@ pub fn connector(a: Point, b: Point) -> Option<[Point; 4]> {
         ])
     } else {
         let s = dy.signum();
-        let start = Point::new(a.x, a.y + s * 0.5 * h);
-        let end = Point::new(b.x, b.y - s * 0.5 * h);
+        let start = Point::new(a.x, a.y + s * 0.5 * size_a.1);
+        let end = Point::new(b.x, b.y - s * 0.5 * size_b.1);
         let pull = (0.5 * (end.y - start.y).abs()).max(CARD_GAP);
         Some([
             start,
@@ -338,13 +369,14 @@ pub fn connector(a: Point, b: Point) -> Option<[Point; 4]> {
 /// The world-space box that holds every card: the centre card at the origin
 /// (when `has_centre`) and a card at each of `ring`.
 pub fn star_bounds(has_centre: bool, ring: &[Point]) -> Bounds {
-    let (hw, hh) = (0.5 * CARD_SIZE.0, 0.5 * CARD_SIZE.1);
+    let card = (0.5 * CARD_SIZE.0, 0.5 * CARD_SIZE.1);
+    let centre = (0.5 * CENTRE_CARD_SIZE.0, 0.5 * CENTRE_CARD_SIZE.1);
     let centres = ring
         .iter()
-        .copied()
-        .chain(has_centre.then(|| Point::new(0.0, 0.0)));
+        .map(|p| (*p, card))
+        .chain(has_centre.then(|| (Point::new(0.0, 0.0), centre)));
     let mut b: Option<Bounds> = None;
-    for p in centres {
+    for (p, (hw, hh)) in centres {
         let card = Bounds {
             min_x: p.x - hw,
             min_y: p.y - hh,
@@ -454,6 +486,26 @@ pub fn fit_zoom(bounds: Bounds, viewport: (f64, f64)) -> f64 {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// The larger centre card (2026-10-06) never overlaps a ring card, for
+    /// every ring size and with or without the parent card above, and a
+    /// ring connector starts on the centre card's own edge.
+    #[test]
+    fn the_centre_card_has_room_at_every_ring_size() {
+        for n in 1..=30 {
+            for has_parent in [false, true] {
+                let layout = star_layout_with_parent(&vec![0; n], has_parent);
+                for p in &layout.ring {
+                    assert!(!collides_with_centre(*p), "n = {n}: {p:?}");
+                    let curve = connector_from_centre(*p).expect("a connector");
+                    let start = curve[0];
+                    let on_edge = (start.x.abs() - 0.5 * CENTRE_CARD_SIZE.0).abs() < 1e-9
+                        || (start.y.abs() - 0.5 * CENTRE_CARD_SIZE.1).abs() < 1e-9;
+                    assert!(on_edge, "n = {n}: starts at {start:?}");
+                }
+            }
+        }
+    }
 
     fn overlap(a: Point, b: Point) -> bool {
         (a.x - b.x).abs() < CARD_SIZE.0 && (a.y - b.y).abs() < CARD_SIZE.1

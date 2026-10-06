@@ -402,6 +402,21 @@ fn mark_with_ancestors(set: &mut HashSet<&'static str>, path: &'static str) {
     }
 }
 
+/// A node's title as the map shows it. A level-1 node is one of the 19 IAEA
+/// Milestones issues and carries its issue number, "2. Nuclear safety", taken
+/// from its `NN-` path segment (maintainer direction, 2026-10-06: "the 19
+/// milestones need to have their number in the mindmap"). Deeper nodes are
+/// unnumbered, like their paths. Built once, inside [`built`]'s `OnceLock`.
+fn numbered_title(n: &'static ConceptNode) -> &'static str {
+    match n.path.split_once('-') {
+        Some((num, _)) if n.level == 1 => match num.parse::<u32>() {
+            Ok(k) => format!("{k}. {}", n.title).leak(),
+            Err(_) => n.title.as_str(),
+        },
+        _ => n.title.as_str(),
+    }
+}
+
 fn built() -> &'static Topics {
     static TOPICS: OnceLock<Topics> = OnceLock::new();
     TOPICS.get_or_init(|| {
@@ -415,7 +430,7 @@ fn built() -> &'static Topics {
         all.extend(tree.nodes().iter().map(|n| {
             CorpusTopic {
                 path: n.path.as_str(),
-                title: n.title.as_str(),
+                title: numbered_title(n),
                 ontology: ONTOLOGY_LINKS
                     .iter()
                     .find(|(p, _)| *p == n.path)
@@ -1171,9 +1186,12 @@ mod tests {
             assert_eq!(topic_at(p).unwrap().level(), 1);
         }
         assert_eq!(issues[1], "02-nuclear-safety");
+        // Each issue's title carries its number; deeper nodes do not.
+        assert_eq!(topic_at("02-nuclear-safety").unwrap().title, "2. Nuclear safety");
+        assert_eq!(topic_at("19-procurement").unwrap().title, "19. Procurement");
         assert_eq!(
-            topic_at("02-nuclear-safety").unwrap().title,
-            "Nuclear safety"
+            topic_at("02-nuclear-safety/nuclear-design").unwrap().title,
+            "Nuclear design and core physics"
         );
     }
 

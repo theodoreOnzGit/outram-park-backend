@@ -957,6 +957,10 @@ const ZOOM_STEP: f64 = 1.25;
 #[cfg(all(feature = "gui", not(target_os = "android")))]
 const CARD_FONT_SIZE: f64 = 14.0;
 
+/// The centre card's title font, as a multiple of [`CARD_FONT_SIZE`]
+/// (maintainer direction, 2026-10-06: the central node bigger in font size).
+const CENTRE_FONT_SCALE: f64 = 1.35;
+
 /// A link card's fill: "light blue boxes with dark blue underlined text,
 /// just like hyperlinks in markdown or wikipedia" (maintainer, 2026-09-23,
 /// #285). Solid rather than the 25 % wash the concept cards use, because
@@ -1199,7 +1203,7 @@ impl MindmapState {
         use crate::mindmap_layout::Point;
         use crate::mindmap_view::{
             fit_zoom, parent_position, star_bounds, star_layout_with_parent, up_button_centre,
-            CanvasLayout, CARD_SIZE, UP_BUTTON_SIZE,
+            CanvasLayout, CARD_SIZE, CENTRE_CARD_SIZE, UP_BUTTON_SIZE,
         };
         use crate::node_id::{Namespace, NodeId};
 
@@ -1526,6 +1530,8 @@ impl MindmapState {
             };
             let z = zoom as f32;
             let card_size = egui::vec2(CARD_SIZE.0 as f32, CARD_SIZE.1 as f32) * z;
+            let centre_size =
+                egui::vec2(CENTRE_CARD_SIZE.0 as f32, CENTRE_CARD_SIZE.1 as f32) * z;
 
             // Connectors under the cards, centre to ring and ring to its fan:
             // smooth curves from edge to edge, the edges chosen by where the
@@ -1541,7 +1547,12 @@ impl MindmapState {
                     CardRole::Fan(i, _) => ring_at[*i],
                     _ => continue,
                 };
-                if let Some(curve) = crate::mindmap_view::connector(from, *p) {
+                let curve = if matches!(role, CardRole::Ring(_)) {
+                    crate::mindmap_view::connector_from_centre(*p)
+                } else {
+                    crate::mindmap_view::connector(from, *p)
+                };
+                if let Some(curve) = curve {
                     painter.add(egui::epaint::CubicBezierShape::from_points_stroke(
                         curve.map(at),
                         false,
@@ -1555,7 +1566,7 @@ impl MindmapState {
             // of its sub-concepts.
             let link_stroke = egui::Stroke::new((1.5 * z).max(0.5), LINK_TEXT);
             for (_, p) in &link_cards {
-                if let Some(curve) = crate::mindmap_view::connector(Point::new(0.0, 0.0), *p) {
+                if let Some(curve) = crate::mindmap_view::connector_from_centre(*p) {
                     painter.add(egui::epaint::CubicBezierShape::from_points_stroke(
                         curve.map(at),
                         false,
@@ -1664,7 +1675,11 @@ impl MindmapState {
             for (c, p, role) in &cards {
                 let concept = &c.concept;
                 let id = concept.id.to_string();
-                let r = egui::Rect::from_center_size(at(*p), card_size);
+                let r = if *role == CardRole::Centre {
+                    egui::Rect::from_center_size(at(*p), centre_size)
+                } else {
+                    egui::Rect::from_center_size(at(*p), card_size)
+                };
                 let sense = if *role == CardRole::Centre {
                     egui::Sense::click()
                 } else {
@@ -1697,13 +1712,31 @@ impl MindmapState {
                 painter.rect_stroke(r, rounding, edge, egui::StrokeKind::Middle);
                 let text = painter.with_clip_rect(r.shrink(3.0 * z));
                 let left = r.min.x + 12.0 * z;
-                text.text(
-                    egui::pos2(left, r.center().y - 7.0 * z),
-                    egui::Align2::LEFT_CENTER,
-                    &concept.title,
-                    egui::FontId::proportional((CARD_FONT_SIZE * zoom) as f32),
-                    ui.visuals().strong_text_color(),
-                );
+                // The centre card's title is larger and wraps onto two lines;
+                // its counts sit on the bottom edge.
+                let counts_y = if *role == CardRole::Centre {
+                    let galley = text.layout(
+                        concept.title.to_string(),
+                        egui::FontId::proportional((CENTRE_FONT_SCALE * CARD_FONT_SIZE * zoom) as f32),
+                        ui.visuals().strong_text_color(),
+                        r.max.x - left - 8.0 * z,
+                    );
+                    text.galley(
+                        egui::pos2(left, r.min.y + 6.0 * z),
+                        galley,
+                        ui.visuals().strong_text_color(),
+                    );
+                    r.max.y - 11.0 * z
+                } else {
+                    text.text(
+                        egui::pos2(left, r.center().y - 7.0 * z),
+                        egui::Align2::LEFT_CENTER,
+                        &concept.title,
+                        egui::FontId::proportional((CARD_FONT_SIZE * zoom) as f32),
+                        ui.visuals().strong_text_color(),
+                    );
+                    r.center().y + 10.0 * z
+                };
                 let mut counts = format!("\u{1F4C4} {}", c.citations.len());
                 if concept.sub_concepts > 0 {
                     counts.push_str(&format!("   \u{2937} {}", concept.sub_concepts));
@@ -1712,7 +1745,7 @@ impl MindmapState {
                     counts.push_str("   \u{1F4CC}");
                 }
                 text.text(
-                    egui::pos2(left, r.center().y + 10.0 * z),
+                    egui::pos2(left, counts_y),
                     egui::Align2::LEFT_CENTER,
                     counts,
                     egui::FontId::proportional((0.78 * CARD_FONT_SIZE * zoom) as f32),
@@ -3116,7 +3149,7 @@ mod tests {
             MindmapState::star_cards(None, &std::collections::HashMap::new(), state.current());
         assert_eq!(centre.unwrap().concept.title, crate::corpus::ROOT_TITLE);
         assert_eq!(ring.len(), 19);
-        assert_eq!(ring[1].concept.title, "Nuclear safety");
+        assert_eq!(ring[1].concept.title, "2. Nuclear safety");
     }
 
     /// The citation cache formats labels as `bib_display` does, sorts a

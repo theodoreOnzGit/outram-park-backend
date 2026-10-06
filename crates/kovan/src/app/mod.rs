@@ -12,6 +12,7 @@
 mod advanced_git_view;
 mod bibliography;
 mod box_handles;
+mod corpus_folder;
 mod csv_preview;
 mod gfm_preview;
 mod home;
@@ -141,6 +142,8 @@ enum FileDialogTarget {
     KvimFile,
     /// Picked directory fills the setup dialog's Kovan-folder field (#255).
     SetupFolder,
+    /// Picked directory fills the standard-corpus folder field (2026-10-06).
+    StandardCorpusFolder,
 }
 
 impl FileDialogTarget {
@@ -149,7 +152,10 @@ impl FileDialogTarget {
     fn is_directory(self) -> bool {
         matches!(
             self,
-            Self::KovanRootOpen | Self::KovanRootCreate | Self::SetupFolder
+            Self::KovanRootOpen
+                | Self::KovanRootCreate
+                | Self::SetupFolder
+                | Self::StandardCorpusFolder
         )
     }
 
@@ -174,9 +180,11 @@ impl FileDialogTarget {
             Self::Pdf | Self::PdfIngest => Some("PDF"),
             Self::JsonExport => Some("JSON"),
             Self::CsvExport => Some("CSV"),
-            Self::KovanRootOpen | Self::KovanRootCreate | Self::SetupFolder | Self::KvimFile => {
-                None
-            }
+            Self::KovanRootOpen
+            | Self::KovanRootCreate
+            | Self::SetupFolder
+            | Self::StandardCorpusFolder
+            | Self::KvimFile => None,
         }
     }
 }
@@ -326,6 +334,9 @@ pub struct DigitiseApp {
     view: View,
     /// The first-run setup dialog (#255) -- see [`setup`].
     setup: setup::SetupDialog,
+    /// The "where should the standard corpus go?" window (2026-10-06) -- see
+    /// [`corpus_folder`].
+    corpus_folder: corpus_folder::CorpusFolderDialog,
     /// Work running off the GUI thread (cloning corpus repositories), each
     /// ending in a one-line status message.
     background_jobs: Vec<std::thread::JoinHandle<String>>,
@@ -589,6 +600,7 @@ impl Default for DigitiseApp {
         Self {
             view: View::default(),
             setup: setup::SetupDialog::default(),
+            corpus_folder: corpus_folder::CorpusFolderDialog::default(),
             background_jobs: Vec::new(),
             library_clone: None,
             literature: None,
@@ -3042,6 +3054,7 @@ impl DigitiseApp {
                 self.home.begin_create(std::path::Path::new(&path))
             }
             FileDialogTarget::SetupFolder => self.setup.folder = path,
+            FileDialogTarget::StandardCorpusFolder => self.corpus_folder.folder = path,
             FileDialogTarget::PdfIngest => {
                 if let Some(root) = self.home.root().cloned() {
                     self.begin_ingest(&root, std::path::Path::new(&path));
@@ -3060,17 +3073,85 @@ impl DigitiseApp {
 
 impl DigitiseApp {
     /// What the real application does once at start, and tests never do
-    /// (they build the app with `default()`): begin cloning the standard
-    /// corpus in the background (#253), and open the setup dialog on first
-    /// run unless a Kovan folder was given on the command line (#255).
+    /// (they build the app with `default()`): ~~begin cloning the standard
+    /// corpus in the background (#253)~~ **CHANGED 2026-10-06:** refresh the
+    /// standard corpus in the folder the user chose for it, in the background
+    /// ([`Self::refresh_standard_corpus`]), or ask for that folder when none
+    /// is chosen yet ([`corpus_folder`]); and open the setup dialog on first
+    /// run unless a Kovan folder was given on the command line (#255), after
+    /// the folder window if that is showing.
     pub fn start_up(&mut self, folder_given: bool) {
-        self.spawn_job(|| match crate::corpus_repos::ensure_standard_corpus() {
-            Ok(crate::corpus_repos::RepoState::Cloned) => "standard corpus downloaded".to_string(),
-            Ok(_) => String::new(),
-            Err(e) => format!("standard corpus not downloaded (the built-in map still works): {e}"),
-        });
+        match crate::corpus_repos::chosen_standard_corpus_dir() {
+            Some(dir) => self.refresh_standard_corpus(dir),
+            None => self
+                .corpus_folder
+                .show(crate::corpus_repos::default_standard_corpus_dir()),
+        }
         if !folder_given && setup::is_first_run() {
-            self.setup.show_for(None);
+            if self.corpus_folder.open {
+                self.corpus_folder.then_setup = true;
+            } else {
+                self.setup.show_for(None);
+            }
+        }
+    }
+
+    /// Clone or fast-forward the standard corpus at `dir` off the GUI thread
+    /// ([`crate::corpus_repos::update_standard_corpus`]).
+    fn refresh_standard_corpus(&mut self, dir: std::path::PathBuf) {
+        self.spawn_job(move || {
+            use crate::save_push::CorpusPullOutcome as O;
+            match crate::corpus_repos::update_standard_corpus(&dir) {
+                Ok(O::Downloaded { .. }) => {
+                    format!("standard corpus downloaded into {}", dir.display())
+                }
+                Ok(O::Updated { .. }) => "standard corpus refreshed".to_string(),
+                Ok(O::UpToDate { .. }) => String::new(),
+                Ok(O::NeedsConfirmation { reason, .. }) => format!(
+                    "standard corpus not refreshed: {reason} (the built-in map still works)"
+                ),
+                Ok(O::Skipped { reason }) | Ok(O::Failed { message: reason }) => format!(
+                    "standard corpus not refreshed (the built-in map still works): {reason}"
+                ),
+                Err(e) => format!(
+                    "standard corpus not downloaded (the built-in map still works): {e}"
+                ),
+            }
+        });
+    }
+
+    /// Act on the standard-corpus folder window.
+    fn handle_corpus_folder(&mut self, request: corpus_folder::CorpusFolderRequest) {
+        use corpus_folder::CorpusFolderRequest as R;
+        let close = match request {
+            R::Browse => {
+                self.open_picker(FileDialogTarget::StandardCorpusFolder);
+                false
+            }
+            R::NotNow => true,
+            R::Use(dir) => match crate::corpus_repos::check_standard_corpus_folder(
+                &dir,
+                crate::corpus::CORPUS_REPOSITORY_URL,
+            )
+            .and_then(|()| {
+                crate::corpus_repos::choose_standard_corpus_dir(&dir)
+                    .map_err(|e| format!("could not remember the folder: {e}"))
+            }) {
+                Ok(()) => {
+                    self.refresh_standard_corpus(dir);
+                    true
+                }
+                Err(message) => {
+                    self.corpus_folder.set_message(message);
+                    false
+                }
+            },
+        };
+        if close {
+            self.corpus_folder.open = false;
+            if std::mem::take(&mut self.corpus_folder.then_setup) {
+                self.setup.show_for(None);
+            }
         }
     }
 
@@ -3294,6 +3375,9 @@ impl eframe::App for DigitiseApp {
         self.ingest_form_ui(ui);
         self.sort_form_ui(ui);
         self.poll_library_clone();
+        if let Some(request) = self.corpus_folder.ui(ui.ctx()) {
+            self.handle_corpus_folder(request);
+        }
         if let Some(request) = self.setup.ui(ui.ctx()) {
             self.handle_setup(request);
         }

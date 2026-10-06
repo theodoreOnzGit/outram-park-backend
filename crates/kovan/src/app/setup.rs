@@ -4,7 +4,9 @@
 //! folder and then, optionally, the user's three GitHub repositories: their
 //! own **Kovan repository** (the folder itself), **open corpus** and
 //! **proprietary corpus**; and the marker that remembers first run is over.
-//! Kovan's standard corpus is not asked for: every folder gets it. The dialog
+//! Kovan's standard corpus is not asked for here: every folder gets it.
+//! (Since 2026-10-06 Kovan's own clone of it, used with or without a folder,
+//! lives in a folder asked for by [`super::corpus_folder`].) The dialog
 //! is **skippable** (maintainer decision, 2026-09-22): the built-in
 //! nuclear-engineering map shows with or without a folder (epic #247), and the
 //! top bar's "⚙ Setup" and the home page's "Set up repositories…" reopen it.

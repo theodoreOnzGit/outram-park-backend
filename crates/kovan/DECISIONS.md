@@ -2058,3 +2058,41 @@ every node non-empty, and `has_classified_literature`, hand filings only;
 the maintainer has not chosen which "empty" means); source hyperlinks on
 cards (#729); public URLs for the four `nureg-…` files supplied without an
 ADAMS accession number; the Code Review tab and level 4.
+
+## The standard corpus lives in a folder the user chooses, refreshed at every start; a larger centre card; numbered issues (2026-10-06)
+
+**Maintainer direction (2026-10-06).** *"when kovan opens, i need to see the
+standard corpus automatically loaded"*; *"the standard corpus should always
+refresh on open"*; *"the user also needs to specify an empty folder (or
+existing one) for the public corpus, so that kovan knows where to dump the
+pdfs"*; *"the central node needs to be bigger in font size, and the 19
+milestones need to have their number in the mindmap"*.
+
+**What was wrong.** The standard corpus was cloned once into the
+application-data folder (`~/.local/share/kovan/standard-corpus`) and never
+updated, so every document added to the corpus later stayed "not
+downloaded". The maintainer's clone was several commits behind and lacked all
+of the 2026-10-06 NRC, DOE, EC and CFR documents.
+
+**Decisions.**
+- At start, Kovan asks where to keep the standard corpus (window
+  "Standard corpus folder", `app/corpus_folder.rs`) until a folder is chosen.
+  The folder may be new, empty, or an existing clone of the corpus
+  (`corpus_repos::check_standard_corpus_folder`); anything else is refused
+  with the reason. The choice is remembered in the config folder
+  (`standard_corpus.toml`). The old application-data folder is the suggested
+  value, so an earlier clone is adopted. "Not now" closes the window for the
+  session only. The first-run setup dialog opens after it, never on top.
+- At every start, the chosen folder is cloned or fast-forwarded in the
+  background (`corpus_repos::update_standard_corpus`, sharing
+  `save_push::follow_branch` with the folder's Pull). A clone with local
+  changes is left alone and reported. A Kovan folder's own corpus
+  repositories are still pulled only by Pull.
+- The web version does not use any of this: a browser cannot write a folder
+  or run git. The agreed web design fetches each PDF from the GitHub raw URL
+  on demand (#729).
+- The mind map's centre card is 260 × 72 with a title 1.35 times larger,
+  wrapping onto two lines. Ring layout, bounds, the Up button and connectors
+  use its real size (test `the_centre_card_has_room_at_every_ring_size`).
+- Level-1 titles carry their IAEA issue number, "2. Nuclear safety", from the
+  `NN-` path segment (`corpus::numbered_title`). Deeper nodes are unnumbered.

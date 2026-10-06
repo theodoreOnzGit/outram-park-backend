@@ -27,6 +27,11 @@
 //!   place keeps every file that is there.
 //! - **Nothing is pulled blindly.** An existing repository is returned as it is
 //!   ([`RepoState::Existing`]); updating one is an explicit, separate action.
+//!   **One exception, 2026-10-06:** Kovan's own application-data clone of the
+//!   standard corpus, in the folder the user chose for it, is fast-forwarded
+//!   at every start ([`update_standard_corpus`]), and only when nothing local
+//!   would be lost.
+//!   A Kovan folder's own corpus repositories are still never pulled here.
 //! - **Failures are values, never panics**, so a failed clone (offline, no
 //!   `git`, a bad URL) leaves the caller free to carry on: the built-in map
 //!   never depends on any of this (epic #247).
@@ -436,12 +441,99 @@ fn is_submodule(root: &Path, rel: &str) -> bool {
         .unwrap_or(false)
 }
 
-/// Where Kovan keeps its clone of the standard corpus: the platform
-/// application-data folder (`~/.local/share/kovan/` on Linux), shared by every
-/// Kovan folder. `None` when the platform reports no home directory.
-pub fn standard_corpus_dir() -> Option<PathBuf> {
+/// The folder Kovan suggests for its standard corpus, and the one it used
+/// before the user chose (until 2026-10-06): the platform application-data
+/// folder (`~/.local/share/kovan/standard-corpus` on Linux). `None` when the
+/// platform reports no home directory.
+pub fn default_standard_corpus_dir() -> Option<PathBuf> {
     directories::ProjectDirs::from("org", "OUTRAM PARK", "kovan")
         .map(|d| d.data_dir().join("standard-corpus"))
+}
+
+/// The file that records the user's choice of standard-corpus folder, in
+/// Kovan's platform config folder. `None` under test, so a test never reads
+/// or writes the user's real choice.
+fn standard_corpus_choice_file() -> Option<PathBuf> {
+    if cfg!(test) {
+        return None;
+    }
+    directories::ProjectDirs::from("org", "OUTRAM PARK", "kovan")
+        .map(|d| d.config_dir().join("standard_corpus.toml"))
+}
+
+#[derive(serde::Serialize, serde::Deserialize)]
+struct StandardCorpusChoice {
+    folder: PathBuf,
+}
+
+/// The folder the user chose for the standard corpus (maintainer direction,
+/// 2026-10-06: *"when kovan opens, the user also needs to specify an empty
+/// folder (or existing one) for the public corpus, so that kovan knows where
+/// to dump the pdfs"*), or `None` when they have not chosen one yet.
+pub fn chosen_standard_corpus_dir() -> Option<PathBuf> {
+    let text = std::fs::read_to_string(standard_corpus_choice_file()?).ok()?;
+    toml::from_str::<StandardCorpusChoice>(&text).ok().map(|c| c.folder)
+}
+
+/// Record `dir` as the standard-corpus folder.
+pub fn choose_standard_corpus_dir(dir: &Path) -> std::io::Result<()> {
+    let Some(file) = standard_corpus_choice_file() else {
+        return Ok(());
+    };
+    if let Some(parent) = file.parent() {
+        std::fs::create_dir_all(parent)?;
+    }
+    let choice = StandardCorpusChoice {
+        folder: dir.to_path_buf(),
+    };
+    std::fs::write(file, toml::to_string(&choice).map_err(std::io::Error::other)?)
+}
+
+/// Whether `dir` can hold the standard corpus: it does not exist yet, is
+/// empty, or is already a clone of `remote` (which is then refreshed).
+/// Anything else is refused with the reason, so Kovan never clones over a
+/// folder of someone's files or adopts some other repository.
+pub fn check_standard_corpus_folder(dir: &Path, remote: &str) -> Result<(), String> {
+    if !dir.exists() {
+        return Ok(());
+    }
+    if !dir.is_dir() {
+        return Err(format!("{} is a file, not a folder", dir.display()));
+    }
+    if is_git_repo(dir) {
+        let origin = crate::advanced_git::list_remotes_in(dir)
+            .ok()
+            .and_then(|rs| rs.into_iter().find(|r| r.name == "origin"))
+            .map(|r| r.url);
+        let normal = crate::save_push::normalize_url;
+        return match origin {
+            Some(o) if normal(&o) == normal(remote) => Ok(()),
+            Some(o) => Err(format!(
+                "{} is a clone of {o}, not of the standard corpus ({remote})",
+                dir.display()
+            )),
+            None => Err(format!("{} is a Git repository with no origin", dir.display())),
+        };
+    }
+    match std::fs::read_dir(dir).map(|mut entries| entries.next().is_none()) {
+        Ok(true) => Ok(()),
+        Ok(false) => Err(format!(
+            "{} already holds files and is not a clone of the standard corpus; \
+             choose an empty folder or an existing clone",
+            dir.display()
+        )),
+        Err(e) => Err(format!("{}: {e}", dir.display())),
+    }
+}
+
+/// Where Kovan keeps its clone of the standard corpus: ~~the platform
+/// application-data folder, shared by every Kovan folder~~ **CHANGED
+/// 2026-10-06:** the folder the user chose
+/// ([`chosen_standard_corpus_dir`]), else the old application-data default
+/// ([`default_standard_corpus_dir`]), which is still searched so an earlier
+/// clone keeps working. Shared by every Kovan folder.
+pub fn standard_corpus_dir() -> Option<PathBuf> {
+    chosen_standard_corpus_dir().or_else(default_standard_corpus_dir)
 }
 
 /// Clone the standard corpus ([`crate::corpus::CORPUS_REPOSITORY_URL`], branch
@@ -458,6 +550,60 @@ pub fn ensure_standard_corpus() -> Result<RepoState, CorpusRepoError> {
         Some(crate::corpus::CORPUS_REPOSITORY_URL),
         Some(crate::corpus::CORPUS_REPOSITORY_BRANCH),
     )
+}
+
+/// Bring the standard-corpus clone at `dir` up to its remote branch,
+/// cloning it first if it is not there (maintainer direction, 2026-10-06:
+/// *"when kovan opens, the standard corpus should always refresh on open"*).
+/// Run in the background at every start, on the folder the user chose
+/// ([`chosen_standard_corpus_dir`]).
+///
+/// Before this, the clone was made once and never updated, so documents
+/// added to the corpus later stayed "not downloaded" for good.
+///
+/// Only this clone is updated, never a Kovan folder's corpus repositories
+/// (those follow the folder's Pull and Save). It is fast-forwarded only when
+/// nothing local would be lost ([`crate::save_push::follow_branch`]); a
+/// clone with local changes is left alone and reported.
+pub fn update_standard_corpus(
+    dir: &Path,
+) -> Result<crate::save_push::CorpusPullOutcome, CorpusRepoError> {
+    update_standard_corpus_in(
+        dir,
+        crate::corpus::CORPUS_REPOSITORY_URL,
+        crate::corpus::CORPUS_REPOSITORY_BRANCH,
+    )
+}
+
+/// [`update_standard_corpus`] for a clone at `dir` of `remote`'s `branch`,
+/// so tests can use a local repository instead of the network.
+pub fn update_standard_corpus_in(
+    dir: &Path,
+    remote: &str,
+    branch: &str,
+) -> Result<crate::save_push::CorpusPullOutcome, CorpusRepoError> {
+    use crate::save_push::CorpusPullOutcome;
+    if ensure_repo(dir, Some(remote), Some(branch))? == RepoState::Cloned {
+        let head = Command::new("git")
+            .arg("-C")
+            .arg(dir)
+            .args(["rev-parse", "HEAD"])
+            .output()
+            .map(|o| String::from_utf8_lossy(&o.stdout).trim().to_string())
+            .unwrap_or_default();
+        return Ok(CorpusPullOutcome::Downloaded {
+            branch: branch.to_string(),
+            head,
+        });
+    }
+    if !crate::advanced_git::system_git_available() {
+        return Err(CorpusRepoError::GitUnavailable);
+    }
+    Ok(crate::save_push::follow_branch(
+        dir,
+        "origin".to_string(),
+        branch.to_string(),
+    ))
 }
 
 /// The local path of a hardcoded corpus entry's PDF
@@ -701,6 +847,83 @@ mod tests {
             ensure_repo(&dest, Some(&url), None).unwrap(),
             RepoState::Existing
         );
+    }
+
+    /// Kovan's standard-corpus clone follows its remote: cloned on the first
+    /// start, fast-forwarded to a new commit on a later one, and left alone
+    /// (reported, not overwritten) when it holds a local change.
+    #[test]
+    fn the_standard_corpus_clone_follows_its_remote() {
+        use crate::save_push::CorpusPullOutcome;
+        if !crate::advanced_git::system_git_available() {
+            return;
+        }
+        let tmp = tempfile::tempdir().unwrap();
+        let src = tmp.path().join("source");
+        let url = source_repo(&src, "kovan-standard-open-corpus/a.pdf");
+        let clone = tmp.path().join("data/standard-corpus");
+        assert!(matches!(
+            update_standard_corpus_in(&clone, &url, "main").unwrap(),
+            CorpusPullOutcome::Downloaded { .. }
+        ));
+        assert!(matches!(
+            update_standard_corpus_in(&clone, &url, "main").unwrap(),
+            CorpusPullOutcome::UpToDate { .. }
+        ));
+        // A document is added upstream; the next start picks it up.
+        touch(&src.join("kovan-standard-open-corpus/b.pdf"));
+        let git = |args: &[&str]| {
+            assert!(Command::new("git")
+                .arg("-C")
+                .arg(&src)
+                .args(["-c", "user.name=t", "-c", "user.email=t@t"])
+                .args(args)
+                .status()
+                .unwrap()
+                .success());
+        };
+        git(&["add", "."]);
+        git(&["commit", "-q", "-m", "b"]);
+        assert!(matches!(
+            update_standard_corpus_in(&clone, &url, "main").unwrap(),
+            CorpusPullOutcome::Updated { .. }
+        ));
+        assert!(clone.join("kovan-standard-open-corpus/b.pdf").exists());
+        // A local change is never overwritten.
+        touch(&clone.join("mine.pdf"));
+        touch(&src.join("kovan-standard-open-corpus/c.pdf"));
+        git(&["add", "."]);
+        git(&["commit", "-q", "-m", "c"]);
+        assert!(matches!(
+            update_standard_corpus_in(&clone, &url, "main").unwrap(),
+            CorpusPullOutcome::NeedsConfirmation { .. }
+        ));
+        assert!(clone.join("mine.pdf").exists());
+        assert!(!clone.join("kovan-standard-open-corpus/c.pdf").exists());
+    }
+
+    /// The standard-corpus folder may be new, empty or a clone of the
+    /// corpus; a folder of other files, or a clone of something else, is
+    /// refused.
+    #[test]
+    fn a_standard_corpus_folder_is_new_empty_or_a_clone() {
+        if !crate::advanced_git::system_git_available() {
+            return;
+        }
+        let tmp = tempfile::tempdir().unwrap();
+        let url = source_repo(&tmp.path().join("source"), "kovan-standard-open-corpus/a.pdf");
+        let new = tmp.path().join("new");
+        assert!(check_standard_corpus_folder(&new, &url).is_ok());
+        std::fs::create_dir_all(&new).unwrap();
+        assert!(check_standard_corpus_folder(&new, &url).is_ok());
+        let clone = tmp.path().join("clone");
+        update_standard_corpus_in(&clone, &url, "main").unwrap();
+        assert!(check_standard_corpus_folder(&clone, &url).is_ok());
+        let full = tmp.path().join("full");
+        touch(&full.join("thesis.pdf"));
+        assert!(check_standard_corpus_folder(&full, &url).is_err());
+        let other = source_repo(&tmp.path().join("other"), "x.pdf");
+        assert!(check_standard_corpus_folder(&clone, &other).is_err());
     }
 
     /// A local repository with one commit, standing in for a remote.

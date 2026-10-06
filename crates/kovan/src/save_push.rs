@@ -910,6 +910,16 @@ fn pull_one_corpus(root: &KovanRoot, dir: &Path, branch_hint: Option<&str>) -> C
             reason: "neither .gitmodules nor the remote names a branch to follow".into(),
         };
     };
+    follow_branch(dir, remote, branch)
+}
+
+/// Fetch `branch` from `remote` into the repository at `dir` and move it
+/// there, **only when nothing local would be lost**: a clean tree and a
+/// `HEAD` that is an ancestor of the fetched tip. Otherwise nothing is
+/// touched and the outcome is [`CorpusPullOutcome::NeedsConfirmation`].
+/// [`pull_one_corpus`]'s second half, shared with
+/// [`crate::corpus_repos::update_standard_corpus`].
+pub(crate) fn follow_branch(dir: &Path, remote: String, branch: String) -> CorpusPullOutcome {
     if let Err(message) = git_ok(dir, &["fetch", "-q", &remote, &branch]) {
         return CorpusPullOutcome::Failed { message };
     }
