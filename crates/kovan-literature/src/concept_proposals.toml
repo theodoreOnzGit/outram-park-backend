@@ -41,56 +41,56 @@ path = "02-nuclear-safety/design-of-structures-systems-and-components/wind-and-t
 title = "Wind and tornado loadings (meteorological damage)"
 origin = "nrc"
 sources = [{ document = "nureg-0800-toc-rev6", section = "3.3.1 Wind Loading; 3.3.2 Tornado Loads" }, { document = "nureg-1537-part1", section = "3.2 Meteorological Damage" }]
-status = "proposed"
+status = "approved"
 
 [[concept]]
 path = "02-nuclear-safety/design-of-structures-systems-and-components/flood-protection"
 title = "Flood protection (water damage)"
 origin = "nrc"
 sources = [{ document = "nureg-0800-toc-rev6", section = "3.4.1 Internal Flood Protection for Onsite Equipment Failures; 3.4.2 Analysis Procedures" }, { document = "nureg-1537-part1", section = "3.3 Water Damage" }]
-status = "proposed"
+status = "approved"
 
 [[concept]]
 path = "02-nuclear-safety/design-of-structures-systems-and-components/missile-protection"
 title = "Protection against missiles"
 origin = "nrc"
 sources = [{ document = "nureg-0800-toc-rev6", section = "3.5.1.1-3.5.3 (internally generated, turbine, tornado and site-proximity missiles; aircraft hazards; barrier design)" }]
-status = "proposed"
+status = "approved"
 
 [[concept]]
 path = "02-nuclear-safety/design-of-structures-systems-and-components/protection-against-piping-failures"
 title = "Protection against postulated piping failures"
 origin = "nrc"
 sources = [{ document = "nureg-0800-toc-rev6", section = "3.6.1-3.6.3 (incl. 3.6.3 Leak-Before-Break Evaluation Procedures)" }]
-status = "proposed"
+status = "approved"
 
 [[concept]]
 path = "02-nuclear-safety/design-of-structures-systems-and-components/seismic-design"
 title = "Seismic design (parameters, system and subsystem analysis, instrumentation)"
 origin = "nrc"
 sources = [{ document = "nureg-0800-toc-rev6", section = "3.7.1-3.7.4" }, { document = "nureg-1537-part1", section = "3.4 Seismic Damage" }]
-status = "proposed"
+status = "approved"
 
 [[concept]]
 path = "02-nuclear-safety/design-of-structures-systems-and-components/seismic-category-i-structures"
 title = "Containment and other Seismic Category I structures and foundations"
 origin = "nrc"
 sources = [{ document = "nureg-0800-toc-rev6", section = "3.8.1-3.8.5" }]
-status = "proposed"
+status = "approved"
 
 [[concept]]
 path = "02-nuclear-safety/design-of-structures-systems-and-components/mechanical-systems-and-components"
 title = "Mechanical systems and components"
 origin = "nrc"
 sources = [{ document = "nureg-0800-toc-rev6", section = "3.9.1 Special Topics for Mechanical Components; 3.9.2-3.9.8; 3.12; 3.13" }, { document = "nureg-1537-part1", section = "3.5 Systems and Components" }]
-status = "proposed"
+status = "approved"
 
 [[concept]]
 path = "02-nuclear-safety/design-of-structures-systems-and-components/equipment-qualification"
 title = "Seismic, dynamic and environmental qualification of equipment"
 origin = "nrc"
 sources = [{ document = "nureg-0800-toc-rev6", section = "3.10; 3.11" }]
-status = "proposed"
+status = "approved"
 
 # ============================================================================
 # 02-nuclear-safety / fuel-system-design   (SRP 4.2 Rev. 3 review areas)
@@ -101,77 +101,77 @@ path = "02-nuclear-safety/fuel-system-design/fuel-system-damage"
 title = "Fuel system damage"
 origin = "nrc"
 sources = [{ document = "nureg-0800-4.2-rev3", section = "II.1.A Fuel System Damage" }, { document = "rg-1.232-rev0", section = "App. C, MHTGR-DC 10 Reactor design" }]
-status = "proposed"
+status = "approved"
 
 [[concept]]
 path = "02-nuclear-safety/fuel-system-design/fuel-system-damage/oxidation-hydriding-and-crud"
 title = "Oxidation, hydriding, and the buildup of corrosion products (crud)"
 origin = "nrc"
 sources = [{ document = "nureg-0800-4.2-rev3", section = "II.1.A.iv" }]
-status = "proposed"
+status = "approved"
 
 [[concept]]
 path = "02-nuclear-safety/fuel-system-design/fuel-system-damage/rod-internal-gas-pressure"
 title = "Fuel and burnable poison rod internal gas pressures"
 origin = "nrc"
 sources = [{ document = "nureg-0800-4.2-rev3", section = "II.1.A.vi; II.3.C.vii Fuel Rod Pressure" }]
-status = "proposed"
+status = "approved"
 
 [[concept]]
 path = "02-nuclear-safety/fuel-system-design/fuel-rod-failure"
 title = "Fuel rod failure"
 origin = "nrc"
 sources = [{ document = "nureg-0800-4.2-rev3", section = "II.1.B Fuel Rod Failure (i hydriding ... viii mechanical fracturing)" }]
-status = "proposed"
+status = "approved"
 
 [[concept]]
 path = "02-nuclear-safety/fuel-system-design/fuel-rod-failure/pellet-cladding-interaction"
 title = "Pellet/cladding interaction"
 origin = "nrc"
 sources = [{ document = "nureg-0800-4.2-rev3", section = "II.1.B.vi" }]
-status = "proposed"
+status = "approved"
 
 [[concept]]
 path = "02-nuclear-safety/fuel-system-design/fuel-coolability"
 title = "Fuel coolability"
 origin = "nrc"
 sources = [{ document = "nureg-0800-4.2-rev3", section = "II.1.C Fuel Coolability (cladding embrittlement, violent expulsion, melting, ballooning, structural deformation)" }]
-status = "proposed"
+status = "approved"
 
 [[concept]]
 path = "02-nuclear-safety/fuel-system-design/fuel-performance-analytical-predictions"
 title = "Analytical predictions of fuel performance"
 origin = "nrc"
 sources = [{ document = "nureg-0800-4.2-rev3", section = "II.3.C Analytical Predictions" }]
-status = "proposed"
+status = "approved"
 
 [[concept]]
 path = "02-nuclear-safety/fuel-system-design/fuel-performance-analytical-predictions/fuel-temperatures-and-stored-energy"
 title = "Fuel temperatures (stored energy)"
 origin = "nrc"
 sources = [{ document = "nureg-0800-4.2-rev3", section = "II.3.C.i" }]
-status = "proposed"
+status = "approved"
 
 [[concept]]
 path = "02-nuclear-safety/fuel-system-design/testing-inspection-and-surveillance"
 title = "Testing, inspection, and surveillance plans"
 origin = "nrc"
 sources = [{ document = "nureg-0800-4.2-rev3", section = "I.4; II.4 (new fuel, online monitoring, postirradiation surveillance)" }]
-status = "proposed"
+status = "approved"
 
 [[concept]]
 path = "02-nuclear-safety/fuel-system-design/reactivity-initiated-accident-criteria"
 title = "Acceptance criteria for reactivity-initiated accidents"
 origin = "nrc"
 sources = [{ document = "nureg-0800-4.2-rev3", section = "Appendix B, Interim Acceptance Criteria and Guidance for the Reactivity Initiated Accidents" }]
-status = "proposed"
+status = "approved"
 
 [[concept]]
 path = "02-nuclear-safety/fuel-system-design/fuel-assembly-structural-response"
 title = "Fuel assembly structural response to externally applied forces"
 origin = "nrc"
 sources = [{ document = "nureg-0800-4.2-rev3", section = "Appendix A" }]
-status = "proposed"
+status = "approved"
 
 [[concept]]
 path = "02-nuclear-safety/fuel-system-design/fuel-salt-chemistry"
@@ -179,7 +179,7 @@ title = "Fuel salt chemistry (MSR)"
 origin = "nrc"
 sources = [{ document = "ornl-tm-2018-976", section = "3.1.1 Section 4.2, Fuel System Design" }]
 note = "ORNL, not NRC; origin 'nrc' here means 'named by the cited regulatory text'."
-status = "proposed"
+status = "approved"
 
 [[concept]]
 path = "02-nuclear-safety/fuel-system-design/triso-coated-particle-fuel"
@@ -195,7 +195,7 @@ title = "TRISO coated-particle failure (pressure-vessel failure under accident c
 origin = "outram-park"
 sources = [{ document = "rg-1.232-rev0", section = "App. C, MHTGR-DC 10 rationale" }]
 why = "boon-lay computes particle failure fractions; the RG names TRISO retention, not the failure mechanisms."
-status = "proposed"
+status = "approved"
 
 [[concept]]
 path = "02-nuclear-safety/fuel-system-design/triso-coated-particle-fuel/triso-fission-product-release"
@@ -203,7 +203,7 @@ title = "Fission-product diffusion and release from TRISO particles"
 origin = "outram-park"
 sources = [{ document = "rg-1.232-rev0", section = "App. C, MHTGR-DC 10 rationale; MHTGR-DC 16" }]
 why = "boon-lay's TRISO-ATOPS fork is the release model behind every outram-park HTGR source term."
-status = "proposed"
+status = "approved"
 
 [[concept]]
 path = "02-nuclear-safety/fuel-system-design/triso-coated-particle-fuel/triso-particle-conduction"
@@ -211,7 +211,7 @@ title = "Heat conduction through the TRISO particle layers"
 origin = "outram-park"
 sources = [{ document = "nureg-0800-4.2-rev3", section = "II.3.C.i (fuel and cladding temperature distribution)" }]
 why = "the innermost of the pebble-bed conduction scales; SRP 4.2's temperature distribution in TRISO geometry."
-status = "proposed"
+status = "approved"
 
 # ============================================================================
 # 02-nuclear-safety / nuclear-design

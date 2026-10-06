@@ -208,7 +208,7 @@ fn implementations_name_existing_concepts_crates_and_modules() {
         assert!(members.contains(&i.krate), "{}: not a workspace member under crates/", i.krate);
         assert!(seen.insert((i.concept.as_str(), i.krate.as_str(), i.module.as_str())), "duplicate leaf {} {}::{}", i.concept, i.krate, i.module);
         assert!(!i.title.is_empty() && !i.what.is_empty(), "{}::{}: title and what are required", i.krate, i.module);
-        assert!(matches!(i.status.as_str(), "proposed" | "approved"), "{}::{}: status {}", i.krate, i.module, i.status);
+        assert!(matches!(i.status.as_str(), "proposed" | "approved" | "deferred"), "{}::{}: status {}", i.krate, i.module, i.status);
         match i.kind.as_str() {
             "port" => assert!(i.upstream.is_some(), "{}::{}: a port names its upstream", i.krate, i.module),
             "new-work" => {}
