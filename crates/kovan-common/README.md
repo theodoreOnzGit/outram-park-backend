@@ -27,6 +27,7 @@ Everything is re-exported at the crate root (`kovan_common::KovanDocument`).
 | `code_map` | the workspace code map: `CodeMap`, `layout`, `svg` (moved from `kovan`, 2026-10-06) |
 | `call_graph` | the call graph `CallGraphDoc` (schema 2), `split` for the web, `merge` (moved from `kovan`, 2026-10-06) |
 | `mindmap_view`, `geometry`, `fuzzy` | star layout and canvas arithmetic, `Point`/`Bounds`, the finders' scorer (moved from `kovan`, 2026-10-06) |
+| `anchoring` | robust annotation anchoring ported from Hypothesis (#754): W3C `TextQuoteSelector` / `TextPositionSelector` and Hypothesis's `PageSelector`; `describe`/`anchor` for plain text, `describe_in_pages`/`anchor_in_pages` for extracted PDF pages; position, then exact quote, then Myers fuzzy quote match |
 
 ~~A plain data crate … with no pipeline logic~~ **UPDATED 2026-10-06** (#736):
 the last four modules are pure logic (layout, assembly, scoring), moved here
@@ -40,6 +41,44 @@ states that every public type is implemented and round-trip tested through
 recorded in [`DECISIONS.md`](DECISIONS.md).
 
 Dependencies: `serde`, `serde_json`, `toml`.
+
+### Anchoring (GitHub #754, 2026-10-07)
+
+`anchoring` keeps an annotation attached to its text after the text is
+edited, the way Hypothesis does. It is a port of the Hypothesis client's
+anchoring (`match-quote.ts`, `html.ts`, `pdf.ts`, `types.ts`,
+`util/normalize.ts`; BSD-2-Clause) and of the `approx-string-match`
+library it uses (Myers' bit-parallel edit-distance search; MIT). Commits
+and licences are in [`NOTICE`](NOTICE).
+
+- **Describe**: a text and a `char` range give a position selector and a
+  quote selector (the exact text plus 32 characters either side); paged
+  text adds a page selector.
+- **Anchor**: the position is tried first and accepted only if the text
+  there still equals the quote; then exact occurrences of the quote; then
+  the fuzzy search (at most `min(256, quote/2)` edits). Candidates are
+  ranked by upstream's score: 50 quote, 20 prefix, 20 suffix, 2 nearness
+  to the old position, normalised to [0, 1]. The result names the
+  strategy and the score, or is `Orphaned`. As upstream, there is no score
+  threshold; a caller can apply one.
+- **Paged text** ignores whitespace when matching, as upstream's PDF
+  path, because re-extraction moves spaces and line breaks.
+- Offsets are Unicode scalar values (`char`s), as the W3C model
+  specifies; Hypothesis counts UTF-16 code units.
+- Not ported: DOM-only selectors (`RangeSelector`, `MediaTimeSelector`,
+  `EPUBContentSelector`, `ShapeSelector`) and the NFKD normalisation in
+  `translateOffsets`. Deviations are listed in each file's module doc.
+
+V&V: upstream's own tests are ported with the same inputs and expected
+outputs (`src/anchoring/tests/upstream_*.rs`), and
+`src/anchoring/tests/kovan_uses.rs` checks kovan's three uses (a PDF
+quote after re-extraction, a note quote after edits around and inside it,
+a function's lines after insertions and light edits), with predictions
+written before the run and the measured scores. Two score predictions were
+refuted (an insertion of k characters in the context costs about 2k edits
+in upstream's fixed-length window); the anchors themselves were all
+correct. Nothing in kovan uses this module yet: wiring it into review
+stamps, `[[relation]]` anchors or PDF highlights is a maintainer decision.
 
 ## Example
 

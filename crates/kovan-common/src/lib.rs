@@ -71,6 +71,8 @@ pub mod fuzzy;
 /// The star (ring) layout and the scrollable-canvas arithmetic of kovan's
 /// map views. Moved here from `kovan::mindmap_view` on 2026-10-06.
 pub mod mindmap_view;
+/// Hypothesis-style robust annotation anchoring (W3C selectors, fuzzy re-anchoring; GitHub #754).
+pub mod anchoring;
 
 pub use document::{Author, DocumentType, KovanDocument, KovanDocumentBuilder, Visibility};
 pub use knowledge::{GeneratedArtifact, KovanBenchmark, KovanCorrelation, KovanValidationCase};
