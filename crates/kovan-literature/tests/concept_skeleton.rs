@@ -78,7 +78,9 @@ fn paths_are_unique_parents_exist_and_level_two_is_unnumbered() {
             assert!(seg.chars().all(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || c == '-'), "{}", n.path);
         }
         for x in &n.cross_links {
-            assert!(seen.contains(x.as_str()), "{}: cross-link {x} is not a node", n.path);
+            // A skeleton node may link to an L3 concept in the proposals file.
+            let in_proposals = include_str!("../src/concept_proposals.toml").contains(&format!("path = \"{x}\"\n"));
+            assert!(seen.contains(x.as_str()) || in_proposals, "{}: cross-link {x} is not a node or concept", n.path);
             assert!(x != &n.path, "{}: cross-links itself", n.path);
         }
     }
