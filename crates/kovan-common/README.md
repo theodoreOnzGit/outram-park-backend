@@ -24,6 +24,14 @@ Everything is re-exported at the crate root (`kovan_common::KovanDocument`).
 | `document` | `KovanDocument`, `KovanDocumentBuilder`, `Author`, `Visibility`, `DocumentType` |
 | `symbol` | `KovanSymbol`, `KovanRepository`, `Language` |
 | `knowledge` | `KovanCorrelation`, `KovanBenchmark`, `KovanValidationCase`, `GeneratedArtifact` |
+| `code_map` | the workspace code map: `CodeMap`, `layout`, `svg` (moved from `kovan`, 2026-10-06) |
+| `call_graph` | the call graph `CallGraphDoc` (schema 2), `split` for the web, `merge` (moved from `kovan`, 2026-10-06) |
+| `mindmap_view`, `geometry`, `fuzzy` | star layout and canvas arithmetic, `Point`/`Bounds`, the finders' scorer (moved from `kovan`, 2026-10-06) |
+
+~~A plain data crate … with no pipeline logic~~ **UPDATED 2026-10-06** (#736):
+the last four modules are pure logic (layout, assembly, scoring), moved here
+from `kovan` so the wasm Code Review UI (`kovan-web`) can use them; `kovan`
+re-exports each under its old path. Still no I/O and no GUI.
 
 Unlike its sibling pipeline crates, this one has no stub functions: `src/lib.rs`
 states that every public type is implemented and round-trip tested through

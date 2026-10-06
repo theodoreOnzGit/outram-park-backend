@@ -49,9 +49,19 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
         with:
           targets: wasm32-unknown-unknown
+          # web-kovan's call graph (crates/kovan-web/web/data.sh, gh:#745).
+          components: rust-analyzer
       - uses: Swatinem/rust-cache@v2
         with:
           key: pages
+      # web-kovan's per-crate call-graph cache: a crate is re-indexed only
+      # when its key changes (kovan-cli call-graph-keys). Saved every run,
+      # restored from the newest; never committed.
+      - uses: actions/cache@v4
+        with:
+          path: target/kovan-index
+          key: kovan-index-${{ github.sha }}
+          restore-keys: kovan-index-
       - uses: taiki-e/install-action@v2
         with:
           tool: mdbook

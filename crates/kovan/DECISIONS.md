@@ -2121,7 +2121,8 @@ maturity 0 greyed; required dependencies faint, lit for a selection. Later
 the same day: publish it on the Pages site as well, as an MVP.
 
 **What was built.**
-- `src/code_map/` (plain serde + std, no GUI): `CodeMap::from_cargo_metadata`
+- `src/code_map/` (plain serde + std, no GUI; **moved 2026-10-06** to
+  `kovan-common/src/code_map/`, #736, re-exported here): `CodeMap::from_cargo_metadata`
   (crates sorted by name, required internal edges only, every malformed tag
   reported), `placement_problems`, `layout::layout` and `layout::check`,
   `svg::render`. The integration test `tests/code_map_tags.rs` now reads the
@@ -2161,7 +2162,8 @@ live. Function paths must be `code-walk`'s, because review stamps (#739) key
 on them.
 
 **What was built.**
-- `src/call_graph/` (plain serde + std, no GUI, no I/O): the model
+- `src/call_graph/` (plain serde + std, no GUI, no I/O; **moved 2026-10-06**
+  to `kovan-common/src/call_graph/`, #736, re-exported here): the model
   (`CallGraphDoc`: crates → targets → modules → functions; `calls` with every
   call-site line; `module_calls` and `crate_calls` with site and pair counts;
   `outside`; `totals`), `CallGraphDoc::assemble` (sorts everything,
@@ -2234,7 +2236,8 @@ docs that cite the code, and 8, recent history); the data goes in
 `kovan-cli call-graph`, deterministic JSON (#743), the UI in web-kovan.
 
 **What was built.** Schema 2 only **adds** fields (listed in
-`src/call_graph/mod.rs`'s module doc); a schema-1 reader that ignores
+`src/call_graph/mod.rs`'s module doc, now `kovan-common/src/call_graph/mod.rs`
+since the 2026-10-06 move, #736); a schema-1 reader that ignores
 unknown fields reads it unchanged. New pure modules beside the model:
 `reach.rs`, `upstream.rs`, `citations.rs`, `history.rs`; the command reads
 the files and runs one `git log`.
@@ -2381,3 +2384,37 @@ target a Markdown **artifact** instead of a function.
   silently counted as supported.
 - `review/stamps.toml` is **not** created in the repository yet; the first
   stamp creates it from the documented header (`review_stamps::TEMPLATE`).
+
+## web-kovan: the Code Review UI in a wasm-clean crate; the pure modules move to kovan-common (2026-10-06, GH #736, #738, #745)
+
+**Maintainer direction** (#735, 2026-10-06): build the web view first, one
+egui Code Review UI with a `Mode` enum (`Web` read-only now, `Desktop`
+reserved for stamping, #740), on Pages at `code-review/`.
+
+**What moved.** `kovan` cannot build for wasm32 (gix, kopitiam, std::fs),
+so the pure modules the UI needs moved to `kovan-common` (the family's
+wasm-clean crate, decided on #743): `code_map` (model, layout, SVG),
+`call_graph` (model, module scanner, and schema 2's reach, upstream,
+citations, history), `mindmap_view`, `fuzzy`, and `Point`/`Bounds` (now
+`kovan_common::geometry`). `kovan` re-exports every one under its old path;
+`kovan::code_map` keeps `run_cargo_metadata`/`load_workspace`. Nothing else
+changed for callers. kovan-common is GPL-3.0-only while kovan is
+AGPL-3.0-only; the maintainer holds the copyright of the moved code (flagged
+in the #736 hand-off).
+
+**Why not reuse `dhoby_ghaut::web_demo`.** dhoby-ghaut depends on kovan and
+desktop kovan will embed kovan-web, so a dependency would be a cycle. The
+pan/zoom view, zoom buttons and canvas-size fix are ported into
+`kovan-web/src/ui/camera.rs` with the citation.
+
+**Data.** `call-graph --split-dir` writes one compact file per crate without
+source text (the page fetches the file at the built commit), `index.json`
+with the review-stamp states, `search.json`; `call-graph --merge` merges
+single-crate documents into the bytes of one run; `call-graph-keys` gives
+each crate's cache key for the incremental site build (#745).
+
+**Code map layout** (#734, same day): the eight topic boxes wrap onto two
+bands of four, each box labels its rows, rows align within a band, and row
+and fidelity labels carry their meaning on hover. Real workspace: 6779 x 958
+(7.1:1) before, 4870 x 1288 (3.8:1) after, not the hoped-for 2:1: the first
+band holds the two widest boxes (neutronics, thermal-hydraulics).
