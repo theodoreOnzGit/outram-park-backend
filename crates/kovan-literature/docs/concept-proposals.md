@@ -657,26 +657,33 @@
   - sources: `nureg-0800-toc-rev6` 15.0.2; `nureg-1537-part1` 13.2 Accident Analysis and Determination of Consequences
 - [ ] **Increase in heat removal by the secondary system** · `increase-in-heat-removal` · origin `nrc`
   - sources: `nureg-0800-toc-rev6` 15.1.1-15.1.5 (feedwater temperature and flow, steam flow, relief valve opening, steam system piping failures)
-  - **note for review:** The SRP ToC lists the 15.1-15.9 events but prints no category titles; the category titles here are composed from the listed events and should be checked against SRP 15.0.
+  - **note for review:** The SRP ToC lists the 15.1-15.9 events but prints no category titles; the category titles here are composed from the listed events and should be checked against SRP 15.0. Category title composed from the listed SRP events; to verify against SRP 15.0 (not in the corpus).
 - [ ] **Decrease in heat removal by the secondary system (incl. loss of normal AC power)** · `decrease-in-heat-removal` · origin `nrc`
   - sources: `nureg-0800-toc-rev6` 15.2.1-15.2.8; `nureg-1537-part1` 13.1.7 Loss of Normal Electrical Power
+  - **note for review:** Category title composed from the listed SRP events; to verify against SRP 15.0 (not in the corpus).
 - [ ] **Decrease in reactor coolant flow** · `decrease-in-reactor-coolant-flow` · origin `nrc`
   - sources: `nureg-0800-toc-rev6` 15.3.1-15.3.4; `nureg-1537-part1` 13.1.4 Loss of Coolant Flow
+  - **note for review:** Category title composed from the listed SRP events; to verify against SRP 15.0 (not in the corpus).
 - [ ] **Reactivity and power distribution anomalies (rod withdrawal, ejection, drop; insertion of excess reactivity)** · `reactivity-and-power-distribution-anomalies` · origin `nrc`
   - sources: `nureg-0800-toc-rev6` 15.4.1-15.4.9; `nureg-1537-part1` 13.1.2 Insertion of Excess Reactivity
+  - **note for review:** Category title composed from the listed SRP events; to verify against SRP 15.0 (not in the corpus).
   - proposed kovan-concept tags:
     - [ ] add `//! kovan-concept: 02-nuclear-safety/accident-analysis/reactivity-and-power-distribution-anomalies` to `crates/nee_soon/src/xin_wang_sp3_workflow/mod.rs`: Control-rod-removal transient (Xin Wang SP3 workflow). Four-stage multiphysics pipeline reproducing a published rod-removal transient. (new work, from Xin Wang (2018) UC Berkeley dissertation, Fig. 4.29)
 - [ ] **Increase in reactor coolant inventory** · `increase-in-reactor-coolant-inventory` · origin `nrc`
   - sources: `nureg-0800-toc-rev6` 15.5.1-15.5.2
+  - **note for review:** Category title composed from the listed SRP events; to verify against SRP 15.0 (not in the corpus).
 - [ ] **Decrease in reactor coolant inventory (loss of coolant accidents)** · `decrease-in-reactor-coolant-inventory` · origin `nrc`
   - sources: `nureg-0800-toc-rev6` 15.6.1-15.6.5; `nureg-1537-part1` 13.1.3 Loss of Coolant
+  - **note for review:** Category title composed from the listed SRP events; to verify against SRP 15.0 (not in the corpus).
   - proposed kovan-concept tags:
     - [ ] add `//! kovan-concept: 02-nuclear-safety/accident-analysis/decrease-in-reactor-coolant-inventory` to `crates/tampines/src/critical_flow/mod.rs`: Choked two-phase flow. HEM critical flow for blowdown (Edwards, Marviken). (new work)
     - [ ] add `//! kovan-concept: 02-nuclear-safety/accident-analysis/decrease-in-reactor-coolant-inventory` to `crates/sembawang/src/htr10.rs`: HTR-10 depressurised loss of forced cooling. Joins boon-lay fuel failure and TRISO-ATOPS release on the HTR-10 DLOFC. (new work)
 - [ ] **Radioactive release from a subsystem or component; mishandling or malfunction of fuel** · `releases-from-subsystems-and-fuel-handling` · origin `nrc`
   - sources: `nureg-0800-toc-rev6` 15.7.3-15.7.5; `nureg-1537-part1` 13.1.5 Mishandling or Malfunction of Fuel
+  - **note for review:** Category title composed from the listed SRP events; to verify against SRP 15.0 (not in the corpus).
 - [ ] **Anticipated transients without scram** · `anticipated-transients-without-scram` · origin `nrc`
   - sources: `nureg-0800-toc-rev6` 15.8
+  - **note for review:** Category title composed from the listed SRP events; to verify against SRP 15.0 (not in the corpus).
 - [ ] **Maximum hypothetical accident** · `maximum-hypothetical-accident` · origin `nrc`
   - sources: `nureg-1537-part1` 13.1.1
 - [ ] **External events; experiment malfunction; mishandling or malfunction of equipment** · `external-events-and-experiment-malfunction` · origin `nrc`
