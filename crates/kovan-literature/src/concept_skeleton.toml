@@ -313,6 +313,33 @@ title = "Legal framework"
 sources = [{ document = "iaea-ng-g-3.1-rev1", section = "3.5", page = "25" }]
 
 [[node]]
+path = "05-legal-framework/nuclear-legislation"
+title = "Nuclear legislation (safety, security, safeguards and civil liability)"
+sources = [{ document = "iaea-ng-g-3.1-rev1", section = "3.5", page = "25" }]
+
+[[node]]
+path = "05-legal-framework/international-legal-instruments"
+title = "International legal instruments (conventions adopted under IAEA auspices)"
+sources = [{ document = "iaea-ng-g-3.1-rev1", section = "3.5, Box 1", page = "26" }]
+
+[[node]]
+path = "05-legal-framework/independent-regulatory-body"
+title = "Independent regulatory body (separation of regulatory and promotional functions)"
+sources = [{ document = "iaea-ng-g-3.1-rev1", section = "3.5", page = "25" }]
+cross_links = ["07-regulatory-framework"]
+
+[[node]]
+path = "05-legal-framework/civil-liability-for-nuclear-damage"
+title = "Civil liability for nuclear damage (Vienna, Paris, CSC; U.S. financial protection)"
+sources = [{ document = "iaea-ng-g-3.1-rev1", section = "3.5, Box 1", page = "26" }, { document = "10cfr53", section = "§ 53.1710-53.1730 (financial protection under part 140)" }]
+cross_links = ["04-funding-and-financing/financial-qualifications/financial-protection-and-accident-insurance"]
+
+[[node]]
+path = "05-legal-framework/licensee-obligations"
+title = "Licensee obligations (deliberate misconduct, employee protection, completeness and accuracy, violations, license transfers, exemptions)"
+sources = [{ document = "10cfr50", section = "§ 50.5, 50.7, 50.9, 50.110, 50.80, 50.12" }, { document = "10cfr52", section = "§ 52.4-52.7" }, { document = "10cfr53", section = "§ 53.050-53.080, 53.1570" }]
+
+[[node]]
 path = "06-safeguards"
 title = "Safeguards"
 sources = [{ document = "iaea-ng-g-3.1-rev1", section = "3.6", page = "28" }]
@@ -376,6 +403,22 @@ sources = [{ document = "iaea-ng-g-3.1-rev1", section = "§3.10, p. 38" }]
 path = "11-stakeholder-involvement"
 title = "Stakeholder involvement"
 sources = [{ document = "iaea-ng-g-3.1-rev1", section = "3.11", page = "42" }]
+
+[[node]]
+path = "11-stakeholder-involvement/public-information-and-communication"
+title = "Public information and communication (surveys, information tools, benefits and risks)"
+sources = [{ document = "iaea-ng-g-3.1-rev1", section = "3.11.1", page = "43" }]
+
+[[node]]
+path = "11-stakeholder-involvement/stakeholder-involvement-programmes"
+title = "Stakeholder involvement programmes (government, owner/operator, regulatory body; neighbouring countries)"
+sources = [{ document = "iaea-ng-g-3.1-rev1", section = "3.11.1-3.11.2", page = "43" }]
+
+[[node]]
+path = "11-stakeholder-involvement/public-participation-in-licensing"
+title = "Public participation in licensing (public inspection of applications, notice for comment, hearings, ACRS)"
+sources = [{ document = "10cfr50", section = "§ 50.39, 50.58, 50.91" }, { document = "10cfr52", section = "§ 52.21, 52.85, 52.163" }, { document = "10cfr53", section = "§ 53.1121, 53.1155" }]
+cross_links = ["07-regulatory-framework/reactor-licensing"]
 
 [[node]]
 path = "12-site-and-supporting-facilities"
@@ -643,3 +686,26 @@ sources = [{ document = "iaea-ng-g-3.1-rev1", section = "3.18", page = "58" }]
 path = "19-procurement"
 title = "Procurement"
 sources = [{ document = "iaea-ng-g-3.1-rev1", section = "3.19", page = "60" }]
+
+[[node]]
+path = "19-procurement/procurement-capability-and-policy"
+title = "Procurement capability and policy"
+sources = [{ document = "iaea-ng-g-3.1-rev1", section = "3.19.1-3.19.3", page = "60" }]
+
+[[node]]
+path = "19-procurement/supplier-quality-and-specifications"
+title = "Supplier quality and specifications"
+sources = [{ document = "iaea-ng-g-3.1-rev1", section = "3.19", page = "60" }, { document = "10cfr50", section = "Appendix B, IV. Procurement Document Control; VII. Control of Purchased Material, Equipment, and Services" }]
+cross_links = ["07-regulatory-framework/quality-assurance"]
+
+[[node]]
+path = "19-procurement/reporting-of-defects-and-noncompliance"
+title = "Reporting of defects and noncompliance"
+sources = [{ document = "10cfr50", section = "§ 50.55(e)" }, { document = "10cfr53", section = "§ 53.605 Reporting of defects and noncompliance" }]
+cross_links = ["18-industrial-involvement"]
+
+[[node]]
+path = "19-procurement/emergency-procurement"
+title = "Emergency procurement (urgent supply; pre-positioned emergency equipment)"
+sources = [{ document = "iaea-ng-g-3.1-rev1", section = "3.19.3", page = "61" }]
+cross_links = ["14-emergency-planning"]

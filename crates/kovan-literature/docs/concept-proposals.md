@@ -1155,7 +1155,7 @@
 
 - [ ] `16-nuclear-fuel-cycle/fuel-cycle-scenarios`: `kaki-bukit` `agents`
 
-## L2 nodes with no proposed concept (34)
+## L2 nodes with no proposed concept (46)
 
 Left empty on purpose: a single short source chapter, a fuel-cycle-facility or environmental-review chapter with no outram-park work and no subsection grain worth splitting, or an L2 whose only source is the IAEA text. They stay greyed until content arrives.
 
@@ -1163,8 +1163,16 @@ Left empty on purpose: a single short source chapter, a fuel-cycle-facility or e
 - `02-nuclear-safety/experimental-facilities-and-utilization` (Experimental facilities and utilization)
 - `03-management/organization-and-administration` (Organization and administration)
 - `03-management/management-measures` (Management measures)
+- `05-legal-framework/nuclear-legislation` (Nuclear legislation (safety, security, safeguards and civil liability))
+- `05-legal-framework/international-legal-instruments` (International legal instruments (conventions adopted under IAEA auspices))
+- `05-legal-framework/independent-regulatory-body` (Independent regulatory body (separation of regulatory and promotional functions))
+- `05-legal-framework/civil-liability-for-nuclear-damage` (Civil liability for nuclear damage (Vienna, Paris, CSC; U.S. financial protection))
+- `05-legal-framework/licensee-obligations` (Licensee obligations (deliberate misconduct, employee protection, completeness and accuracy, violations, license transfers, exemptions))
 - `06-safeguards/material-control-and-accounting` (Material control and accounting)
 - `07-regulatory-framework/other-license-considerations` (Other license considerations)
+- `11-stakeholder-involvement/public-information-and-communication` (Public information and communication (surveys, information tools, benefits and risks))
+- `11-stakeholder-involvement/stakeholder-involvement-programmes` (Stakeholder involvement programmes (government, owner/operator, regulatory body; neighbouring countries))
+- `11-stakeholder-involvement/public-participation-in-licensing` (Public participation in licensing (public inspection of applications, notice for comment, hearings, ACRS))
 - `13-environmental-protection/environmental-impact-statement` (Environmental impact statement)
 - `13-environmental-protection/environmental-description` (Environmental description)
 - `13-environmental-protection/plant-description` (Plant description)
@@ -1193,3 +1201,7 @@ Left empty on purpose: a single short source chapter, a fuel-cycle-facility or e
 - `16-nuclear-fuel-cycle/chemical-process-safety` (Chemical process safety)
 - `16-nuclear-fuel-cycle/fire-safety` (Fire safety)
 - `16-nuclear-fuel-cycle/heu-to-leu-conversion` (HEU to LEU conversion)
+- `19-procurement/procurement-capability-and-policy` (Procurement capability and policy)
+- `19-procurement/supplier-quality-and-specifications` (Supplier quality and specifications)
+- `19-procurement/reporting-of-defects-and-noncompliance` (Reporting of defects and noncompliance)
+- `19-procurement/emergency-procurement` (Emergency procurement (urgent supply; pre-positioned emergency equipment))
