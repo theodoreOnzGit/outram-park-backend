@@ -210,10 +210,15 @@ impl CodeReview {
                     self.collapsed.insert(file);
                 }
             }
+            // Left click opens the source panel, which carries the
+            // function's actions too: the maintainer could not reach the
+            // right-click menu in the browser (2026-10-06). It stays as well.
             Hit::Function(id) => {
                 let mut p = self.place.clone();
-                p.selected = Some(id);
+                p.selected = Some(id.clone());
                 self.replace(p);
+                self.source = Some(id);
+                self.sync_hash();
             }
             Hit::FnToggle(id, dir) => {
                 let mut p = self.place.clone();
@@ -229,7 +234,7 @@ impl CodeReview {
 
     fn menu_ui(&mut self, ui: &mut egui::Ui, snap: &Snap) {
         let Some(h) = self.menu.clone() else {
-            ui.weak("Right-click or long-press a card");
+            ui.weak("Click a card for its panel");
             return;
         };
         let Some(map) = snap.map.clone() else { return };
@@ -244,26 +249,7 @@ impl CodeReview {
                     self.sync_hash();
                     ui.close();
                 }
-                if let Level::Module { file, .. } = &self.place.level {
-                    if model::file_of(&id) != file && ui.button("Open its module").clicked() {
-                        self.open_function(&id, false, &map);
-                        ui.close();
-                    }
-                }
-                for (dir, label) in [(Dir::Callees, "callees"), (Dir::Callers, "callers")] {
-                    let on = self.place.expanded.contains(&(id.clone(), dir));
-                    if ui.button(format!("{} {label}", if on { "Fold" } else { "Unfold" })).clicked() {
-                        self.click(Hit::FnToggle(id.clone(), dir), snap);
-                        ui.close();
-                    }
-                }
-                if ui.button("Show walks through here").clicked() {
-                    self.status = Some("Walkthroughs are not published yet (#741); none pass through this function.".into());
-                    ui.close();
-                }
-                if ui.button("Copy link").clicked() {
-                    let link = crate::platform::url_with_hash(&model::DeepLink::Function { id: id.clone(), source: false }.to_hash());
-                    ui.ctx().copy_text(link);
+                if self.function_actions(ui, &id, snap, &map) {
                     ui.close();
                 }
                 // No Review here: web-kovan is read-only (stamping is desktop kovan's, #740).
@@ -292,6 +278,37 @@ impl CodeReview {
                 ui.close();
             }
         }
+    }
+
+    /// A function's actions, as buttons: shared by the right-click menu and
+    /// the source panel's header (reached by a left click). True when one
+    /// was taken.
+    pub(crate) fn function_actions(&mut self, ui: &mut egui::Ui, id: &str, snap: &Snap, map: &CodeMap) -> bool {
+        let mut taken = false;
+        if let Level::Module { file, .. } = &self.place.level {
+            if model::file_of(id) != file && ui.button("Open its module").clicked() {
+                self.open_function(id, false, map);
+                taken = true;
+            }
+        }
+        for (dir, label) in [(Dir::Callees, "callees"), (Dir::Callers, "callers")] {
+            let on = self.place.expanded.contains(&(id.to_string(), dir));
+            let tip = if on { "Fold them back on the canvas" } else { "Unfold them on the canvas" };
+            if ui.button(format!("{} {label}", if on { "Fold" } else { "Unfold" })).on_hover_text(tip).clicked() {
+                self.click(Hit::FnToggle(id.to_string(), dir), snap);
+                taken = true;
+            }
+        }
+        if ui.button("Show walks through here").clicked() {
+            self.status = Some("Walkthroughs are not published yet (#741); none pass through this function.".into());
+            taken = true;
+        }
+        if ui.button("Copy link").clicked() {
+            let link = crate::platform::url_with_hash(&model::DeepLink::Function { id: id.to_string(), source: false }.to_hash());
+            ui.ctx().copy_text(link);
+            taken = true;
+        }
+        taken
     }
 
     // ---- the code map -----------------------------------------------------

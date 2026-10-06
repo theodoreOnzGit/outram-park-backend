@@ -4,6 +4,11 @@
 //! tab on the function's deep link; a full-screen sheet with "< Back" on a
 //! phone.
 //!
+//! Opened by a left click on a function card, with the function's actions
+//! in its header: Callees / Callers lists (a pick opens that function's
+//! source), unfold them on the canvas, open its module, copy link.
+//! A highlighted call opens the called function on a left click.
+//!
 //! Right-click (long-press on touch) an identifier for the LSP-style menu:
 //! Go to definition, Go to type definition, Find references, Go to
 //! implementations, Callers / Callees. Only Callers / Callees (and "go to"
@@ -80,6 +85,32 @@ impl CodeReview {
             ui.weak("Loading the function's data…");
             return;
         };
+        // The function's actions, on a left click (2026-10-06): the same
+        // buttons as the canvas's right-click menu.
+        if let (Some(map), Some(sl)) = (snap.map.clone(), slice.as_ref()) {
+            let facts = snap.facts();
+            let lists = [("Callees", facts.callees(&map, sl, &id)), ("Callers", facts.callers(sl, &id))];
+            let mut goto: Option<String> = None;
+            ui.horizontal_wrapped(|ui| {
+                for (label, list) in &lists {
+                    ui.add_enabled_ui(!list.is_empty(), |ui| {
+                        ui.menu_button(format!("{label} ({}) ▾", list.len()), |ui| {
+                            for c in list {
+                                if ui.button(model::short_name(c)).on_hover_text(c).clicked() {
+                                    goto = Some(c.clone());
+                                    ui.close();
+                                }
+                            }
+                        });
+                    });
+                }
+                self.function_actions(ui, &id, snap, &map);
+            });
+            if let Some(target) = goto {
+                self.open_function(&target, true, &map);
+                return;
+            }
+        }
         ui.label(RichText::new(format!("{file}:{}-{}", f.start_line, f.end_line)).small().weak());
         // Pages that cite this function (#746): code walks and concept tags.
         if !f.cited_by.is_empty() {
