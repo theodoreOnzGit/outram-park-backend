@@ -9,7 +9,12 @@
 //! - `topic`, the box kovan's code map draws it in;
 //! - `fidelity`, its order in that box (1 = highest fidelity), or `"all"`
 //!   for a crate spanning every fidelity level (raffles);
-//! - optionally `maturity = "placeholder"`, drawn greyed.
+//! - `maturity`, 0 concept, 1 AI draft, 2 AI V&V, 3 human reviewed, 4 human
+//!   V&V (ready): the crate's **lowest** part (maintainer, 2026-10-06: "by
+//!   default, we go with lowest level to be fair");
+//! - optionally `[[package.metadata.kovan.maturity_modules]]`, the modules
+//!   rated higher than the crate, each with `module` (a path from the
+//!   library root, `a::b`), `level` and `why`.
 //!
 //! What is checked, reading the tags through `cargo metadata` so nothing is
 //! copied by hand:
@@ -19,7 +24,9 @@
 //! - no crate sits in a lower row than a required dependency (optional and
 //!   dev-dependencies do not count: the row is what the crate needs to
 //!   build);
-//! - no two crates share a slot (topic, row, fidelity).
+//! - no two crates share a slot (topic, row, fidelity);
+//! - every listed module exists in the crate's source, is rated above the
+//!   crate itself, and says why.
 
 use std::collections::{BTreeMap, BTreeSet};
 use std::path::PathBuf;
@@ -81,8 +88,30 @@ fn every_crate_is_placed_on_the_code_map_consistently_with_its_dependencies() {
         if topic == "utility" {
             assert!(row <= 1, "{name}: a utility sits in row 0 or 1");
         }
-        if let Some(m) = t.get("maturity") {
-            assert_eq!(m.as_str(), Some("placeholder"), "{name}: maturity");
+        let maturity = t["maturity"]
+            .as_u64()
+            .filter(|m| *m <= 4)
+            .unwrap_or_else(|| panic!("{name}: maturity must be 0..=4"));
+        if let Some(list) = t.get("maturity_modules") {
+            let lib = p["targets"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .find(|t| t["kind"].as_array().unwrap().iter().any(|k| k == "lib"))
+                .unwrap_or_else(|| panic!("{name}: maturity_modules needs a library"));
+            let src = PathBuf::from(lib["src_path"].as_str().unwrap());
+            let base = src.parent().unwrap();
+            for m in list.as_array().unwrap() {
+                let module = m["module"].as_str().unwrap_or_else(|| panic!("{name}: module"));
+                let level = m["level"].as_u64().unwrap_or_else(|| panic!("{name}: {module} level"));
+                let why = m["why"].as_str().unwrap_or_default();
+                assert!(level <= 4 && level > maturity, "{name}: {module} level {level} must be above the crate's {maturity}");
+                assert!(!why.trim().is_empty(), "{name}: {module} needs a why");
+                let rel: PathBuf = module.split("::").collect();
+                let exists = base.join(&rel).with_extension("rs").is_file()
+                    || base.join(&rel).join("mod.rs").is_file();
+                assert!(exists, "{name}: module {module} not found under {}", base.display());
+            }
         }
         tags.insert(
             name,

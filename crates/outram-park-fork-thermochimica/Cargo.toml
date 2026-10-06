@@ -17,11 +17,14 @@ exclude = ["docs", "upstream_source/thermochimica"]
 # decisions 2026-10-06). row: degree of integration, 0-1 utilities and
 # standalone crates, 2 domain solvers, 3 coupled multiphysics, 4 integrated
 # GUI apps. topic: the box it is drawn in. fidelity: its order in that box,
-# 1 = highest fidelity (longest crunch time, fewest assumptions).
+# 1 = highest fidelity (longest crunch time, fewest assumptions). maturity:
+# 0 concept, 1 AI draft, 2 AI V&V, 3 human reviewed, 4 human V&V (ready); the
+# crate's LOWEST part, with higher-rated modules listed below it.
 [package.metadata.kovan]
 row = 2
 topic = "chemistry"
 fidelity = 1
+maturity = 1
 
 [dependencies]
 uom.workspace = true

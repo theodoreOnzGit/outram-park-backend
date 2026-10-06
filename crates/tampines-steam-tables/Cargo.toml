@@ -33,11 +33,79 @@ exclude = [
 # decisions 2026-10-06). row: degree of integration, 0-1 utilities and
 # standalone crates, 2 domain solvers, 3 coupled multiphysics, 4 integrated
 # GUI apps. topic: the box it is drawn in. fidelity: its order in that box,
-# 1 = highest fidelity (longest crunch time, fewest assumptions).
+# 1 = highest fidelity (longest crunch time, fewest assumptions). maturity:
+# 0 concept, 1 AI draft, 2 AI V&V, 3 human reviewed, 4 human V&V (ready); the
+# crate's LOWEST part, with higher-rated modules listed below it.
 [package.metadata.kovan]
 row = 2
 topic = "thermal-hydraulics"
 fidelity = 7
+maturity = 2
+
+[[package.metadata.kovan.maturity_modules]]
+module = "constants"
+level = 3
+why = "IAPWS-IF97 property code reviewed by the maintainer (maintainer, 2026-10-06)"
+
+[[package.metadata.kovan.maturity_modules]]
+module = "region_1_subcooled_liquid"
+level = 3
+why = "IAPWS-IF97 property code reviewed by the maintainer (maintainer, 2026-10-06)"
+
+[[package.metadata.kovan.maturity_modules]]
+module = "region_2_vapour"
+level = 3
+why = "IAPWS-IF97 property code reviewed by the maintainer (maintainer, 2026-10-06)"
+
+[[package.metadata.kovan.maturity_modules]]
+module = "region_3_single_phase_plus_supercritical_steam"
+level = 3
+why = "IAPWS-IF97 property code reviewed by the maintainer (maintainer, 2026-10-06)"
+
+[[package.metadata.kovan.maturity_modules]]
+module = "region_4_vap_liq_equilibrium"
+level = 3
+why = "IAPWS-IF97 property code reviewed by the maintainer (maintainer, 2026-10-06)"
+
+[[package.metadata.kovan.maturity_modules]]
+module = "region_5_steam_at_800_plus_degc"
+level = 3
+why = "IAPWS-IF97 property code reviewed by the maintainer (maintainer, 2026-10-06)"
+
+[[package.metadata.kovan.maturity_modules]]
+module = "backward_eqn_ph_region_1_to_4"
+level = 3
+why = "IAPWS-IF97 property code reviewed by the maintainer (maintainer, 2026-10-06)"
+
+[[package.metadata.kovan.maturity_modules]]
+module = "backward_eqn_ps_region_1_to_4"
+level = 3
+why = "IAPWS-IF97 property code reviewed by the maintainer (maintainer, 2026-10-06)"
+
+[[package.metadata.kovan.maturity_modules]]
+module = "backward_eqn_hs_region_1_to_4"
+level = 3
+why = "IAPWS-IF97 property code reviewed by the maintainer (maintainer, 2026-10-06)"
+
+[[package.metadata.kovan.maturity_modules]]
+module = "dynamic_viscosity"
+level = 3
+why = "IAPWS-IF97 property code reviewed by the maintainer (maintainer, 2026-10-06)"
+
+[[package.metadata.kovan.maturity_modules]]
+module = "thermal_conductivity"
+level = 3
+why = "IAPWS-IF97 property code reviewed by the maintainer (maintainer, 2026-10-06)"
+
+[[package.metadata.kovan.maturity_modules]]
+module = "surface_tension"
+level = 3
+why = "IAPWS-IF97 property code reviewed by the maintainer (maintainer, 2026-10-06)"
+
+[[package.metadata.kovan.maturity_modules]]
+module = "dielectric_constant"
+level = 3
+why = "IAPWS-IF97 property code reviewed by the maintainer (maintainer, 2026-10-06)"
 
 [dependencies]
 approx.workspace = true
