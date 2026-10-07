@@ -194,10 +194,26 @@ impl FileIndex {
 
     /// The call-shaped tokens inside `decl`'s body, in source order.
     pub(crate) fn candidates(&self, decl: &FnDecl) -> Vec<Candidate> {
-        let Some((start, end)) = decl.body else {
+        let Some((_, end)) = decl.body else {
             return Vec::new();
         };
         let locals = local_names(&self.code, decl.line, end);
+        let mut out = Vec::new();
+        for (ln, line) in self.body_code(decl) {
+            out.extend(call_candidates(&line, ln, &locals));
+        }
+        out
+    }
+
+    /// `decl`'s body as the scanner reads it: `(0-based line, text)` with
+    /// comments, literals, `use` statements and everything up to the
+    /// body's `{` blanked to spaces (columns kept). Empty for a bodiless
+    /// declaration. The SCIP backend (#757) reads operator and path
+    /// references only where this text is not blank.
+    pub(crate) fn body_code(&self, decl: &FnDecl) -> Vec<(u32, String)> {
+        let Some((start, end)) = decl.body else {
+            return Vec::new();
+        };
         let mut out = Vec::new();
         let mut in_use = false;
         for ln in start..=end {
@@ -207,8 +223,7 @@ impl FileIndex {
             // Only what follows the body's `{` on its first line: the
             // signature (`fn f(g: impl Fn(u32))`) holds no calls.
             let skip = if ln == start { decl.body_col as usize + 1 } else { 0 };
-            let line = blank_use_statements(line, skip, &mut in_use);
-            out.extend(call_candidates(&line, ln, &locals));
+            out.push((ln, blank_use_statements(line, skip, &mut in_use)));
         }
         out
     }

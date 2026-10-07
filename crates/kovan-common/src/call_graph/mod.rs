@@ -60,6 +60,24 @@
 //!   cited_functions, citations, history_files}
 //! ```
 //!
+//! # Schema 3 (2026-10-07, GitHub #757): additions only
+//!
+//! ```text
+//! Call.kind "operator"           a call through an operator (`a + b`,
+//!                                `v[i]`, `-x`) to a workspace impl of the
+//!                                operator trait; only the SCIP backend
+//!                                finds these
+//! CallGraphDoc.generator         {backend: lsp|scip, rust_analyzer}: how the
+//!                                calls were resolved, and the rust-analyzer
+//!                                that resolved them (SCIP's output is not
+//!                                stable across versions)
+//! ```
+//!
+//! A schema-2 document reads unchanged (test
+//! `schema_2_documents_still_load`, on a document written by the schema-2
+//! code); a schema-2 *reader* meets an unknown `"operator"` kind, which is
+//! why the version moved.
+//!
 //! # Function ids
 //!
 //! A function's `id` is `code-walk`'s form, `path/to/file.rs::name` for a
@@ -81,6 +99,7 @@
 //! machine-specific (absolute paths, timings) is stored.
 
 pub mod citations;
+pub mod compare;
 pub mod history;
 pub mod modules;
 pub mod reach;
@@ -93,8 +112,14 @@ use serde::{Deserialize, Serialize};
 
 /// Version of the JSON layout; bumped on any breaking change.
 /// Schema 2 (2026-10-06, #746) only adds fields; a schema-1 reader that
-/// ignores unknown fields reads it unchanged.
-pub const SCHEMA_VERSION: u32 = 2;
+/// ignores unknown fields reads it unchanged. Schema 3 (2026-10-07, #757)
+/// adds the `operator` call kind and `generator`; schema-2 documents still
+/// load ([`OLDEST_READABLE_SCHEMA`]).
+pub const SCHEMA_VERSION: u32 = 3;
+
+/// The oldest schema this model still reads: every version since only added
+/// fields and values.
+pub const OLDEST_READABLE_SCHEMA: u32 = 1;
 
 /// The whole graph for one scope of crates.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -116,6 +141,28 @@ pub struct CallGraphDoc {
     /// Schema 2: the base URL that `Citation::site` paths are relative to.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub site_base: Option<String>,
+    /// Schema 3: how the calls were resolved, and by which rust-analyzer.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub generator: Option<Generator>,
+}
+
+/// Schema 3 (#757): what resolved the calls.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct Generator {
+    pub backend: Backend,
+    /// The rust-analyzer that resolved them: `rust-analyzer --version` for
+    /// the LSP backend, the index's own tool name and version for SCIP.
+    pub rust_analyzer: String,
+}
+
+/// Where call targets come from.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum Backend {
+    /// rust-analyzer's LSP, one definition query per call-shaped token.
+    Lsp,
+    /// One `rust-analyzer scip` index of the workspace (#757).
+    Scip,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -268,6 +315,9 @@ pub enum CallKind {
     Call,
     /// A function passed by value (`.map(f)`), resolved by rust-analyzer.
     FnValue,
+    /// Schema 3 (#757): an operator (`a + b`, `v[i]`, `-x`) that resolves
+    /// to a workspace `impl` of the operator trait (SCIP backend only).
+    Operator,
 }
 
 /// `from` calls `to` at each of `lines` (1-based, in `from`'s file).
@@ -525,6 +575,7 @@ impl CallGraphDoc {
             totals,
             commit: None,
             site_base: None,
+            generator: None,
         };
         reach::fill(&mut doc);
         let (mut by_tests, mut by_examples) = (0, 0);
@@ -559,6 +610,9 @@ impl CallGraphDoc {
         // Schema 2: every run records the same HEAD and site base.
         let commit = docs.iter().find_map(|d| d.commit.clone());
         let site_base = docs.iter().find_map(|d| d.site_base.clone());
+        // Schema 3: the first generator; [`CallGraphDoc::mixed_generators`]
+        // tells a caller when the documents disagree.
+        let generator = docs.iter().find_map(|d| d.generator.clone());
         for d in docs {
             external += d.totals.external_calls;
             for c in d.crates {
@@ -585,7 +639,19 @@ impl CallGraphDoc {
         let mut doc = CallGraphDoc::assemble(crates, raw, outside, external);
         doc.commit = commit;
         doc.site_base = site_base;
+        doc.generator = generator;
         doc
+    }
+
+    /// True when `docs` were resolved by different backends or
+    /// rust-analyzer versions, so a [`CallGraphDoc::merge`] of them would
+    /// record only the first.
+    pub fn mixed_generators(docs: &[CallGraphDoc]) -> bool {
+        let mut g = docs.iter().map(|d| &d.generator);
+        match g.next() {
+            Some(first) => g.any(|x| x != first),
+            None => false,
+        }
     }
 
     /// Pretty JSON with a trailing newline: the file `kovan-cli call-graph`
@@ -933,6 +999,60 @@ mod tests {
                 .unwrap()
                 .to_json()
         );
+    }
+
+    /// Methodology: `tests/data/call_graph_schema2_bishan.json` is a real
+    /// document written by the schema-2 code (`kovan-cli call-graph --crates
+    /// bishan` at commit c73539fa75, 2026-10-07, before #757). It must load
+    /// into the schema-3 model with every field intact (re-serialising it
+    /// gives the same JSON except `schema`, which the file states as 2), and
+    /// merging it alone must give the same calls.
+    ///
+    /// Result (2026-10-07): passes; 6 functions, 6 calls, 2 unresolved.
+    #[test]
+    fn schema_2_documents_still_load() {
+        let text = include_str!("../../tests/data/call_graph_schema2_bishan.json");
+        let doc: CallGraphDoc = serde_json::from_str(text).expect("schema-2 document loads");
+        assert_eq!(doc.schema, 2);
+        assert!(doc.schema >= OLDEST_READABLE_SCHEMA && doc.schema < SCHEMA_VERSION);
+        assert!(doc.generator.is_none());
+        assert_eq!((doc.totals.functions, doc.totals.calls, doc.totals.unresolved), (6, 6, 2));
+        assert_eq!(doc.to_json(), text, "nothing lost or added on a round trip");
+        let merged = CallGraphDoc::merge(vec![doc.clone()]);
+        assert_eq!(merged.calls, doc.calls);
+        assert_eq!(merged.schema, SCHEMA_VERSION);
+    }
+
+    /// Methodology: an `operator` call and a `generator` survive a JSON
+    /// round trip, and documents from two backends are flagged as mixed.
+    ///
+    /// Result (2026-10-07): passes.
+    #[test]
+    fn operator_calls_and_generator_round_trip() {
+        let (crates, mut calls, outside) = fixture();
+        calls.push(RawCall {
+            from: "crates/app/src/run.rs::go".into(),
+            to: "crates/core/src/lib.rs::leaf".into(),
+            kind: CallKind::Operator,
+            line: 4,
+        });
+        let mut doc = CallGraphDoc::assemble(crates, calls, outside, 0);
+        doc.generator = Some(Generator {
+            backend: Backend::Scip,
+            rust_analyzer: "rust-analyzer 1.98.0".into(),
+        });
+        let json = doc.to_json();
+        assert!(json.contains("\"kind\": \"operator\""));
+        assert!(json.contains("\"backend\": \"scip\""));
+        let back: CallGraphDoc = serde_json::from_str(&json).unwrap();
+        assert_eq!(back, doc);
+        let mut lsp = doc.clone();
+        lsp.generator = Some(Generator {
+            backend: Backend::Lsp,
+            rust_analyzer: "rust-analyzer 1.98.0".into(),
+        });
+        assert!(CallGraphDoc::mixed_generators(&[doc.clone(), lsp]));
+        assert!(!CallGraphDoc::mixed_generators(&[doc.clone(), doc]));
     }
 
     /// Methodology: a file with a unique free function and two methods that

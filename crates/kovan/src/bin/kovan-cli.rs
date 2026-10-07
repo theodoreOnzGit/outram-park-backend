@@ -495,6 +495,30 @@ enum Command {
         /// (#745). The result is the bytes one run over all of them gives.
         #[arg(long, num_args = 1.., conflicts_with = "crates")]
         merge: Vec<PathBuf>,
+        /// Where definitions come from (GitHub #757): `lsp` asks
+        /// rust-analyzer's LSP per call-shaped token (default); `scip` runs
+        /// `rust-analyzer scip` once over the workspace (about 3 min) into
+        /// `target/kovan-scip/index.scip` and resolves every call from it,
+        /// adding operator calls and functions passed as paths.
+        #[arg(long, value_enum, default_value = "lsp")]
+        backend: commands::call_graph::BackendArg,
+        /// Use this SCIP index (written earlier by `rust-analyzer scip`)
+        /// instead of generating one; implies `--backend scip`.
+        #[arg(long)]
+        scip: Option<PathBuf>,
+    },
+    /// Compares two call-graph documents edge by edge (GitHub #757): edges
+    /// in both, in one only (by call kind), call-site line agreement and
+    /// unresolved calls by kind, per crate. The V&V instrument for the SCIP
+    /// backend against the LSP one.
+    CallGraphDiff {
+        /// The reference document (for example the LSP-built one).
+        a: PathBuf,
+        /// The document compared with it (for example the SCIP-built one).
+        b: PathBuf,
+        /// List up to this many differing edges of each kind.
+        #[arg(long, default_value_t = 10)]
+        list: usize,
     },
     /// One line `<crate> <key>` per workspace member: the cache key of its
     /// call-graph data in the incremental site build (#745). SHA-256 of the
@@ -766,18 +790,24 @@ fn run(command: Command) -> Result<(), String> {
                 .map_err(|error| error.to_string())?;
             commands::code_map::run(&root, format, out)
         }
-        Command::CallGraph { workspace, crates, out, split_dir, merge } => {
+        Command::CallGraph { workspace, crates, out, split_dir, merge, backend, scip } => {
             let (root, _) = commands::workspace::resolve(workspace.as_deref())
                 .map_err(|error| error.to_string())?;
             let crates = crates.as_deref().map(commands::call_graph::parse_crates);
             if !merge.is_empty() {
                 return commands::call_graph::run_merge(&root, &merge, out, split_dir);
             }
+            let backend = match (backend, scip) {
+                (_, Some(file)) => commands::call_graph::CallBackend::Scip(Some(file)),
+                (commands::call_graph::BackendArg::Scip, None) => commands::call_graph::CallBackend::Scip(None),
+                (commands::call_graph::BackendArg::Lsp, None) => commands::call_graph::CallBackend::Lsp,
+            };
             match split_dir {
-                Some(dir) => commands::call_graph::run_split(&root, crates, &dir),
-                None => commands::call_graph::run(&root, crates, out),
+                Some(dir) => commands::call_graph::run_split(&root, crates, &dir, &backend),
+                None => commands::call_graph::run(&root, crates, out, &backend),
             }
         }
+        Command::CallGraphDiff { a, b, list } => commands::call_graph::run_diff(&a, &b, list),
         Command::CallGraphKeys { workspace, crates } => {
             let (root, _) = commands::workspace::resolve(workspace.as_deref())
                 .map_err(|error| error.to_string())?;

@@ -48,6 +48,10 @@ pub(crate) enum EdgeKind {
     Call,
     /// A function passed by value (`.map(f)`), resolved by rust-analyzer.
     FnValue,
+    /// An operator (`a + b`, `v[i]`, `-x`) rust-analyzer resolved to a
+    /// workspace `impl` of the operator trait. Only the SCIP backend sees
+    /// these (#757): the text scanner looks for call-shaped tokens only.
+    Operator,
     /// A hop a person (or a lesson-writing agent) filled in by hand, with
     /// their note; never produced by the tool itself.
     Hand { note: String },

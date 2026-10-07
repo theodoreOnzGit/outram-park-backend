@@ -89,6 +89,7 @@ fn via_text(h: &Header, g: &CallGraph, e: &Edge) -> String {
     match &e.kind {
         EdgeKind::Call => format!(" · called at {at}"),
         EdgeKind::FnValue => format!(" · passed as a function value at {at}"),
+        EdgeKind::Operator => format!(" · called through an operator at {at}"),
         EdgeKind::Hand { note } if note.is_empty() => " · **filled by hand**".to_string(),
         EdgeKind::Hand { note } => format!(" · **filled by hand**: {note}"),
     }
@@ -288,7 +289,7 @@ fn markdown_path_inline(h: &Header, inline: &Inline, g: &CallGraph, chains: &[Ve
             step += 1;
             step_of[node.0] = Some(step);
             if let Some(e) = via {
-                if matches!(e.kind, EdgeKind::Call | EdgeKind::FnValue) {
+                if matches!(e.kind, EdgeKind::Call | EdgeKind::FnValue | EdgeKind::Operator) {
                     let callee = bare_name(g.node(e.to)).to_string();
                     if !calls_of[e.from.0].iter().any(|c| c.0 == e.call_line) {
                         calls_of[e.from.0].push((e.call_line, callee));
@@ -427,7 +428,7 @@ fn markdown_lines_inline(
             // `impl Fn` parameter (`cell_r(r)` in `draw`) to the enclosing
             // function, so the callee's name is not on that line.
             TreeLine::Node { via: Some(e), .. } | TreeLine::BackRef { via: e, .. }
-                if matches!(e.kind, EdgeKind::Call | EdgeKind::FnValue) && e.from != e.to =>
+                if matches!(e.kind, EdgeKind::Call | EdgeKind::FnValue | EdgeKind::Operator) && e.from != e.to =>
             {
                 add(e.from, e.call_line, bare_name(g.node(e.to)).to_string())
             }
@@ -520,6 +521,7 @@ pub(crate) fn mermaid(g: &CallGraph, lines: &[TreeLine]) -> String {
     let arrow = |e: &Edge| match &e.kind {
         EdgeKind::Hand { .. } => format!("  n{} -. filled by hand .-> n{}", e.from.0, e.to.0),
         EdgeKind::FnValue => format!("  n{} -- fn value --> n{}", e.from.0, e.to.0),
+        EdgeKind::Operator => format!("  n{} -- operator --> n{}", e.from.0, e.to.0),
         EdgeKind::Call => format!("  n{} --> n{}", e.from.0, e.to.0),
     };
     for l in lines {
