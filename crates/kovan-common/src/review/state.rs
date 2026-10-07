@@ -137,3 +137,32 @@ impl StateKind {
         }
     }
 }
+
+/// A flag on a function: shown and queued, but it never voids a stamp
+/// (maintainer on #765, 2026-10-07). The engine's
+/// `engine::FunctionFlag` carries the details.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum FlagKind {
+    /// "New test reaches reviewed function": a test added after the review
+    /// now reaches it. Flagged for review; the test is unreviewed code.
+    NewReachingTest,
+    /// The same code exists more than once; the review shows on each copy.
+    DuplicateCode,
+}
+
+impl FlagKind {
+    pub const ALL: [FlagKind; 2] = [Self::NewReachingTest, Self::DuplicateCode];
+
+    pub fn label(self) -> &'static str {
+        match self {
+            Self::NewReachingTest => "new test reaches reviewed function",
+            Self::DuplicateCode => "duplicate code",
+        }
+    }
+
+    /// Both are in the desktop queue.
+    pub fn needs_person(self) -> bool {
+        true
+    }
+}

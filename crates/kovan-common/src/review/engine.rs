@@ -57,10 +57,27 @@
 //! **Rungs.** A stamp's rung is **derived, never chosen** (maintainer,
 //! #769, 2026-10-07; [`crate::review::wizard::derived_rung`]): 4 when the
 //! V&V answers qualify, the V&V case was written and verified by hand, and
-//! git shows no agent trailer on the commits that added the tests reaching
-//! the function ([`GitFacts::test_commit_messages`]); else 3. The engine
-//! recomputes it on read, and a recorded `rung` that differs makes the
-//! review **invalid**: shown, never counted (Leak Before Break).
+//! git shows no agent trailer on the commits that added the tests that
+//! reached the function **at the review commit**, with git facts as of that
+//! commit ([`StampFacts::tests_at_review`]; maintainer on #765, 2026-10-07).
+//! ~~the tests reaching the function now (`GitFacts::test_commit_messages`)~~
+//! **CORRECTED 2026-10-07**: today's reach would let a later test change a
+//! past review's rung. Else 3. The engine recomputes it on read, and a
+//! recorded `rung` that differs makes the review **invalid**: shown, never
+//! counted (Leak Before Break).
+//!
+//! **The wizard gate is re-run on read** (maintainer on #765, 2026-10-07):
+//! a stamp whose answers the gate now blocks (an unanswered applicable
+//! question, a blocking answer, a legacy or unknown key) is **invalid**.
+//! Applicability: a port when the folder's upstream says so; a physical
+//! interface when the review answered `units_documented` (the index does
+//! not record interfaces, so the reviewer's own judgement is taken).
+//!
+//! **Flags** ([`FunctionFlag`]) never void a stamp: a test that reaches the
+//! function now but did not at the review commit ("new test reaches
+//! reviewed function": flagged for review, and itself unreviewed code), and
+//! identical copies of reviewed code ("duplicate code": the review shows on
+//! **every** candidate; maintainer on #765, 2026-10-07).
 //! ~~A review's rung 4 counts only when the wizard's gate opens it,
 //! otherwise it counts as rung 3 and is flagged~~ **CORRECTED 2026-10-07**. A
 //! function is at **rung 5** when, besides its earliest valid review, a
@@ -92,7 +109,8 @@ use super::root::{ReviewRoot, Role};
 use super::scope::in_scope;
 use super::signing::registry::Registry;
 use super::signing::{verify_review, SignatureCheck, UnverifiedReason as SigReason};
-use super::wizard::{derived_rung, stamp_gate, Applicability, TestAuthorship};
+use super::state::FlagKind;
+use super::wizard::{stamp_gate, Applicability, GateReason, TestAuthorship};
 use super::state::StateKind;
 use super::types::{check_tag, TagCheck};
 
@@ -131,6 +149,52 @@ pub struct StampFacts {
     pub hash_at_commit: Option<String>,
     /// `None` when the stamp is not committed yet.
     pub added_in: Option<StampCommit>,
+    /// The tests that reached the function at the certified commit, with
+    /// git facts as of that commit; `None` when not computed (then git's
+    /// view is unknown: rung 3, and no new-test flags).
+    pub tests_at_review: Option<TestsAtReview>,
+}
+
+/// The tests reaching a function at its review commit (maintainer on #765,
+/// 2026-10-07: "judge the rung from the tests that reached the function at
+/// the review commit").
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct TestsAtReview {
+    /// Test ids (the call graph's reach at that commit).
+    pub reached_by: Vec<String>,
+    /// Test id -> the messages of the commits, up to the review commit, that
+    /// added or changed it.
+    pub commit_messages: BTreeMap<String, Vec<String>>,
+}
+
+impl TestsAtReview {
+    /// Git's view of who wrote these tests: human when every one has commit
+    /// facts and none carries the agent trailer.
+    pub fn authorship(&self) -> TestAuthorship {
+        if self.reached_by.is_empty() {
+            return TestAuthorship::Unknown;
+        }
+        let mut messages = Vec::new();
+        for t in &self.reached_by {
+            match self.commit_messages.get(t) {
+                Some(m) if !m.is_empty() => messages.extend(m.iter().cloned()),
+                _ => return TestAuthorship::Unknown,
+            }
+        }
+        TestAuthorship::from_messages(&messages)
+    }
+}
+
+/// A publish-time verification record (#773, not built yet): what a
+/// crates.io copy carries instead of git history. Read into
+/// [`GitFacts::publish_records`]; until #773 defines and checks it, a stamp
+/// that has only a record is [`UnverifiedReason::PublishRecordNotChecked`].
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct PublishRecord {
+    /// The commit the package was published from.
+    pub published_from: String,
+    /// The record as stored, opaque until #773.
+    pub raw: String,
 }
 
 /// Git, as data.
@@ -149,10 +213,12 @@ pub struct GitFacts {
     pub code_authors: BTreeMap<String, BTreeSet<String>>,
     /// Deleted function id -> the commit that deleted it.
     pub deleted_in: BTreeMap<String, String>,
-    /// Test id -> the messages of the commits that added (or changed) it,
-    /// for the derived rung's git check. A reaching test missing here makes
-    /// git's view unknown, which gives rung 3.
-    pub test_commit_messages: BTreeMap<String, Vec<String>>,
+    /// ~~`test_commit_messages`: test id -> commit messages, for today's
+    /// reaching tests~~ **CORRECTED 2026-10-07**: replaced by
+    /// [`StampFacts::tests_at_review`], as of the review commit.
+    ///
+    /// Publish-time verification records for copies without git (#773).
+    pub publish_records: BTreeMap<ReviewKey, PublishRecord>,
     /// The previous committed `kovan_root.toml` (parsed), for the
     /// append-only check of key histories ([`HistoryWarning`]). `None` when
     /// there is no earlier commit of it.
@@ -224,6 +290,9 @@ pub enum UnverifiedReason {
     Revoked,
     /// Dated on or after the key's compromise date.
     Compromised,
+    /// No git facts, but a publish-time record (#773) that this engine
+    /// cannot check yet.
+    PublishRecordNotChecked,
     Signature(SigReason),
 }
 
@@ -314,6 +383,37 @@ pub enum InvalidReason {
         derived: u8,
         tests: TestAuthorship,
     },
+    /// The wizard gate, re-run on read, blocks the recorded answers.
+    GateBlocked(Vec<GateReason>),
+}
+
+/// A flag on a function: shown, queued for a person, never voids a stamp.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum FunctionFlag {
+    /// Tests reaching the function now that did not reach it at a review's
+    /// commit: flagged for review, and themselves unreviewed code.
+    NewReachingTests { review: String, tests: Vec<String> },
+    /// Identical code (same hash) found more than once: the review shows on
+    /// every copy; `copies` are the other candidates.
+    DuplicateCode { copies: Vec<String> },
+}
+
+impl FunctionFlag {
+    pub fn kind(&self) -> FlagKind {
+        match self {
+            Self::NewReachingTests { .. } => FlagKind::NewReachingTest,
+            Self::DuplicateCode { .. } => FlagKind::DuplicateCode,
+        }
+    }
+}
+
+/// A test function that started reaching a reviewed function after its
+/// review (an engine output, for the queue and for the test's own review).
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
+pub struct NewReachingTest {
+    pub test: String,
+    pub function: String,
+    pub review: String,
 }
 
 impl StampState {
@@ -386,6 +486,8 @@ pub struct FunctionReport {
     pub untested: bool,
     /// Workspace callees whose own state does not count (bottom-up).
     pub blocked_by: Vec<String>,
+    /// Flags that never void a stamp ([`FunctionFlag`]).
+    pub flags: Vec<FunctionFlag>,
 }
 
 /// Where a deleted function's history row goes (#739 D6).
@@ -438,6 +540,8 @@ pub struct Evaluation {
     /// Key-history entries that were committed before and are now gone or
     /// changed: loud warnings (append-only check against git).
     pub history_warnings: Vec<HistoryWarning>,
+    /// Tests that started reaching a reviewed function after its review.
+    pub new_reaching_tests: Vec<NewReachingTest>,
 }
 
 /// A breach of the append-only key history (#762 follow-up, 2026-10-07):
@@ -578,7 +682,11 @@ fn authenticity_git(r: &ReviewEntry, git: &GitFacts, registry: &Registry) -> Opt
         by: b.by.clone(),
     };
     let Some(facts) = git.stamps.get(&key) else {
-        return Some(UnverifiedReason::NoGitFacts);
+        return Some(if git.publish_records.contains_key(&key) {
+            UnverifiedReason::PublishRecordNotChecked
+        } else {
+            UnverifiedReason::NoGitFacts
+        });
     };
     let Some(added) = &facts.added_in else {
         return Some(UnverifiedReason::NotCommitted);
@@ -604,22 +712,6 @@ fn authenticity_git(r: &ReviewEntry, git: &GitFacts, registry: &Registry) -> Opt
         });
     }
     None
-}
-
-/// Git's view of who wrote the tests reaching `f`: human when every
-/// reaching test has commit facts and none carries the agent trailer.
-pub fn test_authorship(f: &FunctionIndex, git: &GitFacts) -> TestAuthorship {
-    if f.reached_by.is_empty() {
-        return TestAuthorship::Unknown;
-    }
-    let mut messages = Vec::new();
-    for t in &f.reached_by {
-        match git.test_commit_messages.get(t) {
-            Some(m) if !m.is_empty() => messages.extend(m.iter().cloned()),
-            _ => return TestAuthorship::Unknown,
-        }
-    }
-    TestAuthorship::from_messages(&messages)
 }
 
 /// Judge every review and function (module doc). Pure and deterministic.
@@ -655,6 +747,7 @@ pub fn evaluate(
     let mut per_fn: BTreeMap<String, Vec<ReviewReport>> = BTreeMap::new();
     let mut deleted: BTreeMap<String, (Vec<ReviewReport>, &FolderReviews, Vec<&ReviewEntry>)> =
         BTreeMap::new();
+    let mut flags: BTreeMap<String, Vec<FunctionFlag>> = BTreeMap::new();
 
     for fr in reviews {
         for r in fr.doc.reviews() {
@@ -669,8 +762,9 @@ pub fn evaluate(
                 qualifications: qualification_labels(root, &b.by),
                 independent: stamp_gate(&b.checklist, Applicability::default()).independent,
             };
+            let is_port = fr.doc.upstream().is_some_and(|u| u.is_port);
             // 1. Find the function.
-            let (cur, candidates, matched) = match current.get(fid.as_str()) {
+            let (cur, mut candidates, matched) = match current.get(fid.as_str()) {
                 Some(c) => (Some(c), Vec::new(), false),
                 None => {
                     let cands: Vec<&Current> = current
@@ -703,10 +797,53 @@ pub fn evaluate(
                     current_id: cur.f.id.clone(),
                 });
             }
-            let here = cur.location();
-            let tests = test_verdict(cur.f, cur.index.test_run.as_ref(), git);
-            report.state = judge(r, cur, &here, &candidates, matched, tests, &current, git, &registry, policy);
-            per_fn.entry(cur.f.id.clone()).or_default().push(report);
+            candidates.sort();
+            // Identical copies: the review shows on every candidate, each
+            // flagged as duplicate code (maintainer on #765, 2026-10-07).
+            let targets: Vec<&Current> = if candidates.is_empty() {
+                vec![cur]
+            } else {
+                candidates.iter().filter_map(|c| current.get(c.as_str())).collect()
+            };
+            let at_review = git
+                .stamps
+                .get(&ReviewKey { function: fid.clone(), by: b.by.clone() })
+                .and_then(|f| f.tests_at_review.as_ref());
+            for t in targets {
+                let here = t.location();
+                let tests = test_verdict(t.f, t.index.test_run.as_ref(), git);
+                let mut rep = report.clone();
+                rep.state = judge(r, t, &here, &candidates, matched, tests, &current, git, &registry, policy, is_port);
+                if !candidates.is_empty() {
+                    flags.entry(t.f.id.clone()).or_default().push(FunctionFlag::DuplicateCode {
+                        copies: candidates.iter().filter(|c| **c != t.f.id).cloned().collect(),
+                    });
+                }
+                if let Some(at) = at_review {
+                    let before: BTreeSet<&String> = at.reached_by.iter().collect();
+                    let new: Vec<String> = t
+                        .f
+                        .reached_by
+                        .iter()
+                        .filter(|x| !before.contains(x))
+                        .cloned()
+                        .collect();
+                    if !new.is_empty() {
+                        for test in &new {
+                            ev.new_reaching_tests.push(NewReachingTest {
+                                test: test.clone(),
+                                function: t.f.id.clone(),
+                                review: r.kovan.id.clone(),
+                            });
+                        }
+                        flags.entry(t.f.id.clone()).or_default().push(FunctionFlag::NewReachingTests {
+                            review: r.kovan.id.clone(),
+                            tests: new,
+                        });
+                    }
+                }
+                per_fn.entry(t.f.id.clone()).or_default().push(rep);
+            }
         }
         // Unreadable entries are no review; attach them where they point.
         for u in &fr.doc.unreadable {
@@ -803,6 +940,7 @@ pub fn evaluate(
                 reviews,
                 untested: !cur.f.test && cur.f.reached_by.is_empty(),
                 blocked_by: Vec::new(),
+                flags: flags.remove(*id).unwrap_or_default(),
             },
         );
     }
@@ -839,6 +977,7 @@ pub fn evaluate(
             rung: None,
             untested: false,
             blocked_by: Vec::new(),
+            flags: Vec::new(),
         });
     }
     ev.upstream_tags = upstream_tags(reviews, git);
@@ -848,6 +987,8 @@ pub fn evaluate(
         .map(|p| history_append_only(p, root))
         .unwrap_or_default();
     ev.id_matches.sort();
+    ev.new_reaching_tests.sort();
+    ev.new_reaching_tests.dedup();
     ev
 }
 
@@ -892,6 +1033,7 @@ fn judge(
     git: &GitFacts,
     registry: &Registry,
     policy: SignaturePolicy,
+    is_port: bool,
 ) -> StampState {
     let b = &r.review;
     // 2. Authenticity.
@@ -908,8 +1050,23 @@ fn judge(
     }
     // 3b. The derived rung (Leak Before Break): a recorded rung that the
     // answers and git do not give is invalid, shown and never counted.
-    let tests_by = test_authorship(cur.f, git);
-    let derived = derived_rung(&b.checklist, tests_by).as_u8();
+    // The gate and the rung are judged as of the review commit.
+    let tests_by = git
+        .stamps
+        .get(&ReviewKey { function: r.function_id(), by: b.by.clone() })
+        .and_then(|f| f.tests_at_review.as_ref())
+        .map(TestsAtReview::authorship)
+        .unwrap_or_default();
+    let ctx = Applicability {
+        is_port,
+        physical_interface: b.checklist.contains_key("units_documented"),
+        tests: tests_by,
+    };
+    let gate = stamp_gate(&b.checklist, ctx);
+    if !gate.stampable() {
+        return StampState::Invalid(InvalidReason::GateBlocked(gate.blocked_by));
+    }
+    let derived = gate.rung.as_u8();
     if b.rung != derived {
         return StampState::Invalid(InvalidReason::RungMismatch {
             recorded: b.rung,
