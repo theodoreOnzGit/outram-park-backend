@@ -445,7 +445,15 @@ fn csl_json_chain_stable_where_upstream_is() {
 }
 
 /// **BibTeX import** against upstream: the translator's 24 testCases and
-/// `fixtures/import/*.bib`.
+/// `fixtures/import/*.bib` (25 inputs, 41 items upstream), each compared
+/// as Web API JSON.
+///
+/// **Prediction (written before the first run, 2026-10-07):** most cases
+/// exact, a handful of differences from `unescapeBibTeX`/creator edge
+/// cases. **Refuted for the better:** 25/25 exact on the first run, no
+/// recorded difference.
+///
+/// **Result (2026-10-07):** pass, 25/25 identical.
 #[test]
 fn bibtex_import_matches_upstream() {
     let (d, n) = import_diffs(Translator::BibTeX);
@@ -453,7 +461,16 @@ fn bibtex_import_matches_upstream() {
     assert_known(&["import/bibtex"], d);
 }
 
-/// **BibTeX export** against upstream, every export list.
+/// **BibTeX export** against upstream, every export list (84 lists:
+/// upstream's itemJSON data one type at a time and all together, the items
+/// of every import fixture, the kovan probes; 3885 lines of upstream
+/// output), compared as text, line by line. The export items are the
+/// legacy (pre-4.0.27) format the translation-server gives this translator.
+///
+/// **Prediction (2026-10-07):** mostly exact; any difference in dates only.
+///
+/// **Result (2026-10-07):** pass, 84/84 byte-identical, no recorded
+/// difference.
 #[test]
 fn bibtex_export_matches_upstream() {
     let (d, n) = export_diffs(Translator::BibTeX);
@@ -461,7 +478,16 @@ fn bibtex_export_matches_upstream() {
     assert_known(&["export/bibtex"], d);
 }
 
-/// **BibTeX round trip**: upstream's export re-imported by the port.
+/// **BibTeX round trip**: upstream's export re-imported by the port, through
+/// detection as the server's `/import` does (84 texts, 690 items upstream).
+///
+/// **Result (2026-10-07):** first run 1 class of difference: upstream's
+/// `date` "0000" (a "Year Date 0000" date re-imported from `year = {0000}`)
+/// came out empty. Cause: kovan-common's `str_to_iso` drops a year string
+/// "0", but upstream's `if (date.year)` is true for any non-empty string
+/// (`strToISO("0000")` is "0000" in both utilities versions, checked by
+/// running their date.js). Fixed in the port (`framework::utilities::str_to_iso`),
+/// not recorded. Now: pass, 84/84 identical.
 #[test]
 fn bibtex_roundtrip_matches_upstream() {
     let (d, _) = roundtrip_diffs(Translator::BibTeX);
@@ -470,13 +496,21 @@ fn bibtex_roundtrip_matches_upstream() {
 
 /// **BibTeX import → export → import** stable on the same cases as
 /// upstream.
+///
+/// **Result (2026-10-07):** upstream is stable on 13 of the 25 import
+/// fixtures; the port is stable on the same 13. Pass.
 #[test]
 fn bibtex_chain_stable_where_upstream_is() {
     let (u, p) = stability(Translator::BibTeX);
     assert_eq!(p, u);
 }
 
-/// **BibLaTeX export** against upstream, every export list.
+/// **BibLaTeX export** against upstream, every export list (84 lists, 3620
+/// lines of upstream output), compared as text. BibLaTeX.js has no
+/// testCases of its own.
+///
+/// **Result (2026-10-07):** pass, 84/84 byte-identical on the first run, no
+/// recorded difference.
 #[test]
 fn biblatex_export_matches_upstream() {
     let (d, n) = export_diffs(Translator::BibLaTeX);
