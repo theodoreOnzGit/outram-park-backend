@@ -188,11 +188,12 @@ fn files_named(root: &Path, members: &[(String, String)], krate: &(String, Strin
         .collect()
 }
 
-/// The `[test_run]` to carry over for a `kovan.toml` whose text on disk is
-/// not readable: the last committed version's, else none (pending).
-fn recover_test_run(root: &Path, rel: &str) -> Option<TestRun> {
+/// The last committed version of a `kovan.toml` whose text on disk is not
+/// readable (its ids and `[test_run]` are carried), if HEAD has a readable
+/// one written for that folder.
+fn recover_committed(root: &Path, rel: &str) -> Option<FolderIndex> {
     let text = git(root, &["show", &format!("HEAD:{rel}")]).ok()?;
-    FolderIndex::parse(&text).ok()?.test_run
+    FolderIndex::parse(&text).ok().filter(|fi| fi.dir == parent(rel))
 }
 
 /// Every review.md under the crates in scope, parsed (read only).
@@ -241,10 +242,18 @@ fn read_existing(root: &Path, members: &[(String, String)], scope: &[(String, St
                     e.previous.insert(dir, fi);
                 }
                 Err(kovan_common::review::index::IndexError::NotACodeFolder { kind }) if !kind.is_empty() => {}
-                Err(_) => match recover_test_run(root, &p) {
-                    Some(r) => {
-                        e.test_runs.insert(dir, r);
-                        e.recovered.push(p.clone());
+                // Unreadable: the last committed version supplies the ids to
+                // keep and the [test_run] to carry; without one, pending.
+                Err(_) => match recover_committed(root, &p) {
+                    Some(fi) => {
+                        match &fi.test_run {
+                            Some(r) => {
+                                e.test_runs.insert(dir.clone(), r.clone());
+                                e.recovered.push(p.clone());
+                            }
+                            None => e.pending.push(p.clone()),
+                        }
+                        e.previous.insert(dir, fi);
                     }
                     None => e.pending.push(p.clone()),
                 },
@@ -349,10 +358,11 @@ fn apply(root: &Path, changes: &[Change]) -> Result<(), String> {
 fn summarise(changes: &[Change], unchanged: usize) {
     let mut by: BTreeMap<&str, usize> = BTreeMap::new();
     for c in changes {
-        let k = match c {
-            Change::Write { why, .. } => *why,
-            Change::Remove { .. } => "orphan removed",
+        let (k, rel) = match c {
+            Change::Write { why, rel, .. } => (*why, rel),
+            Change::Remove { rel } => ("orphan removed", rel),
         };
+        eprintln!("index:   {rel}: {k}");
         *by.entry(k).or_default() += 1;
     }
     let parts: Vec<String> = by.iter().map(|(k, n)| format!("{n} {k}")).collect();
@@ -418,7 +428,8 @@ pub fn run(root: &Path, opts: &IndexOptions) -> Result<(), IndexCmdError> {
         None => super::call_graph::read_scip(&super::call_graph::generate_scip(&root)?)?,
     };
     if let (Some(i), Some(_)) = (&installed, &opts.scip) {
-        if &ix.tool_version != i {
+        // The index says `1.98.0 (88d9e12 2026-08-18)`; compare the version.
+        if ix.tool_version.split_whitespace().next() != Some(i.as_str()) {
             eprintln!(
                 "index: the index was written by rust-analyzer {}, the installed one is {i}: regenerating it",
                 ix.tool_version
@@ -625,7 +636,10 @@ fn run_refresh(root: &Path, opts: &IndexOptions) -> Result<(), IndexCmdError> {
             .into_iter()
             .map(|p| rel_path(root, &p))
             .filter(|p| owner(&members, p).map(|o| &o.0) == Some(&m.0))
+            // The folders a full run indexes (lib and integration tests;
+            // binaries are not in the call graph).
             .filter(|p| p.starts_with(&format!("{}/src/", m.1)) || p.starts_with(&format!("{}/tests/", m.1)))
+            .filter(|p| !p.contains("/src/bin/") && !p.ends_with("/src/main.rs"))
             .map(|p| parent(&p).to_string())
             .collect();
         for d in rs_dirs.difference(&indexed_dirs) {

@@ -11,12 +11,19 @@
 //!    with `.rs` files (`src/`, `tests/`), `kovan_links.json` at the crate
 //!    root that parses and answers go-to-definition for a call in `lib.rs`.
 //! 3. **Deterministic**: a second run from the same index writes nothing and
-//!    `--check` passes.
+//!    `--check` passes; `--draft-upstream` prints a draft `[upstream]` entry
+//!    from `util.rs`'s provenance header (noting the abbreviated commit) and
+//!    writes no `review.md`.
+//! 3b. **Test evidence in `kovan.toml`**: `kovan-cli test` (the real suite of
+//!    the fixture) writes `[test_run]` into both folders' `kovan.toml`
+//!    (`t_twice` in `src/`, `it_leaf` in `tests/`), and a regeneration
+//!    carries it over (`--check` passes). The files are then committed.
 //! 4. **Self-healing**: a hand-edited `src/kovan.toml`, a conflict-marked
 //!    `tests/kovan.toml` and an orphan written for a folder with no code are
 //!    caught by `--check` (fails, writes nothing), then regenerated or
-//!    removed by a run, back to the bytes of step 2; a fixture copy naming
-//!    another folder is left alone. `review.md` is never written.
+//!    removed by a run, back to the bytes of step 3b (the conflicted file's
+//!    `[test_run]` recovered from HEAD); a fixture copy naming another
+//!    folder is left alone. `review.md` is never written.
 //! 5. **Refresh without rust-analyzer**: `twice` edited; `index --refresh`
 //!    under the stripped `PATH` marks it `index_out_of_date` and keeps
 //!    `leaf` as it was, and the plain `index` still refuses, leaving the
@@ -53,7 +60,12 @@ mod tests {
 }
 ";
 
-const UTIL: &str = "pub fn helper(x: f64) -> f64 {
+const UTIL: &str = "// Upstream project : NJOY2016
+// Upstream repository : https://github.com/njoy/NJOY2016
+// Upstream commit : ac5adf5
+// Upstream source : src/util.f90
+
+pub fn helper(x: f64) -> f64 {
     x + 1.0
 }
 ";
@@ -144,6 +156,12 @@ fn index_builds_heals_and_refreshes_without_rust_analyzer() {
         eprintln!("SKIPPED steps 2-5: rust-analyzer or git is not on PATH");
         return;
     }
+    let lock = Command::new("cargo")
+        .args(["generate-lockfile", "--offline"])
+        .current_dir(&root)
+        .status()
+        .unwrap();
+    assert!(lock.success());
     git(&root, &["init", "-q"]);
     git(&root, &["add", "-A"]);
     git(&root, &["commit", "-q", "-m", "fixture"]);
@@ -166,16 +184,38 @@ fn index_builds_heals_and_refreshes_without_rust_analyzer() {
     let def = links.definition_at("src/lib.rs", 8, 5).expect("a link at leaf(x)");
     assert_eq!((def.path.as_str(), def.line), ("crates/kern/src/lib.rs", 3));
     assert!(links.is_current("src/lib.rs", LIB));
+    let scip = root.join("target/kovan-scip/index.scip");
+    let scip_s = scip.to_str().unwrap().to_string();
+
+    // 3. Deterministic; drafts printed, nothing written.
+    let out = kovan(
+        &["index", "--workspace", &root_s, "--scip", &scip_s, "--check", "--draft-upstream"],
+        None,
+    );
+    assert!(out.status.success(), "{}", String::from_utf8_lossy(&out.stderr));
+    let drafts = String::from_utf8_lossy(&out.stdout);
+    assert!(drafts.contains("# Upstream: crates/kern/src"), "{drafts}");
+    assert!(drafts.contains("https://github.com/njoy/NJOY2016") && drafts.contains("abbreviated"), "{drafts}");
+    assert!(!root.join("crates/kern/src/review.md").exists());
+
+    // 3b. A counted `kovan-cli test` run lands in the kovan.toml files, and
+    // a regeneration carries it over.
+    let out = kovan(&["test", "--root", &root_s], None);
+    assert!(out.status.success(), "{}\n{}", String::from_utf8_lossy(&out.stdout), String::from_utf8_lossy(&out.stderr));
+    let src_run = FolderIndex::parse(&read(&root, "crates/kern/src/kovan.toml")).unwrap().test_run.unwrap();
+    assert!(src_run.passed.contains(&"crates/kern/src/lib.rs::t_twice".to_string()), "{src_run:?}");
+    let tests_run = FolderIndex::parse(&read(&root, "crates/kern/tests/kovan.toml")).unwrap().test_run.unwrap();
+    assert_eq!(tests_run.passed, vec!["crates/kern/tests/it.rs::it_leaf".to_string()]);
+    let out = kovan(&["index", "--workspace", &root_s, "--scip", &scip_s, "--check"], None);
+    assert!(out.status.success(), "the [test_run] is carried over: {}", String::from_utf8_lossy(&out.stderr));
     let first: Vec<String> = ["crates/kern/src/kovan.toml", "crates/kern/tests/kovan.toml", "crates/kern/kovan_links.json"]
         .iter()
         .map(|p| read(&root, p))
         .collect();
-    let scip = root.join("target/kovan-scip/index.scip");
-    let scip_s = scip.to_str().unwrap().to_string();
-
-    // 3. Deterministic.
-    let out = kovan(&["index", "--workspace", &root_s, "--scip", &scip_s, "--check"], None);
-    assert!(out.status.success(), "{}", String::from_utf8_lossy(&out.stderr));
+    // Committed, as the maintainer decided (#766): step 4 recovers a
+    // conflicted file's [test_run] from HEAD.
+    git(&root, &["add", "-A"]);
+    git(&root, &["commit", "-q", "-m", "index"]);
 
     // 4. Self-healing.
     write(&root, "crates/kern/src/kovan.toml", &format!("{}\n# hand note\n", first[0]));

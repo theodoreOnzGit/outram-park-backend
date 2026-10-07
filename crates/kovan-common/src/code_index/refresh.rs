@@ -76,14 +76,29 @@ pub fn refresh_folder(
     let prev_by_id: BTreeMap<&str, &FunctionIndex> = previous
         .map(|p| p.functions().map(|(_, f)| (f.id.as_str(), f)).collect())
         .unwrap_or_default();
-    let priors = previous.map(priors_of).unwrap_or_default();
+    // Path ids compared without whitespace: the hasher writes `[ T ]` where
+    // the full run's scanner writes `[T]`.
+    let priors: Vec<_> = previous
+        .map(priors_of)
+        .unwrap_or_default()
+        .into_iter()
+        .map(|mut p| {
+            if let Some((f, q)) = p.path_id.split_once("::") {
+                p.path_id = format!("{f}::{}", q.split_whitespace().collect::<String>());
+            }
+            p
+        })
+        .collect();
     let mut parsed = Vec::new();
     let mut located = Vec::new();
     for (file, text) in files {
         let path = idx.file_path(file);
         match hash_functions(text) {
             Ok(fns) => {
-                let quals: Vec<String> = fns.iter().map(|h| h.entry.qualname()).collect();
+                let quals: Vec<String> = fns
+                    .iter()
+                    .map(|h| h.entry.qualname().split_whitespace().collect())
+                    .collect();
                 let ids = function_ids(&path, &quals);
                 for (h, (pid, _)) in fns.iter().zip(ids) {
                     located.push(Located {
@@ -130,6 +145,14 @@ pub fn refresh_folder(
             .strip_prefix(&format!("{}::", idx.file_path(&file)))
             .unwrap_or(&pid)
             .to_string();
+        // The hasher spells some self types with token spaces (`[ T ]`)
+        // where the full run's scanner writes `[T]`: keep the full run's
+        // spelling when only spaces differ.
+        let squash = |s: &str| s.split_whitespace().collect::<String>();
+        let qual = match prev {
+            Some(p) if squash(&p.qual) == squash(&qual) => p.qual.clone(),
+            _ => qual,
+        };
         let out_of_date = if same {
             prev.is_some_and(|p| p.index_out_of_date)
         } else {
@@ -153,7 +176,16 @@ pub fn refresh_folder(
             doc_hash: h.hashes.doc_hash.clone(),
             callees: prev.map(|p| p.callees.clone()).unwrap_or_default(),
             reached_by: prev.map(|p| p.reached_by.clone()).unwrap_or_default(),
-            test: h.entry.is_test,
+            // The full run's answer (the call graph marks every function of
+            // an integration-test target as test code); a new function:
+            // `#[test]` / `#[cfg(test)]`, or in an integration-test target.
+            test: prev.map_or_else(
+                || {
+                    h.entry.is_test
+                        || idx.modules.get(&file).is_some_and(|m| m.path.starts_with("test:"))
+                },
+                |p| p.test,
+            ),
             index_out_of_date: out_of_date,
         };
         if let Some(m) = idx.modules.get_mut(&file) {

@@ -18,7 +18,7 @@
 //! kind = "code_folder"
 //! crate = "tampines"
 //! dir = "crates/tampines/src"
-//! commit = "<sha>"                  # the commit it was generated at
+//! commit = "<sha>"                  # optional; `kovan-cli index` leaves it out (#767: it would change every file on every commit)
 //!
 //! [module."steam.rs"]
 //! path = "crate::steam"
@@ -231,6 +231,29 @@ pub struct FolderIndex {
     pub reviews: Vec<CachedReview>,
     #[serde(default, rename = "deleted_folder", skip_serializing_if = "Vec::is_empty")]
     pub deleted_folders: Vec<DeletedFolder>,
+    /// Added 2026-10-07 (#767, additive; **on disk only**): the folder's
+    /// test-id table. [`FolderIndex::to_toml`] writes every test id once
+    /// here and each `reached_by` / `[test_run]` list entry as `"#<index>"`
+    /// into it; [`FolderIndex::parse`] expands them back and leaves this
+    /// empty, so in memory the lists always hold full test ids. Measured on
+    /// `njoy-outram-park-fork/src/reconr` (2026-10-07): the full ids made
+    /// 1.54 MB of a 1.59 MB file. A file without the table (the first
+    /// version) reads as before.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub test_ids: Vec<String>,
+}
+
+/// `"#<k>"` -> `table[k]`; anything else is a full id, kept.
+fn expand_test_ref(table: &[String], s: &str) -> Result<String, IndexError> {
+    match s.strip_prefix('#') {
+        Some(k) => k
+            .parse::<usize>()
+            .ok()
+            .and_then(|k| table.get(k))
+            .cloned()
+            .ok_or_else(|| IndexError::Toml(format!("test reference {s:?} is not in test_ids"))),
+        None => Ok(s.to_string()),
+    }
 }
 
 /// Why a `kovan.toml` could not be read as a code-review folder index.
@@ -282,6 +305,7 @@ impl FolderIndex {
             upstream: None,
             reviews: Vec::new(),
             deleted_folders: Vec::new(),
+            test_ids: Vec::new(),
         }
     }
 
@@ -295,9 +319,26 @@ impl FolderIndex {
                 kind: kind.to_string(),
             });
         }
-        let idx: FolderIndex = toml::from_str(text).map_err(|e| IndexError::Toml(e.to_string()))?;
+        let mut idx: FolderIndex = toml::from_str(text).map_err(|e| IndexError::Toml(e.to_string()))?;
         if idx.schema_version > INDEX_SCHEMA_VERSION {
             return Err(IndexError::NewerSchema(idx.schema_version));
+        }
+        let table = std::mem::take(&mut idx.test_ids);
+        let expand = |v: &mut Vec<String>| -> Result<(), IndexError> {
+            for s in v.iter_mut() {
+                *s = expand_test_ref(&table, s)?;
+            }
+            Ok(())
+        };
+        for m in idx.modules.values_mut() {
+            for f in &mut m.functions {
+                expand(&mut f.reached_by)?;
+            }
+        }
+        if let Some(r) = &mut idx.test_run {
+            for v in [&mut r.passed, &mut r.failed, &mut r.edited] {
+                expand(v)?;
+            }
         }
         let mut seen = std::collections::BTreeSet::new();
         for f in idx.functions() {
@@ -361,6 +402,35 @@ impl FolderIndex {
     pub fn to_toml(&self) -> Result<String, IndexError> {
         let mut c = self.clone();
         c.normalise();
+        // The test-id table (field doc): sorted, every id once.
+        let mut all: std::collections::BTreeSet<String> = c.test_ids.drain(..).collect();
+        for m in c.modules.values() {
+            for f in &m.functions {
+                all.extend(f.reached_by.iter().cloned());
+            }
+        }
+        if let Some(r) = &c.test_run {
+            all.extend(r.passed.iter().chain(&r.failed).chain(&r.edited).cloned());
+        }
+        let table: Vec<String> = all.into_iter().collect();
+        let refer = |v: &mut Vec<String>| {
+            for s in v.iter_mut() {
+                if let Ok(k) = table.binary_search(s) {
+                    *s = format!("#{k}");
+                }
+            }
+        };
+        for m in c.modules.values_mut() {
+            for f in &mut m.functions {
+                refer(&mut f.reached_by);
+            }
+        }
+        if let Some(r) = &mut c.test_run {
+            for v in [&mut r.passed, &mut r.failed, &mut r.edited] {
+                refer(v);
+            }
+        }
+        c.test_ids = table;
         toml::to_string_pretty(&c).map_err(|e| IndexError::Toml(e.to_string()))
     }
 }
@@ -450,5 +520,32 @@ mod tests {
         assert!(idx.modules.is_empty() && idx.test_run.is_none());
         let extra = format!("{minimal}future_field = 3\n[module.\"a.rs\"]\npath = \"crate::a\"\nnew_key = true\n");
         assert!(FolderIndex::parse(&extra).is_ok());
+    }
+
+    /// Methodology: the on-disk test-id table (#767). The sample written by
+    /// [`FolderIndex::to_toml`] holds the test id once in `test_ids` and
+    /// `"#0"` in `reached_by` and `[test_run] passed`; parsing gives back
+    /// full ids and an empty table. The first-version form (full ids in
+    /// the lists, no table, as `tests/fixtures/review/v1` has) reads to the
+    /// same index; the new fields `index_out_of_date` and
+    /// `physical_interface` default to false; a reference outside the
+    /// table is an error.
+    ///
+    /// Result (2026-10-07): passes.
+    #[test]
+    fn test_ids_are_written_once_and_expanded_on_read() {
+        let idx = sample();
+        let text = idx.to_toml().unwrap();
+        assert!(text.contains("test_ids = [\"crates/tampines/tests/t.rs::t\"]"), "{text}");
+        assert_eq!(text.matches("crates/tampines/tests/t.rs::t").count(), 1);
+        assert!(text.contains("\"#0\""));
+        let back = FolderIndex::parse(&text).unwrap();
+        assert_eq!(back, idx);
+        assert!(back.test_ids.is_empty());
+        let old = toml::to_string_pretty(&idx).unwrap();
+        assert!(!old.contains("test_ids") && !old.contains("index_out_of_date"));
+        assert_eq!(FolderIndex::parse(&old).unwrap(), idx);
+        let bad = text.replace("\"#0\"", "\"#7\"");
+        assert!(matches!(FolderIndex::parse(&bad), Err(IndexError::Toml(_))));
     }
 }
