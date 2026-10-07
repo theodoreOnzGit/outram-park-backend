@@ -5,6 +5,6 @@
 	},
 	"csl_ranges": {
 		"status": 200,
-		"output": "\n@article{smith2010,\n\ttitle = {A range and a circa date},\n\tvolume = {7},\n\tpages = {1--10},\n\tjournaltitle = {Journal of Testing},\n\tauthor = {Smith, John and {Kovan Collaboration}},\n\turldate = {2020-01-02},\n\tdate = {2010-03},\n}\n\n@book{noauthor_literal_2021,\n\tlocation = {Singapore},\n\ttitle = {A literal date},\n\tpagetotal = {300},\n\tpublisher = {Kovan Press},\n\tdate = {2021},\n}\n\n@incollection{editor_season_2021,\n\ttitle = {A season},\n\tbooktitle = {A Book},\n\teditor = {Editor, Ed},\n\tdate = {2021},\n}\n"
+		"output": "\n@article{smith2010,\n\ttitle = {A range and a circa date},\n\tvolume = {7},\n\tpages = {1--10},\n\tjournaltitle = {Journal of Testing},\n\tauthor = {Smith, John and {Kovan Collaboration}},\n\turldate = {2020-01-02},\n\tdate = {2010},\n}\n\n@book{noauthor_literal_2021,\n\tlocation = {Singapore},\n\ttitle = {A literal date},\n\tpagetotal = {300},\n\tpublisher = {Kovan Press},\n\tdate = {2021},\n}\n\n@incollection{editor_season_2021,\n\ttitle = {A season},\n\tbooktitle = {A Book},\n\teditor = {Editor, Ed},\n\tdate = {2021},\n}\n"
 	}
 }

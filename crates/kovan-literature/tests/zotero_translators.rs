@@ -2,10 +2,18 @@
 //! Zotero (GitHub #749, #752, epic #747).
 //!
 //! **Methodology.** `scripts/zotero-reference.sh` ran every fixture through
-//! a running Zotero translation-server (server 3a9d17614896, translate
-//! e0fe482b8a07, utilities 1dd38e27edf8, zotero-schema 70c3aa98627 (v44),
-//! translators 3d1c78530f42; `reference/manifest.json`) and committed what
-//! it returned under `tests/data/zotero/reference/`:
+//! a running Zotero translation-server and committed what it returned under
+//! `tests/data/zotero/reference/` (`reference/manifest.json` records the
+//! commits). ~~Server 3a9d17614896 with its own submodules translate
+//! e0fe482b8a07, utilities 1dd38e27edf8, zotero-schema 70c3aa98627 (v44).~~
+//! **CORRECTED 2026-10-07** (main session): those submodules were OLDER than
+//! the Zotero the port follows, which caused all 123 recorded CSL JSON
+//! differences. The references were regenerated with the server's
+//! submodules set to the commits Zotero desktop 9cbba8c4d281 itself pins:
+//! translate dd524aea9a55, utilities 4051881d59c6, zotero-schema
+//! b86c79b56479 (v45); translators 3d1c78530f42. With matched versions there
+//! are **no** differences left, and the `known_differences/` files were
+//! removed.
 //!
 //! * `import/<format>.json`: every `testCases` import case of BibTeX.js,
 //!   RIS.js and CSL JSON.js (input verbatim) and the files in
@@ -414,6 +422,11 @@ fn stability(t: Translator) -> (Vec<String>, Vec<String>) {
 
 /// **CSL JSON import** against upstream: 2 cases (the translator's 1
 /// testCase, `fixtures/import/csl_ranges.json`).
+///
+/// **Result (2026-10-07):** first run against the server's older utilities
+/// (1dd38e27): 2 recorded version-skew differences (date ranges, literal
+/// dates). Re-run with matched versions (utilities 4051881d): **identical,
+/// no differences.**
 #[test]
 fn csl_json_import_matches_upstream() {
     let (d, n) = import_diffs(Translator::CslJson);
@@ -422,6 +435,11 @@ fn csl_json_import_matches_upstream() {
 }
 
 /// **CSL JSON export** against upstream, every export list.
+///
+/// **Result (2026-10-07):** first run against the server's older utilities
+/// (1dd38e27): 121 recorded version-skew differences (string vs integer
+/// years, Extra dates). Re-run with matched versions (utilities 4051881d):
+/// **identical, no differences.**
 #[test]
 fn csl_json_export_matches_upstream() {
     let (d, n) = export_diffs(Translator::CslJson);

@@ -473,9 +473,12 @@ pub fn get_creators_for_type(item_type: &str) -> Vec<&'static str> {
 /// upstream's truthiness: `if (date.year)` is true for any non-empty year
 /// string, including `"0"` (what `strToDate("0000")` gives), so
 /// `strToISO("0000")` is `"0000"` (checked by running upstream's date.js,
-/// 2026-10-07). kovan-common's
+/// 2026-10-07). ~~kovan-common's
 /// [`str_to_iso`](kovan_common::zotero::date::str_to_iso) returns `None` for
-/// a `"0"` year; this one is used by the translators.
+/// a `"0"` year; this one is used by the translators.~~ **CORRECTED
+/// 2026-10-07:** kovan-common's `str_to_iso` was fixed the same day and now
+/// agrees on year 0; this copy is kept because it follows the translators'
+/// `if(date.day)` truthiness on the day explicitly.
 pub fn str_to_iso(s: &str, opts: &kovan_common::zotero::date::DateOptions) -> Option<String> {
     let d = kovan_common::zotero::date::str_to_date(s, opts);
     let year = d.year.filter(|y| !y.is_empty())?;

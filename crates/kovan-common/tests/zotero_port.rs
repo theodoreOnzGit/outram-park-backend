@@ -277,6 +277,14 @@ fn csl_legacy_short_title_key() {
 /// known version-skew difference, in its
 /// `tests/data/zotero/known_differences/export_csljson.json`.
 ///
+/// **Upstream re-run with matched versions (2026-10-07, main session):**
+/// the server's submodules set to Zotero desktop's own pins (utilities
+/// 4051881d59c6, the code this port follows) give `"issued":
+/// {"date-parts": [[1999, 12, 31]]}`, the integer year, for every type, and
+/// kovan-literature's CSL JSON export comparison against that run has no
+/// differences. The integer result is now confirmed by running upstream,
+/// not only by reading it; the version-skew entry was removed.
+///
 /// **Pass (revised to the explained difference, not loosened):** for every
 /// type, the only differing key is `issued`, and it is equal once the
 /// fixture's string year is read as an integer.

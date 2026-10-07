@@ -828,7 +828,11 @@ pub fn format_date(
             None => s.push(' '),
         }
     }
-    if let Some(y) = year.filter(|y| !y.is_empty() && *y != "0") {
+    // Upstream `if(date.year)` (date.js:592): any non-empty string is
+    // truthy in JavaScript, "0" included. (~~`&& *y != "0"`~~ CORRECTED
+    // 2026-10-07: that dropped year 0, unlike upstream; found by the
+    // translator port running upstream's date.js, #749.)
+    if let Some(y) = year.filter(|y| !y.is_empty()) {
         s.push_str(y);
     }
     s
@@ -837,7 +841,10 @@ pub fn format_date(
 /// `Zotero.Date.strToISO` (date.js:600): `YYYY[-MM[-DD]]`, or `None`.
 pub fn str_to_iso(s: &str, opts: &DateOptions) -> Option<String> {
     let d = str_to_date(s, opts);
-    let year = d.year.filter(|y| y != "0")?;
+    // Upstream `if(date.year)` (date.js:603): any non-empty string is truthy,
+    // so `strToISO("0000")` is "0000" (run upstream, 2026-10-07, #749).
+    // ~~`filter(|y| y != "0")`~~ CORRECTED 2026-10-07.
+    let year = d.year.filter(|y| !y.is_empty())?;
     let mut out = lpad(&year, '0', 4);
     if let Some(m) = d.month {
         out.push('-');
@@ -1326,7 +1333,8 @@ mod tests {
         // Confirmed by running upstream (2026-10-07, #752): RIS export of an
         // item dated "2021 May" (RIS.js writes `year/month/day/part` for DA)
         // from a Zotero translation-server (utilities 1dd38e27edf8, whose
-        // strToDate matches 4051881d59c6 here) gives `DA  - 2021/05//undefined`
+        // strToDate matches 4051881d59c6 here; re-run with 4051881d59c6
+        // itself the same day, same result) gives `DA  - 2021/05//undefined`
         // (kovan-literature tests/data/zotero/reference/export/ris/
         // kovanProbes.json, item KPROBE22).
         assert_eq!(
@@ -1405,5 +1413,16 @@ mod tests {
             format_date(None, Some("1999"), Some(0), None),
             "January 1999"
         );
+    }
+
+    /// Year 0 is a year (upstream `if(date.year)` is true for the string
+    /// "0"). Expected value from running upstream's date.js on "0000"
+    /// (2026-10-07, #749): `strToISO("0000") === "0000"`. Before the fix the
+    /// port returned `None`.
+    #[test]
+    fn year_zero_is_kept_as_upstream_does() {
+        let o = DateOptions::default();
+        assert_eq!(str_to_iso("0000", &o).as_deref(), Some("0000"));
+        assert_eq!(format_date(None, Some("0"), None, None), "0");
     }
 }

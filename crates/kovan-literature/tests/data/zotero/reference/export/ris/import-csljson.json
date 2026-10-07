@@ -5,6 +5,6 @@
 	},
 	"csl_ranges": {
 		"status": 200,
-		"output": "TY  - JOUR\r\nTI  - A range and a circa date\r\nAU  - Smith, John\r\nAU  - Kovan Collaboration\r\nT2  - Journal of Testing\r\nDA  - 2010/03//\r\nPY  - 2010\r\nVL  - 7\r\nSP  - 1\r\nEP  - 10\r\nY2  - 2020/01/02/00:00:00\r\nER  - \r\n\r\nTY  - BOOK\r\nTI  - A literal date\r\nCY  - Singapore\r\nDA  - 2021///Spring\r\nPY  - 2021\r\nSP  - 300\r\nPB  - Kovan Press\r\nER  - \r\n\r\nTY  - CHAP\r\nTI  - A season\r\nT2  - A Book\r\nA2  - Editor, Ed\r\nDA  - 2021///Summer\r\nPY  - 2021\r\nER  - \r\n\r\n"
+		"output": "TY  - JOUR\r\nTI  - A range and a circa date\r\nAU  - Smith, John\r\nAU  - Kovan Collaboration\r\nT2  - Journal of Testing\r\nDA  - 2010//03/2012-05\r\nPY  - 2010\r\nVL  - 7\r\nSP  - 1\r\nEP  - 10\r\nY2  - 2020/01/02/00:00:00\r\nER  - \r\n\r\nTY  - BOOK\r\nTI  - A literal date\r\nCY  - Singapore\r\nDA  - 2021///Spring\r\nPY  - 2021\r\nSP  - 300\r\nPB  - Kovan Press\r\nER  - \r\n\r\nTY  - CHAP\r\nTI  - A season\r\nT2  - A Book\r\nA2  - Editor, Ed\r\nDA  - 2021///Summer\r\nPY  - 2021\r\nER  - \r\n\r\n"
 	}
 }
