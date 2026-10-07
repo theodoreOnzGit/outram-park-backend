@@ -120,3 +120,23 @@ is a floor.
 - **Data processing:** another 2–5 min.
 
 The smoke run below measures the cost directly and replaces this estimate.
+
+## Addendum, 2026-10-08, after the smoke run and before the full run
+
+The section above is unchanged. This only records the smoke run
+(`logs/smoke_1000x2p3.log`): 1000 × [2 + 3], 5 threads, same build and
+settings otherwise.
+
+- **Health:** 5 000 histories with 0 lost locates, 0 stuck events and 0
+  negative distances. The geometry has 22 427 tiles, 88 090 cells and 2 285
+  universes. The ball count matched at 122.091 cm, where RMC reads 0.999419.
+  The entropy trace was 5.463, 5.504, 5.417, 5.522, 5.486 bits (ceiling 6).
+  That is sane and flat at this size; it shows nothing about convergence.
+- **k = 0.995483 ± 0.007653.** At σ ≈ 770 pcm this says nothing about the
+  prediction and is not a result.
+- **Cost:** nuclear data 88.8 s; transport 15.5 s, which is **3.1 ms wall and
+  15.5 ms CPU per history**. There were 9 025 virtual collisions per history,
+  close to the lattice's 8 926. **That is below the predicted 20–60 ms.** The
+  prediction came from the slower shared Xeon and the 12-thread smoke run.
+- **Revised wall time for the full run:** 1.4 M × 3.1 ms ≈ **1.2 h**, if the
+  per-history cost holds at full size.
