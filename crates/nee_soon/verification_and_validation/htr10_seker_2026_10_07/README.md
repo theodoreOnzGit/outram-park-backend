@@ -34,8 +34,10 @@ shift:
 - **Code:** `develop` at `7ddcd1fb`, `examples/htr10_rmc_keff.rs`, release
   build. During this record the example gained two print lines for the #721
   counters (they were reported only through `log::warn!`, and the example
-  installs no logger). VIII.0 N = 12 and N = 10 ran before that change; the
-  other four runs print the counters.
+  installs no logger). VIII.0 N = 12 and N = 10 ran before that change and
+  were re-run after it (`logs/rerun_e8_N*.log`): **k identical to every
+  printed digit**, which confirms the change is print-only, and both show 0
+  violations and 0 delta-lost histories.
 - **Geometry check first:** `cargo test --release -p nee_soon --test
   htr10_geometry_integrity`: **4 passed, 0 failed**
   (`logs/geometry_integrity.log`).
@@ -52,14 +54,14 @@ shift:
 
 | N | ref. height [cm] | lib | k | k − RMC [pcm] | k − MCNP T3 / T4 [pcm] | majorant violations | delta lost |
 |---|---|---|---|---|---|---|---|
-| 10 | 102.728 | VIII.0 | 0.921709 ± 0.002989 | −999 ± 299 | −345 / −449 | not printed | not printed |
-| 12 | 122.091 | VIII.0 | 0.995074 ± 0.002719 | −434 ± 272 | −318 / −440 | not printed | not printed |
+| 10 | 102.728 | VIII.0 | 0.921709 ± 0.002989 | −999 ± 299 | −345 / −449 | 0 (re-run) | 0 (re-run) |
+| 12 | 122.091 | VIII.0 | 0.995074 ± 0.002719 | −434 ± 272 | −318 / −440 | 0 (re-run) | 0 (re-run) |
 | 20 | 199.543 | VIII.0 | 1.157261 ± 0.003568 | −135 ± 357 | −1135 / −929 | 0 | 0 |
 | 10 | 102.728 | VII.0 | 0.928614 ± 0.002938 | −309 ± 294 | +346 / +241 | 0 | 0 |
 | 12 | 122.091 | VII.0 | 0.996453 ± 0.003544 | −297 ± 354 | −180 / −302 | 0 | 0 |
 | 20 | 199.543 | VII.0 | 1.156391 ± 0.003604 | −222 ± 360 | −1222 / −1016 | 0 | 0 |
 
-- Every run: 0 lost locates.
+- Every run: 0 lost locates, 0 majorant violations, 0 delta-lost histories.
 - Data processing: 231 to 250 s on VIII.0, 139 to 143 s on VII.0.
 - Transport: 1047 to 1325 s per run, about 20 % slower than on 2026-10-01
   on the same hardware.
