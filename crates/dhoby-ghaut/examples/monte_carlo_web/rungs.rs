@@ -29,7 +29,10 @@
 //! [`LoadedRung::kinf_step`]; the engine streams it one generation per
 //! request and the app gives it a slider and a plot against the recorded
 //! curve), and the **σ(E) panel** beside the geometry
-//! ([`LoadedRung::xs_curves`]).
+//! ([`LoadedRung::xs_curves`]). A third since 2026-10-07 (gh:#785): **a demo
+//! of its own** for a code walk ([`McRung::walk_demo`], [`LoadedRung::walk`],
+//! [`crate::walkdemo`]), whose page side is one variant of
+//! `walkdemo::WalkDemo` (that enum is the one line outside the directory).
 //!
 //! `scripts/build-pages.sh` reads every rung's `name:` and `lesson:` lines
 //! (in `<rung>/mod.rs`, one line each) and fails the site build if the lesson

@@ -563,17 +563,17 @@ Call chain from `dh_keff_vv.rs::main` to `keff_delta.rs::run_keff_delta_in`: 2 h
     // … (the rest of the function: follow the link above)
 ```
 
-**2.** → [`dh_universe.rs::DhUniverse::keff`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/dh_universe.rs#L1478) · called at [L593](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/examples/dh_keff_vv.rs#L593) — Solve the eigenvalue for this universe.
+**2.** → [`dh_universe.rs::DhUniverse::keff`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/dh_universe.rs#L1480) · called at [L593](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/examples/dh_keff_vv.rs#L593) — Solve the eigenvalue for this universe.
 
-<!-- snippet-check: crates/outram-mc-libs/src/dh_universe.rs:1478 fn keff -->
-<!-- snippet-check: crates/outram-mc-libs/src/dh_universe.rs:1489 run_keff_delta_in -->
+<!-- snippet-check: crates/outram-mc-libs/src/dh_universe.rs:1480 fn keff -->
+<!-- snippet-check: crates/outram-mc-libs/src/dh_universe.rs:1491 run_keff_delta_in -->
 
 ```rust,ignore
-{{#include ../../../../../crates/outram-mc-libs/src/dh_universe.rs:1478:1490}}
+{{#include ../../../../../crates/outram-mc-libs/src/dh_universe.rs:1480:1492}}
     // … (the rest of the function: follow the link above)
 ```
 
-**3.** → [`keff_delta.rs::run_keff_delta_in`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/pebble_beds/keff_delta.rs#L655) · called at [L1489](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/dh_universe.rs#L1489) — Run fission-source power iteration over a `DeltaDomain` filled with a two-(or-more-)material dispersion medium, transporting each history by delta (Woodcock) tracking.
+**3.** → [`keff_delta.rs::run_keff_delta_in`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/pebble_beds/keff_delta.rs#L655) · called at [L1491](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/dh_universe.rs#L1491) — Run fission-source power iteration over a `DeltaDomain` filled with a two-(or-more-)material dispersion medium, transporting each history by delta (Woodcock) tracking.
 
 <!-- snippet-check: crates/outram-mc-libs/src/pebble_beds/keff_delta.rs:655 fn run_keff_delta_in -->
 
@@ -597,7 +597,23 @@ treatment, in your browser, and draws what that treatment's `material_at`
 answers at every pixel: the call the power iteration makes. Beside it are
 the recorded biases and speed-ups of the table below, with their dates. CLS
 and SCLS store no geometry, so their picture is one sampled flight per pixel
-row, and a redraw gives a different one. No k is computed there.*
+row, and a redraw gives a different one.*
+
+<div class="mcw-demo" data-mc-widget="demo" data-src="../../demos/monte-carlo/?rung=dhshort&amp;mode=watch&amp;view=pitch" data-label="▶ Run one shortcut yourself (demo, live k, low statistics)"></div>
+
+*The same rung's k∞ view runs one treatment at a time in your browser:
+`DhUniverse::power_iteration`, which is `DhUniverse::keff` one generation per
+step (pinned bit for bit by a test), on the record's ten ENDF/B-VIII.0 tapes
+processed in the tab at 600 K. SCLS is not offered (about 24 times delta
+tracking's cost). Measured 2026-10-07 in headless Chromium at phone width
+(software rendering; Intel i9-13900K host shared with other jobs, Chromium
+pinned to 3 cores): the data took 190–217 s, then 800 neutrons × [15 + 40]
+took 37 s per arm. Delta tracking gave 1.37401 ± 0.00657 and naive
+homogenisation 1.34580 ± 0.00780, a difference of −2821 ± 1020 pcm (2.8σ):
+the smear's loss shows, at this size not resolved to 3σ, and within
+1.3σ of the records' −4100 to −4300 pcm. This is today's code (URR and DBRC
+on), so it is not like for like with the 2026-09-14 table below; one run's ±
+understates the true σ.*
 
 **The problem they are judged on** is the FHR reference unit cell of
 [`examples/dh_keff_vv.rs`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/examples/dh_keff_vv.rs):
@@ -700,29 +716,29 @@ particles inside the ball hit the requested fraction to 0.2 %, in
 
 Call chain from `dh_universe.rs::DhUniverse::pebble` to `sphere_packing.rs::pack_spheres_observed`: 4 hops, 1 shortest chain. Each step shows its code; the name links to it on GitHub.
 
-**1.** [`dh_universe.rs::DhUniverse::pebble`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/dh_universe.rs#L898) — Build a TRISO fuel pebble under the chosen treatment.
+**1.** [`dh_universe.rs::DhUniverse::pebble`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/dh_universe.rs#L900) — Build a TRISO fuel pebble under the chosen treatment.
 
-<!-- snippet-check: crates/outram-mc-libs/src/dh_universe.rs:898 fn pebble -->
-<!-- snippet-check: crates/outram-mc-libs/src/dh_universe.rs:962 pack_in_ball -->
+<!-- snippet-check: crates/outram-mc-libs/src/dh_universe.rs:900 fn pebble -->
+<!-- snippet-check: crates/outram-mc-libs/src/dh_universe.rs:964 pack_in_ball -->
 
 ```rust,ignore
-{{#include ../../../../../crates/outram-mc-libs/src/dh_universe.rs:898:898}}
+{{#include ../../../../../crates/outram-mc-libs/src/dh_universe.rs:900:900}}
     // …
-{{#include ../../../../../crates/outram-mc-libs/src/dh_universe.rs:960:963}}
+{{#include ../../../../../crates/outram-mc-libs/src/dh_universe.rs:962:965}}
     // … (the rest of the function: follow the link above)
 ```
 
-**2.** → [`dh_universe.rs::pack_in_ball`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/dh_universe.rs#L1960) · called at [L962](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/dh_universe.rs#L962) — RSA-pack whole particles into a ball of `radius`, **hitting the requested packing fraction inside that ball** rather than inside the cube it was generated in.
+**2.** → [`dh_universe.rs::pack_in_ball`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/dh_universe.rs#L2008) · called at [L964](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/dh_universe.rs#L964) — RSA-pack whole particles into a ball of `radius`, **hitting the requested packing fraction inside that ball** rather than inside the cube it was generated in.
 
-<!-- snippet-check: crates/outram-mc-libs/src/dh_universe.rs:1960 fn pack_in_ball -->
-<!-- snippet-check: crates/outram-mc-libs/src/dh_universe.rs:1981 generate -->
+<!-- snippet-check: crates/outram-mc-libs/src/dh_universe.rs:2008 fn pack_in_ball -->
+<!-- snippet-check: crates/outram-mc-libs/src/dh_universe.rs:2029 generate -->
 
 ```rust,ignore
-{{#include ../../../../../crates/outram-mc-libs/src/dh_universe.rs:1960:1982}}
+{{#include ../../../../../crates/outram-mc-libs/src/dh_universe.rs:2008:2030}}
     // … (the rest of the function: follow the link above)
 ```
 
-**3.** → [`sphere_packing.rs::PackingConfig::generate`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/pebble_beds/sphere_packing.rs#L154) · called at [L1981](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/dh_universe.rs#L1981) — Generate the packed sphere list for this configuration.
+**3.** → [`sphere_packing.rs::PackingConfig::generate`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/pebble_beds/sphere_packing.rs#L154) · called at [L2029](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/dh_universe.rs#L2029) — Generate the packed sphere list for this configuration.
 
 <!-- snippet-check: crates/outram-mc-libs/src/pebble_beds/sphere_packing.rs:154 fn generate -->
 <!-- snippet-check: crates/outram-mc-libs/src/pebble_beds/sphere_packing.rs:156 pack_spheres -->
@@ -752,11 +768,11 @@ Call chain from `dh_universe.rs::DhUniverse::pebble` to `sphere_packing.rs::pack
 
 Unresolved calls inside the functions on this chain:
 
-- in [`dh_universe.rs::DhUniverse::pebble`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/dh_universe.rs#L898):
-  - UNRESOLVED(other): `clone` at [L1104](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/dh_universe.rs#L1104) (→ [`crates/outram-mc-libs/src/material/material.rs:61`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/material/material.rs#L61)) — resolves to `#[derive(Debug, Clone)]`, not a function body
-- in [`dh_universe.rs::pack_in_ball`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/dh_universe.rs#L1960):
-  - UNRESOLVED(closure): `attempt` at [L2007](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/dh_universe.rs#L2007) (→ [`crates/outram-mc-libs/src/dh_universe.rs:1972`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/dh_universe.rs#L1972)) — call through a closure or fn-typed binding `attempt`
-  - UNRESOLVED(closure): `attempt` at [L2020](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/dh_universe.rs#L2020) (→ [`crates/outram-mc-libs/src/dh_universe.rs:1972`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/dh_universe.rs#L1972)) — call through a closure or fn-typed binding `attempt`
+- in [`dh_universe.rs::DhUniverse::pebble`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/dh_universe.rs#L900):
+  - UNRESOLVED(other): `clone` at [L1106](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/dh_universe.rs#L1106) (→ [`crates/outram-mc-libs/src/material/material.rs:61`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/material/material.rs#L61)) — resolves to `#[derive(Debug, Clone)]`, not a function body
+- in [`dh_universe.rs::pack_in_ball`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/dh_universe.rs#L2008):
+  - UNRESOLVED(closure): `attempt` at [L2055](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/dh_universe.rs#L2055) (→ [`crates/outram-mc-libs/src/dh_universe.rs:2020`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/dh_universe.rs#L2020)) — call through a closure or fn-typed binding `attempt`
+  - UNRESOLVED(closure): `attempt` at [L2068](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/dh_universe.rs#L2068) (→ [`crates/outram-mc-libs/src/dh_universe.rs:2020`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/dh_universe.rs#L2020)) — call through a closure or fn-typed binding `attempt`
 <!-- /code-walk -->
 
 </div>

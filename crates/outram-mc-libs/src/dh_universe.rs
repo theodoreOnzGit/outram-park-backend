@@ -192,7 +192,9 @@ use crate::pebble_beds::delta_tracking::Majorant;
 use crate::pebble_beds::fhr_pebble::{
     homogenise_by_volume, ExplicitTrisoPebble, TrisoMaterials, TrisoSpec,
 };
-use crate::pebble_beds::keff_delta::{run_keff_delta_in, DeltaDomain, MaterialQuery};
+use crate::pebble_beds::keff_delta::{
+    run_keff_delta_in, DeltaDomain, DeltaGenerationReport, DeltaPowerIteration, MaterialQuery,
+};
 use crate::pebble_beds::sphere_packing::{PackedSpheres, PackingConfig, PackingMethod};
 use crate::physics::keff::{KeffResult, KeffSettings};
 use crate::stochastic::cls::ClsMedium;
@@ -1506,6 +1508,52 @@ impl DhUniverse {
             label, &reachable, nuclides, 1.0e-4, 2.0e7, 4096, 32, 0.3,
         )
     }
+
+    /// [`Self::keff`] **one generation at a time**, for a caller that must
+    /// stream the run (the GitHub #785 web demo, one generation per worker
+    /// message). The same majorant arguments and SCLS window as `keff`, then
+    /// [`DeltaPowerIteration`], which is `run_keff_delta_seq_in` stepped.
+    ///
+    /// With `settings.compute` at its default
+    /// ([`ComputeType::CpuSingleThread`](crate::physics::compute::ComputeType))
+    /// every generation's `k`, and the final mean and its error, are bit for
+    /// bit `keff`'s: `power_iteration_steps_keff_bit_for_bit` pins it. The
+    /// compute type is otherwise ignored; this is always single-threaded.
+    pub fn power_iteration(
+        &self,
+        nuclides: &[Nuclide],
+        settings: &KeffSettings,
+    ) -> DhPowerIteration {
+        let reachable = self.reachable_materials();
+        let majorant = Majorant::bounding(&reachable, nuclides, 1.0e-4, 2.0e7, 4096, 32, 0.3);
+        self.size_scls_window(nuclides);
+        let it = DeltaPowerIteration::new(self.domain, &self.materials, nuclides, &self, settings);
+        DhPowerIteration { majorant, it }
+    }
+}
+
+/// A [`DhUniverse`] power iteration run one generation at a time
+/// ([`DhUniverse::power_iteration`]). Holds no reference to the universe (no
+/// lifetime parameter): pass the same one to every [`Self::step`].
+pub struct DhPowerIteration {
+    majorant: Majorant,
+    it: DeltaPowerIteration,
+}
+
+impl DhPowerIteration {
+    /// Transport the next generation; `None` once the run is over.
+    pub fn step(
+        &mut self,
+        universe: &DhUniverse,
+        nuclides: &[Nuclide],
+    ) -> Option<DeltaGenerationReport> {
+        self.it
+            .step(&universe.materials, nuclides, &self.majorant, &universe)
+    }
+
+    pub fn finished(&self) -> bool {
+        self.it.finished()
+    }
 }
 
 impl DhUniverse {
@@ -2774,6 +2822,72 @@ mod tests {
             u.packing_fraction(),
             u.particle_count()
         );
+    }
+
+    /// The stepped run is `keff`, bit for bit, on the single-thread backend
+    /// (GitHub #785): every generation's `k` and the final mean and error, for
+    /// the explicit arm and for CLS (whose sampler is stateful, so each run
+    /// gets its own freshly built universe). LOW embedded data, a tiny run.
+    #[test]
+    fn power_iteration_steps_keff_bit_for_bit() {
+        let nuclides: Vec<Nuclide> = ["U235", "U238", "O16", "C0", "Si28"]
+            .iter()
+            .map(|n| Nuclide::from_core(n).unwrap())
+            .collect();
+        let mat = |id: i32, comps: &[(usize, f64)]| Material {
+            id,
+            name: format!("m{id}"),
+            temperature: 293.6,
+            components: comps
+                .iter()
+                .map(|&(nuclide_idx, atom_density)| NuclideComponent {
+                    nuclide_idx,
+                    atom_density,
+                })
+                .collect(),
+        };
+        let materials = vec![
+            mat(0, &[(0, 4.40e-3), (1, 1.77e-2), (2, 2.27e-2), (3, 9.10e-3)]),
+            mat(1, &[(3, 5.02e-2)]),
+            mat(2, &[(3, 9.53e-2)]),
+            mat(3, &[(4, 4.79e-2), (3, 4.79e-2)]),
+            mat(4, &[(3, 9.53e-2)]),
+            mat(5, &[(3, 8.53e-2)]),
+            mat(6, &[(3, 8.78e-2)]),
+        ];
+        let settings = KeffSettings {
+            n_particles: 150,
+            n_inactive: 2,
+            n_active: 3,
+            ..KeffSettings::default()
+        };
+        for t in [DhTreatment::DeltaTracking, DhTreatment::ChordLength] {
+            let build = || {
+                DhUniverse::pebble(
+                    PebbleParams::fhr_reference().with_materials(materials.clone()),
+                    t,
+                )
+                .unwrap()
+            };
+            let whole = build().keff(&nuclides, &settings);
+            let u = build();
+            let mut it = u.power_iteration(&nuclides, &settings);
+            let (mut ks, mut last) = (Vec::new(), None);
+            while let Some(g) = it.step(&u, &nuclides) {
+                ks.push(g.k.to_bits());
+                last = g.k_mean;
+            }
+            assert!(it.finished(), "{}", t.name());
+            let want: Vec<u64> = whole.k_by_generation.iter().map(|k| k.to_bits()).collect();
+            assert_eq!(ks, want, "{}", t.name());
+            let (m, e) = last.unwrap();
+            assert_eq!(
+                (m.to_bits(), e.to_bits()),
+                (whole.k_mean.to_bits(), whole.k_std.to_bits()),
+                "{}",
+                t.name()
+            );
+        }
     }
 
     /// `pack_in_ball`'s attempt record is the iteration it ran (GitHub #785):

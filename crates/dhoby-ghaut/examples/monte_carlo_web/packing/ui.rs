@@ -211,13 +211,20 @@ impl PackingView {
 
     pub fn status(&self) -> String {
         let c = self.counts();
-        format!(
-            "Random packing · {} · placed {} · whole in ball {} · pf {:.4}",
-            self.mode_label(),
-            c.placed,
-            c.kept,
-            c.ball_fraction
-        )
+        match (self.plan.is_some(), self.wanted_attempt()) {
+            (false, _) => "Random packing · running pack_in_ball in the worker".into(),
+            (true, w) if w != self.attempt => format!("Random packing · {} · replaying the packer", self.mode_label()),
+            _ => format!(
+                "Random packing · {} · attempt {} · placed {} · whole in ball {} · pf {:.4} · pack_in_ball {:.2} s, replay {:.2} s",
+                self.mode_label(),
+                self.attempt.map_or(0, |a| a + 1),
+                c.placed,
+                c.kept,
+                c.ball_fraction,
+                self.plan_secs,
+                self.replay_secs
+            ),
+        }
     }
 
     pub fn mode_label(&self) -> &'static str {
@@ -243,9 +250,9 @@ impl PackingView {
             ui.separator();
             ui.strong("pack_in_ball's attempts (this seed)");
             for (i, a) in attempts.iter().enumerate() {
-                let tag = if i == *best { " ← kept" } else { "" };
+                let tag = if i == *best { " (kept)" } else { "" };
                 ui.label(format!(
-                    "{}: asked {:.4} of the cube → {} placed, {} whole in the ball → {:.4}{tag}",
+                    "{}: asked {:.4} of the cube: {} placed, {} whole in the ball, {:.4}{tag}",
                     i + 1,
                     a.request,
                     a.generated,
@@ -393,19 +400,9 @@ impl PackingView {
             );
         }
         let c = self.counts();
-        let font = egui::FontId::proportional(12.5);
         let white = Color32::from_rgb(225, 230, 240);
-        let mut y = rect.top() + 48.0;
-        let mut line = |text: String, colour: Color32| {
-            p.text(
-                Pos2::new(rect.left() + 12.0, y),
-                egui::Align2::LEFT_TOP,
-                text,
-                font.clone(),
-                colour,
-            );
-            y += 17.0;
-        };
+        let mut lines: Vec<(String, Color32)> = Vec::new();
+        let mut line = |text: String, colour: Color32| lines.push((text, colour));
         match &self.plan {
             None => line(
                 "pack_in_ball is running in the worker…".into(),
@@ -437,7 +434,7 @@ impl PackingView {
                     white,
                 );
                 let ball = format!(
-                    "whole in the 1.9 cm zone: {} → pf {:.4} (asked {target:.2})",
+                    "whole in the 1.9 cm zone: {}, pf {:.4} (asked {target:.2})",
                     c.kept, c.ball_fraction
                 );
                 let colour = match (self.mode, c.placed == self.placements.len()) {
@@ -465,13 +462,34 @@ impl PackingView {
                 }
             }
         }
-        p.text(
-            rect.left_bottom() + Vec2::new(12.0, -40.0),
-            egui::Align2::LEFT_BOTTOM,
-            "slice z = 0 of the real packing; counts over all particles",
-            egui::FontId::proportional(11.0),
+        line(
+            "slice z = 0 of the real packing; counts over all particles".into(),
             Color32::from_rgb(150, 156, 170),
         );
+        // The numbers on a dark backdrop, wrapped to the view, so they read
+        // over the particles with the panel folded.
+        let wrap = (rect.width() - 28.0).max(120.0);
+        let galleys: Vec<_> = lines
+            .into_iter()
+            .map(|(t, col)| p.layout(t, egui::FontId::proportional(12.5), col, wrap))
+            .collect();
+        let h: f32 = galleys.iter().map(|g| g.size().y + 2.0).sum();
+        let w: f32 = galleys.iter().map(|g| g.size().x).fold(0.0, f32::max);
+        let top = rect.top() + 46.0;
+        p.rect_filled(
+            Rect::from_min_size(
+                Pos2::new(rect.left() + 6.0, top - 3.0),
+                Vec2::new(w + 12.0, h + 6.0),
+            ),
+            5.0,
+            Color32::from_rgba_unmultiplied(14, 16, 20, 200),
+        );
+        let mut y = top;
+        for g in galleys {
+            let gh = g.size().y;
+            p.galley(Pos2::new(rect.left() + 12.0, y), g, white);
+            y += gh + 2.0;
+        }
         // Mode switch, finger-sized, on the main view (the panel is folded on a phone).
         let labels = [
             (CutMode::Show, "cut: show"),
@@ -711,7 +729,7 @@ fn draw_chart(painter: &egui::Painter, rect: Rect, v: &PackingView, target: f64)
     p.text(
         Pos2::new(b.center().x, rect.bottom() - 3.0),
         egui::Align2::CENTER_BOTTOM,
-        "placements, in order →",
+        "placements, in order",
         font(10.5),
         grey,
     );

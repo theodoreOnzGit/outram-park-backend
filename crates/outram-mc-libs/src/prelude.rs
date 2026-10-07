@@ -61,7 +61,7 @@ pub use crate::physics::fixed_source::{
 };
 pub use crate::dh_universe::{
     fit_ring_rpt_inner_radius, is_whole_in_ball, pack_in_ball, BallPacking, BallPackingAttempt,
-    DhError, DhTreatment, DhUniverse, DispersedParams, PebbleParams, RingRptFit,
+    DhError, DhPowerIteration, DhTreatment, DhUniverse, DispersedParams, PebbleParams, RingRptFit,
 };
 pub use crate::physics::delta_tracking::{track_to_collision, DeltaEvent, DeltaFlight, Majorant};
 pub use crate::pebble_beds::fhr_pebble::{

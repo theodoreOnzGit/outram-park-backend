@@ -138,9 +138,11 @@ impl ShortcutsView {
         } else {
             "waiting"
         };
+        let built =
+            self.built[self.t].map_or(String::new(), |b| format!(" · built {:.2} s", b.secs));
         format!(
-            "DH shortcuts · {} · {} · {state}",
-            SHORT[self.t], self.slicer.info.ladder[self.slicer.preset].label
+            "DH shortcuts · {} · {} · {state}{built} · last slice {:.2} s",
+            SHORT[self.t], self.slicer.info.ladder[self.slicer.preset].label, self.slicer.last_secs
         )
     }
 
@@ -316,13 +318,15 @@ impl ShortcutsView {
                 self.redraw();
             }
         }
-        pic.text(
-            Pos2::new(rect.left() + 12.0, rect.bottom() - 40.0),
-            egui::Align2::LEFT_BOTTOM,
+        // Wrapped to the view: a phone is narrower than the line.
+        let g = pic.layout(
             self.built_line(),
             egui::FontId::proportional(11.5),
             Color32::from_rgb(190, 196, 210),
+            (rect.width() - 24.0).max(100.0),
         );
+        let gy = rect.bottom() - 38.0 - g.size().y;
+        pic.galley(Pos2::new(rect.left() + 12.0, gy), g, Color32::WHITE);
         draw_chart(painter, chart, self.t);
         out
     }
@@ -374,7 +378,7 @@ pub fn draw_chart(painter: &egui::Painter, rect: Rect, selected: usize) {
     let speed_w = (rect.width() * 0.2).clamp(54.0, 110.0);
     let plot = Rect::from_min_max(
         Pos2::new(rect.left() + label_w, rect.top() + 62.0),
-        Pos2::new(rect.right() - speed_w, rect.bottom() - 26.0),
+        Pos2::new(rect.right() - speed_w, rect.bottom() - 34.0),
     );
     let (lo, hi) = (-5500.0_f64, 2500.0_f64);
     let px = |pcm: f64| plot.left() + ((pcm.clamp(lo, hi) - lo) / (hi - lo)) as f32 * plot.width();
@@ -463,7 +467,7 @@ pub fn draw_chart(painter: &egui::Painter, rect: Rect, selected: usize) {
         }
     }
     p.text(
-        Pos2::new(plot.center().x, rect.bottom() - 4.0),
+        Pos2::new(rect.center().x, rect.bottom() - 3.0),
         egui::Align2::CENTER_BOTTOM,
         "pcm vs delta; right: speed vs delta (newest record)",
         font(10.5),

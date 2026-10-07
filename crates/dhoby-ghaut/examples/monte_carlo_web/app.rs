@@ -689,7 +689,8 @@ impl McApp {
                     Some((_, label)) => format!("{} {label}", k.case.param.0),
                     None => format!("{} {:.4} {}", k.case.param.0, k.running_param, k.case.param.1),
                 };
-                format!("{name} · k∞, {at} · generation {}/{} · {:?}", k.gens.len(), k.cfg.n_inactive + k.cfg.n_active, k.state)
+                let mean = k.gens.last().filter(|g| g.mean.is_finite()).map_or(String::new(), |g| format!(" · k∞ = {:.5} ± {:.5} · {:.0} s", g.mean, g.sem, k.elapsed));
+                format!("{name} · k∞, {at} · generation {}/{} · {:?}{mean}", k.gens.len(), k.cfg.n_inactive + k.cfg.n_active, k.state)
             }
             Phase::Ready(Screen::Geometry(sl)) => {
                 let state = if sl.busy() { "slicing" } else if sl.settled() { "slice ready" } else { "waiting" };

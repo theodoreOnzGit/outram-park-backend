@@ -108,6 +108,13 @@ copy `monte_carlo_web`. It gives, ready-made and tested:
    with `LoadedRung::kinf_start` / `kinf_step`, one generation per request;
    `lct008/`'s pitch slider, on `transport_csg::CsgPowerIteration`), and
    the σ(E) panel beside the geometry (`LoadedRung::xs_curves`, `xs::curves`).
+   Optional since 2026-10-07 (gh:#785): **a demo of its own** for a code walk
+   whose idea is not tracks, a power iteration or a sweep
+   (`McRung::walk_demo`, the Watch view `demo`): the page side is a variant
+   of `walkdemo::WalkDemo` (its own panel and main view, asking the worker
+   through `walkdemo::Outgoing`), the worker side `LoadedRung::walk` (flat
+   `f64`s in and out, one short computation per message) and, for a slice,
+   `LoadedRung::raster`. `dhshort/` and `packing/` are the worked examples.
    Add `render.rs` for the geometry review images (the
    drawing rule above) and wire it into `--render-geometry` in `main.rs`.
 2. **One line** in the `rung_table!` invocation in `main.rs`

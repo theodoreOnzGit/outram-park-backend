@@ -1,6 +1,6 @@
 //! **The Monte Carlo demo** — one app, a rung of the tutorial ladder at a time
-//! (gh:#520, #521): `godiva`, a bare uranium sphere (Watch, and a true
-//! Run k_eff), and `triso`, a 2D analogue of an HTR-10 fuel pebble. Every
+//! (gh:#520, #521), from `godiva`, a bare uranium sphere (Watch, and a true
+//! Run k_eff), to `htr10`; the full list is the rung table below. Every
 //! neutron is transported by outram-mc-libs on real ENDF/B-VIII.0 data that
 //! the workspace's own NJOY port processes — in the browser, on the reader's
 //! machine. Single-threaded; runs natively and in the browser
