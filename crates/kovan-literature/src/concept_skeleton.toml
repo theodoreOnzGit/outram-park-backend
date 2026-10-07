@@ -166,6 +166,15 @@ file = "kovan-standard-open-corpus/nrc/nureg-br-0167-1993-sqa-program-and-guidel
 licence = "U.S. Government work"
 
 [[document]]
+id = "kendrick-2019-unqa"
+title = "J. C. Kendrick, Nuclear Quality Assurance in University Research with Control System Design as a Case Study, PhD dissertation, University of California, Berkeley (chair P. F. Peterson)"
+publisher = "University of California, Berkeley (eScholarship, https://escholarship.org/uc/item/7936z4xq)"
+date = "2019"
+tier = "private"
+file = "theses/kendrick2019-nqa-university-research.pdf"
+licence = "(c) J. C. Kendrick; open download from eScholarship, not for redistribution; cited by section and page only"
+
+[[document]]
 id = "doe-g-414.1-4"
 title = "DOE G 414.1-4, Safety Software Guide for Use with 10 CFR 830 Subpart A, Quality Assurance Requirements, and DOE O 414.1C, Quality Assurance"
 publisher = "U.S. Department of Energy, Office of Environment, Safety and Health"

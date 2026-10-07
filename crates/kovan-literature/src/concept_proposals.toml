@@ -1168,7 +1168,7 @@ status = "approved"
 path = "07-regulatory-framework/quality-assurance/software-quality-assurance"
 title = "Software quality assurance"
 origin = "outram-park"
-sources = [{ document = "nureg-0800-toc-rev6", section = "Ch. 17; BTP 7-14 (software reviews)" }, { document = "nureg-1520-rev2", section = "5.4.3.1.7.1 Calculational Method Validation" }, { document = "nureg-br-0167", section = "the NRC's SQA program and guidelines for software developed for NRC staff use (whole document)" }, { document = "doe-std-1172-2003", section = "Required Technical Competencies 1-12" }, { document = "doe-g-414.1-4", section = "2.1 software types; 2.2 graded application (levels A, B, C); 5.2 the ten SQA work activities; Table B-2" }]
+sources = [{ document = "nureg-0800-toc-rev6", section = "Ch. 17; BTP 7-14 (software reviews)" }, { document = "nureg-1520-rev2", section = "5.4.3.1.7.1 Calculational Method Validation" }, { document = "nureg-br-0167", section = "the NRC's SQA program and guidelines for software developed for NRC staff use (whole document)" }, { document = "doe-std-1172-2003", section = "Required Technical Competencies 1-12" }, { document = "doe-g-414.1-4", section = "2.1 software types; 2.2 graded application (levels A, B, C); 5.2 the ten SQA work activities; Table B-2" }, { document = "kendrick-2019-unqa", section = "Ch. 3 University Nuclear QA program (pp. 41-66): graded NQA-1 in a university lab; Ch. 5 design and software design procedures (pp. 115-133)" }]
 why = "agreed on #726 as the home of NQA-1-style software QA; the SRP names QA and I&C software reviews but not scientific-software QA."
 status = "approved"
 

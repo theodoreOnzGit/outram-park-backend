@@ -1052,6 +1052,22 @@ pub const LITERATURE: &[CorpusLiterature] = &[
     // from the skeleton's `[[document]]` rows (which were read from the
     // documents when the maintainer supplied them), not re-read here.
     CorpusLiterature {
+        id: "kendrick-2019-unqa",
+        kind: LiteratureKind::Report,
+        title: "Nuclear Quality Assurance in University Research with Control System Design \
+                as a Case Study (PhD dissertation, UC Berkeley)",
+        authors: &["Kendrick, J.C."],
+        year: Some(2019),
+        topics: &["07-regulatory-framework/quality-assurance/software-quality-assurance"],
+        concept_document: Some("kendrick-2019-unqa"),
+        source_url: Some("https://escholarship.org/uc/item/7936z4xq"),
+        corpus_file: None,
+        status: SourceStatus::Restricted,
+        status_basis: "(c) J. C. Kendrick; open download from eScholarship but not for \
+                       redistribution; held in the maintainer's private corpus and cited by \
+                       section and page only (concept_skeleton.toml, tier \"private\")",
+    },
+    CorpusLiterature {
         id: "iaea-ng-g-3.1-rev1",
         kind: LiteratureKind::Report,
         title: "Milestones in the Development of a National Infrastructure for Nuclear Power \
@@ -1341,10 +1357,11 @@ mod tests {
     fn literature_and_connections_point_at_real_nodes() {
         assert_eq!(
             LITERATURE.len(),
-            30,
+            31,
             "the maintainer's 2026-09-22 set, EPA FGR-11, FGR-13 and FGR-15 (2026-09-28), \
              the concept tree's 13 further documents (2026-10-06), and the software QA \
-             set NUREG/BR-0167, DOE-STD-1172-2003 and DOE G 414.1-4 (2026-10-07, #760)"
+             set NUREG/BR-0167, DOE-STD-1172-2003 and DOE G 414.1-4 (2026-10-07, #760), and Kendrick 2019 \
+             (private, cited only)"
         );
         let mut ids = HashSet::new();
         for l in LITERATURE {
