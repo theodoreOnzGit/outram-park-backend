@@ -35,6 +35,9 @@
 //! | [`html`] | `ZU.unescapeHTML` (HTML5 parse, then `textContent`) | utilities.js + the WHATWG parser |
 //! | [`csl`] | `ZU.itemFromCSLJSON` into a translator item, `ZU.itemToCSLJSON` of an export item | utilities_item.js |
 //! | [`js`] | JavaScript string semantics (whitespace, `ToString`, truthiness) | ECMA-262 |
+//! | [`identifiers`] | `ZU.cleanISBN`, `ZU.cleanISSN` (#749) | utilities.js |
+//! | [`title_case`] | `ZU.capitalizeTitle` as the translation-server runs it (#749) | utilities.js, utilities_translate.js |
+//! | [`openurl`] | `ZU.createContextObject` (OpenURL 1.0 KEV, for COinS; #749) | openurl.js |
 //!
 //! **Adding a translator** is one module under `translators/` plus a
 //! variant of [`super::translators::Translator`]: an `import` function over
@@ -61,6 +64,7 @@ pub mod export_items;
 pub mod html;
 // #749 additions.
 pub mod identifiers;
+pub mod openurl;
 pub mod title_case;
 #[rustfmt::skip]
 pub mod html_entities;

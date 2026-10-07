@@ -6,6 +6,9 @@
 //
 // WHAT IT DOES
 //
+// (#749: some fixtures go through the same server code loaded in-process
+// instead, see IN-PROCESS UPSTREAM below.)
+//
 // Sends every fixture through a RUNNING Zotero translation-server
 // (https://github.com/zotero/translation-server; default
 // http://127.0.0.1:1969, override with ZOTERO_SERVER) and writes what upstream
@@ -25,8 +28,9 @@
 //                             schema commits; time zone; date; normalisation
 //
 // Fixtures:
-//   * every `testCases` entry of the four translators (vendor/translators,
-//     BibTeX.js, BibLaTeX.js (none), RIS.js, CSL JSON.js), input verbatim;
+//   * every import `testCases` entry of the translators in FORMATS
+//     (vendor/translators; BibTeX.js, RIS.js, CSL JSON.js and, since #749,
+//     the tagged-text and JSON importers), input verbatim;
 //   * crates/kovan-literature/tests/data/zotero/fixtures/import/* (one
 //     upstream file, book_and_child_note.ris from zotero/test/tests/data, and
 //     kovan-authored probes);
