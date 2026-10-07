@@ -16,8 +16,15 @@
 //! name = "Theodore Ong"            # display only
 //! role = "maintainer"              # maintainer | reviewer
 //! scope = ["crates/**"]            # path globs; see `scope`
-//! qualification = ["concept:software-quality-assurance/…"]
 //! admitted = "2026-10-07"
+//!
+//! [[reviewer.qualification]]       # one per area; enforced only at rung 5
+//! area = "concept:thermal-hydraulics"
+//! basis = "degree"                  # degree | publications | track_record | self_study | endorsement
+//! evidence = ["https://doi.org/…"]
+//! endorsed_by = { by = "github:…" } # optional
+//! self_declared = false             # must be true for self_study
+//! # (the first-version form, qualification = ["concept:…"], still reads)
 //!
 //! [[reviewer.key]]
 //! id = "k1"
@@ -115,6 +122,125 @@ pub struct Revocation {
     pub signature: Option<KeySignature>,
 }
 
+/// What a qualification rests on (maintainer, #739, 2026-10-07: "demonstrated
+/// competence in an area, with evidence. A degree title is not required").
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum QualificationBasis {
+    /// A degree or thesis.
+    Degree,
+    Publications,
+    /// A repository track record.
+    TrackRecord,
+    /// Self-study with evidence: always labelled self-declared.
+    SelfStudy,
+    /// Another person vouches (see `endorsed_by`).
+    Endorsement,
+}
+
+impl QualificationBasis {
+    pub fn label(self) -> &'static str {
+        match self {
+            Self::Degree => "degree/thesis",
+            Self::Publications => "publications",
+            Self::TrackRecord => "track record",
+            Self::SelfStudy => "self-study",
+            Self::Endorsement => "endorsement",
+        }
+    }
+}
+
+/// Who endorsed a qualification.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct QualificationEndorsement {
+    /// The endorser's reviewer id.
+    pub by: String,
+    /// Not verified until #762.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub signature: Option<KeySignature>,
+}
+
+/// `[[reviewer.qualification]]`: competence in one concept-tree area.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct QualificationRecord {
+    /// The concept-tree node, e.g. `concept:thermal-hydraulics`. Covers the
+    /// node and everything under it.
+    pub area: String,
+    pub basis: QualificationBasis,
+    /// Links kovan can resolve (theses, papers, repositories).
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub evidence: Vec<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub endorsed_by: Option<QualificationEndorsement>,
+    /// Must be `true` for a self-study basis (the label is shown on the
+    /// stamp and in the registry).
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub self_declared: bool,
+}
+
+/// One qualification entry, in either form (additive: the first-version
+/// bare string still reads).
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(untagged)]
+pub enum Qualification {
+    Record(QualificationRecord),
+    /// First-version form: a concept path with no basis or evidence. Shown,
+    /// but never counts for rung 5.
+    Cited(String),
+}
+
+/// The part of a concept id that names the tree node (`concept:` dropped).
+fn concept_path(c: &str) -> &str {
+    c.strip_prefix("concept:").unwrap_or(c).trim_matches('/')
+}
+
+/// Whether area `area` covers concept `concept`: the same node or one under
+/// it.
+pub fn area_covers(area: &str, concept: &str) -> bool {
+    let (a, c) = (concept_path(area), concept_path(concept));
+    !a.is_empty() && (c == a || c.starts_with(&format!("{a}/")))
+}
+
+impl Qualification {
+    /// The area, in either form.
+    pub fn area(&self) -> &str {
+        match self {
+            Self::Record(r) => &r.area,
+            Self::Cited(s) => s,
+        }
+    }
+
+    /// Whether it counts for rung 5 in `concept`: a record with evidence
+    /// (or an endorsement) whose area covers the concept.
+    pub fn qualifies_for(&self, concept: &str) -> bool {
+        match self {
+            Self::Record(r) => {
+                (!r.evidence.is_empty() || r.endorsed_by.is_some()) && area_covers(&r.area, concept)
+            }
+            Self::Cited(_) => false,
+        }
+    }
+
+    /// The public label, e.g. `thermal-hydraulics (degree/thesis)` or
+    /// `numerics (self-study; self-declared)`.
+    pub fn label(&self) -> String {
+        match self {
+            Self::Record(r) => {
+                let mut s = format!("{} ({}", concept_path(&r.area), r.basis.label());
+                if r.self_declared {
+                    s.push_str("; self-declared");
+                }
+                if let Some(e) = &r.endorsed_by {
+                    s.push_str(&format!("; endorsed by {}", e.by));
+                }
+                s.push(')');
+                s
+            }
+            Self::Cited(c) => format!("{} (cited, no evidence)", concept_path(c)),
+        }
+    }
+}
+
 /// `[[reviewer]]`.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Reviewer {
@@ -126,10 +252,13 @@ pub struct Reviewer {
     /// a maintainer.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub scope: Vec<String>,
-    /// Competencies cited, e.g. concept-tree paths of the DOE-STD-1172
-    /// safety software QA competencies.
+    /// Demonstrated competence, one per area ([`Qualification`]). Either the
+    /// first-version form, a bare concept path
+    /// (`qualification = ["concept:…"]`), or since 2026-10-07 one
+    /// `[[reviewer.qualification]]` table per area with basis and evidence.
+    /// Shown beside every stamp; enforced only at rung 5.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub qualification: Vec<String>,
+    pub qualification: Vec<Qualification>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub admitted: Option<String>,
     /// The maintainer signature that admitted this reviewer; absent for the
@@ -177,6 +306,10 @@ pub enum RootError {
     Field(FieldError),
     /// Two `[[reviewer]]` entries share an id.
     DuplicateReviewer(String),
+    /// A self-study qualification not labelled `self_declared = true`, or
+    /// one with no evidence (maintainer, #739, 2026-10-07).
+    UnlabelledSelfDeclared { reviewer: String, area: String },
+    SelfStudyWithoutEvidence { reviewer: String, area: String },
 }
 
 impl std::fmt::Display for RootError {
@@ -185,6 +318,14 @@ impl std::fmt::Display for RootError {
             Self::Toml(e) => write!(f, "kovan_root.toml: {e}"),
             Self::Field(e) => write!(f, "kovan_root.toml: {e}"),
             Self::DuplicateReviewer(id) => write!(f, "kovan_root.toml: reviewer {id} listed twice"),
+            Self::UnlabelledSelfDeclared { reviewer, area } => write!(
+                f,
+                "kovan_root.toml: {reviewer}'s self-study qualification in {area} must set self_declared = true"
+            ),
+            Self::SelfStudyWithoutEvidence { reviewer, area } => write!(
+                f,
+                "kovan_root.toml: {reviewer}'s self-study qualification in {area} needs evidence"
+            ),
         }
     }
 }
@@ -204,6 +345,21 @@ impl ReviewRoot {
             reviewer_id_kind(&r.id).map_err(RootError::Field)?;
             if !seen.insert(r.id.as_str()) {
                 return Err(RootError::DuplicateReviewer(r.id.clone()));
+            }
+            for q in &r.qualification {
+                if let Qualification::Record(q) = q {
+                    if q.basis == QualificationBasis::SelfStudy {
+                        let who = || (r.id.clone(), q.area.clone());
+                        if !q.self_declared {
+                            let (reviewer, area) = who();
+                            return Err(RootError::UnlabelledSelfDeclared { reviewer, area });
+                        }
+                        if q.evidence.is_empty() {
+                            let (reviewer, area) = who();
+                            return Err(RootError::SelfStudyWithoutEvidence { reviewer, area });
+                        }
+                    }
+                }
             }
         }
         for c in &root.deleted_crates {
@@ -292,6 +448,53 @@ deleted_commit = "0123456789abcdef0123456789abcdef01234567"
         assert!(written.contains("[library]") && written.contains("outram-park-backend"));
         let plain = "schema_version = 1\n[library]\nid = \"x\"\nname = \"X\"\n";
         assert_eq!(ReviewRoot::parse(plain).unwrap(), ReviewRoot::default());
+    }
+
+    /// Methodology: qualification (maintainer, #739, 2026-10-07). The
+    /// first-version bare-string form and the per-area table form both read
+    /// (additive); a self-study record must be labelled self-declared and
+    /// carry evidence (typed errors otherwise); an area covers its node and
+    /// everything under it; only a record with evidence or an endorsement
+    /// counts for rung 5; labels say "self-declared".
+    ///
+    /// Result (2026-10-07): passes.
+    #[test]
+    fn qualification_records_and_self_declared_labels() {
+        let text = r#"
+[[reviewer]]
+id = "github:a"
+role = "reviewer"
+[[reviewer.qualification]]
+area = "concept:thermal-hydraulics"
+basis = "degree"
+evidence = ["https://doi.org/10.1/thesis"]
+[[reviewer.qualification]]
+area = "concept:numerics"
+basis = "self_study"
+evidence = ["https://github.com/a/notes"]
+self_declared = true
+"#;
+        let r = ReviewRoot::parse(text).unwrap();
+        let q = &r.reviewers[0].qualification;
+        assert!(q[0].qualifies_for("concept:thermal-hydraulics/natural-circulation"));
+        assert!(!q[0].qualifies_for("concept:thermal-hydraulics-x"));
+        assert!(!q[0].qualifies_for("concept:neutronics"));
+        assert_eq!(q[1].label(), "numerics (self-study; self-declared)");
+        assert_eq!(ReviewRoot::parse(&r.write_into(text).unwrap()).unwrap(), r);
+        let unlabelled = text.replace("self_declared = true\n", "");
+        assert!(matches!(
+            ReviewRoot::parse(&unlabelled),
+            Err(RootError::UnlabelledSelfDeclared { .. })
+        ));
+        let no_ev = text.replace("evidence = [\"https://github.com/a/notes\"]\n", "");
+        assert!(matches!(
+            ReviewRoot::parse(&no_ev),
+            Err(RootError::SelfStudyWithoutEvidence { .. })
+        ));
+        let old = ReviewRoot::parse(ROOT).unwrap();
+        let cited = &old.reviewers[0].qualification[0];
+        assert!(matches!(cited, Qualification::Cited(_)));
+        assert!(!cited.qualifies_for("concept:sqa/safety-software-qa-competencies"));
     }
 
     /// Methodology: a bad reviewer id and a duplicate reviewer are typed

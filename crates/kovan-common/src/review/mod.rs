@@ -47,6 +47,7 @@
 //! - The staleness engine itself (#765): `engine::evaluate` in the picture
 //!   above is the next step and is not in this module yet.
 
+pub mod engine;
 pub mod hash;
 pub mod index;
 pub mod review_md;
@@ -54,4 +55,5 @@ pub mod root;
 pub mod rust_items;
 pub mod scope;
 pub mod signing;
+pub mod state;
 pub mod types;
