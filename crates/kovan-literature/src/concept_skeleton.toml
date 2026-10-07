@@ -325,6 +325,244 @@ tier = "standard"
 file = "kovan-standard-open-corpus/moose-docs/PIMPLE.md"
 licence = "LGPL 2.1 (MOOSE LICENSE)"
 
+# Added 2026-10-07 (#760): the 26 redistributable sources of the timeless
+# software-properties branch under SQA (corpus README sections 1, 2 and 11 to
+# 15: NRC, arXiv CC BY, NSA, CISA TLP:CLEAR, NASA, FAA, NIST).
+
+[[document]]
+id = "nsa-csi-software-memory-safety"
+title = "NSA Cybersecurity Information Sheet, Software Memory Safety (U/OO/219936-22, Version 1.1)"
+publisher = "U.S. National Security Agency"
+date = "April 2023"
+tier = "standard"
+file = "kovan-standard-open-corpus/nsa/nsa-csi-software-memory-safety-v1.1-2023.pdf"
+licence = "U.S. Government work; \"This information may be shared broadly\" (PDF p. 7)"
+
+[[document]]
+id = "nsa-cisa-memory-safe-languages-2025"
+title = "NSA and CISA Cybersecurity Information Sheet, Memory Safe Languages: Reducing Vulnerabilities in Modern Software Development (U/OO/172709-25, Version 1.0)"
+publisher = "U.S. National Security Agency; Cybersecurity and Infrastructure Security Agency"
+date = "June 2025"
+tier = "standard"
+file = "kovan-standard-open-corpus/nsa/nsa-cisa-csi-memory-safe-languages-2025.pdf"
+licence = "U.S. Government work; \"This information may be shared broadly\" (PDF p. 19)"
+
+[[document]]
+id = "cisa-case-for-memory-safe-roadmaps"
+title = "The Case for Memory Safe Roadmaps: Why Both C-Suite Executives and Technical Experts Need to Take Memory Safe Coding Seriously (CISA, NSA, FBI and five partner agencies)"
+publisher = "U.S. Cybersecurity and Infrastructure Security Agency"
+date = "December 2023"
+tier = "standard"
+file = "kovan-standard-open-corpus/cisa/cisa-case-for-memory-safe-roadmaps-2023.pdf"
+licence = "TLP:CLEAR: \"may be distributed without restriction\", subject to standard copyright rules"
+
+[[document]]
+id = "nasa-mco-mib-phase-1"
+title = "Mars Climate Orbiter Mishap Investigation Board Phase I Report"
+publisher = "NASA"
+date = "10 November 1999"
+tier = "standard"
+file = "kovan-standard-open-corpus/nasa/mco-mib-phase-i-report-1999.pdf"
+licence = "U.S. Government work (signed by NASA board members)"
+
+[[document]]
+id = "nasa-std-8739.8b"
+title = "NASA-STD-8739.8B, Software Assurance and Software Safety Standard"
+publisher = "NASA"
+date = "2022-09-08"
+tier = "standard"
+file = "kovan-standard-open-corpus/nasa/nasa-std-8739.8b-2022.pdf"
+licence = "Approved for public release, distribution is unlimited (cover)"
+
+[[document]]
+id = "npr-7150.2d"
+title = "NPR 7150.2D, NASA Software Engineering Requirements"
+publisher = "NASA, Office of the Chief Engineer"
+date = "8 March 2022"
+tier = "standard"
+file = "kovan-standard-open-corpus/nasa/npr-7150.2d-2022.pdf"
+licence = "U.S. Government work (NASA directive, NODIS)"
+
+[[document]]
+id = "nasa-std-7009b"
+title = "NASA-STD-7009B, Standard for Models and Simulations"
+publisher = "NASA, Office of the Chief Engineer"
+date = "2024-03-05"
+tier = "standard"
+file = "kovan-standard-open-corpus/nasa/nasa-std-7009b-2024.pdf"
+licence = "U.S. Government work; NTSS: cleared for public accessibility on the internet"
+
+[[document]]
+id = "nasa-hdbk-7009b"
+title = "NASA-HDBK-7009B, NASA Handbook for Models and Simulations: An Implementation Guide for NASA-STD-7009B (as published, with a DRAFT running header)"
+publisher = "NASA, Office of the Chief Engineer"
+date = "2026-02-03"
+tier = "standard"
+file = "kovan-standard-open-corpus/nasa/nasa-hdbk-7009b-2026.pdf"
+licence = "Approved for public release, distribution is unlimited (cover and footers)"
+
+[[document]]
+id = "nasa-tm-103863"
+title = "NASA TM-103863, The NAS Parallel Benchmarks (D. Bailey, J. Barton, T. Lasinski, H. Simon, eds.)"
+publisher = "NASA Ames Research Center"
+date = "July 1993"
+tier = "standard"
+file = "kovan-standard-open-corpus/nasa/nasa-tm-103863-nas-parallel-benchmarks.pdf"
+licence = "NTRS 19940008727: Work of the US Gov. Public Use Permitted"
+
+[[document]]
+id = "nasa-tm-2001-210876"
+title = "NASA/TM-2001-210876, A Practical Tutorial on Modified Condition/Decision Coverage (Hayhurst, Veerhusen, Chilenski, Rierson)"
+publisher = "NASA Langley Research Center"
+date = "May 2001"
+tier = "standard"
+file = "kovan-standard-open-corpus/nasa/nasa-tm-2001-210876-mcdc-tutorial.pdf"
+licence = "NTRS 20010057789: Work of the US Gov. Public Use Permitted (RTCA quotations keep RTCA's copyright)"
+
+[[document]]
+id = "btp-7-14-rev6"
+title = "NUREG-0800, SRP Branch Technical Position 7-14, Revision 6, Guidance on Software Reviews for Digital Computer-Based Instrumentation and Control Systems"
+publisher = "U.S. NRC"
+date = "August 2016"
+tier = "standard"
+file = "kovan-standard-open-corpus/nrc/ML16019A308.pdf"
+licence = "U.S. Government work"
+
+[[document]]
+id = "rg-1.168-rev2"
+title = "Regulatory Guide 1.168, Revision 2, Verification, Validation, Reviews, and Audits for Digital Computer Software Used in Safety Systems of Nuclear Power Plants"
+publisher = "U.S. NRC, Office of Nuclear Regulatory Research"
+date = "July 2013"
+tier = "standard"
+file = "kovan-standard-open-corpus/nrc/ML13073A210.pdf"
+licence = "U.S. Government work"
+
+[[document]]
+id = "rg-1.169-rev1"
+title = "Regulatory Guide 1.169, Revision 1, Configuration Management Plans for Digital Computer Software Used in Safety Systems of Nuclear Power Plants"
+publisher = "U.S. NRC, Office of Nuclear Regulatory Research"
+date = "July 2013"
+tier = "standard"
+file = "kovan-standard-open-corpus/nrc/ML12355A642.pdf"
+licence = "U.S. Government work"
+
+[[document]]
+id = "rg-1.170-rev1"
+title = "Regulatory Guide 1.170, Revision 1, Test Documentation for Digital Computer Software Used in Safety Systems of Nuclear Power Plants"
+publisher = "U.S. NRC, Office of Nuclear Regulatory Research"
+date = "July 2013"
+tier = "standard"
+file = "kovan-standard-open-corpus/nrc/ML13003A216.pdf"
+licence = "U.S. Government work"
+
+[[document]]
+id = "rg-1.171-rev1"
+title = "Regulatory Guide 1.171, Revision 1, Software Unit Testing for Digital Computer Software Used in Safety Systems of Nuclear Power Plants"
+publisher = "U.S. NRC, Office of Nuclear Regulatory Research"
+date = "July 2013"
+tier = "standard"
+file = "kovan-standard-open-corpus/nrc/ML13004A375.pdf"
+licence = "U.S. Government work"
+
+[[document]]
+id = "rg-1.172-rev1"
+title = "Regulatory Guide 1.172, Revision 1, Software Requirement Specifications for Digital Computer Software and Complex Electronics Used in Safety Systems of Nuclear Power Plants"
+publisher = "U.S. NRC, Office of Nuclear Regulatory Research"
+date = "July 2013"
+tier = "standard"
+file = "kovan-standard-open-corpus/nrc/ML13007A173.pdf"
+licence = "U.S. Government work"
+
+[[document]]
+id = "rg-1.173-rev1"
+title = "Regulatory Guide 1.173, Revision 1, Developing Software Life-Cycle Processes for Digital Computer Software Used in Safety Systems of Nuclear Power Plants"
+publisher = "U.S. NRC, Office of Nuclear Regulatory Research"
+date = "July 2013"
+tier = "standard"
+file = "kovan-standard-open-corpus/nrc/ML13009A190.pdf"
+licence = "U.S. Government work"
+
+[[document]]
+id = "rg-1.152-rev4"
+title = "Regulatory Guide 1.152, Revision 4, Criteria for Programmable Digital Devices in Safety-Related Systems of Nuclear Power Plants"
+publisher = "U.S. NRC"
+date = "July 2023"
+tier = "standard"
+file = "kovan-standard-open-corpus/nrc/ML23054A463.pdf"
+licence = "U.S. Government work"
+
+[[document]]
+id = "faa-ac-20-115d"
+title = "FAA Advisory Circular 20-115D, Airborne Software Development Assurance Using EUROCAE ED-12( ) and RTCA DO-178( )"
+publisher = "U.S. Federal Aviation Administration (AIR-134)"
+date = "21 July 2017"
+tier = "standard"
+file = "kovan-standard-open-corpus/faa/faa-ac-20-115d-2017.pdf"
+licence = "U.S. Government work (17 U.S.C. 105)"
+
+[[document]]
+id = "faa-order-8110.49a"
+title = "FAA Order 8110.49A, Software Approval Guidelines"
+publisher = "U.S. Federal Aviation Administration (AIR-600)"
+date = "29 March 2018"
+tier = "standard"
+file = "kovan-standard-open-corpus/faa/faa-order-8110.49a-2018.pdf"
+licence = "U.S. Government work (17 U.S.C. 105)"
+
+[[document]]
+id = "faa-ac-00-69"
+title = "FAA Advisory Circular 00-69, Best Practices for Airborne Software Development Assurance Using EUROCAE ED-12( ) and RTCA DO-178( )"
+publisher = "U.S. Federal Aviation Administration (AIR-134)"
+date = "21 July 2017"
+tier = "standard"
+file = "kovan-standard-open-corpus/faa/faa-ac-00-69-2017.pdf"
+licence = "U.S. Government work (17 U.S.C. 105)"
+
+[[document]]
+id = "faa-ac-20-193"
+title = "FAA Advisory Circular 20-193, Use of Multi-Core Processors"
+publisher = "U.S. Federal Aviation Administration (AIR-622)"
+date = "8 January 2024"
+tier = "standard"
+file = "kovan-standard-open-corpus/faa/faa-ac-20-193-2024.pdf"
+licence = "U.S. Government work (17 U.S.C. 105)"
+
+[[document]]
+id = "faa-ac-25.1309-1b"
+title = "FAA Advisory Circular 25.1309-1B, System Design and Analysis"
+publisher = "U.S. Federal Aviation Administration (AIR-600)"
+date = "30 August 2024"
+tier = "standard"
+file = "kovan-standard-open-corpus/faa/faa-ac-25.1309-1b-2024.pdf"
+licence = "U.S. Government work (17 U.S.C. 105)"
+
+[[document]]
+id = "nistir-8397"
+title = "NISTIR 8397, Guidelines on Minimum Standards for Developer Verification of Software (P. E. Black, B. Guttman, V. Okun)"
+publisher = "National Institute of Standards and Technology"
+date = "October 2021"
+tier = "standard"
+file = "kovan-standard-open-corpus/nist/nistir-8397-2021.pdf"
+licence = "Public domain: NIST statement under 17 U.S.C. 105 (PDF p. 4)"
+
+[[document]]
+id = "arxiv-2505.01671v1"
+title = "K. Keahey et al., Report on Challenges of Practical Reproducibility for Systems and HPC Computer Science, arXiv:2505.01671v1"
+publisher = "arXiv"
+date = "3 May 2025"
+tier = "standard"
+file = "kovan-standard-open-corpus/cc-by/arxiv-2505.01671v1-keahey-practical-reproducibility.pdf"
+licence = "CC BY 4.0 (arXiv record)"
+
+[[document]]
+id = "arxiv-2311.06995v1"
+title = "M. A. Heroux, Scalable Delivery of Scalable Libraries and Tools: How ECP Delivered a Software Ecosystem for Exascale and Beyond, arXiv:2311.06995v1"
+publisher = "arXiv"
+date = "13 November 2023"
+tier = "standard"
+file = "kovan-standard-open-corpus/cc-by/arxiv-2311.06995v1-heroux-ecp-software-ecosystem.pdf"
+licence = "CC BY 4.0 (arXiv record)"
+
 [[node]]
 path = "01-national-position"
 title = "National position"

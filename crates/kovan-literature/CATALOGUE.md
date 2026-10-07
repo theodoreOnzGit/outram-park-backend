@@ -71,6 +71,29 @@ Bookkeeping-status sign-off block) that do not belong in a library catalogue.
 > multigroup writers, ERRORR/COVR, HEATR); NJOY, MODER, RESXSR, PLOTR, VIEWR,
 > MIXR and GASPR have no sub-concept and stay under the parent only.
 
+> **2026-10-07 — 26 software-properties sources filed into Kovan's standard
+> corpus** (OUTRAM PARK #760; owner's decisions of that day), for the new
+> branch `07-regulatory-framework/quality-assurance/software-quality-assurance/software-properties`
+> (ten properties plus performance, timing and scalability). Each file was
+> re-read for its redistribution statement, its SHA-256 computed, and its
+> bytes matched against the official URL (or the Internet Archive's copy of
+> it where the agency refuses scripted requests); all quoted, with where, in
+> `reactor-literature/kovan-standard-open-corpus/README.md`. BTP 7-14 Rev. 6
+> and RGs 1.152 Rev. 4, 1.168 Rev. 2, 1.169-1.173 Rev. 1 (`nrc/`, ground 1);
+> arXiv:2505.01671v1 and 2311.06995v1 (`cc-by/`, ground 2 extended to arXiv);
+> NSA CSI *Software Memory Safety* v1.1 and NSA/CISA *Memory Safe Languages*
+> (`nsa/`, new ground 10, "may be shared broadly"); CISA et al. *The Case for
+> Memory Safe Roadmaps* (`cisa/`, new ground 11, TLP:CLEAR, with the caveat
+> that five co-authoring agencies are non-U.S.); the MCO MIB Phase I report,
+> NASA-STD-8739.8B, NPR 7150.2D, NASA-STD-7009B, NASA-HDBK-7009B (as
+> published, DRAFT header), TM-103863 (NAS Parallel Benchmarks) and
+> TM-2001-210876 (MC/DC tutorial) (`nasa/`, new ground 12); AC 20-115D,
+> Order 8110.49A, AC 00-69, AC 20-193, AC 25.1309-1B (`faa/`, new ground 13);
+> NISTIR 8397 (`nist/`, new ground 14). Cite-only, not filed: NASA-GB-8719.13,
+> CAST papers, DOT/FAA contractor reports, DOE ASCR/ECP reports, DO-178C and
+> DO-332; NISTIR 8151 skipped. All are `LITERATURE` entries in
+> `crates/kovan/src/corpus.rs` and `[[document]]`s of the concept tree.
+
 > **2026-10-07 — 34 documents filed into Kovan's standard corpus** (OUTRAM
 > PARK #760), each re-verified from the file or its official landing page
 > before filing; the basis of each is quoted, with where it is, the URL and

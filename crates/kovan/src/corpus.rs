@@ -549,6 +549,38 @@ with the notices and a copy of the licence), owner-accepted as covering the repo
 documentation (#760, 2026-10-07); LICENSE and COPYRIGHT at idaholab/moose commit 21efd28 kept \
 beside the file (corpus README section 8)";
 
+/// The basis for the NSA Cybersecurity Information Sheets (added
+/// 2026-10-07, corpus README section 11, ground 10).
+const NSA_SHARE_BASIS: &str = "U.S. Government Work (17 U.S.C. 105), and the sheet's \"Purpose\" \
+paragraph states \"This information may be shared broadly to reach all appropriate stakeholders.\" \
+(last page, checked 2026-10-07; corpus README section 11, ground 10)";
+
+/// The basis for NASA Technical Memoranda held on the NASA Technical Reports
+/// Server (added 2026-10-07, corpus README section 13, ground 12).
+const NTRS_BASIS: &str = "NTRS record: \"Distribution Limits: Public. Copyright: Work of the US Gov. \
+Public Use Permitted.\" (checked 2026-10-07; corpus README section 13, ground 12). Some authors were \
+NASA contractors; the basis is NASA's statement for the report as a whole";
+
+/// As [`NTRS_BASIS`], for the MC/DC tutorial, which quotes RTCA material
+/// with RTCA's permission (PDF page 12).
+const NTRS_RTCA_BASIS: &str = "NTRS record: \"Distribution Limits: Public. Copyright: Work of the US \
+Gov. Public Use Permitted.\" (checked 2026-10-07; corpus README section 13, ground 12). Two authors \
+were from industry; quotations of RTCA/DO-248A (\"with permission from the RTCA\", PDF page 12) \
+keep RTCA's copyright";
+
+/// The basis for FAA advisory circulars and orders (added 2026-10-07, corpus
+/// README section 14, ground 13).
+const FAA_BASIS: &str = "U.S. Government Work (17 U.S.C. 105): issued by the Federal Aviation \
+Administration (office named under \"Initiated by\", PDF page 1); no copyright notice (checked \
+2026-10-07; corpus README section 14, ground 13). The RTCA/EUROCAE documents it cites stay \
+copyrighted and are not reproduced";
+
+/// The basis for the arXiv preprints under CC BY 4.0 (added 2026-10-07,
+/// corpus README section 2, ground 2 extended to arXiv).
+const ARXIV_CC_BY_BASIS: &str = "CC BY 4.0: the arXiv record links its licence to \
+http://creativecommons.org/licenses/by/4.0/ (checked 2026-10-07; corpus README section 2, ground 2 \
+extended to arXiv preprints, owner on #760)";
+
 /// Curated literature (#250), supplied by the maintainer on 2026-09-22 and
 /// held in [`CORPUS_REPOSITORY_URL`], plus the three EPA Federal Guidance
 /// Reports (FGR-11, 13, 15) added on 2026-09-28 (maintainer request). **Only documents in that repository's
@@ -1771,6 +1803,496 @@ pub const LITERATURE: &[CorpusLiterature] = &[
         status: SourceStatus::VerifiedOpenLicence,
         status_basis: MOOSE_LGPL_BASIS,
     },
+    // Software-properties sources (#760, 2026-10-07): the 26 redistributable
+    // documents cited by the timeless software-properties branch under SQA
+    // (corpus README sections 1, 2 and 11 to 15). Metadata from each
+    // document's own title page; each is a concept-tree document.
+    CorpusLiterature {
+        id: "nsa-csi-software-memory-safety",
+        kind: LiteratureKind::Report,
+        title: "Software Memory Safety (NSA Cybersecurity Information Sheet U/OO/219936-22, \
+                Version 1.1)",
+        authors: &["U.S. National Security Agency"],
+        year: Some(2023),
+        topics: &[
+            "07-regulatory-framework/quality-assurance/software-quality-assurance/software-properties",
+        ],
+        concept_document: Some("nsa-csi-software-memory-safety"),
+        source_url: Some(
+            "https://media.defense.gov/2022/Nov/10/2003112742/-1/-1/0/CSI_SOFTWARE_MEMORY_SAFETY.PDF",
+        ),
+        corpus_file: Some(
+            "kovan-standard-open-corpus/nsa/nsa-csi-software-memory-safety-v1.1-2023.pdf",
+        ),
+        status: SourceStatus::VerifiedPublicDomain,
+        status_basis: NSA_SHARE_BASIS,
+    },
+    CorpusLiterature {
+        id: "nsa-cisa-memory-safe-languages-2025",
+        kind: LiteratureKind::Report,
+        title: "Memory Safe Languages: Reducing Vulnerabilities in Modern Software Development \
+                (NSA and CISA Cybersecurity Information Sheet U/OO/172709-25, Version 1.0)",
+        authors: &[
+            "U.S. National Security Agency",
+            "Cybersecurity and Infrastructure Security Agency",
+        ],
+        year: Some(2025),
+        topics: &[
+            "07-regulatory-framework/quality-assurance/software-quality-assurance/software-properties",
+        ],
+        concept_document: Some("nsa-cisa-memory-safe-languages-2025"),
+        source_url: Some(
+            "https://media.defense.gov/2025/Jun/23/2003742198/-1/-1/0/CSI_MEMORY_SAFE_LANGUAGES_REDUCING_VULNERABILITIES_IN_MODERN_SOFTWARE_DEVELOPMENT.PDF",
+        ),
+        corpus_file: Some(
+            "kovan-standard-open-corpus/nsa/nsa-cisa-csi-memory-safe-languages-2025.pdf",
+        ),
+        status: SourceStatus::VerifiedPublicDomain,
+        status_basis: NSA_SHARE_BASIS,
+    },
+    CorpusLiterature {
+        id: "cisa-case-for-memory-safe-roadmaps",
+        kind: LiteratureKind::Report,
+        title: "The Case for Memory Safe Roadmaps: Why Both C-Suite Executives and Technical \
+                Experts Need to Take Memory Safe Coding Seriously",
+        authors: &[
+            "Cybersecurity and Infrastructure Security Agency",
+            "U.S. National Security Agency",
+            "Federal Bureau of Investigation",
+            "Australian Signals Directorate's Australian Cyber Security Centre",
+            "Canadian Centre for Cyber Security",
+            "United Kingdom National Cyber Security Centre",
+            "New Zealand National Cyber Security Centre",
+            "Computer Emergency Response Team New Zealand",
+        ],
+        year: Some(2023),
+        topics: &[
+            "07-regulatory-framework/quality-assurance/software-quality-assurance/software-properties",
+        ],
+        concept_document: Some("cisa-case-for-memory-safe-roadmaps"),
+        source_url: Some(
+            "https://www.cisa.gov/sites/default/files/2023-12/The-Case-for-Memory-Safe-Roadmaps-508c.pdf",
+        ),
+        corpus_file: Some(
+            "kovan-standard-open-corpus/cisa/cisa-case-for-memory-safe-roadmaps-2023.pdf",
+        ),
+        status: SourceStatus::VerifiedOpenLicence,
+        status_basis: "TLP:CLEAR: \"Subject to standard copyright rules, TLP:CLEAR information may \
+                       be distributed without restriction.\" (PDF page 1, checked 2026-10-07; \
+                       corpus README section 12, ground 11, owner's decision on #760). A \
+                       disclosure marking, not a licence: five of the eight authoring agencies are \
+                       non-U.S. governments, so not all of it is a U.S. Government Work; held \
+                       whole and unmodified",
+    },
+    CorpusLiterature {
+        id: "nasa-mco-mib-phase-1",
+        kind: LiteratureKind::Report,
+        title: "Mars Climate Orbiter Mishap Investigation Board Phase I Report",
+        authors: &[
+            "Stephenson, A.G.",
+            "LaPiana, L.S.",
+            "Mulville, D.R.",
+            "Rutledge, P.J.",
+            "Bauer, F.H.",
+            "Folta, D.",
+            "Dukeman, G.A.",
+            "Sackheim, R.",
+            "Norvig, P.",
+        ],
+        year: Some(1999),
+        topics: &[
+            "07-regulatory-framework/quality-assurance/software-quality-assurance/software-properties",
+        ],
+        concept_document: Some("nasa-mco-mib-phase-1"),
+        source_url: Some("https://llis.nasa.gov/llis_lib/pdf/1009464main1_0641-mr.pdf"),
+        corpus_file: Some("kovan-standard-open-corpus/nasa/mco-mib-phase-i-report-1999.pdf"),
+        status: SourceStatus::VerifiedPublicDomain,
+        status_basis: "U.S. Government Work (17 U.S.C. 105): every board member on the signature \
+                       page (PDF page 3) signs as a NASA employee; no copyright notice (checked \
+                       2026-10-07; corpus README section 13, ground 12)",
+    },
+    CorpusLiterature {
+        id: "nasa-std-8739.8b",
+        kind: LiteratureKind::Standard,
+        title: "NASA-STD-8739.8B, Software Assurance and Software Safety Standard",
+        authors: &["National Aeronautics and Space Administration"],
+        year: Some(2022),
+        topics: &[
+            "07-regulatory-framework/quality-assurance/software-quality-assurance/software-properties",
+        ],
+        concept_document: Some("nasa-std-8739.8b"),
+        source_url: Some("https://standards.nasa.gov/standard/NASA/NASA-STD-87398"),
+        corpus_file: Some("kovan-standard-open-corpus/nasa/nasa-std-8739.8b-2022.pdf"),
+        status: SourceStatus::VerifiedPublicDomain,
+        status_basis: "NASA standard, cover marked \"APPROVED FOR PUBLIC RELEASE – DISTRIBUTION IS \
+                       UNLIMITED\" (PDF page 1); NTSS: \"cleared for public accessibility on the \
+                       internet\" (checked 2026-10-07; corpus README section 13, ground 12)",
+    },
+    CorpusLiterature {
+        id: "npr-7150.2d",
+        kind: LiteratureKind::Standard,
+        title: "NPR 7150.2D, NASA Software Engineering Requirements",
+        authors: &["National Aeronautics and Space Administration, Office of the Chief Engineer"],
+        year: Some(2022),
+        topics: &[
+            "07-regulatory-framework/quality-assurance/software-quality-assurance/software-properties",
+        ],
+        concept_document: Some("npr-7150.2d"),
+        source_url: Some(
+            "https://nodis3.gsfc.nasa.gov/npg_img/N_PR_7150_002D_/N_PR_7150_002D_.pdf",
+        ),
+        corpus_file: Some("kovan-standard-open-corpus/nasa/npr-7150.2d-2022.pdf"),
+        status: SourceStatus::VerifiedPublicDomain,
+        status_basis: "U.S. Government Work (17 U.S.C. 105): a NASA directive issued by NASA and \
+                       published in its public directives library (NODIS); no release marking or \
+                       copyright notice (checked 2026-10-07; corpus README section 13, ground 12)",
+    },
+    CorpusLiterature {
+        id: "nasa-std-7009b",
+        kind: LiteratureKind::Standard,
+        title: "NASA-STD-7009B, Standard for Models and Simulations",
+        authors: &["National Aeronautics and Space Administration, Office of the Chief Engineer"],
+        year: Some(2024),
+        topics: &[
+            "07-regulatory-framework/quality-assurance/software-quality-assurance/software-properties",
+        ],
+        concept_document: Some("nasa-std-7009b"),
+        source_url: Some("https://standards.nasa.gov/standard/NASA/NASA-STD-7009"),
+        corpus_file: Some("kovan-standard-open-corpus/nasa/nasa-std-7009b-2024.pdf"),
+        status: SourceStatus::VerifiedPublicDomain,
+        status_basis: "U.S. Government Work (17 U.S.C. 105), a NASA technical standard; the NASA \
+                       Technical Standards System page states \"Internet Public -- Standard is \
+                       cleared for public accessibility on the internet\" (checked 2026-10-07; \
+                       corpus README section 13, ground 12)",
+    },
+    CorpusLiterature {
+        id: "nasa-hdbk-7009b",
+        kind: LiteratureKind::Standard,
+        title: "NASA-HDBK-7009B, NASA Handbook for Models and Simulations: An Implementation Guide \
+                for NASA-STD-7009B",
+        authors: &["National Aeronautics and Space Administration, Office of the Chief Engineer"],
+        year: Some(2026),
+        topics: &[
+            "07-regulatory-framework/quality-assurance/software-quality-assurance/software-properties",
+        ],
+        concept_document: Some("nasa-hdbk-7009b"),
+        source_url: Some("https://standards.nasa.gov/standard/NASA/NASA-HDBK-7009"),
+        corpus_file: Some("kovan-standard-open-corpus/nasa/nasa-hdbk-7009b-2026.pdf"),
+        status: SourceStatus::VerifiedPublicDomain,
+        status_basis: "NASA handbook, cover and every footer marked \"APPROVED FOR PUBLIC \
+                       RELEASE—DISTRIBUTION IS UNLIMITED\" (checked 2026-10-07; corpus README \
+                       section 13, ground 12). Filed as published, with its \"DRAFT: \
+                       NASA-HDBK-7009B\" running header (owner, #760: \"DRAFT is ok\")",
+    },
+    CorpusLiterature {
+        id: "nasa-tm-103863",
+        kind: LiteratureKind::Report,
+        title: "The NAS Parallel Benchmarks (NASA Technical Memorandum 103863)",
+        authors: &["Bailey, D.", "Barton, J.", "Lasinski, T.", "Simon, H."],
+        year: Some(1993),
+        topics: &[
+            "07-regulatory-framework/quality-assurance/software-quality-assurance/software-properties",
+        ],
+        concept_document: Some("nasa-tm-103863"),
+        source_url: Some("https://ntrs.nasa.gov/citations/19940008727"),
+        corpus_file: Some(
+            "kovan-standard-open-corpus/nasa/nasa-tm-103863-nas-parallel-benchmarks.pdf",
+        ),
+        status: SourceStatus::VerifiedPublicDomain,
+        status_basis: NTRS_BASIS,
+    },
+    CorpusLiterature {
+        id: "nasa-tm-2001-210876",
+        kind: LiteratureKind::Report,
+        title: "A Practical Tutorial on Modified Condition/Decision Coverage (NASA/TM-2001-210876)",
+        authors: &["Hayhurst, K.J.", "Veerhusen, D.S.", "Chilenski, J.J.", "Rierson, L.K."],
+        year: Some(2001),
+        topics: &[
+            "07-regulatory-framework/quality-assurance/software-quality-assurance/software-properties",
+        ],
+        concept_document: Some("nasa-tm-2001-210876"),
+        source_url: Some("https://ntrs.nasa.gov/citations/20010057789"),
+        corpus_file: Some("kovan-standard-open-corpus/nasa/nasa-tm-2001-210876-mcdc-tutorial.pdf"),
+        status: SourceStatus::VerifiedPublicDomain,
+        status_basis: NTRS_RTCA_BASIS,
+    },
+    CorpusLiterature {
+        id: "btp-7-14-rev6",
+        kind: LiteratureKind::Report,
+        title: "Guidance on Software Reviews for Digital Computer-Based Instrumentation and \
+                Control Systems (NUREG-0800, SRP Branch Technical Position 7-14, Revision 6)",
+        authors: &["U.S. Nuclear Regulatory Commission"],
+        year: Some(2016),
+        topics: &[
+            "07-regulatory-framework/quality-assurance/software-quality-assurance/software-properties",
+        ],
+        concept_document: Some("btp-7-14-rev6"),
+        source_url: Some("https://www.nrc.gov/docs/ML1601/ML16019A308.pdf"),
+        corpus_file: Some("kovan-standard-open-corpus/nrc/ML16019A308.pdf"),
+        status: SourceStatus::VerifiedPublicDomain,
+        status_basis: NRC_BASIS,
+    },
+    CorpusLiterature {
+        id: "rg-1.168-rev2",
+        kind: LiteratureKind::Report,
+        title: "Verification, Validation, Reviews, and Audits for Digital Computer Software Used \
+                in Safety Systems of Nuclear Power Plants (Regulatory Guide 1.168, Revision 2)",
+        authors: &["U.S. Nuclear Regulatory Commission, Office of Nuclear Regulatory Research"],
+        year: Some(2013),
+        topics: &[
+            "07-regulatory-framework/quality-assurance/software-quality-assurance/software-properties",
+        ],
+        concept_document: Some("rg-1.168-rev2"),
+        source_url: Some("https://www.nrc.gov/docs/ML1307/ML13073A210.pdf"),
+        corpus_file: Some("kovan-standard-open-corpus/nrc/ML13073A210.pdf"),
+        status: SourceStatus::VerifiedPublicDomain,
+        status_basis: NRC_BASIS,
+    },
+    CorpusLiterature {
+        id: "rg-1.169-rev1",
+        kind: LiteratureKind::Report,
+        title: "Configuration Management Plans for Digital Computer Software Used in Safety \
+                Systems of Nuclear Power Plants (Regulatory Guide 1.169, Revision 1)",
+        authors: &["U.S. Nuclear Regulatory Commission, Office of Nuclear Regulatory Research"],
+        year: Some(2013),
+        topics: &[
+            "07-regulatory-framework/quality-assurance/software-quality-assurance/software-properties",
+        ],
+        concept_document: Some("rg-1.169-rev1"),
+        source_url: Some("https://www.nrc.gov/docs/ML1235/ML12355A642.pdf"),
+        corpus_file: Some("kovan-standard-open-corpus/nrc/ML12355A642.pdf"),
+        status: SourceStatus::VerifiedPublicDomain,
+        status_basis: NRC_BASIS,
+    },
+    CorpusLiterature {
+        id: "rg-1.170-rev1",
+        kind: LiteratureKind::Report,
+        title: "Test Documentation for Digital Computer Software Used in Safety Systems of Nuclear \
+                Power Plants (Regulatory Guide 1.170, Revision 1)",
+        authors: &["U.S. Nuclear Regulatory Commission, Office of Nuclear Regulatory Research"],
+        year: Some(2013),
+        topics: &[
+            "07-regulatory-framework/quality-assurance/software-quality-assurance/software-properties",
+        ],
+        concept_document: Some("rg-1.170-rev1"),
+        source_url: Some("https://www.nrc.gov/docs/ML1300/ML13003A216.pdf"),
+        corpus_file: Some("kovan-standard-open-corpus/nrc/ML13003A216.pdf"),
+        status: SourceStatus::VerifiedPublicDomain,
+        status_basis: NRC_BASIS,
+    },
+    CorpusLiterature {
+        id: "rg-1.171-rev1",
+        kind: LiteratureKind::Report,
+        title: "Software Unit Testing for Digital Computer Software Used in Safety Systems of \
+                Nuclear Power Plants (Regulatory Guide 1.171, Revision 1)",
+        authors: &["U.S. Nuclear Regulatory Commission, Office of Nuclear Regulatory Research"],
+        year: Some(2013),
+        topics: &[
+            "07-regulatory-framework/quality-assurance/software-quality-assurance/software-properties",
+        ],
+        concept_document: Some("rg-1.171-rev1"),
+        source_url: Some("https://www.nrc.gov/docs/ML1300/ML13004A375.pdf"),
+        corpus_file: Some("kovan-standard-open-corpus/nrc/ML13004A375.pdf"),
+        status: SourceStatus::VerifiedPublicDomain,
+        status_basis: NRC_BASIS,
+    },
+    CorpusLiterature {
+        id: "rg-1.172-rev1",
+        kind: LiteratureKind::Report,
+        title: "Software Requirement Specifications for Digital Computer Software and Complex \
+                Electronics Used in Safety Systems of Nuclear Power Plants (Regulatory Guide \
+                1.172, Revision 1)",
+        authors: &["U.S. Nuclear Regulatory Commission, Office of Nuclear Regulatory Research"],
+        year: Some(2013),
+        topics: &[
+            "07-regulatory-framework/quality-assurance/software-quality-assurance/software-properties",
+        ],
+        concept_document: Some("rg-1.172-rev1"),
+        source_url: Some("https://www.nrc.gov/docs/ML1300/ML13007A173.pdf"),
+        corpus_file: Some("kovan-standard-open-corpus/nrc/ML13007A173.pdf"),
+        status: SourceStatus::VerifiedPublicDomain,
+        status_basis: NRC_BASIS,
+    },
+    CorpusLiterature {
+        id: "rg-1.173-rev1",
+        kind: LiteratureKind::Report,
+        title: "Developing Software Life-Cycle Processes for Digital Computer Software Used in \
+                Safety Systems of Nuclear Power Plants (Regulatory Guide 1.173, Revision 1)",
+        authors: &["U.S. Nuclear Regulatory Commission, Office of Nuclear Regulatory Research"],
+        year: Some(2013),
+        topics: &[
+            "07-regulatory-framework/quality-assurance/software-quality-assurance/software-properties",
+        ],
+        concept_document: Some("rg-1.173-rev1"),
+        source_url: Some("https://www.nrc.gov/docs/ML1300/ML13009A190.pdf"),
+        corpus_file: Some("kovan-standard-open-corpus/nrc/ML13009A190.pdf"),
+        status: SourceStatus::VerifiedPublicDomain,
+        status_basis: NRC_BASIS,
+    },
+    CorpusLiterature {
+        id: "rg-1.152-rev4",
+        kind: LiteratureKind::Report,
+        title: "Criteria for Programmable Digital Devices in Safety-Related Systems of Nuclear \
+                Power Plants (Regulatory Guide 1.152, Revision 4)",
+        authors: &["U.S. Nuclear Regulatory Commission"],
+        year: Some(2023),
+        topics: &[
+            "07-regulatory-framework/quality-assurance/software-quality-assurance/software-properties",
+        ],
+        concept_document: Some("rg-1.152-rev4"),
+        source_url: Some("https://www.nrc.gov/docs/ML2305/ML23054A463.pdf"),
+        corpus_file: Some("kovan-standard-open-corpus/nrc/ML23054A463.pdf"),
+        status: SourceStatus::VerifiedPublicDomain,
+        status_basis: NRC_BASIS,
+    },
+    CorpusLiterature {
+        id: "faa-ac-20-115d",
+        kind: LiteratureKind::Report,
+        title: "Airborne Software Development Assurance Using EUROCAE ED-12( ) and RTCA DO-178( ) \
+                (FAA Advisory Circular 20-115D)",
+        authors: &["Federal Aviation Administration"],
+        year: Some(2017),
+        topics: &[
+            "07-regulatory-framework/quality-assurance/software-quality-assurance/software-properties",
+        ],
+        concept_document: Some("faa-ac-20-115d"),
+        source_url: Some(
+            "https://www.faa.gov/documentLibrary/media/Advisory_Circular/AC_20-115D.pdf",
+        ),
+        corpus_file: Some("kovan-standard-open-corpus/faa/faa-ac-20-115d-2017.pdf"),
+        status: SourceStatus::VerifiedPublicDomain,
+        status_basis: FAA_BASIS,
+    },
+    CorpusLiterature {
+        id: "faa-order-8110.49a",
+        kind: LiteratureKind::Report,
+        title: "Software Approval Guidelines (FAA Order 8110.49A)",
+        authors: &["Federal Aviation Administration"],
+        year: Some(2018),
+        topics: &[
+            "07-regulatory-framework/quality-assurance/software-quality-assurance/software-properties",
+        ],
+        concept_document: Some("faa-order-8110.49a"),
+        source_url: Some("https://www.faa.gov/documentLibrary/media/Order/FAA_Order_8110.49A.pdf"),
+        corpus_file: Some("kovan-standard-open-corpus/faa/faa-order-8110.49a-2018.pdf"),
+        status: SourceStatus::VerifiedPublicDomain,
+        status_basis: FAA_BASIS,
+    },
+    CorpusLiterature {
+        id: "faa-ac-00-69",
+        kind: LiteratureKind::Report,
+        title: "Best Practices for Airborne Software Development Assurance Using EUROCAE ED-12( ) \
+                and RTCA DO-178( ) (FAA Advisory Circular 00-69)",
+        authors: &["Federal Aviation Administration"],
+        year: Some(2017),
+        topics: &[
+            "07-regulatory-framework/quality-assurance/software-quality-assurance/software-properties",
+        ],
+        concept_document: Some("faa-ac-00-69"),
+        source_url: Some(
+            "https://www.faa.gov/documentLibrary/media/Advisory_Circular/AC_00-69.pdf",
+        ),
+        corpus_file: Some("kovan-standard-open-corpus/faa/faa-ac-00-69-2017.pdf"),
+        status: SourceStatus::VerifiedPublicDomain,
+        status_basis: FAA_BASIS,
+    },
+    CorpusLiterature {
+        id: "faa-ac-20-193",
+        kind: LiteratureKind::Report,
+        title: "Use of Multi-Core Processors (FAA Advisory Circular 20-193)",
+        authors: &["Federal Aviation Administration"],
+        year: Some(2024),
+        topics: &[
+            "07-regulatory-framework/quality-assurance/software-quality-assurance/software-properties",
+        ],
+        concept_document: Some("faa-ac-20-193"),
+        source_url: Some(
+            "https://www.faa.gov/documentLibrary/media/Advisory_Circular/AC_20-193.pdf",
+        ),
+        corpus_file: Some("kovan-standard-open-corpus/faa/faa-ac-20-193-2024.pdf"),
+        status: SourceStatus::VerifiedPublicDomain,
+        status_basis: FAA_BASIS,
+    },
+    CorpusLiterature {
+        id: "faa-ac-25.1309-1b",
+        kind: LiteratureKind::Report,
+        title: "System Design and Analysis (FAA Advisory Circular 25.1309-1B)",
+        authors: &["Federal Aviation Administration"],
+        year: Some(2024),
+        topics: &[
+            "07-regulatory-framework/quality-assurance/software-quality-assurance/software-properties",
+        ],
+        concept_document: Some("faa-ac-25.1309-1b"),
+        source_url: Some(
+            "https://www.faa.gov/documentLibrary/media/Advisory_Circular/AC_25.1309-1B.pdf",
+        ),
+        corpus_file: Some("kovan-standard-open-corpus/faa/faa-ac-25.1309-1b-2024.pdf"),
+        status: SourceStatus::VerifiedPublicDomain,
+        status_basis: FAA_BASIS,
+    },
+    CorpusLiterature {
+        id: "nistir-8397",
+        kind: LiteratureKind::Report,
+        title: "Guidelines on Minimum Standards for Developer Verification of Software (NISTIR \
+                8397)",
+        authors: &["Black, P.E.", "Guttman, B.", "Okun, V."],
+        year: Some(2021),
+        topics: &[
+            "07-regulatory-framework/quality-assurance/software-quality-assurance/software-properties",
+        ],
+        concept_document: Some("nistir-8397"),
+        source_url: Some("https://doi.org/10.6028/NIST.IR.8397"),
+        corpus_file: Some("kovan-standard-open-corpus/nist/nistir-8397-2021.pdf"),
+        status: SourceStatus::VerifiedPublicDomain,
+        status_basis: "Public domain: \"Pursuant to Title 17, Section 105 of the United States \
+                       Code, this is not subject to copyright protection and is in the public \
+                       domain.\" (PDF page 4, checked 2026-10-07; corpus README section 15, ground \
+                       14)",
+    },
+    CorpusLiterature {
+        id: "arxiv-2505.01671v1",
+        kind: LiteratureKind::Paper,
+        title: "Report on Challenges of Practical Reproducibility for Systems and HPC Computer \
+                Science (arXiv:2505.01671v1)",
+        authors: &[
+            "Keahey, K.",
+            "Richardson, M.",
+            "Tolosana Calasanz, R.",
+            "Hunold, S.",
+            "Lofstead, J.",
+            "Malik, T.",
+            "Perez, C.",
+        ],
+        year: Some(2025),
+        topics: &[
+            "07-regulatory-framework/quality-assurance/software-quality-assurance/software-properties",
+        ],
+        concept_document: Some("arxiv-2505.01671v1"),
+        source_url: Some("https://arxiv.org/abs/2505.01671v1"),
+        corpus_file: Some(
+            "kovan-standard-open-corpus/cc-by/arxiv-2505.01671v1-keahey-practical-reproducibility.pdf",
+        ),
+        status: SourceStatus::VerifiedOpenLicence,
+        status_basis: ARXIV_CC_BY_BASIS,
+    },
+    CorpusLiterature {
+        id: "arxiv-2311.06995v1",
+        kind: LiteratureKind::Paper,
+        title: "Scalable Delivery of Scalable Libraries and Tools: How ECP Delivered a Software \
+                Ecosystem for Exascale and Beyond (arXiv:2311.06995v1)",
+        authors: &["Heroux, M.A."],
+        year: Some(2023),
+        topics: &[
+            "07-regulatory-framework/quality-assurance/software-quality-assurance/software-properties",
+        ],
+        concept_document: Some("arxiv-2311.06995v1"),
+        source_url: Some("https://arxiv.org/abs/2311.06995v1"),
+        corpus_file: Some(
+            "kovan-standard-open-corpus/cc-by/arxiv-2311.06995v1-heroux-ecp-software-ecosystem.pdf",
+        ),
+        status: SourceStatus::VerifiedOpenLicence,
+        status_basis: ARXIV_CC_BY_BASIS,
+    },
     // Private tier: cited only. Their PDFs are in the maintainer's private
     // repository and may not be redistributed; no `corpus_file`, so Kovan
     // never looks for them and needs nothing but this metadata. Metadata
@@ -2082,12 +2604,14 @@ mod tests {
     fn literature_and_connections_point_at_real_nodes() {
         assert_eq!(
             LITERATURE.len(),
-            66,
+            // ~~66~~ 92 since 2026-10-07: the 26 software-properties sources (#760).
+            92,
             "the maintainer's 2026-09-22 set, EPA FGR-11, FGR-13 and FGR-15 (2026-09-28), \
              the concept tree's 13 further documents (2026-10-06), and the software QA \
              set NUREG/BR-0167, DOE-STD-1172-2003 and DOE G 414.1-4 (2026-10-07, #760), Kendrick 2019 \
-             (private, cited only), the NJOY2016 manual (2026-10-07, #760), and the \
-             22 IAEA-issue bedrock documents and 12 solver-pattern sources (2026-10-07, #760)"
+             (private, cited only), the NJOY2016 manual (2026-10-07, #760), the \
+             22 IAEA-issue bedrock documents and 12 solver-pattern sources (2026-10-07, #760), \
+             and the 26 software-properties sources (2026-10-07, #760)"
         );
         let mut ids = HashSet::new();
         for l in LITERATURE {
