@@ -89,8 +89,20 @@ fn person(id: &str, role: Role, keys: Vec<ReviewerKey>) -> Reviewer {
     }
 }
 
+/// A registry whose `[code_review] founder` is [`FOUNDER`].
 fn root(reviewers: Vec<Reviewer>) -> ReviewRoot {
-    ReviewRoot { code_review: None, reviewers, deleted_crates: vec![] }
+    root_with_founder(Some(FOUNDER), reviewers)
+}
+
+fn root_with_founder(founder: Option<&str>, reviewers: Vec<Reviewer>) -> ReviewRoot {
+    ReviewRoot {
+        code_review: Some(crate::review::root::CodeReviewSettings {
+            rust_analyzer: None,
+            founder: founder.map(str::to_string),
+        }),
+        reviewers,
+        deleted_crates: vec![],
+    }
 }
 
 /// The founder (key `k1`) plus Alice, a reviewer scoped to
@@ -691,15 +703,7 @@ fn unretire_needs_possession() {
 /// No founder, nothing trusted; bad keys are typed.
 #[test]
 fn founder_and_key_problems() {
-    assert_eq!(Registry::build(&root(vec![])).founder, Err(FounderProblem::NoReviewers));
-    let (ak, a) = key(ALICE, "a1");
-    let reg = Registry::build(&root(vec![person(ALICE, Role::Reviewer, vec![ak.clone()])]));
-    assert_eq!(reg.founder, Err(FounderProblem::FirstNotMaintainer(ALICE.into())));
-    assert!(reg.warnings().contains(&Warning::NoFounder(FounderProblem::FirstNotMaintainer(ALICE.into()))));
-    assert!(!verify_review(&signed(&a, F, "2026-10-07"), &reg).is_verified());
-    let mut m = person(FOUNDER, Role::Maintainer, vec![ak.clone()]);
-    m.admitted_by = Some(crate::review::root::KeySignature { key: "x".into(), signature: "AAAA".into() });
-    assert_eq!(Registry::build(&root(vec![m])).founder, Err(FounderProblem::FirstHasAdmission(FOUNDER.into())));
+    let (ak, _a) = key(ALICE, "a1");
 
     let mut rsa = ak.clone();
     rsa.alg = "rsa".into();
@@ -859,4 +863,137 @@ fn errors_display() {
     ] {
         assert!(!e.to_string().is_empty());
     }
+}
+
+/// The founder is named by `[code_review] founder` (maintainer, #762 Q1):
+/// entry order does not matter, and a missing, unknown, non-maintainer or
+/// admitted founder is a typed problem with nothing trusted.
+#[test]
+fn founder_is_explicit() {
+    let (fk, f) = key(FOUNDER, "k1");
+    let (ak, a) = key(ALICE, "a1");
+    let founder = person(FOUNDER, Role::Maintainer, vec![fk.clone()]);
+    let alice_m = person(ALICE, Role::Maintainer, vec![ak.clone()]);
+    // Listed second, still the founder; the first entry is not.
+    let reg = Registry::build(&root(vec![alice_m.clone(), founder.clone()]));
+    assert_eq!(reg.founder, Ok(FOUNDER.to_string()));
+    assert_eq!(reg.reviewer(FOUNDER).unwrap().admission, Admission::Founder);
+    assert_eq!(
+        reg.reviewer(ALICE).unwrap().admission,
+        Admission::NotAdmitted(AdmissionProblem::Unadmitted)
+    );
+    assert!(verify_review(&signed(&f, F, "2026-10-07"), &reg).is_verified());
+    assert!(!verify_review(&signed(&a, F, "2026-10-07"), &reg).is_verified());
+
+    let mut admitted = founder.clone();
+    admitted.admitted_by = Some(crate::review::root::KeySignature { key: "x".into(), signature: "AAAA".into() });
+    let cases = [
+        (root_with_founder(None, vec![founder.clone()]), FounderProblem::NotDeclared),
+        (
+            ReviewRoot { code_review: None, reviewers: vec![founder.clone()], deleted_crates: vec![] },
+            FounderProblem::NotDeclared,
+        ),
+        (root_with_founder(Some("github:nobody"), vec![founder.clone()]), FounderProblem::Unknown("github:nobody".into())),
+        (
+            root_with_founder(Some(ALICE), vec![person(ALICE, Role::Reviewer, vec![ak])]),
+            FounderProblem::NotMaintainer(ALICE.into()),
+        ),
+        (root(vec![admitted]), FounderProblem::HasAdmission(FOUNDER.into())),
+        (root(vec![]), FounderProblem::Unknown(FOUNDER.into())),
+    ];
+    for (r, want) in cases {
+        let reg = Registry::build(&r);
+        assert_eq!(reg.founder, Err(want.clone()));
+        assert!(reg.warnings().contains(&Warning::NoFounder(want)));
+        assert!(reg.reviewers.iter().all(|r| !r.is_admitted()));
+        assert!(reg.reviewers.iter().flat_map(|r| &r.keys).all(|k| !k.status.is_trusted()));
+    }
+    // The field round-trips through kovan_root.toml.
+    let text = "[code_review]\nfounder = \"github:founder\"\n";
+    let parsed = ReviewRoot::parse(text).unwrap();
+    assert_eq!(parsed.code_review.unwrap().founder.as_deref(), Some(FOUNDER));
+}
+
+/// A retired key may not sign registry statements dated in its retired
+/// window (endorsement, admission, revocation), except its own
+/// un-retirement; once un-retired it signs everything again (maintainer,
+/// #762 Q4). Statements dated before the retirement stay valid.
+#[test]
+fn retired_key_cannot_sign_statements() {
+    let (mut k1, f) = key(FOUNDER, "k1");
+    k1.retired = true;
+    k1.retired_on = Some("2026-10-10".into());
+    let retired = SignerProblem::SignerRetired { signer: FOUNDER.into(), key: "k1".into() };
+
+    // Endorsements: of a key created before the retirement (counts) and
+    // after it (does not).
+    let (mut early, _) = key(FOUNDER, "k2");
+    early.created = "2026-10-08".into();
+    f.endorse(FOUNDER, &mut early);
+    let (mut late, _) = key(FOUNDER, "k3");
+    late.created = "2026-10-12".into();
+    f.endorse(FOUNDER, &mut late);
+
+    // Admission and revocation dated after the retirement.
+    let (ak, _a) = key(ALICE, "a1");
+    let mut alice = person(ALICE, Role::Reviewer, vec![ak]);
+    alice.admitted = Some("2026-10-12".into());
+    f.admit(&mut alice).unwrap();
+    let bob_id = "github:bob";
+    let (bk, _b) = key(bob_id, "b1");
+    let mut bob = person(bob_id, Role::Reviewer, vec![bk]);
+    bob.admitted = Some("2026-10-09".into());
+    f.admit(&mut bob).unwrap();
+    bob.revoked = Some(Revocation { date: "2026-10-12".into(), compromised_from: None, by: FOUNDER.into(), signature: None });
+    f.revoke(bob_id, bob.revoked.as_mut().unwrap()).unwrap();
+
+    let founder = person(FOUNDER, Role::Maintainer, vec![k1.clone(), early.clone(), late.clone()]);
+    let reg = Registry::build(&root(vec![founder, alice.clone(), bob.clone()]));
+    let r = reg.reviewer(FOUNDER).unwrap();
+    assert_eq!(r.key("k2").unwrap().status, KeyStatus::Endorsed { by_reviewer: FOUNDER.into(), by_key: "k1".into() });
+    assert_eq!(r.key("k3").unwrap().status, KeyStatus::Untrusted(KeyProblem::Endorsement(retired.clone())));
+    assert_eq!(
+        reg.reviewer(ALICE).unwrap().admission,
+        Admission::NotAdmitted(AdmissionProblem::Signer(retired.clone()))
+    );
+    assert_eq!(reg.reviewer(bob_id).unwrap().admission, Admission::Admitted { by: FOUNDER.into(), key: "k1".into() });
+    assert_eq!(
+        reg.reviewer(bob_id).unwrap().revocation.as_ref().unwrap().signed,
+        Err(RevocationProblem::Signer(retired.clone()))
+    );
+
+    // Its own un-retirement is allowed while retired; afterwards the same
+    // statements (re-signed with dates after the un-retirement) count.
+    let mut back = k1.clone();
+    f.unretire(&mut back, "2026-10-15").unwrap();
+    let mut late2 = late.clone();
+    late2.created = "2026-10-16".into();
+    f.endorse(FOUNDER, &mut late2);
+    let mut alice2 = alice.clone();
+    alice2.admitted = Some("2026-10-16".into());
+    f.admit(&mut alice2).unwrap();
+    let mut bob2 = bob.clone();
+    bob2.revoked.as_mut().unwrap().date = "2026-10-16".into();
+    f.revoke(bob_id, bob2.revoked.as_mut().unwrap()).unwrap();
+    let founder = person(FOUNDER, Role::Maintainer, vec![back, early, late2]);
+    let reg = Registry::build(&root(vec![founder, alice2, bob2]));
+    let r = reg.reviewer(FOUNDER).unwrap();
+    assert!(matches!(r.key("k1").unwrap().retirement, Retirement::Unretired { .. }));
+    assert_eq!(r.key("k3").unwrap().status, KeyStatus::Endorsed { by_reviewer: FOUNDER.into(), by_key: "k1".into() });
+    assert_eq!(reg.reviewer(ALICE).unwrap().admission, Admission::Admitted { by: FOUNDER.into(), key: "k1".into() });
+    assert_eq!(reg.reviewer(bob_id).unwrap().revocation.as_ref().unwrap().signed, Ok("k1".into()));
+    // A statement dated inside the old retired window still does not count.
+    let mut alice3 = alice.clone();
+    alice3.admitted = Some("2026-10-12".into());
+    f.admit(&mut alice3).unwrap();
+    let founder = person(FOUNDER, Role::Maintainer, vec![{
+        let mut b = k1.clone();
+        f.unretire(&mut b, "2026-10-15").unwrap();
+        b
+    }]);
+    let reg = Registry::build(&root(vec![founder, alice3]));
+    assert_eq!(
+        reg.reviewer(ALICE).unwrap().admission,
+        Admission::NotAdmitted(AdmissionProblem::Signer(retired))
+    );
 }

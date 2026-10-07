@@ -11,7 +11,7 @@
 //! # The trust rules
 //!
 //! ```text
-//!   [[reviewer]] #1 (the FIRST entry, a maintainer, no admitted_by)
+//!   [code_review] founder = "<id>"  ->  [[reviewer]] <id> (a maintainer, no admitted_by)
 //!        │  founding maintainer: its first key is trusted on first use
 //!        │
 //!        ├── key k2  endorsed_by = { key = "k1", … }   same reviewer's trusted key
@@ -24,9 +24,14 @@
 //!                         └── key k3   reset = true, endorsed by a maintainer's key
 //! ```
 //!
-//! - **Founder.** The first `[[reviewer]]` in the file is the founding
-//!   maintainer: it must have `role = "maintainer"` and no `admitted_by`.
-//!   Its first key is trusted on first use. No other key or reviewer is.
+//! - **Founder.** ~~The first `[[reviewer]]` in the file is the founding
+//!   maintainer~~ **CORRECTED 2026-10-07 (maintainer, #762 Q1)**: the
+//!   founding maintainer is named explicitly by `[code_review] founder`; the
+//!   order of entries never matters. It must be a listed `[[reviewer]]` with
+//!   `role = "maintainer"` and no `admitted_by`; a missing or unknown founder
+//!   is a [`FounderProblem`] (a [`Warning::NoFounder`], and nothing is
+//!   trusted), never a guess. Its first key is trusted on first use. No
+//!   other key or reviewer is.
 //! - **Admission.** Every other reviewer needs `admitted_by`: a signature by
 //!   an admitted maintainer's trusted key over [`admission_bytes`], dated by
 //!   `admitted` (the maintainer must not be revoked by then). The admission
@@ -45,7 +50,11 @@
 //!   badly signed one is listed as a warning. Stamps dated before `date`
 //!   stay valid; with `compromised_from`, stamps from that date are void.
 //! - **Retirement.** A retired key's stamps dated on or after `retired_on`
-//!   do not count. Un-retiring needs an `unretired` record signed by the
+//!   do not count, and **neither do its registry statements** (endorsement,
+//!   admission, revocation) dated in its retired window
+//!   ([`SignerProblem::SignerRetired`]; maintainer, #762 Q4, 2026-10-07).
+//!   Its own un-retirement is the one exception; once un-retired it signs
+//!   everything again. Un-retiring needs an `unretired` record signed by the
 //!   key itself over [`unretire_bytes`] (only someone who unlocked the old
 //!   encrypted key file can make it); the gap between the two dates stays
 //!   void. Clearing `retired` by hand, without the record, leaves the key
@@ -66,12 +75,14 @@ use super::{
 /// Why the registry has no founding maintainer (then nothing is trusted).
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum FounderProblem {
-    /// No `[[reviewer]]` at all.
-    NoReviewers,
-    /// The first `[[reviewer]]` is not a maintainer.
-    FirstNotMaintainer(String),
-    /// The first `[[reviewer]]` carries an `admitted_by`.
-    FirstHasAdmission(String),
+    /// `[code_review] founder` is not set.
+    NotDeclared,
+    /// `founder` names no `[[reviewer]]`.
+    Unknown(String),
+    /// The founder's `[[reviewer]]` is not a maintainer.
+    NotMaintainer(String),
+    /// The founder's `[[reviewer]]` carries an `admitted_by`.
+    HasAdmission(String),
 }
 
 /// Why a signature by another key (an admission, an endorsement, a
@@ -91,6 +102,8 @@ pub enum SignerProblem {
     /// The signer was revoked (or compromised) on `date`, on or before the
     /// statement's date.
     SignerRevoked { signer: String, date: String },
+    /// The signing key was retired at the statement's date (#762 Q4).
+    SignerRetired { signer: String, key: String },
 }
 
 /// Why a reviewer is not admitted.
@@ -339,7 +352,7 @@ impl Registry {
                 }),
             })
             .collect();
-        let founder_idx = founder.as_ref().ok().map(|_| 0usize);
+        let founder_idx = founder.as_ref().ok().and_then(|id| state.iter().position(|r| &r.id == id));
         loop {
             let mut changed = false;
             for i in 0..state.len() {
@@ -437,14 +450,19 @@ impl Registry {
 }
 
 fn founder_of(root: &ReviewRoot) -> Result<String, FounderProblem> {
-    let first = root.reviewers.first().ok_or(FounderProblem::NoReviewers)?;
-    if first.role != Role::Maintainer {
-        return Err(FounderProblem::FirstNotMaintainer(first.id.clone()));
+    let id = root
+        .code_review
+        .as_ref()
+        .and_then(|c| c.founder.as_deref())
+        .ok_or(FounderProblem::NotDeclared)?;
+    let f = root.reviewer(id).ok_or_else(|| FounderProblem::Unknown(id.to_string()))?;
+    if f.role != Role::Maintainer {
+        return Err(FounderProblem::NotMaintainer(id.to_string()));
     }
-    if first.admitted_by.is_some() {
-        return Err(FounderProblem::FirstHasAdmission(first.id.clone()));
+    if f.admitted_by.is_some() {
+        return Err(FounderProblem::HasAdmission(id.to_string()));
     }
-    Ok(first.id.clone())
+    Ok(id.to_string())
 }
 
 /// A key whose problem no signature can fix.
@@ -516,13 +534,15 @@ fn retirement_of(owner: &str, k: &ReviewerKey, public: Option<&VerifyingKey>) ->
 
 /// Find a trusted key with `ks.key` among `candidates` (reviewer indices)
 /// that verifies `ks.signature` over `msg`; with `as_of`, its reviewer must
-/// not be revoked on or before that date.
+/// not be revoked on or before that date. The key must not be retired at
+/// `dated`, the statement's own date (#762 Q4).
 fn find_signer(
     state: &[ReviewerTrust],
     candidates: &[usize],
     ks: &KeySignature,
     msg: &[u8],
     as_of: Option<&str>,
+    dated: &str,
 ) -> Result<(String, String), SignerProblem> {
     let (mut any_key, mut any_trusted) = (false, false);
     let mut malformed = None;
@@ -546,6 +566,9 @@ fn find_signer(
                         if let Some(date) = date {
                             return Err(SignerProblem::SignerRevoked { signer: r.id.clone(), date });
                         }
+                    }
+                    if k.retirement.check(&k.id, dated).is_err() {
+                        return Err(SignerProblem::SignerRetired { signer: r.id.clone(), key: k.id.clone() });
                     }
                     return Ok((r.id.clone(), k.id.clone()));
                 }
@@ -583,7 +606,7 @@ fn try_admit(root: &ReviewRoot, state: &[ReviewerTrust], i: usize) -> Result<Adm
         return Err(AdmissionProblem::NoKey);
     }
     let candidates = maintainers(state, Some(i));
-    let (by, key) = find_signer(state, &candidates, ks, &admission_bytes(r), Some(date))
+    let (by, key) = find_signer(state, &candidates, ks, &admission_bytes(r), Some(date), date)
         .map_err(AdmissionProblem::Signer)?;
     Ok(Admission::Admitted { by, key })
 }
@@ -609,9 +632,9 @@ fn try_key(
     };
     let msg = endorsement_bytes(&r.id, k);
     let found = if k.reset {
-        find_signer(state, &maintainers(state, None), ks, &msg, Some(&k.created))
+        find_signer(state, &maintainers(state, None), ks, &msg, Some(&k.created), &k.created)
     } else {
-        find_signer(state, &[i], ks, &msg, None)
+        find_signer(state, &[i], ks, &msg, None, &k.created)
     };
     // A key never endorses itself: `find_signer` only accepts trusted keys,
     // and this one is not trusted yet.
@@ -638,6 +661,6 @@ fn check_revocation(
     // themselves is the exception (their own cut-off is this very date).
     let as_of = if by == i { None } else { Some(rv.date.as_str()) };
     let msg = revocation_bytes(&state[i].id, rv);
-    let (_, key) = find_signer(state, &[by], ks, &msg, as_of).map_err(RevocationProblem::Signer)?;
+    let (_, key) = find_signer(state, &[by], ks, &msg, as_of, &rv.date).map_err(RevocationProblem::Signer)?;
     Ok(key)
 }

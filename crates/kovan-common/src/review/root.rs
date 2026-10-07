@@ -10,6 +10,7 @@
 //! ```toml
 //! [code_review]
 //! rust_analyzer = "0.3.2645"       # pinned version; a mismatch re-indexes
+//! founder = "github:theodoreOnzGit" # the founding maintainer (#762)
 //!
 //! [[reviewer]]
 //! id = "github:theodoreOnzGit"     # github:/gitlab:/orcid: or an email
@@ -61,6 +62,12 @@ pub struct CodeReviewSettings {
     /// regenerates the index.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub rust_analyzer: Option<String>,
+    /// The founding maintainer's reviewer id (#762, additive; maintainer,
+    /// 2026-10-07): the one reviewer whose first key is trusted on first
+    /// use. Absent or unknown means no founder, so nothing is trusted
+    /// ([`crate::review::signing::registry::FounderProblem`]).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub founder: Option<String>,
 }
 
 /// A reviewer's role.
