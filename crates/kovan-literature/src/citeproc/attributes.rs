@@ -56,3 +56,11 @@ impl AttributesTest {
         match *self {}
     }
 }
+
+/// `CSL.Attributes[key].call(token, state, "" + arg)`. Returns `Ok(false)`
+/// for an attribute upstream does not define (it only warns). Entry point
+/// called by the build loop (`CSL.XmlToToken`) and `setStyleAttributes`.
+/// Pre-declared stub: the owner of `src/attributes.js` ports the body.
+pub fn apply(_state: &mut State, _token: &mut Token, _key: &str, _arg: &str) -> CslResult<bool> {
+    Ok(false)
+}

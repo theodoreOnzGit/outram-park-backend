@@ -69,6 +69,8 @@ pub(crate) mod attributes;
 #[allow(dead_code)]
 pub(crate) mod build;
 #[allow(dead_code)]
+pub(crate) mod build_retrieve_item;
+#[allow(dead_code)]
 pub(crate) mod disambig_citations;
 #[allow(dead_code)]
 pub(crate) mod disambig_cites;

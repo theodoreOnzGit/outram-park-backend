@@ -38,3 +38,17 @@ impl NodeLayoutExec {
         match *self {}
     }
 }
+
+/// `CSL.Node.layout.build.call(token, state, target, realGroup)`: compile
+/// this element's token into `target`. Entry point called by the build
+/// loop (`CSL.XmlToToken`, util_nodes.rs). Pre-declared stub: the owner of
+/// `src/node_layout.js` ports the body.
+pub fn build(
+    _state: &mut State,
+    token: Token,
+    target: &mut Vec<Token>,
+    _real_group: bool,
+) -> CslResult<()> {
+    target.push(token);
+    Ok(())
+}

@@ -15,3 +15,27 @@
 //              PURPOSE. See the GNU Affero General Public License.
 
 //! Port of `src/node_else.js`. **Not yet ported** (epic #790).
+
+use super::obj_token::Token;
+use super::state::State;
+use super::CslResult;
+
+/// `CSL.Node.else.build.call(token, state, target, realGroup)`: compile
+/// this element's token into `target`. Entry point called by the build
+/// loop (`CSL.XmlToToken`, util_nodes.rs). Pre-declared stub: the owner of
+/// `src/node_else.js` ports the body.
+pub fn build(
+    _state: &mut State,
+    token: Token,
+    target: &mut Vec<Token>,
+    _real_group: bool,
+) -> CslResult<()> {
+    target.push(token);
+    Ok(())
+}
+
+/// `CSL.Node.else.configure.call(tokens[pos], state, pos)`: the back-to-front
+/// jump-index pass (`configureTokenList`). Pre-declared stub.
+pub fn configure(_state: &mut State, _tokens: &mut [Token], _pos: usize) -> CslResult<()> {
+    Ok(())
+}
