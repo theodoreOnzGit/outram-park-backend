@@ -5641,6 +5641,7 @@ dependencies = [
  "syn 2.0.118",
  "tempfile",
  "toml",
+ "ureq 2.12.1",
  "which",
 ]
 

@@ -254,3 +254,51 @@ The other fixtures in tests/data/zotero/fixtures/ were written for kovan
 (2026-10-07) and contain no third-party data; among them (#749) the Citavi
 probes fixtures/import/citavi5_xml/*.xml and the note probes
 fixtures/export/kovan_note_items.json (fictional records).
+
+Upstream: Zotero identifier lookup (src/zotero/search/, 2026-10-07, GitHub #756)
+-------------------------------------------------------------------------------
+
+`src/zotero/search/` ports Zotero's "Add Item by Identifier": utilities.js
+`extractIdentifiers` (utilities commit 4051881d59c6) and `toISBN13`; the
+search half of translate.js (`Zotero.Translate.Search`, the Search/Web/Base
+`_itemDone`, `loadTranslator`; translate commit dd524aea9a55),
+utilities_translate.js (`request`, `requestText`/`JSON`/`Document`,
+`doGet`, `processDocuments`); the translation-server's (commit
+3a9d17614896) src/searchEndpoint.js and src/http.js (`Zotero.HTTP.request`:
+default headers, status and Content-Type checks, charset decoding, meta
+refresh); and the 19 search translators of translators commit 3d1c78530f42
+(AGPL-3.0-or-later unless noted):
+
+  arXiv.org.js, DOI Content Negotiation.js, Crossref REST.js, mEDRA.js,
+  PubMed.js, Library of Congress ISBN.js, Open WorldCat.js, K10plus ISBN.js,
+  Gemeinsamer Bibliotheksverbund ISBN.js, LIBRIS ISBN.js, BnF ISBN.js,
+  National Library of Poland ISBN.js, Camara Brasileira do Livro ISBN.js,
+  ADS Bibcode.js, ERIC.js, OpenAlex.js, WHO.js, EIDR.js, Lulu.js.
+  EIDR.js, Library of Congress ISBN.js, Gemeinsamer Bibliotheksverbund
+  ISBN.js, Lulu.js and mEDRA.js carry no licence text; they are treated as
+  AGPLv3 as part of Zotero (maintainer decision 2026-10-07, #747). Each
+  ported file names its translator, authors and line ranges.
+
+The library makes no network requests (the caller fetches; see
+src/zotero/search/mod.rs). kovan's native backend (crates/kovan
+src/lookup_net.rs) uses ureq with rustls.
+
+Verification data (tests/data/zotero/search/): fixtures/<case>.json hold raw
+HTTP responses of public bibliographic metadata services, recorded ONCE on
+2026-10-07 by scripts/zotero-search-reference.mjs --record (25 requests, one
+at a time, 3.5 s apart, User-Agent naming kovan; listed in each fixture):
+doi.org (Crossref, DataCite and other registration agencies), export.arxiv.org,
+lx2.loc.gov (Library of Congress SRU), eutils.ncbi.nlm.nih.gov (PubMed),
+resolve.eidr.org, api.crossref.org, catalogue.bnf.fr, sru.k10plus.de,
+data.bn.org.pl, libris.kb.se (connection failed), apps.who.int (connection
+failed), api.ies.ed.gov (ERIC), api.openalex.org. They are bibliographic
+records of published works as those services publish them for reuse
+(their stated terms, not re-checked per record: Crossref, DataCite, OpenAlex
+and arXiv metadata CC0; NLM/PubMed, Library of Congress and ERIC records US
+government works; BnF under the Licence Ouverte; K10plus and the National
+Library of Poland as open catalogue data), kept only as test inputs.
+fixtures/synthetic_*.json were written for kovan (no service contacted).
+reference/<case>.json is upstream Zotero's output on those fixtures (run
+in-process, offline). extract_identifiers_inputs.json: the inputs of
+zotero/test/tests/utilities_internalTest.js `#extractIdentifiers()` (Zotero
+commit 9cbba8c4d281; AGPL-3.0-or-later) and kovan-authored probes.

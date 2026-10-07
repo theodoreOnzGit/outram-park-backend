@@ -170,7 +170,9 @@ impl SearchTranslator {
             SearchTranslator::CamaraBrasileiraDoLivroIsbn => t::camara_isbn::detect_search(search),
             SearchTranslator::LibrisIsbn => t::libris_isbn::detect_search(search),
             SearchTranslator::NationalLibraryOfPolandIsbn => t::nlp_isbn::detect_search(search),
-            SearchTranslator::GemeinsamerBibliotheksverbundIsbn => t::gbv_isbn::detect_search(search),
+            SearchTranslator::GemeinsamerBibliotheksverbundIsbn => {
+                t::gbv_isbn::detect_search(search)
+            }
             SearchTranslator::K10plusIsbn => t::k10plus_isbn::detect_search(search),
             SearchTranslator::AdsBibcode => t::ads_bibcode::detect_search(search),
             SearchTranslator::DoiContentNegotiation => {
@@ -275,7 +277,9 @@ pub enum LookupError {
 impl std::fmt::Display for LookupError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            LookupError::NoIdentifier => write!(f, "no DOI, ISBN, arXiv ID, ADS bibcode or PMID found"),
+            LookupError::NoIdentifier => {
+                write!(f, "no DOI, ISBN, arXiv ID, ADS bibcode or PMID found")
+            }
             LookupError::NoTranslator => write!(f, "no lookup service handles this identifier"),
             LookupError::NotFound { attempts } => {
                 write!(f, "no record found")?;
@@ -304,12 +308,16 @@ impl std::error::Error for LookupError {}
 impl LookupError {
     fn from_search(e: &SearchError) -> LookupError {
         match e {
-            SearchError::Pending(r) => LookupError::Translator(format!("unanswered request {}", r.url)),
+            SearchError::Pending(r) => {
+                LookupError::Translator(format!("unanswered request {}", r.url))
+            }
             SearchError::Translator(m) => LookupError::Translator(m.clone()),
             SearchError::Http(h) => match h {
                 HttpFailure::Fetch(f) => match f {
                     FetchError::Offline => LookupError::Offline,
-                    FetchError::Connect(m) | FetchError::Other(m) => LookupError::Connect(m.clone()),
+                    FetchError::Connect(m) | FetchError::Other(m) => {
+                        LookupError::Connect(m.clone())
+                    }
                     FetchError::Timeout => LookupError::Timeout,
                     FetchError::TooLarge => LookupError::Malformed("response too large".to_owned()),
                     FetchError::Unsupported(m) => LookupError::Unsupported(m.clone()),
@@ -500,7 +508,11 @@ impl LookupSession {
 
     /// A session running one translator on a search item
     /// (`setSearch` + `setTranslator`).
-    pub fn forced(search: JsObject, translator: SearchTranslator, options: SearchOptions) -> LookupSession {
+    pub fn forced(
+        search: JsObject,
+        translator: SearchTranslator,
+        options: SearchOptions,
+    ) -> LookupSession {
         LookupSession {
             identifier: None,
             search,
@@ -512,7 +524,12 @@ impl LookupSession {
 
     /// Run as far as the answers allow.
     pub fn step(&self) -> SearchStep {
-        run_search(&self.search, &self.translators, self.cache.clone(), &self.options)
+        run_search(
+            &self.search,
+            &self.translators,
+            self.cache.clone(),
+            &self.options,
+        )
     }
 
     /// Give the answer to a pending request.

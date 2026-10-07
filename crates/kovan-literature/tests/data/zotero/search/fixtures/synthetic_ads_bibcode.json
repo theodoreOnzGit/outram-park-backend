@@ -1,0 +1,46 @@
+{
+	"case": "synthetic_ads_bibcode",
+	"input": {
+		"kind": "forced",
+		"translator": "ADS Bibcode.js",
+		"search": {
+			"adsBibcode": "2021PhDT.........5C"
+		}
+	},
+	"synthetic": true,
+	"source": "kovan-authored (2026-10-07, #756): ADS was deliberately not contacted (its export API needs an access token from a bootstrap call; DATA_POLICY.md). The bootstrap token is a placeholder, not a credential. The RIS export is written from the translator's own testCase item for this bibcode (title, author, date, URL), with a placeholder abstract; JO and SP mimic what ADS exports for a thesis.",
+	"exchanges": [
+		{
+			"request": {
+				"method": "GET",
+				"url": "https://api.adsabs.harvard.edu/v1/accounts/bootstrap",
+				"body": null
+			},
+			"response": {
+				"status": 200,
+				"url": "https://api.adsabs.harvard.edu/v1/accounts/bootstrap",
+				"headers": {
+					"content-type": "application/json"
+				},
+				"body": "{\"access_token\":\"kovan-synthetic-placeholder-not-a-credential\",\"token_type\":\"Bearer\"}",
+				"bodyEncoding": "utf8"
+			}
+		},
+		{
+			"request": {
+				"method": "POST",
+				"url": "https://api.adsabs.harvard.edu/v1/export/ris",
+				"body": "{\"bibcode\":[\"2021PhDT.........5C\"],\"sort\":[\"no sort\"]}"
+			},
+			"response": {
+				"status": 200,
+				"url": "https://api.adsabs.harvard.edu/v1/export/ris",
+				"headers": {
+					"content-type": "application/json"
+				},
+				"body": "{\"msg\":\"Retrieved 1 abstracts, starting with number 1.\",\"export\":\"TY  - JOUR\\nT1  - Searching for the Astrophysical Gravitational-Wave Background and Prompt Radio Emission from Compact Binaries\\nA1  - Callister, Thomas A.\\nJO  - Ph.D. Thesis\\nY1  - 2021/06/01\\nSP  - 5\\nAB  - Kovan-authored placeholder abstract for a synthetic test fixture (not the record's real abstract).\\nUR  - https://ui.adsabs.harvard.edu/abs/2021PhDT.........5C\\nER  - \\n\"}",
+				"bodyEncoding": "utf8"
+			}
+		}
+	]
+}

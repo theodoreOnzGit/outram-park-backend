@@ -86,6 +86,8 @@ pub mod navigation;
 pub mod node_id;
 pub mod page_rotation;
 pub mod ingest;
+/// The network behind identifier lookup (GitHub #756), opt-in.
+pub mod lookup_net;
 pub mod session;
 pub mod standard_corpus;
 pub mod project;

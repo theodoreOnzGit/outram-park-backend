@@ -14,8 +14,8 @@
 //! framework's handling of each item a search translator completes.
 
 use super::http::{
-    build_request, check_status, decode_document, decode_json, decode_text, FetchError,
-    HttpCache, HttpFailure, HttpRequest, HttpResponse, RequestOptions,
+    build_request, check_status, decode_document, decode_json, decode_text, FetchError, HttpCache,
+    HttpFailure, HttpRequest, HttpResponse, RequestOptions,
 };
 use super::SearchTranslator;
 use crate::zotero::framework::api_json::type_field_for_base;
@@ -226,9 +226,12 @@ impl SearchContext {
         options.env.parent_translator = self.meta().map(|m| m.id.to_owned());
         // A child import parses the response, so its failure is a
         // malformed response.
-        t.import(text, &options)
-            .map(|r| r.items)
-            .map_err(|e| SearchError::Http(HttpFailure::Malformed(format!("{}: {e}", t.metadata().label))))
+        t.import(text, &options).map(|r| r.items).map_err(|e| {
+            SearchError::Http(HttpFailure::Malformed(format!(
+                "{}: {e}",
+                t.metadata().label
+            )))
+        })
     }
 
     /// `item.complete()` in a search translator:
@@ -282,7 +285,11 @@ impl SearchContext {
 
     /// `request(url, options)` (utilities_translate.js:307-370): the
     /// response, after the success-code check.
-    pub fn request(&mut self, url: &str, opts: &RequestOptions) -> Result<HttpResponse, SearchError> {
+    pub fn request(
+        &mut self,
+        url: &str,
+        opts: &RequestOptions,
+    ) -> Result<HttpResponse, SearchError> {
         let req = build_request(url, opts)?;
         let key = req.key();
         let n = *self.seen.get(&key).unwrap_or(&0);
@@ -298,7 +305,11 @@ impl SearchContext {
     }
 
     /// `requestText(url, options)`.
-    pub fn request_text(&mut self, url: &str, opts: &RequestOptions) -> Result<String, SearchError> {
+    pub fn request_text(
+        &mut self,
+        url: &str,
+        opts: &RequestOptions,
+    ) -> Result<String, SearchError> {
         let r = self.request(url, opts)?;
         Ok(decode_text(&r)?)
     }
@@ -390,7 +401,8 @@ fn web_item_done(item: &mut TranslatorItem, now_iso: &str) -> Result<bool, Searc
         return Ok(false);
     }
     // libraryCatalog was set by Search._itemDone; drop it when invalid.
-    if item.truthy("libraryCatalog") && !field_is_valid_for_type("libraryCatalog", &item.item_type) {
+    if item.truthy("libraryCatalog") && !field_is_valid_for_type("libraryCatalog", &item.item_type)
+    {
         item.remove("libraryCatalog");
     }
     if item.truthy("url") && !item.props.contains("accessDate") {
@@ -398,7 +410,11 @@ fn web_item_done(item: &mut TranslatorItem, now_iso: &str) -> Result<bool, Searc
     }
     if let Some(t) = ItemType::from_name(&item.item_type) {
         if let Some(alt) = type_field_for_base(t, Field::Title) {
-            if let Some(v) = item.get(alt.as_str()).filter(|v| js::truthy(Some(v))).cloned() {
+            if let Some(v) = item
+                .get(alt.as_str())
+                .filter(|v| js::truthy(Some(v)))
+                .cloned()
+            {
                 item.set("title", v);
             }
         }
@@ -408,7 +424,8 @@ fn web_item_done(item: &mut TranslatorItem, now_iso: &str) -> Result<bool, Searc
             "No title specified for item".to_owned(),
         ));
     }
-    if !item.props.contains("shortTitle") && field_is_valid_for_type("shortTitle", &item.item_type) {
+    if !item.props.contains("shortTitle") && field_is_valid_for_type("shortTitle", &item.item_type)
+    {
         if let Some(title) = item.get_str("title").map(str::to_owned) {
             if let Some(short) = short_title(&title) {
                 item.set("shortTitle", short);
@@ -497,11 +514,18 @@ fn split_tags(s: &str) -> Vec<&str> {
 }
 
 fn is_isbn_sep(c: char) -> bool {
-    js::is_space(c) || matches!(c, '\u{2D}' | '\u{AD}' | '\u{2010}'..='\u{2015}' | '\u{2043}' | '\u{2212}')
+    js::is_space(c)
+        || matches!(
+            c,
+            '\u{2D}' | '\u{AD}' | '\u{2010}'..='\u{2015}' | '\u{2043}' | '\u{2212}'
+        )
 }
 
 fn is_dash(c: char) -> bool {
-    matches!(c, '\u{2D}' | '\u{AD}' | '\u{2010}'..='\u{2015}' | '\u{2043}' | '\u{2212}')
+    matches!(
+        c,
+        '\u{2D}' | '\u{AD}' | '\u{2010}'..='\u{2015}' | '\u{2043}' | '\u{2212}'
+    )
 }
 
 /// Web `_itemDone`'s ISBN clean-up (:671-688): every match of
@@ -536,7 +560,11 @@ pub fn clean_isbns(s: &str) -> Vec<String> {
         if p > 0 && word(p - 1) {
             return None;
         }
-        if p + 3 <= c.len() && c[p] == '9' && c[p + 1] == '7' && (c[p + 2] == '8' || c[p + 2] == '9') {
+        if p + 3 <= c.len()
+            && c[p] == '9'
+            && c[p + 1] == '7'
+            && (c[p + 2] == '8' || c[p + 2] == '9')
+        {
             let mut g = p + 3;
             while g < c.len() && is_isbn_sep(c[g]) {
                 g += 1;

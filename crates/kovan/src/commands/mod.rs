@@ -42,6 +42,8 @@ pub mod stamps;
 pub mod symbols;
 pub mod tokens;
 pub mod workspace;
+/// `kovan-cli zotero lookup` (GitHub #756).
+pub mod zotero_lookup;
 
 use clap::ValueEnum;
 

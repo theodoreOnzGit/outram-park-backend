@@ -70,7 +70,10 @@ impl Identifier {
     /// As upstream's object (`{"DOI": "10..."}`).
     pub fn to_value(&self) -> Value {
         let mut m = serde_json::Map::new();
-        m.insert(self.kind().to_owned(), Value::String(self.value().to_owned()));
+        m.insert(
+            self.kind().to_owned(),
+            Value::String(self.value().to_owned()),
+        );
         Value::Object(m)
     }
 
@@ -129,8 +132,17 @@ pub fn extract_identifiers(text: &str) -> Vec<Identifier> {
 
     // ISBNs.
     if ids.is_empty() {
-        let dashes = |c: char| matches!(c, '\u{2D}' | '\u{AD}' | '\u{2010}'..='\u{2015}' | '\u{2212}');
-        let s: String = text.chars().filter(|&c| !dashes(c)).collect::<String>().to_uppercase();
+        let dashes = |c: char| {
+            matches!(
+                c,
+                '\u{2D}' | '\u{AD}' | '\u{2010}'..='\u{2015}' | '\u{2212}'
+            )
+        };
+        let s: String = text
+            .chars()
+            .filter(|&c| !dashes(c))
+            .collect::<String>()
+            .to_uppercase();
         let chars: Vec<char> = s.chars().collect();
         for m in isbn_matches(&chars) {
             if let Some(isbn) = clean_isbn(&m, false) {
@@ -141,7 +153,10 @@ pub fn extract_identifiers(text: &str) -> Vec<Identifier> {
             }
         }
         if ids.is_empty() {
-            let chars: Vec<char> = chars.into_iter().filter(|&c| c != ' ' && c != '\u{A0}').collect();
+            let chars: Vec<char> = chars
+                .into_iter()
+                .filter(|&c| c != ' ' && c != '\u{A0}')
+                .collect();
             for m in isbn_matches(&chars) {
                 if let Some(isbn) = clean_isbn(&m, false) {
                     if !found.contains(&isbn) {
@@ -399,7 +414,10 @@ mod tests {
     // zotero test/tests/utilities_internalTest.js #extractIdentifiers().
     #[test]
     fn upstream_tests() {
-        assert_eq!(extract_identifiers("0838985890"), vec![Identifier::Isbn("0838985890".into())]);
+        assert_eq!(
+            extract_identifiers("0838985890"),
+            vec![Identifier::Isbn("0838985890".into())]
+        );
         assert_eq!(
             extract_identifiers("978-0838985892"),
             vec![Identifier::Isbn("9780838985892".into())]
@@ -425,9 +443,14 @@ mod tests {
             extract_identifiers(
                 "0706.0044 arXiv:0706.00441v1,12345678,hep-ex/9809001v1, math.GT/0309135."
             ),
-            ["0706.0044", "0706.00441", "hep-ex/9809001", "math.GT/0309135"]
-                .map(|s| Identifier::ArXiv(s.into()))
-                .to_vec()
+            [
+                "0706.0044",
+                "0706.00441",
+                "hep-ex/9809001",
+                "math.GT/0309135"
+            ]
+            .map(|s| Identifier::ArXiv(s.into()))
+            .to_vec()
         );
         assert_eq!(
             extract_identifiers("9 2021wfc..rept....8D, 2022MSSP..16208010Y."),
@@ -439,7 +462,10 @@ mod tests {
 
     #[test]
     fn pmid_counts_only_alone() {
-        assert_eq!(identifier_for_search(" pmid:123 "), Some(Identifier::Pmid("123".into())));
+        assert_eq!(
+            identifier_for_search(" pmid:123 "),
+            Some(Identifier::Pmid("123".into()))
+        );
         assert_eq!(identifier_for_search("123 456"), None);
         assert_eq!(
             identifier_for_search("arXiv:1706.03762"),

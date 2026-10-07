@@ -29,6 +29,27 @@ fn re(cell: &'static OnceLock<Regex>, pattern: impl FnOnce() -> String) -> &'sta
     cell.get_or_init(|| Regex::new(&pattern()).expect("static regex compiles"))
 }
 
+/// `Zotero.Utilities.capitalizeName` (utilities.js:199-216; #756): each
+/// space-separated part that is all upper or all lower case is lower-cased
+/// and every letter at its start or after a non-letter upper-cased
+/// (`XRegExp('(^|[^\\pL])\\pL', 'g')`, the whole match upper-cased). The
+/// same as the private copy in `translators::crossref_unixref_xml`.
+pub fn capitalize_name(s: &str) -> String {
+    static R: OnceLock<Regex> = OnceLock::new();
+    let r = re(&R, || r"(^|[^\p{L}])\p{L}".to_owned());
+    s.split(' ')
+        .map(|part| {
+            if part.to_uppercase() == part || part.to_lowercase() == part {
+                r.replace_all(&part.to_lowercase(), |c: &regex::Captures| c[0].to_uppercase())
+                    .into_owned()
+            } else {
+                part.to_owned()
+            }
+        })
+        .collect::<Vec<_>>()
+        .join(" ")
+}
+
 /// `Zotero.Utilities.trim` (:297-305).
 pub fn trim(s: &str) -> String {
     js::trim(s).to_owned()

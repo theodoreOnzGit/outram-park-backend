@@ -112,7 +112,11 @@ impl Replay {
                 req.method, req.url
             )));
         };
-        let (recorded_req, resp) = if q.len() > 1 { q.remove(0) } else { q[0].clone() };
+        let (recorded_req, resp) = if q.len() > 1 {
+            q.remove(0)
+        } else {
+            q[0].clone()
+        };
         // The port must send the headers Zotero sent (a synthetic fixture
         // may leave `headers` out; then they are not checked).
         if recorded_req.get("headers").is_none() {
@@ -189,15 +193,26 @@ fn check_case(name: &str) {
         "identifier" => {
             let text = reference["text"].as_str().unwrap();
             // The identifiers upstream extracted.
-            let ids: Vec<Value> = extract_identifiers(text).iter().map(|i| i.to_value()).collect();
-            assert_eq!(Value::Array(ids), reference["identifiers"], "{name}: identifiers");
+            let ids: Vec<Value> = extract_identifiers(text)
+                .iter()
+                .map(|i| i.to_value())
+                .collect();
+            assert_eq!(
+                Value::Array(ids),
+                reference["identifiers"],
+                "{name}: identifiers"
+            );
             let s = LookupSession::for_text(text, opts).expect("identifier");
             let detected: Vec<Value> = s
                 .translators
                 .iter()
                 .map(|t| Value::String(t.metadata().id.to_owned()))
                 .collect();
-            assert_eq!(Value::Array(detected), reference["detected"], "{name}: detected translators");
+            assert_eq!(
+                Value::Array(detected),
+                reference["detected"],
+                "{name}: detected translators"
+            );
             s
         }
         _ => {
@@ -216,11 +231,19 @@ fn check_case(name: &str) {
         }));
         replay.fetch(req)
     });
-    assert_eq!(Value::Array(made), reference["requests"], "{name}: requests");
+    assert_eq!(
+        Value::Array(made),
+        reference["requests"],
+        "{name}: requests"
+    );
     let status = reference["status"].as_u64().unwrap();
     match result {
         Ok(run) => {
-            assert_eq!(status, 200, "{name}: upstream failed ({}), port succeeded", reference["error"]);
+            assert_eq!(
+                status, 200,
+                "{name}: upstream failed ({}), port succeeded",
+                reference["error"]
+            );
             assert_eq!(
                 run.used.metadata().id,
                 reference["translatorUsed"].as_str().unwrap(),
@@ -294,7 +317,9 @@ cases!(
 fn every_reference_case_is_tested() {
     for e in std::fs::read_dir(dir().join("reference")).unwrap() {
         let n = e.unwrap().file_name().into_string().unwrap();
-        let Some(stem) = n.strip_suffix(".json") else { continue };
+        let Some(stem) = n.strip_suffix(".json") else {
+            continue;
+        };
         if stem == "manifest" || stem == "extract_identifiers" {
             continue;
         }
@@ -309,7 +334,10 @@ fn extract_identifiers_matches_upstream() {
     let r = read_json("reference/extract_identifiers.json");
     for pair in r.as_array().unwrap() {
         let input = pair[0].as_str().unwrap();
-        let got: Vec<Value> = extract_identifiers(input).iter().map(|i| i.to_value()).collect();
+        let got: Vec<Value> = extract_identifiers(input)
+            .iter()
+            .map(|i| i.to_value())
+            .collect();
         assert_eq!(Value::Array(got), pair[1], "extractIdentifiers({input:?})");
     }
 }

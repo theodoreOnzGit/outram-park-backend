@@ -249,6 +249,10 @@ enum Command {
     /// (`kovan-literature`).
     #[command(subcommand)]
     Lit(LitCommand),
+    /// Zotero: identifier lookup (`zotero lookup`, GitHub #756; uses the
+    /// network, only when run).
+    #[command(subcommand)]
+    Zotero(ZoteroCommand),
     /// The "kovan folder" project format (op-63u0's design): rescan a
     /// project and rewrite its `kovan.toml` index.
     #[command(subcommand)]
@@ -804,7 +808,18 @@ fn run(command: Command) -> Result<(), String> {
         }
         Command::LspDaemonServe { root } => commands::lsp_daemon::serve(root),
         Command::LspDaemonStop { root } => commands::lsp_daemon::stop(root),
+        Command::Zotero(ZoteroCommand::Lookup(args)) => commands::zotero_lookup::run(args),
     }
+}
+
+/// `kovan-cli zotero <subcommand>`. (#756 adds `lookup`; the import/export
+/// subcommands land from a sibling branch and merge into this enum.)
+#[derive(Subcommand)]
+enum ZoteroCommand {
+    /// Look up a DOI, ISBN, arXiv ID, ADS bibcode or PMID (or text holding
+    /// one) with Zotero's search translators, print the record, and with
+    /// `--save --to <folder>` write it. Uses the network.
+    Lookup(commands::zotero_lookup::LookupArgs),
 }
 
 /// Run the automatic digitiser pipeline and write/print its output. Mirrors

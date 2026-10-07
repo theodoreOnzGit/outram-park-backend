@@ -47,7 +47,10 @@ pub fn do_search(ctx: &mut SearchContext, search: &JsObject) -> Result<(), Searc
         let clean = clean_isbn(&isbn, false).unwrap_or_else(|| "false".to_owned());
         format!("https://lx2.loc.gov/sru/lcdb?operation=searchRetrieve&version=1.1&query=bath.ISBN=^{clean}&maximumRecords=1")
     } else if search.truthy("query") {
-        let q = search.get("query").map(js::to_js_string).unwrap_or_default();
+        let q = search
+            .get("query")
+            .map(js::to_js_string)
+            .unwrap_or_default();
         format!(
             "https://lx2.loc.gov/sru/lcdb?operation=searchRetrieve&version=1.1&query={}&maximumRecords=50",
             encode_uri_component(&q)

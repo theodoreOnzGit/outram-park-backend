@@ -340,7 +340,14 @@ pub fn decode_text(resp: &HttpResponse) -> Result<String, HttpFailure> {
 
 /// Charsets iconv-lite decodes that this port does not.
 const KNOWN_UNPORTED: [&str; 8] = [
-    "shift_jis", "euc-jp", "gbk", "gb2312", "big5", "euc-kr", "koi8-r", "utf-16",
+    "shift_jis",
+    "euc-jp",
+    "gbk",
+    "gb2312",
+    "big5",
+    "euc-kr",
+    "koi8-r",
+    "utf-16",
 ];
 
 fn cp1252(b: u8) -> char {
@@ -377,11 +384,13 @@ pub fn decode_document(resp: &HttpResponse) -> Result<(XmlDocument, Option<Strin
         Ok((doc, refresh))
     } else if is_xml(&essence) {
         let text = decode_text(resp)?;
-        let doc = XmlDocument::parse(&text)
-            .map_err(|e| HttpFailure::Malformed(format!("XML: {e:?}")))?;
+        let doc =
+            XmlDocument::parse(&text).map_err(|e| HttpFailure::Malformed(format!("XML: {e:?}")))?;
         Ok((doc, None))
     } else {
-        Err(HttpFailure::UnsupportedFormat(format!("{ct} is not supported")))
+        Err(HttpFailure::UnsupportedFormat(format!(
+            "{ct} is not supported"
+        )))
     }
 }
 
@@ -440,11 +449,8 @@ fn split_refresh(s: &str) -> Vec<&str> {
     use std::sync::OnceLock;
     static R: OnceLock<regex::Regex> = OnceLock::new();
     R.get_or_init(|| {
-        regex::Regex::new(&format!(
-            ";{}*url=",
-            super::super::framework::js::WS
-        ))
-        .expect("static regex")
+        regex::Regex::new(&format!(";{}*url=", super::super::framework::js::WS))
+            .expect("static regex")
     })
     .split(s)
     .collect()
@@ -479,8 +485,15 @@ pub fn resolve_url(base: &str, href: &str) -> String {
         return format!("{}{}", &base[..origin_end], href);
     }
     let path = base.split(['?', '#']).next().unwrap_or(base);
-    let dir_end = path.rfind('/').filter(|&i| i >= origin_end).map_or(path.len(), |i| i + 1);
-    let dir = if dir_end > path.len() { path } else { &path[..dir_end] };
+    let dir_end = path
+        .rfind('/')
+        .filter(|&i| i >= origin_end)
+        .map_or(path.len(), |i| i + 1);
+    let dir = if dir_end > path.len() {
+        path
+    } else {
+        &path[..dir_end]
+    };
     if dir_end == path.len() && !path.ends_with('/') {
         return format!("{path}/{href}");
     }
@@ -495,11 +508,18 @@ pub fn resolve_url(base: &str, href: &str) -> String {
 /// rather than mis-encoded.
 pub fn url_href(url: &str) -> Result<String, HttpFailure> {
     let url = url.trim_matches(|c: char| c <= ' ');
-    let url: String = url.chars().filter(|c| !matches!(c, '\t' | '\n' | '\r')).collect();
+    let url: String = url
+        .chars()
+        .filter(|c| !matches!(c, '\t' | '\n' | '\r'))
+        .collect();
     let Some((scheme, rest)) = url.split_once(':') else {
         return Err(HttpFailure::BadUrl(format!("Invalid URL: {url}")));
     };
-    if scheme.is_empty() || !scheme.chars().all(|c| c.is_ascii_alphanumeric() || "+-.".contains(c)) {
+    if scheme.is_empty()
+        || !scheme
+            .chars()
+            .all(|c| c.is_ascii_alphanumeric() || "+-.".contains(c))
+    {
         return Err(HttpFailure::BadUrl(format!("Invalid URL: {url}")));
     }
     let scheme = scheme.to_ascii_lowercase();
@@ -653,7 +673,10 @@ mod tests {
             url_href("https://lx2.loc.gov/sru/lcdb?query=bath.ISBN=^978&x=1").unwrap(),
             "https://lx2.loc.gov/sru/lcdb?query=bath.ISBN=^978&x=1"
         );
-        assert_eq!(url_href("HTTPS://Example.ORG:443").unwrap(), "https://example.org/");
+        assert_eq!(
+            url_href("HTTPS://Example.ORG:443").unwrap(),
+            "https://example.org/"
+        );
         assert_eq!(
             url_href("https://x.org/a b?q=\"é\"#f g").unwrap(),
             "https://x.org/a%20b?q=%22%C3%A9%22#f%20g"
@@ -680,7 +703,10 @@ mod tests {
             ]
         );
         let r = build_request("https://x.org/", &RequestOptions::post("a=1", &[])).unwrap();
-        assert_eq!(r.header("content-type"), Some("application/x-www-form-urlencoded"));
+        assert_eq!(
+            r.header("content-type"),
+            Some("application/x-www-form-urlencoded")
+        );
         assert!(build_request("ftp://x.org/", &RequestOptions::default()).is_err());
     }
 
@@ -713,7 +739,10 @@ mod tests {
 
     #[test]
     fn encode_uri_component_like_js() {
-        assert_eq!(encode_uri_component("10.1109/TPS.1987"), "10.1109%2FTPS.1987");
+        assert_eq!(
+            encode_uri_component("10.1109/TPS.1987"),
+            "10.1109%2FTPS.1987"
+        );
         assert_eq!(encode_uri_component("a b'é"), "a%20b'%C3%A9");
     }
 }
