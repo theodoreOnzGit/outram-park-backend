@@ -122,8 +122,10 @@
 //! exactly (`k = 0x3ffae49b6a9aea9d`), so #589 is the only mover on top of
 //! the libm difference. #585 (`Majorant::bounding`) did not move it: the bits
 //! were unchanged from `785fcd1ce` to `1e9ee8b25`. Host A's pre-#589 pin is
-//! superseded and its post-#589 value has not been measured; host A adds its
-//! own line to the list.
+//! superseded; ~~its post-#589 value has not been measured; host A adds its
+//! own line to the list~~ **its post-#589 pin was added 2026-10-07 (#784):
+//! `0x1fb06c36a096d760`, `k = 1.52292 +/- 0.01056`, the same bits at
+//! `8df5cde5f` and with #784's tracking observers.**
 
 use outram_mc_libs::geometry::cell::{Cell, HalfSpaceSense, RegionToken};
 use outram_mc_libs::geometry::geometry::Geometry;
@@ -465,8 +467,12 @@ fn fhr_explicit_triso_delta_is_bit_identical() {
             // Host B: Intel Xeon @ 2.10 GHz, Ubuntu glibc 2.39. Re-pinned
             // 2026-10-05 (#578) on top of b208cecc7 (#589, majorant adds
             // nuclide breakpoints); was 0x86e84b60e8278ec3 (host A, before
-            // #589). Host A's post-#589 value is not yet measured.
+            // #589). ~~Host A's post-#589 value is not yet measured.~~
             ("host B", 0x235271e5059e6adf),
+            // Host A: i9-13900K desktop (Arch, glibc). Measured 2026-10-07
+            // (#784) at 8df5cde5f, before and after #784's observer hooks
+            // (the same bits both times): k = 1.52292 +/- 0.01056.
+            ("host A", 0x1fb06c36a096d760),
         ],
         &format!(
             "k = {:#018x} +/- {:#018x}",
