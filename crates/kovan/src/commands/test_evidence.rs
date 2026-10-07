@@ -47,7 +47,8 @@ fn capture(root: &Path, program: &str, args: &[&str]) -> Result<String, String> 
             String::from_utf8_lossy(&out.stderr).trim()
         ));
     }
-    Ok(String::from_utf8_lossy(&out.stdout).trim().to_string())
+    // `trim_end` only: a `git status --porcelain` line starts with a space.
+    Ok(String::from_utf8_lossy(&out.stdout).trim_end().to_string())
 }
 
 fn dirty(root: &Path) -> Result<Vec<String>, String> {
@@ -111,7 +112,9 @@ pub fn run(
         .map_err(|e| format!("cargo: {e}"))?;
     // The parent's copies of the write end are moved into `Command` and
     // dropped with it, so the reader sees EOF when cargo exits.
-    let mut parser = OutputParser::new(&root.to_string_lossy());
+    // cargo reports absolute source paths; `root` may be relative (`.`).
+    let abs_root = root.canonicalize().unwrap_or_else(|_| root.to_path_buf());
+    let mut parser = OutputParser::new(&abs_root.to_string_lossy());
     let stdout = std::io::stdout();
     for line in BufReader::new(reader).lines() {
         let line = line.map_err(|e| format!("reading cargo output: {e}"))?;
