@@ -1008,6 +1008,27 @@ pub const LITERATURE: &[CorpusLiterature] = &[
         status_basis: NRC_BASIS,
     },
     CorpusLiterature {
+        id: "doe-g-414.1-4",
+        kind: LiteratureKind::Report,
+        title: "Safety Software Guide for Use with 10 CFR 830 Subpart A, Quality Assurance \
+                Requirements, and DOE O 414.1C, Quality Assurance (DOE G 414.1-4)",
+        authors: &["U.S. Department of Energy, Office of Environment, Safety and Health"],
+        year: Some(2005),
+        topics: &["07-regulatory-framework/quality-assurance/software-quality-assurance"],
+        concept_document: Some("doe-g-414.1-4"),
+        source_url: Some(
+            "https://www.energy.gov/sites/prod/files/hss/Enforcement%20and%20Oversight/Enforcement/docs/guides/DOE_Guide_414_1_4.pdf",
+        ),
+        corpus_file: Some(
+            "kovan-standard-open-corpus/us-doe/doe-g-414-1-4-2005-safety-software-guide.pdf",
+        ),
+        status: SourceStatus::VerifiedPublicDomain,
+        status_basis: "U.S. Government Work written by DOE itself (17 U.S.C. 105); DOE's Copyright, \
+                       Restrictions and Permissions Notice (https://www.energy.gov/web-policies, \
+                       accessed 2026-10-07): public domain, may be freely distributed, \
+                       acknowledge DOE (corpus README section 4, extended)",
+    },
+    CorpusLiterature {
         id: "doe-std-1172-2003",
         kind: LiteratureKind::Report,
         title: "Safety Software Quality Assurance Functional Area Qualification Standard \
@@ -1320,10 +1341,10 @@ mod tests {
     fn literature_and_connections_point_at_real_nodes() {
         assert_eq!(
             LITERATURE.len(),
-            29,
+            30,
             "the maintainer's 2026-09-22 set, EPA FGR-11, FGR-13 and FGR-15 (2026-09-28), \
              the concept tree's 13 further documents (2026-10-06), and the software QA \
-             set NUREG/BR-0167 and DOE-STD-1172-2003 (2026-10-07, #760)"
+             set NUREG/BR-0167, DOE-STD-1172-2003 and DOE G 414.1-4 (2026-10-07, #760)"
         );
         let mut ids = HashSet::new();
         for l in LITERATURE {

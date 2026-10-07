@@ -166,6 +166,15 @@ file = "kovan-standard-open-corpus/nrc/nureg-br-0167-1993-sqa-program-and-guidel
 licence = "U.S. Government work"
 
 [[document]]
+id = "doe-g-414.1-4"
+title = "DOE G 414.1-4, Safety Software Guide for Use with 10 CFR 830 Subpart A, Quality Assurance Requirements, and DOE O 414.1C, Quality Assurance"
+publisher = "U.S. Department of Energy, Office of Environment, Safety and Health"
+date = "June 2005 (certified November 2010)"
+tier = "standard"
+file = "kovan-standard-open-corpus/us-doe/doe-g-414-1-4-2005-safety-software-guide.pdf"
+licence = "U.S. Government work (DOE guide); public domain per DOE's web policies, acknowledge DOE"
+
+[[document]]
 id = "doe-std-1172-2003"
 title = "DOE-STD-1172-2003, Safety Software Quality Assurance Functional Area Qualification Standard (superseded by DOE-STD-1172-2011)"
 publisher = "U.S. Department of Energy"
