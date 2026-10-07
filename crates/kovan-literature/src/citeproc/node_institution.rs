@@ -14,17 +14,24 @@
 //              warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR
 //              PURPOSE. See the GNU Affero General Public License.
 
-//! Port of `src/node_institution.js`. **Not yet ported** (epic #790).
+//! Port of `src/node_institution.js`: `CSL.Node.institution`.
 
 use serde_json::Value;
 
-use super::obj_token::Token;
+use super::exec::Exec;
+use super::obj_token::{Token, TokenType};
 use super::state::State;
-use super::CslResult;
+use super::{CslResult, EngineError};
 
-/// The closures `src/node_institution.js` stores in `token.execs` (PORTING.md §4).
+/// The closures `src/node_institution.js` stores in `token.execs`
+/// (PORTING.md §4).
 #[derive(Debug, Clone, PartialEq)]
-pub enum NodeInstitutionExec {}
+pub enum NodeInstitutionExec {
+    /// START / SINGLETON: compute the institution delimiter, `and` term and
+    /// prefixes, build the `and` blobs and register the node on
+    /// `state.nameOutput` (node_institution.js:5-76).
+    Setup,
+}
 
 impl NodeInstitutionExec {
     /// Run the closure.
@@ -35,26 +42,42 @@ impl NodeInstitutionExec {
         _item: &Value,
         _cite_item: &Value,
     ) -> CslResult<Option<usize>> {
-        match *self {}
+        match self {
+            // PORT-LATER(wave3): node_institution.js:5-76, needs state.getTerm,
+            // state.output.append/pop and CSL.Blob (queue.rs), CSL.NameOutput
+            // (state.nameOutput.institution = this), and it writes
+            // this.and_term / and_prefix_* / and on the running token.
+            NodeInstitutionExec::Setup => Err(EngineError::NotYetPorted {
+                method: "node_institution.js:5 closure",
+            }),
+        }
     }
 }
 
-/// `CSL.Node.institution.build.call(token, state, target, realGroup)`: compile
-/// this element's token into `target`. Entry point called by the build
-/// loop (`CSL.XmlToToken`, util_nodes.rs). Pre-declared stub: the owner of
-/// `src/node_institution.js` ports the body.
+/// `CSL.Node.institution.build.call(token, state, target)`.
 pub fn build(
     _state: &mut State,
-    token: Token,
+    mut token: Token,
     target: &mut Vec<Token>,
     _real_group: bool,
 ) -> CslResult<()> {
+    if token.tokentype == TokenType::Singleton || token.tokentype == TokenType::Start {
+        token
+            .execs
+            .push(Exec::NodeInstitution(NodeInstitutionExec::Setup));
+    }
     target.push(token);
     Ok(())
 }
 
-/// `CSL.Node.institution.configure.call(tokens[pos], state, pos)`: the back-to-front
-/// jump-index pass (`configureTokenList`). Pre-declared stub.
-pub fn configure(_state: &mut State, _tokens: &mut [Token], _pos: usize) -> CslResult<()> {
+/// `CSL.Node.institution.configure.call(tokens[pos], state, pos)`.
+pub fn configure(state: &mut State, tokens: &mut [Token], pos: usize) -> CslResult<()> {
+    let is_open = tokens
+        .get(pos)
+        .map(|t| t.tokentype == TokenType::Singleton || t.tokentype == TokenType::Start)
+        .unwrap_or(false);
+    if is_open {
+        state.build.has_institution = true;
+    }
     Ok(())
 }

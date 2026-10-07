@@ -14,41 +14,59 @@
 //              warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR
 //              PURPOSE. See the GNU Affero General Public License.
 
-//! Port of `src/node_bibliography.js`. **Not yet ported** (epic #790).
+//! Port of `src/node_bibliography.js`: `CSL.Node.bibliography.build`.
 
 use serde_json::Value;
 
-use super::obj_token::Token;
+use super::exec::Exec;
+use super::obj_token::{Token, TokenType};
 use super::state::State;
 use super::CslResult;
 
-/// The closures `src/node_bibliography.js` stores in `token.execs` (PORTING.md §4).
+/// The closures `src/node_bibliography.js` stores in `token.execs`
+/// (PORTING.md §4).
 #[derive(Debug, Clone, PartialEq)]
-pub enum NodeBibliographyExec {}
+pub enum NodeBibliographyExec {
+    /// Sets `state.tmp.area/root/extension` for the bibliography
+    /// (node_bibliography.js:11-15).
+    SetArea,
+}
 
 impl NodeBibliographyExec {
     /// Run the closure.
     pub fn run(
         &self,
-        _state: &mut State,
+        state: &mut State,
         _token: &Token,
         _item: &Value,
         _cite_item: &Value,
     ) -> CslResult<Option<usize>> {
-        match *self {}
+        match self {
+            NodeBibliographyExec::SetArea => {
+                state.tmp.area = "bibliography".to_string();
+                state.tmp.root = Some("bibliography".to_string());
+                state.tmp.extension = String::new();
+                Ok(None)
+            }
+        }
     }
 }
 
-/// `CSL.Node.bibliography.build.call(token, state, target, realGroup)`: compile
-/// this element's token into `target`. Entry point called by the build
-/// loop (`CSL.XmlToToken`, util_nodes.rs). Pre-declared stub: the owner of
-/// `src/node_bibliography.js` ports the body.
+/// `CSL.Node.bibliography.build.call(token, state, target)`.
 pub fn build(
-    _state: &mut State,
-    token: Token,
+    state: &mut State,
+    mut token: Token,
     target: &mut Vec<Token>,
     _real_group: bool,
 ) -> CslResult<()> {
+    if token.tokentype == TokenType::Start {
+        state.build.area = "bibliography".to_string();
+        state.build.root = "bibliography".to_string();
+        state.build.extension = String::new();
+        token
+            .execs
+            .push(Exec::NodeBibliography(NodeBibliographyExec::SetArea));
+    }
     target.push(token);
     Ok(())
 }

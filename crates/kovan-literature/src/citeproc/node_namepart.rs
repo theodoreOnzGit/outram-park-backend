@@ -14,22 +14,29 @@
 //              warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR
 //              PURPOSE. See the GNU Affero General Public License.
 
-//! Port of `src/node_namepart.js`. **Not yet ported** (epic #790).
+//! Port of `src/node_namepart.js`: `CSL.Node["name-part"]`.
 
+use super::node_names::token_to_value;
 use super::obj_token::Token;
 use super::state::State;
 use super::CslResult;
 
-/// `CSL.Node.namepart.build.call(token, state, target, realGroup)`: compile
-/// this element's token into `target`. Entry point called by the build
-/// loop (`CSL.XmlToToken`, util_nodes.rs). Pre-declared stub: the owner of
-/// `src/node_namepart.js` ports the body.
+/// `CSL.Node["name-part"].build.call(token, state)`:
+/// `state.build[this.strings.name] = this`. The token is kept as its
+/// [`token_to_value`] form in `state.build.name_parts` and is consumed by
+/// `cs:names` END (node_names.js), which copies it to `this.family` /
+/// `this.given`. It is *not* added to the token list.
 pub fn build(
-    _state: &mut State,
+    state: &mut State,
     token: Token,
-    target: &mut Vec<Token>,
+    _target: &mut Vec<Token>,
     _real_group: bool,
 ) -> CslResult<()> {
-    target.push(token);
+    if let Some(name) = token.string_opt("name") {
+        state
+            .build
+            .name_parts
+            .insert(name, token_to_value(&token));
+    }
     Ok(())
 }

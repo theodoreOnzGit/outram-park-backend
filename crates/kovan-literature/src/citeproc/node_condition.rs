@@ -14,22 +14,28 @@
 //              warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR
 //              PURPOSE. See the GNU Affero General Public License.
 
-//! Port of `src/node_condition.js`. **Not yet ported** (epic #790).
+//! Port of `src/node_condition.js`: `CSL.Node["condition"]`.
 
-use super::obj_token::Token;
+use super::obj_token::{Token, TokenType};
 use super::state::State;
-use super::CslResult;
+use super::util_conditions;
+use super::{CslResult, EngineError};
 
-/// `CSL.Node.condition.build.call(token, state, target, realGroup)`: compile
-/// this element's token into `target`. Entry point called by the build
-/// loop (`CSL.XmlToToken`, util_nodes.rs). Pre-declared stub: the owner of
-/// `src/node_condition.js` ports the body.
+/// `CSL.Node["condition"].build.call(token, state)`: a SINGLETON
+/// `cs:condition` inside `cs:conditions` combines its own tests with its
+/// `match` and hands the result to the enclosing `cs:if`'s condition engine.
 pub fn build(
-    _state: &mut State,
+    state: &mut State,
     token: Token,
     target: &mut Vec<Token>,
     _real_group: bool,
 ) -> CslResult<()> {
-    target.push(token);
+    if token.tokentype == TokenType::Singleton {
+        let test = util_conditions::match_combine(&token, &token.tests)?;
+        let engine = state.tmp.conditions.clone().ok_or_else(|| {
+            EngineError::Csl("TypeError: state.tmp.conditions is undefined".into())
+        })?;
+        engine.add_test(target, test)?;
+    }
     Ok(())
 }

@@ -14,17 +14,23 @@
 //              warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR
 //              PURPOSE. See the GNU Affero General Public License.
 
-//! Port of `src/node_label.js`. **Not yet ported** (epic #790).
+//! Port of `src/node_label.js`: `CSL.Node.label`.
 
 use serde_json::Value;
 
+use super::exec::Exec;
+use super::js;
+use super::node_names::{set_pair, token_to_value};
 use super::obj_token::Token;
 use super::state::State;
-use super::CslResult;
+use super::{CslResult, EngineError};
 
 /// The closures `src/node_label.js` stores in `token.execs` (PORTING.md §4).
 #[derive(Debug, Clone, PartialEq)]
-pub enum NodeLabelExec {}
+pub enum NodeLabelExec {
+    /// A `cs:label` outside `cs:names`: render the term (node_label.js:6-34).
+    Render,
+}
 
 impl NodeLabelExec {
     /// Run the closure.
@@ -35,20 +41,60 @@ impl NodeLabelExec {
         _item: &Value,
         _cite_item: &Value,
     ) -> CslResult<Option<usize>> {
-        match *self {}
+        match self {
+            // PORT-LATER(wave2): node_label.js:6-34, needs CSL.evaluateLabel,
+            // CSL.UPDATE_GROUP_CONTEXT_CONDITION, state.tmp.group_context,
+            // CSL.Output.Formatters["capitalize-first"], state.output.append,
+            // and writes item.section_form_override (a &Value here).
+            NodeLabelExec::Render => Err(EngineError::NotYetPorted {
+                method: "node_label.js:6 closure",
+            }),
+        }
     }
 }
 
-/// `CSL.Node.label.build.call(token, state, target, realGroup)`: compile
-/// this element's token into `target`. Entry point called by the build
-/// loop (`CSL.XmlToToken`, util_nodes.rs). Pre-declared stub: the owner of
-/// `src/node_label.js` ports the body.
+/// `CSL.Node.label.build.call(token, state, target)`.
 pub fn build(
-    _state: &mut State,
-    token: Token,
+    state: &mut State,
+    mut token: Token,
     target: &mut Vec<Token>,
     _real_group: bool,
 ) -> CslResult<()> {
+    if js::truthy_opt(token.strings.get("term")) {
+        // Non-names labels
+        token.execs.push(Exec::NodeLabel(NodeLabelExec::Render));
+    } else {
+        if !js::truthy_opt(token.strings.get("form")) {
+            token.set_string("form", "long");
+        }
+        // Names labels
+        // Picked up in names END
+        let namevars = state.build.names_variables.last().cloned().ok_or_else(|| {
+            EngineError::Csl("TypeError: state.build.names_variables[-1] is undefined".into())
+        })?;
+        let name_flag = state.build.name_flag;
+        let tv = token_to_value(&token);
+        let namelabels = state.build.name_label.last_mut().ok_or_else(|| {
+            EngineError::Csl("TypeError: state.build.name_label[-1] is undefined".into())
+        })?;
+        for var in &namevars {
+            if !namelabels.iter().any(|(k, _)| k == var) {
+                namelabels.push((var.clone(), Value::Object(js::Obj::new())));
+            }
+        }
+        let side = if !name_flag { "before" } else { "after" };
+        for var in &namevars {
+            let mut entry = namelabels
+                .iter()
+                .find(|(k, _)| k == var)
+                .map(|(_, v)| v.clone())
+                .unwrap_or_else(|| Value::Object(js::Obj::new()));
+            if let Value::Object(o) = &mut entry {
+                o.insert(side.to_string(), tv.clone());
+            }
+            set_pair(namelabels, var, entry);
+        }
+    }
     target.push(token);
     Ok(())
 }

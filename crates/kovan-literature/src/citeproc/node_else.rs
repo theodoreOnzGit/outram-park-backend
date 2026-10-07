@@ -14,16 +14,13 @@
 //              warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR
 //              PURPOSE. See the GNU Affero General Public License.
 
-//! Port of `src/node_else.js`. **Not yet ported** (epic #790).
+//! Port of `src/node_else.js`: `CSL.Node["else"]`.
 
-use super::obj_token::Token;
+use super::obj_token::{Token, TokenType};
 use super::state::State;
 use super::CslResult;
 
-/// `CSL.Node.else.build.call(token, state, target, realGroup)`: compile
-/// this element's token into `target`. Entry point called by the build
-/// loop (`CSL.XmlToToken`, util_nodes.rs). Pre-declared stub: the owner of
-/// `src/node_else.js` ports the body.
+/// `CSL.Node["else"].build.call(token, state, target)`.
 pub fn build(
     _state: &mut State,
     token: Token,
@@ -34,8 +31,17 @@ pub fn build(
     Ok(())
 }
 
-/// `CSL.Node.else.configure.call(tokens[pos], state, pos)`: the back-to-front
-/// jump-index pass (`configureTokenList`). Pre-declared stub.
-pub fn configure(_state: &mut State, _tokens: &mut [Token], _pos: usize) -> CslResult<()> {
+/// `CSL.Node["else"].configure.call(tokens[pos], state, pos)`: the
+/// back-to-front jump-index pass (`configureTokenList`).
+pub fn configure(state: &mut State, tokens: &mut [Token], pos: usize) -> CslResult<()> {
+    let start = tokens
+        .get(pos)
+        .map(|t| t.tokentype == TokenType::Start)
+        .unwrap_or(false);
+    if start {
+        if let Some(last) = state.configure.fail.last_mut() {
+            *last = pos;
+        }
+    }
     Ok(())
 }

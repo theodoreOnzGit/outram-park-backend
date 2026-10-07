@@ -14,17 +14,29 @@
 //              warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR
 //              PURPOSE. See the GNU Affero General Public License.
 
-//! Port of `src/node_institutionpart.js`. **Not yet ported** (epic #790).
+//! Port of `src/node_institutionpart.js`: `CSL.Node["institution-part"]`.
 
 use serde_json::Value;
 
+use super::exec::Exec;
 use super::obj_token::Token;
 use super::state::State;
-use super::CslResult;
+use super::{CslResult, EngineError};
 
-/// The closures `src/node_institutionpart.js` stores in `token.execs` (PORTING.md §4).
+/// The closures `src/node_institutionpart.js` stores in `token.execs`
+/// (PORTING.md §4).
 #[derive(Debug, Clone, PartialEq)]
-pub enum NodeInstitutionpartExec {}
+pub enum NodeInstitutionpartExec {
+    /// `strings.name === "long"` with `if-short`:
+    /// `state.nameOutput.institutionpart["long-with-short"] = this`.
+    LongWithShort,
+    /// `strings.name === "long"`: `institutionpart["long"] = this`.
+    Long,
+    /// `strings.name === "short"`: `institutionpart["short"] = this`.
+    Short,
+    /// Any other `name`: upstream pushes the unassigned `func` (`undefined`).
+    Undefined,
+}
 
 impl NodeInstitutionpartExec {
     /// Run the closure.
@@ -35,20 +47,45 @@ impl NodeInstitutionpartExec {
         _item: &Value,
         _cite_item: &Value,
     ) -> CslResult<Option<usize>> {
-        match *self {}
+        match self {
+            // PORT-LATER(wave3): node_institutionpart.js:6-18, needs
+            // state.nameOutput.institutionpart (CSL.NameOutput).
+            NodeInstitutionpartExec::LongWithShort => Err(EngineError::NotYetPorted {
+                method: "node_institutionpart.js:6 closure",
+            }),
+            NodeInstitutionpartExec::Long => Err(EngineError::NotYetPorted {
+                method: "node_institutionpart.js:10 closure",
+            }),
+            NodeInstitutionpartExec::Short => Err(EngineError::NotYetPorted {
+                method: "node_institutionpart.js:16 closure",
+            }),
+            NodeInstitutionpartExec::Undefined => Ok(None),
+        }
     }
 }
 
-/// `CSL.Node.institutionpart.build.call(token, state, target, realGroup)`: compile
-/// this element's token into `target`. Entry point called by the build
-/// loop (`CSL.XmlToToken`, util_nodes.rs). Pre-declared stub: the owner of
-/// `src/node_institutionpart.js` ports the body.
+/// `CSL.Node["institution-part"].build.call(token, state, target)`.
 pub fn build(
     _state: &mut State,
-    token: Token,
+    mut token: Token,
     target: &mut Vec<Token>,
     _real_group: bool,
 ) -> CslResult<()> {
+    let name = token.string_opt("name");
+    let func = if name.as_deref() == Some("long") {
+        if super::js::truthy_opt(token.strings.get("if-short")) {
+            NodeInstitutionpartExec::LongWithShort
+        } else {
+            NodeInstitutionpartExec::Long
+        }
+    } else if name.as_deref() == Some("short") {
+        NodeInstitutionpartExec::Short
+    } else {
+        NodeInstitutionpartExec::Undefined
+    };
+    token
+        .execs
+        .push(Exec::NodeInstitutionpart(func));
     target.push(token);
     Ok(())
 }

@@ -14,17 +14,25 @@
 //              warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR
 //              PURPOSE. See the GNU Affero General Public License.
 
-//! Port of `src/node_name.js`. **Not yet ported** (epic #790).
+//! Port of `src/node_name.js`: `CSL.Node.name`.
 
 use serde_json::Value;
 
-use super::obj_token::Token;
+use super::attributes::{inherit_opt, POSITION};
+use super::exec::Exec;
+use super::js;
+use super::obj_token::{Token, TokenType};
 use super::state::State;
-use super::CslResult;
+use super::{CslResult, EngineError};
 
 /// The closures `src/node_name.js` stores in `token.execs` (PORTING.md §4).
 #[derive(Debug, Clone, PartialEq)]
-pub enum NodeNameExec {}
+pub enum NodeNameExec {
+    /// START / SINGLETON: set the et-al term, delimiter, `and` term and
+    /// prefixes, the ellipsis and `and` blobs, the et-al parameters, and
+    /// `state.nameOutput.name = this` (node_name.js:41-170).
+    Setup,
+}
 
 impl NodeNameExec {
     /// Run the closure.
@@ -35,20 +43,71 @@ impl NodeNameExec {
         _item: &Value,
         _cite_item: &Value,
     ) -> CslResult<Option<usize>> {
-        match *self {}
+        match self {
+            // PORT-LATER(wave3): node_name.js:41-170, needs state.getTerm,
+            // state.output.append/pop and CSL.Blob (queue.rs), CSL.NameOutput
+            // (state.nameOutput.name = this); it also writes this.and_term,
+            // this.and_prefix_*, this.and, this.ellipsis* on the running token
+            // (Exec::run receives &Token) and reads state.inheritOpt at run time
+            // (attributes::inherit_opt).
+            NodeNameExec::Setup => Err(EngineError::NotYetPorted {
+                method: "node_name.js:41 closure",
+            }),
+        }
     }
 }
 
-/// `CSL.Node.name.build.call(token, state, target, realGroup)`: compile
-/// this element's token into `target`. Entry point called by the build
-/// loop (`CSL.XmlToToken`, util_nodes.rs). Pre-declared stub: the owner of
-/// `src/node_name.js` ports the body.
+/// `CSL.Node.name.build.call(token, state, target)`.
 pub fn build(
-    _state: &mut State,
-    token: Token,
+    state: &mut State,
+    mut token: Token,
     target: &mut Vec<Token>,
     _real_group: bool,
 ) -> CslResult<()> {
+    if token.tokentype == TokenType::Singleton || token.tokentype == TokenType::Start {
+        let old_tmp_root: Option<String> = state.tmp.root.clone();
+        if old_tmp_root.is_none() {
+            state.tmp.root = Some("citation".to_string());
+        }
+        // Many CSL styles set et-al-[min|use-first]
+        // and et-al-subsequent-[min|use-first] to the same
+        // value.
+        // Set state.opt.update_mode = CSL.POSITION if
+        // et-al-subsequent-min or et-al-subsequent-use-first
+        // are set AND their value differs from their plain
+        // counterparts.
+        let result = (|| -> CslResult<()> {
+            for (sub, plain) in [
+                ("et-al-subsequent-min", "et-al-min"),
+                ("et-al-subsequent-use-first", "et-al-use-first"),
+            ] {
+                let a = inherit_opt(state, &token, sub, None, None)?;
+                if let Some(a) = a {
+                    if js::truthy(&a) {
+                        let b = inherit_opt(state, &token, plain, None, None)?;
+                        if b.as_ref() != Some(&a) || is_nan(&a) {
+                            state
+                                .opt
+                                .insert("update_mode".into(), Value::from(POSITION));
+                        }
+                    }
+                }
+            }
+            Ok(())
+        })();
+        state.tmp.root = old_tmp_root;
+        result?;
+
+        state.build.name_flag = true;
+
+        token.execs.push(Exec::NodeName(NodeNameExec::Setup));
+    }
     target.push(token);
     Ok(())
+}
+
+/// A numeric JSON value that is JS NaN (serialised as `null`): never equal to
+/// itself under `!==`. A truthy value is never NaN, so this is only a guard.
+fn is_nan(v: &Value) -> bool {
+    v.is_null()
 }

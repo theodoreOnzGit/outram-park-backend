@@ -14,41 +14,55 @@
 //              warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR
 //              PURPOSE. See the GNU Affero General Public License.
 
-//! Port of `src/node_etal.js`. **Not yet ported** (epic #790).
+//! Port of `src/node_etal.js`: `CSL.Node["et-al"]`.
 
 use serde_json::Value;
 
+use super::exec::Exec;
+use super::node_names::token_to_value;
 use super::obj_token::Token;
 use super::state::State;
 use super::CslResult;
 
 /// The closures `src/node_etal.js` stores in `token.execs` (PORTING.md §4).
 #[derive(Debug, Clone, PartialEq)]
-pub enum NodeEtalExec {}
+pub enum NodeEtalExec {
+    /// `state.tmp.etal_node = this; state.tmp.etal_term = this.strings.term`
+    /// (node_etal.js:5-10).
+    SetEtalNode,
+}
 
 impl NodeEtalExec {
     /// Run the closure.
     pub fn run(
         &self,
-        _state: &mut State,
-        _token: &Token,
+        state: &mut State,
+        token: &Token,
         _item: &Value,
         _cite_item: &Value,
     ) -> CslResult<Option<usize>> {
-        match *self {}
+        match self {
+            NodeEtalExec::SetEtalNode => {
+                state.tmp.etal_node = Some(token_to_value(token));
+                if let Some(Value::String(term)) = token.strings.get("term") {
+                    state.tmp.etal_term = Some(term.clone());
+                }
+                Ok(None)
+            }
+        }
     }
 }
 
-/// `CSL.Node.etal.build.call(token, state, target, realGroup)`: compile
-/// this element's token into `target`. Entry point called by the build
-/// loop (`CSL.XmlToToken`, util_nodes.rs). Pre-declared stub: the owner of
-/// `src/node_etal.js` ports the body.
+/// `CSL.Node["et-al"].build.call(token, state, target)`.
 pub fn build(
-    _state: &mut State,
-    token: Token,
+    state: &mut State,
+    mut token: Token,
     target: &mut Vec<Token>,
     _real_group: bool,
 ) -> CslResult<()> {
+    if state.build.area == "citation" || state.build.area == "bibliography" {
+        token.execs.push(Exec::NodeEtal(NodeEtalExec::SetEtalNode));
+    }
     target.push(token);
     Ok(())
 }

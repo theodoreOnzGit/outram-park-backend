@@ -14,22 +14,34 @@
 //              warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR
 //              PURPOSE. See the GNU Affero General Public License.
 
-//! Port of `src/node_conditions.js`. **Not yet ported** (epic #790).
+//! Port of `src/node_conditions.js`: `CSL.Node["conditions"]`.
 
-use super::obj_token::Token;
+use super::obj_token::{Token, TokenType};
 use super::state::State;
-use super::CslResult;
+use super::{CslResult, EngineError};
 
-/// `CSL.Node.conditions.build.call(token, state, target, realGroup)`: compile
-/// this element's token into `target`. Entry point called by the build
-/// loop (`CSL.XmlToToken`, util_nodes.rs). Pre-declared stub: the owner of
-/// `src/node_conditions.js` ports the body.
+fn engine(state: &State) -> CslResult<super::util_conditions::ConditionsEngine> {
+    state
+        .tmp
+        .conditions
+        .clone()
+        .ok_or_else(|| EngineError::Csl("TypeError: state.tmp.conditions is undefined".into()))
+}
+
+/// `CSL.Node["conditions"].build.call(token, state)`: `cs:conditions START`
+/// records its `match` on the enclosing `cs:if`; `END` combines the collected
+/// tests.
 pub fn build(
-    _state: &mut State,
+    state: &mut State,
     token: Token,
     target: &mut Vec<Token>,
     _real_group: bool,
 ) -> CslResult<()> {
-    target.push(token);
+    if token.tokentype == TokenType::Start {
+        engine(state)?.add_match(target, token.extra.get("match"))?;
+    }
+    if token.tokentype == TokenType::End {
+        engine(state)?.match_combine(target)?;
+    }
     Ok(())
 }

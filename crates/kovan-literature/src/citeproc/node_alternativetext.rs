@@ -14,17 +14,23 @@
 //              warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR
 //              PURPOSE. See the GNU Affero General Public License.
 
-//! Port of `src/node_alternativetext.js`. **Not yet ported** (epic #790).
+//! Port of `src/node_alternativetext.js`: `CSL.Node["alternative-text"]`.
 
 use serde_json::Value;
 
-use super::obj_token::Token;
+use super::exec::Exec;
+use super::obj_token::{Token, TokenType};
 use super::state::State;
-use super::CslResult;
+use super::{CslResult, EngineError};
 
-/// The closures `src/node_alternativetext.js` stores in `token.execs` (PORTING.md §4).
+/// The closures `src/node_alternativetext.js` stores in `token.execs`
+/// (PORTING.md §4).
 #[derive(Debug, Clone, PartialEq)]
-pub enum NodeAlternativetextExec {}
+pub enum NodeAlternativetextExec {
+    /// `Item = state.refetchItem(Item.id); CSL.getCite.call(state, Item)`
+    /// (node_alternativetext.js:5-8).
+    RefetchAndGetCite,
+}
 
 impl NodeAlternativetextExec {
     /// Run the closure.
@@ -35,20 +41,29 @@ impl NodeAlternativetextExec {
         _item: &Value,
         _cite_item: &Value,
     ) -> CslResult<Option<usize>> {
-        match *self {}
+        match self {
+            // PORT-LATER(wave2): node_alternativetext.js:5-8, needs
+            // state.refetchItem (build.js) and CSL.getCite (api_cite.js).
+            NodeAlternativetextExec::RefetchAndGetCite => Err(EngineError::NotYetPorted {
+                method: "node_alternativetext.js:5 closure",
+            }),
+        }
     }
 }
 
-/// `CSL.Node.alternativetext.build.call(token, state, target, realGroup)`: compile
-/// this element's token into `target`. Entry point called by the build
-/// loop (`CSL.XmlToToken`, util_nodes.rs). Pre-declared stub: the owner of
-/// `src/node_alternativetext.js` ports the body.
+/// `CSL.Node["alternative-text"].build.call(token, state, target)`.
 pub fn build(
     _state: &mut State,
-    token: Token,
+    mut token: Token,
     target: &mut Vec<Token>,
     _real_group: bool,
 ) -> CslResult<()> {
+    if token.tokentype == TokenType::Singleton {
+        // do stuff
+        token
+            .execs
+            .push(Exec::NodeAlternativetext(NodeAlternativetextExec::RefetchAndGetCite));
+    }
     target.push(token);
     Ok(())
 }

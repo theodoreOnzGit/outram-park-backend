@@ -14,22 +14,19 @@
 //              warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR
 //              PURPOSE. See the GNU Affero General Public License.
 
-//! Port of `src/node_comment.js`. **Not yet ported** (epic #790).
+//! Port of `src/node_comment.js`: `CSL.Node["#comment"]`.
 
 use super::obj_token::Token;
 use super::state::State;
 use super::CslResult;
 
-/// `CSL.Node.comment.build.call(token, state, target, realGroup)`: compile
-/// this element's token into `target`. Entry point called by the build
-/// loop (`CSL.XmlToToken`, util_nodes.rs). Pre-declared stub: the owner of
-/// `src/node_comment.js` ports the body.
+/// `CSL.Node["#comment"].build`: a comment in the CSL file; upstream does
+/// nothing (the token is not added to the list).
 pub fn build(
     _state: &mut State,
-    token: Token,
-    target: &mut Vec<Token>,
+    _token: Token,
+    _target: &mut Vec<Token>,
     _real_group: bool,
 ) -> CslResult<()> {
-    target.push(token);
     Ok(())
 }

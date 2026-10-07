@@ -14,22 +14,19 @@
 //              warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR
 //              PURPOSE. See the GNU Affero General Public License.
 
-//! Port of `src/node_macro.js`. **Not yet ported** (epic #790).
+//! Port of `src/node_macro.js`: `CSL.Node.macro`.
 
 use super::obj_token::Token;
 use super::state::State;
 use super::CslResult;
 
-/// `CSL.Node.macro.build.call(token, state, target, realGroup)`: compile
-/// this element's token into `target`. Entry point called by the build
-/// loop (`CSL.XmlToToken`, util_nodes.rs). Pre-declared stub: the owner of
-/// `src/node_macro.js` ports the body.
+/// `CSL.Node.macro.build`: upstream is an empty function (macro definitions
+/// are handled by the build loop's `buildMacro`/`expandMacro`).
 pub fn build(
     _state: &mut State,
-    token: Token,
-    target: &mut Vec<Token>,
+    _token: Token,
+    _target: &mut Vec<Token>,
     _real_group: bool,
 ) -> CslResult<()> {
-    target.push(token);
     Ok(())
 }

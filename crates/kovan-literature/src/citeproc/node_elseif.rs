@@ -14,28 +14,28 @@
 //              warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR
 //              PURPOSE. See the GNU Affero General Public License.
 
-//! Port of `src/node_elseif.js`. **Not yet ported** (epic #790).
+//! Port of `src/node_elseif.js`: `CSL.Node["else-if"]`.
 
 use super::obj_token::Token;
 use super::state::State;
+use super::util_conditions;
 use super::CslResult;
 
-/// `CSL.Node.elseif.build.call(token, state, target, realGroup)`: compile
-/// this element's token into `target`. Entry point called by the build
-/// loop (`CSL.XmlToToken`, util_nodes.rs). Pre-declared stub: the owner of
-/// `src/node_elseif.js` ports the body.
+/// `CSL.Node["else-if"].build.call(token, state, target)`: the shared
+/// `CSL.Conditions.TopNode`, then the token is pushed.
 pub fn build(
-    _state: &mut State,
-    token: Token,
+    state: &mut State,
+    mut token: Token,
     target: &mut Vec<Token>,
     _real_group: bool,
 ) -> CslResult<()> {
+    util_conditions::top_node(state, &mut token, target)?;
     target.push(token);
     Ok(())
 }
 
-/// `CSL.Node.elseif.configure.call(tokens[pos], state, pos)`: the back-to-front
-/// jump-index pass (`configureTokenList`). Pre-declared stub.
-pub fn configure(_state: &mut State, _tokens: &mut [Token], _pos: usize) -> CslResult<()> {
-    Ok(())
+/// `CSL.Node["else-if"].configure.call(tokens[pos], state, pos)`: the shared
+/// `CSL.Conditions.Configure` jump-index pass.
+pub fn configure(state: &mut State, tokens: &mut [Token], pos: usize) -> CslResult<()> {
+    util_conditions::configure(state, tokens, pos)
 }

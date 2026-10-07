@@ -97,6 +97,16 @@ pub struct State {
 
     // ---- fields: wave1-build (load, xmljson, build, util_locale, attributes) ----
 
+    // ---- fields: wave1-nodes ----
+    // DUP-CHECK: state.js. `state.intext_sort` (node_intext.js): only
+    // `opt.sort_directions` is ever set.
+    pub intext_sort: Area,
+    /// `state.build_layout_locale_flag` (node_layout.js:259; a misspelling of
+    /// `state.build.layout_locale_flag` upstream, kept as its own flag).
+    pub build_layout_locale_flag: bool,
+    /// `sys.variableWrapper` is installed (`Engine::set_variable_wrapper`).
+    pub sys_variable_wrapper: bool,
+
     // ---- fields: wave1-input (dates, numbers, name particles, retrieveItem) ----
 
     // ---- fields: wave1-output (queue, formats, formatters, flip-flop, page) ----
@@ -133,6 +143,79 @@ pub struct Area {
 pub struct Tmp {
     // ---- fields: wave1-build ----
 
+    // ---- fields: wave1-nodes ----
+    // DUP-CHECK: state.js for every field of this block.
+    /// `area`: "citation", "bibliography", "intext", "citation_sort", ...
+    pub area: String,
+    /// `root`; `None` is JS `undefined` (node_name.js tests for it).
+    pub root: Option<String>,
+    /// `extension`: "" or "_sort".
+    pub extension: String,
+    /// `jump`: values are "succeed" / "fail"; `None` is the `undefined`
+    /// that cs:choose pushes (node_choose.js).
+    pub jump: super::stack::Stack<Option<String>>,
+    /// `conditions`: the cs:if/cs:else-if being filled by cs:conditions.
+    pub conditions: Option<super::util_conditions::ConditionsEngine>,
+    /// `condition_counter`.
+    pub condition_counter: i64,
+    /// `condition_lang_counter_arr`.
+    pub condition_lang_counter_arr: Vec<i64>,
+    /// `condition_lang_val_arr`.
+    pub condition_lang_val_arr: Vec<String>,
+    /// `cite_affixes`: per area `false` or {locale: {delimiter, suffix}}.
+    pub cite_affixes: Obj,
+    /// `last_cite_locale`.
+    pub last_cite_locale: Option<String>,
+    /// `etal_node`: the cs:et-al token (as `node_names::token_to_value`).
+    pub etal_node: Option<serde_json::Value>,
+    /// `etal_term`.
+    pub etal_term: Option<String>,
+    /// `abort_alternative`.
+    pub abort_alternative: bool,
+    /// `date_object` (`false` when the date is not rendered).
+    pub date_object: serde_json::Value,
+    /// `donesies`.
+    pub donesies: Vec<String>,
+    /// `dateparts`.
+    pub dateparts: Vec<String>,
+    /// `date_collapse_at`.
+    pub date_collapse_at: Vec<String>,
+    /// `element_rendered_ok`.
+    pub element_rendered_ok: bool,
+    /// `date_token` (set at build time by cs:date).
+    pub date_token: Option<Token>,
+    /// `just_looking`.
+    pub just_looking: bool,
+    /// `done_vars`.
+    pub done_vars: Vec<String>,
+    /// `sort_key_flag`.
+    pub sort_key_flag: bool,
+    /// `nameset_counter`.
+    pub nameset_counter: i64,
+    /// `strip_periods`.
+    pub strip_periods: i64,
+    /// `can_substitute`.
+    pub can_substitute: super::stack::Stack<bool>,
+    /// `can_block_substitute`.
+    pub can_block_substitute: bool,
+    /// `common_term_match_fail`.
+    pub common_term_match_fail: bool,
+    /// `value`.
+    pub value: Vec<serde_json::Value>,
+    /// `element_trace`.
+    pub element_trace: super::stack::Stack<String>,
+    /// `probably_rendered_something`.
+    pub probably_rendered_something: bool,
+    /// `container_item_count`, `container_item_pos` (keyed by container_id).
+    pub container_item_count: Obj,
+    pub container_item_pos: Obj,
+    /// `et-al-min`, `et-al-use-first`, `et-al-use-last` (`None` = undefined).
+    pub et_al_min: Option<serde_json::Value>,
+    pub et_al_use_first: Option<serde_json::Value>,
+    pub et_al_use_last: Option<serde_json::Value>,
+    /// `lang_sort_hold` (node_sort.js).
+    pub lang_sort_hold: Option<String>,
+
     // ---- fields: wave1-input ----
 
     // ---- fields: wave1-output ----
@@ -150,6 +233,51 @@ pub struct Tmp {
 #[derive(Debug, Clone, Default)]
 pub struct Build {
     // ---- fields: wave1-build ----
+
+    // ---- fields: wave1-nodes ----
+    // DUP-CHECK: state.js for every field of this block.
+    /// `area`, `root`, `extension`.
+    pub area: String,
+    pub root: String,
+    pub extension: String,
+    /// `skip`: `Some("info")` while inside cs:info, `None` is JS `false`.
+    pub skip: Option<String>,
+    /// `substitute_level` (starts as `Stack(0, LITERAL)`).
+    pub substitute_level: super::stack::Stack<i64>,
+    /// `names_level`, `render_nesting_level`.
+    pub names_level: i64,
+    pub render_nesting_level: i64,
+    /// `cls` (a truthy string while a display block is open).
+    pub cls: Option<String>,
+    /// `date_parts`, `date_variables`, `date_key`.
+    pub date_parts: Vec<String>,
+    pub date_variables: Vec<String>,
+    pub date_key: bool,
+    /// `names_variables` (a stack of variable lists) and `name_label` (a
+    /// stack of {variable: {before, after}} kept as ordered pairs because
+    /// `Object.keys` order matters; tokens as `node_names::token_to_value`).
+    pub names_variables: Vec<Vec<String>>,
+    pub name_label: Vec<Vec<(String, serde_json::Value)>>,
+    pub name_flag: bool,
+    pub names_flag: bool,
+    /// `state.build[this.strings.name] = this` of cs:name-part: "family",
+    /// "given" (and "et-al" / "with" if ever set), as token values.
+    pub name_parts: Obj,
+    /// `layout_flag`, `layout_locale_flag`.
+    pub layout_flag: bool,
+    pub layout_locale_flag: bool,
+    /// `current_default_locale` (a string or the `default-locale` list).
+    pub current_default_locale: serde_json::Value,
+    /// `publisher-special`.
+    pub publisher_special: bool,
+    /// `has_institution`.
+    pub has_institution: bool,
+    /// `term`, `form`, `plural` (cs:text resets them to `false`).
+    pub term: serde_json::Value,
+    pub form: serde_json::Value,
+    pub plural: serde_json::Value,
+    /// `lang` (set by the `lang` attribute).
+    pub lang: Option<String>,
 
     // ---- fields: wave2 ----
 
