@@ -1172,8 +1172,196 @@ sources = [{ document = "nureg-0800-toc-rev6", section = "Ch. 17; BTP 7-14 (soft
 why = "agreed on #726 as the home of NQA-1-style software QA; the SRP names QA and I&C software reviews but not scientific-software QA."
 status = "approved"
 
+
+# ---- SQA work activities (DOE G 414.1-4 §5.2), owner 2026-10-07 (#760) ----
+
 [[concept]]
-path = "07-regulatory-framework/quality-assurance/software-quality-assurance/verification-and-validation-records"
+path = "07-regulatory-framework/quality-assurance/software-quality-assurance/project-management-and-quality-planning"
+title = "Software project management and quality planning"
+origin = "doe"
+sources = [{ document = "doe-g-414.1-4", section = "5.2.1" }]
+cross_links = ["10-human-resource-development/knowledge-management-and-education/safety-software-qa-competencies/software-life-cycle-processes", "10-human-resource-development/knowledge-management-and-education/safety-software-qa-competencies/sqa-program-elements"]
+status = "approved"
+
+[[concept]]
+path = "07-regulatory-framework/quality-assurance/software-quality-assurance/risk-management"
+title = "Software risk management"
+origin = "doe"
+sources = [{ document = "doe-g-414.1-4", section = "5.2.2" }]
+status = "approved"
+
+[[concept]]
+path = "07-regulatory-framework/quality-assurance/software-quality-assurance/configuration-management"
+title = "Software configuration management"
+origin = "doe"
+sources = [{ document = "doe-g-414.1-4", section = "5.2.3" }]
+cross_links = ["10-human-resource-development/knowledge-management-and-education/safety-software-qa-competencies/configuration-management", "10-human-resource-development/knowledge-management-and-education/safety-software-qa-competencies/software-maintenance"]
+status = "approved"
+
+[[concept]]
+path = "07-regulatory-framework/quality-assurance/software-quality-assurance/procurement-and-supplier-management"
+title = "Procurement and supplier management"
+origin = "doe"
+sources = [{ document = "doe-g-414.1-4", section = "5.2.4" }]
+cross_links = ["10-human-resource-development/knowledge-management-and-education/safety-software-qa-competencies/safety-software-types"]
+status = "approved"
+
+[[concept]]
+path = "07-regulatory-framework/quality-assurance/software-quality-assurance/requirements-identification-and-management"
+title = "Software requirements identification and management"
+origin = "doe"
+sources = [{ document = "doe-g-414.1-4", section = "5.2.5" }]
+cross_links = ["10-human-resource-development/knowledge-management-and-education/safety-software-qa-competencies/problem-requirements-and-code-components", "10-human-resource-development/knowledge-management-and-education/safety-software-qa-competencies/requirements-specification"]
+status = "approved"
+
+[[concept]]
+path = "07-regulatory-framework/quality-assurance/software-quality-assurance/design-and-implementation"
+title = "Software design and implementation"
+origin = "doe"
+sources = [{ document = "doe-g-414.1-4", section = "5.2.6" }]
+cross_links = ["10-human-resource-development/knowledge-management-and-education/safety-software-qa-competencies/software-system-interfaces", "10-human-resource-development/knowledge-management-and-education/safety-software-qa-competencies/software-design", "10-human-resource-development/knowledge-management-and-education/safety-software-qa-competencies/coding-practices"]
+status = "approved"
+
+[[concept]]
+path = "07-regulatory-framework/quality-assurance/software-quality-assurance/software-safety"
+title = "Software safety"
+origin = "doe"
+sources = [{ document = "doe-g-414.1-4", section = "5.2.7" }]
+cross_links = ["10-human-resource-development/knowledge-management-and-education/safety-software-qa-competencies/software-safety-analysis"]
+status = "approved"
+
+[[concept]]
+path = "07-regulatory-framework/quality-assurance/software-quality-assurance/verification-and-validation"
+title = "Verification and validation"
+origin = "doe"
+sources = [{ document = "doe-g-414.1-4", section = "5.2.8" }]
+cross_links = ["10-human-resource-development/knowledge-management-and-education/safety-software-qa-competencies/verification-and-validation"]
+status = "approved"
+
+[[concept]]
+path = "07-regulatory-framework/quality-assurance/software-quality-assurance/problem-reporting-and-corrective-action"
+title = "Problem reporting and corrective action"
+origin = "doe"
+sources = [{ document = "doe-g-414.1-4", section = "5.2.9" }]
+cross_links = ["10-human-resource-development/knowledge-management-and-education/safety-software-qa-competencies/software-maintenance"]
+status = "approved"
+
+[[concept]]
+path = "07-regulatory-framework/quality-assurance/software-quality-assurance/training"
+title = "Training personnel in the design, development, use and evaluation of safety software"
+origin = "doe"
+sources = [{ document = "doe-g-414.1-4", section = "5.2.10" }]
+cross_links = ["10-human-resource-development/knowledge-management-and-education/safety-software-qa-competencies"]
+status = "approved"
+
+# ---- Safety software QA competencies (DOE-STD-1172-2003), owner 2026-10-07 (#760) ----
+
+[[concept]]
+path = "10-human-resource-development/knowledge-management-and-education/safety-software-qa-competencies"
+title = "Safety software quality assurance competencies"
+origin = "doe"
+sources = [{ document = "doe-std-1172-2003", section = "Required Technical Competencies (pp. 4-15)" }]
+cross_links = ["07-regulatory-framework/quality-assurance/software-quality-assurance", "07-regulatory-framework/quality-assurance/software-quality-assurance/training"]
+status = "approved"
+
+[[concept]]
+path = "10-human-resource-development/knowledge-management-and-education/safety-software-qa-competencies/safety-software-types"
+title = "Types of safety software (custom, COTS; safety system vs. safety analysis and design software)"
+origin = "doe"
+sources = [{ document = "doe-std-1172-2003", section = "Competency 1" }]
+cross_links = ["07-regulatory-framework/quality-assurance/software-quality-assurance/procurement-and-supplier-management"]
+status = "approved"
+
+[[concept]]
+path = "10-human-resource-development/knowledge-management-and-education/safety-software-qa-competencies/software-system-interfaces"
+title = "Functional interfaces between software components and the system-level design"
+origin = "doe"
+sources = [{ document = "doe-std-1172-2003", section = "Competency 2" }]
+cross_links = ["07-regulatory-framework/quality-assurance/software-quality-assurance/design-and-implementation"]
+status = "approved"
+
+[[concept]]
+path = "10-human-resource-development/knowledge-management-and-education/safety-software-qa-competencies/problem-requirements-and-code-components"
+title = "Relating the problem a safety analysis code addresses, its design requirements and its code components"
+origin = "doe"
+sources = [{ document = "doe-std-1172-2003", section = "Competency 3" }]
+cross_links = ["07-regulatory-framework/quality-assurance/software-quality-assurance/requirements-identification-and-management"]
+status = "approved"
+
+[[concept]]
+path = "10-human-resource-development/knowledge-management-and-education/safety-software-qa-competencies/software-life-cycle-processes"
+title = "Safety software life-cycle processes"
+origin = "doe"
+sources = [{ document = "doe-std-1172-2003", section = "Competency 4" }]
+cross_links = ["07-regulatory-framework/quality-assurance/software-quality-assurance/project-management-and-quality-planning"]
+status = "approved"
+
+[[concept]]
+path = "10-human-resource-development/knowledge-management-and-education/safety-software-qa-competencies/requirements-specification"
+title = "Safety software requirements specification"
+origin = "doe"
+sources = [{ document = "doe-std-1172-2003", section = "Competency 5" }]
+cross_links = ["07-regulatory-framework/quality-assurance/software-quality-assurance/requirements-identification-and-management"]
+status = "approved"
+
+[[concept]]
+path = "10-human-resource-development/knowledge-management-and-education/safety-software-qa-competencies/software-design"
+title = "Safety software design concepts"
+origin = "doe"
+sources = [{ document = "doe-std-1172-2003", section = "Competency 6" }]
+cross_links = ["07-regulatory-framework/quality-assurance/software-quality-assurance/design-and-implementation"]
+status = "approved"
+
+[[concept]]
+path = "10-human-resource-development/knowledge-management-and-education/safety-software-qa-competencies/coding-practices"
+title = "Safety software coding practices"
+origin = "doe"
+sources = [{ document = "doe-std-1172-2003", section = "Competency 7" }]
+cross_links = ["07-regulatory-framework/quality-assurance/software-quality-assurance/design-and-implementation"]
+status = "approved"
+
+[[concept]]
+path = "10-human-resource-development/knowledge-management-and-education/safety-software-qa-competencies/verification-and-validation"
+title = "Software verification and validation processes"
+origin = "doe"
+sources = [{ document = "doe-std-1172-2003", section = "Competency 8" }]
+cross_links = ["07-regulatory-framework/quality-assurance/software-quality-assurance/verification-and-validation"]
+status = "approved"
+
+[[concept]]
+path = "10-human-resource-development/knowledge-management-and-education/safety-software-qa-competencies/software-safety-analysis"
+title = "Software safety analysis"
+origin = "doe"
+sources = [{ document = "doe-std-1172-2003", section = "Competency 9" }]
+cross_links = ["07-regulatory-framework/quality-assurance/software-quality-assurance/software-safety"]
+status = "approved"
+
+[[concept]]
+path = "10-human-resource-development/knowledge-management-and-education/safety-software-qa-competencies/software-maintenance"
+title = "Maintenance of safety software"
+origin = "doe"
+sources = [{ document = "doe-std-1172-2003", section = "Competency 10" }]
+cross_links = ["07-regulatory-framework/quality-assurance/software-quality-assurance/configuration-management", "07-regulatory-framework/quality-assurance/software-quality-assurance/problem-reporting-and-corrective-action"]
+status = "approved"
+
+[[concept]]
+path = "10-human-resource-development/knowledge-management-and-education/safety-software-qa-competencies/configuration-management"
+title = "Software configuration management"
+origin = "doe"
+sources = [{ document = "doe-std-1172-2003", section = "Competency 11" }]
+cross_links = ["07-regulatory-framework/quality-assurance/software-quality-assurance/configuration-management"]
+status = "approved"
+
+[[concept]]
+path = "10-human-resource-development/knowledge-management-and-education/safety-software-qa-competencies/sqa-program-elements"
+title = "Elements of a software quality assurance program"
+origin = "doe"
+sources = [{ document = "doe-std-1172-2003", section = "Competency 12" }]
+cross_links = ["07-regulatory-framework/quality-assurance/software-quality-assurance/project-management-and-quality-planning"]
+status = "approved"
+
+[[concept]]
+path = "07-regulatory-framework/quality-assurance/software-quality-assurance/verification-and-validation/verification-and-validation-records"
 title = "Verification and validation records (gates, oracles, recorded results)"
 origin = "outram-park"
 sources = [{ document = "nureg-1520-rev2", section = "5.4.3.1.7.1" }]
@@ -1181,7 +1369,7 @@ why = "every outram-park V&V gate records methodology and results (root CLAUDE.m
 status = "approved"
 
 [[concept]]
-path = "07-regulatory-framework/quality-assurance/software-quality-assurance/configuration-and-accounting-records"
+path = "07-regulatory-framework/quality-assurance/software-quality-assurance/configuration-management/configuration-and-accounting-records"
 title = "Configuration and accounting records (commit trailers, historian reports)"
 origin = "outram-park"
 sources = [{ document = "nureg-0800-toc-rev6", section = "Ch. 17" }]
@@ -1189,7 +1377,7 @@ why = "kovan-metrics keeps the per-commit records and the pre-merge historian re
 status = "approved"
 
 [[concept]]
-path = "07-regulatory-framework/quality-assurance/software-quality-assurance/code-review"
+path = "07-regulatory-framework/quality-assurance/software-quality-assurance/verification-and-validation/code-review"
 title = "Code review and code walks"
 origin = "outram-park"
 sources = [{ document = "nureg-0800-toc-rev6", section = "BTP 7-14" }]
@@ -1461,7 +1649,7 @@ path = "16-nuclear-fuel-cycle/nuclear-criticality-safety/calculational-method-va
 title = "Calculational method validation (criticality code validation, margin of subcriticality)"
 origin = "nrc"
 sources = [{ document = "nureg-1520-rev2", section = "5.4.3.1.7.1; Appendix 5-B (margin of subcriticality)" }]
-cross_links = ["02-nuclear-safety/nuclear-design/neutron-transport", "07-regulatory-framework/quality-assurance/software-quality-assurance/verification-and-validation-records"]
+cross_links = ["02-nuclear-safety/nuclear-design/neutron-transport", "07-regulatory-framework/quality-assurance/software-quality-assurance/verification-and-validation/verification-and-validation-records"]
 status = "approved"
 
 [[concept]]
@@ -3035,7 +3223,7 @@ status = "proposed"
 # ---- quality assurance ----------------------------------------------------
 
 [[implementation]]
-concept = "07-regulatory-framework/quality-assurance/software-quality-assurance/verification-and-validation-records"
+concept = "07-regulatory-framework/quality-assurance/software-quality-assurance/verification-and-validation/verification-and-validation-records"
 crate = "njoy-outram-park-fork"
 module = "vv"
 title = "V&V gate helpers"
@@ -3044,7 +3232,7 @@ kind = "new-work"
 status = "proposed"
 
 [[implementation]]
-concept = "07-regulatory-framework/quality-assurance/software-quality-assurance/verification-and-validation-records"
+concept = "07-regulatory-framework/quality-assurance/software-quality-assurance/verification-and-validation/verification-and-validation-records"
 crate = "outram-mc-libs"
 module = "vv"
 title = "outram-mc V&V gates and oracle tables"
@@ -3053,7 +3241,7 @@ kind = "new-work"
 status = "proposed"
 
 [[implementation]]
-concept = "07-regulatory-framework/quality-assurance/software-quality-assurance/configuration-and-accounting-records"
+concept = "07-regulatory-framework/quality-assurance/software-quality-assurance/configuration-management/configuration-and-accounting-records"
 crate = "kovan-metrics"
 module = "historian"
 title = "Historian report"
@@ -3062,7 +3250,7 @@ kind = "new-work"
 status = "proposed"
 
 [[implementation]]
-concept = "07-regulatory-framework/quality-assurance/software-quality-assurance/configuration-and-accounting-records"
+concept = "07-regulatory-framework/quality-assurance/software-quality-assurance/configuration-management/configuration-and-accounting-records"
 crate = "kovan-metrics"
 module = "trailer"
 title = "Commit token trailers"
@@ -3071,7 +3259,7 @@ kind = "new-work"
 status = "proposed"
 
 [[implementation]]
-concept = "07-regulatory-framework/quality-assurance/software-quality-assurance/code-review"
+concept = "07-regulatory-framework/quality-assurance/software-quality-assurance/verification-and-validation/code-review"
 crate = "kovan"
 module = "commands/code_walk"
 title = "Code walks"
@@ -3750,7 +3938,7 @@ path = "02-nuclear-safety/accident-analysis/transient-and-accident-analysis-meth
 title = "Qualification of analytical codes"
 origin = "nrc"
 sources = [{ document = "10cfr53", section = "§ 53.450 Analysis requirements, (d) Qualification of analytical codes" }, { document = "10cfr50", section = "§ 50.43 Additional standards and provisions affecting class 103 licenses and certifications for commercial power, (e)(1)(iii)" }]
-cross_links = ["07-regulatory-framework/quality-assurance/software-quality-assurance/verification-and-validation-records", "02-nuclear-safety/engineered-safety-features/emergency-core-cooling"]
+cross_links = ["07-regulatory-framework/quality-assurance/software-quality-assurance/verification-and-validation/verification-and-validation-records", "02-nuclear-safety/engineered-safety-features/emergency-core-cooling"]
 note = "§ 53.450(d) names thermodynamics, reactor physics, fuel performance and mechanistic source term codes: the regulatory home of outram-park's V&V work."
 status = "approved"
 

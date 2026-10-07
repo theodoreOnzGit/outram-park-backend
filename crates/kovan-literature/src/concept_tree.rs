@@ -86,6 +86,10 @@ pub enum ConceptOrigin {
     Nrc,
     /// A subsection of the IAEA Milestones text.
     Iaea,
+    /// Named by a U.S. DOE document itself (added 2026-10-07, #760): the
+    /// SQA work activities of DOE G 414.1-4 and the competencies of
+    /// DOE-STD-1172.
+    Doe,
     /// A concept outram-park's code needs that the cited text only implies;
     /// [`ConceptNode::why`] says why.
     OutramPark,
@@ -280,6 +284,7 @@ impl ConceptTree {
             let origin = match c.origin.as_str() {
                 "nrc" => ConceptOrigin::Nrc,
                 "iaea" => ConceptOrigin::Iaea,
+                "doe" => ConceptOrigin::Doe,
                 "outram-park" => ConceptOrigin::OutramPark,
                 other => return Err(ConceptTreeError(format!("{}: origin {other:?}", c.path))),
             };

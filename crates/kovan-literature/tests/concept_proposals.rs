@@ -6,7 +6,7 @@
 //! - every proposed concept path is unique, collides with no skeleton node,
 //!   sits under an L2 node (depth >= 3), and its parent exists in the
 //!   skeleton or among the proposals; segments are plain lower-case words;
-//! - `origin` is `nrc`, `iaea` or `outram-park`, and an `outram-park` concept says
+//! - `origin` is `nrc`, `iaea`, `doe` or `outram-park`, and an `outram-park` concept says
 //!   `why`; every source names a skeleton `[[document]]`; cross-links resolve;
 //! - every implementation names an existing concept, a crate that is a
 //!   workspace member directory under `crates/`, and a module that exists as
@@ -208,7 +208,10 @@ fn origins_and_sources_are_declared() {
     for c in &p.concept {
         match c.origin.as_str() {
             // `iaea`: named by an IAEA document (added 2026-10-06, NUTEC Plastics).
-            "nrc" | "iaea" => {}
+            // `doe`: named by a DOE document (added 2026-10-07, #760: the SQA
+            // work activities of DOE G 414.1-4 and the competencies of
+            // DOE-STD-1172).
+            "nrc" | "iaea" | "doe" => {}
             "outram-park" => assert!(c.why.as_deref().is_some_and(|w| !w.is_empty()), "{}: outram-park concept needs `why`", c.path),
             o => panic!("{}: unknown origin {o}", c.path),
         }

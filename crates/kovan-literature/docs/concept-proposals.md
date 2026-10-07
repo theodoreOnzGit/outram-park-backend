@@ -6,7 +6,7 @@
 
 ## Counts
 
-- **L3 concepts: 266** (217 from the NRC/ORNL text, `nrc`; 49 needed by outram-park and named only implicitly, `outram-park`).
+- **L3 concepts: 289** (217 from the NRC/ORNL text, `nrc`; 72 needed by outram-park and named only implicitly, `outram-park`).
 - **L4 seed tags: 192** across 39 crates.
 
 | Crate | Seed tags |
@@ -758,7 +758,7 @@
   - [ ] **Qualification of analytical codes** · `transient-and-accident-analysis-methods/qualification-of-analytical-codes` · origin `nrc`
     - sources: `10cfr53` § 53.450 Analysis requirements, (d) Qualification of analytical codes; `10cfr50` § 50.43 Additional standards and provisions affecting class 103 licenses and certifications for commercial power, (e)(1)(iii)
     - **note for review:** § 53.450(d) names thermodynamics, reactor physics, fuel performance and mechanistic source term codes: the regulatory home of outram-park's V&V work.
-    - cross-links: `07-regulatory-framework/quality-assurance/software-quality-assurance/verification-and-validation-records`, `02-nuclear-safety/engineered-safety-features/emergency-core-cooling`
+    - cross-links: `07-regulatory-framework/quality-assurance/software-quality-assurance/verification-and-validation/verification-and-validation-records`, `02-nuclear-safety/engineered-safety-features/emergency-core-cooling`
 
 ### Technical specifications (`02-nuclear-safety/technical-specifications`)
 
@@ -856,23 +856,52 @@
 - [ ] **Software quality assurance** · `software-quality-assurance` · origin `outram-park`
   - sources: `nureg-0800-toc-rev6` Ch. 17; BTP 7-14 (software reviews); `nureg-1520-rev2` 5.4.3.1.7.1 Calculational Method Validation; `nureg-br-0167` the NRC's SQA program and guidelines for software developed for NRC staff use (whole document); `doe-std-1172-2003` Required Technical Competencies 1-12; `doe-g-414.1-4` 2.1 software types; 2.2 graded application (levels A, B, C); 5.2 the ten SQA work activities; Table B-2; `kendrick-2019-unqa` Ch. 3 University Nuclear QA program (pp. 41-66): graded NQA-1 in a university lab; Ch. 5 design and software design procedures (pp. 115-133)
   - why: agreed on #726 as the home of NQA-1-style software QA; the SRP names QA and I&C software reviews but not scientific-software QA.
-  - [ ] **Verification and validation records (gates, oracles, recorded results)** · `software-quality-assurance/verification-and-validation-records` · origin `outram-park`
-    - sources: `nureg-1520-rev2` 5.4.3.1.7.1
-    - why: every outram-park V&V gate records methodology and results (root CLAUDE.md); these modules hold them.
-    - proposed kovan-concept tags:
-      - [ ] add `//! kovan-concept: 07-regulatory-framework/quality-assurance/software-quality-assurance/verification-and-validation-records` to `crates/njoy-outram-park-fork/src/vv.rs`: V&V gate helpers. Shared oracle-comparison gates used by njoy and outram-mc. (new work)
-      - [ ] add `//! kovan-concept: 07-regulatory-framework/quality-assurance/software-quality-assurance/verification-and-validation-records` to `crates/outram-mc-libs/src/vv.rs`: outram-mc V&V gates and oracle tables. Committed oracle tables (NJOY golden values, graphite) the crate is measured against. (new work)
-  - [ ] **Configuration and accounting records (commit trailers, historian reports)** · `software-quality-assurance/configuration-and-accounting-records` · origin `outram-park`
-    - sources: `nureg-0800-toc-rev6` Ch. 17
-    - why: kovan-metrics keeps the per-commit records and the pre-merge historian report.
-    - proposed kovan-concept tags:
-      - [ ] add `//! kovan-concept: 07-regulatory-framework/quality-assurance/software-quality-assurance/configuration-and-accounting-records` to `crates/kovan-metrics/src/historian.rs`: Historian report. Pre-merge accounting report for develop to main. (new work)
-      - [ ] add `//! kovan-concept: 07-regulatory-framework/quality-assurance/software-quality-assurance/configuration-and-accounting-records` to `crates/kovan-metrics/src/trailer.rs`: Commit token trailers. Per-commit API-usage trailers. (new work)
-  - [ ] **Code review and code walks** · `software-quality-assurance/code-review` · origin `outram-park`
-    - sources: `nureg-0800-toc-rev6` BTP 7-14
-    - why: kovan's Code Review tab and code walks: the review machinery itself.
-    - proposed kovan-concept tags:
-      - [ ] add `//! kovan-concept: 07-regulatory-framework/quality-assurance/software-quality-assurance/code-review` to `crates/kovan/src/commands/code_walk/mod.rs`: Code walks. Call chains from an entry point to the function implementing a concept. (new work)
+  - [ ] **Software project management and quality planning** · `software-quality-assurance/project-management-and-quality-planning` · origin `doe`
+    - sources: `doe-g-414.1-4` 5.2.1
+    - cross-links: `10-human-resource-development/knowledge-management-and-education/safety-software-qa-competencies/software-life-cycle-processes`, `10-human-resource-development/knowledge-management-and-education/safety-software-qa-competencies/sqa-program-elements`
+  - [ ] **Software risk management** · `software-quality-assurance/risk-management` · origin `doe`
+    - sources: `doe-g-414.1-4` 5.2.2
+  - [ ] **Software configuration management** · `software-quality-assurance/configuration-management` · origin `doe`
+    - sources: `doe-g-414.1-4` 5.2.3
+    - cross-links: `10-human-resource-development/knowledge-management-and-education/safety-software-qa-competencies/configuration-management`, `10-human-resource-development/knowledge-management-and-education/safety-software-qa-competencies/software-maintenance`
+  - [ ] **Procurement and supplier management** · `software-quality-assurance/procurement-and-supplier-management` · origin `doe`
+    - sources: `doe-g-414.1-4` 5.2.4
+    - cross-links: `10-human-resource-development/knowledge-management-and-education/safety-software-qa-competencies/safety-software-types`
+  - [ ] **Software requirements identification and management** · `software-quality-assurance/requirements-identification-and-management` · origin `doe`
+    - sources: `doe-g-414.1-4` 5.2.5
+    - cross-links: `10-human-resource-development/knowledge-management-and-education/safety-software-qa-competencies/problem-requirements-and-code-components`, `10-human-resource-development/knowledge-management-and-education/safety-software-qa-competencies/requirements-specification`
+  - [ ] **Software design and implementation** · `software-quality-assurance/design-and-implementation` · origin `doe`
+    - sources: `doe-g-414.1-4` 5.2.6
+    - cross-links: `10-human-resource-development/knowledge-management-and-education/safety-software-qa-competencies/software-system-interfaces`, `10-human-resource-development/knowledge-management-and-education/safety-software-qa-competencies/software-design`, `10-human-resource-development/knowledge-management-and-education/safety-software-qa-competencies/coding-practices`
+  - [ ] **Software safety** · `software-quality-assurance/software-safety` · origin `doe`
+    - sources: `doe-g-414.1-4` 5.2.7
+    - cross-links: `10-human-resource-development/knowledge-management-and-education/safety-software-qa-competencies/software-safety-analysis`
+  - [ ] **Verification and validation** · `software-quality-assurance/verification-and-validation` · origin `doe`
+    - sources: `doe-g-414.1-4` 5.2.8
+    - cross-links: `10-human-resource-development/knowledge-management-and-education/safety-software-qa-competencies/verification-and-validation`
+  - [ ] **Problem reporting and corrective action** · `software-quality-assurance/problem-reporting-and-corrective-action` · origin `doe`
+    - sources: `doe-g-414.1-4` 5.2.9
+    - cross-links: `10-human-resource-development/knowledge-management-and-education/safety-software-qa-competencies/software-maintenance`
+  - [ ] **Training personnel in the design, development, use and evaluation of safety software** · `software-quality-assurance/training` · origin `doe`
+    - sources: `doe-g-414.1-4` 5.2.10
+    - cross-links: `10-human-resource-development/knowledge-management-and-education/safety-software-qa-competencies`
+    - [ ] **Verification and validation records (gates, oracles, recorded results)** · `software-quality-assurance/verification-and-validation/verification-and-validation-records` · origin `outram-park`
+      - sources: `nureg-1520-rev2` 5.4.3.1.7.1
+      - why: every outram-park V&V gate records methodology and results (root CLAUDE.md); these modules hold them.
+      - proposed kovan-concept tags:
+        - [ ] add `//! kovan-concept: 07-regulatory-framework/quality-assurance/software-quality-assurance/verification-and-validation/verification-and-validation-records` to `crates/njoy-outram-park-fork/src/vv.rs`: V&V gate helpers. Shared oracle-comparison gates used by njoy and outram-mc. (new work)
+        - [ ] add `//! kovan-concept: 07-regulatory-framework/quality-assurance/software-quality-assurance/verification-and-validation/verification-and-validation-records` to `crates/outram-mc-libs/src/vv.rs`: outram-mc V&V gates and oracle tables. Committed oracle tables (NJOY golden values, graphite) the crate is measured against. (new work)
+    - [ ] **Configuration and accounting records (commit trailers, historian reports)** · `software-quality-assurance/configuration-management/configuration-and-accounting-records` · origin `outram-park`
+      - sources: `nureg-0800-toc-rev6` Ch. 17
+      - why: kovan-metrics keeps the per-commit records and the pre-merge historian report.
+      - proposed kovan-concept tags:
+        - [ ] add `//! kovan-concept: 07-regulatory-framework/quality-assurance/software-quality-assurance/configuration-management/configuration-and-accounting-records` to `crates/kovan-metrics/src/historian.rs`: Historian report. Pre-merge accounting report for develop to main. (new work)
+        - [ ] add `//! kovan-concept: 07-regulatory-framework/quality-assurance/software-quality-assurance/configuration-management/configuration-and-accounting-records` to `crates/kovan-metrics/src/trailer.rs`: Commit token trailers. Per-commit API-usage trailers. (new work)
+    - [ ] **Code review and code walks** · `software-quality-assurance/verification-and-validation/code-review` · origin `outram-park`
+      - sources: `nureg-0800-toc-rev6` BTP 7-14
+      - why: kovan's Code Review tab and code walks: the review machinery itself.
+      - proposed kovan-concept tags:
+        - [ ] add `//! kovan-concept: 07-regulatory-framework/quality-assurance/software-quality-assurance/verification-and-validation/code-review` to `crates/kovan/src/commands/code_walk/mod.rs`: Code walks. Call chains from an entry point to the function implementing a concept. (new work)
 
 ## Radiation protection (`08-radiation-protection`)
 
@@ -932,6 +961,45 @@
 
 ### Knowledge management and education (`10-human-resource-development/knowledge-management-and-education`)
 
+- [ ] **Safety software quality assurance competencies** · `safety-software-qa-competencies` · origin `doe`
+  - sources: `doe-std-1172-2003` Required Technical Competencies (pp. 4-15)
+  - cross-links: `07-regulatory-framework/quality-assurance/software-quality-assurance`, `07-regulatory-framework/quality-assurance/software-quality-assurance/training`
+  - [ ] **Types of safety software (custom, COTS; safety system vs. safety analysis and design software)** · `safety-software-qa-competencies/safety-software-types` · origin `doe`
+    - sources: `doe-std-1172-2003` Competency 1
+    - cross-links: `07-regulatory-framework/quality-assurance/software-quality-assurance/procurement-and-supplier-management`
+  - [ ] **Functional interfaces between software components and the system-level design** · `safety-software-qa-competencies/software-system-interfaces` · origin `doe`
+    - sources: `doe-std-1172-2003` Competency 2
+    - cross-links: `07-regulatory-framework/quality-assurance/software-quality-assurance/design-and-implementation`
+  - [ ] **Relating the problem a safety analysis code addresses, its design requirements and its code components** · `safety-software-qa-competencies/problem-requirements-and-code-components` · origin `doe`
+    - sources: `doe-std-1172-2003` Competency 3
+    - cross-links: `07-regulatory-framework/quality-assurance/software-quality-assurance/requirements-identification-and-management`
+  - [ ] **Safety software life-cycle processes** · `safety-software-qa-competencies/software-life-cycle-processes` · origin `doe`
+    - sources: `doe-std-1172-2003` Competency 4
+    - cross-links: `07-regulatory-framework/quality-assurance/software-quality-assurance/project-management-and-quality-planning`
+  - [ ] **Safety software requirements specification** · `safety-software-qa-competencies/requirements-specification` · origin `doe`
+    - sources: `doe-std-1172-2003` Competency 5
+    - cross-links: `07-regulatory-framework/quality-assurance/software-quality-assurance/requirements-identification-and-management`
+  - [ ] **Safety software design concepts** · `safety-software-qa-competencies/software-design` · origin `doe`
+    - sources: `doe-std-1172-2003` Competency 6
+    - cross-links: `07-regulatory-framework/quality-assurance/software-quality-assurance/design-and-implementation`
+  - [ ] **Safety software coding practices** · `safety-software-qa-competencies/coding-practices` · origin `doe`
+    - sources: `doe-std-1172-2003` Competency 7
+    - cross-links: `07-regulatory-framework/quality-assurance/software-quality-assurance/design-and-implementation`
+  - [ ] **Software verification and validation processes** · `safety-software-qa-competencies/verification-and-validation` · origin `doe`
+    - sources: `doe-std-1172-2003` Competency 8
+    - cross-links: `07-regulatory-framework/quality-assurance/software-quality-assurance/verification-and-validation`
+  - [ ] **Software safety analysis** · `safety-software-qa-competencies/software-safety-analysis` · origin `doe`
+    - sources: `doe-std-1172-2003` Competency 9
+    - cross-links: `07-regulatory-framework/quality-assurance/software-quality-assurance/software-safety`
+  - [ ] **Maintenance of safety software** · `safety-software-qa-competencies/software-maintenance` · origin `doe`
+    - sources: `doe-std-1172-2003` Competency 10
+    - cross-links: `07-regulatory-framework/quality-assurance/software-quality-assurance/configuration-management`, `07-regulatory-framework/quality-assurance/software-quality-assurance/problem-reporting-and-corrective-action`
+  - [ ] **Software configuration management** · `safety-software-qa-competencies/configuration-management` · origin `doe`
+    - sources: `doe-std-1172-2003` Competency 11
+    - cross-links: `07-regulatory-framework/quality-assurance/software-quality-assurance/configuration-management`
+  - [ ] **Elements of a software quality assurance program** · `safety-software-qa-competencies/sqa-program-elements` · origin `doe`
+    - sources: `doe-std-1172-2003` Competency 12
+    - cross-links: `07-regulatory-framework/quality-assurance/software-quality-assurance/project-management-and-quality-planning`
 - [ ] **Nuclear knowledge management (literature corpus, concept map)** · `knowledge-management` · origin `outram-park`
   - sources: `iaea-ng-g-3.1-rev1` 3.10
   - why: kovan; the L2 node's only source is the IAEA issue itself, which names no sub-concepts.
@@ -1089,7 +1157,7 @@
   - sources: `nureg-1520-rev2` 5.4.3.1.4
 - [ ] **Calculational method validation (criticality code validation, margin of subcriticality)** · `calculational-method-validation` · origin `nrc`
   - sources: `nureg-1520-rev2` 5.4.3.1.7.1; Appendix 5-B (margin of subcriticality)
-  - cross-links: `02-nuclear-safety/nuclear-design/neutron-transport`, `07-regulatory-framework/quality-assurance/software-quality-assurance/verification-and-validation-records`
+  - cross-links: `02-nuclear-safety/nuclear-design/neutron-transport`, `07-regulatory-framework/quality-assurance/software-quality-assurance/verification-and-validation/verification-and-validation-records`
   - proposed kovan-concept tags:
     - [ ] add `//! kovan-concept: 16-nuclear-fuel-cycle/nuclear-criticality-safety/calculational-method-validation` to `crates/outram-mc-libs/src/vv.rs`: ICSBEP and oracle validation of the transport code. Benchmark gates that validate the criticality method. (new work)
 - [ ] **Criticality safety evaluations and controlled parameters** · `criticality-safety-evaluations` · origin `nrc`
