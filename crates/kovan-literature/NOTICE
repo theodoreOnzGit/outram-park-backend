@@ -25,3 +25,40 @@ No version of this crate had been published to crates.io.
 Dependents: no crate outside the kovan family depends on this one (checked
 with `cargo metadata`, 2026-10-07); `dhoby-ghaut`, which depends on `kovan`,
 has been AGPL-3.0-only since 2026-10-05.
+
+Upstream: Zotero (local library reader) (2026-10-07, GitHub #747, #750)
+----------------------------------------------------------------------
+
+`src/zotero/local_library/` ports how Zotero reads its own database
+(zotero.sqlite) and storage folder. Zotero is free software under the GNU
+Affero General Public License, version 3 or (at your option) any later
+version; this crate takes it under AGPL-3.0-only. (The "none" of the
+third-party-code check above was true on the relicense date; this section
+is the first third-party code in this crate.)
+
+  Copyright (c) Corporation for Digital Scholarship, Vienna, Virginia, USA
+  (older files: (c) 2009 Center for History and New Media, George Mason
+  University, Fairfax, Virginia, USA). https://www.zotero.org
+
+Sources read:
+
+  zotero     https://github.com/zotero/zotero      commit 9cbba8c4d281
+             resource/schema/userdata.sql, system.sql, triggers.sql;
+             chrome/content/zotero/xpcom/schema.js, db.js, uri.js, users.js,
+             attachments.js, annotations.js; xpcom/data/items.js, item.js,
+             itemFields.js, notes.js, tags.js, creators.js, dataObject.js,
+             dataObjects.js, collections.js, collection.js, searches.js,
+             search.js, searchConditions.js
+  utilities  https://github.com/zotero/utilities   commit 4051881d59c6
+             utilities.js (htmlSpecialChars)
+
+Upstream code was run for verification (maintainer authorisation,
+2026-10-07): the tests execute Zotero's schema SQL verbatim. Test fixtures
+copied verbatim into tests/data/zotero/ (AGPL-3.0, same copyright):
+system.sql, userdata.sql, triggers.sql (resource/schema/) and itemJSON.json
+(test/tests/data/itemJSON.js, identical to kovan-common's copy).
+
+Each ported file carries a header naming its upstream file(s) and commit.
+
+Dependency added with it: rusqlite (MIT) with SQLite (public domain)
+compiled in through libsqlite3-sys (MIT), native desktop targets only.

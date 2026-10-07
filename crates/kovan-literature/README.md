@@ -31,6 +31,7 @@ Per `src/lib.rs`:
 | `pdf_to_markdown`, `markdown_outline`, `to_bibtex` | Implemented and tested |
 | `extract_metadata` | Best-effort: the PDF Info dictionary first, then conservative text scanning. Unknown fields are left empty rather than guessed. |
 | `extract_assets` | Extracts embedded images already stored as standalone files (JPEG via `DCTDecode`, JPEG-2000 via `JPXDecode`). Images under other filters are reported as skipped, not re-encoded. |
+| `zotero::local_library` | Reads a whole Zotero data folder (`zotero.sqlite` + `storage/`, Zotero 5.0+) read-only through a private copy, into `kovan_common::zotero`'s model, and imports it as `KovanDocument`s with a report of what is lost (GitHub #750). AI draft, verified code-to-code against databases built from Zotero's own schema files. **Native desktop only:** SQLite is compiled from C, so this module is not built for wasm32 or Android. |
 
 The graph digitiser is **not** in this crate. It moved to `kovan` on
 2026-08-21 (`kovan::digitiser`) so this crate could stay GPL-3.0-only

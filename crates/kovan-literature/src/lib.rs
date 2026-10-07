@@ -63,9 +63,19 @@
 //! targets in `crates/kovan/Cargo.toml`) — see that crate's `NOTICE`. It moved
 //! so it can depend on `kopitiam-pdf` (AGPL-3.0-only, GitHub issue #30's
 //! PDF-native digitising) without pulling this crate — used well beyond the
-//! GUI — into that relicense. This crate stays GPL-3.0-only and carries no
+//! GUI — into that relicense. This crate ~~stays GPL-3.0-only and~~ carries no
 //! digitiser code, no `image`/`eframe`/`egui`/`ratatui` dependency, and no
-//! `digitise-*` feature.
+//! `digitise-*` feature. **CORRECTED 2026-10-07** — this crate is
+//! AGPL-3.0-only since b142a065d2 (the whole kovan family was relicensed for
+//! the Zotero port; `Cargo.toml` and `NOTICE`), so "stays GPL-3.0-only" no
+//! longer holds.
+//!
+//! ## Zotero
+//!
+//! [`zotero::local_library`] reads a Zotero data folder (`zotero.sqlite` +
+//! `storage/`) into the `kovan_common::zotero` model and imports it as
+//! [`KovanDocument`]s (GitHub #750). Native desktop targets only: it is
+//! compiled out on wasm32 and Android (SQLite is C; see `Cargo.toml`).
 
 #![forbid(unsafe_code)]
 
@@ -76,6 +86,7 @@ pub use kovan_common::{Author, DocumentType, KovanBenchmark, KovanDocument, Visi
 mod bibtex;
 pub mod concept_tree;
 mod markdown;
+pub mod zotero;
 mod metadata;
 mod pdf_import;
 

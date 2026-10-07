@@ -55,7 +55,10 @@
 > codegen), interfaced three ways, all binaries of the single `kovan` crate:
 > the `kovan-cli` **CLI** for agents, the `kovan-tui` **TUI** for humans, and
 > the `kovan` **GUI** (the graph digitiser window) for humans. Offline /
-> Android-first, no cloud, no Tree-sitter/SQLite/vector-store. Full design
+> Android-first, no cloud, no Tree-sitter/~~SQLite~~/vector-store
+> (**CORRECTED 2026-10-07**: kovan *stores* nothing in SQLite, but
+> `kovan-literature` *reads* Zotero's `zotero.sqlite` through `rusqlite`, on
+> native desktop targets only, GitHub #750). Full design
 > spec: **`docs/kovan.md`** (+ `docs/kovan-architecture.md`). Non-GUI kovan
 > crates build for Android; `kovan-cli` and `kovan-tui` (including its
 > Digitiser tab) are genuinely Android/Termux-usable — `ratatui` is an

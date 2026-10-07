@@ -9715,6 +9715,1709 @@ radius a real star needs.
 pub const MAX_RING_GROWTH_STEPS: usize = 200;
 ```
 
+## Module `anchoring`
+
+Hypothesis-style robust annotation anchoring (W3C selectors, fuzzy re-anchoring; GitHub #754).
+# Robust annotation anchoring (GitHub #754)
+
+Attach a note to a span of text so that it **survives edits to that
+text**, the way Hypothesis keeps web and PDF annotations attached. An
+annotation stores several [`Selector`]s in the W3C Web Annotation shape:
+
+- [`TextQuoteSelector`]: the exact text plus 32 characters either side;
+- [`TextPositionSelector`]: `char` offsets;
+- [`PageSelector`]: the page, for paged text (Hypothesis's structural
+  selector for PDFs).
+
+**Describing** ([`describe`], [`describe_in_pages`]) makes them from a
+text and a range. **Anchoring** ([`anchor`], [`anchor_in_pages`]) finds
+the range again in a possibly-changed text, trying, in upstream's order:
+
+1. the position, accepted only if the text there still equals the quote
+   ([`AnchorStrategy::Position`]);
+2. exact occurrences of the quote, ranked by context and nearness to the
+   old position ([`AnchorStrategy::ExactQuote`]);
+3. the fuzzy (Myers bit-parallel edit-distance) search, at most
+   `min(256, quote/2)` edits, ranked the same way
+   ([`AnchorStrategy::FuzzyQuote`]).
+
+If none applies the annotation is [`Anchoring::Orphaned`]. Every match
+carries upstream's score in [0, 1] (50 quote, 20 prefix, 20 suffix,
+2 position, normalised; see [`match_quote`](mod@match_quote)). Upstream applies no
+score threshold and neither does this port: callers that want one (for
+example "flag for review below 0.75") apply it to [`Anchor::score`].
+
+Paged text ([`anchor_in_pages`]) compares quotes **ignoring whitespace**,
+as upstream's PDF path does, since re-extraction moves spaces and line
+breaks. Plain text ([`anchor`]) does not, as upstream's HTML path.
+
+Units: all offsets are Unicode scalar values (`char`s), per the W3C
+model; Hypothesis itself counts UTF-16 code units ([`selector`](crate::anchoring::selector) doc).
+
+Pure `std` + `serde`; no I/O. Nothing in kovan uses it yet: wiring it
+into review stamps, `[[relation]]` anchors or PDF highlights is a
+separate maintainer decision (#754).
+
+```rust
+pub mod anchoring { /* ... */ }
+```
+
+### Modules
+
+## Module `approx_match`
+
+Myers' bit-parallel approximate string matching (GitHub #754).
+
+A line-by-line port of `approx-string-match`, the matcher Hypothesis's
+`match-quote.ts` calls. It finds every end position in `text` where
+`pattern` matches with the fewest edits (insertions, deletions or
+substitutions), up to `max_errors`, and then the start of each match.
+
+References, as upstream cites them:
+1. G. Myers, "A Fast Bit-Vector Algorithm for Approximate String Matching
+   Based on Dynamic Programming", J. ACM 46(3), 395-415, 1999.
+2. M. Šošić, "An SIMD dynamic programming C/C++ library", doctoral
+   dissertation, University of Zagreb, 2014.
+
+**One deliberate difference from upstream: the unit of text.** Upstream
+counts UTF-16 code units, so a character outside the Basic Multilingual
+Plane (an emoji) counts as two. This port counts Unicode scalar values
+(`char`), which is what the W3C Web Annotation model specifies for
+`TextPositionSelector` and what upstream's own test calls the behaviour
+"we probably want". Upstream's `unicode` fixtures are ported with the
+expectations adjusted accordingly (see `tests/upstream_approx.rs`).
+
+The word size stays 32 bits, as upstream, so the block arithmetic (and
+its edge cases at pattern lengths of 32 and 64) is exercised exactly as
+upstream's tests exercise it.
+
+```rust
+pub mod approx_match { /* ... */ }
+```
+
+### Types
+
+#### Struct `Match`
+
+One approximate match of a pattern in a text, in `char` offsets.
+
+```rust
+pub struct Match {
+    pub start: usize,
+    pub end: usize,
+    pub errors: usize,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `start` | `usize` | Start offset of the match in the text. |
+| `end` | `usize` | End offset (exclusive) of the match in the text. |
+| `errors` | `usize` | Edits (insertions, deletions, substitutions) between the pattern and<br>the matched text. |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Match { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Eq**
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Match) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+### Functions
+
+#### Function `search`
+
+The closest matches of `pattern` in `text`: every match with the lowest
+error count, or none if none has `max_errors` or fewer. Upstream's
+default export `search`. Offsets are `char` indices.
+
+```rust
+pub fn search(text: &[char], pattern: &[char], max_errors: usize) -> Vec<Match> { /* ... */ }
+```
+
+#### Function `search_str`
+
+[`search`] on string slices; offsets are still `char` indices.
+
+```rust
+pub fn search_str(text: &str, pattern: &str, max_errors: usize) -> Vec<Match> { /* ... */ }
+```
+
+## Module `match_quote`
+
+Find the best approximate match of a quote in a text, scored by how well
+the quote, its prefix and suffix, and its expected position agree
+(Hypothesis's `matchQuote`, GitHub #754).
+
+The weights and the error budget are upstream's, unchanged:
+
+| Term | Weight | Score in [0, 1] |
+|---|---|---|
+| quote | 50 | `1 - errors / quote.len()` |
+| prefix | 20 | similarity of the text before the match to `prefix` |
+| suffix | 20 | similarity of the text after the match to `suffix` |
+| position | 2 | `1 - |start - hint| / text.len()` (a tie-breaker) |
+
+The total is divided by 92. The candidates are only the matches with the
+fewest errors, and at most `min(256, quote.len() / 2)` errors are allowed;
+beyond that there is no match. Upstream has **no score threshold**: the
+best candidate is returned whatever its score. That is kept; the score is
+returned so a caller can apply its own.
+
+```rust
+pub mod match_quote { /* ... */ }
+```
+
+### Types
+
+#### Struct `QuoteMatch`
+
+The best match of a quote, in `char` offsets of the searched text.
+
+```rust
+pub struct QuoteMatch {
+    pub start: usize,
+    pub end: usize,
+    pub errors: usize,
+    pub score: f64,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `start` | `usize` | Start offset of the match. |
+| `end` | `usize` | End offset (exclusive) of the match. |
+| `errors` | `usize` | Edits between the quote and the matched text (0 for an exact match). |
+| `score` | `f64` | Upstream's normalised score in [0, 1]; 1.0 is a perfect match of<br>the quote and of both context strings at the expected position.<br>(The position term can go below 0 when the hint lies beyond the end<br>of the text, as upstream.) |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> QuoteMatch { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &QuoteMatch) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Struct `QuoteContext`
+
+What the quote was expected to sit in (upstream's `Context`).
+
+```rust
+pub struct QuoteContext {
+    pub prefix: Option<String>,
+    pub suffix: Option<String>,
+    pub hint: Option<usize>,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `prefix` | `Option<String>` | Expected text just before the quote. |
+| `suffix` | `Option<String>` | Expected text just after the quote. |
+| `hint` | `Option<usize>` | Expected start offset (`char`) of the quote in the text. |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> QuoteContext { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Default**
+  - ```rust
+    fn default() -> QuoteContext { /* ... */ }
+    ```
+
+- **Eq**
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &QuoteContext) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+### Functions
+
+#### Function `match_quote`
+
+The best approximate match of `quote` in `text`, or `None` if the quote
+is empty or nothing is within upstream's error budget. Offsets are
+`char` indices. Upstream `matchQuote`.
+
+```rust
+pub fn match_quote(text: &str, quote: &str, context: &QuoteContext) -> Option<QuoteMatch> { /* ... */ }
+```
+
+## Module `offsets`
+
+Whitespace-insensitive offset translation, used by the page anchoring to
+compare a quote with re-extracted PDF text that differs in its spaces.
+
+**Left out:** upstream's optional Unicode NFKD normalisation inside
+`translateOffsets` (which relates an "fi" ligature to "f" + "i"). It
+needs a Unicode normalisation table, and no wasm-clean crate for one is
+in the root `[workspace.dependencies]`; upstream itself switches it off
+on its quote-matching path (`normalize: false`) and uses it only to
+relate PDF.js's text API to its rendered text layer, a step kovan does
+not have. A ligature difference therefore costs edit errors here instead.
+
+```rust
+pub mod offsets { /* ... */ }
+```
+
+### Functions
+
+#### Function `is_space`
+
+Upstream's `isSpace`: the ASCII spaces PDF.js produces, plus NBSP. Not
+every Unicode space, deliberately (upstream's comment).
+
+```rust
+pub fn is_space(c: char) -> bool { /* ... */ }
+```
+
+#### Function `is_not_space`
+
+`!is_space(c)`.
+
+```rust
+pub fn is_not_space(c: char) -> bool { /* ... */ }
+```
+
+#### Function `strip_spaces`
+
+The characters of `s` with [`is_space`] ones removed (upstream
+`stripSpaces`).
+
+```rust
+pub fn strip_spaces(s: &[char]) -> Vec<char> { /* ... */ }
+```
+
+#### Function `translate_offsets`
+
+Translate a `(start, end)` pair of offsets in `input` into the matching
+offsets in `output`, two strings that hold the same "important"
+characters (those passing `filter`) with different ignored ones between
+them. Of several equivalent output offsets, the largest start and the
+smallest end are chosen, so leading and trailing ignored characters are
+trimmed. Out-of-range inputs are clamped, as upstream. Upstream
+`translateOffsets` without its `normalize` option (module doc).
+
+```rust
+pub fn translate_offsets<F: Fn(char) -> bool>(input: &[char], output: &[char], start: i64, end: i64, filter: F) -> (usize, usize) { /* ... */ }
+```
+
+## Module `pages`
+
+Describe and anchor a range of a paged text: the extracted text of a
+PDF, one string per page. Upstream's PDF path without PDF.js: the "page
+text" is the string kovan's extractor produced for that page.
+
+As upstream:
+- The position selector counts from the start of page 0, over the page
+  texts joined with nothing between them.
+- Quote matching **ignores whitespace** ([`super::offsets::is_space`]):
+  page text, quote, prefix and suffix are compared with their spaces
+  stripped, because re-extraction (a different PDF library or version)
+  often adds or drops spaces and line breaks.
+- Pages are searched in order of distance from the page the position
+  points at, and the search stops early on an exact quote with an exact
+  prefix or suffix (or an exact quote and no context at all).
+- The quote's prefix and suffix are taken from the quote's page only.
+
+Deviations, each deliberate:
+- **Early-stop suffix check fixed.** Upstream compares
+  `strippedText.slice(match.end, strippedSuffix.length)` (a length used
+  as an end offset), so its exact-suffix test is almost always false.
+  This port slices `[end, end + len)`, which is what the comment beside
+  it describes. It can only make the search stop earlier on a match that
+  is already exact in quote and suffix.
+- **A position hint of 0 counts.** Upstream tests `if (positionHint)`,
+  so a quote at the very start of the document is searched without a
+  hint. Here `Some(0)` is a hint like any other.
+- **Page selector as a hint (kovan's addition).** Upstream's text
+  anchoring ignores the page selector. Here, when there is no position
+  selector, a page selector orders the pages by distance from it, so a
+  `page` + `quote` anchor searches its own page first.
+- No session cache of quote matches and no placeholder for unrendered
+  pages: both belong to the viewer, not the anchoring.
+
+```rust
+pub mod pages { /* ... */ }
+```
+
+### Functions
+
+#### Function `describe_in_pages`
+
+Selectors for `pages[page][start..end]` (`char` offsets within that
+page): the document-wide position, the quote with context from that
+page, and the page (label defaults to `page + 1`). Upstream pdf.ts
+`describe`. `None` if `page` is out of range.
+
+```rust
+pub fn describe_in_pages<P: AsRef<str>>(pages: &[P], page: usize, start: usize, end: usize, label: Option<String>) -> Option<Vec<super::selector::Selector>> { /* ... */ }
+```
+
+#### Function `anchor_in_pages`
+
+Anchor `selectors` in a paged text (upstream pdf.ts `anchorRange` and
+`anchorQuote`). A quote selector is required, as upstream: a position
+alone cannot be checked against anything. The returned [`Anchor`] has
+`page: Some(i)` and `char` offsets within that page's text.
+
+```rust
+pub fn anchor_in_pages<P: AsRef<str>>(pages: &[P], selectors: &[super::selector::Selector]) -> super::Anchoring { /* ... */ }
+```
+
+## Module `selector`
+
+The selectors an annotation carries, in the W3C JSON shape
+(`{"type": "TextQuoteSelector", "exact": …, "prefix": …, "suffix": …}`).
+
+**Taken:** `TextQuoteSelector`, `TextPositionSelector` (W3C) and
+`PageSelector` (Hypothesis's structural selector for paged documents:
+0-based `index` plus an optional printed `label`).
+
+**Left out**, as they describe a DOM or media and not plain text, lines
+of code or pages of extracted text: `RangeSelector` (XPath into a DOM),
+`EPUBContentSelector`, `MediaTimeSelector` and `ShapeSelector`. A
+selector of a type this module does not know deserialises as
+[`Selector::Unsupported`] and is ignored by the anchoring, as upstream
+ignores types it has no anchor for; it cannot be serialised back.
+
+**Offsets are Unicode scalar values (`char`s)**, as the W3C model
+specifies ("the selection of the text MUST be in terms of unicode code
+points"), not UTF-16 code units as Hypothesis stores them. The two agree
+on any text without characters outside the Basic Multilingual Plane.
+
+```rust
+pub mod selector { /* ... */ }
+```
+
+### Types
+
+#### Struct `TextQuoteSelector`
+
+W3C `TextQuoteSelector`: the exact text, with some text before and after
+it to tell repeated occurrences apart.
+
+```rust
+pub struct TextQuoteSelector {
+    pub exact: String,
+    pub prefix: Option<String>,
+    pub suffix: Option<String>,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `exact` | `String` | The selected text, exactly. |
+| `prefix` | `Option<String>` | Text immediately before `exact` (Hypothesis takes 32 characters). |
+| `suffix` | `Option<String>` | Text immediately after `exact` (32 characters). |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> TextQuoteSelector { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Deserialize**
+  - ```rust
+    fn deserialize<__D>(__deserializer: __D) -> _serde::__private228::Result<Self, <__D as >::Error>
+where
+    __D: _serde::Deserializer<''de> { /* ... */ }
+    ```
+
+- **DeserializeOwned**
+- **Eq**
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &TextQuoteSelector) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Send**
+- **Serialize**
+  - ```rust
+    fn serialize<__S>(self: &Self, __serializer: __S) -> _serde::__private228::Result<<__S as >::Ok, <__S as >::Error>
+where
+    __S: _serde::Serializer { /* ... */ }
+    ```
+
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Struct `TextPositionSelector`
+
+W3C `TextPositionSelector`: `[start, end)` in `char`s from the start of
+the text (for paged text, from the start of the first page).
+
+```rust
+pub struct TextPositionSelector {
+    pub start: usize,
+    pub end: usize,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `start` | `usize` | Offset of the first selected character. |
+| `end` | `usize` | Offset one past the last selected character. |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> TextPositionSelector { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Deserialize**
+  - ```rust
+    fn deserialize<__D>(__deserializer: __D) -> _serde::__private228::Result<Self, <__D as >::Error>
+where
+    __D: _serde::Deserializer<''de> { /* ... */ }
+    ```
+
+- **DeserializeOwned**
+- **Eq**
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &TextPositionSelector) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Send**
+- **Serialize**
+  - ```rust
+    fn serialize<__S>(self: &Self, __serializer: __S) -> _serde::__private228::Result<<__S as >::Ok, <__S as >::Error>
+where
+    __S: _serde::Serializer { /* ... */ }
+    ```
+
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Struct `PageSelector`
+
+Hypothesis's `PageSelector`: the page of a paged document.
+
+```rust
+pub struct PageSelector {
+    pub index: usize,
+    pub label: Option<String>,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `index` | `usize` | 0-based index of the page in the document's page sequence. |
+| `label` | `Option<String>` | The printed page number, or the 1-based page number when the pages<br>carry none. |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> PageSelector { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Deserialize**
+  - ```rust
+    fn deserialize<__D>(__deserializer: __D) -> _serde::__private228::Result<Self, <__D as >::Error>
+where
+    __D: _serde::Deserializer<''de> { /* ... */ }
+    ```
+
+- **DeserializeOwned**
+- **Eq**
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &PageSelector) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Send**
+- **Serialize**
+  - ```rust
+    fn serialize<__S>(self: &Self, __serializer: __S) -> _serde::__private228::Result<<__S as >::Ok, <__S as >::Error>
+where
+    __S: _serde::Serializer { /* ... */ }
+    ```
+
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Enum `Selector`
+
+**Attributes:**
+
+- `Other("#[serde(tag = \"type\")]")`
+
+One selector, tagged by `type` as in the W3C JSON.
+
+```rust
+pub enum Selector {
+    TextQuoteSelector(TextQuoteSelector),
+    TextPositionSelector(TextPositionSelector),
+    PageSelector(PageSelector),
+    Unsupported,
+}
+```
+
+##### Variants
+
+###### `TextQuoteSelector`
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `TextQuoteSelector` |  |
+
+###### `TextPositionSelector`
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `TextPositionSelector` |  |
+
+###### `PageSelector`
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `PageSelector` |  |
+
+###### `Unsupported`
+
+Any other `type` (module doc). Ignored when anchoring; serialising it
+is an error, because what it held was not kept.
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn quote(selectors: &[Selector]) -> Option<&TextQuoteSelector> { /* ... */ }
+  ```
+  The first quote selector in `selectors`.
+
+- ```rust
+  pub fn position(selectors: &[Selector]) -> Option<&TextPositionSelector> { /* ... */ }
+  ```
+  The first position selector in `selectors`.
+
+- ```rust
+  pub fn page(selectors: &[Selector]) -> Option<&PageSelector> { /* ... */ }
+  ```
+  The first page selector in `selectors`.
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Selector { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Deserialize**
+  - ```rust
+    fn deserialize<__D>(__deserializer: __D) -> _serde::__private228::Result<Self, <__D as >::Error>
+where
+    __D: _serde::Deserializer<''de> { /* ... */ }
+    ```
+
+- **DeserializeOwned**
+- **Eq**
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Selector) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Send**
+- **Serialize**
+  - ```rust
+    fn serialize<__S>(self: &Self, __serializer: __S) -> _serde::__private228::Result<<__S as >::Ok, <__S as >::Error>
+where
+    __S: _serde::Serializer { /* ... */ }
+    ```
+
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+## Module `text`
+
+Describe and anchor a range of one plain text: a note, a source file, a
+page. Upstream's HTML path with the DOM taken out: the "root element's
+text content" is simply the text.
+
+The line helpers at the end are kovan's own (not upstream): they convert
+between `char` ranges and the 1-based inclusive line ranges review stamps
+record, so a stamp's `lines` can be described and re-anchored.
+
+```rust
+pub mod text { /* ... */ }
+```
+
+### Functions
+
+#### Function `describe_quote`
+
+The quote selector for `text[start..end]` (`char` offsets, clamped to
+the text): the exact text and up to [`CONTEXT_LEN`] characters either
+side. Upstream `TextQuoteAnchor.fromRange`; prefix and suffix are always
+present, empty at the ends of the text, as upstream.
+
+```rust
+pub fn describe_quote(text: &str, start: usize, end: usize) -> super::selector::TextQuoteSelector { /* ... */ }
+```
+
+#### Function `describe`
+
+The selectors for `text[start..end]`: position, then quote. Upstream
+`describe` (html.ts) without the DOM-only `RangeSelector` and
+`MediaTimeSelector`.
+
+```rust
+pub fn describe(text: &str, start: usize, end: usize) -> Vec<super::selector::Selector> { /* ... */ }
+```
+
+#### Function `anchor`
+
+Anchor `selectors` in `text`, upstream's order (html.ts `anchor`):
+
+1. **Position**, accepted only if the text there equals the quote's
+   `exact` (when there is a quote; with no quote it is accepted
+   unverified, as upstream).
+2. **Quote**, via [`super::match_quote()`]: exact occurrences first, and
+   only if there are none the fuzzy search, both ranked by quote,
+   prefix, suffix and nearness to the position selector's `start`.
+
+Page selectors are ignored here (see [`super::anchor_in_pages`]).
+
+```rust
+pub fn anchor(text: &str, selectors: &[super::selector::Selector]) -> super::Anchoring { /* ... */ }
+```
+
+#### Function `lines_to_range`
+
+The `char` range of 1-based inclusive lines `first..=last` of `text`,
+from the first character of `first` to the end of `last` (its newline
+excluded). `None` if the lines do not exist. Kovan's, not upstream.
+
+```rust
+pub fn lines_to_range(text: &str, first: usize, last: usize) -> Option<(usize, usize)> { /* ... */ }
+```
+
+#### Function `range_to_lines`
+
+The 1-based inclusive lines that `text[start..end]` (`char` offsets)
+touches. A range ending just after a newline does not count the next
+line. Kovan's, not upstream.
+
+```rust
+pub fn range_to_lines(text: &str, start: usize, end: usize) -> (usize, usize) { /* ... */ }
+```
+
+### Constants and Statics
+
+#### Constant `CONTEXT_LEN`
+
+Characters of context captured on each side of a quote (upstream's
+fixed `contextLen`).
+
+```rust
+pub const CONTEXT_LEN: usize = 32;
+```
+
+### Types
+
+#### Enum `AnchorStrategy`
+
+How an anchor was found.
+
+```rust
+pub enum AnchorStrategy {
+    Position,
+    PositionUnverified,
+    ExactQuote,
+    FuzzyQuote,
+}
+```
+
+##### Variants
+
+###### `Position`
+
+The position selector, with the text there equal to the quote.
+
+###### `PositionUnverified`
+
+The position selector, with no quote to check it against.
+
+###### `ExactQuote`
+
+An exact occurrence of the quote (for paged text: exact once
+whitespace is ignored).
+
+###### `FuzzyQuote`
+
+An approximate occurrence of the quote.
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> AnchorStrategy { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Eq**
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &AnchorStrategy) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Struct `Anchor`
+
+Where an annotation anchored.
+
+```rust
+pub struct Anchor {
+    pub page: Option<usize>,
+    pub start: usize,
+    pub end: usize,
+    pub strategy: AnchorStrategy,
+    pub score: f64,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `page` | `Option<usize>` | The page, for [`anchor_in_pages`]; `None` for [`anchor`]. |
+| `start` | `usize` | Start (`char` offset; within the page for paged text). |
+| `end` | `usize` | End, exclusive. |
+| `strategy` | `AnchorStrategy` | Which step found it. |
+| `score` | `f64` | Upstream's match score in [0, 1]; 1.0 for a verified position. |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Anchor { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Anchor) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Enum `OrphanReason`
+
+Why an annotation could not be anchored.
+
+```rust
+pub enum OrphanReason {
+    NoUsableSelector,
+    NotFound,
+}
+```
+
+##### Variants
+
+###### `NoUsableSelector`
+
+No selector this module can anchor (for paged text: no quote).
+
+###### `NotFound`
+
+The selectors were usable but nothing in the text matches them.
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> OrphanReason { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Eq**
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &OrphanReason) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Enum `Anchoring`
+
+The outcome of anchoring.
+
+```rust
+pub enum Anchoring {
+    Anchored(Anchor),
+    Orphaned(OrphanReason),
+}
+```
+
+##### Variants
+
+###### `Anchored`
+
+Found, with how and how well.
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `Anchor` |  |
+
+###### `Orphaned`
+
+Could not be anchored; the annotation is orphaned.
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `OrphanReason` |  |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn anchor(self: &Self) -> Option<&Anchor> { /* ... */ }
+  ```
+  The anchor, if any.
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Anchoring { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Anchoring) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+### Re-exports
+
+#### Re-export `match_quote`
+
+```rust
+pub use match_quote::match_quote;
+```
+
+#### Re-export `QuoteContext`
+
+```rust
+pub use match_quote::QuoteContext;
+```
+
+#### Re-export `QuoteMatch`
+
+```rust
+pub use match_quote::QuoteMatch;
+```
+
+#### Re-export `anchor_in_pages`
+
+```rust
+pub use pages::anchor_in_pages;
+```
+
+#### Re-export `describe_in_pages`
+
+```rust
+pub use pages::describe_in_pages;
+```
+
+#### Re-export `PageSelector`
+
+```rust
+pub use selector::PageSelector;
+```
+
+#### Re-export `Selector`
+
+```rust
+pub use selector::Selector;
+```
+
+#### Re-export `TextPositionSelector`
+
+```rust
+pub use selector::TextPositionSelector;
+```
+
+#### Re-export `TextQuoteSelector`
+
+```rust
+pub use selector::TextQuoteSelector;
+```
+
+#### Re-export `anchor`
+
+```rust
+pub use text::anchor;
+```
+
+#### Re-export `describe`
+
+```rust
+pub use text::describe;
+```
+
+#### Re-export `describe_quote`
+
+```rust
+pub use text::describe_quote;
+```
+
+#### Re-export `lines_to_range`
+
+```rust
+pub use text::lines_to_range;
+```
+
+#### Re-export `range_to_lines`
+
+```rust
+pub use text::range_to_lines;
+```
+
 ## Module `zotero`
 
 Zotero's data model, ported so Zotero libraries can be imported into and
@@ -9728,6 +11431,7 @@ exported from kovan (GitHub #748, epic #747).
 | [`validate`] | schema checks and `fromJSON`'s move of invalid fields into Extra | `item.js`, `utilities_internal.js` |
 | [`date`] | `strToDate`, `parseEDTF`, `formatDate`, SQL/ISO dates | utilities `date.js` |
 | [`csl`] | CSL-JSON both ways | utilities `utilities_item.js` |
+| [`search`] | [`ZoteroSearch`]: a saved search, conditions as stored (added 2026-10-07, #750) | `search.js` `toJSON`/`fromJSON` |
 | [`kovan`] | [`ZoteroItem`] <-> [`crate::KovanDocument`], with the lossy fields listed | (kovan's own) |
 
 Every value the ports were checked against comes from upstream's own data
@@ -9989,7 +11693,8 @@ conversion and the Zotero item model need.
 Ported: `strToDate` (date.js:272), `formatDate` (long form, :567),
 `strToISO` (:600), `sqlToISO8601` (:617), `parseEraYear` (:744),
 `looksLikeEDTF` (:766), `parseEDTF` (:799), `strToMultipart` (:902),
-`multipartToSQL` (:966), `isSQLDate`/`isSQLDateTime`/
+`multipartToSQL` (:966), `isMultipart` (:954) and `multipartToStr` (:983)
+(added 2026-10-07, #750), `isSQLDate`/`isSQLDateTime`/
 `isSQLDateTimeWithoutSeconds` (:1019-1034), `isISODate` (:235), and the
 ISO -> SQL and UTC -> local conversions of `isoToDate`/`dateToSQL`/
 `sqlToDate`.
@@ -10601,6 +12306,27 @@ multipart date, `0000-00-00` for a non-multipart string.
 
 ```rust
 pub fn multipart_to_sql(multi: &str) -> String { /* ... */ }
+```
+
+#### Function `is_multipart`
+
+`Zotero.Date.isMultipart` (date.js:954): whether `s` is a multipart date
+(`YYYY-MM-DD <original>`), which an SQL date-time is not. Added
+2026-10-07 for the Zotero database reader (GitHub #750).
+
+```rust
+pub fn is_multipart(s: &str) -> bool { /* ... */ }
+```
+
+#### Function `multipart_to_str`
+
+`Zotero.Date.multipartToStr` (date.js:983): the user part of a multipart
+date (`2006-11-03 November 3rd, 2006` -> `November 3rd, 2006`); any other
+string unchanged. This is how `Item#getField` turns a stored date field
+back into what the user typed (item.js:303). Added 2026-10-07 (#750).
+
+```rust
+pub fn multipart_to_str(multi: &str) -> String { /* ... */ }
 ```
 
 ## Module `item`
@@ -11984,18 +13710,20 @@ pub struct ZoteroCollection {
 - **UnwindSafe**
 #### Struct `ZoteroLibrary`
 
-A Zotero library: its collections and items (top-level and child items
+A Zotero library: its collections, its items (top-level and child items
 side by side, children pointing at parents through `parentItem`, as the
-Web API lists them).
+Web API lists them) and its saved searches.
 
 This is a container for import/export, not a port of `Zotero.Library`
 (which is a database handle). Serialises as
-`{"collections": [...], "items": [...]}`.
+`{"collections": [...], "items": [...]}`, plus `"searches": [...]` when
+there are saved searches.
 
 ```rust
 pub struct ZoteroLibrary {
     pub collections: Vec<ZoteroCollection>,
     pub items: Vec<ZoteroItem>,
+    pub searches: Vec<super::search::ZoteroSearch>,
 }
 ```
 
@@ -12005,6 +13733,7 @@ pub struct ZoteroLibrary {
 |------|------|---------------|
 | `collections` | `Vec<ZoteroCollection>` | Collections. |
 | `items` | `Vec<ZoteroItem>` | Items, including child notes, attachments and annotations. |
+| `searches` | `Vec<super::search::ZoteroSearch>` | Saved searches (search.js `toJSON`). Added 2026-10-07 (#750) for the<br>Zotero database reader; omitted from the JSON when empty, so a library<br>without searches serialises exactly as before. |
 
 ##### Implementations
 
@@ -12525,6 +14254,259 @@ earlier one exactly as upstream's object assignment does.
 pub fn csl_variable_for_field(field: super::schema_generated::Field) -> Option<&'static str> { /* ... */ }
 ```
 
+## Module `search`
+
+A Zotero saved search, in the JSON shape of `Zotero.Search#toJSON`
+(search.js:893): `{key, version, name, conditions: [{condition, operator,
+value}], deleted?}`.
+
+The conditions are **kept as stored**, not evaluated: running a saved
+search needs Zotero's search engine (search.js `_buildQuery`, ~1500 lines
+of SQL generation) and is not part of this port. A condition's
+`condition` string carries its mode after a slash (`"title/any"`), exactly
+as `toJSON` writes it.
+
+Added 2026-10-07 for the Zotero database reader (#750); purely additive to
+the #748 model.
+
+```rust
+pub mod search { /* ... */ }
+```
+
+### Types
+
+#### Struct `SearchCondition`
+
+One condition of a saved search, as `toJSON` writes it.
+
+```rust
+pub struct SearchCondition {
+    pub condition: String,
+    pub operator: Option<String>,
+    pub value: String,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `condition` | `String` | `condition[/mode]`, e.g. `title`, `collection`, `fulltextContent/phraseBinary`. |
+| `operator` | `Option<String>` | The operator, e.g. `is`, `contains`, `isNot`; `None` when stored as<br>NULL (upstream writes it through as `null`). |
+| `value` | `String` | The value; `""` when none (`toJSON` writes `value || ""`). |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> SearchCondition { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Eq**
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &SearchCondition) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Struct `ZoteroSearch`
+
+A Zotero saved search.
+
+```rust
+pub struct ZoteroSearch {
+    pub key: Option<String>,
+    pub version: Option<u64>,
+    pub name: String,
+    pub conditions: Vec<SearchCondition>,
+    pub deleted: Option<bool>,
+    pub other: std::collections::BTreeMap<String, serde_json::Value>,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `key` | `Option<String>` | The 8-character object key. |
+| `version` | `Option<u64>` | The object version. |
+| `name` | `String` | The search's name. |
+| `conditions` | `Vec<SearchCondition>` | The conditions, in order. |
+| `deleted` | `Option<bool>` | `deleted` (in the trash); written only when true, as `_postToJSON` does. |
+| `other` | `std::collections::BTreeMap<String, serde_json::Value>` | Every other property, verbatim. |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn new</* synthetic */ impl Into<String>: Into<String>>(name: impl Into<String>) -> Self { /* ... */ }
+  ```
+  A search with this name and no conditions.
+
+- ```rust
+  pub fn from_json_value(v: &Value) -> Result<Self, ZoteroJsonError> { /* ... */ }
+  ```
+  Parse search JSON (lenient: unknown properties go to `other`).
+
+- ```rust
+  pub fn to_json_value(self: &Self) -> Value { /* ... */ }
+  ```
+  Write search JSON as `toJSON` does.
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> ZoteroSearch { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Deserialize**
+  - ```rust
+    fn deserialize<D: serde::Deserializer<''de>>(d: D) -> Result<Self, <D as >::Error> { /* ... */ }
+    ```
+
+- **DeserializeOwned**
+- **Eq**
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &ZoteroSearch) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Send**
+- **Serialize**
+  - ```rust
+    fn serialize<S: serde::Serializer>(self: &Self, s: S) -> Result<<S as >::Ok, <S as >::Error> { /* ... */ }
+    ```
+
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
 ## Module `schema_generated`
 
 **Attributes:**
@@ -14322,6 +16304,18 @@ pub use schema::ItemTypeField;
 
 ```rust
 pub use schema::ItemTypeSchema;
+```
+
+#### Re-export `SearchCondition`
+
+```rust
+pub use search::SearchCondition;
+```
+
+#### Re-export `ZoteroSearch`
+
+```rust
+pub use search::ZoteroSearch;
 ```
 
 #### Re-export `CreatorType`
