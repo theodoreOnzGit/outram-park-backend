@@ -77,17 +77,17 @@ sha2.workspace = true
 # import's JSON output (`zotero::local_library`, GitHub #750). Pure Rust.
 serde_json.workspace = true
 
-# Reading a Zotero data folder (`zotero::local_library`, GitHub #750). SQLite is
-# compiled from C (`bundled`), so it is gated off wasm32 (no C, no files) and off
-# Android: the portability rule assumes no C toolchain in a Termux build, and
-# Zotero itself is a desktop application, so a Zotero data folder is a desktop
-# artefact. tempfile holds the private copy of the database that is read.
-[target.'cfg(not(any(target_arch = "wasm32", target_os = "android")))'.dependencies]
-rusqlite.workspace = true
-tempfile.workspace = true
+# Reading a Zotero data folder (`zotero::local_library`, GitHub #750). turso_core
+# reads the SQLite file format and its WAL from memory in pure Rust (C-backed
+# features off: see the root Cargo.toml), so the reader compiles and runs on every
+# target, wasm32-unknown-unknown and Android included (since 2026-10-07; it used to
+# be rusqlite with bundled C SQLite, gated off both).
+turso_core.workspace = true
 
-# The Zotero reader's tests build databases from Zotero's own schema files
-# (tests/zotero_local_library.rs); gated like the reader.
+# The Zotero reader's tests build databases from Zotero's own schema files with
+# real SQLite (rusqlite, C) and compare the turso reader against it
+# (tests/zotero_local_library.rs, tests/zotero_sqlite_format.rs). Test-only and
+# native-only: rusqlite never reaches the shipped library on any target.
 [target.'cfg(not(any(target_arch = "wasm32", target_os = "android")))'.dev-dependencies]
 rusqlite.workspace = true
 tempfile.workspace = true

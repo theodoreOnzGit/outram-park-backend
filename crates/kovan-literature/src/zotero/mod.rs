@@ -6,7 +6,6 @@
 //!
 //! | Module | What |
 //! |---|---|
-//! | [`local_library`] | read a Zotero data folder (`zotero.sqlite` + `storage/`) and import it into kovan (#750). Native desktop only: not compiled for wasm32 or Android. |
+//! | [`local_library`] | read a Zotero data folder (`zotero.sqlite` + `storage/`), or its database from bytes, and import it into kovan (#750). Pure Rust; every target, wasm32 and Android included (since 2026-10-07; before, native desktop only). |
 
-#[cfg(not(any(target_arch = "wasm32", target_os = "android")))]
 pub mod local_library;

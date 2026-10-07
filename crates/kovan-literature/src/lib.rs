@@ -74,8 +74,12 @@
 //!
 //! [`zotero::local_library`] reads a Zotero data folder (`zotero.sqlite` +
 //! `storage/`) into the `kovan_common::zotero` model and imports it as
-//! [`KovanDocument`]s (GitHub #750). Native desktop targets only: it is
-//! compiled out on wasm32 and Android (SQLite is C; see `Cargo.toml`).
+//! [`KovanDocument`]s (GitHub #750). ~~Native desktop targets only: it is
+//! compiled out on wasm32 and Android (SQLite is C; see `Cargo.toml`).~~
+//! **CORRECTED 2026-10-07**: the reader is pure Rust (turso_core reads the
+//! SQLite file format and WAL from memory) and compiles on every target,
+//! wasm32 and Android included; `read_database_files` reads a database from
+//! bytes, with no file system.
 
 #![forbid(unsafe_code)]
 
