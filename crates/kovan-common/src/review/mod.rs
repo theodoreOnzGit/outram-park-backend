@@ -49,8 +49,12 @@
 //!   2026-10-06): [`index::ItemKind`] has room for them; only functions are
 //!   hashed by [`hash`] today.
 //! - Building `kovan.toml` from SCIP (#757) and the git side (kovan-discovery).
-//! - The staleness engine itself (#765): `engine::evaluate` in the picture
-//!   above is the next step and is not in this module yet.
+//! - ~~The staleness engine itself (#765): `engine::evaluate` in the picture
+//!   above is the next step and is not in this module yet.~~ **CORRECTED
+//!   2026-10-07**: [`engine::evaluate`] is here (#765), with the state
+//!   vocabulary in [`state`].
+//! - Resolving a function's concept areas (for rung 5) from its review's
+//!   `implements` relations: [`engine::evaluate`] takes them as data.
 
 pub mod engine;
 pub mod hash;

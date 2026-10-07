@@ -325,6 +325,11 @@ pub struct ArchitectureBody {
     /// The stable function ids that make up the node.
     #[serde(default)]
     pub members: Vec<String>,
+    /// The members' current locations (`file.rs::item`), for display and
+    /// the scope check; location metadata, updated on a move acknowledge
+    /// and not signed (added 2026-10-07 with the hybrid id).
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub member_paths: Vec<String>,
     /// The upstream structure it follows, as the existing attribution type
     /// ([`Upstream`]); its `commit` is required and any `url` pinned.
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -541,6 +546,17 @@ pub fn validate_review(r: &ReviewEntry) -> Result<(), FieldError> {
     check_date("review.date", &b.date)?;
     if !(3..=4).contains(&b.rung) {
         return Err(FieldError::BadRung(b.rung));
+    }
+    // The rung is both `[review] rung` and the wizard's `rung` question
+    // (#769): they must agree.
+    if let Some(a) = b.checklist.get("rung") {
+        let (option, _) = super::wizard::parse_answer(a);
+        if option != format!("rung_{}", b.rung) {
+            return Err(FieldError::RungMismatch {
+                recorded: b.rung,
+                answered: a.clone(),
+            });
+        }
     }
     check_commit("review.commit", &b.commit)?;
     check_hash("review.hash", &b.hash)?;
@@ -790,7 +806,11 @@ fn migrate_legacy_ids(doc: &mut ReviewDocument) {
             Entry::NeedsFix(n) => fix(&mut n.kovan, &mut n.needs_fix.function, &mut n.needs_fix.path, &ids),
             Entry::Annotation(a) => fix(&mut a.kovan, &mut a.annotation.function, &mut a.annotation.path, &ids),
             Entry::Architecture(a) => {
-                for m in &mut a.architecture.members {
+                let b = &mut a.architecture;
+                if b.members.iter().any(|m| ids.contains_key(m)) && b.member_paths.is_empty() {
+                    b.member_paths = b.members.clone();
+                }
+                for m in &mut b.members {
                     if let Some(id) = ids.get(m) {
                         *m = id.clone();
                     }

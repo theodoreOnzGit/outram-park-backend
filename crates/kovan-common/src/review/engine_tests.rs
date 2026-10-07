@@ -179,7 +179,7 @@ fn git_for(rs: &[&FolderReviews]) -> GitFacts {
 
 fn run(revs: &[FolderReviews], idx: &[FolderIndex]) -> Evaluation {
     let refs: Vec<&FolderReviews> = revs.iter().collect();
-    evaluate(revs, idx, &root(), &git_for(&refs), &ConceptAreas::new(), SignaturePolicy::AwaitingCrypto)
+    evaluate(revs, idx, &root(), &git_for(&refs), &ConceptAreas::new(), SignaturePolicy::NotChecked)
 }
 
 fn kind(ev: &Evaluation, path: &str) -> StateKind {
@@ -306,7 +306,7 @@ fn d6_function_delete_history_in_folder() {
     let mut g = git_for(&refs);
     g.deleted_in.insert(fid(F), "9".repeat(40));
     let idx = [folder("x", D, &[("a.rs", vec![fun("crates/x/src/a.rs::other", 'q', &[], &[])])])];
-    let ev = evaluate(&revs, &idx, &root(), &g, &ConceptAreas::new(), SignaturePolicy::AwaitingCrypto);
+    let ev = evaluate(&revs, &idx, &root(), &g, &ConceptAreas::new(), SignaturePolicy::NotChecked);
     assert_eq!(ev.deleted[0].reviews.len(), 2);
     let h = &ev.history[0];
     assert_eq!(h.placement, HistoryPlacement::FolderReviewMd { dir: D.into() });
@@ -385,7 +385,7 @@ fn d6_cargo_lock_change_pending_until_full_pass() {
     let ev_at = |run_lock: char, tests: &[&str], g: &GitFacts| {
         let mut idx = folder("x", D, &[("a.rs", vec![fun(F, 'a', &[], tests)])]);
         idx.test_run.as_mut().unwrap().cargo_lock = h(run_lock);
-        evaluate(&revs, &[idx], &root(), g, &ConceptAreas::new(), SignaturePolicy::AwaitingCrypto)
+        evaluate(&revs, &[idx], &root(), g, &ConceptAreas::new(), SignaturePolicy::NotChecked)
     };
     assert_eq!(kind(&ev_at('1', &["t::ok"], &g), F), StateKind::PendingWorkspaceTest);
     assert_eq!(kind(&ev_at('2', &["t::ok"], &g), F), StateKind::Valid);
@@ -412,7 +412,7 @@ fn d6_time_bound_stamps() {
     let state_with = |facts: StampFacts| {
         let mut g = git_for(&refs);
         g.stamps.insert(key.clone(), facts);
-        evaluate(&revs, &idx, &root(), &g, &ConceptAreas::new(), SignaturePolicy::AwaitingCrypto).functions[&fid(F)]
+        evaluate(&revs, &idx, &root(), &g, &ConceptAreas::new(), SignaturePolicy::NotChecked).functions[&fid(F)]
             .state
             .clone()
     };
@@ -432,7 +432,7 @@ fn d6_time_bound_stamps() {
     let mut f = good;
     f.added_in = None;
     assert_eq!(state_with(f), StampState::Unverified(UnverifiedReason::NotCommitted));
-    let ev = evaluate(&revs, &idx, &root(), &GitFacts::default(), &ConceptAreas::new(), SignaturePolicy::AwaitingCrypto);
+    let ev = evaluate(&revs, &idx, &root(), &GitFacts::default(), &ConceptAreas::new(), SignaturePolicy::NotChecked);
     assert_eq!(ev.functions[&fid(F)].state, StampState::Unverified(UnverifiedReason::NoGitFacts));
 }
 
@@ -471,20 +471,25 @@ fn concern_beats_approval() {
     assert_eq!(kind(&ev, F), StateKind::Fixed);
 }
 
-/// Rung 4 is gated on question 8: without a qualifying answer the review
-/// counts at rung 3 and is flagged.
+/// Rung 4 is gated by the wizard (#769 `stamp_gate`): a recorded rung 4
+/// counts only when `vv_evidence` opens it; otherwise it counts at rung 3
+/// and is flagged. #764's placeholder `q8` no longer opens it.
 #[test]
-fn rung4_gated_on_q8() {
+fn rung4_gated_by_the_wizard() {
     let mut r = review(F, M, 'a', &[]);
     r.review.rung = 4;
-    r.review.checklist.insert("q8".into(), "not_compared".into());
+    r.review.checklist.insert("vv_evidence".into(), "unit_tests_only".into());
     let idx = [folder("x", D, &[("a.rs", vec![fun(F, 'a', &[], &[])])])];
     let ev = run(&[reviews_in("x", D, vec![r.clone()])], &idx);
     assert_eq!(ev.functions[&fid(F)].rung, Some(3));
     assert!(ev.functions[&fid(F)].reviews[0].rung_capped);
+    r.review.checklist.insert("vv_evidence".into(), "analytical_case".into());
+    let ev = run(&[reviews_in("x", D, vec![r.clone()])], &idx);
+    assert_eq!(ev.functions[&fid(F)].rung, Some(4));
+    r.review.checklist.remove("vv_evidence");
     r.review.checklist.insert("q8".into(), "analytical_case".into());
     let ev = run(&[reviews_in("x", D, vec![r])], &idx);
-    assert_eq!(ev.functions[&fid(F)].rung, Some(4));
+    assert_eq!(ev.functions[&fid(F)].rung, Some(3), "the placeholder key opens nothing");
 }
 
 /// Rung 5: a second valid review by someone who is neither the first
@@ -508,10 +513,10 @@ fn rung5_needs_independent_qualified_second_reviewer() {
     })];
     let areas: ConceptAreas = [(fid(F), ["concept:thermal-hydraulics/natural-circulation".to_string()].into())].into();
     let rung = |rt: &ReviewRoot, g: &GitFacts, a: &ConceptAreas| {
-        evaluate(&revs, &idx, rt, g, a, SignaturePolicy::AwaitingCrypto).functions[&fid(F)].rung
+        evaluate(&revs, &idx, rt, g, a, SignaturePolicy::NotChecked).functions[&fid(F)].rung
     };
     assert_eq!(rung(&rt, &g, &areas), Some(5));
-    let ev = evaluate(&revs, &idx, &rt, &g, &areas, SignaturePolicy::AwaitingCrypto);
+    let ev = evaluate(&revs, &idx, &rt, &g, &areas, SignaturePolicy::NotChecked);
     let shown = &ev.functions[&fid(F)].reviews.iter().find(|r| r.by == R).unwrap().qualifications;
     assert_eq!(shown, &vec!["thermal-hydraulics (self-study; self-declared)".to_string()]);
     assert_eq!(rung(&rt, &g, &ConceptAreas::new()), Some(3), "no known area");
@@ -520,7 +525,7 @@ fn rung5_needs_independent_qualified_second_reviewer() {
     authored.code_authors.insert(fid(F), [R.to_string()].into());
     assert_eq!(rung(&rt, &authored, &areas), Some(3), "the second reviewer wrote the code");
     let single = [reviews_in("x", D, vec![review(F, R, 'a', &[])])];
-    let ev = evaluate(&single, &idx, &rt, &git_for(&[&single[0]]), &areas, SignaturePolicy::AwaitingCrypto);
+    let ev = evaluate(&single, &idx, &rt, &git_for(&[&single[0]]), &areas, SignaturePolicy::NotChecked);
     assert_eq!(ev.functions[&fid(F)].rung, Some(3), "one reviewer is never rung 5");
 }
 
@@ -575,7 +580,7 @@ fn scope_registry_and_signature() {
         by: M.into(),
         signature: None,
     });
-    let ev = evaluate(&revs, &idx, &rt, &g, &ConceptAreas::new(), SignaturePolicy::AwaitingCrypto);
+    let ev = evaluate(&revs, &idx, &rt, &g, &ConceptAreas::new(), SignaturePolicy::NotChecked);
     assert_eq!(ev.functions[&fid(F)].state, StampState::Unverified(UnverifiedReason::Revoked));
 
     let ev = evaluate(&revs, &idx, &root(), &g, &ConceptAreas::new(), SignaturePolicy::Enforce);
@@ -646,7 +651,7 @@ fn upstream_tag_moved_is_reported() {
     let idx = [folder("x", D, &[("a.rs", vec![fun(F, 'a', &[], &[])])])];
     let mut g = git_for(&[&fr]);
     let tags = |g: &GitFacts| {
-        evaluate(std::slice::from_ref(&fr), &idx, &root(), g, &ConceptAreas::new(), SignaturePolicy::AwaitingCrypto)
+        evaluate(std::slice::from_ref(&fr), &idx, &root(), g, &ConceptAreas::new(), SignaturePolicy::NotChecked)
             .upstream_tags
     };
     assert_eq!(tags(&g)[0].check, TagCheck::Unchecked);
@@ -655,6 +660,47 @@ fn upstream_tag_moved_is_reported() {
     g.tag_commits.insert((repo, "v6.4.1".into()), "fedcba9".into());
     let t = tags(&g);
     assert_eq!(t[0].check, TagCheck::Moved { now: "fedcba9".into() });
-    let ev = evaluate(std::slice::from_ref(&fr), &idx, &root(), &g, &ConceptAreas::new(), SignaturePolicy::AwaitingCrypto);
+    let ev = evaluate(std::slice::from_ref(&fr), &idx, &root(), &g, &ConceptAreas::new(), SignaturePolicy::NotChecked);
     assert_eq!(kind(&ev, F), StateKind::Valid, "a moved tag does not touch stamps");
+}
+
+/// With signatures enforced (#762), a review signed by the registered
+/// founder key counts; an unsigned one is unverified; a scoped reviewer's
+/// signed review of a file outside its scope is outside scope. Real
+/// generated keys, no mocks.
+#[cfg(not(target_arch = "wasm32"))]
+#[test]
+fn enforced_signatures_map_onto_states() {
+    use crate::review::signing::keystore;
+    let pass = "correct horse battery staple";
+    let (mf, mk) = keystore::generate(M, "k1", "2026-10-07", pass).unwrap();
+    let (rf, rk) = keystore::generate(R, "r1", "2026-10-07", pass).unwrap();
+    let mut rt = root();
+    rt.reviewers.retain(|r| r.id == M || r.id == R);
+    rt.reviewers[0].keys = vec![mf.reviewer_key()];
+    rt.reviewers[1].keys = vec![rf.reviewer_key()];
+    rt.reviewers[1].admitted = Some("2026-10-07".into());
+    mk.admit(&mut rt.reviewers[1]).unwrap();
+
+    let mut signed = review(F, M, 'a', &[]);
+    mk.sign_review(&mut signed).unwrap();
+    let unsigned = review(F, R, 'a', &[]);
+    let other = "crates/y/src/a.rs::f";
+    let mut outside = review(other, R, 'a', &[]);
+    rk.sign_review(&mut outside).unwrap();
+    let revs = [
+        reviews_in("x", D, vec![signed, unsigned]),
+        reviews_in("y", "crates/y/src", vec![outside]),
+    ];
+    let idx = [
+        folder("x", D, &[("a.rs", vec![fun(F, 'a', &[], &[])])]),
+        folder("y", "crates/y/src", &[("a.rs", vec![fun(other, 'a', &[], &[])])]),
+    ];
+    let g = git_for(&[&revs[0], &revs[1]]);
+    let ev = evaluate(&revs, &idx, &rt, &g, &ConceptAreas::new(), SignaturePolicy::Enforce);
+    let f = &ev.functions[&fid(F)];
+    assert_eq!(f.state, StampState::Valid);
+    let by_r = f.reviews.iter().find(|r| r.by == R).unwrap();
+    assert_eq!(by_r.state, StampState::Unverified(UnverifiedReason::Signature(SigReason::NoSignature)));
+    assert_eq!(ev.functions[&fid(other)].state, StampState::OutsideScope);
 }

@@ -23,8 +23,9 @@
 //!    the recorded hash (time-bound stamps). The reviewer must be registered
 //!    in `kovan_root.toml`, and the stamp dated before any revocation (or
 //!    compromise). With [`SignaturePolicy::Enforce`] the signature must
-//!    verify; until #762 lands it never does, so callers pass
-//!    [`SignaturePolicy::AwaitingCrypto`].
+//!    verify against the registry (#762): a scope refusal there is **outside
+//!    scope**, a revocation or compromise is unverified with that reason,
+//!    anything else unverified with the signature's reason.
 //! 3. **Scope.** A `reviewer` (not a `maintainer`) must have the function's
 //!    file in scope, else **outside scope**.
 //! 4. **Own code.** Hash changed: **directly stale**. Same hash but the
@@ -50,8 +51,8 @@
 //! no review: it only shows as **review unreadable** when nothing else
 //! stands.
 //!
-//! **Rungs.** A review's rung 4 counts only when checklist `q8` is one of
-//! [`RUNG4_Q8_ANSWERS`]; otherwise it counts as rung 3 and is flagged. A
+//! **Rungs.** A review's rung 4 counts only when the wizard's gate opens it
+//! ([`effective_rung`]); otherwise it counts as rung 3 and is flagged. A
 //! function is at **rung 5** when, besides its earliest valid review, a
 //! valid review exists by a different reviewer who is not one of the code's
 //! authors (from git) **and** holds a qualification covering every concept
@@ -72,12 +73,12 @@ use super::index::{FolderIndex, FunctionIndex, Suite, TestRun};
 use super::review_md::{DeletedFunction, FixStatus, ReviewDocument, ReviewEntry};
 use super::root::{ReviewRoot, Role};
 use super::scope::in_scope;
+use super::signing::registry::Registry;
 use super::signing::{verify_review, SignatureCheck, UnverifiedReason as SigReason};
+use super::wizard::{stamp_gate, Applicability};
 use super::state::StateKind;
 use super::types::{check_tag, TagCheck};
 
-/// The checklist answers to question 8 that allow rung 4 (#740 U4).
-pub const RUNG4_Q8_ANSWERS: [&str; 2] = ["reference_code_to_code", "analytical_case"];
 
 /// One folder's `review.md`, with where it is.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -155,11 +156,15 @@ pub type ConceptAreas = BTreeMap<String, BTreeSet<String>>;
 /// Whether signatures are required.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum SignaturePolicy {
-    /// A stamp counts only with a verified signature.
+    /// A stamp counts only with a signature that verifies against the
+    /// `kovan_root.toml` registry (#762). The normal setting.
     Enforce,
-    /// #762 has not landed: signatures are not checked; every other
-    /// authenticity rule still applies.
-    AwaitingCrypto,
+    /// Signatures are not checked; every other authenticity rule (git
+    /// facts, trailer, time-bound, registered and unrevoked reviewer) still
+    /// applies. ~~`AwaitingCrypto`, until #762 lands~~ **CORRECTED
+    /// 2026-10-07**: #762 has landed; this is for tools and tests that judge
+    /// staleness alone, and its results must not be shown as reviewed.
+    NotChecked,
 }
 
 /// Where a function is.
@@ -193,6 +198,12 @@ pub enum UnverifiedReason {
     /// Dated on or after the key's compromise date.
     Compromised,
     Signature(SigReason),
+}
+
+/// Why a review does not count before its content is looked at.
+enum Denial {
+    Unverified(UnverifiedReason),
+    OutsideScope,
 }
 
 /// The reaching-test verdict for one function.
@@ -473,8 +484,28 @@ fn authenticity(
     r: &ReviewEntry,
     root: &ReviewRoot,
     git: &GitFacts,
-    policy: SignaturePolicy,
-) -> Option<UnverifiedReason> {
+    registry: Option<&Registry>,
+) -> Option<Denial> {
+    authenticity_git(r, root, git)
+        .map(Denial::Unverified)
+        .or_else(|| registry.and_then(|reg| signature(r, reg)))
+}
+
+/// The #762 signature check, mapped onto the engine's states.
+fn signature(r: &ReviewEntry, registry: &Registry) -> Option<Denial> {
+    match verify_review(r, registry) {
+        SignatureCheck::Verified(_) => None,
+        SignatureCheck::Unverified(why) => Some(match why {
+            SigReason::OutsideScope { .. } => Denial::OutsideScope,
+            SigReason::Revoked { .. } => Denial::Unverified(UnverifiedReason::Revoked),
+            SigReason::Compromised { .. } => Denial::Unverified(UnverifiedReason::Compromised),
+            SigReason::UnknownReviewer(_) => Denial::Unverified(UnverifiedReason::UnknownReviewer),
+            other => Denial::Unverified(UnverifiedReason::Signature(other)),
+        }),
+    }
+}
+
+fn authenticity_git(r: &ReviewEntry, root: &ReviewRoot, git: &GitFacts) -> Option<UnverifiedReason> {
     let b = &r.review;
     let key = ReviewKey {
         function: r.function_id(),
@@ -508,23 +539,19 @@ fn authenticity(
             return Some(UnverifiedReason::Revoked);
         }
     }
-    if policy == SignaturePolicy::Enforce {
-        match verify_review(r) {
-            SignatureCheck::Unverified(why) => return Some(UnverifiedReason::Signature(why)),
-        }
-    }
     None
 }
 
-/// The rung a review counts at, and whether rung 4 was capped to 3.
+/// The rung a review counts at, and whether rung 4 was capped to 3: rung 4
+/// counts only when the wizard's gate opens it (#769 `stamp_gate`:
+/// `vv_evidence` is a reference/code-to-code or analytical comparison and
+/// no answer closes it). ~~Gated on checklist `q8`~~ **CORRECTED
+/// 2026-10-07**: `q8` was #764's placeholder; the wizard refuses it, so a
+/// review that still carries it counts at rung 3.
 pub fn effective_rung(r: &ReviewEntry) -> (u8, bool) {
     let b = &r.review;
     if b.rung == 4 {
-        let ok = b
-            .checklist
-            .get("q8")
-            .is_some_and(|a| RUNG4_Q8_ANSWERS.contains(&a.as_str()));
-        if ok {
+        if stamp_gate(&b.checklist, Applicability::default()).rung4_allowed {
             (4, false)
         } else {
             (3, true)
@@ -562,6 +589,7 @@ pub fn evaluate(
         .filter(|f| current.contains_key(f.as_str()))
         .collect();
 
+    let registry = (policy == SignaturePolicy::Enforce).then(|| Registry::build(root));
     let mut ev = Evaluation::default();
     let mut per_fn: BTreeMap<String, Vec<ReviewReport>> = BTreeMap::new();
     let mut deleted: BTreeMap<String, (Vec<ReviewReport>, &FolderReviews, Vec<&ReviewEntry>)> =
@@ -617,7 +645,7 @@ pub fn evaluate(
             }
             let here = cur.location();
             let tests = test_verdict(cur.f, cur.index.test_run.as_ref(), git);
-            report.state = judge(r, cur, &here, &candidates, matched, tests, &current, root, git, policy);
+            report.state = judge(r, cur, &here, &candidates, matched, tests, &current, root, git, registry.as_ref());
             per_fn.entry(cur.f.id.clone()).or_default().push(report);
         }
         // Unreadable entries are no review; attach them where they point.
@@ -798,12 +826,14 @@ fn judge(
     current: &BTreeMap<&str, Current>,
     root: &ReviewRoot,
     git: &GitFacts,
-    policy: SignaturePolicy,
+    registry: Option<&Registry>,
 ) -> StampState {
     let b = &r.review;
     // 2. Authenticity.
-    if let Some(why) = authenticity(r, root, git, policy) {
-        return StampState::Unverified(why);
+    match authenticity(r, root, git, registry) {
+        Some(Denial::Unverified(why)) => return StampState::Unverified(why),
+        Some(Denial::OutsideScope) => return StampState::OutsideScope,
+        None => {}
     }
     // 3. Scope.
     if let Some(rv) = root.reviewer(&b.by) {

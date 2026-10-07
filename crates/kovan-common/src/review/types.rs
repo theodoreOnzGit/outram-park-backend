@@ -30,6 +30,9 @@ pub enum FieldError {
     BadTarget(String),
     /// `field` is not an ISO date `YYYY-MM-DD` (Q9, #764, 2026-10-07).
     BadDate { field: String, value: String },
+    /// The checklist's `rung` answer and `[review] rung` disagree: the
+    /// review is invalid (shown, never counted; #769, 2026-10-07).
+    RungMismatch { recorded: u8, answered: String },
 }
 
 impl std::fmt::Display for FieldError {
@@ -49,6 +52,10 @@ impl std::fmt::Display for FieldError {
             Self::TooShort { field } => write!(f, "{field} needs at least 2 characters"),
             Self::UnpinnedUrl(e) => write!(f, "{e}"),
             Self::BadTarget(t) => write!(f, "function reference {t:?}: need target = \"fn:<id>\" and path = \"<file>.rs::<item>\""),
+            Self::RungMismatch { recorded, answered } => write!(
+                f,
+                "rung = {recorded} but the checklist answers rung = {answered:?}"
+            ),
             Self::BadDate { field, value } => write!(f, "{field} = {value:?} is not an ISO date YYYY-MM-DD"),
         }
     }
