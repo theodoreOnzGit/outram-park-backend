@@ -388,131 +388,131 @@ Call chain from `htr10_fuel_zone_kinf.rs::main` to `flight.rs::classify_collisio
     // … (the rest of the function: follow the link above)
 ```
 
-**2.** → [`keff_delta.rs::run_keff_delta`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/pebble_beds/keff_delta.rs#L592) · called at [L383](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/examples/htr10_fuel_zone_kinf.rs#L383) — Cube shorthand for `run_keff_delta_in` — a reflective cube of half-width `half_width` \[cm\].
+**2.** → [`keff_delta.rs::run_keff_delta`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/pebble_beds/keff_delta.rs#L596) · called at [L383](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/examples/htr10_fuel_zone_kinf.rs#L383) — Cube shorthand for `run_keff_delta_in` — a reflective cube of half-width `half_width` \[cm\].
 
-<!-- snippet-check: crates/outram-mc-libs/src/pebble_beds/keff_delta.rs:592 fn run_keff_delta -->
-<!-- snippet-check: crates/outram-mc-libs/src/pebble_beds/keff_delta.rs:603 run_keff_delta_in -->
+<!-- snippet-check: crates/outram-mc-libs/src/pebble_beds/keff_delta.rs:596 fn run_keff_delta -->
+<!-- snippet-check: crates/outram-mc-libs/src/pebble_beds/keff_delta.rs:607 run_keff_delta_in -->
 
 ```rust,ignore
-{{#include ../../../../../crates/outram-mc-libs/src/pebble_beds/keff_delta.rs:592:604}}
+{{#include ../../../../../crates/outram-mc-libs/src/pebble_beds/keff_delta.rs:596:608}}
     // … (the rest of the function: follow the link above)
 ```
 
-**3.** → [`keff_delta.rs::run_keff_delta_in`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/pebble_beds/keff_delta.rs#L655) · called at [L603](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/pebble_beds/keff_delta.rs#L603) — Run fission-source power iteration over a `DeltaDomain` filled with a two-(or-more-)material dispersion medium, transporting each history by delta (Woodcock) tracking.
+**3.** → [`keff_delta.rs::run_keff_delta_in`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/pebble_beds/keff_delta.rs#L659) · called at [L607](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/pebble_beds/keff_delta.rs#L607) — Run fission-source power iteration over a `DeltaDomain` filled with a two-(or-more-)material dispersion medium, transporting each history by delta (Woodcock) tracking.
 
-<!-- snippet-check: crates/outram-mc-libs/src/pebble_beds/keff_delta.rs:655 fn run_keff_delta_in -->
-<!-- snippet-check: crates/outram-mc-libs/src/pebble_beds/keff_delta.rs:668 run_keff_delta_seq_in -->
-<!-- snippet-check: crates/outram-mc-libs/src/pebble_beds/keff_delta.rs:670 run_keff_delta_par_in -->
+<!-- snippet-check: crates/outram-mc-libs/src/pebble_beds/keff_delta.rs:659 fn run_keff_delta_in -->
+<!-- snippet-check: crates/outram-mc-libs/src/pebble_beds/keff_delta.rs:672 run_keff_delta_seq_in -->
+<!-- snippet-check: crates/outram-mc-libs/src/pebble_beds/keff_delta.rs:674 run_keff_delta_par_in -->
 
 ```rust,ignore
-{{#include ../../../../../crates/outram-mc-libs/src/pebble_beds/keff_delta.rs:655:671}}
+{{#include ../../../../../crates/outram-mc-libs/src/pebble_beds/keff_delta.rs:659:675}}
     // … (the rest of the function: follow the link above)
 ```
 
-**4.** → [`keff_delta.rs::run_keff_delta_seq_in`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/pebble_beds/keff_delta.rs#L707) · called at [L668](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/pebble_beds/keff_delta.rs#L668) — Scalar, single-thread delta-tracked power iteration — the **trusted, deterministic, bit-reproducible reference** backend (`ComputeType::CpuSingleThread`).
+**4.** → [`keff_delta.rs::run_keff_delta_seq_in`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/pebble_beds/keff_delta.rs#L711) · called at [L672](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/pebble_beds/keff_delta.rs#L672) — Scalar, single-thread delta-tracked power iteration — the **trusted, deterministic, bit-reproducible reference** backend (`ComputeType::CpuSingleThread`).
 
-<!-- snippet-check: crates/outram-mc-libs/src/pebble_beds/keff_delta.rs:707 fn run_keff_delta_seq_in -->
-<!-- snippet-check: crates/outram-mc-libs/src/pebble_beds/keff_delta.rs:732 transport_history -->
+<!-- snippet-check: crates/outram-mc-libs/src/pebble_beds/keff_delta.rs:711 fn run_keff_delta_seq_in -->
+<!-- snippet-check: crates/outram-mc-libs/src/pebble_beds/keff_delta.rs:736 transport_history -->
 
 ```rust,ignore
-{{#include ../../../../../crates/outram-mc-libs/src/pebble_beds/keff_delta.rs:707:733}}
+{{#include ../../../../../crates/outram-mc-libs/src/pebble_beds/keff_delta.rs:711:737}}
     // … (the rest of the function: follow the link above)
 ```
 
-**10.** → [`keff_delta.rs::transport_history`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/pebble_beds/keff_delta.rs#L1005) · called at [L732](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/pebble_beds/keff_delta.rs#L732) — Transport one source neutron (plus its same-generation `(n,2n)` secondaries) to death by delta tracking, banking fission neutrons.
+**10.** → [`keff_delta.rs::transport_history`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/pebble_beds/keff_delta.rs#L1072) · called at [L736](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/pebble_beds/keff_delta.rs#L736) — Transport one source neutron (plus its same-generation `(n,2n)` secondaries) to death by delta tracking, banking fission neutrons.
 
-<!-- snippet-check: crates/outram-mc-libs/src/pebble_beds/keff_delta.rs:1005 fn transport_history -->
-<!-- snippet-check: crates/outram-mc-libs/src/pebble_beds/keff_delta.rs:1049 delta_flight -->
+<!-- snippet-check: crates/outram-mc-libs/src/pebble_beds/keff_delta.rs:1072 fn transport_history -->
+<!-- snippet-check: crates/outram-mc-libs/src/pebble_beds/keff_delta.rs:1136 delta_flight -->
 
 ```rust,ignore
-{{#include ../../../../../crates/outram-mc-libs/src/pebble_beds/keff_delta.rs:1005:1012}}
+{{#include ../../../../../crates/outram-mc-libs/src/pebble_beds/keff_delta.rs:1072:1079}}
     // …
-{{#include ../../../../../crates/outram-mc-libs/src/pebble_beds/keff_delta.rs:1047:1050}}
+{{#include ../../../../../crates/outram-mc-libs/src/pebble_beds/keff_delta.rs:1134:1137}}
     // … (the rest of the function: follow the link above)
 ```
 
-**11.** → [`keff_delta.rs::delta_flight`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/pebble_beds/keff_delta.rs#L538) · called at [L1049](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/pebble_beds/keff_delta.rs#L1049) — Fly a neutron to its next **real** collision inside `domain` by delta tracking (`crate::physics::delta_tracking::flight::fly`), returning the collision position, the material there, and the direction it arrived along.
+**11.** → [`keff_delta.rs::delta_flight`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/pebble_beds/keff_delta.rs#L540) · called at [L1136](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/pebble_beds/keff_delta.rs#L1136) — Fly a neutron to its next **real** collision inside `domain` by delta tracking (`crate::physics::delta_tracking::flight::fly`), returning the collision position, the material there, and the direction it arrived along.
 
-<!-- snippet-check: crates/outram-mc-libs/src/pebble_beds/keff_delta.rs:538 fn delta_flight -->
-<!-- snippet-check: crates/outram-mc-libs/src/pebble_beds/keff_delta.rs:560 fly -->
+<!-- snippet-check: crates/outram-mc-libs/src/pebble_beds/keff_delta.rs:540 fn delta_flight -->
+<!-- snippet-check: crates/outram-mc-libs/src/pebble_beds/keff_delta.rs:564 fly_traced -->
 
 ```rust,ignore
-{{#include ../../../../../crates/outram-mc-libs/src/pebble_beds/keff_delta.rs:538:561}}
+{{#include ../../../../../crates/outram-mc-libs/src/pebble_beds/keff_delta.rs:540:565}}
     // … (the rest of the function: follow the link above)
 ```
 
-**12.** → [`flight.rs::fly`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/physics/delta_tracking/flight.rs#L376) · called at [L560](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/pebble_beds/keff_delta.rs#L560) — **The delta-tracking flight loop** (Woodcock et al.
+**12.** → [`flight.rs::fly_traced`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/physics/delta_tracking/flight.rs#L432) · called at [L564](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/pebble_beds/keff_delta.rs#L564) — `fly` reporting every step to `observe` (gh:#784): each flight sampled on the majorant (`TraceEvent::Flight`, with its variate), and each tentative site once it is classified (`TraceEvent::Tentative`, with the accept/reject variate and the verdict).
 
-<!-- snippet-check: crates/outram-mc-libs/src/physics/delta_tracking/flight.rs:376 fn fly -->
-<!-- snippet-check: crates/outram-mc-libs/src/physics/delta_tracking/flight.rs:446 classify_collision -->
+<!-- snippet-check: crates/outram-mc-libs/src/physics/delta_tracking/flight.rs:432 fn fly_traced -->
+<!-- snippet-check: crates/outram-mc-libs/src/physics/delta_tracking/flight.rs:526 classify_collision -->
 
 ```rust,ignore
-{{#include ../../../../../crates/outram-mc-libs/src/physics/delta_tracking/flight.rs:376:383}}
+{{#include ../../../../../crates/outram-mc-libs/src/physics/delta_tracking/flight.rs:432:439}}
     // …
-{{#include ../../../../../crates/outram-mc-libs/src/physics/delta_tracking/flight.rs:444:447}}
+{{#include ../../../../../crates/outram-mc-libs/src/physics/delta_tracking/flight.rs:524:527}}
     // … (the rest of the function: follow the link above)
 ```
 
-**13.** → [`flight.rs::classify_collision`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/physics/delta_tracking/flight.rs#L54) · called at [L446](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/physics/delta_tracking/flight.rs#L446) — Decide whether a delta-tracking collision is real or virtual by rejection on the ratio `Σ_t(local)/Σ_maj`.
+**13.** → [`flight.rs::classify_collision`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/physics/delta_tracking/flight.rs#L55) · called at [L526](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/physics/delta_tracking/flight.rs#L526) — Decide whether a delta-tracking collision is real or virtual by rejection on the ratio `Σ_t(local)/Σ_maj`.
 
-<!-- snippet-check: crates/outram-mc-libs/src/physics/delta_tracking/flight.rs:54 fn classify_collision -->
+<!-- snippet-check: crates/outram-mc-libs/src/physics/delta_tracking/flight.rs:55 fn classify_collision -->
 
 ```rust,ignore
-{{#include ../../../../../crates/outram-mc-libs/src/physics/delta_tracking/flight.rs:54:64}}
+{{#include ../../../../../crates/outram-mc-libs/src/physics/delta_tracking/flight.rs:55:65}}
 ```
 
-**9.** (from step 3) → [`keff_delta.rs::run_keff_delta_par_in`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/pebble_beds/keff_delta.rs#L895) · called at [L670](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/pebble_beds/keff_delta.rs#L670) — Rayon-parallel delta-tracked power iteration (`ComputeType::CpuMultiThread`).
+**9.** (from step 3) → [`keff_delta.rs::run_keff_delta_par_in`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/pebble_beds/keff_delta.rs#L961) · called at [L674](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/pebble_beds/keff_delta.rs#L674) — Rayon-parallel delta-tracked power iteration (`ComputeType::CpuMultiThread`).
 
-<!-- snippet-check: crates/outram-mc-libs/src/pebble_beds/keff_delta.rs:895 fn run_keff_delta_par_in -->
-<!-- snippet-check: crates/outram-mc-libs/src/pebble_beds/keff_delta.rs:955 transport_history -->
+<!-- snippet-check: crates/outram-mc-libs/src/pebble_beds/keff_delta.rs:961 fn run_keff_delta_par_in -->
+<!-- snippet-check: crates/outram-mc-libs/src/pebble_beds/keff_delta.rs:1021 transport_history -->
 
 ```rust,ignore
-{{#include ../../../../../crates/outram-mc-libs/src/pebble_beds/keff_delta.rs:895:902}}
+{{#include ../../../../../crates/outram-mc-libs/src/pebble_beds/keff_delta.rs:961:968}}
     // …
-{{#include ../../../../../crates/outram-mc-libs/src/pebble_beds/keff_delta.rs:953:956}}
+{{#include ../../../../../crates/outram-mc-libs/src/pebble_beds/keff_delta.rs:1019:1022}}
     // … (the rest of the function: follow the link above)
 ```
 
-**10.** → [`keff_delta.rs::transport_history`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/pebble_beds/keff_delta.rs#L1005) · called at [L955](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/pebble_beds/keff_delta.rs#L955) — Transport one source neutron (plus its same-generation `(n,2n)` secondaries) to death by delta tracking, banking fission neutrons.
+**10.** → [`keff_delta.rs::transport_history`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/pebble_beds/keff_delta.rs#L1072) · called at [L1021](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/pebble_beds/keff_delta.rs#L1021) — Transport one source neutron (plus its same-generation `(n,2n)` secondaries) to death by delta tracking, banking fission neutrons.
 
-<!-- snippet-check: crates/outram-mc-libs/src/pebble_beds/keff_delta.rs:1005 fn transport_history -->
-<!-- snippet-check: crates/outram-mc-libs/src/pebble_beds/keff_delta.rs:1049 delta_flight -->
+<!-- snippet-check: crates/outram-mc-libs/src/pebble_beds/keff_delta.rs:1072 fn transport_history -->
+<!-- snippet-check: crates/outram-mc-libs/src/pebble_beds/keff_delta.rs:1136 delta_flight -->
 
 ```rust,ignore
-{{#include ../../../../../crates/outram-mc-libs/src/pebble_beds/keff_delta.rs:1005:1012}}
+{{#include ../../../../../crates/outram-mc-libs/src/pebble_beds/keff_delta.rs:1072:1079}}
     // …
-{{#include ../../../../../crates/outram-mc-libs/src/pebble_beds/keff_delta.rs:1047:1050}}
+{{#include ../../../../../crates/outram-mc-libs/src/pebble_beds/keff_delta.rs:1134:1137}}
     // … (the rest of the function: follow the link above)
 ```
 
-**11.** → [`keff_delta.rs::delta_flight`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/pebble_beds/keff_delta.rs#L538) · called at [L1049](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/pebble_beds/keff_delta.rs#L1049) — Fly a neutron to its next **real** collision inside `domain` by delta tracking (`crate::physics::delta_tracking::flight::fly`), returning the collision position, the material there, and the direction it arrived along.
+**11.** → [`keff_delta.rs::delta_flight`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/pebble_beds/keff_delta.rs#L540) · called at [L1136](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/pebble_beds/keff_delta.rs#L1136) — Fly a neutron to its next **real** collision inside `domain` by delta tracking (`crate::physics::delta_tracking::flight::fly`), returning the collision position, the material there, and the direction it arrived along.
 
-<!-- snippet-check: crates/outram-mc-libs/src/pebble_beds/keff_delta.rs:538 fn delta_flight -->
-<!-- snippet-check: crates/outram-mc-libs/src/pebble_beds/keff_delta.rs:560 fly -->
+<!-- snippet-check: crates/outram-mc-libs/src/pebble_beds/keff_delta.rs:540 fn delta_flight -->
+<!-- snippet-check: crates/outram-mc-libs/src/pebble_beds/keff_delta.rs:564 fly_traced -->
 
 ```rust,ignore
-{{#include ../../../../../crates/outram-mc-libs/src/pebble_beds/keff_delta.rs:538:561}}
+{{#include ../../../../../crates/outram-mc-libs/src/pebble_beds/keff_delta.rs:540:565}}
     // … (the rest of the function: follow the link above)
 ```
 
-**12.** → [`flight.rs::fly`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/physics/delta_tracking/flight.rs#L376) · called at [L560](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/pebble_beds/keff_delta.rs#L560) — **The delta-tracking flight loop** (Woodcock et al.
+**12.** → [`flight.rs::fly_traced`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/physics/delta_tracking/flight.rs#L432) · called at [L564](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/pebble_beds/keff_delta.rs#L564) — `fly` reporting every step to `observe` (gh:#784): each flight sampled on the majorant (`TraceEvent::Flight`, with its variate), and each tentative site once it is classified (`TraceEvent::Tentative`, with the accept/reject variate and the verdict).
 
-<!-- snippet-check: crates/outram-mc-libs/src/physics/delta_tracking/flight.rs:376 fn fly -->
-<!-- snippet-check: crates/outram-mc-libs/src/physics/delta_tracking/flight.rs:446 classify_collision -->
+<!-- snippet-check: crates/outram-mc-libs/src/physics/delta_tracking/flight.rs:432 fn fly_traced -->
+<!-- snippet-check: crates/outram-mc-libs/src/physics/delta_tracking/flight.rs:526 classify_collision -->
 
 ```rust,ignore
-{{#include ../../../../../crates/outram-mc-libs/src/physics/delta_tracking/flight.rs:376:383}}
+{{#include ../../../../../crates/outram-mc-libs/src/physics/delta_tracking/flight.rs:432:439}}
     // …
-{{#include ../../../../../crates/outram-mc-libs/src/physics/delta_tracking/flight.rs:444:447}}
+{{#include ../../../../../crates/outram-mc-libs/src/physics/delta_tracking/flight.rs:524:527}}
     // … (the rest of the function: follow the link above)
 ```
 
-**13.** → [`flight.rs::classify_collision`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/physics/delta_tracking/flight.rs#L54) · called at [L446](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/physics/delta_tracking/flight.rs#L446) — Decide whether a delta-tracking collision is real or virtual by rejection on the ratio `Σ_t(local)/Σ_maj`.
+**13.** → [`flight.rs::classify_collision`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/physics/delta_tracking/flight.rs#L55) · called at [L526](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/physics/delta_tracking/flight.rs#L526) — Decide whether a delta-tracking collision is real or virtual by rejection on the ratio `Σ_t(local)/Σ_maj`.
 
-<!-- snippet-check: crates/outram-mc-libs/src/physics/delta_tracking/flight.rs:54 fn classify_collision -->
+<!-- snippet-check: crates/outram-mc-libs/src/physics/delta_tracking/flight.rs:55 fn classify_collision -->
 
 ```rust,ignore
-{{#include ../../../../../crates/outram-mc-libs/src/physics/delta_tracking/flight.rs:54:64}}
+{{#include ../../../../../crates/outram-mc-libs/src/physics/delta_tracking/flight.rs:55:65}}
 ```
 
 Unresolved calls inside the functions on this chain:
@@ -523,15 +523,27 @@ Unresolved calls inside the functions on this chain:
   - UNRESOLVED(closure): `arg` at [L346](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/examples/htr10_fuel_zone_kinf.rs#L346) (→ [`crates/outram-mc-libs/examples/htr10_fuel_zone_kinf.rs:332`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/examples/htr10_fuel_zone_kinf.rs#L332)) — call through a closure or fn-typed binding `arg`
   - UNRESOLVED(closure): `majorant_for` at [L373](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/examples/htr10_fuel_zone_kinf.rs#L373) (→ [`crates/outram-mc-libs/examples/htr10_fuel_zone_kinf.rs:363`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/examples/htr10_fuel_zone_kinf.rs#L363)) — call through a closure or fn-typed binding `majorant_for`
   - UNRESOLVED(closure): `majorant_for` at [L400](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/examples/htr10_fuel_zone_kinf.rs#L400) (→ [`crates/outram-mc-libs/examples/htr10_fuel_zone_kinf.rs:363`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/examples/htr10_fuel_zone_kinf.rs#L363)) — call through a closure or fn-typed binding `majorant_for`
-- in [`keff_delta.rs::transport_history`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/pebble_beds/keff_delta.rs#L1005):
-  - UNRESOLVED(trait): `begin_history` at [L1023](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/pebble_beds/keff_delta.rs#L1023) (→ [`crates/outram-mc-libs/src/pebble_beds/keff_delta.rs:137`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/pebble_beds/keff_delta.rs#L137)) — trait method `MaterialQuery::begin_history`; the implementor is chosen by type, not followed
-- in [`keff_delta.rs::delta_flight`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/pebble_beds/keff_delta.rs#L538):
-  - UNRESOLVED(trait): `material_at` at [L556](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/pebble_beds/keff_delta.rs#L556) (→ [`crates/outram-mc-libs/src/pebble_beds/keff_delta.rs:131`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/pebble_beds/keff_delta.rs#L131)) — trait method `MaterialQuery::material_at`; the implementor is chosen by type, not followed
-- in [`flight.rs::fly`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/physics/delta_tracking/flight.rs#L376):
-  - UNRESOLVED(trait): `advance` at [L403](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/physics/delta_tracking/flight.rs#L403) (→ [`crates/outram-mc-libs/src/physics/delta_tracking/flight.rs:230`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/physics/delta_tracking/flight.rs#L230)) — trait method `DeltaRegion::advance`; the implementor is chosen by type, not followed
-  - UNRESOLVED(trait): `content` at [L419](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/physics/delta_tracking/flight.rs#L419) (→ [`crates/outram-mc-libs/src/physics/delta_tracking/flight.rs:232`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/physics/delta_tracking/flight.rs#L232)) — trait method `DeltaRegion::content`; the implementor is chosen by type, not followed
-  - UNRESOLVED(closure): `visit` at [L422](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/physics/delta_tracking/flight.rs#L422) (→ [`crates/outram-mc-libs/src/physics/delta_tracking/flight.rs:387`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/physics/delta_tracking/flight.rs#L387)) — call through a closure or fn-typed binding `visit`
-  - UNRESOLVED(closure): `visit` at [L440](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/physics/delta_tracking/flight.rs#L440) (→ [`crates/outram-mc-libs/src/physics/delta_tracking/flight.rs:387`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/physics/delta_tracking/flight.rs#L387)) — call through a closure or fn-typed binding `visit`
+- in [`keff_delta.rs::transport_history`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/pebble_beds/keff_delta.rs#L1072):
+  - UNRESOLVED(trait): `begin_history` at [L1094](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/pebble_beds/keff_delta.rs#L1094) (→ [`crates/outram-mc-libs/src/pebble_beds/keff_delta.rs:139`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/pebble_beds/keff_delta.rs#L139)) — trait method `MaterialQuery::begin_history`; the implementor is chosen by type, not followed
+  - UNRESOLVED(closure): `observe` at [L1109](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/pebble_beds/keff_delta.rs#L1109) (→ [`crates/outram-mc-libs/src/pebble_beds/keff_delta.rs:1084`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/pebble_beds/keff_delta.rs#L1084)) — call through a closure or fn-typed binding `observe`
+  - UNRESOLVED(no-definition): `observe` at [L1113](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/pebble_beds/keff_delta.rs#L1113) — rust-analyzer returned no definition
+  - UNRESOLVED(no-definition): `State` at [L1113](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/pebble_beds/keff_delta.rs#L1113) — rust-analyzer returned no definition
+  - UNRESOLVED(macro): `outcome!` at [L1152](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/pebble_beds/keff_delta.rs#L1152) (→ [`crates/outram-mc-libs/src/pebble_beds/keff_delta.rs:1111`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/pebble_beds/keff_delta.rs#L1111)) — workspace macro; its expansion is not followed
+  - UNRESOLVED(closure): `observe` at [L1175](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/pebble_beds/keff_delta.rs#L1175) (→ [`crates/outram-mc-libs/src/pebble_beds/keff_delta.rs:1084`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/pebble_beds/keff_delta.rs#L1084)) — call through a closure or fn-typed binding `observe`
+  - UNRESOLVED(macro): `outcome!` at [L1209](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/pebble_beds/keff_delta.rs#L1209) (→ [`crates/outram-mc-libs/src/pebble_beds/keff_delta.rs:1111`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/pebble_beds/keff_delta.rs#L1111)) — workspace macro; its expansion is not followed
+  - UNRESOLVED(macro): `outcome!` at [L1212](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/pebble_beds/keff_delta.rs#L1212) (→ [`crates/outram-mc-libs/src/pebble_beds/keff_delta.rs:1111`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/pebble_beds/keff_delta.rs#L1111)) — workspace macro; its expansion is not followed
+  - UNRESOLVED(macro): `outcome!` at [L1308](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/pebble_beds/keff_delta.rs#L1308) (→ [`crates/outram-mc-libs/src/pebble_beds/keff_delta.rs:1111`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/pebble_beds/keff_delta.rs#L1111)) — workspace macro; its expansion is not followed
+  - UNRESOLVED(macro): `outcome!` at [L1320](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/pebble_beds/keff_delta.rs#L1320) (→ [`crates/outram-mc-libs/src/pebble_beds/keff_delta.rs:1111`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/pebble_beds/keff_delta.rs#L1111)) — workspace macro; its expansion is not followed
+  - UNRESOLVED(macro): `outcome!` at [L1368](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/pebble_beds/keff_delta.rs#L1368) (→ [`crates/outram-mc-libs/src/pebble_beds/keff_delta.rs:1111`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/pebble_beds/keff_delta.rs#L1111)) — workspace macro; its expansion is not followed
+- in [`keff_delta.rs::delta_flight`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/pebble_beds/keff_delta.rs#L540):
+  - UNRESOLVED(trait): `material_at` at [L560](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/pebble_beds/keff_delta.rs#L560) (→ [`crates/outram-mc-libs/src/pebble_beds/keff_delta.rs:133`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/pebble_beds/keff_delta.rs#L133)) — trait method `MaterialQuery::material_at`; the implementor is chosen by type, not followed
+- in [`flight.rs::fly_traced`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/physics/delta_tracking/flight.rs#L432):
+  - UNRESOLVED(trait): `advance` at [L464](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/physics/delta_tracking/flight.rs#L464) (→ [`crates/outram-mc-libs/src/physics/delta_tracking/flight.rs:231`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/physics/delta_tracking/flight.rs#L231)) — trait method `DeltaRegion::advance`; the implementor is chosen by type, not followed
+  - UNRESOLVED(closure): `observe` at [L466](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/physics/delta_tracking/flight.rs#L466) (→ [`crates/outram-mc-libs/src/physics/delta_tracking/flight.rs:443`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/physics/delta_tracking/flight.rs#L443)) — call through a closure or fn-typed binding `observe`
+  - UNRESOLVED(closure): `observe` at [L489](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/physics/delta_tracking/flight.rs#L489) (→ [`crates/outram-mc-libs/src/physics/delta_tracking/flight.rs:443`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/physics/delta_tracking/flight.rs#L443)) — call through a closure or fn-typed binding `observe`
+  - UNRESOLVED(trait): `content` at [L498](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/physics/delta_tracking/flight.rs#L498) (→ [`crates/outram-mc-libs/src/physics/delta_tracking/flight.rs:233`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/physics/delta_tracking/flight.rs#L233)) — trait method `DeltaRegion::content`; the implementor is chosen by type, not followed
+  - UNRESOLVED(closure): `observe` at [L501](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/physics/delta_tracking/flight.rs#L501) (→ [`crates/outram-mc-libs/src/physics/delta_tracking/flight.rs:443`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/physics/delta_tracking/flight.rs#L443)) — call through a closure or fn-typed binding `observe`
+  - UNRESOLVED(closure): `observe` at [L527](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/physics/delta_tracking/flight.rs#L527) (→ [`crates/outram-mc-libs/src/physics/delta_tracking/flight.rs:443`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/physics/delta_tracking/flight.rs#L443)) — call through a closure or fn-typed binding `observe`
 <!-- /code-walk -->
 
 </div>
@@ -643,12 +655,12 @@ Call chain from `dh_keff_vv.rs::main` to `keff_delta.rs::run_keff_delta_in`: 2 h
     // … (the rest of the function: follow the link above)
 ```
 
-**3.** → [`keff_delta.rs::run_keff_delta_in`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/pebble_beds/keff_delta.rs#L655) · called at [L1491](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/dh_universe.rs#L1491) — Run fission-source power iteration over a `DeltaDomain` filled with a two-(or-more-)material dispersion medium, transporting each history by delta (Woodcock) tracking.
+**3.** → [`keff_delta.rs::run_keff_delta_in`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/pebble_beds/keff_delta.rs#L659) · called at [L1491](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/dh_universe.rs#L1491) — Run fission-source power iteration over a `DeltaDomain` filled with a two-(or-more-)material dispersion medium, transporting each history by delta (Woodcock) tracking.
 
-<!-- snippet-check: crates/outram-mc-libs/src/pebble_beds/keff_delta.rs:655 fn run_keff_delta_in -->
+<!-- snippet-check: crates/outram-mc-libs/src/pebble_beds/keff_delta.rs:659 fn run_keff_delta_in -->
 
 ```rust,ignore
-{{#include ../../../../../crates/outram-mc-libs/src/pebble_beds/keff_delta.rs:655:694}}
+{{#include ../../../../../crates/outram-mc-libs/src/pebble_beds/keff_delta.rs:659:698}}
     // … (the rest of the function: follow the link above)
 ```
 
@@ -1850,18 +1862,18 @@ UNRESOLVED(closure): `arg` at [L346](https://github.com/theodoreOnzGit/outram-pa
 
 <div class="cw-node" style="margin-left:1.8em">
 
-[`majorant.rs::sampled_envelope`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/physics/delta_tracking/majorant.rs#L592) `fn sampled_envelope(materials: &[Material], nuclides: &[Nuclide], e_min: f64, e_max: f64, n_bins: usize, subsamples: usize) -> (Majorant, Vec<f64>)` — The sampled bin envelope shared by `Majorant::bounding` (as its floor) and `Majorant::bounding_without_breakpoints`: `n_bins` log bins over `[e_min, e_max]`, `Σ_t` sampled at `subsamples` points per bin, and the bin maximum written to both bin edges. · called at [L376](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/physics/delta_tracking/majorant.rs#L376)
+[`majorant.rs::sampled_envelope`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/physics/delta_tracking/majorant.rs#L608) `fn sampled_envelope(materials: &[Material], nuclides: &[Nuclide], e_min: f64, e_max: f64, n_bins: usize, subsamples: usize) -> (Majorant, Vec<f64>)` — The sampled bin envelope shared by `Majorant::bounding` (as its floor) and `Majorant::bounding_without_breakpoints`: `n_bins` log bins over `[e_min, e_max]`, `Σ_t` sampled at `subsamples` points per bin, and the bin maximum written to both bin edges. · called at [L376](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/physics/delta_tracking/majorant.rs#L376)
 
 <details><summary>code</summary>
 
-<!-- snippet-check: crates/outram-mc-libs/src/physics/delta_tracking/majorant.rs:592 fn sampled_envelope -->
-<!-- snippet-check: crates/outram-mc-libs/src/physics/delta_tracking/majorant.rs:602 r_ln -->
-<!-- snippet-check: crates/outram-mc-libs/src/physics/delta_tracking/majorant.rs:604 r_exp -->
-<!-- snippet-check: crates/outram-mc-libs/src/physics/delta_tracking/majorant.rs:608 macro_xs_total_upper_bound -->
-<!-- snippet-check: crates/outram-mc-libs/src/physics/delta_tracking/majorant.rs:619 sigma_t_max -->
+<!-- snippet-check: crates/outram-mc-libs/src/physics/delta_tracking/majorant.rs:608 fn sampled_envelope -->
+<!-- snippet-check: crates/outram-mc-libs/src/physics/delta_tracking/majorant.rs:618 r_ln -->
+<!-- snippet-check: crates/outram-mc-libs/src/physics/delta_tracking/majorant.rs:620 r_exp -->
+<!-- snippet-check: crates/outram-mc-libs/src/physics/delta_tracking/majorant.rs:624 macro_xs_total_upper_bound -->
+<!-- snippet-check: crates/outram-mc-libs/src/physics/delta_tracking/majorant.rs:635 sigma_t_max -->
 
 ```rust,ignore
-{{#include ../../../../../crates/outram-mc-libs/src/physics/delta_tracking/majorant.rs:592:620}}
+{{#include ../../../../../crates/outram-mc-libs/src/physics/delta_tracking/majorant.rs:608:636}}
     // … (the rest of the function: follow the link above)
 ```
 
@@ -1870,7 +1882,7 @@ UNRESOLVED(closure): `arg` at [L346](https://github.com/theodoreOnzGit/outram-pa
 
 <div class="cw-node" style="margin-left:2.7em">
 
-[`mathf.rs::f64::r_ln`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/mathf.rs#L110) `fn r_ln(self) -> f64` · called at [L602](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/physics/delta_tracking/majorant.rs#L602) · *(calls below the depth limit not shown)*
+[`mathf.rs::f64::r_ln`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/mathf.rs#L110) `fn r_ln(self) -> f64` · called at [L618](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/physics/delta_tracking/majorant.rs#L618) · *(calls below the depth limit not shown)*
 
 <details><summary>code</summary>
 
@@ -1885,7 +1897,7 @@ UNRESOLVED(closure): `arg` at [L346](https://github.com/theodoreOnzGit/outram-pa
 
 <div class="cw-node" style="margin-left:2.7em">
 
-[`mathf.rs::f64::r_exp`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/mathf.rs#L116) `fn r_exp(self) -> f64` · called at [L604](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/physics/delta_tracking/majorant.rs#L604) · *(calls below the depth limit not shown)*
+[`mathf.rs::f64::r_exp`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/mathf.rs#L116) `fn r_exp(self) -> f64` · called at [L620](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/physics/delta_tracking/majorant.rs#L620) · *(calls below the depth limit not shown)*
 
 <details><summary>code</summary>
 
@@ -1900,7 +1912,7 @@ UNRESOLVED(closure): `arg` at [L346](https://github.com/theodoreOnzGit/outram-pa
 
 <div class="cw-node" style="margin-left:2.7em">
 
-[`material.rs::Material::macro_xs_total_upper_bound`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/material/material.rs#L174) `pub fn macro_xs_total_upper_bound(&self, e: f64, nuclides: &[Nuclide]) -> f64` — An upper bound on Σ_t(E) \[cm⁻¹\] over every URR band, for delta-tracking majorants (GitHub #407). · called at [L608](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/physics/delta_tracking/majorant.rs#L608) · *(calls below the depth limit not shown)*
+[`material.rs::Material::macro_xs_total_upper_bound`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/material/material.rs#L174) `pub fn macro_xs_total_upper_bound(&self, e: f64, nuclides: &[Nuclide]) -> f64` — An upper bound on Σ_t(E) \[cm⁻¹\] over every URR band, for delta-tracking majorants (GitHub #407). · called at [L624](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/physics/delta_tracking/majorant.rs#L624) · *(calls below the depth limit not shown)*
 
 <details><summary>code</summary>
 
@@ -1915,7 +1927,7 @@ UNRESOLVED(closure): `arg` at [L346](https://github.com/theodoreOnzGit/outram-pa
 
 <div class="cw-node" style="margin-left:2.7em">
 
-UNRESOLVED(closure): `sigma_t_max` at [L619](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/physics/delta_tracking/majorant.rs#L619) (→ [`crates/outram-mc-libs/src/physics/delta_tracking/majorant.rs:605`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/physics/delta_tracking/majorant.rs#L605)) — call through a closure or fn-typed binding `sigma_t_max`
+UNRESOLVED(closure): `sigma_t_max` at [L635](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/physics/delta_tracking/majorant.rs#L635) (→ [`crates/outram-mc-libs/src/physics/delta_tracking/majorant.rs:621`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/physics/delta_tracking/majorant.rs#L621)) — call through a closure or fn-typed binding `sigma_t_max`
 
 </div>
 
@@ -1981,14 +1993,14 @@ UNRESOLVED(closure): `sigma_t_max` at [L619](https://github.com/theodoreOnzGit/o
 
 <div class="cw-node" style="margin-left:2.7em">
 
-[`majorant.rs::used_nuclides`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/physics/delta_tracking/majorant.rs#L577) `fn used_nuclides(materials: &[Material]) -> Vec<usize>` — The distinct nuclide indices `materials` refer to, ascending. · called at [L327](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/physics/delta_tracking/majorant.rs#L327) · *(calls below the depth limit not shown)*
+[`majorant.rs::used_nuclides`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/physics/delta_tracking/majorant.rs#L593) `fn used_nuclides(materials: &[Material]) -> Vec<usize>` — The distinct nuclide indices `materials` refer to, ascending. · called at [L327](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/physics/delta_tracking/majorant.rs#L327) · *(calls below the depth limit not shown)*
 
 <details><summary>code</summary>
 
-<!-- snippet-check: crates/outram-mc-libs/src/physics/delta_tracking/majorant.rs:577 fn used_nuclides -->
+<!-- snippet-check: crates/outram-mc-libs/src/physics/delta_tracking/majorant.rs:593 fn used_nuclides -->
 
 ```rust,ignore
-{{#include ../../../../../crates/outram-mc-libs/src/physics/delta_tracking/majorant.rs:577:585}}
+{{#include ../../../../../crates/outram-mc-libs/src/physics/delta_tracking/majorant.rs:593:601}}
 ```
 
 </details>
@@ -2029,14 +2041,14 @@ UNRESOLVED(closure): `sigma_t_max` at [L345](https://github.com/theodoreOnzGit/o
 
 <div class="cw-node" style="margin-left:2.7em">
 
-[`majorant.rs::Majorant::at`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/physics/delta_tracking/majorant.rs#L487) `pub fn at(&self, e: f64) -> f64` — The majorant Σ_maj \[cm⁻¹\] at energy `e` \[eV\] — conservative (takes the larger bracketing grid value so it never under-bounds between points). · called at [L346](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/physics/delta_tracking/majorant.rs#L346) · *(calls below the depth limit not shown)*
+[`majorant.rs::Majorant::at`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/physics/delta_tracking/majorant.rs#L503) `pub fn at(&self, e: f64) -> f64` — The majorant Σ_maj \[cm⁻¹\] at energy `e` \[eV\] — conservative (takes the larger bracketing grid value so it never under-bounds between points). · called at [L346](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/physics/delta_tracking/majorant.rs#L346) · *(calls below the depth limit not shown)*
 
 <details><summary>code</summary>
 
-<!-- snippet-check: crates/outram-mc-libs/src/physics/delta_tracking/majorant.rs:487 fn at -->
+<!-- snippet-check: crates/outram-mc-libs/src/physics/delta_tracking/majorant.rs:503 fn at -->
 
 ```rust,ignore
-{{#include ../../../../../crates/outram-mc-libs/src/physics/delta_tracking/majorant.rs:487:508}}
+{{#include ../../../../../crates/outram-mc-libs/src/physics/delta_tracking/majorant.rs:503:524}}
 ```
 
 </details>
@@ -2154,15 +2166,15 @@ UNRESOLVED(closure): `cell_of` at [L426](https://github.com/theodoreOnzGit/outra
 
 <div class="cw-node" style="margin-left:0.9em">
 
-[`keff_delta.rs::run_keff_delta`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/pebble_beds/keff_delta.rs#L592) `pub fn run_keff_delta<Q>(half_width: f64, materials: &[Material], nuclides: &[Nuclide], majorant: &Majorant, material_at: Q, settings: &KeffSettings) -> KeffResult where Q: MaterialQuery,` — Cube shorthand for `run_keff_delta_in` — a reflective cube of half-width `half_width` \[cm\]. · called at [L383](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/examples/htr10_fuel_zone_kinf.rs#L383)
+[`keff_delta.rs::run_keff_delta`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/pebble_beds/keff_delta.rs#L596) `pub fn run_keff_delta<Q>(half_width: f64, materials: &[Material], nuclides: &[Nuclide], majorant: &Majorant, material_at: Q, settings: &KeffSettings) -> KeffResult where Q: MaterialQuery,` — Cube shorthand for `run_keff_delta_in` — a reflective cube of half-width `half_width` \[cm\]. · called at [L383](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/examples/htr10_fuel_zone_kinf.rs#L383)
 
 <details><summary>code</summary>
 
-<!-- snippet-check: crates/outram-mc-libs/src/pebble_beds/keff_delta.rs:592 fn run_keff_delta -->
-<!-- snippet-check: crates/outram-mc-libs/src/pebble_beds/keff_delta.rs:603 run_keff_delta_in -->
+<!-- snippet-check: crates/outram-mc-libs/src/pebble_beds/keff_delta.rs:596 fn run_keff_delta -->
+<!-- snippet-check: crates/outram-mc-libs/src/pebble_beds/keff_delta.rs:607 run_keff_delta_in -->
 
 ```rust,ignore
-{{#include ../../../../../crates/outram-mc-libs/src/pebble_beds/keff_delta.rs:592:604}}
+{{#include ../../../../../crates/outram-mc-libs/src/pebble_beds/keff_delta.rs:596:608}}
     // … (the rest of the function: follow the link above)
 ```
 
@@ -2171,16 +2183,16 @@ UNRESOLVED(closure): `cell_of` at [L426](https://github.com/theodoreOnzGit/outra
 
 <div class="cw-node" style="margin-left:1.8em">
 
-[`keff_delta.rs::run_keff_delta_in`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/pebble_beds/keff_delta.rs#L655) `pub fn run_keff_delta_in<Q>(domain: DeltaDomain, materials: &[Material], nuclides: &[Nuclide], majorant: &Majorant, material_at: Q, settings: &KeffSettings) -> KeffResult where Q: MaterialQuery,` — Run fission-source power iteration over a `DeltaDomain` filled with a two-(or-more-)material dispersion medium, transporting each history by delta (Woodcock) tracking. · called at [L603](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/pebble_beds/keff_delta.rs#L603)
+[`keff_delta.rs::run_keff_delta_in`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/pebble_beds/keff_delta.rs#L659) `pub fn run_keff_delta_in<Q>(domain: DeltaDomain, materials: &[Material], nuclides: &[Nuclide], majorant: &Majorant, material_at: Q, settings: &KeffSettings) -> KeffResult where Q: MaterialQuery,` — Run fission-source power iteration over a `DeltaDomain` filled with a two-(or-more-)material dispersion medium, transporting each history by delta (Woodcock) tracking. · called at [L607](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/pebble_beds/keff_delta.rs#L607)
 
 <details><summary>code</summary>
 
-<!-- snippet-check: crates/outram-mc-libs/src/pebble_beds/keff_delta.rs:655 fn run_keff_delta_in -->
-<!-- snippet-check: crates/outram-mc-libs/src/pebble_beds/keff_delta.rs:668 run_keff_delta_seq_in -->
-<!-- snippet-check: crates/outram-mc-libs/src/pebble_beds/keff_delta.rs:670 run_keff_delta_par_in -->
+<!-- snippet-check: crates/outram-mc-libs/src/pebble_beds/keff_delta.rs:659 fn run_keff_delta_in -->
+<!-- snippet-check: crates/outram-mc-libs/src/pebble_beds/keff_delta.rs:672 run_keff_delta_seq_in -->
+<!-- snippet-check: crates/outram-mc-libs/src/pebble_beds/keff_delta.rs:674 run_keff_delta_par_in -->
 
 ```rust,ignore
-{{#include ../../../../../crates/outram-mc-libs/src/pebble_beds/keff_delta.rs:655:671}}
+{{#include ../../../../../crates/outram-mc-libs/src/pebble_beds/keff_delta.rs:659:675}}
     // … (the rest of the function: follow the link above)
 ```
 
@@ -2189,14 +2201,14 @@ UNRESOLVED(closure): `cell_of` at [L426](https://github.com/theodoreOnzGit/outra
 
 <div class="cw-node" style="margin-left:2.7em">
 
-[`keff_delta.rs::run_keff_delta_seq_in`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/pebble_beds/keff_delta.rs#L707) `pub fn run_keff_delta_seq_in<Q>(domain: DeltaDomain, materials: &[Material], nuclides: &[Nuclide], majorant: &Majorant, material_at: Q, settings: &KeffSettings) -> KeffResult where Q: MaterialQuery,` — Scalar, single-thread delta-tracked power iteration — the **trusted, deterministic, bit-reproducible reference** backend (`ComputeType::CpuSingleThread`). · called at [L668](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/pebble_beds/keff_delta.rs#L668) · *(calls below the depth limit not shown)*
+[`keff_delta.rs::run_keff_delta_seq_in`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/pebble_beds/keff_delta.rs#L711) `pub fn run_keff_delta_seq_in<Q>(domain: DeltaDomain, materials: &[Material], nuclides: &[Nuclide], majorant: &Majorant, material_at: Q, settings: &KeffSettings) -> KeffResult where Q: MaterialQuery,` — Scalar, single-thread delta-tracked power iteration — the **trusted, deterministic, bit-reproducible reference** backend (`ComputeType::CpuSingleThread`). · called at [L672](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/pebble_beds/keff_delta.rs#L672) · *(calls below the depth limit not shown)*
 
 <details><summary>code</summary>
 
-<!-- snippet-check: crates/outram-mc-libs/src/pebble_beds/keff_delta.rs:707 fn run_keff_delta_seq_in -->
+<!-- snippet-check: crates/outram-mc-libs/src/pebble_beds/keff_delta.rs:711 fn run_keff_delta_seq_in -->
 
 ```rust,ignore
-{{#include ../../../../../crates/outram-mc-libs/src/pebble_beds/keff_delta.rs:707:746}}
+{{#include ../../../../../crates/outram-mc-libs/src/pebble_beds/keff_delta.rs:711:750}}
     // … (the rest of the function: follow the link above)
 ```
 
@@ -2205,14 +2217,14 @@ UNRESOLVED(closure): `cell_of` at [L426](https://github.com/theodoreOnzGit/outra
 
 <div class="cw-node" style="margin-left:2.7em">
 
-[`keff_delta.rs::run_keff_delta_par_in`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/pebble_beds/keff_delta.rs#L895) `pub fn run_keff_delta_par_in<Q>(domain: DeltaDomain, materials: &[Material], nuclides: &[Nuclide], majorant: &Majorant, material_at: Q, settings: &KeffSettings, thread_count: ThreadCount) -> KeffResult where Q: MaterialQuery,` — Rayon-parallel delta-tracked power iteration (`ComputeType::CpuMultiThread`). · called at [L670](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/pebble_beds/keff_delta.rs#L670) · *(calls below the depth limit not shown)*
+[`keff_delta.rs::run_keff_delta_par_in`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/pebble_beds/keff_delta.rs#L961) `pub fn run_keff_delta_par_in<Q>(domain: DeltaDomain, materials: &[Material], nuclides: &[Nuclide], majorant: &Majorant, material_at: Q, settings: &KeffSettings, thread_count: ThreadCount) -> KeffResult where Q: MaterialQuery,` — Rayon-parallel delta-tracked power iteration (`ComputeType::CpuMultiThread`). · called at [L674](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/pebble_beds/keff_delta.rs#L674) · *(calls below the depth limit not shown)*
 
 <details><summary>code</summary>
 
-<!-- snippet-check: crates/outram-mc-libs/src/pebble_beds/keff_delta.rs:895 fn run_keff_delta_par_in -->
+<!-- snippet-check: crates/outram-mc-libs/src/pebble_beds/keff_delta.rs:961 fn run_keff_delta_par_in -->
 
 ```rust,ignore
-{{#include ../../../../../crates/outram-mc-libs/src/pebble_beds/keff_delta.rs:895:934}}
+{{#include ../../../../../crates/outram-mc-libs/src/pebble_beds/keff_delta.rs:961:1000}}
     // … (the rest of the function: follow the link above)
 ```
 
