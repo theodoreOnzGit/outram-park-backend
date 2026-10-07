@@ -163,6 +163,10 @@ pub struct TranslationEnv {
     /// translator. Some translators change behaviour (BibTeX splits keywords
     /// on spaces, unescapes HTML entities). `None` at top level.
     pub parent_translator: Option<String>,
+    /// "Now", in seconds since the Unix epoch, for translators that read the
+    /// clock (`new Date()`; RIS import of an access date without a time).
+    /// `None`: the system clock (the epoch on targets without one).
+    pub now_unix_secs: Option<i64>,
 }
 
 impl Default for TranslationEnv {
@@ -176,6 +180,7 @@ impl Default for TranslationEnv {
                 ..DateOptions::default()
             },
             parent_translator: None,
+            now_unix_secs: None,
         }
     }
 }
