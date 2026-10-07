@@ -161,6 +161,9 @@ pub struct Htr10Fill {
     sys: GranularSystem,
     settings: Htr10FillSettings,
     steps: usize,
+    /// Highest core KE ratio seen at the end of any `advance` so far: the
+    /// pour has to have moved before it can be said to have settled.
+    peak_ke_ratio: f64,
 }
 
 /// One radius drop of one pebble \[J\]: the "is it quasi-static?" yardstick.
@@ -373,7 +376,7 @@ impl Htr10Fill {
             Vec3::zero(),
             Vec3::zero(),
         )]);
-        Ok(Self { sys, settings, steps: 0 })
+        Ok(Self { sys, settings, steps: 0, peak_ke_ratio: 0.0 })
     }
 
     /// The settings it was built with.
@@ -388,14 +391,16 @@ impl Htr10Fill {
         if n > 0 {
             self.sys.run(n);
             self.steps += n;
+            let now = self.ke_ratio_core().1;
+            if now.is_finite() {
+                self.peak_ke_ratio = self.peak_ke_ratio.max(now);
+            }
         }
         self.progress()
     }
 
-    /// Where the fill is now, without stepping.
-    #[must_use]
-    pub fn progress(&self) -> FillProgress {
-        let centres = self.centres();
+    /// `(pebbles above the conus inlet, their mean KE over a one-radius drop)`.
+    fn ke_ratio_core(&self) -> (usize, f64) {
         let (mut ke, mut n) = (0.0, 0usize);
         for p in self.sys.particles() {
             if p.position.z > 0.0 {
@@ -403,10 +408,27 @@ impl Htr10Fill {
                 n += 1;
             }
         }
-        let ke_ratio_core = if n == 0 { f64::INFINITY } else { ke / n as f64 / e_drop() };
+        (n, if n == 0 { f64::INFINITY } else { ke / n as f64 / e_drop() })
+    }
+
+    /// Where the fill is now, without stepping.
+    #[must_use]
+    pub fn progress(&self) -> FillProgress {
+        let centres = self.centres();
+        let (n, ke_ratio_core) = self.ke_ratio_core();
         // Settled only once the bed has reached the core and come to rest; a
         // fill still falling through the barrel has n = 0 at the start.
-        let settled = n > 0 && self.steps > 0 && ke_ratio_core < self.settings.settle_target;
+        // ~~`n > 0 && steps > 0 && KE < target`~~ **CORRECTED 2026-10-07
+        // (gh:#787):** the pebbles start AT REST, so after a short first chunk
+        // (the browser demo's 20 steps) the KE is still below the target and
+        // the pour read as settled before it had fallen. The KE must first
+        // have risen above the target (the pour moved), then fallen below it.
+        // Chunks of 500 or more steps (every earlier caller) always saw the
+        // fall first, so no recorded result changes.
+        let settled = n > 0
+            && self.steps > 0
+            && self.peak_ke_ratio >= self.settings.settle_target
+            && ke_ratio_core < self.settings.settle_target;
         FillProgress {
             steps: self.steps,
             time: Time::new::<second>(self.steps as f64 * self.settings.dt.get::<second>()),
@@ -466,6 +488,25 @@ mod tests {
                 assert!(d2 >= (2.0 * PEBBLE_RADIUS_M).powi(2));
             }
         }
+    }
+
+    /// The pebbles start at rest, so a pour stepped in short chunks must not
+    /// read as settled before it has fallen (gh:#787: the browser demo's
+    /// first 20-step chunk did). 2 600 pebbles seed above the conus inlet.
+    #[test]
+    fn a_pour_is_not_settled_before_it_has_fallen() {
+        let mut fill = Htr10Fill::new(Htr10FillSettings {
+            n_pebbles: 2600,
+            threads: ThreadCount::Fixed(2),
+            ..Htr10FillSettings::default()
+        })
+        .expect("fill");
+        let p = fill.advance(20);
+        assert!(p.n_in_core > 0, "the seed reaches the core");
+        assert!(p.ke_ratio_core < fill.settings().settle_target, "at rest after 20 steps");
+        assert!(!p.settled, "at rest is not settled");
+        let p = fill.advance(400);
+        assert!(p.ke_ratio_core > fill.settings().settle_target && !p.settled, "falling");
     }
 
     /// A small pour (300 pebbles: tube and conus) runs, loses kinetic energy

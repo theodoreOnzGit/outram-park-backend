@@ -328,6 +328,10 @@ placement, NOT a lattice: a jittered-lattice seed was tried first and its
 order survived the drop (g(√3 d) 2.90 against 1.29 for the reference random
 bed); the random seed measures 1.284, matching it, so do not reintroduce one. `examples/htr10_fresh_fill.rs` runs it;
 `examples/bed_rdf_check.rs` prints the g(r) diagnostics of any bed CSV.
+Since 2026-10-07 (gh:#787) it also runs in the browser (`dhoby-ghaut`'s
+`dem_web`, one thread, a Web Worker), and a pour counts as settled only once
+its KE has risen above the target and fallen back below it: the pebbles start
+at rest, and the browser's short first chunk read as "settled" at step 20.
 
 Three of those are newer than the rest and are worth naming here:
 
