@@ -550,6 +550,25 @@ enum Command {
         #[arg(long, default_value = commands::code_walk::render::DEFAULT_REPO_URL)]
         repo_url: String,
     },
+    /// Regenerates the CSL citations of the Markdown under the given paths
+    /// (GitHub #789): every `[...](#ref-KEY)` link becomes the citation the
+    /// style renders (APA 7 by default) and each page's reference list is
+    /// rebuilt from the `.bib`. Fails if a page is stale or cites an unknown
+    /// key; `--update` writes the regenerated pages instead.
+    /// `--csl-json-out` writes the `.bib` as CSL-JSON and does nothing else.
+    References {
+        /// Markdown files or directories to scan (`SUMMARY.md` is skipped).
+        paths: Vec<PathBuf>,
+        #[arg(long)]
+        update: bool,
+        #[arg(long, default_value = "docs/site/references.bib")]
+        bib: PathBuf,
+        /// A CSL style file (independent style); APA 7 when omitted.
+        #[arg(long)]
+        style: Option<PathBuf>,
+        #[arg(long)]
+        csl_json_out: Option<PathBuf>,
+    },
     /// Re-hashes the functions recorded in `review/stamps.toml` (GitHub #739)
     /// and prints which human review stamps are VOID and why (code changed,
     /// doc comment changed, function not found), with the permalink to the
@@ -895,6 +914,19 @@ fn run(command: Command) -> Result<(), String> {
             root,
             repo_url,
         } => commands::code_walk::run_check(paths, update, root, repo_url),
+        Command::References {
+            paths,
+            update,
+            bib,
+            style,
+            csl_json_out,
+        } => commands::references::run(commands::references::ReferencesArgs {
+            paths,
+            update,
+            bib,
+            style,
+            csl_json_out,
+        }),
         Command::StampsCheck {
             workspace,
             diff,

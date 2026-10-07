@@ -92,6 +92,7 @@ use std::path::{Path, PathBuf};
 
 pub use kovan_common::{Author, DocumentType, KovanBenchmark, KovanDocument, Visibility};
 
+pub mod csl;
 mod bibtex;
 pub mod concept_tree;
 /// The PDF follow-up of identifier lookup (#756): field-by-field review of a

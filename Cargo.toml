@@ -307,6 +307,11 @@ rust-mqtt = "0.5.1"
 # KOVAN knowledge-layer stack — all pure-Rust and Android-friendly (no system
 # libs), matching KOVAN's offline/Android-first mandate. See docs/kovan.md.
 serde_json = "1.0"           # KovanDocument (de)serialisation, generated artifacts
+# CSL citation formatting (kovan-literature `csl`, GitHub #789): Typst's CSL
+# engine, MIT OR Apache-2.0, pure Rust. Default features (BibLaTeX input,
+# bundled style archive) off; the items come from our own Zotero import as
+# CSL-JSON, and the style and locale files are pinned in kovan-literature/data/csl.
+hayagriva = { version = "0.10.1", default-features = false, features = ["csl-json"] }
 toml = "0.8"                 # metadata / config
 pulldown-cmark = { version = "0.12", default-features = false }  # the only Markdown parser KOVAN starts with
 ignore = "0.4"               # fd/ripgrep's walker: .gitignore-aware file discovery

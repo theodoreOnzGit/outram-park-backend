@@ -1,0 +1,6596 @@
+[
+  {
+    "author": [
+      {
+        "family": "Blondel",
+        "given": "V. D."
+      },
+      {
+        "family": "Guillaume",
+        "given": "J. L."
+      },
+      {
+        "family": "Lambiotte",
+        "given": "R."
+      },
+      {
+        "family": "Lefebvre",
+        "given": "E."
+      }
+    ],
+    "container-title": "J. Stat. Mech.-Theory Exp.",
+    "id": "Blondeletal2008",
+    "issued": {
+      "date-parts": [
+        [
+          2008
+        ]
+      ]
+    },
+    "page": "P10008",
+    "title": "Fast unfolding of communities in large networks",
+    "type": "article-journal",
+    "volume": "2008"
+  },
+  {
+    "author": [
+      {
+        "family": "Chen",
+        "given": "Q."
+      },
+      {
+        "family": "Wu",
+        "given": "T. T."
+      },
+      {
+        "family": "Fang",
+        "given": "M."
+      }
+    ],
+    "container-title": "Physica A.",
+    "id": "Chenetal2013",
+    "issued": {
+      "date-parts": [
+        [
+          2013
+        ]
+      ]
+    },
+    "page": "529-537",
+    "title": "Detecting local community structure in complex networks based on local degree central nodes",
+    "type": "article-journal",
+    "volume": "392"
+  },
+  {
+    "author": [
+      {
+        "family": "Clauset",
+        "given": "A."
+      },
+      {
+        "family": "Newman",
+        "given": "M. E. J."
+      },
+      {
+        "family": "Moore",
+        "given": "C."
+      }
+    ],
+    "container-title": "Phys. Rev. E.",
+    "id": "Clausetetal2004",
+    "issued": {
+      "date-parts": [
+        [
+          2004
+        ]
+      ]
+    },
+    "page": "066111",
+    "title": "Finding community structure in very large networks",
+    "type": "article-journal",
+    "volume": "70"
+  },
+  {
+    "author": [
+      {
+        "family": "Danon",
+        "given": "L."
+      },
+      {
+        "family": "Diaz-Guilera",
+        "given": "A."
+      },
+      {
+        "family": "Duch",
+        "given": "J."
+      },
+      {
+        "family": "Arenas",
+        "given": "A."
+      }
+    ],
+    "container-title": "J. Stat. Mech.-Theory Exp.",
+    "id": "Danonetal2005",
+    "issued": {
+      "date-parts": [
+        [
+          2005
+        ]
+      ]
+    },
+    "page": "P09008",
+    "title": "Comparing community structure identification",
+    "type": "article-journal"
+  },
+  {
+    "DOI": "10.1007/978-3-030-05105-1",
+    "ISBN": "978-3-030-05104-4",
+    "author": [
+      {
+        "family": "El Hefni",
+        "given": "Baligh"
+      },
+      {
+        "family": "Bouskela",
+        "given": "Daniel"
+      }
+    ],
+    "id": "ElHefni2019",
+    "issued": {
+      "date-parts": [
+        [
+          2019
+        ]
+      ]
+    },
+    "publisher": "Springer International Publishing",
+    "title": "Modeling and Simulation of Thermal Power Plants with ThermoSysPro: A Theoretical Introduction and a Practical Guide",
+    "type": "book"
+  },
+  {
+    "author": [
+      {
+        "family": "Fabio",
+        "given": "D. R."
+      },
+      {
+        "family": "Fabio",
+        "given": "D."
+      },
+      {
+        "family": "Carlo",
+        "given": "P."
+      }
+    ],
+    "container-title": "Sci. Rep.",
+    "id": "Fabioetal2013",
+    "issued": {
+      "date-parts": [
+        [
+          2013
+        ]
+      ]
+    },
+    "page": "1467",
+    "title": "Profiling core-periphery network structure by random walkers",
+    "type": "article-journal",
+    "volume": "3"
+  },
+  {
+    "author": [
+      {
+        "family": "Fabricio",
+        "given": "B."
+      },
+      {
+        "family": "Liang",
+        "given": "Z."
+      }
+    ],
+    "container-title": "Soft Comput.",
+    "id": "FabricioLiang2013",
+    "issued": {
+      "date-parts": [
+        [
+          2013
+        ]
+      ]
+    },
+    "page": "659-673",
+    "title": "Fuzzy community structure detection by particle competition and cooperation",
+    "type": "article-journal",
+    "volume": "17"
+  },
+  {
+    "author": [
+      {
+        "family": "Fortunato",
+        "given": "S."
+      }
+    ],
+    "container-title": "Phys. Rep.-Rev. Sec. Phys. Lett.",
+    "id": "Fortunato2010",
+    "issued": {
+      "date-parts": [
+        [
+          2010
+        ]
+      ]
+    },
+    "page": "75-174",
+    "title": "Community detection in graphs",
+    "type": "article-journal",
+    "volume": "486"
+  },
+  {
+    "author": [
+      {
+        "family": "Fortunato",
+        "given": "S."
+      },
+      {
+        "family": "Barthelemy",
+        "given": "M."
+      }
+    ],
+    "container-title": "Proc. Natl. Acad. Sci. U. S. A.",
+    "id": "FortunatoBarthelemy2007",
+    "issued": {
+      "date-parts": [
+        [
+          2007
+        ]
+      ]
+    },
+    "page": "36-41",
+    "title": "Resolution limit in community detection",
+    "type": "article-journal",
+    "volume": "104"
+  },
+  {
+    "author": [
+      {
+        "family": "Gregory",
+        "given": "S."
+      }
+    ],
+    "container-title": "J. Stat. Mech.-Theory Exp.",
+    "id": "Gregory2011",
+    "issued": {
+      "date-parts": [
+        [
+          2011
+        ]
+      ]
+    },
+    "page": "P02017",
+    "title": "Fuzzy overlapping communities in networks",
+    "type": "article-journal"
+  },
+  {
+    "author": [
+      {
+        "family": "Havens",
+        "given": "T. C."
+      },
+      {
+        "family": "Bezdek",
+        "given": "J. C."
+      },
+      {
+        "family": "Leckie",
+        "given": "C."
+      },
+      {
+        "family": "Ramamohanarao",
+        "given": "K."
+      },
+      {
+        "family": "Palaniswami",
+        "given": "M."
+      }
+    ],
+    "container-title": "IEEE Trans. Fuzzy Syst.",
+    "id": "Havensetal2013",
+    "issued": {
+      "date-parts": [
+        [
+          2013
+        ]
+      ]
+    },
+    "page": "1170-1175",
+    "title": "A Soft Modularity Function For Detecting Fuzzy Communities in Social Networks",
+    "type": "article-journal",
+    "volume": "21"
+  },
+  {
+    "author": [
+      {
+        "family": "Hullermeier",
+        "given": "E."
+      },
+      {
+        "family": "Rifqi",
+        "given": "M."
+      }
+    ],
+    "container-title": "in Proc. IFSA/EUSFLAT Conf.",
+    "id": "HullermeierRifqi2009",
+    "issued": {
+      "date-parts": [
+        [
+          2009
+        ]
+      ]
+    },
+    "page": "1294-1298",
+    "title": "A Fuzzy Variant of the Rand Index for Comparing Clustering Structures",
+    "type": "paper-conference"
+  },
+  {
+    "author": [
+      {
+        "family": "Lancichinetti",
+        "given": "A."
+      },
+      {
+        "family": "Fortunato",
+        "given": "S."
+      }
+    ],
+    "container-title": "Phys. Rev. E.",
+    "id": "LancichinettiFortunato2009",
+    "issued": {
+      "date-parts": [
+        [
+          2009
+        ]
+      ]
+    },
+    "page": "016118",
+    "title": "Benchmarks for testing community detection algorithms on directed and weighted graphs with overlapping communities",
+    "type": "article-journal",
+    "volume": "80"
+  },
+  {
+    "author": [
+      {
+        "family": "Lancichinetti",
+        "given": "A."
+      },
+      {
+        "family": "Fortunato",
+        "given": "S."
+      },
+      {
+        "family": "Radicchi",
+        "given": "F."
+      }
+    ],
+    "container-title": "Phys. Rev. E.",
+    "id": "Lancichinettietal2008",
+    "issued": {
+      "date-parts": [
+        [
+          2008
+        ]
+      ]
+    },
+    "page": "046110",
+    "title": "Benchmark graphs for testing community detection algorithms",
+    "type": "article-journal",
+    "volume": "78"
+  },
+  {
+    "author": [
+      {
+        "family": "Li",
+        "given": "J."
+      },
+      {
+        "family": "Wang",
+        "given": "X."
+      },
+      {
+        "family": "Eustace",
+        "given": "J."
+      }
+    ],
+    "container-title": "Physica A.",
+    "id": "Lietal2013",
+    "issued": {
+      "date-parts": [
+        [
+          2013
+        ]
+      ]
+    },
+    "page": "6125-6134",
+    "title": "Detecting overlapping communities by seed community in weighted complex networks",
+    "type": "article-journal",
+    "volume": "392"
+  },
+  {
+    "author": [
+      {
+        "family": "Liu",
+        "given": "J."
+      }
+    ],
+    "container-title": "Eur. Phys. J. B.",
+    "id": "Liu2010",
+    "issued": {
+      "date-parts": [
+        [
+          2010
+        ]
+      ]
+    },
+    "page": "547-557",
+    "title": "Fuzzy modularity and fuzzy community structure in networks",
+    "type": "article-journal",
+    "volume": "77"
+  },
+  {
+    "author": [
+      {
+        "family": "Liu",
+        "given": "W."
+      },
+      {
+        "family": "Pellegrini",
+        "given": "M."
+      },
+      {
+        "family": "Wang",
+        "given": "X."
+      }
+    ],
+    "container-title": "Sci. Rep.",
+    "id": "Liuetal2014",
+    "issued": {
+      "date-parts": [
+        [
+          2014
+        ]
+      ]
+    },
+    "page": "5739",
+    "title": "Detecting Communities Based on Network Topology",
+    "type": "article-journal",
+    "volume": "4"
+  },
+  {
+    "author": [
+      {
+        "family": "Lou",
+        "given": "H."
+      },
+      {
+        "family": "Li",
+        "given": "S."
+      },
+      {
+        "family": "Zhao",
+        "given": "Y."
+      }
+    ],
+    "container-title": "Physica A.",
+    "id": "Louetal2013",
+    "issued": {
+      "date-parts": [
+        [
+          2013
+        ]
+      ]
+    },
+    "page": "3095-3105",
+    "title": "Detecting community structure using label propagation with weighted coherent neighborhood propinquity",
+    "type": "article-journal",
+    "volume": "392"
+  },
+  {
+    "author": [
+      {
+        "family": "Nepusz",
+        "given": "T."
+      },
+      {
+        "family": "Petróczi",
+        "given": "A."
+      },
+      {
+        "family": "Négyessy",
+        "given": "L."
+      },
+      {
+        "family": "Bazsó",
+        "given": "F."
+      }
+    ],
+    "container-title": "Phys. Rev. E.",
+    "id": "Nepuszetal2008",
+    "issued": {
+      "date-parts": [
+        [
+          2008
+        ]
+      ]
+    },
+    "page": "016107",
+    "title": "Fuzzy communities and the concept of bridgeness in complex networks",
+    "type": "article-journal",
+    "volume": "77"
+  },
+  {
+    "URL": "http://www-personal.umich.edu/ mejn/netdata/",
+    "author": [
+      {
+        "family": "Newman",
+        "given": "M. E. J."
+      }
+    ],
+    "id": "Newman2013",
+    "issued": {
+      "date-parts": [
+        [
+          2013
+        ]
+      ]
+    },
+    "title": "Network data",
+    "type": "document"
+  },
+  {
+    "author": [
+      {
+        "family": "Newman",
+        "given": "M. E. J."
+      },
+      {
+        "family": "Girvan",
+        "given": "M."
+      }
+    ],
+    "container-title": "Phys. Rev. E.",
+    "id": "NewmanGirvan2004",
+    "issued": {
+      "date-parts": [
+        [
+          2004
+        ]
+      ]
+    },
+    "page": "026113",
+    "title": "Finding and evaluating community structure in networks",
+    "type": "article-journal",
+    "volume": "69"
+  },
+  {
+    "author": [
+      {
+        "family": "Psorakis",
+        "given": "I."
+      },
+      {
+        "family": "Roberts",
+        "given": "S."
+      },
+      {
+        "family": "Ebden",
+        "given": "M."
+      },
+      {
+        "family": "Sheldon",
+        "given": "B."
+      }
+    ],
+    "container-title": "Phys. Rev. E.",
+    "id": "Psorakisetal2011",
+    "issued": {
+      "date-parts": [
+        [
+          2011
+        ]
+      ]
+    },
+    "page": "066114",
+    "title": "Overlapping community detection using Bayesian non-negative matrix factorization",
+    "type": "article-journal",
+    "volume": "83"
+  },
+  {
+    "author": [
+      {
+        "family": "Raghavan",
+        "given": "U."
+      },
+      {
+        "family": "Albert",
+        "given": "R."
+      },
+      {
+        "family": "Kumara",
+        "given": "S."
+      }
+    ],
+    "container-title": "Phys. Rev E.",
+    "id": "Raghavanetal2007",
+    "issued": {
+      "date-parts": [
+        [
+          2007
+        ]
+      ]
+    },
+    "page": "036106",
+    "title": "Near linear time algorithm to detect community structures in large-scale networks",
+    "type": "article-journal",
+    "volume": "76"
+  },
+  {
+    "author": [
+      {
+        "family": "Sobolevsky",
+        "given": "S."
+      },
+      {
+        "family": "Campari",
+        "given": "R."
+      }
+    ],
+    "container-title": "Phys. Rev. E.",
+    "id": "SobolevskyCampari2014",
+    "issued": {
+      "date-parts": [
+        [
+          2014
+        ]
+      ]
+    },
+    "page": "012811",
+    "title": "General optimization technique for high-quality community detection in complex networks",
+    "type": "article-journal",
+    "volume": "90"
+  },
+  {
+    "author": [
+      {
+        "family": "Šubelj",
+        "given": "L."
+      },
+      {
+        "family": "Bajec",
+        "given": "M."
+      }
+    ],
+    "container-title": "Eur. Phys. J. B.",
+    "id": "SubeljBajec2011a",
+    "issued": {
+      "date-parts": [
+        [
+          2011
+        ]
+      ]
+    },
+    "page": "353-362",
+    "title": "Robust network community detection using balanced propagation",
+    "type": "article-journal",
+    "volume": "81"
+  },
+  {
+    "author": [
+      {
+        "family": "Šubelj",
+        "given": "L."
+      },
+      {
+        "family": "Bajec",
+        "given": "M."
+      }
+    ],
+    "container-title": "Phys. Rev. E.",
+    "id": "SubeljBajec2011b",
+    "issued": {
+      "date-parts": [
+        [
+          2011
+        ]
+      ]
+    },
+    "page": "036103",
+    "title": "Unfolding communities in large complex networks: Combining defensive and offensive label propagation for core extraction",
+    "type": "article-journal",
+    "volume": "83"
+  },
+  {
+    "author": [
+      {
+        "family": "Šubelj",
+        "given": "L."
+      },
+      {
+        "family": "Bajec",
+        "given": "M."
+      }
+    ],
+    "container-title": "Eur. Phys. J. B.",
+    "id": "SubeljBajec2012",
+    "issued": {
+      "date-parts": [
+        [
+          2012
+        ]
+      ]
+    },
+    "page": "1-11",
+    "title": "Ubiquitousness of link-density and link-pattern communities in real-world networks",
+    "type": "article-journal",
+    "volume": "85"
+  },
+  {
+    "author": [
+      {
+        "family": "Sun",
+        "given": "P."
+      },
+      {
+        "family": "Gao",
+        "given": "L."
+      },
+      {
+        "family": "Han",
+        "given": "S."
+      }
+    ],
+    "container-title": "Inf. Sci.",
+    "id": "Sunetal2011",
+    "issued": {
+      "date-parts": [
+        [
+          2011
+        ]
+      ]
+    },
+    "page": "1060-1071",
+    "title": "Identification of overlapping and non-overlapping community structure by fuzzy clustering in complex networks",
+    "type": "article-journal",
+    "volume": "181"
+  },
+  {
+    "author": [
+      {
+        "family": "Vehlow",
+        "given": "C."
+      },
+      {
+        "family": "Reinhardt",
+        "given": "T."
+      },
+      {
+        "family": "Weiskopf",
+        "given": "D."
+      }
+    ],
+    "container-title": "IEEE Trans. Vis. Comput. Graph.",
+    "id": "Vehlowetal2013",
+    "issued": {
+      "date-parts": [
+        [
+          2013
+        ]
+      ]
+    },
+    "page": "2486-2495",
+    "title": "Visualizing Fuzzy Overlapping Communities in Networks",
+    "type": "article-journal",
+    "volume": "19"
+  },
+  {
+    "author": [
+      {
+        "family": "Wang",
+        "given": "X."
+      },
+      {
+        "family": "Li",
+        "given": "J."
+      }
+    ],
+    "container-title": "Physica A.",
+    "id": "WangLi2013",
+    "issued": {
+      "date-parts": [
+        [
+          2013
+        ]
+      ]
+    },
+    "page": "2555-2563",
+    "title": "Detecting communities by the core-vertex and intimate degree in complex networks",
+    "type": "article-journal",
+    "volume": "392"
+  },
+  {
+    "author": [
+      {
+        "family": "Wang",
+        "given": "W."
+      },
+      {
+        "family": "Liu",
+        "given": "D."
+      },
+      {
+        "family": "Liu",
+        "given": "X."
+      },
+      {
+        "family": "Pan",
+        "given": "L."
+      }
+    ],
+    "container-title": "Physica A.",
+    "id": "Wangetal2013",
+    "issued": {
+      "date-parts": [
+        [
+          2013
+        ]
+      ]
+    },
+    "page": "6578-6586",
+    "title": "Fuzzy overlapping community detection based on local random walk and multidimensional scaling",
+    "type": "article-journal",
+    "volume": "392"
+  },
+  {
+    "author": [
+      {
+        "family": "Zhang",
+        "given": "Y."
+      },
+      {
+        "family": "Yeung",
+        "given": "D."
+      }
+    ],
+    "container-title": "In Proc. ACM SIGKDD Conf.",
+    "id": "ZhangYeung2012",
+    "issued": {
+      "date-parts": [
+        [
+          2012
+        ]
+      ]
+    },
+    "page": "606-614",
+    "title": "Overlapping Community Detection via Bounded Nonnegative Matrix Tri-Factorization",
+    "type": "paper-conference"
+  },
+  {
+    "author": [
+      {
+        "family": "Zhang",
+        "given": "S."
+      },
+      {
+        "family": "Wang",
+        "given": "R."
+      },
+      {
+        "family": "Zhang",
+        "given": "X."
+      }
+    ],
+    "container-title": "Physica A.",
+    "id": "Zhangetal2007",
+    "issued": {
+      "date-parts": [
+        [
+          2007
+        ]
+      ]
+    },
+    "page": "483-490",
+    "title": "Identification of overlapping community structure in complex networks using fuzzy c-means clustering",
+    "type": "article-journal",
+    "volume": "374"
+  },
+  {
+    "author": [
+      {
+        "family": "Adenis",
+        "given": "Léo"
+      },
+      {
+        "family": "Mailler",
+        "given": "Sylvain"
+      },
+      {
+        "family": "Menut",
+        "given": "Laurent"
+      },
+      {
+        "family": "Achim",
+        "given": "Pascal"
+      },
+      {
+        "family": "Generoso",
+        "given": "Sylvia"
+      }
+    ],
+    "container-title": "Journal of Environmental Radioactivity",
+    "id": "adenis2024lagrangian",
+    "issued": {
+      "date-parts": [
+        [
+          2024
+        ]
+      ]
+    },
+    "page": "107416",
+    "publisher": "Elsevier",
+    "title": "Lagrangian and Eulerian modelling of 106Ru atmospheric transport in 2017 over northern hemisphere",
+    "type": "article-journal",
+    "volume": "275"
+  },
+  {
+    "author": [
+      {
+        "family": "Alansari",
+        "given": "Aisha"
+      },
+      {
+        "family": "Luqman",
+        "given": "Hamzah"
+      }
+    ],
+    "container-title": "Computer Science Review",
+    "id": "alansari2026large",
+    "issued": {
+      "date-parts": [
+        [
+          2026
+        ]
+      ]
+    },
+    "page": "100970",
+    "publisher": "Elsevier",
+    "title": "Large language models hallucination: A comprehensive survey",
+    "type": "article-journal",
+    "volume": "61"
+  },
+  {
+    "author": [
+      {
+        "family": "Andriole",
+        "given": "Stephen J"
+      }
+    ],
+    "container-title": "Communications of the Association for Information Systems",
+    "id": "andriole2024big",
+    "issue": "1",
+    "issued": {
+      "date-parts": [
+        [
+          2024
+        ]
+      ]
+    },
+    "page": "819–830",
+    "title": "The big miss: AI will replace just about everything",
+    "type": "article-journal",
+    "volume": "55"
+  },
+  {
+    "URL": "https://www.sciencedirect.com/journal/annals-of-nuclear-energy/publish/guide-for-authors",
+    "author": [
+      {
+        "literal": "Elsevier"
+      }
+    ],
+    "id": "annals_nuclear_energy_guide",
+    "issued": {
+      "date-parts": [
+        [
+          2026
+        ]
+      ]
+    },
+    "title": "Annals of Nuclear Energy: Guide for Authors",
+    "type": "document"
+  },
+  {
+    "URL": "https://claude.com/pricing",
+    "author": [
+      {
+        "literal": "Anthropic"
+      }
+    ],
+    "id": "anthropic2026pricing",
+    "issued": {
+      "date-parts": [
+        [
+          2026
+        ]
+      ]
+    },
+    "title": "Claude Pricing",
+    "type": "document"
+  },
+  {
+    "author": [
+      {
+        "family": "Arcuri",
+        "given": "Andrea"
+      }
+    ],
+    "container-title": "Empirical Software Engineering",
+    "id": "arcuri2018experience",
+    "issue": "4",
+    "issued": {
+      "date-parts": [
+        [
+          2018
+        ]
+      ]
+    },
+    "page": "1959–1981",
+    "publisher": "Springer",
+    "title": "An experience report on applying software testing academic results in industry: we need usable automated test generation",
+    "type": "article-journal",
+    "volume": "23"
+  },
+  {
+    "DOI": "10.7717/peerj-cs.406",
+    "author": [
+      {
+        "family": "Ardito",
+        "given": "Luca"
+      },
+      {
+        "family": "Barbato",
+        "given": "Luca"
+      },
+      {
+        "family": "Castelluccio",
+        "given": "Marco"
+      },
+      {
+        "family": "Coppola",
+        "given": "Riccardo"
+      },
+      {
+        "family": "Deniz",
+        "given": "Cemal"
+      },
+      {
+        "family": "Ledda",
+        "given": "Enrico"
+      },
+      {
+        "family": "Vacca",
+        "given": "Enrico"
+      }
+    ],
+    "container-title": "PeerJ Computer Science",
+    "id": "ardito2021rust",
+    "issued": {
+      "date-parts": [
+        [
+          2021
+        ]
+      ]
+    },
+    "page": "e406",
+    "title": "Evaluation of Rust code verbosity, understandability and complexity",
+    "type": "article-journal",
+    "volume": "7"
+  },
+  {
+    "author": [
+      {
+        "literal": "American Society of Mechanical Engineers"
+      }
+    ],
+    "id": "asme_nqa1_2024",
+    "issued": {
+      "date-parts": [
+        [
+          2024
+        ]
+      ]
+    },
+    "publisher": "ASME",
+    "title": "Quality Assurance Requirements for Nuclear Facility Applications",
+    "type": "document"
+  },
+  {
+    "DOI": "10.48550/arXiv.2204.12564",
+    "author": [
+      {
+        "family": "Barba",
+        "given": "Lorena A."
+      }
+    ],
+    "container-title": "arXiv preprint arXiv:2204.12564",
+    "id": "barba2022open",
+    "issued": {
+      "date-parts": [
+        [
+          2022
+        ]
+      ]
+    },
+    "title": "Defining the Role of Open Source Software in Research Reproducibility",
+    "type": "article-journal"
+  },
+  {
+    "author": [
+      {
+        "family": "Bender",
+        "given": "Emily M"
+      },
+      {
+        "family": "Gebru",
+        "given": "Timnit"
+      },
+      {
+        "family": "McMillan-Major",
+        "given": "Angelina"
+      },
+      {
+        "family": "Shmitchell",
+        "given": "Shmargaret"
+      }
+    ],
+    "container-title": "Proceedings of the 2021 ACM conference on fairness, accountability, and transparency",
+    "id": "bender2021dangers",
+    "issued": {
+      "date-parts": [
+        [
+          2021
+        ]
+      ]
+    },
+    "page": "610–623",
+    "title": "On the dangers of stochastic parrots: Can language models be too big?",
+    "type": "paper-conference"
+  },
+  {
+    "author": [
+      {
+        "family": "Bhave",
+        "given": "Chaitanya"
+      },
+      {
+        "family": "Simon",
+        "given": "Pierre-Clément A"
+      },
+      {
+        "family": "Icenhour",
+        "given": "Casey"
+      },
+      {
+        "family": "Yang",
+        "given": "Lin"
+      },
+      {
+        "family": "Permann",
+        "given": "Cody J"
+      },
+      {
+        "family": "Schwen",
+        "given": "Daniel"
+      },
+      {
+        "family": "Ritter",
+        "given": "Christopher S"
+      }
+    ],
+    "container-title": "arXiv preprint arXiv:2605.17675",
+    "id": "bhave2026bridging",
+    "issued": {
+      "date-parts": [
+        [
+          2026
+        ]
+      ]
+    },
+    "title": "Bridging the Gap on AI-Assisted Scientific Software Development Through Transparency and Traceability",
+    "type": "article-journal"
+  },
+  {
+    "author": [
+      {
+        "family": "Bickel",
+        "given": "Jeffrey E"
+      },
+      {
+        "family": "Zweibaum",
+        "given": "Nicholas"
+      },
+      {
+        "family": "Peterson",
+        "given": "Per F"
+      }
+    ],
+    "id": "bickel2014design",
+    "issued": {
+      "date-parts": [
+        [
+          2014
+        ]
+      ]
+    },
+    "publisher": "University of California, Berkeley",
+    "title": "Design, fabrication and startup testing in the compact integral effects test (CIET 1.0) facility in support of fluoride-salt-cooled, high-temperature reactor technology",
+    "type": "book"
+  },
+  {
+    "ISBN": "0-13-822122-7",
+    "author": [
+      {
+        "family": "Boehm",
+        "given": "Barry W."
+      }
+    ],
+    "id": "boehm1981software",
+    "issued": {
+      "date-parts": [
+        [
+          1981
+        ]
+      ]
+    },
+    "publisher": "Prentice-Hall",
+    "publisher-place": "Englewood Cliffs, NJ",
+    "title": "Software Engineering Economics",
+    "type": "book"
+  },
+  {
+    "author": [
+      {
+        "family": "Briand",
+        "given": "Lionel C"
+      },
+      {
+        "family": "Selby",
+        "given": "Richard W"
+      }
+    ],
+    "container-title": "Empirical Software Engineering",
+    "id": "briand2006empirical",
+    "issue": "4",
+    "issued": {
+      "date-parts": [
+        [
+          2006
+        ]
+      ]
+    },
+    "page": "613",
+    "publisher": "Springer",
+    "title": "Empirical software engineering: Industrial experience reports",
+    "type": "article-journal",
+    "volume": "11"
+  },
+  {
+    "author": [
+      {
+        "family": "Briggs",
+        "given": "J Blair"
+      },
+      {
+        "family": "Scott",
+        "given": "Lori"
+      },
+      {
+        "family": "Nouri",
+        "given": "Ali"
+      }
+    ],
+    "container-title": "Nuclear science and engineering",
+    "id": "briggs2003international",
+    "issue": "1",
+    "issued": {
+      "date-parts": [
+        [
+          2003
+        ]
+      ]
+    },
+    "page": "1–10",
+    "publisher": "Taylor & Francis",
+    "title": "The international criticality safety benchmark evaluation project",
+    "type": "article-journal",
+    "volume": "145"
+  },
+  {
+    "DOI": "10.1016/j.nds.2018.02.001",
+    "author": [
+      {
+        "family": "Brown",
+        "given": "D. A."
+      },
+      {
+        "literal": "others"
+      }
+    ],
+    "container-title": "Nuclear Data Sheets",
+    "id": "brown2018endf8",
+    "issued": {
+      "date-parts": [
+        [
+          2018
+        ]
+      ]
+    },
+    "page": "1–142",
+    "title": "ENDF/B-VIII.0: The 8th Major Release of the Nuclear Reaction Data Library with CIELO-project Cross Sections, New Standards and Thermal Scattering Data",
+    "type": "article-journal",
+    "volume": "148"
+  },
+  {
+    "DOI": "10.48550/arXiv.2609.10262",
+    "author": [
+      {
+        "family": "Cao",
+        "given": "Shaozhen"
+      },
+      {
+        "family": "Chi",
+        "given": "Zhuoni"
+      }
+    ],
+    "container-title": "arXiv preprint arXiv:2609.10262",
+    "id": "cao2026distribution",
+    "issued": {
+      "date-parts": [
+        [
+          2026
+        ]
+      ]
+    },
+    "title": "Distribution of Singular Data Generated by Compact Forced Navier–Stokes Blowup",
+    "type": "article-journal"
+  },
+  {
+    "URL": "https://amrex-astro.github.io/Castro/docs/Verification.html#sods-problem-and-other-shock-tube-problems",
+    "author": [
+      {
+        "literal": "Castro development team"
+      }
+    ],
+    "id": "castro_verification",
+    "issued": {
+      "date-parts": [
+        [
+          2024
+        ]
+      ]
+    },
+    "title": "Verification: Sod's problem and other shock tube problems",
+    "type": "document"
+  },
+  {
+    "author": [
+      {
+        "family": "Cengel",
+        "given": "Yunus A"
+      },
+      {
+        "family": "Boles",
+        "given": "Michael A"
+      }
+    ],
+    "container-title": "Sea",
+    "id": "cengel2002thermodynamics",
+    "issue": "8862",
+    "issued": {
+      "date-parts": [
+        [
+          2002
+        ]
+      ]
+    },
+    "page": "287–293",
+    "title": "Thermodynamics: an engineering approach",
+    "type": "article-journal",
+    "volume": "1000"
+  },
+  {
+    "URL": "http://lingot.nongnu.org/",
+    "accessed": {
+      "date-parts": [
+        [
+          "2026",
+          7,
+          6
+        ]
+      ]
+    },
+    "author": [
+      {
+        "family": "Cereijo",
+        "given": "Ibán"
+      },
+      {
+        "family": "Chapela Martínez",
+        "given": "Jairo"
+      }
+    ],
+    "id": "cereijo_lingot_c_2020",
+    "issued": {
+      "date-parts": [
+        [
+          2020
+        ]
+      ]
+    },
+    "note": "Published: Non-GNU project hosted at Savannah, GPL-2.0-or-later license",
+    "title": "LINGOT Is Not a Guitar-Only Tuner: A universal musical instrument tuner",
+    "type": "document"
+  },
+  {
+    "author": [
+      {
+        "family": "Choo",
+        "given": "Anders Jia Yi"
+      },
+      {
+        "family": "Xiao",
+        "given": "Sicong"
+      }
+    ],
+    "container-title": "Vietnam Conference on Nuclear Science and Technology VINANST-15. Agenda and Abstracts",
+    "id": "choo2023criticality",
+    "issue": "INIS-VN–006",
+    "issued": {
+      "date-parts": [
+        [
+          2023
+        ]
+      ]
+    },
+    "page": "11–11",
+    "title": "Criticality Analysis of HTR-10 Using the High-Temperature Gas-Cooled Reactor Code Package",
+    "type": "paper-conference"
+  },
+  {
+    "DOI": "10.3389/fcogn.2025.1719312",
+    "author": [
+      {
+        "family": "Choudhury",
+        "given": "Nurul Ahad"
+      },
+      {
+        "family": "Saravanan",
+        "given": "Pratima"
+      }
+    ],
+    "container-title": "Frontiers in Cognition",
+    "id": "choudhury2026decision",
+    "issued": {
+      "date-parts": [
+        [
+          2026
+        ]
+      ]
+    },
+    "page": "1719312",
+    "title": "An integrative review on unveiling the causes and effects of decision fatigue to develop a multi-domain conceptual framework",
+    "type": "article-journal",
+    "volume": "4"
+  },
+  {
+    "DOI": "10.1056/NEJM199108293250903",
+    "author": [
+      {
+        "family": "Cohen",
+        "given": "Sheldon"
+      },
+      {
+        "family": "Tyrrell",
+        "given": "David A. J."
+      },
+      {
+        "family": "Smith",
+        "given": "Andrew P."
+      }
+    ],
+    "container-title": "New England Journal of Medicine",
+    "id": "cohen1991commoncold",
+    "issue": "9",
+    "issued": {
+      "date-parts": [
+        [
+          1991
+        ]
+      ]
+    },
+    "page": "606–612",
+    "title": "Psychological Stress and Susceptibility to the Common Cold",
+    "type": "article-journal",
+    "volume": "325"
+  },
+  {
+    "DOI": "10.1164/ajrccm/152.4_Pt_2.S53",
+    "author": [
+      {
+        "family": "Cohen",
+        "given": "Sheldon"
+      }
+    ],
+    "container-title": "American Journal of Respiratory and Critical Care Medicine",
+    "id": "cohen1995respiratory",
+    "issue": "4 Pt 2",
+    "issued": {
+      "date-parts": [
+        [
+          1995
+        ]
+      ]
+    },
+    "page": "S53–S58",
+    "title": "Psychological Stress and Susceptibility to Upper Respiratory Infections",
+    "type": "article-journal",
+    "volume": "152"
+  },
+  {
+    "DOI": "10.1111/1467-8721.ep10772808",
+    "author": [
+      {
+        "family": "Cohen",
+        "given": "Sheldon"
+      }
+    ],
+    "container-title": "Current Directions in Psychological Science",
+    "id": "cohen1996immunity",
+    "issue": "3",
+    "issued": {
+      "date-parts": [
+        [
+          1996
+        ]
+      ]
+    },
+    "page": "86–89",
+    "title": "Psychological Stress, Immunity, and Upper Respiratory Infections",
+    "type": "article-journal",
+    "volume": "5"
+  },
+  {
+    "author": [
+      {
+        "family": "Coles",
+        "given": "Garill A"
+      },
+      {
+        "family": "Lowry",
+        "given": "Peter P"
+      },
+      {
+        "family": "Phillips",
+        "given": "Jon R"
+      },
+      {
+        "family": "Short",
+        "given": "Steven M"
+      },
+      {
+        "family": "Condon",
+        "given": "Caitlin A"
+      },
+      {
+        "family": "Maheras",
+        "given": "Steven J"
+      },
+      {
+        "family": "Ikenberry",
+        "given": "Tracy A"
+      },
+      {
+        "family": "Adkins",
+        "given": "Harold E"
+      }
+    ],
+    "id": "coles2022parametric",
+    "issued": {
+      "date-parts": [
+        [
+          2022
+        ]
+      ]
+    },
+    "publisher": "Pacific Northwest National Laboratory (PNNL), Richland, WA (United States)",
+    "title": "Parametric Study of Factors that Affect Calculated Dose from TRISO Fueled Microreactor Transportation Accident",
+    "type": "report"
+  },
+  {
+    "DOI": "10.1051/epjconf/201714609040",
+    "author": [
+      {
+        "family": "Conlin",
+        "given": "Jeremy Lloyd"
+      },
+      {
+        "family": "Kahler",
+        "given": "A. C."
+      },
+      {
+        "family": "McCartney",
+        "given": "Austin P."
+      },
+      {
+        "family": "Rehn",
+        "given": "Daniel A."
+      }
+    ],
+    "container-title": "EPJ Web of Conferences",
+    "id": "conlinjeremylloyd2017njoy21",
+    "issued": {
+      "date-parts": [
+        [
+          2017
+        ]
+      ]
+    },
+    "page": "09040",
+    "title": "NJOY21: Next generation nuclear data processing capabilities",
+    "type": "paper-conference",
+    "volume": "146"
+  },
+  {
+    "author": [
+      {
+        "family": "De Cremer",
+        "given": "David"
+      },
+      {
+        "family": "Kasparov",
+        "given": "Garry"
+      }
+    ],
+    "container-title": "Harvard Business Review",
+    "id": "de2021ai",
+    "issue": "1",
+    "issued": {
+      "date-parts": [
+        [
+          2021
+        ]
+      ]
+    },
+    "page": "1–8",
+    "title": "AI should augment human intelligence, not replace it",
+    "type": "article-journal",
+    "volume": "18"
+  },
+  {
+    "author": [
+      {
+        "family": "Devkota",
+        "given": "Bishnu H"
+      },
+      {
+        "family": "Imberger",
+        "given": "Jörg"
+      }
+    ],
+    "container-title": "Water resources research",
+    "id": "devkota2009lagrangian",
+    "issue": "12",
+    "issued": {
+      "date-parts": [
+        [
+          2009
+        ]
+      ]
+    },
+    "publisher": "Wiley Online Library",
+    "title": "Lagrangian modeling of advection-diffusion transport in open channel flow",
+    "type": "article-journal",
+    "volume": "45"
+  },
+  {
+    "author": [
+      {
+        "family": "Du",
+        "given": "Bao-Cun"
+      },
+      {
+        "family": "He",
+        "given": "Ya-Ling"
+      },
+      {
+        "family": "Qiu",
+        "given": "Yu"
+      },
+      {
+        "family": "Liang",
+        "given": "Qi"
+      },
+      {
+        "family": "Zhou",
+        "given": "Yi-Peng"
+      }
+    ],
+    "container-title": "International Communications in Heat and Mass Transfer",
+    "id": "du2018investigation",
+    "issued": {
+      "date-parts": [
+        [
+          2018
+        ]
+      ]
+    },
+    "page": "61–68",
+    "publisher": "Elsevier",
+    "title": "Investigation on heat transfer characteristics of molten salt in a shell-and-tube heat exchanger",
+    "type": "article-journal",
+    "volume": "96"
+  },
+  {
+    "author": [
+      {
+        "family": "Ducru",
+        "given": "Pablo"
+      },
+      {
+        "family": "Josey",
+        "given": "Colin"
+      },
+      {
+        "family": "Dibert",
+        "given": "Karia"
+      },
+      {
+        "family": "Sobes",
+        "given": "Vladimir"
+      },
+      {
+        "family": "Forget",
+        "given": "Benoit"
+      },
+      {
+        "family": "Smith",
+        "given": "Kord"
+      }
+    ],
+    "container-title": "Journal of Computational Physics",
+    "id": "ducru2017kernel",
+    "issued": {
+      "date-parts": [
+        [
+          2017
+        ]
+      ]
+    },
+    "page": "535–557",
+    "publisher": "Elsevier",
+    "title": "Kernel reconstruction methods for Doppler broadening—Temperature interpolation by linear combination of reference cross sections at optimally chosen temperatures",
+    "type": "article-journal",
+    "volume": "335"
+  },
+  {
+    "DOI": "10.1145/58846.58847",
+    "author": [
+      {
+        "family": "Duff",
+        "given": "Iain S."
+      },
+      {
+        "family": "Grimes",
+        "given": "Roger G."
+      },
+      {
+        "family": "Lewis",
+        "given": "John G."
+      }
+    ],
+    "container-title": "ACM Transactions on Mathematical Software (TOMS)",
+    "id": "duff1989sparse",
+    "issue": "1",
+    "issued": {
+      "date-parts": [
+        [
+          1989
+        ]
+      ]
+    },
+    "page": "1–14",
+    "publisher": "ACM",
+    "title": "Sparse matrix test problems",
+    "type": "article-journal",
+    "volume": "15"
+  },
+  {
+    "DOI": "10.3389/fpsyt.2022.886692",
+    "author": [
+      {
+        "family": "Dupuis",
+        "given": "Annie"
+      },
+      {
+        "family": "Mudiyanselage",
+        "given": "Piyumi"
+      },
+      {
+        "family": "Burton",
+        "given": "Christie L."
+      },
+      {
+        "family": "Arnold",
+        "given": "Paul D."
+      },
+      {
+        "family": "Crosbie",
+        "given": "Jennifer"
+      },
+      {
+        "family": "Schachar",
+        "given": "Russell J."
+      }
+    ],
+    "container-title": "Frontiers in Psychiatry",
+    "id": "dupuis2022hyperfocus",
+    "issued": {
+      "date-parts": [
+        [
+          2022
+        ]
+      ]
+    },
+    "page": "886692",
+    "title": "Hyperfocus or flow? Attentional strengths in autism spectrum disorder",
+    "type": "article-journal",
+    "volume": "13"
+  },
+  {
+    "DOI": "10.1177/27546330241237883",
+    "author": [
+      {
+        "family": "Dwyer",
+        "given": "Patrick"
+      },
+      {
+        "family": "Williams",
+        "given": "Zachary J."
+      },
+      {
+        "family": "Lawson",
+        "given": "Wenn B."
+      },
+      {
+        "family": "Rivera",
+        "given": "Susan M."
+      }
+    ],
+    "container-title": "Neurodiversity",
+    "id": "dwyer2024monotropism",
+    "issued": {
+      "date-parts": [
+        [
+          2024
+        ]
+      ]
+    },
+    "page": "27546330241237883",
+    "title": "A trans-diagnostic investigation of attention, hyper-focus, and monotropism in autism, attention dysregulation hyperactivity development, and the general population",
+    "type": "article-journal",
+    "volume": "2"
+  },
+  {
+    "author": [
+      {
+        "family": "Edwards",
+        "given": "A. R."
+      },
+      {
+        "family": "O'Brien",
+        "given": "T. P."
+      }
+    ],
+    "container-title": "Journal of the British Nuclear Energy Society",
+    "id": "edwards1970depressurization",
+    "issued": {
+      "date-parts": [
+        [
+          1970
+        ]
+      ]
+    },
+    "page": "125–135",
+    "title": "Studies of Phenomena Connected with the Depressurization of Water Reactors",
+    "type": "article-journal"
+  },
+  {
+    "URL": "https://www.elsevier.com/about/policies-and-standards/generative-ai-policies-for-journals",
+    "author": [
+      {
+        "literal": "Elsevier"
+      }
+    ],
+    "id": "elsevier2026genai",
+    "issued": {
+      "date-parts": [
+        [
+          2026
+        ]
+      ]
+    },
+    "title": "Generative AI policies for journals",
+    "type": "document"
+  },
+  {
+    "URL": "https://www.ema.gov.sg/news-events/news/media-releases/2026/Singapore-to-Undertake-IAEA-Review-by-International-Experts-to-Assess-Its-Ability-to-Make-Informed-Decision-on-Nuclear-Energy-Deployment",
+    "accessed": {
+      "date-parts": [
+        [
+          "2026",
+          7,
+          6
+        ]
+      ]
+    },
+    "author": [
+      {
+        "literal": "Energy Market Authority"
+      }
+    ],
+    "id": "ema_singapore_inir_2026",
+    "issued": {
+      "date-parts": [
+        [
+          2026,
+          5,
+          19
+        ]
+      ]
+    },
+    "note": "Published: Joint Media Release, Ministry of Trade and Industry, Ministry of Sustainability and the Environment, Energy Market Authority, and National Environment Agency",
+    "title": "Singapore to Undertake IAEA Review by International Experts to Assess Its Ability to Make Informed Decision on Nuclear Energy Deployment",
+    "type": "document"
+  },
+  {
+    "author": [
+      {
+        "family": "Eng",
+        "given": "Poh Hwa"
+      },
+      {
+        "family": "Liu",
+        "given": "Ran Long"
+      }
+    ],
+    "container-title": "Current and Future Trends on Intelligent Technology Adoption: Volume 2",
+    "id": "eng2024will",
+    "issued": {
+      "date-parts": [
+        [
+          2024
+        ]
+      ]
+    },
+    "page": "171–202",
+    "publisher": "Springer",
+    "title": "Will intelligent technologies replace humans in the future? An exploratory study for likelihood of intelligent technologies to replace humans in the future",
+    "type": "chapter"
+  },
+  {
+    "author": [
+      {
+        "family": "Fan",
+        "given": "Gang"
+      },
+      {
+        "family": "Wang",
+        "given": "Chengpeng"
+      },
+      {
+        "family": "Wu",
+        "given": "Rongxin"
+      },
+      {
+        "family": "Xiao",
+        "given": "Xiao"
+      },
+      {
+        "family": "Shi",
+        "given": "Qingkai"
+      },
+      {
+        "family": "Zhang",
+        "given": "Charles"
+      }
+    ],
+    "container-title": "Proceedings of the 29th ACM SIGSOFT International Symposium on Software Testing and Analysis",
+    "id": "fan2020escaping",
+    "issued": {
+      "date-parts": [
+        [
+          2020
+        ]
+      ]
+    },
+    "page": "463–474",
+    "title": "Escaping dependency hell: finding build dependency errors with the unified dependency graph",
+    "type": "paper-conference"
+  },
+  {
+    "author": [
+      {
+        "family": "Feng",
+        "given": "Tao"
+      },
+      {
+        "family": "Jin",
+        "given": "Chuanyang"
+      },
+      {
+        "family": "Liu",
+        "given": "Jingyu"
+      },
+      {
+        "family": "Zhu",
+        "given": "Kunlun"
+      },
+      {
+        "family": "Tu",
+        "given": "Haoqin"
+      },
+      {
+        "family": "Cheng",
+        "given": "Zirui"
+      },
+      {
+        "family": "Lin",
+        "given": "Guanyu"
+      },
+      {
+        "family": "You",
+        "given": "Jiaxuan"
+      }
+    ],
+    "container-title": "arXiv preprint arXiv:2405.10313",
+    "id": "feng2024far",
+    "issued": {
+      "date-parts": [
+        [
+          2024
+        ]
+      ]
+    },
+    "title": "How far are we from agi: Are llms all we need?",
+    "type": "article-journal"
+  },
+  {
+    "DOI": "10.1016/j.ijmecsci.2021.106650",
+    "author": [
+      {
+        "family": "Ferreira",
+        "given": "A."
+      },
+      {
+        "literal": "others"
+      }
+    ],
+    "container-title": "International Journal of Mechanical Sciences",
+    "id": "ferreira2021femfvm",
+    "issued": {
+      "date-parts": [
+        [
+          2021
+        ]
+      ]
+    },
+    "page": "106650",
+    "publisher": "Elsevier",
+    "title": "Analysis of finite element and finite volume methods for fluid-structure interaction simulation of blood flow in a real stenosed artery",
+    "type": "article-journal",
+    "volume": "207"
+  },
+  {
+    "author": [
+      {
+        "family": "Fiorina",
+        "given": "Carlo"
+      },
+      {
+        "family": "Clifford",
+        "given": "Ivor"
+      },
+      {
+        "family": "Aufiero",
+        "given": "Manuele"
+      },
+      {
+        "family": "Mikityuk",
+        "given": "Konstantin"
+      }
+    ],
+    "container-title": "Nuclear Engineering and Design",
+    "id": "fiorina2015gen",
+    "issued": {
+      "date-parts": [
+        [
+          2015
+        ]
+      ]
+    },
+    "page": "24–37",
+    "publisher": "Elsevier",
+    "title": "GeN-Foam: a novel OpenFOAM® based multi-physics solver for 2D/3D transient analysis of nuclear reactors",
+    "type": "article-journal",
+    "volume": "294"
+  },
+  {
+    "author": [
+      {
+        "family": "Fischer",
+        "given": "Paul"
+      },
+      {
+        "family": "Kerkemeier",
+        "given": "Stefan"
+      },
+      {
+        "family": "Min",
+        "given": "Misun"
+      },
+      {
+        "family": "Lan",
+        "given": "Yu-Hsiang"
+      },
+      {
+        "family": "Phillips",
+        "given": "Malachi"
+      },
+      {
+        "family": "Rathnayake",
+        "given": "Thilina"
+      },
+      {
+        "family": "Merzari",
+        "given": "Elia"
+      },
+      {
+        "family": "Tomboulides",
+        "given": "Ananias"
+      },
+      {
+        "family": "Karakus",
+        "given": "Ali"
+      },
+      {
+        "family": "Chalmers",
+        "given": "Noel"
+      },
+      {
+        "literal": "others"
+      }
+    ],
+    "container-title": "Parallel Computing",
+    "id": "fischer2022nekrs",
+    "issued": {
+      "date-parts": [
+        [
+          2022
+        ]
+      ]
+    },
+    "page": "102982",
+    "publisher": "Elsevier",
+    "title": "NekRS, a GPU-accelerated spectral element Navier–Stokes solver",
+    "type": "article-journal",
+    "volume": "114"
+  },
+  {
+    "author": [
+      {
+        "family": "Friant",
+        "given": "David"
+      },
+      {
+        "family": "Bernard",
+        "given": "David"
+      },
+      {
+        "family": "Blaise",
+        "given": "Patrick"
+      }
+    ],
+    "container-title": "Nuclear Science and Engineering",
+    "id": "friant2023state",
+    "issue": "8",
+    "issued": {
+      "date-parts": [
+        [
+          2023
+        ]
+      ]
+    },
+    "page": "1991–2006",
+    "publisher": "Taylor & Francis",
+    "title": "State of the art on doppler broadening: Modern developments on the fuel temperature coefficient",
+    "type": "article-journal",
+    "volume": "197"
+  },
+  {
+    "author": [
+      {
+        "family": "Fritzson",
+        "given": "Peter"
+      },
+      {
+        "family": "Pop",
+        "given": "Adrian"
+      },
+      {
+        "family": "Abdelhak",
+        "given": "Karim"
+      },
+      {
+        "family": "Asghar",
+        "given": "Adeel"
+      },
+      {
+        "family": "Bachmann",
+        "given": "Bernhard"
+      },
+      {
+        "family": "Braun",
+        "given": "Willi"
+      },
+      {
+        "family": "Bouskela",
+        "given": "Daniel"
+      },
+      {
+        "family": "Braun",
+        "given": "Robert"
+      },
+      {
+        "family": "Buffoni",
+        "given": "Lena"
+      },
+      {
+        "family": "Casella",
+        "given": "Francesco"
+      },
+      {
+        "literal": "others"
+      }
+    ],
+    "container-title": "Modeling, Identification and Control",
+    "id": "fritzson2020openmodelica",
+    "issue": "4",
+    "issued": {
+      "date-parts": [
+        [
+          2020
+        ]
+      ]
+    },
+    "page": "241–295",
+    "publisher": "Norsk Forening for Automatisering",
+    "title": "The OpenModelica integrated environment for modeling, simulation, and model-based development",
+    "type": "article-journal",
+    "volume": "41"
+  },
+  {
+    "author": [
+      {
+        "family": "Fulton",
+        "given": "Kelsey R"
+      },
+      {
+        "family": "Chan",
+        "given": "Anna"
+      },
+      {
+        "family": "Votipka",
+        "given": "Daniel"
+      },
+      {
+        "family": "Hicks",
+        "given": "Michael"
+      },
+      {
+        "family": "Mazurek",
+        "given": "Michelle L"
+      }
+    ],
+    "container-title": "Seventeenth Symposium on Usable Privacy and Security (SOUPS 2021)",
+    "id": "fulton2021benefits",
+    "issued": {
+      "date-parts": [
+        [
+          2021
+        ]
+      ]
+    },
+    "page": "597–616",
+    "title": "Benefits and drawbacks of adopting a secure programming language: Rust as a case study",
+    "type": "paper-conference"
+  },
+  {
+    "author": [
+      {
+        "family": "Galassi",
+        "given": "Mark"
+      },
+      {
+        "family": "Davies",
+        "given": "Jim"
+      },
+      {
+        "family": "Theiler",
+        "given": "James"
+      },
+      {
+        "family": "Gough",
+        "given": "Brian"
+      },
+      {
+        "family": "Jungman",
+        "given": "Gerard"
+      },
+      {
+        "family": "Alken",
+        "given": "Patrick"
+      },
+      {
+        "family": "Booth",
+        "given": "Michael"
+      },
+      {
+        "family": "Rossi",
+        "given": "Fabrice"
+      },
+      {
+        "family": "Ulerich",
+        "given": "Rhys"
+      }
+    ],
+    "id": "galassi2002gnu",
+    "issued": {
+      "date-parts": [
+        [
+          2002
+        ]
+      ]
+    },
+    "publisher": "Network Theory Limited Godalming",
+    "title": "GNU scientific library",
+    "type": "book"
+  },
+  {
+    "DOI": "10.1155/hbe2/8303770",
+    "ISSN": "2578-1863",
+    "author": [
+      {
+        "family": "Ganuthula",
+        "given": "Venkat Ram Reddy"
+      },
+      {
+        "family": "Singh",
+        "given": "Manish Kumar"
+      }
+    ],
+    "container-title": "Human Behavior and Emerging Technologies",
+    "id": "ganuthula_paradox_augmentation_2026",
+    "issue": "1",
+    "issued": {
+      "date-parts": [
+        [
+          2026
+        ]
+      ]
+    },
+    "publisher": "Wiley",
+    "title": "The Paradox of Augmentation: A Theoretical Model of AI-Induced Skill Atrophy",
+    "type": "article-journal",
+    "volume": "2026"
+  },
+  {
+    "author": [
+      {
+        "family": "Gaston",
+        "given": "Derek"
+      },
+      {
+        "family": "Newman",
+        "given": "Chris"
+      },
+      {
+        "family": "Hansen",
+        "given": "Glen"
+      },
+      {
+        "family": "Lebrun-Grandie",
+        "given": "Damien"
+      }
+    ],
+    "container-title": "Nuclear Engineering and Design",
+    "id": "gaston2009moose",
+    "issue": "10",
+    "issued": {
+      "date-parts": [
+        [
+          2009
+        ]
+      ]
+    },
+    "page": "1768–1778",
+    "publisher": "Elsevier",
+    "title": "MOOSE: A parallel computational framework for coupled systems of nonlinear equations",
+    "type": "article-journal",
+    "volume": "239"
+  },
+  {
+    "author": [
+      {
+        "family": "Geffraye",
+        "given": "G"
+      },
+      {
+        "family": "Antoni",
+        "given": "O"
+      },
+      {
+        "family": "Farvacque",
+        "given": "M"
+      },
+      {
+        "family": "Kadri",
+        "given": "D"
+      },
+      {
+        "family": "Lavialle",
+        "given": "G"
+      },
+      {
+        "family": "Rameau",
+        "given": "B"
+      },
+      {
+        "family": "Ruby",
+        "given": "A"
+      }
+    ],
+    "container-title": "Nuclear Engineering and Design",
+    "id": "geffraye2011cathare",
+    "issue": "11",
+    "issued": {
+      "date-parts": [
+        [
+          2011
+        ]
+      ]
+    },
+    "page": "4456–4463",
+    "publisher": "Elsevier",
+    "title": "CATHARE 2 V2. 5_2: A single version for various applications",
+    "type": "article-journal",
+    "volume": "241"
+  },
+  {
+    "URL": "https://gitlab.com/foam-for-nuclear/GeN-Foam",
+    "author": [
+      {
+        "literal": "GeN-Foam Developers"
+      }
+    ],
+    "id": "genfoam-repo",
+    "issued": {
+      "date-parts": [
+        [
+          2018
+        ]
+      ]
+    },
+    "title": "GeN-Foam: A Multi-Physics Solver for Nuclear Reactor Analysis",
+    "type": "software"
+  },
+  {
+    "author": [
+      {
+        "family": "Ghia",
+        "given": "UKNG"
+      },
+      {
+        "family": "Ghia",
+        "given": "Kirti N"
+      },
+      {
+        "family": "Shin",
+        "given": "CT"
+      }
+    ],
+    "container-title": "Journal of computational physics",
+    "id": "ghia1982high",
+    "issue": "3",
+    "issued": {
+      "date-parts": [
+        [
+          1982
+        ]
+      ]
+    },
+    "page": "387–411",
+    "publisher": "Elsevier",
+    "title": "High-Re solutions for incompressible flow using the Navier-Stokes equations and a multigrid method",
+    "type": "article-journal",
+    "volume": "48"
+  },
+  {
+    "author": [
+      {
+        "family": "Gómez-Zarzuela",
+        "given": "C"
+      },
+      {
+        "family": "Peña-Monferrer",
+        "given": "C"
+      },
+      {
+        "family": "Chiva",
+        "given": "S"
+      },
+      {
+        "family": "Miró",
+        "given": "R"
+      }
+    ],
+    "container-title": "Progress in Nuclear Energy",
+    "id": "gomez2021development",
+    "issued": {
+      "date-parts": [
+        [
+          2021
+        ]
+      ]
+    },
+    "page": "103680",
+    "publisher": "Elsevier",
+    "title": "Development and validation of a one-dimensional solver in a CFD platform for boiling flows in bubbly regimes",
+    "type": "article-journal",
+    "volume": "134"
+  },
+  {
+    "URL": "https://www.graphreader.com/",
+    "author": [
+      {
+        "literal": "GraphReader"
+      }
+    ],
+    "id": "graphreader",
+    "title": "GraphReader: Online Tool for Extracting Values from Image-Based Graphs and Plots",
+    "type": "document"
+  },
+  {
+    "ISBN": "978-1-3999-2078-0",
+    "URL": "https://doc.cfd.direct/notes/cfd-general-principles",
+    "author": [
+      {
+        "family": "Greenshields",
+        "given": "Christopher J."
+      },
+      {
+        "family": "Weller",
+        "given": "Henry G."
+      }
+    ],
+    "edition": "First",
+    "id": "greenshields2022notes",
+    "issued": {
+      "date-parts": [
+        [
+          2022
+        ]
+      ]
+    },
+    "publisher": "CFD Direct Ltd",
+    "title": "Notes on Computational Fluid Dynamics: General Principles",
+    "type": "book"
+  },
+  {
+    "author": [
+      {
+        "family": "Guo",
+        "given": "Z"
+      },
+      {
+        "family": "Zweibaum",
+        "given": "N"
+      },
+      {
+        "family": "Shao",
+        "given": "M"
+      },
+      {
+        "family": "Huddar",
+        "given": "LR"
+      },
+      {
+        "family": "Peterson",
+        "given": "PF"
+      },
+      {
+        "family": "Qiu",
+        "given": "S"
+      }
+    ],
+    "container-title": "Progress in Nuclear Energy",
+    "id": "guo2016development",
+    "issued": {
+      "date-parts": [
+        [
+          2016
+        ]
+      ]
+    },
+    "page": "56–67",
+    "publisher": "Elsevier",
+    "title": "Development of the FHR advanced natural circulation analysis code and application to FHR safety analysis",
+    "type": "article-journal",
+    "volume": "91"
+  },
+  {
+    "author": [
+      {
+        "family": "Guo",
+        "given": "Zhexi"
+      },
+      {
+        "family": "Xiao",
+        "given": "Sicong"
+      }
+    ],
+    "container-title": "International Journal of Advanced Nuclear Reactor Design and Technology",
+    "id": "guo2025thermal",
+    "issue": "2",
+    "issued": {
+      "date-parts": [
+        [
+          2025
+        ]
+      ]
+    },
+    "page": "100–109",
+    "publisher": "Elsevier",
+    "title": "Thermal hydraulic study of NuScale iPWR passive containment cooling behaviour during loss-of-coolant accident",
+    "type": "article-journal",
+    "volume": "7"
+  },
+  {
+    "author": [
+      {
+        "family": "Gupta",
+        "given": "Sparsh"
+      },
+      {
+        "family": "Kamalakkannan",
+        "given": "Kamalavasan"
+      },
+      {
+        "family": "Moraru",
+        "given": "Maxim"
+      },
+      {
+        "family": "Shipman",
+        "given": "Galen"
+      },
+      {
+        "family": "Diehl",
+        "given": "Patrick"
+      }
+    ],
+    "container-title": "arXiv preprint arXiv:2509.12443",
+    "id": "gupta2025legacy",
+    "issued": {
+      "date-parts": [
+        [
+          2025
+        ]
+      ]
+    },
+    "title": "From Legacy Fortran to Portable Kokkos: An Autonomous Agentic AI Workflow",
+    "type": "article-journal"
+  },
+  {
+    "author": [
+      {
+        "family": "Hackbarth",
+        "given": "Randy L"
+      },
+      {
+        "family": "Mockus",
+        "given": "Audris"
+      },
+      {
+        "family": "Palframan",
+        "given": "John Douglas"
+      },
+      {
+        "family": "Weiss",
+        "given": "David M"
+      }
+    ],
+    "container-title": "Empirical Software Engineering",
+    "id": "hackbarth2010assessing",
+    "issue": "3",
+    "issued": {
+      "date-parts": [
+        [
+          2010
+        ]
+      ]
+    },
+    "page": "219–249",
+    "publisher": "Springer",
+    "title": "Assessing the state of software in a large enterprise",
+    "type": "article-journal",
+    "volume": "15"
+  },
+  {
+    "author": [
+      {
+        "family": "Hales",
+        "given": "Jason D"
+      },
+      {
+        "family": "Jiang",
+        "given": "Wen"
+      },
+      {
+        "family": "Toptan",
+        "given": "Aysenur"
+      },
+      {
+        "family": "Gamble",
+        "given": "Kyle A"
+      }
+    ],
+    "id": "hales2020bison",
+    "issued": {
+      "date-parts": [
+        [
+          2020
+        ]
+      ]
+    },
+    "publisher": "Idaho National Lab.(INL), Idaho Falls, ID (United States)",
+    "title": "BISON TRISO modeling advancements and validation to AGR-1 data",
+    "type": "report"
+  },
+  {
+    "author": [
+      {
+        "family": "Hall",
+        "given": "Douglas G"
+      },
+      {
+        "family": "Ericson",
+        "given": "Leif"
+      }
+    ],
+    "container-title": "ENS/ANS international topical meeting on nuclear power reactor safety, Belgium",
+    "id": "hall1978marviken",
+    "issued": {
+      "date-parts": [
+        [
+          1978
+        ]
+      ]
+    },
+    "title": "The Marviken Critical Flow Test—A Description and Early Results",
+    "type": "paper-conference"
+  },
+  {
+    "author": [
+      {
+        "family": "Hassan",
+        "given": "Ahmed E"
+      },
+      {
+        "family": "Li",
+        "given": "Hao"
+      },
+      {
+        "family": "Lin",
+        "given": "Dayi"
+      },
+      {
+        "family": "Adams",
+        "given": "Bram"
+      },
+      {
+        "family": "Chen",
+        "given": "Tse-Hsun"
+      },
+      {
+        "family": "Kashiwa",
+        "given": "Yutaro"
+      },
+      {
+        "family": "Qiu",
+        "given": "Dong"
+      }
+    ],
+    "container-title": "arXiv preprint arXiv:2509.06216",
+    "id": "hassan2025agentic",
+    "issued": {
+      "date-parts": [
+        [
+          2025
+        ]
+      ]
+    },
+    "title": "Agentic software engineering: Foundational pillars and a research roadmap",
+    "type": "article-journal"
+  },
+  {
+    "ISBN": "9780898715217",
+    "author": [
+      {
+        "family": "Higham",
+        "given": "Nicholas J."
+      }
+    ],
+    "edition": "2nd",
+    "id": "higham2002accuracy",
+    "issued": {
+      "date-parts": [
+        [
+          2002
+        ]
+      ]
+    },
+    "publisher": "Society for Industrial and Applied Mathematics (SIAM)",
+    "publisher-place": "Philadelphia, PA",
+    "title": "Accuracy and Stability of Numerical Algorithms",
+    "type": "book"
+  },
+  {
+    "author": [
+      {
+        "family": "HILL",
+        "given": "MITCH"
+      }
+    ],
+    "id": "hill2011approximating",
+    "issued": {
+      "date-parts": [
+        [
+          2011
+        ]
+      ]
+    },
+    "title": "APPROXIMATING THE RANDOM WALK USING THE CENTRAL LIMIT THEOREM",
+    "type": "article-journal"
+  },
+  {
+    "author": [
+      {
+        "family": "Hook",
+        "given": "Daniel"
+      },
+      {
+        "family": "Kelly",
+        "given": "Diane"
+      }
+    ],
+    "container-title": "2009 ICSE workshop on software engineering for computational science and engineering",
+    "id": "hook2009testing",
+    "issued": {
+      "date-parts": [
+        [
+          2009
+        ]
+      ]
+    },
+    "page": "59–64",
+    "publisher": "IEEE",
+    "title": "Testing for trustworthiness in scientific software",
+    "type": "paper-conference"
+  },
+  {
+    "author": [
+      {
+        "family": "Hu",
+        "given": "Rui"
+      },
+      {
+        "family": "Zou",
+        "given": "Ling"
+      },
+      {
+        "family": "O’Grady",
+        "given": "Daniel"
+      },
+      {
+        "family": "Mui",
+        "given": "Travis"
+      },
+      {
+        "family": "Ooi",
+        "given": "Zhiee Jhia"
+      },
+      {
+        "family": "Hu",
+        "given": "Guojun"
+      },
+      {
+        "family": "Cervi",
+        "given": "Eric"
+      },
+      {
+        "family": "Yang",
+        "given": "Gang"
+      },
+      {
+        "family": "Andrs",
+        "given": "David"
+      },
+      {
+        "family": "Lindsay",
+        "given": "Alex"
+      },
+      {
+        "literal": "others"
+      }
+    ],
+    "container-title": "Nuclear Technology",
+    "id": "hu2025sam",
+    "issue": "9",
+    "issued": {
+      "date-parts": [
+        [
+          2025
+        ]
+      ]
+    },
+    "page": "1883–1902",
+    "publisher": "Taylor & Francis",
+    "title": "SAM: A Modern System Code for Advanced Non-LWR Safety Analysis",
+    "type": "article-journal",
+    "volume": "211"
+  },
+  {
+    "author": [
+      {
+        "family": "Huang",
+        "given": "Lei"
+      },
+      {
+        "family": "Yu",
+        "given": "Weijiang"
+      },
+      {
+        "family": "Ma",
+        "given": "Weitao"
+      },
+      {
+        "family": "Zhong",
+        "given": "Weihong"
+      },
+      {
+        "family": "Feng",
+        "given": "Zhangyin"
+      },
+      {
+        "family": "Wang",
+        "given": "Haotian"
+      },
+      {
+        "family": "Chen",
+        "given": "Qianglong"
+      },
+      {
+        "family": "Peng",
+        "given": "Weihua"
+      },
+      {
+        "family": "Feng",
+        "given": "Xiaocheng"
+      },
+      {
+        "family": "Qin",
+        "given": "Bing"
+      },
+      {
+        "literal": "others"
+      }
+    ],
+    "container-title": "ACM transactions on information systems",
+    "id": "huang2025survey",
+    "issue": "2",
+    "issued": {
+      "date-parts": [
+        [
+          2025
+        ]
+      ]
+    },
+    "page": "1–55",
+    "publisher": "ACM New York, NY",
+    "title": "A survey on hallucination in large language models: Principles, taxonomy, challenges, and open questions",
+    "type": "article-journal",
+    "volume": "43"
+  },
+  {
+    "author": [
+      {
+        "literal": "International Atomic Energy Agency"
+      }
+    ],
+    "id": "iaeatecdoc1382",
+    "issued": {
+      "date-parts": [
+        [
+          2003
+        ]
+      ]
+    },
+    "number": "IAEA-TECDOC-1382",
+    "publisher": "International Atomic Energy Agency",
+    "publisher-place": "Vienna",
+    "title": "Evaluation of High Temperature Gas Cooled Reactor Performance",
+    "type": "report"
+  },
+  {
+    "URL": "https://www.imda.gov.sg/resources/press-releases-factsheets-and-speeches/press-releases/2026/major-push-to-upskill-tech-professionals-and-grow-the-next-generation-of-tech-leaders",
+    "accessed": {
+      "date-parts": [
+        [
+          "2026",
+          7,
+          6
+        ]
+      ]
+    },
+    "author": [
+      {
+        "literal": "Infocomm Media Development Authority"
+      }
+    ],
+    "id": "imda_aixtech_2026",
+    "issued": {
+      "date-parts": [
+        [
+          2026,
+          5,
+          8
+        ]
+      ]
+    },
+    "note": "Published: Official Press Release, Infocomm Media Development Authority, Government of Singapore",
+    "title": "Major Push to Upskill 40,000 Tech Professionals over the Next Three Years and Grow the Next-Generation of Tech Leaders as IMDA Doubles Down on AI Readiness",
+    "type": "document"
+  },
+  {
+    "URL": "https://www.youtube.com/watch?v=UfApUobqN8Y",
+    "accessed": {
+      "date-parts": [
+        [
+          "2026",
+          7,
+          23
+        ]
+      ]
+    },
+    "author": [
+      {
+        "literal": "The Infographics Show"
+      }
+    ],
+    "id": "infographics_show_ai_bill_2026",
+    "issued": {
+      "date-parts": [
+        [
+          2026,
+          6
+        ]
+      ]
+    },
+    "note": "Published: Video, The Infographics Show YouTube channel",
+    "title": "The \\15,000 AI Bill. Your \\20 Subscription is a DELUSION",
+    "type": "document"
+  },
+  {
+    "author": [
+      {
+        "family": "Jasak",
+        "given": "Hrvoje"
+      }
+    ],
+    "genre": "PhD Thesis",
+    "id": "jasak1996openfoamthesisphd",
+    "issued": {
+      "date-parts": [
+        [
+          1996
+        ]
+      ]
+    },
+    "publisher": "Imperial College of Science, Technology and Medicine, University of London",
+    "title": "Error analysis and estimation for the finite volume method with applications to fluid flows",
+    "type": "thesis"
+  },
+  {
+    "author": [
+      {
+        "family": "Jasak",
+        "given": "Hrvoje"
+      },
+      {
+        "family": "Jemcov",
+        "given": "Aleksandar"
+      },
+      {
+        "family": "Tuković",
+        "given": "Željko"
+      }
+    ],
+    "container-title": "International Workshop on Coupled Methods in Numerical Dynamics",
+    "id": "jasak2007openfoam",
+    "issued": {
+      "date-parts": [
+        [
+          2007
+        ]
+      ]
+    },
+    "publisher-place": "Dubrovnik, Croatia",
+    "title": "OpenFOAM: A C++ library for complex physics simulations",
+    "type": "paper-conference"
+  },
+  {
+    "author": [
+      {
+        "family": "Jasak",
+        "given": "Hrvoje"
+      }
+    ],
+    "container-title": "International journal of naval architecture and ocean engineering",
+    "id": "jasak2009openfoam",
+    "issue": "2",
+    "issued": {
+      "date-parts": [
+        [
+          2009
+        ]
+      ]
+    },
+    "page": "89–94",
+    "publisher": "Elsevier",
+    "title": "OpenFOAM: Open source CFD in research and industry",
+    "type": "article-journal",
+    "volume": "1"
+  },
+  {
+    "author": [
+      {
+        "family": "Jiang",
+        "given": "Wen"
+      },
+      {
+        "family": "Toptan",
+        "given": "Aysenur"
+      },
+      {
+        "family": "Hales",
+        "given": "Jason D"
+      },
+      {
+        "family": "Spencer",
+        "given": "Benjamin W"
+      },
+      {
+        "family": "Novascone",
+        "given": "Stephen R"
+      }
+    ],
+    "id": "jiang2023fission",
+    "issued": {
+      "date-parts": [
+        [
+          2023
+        ]
+      ]
+    },
+    "publisher": "Idaho National Lab.(INL), Idaho Falls, ID (United States)",
+    "title": "Fission product transport in TRISO particles and pebbles",
+    "type": "report"
+  },
+  {
+    "DOI": "10.1016/j.net.2021.02.012",
+    "author": [
+      {
+        "family": "Kabach",
+        "given": "Ouadie"
+      },
+      {
+        "family": "Chetaine",
+        "given": "Abdelouahed"
+      },
+      {
+        "family": "Benchrif",
+        "given": "Abdelfettah"
+      },
+      {
+        "family": "Amsil",
+        "given": "Hamid"
+      }
+    ],
+    "container-title": "Nuclear Engineering and Technology",
+    "id": "kabach2021intercomparison",
+    "issue": "8",
+    "issued": {
+      "date-parts": [
+        [
+          2021
+        ]
+      ]
+    },
+    "page": "2445–2453",
+    "title": "An inter-comparison between ENDF/B-VIII.0-NECP-Atlas and ENDF/B-VIII.0-NJOY results for criticality safety benchmarks and benchmarks on the reactivity temperature coefficient",
+    "type": "article-journal",
+    "volume": "53"
+  },
+  {
+    "author": [
+      {
+        "family": "Kailasa",
+        "given": "Srinath"
+      },
+      {
+        "family": "Betcke",
+        "given": "Timo"
+      }
+    ],
+    "container-title": "SC ACM Student Research Competition Posters. The International Conference for High Performance Computing, Networking, Storage, and Analysis",
+    "id": "kailasa2022mostly",
+    "issued": {
+      "date-parts": [
+        [
+          2022
+        ]
+      ]
+    },
+    "title": "Mostly Painless Scientific Computing with Rust",
+    "type": "paper-conference"
+  },
+  {
+    "author": [
+      {
+        "family": "Kieffer",
+        "given": "Susan Werner"
+      }
+    ],
+    "container-title": "Journal of Geophysical research",
+    "id": "kieffer1977sound",
+    "issue": "20",
+    "issued": {
+      "date-parts": [
+        [
+          1977
+        ]
+      ]
+    },
+    "page": "2895–2904",
+    "publisher": "Wiley Online Library",
+    "title": "Sound speed in liquid-gas mixtures: Water-air and water-steam",
+    "type": "article-journal",
+    "volume": "82"
+  },
+  {
+    "author": [
+      {
+        "family": "Kim",
+        "given": "Yonghee"
+      },
+      {
+        "family": "Baek",
+        "given": "Min"
+      }
+    ],
+    "id": "kim2005elimination",
+    "issued": {
+      "date-parts": [
+        [
+          2005
+        ]
+      ]
+    },
+    "title": "Elimination of double-heterogeneity through a reactivity-equivalent physical transformation",
+    "type": "article-journal"
+  },
+  {
+    "author": [
+      {
+        "family": "Kim",
+        "given": "Cheol-Hee"
+      },
+      {
+        "family": "Song",
+        "given": "Chang-Keun"
+      },
+      {
+        "family": "Lee",
+        "given": "Sang-Hyun"
+      },
+      {
+        "family": "Song",
+        "given": "Sang-Keun"
+      }
+    ],
+    "container-title": "Journal of environmental radioactivity",
+    "id": "kim2008simulating",
+    "issue": "10",
+    "issued": {
+      "date-parts": [
+        [
+          2008
+        ]
+      ]
+    },
+    "page": "1644–1652",
+    "publisher": "Elsevier",
+    "title": "Simulating mesoscale transport and diffusion of radioactive noble gases using the Lagrangian particle dispersion model",
+    "type": "article-journal",
+    "volume": "99"
+  },
+  {
+    "DOI": "10.1504/PCFD.2012.047457",
+    "author": [
+      {
+        "family": "Kloss",
+        "given": "Christoph"
+      },
+      {
+        "family": "Goniva",
+        "given": "Christoph"
+      },
+      {
+        "family": "Hager",
+        "given": "Alice"
+      },
+      {
+        "family": "Amberger",
+        "given": "Stefan"
+      },
+      {
+        "family": "Pirker",
+        "given": "Stefan"
+      }
+    ],
+    "container-title": "Progress in Computational Fluid Dynamics, An International Journal",
+    "id": "kloss2012models",
+    "issue": "2/3",
+    "issued": {
+      "date-parts": [
+        [
+          2012
+        ]
+      ]
+    },
+    "page": "140–152",
+    "title": "Models, Algorithms and Validation for Opensource DEM and CFD-DEM",
+    "type": "article-journal",
+    "volume": "12"
+  },
+  {
+    "author": [
+      {
+        "family": "Leipzig",
+        "given": "Jeremy"
+      },
+      {
+        "family": "Nüst",
+        "given": "Daniel"
+      },
+      {
+        "family": "Hoyt",
+        "given": "Charles Tapley"
+      },
+      {
+        "family": "Ram",
+        "given": "Karthik"
+      },
+      {
+        "family": "Greenberg",
+        "given": "Jane"
+      }
+    ],
+    "container-title": "Patterns",
+    "id": "leipzig2021role",
+    "issue": "9",
+    "issued": {
+      "date-parts": [
+        [
+          2021
+        ]
+      ]
+    },
+    "publisher": "Elsevier",
+    "title": "The role of metadata in reproducible computational research",
+    "type": "article-journal",
+    "volume": "2"
+  },
+  {
+    "DOI": "10.1016/j.anucene.2010.01.011",
+    "author": [
+      {
+        "family": "Leppänen",
+        "given": "Jaakko"
+      }
+    ],
+    "container-title": "Annals of Nuclear Energy",
+    "id": "leppanen2010delta",
+    "issue": "5",
+    "issued": {
+      "date-parts": [
+        [
+          2010
+        ]
+      ]
+    },
+    "page": "715–722",
+    "title": "Performance of Woodcock Delta-Tracking in Lattice Physics Applications Using the Serpent Monte Carlo Reactor Physics Burnup Calculation Code",
+    "type": "article-journal",
+    "volume": "37"
+  },
+  {
+    "author": [
+      {
+        "family": "Leppänen",
+        "given": "Jaakko"
+      },
+      {
+        "literal": "others"
+      }
+    ],
+    "container-title": "Proceedings of m&c",
+    "id": "leppanen2013development",
+    "issued": {
+      "date-parts": [
+        [
+          2013
+        ]
+      ]
+    },
+    "page": "5–9",
+    "title": "Development of a dynamic simulation mode in Serpent 2 Monte Carlo code",
+    "type": "article-journal"
+  },
+  {
+    "DOI": "10.1016/j.anucene.2017.03.006",
+    "author": [
+      {
+        "family": "Leppänen",
+        "given": "Jaakko"
+      }
+    ],
+    "container-title": "Annals of Nuclear Energy",
+    "id": "leppanen2017delta",
+    "issued": {
+      "date-parts": [
+        [
+          2017
+        ]
+      ]
+    },
+    "page": "161–167",
+    "title": "On the Use of Delta-Tracking and the Collision Flux Estimator in the Serpent 2 Monte Carlo Particle Transport Code",
+    "type": "article-journal",
+    "volume": "105"
+  },
+  {
+    "author": [
+      {
+        "family": "Leppänen",
+        "given": "Jaakko"
+      }
+    ],
+    "container-title": "Annals of Nuclear Energy",
+    "id": "leppanen2017use",
+    "issued": {
+      "date-parts": [
+        [
+          2017
+        ]
+      ]
+    },
+    "page": "161–167",
+    "publisher": "Elsevier",
+    "title": "On the use of delta-tracking and the collision flux estimator in the Serpent 2 Monte Carlo particle transport code",
+    "type": "article-journal",
+    "volume": "105"
+  },
+  {
+    "author": [
+      {
+        "family": "Leung",
+        "given": "Kenneth"
+      },
+      {
+        "family": "Langton",
+        "given": "Stephanie"
+      },
+      {
+        "family": "Hummel",
+        "given": "David"
+      },
+      {
+        "family": "Novog",
+        "given": "David R"
+      }
+    ],
+    "container-title": "Proceedings of the Canadian Nuclear Society",
+    "id": "leung2011modelling",
+    "issued": {
+      "date-parts": [
+        [
+          2011
+        ]
+      ]
+    },
+    "title": "Modelling of flow instabilities under supercritical conditions",
+    "type": "article-journal"
+  },
+  {
+    "author": [
+      {
+        "family": "Li",
+        "given": "Wanlin"
+      },
+      {
+        "family": "Yu",
+        "given": "Ganglin"
+      },
+      {
+        "family": "Wei",
+        "given": "Chunlin"
+      }
+    ],
+    "container-title": "7th International Topical Meeting on High Temperature Reactor Technology (HTR 2014)",
+    "id": "li2014htr10rmc",
+    "issued": {
+      "date-parts": [
+        [
+          2014,
+          10
+        ]
+      ]
+    },
+    "publisher-place": "Weihai, China",
+    "title": "Research on Benchmark Calculation and Analysis of HTR-10 with RMC Code",
+    "type": "paper-conference"
+  },
+  {
+    "author": [
+      {
+        "family": "Li",
+        "given": "Longze"
+      },
+      {
+        "family": "Wang",
+        "given": "Mingjun"
+      },
+      {
+        "family": "Tian",
+        "given": "Wenxi"
+      },
+      {
+        "family": "Su",
+        "given": "Guanghui"
+      },
+      {
+        "family": "Qiu",
+        "given": "Suizheng"
+      }
+    ],
+    "container-title": "Progress in Nuclear Energy",
+    "id": "li2014melcor",
+    "issued": {
+      "date-parts": [
+        [
+          2014
+        ]
+      ]
+    },
+    "page": "30–38",
+    "publisher": "Elsevier",
+    "title": "Severe accident analysis for a typical PWR using the MELCOR code",
+    "type": "article-journal",
+    "volume": "71"
+  },
+  {
+    "DOI": "10.1016/j.anucene.2012.09.013",
+    "author": [
+      {
+        "family": "Liang",
+        "given": "Chao"
+      },
+      {
+        "family": "Ji",
+        "given": "Wei"
+      },
+      {
+        "family": "Brown",
+        "given": "Forrest B."
+      }
+    ],
+    "container-title": "Annals of Nuclear Energy",
+    "id": "liang2013chord",
+    "issued": {
+      "date-parts": [
+        [
+          2013
+        ]
+      ]
+    },
+    "page": "140–146",
+    "title": "Chord length sampling method for analyzing stochastic distribution of fuel particles in continuous energy simulations",
+    "type": "article-journal",
+    "volume": "53"
+  },
+  {
+    "DOI": "10.1038/s41551-024-01185-8",
+    "author": [
+      {
+        "family": "Lin",
+        "given": "Zhicheng"
+      }
+    ],
+    "container-title": "Nature Biomedical Engineering",
+    "id": "lin2025supercharging",
+    "issued": {
+      "date-parts": [
+        [
+          2025
+        ]
+      ]
+    },
+    "page": "426–431",
+    "title": "Techniques for supercharging academic writing with generative AI",
+    "type": "article-journal",
+    "volume": "9"
+  },
+  {
+    "author": [
+      {
+        "family": "Lindsay",
+        "given": "Alexander"
+      },
+      {
+        "family": "Ridley",
+        "given": "Gavin"
+      },
+      {
+        "family": "Rykhlevskii",
+        "given": "Andrei"
+      },
+      {
+        "family": "Huff",
+        "given": "Kathryn"
+      }
+    ],
+    "container-title": "Annals of Nuclear Energy",
+    "id": "lindsay2018introduction",
+    "issued": {
+      "date-parts": [
+        [
+          2018
+        ]
+      ]
+    },
+    "page": "530–540",
+    "publisher": "Elsevier",
+    "title": "Introduction to Moltres: an application for simulation of Molten Salt Reactors",
+    "type": "article-journal",
+    "volume": "114"
+  },
+  {
+    "URL": "https://www.kernel.org/doc/html/latest/process/cve.html",
+    "author": [
+      {
+        "literal": "Linux Kernel Developers"
+      }
+    ],
+    "id": "linuxkernel2026cve",
+    "issued": {
+      "date-parts": [
+        [
+          2026
+        ]
+      ]
+    },
+    "note": "Published: The Linux Kernel Documentation",
+    "title": "CVEs",
+    "type": "document"
+  },
+  {
+    "URL": "https://www.kernel.org/doc/html/latest/process/security-bugs.html",
+    "author": [
+      {
+        "literal": "Linux Kernel Developers"
+      }
+    ],
+    "id": "linuxkernel2026security",
+    "issued": {
+      "date-parts": [
+        [
+          2026
+        ]
+      ]
+    },
+    "note": "Published: The Linux Kernel Documentation",
+    "title": "Security Bugs",
+    "type": "document"
+  },
+  {
+    "author": [
+      {
+        "family": "Liu",
+        "given": "Jiacheng"
+      },
+      {
+        "family": "Zhao",
+        "given": "Xiaohan"
+      },
+      {
+        "family": "Shang",
+        "given": "Xinyi"
+      },
+      {
+        "family": "Shen",
+        "given": "Zhiqiang"
+      }
+    ],
+    "container-title": "arXiv preprint arXiv:2604.14228",
+    "id": "liu2026dive",
+    "issued": {
+      "date-parts": [
+        [
+          2026
+        ]
+      ]
+    },
+    "title": "Dive into Claude Code: The Design Space of Today's and Future AI Agent Systems",
+    "type": "article-journal"
+  },
+  {
+    "author": [
+      {
+        "family": "LIU",
+        "given": "RB"
+      },
+      {
+        "family": "Zhou",
+        "given": "SC"
+      },
+      {
+        "family": "Fan",
+        "given": "ZC"
+      }
+    ],
+    "id": "liu_iaea_ai_assisted_operation",
+    "title": "DEVELOPMENT AND EXPLORATION OF AN AI-ASSISTED DECISION-MAKING SYSTEM FOR THE CHINA EXPERIMENTAL FAST REACTOR BASED ON SIMULATOR DATA",
+    "type": "article-journal"
+  },
+  {
+    "author": [
+      {
+        "family": "Lou",
+        "given": "Lei"
+      },
+      {
+        "family": "Yao",
+        "given": "Dong"
+      },
+      {
+        "family": "Chai",
+        "given": "Xiaoming"
+      },
+      {
+        "family": "Peng",
+        "given": "Xingjie"
+      },
+      {
+        "family": "Li",
+        "given": "Mancang"
+      },
+      {
+        "family": "Li",
+        "given": "Weiwei"
+      },
+      {
+        "family": "Yu",
+        "given": "Yingrui"
+      },
+      {
+        "family": "Wang",
+        "given": "Lianjie"
+      }
+    ],
+    "container-title": "Annals of Nuclear Energy",
+    "id": "lou2020novel",
+    "issued": {
+      "date-parts": [
+        [
+          2020
+        ]
+      ]
+    },
+    "page": "107396",
+    "publisher": "Elsevier",
+    "title": "A novel reactivity-equivalent physical transformation method for homogenization of double-heterogeneous systems",
+    "type": "article-journal",
+    "volume": "142"
+  },
+  {
+    "author": [
+      {
+        "family": "Mahboob",
+        "given": "Kamran"
+      },
+      {
+        "family": "Alkaabi",
+        "given": "Ahmed"
+      },
+      {
+        "family": "Addad",
+        "given": "Yacine"
+      }
+    ],
+    "container-title": "Nuclear Engineering and Technology",
+    "id": "mahboob2026corium",
+    "issued": {
+      "date-parts": [
+        [
+          2026
+        ]
+      ]
+    },
+    "page": "104357",
+    "publisher": "Elsevier",
+    "title": "Simulating Molten Corium Concrete Interaction: A Multiphase Approach with OpenFOAM",
+    "type": "article-journal"
+  },
+  {
+    "DOI": "10.1093/gigascience/giaa056",
+    "author": [
+      {
+        "family": "Mangul",
+        "given": "Serghei"
+      },
+      {
+        "family": "Martin",
+        "given": "Lana S."
+      },
+      {
+        "family": "Hill",
+        "given": "Brian L."
+      },
+      {
+        "family": "Lam",
+        "given": "Angela K.-M."
+      },
+      {
+        "family": "Distler",
+        "given": "Martin G."
+      },
+      {
+        "family": "Zelikovsky",
+        "given": "Alex"
+      },
+      {
+        "family": "Eskin",
+        "given": "Eleazar"
+      },
+      {
+        "family": "Flint",
+        "given": "Jonathan"
+      }
+    ],
+    "container-title": "GigaScience",
+    "id": "mangul2019recommendations",
+    "issue": "6",
+    "issued": {
+      "date-parts": [
+        [
+          2020
+        ]
+      ]
+    },
+    "title": "Recommendations to Enhance Rigor and Reproducibility in Biomedical Research",
+    "type": "article-journal",
+    "volume": "9"
+  },
+  {
+    "DOI": "10.1007/978-3-031-76631-2_3",
+    "ISBN": "978-3-031-76630-5",
+    "author": [
+      {
+        "family": "Marcondes",
+        "given": "Francisco S."
+      },
+      {
+        "family": "Gala",
+        "given": "Adelino"
+      },
+      {
+        "family": "Magalhães",
+        "given": "Renata"
+      },
+      {
+        "family": "Perez de Britto",
+        "given": "Fernando"
+      },
+      {
+        "family": "Durães",
+        "given": "Dalila"
+      },
+      {
+        "family": "Novais",
+        "given": "Paulo"
+      }
+    ],
+    "collection-title": "SpringerBriefs in Computer Science",
+    "container-title": "Natural Language Analytics with Generative Large-Language Models: A Practical Approach with Ollama and Open-Source LLMs",
+    "id": "marcondes_using_ollama_2025",
+    "issued": {
+      "date-parts": [
+        [
+          2025
+        ]
+      ]
+    },
+    "page": "23–35",
+    "publisher": "Springer Nature Switzerland",
+    "publisher-place": "Cham",
+    "title": "Using Ollama",
+    "type": "chapter"
+  },
+  {
+    "DOI": "10.1016/j.sciaf.2020.e00573",
+    "author": [
+      {
+        "family": "Marzouk",
+        "given": "Osama A."
+      }
+    ],
+    "container-title": "Scientific African",
+    "id": "marzouk2020sod",
+    "issued": {
+      "date-parts": [
+        [
+          2020
+        ]
+      ]
+    },
+    "page": "e00573",
+    "title": "The Sod gasdynamics problem as a tool for benchmarking face flux construction in the finite volume method",
+    "type": "article-journal",
+    "volume": "10"
+  },
+  {
+    "DOI": "10.1145/1653662.1653717",
+    "author": [
+      {
+        "family": "Meneely",
+        "given": "Andrew"
+      },
+      {
+        "family": "Williams",
+        "given": "Laurie"
+      }
+    ],
+    "container-title": "Proceedings of the 16th ACM Conference on Computer and Communications Security",
+    "id": "meneely2009secure",
+    "issued": {
+      "date-parts": [
+        [
+          2009
+        ]
+      ]
+    },
+    "page": "453–462",
+    "title": "Secure Open Source Collaboration: An Empirical Study of Linus' Law",
+    "type": "paper-conference"
+  },
+  {
+    "author": [
+      {
+        "family": "Miao",
+        "given": "Jiacheng"
+      },
+      {
+        "family": "Davis",
+        "given": "Joe R"
+      },
+      {
+        "family": "Zhang",
+        "given": "Yaohui"
+      },
+      {
+        "family": "Pritchard",
+        "given": "Jonathan K"
+      },
+      {
+        "family": "Zou",
+        "given": "James"
+      }
+    ],
+    "container-title": "arXiv preprint arXiv:2509.06917",
+    "id": "miao2025paper2agent",
+    "issued": {
+      "date-parts": [
+        [
+          2025
+        ]
+      ]
+    },
+    "title": "Paper2agent: Reimagining research papers as interactive and reliable ai agents",
+    "type": "article-journal"
+  },
+  {
+    "URL": "https://github.com/arfc/moltres",
+    "accessed": {
+      "date-parts": [
+        [
+          "2026",
+          8,
+          20
+        ]
+      ]
+    },
+    "author": [
+      {
+        "literal": "Advanced Reactors and Fuel Cycles Group"
+      }
+    ],
+    "id": "moltres_github",
+    "issued": {
+      "date-parts": [
+        [
+          2026
+        ]
+      ]
+    },
+    "publisher": "GitHub",
+    "title": "Moltres: An Open-Source MOOSE Application for the Simulation of Molten Salt Reactors",
+    "type": "document"
+  },
+  {
+    "URL": "https://www.osti.gov/servlets/purl/7309475",
+    "author": [
+      {
+        "family": "Moody",
+        "given": "F. J."
+      }
+    ],
+    "id": "moody1975maximum",
+    "issued": {
+      "date-parts": [
+        [
+          1975
+        ]
+      ]
+    },
+    "number": "NEDO-21052",
+    "publisher": "General Electric Co., San Jose, CA (United States). BWR Projects Dept.",
+    "title": "Maximum Discharge Rate of Liquid-Vapor Mixtures from Vessels",
+    "type": "report"
+  },
+  {
+    "author": [
+      {
+        "family": "Murphy",
+        "given": "Michael D"
+      }
+    ],
+    "container-title": "Landscape Architecture Theory: An Ecological Approach",
+    "id": "murphy2016problem",
+    "issued": {
+      "date-parts": [
+        [
+          2016
+        ]
+      ]
+    },
+    "page": "217–242",
+    "publisher": "Springer",
+    "title": "Problem Definition",
+    "type": "chapter"
+  },
+  {
+    "DOI": "10.1038/d41586-026-02886-7",
+    "container-title": "Nature",
+    "id": "nature2026attribution",
+    "issued": {
+      "date-parts": [
+        [
+          2026,
+          9
+        ]
+      ]
+    },
+    "page": "573",
+    "title": "AI Companies Must Work with the Research Community to Protect Attribution",
+    "type": "article-journal",
+    "volume": "657"
+  },
+  {
+    "DOI": "10.1016/j.pnucene.2026.106250",
+    "author": [
+      {
+        "family": "Nervi",
+        "given": "Giovanni"
+      },
+      {
+        "family": "Guilbaud",
+        "given": "Thomas"
+      },
+      {
+        "family": "Fiorina",
+        "given": "Carlo"
+      },
+      {
+        "family": "Hursin",
+        "given": "Mathieu"
+      },
+      {
+        "family": "Scolaro",
+        "given": "Alessandro"
+      }
+    ],
+    "container-title": "Progress in Nuclear Energy",
+    "id": "nervi2026foamfornuclear",
+    "issued": {
+      "date-parts": [
+        [
+          2026
+        ]
+      ]
+    },
+    "page": "106250",
+    "publisher": "Elsevier",
+    "title": "foamForNuclear: A unified OpenFOAM multi-physics platform for nuclear applications",
+    "type": "article-journal",
+    "volume": "193"
+  },
+  {
+    "DOI": "10.25047/jeapco.v9i2.3933",
+    "author": [
+      {
+        "family": "Ningsih",
+        "given": "Nourma Silvia"
+      },
+      {
+        "family": "Rahman",
+        "given": "Fadhlur"
+      }
+    ],
+    "container-title": "Journal of English in Academic and Professional Communication",
+    "id": "ningsih2023singlish",
+    "issue": "2",
+    "issued": {
+      "date-parts": [
+        [
+          2023
+        ]
+      ]
+    },
+    "page": "72–80",
+    "title": "Exploring the Unique Morphological and Syntactic Features of Singlish (Singapore English)",
+    "type": "article-journal",
+    "volume": "9"
+  },
+  {
+    "URL": "https://www.osti.gov/biblio/1338791",
+    "author": [
+      {
+        "family": "MacFarlane",
+        "given": "Robert E."
+      },
+      {
+        "family": "Muir",
+        "given": "Douglas W."
+      },
+      {
+        "family": "Boicourt",
+        "given": "Raymond M."
+      },
+      {
+        "family": "Kahler",
+        "given": "Albert C."
+      },
+      {
+        "family": "Conlin",
+        "given": "Jeremy L."
+      }
+    ],
+    "genre": "Technical Report",
+    "id": "njoy2016",
+    "issued": {
+      "date-parts": [
+        [
+          2017
+        ]
+      ]
+    },
+    "number": "LA-UR-17-20093",
+    "publisher": "Los Alamos National Laboratory",
+    "title": "The NJOY Nuclear Data Processing System, Version 2016",
+    "type": "report"
+  },
+  {
+    "URL": "https://math.nist.gov/MatrixMarket/data/Harwell-Boeing/nucl/nnc261.html",
+    "author": [
+      {
+        "literal": "Matrix Market"
+      }
+    ],
+    "id": "nnc261_matrixmarket",
+    "issued": {
+      "date-parts": [
+        [
+          1995
+        ]
+      ]
+    },
+    "title": "NNC261: Nuclear Reactor Neutron Diffusion Matrix",
+    "type": "document"
+  },
+  {
+    "author": [
+      {
+        "family": "Novak",
+        "given": "AJ"
+      },
+      {
+        "family": "Shriwise",
+        "given": "P"
+      },
+      {
+        "family": "Romano",
+        "given": "PK"
+      },
+      {
+        "family": "Rahaman",
+        "given": "R"
+      },
+      {
+        "family": "Merzari",
+        "given": "E"
+      },
+      {
+        "family": "Gaston",
+        "given": "D"
+      }
+    ],
+    "container-title": "Nuclear Science and Engineering",
+    "id": "novak2023coupled",
+    "issue": "10",
+    "issued": {
+      "date-parts": [
+        [
+          2023
+        ]
+      ]
+    },
+    "page": "2561–2584",
+    "publisher": "Taylor & Francis",
+    "title": "Coupled Monte Carlo transport and conjugate heat transfer for wire-wrapped bundles within the MOOSE framework",
+    "type": "article-journal",
+    "volume": "197"
+  },
+  {
+    "URL": "https://www.nrc.gov/docs/ML2408/ML24086A002.pdf",
+    "author": [
+      {
+        "literal": "U.S. Nuclear Regulatory Commission"
+      }
+    ],
+    "id": "nrc2024ai",
+    "issued": {
+      "date-parts": [
+        [
+          2024,
+          4
+        ]
+      ]
+    },
+    "number": "SECY-24-0035",
+    "publisher": "U.S. Nuclear Regulatory Commission",
+    "title": "Advancing the Use of Artificial Intelligence at the U.S. Nuclear Regulatory Commission",
+    "type": "report"
+  },
+  {
+    "author": [
+      {
+        "family": "Oktavian",
+        "given": "M Rizki"
+      },
+      {
+        "family": "Tunga",
+        "given": "Anirudh"
+      },
+      {
+        "family": "Bakshi",
+        "given": "Amandeep"
+      },
+      {
+        "family": "Mueterthies",
+        "given": "Michael J"
+      },
+      {
+        "family": "Gruenwald",
+        "given": "J Thomas"
+      },
+      {
+        "family": "Nistor",
+        "given": "Jonathan"
+      }
+    ],
+    "container-title": "arXiv preprint arXiv:2503.19620",
+    "id": "oktavian2025optimization",
+    "issued": {
+      "date-parts": [
+        [
+          2025
+        ]
+      ]
+    },
+    "title": "Optimization through In-Context Learning and Iterative LLM Prompting for Nuclear Engineering Design Problems",
+    "type": "article-journal"
+  },
+  {
+    "author": [
+      {
+        "family": "Ong",
+        "given": "Theodore Kay Chen"
+      }
+    ],
+    "id": "ong2023masters",
+    "issued": {
+      "date-parts": [
+        [
+          2023
+        ]
+      ]
+    },
+    "publisher": "University of California, Berkeley",
+    "title": "Development of an Isothermal-Flow Digital Twin for the Compact Integral Effects Test",
+    "type": "book"
+  },
+  {
+    "URL": "https://github.com/theodoreOnzGit/chem-eng-real-time-process-control-simulator",
+    "author": [
+      {
+        "family": "Ong",
+        "given": "Theodore Kay Chen"
+      }
+    ],
+    "id": "ong2024chemengprocesscontrol",
+    "issued": {
+      "date-parts": [
+        [
+          2024
+        ]
+      ]
+    },
+    "publisher": "GitHub",
+    "title": "chem-eng-real-time-process-control-simulator: A real-time process control simulator library",
+    "type": "document"
+  },
+  {
+    "author": [
+      {
+        "family": "Ong",
+        "given": "Theodore Kay Chen"
+      }
+    ],
+    "id": "ong2024digital",
+    "issued": {
+      "date-parts": [
+        [
+          2024
+        ]
+      ]
+    },
+    "publisher": "University of California, Berkeley",
+    "title": "Digital Twins as Testbeds for Iterative Simulated Neutronics Feedback Controller Development",
+    "type": "book"
+  },
+  {
+    "URL": "https://github.com/theodoreOnzGit/thermal_hydraulics_rs",
+    "author": [
+      {
+        "family": "Ong",
+        "given": "Theodore Kay Chen"
+      }
+    ],
+    "id": "ong2024thermalhydraulicsrs",
+    "issued": {
+      "date-parts": [
+        [
+          2024
+        ]
+      ]
+    },
+    "publisher": "GitHub",
+    "title": "thermal_hydraulics_rs: A thermal hydraulics library primarily for the Compact Integral Effects Test (CIET) and the Fluoride Salt Cooled High Temperature Reactor (FHR)",
+    "type": "document"
+  },
+  {
+    "author": [
+      {
+        "family": "Ong",
+        "given": "Theodore Kay Chen"
+      },
+      {
+        "family": "Xiao",
+        "given": "Sicong"
+      },
+      {
+        "family": "Peterson",
+        "given": "Per F"
+      }
+    ],
+    "container-title": "International Journal of Advanced Nuclear Reactor Design and Technology",
+    "id": "ong2024tuas",
+    "issue": "4",
+    "issued": {
+      "date-parts": [
+        [
+          2024
+        ]
+      ]
+    },
+    "page": "281–301",
+    "publisher": "Elsevier",
+    "title": "An open-source Thermo-hydraulic Uniphase Advection and Convection Solver for Salt Flows (TUAS)",
+    "type": "article-journal",
+    "volume": "6"
+  },
+  {
+    "URL": "https://github.com/theodoreOnzGit/tuas_boussinesq_solver",
+    "author": [
+      {
+        "family": "Ong",
+        "given": "Theodore Kay Chen"
+      },
+      {
+        "family": "Xiao",
+        "given": "Sicong"
+      },
+      {
+        "family": "Peterson",
+        "given": "Per F"
+      }
+    ],
+    "id": "ong2024tuasgithubrepo",
+    "issued": {
+      "date-parts": [
+        [
+          2024
+        ]
+      ]
+    },
+    "publisher": "GitHub",
+    "title": "TUAS Boussinesq Solver",
+    "type": "document"
+  },
+  {
+    "author": [
+      {
+        "family": "Ong",
+        "given": "Theodore"
+      },
+      {
+        "family": "Xiao",
+        "given": "Sicong"
+      },
+      {
+        "family": "Peterson",
+        "given": "Per"
+      }
+    ],
+    "id": "ong2025nureth",
+    "issued": {
+      "date-parts": [
+        [
+          2025,
+          8
+        ]
+      ]
+    },
+    "title": "Validation of the Open Source TUAS Using Coupled Natural Circulation Data from CIET",
+    "type": "paper-conference"
+  },
+  {
+    "URL": "https://github.com/theodoreOnzGit/teh-o-prke",
+    "author": [
+      {
+        "family": "Ong",
+        "given": "Theodore Kay Chen"
+      }
+    ],
+    "id": "ong2025tehoprke",
+    "issued": {
+      "date-parts": [
+        [
+          2025
+        ]
+      ]
+    },
+    "publisher": "GitHub",
+    "title": "teh-o-prke: Point Reactor Kinetics Equations Module for the Teh-O package",
+    "type": "document"
+  },
+  {
+    "URL": "https://github.com/theodoreOnzGit/boon-lay",
+    "author": [
+      {
+        "family": "Ong",
+        "given": "Theodore Kay Chen"
+      }
+    ],
+    "id": "ong2026boonlay",
+    "issued": {
+      "date-parts": [
+        [
+          2026
+        ]
+      ]
+    },
+    "publisher": "GitHub",
+    "title": "boon-lay: BOmbardment Open source Nuclide simulation Laboratory Algorithm for Yields (BOON LAY)",
+    "type": "document"
+  },
+  {
+    "URL": "https://github.com/theodoreOnzGit/fission-yields-data",
+    "author": [
+      {
+        "family": "Ong",
+        "given": "Theodore Kay Chen"
+      }
+    ],
+    "id": "ong2026fissionyieldsdata",
+    "issued": {
+      "date-parts": [
+        [
+          2026
+        ]
+      ]
+    },
+    "publisher": "GitHub",
+    "title": "fission-yields-data: Fission yields for various nuclides using ENDF and other library data",
+    "type": "document"
+  },
+  {
+    "URL": "https://github.com/theodoreOnzGit/openmc-endf-8-depletion-lib-a",
+    "author": [
+      {
+        "family": "Ong",
+        "given": "Theodore Kay Chen"
+      }
+    ],
+    "id": "ong2026openmcdepletiona",
+    "issued": {
+      "date-parts": [
+        [
+          2026
+        ]
+      ]
+    },
+    "publisher": "GitHub",
+    "title": "openmc-endf-8-depletion-lib-a: Rust parser for OpenMC ENDF/B-VIII.0 depletion chain data, part one",
+    "type": "document"
+  },
+  {
+    "URL": "https://github.com/theodoreOnzGit/openmc-endf-8-depletion-lib-b",
+    "author": [
+      {
+        "family": "Ong",
+        "given": "Theodore Kay Chen"
+      }
+    ],
+    "id": "ong2026openmcdepletionb",
+    "issued": {
+      "date-parts": [
+        [
+          2026
+        ]
+      ]
+    },
+    "publisher": "GitHub",
+    "title": "openmc-endf-8-depletion-lib-b: Rust parser for OpenMC ENDF/B-VIII.0 depletion chain data, part two",
+    "type": "document"
+  },
+  {
+    "author": [
+      {
+        "family": "Ong",
+        "given": "Theodore Kay Chen"
+      },
+      {
+        "family": "Xiao",
+        "given": "Sicong"
+      }
+    ],
+    "container-title": "arXiv preprint arXiv:2609.15258",
+    "id": "ong2026outramneutronics",
+    "issued": {
+      "date-parts": [
+        [
+          2026
+        ]
+      ]
+    },
+    "title": "Agentic Porting, Construction and Initial Verification and Validation of Libraries within the Open Source Unified TRAnsient Multi-Physics Advanced Reactor simulation Kit (Outram Park) Part II: Nuclear Data and Neutronics",
+    "type": "article-journal"
+  },
+  {
+    "URL": "https://arxiv.org/abs/2608.17504",
+    "author": [
+      {
+        "family": "Ong",
+        "given": "Theodore Kay Chen"
+      },
+      {
+        "family": "Wong",
+        "given": "Ethan Yew Hoe"
+      },
+      {
+        "family": "Xiao",
+        "given": "Sicong"
+      }
+    ],
+    "id": "ong2026outrampark_arxiv",
+    "issued": {
+      "date-parts": [
+        [
+          2026
+        ]
+      ]
+    },
+    "title": "Agentic Porting, Construction and Initial Verification and Validation of Libraries within the Open Source Unified TRAnsient Multi-Phase Advanced Reactor simulation Kit (Outram Park) Part I: Thermal Hydraulics",
+    "type": "document"
+  },
+  {
+    "URL": "https://github.com/theodoreOnzGit/outram-park-backend",
+    "author": [
+      {
+        "family": "Ong",
+        "given": "Theodore Kay Chen"
+      }
+    ],
+    "id": "ong2026outramparkbackend",
+    "issued": {
+      "date-parts": [
+        [
+          2026
+        ]
+      ]
+    },
+    "publisher": "GitHub",
+    "title": "Outram Park Backend: Open-source TRAnsient Multi-Phase Advanced Reactor simulator Kit",
+    "type": "document"
+  },
+  {
+    "URL": "https://arxiv.org/abs/2608.17504",
+    "author": [
+      {
+        "family": "Ong",
+        "given": "Theodore Kay Chen"
+      },
+      {
+        "family": "Wong",
+        "given": "Ethan Yew Hoe"
+      },
+      {
+        "family": "Xiao",
+        "given": "Sicong"
+      }
+    ],
+    "id": "ong2026outramparkpart1",
+    "issued": {
+      "date-parts": [
+        [
+          2026,
+          8
+        ]
+      ]
+    },
+    "title": "Agentic Porting, Construction and Initial Verification and Validation of Libraries within the Open Source Unified TRAnsient Multi-Phase Advanced Reactor simulation Kit (Outram Park) Part I: Thermal Hydraulics",
+    "type": "document"
+  },
+  {
+    "URL": "https://github.com/theodoreOnzGit/tampines-steam-tables",
+    "author": [
+      {
+        "family": "Ong",
+        "given": "Theodore Kay Chen"
+      }
+    ],
+    "id": "ong2026tampinessteamtables",
+    "issued": {
+      "date-parts": [
+        [
+          2026
+        ]
+      ]
+    },
+    "publisher": "GitHub",
+    "title": "tampines-steam-tables: In house steam tables for the Thermo-hydraulic Artificial intelligence Multi-Phase INtegrated Emulator System (TAMPINES) solver",
+    "type": "document"
+  },
+  {
+    "URL": "https://github.com/theodoreOnzGit/lingot_tuner_rust",
+    "accessed": {
+      "date-parts": [
+        [
+          "2026",
+          7,
+          6
+        ]
+      ]
+    },
+    "author": [
+      {
+        "family": "Ong",
+        "given": "Kay Chen Theodore"
+      }
+    ],
+    "id": "ong_lingot_tuner_rust_2026",
+    "issued": {
+      "date-parts": [
+        [
+          2026,
+          6
+        ]
+      ]
+    },
+    "note": "Published: GitHub repository, GPL-3.0 license",
+    "title": "lingot_tuner_rust: A Rust rewrite of the LINGOT musical instrument tuner using Claude Code",
+    "type": "document"
+  },
+  {
+    "URL": "https://www.youtube.com/watch?v=_CTuoYE0gEQ",
+    "accessed": {
+      "date-parts": [
+        [
+          "2026",
+          7,
+          6
+        ]
+      ]
+    },
+    "author": [
+      {
+        "family": "Ong",
+        "given": "Kay Chen Theodore"
+      }
+    ],
+    "id": "ong_lingot_video_series_2026",
+    "issued": {
+      "date-parts": [
+        [
+          2026,
+          6
+        ]
+      ]
+    },
+    "note": "Published: Video series, Theo Ong Science and Engineering YouTube channel",
+    "title": "Vibe coding: rewriting LINGOT in Rust with Claude Code",
+    "type": "document"
+  },
+  {
+    "URL": "https://www.openfoam.com/documentation/tutorial-guide/2-incompressible-flow/2.1-lid-driven-cavity-flow",
+    "author": [
+      {
+        "literal": "OpenCFD Ltd."
+      }
+    ],
+    "id": "openfoam_cavity_tutorial",
+    "issued": {
+      "date-parts": [
+        [
+          2026
+        ]
+      ]
+    },
+    "title": "2.1 Lid-driven cavity flow",
+    "type": "document"
+  },
+  {
+    "DOI": "10.1016/j.cpc.2014.08.004",
+    "author": [
+      {
+        "family": "Orgogozo",
+        "given": "L."
+      },
+      {
+        "family": "Renon",
+        "given": "N."
+      },
+      {
+        "family": "Soulaine",
+        "given": "C."
+      },
+      {
+        "family": "Hénon",
+        "given": "F."
+      },
+      {
+        "family": "Tomer",
+        "given": "Sat-Kumar"
+      },
+      {
+        "family": "Labat",
+        "given": "D."
+      },
+      {
+        "family": "Pokrovsky",
+        "given": "O. S."
+      },
+      {
+        "family": "Sekhar",
+        "given": "M."
+      },
+      {
+        "family": "Ababou",
+        "given": "Rachid"
+      },
+      {
+        "family": "Quintard",
+        "given": "Michel"
+      }
+    ],
+    "container-title": "Computer Physics Communications",
+    "id": "orgogozo2014open",
+    "issue": "12",
+    "issued": {
+      "date-parts": [
+        [
+          2014
+        ]
+      ]
+    },
+    "page": "3358–3371",
+    "publisher": "Elsevier",
+    "title": "An open source massively parallel solver for Richards equation: Mechanistic modelling of water fluxes at the watershed scale",
+    "type": "article-journal",
+    "volume": "185"
+  },
+  {
+    "author": [
+      {
+        "family": "Palmblad",
+        "given": "Magnus"
+      },
+      {
+        "family": "Ragland",
+        "given": "Jared M"
+      },
+      {
+        "family": "Neely",
+        "given": "Benjamin A"
+      }
+    ],
+    "container-title": "arXiv preprint arXiv:2604.21744",
+    "id": "palmblad2026agentic",
+    "issued": {
+      "date-parts": [
+        [
+          2026
+        ]
+      ]
+    },
+    "title": "Agentic AI-assisted coding offers a unique opportunity to instill epistemic grounding during software development",
+    "type": "article-journal"
+  },
+  {
+    "DOI": "10.1016/j.tics.2025.02.005",
+    "author": [
+      {
+        "family": "Pessiglione",
+        "given": "Mathias"
+      },
+      {
+        "family": "Blain",
+        "given": "Bastien"
+      },
+      {
+        "family": "Wiehler",
+        "given": "Antonius"
+      },
+      {
+        "family": "Naik",
+        "given": "Shruti"
+      }
+    ],
+    "container-title": "Trends in Cognitive Sciences",
+    "id": "pessiglione2025fatigue",
+    "issue": "8",
+    "issued": {
+      "date-parts": [
+        [
+          2025
+        ]
+      ]
+    },
+    "page": "730–749",
+    "title": "Origins and consequences of cognitive fatigue",
+    "type": "article-journal",
+    "volume": "29"
+  },
+  {
+    "author": [
+      {
+        "family": "Price",
+        "given": "CJ"
+      },
+      {
+        "family": "Robertson",
+        "given": "BL"
+      }
+    ],
+    "container-title": "Encyclopedia of Engineering Optimization and Heuristics",
+    "id": "price2012golden",
+    "issued": {
+      "date-parts": [
+        [
+          2012
+        ]
+      ]
+    },
+    "page": "1–4",
+    "publisher": "Springer",
+    "title": "Golden Section Search",
+    "type": "chapter"
+  },
+  {
+    "author": [
+      {
+        "family": "Rawte",
+        "given": "Vipula"
+      },
+      {
+        "family": "Sheth",
+        "given": "Amit"
+      },
+      {
+        "family": "Das",
+        "given": "Amitava"
+      }
+    ],
+    "container-title": "arXiv preprint arXiv:2309.05922",
+    "id": "rawte2023survey",
+    "issued": {
+      "date-parts": [
+        [
+          2023
+        ]
+      ]
+    },
+    "title": "A survey of hallucination in large foundation models",
+    "type": "article-journal"
+  },
+  {
+    "author": [
+      {
+        "family": "Romano",
+        "given": "Paul K"
+      },
+      {
+        "family": "Horelik",
+        "given": "Nicholas E"
+      },
+      {
+        "family": "Herman",
+        "given": "Bryan R"
+      },
+      {
+        "family": "Nelson",
+        "given": "Adam G"
+      },
+      {
+        "family": "Forget",
+        "given": "Benoit"
+      },
+      {
+        "family": "Smith",
+        "given": "Kord"
+      }
+    ],
+    "container-title": "Annals of Nuclear Energy",
+    "id": "romano2015openmc",
+    "issued": {
+      "date-parts": [
+        [
+          2015
+        ]
+      ]
+    },
+    "page": "90–97",
+    "publisher": "Elsevier",
+    "title": "OpenMC: A state-of-the-art Monte Carlo code for research and development",
+    "type": "article-journal",
+    "volume": "82"
+  },
+  {
+    "URL": "https://www.nrc.gov/docs/ML1925/ML19256F779.pdf",
+    "author": [
+      {
+        "family": "Saha",
+        "given": "P."
+      }
+    ],
+    "id": "saha1978review",
+    "issued": {
+      "date-parts": [
+        [
+          1978
+        ]
+      ]
+    },
+    "number": "NUREG/CR-0417, BNL-NUREG-50907",
+    "publisher": "Brookhaven National Laboratory, Upton, NY",
+    "title": "A Review of Two-Phase Steam-Water Critical Flow Models with Emphasis on Thermal Nonequilibrium",
+    "type": "report"
+  },
+  {
+    "author": [
+      {
+        "family": "Santoso",
+        "given": "Oey Kevin Andrian"
+      },
+      {
+        "family": "Kwee",
+        "given": "Catherine"
+      },
+      {
+        "family": "Chua",
+        "given": "William"
+      },
+      {
+        "family": "Nabiilah",
+        "given": "Ghinaa Zain"
+      },
+      {
+        "literal": "others"
+      }
+    ],
+    "container-title": "Procedia Computer Science",
+    "id": "santoso2023rust",
+    "issued": {
+      "date-parts": [
+        [
+          2023
+        ]
+      ]
+    },
+    "page": "119–127",
+    "publisher": "Elsevier",
+    "title": "Rust's memory safety model: An evaluation of its effectiveness in preventing common vulnerabilities",
+    "type": "article-journal",
+    "volume": "227"
+  },
+  {
+    "author": [
+      {
+        "family": "Sapkota",
+        "given": "Ranjan"
+      },
+      {
+        "family": "Roumeliotis",
+        "given": "Konstantinos I"
+      },
+      {
+        "family": "Karkee",
+        "given": "Manoj"
+      }
+    ],
+    "container-title": "arXiv preprint arXiv:2505.19443",
+    "id": "sapkota2025vibe",
+    "issued": {
+      "date-parts": [
+        [
+          2025
+        ]
+      ]
+    },
+    "title": "Vibe coding vs. agentic coding: Fundamentals and practical implications of agentic ai",
+    "type": "article-journal"
+  },
+  {
+    "author": [
+      {
+        "family": "Scarlat",
+        "given": "Raluca Olga"
+      }
+    ],
+    "id": "scarlat2012design",
+    "issued": {
+      "date-parts": [
+        [
+          2012
+        ]
+      ]
+    },
+    "publisher": "University of California, Berkeley",
+    "title": "Design of complex systems to achieve passive safety: Natural circulation cooling of liquid salt pebble bed reactors",
+    "type": "book"
+  },
+  {
+    "author": [
+      {
+        "family": "Schappel",
+        "given": "D"
+      },
+      {
+        "family": "Terrani",
+        "given": "K"
+      },
+      {
+        "family": "Powers",
+        "given": "JJ"
+      },
+      {
+        "family": "Snead",
+        "given": "LL"
+      },
+      {
+        "family": "Wirth",
+        "given": "BD"
+      }
+    ],
+    "container-title": "Nuclear Engineering and Design",
+    "id": "schappel2018modeling",
+    "issued": {
+      "date-parts": [
+        [
+          2018
+        ]
+      ]
+    },
+    "page": "116–127",
+    "publisher": "Elsevier",
+    "title": "Modeling the performance of TRISO-based fully ceramic matrix (FCM) fuel in an LWR environment using BISON",
+    "type": "article-journal",
+    "volume": "335"
+  },
+  {
+    "DOI": "10.1016/j.ijmultiphaseflow.2009.11.012",
+    "author": [
+      {
+        "family": "Schmidt",
+        "given": "David P."
+      },
+      {
+        "family": "Gopalakrishnan",
+        "given": "S."
+      },
+      {
+        "family": "Jasak",
+        "given": "Hrvoje"
+      }
+    ],
+    "container-title": "International Journal of Multiphase Flow",
+    "id": "schmidt2010hrmfoam",
+    "issue": "4",
+    "issued": {
+      "date-parts": [
+        [
+          2010
+        ]
+      ]
+    },
+    "page": "284–292",
+    "title": "Multi-dimensional simulation of thermal non-equilibrium channel flow",
+    "type": "article-journal",
+    "volume": "36"
+  },
+  {
+    "URL": "https://github.com/davidpschmidt/HRMFoam",
+    "accessed": {
+      "date-parts": [
+        [
+          "2026",
+          7,
+          6
+        ]
+      ]
+    },
+    "author": [
+      {
+        "family": "Schmidt",
+        "given": "David P."
+      }
+    ],
+    "id": "schmidt_hrmfoam_github",
+    "note": "Published: GitHub repository, GPL-3.0 license",
+    "title": "HRMFoam: Homogeneous Relaxation Model solver for OpenFOAM",
+    "type": "document"
+  },
+  {
+    "author": [
+      {
+        "family": "Skerjanc",
+        "given": "William F"
+      }
+    ],
+    "id": "skerjanc2020comparison",
+    "issued": {
+      "date-parts": [
+        [
+          2020
+        ]
+      ]
+    },
+    "publisher": "Idaho National Laboratory (INL), Idaho Falls, ID (United States)",
+    "title": "Comparison of fission product release predictions using PARFUME with results from the AGR-2 irradiation experiment",
+    "type": "report"
+  },
+  {
+    "DOI": "10.1080/00295450.2021.1873215",
+    "URL": "https://inldigitallibrary.inl.gov/sites/STI/STI/Sort_24568.pdf",
+    "author": [
+      {
+        "family": "Slaughter",
+        "given": "Andrew E."
+      },
+      {
+        "family": "Gaston",
+        "given": "Derek R."
+      },
+      {
+        "family": "Permann",
+        "given": "Cody J."
+      },
+      {
+        "family": "Andrš",
+        "given": "David"
+      },
+      {
+        "family": "Miller",
+        "given": "Jason A."
+      },
+      {
+        "family": "Peterson",
+        "given": "John W."
+      }
+    ],
+    "container-title": "Nuclear Technology",
+    "id": "slaughter2021code",
+    "issue": "sup1",
+    "issued": {
+      "date-parts": [
+        [
+          2021
+        ]
+      ]
+    },
+    "page": "S109–S116",
+    "title": "Code Documentation, and Automation for Nuclear Quality Assurance",
+    "type": "article-journal",
+    "volume": "207"
+  },
+  {
+    "DOI": "10.1016/0021-9991(78)90023-2",
+    "author": [
+      {
+        "family": "Sod",
+        "given": "Gary A."
+      }
+    ],
+    "container-title": "Journal of Computational Physics",
+    "id": "sod1978survey",
+    "issue": "1",
+    "issued": {
+      "date-parts": [
+        [
+          1978
+        ]
+      ]
+    },
+    "page": "1–31",
+    "title": "A survey of several finite difference methods for systems of nonlinear hyperbolic conservation laws",
+    "type": "article-journal",
+    "volume": "27"
+  },
+  {
+    "author": [
+      {
+        "family": "Spinellis",
+        "given": "Diomidis"
+      },
+      {
+        "family": "Gousios",
+        "given": "Georgios"
+      },
+      {
+        "family": "Karakoidas",
+        "given": "Vassilios"
+      },
+      {
+        "family": "Louridas",
+        "given": "Panagiotis"
+      },
+      {
+        "family": "Adams",
+        "given": "Paul J"
+      },
+      {
+        "family": "Samoladas",
+        "given": "Ioannis"
+      },
+      {
+        "family": "Stamelos",
+        "given": "Ioannis"
+      }
+    ],
+    "container-title": "Electronic Notes in Theoretical Computer Science",
+    "id": "spinellis2009evaluating",
+    "issued": {
+      "date-parts": [
+        [
+          2009
+        ]
+      ]
+    },
+    "page": "5–28",
+    "publisher": "Elsevier",
+    "title": "Evaluating the quality of open source software",
+    "type": "article-journal",
+    "volume": "233"
+  },
+  {
+    "DOI": "10.1523/JNEUROSCI.1612-24.2025",
+    "author": [
+      {
+        "family": "Steward",
+        "given": "Grace"
+      },
+      {
+        "family": "Looi",
+        "given": "Vivian"
+      },
+      {
+        "family": "Chib",
+        "given": "Vikram S."
+      }
+    ],
+    "container-title": "The Journal of Neuroscience",
+    "id": "steward2025neurobiology",
+    "issue": "24",
+    "issued": {
+      "date-parts": [
+        [
+          2025
+        ]
+      ]
+    },
+    "page": "e1612242025",
+    "title": "The Neurobiology of Cognitive Fatigue and Its Influence on Effort-Based Choice",
+    "type": "article-journal",
+    "volume": "45"
+  },
+  {
+    "author": [
+      {
+        "family": "Sun",
+        "given": "Xin"
+      },
+      {
+        "family": "Ståhl",
+        "given": "Daniel"
+      },
+      {
+        "family": "Sandahl",
+        "given": "Kristian"
+      },
+      {
+        "family": "Kessler",
+        "given": "Christoph"
+      }
+    ],
+    "container-title": "Journal of Systems and Software",
+    "id": "sun2026quality",
+    "issued": {
+      "date-parts": [
+        [
+          2026
+        ]
+      ]
+    },
+    "page": "112885",
+    "publisher": "Elsevier",
+    "title": "Quality assurance of LLM-generated code: Addressing non-functional quality characteristics",
+    "type": "article-journal"
+  },
+  {
+    "DOI": "10.1016/j.anucene.2024.110439",
+    "author": [
+      {
+        "family": "Tan",
+        "given": "Zhe Chuan"
+      },
+      {
+        "family": "Feng",
+        "given": "Zeyu"
+      },
+      {
+        "family": "Wang",
+        "given": "Kan"
+      }
+    ],
+    "container-title": "Annals of Nuclear Energy",
+    "id": "tan2024rsa",
+    "issued": {
+      "date-parts": [
+        [
+          2024
+        ]
+      ]
+    },
+    "page": "110439",
+    "title": "An Improved Parallel Random Sequential Addition Algorithm in RMC Code for Dispersion Fuel Analysis",
+    "type": "article-journal",
+    "volume": "201"
+  },
+  {
+    "DOI": "10.1016/j.anucene.2025.111436",
+    "author": [
+      {
+        "family": "Tan",
+        "given": "Zhe Chuan"
+      },
+      {
+        "family": "Feng",
+        "given": "Zeyu"
+      },
+      {
+        "family": "Chan",
+        "given": "Ka Yiu"
+      },
+      {
+        "family": "Wang",
+        "given": "Kan"
+      }
+    ],
+    "container-title": "Annals of Nuclear Energy",
+    "id": "tan2025scls",
+    "issued": {
+      "date-parts": [
+        [
+          2025
+        ]
+      ]
+    },
+    "page": "111436",
+    "title": "A Semi-Implicit Chord Length Sampling Method for Dispersion Fuel Analysis",
+    "type": "article-journal",
+    "volume": "219"
+  },
+  {
+    "author": [
+      {
+        "family": "Tan",
+        "given": "Zhe Chuan"
+      },
+      {
+        "family": "Feng",
+        "given": "Zhi Yuan"
+      },
+      {
+        "family": "Chan",
+        "given": "Kok Yue"
+      },
+      {
+        "family": "Wang",
+        "given": "Kan"
+      }
+    ],
+    "container-title": "Annals of Nuclear Energy",
+    "id": "tan2025semi",
+    "issued": {
+      "date-parts": [
+        [
+          2025
+        ]
+      ]
+    },
+    "page": "111436",
+    "publisher": "Elsevier",
+    "title": "A semi-implicit Chord Length Sampling method for dispersion fuel analysis",
+    "type": "article-journal",
+    "volume": "219"
+  },
+  {
+    "URL": "https://www.mom.gov.sg/newsroom/speeches/2026/0303-minister-speech-for-cos-2026",
+    "accessed": {
+      "date-parts": [
+        [
+          "2026",
+          7,
+          23
+        ]
+      ]
+    },
+    "author": [
+      {
+        "family": "Tan",
+        "given": "See Leng"
+      }
+    ],
+    "id": "tan_mom_cos_2026",
+    "issued": {
+      "date-parts": [
+        [
+          2026,
+          3,
+          3
+        ]
+      ]
+    },
+    "note": "Published: Official Speech, Ministry of Manpower, Government of Singapore, Parliament House",
+    "title": "Speech by Minister for Manpower Dr Tan See Leng at Ministry of Manpower Committee of Supply 2026",
+    "type": "document"
+  },
+  {
+    "author": [
+      {
+        "family": "Tangsriwong",
+        "given": "Kwanchanok"
+      },
+      {
+        "family": "Lapchit",
+        "given": "Puttida"
+      },
+      {
+        "family": "Kittijungjit",
+        "given": "Tanatip"
+      },
+      {
+        "family": "Klamrassamee",
+        "given": "Thepparat"
+      },
+      {
+        "family": "Sukjai",
+        "given": "Yanin"
+      },
+      {
+        "family": "Laoonual",
+        "given": "Yossapong"
+      }
+    ],
+    "container-title": "IOP Conference Series: Earth and Environmental Science",
+    "id": "tangsriwong2020modeling",
+    "issue": "1",
+    "issued": {
+      "date-parts": [
+        [
+          2020
+        ]
+      ]
+    },
+    "page": "012057",
+    "publisher": "IOP Publishing",
+    "title": "Modeling of chemical processes using commercial and open-source software: A comparison between Aspen Plus and DWSIM",
+    "type": "paper-conference",
+    "volume": "463"
+  },
+  {
+    "DOI": "10.2753/MIS0742-1222240109",
+    "author": [
+      {
+        "family": "Tarafdar",
+        "given": "Monideepa"
+      },
+      {
+        "family": "Tu",
+        "given": "Qiang"
+      },
+      {
+        "family": "Ragu-Nathan",
+        "given": "Bhanu S."
+      },
+      {
+        "family": "Ragu-Nathan",
+        "given": "T. S."
+      }
+    ],
+    "container-title": "Journal of Management Information Systems",
+    "id": "tarafdar2007technostress",
+    "issue": "1",
+    "issued": {
+      "date-parts": [
+        [
+          2007
+        ]
+      ]
+    },
+    "page": "301–328",
+    "title": "The Impact of Technostress on Role Stress and Productivity",
+    "type": "article-journal",
+    "volume": "24"
+  },
+  {
+    "DOI": "10.1111/isj.12169",
+    "author": [
+      {
+        "family": "Tarafdar",
+        "given": "Monideepa"
+      },
+      {
+        "family": "Cooper",
+        "given": "Cary L."
+      },
+      {
+        "family": "Stich",
+        "given": "Jean-François"
+      }
+    ],
+    "container-title": "Information Systems Journal",
+    "id": "tarafdar2019trifecta",
+    "issue": "1",
+    "issued": {
+      "date-parts": [
+        [
+          2019
+        ]
+      ]
+    },
+    "page": "6–42",
+    "title": "The technostress trifecta — techno eustress, techno distress and design: Theoretical directions and an agenda for research",
+    "type": "article-journal",
+    "volume": "29"
+  },
+  {
+    "author": [
+      {
+        "family": "Taylor",
+        "given": "RL"
+      },
+      {
+        "family": "Zienkiewicz",
+        "given": "OC"
+      }
+    ],
+    "id": "taylor2005finite",
+    "issued": {
+      "date-parts": [
+        [
+          2005
+        ]
+      ]
+    },
+    "publisher": "Elsevier",
+    "title": "The finite element method for solid and structural mechanics",
+    "type": "book"
+  },
+  {
+    "URL": "https://www.osti.gov/servlets/purl/911178",
+    "accessed": {
+      "date-parts": [
+        [
+          "2026",
+          8,
+          13
+        ]
+      ]
+    },
+    "author": [
+      {
+        "family": "Terry",
+        "given": "William K."
+      },
+      {
+        "family": "Kim",
+        "given": "Soon Sam"
+      },
+      {
+        "family": "Montierth",
+        "given": "Leland M."
+      },
+      {
+        "family": "Cogliati",
+        "given": "Joshua J."
+      },
+      {
+        "family": "Ougouag",
+        "given": "Abderrafi M."
+      }
+    ],
+    "genre": "Preprint",
+    "id": "terry2005htr10benchmark",
+    "issued": {
+      "date-parts": [
+        [
+          2005
+        ]
+      ]
+    },
+    "number": "INL/CON-05-00852",
+    "publisher": "Idaho National Laboratory",
+    "title": "Evaluation of the HTR-10 Reactor as a Benchmark for Physics Code QA",
+    "type": "report"
+  },
+  {
+    "URL": "https://cfd.university/learn/10-key-concepts-everyone-must-understand-in-cfd/how-to-discretise-the-navier-stokes-equations/",
+    "accessed": {
+      "date-parts": [
+        [
+          "2026",
+          7,
+          21
+        ]
+      ]
+    },
+    "author": [
+      {
+        "family": "Teschner",
+        "given": "Tom-Robin"
+      }
+    ],
+    "id": "teschner_discretise_nse",
+    "publisher": "CFD University",
+    "title": "How to Discretise the Navier–Stokes Equations",
+    "type": "webpage"
+  },
+  {
+    "URL": "https://github.com/ThermoSysPro/ThermoSysPro",
+    "accessed": {
+      "date-parts": [
+        [
+          "2026",
+          8,
+          20
+        ]
+      ]
+    },
+    "author": [
+      {
+        "literal": "EDF R&D"
+      }
+    ],
+    "id": "thermosyspro_github",
+    "issued": {
+      "date-parts": [
+        [
+          2026
+        ]
+      ]
+    },
+    "publisher": "GitHub",
+    "title": "ThermoSysPro: Modelica Library for Thermal-Hydraulic and Power Plant Modelling",
+    "type": "document"
+  },
+  {
+    "author": [
+      {
+        "family": "Toro",
+        "given": "Eleuterio F."
+      }
+    ],
+    "edition": "3rd",
+    "id": "toro2013riemann",
+    "issued": {
+      "date-parts": [
+        [
+          2013
+        ]
+      ]
+    },
+    "publisher": "Springer Science & Business Media",
+    "title": "Riemann solvers and numerical methods for fluid dynamics: a practical introduction",
+    "type": "book"
+  },
+  {
+    "author": [
+      {
+        "family": "Trajanov",
+        "given": "Dimitar"
+      },
+      {
+        "family": "Kocarev",
+        "given": "Ljupco"
+      }
+    ],
+    "id": "trajanov2026cognitive",
+    "issued": {
+      "date-parts": [
+        [
+          2026
+        ]
+      ]
+    },
+    "publisher": "Preprints",
+    "title": "The Cognitive Obesity Hypothesis: AI and the Risk of Mental Atrophy",
+    "type": "article-journal"
+  },
+  {
+    "author": [
+      {
+        "family": "Van Dorsselaere",
+        "given": "JP"
+      },
+      {
+        "family": "Seropian",
+        "given": "C"
+      },
+      {
+        "family": "Chatelard",
+        "given": "P"
+      },
+      {
+        "family": "Jacq",
+        "given": "F"
+      },
+      {
+        "family": "Fleurot",
+        "given": "J"
+      },
+      {
+        "family": "Giordano",
+        "given": "P"
+      },
+      {
+        "family": "Reinke",
+        "given": "N"
+      },
+      {
+        "family": "Schwinges",
+        "given": "B"
+      },
+      {
+        "family": "Allelein",
+        "given": "HJ"
+      },
+      {
+        "family": "Luther",
+        "given": "W"
+      }
+    ],
+    "container-title": "Nuclear Technology",
+    "id": "van2009astec",
+    "issue": "3",
+    "issued": {
+      "date-parts": [
+        [
+          2009
+        ]
+      ]
+    },
+    "page": "293–307",
+    "publisher": "Taylor & Francis",
+    "title": "The ASTEC integral code for severe accident simulation",
+    "type": "article-journal",
+    "volume": "165"
+  },
+  {
+    "author": [
+      {
+        "family": "Veseli",
+        "given": "Bleran"
+      },
+      {
+        "family": "Dalipi",
+        "given": "Fisnik"
+      },
+      {
+        "family": "Idrizi",
+        "given": "Florim"
+      },
+      {
+        "family": "Luma-Osmani",
+        "given": "Shkurte"
+      },
+      {
+        "family": "Ajvazi",
+        "given": "Grela"
+      }
+    ],
+    "container-title": "Pattern Recognition and Artificial Intelligence: Selected papers from the 6th Mediterranean Conference on Pattern Recognition and Artificial Intelligence (MedPRAI24)",
+    "id": "veseli2025navigating",
+    "issued": {
+      "date-parts": [
+        [
+          2025
+        ]
+      ]
+    },
+    "page": "377–389",
+    "publisher": "Springer",
+    "title": "Navigating Career Paths: Predictive Modelling of Salary Trends of Data Engineers",
+    "type": "paper-conference"
+  },
+  {
+    "author": [
+      {
+        "family": "Veytsman",
+        "given": "Willow"
+      },
+      {
+        "family": "Zhai",
+        "given": "Shuang"
+      },
+      {
+        "family": "Ding",
+        "given": "Chen"
+      },
+      {
+        "family": "Sefkow",
+        "given": "Adam B"
+      }
+    ],
+    "container-title": "arXiv preprint arXiv:2410.19146",
+    "id": "veytsman2024rewrite",
+    "issued": {
+      "date-parts": [
+        [
+          2024
+        ]
+      ]
+    },
+    "title": "Rewrite it in Rust: A Computational Physics Case Study",
+    "type": "article-journal"
+  },
+  {
+    "author": [
+      {
+        "family": "Šafarík",
+        "given": "Pavel"
+      },
+      {
+        "family": "Novỳ",
+        "given": "Adam"
+      },
+      {
+        "family": "Jícha",
+        "given": "David"
+      },
+      {
+        "family": "Hajšman",
+        "given": "Miroslav"
+      }
+    ],
+    "container-title": "Acta Polytechnica",
+    "id": "vsafarik2015speed",
+    "issue": "6",
+    "issued": {
+      "date-parts": [
+        [
+          2015
+        ]
+      ]
+    },
+    "page": "422–426",
+    "title": "On the speed of sound in steam",
+    "type": "article-journal",
+    "volume": "55"
+  },
+  {
+    "author": [
+      {
+        "family": "Wagner",
+        "given": "Wolfgang"
+      },
+      {
+        "family": "Kretzschmar",
+        "given": "Hans-Joachim"
+      }
+    ],
+    "id": "wagner2008international",
+    "issued": {
+      "date-parts": [
+        [
+          2008
+        ]
+      ]
+    },
+    "publisher": "Springer",
+    "title": "International steam tables: Properties of water and steam based on the industrial formulation IAPWS-IF97",
+    "type": "book"
+  },
+  {
+    "author": [
+      {
+        "family": "Wang",
+        "given": "Jing"
+      },
+      {
+        "family": "Ballinger",
+        "given": "Ronald G"
+      },
+      {
+        "family": "Maclean",
+        "given": "Heather J"
+      }
+    ],
+    "container-title": "Nuclear technology",
+    "id": "wang2004timcoat",
+    "issue": "1",
+    "issued": {
+      "date-parts": [
+        [
+          2004
+        ]
+      ]
+    },
+    "page": "68–96",
+    "publisher": "Taylor & Francis",
+    "title": "TIMCOAT: an integrated fuel performance model for coated particle fuel",
+    "type": "article-journal",
+    "volume": "148"
+  },
+  {
+    "author": [
+      {
+        "family": "Wang",
+        "given": "Xin"
+      }
+    ],
+    "id": "wang2018coupled",
+    "issued": {
+      "date-parts": [
+        [
+          2018
+        ]
+      ]
+    },
+    "publisher": "University of California, Berkeley",
+    "title": "Coupled neutronics and thermal-hydraulics modeling for pebble-bed Fluoride-Salt-Cooled, High-Temperature Reactor (FHR)",
+    "type": "book"
+  },
+  {
+    "author": [
+      {
+        "family": "Wanlin",
+        "given": "Li"
+      },
+      {
+        "family": "Ganglin",
+        "given": "Yu"
+      },
+      {
+        "family": "Chunlin",
+        "given": "Wei"
+      }
+    ],
+    "container-title": "7th International Topical Meeting on High Temperature Reactor Technology: The modular HTR is advancing towards reality. Papers and Presentations",
+    "id": "wanlin2014research",
+    "issue": "INIS-CN–17M1840",
+    "issued": {
+      "date-parts": [
+        [
+          2014
+        ]
+      ]
+    },
+    "page": "6–6",
+    "title": "Research on Benchmark Calculation and Analysis of HTR-10 with RMC Code",
+    "type": "paper-conference"
+  },
+  {
+    "URL": "https://github.com/openmc-dev/openmc/pull/3971",
+    "author": [
+      {
+        "family": "Wendt",
+        "given": "Kevin"
+      }
+    ],
+    "id": "wendt2026delta",
+    "issued": {
+      "date-parts": [
+        [
+          2026
+        ]
+      ]
+    },
+    "note": "Published: OpenMC GitHub Pull Request #3971",
+    "title": "Delta tracking",
+    "type": "document"
+  },
+  {
+    "author": [
+      {
+        "family": "Wong",
+        "given": "YH"
+      },
+      {
+        "family": "Lampunio",
+        "given": "L"
+      },
+      {
+        "family": "Duan",
+        "given": "Y"
+      },
+      {
+        "family": "Eaton",
+        "given": "MD"
+      },
+      {
+        "family": "Bluck",
+        "given": "MJ"
+      }
+    ],
+    "container-title": "Nuclear Engineering and Design",
+    "id": "wong2024effects",
+    "issued": {
+      "date-parts": [
+        [
+          2024
+        ]
+      ]
+    },
+    "page": "113523",
+    "publisher": "Elsevier",
+    "title": "Effects of different momentum ratios and Reynolds number in a T-junction with an upstream elbow",
+    "type": "article-journal",
+    "volume": "428"
+  },
+  {
+    "URL": "https://singaporebudget.gov.sg",
+    "author": [
+      {
+        "family": "Wong",
+        "given": "Lawrence"
+      }
+    ],
+    "id": "wong_singapore_budget_2026_ai",
+    "issued": {
+      "date-parts": [
+        [
+          2026,
+          2
+        ]
+      ]
+    },
+    "note": "Published: Official Budget Speech, Ministry of Finance",
+    "title": "Singapore Budget 2026 Statement, Section C: Harness AI as a Strategic Advantage",
+    "type": "document"
+  },
+  {
+    "DOI": "10.1016/j.pnucene.2022.104409",
+    "author": [
+      {
+        "family": "Wu",
+        "given": "Pan"
+      },
+      {
+        "family": "Ren",
+        "given": "Yang"
+      },
+      {
+        "family": "Feng",
+        "given": "Mingjun"
+      },
+      {
+        "family": "Shan",
+        "given": "Jianqiang"
+      },
+      {
+        "family": "Huang",
+        "given": "Yanping"
+      },
+      {
+        "family": "Yang",
+        "given": "Wen"
+      }
+    ],
+    "container-title": "Progress in Nuclear Energy",
+    "id": "wu2022scwr",
+    "issued": {
+      "date-parts": [
+        [
+          2022
+        ]
+      ]
+    },
+    "page": "104409",
+    "title": "A review of existing SuperCritical Water reactor concepts, safety analysis codes and safety characteristics",
+    "type": "article-journal",
+    "volume": "153"
+  },
+  {
+    "author": [
+      {
+        "family": "Xhonneux",
+        "given": "Andre"
+      },
+      {
+        "family": "Allelein",
+        "given": "Hans-Josef"
+      }
+    ],
+    "container-title": "Nuclear engineering and design",
+    "id": "xhonneux2014development",
+    "issued": {
+      "date-parts": [
+        [
+          2014
+        ]
+      ]
+    },
+    "page": "361–369",
+    "publisher": "Elsevier",
+    "title": "Development of an integrated fission product release and transport code for spatially resolved full-core calculations of V/HTRs",
+    "type": "article-journal",
+    "volume": "271"
+  },
+  {
+    "author": [
+      {
+        "family": "Xhonneux",
+        "given": "A"
+      },
+      {
+        "family": "Allelein",
+        "given": "H-J"
+      },
+      {
+        "family": "Verfondern",
+        "given": "K"
+      }
+    ],
+    "id": "xhonneux2016full",
+    "issued": {
+      "date-parts": [
+        [
+          2016
+        ]
+      ]
+    },
+    "publisher": "American Nuclear Society-ANS, 555 North Kensington Avenue, La Grange Park …",
+    "title": "Full Integration of the Fission Product Release Module STACY into the HTR Code Package (HCP)-18661",
+    "type": "report"
+  },
+  {
+    "author": [
+      {
+        "family": "Xie",
+        "given": "Feng"
+      },
+      {
+        "family": "Li",
+        "given": "Hong"
+      },
+      {
+        "family": "Liu",
+        "given": "Xuegang"
+      },
+      {
+        "family": "Chen",
+        "given": "Jing"
+      },
+      {
+        "family": "Li",
+        "given": "Chuan"
+      },
+      {
+        "family": "Chen",
+        "given": "Xiaotong"
+      },
+      {
+        "family": "Verfondern",
+        "given": "Karl"
+      }
+    ],
+    "container-title": "Annals of Nuclear Energy",
+    "id": "xie2018comprehensive",
+    "issued": {
+      "date-parts": [
+        [
+          2018
+        ]
+      ]
+    },
+    "page": "352–365",
+    "publisher": "Elsevier",
+    "title": "A comprehensive study on source terms in irradiated graphite spheres of HTR-10",
+    "type": "article-journal",
+    "volume": "122"
+  },
+  {
+    "author": [
+      {
+        "family": "Yamamoto",
+        "given": "Akio"
+      },
+      {
+        "family": "Tatsumi",
+        "given": "Masahiro"
+      },
+      {
+        "family": "Sugimura",
+        "given": "Naoki"
+      }
+    ],
+    "container-title": "Journal of nuclear science and technology",
+    "id": "yamamoto2007numerical",
+    "issue": "2",
+    "issued": {
+      "date-parts": [
+        [
+          2007
+        ]
+      ]
+    },
+    "page": "147–154",
+    "publisher": "Taylor & Francis",
+    "title": "Numerical solution of stiff burnup equation with short half lived nuclides by the Krylov subspace method",
+    "type": "article-journal",
+    "volume": "44"
+  },
+  {
+    "author": [
+      {
+        "family": "Yu",
+        "given": "Jiankai"
+      },
+      {
+        "family": "Forget",
+        "given": "Benoit"
+      }
+    ],
+    "container-title": "Progress in Nuclear Energy",
+    "id": "yu2024release",
+    "issued": {
+      "date-parts": [
+        [
+          2024
+        ]
+      ]
+    },
+    "page": "104996",
+    "publisher": "Elsevier",
+    "title": "Release of windowed multipole library for ENDF/B-VIII. 0 in support of OpenMC criticality and depletion analysis",
+    "type": "article-journal",
+    "volume": "168"
+  },
+  {
+    "author": [
+      {
+        "family": "Zhang",
+        "given": "Hongbin"
+      },
+      {
+        "family": "Zhao",
+        "given": "Haihua"
+      },
+      {
+        "family": "Gleicher",
+        "given": "Frederick Nathan"
+      },
+      {
+        "family": "DeHart",
+        "given": "Mark David"
+      },
+      {
+        "family": "Zou",
+        "given": "Ling"
+      },
+      {
+        "family": "Andrs",
+        "given": "David"
+      },
+      {
+        "family": "Martineau",
+        "given": "Richard Charles"
+      }
+    ],
+    "id": "zhang2015relap",
+    "issued": {
+      "date-parts": [
+        [
+          2015
+        ]
+      ]
+    },
+    "publisher": "Idaho National Laboratory (INL), Idaho Falls, ID (United States)",
+    "title": "RELAP-7 development updates",
+    "type": "report"
+  },
+  {
+    "author": [
+      {
+        "family": "Zhang",
+        "given": "Ting"
+      },
+      {
+        "family": "Brooks",
+        "given": "Caleb S"
+      }
+    ],
+    "container-title": "Nuclear Engineering and Design",
+    "id": "zhang2021linear",
+    "issued": {
+      "date-parts": [
+        [
+          2021
+        ]
+      ]
+    },
+    "page": "110994",
+    "publisher": "Elsevier",
+    "title": "Linear stability analysis of flashing instability based on the homogeneous equilibrium model",
+    "type": "article-journal",
+    "volume": "373"
+  },
+  {
+    "author": [
+      {
+        "family": "Zhang",
+        "given": "Ting"
+      },
+      {
+        "family": "Brooks",
+        "given": "Caleb S"
+      }
+    ],
+    "container-title": "Applied Thermal Engineering",
+    "id": "zhang2024assessment",
+    "issued": {
+      "date-parts": [
+        [
+          2024
+        ]
+      ]
+    },
+    "page": "124427",
+    "publisher": "Elsevier",
+    "title": "Assessment of ASYST and RELAP5 for predicting stability and limit cycles of a low-pressure natural circulation loop with flashing instability",
+    "type": "article-journal",
+    "volume": "257"
+  },
+  {
+    "DOI": "10.48550/arXiv.2504.08621",
+    "author": [
+      {
+        "family": "Zhang",
+        "given": "Tao"
+      },
+      {
+        "family": "Liu",
+        "given": "Zhenhai"
+      },
+      {
+        "family": "Xin",
+        "given": "Yong"
+      },
+      {
+        "family": "Jiao",
+        "given": "Yongjun"
+      }
+    ],
+    "container-title": "arXiv preprint arXiv:2504.08621",
+    "id": "zhang2025mooseagent",
+    "issued": {
+      "date-parts": [
+        [
+          2025
+        ]
+      ]
+    },
+    "title": "MooseAgent: A LLM Based Multi-agent Framework for Automating MOOSE Simulation",
+    "type": "article-journal"
+  },
+  {
+    "URL": "https://www.science.org/content/article/how-ai-math-breakthrough-ignited-controversy",
+    "author": [
+      {
+        "family": "Zhao",
+        "given": "Celina"
+      },
+      {
+        "family": "Cho",
+        "given": "Adrian"
+      }
+    ],
+    "container-title": "Science",
+    "id": "zhao2026ai",
+    "issued": {
+      "date-parts": [
+        [
+          2026,
+          9
+        ]
+      ]
+    },
+    "title": "How an AI Math Breakthrough Ignited a Controversy",
+    "type": "article-journal"
+  },
+  {
+    "author": [
+      {
+        "family": "Zou",
+        "given": "Ling"
+      },
+      {
+        "family": "Hu",
+        "given": "Rui"
+      },
+      {
+        "family": "Charpentier",
+        "given": "Anne"
+      }
+    ],
+    "id": "zou2019sam",
+    "issued": {
+      "date-parts": [
+        [
+          2019
+        ]
+      ]
+    },
+    "publisher": "Argonne National Laboratory (ANL), Argonne, IL (United States). Advanced …",
+    "title": "SAM code validation using the compact integral effects test (CIET) experimental data",
+    "type": "report"
+  },
+  {
+    "author": [
+      {
+        "family": "Zou",
+        "given": "Ling"
+      },
+      {
+        "family": "Hu",
+        "given": "Guojun"
+      },
+      {
+        "family": "O'Grady",
+        "given": "Dan"
+      },
+      {
+        "family": "Hu",
+        "given": "Rui"
+      }
+    ],
+    "container-title": "Nuclear Engineering and Design",
+    "id": "zou2021code",
+    "issued": {
+      "date-parts": [
+        [
+          2021
+        ]
+      ]
+    },
+    "page": "111144",
+    "publisher": "Elsevier",
+    "title": "Code validation of SAM using natural-circulation experimental data from the compact integral effects test (CIET) facility",
+    "type": "article-journal",
+    "volume": "377"
+  },
+  {
+    "author": [
+      {
+        "family": "Zweibaum",
+        "given": "Nicolas"
+      }
+    ],
+    "id": "zweibaum2015experimental",
+    "issued": {
+      "date-parts": [
+        [
+          2015
+        ]
+      ]
+    },
+    "publisher": "University of California, Berkeley",
+    "title": "Experimental validation of passive safety system models: Application to design and optimization of fluoride-salt-cooled, high-temperature reactors",
+    "type": "book"
+  }
+]

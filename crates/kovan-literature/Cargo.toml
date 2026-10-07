@@ -76,6 +76,8 @@ serde.workspace = true
 # local library import's JSON output (#750), and the translators' regular
 # expressions. Both pure Rust, wasm- and Android-safe.
 serde_json.workspace = true
+# CSL citations for the Pages site (`csl`, GitHub #789): see the root Cargo.toml.
+hayagriva.workspace = true
 regex.workspace = true
 # HTML parsing for the note exporters (Note HTML, Note Markdown; #749): the
 # WHATWG algorithm jsdom's parse5 implements. MIT OR Apache-2.0, pure Rust.
