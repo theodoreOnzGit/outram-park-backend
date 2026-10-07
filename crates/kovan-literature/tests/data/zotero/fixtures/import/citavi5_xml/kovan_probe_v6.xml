@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="utf-8"?>
+<CitaviExchangeData Version="6.3.0.0" ProjectName="kovan probe 6">
+<Persons>
+<Person id="a1"><FirstName>Lise</FirstName><LastName>Meitner</LastName></Person>
+</Persons>
+<Categories>
+<Category id="cat1"><Name>Fission</Name></Category>
+<Category id="cat2"><Name>History</Name></Category>
+<Category id="cat3"><Name>Letters</Name></Category>
+</Categories>
+<CategoryCategories>
+<OnetoN>cat1;cat2;cat3</OnetoN>
+</CategoryCategories>
+<References>
+<Reference id="ref-1">
+<ReferenceType>InternetDocument</ReferenceType>
+<Title>A probe web page</Title>
+<OnlineAddress>https://example.org/page</OnlineAddress>
+<AccessDate>2021-02-03</AccessDate>
+</Reference>
+<Reference id="ref-2">
+<ReferenceType>Thesis</ReferenceType>
+<Title>A probe thesis</Title>
+<Year>1939</Year>
+</Reference>
+</References>
+<ReferenceAuthors>
+<OnetoN>ref-1;a1</OnetoN>
+<OnetoN>ref-2;a1</OnetoN>
+</ReferenceAuthors>
+<ReferenceCategories>
+<OnetoN>ref-1;cat2</OnetoN>
+<OnetoN>ref-2;cat3</OnetoN>
+</ReferenceCategories>
+<Locations>
+<Location id="loc-1"><ReferenceID>ref-1</ReferenceID><Address>{"$id":"1","LinkedResourceType":5,"UriString":"https://example.org/page.pdf","LinkedResourceStatus":8}</Address></Location>
+<Location id="loc-2"><ReferenceID>ref-2</ReferenceID><Address>{"$id":"2","LinkedResourceType":1,"UriString":"10.1000/thesis","LinkedResourceStatus":8}</Address><MirrorsReferencePropertyId>Doi</MirrorsReferencePropertyId></Location>
+</Locations>
+</CitaviExchangeData>

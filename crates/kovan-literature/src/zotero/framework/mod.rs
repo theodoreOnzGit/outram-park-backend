@@ -35,6 +35,15 @@
 //! | [`html`] | `ZU.unescapeHTML` (HTML5 parse, then `textContent`) | utilities.js + the WHATWG parser |
 //! | [`csl`] | `ZU.itemFromCSLJSON` into a translator item, `ZU.itemToCSLJSON` of an export item | utilities_item.js |
 //! | [`js`] | JavaScript string semantics (whitespace, `ToString`, truthiness) | ECMA-262 |
+//! | [`identifiers`] | `ZU.cleanISBN`, `ZU.cleanISSN` (#749) | utilities.js |
+//! | [`title_case`] | `ZU.capitalizeTitle` as the translation-server runs it (#749) | utilities.js, utilities_translate.js |
+//! | [`openurl`] | `ZU.createContextObject` (OpenURL 1.0 KEV, for COinS; #749), `ZU.parseContextObject` (XML ContextObject) | openurl.js |
+//! | [`xml`] | the XML DOM the XML translators see (`Zotero.getXML`, `DOMParser`, node accessors, mutation, `getElementsByTagName(NS)`, `querySelectorAll`) (#749) | translate.js `parseDOMXML`, jsdom (WHATWG DOM) |
+//! | [`xml_parse`] | XML parsing as jsdom drives saxes (well-formedness errors, entities, namespaces) | jsdom xml.js, saxes 6.0.0 |
+//! | [`xml_serialize`] | `XMLSerializer.serializeToString`, XML `innerHTML` | w3c-xmlserializer 5.0.0 |
+//! | [`xpath`] | `ZU.xpath`, `ZU.xpathText` over wicked-good-xpath's semantics, quirks included | wicked-good-xpath 1.3.1-z002, utilities.js |
+//! | [`child`] | child translators (`Zotero.loadTranslator`, METS running MODS/MARCXML) | translate.js |
+//! | [`html_dom`] | HTML documents for the note exporters: parsing (html5ever), `outerHTML`, selectors, `element.style` | jsdom, parse5 8.0.0 |
 //! | [`rdf`] | `Zotero.RDF`: an RDF store, RDF/XML parser and serializer (#749) | translate's src/rdf/ |
 //!
 //! **Adding a translator** is one module under `translators/` plus a
@@ -45,13 +54,19 @@
 //!
 //! **Which upstream this follows.** The translators are ported from
 //! translators commit 3d1c78530f42, which is what the reference
-//! translation-server ran. The framework follows the translation-server's
+//! translation-server ran. ~~The framework follows the translation-server's
 //! own submodules (translate e0fe482b8a07, utilities 1dd38e27edf8) wherever
 //! they decide output, except that dates and CSL-JSON come from
 //! kovan-common, which ports the newer utilities 4051881d59c6 (EDTF dates,
 //! ranges, quoted literal dates). Where the two utilities versions disagree
 //! the reference comparisons record the difference (see the tests in
-//! `tests/zotero_translators.rs`).
+//! `tests/zotero_translators.rs`).~~ **CORRECTED 2026-10-07** (#749): the
+//! reference server now runs the submodule commits Zotero desktop
+//! 9cbba8c4d281 pins (translate dd524aea9a55, utilities 4051881d59c6,
+//! zotero-schema b86c79b56479; `reference/manifest.json`), the versions
+//! kovan-common ports, so there is no version skew left to record (see the
+//! methodology in `tests/zotero_translators.rs`). File headers that cite
+//! e0fe482b8a07 / 1dd38e27edf8 name the code read when they were written.
 //!
 //! **Maturity: AI draft (1).** Not yet human-reviewed.
 
@@ -60,6 +75,10 @@ pub mod context;
 pub mod csl;
 pub mod export_items;
 pub mod html;
+// #749 additions.
+pub mod identifiers;
+pub mod openurl;
+pub mod title_case;
 #[rustfmt::skip]
 pub mod html_entities;
 pub mod io;
@@ -70,6 +89,13 @@ pub mod options;
 // RDF data mode for the RDF translators (#749).
 pub mod rdf;
 pub mod utilities;
+// XML translators (#749): DOM, parser, serializer, XPath, child translators.
+pub mod child;
+pub mod html_dom;
+pub mod xml;
+pub mod xml_parse;
+pub mod xml_serialize;
+pub mod xpath;
 
 pub use api_json::{fold_child_notes, item_to_api_json, KeyGenerator};
 pub use context::{

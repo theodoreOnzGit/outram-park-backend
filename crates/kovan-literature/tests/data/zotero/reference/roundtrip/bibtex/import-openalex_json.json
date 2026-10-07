@@ -1,0 +1,604 @@
+{
+	"testCase00": {
+		"status": 200,
+		"translatorID": "9cb70025-a888-4a29-a210-93ec52da40d4",
+		"items": [
+			{
+				"key": "KVN22222",
+				"version": 0,
+				"itemType": "journalArticle",
+				"creators": [
+					{
+						"firstName": "George A.",
+						"lastName": "Akerlof",
+						"creatorType": "author"
+					}
+				],
+				"tags": [
+					{
+						"tag": "labor",
+						"type": 1
+					},
+					{
+						"tag": "exchange",
+						"type": 1
+					},
+					{
+						"tag": "gift",
+						"type": 1
+					}
+				],
+				"title": "Labor Contracts as Partial Gift Exchange",
+				"volume": "97",
+				"ISSN": "0033-5533",
+				"DOI": "10.2307/1885099",
+				"language": "en",
+				"issue": "4",
+				"publicationTitle": "The Quarterly Journal of Economics",
+				"publisher": "Oxford University Press",
+				"pages": "543",
+				"date": "1982-11"
+			},
+			{
+				"itemType": "note",
+				"parentItem": "KVN22222",
+				"note": "<p>OpenAlex: https://openalex.org/W2099326003</p>"
+			}
+		]
+	},
+	"testCase01": {
+		"status": 200,
+		"translatorID": "9cb70025-a888-4a29-a210-93ec52da40d4",
+		"items": [
+			{
+				"key": "KVN22222",
+				"version": 0,
+				"itemType": "journalArticle",
+				"creators": [
+					{
+						"firstName": "Marianne",
+						"lastName": "Bertrand",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "Sendhil",
+						"lastName": "Mullainathan",
+						"creatorType": "author"
+					}
+				],
+				"tags": [
+					{
+						"tag": "labor market discrimination",
+						"type": 1
+					},
+					{
+						"tag": "emily",
+						"type": 1
+					}
+				],
+				"title": "Are Emily and Greg More Employable Than Lakisha and Jamal? A Field Experiment on Labor Market Discrimination",
+				"volume": "94",
+				"ISSN": "1944-7981",
+				"DOI": "10.1257/0002828042002561",
+				"language": "en",
+				"issue": "4",
+				"publicationTitle": "The American Economic Review",
+				"publisher": "American Economic Association",
+				"pages": "991–1013",
+				"date": "2004-09"
+			},
+			{
+				"itemType": "note",
+				"parentItem": "KVN22222",
+				"note": "<p>OpenAlex: https://openalex.org/W3123223998</p>"
+			}
+		]
+	},
+	"testCase02": {
+		"status": 200,
+		"translatorID": "9cb70025-a888-4a29-a210-93ec52da40d4",
+		"items": [
+			{
+				"key": "KVN22222",
+				"version": 0,
+				"itemType": "bookSection",
+				"creators": [
+					{
+						"firstName": "Colin F.",
+						"lastName": "Camerer",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "Robin M.",
+						"lastName": "Hogarth",
+						"creatorType": "author"
+					}
+				],
+				"tags": [
+					{
+						"tag": "financial incentives",
+						"type": 1
+					},
+					{
+						"tag": "experiments",
+						"type": 1
+					},
+					{
+						"tag": "capital-labor-production",
+						"type": 1
+					}
+				],
+				"title": "The Effects of Financial Incentives in Experiments: A Review and Capital-Labor-Production Framework",
+				"DOI": "10.1007/978-94-017-1406-8_2",
+				"language": "en",
+				"bookTitle": "Springer eBooks",
+				"publisher": "Springer Nature",
+				"pages": "7–48",
+				"date": "1999-01"
+			},
+			{
+				"itemType": "note",
+				"parentItem": "KVN22222",
+				"note": "<p>OpenAlex: https://openalex.org/W2105705711</p>"
+			}
+		]
+	},
+	"testCase03": {
+		"status": 200,
+		"translatorID": "9cb70025-a888-4a29-a210-93ec52da40d4",
+		"items": [
+			{
+				"key": "KVN22222",
+				"version": 0,
+				"itemType": "book",
+				"creators": [
+					{
+						"firstName": "Melinda",
+						"lastName": "Cooper",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "Catherine",
+						"lastName": "Waldby",
+						"creatorType": "author"
+					}
+				],
+				"tags": [
+					{
+						"tag": "labor",
+						"type": 1
+					},
+					{
+						"tag": "clinical",
+						"type": 1
+					}
+				],
+				"title": "Clinical Labor",
+				"DOI": "10.1215/9780822377009",
+				"publisher": "Duke University Press",
+				"date": "2014-01"
+			},
+			{
+				"itemType": "note",
+				"parentItem": "KVN22222",
+				"note": "<p>OpenAlex: https://openalex.org/W4234549826</p>"
+			}
+		]
+	},
+	"testCase04": {
+		"status": 200,
+		"translatorID": "9cb70025-a888-4a29-a210-93ec52da40d4",
+		"items": [
+			{
+				"key": "KVN22222",
+				"version": 0,
+				"itemType": "thesis",
+				"creators": [
+					{
+						"firstName": "Stanley Joseph",
+						"lastName": "Stepanic",
+						"creatorType": "author"
+					}
+				],
+				"tags": [
+					{
+						"tag": "gulag",
+						"type": 1
+					},
+					{
+						"tag": "forced labor",
+						"type": 1
+					},
+					{
+						"tag": "camp",
+						"type": 1
+					},
+					{
+						"tag": "laogai",
+						"type": 1
+					}
+				],
+				"thesisType": "PhD Thesis",
+				"title": "The GULag and Laogai: A Comparative Study of Forced Labor through Camp Literature",
+				"DOI": "10.18130/v3v002",
+				"language": "en",
+				"university": "University of Virginia",
+				"date": "2017-08"
+			},
+			{
+				"itemType": "note",
+				"parentItem": "KVN22222",
+				"note": "<p>OpenAlex: https://openalex.org/W2257674859</p>"
+			}
+		]
+	},
+	"testCase05": {
+		"status": 200,
+		"translatorID": "9cb70025-a888-4a29-a210-93ec52da40d4",
+		"items": [
+			{
+				"key": "KVN22222",
+				"version": 0,
+				"itemType": "journalArticle",
+				"creators": [
+					{
+						"firstName": "G.",
+						"lastName": "Wentworth",
+						"creatorType": "author"
+					}
+				],
+				"tags": [
+					{
+						"tag": "amplifier phase distortion",
+						"type": 1
+					},
+					{
+						"tag": "audibility",
+						"type": 1
+					}
+				],
+				"title": "On the audibility of amplifier phase distortion",
+				"volume": "AU-13",
+				"ISSN": "1558-2663",
+				"DOI": "10.1109/tau.1965.1161805",
+				"language": "en",
+				"issue": "4",
+				"publicationTitle": "IEEE Transactions on Audio",
+				"publisher": "Institute of Electrical and Electronics Engineers",
+				"pages": "99",
+				"date": "1965-07"
+			},
+			{
+				"itemType": "note",
+				"parentItem": "KVN22222",
+				"note": "<p>OpenAlex: https://openalex.org/W2046245907</p>"
+			},
+			{
+				"key": "KVN22223",
+				"version": 0,
+				"itemType": "journalArticle",
+				"creators": [],
+				"tags": [],
+				"title": "Notices",
+				"volume": "308",
+				"ISSN": "0028-4793",
+				"DOI": "10.1056/nejm198301133080228",
+				"issue": "2",
+				"publicationTitle": "The New England Journal of Medicine",
+				"publisher": "Massachusetts Medical Society",
+				"pages": "112",
+				"date": "1983-01"
+			},
+			{
+				"itemType": "note",
+				"parentItem": "KVN22223",
+				"note": "<p>OpenAlex: https://openalex.org/W4237963058</p>"
+			},
+			{
+				"key": "KVN22224",
+				"version": 0,
+				"itemType": "bookSection",
+				"creators": [
+					{
+						"firstName": "Moses John",
+						"lastName": "Strydom",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "Sheryl",
+						"lastName": "Buckley",
+						"creatorType": "author"
+					}
+				],
+				"tags": [
+					{
+						"tag": "big data research ecosystem",
+						"type": 1
+					},
+					{
+						"tag": "big data",
+						"type": 1
+					}
+				],
+				"title": "The Big Data Research Ecosystem",
+				"DOI": "10.4018/978-1-7998-7705-9.ch090",
+				"language": "en",
+				"bookTitle": "IGI Global eBooks",
+				"publisher": "IGI Global",
+				"pages": "2027–2057",
+				"date": "2020-11"
+			},
+			{
+				"itemType": "note",
+				"parentItem": "KVN22224",
+				"note": "<p>OpenAlex: https://openalex.org/W4239223537</p>"
+			},
+			{
+				"key": "KVN22225",
+				"version": 0,
+				"itemType": "journalArticle",
+				"creators": [
+					{
+						"firstName": "L. V.",
+						"lastName": "Nevzgodina",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "В. Г.",
+						"lastName": "Кузнецов",
+						"creatorType": "author"
+					},
+					{
+						"name": "Sychkov",
+						"creatorType": "author"
+					}
+				],
+				"tags": [
+					{
+						"tag": "cabbage seeds",
+						"type": 1
+					},
+					{
+						"tag": "high energy protons",
+						"type": 1
+					},
+					{
+						"tag": "relative biological effectiveness",
+						"type": 1
+					}
+				],
+				"title": "Relative Biological Effectiveness of High Energy Protons Affecting Cabbage Seeds",
+				"ISSN": "1820-6069",
+				"language": "de",
+				"publicationTitle": "Genetika",
+				"publisher": "Serbian Genetics Society",
+				"date": "1966-08"
+			},
+			{
+				"itemType": "note",
+				"parentItem": "KVN22225",
+				"note": "<p>OpenAlex: https://openalex.org/W78857221</p>"
+			},
+			{
+				"key": "KVN22226",
+				"version": 0,
+				"itemType": "journalArticle",
+				"creators": [
+					{
+						"firstName": "Ying",
+						"lastName": "Pang",
+						"creatorType": "author"
+					}
+				],
+				"tags": [
+					{
+						"tag": "credit risk",
+						"type": 1
+					},
+					{
+						"tag": "preventions",
+						"type": 1
+					}
+				],
+				"title": "Reasons and Preventions of the Credit Risk with Village Banks",
+				"language": "en",
+				"publicationTitle": "Journal of Shangqiu Vocational and Technical College",
+				"date": "2012-01"
+			},
+			{
+				"itemType": "note",
+				"parentItem": "KVN22226",
+				"note": "<p>OpenAlex: https://openalex.org/W2358372115</p>"
+			}
+		]
+	},
+	"testCase06": {
+		"status": 200,
+		"translatorID": "9cb70025-a888-4a29-a210-93ec52da40d4",
+		"items": [
+			{
+				"key": "KVN22222",
+				"version": 0,
+				"itemType": "conferencePaper",
+				"creators": [
+					{
+						"firstName": "Riccardo",
+						"lastName": "Volpi",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "Hongseok",
+						"lastName": "Namkoong",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "Ozan",
+						"lastName": "Şener",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "John C.",
+						"lastName": "Duchi",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "Vittorio",
+						"lastName": "Murino",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "Silvio",
+						"lastName": "Savarese",
+						"creatorType": "author"
+					}
+				],
+				"tags": [
+					{
+						"tag": "Domain Adaptation",
+						"type": 1
+					},
+					{
+						"tag": "Unsupervised Learning",
+						"type": 1
+					},
+					{
+						"tag": "Adversarial Examples",
+						"type": 1
+					},
+					{
+						"tag": "Transfer Learning",
+						"type": 1
+					},
+					{
+						"tag": "Representation Learning",
+						"type": 1
+					}
+				],
+				"title": "Generalizing to Unseen Domains via Adversarial Data Augmentation",
+				"volume": "31",
+				"language": "en",
+				"proceedingsTitle": "Neural Information Processing Systems",
+				"pages": "5334–5344",
+				"date": "2018-05"
+			},
+			{
+				"itemType": "note",
+				"parentItem": "KVN22222",
+				"note": "<p>OpenAlex: https://openalex.org/W2962935454</p>"
+			}
+		]
+	},
+	"testCase07": {
+		"status": 200,
+		"translatorID": "9cb70025-a888-4a29-a210-93ec52da40d4",
+		"items": [
+			{
+				"key": "KVN22222",
+				"version": 0,
+				"itemType": "document",
+				"creators": [
+					{
+						"firstName": "Fabián",
+						"lastName": "Pedregosa",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "Gaël",
+						"lastName": "Varoquaux",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "Alexandre",
+						"lastName": "Gramfort",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "Vincent",
+						"lastName": "Michel",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "Bertrand",
+						"lastName": "Thirion",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "Olivier",
+						"lastName": "Grisel",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "Mathieu",
+						"lastName": "Blondel",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "Peter",
+						"lastName": "Prettenhofer",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "Ron J.",
+						"lastName": "Weiss",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "Vincent",
+						"lastName": "Dubourg",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "Jake",
+						"lastName": "Vanderplas",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "Alexandre",
+						"lastName": "Passos",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "David",
+						"lastName": "Cournapeau",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "Matthieu",
+						"lastName": "Brucher",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "Marc de",
+						"lastName": "Perrot",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "Édouard",
+						"lastName": "Duchesnay",
+						"creatorType": "author"
+					}
+				],
+				"tags": [
+					{
+						"tag": "Python",
+						"type": 1
+					},
+					{
+						"tag": "Robust Learning",
+						"type": 1
+					}
+				],
+				"title": "Scikit-learn: Machine Learning in Python",
+				"DOI": "10.48550/arxiv.1201.0490",
+				"language": "en",
+				"publisher": "Cornell University",
+				"date": "2012-01"
+			},
+			{
+				"itemType": "note",
+				"parentItem": "KVN22222",
+				"note": "<p>OpenAlex: https://openalex.org/W2101234009</p>"
+			}
+		]
+	}
+}

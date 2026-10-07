@@ -1,0 +1,38 @@
+{
+	"testCase00": {
+		"status": 200,
+		"output": "{{Cite journal| doi = 10.1128/AEM.02132-10| issn = 0099-2240| volume = 77| issue = 3| pages = 732–738| last1 = Zelle| first1 = Rintze M.| last2 = Harrison| first2 = Jacob C.| last3 = Pronk| first3 = Jack T.| last4 = van Maris| first4 = Antonius J. A.| title = Anaplerotic Role for Cytosolic Malic Enzyme in Engineered Saccharomyces cerevisiae Strains| journal = APPLIED AND ENVIRONMENTAL MICROBIOLOGY| date = 2011-02}}\r\n{{Cite journal| doi = 10.1128/AEM.01077-10| issn = 0099-2240| volume = 76| issue = 16| pages = 5383–5389| last1 = Zelle| first1 = Rintze M.| last2 = Trueheart| first2 = Josh| last3 = Harrison| first3 = Jacob C.| last4 = Pronk| first4 = Jack T.| last5 = van Maris| first5 = Antonius J. A.| title = Phosphoenolpyruvate Carboxykinase as the Sole Anaplerotic Enzyme in Saccharomyces cerevisiae| journal = APPLIED AND ENVIRONMENTAL MICROBIOLOGY| date = 2010-08}}\r\n{{Cite journal| doi = 10.1128/AEM.02396-09| issn = 0099-2240| volume = 76| issue = 3| pages = 744–750| last1 = Zelle| first1 = Rintze M.| last2 = De Hulster| first2 = Erik| last3 = Kloezen| first3 = Wendy| last4 = Pronk| first4 = Jack T.| last5 = van Maris| first5 = Antonius J. A.| title = Key Process Conditions for Production of C(4) Dicarboxylic Acids in Bioreactor Batch Cultures of an Engineered Saccharomyces cerevisiae Strain| journal = APPLIED AND ENVIRONMENTAL MICROBIOLOGY| date = 2010-02}}\r\n{{Cite journal| doi = 10.1111/j.1567-1364.2009.00537.x| issn = 1567-1356| volume = 9| issue = 8| pages = 1123–1136| last1 = Abbott| first1 = Derek A.| last2 = Zelle| first2 = Rintze M.| last3 = Pronk| first3 = Jack T.| last4 = van Maris| first4 = Antonius J. A.| title = Metabolic engineering of Saccharomyces cerevisiae for production of carboxylic acids: current status and challenges| journal = FEMS YEAST RESEARCH| date = 2009-12}}\r\n{{Cite journal| doi = 10.1128/AEM.02591-07| issn = 0099-2240| volume = 74| issue = 9| pages = 2766–2777| last1 = Zelle| first1 = Rintze M.| last2 = de Hulster| first2 = Erik| last3 = van Winden| first3 = WoUter A.| last4 = de Waard| first4 = Pieter| last5 = Dijkema| first5 = Cor| last6 = Winkler| first6 = Aaron A.| last7 = Geertman| first7 = Jan-Maarten A.| last8 = van Dijken| first8 = Johannes P.| last9 = Pronk| first9 = Jack T.| last10 = van Maris| first10 = Antonius J. A.| title = Malic acid production by Saccharomyces cerevisiae: Engineering of pyruvate carboxylation, oxaloacetate reduction, and malate export| journal = APPLIED AND ENVIRONMENTAL MICROBIOLOGY| date = 2008-05}}"
+	},
+	"testCase01": {
+		"status": 200,
+		"output": "{{Cite journal| issn = 0161-3499| volume = 27| issue = 2| pages = 170| last1 = Smith| first1 = L. J.| last2 = Schwark| first2 = W. S.| last3 = Cook| first3 = D. R.| last4 = Moon| first4 = P. F.| last5 = Erb| first5 = H. N.| last6 = Looney| first6 = A. L.| title = Pharmacokinetics of intravenous mivacurium in halothane-anesthetized dogs.| journal = Veterinary Surgery| date = 1998}}"
+	},
+	"testCase02": {
+		"status": 200,
+		"output": "{{Cite journal| publisher = Univ New Brunswick| issn = 0015-0630| issue = 247| pages = 82–82| last = Smith| first = J. Mark| title = Gripewater| journal = FIDDLEHEAD| location = Fredericton| date = 2011}}"
+	},
+	"testCase03": {
+		"status": 200,
+		"output": "{{Cite book| publisher = Annual Reviews| doi = 10.1146/annurev-publhealth-090810-182459| isbn = 978-0-8243-2732-3| issn = 0163-7525| volume = 32| pages = 367–379| editors = J. E. Fielding, R. C. Brownson, L. W. Green (eds.)| last1 = McCormick| first1 = Marie C.| last2 = Litt| first2 = Jonathan S.| last3 = Smith| first3 = Vincent C.| last4 = Zupancic| first4 = John A. F.| title = ANNUAL REVIEW OF PUBLIC HEALTH, VOL 32| chapter = Prematurity: An Overview and Public Health Implications| location = Palo Alto| date = 2011}}"
+	},
+	"testCase04": {
+		"status": 200,
+		"output": "{{Cite| last1 = Solar| first1 = Matthew S.| last2 = Parmer| first2 = Kari| last3 = Smith| first3 = Philip| last4 = Murdock| first4 = Frank| title = Indexing cell delivery catheter| date = 2011-06-28}}"
+	},
+	"testCase05": {
+		"status": 200,
+		"output": "{{Cite book| isbn = 978-90-8585933-8| last = Smith| first = W. G.| title = Ecological anthropology of households in East Madura, Indonesia.| date = 2011}}\r\n{{Cite journal| issn = 0419-4217| volume = 58| issue = 9| last = Smith| first = S. A.| title = Production and characterization of polyclonal antibodies to hexanal-lysine adducts for use in an ELISA to monitor lipid oxidation in a meat model system.| journal = Dissertation Abstracts International, B| date = 1998}}\r\n{{Cite journal| issn = 0419-4217| volume = 49| issue = 4| pages = –| last = Smith| first = E. H.| title = The enzymic oxidation of linoleic and linolenic acid.| journal = Dissertation Abstracts International, B| date = 1988}}\r\n{{Cite journal| issn = 0419-4217| volume = 49| issue = 5| pages = 1459| last = Smith| first = C. S.| title = The syneresis of renneted milk gels.| journal = Dissertation Abstracts International. B, Sciences and Engineering| date = 1988}}"
+	},
+	"testCase06": {
+		"status": 200,
+		"output": "{{Cite journal| doi = 10.1007/s10750-012-1232-8| issn = 0018-8158, 1573-5117| volume = 700| issue = 1| pages = 221–230| last1 = Medvedeff| first1 = Cassandra A.| last2 = Hershey| first2 = Anne E.| title = Importance of methane-derived carbon as a basal resource for two benthic consumers in arctic lakes| journal = Hydrobiologia| date = 2013-01}}"
+	},
+	"testCase07": {
+		"status": 200,
+		"output": "{{Cite| last1 = YANG| first1 = Y.| last2 = LI| first2 = W.| title = Use of reagent for detecting syntaxin 12 protein autoantibodies in preparation of lung cancer screening kit}}"
+	},
+	"testCase08": {
+		"status": 200,
+		"output": "{{Cite conference| publisher = IEEE| doi = 10.1109/ICACT.2005.245926| conference = 7th International Conference on Advanced Communication Technology| pages = 532–537| last = Chen| first = L.| title = A conference control protocol for small scale video conferencing system| booktitle = 7TH INTERNATIONAL CONFERENCE ON ADVANCED COMMUNICATION TECHNOLOGY, VOLS 1 AND 2, PROCEEDINGS| location = New York| date = 2005}}"
+	}
+}

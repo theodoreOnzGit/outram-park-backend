@@ -1,0 +1,22 @@
+{
+	"all": {
+		"status": 200,
+		"output": "%0 Journal Article\r\n%T Dates & markup: a <i>kovan</i> probe\r\n%V 12\r\n%N 3\r\n%P 101-110\r\n%U http://example.com/a?b=c&d=e\r\n%X An abstract with \"quotes\", {braces} and 100% $pecial_chars#.\r\n%G en\r\n%J Journal of Testing & Probing\r\n%A Smith, John\r\n%A de la Fontaine, Jean\r\n%A Kovan Collaboration\r\n%E Editor, Ed\r\n%D 2021 May\r\n%K alpha\r\nbeta gamma\r\n\r\n%0 Book\r\n%T A Second Record\r\n%C Singapore\r\n%I Kovan Press\r\n%@ 978-3-16-148410-0 3161484100\r\n%E Editor, Ed\r\n%D 1999-12-31\r\n\r\n%0 Thesis\r\n%T Ranges and seasons\r\n%C Kovan\r\n%I Kovan University\r\n%R PhD Thesis\r\n%A Student, Ann\r\n%D 2010-2012\r\n\r\n%0 Conference Paper\r\n%T Summer proceedings\r\n%C Singapore\r\n%P 5\r\n%B Proceedings of the Kovan Conference\r\n%D Summer 2015\r\n\r\n"
+	},
+	"KPROBE22": {
+		"status": 200,
+		"output": "%0 Journal Article\r\n%T Dates & markup: a <i>kovan</i> probe\r\n%V 12\r\n%N 3\r\n%P 101-110\r\n%U http://example.com/a?b=c&d=e\r\n%X An abstract with \"quotes\", {braces} and 100% $pecial_chars#.\r\n%G en\r\n%J Journal of Testing & Probing\r\n%A Smith, John\r\n%A de la Fontaine, Jean\r\n%A Kovan Collaboration\r\n%E Editor, Ed\r\n%D 2021 May\r\n%K alpha\r\nbeta gamma\r\n\r\n"
+	},
+	"KPROBE33": {
+		"status": 200,
+		"output": "%0 Book\r\n%T A Second Record\r\n%C Singapore\r\n%I Kovan Press\r\n%@ 978-3-16-148410-0 3161484100\r\n%E Editor, Ed\r\n%D 1999-12-31\r\n\r\n"
+	},
+	"KPROBE44": {
+		"status": 200,
+		"output": "%0 Thesis\r\n%T Ranges and seasons\r\n%C Kovan\r\n%I Kovan University\r\n%R PhD Thesis\r\n%A Student, Ann\r\n%D 2010-2012\r\n\r\n"
+	},
+	"KPROBE55": {
+		"status": 200,
+		"output": "%0 Conference Paper\r\n%T Summer proceedings\r\n%C Singapore\r\n%P 5\r\n%B Proceedings of the Kovan Conference\r\n%D Summer 2015\r\n\r\n"
+	}
+}

@@ -1,0 +1,127 @@
+{
+	"testCase00": {
+		"status": 200,
+		"output": "CREATE\nLAST\tP31\tQ13442814\nLAST\tDen\t\"journal article from 'Bulletin of Volcanology' published in 2001\"\nLAST\tP478\t\"62\"\nLAST\tP304\t\"493–518\"\nLAST\tP1104\t26\nLAST\tP2093\t\"Nancy K Adams\"\tP1545\t\"1\"\nLAST\tP2093\t\"Shanaka L DeSilva\"\tP1545\t\"2\"\nLAST\tP2093\t\"Steven Self\"\tP1545\t\"3\"\nLAST\tP2093\t\"Guido Salas\"\tP1545\t\"4\"\nLAST\tP2093\t\"Steven Schubring\"\tP1545\t\"5\"\nLAST\tP2093\t\"Jason L Permenter\"\tP1545\t\"6\"\nLAST\tP2093\t\"Kendra Arbesman\"\tP1545\t\"7\"\nLAST\tP577\t+2001-00-00T00:00:00Z/9\nLAST\tLmul\t\"The physical volcanology of the 1600 eruption of Huaynaputina, southern Peru\"\nLAST\tLen\t\"The physical volcanology of the 1600 eruption of Huaynaputina, southern Peru\"\nLAST\tP1476\tund:\"The physical volcanology of the 1600 eruption of Huaynaputina, southern Peru\"\n",
+		"via": "in-process (zotero-reference.mjs inProcessExport)"
+	},
+	"testCase01": {
+		"status": 200,
+		"output": "CREATE\nLAST\tP31\tQ3331189\nLAST\tDen\t\"book published in 1964\"\nLAST\tP2093\t\"Milton Abramowitz\"\tP1545\t\"1\"\nLAST\tP2093\t\"Irene A. Stegun\"\tP1545\t\"2\"\nLAST\tP577\t+1964-00-00T00:00:00Z/9\nLAST\tLmul\t\"Handbook of Mathematical Functions with Formulas, Graphs, and Mathematical Tables\"\nLAST\tLen\t\"Handbook of Mathematical Functions with Formulas, Graphs, and Mathematical Tables\"\nLAST\tP1476\tund:\"Handbook of Mathematical Functions with Formulas, Graphs, and Mathematical Tables\"\nCREATE\nLAST\tP31\tQ3331189\nLAST\tDen\t\"book published in 2008\"\nLAST\tP2093\t\"Joe Torre\"\tP1545\t\"1\"\nLAST\tP2093\t\"Tom Verducci\"\tP1545\t\"2\"\nLAST\tP577\t+2008-00-00T00:00:00Z/9\nLAST\tP957\t\"0385527403\"\nLAST\tLmul\t\"The Yankee Years\"\nLAST\tLen\t\"The Yankee Years\"\nLAST\tP1476\tund:\"The Yankee Years\"\n",
+		"via": "in-process (zotero-reference.mjs inProcessExport)"
+	},
+	"testCase02": {
+		"status": 200,
+		"output": "CREATE\nLAST\tP31\tQ23927052\nLAST\tDen\t\"conference paper\"\nLAST\tP304\t\"330—331\"\nLAST\tP2093\t\"First Author\"\tP1545\t\"1\"\nLAST\tP2093\t\"Second Author\"\tP1545\t\"2\"\nLAST\tLmul\t\"Some publication title\"\nLAST\tLen\t\"Some publication title\"\nLAST\tP1476\tund:\"Some publication title\"\nCREATE\nLAST\tP31\tQ3331189\nLAST\tDen\t\"book published in 2006\"\nLAST\tP577\t+2006-10-00T00:00:00Z/10\nLAST\tLmul\t\"Proceedings of the Xth Conference on XYZ\"\nLAST\tLen\t\"Proceedings of the Xth Conference on XYZ\"\nLAST\tP1476\tund:\"Proceedings of the Xth Conference on XYZ\"\n",
+		"via": "in-process (zotero-reference.mjs inProcessExport)"
+	},
+	"testCase03": {
+		"status": 200,
+		"output": "CREATE\nLAST\tP31\tQ3331189\nLAST\tDen\t\"book published in 2001\"\nLAST\tP2093\t\"Michael, III von Hicks\"\tP1545\t\"1\"\nLAST\tP577\t+2001-00-00T00:00:00Z/9\nLAST\tP957\t\"0-69-697269-4\"\nLAST\tLmul\t\"Design of a Carbon Fiber Composite Grid Structure for the GLAST Spacecraft Using a Novel Manufacturing Technique\"\nLAST\tLen\t\"Design of a Carbon Fiber Composite Grid Structure for the GLAST Spacecraft Using a Novel Manufacturing Technique\"\nLAST\tP1476\tund:\"Design of a Carbon Fiber Composite Grid Structure for the GLAST Spacecraft Using a Novel Manufacturing Technique\"\n",
+		"via": "in-process (zotero-reference.mjs inProcessExport)"
+	},
+	"testCase04": {
+		"status": 200,
+		"output": "CREATE\nLAST\tP31\tQ13442814\nLAST\tDen\t\"journal article from 'Oil & Gas Journal' published in 2009\"\nLAST\tP478\t\"107\"\nLAST\tP433\t\"29\"\nLAST\tP304\t\"29\"\nLAST\tP2093\t\"A Oliveira\"\tP1545\t\"1\"\nLAST\tP577\t+2009-00-00T00:00:00Z/9\nLAST\tLmul\t\"USGS monitoring ecological impacts\"\nLAST\tLen\t\"USGS monitoring ecological impacts\"\nLAST\tP1476\tund:\"USGS monitoring ecological impacts\"\n",
+		"via": "in-process (zotero-reference.mjs inProcessExport)"
+	},
+	"testCase05": {
+		"status": 200,
+		"output": "CREATE\nLAST\tP31\tQ13442814\nLAST\tDen\t\"journal article\"\nLAST\tLmul\t\"non-braking space: ; accented characters: ñ and ñ; tilde operator: ∼\"\nLAST\tLen\t\"non-braking space: ; accented characters: ñ and ñ; tilde operator: ∼\"\nLAST\tP1476\tund:\"non-braking space: ; accented characters: ñ and ñ; tilde operator: ∼\"\n",
+		"via": "in-process (zotero-reference.mjs inProcessExport)"
+	},
+	"testCase06": {
+		"status": 200,
+		"output": "CREATE\nLAST\tP31\tQ13442814\nLAST\tDen\t\"journal article from 'Actes du 4<sup>ème</sup> Congrès Français d'Acoustique' published in 2012\"\nLAST\tP356\t\"10.1007/s13127-011-0069-8\"\nLAST\tP478\t\"12\"\nLAST\tP304\t\"71-80\"\nLAST\tP1104\t10\nLAST\tP2093\t\"U. Fritz\"\tP1545\t\"1\"\nLAST\tP2093\t\"C. Corti\"\tP1545\t\"2\"\nLAST\tP2093\t\"M. Päckert\"\tP1545\t\"3\"\nLAST\tP577\t+2012-00-00T00:00:00Z/9\nLAST\tLmul\t\"Test of markupconversion: Italics, bold, superscript, subscript, and small caps: Mitochondrial DNA₂ sequences suggest unexpected phylogenetic position of Corso-Sardinian grass snakes (<i>Natrix cetti</i>) and <b>do not</b> support their <span style=\"small-caps\">species status</span>, with notes on phylogeography and subspecies delineation of grass snakes.\"\nLAST\tLen\t\"Test of markupconversion: Italics, bold, superscript, subscript, and small caps: Mitochondrial DNA₂ sequences suggest unexpected phylogenetic position of Corso-Sardinian grass snakes (<i>Natrix cetti</i>) and <b>do not</b> support their <span style=\"small-caps\">species status</span>, with notes on phylogeography and subspecies delineation of grass snakes.\"\nLAST\tP1476\tund:\"Test of markupconversion: Italics, bold, superscript, subscript, and small caps: Mitochondrial DNA₂ sequences suggest unexpected phylogenetic position of Corso-Sardinian grass snakes (<i>Natrix cetti</i>) and <b>do not</b> support their <span style=\"small-caps\">species status</span>, with notes on phylogeography and subspecies delineation of grass snakes.\"\n",
+		"via": "in-process (zotero-reference.mjs inProcessExport)"
+	},
+	"testCase07": {
+		"status": 200,
+		"output": "CREATE\nLAST\tP31\tQ49848\nLAST\tDen\t\"document published in 2012\"\nLAST\tP953\t\"http://www.americanrightsatwork.org/blogcategory-275/\"\nLAST\tP2093\t\"American Rights at Work\"\tP1545\t\"1\"\nLAST\tP577\t+2012-00-00T00:00:00Z/9\nLAST\tLmul\t\"Public Service Research Foundation\"\nLAST\tLen\t\"Public Service Research Foundation\"\nLAST\tP1476\tund:\"Public Service Research Foundation\"\n",
+		"via": "in-process (zotero-reference.mjs inProcessExport)"
+	},
+	"testCase08": {
+		"status": 200,
+		"output": "CREATE\nLAST\tP31\tQ13442814\nLAST\tDen\t\"journal article\"\nLAST\tLmul\t\"Zotero: single attachment\"\nLAST\tLen\t\"Zotero: single attachment\"\nLAST\tP1476\tund:\"Zotero: single attachment\"\nCREATE\nLAST\tP31\tQ13442814\nLAST\tDen\t\"journal article\"\nLAST\tLmul\t\"Zotero: multiple attachments\"\nLAST\tLen\t\"Zotero: multiple attachments\"\nLAST\tP1476\tund:\"Zotero: multiple attachments\"\nCREATE\nLAST\tP31\tQ13442814\nLAST\tDen\t\"journal article\"\nLAST\tLmul\t\"Zotero: linked attachments (old)\"\nLAST\tLen\t\"Zotero: linked attachments (old)\"\nLAST\tP1476\tund:\"Zotero: linked attachments (old)\"\nCREATE\nLAST\tP31\tQ13442814\nLAST\tDen\t\"journal article\"\nLAST\tLmul\t\"Zotero: linked attachments\"\nLAST\tLen\t\"Zotero: linked attachments\"\nLAST\tP1476\tund:\"Zotero: linked attachments\"\nCREATE\nLAST\tP31\tQ13442814\nLAST\tDen\t\"journal article\"\nLAST\tP953\t\"https://forums.zotero.org/discussion/28347/unable-to-get-pdfs-stored-on-computer-into-zotero-standalone/\"\nLAST\tLmul\t\"Mendeley: single attachment\"\nLAST\tLen\t\"Mendeley: single attachment\"\nLAST\tP1476\tund:\"Mendeley: single attachment\"\nCREATE\nLAST\tP31\tQ13442814\nLAST\tDen\t\"journal article\"\nLAST\tLmul\t\"Mendeley: escaped characters\"\nLAST\tLen\t\"Mendeley: escaped characters\"\nLAST\tP1476\tund:\"Mendeley: escaped characters\"\nCREATE\nLAST\tP31\tQ13442814\nLAST\tDen\t\"journal article\"\nLAST\tP953\t\"https://forums.zotero.org/discussion/35909/bibtex-import-from-citavi-including-pdf-attachments/\"\nLAST\tLmul\t\"Citavi: single attachment\"\nLAST\tLen\t\"Citavi: single attachment\"\nLAST\tP1476\tund:\"Citavi: single attachment\"\n",
+		"via": "in-process (zotero-reference.mjs inProcessExport)"
+	},
+	"testCase09": {
+		"status": 200,
+		"output": "CREATE\nLAST\tP31\tQ13442814\nLAST\tDen\t\"journal article\"\nLAST\tLmul\t\"extbackslash extbackslash{}: {\"\nLAST\tLen\t\"extbackslash extbackslash{}: {\"\nLAST\tP1476\tund:\"extbackslash extbackslash{}: {\"\n",
+		"via": "in-process (zotero-reference.mjs inProcessExport)"
+	},
+	"testCase10": {
+		"status": 200,
+		"output": "CREATE\nLAST\tP31\tQ13442814\nLAST\tDen\t\"journal article from 'Circulation' published in 2013\"\nLAST\tP356\t\"10.1161/CIR.0b013e318288b4dd\"\nLAST\tP478\t\"127\"\nLAST\tP433\t\"12\"\nLAST\tP304\t\"1342–1350\"\nLAST\tP1104\t9\nLAST\tP2093\t\"Comilla Sasson\"\tP1545\t\"1\"\nLAST\tP2093\t\"Hendrika Meischke\"\tP1545\t\"2\"\nLAST\tP2093\t\"Benjamin S Abella\"\tP1545\t\"3\"\nLAST\tP2093\t\"Robert A Berg\"\tP1545\t\"4\"\nLAST\tP2093\t\"Bentley J Bobrow\"\tP1545\t\"5\"\nLAST\tP2093\t\"Paul S Chan\"\tP1545\t\"6\"\nLAST\tP2093\t\"Elisabeth Dowling Root\"\tP1545\t\"7\"\nLAST\tP2093\t\"Michele Heisler\"\tP1545\t\"8\"\nLAST\tP2093\t\"Jerrold H Levy\"\tP1545\t\"9\"\nLAST\tP2093\t\"Mark Link\"\tP1545\t\"10\"\nLAST\tP2093\t\"Frederick Masoudi\"\tP1545\t\"11\"\nLAST\tP2093\t\"Marcus Ong\"\tP1545\t\"12\"\nLAST\tP2093\t\"Michael R Sayre\"\tP1545\t\"13\"\nLAST\tP2093\t\"John S Rumsfeld\"\tP1545\t\"14\"\nLAST\tP2093\t\"Thomas D Rea\"\tP1545\t\"15\"\nLAST\tP2093\t\"American Heart Association Council on Quality of Care and Outcomes Research\"\tP1545\t\"16\"\nLAST\tP2093\t\"Emergency Cardiovascular Care Committee\"\tP1545\t\"17\"\nLAST\tP2093\t\"Council on Cardiopulmonary, Critical Care, Perioperative and Resuscitation\"\tP1545\t\"18\"\nLAST\tP2093\t\"Council on Clinical Cardiology\"\tP1545\t\"19\"\nLAST\tP2093\t\"Council on Cardiovascular Surgery and Anesthesia\"\tP1545\t\"20\"\nLAST\tP577\t+2013-03-00T00:00:00Z/10\nLAST\tLmul\t\"Increasing cardiopulmonary resuscitation provision in communities with low bystander cardiopulmonary resuscitation rates: a science advisory from the American Heart Association for healthcare providers, policymakers, public health departments, and community leaders\"\nLAST\tLen\t\"Increasing cardiopulmonary resuscitation provision in communities with low bystander cardiopulmonary resuscitation rates: a science advisory from the American Heart Association for healthcare providers, policymakers, public health departments, and community leaders\"\nLAST\tP1476\tund:\"Increasing cardiopulmonary resuscitation provision in communities with low bystander cardiopulmonary resuscitation rates: a science advisory from the American Heart Association for healthcare providers, policymakers, public health departments, and community leaders\"\nLAST\tP698\t\"23439512\"\n",
+		"via": "in-process (zotero-reference.mjs inProcessExport)"
+	},
+	"testCase11": {
+		"status": 200,
+		"output": "CREATE\nLAST\tP31\tQ13442814\nLAST\tDen\t\"journal article\"\nLAST\tP356\t\"10.12345/123456\"\nLAST\tP2093\t\"John Smith\"\tP1545\t\"1\"\nLAST\tLmul\t\"Testing identifier import\"\nLAST\tLen\t\"Testing identifier import\"\nLAST\tP1476\tund:\"Testing identifier import\"\nLAST\tP698\t\"P123456\"\nLAST\tP932\t\"PMC123456\"\nLAST\tP818\t\"AX123456\"\n",
+		"via": "in-process (zotero-reference.mjs inProcessExport)"
+	},
+	"testCase12": {
+		"status": 200,
+		"output": "CREATE\nLAST\tP31\tQ1980247\nLAST\tDen\t\"book section\"\nLAST\tP356\t\"10.12345/123456\"\nLAST\tP2093\t\"John Smith\"\tP1545\t\"1\"\nLAST\tLmul\t\"Testing identifier import chapter\"\nLAST\tLen\t\"Testing identifier import chapter\"\nLAST\tP1476\tund:\"Testing identifier import chapter\"\nLAST\tP698\t\"P123456\"\nLAST\tP932\t\"PMC123456\"\nLAST\tP818\t\"AX123456\"\n",
+		"via": "in-process (zotero-reference.mjs inProcessExport)"
+	},
+	"testCase13": {
+		"status": 200,
+		"output": "CREATE\nLAST\tP31\tQ1266946\nLAST\tDen\t\"thesis from 'Diplomarbeit, Universität Trier, FB IV, DBIS/DBLP' published in 2009\"\nLAST\tP953\t\"http://dblp.uni-trier.de/papers/DiplomarbeitOliverHoffmann.pdf\"\nLAST\tP2093\t\"Oliver Hoffmann\"\tP1545\t\"1\"\nLAST\tP577\t+2009-00-00T00:00:00Z/9\nLAST\tLmul\t\"Regelbasierte Extraktion und asymmetrische Fusion bibliographischer Informationen\"\nLAST\tLen\t\"Regelbasierte Extraktion und asymmetrische Fusion bibliographischer Informationen\"\nLAST\tP1476\tund:\"Regelbasierte Extraktion und asymmetrische Fusion bibliographischer Informationen\"\nCREATE\nLAST\tP31\tQ1266946\nLAST\tDen\t\"thesis from 'University of Paderborn' published in 2009\"\nLAST\tP953\t\"http://digital.ub.uni-paderborn.de/hs/content/titleinfo/1561\"\nLAST\tP2093\t\"Marcel R. Ackermann\"\tP1545\t\"1\"\nLAST\tP577\t+2009-00-00T00:00:00Z/9\nLAST\tLmul\t\"Algorithms for the Bregman k-Median problem\"\nLAST\tLen\t\"Algorithms for the Bregman k-Median problem\"\nLAST\tP1476\tund:\"Algorithms for the Bregman k-Median problem\"\n",
+		"via": "in-process (zotero-reference.mjs inProcessExport)"
+	},
+	"testCase14": {
+		"status": 200,
+		"output": "CREATE\nLAST\tP31\tQ23927052\nLAST\tDen\t\"conference paper from 'Proceedings of the 13th ACM SIGKDD International Conference on Knowledge Discovery and Data Mining' published in 2007\"\nLAST\tP356\t\"10.1145/1281192.1281230\"\nLAST\tP953\t\"http://doi.acm.org/10.1145/1281192.1281230\"\nLAST\tP304\t\"330–339\"\nLAST\tP1104\t10\nLAST\tP2093\t\"Fosca Giannotti\"\tP1545\t\"1\"\nLAST\tP2093\t\"Mirco Nanni\"\tP1545\t\"2\"\nLAST\tP2093\t\"Fabio Pinelli\"\tP1545\t\"3\"\nLAST\tP2093\t\"Dino Pedreschi\"\tP1545\t\"4\"\nLAST\tP577\t+2007-00-00T00:00:00Z/9\nLAST\tLmul\t\"Trajectory Pattern Mining\"\nLAST\tLen\t\"Trajectory Pattern Mining\"\nLAST\tP1476\tund:\"Trajectory Pattern Mining\"\n",
+		"via": "in-process (zotero-reference.mjs inProcessExport)"
+	},
+	"testCase15": {
+		"status": 200,
+		"output": "CREATE\nLAST\tP31\tQ13442814\nLAST\tDen\t\"journal article from 'Zeitschrift für Soziologie : ZfS' published in 2015\"\nLAST\tP356\t\"10.1515/zfsoz-2015-0604\"\nLAST\tP953\t\"https://madoc.bib.uni-mannheim.de/40756/\"\nLAST\tP478\t\"44\"\nLAST\tP433\t\"6\"\nLAST\tP304\t\"426–446\"\nLAST\tP1104\t21\nLAST\tP2093\t\"Elias Naumann\"\tP1545\t\"1\"\nLAST\tP2093\t\"Moritz Heß\"\tP1545\t\"2\"\nLAST\tP2093\t\"Leander Steinkopf\"\tP1545\t\"3\"\nLAST\tP577\t+2015-00-00T00:00:00Z/9\nLAST\tLmul\t\"Die Alterung der Gesellschaft und der Generationenkonflikt in Europa\"\nLAST\tLen\t\"Die Alterung der Gesellschaft und der Generationenkonflikt in Europa\"\nLAST\tP1476\tund:\"Die Alterung der Gesellschaft und der Generationenkonflikt in Europa\"\nCREATE\nLAST\tP31\tQ13442814\nLAST\tDen\t\"journal article from 'Advances in Mathematics' published in 2013\"\nLAST\tP356\t\"10.1016/j.aim.2013.04.020\"\nLAST\tP953\t\"http://dx.doi.org/10.1016/j.aim.2013.04.020\"\nLAST\tP478\t\"244\"\nLAST\tP304\t\"1–15\"\nLAST\tP1104\t15\nLAST\tP2093\t\"Marek Eliáš\"\tP1545\t\"1\"\nLAST\tP2093\t\"Jiří Matoušek\"\tP1545\t\"2\"\nLAST\tP577\t+2013-00-00T00:00:00Z/9\nLAST\tLmul\t\"Higher-order Erdős-Szekeres theorems\"\nLAST\tLen\t\"Higher-order Erdős-Szekeres theorems\"\nLAST\tP1476\tund:\"Higher-order Erdős-Szekeres theorems\"\n",
+		"via": "in-process (zotero-reference.mjs inProcessExport)"
+	},
+	"testCase16": {
+		"status": 200,
+		"output": "CREATE\nLAST\tP31\tQ1980247\nLAST\tDen\t\"book section published in 2011\"\nLAST\tP304\t\"36–44\"\nLAST\tP1104\t9\nLAST\tP2093\t\"Eva H. Önnudóttir\"\tP1545\t\"1\"\nLAST\tP577\t+2011-00-00T00:00:00Z/9\nLAST\tLmul\t\"Búsáhaldabyltingin : Pólitískt jafnræði og þátttaka almennings í mótmælum\"\nLAST\tLen\t\"Búsáhaldabyltingin : Pólitískt jafnræði og þátttaka almennings í mótmælum\"\nLAST\tP1476\tund:\"Búsáhaldabyltingin : Pólitískt jafnræði og þátttaka almennings í mótmælum\"\n",
+		"via": "in-process (zotero-reference.mjs inProcessExport)"
+	},
+	"testCase17": {
+		"status": 200,
+		"output": "CREATE\nLAST\tP31\tQ36774\nLAST\tDen\t\"webpage published in 2019\"\nLAST\tP953\t\"https://www.zotero.org/\"\nLAST\tP2093\t\"Corporation for Digital Scholarship\"\tP1545\t\"1\"\nLAST\tP577\t+2019-00-00T00:00:00Z/9\nLAST\tLmul\t\"Zotero's Homepage\"\nLAST\tLen\t\"Zotero's Homepage\"\nLAST\tP1476\tund:\"Zotero's Homepage\"\n",
+		"via": "in-process (zotero-reference.mjs inProcessExport)"
+	},
+	"testCase18": {
+		"status": 200,
+		"output": "CREATE\nLAST\tP31\tQ3331189\nLAST\tDen\t\"book published in 1942\"\nLAST\tP2093\t\"Stefan Swe\\ıg\"\tP1545\t\"1\"\nLAST\tP2093\t\"Xavier D\\écoret\"\tP1545\t\"2\"\nLAST\tP577\t+1942-03-00T00:00:00Z/10\nLAST\tLmul\t\"The impossible ℡—book\"\nLAST\tLen\t\"The impossible ℡—book\"\nLAST\tP1476\tund:\"The impossible ℡—book\"\n",
+		"via": "in-process (zotero-reference.mjs inProcessExport)"
+	},
+	"testCase19": {
+		"status": 200,
+		"output": "CREATE\nLAST\tP31\tQ13442814\nLAST\tDen\t\"journal article from 'BMC Geriatrics' published in 2020\"\nLAST\tP953\t\"https://www.cs.dartmouth.edu/~kotz/research/batsis-rural/index.html\"\nLAST\tP2093\t\"John A. Batsis\"\tP1545\t\"1\"\nLAST\tP2093\t\"Curtis L. Petersen\"\tP1545\t\"2\"\nLAST\tP2093\t\"Matthew M. Clark\"\tP1545\t\"3\"\nLAST\tP2093\t\"Summer B. Cook\"\tP1545\t\"4\"\nLAST\tP2093\t\"David Kotz\"\tP1545\t\"5\"\nLAST\tP2093\t\"Tyler L. Gooding\"\tP1545\t\"6\"\nLAST\tP2093\t\"Meredith N. Roderka\"\tP1545\t\"7\"\nLAST\tP2093\t\"Rima I. Al-Nimr\"\tP1545\t\"8\"\nLAST\tP2093\t\"Dawna M. Pidgeon\"\tP1545\t\"9\"\nLAST\tP2093\t\"Ann Haedrich\"\tP1545\t\"10\"\nLAST\tP2093\t\"K. C. Wright\"\tP1545\t\"11\"\nLAST\tP2093\t\"Christina Aquila\"\tP1545\t\"12\"\nLAST\tP2093\t\"Todd A. Mackenzie\"\tP1545\t\"13\"\nLAST\tP577\t+2020-12-00T00:00:00Z/10\nLAST\tLmul\t\"A Rural Mobile Health Obesity Wellness Intervention for Older Adults with Obesity\"\nLAST\tLen\t\"A Rural Mobile Health Obesity Wellness Intervention for Older Adults with Obesity\"\nLAST\tP1476\tund:\"A Rural Mobile Health Obesity Wellness Intervention for Older Adults with Obesity\"\n",
+		"via": "in-process (zotero-reference.mjs inProcessExport)"
+	},
+	"testCase20": {
+		"status": 200,
+		"output": "CREATE\nLAST\tP31\tQ10870555\nLAST\tDen\t\"report published in 2021\"\nLAST\tP953\t\"https://datatracker.ietf.org/doc/html/draft-ietf-bmwg-evpntest-09\"\nLAST\tP2093\t\"sudhin jacob\"\tP1545\t\"1\"\nLAST\tP2093\t\"Kishore Tiruveedhula\"\tP1545\t\"2\"\nLAST\tP577\t+2021-06-18T00:00:00Z/11\nLAST\tLmul\t\"Benchmarking Methodology for EVPN and PBB-EVPN\"\nLAST\tLen\t\"Benchmarking Methodology for EVPN and PBB-EVPN\"\nLAST\tP1476\tund:\"Benchmarking Methodology for EVPN and PBB-EVPN\"\n",
+		"via": "in-process (zotero-reference.mjs inProcessExport)"
+	},
+	"testCase21": {
+		"status": 200,
+		"output": "CREATE\nLAST\tP31\tQ23927052\nLAST\tDen\t\"conference paper from 'Advances in Neural Information Processing Systems' published in 2009\"\nLAST\tP953\t\"https://proceedings.neurips.cc/paper/2009/file/0188e8b8b014829e2fa0f430f0a95961-Paper.pdf\"\nLAST\tP478\t\"22\"\nLAST\tP2093\t\"Marco Cuturi\"\tP1545\t\"1\"\nLAST\tP2093\t\"Jean-philippe Vert\"\tP1545\t\"2\"\nLAST\tP2093\t\"Alexandre D' aspremont\"\tP1545\t\"3\"\nLAST\tP577\t+2009-00-00T00:00:00Z/9\nLAST\tLmul\t\"White Functionals for Anomaly Detection in Dynamical Systems\"\nLAST\tLen\t\"White Functionals for Anomaly Detection in Dynamical Systems\"\nLAST\tP1476\tund:\"White Functionals for Anomaly Detection in Dynamical Systems\"\n",
+		"via": "in-process (zotero-reference.mjs inProcessExport)"
+	},
+	"testCase22": {
+		"status": 200,
+		"output": "CREATE\nLAST\tP31\tQ13442814\nLAST\tDen\t\"journal article from 'Phys. At. Nucl.' published in 2023\"\nLAST\tP356\t\"10.1134/S1063778823010131\"\nLAST\tP953\t\"https://cds.cern.ch/record/2855446\"\nLAST\tP478\t\"85\"\nLAST\tP433\t\"6\"\nLAST\tP304\t\"970-975\"\nLAST\tP1104\t6\nLAST\tP2093\t\"Alexander Borissov\"\tP1545\t\"1\"\nLAST\tP2093\t\"Sergei Solokhin\"\tP1545\t\"2\"\nLAST\tP577\t+2023-00-00T00:00:00Z/9\nLAST\tLmul\t\"Production of Σ⁰ Hyperon and Search of Σ⁰ Hypernuclei at LHC with ALICE\"\nLAST\tLen\t\"Production of Σ⁰ Hyperon and Search of Σ⁰ Hypernuclei at LHC with ALICE\"\nLAST\tP1476\tund:\"Production of Σ⁰ Hyperon and Search of Σ⁰ Hypernuclei at LHC with ALICE\"\n",
+		"via": "in-process (zotero-reference.mjs inProcessExport)"
+	},
+	"testCase23": {
+		"status": 200,
+		"output": "CREATE\nLAST\tP31\tQ3331189\nLAST\tDen\t\"book published in 1998\"\nLAST\tP2093\t\"Romuald Derbis\"\tP1545\t\"1\"\nLAST\tP2093\t\"Augustyn Bańka\"\tP1545\t\"2\"\nLAST\tP577\t+1998-00-00T00:00:00Z/9\nLAST\tLmul\t\"Poczucie jakości życia a swoboda działania i odpowiedzialność\"\nLAST\tLen\t\"Poczucie jakości życia a swoboda działania i odpowiedzialność\"\nLAST\tP1476\tund:\"Poczucie jakości życia a swoboda działania i odpowiedzialność\"\n",
+		"via": "in-process (zotero-reference.mjs inProcessExport)"
+	},
+	"dates_and_markup": {
+		"status": 200,
+		"output": "CREATE\nLAST\tP31\tQ13442814\nLAST\tDen\t\"journal article from 'Journal of Testing and Probing' published in 2021\"\nLAST\tP356\t\"10.1234/abc.def\"\nLAST\tP953\t\"http://example.com/a?b=c&d=e\"\nLAST\tP478\t\"12\"\nLAST\tP433\t\"3\"\nLAST\tP304\t\"101–110\"\nLAST\tP1104\t10\nLAST\tP2093\t\"John Smith\"\tP1545\t\"1\"\nLAST\tP2093\t\"Jean de la Fontaine\"\tP1545\t\"2\"\nLAST\tP2093\t\"Kovan Collaboration\"\tP1545\t\"3\"\nLAST\tP577\t+2021-05-00T00:00:00Z/10\nLAST\tLmul\t\"Dates and Markup in \\emphBib\\TeX: a kovan probe\"\nLAST\tLen\t\"Dates and Markup in \\emphBib\\TeX: a kovan probe\"\nLAST\tP1476\tund:\"Dates and Markup in \\emphBib\\TeX: a kovan probe\"\nCREATE\nLAST\tP31\tQ3331189\nLAST\tDen\t\"book published in 1999\"\nLAST\tP577\t+1999-00-00T00:00:00Z/9\nLAST\tP212\t\"978-3-16-148410-0\"\nLAST\tLmul\t\"A Second Record\"\nLAST\tLen\t\"A Second Record\"\nLAST\tP1476\tund:\"A Second Record\"\nCREATE\nLAST\tP31\tQ49848\nLAST\tDen\t\"document published in 2021\"\nLAST\tP577\t+2021-05-00T00:00:00Z/10\nLAST\tLmul\t\"Date only\"\nLAST\tLen\t\"Date only\"\nLAST\tP1476\tund:\"Date only\"\n",
+		"via": "in-process (zotero-reference.mjs inProcessExport)"
+	}
+}

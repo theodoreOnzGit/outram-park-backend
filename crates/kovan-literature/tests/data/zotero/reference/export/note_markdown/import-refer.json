@@ -1,0 +1,22 @@
+{
+	"testCase00": {
+		"status": 200,
+		"output": "",
+		"via": "in-process (zotero-reference.mjs inProcessExport)"
+	},
+	"testCase01": {
+		"status": 200,
+		"output": "",
+		"via": "in-process (zotero-reference.mjs inProcessExport)"
+	},
+	"testCase02": {
+		"status": 200,
+		"output": "",
+		"via": "in-process (zotero-reference.mjs inProcessExport)"
+	},
+	"testCase03": {
+		"status": 200,
+		"output": "",
+		"via": "in-process (zotero-reference.mjs inProcessExport)"
+	}
+}

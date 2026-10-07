@@ -1,0 +1,2560 @@
+{
+	"testCase00": {
+		"status": 500,
+		"translatorID": null,
+		"error": "No suitable translators found"
+	},
+	"testCase01": {
+		"status": 500,
+		"translatorID": null,
+		"error": "No suitable translators found"
+	},
+	"testCase02": {
+		"status": 200,
+		"translatorID": "4e7119e0-02be-4848-86ef-79a64185aad8",
+		"items": [
+			{
+				"key": "KVN22222",
+				"version": 0,
+				"itemType": "webpage",
+				"creators": [],
+				"tags": [
+					{
+						"tag": "Keyword1",
+						"type": 1
+					},
+					{
+						"tag": "Keyword2",
+						"type": 1
+					},
+					{
+						"tag": "Keyword3",
+						"type": 1
+					},
+					{
+						"tag": "Keyword4",
+						"type": 1
+					},
+					{
+						"tag": "Keyword5",
+						"type": 1
+					}
+				],
+				"title": "Title",
+				"url": "URL"
+			},
+			{
+				"key": "KVN22223",
+				"version": 0,
+				"itemType": "webpage",
+				"creators": [],
+				"tags": [
+					{
+						"tag": "Keyword1",
+						"type": 1
+					},
+					{
+						"tag": "Keyword2",
+						"type": 1
+					},
+					{
+						"tag": "Keyword3",
+						"type": 1
+					},
+					{
+						"tag": "Keyword4",
+						"type": 1
+					},
+					{
+						"tag": "Keyword5",
+						"type": 1
+					}
+				],
+				"title": "Title",
+				"url": "URL"
+			},
+			{
+				"key": "KVN22224",
+				"version": 0,
+				"itemType": "webpage",
+				"creators": [],
+				"tags": [
+					{
+						"tag": "Keyword1",
+						"type": 1
+					},
+					{
+						"tag": "Keyword2",
+						"type": 1
+					},
+					{
+						"tag": "Keyword3",
+						"type": 1
+					},
+					{
+						"tag": "Keyword4",
+						"type": 1
+					},
+					{
+						"tag": "Keyword5",
+						"type": 1
+					}
+				],
+				"title": "Title",
+				"url": "URL"
+			},
+			{
+				"key": "KVN22225",
+				"version": 0,
+				"itemType": "webpage",
+				"creators": [],
+				"tags": [
+					{
+						"tag": "Keyword1",
+						"type": 1
+					},
+					{
+						"tag": "Keyword2",
+						"type": 1
+					},
+					{
+						"tag": "Keyword3",
+						"type": 1
+					},
+					{
+						"tag": "Keyword4",
+						"type": 1
+					},
+					{
+						"tag": "Keyword5",
+						"type": 1
+					}
+				],
+				"title": "Title",
+				"url": "URL"
+			},
+			{
+				"key": "KVN22226",
+				"version": 0,
+				"itemType": "webpage",
+				"creators": [],
+				"tags": [
+					{
+						"tag": "Keyword1",
+						"type": 1
+					},
+					{
+						"tag": "Keyword2",
+						"type": 1
+					},
+					{
+						"tag": "Keyword3",
+						"type": 1
+					},
+					{
+						"tag": "Keyword4",
+						"type": 1
+					},
+					{
+						"tag": "Keyword5",
+						"type": 1
+					}
+				],
+				"title": "Title",
+				"url": "URL"
+			},
+			{
+				"key": "KVN22227",
+				"version": 0,
+				"itemType": "webpage",
+				"creators": [],
+				"tags": [
+					{
+						"tag": "Keyword1",
+						"type": 1
+					},
+					{
+						"tag": "Keyword2",
+						"type": 1
+					},
+					{
+						"tag": "Keyword3",
+						"type": 1
+					},
+					{
+						"tag": "Keyword4",
+						"type": 1
+					},
+					{
+						"tag": "Keyword5",
+						"type": 1
+					}
+				],
+				"title": "Title of Entry",
+				"url": "URL"
+			},
+			{
+				"key": "KVN22228",
+				"version": 0,
+				"itemType": "webpage",
+				"creators": [],
+				"tags": [
+					{
+						"tag": "Keyword1",
+						"type": 1
+					},
+					{
+						"tag": "Keyword2",
+						"type": 1
+					},
+					{
+						"tag": "Keyword3",
+						"type": 1
+					},
+					{
+						"tag": "Keyword4",
+						"type": 1
+					},
+					{
+						"tag": "Keyword5",
+						"type": 1
+					}
+				],
+				"title": "Title",
+				"url": "URL"
+			},
+			{
+				"key": "KVN22229",
+				"version": 0,
+				"itemType": "webpage",
+				"creators": [],
+				"tags": [
+					{
+						"tag": "Keyword1",
+						"type": 1
+					},
+					{
+						"tag": "Keyword2",
+						"type": 1
+					},
+					{
+						"tag": "Keyword3",
+						"type": 1
+					},
+					{
+						"tag": "Keyword4",
+						"type": 1
+					},
+					{
+						"tag": "Keyword5",
+						"type": 1
+					}
+				],
+				"title": "Title",
+				"url": "URL"
+			},
+			{
+				"key": "KVN2222A",
+				"version": 0,
+				"itemType": "webpage",
+				"creators": [],
+				"tags": [
+					{
+						"tag": "Keyword1",
+						"type": 1
+					},
+					{
+						"tag": "Keyword2",
+						"type": 1
+					},
+					{
+						"tag": "Keyword3",
+						"type": 1
+					},
+					{
+						"tag": "Keyword4",
+						"type": 1
+					},
+					{
+						"tag": "Keyword5",
+						"type": 1
+					}
+				],
+				"title": "Case Name",
+				"url": "URL"
+			},
+			{
+				"key": "KVN2222B",
+				"version": 0,
+				"itemType": "webpage",
+				"creators": [],
+				"tags": [
+					{
+						"tag": "Keyword1",
+						"type": 1
+					},
+					{
+						"tag": "Keyword2",
+						"type": 1
+					},
+					{
+						"tag": "Keyword3",
+						"type": 1
+					},
+					{
+						"tag": "Keyword4",
+						"type": 1
+					},
+					{
+						"tag": "Keyword5",
+						"type": 1
+					}
+				],
+				"title": "Title",
+				"url": "URL"
+			},
+			{
+				"key": "KVN2222C",
+				"version": 0,
+				"itemType": "webpage",
+				"creators": [],
+				"tags": [
+					{
+						"tag": "Keyword1",
+						"type": 1
+					},
+					{
+						"tag": "Keyword2",
+						"type": 1
+					},
+					{
+						"tag": "Keyword3",
+						"type": 1
+					},
+					{
+						"tag": "Keyword4",
+						"type": 1
+					},
+					{
+						"tag": "Keyword5",
+						"type": 1
+					}
+				],
+				"title": "Title",
+				"url": "URL"
+			},
+			{
+				"key": "KVN2222D",
+				"version": 0,
+				"itemType": "webpage",
+				"creators": [],
+				"tags": [
+					{
+						"tag": "Keyword1",
+						"type": 1
+					},
+					{
+						"tag": "Keyword2",
+						"type": 1
+					},
+					{
+						"tag": "Keyword3",
+						"type": 1
+					},
+					{
+						"tag": "Keyword4",
+						"type": 1
+					},
+					{
+						"tag": "Keyword5",
+						"type": 1
+					}
+				],
+				"title": "Title",
+				"url": "URL"
+			},
+			{
+				"key": "KVN2222E",
+				"version": 0,
+				"itemType": "webpage",
+				"creators": [],
+				"tags": [
+					{
+						"tag": "Keyword1",
+						"type": 1
+					},
+					{
+						"tag": "Keyword2",
+						"type": 1
+					},
+					{
+						"tag": "Keyword3",
+						"type": 1
+					},
+					{
+						"tag": "Keyword4",
+						"type": 1
+					},
+					{
+						"tag": "Keyword5",
+						"type": 1
+					}
+				],
+				"title": "Title",
+				"url": "URL"
+			},
+			{
+				"key": "KVN2222F",
+				"version": 0,
+				"itemType": "webpage",
+				"creators": [],
+				"tags": [
+					{
+						"tag": "Keyword1",
+						"type": 1
+					},
+					{
+						"tag": "Keyword2",
+						"type": 1
+					},
+					{
+						"tag": "Keyword3",
+						"type": 1
+					},
+					{
+						"tag": "Keyword4",
+						"type": 1
+					},
+					{
+						"tag": "Keyword5",
+						"type": 1
+					}
+				],
+				"title": "Title",
+				"url": "URL"
+			},
+			{
+				"key": "KVN2222G",
+				"version": 0,
+				"itemType": "webpage",
+				"creators": [],
+				"tags": [
+					{
+						"tag": "Keyword1",
+						"type": 1
+					},
+					{
+						"tag": "Keyword2",
+						"type": 1
+					},
+					{
+						"tag": "Keyword3",
+						"type": 1
+					},
+					{
+						"tag": "Keyword4",
+						"type": 1
+					},
+					{
+						"tag": "Keyword5",
+						"type": 1
+					}
+				],
+				"title": "Title",
+				"url": "URL"
+			},
+			{
+				"key": "KVN2222H",
+				"version": 0,
+				"itemType": "webpage",
+				"creators": [],
+				"tags": [
+					{
+						"tag": "Keyword1",
+						"type": 1
+					},
+					{
+						"tag": "Keyword2",
+						"type": 1
+					},
+					{
+						"tag": "Keyword3",
+						"type": 1
+					},
+					{
+						"tag": "Keyword4",
+						"type": 1
+					},
+					{
+						"tag": "Keyword5",
+						"type": 1
+					}
+				],
+				"title": "Title",
+				"url": "URL"
+			},
+			{
+				"key": "KVN2222I",
+				"version": 0,
+				"itemType": "webpage",
+				"creators": [],
+				"tags": [
+					{
+						"tag": "Keyword1",
+						"type": 1
+					},
+					{
+						"tag": "Keyword2",
+						"type": 1
+					},
+					{
+						"tag": "Keyword3",
+						"type": 1
+					},
+					{
+						"tag": "Keyword4",
+						"type": 1
+					},
+					{
+						"tag": "Keyword5",
+						"type": 1
+					}
+				],
+				"title": "Title",
+				"url": "URL"
+			},
+			{
+				"key": "KVN2222J",
+				"version": 0,
+				"itemType": "webpage",
+				"creators": [],
+				"tags": [
+					{
+						"tag": "Keyword1",
+						"type": 1
+					},
+					{
+						"tag": "Keyword2",
+						"type": 1
+					},
+					{
+						"tag": "Keyword3",
+						"type": 1
+					},
+					{
+						"tag": "Keyword4",
+						"type": 1
+					},
+					{
+						"tag": "Keyword5",
+						"type": 1
+					}
+				],
+				"title": "Title",
+				"url": "URL"
+			},
+			{
+				"key": "KVN2222K",
+				"version": 0,
+				"itemType": "webpage",
+				"creators": [],
+				"tags": [
+					{
+						"tag": "Keyword1",
+						"type": 1
+					},
+					{
+						"tag": "Keyword2",
+						"type": 1
+					},
+					{
+						"tag": "Keyword3",
+						"type": 1
+					},
+					{
+						"tag": "Keyword4",
+						"type": 1
+					},
+					{
+						"tag": "Keyword5",
+						"type": 1
+					}
+				],
+				"title": "Title",
+				"url": "URL"
+			},
+			{
+				"key": "KVN2222L",
+				"version": 0,
+				"itemType": "webpage",
+				"creators": [],
+				"tags": [
+					{
+						"tag": "Keyword1",
+						"type": 1
+					},
+					{
+						"tag": "Keyword2",
+						"type": 1
+					},
+					{
+						"tag": "Keyword3",
+						"type": 1
+					},
+					{
+						"tag": "Keyword4",
+						"type": 1
+					},
+					{
+						"tag": "Keyword5",
+						"type": 1
+					}
+				],
+				"title": "Title",
+				"url": "URL"
+			},
+			{
+				"key": "KVN2222M",
+				"version": 0,
+				"itemType": "webpage",
+				"creators": [],
+				"tags": [
+					{
+						"tag": "Keyword1",
+						"type": 1
+					},
+					{
+						"tag": "Keyword2",
+						"type": 1
+					},
+					{
+						"tag": "Keyword3",
+						"type": 1
+					},
+					{
+						"tag": "Keyword4",
+						"type": 1
+					},
+					{
+						"tag": "Keyword5",
+						"type": 1
+					}
+				],
+				"title": "Title",
+				"url": "URL"
+			},
+			{
+				"key": "KVN2222N",
+				"version": 0,
+				"itemType": "webpage",
+				"creators": [],
+				"tags": [
+					{
+						"tag": "Keyword1",
+						"type": 1
+					},
+					{
+						"tag": "Keyword2",
+						"type": 1
+					},
+					{
+						"tag": "Keyword3",
+						"type": 1
+					},
+					{
+						"tag": "Keyword4",
+						"type": 1
+					},
+					{
+						"tag": "Keyword5",
+						"type": 1
+					}
+				],
+				"title": "Title",
+				"url": "URL"
+			},
+			{
+				"key": "KVN2222P",
+				"version": 0,
+				"itemType": "webpage",
+				"creators": [],
+				"tags": [
+					{
+						"tag": "Keyword1",
+						"type": 1
+					},
+					{
+						"tag": "Keyword2",
+						"type": 1
+					},
+					{
+						"tag": "Keyword3",
+						"type": 1
+					},
+					{
+						"tag": "Keyword4",
+						"type": 1
+					},
+					{
+						"tag": "Keyword5",
+						"type": 1
+					}
+				],
+				"title": "Title",
+				"url": "URL"
+			},
+			{
+				"key": "KVN2222Q",
+				"version": 0,
+				"itemType": "webpage",
+				"creators": [],
+				"tags": [
+					{
+						"tag": "Keyword1",
+						"type": 1
+					},
+					{
+						"tag": "Keyword2",
+						"type": 1
+					},
+					{
+						"tag": "Keyword3",
+						"type": 1
+					},
+					{
+						"tag": "Keyword4",
+						"type": 1
+					},
+					{
+						"tag": "Keyword5",
+						"type": 1
+					}
+				],
+				"title": "Title",
+				"url": "URL"
+			},
+			{
+				"key": "KVN2222R",
+				"version": 0,
+				"itemType": "webpage",
+				"creators": [],
+				"tags": [
+					{
+						"tag": "Keyword1",
+						"type": 1
+					},
+					{
+						"tag": "Keyword2",
+						"type": 1
+					},
+					{
+						"tag": "Keyword3",
+						"type": 1
+					},
+					{
+						"tag": "Keyword4",
+						"type": 1
+					},
+					{
+						"tag": "Keyword5",
+						"type": 1
+					}
+				],
+				"title": "Title",
+				"url": "URL"
+			},
+			{
+				"key": "KVN2222S",
+				"version": 0,
+				"itemType": "webpage",
+				"creators": [],
+				"tags": [
+					{
+						"tag": "Keyword1",
+						"type": 1
+					},
+					{
+						"tag": "Keyword2",
+						"type": 1
+					},
+					{
+						"tag": "Keyword3",
+						"type": 1
+					},
+					{
+						"tag": "Keyword4",
+						"type": 1
+					},
+					{
+						"tag": "Keyword5",
+						"type": 1
+					}
+				],
+				"title": "Title",
+				"url": "URL"
+			},
+			{
+				"key": "KVN2222T",
+				"version": 0,
+				"itemType": "webpage",
+				"creators": [],
+				"tags": [
+					{
+						"tag": "Keyword1",
+						"type": 1
+					},
+					{
+						"tag": "Keyword2",
+						"type": 1
+					},
+					{
+						"tag": "Keyword3",
+						"type": 1
+					},
+					{
+						"tag": "Keyword4",
+						"type": 1
+					},
+					{
+						"tag": "Keyword5",
+						"type": 1
+					}
+				],
+				"title": "Title",
+				"url": "URL"
+			},
+			{
+				"key": "KVN2222U",
+				"version": 0,
+				"itemType": "webpage",
+				"creators": [],
+				"tags": [
+					{
+						"tag": "Keyword1",
+						"type": 1
+					},
+					{
+						"tag": "Keyword2",
+						"type": 1
+					},
+					{
+						"tag": "Keyword3",
+						"type": 1
+					},
+					{
+						"tag": "Keyword4",
+						"type": 1
+					},
+					{
+						"tag": "Keyword5",
+						"type": 1
+					}
+				],
+				"title": "Title of Grant",
+				"url": "URL"
+			},
+			{
+				"key": "KVN2222V",
+				"version": 0,
+				"itemType": "webpage",
+				"creators": [],
+				"tags": [
+					{
+						"tag": "Keyword1",
+						"type": 1
+					},
+					{
+						"tag": "Keyword2",
+						"type": 1
+					},
+					{
+						"tag": "Keyword3",
+						"type": 1
+					},
+					{
+						"tag": "Keyword4",
+						"type": 1
+					},
+					{
+						"tag": "Keyword5",
+						"type": 1
+					}
+				],
+				"title": "Title",
+				"url": "URL"
+			},
+			{
+				"key": "KVN2222W",
+				"version": 0,
+				"itemType": "webpage",
+				"creators": [],
+				"tags": [],
+				"title": "Title",
+				"url": "URL"
+			},
+			{
+				"key": "KVN2222X",
+				"version": 0,
+				"itemType": "webpage",
+				"creators": [],
+				"tags": [
+					{
+						"tag": "Keyword1",
+						"type": 1
+					},
+					{
+						"tag": "Keyword2",
+						"type": 1
+					},
+					{
+						"tag": "Keyword3",
+						"type": 1
+					},
+					{
+						"tag": "Keyword4",
+						"type": 1
+					},
+					{
+						"tag": "Keyword5",
+						"type": 1
+					}
+				],
+				"title": "Title",
+				"url": "URL"
+			},
+			{
+				"key": "KVN2222Y",
+				"version": 0,
+				"itemType": "webpage",
+				"creators": [],
+				"tags": [
+					{
+						"tag": "Keyword1",
+						"type": 1
+					},
+					{
+						"tag": "Keyword2",
+						"type": 1
+					},
+					{
+						"tag": "Keyword3",
+						"type": 1
+					},
+					{
+						"tag": "Keyword4",
+						"type": 1
+					},
+					{
+						"tag": "Keyword5",
+						"type": 1
+					}
+				],
+				"title": "Title",
+				"url": "URL"
+			},
+			{
+				"key": "KVN2222Z",
+				"version": 0,
+				"itemType": "webpage",
+				"creators": [],
+				"tags": [
+					{
+						"tag": "Keyword1",
+						"type": 1
+					},
+					{
+						"tag": "Keyword2",
+						"type": 1
+					},
+					{
+						"tag": "Keyword3",
+						"type": 1
+					},
+					{
+						"tag": "Keyword4",
+						"type": 1
+					},
+					{
+						"tag": "Keyword5",
+						"type": 1
+					}
+				],
+				"title": "Title",
+				"url": "URL"
+			},
+			{
+				"key": "KVN22232",
+				"version": 0,
+				"itemType": "webpage",
+				"creators": [],
+				"tags": [
+					{
+						"tag": "Keyword1",
+						"type": 1
+					},
+					{
+						"tag": "Keyword2",
+						"type": 1
+					},
+					{
+						"tag": "Keyword3",
+						"type": 1
+					},
+					{
+						"tag": "Keyword4",
+						"type": 1
+					},
+					{
+						"tag": "Keyword5",
+						"type": 1
+					}
+				],
+				"title": "Title",
+				"url": "URL"
+			},
+			{
+				"key": "KVN22233",
+				"version": 0,
+				"itemType": "webpage",
+				"creators": [],
+				"tags": [
+					{
+						"tag": "Keyword1",
+						"type": 1
+					},
+					{
+						"tag": "Keyword2",
+						"type": 1
+					},
+					{
+						"tag": "Keyword3",
+						"type": 1
+					},
+					{
+						"tag": "Keyword4",
+						"type": 1
+					},
+					{
+						"tag": "Keyword5",
+						"type": 1
+					}
+				],
+				"title": "Title",
+				"url": "URL"
+			},
+			{
+				"key": "KVN22234",
+				"version": 0,
+				"itemType": "webpage",
+				"creators": [],
+				"tags": [
+					{
+						"tag": "Keyword1",
+						"type": 1
+					},
+					{
+						"tag": "Keyword2",
+						"type": 1
+					},
+					{
+						"tag": "Keyword3",
+						"type": 1
+					},
+					{
+						"tag": "Keyword4",
+						"type": 1
+					},
+					{
+						"tag": "Keyword5",
+						"type": 1
+					}
+				],
+				"title": "Title",
+				"url": "URL"
+			},
+			{
+				"key": "KVN22235",
+				"version": 0,
+				"itemType": "webpage",
+				"creators": [],
+				"tags": [
+					{
+						"tag": "Keyword1",
+						"type": 1
+					},
+					{
+						"tag": "Keyword2",
+						"type": 1
+					},
+					{
+						"tag": "Keyword3",
+						"type": 1
+					},
+					{
+						"tag": "Keyword4",
+						"type": 1
+					},
+					{
+						"tag": "Keyword5",
+						"type": 1
+					}
+				],
+				"title": "Title",
+				"url": "URL"
+			},
+			{
+				"key": "KVN22236",
+				"version": 0,
+				"itemType": "webpage",
+				"creators": [],
+				"tags": [
+					{
+						"tag": "Keyword1",
+						"type": 1
+					},
+					{
+						"tag": "Keyword2",
+						"type": 1
+					},
+					{
+						"tag": "Keyword3",
+						"type": 1
+					},
+					{
+						"tag": "Keyword4",
+						"type": 1
+					},
+					{
+						"tag": "Keyword5",
+						"type": 1
+					}
+				],
+				"title": "Title",
+				"url": "URL"
+			},
+			{
+				"key": "KVN22237",
+				"version": 0,
+				"itemType": "webpage",
+				"creators": [],
+				"tags": [
+					{
+						"tag": "Keyword1",
+						"type": 1
+					},
+					{
+						"tag": "Keyword2",
+						"type": 1
+					},
+					{
+						"tag": "Keyword3",
+						"type": 1
+					},
+					{
+						"tag": "Keyword4",
+						"type": 1
+					},
+					{
+						"tag": "Keyword5",
+						"type": 1
+					}
+				],
+				"title": "Title",
+				"url": "URL"
+			},
+			{
+				"key": "KVN22238",
+				"version": 0,
+				"itemType": "webpage",
+				"creators": [],
+				"tags": [
+					{
+						"tag": "Keyword1",
+						"type": 1
+					},
+					{
+						"tag": "Keyword2",
+						"type": 1
+					},
+					{
+						"tag": "Keyword3",
+						"type": 1
+					},
+					{
+						"tag": "Keyword4",
+						"type": 1
+					},
+					{
+						"tag": "Keyword5",
+						"type": 1
+					}
+				],
+				"title": "Title",
+				"url": "URL"
+			},
+			{
+				"key": "KVN22239",
+				"version": 0,
+				"itemType": "webpage",
+				"creators": [],
+				"tags": [
+					{
+						"tag": "Keyword1",
+						"type": 1
+					},
+					{
+						"tag": "Keyword2",
+						"type": 1
+					},
+					{
+						"tag": "Keyword3",
+						"type": 1
+					},
+					{
+						"tag": "Keyword4",
+						"type": 1
+					},
+					{
+						"tag": "Keyword5",
+						"type": 1
+					}
+				],
+				"title": "Title",
+				"url": "URL"
+			},
+			{
+				"key": "KVN2223A",
+				"version": 0,
+				"itemType": "webpage",
+				"creators": [],
+				"tags": [
+					{
+						"tag": "Keyword1",
+						"type": 1
+					},
+					{
+						"tag": "Keyword2",
+						"type": 1
+					},
+					{
+						"tag": "Keyword3",
+						"type": 1
+					},
+					{
+						"tag": "Keyword4",
+						"type": 1
+					},
+					{
+						"tag": "Keyword5",
+						"type": 1
+					}
+				],
+				"title": "Title",
+				"url": "URL"
+			},
+			{
+				"key": "KVN2223B",
+				"version": 0,
+				"itemType": "webpage",
+				"creators": [],
+				"tags": [
+					{
+						"tag": "Keyword1",
+						"type": 1
+					},
+					{
+						"tag": "Keyword2",
+						"type": 1
+					},
+					{
+						"tag": "Keyword3",
+						"type": 1
+					},
+					{
+						"tag": "Keyword4",
+						"type": 1
+					},
+					{
+						"tag": "Keyword5",
+						"type": 1
+					}
+				],
+				"title": "Title",
+				"url": "URL"
+			},
+			{
+				"key": "KVN2223C",
+				"version": 0,
+				"itemType": "webpage",
+				"creators": [],
+				"tags": [
+					{
+						"tag": "Keyword1",
+						"type": 1
+					},
+					{
+						"tag": "Keyword2",
+						"type": 1
+					},
+					{
+						"tag": "Keyword3",
+						"type": 1
+					},
+					{
+						"tag": "Keyword4",
+						"type": 1
+					},
+					{
+						"tag": "Keyword5",
+						"type": 1
+					}
+				],
+				"title": "Title",
+				"url": "URL"
+			},
+			{
+				"key": "KVN2223D",
+				"version": 0,
+				"itemType": "webpage",
+				"creators": [],
+				"tags": [
+					{
+						"tag": "Keyword1",
+						"type": 1
+					},
+					{
+						"tag": "Keyword2",
+						"type": 1
+					},
+					{
+						"tag": "Keyword3",
+						"type": 1
+					},
+					{
+						"tag": "Keyword4",
+						"type": 1
+					},
+					{
+						"tag": "Keyword5",
+						"type": 1
+					}
+				],
+				"title": "Name of Act",
+				"url": "URL"
+			},
+			{
+				"key": "KVN2223E",
+				"version": 0,
+				"itemType": "webpage",
+				"creators": [],
+				"tags": [
+					{
+						"tag": "Keyword1",
+						"type": 1
+					},
+					{
+						"tag": "Keyword2",
+						"type": 1
+					},
+					{
+						"tag": "Keyword3",
+						"type": 1
+					},
+					{
+						"tag": "Keyword4",
+						"type": 1
+					},
+					{
+						"tag": "Keyword5",
+						"type": 1
+					}
+				],
+				"title": "Title",
+				"url": "URL"
+			},
+			{
+				"key": "KVN2223F",
+				"version": 0,
+				"itemType": "webpage",
+				"creators": [],
+				"tags": [
+					{
+						"tag": "Keyword1",
+						"type": 1
+					},
+					{
+						"tag": "Keyword2",
+						"type": 1
+					},
+					{
+						"tag": "Keyword3",
+						"type": 1
+					},
+					{
+						"tag": "Keyword4",
+						"type": 1
+					},
+					{
+						"tag": "Keyword5",
+						"type": 1
+					}
+				],
+				"title": "Title of Work",
+				"url": "URL"
+			},
+			{
+				"key": "KVN2223G",
+				"version": 0,
+				"itemType": "webpage",
+				"creators": [],
+				"tags": [
+					{
+						"tag": "Keyword1",
+						"type": 1
+					},
+					{
+						"tag": "Keyword2",
+						"type": 1
+					},
+					{
+						"tag": "Keyword3",
+						"type": 1
+					},
+					{
+						"tag": "Keyword4",
+						"type": 1
+					},
+					{
+						"tag": "Keyword5",
+						"type": 1
+					}
+				],
+				"title": "Title",
+				"url": "URL"
+			}
+		]
+	},
+	"testCase03": {
+		"status": 200,
+		"translatorID": "4e7119e0-02be-4848-86ef-79a64185aad8",
+		"items": [
+			{
+				"key": "KVN22222",
+				"version": 0,
+				"itemType": "webpage",
+				"creators": [],
+				"tags": [],
+				"title": "Rapid identification of thousands of copperhead snake (Agkistrodon contortrix) microsatellite loci from modest amounts of 454 shotgun genome sequence",
+				"url": "http://dx.doi.org/10.1111/j.1755-0998.2009.02750.x"
+			}
+		]
+	},
+	"testCase04": {
+		"status": 200,
+		"translatorID": "4e7119e0-02be-4848-86ef-79a64185aad8",
+		"items": [
+			{
+				"key": "KVN22222",
+				"version": 0,
+				"itemType": "webpage",
+				"creators": [],
+				"tags": [
+					{
+						"tag": "Keywords1",
+						"type": 1
+					},
+					{
+						"tag": "Keywords2",
+						"type": 1
+					},
+					{
+						"tag": "Keywords3",
+						"type": 1
+					},
+					{
+						"tag": "Keywords4",
+						"type": 1
+					}
+				],
+				"title": "Act Name",
+				"url": "Location/URL"
+			},
+			{
+				"key": "KVN22223",
+				"version": 0,
+				"itemType": "webpage",
+				"creators": [],
+				"tags": [
+					{
+						"tag": "Keywords1",
+						"type": 1
+					},
+					{
+						"tag": "Keywords2",
+						"type": 1
+					},
+					{
+						"tag": "Keywords3",
+						"type": 1
+					},
+					{
+						"tag": "Keywords4",
+						"type": 1
+					}
+				],
+				"title": "Title/Subject",
+				"url": "Location/URL"
+			},
+			{
+				"key": "KVN22224",
+				"version": 0,
+				"itemType": "webpage",
+				"creators": [],
+				"tags": [
+					{
+						"tag": "Keywords1",
+						"type": 1
+					},
+					{
+						"tag": "Keywords2",
+						"type": 1
+					},
+					{
+						"tag": "Keywords3",
+						"type": 1
+					},
+					{
+						"tag": "Keywords4",
+						"type": 1
+					}
+				],
+				"title": "Analytic Title",
+				"url": "Location/URL"
+			},
+			{
+				"key": "KVN22225",
+				"version": 0,
+				"itemType": "webpage",
+				"creators": [],
+				"tags": [
+					{
+						"tag": "Keywords1",
+						"type": 1
+					},
+					{
+						"tag": "Keywords2",
+						"type": 1
+					},
+					{
+						"tag": "Keywords3",
+						"type": 1
+					},
+					{
+						"tag": "Keywords4",
+						"type": 1
+					}
+				],
+				"title": "Analytic Title",
+				"url": "Location/URL"
+			},
+			{
+				"key": "KVN22226",
+				"version": 0,
+				"itemType": "webpage",
+				"creators": [],
+				"tags": [
+					{
+						"tag": "Keywords1",
+						"type": 1
+					},
+					{
+						"tag": "Keywords2",
+						"type": 1
+					},
+					{
+						"tag": "Keywords3",
+						"type": 1
+					},
+					{
+						"tag": "Keywords4",
+						"type": 1
+					}
+				],
+				"title": "Analytic Title",
+				"url": "Location/URL"
+			},
+			{
+				"key": "KVN22227",
+				"version": 0,
+				"itemType": "webpage",
+				"creators": [],
+				"tags": [
+					{
+						"tag": "Keywords1",
+						"type": 1
+					},
+					{
+						"tag": "Keywords2",
+						"type": 1
+					},
+					{
+						"tag": "Keywords3",
+						"type": 1
+					},
+					{
+						"tag": "Keywords4",
+						"type": 1
+					}
+				],
+				"title": "Title",
+				"url": "Location/URL"
+			},
+			{
+				"key": "KVN22228",
+				"version": 0,
+				"itemType": "webpage",
+				"creators": [],
+				"tags": [
+					{
+						"tag": "Keywords1",
+						"type": 1
+					},
+					{
+						"tag": "Keywords2",
+						"type": 1
+					},
+					{
+						"tag": "Keywords3",
+						"type": 1
+					},
+					{
+						"tag": "Keywords4",
+						"type": 1
+					}
+				],
+				"title": "Monographic Title",
+				"url": "Location/URL"
+			},
+			{
+				"key": "KVN22229",
+				"version": 0,
+				"itemType": "webpage",
+				"creators": [],
+				"tags": [
+					{
+						"tag": "Keywords1",
+						"type": 1
+					},
+					{
+						"tag": "Keywords2",
+						"type": 1
+					},
+					{
+						"tag": "Keywords3",
+						"type": 1
+					},
+					{
+						"tag": "Keywords4",
+						"type": 1
+					}
+				],
+				"title": "Monographic Title",
+				"url": "Location/URL"
+			},
+			{
+				"key": "KVN2222A",
+				"version": 0,
+				"itemType": "webpage",
+				"creators": [],
+				"tags": [
+					{
+						"tag": "Keywords1",
+						"type": 1
+					},
+					{
+						"tag": "Keywords2",
+						"type": 1
+					},
+					{
+						"tag": "Keywords3",
+						"type": 1
+					},
+					{
+						"tag": "Keywords4",
+						"type": 1
+					}
+				],
+				"title": "Case Name",
+				"url": "Location/URL"
+			},
+			{
+				"key": "KVN2222B",
+				"version": 0,
+				"itemType": "webpage",
+				"creators": [],
+				"tags": [
+					{
+						"tag": "Keywords1",
+						"type": 1
+					},
+					{
+						"tag": "Keywords2",
+						"type": 1
+					},
+					{
+						"tag": "Keywords3",
+						"type": 1
+					},
+					{
+						"tag": "Keywords4",
+						"type": 1
+					}
+				],
+				"title": "Program Title",
+				"url": "Location/URL"
+			},
+			{
+				"key": "KVN2222C",
+				"version": 0,
+				"itemType": "webpage",
+				"creators": [],
+				"tags": [
+					{
+						"tag": "Keywords1",
+						"type": 1
+					},
+					{
+						"tag": "Keywords2",
+						"type": 1
+					},
+					{
+						"tag": "Keywords3",
+						"type": 1
+					},
+					{
+						"tag": "Keywords4",
+						"type": 1
+					}
+				],
+				"title": "Paper/Section Title",
+				"url": "Location/URL"
+			},
+			{
+				"key": "KVN2222D",
+				"version": 0,
+				"itemType": "webpage",
+				"creators": [],
+				"tags": [
+					{
+						"tag": "Keywords1",
+						"type": 1
+					},
+					{
+						"tag": "Keywords2",
+						"type": 1
+					},
+					{
+						"tag": "Keywords3",
+						"type": 1
+					},
+					{
+						"tag": "Keywords4",
+						"type": 1
+					}
+				],
+				"title": "Analytic Title",
+				"url": "Location/URL"
+			},
+			{
+				"key": "KVN2222E",
+				"version": 0,
+				"itemType": "webpage",
+				"creators": [],
+				"tags": [
+					{
+						"tag": "Keywords1",
+						"type": 1
+					},
+					{
+						"tag": "Keywords2",
+						"type": 1
+					},
+					{
+						"tag": "Keywords3",
+						"type": 1
+					},
+					{
+						"tag": "Keywords4",
+						"type": 1
+					}
+				],
+				"title": "Analytic Title",
+				"url": "Location/URL"
+			},
+			{
+				"key": "KVN2222F",
+				"version": 0,
+				"itemType": "webpage",
+				"creators": [],
+				"tags": [
+					{
+						"tag": "Keywords1",
+						"type": 1
+					},
+					{
+						"tag": "Keywords2",
+						"type": 1
+					},
+					{
+						"tag": "Keywords3",
+						"type": 1
+					},
+					{
+						"tag": "Keywords4",
+						"type": 1
+					}
+				],
+				"title": "Title",
+				"url": "Location/URL"
+			},
+			{
+				"key": "KVN2222G",
+				"version": 0,
+				"itemType": "webpage",
+				"creators": [],
+				"tags": [
+					{
+						"tag": "Keywords1",
+						"type": 1
+					},
+					{
+						"tag": "Keywords2",
+						"type": 1
+					},
+					{
+						"tag": "Keywords3",
+						"type": 1
+					},
+					{
+						"tag": "Keywords4",
+						"type": 1
+					}
+				],
+				"title": "Subject",
+				"url": "Location/URL"
+			},
+			{
+				"key": "KVN2222H",
+				"version": 0,
+				"itemType": "webpage",
+				"creators": [],
+				"tags": [
+					{
+						"tag": "Keywords1",
+						"type": 1
+					},
+					{
+						"tag": "Keywords2",
+						"type": 1
+					},
+					{
+						"tag": "Keywords3",
+						"type": 1
+					},
+					{
+						"tag": "Keywords4",
+						"type": 1
+					}
+				],
+				"title": "Analytic Title",
+				"url": "Location/URL"
+			},
+			{
+				"key": "KVN2222I",
+				"version": 0,
+				"itemType": "webpage",
+				"creators": [],
+				"tags": [
+					{
+						"tag": "Keywords1",
+						"type": 1
+					},
+					{
+						"tag": "Keywords2",
+						"type": 1
+					},
+					{
+						"tag": "Keywords3",
+						"type": 1
+					},
+					{
+						"tag": "Keywords4",
+						"type": 1
+					}
+				],
+				"title": "Title",
+				"url": "Location/URL"
+			},
+			{
+				"key": "KVN2222J",
+				"version": 0,
+				"itemType": "webpage",
+				"creators": [],
+				"tags": [
+					{
+						"tag": "Keywords1",
+						"type": 1
+					},
+					{
+						"tag": "Keywords2",
+						"type": 1
+					},
+					{
+						"tag": "Keywords3",
+						"type": 1
+					},
+					{
+						"tag": "Keywords4",
+						"type": 1
+					}
+				],
+				"title": "Article Title",
+				"url": "Location/URL"
+			},
+			{
+				"key": "KVN2222K",
+				"version": 0,
+				"itemType": "webpage",
+				"creators": [],
+				"tags": [
+					{
+						"tag": "Keywords1",
+						"type": 1
+					},
+					{
+						"tag": "Keywords2",
+						"type": 1
+					},
+					{
+						"tag": "Keywords3",
+						"type": 1
+					},
+					{
+						"tag": "Keywords4",
+						"type": 1
+					}
+				],
+				"title": "Title",
+				"url": "Location/URL"
+			},
+			{
+				"key": "KVN2222L",
+				"version": 0,
+				"itemType": "webpage",
+				"creators": [],
+				"tags": [
+					{
+						"tag": "Keywords1",
+						"type": 1
+					},
+					{
+						"tag": "Keywords2",
+						"type": 1
+					},
+					{
+						"tag": "Keywords3",
+						"type": 1
+					},
+					{
+						"tag": "Keywords4",
+						"type": 1
+					}
+				],
+				"title": "Article Title",
+				"url": "Location/URL"
+			},
+			{
+				"key": "KVN2222M",
+				"version": 0,
+				"itemType": "webpage",
+				"creators": [],
+				"tags": [
+					{
+						"tag": "Keywords1",
+						"type": 1
+					},
+					{
+						"tag": "Keywords2",
+						"type": 1
+					},
+					{
+						"tag": "Keywords3",
+						"type": 1
+					},
+					{
+						"tag": "Keywords4",
+						"type": 1
+					}
+				],
+				"title": "Article Title",
+				"url": "Location/URL"
+			},
+			{
+				"key": "KVN2222N",
+				"version": 0,
+				"itemType": "webpage",
+				"creators": [],
+				"tags": [
+					{
+						"tag": "Keywords1",
+						"type": 1
+					},
+					{
+						"tag": "Keywords2",
+						"type": 1
+					},
+					{
+						"tag": "Keywords3",
+						"type": 1
+					},
+					{
+						"tag": "Keywords4",
+						"type": 1
+					}
+				],
+				"title": "Analytic Title",
+				"url": "Location/URL"
+			},
+			{
+				"key": "KVN2222P",
+				"version": 0,
+				"itemType": "webpage",
+				"creators": [],
+				"tags": [
+					{
+						"tag": "Keywords1",
+						"type": 1
+					},
+					{
+						"tag": "Keywords2",
+						"type": 1
+					},
+					{
+						"tag": "Keywords3",
+						"type": 1
+					},
+					{
+						"tag": "Keywords4",
+						"type": 1
+					}
+				],
+				"title": "undefined",
+				"url": "Location/URL"
+			},
+			{
+				"key": "KVN2222Q",
+				"version": 0,
+				"itemType": "webpage",
+				"creators": [],
+				"tags": [
+					{
+						"tag": "Keywords1",
+						"type": 1
+					},
+					{
+						"tag": "Keywords2",
+						"type": 1
+					},
+					{
+						"tag": "Keywords3",
+						"type": 1
+					},
+					{
+						"tag": "Keywords4",
+						"type": 1
+					}
+				],
+				"title": "undefined",
+				"url": "Location/URL"
+			},
+			{
+				"key": "KVN2222R",
+				"version": 0,
+				"itemType": "webpage",
+				"creators": [],
+				"tags": [
+					{
+						"tag": "Keywords1",
+						"type": 1
+					},
+					{
+						"tag": "Keywords2",
+						"type": 1
+					},
+					{
+						"tag": "Keywords3",
+						"type": 1
+					},
+					{
+						"tag": "Keywords4",
+						"type": 1
+					}
+				],
+				"title": "Analytic Title",
+				"url": "Location/URL"
+			},
+			{
+				"key": "KVN2222S",
+				"version": 0,
+				"itemType": "webpage",
+				"creators": [],
+				"tags": [
+					{
+						"tag": "Keywords1",
+						"type": 1
+					},
+					{
+						"tag": "Keywords2",
+						"type": 1
+					},
+					{
+						"tag": "Keywords3",
+						"type": 1
+					},
+					{
+						"tag": "Keywords4",
+						"type": 1
+					}
+				],
+				"title": "Map Title",
+				"url": "Location/URL"
+			},
+			{
+				"key": "KVN2222T",
+				"version": 0,
+				"itemType": "webpage",
+				"creators": [],
+				"tags": [
+					{
+						"tag": "Keywords1",
+						"type": 1
+					},
+					{
+						"tag": "Keywords2",
+						"type": 1
+					},
+					{
+						"tag": "Keywords3",
+						"type": 1
+					},
+					{
+						"tag": "Keywords4",
+						"type": 1
+					}
+				],
+				"title": "Monographic Title",
+				"url": "Location/URL"
+			},
+			{
+				"key": "KVN2222U",
+				"version": 0,
+				"itemType": "webpage",
+				"creators": [],
+				"tags": [
+					{
+						"tag": "Keywords1",
+						"type": 1
+					},
+					{
+						"tag": "Keywords2",
+						"type": 1
+					},
+					{
+						"tag": "Keywords3",
+						"type": 1
+					},
+					{
+						"tag": "Keywords4",
+						"type": 1
+					}
+				],
+				"title": "Analytic Title",
+				"url": "Location/URL"
+			},
+			{
+				"key": "KVN2222V",
+				"version": 0,
+				"itemType": "webpage",
+				"creators": [],
+				"tags": [
+					{
+						"tag": "Keywords1",
+						"type": 1
+					},
+					{
+						"tag": "Keywords2",
+						"type": 1
+					},
+					{
+						"tag": "Keywords3",
+						"type": 1
+					},
+					{
+						"tag": "Keywords4",
+						"type": 1
+					}
+				],
+				"title": "Analytic Title",
+				"url": "Location/URL"
+			},
+			{
+				"key": "KVN2222W",
+				"version": 0,
+				"itemType": "webpage",
+				"creators": [],
+				"tags": [
+					{
+						"tag": "Keywords1",
+						"type": 1
+					},
+					{
+						"tag": "Keywords2",
+						"type": 1
+					},
+					{
+						"tag": "Keywords3",
+						"type": 1
+					},
+					{
+						"tag": "Keywords4",
+						"type": 1
+					}
+				],
+				"title": "Analytic Title",
+				"url": "Location/URL"
+			},
+			{
+				"key": "KVN2222X",
+				"version": 0,
+				"itemType": "webpage",
+				"creators": [],
+				"tags": [
+					{
+						"tag": "Keywords1",
+						"type": 1
+					},
+					{
+						"tag": "Keywords2",
+						"type": 1
+					},
+					{
+						"tag": "Keywords3",
+						"type": 1
+					},
+					{
+						"tag": "Keywords4",
+						"type": 1
+					}
+				],
+				"title": "Patent Title",
+				"url": "Location/URL"
+			},
+			{
+				"key": "KVN2222Y",
+				"version": 0,
+				"itemType": "webpage",
+				"creators": [],
+				"tags": [
+					{
+						"tag": "Keywords1",
+						"type": 1
+					},
+					{
+						"tag": "Keywords2",
+						"type": 1
+					},
+					{
+						"tag": "Keywords3",
+						"type": 1
+					},
+					{
+						"tag": "Keywords4",
+						"type": 1
+					}
+				],
+				"title": "Report Title",
+				"url": "Location/URL"
+			},
+			{
+				"key": "KVN2222Z",
+				"version": 0,
+				"itemType": "webpage",
+				"creators": [],
+				"tags": [
+					{
+						"tag": "Keywords1",
+						"type": 1
+					},
+					{
+						"tag": "Keywords2",
+						"type": 1
+					},
+					{
+						"tag": "Keywords3",
+						"type": 1
+					},
+					{
+						"tag": "Keywords4",
+						"type": 1
+					}
+				],
+				"title": "Analytic Title",
+				"url": "Location/URL"
+			},
+			{
+				"key": "KVN22232",
+				"version": 0,
+				"itemType": "webpage",
+				"creators": [],
+				"tags": [
+					{
+						"tag": "Keywords1",
+						"type": 1
+					},
+					{
+						"tag": "Keywords2",
+						"type": 1
+					},
+					{
+						"tag": "Keywords3",
+						"type": 1
+					},
+					{
+						"tag": "Keywords4",
+						"type": 1
+					}
+				],
+				"title": "Statute Title",
+				"url": "Location/URL"
+			},
+			{
+				"key": "KVN22233",
+				"version": 0,
+				"itemType": "webpage",
+				"creators": [],
+				"tags": [
+					{
+						"tag": "Keywords1",
+						"type": 1
+					},
+					{
+						"tag": "Keywords2",
+						"type": 1
+					},
+					{
+						"tag": "Keywords3",
+						"type": 1
+					},
+					{
+						"tag": "Keywords4",
+						"type": 1
+					}
+				],
+				"title": "Catalog Title",
+				"url": "Location/URL"
+			},
+			{
+				"key": "KVN22234",
+				"version": 0,
+				"itemType": "webpage",
+				"creators": [],
+				"tags": [
+					{
+						"tag": "Keywords1",
+						"type": 1
+					},
+					{
+						"tag": "Keywords2",
+						"type": 1
+					},
+					{
+						"tag": "Keywords3",
+						"type": 1
+					},
+					{
+						"tag": "Keywords4",
+						"type": 1
+					}
+				],
+				"title": "Act Title",
+				"url": "Location/URL"
+			},
+			{
+				"key": "KVN22235",
+				"version": 0,
+				"itemType": "webpage",
+				"creators": [],
+				"tags": [
+					{
+						"tag": "Keywords1",
+						"type": 1
+					},
+					{
+						"tag": "Keywords2",
+						"type": 1
+					},
+					{
+						"tag": "Keywords3",
+						"type": 1
+					},
+					{
+						"tag": "Keywords4",
+						"type": 1
+					}
+				],
+				"title": "Title",
+				"url": "Location/URL"
+			},
+			{
+				"key": "KVN22236",
+				"version": 0,
+				"itemType": "webpage",
+				"creators": [],
+				"tags": [
+					{
+						"tag": "Keywords1",
+						"type": 1
+					},
+					{
+						"tag": "Keywords2",
+						"type": 1
+					},
+					{
+						"tag": "Keywords3",
+						"type": 1
+					},
+					{
+						"tag": "Keywords4",
+						"type": 1
+					}
+				],
+				"title": "Analytic Title",
+				"url": "Location/URL"
+			},
+			{
+				"key": "KVN22237",
+				"version": 0,
+				"itemType": "webpage",
+				"creators": [],
+				"tags": [
+					{
+						"tag": "Keywords1",
+						"type": 1
+					},
+					{
+						"tag": "Keywords2",
+						"type": 1
+					},
+					{
+						"tag": "Keywords3",
+						"type": 1
+					},
+					{
+						"tag": "Keywords4",
+						"type": 1
+					}
+				],
+				"title": "Title",
+				"url": "Location/URL"
+			}
+		]
+	},
+	"testCase05": {
+		"status": 200,
+		"translatorID": "4e7119e0-02be-4848-86ef-79a64185aad8",
+		"items": [
+			{
+				"key": "KVN22222",
+				"version": 0,
+				"itemType": "webpage",
+				"creators": [],
+				"tags": [],
+				"title": "From Basic to Applied Research to Improve Outcomes for Individuals Who Require Augmentative and Alternative Communication: Potential Contributions of Eye Tracking Research Methods",
+				"url": "http://dx.doi.org/10.3109/07434618.2014.906498"
+			}
+		]
+	},
+	"testCase06": {
+		"status": 200,
+		"translatorID": "4e7119e0-02be-4848-86ef-79a64185aad8",
+		"items": [
+			{
+				"key": "KVN22222",
+				"version": 0,
+				"itemType": "webpage",
+				"creators": [],
+				"tags": [
+					{
+						"tag": "Finanzkrise / Eigentum / Haftung / Ordnungspolitik / Aufsatzsammlung / Online-Publikation",
+						"type": 1
+					},
+					{
+						"tag": "Constitutional law",
+						"type": 1
+					},
+					{
+						"tag": "Law",
+						"type": 1
+					}
+				],
+				"title": "Eigentumsverfassung und Finanzkrise",
+				"url": "http://dx.doi.org/10.1007/978-3-642-00230-4"
+			}
+		]
+	},
+	"testCase07": {
+		"status": 500,
+		"translatorID": null,
+		"error": "No suitable translators found"
+	},
+	"testCase08": {
+		"status": 500,
+		"translatorID": null,
+		"error": "No suitable translators found"
+	},
+	"testCase09": {
+		"status": 500,
+		"translatorID": null,
+		"error": "No suitable translators found"
+	},
+	"testCase10": {
+		"status": 200,
+		"translatorID": "4e7119e0-02be-4848-86ef-79a64185aad8",
+		"items": [
+			{
+				"key": "KVN22222",
+				"version": 0,
+				"itemType": "webpage",
+				"creators": [],
+				"tags": [],
+				"title": "Moving language: Mothers’ verbs correspond to infants’ real-time locomotion",
+				"url": "http://databrary.org/volume/1322"
+			}
+		]
+	},
+	"testCase11": {
+		"status": 500,
+		"translatorID": null,
+		"error": "No suitable translators found"
+	},
+	"book_and_child_note": {
+		"status": 500,
+		"translatorID": null,
+		"error": "No suitable translators found"
+	},
+	"dates_and_entities": {
+		"status": 500,
+		"translatorID": null,
+		"error": "No suitable translators found"
+	}
+}

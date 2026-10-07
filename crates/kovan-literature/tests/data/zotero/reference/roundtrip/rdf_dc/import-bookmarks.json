@@ -1,0 +1,17 @@
+{
+	"testCase00": {
+		"status": 200,
+		"translatorID": "5e3ad958-ac79-463d-812b-a86a9235c28f",
+		"items": [
+			{
+				"key": "KVN22222",
+				"version": 0,
+				"itemType": "webpage",
+				"creators": [],
+				"tags": [],
+				"title": "Pond - Pond",
+				"websiteType": "webpage"
+			}
+		]
+	}
+}

@@ -1,0 +1,52 @@
+{
+	"all": {
+		"status": 200,
+		"output": "<!DOCTYPE html><html><head><meta charset=\"utf-8\"></head><body><div class=\"zotero-notes\"><div class=\"zotero-note\"><p>Plain note with <strong>bold</strong>, <em>italic</em>, <a href=\"https://example.org/?a=1&amp;b=2\">a link</a> &amp; an entity &lt;tag&gt; and&nbsp;a non-breaking space.</p></div><hr><div class=\"zotero-note\"><h1>Heading one</h1><h2>Heading <em>two</em></h2><p>First paragraph.</p><blockquote><p style=\"margin-left: 30px;\">“Quoted one.</p><p style=\"margin-left: 30px;\">Quoted two.”</p></blockquote><ul><li><p>bullet</p></li><li><p>second</p><ul><li><p>nested</p></li></ul></li></ul><ol start=\"3\"><li><p>three</p></li><li><p>four</p></li></ol><pre>code\n  block &lt;x&gt;</pre><p style=\"padding-left: 40px\">Indented paragraph<br>second line</p><p style=\"padding-left: 80px\">Twice indented</p><p><span style=\"text-decoration: line-through\">struck</span> and <code>inline*code</code> with * star, _under_, # hash and `tick`.</p><hr><table><tbody><tr><th>A</th><th>B</th></tr><tr><td>1</td><td>2</td></tr></tbody></table><p>- not a list<br>1. not numbered<br>&gt; not a quote</p></div><hr><div class=\"zotero-note\"><p><span class=\"highlight\">“highlighted text”</span> <span class=\"citation\">(<span class=\"citation-item\">Lovelace, 1843, p. 5</span>)</span> comment</p><p><span class=\"underline\">“underlined”</span></p><p><span class=\"highlight\">“epub text”</span></p><p><span class=\"citation\">(Babbage, 1830; Hopper, 1952)</span></p><p><img width=\"100\" height=\"50\"></p><p><img data-attachment-key=\"IMGKEY01\" width=\"10\" height=\"10\"></p><p><span class=\"highlight\">“broken annotation”</span></p></div><hr><div class=\"zotero-note\"><p>Inline <span class=\"math\">$x^2$</span> math.</p><pre class=\"math\">$$E = mc^2$$</pre></div><hr><div class=\"zotero-note\"><h3>Three</h3><h6>Six</h6><table><tbody><tr><td>no</td><td>heading</td></tr></tbody></table><table><thead><tr><th align=\"left\">L</th><th align=\"center\">C</th><th align=\"right\">R</th></tr></thead><tbody><tr><td>a</td><td>b</td><td>c</td></tr></tbody></table><ul><li><input type=\"checkbox\" checked=\"\"> done</li><li><input type=\"checkbox\"> todo</li></ul><div class=\"highlight-source-rust\"><pre>fn main() {}</pre></div><p><code>a`b</code> <code> spaced </code> <code>``x``</code></p><pre><code class=\"language-js\">```inner```\n</code></pre><p><a href=\"https://example.org/t\" title=\"A\n\n  title\">titled</a> <img src=\"https://example.org/i.png\" alt=\"alt\ntext\" title=\"T\"> <a>no href</a> <b>bold</b><i> spaced italic </i>end</p><ol start=\"7\"><li>seven</li><li>eight<ol><li>nested one</li></ol></li></ol><!-- a comment --><p>  lots   of\n\n spaces  </p><blockquote><p style=\"margin-left: 30px;\">“a”</p><blockquote><p style=\"margin-left: 30px;\">“nested”</p></blockquote></blockquote><p><del>del</del> <strike>strike</strike> <s>s</s></p><p>= equals<br>+ plus<br>## hashes<br>~~~ tildes<br>[brackets] and _under_ \\back</p></div><hr><div class=\"zotero-note\"><p><span style=\"color: #ff0000;\">red</span> text</p><p>&nbsp;</p><p><br>after break</p><p style=\"padding-left: 30px;\">odd indent</p></div><hr><div class=\"zotero-note\"><p>Attachment note.</p></div></div></body></html>",
+		"via": "in-process (zotero-reference.mjs inProcessExport)"
+	},
+	"NOTE0001": {
+		"status": 200,
+		"output": "<!DOCTYPE html><html><head><meta charset=\"utf-8\"></head><body><div class=\"zotero-notes\"><div class=\"zotero-note\"><p>Plain note with <strong>bold</strong>, <em>italic</em>, <a href=\"https://example.org/?a=1&amp;b=2\">a link</a> &amp; an entity &lt;tag&gt; and&nbsp;a non-breaking space.</p></div></div></body></html>",
+		"via": "in-process (zotero-reference.mjs inProcessExport)"
+	},
+	"NOTE0002": {
+		"status": 200,
+		"output": "<!DOCTYPE html><html><head><meta charset=\"utf-8\"></head><body><div class=\"zotero-notes\"><div class=\"zotero-note\"><h1>Heading one</h1><h2>Heading <em>two</em></h2><p>First paragraph.</p><blockquote><p style=\"margin-left: 30px;\">“Quoted one.</p><p style=\"margin-left: 30px;\">Quoted two.”</p></blockquote><ul><li><p>bullet</p></li><li><p>second</p><ul><li><p>nested</p></li></ul></li></ul><ol start=\"3\"><li><p>three</p></li><li><p>four</p></li></ol><pre>code\n  block &lt;x&gt;</pre><p style=\"padding-left: 40px\">Indented paragraph<br>second line</p><p style=\"padding-left: 80px\">Twice indented</p><p><span style=\"text-decoration: line-through\">struck</span> and <code>inline*code</code> with * star, _under_, # hash and `tick`.</p><hr><table><tbody><tr><th>A</th><th>B</th></tr><tr><td>1</td><td>2</td></tr></tbody></table><p>- not a list<br>1. not numbered<br>&gt; not a quote</p></div></div></body></html>",
+		"via": "in-process (zotero-reference.mjs inProcessExport)"
+	},
+	"NOTE0003": {
+		"status": 200,
+		"output": "<!DOCTYPE html><html><head><meta charset=\"utf-8\"></head><body><div class=\"zotero-notes\"><div class=\"zotero-note\"><p><span class=\"highlight\">“highlighted text”</span> <span class=\"citation\">(<span class=\"citation-item\">Lovelace, 1843, p. 5</span>)</span> comment</p><p><span class=\"underline\">“underlined”</span></p><p><span class=\"highlight\">“epub text”</span></p><p><span class=\"citation\">(Babbage, 1830; Hopper, 1952)</span></p><p><img width=\"100\" height=\"50\"></p><p><img data-attachment-key=\"IMGKEY01\" width=\"10\" height=\"10\"></p><p><span class=\"highlight\">“broken annotation”</span></p></div></div></body></html>",
+		"via": "in-process (zotero-reference.mjs inProcessExport)"
+	},
+	"NOTE0004": {
+		"status": 200,
+		"output": "<!DOCTYPE html><html><head><meta charset=\"utf-8\"></head><body><div class=\"zotero-notes\"><div class=\"zotero-note\"><p>Inline <span class=\"math\">$x^2$</span> math.</p><pre class=\"math\">$$E = mc^2$$</pre></div></div></body></html>",
+		"via": "in-process (zotero-reference.mjs inProcessExport)"
+	},
+	"NOTE0005": {
+		"status": 200,
+		"output": "<!DOCTYPE html><html><head><meta charset=\"utf-8\"></head><body><div class=\"zotero-notes\"></div></body></html>",
+		"via": "in-process (zotero-reference.mjs inProcessExport)"
+	},
+	"NOTE0006": {
+		"status": 200,
+		"output": "<!DOCTYPE html><html><head><meta charset=\"utf-8\"></head><body><div class=\"zotero-notes\"><div class=\"zotero-note\"><h3>Three</h3><h6>Six</h6><table><tbody><tr><td>no</td><td>heading</td></tr></tbody></table><table><thead><tr><th align=\"left\">L</th><th align=\"center\">C</th><th align=\"right\">R</th></tr></thead><tbody><tr><td>a</td><td>b</td><td>c</td></tr></tbody></table><ul><li><input type=\"checkbox\" checked=\"\"> done</li><li><input type=\"checkbox\"> todo</li></ul><div class=\"highlight-source-rust\"><pre>fn main() {}</pre></div><p><code>a`b</code> <code> spaced </code> <code>``x``</code></p><pre><code class=\"language-js\">```inner```\n</code></pre><p><a href=\"https://example.org/t\" title=\"A\n\n  title\">titled</a> <img src=\"https://example.org/i.png\" alt=\"alt\ntext\" title=\"T\"> <a>no href</a> <b>bold</b><i> spaced italic </i>end</p><ol start=\"7\"><li>seven</li><li>eight<ol><li>nested one</li></ol></li></ol><!-- a comment --><p>  lots   of\n\n spaces  </p><blockquote><p style=\"margin-left: 30px;\">“a”</p><blockquote><p style=\"margin-left: 30px;\">“nested”</p></blockquote></blockquote><p><del>del</del> <strike>strike</strike> <s>s</s></p><p>= equals<br>+ plus<br>## hashes<br>~~~ tildes<br>[brackets] and _under_ \\back</p></div></div></body></html>",
+		"via": "in-process (zotero-reference.mjs inProcessExport)"
+	},
+	"NOTE0007": {
+		"status": 200,
+		"output": "<!DOCTYPE html><html><head><meta charset=\"utf-8\"></head><body><div class=\"zotero-notes\"><div class=\"zotero-note\"><p><span style=\"color: #ff0000;\">red</span> text</p><p>&nbsp;</p><p><br>after break</p><p style=\"padding-left: 30px;\">odd indent</p></div></div></body></html>",
+		"via": "in-process (zotero-reference.mjs inProcessExport)"
+	},
+	"ATTN0001": {
+		"status": 200,
+		"output": "<!DOCTYPE html><html><head><meta charset=\"utf-8\"></head><body><div class=\"zotero-notes\"><div class=\"zotero-note\"><p>Attachment note.</p></div></div></body></html>",
+		"via": "in-process (zotero-reference.mjs inProcessExport)"
+	},
+	"BOOK0001": {
+		"status": 200,
+		"output": "<!DOCTYPE html><html><head><meta charset=\"utf-8\"></head><body><div class=\"zotero-notes\"></div></body></html>",
+		"via": "in-process (zotero-reference.mjs inProcessExport)"
+	}
+}

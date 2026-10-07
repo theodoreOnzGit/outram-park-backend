@@ -127,6 +127,15 @@ impl ImportContext {
         &self.items
     }
 
+    /// The items completed so far, mutable. Upstream saves items only when
+    /// the translation ends, and the saved item shares its `creators`
+    /// array and creator objects with the translator's object, so a
+    /// translator that changes a creator after `complete()` (Citavi 5 XML's
+    /// contributions, #749) changes the saved item.
+    pub fn items_mut(&mut self) -> &mut [TranslatorItem] {
+        &mut self.items
+    }
+
     /// Finish: the import's result.
     pub fn finish(self) -> ImportResult {
         ImportResult {

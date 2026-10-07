@@ -1,0 +1,468 @@
+{
+	"testCase00": {
+		"status": 200,
+		"translatorID": "5e3ad958-ac79-463d-812b-a86a9235c28f",
+		"items": [
+			{
+				"key": "KVN22222",
+				"version": 0,
+				"itemType": "journalArticle",
+				"creators": [
+					{
+						"firstName": "Rintze M.",
+						"lastName": "Zelle",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "Jacob C.",
+						"lastName": "Harrison",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "Jack T.",
+						"lastName": "Pronk",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "Antonius J. A.",
+						"lastName": "van Maris",
+						"creatorType": "author"
+					}
+				],
+				"tags": [],
+				"title": "Anaplerotic Role for Cytosolic Malic Enzyme in Engineered Saccharomyces cerevisiae Strains",
+				"date": "FEB 2011",
+				"ISSN": "0099-2240",
+				"DOI": "10.1128/AEM.02132-10"
+			},
+			{
+				"key": "KVN22223",
+				"version": 0,
+				"itemType": "journalArticle",
+				"creators": [
+					{
+						"firstName": "Rintze M.",
+						"lastName": "Zelle",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "Josh",
+						"lastName": "Trueheart",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "Jacob C.",
+						"lastName": "Harrison",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "Jack T.",
+						"lastName": "Pronk",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "Antonius J. A.",
+						"lastName": "van Maris",
+						"creatorType": "author"
+					}
+				],
+				"tags": [],
+				"title": "Phosphoenolpyruvate Carboxykinase as the Sole Anaplerotic Enzyme in Saccharomyces cerevisiae",
+				"date": "AUG 2010",
+				"ISSN": "0099-2240",
+				"DOI": "10.1128/AEM.01077-10"
+			},
+			{
+				"key": "KVN22224",
+				"version": 0,
+				"itemType": "journalArticle",
+				"creators": [
+					{
+						"firstName": "Rintze M.",
+						"lastName": "Zelle",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "Erik",
+						"lastName": "De Hulster",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "Wendy",
+						"lastName": "Kloezen",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "Jack T.",
+						"lastName": "Pronk",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "Antonius J. A.",
+						"lastName": "van Maris",
+						"creatorType": "author"
+					}
+				],
+				"tags": [],
+				"title": "Key Process Conditions for Production of C(4) Dicarboxylic Acids in Bioreactor Batch Cultures of an Engineered Saccharomyces cerevisiae Strain",
+				"date": "FEB 2010",
+				"ISSN": "0099-2240",
+				"DOI": "10.1128/AEM.02396-09"
+			},
+			{
+				"key": "KVN22225",
+				"version": 0,
+				"itemType": "journalArticle",
+				"creators": [
+					{
+						"firstName": "Derek A.",
+						"lastName": "Abbott",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "Rintze M.",
+						"lastName": "Zelle",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "Jack T.",
+						"lastName": "Pronk",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "Antonius J. A.",
+						"lastName": "van Maris",
+						"creatorType": "author"
+					}
+				],
+				"tags": [],
+				"title": "Metabolic engineering of Saccharomyces cerevisiae for production of carboxylic acids: current status and challenges",
+				"date": "DEC 2009",
+				"ISSN": "1567-1356",
+				"DOI": "10.1111/j.1567-1364.2009.00537.x"
+			},
+			{
+				"key": "KVN22226",
+				"version": 0,
+				"itemType": "journalArticle",
+				"creators": [
+					{
+						"firstName": "Rintze M.",
+						"lastName": "Zelle",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "Erik",
+						"lastName": "de Hulster",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "WoUter A.",
+						"lastName": "van Winden",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "Pieter",
+						"lastName": "de Waard",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "Cor",
+						"lastName": "Dijkema",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "Aaron A.",
+						"lastName": "Winkler",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "Jan-Maarten A.",
+						"lastName": "Geertman",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "Johannes P.",
+						"lastName": "van Dijken",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "Jack T.",
+						"lastName": "Pronk",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "Antonius J. A.",
+						"lastName": "van Maris",
+						"creatorType": "author"
+					}
+				],
+				"tags": [],
+				"title": "Malic acid production by Saccharomyces cerevisiae: Engineering of pyruvate carboxylation, oxaloacetate reduction, and malate export",
+				"date": "MAY 2008",
+				"ISSN": "0099-2240",
+				"DOI": "10.1128/AEM.02591-07"
+			}
+		]
+	},
+	"testCase01": {
+		"status": 200,
+		"translatorID": "5e3ad958-ac79-463d-812b-a86a9235c28f",
+		"items": [
+			{
+				"key": "KVN22222",
+				"version": 0,
+				"itemType": "journalArticle",
+				"creators": [
+					{
+						"firstName": "L. J.",
+						"lastName": "Smith",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "W. S.",
+						"lastName": "Schwark",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "D. R.",
+						"lastName": "Cook",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "P. F.",
+						"lastName": "Moon",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "H. N.",
+						"lastName": "Erb",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "A. L.",
+						"lastName": "Looney",
+						"creatorType": "author"
+					}
+				],
+				"tags": [],
+				"title": "Pharmacokinetics of intravenous mivacurium in halothane-anesthetized dogs.",
+				"date": "1998",
+				"ISSN": "0161-3499"
+			}
+		]
+	},
+	"testCase02": {
+		"status": 200,
+		"translatorID": "5e3ad958-ac79-463d-812b-a86a9235c28f",
+		"items": [
+			{
+				"key": "KVN22222",
+				"version": 0,
+				"itemType": "journalArticle",
+				"creators": [
+					{
+						"firstName": "J. Mark",
+						"lastName": "Smith",
+						"creatorType": "author"
+					}
+				],
+				"tags": [],
+				"title": "Gripewater",
+				"publisher": "Univ New Brunswick",
+				"date": "SPR 2011",
+				"ISSN": "0015-0630"
+			}
+		]
+	},
+	"testCase03": {
+		"status": 200,
+		"translatorID": "5e3ad958-ac79-463d-812b-a86a9235c28f",
+		"items": [
+			{
+				"key": "KVN22222",
+				"version": 0,
+				"itemType": "bookSection",
+				"creators": [
+					{
+						"firstName": "Marie C.",
+						"lastName": "McCormick",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "Jonathan S.",
+						"lastName": "Litt",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "Vincent C.",
+						"lastName": "Smith",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "John A. F.",
+						"lastName": "Zupancic",
+						"creatorType": "author"
+					}
+				],
+				"tags": [],
+				"title": "Prematurity: An Overview and Public Health Implications",
+				"publisher": "Annual Reviews",
+				"date": "2011",
+				"ISBN": "978-0-8243-2732-3",
+				"ISSN": "0163-7525",
+				"DOI": "10.1146/annurev-publhealth-090810-182459"
+			}
+		]
+	},
+	"testCase04": {
+		"status": 200,
+		"translatorID": "5e3ad958-ac79-463d-812b-a86a9235c28f",
+		"items": [
+			{
+				"key": "KVN22222",
+				"version": 0,
+				"itemType": "patent",
+				"creators": [],
+				"tags": [],
+				"title": "Indexing cell delivery catheter",
+				"issueDate": "JUN 28 2011"
+			}
+		]
+	},
+	"testCase05": {
+		"status": 200,
+		"translatorID": "5e3ad958-ac79-463d-812b-a86a9235c28f",
+		"items": [
+			{
+				"key": "KVN22222",
+				"version": 0,
+				"itemType": "book",
+				"creators": [
+					{
+						"firstName": "W. G.",
+						"lastName": "Smith",
+						"creatorType": "author"
+					}
+				],
+				"tags": [],
+				"title": "Ecological anthropology of households in East Madura, Indonesia.",
+				"date": "2011",
+				"ISBN": "978-90-8585933-8"
+			},
+			{
+				"key": "KVN22223",
+				"version": 0,
+				"itemType": "journalArticle",
+				"creators": [
+					{
+						"firstName": "S. A.",
+						"lastName": "Smith",
+						"creatorType": "author"
+					}
+				],
+				"tags": [],
+				"title": "Production and characterization of polyclonal antibodies to hexanal-lysine adducts for use in an ELISA to monitor lipid oxidation in a meat model system.",
+				"date": "1998, thesis publ. 1997",
+				"ISSN": "0419-4217"
+			},
+			{
+				"key": "KVN22224",
+				"version": 0,
+				"itemType": "journalArticle",
+				"creators": [
+					{
+						"firstName": "E. H.",
+						"lastName": "Smith",
+						"creatorType": "author"
+					}
+				],
+				"tags": [],
+				"title": "The enzymic oxidation of linoleic and linolenic acid.",
+				"date": "1988",
+				"ISSN": "0419-4217"
+			},
+			{
+				"key": "KVN22225",
+				"version": 0,
+				"itemType": "journalArticle",
+				"creators": [
+					{
+						"firstName": "C. S.",
+						"lastName": "Smith",
+						"creatorType": "author"
+					}
+				],
+				"tags": [],
+				"title": "The syneresis of renneted milk gels.",
+				"date": "1988",
+				"ISSN": "0419-4217"
+			}
+		]
+	},
+	"testCase06": {
+		"status": 200,
+		"translatorID": "5e3ad958-ac79-463d-812b-a86a9235c28f",
+		"items": [
+			{
+				"key": "KVN22222",
+				"version": 0,
+				"itemType": "journalArticle",
+				"creators": [
+					{
+						"firstName": "Cassandra A.",
+						"lastName": "Medvedeff",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "Anne E.",
+						"lastName": "Hershey",
+						"creatorType": "author"
+					}
+				],
+				"tags": [],
+				"title": "Importance of methane-derived carbon as a basal resource for two benthic consumers in arctic lakes",
+				"date": "JAN 2013",
+				"ISSN": "0018-8158, 1573-5117",
+				"DOI": "10.1007/s10750-012-1232-8"
+			}
+		]
+	},
+	"testCase07": {
+		"status": 200,
+		"translatorID": "5e3ad958-ac79-463d-812b-a86a9235c28f",
+		"items": [
+			{
+				"key": "KVN22222",
+				"version": 0,
+				"itemType": "patent",
+				"creators": [],
+				"tags": [],
+				"title": "Use of reagent for detecting syntaxin 12 protein autoantibodies in preparation of lung cancer screening kit"
+			}
+		]
+	},
+	"testCase08": {
+		"status": 200,
+		"translatorID": "5e3ad958-ac79-463d-812b-a86a9235c28f",
+		"items": [
+			{
+				"key": "KVN22222",
+				"version": 0,
+				"itemType": "conferencePaper",
+				"creators": [
+					{
+						"firstName": "L.",
+						"lastName": "Chen",
+						"creatorType": "author"
+					}
+				],
+				"tags": [],
+				"title": "A conference control protocol for small scale video conferencing system",
+				"publisher": "IEEE",
+				"date": "2005",
+				"DOI": "10.1109/ICACT.2005.245926"
+			}
+		]
+	}
+}

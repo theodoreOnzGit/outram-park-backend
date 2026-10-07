@@ -1,0 +1,1272 @@
+{
+	"testCase00": {
+		"export": {
+			"status": 200,
+			"output": "<?xml version=\"1.0\"?>\n<modsCollection xmlns=\"http://www.loc.gov/mods/v3\" xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\" xsi:schemaLocation=\"http://www.loc.gov/mods/v3 http://www.loc.gov/standards/mods/v3/mods-3-2.xsd\"><mods><titleInfo><title>FranUlmer.com -- Home Page</title></titleInfo><typeOfResource>software, multimedia</typeOfResource><genre authority=\"local\">webpage</genre><name type=\"personal\"><namePart type=\"family\">Ulmer</namePart><namePart type=\"given\">Fran</namePart><role><roleTerm type=\"code\" authority=\"marcrelator\">aut</roleTerm></role></name><location><url usage=\"primary display\">http://www.franulmer.com/</url></location><abstract>Web site promoting the candidacy of Fran Ulmer, Democratic candidate for Governor, Alaska, 2002. Includes candidate biography, issue position statements, campaign contact information, privacy policy and campaign news press releases. Site features enable visitors to sign up for campaign email list, volunteer, make campaign contributions and follow links to other internet locations.</abstract><subject><topic>Elections</topic></subject><subject><topic>Governors</topic></subject><subject><topic>Election</topic></subject><subject><topic>Democratic Party (AK)</topic></subject><language><languageTerm type=\"text\">eng</languageTerm></language><relatedItem type=\"host\"><genre authority=\"marcgt\">web site</genre><titleInfo><title>Election 2002 Web Archive</title></titleInfo></relatedItem></mods></modsCollection>"
+		},
+		"reimport": {
+			"status": 200,
+			"translatorID": "0e2235e7-babf-413c-9acf-f27cce5f059c",
+			"items": [
+				{
+					"key": "KVN22222",
+					"version": 0,
+					"itemType": "webpage",
+					"creators": [
+						{
+							"firstName": "Fran",
+							"lastName": "Ulmer",
+							"creatorType": "author"
+						}
+					],
+					"tags": [
+						{
+							"tag": "Elections",
+							"type": 1
+						},
+						{
+							"tag": "Governors",
+							"type": 1
+						},
+						{
+							"tag": "Election",
+							"type": 1
+						},
+						{
+							"tag": "Democratic Party (AK)",
+							"type": 1
+						}
+					],
+					"title": "FranUlmer.com -- Home Page",
+					"websiteTitle": "Election 2002 Web Archive",
+					"url": "http://www.franulmer.com/",
+					"abstractNote": "Web site promoting the candidacy of Fran Ulmer, Democratic candidate for Governor, Alaska, 2002. Includes candidate biography, issue position statements, campaign contact information, privacy policy and campaign news press releases. Site features enable visitors to sign up for campaign email list, volunteer, make campaign contributions and follow links to other internet locations.",
+					"language": "eng"
+				}
+			]
+		}
+	},
+	"testCase01": {
+		"export": {
+			"status": 200,
+			"output": "<?xml version=\"1.0\"?>\n<modsCollection xmlns=\"http://www.loc.gov/mods/v3\" xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\" xsi:schemaLocation=\"http://www.loc.gov/mods/v3 http://www.loc.gov/standards/mods/v3/mods-3-2.xsd\"><mods><titleInfo><title>At Gettysburg, or, What a Girl Saw and Heard of the Battle: A True Narrative</title></titleInfo><typeOfResource>software, multimedia</typeOfResource><genre authority=\"local\">webpage</genre><name type=\"personal\"><namePart type=\"family\">Alleman</namePart><namePart type=\"given\">Tillie Pierce</namePart><role><roleTerm type=\"code\" authority=\"marcrelator\">aut</roleTerm></role></name><accessCondition>Personal, noncommercial use of this item is permitted in the United States of America. Please see http://digital.library.upenn.edu/women/ for other rights and restrictions that may apply to this resource.</accessCondition><location><url usage=\"primary display\">http://digital.library.upenn.edu/women/alleman/gettysburg/gettysburg.html</url></location><subject><topic>Gettysburg, Battle of, Gettysburg, Pa., 1863</topic></subject><subject><topic>Gettysburg (Pa.) -- History -- Civil War, 1861-1865</topic></subject><subject><topic>United States -- History -- Civil War, 1861-1865 -- Campaigns</topic></subject><language><languageTerm type=\"text\">eng</languageTerm></language><relatedItem type=\"host\"><genre authority=\"marcgt\">web site</genre><originInfo><place><placeTerm type=\"text\">New York</placeTerm></place><publisher>W. Lake Borland</publisher><dateCreated>1889</dateCreated></originInfo><titleInfo><title>A Celebration of Women Writers: Americana</title></titleInfo></relatedItem></mods></modsCollection>"
+		},
+		"reimport": {
+			"status": 200,
+			"translatorID": "0e2235e7-babf-413c-9acf-f27cce5f059c",
+			"items": [
+				{
+					"key": "KVN22222",
+					"version": 0,
+					"itemType": "webpage",
+					"creators": [
+						{
+							"firstName": "Tillie Pierce",
+							"lastName": "Alleman",
+							"creatorType": "author"
+						}
+					],
+					"tags": [
+						{
+							"tag": "Gettysburg, Battle of, Gettysburg, Pa., 1863",
+							"type": 1
+						},
+						{
+							"tag": "Gettysburg (Pa.) -- History -- Civil War, 1861-1865",
+							"type": 1
+						},
+						{
+							"tag": "United States -- History -- Civil War, 1861-1865 -- Campaigns",
+							"type": 1
+						}
+					],
+					"title": "At Gettysburg, or, What a Girl Saw and Heard of the Battle: A True Narrative",
+					"rights": "Personal, noncommercial use of this item is permitted in the United States of America. Please see http://digital.library.upenn.edu/women/ for other rights and restrictions that may apply to this resource.",
+					"websiteTitle": "A Celebration of Women Writers: Americana",
+					"place": "New York",
+					"publisher": "W. Lake Borland",
+					"date": "1889",
+					"url": "http://digital.library.upenn.edu/women/alleman/gettysburg/gettysburg.html",
+					"language": "eng"
+				}
+			]
+		}
+	},
+	"testCase02": {
+		"export": {
+			"status": 200,
+			"output": "<?xml version=\"1.0\"?>\n<modsCollection xmlns=\"http://www.loc.gov/mods/v3\" xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\" xsi:schemaLocation=\"http://www.loc.gov/mods/v3 http://www.loc.gov/standards/mods/v3/mods-3-2.xsd\"><mods><titleInfo><title>Telescope Peak from Zabriskie Point</title></titleInfo><typeOfResource>still image</typeOfResource><genre authority=\"local\">artwork</genre><genre authority=\"marcgt\">art original</genre><name type=\"personal\"><namePart type=\"family\">Cushman</namePart><namePart type=\"given\">Charles Weever</namePart><role><roleTerm type=\"code\" authority=\"marcrelator\">ctb</roleTerm></role></name><accessCondition>Copyright and reproduction rights for all Charles W. Cushman photographs are held by Indiana University and administered by the University Archives, Indiana University, Bloomington, IN 47405</accessCondition><originInfo><dateCreated>2003</dateCreated><issuance>monographic</issuance></originInfo><location><url usage=\"primary display\">http://purl.dlib.indiana.edu/iudl/archives/cushman/P07803</url></location><location><physicalLocation>Indiana University, Bloomington. University Archives P07803</physicalLocation></location><subject><topic>Mountains</topic></subject><subject><topic>Snow</topic></subject><subject><topic>Telescope Peak (Inyo County, Calif.)</topic></subject><subject><topic>Zabriskie Point (Calif.)</topic></subject></mods></modsCollection>"
+		},
+		"reimport": {
+			"status": 200,
+			"translatorID": "0e2235e7-babf-413c-9acf-f27cce5f059c",
+			"items": [
+				{
+					"key": "KVN22222",
+					"version": 0,
+					"itemType": "artwork",
+					"creators": [
+						{
+							"firstName": "Charles Weever",
+							"lastName": "Cushman",
+							"creatorType": "contributor"
+						}
+					],
+					"tags": [
+						{
+							"tag": "Mountains",
+							"type": 1
+						},
+						{
+							"tag": "Snow",
+							"type": 1
+						},
+						{
+							"tag": "Telescope Peak (Inyo County, Calif.)",
+							"type": 1
+						},
+						{
+							"tag": "Zabriskie Point (Calif.)",
+							"type": 1
+						}
+					],
+					"title": "Telescope Peak from Zabriskie Point",
+					"rights": "Copyright and reproduction rights for all Charles W. Cushman photographs are held by Indiana University and administered by the University Archives, Indiana University, Bloomington, IN 47405",
+					"date": "2003",
+					"archiveLocation": "Indiana University, Bloomington. University Archives P07803",
+					"url": "http://purl.dlib.indiana.edu/iudl/archives/cushman/P07803"
+				}
+			]
+		}
+	},
+	"testCase03": {
+		"export": {
+			"status": 200,
+			"output": "<?xml version=\"1.0\"?>\n<modsCollection xmlns=\"http://www.loc.gov/mods/v3\" xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\" xsi:schemaLocation=\"http://www.loc.gov/mods/v3 http://www.loc.gov/standards/mods/v3/mods-3-2.xsd\"><mods><titleInfo><title>Hiring and recruitment practices in academic libraries</title></titleInfo><typeOfResource>text</typeOfResource><genre authority=\"local\">journalArticle</genre><name type=\"personal\"><namePart type=\"family\">Raschke</namePart><namePart type=\"given\">Gregory K.</namePart><role><roleTerm type=\"code\" authority=\"marcrelator\">aut</roleTerm></role></name><abstract>Academic libraries need to change their recruiting and hiring procedures to stay competitive in today's changing marketplace. By taking too long to find and to hire talented professionals in a tight labor market, academic libraries are losing out on top candidates and limiting their ability to become innovative and dynamic organizations. Traditional, deliberate, and risk-averse hiring models lead to positions remaining open for long periods, opportunities lost as top prospects find other positions, and a reduction in the overall talent level of the organization. To be more competitive and effective in their recruitment and hiring processes, academic libraries must foster manageable internal solutions, look to other professions for effective hiring techniques and models, and employ innovative concepts from modern personnel management literature.</abstract><subject><topic>College librarians</topic></subject><subject><topic>Recruiting</topic></subject><subject><topic>College librarians</topic></subject><subject><topic>Selection and appointment</topic></subject><language><languageTerm type=\"text\">eng</languageTerm></language><relatedItem type=\"host\"><genre authority=\"marcgt\">journal</genre><part><detail type=\"volume\"><number>3</number></detail><extent unit=\"pages\"><start>53</start><end>57</end></extent></part><originInfo><publisher>Johns Hopkins University Press</publisher><dateIssued>2003</dateIssued><issuance>continuing</issuance></originInfo><identifier type=\"issn\">1531-2542</identifier><titleInfo><title>portal: libraries and the academy</title></titleInfo></relatedItem></mods></modsCollection>"
+		},
+		"reimport": {
+			"status": 200,
+			"translatorID": "0e2235e7-babf-413c-9acf-f27cce5f059c",
+			"items": [
+				{
+					"key": "KVN22222",
+					"version": 0,
+					"itemType": "journalArticle",
+					"creators": [
+						{
+							"firstName": "Gregory K.",
+							"lastName": "Raschke",
+							"creatorType": "author"
+						}
+					],
+					"tags": [
+						{
+							"tag": "College librarians",
+							"type": 1
+						},
+						{
+							"tag": "Recruiting",
+							"type": 1
+						},
+						{
+							"tag": "College librarians",
+							"type": 1
+						},
+						{
+							"tag": "Selection and appointment",
+							"type": 1
+						}
+					],
+					"title": "Hiring and recruitment practices in academic libraries",
+					"publicationTitle": "portal: libraries and the academy",
+					"ISSN": "1531-2542",
+					"volume": "3",
+					"pages": "53-57",
+					"date": "2003",
+					"publisher": "Johns Hopkins University Press",
+					"abstractNote": "Academic libraries need to change their recruiting and hiring procedures to stay competitive in today's changing marketplace. By taking too long to find and to hire talented professionals in a tight labor market, academic libraries are losing out on top candidates and limiting their ability to become innovative and dynamic organizations. Traditional, deliberate, and risk-averse hiring models lead to positions remaining open for long periods, opportunities lost as top prospects find other positions, and a reduction in the overall talent level of the organization. To be more competitive and effective in their recruitment and hiring processes, academic libraries must foster manageable internal solutions, look to other professions for effective hiring techniques and models, and employ innovative concepts from modern personnel management literature.",
+					"language": "eng"
+				}
+			]
+		}
+	},
+	"testCase04": {
+		"export": {
+			"status": 200,
+			"output": "<?xml version=\"1.0\"?>\n<modsCollection xmlns=\"http://www.loc.gov/mods/v3\" xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\" xsi:schemaLocation=\"http://www.loc.gov/mods/v3 http://www.loc.gov/standards/mods/v3/mods-3-2.xsd\"><mods><titleInfo><title>Sound and fury: the making of the punditocracy</title></titleInfo><typeOfResource>text</typeOfResource><genre authority=\"local\">book</genre><genre authority=\"marcgt\">book</genre><name type=\"personal\"><namePart type=\"family\">Alterman</namePart><namePart type=\"given\">Eric</namePart><role><roleTerm type=\"code\" authority=\"marcrelator\">aut</roleTerm></role></name><physicalDescription><extent>322 p.</extent></physicalDescription><originInfo><place><placeTerm type=\"text\">Ithaca, N.Y</placeTerm></place><publisher>Cornell University Press</publisher><copyrightDate>1999</copyrightDate><issuance>monographic</issuance></originInfo><identifier type=\"isbn\">0801486394</identifier><classification>PN4888.P6 A48 1999, 071/.3</classification><note>statement of responsibility: Eric Alterman.</note><note>Includes bibliographical references (p. 291-312) and index.</note><subject><topic>Journalism</topic></subject><subject><topic>Political aspects</topic></subject><subject><topic>Politics and government</topic></subject><subject><topic>Mass media</topic></subject><subject><topic>Political aspects</topic></subject><subject><topic>Television and politics</topic></subject><subject><topic>Press and politics</topic></subject><subject><topic>Talk shows</topic></subject><language><languageTerm type=\"text\">eng</languageTerm></language></mods></modsCollection>"
+		},
+		"reimport": {
+			"status": 200,
+			"translatorID": "0e2235e7-babf-413c-9acf-f27cce5f059c",
+			"items": [
+				{
+					"key": "KVN22222",
+					"version": 0,
+					"itemType": "book",
+					"creators": [
+						{
+							"firstName": "Eric",
+							"lastName": "Alterman",
+							"creatorType": "author"
+						}
+					],
+					"tags": [
+						{
+							"tag": "Journalism",
+							"type": 1
+						},
+						{
+							"tag": "Political aspects",
+							"type": 1
+						},
+						{
+							"tag": "Politics and government",
+							"type": 1
+						},
+						{
+							"tag": "Mass media",
+							"type": 1
+						},
+						{
+							"tag": "Political aspects",
+							"type": 1
+						},
+						{
+							"tag": "Television and politics",
+							"type": 1
+						},
+						{
+							"tag": "Press and politics",
+							"type": 1
+						},
+						{
+							"tag": "Talk shows",
+							"type": 1
+						}
+					],
+					"title": "Sound and fury: the making of the punditocracy",
+					"numPages": "322",
+					"ISBN": "0801486394",
+					"place": "Ithaca, N.Y",
+					"publisher": "Cornell University Press",
+					"date": "1999",
+					"callNumber": "PN4888.P6 A48 1999, 071/.3",
+					"language": "eng"
+				},
+				{
+					"itemType": "note",
+					"parentItem": "KVN22222",
+					"note": "statement of responsibility: Eric Alterman."
+				},
+				{
+					"itemType": "note",
+					"parentItem": "KVN22222",
+					"note": "Includes bibliographical references (p. 291-312) and index."
+				}
+			]
+		}
+	},
+	"testCase05": {
+		"export": {
+			"status": 200,
+			"output": "<?xml version=\"1.0\"?>\n<modsCollection xmlns=\"http://www.loc.gov/mods/v3\" xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\" xsi:schemaLocation=\"http://www.loc.gov/mods/v3 http://www.loc.gov/standards/mods/v3/mods-3-2.xsd\"><mods><titleInfo><title>Models, Fantasies and Phantoms of Transition</title></titleInfo><typeOfResource>text</typeOfResource><genre authority=\"local\">bookSection</genre><name type=\"personal\"><namePart type=\"family\">Amin</namePart><namePart type=\"given\">Ash</namePart><role><roleTerm type=\"code\" authority=\"marcrelator\">aut</roleTerm></role></name><relatedItem type=\"host\"><genre authority=\"marcgt\">book</genre><name type=\"personal\"><namePart type=\"family\">Amin</namePart><namePart type=\"given\">Ash</namePart><role><roleTerm type=\"code\" authority=\"marcrelator\">edt</roleTerm></role></name><part><extent unit=\"pages\"><start>23</start><end>45</end></extent></part><originInfo><place><placeTerm type=\"text\">Oxford</placeTerm></place><publisher>Blackwell Publishers</publisher><copyrightDate>1994</copyrightDate><issuance>monographic</issuance></originInfo><titleInfo><title>Post-Fordism: A Reader</title></titleInfo></relatedItem></mods></modsCollection>"
+		},
+		"reimport": {
+			"status": 200,
+			"translatorID": "0e2235e7-babf-413c-9acf-f27cce5f059c",
+			"items": [
+				{
+					"key": "KVN22222",
+					"version": 0,
+					"itemType": "bookSection",
+					"creators": [
+						{
+							"firstName": "Ash",
+							"lastName": "Amin",
+							"creatorType": "author"
+						},
+						{
+							"firstName": "Ash",
+							"lastName": "Amin",
+							"creatorType": "editor"
+						}
+					],
+					"tags": [],
+					"title": "Models, Fantasies and Phantoms of Transition",
+					"bookTitle": "Post-Fordism: A Reader",
+					"pages": "23-45",
+					"date": "1994",
+					"place": "Oxford",
+					"publisher": "Blackwell Publishers"
+				}
+			]
+		}
+	},
+	"testCase06": {
+		"export": {
+			"status": 200,
+			"output": "<?xml version=\"1.0\"?>\n<modsCollection xmlns=\"http://www.loc.gov/mods/v3\" xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\" xsi:schemaLocation=\"http://www.loc.gov/mods/v3 http://www.loc.gov/standards/mods/v3/mods-3-2.xsd\"><mods><titleInfo><title>The Urban Question as a Scale Question: Reflections on Henri Lefebre, Urban Theory and the Politics of Scale</title></titleInfo><typeOfResource>text</typeOfResource><genre authority=\"local\">journalArticle</genre><name type=\"personal\"><namePart type=\"family\">Brenner</namePart><namePart type=\"given\">Neil</namePart><role><roleTerm type=\"code\" authority=\"marcrelator\">aut</roleTerm></role></name><relatedItem type=\"host\"><genre authority=\"marcgt\">journal</genre><part><detail type=\"volume\"><number>24</number></detail><detail type=\"issue\"><number>2</number></detail><extent unit=\"pages\"><start>361</start><end>378</end></extent></part><originInfo><dateIssued>2000</dateIssued><issuance>continuing</issuance></originInfo><titleInfo><title>International Journal of Urban and Regional Research</title></titleInfo></relatedItem></mods></modsCollection>"
+		},
+		"reimport": {
+			"status": 200,
+			"translatorID": "0e2235e7-babf-413c-9acf-f27cce5f059c",
+			"items": [
+				{
+					"key": "KVN22222",
+					"version": 0,
+					"itemType": "journalArticle",
+					"creators": [
+						{
+							"firstName": "Neil",
+							"lastName": "Brenner",
+							"creatorType": "author"
+						}
+					],
+					"tags": [],
+					"title": "The Urban Question as a Scale Question: Reflections on Henri Lefebre, Urban Theory and the Politics of Scale",
+					"publicationTitle": "International Journal of Urban and Regional Research",
+					"volume": "24",
+					"issue": "2",
+					"pages": "361-378",
+					"date": "2000"
+				}
+			]
+		}
+	},
+	"testCase07": {
+		"export": {
+			"status": 200,
+			"output": "<?xml version=\"1.0\"?>\n<modsCollection xmlns=\"http://www.loc.gov/mods/v3\" xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\" xsi:schemaLocation=\"http://www.loc.gov/mods/v3 http://www.loc.gov/standards/mods/v3/mods-3-2.xsd\"><mods><titleInfo><title>Fifth-Grade Boys' Decisions about Participation in Sports Activities</title></titleInfo><typeOfResource>text</typeOfResource><genre authority=\"local\">journalArticle</genre><name type=\"personal\"><namePart type=\"family\">Conley</namePart><namePart type=\"given\">Alice</namePart><role><roleTerm type=\"code\" authority=\"marcrelator\">aut</roleTerm></role></name><relatedItem type=\"host\"><genre authority=\"marcgt\">journal</genre><name type=\"corporate\"><namePart>Good, Thomas L.</namePart><role><roleTerm type=\"code\" authority=\"marcrelator\">edt</roleTerm></role></name><part><detail type=\"volume\"><number>99</number></detail><detail type=\"issue\"><number>5</number></detail><extent unit=\"pages\"><start>131</start><end>146</end></extent></part><originInfo><dateIssued>1999</dateIssued><issuance>continuing</issuance></originInfo><titleInfo><title>Non-subject-matter Outcomes of Schooling</title></titleInfo></relatedItem></mods></modsCollection>"
+		},
+		"reimport": {
+			"status": 200,
+			"translatorID": "0e2235e7-babf-413c-9acf-f27cce5f059c",
+			"items": [
+				{
+					"key": "KVN22222",
+					"version": 0,
+					"itemType": "journalArticle",
+					"creators": [
+						{
+							"firstName": "Alice",
+							"lastName": "Conley",
+							"creatorType": "author"
+						},
+						{
+							"name": "Good, Thomas L.",
+							"creatorType": "editor"
+						}
+					],
+					"tags": [],
+					"title": "Fifth-Grade Boys' Decisions about Participation in Sports Activities",
+					"publicationTitle": "Non-subject-matter Outcomes of Schooling",
+					"volume": "99",
+					"issue": "5",
+					"pages": "131-146",
+					"date": "1999"
+				}
+			]
+		}
+	},
+	"testCase08": {
+		"export": {
+			"status": 200,
+			"output": "<?xml version=\"1.0\"?>\n<modsCollection xmlns=\"http://www.loc.gov/mods/v3\" xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\" xsi:schemaLocation=\"http://www.loc.gov/mods/v3 http://www.loc.gov/standards/mods/v3/mods-3-2.xsd\"><mods><titleInfo><title>2700 MHz observations of 4c radio sources in the declination zone +4 to -4</title></titleInfo><typeOfResource>text</typeOfResource><genre authority=\"local\">journalArticle</genre><name type=\"personal\"><namePart type=\"family\">Wall</namePart><namePart type=\"given\">J. V.</namePart><role><roleTerm type=\"code\" authority=\"marcrelator\">aut</roleTerm></role></name><relatedItem type=\"host\"><genre authority=\"marcgt\">journal</genre><originInfo><dateIssued>1971</dateIssued><issuance>continuing</issuance></originInfo><titleInfo><title>Australian Journal of Physics and Astronphysics</title></titleInfo><titleInfo type=\"abbreviated\"><title>Australian J. Phys. Astronphys.</title></titleInfo></relatedItem></mods></modsCollection>"
+		},
+		"reimport": {
+			"status": 200,
+			"translatorID": "0e2235e7-babf-413c-9acf-f27cce5f059c",
+			"items": [
+				{
+					"key": "KVN22222",
+					"version": 0,
+					"itemType": "journalArticle",
+					"creators": [
+						{
+							"firstName": "J. V.",
+							"lastName": "Wall",
+							"creatorType": "author"
+						}
+					],
+					"tags": [],
+					"title": "2700 MHz observations of 4c radio sources in the declination zone +4 to -4",
+					"publicationTitle": "Australian Journal of Physics and Astronphysics",
+					"journalAbbreviation": "Australian J. Phys. Astronphys.",
+					"date": "1971"
+				}
+			]
+		}
+	},
+	"testCase09": {
+		"export": {
+			"status": 200,
+			"output": "<?xml version=\"1.0\"?>\n<modsCollection xmlns=\"http://www.loc.gov/mods/v3\" xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\" xsi:schemaLocation=\"http://www.loc.gov/mods/v3 http://www.loc.gov/standards/mods/v3/mods-3-2.xsd\"><mods><titleInfo><title>Emergence and Dissolvence in the Self-Organization of Complex Systems</title></titleInfo><typeOfResource>text</typeOfResource><genre authority=\"local\">journalArticle</genre><name type=\"personal\"><namePart type=\"family\">Testa</namePart><namePart type=\"given\">Bernard</namePart><role><roleTerm type=\"code\" authority=\"marcrelator\">aut</roleTerm></role></name><name type=\"personal\"><namePart type=\"family\">Kier</namePart><namePart type=\"given\">Lamont B.</namePart><role><roleTerm type=\"code\" authority=\"marcrelator\">aut</roleTerm></role></name><relatedItem type=\"host\"><genre authority=\"marcgt\">journal</genre><part><detail type=\"volume\"><number>2</number></detail><detail type=\"issue\"><number>1</number></detail><extent unit=\"pages\"><list>17</list></extent></part><originInfo><dateIssued>2000</dateIssued><issuance>continuing</issuance></originInfo><titleInfo><title>Entropy</title></titleInfo></relatedItem></mods></modsCollection>"
+		},
+		"reimport": {
+			"status": 200,
+			"translatorID": "0e2235e7-babf-413c-9acf-f27cce5f059c",
+			"items": [
+				{
+					"key": "KVN22222",
+					"version": 0,
+					"itemType": "journalArticle",
+					"creators": [
+						{
+							"firstName": "Bernard",
+							"lastName": "Testa",
+							"creatorType": "author"
+						},
+						{
+							"firstName": "Lamont B.",
+							"lastName": "Kier",
+							"creatorType": "author"
+						}
+					],
+					"tags": [],
+					"title": "Emergence and Dissolvence in the Self-Organization of Complex Systems",
+					"publicationTitle": "Entropy",
+					"volume": "2",
+					"issue": "1",
+					"date": "2000"
+				}
+			]
+		}
+	},
+	"testCase10": {
+		"export": {
+			"status": 200,
+			"output": "<?xml version=\"1.0\"?>\n<modsCollection xmlns=\"http://www.loc.gov/mods/v3\" xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\" xsi:schemaLocation=\"http://www.loc.gov/mods/v3 http://www.loc.gov/standards/mods/v3/mods-3-2.xsd\"><mods><titleInfo><title>3 Viennese arias : for soprano, obbligato clarinet in B flat, and piano</title></titleInfo><typeOfResource>text</typeOfResource><genre authority=\"local\">document</genre><name type=\"personal\"><namePart type=\"family\">Lawson</namePart><namePart type=\"given\">Colin (Colin James)</namePart><role><roleTerm type=\"code\" authority=\"marcrelator\">aut</roleTerm></role></name><originInfo><place><placeTerm type=\"text\">London</placeTerm></place><publisher>Nova Music</publisher><dateCreated>1984</dateCreated><issuance>monographic</issuance></originInfo><classification>M1506 .A14 1984</classification><note>statement of responsibility: G.B. Bononcini and Emperor Joseph I ; edited by Colin\n\t\tLawson.</note><note>Opera excerpts.</note><note>Acc. arr. for piano; obbligato for the 2nd-3rd excerpts originally for chalumeau.</note><note>Italian words.</note><note>Cover title.</note><note>The 1st excerpt composed for inclusion in M.A. Ziani's Chilonida.</note><note>Texts with English translations on cover p. [2].</note><note>Table of Contents: Tutto in pianto il cor struggete / Emperor Joseph I -- E sempre inquieto quel\n\t\tcore infelice : from Endimione / G. Bononcini -- L'adorata genitrice : from Muzio [i.e.\n\t\tMutio] Scevola / G. Bononcini.</note><subject><topic>Operas</topic></subject><subject><topic>Songs (High voice) with instrumental ensemble</topic></subject><language><languageTerm type=\"text\">ita; eng</languageTerm></language></mods></modsCollection>"
+		},
+		"reimport": {
+			"status": 200,
+			"translatorID": "0e2235e7-babf-413c-9acf-f27cce5f059c",
+			"items": [
+				{
+					"key": "KVN22222",
+					"version": 0,
+					"itemType": "document",
+					"creators": [
+						{
+							"firstName": "Colin (Colin James)",
+							"lastName": "Lawson",
+							"creatorType": "author"
+						}
+					],
+					"tags": [
+						{
+							"tag": "Operas",
+							"type": 1
+						},
+						{
+							"tag": "Songs (High voice) with instrumental ensemble",
+							"type": 1
+						}
+					],
+					"title": "3 Viennese arias : for soprano, obbligato clarinet in B flat, and piano",
+					"place": "London",
+					"publisher": "Nova Music",
+					"date": "1984",
+					"callNumber": "M1506 .A14 1984",
+					"language": "ita; eng"
+				},
+				{
+					"itemType": "note",
+					"parentItem": "KVN22222",
+					"note": "statement of responsibility: G.B. Bononcini and Emperor Joseph I ; edited by Colin\n\t\tLawson."
+				},
+				{
+					"itemType": "note",
+					"parentItem": "KVN22222",
+					"note": "Opera excerpts."
+				},
+				{
+					"itemType": "note",
+					"parentItem": "KVN22222",
+					"note": "Acc. arr. for piano; obbligato for the 2nd-3rd excerpts originally for chalumeau."
+				},
+				{
+					"itemType": "note",
+					"parentItem": "KVN22222",
+					"note": "Italian words."
+				},
+				{
+					"itemType": "note",
+					"parentItem": "KVN22222",
+					"note": "Cover title."
+				},
+				{
+					"itemType": "note",
+					"parentItem": "KVN22222",
+					"note": "The 1st excerpt composed for inclusion in M.A. Ziani's Chilonida."
+				},
+				{
+					"itemType": "note",
+					"parentItem": "KVN22222",
+					"note": "Texts with English translations on cover p. [2]."
+				},
+				{
+					"itemType": "note",
+					"parentItem": "KVN22222",
+					"note": "Table of Contents: Tutto in pianto il cor struggete / Emperor Joseph I -- E sempre inquieto quel\n\t\tcore infelice : from Endimione / G. Bononcini -- L'adorata genitrice : from Muzio [i.e.\n\t\tMutio] Scevola / G. Bononcini."
+				}
+			]
+		}
+	},
+	"testCase11": {
+		"export": {
+			"status": 200,
+			"output": "<?xml version=\"1.0\"?>\n<modsCollection xmlns=\"http://www.loc.gov/mods/v3\" xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\" xsi:schemaLocation=\"http://www.loc.gov/mods/v3 http://www.loc.gov/standards/mods/v3/mods-3-2.xsd\"><mods><titleInfo><title>Directory of computer assisted research in musicology</title></titleInfo><typeOfResource>text</typeOfResource><genre authority=\"local\">document</genre><name type=\"corporate\"><namePart>Center for Computer Assisted Research in the Humanities</namePart><role><roleTerm type=\"code\" authority=\"marcrelator\">aut</roleTerm></role></name><originInfo><place><placeTerm type=\"text\">Menlo Park, CA</placeTerm></place><publisher>Center for Computer Assisted Research in the Humanities</publisher><dateCreated>1985</dateCreated><issuance>monographic</issuance></originInfo><classification>ML73 .D57, 780/.01/02584</classification><note>date/sequential designation: Began in 1985.</note><note>date/sequential designation: -1988.</note><note>Description based on: 1986.</note><subject><topic>Musicology</topic></subject><subject><topic>Data processing</topic></subject><subject><topic>Music</topic></subject><subject><topic>Musicians</topic></subject><subject><topic>Musicologists</topic></subject><subject><topic>Musicology</topic></subject><subject><topic>Data processing</topic></subject><language><languageTerm type=\"text\">eng</languageTerm></language></mods></modsCollection>"
+		},
+		"reimport": {
+			"status": 200,
+			"translatorID": "0e2235e7-babf-413c-9acf-f27cce5f059c",
+			"items": [
+				{
+					"key": "KVN22222",
+					"version": 0,
+					"itemType": "document",
+					"creators": [
+						{
+							"name": "Center for Computer Assisted Research in the Humanities",
+							"creatorType": "author"
+						}
+					],
+					"tags": [
+						{
+							"tag": "Musicology",
+							"type": 1
+						},
+						{
+							"tag": "Data processing",
+							"type": 1
+						},
+						{
+							"tag": "Music",
+							"type": 1
+						},
+						{
+							"tag": "Musicians",
+							"type": 1
+						},
+						{
+							"tag": "Musicologists",
+							"type": 1
+						},
+						{
+							"tag": "Musicology",
+							"type": 1
+						},
+						{
+							"tag": "Data processing",
+							"type": 1
+						}
+					],
+					"title": "Directory of computer assisted research in musicology",
+					"place": "Menlo Park, CA",
+					"publisher": "Center for Computer Assisted Research in the Humanities",
+					"date": "1985",
+					"callNumber": "ML73 .D57, 780/.01/02584",
+					"language": "eng"
+				},
+				{
+					"itemType": "note",
+					"parentItem": "KVN22222",
+					"note": "date/sequential designation: Began in 1985."
+				},
+				{
+					"itemType": "note",
+					"parentItem": "KVN22222",
+					"note": "date/sequential designation: -1988."
+				},
+				{
+					"itemType": "note",
+					"parentItem": "KVN22222",
+					"note": "Description based on: 1986."
+				}
+			]
+		}
+	},
+	"testCase12": {
+		"export": {
+			"status": 200,
+			"output": "<?xml version=\"1.0\"?>\n<modsCollection xmlns=\"http://www.loc.gov/mods/v3\" xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\" xsi:schemaLocation=\"http://www.loc.gov/mods/v3 http://www.loc.gov/standards/mods/v3/mods-3-2.xsd\"><mods><titleInfo><title>The American ballroom companion: dance instruction manuals, ca. 1600-1920</title></titleInfo><typeOfResource>software, multimedia</typeOfResource><genre authority=\"local\">computerProgram</genre><name type=\"corporate\"><namePart>Library of Congress: Music Division.</namePart><role><roleTerm type=\"code\" authority=\"marcrelator\">ctb</roleTerm></role></name><name type=\"corporate\"><namePart>Library of Congress: National Digital Library Program.</namePart><role><roleTerm type=\"code\" authority=\"marcrelator\">ctb</roleTerm></role></name><originInfo><place><placeTerm type=\"text\">Washington, D.C</placeTerm></place><publisher>Library of Congress</publisher><dateCreated>1998</dateCreated><issuance>monographic</issuance></originInfo><classification>GV1623, 793.3</classification><location><url usage=\"primary display\">http://hdl.loc.gov/loc.music/collmus.mu000010</url></location><abstract>Presents over two hundred social dance manuals, pocket-sized books with diagrams used by itinerant dancing masters to teach the American gentry the latest dance steps. Includes anti-dance manuals as well as treatises on etiquette. Offered as part of the American Memory online resource compiled by the National Digital Library Program of the Library of Congress.</abstract><note>Title from title screen dated Mar. 23, 1998.</note><note>system details: System requirements: World Wide Web (WWW) browser software.</note><note>system details: Mode of access: Internet.</note><subject><topic>Ballroom dancing</topic></subject></mods></modsCollection>"
+		},
+		"reimport": {
+			"status": 200,
+			"translatorID": "0e2235e7-babf-413c-9acf-f27cce5f059c",
+			"items": [
+				{
+					"key": "KVN22222",
+					"version": 0,
+					"itemType": "computerProgram",
+					"creators": [
+						{
+							"name": "Library of Congress: Music Division.",
+							"creatorType": "contributor"
+						},
+						{
+							"name": "Library of Congress: National Digital Library Program.",
+							"creatorType": "contributor"
+						}
+					],
+					"tags": [
+						{
+							"tag": "Ballroom dancing",
+							"type": 1
+						}
+					],
+					"title": "The American ballroom companion: dance instruction manuals, ca. 1600-1920",
+					"place": "Washington, D.C",
+					"company": "Library of Congress",
+					"date": "1998",
+					"callNumber": "GV1623, 793.3",
+					"url": "http://hdl.loc.gov/loc.music/collmus.mu000010",
+					"abstractNote": "Presents over two hundred social dance manuals, pocket-sized books with diagrams used by itinerant dancing masters to teach the American gentry the latest dance steps. Includes anti-dance manuals as well as treatises on etiquette. Offered as part of the American Memory online resource compiled by the National Digital Library Program of the Library of Congress."
+				},
+				{
+					"itemType": "note",
+					"parentItem": "KVN22222",
+					"note": "Title from title screen dated Mar. 23, 1998."
+				},
+				{
+					"itemType": "note",
+					"parentItem": "KVN22222",
+					"note": "system details: System requirements: World Wide Web (WWW) browser software."
+				},
+				{
+					"itemType": "note",
+					"parentItem": "KVN22222",
+					"note": "system details: Mode of access: Internet."
+				}
+			]
+		}
+	},
+	"testCase13": {
+		"export": {
+			"status": 200,
+			"output": "<?xml version=\"1.0\"?>\n<modsCollection xmlns=\"http://www.loc.gov/mods/v3\" xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\" xsi:schemaLocation=\"http://www.loc.gov/mods/v3 http://www.loc.gov/standards/mods/v3/mods-3-2.xsd\"><mods><titleInfo><title>Papers from the First International Workshop on Plasma-Based Ion Implantation: 4-6 August 1993, University of Wisconsin--Madison, Madison, Wisconsin</title></titleInfo><typeOfResource>text</typeOfResource><genre authority=\"local\">book</genre><genre authority=\"marcgt\">book</genre><name type=\"corporate\"><namePart>International Workshop on Plasma-Based Ion Implantation 1993 : University of Wisconsin--Madison)</namePart><role><roleTerm type=\"code\" authority=\"marcrelator\">aut</roleTerm></role></name><name type=\"personal\"><namePart type=\"family\">Conrad</namePart><namePart type=\"given\">John R.</namePart><role><roleTerm type=\"code\" authority=\"marcrelator\">aut</roleTerm></role></name><name type=\"personal\"><namePart type=\"family\">Sridharan</namePart><namePart type=\"given\">Kumar</namePart><role><roleTerm type=\"code\" authority=\"marcrelator\">aut</roleTerm></role></name><name type=\"corporate\"><namePart>Applied Science and Technology (ASTeX), Inc</namePart><role><roleTerm type=\"code\" authority=\"marcrelator\">aut</roleTerm></role></name><originInfo><place><placeTerm type=\"text\">New York</placeTerm></place><publisher>Published for the American Vacuum Society by the American Institute of Physics</publisher><copyrightDate>1994</copyrightDate><issuance>monographic</issuance></originInfo><identifier type=\"isbn\">1563963442</identifier><identifier type=\"issn\">1071-1023</identifier><classification>TS695.25 .I57 1993, 621.3815/2</classification><note>\"Published in both 1994 March/April issue of the Journal of vacuum science and technology B, vol. 12, no. 2\"--T.p. verso.</note><note>bibliography: Includes bibliographical references and index.</note><subject><topic>Ion implantation</topic></subject><subject><topic>Congresses</topic></subject><language><languageTerm type=\"text\">eng</languageTerm></language></mods></modsCollection>"
+		},
+		"reimport": {
+			"status": 200,
+			"translatorID": "0e2235e7-babf-413c-9acf-f27cce5f059c",
+			"items": [
+				{
+					"key": "KVN22222",
+					"version": 0,
+					"itemType": "book",
+					"creators": [
+						{
+							"name": "International Workshop on Plasma-Based Ion Implantation 1993 : University of Wisconsin--Madison)",
+							"creatorType": "author"
+						},
+						{
+							"firstName": "John R.",
+							"lastName": "Conrad",
+							"creatorType": "author"
+						},
+						{
+							"firstName": "Kumar",
+							"lastName": "Sridharan",
+							"creatorType": "author"
+						},
+						{
+							"name": "Applied Science and Technology (ASTeX), Inc",
+							"creatorType": "author"
+						}
+					],
+					"tags": [
+						{
+							"tag": "Ion implantation",
+							"type": 1
+						},
+						{
+							"tag": "Congresses",
+							"type": 1
+						}
+					],
+					"title": "Papers from the First International Workshop on Plasma-Based Ion Implantation: 4-6 August 1993, University of Wisconsin--Madison, Madison, Wisconsin",
+					"ISBN": "1563963442",
+					"ISSN": "1071-1023",
+					"place": "New York",
+					"publisher": "Published for the American Vacuum Society by the American Institute of Physics",
+					"date": "1994",
+					"callNumber": "TS695.25 .I57 1993, 621.3815/2",
+					"language": "eng"
+				},
+				{
+					"itemType": "note",
+					"parentItem": "KVN22222",
+					"note": "\"Published in both 1994 March/April issue of the Journal of vacuum science and technology B, vol. 12, no. 2\"--T.p. verso."
+				},
+				{
+					"itemType": "note",
+					"parentItem": "KVN22222",
+					"note": "bibliography: Includes bibliographical references and index."
+				}
+			]
+		}
+	},
+	"testCase14": {
+		"export": {
+			"status": 200,
+			"output": "<?xml version=\"1.0\"?>\n<modsCollection xmlns=\"http://www.loc.gov/mods/v3\" xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\" xsi:schemaLocation=\"http://www.loc.gov/mods/v3 http://www.loc.gov/standards/mods/v3/mods-3-2.xsd\"><mods><titleInfo><title>Campbell County, Wyoming</title></titleInfo><typeOfResource>cartographic</typeOfResource><genre authority=\"local\">map</genre><genre authority=\"marcgt\">map</genre><name type=\"corporate\"><namePart>Campbell County Chamber of Commerce</namePart><role><roleTerm type=\"code\" authority=\"marcrelator\">ctb</roleTerm></role></name><originInfo><place><placeTerm type=\"text\">Gillette, Wyo.]</placeTerm></place><publisher>Campbell County Chamber of Commerce</publisher><dateCreated>1982</dateCreated><issuance>monographic</issuance></originInfo><classification>G4263.C3 1982  .C3</classification><note>In lower right corner: Kintzels-Casper.</note><subject><topic>Maps</topic></subject><language><languageTerm type=\"text\">eng</languageTerm></language></mods></modsCollection>"
+		},
+		"reimport": {
+			"status": 200,
+			"translatorID": "0e2235e7-babf-413c-9acf-f27cce5f059c",
+			"items": [
+				{
+					"key": "KVN22222",
+					"version": 0,
+					"itemType": "map",
+					"creators": [
+						{
+							"name": "Campbell County Chamber of Commerce",
+							"creatorType": "contributor"
+						}
+					],
+					"tags": [
+						{
+							"tag": "Maps",
+							"type": 1
+						}
+					],
+					"title": "Campbell County, Wyoming",
+					"place": "Gillette, Wyo.]",
+					"publisher": "Campbell County Chamber of Commerce",
+					"date": "1982",
+					"callNumber": "G4263.C3 1982  .C3",
+					"language": "eng"
+				},
+				{
+					"itemType": "note",
+					"parentItem": "KVN22222",
+					"note": "In lower right corner: Kintzels-Casper."
+				}
+			]
+		}
+	},
+	"testCase15": {
+		"export": {
+			"status": 200,
+			"output": "<?xml version=\"1.0\"?>\n<modsCollection xmlns=\"http://www.loc.gov/mods/v3\" xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\" xsi:schemaLocation=\"http://www.loc.gov/mods/v3 http://www.loc.gov/standards/mods/v3/mods-3-2.xsd\"><mods><titleInfo><title>3 Viennese arias: for soprano, obbligato clarinet in B flat, and piano</title></titleInfo><typeOfResource>text</typeOfResource><genre authority=\"local\">document</genre><name type=\"personal\"><namePart type=\"family\">Lawson</namePart><namePart type=\"given\">Colin (Colin James)</namePart><role><roleTerm type=\"code\" authority=\"marcrelator\">aut</roleTerm></role></name><name type=\"corporate\"><namePart>Joseph</namePart><role><roleTerm type=\"code\" authority=\"marcrelator\">aut</roleTerm></role></name><name type=\"personal\"><namePart type=\"family\">Bononcini</namePart><namePart type=\"given\">Giovanni</namePart><role><roleTerm type=\"code\" authority=\"marcrelator\">aut</roleTerm></role></name><name type=\"personal\"><namePart type=\"family\">Bononcini</namePart><namePart type=\"given\">Giovanni</namePart><role><roleTerm type=\"code\" authority=\"marcrelator\">aut</roleTerm></role></name><originInfo><place><placeTerm type=\"text\">London</placeTerm></place><publisher>Nova Music</publisher><dateCreated>1984</dateCreated><issuance>monographic</issuance></originInfo><classification>M1506 .A14 1984</classification><note>Opera excerpts.</note><note>Acc. arr. for piano; obbligato for the 2nd-3rd excerpts originally for chalumeau.</note><note>Italian words.</note><note>Cover title.</note><note>The 1st excerpt composed for inclusion in M.A. Ziani's Chilonida.</note><note>Texts with English translations on cover p. [2].</note><note>Table of Contents: Tutto in pianto il cor struggete / Emperor Joseph I -- E sempre inquieto quel core infelice : from Endimione / G. Bononcini -- L'adorata genitrice : from Muzio [i.e. Mutio] Scevola / G. Bononcini.</note><subject><topic>Operas</topic></subject><subject><topic>Excerpts, Arranged</topic></subject><subject><topic>Scores and parts</topic></subject><subject><topic>Songs (High voice) with instrumental ensemble</topic></subject><subject><topic>Scores and parts</topic></subject><language><languageTerm type=\"text\">ita; eng</languageTerm></language></mods></modsCollection>"
+		},
+		"reimport": {
+			"status": 200,
+			"translatorID": "0e2235e7-babf-413c-9acf-f27cce5f059c",
+			"items": [
+				{
+					"key": "KVN22222",
+					"version": 0,
+					"itemType": "document",
+					"creators": [
+						{
+							"firstName": "Colin (Colin James)",
+							"lastName": "Lawson",
+							"creatorType": "author"
+						},
+						{
+							"name": "Joseph",
+							"creatorType": "author"
+						},
+						{
+							"firstName": "Giovanni",
+							"lastName": "Bononcini",
+							"creatorType": "author"
+						},
+						{
+							"firstName": "Giovanni",
+							"lastName": "Bononcini",
+							"creatorType": "author"
+						}
+					],
+					"tags": [
+						{
+							"tag": "Operas",
+							"type": 1
+						},
+						{
+							"tag": "Excerpts, Arranged",
+							"type": 1
+						},
+						{
+							"tag": "Scores and parts",
+							"type": 1
+						},
+						{
+							"tag": "Songs (High voice) with instrumental ensemble",
+							"type": 1
+						},
+						{
+							"tag": "Scores and parts",
+							"type": 1
+						}
+					],
+					"title": "3 Viennese arias: for soprano, obbligato clarinet in B flat, and piano",
+					"place": "London",
+					"publisher": "Nova Music",
+					"date": "1984",
+					"callNumber": "M1506 .A14 1984",
+					"language": "ita; eng"
+				},
+				{
+					"itemType": "note",
+					"parentItem": "KVN22222",
+					"note": "Opera excerpts."
+				},
+				{
+					"itemType": "note",
+					"parentItem": "KVN22222",
+					"note": "Acc. arr. for piano; obbligato for the 2nd-3rd excerpts originally for chalumeau."
+				},
+				{
+					"itemType": "note",
+					"parentItem": "KVN22222",
+					"note": "Italian words."
+				},
+				{
+					"itemType": "note",
+					"parentItem": "KVN22222",
+					"note": "Cover title."
+				},
+				{
+					"itemType": "note",
+					"parentItem": "KVN22222",
+					"note": "The 1st excerpt composed for inclusion in M.A. Ziani's Chilonida."
+				},
+				{
+					"itemType": "note",
+					"parentItem": "KVN22222",
+					"note": "Texts with English translations on cover p. [2]."
+				},
+				{
+					"itemType": "note",
+					"parentItem": "KVN22222",
+					"note": "Table of Contents: Tutto in pianto il cor struggete / Emperor Joseph I -- E sempre inquieto quel core infelice : from Endimione / G. Bononcini -- L'adorata genitrice : from Muzio [i.e. Mutio] Scevola / G. Bononcini."
+				}
+			]
+		}
+	},
+	"testCase16": {
+		"export": {
+			"status": 200,
+			"output": "<?xml version=\"1.0\"?>\n<modsCollection xmlns=\"http://www.loc.gov/mods/v3\" xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\" xsi:schemaLocation=\"http://www.loc.gov/mods/v3 http://www.loc.gov/standards/mods/v3/mods-3-2.xsd\"><mods><titleInfo><title>2001 bluegrass odyssey</title></titleInfo><typeOfResource>sound recording</typeOfResource><genre authority=\"local\">audioRecording</genre><genre authority=\"marcgt\">sound</genre><name type=\"corporate\"><namePart>Roustabouts (Musical group)</namePart><role><roleTerm type=\"code\" authority=\"marcrelator\">prf</roleTerm></role></name><originInfo><place><placeTerm type=\"text\">Charlotte, NC</placeTerm></place><publisher>Lamon Records</publisher><dateCreated>1980</dateCreated><issuance>monographic</issuance></originInfo><classification>Lamon Records LR-4280</classification><note>Brief record.</note><note>performers: Performed by the Roustabouts.</note><note>Table of Contents: Bluegrass odyssey -- Hills of Tennessee -- Sassafrass -- Muddy river -- Take your shoes off Moses -- Don't let Smokey Mountain smoke get in your eyes -- Farewell party -- Faded love -- Super sonic bluegrass -- Old love letters -- Will the circle be unbroken.</note><subject><topic>Country music</topic></subject><subject><topic>Bluegrass music</topic></subject><language><languageTerm type=\"text\">eng</languageTerm></language></mods></modsCollection>"
+		},
+		"reimport": {
+			"status": 200,
+			"translatorID": "0e2235e7-babf-413c-9acf-f27cce5f059c",
+			"items": [
+				{
+					"key": "KVN22222",
+					"version": 0,
+					"itemType": "audioRecording",
+					"creators": [
+						{
+							"name": "Roustabouts (Musical group)",
+							"creatorType": "performer"
+						}
+					],
+					"tags": [
+						{
+							"tag": "Country music",
+							"type": 1
+						},
+						{
+							"tag": "Bluegrass music",
+							"type": 1
+						}
+					],
+					"title": "2001 bluegrass odyssey",
+					"place": "Charlotte, NC",
+					"label": "Lamon Records",
+					"date": "1980",
+					"callNumber": "Lamon Records LR-4280",
+					"language": "eng"
+				},
+				{
+					"itemType": "note",
+					"parentItem": "KVN22222",
+					"note": "Brief record."
+				},
+				{
+					"itemType": "note",
+					"parentItem": "KVN22222",
+					"note": "performers: Performed by the Roustabouts."
+				},
+				{
+					"itemType": "note",
+					"parentItem": "KVN22222",
+					"note": "Table of Contents: Bluegrass odyssey -- Hills of Tennessee -- Sassafrass -- Muddy river -- Take your shoes off Moses -- Don't let Smokey Mountain smoke get in your eyes -- Farewell party -- Faded love -- Super sonic bluegrass -- Old love letters -- Will the circle be unbroken."
+				}
+			]
+		}
+	},
+	"testCase17": {
+		"export": {
+			"status": 200,
+			"output": "<?xml version=\"1.0\"?>\n<modsCollection xmlns=\"http://www.loc.gov/mods/v3\" xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\" xsi:schemaLocation=\"http://www.loc.gov/mods/v3 http://www.loc.gov/standards/mods/v3/mods-3-2.xsd\"><mods><titleInfo><title>Massachusetts death and marriage records, 1837-1897</title></titleInfo><typeOfResource>text</typeOfResource><genre authority=\"local\">document</genre><accessCondition>Open to research.</accessCondition><originInfo><issuance>monographic</issuance></originInfo><location><physicalLocation>Library of Congress Manuscript Division Washington, D.C. 20540 USA; http://hdl.loc.gov/loc.mss/mss.home</physicalLocation></location><abstract>Records of deaths and marriages in Millbury and Springfield, Mass.</abstract><note>acquisition: Purchase, 1946.</note><note>language: Collection material in English.</note><note>Forms part of: Miscellaneous Manuscripts collection.</note><subject><topic>Registers of births, etc</topic></subject><subject><topic>Registers of births, etc</topic></subject><language><languageTerm type=\"text\">eng</languageTerm></language></mods></modsCollection>"
+		},
+		"reimport": {
+			"status": 200,
+			"translatorID": "0e2235e7-babf-413c-9acf-f27cce5f059c",
+			"items": [
+				{
+					"key": "KVN22222",
+					"version": 0,
+					"itemType": "document",
+					"creators": [],
+					"tags": [
+						{
+							"tag": "Registers of births, etc",
+							"type": 1
+						},
+						{
+							"tag": "Registers of births, etc",
+							"type": 1
+						}
+					],
+					"title": "Massachusetts death and marriage records, 1837-1897",
+					"rights": "Open to research.",
+					"archiveLocation": "Library of Congress Manuscript Division Washington, D.C. 20540 USA; http://hdl.loc.gov/loc.mss/mss.home",
+					"abstractNote": "Records of deaths and marriages in Millbury and Springfield, Mass.",
+					"language": "eng"
+				},
+				{
+					"itemType": "note",
+					"parentItem": "KVN22222",
+					"note": "acquisition: Purchase, 1946."
+				},
+				{
+					"itemType": "note",
+					"parentItem": "KVN22222",
+					"note": "language: Collection material in English."
+				},
+				{
+					"itemType": "note",
+					"parentItem": "KVN22222",
+					"note": "Forms part of: Miscellaneous Manuscripts collection."
+				}
+			]
+		}
+	},
+	"testCase18": {
+		"export": {
+			"status": 200,
+			"output": "<?xml version=\"1.0\"?>\n<modsCollection xmlns=\"http://www.loc.gov/mods/v3\" xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\" xsi:schemaLocation=\"http://www.loc.gov/mods/v3 http://www.loc.gov/standards/mods/v3/mods-3-2.xsd\"><mods><titleInfo><title>Ludvig Holbergs udvalgte Skrifter. D. 1-6 B. 4: Holbergs Comedier</title></titleInfo><typeOfResource>text</typeOfResource><genre authority=\"local\">book</genre><genre authority=\"marcgt\">book</genre><name type=\"personal\"><namePart type=\"family\">Holberg</namePart><namePart type=\"given\">Ludvig</namePart><role><roleTerm type=\"code\" authority=\"marcrelator\">aut</roleTerm></role></name><name type=\"personal\"><namePart type=\"family\">Rahbek</namePart><namePart type=\"given\">K. L.</namePart><role><roleTerm type=\"code\" authority=\"marcrelator\">aut</roleTerm></role></name><name type=\"corporate\"><namePart>Holberg, Ludvig, 1684-1754</namePart><role><roleTerm type=\"code\" authority=\"marcrelator\">ctb</roleTerm></role></name><originInfo><place><placeTerm type=\"text\">Kjøbenhavn</placeTerm></place><publisher>Kjøbenhavn : Schultz, 1804-1806</publisher><copyrightDate>1805</copyrightDate><issuance>monographic</issuance></originInfo><location><url usage=\"primary display\">http://urn.nb.no/URN:NBN:no-nb_digibok_2012051624006</url></location><location><physicalLocation>NO-0183300; NO-0030100; NO-0030100; NO-0030100</physicalLocation></location><note>reproduction: Elektronisk reproduksjon [Norge] Nasjonalbiblioteket Digital 2014-02-07</note><language><languageTerm type=\"text\">dan</languageTerm></language></mods></modsCollection>"
+		},
+		"reimport": {
+			"status": 200,
+			"translatorID": "0e2235e7-babf-413c-9acf-f27cce5f059c",
+			"items": [
+				{
+					"key": "KVN22222",
+					"version": 0,
+					"itemType": "book",
+					"creators": [
+						{
+							"firstName": "Ludvig",
+							"lastName": "Holberg",
+							"creatorType": "author"
+						},
+						{
+							"firstName": "K. L.",
+							"lastName": "Rahbek",
+							"creatorType": "author"
+						},
+						{
+							"name": "Holberg, Ludvig, 1684-1754",
+							"creatorType": "contributor"
+						}
+					],
+					"tags": [],
+					"title": "Ludvig Holbergs udvalgte Skrifter. D. 1-6 B. 4: Holbergs Comedier",
+					"place": "Kjøbenhavn",
+					"publisher": "Kjøbenhavn : Schultz, 1804-1806",
+					"date": "1805",
+					"archiveLocation": "NO-0183300; NO-0030100; NO-0030100; NO-0030100",
+					"url": "http://urn.nb.no/URN:NBN:no-nb_digibok_2012051624006",
+					"language": "dan"
+				},
+				{
+					"itemType": "note",
+					"parentItem": "KVN22222",
+					"note": "reproduction: Elektronisk reproduksjon [Norge] Nasjonalbiblioteket Digital 2014-02-07"
+				}
+			]
+		}
+	},
+	"testCase19": {
+		"export": {
+			"status": 200,
+			"output": "<?xml version=\"1.0\"?>\n<modsCollection xmlns=\"http://www.loc.gov/mods/v3\" xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\" xsi:schemaLocation=\"http://www.loc.gov/mods/v3 http://www.loc.gov/standards/mods/v3/mods-3-2.xsd\"><mods><titleInfo><title>[Brief Josef Blaas' an Albrecht Penck]</title></titleInfo><typeOfResource>text</typeOfResource><genre authority=\"local\">letter</genre><genre authority=\"marcgt\">letter</genre><name type=\"personal\"><namePart type=\"family\">Blaas</namePart><namePart type=\"given\">Josef</namePart><role><roleTerm type=\"code\" authority=\"marcrelator\">cre</roleTerm></role></name><name type=\"personal\"><namePart type=\"family\">Penck</namePart><namePart type=\"given\">Albrecht</namePart><role><roleTerm type=\"code\" authority=\"marcrelator\">rcp</roleTerm></role></name><name type=\"personal\"><namePart type=\"family\">Blaas</namePart><namePart type=\"given\">J.</namePart><role><roleTerm type=\"code\" authority=\"marcrelator\">ctb</roleTerm></role></name><name type=\"personal\"><namePart type=\"family\">Blaas</namePart><namePart type=\"given\">Leo</namePart><role><roleTerm type=\"code\" authority=\"marcrelator\">ctb</roleTerm></role></name><name type=\"personal\"><namePart type=\"family\">Blaas</namePart><namePart type=\"given\">Erich</namePart><role><roleTerm type=\"code\" authority=\"marcrelator\">ctb</roleTerm></role></name><originInfo><dateCreated>2021</dateCreated><issuance>monographic</issuance></originInfo><location><physicalLocation>Semantics Kommunikationsmanagement GmbH; Semantics Kommunikationsmanagement GmbH</physicalLocation></location><note>formerShelvingLocation: B E</note><note>systemDetails: Handschrift</note><language><languageTerm type=\"text\">ger</languageTerm></language></mods></modsCollection>"
+		},
+		"reimport": {
+			"status": 200,
+			"translatorID": "0e2235e7-babf-413c-9acf-f27cce5f059c",
+			"items": [
+				{
+					"key": "KVN22222",
+					"version": 0,
+					"itemType": "letter",
+					"creators": [
+						{
+							"firstName": "Josef",
+							"lastName": "Blaas",
+							"creatorType": "author"
+						},
+						{
+							"firstName": "Albrecht",
+							"lastName": "Penck",
+							"creatorType": "recipient"
+						},
+						{
+							"firstName": "J.",
+							"lastName": "Blaas",
+							"creatorType": "contributor"
+						},
+						{
+							"firstName": "Leo",
+							"lastName": "Blaas",
+							"creatorType": "contributor"
+						},
+						{
+							"firstName": "Erich",
+							"lastName": "Blaas",
+							"creatorType": "contributor"
+						}
+					],
+					"tags": [],
+					"title": "[Brief Josef Blaas' an Albrecht Penck]",
+					"date": "2021",
+					"archiveLocation": "Semantics Kommunikationsmanagement GmbH; Semantics Kommunikationsmanagement GmbH",
+					"language": "ger"
+				},
+				{
+					"itemType": "note",
+					"parentItem": "KVN22222",
+					"note": "formerShelvingLocation: B E"
+				},
+				{
+					"itemType": "note",
+					"parentItem": "KVN22222",
+					"note": "systemDetails: Handschrift"
+				}
+			]
+		}
+	},
+	"testCase20": {
+		"export": {
+			"status": 200,
+			"output": "<?xml version=\"1.0\"?>\n<modsCollection xmlns=\"http://www.loc.gov/mods/v3\" xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\" xsi:schemaLocation=\"http://www.loc.gov/mods/v3 http://www.loc.gov/standards/mods/v3/mods-3-2.xsd\"><mods><titleInfo><title>AFGHANISTAN</title></titleInfo><typeOfResource>text</typeOfResource><genre authority=\"local\">hearing</genre><genre authority=\"marcgt\">government publication</genre><name type=\"corporate\"><namePart>United States: Congress: Senate</namePart><role><roleTerm type=\"code\" authority=\"marcrelator\">ctb</roleTerm></role></name><name type=\"corporate\"><namePart>United States: Congress: Senate: Committee on Armed Services</namePart><role><roleTerm type=\"code\" authority=\"marcrelator\">ctb</roleTerm></role></name><name type=\"personal\"><namePart type=\"family\">Wicker</namePart><namePart type=\"given\">Roger F.</namePart><role><roleTerm type=\"code\" authority=\"marcrelator\">ctb</roleTerm></role></name><name type=\"personal\"><namePart type=\"family\">Byrd</namePart><namePart type=\"given\">Robert C.</namePart><role><roleTerm type=\"code\" authority=\"marcrelator\">ctb</roleTerm></role></name><name type=\"personal\"><namePart type=\"family\">Levin</namePart><namePart type=\"given\">Carl</namePart><role><roleTerm type=\"code\" authority=\"marcrelator\">ctb</roleTerm></role></name><name type=\"personal\"><namePart type=\"family\">Lieberman</namePart><namePart type=\"given\">Joseph I.</namePart><role><roleTerm type=\"code\" authority=\"marcrelator\">ctb</roleTerm></role></name><name type=\"personal\"><namePart type=\"family\">Thune</namePart><namePart type=\"given\">John</namePart><role><roleTerm type=\"code\" authority=\"marcrelator\">ctb</roleTerm></role></name><name type=\"personal\"><namePart type=\"family\">Burr</namePart><namePart type=\"given\">Richard</namePart><role><roleTerm type=\"code\" authority=\"marcrelator\">ctb</roleTerm></role></name><name type=\"personal\"><namePart type=\"family\">Collins</namePart><namePart type=\"given\">Susan M.</namePart><role><roleTerm type=\"code\" authority=\"marcrelator\">ctb</roleTerm></role></name><name type=\"personal\"><namePart type=\"family\">Sessions</namePart><namePart type=\"given\">Jeff</namePart><role><roleTerm type=\"code\" authority=\"marcrelator\">ctb</roleTerm></role></name><name type=\"personal\"><namePart type=\"family\">Bayh</namePart><namePart type=\"given\">Evan</namePart><role><roleTerm type=\"code\" authority=\"marcrelator\">ctb</roleTerm></role></name><name type=\"personal\"><namePart type=\"family\">Udall</namePart><namePart type=\"given\">Mark</namePart><role><roleTerm type=\"code\" authority=\"marcrelator\">ctb</roleTerm></role></name><name type=\"personal\"><namePart type=\"family\">Vitter</namePart><namePart type=\"given\">David</namePart><role><roleTerm type=\"code\" authority=\"marcrelator\">ctb</roleTerm></role></name><name type=\"personal\"><namePart type=\"family\">McCaskill</namePart><namePart type=\"given\">Claire</namePart><role><roleTerm type=\"code\" authority=\"marcrelator\">ctb</roleTerm></role></name><name type=\"personal\"><namePart type=\"family\">Webb</namePart><namePart type=\"given\">Jim</namePart><role><roleTerm type=\"code\" authority=\"marcrelator\">ctb</roleTerm></role></name><name type=\"personal\"><namePart type=\"family\">Chambliss</namePart><namePart type=\"given\">Saxby</namePart><role><roleTerm type=\"code\" authority=\"marcrelator\">ctb</roleTerm></role></name><name type=\"personal\"><namePart type=\"family\">Begich</namePart><namePart type=\"given\">Mark</namePart><role><roleTerm type=\"code\" authority=\"marcrelator\">ctb</roleTerm></role></name><name type=\"personal\"><namePart type=\"family\">Hagan</namePart><namePart type=\"given\">Kay R.</namePart><role><roleTerm type=\"code\" authority=\"marcrelator\">ctb</roleTerm></role></name><name type=\"personal\"><namePart type=\"family\">Burris</namePart><namePart type=\"given\">Roland</namePart><role><roleTerm type=\"code\" authority=\"marcrelator\">ctb</roleTerm></role></name><name type=\"personal\"><namePart type=\"family\">LeMieux</namePart><namePart type=\"given\">George S.</namePart><role><roleTerm type=\"code\" authority=\"marcrelator\">ctb</roleTerm></role></name><name type=\"personal\"><namePart type=\"family\">Graham</namePart><namePart type=\"given\">Lindsey</namePart><role><roleTerm type=\"code\" authority=\"marcrelator\">ctb</roleTerm></role></name><name type=\"personal\"><namePart type=\"family\">Inhofe</namePart><namePart type=\"given\">James M.</namePart><role><roleTerm type=\"code\" authority=\"marcrelator\">ctb</roleTerm></role></name><name type=\"personal\"><namePart type=\"family\">McCain</namePart><namePart type=\"given\">John</namePart><role><roleTerm type=\"code\" authority=\"marcrelator\">ctb</roleTerm></role></name><name type=\"personal\"><namePart type=\"family\">Akaka</namePart><namePart type=\"given\">Daniel K.</namePart><role><roleTerm type=\"code\" authority=\"marcrelator\">ctb</roleTerm></role></name><name type=\"personal\"><namePart type=\"family\">Nelson</namePart><namePart type=\"given\">Bill</namePart><role><roleTerm type=\"code\" authority=\"marcrelator\">ctb</roleTerm></role></name><name type=\"personal\"><namePart type=\"family\">Reed</namePart><namePart type=\"given\">Jack</namePart><role><roleTerm type=\"code\" authority=\"marcrelator\">ctb</roleTerm></role></name><accessCondition>fdlp</accessCondition><originInfo><publisher>U.S. Government Publishing Office</publisher><dateCreated>2009-12-02</dateCreated><issuance>monographic</issuance></originInfo><location><url usage=\"primary display\">https://www.govinfo.gov/app/details/CHRG-111shrg56419</url></location><language><languageTerm type=\"text\">eng</languageTerm></language></mods></modsCollection>"
+		},
+		"reimport": {
+			"status": 200,
+			"translatorID": "0e2235e7-babf-413c-9acf-f27cce5f059c",
+			"items": [
+				{
+					"key": "KVN22222",
+					"version": 0,
+					"itemType": "hearing",
+					"creators": [
+						{
+							"name": "United States: Congress: Senate",
+							"creatorType": "contributor"
+						},
+						{
+							"name": "United States: Congress: Senate: Committee on Armed Services",
+							"creatorType": "contributor"
+						},
+						{
+							"firstName": "Roger F.",
+							"lastName": "Wicker",
+							"creatorType": "contributor"
+						},
+						{
+							"firstName": "Robert C.",
+							"lastName": "Byrd",
+							"creatorType": "contributor"
+						},
+						{
+							"firstName": "Carl",
+							"lastName": "Levin",
+							"creatorType": "contributor"
+						},
+						{
+							"firstName": "Joseph I.",
+							"lastName": "Lieberman",
+							"creatorType": "contributor"
+						},
+						{
+							"firstName": "John",
+							"lastName": "Thune",
+							"creatorType": "contributor"
+						},
+						{
+							"firstName": "Richard",
+							"lastName": "Burr",
+							"creatorType": "contributor"
+						},
+						{
+							"firstName": "Susan M.",
+							"lastName": "Collins",
+							"creatorType": "contributor"
+						},
+						{
+							"firstName": "Jeff",
+							"lastName": "Sessions",
+							"creatorType": "contributor"
+						},
+						{
+							"firstName": "Evan",
+							"lastName": "Bayh",
+							"creatorType": "contributor"
+						},
+						{
+							"firstName": "Mark",
+							"lastName": "Udall",
+							"creatorType": "contributor"
+						},
+						{
+							"firstName": "David",
+							"lastName": "Vitter",
+							"creatorType": "contributor"
+						},
+						{
+							"firstName": "Claire",
+							"lastName": "McCaskill",
+							"creatorType": "contributor"
+						},
+						{
+							"firstName": "Jim",
+							"lastName": "Webb",
+							"creatorType": "contributor"
+						},
+						{
+							"firstName": "Saxby",
+							"lastName": "Chambliss",
+							"creatorType": "contributor"
+						},
+						{
+							"firstName": "Mark",
+							"lastName": "Begich",
+							"creatorType": "contributor"
+						},
+						{
+							"firstName": "Kay R.",
+							"lastName": "Hagan",
+							"creatorType": "contributor"
+						},
+						{
+							"firstName": "Roland",
+							"lastName": "Burris",
+							"creatorType": "contributor"
+						},
+						{
+							"firstName": "George S.",
+							"lastName": "LeMieux",
+							"creatorType": "contributor"
+						},
+						{
+							"firstName": "Lindsey",
+							"lastName": "Graham",
+							"creatorType": "contributor"
+						},
+						{
+							"firstName": "James M.",
+							"lastName": "Inhofe",
+							"creatorType": "contributor"
+						},
+						{
+							"firstName": "John",
+							"lastName": "McCain",
+							"creatorType": "contributor"
+						},
+						{
+							"firstName": "Daniel K.",
+							"lastName": "Akaka",
+							"creatorType": "contributor"
+						},
+						{
+							"firstName": "Bill",
+							"lastName": "Nelson",
+							"creatorType": "contributor"
+						},
+						{
+							"firstName": "Jack",
+							"lastName": "Reed",
+							"creatorType": "contributor"
+						}
+					],
+					"tags": [],
+					"title": "AFGHANISTAN",
+					"rights": "fdlp",
+					"publisher": "U.S. Government Publishing Office",
+					"date": "2009-12-02",
+					"url": "https://www.govinfo.gov/app/details/CHRG-111shrg56419",
+					"language": "eng"
+				}
+			]
+		}
+	},
+	"testCase21": {
+		"export": {
+			"status": 200,
+			"output": "<?xml version=\"1.0\"?>\n<modsCollection xmlns=\"http://www.loc.gov/mods/v3\" xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\" xsi:schemaLocation=\"http://www.loc.gov/mods/v3 http://www.loc.gov/standards/mods/v3/mods-3-2.xsd\"><mods><titleInfo><title>Unclassified Version of the Report of the Commission on the Intelligence Capabilities of the United States Regarding Weapons of Mass Destruction</title></titleInfo><typeOfResource>text</typeOfResource><genre authority=\"local\">document</genre><name type=\"corporate\"><namePart>United States: Commission on the Intelligence Capabilities of the United States Regarding Weapons of Mass Destruction</namePart><role><roleTerm type=\"code\" authority=\"marcrelator\">aut</roleTerm></role></name><name type=\"corporate\"><namePart>United States: Commission on the Intelligence Capabilities of the United States Regarding Weapons of Mass Destruction</namePart><role><roleTerm type=\"code\" authority=\"marcrelator\">aut</roleTerm></role></name><accessCondition>fdlp</accessCondition><originInfo><publisher>Commission on the Intelligence Capabilities of the United States Regarding Weapons of Mass Destruction</publisher><dateCreated>2005-03-31</dateCreated><issuance>monographic</issuance></originInfo><classification>PREX 1.19:IN 8/W 37</classification><location><url usage=\"primary display\">https://www.govinfo.gov/app/details/GPO-WMD</url></location><abstract>The Commission on the Intelligence Capabilities of the United States Regarding Weapons of Mass Destruction was established in 2004 and charged with examining the capabilities and challenges of the American intelligence community concerning the capabilities, intentions, and activities of foreign powers relating to the design, development, manufacture, acquisition, possession, proliferation, transfer, testing, potential or threatened use, or use of weapons of mass destruction, related means of delivery, and other related threats of the 21st Century.</abstract><language><languageTerm type=\"text\">eng</languageTerm></language></mods></modsCollection>"
+		},
+		"reimport": {
+			"status": 200,
+			"translatorID": "0e2235e7-babf-413c-9acf-f27cce5f059c",
+			"items": [
+				{
+					"key": "KVN22222",
+					"version": 0,
+					"itemType": "document",
+					"creators": [
+						{
+							"name": "United States: Commission on the Intelligence Capabilities of the United States Regarding Weapons of Mass Destruction",
+							"creatorType": "author"
+						},
+						{
+							"name": "United States: Commission on the Intelligence Capabilities of the United States Regarding Weapons of Mass Destruction",
+							"creatorType": "author"
+						}
+					],
+					"tags": [],
+					"title": "Unclassified Version of the Report of the Commission on the Intelligence Capabilities of the United States Regarding Weapons of Mass Destruction",
+					"rights": "fdlp",
+					"publisher": "Commission on the Intelligence Capabilities of the United States Regarding Weapons of Mass Destruction",
+					"date": "2005-03-31",
+					"callNumber": "PREX 1.19:IN 8/W 37",
+					"url": "https://www.govinfo.gov/app/details/GPO-WMD",
+					"abstractNote": "The Commission on the Intelligence Capabilities of the United States Regarding Weapons of Mass Destruction was established in 2004 and charged with examining the capabilities and challenges of the American intelligence community concerning the capabilities, intentions, and activities of foreign powers relating to the design, development, manufacture, acquisition, possession, proliferation, transfer, testing, potential or threatened use, or use of weapons of mass destruction, related means of delivery, and other related threats of the 21st Century.",
+					"language": "eng"
+				}
+			]
+		}
+	},
+	"testCase22": {
+		"export": {
+			"status": 200,
+			"output": "<?xml version=\"1.0\"?>\n<modsCollection xmlns=\"http://www.loc.gov/mods/v3\" xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\" xsi:schemaLocation=\"http://www.loc.gov/mods/v3 http://www.loc.gov/standards/mods/v3/mods-3-2.xsd\"><mods><titleInfo><title>Advancing Uniform Transportation Opportunities for Veterans Act</title></titleInfo><typeOfResource>text</typeOfResource><genre authority=\"local\">bill</genre><genre authority=\"marcgt\">legislation</genre><accessCondition>fdlp</accessCondition><part><detail type=\"volume\"><number>38</number></detail><extent unit=\"pages\"><list>1701, 3729, 3903</list></extent></part><originInfo><dateCreated>2022-10-11</dateCreated><issuance>monographic</issuance></originInfo><location><url usage=\"primary display\">https://www.govinfo.gov/app/details/BILLS-117hr3304rfs</url></location><language><languageTerm type=\"text\">eng</languageTerm></language></mods></modsCollection>"
+		},
+		"reimport": {
+			"status": 200,
+			"translatorID": "0e2235e7-babf-413c-9acf-f27cce5f059c",
+			"items": [
+				{
+					"key": "KVN22222",
+					"version": 0,
+					"itemType": "bill",
+					"creators": [],
+					"tags": [],
+					"title": "Advancing Uniform Transportation Opportunities for Veterans Act",
+					"rights": "fdlp",
+					"codeVolume": "38",
+					"date": "2022-10-11",
+					"url": "https://www.govinfo.gov/app/details/BILLS-117hr3304rfs",
+					"language": "eng"
+				}
+			]
+		}
+	}
+}

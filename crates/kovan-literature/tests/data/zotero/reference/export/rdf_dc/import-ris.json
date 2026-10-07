@@ -1,11 +1,11 @@
 {
 	"testCase00": {
 		"status": 200,
-		"output": "<rdf:RDF\n xmlns:rdf=\"http://www.w3.org/1999/02/22-rdf-syntax-ns#\"\n xmlns:dc=\"http://purl.org/dc/elements/1.1/\">\n    <rdf:Description rdf:nodeID=\"n24408\">\n        <dc:title>Blood-brain barrier breach following cortical contusion in the rat</dc:title>\n        <dc:type>journalArticle</dc:type>\n        <dc:creator>Baldwin, S.A.</dc:creator>\n        <dc:creator>Fugaccia, I.</dc:creator>\n        <dc:creator>Brown, D.R.</dc:creator>\n        <dc:creator>Brown, L.V.</dc:creator>\n        <dc:creator>Scheff, S.W.</dc:creator>\n        <dc:date>1996</dc:date>\n    </rdf:Description>\n</rdf:RDF>\n"
+		"output": "<rdf:RDF\n xmlns:rdf=\"http://www.w3.org/1999/02/22-rdf-syntax-ns#\"\n xmlns:dc=\"http://purl.org/dc/elements/1.1/\">\n    <rdf:Description rdf:nodeID=\"n42202\">\n        <dc:title>Blood-brain barrier breach following cortical contusion in the rat</dc:title>\n        <dc:type>journalArticle</dc:type>\n        <dc:creator>Baldwin, S.A.</dc:creator>\n        <dc:creator>Fugaccia, I.</dc:creator>\n        <dc:creator>Brown, D.R.</dc:creator>\n        <dc:creator>Brown, L.V.</dc:creator>\n        <dc:creator>Scheff, S.W.</dc:creator>\n        <dc:date>1996</dc:date>\n    </rdf:Description>\n</rdf:RDF>\n"
 	},
 	"testCase01": {
 		"status": 200,
-		"output": "<rdf:RDF\n xmlns:rdf=\"http://www.w3.org/1999/02/22-rdf-syntax-ns#\"\n xmlns:dc=\"http://purl.org/dc/elements/1.1/\">\n    <rdf:Description rdf:nodeID=\"n24412\">\n        <dc:title>Method of detecting AIDS virus infection</dc:title>\n        <dc:type>patent</dc:type>\n        <dc:contributor>Burger, D.R.</dc:contributor>\n        <dc:contributor>Goldstein, A.S.</dc:contributor>\n        <dc:date>1990-02-27</dc:date>\n    </rdf:Description>\n</rdf:RDF>\n"
+		"output": "<rdf:RDF\n xmlns:rdf=\"http://www.w3.org/1999/02/22-rdf-syntax-ns#\"\n xmlns:dc=\"http://purl.org/dc/elements/1.1/\">\n    <rdf:Description rdf:nodeID=\"n42206\">\n        <dc:title>Method of detecting AIDS virus infection</dc:title>\n        <dc:type>patent</dc:type>\n        <dc:contributor>Burger, D.R.</dc:contributor>\n        <dc:contributor>Goldstein, A.S.</dc:contributor>\n        <dc:date>1990-02-27</dc:date>\n    </rdf:Description>\n</rdf:RDF>\n"
 	},
 	"testCase02": {
 		"status": 200,
@@ -29,15 +29,15 @@
 	},
 	"testCase07": {
 		"status": 200,
-		"output": "<rdf:RDF\n xmlns:rdf=\"http://www.w3.org/1999/02/22-rdf-syntax-ns#\"\n xmlns:dc=\"http://purl.org/dc/elements/1.1/\">\n    <rdf:Description rdf:nodeID=\"n24416\">\n        <dc:title>Deprecated tag test</dc:title>\n        <dc:type>journalArticle</dc:type>\n        <dc:date>1950-01-01</dc:date>\n    </rdf:Description>\n</rdf:RDF>\n"
+		"output": "<rdf:RDF\n xmlns:rdf=\"http://www.w3.org/1999/02/22-rdf-syntax-ns#\"\n xmlns:dc=\"http://purl.org/dc/elements/1.1/\">\n    <rdf:Description rdf:nodeID=\"n42210\">\n        <dc:title>Deprecated tag test</dc:title>\n        <dc:type>journalArticle</dc:type>\n        <dc:date>1950-01-01</dc:date>\n    </rdf:Description>\n</rdf:RDF>\n"
 	},
 	"testCase08": {
 		"status": 200,
-		"output": "<rdf:RDF\n xmlns:rdf=\"http://www.w3.org/1999/02/22-rdf-syntax-ns#\"\n xmlns:dc=\"http://purl.org/dc/elements/1.1/\">\n    <rdf:Description rdf:nodeID=\"n24420\">\n        <dc:title>Mixed author tags</dc:title>\n        <dc:type>journalArticle</dc:type>\n        <dc:creator>Georgiev, Danko</dc:creator>\n        <dc:creator>Bello, Leon</dc:creator>\n        <dc:creator>Carmi, Avishy</dc:creator>\n        <dc:creator>Cohen, Eliahu</dc:creator>\n    </rdf:Description>\n</rdf:RDF>\n"
+		"output": "<rdf:RDF\n xmlns:rdf=\"http://www.w3.org/1999/02/22-rdf-syntax-ns#\"\n xmlns:dc=\"http://purl.org/dc/elements/1.1/\">\n    <rdf:Description rdf:nodeID=\"n42214\">\n        <dc:title>Mixed author tags</dc:title>\n        <dc:type>journalArticle</dc:type>\n        <dc:creator>Georgiev, Danko</dc:creator>\n        <dc:creator>Bello, Leon</dc:creator>\n        <dc:creator>Carmi, Avishy</dc:creator>\n        <dc:creator>Cohen, Eliahu</dc:creator>\n    </rdf:Description>\n</rdf:RDF>\n"
 	},
 	"testCase09": {
 		"status": 200,
-		"output": "<rdf:RDF\n xmlns:rdf=\"http://www.w3.org/1999/02/22-rdf-syntax-ns#\"\n xmlns:dc=\"http://purl.org/dc/elements/1.1/\">\n    <rdf:Description rdf:nodeID=\"n24424\">\n        <dc:title>Using focus groups to adapt ethnically appropriate, information-seeking and recruitment messages for a prostate cancer screening program for men at high risk</dc:title>\n        <dc:type>journalArticle</dc:type>\n        <dc:creator>Bryan, C.J.</dc:creator>\n        <dc:creator>Wetmore-Arkader, L.</dc:creator>\n        <dc:creator>Calvano, T.</dc:creator>\n        <dc:creator>Deatrick, J.A.</dc:creator>\n        <dc:creator>Giri, V.N.</dc:creator>\n        <dc:creator>Bruner, D.W.</dc:creator>\n        <dc:date>2008</dc:date>\n        <dc:identifier>DOI 10.1016/S0027-9684(15)31340-7</dc:identifier>\n    </rdf:Description>\n    <rdf:Description rdf:nodeID=\"n24425\">\n       <dc:type>journalArticle</dc:type>\n    </rdf:Description>\n</rdf:RDF>\n"
+		"output": "<rdf:RDF\n xmlns:rdf=\"http://www.w3.org/1999/02/22-rdf-syntax-ns#\"\n xmlns:dc=\"http://purl.org/dc/elements/1.1/\">\n    <rdf:Description rdf:nodeID=\"n42218\">\n        <dc:title>Using focus groups to adapt ethnically appropriate, information-seeking and recruitment messages for a prostate cancer screening program for men at high risk</dc:title>\n        <dc:type>journalArticle</dc:type>\n        <dc:creator>Bryan, C.J.</dc:creator>\n        <dc:creator>Wetmore-Arkader, L.</dc:creator>\n        <dc:creator>Calvano, T.</dc:creator>\n        <dc:creator>Deatrick, J.A.</dc:creator>\n        <dc:creator>Giri, V.N.</dc:creator>\n        <dc:creator>Bruner, D.W.</dc:creator>\n        <dc:date>2008</dc:date>\n        <dc:identifier>DOI 10.1016/S0027-9684(15)31340-7</dc:identifier>\n    </rdf:Description>\n    <rdf:Description rdf:nodeID=\"n42219\">\n       <dc:type>journalArticle</dc:type>\n    </rdf:Description>\n</rdf:RDF>\n"
 	},
 	"testCase10": {
 		"status": 200,
@@ -45,11 +45,11 @@
 	},
 	"testCase11": {
 		"status": 200,
-		"output": "<rdf:RDF\n xmlns:rdf=\"http://www.w3.org/1999/02/22-rdf-syntax-ns#\"\n xmlns:dc=\"http://purl.org/dc/elements/1.1/\">\n    <rdf:Description rdf:nodeID=\"n24432\">\n        <dc:title>Citavi Item</dc:title>\n        <dc:type>journalArticle</dc:type>\n        <dc:identifier>Call Number</dc:identifier>\n    </rdf:Description>\n</rdf:RDF>\n"
+		"output": "<rdf:RDF\n xmlns:rdf=\"http://www.w3.org/1999/02/22-rdf-syntax-ns#\"\n xmlns:dc=\"http://purl.org/dc/elements/1.1/\">\n    <rdf:Description rdf:nodeID=\"n42226\">\n        <dc:title>Citavi Item</dc:title>\n        <dc:type>journalArticle</dc:type>\n        <dc:identifier>Call Number</dc:identifier>\n    </rdf:Description>\n</rdf:RDF>\n"
 	},
 	"book_and_child_note": {
 		"status": 200,
-		"output": "<rdf:RDF\n xmlns:rdf=\"http://www.w3.org/1999/02/22-rdf-syntax-ns#\"\n xmlns:dc=\"http://purl.org/dc/elements/1.1/\">\n    <rdf:Description rdf:nodeID=\"n24436\">\n       <dc:title>Parent</dc:title><dc:type>book</dc:type>\n    </rdf:Description>\n</rdf:RDF>\n"
+		"output": "<rdf:RDF\n xmlns:rdf=\"http://www.w3.org/1999/02/22-rdf-syntax-ns#\"\n xmlns:dc=\"http://purl.org/dc/elements/1.1/\">\n    <rdf:Description rdf:nodeID=\"n42230\">\n       <dc:title>Parent</dc:title><dc:type>book</dc:type>\n    </rdf:Description>\n</rdf:RDF>\n"
 	},
 	"dates_and_entities": {
 		"status": 200,

@@ -11,9 +11,8 @@
 //! |---|---|
 //! | [`framework`] | the translation framework (Zotero's translate API) the translators run in (#749) |
 //! | [`translators`] | the import/export translators (#749), verified code-to-code against a running Zotero translation-server (#752; see `tests/zotero_translators.rs` and `scripts/zotero-reference.sh`) |
-//! | `local_library` | read a Zotero data folder (`zotero.sqlite` + `storage/`) and import it into kovan (#750). Native desktop only for now: not compiled for wasm32 or Android (being made pure Rust, #750). |
+//! | [`local_library`] | read a Zotero data folder (`zotero.sqlite` + `storage/`), or its database from bytes, and import it into kovan (#750). Pure Rust; every target, wasm32 and Android included (since 2026-10-07; before, native desktop only). |
 
 pub mod framework;
-#[cfg(not(any(target_arch = "wasm32", target_os = "android")))]
 pub mod local_library;
 pub mod translators;

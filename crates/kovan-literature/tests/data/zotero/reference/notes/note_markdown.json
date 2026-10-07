@@ -1,0 +1,52 @@
+{
+	"all": {
+		"status": 200,
+		"output": "Plain note with **bold**, *italic*, [a link](https://example.org/?a=1&b=2) & an entity <tag> and a non-breaking space.\n\n---\n\n# Heading one\n\n## Heading *two*\n\nFirst paragraph.\n\n> Quoted one.\n> \n> Quoted two.\n\n- bullet\n    \n- second\n    \n    - nested\n        \n\n3. three\n    \n4. four\n    \n\n```\ncode\n  block <x>\n```\n\n    Indented paragraph  \n    second line\n\n        Twice indented\n\n~struck~ and `inline*code` with \\* star, _under_, # hash and \\`tick\\`.\n\n* * *\n\n| A | B |\n| --- | --- |\n| 1 | 2 |\n\n\\- not a list  \n1\\. not numbered  \n\\> not a quote\n\n---\n\n“highlighted text” ([Lovelace, 1843, p. 5](zotero://select/library/items/ITEM0001)) ([pdf](zotero://open-pdf/library/items/ATTACH01?page=5&annotation=ANNOT001)) comment\n\n“underlined” ([snapshot](zotero://open-pdf/groups/12345/items/ATTACH02?sel=div%20%3E%20p%3Anth-child(2)&annotation=ANNOT002))\n\n“epub text” ([epub](zotero://open-pdf/library/items/ATTACH03?cfi=epubcfi(%2F6%2F4!%2F4%2F2%2F1%3A0)))\n\n([Babbage, 1830](zotero://select/groups/12345/items/ITEM0002); [Hopper, 1952](zotero://select/library/items/ITEM0003))\n\n ([pdf](zotero://open-pdf/library/items/ATTACH01?page=1&annotation=ANNOT004))\n\n[image]\n\n“broken annotation”\n\n---\n\nInline $x^2$ math.\n\n$$E = mc^2$$\n\n---\n\n### Three\n\n###### Six\n\n<table><tbody><tr><td>no</td><td>heading</td></tr></tbody></table>\n\n| L | C | R |\n| :-- | :-: | --: |\n| a | b | c |\n\n- [x]  done\n- [ ]  todo\n\n```rust\nfn main() {}\n```\n\n``a`b`` `spaced` ` ``x`` `\n\n````\n```inner```\n````\n\n[titled](https://example.org/t \"A\ntitle\") ![alt\ntext](https://example.org/i.png \"T\") no href **bold** *spaced italic* end\n\n7. seven\n8. eight\n    1. nested one\n\nlots of spaces\n\n> a\n> \n> > nested\n\n~del~ ~strike~ ~s~\n\n\\= equals  \n\\+ plus  \n\\## hashes  \n\\~~~ tildes  \n[brackets] and _under_ \\back\n\n---\n\nred text\n\nafter break\n\nodd indent\n\n---\n\nAttachment note.",
+		"via": "in-process (zotero-reference.mjs inProcessExport)"
+	},
+	"NOTE0001": {
+		"status": 200,
+		"output": "Plain note with **bold**, *italic*, [a link](https://example.org/?a=1&b=2) & an entity <tag> and a non-breaking space.",
+		"via": "in-process (zotero-reference.mjs inProcessExport)"
+	},
+	"NOTE0002": {
+		"status": 200,
+		"output": "# Heading one\n\n## Heading *two*\n\nFirst paragraph.\n\n> Quoted one.\n> \n> Quoted two.\n\n- bullet\n    \n- second\n    \n    - nested\n        \n\n3. three\n    \n4. four\n    \n\n```\ncode\n  block <x>\n```\n\n    Indented paragraph  \n    second line\n\n        Twice indented\n\n~struck~ and `inline*code` with \\* star, _under_, # hash and \\`tick\\`.\n\n* * *\n\n| A | B |\n| --- | --- |\n| 1 | 2 |\n\n\\- not a list  \n1\\. not numbered  \n\\> not a quote",
+		"via": "in-process (zotero-reference.mjs inProcessExport)"
+	},
+	"NOTE0003": {
+		"status": 200,
+		"output": "“highlighted text” ([Lovelace, 1843, p. 5](zotero://select/library/items/ITEM0001)) ([pdf](zotero://open-pdf/library/items/ATTACH01?page=5&annotation=ANNOT001)) comment\n\n“underlined” ([snapshot](zotero://open-pdf/groups/12345/items/ATTACH02?sel=div%20%3E%20p%3Anth-child(2)&annotation=ANNOT002))\n\n“epub text” ([epub](zotero://open-pdf/library/items/ATTACH03?cfi=epubcfi(%2F6%2F4!%2F4%2F2%2F1%3A0)))\n\n([Babbage, 1830](zotero://select/groups/12345/items/ITEM0002); [Hopper, 1952](zotero://select/library/items/ITEM0003))\n\n ([pdf](zotero://open-pdf/library/items/ATTACH01?page=1&annotation=ANNOT004))\n\n[image]\n\n“broken annotation”",
+		"via": "in-process (zotero-reference.mjs inProcessExport)"
+	},
+	"NOTE0004": {
+		"status": 200,
+		"output": "Inline $x^2$ math.\n\n$$E = mc^2$$",
+		"via": "in-process (zotero-reference.mjs inProcessExport)"
+	},
+	"NOTE0005": {
+		"status": 200,
+		"output": "",
+		"via": "in-process (zotero-reference.mjs inProcessExport)"
+	},
+	"NOTE0006": {
+		"status": 200,
+		"output": "### Three\n\n###### Six\n\n<table><tbody><tr><td>no</td><td>heading</td></tr></tbody></table>\n\n| L | C | R |\n| :-- | :-: | --: |\n| a | b | c |\n\n- [x]  done\n- [ ]  todo\n\n```rust\nfn main() {}\n```\n\n``a`b`` `spaced` ` ``x`` `\n\n````\n```inner```\n````\n\n[titled](https://example.org/t \"A\ntitle\") ![alt\ntext](https://example.org/i.png \"T\") no href **bold** *spaced italic* end\n\n7. seven\n8. eight\n    1. nested one\n\nlots of spaces\n\n> a\n> \n> > nested\n\n~del~ ~strike~ ~s~\n\n\\= equals  \n\\+ plus  \n\\## hashes  \n\\~~~ tildes  \n[brackets] and _under_ \\back",
+		"via": "in-process (zotero-reference.mjs inProcessExport)"
+	},
+	"NOTE0007": {
+		"status": 200,
+		"output": "red text\n\nafter break\n\nodd indent",
+		"via": "in-process (zotero-reference.mjs inProcessExport)"
+	},
+	"ATTN0001": {
+		"status": 200,
+		"output": "Attachment note.",
+		"via": "in-process (zotero-reference.mjs inProcessExport)"
+	},
+	"BOOK0001": {
+		"status": 200,
+		"output": "",
+		"via": "in-process (zotero-reference.mjs inProcessExport)"
+	}
+}

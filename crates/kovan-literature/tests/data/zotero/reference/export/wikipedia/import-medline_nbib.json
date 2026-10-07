@@ -1,0 +1,38 @@
+{
+	"testCase00": {
+		"status": 200,
+		"output": "{{Cite journal| last = Mouse| first = Mickey| title = Mickey Mouse had an O-some day!| pmid = 000000000000}}"
+	},
+	"testCase01": {
+		"status": 200,
+		"output": "{{Cite journal| issn = 0027-8424| volume = 93| issue = 14| pages = 6913–6917| last1 = van Raaij| first1 = M. J.| last2 = Abrahams| first2 = J. P.| last3 = Leslie| first3 = A. G.| last4 = Walker| first4 = J. E.| title = The structure of bovine F1-ATPase complexed with the antibiotic inhibitor aurovertin B.| journal = Proceedings of the National Academy of Sciences of the United States of America| location = UNITED STATES| date = 1996-07-09| pmid = 8692918| pmc = PMC38908}}\r\n{{Cite book| publisher = National Center for Biotechnology Information (US)| editors = Douglas L. Riegert-Johnson, Lisa A. Boardman, Timothy Hefferon, Maegan Roberts (eds.)| last1 = Riegert-Johnson| first1 = Douglas| last2 = Gleeson| first2 = Ferga C.| last3 = Westra| first3 = Wytske| last4 = Hefferon| first4 = Timothy| last5 = Wong Kee Song| first5 = Louis M.| last6 = Spurck| first6 = Lauren| last7 = Boardman| first7 = Lisa A.| title = Cancer Syndromes| chapter = Peutz-Jeghers Syndrome| location = Bethesda (MD)| date = 2009| pmid = 21249755}}"
+	},
+	"testCase02": {
+		"status": 200,
+		"output": "{{Cite journal| issn = 0092-8674| volume = 75| issue = 1| pages = 25–36| last1 = Gout| first1 = I.| last2 = Dhand| first2 = R.| last3 = Hiles| first3 = I. D.| last4 = Fry| first4 = M. J.| last5 = Panayotou| first5 = G.| last6 = Das| first6 = P.| last7 = Truong| first7 = O.| last8 = Totty| first8 = N. F.| last9 = Hsuan| first9 = J.| last10 = Booker| first10 = G. W.| title = The GTPase dynamin binds to and is activated by a subset of SH3 domains.| journal = Cell| location = UNITED STATES| date = 1993-10-08| pmid = 8402898}}"
+	},
+	"testCase03": {
+		"status": 200,
+		"output": "{{Cite journal| doi = 10.1016/j.puhe.2015.01.018| issn = 1476-5616 0033-3506| volume = 129| issue = 5| pages = 475–482| last = Fujiwara| first = T.| title = Effectiveness of public health practices against shaken baby syndrome/abusive head trauma in Japan.| journal = Public health| location = Netherlands| date = 2015-05| pmid = 25744111}}"
+	},
+	"testCase04": {
+		"status": 200,
+		"output": "{{Cite journal| issn = 2375-5636| volume = 21| issue = 1| pages = 12–24| last1 = van Groen| first1 = Maaike M.| last2 = Eggen| first2 = Theo J. H. M.| title = Educational Test Approaches: The Suitability of Computer-Based Test Types for Assessment and Evaluation in Formative and Summative Contexts| journal = Journal of Applied Testing Technology| date = 2020}}\r\n{{Cite journal| issn = 2229-0443| volume = 9| last1 = Zhou| first1 = Yujia| last2 = Yoshitomi| first2 = Asako| title = Test-Taker Perception of and Test Performance on Computer-Delivered Speaking Tests: The Mediational Role of Test-Taking Motivation| journal = Language Testing in Asia| date = 2019}}\r\n{{Cite conference| publisher = ACT, Inc.| last1 = Moore| first1 = Raeal| last2 = Sanchez| first2 = Edgar| last3 = San Pedro| first3 = Sweet| title = College Entrance Exams: How Does Test Preparation Affect Retest Scores? Research Report 2019-2| date = 2019}}"
+	},
+	"testCase05": {
+		"status": 200,
+		"output": "{{Cite journal| issn = 2641-9157| volume = 4| issue = 1| pages = 1042| last1 = Bith-Melander| first1 = Pollie| last2 = Ratliff| first2 = Jack| last3 = Poisson| first3 = Chelsey| last4 = Jindal| first4 = Charulata| last5 = Ming Choi| first5 = Yuk| last6 = Efird| first6 = Jimmy T.| title = Slow Burns: A Qualitative Study of Burn Pit and Toxic Exposures Among Military Veterans Serving in Afghanistan, Iraq and Throughout the Middle East.| journal = Annals of psychiatry and clinical neuroscience| date = 2021| pmid = 35128459| pmc = PMC8816568}}"
+	},
+	"testCase06": {
+		"status": 200,
+		"output": "{{Cite conference| publisher = OECD Publishing| title = Findings from the PISA for Development Field Trial of the School-Based Assessment. PISA for Development Brief 16| date = 2017}}\r\n{{Cite journal| issn = 1042-1629| volume = 67| issue = 2| pages = 423–441| last1 = Hulse| first1 = Taylyn| last2 = Daigle| first2 = Maria| last3 = Manzo| first3 = Daniel| last4 = Braith| first4 = Lindsay| last5 = Harrison| first5 = Avery| last6 = Ottmar| first6 = Erin| title = From Here to There! Elementary: A Game-Based Approach to Developing Number Sense and Early Algebraic Understanding| journal = Educational Technology Research and Development| date = 2019-04}}\r\n{{Cite conference| publisher = College Board| last1 = Di Giacomo| first1 = F. Tony| last2 = Fishbein| first2 = Bethany G.| last3 = Buckley| first3 = Vanessa W.| title = International Comparative Assessments: Broadening the Interpretability, Application and Relevance to the United States. Research in Review 2012-5| date = 2013}}\r\n{{Cite journal| volume = 21| issue = 2| pages = 98–101| last = Bernhardt| first = Barbara| title = A Test of the Test of Problem Solving (TOPS).| journal = Language, Speech, and Hearing Services in Schools| date = 1990-04}}"
+	},
+	"testCase07": {
+		"status": 200,
+		"output": "{{Cite paper| publisher = Drexel University| isbn = 9798209887621| last = Leipzig| first = Jeremy| title = Tests of Robustness in Peer Review| date = 2021}}\r\n{{Cite book| publisher = Brookes Publishing Company| isbn = 9781598571929| last = Test| first = David W.| date = 2012}}"
+	},
+	"testCase08": {
+		"status": 200,
+		"output": "{{Cite journal| doi = 10.1016/j.wem.2022.07.008| issn = 1545-1534 1080-6032| pages = –1080-6032(22)00139-9| last1 = Manoubi| first1 = Syrine Azza| last2 = Shimi| first2 = Maha| last3 = Gharbaoui| first3 = Meriem| last4 = Allouche| first4 = Mohamed| title = Lichtenberg Figures: How a Cutaneous Sign Can Solve Suspicious Death Cases.| journal = Wilderness & environmental medicine| location = United States| date = 2022-10-07| pmid = 36216673}}"
+	}
+}

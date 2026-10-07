@@ -43,20 +43,36 @@
 //! Zotero opens `zotero.sqlite` with `PRAGMA locking_mode=EXCLUSIVE` and, in
 //! this version, `journal_mode=WAL` (db.js:28-32, :1644-1653), so while Zotero
 //! runs no other SQLite connection can read it. **This reader never opens the
-//! file in the data folder at all.** It copies `zotero.sqlite` and, when they
-//! exist, its `-journal` and `-wal` files into a private temporary directory
-//! and opens the copy, which is how Zotero itself reads a database it does
+//! file in the data folder as a database at all.** ~~It copies
+//! `zotero.sqlite` and, when they exist, its `-journal` and `-wal` files into
+//! a private temporary directory and opens the copy~~ **CORRECTED
+//! 2026-10-07:** it reads the bytes of `zotero.sqlite` and, when they exist,
+//! of its `-wal` and `-journal` into memory ([`DatabaseFiles`]) and opens
+//! that in-memory copy, which is how Zotero itself reads a database it does
 //! not own (db.js:1871-1885 copies the database and its WAL to a temporary
-//! file before touching them). SQLite replays the copied WAL or rolls back the
-//! copied journal **in the private copy**; the connection is then set
-//! `PRAGMA query_only=ON`, and `PRAGMA quick_check` must report `ok`. If the
-//! copy fails that check (Zotero was mid-write while the bytes were copied),
+//! file before touching them). No temporary file is needed any more: the
+//! SQLite engine is `turso_core`, a pure-Rust rewrite of SQLite, which reads
+//! the files from memory (module `db`), so the same code runs on wasm32 in a
+//! browser, from files the user picks ([`read_database_files`]). The engine
+//! replays the copied WAL in memory (validating its salts and checksums and
+//! stopping at the last commit frame, as SQLite's wal.c does; checked
+//! against real SQLite in `format_tests`), and `PRAGMA quick_check` must
+//! report `ok`. ~~SQLite rolls back the copied journal~~ **A hot rollback
+//! journal** (one SQLite would roll back first: non-empty, header not
+//! zeroed, pager.c `hasHotJournal`) **is refused** rather than rolled back:
+//! Zotero runs in WAL mode, so such a journal means an older or foreign
+//! writer was mid-transaction, and the reader falls back to the backup.
+//! If the copy fails (Zotero was mid-write while the bytes were copied),
 //! the reader falls back to `zotero.sqlite.bak`, Zotero's own periodic backup
 //! (db.js:1358, :2472), when [`ReadOptions::fall_back_to_backup`] is set
 //! (the default), and records which file it read in
 //! [`ZoteroDataFolder::source`]. [`DbSource::Backup`] reads the backup
-//! directly. The temporary copy is deleted when reading ends. Nothing is
-//! ever written to the data folder.
+//! directly. Whatever the engine writes while opening (a WAL checkpoint)
+//! stays in memory and is dropped. Nothing is ever written to the data
+//! folder.
+//!
+//! **Encoding.** A database in UTF-16 (`PRAGMA encoding`) is refused with an
+//! error (turso_core 0.8.2 reads UTF-8 only); Zotero's databases are UTF-8.
 //!
 //! With Zotero running, the copy is a best-effort snapshot (a write landing
 //! between copying the database and copying its WAL can still give a
@@ -144,10 +160,20 @@
 //!   in `prefs.js` of the Zotero profile), not stored in the data folder.
 //!
 //! **Maturity: AI draft (1).** Verified code-to-code against databases built
-//! from upstream's own schema files (`tests/zotero_local_library.rs`); not yet
-//! run on a real library by a human.
+//! from upstream's own schema files (`tests/zotero_local_library.rs`), and
+//! its SQLite layer against real SQLite on the file-format cases (overflow
+//! pages, deep B-trees, every serial type, freelists, WAL replay and
+//! damaged WALs, page sizes 1024-65536, auto-vacuum; `format_tests.rs`);
+//! not yet run on a real library by a human. Run on wasm32-unknown-unknown
+//! once (2026-10-07, Node via `wasm-bindgen-test-runner`, outside the
+//! repository): a Zotero database with its items only in the WAL read back
+//! identical to the native read; there is no committed wasm runtime test
+//! yet.
 
 mod containers;
+mod db;
+#[cfg(all(test, not(any(target_arch = "wasm32", target_os = "android"))))]
+mod format_tests;
 pub mod import;
 mod items;
 mod open;
@@ -169,10 +195,11 @@ pub const MAX_COMPATIBILITY: i64 = 9;
 /// Which database file to read.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum DbSource {
-    /// A private copy of `zotero.sqlite` (with its `-journal`/`-wal`).
+    /// A private (in-memory) copy of `zotero.sqlite` (with its `-wal`).
     #[default]
     LiveCopy,
-    /// A private copy of `zotero.sqlite.bak`, Zotero's own backup.
+    /// A private (in-memory) copy of `zotero.sqlite.bak`, Zotero's own
+    /// backup.
     Backup,
 }
 
@@ -394,9 +421,51 @@ impl std::fmt::Display for ZoteroDbError {
 
 impl std::error::Error for ZoteroDbError {}
 
-impl From<rusqlite::Error> for ZoteroDbError {
-    fn from(e: rusqlite::Error) -> Self {
-        ZoteroDbError::Sqlite(e.to_string())
+/// The database files of a Zotero data folder, as bytes: what the reader
+/// needs when there is no file system (a browser, where the user picks the
+/// files) or when the caller has the files already. [`read_data_folder`]
+/// builds one from a directory with [`DatabaseFiles::from_data_folder`].
+///
+/// `zotero.sqlite.bak` is not here: it is only read when the live database
+/// fails, so [`read_database_files`] takes it separately.
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct DatabaseFiles {
+    /// `zotero.sqlite`.
+    pub database: Option<Vec<u8>>,
+    /// `zotero.sqlite-wal`: committed transactions not yet checkpointed
+    /// into `zotero.sqlite`. Without it, recent changes are missing.
+    pub wal: Option<Vec<u8>>,
+    /// `zotero.sqlite-journal`: a hot rollback journal makes the live file
+    /// unreadable here (see the module docs, "Never touching the live
+    /// database").
+    pub journal: Option<Vec<u8>>,
+}
+
+fn read_if_file(path: &Path) -> Result<Option<Vec<u8>>, ZoteroDbError> {
+    if !path.is_file() {
+        return Ok(None);
+    }
+    std::fs::read(path)
+        .map(Some)
+        .map_err(|e| ZoteroDbError::Io {
+            path: path.to_path_buf(),
+            message: e.to_string(),
+        })
+}
+
+impl DatabaseFiles {
+    /// Read `zotero.sqlite`, `zotero.sqlite-wal` and `zotero.sqlite-journal`
+    /// of `data_dir` into memory (absent files stay `None`). The files are
+    /// only read; the `-shm` index is not needed (it is rebuilt from the
+    /// WAL, and Zotero keeps it in heap memory on Linux/Windows, db.js:1617).
+    pub fn from_data_folder(data_dir: &Path) -> Result<DatabaseFiles, ZoteroDbError> {
+        // The main file first, then its WAL (db.js:2099 moves `-journal`
+        // and `-wal` along with a database file).
+        Ok(DatabaseFiles {
+            database: read_if_file(&data_dir.join("zotero.sqlite"))?,
+            wal: read_if_file(&data_dir.join("zotero.sqlite-wal"))?,
+            journal: read_if_file(&data_dir.join("zotero.sqlite-journal"))?,
+        })
     }
 }
 
@@ -407,9 +476,46 @@ pub fn read_data_folder(
     data_dir: &Path,
     opts: &ReadOptions,
 ) -> Result<ZoteroDataFolder, ZoteroDbError> {
+    // A backup read directly needs no live files at all.
+    let files = match opts.source {
+        DbSource::LiveCopy => DatabaseFiles::from_data_folder(data_dir)?,
+        DbSource::Backup => DatabaseFiles::default(),
+    };
+    let bak = data_dir.join("zotero.sqlite.bak");
+    read_database_files(&files, || read_if_file(&bak), data_dir, opts)
+}
+
+/// Read a Zotero database from memory: the same read as
+/// [`read_data_folder`], for callers without a file system (wasm32 in a
+/// browser) or with the bytes already in hand. Works on every target.
+///
+/// * `files`: `zotero.sqlite` and its `-wal`/`-journal`.
+/// * `backup`: called only if `zotero.sqlite.bak` is needed (asked for with
+///   [`DbSource::Backup`], or the live database failed and
+///   [`ReadOptions::fall_back_to_backup`] is set); it returns `Ok(None)`
+///   when there is none, so `|| Ok(None)` means "no backup".
+/// * `data_dir`: where the data folder is (or was). Only used to build the
+///   paths of attachment files (`<data_dir>/storage/<KEY>/<file>`) and in
+///   messages; nothing is read from it.
+///
+/// ```
+/// use kovan_literature::zotero::local_library::{
+///     read_database_files, DatabaseFiles, ReadOptions, ZoteroDbError,
+/// };
+/// // Not a database: refused, and there is no backup to fall back to.
+/// let files = DatabaseFiles { database: Some(b"not sqlite".to_vec()), ..Default::default() };
+/// let read = read_database_files(&files, || Ok(None), "/zotero".as_ref(), &ReadOptions::default());
+/// assert!(matches!(read, Err(ZoteroDbError::Sqlite(_) | ZoteroDbError::Corrupt(_))));
+/// ```
+pub fn read_database_files(
+    files: &DatabaseFiles,
+    backup: impl FnOnce() -> Result<Option<Vec<u8>>, ZoteroDbError>,
+    data_dir: &Path,
+    opts: &ReadOptions,
+) -> Result<ZoteroDataFolder, ZoteroDbError> {
     let mut report = ReadReport::default();
-    let snap = open::open_snapshot(data_dir, opts, &mut report)?;
-    let conn = &snap.conn;
+    let snap = open::open_snapshot(files, backup, data_dir, opts, &mut report)?;
+    let conn = &snap.db;
     let schema = open::schema_versions(conn)?;
     if schema.userdata < MIN_USERDATA_VERSION {
         return Err(ZoteroDbError::TooOld {

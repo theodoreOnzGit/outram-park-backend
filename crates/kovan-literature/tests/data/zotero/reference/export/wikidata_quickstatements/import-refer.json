@@ -1,0 +1,22 @@
+{
+	"testCase00": {
+		"status": 200,
+		"output": "CREATE\nLAST\tP31\tQ13442814\nLAST\tDen\t\"journal article from 'JOURNAL OF MODERN INFORMATION' published in 2009\"\nLAST\tP953\t\"http://d.wanfangdata.com.cn/Periodical_xdqb200902027.aspx\"\nLAST\tP478\t\"29\"\nLAST\tP433\t\"2\"\nLAST\tP304\t\"94-98,93\"\nLAST\tP2093\t\"余敏\"\tP1545\t\"1\"\nLAST\tP2093\t\"朱江\"\tP1545\t\"2\"\nLAST\tP2093\t\"丁照蕾\"\tP1545\t\"3\"\nLAST\tP577\t+2009-00-00T00:00:00Z/9\nLAST\tLmul\t\"参考文献管理工具研究\"\nLAST\tLen\t\"参考文献管理工具研究\"\nLAST\tP1476\tund:\"参考文献管理工具研究\"\n",
+		"via": "in-process (zotero-reference.mjs inProcessExport)"
+	},
+	"testCase01": {
+		"status": 200,
+		"output": "CREATE\nLAST\tP31\tQ3331189\nLAST\tDen\t\"book published in 1982\"\nLAST\tP953\t\"https://urn.nb.no/URN:NBN:no-nb_digibok_2016062048105\"\nLAST\tP2093\t\"Italo Calvino\"\tP1545\t\"1\"\nLAST\tP577\t+1982-00-00T00:00:00Z/9\nLAST\tP957\t\"8203107354\"\nLAST\tLmul\t\"Usynlige byer\"\nLAST\tLen\t\"Usynlige byer\"\nLAST\tP1476\tund:\"Usynlige byer\"\n",
+		"via": "in-process (zotero-reference.mjs inProcessExport)"
+	},
+	"testCase02": {
+		"status": 200,
+		"output": "CREATE\nLAST\tP31\tQ3331189\nLAST\tDen\t\"book published in 1891\"\nLAST\tP2093\t\"W. H. Newman\"\tP1545\t\"1\"\nLAST\tP577\t+1891-00-00T00:00:00Z/9\nLAST\tLmul\t\"Corn\"\nLAST\tLen\t\"Corn\"\nLAST\tP1476\tund:\"Corn\"\n",
+		"via": "in-process (zotero-reference.mjs inProcessExport)"
+	},
+	"testCase03": {
+		"status": 200,
+		"output": "CREATE\nLAST\tP31\tQ30070318\nLAST\tDen\t\"audio recording published in 2021\"\nLAST\tP953\t\"https://diesseits.theopodcast.at/home\"\nLAST\tP577\t+2021-00-00T00:00:00Z/9\nLAST\tLmul\t\"Diesseits von Eden: der Podcast der katholischen Fakultäten Österreichs & Südtirols\"\nLAST\tLen\t\"Diesseits von Eden: der Podcast der katholischen Fakultäten Österreichs & Südtirols\"\nLAST\tP1476\tund:\"Diesseits von Eden: der Podcast der katholischen Fakultäten Österreichs & Südtirols\"\n",
+		"via": "in-process (zotero-reference.mjs inProcessExport)"
+	}
+}

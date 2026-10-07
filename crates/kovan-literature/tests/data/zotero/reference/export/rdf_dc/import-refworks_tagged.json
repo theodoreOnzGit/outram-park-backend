@@ -1,0 +1,18 @@
+{
+	"testCase00": {
+		"status": 200,
+		"output": "<rdf:RDF\n xmlns:rdf=\"http://www.w3.org/1999/02/22-rdf-syntax-ns#\"\n xmlns:dc=\"http://purl.org/dc/elements/1.1/\">\n    <rdf:Description rdf:about=\"urn:isbn:0727912771 (paperback)\">\n        <dc:title>Depression and coronary heart disease</dc:title>\n        <dc:type>bookSection</dc:type>\n        <dc:creator>Stansfeld, Stephen</dc:creator>\n        <dc:creator>Fuhrer, Rebecca</dc:creator>\n        <dc:contributor>Gulford, C.T.</dc:contributor>\n        <dc:publisher>BMJ Books</dc:publisher>\n        <dc:date>2002</dc:date>\n        <dc:identifier>ISBN 0727912771 (paperback)</dc:identifier>\n    </rdf:Description>\n</rdf:RDF>\n"
+	},
+	"testCase01": {
+		"status": 200,
+		"output": "<rdf:RDF\n xmlns:rdf=\"http://www.w3.org/1999/02/22-rdf-syntax-ns#\"\n xmlns:dc=\"http://purl.org/dc/elements/1.1/\">\n    <rdf:Description rdf:about=\"urn:isbn:0-599-73664-X\">\n        <dc:title>Effect of a case management intervention on symptoms of asthma in high risk children</dc:title>\n        <dc:type>thesis</dc:type>\n        <dc:creator>Catrambone, C.D.</dc:creator>\n        <dc:publisher>Rush University, College of Nursing</dc:publisher>\n        <dc:date>2000</dc:date>\n        <dc:identifier>ISBN 0-599-73664-X</dc:identifier>\n    </rdf:Description>\n</rdf:RDF>\n"
+	},
+	"testCase02": {
+		"status": 200,
+		"output": "<rdf:RDF\n xmlns:rdf=\"http://www.w3.org/1999/02/22-rdf-syntax-ns#\"\n xmlns:dc=\"http://purl.org/dc/elements/1.1/\">\n    <rdf:Description rdf:nodeID=\"n42250\">\n        <dc:title>Anger and anger expression in relation to perceptions of social rank, entrapment and depressive symptoms</dc:title>\n        <dc:type>journalArticle</dc:type>\n        <dc:creator>Allan, Steven</dc:creator>\n        <dc:creator>Gilbert, Paul</dc:creator>\n        <dc:publisher>Elsevier Science, England, [URL:http:// www.elsevier.nl]</dc:publisher>\n        <dc:date>Feb 2002</dc:date>\n        <dc:identifier>ISSN 0191-8869</dc:identifier>\n    </rdf:Description>\n</rdf:RDF>\n"
+	},
+	"testCase03": {
+		"status": 200,
+		"output": "<rdf:RDF\n xmlns:rdf=\"http://www.w3.org/1999/02/22-rdf-syntax-ns#\"\n xmlns:dc=\"http://purl.org/dc/elements/1.1/\">\n    <rdf:Description rdf:nodeID=\"n42254\">\n        <dc:title>The Empire's New Clothes</dc:title>\n        <dc:type>journalArticle</dc:type>\n        <dc:creator>Brennan, Timothy</dc:creator>\n        <dc:date>January 01 2003</dc:date>\n    </rdf:Description>\n</rdf:RDF>\n"
+	}
+}

@@ -21,7 +21,10 @@
 //! * `export/<format>/<set>.json`: `/export` of each list in
 //!   `export_inputs/<set>.json` (upstream's itemJSON test data, one list per
 //!   item type and all together; the items each import case produced; the
-//!   kovan probe items), for BibTeX, BibLaTeX, RIS and CSL JSON;
+//!   kovan probe items), for BibTeX, BibLaTeX, RIS and CSL JSON and (#749)
+//!   every export translator of the tagged-text, JSON and simple export
+//!   block at the end of this file, whose import cases and in-process
+//!   references are described there;
 //! * `roundtrip/<format>/<set>.json`: that export text posted back to
 //!   `/import`;
 //! * `utilities.json`: Zotero.Utilities helpers run directly from the
@@ -48,7 +51,7 @@
 
 use kovan_common::zotero::date::DateOptions;
 use kovan_literature::zotero::framework::{
-    fold_child_notes, JsObject, TranslateOptions, TranslationEnv,
+    fold_child_notes, JsObject, TranslateError, TranslateOptions, TranslationEnv,
 };
 use kovan_literature::zotero::translators::Translator;
 use serde_json::{json, Value};
@@ -315,6 +318,11 @@ fn export_diffs(t: Translator) -> (Vec<Diff>, usize) {
                 .unwrap_or_else(|| format!("ERROR {}", r["status"]));
             let port = match t.export(&items, &options(t)) {
                 Ok(s) => s,
+                // What the endpoint answers (exportEndpoint.js): 500 when
+                // the translator throws, 400 for unusable input (#749:
+                // Simple Evernote Export throws on items without dates).
+                Err(TranslateError::Translator(_)) => "ERROR 500".to_owned(),
+                Err(TranslateError::BadExportInput(_)) => "ERROR 400".to_owned(),
                 Err(e) => format!("ERROR {e}"),
             };
             diffs.extend(
@@ -570,10 +578,14 @@ fn ris_import_matches_upstream() {
 /// "2021 May" (#748 open item (b): upstream's strToDate does produce a
 /// literal "undefined" part) and `Y2  - 2020/03/04/05:06:07` from a legacy
 /// SQL access date.
+///
+/// ~~84 lists~~ **Re-run 2026-10-07 (#749):** the nine #749 import
+/// translators' cases added 61 export lists (their imported items); **145/145
+/// byte-identical**, no known differences.
 #[test]
 fn ris_export_matches_upstream() {
     let (d, n) = export_diffs(Translator::Ris);
-    assert_eq!(n, 84);
+    assert_eq!(n, 145);
     assert_known(&["export/ris"], d);
 }
 
@@ -584,10 +596,12 @@ fn ris_export_matches_upstream() {
 /// **Prediction (before the first run, 2026-10-07):** exact.
 ///
 /// **Result (2026-10-07):** pass, 84/84 cases identical (581 items).
+/// **Re-run 2026-10-07 (#749)** with the 61 lists the #749 import
+/// translators added: **145/145 identical.**
 #[test]
 fn ris_roundtrip_matches_upstream() {
     let (d, n) = roundtrip_diffs(Translator::Ris);
-    assert_eq!(n, 84);
+    assert_eq!(n, 145);
     assert_known(&["roundtrip/ris"], d);
 }
 
@@ -707,4 +721,447 @@ fn utilities_match_upstream() {
         );
     }
     assert_known(&["utilities"], diffs);
+}
+
+// ---------------------------------------------------------------------------
+// Tagged-text, JSON and simple export translators (#749)
+//
+// Methodology as above, with one addition. The translation-server's /import
+// always detects (it cannot be told which translator to run) and its /export
+// knows only the formats in formats.js. So for these translators
+// scripts/zotero-reference.mjs loads the SAME translation-server code into
+// its own Node process and calls it: imports with the translator forced
+// (`setTranslator`), exports through exportEndpoint.js with the format added
+// for Wikidata QuickStatements, CFF and CFF References. Every result the
+// running server can also produce was produced both ways and compared
+// (manifest `crossChecks`: 57 imports where the server's detection chose the
+// same translator, 1015 exports; all identical, or the script stops). The
+// server's own detection for each import case is kept as
+// `serverTranslatorID`.
+// ---------------------------------------------------------------------------
+
+/// The #749 import translators' detection agrees with upstream's on every
+/// import case: where the server's detection chose a ported translator, the
+/// port's detection chooses the same one.
+#[test]
+fn detection_749_matches_upstream() {
+    let mut checked = 0;
+    for t in Translator::ALL {
+        if !t.metadata().can_import() {
+            continue;
+        }
+        let path = data_dir().join(format!("reference/import/{}.json", t.format_name()));
+        if !path.exists() {
+            continue;
+        }
+        let cases = read_json(&format!("reference/import/{}.json", t.format_name()));
+        for c in cases.as_array().unwrap() {
+            let Some(server) = c["serverTranslatorID"].as_str() else {
+                continue;
+            };
+            let Some(upstream) = Translator::from_id(server) else {
+                continue;
+            };
+            let input = c["input"].as_str().unwrap();
+            let port = kovan_literature::zotero::translators::detect_import(input);
+            assert_eq!(
+                port.first(),
+                Some(&upstream),
+                "{} {}: upstream detected {}",
+                t.format_name(),
+                c["name"],
+                upstream.format_name()
+            );
+            checked += 1;
+        }
+    }
+    assert!(checked >= 57, "{checked}");
+}
+
+/// **Zotero.Utilities additions (#749)**: `capitalizeTitle` (forced),
+/// `cleanISBN`, `cleanISSN` against upstream's utilities.js run directly.
+#[test]
+fn utilities_749_match_upstream() {
+    use kovan_literature::zotero::framework::{identifiers, title_case};
+    let r = read_json("reference/utilities.json");
+    let mut diffs = Vec::new();
+    let mut push = |f: &str, case: &str, u: &Value, p: Value| {
+        if *u != p {
+            diffs.push(Diff {
+                test: "utilities_749".into(),
+                case: format!("{f}: {case}"),
+                at: String::new(),
+                upstream: u.clone(),
+                port: p,
+            });
+        }
+    };
+    let or_false = |o: Option<String>| o.map_or(Value::Bool(false), Value::from);
+    for e in r["capitalizeTitle"].as_array().unwrap() {
+        let s = e[0].as_str().unwrap();
+        push(
+            "capitalizeTitle",
+            s,
+            &e[1],
+            title_case::capitalize_title(s, true).into(),
+        );
+    }
+    for e in r["cleanISBN"].as_array().unwrap() {
+        let s = e[0].as_str().unwrap();
+        push(
+            "cleanISBN",
+            s,
+            &e[1],
+            or_false(identifiers::clean_isbn(s, false)),
+        );
+    }
+    for e in r["cleanISSN"].as_array().unwrap() {
+        let s = e[0].as_str().unwrap();
+        push("cleanISSN", s, &e[1], or_false(identifiers::clean_issn(s)));
+    }
+    assert_known(&["utilities_749"], diffs);
+}
+
+/// **Refer/BibIX import** against upstream (in-process, translator forced):
+/// the translator's 4 testCases (5 items).
+///
+/// **Prediction (2026-10-07, before the first run):** exact.
+/// **Result (2026-10-07):** pass, 4/4 identical, no recorded difference.
+#[test]
+fn refer_import_matches_upstream() {
+    let (d, n) = import_diffs(Translator::Refer);
+    assert_eq!(n, 4);
+    assert_known(&["import/refer"], d);
+}
+
+/// **Refer/BibIX export** against upstream (server `/export?format=refer`),
+/// every export list (145 lists, 5002 lines of upstream output), as text.
+///
+/// **Prediction (2026-10-07):** exact. **Result (2026-10-07):** pass,
+/// 145/145 byte-identical.
+#[test]
+fn refer_export_matches_upstream() {
+    let (d, n) = export_diffs(Translator::Refer);
+    assert_eq!(n, 145);
+    assert_known(&["export/refer"], d);
+}
+
+/// **Refer/BibIX round trip**: upstream's export re-imported by the port
+/// through detection. **Result (2026-10-07):** pass, 145/145 identical
+/// (320 items; every text detected as Refer/BibIX upstream).
+#[test]
+fn refer_roundtrip_matches_upstream() {
+    let (d, _) = roundtrip_diffs(Translator::Refer);
+    assert_known(&["roundtrip/refer"], d);
+}
+
+/// **Refer/BibIX import → export → import** stable where upstream is.
+/// **Result (2026-10-07):** upstream stable on 1 of 4 (testCase02); the port
+/// on the same 1. Pass.
+#[test]
+fn refer_chain_stable_where_upstream_is() {
+    let (u, p) = stability(Translator::Refer);
+    assert_eq!(p, u);
+}
+
+/// **RefWorks Tagged import** against upstream (in-process, translator
+/// forced): the translator's 4 testCases (12 items).
+///
+/// **Prediction (2026-10-07):** a handful of differences in
+/// `dateRWtoZotero` and note wrapping. **Refuted for the better. Result
+/// (2026-10-07):** pass, 4/4 identical.
+#[test]
+fn refworks_tagged_import_matches_upstream() {
+    let (d, n) = import_diffs(Translator::RefWorksTagged);
+    assert_eq!(n, 4);
+    assert_known(&["import/refworks_tagged"], d);
+}
+
+/// **RefWorks Tagged export** against upstream (server), every export list
+/// (145 lists, 6437 lines). Legacy export format (minVersion 3.0.4).
+/// **Result (2026-10-07):** pass, 145/145 byte-identical.
+#[test]
+fn refworks_tagged_export_matches_upstream() {
+    let (d, n) = export_diffs(Translator::RefWorksTagged);
+    assert_eq!(n, 145);
+    assert_known(&["export/refworks_tagged"], d);
+}
+
+/// **RefWorks Tagged round trip** through detection. **Result
+/// (2026-10-07):** pass, 145/145 identical (716 items).
+#[test]
+fn refworks_tagged_roundtrip_matches_upstream() {
+    let (d, _) = roundtrip_diffs(Translator::RefWorksTagged);
+    assert_known(&["roundtrip/refworks_tagged"], d);
+}
+
+/// **RefWorks Tagged import → export → import** stable where upstream is.
+/// **Result (2026-10-07):** upstream stable on 4 of 4; the port on the same
+/// 4. Pass.
+#[test]
+fn refworks_tagged_chain_stable_where_upstream_is() {
+    let (u, p) = stability(Translator::RefWorksTagged);
+    assert_eq!(p, u);
+}
+
+/// **Bookmarks import** against upstream (in-process, translator forced):
+/// the translator's 1 testCase. Upstream's regular expressions use a
+/// backreference and lookahead; the port's hand-written matchers reproduce
+/// their backtracking.
+///
+/// **Prediction (2026-10-07):** exact on the testCase; any difference from
+/// the matchers. **Result (2026-10-07):** pass, 1/1 identical.
+#[test]
+fn bookmarks_import_matches_upstream() {
+    let (d, n) = import_diffs(Translator::Bookmarks);
+    assert!(n >= 1, "{n}");
+    assert_known(&["import/bookmarks"], d);
+}
+
+/// **Bookmarks export** against upstream (server), every export list (145
+/// lists, 1507 lines). **Result (2026-10-07):** pass, 145/145
+/// byte-identical.
+#[test]
+fn bookmarks_export_matches_upstream() {
+    let (d, n) = export_diffs(Translator::Bookmarks);
+    assert_eq!(n, 145);
+    assert_known(&["export/bookmarks"], d);
+}
+
+/// **Bookmarks round trip** through detection. **Result (2026-10-07):**
+/// pass, 145/145 identical: 75 texts import (199 items); 70 (lists with no
+/// URL) give upstream's "No suitable translators found".
+#[test]
+fn bookmarks_roundtrip_matches_upstream() {
+    let (d, _) = roundtrip_diffs(Translator::Bookmarks);
+    assert_known(&["roundtrip/bookmarks"], d);
+}
+
+/// **Bookmarks import → export → import** stable where upstream is.
+/// **Result (2026-10-07):** upstream stable on 0 of 1 (the export keeps only
+/// URL, title and tags); the port agrees. Pass.
+#[test]
+fn bookmarks_chain_stable_where_upstream_is() {
+    let (u, p) = stability(Translator::Bookmarks);
+    assert_eq!(p, u);
+}
+
+/// **MEDLINE/nbib import** against upstream (in-process, translator
+/// forced): the translator's 9 testCases (PubMed and ERIC `.nbib`: FAU/AU
+/// fallback creators, PT types incl. the ERIC report fallback, IS
+/// ISSN/ISBN cleaning and de-duplication, AID DOIs, LID catalog links and
+/// [pii] page fallbacks, abbreviated page ranges, book/thesis
+/// post-processing), compared as Web API JSON.
+///
+/// **Prediction (2026-10-07; recorded informally before the OVID and WoS
+/// runs, not before this one):** exact on all 9 (the translator calls only
+/// cleanAuthor, cleanISSN, cleanISBN and trim, all verified against
+/// upstream's utilities.js).
+///
+/// **Result (2026-10-07):** pass, 9/9 identical on the first run, no
+/// recorded difference.
+#[test]
+fn medline_nbib_import_matches_upstream() {
+    let (d, n) = import_diffs(Translator::MedlineNbib);
+    assert_eq!(n, 9);
+    assert_known(&["import/medline_nbib"], d);
+}
+
+/// **OVID Tagged import** against upstream (in-process, translator
+/// forced): the translator's 10 testCases (multi-record files split on
+/// `VN`, AU name cleaning of degrees, citation (SO) parsing for date,
+/// volume, issue, pages and journal, book-chapter editors from the
+/// citation, all-caps surnames through forced `capitalizeTitle`,
+/// publisher/place splitting, thesis institutions), compared as Web API
+/// JSON.
+///
+/// **Prediction (before the first run, 2026-10-07):** exact on all 10; the
+/// risk was the JavaScript regexes (ASCII `\b`, `\s`, `.`, case-insensitive
+/// degree stripping) rewritten for the `regex` crate.
+///
+/// **Result (2026-10-07):** pass, 10/10 identical on the first run, no
+/// recorded difference. Prediction confirmed.
+#[test]
+fn ovid_tagged_import_matches_upstream() {
+    let (d, n) = import_diffs(Translator::OvidTagged);
+    assert_eq!(n, 10);
+    assert_known(&["import/ovid_tagged"], d);
+}
+
+/// **Web of Science Tagged import** against upstream (in-process,
+/// translator forced): the translator's 9 testCases (ER/EF record handling,
+/// explicit and implicit line continuation, BOM stripping, DT/PT types,
+/// AF/AU preference, BP/EP/PS/AR pages, PY/PD dates, PI city title-casing,
+/// SN/EI ISSNs, `selectiveTitleCase` of AE/CT/PU, tags, Extra lines),
+/// compared as Web API JSON.
+///
+/// **Prediction (before the first run, 2026-10-07):** exact on all 9; the
+/// one server-specific point is that `selectiveTitleCase` without `force`
+/// only normalises whitespace (the server sets no `capitalizeTitles` pref).
+///
+/// **Result (2026-10-07):** pass, 9/9 identical on the first run, no
+/// recorded difference. Prediction confirmed.
+#[test]
+fn wos_tagged_import_matches_upstream() {
+    let (d, n) = import_diffs(Translator::WosTagged);
+    assert_eq!(n, 9);
+    assert_known(&["import/wos_tagged"], d);
+}
+
+/// **MAB2 import** against upstream (in-process, translator forced). MAB2.js
+/// has no testCases; the case is `fixtures/import/kovan_probe.mab2` (4
+/// kovan-authored binary records: umlauts, i.e. NUL-padded offsets, a
+/// record spanning the 4096-character read boundary, author roles, corporate
+/// authors, pull functions, RSWK tags).
+///
+/// **Prediction (2026-10-07):** exact, with UTF-16 offsets the likeliest
+/// source of a difference. **Result (2026-10-07):** pass, 1/1 identical (4
+/// items), including upstream's `cleanTag` dropping the last character of a
+/// tag with no `|` ("Geschicht").
+#[test]
+fn mab2_import_matches_upstream() {
+    let (d, n) = import_diffs(Translator::Mab2);
+    assert!(n >= 1, "{n}");
+    assert_known(&["import/mab2"], d);
+}
+
+/// **Datacite JSON import** against upstream (in-process, translator
+/// forced): the translator's 15 testCases (24 Web API items).
+///
+/// **Prediction (before the first run, 2026-10-07):** exact except possibly
+/// 1-2 cases from creator de-duplication (JSON.stringify key order) or
+/// `cleanAuthor` edge cases. **Refuted for the better.**
+///
+/// **Result (2026-10-07):** pass, 15/15 identical on the first run, no
+/// recorded difference. Port detection agrees with upstream's on all 15.
+#[test]
+fn datacite_json_import_matches_upstream() {
+    let (d, n) = import_diffs(Translator::DataciteJson);
+    assert_eq!(n, 15);
+    assert_known(&["import/datacite_json"], d);
+}
+
+/// **OpenAlex JSON import** against upstream (in-process, translator
+/// forced): the translator's 8 testCases (12 items; upstream's own
+/// detection picks CSL JSON for 4 of them, and so does the port's).
+///
+/// **Prediction (2026-10-07):** exact.
+///
+/// **Result (2026-10-07):** pass, 8/8 identical on the first run, no
+/// recorded difference.
+#[test]
+fn openalex_json_import_matches_upstream() {
+    let (d, n) = import_diffs(Translator::OpenAlexJson);
+    assert_eq!(n, 8);
+    assert_known(&["import/openalex_json"], d);
+}
+
+/// **CSV export** against upstream (server `/export?format=csv`), every
+/// export list (145: itemJSON one type at a time and all together, the items
+/// of every import case, the kovan probes). Legacy export format (minVersion
+/// 4.0.26). The server's text is recorded with its leading U+FEFF (CSV.js
+/// writes the BOM itself).
+///
+/// **Prediction (before the first run, 2026-10-07):** 145/145 identical.
+///
+/// **Result (2026-10-07):** pass, 145/145 byte-identical on the first run, no
+/// recorded difference.
+#[test]
+fn csv_export_matches_upstream() {
+    let (d, n) = export_diffs(Translator::Csv);
+    assert_eq!(n, 145);
+    assert_known(&["export/csv"], d);
+}
+
+/// **COinS export** against upstream (server `format=coins`), every export
+/// list (145). Exercises `framework::openurl::create_context_object` (port of
+/// utilities openurl.js 4051881d59c6, version "1.0") and `htmlSpecialChars`.
+///
+/// **Prediction (2026-10-07):** 145/145 identical.
+///
+/// **Result (2026-10-07):** pass, 145/145 byte-identical on the first run, no
+/// recorded difference.
+#[test]
+fn coins_export_matches_upstream() {
+    let (d, n) = export_diffs(Translator::Coins);
+    assert_eq!(n, 145);
+    assert_known(&["export/coins"], d);
+}
+
+/// **Wikipedia Citation Templates export** against upstream (server
+/// `format=wikipedia`), every export list (145; itemJSON covers every
+/// template branch: journal, book/chapter, AV media, episode, interview,
+/// email, web, conference, encyclopedia). Legacy export format; creator-type
+/// labels are the translation-server's (zoteroTypeSchemaData.js).
+///
+/// **Prediction (2026-10-07):** 145/145 identical.
+///
+/// **Result (2026-10-07):** pass, 145/145 byte-identical on the first run, no
+/// recorded difference.
+#[test]
+fn wikipedia_citation_templates_export_matches_upstream() {
+    let (d, n) = export_diffs(Translator::WikipediaCitationTemplates);
+    assert_eq!(n, 145);
+    assert_known(&["export/wikipedia"], d);
+}
+
+/// **Wikidata QuickStatements export** against upstream (exportEndpoint.js
+/// in-process; legacy export format, minVersion 3.0), every export list
+/// (145).
+///
+/// **Prediction (2026-10-07):** exact; dates the risk.
+///
+/// **Result (2026-10-07):** pass, 145/145 byte-identical on the first run.
+#[test]
+fn wikidata_quickstatements_export_matches_upstream() {
+    let (d, n) = export_diffs(Translator::WikidataQuickStatements);
+    assert_eq!(n, 145);
+    assert_known(&["export/wikidata_quickstatements"], d);
+}
+
+/// **CFF export** against upstream (exportEndpoint.js run in-process; the
+/// server has no format name for CFF), every export list (145). Only
+/// datasets and software produce entries.
+///
+/// **Prediction (2026-10-07):** exact.
+///
+/// **Result (2026-10-07):** pass, 145/145 byte-identical on the first run.
+#[test]
+fn cff_export_matches_upstream() {
+    let (d, n) = export_diffs(Translator::Cff);
+    assert_eq!(n, 145);
+    assert_known(&["export/cff"], d);
+}
+
+/// **CFF References export** against upstream (exportEndpoint.js
+/// in-process), every export list (145). Includes upstream's quirks: every
+/// creator listed under authors, editors, recipients and translators, and
+/// the abstract's `/^|\n/g` indentation.
+///
+/// **Prediction (2026-10-07):** a few differences in abstract indentation
+/// or creator lists. **Refuted for the better.**
+///
+/// **Result (2026-10-07):** pass, 145/145 byte-identical on the first run.
+#[test]
+fn cff_references_export_matches_upstream() {
+    let (d, n) = export_diffs(Translator::CffReferences);
+    assert_eq!(n, 145);
+    assert_known(&["export/cff_references"], d);
+}
+
+/// **Simple Evernote Export** against upstream (server `format=evernote`),
+/// every export list (145). Legacy export format: `<updated>` ends in "ZZ"
+/// (dateModified stays ISO); 106 lists contain an item without a string
+/// dateAdded/dateModified, on which upstream throws and the endpoint answers
+/// 500; the port returns `TranslateError::Translator` there.
+///
+/// **Prediction (2026-10-07):** 145/145 identical (106 of them the 500).
+///
+/// **Result (2026-10-07):** pass, 145/145 identical on the first run (39
+/// texts byte-identical, 106 errors matching), no recorded difference.
+#[test]
+fn evernote_export_matches_upstream() {
+    let (d, n) = export_diffs(Translator::Evernote);
+    assert_eq!(n, 145);
+    assert_known(&["export/evernote"], d);
 }

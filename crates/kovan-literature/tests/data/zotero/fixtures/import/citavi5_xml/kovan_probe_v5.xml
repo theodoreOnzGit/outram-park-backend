@@ -1,0 +1,158 @@
+<?xml version="1.0" encoding="utf-8"?>
+<CitaviExchangeData Version="5.7.1.0" ProjectName="kovan probe">
+<Persons>
+<Person id="p1"><FirstName>Ada</FirstName><LastName>Lovelace</LastName></Person>
+<Person id="p2"><FirstName>Charles</FirstName><MiddleName>B.</MiddleName><LastName>Babbage</LastName></Person>
+<Person id="p3"><LastName>Kovan Working Group</LastName></Person>
+<Person id="p4"><FirstName>Grace</FirstName><LastName>Hopper</LastName></Person>
+</Persons>
+<Periodicals>
+<Periodical id="j1"><Name>Journal of Imaginary Results</Name><ISSN>1234-5678</ISSN><StandardAbbreviation>J. Imag. Res.</StandardAbbreviation></Periodical>
+<Periodical id="j2"><Name>Annals of Probes</Name><UserAbbreviation1>Ann. Probes</UserAbbreviation1></Periodical>
+</Periodicals>
+<SeriesTitles>
+<SeriesTitle id="s1"><Name>Lecture Notes in Kovan</Name></SeriesTitle>
+</SeriesTitles>
+<Publishers>
+<Publisher id="pub1"><Name>Example Press</Name></Publisher>
+<Publisher id="pub2"><Name>Second Press</Name></Publisher>
+</Publishers>
+<Keywords>
+<Keyword id="k1"><Name>reactors</Name></Keyword>
+<Keyword id="k2"><Name>probes &amp; tests</Name></Keyword>
+</Keywords>
+<Libraries>
+<Library id="lib1"><Name>Central Library</Name></Library>
+</Libraries>
+<Groups>
+<Group id="g1"><Name>Important</Name></Group>
+<Group id="g2"><Name>To read</Name></Group>
+</Groups>
+<Categories>
+<Category id="c1"><Name>Physics</Name></Category>
+<Category id="c2"><Name>Thermal hydraulics</Name></Category>
+<Category id="c3"><Name>Data</Name></Category>
+</Categories>
+<CategoryCatgories>
+<OnetoN>c1;c2</OnetoN>
+</CategoryCatgories>
+<References>
+<Reference id="r1">
+<ReferenceType>JournalArticle</ReferenceType>
+<Title>A probe article</Title>
+<Subtitle>with a subtitle</Subtitle>
+<Abstract>An abstract that spans
+two lines.</Abstract>
+<Volume>3</Volume>
+<Number>2</Number>
+<PageRange><![CDATA[<sp>
+  <n>12</n>
+  <in>true</in>
+  <os>12</os>
+  <ps>12</ps>
+</sp>
+<ep>
+  <n>34</n>
+  <in>true</in>
+  <os>34</os>
+  <ps>34</ps>
+</ep>
+<os>12-34</os>]]></PageRange>
+<Year>2001</Year>
+<DOI>10.1234/probe.1</DOI>
+<PeriodicalID>j1</PeriodicalID>
+<PubMedID>12345678</PubMedID>
+<BibTeXKey>lovelace2001</BibTeXKey>
+<Notes>A note on the reference.</Notes>
+<TableOfContents>1. Introduction</TableOfContents>
+<AccessDate>2020-03-04</AccessDate>
+<OnlineAddress>https://example.org/r1</OnlineAddress>
+</Reference>
+<Reference id="r2">
+<ReferenceType>Book</ReferenceType>
+<Title>A probe book</Title>
+<ISBN>978-3-16-148410-0</ISBN>
+<Edition>2</Edition>
+<PlaceOfPublication>Singapore</PlaceOfPublication>
+<NumberOfVolumes>3</NumberOfVolumes>
+<PageCount>xii, 250 pp.</PageCount>
+<Date>12 May 1999</Date>
+<DOI>10.1234/probe.book</DOI>
+<SeriesTitleID>s1</SeriesTitleID>
+<Evaluation>Worth reading.</Evaluation>
+</Reference>
+<Reference id="r3">
+<ReferenceType>Contribution</ReferenceType>
+<Title>A probe chapter</Title>
+<PageRange>101-120</PageRange>
+</Reference>
+<Reference id="r4">
+<ReferenceType>ConferenceProceedings</ReferenceType>
+<Title>Proceedings of the Probe Conference</Title>
+<PlaceOfPublication>Berkeley</PlaceOfPublication>
+<ISBN>978-0-00-000000-2</ISBN>
+<Volume>7</Volume>
+<SeriesTitleID>s1</SeriesTitleID>
+<DateForSorting>2010-07-01</DateForSorting>
+</Reference>
+<Reference id="r5">
+<ReferenceType>SomethingNew</ReferenceType>
+<Title>An unknown type</Title>
+<PeriodicalID>j2</PeriodicalID>
+</Reference>
+</References>
+<ReferenceAuthors>
+<OnetoN>r1;p1;p2</OnetoN>
+<OnetoN>r2;p3</OnetoN>
+<OnetoN>r3;p4</OnetoN>
+<OnetoN>r4;p2</OnetoN>
+</ReferenceAuthors>
+<ReferenceEditors>
+<OnetoN>r4;p1</OnetoN>
+</ReferenceEditors>
+<ReferenceCollaborators>
+<OnetoN>r2;p4</OnetoN>
+</ReferenceCollaborators>
+<ReferenceOrganizations>
+<OnetoN>r4;p3</OnetoN>
+</ReferenceOrganizations>
+<ReferencePublishers>
+<OnetoN>r2;pub1;pub2</OnetoN>
+<OnetoN>r4;pub1</OnetoN>
+</ReferencePublishers>
+<ReferenceKeywords>
+<OnetoN>r1;k1;k2</OnetoN>
+</ReferenceKeywords>
+<ReferenceReferences>
+<OnetoN>r4;r3</OnetoN>
+</ReferenceReferences>
+<ReferenceGroups>
+<OnetoN>r1;g1</OnetoN>
+<OnetoN>r2;g2</OnetoN>
+</ReferenceGroups>
+<ReferenceCategories>
+<OnetoN>r1;c1</OnetoN>
+<OnetoN>r2;c2</OnetoN>
+<OnetoN>r5;c3</OnetoN>
+</ReferenceCategories>
+<KnowledgeItems>
+<KnowledgeItem id="ki1"><ReferenceID>r1</ReferenceID><CoreStatement>Key claim</CoreStatement><Text>Quoted text.</Text><PageRange>p. 13</PageRange></KnowledgeItem>
+<KnowledgeItem id="ki2"><ReferenceID>r1</ReferenceID><Text>Only text.</Text></KnowledgeItem>
+</KnowledgeItems>
+<KnowledgeItemGroups>
+<OnetoN>ki1;g2</OnetoN>
+</KnowledgeItemGroups>
+<Locations>
+<Location id="l1"><ReferenceID>r1</ReferenceID><Address>https://example.org/r1.pdf</Address></Location>
+<Location id="l2"><ReferenceID>r1</ReferenceID><Address>10.1234/other</Address><MirrorsReferencePropertyId>Doi</MirrorsReferencePropertyId></Location>
+<Location id="l3"><ReferenceID>r2</ReferenceID><Address>C:\papers\book.pdf</Address></Location>
+<Location id="l4"><ReferenceID>r2</ReferenceID><CallNumber>QC 1 .P7</CallNumber><LibraryID>lib1</LibraryID></Location>
+<Location id="l5"><ReferenceID>r4</ReferenceID><CallNumber>QC 2</CallNumber></Location>
+<Location id="l6"><ReferenceID>r5</ReferenceID><LibraryID>lib1</LibraryID></Location>
+<Location id="l7"><ReferenceID>r5</ReferenceID><Address>99999</Address><MirrorsReferencePropertyId>PubMedId</MirrorsReferencePropertyId></Location>
+</Locations>
+<TaskItems>
+<TaskItem id="t1"><Name>Read again</Name><DueDate>2026-01-01</DueDate><Notes>Check the equations.</Notes><ReferenceID>r1</ReferenceID></TaskItem>
+<TaskItem id="t2"><Name>Find the dataset</Name><ReferenceID>r5</ReferenceID></TaskItem>
+</TaskItems>
+</CitaviExchangeData>

@@ -264,6 +264,12 @@ serde-xml-rs = "0.8.2"
 # `xml`). Pure Rust, no C, so it keeps the Android/Termux and wasm builds
 # clean. Upstream SCRAM uses libxml2, which would not.
 xml-rs = "0.8.28"
+# The WHATWG HTML parsing algorithm (Servo; MIT OR Apache-2.0, pure Rust,
+# wasm32- and Android-clean). kovan-literature's Zotero port parses note HTML
+# with it (Note HTML / Note Markdown export, #749), where the translation-
+# server uses jsdom's parse5 (the same algorithm). Pin the major: tree-builder
+# API changes between 0.x releases.
+html5ever = "0.39"
 anyhow = "1.0.100"
 
 # OPC UA client/server — `async-opcua` (github.com/freeopcua/async-opcua), the
@@ -346,10 +352,20 @@ clap = { version = "4.5", features = ["derive"] }  # kovan (agent-facing CLI bin
 which = "8.0"          # kovan's `setup`: PATH-presence check for curated external tools (pure-Rust, Android-fine)
 tempfile = "3.14"             # dev-dep: throwaway fixture trees for discovery/search tests (pure-Rust, Android-friendly)
 # Reading a Zotero data folder's zotero.sqlite (kovan-literature `zotero::local_library`,
-# GitHub #750). MIT; `bundled` compiles SQLite (public domain) from C, so it needs a C
-# compiler and is NOT Android/Termux- or wasm-clean: the one consumer declares it under
-# cfg(not(any(target_arch = "wasm32", target_os = "android"))). This is a reader of
-# Zotero's database only; kovan's own storage still uses no SQLite (docs/kovan.md).
+# GitHub #750). Since 2026-10-07 the reader is pure Rust: turso_core is Turso's Rust
+# rewrite of SQLite (MIT, https://github.com/tursodatabase/turso), reading the SQLite
+# file format and WAL from memory, so it builds and runs on wasm32-unknown-unknown and
+# Android/Termux. Every C-backed feature is OFF: default-features = false drops `simd`
+# (simsimd, C) and mimalloc/io_uring/tantivy are not enabled; `pure-rust-crypto` makes
+# the mandatory `aegis` dependency skip its C build (its build.rs returns before `cc`
+# when `pure-rust` is set; on wasm32 it would otherwise link a prebuilt C archive).
+# `fs`, `uuid` and `json` are needed for turso_core 0.8.2 to compile at all (checked
+# 2026-10-07); `autovacuum` reads auto-vacuum databases. The `turso` crate (async API
+# over turso_core) is not used: the reader is synchronous.
+turso_core = { version = "0.8.2", default-features = false, features = ["pure-rust-crypto", "fs", "uuid", "json", "autovacuum"] }
+# Real SQLite, compiled from C (`bundled`): since 2026-10-07 ONLY a native
+# dev-dependency of kovan-literature, which builds Zotero test databases with it and
+# uses it as the code-to-code reference for the turso reader. No library depends on it.
 rusqlite = { version = "0.40", features = ["bundled"] }
 # TUI stack for the kovan-tui binary (human-facing). Pulled ONLY under a
 # `cfg(not(target_os = "android"))` table — TUI is desktop scope per the Android

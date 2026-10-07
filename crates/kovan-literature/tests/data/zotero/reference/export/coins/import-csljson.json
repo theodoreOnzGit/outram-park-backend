@@ -1,0 +1,10 @@
+{
+	"testCase00": {
+		"status": 200,
+		"output": "<span class='Z3988' title='url_ver=Z39.88-2004&amp;ctx_ver=Z39.88-2004&amp;rfr_id=info%3Asid%2Fzotero.org%3A2&amp;rft_id=urn%3Aisbn%3A978-3-642-32156-6&amp;rft_val_fmt=info%3Aofi%2Ffmt%3Akev%3Amtx%3Abook&amp;rft.genre=book&amp;rft.btitle=Stochastic%20biomathematical%20models%3A%20With%20applications%20to%20neuronal%20modeling&amp;rft.place=Heidelberg&amp;rft.publisher=Springer&amp;rft.series=Lecture%20notes%20in%20mathematics&amp;rft.aufirst=Mostafa&amp;rft.aulast=Bachar&amp;rft.au=Mostafa%20Bachar&amp;rft.date=2013-01-01&amp;rft.tpages=206&amp;rft.isbn=978-3-642-32156-6&amp;rft.language=en'></span>\n"
+	},
+	"csl_ranges": {
+		"status": 200,
+		"output": "<span class='Z3988' title='url_ver=Z39.88-2004&amp;ctx_ver=Z39.88-2004&amp;rfr_id=info%3Asid%2Fzotero.org%3A2&amp;rft_val_fmt=info%3Aofi%2Ffmt%3Akev%3Amtx%3Ajournal&amp;rft.genre=article&amp;rft.atitle=A%20range%20and%20a%20circa%20date&amp;rft.jtitle=Journal%20of%20Testing&amp;rft.volume=7&amp;rft.aufirst=John&amp;rft.aulast=Smith&amp;rft.au=John%20Smith&amp;rft.au=Kovan%20Collaboration&amp;rft.date=2010&amp;rft.pages=1-10&amp;rft.spage=1&amp;rft.epage=10'></span>\n<span class='Z3988' title='url_ver=Z39.88-2004&amp;ctx_ver=Z39.88-2004&amp;rfr_id=info%3Asid%2Fzotero.org%3A2&amp;rft_val_fmt=info%3Aofi%2Ffmt%3Akev%3Amtx%3Abook&amp;rft.genre=book&amp;rft.btitle=A%20literal%20date&amp;rft.place=Singapore&amp;rft.publisher=Kovan%20Press&amp;rft.date=2021&amp;rft.tpages=300'></span>\n<span class='Z3988' title='url_ver=Z39.88-2004&amp;ctx_ver=Z39.88-2004&amp;rfr_id=info%3Asid%2Fzotero.org%3A2&amp;rft_val_fmt=info%3Aofi%2Ffmt%3Akev%3Amtx%3Abook&amp;rft.genre=bookitem&amp;rft.atitle=A%20season&amp;rft.btitle=A%20Book&amp;rft.aufirst=Ed&amp;rft.aulast=Editor&amp;rft.au=Ed%20Editor&amp;rft.date=2021'></span>\n"
+	}
+}

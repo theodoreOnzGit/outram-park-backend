@@ -552,7 +552,9 @@ fn forced_imports_match_upstream() {
 /// `export_inputs_rdf/` (the RDF imports' items, the kovan library), as text.
 ///
 /// **Result (2026-10-07):** 97 lists, 9837 upstream lines, every list
-/// byte-identical. The 13 lists upstream fails on (folded child notes
+/// byte-identical; after merging the XML and tagged-text translators' export
+/// sets (develop dbb9e26eb1): 158 lists, 14831 lines, identical (27 fail on
+/// both sides). The 13 lists (first run) upstream fails on (folded child notes
 /// without a `tags` array: Zotero RDF's `generateTags(note.tags)` reads
 /// `.length` of undefined) fail in the port too.
 ///
@@ -574,7 +576,8 @@ fn zotero_rdf_export_matches_upstream() {
 
 /// **Bibliontology RDF export** against upstream, every list.
 ///
-/// **Result (2026-10-07):** 97 lists, 6130 upstream lines, byte-identical
+/// **Result (2026-10-07):** 97 lists, 6130 upstream lines (after the merge
+/// with develop: 158 lists, 11696 lines, 11 failing on both sides), byte-identical
 /// after the `uniqueFields` order fix described under the Zotero RDF export
 /// test (first run: 3 differences, all `versionNumber`'s place). The 7 lists
 /// upstream fails on (an item type its `TYPES` table lacks: preprint,
@@ -591,7 +594,8 @@ fn bibliontology_export_matches_upstream() {
 
 /// **Unqualified Dublin Core RDF export** against upstream, every list.
 ///
-/// **Result (2026-10-07):** 97 lists, 2815 upstream lines, byte-identical.
+/// **Result (2026-10-07):** 97 lists, 2815 upstream lines, byte-identical;
+/// after the merge with develop: 158 lists, 4004 lines, identical.
 #[test]
 fn dc_rdf_export_matches_upstream() {
     let (d, n, failed, lines) = export_diffs(Translator::DcRdf);
@@ -607,6 +611,8 @@ fn dc_rdf_export_matches_upstream() {
 ///
 /// **Result (2026-10-07):** Zotero RDF 84 texts (151 items), Bibliontology
 /// RDF 90 (109), Dublin Core RDF 97 (132); identical, detection included.
+/// After the merge with develop (its export sets added, all 38 ported
+/// translators in detection): 131 (232), 147 (199), 158 (226); identical.
 #[test]
 fn rdf_roundtrips_match_upstream() {
     let mut all = Vec::new();

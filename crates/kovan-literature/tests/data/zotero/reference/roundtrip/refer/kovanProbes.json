@@ -1,0 +1,220 @@
+{
+	"all": {
+		"status": 200,
+		"translatorID": "881f60f2-0802-411a-9228-ce5f47b64c7d",
+		"items": [
+			{
+				"key": "KVN22222",
+				"version": 0,
+				"itemType": "journalArticle",
+				"creators": [
+					{
+						"firstName": "John",
+						"lastName": "Smith",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "Jean",
+						"lastName": "de la Fontaine",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "Kovan",
+						"lastName": "Collaboration",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "Ed",
+						"lastName": "Editor",
+						"creatorType": "editor"
+					}
+				],
+				"tags": [
+					{
+						"tag": "alpha",
+						"type": 1
+					},
+					{
+						"tag": "beta gamma",
+						"type": 1
+					}
+				],
+				"title": "Dates & markup: a <i>kovan</i> probe",
+				"volume": "12",
+				"issue": "3",
+				"pages": "101-110",
+				"url": "http://example.com/a?b=c&d=e",
+				"abstractNote": "An abstract with \"quotes\", {braces} and 100% $pecial_chars#.",
+				"language": "en",
+				"publicationTitle": "Journal of Testing & Probing",
+				"date": "2021 May"
+			},
+			{
+				"key": "KVN22223",
+				"version": 0,
+				"itemType": "book",
+				"creators": [
+					{
+						"firstName": "Ed",
+						"lastName": "Editor",
+						"creatorType": "editor"
+					}
+				],
+				"tags": [],
+				"title": "A Second Record",
+				"place": "Singapore",
+				"publisher": "Kovan Press",
+				"ISBN": "978-3-16-148410-0 3161484100",
+				"date": "1999-12-31"
+			},
+			{
+				"key": "KVN22224",
+				"version": 0,
+				"itemType": "thesis",
+				"creators": [
+					{
+						"firstName": "Ann",
+						"lastName": "Student",
+						"creatorType": "author"
+					}
+				],
+				"tags": [],
+				"title": "Ranges and seasons",
+				"place": "Kovan",
+				"university": "Kovan University",
+				"thesisType": "PhD Thesis",
+				"date": "2010-2012"
+			},
+			{
+				"key": "KVN22225",
+				"version": 0,
+				"itemType": "conferencePaper",
+				"creators": [],
+				"tags": [],
+				"title": "Summer proceedings",
+				"place": "Singapore",
+				"pages": "5",
+				"proceedingsTitle": "Proceedings of the Kovan Conference",
+				"date": "Summer 2015"
+			}
+		]
+	},
+	"KPROBE22": {
+		"status": 200,
+		"translatorID": "881f60f2-0802-411a-9228-ce5f47b64c7d",
+		"items": [
+			{
+				"key": "KVN22222",
+				"version": 0,
+				"itemType": "journalArticle",
+				"creators": [
+					{
+						"firstName": "John",
+						"lastName": "Smith",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "Jean",
+						"lastName": "de la Fontaine",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "Kovan",
+						"lastName": "Collaboration",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "Ed",
+						"lastName": "Editor",
+						"creatorType": "editor"
+					}
+				],
+				"tags": [
+					{
+						"tag": "alpha",
+						"type": 1
+					},
+					{
+						"tag": "beta gamma",
+						"type": 1
+					}
+				],
+				"title": "Dates & markup: a <i>kovan</i> probe",
+				"volume": "12",
+				"issue": "3",
+				"pages": "101-110",
+				"url": "http://example.com/a?b=c&d=e",
+				"abstractNote": "An abstract with \"quotes\", {braces} and 100% $pecial_chars#.",
+				"language": "en",
+				"publicationTitle": "Journal of Testing & Probing",
+				"date": "2021 May"
+			}
+		]
+	},
+	"KPROBE33": {
+		"status": 200,
+		"translatorID": "881f60f2-0802-411a-9228-ce5f47b64c7d",
+		"items": [
+			{
+				"key": "KVN22222",
+				"version": 0,
+				"itemType": "book",
+				"creators": [
+					{
+						"firstName": "Ed",
+						"lastName": "Editor",
+						"creatorType": "editor"
+					}
+				],
+				"tags": [],
+				"title": "A Second Record",
+				"place": "Singapore",
+				"publisher": "Kovan Press",
+				"ISBN": "978-3-16-148410-0 3161484100",
+				"date": "1999-12-31"
+			}
+		]
+	},
+	"KPROBE44": {
+		"status": 200,
+		"translatorID": "881f60f2-0802-411a-9228-ce5f47b64c7d",
+		"items": [
+			{
+				"key": "KVN22222",
+				"version": 0,
+				"itemType": "thesis",
+				"creators": [
+					{
+						"firstName": "Ann",
+						"lastName": "Student",
+						"creatorType": "author"
+					}
+				],
+				"tags": [],
+				"title": "Ranges and seasons",
+				"place": "Kovan",
+				"university": "Kovan University",
+				"thesisType": "PhD Thesis",
+				"date": "2010-2012"
+			}
+		]
+	},
+	"KPROBE55": {
+		"status": 200,
+		"translatorID": "881f60f2-0802-411a-9228-ce5f47b64c7d",
+		"items": [
+			{
+				"key": "KVN22222",
+				"version": 0,
+				"itemType": "conferencePaper",
+				"creators": [],
+				"tags": [],
+				"title": "Summer proceedings",
+				"place": "Singapore",
+				"pages": "5",
+				"proceedingsTitle": "Proceedings of the Kovan Conference",
+				"date": "Summer 2015"
+			}
+		]
+	}
+}

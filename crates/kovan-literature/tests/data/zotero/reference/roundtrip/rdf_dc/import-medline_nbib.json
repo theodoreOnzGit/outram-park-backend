@@ -1,0 +1,498 @@
+{
+	"testCase00": {
+		"status": 200,
+		"translatorID": "5e3ad958-ac79-463d-812b-a86a9235c28f",
+		"items": [
+			{
+				"key": "KVN22222",
+				"version": 0,
+				"itemType": "journalArticle",
+				"creators": [
+					{
+						"firstName": "Mickey",
+						"lastName": "Mouse",
+						"creatorType": "author"
+					}
+				],
+				"tags": [],
+				"title": "Mickey Mouse had an O-some day!"
+			}
+		]
+	},
+	"testCase01": {
+		"status": 200,
+		"translatorID": "5e3ad958-ac79-463d-812b-a86a9235c28f",
+		"items": [
+			{
+				"key": "KVN22222",
+				"version": 0,
+				"itemType": "journalArticle",
+				"creators": [
+					{
+						"firstName": "M. J.",
+						"lastName": "van Raaij",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "J. P.",
+						"lastName": "Abrahams",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "A. G.",
+						"lastName": "Leslie",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "J. E.",
+						"lastName": "Walker",
+						"creatorType": "author"
+					}
+				],
+				"tags": [],
+				"title": "The structure of bovine F1-ATPase complexed with the antibiotic inhibitor aurovertin B.",
+				"date": "1996 Jul 9",
+				"ISSN": "0027-8424"
+			},
+			{
+				"key": "KVN22223",
+				"version": 0,
+				"itemType": "bookSection",
+				"creators": [
+					{
+						"firstName": "Douglas",
+						"lastName": "Riegert-Johnson",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "Ferga C.",
+						"lastName": "Gleeson",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "Wytske",
+						"lastName": "Westra",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "Timothy",
+						"lastName": "Hefferon",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "Louis M.",
+						"lastName": "Wong Kee Song",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "Lauren",
+						"lastName": "Spurck",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "Lisa A.",
+						"lastName": "Boardman",
+						"creatorType": "author"
+					}
+				],
+				"tags": [],
+				"title": "Peutz-Jeghers Syndrome",
+				"rights": "Copyright (c) 2009-, Douglas L Riegert-Johnson",
+				"publisher": "National Center for Biotechnology Information (US)",
+				"date": "2009"
+			}
+		]
+	},
+	"testCase02": {
+		"status": 200,
+		"translatorID": "5e3ad958-ac79-463d-812b-a86a9235c28f",
+		"items": [
+			{
+				"key": "KVN22222",
+				"version": 0,
+				"itemType": "journalArticle",
+				"creators": [
+					{
+						"firstName": "I.",
+						"lastName": "Gout",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "R.",
+						"lastName": "Dhand",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "I. D.",
+						"lastName": "Hiles",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "M. J.",
+						"lastName": "Fry",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "G.",
+						"lastName": "Panayotou",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "P.",
+						"lastName": "Das",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "O.",
+						"lastName": "Truong",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "N. F.",
+						"lastName": "Totty",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "J.",
+						"lastName": "Hsuan",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "G. W.",
+						"lastName": "Booker",
+						"creatorType": "author"
+					}
+				],
+				"tags": [],
+				"title": "The GTPase dynamin binds to and is activated by a subset of SH3 domains.",
+				"date": "1993 Oct 8",
+				"ISSN": "0092-8674"
+			}
+		]
+	},
+	"testCase03": {
+		"status": 200,
+		"translatorID": "5e3ad958-ac79-463d-812b-a86a9235c28f",
+		"items": [
+			{
+				"key": "KVN22222",
+				"version": 0,
+				"itemType": "journalArticle",
+				"creators": [
+					{
+						"firstName": "T.",
+						"lastName": "Fujiwara",
+						"creatorType": "author"
+					}
+				],
+				"tags": [],
+				"title": "Effectiveness of public health practices against shaken baby syndrome/abusive head trauma in Japan.",
+				"rights": "Copyright (c) 2015 The Royal Society for Public Health. Published by Elsevier Ltd. All rights reserved.",
+				"date": "2015 May",
+				"ISSN": "1476-5616 0033-3506",
+				"DOI": "10.1016/j.puhe.2015.01.018"
+			}
+		]
+	},
+	"testCase04": {
+		"status": 200,
+		"translatorID": "5e3ad958-ac79-463d-812b-a86a9235c28f",
+		"items": [
+			{
+				"key": "KVN22222",
+				"version": 0,
+				"itemType": "journalArticle",
+				"creators": [
+					{
+						"firstName": "Maaike M.",
+						"lastName": "van Groen",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "Theo J. H. M.",
+						"lastName": "Eggen",
+						"creatorType": "author"
+					}
+				],
+				"tags": [],
+				"title": "Educational Test Approaches: The Suitability of Computer-Based Test Types for Assessment and Evaluation in Formative and Summative Contexts",
+				"date": "2020",
+				"ISSN": "2375-5636"
+			},
+			{
+				"key": "KVN22223",
+				"version": 0,
+				"itemType": "journalArticle",
+				"creators": [
+					{
+						"firstName": "Yujia",
+						"lastName": "Zhou",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "Asako",
+						"lastName": "Yoshitomi",
+						"creatorType": "author"
+					}
+				],
+				"tags": [],
+				"title": "Test-Taker Perception of and Test Performance on Computer-Delivered Speaking Tests: The Mediational Role of Test-Taking Motivation",
+				"date": "Article 10 2019",
+				"ISSN": "2229-0443"
+			},
+			{
+				"key": "KVN22224",
+				"version": 0,
+				"itemType": "report",
+				"creators": [
+					{
+						"firstName": "Raeal",
+						"lastName": "Moore",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "Edgar",
+						"lastName": "Sanchez",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "Sweet",
+						"lastName": "San Pedro",
+						"creatorType": "author"
+					}
+				],
+				"tags": [],
+				"title": "College Entrance Exams: How Does Test Preparation Affect Retest Scores? Research Report 2019-2",
+				"institution": "ACT, Inc.",
+				"date": "2019",
+				"reportType": "report"
+			}
+		]
+	},
+	"testCase05": {
+		"status": 200,
+		"translatorID": "5e3ad958-ac79-463d-812b-a86a9235c28f",
+		"items": [
+			{
+				"key": "KVN22222",
+				"version": 0,
+				"itemType": "journalArticle",
+				"creators": [
+					{
+						"firstName": "Pollie",
+						"lastName": "Bith-Melander",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "Jack",
+						"lastName": "Ratliff",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "Chelsey",
+						"lastName": "Poisson",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "Charulata",
+						"lastName": "Jindal",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "Yuk",
+						"lastName": "Ming Choi",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "Jimmy T.",
+						"lastName": "Efird",
+						"creatorType": "author"
+					}
+				],
+				"tags": [],
+				"title": "Slow Burns: A Qualitative Study of Burn Pit and Toxic Exposures Among Military Veterans Serving in Afghanistan, Iraq and Throughout the Middle East.",
+				"date": "2021",
+				"ISSN": "2641-9157"
+			}
+		]
+	},
+	"testCase06": {
+		"status": 200,
+		"translatorID": "5e3ad958-ac79-463d-812b-a86a9235c28f",
+		"items": [
+			{
+				"key": "KVN22222",
+				"version": 0,
+				"itemType": "report",
+				"creators": [],
+				"tags": [],
+				"title": "Findings from the PISA for Development Field Trial of the School-Based Assessment. PISA for Development Brief 16",
+				"institution": "OECD Publishing",
+				"date": "2017",
+				"reportType": "report"
+			},
+			{
+				"key": "KVN22223",
+				"version": 0,
+				"itemType": "journalArticle",
+				"creators": [
+					{
+						"firstName": "Taylyn",
+						"lastName": "Hulse",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "Maria",
+						"lastName": "Daigle",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "Daniel",
+						"lastName": "Manzo",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "Lindsay",
+						"lastName": "Braith",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "Avery",
+						"lastName": "Harrison",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "Erin",
+						"lastName": "Ottmar",
+						"creatorType": "author"
+					}
+				],
+				"tags": [],
+				"title": "From Here to There! Elementary: A Game-Based Approach to Developing Number Sense and Early Algebraic Understanding",
+				"date": "Apr 2019",
+				"ISSN": "1042-1629"
+			},
+			{
+				"key": "KVN22224",
+				"version": 0,
+				"itemType": "report",
+				"creators": [
+					{
+						"firstName": "F. Tony",
+						"lastName": "Di Giacomo",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "Bethany G.",
+						"lastName": "Fishbein",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "Vanessa W.",
+						"lastName": "Buckley",
+						"creatorType": "author"
+					}
+				],
+				"tags": [],
+				"title": "International Comparative Assessments: Broadening the Interpretability, Application and Relevance to the United States. Research in Review 2012-5",
+				"institution": "College Board",
+				"date": "2013",
+				"reportType": "report"
+			},
+			{
+				"key": "KVN22225",
+				"version": 0,
+				"itemType": "journalArticle",
+				"creators": [
+					{
+						"firstName": "Barbara",
+						"lastName": "Bernhardt",
+						"creatorType": "author"
+					}
+				],
+				"tags": [],
+				"title": "A Test of the Test of Problem Solving (TOPS).",
+				"date": "Apr 1990"
+			}
+		]
+	},
+	"testCase07": {
+		"status": 200,
+		"translatorID": "5e3ad958-ac79-463d-812b-a86a9235c28f",
+		"items": [
+			{
+				"key": "KVN22222",
+				"version": 0,
+				"itemType": "thesis",
+				"creators": [
+					{
+						"firstName": "Jeremy",
+						"lastName": "Leipzig",
+						"creatorType": "author"
+					}
+				],
+				"tags": [],
+				"title": "Tests of Robustness in Peer Review",
+				"university": "Drexel University",
+				"date": "2021",
+				"ISBN": "9798209887621",
+				"thesisType": "thesis"
+			},
+			{
+				"key": "KVN22223",
+				"version": 0,
+				"itemType": "book",
+				"creators": [
+					{
+						"firstName": "David W.",
+						"lastName": "Test",
+						"creatorType": "author"
+					}
+				],
+				"tags": [],
+				"publisher": "Brookes Publishing Company",
+				"date": "2012",
+				"ISBN": "9781598571929"
+			}
+		]
+	},
+	"testCase08": {
+		"status": 200,
+		"translatorID": "5e3ad958-ac79-463d-812b-a86a9235c28f",
+		"items": [
+			{
+				"key": "KVN22222",
+				"version": 0,
+				"itemType": "journalArticle",
+				"creators": [
+					{
+						"firstName": "Syrine Azza",
+						"lastName": "Manoubi",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "Maha",
+						"lastName": "Shimi",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "Meriem",
+						"lastName": "Gharbaoui",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "Mohamed",
+						"lastName": "Allouche",
+						"creatorType": "author"
+					}
+				],
+				"tags": [],
+				"title": "Lichtenberg Figures: How a Cutaneous Sign Can Solve Suspicious Death Cases.",
+				"rights": "Copyright © 2022 Wilderness Medical Society. Published by Elsevier Inc. All rights reserved.",
+				"date": "2022 Oct 7",
+				"ISSN": "1545-1534 1080-6032",
+				"DOI": "10.1016/j.wem.2022.07.008"
+			}
+		]
+	}
+}
