@@ -346,6 +346,22 @@ impl ReviewRoot {
             if !seen.insert(r.id.as_str()) {
                 return Err(RootError::DuplicateReviewer(r.id.clone()));
             }
+            // Dates are ISO strings (Q9, #764, 2026-10-07).
+            let dates = r
+                .admitted
+                .iter()
+                .map(|d| ("reviewer.admitted", d))
+                .chain(r.keys.iter().map(|k| ("reviewer.key.created", &k.created)))
+                .chain(r.revoked.iter().map(|v| ("reviewer.revoked.date", &v.date)))
+                .chain(
+                    r.revoked
+                        .iter()
+                        .filter_map(|v| v.compromised_from.as_ref())
+                        .map(|d| ("reviewer.revoked.compromised_from", d)),
+                );
+            for (field, d) in dates {
+                super::types::check_date(field, d).map_err(RootError::Field)?;
+            }
             for q in &r.qualification {
                 if let Qualification::Record(q) = q {
                     if q.basis == QualificationBasis::SelfStudy {

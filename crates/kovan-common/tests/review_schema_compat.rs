@@ -9,8 +9,11 @@
 //! unreadable entries, and re-emitting and re-reading the loaded data must
 //! give the same data back.
 //!
-//! Result (2026-10-07): v1 (the first version) loads; 1 root, 1 index and a
-//! `review.md` of 6 entries (one of each kind but `other`).
+//! Result (2026-10-07): v1 (the first version: call-graph-key ids, string
+//! qualifications) loads, its ids migrated in memory to `fn:` ids; v2 (the
+//! hybrid `fn:` id with `path`, per-area qualification records, upstream
+//! tag labels) loads unchanged. Each has 1 root, 1 index and a `review.md`
+//! of 6 entries (one of each kind but `other`).
 
 use std::path::Path;
 
@@ -43,6 +46,11 @@ fn every_committed_review_fixture_loads() {
         let doc = parse_review_md(&md);
         assert!(doc.unreadable.is_empty(), "{}: {:?}", dir.display(), doc.unreadable);
         assert!(doc.entries.len() >= 6);
+        match dir.file_name().and_then(|n| n.to_str()) {
+            Some("v1") => assert_eq!(doc.migrated.len(), 2, "two call-graph keys migrate"),
+            _ => assert!(doc.migrated.is_empty(), "{}: {:?}", dir.display(), doc.migrated),
+        }
+        assert!(doc.reviews().all(|r| kovan_common::review::id::is_fn_id(&r.function_id())));
         let again = parse_review_md(&render_review_md(&doc.entries).unwrap());
         let strip = |d: &kovan_common::review::review_md::ReviewDocument| {
             d.entries

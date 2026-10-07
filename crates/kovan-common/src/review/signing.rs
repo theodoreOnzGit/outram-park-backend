@@ -13,8 +13,8 @@
 //! ```text
 //! kovan-review-signature-v1
 //! kind="review"
-//! target="code:crates/x/src/a.rs::f"
-//! function="crates/x/src/a.rs::f"
+//! target="fn:3f2a9c0d1e4b5a67"     (the stable id, #764 hybrid id)
+//! path="crates/x/src/a.rs::f"      (current location)
 //! by="github:theodoreOnzGit"
 //! rung="3"
 //! date="2026-10-07"
@@ -27,7 +27,8 @@
 //! callee="<id>" "<hash>"          (one line per callee, sorted by id)
 //! checklist="<q>" "<answer>"      (one line per answer, sorted)
 //! no_concept="…"                  (or "")
-//! moved="<from>" "<commit>"       (one line per move, in order)
+//! moved="<from>" "<to>" "<commit>"  (one line per move, in order;
+//!                                    "" for a first-version record's to)
 //! relation="<kind>" "<target>"    (one line per relation, in order)
 //! ```
 //!
@@ -85,8 +86,8 @@ pub fn signed_bytes(r: &ReviewEntry) -> Vec<u8> {
     let b = &r.review;
     let mut s = String::from("kovan-review-signature-v1\n");
     line(&mut s, "kind", &["review"]);
-    line(&mut s, "target", &[r.kovan.target.as_deref().unwrap_or("")]);
-    line(&mut s, "function", &[&b.function]);
+    line(&mut s, "target", &[&r.function_id()]);
+    line(&mut s, "path", &[&r.path().unwrap_or_default()]);
     line(&mut s, "by", &[&b.by]);
     line(&mut s, "rung", &[&b.rung.to_string()]);
     line(&mut s, "date", &[&b.date]);
@@ -112,7 +113,7 @@ pub fn signed_bytes(r: &ReviewEntry) -> Vec<u8> {
     }
     line(&mut s, "no_concept", &[b.no_concept.as_deref().unwrap_or("")]);
     for m in &b.moved {
-        line(&mut s, "moved", &[&m.from, &m.commit]);
+        line(&mut s, "moved", &[&m.from, m.to.as_deref().unwrap_or(""), &m.commit]);
     }
     for rel in &r.relations {
         line(&mut s, "relation", &[rel.kind.as_str(), &rel.target]);

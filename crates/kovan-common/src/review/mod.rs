@@ -49,6 +49,7 @@
 
 pub mod engine;
 pub mod hash;
+pub mod id;
 pub mod index;
 pub mod review_md;
 pub mod root;

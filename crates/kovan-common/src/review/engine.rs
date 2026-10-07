@@ -30,7 +30,7 @@
 //! 4. **Own code.** Hash changed: **directly stale**. Same hash but the
 //!    resolved callees differ from those recorded: also directly stale (a
 //!    callee resolving differently, #739 decision 14).
-//! 5. **Location.** Found somewhere other than the review's `target`:
+//! 5. **Location.** Found somewhere other than the review's `path`:
 //!    **moved**, carrying the reaching-test verdict for the acknowledge.
 //! 6. **Callees.** A recorded callee's hash differs now (or it is gone):
 //!    **inherited stale**, one level only. It always needs a human
@@ -74,6 +74,7 @@ use super::root::{ReviewRoot, Role};
 use super::scope::in_scope;
 use super::signing::{verify_review, SignatureCheck, UnverifiedReason as SigReason};
 use super::state::StateKind;
+use super::types::{check_tag, TagCheck};
 
 /// The checklist answers to question 8 that allow rung 4 (#740 U4).
 pub const RUNG4_Q8_ANSWERS: [&str; 2] = ["reference_code_to_code", "analytical_case"];
@@ -128,6 +129,23 @@ pub struct GitFacts {
     pub code_authors: BTreeMap<String, BTreeSet<String>>,
     /// Deleted function id -> the commit that deleted it.
     pub deleted_in: BTreeMap<String, String>,
+    /// (repository URL, tag) -> the commit the tag points at now, for the
+    /// tags the caller could look up (local or vendored clone, `git
+    /// ls-remote`). Offline, it is empty and tags show as unchecked.
+    pub tag_commits: BTreeMap<(String, String), String>,
+}
+
+/// An upstream tag label, checked (#764, 2026-10-07: "a tag moved state").
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct UpstreamTagReport {
+    /// The folder whose `review.md` holds it.
+    pub dir: String,
+    /// The architecture entry it is on; `None` for the folder's upstream.
+    pub architecture: Option<String>,
+    pub repository: Option<String>,
+    pub tag: String,
+    pub commit: String,
+    pub check: TagCheck,
 }
 
 /// Function id -> the concept-tree areas it implements (resolved by the
@@ -361,6 +379,9 @@ pub struct Evaluation {
     pub history: Vec<HistoryRow>,
     pub id_matches: Vec<IdMatch>,
     pub orphan_unreadable: Vec<OrphanUnreadable>,
+    /// Every upstream tag label with its check; informational only, the
+    /// commit pin is what counts.
+    pub upstream_tags: Vec<UpstreamTagReport>,
 }
 
 impl Evaluation {
@@ -456,7 +477,7 @@ fn authenticity(
 ) -> Option<UnverifiedReason> {
     let b = &r.review;
     let key = ReviewKey {
-        function: b.function.clone(),
+        function: r.function_id(),
         by: b.by.clone(),
     };
     let Some(facts) = git.stamps.get(&key) else {
@@ -535,10 +556,10 @@ pub fn evaluate(
             );
         }
     }
-    let claimed: BTreeSet<&str> = reviews
+    let claimed: BTreeSet<String> = reviews
         .iter()
-        .flat_map(|fr| fr.doc.reviews().map(|r| r.review.function.as_str()))
-        .filter(|f| current.contains_key(f))
+        .flat_map(|fr| fr.doc.reviews().map(|r| r.function_id()))
+        .filter(|f| current.contains_key(f.as_str()))
         .collect();
 
     let mut ev = Evaluation::default();
@@ -549,6 +570,7 @@ pub fn evaluate(
     for fr in reviews {
         for r in fr.doc.reviews() {
             let b = &r.review;
+            let fid = r.function_id();
             let (rung, capped) = effective_rung(r);
             let mut report = ReviewReport {
                 by: b.by.clone(),
@@ -560,12 +582,12 @@ pub fn evaluate(
                 qualifications: qualification_labels(root, &b.by),
             };
             // 1. Find the function.
-            let (cur, candidates, matched) = match current.get(b.function.as_str()) {
+            let (cur, candidates, matched) = match current.get(fid.as_str()) {
                 Some(c) => (Some(c), Vec::new(), false),
                 None => {
                     let cands: Vec<&Current> = current
                         .values()
-                        .filter(|c| c.f.hash == b.hash && !claimed.contains(c.f.id.as_str()))
+                        .filter(|c| c.f.hash == b.hash && !claimed.contains(&c.f.id))
                         .collect();
                     match cands.len() {
                         0 => (None, Vec::new(), false),
@@ -581,7 +603,7 @@ pub fn evaluate(
             let Some(cur) = cur else {
                 report.state = StampState::Deleted;
                 let e = deleted
-                    .entry(b.function.clone())
+                    .entry(fid.clone())
                     .or_insert_with(|| (Vec::new(), fr, Vec::new()));
                 e.0.push(report);
                 e.2.push(r);
@@ -589,7 +611,7 @@ pub fn evaluate(
             };
             if matched && candidates.is_empty() {
                 ev.id_matches.push(IdMatch {
-                    review_function: b.function.clone(),
+                    review_function: fid.clone(),
                     current_id: cur.f.id.clone(),
                 });
             }
@@ -604,10 +626,14 @@ pub fn evaluate(
                 if current.contains_key(f) {
                     Some(f.to_string())
                 } else {
-                    CodeTarget::parse(f).and_then(|t| {
+                    // A path (`file.rs::item`) or a first-version `code:` link.
+                    let loc = CodeTarget::parse(f)
+                        .map(|t| (t.file, t.item))
+                        .or_else(|| f.split_once(".rs::").map(|(a, b)| (format!("{a}.rs"), b.to_string())));
+                    loc.and_then(|(file, item)| {
                         current
                             .values()
-                            .find(|c| c.location().file == t.file && c.f.qual == t.item)
+                            .find(|c| c.location().file == file && c.f.qual == item)
                             .map(|c| c.f.id.clone())
                     })
                 }
@@ -642,12 +668,13 @@ pub fn evaluate(
             if b.status != FixStatus::Open {
                 continue;
             }
+            let nid = n.function_id();
             let id = ev
                 .id_matches
                 .iter()
-                .find(|m| m.review_function == b.function)
+                .find(|m| m.review_function == nid)
                 .map(|m| m.current_id.clone())
-                .unwrap_or_else(|| b.function.clone());
+                .unwrap_or(nid);
             let Some(cur) = current.get(id.as_str()) else {
                 continue;
             };
@@ -726,8 +753,38 @@ pub fn evaluate(
             blocked_by: Vec::new(),
         });
     }
+    ev.upstream_tags = upstream_tags(reviews, git);
     ev.id_matches.sort();
     ev
+}
+
+fn upstream_tags(reviews: &[FolderReviews], git: &GitFacts) -> Vec<UpstreamTagReport> {
+    let mut out = Vec::new();
+    let mut push = |dir: &str, arch: Option<String>, repo: Option<&String>, tag: Option<&String>, commit: Option<&String>| {
+        if let (Some(tag), Some(commit)) = (tag, commit) {
+            let now = repo.and_then(|r| git.tag_commits.get(&(r.clone(), tag.clone())));
+            out.push(UpstreamTagReport {
+                dir: dir.to_string(),
+                architecture: arch,
+                repository: repo.cloned(),
+                tag: tag.clone(),
+                commit: commit.clone(),
+                check: check_tag(commit, now.map(String::as_str)),
+            });
+        }
+    };
+    for fr in reviews {
+        if let Some(u) = fr.doc.upstream() {
+            push(&fr.dir, None, u.repository.as_ref(), u.tag.as_ref(), u.commit.as_ref());
+        }
+        for a in fr.doc.architectures() {
+            let b = &a.architecture;
+            if let Some(u) = &b.upstream {
+                push(&fr.dir, Some(a.kovan.id.clone()), u.repository.as_ref(), b.upstream_tag.as_ref(), u.commit.as_ref());
+            }
+        }
+    }
+    out
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -770,9 +827,11 @@ fn judge(
         });
     }
     // 5. Location.
-    let reviewed_at = r.kovan.target.as_deref().and_then(CodeTarget::parse).map(|t| Location {
-        file: t.file,
-        qual: t.item,
+    let reviewed_at = r.path().and_then(|p| {
+        p.split_once(".rs::").map(|(f, q)| Location {
+            file: format!("{f}.rs"),
+            qual: q.to_string(),
+        })
     });
     let elsewhere = reviewed_at
         .as_ref()
@@ -891,9 +950,7 @@ fn history_row(function: &str, entries: &[&ReviewEntry], git: &GitFacts) -> Dele
         .iter()
         .max_by(|a, b| (&a.review.date, &a.review.commit).cmp(&(&b.review.date, &b.review.commit)));
     let path = latest
-        .and_then(|r| r.kovan.target.as_deref())
-        .and_then(CodeTarget::parse)
-        .map(|t| format!("{}::{}", t.file, t.item))
+        .and_then(|r| r.path())
         .unwrap_or_else(|| function.to_string());
     let mut reviewers: Vec<String> = entries.iter().map(|r| r.review.by.clone()).collect();
     reviewers.sort();

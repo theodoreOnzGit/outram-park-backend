@@ -5,6 +5,7 @@
 //! Result (2026-10-07): all pass.
 
 use super::*;
+use crate::review::id::mint_fn_id;
 use crate::review::index::{FunctionIndex, ItemKind, ModuleIndex};
 use crate::review::review_md::{
     Entry, EntryMeta, NeedsFixBody, NeedsFixEntry, ParsedEntry, ReviewBody, Unreadable,
@@ -17,6 +18,11 @@ const SHA: &str = "0123456789abcdef0123456789abcdef01234567";
 const M: &str = "github:m";
 const R: &str = "github:r";
 
+/// The stable id of the test function first seen at `path`.
+fn fid(path: &str) -> String {
+    mint_fn_id(path, "t", "t")
+}
+
 fn h(c: char) -> String {
     format!("sha256:{}", c.to_string().repeat(64))
 }
@@ -24,14 +30,14 @@ fn h(c: char) -> String {
 fn fun(id: &str, hash: char, callees: &[&str], tests: &[&str]) -> FunctionIndex {
     let qual = id.rsplit_once(".rs::").map(|(_, q)| q.to_string()).unwrap_or_default();
     FunctionIndex {
-        id: id.into(),
+        id: fid(id),
         name: qual.rsplit("::").next().unwrap_or("").into(),
         qual,
         item: ItemKind::Fn,
         lines: [1, 5],
         hash: h(hash),
         doc_hash: h('d'),
-        callees: callees.iter().map(|s| s.to_string()).collect(),
+        callees: callees.iter().map(|s| fid(s)).collect(),
         reached_by: tests.iter().map(|s| s.to_string()).collect(),
         test: false,
     }
@@ -64,7 +70,7 @@ fn folder(krate: &str, dir: &str, files: &[(&str, Vec<FunctionIndex>)]) -> Folde
 
 /// A review of `id` (target = where it was), hash `hash`.
 fn review(id: &str, by: &str, hash: char, callees: &[(&str, char)]) -> ReviewEntry {
-    let (file, qual) = id.split_once(".rs::").map(|(f, q)| (format!("{f}.rs"), q)).unwrap();
+    let qual = id.split_once(".rs::").map(|(_, q)| q).unwrap();
     ReviewEntry {
         kovan: EntryMeta {
             id: format!("review-{qual}-{by}"),
@@ -72,10 +78,11 @@ fn review(id: &str, by: &str, hash: char, callees: &[(&str, char)]) -> ReviewEnt
             origin: Some("human".into()),
             created: "c".into(),
             modified: "m".into(),
-            target: Some(format!("code:{file}::{qual}")),
+            target: Some(fid(id)),
         },
         review: ReviewBody {
-            function: id.into(),
+            function: None,
+            path: Some(id.into()),
             by: by.into(),
             rung: 3,
             date: "2026-10-07".into(),
@@ -83,7 +90,7 @@ fn review(id: &str, by: &str, hash: char, callees: &[(&str, char)]) -> ReviewEnt
             hash: h(hash),
             doc_hash: h('d'),
             cargo_lock: Some(h('1')),
-            callees: callees.iter().map(|(c, x)| (c.to_string(), h(*x))).collect(),
+            callees: callees.iter().map(|(c, x)| (fid(c), h(*x))).collect(),
             checklist: BTreeMap::new(),
             no_concept: None,
             authorship: None,
@@ -106,6 +113,7 @@ fn entries(e: Vec<Entry>) -> ReviewDocument {
             })
             .collect(),
         unreadable: vec![],
+        migrated: vec![],
     }
 }
 
@@ -152,7 +160,7 @@ fn git_for(rs: &[&FolderReviews]) -> GitFacts {
         for r in fr.doc.reviews() {
             g.stamps.insert(
                 ReviewKey {
-                    function: r.review.function.clone(),
+                    function: r.function_id(),
                     by: r.review.by.clone(),
                 },
                 StampFacts {
@@ -174,8 +182,8 @@ fn run(revs: &[FolderReviews], idx: &[FolderIndex]) -> Evaluation {
     evaluate(revs, idx, &root(), &git_for(&refs), &ConceptAreas::new(), SignaturePolicy::AwaitingCrypto)
 }
 
-fn kind(ev: &Evaluation, id: &str) -> StateKind {
-    ev.functions[id].state.kind()
+fn kind(ev: &Evaluation, path: &str) -> StateKind {
+    ev.functions[&fid(path)].state.kind()
 }
 
 const D: &str = "crates/x/src";
@@ -189,9 +197,9 @@ fn baseline_valid_new_stale_doc() {
     let revs = [reviews_in("x", D, vec![review(F, M, 'a', &[])])];
     let ev = run(&revs, &[folder("x", D, &[("a.rs", vec![fun(F, 'a', &[], &["t::ok"]), fun("crates/x/src/a.rs::g", 'b', &[], &[])])])]);
     assert_eq!(kind(&ev, F), StateKind::Valid);
-    assert_eq!(ev.functions[F].rung, Some(3));
+    assert_eq!(ev.functions[&fid(F)].rung, Some(3));
     assert_eq!(kind(&ev, "crates/x/src/a.rs::g"), StateKind::New);
-    assert!(ev.functions["crates/x/src/a.rs::g"].untested);
+    assert!(ev.functions[&fid("crates/x/src/a.rs::g")].untested);
 
     let ev = run(&revs, &[folder("x", D, &[("a.rs", vec![fun(F, 'z', &[], &[])])])]);
     assert_eq!(kind(&ev, F), StateKind::DirectlyStale);
@@ -210,8 +218,8 @@ fn d6_rename_only_review_follows() {
     let revs = [reviews_in("x", D, vec![review(F, M, 'a', &[])])];
     let g = "crates/x/src/a.rs::g";
     let ev = run(&revs, &[folder("x", D, &[("a.rs", vec![fun(g, 'a', &[], &["t::ok"])])])]);
-    assert_eq!(ev.id_matches, vec![IdMatch { review_function: F.into(), current_id: g.into() }]);
-    match &ev.functions[g].state {
+    assert_eq!(ev.id_matches, vec![IdMatch { review_function: fid(F), current_id: fid(g) }]);
+    match &ev.functions[&fid(g)].state {
         StampState::Moved { from, to, tests, .. } => {
             assert_eq!(from.as_ref().unwrap().qual, "f");
             assert_eq!(to.qual, "g");
@@ -222,7 +230,7 @@ fn d6_rename_only_review_follows() {
     assert!(ev.deleted.is_empty());
 
     let mut kept = fun(F, 'a', &[], &[]);
-    kept.qual = "g".into();
+    kept.qual = "g".into(); // the indexer kept the id; only the name changed
     let ev = run(&revs, &[folder("x", D, &[("a.rs", vec![kept])])]);
     assert_eq!(kind(&ev, F), StateKind::Moved);
 }
@@ -237,7 +245,7 @@ fn d6_rename_and_edit_is_new() {
     let ev = run(&revs, &[folder("x", D, &[("a.rs", vec![fun(g, 'b', &[], &[])])])]);
     assert_eq!(kind(&ev, g), StateKind::New);
     assert_eq!(ev.deleted.len(), 1);
-    assert_eq!(ev.deleted[0].id, F);
+    assert_eq!(ev.deleted[0].id, fid(F));
     assert_eq!(ev.history[0].placement, HistoryPlacement::FolderReviewMd { dir: D.into() });
     assert_eq!(ev.history[0].row.last_review_commit, SHA);
 }
@@ -248,7 +256,7 @@ fn d6_rename_and_edit_is_new() {
 fn d6_file_rename_is_a_move() {
     let revs = [reviews_in("x", D, vec![review(F, M, 'a', &[])])];
     let ev = run(&revs, &[folder("x", D, &[("b.rs", vec![fun(F, 'a', &[], &[])])])]);
-    match &ev.functions[F].state {
+    match &ev.functions[&fid(F)].state {
         StampState::Moved { to, .. } => assert_eq!(to.file, "crates/x/src/b.rs"),
         s => panic!("{s:?}"),
     }
@@ -270,7 +278,7 @@ fn d6_file_split_moves_only_what_left() {
     assert_eq!(kind(&ev, F), StateKind::Valid);
     assert_eq!(kind(&ev, f2), StateKind::Moved);
     let batches = ev.move_batches();
-    assert_eq!(batches[&(D.to_string(), "crates/x/src/sub".to_string())], vec![f2.to_string()]);
+    assert_eq!(batches[&(D.to_string(), "crates/x/src/sub".to_string())], vec![fid(f2)]);
 }
 
 /// D6 whole folder moved: every function is moved, in one batch.
@@ -282,7 +290,11 @@ fn d6_folder_move_is_one_batch() {
     let ev = run(&revs, &[folder("x", "crates/x/src/new", &[("m.rs", vec![fun(a, 'a', &[], &[]), fun(b, 'b', &[], &[])])])]);
     let batches = ev.move_batches();
     assert_eq!(batches.len(), 1);
-    assert_eq!(batches[&(old.to_string(), "crates/x/src/new".to_string())], vec![a.to_string(), b.to_string()]);
+    assert_eq!(batches[&(old.to_string(), "crates/x/src/new".to_string())], {
+        let mut v = vec![fid(a), fid(b)];
+        v.sort();
+        v
+    });
 }
 
 /// D6 function deleted: removed, with a history row in its folder's
@@ -292,7 +304,7 @@ fn d6_function_delete_history_in_folder() {
     let revs = [reviews_in("x", D, vec![review(F, M, 'a', &[]), review(F, R, 'a', &[])])];
     let refs: Vec<&FolderReviews> = revs.iter().collect();
     let mut g = git_for(&refs);
-    g.deleted_in.insert(F.into(), "9".repeat(40));
+    g.deleted_in.insert(fid(F), "9".repeat(40));
     let idx = [folder("x", D, &[("a.rs", vec![fun("crates/x/src/a.rs::other", 'q', &[], &[])])])];
     let ev = evaluate(&revs, &idx, &root(), &g, &ConceptAreas::new(), SignaturePolicy::AwaitingCrypto);
     assert_eq!(ev.deleted[0].reviews.len(), 2);
@@ -335,17 +347,17 @@ fn d6_callee_change_needs_reconfirm_and_failing_test_blocks() {
     let idx = |tests: &[&str]| [folder("x", D, &[("a.rs", vec![fun(F, 'a', &[g], tests), fun(g, 'c', &[], &[])])])];
     let ev = run(&revs, &idx(&["t::ok"]));
     assert_eq!(kind(&ev, g), StateKind::DirectlyStale);
-    match &ev.functions[F].state {
+    match &ev.functions[&fid(F)].state {
         StampState::InheritedStale { cause, blocked, tests } => {
-            assert_eq!(*cause, InheritedCause::Callees(vec![g.into()]));
+            assert_eq!(*cause, InheritedCause::Callees(vec![fid(g)]));
             assert!(!blocked);
             assert_eq!(*tests, TestVerdict::Passed { tests: 1 });
         }
         s => panic!("{s:?}"),
     }
-    assert_eq!(ev.functions[F].blocked_by, vec![g.to_string()]);
+    assert_eq!(ev.functions[&fid(F)].blocked_by, vec![fid(g)]);
     let ev = run(&revs, &idx(&["t::ok", "t::bad"]));
-    match &ev.functions[F].state {
+    match &ev.functions[&fid(F)].state {
         StampState::InheritedStale { blocked, tests, .. } => {
             assert!(*blocked);
             assert_eq!(*tests, TestVerdict::Failing(vec!["t::bad".into()]));
@@ -355,7 +367,7 @@ fn d6_callee_change_needs_reconfirm_and_failing_test_blocks() {
     // A test edited in the same change does not count.
     let ev = run(&revs, &idx(&["t::edited"]));
     assert!(matches!(
-        &ev.functions[F].state,
+        &ev.functions[&fid(F)].state,
         StampState::InheritedStale { tests: TestVerdict::NoTests { edited_only: true }, .. }
     ));
 }
@@ -380,7 +392,7 @@ fn d6_cargo_lock_change_pending_until_full_pass() {
     assert_eq!(kind(&ev_at('2', &[], &g), F), StateKind::Valid, "a full pass clears an untested one too");
     let failing = ev_at('2', &["t::bad"], &g);
     assert!(matches!(
-        &failing.functions[F].state,
+        &failing.functions[&fid(F)].state,
         StampState::InheritedStale { cause: InheritedCause::LockTestFailed, blocked: true, .. }
     ));
     let mut quick = g.clone();
@@ -396,11 +408,11 @@ fn d6_time_bound_stamps() {
     let revs = [reviews_in("x", D, vec![review(F, M, 'a', &[])])];
     let idx = [folder("x", D, &[("a.rs", vec![fun(F, 'a', &[], &[])])])];
     let refs: Vec<&FolderReviews> = revs.iter().collect();
-    let key = ReviewKey { function: F.into(), by: M.into() };
+    let key = ReviewKey { function: fid(F), by: M.into() };
     let state_with = |facts: StampFacts| {
         let mut g = git_for(&refs);
         g.stamps.insert(key.clone(), facts);
-        evaluate(&revs, &idx, &root(), &g, &ConceptAreas::new(), SignaturePolicy::AwaitingCrypto).functions[F]
+        evaluate(&revs, &idx, &root(), &g, &ConceptAreas::new(), SignaturePolicy::AwaitingCrypto).functions[&fid(F)]
             .state
             .clone()
     };
@@ -421,7 +433,7 @@ fn d6_time_bound_stamps() {
     f.added_in = None;
     assert_eq!(state_with(f), StampState::Unverified(UnverifiedReason::NotCommitted));
     let ev = evaluate(&revs, &idx, &root(), &GitFacts::default(), &ConceptAreas::new(), SignaturePolicy::AwaitingCrypto);
-    assert_eq!(ev.functions[F].state, StampState::Unverified(UnverifiedReason::NoGitFacts));
+    assert_eq!(ev.functions[&fid(F)].state, StampState::Unverified(UnverifiedReason::NoGitFacts));
 }
 
 /// Concern beats approval: an open needs-fix blocks a validly reviewed
@@ -435,10 +447,11 @@ fn concern_beats_approval() {
             origin: None,
             created: "c".into(),
             modified: "m".into(),
-            target: Some("code:crates/x/src/a.rs::f".into()),
+            target: Some(fid(F)),
         },
         needs_fix: NeedsFixBody {
-            function: F.into(),
+            function: None,
+            path: Some(F.into()),
             by: R.into(),
             date: "2026-10-07".into(),
             commit: SHA.into(),
@@ -453,7 +466,7 @@ fn concern_beats_approval() {
     fr.doc.entries.push(ParsedEntry { heading: "n".into(), line: 2, entry: Entry::NeedsFix(nf('a')), body: String::new() });
     let ev = run(std::slice::from_ref(&fr), &[folder("x", D, &[("a.rs", vec![fun(F, 'a', &[], &[])])])]);
     assert_eq!(kind(&ev, F), StateKind::NeedsFixOpen);
-    assert_eq!(ev.functions[F].rung, None);
+    assert_eq!(ev.functions[&fid(F)].rung, None);
     let ev = run(std::slice::from_ref(&fr), &[folder("x", D, &[("a.rs", vec![fun(F, 'b', &[], &[])])])]);
     assert_eq!(kind(&ev, F), StateKind::Fixed);
 }
@@ -467,11 +480,11 @@ fn rung4_gated_on_q8() {
     r.review.checklist.insert("q8".into(), "not_compared".into());
     let idx = [folder("x", D, &[("a.rs", vec![fun(F, 'a', &[], &[])])])];
     let ev = run(&[reviews_in("x", D, vec![r.clone()])], &idx);
-    assert_eq!(ev.functions[F].rung, Some(3));
-    assert!(ev.functions[F].reviews[0].rung_capped);
+    assert_eq!(ev.functions[&fid(F)].rung, Some(3));
+    assert!(ev.functions[&fid(F)].reviews[0].rung_capped);
     r.review.checklist.insert("q8".into(), "analytical_case".into());
     let ev = run(&[reviews_in("x", D, vec![r])], &idx);
-    assert_eq!(ev.functions[F].rung, Some(4));
+    assert_eq!(ev.functions[&fid(F)].rung, Some(4));
 }
 
 /// Rung 5: a second valid review by someone who is neither the first
@@ -493,22 +506,22 @@ fn rung5_needs_independent_qualified_second_reviewer() {
         endorsed_by: None,
         self_declared: true,
     })];
-    let areas: ConceptAreas = [(F.to_string(), ["concept:thermal-hydraulics/natural-circulation".to_string()].into())].into();
+    let areas: ConceptAreas = [(fid(F), ["concept:thermal-hydraulics/natural-circulation".to_string()].into())].into();
     let rung = |rt: &ReviewRoot, g: &GitFacts, a: &ConceptAreas| {
-        evaluate(&revs, &idx, rt, g, a, SignaturePolicy::AwaitingCrypto).functions[F].rung
+        evaluate(&revs, &idx, rt, g, a, SignaturePolicy::AwaitingCrypto).functions[&fid(F)].rung
     };
     assert_eq!(rung(&rt, &g, &areas), Some(5));
     let ev = evaluate(&revs, &idx, &rt, &g, &areas, SignaturePolicy::AwaitingCrypto);
-    let shown = &ev.functions[F].reviews.iter().find(|r| r.by == R).unwrap().qualifications;
+    let shown = &ev.functions[&fid(F)].reviews.iter().find(|r| r.by == R).unwrap().qualifications;
     assert_eq!(shown, &vec!["thermal-hydraulics (self-study; self-declared)".to_string()]);
     assert_eq!(rung(&rt, &g, &ConceptAreas::new()), Some(3), "no known area");
     assert_eq!(rung(&root(), &g, &areas), Some(3), "not qualified");
     let mut authored = g.clone();
-    authored.code_authors.insert(F.into(), [R.to_string()].into());
+    authored.code_authors.insert(fid(F), [R.to_string()].into());
     assert_eq!(rung(&rt, &authored, &areas), Some(3), "the second reviewer wrote the code");
     let single = [reviews_in("x", D, vec![review(F, R, 'a', &[])])];
     let ev = evaluate(&single, &idx, &rt, &git_for(&[&single[0]]), &areas, SignaturePolicy::AwaitingCrypto);
-    assert_eq!(ev.functions[F].rung, Some(3), "one reviewer is never rung 5");
+    assert_eq!(ev.functions[&fid(F)].rung, Some(3), "one reviewer is never rung 5");
 }
 
 /// A malformed entry is no review: the function shows "review unreadable"
@@ -520,7 +533,7 @@ fn malformed_entry_is_no_review() {
         line: 3,
         message: "bad hash".into(),
         kind: Some("review".into()),
-        function: Some(F.into()),
+        function: Some(fid(F)),
         by: Some(R.into()),
     };
     let mut fr = reviews_in("x", D, vec![]);
@@ -533,7 +546,7 @@ fn malformed_entry_is_no_review() {
     fr2.doc.unreadable.push(u);
     let ev = run(std::slice::from_ref(&fr2), &idx);
     assert_eq!(kind(&ev, F), StateKind::Valid);
-    assert_eq!(ev.functions[F].reviews.len(), 2);
+    assert_eq!(ev.functions[&fid(F)].reviews.len(), 2);
 }
 
 /// Scope, registry and signature: a reviewer outside their scope, an
@@ -549,7 +562,7 @@ fn scope_registry_and_signature() {
     let revs = [reviews_in("x", D, vec![review(F, "github:nobody", 'a', &[])])];
     let idx = [folder("x", D, &[("a.rs", vec![fun(F, 'a', &[], &[])])])];
     assert_eq!(
-        run(&revs, &idx).functions[F].state,
+        run(&revs, &idx).functions[&fid(F)].state,
         StampState::Unverified(UnverifiedReason::UnknownReviewer)
     );
 
@@ -563,11 +576,11 @@ fn scope_registry_and_signature() {
         signature: None,
     });
     let ev = evaluate(&revs, &idx, &rt, &g, &ConceptAreas::new(), SignaturePolicy::AwaitingCrypto);
-    assert_eq!(ev.functions[F].state, StampState::Unverified(UnverifiedReason::Revoked));
+    assert_eq!(ev.functions[&fid(F)].state, StampState::Unverified(UnverifiedReason::Revoked));
 
     let ev = evaluate(&revs, &idx, &root(), &g, &ConceptAreas::new(), SignaturePolicy::Enforce);
     assert_eq!(
-        ev.functions[F].state,
+        ev.functions[&fid(F)].state,
         StampState::Unverified(UnverifiedReason::Signature(SigReason::NoSignature))
     );
 }
@@ -579,10 +592,15 @@ fn identical_copies_ask_which_is_original() {
     let revs = [reviews_in("x", D, vec![review(F, M, 'a', &[])])];
     let (g1, g2) = ("crates/x/src/a.rs::g1", "crates/x/src/a.rs::g2");
     let ev = run(&revs, &[folder("x", D, &[("a.rs", vec![fun(g1, 'a', &[], &[]), fun(g2, 'a', &[], &[])])])]);
-    match &ev.functions[g1].state {
-        StampState::Moved { candidates, .. } => assert_eq!(candidates, &vec![g1.to_string(), g2.to_string()]),
+    // The review is shown on the first candidate by id (ids are opaque, so
+    // either copy), listing both.
+    let mut want = vec![fid(g1), fid(g2)];
+    want.sort();
+    match &ev.functions[&want[0]].state {
+        StampState::Moved { candidates, .. } => assert_eq!(candidates, &want),
         s => panic!("{s:?}"),
     }
+    assert_eq!(ev.functions[&want[1]].state.kind(), StateKind::New);
     assert!(ev.id_matches.is_empty());
 }
 
@@ -594,4 +612,49 @@ fn evaluation_is_order_independent() {
     let b = reviews_in("x", D, vec![review(g, R, 'b', &[]), review(F, M, 'a', &[(g, 'b')])]);
     let idx = [folder("x", D, &[("a.rs", vec![fun(F, 'a', &[g], &[]), fun(g, 'b', &[], &[])])])];
     assert_eq!(run(&[a], &idx), run(&[b], &idx));
+}
+
+/// An upstream tag label is checked against what the tag resolves to now:
+/// matching, moved, or unchecked when it could not be looked up (offline).
+/// It never changes a function's state; the commit pin is the key.
+#[test]
+fn upstream_tag_moved_is_reported() {
+    use crate::review::review_md::{UpstreamEntry, UpstreamTable};
+    let repo = "https://github.com/CoolProp/CoolProp".to_string();
+    let up = UpstreamEntry {
+        kovan: EntryMeta {
+            id: "upstream".into(),
+            kind: "upstream".into(),
+            origin: None,
+            created: "c".into(),
+            modified: "m".into(),
+            target: None,
+        },
+        upstream: UpstreamTable {
+            is_port: true,
+            repository: Some(repo.clone()),
+            commit: Some(SHA.into()),
+            tag: Some("v6.4.1".into()),
+            files: BTreeMap::new(),
+            routines: BTreeMap::new(),
+            confirmed_by: M.into(),
+            date: "2026-10-07".into(),
+        },
+    };
+    let mut fr = reviews_in("x", D, vec![review(F, M, 'a', &[])]);
+    fr.doc.entries.push(ParsedEntry { heading: "u".into(), line: 9, entry: Entry::Upstream(up), body: String::new() });
+    let idx = [folder("x", D, &[("a.rs", vec![fun(F, 'a', &[], &[])])])];
+    let mut g = git_for(&[&fr]);
+    let tags = |g: &GitFacts| {
+        evaluate(std::slice::from_ref(&fr), &idx, &root(), g, &ConceptAreas::new(), SignaturePolicy::AwaitingCrypto)
+            .upstream_tags
+    };
+    assert_eq!(tags(&g)[0].check, TagCheck::Unchecked);
+    g.tag_commits.insert((repo.clone(), "v6.4.1".into()), SHA.into());
+    assert_eq!(tags(&g)[0].check, TagCheck::Matches);
+    g.tag_commits.insert((repo, "v6.4.1".into()), "fedcba9".into());
+    let t = tags(&g);
+    assert_eq!(t[0].check, TagCheck::Moved { now: "fedcba9".into() });
+    let ev = evaluate(std::slice::from_ref(&fr), &idx, &root(), &g, &ConceptAreas::new(), SignaturePolicy::AwaitingCrypto);
+    assert_eq!(kind(&ev, F), StateKind::Valid, "a moved tag does not touch stamps");
 }
