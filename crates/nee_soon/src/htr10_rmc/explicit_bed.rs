@@ -105,7 +105,11 @@
 //! AI-drafted, awaiting human review. The geometry is drawn in
 //! `crates/nee_soon/verification_and_validation/htr10_dem_bed_images/`. No
 //! k_eff on a DEM bed has been validated; see that folder's README for the
-//! one smoke run and what it does and does not show.
+//! one smoke run and what it does and does not show. **Since 2026-10-08
+//! (gh:#787)** one full-statistics k is recorded, on the gh:#216 bed cut to
+//! the lattice's 16 681 balls by [`trim_to_core_balls`]: 0.989293 ±
+//! 0.000962, −583 ± 143 pcm from the lattice at N = 12, on one pour
+//! (`verification_and_validation/htr10_dem_bed_keff_2026_10_08/`).
 
 use std::collections::BTreeMap;
 

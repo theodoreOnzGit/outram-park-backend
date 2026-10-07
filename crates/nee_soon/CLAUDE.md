@@ -100,7 +100,12 @@ geometry verified byte-identical before/after by its `Debug` hash):
   Soft-sphere overlaps are split by the bisector plane (nothing shrunk); the
   tube below the DEM column is filled with Şeker's tube balls; see the module
   docs. Drawn in `verification_and_validation/htr10_dem_bed_images/`
-  (`examples/htr10_dem_bed_images.rs`). **No validated `k` on it yet.**
+  (`examples/htr10_dem_bed_images.rs`). ~~**No validated `k` on it yet.**~~
+  **UPDATED 2026-10-08 (gh:#787):** one recorded `k`, still not validated:
+  `htr10_rmc_keff` with `OUTRAM_HTR10_DEM_BED=<csv>` cut to the lattice's
+  16 681 balls (N = 12) gives 0.989293 ± 0.000962, −583 ± 143 pcm from the
+  lattice. One pour; scatter between pours unmeasured
+  (`verification_and_validation/htr10_dem_bed_keff_2026_10_08/`).
 
 Both take a design since 2026-10-05 (`assemble_explicit_triso_with`,
 `assemble_explicit_triso_from_centres_with`, `core_design::Htr10CoreDesign`;
