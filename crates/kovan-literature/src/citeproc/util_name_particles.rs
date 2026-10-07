@@ -296,9 +296,15 @@ static SUFFIX_COMMA_RE: LazyLock<Regex> = LazyLock::new(|| {
         .unwrap_or_else(|e| panic!("static regex: {e}"))
 });
 
-/// The TypeError JS raises for `undefined.match(...)`.
-fn undefined_match() -> EngineError {
-    EngineError::Csl("Cannot read properties of undefined (reading 'match')".to_string())
+/// The TypeError JS raises for `value.<method>(...)` when `value` is not a
+/// string: undefined / null have no properties; anything else has no such
+/// method.
+fn not_a_string(v: Option<&Value>, what: &str, method: &str) -> EngineError {
+    EngineError::Csl(match v {
+        None => format!("Cannot read properties of undefined (reading '{method}')"),
+        Some(Value::Null) => format!("Cannot read properties of null (reading '{method}')"),
+        Some(_) => format!("{what}.{method} is not a function"),
+    })
 }
 
 /// JS `s.split("").reverse().join("")` on characters.
@@ -375,13 +381,16 @@ fn trim_last(s: &str) -> String {
 
 /// `parseSuffix(nameObj)`: split `given` at the first comma into given and
 /// suffix, or move a trailing `et al` into a dropping particle.
-fn parse_suffix(name_obj: &mut Obj) {
+fn parse_suffix(name_obj: &mut Obj) -> CslResult<()> {
     if js::get_truthy(name_obj, "suffix") || !js::get_truthy(name_obj, "given") {
-        return;
+        return Ok(());
     }
-    let given = js::to_js_string(name_obj.get("given").unwrap_or(&Value::Null));
+    let given = match name_obj.get("given") {
+        Some(Value::String(s)) => s.clone(),
+        other => return Err(not_a_string(other, "nameObj.given", "match")),
+    };
     let Some(m) = SUFFIX_COMMA_RE.captures(&given) else {
-        return;
+        return Ok(());
     };
     let m1 = m.get(1).map(|x| x.as_str()).unwrap_or("");
     let idx = js::index_of(&given, m1, 0);
@@ -403,14 +412,16 @@ fn parse_suffix(name_obj: &mut Obj) {
         name_obj.insert("suffix".into(), Value::String(possible_suffix));
     }
     name_obj.insert("given".into(), Value::String(js::slice(&given, 0, Some(idx))));
+    Ok(())
 }
 
 /// The string value of `name[key]` for `splitParticles`, which calls
-/// `.match` on it (a missing or non-string value is a TypeError upstream).
-fn string_field(name_obj: &Obj, key: &str) -> CslResult<String> {
+/// `method` (`match` for the family, `split` for the given name) on it; a
+/// missing or non-string value is a TypeError upstream.
+fn string_field(name_obj: &Obj, key: &str, method: &str) -> CslResult<String> {
     match name_obj.get(key) {
         Some(Value::String(s)) => Ok(s.clone()),
-        _ => Err(undefined_match()),
+        other => Err(not_a_string(other, "nameValue", method)),
     }
 }
 
@@ -420,7 +431,7 @@ fn string_field(name_obj: &Obj, key: &str) -> CslResult<String> {
 ///
 /// Errors (as JS would throw) when `family` or `given` is not a string.
 pub fn parse_particles(name_obj: &mut Obj) -> CslResult<()> {
-    let family = string_field(name_obj, "family")?;
+    let family = string_field(name_obj, "family", "match")?;
     let (_, last_name_value, last_particle_list) = split_particles(&family, false);
     name_obj.insert("family".into(), Value::String(last_name_value));
     let non_dropping = trim_last(&last_particle_list.join(""));
@@ -428,9 +439,9 @@ pub fn parse_particles(name_obj: &mut Obj) -> CslResult<()> {
         name_obj.insert("non-dropping-particle".into(), Value::String(non_dropping));
     }
     // Split off suffix first of all
-    parse_suffix(name_obj);
+    parse_suffix(name_obj)?;
     // Extract and set dropping particle(s) from given name field
-    let given = string_field(name_obj, "given")?;
+    let given = string_field(name_obj, "given", "split")?;
     let (_, first_name_value, first_particle_list) = split_particles(&given, true);
     name_obj.insert("given".into(), Value::String(first_name_value));
     let dropping = js::trim(&first_particle_list.join("")).to_string();
@@ -438,4 +449,65 @@ pub fn parse_particles(name_obj: &mut Obj) -> CslResult<()> {
         name_obj.insert("dropping-particle".into(), Value::String(dropping));
     }
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    //! Differential tests against citeproc-js 2.4.63: reference
+    //! `tests/data/csl/units/names.json` (generator
+    //! `scripts/csl-units/names.cjs`): `CSL.parseParticles` on ~3,000 name
+    //! objects (every name in the CSL test suite's fixtures plus 50 family x
+    //! 37 given-name combinations built to exercise particles, suffixes,
+    //! `et al`, quotes, apostrophes, CJK and Vietnamese names, and name
+    //! objects with missing or non-string fields). Pass criterion: the same
+    //! name object (or the same TypeError text) as citeproc-js.
+    use super::*;
+
+    const REF: &str = include_str!("../../tests/data/csl/units/names.json");
+
+    #[test]
+    fn parse_particles_matches_citeproc_js() {
+        let r: Value = serde_json::from_str(REF).expect("json");
+        let mut n = 0;
+        for c in r["cases"].as_array().expect("cases") {
+            let Value::Object(name) = &c["name"] else { continue };
+            let mut copy = name.clone();
+            let res = parse_particles(&mut copy);
+            n += 1;
+            match (res, c.get("particles_error")) {
+                (Ok(()), None) => assert_eq!(Value::Object(copy), c["particles"], "name {}", c["name"]),
+                (Err(e), Some(w)) => assert_eq!(
+                    Some(match &e {
+                        EngineError::Csl(m) => m.as_str(),
+                        _ => "",
+                    }),
+                    w.as_str(),
+                    "name {}",
+                    c["name"]
+                ),
+                (g, w) => panic!("name {}: {g:?} vs {w:?}", c["name"]),
+            }
+        }
+        assert!(n > 3000);
+    }
+
+    #[test]
+    fn particle_list_is_upstreams() {
+        let r: Value = serde_json::from_str(REF).expect("json");
+        let want = r["particle_list"].as_array().expect("list");
+        assert_eq!(PARTICLE_LIST.len(), want.len());
+        let rng = |x: &Option<(u8, u8)>| match x {
+            None => Value::Null,
+            Some((a, b)) => serde_json::json!([a, b]),
+        };
+        for (have, w) in PARTICLE_LIST.iter().zip(want) {
+            assert_eq!(Value::String(have.0.to_string()), w[0]);
+            let alts: Vec<Value> = have
+                .1
+                .iter()
+                .map(|(d, n)| serde_json::json!([rng(d), rng(n)]))
+                .collect();
+            assert_eq!(Value::Array(alts), w[1], "particle {}", have.0);
+        }
+    }
 }

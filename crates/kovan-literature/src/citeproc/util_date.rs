@@ -218,3 +218,66 @@ impl State {
         date_parse_array(date_obj)
     }
 }
+
+#[cfg(test)]
+mod tests {
+    //! Differential tests against citeproc-js 2.4.63: reference
+    //! `tests/data/csl/units/datekey.json` (generator
+    //! `scripts/csl-units/datekey.cjs`): `dateAsSortKey` and
+    //! `dateMacroAsSortKey` over 26 date shapes (date-parts, raw, literal,
+    //! flat year/month/day, BC years, ranges, out-of-range parts), 7 `dateparts`
+    //! settings and both `tmp.extension` values: the strings appended to the
+    //! output queue and the flags they carry. `dateParseArray` is tested with
+    //! the date parser (`dateparser.json`).
+    use super::*;
+    use crate::citeproc::obj_token::TokenType;
+
+    const REF: &str = include_str!("../../tests/data/csl/units/datekey.json");
+
+    #[test]
+    fn date_sort_keys_match_citeproc_js() {
+        let r: Value = serde_json::from_str(REF).expect("json");
+        let state = State::default();
+        let mut n = 0;
+        for c in r["cases"].as_array().expect("cases") {
+            let mut token = Token::new("key", TokenType::Singleton);
+            token.variables = vec!["issued".to_string()];
+            if let Some(dp) = c["dateparts"].as_array() {
+                token.extra.insert("dateparts".into(), Value::Array(dp.clone()));
+            }
+            let is_macro = c["isMacro"].as_bool().unwrap_or(false);
+            let ext = c["ext"].as_bool().unwrap_or(false);
+            let got = date_as_sort_key(&state, &mut token, &c["item"], is_macro, ext);
+            n += 1;
+            match (got, c.get("error")) {
+                (Ok(k), None) => {
+                    let want: Vec<(String, String)> = c["out"]
+                        .as_array()
+                        .expect("out")
+                        .iter()
+                        .map(|p| {
+                            (
+                                p[0].as_str().unwrap_or("").to_string(),
+                                p[1].as_str().unwrap_or("").to_string(),
+                            )
+                        })
+                        .collect();
+                    let have: Vec<(String, String)> = k
+                        .parts
+                        .iter()
+                        .map(|p| (p.clone(), k.macro_flag.to_string()))
+                        .collect();
+                    assert_eq!(have, want, "case {c}");
+                    assert_eq!(
+                        token.extra.get("dateparts").cloned().unwrap_or(Value::Null),
+                        c["token_dateparts"],
+                        "token.dateparts {c}"
+                    );
+                }
+                (Err(e), Some(w)) => assert_eq!(Some(e.to_string().as_str()), w.as_str(), "{c}"),
+                (g, w) => panic!("{c}: {g:?} vs {w:?}"),
+            }
+        }
+        assert!(n > 1000);
+    }
+}

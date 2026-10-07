@@ -201,9 +201,14 @@ mod input_side {
     pub fn is_romanesque(ctx: &NameInputCtx, name: &Obj) -> CslResult<i64> {
         let family = match name.get("family") {
             Some(Value::String(s)) => s.clone(),
-            None | Some(Value::Null) => {
+            None => {
                 return Err(EngineError::Csl(
                     "Cannot read properties of undefined (reading 'replace')".into(),
+                ))
+            }
+            Some(Value::Null) => {
+                return Err(EngineError::Csl(
+                    "Cannot read properties of null (reading 'replace')".into(),
                 ))
             }
             Some(_) => {
@@ -283,3 +288,80 @@ mod input_side {
 pub use input_side::{
     get_static_order, is_romanesque, normalize_name_input, parse_name, NameInputCtx,
 };
+
+#[cfg(test)]
+mod input_side_tests {
+    //! Differential tests against citeproc-js 2.4.63 for the input side:
+    //! reference `tests/data/csl/units/names.json` (generator
+    //! `scripts/csl-units/names.cjs`). For ~3,000 names (every name in the
+    //! fixtures plus generated ones) and 6 settings of `parse_names`,
+    //! `auto-vietnamese-names`, `Item.language` and `refresh`:
+    //! `_normalizeNameInput`, `getStaticOrder` (also on the raw name with no
+    //! defaulting of `family`/`given`) and `_isRomanesque`. Pass criterion:
+    //! equal results or equal TypeError text.
+    use serde_json::Value;
+
+    use super::*;
+
+    const REF: &str = include_str!("../../tests/data/csl/units/names.json");
+
+    fn err_text(e: &super::super::EngineError) -> String {
+        match e {
+            super::super::EngineError::Csl(m) => m.clone(),
+            o => o.to_string(),
+        }
+    }
+
+    #[test]
+    fn name_input_matches_citeproc_js() {
+        let r: Value = serde_json::from_str(REF).expect("json");
+        let variants = r["variants"].as_array().expect("variants");
+        let mut n = 0;
+        for c in r["cases"].as_array().expect("cases") {
+            let name = &c["name"];
+            for (vi, v) in variants.iter().enumerate() {
+                let ctx = NameInputCtx {
+                    parse_names: v["parse_names"].as_bool().unwrap_or(false),
+                    auto_vietnamese_names: v["vn"].as_bool().unwrap_or(false),
+                    item_language: v["lang"].as_str().map(str::to_string),
+                };
+                let refresh = v["refresh"].as_bool().unwrap_or(false);
+                let want = &c["v"][vi];
+                let Value::Object(nobj) = name else { continue };
+                // getStaticOrder on a defaulted copy
+                let mut for_static = nobj.clone();
+                for k in ["family", "given"] {
+                    if !crate::citeproc::js::truthy_opt(for_static.get(k)) {
+                        for_static.insert(k.into(), Value::String(String::new()));
+                    }
+                }
+                match (get_static_order(&ctx, &for_static, refresh), want.get("static_error")) {
+                    (Ok(b), None) => assert_eq!(Value::Bool(b), want["static_ordering"], "static {name} {v}"),
+                    (Err(e), Some(w)) => assert_eq!(w.as_str(), Some(err_text(&e).as_str()), "static {name}"),
+                    (g, w) => panic!("static {name} [{}]: {g:?} vs {w:?}", v["name"]),
+                }
+                match (get_static_order(&ctx, nobj, refresh), want.get("static_raw_error")) {
+                    (Ok(b), None) => assert_eq!(Value::Bool(b), want["static_raw"], "static_raw {name} {v}"),
+                    (Err(e), Some(w)) => assert_eq!(w.as_str(), Some(err_text(&e).as_str()), "static_raw {name}"),
+                    (g, w) => panic!("static_raw {name} [{}]: {g:?} vs {w:?}", v["name"]),
+                }
+                match (normalize_name_input(&ctx, name), want.get("norm_error")) {
+                    (Ok(o), None) => {
+                        let mut got = Value::Object(o);
+                        crate::citeproc::build_retrieve_item::canon_numbers(&mut got);
+                        assert_eq!(got, want["norm"], "norm {name} [{}]", v["name"])
+                    }
+                    (Err(e), Some(w)) => assert_eq!(w.as_str(), Some(err_text(&e).as_str()), "norm {name}"),
+                    (g, w) => panic!("norm {name} [{}]: {g:?} vs {w:?}", v["name"]),
+                }
+                match (is_romanesque(&ctx, nobj), want.get("romanesque_error")) {
+                    (Ok(b), None) => assert_eq!(Value::from(b), want["romanesque"], "romanesque {name}"),
+                    (Err(e), Some(w)) => assert_eq!(w.as_str(), Some(err_text(&e).as_str()), "romanesque {name}"),
+                    (g, w) => panic!("romanesque {name}: {g:?} vs {w:?}"),
+                }
+                n += 1;
+            }
+        }
+        assert!(n > 15000, "{n}");
+    }
+}
