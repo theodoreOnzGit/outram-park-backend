@@ -259,7 +259,9 @@ fn open_mindmap(root: &KovanRoot) -> Result<(std::path::PathBuf, String), Relati
     let path = root.mindmap_markdown();
     if !path.is_file() {
         let header = ArtifactToml {
+            extra: Default::default(),
             kovan: ArtifactMeta {
+                extra: Default::default(),
                 id: MINDMAP_DOC.to_string(),
                 kind: ArtifactKind::Mindmap,
                 created: utc_now_iso8601(),
@@ -340,7 +342,9 @@ fn link_back(root: &KovanRoot, node: &str, relation_id: &str, add: bool) -> Resu
 /// belongs in the artifacts it joins.
 fn render_relation_artifact(rel: &UserRelation, created: &str) -> Result<String, RelationError> {
     let toml = ArtifactToml {
+        extra: Default::default(),
         kovan: ArtifactMeta {
+            extra: Default::default(),
             id: rel.id.clone(),
             kind: ArtifactKind::Relation,
             created: created.to_string(),

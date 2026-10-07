@@ -629,7 +629,9 @@ impl Recipe {
         let mut out = String::new();
         for ((id, heading, prose), toml_text) in SECTIONS.iter().zip(settings) {
             let payload = kovan::artifact::ArtifactToml {
+                extra: Default::default(),
                 kovan: kovan::artifact::ArtifactMeta {
+                    extra: Default::default(),
                     id: (*id).to_string(),
                     kind: kovan::artifact::ArtifactKind::Note,
                     created: timestamp.to_string(),
@@ -655,7 +657,9 @@ impl Recipe {
             out.push('\n');
         }
         let payload = kovan::artifact::ArtifactToml {
+            extra: Default::default(),
             kovan: kovan::artifact::ArtifactMeta {
+                extra: Default::default(),
                 id: STEP6_ID.to_string(),
                 kind: kovan::artifact::ArtifactKind::Note,
                 created: timestamp.to_string(),

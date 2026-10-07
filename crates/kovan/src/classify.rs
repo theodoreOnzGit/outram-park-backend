@@ -245,7 +245,9 @@ pub fn insert_artifact(
     let before = session.markdown().to_string();
 
     let toml = ArtifactToml {
+        extra: Default::default(),
         kovan: ArtifactMeta {
+            extra: Default::default(),
             id: id.clone(),
             kind,
             created: now.clone(),
@@ -2005,7 +2007,9 @@ pub fn ensure_paper_header(
 
     let now = utc_now_iso8601();
     let toml = ArtifactToml {
+        extra: Default::default(),
         kovan: ArtifactMeta {
+            extra: Default::default(),
             id: citekey.clone(),
             kind: ArtifactKind::Paper,
             created: now.clone(),

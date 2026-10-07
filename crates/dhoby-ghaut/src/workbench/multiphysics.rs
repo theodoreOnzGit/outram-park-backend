@@ -390,7 +390,9 @@ impl MultiphysicsSetup {
         let toml_text =
             toml::to_string_pretty(self).map_err(|e| SetupError::Write(e.to_string()))?;
         let payload = kovan::artifact::ArtifactToml {
+            extra: Default::default(),
             kovan: kovan::artifact::ArtifactMeta {
+                extra: Default::default(),
                 id: SECTION_ID.to_string(),
                 kind: kovan::artifact::ArtifactKind::Note,
                 created: timestamp.to_string(),
