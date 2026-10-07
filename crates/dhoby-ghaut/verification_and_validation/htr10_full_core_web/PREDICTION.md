@@ -60,3 +60,27 @@ the browser held to 5 logical CPUs, the machine shared with other agents.
 **Decision rule, fixed now:** live data and live tracks if P2 comes in under
 ~5 min on the desktop with progress shown, otherwise baked tracks only; a
 live k_eff if P5 comes in under ~5 min.
+
+## Addendum, 2026-10-08: the DEM random bed in the live k (written before it was built or measured)
+
+Maintainer-approved (#787, 2026-10-08): the same live low-statistics k on
+the DEM random bed (#216's pour at µ = 0.1, cut to the lattice's 16 681 core
+pebbles, `assemble_explicit_triso_from_centres`, the paper's 57:43 fuel
+split). Prior numbers, quoted: the DEM-bed smoke run (2026-10-05, 500 ×
+[10 + 20], 12 threads of the i9-13900K) took 38.3 s for 15 000 histories,
+about **31 ms of CPU per history**, against 11–15 ms for the lattice natively
+here (`logs/bake_native.log`) and **12–19 ms per history per worker** in the
+browser (README). The DEM core has 88 693 cells against the lattice's
+43 445, and assembles in 0.2 s natively.
+
+| quantity | prediction |
+|---|---|
+| D1. Browser transport per history per worker, DEM bed | **25–50 ms** (the native ratio, 2–2.5×, on the browser's lattice cost) |
+| D2. A 1000 × [5 + 20] run on 3 workers (4 cores in all, page included) | **4–7 min** (9–17 s per generation) |
+| D3. Rebuilding the core as the DEM bed in a worker | **0.3–1.5 s** |
+| D4. Extra wasm memory per worker over the lattice core | **20–80 MB** |
+| D5. Page long tasks over 100 ms during the DEM run | **none** on a quiet machine (the page keeps one of the 4 cores) |
+| D6. Its k | within 2σ of the lattice live run (σ ≈ 1000 pcm each): **the demo cannot resolve a lattice-against-random difference**, and the page must say so |
+
+No native random-bed k is assumed: another agent's 10 000 × [5 + 135] run is
+in progress, and the page leaves a marked slot for it.
