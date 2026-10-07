@@ -123,7 +123,20 @@ fn normalise_props(item: &mut TranslatorItem) {
 /// (:186; `itemToAPIJSON` drops it), the deprecation debug messages, and the
 /// connector-only conversion of `attachment.document` (:165-169), which no
 /// import translator sets.
-pub fn item_done(mut item: TranslatorItem, in_child_translator: bool) -> TranslatorItem {
+pub fn item_done(item: TranslatorItem, in_child_translator: bool) -> TranslatorItem {
+    item_done_with(item, in_child_translator, true)
+}
+
+/// `_itemDone` with the saving branch explicit: `saved` false is a
+/// translation run with `libraryID: false` (the translation-server's
+/// `/search`, #756), where `_itemDone` returns the item at :178-183, before
+/// the note, `version` and `accessDate` steps, exactly as it does in a child
+/// translator.
+pub fn item_done_with(
+    mut item: TranslatorItem,
+    in_child_translator: bool,
+    saved: bool,
+) -> TranslatorItem {
     normalise_props(&mut item);
 
     // :133-141
@@ -155,8 +168,9 @@ pub fn item_done(mut item: TranslatorItem, in_child_translator: bool) -> Transla
         }
     }
 
-    // :180-183: a child translator hands the item back as it is.
-    if in_child_translator {
+    // :180-183: a child translator, or a translation that does not save
+    // (`libraryID === false`), hands the item back as it is.
+    if in_child_translator || !saved {
         return item;
     }
 

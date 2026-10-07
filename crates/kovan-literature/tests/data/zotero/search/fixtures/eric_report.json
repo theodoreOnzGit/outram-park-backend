@@ -1,0 +1,33 @@
+{
+	"case": "eric_report",
+	"input": {
+		"kind": "forced",
+		"translator": "ERIC.js",
+		"search": {
+			"ericNumber": "ED616685"
+		}
+	},
+	"recordedOn": "2026-10-07T01:48:34.928Z",
+	"userAgent": "kovan-zotero-reference/0.1 (outram-park-backend kovan-literature; recording public bibliographic metadata fixtures for code-to-code tests; https://github.com/theodoreOnzGit/outram-park-backend)",
+	"exchanges": [
+		{
+			"request": {
+				"method": "GET",
+				"url": "https://api.ies.ed.gov/eric/?search=id:ED616685&format=json&fields=*",
+				"headers": {
+					"Accept": "*/*"
+				},
+				"body": null
+			},
+			"response": {
+				"status": 200,
+				"url": "https://api.ies.ed.gov/eric/?search=id:ED616685&format=json&fields=*",
+				"headers": {
+					"content-type": "text/plain;charset=utf-8"
+				},
+				"body": "{\n  \"response\":{\"numFound\":1,\"start\":0,\"numFoundExact\":true,\"docs\":[\n      {\n        \"id\":\"ED616685\",\n        \"title\":\"Can Closed-Ended Practice Tests Promote Understanding from Text?\",\n        \"author\":[\"Hildenbrand, Lena\",\n          \"Wiley, Jennifer\"],\n        \"author_ss\":[\"Hildenbrand, Lena\",\n          \"Wiley, Jennifer\"],\n        \"description\":\"Many studies have demonstrated that testing students on to-be-learned materials can be an effective learning activity. However, past studies have also shown that some practice test formats are more effective than others. Open-ended recall or short answer practice tests may be effective because the questions prompt deeper processing as students must generate an answer. With closed-ended testing formats such as multiple-choice or true-false tests, there are concerns that they may prompt only superficial processing, and that any benefits will not extend to non-practiced information or over time. They also may not be effective for improving comprehension from text as measured by how-and-why questions. The present study explored the utility of practice tests with closed-ended questions to improve learning from text. Results showed closed-ended practice testing can lead to benefits even when the learning outcome was comprehension of text. [This paper was published in: &quot;Proceedings of the 43rd Annual Conference of the Cognitive Science Society,&quot; 2021, pp.327-333.]\",\n        \"subject\":[\"Test Format\",\n          \"Outcomes of Education\",\n          \"Cognitive Processes\",\n          \"Learning Activities\",\n          \"Recall (Psychology)\",\n          \"Multiple Choice Tests\",\n          \"Cues\",\n          \"Language Processing\",\n          \"Testing\",\n          \"Educational Benefits\",\n          \"Test Items\",\n          \"Instructional Effectiveness\",\n          \"Undergraduate Students\",\n          \"Urban Universities\",\n          \"Psychology\",\n          \"Introductory Courses\",\n          \"Prior Learning\",\n          \"Scores\",\n          \"Reading Tests\",\n          \"College Entrance Examinations\",\n          \"Comparative Analysis\"],\n        \"subject_ss\":[\"Test Format\",\n          \"Outcomes of Education\",\n          \"Cognitive Processes\",\n          \"Learning Activities\",\n          \"Recall (Psychology)\",\n          \"Multiple Choice Tests\",\n          \"Cues\",\n          \"Language Processing\",\n          \"Testing\",\n          \"Educational Benefits\",\n          \"Test Items\",\n          \"Instructional Effectiveness\",\n          \"Undergraduate Students\",\n          \"Urban Universities\",\n          \"Psychology\",\n          \"Introductory Courses\",\n          \"Prior Learning\",\n          \"Scores\",\n          \"Reading Tests\",\n          \"College Entrance Examinations\",\n          \"Comparative Analysis\"],\n        \"e_fulltextauth\":1,\n        \"source\":\"Grantee Submission\",\n        \"source_s\":\"Grantee Submission\",\n        \"sourceid\":\"Paper presented at the Annual Conference of the Cognitive Science Society (43rd, 2021)\",\n        \"z_coverage\":\"S\",\n        \"e_classification\":[\"Evaluation\"],\n        \"pagecount\":8,\n        \"publicationtype\":[\"Reports - Research\",\n          \"Speeches/Meeting Papers\"],\n        \"e_fulltextexists\":1,\n        \"isjournal\":\"Non-Journal\",\n        \"educationlevel\":[\"Higher Education\",\n          \"Postsecondary Education\"],\n        \"educationlevel_ss\":[\"Higher Education\",\n          \"Postsecondary Education\"],\n        \"publicationdateyear\":2021,\n        \"url\":\"https://cognitivesciencesociety.org/program/\",\n        \"language\":[\"English\"],\n        \"abstractor\":\"As Provided\",\n        \"desc\":\"Many studies have demonstrated that testing students on to-be-learned materials can be an effective learning activity. However, past studies have also shown that some practice test formats are more effective than others. Open-ended recall or short answer practice tests may be effective because the questions prompt deeper processing as students must generate an answer. With closed-ended testing formats such as multiple-choice or true-false tests, there are concerns that they may prompt only superficial processing, and that any benefits will not extend to non-practiced information or over time. They also may not be effective for improving comprehension from text as measured by how-and-why questions. The present study explored the utility of practice tests with closed-ended questions to improve learning from text. Results showed closed-ended practice testing can lead to benefits even when the learning outcome was comprehension of text. [This paper was published in: &quot;Proceedings of \",\n        \"referencecount\":-1,\n        \"peerreviewed\":\"T\",\n        \"e_yearadded\":2022,\n        \"sponsor\":[\"Institute of Education Sciences (ED)\"],\n        \"publicationdate\":\"2021-00-00\",\n        \"e_datemodified\":\"2023-07-08T00:00:00Z\",\n        \"iesfunded\":\"Y\",\n        \"iesgrantcontractnum\":[\"R305A160008\"],\n        \"identifierstest\":[\"Gates MacGinitie Reading Tests\",\n          \"ACT Assessment\"],\n        \"identifierstest_ss\":[\"Gates MacGinitie Reading Tests\",\n          \"ACT Assessment\"],\n        \"iesgrantcontractnumxlink\":[\"https://ies.ed.gov/funding/grantsearch/details.asp?ID=1788\"],\n        \"authorxlink\":[\"\\\"\",\n          \"\\\"\"],\n        \"e_fulltext_avail\":\"N\",\n        \"e_fulltextactual\":1,\n        \"_version_\":1866999844492541954}]\n  }}\n",
+				"bodyEncoding": "utf8"
+			}
+		}
+	]
+}

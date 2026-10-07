@@ -1,0 +1,28 @@
+{
+	"case": "libris_isbn",
+	"input": {
+		"kind": "forced",
+		"translator": "LIBRIS ISBN.js",
+		"search": {
+			"itemType": "book",
+			"ISBN": "978-91-977109-4-7"
+		}
+	},
+	"recordedOn": "2026-10-07T01:48:23.917Z",
+	"userAgent": "kovan-zotero-reference/0.1 (outram-park-backend kovan-literature; recording public bibliographic metadata fixtures for code-to-code tests; https://github.com/theodoreOnzGit/outram-park-backend)",
+	"exchanges": [
+		{
+			"request": {
+				"method": "GET",
+				"url": "http://libris.kb.se/xsearch?query=ISBN:9789197710947",
+				"headers": {
+					"Accept": "*/*"
+				},
+				"body": null
+			},
+			"response": {
+				"error": "AggregateError"
+			}
+		}
+	]
+}

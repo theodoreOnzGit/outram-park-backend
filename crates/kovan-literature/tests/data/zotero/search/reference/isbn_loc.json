@@ -1,0 +1,59 @@
+{
+	"name": "isbn_loc",
+	"kind": "identifier",
+	"text": "9780521779241",
+	"identifiers": [
+		{
+			"ISBN": "9780521779241"
+		}
+	],
+	"detected": [
+		"c070e5a2-4bfd-44bb-9b3c-4be20c50d0d9",
+		"f349954c-9957-4b5f-be24-1a8bb52f7fbd",
+		"de0eef58-cb39-4410-ada0-6b39f43383f9",
+		"c73a4a8c-3ef1-4ec8-8229-7531ee384cc4"
+	],
+	"status": 200,
+	"translatorUsed": "c070e5a2-4bfd-44bb-9b3c-4be20c50d0d9",
+	"items": [
+		{
+			"key": "KVN22222",
+			"version": 0,
+			"itemType": "book",
+			"creators": [
+				{
+					"firstName": "Knud",
+					"lastName": "Haakonssen",
+					"creatorType": "editor"
+				}
+			],
+			"tags": [
+				{
+					"tag": "Smith, Adam",
+					"type": 1
+				}
+			],
+			"ISBN": "9780521770590 9780521779241",
+			"title": "The Cambridge companion to Adam Smith",
+			"place": "Cambridge ; New York",
+			"publisher": "Cambridge University Press",
+			"date": "2006",
+			"numPages": "409",
+			"series": "Cambridge companions to philosophy",
+			"callNumber": "B1545.Z7 C36 2006",
+			"libraryCatalog": "Library of Congress ISBN"
+		},
+		{
+			"itemType": "note",
+			"parentItem": "KVN22222",
+			"note": "Imagination : morals, science, arts / Charles L. Griswold, Jr. -- Adam Smith, belletrist / Mark Salber Phillips -- Adam Smith's theory of language / Marcelo Dascal -- Smith and science / Christopher J. Berry -- Smith on ingenuity, pleasure, and the imitative arts / Neil de Marchi -- Sympathy and the impartial spectator / Alexander Broadie -- Virtues, utility, and rules / Robert Shaver -- Adam Smith on justice, rights, and law / David Lieberman -- Self-interest and other interests / Pratap Bhanu Mehta -- Adam Smith and history / J.G.A. Pocock -- Adam Smith's politics / Douglas Long -- Adam Smith's economics / Emma Rothschild and Amartya Sen -- The legacy of Adam Smith / Knud Haakonssen and Donald Winch"
+		}
+	],
+	"requests": [
+		{
+			"method": "GET",
+			"url": "https://lx2.loc.gov/sru/lcdb?operation=searchRetrieve&version=1.1&query=bath.ISBN=^9780521779241&maximumRecords=1",
+			"body": null
+		}
+	]
+}

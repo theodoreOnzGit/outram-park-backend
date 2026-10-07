@@ -1,0 +1,11 @@
+{
+	"generatedBy": "scripts/zotero-search-reference.mjs",
+	"generatedOn": "2026-10-07T02:01:18.369Z",
+	"node": "v26.10.0",
+	"utcOffsetMinutes": 480,
+	"translators": "vendor/translators (see the main reference manifest for commits)",
+	"notes": [
+		"References are upstream run in-process on the committed fixtures (no network).",
+		"Normalisation: item keys/parentItem renumbered (normKey); an accessDate stamped during the run becomes NOW."
+	]
+}

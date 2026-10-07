@@ -1,0 +1,30 @@
+{
+	"case": "eidr",
+	"input": {
+		"kind": "identifier",
+		"text": "10.5240/6F7E-EF59-329B-1F0A-8440-2"
+	},
+	"recordedOn": "2026-10-07T01:48:00.360Z",
+	"userAgent": "kovan-zotero-reference/0.1 (outram-park-backend kovan-literature; recording public bibliographic metadata fixtures for code-to-code tests; https://github.com/theodoreOnzGit/outram-park-backend)",
+	"exchanges": [
+		{
+			"request": {
+				"method": "GET",
+				"url": "https://resolve.eidr.org/EIDR/object/10.5240/6F7E-EF59-329B-1F0A-8440-2/?type=Full&followAlias=true",
+				"headers": {
+					"Accept": "*/*"
+				},
+				"body": null
+			},
+			"response": {
+				"status": 200,
+				"url": "https://resolve.eidr.org/EIDR/object/10.5240/6F7E-EF59-329B-1F0A-8440-2/?type=Full&followAlias=true",
+				"headers": {
+					"content-type": "text/xml;charset=UTF-8"
+				},
+				"body": "<?xml version=\"1.0\" encoding=\"UTF-8\"?><FullMetadata xmlns=\"http://www.eidr.org/schema\" xmlns:md=\"http://www.movielabs.com/schema/md/v2.8/md\"><BaseObjectData><ID>10.5240/6F7E-EF59-329B-1F0A-8440-2</ID><StructuralType>Abstraction</StructuralType><Mode>AudioVisual</Mode><ReferentType>Short</ReferentType><ResourceName lang=\"en\">You, the People</ResourceName><AlternateResourceName lang=\"en\">Crime Does Not Pay -You, the People</AlternateResourceName><OriginalLanguage mode=\"Audio\" type=\"primary\">en</OriginalLanguage><AssociatedOrg idType=\"EIDRPartyID\" organizationID=\"10.5237/169B-EDEB\" role=\"producer\"><md:DisplayName>Metro-Goldwyn-Mayer</md:DisplayName><md:AlternateName>MGM</md:AlternateName></AssociatedOrg><AssociatedOrg role=\"producer\"><md:DisplayName>Warner Home Video</md:DisplayName></AssociatedOrg><AssociatedOrg role=\"producer\"><md:DisplayName>MGM</md:DisplayName></AssociatedOrg><ReleaseDate>1940-11-30</ReleaseDate><CountryOfOrigin>US</CountryOfOrigin><Status>valid</Status><ApproximateLength>PT21M</ApproximateLength><Administrators><Registrant>10.5237/superparty</Registrant></Administrators><Credits><Director><md:DisplayName>Roy Rowland</md:DisplayName></Director><Actor><md:DisplayName>Byron Shores</md:DisplayName></Actor><Actor><md:DisplayName>C. Henry Gordon</md:DisplayName></Actor><Actor><md:DisplayName>Paul Everton</md:DisplayName></Actor></Credits></BaseObjectData></FullMetadata>",
+				"bodyEncoding": "utf8"
+			}
+		}
+	]
+}

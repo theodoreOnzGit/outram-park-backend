@@ -1,0 +1,55 @@
+{
+	"name": "doi_crossref",
+	"kind": "identifier",
+	"text": "10.1109/TPS.1987.4316723",
+	"identifiers": [
+		{
+			"DOI": "10.1109/TPS.1987.4316723"
+		}
+	],
+	"detected": [
+		"b28d0d42-8549-4c6d-83fc-8382874a5cb9"
+	],
+	"status": 200,
+	"translatorUsed": "b28d0d42-8549-4c6d-83fc-8382874a5cb9",
+	"items": [
+		{
+			"key": "KVN22222",
+			"version": 0,
+			"itemType": "journalArticle",
+			"creators": [
+				{
+					"firstName": "John J.",
+					"lastName": "Quinn",
+					"creatorType": "author"
+				},
+				{
+					"firstName": "Josiah S.",
+					"lastName": "Carberry",
+					"creatorType": "author"
+				}
+			],
+			"tags": [],
+			"publicationTitle": "IEEE Transactions on Plasma Science",
+			"journalAbbreviation": "IEEE Trans. Plasma Sci.",
+			"volume": "15",
+			"issue": "4",
+			"ISSN": "0093-3813",
+			"date": "1987",
+			"pages": "394-410",
+			"DOI": "10.1109/TPS.1987.4316723",
+			"rights": "https://ieeexplore.ieee.org/Xplorehelp/downloads/license-information/IEEE.html",
+			"url": "http://ieeexplore.ieee.org/document/4316723/",
+			"title": "Bulk and Surface Plasmons in Artificially Structured Materials",
+			"libraryCatalog": "DOI.org (Crossref)",
+			"accessDate": "NOW"
+		}
+	],
+	"requests": [
+		{
+			"method": "GET",
+			"url": "https://doi.org/10.1109%2FTPS.1987.4316723",
+			"body": null
+		}
+	]
+}

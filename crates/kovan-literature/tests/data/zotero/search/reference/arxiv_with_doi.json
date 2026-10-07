@@ -1,0 +1,66 @@
+{
+	"name": "arxiv_with_doi",
+	"kind": "identifier",
+	"text": "1207.7214",
+	"identifiers": [
+		{
+			"arXiv": "1207.7214"
+		}
+	],
+	"detected": [
+		"ecddda2e-4fc6-4aea-9f17-ef3b56d7377a"
+	],
+	"status": 200,
+	"translatorUsed": "ecddda2e-4fc6-4aea-9f17-ef3b56d7377a",
+	"items": [
+		{
+			"key": "KVN22222",
+			"version": 0,
+			"itemType": "journalArticle",
+			"creators": [
+				{
+					"firstName": "The ATLAS",
+					"lastName": "Collaboration",
+					"creatorType": "author"
+				}
+			],
+			"tags": [
+				{
+					"tag": "High Energy Physics - Experiment",
+					"type": 1
+				}
+			],
+			"title": "Observation of a new particle in the search for the Standard Model Higgs boson with the ATLAS detector at the LHC",
+			"date": "09/2012",
+			"abstractNote": "A search for the Standard Model Higgs boson in proton-proton collisions with the ATLAS detector at the LHC is presented. The datasets used correspond to integrated luminosities of approximately 4.8 fb^-1 collected at sqrt(s) = 7 TeV in 2011 and 5.8 fb^-1 at sqrt(s) = 8 TeV in 2012. Individual searches in the channels H->ZZ^(*)->llll, H->gamma gamma and H->WW->e nu mu nu in the 8 TeV data are combined with previously published results of searches for H->ZZ^(*), WW^(*), bbbar and tau^+tau^- in the 7 TeV data and results from improved analyses of the H->ZZ^(*)->llll and H->gamma gamma channels in the 7 TeV data. Clear evidence for the production of a neutral boson with a measured mass of 126.0 +/- 0.4(stat) +/- 0.4(sys) GeV is presented. This observation, which has a significance of 5.9 standard deviations, corresponding to a background fluctuation probability of 1.7x10^-9, is compatible with the production and decay of the Standard Model Higgs boson.",
+			"DOI": "10.1016/j.physletb.2012.08.020",
+			"url": "http://arxiv.org/abs/1207.7214",
+			"extra": "arXiv:1207.7214 [hep-ex]",
+			"volume": "716",
+			"issue": "1",
+			"pages": "1-29",
+			"ISSN": "03702693",
+			"publicationTitle": "Physics Letters B",
+			"journalAbbreviation": "Physics Letters B",
+			"libraryCatalog": "arXiv.org",
+			"accessDate": "NOW"
+		},
+		{
+			"itemType": "note",
+			"parentItem": "KVN22222",
+			"note": "Comment: 24 pages plus author list (38 pages total), 12 figures, 7 tables, revised author list, matches version to appear in Physics Letters B"
+		}
+	],
+	"requests": [
+		{
+			"method": "GET",
+			"url": "https://export.arxiv.org/api/query?id_list=1207.7214&max_results=1",
+			"body": null
+		},
+		{
+			"method": "GET",
+			"url": "https://doi.org/10.1016%2Fj.physletb.2012.08.020",
+			"body": null
+		}
+	]
+}
