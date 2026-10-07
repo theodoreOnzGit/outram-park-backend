@@ -547,6 +547,13 @@ pub(super) fn saved_artifact_menu_entries(
         ArtifactKind::WalkStep => "Edit walk step",
         ArtifactKind::CodeWalk => "Edit code walk",
         ArtifactKind::RecipeStep => "Edit recipe step",
+        // The code-review kinds (#764) live in a folder's review.md, never
+        // on a PDF page; the arms name what is being edited.
+        ArtifactKind::Review => "Edit review",
+        ArtifactKind::NeedsFix => "Edit needs-fix note",
+        ArtifactKind::Upstream => "Edit upstream confirmation",
+        ArtifactKind::DeletedFunctions => "Edit deleted-functions history",
+        ArtifactKind::Architecture => "Edit architecture node",
     };
     let is_csv = matches!(
         kind,
@@ -5755,7 +5762,9 @@ mod tests {
             level: crate::artifact::ARTIFACT_LEVEL,
             line: 1,
             toml: crate::artifact::ArtifactToml {
+                extra: Default::default(),
                 kovan: crate::artifact::ArtifactMeta {
+                    extra: Default::default(),
                     id: id.to_string(),
                     kind,
                     created: "c".to_string(),

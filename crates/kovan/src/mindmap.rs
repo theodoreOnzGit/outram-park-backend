@@ -181,7 +181,16 @@ pub fn literature_card(
                 // artifacts — counting it would double-count the paper.
                 // A connector is an edge, and a saved mindmap is a view of
                 // the graph — neither is a note/table/figure of the paper.
-                ArtifactKind::Paper | ArtifactKind::Relation | ArtifactKind::Mindmap => {}
+                // The code-review kinds (#764) belong to code, not to the
+                // paper, so they are not counted on its card either.
+                ArtifactKind::Paper
+                | ArtifactKind::Relation
+                | ArtifactKind::Mindmap
+                | ArtifactKind::Review
+                | ArtifactKind::NeedsFix
+                | ArtifactKind::Upstream
+                | ArtifactKind::DeletedFunctions
+                | ArtifactKind::Architecture => {}
                 // The #743 prose kinds are text artifacts too, so they count
                 // as notes on the card rather than adding a column.
                 ArtifactKind::Note

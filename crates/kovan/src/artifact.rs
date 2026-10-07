@@ -162,11 +162,26 @@ pub enum ArtifactKind {
     /// One step of a recipe (an input deck or workflow a reader follows by
     /// hand), anchored to the code it drives (GH issue #743).
     RecipeStep,
+    /// Code review (GH issues #739, #764; the schema is
+    /// `kovan_common::review::review_md`): one reviewer's standing review of
+    /// one function, its data in a `[review]` table. Added 2026-10-07 so
+    /// desktop kovan reads `review.md` instead of reporting it malformed.
+    Review,
+    /// Code review: an open or resolved concern about a function
+    /// (`[needs_fix]`).
+    NeedsFix,
+    /// Code review: a folder's upstream confirmation (`[upstream]`).
+    Upstream,
+    /// Code review: a folder's deleted-functions history (`[[deleted]]`).
+    DeletedFunctions,
+    /// Code review: an architecture node in a crate-level `review.md`
+    /// (`[architecture]`).
+    Architecture,
 }
 
 impl ArtifactKind {
     /// Every kind, in declaration order.
-    pub const ALL: [ArtifactKind; 13] = [
+    pub const ALL: [ArtifactKind; 18] = [
         Self::Paper,
         Self::Note,
         Self::Annotation,
@@ -180,6 +195,11 @@ impl ArtifactKind {
         Self::WalkStep,
         Self::CodeWalk,
         Self::RecipeStep,
+        Self::Review,
+        Self::NeedsFix,
+        Self::Upstream,
+        Self::DeletedFunctions,
+        Self::Architecture,
     ];
 
     /// The snake_case wire name, as written in `[kovan] kind`.
@@ -198,7 +218,26 @@ impl ArtifactKind {
             Self::WalkStep => "walk_step",
             Self::CodeWalk => "code_walk",
             Self::RecipeStep => "recipe_step",
+            Self::Review => "review",
+            Self::NeedsFix => "needs_fix",
+            Self::Upstream => "upstream",
+            Self::DeletedFunctions => "deleted_functions",
+            Self::Architecture => "architecture",
         }
+    }
+
+    /// Whether this is one of the code-review kinds (GH issue #764) that
+    /// live in a folder's `review.md`. (`annotation` is shared with
+    /// literature notes and is not counted here.)
+    pub fn is_review_kind(self) -> bool {
+        matches!(
+            self,
+            Self::Review
+                | Self::NeedsFix
+                | Self::Upstream
+                | Self::DeletedFunctions
+                | Self::Architecture
+        )
     }
 
     /// Whether this is one of the prose kinds GH issue #743 added for
@@ -563,6 +602,29 @@ impl Extraction {
     }
 }
 
+/// Keys a reader does not know, kept so that re-rendering an artifact never
+/// drops them (GitHub #764, 2026-10-07). Before this, unknown keys were
+/// tolerated on read but silently lost when kovan rewrote the block; a
+/// code-review entry (`[kovan] target`, `[review]`, `[needs_fix]`, …) would
+/// have lost its whole review on any edit through the literature path.
+/// Empty for every note written with known keys only, so those re-render
+/// byte for byte as before.
+///
+/// `Eq` is asserted by hand: TOML values compare as equal or not, and the
+/// only non-reflexive case, a NaN float, does not occur in kovan metadata.
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
+#[serde(transparent)]
+pub struct ExtraKeys(pub toml::Table);
+
+impl Eq for ExtraKeys {}
+
+impl ExtraKeys {
+    /// Whether there are none (then nothing extra is written).
+    pub fn is_empty(&self) -> bool {
+        self.0.is_empty()
+    }
+}
+
 /// The mandatory `[kovan]` table (§14).
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ArtifactMeta {
@@ -589,6 +651,10 @@ pub struct ArtifactMeta {
     /// byte.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub origin: Option<Origin>,
+    /// Any other `[kovan]` key (e.g. a code review's `target`), kept as
+    /// written ([`ExtraKeys`]).
+    #[serde(flatten, default, skip_serializing_if = "ExtraKeys::is_empty")]
+    pub extra: ExtraKeys,
 }
 
 impl ArtifactMeta {
@@ -642,6 +708,12 @@ pub struct ArtifactToml {
     /// should reference each other").
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub connections: Vec<String>,
+    /// Any other top-level table or key (a code review's `[review]`,
+    /// `[needs_fix]`, `[upstream]`, `[architecture]`, `[[deleted]]`, or a
+    /// literature annotation's future additions), kept as written
+    /// ([`ExtraKeys`]).
+    #[serde(flatten, default, skip_serializing_if = "ExtraKeys::is_empty")]
+    pub extra: ExtraKeys,
 }
 
 /// One artifact, as found in a Markdown document.
@@ -1033,7 +1105,9 @@ mod tests {
     #[test]
     fn a_sentinel_wrapped_body_round_trips_through_the_parser() {
         let toml = ArtifactToml {
+            extra: Default::default(),
             kovan: ArtifactMeta {
+                extra: Default::default(),
                 id: "fig-1".into(),
                 kind: ArtifactKind::DigitisedGraph,
                 created: "t".into(),
@@ -1070,7 +1144,9 @@ mod tests {
             level: ARTIFACT_LEVEL,
             line: 1,
             toml: ArtifactToml {
+                extra: Default::default(),
                 kovan: ArtifactMeta {
+                    extra: Default::default(),
                     id: "fig-1".into(),
                     kind: ArtifactKind::DigitisedGraph,
                     created: "t".into(),
@@ -1605,7 +1681,9 @@ modified = "m"
     #[test]
     fn render_artifact_block_round_trips_through_parse_document() {
         let payload = ArtifactToml {
+            extra: Default::default(),
             kovan: ArtifactMeta {
+                extra: Default::default(),
                 id: "coupled-neutronics-methodology".to_string(),
                 kind: ArtifactKind::SourceReference,
                 created: "2026-08-31T15:10:12+08:00".to_string(),
@@ -1646,7 +1724,9 @@ modified = "m"
     #[test]
     fn render_artifact_block_keeps_a_non_empty_body() {
         let payload = ArtifactToml {
+            extra: Default::default(),
             kovan: ArtifactMeta {
+                extra: Default::default(),
                 id: "a-note".to_string(),
                 kind: ArtifactKind::Note,
                 created: "c".to_string(),
@@ -1680,7 +1760,9 @@ modified = "m"
 
     fn multi_series_artifact() -> String {
         let toml = ArtifactToml {
+            extra: Default::default(),
             kovan: ArtifactMeta {
+                extra: Default::default(),
                 id: "fig-7".into(),
                 kind: ArtifactKind::DigitisedGraph,
                 created: "t".into(),

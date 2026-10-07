@@ -1,6 +1,12 @@
 use super::*;
 use crate::artifact::relation::RelationKind;
+use crate::review::id::mint_fn_id;
 use crate::review::types::{AuthorshipKind, FieldError, UrlPinError};
+
+/// The id a test function at `path` was minted with.
+pub(crate) fn fid(path: &str) -> String {
+    mint_fn_id(path, &h('a'), SHA)
+}
 
 pub(crate) const SHA: &str = "0123456789abcdef0123456789abcdef01234567";
 
@@ -19,15 +25,16 @@ pub(crate) fn meta(id: &str, kind: &str, target: Option<&str>) -> EntryMeta {
     }
 }
 
-pub(crate) fn review(function: &str, file: &str, by: &str) -> ReviewEntry {
+pub(crate) fn review(function: &str, _file: &str, by: &str) -> ReviewEntry {
     ReviewEntry {
         kovan: meta(
             &format!("review-{}-{}", function.rsplit("::").next().unwrap_or(""), by.replace([':', '@', '.'], "-")),
             "review",
-            Some(&format!("code:{file}::{}", function.rsplit("::").next().unwrap_or(""))),
+            Some(&fid(function)),
         ),
         review: ReviewBody {
-            function: function.into(),
+            function: None,
+            path: Some(function.into()),
             by: by.into(),
             rung: 3,
             date: "2026-10-07".into(),
@@ -82,6 +89,7 @@ fn every_entry_kind_round_trips() {
     });
     r.review.moved.push(MoveRecord {
         from: "crates/t/src/old.rs::flash".into(),
+        to: Some("crates/t/src/steam.rs::flash".into()),
         commit: SHA.into(),
     });
     r.review.signature = Some(Signature {
@@ -94,9 +102,10 @@ fn every_entry_kind_round_trips() {
         RelationRecord::new("", "artifact:arch-steam#flash-loop", RelationKind::PartOf),
     ];
     let nf = NeedsFixEntry {
-        kovan: meta("fix-1", "needs_fix", Some("code:crates/t/src/steam.rs::flash")),
+        kovan: meta("fix-1", "needs_fix", Some(&fid("crates/t/src/steam.rs::flash"))),
         needs_fix: NeedsFixBody {
-            function: "crates/t/src/steam.rs::flash".into(),
+            function: None,
+            path: Some("crates/t/src/steam.rs::flash".into()),
             by: "github:theodoreOnzGit".into(),
             date: "2026-10-07".into(),
             commit: SHA.into(),
@@ -108,9 +117,10 @@ fn every_entry_kind_round_trips() {
         },
     };
     let ann = AnnotationEntry {
-        kovan: meta("hl-1", "annotation", Some("code:crates/t/src/steam.rs::flash")),
+        kovan: meta("hl-1", "annotation", Some(&fid("crates/t/src/steam.rs::flash"))),
         annotation: AnnotationBody {
-            function: "crates/t/src/steam.rs::flash".into(),
+            function: None,
+            path: Some("crates/t/src/steam.rs::flash".into()),
             by: "github:theodoreOnzGit".into(),
             commit: SHA.into(),
             selector: vec![
@@ -133,6 +143,7 @@ fn every_entry_kind_round_trips() {
             is_port: true,
             repository: Some("https://github.com/CoolProp/CoolProp".into()),
             commit: Some(SHA.into()),
+            tag: Some("v6.4.1".into()),
             files: [(
                 "steam.rs".to_string(),
                 format!("https://github.com/CoolProp/CoolProp/blob/{SHA}/src/IF97.h"),
@@ -160,7 +171,8 @@ fn every_entry_kind_round_trips() {
             by: "github:theodoreOnzGit".into(),
             date: "2026-10-07".into(),
             commit: SHA.into(),
-            members: vec!["crates/t/src/steam.rs::flash".into()],
+            members: vec![fid("crates/t/src/steam.rs::flash")],
+            member_paths: vec!["crates/t/src/steam.rs::flash".into()],
             upstream: Some(crate::call_graph::upstream::Upstream {
                 style: crate::call_graph::upstream::HeaderStyle::KeyValue,
                 line: 1,
@@ -173,6 +185,7 @@ fn every_entry_kind_round_trips() {
                 licence: None,
                 url: Some(format!("https://github.com/CoolProp/CoolProp/blob/{SHA}/src/IF97.h")),
             }),
+            upstream_tag: Some("v6.4.1".into()),
             pattern: Some("concept:numerics/newton-iteration".into()),
             signature: None,
         },
@@ -225,7 +238,7 @@ fn malformed_entries_are_isolated() {
     let doc = parse_review_md(&md);
     assert_eq!(doc.reviews().cloned().collect::<Vec<_>>(), vec![good]);
     assert_eq!(doc.unreadable.len(), 3, "{:?}", doc.unreadable);
-    assert_eq!(doc.unreadable[0].function.as_deref(), Some("crates/t/src/a.rs::g"));
+    assert_eq!(doc.unreadable[0].function.as_deref(), Some(fid("crates/t/src/a.rs::g").as_str()));
     assert_eq!(doc.unreadable[0].by.as_deref(), Some("github:a"));
     assert!(doc.unreadable[1].message.contains("rung 5"));
     assert_eq!(doc.unreadable[2].heading, "Broken", "a broken fence never vanishes");
@@ -234,6 +247,7 @@ fn malformed_entries_are_isolated() {
         is_port: true,
         repository: Some("https://github.com/o/r".into()),
         commit: Some(SHA.into()),
+        tag: None,
         files: BTreeMap::new(),
         routines: BTreeMap::new(),
         confirmed_by: "github:a".into(),
@@ -319,4 +333,112 @@ fn signed_bytes_cover_the_certifying_fields() {
         verify_review(&signed, &registry),
         SignatureCheck::Unverified(UnverifiedReason::UnknownReviewer("github:a".into()))
     );
+}
+
+/// Methodology: migration from the first-version ids (maintainer, #764,
+/// 2026-10-07: "a migration test from the call-graph-key ids"). A
+/// `review.md` written in the first-version form (`[review] function` =
+/// call-graph key, `target = "code:…"`, a needs-fix and a highlight on the
+/// same function, an architecture node listing it) reads with no
+/// unreadable entries; every entry of one function gets the same `fn:` id,
+/// minted from the key and its earliest review's hash and commit; the path
+/// keeps the old key; re-rendering writes the new form, which reads back
+/// unchanged with nothing left to migrate.
+///
+/// Result (2026-10-07): passes.
+#[test]
+fn first_version_ids_migrate() {
+    let key = "crates/t/src/steam.rs::flash";
+    let old = format!(r#"# Review
+
+```toml
+[kovan]
+id = "r1"
+kind = "review"
+created = "c"
+modified = "m"
+target = "code:crates/t/src/steam.rs::flash"
+
+[review]
+function = "{key}"
+by = "github:a"
+rung = 3
+date = "2026-10-07"
+commit = "{SHA}"
+hash = "{ha}"
+doc_hash = "{hb}"
+
+[[review.moved]]
+from = "crates/t/src/old.rs::flash"
+commit = "{SHA}"
+```
+
+# Needs fix
+
+```toml
+[kovan]
+id = "n1"
+kind = "needs_fix"
+created = "c"
+modified = "m"
+target = "code:crates/t/src/steam.rs::flash"
+
+[needs_fix]
+function = "{key}"
+by = "github:a"
+date = "2026-10-07"
+commit = "{SHA}"
+hash = "{ha}"
+note = "guard missing"
+status = "open"
+```
+
+# Highlight
+
+```toml
+[kovan]
+id = "h1"
+kind = "annotation"
+created = "c"
+modified = "m"
+
+[annotation]
+function = "{key}"
+by = "github:a"
+commit = "{SHA}"
+```
+
+# Arch
+
+```toml
+[kovan]
+id = "a1"
+kind = "architecture"
+created = "c"
+modified = "m"
+
+[architecture]
+by = "github:a"
+date = "2026-10-07"
+commit = "{SHA}"
+members = ["{key}"]
+```
+"#, ha = h('a'), hb = h('b'));
+    let doc = parse_review_md(&old);
+    assert!(doc.unreadable.is_empty(), "{:?}", doc.unreadable);
+    let id = mint_fn_id(key, &h('a'), SHA);
+    assert_eq!(doc.migrated, vec![(key.to_string(), id.clone())]);
+    let r = doc.reviews().next().unwrap();
+    assert_eq!(r.function_id(), id);
+    assert_eq!(r.path().as_deref(), Some(key));
+    assert_eq!(r.review.function, None);
+    assert_eq!(r.review.moved[0].to, None, "a first-version move record keeps its shape");
+    assert_eq!(doc.needs_fixes().next().unwrap().function_id(), id);
+    assert_eq!(doc.architectures().next().unwrap().architecture.members, vec![id.clone()]);
+    let new = render_review_md(&doc.entries).unwrap();
+    assert!(new.contains(&format!("target = \"{id}\"")) && !new.contains("function ="));
+    let again = parse_review_md(&new);
+    assert!(again.migrated.is_empty());
+    let entries = |d: &ReviewDocument| d.entries.iter().map(|e| e.entry.clone()).collect::<Vec<_>>();
+    assert_eq!(entries(&again), entries(&doc));
 }

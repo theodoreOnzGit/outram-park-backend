@@ -391,6 +391,13 @@ fn map_node_kind_for_artifact(kind: ArtifactKind) -> Option<MapNodeKind> {
         // IS the paper node the caller already added — emitting any of them
         // would duplicate or mis-shape the graph (GH issue #35, 2026-09-08).
         ArtifactKind::Paper | ArtifactKind::Relation | ArtifactKind::Mindmap => None,
+        // Code-review records (#764) are not literature map nodes; the code
+        // review map shows them.
+        ArtifactKind::Review
+        | ArtifactKind::NeedsFix
+        | ArtifactKind::Upstream
+        | ArtifactKind::DeletedFunctions
+        | ArtifactKind::Architecture => None,
         ArtifactKind::Note
         | ArtifactKind::Annotation
         | ArtifactKind::SourceReference

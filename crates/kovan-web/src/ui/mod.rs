@@ -711,7 +711,13 @@ impl CodeReview {
         }
         ui.separator();
         ui.label(RichText::new("Stamp colours").strong());
-        for (t, c) in [("unreviewed", bar::review_colour(&model::Review::Unreviewed)), ("valid", Color32::from_rgb(90, 190, 110)), ("stale", Color32::from_rgb(235, 160, 60))] {
+        use kovan_common::review::state::Tone;
+        for (t, c) in [
+            ("unreviewed", bar::tone_colour(Tone::Neutral)),
+            ("valid", bar::tone_colour(Tone::Good)),
+            ("needs a person: changed, a callee changed, moved, doc changed, fixed, pending test", bar::tone_colour(Tone::Attention)),
+            ("does not count: needs fix, unverified, outside scope, unreadable", bar::tone_colour(Tone::Blocked)),
+        ] {
             ui.colored_label(c, format!("{t}"));
         }
         ui.label("Maturity: M0 concept, M1 AI draft, M2 AI V&V, M3 human reviewed, M4 human V&V.");

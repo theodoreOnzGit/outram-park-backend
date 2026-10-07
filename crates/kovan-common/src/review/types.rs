@@ -23,10 +23,13 @@ pub enum FieldError {
     BadRung(u8),
     /// A free-text field that must hold at least two characters.
     TooShort { field: String },
-    /// An upstream link is not pinned to a commit or a tag.
+    /// An upstream link is not pinned to a commit hash.
     UnpinnedUrl(UrlPinError),
-    /// The `[kovan] target` is not a `code:` target.
+    /// The function reference is not `fn:<id>` with a `path`, nor a
+    /// first-version call-graph key.
     BadTarget(String),
+    /// `field` is not an ISO date `YYYY-MM-DD` (Q9, #764, 2026-10-07).
+    BadDate { field: String, value: String },
 }
 
 impl std::fmt::Display for FieldError {
@@ -45,7 +48,8 @@ impl std::fmt::Display for FieldError {
             Self::BadRung(r) => write!(f, "rung {r}: a review records rung 3 or 4"),
             Self::TooShort { field } => write!(f, "{field} needs at least 2 characters"),
             Self::UnpinnedUrl(e) => write!(f, "{e}"),
-            Self::BadTarget(t) => write!(f, "target {t:?} is not code:<file>::<item>"),
+            Self::BadTarget(t) => write!(f, "function reference {t:?}: need target = \"fn:<id>\" and path = \"<file>.rs::<item>\""),
+            Self::BadDate { field, value } => write!(f, "{field} = {value:?} is not an ISO date YYYY-MM-DD"),
         }
     }
 }
@@ -85,6 +89,33 @@ pub fn check_commit(field: &str, value: &str) -> Result<(), FieldError> {
 
 fn is_lower_hex(b: u8) -> bool {
     b.is_ascii_digit() || (b'a'..=b'f').contains(&b)
+}
+
+/// An ISO 8601 calendar date, `YYYY-MM-DD`, with a real month and day
+/// (dates stay strings, validated; Q9, #764, 2026-10-07).
+pub fn check_date(field: &str, value: &str) -> Result<(), FieldError> {
+    let bad = || FieldError::BadDate {
+        field: field.to_string(),
+        value: value.to_string(),
+    };
+    let b = value.as_bytes();
+    if b.len() != 10 || b[4] != b'-' || b[7] != b'-' {
+        return Err(bad());
+    }
+    let num = |r: std::ops::Range<usize>| value[r].parse::<u32>().map_err(|_| bad());
+    let (y, m, d) = (num(0..4)?, num(5..7)?, num(8..10)?);
+    let leap = (y % 4 == 0 && y % 100 != 0) || y % 400 == 0;
+    let days = match m {
+        1 | 3 | 5 | 7 | 8 | 10 | 12 => 31,
+        4 | 6 | 9 | 11 => 30,
+        2 if leap => 29,
+        2 => 28,
+        _ => return Err(bad()),
+    };
+    if d == 0 || d > days || !value[..4].bytes().all(|c| c.is_ascii_digit()) {
+        return Err(bad());
+    }
+    Ok(())
 }
 
 /// At least two characters after trimming (the wizard's `Other: ____` rule
@@ -227,25 +258,24 @@ pub fn authorship_from_messages(messages: &[String]) -> Option<ChangeAuthorship>
 /// What a pinned upstream URL is pinned to.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum UrlPin {
-    /// A commit id.
+    /// A commit id (7 to 40 hex digits, or 64).
     Commit(String),
-    /// A tag (a ref that looks like a version; see [`check_pinned_url`]).
-    Tag(String),
     /// Not a GitHub or GitLab file/tree link, so there is no ref to check
     /// (a paper's DOI, a project home page). Reported, not hidden.
     NotARepositoryLink,
 }
 
-/// Why an upstream URL is refused (maintainer, #764, 2026-10-07: "upstream
-/// links ... must be pinned to a commit").
+/// Why an upstream URL is refused (maintainer, #764, 2026-10-07: upstream
+/// links are pinned to a commit hash only).
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum UrlPinError {
-    /// The ref is a branch name (`main`, `master`, `develop`, …): the link
-    /// moves when the branch does.
+    /// The ref is a known branch name (`main`, `master`, `develop`, …): the
+    /// link moves when the branch does.
     BranchRef { url: String, branch: String },
-    /// The ref is neither a commit id nor version-like, so it cannot be told
-    /// apart from a branch; write the commit id instead.
-    UnrecognisedRef { url: String, reference: String },
+    /// The ref is not a commit id: a tag or another branch. Tags move too;
+    /// use the commit the tag points at (the tag may be kept as a label,
+    /// see [`display_pin`]).
+    NotACommit { url: String, reference: String },
     /// A GitHub/GitLab repository link with no ref at all.
     NoRef { url: String },
 }
@@ -255,35 +285,32 @@ impl std::fmt::Display for UrlPinError {
         match self {
             Self::BranchRef { url, branch } => write!(
                 f,
-                "{url} points at branch {branch:?}; pin it to a commit id or a tag"
+                "{url} points at branch {branch:?}; pin it to a commit hash"
             ),
-            Self::UnrecognisedRef { url, reference } => write!(
+            Self::NotACommit { url, reference } => write!(
                 f,
-                "{url}: cannot tell whether {reference:?} is a tag or a branch; use the commit id"
+                "{url}: {reference:?} is not a commit hash; use the commit the tag (or branch) points at"
             ),
-            Self::NoRef { url } => write!(f, "{url} names no commit; pin it to a commit id"),
+            Self::NoRef { url } => write!(f, "{url} names no commit; pin it to a commit hash"),
         }
     }
 }
 
-/// Branch names refused outright.
+/// Branch names named as such in the error ([`UrlPinError::BranchRef`]);
+/// every other non-commit ref is [`UrlPinError::NotACommit`].
 pub const BRANCH_NAMES: &[&str] = &[
     "main", "master", "develop", "dev", "devel", "trunk", "head", "default", "stable", "latest",
     "nightly", "next", "release", "gh-pages",
 ];
 
-/// Check that a GitHub or GitLab link is pinned (maintainer, #764,
-/// 2026-10-07): the ref after `/blob/`, `/tree/`, `/raw/`, `/-/blob/`,
-/// `/-/tree/`, `/-/raw/` (or the third path segment of
-/// `raw.githubusercontent.com`) must be a commit id or a tag.
-///
-/// **A tag cannot be told from a branch by its name alone**, and this check
-/// has no network. The rule: a commit id passes; a known branch name
-/// ([`BRANCH_NAMES`], case-insensitive) is refused; a ref with a digit and
-/// no `/` passes as a tag (`v1.2.3`, `OpenFOAM-v2306`, `2016.76`); anything
-/// else is refused as unrecognised, with "use the commit id". A GitHub
-/// repository link with no ref (`https://github.com/o/r`) is refused. Any
-/// other URL is not a repository file link and is reported as such.
+/// Check that a GitHub or GitLab link is pinned to a **commit hash**
+/// (maintainer, #764, 2026-10-07; tags were first accepted, then ruled out
+/// the same day): the ref after `/blob/`, `/tree/`, `/raw/`, `/commit/`,
+/// `/-/blob/`, `/-/tree/`, `/-/raw/` (or the third path segment of
+/// `raw.githubusercontent.com`) must be 7 to 40 (or 64) hex digits. Branches
+/// and tags are refused with a typed error; a repository link with no ref
+/// (`https://github.com/o/r`) is refused. Any other URL is not a repository
+/// file link and is reported as such.
 pub fn check_pinned_url(url: &str) -> Result<UrlPin, UrlPinError> {
     let rest = url
         .strip_prefix("https://")
@@ -319,10 +346,6 @@ pub fn check_pinned_url(url: &str) -> Result<UrlPin, UrlPinError> {
             url: url.to_string(),
         });
     };
-    classify_ref(url, r)
-}
-
-fn classify_ref(url: &str, r: &str) -> Result<UrlPin, UrlPinError> {
     if is_commit_id(&r.to_ascii_lowercase()) && r.bytes().all(|b| b.is_ascii_hexdigit()) {
         return Ok(UrlPin::Commit(r.to_string()));
     }
@@ -332,37 +355,77 @@ fn classify_ref(url: &str, r: &str) -> Result<UrlPin, UrlPinError> {
             branch: r.to_string(),
         });
     }
-    if r.chars().any(|c| c.is_ascii_digit()) {
-        return Ok(UrlPin::Tag(r.to_string()));
-    }
-    Err(UrlPinError::UnrecognisedRef {
+    Err(UrlPinError::NotACommit {
         url: url.to_string(),
         reference: r.to_string(),
     })
+}
+
+/// How a pinned commit is shown, with its optional tag label (maintainer,
+/// #764, 2026-10-07): `v2016.53 (9a2951f)`, or the short commit alone. The
+/// tag is **informational and unsigned**: the commit is the only key,
+/// used for resolution and verification.
+pub fn display_pin(commit: &str, tag: Option<&str>) -> String {
+    let short: String = commit.chars().take(7).collect();
+    match tag {
+        Some(t) if !t.trim().is_empty() => format!("{t} ({short})"),
+        _ => short,
+    }
+}
+
+/// Whether a recorded tag label still points at the recorded commit, as a
+/// later check (CLI/UI, from a local or vendored clone or `git ls-remote`)
+/// found it. The schema stores only the label; looking it up is not here.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum TagCheck {
+    /// The tag resolves to the recorded commit.
+    Matches,
+    /// The tag now points elsewhere: the label is stale, the commit pin
+    /// still holds.
+    Moved { now: String },
+    /// Not looked up (offline, no clone): nothing is claimed.
+    Unchecked,
+}
+
+/// Compare a recorded commit with what the tag resolves to now (`None` when
+/// the lookup was not possible). Abbreviated ids match by prefix.
+pub fn check_tag(recorded_commit: &str, resolved_now: Option<&str>) -> TagCheck {
+    match resolved_now {
+        None => TagCheck::Unchecked,
+        Some(now) => {
+            let (a, b) = (recorded_commit.to_ascii_lowercase(), now.to_ascii_lowercase());
+            if a.starts_with(&b) || b.starts_with(&a) {
+                TagCheck::Matches
+            } else {
+                TagCheck::Moved { now: now.to_string() }
+            }
+        }
+    }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
 
-    /// Methodology: the maintainer's pinning rule (#764, 2026-10-07) on
-    /// GitHub, GitLab (including a self-hosted GitLab such as
-    /// develop.openfoam.com) and raw links: commits and tags pass, branches
-    /// and unrecognised refs are refused with typed errors.
+    /// Methodology: the maintainer's pinning rule (#764, 2026-10-07, commit
+    /// hashes only) on GitHub, GitLab (including a self-hosted GitLab such as
+    /// develop.openfoam.com) and raw links: full and abbreviated (>= 7) commit
+    /// ids pass; branches, tags and 6-digit ids are refused with typed
+    /// errors; the tag label displays beside the commit; a moved tag is
+    /// detected.
     ///
     /// Result (2026-10-07): passes.
     #[test]
-    fn upstream_urls_must_be_pinned() {
+    fn upstream_urls_must_be_pinned_to_a_commit() {
         let sha = "4a5b6c7d8e9f00112233445566778899aabbccdd";
         let ok = [
             format!("https://github.com/njoy/NJOY2016/blob/{sha}/src/broadr.f90#L10"),
-            "https://github.com/njoy/NJOY2016/blob/2016.76/src/broadr.f90".to_string(),
+            "https://github.com/njoy/NJOY2016/blob/4a5b6c7/src/broadr.f90".to_string(),
             format!("https://develop.openfoam.com/Development/openfoam/-/blob/{sha}/src/x.C"),
-            "https://gitlab.com/g/sub/p/-/tree/v1.2.3/src".to_string(),
             format!("https://raw.githubusercontent.com/o/r/{sha}/f.rs"),
         ];
         for u in &ok {
-            assert!(check_pinned_url(u).is_ok(), "{u}");
+            assert!(matches!(check_pinned_url(u), Ok(UrlPin::Commit(_))), "{u}");
         }
         assert_eq!(
             check_pinned_url("https://github.com/njoy/NJOY2016/blob/master/src/broadr.f90"),
@@ -371,11 +434,20 @@ mod tests {
                 branch: "master".into()
             })
         );
+        assert_eq!(
+            check_pinned_url("https://github.com/njoy/NJOY2016/blob/2016.76/src/broadr.f90"),
+            Err(UrlPinError::NotACommit {
+                url: "https://github.com/njoy/NJOY2016/blob/2016.76/src/broadr.f90".into(),
+                reference: "2016.76".into()
+            })
+        );
         for bad in [
             "https://github.com/o/r/blob/main/x.rs",
             "https://gitlab.com/g/p/-/blob/main/x.rs",
+            "https://gitlab.com/g/sub/p/-/tree/v1.2.3/src",
             "https://develop.openfoam.com/Development/openfoam/-/blob/develop/src/x.C",
             "https://github.com/o/r/tree/feature-branch/src",
+            "https://github.com/o/r/blob/4a5b6c/x.rs",
             "https://github.com/o/r",
         ] {
             assert!(check_pinned_url(bad).is_err(), "{bad}");
@@ -384,6 +456,24 @@ mod tests {
             check_pinned_url("https://doi.org/10.1016/j.anucene.2020.1"),
             Ok(UrlPin::NotARepositoryLink)
         );
+        assert_eq!(display_pin("9a2951f0aa", Some("v2016.53")), "v2016.53 (9a2951f)");
+        assert_eq!(display_pin("9a2951f0aa", None), "9a2951f");
+        assert_eq!(check_tag("9a2951f0aa", Some("9a2951f")), TagCheck::Matches);
+        assert_eq!(check_tag("9a2951f", Some("ffff000")), TagCheck::Moved { now: "ffff000".into() });
+        assert_eq!(check_tag("9a2951f", None), TagCheck::Unchecked);
+    }
+
+    /// Methodology: ISO dates, including a leap day, and rejects.
+    ///
+    /// Result (2026-10-07): passes.
+    #[test]
+    fn dates_are_iso() {
+        for ok in ["2026-10-07", "2024-02-29"] {
+            assert_eq!(check_date("d", ok), Ok(()), "{ok}");
+        }
+        for bad in ["2026-13-01", "2025-02-29", "2026-10-7", "07/10/2026", "2026-10-07T00:00"] {
+            assert!(check_date("d", bad).is_err(), "{bad}");
+        }
     }
 
     /// Methodology: reviewer ids of each accepted kind, and rejects.

@@ -24,13 +24,13 @@
 //! path = "crate::steam"
 //!
 //! [[module."steam.rs".function]]
-//! id = "crates/tampines/src/steam.rs::SteamTable::flash"   # stable join key
+//! id = "fn:3f2a9c0d1e4b5a67"       # stable join key (`super::id`)
 //! name = "flash"                    # display only
 //! qual = "SteamTable::flash"        # the code-walk path today
 //! lines = [120, 158]
 //! hash = "sha256:…"
 //! doc_hash = "sha256:…"
-//! callees = ["crates/tampines/src/steam.rs::saturation"]
+//! callees = ["fn:0a1b2c3d4e5f6071"]
 //! reached_by = ["crates/tampines/tests/flash.rs::flash_matches_iapws"]
 //!
 //! [test_run]                        # last `kovan-cli test` evidence
@@ -57,13 +57,15 @@
 //!
 //! # Stable ids
 //!
-//! A function's `id` is the call graph's key ([`crate::call_graph`]
-//! `function_ids`: `file.rs::name` or `file.rs::Type::name`, `#k` when not
-//! unique) **at the time the function was first indexed**, and it is kept
-//! when the function is renamed or moved: the indexer matches ids back from
-//! `review.md` (the staleness engine, #765, reports the matches), so
-//! the review's join key keeps working. `qual` and the folder/file say where
-//! it is now.
+//! ~~A function's `id` is the call graph's key at first index~~
+//! **CORRECTED 2026-10-07** (hybrid id, #764): a function's `id` is the
+//! opaque `fn:<16 hex>` of [`super::id`], minted at first index from (first
+//! path, first hash, first-seen commit) and kept through renames and moves.
+//! The indexer matches ids back from `review.md` (an entry's `target`), and
+//! for a function no entry names it may reuse the previous `kovan.toml`'s
+//! id for the same path and hash or mint a new one: nothing outside
+//! `review.md` refers to an unreviewed function's id, so a new id for it is
+//! harmless. `qual` and the folder/file say where it is now.
 //!
 //! # Determinism
 //!
@@ -100,7 +102,9 @@ pub enum ItemKind {
 /// One function (item) of a file.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct FunctionIndex {
-    /// The stable join key (module doc).
+    /// The stable join key, `fn:<opaque>` (module doc). A first-version
+    /// file holds call-graph keys here; the cache is regenerated, so they
+    /// are never migrated.
     pub id: String,
     /// Display only.
     pub name: String,
