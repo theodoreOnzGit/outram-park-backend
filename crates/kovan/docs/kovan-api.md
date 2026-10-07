@@ -1,6 +1,6 @@
 # Crate Documentation
 
-**Version:** 0.0.0
+**Version:** 0.0.1
 
 **Format Version:** 60
 
@@ -217,11 +217,11 @@ pub struct BranchInfo {
     ```
 
   - ```rust
-    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    unsafe fn deref<''a>(ptr: usize) -> &''a T { /* ... */ }
     ```
 
   - ```rust
-    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    unsafe fn deref_mut<''a>(ptr: usize) -> &''a mut T { /* ... */ }
     ```
 
   - ```rust
@@ -432,11 +432,11 @@ Fields:
     ```
 
   - ```rust
-    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    unsafe fn deref<''a>(ptr: usize) -> &''a T { /* ... */ }
     ```
 
   - ```rust
-    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    unsafe fn deref_mut<''a>(ptr: usize) -> &''a mut T { /* ... */ }
     ```
 
   - ```rust
@@ -640,11 +640,11 @@ pub struct RemoteInfo {
     ```
 
   - ```rust
-    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    unsafe fn deref<''a>(ptr: usize) -> &''a T { /* ... */ }
     ```
 
   - ```rust
-    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    unsafe fn deref_mut<''a>(ptr: usize) -> &''a mut T { /* ... */ }
     ```
 
   - ```rust
@@ -1088,11 +1088,11 @@ pub struct DigitiseApp {
     ```
 
   - ```rust
-    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    unsafe fn deref<''a>(ptr: usize) -> &''a T { /* ... */ }
     ```
 
   - ```rust
-    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    unsafe fn deref_mut<''a>(ptr: usize) -> &''a mut T { /* ... */ }
     ```
 
   - ```rust
@@ -1354,7 +1354,7 @@ hand), anchored to the code it drives (GH issue #743).
 ###### Methods
 
 - ```rust
-  pub fn as_str(self: Self) -> &'static str { /* ... */ }
+  pub fn as_str(self: Self) -> &''static str { /* ... */ }
   ```
   The snake_case wire name, as written in `[kovan] kind`.
 
@@ -1477,11 +1477,11 @@ where
     ```
 
   - ```rust
-    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    unsafe fn deref<''a>(ptr: usize) -> &''a T { /* ... */ }
     ```
 
   - ```rust
-    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    unsafe fn deref_mut<''a>(ptr: usize) -> &''a mut T { /* ... */ }
     ```
 
   - ```rust
@@ -1583,7 +1583,7 @@ Written by a person. The default.
 ###### Methods
 
 - ```rust
-  pub fn as_str(self: Self) -> &'static str { /* ... */ }
+  pub fn as_str(self: Self) -> &''static str { /* ... */ }
   ```
   The wire name, `"ai"` or `"human"`.
 
@@ -1711,11 +1711,11 @@ where
     ```
 
   - ```rust
-    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    unsafe fn deref<''a>(ptr: usize) -> &''a T { /* ... */ }
     ```
 
   - ```rust
-    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    unsafe fn deref_mut<''a>(ptr: usize) -> &''a mut T { /* ... */ }
     ```
 
   - ```rust
@@ -1962,11 +1962,11 @@ Fields:
     ```
 
   - ```rust
-    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    unsafe fn deref<''a>(ptr: usize) -> &''a T { /* ... */ }
     ```
 
   - ```rust
-    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    unsafe fn deref_mut<''a>(ptr: usize) -> &''a mut T { /* ... */ }
     ```
 
   - ```rust
@@ -2219,11 +2219,11 @@ where
     ```
 
   - ```rust
-    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    unsafe fn deref<''a>(ptr: usize) -> &''a T { /* ... */ }
     ```
 
   - ```rust
-    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    unsafe fn deref_mut<''a>(ptr: usize) -> &''a mut T { /* ... */ }
     ```
 
   - ```rust
@@ -2447,11 +2447,11 @@ where
     ```
 
   - ```rust
-    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    unsafe fn deref<''a>(ptr: usize) -> &''a T { /* ... */ }
     ```
 
   - ```rust
-    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    unsafe fn deref_mut<''a>(ptr: usize) -> &''a mut T { /* ... */ }
     ```
 
   - ```rust
@@ -2677,11 +2677,11 @@ where
     ```
 
   - ```rust
-    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    unsafe fn deref<''a>(ptr: usize) -> &''a T { /* ... */ }
     ```
 
   - ```rust
-    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    unsafe fn deref_mut<''a>(ptr: usize) -> &''a mut T { /* ... */ }
     ```
 
   - ```rust
@@ -2896,11 +2896,11 @@ where
     ```
 
   - ```rust
-    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    unsafe fn deref<''a>(ptr: usize) -> &''a T { /* ... */ }
     ```
 
   - ```rust
-    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    unsafe fn deref_mut<''a>(ptr: usize) -> &''a mut T { /* ... */ }
     ```
 
   - ```rust
@@ -3099,11 +3099,11 @@ where
     ```
 
   - ```rust
-    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    unsafe fn deref<''a>(ptr: usize) -> &''a T { /* ... */ }
     ```
 
   - ```rust
-    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    unsafe fn deref_mut<''a>(ptr: usize) -> &''a mut T { /* ... */ }
     ```
 
   - ```rust
@@ -3329,11 +3329,11 @@ pub struct Artifact {
     ```
 
   - ```rust
-    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    unsafe fn deref<''a>(ptr: usize) -> &''a T { /* ... */ }
     ```
 
   - ```rust
-    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    unsafe fn deref_mut<''a>(ptr: usize) -> &''a mut T { /* ... */ }
     ```
 
   - ```rust
@@ -3533,11 +3533,11 @@ pub struct ParsedDocument {
     ```
 
   - ```rust
-    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    unsafe fn deref<''a>(ptr: usize) -> &''a T { /* ... */ }
     ```
 
   - ```rust
-    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    unsafe fn deref_mut<''a>(ptr: usize) -> &''a mut T { /* ... */ }
     ```
 
   - ```rust
@@ -3722,11 +3722,11 @@ pub struct SeriesBlock {
     ```
 
   - ```rust
-    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    unsafe fn deref<''a>(ptr: usize) -> &''a T { /* ... */ }
     ```
 
   - ```rust
-    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    unsafe fn deref_mut<''a>(ptr: usize) -> &''a mut T { /* ... */ }
     ```
 
   - ```rust
@@ -4144,11 +4144,11 @@ pub struct Candidate {
     ```
 
   - ```rust
-    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    unsafe fn deref<''a>(ptr: usize) -> &''a T { /* ... */ }
     ```
 
   - ```rust
-    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    unsafe fn deref_mut<''a>(ptr: usize) -> &''a mut T { /* ... */ }
     ```
 
   - ```rust
@@ -4378,11 +4378,11 @@ A project collection, identified by [`crate::graph::collection_node`].
     ```
 
   - ```rust
-    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    unsafe fn deref<''a>(ptr: usize) -> &''a T { /* ... */ }
     ```
 
   - ```rust
-    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    unsafe fn deref_mut<''a>(ptr: usize) -> &''a mut T { /* ... */ }
     ```
 
   - ```rust
@@ -4570,11 +4570,11 @@ pub struct LibraryCandidate {
     ```
 
   - ```rust
-    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    unsafe fn deref<''a>(ptr: usize) -> &''a T { /* ... */ }
     ```
 
   - ```rust
-    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    unsafe fn deref_mut<''a>(ptr: usize) -> &''a mut T { /* ... */ }
     ```
 
   - ```rust
@@ -4946,11 +4946,11 @@ Fields:
     ```
 
   - ```rust
-    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    unsafe fn deref<''a>(ptr: usize) -> &''a T { /* ... */ }
     ```
 
   - ```rust
-    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    unsafe fn deref_mut<''a>(ptr: usize) -> &''a mut T { /* ... */ }
     ```
 
   - ```rust
@@ -5184,11 +5184,11 @@ Fields:
     ```
 
   - ```rust
-    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    unsafe fn deref<''a>(ptr: usize) -> &''a T { /* ... */ }
     ```
 
   - ```rust
-    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    unsafe fn deref_mut<''a>(ptr: usize) -> &''a mut T { /* ... */ }
     ```
 
   - ```rust
@@ -5407,11 +5407,11 @@ The concept is gone; drop the reference.
     ```
 
   - ```rust
-    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    unsafe fn deref<''a>(ptr: usize) -> &''a T { /* ... */ }
     ```
 
   - ```rust
-    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    unsafe fn deref_mut<''a>(ptr: usize) -> &''a mut T { /* ... */ }
     ```
 
   - ```rust
@@ -5614,11 +5614,11 @@ pub struct LegacyCsvSection {
     ```
 
   - ```rust
-    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    unsafe fn deref<''a>(ptr: usize) -> &''a T { /* ... */ }
     ```
 
   - ```rust
-    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    unsafe fn deref_mut<''a>(ptr: usize) -> &''a mut T { /* ... */ }
     ```
 
   - ```rust
@@ -6229,11 +6229,11 @@ Delete it and its subtree, dropping every reference to any of them.
     ```
 
   - ```rust
-    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    unsafe fn deref<''a>(ptr: usize) -> &''a T { /* ... */ }
     ```
 
   - ```rust
-    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    unsafe fn deref_mut<''a>(ptr: usize) -> &''a mut T { /* ... */ }
     ```
 
   - ```rust
@@ -6459,11 +6459,11 @@ Fields:
     ```
 
   - ```rust
-    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    unsafe fn deref<''a>(ptr: usize) -> &''a T { /* ... */ }
     ```
 
   - ```rust
-    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    unsafe fn deref_mut<''a>(ptr: usize) -> &''a mut T { /* ... */ }
     ```
 
   - ```rust
@@ -6673,11 +6673,11 @@ pub struct Plan {
     ```
 
   - ```rust
-    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    unsafe fn deref<''a>(ptr: usize) -> &''a T { /* ... */ }
     ```
 
   - ```rust
-    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    unsafe fn deref_mut<''a>(ptr: usize) -> &''a mut T { /* ... */ }
     ```
 
   - ```rust
@@ -6968,11 +6968,11 @@ One crate name per line.
     ```
 
   - ```rust
-    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    unsafe fn deref<''a>(ptr: usize) -> &''a T { /* ... */ }
     ```
 
   - ```rust
-    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    unsafe fn deref_mut<''a>(ptr: usize) -> &''a mut T { /* ... */ }
     ```
 
   - ```rust
@@ -7163,11 +7163,11 @@ Fields:
     ```
 
   - ```rust
-    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    unsafe fn deref<''a>(ptr: usize) -> &''a T { /* ... */ }
     ```
 
   - ```rust
-    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    unsafe fn deref_mut<''a>(ptr: usize) -> &''a mut T { /* ... */ }
     ```
 
   - ```rust
@@ -7386,11 +7386,11 @@ Fields:
     ```
 
   - ```rust
-    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    unsafe fn deref<''a>(ptr: usize) -> &''a T { /* ... */ }
     ```
 
   - ```rust
-    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    unsafe fn deref_mut<''a>(ptr: usize) -> &''a mut T { /* ... */ }
     ```
 
   - ```rust
@@ -7735,11 +7735,11 @@ Every crate under `crates/`, creating mirrors that do not yet exist.
     ```
 
   - ```rust
-    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    unsafe fn deref<''a>(ptr: usize) -> &''a T { /* ... */ }
     ```
 
   - ```rust
-    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    unsafe fn deref_mut<''a>(ptr: usize) -> &''a mut T { /* ... */ }
     ```
 
   - ```rust
@@ -7871,6 +7871,31 @@ resolves the calls.
    from every test and example into `Function::reached_by`
    ([`crate::call_graph::reach`]).
 
+# Two backends (GitHub #757)
+
+Step 4's definitions come from one of two places, chosen with
+`--backend` ([`CallBackend`]):
+
+- **`lsp`** (the default): rust-analyzer's LSP through the keep-warm
+  daemon, one batched request per function. Measured 941 s for the whole
+  workspace from cold (#757); fine for a few crates.
+- **`scip`**: one `rust-analyzer scip` run over the whole workspace
+  (`--scip <file>` reads one written earlier), decoded in memory
+  ([`crate::scip`]) and asked the **same positions** the LSP would be,
+  so every classification (trait gap, closure, constructor, external) is
+  the same code. It also adds what the text scanner cannot see: calls
+  through **operators** (`CallKind::Operator`, a workspace `impl Add`
+  reached by `a + b`) and functions **named as paths**
+  (`.map(T::f)`, `CallKind::FnValue`). The function list, ids,
+  signatures, docs, upstream, history and citations still come from the
+  source scanner: definitions are matched to it by **location**, never by
+  SCIP symbol string, because symbols collide across Cargo targets.
+
+The document records which backend and which rust-analyzer resolved it
+(`generator`, schema 3): SCIP is an unstable rust-analyzer subcommand.
+Agreement between the two and the timings are in
+`crates/kovan/docs/call-graph-scip-vs-lsp.md`.
+
 Known limits are `code-walk`'s: trait-method calls stop at
 `UNRESOLVED(trait)`; a call to a derived method (`Default::default()` on
 a `#[derive(Default)]` type) is `UNRESOLVED(other)`; macro bodies are
@@ -7878,11 +7903,21 @@ not entered; a `fn` nested in a body is listed on its own and its calls
 are also counted in the outer body; a function value written as a path
 (`.map(other_crate::leaf)`) is not seen at all, only a bare name
 (`.map(leaf)`) is (found 2026-10-06 while writing
-`tests/call_graph_rust_analyzer.rs`).
+`tests/call_graph_rust_analyzer.rs`). **CORRECTED 2026-10-07 (#757):**
+with `--backend scip` a path is seen (`fn_value`), and operator calls
+are too (`operator`); the LSP backend still misses both. With either
+backend: a call through a function-typed parameter is
+`UNRESOLVED(closure)` (it was a false recursive edge to the enclosing
+function until #757), and the gaps of functions in integration tests are
+kept (they were collected and dropped until #757). Where the backends
+differ by design: rust-analyzer's LSP jumps from `x.to_string()` to the
+type's `Display::fmt` (an edge, or `UNRESOLVED(other)` for a derived
+`Display`), SCIP records the reference to std's `ToString::to_string`
+(external, dropped).
 
 # Cost
 
-One rust-analyzer definition query per call-shaped token. Measured
+LSP backend: one rust-analyzer definition query per call-shaped token. Measured
 2026-10-06 (16-core desktop, rust-analyzer 1.98.0) on
 `outram-park-digital-twin-engine` (lib and its 4 examples) plus
 `boon-lay` (lib and 5 examples): 3632 functions, 37641 queries, 127 s
@@ -7893,14 +7928,440 @@ with a cold rust-analyzer (about 60 s of it indexing the workspace) and
 pub mod call_graph { /* ... */ }
 ```
 
+### Types
+
+#### Enum `CallBackend`
+
+Where `call-graph` gets its definitions (see the module doc).
+
+```rust
+pub enum CallBackend {
+    Lsp,
+    Scip(Option<std::path::PathBuf>),
+}
+```
+
+##### Variants
+
+###### `Lsp`
+
+rust-analyzer's LSP, through the keep-warm daemon.
+
+###### `Scip`
+
+A SCIP index: this file, or (`None`) one generated now with
+`rust-analyzer scip` into `target/kovan-scip/index.scip`.
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `Option<std::path::PathBuf>` |  |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> CallBackend { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Comparable**
+  - ```rust
+    fn compare(self: &Self, key: &Q) -> Ordering { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+  - ```rust
+    fn into_any(self: Box<T>) -> Box<dyn Any> { /* ... */ }
+    ```
+
+  - ```rust
+    fn into_any_rc(self: Rc<T>) -> Rc<dyn Any> { /* ... */ }
+    ```
+
+  - ```rust
+    fn as_any(self: &Self) -> &dyn Any + ''static { /* ... */ }
+    ```
+
+  - ```rust
+    fn as_any_mut(self: &mut Self) -> &mut dyn Any + ''static { /* ... */ }
+    ```
+
+- **DowncastSync**
+  - ```rust
+    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
+    ```
+
+- **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &Q) -> bool { /* ... */ }
+    ```
+
+- **ErasedDestructor**
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Instrument**
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &CallBackend) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &''a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &''a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **SimdFrom**
+  - ```rust
+    fn simd_from(_simd: S, value: T) -> T { /* ... */ }
+    ```
+
+- **SimdInto**
+  - ```rust
+    fn simd_into(self: Self, simd: S) -> T { /* ... */ }
+    ```
+
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+- **WithSubscriber**
+#### Enum `BackendArg`
+
+`--backend` on the command line.
+
+```rust
+pub enum BackendArg {
+    Lsp,
+    Scip,
+}
+```
+
+##### Variants
+
+###### `Lsp`
+
+###### `Scip`
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> BackendArg { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Comparable**
+  - ```rust
+    fn compare(self: &Self, key: &Q) -> Ordering { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+  - ```rust
+    fn into_any(self: Box<T>) -> Box<dyn Any> { /* ... */ }
+    ```
+
+  - ```rust
+    fn into_any_rc(self: Rc<T>) -> Rc<dyn Any> { /* ... */ }
+    ```
+
+  - ```rust
+    fn as_any(self: &Self) -> &dyn Any + ''static { /* ... */ }
+    ```
+
+  - ```rust
+    fn as_any_mut(self: &mut Self) -> &mut dyn Any + ''static { /* ... */ }
+    ```
+
+- **DowncastSync**
+  - ```rust
+    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
+    ```
+
+- **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &Q) -> bool { /* ... */ }
+    ```
+
+- **ErasedDestructor**
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Instrument**
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &BackendArg) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &''a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &''a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **SimdFrom**
+  - ```rust
+    fn simd_from(_simd: S, value: T) -> T { /* ... */ }
+    ```
+
+- **SimdInto**
+  - ```rust
+    fn simd_into(self: Self, simd: S) -> T { /* ... */ }
+    ```
+
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
+- **ValueEnum**
+  - ```rust
+    fn value_variants<''a>() -> &''a [Self] { /* ... */ }
+    ```
+
+  - ```rust
+    fn to_possible_value<''a>(self: &Self) -> ::std::option::Option<clap::builder::PossibleValue> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+- **WithSubscriber**
 ### Functions
+
+#### Function `rust_analyzer_version`
+
+`rust-analyzer --version`, or `rust-analyzer missing`.
+
+```rust
+pub fn rust_analyzer_version() -> String { /* ... */ }
+```
+
+#### Function `generate_scip`
+
+Runs `rust-analyzer scip` over the workspace into
+`<root>/target/kovan-scip/index.scip` (never committed: `target/` is
+ignored), its log beside it, and returns the index path. About 3 min and
+several GB of memory for this workspace (#757).
+
+```rust
+pub fn generate_scip(root: &std::path::Path) -> Result<std::path::PathBuf, String> { /* ... */ }
+```
 
 #### Function `build`
 
-Builds the call graph of `scope` (every member when `None`).
+Builds the call graph of `scope` (every member when `None`) with the
+LSP backend.
 
 ```rust
 pub fn build(root: &std::path::Path, scope: Option<&[String]>) -> Result<crate::call_graph::CallGraphDoc, String> { /* ... */ }
+```
+
+#### Function `build_using`
+
+Builds the call graph of `scope` (every member when `None`) with the
+given backend.
+
+```rust
+pub fn build_using(root: &std::path::Path, scope: Option<&[String]>, backend: &CallBackend) -> Result<crate::call_graph::CallGraphDoc, String> { /* ... */ }
 ```
 
 #### Function `run`
@@ -7908,7 +8369,7 @@ pub fn build(root: &std::path::Path, scope: Option<&[String]>) -> Result<crate::
 `kovan-cli call-graph`: build and write to `out`, or stdout.
 
 ```rust
-pub fn run(root: &std::path::Path, crates: Option<Vec<String>>, out: Option<std::path::PathBuf>) -> Result<(), String> { /* ... */ }
+pub fn run(root: &std::path::Path, crates: Option<Vec<String>>, out: Option<std::path::PathBuf>, backend: &CallBackend) -> Result<(), String> { /* ... */ }
 ```
 
 #### Function `run_split`
@@ -7922,7 +8383,7 @@ empty. Files already in `dir` that the split does not name are left
 alone.
 
 ```rust
-pub fn run_split(root: &std::path::Path, crates: Option<Vec<String>>, dir: &std::path::Path) -> Result<(), String> { /* ... */ }
+pub fn run_split(root: &std::path::Path, crates: Option<Vec<String>>, dir: &std::path::Path, backend: &CallBackend) -> Result<(), String> { /* ... */ }
 ```
 
 #### Function `run_merge`
@@ -7966,6 +8427,16 @@ Deterministic: same tree, same keys.
 
 ```rust
 pub fn run_keys(root: &std::path::Path, crates: Option<Vec<String>>) -> Result<(), String> { /* ... */ }
+```
+
+#### Function `run_diff`
+
+`kovan-cli call-graph-diff <a> <b>`: prints the edge-by-edge comparison
+([`crate::call_graph::compare`]) as Markdown, listing up to `list`
+differing edges of each kind.
+
+```rust
+pub fn run_diff(a: &std::path::Path, b: &std::path::Path, list: usize) -> Result<(), String> { /* ... */ }
 ```
 
 #### Function `parse_crates`
@@ -8176,11 +8647,11 @@ Fields:
     ```
 
   - ```rust
-    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    unsafe fn deref<''a>(ptr: usize) -> &''a T { /* ... */ }
     ```
 
   - ```rust
-    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    unsafe fn deref_mut<''a>(ptr: usize) -> &''a mut T { /* ... */ }
     ```
 
   - ```rust
@@ -8371,11 +8842,11 @@ pub struct SmokeEntry {
     ```
 
   - ```rust
-    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    unsafe fn deref<''a>(ptr: usize) -> &''a T { /* ... */ }
     ```
 
   - ```rust
-    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    unsafe fn deref_mut<''a>(ptr: usize) -> &''a mut T { /* ... */ }
     ```
 
   - ```rust
@@ -8563,11 +9034,11 @@ pub struct KnownFailure {
     ```
 
   - ```rust
-    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    unsafe fn deref<''a>(ptr: usize) -> &''a T { /* ... */ }
     ```
 
   - ```rust
-    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    unsafe fn deref_mut<''a>(ptr: usize) -> &''a mut T { /* ... */ }
     ```
 
   - ```rust
@@ -8761,11 +9232,11 @@ pub struct SmokeList {
     ```
 
   - ```rust
-    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    unsafe fn deref<''a>(ptr: usize) -> &''a T { /* ... */ }
     ```
 
   - ```rust
-    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    unsafe fn deref_mut<''a>(ptr: usize) -> &''a mut T { /* ... */ }
     ```
 
   - ```rust
@@ -9022,11 +9493,11 @@ The drawn map, a standalone SVG.
     ```
 
   - ```rust
-    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    unsafe fn deref<''a>(ptr: usize) -> &''a T { /* ... */ }
     ```
 
   - ```rust
-    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    unsafe fn deref_mut<''a>(ptr: usize) -> &''a mut T { /* ... */ }
     ```
 
   - ```rust
@@ -9083,7 +9554,7 @@ The drawn map, a standalone SVG.
 
 - **ValueEnum**
   - ```rust
-    fn value_variants<''a>() -> &'a [Self] { /* ... */ }
+    fn value_variants<''a>() -> &''a [Self] { /* ... */ }
     ```
 
   - ```rust
@@ -9362,11 +9833,11 @@ The explored graph, chains and gaps as JSON.
     ```
 
   - ```rust
-    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    unsafe fn deref<''a>(ptr: usize) -> &''a T { /* ... */ }
     ```
 
   - ```rust
-    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    unsafe fn deref_mut<''a>(ptr: usize) -> &''a mut T { /* ... */ }
     ```
 
   - ```rust
@@ -9424,7 +9895,7 @@ The explored graph, chains and gaps as JSON.
 
 - **ValueEnum**
   - ```rust
-    fn value_variants<''a>() -> &'a [Self] { /* ... */ }
+    fn value_variants<''a>() -> &''a [Self] { /* ... */ }
     ```
 
   - ```rust
@@ -9718,11 +10189,11 @@ Fields:
     ```
 
   - ```rust
-    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    unsafe fn deref<''a>(ptr: usize) -> &''a T { /* ... */ }
     ```
 
   - ```rust
-    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    unsafe fn deref_mut<''a>(ptr: usize) -> &''a mut T { /* ... */ }
     ```
 
   - ```rust
@@ -9907,11 +10378,11 @@ pub enum RootFinderArg {
     ```
 
   - ```rust
-    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    unsafe fn deref<''a>(ptr: usize) -> &''a T { /* ... */ }
     ```
 
   - ```rust
-    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    unsafe fn deref_mut<''a>(ptr: usize) -> &''a mut T { /* ... */ }
     ```
 
   - ```rust
@@ -9967,7 +10438,7 @@ pub enum RootFinderArg {
 
 - **ValueEnum**
   - ```rust
-    fn value_variants<''a>() -> &'a [Self] { /* ... */ }
+    fn value_variants<''a>() -> &''a [Self] { /* ... */ }
     ```
 
   - ```rust
@@ -10107,11 +10578,11 @@ pub enum LinearSolverArg {
     ```
 
   - ```rust
-    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    unsafe fn deref<''a>(ptr: usize) -> &''a T { /* ... */ }
     ```
 
   - ```rust
-    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    unsafe fn deref_mut<''a>(ptr: usize) -> &''a mut T { /* ... */ }
     ```
 
   - ```rust
@@ -10167,7 +10638,7 @@ pub enum LinearSolverArg {
 
 - **ValueEnum**
   - ```rust
-    fn value_variants<''a>() -> &'a [Self] { /* ... */ }
+    fn value_variants<''a>() -> &''a [Self] { /* ... */ }
     ```
 
   - ```rust
@@ -10292,11 +10763,11 @@ pub enum NonlinearSolverArg {
     ```
 
   - ```rust
-    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    unsafe fn deref<''a>(ptr: usize) -> &''a T { /* ... */ }
     ```
 
   - ```rust
-    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    unsafe fn deref_mut<''a>(ptr: usize) -> &''a mut T { /* ... */ }
     ```
 
   - ```rust
@@ -10352,7 +10823,7 @@ pub enum NonlinearSolverArg {
 
 - **ValueEnum**
   - ```rust
-    fn value_variants<''a>() -> &'a [Self] { /* ... */ }
+    fn value_variants<''a>() -> &''a [Self] { /* ... */ }
     ```
 
   - ```rust
@@ -10483,11 +10954,11 @@ pub enum OdeSolverArg {
     ```
 
   - ```rust
-    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    unsafe fn deref<''a>(ptr: usize) -> &''a T { /* ... */ }
     ```
 
   - ```rust
-    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    unsafe fn deref_mut<''a>(ptr: usize) -> &''a mut T { /* ... */ }
     ```
 
   - ```rust
@@ -10543,7 +11014,7 @@ pub enum OdeSolverArg {
 
 - **ValueEnum**
   - ```rust
-    fn value_variants<''a>() -> &'a [Self] { /* ... */ }
+    fn value_variants<''a>() -> &''a [Self] { /* ... */ }
     ```
 
   - ```rust
@@ -10665,11 +11136,11 @@ pub enum PdeSchemeArg {
     ```
 
   - ```rust
-    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    unsafe fn deref<''a>(ptr: usize) -> &''a T { /* ... */ }
     ```
 
   - ```rust
-    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    unsafe fn deref_mut<''a>(ptr: usize) -> &''a mut T { /* ... */ }
     ```
 
   - ```rust
@@ -10725,7 +11196,7 @@ pub enum PdeSchemeArg {
 
 - **ValueEnum**
   - ```rust
-    fn value_variants<''a>() -> &'a [Self] { /* ... */ }
+    fn value_variants<''a>() -> &''a [Self] { /* ... */ }
     ```
 
   - ```rust
@@ -10836,6 +11307,9 @@ pub enum LitCommand {
         pdf: std::path::PathBuf,
         json_out: Option<std::path::PathBuf>,
         markdown_out: Option<std::path::PathBuf>,
+        lookup: bool,
+        accept: Vec<String>,
+        mailto: Option<String>,
     },
     Bibtex {
         input: std::path::PathBuf,
@@ -10860,6 +11334,9 @@ Fields:
 | `pdf` | `std::path::PathBuf` | Source PDF. |
 | `json_out` | `Option<std::path::PathBuf>` | Also write the full document as pretty JSON to this path (the<br>canonical on-disk form — re-readable by `lit bibtex`). |
 | `markdown_out` | `Option<std::path::PathBuf>` | Also write just the generated Markdown body to this path. |
+| `lookup` | `bool` | Look up the identifier found in the PDF (DOI, arXiv, ISBN, PMID)<br>with Zotero's search translators and show the fetched record<br>field by field next to the extracted one (GitHub #756). Uses the<br>network; without this flag nothing goes online and a found<br>identifier is only reported. Nothing is applied unless<br>`--accept` names it. |
+| `accept` | `Vec<String>` | With `--lookup`: the fields to take from the fetched record,<br>comma-separated (`title,authors,year,doi,journal,institution,<br>publisher,volume,number,pages,abstract_text,keywords,<br>document_type`), or `all`. Default: none (review only). |
+| `mailto` | `Option<String>` | With `--lookup`: your email for Crossref's polite pool (never<br>sent unless given). |
 
 ###### `Bibtex`
 
@@ -10980,11 +11457,11 @@ Fields:
     ```
 
   - ```rust
-    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    unsafe fn deref<''a>(ptr: usize) -> &''a T { /* ... */ }
     ```
 
   - ```rust
-    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    unsafe fn deref_mut<''a>(ptr: usize) -> &''a mut T { /* ... */ }
     ```
 
   - ```rust
@@ -11016,6 +11493,173 @@ Fields:
 
   - ```rust
     fn has_subcommand(__clap_name: &str) -> bool { /* ... */ }
+    ```
+
+- **Sync**
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+- **WithSubscriber**
+#### Struct `LookupRequest`
+
+`lit import`'s lookup options (#756).
+
+```rust
+pub struct LookupRequest {
+    pub lookup: bool,
+    pub accept: Vec<String>,
+    pub mailto: Option<String>,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `lookup` | `bool` | `--lookup`. |
+| `accept` | `Vec<String>` | `--accept`. |
+| `mailto` | `Option<String>` | `--mailto`. |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Comparable**
+  - ```rust
+    fn compare(self: &Self, key: &Q) -> Ordering { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Default**
+  - ```rust
+    fn default() -> LookupRequest { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+  - ```rust
+    fn into_any(self: Box<T>) -> Box<dyn Any> { /* ... */ }
+    ```
+
+  - ```rust
+    fn into_any_rc(self: Rc<T>) -> Rc<dyn Any> { /* ... */ }
+    ```
+
+  - ```rust
+    fn as_any(self: &Self) -> &dyn Any + ''static { /* ... */ }
+    ```
+
+  - ```rust
+    fn as_any_mut(self: &mut Self) -> &mut dyn Any + ''static { /* ... */ }
+    ```
+
+- **DowncastSync**
+  - ```rust
+    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
+    ```
+
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &Q) -> bool { /* ... */ }
+    ```
+
+- **ErasedDestructor**
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Instrument**
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **NoneValue**
+  - ```rust
+    fn null_value() -> T { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &''a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &''a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **ReadPrimitive**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **SimdFrom**
+  - ```rust
+    fn simd_from(_simd: S, value: T) -> T { /* ... */ }
+    ```
+
+- **SimdInto**
+  - ```rust
+    fn simd_into(self: Self, simd: S) -> T { /* ... */ }
     ```
 
 - **Sync**
@@ -11318,11 +11962,11 @@ Fields:
     ```
 
   - ```rust
-    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    unsafe fn deref<''a>(ptr: usize) -> &''a T { /* ... */ }
     ```
 
   - ```rust
-    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    unsafe fn deref_mut<''a>(ptr: usize) -> &''a mut T { /* ... */ }
     ```
 
   - ```rust
@@ -11547,9 +12191,9 @@ one-line explanation of what the tool is for.
 
 ```rust
 pub struct ToolSpec {
-    pub crate_name: &'static str,
-    pub binary_name: &'static str,
-    pub description: &'static str,
+    pub crate_name: &''static str,
+    pub binary_name: &''static str,
+    pub description: &''static str,
 }
 ```
 
@@ -11557,9 +12201,9 @@ pub struct ToolSpec {
 
 | Name | Type | Documentation |
 |------|------|---------------|
-| `crate_name` | `&'static str` | crates.io crate name, as passed to `cargo install <crate_name>`. |
-| `binary_name` | `&'static str` | Binary name the crate installs — this is what gets probed on `PATH`. |
-| `description` | `&'static str` | Human-readable one-line description of the tool's purpose. |
+| `crate_name` | `&''static str` | crates.io crate name, as passed to `cargo install <crate_name>`. |
+| `binary_name` | `&''static str` | Binary name the crate installs — this is what gets probed on `PATH`. |
+| `description` | `&''static str` | Human-readable one-line description of the tool's purpose. |
 
 ##### Implementations
 
@@ -11639,11 +12283,11 @@ pub struct ToolSpec {
     ```
 
   - ```rust
-    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    unsafe fn deref<''a>(ptr: usize) -> &''a T { /* ... */ }
     ```
 
   - ```rust
-    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    unsafe fn deref_mut<''a>(ptr: usize) -> &''a mut T { /* ... */ }
     ```
 
   - ```rust
@@ -11822,11 +12466,11 @@ Binary missing (or `--force` was given): run `cargo install`.
     ```
 
   - ```rust
-    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    unsafe fn deref<''a>(ptr: usize) -> &''a T { /* ... */ }
     ```
 
   - ```rust
-    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    unsafe fn deref_mut<''a>(ptr: usize) -> &''a mut T { /* ... */ }
     ```
 
   - ```rust
@@ -12269,11 +12913,11 @@ Fields:
     ```
 
   - ```rust
-    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    unsafe fn deref<''a>(ptr: usize) -> &''a T { /* ... */ }
     ```
 
   - ```rust
-    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    unsafe fn deref_mut<''a>(ptr: usize) -> &''a mut T { /* ... */ }
     ```
 
   - ```rust
@@ -12508,6 +13152,7 @@ pub enum ZoteroCommand {
         text: String,
         mode: SearchModeArg,
     },
+    Lookup(crate::commands::zotero_lookup::LookupArgs),
 }
 ```
 
@@ -12574,6 +13219,18 @@ Fields:
 | `corpus` | `std::path::PathBuf` | A Kovan folder, `.json` KovanDocument file or folder of them. |
 | `text` | `String` | The quick-search text. |
 | `mode` | `SearchModeArg` | Which fields are searched. |
+
+###### `Lookup`
+
+Look up a DOI, ISBN, arXiv ID, ADS bibcode or PMID (or text holding
+one) with Zotero's search translators, print the record, and with
+`--save --to <folder>` write it. Uses the network (GitHub #756).
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `crate::commands::zotero_lookup::LookupArgs` |  |
 
 ##### Implementations
 
@@ -12670,11 +13327,11 @@ Fields:
     ```
 
   - ```rust
-    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    unsafe fn deref<''a>(ptr: usize) -> &''a T { /* ... */ }
     ```
 
   - ```rust
-    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    unsafe fn deref_mut<''a>(ptr: usize) -> &''a mut T { /* ... */ }
     ```
 
   - ```rust
@@ -12855,11 +13512,11 @@ Everything, including notes.
     ```
 
   - ```rust
-    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    unsafe fn deref<''a>(ptr: usize) -> &''a T { /* ... */ }
     ```
 
   - ```rust
-    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    unsafe fn deref_mut<''a>(ptr: usize) -> &''a mut T { /* ... */ }
     ```
 
   - ```rust
@@ -12915,7 +13572,7 @@ Everything, including notes.
 
 - **ValueEnum**
   - ```rust
-    fn value_variants<''a>() -> &'a [Self] { /* ... */ }
+    fn value_variants<''a>() -> &''a [Self] { /* ... */ }
     ```
 
   - ```rust
@@ -12934,6 +13591,271 @@ Dispatch a parsed [`ZoteroCommand`].
 
 ```rust
 pub fn run(command: ZoteroCommand) -> Result<(), String> { /* ... */ }
+```
+
+## Module `zotero_lookup`
+
+`kovan-cli zotero lookup` (GitHub #756).
+`kovan-cli zotero lookup <identifier or text>` (GitHub #756): Zotero's
+"Add Item by Identifier". Finds a DOI, ISBN, arXiv ID, ADS bibcode or
+PMID in the argument, fetches its record with the ported search
+translators (`kovan_literature::zotero::search`) over the network
+([`crate::lookup_net`]; the user asked, so the network is used), prints
+it, and with `--save --to <folder>` writes it as a `KovanDocument` JSON
+(the fetched Zotero item kept in `zotero_item`). It never overwrites a
+file, and refuses to write inside the outram-park-backend repository
+(a user's corpus is not this repository).
+
+A failed lookup prints the reason (offline, timeout, HTTP status,
+rate-limited, not found, ...) and writes nothing.
+
+```rust
+pub mod zotero_lookup { /* ... */ }
+```
+
+### Types
+
+#### Struct `LookupArgs`
+
+`kovan-cli zotero lookup`.
+
+```rust
+pub struct LookupArgs {
+    pub text: String,
+    pub save: bool,
+    pub to: Option<std::path::PathBuf>,
+    pub json: bool,
+    pub mailto: Option<String>,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `text` | `String` | An identifier (DOI, ISBN, arXiv ID, ADS bibcode, PMID), or text<br>containing one (the first one found is used, as Zotero does). |
+| `save` | `bool` | Write the record as a KovanDocument JSON file (needs `--to`). |
+| `to` | `Option<std::path::PathBuf>` | The corpus folder to write into (outside this repository). |
+| `json` | `bool` | Print the record as Zotero Web API JSON instead of a summary. |
+| `mailto` | `Option<String>` | Your email, sent as `mailto:` in the User-Agent and to Crossref's<br>polite pool. Never sent unless given. |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Args**
+  - ```rust
+    fn group_id() -> Option<clap::Id> { /* ... */ }
+    ```
+
+  - ```rust
+    fn augment_args<''b>(__clap_app: clap::Command) -> clap::Command { /* ... */ }
+    ```
+
+  - ```rust
+    fn augment_args_for_update<''b>(__clap_app: clap::Command) -> clap::Command { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Comparable**
+  - ```rust
+    fn compare(self: &Self, key: &Q) -> Ordering { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+  - ```rust
+    fn into_any(self: Box<T>) -> Box<dyn Any> { /* ... */ }
+    ```
+
+  - ```rust
+    fn into_any_rc(self: Rc<T>) -> Rc<dyn Any> { /* ... */ }
+    ```
+
+  - ```rust
+    fn as_any(self: &Self) -> &dyn Any + ''static { /* ... */ }
+    ```
+
+  - ```rust
+    fn as_any_mut(self: &mut Self) -> &mut dyn Any + ''static { /* ... */ }
+    ```
+
+- **DowncastSync**
+  - ```rust
+    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
+    ```
+
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &Q) -> bool { /* ... */ }
+    ```
+
+- **ErasedDestructor**
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **FromArgMatches**
+  - ```rust
+    fn from_arg_matches(__clap_arg_matches: &clap::ArgMatches) -> ::std::result::Result<Self, clap::Error> { /* ... */ }
+    ```
+
+  - ```rust
+    fn from_arg_matches_mut(__clap_arg_matches: &mut clap::ArgMatches) -> ::std::result::Result<Self, clap::Error> { /* ... */ }
+    ```
+
+  - ```rust
+    fn update_from_arg_matches(self: &mut Self, __clap_arg_matches: &clap::ArgMatches) -> ::std::result::Result<(), clap::Error> { /* ... */ }
+    ```
+
+  - ```rust
+    fn update_from_arg_matches_mut(self: &mut Self, __clap_arg_matches: &mut clap::ArgMatches) -> ::std::result::Result<(), clap::Error> { /* ... */ }
+    ```
+
+- **Instrument**
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &''a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &''a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **SimdFrom**
+  - ```rust
+    fn simd_from(_simd: S, value: T) -> T { /* ... */ }
+    ```
+
+- **SimdInto**
+  - ```rust
+    fn simd_into(self: Self, simd: S) -> T { /* ... */ }
+    ```
+
+- **Sync**
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+- **WithSubscriber**
+### Functions
+
+#### Function `search_options`
+
+The options a lookup runs with: the email, if the user gave one, as the
+Crossref REST hidden pref (`CrossrefREST.email`).
+
+```rust
+pub fn search_options(mailto: Option<&str>) -> kovan_literature::zotero::search::SearchOptions { /* ... */ }
+```
+
+#### Function `lookup_identifier`
+
+Look `id` up over the network (the caller has the user's go-ahead).
+
+```rust
+pub fn lookup_identifier(id: kovan_literature::zotero::search::Identifier, mailto: Option<&str>) -> Result<kovan_literature::zotero::search::SearchRun, kovan_literature::zotero::search::LookupError> { /* ... */ }
+```
+
+#### Function `run_items`
+
+The run's items as kovan-common Zotero items (the first is the record;
+notes follow as child items).
+
+```rust
+pub fn run_items(run: &kovan_literature::zotero::search::SearchRun) -> Result<Vec<kovan_common::zotero::ZoteroItem>, String> { /* ... */ }
+```
+
+#### Function `run`
+
+Run `kovan-cli zotero lookup`.
+
+```rust
+pub fn run(args: LookupArgs) -> Result<(), String> { /* ... */ }
+```
+
+#### Function `inside_this_repository`
+
+Whether `dir` lies inside the outram-park-backend repository (a folder
+above it holds `crates/kovan-literature/Cargo.toml`).
+
+```rust
+pub fn inside_this_repository(dir: &std::path::Path) -> bool { /* ... */ }
+```
+
+#### Function `write_new`
+
+Write `doc` as `<dir>/<slug>.json`, never replacing an existing file.
+
+```rust
+pub fn write_new(dir: &std::path::Path, doc: &kovan_common::KovanDocument) -> Result<std::path::PathBuf, String> { /* ... */ }
 ```
 
 ### Types
@@ -13054,11 +13976,11 @@ pub enum KindArg {
     ```
 
   - ```rust
-    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    unsafe fn deref<''a>(ptr: usize) -> &''a T { /* ... */ }
     ```
 
   - ```rust
-    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    unsafe fn deref_mut<''a>(ptr: usize) -> &''a mut T { /* ... */ }
     ```
 
   - ```rust
@@ -13114,7 +14036,7 @@ pub enum KindArg {
 
 - **ValueEnum**
   - ```rust
-    fn value_variants<''a>() -> &'a [Self] { /* ... */ }
+    fn value_variants<''a>() -> &''a [Self] { /* ... */ }
     ```
 
   - ```rust
@@ -13153,7 +14075,7 @@ pub enum LangArg {
 ###### Methods
 
 - ```rust
-  pub fn display_name(self: Self) -> &'static str { /* ... */ }
+  pub fn display_name(self: Self) -> &''static str { /* ... */ }
   ```
   Human-readable language name, for a synthesised `KovanRepository.language`
 
@@ -13248,11 +14170,11 @@ pub enum LangArg {
     ```
 
   - ```rust
-    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    unsafe fn deref<''a>(ptr: usize) -> &''a T { /* ... */ }
     ```
 
   - ```rust
-    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    unsafe fn deref_mut<''a>(ptr: usize) -> &''a mut T { /* ... */ }
     ```
 
   - ```rust
@@ -13308,7 +14230,7 @@ pub enum LangArg {
 
 - **ValueEnum**
   - ```rust
-    fn value_variants<''a>() -> &'a [Self] { /* ... */ }
+    fn value_variants<''a>() -> &''a [Self] { /* ... */ }
     ```
 
   - ```rust
@@ -13489,11 +14411,11 @@ pub struct Connection {
     ```
 
   - ```rust
-    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    unsafe fn deref<''a>(ptr: usize) -> &''a T { /* ... */ }
     ```
 
   - ```rust
-    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    unsafe fn deref_mut<''a>(ptr: usize) -> &''a mut T { /* ... */ }
     ```
 
   - ```rust
@@ -13698,11 +14620,11 @@ Fields:
     ```
 
   - ```rust
-    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    unsafe fn deref<''a>(ptr: usize) -> &''a T { /* ... */ }
     ```
 
   - ```rust
-    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    unsafe fn deref_mut<''a>(ptr: usize) -> &''a mut T { /* ... */ }
     ```
 
   - ```rust
@@ -13837,7 +14759,7 @@ hyperlink between two concepts means the same thing from both sides, and
 the mind map draws it on both.
 
 ```rust
-pub fn for_node<''a>(connections: &'a [Connection], node: &crate::node_id::NodeId) -> Vec<&'a crate::node_id::NodeId> { /* ... */ }
+pub fn for_node<''a>(connections: &''a [Connection], node: &crate::node_id::NodeId) -> Vec<&''a crate::node_id::NodeId> { /* ... */ }
 ```
 
 ## Module `corpus`
@@ -13907,10 +14829,10 @@ A corpus topic: one node of the browsing hierarchy.
 
 ```rust
 pub struct CorpusTopic {
-    pub path: &'static str,
-    pub title: &'static str,
+    pub path: &''static str,
+    pub title: &''static str,
     pub ontology: Option<OntologyLink>,
-    pub concept: Option<&'static kovan_literature::ConceptNode>,
+    pub concept: Option<&''static kovan_literature::ConceptNode>,
 }
 ```
 
@@ -13918,10 +14840,10 @@ pub struct CorpusTopic {
 
 | Name | Type | Documentation |
 |------|------|---------------|
-| `path` | `&'static str` | Slash-separated path, parent first; the last segment is this topic's<br>slug. Since 2026-10-06 this is the concept path itself, with no root<br>prefix (`02-nuclear-safety/nuclear-design`), or [`ROOT_TOPIC`] for the<br>virtual root. |
-| `title` | `&'static str` | Display name. |
+| `path` | `&''static str` | Slash-separated path, parent first; the last segment is this topic's<br>slug. Since 2026-10-06 this is the concept path itself, with no root<br>prefix (`02-nuclear-safety/nuclear-design`), or [`ROOT_TOPIC`] for the<br>virtual root. |
+| `title` | `&''static str` | Display name. |
 | `ontology` | `Option<OntologyLink>` | The ontology concept this topic is, if it is one. |
-| `concept` | `Option<&'static kovan_literature::ConceptNode>` | The concept-tree node behind this topic: its level, sources,<br>cross-links, origin and status. `None` only for [`ROOT_TOPIC`]. |
+| `concept` | `Option<&''static kovan_literature::ConceptNode>` | The concept-tree node behind this topic: its level, sources,<br>cross-links, origin and status. `None` only for [`ROOT_TOPIC`]. |
 
 ##### Implementations
 
@@ -13933,7 +14855,7 @@ pub struct CorpusTopic {
   This topic's node id.
 
 - ```rust
-  pub fn parent_path(self: &Self) -> Option<&'static str> { /* ... */ }
+  pub fn parent_path(self: &Self) -> Option<&''static str> { /* ... */ }
   ```
   The parent topic's path, or `None` for the root. A level-1 issue's
 
@@ -13948,7 +14870,7 @@ pub struct CorpusTopic {
   Whether the concept is `deferred` (placed, awaiting sources): a map
 
 - ```rust
-  pub fn aliases(self: &Self) -> Vec<&'static str> { /* ... */ }
+  pub fn aliases(self: &Self) -> Vec<&''static str> { /* ... */ }
   ```
   Other names search should match: the linked ontology concept's name
 
@@ -14058,11 +14980,11 @@ pub struct CorpusTopic {
     ```
 
   - ```rust
-    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    unsafe fn deref<''a>(ptr: usize) -> &''a T { /* ... */ }
     ```
 
   - ```rust
-    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    unsafe fn deref_mut<''a>(ptr: usize) -> &''a mut T { /* ... */ }
     ```
 
   - ```rust
@@ -14166,17 +15088,17 @@ Fields:
 ###### Methods
 
 - ```rust
-  pub fn id(self: Self) -> &'static str { /* ... */ }
+  pub fn id(self: Self) -> &''static str { /* ... */ }
   ```
   The ontology concept's id.
 
 - ```rust
-  pub fn name(self: Self) -> &'static str { /* ... */ }
+  pub fn name(self: Self) -> &''static str { /* ... */ }
   ```
   The ontology concept's full name.
 
 - ```rust
-  pub fn aliases(self: Self) -> &'static [&'static str] { /* ... */ }
+  pub fn aliases(self: Self) -> &''static [&''static str] { /* ... */ }
   ```
   The ontology concept's aliases.
 
@@ -14286,11 +15208,11 @@ Fields:
     ```
 
   - ```rust
-    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    unsafe fn deref<''a>(ptr: usize) -> &''a T { /* ... */ }
     ```
 
   - ```rust
-    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    unsafe fn deref_mut<''a>(ptr: usize) -> &''a mut T { /* ... */ }
     ```
 
   - ```rust
@@ -14492,11 +15414,11 @@ Anything the other kinds do not describe.
     ```
 
   - ```rust
-    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    unsafe fn deref<''a>(ptr: usize) -> &''a T { /* ... */ }
     ```
 
   - ```rust
-    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    unsafe fn deref_mut<''a>(ptr: usize) -> &''a mut T { /* ... */ }
     ```
 
   - ```rust
@@ -14712,11 +15634,11 @@ Restricted or local-only.
     ```
 
   - ```rust
-    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    unsafe fn deref<''a>(ptr: usize) -> &''a T { /* ... */ }
     ```
 
   - ```rust
-    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    unsafe fn deref_mut<''a>(ptr: usize) -> &''a mut T { /* ... */ }
     ```
 
   - ```rust
@@ -14782,17 +15704,17 @@ found separately (#253), and its absence is normal.
 
 ```rust
 pub struct CorpusLiterature {
-    pub id: &'static str,
+    pub id: &''static str,
     pub kind: LiteratureKind,
-    pub title: &'static str,
-    pub authors: &'static [&'static str],
+    pub title: &''static str,
+    pub authors: &''static [&''static str],
     pub year: Option<u16>,
-    pub topics: &'static [&'static str],
-    pub concept_document: Option<&'static str>,
-    pub source_url: Option<&'static str>,
-    pub corpus_file: Option<&'static str>,
+    pub topics: &''static [&''static str],
+    pub concept_document: Option<&''static str>,
+    pub source_url: Option<&''static str>,
+    pub corpus_file: Option<&''static str>,
     pub status: SourceStatus,
-    pub status_basis: &'static str,
+    pub status_basis: &''static str,
 }
 ```
 
@@ -14800,17 +15722,17 @@ pub struct CorpusLiterature {
 
 | Name | Type | Documentation |
 |------|------|---------------|
-| `id` | `&'static str` | Corpus-unique id, e.g. a report number in lower case. Used as the<br>literature node's path. |
+| `id` | `&''static str` | Corpus-unique id, e.g. a report number in lower case. Used as the<br>literature node's path. |
 | `kind` | `LiteratureKind` |  |
-| `title` | `&'static str` |  |
-| `authors` | `&'static [&'static str]` | Authors or issuing organisation, in citation order. |
+| `title` | `&''static str` |  |
+| `authors` | `&''static [&''static str]` | Authors or issuing organisation, in citation order. |
 | `year` | `Option<u16>` |  |
-| `topics` | `&'static [&'static str]` | Concept paths ([`topics`]) this entry is filed under by hand, from<br>its abstract and contents. It appears as a citation of each. (Until<br>2026-10-06 these were paths of the old `TOPICS` table, all under<br>`nuclear-engineering/`; every one was re-filed under the concept<br>tree that day.) [`Self::filed_under`] adds the nodes that cite the<br>entry as a source. |
-| `concept_document` | `Option<&'static str>` | The concept-tree `[[document]]` id this entry is, when the tree cites<br>it (`concept_skeleton.toml`). Every node whose sources name that<br>document files the entry too, so a node's sources are among its<br>citations on the map. |
-| `source_url` | `Option<&'static str>` | Where the source can be read or obtained, if known: a DOI link, or<br>the publisher's own copy. |
-| `corpus_file` | `Option<&'static str>` | The PDF's path inside [`CORPUS_REPOSITORY_URL`], for a<br>[`SourceStatus::redistributable`] entry whose PDF is held there. |
+| `topics` | `&''static [&''static str]` | Concept paths ([`topics`]) this entry is filed under by hand, from<br>its abstract and contents. It appears as a citation of each. (Until<br>2026-10-06 these were paths of the old `TOPICS` table, all under<br>`nuclear-engineering/`; every one was re-filed under the concept<br>tree that day.) [`Self::filed_under`] adds the nodes that cite the<br>entry as a source. |
+| `concept_document` | `Option<&''static str>` | The concept-tree `[[document]]` id this entry is, when the tree cites<br>it (`concept_skeleton.toml`). Every node whose sources name that<br>document files the entry too, so a node's sources are among its<br>citations on the map. |
+| `source_url` | `Option<&''static str>` | Where the source can be read or obtained, if known: a DOI link, or<br>the publisher's own copy. |
+| `corpus_file` | `Option<&''static str>` | The PDF's path inside [`CORPUS_REPOSITORY_URL`], for a<br>[`SourceStatus::redistributable`] entry whose PDF is held there. |
 | `status` | `SourceStatus` |  |
-| `status_basis` | `&'static str` | Why [`Self::status`] is what it is: the statement it rests on and<br>where that statement is. Required for every entry (workspace<br>`DATA_POLICY.md`: provenance for anything the code depends on). |
+| `status_basis` | `&''static str` | Why [`Self::status`] is what it is: the statement it rests on and<br>where that statement is. Required for every entry (workspace<br>`DATA_POLICY.md`: provenance for anything the code depends on). |
 
 ##### Implementations
 
@@ -14822,12 +15744,12 @@ pub struct CorpusLiterature {
   This entry's node id.
 
 - ```rust
-  pub fn filed_under(self: &Self) -> Vec<&'static str> { /* ... */ }
+  pub fn filed_under(self: &Self) -> Vec<&''static str> { /* ... */ }
   ```
   Every concept path this entry is filed under: [`Self::topics`], then
 
 - ```rust
-  pub fn classification_topics(self: &Self) -> Vec<&'static str> { /* ... */ }
+  pub fn classification_topics(self: &Self) -> Vec<&''static str> { /* ... */ }
   ```
   Where a user's notes paper for this entry is classified
 
@@ -14937,11 +15859,11 @@ pub struct CorpusLiterature {
     ```
 
   - ```rust
-    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    unsafe fn deref<''a>(ptr: usize) -> &''a T { /* ... */ }
     ```
 
   - ```rust
-    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    unsafe fn deref_mut<''a>(ptr: usize) -> &''a mut T { /* ... */ }
     ```
 
   - ```rust
@@ -15135,11 +16057,11 @@ pub enum ConnectionOrigin {
     ```
 
   - ```rust
-    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    unsafe fn deref<''a>(ptr: usize) -> &''a T { /* ... */ }
     ```
 
   - ```rust
-    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    unsafe fn deref_mut<''a>(ptr: usize) -> &''a mut T { /* ... */ }
     ```
 
   - ```rust
@@ -15205,10 +16127,10 @@ filing is not listed here: it is [`CorpusLiterature::topics`].
 
 ```rust
 pub struct CorpusConnection {
-    pub source: &'static str,
-    pub target: &'static str,
+    pub source: &''static str,
+    pub target: &''static str,
     pub relation: crate::relation::RelationKind,
-    pub basis: &'static str,
+    pub basis: &''static str,
 }
 ```
 
@@ -15216,10 +16138,10 @@ pub struct CorpusConnection {
 
 | Name | Type | Documentation |
 |------|------|---------------|
-| `source` | `&'static str` | Node id strings, parsed and checked by the tests. |
-| `target` | `&'static str` |  |
+| `source` | `&''static str` | Node id strings, parsed and checked by the tests. |
+| `target` | `&''static str` |  |
 | `relation` | `crate::relation::RelationKind` |  |
-| `basis` | `&'static str` | Where the source document states the relationship (a reference-list<br>entry, a page). Required: a corpus connection is added only on a<br>document's own evidence. |
+| `basis` | `&''static str` | Where the source document states the relationship (a reference-list<br>entry, a page). Required: a corpus connection is added only on a<br>document's own evidence. |
 
 ##### Implementations
 
@@ -15329,11 +16251,11 @@ pub struct CorpusConnection {
     ```
 
   - ```rust
-    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    unsafe fn deref<''a>(ptr: usize) -> &''a T { /* ... */ }
     ```
 
   - ```rust
-    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    unsafe fn deref_mut<''a>(ptr: usize) -> &''a mut T { /* ... */ }
     ```
 
   - ```rust
@@ -15525,11 +16447,11 @@ pub struct CuratedConnection {
     ```
 
   - ```rust
-    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    unsafe fn deref<''a>(ptr: usize) -> &''a T { /* ... */ }
     ```
 
   - ```rust
-    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    unsafe fn deref_mut<''a>(ptr: usize) -> &''a mut T { /* ... */ }
     ```
 
   - ```rust
@@ -15597,7 +16519,7 @@ tree, parents before children. Replaces the old `TOPICS` table
 (2026-10-06).
 
 ```rust
-pub fn topics() -> &'static [CorpusTopic] { /* ... */ }
+pub fn topics() -> &''static [CorpusTopic] { /* ... */ }
 ```
 
 #### Function `curated_connections`
@@ -15608,7 +16530,7 @@ cross-links (`cross_links` in `concept_skeleton.toml` and
 node a concept belongs to), in tree order. Built once.
 
 ```rust
-pub fn curated_connections() -> &'static [CuratedConnection] { /* ... */ }
+pub fn curated_connections() -> &''static [CuratedConnection] { /* ... */ }
 ```
 
 #### Function `curated_connections_for`
@@ -15618,7 +16540,7 @@ The curated connections touching `node`, at either end, each with its
 cards.
 
 ```rust
-pub fn curated_connections_for(node: &crate::node_id::NodeId) -> Vec<(&'static CuratedConnection, &'static crate::node_id::NodeId)> { /* ... */ }
+pub fn curated_connections_for(node: &crate::node_id::NodeId) -> Vec<(&''static CuratedConnection, &''static crate::node_id::NodeId)> { /* ... */ }
 ```
 
 #### Function `topic_at`
@@ -15626,7 +16548,7 @@ pub fn curated_connections_for(node: &crate::node_id::NodeId) -> Vec<(&'static C
 The topic at `path`, if any.
 
 ```rust
-pub fn topic_at(path: &str) -> Option<&'static CorpusTopic> { /* ... */ }
+pub fn topic_at(path: &str) -> Option<&''static CorpusTopic> { /* ... */ }
 ```
 
 #### Function `children_of`
@@ -15635,7 +16557,7 @@ The direct children of the topic at `path`, in tree order: the 19 IAEA
 issues for [`ROOT_TOPIC`].
 
 ```rust
-pub fn children_of(path: &str) -> impl Iterator<Item = &'static CorpusTopic> { /* ... */ }
+pub fn children_of(path: &str) -> impl Iterator<Item = &''static CorpusTopic> { /* ... */ }
 ```
 
 #### Function `literature_in`
@@ -15644,7 +16566,7 @@ The literature filed under the topic at `path`
 ([`CorpusLiterature::filed_under`]), in [`LITERATURE`] order.
 
 ```rust
-pub fn literature_in(path: &str) -> impl Iterator<Item = &'static CorpusLiterature> { /* ... */ }
+pub fn literature_in(path: &str) -> impl Iterator<Item = &''static CorpusLiterature> { /* ... */ }
 ```
 
 #### Function `has_literature`
@@ -15979,11 +16901,11 @@ as one, or an existing repository at the path adopted as one.
     ```
 
   - ```rust
-    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    unsafe fn deref<''a>(ptr: usize) -> &''a T { /* ... */ }
     ```
 
   - ```rust
-    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    unsafe fn deref_mut<''a>(ptr: usize) -> &''a mut T { /* ... */ }
     ```
 
   - ```rust
@@ -16201,11 +17123,11 @@ Fields:
     ```
 
   - ```rust
-    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    unsafe fn deref<''a>(ptr: usize) -> &''a T { /* ... */ }
     ```
 
   - ```rust
-    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    unsafe fn deref_mut<''a>(ptr: usize) -> &''a mut T { /* ... */ }
     ```
 
   - ```rust
@@ -16391,11 +17313,11 @@ pub struct CorporaSetup {
     ```
 
   - ```rust
-    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    unsafe fn deref<''a>(ptr: usize) -> &''a T { /* ... */ }
     ```
 
   - ```rust
-    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    unsafe fn deref_mut<''a>(ptr: usize) -> &''a mut T { /* ... */ }
     ```
 
   - ```rust
@@ -16824,12 +17746,12 @@ The user's proprietary literature, in private repositories only.
 ###### Methods
 
 - ```rust
-  pub fn label(self: Self) -> &'static str { /* ... */ }
+  pub fn label(self: Self) -> &''static str { /* ... */ }
   ```
   The label the UI shows, e.g. `Open corpus`.
 
 - ```rust
-  pub fn key(self: Self) -> &'static str { /* ... */ }
+  pub fn key(self: Self) -> &''static str { /* ... */ }
   ```
   The `[repos]` key, e.g. `open`.
 
@@ -16960,11 +17882,11 @@ The user's proprietary literature, in private repositories only.
     ```
 
   - ```rust
-    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    unsafe fn deref<''a>(ptr: usize) -> &''a T { /* ... */ }
     ```
 
   - ```rust
-    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    unsafe fn deref_mut<''a>(ptr: usize) -> &''a mut T { /* ... */ }
     ```
 
   - ```rust
@@ -17167,11 +18089,11 @@ where
     ```
 
   - ```rust
-    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    unsafe fn deref<''a>(ptr: usize) -> &''a T { /* ... */ }
     ```
 
   - ```rust
-    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    unsafe fn deref_mut<''a>(ptr: usize) -> &''a mut T { /* ... */ }
     ```
 
   - ```rust
@@ -17404,11 +18326,11 @@ where
     ```
 
   - ```rust
-    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    unsafe fn deref<''a>(ptr: usize) -> &''a T { /* ... */ }
     ```
 
   - ```rust
-    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    unsafe fn deref_mut<''a>(ptr: usize) -> &''a mut T { /* ... */ }
     ```
 
   - ```rust
@@ -17482,9 +18404,9 @@ A standard repository Kovan knows without configuration.
 
 ```rust
 pub struct BuiltinRepo {
-    pub name: &'static str,
-    pub remote: &'static str,
-    pub branch: &'static str,
+    pub name: &''static str,
+    pub remote: &''static str,
+    pub branch: &''static str,
 }
 ```
 
@@ -17492,9 +18414,9 @@ pub struct BuiltinRepo {
 
 | Name | Type | Documentation |
 |------|------|---------------|
-| `name` | `&'static str` |  |
-| `remote` | `&'static str` |  |
-| `branch` | `&'static str` |  |
+| `name` | `&''static str` |  |
+| `remote` | `&''static str` |  |
+| `branch` | `&''static str` |  |
 
 ##### Implementations
 
@@ -17604,11 +18526,11 @@ pub struct BuiltinRepo {
     ```
 
   - ```rust
-    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    unsafe fn deref<''a>(ptr: usize) -> &''a T { /* ... */ }
     ```
 
   - ```rust
-    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    unsafe fn deref_mut<''a>(ptr: usize) -> &''a mut T { /* ... */ }
     ```
 
   - ```rust
@@ -17802,11 +18724,11 @@ A `[[repos.<tier>]]` entry.
     ```
 
   - ```rust
-    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    unsafe fn deref<''a>(ptr: usize) -> &''a T { /* ... */ }
     ```
 
   - ```rust
-    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    unsafe fn deref_mut<''a>(ptr: usize) -> &''a mut T { /* ... */ }
     ```
 
   - ```rust
@@ -18017,11 +18939,11 @@ pub struct CorpusRepo {
     ```
 
   - ```rust
-    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    unsafe fn deref<''a>(ptr: usize) -> &''a T { /* ... */ }
     ```
 
   - ```rust
-    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    unsafe fn deref_mut<''a>(ptr: usize) -> &''a mut T { /* ... */ }
     ```
 
   - ```rust
@@ -18205,11 +19127,11 @@ pub struct RepoRef {
     ```
 
   - ```rust
-    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    unsafe fn deref<''a>(ptr: usize) -> &''a T { /* ... */ }
     ```
 
   - ```rust
-    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    unsafe fn deref_mut<''a>(ptr: usize) -> &''a mut T { /* ... */ }
     ```
 
   - ```rust
@@ -18726,11 +19648,11 @@ where
     ```
 
   - ```rust
-    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    unsafe fn deref<''a>(ptr: usize) -> &''a T { /* ... */ }
     ```
 
   - ```rust
-    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    unsafe fn deref_mut<''a>(ptr: usize) -> &''a mut T { /* ... */ }
     ```
 
   - ```rust
@@ -18922,11 +19844,11 @@ where
     ```
 
   - ```rust
-    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    unsafe fn deref<''a>(ptr: usize) -> &''a T { /* ... */ }
     ```
 
   - ```rust
-    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    unsafe fn deref_mut<''a>(ptr: usize) -> &''a mut T { /* ... */ }
     ```
 
   - ```rust
@@ -19123,11 +20045,11 @@ where
     ```
 
   - ```rust
-    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    unsafe fn deref<''a>(ptr: usize) -> &''a T { /* ... */ }
     ```
 
   - ```rust
-    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    unsafe fn deref_mut<''a>(ptr: usize) -> &''a mut T { /* ... */ }
     ```
 
   - ```rust
@@ -19387,11 +20309,11 @@ where
     ```
 
   - ```rust
-    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    unsafe fn deref<''a>(ptr: usize) -> &''a T { /* ... */ }
     ```
 
   - ```rust
-    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    unsafe fn deref_mut<''a>(ptr: usize) -> &''a mut T { /* ... */ }
     ```
 
   - ```rust
@@ -19620,11 +20542,11 @@ where
     ```
 
   - ```rust
-    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    unsafe fn deref<''a>(ptr: usize) -> &''a T { /* ... */ }
     ```
 
   - ```rust
-    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    unsafe fn deref_mut<''a>(ptr: usize) -> &''a mut T { /* ... */ }
     ```
 
   - ```rust
@@ -19839,11 +20761,11 @@ where
     ```
 
   - ```rust
-    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    unsafe fn deref<''a>(ptr: usize) -> &''a T { /* ... */ }
     ```
 
   - ```rust
-    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    unsafe fn deref_mut<''a>(ptr: usize) -> &''a mut T { /* ... */ }
     ```
 
   - ```rust
@@ -20090,11 +21012,11 @@ where
     ```
 
   - ```rust
-    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    unsafe fn deref<''a>(ptr: usize) -> &''a T { /* ... */ }
     ```
 
   - ```rust
-    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    unsafe fn deref_mut<''a>(ptr: usize) -> &''a mut T { /* ... */ }
     ```
 
   - ```rust
@@ -20287,11 +21209,11 @@ where
     ```
 
   - ```rust
-    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    unsafe fn deref<''a>(ptr: usize) -> &''a T { /* ... */ }
     ```
 
   - ```rust
-    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    unsafe fn deref_mut<''a>(ptr: usize) -> &''a mut T { /* ... */ }
     ```
 
   - ```rust
@@ -20538,11 +21460,11 @@ where
     ```
 
   - ```rust
-    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    unsafe fn deref<''a>(ptr: usize) -> &''a T { /* ... */ }
     ```
 
   - ```rust
-    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    unsafe fn deref_mut<''a>(ptr: usize) -> &''a mut T { /* ... */ }
     ```
 
   - ```rust
@@ -20789,11 +21711,11 @@ where
     ```
 
   - ```rust
-    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    unsafe fn deref<''a>(ptr: usize) -> &''a T { /* ... */ }
     ```
 
   - ```rust
-    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    unsafe fn deref_mut<''a>(ptr: usize) -> &''a mut T { /* ... */ }
     ```
 
   - ```rust
@@ -21019,11 +21941,11 @@ where
     ```
 
   - ```rust
-    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    unsafe fn deref<''a>(ptr: usize) -> &''a T { /* ... */ }
     ```
 
   - ```rust
-    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    unsafe fn deref_mut<''a>(ptr: usize) -> &''a mut T { /* ... */ }
     ```
 
   - ```rust
@@ -21233,11 +22155,11 @@ where
     ```
 
   - ```rust
-    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    unsafe fn deref<''a>(ptr: usize) -> &''a T { /* ... */ }
     ```
 
   - ```rust
-    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    unsafe fn deref_mut<''a>(ptr: usize) -> &''a mut T { /* ... */ }
     ```
 
   - ```rust
@@ -21455,11 +22377,11 @@ where
     ```
 
   - ```rust
-    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    unsafe fn deref<''a>(ptr: usize) -> &''a T { /* ... */ }
     ```
 
   - ```rust
-    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    unsafe fn deref_mut<''a>(ptr: usize) -> &''a mut T { /* ... */ }
     ```
 
   - ```rust
@@ -21671,11 +22593,11 @@ where
     ```
 
   - ```rust
-    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    unsafe fn deref<''a>(ptr: usize) -> &''a T { /* ... */ }
     ```
 
   - ```rust
-    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    unsafe fn deref_mut<''a>(ptr: usize) -> &''a mut T { /* ... */ }
     ```
 
   - ```rust
@@ -21871,11 +22793,11 @@ where
     ```
 
   - ```rust
-    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    unsafe fn deref<''a>(ptr: usize) -> &''a T { /* ... */ }
     ```
 
   - ```rust
-    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    unsafe fn deref_mut<''a>(ptr: usize) -> &''a mut T { /* ... */ }
     ```
 
   - ```rust
@@ -22146,11 +23068,11 @@ where
     ```
 
   - ```rust
-    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    unsafe fn deref<''a>(ptr: usize) -> &''a T { /* ... */ }
     ```
 
   - ```rust
-    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    unsafe fn deref_mut<''a>(ptr: usize) -> &''a mut T { /* ... */ }
     ```
 
   - ```rust
@@ -22453,11 +23375,11 @@ where
     ```
 
   - ```rust
-    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    unsafe fn deref<''a>(ptr: usize) -> &''a T { /* ... */ }
     ```
 
   - ```rust
-    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    unsafe fn deref_mut<''a>(ptr: usize) -> &''a mut T { /* ... */ }
     ```
 
   - ```rust
@@ -22660,11 +23582,11 @@ where
     ```
 
   - ```rust
-    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    unsafe fn deref<''a>(ptr: usize) -> &''a T { /* ... */ }
     ```
 
   - ```rust
-    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    unsafe fn deref_mut<''a>(ptr: usize) -> &''a mut T { /* ... */ }
     ```
 
   - ```rust
@@ -22998,11 +23920,11 @@ pub struct AutoArgs {
     ```
 
   - ```rust
-    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    unsafe fn deref<''a>(ptr: usize) -> &''a T { /* ... */ }
     ```
 
   - ```rust
-    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    unsafe fn deref_mut<''a>(ptr: usize) -> &''a mut T { /* ... */ }
     ```
 
   - ```rust
@@ -23246,11 +24168,11 @@ pub struct Startup {
     ```
 
   - ```rust
-    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    unsafe fn deref<''a>(ptr: usize) -> &''a T { /* ... */ }
     ```
 
   - ```rust
-    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    unsafe fn deref_mut<''a>(ptr: usize) -> &''a mut T { /* ... */ }
     ```
 
   - ```rust
@@ -23513,11 +24435,11 @@ As scanned.
     ```
 
   - ```rust
-    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    unsafe fn deref<''a>(ptr: usize) -> &''a T { /* ... */ }
     ```
 
   - ```rust
-    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    unsafe fn deref_mut<''a>(ptr: usize) -> &''a mut T { /* ... */ }
     ```
 
   - ```rust
@@ -23755,11 +24677,11 @@ pub struct PlotRaster {
     ```
 
   - ```rust
-    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    unsafe fn deref<''a>(ptr: usize) -> &''a T { /* ... */ }
     ```
 
   - ```rust
-    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    unsafe fn deref_mut<''a>(ptr: usize) -> &''a mut T { /* ... */ }
     ```
 
   - ```rust
@@ -23974,11 +24896,11 @@ pub struct SyntheticPlotSpec {
     ```
 
   - ```rust
-    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    unsafe fn deref<''a>(ptr: usize) -> &''a T { /* ... */ }
     ```
 
   - ```rust
-    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    unsafe fn deref_mut<''a>(ptr: usize) -> &''a mut T { /* ... */ }
     ```
 
   - ```rust
@@ -24243,11 +25165,11 @@ pub struct CellPos {
     ```
 
   - ```rust
-    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    unsafe fn deref<''a>(ptr: usize) -> &''a T { /* ... */ }
     ```
 
   - ```rust
-    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    unsafe fn deref_mut<''a>(ptr: usize) -> &''a mut T { /* ... */ }
     ```
 
   - ```rust
@@ -24444,11 +25366,11 @@ pub struct CellRange {
     ```
 
   - ```rust
-    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    unsafe fn deref<''a>(ptr: usize) -> &''a T { /* ... */ }
     ```
 
   - ```rust
-    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    unsafe fn deref_mut<''a>(ptr: usize) -> &''a mut T { /* ... */ }
     ```
 
   - ```rust
@@ -24634,11 +25556,11 @@ pub struct CellChange {
     ```
 
   - ```rust
-    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    unsafe fn deref<''a>(ptr: usize) -> &''a T { /* ... */ }
     ```
 
   - ```rust
-    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    unsafe fn deref_mut<''a>(ptr: usize) -> &''a mut T { /* ... */ }
     ```
 
   - ```rust
@@ -24828,11 +25750,11 @@ pub enum Direction {
     ```
 
   - ```rust
-    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    unsafe fn deref<''a>(ptr: usize) -> &''a T { /* ... */ }
     ```
 
   - ```rust
-    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    unsafe fn deref_mut<''a>(ptr: usize) -> &''a mut T { /* ... */ }
     ```
 
   - ```rust
@@ -24995,11 +25917,11 @@ pub struct CsvLoadError(/* private field */);
     ```
 
   - ```rust
-    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    unsafe fn deref<''a>(ptr: usize) -> &''a T { /* ... */ }
     ```
 
   - ```rust
-    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    unsafe fn deref_mut<''a>(ptr: usize) -> &''a mut T { /* ... */ }
     ```
 
   - ```rust
@@ -25311,11 +26233,11 @@ pub struct TableGrid {
     ```
 
   - ```rust
-    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    unsafe fn deref<''a>(ptr: usize) -> &''a T { /* ... */ }
     ```
 
   - ```rust
-    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    unsafe fn deref_mut<''a>(ptr: usize) -> &''a mut T { /* ... */ }
     ```
 
   - ```rust
@@ -25628,11 +26550,11 @@ where
     ```
 
   - ```rust
-    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    unsafe fn deref<''a>(ptr: usize) -> &''a T { /* ... */ }
     ```
 
   - ```rust
-    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    unsafe fn deref_mut<''a>(ptr: usize) -> &''a mut T { /* ... */ }
     ```
 
   - ```rust
@@ -25848,11 +26770,11 @@ where
     ```
 
   - ```rust
-    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    unsafe fn deref<''a>(ptr: usize) -> &''a T { /* ... */ }
     ```
 
   - ```rust
-    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    unsafe fn deref_mut<''a>(ptr: usize) -> &''a mut T { /* ... */ }
     ```
 
   - ```rust
@@ -26061,11 +26983,11 @@ where
     ```
 
   - ```rust
-    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    unsafe fn deref<''a>(ptr: usize) -> &''a T { /* ... */ }
     ```
 
   - ```rust
-    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    unsafe fn deref_mut<''a>(ptr: usize) -> &''a mut T { /* ... */ }
     ```
 
   - ```rust
@@ -26260,11 +27182,11 @@ where
     ```
 
   - ```rust
-    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    unsafe fn deref<''a>(ptr: usize) -> &''a T { /* ... */ }
     ```
 
   - ```rust
-    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    unsafe fn deref_mut<''a>(ptr: usize) -> &''a mut T { /* ... */ }
     ```
 
   - ```rust
@@ -26474,11 +27396,11 @@ where
     ```
 
   - ```rust
-    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    unsafe fn deref<''a>(ptr: usize) -> &''a T { /* ... */ }
     ```
 
   - ```rust
-    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    unsafe fn deref_mut<''a>(ptr: usize) -> &''a mut T { /* ... */ }
     ```
 
   - ```rust
@@ -26794,11 +27716,11 @@ Fields:
     ```
 
   - ```rust
-    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    unsafe fn deref<''a>(ptr: usize) -> &''a T { /* ... */ }
     ```
 
   - ```rust
-    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    unsafe fn deref_mut<''a>(ptr: usize) -> &''a mut T { /* ... */ }
     ```
 
   - ```rust
@@ -27164,11 +28086,11 @@ Fields:
     ```
 
   - ```rust
-    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    unsafe fn deref<''a>(ptr: usize) -> &''a T { /* ... */ }
     ```
 
   - ```rust
-    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    unsafe fn deref_mut<''a>(ptr: usize) -> &''a mut T { /* ... */ }
     ```
 
   - ```rust
@@ -27291,7 +28213,7 @@ machinery, differing only in semantics (§6).
   Whether this kind is a collection (topic or project) rather than a paper.
 
 - ```rust
-  pub fn conventional_dir(self: Self) -> &'static str { /* ... */ }
+  pub fn conventional_dir(self: Self) -> &''static str { /* ... */ }
   ```
   The directory, relative to the library root, whose tree this kind lives
 
@@ -27409,11 +28331,11 @@ where
     ```
 
   - ```rust
-    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    unsafe fn deref<''a>(ptr: usize) -> &''a T { /* ... */ }
     ```
 
   - ```rust
-    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    unsafe fn deref_mut<''a>(ptr: usize) -> &''a mut T { /* ... */ }
     ```
 
   - ```rust
@@ -27645,11 +28567,11 @@ where
     ```
 
   - ```rust
-    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    unsafe fn deref<''a>(ptr: usize) -> &''a T { /* ... */ }
     ```
 
   - ```rust
-    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    unsafe fn deref_mut<''a>(ptr: usize) -> &''a mut T { /* ... */ }
     ```
 
   - ```rust
@@ -27902,11 +28824,11 @@ where
     ```
 
   - ```rust
-    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    unsafe fn deref<''a>(ptr: usize) -> &''a T { /* ... */ }
     ```
 
   - ```rust
-    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    unsafe fn deref_mut<''a>(ptr: usize) -> &''a mut T { /* ... */ }
     ```
 
   - ```rust
@@ -28123,11 +29045,11 @@ where
     ```
 
   - ```rust
-    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    unsafe fn deref<''a>(ptr: usize) -> &''a T { /* ... */ }
     ```
 
   - ```rust
-    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    unsafe fn deref_mut<''a>(ptr: usize) -> &''a mut T { /* ... */ }
     ```
 
   - ```rust
@@ -28360,11 +29282,11 @@ where
     ```
 
   - ```rust
-    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    unsafe fn deref<''a>(ptr: usize) -> &''a T { /* ... */ }
     ```
 
   - ```rust
-    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    unsafe fn deref_mut<''a>(ptr: usize) -> &''a mut T { /* ... */ }
     ```
 
   - ```rust
@@ -28631,11 +29553,11 @@ where
     ```
 
   - ```rust
-    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    unsafe fn deref<''a>(ptr: usize) -> &''a T { /* ... */ }
     ```
 
   - ```rust
-    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    unsafe fn deref_mut<''a>(ptr: usize) -> &''a mut T { /* ... */ }
     ```
 
   - ```rust
@@ -28964,11 +29886,11 @@ where
     ```
 
   - ```rust
-    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    unsafe fn deref<''a>(ptr: usize) -> &''a T { /* ... */ }
     ```
 
   - ```rust
-    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    unsafe fn deref_mut<''a>(ptr: usize) -> &''a mut T { /* ... */ }
     ```
 
   - ```rust
@@ -29265,11 +30187,11 @@ pub struct HashCache {
     ```
 
   - ```rust
-    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    unsafe fn deref<''a>(ptr: usize) -> &''a T { /* ... */ }
     ```
 
   - ```rust
-    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    unsafe fn deref_mut<''a>(ptr: usize) -> &''a mut T { /* ... */ }
     ```
 
   - ```rust
@@ -29512,11 +30434,11 @@ Fields:
     ```
 
   - ```rust
-    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    unsafe fn deref<''a>(ptr: usize) -> &''a T { /* ... */ }
     ```
 
   - ```rust
-    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    unsafe fn deref_mut<''a>(ptr: usize) -> &''a mut T { /* ... */ }
     ```
 
   - ```rust
@@ -29755,11 +30677,11 @@ where
     ```
 
   - ```rust
-    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    unsafe fn deref<''a>(ptr: usize) -> &''a T { /* ... */ }
     ```
 
   - ```rust
-    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    unsafe fn deref_mut<''a>(ptr: usize) -> &''a mut T { /* ... */ }
     ```
 
   - ```rust
@@ -29975,11 +30897,11 @@ where
     ```
 
   - ```rust
-    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    unsafe fn deref<''a>(ptr: usize) -> &''a T { /* ... */ }
     ```
 
   - ```rust
-    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    unsafe fn deref_mut<''a>(ptr: usize) -> &''a mut T { /* ... */ }
     ```
 
   - ```rust
@@ -30222,11 +31144,11 @@ where
     ```
 
   - ```rust
-    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    unsafe fn deref<''a>(ptr: usize) -> &''a T { /* ... */ }
     ```
 
   - ```rust
-    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    unsafe fn deref_mut<''a>(ptr: usize) -> &''a mut T { /* ... */ }
     ```
 
   - ```rust
@@ -30419,11 +31341,11 @@ pub struct WikiLinkRef {
     ```
 
   - ```rust
-    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    unsafe fn deref<''a>(ptr: usize) -> &''a T { /* ... */ }
     ```
 
   - ```rust
-    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    unsafe fn deref_mut<''a>(ptr: usize) -> &''a mut T { /* ... */ }
     ```
 
   - ```rust
@@ -30695,11 +31617,11 @@ Fields:
     ```
 
   - ```rust
-    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    unsafe fn deref<''a>(ptr: usize) -> &''a T { /* ... */ }
     ```
 
   - ```rust
-    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    unsafe fn deref_mut<''a>(ptr: usize) -> &''a mut T { /* ... */ }
     ```
 
   - ```rust
@@ -30922,11 +31844,11 @@ where
     ```
 
   - ```rust
-    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    unsafe fn deref<''a>(ptr: usize) -> &''a T { /* ... */ }
     ```
 
   - ```rust
-    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    unsafe fn deref_mut<''a>(ptr: usize) -> &''a mut T { /* ... */ }
     ```
 
   - ```rust
@@ -31128,11 +32050,11 @@ where
     ```
 
   - ```rust
-    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    unsafe fn deref<''a>(ptr: usize) -> &''a T { /* ... */ }
     ```
 
   - ```rust
-    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    unsafe fn deref_mut<''a>(ptr: usize) -> &''a mut T { /* ... */ }
     ```
 
   - ```rust
@@ -31381,11 +32303,11 @@ where
     ```
 
   - ```rust
-    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    unsafe fn deref<''a>(ptr: usize) -> &''a T { /* ... */ }
     ```
 
   - ```rust
-    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    unsafe fn deref_mut<''a>(ptr: usize) -> &''a mut T { /* ... */ }
     ```
 
   - ```rust
@@ -31715,11 +32637,11 @@ so and offer the way out, rather than vanishing from the menu.
     ```
 
   - ```rust
-    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    unsafe fn deref<''a>(ptr: usize) -> &''a T { /* ... */ }
     ```
 
   - ```rust
-    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    unsafe fn deref_mut<''a>(ptr: usize) -> &''a mut T { /* ... */ }
     ```
 
   - ```rust
@@ -31923,11 +32845,11 @@ pub struct LiteratureCard {
     ```
 
   - ```rust
-    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    unsafe fn deref<''a>(ptr: usize) -> &''a T { /* ... */ }
     ```
 
   - ```rust
-    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    unsafe fn deref_mut<''a>(ptr: usize) -> &''a mut T { /* ... */ }
     ```
 
   - ```rust
@@ -32125,11 +33047,11 @@ pub struct Citation {
     ```
 
   - ```rust
-    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    unsafe fn deref<''a>(ptr: usize) -> &''a T { /* ... */ }
     ```
 
   - ```rust
-    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    unsafe fn deref_mut<''a>(ptr: usize) -> &''a mut T { /* ... */ }
     ```
 
   - ```rust
@@ -32310,11 +33232,11 @@ pub struct BibCache {
     ```
 
   - ```rust
-    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    unsafe fn deref<''a>(ptr: usize) -> &''a T { /* ... */ }
     ```
 
   - ```rust
-    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    unsafe fn deref_mut<''a>(ptr: usize) -> &''a mut T { /* ... */ }
     ```
 
   - ```rust
@@ -32474,11 +33396,11 @@ pub struct LinkCache {
     ```
 
   - ```rust
-    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    unsafe fn deref<''a>(ptr: usize) -> &''a T { /* ... */ }
     ```
 
   - ```rust
-    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    unsafe fn deref_mut<''a>(ptr: usize) -> &''a mut T { /* ... */ }
     ```
 
   - ```rust
@@ -32642,11 +33564,11 @@ pub struct MindmapState {
     ```
 
   - ```rust
-    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    unsafe fn deref<''a>(ptr: usize) -> &''a T { /* ... */ }
     ```
 
   - ```rust
-    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    unsafe fn deref_mut<''a>(ptr: usize) -> &''a mut T { /* ... */ }
     ```
 
   - ```rust
@@ -32909,11 +33831,11 @@ pub struct Camera {
     ```
 
   - ```rust
-    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    unsafe fn deref<''a>(ptr: usize) -> &''a T { /* ... */ }
     ```
 
   - ```rust
-    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    unsafe fn deref_mut<''a>(ptr: usize) -> &''a mut T { /* ... */ }
     ```
 
   - ```rust
@@ -33119,11 +34041,11 @@ pub struct LayoutState {
     ```
 
   - ```rust
-    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    unsafe fn deref<''a>(ptr: usize) -> &''a T { /* ... */ }
     ```
 
   - ```rust
-    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    unsafe fn deref_mut<''a>(ptr: usize) -> &''a mut T { /* ... */ }
     ```
 
   - ```rust
@@ -33487,11 +34409,11 @@ Fields:
     ```
 
   - ```rust
-    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    unsafe fn deref<''a>(ptr: usize) -> &''a T { /* ... */ }
     ```
 
   - ```rust
-    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    unsafe fn deref_mut<''a>(ptr: usize) -> &''a mut T { /* ... */ }
     ```
 
   - ```rust
@@ -33689,11 +34611,11 @@ pub struct MapNode {
     ```
 
   - ```rust
-    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    unsafe fn deref<''a>(ptr: usize) -> &''a T { /* ... */ }
     ```
 
   - ```rust
-    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    unsafe fn deref_mut<''a>(ptr: usize) -> &''a mut T { /* ... */ }
     ```
 
   - ```rust
@@ -33885,11 +34807,11 @@ pub struct MapEdge {
     ```
 
   - ```rust
-    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    unsafe fn deref<''a>(ptr: usize) -> &''a T { /* ... */ }
     ```
 
   - ```rust
-    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    unsafe fn deref_mut<''a>(ptr: usize) -> &''a mut T { /* ... */ }
     ```
 
   - ```rust
@@ -34084,11 +35006,11 @@ pub struct TypedEdge {
     ```
 
   - ```rust
-    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    unsafe fn deref<''a>(ptr: usize) -> &''a T { /* ... */ }
     ```
 
   - ```rust
-    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    unsafe fn deref_mut<''a>(ptr: usize) -> &''a mut T { /* ... */ }
     ```
 
   - ```rust
@@ -34278,11 +35200,11 @@ pub enum DetailLevel {
     ```
 
   - ```rust
-    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    unsafe fn deref<''a>(ptr: usize) -> &''a T { /* ... */ }
     ```
 
   - ```rust
-    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    unsafe fn deref_mut<''a>(ptr: usize) -> &''a mut T { /* ... */ }
     ```
 
   - ```rust
@@ -34470,11 +35392,11 @@ pub struct UnknownNodeError(pub String);
     ```
 
   - ```rust
-    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    unsafe fn deref<''a>(ptr: usize) -> &''a T { /* ... */ }
     ```
 
   - ```rust
-    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    unsafe fn deref_mut<''a>(ptr: usize) -> &''a mut T { /* ... */ }
     ```
 
   - ```rust
@@ -34774,11 +35696,11 @@ pub struct MindmapModel {
     ```
 
   - ```rust
-    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    unsafe fn deref<''a>(ptr: usize) -> &''a T { /* ... */ }
     ```
 
   - ```rust
-    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    unsafe fn deref_mut<''a>(ptr: usize) -> &''a mut T { /* ... */ }
     ```
 
   - ```rust
@@ -35054,11 +35976,11 @@ pub struct NavHistory<L> {
     ```
 
   - ```rust
-    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    unsafe fn deref<''a>(ptr: usize) -> &''a T { /* ... */ }
     ```
 
   - ```rust
-    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    unsafe fn deref_mut<''a>(ptr: usize) -> &''a mut T { /* ... */ }
     ```
 
   - ```rust
@@ -35316,11 +36238,11 @@ The Kovan folder the user has open.
     ```
 
   - ```rust
-    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    unsafe fn deref<''a>(ptr: usize) -> &''a T { /* ... */ }
     ```
 
   - ```rust
-    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    unsafe fn deref_mut<''a>(ptr: usize) -> &''a mut T { /* ... */ }
     ```
 
   - ```rust
@@ -35531,11 +36453,11 @@ corpus id.
     ```
 
   - ```rust
-    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    unsafe fn deref<''a>(ptr: usize) -> &''a T { /* ... */ }
     ```
 
   - ```rust
-    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    unsafe fn deref_mut<''a>(ptr: usize) -> &''a mut T { /* ... */ }
     ```
 
   - ```rust
@@ -35776,11 +36698,11 @@ pub struct NodeId {
     ```
 
   - ```rust
-    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    unsafe fn deref<''a>(ptr: usize) -> &''a T { /* ... */ }
     ```
 
   - ```rust
-    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    unsafe fn deref_mut<''a>(ptr: usize) -> &''a mut T { /* ... */ }
     ```
 
   - ```rust
@@ -36039,11 +36961,11 @@ Fields:
     ```
 
   - ```rust
-    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    unsafe fn deref<''a>(ptr: usize) -> &''a T { /* ... */ }
     ```
 
   - ```rust
-    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    unsafe fn deref_mut<''a>(ptr: usize) -> &''a mut T { /* ... */ }
     ```
 
   - ```rust
@@ -36454,11 +37376,11 @@ Fields:
     ```
 
   - ```rust
-    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    unsafe fn deref<''a>(ptr: usize) -> &''a T { /* ... */ }
     ```
 
   - ```rust
-    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    unsafe fn deref_mut<''a>(ptr: usize) -> &''a mut T { /* ... */ }
     ```
 
   - ```rust
@@ -36678,11 +37600,11 @@ Same file name, different content: a warning, not a duplicate.
     ```
 
   - ```rust
-    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    unsafe fn deref<''a>(ptr: usize) -> &''a T { /* ... */ }
     ```
 
   - ```rust
-    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    unsafe fn deref_mut<''a>(ptr: usize) -> &''a mut T { /* ... */ }
     ```
 
   - ```rust
@@ -36748,8 +37670,8 @@ An entry already in the library that an incoming PDF matches.
 ```rust
 pub enum ExistingEntry {
     StandardCorpus {
-        id: &'static str,
-        title: &'static str,
+        id: &''static str,
+        title: &''static str,
         pdf: Option<std::path::PathBuf>,
         matched: MatchKind,
     },
@@ -36778,8 +37700,8 @@ Fields:
 
 | Name | Type | Documentation |
 |------|------|---------------|
-| `id` | `&'static str` |  |
-| `title` | `&'static str` |  |
+| `id` | `&''static str` |  |
+| `title` | `&''static str` |  |
 | `pdf` | `Option<std::path::PathBuf>` |  |
 | `matched` | `MatchKind` |  |
 
@@ -36928,11 +37850,11 @@ Fields:
     ```
 
   - ```rust
-    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    unsafe fn deref<''a>(ptr: usize) -> &''a T { /* ... */ }
     ```
 
   - ```rust
-    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    unsafe fn deref_mut<''a>(ptr: usize) -> &''a mut T { /* ... */ }
     ```
 
   - ```rust
@@ -37151,11 +38073,11 @@ pub struct IngestPreview {
     ```
 
   - ```rust
-    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    unsafe fn deref<''a>(ptr: usize) -> &''a T { /* ... */ }
     ```
 
   - ```rust
-    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    unsafe fn deref_mut<''a>(ptr: usize) -> &''a mut T { /* ... */ }
     ```
 
   - ```rust
@@ -37330,11 +38252,11 @@ pub struct IngestChoice {
     ```
 
   - ```rust
-    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    unsafe fn deref<''a>(ptr: usize) -> &''a T { /* ... */ }
     ```
 
   - ```rust
-    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    unsafe fn deref_mut<''a>(ptr: usize) -> &''a mut T { /* ... */ }
     ```
 
   - ```rust
@@ -37501,6 +38423,400 @@ pub fn ingest(root: &crate::root::KovanRoot, preview: &IngestPreview, choice: In
 pub fn ingest_with(root: &crate::root::KovanRoot, corpus: &crate::standard_corpus::StandardCorpus, preview: &IngestPreview, choice: IngestChoice) -> Result<(), IngestError> { /* ... */ }
 ```
 
+## Module `lookup_net`
+
+The network behind identifier lookup (GitHub #756), opt-in.
+The network behind identifier lookup (GitHub #756): the ONE place kovan
+sends the requests `kovan_literature::zotero::search` asks for.
+
+**Network is opt-in.** Nothing here runs unless the user asks for a
+lookup (`kovan-cli zotero lookup`, `kovan-cli lit import --lookup`).
+The library stays network-free and wasm32-clean: it hands this module an
+[`HttpRequest`] and gets back an [`HttpResponse`] or a [`FetchError`].
+
+```text
+LookupSession::run_with(|req| backend.fetch(req))
+    HttpBackend::Native  -- ureq (rustls, no OpenSSL; connect 10 s,
+                            read/write 30 s, 10 redirects, 10 MB cap)
+    HttpBackend::Disabled -- every request -> FetchError::Unsupported
+                            (a build without the `lookup-net` feature)
+```
+
+A browser (web-kovan, wasm32) does not use this module: it drives
+`LookupSession::step` / `answer` with `fetch()` itself (follow-up issue).
+
+Every failure is a value; nothing here panics or waits without a timeout.
+
+```rust
+pub mod lookup_net { /* ... */ }
+```
+
+### Types
+
+#### Enum `HttpBackend`
+
+How requests are sent. An enum, not a trait object: one variant per
+backend.
+
+```rust
+pub enum HttpBackend {
+    Native(NativeHttp),
+    Disabled(String),
+}
+```
+
+##### Variants
+
+###### `Native`
+
+Native HTTP(S) through `ureq` with rustls.
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `NativeHttp` |  |
+
+###### `Disabled`
+
+No network backend in this build: every request fails with
+[`FetchError::Unsupported`] carrying this reason.
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `String` |  |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn for_this_build(mailto: Option<&str>) -> HttpBackend { /* ... */ }
+  ```
+  The backend this build has: native when the `lookup-net` feature is
+
+- ```rust
+  pub fn fetch(self: &Self, req: &HttpRequest) -> Result<HttpResponse, FetchError> { /* ... */ }
+  ```
+  Send `req`.
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Comparable**
+  - ```rust
+    fn compare(self: &Self, key: &Q) -> Ordering { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+  - ```rust
+    fn into_any(self: Box<T>) -> Box<dyn Any> { /* ... */ }
+    ```
+
+  - ```rust
+    fn into_any_rc(self: Rc<T>) -> Rc<dyn Any> { /* ... */ }
+    ```
+
+  - ```rust
+    fn as_any(self: &Self) -> &dyn Any + ''static { /* ... */ }
+    ```
+
+  - ```rust
+    fn as_any_mut(self: &mut Self) -> &mut dyn Any + ''static { /* ... */ }
+    ```
+
+- **DowncastSync**
+  - ```rust
+    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
+    ```
+
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &Q) -> bool { /* ... */ }
+    ```
+
+- **ErasedDestructor**
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Instrument**
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &''a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &''a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **SimdFrom**
+  - ```rust
+    fn simd_from(_simd: S, value: T) -> T { /* ... */ }
+    ```
+
+- **SimdInto**
+  - ```rust
+    fn simd_into(self: Self, simd: S) -> T { /* ... */ }
+    ```
+
+- **Sync**
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+- **WithSubscriber**
+#### Struct `NativeHttp`
+
+**Attributes:**
+
+- `Other("#[attr = CfgTrace([All([NameValue { name: \"feature\", value: Some(\"lookup-net\"), span: crates/kovan/src/lookup_net.rs:89:11: 89:33 (#0) }, Not(NameValue { name: \"target_os\", value: Some(\"android\"), span: crates/kovan/src/lookup_net.rs:89:39: 89:60 (#0) }, crates/kovan/src/lookup_net.rs:89:38: 89:61 (#0))], crates/kovan/src/lookup_net.rs:89:10: 89:62 (#0))])]")`
+
+Native HTTP(S).
+
+```rust
+pub struct NativeHttp {
+    // Some fields omitted
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| *private fields* | ... | *Some fields have been omitted* |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn new(user_agent: &str) -> NativeHttp { /* ... */ }
+  ```
+  An agent with connect/read/write timeouts and a redirect limit.
+
+- ```rust
+  pub fn fetch(self: &Self, req: &HttpRequest) -> Result<HttpResponse, FetchError> { /* ... */ }
+  ```
+  Send `req`; a non-2xx status is a response, not an error (the
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Comparable**
+  - ```rust
+    fn compare(self: &Self, key: &Q) -> Ordering { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+  - ```rust
+    fn into_any(self: Box<T>) -> Box<dyn Any> { /* ... */ }
+    ```
+
+  - ```rust
+    fn into_any_rc(self: Rc<T>) -> Rc<dyn Any> { /* ... */ }
+    ```
+
+  - ```rust
+    fn as_any(self: &Self) -> &dyn Any + ''static { /* ... */ }
+    ```
+
+  - ```rust
+    fn as_any_mut(self: &mut Self) -> &mut dyn Any + ''static { /* ... */ }
+    ```
+
+- **DowncastSync**
+  - ```rust
+    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
+    ```
+
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &Q) -> bool { /* ... */ }
+    ```
+
+- **ErasedDestructor**
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Instrument**
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &''a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &''a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **SimdFrom**
+  - ```rust
+    fn simd_from(_simd: S, value: T) -> T { /* ... */ }
+    ```
+
+- **SimdInto**
+  - ```rust
+    fn simd_into(self: Self, simd: S) -> T { /* ... */ }
+    ```
+
+- **Sync**
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+- **WithSubscriber**
+### Functions
+
+#### Function `user_agent`
+
+The `User-Agent` kovan sends: it names the tool, as DATA_POLICY.md and
+the services' guidelines ask. With a user-supplied email (never a
+hard-coded one) it carries `mailto:` for Crossref's polite pool.
+
+```rust
+pub fn user_agent(mailto: Option<&str>) -> String { /* ... */ }
+```
+
+### Constants and Statics
+
+#### Constant `MAX_RESPONSE_BYTES`
+
+Largest response accepted (the translation-server's
+`httpMaxResponseSize` is 10 MB).
+
+```rust
+pub const MAX_RESPONSE_BYTES: u64 = _;
+```
+
 ## Module `session`
 
 `PaperSession` — the object that owns one open paper (§31, §43,
@@ -37665,11 +38981,11 @@ Fields:
     ```
 
   - ```rust
-    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    unsafe fn deref<''a>(ptr: usize) -> &''a T { /* ... */ }
     ```
 
   - ```rust
-    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    unsafe fn deref_mut<''a>(ptr: usize) -> &''a mut T { /* ... */ }
     ```
 
   - ```rust
@@ -37893,11 +39209,11 @@ pub struct PaperSession {
     ```
 
   - ```rust
-    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    unsafe fn deref<''a>(ptr: usize) -> &''a T { /* ... */ }
     ```
 
   - ```rust
-    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    unsafe fn deref_mut<''a>(ptr: usize) -> &''a mut T { /* ... */ }
     ```
 
   - ```rust
@@ -38155,11 +39471,11 @@ pulled, or a citation-only entry).
     ```
 
   - ```rust
-    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    unsafe fn deref<''a>(ptr: usize) -> &''a T { /* ... */ }
     ```
 
   - ```rust
-    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    unsafe fn deref_mut<''a>(ptr: usize) -> &''a mut T { /* ... */ }
     ```
 
   - ```rust
@@ -38264,12 +39580,12 @@ pub struct StandardCorpus {
   [`Self::locate`], as an [`Availability`].
 
 - ```rust
-  pub fn downloaded(self: &Self) -> Vec<(&'static CorpusLiterature, PathBuf)> { /* ... */ }
+  pub fn downloaded(self: &Self) -> Vec<(&''static CorpusLiterature, PathBuf)> { /* ... */ }
   ```
   Every corpus document whose PDF is here, with its path.
 
 - ```rust
-  pub fn entry_for_path(self: &Self, path: &Path) -> Option<&'static CorpusLiterature> { /* ... */ }
+  pub fn entry_for_path(self: &Self, path: &Path) -> Option<&''static CorpusLiterature> { /* ... */ }
   ```
   The corpus document whose PDF `path` is (the same file, however it
 
@@ -38388,11 +39704,11 @@ pub struct StandardCorpus {
     ```
 
   - ```rust
-    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    unsafe fn deref<''a>(ptr: usize) -> &''a T { /* ... */ }
     ```
 
   - ```rust
-    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    unsafe fn deref_mut<''a>(ptr: usize) -> &''a mut T { /* ... */ }
     ```
 
   - ```rust
@@ -38584,11 +39900,11 @@ Fields:
     ```
 
   - ```rust
-    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    unsafe fn deref<''a>(ptr: usize) -> &''a T { /* ... */ }
     ```
 
   - ```rust
-    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    unsafe fn deref_mut<''a>(ptr: usize) -> &''a mut T { /* ... */ }
     ```
 
   - ```rust
@@ -38674,7 +39990,7 @@ Fields:
 The compiled entry with this id.
 
 ```rust
-pub fn entry(id: &str) -> Option<&'static crate::corpus::CorpusLiterature> { /* ... */ }
+pub fn entry(id: &str) -> Option<&''static crate::corpus::CorpusLiterature> { /* ... */ }
 ```
 
 #### Function `status_label`
@@ -38682,7 +39998,7 @@ pub fn entry(id: &str) -> Option<&'static crate::corpus::CorpusLiterature> { /* 
 A short licence-status label for display.
 
 ```rust
-pub fn status_label(status: crate::corpus::SourceStatus) -> &'static str { /* ... */ }
+pub fn status_label(status: crate::corpus::SourceStatus) -> &''static str { /* ... */ }
 ```
 
 #### Function `describe`
@@ -38995,11 +40311,11 @@ Fields:
     ```
 
   - ```rust
-    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    unsafe fn deref<''a>(ptr: usize) -> &''a T { /* ... */ }
     ```
 
   - ```rust
-    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    unsafe fn deref_mut<''a>(ptr: usize) -> &''a mut T { /* ... */ }
     ```
 
   - ```rust
@@ -39239,11 +40555,11 @@ where
     ```
 
   - ```rust
-    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    unsafe fn deref<''a>(ptr: usize) -> &''a T { /* ... */ }
     ```
 
   - ```rust
-    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    unsafe fn deref_mut<''a>(ptr: usize) -> &''a mut T { /* ... */ }
     ```
 
   - ```rust
@@ -39448,11 +40764,11 @@ where
     ```
 
   - ```rust
-    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    unsafe fn deref<''a>(ptr: usize) -> &''a T { /* ... */ }
     ```
 
   - ```rust
-    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    unsafe fn deref_mut<''a>(ptr: usize) -> &''a mut T { /* ... */ }
     ```
 
   - ```rust
@@ -39655,11 +40971,11 @@ where
     ```
 
   - ```rust
-    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    unsafe fn deref<''a>(ptr: usize) -> &''a T { /* ... */ }
     ```
 
   - ```rust
-    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    unsafe fn deref_mut<''a>(ptr: usize) -> &''a mut T { /* ... */ }
     ```
 
   - ```rust
@@ -39856,11 +41172,11 @@ pub struct SectionContent {
     ```
 
   - ```rust
-    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    unsafe fn deref<''a>(ptr: usize) -> &''a T { /* ... */ }
     ```
 
   - ```rust
-    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    unsafe fn deref_mut<''a>(ptr: usize) -> &''a mut T { /* ... */ }
     ```
 
   - ```rust
@@ -40244,7 +41560,7 @@ The source implements a method/model the target describes.
 ###### Methods
 
 - ```rust
-  pub fn label(self: Self) -> &'static str { /* ... */ }
+  pub fn label(self: Self) -> &''static str { /* ... */ }
   ```
   A short, lower-case, human-readable label, e.g. `"supports"` — reads
 
@@ -40254,7 +41570,7 @@ The source implements a method/model the target describes.
   The next variant in [`Self::ALL`]'s fixed order, wrapping back to the
 
 - ```rust
-  pub fn as_str(self: Self) -> &'static str { /* ... */ }
+  pub fn as_str(self: Self) -> &''static str { /* ... */ }
   ```
   The snake_case wire name, as written in a relation artifact's
 
@@ -40372,11 +41688,11 @@ where
     ```
 
   - ```rust
-    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    unsafe fn deref<''a>(ptr: usize) -> &''a T { /* ... */ }
     ```
 
   - ```rust
-    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    unsafe fn deref_mut<''a>(ptr: usize) -> &''a mut T { /* ... */ }
     ```
 
   - ```rust
@@ -40576,11 +41892,11 @@ pub struct UserRelation {
     ```
 
   - ```rust
-    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    unsafe fn deref<''a>(ptr: usize) -> &''a T { /* ... */ }
     ```
 
   - ```rust
-    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    unsafe fn deref_mut<''a>(ptr: usize) -> &''a mut T { /* ... */ }
     ```
 
   - ```rust
@@ -40804,11 +42120,11 @@ where
     ```
 
   - ```rust
-    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    unsafe fn deref<''a>(ptr: usize) -> &''a T { /* ... */ }
     ```
 
   - ```rust
-    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    unsafe fn deref_mut<''a>(ptr: usize) -> &''a mut T { /* ... */ }
     ```
 
   - ```rust
@@ -41048,11 +42364,11 @@ where
     ```
 
   - ```rust
-    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    unsafe fn deref<''a>(ptr: usize) -> &''a T { /* ... */ }
     ```
 
   - ```rust
-    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    unsafe fn deref_mut<''a>(ptr: usize) -> &''a mut T { /* ... */ }
     ```
 
   - ```rust
@@ -41274,11 +42590,11 @@ pub struct CodeTarget {
     ```
 
   - ```rust
-    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    unsafe fn deref<''a>(ptr: usize) -> &''a T { /* ... */ }
     ```
 
   - ```rust
-    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    unsafe fn deref_mut<''a>(ptr: usize) -> &''a mut T { /* ... */ }
     ```
 
   - ```rust
@@ -41545,11 +42861,11 @@ Fields:
     ```
 
   - ```rust
-    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    unsafe fn deref<''a>(ptr: usize) -> &''a T { /* ... */ }
     ```
 
   - ```rust
-    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    unsafe fn deref_mut<''a>(ptr: usize) -> &''a mut T { /* ... */ }
     ```
 
   - ```rust
@@ -41928,11 +43244,11 @@ Fields:
     ```
 
   - ```rust
-    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    unsafe fn deref<''a>(ptr: usize) -> &''a T { /* ... */ }
     ```
 
   - ```rust
-    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    unsafe fn deref_mut<''a>(ptr: usize) -> &''a mut T { /* ... */ }
     ```
 
   - ```rust
@@ -42164,11 +43480,11 @@ pub struct SaveSummary {
     ```
 
   - ```rust
-    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    unsafe fn deref<''a>(ptr: usize) -> &''a T { /* ... */ }
     ```
 
   - ```rust
-    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    unsafe fn deref_mut<''a>(ptr: usize) -> &''a mut T { /* ... */ }
     ```
 
   - ```rust
@@ -42469,11 +43785,11 @@ pub struct ResearchRecordIndex {
     ```
 
   - ```rust
-    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    unsafe fn deref<''a>(ptr: usize) -> &''a T { /* ... */ }
     ```
 
   - ```rust
-    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    unsafe fn deref_mut<''a>(ptr: usize) -> &''a mut T { /* ... */ }
     ```
 
   - ```rust
@@ -42750,11 +44066,11 @@ pub struct Hunk {
     ```
 
   - ```rust
-    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    unsafe fn deref<''a>(ptr: usize) -> &''a T { /* ... */ }
     ```
 
   - ```rust
-    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    unsafe fn deref_mut<''a>(ptr: usize) -> &''a mut T { /* ... */ }
     ```
 
   - ```rust
@@ -43048,11 +44364,11 @@ Rungs 0-2: stamps record human review only.
     ```
 
   - ```rust
-    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    unsafe fn deref<''a>(ptr: usize) -> &''a T { /* ... */ }
     ```
 
   - ```rust
-    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    unsafe fn deref_mut<''a>(ptr: usize) -> &''a mut T { /* ... */ }
     ```
 
   - ```rust
@@ -43250,11 +44566,11 @@ pub struct Claim {
     ```
 
   - ```rust
-    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    unsafe fn deref<''a>(ptr: usize) -> &''a T { /* ... */ }
     ```
 
   - ```rust
-    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    unsafe fn deref_mut<''a>(ptr: usize) -> &''a mut T { /* ... */ }
     ```
 
   - ```rust
@@ -43440,11 +44756,11 @@ pub struct DerivedLevels {
     ```
 
   - ```rust
-    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    unsafe fn deref<''a>(ptr: usize) -> &''a T { /* ... */ }
     ```
 
   - ```rust
-    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    unsafe fn deref_mut<''a>(ptr: usize) -> &''a mut T { /* ... */ }
     ```
 
   - ```rust
@@ -43738,11 +45054,11 @@ Fields:
     ```
 
   - ```rust
-    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    unsafe fn deref<''a>(ptr: usize) -> &''a T { /* ... */ }
     ```
 
   - ```rust
-    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    unsafe fn deref_mut<''a>(ptr: usize) -> &''a mut T { /* ... */ }
     ```
 
   - ```rust
@@ -43943,11 +45259,11 @@ pub struct FnEntry {
     ```
 
   - ```rust
-    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    unsafe fn deref<''a>(ptr: usize) -> &''a T { /* ... */ }
     ```
 
   - ```rust
-    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    unsafe fn deref_mut<''a>(ptr: usize) -> &''a mut T { /* ... */ }
     ```
 
   - ```rust
@@ -44135,11 +45451,11 @@ pub struct ModDecl {
     ```
 
   - ```rust
-    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    unsafe fn deref<''a>(ptr: usize) -> &''a T { /* ... */ }
     ```
 
   - ```rust
-    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    unsafe fn deref_mut<''a>(ptr: usize) -> &''a mut T { /* ... */ }
     ```
 
   - ```rust
@@ -44321,11 +45637,11 @@ pub struct ParsedFile {
     ```
 
   - ```rust
-    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    unsafe fn deref<''a>(ptr: usize) -> &''a T { /* ... */ }
     ```
 
   - ```rust
-    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    unsafe fn deref_mut<''a>(ptr: usize) -> &''a mut T { /* ... */ }
     ```
 
   - ```rust
@@ -44532,11 +45848,11 @@ Fields:
     ```
 
   - ```rust
-    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    unsafe fn deref<''a>(ptr: usize) -> &''a T { /* ... */ }
     ```
 
   - ```rust
-    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    unsafe fn deref_mut<''a>(ptr: usize) -> &''a mut T { /* ... */ }
     ```
 
   - ```rust
@@ -44816,11 +46132,11 @@ Fields:
     ```
 
   - ```rust
-    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    unsafe fn deref<''a>(ptr: usize) -> &''a T { /* ... */ }
     ```
 
   - ```rust
-    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    unsafe fn deref_mut<''a>(ptr: usize) -> &''a mut T { /* ... */ }
     ```
 
   - ```rust
@@ -45038,11 +46354,11 @@ where
     ```
 
   - ```rust
-    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    unsafe fn deref<''a>(ptr: usize) -> &''a T { /* ... */ }
     ```
 
   - ```rust
-    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    unsafe fn deref_mut<''a>(ptr: usize) -> &''a mut T { /* ... */ }
     ```
 
   - ```rust
@@ -45244,11 +46560,11 @@ Fields:
     ```
 
   - ```rust
-    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    unsafe fn deref<''a>(ptr: usize) -> &''a T { /* ... */ }
     ```
 
   - ```rust
-    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    unsafe fn deref_mut<''a>(ptr: usize) -> &''a mut T { /* ... */ }
     ```
 
   - ```rust
@@ -45477,11 +46793,11 @@ Fields:
     ```
 
   - ```rust
-    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    unsafe fn deref<''a>(ptr: usize) -> &''a T { /* ... */ }
     ```
 
   - ```rust
-    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    unsafe fn deref_mut<''a>(ptr: usize) -> &''a mut T { /* ... */ }
     ```
 
   - ```rust
@@ -45712,11 +47028,11 @@ Fields:
     ```
 
   - ```rust
-    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    unsafe fn deref<''a>(ptr: usize) -> &''a T { /* ... */ }
     ```
 
   - ```rust
-    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    unsafe fn deref_mut<''a>(ptr: usize) -> &''a mut T { /* ... */ }
     ```
 
   - ```rust
@@ -45904,11 +47220,11 @@ pub struct StampCheck {
     ```
 
   - ```rust
-    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    unsafe fn deref<''a>(ptr: usize) -> &''a T { /* ... */ }
     ```
 
   - ```rust
-    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    unsafe fn deref_mut<''a>(ptr: usize) -> &''a mut T { /* ... */ }
     ```
 
   - ```rust
@@ -46093,11 +47409,11 @@ pub struct CheckReport {
     ```
 
   - ```rust
-    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    unsafe fn deref<''a>(ptr: usize) -> &''a T { /* ... */ }
     ```
 
   - ```rust
-    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    unsafe fn deref_mut<''a>(ptr: usize) -> &''a mut T { /* ... */ }
     ```
 
   - ```rust
@@ -46501,11 +47817,11 @@ where
     ```
 
   - ```rust
-    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    unsafe fn deref<''a>(ptr: usize) -> &''a T { /* ... */ }
     ```
 
   - ```rust
-    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    unsafe fn deref_mut<''a>(ptr: usize) -> &''a mut T { /* ... */ }
     ```
 
   - ```rust
@@ -46871,11 +48187,11 @@ Fields:
     ```
 
   - ```rust
-    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    unsafe fn deref<''a>(ptr: usize) -> &''a T { /* ... */ }
     ```
 
   - ```rust
-    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    unsafe fn deref_mut<''a>(ptr: usize) -> &''a mut T { /* ... */ }
     ```
 
   - ```rust
@@ -47087,11 +48403,11 @@ where
     ```
 
   - ```rust
-    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    unsafe fn deref<''a>(ptr: usize) -> &''a T { /* ... */ }
     ```
 
   - ```rust
-    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    unsafe fn deref_mut<''a>(ptr: usize) -> &''a mut T { /* ... */ }
     ```
 
   - ```rust
@@ -47320,11 +48636,11 @@ where
     ```
 
   - ```rust
-    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    unsafe fn deref<''a>(ptr: usize) -> &''a T { /* ... */ }
     ```
 
   - ```rust
-    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    unsafe fn deref_mut<''a>(ptr: usize) -> &''a mut T { /* ... */ }
     ```
 
   - ```rust
@@ -47536,11 +48852,11 @@ where
     ```
 
   - ```rust
-    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    unsafe fn deref<''a>(ptr: usize) -> &''a T { /* ... */ }
     ```
 
   - ```rust
-    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    unsafe fn deref_mut<''a>(ptr: usize) -> &''a mut T { /* ... */ }
     ```
 
   - ```rust
@@ -47763,11 +49079,11 @@ where
     ```
 
   - ```rust
-    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    unsafe fn deref<''a>(ptr: usize) -> &''a T { /* ... */ }
     ```
 
   - ```rust
-    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    unsafe fn deref_mut<''a>(ptr: usize) -> &''a mut T { /* ... */ }
     ```
 
   - ```rust
@@ -47986,11 +49302,11 @@ where
     ```
 
   - ```rust
-    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    unsafe fn deref<''a>(ptr: usize) -> &''a T { /* ... */ }
     ```
 
   - ```rust
-    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    unsafe fn deref_mut<''a>(ptr: usize) -> &''a mut T { /* ... */ }
     ```
 
   - ```rust
@@ -48218,11 +49534,11 @@ where
     ```
 
   - ```rust
-    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    unsafe fn deref<''a>(ptr: usize) -> &''a T { /* ... */ }
     ```
 
   - ```rust
-    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    unsafe fn deref_mut<''a>(ptr: usize) -> &''a mut T { /* ... */ }
     ```
 
   - ```rust
@@ -48592,11 +49908,11 @@ pub struct KovanRoot {
     ```
 
   - ```rust
-    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    unsafe fn deref<''a>(ptr: usize) -> &''a T { /* ... */ }
     ```
 
   - ```rust
-    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    unsafe fn deref_mut<''a>(ptr: usize) -> &''a mut T { /* ... */ }
     ```
 
   - ```rust
@@ -48912,11 +50228,11 @@ anyone filed it there.
     ```
 
   - ```rust
-    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    unsafe fn deref<''a>(ptr: usize) -> &''a T { /* ... */ }
     ```
 
   - ```rust
-    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    unsafe fn deref_mut<''a>(ptr: usize) -> &''a mut T { /* ... */ }
     ```
 
   - ```rust
@@ -49104,11 +50420,11 @@ pub struct RuntimeConcept {
     ```
 
   - ```rust
-    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    unsafe fn deref<''a>(ptr: usize) -> &''a T { /* ... */ }
     ```
 
   - ```rust
-    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    unsafe fn deref_mut<''a>(ptr: usize) -> &''a mut T { /* ... */ }
     ```
 
   - ```rust
@@ -49423,7 +50739,7 @@ The Kovan folder's own repository.
 ###### Methods
 
 - ```rust
-  pub fn label(self: Self) -> &'static str { /* ... */ }
+  pub fn label(self: Self) -> &''static str { /* ... */ }
   ```
   The label the UI shows.
 
@@ -49538,11 +50854,11 @@ The Kovan folder's own repository.
     ```
 
   - ```rust
-    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    unsafe fn deref<''a>(ptr: usize) -> &''a T { /* ... */ }
     ```
 
   - ```rust
-    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    unsafe fn deref_mut<''a>(ptr: usize) -> &''a mut T { /* ... */ }
     ```
 
   - ```rust
@@ -49799,11 +51115,11 @@ Fields:
     ```
 
   - ```rust
-    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    unsafe fn deref<''a>(ptr: usize) -> &''a T { /* ... */ }
     ```
 
   - ```rust
-    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    unsafe fn deref_mut<''a>(ptr: usize) -> &''a mut T { /* ... */ }
     ```
 
   - ```rust
@@ -49998,11 +51314,11 @@ pub struct RepoPush {
     ```
 
   - ```rust
-    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    unsafe fn deref<''a>(ptr: usize) -> &''a T { /* ... */ }
     ```
 
   - ```rust
-    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    unsafe fn deref_mut<''a>(ptr: usize) -> &''a mut T { /* ... */ }
     ```
 
   - ```rust
@@ -50223,11 +51539,11 @@ pub struct PushReport {
     ```
 
   - ```rust
-    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    unsafe fn deref<''a>(ptr: usize) -> &''a T { /* ... */ }
     ```
 
   - ```rust
-    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    unsafe fn deref_mut<''a>(ptr: usize) -> &''a mut T { /* ... */ }
     ```
 
   - ```rust
@@ -50319,7 +51635,7 @@ The read-only standard corpus.
 ###### Methods
 
 - ```rust
-  pub fn label(self: Self) -> &'static str { /* ... */ }
+  pub fn label(self: Self) -> &''static str { /* ... */ }
   ```
   The label the UI shows.
 
@@ -50434,11 +51750,11 @@ The read-only standard corpus.
     ```
 
   - ```rust
-    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    unsafe fn deref<''a>(ptr: usize) -> &''a T { /* ... */ }
     ```
 
   - ```rust
-    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    unsafe fn deref_mut<''a>(ptr: usize) -> &''a mut T { /* ... */ }
     ```
 
   - ```rust
@@ -50712,11 +52028,11 @@ Fields:
     ```
 
   - ```rust
-    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    unsafe fn deref<''a>(ptr: usize) -> &''a T { /* ... */ }
     ```
 
   - ```rust
-    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    unsafe fn deref_mut<''a>(ptr: usize) -> &''a mut T { /* ... */ }
     ```
 
   - ```rust
@@ -50911,11 +52227,11 @@ pub struct CorpusPull {
     ```
 
   - ```rust
-    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    unsafe fn deref<''a>(ptr: usize) -> &''a T { /* ... */ }
     ```
 
   - ```rust
-    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    unsafe fn deref_mut<''a>(ptr: usize) -> &''a mut T { /* ... */ }
     ```
 
   - ```rust
@@ -51062,6 +52378,1329 @@ trailing `/` or `.git`.
 pub fn normalize_url(url: &str) -> String { /* ... */ }
 ```
 
+## Module `scip`
+
+A reader for the SCIP index `rust-analyzer scip` writes (GitHub #757).
+
+SCIP ("SCIP Code Intelligence Protocol", <https://github.com/sourcegraph/scip>,
+Apache-2.0) is a protobuf file holding, for every source file of the
+workspace, every *occurrence* of a symbol: its range, the symbol string and
+whether the occurrence defines or references it. One `rust-analyzer scip`
+run over the whole workspace (about 3 min, 343 MB on 2026-10-07) therefore
+answers every "where is this defined?" question the call graph used to ask
+rust-analyzer's LSP one token at a time.
+
+# Why a hand-written decoder
+
+The index is read with a ~100-line protobuf wire-format decoder over the
+handful of fields the call graph needs, instead of the `scip` crate: that
+crate pulls in `protobuf` and its code generator, none of which is in the
+workspace, and the fields used here are a stable subset of
+`scip.proto` (checked against the proto at the version rust-analyzer 1.98.0
+writes):
+
+```text
+Index              1 metadata, 2 documents (repeated), 3 external_symbols
+Metadata           2 tool_info, 3 project_root
+ToolInfo           1 name, 2 version
+Document           1 relative_path, 2 occurrences (repeated), 6 position_encoding
+Occurrence         1 range (packed int32: [line, start, end] or
+                   [line, start, end_line, end]), 2 symbol, 3 symbol_roles
+```
+
+Unknown fields are skipped, so a newer index with more fields still reads.
+The format is unstable on rust-analyzer's side (`scip` is listed as an
+unstable subcommand), which is why the version that wrote the index is
+kept ([`ScipIndex::tool_version`]) and recorded in the call graph.
+
+# Symbols are matched by location, never by string alone
+
+rust-analyzer's symbol strings name the package, not the Cargo target, so
+a library module and an example module with the same path share a symbol
+(1,011 symbols had more than one definition in the #757 measurement). A
+reference is resolved to the definition **nearest to it** in the file tree
+([`ScipIndex::nearest_definition`]): the same file first, then the longest
+shared folder prefix. One exception: when the reference is written through
+the package's own library crate name (`my_crate::prelude::run` from that
+package's example, which has a `run` of its own), only the library's
+definitions are candidates. Within one file, helpers of one name
+nested in different functions also share a symbol; there the caller's
+scope decides (see [`ScipIndex::nearest_definition`]). Both cases were
+found by the #757 comparison (`crates/kovan/docs/call-graph-scip-vs-lsp.md`).
+
+Plain `std`; no I/O except [`ScipIndex::read`].
+
+```rust
+pub mod scip { /* ... */ }
+```
+
+### Types
+
+#### Enum `PositionEncoding`
+
+How a document's columns are counted (`Document.position_encoding`).
+
+```rust
+pub enum PositionEncoding {
+    Unspecified,
+    Utf8,
+    Utf16,
+    Utf32,
+}
+```
+
+##### Variants
+
+###### `Unspecified`
+
+Not stated; read as UTF-8 bytes, which is what rust-analyzer writes.
+
+###### `Utf8`
+
+###### `Utf16`
+
+###### `Utf32`
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn units_of_char_col(self: Self, line: &str, col: u32) -> u32 { /* ... */ }
+  ```
+  The column in this encoding of the `col`-th char of `line`.
+
+- ```rust
+  pub fn char_col_of_units(self: Self, line: &str, units: u32) -> u32 { /* ... */ }
+  ```
+  The char column of encoding column `units` of `line` (the char that
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> PositionEncoding { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Comparable**
+  - ```rust
+    fn compare(self: &Self, key: &Q) -> Ordering { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+  - ```rust
+    fn into_any(self: Box<T>) -> Box<dyn Any> { /* ... */ }
+    ```
+
+  - ```rust
+    fn into_any_rc(self: Rc<T>) -> Rc<dyn Any> { /* ... */ }
+    ```
+
+  - ```rust
+    fn as_any(self: &Self) -> &dyn Any + ''static { /* ... */ }
+    ```
+
+  - ```rust
+    fn as_any_mut(self: &mut Self) -> &mut dyn Any + ''static { /* ... */ }
+    ```
+
+- **DowncastSync**
+  - ```rust
+    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
+    ```
+
+- **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &Q) -> bool { /* ... */ }
+    ```
+
+- **ErasedDestructor**
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Instrument**
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &PositionEncoding) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &''a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &''a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **SimdFrom**
+  - ```rust
+    fn simd_from(_simd: S, value: T) -> T { /* ... */ }
+    ```
+
+- **SimdInto**
+  - ```rust
+    fn simd_into(self: Self, simd: S) -> T { /* ... */ }
+    ```
+
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+- **WithSubscriber**
+#### Enum `Sym`
+
+A symbol: a workspace-wide one (interned), or a document-local one
+(`local <n>`, meaningful only inside its own document).
+
+```rust
+pub enum Sym {
+    Global(u32),
+    Local(u32),
+}
+```
+
+##### Variants
+
+###### `Global`
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `u32` |  |
+
+###### `Local`
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `u32` |  |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **AsId**
+- **AsIdSalt**
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Sym { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Comparable**
+  - ```rust
+    fn compare(self: &Self, key: &K) -> Ordering { /* ... */ }
+    ```
+
+  - ```rust
+    fn compare(self: &Self, key: &Q) -> Ordering { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+  - ```rust
+    fn into_any(self: Box<T>) -> Box<dyn Any> { /* ... */ }
+    ```
+
+  - ```rust
+    fn into_any_rc(self: Rc<T>) -> Rc<dyn Any> { /* ... */ }
+    ```
+
+  - ```rust
+    fn as_any(self: &Self) -> &dyn Any + ''static { /* ... */ }
+    ```
+
+  - ```rust
+    fn as_any_mut(self: &mut Self) -> &mut dyn Any + ''static { /* ... */ }
+    ```
+
+- **DowncastSync**
+  - ```rust
+    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
+    ```
+
+- **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &Q) -> bool { /* ... */ }
+    ```
+
+- **ErasedDestructor**
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Hash**
+  - ```rust
+    fn hash<__H: $crate::hash::Hasher>(self: &Self, state: &mut __H) { /* ... */ }
+    ```
+
+- **Instrument**
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **Ord**
+  - ```rust
+    fn cmp(self: &Self, other: &Sym) -> $crate::cmp::Ordering { /* ... */ }
+    ```
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Sym) -> bool { /* ... */ }
+    ```
+
+- **PartialOrd**
+  - ```rust
+    fn partial_cmp(self: &Self, other: &Sym) -> $crate::option::Option<$crate::cmp::Ordering> { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &''a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &''a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **SimdFrom**
+  - ```rust
+    fn simd_from(_simd: S, value: T) -> T { /* ... */ }
+    ```
+
+- **SimdInto**
+  - ```rust
+    fn simd_into(self: Self, simd: S) -> T { /* ... */ }
+    ```
+
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+- **WithSubscriber**
+#### Struct `Occurrence`
+
+One occurrence of a symbol in a document. Lines and columns are 0-based,
+columns in the document's [`PositionEncoding`], end exclusive.
+
+```rust
+pub struct Occurrence {
+    pub line: u32,
+    pub start: u32,
+    pub end_line: u32,
+    pub end: u32,
+    pub symbol: Sym,
+    pub roles: u32,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `line` | `u32` |  |
+| `start` | `u32` |  |
+| `end_line` | `u32` |  |
+| `end` | `u32` |  |
+| `symbol` | `Sym` |  |
+| `roles` | `u32` | `SymbolRole` bits; [`Occurrence::is_definition`] reads bit 0. |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn is_definition(self: &Self) -> bool { /* ... */ }
+  ```
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Occurrence { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Comparable**
+  - ```rust
+    fn compare(self: &Self, key: &Q) -> Ordering { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+  - ```rust
+    fn into_any(self: Box<T>) -> Box<dyn Any> { /* ... */ }
+    ```
+
+  - ```rust
+    fn into_any_rc(self: Rc<T>) -> Rc<dyn Any> { /* ... */ }
+    ```
+
+  - ```rust
+    fn as_any(self: &Self) -> &dyn Any + ''static { /* ... */ }
+    ```
+
+  - ```rust
+    fn as_any_mut(self: &mut Self) -> &mut dyn Any + ''static { /* ... */ }
+    ```
+
+- **DowncastSync**
+  - ```rust
+    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
+    ```
+
+- **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &Q) -> bool { /* ... */ }
+    ```
+
+- **ErasedDestructor**
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Instrument**
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Occurrence) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &''a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &''a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **SimdFrom**
+  - ```rust
+    fn simd_from(_simd: S, value: T) -> T { /* ... */ }
+    ```
+
+- **SimdInto**
+  - ```rust
+    fn simd_into(self: Self, simd: S) -> T { /* ... */ }
+    ```
+
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+- **WithSubscriber**
+#### Struct `Document`
+
+One source file of the index.
+
+```rust
+pub struct Document {
+    pub path: String,
+    pub encoding: PositionEncoding,
+    pub occurrences: Vec<Occurrence>,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `path` | `String` | Relative to the project root, `/`-separated. |
+| `encoding` | `PositionEncoding` |  |
+| `occurrences` | `Vec<Occurrence>` | Sorted by `(line, start, end_line, end)`. |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn on_line(self: &Self, line: u32) -> &[Occurrence] { /* ... */ }
+  ```
+  The occurrences on `line` (those that start there).
+
+- ```rust
+  pub fn at(self: &Self, line: u32, start: u32) -> impl Iterator<Item = &Occurrence> { /* ... */ }
+  ```
+  The occurrences that start exactly at `(line, start)`.
+
+- ```rust
+  pub fn local_definition(self: &Self, n: u32) -> Option<&Occurrence> { /* ... */ }
+  ```
+  Where local symbol `n` is defined in this document.
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Document { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Comparable**
+  - ```rust
+    fn compare(self: &Self, key: &Q) -> Ordering { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+  - ```rust
+    fn into_any(self: Box<T>) -> Box<dyn Any> { /* ... */ }
+    ```
+
+  - ```rust
+    fn into_any_rc(self: Rc<T>) -> Rc<dyn Any> { /* ... */ }
+    ```
+
+  - ```rust
+    fn as_any(self: &Self) -> &dyn Any + ''static { /* ... */ }
+    ```
+
+  - ```rust
+    fn as_any_mut(self: &mut Self) -> &mut dyn Any + ''static { /* ... */ }
+    ```
+
+- **DowncastSync**
+  - ```rust
+    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
+    ```
+
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &Q) -> bool { /* ... */ }
+    ```
+
+- **ErasedDestructor**
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Instrument**
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &''a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &''a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **SimdFrom**
+  - ```rust
+    fn simd_from(_simd: S, value: T) -> T { /* ... */ }
+    ```
+
+- **SimdInto**
+  - ```rust
+    fn simd_into(self: Self, simd: S) -> T { /* ... */ }
+    ```
+
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+- **WithSubscriber**
+#### Struct `DefSite`
+
+Where a global symbol is defined: a document (index into
+[`ScipIndex::documents`]) and the 0-based start of the defining range.
+
+```rust
+pub struct DefSite {
+    pub doc: u32,
+    pub line: u32,
+    pub start: u32,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `doc` | `u32` |  |
+| `line` | `u32` |  |
+| `start` | `u32` |  |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> DefSite { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Comparable**
+  - ```rust
+    fn compare(self: &Self, key: &K) -> Ordering { /* ... */ }
+    ```
+
+  - ```rust
+    fn compare(self: &Self, key: &Q) -> Ordering { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+  - ```rust
+    fn into_any(self: Box<T>) -> Box<dyn Any> { /* ... */ }
+    ```
+
+  - ```rust
+    fn into_any_rc(self: Rc<T>) -> Rc<dyn Any> { /* ... */ }
+    ```
+
+  - ```rust
+    fn as_any(self: &Self) -> &dyn Any + ''static { /* ... */ }
+    ```
+
+  - ```rust
+    fn as_any_mut(self: &mut Self) -> &mut dyn Any + ''static { /* ... */ }
+    ```
+
+- **DowncastSync**
+  - ```rust
+    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
+    ```
+
+- **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &Q) -> bool { /* ... */ }
+    ```
+
+- **ErasedDestructor**
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Instrument**
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **Ord**
+  - ```rust
+    fn cmp(self: &Self, other: &DefSite) -> $crate::cmp::Ordering { /* ... */ }
+    ```
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &DefSite) -> bool { /* ... */ }
+    ```
+
+- **PartialOrd**
+  - ```rust
+    fn partial_cmp(self: &Self, other: &DefSite) -> $crate::option::Option<$crate::cmp::Ordering> { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &''a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &''a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **SimdFrom**
+  - ```rust
+    fn simd_from(_simd: S, value: T) -> T { /* ... */ }
+    ```
+
+- **SimdInto**
+  - ```rust
+    fn simd_into(self: Self, simd: S) -> T { /* ... */ }
+    ```
+
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+- **WithSubscriber**
+#### Struct `ScipIndex`
+
+A decoded index: every document's occurrences, and every global symbol's
+definition sites.
+
+```rust
+pub struct ScipIndex {
+    pub tool_name: String,
+    pub tool_version: String,
+    pub project_root: String,
+    pub documents: Vec<Document>,
+    // Some fields omitted
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `tool_name` | `String` | `ToolInfo.name` and `.version`, as the indexer wrote them. |
+| `tool_version` | `String` |  |
+| `project_root` | `String` | `Metadata.project_root` (a `file://` URI). |
+| `documents` | `Vec<Document>` | Sorted by path. |
+| *private fields* | ... | *Some fields have been omitted* |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn read(path: &Path) -> Result<ScipIndex, String> { /* ... */ }
+  ```
+  Reads and decodes an index file.
+
+- ```rust
+  pub fn decode(bytes: &[u8]) -> Result<ScipIndex, String> { /* ... */ }
+  ```
+  Decodes an index from its bytes.
+
+- ```rust
+  pub fn document(self: &Self, path: &str) -> Option<&Document> { /* ... */ }
+  ```
+  The document for a workspace-relative path.
+
+- ```rust
+  pub fn definitions(self: &Self, sym: Sym) -> &[DefSite] { /* ... */ }
+  ```
+  Every definition site of a global symbol (empty for a symbol defined
+
+- ```rust
+  pub fn is_generated(self: &Self, sym: Sym) -> bool { /* ... */ }
+  ```
+  A symbol of an indexed (workspace) package with no definition in the
+
+- ```rust
+  pub fn nearest_definition(self: &Self, sym: Sym, from: &str, from_line: u32, within: Option<(u32, u32)>, hidden: &[(u32, u32)], lead: Option<&str>) -> Option<DefSite> { /* ... */ }
+  ```
+  The definition of `sym` nearest to a reference at 0-based line
+
+- ```rust
+  pub fn symbol_count(self: &Self) -> usize { /* ... */ }
+  ```
+  The number of distinct global symbols.
+
+- ```rust
+  pub fn occurrence_count(self: &Self) -> usize { /* ... */ }
+  ```
+  Total occurrences over every document.
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> ScipIndex { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Comparable**
+  - ```rust
+    fn compare(self: &Self, key: &Q) -> Ordering { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Default**
+  - ```rust
+    fn default() -> ScipIndex { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+  - ```rust
+    fn into_any(self: Box<T>) -> Box<dyn Any> { /* ... */ }
+    ```
+
+  - ```rust
+    fn into_any_rc(self: Rc<T>) -> Rc<dyn Any> { /* ... */ }
+    ```
+
+  - ```rust
+    fn as_any(self: &Self) -> &dyn Any + ''static { /* ... */ }
+    ```
+
+  - ```rust
+    fn as_any_mut(self: &mut Self) -> &mut dyn Any + ''static { /* ... */ }
+    ```
+
+- **DowncastSync**
+  - ```rust
+    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
+    ```
+
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &Q) -> bool { /* ... */ }
+    ```
+
+- **ErasedDestructor**
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Instrument**
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **NoneValue**
+  - ```rust
+    fn null_value() -> T { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &''a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &''a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **ReadPrimitive**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **SimdFrom**
+  - ```rust
+    fn simd_from(_simd: S, value: T) -> T { /* ... */ }
+    ```
+
+- **SimdInto**
+  - ```rust
+    fn simd_into(self: Self, simd: S) -> T { /* ... */ }
+    ```
+
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+- **WithSubscriber**
 ## Module `sync`
 
 `SyncController` — PDF ↔ Markdown synchronisation (§31, `op-9vo6.18`).
@@ -51224,11 +53863,11 @@ pub struct PdfJumpTarget {
     ```
 
   - ```rust
-    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    unsafe fn deref<''a>(ptr: usize) -> &''a T { /* ... */ }
     ```
 
   - ```rust
-    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    unsafe fn deref_mut<''a>(ptr: usize) -> &''a mut T { /* ... */ }
     ```
 
   - ```rust
@@ -51322,7 +53961,7 @@ pub struct SyncController {
   Whether a Follow sync (a PDF page change updating the editor/
 
 - ```rust
-  pub fn follow_page<''a>(self: &Self, index: &'a ResearchRecordIndex, page: u32) -> Vec<&'a Artifact> { /* ... */ }
+  pub fn follow_page<''a>(self: &Self, index: &''a ResearchRecordIndex, page: u32) -> Vec<&''a Artifact> { /* ... */ }
   ```
   §31's Follow: the artifacts anchored to `page`, softly highlighted
 
@@ -51332,7 +53971,7 @@ pub struct SyncController {
   §31's Explicit jump, artifact → PDF: where to send the reader.
 
 - ```rust
-  pub fn artifact_at_editor_line<''a>(index: &'a ResearchRecordIndex, editor_line: usize) -> Option<&'a Artifact> { /* ... */ }
+  pub fn artifact_at_editor_line<''a>(index: &''a ResearchRecordIndex, editor_line: usize) -> Option<&''a Artifact> { /* ... */ }
   ```
   §31's Explicit jump, PDF → editor: every artifact whose heading is
 
@@ -51452,11 +54091,11 @@ pub struct SyncController {
     ```
 
   - ```rust
-    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    unsafe fn deref<''a>(ptr: usize) -> &''a T { /* ... */ }
     ```
 
   - ```rust
-    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    unsafe fn deref_mut<''a>(ptr: usize) -> &''a mut T { /* ... */ }
     ```
 
   - ```rust
@@ -51715,11 +54354,11 @@ Absorbed the standalone `kovan-digitise-tui` binary on 2026-08-21
     ```
 
   - ```rust
-    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    unsafe fn deref<''a>(ptr: usize) -> &''a T { /* ... */ }
     ```
 
   - ```rust
-    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    unsafe fn deref_mut<''a>(ptr: usize) -> &''a mut T { /* ... */ }
     ```
 
   - ```rust
@@ -51898,11 +54537,11 @@ pub struct App {
     ```
 
   - ```rust
-    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    unsafe fn deref<''a>(ptr: usize) -> &''a T { /* ... */ }
     ```
 
   - ```rust
-    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    unsafe fn deref_mut<''a>(ptr: usize) -> &''a mut T { /* ... */ }
     ```
 
   - ```rust
@@ -52186,11 +54825,11 @@ Fields:
     ```
 
   - ```rust
-    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    unsafe fn deref<''a>(ptr: usize) -> &''a T { /* ... */ }
     ```
 
   - ```rust
-    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    unsafe fn deref_mut<''a>(ptr: usize) -> &''a mut T { /* ... */ }
     ```
 
   - ```rust
@@ -52384,11 +55023,11 @@ pub struct SourceOptions {
     ```
 
   - ```rust
-    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    unsafe fn deref<''a>(ptr: usize) -> &''a T { /* ... */ }
     ```
 
   - ```rust
-    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    unsafe fn deref_mut<''a>(ptr: usize) -> &''a mut T { /* ... */ }
     ```
 
   - ```rust
@@ -52583,11 +55222,11 @@ pub struct PlanOptions {
     ```
 
   - ```rust
-    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    unsafe fn deref<''a>(ptr: usize) -> &''a T { /* ... */ }
     ```
 
   - ```rust
-    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    unsafe fn deref_mut<''a>(ptr: usize) -> &''a mut T { /* ... */ }
     ```
 
   - ```rust
@@ -52773,11 +55412,11 @@ pub struct PlannedPaper {
     ```
 
   - ```rust
-    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    unsafe fn deref<''a>(ptr: usize) -> &''a T { /* ... */ }
     ```
 
   - ```rust
-    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    unsafe fn deref_mut<''a>(ptr: usize) -> &''a mut T { /* ... */ }
     ```
 
   - ```rust
@@ -52972,11 +55611,11 @@ pub struct ImportPlan {
     ```
 
   - ```rust
-    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    unsafe fn deref<''a>(ptr: usize) -> &''a T { /* ... */ }
     ```
 
   - ```rust
-    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    unsafe fn deref_mut<''a>(ptr: usize) -> &''a mut T { /* ... */ }
     ```
 
   - ```rust
@@ -53173,11 +55812,11 @@ pub struct WriteOptions {
     ```
 
   - ```rust
-    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    unsafe fn deref<''a>(ptr: usize) -> &''a T { /* ... */ }
     ```
 
   - ```rust
-    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    unsafe fn deref_mut<''a>(ptr: usize) -> &''a mut T { /* ... */ }
     ```
 
   - ```rust
@@ -53378,11 +56017,11 @@ pub struct ImportOutcome {
     ```
 
   - ```rust
-    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    unsafe fn deref<''a>(ptr: usize) -> &''a T { /* ... */ }
     ```
 
   - ```rust
-    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    unsafe fn deref_mut<''a>(ptr: usize) -> &''a mut T { /* ... */ }
     ```
 
   - ```rust
@@ -53653,11 +56292,11 @@ pub struct CorpusItem {
     ```
 
   - ```rust
-    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    unsafe fn deref<''a>(ptr: usize) -> &''a T { /* ... */ }
     ```
 
   - ```rust
-    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    unsafe fn deref_mut<''a>(ptr: usize) -> &''a mut T { /* ... */ }
     ```
 
   - ```rust
@@ -53757,7 +56396,7 @@ came from, by its source path) and any folder named `reactor-literature`
 the user's own data and goes to their own Kovan folder.
 
 ```rust
-pub fn protected_location(target: &std::path::Path) -> Option<(std::path::PathBuf, &'static str)> { /* ... */ }
+pub fn protected_location(target: &std::path::Path) -> Option<(std::path::PathBuf, &''static str)> { /* ... */ }
 ```
 
 ### Constants and Statics

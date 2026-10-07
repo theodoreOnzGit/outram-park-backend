@@ -1,6 +1,6 @@
 # Crate Documentation
 
-**Version:** 0.0.1
+**Version:** 0.0.2
 
 **Format Version:** 60
 
@@ -1848,6 +1848,24 @@ Totals.{test_targets, test_fns, non_test_functions, reached_by_tests,
   cited_functions, citations, history_files}
 ```
 
+# Schema 3 (2026-10-07, GitHub #757): additions only
+
+```text
+Call.kind "operator"           a call through an operator (`a + b`,
+                               `v[i]`, `-x`) to a workspace impl of the
+                               operator trait; only the SCIP backend
+                               finds these
+CallGraphDoc.generator         {backend: lsp|scip, rust_analyzer}: how the
+                               calls were resolved, and the rust-analyzer
+                               that resolved them (SCIP's output is not
+                               stable across versions)
+```
+
+A schema-2 document reads unchanged (test
+`schema_2_documents_still_load`, on a document written by the schema-2
+code); a schema-2 *reader* meets an unknown `"operator"` kind, which is
+why the version moved.
+
 # Function ids
 
 A function's `id` is `code-walk`'s form, `path/to/file.rs::name` for a
@@ -2453,6 +2471,498 @@ The workspace's GitHub Pages site (`.github/workflows/pages.yml`).
 
 ```rust
 pub const SITE_BASE: &str = "https://theodoreonzgit.github.io/outram-park-backend/";
+```
+
+## Module `compare`
+
+Edge-by-edge comparison of two call-graph documents (GitHub #757): the
+instrument that judges the SCIP backend against the LSP one, and that a
+CI check can use to compare a regenerated graph with a committed one.
+
+Edges are matched by `(from, to)` function id. Both backends take their
+ids from the same source scanner, so an id names the same function in
+both documents; the call kind is compared separately (an edge one
+backend calls `call` and the other `fn_value` is still the same edge).
+Unresolved calls are matched by `(function, line, kind)`.
+
+Pure data, no I/O.
+
+```rust
+pub mod compare { /* ... */ }
+```
+
+### Types
+
+#### Struct `EdgeCounts`
+
+Edge counts for one caller crate (or the total).
+
+```rust
+pub struct EdgeCounts {
+    pub both: usize,
+    pub same_lines: usize,
+    pub kind_differs: usize,
+    pub only_a: usize,
+    pub only_b: usize,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `both` | `usize` | Edges in both documents. |
+| `same_lines` | `usize` | Of those, the ones whose call-site lines are identical. |
+| `kind_differs` | `usize` | Of those, the ones whose call kind differs. |
+| `only_a` | `usize` |  |
+| `only_b` | `usize` |  |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn recall_of_a(self: &Self) -> f64 { /* ... */ }
+  ```
+  `both / (both + only_a)`: the share of A's edges that B has.
+
+- ```rust
+  pub fn jaccard(self: &Self) -> f64 { /* ... */ }
+  ```
+  `both / (both + only_a + only_b)`.
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> EdgeCounts { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Default**
+  - ```rust
+    fn default() -> EdgeCounts { /* ... */ }
+    ```
+
+- **Eq**
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &EdgeCounts) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Struct `EdgeOnly`
+
+An edge found in one document only.
+
+```rust
+pub struct EdgeOnly {
+    pub from: String,
+    pub to: String,
+    pub kind: super::CallKind,
+    pub lines: Vec<u32>,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `from` | `String` |  |
+| `to` | `String` |  |
+| `kind` | `super::CallKind` |  |
+| `lines` | `Vec<u32>` |  |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn is_self_edge(self: &Self) -> bool { /* ... */ }
+  ```
+  A function calling itself.
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> EdgeOnly { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Eq**
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **Ord**
+  - ```rust
+    fn cmp(self: &Self, other: &EdgeOnly) -> $crate::cmp::Ordering { /* ... */ }
+    ```
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &EdgeOnly) -> bool { /* ... */ }
+    ```
+
+- **PartialOrd**
+  - ```rust
+    fn partial_cmp(self: &Self, other: &EdgeOnly) -> $crate::option::Option<$crate::cmp::Ordering> { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Struct `UnresolvedCounts`
+
+Unresolved-call counts for one kind (`trait`, `closure`, ...).
+
+```rust
+pub struct UnresolvedCounts {
+    pub a: usize,
+    pub b: usize,
+    pub both: usize,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `a` | `usize` |  |
+| `b` | `usize` |  |
+| `both` | `usize` | Same function, line and kind in both. |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> UnresolvedCounts { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Default**
+  - ```rust
+    fn default() -> UnresolvedCounts { /* ... */ }
+    ```
+
+- **Eq**
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &UnresolvedCounts) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Struct `Comparison`
+
+The comparison of document A (the reference) with document B.
+
+```rust
+pub struct Comparison {
+    pub functions_a: usize,
+    pub functions_b: usize,
+    pub functions_both: usize,
+    pub total: EdgeCounts,
+    pub per_crate: std::collections::BTreeMap<String, EdgeCounts>,
+    pub only_a: Vec<EdgeOnly>,
+    pub only_b: Vec<EdgeOnly>,
+    pub unresolved: std::collections::BTreeMap<String, UnresolvedCounts>,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `functions_a` | `usize` |  |
+| `functions_b` | `usize` |  |
+| `functions_both` | `usize` | Function ids in both. |
+| `total` | `EdgeCounts` |  |
+| `per_crate` | `std::collections::BTreeMap<String, EdgeCounts>` | By the caller's crate. |
+| `only_a` | `Vec<EdgeOnly>` | Sorted. |
+| `only_b` | `Vec<EdgeOnly>` |  |
+| `unresolved` | `std::collections::BTreeMap<String, UnresolvedCounts>` |  |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn only_by_kind(edges: &[EdgeOnly]) -> BTreeMap<CallKind, usize> { /* ... */ }
+  ```
+  Counts of `only_a` (or `only_b`) by call kind.
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Comparison { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Default**
+  - ```rust
+    fn default() -> Comparison { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Comparison) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+### Functions
+
+#### Function `compare`
+
+Compares `a` (the reference) with `b`.
+
+```rust
+pub fn compare(a: &super::CallGraphDoc, b: &super::CallGraphDoc) -> Comparison { /* ... */ }
 ```
 
 ## Module `history`
@@ -5204,6 +5714,7 @@ pub struct CallGraphDoc {
     pub totals: Totals,
     pub commit: Option<String>,
     pub site_base: Option<String>,
+    pub generator: Option<Generator>,
 }
 ```
 
@@ -5221,6 +5732,7 @@ pub struct CallGraphDoc {
 | `totals` | `Totals` |  |
 | `commit` | `Option<String>` | Schema 2: the commit (`git rev-parse HEAD`) the data was built at;<br>absent outside a git checkout. |
 | `site_base` | `Option<String>` | Schema 2: the base URL that `Citation::site` paths are relative to. |
+| `generator` | `Option<Generator>` | Schema 3: how the calls were resolved, and by which rust-analyzer. |
 
 ##### Implementations
 
@@ -5235,6 +5747,11 @@ pub struct CallGraphDoc {
   pub fn merge(docs: Vec<CallGraphDoc>) -> CallGraphDoc { /* ... */ }
   ```
   One document from several built separately (one per crate, for the
+
+- ```rust
+  pub fn mixed_generators(docs: &[CallGraphDoc]) -> bool { /* ... */ }
+  ```
+  True when `docs` were resolved by different backends or
 
 - ```rust
   pub fn to_json(self: &Self) -> String { /* ... */ }
@@ -5313,6 +5830,248 @@ where
 - **PartialEq**
   - ```rust
     fn eq(self: &Self, other: &CallGraphDoc) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Send**
+- **Serialize**
+  - ```rust
+    fn serialize<__S>(self: &Self, __serializer: __S) -> _serde::__private228::Result<<__S as >::Ok, <__S as >::Error>
+where
+    __S: _serde::Serializer { /* ... */ }
+    ```
+
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Struct `Generator`
+
+Schema 3 (#757): what resolved the calls.
+
+```rust
+pub struct Generator {
+    pub backend: Backend,
+    pub rust_analyzer: String,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `backend` | `Backend` |  |
+| `rust_analyzer` | `String` | The rust-analyzer that resolved them: `rust-analyzer --version` for<br>the LSP backend, the index's own tool name and version for SCIP. |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Generator { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Deserialize**
+  - ```rust
+    fn deserialize<__D>(__deserializer: __D) -> _serde::__private228::Result<Self, <__D as >::Error>
+where
+    __D: _serde::Deserializer<''de> { /* ... */ }
+    ```
+
+- **DeserializeOwned**
+- **Eq**
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Generator) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Send**
+- **Serialize**
+  - ```rust
+    fn serialize<__S>(self: &Self, __serializer: __S) -> _serde::__private228::Result<<__S as >::Ok, <__S as >::Error>
+where
+    __S: _serde::Serializer { /* ... */ }
+    ```
+
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Enum `Backend`
+
+**Attributes:**
+
+- `Other("#[serde(rename_all = \"snake_case\")]")`
+
+Where call targets come from.
+
+```rust
+pub enum Backend {
+    Lsp,
+    Scip,
+}
+```
+
+##### Variants
+
+###### `Lsp`
+
+rust-analyzer's LSP, one definition query per call-shaped token.
+
+###### `Scip`
+
+One `rust-analyzer scip` index of the workspace (#757).
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Backend { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Deserialize**
+  - ```rust
+    fn deserialize<__D>(__deserializer: __D) -> _serde::__private228::Result<Self, <__D as >::Error>
+where
+    __D: _serde::Deserializer<''de> { /* ... */ }
+    ```
+
+- **DeserializeOwned**
+- **Eq**
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **Ord**
+  - ```rust
+    fn cmp(self: &Self, other: &Backend) -> $crate::cmp::Ordering { /* ... */ }
+    ```
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Backend) -> bool { /* ... */ }
+    ```
+
+- **PartialOrd**
+  - ```rust
+    fn partial_cmp(self: &Self, other: &Backend) -> $crate::option::Option<$crate::cmp::Ordering> { /* ... */ }
     ```
 
 - **RefUnwindSafe**
@@ -6250,6 +7009,7 @@ where
 pub enum CallKind {
     Call,
     FnValue,
+    Operator,
 }
 ```
 
@@ -6262,6 +7022,11 @@ A call expression rust-analyzer resolved.
 ###### `FnValue`
 
 A function passed by value (`.map(f)`), resolved by rust-analyzer.
+
+###### `Operator`
+
+Schema 3 (#757): an operator (`a + b`, `v[i]`, `-x`) that resolves
+to a workspace `impl` of the operator trait (SCIP backend only).
 
 ##### Implementations
 
@@ -6987,10 +7752,21 @@ pub fn function_ids(file: &str, quals: &[String]) -> Vec<(String, bool)> { /* ..
 
 Version of the JSON layout; bumped on any breaking change.
 Schema 2 (2026-10-06, #746) only adds fields; a schema-1 reader that
-ignores unknown fields reads it unchanged.
+ignores unknown fields reads it unchanged. Schema 3 (2026-10-07, #757)
+adds the `operator` call kind and `generator`; schema-2 documents still
+load ([`OLDEST_READABLE_SCHEMA`]).
 
 ```rust
-pub const SCHEMA_VERSION: u32 = 2;
+pub const SCHEMA_VERSION: u32 = 3;
+```
+
+#### Constant `OLDEST_READABLE_SCHEMA`
+
+The oldest schema this model still reads: every version since only added
+fields and values.
+
+```rust
+pub const OLDEST_READABLE_SCHEMA: u32 = 1;
 ```
 
 ## Module `code_map`

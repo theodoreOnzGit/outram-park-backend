@@ -36,6 +36,31 @@
 //!    from every test and example into `Function::reached_by`
 //!    ([`crate::call_graph::reach`]).
 //!
+//! # Two backends (GitHub #757)
+//!
+//! Step 4's definitions come from one of two places, chosen with
+//! `--backend` ([`CallBackend`]):
+//!
+//! - **`lsp`** (the default): rust-analyzer's LSP through the keep-warm
+//!   daemon, one batched request per function. Measured 941 s for the whole
+//!   workspace from cold (#757); fine for a few crates.
+//! - **`scip`**: one `rust-analyzer scip` run over the whole workspace
+//!   (`--scip <file>` reads one written earlier), decoded in memory
+//!   ([`crate::scip`]) and asked the **same positions** the LSP would be,
+//!   so every classification (trait gap, closure, constructor, external) is
+//!   the same code. It also adds what the text scanner cannot see: calls
+//!   through **operators** (`CallKind::Operator`, a workspace `impl Add`
+//!   reached by `a + b`) and functions **named as paths**
+//!   (`.map(T::f)`, `CallKind::FnValue`). The function list, ids,
+//!   signatures, docs, upstream, history and citations still come from the
+//!   source scanner: definitions are matched to it by **location**, never by
+//!   SCIP symbol string, because symbols collide across Cargo targets.
+//!
+//! The document records which backend and which rust-analyzer resolved it
+//! (`generator`, schema 3): SCIP is an unstable rust-analyzer subcommand.
+//! Agreement between the two and the timings are in
+//! `crates/kovan/docs/call-graph-scip-vs-lsp.md`.
+//!
 //! Known limits are `code-walk`'s: trait-method calls stop at
 //! `UNRESOLVED(trait)`; a call to a derived method (`Default::default()` on
 //! a `#[derive(Default)]` type) is `UNRESOLVED(other)`; macro bodies are
@@ -43,11 +68,21 @@
 //! are also counted in the outer body; a function value written as a path
 //! (`.map(other_crate::leaf)`) is not seen at all, only a bare name
 //! (`.map(leaf)`) is (found 2026-10-06 while writing
-//! `tests/call_graph_rust_analyzer.rs`).
+//! `tests/call_graph_rust_analyzer.rs`). **CORRECTED 2026-10-07 (#757):**
+//! with `--backend scip` a path is seen (`fn_value`), and operator calls
+//! are too (`operator`); the LSP backend still misses both. With either
+//! backend: a call through a function-typed parameter is
+//! `UNRESOLVED(closure)` (it was a false recursive edge to the enclosing
+//! function until #757), and the gaps of functions in integration tests are
+//! kept (they were collected and dropped until #757). Where the backends
+//! differ by design: rust-analyzer's LSP jumps from `x.to_string()` to the
+//! type's `Display::fmt` (an edge, or `UNRESOLVED(other)` for a derived
+//! `Display`), SCIP records the reference to std's `ToString::to_string`
+//! (external, dropped).
 //!
 //! # Cost
 //!
-//! One rust-analyzer definition query per call-shaped token. Measured
+//! LSP backend: one rust-analyzer definition query per call-shaped token. Measured
 //! 2026-10-06 (16-core desktop, rust-analyzer 1.98.0) on
 //! `outram-park-digital-twin-engine` (lib and its 4 examples) plus
 //! `boon-lay` (lib and 5 examples): 3632 functions, 37641 queries, 127 s
@@ -67,8 +102,8 @@ use crate::call_graph::citations::{self, Citation, CitationKind, FnRef};
 use crate::call_graph::history::{self, CommitRef};
 use crate::call_graph::{modules, upstream};
 use crate::call_graph::{
-    function_ids, CallGraphDoc, CallKind, CrateGraph, FnKind, Function, Module, OutsideFn, RawCall,
-    Target, TargetKind, Unresolved,
+    function_ids, Backend, CallGraphDoc, CallKind, CrateGraph, FnKind, Function, Generator, Module,
+    OutsideFn, RawCall, Target, TargetKind, Unresolved,
 };
 use crate::code_map::CodeMap;
 
@@ -186,8 +221,84 @@ fn module_maturity(map: Option<&CodeMap>, krate: &str, path: &str) -> Option<u8>
     Some(best.map_or(c.maturity, |b| b.1))
 }
 
-/// Builds the call graph of `scope` (every member when `None`).
+/// Where `call-graph` gets its definitions (see the module doc).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum CallBackend {
+    /// rust-analyzer's LSP, through the keep-warm daemon.
+    Lsp,
+    /// A SCIP index: this file, or (`None`) one generated now with
+    /// `rust-analyzer scip` into `target/kovan-scip/index.scip`.
+    Scip(Option<PathBuf>),
+}
+
+/// `rust-analyzer --version`, or `rust-analyzer missing`.
+pub fn rust_analyzer_version() -> String {
+    std::process::Command::new("rust-analyzer")
+        .arg("--version")
+        .output()
+        .ok()
+        .filter(|o| o.status.success())
+        .map(|o| String::from_utf8_lossy(&o.stdout).trim().to_string())
+        .unwrap_or_else(|| "rust-analyzer missing".into())
+}
+
+/// Runs `rust-analyzer scip` over the workspace into
+/// `<root>/target/kovan-scip/index.scip` (never committed: `target/` is
+/// ignored), its log beside it, and returns the index path. About 3 min and
+/// several GB of memory for this workspace (#757).
+pub fn generate_scip(root: &Path) -> Result<PathBuf, String> {
+    let dir = root.join("target").join("kovan-scip");
+    std::fs::create_dir_all(&dir).map_err(|e| format!("creating {}: {e}", dir.display()))?;
+    let out = dir.join("index.scip");
+    let log_path = dir.join("rust-analyzer-scip.log");
+    let log = std::fs::File::create(&log_path)
+        .map_err(|e| format!("creating {}: {e}", log_path.display()))?;
+    let log2 = log
+        .try_clone()
+        .map_err(|e| format!("{}: {e}", log_path.display()))?;
+    eprintln!(
+        "call-graph: running rust-analyzer scip over {} (about 3 min; log in {})",
+        root.display(),
+        log_path.display()
+    );
+    let started = Instant::now();
+    let status = std::process::Command::new("rust-analyzer")
+        .arg("scip")
+        .arg(root)
+        .arg("--output")
+        .arg(&out)
+        .current_dir(root)
+        .stdout(log)
+        .stderr(log2)
+        .status()
+        .map_err(|e| format!("running rust-analyzer scip: {e}"))?;
+    if !status.success() {
+        return Err(format!(
+            "rust-analyzer scip failed ({status}); see {}",
+            log_path.display()
+        ));
+    }
+    eprintln!(
+        "call-graph: rust-analyzer scip wrote {} in {:.1} s",
+        out.display(),
+        started.elapsed().as_secs_f64()
+    );
+    Ok(out)
+}
+
+/// Builds the call graph of `scope` (every member when `None`) with the
+/// LSP backend.
 pub fn build(root: &Path, scope: Option<&[String]>) -> Result<CallGraphDoc, String> {
+    build_using(root, scope, &CallBackend::Lsp)
+}
+
+/// Builds the call graph of `scope` (every member when `None`) with the
+/// given backend.
+pub fn build_using(
+    root: &Path,
+    scope: Option<&[String]>,
+    backend: &CallBackend,
+) -> Result<CallGraphDoc, String> {
     let started = Instant::now();
     let root =
         std::fs::canonicalize(root).map_err(|e| format!("resolving {}: {e}", root.display()))?;
@@ -222,10 +333,52 @@ pub fn build(root: &Path, scope: Option<&[String]>) -> Result<CallGraphDoc, Stri
         }
     };
 
-    let mut ws = Workspace::open(&root)?;
+    let (mut ws, generator) = match backend {
+        CallBackend::Lsp => (
+            Workspace::open(&root)?,
+            Generator {
+                backend: Backend::Lsp,
+                rust_analyzer: rust_analyzer_version(),
+            },
+        ),
+        CallBackend::Scip(file) => {
+            let path = match file {
+                Some(p) => p.clone(),
+                None => generate_scip(&root)?,
+            };
+            let t = Instant::now();
+            let ix = crate::scip::ScipIndex::read(&path)?;
+            eprintln!(
+                "call-graph: read {} in {:.1} s: {} documents, {} occurrences, {} symbols, written by {} {}",
+                path.display(),
+                t.elapsed().as_secs_f64(),
+                ix.documents.len(),
+                ix.occurrence_count(),
+                ix.symbol_count(),
+                ix.tool_name,
+                ix.tool_version
+            );
+            let installed = rust_analyzer_version();
+            if ix.tool_version.is_empty() || !installed.contains(&ix.tool_version) {
+                eprintln!(
+                    "call-graph: WARNING: the index was written by {} {}, the installed one is {installed}",
+                    ix.tool_name, ix.tool_version
+                );
+            }
+            let generator = Generator {
+                backend: Backend::Scip,
+                rust_analyzer: format!("{} {}", ix.tool_name, ix.tool_version)
+                    .trim()
+                    .to_string(),
+            };
+            (Workspace::open_scip(&root, ix)?, generator)
+        }
+    };
     let result = build_with(&mut ws, &all, &selected, map.as_ref(), started);
     ws.close();
-    result
+    let mut doc = result?;
+    doc.generator = Some(generator);
+    Ok(doc)
 }
 
 fn build_with(
@@ -430,7 +583,8 @@ fn build_with(
             to,
             kind: match e.kind {
                 EdgeKind::FnValue => CallKind::FnValue,
-                _ => CallKind::Call,
+                EdgeKind::Operator => CallKind::Operator,
+                EdgeKind::Call | EdgeKind::Hand { .. } => CallKind::Call,
             },
             line: e.call_line,
         });
@@ -446,8 +600,12 @@ fn build_with(
             detail: g.detail.clone(),
         });
     }
+    // Every target, integration tests included: ~~`c.targets` only~~
+    // CORRECTED 2026-10-07 (#757): the gaps of functions in `tests/*.rs`
+    // were collected and then dropped here, so test functions never listed
+    // their unresolved calls.
     for c in &mut crates {
-        for t in &mut c.targets {
+        for t in c.targets.iter_mut().chain(c.tests.iter_mut()) {
             for m in &mut t.modules {
                 for f in &mut m.functions {
                     if let Some(v) = gaps.remove(&f.id) {
@@ -742,8 +900,13 @@ fn functions_of(
 }
 
 /// `kovan-cli call-graph`: build and write to `out`, or stdout.
-pub fn run(root: &Path, crates: Option<Vec<String>>, out: Option<PathBuf>) -> Result<(), String> {
-    let doc = build(root, crates.as_deref())?;
+pub fn run(
+    root: &Path,
+    crates: Option<Vec<String>>,
+    out: Option<PathBuf>,
+    backend: &CallBackend,
+) -> Result<(), String> {
+    let doc = build_using(root, crates.as_deref(), backend)?;
     let text = doc.to_json();
     match out {
         Some(path) => {
@@ -762,8 +925,13 @@ pub fn run(root: &Path, crates: Option<Vec<String>>, out: Option<PathBuf>) -> Re
 /// [`crate::review_stamps::check`]; with no `review/stamps.toml` it is
 /// empty. Files already in `dir` that the split does not name are left
 /// alone.
-pub fn run_split(root: &Path, crates: Option<Vec<String>>, dir: &Path) -> Result<(), String> {
-    let doc = build(root, crates.as_deref())?;
+pub fn run_split(
+    root: &Path,
+    crates: Option<Vec<String>>,
+    dir: &Path,
+    backend: &CallBackend,
+) -> Result<(), String> {
+    let doc = build_using(root, crates.as_deref(), backend)?;
     write_split(root, &doc, dir)
 }
 
@@ -777,10 +945,14 @@ pub fn run_merge(root: &Path, files: &[PathBuf], out: Option<PathBuf>, split_dir
         let text = std::fs::read_to_string(f).map_err(|e| format!("reading {}: {e}", f.display()))?;
         let d: crate::call_graph::CallGraphDoc =
             serde_json::from_str(&text).map_err(|e| format!("{}: {e}", f.display()))?;
-        if d.schema != crate::call_graph::SCHEMA_VERSION {
-            return Err(format!("{}: schema {}, expected {}", f.display(), d.schema, crate::call_graph::SCHEMA_VERSION));
+        let (lo, hi) = (crate::call_graph::OLDEST_READABLE_SCHEMA, crate::call_graph::SCHEMA_VERSION);
+        if d.schema < lo || d.schema > hi {
+            return Err(format!("{}: schema {}, expected {lo} to {hi}", f.display(), d.schema));
         }
         docs.push(d);
+    }
+    if crate::call_graph::CallGraphDoc::mixed_generators(&docs) {
+        eprintln!("call-graph: WARNING: the merged documents were resolved by different backends or rust-analyzer versions; the first one's is recorded");
     }
     let doc = crate::call_graph::CallGraphDoc::merge(docs);
     match split_dir {
@@ -880,11 +1052,7 @@ pub fn run_keys(root: &Path, crates: Option<Vec<String>>) -> Result<(), String> 
     let json = crate::code_map::run_cargo_metadata(root, true)?;
     let meta: Meta = serde_json::from_str(&json).map_err(|e| format!("cargo metadata: {e}"))?;
     let names: BTreeSet<String> = meta.packages.iter().map(|p| p.name.clone()).collect();
-    let ra = std::process::Command::new("rust-analyzer")
-        .arg("--version")
-        .output()
-        .map(|o| String::from_utf8_lossy(&o.stdout).trim().to_string())
-        .unwrap_or_else(|_| "rust-analyzer missing".into());
+    let ra = rust_analyzer_version();
     let cargo = std::env::var("CARGO").unwrap_or_else(|_| "cargo".into());
     let mut own: BTreeMap<String, String> = BTreeMap::new();
     let mut deps: BTreeMap<String, Vec<String>> = BTreeMap::new();
@@ -947,6 +1115,75 @@ pub fn run_keys(root: &Path, crates: Option<Vec<String>>) -> Result<(), String> 
             return Err(format!("{c}: not a workspace member"));
         }
         println!("{c} {}", key(&c, &own, &deps, &tail, &mut memo));
+    }
+    Ok(())
+}
+
+/// `--backend` on the command line.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, clap::ValueEnum)]
+pub enum BackendArg {
+    Lsp,
+    Scip,
+}
+
+/// `kovan-cli call-graph-diff <a> <b>`: prints the edge-by-edge comparison
+/// ([`crate::call_graph::compare`]) as Markdown, listing up to `list`
+/// differing edges of each kind.
+pub fn run_diff(a: &Path, b: &Path, list: usize) -> Result<(), String> {
+    use crate::call_graph::compare::{compare, Comparison};
+    let load = |p: &Path| -> Result<CallGraphDoc, String> {
+        let t = std::fs::read_to_string(p).map_err(|e| format!("reading {}: {e}", p.display()))?;
+        serde_json::from_str(&t).map_err(|e| format!("{}: {e}", p.display()))
+    };
+    let (da, db) = (load(a)?, load(b)?);
+    let c = compare(&da, &db);
+    let gen = |d: &CallGraphDoc| match &d.generator {
+        Some(g) => format!("{:?} ({})", g.backend, g.rust_analyzer),
+        None => "not recorded (schema < 3)".into(),
+    };
+    println!("# Call-graph comparison\n");
+    println!("- A: `{}`, {}", a.display(), gen(&da));
+    println!("- B: `{}`, {}", b.display(), gen(&db));
+    println!(
+        "- functions: A {}, B {}, in both {}\n",
+        c.functions_a, c.functions_b, c.functions_both
+    );
+    println!("| caller crate | both | same lines | kind differs | A only | B only | recall of A |");
+    println!("|---|---|---|---|---|---|---|");
+    let row = |name: &str, e: &crate::call_graph::compare::EdgeCounts| {
+        println!(
+            "| {name} | {} | {} | {} | {} | {} | {:.2} % |",
+            e.both,
+            e.same_lines,
+            e.kind_differs,
+            e.only_a,
+            e.only_b,
+            100.0 * e.recall_of_a()
+        );
+    };
+    for (k, e) in &c.per_crate {
+        row(k, e);
+    }
+    row("**total**", &c.total);
+    println!(
+        "\nJaccard (both / union): {:.2} %",
+        100.0 * c.total.jaccard()
+    );
+    for (label, edges) in [("A only", &c.only_a), ("B only", &c.only_b)] {
+        println!("\n## {label}: {} edges\n", edges.len());
+        for (kind, n) in Comparison::only_by_kind(edges) {
+            let selfs = edges.iter().filter(|e| e.kind == kind && e.is_self_edge()).count();
+            println!("- {kind:?}: {n} ({selfs} self-edges)");
+        }
+        for e in edges.iter().take(list) {
+            println!("  - `{}` -> `{}` ({:?}, lines {:?})", e.from, e.to, e.kind, e.lines);
+        }
+    }
+    println!("\n## Unresolved calls (matched by function, line and kind)\n");
+    println!("| kind | A | B | both |");
+    println!("|---|---|---|---|");
+    for (k, u) in &c.unresolved {
+        println!("| {k} | {} | {} | {} |", u.a, u.b, u.both);
     }
     Ok(())
 }

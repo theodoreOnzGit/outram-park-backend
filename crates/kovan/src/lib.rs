@@ -103,6 +103,7 @@ pub mod recent;
 pub mod root;
 pub mod runtime_graph;
 pub mod save_push;
+pub mod scip;
 pub mod sync;
 pub mod tui;
 /// Zotero import into a Kovan folder and export from it (GitHub #752,
