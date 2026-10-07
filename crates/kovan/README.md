@@ -575,6 +575,21 @@ definition queries; 127 s with a cold rust-analyzer (about 60 s of it
 indexing), 50 s warm; 10.5 MB of JSON. The whole workspace is
 correspondingly slower, so restrict with `--crates`.
 
+**SCIP backend (#757, schema 3).** `--backend scip` runs `rust-analyzer
+scip` once over the whole workspace into `target/kovan-scip/index.scip`
+(never committed) and resolves every call from that index in memory;
+`--scip <file>` reuses an index written earlier. The function list, ids and
+every other field still come from the source scanner, and the index is
+asked the same positions the LSP is, so the two backends share every
+classification. SCIP also finds what the text scanner cannot: calls through
+**operators** (call kind `operator`, `a + b` on a workspace `impl Add`) and
+functions **passed as paths** (`.map(T::f)`, kind `fn_value`). Schema 3
+adds that kind and `generator` (`{backend, rust_analyzer}`: SCIP is an
+unstable rust-analyzer subcommand, so the version that wrote the index is
+recorded); schema-2 documents still load and merge. `kovan-cli
+call-graph-diff A B` compares two documents edge by edge. Agreement with the
+LSP backend and the timings: `docs/call-graph-scip-vs-lsp.md`.
+
 ### Determinism & offline guarantees
 
 Every `kovan-cli` subcommand **except `setup`** is deterministic and fully
@@ -876,6 +891,15 @@ cargo test --release -p knowledge-oriented-vv-analysis-for-nuclear-sciences-kova
   citations and history parsing are unit-tested in ~~`src/call_graph/`~~
   `crates/kovan-common/src/call_graph/` (**moved 2026-10-06**, #736;
   `kovan::call_graph` re-exports it).
+- `tests/call_graph_scip.rs` — `call-graph --backend scip` against
+  `--backend lsp` on a throwaway workspace (#757): every LSP edge is in the
+  SCIP graph with the same lines, and the SCIP graph adds exactly the
+  operator call and the function passed as a path; a call through a
+  fn-typed parameter is `UNRESOLVED(closure)` in both (not a recursive
+  edge), a derived `default()` is `UNRESOLVED(other)` in both, and a symbol
+  defined in both the lib and an example resolves per target. The SCIP
+  reader and the comparison are unit-tested in `src/scip.rs` and
+  `crates/kovan-common/src/call_graph/compare.rs`.
 - `tests/upstream_header_survey.rs` (`--ignored`, a measuring instrument) —
   the attribution-header parser over every `.rs` file in `crates/`, with
   per-crate counts and every unparsed header.

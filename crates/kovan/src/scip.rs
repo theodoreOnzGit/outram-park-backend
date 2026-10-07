@@ -41,8 +41,10 @@
 //! shared folder prefix. One exception: when the reference is written through
 //! the package's own library crate name (`my_crate::prelude::run` from that
 //! package's example, which has a `run` of its own), only the library's
-//! definitions are candidates. That case was the one collision the #757
-//! comparison got wrong before it was handled.
+//! definitions are candidates. Within one file, helpers of one name
+//! nested in different functions also share a symbol; there the caller's
+//! scope decides (see [`ScipIndex::nearest_definition`]). Both cases were
+//! found by the #757 comparison (`crates/kovan/docs/call-graph-scip-vs-lsp.md`).
 //!
 //! Plain `std`; no I/O except [`ScipIndex::read`].
 
