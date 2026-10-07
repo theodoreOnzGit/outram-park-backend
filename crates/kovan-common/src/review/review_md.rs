@@ -148,7 +148,8 @@ pub struct ReviewBody {
     pub authorship: Option<ChangeAuthorship>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub moved: Vec<MoveRecord>,
-    /// Ed25519 over [`super::signing::signed_bytes`]; checked from #762.
+    /// Ed25519 over [`super::signing::signed_bytes`]; checked by
+    /// [`super::signing::verify_review`] (#762).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub signature: Option<Signature>,
 }

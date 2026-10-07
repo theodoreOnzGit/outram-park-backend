@@ -398,6 +398,18 @@ fs2 = "0.4"            # advisory file locks (anti-thundering-herd for parallel 
 # deflate via flate2's miniz_oxide backend — no system zlib.
 zip = { version = "2.2", default-features = false, features = ["deflate"] }
 
+# kovan review-stamp signing (GitHub #762; design on #739, 2026-10-07): one
+# ed25519 key per reviewer, generated inside kovan, its private half stored
+# passphrase-encrypted (argon2id -> AES-256-GCM). All pure Rust (RustCrypto /
+# dalek), no C, no OpenSSL: wasm32 builds the verification half, Android the
+# whole. ed25519-dalek: BSD-3-Clause; argon2, aes-gcm, base64, zeroize:
+# MIT OR Apache-2.0. All GPLv3/AGPLv3-compatible.
+ed25519-dalek = "2.2"
+argon2 = "0.5"
+aes-gcm = { version = "0.10", default-features = false, features = ["aes", "alloc"] }
+base64 = "0.22"
+zeroize = "1.8"
+
 # GUI / example stack — egui ecosystem pinned to the matched 0.36 series
 # (egui 0.36 requires Rust >= 1.95). Bumped from 0.34.3 (op-9vo6.11,
 # GitHub issue #35): `kopitiam-pdf` 0.3.2's reusable reader
