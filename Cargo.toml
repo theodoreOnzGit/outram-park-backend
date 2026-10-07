@@ -532,13 +532,13 @@ outram-park-digital-twin-engine = { path = "crates/outram-park-digital-twin-engi
 # common/discovery/codegen/literature/semantics bumped to 0.0.1 together —
 # keep each pin here in sync with that crate's own `version` (workspace-
 # maintenance.md's "drift" warning) whenever one changes.
-kovan-common     = { path = "crates/kovan-common",     version = "0.0.1" }
-kovan-discovery  = { path = "crates/kovan-discovery",  version = "0.0.1" }
+kovan-common     = { path = "crates/kovan-common",     version = "0.0.2" }
+kovan-discovery  = { path = "crates/kovan-discovery",  version = "0.0.2" }
 kovan-literature = { path = "crates/kovan-literature", version = "0.0.1" }
 kovan-semantics  = { path = "crates/kovan-semantics",  version = "0.0.1" }
-kovan-codegen    = { path = "crates/kovan-codegen",    version = "0.0.1" }
+kovan-codegen    = { path = "crates/kovan-codegen",    version = "0.0.2" }
 # Batch 2 (after batch 1 is live + the rate-limit cooldown) — not bumped yet.
-kovan-metrics    = { path = "crates/kovan-metrics",    version = "0.0.0" }
+kovan-metrics    = { path = "crates/kovan-metrics",    version = "0.0.1" }
 
 # outram-blender — Blender-inspired mesh-authoring frontend. Pure-Rust,
 # Android-safe by default. Two opt-in solver bridges are now real (not stubs):

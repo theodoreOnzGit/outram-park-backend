@@ -6,7 +6,7 @@
 # and `cargo install` use the long package name.
 name = "knowledge-oriented-vv-analysis-for-nuclear-sciences-kovan"
 description = "KOVAN (Knowledge Oriented V&V Analysis for Nuclear Sciences): CLI (agent-facing), TUI and GUI (human-facing) front ends over the KOVAN knowledge layer."
-version = "0.0.0"
+version = "0.0.1"
 edition.workspace = true
 # AGPL-3.0-only, NOT `license.workspace = true` (GPL-3.0-only) — deliberate,
 # maintainer-directed divergence from the workspace default (2026-08-21) to

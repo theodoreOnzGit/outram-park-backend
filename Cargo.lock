@@ -2305,8 +2305,8 @@ dependencies = [
  "egui_plot",
  "env_logger",
  "js-sys",
+ "knowledge-oriented-vv-analysis-for-nuclear-sciences-kovan",
  "kopitiam-pdf",
- "kovan",
  "log",
  "miniz_oxide",
  "nee_soon",
@@ -5477,6 +5477,44 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e2db585e1d738fc771bf08a151420d3ed193d9d895a36df7f6f8a9456b911ddc"
 
 [[package]]
+name = "knowledge-oriented-vv-analysis-for-nuclear-sciences-kovan"
+version = "0.0.1"
+dependencies = [
+ "clap",
+ "csv",
+ "directories 5.0.1",
+ "eframe",
+ "egui",
+ "egui-file-dialog",
+ "gix",
+ "image",
+ "kopitiam-neovim",
+ "kopitiam-pdf",
+ "kopitiam-semantic",
+ "kopitiam-tokenizer",
+ "kovan-codegen",
+ "kovan-common",
+ "kovan-discovery",
+ "kovan-literature",
+ "kovan-metrics",
+ "kovan-semantics",
+ "lopdf",
+ "proc-macro2",
+ "pulldown-cmark",
+ "quote",
+ "ratatui",
+ "rusqlite",
+ "serde",
+ "serde_json",
+ "sha2",
+ "syn 2.0.118",
+ "tempfile",
+ "toml",
+ "ureq 2.12.1",
+ "which",
+]
+
+[[package]]
 name = "kopitiam-config"
 version = "0.2.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -5609,46 +5647,8 @@ dependencies = [
 ]
 
 [[package]]
-name = "kovan"
-version = "0.0.0"
-dependencies = [
- "clap",
- "csv",
- "directories 5.0.1",
- "eframe",
- "egui",
- "egui-file-dialog",
- "gix",
- "image",
- "kopitiam-neovim",
- "kopitiam-pdf",
- "kopitiam-semantic",
- "kopitiam-tokenizer",
- "kovan-codegen",
- "kovan-common",
- "kovan-discovery",
- "kovan-literature",
- "kovan-metrics",
- "kovan-semantics",
- "lopdf",
- "proc-macro2",
- "pulldown-cmark",
- "quote",
- "ratatui",
- "rusqlite",
- "serde",
- "serde_json",
- "sha2",
- "syn 2.0.118",
- "tempfile",
- "toml",
- "ureq 2.12.1",
- "which",
-]
-
-[[package]]
 name = "kovan-codegen"
-version = "0.0.1"
+version = "0.0.2"
 dependencies = [
  "kovan-common",
  "serde",
@@ -5657,7 +5657,7 @@ dependencies = [
 
 [[package]]
 name = "kovan-common"
-version = "0.0.1"
+version = "0.0.2"
 dependencies = [
  "regex",
  "serde",
@@ -5667,7 +5667,7 @@ dependencies = [
 
 [[package]]
 name = "kovan-discovery"
-version = "0.0.1"
+version = "0.0.2"
 dependencies = [
  "gix",
  "grep-matcher",
@@ -5702,7 +5702,7 @@ dependencies = [
 
 [[package]]
 name = "kovan-metrics"
-version = "0.0.0"
+version = "0.0.1"
 dependencies = [
  "kovan-common",
  "kovan-discovery",
