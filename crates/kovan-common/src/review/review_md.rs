@@ -47,8 +47,8 @@
 //! "crates/tampines/src/steam.rs::saturation" = "sha256:<64 hex>"
 //!
 //! [review.checklist]
-//! q1 = "yes"
-//! q8 = "reference_code_to_code"
+//! doc_matches_behaviour = "yes"
+//! vv_evidence = "reference_code_to_code"
 //!
 //! [review.authorship]
 //! kind = "agent"
@@ -123,7 +123,8 @@ pub struct ReviewBody {
     pub function: String,
     /// `github:` / `gitlab:` / `orcid:` / email.
     pub by: String,
-    /// 3 human reviewed, 4 human V&V (gated on Q8). 5 is derived.
+    /// 3 human reviewed, 4 human V&V (gated on `vv_evidence` and
+    /// `independence`: [`super::wizard::stamp_gate`]). 5 is derived.
     pub rung: u8,
     /// `YYYY-MM-DD`.
     pub date: String,
@@ -137,7 +138,10 @@ pub struct ReviewBody {
     /// Each workspace callee's id and its hash at review time.
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     pub callees: BTreeMap<String, String>,
-    /// Wizard answers by question key (`q1` … `q10`).
+    /// Wizard answers by question key (`doc_matches_behaviour`, …; the set
+    /// and the stamp gate are [`super::wizard`], #769). Parsing accepts any
+    /// key; #764's placeholder keys `q1` … `q10` are refused by the wizard,
+    /// not here, so an entry holding them stays readable.
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     pub checklist: BTreeMap<String, String>,
     /// The "no concept" reason, when the function links no concept.
