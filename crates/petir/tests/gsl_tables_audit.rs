@@ -844,7 +844,15 @@ fn the_series_shorter_than_their_arrays() {
 /// 2026-09-19, did not — see the comment on that constant.
 #[test]
 fn the_local_twopi_table_matches_upstream() {
-    let c = fs::read_to_string(upstream_dir().join("zeta.c")).expect("vendored specfunc/zeta.c");
+    // The module-level skip contract ("It skips when the vendored tree is
+    // absent, deliberately"); this test and the lambert one below were added
+    // without it and failed on any clone lacking the gitignored GSL tree.
+    let dir = upstream_dir();
+    if !dir.is_dir() {
+        eprintln!("skipping: vendored GSL not present at {dir:?}");
+        return;
+    }
+    let c = fs::read_to_string(dir.join("zeta.c")).expect("vendored specfunc/zeta.c");
     let at = c
         .find("const double twopi_pow[18] = {")
         .expect("upstream's local twopi_pow[18] declaration moved or was renamed");
@@ -895,8 +903,12 @@ fn the_local_twopi_table_matches_upstream() {
 /// on what that deliberately does not catch.
 #[test]
 fn the_local_lambert_series_matches_upstream() {
-    let c =
-        fs::read_to_string(upstream_dir().join("lambert.c")).expect("vendored specfunc/lambert.c");
+    let dir = upstream_dir();
+    if !dir.is_dir() {
+        eprintln!("skipping: vendored GSL not present at {dir:?}");
+        return;
+    }
+    let c = fs::read_to_string(dir.join("lambert.c")).expect("vendored specfunc/lambert.c");
     let at = c
         .find("static const double c[12] = {")
         .expect("upstream's local c[12] in series_eval moved or was renamed");
