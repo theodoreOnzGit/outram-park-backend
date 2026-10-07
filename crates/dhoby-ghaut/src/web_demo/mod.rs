@@ -22,7 +22,9 @@
 //! Plus the pieces every track repeats: [`loading::Loading`] (progress of a
 //! list of data-processing jobs, as a card on the main view and a table in the
 //! panel), [`lesson`] (the rung table and the "What's happening here?" link
-//! to the lesson page), and [`platform`] (clock, page title, URL query).
+//! to the lesson page), [`platform`] (clock, page title, URL query), and
+//! [`pool`] (how many Web Workers to start for work that splits, sized to
+//! the device's cores, memory and screen; gh:#786).
 //!
 //! # A new track app, step by step
 //!
@@ -56,4 +58,5 @@ pub mod link;
 pub mod loading;
 pub mod panel;
 pub mod platform;
+pub mod pool;
 pub mod view;

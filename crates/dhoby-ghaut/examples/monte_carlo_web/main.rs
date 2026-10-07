@@ -189,6 +189,7 @@ fn main() -> Result<(), String> {
             htr10::render::render_all(dir)?;
             godiva::render::render_all(dir)
         }
+        Some("--bake-htr10-core") => htr10::core::bake::bake_cli(&args),
         Some("--prepare-web-data") => {
             let dir = std::path::Path::new(arg(1).ok_or("--prepare-web-data needs an output directory")?);
             std::fs::create_dir_all(dir).map_err(|e| e.to_string())?;
@@ -212,6 +213,9 @@ fn main() -> Result<(), String> {
                     wire_t += wire.len();
                 }
             }
+            // The HTR-10 core's tapes (gh:#786), from nee_soon's own plan.
+            let (r, w) = htr10::core::bake::prepare_web_data(dir)?;
+            (raw_t, wire_t) = (raw_t + r, wire_t + w);
             println!("total: {:.1} MB of tapes -> {:.1} MB downloaded", raw_t as f64 / 1e6, wire_t as f64 / 1e6);
             Ok(())
         }

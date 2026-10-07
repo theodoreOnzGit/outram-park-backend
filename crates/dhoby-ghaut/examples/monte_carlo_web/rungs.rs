@@ -205,6 +205,11 @@ pub trait McRung {
     fn walk_demo() -> Option<crate::walkdemo::WalkKind> {
         None
     }
+    /// Whether Watch has the whole-core view on a worker pool (gh:#786;
+    /// `htr10/core/`).
+    fn core_pool() -> bool {
+        false
+    }
 }
 
 /// Generates, from a list `module: Marker`, the `mod` declarations, the
@@ -287,6 +292,9 @@ macro_rules! rung_table {
                 }
                 pub fn sweep(self) -> Option<RecordedSweep> {
                     match self { $( Rung::$t => <$crate::$m::$t as McRung>::sweep(), )+ }
+                }
+                pub fn has_core_pool(self) -> bool {
+                    match self { $( Rung::$t => <$crate::$m::$t as McRung>::core_pool(), )+ }
                 }
                 pub fn kinf_case(self) -> Option<KinfCase> {
                     match self { $( Rung::$t => <$crate::$m::$t as McRung>::kinf_case(), )+ }

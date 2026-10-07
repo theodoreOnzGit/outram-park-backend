@@ -70,6 +70,9 @@ pub enum Request {
     Raster(crate::raster::RasterReq),
     /// A message for the rung's own demo (gh:#785), read by its module.
     Walk(Vec<f64>),
+    /// A request to one member of the HTR-10 core's worker pool (gh:#786);
+    /// needs no loaded rung.
+    Core(crate::htr10::core::CoreReq),
 }
 
 pub enum Event {
@@ -91,13 +94,15 @@ pub enum Event {
     Raster { req: crate::raster::RasterReq, map: Vec<u8>, secs: f64 },
     /// The rung's own demo's answer to a [`Request::Walk`] (gh:#785).
     Walk(Vec<f64>),
+    /// From a member of the HTR-10 core's worker pool (gh:#786).
+    Core(crate::htr10::core::CoreEv),
     Error(String),
 }
 
 /// Serve one non-load request on loaded data.
 pub fn serve(l: &mut Loaded, r: Request, post: &mut impl FnMut(Event)) {
     match r {
-        Request::Load { .. } => {} // the platform loader's job
+        Request::Load { .. } | Request::Core(_) => {} // the platform's jobs
         Request::Run { n, animate } => {
             for _ in 0..n {
                 post(Event::History { h: l.run_next(), animate });
@@ -163,6 +168,8 @@ pub fn decode_kinf(v: &[f64]) -> Result<KinfGeneration, String> {
 pub struct McEngine {
     loaded: Option<Loaded>,
     newest_load: u32,
+    /// This engine as a member of the HTR-10 core's pool (gh:#786).
+    core: std::sync::Arc<std::sync::RwLock<crate::htr10::core::CoreWorker>>,
 }
 
 // ─── Native: an engine thread ────────────────────────────────────────────────
@@ -181,6 +188,13 @@ impl dhoby_ghaut::web_demo::link::NativeEngine for McEngine {
                         post(Event::Ready { id });
                     }
                     Err(e) => post(Event::Error(e)),
+                }
+            }
+            Request::Core(r) => {
+                let core = self.core.clone();
+                let guard = core.write();
+                if let Ok(mut w) = guard {
+                    crate::htr10::core::serve_native(&mut w, r, post);
                 }
             }
             r => match self.loaded.as_mut() {
@@ -428,11 +442,16 @@ mod web {
                     js::set(&o, "kind", "walk");
                     js::set(&o, "data", js::f64s(m));
                 }
+                Request::Core(r) => r.to_js(&o),
             }
             o.into()
         }
         fn from_js(v: &JsValue) -> Result<Self, String> {
-            Ok(match js::get_str(v, "kind").as_str() {
+            let kind = js::get_str(v, "kind");
+            if let Some(r) = crate::htr10::core::CoreReq::from_js(&kind, v) {
+                return r.map(Request::Core);
+            }
+            Ok(match kind.as_str() {
                 "load" => Request::Load {
                     id: js::get_f64(v, "id").unwrap_or(0.0) as u32,
                     rung: dhoby_ghaut::web_demo::lesson::parse(&js::get_str(v, "rung")).ok_or("unknown rung")?,
@@ -538,6 +557,7 @@ mod web {
                     js::set(&o, "kind", "walk");
                     js::set(&o, "data", js::f64s(m));
                 }
+                Event::Core(e) => e.to_js(&o),
                 Event::Error(m) => {
                     js::set(&o, "kind", "error");
                     js::set(&o, "message", m.as_str());
@@ -546,6 +566,9 @@ mod web {
             o.into()
         }
         fn from_js(v: &JsValue) -> Result<Self, String> {
+            if let Some(e) = crate::htr10::core::CoreEv::from_js(&js::get_str(v, "kind"), v) {
+                return e.map(Event::Core);
+            }
             let id = || js::get_f64(v, "id").unwrap_or(0.0) as u32;
             let idx = || js::get_f64(v, "index").unwrap_or(0.0) as usize;
             Ok(match js::get_str(v, "kind").as_str() {
@@ -604,6 +627,11 @@ mod web {
                             Err(e) => post.post(Event::Error(e)),
                         }
                     });
+                }
+                Request::Core(r) => {
+                    if let Ok(core) = state.read().map(|g| g.core.clone()) {
+                        crate::htr10::core::web::handle(&core, r, post);
+                    }
                 }
                 r => {
                     if let Ok(mut g) = state.write() {

@@ -105,6 +105,70 @@ impl<R: Message, E: Message> Link<R, E> {
     }
 }
 
+// ─── Bulk numbers that a page relays without reading ─────────────────────────
+
+/// A vector of `f64`s in a message (gh:#786). In the browser it is a JS
+/// `Float64Array` **outside the wasm memory**: a page that only relays it
+/// from one worker to others (a pool sharing processed nuclear data) never
+/// copies it into its own wasm instance; only a reader calls
+/// [`Floats::to_vec`]. Natively it is a shared `Arc<Vec<f64>>`.
+#[derive(Clone)]
+pub struct Floats {
+    #[cfg(target_arch = "wasm32")]
+    js: js_sys::Float64Array,
+    #[cfg(not(target_arch = "wasm32"))]
+    v: Arc<Vec<f64>>,
+}
+
+impl Floats {
+    /// Take the numbers (in the browser, copied out of the wasm memory once).
+    pub fn from_vec(v: Vec<f64>) -> Self {
+        #[cfg(target_arch = "wasm32")]
+        {
+            Self { js: js_sys::Float64Array::from(v.as_slice()) }
+        }
+        #[cfg(not(target_arch = "wasm32"))]
+        {
+            Self { v: Arc::new(v) }
+        }
+    }
+    /// The numbers, as a vector of this instance's own.
+    pub fn to_vec(&self) -> Vec<f64> {
+        #[cfg(target_arch = "wasm32")]
+        {
+            self.js.to_vec()
+        }
+        #[cfg(not(target_arch = "wasm32"))]
+        {
+            self.v.as_ref().clone()
+        }
+    }
+    pub fn len(&self) -> usize {
+        #[cfg(target_arch = "wasm32")]
+        {
+            self.js.length() as usize
+        }
+        #[cfg(not(target_arch = "wasm32"))]
+        {
+            self.v.len()
+        }
+    }
+    pub fn is_empty(&self) -> bool {
+        self.len() == 0
+    }
+    /// The array, to put in a message object.
+    #[cfg(target_arch = "wasm32")]
+    pub fn js(&self) -> wasm_bindgen::JsValue {
+        self.js.clone().into()
+    }
+    /// A message object's `Float64Array` field, without copying it.
+    #[cfg(target_arch = "wasm32")]
+    pub fn get(o: &wasm_bindgen::JsValue, k: &str) -> Option<Self> {
+        use wasm_bindgen::JsCast as _;
+        js_sys::Reflect::get(o, &k.into()).ok()?.dyn_into::<js_sys::Float64Array>().ok().map(|js| Self { js })
+    }
+}
+
 // ─── Native: an engine thread ────────────────────────────────────────────────
 
 /// The engine as a native thread runs it: one request at a time, in order,

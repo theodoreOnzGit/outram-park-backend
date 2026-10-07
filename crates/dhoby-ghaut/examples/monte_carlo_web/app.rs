@@ -356,6 +356,8 @@ enum Screen {
     Beds(crate::beds::BedsView),
     /// The rung's own demo (gh:#785, [`crate::walkdemo`]).
     Walk(WalkDemo),
+    /// The whole HTR-10 core on a worker pool (gh:#786).
+    Core(crate::htr10::core::screen::CoreScreen),
 }
 
 /// Send a rung demo's messages to the worker.
@@ -392,6 +394,8 @@ enum WatchView {
     Beds,
     /// The rung's own demo (gh:#785).
     Demo,
+    /// Neutrons in the whole core, live on a worker pool (gh:#786).
+    Core,
 }
 
 impl WatchView {
@@ -405,10 +409,11 @@ impl WatchView {
             WatchView::Layers => "layers",
             WatchView::Beds => "beds",
             WatchView::Demo => "demo",
+            WatchView::Core => "core",
         }
     }
     fn parse(s: &str) -> Option<Self> {
-        let all = [WatchView::Neutrons, WatchView::Generations, WatchView::Kinf, WatchView::Geometry, WatchView::Layers, WatchView::Beds, WatchView::Demo];
+        let all = [WatchView::Neutrons, WatchView::Generations, WatchView::Kinf, WatchView::Geometry, WatchView::Layers, WatchView::Beds, WatchView::Demo, WatchView::Core];
         // `fuel` is the htr10 rung's name for its k_inf view.
         if s == "fuel" {
             return Some(WatchView::Kinf);
@@ -426,11 +431,12 @@ impl WatchView {
             WatchView::Layers => rung.sweep().is_some(),
             WatchView::Beds => rung.beds(),
             WatchView::Demo => rung.walk_demo().is_some(),
+            WatchView::Core => rung.has_core_pool(),
         };
         if has(self) {
             return self;
         }
-        [WatchView::Neutrons, WatchView::Geometry, WatchView::Layers, WatchView::Kinf, WatchView::Demo].into_iter().find(|&v| has(v)).unwrap_or(WatchView::Neutrons)
+        [WatchView::Neutrons, WatchView::Core, WatchView::Geometry, WatchView::Layers, WatchView::Kinf, WatchView::Demo].into_iter().find(|&v| has(v)).unwrap_or(WatchView::Neutrons)
     }
 }
 
@@ -615,6 +621,10 @@ impl McApp {
                 Screen::Layers(Layers { slicer: Slicer::new(info, 0, n), sweep, n })
             }
             (Mode::Watch, WatchView::Beds, _) if self.rung.beds() => Screen::Beds(crate::beds::BedsView::new()),
+            (Mode::Watch, WatchView::Core, _) if self.rung.has_core_pool() && self.rung.raster_info().is_some() => {
+                let info = self.rung.raster_info().expect("checked");
+                Screen::Core(crate::htr10::core::screen::CoreScreen::new(info, self.speed_at_1ev, self.autostart))
+            }
             (Mode::Watch, WatchView::Kinf, _) if self.rung.kinf_case().is_some() => {
                 let mut k = KinfRun::new(self.rung.kinf_case().expect("checked"));
                 if self.autostart {
@@ -654,6 +664,7 @@ impl McApp {
                         self.phase = Phase::Failed(e);
                     }
                 }
+                (Phase::Ready(Screen::Core(c)), Event::Raster { req, map, secs }) => c.slicer.receive(ctx, req, map, secs),
                 (_, Event::XsCurves(c)) => {
                     self.xs_shown = vec![true; c.len()];
                     self.xs = c;
@@ -702,6 +713,7 @@ impl McApp {
             }
             Phase::Ready(Screen::Beds(_)) => format!("{name} · liberties: lattice vs random bed"),
             Phase::Ready(Screen::Walk(w)) => format!("{name} · {}", w.status()),
+            Phase::Ready(Screen::Core(c)) => format!("{name} · {}", c.title()),
             Phase::Failed(e) => format!("{name} · FAILED · {e}"),
         };
         if t != self.title {
@@ -736,6 +748,7 @@ impl eframe::App for McApp {
                 // Raster requests go out from the main view, which knows its size.
                 Screen::Geometry(_) | Screen::Layers(_) | Screen::Beds(_) => {}
                 Screen::Walk(w) => send_walk(Some(link), w.pump()),
+                Screen::Core(c) => c.pump(&ctx),
             }
         }
         if matches!(self.phase, Phase::Loading(_)) {
@@ -774,7 +787,7 @@ impl McApp {
         let mut want_view: Option<WatchView> = None;
         let link = self.link.as_ref();
         let rung = self.rung;
-        let views = [WatchView::Neutrons, WatchView::Geometry, WatchView::Layers, WatchView::Beds, WatchView::Generations, WatchView::Kinf, WatchView::Demo]
+        let views = [WatchView::Neutrons, WatchView::Core, WatchView::Geometry, WatchView::Layers, WatchView::Beds, WatchView::Generations, WatchView::Kinf, WatchView::Demo]
             .into_iter()
             .filter(|&v| v.for_rung(rung) == v)
             .collect::<Vec<_>>();
@@ -820,6 +833,10 @@ impl McApp {
                 }
                 send_walk(link, w.panel(ui));
             }
+            Phase::Ready(Screen::Core(c)) => {
+                want_view = Self::watch_view_picker(ui, WatchView::Core, &views);
+                c.panel(ui);
+            }
         }
         if let Some(v) = want_view {
             // A view may need other data (htr10's k_inf loads its tapes):
@@ -857,6 +874,7 @@ impl McApp {
                     WatchView::Layers => "layers (recorded k)",
                     WatchView::Beds => "liberties: lattice vs random bed",
                     WatchView::Demo => "the demo",
+                    WatchView::Core => "whole core (neutrons, live k)",
                 };
                 ui.selectable_value(&mut v, w, label);
             }
@@ -1450,8 +1468,8 @@ impl McApp {
         let xs_on = self.xs_on && !self.xs.is_empty() && matches!(self.phase, Phase::Ready(Screen::Tracks(_)));
         // The layers view splits the same way: the bed beside its plot.
         let is_layers = matches!(self.phase, Phase::Ready(Screen::Layers(_)));
-        let is_slice = is_layers || matches!(self.phase, Phase::Ready(Screen::Geometry(_)));
         let is_beds = matches!(self.phase, Phase::Ready(Screen::Beds(_)));
+        let is_slice = is_layers || matches!(self.phase, Phase::Ready(Screen::Geometry(_) | Screen::Core(_)));
         let (rect, xs_rect) = if !(xs_on || is_layers) {
             (full, None)
         } else if full.width() >= 700.0 && full.width() > full.height() {
@@ -1582,6 +1600,7 @@ impl McApp {
                 }
             }
             Phase::Ready(Screen::Beds(b)) => b.draw(ui, rect, &painter, &geo_resp),
+            Phase::Ready(Screen::Core(c)) => c.canvas(ui, rect, &painter, &geo_resp, self.link.as_ref()),
             Phase::Ready(Screen::Layers(ly)) => {
                 Self::slice_view(ui, rect, &painter, &geo_resp, &mut ly.slicer, self.link.as_ref());
                 if let Some(pr) = xs_rect {
@@ -1633,6 +1652,7 @@ impl McApp {
             Phase::Ready(Screen::Layers(ly)) => (Some(&mut ly.slicer.view), rect),
             Phase::Ready(Screen::Beds(b)) => (Some(&mut b.view), rect),
             Phase::Ready(Screen::Walk(w)) => (Some(w.view_mut()), zoom_rect),
+            Phase::Ready(Screen::Core(c)) => (Some(&mut c.slicer.view), rect),
             _ => (None, rect),
         };
         if let Some(v) = &sview {

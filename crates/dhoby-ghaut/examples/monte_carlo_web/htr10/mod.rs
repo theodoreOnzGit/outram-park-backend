@@ -18,6 +18,7 @@
 //! and tracks through the core would need every core material's data. The
 //! layers view shows the recorded results instead.
 
+pub mod core;
 pub mod model;
 #[cfg(not(target_arch = "wasm32"))]
 pub mod render;
@@ -127,6 +128,10 @@ impl McRung for Htr10 {
     }
     /// The liberties toggle: lattice bed beside the DEM bed (gh:#787).
     fn beds() -> bool {
+        true
+    }
+    /// The whole core, live on a worker pool (gh:#786, [`core`]).
+    fn core_pool() -> bool {
         true
     }
     fn raster_info() -> Option<RasterInfo> {
