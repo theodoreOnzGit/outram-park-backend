@@ -69,9 +69,24 @@ fn options(t: Translator) -> TranslateOptions {
             day_suffixes: Vec::new(),
             utc_offset_minutes: offset,
         },
+        // The server's clock when the references were recorded (RIS reads
+        // `new Date()` for an access date without a time of day).
+        now_unix_secs: Some(iso_to_unix(manifest["generatedOn"].as_str().unwrap())),
         ..TranslationEnv::default()
     };
     o
+}
+
+/// `YYYY-MM-DDThh:mm:ss[.sss]Z` as seconds since the epoch.
+fn iso_to_unix(s: &str) -> i64 {
+    let n = |a: usize, b: usize| s[a..b].parse::<i64>().unwrap();
+    let (y, m, d) = (n(0, 4), n(5, 7), n(8, 10));
+    let y2 = if m <= 2 { y - 1 } else { y };
+    let era = y2.div_euclid(400);
+    let yoe = y2 - era * 400;
+    let doy = (153 * ((m + 9) % 12) + 2) / 5 + d - 1;
+    let days = era * 146_097 + yoe * 365 + yoe / 4 - yoe / 100 + doy - 719_468;
+    days * 86_400 + n(11, 13) * 3600 + n(14, 16) * 60 + n(17, 19)
 }
 
 /// One difference between upstream and the port.
@@ -469,8 +484,20 @@ fn biblatex_export_matches_upstream() {
     assert_known(&["export/biblatex"], d);
 }
 
-/// **RIS import** against upstream: the translator's 12 testCases and
-/// `fixtures/import/*.ris`.
+/// **RIS import** against upstream: the translator's 12 testCases (testCase02
+/// and testCase04 cover every RIS type and tag: 143 and 285 items) and
+/// `fixtures/import/*.ris` (upstream's book_and_child_note.ris, the kovan
+/// probe dates_and_entities.ris); 14 cases, 452 Web API items in all.
+///
+/// **Prediction (written before the first run, 2026-10-07):** exact on all
+/// 14 cases, since RIS import calls only `strToDate`, `cleanDOI` and
+/// `unescapeHTML`, and `strToDate` is identical in the server's utilities
+/// (1dd38e27) and kovan-common's port (4051881d). The one clock-dependent
+/// path (an access date without a time, :1663, local time of day of
+/// `new Date()`) runs with "now" = the manifest's `generatedOn`.
+///
+/// **Result (2026-10-07):** pass, 14/14 cases identical, no known
+/// differences. Prediction confirmed.
 #[test]
 fn ris_import_matches_upstream() {
     let (d, n) = import_diffs(Translator::Ris);
@@ -478,26 +505,70 @@ fn ris_import_matches_upstream() {
     assert_known(&["import/ris"], d);
 }
 
-/// **RIS export** against upstream, every export list.
+/// **RIS export** against upstream, every export list (84: itemJSON's 37
+/// types one by one and together, the items of every BibTeX, RIS and CSL
+/// JSON import case, the kovan probes). Upstream runs RIS in legacy mode
+/// (minVersion 3.0.4 < 4.0.27), so the framework's
+/// `itemToLegacyExportFormat` and SQL access dates are exercised.
+///
+/// **Prediction (before the first run, 2026-10-07):** exact on all 84.
+///
+/// **Result (2026-10-07):** pass, 84/84 texts byte-identical, no known
+/// differences. This includes `DA  - 2021/05//undefined` for the probe date
+/// "2021 May" (#748 open item (b): upstream's strToDate does produce a
+/// literal "undefined" part) and `Y2  - 2020/03/04/05:06:07` from a legacy
+/// SQL access date.
 #[test]
 fn ris_export_matches_upstream() {
     let (d, n) = export_diffs(Translator::Ris);
-    assert!(n > 80, "{n}");
+    assert_eq!(n, 84);
     assert_known(&["export/ris"], d);
 }
 
-/// **RIS round trip**: upstream's export re-imported by the port.
+/// **RIS round trip**: upstream's RIS export of each of the 84 lists,
+/// imported by the port the way the server's `/import` does (detection,
+/// then the first translator), compared with upstream's re-import.
+///
+/// **Prediction (before the first run, 2026-10-07):** exact.
+///
+/// **Result (2026-10-07):** pass, 84/84 cases identical (581 items).
 #[test]
 fn ris_roundtrip_matches_upstream() {
-    let (d, _) = roundtrip_diffs(Translator::Ris);
+    let (d, n) = roundtrip_diffs(Translator::Ris);
+    assert_eq!(n, 84);
     assert_known(&["roundtrip/ris"], d);
 }
 
 /// **RIS import → export → import** stable on the same cases as upstream.
+///
+/// **Result (2026-10-07):** upstream's chain is stable on 10 of the 14 RIS
+/// import cases, and the port's on exactly the same 10. What changes in the
+/// four unstable cases (checked in the references, 2026-10-07): testCase01
+/// loses Extra (RIS export has no tag for it); testCase02/04 change item
+/// types (degenerate types, e.g. `document` -> GEN -> journalArticle),
+/// dates and access dates (placeholders such as "0000 Year Date" and
+/// "Access Date" are not dates on export), Extra, creators, pages;
+/// dates_and_entities loses the markup in its title (re-import runs
+/// `unescapeHTML`) and "2021 May" comes back as "2021-05" (PY/DA).
 #[test]
 fn ris_chain_stable_where_upstream_is() {
     let (u, p) = stability(Translator::Ris);
     assert_eq!(p, u);
+    assert_eq!(
+        u,
+        [
+            "book_and_child_note",
+            "testCase00",
+            "testCase03",
+            "testCase05",
+            "testCase06",
+            "testCase07",
+            "testCase08",
+            "testCase09",
+            "testCase10",
+            "testCase11"
+        ]
+    );
 }
 
 /// **Zotero.Utilities helpers** against upstream's utilities.js run
