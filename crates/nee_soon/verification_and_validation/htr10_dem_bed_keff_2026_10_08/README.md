@@ -10,6 +10,13 @@
 **Commit:** `713cd5bb60`, a worktree branch off `develop` at `ac0adb5084`.
 **Approved as:** option A of gh:#787, 2026-10-08.
 
+**Rebase note.** After the run, the branch was rebased onto `develop` at `d74cc652e7`, so the commit the run was built from is no longer on the branch; the run's code changes are now commit `eed51a2f9c` (the driver knob, the reader and the cut; rebased from `b10afbbb12`). The rebase also brought in #786's library changes:
+
+- `Nuclide::from_tape` split into `process_evaluation` + `from_processed`;
+- a new distributed power iteration, which this driver does not call.
+
+#786 pins both as bit for bit the old routes (`tests/processed_evaluation_round_trip.rs`; the distributed module's own tests). **That this run's k is reproduced bit for bit on the rebased commit has not been checked** (HTR-10 transport was not to be re-run). To rebuild the exact binary, check out `ac0adb5084` and cherry-pick `eed51a2f9c`.
+
 **Files:**
 - `logs/run_dem_e8_N12.log`: the run log.
 - `logs/smoke_1000x2p3.log`: the smoke run.

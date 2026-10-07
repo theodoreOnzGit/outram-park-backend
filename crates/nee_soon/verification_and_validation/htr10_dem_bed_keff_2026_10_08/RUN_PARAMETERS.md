@@ -14,7 +14,7 @@ apply. The one new item is the bed.
 
 | Item | Value |
 |---|---|
-| Commit the run was built from | `713cd5bb60adbdc99dadbb2405bc3aa73a5eff8f` (`logs/commit.txt`), a worktree branch off `develop` at `ac0adb5084`. **Differs**: the record used `dbb9e26e`. The only transport-side change between them is `7ee55f283a` (#784 tracking events), which draws no random number and is pinned bit-identical. |
+| Commit the run was built from | `713cd5bb60adbdc99dadbb2405bc3aa73a5eff8f` (`logs/commit.txt`), a worktree branch off `develop` at `ac0adb5084`. **Differs**: the record used `dbb9e26e`. The only transport-side change between them is `7ee55f283a` (#784 tracking events), which draws no random number and is pinned bit-identical. See the rebase note below the table. |
 | Submodule `reference-data/ace` | `6440b6dfe07a5f861101df16424e75aa47d34bce` (same) |
 | DEM bed | `reference-data/liggghts/htr10_conus_presettled_mu10_mur00.csv`, sha256 `43684afaf4247b04261f85ed5bf8b69e831b3d6573e628fbaa5c061daff1e553`. The gh:#216 `GranularSystem` bed at µ = 0.1, µ_r = 0. Provenance: `crates/dhoby-ghaut/verification_and_validation/htr10_dem_bed_bake/README.md`. **New.** |
 | Rust toolchain | `rustc 1.98.0 (88d9e12ae 2026-08-18)`, `cargo 1.98.0`. **Differs**: the record used 1.98.1. |
@@ -22,10 +22,16 @@ apply. The one new item is the bed.
 | Example | `crates/nee_soon/examples/htr10_rmc_keff.rs` (same), with the new `OUTRAM_HTR10_DEM_BED` knob |
 | Hardware | Intel Core i9-13900K, 16 logical CPUs visible, 62.5 GiB RAM, Linux 7.2.7-arch1-1, CPU only. Shared with other agents' jobs; load average 4–16 during the run. **Differs**: the record ran on a Xeon W-2195. |
 
+**Rebase note.** After the run, the branch was rebased onto `develop` at `d74cc652e7`, so the commit the run was built from is no longer on the branch; the run's code changes are now commit `eed51a2f9c` (the driver knob, the reader and the cut; rebased from `b10afbbb12`). The rebase also brought in #786's library changes:
+- `Nuclide::from_tape` split into `process_evaluation` + `from_processed`;
+- a new distributed power iteration, which this driver does not call.
+
+#786 pins both as bit for bit the old routes (`tests/processed_evaluation_round_trip.rs`; the distributed module's own tests). **That this run's k is reproduced bit for bit on the rebased commit has not been checked** (HTR-10 transport was not to be re-run). To rebuild the exact binary, check out `ac0adb5084` and cherry-pick `eed51a2f9c`.
+
 ## 2. Reproduce
 
 ```bash
-git checkout 713cd5bb60
+git checkout ac0adb5084 && git cherry-pick eed51a2f9c   # the run's 713cd5bb60 (see section 1)
 git submodule update --init reference-data/ace
 cargo build --release -j 5 -p nee_soon --example htr10_rmc_keff
 cargo test  --release -j 5 -p nee_soon --lib dem_   # the reader, the cut, the beds-view identity
