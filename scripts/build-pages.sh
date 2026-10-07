@@ -173,6 +173,12 @@ bash crates/dhoby-ghaut/web/triso_atops/build.sh "$OUT/demos/triso-atops"
 # The DEM pour demo (gh:#787): HTR-10 pebbles poured and settled in the
 # browser by the LIGGGHTS port; the full-size gh:#216 bed is compiled in.
 bash crates/dhoby-ghaut/web/dem/build.sh "$OUT/demos/dem"
+# Delta vs surface tracking, step by step (gh:#784): reads the Monte Carlo
+# demo's tapes from ../monte-carlo/data/, so it is built after that one.
+bash crates/dhoby-ghaut/web/delta_tracking/build.sh "$OUT/demos/delta-tracking"
+for f in index.html worker.js delta_tracking_web_bg.wasm; do
+  [[ -f "$OUT/demos/delta-tracking/$f" ]] || { echo "missing demos/delta-tracking/$f" >&2; exit 1; }
+done
 mkdir -p "$OUT/demos/triso-pebble/geometry"
 cp crates/dhoby-ghaut/web/monte_carlo/triso-pebble-redirect.html "$OUT/demos/triso-pebble/index.html"
 printf '%s\n' '<!DOCTYPE html><html lang="en"><head><meta charset="utf-8">' \

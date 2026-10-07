@@ -225,6 +225,19 @@ web-sys = { workspace = true, features = [
 name = "monte_carlo_web"
 path = "examples/monte_carlo_web/main.rs"
 
+# Delta tracking against surface tracking, step by step, side by side
+# (gh:#784): rung 5 of the Monte Carlo tutorial. The same neutron in the
+# `triso` rung's 2D TRISO cell, through outram-mc-libs' surface tracker and
+# its delta tracker, with "Run many" (k-inf both ways, cost per history) and
+# a "majorant too low" switch (web/delta_tracking/, demos/delta-tracking/).
+#
+#   cargo run -p dhoby-ghaut --example delta_tracking_web --release [-- --headless-run]
+#
+# Carries an Android stub `main`.
+[[example]]
+name = "delta_tracking_web"
+path = "examples/delta_tracking_web/main.rs"
+
 # The dispersion demo -- one app, a rung of the dispersion lesson ladder at a
 # time (gh:#530; deep-dives/dispersion/rungs/): steady plume, sigma curves,
 # plume rise and wake, the puff train in a turning wind, deposition, dose
