@@ -684,6 +684,9 @@ impl CodeReview {
             }
             if let Some(b) = &snap.build {
                 ui.label(format!("built from {} @ {}", b.repo, &b.commit[..b.commit.len().min(10)]));
+                if let Some(cg) = &b.call_graph {
+                    ui.label(format!("call graph: {} backend, {}", cg.backend, cg.rust_analyzer));
+                }
             }
             for e in &snap.errors {
                 ui.colored_label(Color32::from_rgb(255, 130, 130), e);
@@ -699,6 +702,9 @@ impl CodeReview {
             Mode::Web => "Web: read-only.",
             Mode::Desktop => "Desktop mode (stamping not implemented yet, #740).",
         });
+        if let Some(w) = snap.build.as_ref().and_then(|b| b.call_graph.as_ref()).and_then(|c| c.warning()) {
+            ui.colored_label(Color32::from_rgb(255, 130, 130), w);
+        }
         if let Some(ix) = &snap.index {
             ui.label(format!("Call graph in this build: {} crates, {} functions.", ix.crates.len(), ix.totals.functions));
             ui.horizontal_wrapped(|ui| {
