@@ -33,8 +33,14 @@
 //!            ├─ option effect = block ───────────────────────────────> blocked_by: Answer
 //!            ├─ option effect = prompt_needs_fix ────────────────────> prompts ("Mark as Needs fix instead?")
 //!            ├─ option effect = flag ────────────────────────────────> flags (needs improvement; never blocks)
-//!            └─ rung4_allowed = some gate_rung4 answer (vv_evidence)
-//!                               AND no no_rung4 answer (self-check)
+//!            ├─ rung4_allowed = some gate_rung4 answer (vv_evidence)
+//!            │    AND a gate_rung4_author answer (vv_case_author =
+//!            │    human_wrote_and_verified; added 2026-10-07)
+//!            │    (~~AND no no_rung4 answer (self-check)~~ CORRECTED
+//!            │     2026-10-07, maintainer on #769: independence gates
+//!            │     rung 5, not rung 4)
+//!            └─ independent = independence answered, no not_independent
+//!                 answer (self-check / other): may be rung 5's second review
 //!               rung = rung_4 while !rung4_allowed ──────────────────> blocked_by: Rung4NotOpen
 //! ```
 //!
@@ -101,6 +107,9 @@ pub enum AppliesWhen {
 pub enum Prefill {
     /// Commit author plus agent trailer ([`independence_prefill`]).
     GitAuthorship,
+    /// The agent trailer on the commits that added the tests reaching the
+    /// function ([`vv_case_author_prefill`]).
+    GitTestAuthorship,
 }
 
 /// What choosing an option does to the stamp.
@@ -114,10 +123,17 @@ pub enum Effect {
     Block,
     /// Needs improvement; never blocks.
     Flag,
-    /// Opens rung 4.
+    /// Qualifying V&V evidence: half of opening rung 4.
     GateRung4,
-    /// Rung 4 is closed whatever else is answered.
-    NoRung4,
+    /// The V&V case was written and verified by hand, without AI agents:
+    /// the other half (maintainer, #769, 2026-10-07).
+    GateRung4Author,
+    /// The reviewer is not independent of the code: the stamp still counts
+    /// at rung 3 or 4, but cannot be rung 5's independent second review.
+    /// ~~`NoRung4`: rung 4 is closed whatever else is answered~~
+    /// **CORRECTED 2026-10-07** (maintainer, #769). `no_rung4` still reads.
+    #[serde(alias = "no_rung4")]
+    NotIndependent,
     /// Refused unless rung 4 is open.
     NeedsRung4Gate,
 }
@@ -337,8 +353,13 @@ pub struct GateResult {
     pub prompts: Vec<Choice>,
     /// Needs-improvement flags (never block).
     pub flags: Vec<Choice>,
-    /// A `gate_rung4` answer and no `no_rung4` answer.
+    /// A `gate_rung4` answer and a `gate_rung4_author` answer (~~and no
+    /// `no_rung4` answer~~ CORRECTED 2026-10-07: independence does not close
+    /// rung 4; the hand-written V&V case opens it with the evidence).
     pub rung4_allowed: bool,
+    /// `independence` is answered and no answer is `not_independent`: this
+    /// stamp may be the independent second review for rung 5.
+    pub independent: bool,
 }
 
 impl GateResult {
@@ -515,7 +536,8 @@ impl ReviewWizard {
     pub fn stamp_gate(&self, answers: &BTreeMap<String, String>, ctx: Applicability) -> GateResult {
         let mut g = GateResult::default();
         let mut opens = false;
-        let mut closes = false;
+        let mut opens_author = false;
+        let mut not_independent = false;
         let mut wants_rung4 = false;
         for (q, raw) in answers {
             let o = match self.check_answer(q, raw, ctx) {
@@ -535,7 +557,8 @@ impl ReviewWizard {
                 Effect::PromptNeedsFix => g.prompts.push(c),
                 Effect::Flag => g.flags.push(c),
                 Effect::GateRung4 => opens = true,
-                Effect::NoRung4 => closes = true,
+                Effect::GateRung4Author => opens_author = true,
+                Effect::NotIndependent => not_independent = true,
                 Effect::NeedsRung4Gate => wants_rung4 = true,
             }
         }
@@ -544,7 +567,8 @@ impl ReviewWizard {
                 g.blocked_by.push(GateReason::Unanswered(q.key.clone()));
             }
         }
-        g.rung4_allowed = opens && !closes;
+        g.rung4_allowed = opens && opens_author;
+        g.independent = answers.contains_key("independence") && !not_independent;
         if wants_rung4 && !g.rung4_allowed {
             g.blocked_by.push(GateReason::Rung4NotOpen);
         }
@@ -580,6 +604,19 @@ impl Question {
 /// [`ReviewWizard::stamp_gate`] over the embedded question set.
 pub fn stamp_gate(answers: &BTreeMap<String, String>, ctx: Applicability) -> GateResult {
     ReviewWizard::embedded().stamp_gate(answers, ctx)
+}
+
+/// The pre-filled answer to `vv_case_author` from the messages of the
+/// commits that added the tests reaching the function (maintainer, #769,
+/// 2026-10-07): any agent trailer -> `agent_wrote_or_cowrote`; none ->
+/// `human_wrote_and_verified`, which the reviewer still confirms (git sees
+/// only who wrote the case, not that its result was verified by hand). No
+/// commits known -> no pre-fill.
+pub fn vv_case_author_prefill(test_commit_messages: &[String]) -> Option<&'static str> {
+    super::types::authorship_from_messages(test_commit_messages).map(|a| match a.kind {
+        AuthorshipKind::Human => "human_wrote_and_verified",
+        AuthorshipKind::Agent | AuthorshipKind::Mixed => "agent_wrote_or_cowrote",
+    })
 }
 
 /// The pre-filled answer to `independence` (#769, 2026-10-07: "pre-filled
@@ -621,6 +658,7 @@ mod tests {
             ("numerical_hazards", "none_found"),
             ("test_reach", "reached_and_checked"),
             ("vv_evidence", "unit_tests_only"),
+            ("vv_case_author", "agent_wrote_or_cowrote"),
             ("maintainability", "yes"),
             ("independence", "someone_else"),
             ("unintended_function", "no"),
@@ -645,7 +683,9 @@ mod tests {
     /// conditional questions are the decided ones; and the four options
     /// added on #769 are present with their decided effects.
     ///
-    /// Result (2026-10-07): passes; 13 questions, 11 always asked.
+    /// Result (2026-10-07): passes; 13 questions, 11 always asked. Since the
+    /// `vv_case_author` question (2026-10-07, later the same day): 14
+    /// questions, 12 always asked.
     #[test]
     fn embedded_question_set_is_valid() {
         let w = ReviewWizard::embedded();
@@ -661,6 +701,7 @@ mod tests {
                 "numerical_hazards",
                 "test_reach",
                 "vv_evidence",
+                "vv_case_author",
                 "maintainability",
                 "independence",
                 "unintended_function",
@@ -668,8 +709,8 @@ mod tests {
                 "rung",
             ]
         );
-        assert_eq!(w.applicable(NONE).count(), 11);
-        assert_eq!(w.applicable(BOTH).count(), 13);
+        assert_eq!(w.applicable(NONE).count(), 12);
+        assert_eq!(w.applicable(BOTH).count(), 14);
         assert_eq!(
             w.question("upstream_fidelity").unwrap().applies_when,
             AppliesWhen::Port
@@ -711,7 +752,7 @@ mod tests {
             eff("coding_standards", "deviates_not_justified"),
             Effect::PromptNeedsFix
         );
-        assert_eq!(eff("independence", "self_check"), Effect::NoRung4);
+        assert_eq!(eff("independence", "self_check"), Effect::NotIndependent);
         assert_eq!(
             w.question("upstream_fidelity")
                 .unwrap()
@@ -951,9 +992,11 @@ requires_text = true
     }
 
     /// Methodology: the rung-4 gate (#740 U4, widened on #769): each of the
-    /// three qualifying V&V answers opens rung 4, the others do not; a
-    /// self-check (or an unstated author) closes it; asking for rung 4
-    /// while it is closed blocks with `Rung4NotOpen`.
+    /// three qualifying V&V answers opens rung 4, the others do not; ~~a
+    /// self-check (or an unstated author) closes it~~ **CORRECTED
+    /// 2026-10-07** (maintainer, #769): a self-check (or an unstated author)
+    /// leaves rung 4 open and only marks the stamp not independent (no rung
+    /// 5); asking for rung 4 while it is closed blocks with `Rung4NotOpen`.
     ///
     /// Result (2026-10-07): passes.
     #[test]
@@ -968,6 +1011,7 @@ requires_text = true
         ] {
             let mut m = clean();
             m.insert("vv_evidence".into(), vv.into());
+            m.insert("vv_case_author".into(), "human_wrote_and_verified".into());
             m.insert("rung".into(), "rung_4".into());
             let g = stamp_gate(&m, NONE);
             assert_eq!(g.rung4_allowed, open, "{vv}");
@@ -979,8 +1023,11 @@ requires_text = true
         for who in ["self_check", "other: pair-programmed"] {
             let mut m = clean();
             m.insert("vv_evidence".into(), "analytical_case".into());
+            m.insert("vv_case_author".into(), "human_wrote_and_verified".into());
             m.insert("independence".into(), who.into());
-            assert!(!stamp_gate(&m, NONE).rung4_allowed, "{who}");
+            let g = stamp_gate(&m, NONE);
+            assert!(g.rung4_allowed, "independence does not close rung 4: {who}");
+            assert!(!g.independent, "{who}");
             assert!(
                 stamp_gate(&m, NONE).stampable(),
                 "rung 3 stays available: {who}"
@@ -995,6 +1042,20 @@ requires_text = true
                 option: "other".into()
             })]
         );
+        // Rung 4 needs the hand-written case too (maintainer, #769).
+        for author in ["agent_wrote_or_cowrote", "other: pair-programmed with an agent"] {
+            let mut m = clean();
+            m.insert("vv_evidence".into(), "analytical_case".into());
+            m.insert("vv_case_author".into(), author.into());
+            assert!(!stamp_gate(&m, NONE).rung4_allowed, "{author}");
+        }
+        let msgs = |t: &[&str]| t.iter().map(|s| s.to_string()).collect::<Vec<_>>();
+        assert_eq!(vv_case_author_prefill(&msgs(&["add test"])), Some("human_wrote_and_verified"));
+        assert_eq!(
+            vv_case_author_prefill(&msgs(&["add test", "x\n\nClaude-Session: https://claude.ai/code/s"])),
+            Some("agent_wrote_or_cowrote")
+        );
+        assert_eq!(vv_case_author_prefill(&[]), None);
     }
 
     /// Methodology: malformed answers block as `Invalid` with a typed

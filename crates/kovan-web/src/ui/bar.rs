@@ -14,6 +14,8 @@
 
 use egui::{Color32, RichText};
 
+use kovan_common::review::state::Tone;
+
 use crate::model::Review;
 use crate::Mode;
 
@@ -47,21 +49,32 @@ pub enum BarAction {
     ViewSource,
 }
 
-/// The stamp state's colour, shared with the cards.
-pub fn review_colour(r: &Review) -> Color32 {
-    match r {
-        Review::Unreviewed => Color32::from_rgb(150, 156, 168),
-        Review::Valid(_) => Color32::from_rgb(90, 190, 110),
-        Review::Stale(_) => Color32::from_rgb(235, 160, 60),
+/// The colour of a state's tone ([`Tone`], shared by every view).
+pub fn tone_colour(t: Tone) -> Color32 {
+    match t {
+        Tone::Neutral => Color32::from_rgb(150, 156, 168),
+        Tone::Good => Color32::from_rgb(90, 190, 110),
+        Tone::Attention => Color32::from_rgb(235, 160, 60),
+        Tone::Blocked => Color32::from_rgb(220, 80, 80),
     }
 }
 
-/// `"valid · rung 3 · Theodore Ong · 2026-10-06"`, or `"unreviewed"`.
+/// The stamp state's colour, shared with the cards.
+pub fn review_colour(r: &Review) -> Color32 {
+    tone_colour(r.kind().tone())
+}
+
+/// `"valid · rung 3 · Theodore Ong · 2026-10-06"`, `"unreviewed"`, or the
+/// state's label with its reason, e.g. `"changed since review (code
+/// changed) · was rung 3 · …"`.
 pub fn review_text(r: &Review) -> String {
     match r {
-        Review::Unreviewed => "unreviewed".into(),
-        Review::Valid(s) => format!("valid · rung {} · {} · {}", s.rung, s.reviewer, s.date),
-        Review::Stale(s) => format!("stale ({}) · was rung {} · {} · {}", s.reason, s.rung, s.reviewer, s.date),
+        Review::Unreviewed => r.label().into(),
+        Review::Stamped(k, s) if k.counts() => format!("{} · rung {} · {} · {}", k.label(), s.rung, s.reviewer, s.date),
+        Review::Stamped(k, s) => {
+            let why = if s.reason.is_empty() { String::new() } else { format!(" ({})", s.reason) };
+            format!("{}{why} · was rung {} · {} · {}", k.label(), s.rung, s.reviewer, s.date)
+        }
     }
 }
 

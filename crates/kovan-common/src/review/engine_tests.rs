@@ -493,13 +493,15 @@ fn rung4_gated_by_the_wizard() {
 }
 
 /// Rung 5: a second valid review by someone who is neither the first
-/// reviewer nor a code author, and who holds a qualification covering the
-/// function's concept area. Without the area, the qualification or the
+/// reviewer nor a code author, who answered `independence = someone_else`,
+/// and who holds a qualification covering the function's concept area. Without the area, the qualification or the
 /// independence it stays at the reviews' own rung. Qualification is shown
 /// but not enforced below rung 5.
 #[test]
 fn rung5_needs_independent_qualified_second_reviewer() {
-    let revs = [reviews_in("x", D, vec![review(F, M, 'a', &[]), review(F, R, 'a', &[])])];
+    let mut second = review(F, R, 'a', &[]);
+    second.review.checklist.insert("independence".into(), "someone_else".into());
+    let revs = [reviews_in("x", D, vec![review(F, M, 'a', &[]), second.clone()])];
     let idx = [folder("x", D, &[("a.rs", vec![fun(F, 'a', &[], &[])])])];
     let refs: Vec<&FolderReviews> = revs.iter().collect();
     let g = git_for(&refs);
@@ -524,6 +526,23 @@ fn rung5_needs_independent_qualified_second_reviewer() {
     let mut authored = g.clone();
     authored.code_authors.insert(fid(F), [R.to_string()].into());
     assert_eq!(rung(&rt, &authored, &areas), Some(3), "the second reviewer wrote the code");
+    // A self-check (or an unstated independence answer) is never the
+    // independent review, though it still counts at its own rung.
+    for who in [Some("self_check"), None] {
+        let mut sc = second.clone();
+        match who {
+            Some(w) => {
+                sc.review.checklist.insert("independence".into(), w.into());
+            }
+            None => {
+                sc.review.checklist.remove("independence");
+            }
+        }
+        let revs2 = [reviews_in("x", D, vec![review(F, M, 'a', &[]), sc])];
+        let ev = evaluate(&revs2, &idx, &rt, &git_for(&[&revs2[0]]), &areas, SignaturePolicy::NotChecked);
+        assert_eq!(ev.functions[&fid(F)].rung, Some(3), "{who:?}");
+        assert_eq!(ev.functions[&fid(F)].state, StampState::Valid);
+    }
     let single = [reviews_in("x", D, vec![review(F, R, 'a', &[])])];
     let ev = evaluate(&single, &idx, &rt, &git_for(&[&single[0]]), &areas, SignaturePolicy::NotChecked);
     assert_eq!(ev.functions[&fid(F)].rung, Some(3), "one reviewer is never rung 5");

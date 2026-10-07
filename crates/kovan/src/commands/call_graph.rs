@@ -837,6 +837,7 @@ pub fn stamp_states(root: &Path) -> Result<Vec<crate::call_graph::split::StampSt
                 date: c.stamp.date.to_string(),
                 note: c.stamp.note.clone(),
                 permalink: c.stamp.permalink(DEFAULT_REPO_URL),
+                state: None,
             })
         })
         .collect())

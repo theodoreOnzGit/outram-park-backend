@@ -55,7 +55,10 @@
 //! ([`effective_rung`]); otherwise it counts as rung 3 and is flagged. A
 //! function is at **rung 5** when, besides its earliest valid review, a
 //! valid review exists by a different reviewer who is not one of the code's
-//! authors (from git) **and** holds a qualification covering every concept
+//! authors (from git), whose wizard answer to `independence` is
+//! `someone_else` ([`ReviewReport::independent`]; maintainer on #769,
+//! 2026-10-07: independence gates rung 5, not rung 4) **and** who holds a
+//! qualification covering every concept
 //! area of the function ([`ConceptAreas`]; maintainer, #739, 2026-10-07:
 //! "only rung 5 enforces qualification"). A function with no known concept
 //! area cannot reach rung 5. Below rung 5 qualification is shown
@@ -328,6 +331,9 @@ pub struct ReviewReport {
     /// The reviewer's qualification labels, shown beside the stamp
     /// (self-declared ones say so).
     pub qualifications: Vec<String>,
+    /// The wizard says the reviewer is independent of the code
+    /// (`independence = "someone_else"`): may be rung 5's second review.
+    pub independent: bool,
 }
 
 /// One function, judged.
@@ -608,6 +614,7 @@ pub fn evaluate(
                 rung: Some(rung),
                 rung_capped: capped,
                 qualifications: qualification_labels(root, &b.by),
+                independent: stamp_gate(&b.checklist, Applicability::default()).independent,
             };
             // 1. Find the function.
             let (cur, candidates, matched) = match current.get(fid.as_str()) {
@@ -677,6 +684,7 @@ pub fn evaluate(
                     rung: None,
                     rung_capped: false,
                     qualifications: Vec::new(),
+                    independent: false,
                 }),
                 None => ev.orphan_unreadable.push(OrphanUnreadable {
                     dir: fr.dir.clone(),
@@ -968,7 +976,12 @@ fn function_rung(
     let authors = git.code_authors.get(id).unwrap_or(&no_authors);
     let independent = valid[1..]
         .iter()
-        .any(|r| r.by != first.by && !authors.contains(&r.by) && qualified_for(root, &r.by, id, concepts));
+        .any(|r| {
+            r.independent
+                && r.by != first.by
+                && !authors.contains(&r.by)
+                && qualified_for(root, &r.by, id, concepts)
+        });
     if independent {
         return Some(5);
     }
