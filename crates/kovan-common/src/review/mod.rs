@@ -17,6 +17,10 @@
 //!                                   architecture nodes         -> [`review_md`]
 //! ```
 //!
+//! Test evidence (#766) is a fourth, workspace-level file,
+//! `kovan_test_evidence.toml`, written by `kovan-cli test`; `kovan.toml`'s
+//! `[test_run]` is projected from it -> [`evidence`].
+//!
 //! # From source to state
 //!
 //! ```text
@@ -47,6 +51,7 @@
 //! - The staleness engine itself (#765): `engine::evaluate` in the picture
 //!   above is the next step and is not in this module yet.
 
+pub mod evidence;
 pub mod hash;
 pub mod index;
 pub mod review_md;
