@@ -137,15 +137,25 @@ const NMAX: usize = 10_000;
 /// Total duplication steps taken by the four Carlson forms, so
 /// `the_single_precision_mode_costs_what_it_was_measured_to_cost` can count
 /// what [`Mode::Single`] actually saves instead of asserting it.
+///
+/// Per-thread (gh:#774): a global counter was incremented by every other
+/// ellint test running concurrently, so the measured steps included their
+/// work. Each test runs on its own thread, so a thread-local count is
+/// exactly that test's own steps. Test-only; the hot path is unchanged.
 #[cfg(test)]
-pub(crate) static DUPLICATIONS: core::sync::atomic::AtomicUsize =
-    core::sync::atomic::AtomicUsize::new(0);
+extern crate std;
+
+#[cfg(test)]
+std::thread_local! {
+    pub(crate) static DUPLICATIONS: core::cell::Cell<usize> =
+        const { core::cell::Cell::new(0) };
+}
 
 /// Count one duplication step.
 #[inline]
 fn tick() {
     #[cfg(test)]
-    DUPLICATIONS.fetch_add(1, core::sync::atomic::Ordering::Relaxed);
+    DUPLICATIONS.with(|c| c.set(c.get() + 1));
 }
 
 fn max3(x: f64, y: f64, z: f64) -> f64 {
@@ -638,7 +648,6 @@ pub fn ellint_pcomp(k: f64, n: f64, mode: Mode) -> f64 {
 mod tests {
     extern crate std;
     use super::*;
-    use core::sync::atomic::Ordering;
 
     const PI_2: f64 = core::f64::consts::FRAC_PI_2;
 
@@ -855,7 +864,7 @@ mod tests {
         assert_eq!(Mode::Single.errtol(), 0.03);
 
         let sweep = |m: Mode| -> (usize, f64) {
-            let before = DUPLICATIONS.load(Ordering::Relaxed);
+            let before = DUPLICATIONS.with(|c| c.get());
             let mut worst = 0.0_f64;
             for i in 0..=200 {
                 let k = 0.999 * i as f64 / 200.0;
@@ -868,7 +877,7 @@ mod tests {
                 let _ = ellint_p(1.1, k, 0.3, m);
                 let _ = ellint_d(1.1, k, m);
             }
-            (DUPLICATIONS.load(Ordering::Relaxed) - before, worst)
+            (DUPLICATIONS.with(|c| c.get()) - before, worst)
         };
         let (steps_d, _) = sweep(Mode::Double);
         let (steps_s, worst_s) = sweep(Mode::Single);
