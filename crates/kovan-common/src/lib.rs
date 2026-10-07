@@ -20,7 +20,9 @@
 //! [`zotero`] (2026-10-07, GitHub #748): Zotero's item model comes with the
 //! conversions that define it (schema validation, CSL-JSON both ways, dates),
 //! placed here by maintainer direction so every kovan crate can read and
-//! write Zotero libraries.
+//! write Zotero libraries. Likewise [`review`] (2026-10-07, GitHub #764):
+//! the code-review schema comes with its function hash and validation,
+//! placed here by the #743 decision so web-kovan computes the same states.
 //!
 //! ## Module map
 //!
@@ -34,6 +36,11 @@
 //!   out of `kovan` on 2026-10-06 so the wasm web view (`kovan-web`, GitHub
 //!   #736) can use them. Plain `serde` + `std`; `kovan` re-exports each one
 //!   under its old path.
+//! - [`artifact`] — the kovan Markdown artifact scanner and the relation
+//!   (anchor) types, moved out of `kovan` on 2026-10-07 (GitHub #764).
+//! - [`review`] — code review's data model: `kovan_root.toml` reviewer
+//!   sections, per-folder `kovan.toml`, `review.md` entries, the function
+//!   hash and the signed-bytes encoding (GitHub #764).
 //! - [`zotero`] — Zotero's item model, schema, CSL-JSON conversion and the
 //!   [`KovanDocument`] mapping (GitHub #748), ported from Zotero (AGPL-3.0).
 //!
@@ -77,6 +84,13 @@ pub mod fuzzy;
 /// The star (ring) layout and the scrollable-canvas arithmetic of kovan's
 /// map views. Moved here from `kovan::mindmap_view` on 2026-10-06.
 pub mod mindmap_view;
+/// The kovan Markdown artifact scanner and the relation (anchor) types,
+/// moved here from `kovan::artifact` / `kovan::relation` on 2026-10-07
+/// (GitHub #743, #764); `kovan` re-exports them.
+pub mod artifact;
+/// Code review: `kovan_root.toml` reviewer sections, per-folder `kovan.toml`,
+/// `review.md` entries and the function hash (GitHub #764).
+pub mod review;
 /// Hypothesis-style robust annotation anchoring (W3C selectors, fuzzy re-anchoring; GitHub #754).
 pub mod anchoring;
 // Zotero's data model (GitHub #748); documented by its own `//!` block (an

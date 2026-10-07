@@ -36,7 +36,9 @@ use super::relations::{
     REPLACED_ITEM_PREDICATE,
 };
 
-/// `RelationKind::RelatedTo.as_str()` in `crates/kovan/src/relation.rs`.
+/// `RelationKind::RelatedTo.as_str()`: ~~in `crates/kovan/src/relation.rs`~~
+/// **CORRECTED 2026-10-07** defined in `crates/kovan-common/src/artifact/relation.rs`
+/// since GitHub #764 (re-exported by `kovan::relation`).
 pub const KIND_RELATED_TO: &str = "related_to";
 /// `entity::UNSORTED` in `crates/kovan/src/entity.rs`.
 pub const UNSORTED: &str = "unsorted";

@@ -373,6 +373,18 @@ pub struct RootConfig {
         skip_serializing_if = "crate::corpus_tiers::RepoTiers::is_empty"
     )]
     pub repos: crate::corpus_tiers::RepoTiers,
+    /// Code review settings (`[code_review]`, GitHub #764). Absent in a
+    /// literature library. Carried here so a save of `kovan_root.toml` keeps
+    /// it; its schema is [`kovan_common::review::root`].
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub code_review: Option<kovan_common::review::root::CodeReviewSettings>,
+    /// Code reviewers and their keys (`[[reviewer]]`, GitHub #764).
+    #[serde(default, rename = "reviewer", skip_serializing_if = "Vec::is_empty")]
+    pub reviewers: Vec<kovan_common::review::root::Reviewer>,
+    /// Review history of deleted or renamed crates (`[[deleted_crate]]`,
+    /// GitHub #764).
+    #[serde(default, rename = "deleted_crate", skip_serializing_if = "Vec::is_empty")]
+    pub deleted_crates: Vec<kovan_common::review::root::DeletedCrate>,
 }
 
 impl RootConfig {
@@ -392,6 +404,9 @@ impl RootConfig {
             corpora: CorporaConfig::default(),
             save: SaveConfig::default(),
             repos: crate::corpus_tiers::RepoTiers::default(),
+            code_review: None,
+            reviewers: Vec::new(),
+            deleted_crates: Vec::new(),
         }
     }
 

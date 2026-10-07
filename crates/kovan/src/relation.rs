@@ -116,7 +116,6 @@
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::{SystemTime, UNIX_EPOCH};
 
-use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 
 use crate::artifact::{
@@ -134,78 +133,11 @@ use crate::index::KnowledgeIndex;
 use crate::root::KovanRoot;
 use crate::session::{PaperSession, SessionError};
 
-/// What kind of relationship a [`UserRelation`] records between two nodes
-/// (the layer-1 prototype's `RelationKind`, ported verbatim).
-///
-/// Deliberately not exhaustive of every scientific-argument shape a user
-/// might want — it is the fixed vocabulary the prototype dogfooded and
-/// agreed on; widening it is a future decision, not something this module
-/// pre-empts by adding a catch-all variant.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub enum RelationKind {
-    /// A generic, otherwise-unclassified relationship.
-    RelatedTo,
-    /// The source's argument or data supports the target's.
-    Supports,
-    /// The source's argument or data contradicts the target's.
-    Contradicts,
-    /// The source was derived from the target (e.g. a fit derived from a
-    /// digitised dataset).
-    DerivedFrom,
-    /// The source uses data owned by the target (e.g. a model that consumes
-    /// a digitised graph's CSV payload).
-    UsesDataFrom,
-    /// The source validates the target against reality/experiment.
-    Validates,
-    /// The source was checked against the target as a verification
-    /// reference (numerics/implementation correctness, not physical
-    /// validity — see `VERIFICATION_AND_VALIDATION.md`'s verification vs.
-    /// validation distinction).
-    VerifiedAgainst,
-    /// The source implements a method/model the target describes.
-    Implements,
-}
-
-impl RelationKind {
-    /// Every variant, in the fixed order the layer-1 prototype declared
-    /// them. The one canonical ordering a UI cycles or lists through (e.g.
-    /// the PDF canvas connection picker, op-30um.3) — never re-derived
-    /// per call site.
-    pub const ALL: [RelationKind; 8] = [
-        RelationKind::RelatedTo,
-        RelationKind::Supports,
-        RelationKind::Contradicts,
-        RelationKind::DerivedFrom,
-        RelationKind::UsesDataFrom,
-        RelationKind::Validates,
-        RelationKind::VerifiedAgainst,
-        RelationKind::Implements,
-    ];
-
-    /// A short, lower-case, human-readable label, e.g. `"supports"` — reads
-    /// naturally inline ("this note supports that table").
-    pub fn label(self) -> &'static str {
-        match self {
-            Self::RelatedTo => "related to",
-            Self::Supports => "supports",
-            Self::Contradicts => "contradicts",
-            Self::DerivedFrom => "derived from",
-            Self::UsesDataFrom => "uses data from",
-            Self::Validates => "validates",
-            Self::VerifiedAgainst => "verified against",
-            Self::Implements => "implements",
-        }
-    }
-
-    /// The next variant in [`Self::ALL`]'s fixed order, wrapping back to the
-    /// first after the last — the whole implementation of a UI's "cycle
-    /// kind" button, so no call site hand-rolls its own wraparound.
-    pub fn next(self) -> Self {
-        let i = Self::ALL.iter().position(|k| *k == self).unwrap_or(0);
-        Self::ALL[(i + 1) % Self::ALL.len()]
-    }
-}
+/// The relation schema types, moved to `kovan_common::artifact::relation`
+/// on 2026-10-07 (GitHub #764) and re-exported here unchanged.
+pub use kovan_common::artifact::relation::{
+    CodeTarget, RelationKind, RelationRecord, Relations, CODE_PREFIX,
+};
 
 /// One user-authored relation between two graph nodes, in memory.
 ///
@@ -227,184 +159,6 @@ pub struct UserRelation {
     pub target: NodeId,
     /// What kind of relationship this is.
     pub kind: RelationKind,
-}
-
-impl RelationKind {
-    /// The snake_case wire name, as written in a relation artifact's
-    /// `[relation] kind` and shown in its heading.
-    pub fn as_str(self) -> &'static str {
-        match self {
-            Self::RelatedTo => "related_to",
-            Self::Supports => "supports",
-            Self::Contradicts => "contradicts",
-            Self::DerivedFrom => "derived_from",
-            Self::UsesDataFrom => "uses_data_from",
-            Self::Validates => "validates",
-            Self::VerifiedAgainst => "verified_against",
-            Self::Implements => "implements",
-        }
-    }
-}
-
-/// The `[relation]` table of a relation artifact.
-///
-/// Both endpoints are explicit: a relation is its own artifact now, not a
-/// record nested inside the thing it starts from, so nothing about it is
-/// implied by where it is written. The id lives in `[kovan] id`, like every
-/// other artifact's.
-///
-/// The same record is also an **anchor** (GH issue #743): a `[[relation]]`
-/// table on a lesson, walk-step or any other artifact, naming the code it
-/// explains or the literature it cites. An anchor omits `source` (it is the
-/// artifact the table is in) and may carry `page`, `quote` and `commit`.
-/// Every one of those is optional and skipped when absent, so a relation
-/// written before #743 re-serialises byte for byte.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-pub struct RelationRecord {
-    /// The node this relation starts at. Empty in an anchor, where it is
-    /// implicitly the artifact the `[[relation]]` table belongs to.
-    #[serde(default, skip_serializing_if = "String::is_empty")]
-    pub source: NodeId,
-    /// The node this relation points at: a graph id (`paper:`, `artifact:`,
-    /// `collection:`), a typed [`crate::node_id::NodeId`] string, or a
-    /// `code:` target ([`CodeTarget`]).
-    pub target: NodeId,
-    /// What kind of relationship this is.
-    pub kind: RelationKind,
-    /// The 1-based page of a literature target the anchor points at.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub page: Option<u32>,
-    /// A short quotation from the target, as the reader would search for it.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub quote: Option<String>,
-    /// The git commit a `code:` target was read at, so a later reader can
-    /// see the code the claim was made about.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub commit: Option<String>,
-}
-
-impl RelationRecord {
-    /// A record with only `source`, `target` and `kind`: the shape every
-    /// relation artifact had before GH issue #743.
-    pub fn new(source: impl Into<String>, target: impl Into<String>, kind: RelationKind) -> Self {
-        Self {
-            source: source.into(),
-            target: target.into(),
-            kind,
-            page: None,
-            quote: None,
-            commit: None,
-        }
-    }
-
-    /// The `code:` target, when the target is one.
-    pub fn code_target(&self) -> Option<CodeTarget> {
-        CodeTarget::parse(&self.target)
-    }
-}
-
-/// An artifact's `relation` key, in the shape it was written
-/// ([`crate::artifact::ArtifactToml::relation`]).
-///
-/// Untagged, so each shape reads from and writes back to its own TOML form:
-/// a single `[relation]` table, or an array of `[[relation]]` tables.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum Relations {
-    /// `[relation]`: the body of a `kind = "relation"` artifact.
-    One(RelationRecord),
-    /// `[[relation]]`: an artifact's anchors (GH issue #743).
-    Many(Vec<RelationRecord>),
-}
-
-impl Relations {
-    /// The records, in file order.
-    pub fn records(&self) -> &[RelationRecord] {
-        match self {
-            Self::One(r) => std::slice::from_ref(r),
-            Self::Many(v) => v,
-        }
-    }
-
-    /// The records, mutably.
-    pub fn records_mut(&mut self) -> &mut [RelationRecord] {
-        match self {
-            Self::One(r) => std::slice::from_mut(r),
-            Self::Many(v) => v,
-        }
-    }
-
-    /// The single record of a relation artifact; `None` for the array form.
-    pub fn one(&self) -> Option<&RelationRecord> {
-        match self {
-            Self::One(r) => Some(r),
-            Self::Many(_) => None,
-        }
-    }
-}
-
-/// The prefix of a code target.
-pub const CODE_PREFIX: &str = "code:";
-
-/// A `code:` relation target (GH issue #743), in the code-walk path form:
-///
-/// ```text
-/// code:<path/to/file.rs>::<Type::name>[@L<line>]
-/// code:crates/boon-lay/src/release.rs::FuelParticle::release_fraction
-/// code:crates/kovan/src/artifact.rs::parse_document@L640
-/// ```
-///
-/// `@L<line>` is optional and only disambiguates two items with the same
-/// path in one file, such as `cfg` twins (GH issue #739). The path is
-/// repo-relative. Kovan does not resolve the target yet; desktop kovan shows
-/// it as a link card with no navigation, which arrives with web-kovan.
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct CodeTarget {
-    /// The repo-relative file path, e.g. `crates/kovan/src/artifact.rs`.
-    pub file: String,
-    /// The item path inside the file, e.g. `Artifact::csv_block`.
-    pub item: String,
-    /// The 1-based line that disambiguates same-named items, if given.
-    pub line: Option<u32>,
-}
-
-impl CodeTarget {
-    /// Read `code:<file>::<item>[@L<line>]`. `None` for anything else,
-    /// including a `code:` string with an empty file or item, or a line
-    /// suffix that is not `@L` followed by a positive number.
-    pub fn parse(target: &str) -> Option<Self> {
-        let rest = target.strip_prefix(CODE_PREFIX)?;
-        let (file, item) = rest.split_once("::")?;
-        let (item, line) = match item.rsplit_once("@L") {
-            Some((item, n)) => (item, Some(n.parse::<u32>().ok().filter(|n| *n > 0)?)),
-            None => (item, None),
-        };
-        let bad = |s: &str| s.is_empty() || s.chars().any(char::is_whitespace);
-        if bad(file) || bad(item) {
-            return None;
-        }
-        Some(Self {
-            file: file.to_string(),
-            item: item.to_string(),
-            line,
-        })
-    }
-
-    /// Whether `target` is in the `code:` namespace at all (well-formed or
-    /// not), so a caller can keep it out of graph-node resolution.
-    pub fn is_code(target: &str) -> bool {
-        target.starts_with(CODE_PREFIX)
-    }
-}
-
-impl std::fmt::Display for CodeTarget {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{CODE_PREFIX}{}::{}", self.file, self.item)?;
-        if let Some(l) = self.line {
-            write!(f, "@L{l}")?;
-        }
-        Ok(())
-    }
 }
 
 /// Errors from the connection CRUD operations.
@@ -1083,12 +837,13 @@ mod tests {
     }
 
     #[test]
-    fn relation_kind_all_has_eight_unique_variants() {
+    // ~~eight~~ nine variants since `part_of` (GitHub #764, 2026-10-07).
+    fn relation_kind_all_has_nine_unique_variants() {
         let mut all: Vec<_> = RelationKind::ALL.to_vec();
         all.sort_by_key(|k| k.label());
         all.dedup();
-        assert_eq!(RelationKind::ALL.len(), 8);
-        assert_eq!(all.len(), 8, "ALL must not repeat a variant");
+        assert_eq!(RelationKind::ALL.len(), 9);
+        assert_eq!(all.len(), 9, "ALL must not repeat a variant");
     }
 
     #[test]

@@ -32,3 +32,14 @@ serde_json.workspace = true
 toml.workspace = true
 # Zotero date parsing (`zotero::date`, GitHub #748): ports of Zotero's JS regexes.
 regex.workspace = true
+# The kovan Markdown artifact scanner (`artifact`, GitHub #743/#764): moved
+# here from `kovan::artifact` so web-kovan (wasm) reads review.md the same way.
+pulldown-cmark.workspace = true
+# Function hashing for code review (`review::rust_items`, `review::hash`;
+# GitHub #739/#764): a real Rust parser, moved here from
+# `kovan::review_stamps::parse`. Pure Rust, wasm- and Android-clean.
+syn = { workspace = true, features = ["full", "parsing", "printing", "clone-impls"] }
+proc-macro2 = { workspace = true, features = ["span-locations"] }
+quote.workspace = true
+# SHA-256 of the normalised function tokens (pure Rust, wasm-clean).
+sha2.workspace = true

@@ -1,0 +1,37 @@
+schema_version = 1
+
+[library]
+id = "outram-park-backend"
+name = "OUTRAM PARK backend"
+
+[code_review]
+rust_analyzer = "0.3.2645"
+
+[[reviewer]]
+id = "github:theodoreOnzGit"
+name = "Theodore Ong"
+role = "maintainer"
+qualification = ["concept:software-quality-assurance/safety-software-qa-competencies"]
+admitted = "2026-10-07"
+
+[[reviewer.key]]
+id = "k1"
+alg = "ed25519"
+public = "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA="
+created = "2026-10-07"
+
+[[reviewer]]
+id = "orcid:0000-0002-1825-0097"
+role = "reviewer"
+scope = ["crates/tampines/**"]
+admitted_by = { key = "k1", signature = "BBBB" }
+
+[[deleted_crate]]
+name = "old-crate"
+dir = "crates/old-crate"
+deleted_commit = "89abcdef0123456789abcdef0123456789abcdef"
+
+[[deleted_crate.function]]
+function = "crates/old-crate/src/lib.rs::f"
+path = "crates/old-crate/src/lib.rs::f"
+last_review_commit = "0123456789abcdef0123456789abcdef01234567"

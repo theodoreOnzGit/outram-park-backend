@@ -5659,9 +5659,14 @@ dependencies = [
 name = "kovan-common"
 version = "0.0.2"
 dependencies = [
+ "proc-macro2",
+ "pulldown-cmark",
+ "quote",
  "regex",
  "serde",
  "serde_json",
+ "sha2",
+ "syn 2.0.118",
  "toml",
 ]
 
