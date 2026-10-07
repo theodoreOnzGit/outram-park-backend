@@ -122,7 +122,7 @@ pub const SCHEMA_VERSION: u32 = 3;
 pub const OLDEST_READABLE_SCHEMA: u32 = 1;
 
 /// The whole graph for one scope of crates.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub struct CallGraphDoc {
     pub schema: u32,
     /// The crates analysed, sorted. Calls into other workspace crates are

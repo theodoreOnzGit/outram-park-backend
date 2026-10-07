@@ -40,6 +40,7 @@ fn fun(id: &str, hash: char, callees: &[&str], tests: &[&str]) -> FunctionIndex 
         callees: callees.iter().map(|s| fid(s)).collect(),
         reached_by: tests.iter().map(|s| s.to_string()).collect(),
         test: false,
+        index_out_of_date: false,
     }
 }
 

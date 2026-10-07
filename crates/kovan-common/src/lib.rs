@@ -91,6 +91,10 @@ pub mod artifact;
 /// Code review: `kovan_root.toml` reviewer sections, per-folder `kovan.toml`,
 /// `review.md` entries and the function hash (GitHub #764).
 pub mod review;
+/// Building the code index (GitHub #767): per-folder `kovan.toml` from one
+/// SCIP run, the rust-analyzer-free refresh, self-healing, and the
+/// per-crate compact link index.
+pub mod code_index;
 /// Hypothesis-style robust annotation anchoring (W3C selectors, fuzzy re-anchoring; GitHub #754).
 pub mod anchoring;
 // Zotero's data model (GitHub #748); documented by its own `//!` block (an

@@ -126,6 +126,13 @@ pub struct FunctionIndex {
     /// A test function, or inside `#[cfg(test)]`.
     #[serde(default, skip_serializing_if = "std::ops::Not::not")]
     pub test: bool,
+    /// Added 2026-10-07 (#767, additive): written by the rust-analyzer-free
+    /// refresh ([`crate::code_index::refresh`]) when the function is new or
+    /// its code changed since the last full `kovan-cli index`, so its
+    /// `callees` and `reached_by` could not be recomputed. Shown as "index
+    /// out of date: run kovan-cli index", never silently trusted.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub index_out_of_date: bool,
 }
 
 fn is_fn(k: &ItemKind) -> bool {
@@ -376,6 +383,7 @@ mod tests {
                     callees: vec!["crates/tampines/src/steam.rs::sat".into()],
                     reached_by: vec!["crates/tampines/tests/t.rs::t".into()],
                     test: false,
+                    index_out_of_date: false,
                 }],
             },
         );
