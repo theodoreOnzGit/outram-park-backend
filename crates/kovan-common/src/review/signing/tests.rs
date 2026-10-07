@@ -102,6 +102,7 @@ pub(super) fn root_with_founder(founder: Option<&str>, reviewers: Vec<Reviewer>)
         code_review: Some(crate::review::root::CodeReviewSettings {
             rust_analyzer: None,
             founder: founder.map(str::to_string),
+            rust_analyzer_used: vec![],
         }),
         reviewers,
         deleted_crates: vec![],

@@ -7,7 +7,7 @@ use std::path::Path;
 use std::process::Command;
 
 use kovan_common::review::review_md::{parse_review_md, Entry};
-use kovan_common::review::root::ReviewRoot;
+use kovan_common::review::root::{ReviewRoot, RustAnalyzerUsed};
 
 use super::detect::{detect_project, DetectError, ProjectKind};
 use super::plan::{cost_message, plan_fresh, run_fresh, FileAction, FreshChoices, FreshError};
@@ -20,6 +20,14 @@ const V1_ROOT: &str =
     include_str!("../../../kovan-common/tests/fixtures/review/v1/kovan_root.toml");
 const V2_ROOT: &str =
     include_str!("../../../kovan-common/tests/fixtures/review/v2/kovan_root.toml");
+
+fn used(version: &str) -> RustAnalyzerUsed {
+    RustAnalyzerUsed {
+        version: version.into(),
+        date: "2026-10-07".into(),
+        commit: "none".into(),
+    }
+}
 
 fn write(root: &Path, rel: &str, text: &str) {
     let p = root.join(rel);
@@ -95,14 +103,13 @@ fn workspace_or_crate_comes_from_cargo_toml_alone() {
 
 #[test]
 fn a_fresh_root_parses_both_ways_and_leaves_an_unknown_founder_visibly_unset() {
-    let text = fresh_root_text("solo", None, Some("1.98.0"), "2026-10-07").unwrap();
+    let text = fresh_root_text("solo", None, Some(&used("1.98.0")), "2026-10-07").unwrap();
     assert!(text.contains("founder: UNSET"), "{text}");
     let r = ReviewRoot::parse(&text).unwrap();
+    assert_eq!(r.rust_analyzer_history(), &[used("1.98.0")]);
     let cr = r.code_review.unwrap();
-    assert_eq!(
-        (cr.founder, cr.rust_analyzer.as_deref()),
-        (None, Some("1.98.0"))
-    );
+    // The version used is recorded, never pinned (maintainer, 2026-10-07).
+    assert_eq!((cr.founder, cr.rust_analyzer.as_deref()), (None, None));
     assert!(r.reviewers.is_empty() && r.deleted_crates.is_empty());
     // The literature side opens it too, so the folder is a kovan library.
     let d = tempfile::tempdir().unwrap();
@@ -149,7 +156,12 @@ fn founder_comes_only_from_keystore_identities() {
 }
 
 /// Schemas never break: roots written before #780 (the v1 and v2 review
-/// fixtures) still read as valid and are kept byte for byte.
+/// fixtures) still read as valid. ~~They are kept byte for byte.~~
+/// **CORRECTED 2026-10-07** (maintainer: record the rust-analyzer versions
+/// used, never overwrite): every old byte is kept, as a prefix of the new
+/// file, and one `[[code_review.rust_analyzer_used]]` entry is appended;
+/// the pin is unchanged, and a second run with the same version appends
+/// nothing.
 #[test]
 fn old_roots_still_load_and_are_kept_untouched() {
     for old in [V1_ROOT, V2_ROOT] {
@@ -163,7 +175,7 @@ fn old_roots_still_load_and_are_kept_untouched() {
             d.path(),
             None,
             Some("github:x"),
-            Some("1.98.0"),
+            Some(&used("1.98.0")),
             "2026-10-07",
         )
         .unwrap();
@@ -175,10 +187,21 @@ fn old_roots_still_load_and_are_kept_untouched() {
             }
         );
         assert!(out.describe().contains("differs"));
+        let new = std::fs::read_to_string(d.path().join(ROOT_FILE)).unwrap();
+        assert!(new.starts_with(old) && new.len() > old.len());
+        assert_eq!(rust_analyzer_history(d.path()), vec![used("1.98.0")]);
+        let RootState::Valid { rust_analyzer, .. } = inspect_root(d.path()) else {
+            panic!("still valid")
+        };
+        assert_eq!(rust_analyzer.as_deref(), Some("0.3.2645"), "pin unchanged");
+        settle_root(d.path(), None, None, Some(&used("1.98.0")), "2026-10-08").unwrap();
         assert_eq!(
             std::fs::read_to_string(d.path().join(ROOT_FILE)).unwrap(),
-            old
+            new,
+            "same version: nothing appended"
         );
+        // The literature side still opens it.
+        crate::root::KovanRoot::open(d.path()).unwrap();
     }
 }
 
@@ -187,7 +210,7 @@ fn a_missing_root_is_created_and_a_corrupt_one_is_never_silently_overwritten() {
     let d = tempfile::tempdir().unwrap();
     let p = d.path();
     assert_eq!(inspect_root(p), RootState::Missing);
-    let out = settle_root(p, None, None, Some("1.98.0"), "2026-10-07").unwrap();
+    let out = settle_root(p, None, None, Some(&used("1.98.0")), "2026-10-07").unwrap();
     assert_eq!(out, RootOutcome::Created { founder: None });
     assert!(out.describe().contains("UNSET"));
     assert!(matches!(inspect_root(p), RootState::Valid { .. }));
@@ -248,7 +271,7 @@ fn a_corrupt_root_is_restored_from_the_last_committed_version_that_parses() {
         return;
     }
     assert_eq!(last_good_committed_root(p), Ok(None), "never committed");
-    let good = fresh_root_text("solo", None, Some("1.98.0"), "2026-10-01").unwrap();
+    let good = fresh_root_text("solo", None, Some(&used("1.98.0")), "2026-10-01").unwrap();
     std::fs::write(p.join(ROOT_FILE), &good).unwrap();
     assert!(git(p, &["add", ROOT_FILE]) && git(p, &["commit", "-qm", "good root"]));
     std::fs::write(p.join(ROOT_FILE), "broken = [\n").unwrap();
@@ -411,4 +434,63 @@ fn the_plan_of_a_single_crate_lists_its_files_and_cost() {
     // Not a Rust project at all.
     let e = run_fresh(d.path(), &FreshChoices::default(), &ctl).unwrap_err();
     assert!(matches!(e, FreshError::Detect(_)));
+}
+
+/// Methodology: the run's recording step on disk
+/// ([`crate::commands::index::record_rust_analyzer_used`]): a missing root
+/// gets nothing, a corrupt one is left byte for byte, a commented root keeps
+/// every byte (old text a prefix of the new), the same version twice
+/// appends once, a new version appends a second entry, and the report has
+/// one line per version used.
+///
+/// Result (2026-10-07): passes.
+#[test]
+fn index_runs_append_the_rust_analyzer_used_and_never_rewrite_the_root() {
+    use crate::commands::index::{record_rust_analyzer_used, used_commit, RecordUsed, NO_COMMIT};
+    let d = tempfile::tempdir().unwrap();
+    let p = d.path();
+    let u = used("1.98.0");
+    assert_eq!(record_rust_analyzer_used(p, &u), Ok(RecordUsed::NoRoot));
+    assert!(RecordUsed::NoRoot.describe(&u).contains("not recorded"));
+    std::fs::write(p.join(ROOT_FILE), "broken = [\n").unwrap();
+    let r = record_rust_analyzer_used(p, &u).unwrap();
+    assert!(matches!(r, RecordUsed::Unreadable(_)) && r.describe(&u).contains("untouched"));
+    assert_eq!(
+        std::fs::read_to_string(p.join(ROOT_FILE)).unwrap(),
+        "broken = [\n"
+    );
+    assert!(
+        settle_root(p, None, None, Some(&u), "2026-10-07").is_err(),
+        "corrupt: refused"
+    );
+    let old = "# my notes, kept\nschema_version = 1\n\n[code_review] # inline comment\nrust_analyzer = \"0.3.2645\"\n# last line";
+    std::fs::write(p.join(ROOT_FILE), old).unwrap();
+    let r = record_rust_analyzer_used(p, &u).unwrap();
+    assert_eq!(r, RecordUsed::Appended);
+    assert!(r.describe(&u).contains("appended"));
+    let once = std::fs::read_to_string(p.join(ROOT_FILE)).unwrap();
+    assert!(once.starts_with(old), "byte-for-byte prefix:\n{once}");
+    let r = record_rust_analyzer_used(p, &u).unwrap();
+    assert_eq!(r, RecordUsed::AlreadyLast);
+    assert!(r.describe(&u).contains("already"));
+    assert_eq!(std::fs::read_to_string(p.join(ROOT_FILE)).unwrap(), once);
+    assert_eq!(
+        record_rust_analyzer_used(p, &used("1.99.0")),
+        Ok(RecordUsed::Appended)
+    );
+    let twice = std::fs::read_to_string(p.join(ROOT_FILE)).unwrap();
+    assert!(twice.starts_with(&once));
+    let h = rust_analyzer_history(p);
+    assert_eq!(h, vec![used("1.98.0"), used("1.99.0")]);
+    let lines = history_lines(&h);
+    assert_eq!(lines.len(), 2);
+    assert!(lines[1].contains("1.99.0") && lines[1].contains("2026-10-07"));
+    assert!(history_lines(&[])[0].contains("none recorded"));
+    assert_eq!(used_commit(NO_COMMIT), "none");
+    assert_eq!(used_commit("abc"), "abc");
+    // Outside git (or no commit yet): "none".
+    let outside = tempfile::tempdir().unwrap();
+    if !git(outside.path(), &["rev-parse", "--verify", "HEAD"]) {
+        assert_eq!(head_or_none(outside.path()), "none");
+    }
 }

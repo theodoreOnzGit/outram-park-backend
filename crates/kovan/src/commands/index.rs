@@ -11,7 +11,8 @@
 //!    `kovan_root.toml` (`[code_review] rust_analyzer`; #739 D4): a
 //!    mismatch warns (the output may differ from CI's) and the index is
 //!    regenerated. `--pin-rust-analyzer` writes the installed version into
-//!    an existing `kovan_root.toml`. With rust-analyzer absent and no
+//!    an existing `kovan_root.toml`; nothing else ever changes the pin.
+//!    With rust-analyzer absent and no
 //!    `--scip` file, the run stops with [`IndexCmdError::RustAnalyzerMissing`]
 //!    before reading or writing anything: rust-analyzer is needed only to
 //!    regenerate the index, never to use it.
@@ -36,6 +37,17 @@
 //!    `review.md` is never written (the `--fresh` flow of
 //!    [`crate::index_fresh`], GitHub #780, adds missing skeletons as its own
 //!    later step).
+//! 7. **The rust-analyzer version used is recorded** (maintainer,
+//!    2026-10-07: "just record the versions of rust analyzer that were used,
+//!    never overwrite the comments based on the new versions"): after the
+//!    writes, [`record_rust_analyzer_used`] appends a
+//!    `[[code_review.rust_analyzer_used]]` entry (version, date, `HEAD` or
+//!    `"none"`) to the end of an existing, readable `kovan_root.toml` when
+//!    the version differs from the last one recorded. It appends text, so
+//!    every existing byte and comment stays; the pin is not touched; a root
+//!    that does not parse gets nothing (the corrupt-root flow applies).
+//!    The version is the one that wrote the SCIP index. Not under
+//!    `--check`, and not under `--refresh`, which runs no rust-analyzer.
 //!
 //! **Any workspace or crate (#780).** The same run works on a single crate
 //! (a member at the workspace root, folder `""`) and on a repository with
@@ -71,7 +83,9 @@ use kovan_common::code_index::{deleted, upstream_draft};
 use kovan_common::review::hash::hash_functions;
 use kovan_common::review::index::{FolderIndex, TestRun};
 use kovan_common::review::review_md::{parse_review_md, ReviewDocument};
-use kovan_common::review::root::{CodeReviewSettings, ReviewRoot};
+use kovan_common::review::root::{
+    append_rust_analyzer_used, CodeReviewSettings, ReviewRoot, RustAnalyzerUsed,
+};
 
 use crate::scip::{PositionEncoding, ScipIndex, Sym};
 
@@ -411,9 +425,11 @@ fn check_pin(root: &Path, opts: &IndexOptions, ctl: &RunControl) -> Result<Optio
             "index: WARNING: kovan_root.toml pins rust-analyzer {p}, the installed one is {i}; \
              the index is regenerated with {i} and may differ from CI's"
         ),
-        (None, Some(i)) if !opts.pin_rust_analyzer => say!(ctl,
-            "index: rust-analyzer is not pinned (kovan_root.toml [code_review] rust_analyzer); \
-             `--pin-rust-analyzer` pins {i}"
+        // Only for a root that exists and reads: before "Index fresh"
+        // creates one there is nothing to pin into (#780).
+        (None, Some(i)) if !opts.pin_rust_analyzer && matches!(parsed, Some(Ok(_))) => say!(ctl,
+            "index: kovan_root.toml pins no rust-analyzer; this run's version ({i}) is recorded under \
+             [[code_review.rust_analyzer_used]] (`--pin-rust-analyzer` would also pin it)"
         ),
         _ => {}
     }
@@ -445,6 +461,84 @@ pub struct IndexSummary {
     pub written: usize,
     /// Files already up to date.
     pub unchanged: usize,
+    /// The rust-analyzer version that wrote the SCIP index this run used
+    /// (`None` under `--refresh`, or an index that names no version).
+    pub rust_analyzer: Option<String>,
+}
+
+/// What [`record_rust_analyzer_used`] did to `kovan_root.toml`.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum RecordUsed {
+    /// There is no `kovan_root.toml`: nothing recorded.
+    NoRoot,
+    /// It does not parse (or cannot be read): left untouched.
+    Unreadable(String),
+    /// The last recorded version is this one already: nothing appended.
+    AlreadyLast,
+    /// A new entry was appended.
+    Appended,
+}
+
+impl RecordUsed {
+    /// One line for the run's output.
+    pub fn describe(&self, used: &RustAnalyzerUsed) -> String {
+        match self {
+            Self::NoRoot => format!(
+                "no kovan_root.toml yet, so rust-analyzer {} is not recorded by this step (\"Index fresh\" records it in the root it creates)",
+                used.version
+            ),
+            Self::Unreadable(e) => format!(
+                "WARNING: kovan_root.toml was left untouched ({e}); rust-analyzer {} not recorded",
+                used.version
+            ),
+            Self::AlreadyLast => format!(
+                "rust-analyzer {} is already the last version recorded in kovan_root.toml",
+                used.version
+            ),
+            Self::Appended => format!(
+                "rust-analyzer {} recorded in kovan_root.toml [[code_review.rust_analyzer_used]] (appended; nothing else changed)",
+                used.version
+            ),
+        }
+    }
+}
+
+/// Append `used` to `<root>/kovan_root.toml`'s rust-analyzer history
+/// (module doc, step 7) by writing only the new text at the end of the
+/// file, so every existing byte stays. `Err` only when that write fails.
+pub fn record_rust_analyzer_used(root: &Path, used: &RustAnalyzerUsed) -> Result<RecordUsed, String> {
+    use std::io::Write;
+    let path = root.join("kovan_root.toml");
+    if !path.exists() {
+        return Ok(RecordUsed::NoRoot);
+    }
+    let old = match std::fs::read_to_string(&path) {
+        Ok(t) => t,
+        Err(e) => return Ok(RecordUsed::Unreadable(e.to_string())),
+    };
+    let new = match append_rust_analyzer_used(&old, used) {
+        Ok(None) => return Ok(RecordUsed::AlreadyLast),
+        Ok(Some(t)) => t,
+        Err(e) => return Ok(RecordUsed::Unreadable(e.to_string())),
+    };
+    let tail = new.get(old.len()..).ok_or("the appended text does not extend the old")?;
+    let mut f = std::fs::OpenOptions::new()
+        .append(true)
+        .open(&path)
+        .map_err(|e| format!("{}: {e}", path.display()))?;
+    f.write_all(tail.as_bytes())
+        .map_err(|e| format!("{}: {e}", path.display()))?;
+    Ok(RecordUsed::Appended)
+}
+
+/// The `commit` of a [`RustAnalyzerUsed`]: `HEAD`, or `"none"` when the
+/// repository has no commit yet ([`NO_COMMIT`]).
+pub fn used_commit(head: &str) -> String {
+    if head == NO_COMMIT || head.is_empty() {
+        "none".to_string()
+    } else {
+        head.to_string()
+    }
 }
 
 /// `kovan-cli index` (module doc).
@@ -493,6 +587,12 @@ pub fn run_controlled(root: &Path, opts: &IndexOptions, ctl: &RunControl) -> Res
         }
     }
     ctl.check()?;
+    // The version that wrote the index this run uses (step 7).
+    let ra_used = ix
+        .tool_version
+        .split_whitespace()
+        .next()
+        .map(str::to_string);
     // 3. Links.
     ctl.phase(format!("building the link index of {} crate(s)", scope.len()), scope.len());
     let mut changes = Vec::new();
@@ -544,6 +644,7 @@ pub fn run_controlled(root: &Path, opts: &IndexOptions, ctl: &RunControl) -> Res
         say!(ctl, "index: {p} is unreadable and HEAD has no readable copy; its test evidence is now PENDING");
     }
     let commit = head_commit(&root, ctl);
+    let used_at = used_commit(&commit);
     let mut deleted_by_crate = BTreeMap::new();
     let still: BTreeSet<String> = reviews.keys().map(|p| parent(p).to_string()).collect();
     for m in &scope {
@@ -613,6 +714,7 @@ pub fn run_controlled(root: &Path, opts: &IndexOptions, ctl: &RunControl) -> Res
         folders: built.folders.keys().cloned().collect(),
         written: 0,
         unchanged,
+        rust_analyzer: ra_used.clone(),
     };
     if opts.check {
         return if changes.is_empty() { Ok(summary) } else { Err(IndexCmdError::CheckFailed(changes.len())) };
@@ -620,6 +722,16 @@ pub fn run_controlled(root: &Path, opts: &IndexOptions, ctl: &RunControl) -> Res
     ctl.check()?;
     apply(&root, &changes, ctl)?;
     summary.written = changes.len();
+    if let Some(version) = ra_used {
+        let date = crate::digitiser::dataset::utc_now_iso8601();
+        let used = RustAnalyzerUsed {
+            version,
+            date: date.get(..10).unwrap_or(&date).to_string(),
+            commit: used_at,
+        };
+        let rec = record_rust_analyzer_used(&root, &used).map_err(IndexCmdError::Other)?;
+        say!(ctl, "index: {}", rec.describe(&used));
+    }
     Ok(summary)
 }
 
@@ -767,7 +879,8 @@ fn run_refresh(root: &Path, opts: &IndexOptions, ctl: &RunControl) -> Result<Ind
         say!(ctl, "index --refresh: {flagged} function(s) marked \"index out of date: run kovan-cli index\" (new or edited; callees and reaching tests not recomputed)");
     }
     summarise(&changes, unchanged, ctl);
-    let mut summary = IndexSummary { folders: indexed_dirs.into_iter().collect(), written: 0, unchanged };
+    let mut summary =
+        IndexSummary { folders: indexed_dirs.into_iter().collect(), written: 0, unchanged, rust_analyzer: None };
     if opts.check {
         return if changes.is_empty() { Ok(summary) } else { Err(IndexCmdError::CheckFailed(changes.len())) };
     }

@@ -42,10 +42,14 @@ no second indexer.
   workspace, else `[package]` is a single crate (one crate's worth of
   index, its `kovan_links.json` at the root).
 - **`kovan_root.toml`** (Leak Before Break, `docs/kovan.md`): a valid one
-  is kept byte for byte; a missing one is created with the founder (`--founder`,
+  is kept ~~byte for byte~~ **CORRECTED 2026-10-07**: every existing byte
+  and comment stays, and the rust-analyzer version used is appended at the
+  end (below); a missing one is created with the founder (`--founder`,
   else the single identity in kovan's keystore, else a visible `UNSET`
   comment; never invented), no reviewers (an empty registry and key
-  history) and `[code_review] rust_analyzer`, the installed version. A
+  history) and ~~`[code_review] rust_analyzer`, the installed version~~
+  **CORRECTED 2026-10-07**: the version that built the index as the first
+  `[[code_review.rust_analyzer_used]]` entry, with no pin. A
   corrupt one stops the run with its parse error, untouched; with
   `--corrupt-root restore` (the newest committed version that parses) or
   `--corrupt-root fresh`, it is first kept as
@@ -73,7 +77,31 @@ points to `--refresh`.
 pins it (#739 D4). A different installed version warns and the index is
 regenerated with it; a `--scip` file written by another version than the
 installed one is regenerated. The link file records the version that
-wrote it (`generator`).
+wrote it (`generator`). The pin is set only by the user or
+`--pin-rust-analyzer`; no index run changes it.
+
+**Versions used (maintainer, 2026-10-07: "just record the versions of rust
+analyzer that were used, never overwrite the comments based on the new
+versions").** Every run that uses rust-analyzer (`kovan-cli index`,
+`--scip`, `--fresh`, the app's "Index fresh"; not `--refresh` or
+`--check`) appends to an existing, readable `kovan_root.toml`:
+
+```toml
+[[code_review.rust_analyzer_used]]
+version = "1.98.0"        # the rust-analyzer that wrote the SCIP index
+date = "2026-10-07"
+commit = "<HEAD sha>"     # or "none": no commit yet
+```
+
+only when the version differs from the last entry. It is **appended as
+text at the end of the file**, never re-serialised, so every existing
+byte, comments included, stays (the old file is a prefix of the new one;
+`index_runs_append_the_rust_analyzer_used_and_never_rewrite_the_root`).
+A root that does not parse gets nothing; the corrupt-root flow applies.
+The table is additive: roots without it load, and readers that predate it
+ignore it (`roots_with_and_without_the_history_read_in_old_and_new_readers`
+in `kovan_common::review::root`). The "Index fresh" report lists one line
+per version recorded.
 
 ## Pipeline (full run)
 

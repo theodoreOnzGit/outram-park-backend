@@ -5,23 +5,28 @@
 //! | state on disk | what happens |
 //! |---|---|
 //! | missing | a fresh one is written ([`fresh_root_text`]) |
-//! | valid ([`ReviewRoot::parse`] reads it) | kept, byte for byte; a rust-analyzer pin that differs is only reported |
+//! | valid ([`ReviewRoot::parse`] reads it) | kept: every existing byte stays, and the rust-analyzer version used is appended to `[[code_review.rust_analyzer_used]]` when it differs from the last one recorded ([`record_rust_analyzer_used`]); the pin is never changed, one that differs is only reported |
 //! | corrupt | nothing, until the user chooses a [`CorruptAction`]; then the bad file is kept as `kovan_root.toml.corrupt-<date>` ([`quarantine`]) and the last committed version that parses is restored ([`last_good_committed_root`]) or a fresh one written |
 //!
 //! A fresh root is a literature-library marker (`schema_version`,
 //! `[library]`, from [`crate::root::RootConfig`], so the app can open the
 //! folder) with the code-review sections written by the existing
-//! [`ReviewRoot::write_into`]: `[code_review]` with the founder and the
-//! rust-analyzer version, and no `[[reviewer]]` (an empty registry, so an
-//! empty key history). A founder that is not known is left out and the
-//! header says **UNSET** in words; one is never invented.
+//! [`ReviewRoot::write_into`]: `[code_review]` with the founder and
+//! ~~the rust-analyzer version~~ **CORRECTED 2026-10-07** (maintainer:
+//! "just record the versions of rust analyzer that were used") the first
+//! `[[code_review.rust_analyzer_used]]` entry, with no pin (`rust_analyzer`
+//! is left for the user or `--pin-rust-analyzer` to set), and no
+//! `[[reviewer]]` (an empty registry, so an empty key history). A founder
+//! that is not known is left out and the header says **UNSET** in words;
+//! one is never invented.
 
 use std::path::{Path, PathBuf};
 use std::process::Command;
 
-use kovan_common::review::root::{CodeReviewSettings, ReviewRoot};
+use kovan_common::review::root::{CodeReviewSettings, ReviewRoot, RustAnalyzerUsed};
 use kovan_common::review::types::reviewer_id_kind;
 
+use crate::commands::index::{record_rust_analyzer_used, used_commit, RecordUsed, NO_COMMIT};
 use crate::root::RootConfig;
 
 /// The file name.
@@ -143,11 +148,13 @@ pub fn keystore_founders() -> FounderChoice {
 }
 
 /// The text of a fresh `kovan_root.toml` for library `name` (module doc).
-/// `founder` must be a valid reviewer id when given.
+/// `founder` must be a valid reviewer id when given; `used` is the
+/// rust-analyzer the index was built with, recorded as the first history
+/// entry (never as the pin).
 pub fn fresh_root_text(
     name: &str,
     founder: Option<&str>,
-    rust_analyzer: Option<&str>,
+    used: Option<&RustAnalyzerUsed>,
     date: &str,
 ) -> Result<String, String> {
     if let Some(f) = founder {
@@ -162,8 +169,9 @@ pub fn fresh_root_text(
     let base = toml::to_string_pretty(&base).map_err(|e| e.to_string())?;
     let review = ReviewRoot {
         code_review: Some(CodeReviewSettings {
-            rust_analyzer: rust_analyzer.map(str::to_string),
+            rust_analyzer: None,
             founder: founder.map(str::to_string),
+            rust_analyzer_used: used.cloned().into_iter().collect(),
         }),
         reviewers: Vec::new(),
         deleted_crates: Vec::new(),
@@ -176,9 +184,15 @@ pub fn fresh_root_text(
                  # (or gitlab:, orcid:, an email) before anyone stamps; until then no key is trusted."
             .to_string(),
     };
-    let ra_line = match rust_analyzer {
-        Some(v) => format!("# rust-analyzer: {v}, the version this index was built with ([code_review] rust_analyzer)."),
-        None => "# rust-analyzer: not recorded (the index was built from a given SCIP file).".to_string(),
+    let ra_line = match used {
+        Some(u) => format!(
+            "# rust-analyzer: {}, the version this index was built with, recorded in\n\
+             # [[code_review.rust_analyzer_used]]; each later index run appends the version it\n\
+             # used when it differs. Nothing is pinned: set [code_review] rust_analyzer, or run\n\
+             # kovan-cli index --pin-rust-analyzer, to pin one.",
+            u.version
+        ),
+        None => "# rust-analyzer: not recorded (the SCIP index named no version).".to_string(),
     };
     Ok(format!(
         "# kovan_root.toml: created by kovan \"Index fresh\" on {date} (GitHub #780).\n\
@@ -188,6 +202,43 @@ pub fn fresh_root_text(
          # reviewers: none yet (an empty registry, so an empty key history).\n\
          {ra_line}\n\n{body}"
     ))
+}
+
+/// The `commit` to record a rust-analyzer version against: `HEAD`, or
+/// `"none"` with no commit yet or outside git.
+pub fn head_or_none(dir: &Path) -> String {
+    let head = git(dir, &["rev-parse", "--verify", "HEAD"])
+        .map(|c| c.trim().to_string())
+        .unwrap_or_else(|_| NO_COMMIT.to_string());
+    used_commit(&head)
+}
+
+/// The recorded rust-analyzer history of `<dir>/kovan_root.toml` (empty
+/// when it is missing or does not parse).
+pub fn rust_analyzer_history(dir: &Path) -> Vec<RustAnalyzerUsed> {
+    std::fs::read_to_string(dir.join(ROOT_FILE))
+        .ok()
+        .and_then(|t| ReviewRoot::parse(&t).ok())
+        .map(|r| r.rust_analyzer_history().to_vec())
+        .unwrap_or_default()
+}
+
+/// One report line per recorded rust-analyzer version.
+pub fn history_lines(history: &[RustAnalyzerUsed]) -> Vec<String> {
+    if history.is_empty() {
+        return vec!["rust-analyzer used: none recorded in kovan_root.toml".to_string()];
+    }
+    history
+        .iter()
+        .map(|u| {
+            format!(
+                "rust-analyzer used: {} on {} at {}",
+                u.version,
+                u.date,
+                u.commit.get(..10).unwrap_or(&u.commit)
+            )
+        })
+        .collect()
 }
 
 /// The name a corrupt root is kept under: `kovan_root.toml.corrupt-<date>`,
@@ -288,8 +339,9 @@ pub enum CorruptAction {
 pub enum RootOutcome {
     /// There was none; a fresh one was written.
     Created { founder: Option<String> },
-    /// A valid one was kept untouched. `pin_differs`: it pins another
-    /// rust-analyzer than the one used (reported, not rewritten).
+    /// A valid one was kept: its existing bytes untouched, the version
+    /// used appended to its history when new. `pin_differs`: it pins
+    /// another rust-analyzer than the one used (reported, not rewritten).
     Kept {
         pinned: Option<String>,
         pin_differs: bool,
@@ -313,9 +365,9 @@ impl RootOutcome {
             ),
             Self::Kept { pinned, pin_differs } => match (pinned, pin_differs) {
                 (Some(p), true) => format!(
-                    "kovan_root.toml kept as it was; it pins rust-analyzer {p}, which differs from the one used (not changed)"
+                    "kovan_root.toml kept (existing text unchanged); it pins rust-analyzer {p}, which differs from the one used (the pin is not changed)"
                 ),
-                _ => "kovan_root.toml kept as it was".to_string(),
+                _ => "kovan_root.toml kept (existing text unchanged)".to_string(),
             },
             Self::Restored { commit, kept_as } => format!(
                 "kovan_root.toml restored from commit {}; the corrupt file is kept as {}",
@@ -333,25 +385,37 @@ impl RootOutcome {
 
 /// Settle the root (module doc table). `state` is what [`inspect_root`]
 /// saw; it is checked again so a file changed meanwhile is not clobbered.
+/// `used` is the rust-analyzer the index was built with: it goes into a
+/// new root's history, and is appended to a kept or restored one's.
 pub fn settle_root(
     dir: &Path,
     action: Option<&CorruptAction>,
     founder: Option<&str>,
-    rust_analyzer: Option<&str>,
+    used: Option<&RustAnalyzerUsed>,
     date: &str,
 ) -> Result<RootOutcome, String> {
+    let record = |dir: &Path| -> Result<(), String> {
+        match used
+            .map(|u| record_rust_analyzer_used(dir, u))
+            .transpose()?
+        {
+            Some(RecordUsed::Unreadable(e)) => Err(format!("{ROOT_FILE}: {e}")),
+            _ => Ok(()),
+        }
+    };
     let name = dir
         .file_name()
         .map(|n| n.to_string_lossy().to_string())
         .unwrap_or_else(|| "workspace".to_string());
     match inspect_root(dir) {
         RootState::Missing => {
-            let text = fresh_root_text(&name, founder, rust_analyzer, date)?;
+            let text = fresh_root_text(&name, founder, used, date)?;
             write_new(&dir.join(ROOT_FILE), &text)?;
             Ok(RootOutcome::Created { founder: founder.map(str::to_string) })
         }
         RootState::Valid { rust_analyzer: pinned, .. } => {
-            let pin_differs = matches!((&pinned, rust_analyzer), (Some(p), Some(u)) if p != u);
+            let pin_differs = matches!((&pinned, used), (Some(p), Some(u)) if *p != u.version);
+            record(dir)?;
             Ok(RootOutcome::Kept { pinned, pin_differs })
         }
         RootState::Corrupt { error, .. } => match action {
@@ -363,10 +427,11 @@ pub fn settle_root(
                 let text = committed_root_at(dir, commit)?;
                 let kept_as = quarantine(dir, date)?;
                 write_new(&dir.join(ROOT_FILE), &text)?;
+                record(dir)?;
                 Ok(RootOutcome::Restored { commit: commit.clone(), kept_as })
             }
             Some(CorruptAction::StartFresh) => {
-                let text = fresh_root_text(&name, founder, rust_analyzer, date)?;
+                let text = fresh_root_text(&name, founder, used, date)?;
                 let kept_as = quarantine(dir, date)?;
                 write_new(&dir.join(ROOT_FILE), &text)?;
                 Ok(RootOutcome::Replaced { kept_as, founder: founder.map(str::to_string) })

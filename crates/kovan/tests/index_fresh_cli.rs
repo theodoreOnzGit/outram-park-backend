@@ -7,7 +7,9 @@
 //!
 //! 1. **Single crate** (`[package]`, no `[workspace]`), a git repository
 //!    with no commit yet: `--fresh` writes `kovan_root.toml` (founder
-//!    UNSET, the rust-analyzer version recorded, no reviewers), `src/` and
+//!    UNSET, the rust-analyzer version recorded as the first
+//!    `[[code_review.rust_analyzer_used]]` entry and not pinned, no
+//!    reviewers), `src/` and
 //!    `tests/` `kovan.toml`, the crate's `kovan_links.json` at the root,
 //!    and a `review.md` skeleton in each of the two folders. Nothing is
 //!    committed (`git log` still has no commit).
@@ -109,7 +111,10 @@ fn index_fresh_on_a_single_crate_and_a_workspace() {
     );
     let rr = kovan_common::review::root::ReviewRoot::parse(&root).unwrap();
     assert!(rr.reviewers.is_empty());
-    assert!(rr.code_review.unwrap().rust_analyzer.is_some());
+    // The version used is recorded in the history, not pinned (2026-10-07).
+    assert_eq!(rr.rust_analyzer_history().len(), 1);
+    assert_eq!(rr.rust_analyzer_history()[0].commit, "none");
+    assert!(rr.code_review.unwrap().rust_analyzer.is_none());
     let doc = kovan_common::review::review_md::parse_review_md(&read(&c, "src/review.md"));
     assert!(doc.unreadable.is_empty() && doc.entries.len() == 1);
     assert!(read(&c, "src/kovan.toml").contains("name = \"square\""));

@@ -12,9 +12,12 @@ use kovan_common::code_index::links::LINKS_FILE;
 
 use super::detect::{detect_project, DetectError, ProjectKind};
 use super::root_file::{
-    inspect_root, keystore_founders, last_good_committed_root, settle_root, CommittedRoot,
-    CorruptAction, FounderChoice, RootOutcome, RootState, ROOT_FILE,
+    head_or_none, history_lines, inspect_root, keystore_founders, last_good_committed_root,
+    rust_analyzer_history, settle_root, CommittedRoot, CorruptAction, FounderChoice, RootOutcome,
+    RootState, ROOT_FILE,
 };
+use kovan_common::review::root::RustAnalyzerUsed;
+
 use super::skeleton::{create_missing_skeletons, missing_review_mds, SkeletonReport};
 
 /// What will happen to one file.
@@ -198,6 +201,9 @@ pub struct FreshReport {
     pub index: IndexSummary,
     pub root: RootOutcome,
     pub skeletons: SkeletonReport,
+    /// `kovan_root.toml`'s `[[code_review.rust_analyzer_used]]` after the
+    /// run, oldest first: one report line each.
+    pub rust_analyzer_history: Vec<RustAnalyzerUsed>,
 }
 
 impl FreshReport {
@@ -213,12 +219,13 @@ impl FreshReport {
                 self.index.unchanged
             ),
             self.root.describe(),
-            format!(
-                "review.md: {} skeleton(s) created, {} kept as they were",
-                s.created.len(),
-                s.kept.len()
-            ),
         ];
+        v.extend(history_lines(&self.rust_analyzer_history));
+        v.extend([format!(
+            "review.md: {} skeleton(s) created, {} kept as they were",
+            s.created.len(),
+            s.kept.len()
+        )]);
         for (p, n) in &s.unreadable {
             v.push(format!("review.md: {p} has {n} unreadable entr(y/ies): they count as no review; redo them in the review wizard"));
         }
@@ -288,7 +295,6 @@ pub fn run_fresh(
             Some(CorruptAction::StartFresh) => {}
         }
     }
-    let rust_analyzer = index::installed_rust_analyzer();
     let opts = IndexOptions {
         scip: choices.scip.clone(),
         ..IndexOptions::default()
@@ -296,11 +302,19 @@ pub fn run_fresh(
     let summary = index::run_controlled(&dir, &opts, ctl).map_err(FreshError::Index)?;
     ctl.phase("settling kovan_root.toml", 0);
     let date = super::today();
+    let used = summary
+        .rust_analyzer
+        .clone()
+        .map(|version| RustAnalyzerUsed {
+            version,
+            date: date.clone(),
+            commit: head_or_none(&dir),
+        });
     let root = settle_root(
         &dir,
         choices.corrupt.as_ref(),
         choices.founder.as_deref(),
-        rust_analyzer.as_deref(),
+        used.as_ref(),
         &date,
     )
     .map_err(FreshError::AfterIndex)?;
@@ -313,6 +327,7 @@ pub fn run_fresh(
     let skeletons = create_missing_skeletons(&dir, &summary.folders, &created)
         .map_err(FreshError::AfterIndex)?;
     let report = FreshReport {
+        rust_analyzer_history: rust_analyzer_history(&dir),
         dir,
         kind,
         index: summary,

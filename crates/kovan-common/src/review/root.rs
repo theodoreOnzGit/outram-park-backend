@@ -12,6 +12,11 @@
 //! rust_analyzer = "0.3.2645"       # pinned version; a mismatch re-indexes
 //! founder = "github:theodoreOnzGit" # the founding maintainer (#762)
 //!
+//! [[code_review.rust_analyzer_used]] # append-only: the versions index runs used
+//! version = "1.98.0"
+//! date = "2026-10-07"
+//! commit = "<HEAD sha>"              # or "none" (no commit yet)
+//!
 //! [[reviewer]]
 //! id = "github:theodoreOnzGit"     # github:/gitlab:/orcid: or an email
 //! name = "Theodore Ong"            # display only
@@ -70,7 +75,7 @@
 use serde::{Deserialize, Serialize};
 
 use super::review_md::DeletedFunction;
-use super::types::{check_commit, reviewer_id_kind, FieldError};
+use super::types::{check_commit, check_date, reviewer_id_kind, FieldError};
 
 /// `[code_review]`.
 #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
@@ -85,6 +90,70 @@ pub struct CodeReviewSettings {
     /// ([`crate::review::signing::registry::FounderProblem`]).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub founder: Option<String>,
+    /// Every rust-analyzer version an index run used, oldest first
+    /// (`[[code_review.rust_analyzer_used]]`; maintainer, 2026-10-07: "just
+    /// record the versions of rust analyzer that were used, never overwrite
+    /// the comments based on the new versions"). Additive: absent in older
+    /// roots, ignored by readers that predate it. A run never changes
+    /// [`Self::rust_analyzer`] (the pin); it only appends here, as text, with
+    /// [`append_rust_analyzer_used`].
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub rust_analyzer_used: Vec<RustAnalyzerUsed>,
+}
+
+/// One `[[code_review.rust_analyzer_used]]` entry: the rust-analyzer
+/// version an index run used, the date (`YYYY-MM-DD`) and the `HEAD` commit
+/// it ran at (`"none"` in a repository with no commit yet).
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub struct RustAnalyzerUsed {
+    pub version: String,
+    pub date: String,
+    pub commit: String,
+}
+
+/// `existing` (a whole `kovan_root.toml`) with `used` appended as a new
+/// `[[code_review.rust_analyzer_used]]` entry, **as text at the end**: every
+/// existing byte, comments included, is kept, so `existing` is a prefix of
+/// the result (unlike [`ReviewRoot::write_into`], which re-serialises).
+///
+/// `Ok(None)`: nothing to append, because the last recorded version is
+/// `used.version` already. `Err`: `existing` does not parse (the caller's
+/// corrupt-root flow applies), `used.date` is not a date, or the appended
+/// text would not read back as exactly one more entry (for example a root
+/// that spells `rust_analyzer_used` as an inline array); nothing is written
+/// then.
+pub fn append_rust_analyzer_used(
+    existing: &str,
+    used: &RustAnalyzerUsed,
+) -> Result<Option<String>, RootError> {
+    check_date("code_review.rust_analyzer_used.date", &used.date).map_err(RootError::Field)?;
+    let before = ReviewRoot::parse(existing)?;
+    let history = before.rust_analyzer_history();
+    if history.last().is_some_and(|l| l.version == used.version) {
+        return Ok(None);
+    }
+    let q = |v: &str| toml::Value::String(v.to_string()).to_string();
+    let mut text = existing.to_string();
+    if !text.is_empty() && !text.ends_with('\n') {
+        text.push('\n');
+    }
+    text.push_str(&format!(
+        "\n[[code_review.rust_analyzer_used]]\nversion = {}\ndate = {}\ncommit = {}\n",
+        q(&used.version),
+        q(&used.date),
+        q(&used.commit)
+    ));
+    let after = ReviewRoot::parse(&text)?;
+    let mut expected = history.to_vec();
+    expected.push(used.clone());
+    if after.rust_analyzer_history() != expected.as_slice() {
+        return Err(RootError::Toml(
+            "appending [[code_review.rust_analyzer_used]] would not read back as one more entry; \
+             nothing was appended"
+                .into(),
+        ));
+    }
+    Ok(Some(text))
 }
 
 /// A reviewer's role.
@@ -524,6 +593,14 @@ impl ReviewRoot {
         Ok(root)
     }
 
+    /// The recorded `[[code_review.rust_analyzer_used]]` entries, oldest
+    /// first (empty for a root that has none).
+    pub fn rust_analyzer_history(&self) -> &[RustAnalyzerUsed] {
+        self.code_review
+            .as_ref()
+            .map_or(&[], |c| c.rust_analyzer_used.as_slice())
+    }
+
     /// The reviewer registered under `id`.
     pub fn reviewer(&self, id: &str) -> Option<&Reviewer> {
         self.reviewers.iter().find(|r| r.id == id)
@@ -744,5 +821,77 @@ self_declared = true
         assert!(matches!(ReviewRoot::parse(bad), Err(RootError::Field(_))));
         let dup = "[[reviewer]]\nid = \"a@b.org\"\nrole = \"reviewer\"\n[[reviewer]]\nid = \"a@b.org\"\nrole = \"reviewer\"\n";
         assert!(matches!(ReviewRoot::parse(dup), Err(RootError::DuplicateReviewer(_))));
+    }
+
+    fn used(version: &str, date: &str) -> RustAnalyzerUsed {
+        RustAnalyzerUsed { version: version.into(), date: date.into(), commit: "none".into() }
+    }
+
+    /// Methodology: the rust-analyzer history is appended as text (maintainer,
+    /// 2026-10-07: record the versions used, never overwrite). On the v1 and
+    /// v2 fixtures and on a root with comments and no trailing newline, the
+    /// old text is a byte-for-byte prefix of the new; the same version twice
+    /// appends nothing; a new version appends a second entry; the pin
+    /// (`rust_analyzer`) is unchanged; a corrupt root, a bad date and an
+    /// inline-array spelling are refused with nothing returned to write.
+    ///
+    /// Result (2026-10-07): passes.
+    #[test]
+    fn rust_analyzer_history_is_appended_as_text_and_never_rewrites() {
+        let v1 = include_str!("../../tests/fixtures/review/v1/kovan_root.toml");
+        let v2 = include_str!("../../tests/fixtures/review/v2/kovan_root.toml");
+        let commented = "# keep me\nschema_version = 1 # inline\n[code_review]\nrust_analyzer = \"0.3.2645\" # the pin\n# trailing, no newline";
+        for old in [v1, v2, ROOT, commented] {
+            let pin = ReviewRoot::parse(old).unwrap().code_review.unwrap().rust_analyzer;
+            let a = append_rust_analyzer_used(old, &used("1.98.0", "2026-10-07")).unwrap().unwrap();
+            assert!(a.starts_with(old), "old text must be a prefix");
+            let r = ReviewRoot::parse(&a).unwrap();
+            assert_eq!(r.rust_analyzer_history(), &[used("1.98.0", "2026-10-07")]);
+            assert_eq!(r.code_review.as_ref().unwrap().rust_analyzer, pin, "the pin never moves");
+            assert_eq!(append_rust_analyzer_used(&a, &used("1.98.0", "2026-10-08")).unwrap(), None);
+            let b = append_rust_analyzer_used(&a, &used("1.99.0", "2026-10-08")).unwrap().unwrap();
+            assert!(b.starts_with(&a));
+            assert_eq!(ReviewRoot::parse(&b).unwrap().rust_analyzer_history().len(), 2);
+        }
+        // A literature root with no [code_review] at all.
+        let plain = "schema_version = 1\n[library]\nid = \"x\"\nname = \"X\"\n";
+        let a = append_rust_analyzer_used(plain, &used("1.98.0", "2026-10-07")).unwrap().unwrap();
+        let r = ReviewRoot::parse(&a).unwrap();
+        assert_eq!((r.rust_analyzer_history().len(), r.code_review.unwrap().rust_analyzer), (1, None));
+        assert!(append_rust_analyzer_used("x = [\n", &used("1.98.0", "2026-10-07")).is_err());
+        assert!(matches!(
+            append_rust_analyzer_used(plain, &used("1.98.0", "today")),
+            Err(RootError::Field(_))
+        ));
+        let inline = "[code_review]\nrust_analyzer_used = [{ version = \"1.0.0\", date = \"2026-10-01\", commit = \"none\" }]\n";
+        assert!(ReviewRoot::parse(inline).is_ok());
+        assert!(append_rust_analyzer_used(inline, &used("1.98.0", "2026-10-07")).is_err());
+    }
+
+    /// Methodology: schemas never break. A root carrying the new table reads
+    /// in a reader shaped like the pre-history `[code_review]` (pin and
+    /// founder only, serde's default of ignoring unknown keys), and the old
+    /// fixtures read in the new one with an empty history.
+    ///
+    /// Result (2026-10-07): passes.
+    #[test]
+    fn roots_with_and_without_the_history_read_in_old_and_new_readers() {
+        #[derive(Deserialize)]
+        struct OldCodeReview {
+            rust_analyzer: Option<String>,
+            founder: Option<String>,
+        }
+        #[derive(Deserialize)]
+        struct OldRoot {
+            code_review: Option<OldCodeReview>,
+        }
+        let v2 = include_str!("../../tests/fixtures/review/v2/kovan_root.toml");
+        let a = append_rust_analyzer_used(v2, &used("1.98.0", "2026-10-07")).unwrap().unwrap();
+        let old: OldRoot = toml::from_str(&a).unwrap();
+        let cr = old.code_review.unwrap();
+        assert_eq!((cr.rust_analyzer.as_deref(), cr.founder), (Some("0.3.2645"), None));
+        for f in [include_str!("../../tests/fixtures/review/v1/kovan_root.toml"), v2] {
+            assert!(ReviewRoot::parse(f).unwrap().rust_analyzer_history().is_empty());
+        }
     }
 }

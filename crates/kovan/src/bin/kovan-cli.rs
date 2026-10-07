@@ -634,7 +634,9 @@ enum Command {
         /// files' provenance headers, for a human to confirm (never written).
         #[arg(long)]
         draft_upstream: bool,
-        /// Pin the installed rust-analyzer's version in kovan_root.toml.
+        /// Pin the installed rust-analyzer's version in kovan_root.toml (nothing
+        /// else changes the pin; every run appends the version it used to
+        /// `[[code_review.rust_analyzer_used]]`, as text, when it is new).
         #[arg(long)]
         pin_rust_analyzer: bool,
         /// Index ANY Rust workspace or single crate fresh (GitHub #780):
