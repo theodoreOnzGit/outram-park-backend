@@ -23,3 +23,24 @@ after the workbench's first build had typed ENDF and kovan-root fields.
 **Status in kovan (checked 2026-10-05).** The two typed path fields found,
 the setup folder (`src/app/setup.rs`) and the digitiser image path
 (`src/app/mod.rs`), both already have a "Browse…" picker beside them.
+
+## Zotero import/export acts only on paths the user names (data policy, #747)
+
+`kovan-cli zotero` (GitHub #752; `src/commands/zotero.rs` over
+`src/zotero/`) imports a Zotero data folder or file into a Kovan folder and
+exports to every ported Zotero format. Command reference and the import
+layout: `README.md`, "`zotero` — Zotero import and export".
+
+- **A Zotero library is the user's own data.** Never read one on your own
+  initiative (the opt-in test reads only `KOVAN_ZOTERO_DATA_DIR`, set by the
+  user). Never import into, or export to, this repository or
+  `reactor-literature`: the command refuses both unless
+  `--allow-inside-repo` is passed, and an agent does not pass it.
+- **Schemas never break** (maintainer rule, #747): the import writes the
+  existing formats through the existing code, adds one file per paper
+  (`<citekey>.kovan-document.json`), appends to the bibliography and never
+  overwrites. `tests/zotero_cli.rs` holds the proof (a folder written
+  before the change stays byte-identical); keep it passing.
+- **Translators are listed from `Translator::ALL`.** Never match on
+  translator variants in the CLI, so a newly ported translator needs no CLI
+  change.

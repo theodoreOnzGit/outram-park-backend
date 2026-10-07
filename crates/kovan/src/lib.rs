@@ -103,3 +103,6 @@ pub mod runtime_graph;
 pub mod save_push;
 pub mod sync;
 pub mod tui;
+/// Zotero import into a Kovan folder and export from it (GitHub #752,
+/// epic #747); `kovan-cli zotero` is its front end.
+pub mod zotero;

@@ -273,3 +273,11 @@ egui-file-dialog = { workspace = true, optional = true }
 # (mirrors kovan-literature's private `test_pdf` helper, which isn't exported).
 lopdf.workspace = true
 tempfile.workspace = true
+
+# `tests/zotero_cli.rs` (GitHub #752) builds Zotero data folders from
+# upstream's own schema files with real SQLite, sharing kovan-literature's
+# test builder (`tests/zotero_db/mod.rs`) by path. Test-only and native-only,
+# exactly as kovan-literature declares it: rusqlite never reaches a shipped
+# binary, and the test file is gated off wasm32 and Android.
+[target.'cfg(not(any(target_arch = "wasm32", target_os = "android")))'.dev-dependencies]
+rusqlite.workspace = true

@@ -39,6 +39,11 @@ edges no longer need filing from this workspace. The former rule, and the
   standard corpus or annotations in `kovan-literature`.** Do it when asked;
   how is in [`crates/kovan-literature/CLAUDE.md`](../../crates/kovan-literature/CLAUDE.md).
 - `kovan lit` and `kovan-cli digitise` are optional tools, not mandates.
+- `kovan-cli zotero` imports a Zotero library or file into a Kovan folder and
+  exports to every Zotero format (GitHub #752; reference in
+  `crates/kovan/README.md`). It acts only on paths the user names: never
+  read a user's Zotero library unasked, and never import into or export to
+  this repository or `reactor-literature` (refused by default).
 - The provenance, access-tier and digitisation-record obligations come from
   `DATA_POLICY.md` and the root `CLAUDE.md` ("Responsible use & data policy",
   "Verification & validation documentation"), not from kovan.

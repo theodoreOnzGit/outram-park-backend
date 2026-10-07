@@ -192,6 +192,13 @@ kovan-cli gen root newton-raphson
 kovan-cli lit import paper.pdf --json-out doc.json
 kovan-cli lit bibtex doc.json
 kovan-cli lit outline paper.pdf
+kovan-cli zotero formats
+kovan-cli zotero import ~/Zotero --to ~/my-kovan-folder --dry-run
+kovan-cli zotero import ~/Zotero --to ~/my-kovan-folder
+kovan-cli zotero import library.ris --to ~/my-kovan-folder
+kovan-cli zotero export --format bibtex --from ~/my-kovan-folder -o library.bib
+kovan-cli zotero duplicates ~/my-kovan-folder
+kovan-cli zotero search ~/my-kovan-folder "pebble bed"
 kovan-cli setup --dry-run
 kovan-cli digitise --image fig7.png --x-scale log --x-range 1,1e6 \
     --y-scale log --y-range 0.1,10 --figure "Fig. 7" --json fig7.json
@@ -288,6 +295,93 @@ from it, never the reverse.
   empty for a PDF with no high-confidence headings — that is a correct,
   documented result of `kovan-literature`'s deliberately conservative heading
   detection (see its crate docs), not a CLI bug.
+
+### `zotero` — Zotero import and export (`commands::zotero`, `kovan::zotero`, GitHub #752)
+
+Wires the Zotero port (epic #747) into a Kovan folder. Nothing here
+re-implements Zotero: the data folder is read by
+`kovan_literature::zotero::local_library`, files by the ported Zotero
+translators (`kovan_literature::zotero::translators::Translator`), items
+become `KovanDocument`s through kovan-common's conversion, the loss report
+is kovan-metrics', duplicates are kovan-semantics' port of Zotero's
+duplicate detection and the search is kovan-discovery's port of the quick
+search. The CLI only acts on the paths you give it.
+
+- `zotero formats` — every translator, one per line:
+  `format-name<TAB>import|export|import,export<TAB>label<TAB>.ext`. Listed
+  from `Translator::ALL`, so a newly ported translator appears with no CLI
+  change.
+- `zotero import <source> --to <kovan folder>` — `<source>` is a Zotero data
+  folder (the folder holding `zotero.sqlite`; read through an in-memory
+  copy, so Zotero may stay open, but close it for an exact snapshot) or a
+  file in any importable format (detected as the translation-server does,
+  or named with `--format`). Options: `--include-trashed`,
+  `--copy-attachments` (copy each PDF into the folder's proprietary
+  repository; default: reference it where Zotero keeps it), `--dry-run`
+  (print the counts, write nothing), `--init` (create the Kovan folder),
+  `--topic <path>` (file the papers under a topic; default `unsorted`),
+  `--base-attachment-path <dir>` (Zotero's linked-attachment base
+  directory). Prints `papers`, `already_present`, `renamed`, `written`,
+  `attachments_copied`/`_referenced` and the report path.
+- `zotero export --format <name> [--from <kovan folder | .json | folder>...]
+  [-o <file>] [--force]` — every export translator. A paper imported from
+  Zotero exports **losslessly** (its stored Zotero item); a `.json`
+  `KovanDocument` goes through the KovanDocument → Zotero item conversion;
+  a paper ingested from a PDF (no document file) goes through its
+  bibliography entry and the ported BibTeX import. `-o` is never
+  overwritten without `--force`; without `-o` the export goes to stdout.
+- `zotero duplicates <corpus>...` — report the sets of probable duplicates
+  (report only; nothing is merged).
+- `zotero search <corpus> <text> [--mode title-creator-year|fields|everything]`
+  — Zotero's quick search; prints `citekey<TAB>title` per match.
+
+**Where imported items land** — the layout ingestion already uses, so the
+index, Wiki, mind map and PDF reader see them unchanged:
+
+```text
+<kovan folder>/
+├── bibliography.bib                      one entry per paper, appended (existing bytes kept)
+├── papers/<year|undated>/<citekey>/
+│   ├── kovan.toml                         paper entity: access "restricted", topic "unsorted"
+│   ├── <citekey>.md                       the usual Markdown stub
+│   └── <citekey>.kovan-document.json      the full KovanDocument, Zotero item included (new, additive)
+├── literature/proprietary/<citekey>.pdf   only with --copy-attachments
+└── zotero-imports/<UTC time>.md           the import report
+```
+
+The citekey is the item's `citationKey`, else `<first author><year>`
+(sanitised), with `a`, `b`, … appended when taken. **Never overwrites**:
+every file is created new, a document already in the folder (same
+`zotero:<KEY>` id) is reported and skipped, and the bibliography is appended
+to rather than re-rendered. **Schema-safe** (maintainer rule, #747): no
+existing file format changed; the document file is kovan-common's existing
+`KovanDocument` JSON. **Data policy:** a target inside the outram-park-backend
+repository or a `reactor-literature` folder is refused unless
+`--allow-inside-repo` is given; imported papers are `restricted`.
+
+#### Importing your Zotero library
+
+1. Find your Zotero data folder: Zotero, *Settings → Advanced → Files and
+   Folders → Data Directory Location* (usually `~/Zotero`).
+2. Preview: `kovan-cli zotero import ~/Zotero --to ~/my-kovan-folder --dry-run`
+   (add `--init` if `~/my-kovan-folder` is not a Kovan folder yet). Nothing
+   is written.
+3. Import: the same command without `--dry-run`. Read the report it names
+   under `zotero-imports/`: what was imported, skipped (trash, standalone
+   notes, annotations, collections, saved searches) and which fields kovan's
+   own document fields do not carry (all of them are still in the document
+   file, so an export gives them back).
+4. Re-running is safe: items already imported are skipped.
+5. Export any time: `kovan-cli zotero export --format ris --from ~/my-kovan-folder -o all.ris`.
+
+To check the import against your real library without writing into any
+Kovan folder, run the opt-in test, which imports into a temporary folder
+(deleted afterwards) and prints counts only:
+
+```bash
+KOVAN_ZOTERO_DATA_DIR=~/Zotero cargo test --release -p kovan --test zotero_cli \
+    opt_in_real_library_import_counts -- --nocapture
+```
 
 ### `setup` — curated external CLI tools (`commands::setup`)
 
@@ -752,6 +846,12 @@ cargo test --release -p kovan
   proprietary PDF ever ships as a fixture) and assert on stdout/stderr/exit
   code. Targets `kovan-cli` specifically — `kovan` is the GUI binary and
   needs a display, so it cannot run headlessly here.
+- `tests/zotero_cli.rs` — `kovan-cli zotero` end to end (GitHub #752):
+  a Zotero data folder built from upstream's own schema files imported,
+  loaded back losslessly, exported in every export format and re-imported;
+  never-overwrite, refuse-inside-repo, and a folder written before the
+  change left byte-identical (the schema-compatibility proof). The opt-in
+  `opt_in_real_library_import_counts` reads `KOVAN_ZOTERO_DATA_DIR`.
 - `tests/code_map_tags.rs` — every member's code-map tag is well formed,
   agrees with the dependency graph, and the real workspace lays out with no
   overlapping cards, each crate once, fidelity in order and raffles across
@@ -797,6 +897,7 @@ src/
 │   ├── symbols.rs          `kovan-cli symbols` / `kovan-cli summary`
 │   ├── gen.rs              `kovan-cli gen <family> <method>`
 │   ├── lit.rs              `kovan-cli lit import|bibtex|outline`
+│   ├── zotero.rs           `kovan-cli zotero formats|import|export|duplicates|search`
 │   └── setup.rs            `kovan-cli setup` (curated external-tool installer)
 ├── digitiser/             graph digitiser engine, shared by all three binaries
 │   ├── mod.rs              `DigitiserError`, module map
