@@ -81,8 +81,11 @@
 //! the review's other certifying fields). The authorship of the reviewed
 //! change is signed (maintainer, #764, 2026-10-07).
 //!
-//! The registry statements ([`endorsement_bytes`], [`admission_bytes`],
-//! [`revocation_bytes`], [`unretire_bytes`]) use the same line format, each
+//! The registry statements ([`key_event_bytes`] for every signed
+//! `[[reviewer.key.history]]` event, [`revocation_bytes`] for a reviewer's
+//! revocation; and the v1 [`endorsement_bytes`], [`admission_bytes`],
+//! [`unretire_bytes`] that migrated `legacy` events were signed over) use
+//! the same line format, each
 //! under its own first line, so a signature over one kind of statement can
 //! never be replayed as another.
 
@@ -92,7 +95,7 @@ use ed25519_dalek::{Signature as EdSignature, VerifyingKey};
 use serde::{Deserialize, Serialize};
 
 use super::review_md::{ArchitectureEntry, ReviewEntry};
-use super::root::{Revocation, Reviewer, ReviewerKey, Role};
+use super::root::{KeyEvent, KeyEventKind, Revocation, Reviewer, ReviewerKey, Role};
 use super::scope::in_scope;
 
 pub mod registry;
@@ -103,6 +106,10 @@ pub mod keystore;
 #[cfg(all(test, not(target_arch = "wasm32")))]
 #[path = "signing/tests.rs"]
 mod tests;
+
+#[cfg(all(test, not(target_arch = "wasm32")))]
+#[path = "signing/history_tests.rs"]
+mod history_tests;
 
 use registry::{KeyStatus, Registry};
 
@@ -201,20 +208,26 @@ pub fn architecture_signed_bytes(a: &ArchitectureEntry) -> Vec<u8> {
 }
 
 
-/// The bytes an endorsement signs: `owner`'s key `k` vouched for by an
-/// existing key (of the same reviewer, or a maintainer's for a reset).
+/// *v1 (legacy).* The bytes an endorsement signed: `owner`'s key `k`
+/// vouched for by an existing key (of the same reviewer, or a maintainer's
+/// for a reset). Used only to verify migrated `legacy` events.
 pub fn endorsement_bytes(owner: &str, k: &ReviewerKey) -> Vec<u8> {
+    endorsement_bytes_with(owner, k, k.reset)
+}
+
+fn endorsement_bytes_with(owner: &str, k: &ReviewerKey, reset: bool) -> Vec<u8> {
     let mut s = String::from("kovan-key-endorsement-v1\n");
     line(&mut s, "reviewer", &[owner]);
     line(&mut s, "key", &[&k.id]);
     line(&mut s, "alg", &[&k.alg]);
     line(&mut s, "public", &[&k.public]);
     line(&mut s, "created", &[&k.created]);
-    line(&mut s, "reset", &[if k.reset { "true" } else { "false" }]);
+    line(&mut s, "reset", &[if reset { "true" } else { "false" }]);
     s.into_bytes()
 }
 
-/// The bytes a maintainer signs to admit reviewer `r`: its id, role,
+/// The bytes a maintainer signs to admit reviewer `r` (as the v1
+/// `admitted_by`, and inside an `admitted` [`key_event_bytes`]): its id, role,
 /// admission date, every scope glob (in order) and its **first key**, so the
 /// admission is also what makes that key trusted. Widening a scope or
 /// changing the role needs a new admission signature; `qualification` and
@@ -244,16 +257,80 @@ pub fn revocation_bytes(reviewer: &str, rev: &Revocation) -> Vec<u8> {
     s.into_bytes()
 }
 
-/// The bytes a retired key signs **itself** to come back from `date`: the
-/// signature is the proof that its encrypted private key was unlocked.
-pub fn unretire_bytes(owner: &str, k: &ReviewerKey, date: &str) -> Vec<u8> {
+/// *v1 (legacy).* The bytes a retired key signed **itself** to come back
+/// from `date`, retired since `retired_on`. Used only to verify migrated
+/// `legacy` events.
+pub fn unretire_bytes(owner: &str, k: &ReviewerKey, retired_on: &str, date: &str) -> Vec<u8> {
     let mut s = String::from("kovan-key-unretire-v1\n");
     line(&mut s, "reviewer", &[owner]);
     line(&mut s, "key", &[&k.id]);
     line(&mut s, "public", &[&k.public]);
-    line(&mut s, "retired_on", &[k.retired_on.as_deref().unwrap_or("")]);
+    line(&mut s, "retired_on", &[retired_on]);
     line(&mut s, "date", &[date]);
     s.into_bytes()
+}
+
+/// The bytes a signed `[[reviewer.key.history]]` event signs: the key
+/// (owner, id, alg, public, created), the event kind, its date and its
+/// signer. An `unretired` event also signs the date of the retirement it
+/// ends (so moving that `retired` entry breaks it); an `admitted` event
+/// also signs the [`admission_bytes`] of `admission` (role, admitted date,
+/// scope, first key).
+pub fn key_event_bytes(
+    owner: &str,
+    k: &ReviewerKey,
+    ev: &KeyEvent,
+    retired_on: &str,
+    admission: Option<&Reviewer>,
+) -> Vec<u8> {
+    let mut s = String::from("kovan-key-event-v1\n");
+    line(&mut s, "reviewer", &[owner]);
+    line(&mut s, "key", &[&k.id]);
+    line(&mut s, "alg", &[&k.alg]);
+    line(&mut s, "public", &[&k.public]);
+    line(&mut s, "created", &[&k.created]);
+    line(&mut s, "event", &[ev.event.as_str()]);
+    line(&mut s, "date", &[&ev.date]);
+    let (sr, sk) = match &ev.signer {
+        Some(sg) => (sg.reviewer.as_deref().unwrap_or(""), sg.key.as_str()),
+        None => ("", ""),
+    };
+    line(&mut s, "signer", &[sr, sk]);
+    if ev.event == KeyEventKind::Unretired {
+        line(&mut s, "retired_on", &[retired_on]);
+    }
+    let mut out = s.into_bytes();
+    if ev.event == KeyEventKind::Admitted {
+        if let Some(r) = admission {
+            out.extend_from_slice(&admission_bytes(r));
+        }
+    }
+    out
+}
+
+/// What an event's signature is checked over: [`key_event_bytes`], or for a
+/// `legacy` (migrated v1) event the v1 statement it was signed as.
+pub fn event_signed_bytes(
+    owner: &str,
+    k: &ReviewerKey,
+    ev: &KeyEvent,
+    retired_on: &str,
+    admission: Option<&Reviewer>,
+) -> Vec<u8> {
+    if ev.legacy {
+        match ev.event {
+            KeyEventKind::Endorsed => return endorsement_bytes_with(owner, k, false),
+            KeyEventKind::Reset => return endorsement_bytes_with(owner, k, true),
+            KeyEventKind::Admitted => {
+                if let Some(r) = admission {
+                    return admission_bytes(r);
+                }
+            }
+            KeyEventKind::Unretired => return unretire_bytes(owner, k, retired_on, &ev.date),
+            _ => {}
+        }
+    }
+    key_event_bytes(owner, k, ev, retired_on, admission)
 }
 
 fn role_str(r: Role) -> &'static str {
@@ -378,6 +455,11 @@ pub enum UnverifiedReason {
     /// Dated inside the key's retired window (`since = None`: no valid
     /// retirement date, so no stamp of the key counts).
     KeyRetired { key: String, since: Option<String> },
+    /// Dated on or after a `revoked` event in the key's history (`date =
+    /// None`: the event's date is malformed, so nothing counts).
+    KeyRevoked { key: String, date: Option<String> },
+    /// Dated on or after a `compromised` event in the key's history.
+    KeyCompromised { key: String, from: Option<String> },
     /// A `reviewer` certified a path outside its `scope` (or an architecture
     /// node with no member paths: `path` is empty).
     OutsideScope { reviewer: String, path: String },
@@ -481,7 +563,9 @@ fn check_stamp(
     if let Some(rev) = &reviewer.revocation {
         rev.check(date)?;
     }
-    key.retirement.check(&key.id, date)?;
+    if let Some(why) = key.inactive_at(date) {
+        return Err(why);
+    }
     if reviewer.role == Role::Reviewer {
         if paths.is_empty() {
             return Err(U::OutsideScope { reviewer: by.to_string(), path: String::new() });
