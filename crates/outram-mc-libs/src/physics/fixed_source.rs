@@ -334,6 +334,7 @@ pub fn run_fixed_source_traced(
                     // Only the source particle carries a replayed weight; a
                     // fission secondary is born at 1 like any other.
                     if is_source_particle { birth_weight } else { 1.0 },
+                    &mut crate::physics::tracking_trace::no_trace,
                 );
                 is_source_particle = false;
                 production_sum += prod.production;

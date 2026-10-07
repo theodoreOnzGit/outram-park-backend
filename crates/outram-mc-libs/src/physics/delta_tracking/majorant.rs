@@ -459,6 +459,22 @@ impl Majorant {
         self.energy.is_empty()
     }
 
+    /// **ABLATION — breaks the bound on purpose.** This majorant with every
+    /// value multiplied by `factor` (gh:#784).
+    ///
+    /// `factor < 1` makes an under-bound: where `Σ_t > factor·Σ_maj` the
+    /// accept probability saturates at 1 and the excess collisions are
+    /// silently lost, which is the bias the rung-5 tutorial demo's "majorant
+    /// too low" switch shows. `factor > 1` only loosens the bound (more
+    /// virtual collisions, the same answer). **Do not transport on a factor
+    /// below 1** except to measure that bias.
+    pub fn scaled(&self, factor: f64) -> Majorant {
+        Majorant {
+            energy: self.energy.clone(),
+            sigma: self.sigma.iter().map(|s| s * factor).collect(),
+        }
+    }
+
     /// The majorant Σ_maj \[cm⁻¹\] at energy `e` \[eV\] — conservative (takes the
     /// larger bracketing grid value so it never under-bounds between points).
     ///

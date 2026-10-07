@@ -84,6 +84,7 @@ use crate::physics::scatter::{
 use crate::geometry::distribcell::DistribcellOffsets;
 use crate::geometry::surface::BoundaryType;
 use crate::physics::track_output::{TrackEvent, TrackRecorder, TrackState};
+use crate::physics::tracking_trace::{no_trace, TraceEvent};
 use crate::source::extra::{SurfaceCrossing, SurfaceSource};
 use crate::physics::weight_windows::{apply as apply_window, WindowOutcome, WindowState};
 use crate::physics::variance_reduction::{
@@ -305,6 +306,56 @@ pub fn run_keff_csg(
         settings,
         tally,
     )
+}
+
+/// **One surface-tracked history, step by step** (gh:#784): the neutron at
+/// `r`, `u`, `e` is transported by the same kernel a [`run_keff_csg`]
+/// generation uses (analog, at `k = 1`, no tally), and every step is
+/// reported to `observe`: each [`Geometry::locate`], each
+/// distance-to-boundary query with the collision distance it was compared
+/// with and the variate behind it, each surface crossing (reflections
+/// included), each collision and what it did. Returns the history's fission
+/// production `Σ ν̄`; the fission sites it banks are dropped, since one
+/// history has no next generation.
+///
+/// Built for the rung-5 tutorial demo, which runs the same neutron through
+/// [`crate::pebble_beds::keff_delta::trace_delta_history`] beside it. A
+/// region of `geom` declaring delta tracking is flown by the hybrid
+/// hand-off, whose flights are not reported step by step.
+#[allow(clippy::too_many_arguments)]
+pub fn trace_csg_history<O: FnMut(TraceEvent)>(
+    r: Position,
+    u: Direction,
+    e: f64,
+    geom: &Geometry,
+    materials: &[Material],
+    nuclides: &[Nuclide],
+    seed: &mut u64,
+    mut observe: O,
+) -> f64 {
+    let (mut bank, mut batch, mut leak_batch) = (Vec::new(), Vec::new(), Vec::new());
+    transport_history_vr(
+        Site::new(r, u, e),
+        geom,
+        materials,
+        nuclides,
+        &[],
+        1.0,
+        &mut bank,
+        seed,
+        None,
+        &mut batch,
+        &[],
+        &mut leak_batch,
+        &VarianceReduction::default(),
+        DeltaTallyEstimator::default(),
+        None,
+        None,
+        None,
+        1.0,
+        &mut observe,
+    )
+    .production
 }
 
 /// One finished generation, reported to the `on_generation` callback of
@@ -684,6 +735,7 @@ pub fn run_keff_csg_seq_progress<G: FnMut(GenerationProgress) + Send>(
                     // Eigenvalue path: a fission source particle is born at
                     // weight 1 by definition of the normalisation.
                     1.0,
+                   &mut no_trace,
                 );
                 production += outcome.production;
                 totals.absorb(&outcome);
@@ -812,6 +864,22 @@ impl CsgPowerIteration {
     /// Transport one generation and resample its fission bank into the next
     /// source. `None` once every generation has run or the population died.
     pub fn step(&mut self, geom: &Geometry, materials: &[Material], nuclides: &[Nuclide]) -> Option<CsgGenerationReport> {
+        self.step_traced(geom, materials, nuclides, no_trace)
+    }
+
+    /// [`Self::step`], reporting every step of every history to `observe`
+    /// ([`TraceEvent`], gh:#784): each `locate`, each distance-to-boundary
+    /// query with the collision distance it was compared with, each surface
+    /// crossing, each collision. The counters of the rung-5 demo's "Run
+    /// many". Observing draws no random number, so the generation is the
+    /// one [`Self::step`] runs, bit for bit (`tests/tracking_trace.rs`).
+    pub fn step_traced<O: FnMut(TraceEvent)>(
+        &mut self,
+        geom: &Geometry,
+        materials: &[Material],
+        nuclides: &[Nuclide],
+        mut observe: O,
+    ) -> Option<CsgGenerationReport> {
         if self.finished {
             return None;
         }
@@ -841,6 +909,7 @@ impl CsgPowerIteration {
                 None,
                 None,
                 1.0,
+                &mut observe,
             );
             production += outcome.production;
         }
@@ -1038,6 +1107,7 @@ pub fn run_keff_csg_par_progress<G: FnMut(GenerationProgress) + Send>(
                             None,
                             None,
                             1.0,
+                            &mut no_trace,
                         );
                         (outcome, local_bank, local_batch, local_leak)
                     })
@@ -1235,7 +1305,7 @@ pub(crate) struct HistoryOutcome {
 /// flushed once per active generation by the caller. Pass an empty `leak_edges`
 /// (and any `leak_batch`, e.g. `&mut []`) to disable leakage accounting.
 #[allow(clippy::too_many_arguments)]
-pub(crate) fn transport_history_vr(
+pub(crate) fn transport_history_vr<O: FnMut(TraceEvent)>(
     site: Site,
     geom: &Geometry,
     materials: &[Material],
@@ -1279,6 +1349,11 @@ pub(crate) fn transport_history_vr(
     // stage one, in proportion to how far the weights had drifted from 1 —
     // which under variance reduction is arbitrarily far.
     birth_weight: f64,
+    // Step-level events (gh:#784): every `locate`, distance-to-boundary
+    // query, crossing and collision, for the rung-5 tutorial demo. Every
+    // untraced caller passes `no_trace`; observing draws no random number,
+    // so a traced history is the untraced one bit for bit.
+    observe: &mut O,
 ) -> HistoryOutcome {
     // OpenMC's `data::energy_max[neutron]` (GitHub #463 item 2).
     let e_cap_fission = library_energy_max_ev(nuclides);
@@ -1458,6 +1533,7 @@ pub(crate) fn transport_history_vr(
         // its own weight -- see the note on `stack` above.
         let mut ww_state = start_ww;
         let w_birth = ww_state.weight_born;
+        observe(TraceEvent::Start { r, u, e });
 
         if let Some(t) = tracks.as_deref_mut() {
             // Unconditionally: `begin` is what counts a refused track, and
@@ -1484,20 +1560,22 @@ pub(crate) fn transport_history_vr(
         /// locals the closure would have to borrow mutably alongside the
         /// recorder.
         macro_rules! track {
-            ($event:expr, $cell:expr, $material:expr) => {
+            ($event:expr, $cell:expr, $material:expr) => {{
+                let state = TrackState {
+                    r,
+                    u,
+                    energy: e,
+                    time: time_s,
+                    weight: w,
+                    cell: $cell,
+                    material: $material,
+                    event: $event,
+                };
                 if let Some(t) = tracks.as_deref_mut() {
-                    t.record(TrackState {
-                        r,
-                        u,
-                        energy: e,
-                        time: time_s,
-                        weight: w,
-                        cell: $cell,
-                        material: $material,
-                        event: $event,
-                    });
+                    t.record(state);
                 }
-            };
+                observe(TraceEvent::State(state));
+            }};
         }
 
         /// One weight-window checkpoint. Upstream has two,
@@ -1606,6 +1684,12 @@ pub(crate) fn transport_history_vr(
                 Some(m) => materials[m].macro_xs_total_urr(e, nuclides, urr_seed),
                 None => 0.0, // void: stream freely to the next boundary
             };
+            observe(TraceEvent::Located {
+                r,
+                cell: cell_idx,
+                material: path.material,
+                sigma_t,
+            });
 
             let d_bound = geom.distance_to_boundary(&path);
             if d_bound.distance < 0.0 {
@@ -1638,11 +1722,23 @@ pub(crate) fn transport_history_vr(
             // bit-identical across this change, which is how it is verified.
             let (d_col, col_material) = match path.tracking {
                 TrackingMethod::Surface => {
-                    let d = if sigma_t > 0.0 {
-                        -prn(seed).max(f64::MIN_POSITIVE).r_ln() / sigma_t
+                    // The variate is kept only to report it (gh:#784); the
+                    // draw and the distance are the same bits as before.
+                    let (xi, d) = if sigma_t > 0.0 {
+                        let xi = prn(seed);
+                        (Some(xi), -xi.max(f64::MIN_POSITIVE).r_ln() / sigma_t)
                     } else {
-                        f64::INFINITY
+                        (None, f64::INFINITY)
                     };
+                    observe(TraceEvent::Segment {
+                        xi,
+                        d_collision: d,
+                        d_boundary: d_bound.distance,
+                        surface: match d_bound.crossing {
+                            Crossing::Surface(i) => Some(i),
+                            Crossing::Lattice | Crossing::None => None,
+                        },
+                    });
                     (d, path.material)
                 }
                 TrackingMethod::Delta { majorant } => {
@@ -1794,6 +1890,12 @@ pub(crate) fn transport_history_vr(
                 let mat_temp = material.temperature;
                 let ci = material.sample_nuclide_urr(e, seed, nuclides, urr_seed);
                 let nuc_idx = material.components[ci].nuclide_idx;
+                observe(TraceEvent::Collision {
+                    r,
+                    material: m,
+                    nuclide: nuc_idx,
+                    e,
+                });
                 let nuc = &nuclides[nuc_idx];
                 let x = if nuc.needs_urr_draw(e) {
                     // Unresolved-resonance self-shielding: the SAME band the

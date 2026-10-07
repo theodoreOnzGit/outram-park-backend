@@ -71,7 +71,7 @@ pub mod majorant;
 
 pub use flight::{
     bounded_delta_flight, bounded_delta_flight_urr, bounded_delta_flight_visiting,
-    classify_collision, fly, sample_delta_distance, track_to_collision, Advance, BoundedRay,
+    classify_collision, fly, fly_traced, sample_delta_distance, track_to_collision, Advance, BoundedRay,
     DeltaEvent, DeltaFlight, DeltaRegion, DeltaStep, FlightEnd, IntoSiteContent, SiteContent,
     SiteTotal, TentativeSite,
 };

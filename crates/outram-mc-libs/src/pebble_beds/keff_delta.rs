@@ -62,8 +62,10 @@ use crate::material::material::Material;
 use crate::material::nuclide::library_energy_max_ev;
 use crate::material::nuclide::{Inelastic, Nuclide};
 use crate::physics::delta_tracking::flight::{
-    fly, Advance, DeltaRegion, FlightEnd, SiteContent, SiteTotal,
+    fly_traced, Advance, DeltaRegion, FlightEnd, SiteContent, SiteTotal,
 };
+use crate::physics::track_output::{TrackEvent, TrackState};
+use crate::physics::tracking_trace::{no_trace, TraceEvent};
 use crate::physics::delta_tracking::Majorant;
 use crate::physics::compute::{ComputeType, ThreadCount};
 use crate::physics::fission::sample_num_neutrons;
@@ -535,7 +537,7 @@ impl<L: Fn(Position) -> Option<usize>> DeltaRegion for DomainRegion<L> {
 /// along. `None` if the history leaked (vacuum domain), the lookup failed, or
 /// the virtual budget ran out; the caller ends the history.
 #[allow(clippy::too_many_arguments)]
-fn delta_flight<Q>(
+fn delta_flight<Q, O>(
     start: Position,
     direction: Direction,
     energy: f64,
@@ -547,9 +549,11 @@ fn delta_flight<Q>(
     material_at: &Q,
     seed: &mut u64,
     urr_seed: u64,
+    observe: &mut O,
 ) -> Option<(Position, usize, Direction)>
 where
     Q: MaterialQuery,
+    O: FnMut(TraceEvent),
 {
     let region = DomainRegion {
         domain,
@@ -557,7 +561,7 @@ where
     };
     // The band total the collision will use (GitHub #407); the majorant
     // bounds it (`Majorant` builds on `macro_xs_total_upper_bound`).
-    match fly(
+    match fly_traced(
         start,
         direction,
         energy,
@@ -568,7 +572,7 @@ where
         SiteTotal::UrrBand(urr_seed),
         max_virtual,
         seed,
-        |_| {},
+        &mut *observe,
     ) {
         FlightEnd::Collision {
             position,
@@ -739,6 +743,7 @@ where
                 &material_at,
                 &mut next_bank,
                 &mut seed,
+                &mut no_trace,
             );
         }
 
@@ -825,6 +830,21 @@ impl DeltaPowerIteration {
         majorant: &Majorant,
         material_at: &Q,
     ) -> Option<DeltaGenerationReport> {
+        self.step_traced(materials, nuclides, majorant, material_at, no_trace)
+    }
+
+    /// [`Self::step`], reporting every step of every history to `observe`
+    /// ([`TraceEvent`], gh:#784): the counters of the rung-5 demo's "Run
+    /// many". Observing draws no random number, so the generation is the
+    /// one [`Self::step`] runs, bit for bit (`tests/tracking_trace.rs`).
+    pub fn step_traced<Q: MaterialQuery, O: FnMut(TraceEvent)>(
+        &mut self,
+        materials: &[Material],
+        nuclides: &[Nuclide],
+        majorant: &Majorant,
+        material_at: &Q,
+        mut observe: O,
+    ) -> Option<DeltaGenerationReport> {
         if self.finished {
             return None;
         }
@@ -843,6 +863,7 @@ impl DeltaPowerIteration {
                 material_at,
                 &mut next_bank,
                 &mut self.seed,
+                &mut observe,
             );
         }
         let k_gen = production / n as f64;
@@ -866,6 +887,51 @@ impl DeltaPowerIteration {
     pub fn generations_done(&self) -> usize {
         self.generation
     }
+}
+
+/// **One delta-tracked history, step by step** (gh:#784): the neutron at
+/// `r`, `u`, `e` is transported exactly as a generation of
+/// [`DeltaPowerIteration`] transports it (the same private kernel, at
+/// `k = 1`), and every step is reported to `observe`: each flight on the
+/// majorant with its variate, each tentative site with `Σ_t/Σ_maj`, its
+/// variate and the verdict, each real collision and what it did. Returns
+/// the history's fission production `Σ ν̄`; the fission sites it banks are
+/// dropped, since one history has no next generation. Secondaries
+/// ((n,2n) partners) are followed in the same call, each announced by a
+/// [`TraceEvent::Start`].
+///
+/// Built for the rung-5 tutorial demo, which runs the same neutron through
+/// [`crate::physics::transport_csg::trace_csg_history`] beside it.
+#[allow(clippy::too_many_arguments)]
+pub fn trace_delta_history<Q, O>(
+    r: Position,
+    u: Direction,
+    e: f64,
+    domain: DeltaDomain,
+    materials: &[Material],
+    nuclides: &[Nuclide],
+    majorant: &Majorant,
+    material_at: &Q,
+    seed: &mut u64,
+    mut observe: O,
+) -> f64
+where
+    Q: MaterialQuery,
+    O: FnMut(TraceEvent),
+{
+    let mut bank = Vec::new();
+    transport_history(
+        Site { r, u, e },
+        domain,
+        materials,
+        nuclides,
+        majorant,
+        1.0,
+        material_at,
+        &mut bank,
+        seed,
+        &mut observe,
+    )
 }
 
 /// Rayon-parallel delta-tracked power iteration ([`ComputeType::CpuMultiThread`]).
@@ -962,6 +1028,7 @@ where
                         &material_at,
                         &mut local_bank,
                         &mut seed,
+                        &mut no_trace,
                     );
                     (production, local_bank)
                 })
@@ -1002,7 +1069,7 @@ where
 /// difference is that streaming is done by [`delta_flight`] (Woodcock) rather than
 /// surface tracking.
 #[allow(clippy::too_many_arguments)]
-fn transport_history<Q>(
+fn transport_history<Q, O>(
     site: Site,
     domain: DeltaDomain,
     materials: &[Material],
@@ -1012,9 +1079,13 @@ fn transport_history<Q>(
     material_at: &Q,
     next_bank: &mut Vec<Site>,
     seed: &mut u64,
+    // Step-level events (gh:#784). Every untraced caller passes `no_trace`;
+    // observing draws no random number, so the history is the same either way.
+    observe: &mut O,
 ) -> f64
 where
     Q: MaterialQuery,
+    O: FnMut(TraceEvent),
 {
     // OpenMC's `data::energy_max[neutron]` (GitHub #463 item 2).
     let e_cap_fission = library_energy_max_ev(nuclides);
@@ -1035,6 +1106,22 @@ where
         let mut e = start.e;
         let mut events = 0u32;
         let mut urr_e_last = e;
+        observe(TraceEvent::Start { r, u, e });
+        // An outcome, as a track file would record it (gh:#784).
+        macro_rules! outcome {
+            ($event:expr, $material:expr) => {
+                observe(TraceEvent::State(TrackState {
+                    r,
+                    u,
+                    energy: e,
+                    time: 0.0,
+                    weight: 1.0,
+                    cell: usize::MAX,
+                    material: $material,
+                    event: $event,
+                }))
+            };
+        }
 
         'history: loop {
             events += 1;
@@ -1058,7 +1145,19 @@ where
                 material_at,
                 seed,
                 urr_seed,
+                &mut *observe,
             ) else {
+                // A vacuum domain's escape is a leak; anything else is a lost
+                // history (budget exhausted, or a point the lookup could not place).
+                outcome!(
+                    match domain {
+                        DeltaDomain::SphereVacuum { .. } | DeltaDomain::CylinderVacuum { .. } => {
+                            TrackEvent::Leak
+                        }
+                        DeltaDomain::Cube { .. } | DeltaDomain::Sphere { .. } => TrackEvent::Lost,
+                    },
+                    None
+                );
                 break 'history; // leaked / virtual budget exhausted
             };
             r = r_col;
@@ -1073,6 +1172,12 @@ where
             let temp = material.temperature;
             let ci = material.sample_nuclide_urr(e, seed, nuclides, urr_seed);
             let nuc_idx = material.components[ci].nuclide_idx;
+            observe(TraceEvent::Collision {
+                r,
+                material: m,
+                nuclide: nuc_idx,
+                e,
+            });
             let nuc = &nuclides[nuc_idx];
             let x = if nuc.needs_urr_draw(e) {
                 // The same band the flight and the nuclide choice used
@@ -1101,8 +1206,10 @@ where
                         e: nuc.sample_fission_energy_below(e, e_cap_fission, seed),
                     });
                 }
+                outcome!(TrackEvent::Fission, Some(m));
                 break 'history; // fission absorbs the incident neutron
             } else if xi < x.absorption {
+                outcome!(TrackEvent::Absorption, Some(m));
                 break 'history; // radiative capture
             } else if xi < x.absorption + x.inelastic {
                 let (e2, u2) = match nuc.sample_inelastic(e, seed) {
@@ -1198,6 +1305,7 @@ where
                     nuc.sample_inelastic_emission(5, e, u, 0.0, seed),
                 ];
                 if n_emit == 0 {
+                    outcome!(TrackEvent::Absorption, Some(m));
                     break 'history;
                 }
                 for (se, su) in extras.iter().take(n_emit.saturating_sub(1).min(2)) {
@@ -1209,6 +1317,7 @@ where
                 // The other neutron-emitting reactions (GitHub #365 audit).
                 let o = nuc.sample_other_emission(e, u, seed);
                 if o.n_emit == 0 {
+                    outcome!(TrackEvent::Absorption, Some(m));
                     break 'history;
                 }
                 for (se, su) in o.extras.iter().take(o.n_emit.saturating_sub(1).min(3)) {
@@ -1254,6 +1363,9 @@ where
                 e = e2;
                 u = u2;
             }
+            // Every branch that does not end the history scatters: the
+            // outgoing state is the one the next flight starts from.
+            outcome!(TrackEvent::Scatter, Some(m));
         }
     }
     production

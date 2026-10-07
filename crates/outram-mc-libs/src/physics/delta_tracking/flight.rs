@@ -17,6 +17,7 @@ use crate::mathf::RealMath;
 use crate::rng::lcg::prn;
 
 use super::majorant::Majorant;
+use crate::physics::tracking_trace::TraceEvent;
 
 /// The outcome of one delta-tracking flight segment.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -390,6 +391,61 @@ where
     R: DeltaRegion,
     V: FnMut(TentativeSite),
 {
+    fly_traced(
+        start,
+        direction,
+        energy,
+        majorant,
+        region,
+        materials,
+        nuclides,
+        total,
+        max_virtual,
+        seed,
+        |ev: TraceEvent| {
+            if let TraceEvent::Tentative { site, .. } = ev {
+                visit(site);
+            }
+        },
+    )
+}
+
+/// The variate the next `prn` on a stream at `seed` will return, without
+/// advancing the stream (the caller's copy is untouched).
+#[inline]
+fn next_variate(mut seed: u64) -> f64 {
+    prn(&mut seed)
+}
+
+/// [`fly`] reporting every step to `observe` (gh:#784): each flight sampled
+/// on the majorant ([`TraceEvent::Flight`], with its variate), and each
+/// tentative site once it is classified ([`TraceEvent::Tentative`], with the
+/// accept/reject variate and the verdict).
+///
+/// **This is the flight loop**; [`fly`] is this with an observer that hands
+/// the tentative sites to its visitor. The variates reported are the ones
+/// [`sample_delta_distance`] and [`classify_collision`] then draw, read off a
+/// copy of the stream just before each call; `observe` draws none, so a
+/// traced flight is the untraced one bit for bit (`tests/tracking_trace.rs`,
+/// `tests/delta_tracking_bit_identity.rs`).
+#[allow(clippy::too_many_arguments)]
+pub fn fly_traced<R, O>(
+    start: Position,
+    direction: Direction,
+    energy: f64,
+    majorant: f64,
+    region: &R,
+    materials: &[Material],
+    nuclides: &[Nuclide],
+    total: SiteTotal,
+    max_virtual: u32,
+    seed: &mut u64,
+    mut observe: O,
+) -> FlightEnd
+where
+    R: DeltaRegion,
+    O: FnMut(TraceEvent),
+{
     if !(majorant > 0.0) {
         return FlightEnd::Lost {
             virtual_collisions: 0,
@@ -399,9 +455,23 @@ where
     let mut u = direction;
     let mut virtual_collisions = 0_u32;
     for _ in 0..max_virtual {
+        // The variate `sample_delta_distance` is about to draw, read off a
+        // copy of the stream (it advances nothing), then the draw itself.
+        let xi_s = next_variate(*seed);
         let s = sample_delta_distance(majorant, seed);
+        let from = r;
+        let u_from = u;
         match region.advance(r, u, s) {
             Advance::Exit { position } => {
+                observe(TraceEvent::Flight {
+                    from,
+                    u: u_from,
+                    to: position,
+                    xi: xi_s,
+                    distance: s,
+                    majorant,
+                    exited: true,
+                });
                 return FlightEnd::Exit {
                     position,
                     direction: u,
@@ -416,14 +486,27 @@ where
                 u = direction;
             }
         }
+        observe(TraceEvent::Flight {
+            from,
+            u: u_from,
+            to: r,
+            xi: xi_s,
+            distance: s,
+            majorant,
+            exited: false,
+        });
         let m = match region.content(r) {
             SiteContent::Material(m) => m,
             SiteContent::Void => {
-                visit(TentativeSite {
-                    position: r,
-                    material: None,
-                    majorant,
-                    sigma_t: 0.0,
+                observe(TraceEvent::Tentative {
+                    site: TentativeSite {
+                        position: r,
+                        material: None,
+                        majorant,
+                        sigma_t: 0.0,
+                    },
+                    xi: None,
+                    real: false,
                 });
                 virtual_collisions += 1;
                 continue;
@@ -437,23 +520,29 @@ where
             SiteTotal::UrrBand(us) => materials[m].macro_xs_total_urr(energy, nuclides, us),
             SiteTotal::Smooth => materials[m].macro_xs_total(energy, nuclides),
         };
-        visit(TentativeSite {
-            position: r,
-            material: Some(m),
-            majorant,
-            sigma_t,
+        // The variate `classify_collision` is about to draw, read off a copy
+        // of the stream, then the accept/reject itself.
+        let xi_c = next_variate(*seed);
+        let real = classify_collision(sigma_t, majorant, seed) == DeltaEvent::Real;
+        observe(TraceEvent::Tentative {
+            site: TentativeSite {
+                position: r,
+                material: Some(m),
+                majorant,
+                sigma_t,
+            },
+            xi: Some(xi_c),
+            real,
         });
-        match classify_collision(sigma_t, majorant, seed) {
-            DeltaEvent::Real => {
-                return FlightEnd::Collision {
-                    position: r,
-                    direction: u,
-                    material: m,
-                    virtual_collisions,
-                }
-            }
-            DeltaEvent::Virtual => virtual_collisions += 1,
+        if real {
+            return FlightEnd::Collision {
+                position: r,
+                direction: u,
+                material: m,
+                virtual_collisions,
+            };
         }
+        virtual_collisions += 1;
     }
     FlightEnd::Lost { virtual_collisions }
 }
