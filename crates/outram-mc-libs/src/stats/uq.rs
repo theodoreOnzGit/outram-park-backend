@@ -421,8 +421,14 @@ mod tests {
     /// have `base·(k + 2)` rows and give first-order indices that sum to
     /// about 1 (gate `0.8..1.2` at 512 base samples).
     ///
-    /// **Result:** NOT YET MEASURED (testing deferred by maintainer,
-    /// 2026-10-03).
+    /// ~~**Result:** NOT YET MEASURED (testing deferred by maintainer,
+    /// 2026-10-03).~~ **Result (2026-10-07, gh:#584):** failed on first run
+    /// with a first-order sum of `-1.437`. The cause was the estimator, not
+    /// this gate: `raffles::sensitivity::sobol_indices` multiplied the
+    /// *uncentred* `y_B` (here `ybar/sd ~ 34`), whose sampling error swamps
+    /// the index at `n = 512`. A 2000-seed replica gave the sum an sd of
+    /// `2.17` uncentred and `0.058` centred. With `y_B` centred in `raffles`
+    /// the test passes, gate unchanged. The sum itself is not printed.
     #[test]
     fn sobol_design_on_an_additive_model() {
         let d = UqDesign::sobol(inputs(), 512, 7).unwrap();

@@ -338,9 +338,19 @@ mod tests {
     /// degree-1 fit in `ln φ` is then exact, so every filled cell must equal
     /// MAGIC's normalisation of the true flux to `1e-9` relative, no fill may
     /// be clamped, and resolved cells must keep MAGIC's values bit for bit.
+    /// The fit is exact only **without** regularisation, so this test sets
+    /// `ridge: 0.0`.
     ///
-    /// **Result:** NOT YET MEASURED (testing deferred by maintainer,
-    /// 2026-10-03).
+    /// ~~**Result:** NOT YET MEASURED (testing deferred by maintainer,
+    /// 2026-10-03).~~ **CORRECTED 2026-10-07 (gh:#584).** The first run
+    /// (2026-10-05) failed at cell 12. The test kept the default `ridge: 1e-8`,
+    /// which `PolynomialSurrogate::fit` adds to the whole normal-equation
+    /// diagonal. That shrinks the slope and gives a relative error of
+    /// `9.95e-9` at cell 12 (`1.7e-8` at cell 19), against the `1e-9` gate.
+    /// With no ridge the error is ~`1e-15` (numpy replica, gh:#584
+    /// 2026-10-06 audit). The premise "the degree-1 fit is exact" requires no
+    /// ridge, so the test now sets `ridge: 0.0`. The gate stays at `1e-9`.
+    /// The default ridge is unchanged.
     #[test]
     fn exact_attenuation_is_filled_exactly() {
         let mesh = slab();
@@ -359,6 +369,7 @@ mod tests {
         let volumes = vec![1.0; 20];
         let settings = LearnedImportanceSettings {
             degree: 1,
+            ridge: 0.0,
             ..Default::default()
         };
         let (ww, fills) =

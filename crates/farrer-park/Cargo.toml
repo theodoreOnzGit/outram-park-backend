@@ -43,4 +43,6 @@ thiserror.workspace = true
 # discretisation. FEM stays FEM (GitHub issue #175); LduMatrix remains the
 # FVM-optimised representation while this crate supplies an FEM-appropriate CSR
 # matrix implementing the same `LinearOperator` contract.
-outram-foam-basic-lib = { path = "../outram-foam-basic-lib" }
+# Through the root [workspace.dependencies] pin (path + version): a bare path
+# dependency carries no version, and `cargo publish` refuses it.
+outram-foam-basic-lib.workspace = true
