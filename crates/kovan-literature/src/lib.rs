@@ -91,7 +91,6 @@ pub use kovan_common::{Author, DocumentType, KovanBenchmark, KovanDocument, Visi
 mod bibtex;
 pub mod concept_tree;
 mod markdown;
-pub mod zotero;
 mod metadata;
 mod pdf_import;
 pub mod zotero;

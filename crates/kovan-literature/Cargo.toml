@@ -63,8 +63,9 @@ maturity = 1
 [dependencies]
 kovan-common.workspace = true
 serde.workspace = true
-# Zotero translators (src/zotero/, GitHub #749): JSON item formats and the
-# translators' regular expressions. Both pure Rust, wasm- and Android-safe.
+# Zotero (src/zotero/): JSON item formats for the translators (#749) and the
+# local library import's JSON output (#750), and the translators' regular
+# expressions. Both pure Rust, wasm- and Android-safe.
 serde_json.workspace = true
 regex.workspace = true
 toml.workspace = true
@@ -77,9 +78,6 @@ lopdf.workspace = true
 # SHA-256 of the ingested source file, recorded as provenance (DATA_POLICY.md).
 # Pure Rust, no C toolchain, so it does not compromise the Android/Termux build.
 sha2.workspace = true
-# Zotero's JSON values (`kovan_common::zotero` works in serde_json) and the
-# import's JSON output (`zotero::local_library`, GitHub #750). Pure Rust.
-serde_json.workspace = true
 
 # Reading a Zotero data folder (`zotero::local_library`, GitHub #750). SQLite is
 # compiled from C (`bundled`), so it is gated off wasm32 (no C, no files) and off
