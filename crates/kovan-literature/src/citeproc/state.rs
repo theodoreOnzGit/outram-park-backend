@@ -136,6 +136,39 @@ pub struct Tmp {
     // ---- fields: wave1-input ----
 
     // ---- fields: wave1-output ----
+    // (agent wave1-output: queue.js, formats.js, formatters.js,
+    // util_flipflop.js, util_page.js, obj_number.js read these.)
+    /// `tmp.area`: `"citation"`, `"bibliography"`, `"intext"`,
+    /// `"citation_sort"` or `"bibliography_sort"`. // DUP-CHECK: state.js / api_*.js
+    pub area: String,
+    /// `tmp.just_looking`. // DUP-CHECK: state.js
+    pub just_looking: bool,
+    /// `tmp.strip_periods` (a counter in JS; only its truthiness is read
+    /// here). // DUP-CHECK: state.js
+    pub strip_periods: bool,
+    /// `tmp.suppress_decorations`. // DUP-CHECK: state.js
+    pub suppress_decorations: bool,
+    /// `tmp.count_offset_characters`: `false`, or the item id whose
+    /// `first_blob` switched counting on. // DUP-CHECK: queue.js
+    pub count_offset_characters: Option<String>,
+    /// `tmp.offset_characters`. // DUP-CHECK: queue.js
+    pub offset_characters: usize,
+    /// `tmp.element_trace` (`CSL.Stack` of element names; `None` before it
+    /// is created). // DUP-CHECK: state.js
+    pub element_trace: Option<super::stack::Stack<String>>,
+    /// `tmp["doing-macro-with-date"]`. // DUP-CHECK: state.js
+    pub doing_macro_with_date: bool,
+    /// `tmp.extension` (only its truthiness is read here). // DUP-CHECK: state.js
+    pub extension: Option<String>,
+    /// `tmp.lang_array` (`api_cite.js:1513`): the locale tags
+    /// `toLocaleUpperCase` is called with. // DUP-CHECK: api_cite.js
+    pub lang_array: Vec<String>,
+    /// `tmp.term_predecessor`. // DUP-CHECK: state.js
+    pub term_predecessor: bool,
+    /// `tmp.in_cite_predecessor`. // DUP-CHECK: state.js
+    pub in_cite_predecessor: bool,
+    /// `tmp.term_predecessor_name`. // DUP-CHECK: state.js
+    pub term_predecessor_name: bool,
 
     // ---- fields: wave2 ----
 
@@ -174,6 +207,20 @@ pub struct Fun {
     // ---- fields: wave1-input ----
 
     // ---- fields: wave1-output ----
+    /// `decorate` (`CSL.Mode(mode)`, set by `setOutputFormat`): the output
+    /// format whose decorators and escaping are used. Install with
+    /// `formats::set_output_format`.
+    pub decorate: super::formats::Format,
+    /// `page_mangler` (`CSL.Util.PageRangeMangler.getFunction(state, "page")`).
+    pub page_mangler: super::util_page::PageRangeMangler,
+    /// `year_mangler` (`getFunction(state, "year")`).
+    pub year_mangler: super::util_page::PageRangeMangler,
+    /// `state.locale[lang].opts["skip-words-regexp"]`, see
+    /// `formatters::make_skip_words_regex`; `None` means the default list.
+    pub skip_words_rex: Option<regex::Regex>,
+    /// Which optional `sys` callbacks the host provides (JS tests
+    /// `state.sys.variableWrapper` etc. for existence).
+    pub host_hooks: super::formats::HostHooks,
 
     // ---- fields: wave2 ----
 }
