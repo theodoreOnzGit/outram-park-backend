@@ -14,10 +14,16 @@ step upstream of an OpenMC run.
 cite its sections freely when porting or debugging. The root `CLAUDE.md`'s
 "read upstream first" rule means the Fortran *and* this manual.
 
-- **PDF:** `crates/kovan-literature/reactor-literature/theodore-open-corpus/2022laur1720093.pdf`.
+- **PDF:** ~~`crates/kovan-literature/reactor-literature/theodore-open-corpus/2022laur1720093.pdf`~~
+  **MOVED 2026-10-07** (owner, #760) to Kovan's standard corpus:
+  `crates/kovan-literature/reactor-literature/kovan-standard-open-corpus/lanl/2022laur1720093.pdf`.
   That is *The NJOY Nuclear Data Processing System, Version 2016*,
   LA-UR-17-20093 (R.E. MacFarlane et al., revision of November 7, 2019),
-  logged in that folder's README under ground 6.
+  byte-identical to `njoy16.pdf` at the manual repository's commit
+  `9a2951f`. It is logged in that folder's README under ground 7
+  (section 8), with the licence text beside it as
+  `lanl/LICENSE-NJOY2016-manual.txt`, and hardcoded into Kovan as corpus
+  entry `la-ur-17-20093`.
 - **Source (LaTeX):** <https://github.com/njoy/NJOY2016-manual>. The
   maintainer's clone is at `~/Documents/research/NJOY2016-manual` (commit
   `9a2951f`).

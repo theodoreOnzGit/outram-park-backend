@@ -47,10 +47,24 @@ Bookkeeping-status sign-off block) that do not belong in a library catalogue.
 > rejected push and restored (#502).
 
 > **2026-10-02 — NJOY2016 manual (`2022laur1720093`) logged with its licence
-> basis.** It had been in `reactor-literature/theodore-open-corpus/` without a
+> basis.** It had been in ~~`reactor-literature/theodore-open-corpus/`~~
+> (**MOVED 2026-10-07**, see the next entry) without a
 > README row. Basis: LANS BSD-3-Clause-style licence of
 > <https://github.com/njoy/NJOY2016-manual> (checked at `9a2951f`), also
 > printed on PDF page 2. README ground 6 added (reactor-literature `f5e8292`).
+
+> **2026-10-07 — NJOY2016 manual moved to Kovan's standard corpus.** Owner's
+> decision (GitHub #760, question 8). Now
+> `reactor-literature/kovan-standard-open-corpus/lanl/2022laur1720093.pdf`,
+> with the licence text copied verbatim beside it as
+> `lanl/LICENSE-NJOY2016-manual.txt`; basis recorded as that README's new
+> ground 7 (section 8, permissive open-source licence). Re-verified that day:
+> the LICENSE at `master` commit `9a2951f` (still the latest) grants
+> redistribution; our PDF ("Updated for NJOY2016.53, November 7, 2019") is
+> byte-identical to the repository's `njoy16.pdf` (same Git blob `7660ec9`).
+> Hardcoded into Kovan as `LITERATURE` entry `la-ur-17-20093`
+> (`crates/kovan/src/corpus.rs`), filed under
+> `02-nuclear-safety/nuclear-design/nuclear-data-processing`.
 
 > **2026-10-02 — `conlin2017njoy21` added to the public open corpus.** J.L.
 > Conlin, A.C. Kahler, A.P. McCartney, D.A. Rehn, *NJOY21: Next generation

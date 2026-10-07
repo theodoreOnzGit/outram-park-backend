@@ -115,7 +115,7 @@ Tracking issue for this track:
 
 NJOY2016's manual is open literature: *The NJOY Nuclear Data Processing
 System, Version 2016*, R. E. MacFarlane et al., LA-UR-17-20093 (revision of
-7 November 2019), BSD-3-Clause-style licence. It is in the workspace's open
-corpus at
-`crates/kovan-literature/reactor-literature/theodore-open-corpus/2022laur1720093.pdf`,
+7 November 2019), BSD-3-Clause-style licence. It is in Kovan's standard
+corpus (moved there 2026-10-07) at
+`crates/kovan-literature/reactor-literature/kovan-standard-open-corpus/lanl/2022laur1720093.pdf`,
 and this book quotes it by section and page.

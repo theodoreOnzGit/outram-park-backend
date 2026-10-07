@@ -1046,6 +1046,38 @@ pub const LITERATURE: &[CorpusLiterature] = &[
                        public release; distribution is unlimited.\" (PDF page 1, checked \
                        2026-10-07; corpus README section 4). Superseded by DOE-STD-1172-2011",
     },
+    // The NJOY2016 manual (#760, question 8, 2026-10-07): moved from the
+    // maintainer's open corpus on the owner's decision ("it is the bedrock
+    // of nuclear science"); corpus README ground 7, section 8. Metadata from
+    // the PDF's title page (`pdftotext`, 2026-10-07).
+    CorpusLiterature {
+        id: "la-ur-17-20093",
+        kind: LiteratureKind::Report,
+        title: "The NJOY Nuclear Data Processing System, Version 2016 (LA-UR-17-20093), \
+                updated for NJOY2016.53, November 7, 2019",
+        authors: &[
+            "MacFarlane, R.E.",
+            "Muir, D.W.",
+            "Boicourt, R.M.",
+            "Kahler, A.C.",
+            "Conlin, J.L.",
+            "Haeck, W.",
+        ],
+        year: Some(2019),
+        topics: &["02-nuclear-safety/nuclear-design/nuclear-data-processing"],
+        concept_document: None,
+        source_url: Some("https://github.com/njoy/NJOY2016-manual"),
+        corpus_file: Some("kovan-standard-open-corpus/lanl/2022laur1720093.pdf"),
+        status: SourceStatus::VerifiedOpenLicence,
+        status_basis: "Los Alamos National Security, LLC's BSD-3-style licence: \"redistribution \
+                       and use in source and binary forms, with or without modification, are \
+                       permitted provided that\" the notice is retained and reproduced, and no \
+                       endorsement is implied. In the LICENSE of \
+                       https://github.com/njoy/NJOY2016-manual (commit 9a2951f, checked \
+                       2026-10-07) and printed on PDF page 2; the licence text is kept beside \
+                       the PDF (corpus README ground 7, section 8). The PDF is byte-identical \
+                       to that commit's njoy16.pdf",
+    },
     // Private tier: cited only. Their PDFs are in the maintainer's private
     // repository and may not be redistributed; no `corpus_file`, so Kovan
     // never looks for them and needs nothing but this metadata. Metadata
@@ -1357,11 +1389,11 @@ mod tests {
     fn literature_and_connections_point_at_real_nodes() {
         assert_eq!(
             LITERATURE.len(),
-            31,
+            32,
             "the maintainer's 2026-09-22 set, EPA FGR-11, FGR-13 and FGR-15 (2026-09-28), \
              the concept tree's 13 further documents (2026-10-06), and the software QA \
-             set NUREG/BR-0167, DOE-STD-1172-2003 and DOE G 414.1-4 (2026-10-07, #760), and Kendrick 2019 \
-             (private, cited only)"
+             set NUREG/BR-0167, DOE-STD-1172-2003 and DOE G 414.1-4 (2026-10-07, #760), Kendrick 2019 \
+             (private, cited only), and the NJOY2016 manual (2026-10-07, #760)"
         );
         let mut ids = HashSet::new();
         for l in LITERATURE {
