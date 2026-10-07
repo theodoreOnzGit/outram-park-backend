@@ -192,6 +192,139 @@ tier = "standard"
 file = "kovan-standard-open-corpus/us-doe/doe-std-1172-2003-safety-software-qa-faqs.pdf"
 licence = "DOE standard, Distribution Statement A: approved for public release, distribution unlimited"
 
+# Added 2026-10-07 (#760): NUREG/KM-0006 (already in the standard corpus),
+# cited by the generic design-element concepts under SQA design and
+# implementation; the NJOY2016 manual, cited chapter by chapter by the
+# nuclear-data-processing sub-concepts (maintainer, 2026-10-07); and the
+# redistributable sources of the solver-pattern concepts (corpus README
+# sections 2, 4, 8 and 10).
+
+[[document]]
+id = "nureg-km-0006"
+title = "NUREG/KM-0006, Fundamental Theory of Scientific Computer Simulation Review (J. S. Kaizer)"
+publisher = "U.S. NRC, Office of Nuclear Reactor Regulation"
+date = "November 2013"
+tier = "standard"
+file = "kovan-standard-open-corpus/nrc/ML13325A086.pdf"
+licence = "U.S. Government work"
+
+[[document]]
+id = "la-ur-17-20093"
+title = "LA-UR-17-20093, The NJOY Nuclear Data Processing System, Version 2016 (MacFarlane et al.; updated for NJOY2016.53, November 7, 2019)"
+publisher = "Los Alamos National Laboratory"
+date = "November 2019"
+tier = "standard"
+file = "kovan-standard-open-corpus/lanl/2022laur1720093.pdf"
+licence = "LANS BSD-3-style licence (github.com/njoy/NJOY2016-manual), text kept beside the PDF"
+
+[[document]]
+id = "sand2011-2195"
+title = "SAND2011-2195, A Theory Manual for Multi-physics Code Coupling in LIME, Version 1.0 (Pawlowski, Bartlett, Belcourt, Hooper, Schmidt)"
+publisher = "Sandia National Laboratories for U.S. DOE/NNSA"
+date = "March 2011"
+tier = "standard"
+file = "kovan-standard-open-corpus/us-doe/sand2011-2195-lime-coupling-theory-manual.pdf"
+licence = "Unlimited Release; approved for public release, further dissemination unlimited"
+
+[[document]]
+id = "la-ur-06-7094"
+title = "LA-UR-06-7094, Monte Carlo Eigenvalue Calculations (F. Brown; lecture slides)"
+publisher = "Los Alamos National Laboratory"
+date = "2006"
+tier = "standard"
+file = "kovan-standard-open-corpus/us-doe/la-ur-06-7094-brown-mc-eigenvalue.pdf"
+licence = "approved for public release, distribution unlimited"
+
+[[document]]
+id = "la-ur-09-02377"
+title = "LA-UR-09-02377, A Review of Monte Carlo Criticality Calculations - Convergence, Bias, Statistics (F. B. Brown; M&C 2009 slides)"
+publisher = "Los Alamos National Laboratory"
+date = "2009"
+tier = "standard"
+file = "kovan-standard-open-corpus/us-doe/la-ur-09-02377-brown-mc-criticality-review.pdf"
+licence = "approved for public release, distribution unlimited"
+
+[[document]]
+id = "kim-2022-fenrg-859622"
+title = "I. Kim, I. Kim, Y. Kim, An iDTMC-based Monte Carlo depletion of a 3D SMR with intra-pin flux renormalization, Front. Energy Res. 10:859622"
+publisher = "Frontiers Media"
+date = "10 August 2022"
+tier = "standard"
+file = "kovan-standard-open-corpus/cc-by/kim2022-fenrg-859622-idtmc-depletion.pdf"
+licence = "CC BY 4.0"
+
+[[document]]
+id = "zhang-2023-fenrg-1101050"
+title = "Y. Zhang, X. Zhou, Parallel Jacobian-free Newton Krylov discrete ordinates method for pin-by-pin neutron transport models, Front. Energy Res. 10:1101050"
+publisher = "Frontiers Media"
+date = "18 January 2023"
+tier = "standard"
+file = "kovan-standard-open-corpus/cc-by/zhang2023-fenrg-1101050-parallel-jfnk-sn.pdf"
+licence = "CC BY 4.0"
+
+[[document]]
+id = "arxiv-2306.01924v2"
+title = "H. Alkafri et al., multiRegionFoam -- A Unified Multiphysics Framework for Multi-Region Coupled Continuum-Physical Problems, arXiv:2306.01924v2"
+publisher = "arXiv"
+date = "9 July 2023"
+tier = "standard"
+file = "kovan-standard-open-corpus/cc-by-sa/arxiv-2306.01924v2-multiregionfoam.pdf"
+licence = "CC BY-SA 4.0 (arXiv record)"
+
+[[document]]
+id = "arxiv-2301.00289v3"
+title = "D. Wang, Stability Analysis of Picard Iteration for Coupled Neutronics/Thermal-Hydraulics Simulations, arXiv:2301.00289v3"
+publisher = "arXiv"
+date = "4 March 2023"
+tier = "standard"
+file = "kovan-standard-open-corpus/cc-by-nc-nd/arxiv-2301.00289v3-wang-picard-stability.pdf"
+licence = "CC BY-NC-ND 4.0 (arXiv record)"
+
+[[document]]
+id = "cosgrove-2020-pc-stability"
+title = "P. Cosgrove, E. Shwageraus, G. T. Parks, Stability analysis of predictor-corrector schemes for coupling neutronics and depletion (accepted manuscript, Annals of Nuclear Energy)"
+publisher = "University of Cambridge repository (1810/309913)"
+date = "2020"
+tier = "standard"
+file = "kovan-standard-open-corpus/cc-by-nc-nd/cosgrove2020-pc-stability-cam-309913.pdf"
+licence = "CC BY-NC-ND 4.0 (repository record)"
+
+[[document]]
+id = "openmc-docs-depletion"
+title = "OpenMC documentation, Methods: Depletion (docs/source/methods/depletion.rst at commit a5bc348)"
+publisher = "OpenMC contributors (github.com/openmc-dev/openmc)"
+date = "7 October 2026 (commit a5bc348)"
+tier = "standard"
+file = "kovan-standard-open-corpus/openmc-docs/depletion.rst"
+licence = "MIT (OpenMC LICENSE, covers the documentation)"
+
+[[document]]
+id = "openmc-docs-eigenvalue"
+title = "OpenMC documentation, Methods: Eigenvalue Calculations (docs/source/methods/eigenvalue.rst at commit a5bc348)"
+publisher = "OpenMC contributors (github.com/openmc-dev/openmc)"
+date = "7 October 2026 (commit a5bc348)"
+tier = "standard"
+file = "kovan-standard-open-corpus/openmc-docs/eigenvalue.rst"
+licence = "MIT (OpenMC LICENSE, covers the documentation)"
+
+[[document]]
+id = "moose-docs-simple"
+title = "MOOSE Navier-Stokes module documentation: SIMPLE executioner (SIMPLE.md at commit 21efd28)"
+publisher = "Idaho National Laboratory / MOOSE contributors (github.com/idaholab/moose)"
+date = "7 October 2026 (commit 21efd28)"
+tier = "standard"
+file = "kovan-standard-open-corpus/moose-docs/SIMPLE.md"
+licence = "LGPL 2.1 (MOOSE LICENSE)"
+
+[[document]]
+id = "moose-docs-pimple"
+title = "MOOSE Navier-Stokes module documentation: PIMPLE executioner (PIMPLE.md at commit 21efd28)"
+publisher = "Idaho National Laboratory / MOOSE contributors (github.com/idaholab/moose)"
+date = "7 October 2026 (commit 21efd28)"
+tier = "standard"
+file = "kovan-standard-open-corpus/moose-docs/PIMPLE.md"
+licence = "LGPL 2.1 (MOOSE LICENSE)"
+
 [[node]]
 path = "01-national-position"
 title = "National position"

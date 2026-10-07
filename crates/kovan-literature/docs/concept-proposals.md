@@ -6,7 +6,7 @@
 
 ## Counts
 
-- **L3 concepts: 289** (217 from the NRC/ORNL text, `nrc`; 72 needed by outram-park and named only implicitly, `outram-park`).
+- **L3 concepts: 297** (218 from the NRC/ORNL text, `nrc`; 79 needed by outram-park and named only implicitly, `outram-park`).
 - **L4 seed tags: 192** across 39 crates.
 
 | Crate | Seed tags |
@@ -281,8 +281,10 @@
       - [ ] add `//! kovan-concept: 02-nuclear-safety/nuclear-design/neutron-transport/continuous-energy-collision-physics` to `crates/outram-mc-libs/src/physics/scatter.rs`: Elastic and inelastic scattering kinematics. Samples outgoing energy and angle from the evaluation's own laws. (port of OpenMC physics.cpp, physics_common.cpp)
       - [ ] add `//! kovan-concept: 02-nuclear-safety/nuclear-design/neutron-transport/continuous-energy-collision-physics` to `crates/outram-mc-libs/src/physics/fission.rs`: Fission neutron production. Banks fission sites for the next generation. (port of OpenMC physics.cpp fission())
   - [ ] **k-eigenvalue (power iteration) and fixed-source calculations** · `neutron-transport/eigenvalue-and-fixed-source-calculations` · origin `outram-park`
-    - sources: `nureg-1537-part1` 4.5.1 (calculated core reactivities for all core configurations)
+    - sources: `nureg-1537-part1` 4.5.1 (calculated core reactivities for all core configurations); `la-ur-06-7094` slides 'Power Iteration' and 'Power Iteration – Convergence'; `la-ur-09-02377` slides 'Power Iteration' and 'Power Iteration Convergence'; `openmc-docs-eigenvalue` Method of Successive Generations; Source Convergence Issues
     - why: the run modes that produce k_eff and source-driven flux.
+    - **note for review:** Power iteration (#760, 2026-10-07): this concept already names it, so its redistributable sources (Brown LA-UR-06-7094 and LA-UR-09-02377; OpenMC eigenvalue.rst) are added here instead of a duplicate node.
+    - cross-links: `07-regulatory-framework/quality-assurance/software-quality-assurance/design-and-implementation/solver-driver-and-control-flow`
     - proposed kovan-concept tags:
       - [ ] add `//! kovan-concept: 02-nuclear-safety/nuclear-design/neutron-transport/eigenvalue-and-fixed-source-calculations` to `crates/outram-mc-libs/src/physics/keff.rs`: k-eigenvalue power iteration (bare sphere driver). Minimal criticality driver with generation statistics. (port of OpenMC eigenvalue.cpp)
       - [ ] add `//! kovan-concept: 02-nuclear-safety/nuclear-design/neutron-transport/eigenvalue-and-fixed-source-calculations` to `crates/outram-mc-libs/src/physics/fixed_source.rs`: Fixed-source mode. Source-driven transport without eigenvalue iteration. (port of OpenMC)
@@ -320,49 +322,49 @@
     - [ ] add `//! kovan-concept: 02-nuclear-safety/nuclear-design/nuclear-data-processing` to `crates/njoy-outram-park-fork/src/endf/mod.rs`: ENDF tape model. Parses and represents ENDF-6 tapes, the substrate of every NJOY module. (port of NJOY2016 endf.f90)
     - [ ] add `//! kovan-concept: 02-nuclear-safety/nuclear-design/nuclear-data-processing` to `crates/njoy-outram-park-fork/src/nuclear_data/mod.rs`: Nuclear-data provider surface. What the transport crates pull from njoy (all nuclear data lives here). (new work)
   - [ ] **Resonance reconstruction of pointwise cross sections** · `nuclear-data-processing/resonance-reconstruction` · origin `outram-park`
-    - sources: `nureg-1537-part1` 4.5 (introduction)
+    - sources: `nureg-1537-part1` 4.5 (introduction); `la-ur-17-20093` Ch. 3 RECONR
     - why: NJOY RECONR and the SAMM R-matrix kernel.
     - proposed kovan-concept tags:
       - [ ] add `//! kovan-concept: 02-nuclear-safety/nuclear-design/nuclear-data-processing/resonance-reconstruction` to `crates/njoy-outram-park-fork/src/reconr/mod.rs`: RECONR. Reconstructs pointwise cross sections from resonance parameters onto a PENDF tape. (port of NJOY2016 reconr.f90)
       - [ ] add `//! kovan-concept: 02-nuclear-safety/nuclear-design/nuclear-data-processing/resonance-reconstruction` to `crates/njoy-outram-park-fork/src/samm/mod.rs`: SAMM R-matrix kernel. Reich-Moore and R-matrix-limited (LRF=7) cross sections. (port of NJOY2016 samm.f90)
   - [ ] **Doppler broadening of cross sections** · `nuclear-data-processing/doppler-broadening` · origin `outram-park`
-    - sources: `nureg-1537-part1` 4.5.2 (fuel temperature coefficient)
+    - sources: `nureg-1537-part1` 4.5.2 (fuel temperature coefficient); `la-ur-17-20093` Ch. 4 BROADR
     - why: the temperature dependence behind the fuel temperature coefficient: NJOY BROADR and windowed multipole.
     - proposed kovan-concept tags:
       - [ ] add `//! kovan-concept: 02-nuclear-safety/nuclear-design/nuclear-data-processing/doppler-broadening` to `crates/njoy-outram-park-fork/src/broadr/mod.rs`: BROADR (SIGMA1). Doppler broadening of pointwise cross sections. (port of NJOY2016 broadr.f90)
       - [ ] add `//! kovan-concept: 02-nuclear-safety/nuclear-design/nuclear-data-processing/doppler-broadening` to `crates/njoy-outram-park-fork/src/wmp/mod.rs`: Windowed multipole. Analytic on-the-fly Doppler broadening from multipole data. (port of MIT CRPG windowed multipole (WMP_Library, MIT licence))
   - [ ] **Unresolved-resonance self-shielding and probability tables** · `nuclear-data-processing/unresolved-resonance-probability-tables` · origin `outram-park`
-    - sources: `nureg-1537-part1` 4.5 (introduction)
+    - sources: `nureg-1537-part1` 4.5 (introduction); `la-ur-17-20093` Ch. 5 UNRESR; `la-ur-17-20093` Ch. 23 PURR
     - why: NJOY UNRESR/PURR; on by default in outram-mc since 2026-09-20 (root CLAUDE.md).
     - proposed kovan-concept tags:
       - [ ] add `//! kovan-concept: 02-nuclear-safety/nuclear-design/nuclear-data-processing/unresolved-resonance-probability-tables` to `crates/njoy-outram-park-fork/src/purr/mod.rs`: PURR probability tables. URR probability tables for Monte Carlo self-shielding. (port of NJOY2016 purr.f90)
       - [ ] add `//! kovan-concept: 02-nuclear-safety/nuclear-design/nuclear-data-processing/unresolved-resonance-probability-tables` to `crates/njoy-outram-park-fork/src/unresr/mod.rs`: UNRESR. Bondarenko self-shielded cross sections in the unresolved range. (port of NJOY2016 unresr.f90)
   - [ ] **Thermal neutron scattering, S(alpha, beta)** · `nuclear-data-processing/thermal-scattering` · origin `outram-park`
-    - sources: `nureg-1537-part1` 4.2.3 Neutron Moderator and Reflector; 4.5
+    - sources: `nureg-1537-part1` 4.2.3 Neutron Moderator and Reflector; 4.5; `la-ur-17-20093` Ch. 7 THERMR; `la-ur-17-20093` Ch. 24 LEAPR
     - why: bound-atom scattering in graphite and other moderators: NJOY LEAPR/THERMR and its use in transport.
     - proposed kovan-concept tags:
       - [ ] add `//! kovan-concept: 02-nuclear-safety/nuclear-design/nuclear-data-processing/thermal-scattering` to `crates/njoy-outram-park-fork/src/thermr/mod.rs`: THERMR. Bound-atom thermal cross sections and secondary distributions from MF=7. (port of NJOY2016 thermr.f90)
       - [ ] add `//! kovan-concept: 02-nuclear-safety/nuclear-design/nuclear-data-processing/thermal-scattering` to `crates/njoy-outram-park-fork/src/leapr/mod.rs`: LEAPR. Generates S(alpha, beta) from a phonon model. (port of NJOY2016 leapr.f90)
       - [ ] add `//! kovan-concept: 02-nuclear-safety/nuclear-design/nuclear-data-processing/thermal-scattering` to `crates/outram-mc-libs/src/material/thermal.rs`: S(alpha, beta) in transport. Samples bound-atom scattering from thermal tables during transport. (port of OpenMC src/thermal.cpp)
   - [ ] **Continuous-energy (ACE) library generation** · `nuclear-data-processing/ace-library-generation` · origin `outram-park`
-    - sources: `nureg-1537-part1` 4.5 (introduction)
+    - sources: `nureg-1537-part1` 4.5 (introduction); `la-ur-17-20093` Ch. 17 ACER
     - why: NJOY ACER, the hand-off from processing to Monte Carlo transport.
     - proposed kovan-concept tags:
       - [ ] add `//! kovan-concept: 02-nuclear-safety/nuclear-design/nuclear-data-processing/ace-library-generation` to `crates/njoy-outram-park-fork/src/acer/mod.rs`: ACER. Assembles and writes continuous-energy ACE libraries. (port of NJOY2016 acefc.f90)
   - [ ] **Multigroup cross sections and transfer matrices from evaluated data** · `nuclear-data-processing/multigroup-data-generation` · origin `outram-park`
-    - sources: `nureg-1537-part1` 4.5 (introduction)
+    - sources: `nureg-1537-part1` 4.5 (introduction); `la-ur-17-20093` Ch. 8 GROUPR; `la-ur-17-20093` Ch. 9 GAMINR; `la-ur-17-20093` Ch. 13 DTFR; `la-ur-17-20093` Ch. 14 CCCCR; `la-ur-17-20093` Ch. 15 MATXSR; `la-ur-17-20093` Ch. 18 POWR; `la-ur-17-20093` Ch. 19 WIMSR
     - why: NJOY GROUPR/GAMINR.
     - proposed kovan-concept tags:
       - [ ] add `//! kovan-concept: 02-nuclear-safety/nuclear-design/nuclear-data-processing/multigroup-data-generation` to `crates/njoy-outram-park-fork/src/groupr/mod.rs`: GROUPR. Self-shielded multigroup cross sections and transfer matrices. (port of NJOY2016 groupr.f90)
       - [ ] add `//! kovan-concept: 02-nuclear-safety/nuclear-design/nuclear-data-processing/multigroup-data-generation` to `crates/njoy-outram-park-fork/src/gaminr/mod.rs`: GAMINR. Multigroup photoatomic cross sections and matrices. (port of NJOY2016 gaminr.f90)
   - [ ] **Nuclear-data covariances** · `nuclear-data-processing/nuclear-data-covariances` · origin `outram-park`
-    - sources: `nureg-1537-part1` 4.5 (estimates of the accuracy of the analytical methods)
+    - sources: `nureg-1537-part1` 4.5 (estimates of the accuracy of the analytical methods); `la-ur-17-20093` Ch. 10 ERRORR; `la-ur-17-20093` Ch. 11 COVR
     - why: NJOY ERRORR/COVR: the data half of the accuracy estimate.
     - proposed kovan-concept tags:
       - [ ] add `//! kovan-concept: 02-nuclear-safety/nuclear-design/nuclear-data-processing/nuclear-data-covariances` to `crates/njoy-outram-park-fork/src/errorr/mod.rs`: ERRORR. Multigroup covariance matrices from ENDF covariance files. (port of NJOY2016 errorr.f90)
       - [ ] add `//! kovan-concept: 02-nuclear-safety/nuclear-design/nuclear-data-processing/nuclear-data-covariances` to `crates/njoy-outram-park-fork/src/covr/mod.rs`: COVR. Correlation matrices and covariance reports from ERRORR output. (port of NJOY2016 covr.f90)
   - [ ] **Heating (KERMA) and damage cross sections** · `nuclear-data-processing/heating-and-damage` · origin `outram-park`
-    - sources: `nureg-1537-part1` 4.6 (thermal power density distribution)
+    - sources: `nureg-1537-part1` 4.6 (thermal power density distribution); `la-ur-17-20093` Ch. 6 HEATR
     - why: NJOY HEATR: where deposited power comes from.
     - proposed kovan-concept tags:
       - [ ] add `//! kovan-concept: 02-nuclear-safety/nuclear-design/nuclear-data-processing/heating-and-damage` to `crates/njoy-outram-park-fork/src/heatr/mod.rs`: HEATR. KERMA heating and damage cross sections. (port of NJOY2016 heatr.f90)
@@ -455,6 +457,10 @@
         - [ ] add `//! kovan-concept: 02-nuclear-safety/thermal-hydraulic-design/thermal-hydraulic-methods/computational-fluid-dynamics/mesh-generation` to `crates/outram-park-fork-cfmesh/src/pipeline.rs`: cfMesh tet-dual pipeline. Tetrahedralisation, polyhedral dual and boundary layers to a volume mesh. (port of cfMesh (GPL-3.0))
         - [ ] add `//! kovan-concept: 02-nuclear-safety/thermal-hydraulic-design/thermal-hydraulic-methods/computational-fluid-dynamics/mesh-generation` to `crates/outram-blender/src/foam_mesh.rs`: Volume-meshing bridge. Blender surface mesh to cfMesh pipeline to OpenFOAM polyMesh. (new work)
         - [ ] add `//! kovan-concept: 02-nuclear-safety/thermal-hydraulic-design/thermal-hydraulic-methods/computational-fluid-dynamics/mesh-generation` to `crates/outram-blender/src/unstructured/mod.rs`: Neutral unstructured mesh. One mesh description shared by the FV, FEM and Monte Carlo solvers (#492). (new work)
+    - [ ] **Segregated pressure–velocity coupling (SIMPLE, PISO, PIMPLE)** · `thermal-hydraulic-methods/computational-fluid-dynamics/pressure-velocity-coupling` · origin `outram-park`
+      - sources: `arxiv-2306.01924v2` 5.3 Pressure-velocity coupling (PIMPLE as PISO combined with SIMPLE; solvePIMPLE, Listing 10); `moose-docs-simple` Overview; `moose-docs-pimple` Overview (the PISO iteration)
+      - why: the PISO/SIMPLE/PIMPLE loops of the OpenFOAM port (outram-foam-*) and GeN-Foam; a solver pattern (#760).
+      - cross-links: `07-regulatory-framework/quality-assurance/software-quality-assurance/design-and-implementation/solver-driver-and-control-flow`
   - [ ] **System (1-D network) thermal hydraulics** · `thermal-hydraulic-methods/system-thermal-hydraulics` · origin `outram-park`
     - sources: `nureg-1537-part1` 4.6 (introduction); `ornl-tm-2018-976` 3.1.3 (focus on acceptable analytical methods)
     - why: TUAS and TAMPINES control-volume networks; the peer-reviewed TUAS work sits here.
@@ -495,6 +501,14 @@
       - [ ] add `//! kovan-concept: 02-nuclear-safety/thermal-hydraulic-design/thermal-hydraulic-methods/neutronics-thermal-hydraulics-coupling` to `crates/nee_soon/src/direct_coupling.rs`: Monte Carlo directly against GeN-Foam thermal hydraulics. outram-mc as the neutronics solver in the coupled loop. (new work)
       - [ ] add `//! kovan-concept: 02-nuclear-safety/thermal-hydraulic-design/thermal-hydraulic-methods/neutronics-thermal-hydraulics-coupling` to `crates/outram-park-fork-moltres/src/thermal.rs`: Reduced fuel-salt thermal model and feedback loop. Power/temperature feedback coupling for the circulating-fuel solve. (port of Moltres (formulation))
       - [ ] add `//! kovan-concept: 02-nuclear-safety/thermal-hydraulic-design/thermal-hydraulic-methods/neutronics-thermal-hydraulics-coupling` to `crates/bedok/src/thdiffusion_solverxyz.rs`: Coupled TH and nodal diffusion. Steady thermal-hydraulics coupled to the 3-D diffusion solve. (port of BEDOK MATLAB)
+    - [ ] **Picard (fixed-point) coupling iteration, with relaxation** · `thermal-hydraulic-methods/neutronics-thermal-hydraulics-coupling/picard-fixed-point-coupling` · origin `outram-park`
+      - sources: `sand2011-2195` 2.3 Solution Strategies for the General Model (Algorithm 1, Picard iteration); `sand2011-2195` 3.2.2 Picard Iteration (Algorithm 3); `arxiv-2301.00289v3` whole paper: Fourier analysis of Picard iteration for coupled neutronics/thermal-hydraulics; optimal under-relaxation; `arxiv-2306.01924v2` 3 Interface-coupling (partitioned Dirichlet-Neumann coupling; fixed and Aitken relaxation)
+      - why: the outer coupling loop of outram-park's multiphysics solvers alternates single-physics solves (GeN-Foam, nee_soon, BEDOK); the loop's stability and relaxation are this method's.
+      - cross-links: `07-regulatory-framework/quality-assurance/software-quality-assurance/design-and-implementation/solver-driver-and-control-flow`
+    - [ ] **Jacobian-free Newton–Krylov (JFNK) solution of coupled systems** · `thermal-hydraulic-methods/neutronics-thermal-hydraulics-coupling/jacobian-free-newton-krylov` · origin `outram-park`
+      - sources: `sand2011-2195` 2.3 Solution Strategies for the General Model (Algorithm 2, Newton's method; Newton-Krylov and Jacobian-free Newton-Krylov); `sand2011-2195` 3.2.3 Newton's Method; 3.2.4 Nonlinear Elimination (Algorithms 4-5); `zhang-2023-fenrg-1101050` 2.1 Parallel JFNK
+      - why: the fully coupled alternative to Picard iteration for outram-park's multiphysics and transport solvers.
+      - cross-links: `07-regulatory-framework/quality-assurance/software-quality-assurance/design-and-implementation/solver-driver-and-control-flow`, `02-nuclear-safety/nuclear-design/neutron-transport/deterministic-neutronics`
 - [ ] **Thermal-hydraulic analysis methods** · `thermal-hydraulic-methods` · origin `nrc`
   - sources: `nureg-1537-part1` 4.6 (a detailed description of the analytical methods used in the thermal-hydraulic design); `ornl-tm-2018-976` 3.1.3 (acceptable analytical methods)
 - [ ] **Gas generation and entrainment (MSR flow-instability mechanisms)** · `gas-generation-and-entrainment` · origin `nrc`
@@ -902,6 +916,15 @@
       - why: kovan's Code Review tab and code walks: the review machinery itself.
       - proposed kovan-concept tags:
         - [ ] add `//! kovan-concept: 07-regulatory-framework/quality-assurance/software-quality-assurance/verification-and-validation/code-review` to `crates/kovan/src/commands/code_walk/mod.rs`: Code walks. Call chains from an entry point to the function implementing a concept. (new work)
+    - [ ] **Solver driver / control flow** · `software-quality-assurance/design-and-implementation/solver-driver-and-control-flow` · origin `doe`
+      - sources: `doe-g-414.1-4` App. F, F.5.6 Software Design and Implementation: "A technical description of the software with respect to control flow, control logic, mathematical model, data structure and integrity, and interface"; `nureg-br-0167` 4.4 Software Design Documentation: "control flow, data flow, control logic, and data structure"; `nureg-km-0006` 3.3 Components of the Hierarchy of Scientific Computer Simulation; KM-0006 terms: coded group (3.3.4), computer code (3.3.5)
+      - **note for review:** The generic node that solver-pattern concepts and coupling-loop architecture artifacts link to (#760, question 6: 'solver driver / coupling loop').
+    - [ ] **Selection / dispatch between models** · `software-quality-assurance/design-and-implementation/selection-and-dispatch-between-models` · origin `nrc`
+      - sources: `nureg-km-0006` 3.3.5 Computer Code; KM-0006 terms: internal selection and external selection; `nureg-km-0006` 3.3 Components of the Hierarchy of Scientific Computer Simulation; `doe-g-414.1-4` App. F, F.5.6 ("control logic"); `nureg-br-0167` 4.4 ("control logic")
+    - [ ] **Data structures** · `software-quality-assurance/design-and-implementation/data-structures` · origin `doe`
+      - sources: `doe-g-414.1-4` App. F, F.5.6 ("data structure and integrity"; criterion 1: "The design, including interfaces and data structures, is correct ..."); `nureg-br-0167` 4.4 ("data structure"; "software units and data elements of the software architecture"); `nureg-km-0006` 3.3 Components of the Hierarchy of Scientific Computer Simulation (no single KM-0006 term)
+    - [ ] **Interfaces and input/output** · `software-quality-assurance/design-and-implementation/interfaces-and-input-output` · origin `doe`
+      - sources: `doe-g-414.1-4` App. F, F.5.6 ("interface"; "A description of inputs and outputs including allowable or prescribed ranges for inputs and outputs"); `nureg-br-0167` 4.3 Software Requirements Documentation, item 5 ("External interfaces--interactions with people, hardware, and other software"); 4.4; `nureg-km-0006` 3.3 Components of the Hierarchy of Scientific Computer Simulation (no single KM-0006 term)
 
 ## Radiation protection (`08-radiation-protection`)
 
@@ -1174,6 +1197,10 @@
     - [ ] add `//! kovan-concept: 16-nuclear-fuel-cycle/fuel-depletion/depletion-solvers` to `crates/outram-mc-libs/src/depletion/mod.rs`: Monte Carlo burnup loop. Bateman evolution coupled to transport reaction rates. (port of OpenMC openmc.deplete)
     - [ ] add `//! kovan-concept: 16-nuclear-fuel-cycle/fuel-depletion/depletion-solvers` to `crates/outram-park-fork-onix/src/cram.rs`: CRAM matrix exponential. Chebyshev rational approximation of exp(A dt) for depletion. (port of ONIX (MIT))
     - [ ] add `//! kovan-concept: 16-nuclear-fuel-cycle/fuel-depletion/depletion-solvers` to `crates/boon-lay/src/lagrangian_transmutation_and_fission_simulator/mod.rs`: Lagrangian Monte Carlo transmutation. Competing-rate depletion without a burnup matrix. (new work)
+- [ ] **Neutronics–depletion coupling schemes (predictor, predictor–corrector, CE/CM)** · `neutronics-depletion-coupling` · origin `outram-park`
+  - sources: `cosgrove-2020-pc-stability` 2 Neutronics-depletion schemes (Algorithms 2-3: predictor-corrector, CE/LI, implicit variants); `openmc-docs-depletion` Numerical Integration (predictor and CE/CM methods); `kim-2022-fenrg-859622` Depletion analysis (CRAM with constant extrapolation; quasi-static transport-depletion sequence)
+  - why: the time-stepping loop that alternates transport and depletion in outram-mc's burnup driver; a solver pattern (#760).
+  - cross-links: `16-nuclear-fuel-cycle/fuel-depletion/depletion-solvers`, `07-regulatory-framework/quality-assurance/software-quality-assurance/design-and-implementation/solver-driver-and-control-flow`
 - [ ] **Radioactive decay data and decay chains** · `decay-data` · origin `outram-park`
   - sources: `iaea-ng-g-3.1-rev1` 3.16
   - why: boon-lay's nuclide decay library feeds depletion and source terms.

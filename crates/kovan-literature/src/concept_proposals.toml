@@ -356,8 +356,10 @@ status = "approved"
 path = "02-nuclear-safety/nuclear-design/neutron-transport/eigenvalue-and-fixed-source-calculations"
 title = "k-eigenvalue (power iteration) and fixed-source calculations"
 origin = "outram-park"
-sources = [{ document = "nureg-1537-part1", section = "4.5.1 (calculated core reactivities for all core configurations)" }]
+sources = [{ document = "nureg-1537-part1", section = "4.5.1 (calculated core reactivities for all core configurations)" }, { document = "la-ur-06-7094", section = "slides 'Power Iteration' and 'Power Iteration – Convergence'", page = "PDF pp. 15-25" }, { document = "la-ur-09-02377", section = "slides 'Power Iteration' and 'Power Iteration Convergence'", page = "PDF pp. 8-14" }, { document = "openmc-docs-eigenvalue", section = "Method of Successive Generations; Source Convergence Issues" }]
 why = "the run modes that produce k_eff and source-driven flux."
+note = "Power iteration (#760, 2026-10-07): this concept already names it, so its redistributable sources (Brown LA-UR-06-7094 and LA-UR-09-02377; OpenMC eigenvalue.rst) are added here instead of a duplicate node."
+cross_links = ["07-regulatory-framework/quality-assurance/software-quality-assurance/design-and-implementation/solver-driver-and-control-flow"]
 status = "approved"
 
 [[concept]]
@@ -404,7 +406,7 @@ status = "approved"
 path = "02-nuclear-safety/nuclear-design/nuclear-data-processing/resonance-reconstruction"
 title = "Resonance reconstruction of pointwise cross sections"
 origin = "outram-park"
-sources = [{ document = "nureg-1537-part1", section = "4.5 (introduction)" }]
+sources = [{ document = "nureg-1537-part1", section = "4.5 (introduction)" }, { document = "la-ur-17-20093", section = "Ch. 3 RECONR", page = "43-76 (PDF pp. 57-90)" }]
 why = "NJOY RECONR and the SAMM R-matrix kernel."
 status = "approved"
 
@@ -412,7 +414,7 @@ status = "approved"
 path = "02-nuclear-safety/nuclear-design/nuclear-data-processing/doppler-broadening"
 title = "Doppler broadening of cross sections"
 origin = "outram-park"
-sources = [{ document = "nureg-1537-part1", section = "4.5.2 (fuel temperature coefficient)" }]
+sources = [{ document = "nureg-1537-part1", section = "4.5.2 (fuel temperature coefficient)" }, { document = "la-ur-17-20093", section = "Ch. 4 BROADR", page = "77-92 (PDF pp. 91-106)" }]
 why = "the temperature dependence behind the fuel temperature coefficient: NJOY BROADR and windowed multipole."
 status = "approved"
 
@@ -420,7 +422,7 @@ status = "approved"
 path = "02-nuclear-safety/nuclear-design/nuclear-data-processing/unresolved-resonance-probability-tables"
 title = "Unresolved-resonance self-shielding and probability tables"
 origin = "outram-park"
-sources = [{ document = "nureg-1537-part1", section = "4.5 (introduction)" }]
+sources = [{ document = "nureg-1537-part1", section = "4.5 (introduction)" }, { document = "la-ur-17-20093", section = "Ch. 5 UNRESR", page = "93-114 (PDF pp. 107-128)" }, { document = "la-ur-17-20093", section = "Ch. 23 PURR", page = "635-652 (PDF pp. 649-666)" }]
 why = "NJOY UNRESR/PURR; on by default in outram-mc since 2026-09-20 (root CLAUDE.md)."
 status = "approved"
 
@@ -428,7 +430,7 @@ status = "approved"
 path = "02-nuclear-safety/nuclear-design/nuclear-data-processing/thermal-scattering"
 title = "Thermal neutron scattering, S(alpha, beta)"
 origin = "outram-park"
-sources = [{ document = "nureg-1537-part1", section = "4.2.3 Neutron Moderator and Reflector; 4.5" }]
+sources = [{ document = "nureg-1537-part1", section = "4.2.3 Neutron Moderator and Reflector; 4.5" }, { document = "la-ur-17-20093", section = "Ch. 7 THERMR", page = "165-186 (PDF pp. 179-200)" }, { document = "la-ur-17-20093", section = "Ch. 24 LEAPR", page = "653-722 (PDF pp. 667-736)" }]
 why = "bound-atom scattering in graphite and other moderators: NJOY LEAPR/THERMR and its use in transport."
 status = "approved"
 
@@ -436,7 +438,7 @@ status = "approved"
 path = "02-nuclear-safety/nuclear-design/nuclear-data-processing/ace-library-generation"
 title = "Continuous-energy (ACE) library generation"
 origin = "outram-park"
-sources = [{ document = "nureg-1537-part1", section = "4.5 (introduction)" }]
+sources = [{ document = "nureg-1537-part1", section = "4.5 (introduction)" }, { document = "la-ur-17-20093", section = "Ch. 17 ACER", page = "499-550 (PDF pp. 513-564)" }]
 why = "NJOY ACER, the hand-off from processing to Monte Carlo transport."
 status = "approved"
 
@@ -444,7 +446,7 @@ status = "approved"
 path = "02-nuclear-safety/nuclear-design/nuclear-data-processing/multigroup-data-generation"
 title = "Multigroup cross sections and transfer matrices from evaluated data"
 origin = "outram-park"
-sources = [{ document = "nureg-1537-part1", section = "4.5 (introduction)" }]
+sources = [{ document = "nureg-1537-part1", section = "4.5 (introduction)" }, { document = "la-ur-17-20093", section = "Ch. 8 GROUPR", page = "187-272 (PDF pp. 201-286)" }, { document = "la-ur-17-20093", section = "Ch. 9 GAMINR", page = "273-284 (PDF pp. 287-298)" }, { document = "la-ur-17-20093", section = "Ch. 13 DTFR", page = "383-402 (PDF pp. 397-416)" }, { document = "la-ur-17-20093", section = "Ch. 14 CCCCR", page = "403-452 (PDF pp. 417-466)" }, { document = "la-ur-17-20093", section = "Ch. 15 MATXSR", page = "453-492 (PDF pp. 467-506)" }, { document = "la-ur-17-20093", section = "Ch. 18 POWR", page = "551-556 (PDF pp. 565-570)" }, { document = "la-ur-17-20093", section = "Ch. 19 WIMSR", page = "557-578 (PDF pp. 571-592)" }]
 why = "NJOY GROUPR/GAMINR."
 status = "approved"
 
@@ -452,7 +454,7 @@ status = "approved"
 path = "02-nuclear-safety/nuclear-design/nuclear-data-processing/nuclear-data-covariances"
 title = "Nuclear-data covariances"
 origin = "outram-park"
-sources = [{ document = "nureg-1537-part1", section = "4.5 (estimates of the accuracy of the analytical methods)" }]
+sources = [{ document = "nureg-1537-part1", section = "4.5 (estimates of the accuracy of the analytical methods)" }, { document = "la-ur-17-20093", section = "Ch. 10 ERRORR", page = "285-356 (PDF pp. 299-370)" }, { document = "la-ur-17-20093", section = "Ch. 11 COVR", page = "357-376 (PDF pp. 371-390)" }]
 why = "NJOY ERRORR/COVR: the data half of the accuracy estimate."
 status = "approved"
 
@@ -460,7 +462,7 @@ status = "approved"
 path = "02-nuclear-safety/nuclear-design/nuclear-data-processing/heating-and-damage"
 title = "Heating (KERMA) and damage cross sections"
 origin = "outram-park"
-sources = [{ document = "nureg-1537-part1", section = "4.6 (thermal power density distribution)" }]
+sources = [{ document = "nureg-1537-part1", section = "4.6 (thermal power density distribution)" }, { document = "la-ur-17-20093", section = "Ch. 6 HEATR", page = "115-164 (PDF pp. 129-178)" }]
 why = "NJOY HEATR: where deposited power comes from."
 status = "approved"
 
@@ -562,6 +564,15 @@ why = "blockMesh/snappyHexMesh/cfMesh ports and the neutral unstructured mesh (#
 status = "approved"
 
 [[concept]]
+path = "02-nuclear-safety/thermal-hydraulic-design/thermal-hydraulic-methods/computational-fluid-dynamics/pressure-velocity-coupling"
+title = "Segregated pressure–velocity coupling (SIMPLE, PISO, PIMPLE)"
+origin = "outram-park"
+sources = [{ document = "arxiv-2306.01924v2", section = "5.3 Pressure-velocity coupling (PIMPLE as PISO combined with SIMPLE; solvePIMPLE, Listing 10)", page = "13-14" }, { document = "moose-docs-simple", section = "Overview" }, { document = "moose-docs-pimple", section = "Overview (the PISO iteration)" }]
+why = "the PISO/SIMPLE/PIMPLE loops of the OpenFOAM port (outram-foam-*) and GeN-Foam; a solver pattern (#760)."
+cross_links = ["07-regulatory-framework/quality-assurance/software-quality-assurance/design-and-implementation/solver-driver-and-control-flow"]
+status = "approved"
+
+[[concept]]
 path = "02-nuclear-safety/thermal-hydraulic-design/thermal-hydraulic-methods/system-thermal-hydraulics"
 title = "System (1-D network) thermal hydraulics"
 origin = "outram-park"
@@ -599,6 +610,30 @@ title = "Neutronics and thermal-hydraulics coupling"
 origin = "outram-park"
 sources = [{ document = "nureg-1537-part1", section = "4.6, second item (heat fluxes derived from the fuel loading and neutron flux characteristics)" }]
 why = "multiphysics coupling in GeN-Foam, nee_soon and BEDOK."
+status = "approved"
+
+# ---- Solver patterns (numerical-method architecture, layer 1), #760, 2026-10-07 ----
+# Owner: these become standard nodes once a redistributable source is held
+# (#760, question 6). Each links to the generic solver-driver node under SQA
+# design and implementation. Lie/Strang operator splitting has no
+# redistributable source yet, so it has no node.
+
+[[concept]]
+path = "02-nuclear-safety/thermal-hydraulic-design/thermal-hydraulic-methods/neutronics-thermal-hydraulics-coupling/picard-fixed-point-coupling"
+title = "Picard (fixed-point) coupling iteration, with relaxation"
+origin = "outram-park"
+sources = [{ document = "sand2011-2195", section = "2.3 Solution Strategies for the General Model (Algorithm 1, Picard iteration)", page = "9-11" }, { document = "sand2011-2195", section = "3.2.2 Picard Iteration (Algorithm 3)", page = "22" }, { document = "arxiv-2301.00289v3", section = "whole paper: Fourier analysis of Picard iteration for coupled neutronics/thermal-hydraulics; optimal under-relaxation" }, { document = "arxiv-2306.01924v2", section = "3 Interface-coupling (partitioned Dirichlet-Neumann coupling; fixed and Aitken relaxation)", page = "6" }]
+why = "the outer coupling loop of outram-park's multiphysics solvers alternates single-physics solves (GeN-Foam, nee_soon, BEDOK); the loop's stability and relaxation are this method's."
+cross_links = ["07-regulatory-framework/quality-assurance/software-quality-assurance/design-and-implementation/solver-driver-and-control-flow"]
+status = "approved"
+
+[[concept]]
+path = "02-nuclear-safety/thermal-hydraulic-design/thermal-hydraulic-methods/neutronics-thermal-hydraulics-coupling/jacobian-free-newton-krylov"
+title = "Jacobian-free Newton–Krylov (JFNK) solution of coupled systems"
+origin = "outram-park"
+sources = [{ document = "sand2011-2195", section = "2.3 Solution Strategies for the General Model (Algorithm 2, Newton's method; Newton-Krylov and Jacobian-free Newton-Krylov)", page = "10-12" }, { document = "sand2011-2195", section = "3.2.3 Newton's Method; 3.2.4 Nonlinear Elimination (Algorithms 4-5)", page = "22-26" }, { document = "zhang-2023-fenrg-1101050", section = "2.1 Parallel JFNK", page = "2-3" }]
+why = "the fully coupled alternative to Picard iteration for outram-park's multiphysics and transport solvers."
+cross_links = ["07-regulatory-framework/quality-assurance/software-quality-assurance/design-and-implementation/solver-driver-and-control-flow", "02-nuclear-safety/nuclear-design/neutron-transport/deterministic-neutronics"]
 status = "approved"
 
 # ============================================================================
@@ -1384,6 +1419,39 @@ sources = [{ document = "nureg-0800-toc-rev6", section = "BTP 7-14" }]
 why = "kovan's Code Review tab and code walks: the review machinery itself."
 status = "approved"
 
+# ---- Generic design elements under SQA design and implementation, owner
+# 2026-10-07 (#760 questions 4 and 5): plain-English names; the matching
+# NUREG/KM-0006 term and page are the source line. ----
+
+[[concept]]
+path = "07-regulatory-framework/quality-assurance/software-quality-assurance/design-and-implementation/solver-driver-and-control-flow"
+title = "Solver driver / control flow"
+origin = "doe"
+sources = [{ document = "doe-g-414.1-4", section = "App. F, F.5.6 Software Design and Implementation: \"A technical description of the software with respect to control flow, control logic, mathematical model, data structure and integrity, and interface\"", page = "F-13 to F-14" }, { document = "nureg-br-0167", section = "4.4 Software Design Documentation: \"control flow, data flow, control logic, and data structure\"", page = "13" }, { document = "nureg-km-0006", section = "3.3 Components of the Hierarchy of Scientific Computer Simulation; KM-0006 terms: coded group (3.3.4), computer code (3.3.5)", page = "59-81" }]
+note = "The generic node that solver-pattern concepts and coupling-loop architecture artifacts link to (#760, question 6: 'solver driver / coupling loop')."
+status = "approved"
+
+[[concept]]
+path = "07-regulatory-framework/quality-assurance/software-quality-assurance/design-and-implementation/selection-and-dispatch-between-models"
+title = "Selection / dispatch between models"
+origin = "nrc"
+sources = [{ document = "nureg-km-0006", section = "3.3.5 Computer Code; KM-0006 terms: internal selection and external selection", page = "77" }, { document = "nureg-km-0006", section = "3.3 Components of the Hierarchy of Scientific Computer Simulation", page = "59-81" }, { document = "doe-g-414.1-4", section = "App. F, F.5.6 (\"control logic\")", page = "F-13 to F-14" }, { document = "nureg-br-0167", section = "4.4 (\"control logic\")", page = "13" }]
+status = "approved"
+
+[[concept]]
+path = "07-regulatory-framework/quality-assurance/software-quality-assurance/design-and-implementation/data-structures"
+title = "Data structures"
+origin = "doe"
+sources = [{ document = "doe-g-414.1-4", section = "App. F, F.5.6 (\"data structure and integrity\"; criterion 1: \"The design, including interfaces and data structures, is correct ...\")", page = "F-13 to F-14" }, { document = "nureg-br-0167", section = "4.4 (\"data structure\"; \"software units and data elements of the software architecture\")", page = "13" }, { document = "nureg-km-0006", section = "3.3 Components of the Hierarchy of Scientific Computer Simulation (no single KM-0006 term)", page = "59-81" }]
+status = "approved"
+
+[[concept]]
+path = "07-regulatory-framework/quality-assurance/software-quality-assurance/design-and-implementation/interfaces-and-input-output"
+title = "Interfaces and input/output"
+origin = "doe"
+sources = [{ document = "doe-g-414.1-4", section = "App. F, F.5.6 (\"interface\"; \"A description of inputs and outputs including allowable or prescribed ranges for inputs and outputs\")", page = "F-13 to F-14" }, { document = "nureg-br-0167", section = "4.3 Software Requirements Documentation, item 5 (\"External interfaces--interactions with people, hardware, and other software\"); 4.4", page = "13" }, { document = "nureg-km-0006", section = "3.3 Components of the Hierarchy of Scientific Computer Simulation (no single KM-0006 term)", page = "59-81" }]
+status = "approved"
+
 # ============================================================================
 # 08-radiation-protection / radiation-protection
 # ============================================================================
@@ -1689,6 +1757,15 @@ title = "Depletion solvers (Bateman equations, matrix exponential, Monte Carlo t
 origin = "outram-park"
 sources = [{ document = "nureg-1537-part1", section = "4.5.1 (changes in core reactivity with fuel burnup, plutonium buildup, and poisons)" }, { document = "iaea-ng-g-3.1-rev1", section = "3.16" }]
 why = "outram-mc's burnup loop, ONIX's CRAM and boon-lay's Lagrangian transmutation."
+status = "approved"
+
+[[concept]]
+path = "16-nuclear-fuel-cycle/fuel-depletion/neutronics-depletion-coupling"
+title = "Neutronics–depletion coupling schemes (predictor, predictor–corrector, CE/CM)"
+origin = "outram-park"
+sources = [{ document = "cosgrove-2020-pc-stability", section = "2 Neutronics-depletion schemes (Algorithms 2-3: predictor-corrector, CE/LI, implicit variants)", page = "PDF pp. 2-4" }, { document = "openmc-docs-depletion", section = "Numerical Integration (predictor and CE/CM methods)" }, { document = "kim-2022-fenrg-859622", section = "Depletion analysis (CRAM with constant extrapolation; quasi-static transport-depletion sequence)", page = "3" }]
+why = "the time-stepping loop that alternates transport and depletion in outram-mc's burnup driver; a solver pattern (#760)."
+cross_links = ["16-nuclear-fuel-cycle/fuel-depletion/depletion-solvers", "07-regulatory-framework/quality-assurance/software-quality-assurance/design-and-implementation/solver-driver-and-control-flow"]
 status = "approved"
 
 [[concept]]
