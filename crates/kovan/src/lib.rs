@@ -76,6 +76,7 @@ pub mod fingerprint;
 pub use kovan_common::fuzzy;
 pub mod graph;
 pub mod index;
+pub mod index_fresh;
 pub mod mindmap;
 pub mod mindmap_layout;
 pub mod mindmap_model;

@@ -10265,6 +10265,11 @@ pub struct CodeMap {
   Build the map from `cargo metadata --format-version 1 --no-deps`
 
 - ```rust
+  pub fn from_cargo_metadata_allowing_untagged(json: &str) -> Result<(CodeMap, Vec<String>), Vec<String>> { /* ... */ }
+  ```
+  [`CodeMap::from_cargo_metadata`] for ANY workspace or crate (GitHub
+
+- ```rust
   pub fn get(self: &Self, name: &str) -> Option<&CrateNode> { /* ... */ }
   ```
   The crate called `name`.

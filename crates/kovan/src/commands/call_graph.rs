@@ -247,42 +247,41 @@ pub fn rust_analyzer_version() -> String {
 /// ignored), its log beside it, and returns the index path. About 3 min and
 /// several GB of memory for this workspace (#757).
 pub fn generate_scip(root: &Path) -> Result<PathBuf, String> {
+    generate_scip_controlled(root, &super::index_control::RunControl::default())
+}
+
+/// [`generate_scip`] with progress, cancellation and priority (GitHub #780):
+/// the child is run by [`super::index_control::run_child`], under `nice`
+/// when `ctl.nice`, and a cancel stops it by its own process id.
+pub fn generate_scip_controlled(root: &Path, ctl: &super::index_control::RunControl) -> Result<PathBuf, String> {
     let dir = root.join("target").join("kovan-scip");
     std::fs::create_dir_all(&dir).map_err(|e| format!("creating {}: {e}", dir.display()))?;
     let out = dir.join("index.scip");
     let log_path = dir.join("rust-analyzer-scip.log");
-    let log = std::fs::File::create(&log_path)
-        .map_err(|e| format!("creating {}: {e}", log_path.display()))?;
-    let log2 = log
-        .try_clone()
-        .map_err(|e| format!("{}: {e}", log_path.display()))?;
-    eprintln!(
-        "call-graph: running rust-analyzer scip over {} (about 3 min; log in {})",
+    ctl.say(format!(
+        "call-graph: running rust-analyzer scip over {} (about 3 min for outram-park; log in {})",
         root.display(),
         log_path.display()
-    );
+    ));
     let started = Instant::now();
-    let status = std::process::Command::new("rust-analyzer")
-        .arg("scip")
-        .arg(root)
-        .arg("--output")
-        .arg(&out)
-        .current_dir(root)
-        .stdout(log)
-        .stderr(log2)
-        .status()
-        .map_err(|e| format!("running rust-analyzer scip: {e}"))?;
+    let mut cmd = super::index_control::command(
+        "rust-analyzer",
+        &["scip".as_ref(), root.as_os_str(), "--output".as_ref(), out.as_os_str()],
+        ctl.nice,
+    );
+    cmd.current_dir(root);
+    let status = super::index_control::run_child(cmd, &log_path, "rust-analyzer scip", ctl)?;
     if !status.success() {
         return Err(format!(
             "rust-analyzer scip failed ({status}); see {}",
             log_path.display()
         ));
     }
-    eprintln!(
+    ctl.say(format!(
         "call-graph: rust-analyzer scip wrote {} in {:.1} s",
         out.display(),
         started.elapsed().as_secs_f64()
-    );
+    ));
     Ok(out)
 }
 

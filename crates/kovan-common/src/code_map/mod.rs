@@ -414,21 +414,8 @@ fn read_tag(p: &Package, root: Option<&str>, errors: &mut Vec<String>) -> Option
     if errors.len() > start {
         return None;
     }
-    let lib_dir = p
-        .targets
-        .iter()
-        .find(|t| t.kind.iter().any(|k| k == "lib"))
-        .and_then(|t| Path::new(&t.src_path).parent())
-        .map(|d| d.to_string_lossy().into_owned());
-    let dir = match (root, p.manifest_path.as_deref()) {
-        (Some(root), Some(manifest)) => Path::new(manifest)
-            .parent()
-            .and_then(|d| d.strip_prefix(root).ok())
-            .map(|d| d.components().map(|c| c.as_os_str().to_string_lossy()).collect::<Vec<_>>().join("/")),
-        _ => None,
-    };
     Some(CrateNode {
-        dir,
+        dir: dir_of(p, root),
         name: name.clone(),
         description: p.description.clone().filter(|d| !d.trim().is_empty()),
         row: row?,
@@ -436,23 +423,86 @@ fn read_tag(p: &Package, root: Option<&str>, errors: &mut Vec<String>) -> Option
         fidelity,
         maturity: maturity?,
         maturity_modules: modules,
-        lib_dir,
+        lib_dir: lib_dir_of(p),
     })
+}
+
+/// Directory of the package's library root file.
+fn lib_dir_of(p: &Package) -> Option<String> {
+    p.targets
+        .iter()
+        .find(|t| t.kind.iter().any(|k| k == "lib"))
+        .and_then(|t| Path::new(&t.src_path).parent())
+        .map(|d| d.to_string_lossy().into_owned())
+}
+
+/// The package's folder relative to the workspace root, `/`-separated.
+fn dir_of(p: &Package, root: Option<&str>) -> Option<String> {
+    match (root, p.manifest_path.as_deref()) {
+        (Some(root), Some(manifest)) => Path::new(manifest)
+            .parent()
+            .and_then(|d| d.strip_prefix(root).ok())
+            .map(|d| d.components().map(|c| c.as_os_str().to_string_lossy()).collect::<Vec<_>>().join("/")),
+        _ => None,
+    }
+}
+
+/// Whether a package carries a `[package.metadata.kovan]` table at all.
+fn has_tag(p: &Package) -> bool {
+    p.metadata.as_ref().is_some_and(|m| m["kovan"].is_object())
 }
 
 impl CodeMap {
     /// Build the map from `cargo metadata --format-version 1 --no-deps`
     /// output. `Err` lists every malformed or missing tag, one line each.
     pub fn from_cargo_metadata(json: &str) -> Result<CodeMap, Vec<String>> {
+        Self::from_metadata(json, false).map(|(map, _)| map)
+    }
+
+    /// [`CodeMap::from_cargo_metadata`] for ANY workspace or crate (GitHub
+    /// #780: a foreign repository indexed by kovan has no tags). A package
+    /// with no `[package.metadata.kovan]` table at all is drawn as an
+    /// **untagged** placeholder (row 0, utility, maturity 0, so greyed);
+    /// their names are the second value, for the caller to say so. A tag
+    /// that is present but malformed is still an error. With every crate
+    /// tagged it is exactly [`CodeMap::from_cargo_metadata`]; otherwise
+    /// the root card is the workspace folder's name, not outram-park's.
+    pub fn from_cargo_metadata_allowing_untagged(json: &str) -> Result<(CodeMap, Vec<String>), Vec<String>> {
+        Self::from_metadata(json, true)
+    }
+
+    fn from_metadata(json: &str, allow_untagged: bool) -> Result<(CodeMap, Vec<String>), Vec<String>> {
         let meta: Metadata =
             serde_json::from_str(json).map_err(|e| vec![format!("cargo metadata is not the expected JSON: {e}")])?;
         let mut errors = Vec::new();
         let names: BTreeSet<&str> = meta.packages.iter().map(|p| p.name.as_str()).collect();
-        let mut crates: Vec<CrateNode> =
-            meta.packages.iter().filter_map(|p| read_tag(p, meta.workspace_root.as_deref(), &mut errors)).collect();
+        let root = meta.workspace_root.as_deref();
+        let mut untagged = Vec::new();
+        let mut crates: Vec<CrateNode> = meta
+            .packages
+            .iter()
+            .filter_map(|p| {
+                if allow_untagged && !has_tag(p) {
+                    untagged.push(p.name.clone());
+                    return Some(CrateNode {
+                        name: p.name.clone(),
+                        description: p.description.clone().filter(|d| !d.trim().is_empty()),
+                        row: 0,
+                        topic: Topic::Utility,
+                        fidelity: None,
+                        maturity: 0,
+                        maturity_modules: Vec::new(),
+                        lib_dir: lib_dir_of(p),
+                        dir: dir_of(p, root),
+                    });
+                }
+                read_tag(p, root, &mut errors)
+            })
+            .collect();
         if !errors.is_empty() {
             return Err(errors);
         }
+        untagged.sort();
         crates.sort_by(|a, b| a.name.cmp(&b.name));
         let mut edges = BTreeSet::new();
         for p in &meta.packages {
@@ -463,11 +513,11 @@ impl CodeMap {
                 }
             }
         }
-        Ok(CodeMap {
-            root: ROOT_TITLE.to_string(),
-            crates,
-            edges: edges.into_iter().collect(),
-        })
+        let title = match (untagged.is_empty(), root.and_then(|r| Path::new(r).file_name())) {
+            (false, Some(name)) => name.to_string_lossy().to_string(),
+            _ => ROOT_TITLE.to_string(),
+        };
+        Ok((CodeMap { root: title, crates, edges: edges.into_iter().collect() }, untagged))
     }
 
     /// The crate called `name`.
@@ -570,6 +620,28 @@ pub mod fixture {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn untagged_crates_are_placeholders_only_when_allowed() {
+        let json = r#"{"workspace_root":"/x/foreign","packages":[
+            {"name":"b","targets":[{"kind":["lib"],"src_path":"/x/foreign/b/src/lib.rs"}],"manifest_path":"/x/foreign/b/Cargo.toml","dependencies":[{"name":"a","kind":null,"optional":false}]},
+            {"name":"a","description":"the a crate","targets":[],"manifest_path":"/x/foreign/a/Cargo.toml"}]}"#;
+        assert!(CodeMap::from_cargo_metadata(json).is_err(), "strict: tags required");
+        let (map, untagged) = CodeMap::from_cargo_metadata_allowing_untagged(json).unwrap();
+        assert_eq!(untagged, vec!["a".to_string(), "b".to_string()]);
+        assert_eq!(map.root, "foreign");
+        let b = map.get("b").unwrap();
+        assert_eq!((b.row, b.topic, b.maturity, b.dir.as_deref()), (0, Topic::Utility, 0, Some("b")));
+        assert_eq!(b.lib_dir.as_deref(), Some("/x/foreign/b/src"));
+        assert_eq!(map.dependencies("b"), vec!["a"]);
+        // Fully tagged: identical to the strict reader.
+        let (same, none) = CodeMap::from_cargo_metadata_allowing_untagged(&fixture::json()).unwrap();
+        assert!(none.is_empty());
+        assert_eq!(same, CodeMap::from_cargo_metadata(&fixture::json()).unwrap());
+        // A malformed tag is still an error.
+        let bad = json.replacen(r#""description":"the a crate""#, r#""description":"the a crate","metadata":{"kovan":{"row":9}}"#, 1);
+        assert!(CodeMap::from_cargo_metadata_allowing_untagged(&bad).is_err());
+    }
 
     #[test]
     fn parses_tags_and_keeps_only_required_internal_edges() {

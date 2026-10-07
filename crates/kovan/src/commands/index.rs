@@ -33,7 +33,15 @@
 //!    conflicted, malformed, stale or hand-edited), a foreign one (a
 //!    literature `kovan.toml`) is left alone and reported, and orphans this
 //!    tool wrote for folders that no longer have indexed code are removed.
-//!    `review.md` is never written.
+//!    `review.md` is never written (the `--fresh` flow of
+//!    [`crate::index_fresh`], GitHub #780, adds missing skeletons as its own
+//!    later step).
+//!
+//! **Any workspace or crate (#780).** The same run works on a single crate
+//! (a member at the workspace root, folder `""`) and on a repository with
+//! no commit yet (ids minted with [`NO_COMMIT`]). [`run_controlled`] is the
+//! entry with progress, cancel and `nice` ([`RunControl`]) that the
+//! desktop app's "Index fresh" uses; [`run`] is it with the CLI defaults.
 //!
 //! `--check` does all of that but writes nothing, and fails when any file
 //! would change (for CI). `--draft-upstream` also prints proposed
@@ -66,6 +74,15 @@ use kovan_common::review::review_md::{parse_review_md, ReviewDocument};
 use kovan_common::review::root::{CodeReviewSettings, ReviewRoot};
 
 use crate::scip::{PositionEncoding, ScipIndex, Sym};
+
+use super::index_control::RunControl;
+
+/// `ctl.say(format!(...))`: stderr and the run's progress log.
+macro_rules! say {
+    ($ctl:expr, $($t:tt)*) => {
+        $ctl.say(format!($($t)*))
+    };
+}
 
 /// The file name of a folder index.
 pub const KOVAN_TOML: &str = "kovan.toml";
@@ -343,8 +360,10 @@ enum Change {
     Remove { rel: String },
 }
 
-fn apply(root: &Path, changes: &[Change]) -> Result<(), String> {
-    for c in changes {
+fn apply(root: &Path, changes: &[Change], ctl: &RunControl) -> Result<(), String> {
+    ctl.phase(format!("writing {} file(s)", changes.len()), changes.len());
+    for (i, c) in changes.iter().enumerate() {
+        ctl.step(i);
         match c {
             Change::Write { rel, text, .. } => {
                 std::fs::write(root.join(rel), text).map_err(|e| format!("{rel}: {e}"))?
@@ -352,21 +371,22 @@ fn apply(root: &Path, changes: &[Change]) -> Result<(), String> {
             Change::Remove { rel } => std::fs::remove_file(root.join(rel)).map_err(|e| format!("{rel}: {e}"))?,
         }
     }
+    ctl.step(changes.len());
     Ok(())
 }
 
-fn summarise(changes: &[Change], unchanged: usize) {
+fn summarise(changes: &[Change], unchanged: usize, ctl: &RunControl) {
     let mut by: BTreeMap<&str, usize> = BTreeMap::new();
     for c in changes {
         let (k, rel) = match c {
             Change::Write { why, rel, .. } => (*why, rel),
             Change::Remove { rel } => ("orphan removed", rel),
         };
-        eprintln!("index:   {rel}: {k}");
+        say!(ctl, "index:   {rel}: {k}");
         *by.entry(k).or_default() += 1;
     }
     let parts: Vec<String> = by.iter().map(|(k, n)| format!("{n} {k}")).collect();
-    eprintln!(
+    say!(ctl,
         "index: {unchanged} unchanged{}{}",
         if parts.is_empty() { "" } else { ", " },
         parts.join(", ")
@@ -374,7 +394,7 @@ fn summarise(changes: &[Change], unchanged: usize) {
 }
 
 /// Pin check (module doc, step 1). Returns the installed version.
-fn check_pin(root: &Path, opts: &IndexOptions) -> Result<Option<String>, IndexCmdError> {
+fn check_pin(root: &Path, opts: &IndexOptions, ctl: &RunControl) -> Result<Option<String>, IndexCmdError> {
     let installed = installed_rust_analyzer();
     if installed.is_none() && opts.scip.is_none() {
         return Err(IndexCmdError::RustAnalyzerMissing);
@@ -387,11 +407,11 @@ fn check_pin(root: &Path, opts: &IndexOptions) -> Result<Option<String>, IndexCm
         _ => None,
     };
     match (&pinned, &installed) {
-        (Some(p), Some(i)) if p != i => eprintln!(
+        (Some(p), Some(i)) if p != i => say!(ctl,
             "index: WARNING: kovan_root.toml pins rust-analyzer {p}, the installed one is {i}; \
              the index is regenerated with {i} and may differ from CI's"
         ),
-        (None, Some(i)) if !opts.pin_rust_analyzer => eprintln!(
+        (None, Some(i)) if !opts.pin_rust_analyzer => say!(ctl,
             "index: rust-analyzer is not pinned (kovan_root.toml [code_review] rust_analyzer); \
              `--pin-rust-analyzer` pins {i}"
         ),
@@ -408,40 +428,78 @@ fn check_pin(root: &Path, opts: &IndexOptions) -> Result<Option<String>, IndexCm
             .rust_analyzer = Some(i.clone());
         let new = r.write_into(&text).map_err(|e| IndexCmdError::Other(e.to_string()))?;
         std::fs::write(&root_file, new).map_err(|e| IndexCmdError::Other(e.to_string()))?;
-        eprintln!("index: pinned rust-analyzer {i} in kovan_root.toml");
+        say!(ctl, "index: pinned rust-analyzer {i} in kovan_root.toml");
     }
     Ok(installed)
 }
 
+/// What one run did (GitHub #780: the app shows it, and the fresh-index
+/// flow creates `review.md` skeletons in `folders`).
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct IndexSummary {
+    /// Workspace-relative folders that have (or, under `--check`, would
+    /// have) a code-folder `kovan.toml` after the run. Under `--refresh`,
+    /// the folders refreshed.
+    pub folders: Vec<String>,
+    /// Files written or removed (0 under `--check`).
+    pub written: usize,
+    /// Files already up to date.
+    pub unchanged: usize,
+}
+
 /// `kovan-cli index` (module doc).
 pub fn run(root: &Path, opts: &IndexOptions) -> Result<(), IndexCmdError> {
+    run_controlled(root, opts, &RunControl::default()).map(|_| ())
+}
+
+/// [`run`] with progress, cancellation and priority (GitHub #780): the CLI
+/// passes [`RunControl::default`], the desktop app's "Index fresh" a
+/// background control from a worker thread. A cancel is honoured between
+/// phases and during `rust-analyzer scip`, never once files are being
+/// written.
+pub fn run_controlled(root: &Path, opts: &IndexOptions, ctl: &RunControl) -> Result<IndexSummary, IndexCmdError> {
     let root = std::fs::canonicalize(root).map_err(|e| format!("{}: {e}", root.display()))?;
     if opts.refresh {
-        return run_refresh(&root, opts);
+        return run_refresh(&root, opts, ctl);
     }
-    let installed = check_pin(&root, opts)?;
+    ctl.phase("checking rust-analyzer", 0);
+    let installed = check_pin(&root, opts, ctl)?;
+    ctl.phase("running cargo metadata", 0);
     let members = super::call_graph::member_dirs(&root)?;
     let scope = scope_of(&members, &opts.crates)?;
+    ctl.check()?;
     // 2. SCIP.
+    let scip_of = |root: &Path| -> Result<ScipIndex, IndexCmdError> {
+        let path = super::call_graph::generate_scip_controlled(root, ctl)?;
+        ctl.check()?;
+        ctl.phase("reading the SCIP index", 0);
+        Ok(super::call_graph::read_scip(&path)?)
+    };
     let mut ix = match &opts.scip {
-        Some(p) => super::call_graph::read_scip(p)?,
-        None => super::call_graph::read_scip(&super::call_graph::generate_scip(&root)?)?,
+        Some(p) => {
+            ctl.phase("reading the SCIP index", 0);
+            super::call_graph::read_scip(p)?
+        }
+        None => scip_of(&root)?,
     };
     if let (Some(i), Some(_)) = (&installed, &opts.scip) {
         // The index says `1.98.0 (88d9e12 2026-08-18)`; compare the version.
         if ix.tool_version.split_whitespace().next() != Some(i.as_str()) {
-            eprintln!(
+            say!(ctl,
                 "index: the index was written by rust-analyzer {}, the installed one is {i}: regenerating it",
                 ix.tool_version
             );
-            ix = super::call_graph::read_scip(&super::call_graph::generate_scip(&root)?)?;
+            ix = scip_of(&root)?;
         }
     }
+    ctl.check()?;
     // 3. Links.
+    ctl.phase(format!("building the link index of {} crate(s)", scope.len()), scope.len());
     let mut changes = Vec::new();
     let mut unchanged = 0usize;
     let mut sizes = Vec::new();
-    for m in &scope {
+    for (i, m) in scope.iter().enumerate() {
+        ctl.step(i);
         let li = build_links(&root, &ix, &members, m);
         let text = li.to_json();
         let rel = if m.1.is_empty() { LINKS_FILE.to_string() } else { format!("{}/{LINKS_FILE}", m.1) };
@@ -452,10 +510,14 @@ pub fn run(root: &Path, opts: &IndexOptions) -> Result<(), IndexCmdError> {
             changes.push(Change::Write { rel, text, why: "link index" });
         }
     }
+    ctl.check()?;
     // 4. Call graph.
+    ctl.phase("building the call graph", 0);
     let names: Vec<String> = scope.iter().map(|m| m.0.clone()).collect();
     let doc = super::call_graph::build_from_scip(&root, Some(&names), ix)?;
+    ctl.check()?;
     // 5. Inputs.
+    ctl.phase("hashing functions and reading review.md / kovan.toml", 0);
     let mut hashed = BTreeMap::new();
     let mut sources: BTreeMap<String, String> = BTreeMap::new();
     for (_, m, _) in doc.functions() {
@@ -467,7 +529,7 @@ pub fn run(root: &Path, opts: &IndexOptions) -> Result<(), IndexCmdError> {
             Ok(h) => {
                 hashed.insert(m.file.clone(), h);
             }
-            Err(e) => eprintln!("index: {}: {e}; its functions are left out", m.file),
+            Err(e) => say!(ctl, "index: {}: {e}; its functions are left out", m.file),
         }
         sources.insert(m.file.clone(), text);
     }
@@ -476,16 +538,17 @@ pub fn run(root: &Path, opts: &IndexOptions) -> Result<(), IndexCmdError> {
     let reviews = read_reviews(&root, &members, &scope);
     let existing = read_existing(&root, &members, &scope);
     for p in &existing.recovered {
-        eprintln!("index: {p} is unreadable; its [test_run] was recovered from HEAD");
+        say!(ctl, "index: {p} is unreadable; its [test_run] was recovered from HEAD");
     }
     for p in &existing.pending {
-        eprintln!("index: {p} is unreadable and HEAD has no readable copy; its test evidence is now PENDING");
+        say!(ctl, "index: {p} is unreadable and HEAD has no readable copy; its test evidence is now PENDING");
     }
-    let commit = git(&root, &["rev-parse", "HEAD"])?.trim().to_string();
+    let commit = head_commit(&root, ctl);
     let mut deleted_by_crate = BTreeMap::new();
     let still: BTreeSet<String> = reviews.keys().map(|p| parent(p).to_string()).collect();
     for m in &scope {
-        let log = git(&root, &["log", "--diff-filter=D", "--name-only", "--format=%x00%H", "--", &m.1]).unwrap_or_default();
+        let log = git(&root, &["log", "--diff-filter=D", "--name-only", "--format=%x00%H", "--", pathspec(&m.1)])
+            .unwrap_or_default();
         let mut rows = Vec::new();
         for (dir, c) in deleted::deleted_review_mds(&log, &m.1, &still) {
             if let Ok(text) = git(&root, &["show", &format!("{c}^:{dir}/review.md")]) {
@@ -496,6 +559,8 @@ pub fn run(root: &Path, opts: &IndexOptions) -> Result<(), IndexCmdError> {
             deleted_by_crate.insert(m.0.clone(), rows);
         }
     }
+    ctl.check()?;
+    ctl.phase("building the folder indexes", 0);
     let built = build(&BuildInput {
         doc: doc.clone(),
         hashed,
@@ -513,7 +578,7 @@ pub fn run(root: &Path, opts: &IndexOptions) -> Result<(), IndexCmdError> {
         match classify(existing.texts.get(&rel).map(String::as_str), &text) {
             Existing::Unchanged => unchanged += 1,
             Existing::Foreign { kind } => {
-                eprintln!("index: {rel} is a `{kind}` kovan.toml, not a code index: left alone, folder not indexed")
+                say!(ctl, "index: {rel} is a `{kind}` kovan.toml, not a code index: left alone, folder not indexed")
             }
             e => changes.push(Change::Write { rel, text, why: e.label() }),
         }
@@ -526,29 +591,88 @@ pub fn run(root: &Path, opts: &IndexOptions) -> Result<(), IndexCmdError> {
     }
     let r = &built.report;
     if !r.unhashed.is_empty() {
-        eprintln!("index: {} function(s) have no hash yet (nested in another fn or made by a macro) and are left out; their calls count for the enclosing function", r.unhashed.len());
+        say!(ctl, "index: {} function(s) have no hash yet (nested in another fn or made by a macro) and are left out; their calls count for the enclosing function", r.unhashed.len());
     }
     for m in &r.moved {
-        eprintln!("index: {} moved {} -> {} (matched by hash; acknowledge the move in kovan)", m.id, m.from.as_deref().unwrap_or("?"), m.to);
+        say!(ctl, "index: {} moved {} -> {} (matched by hash; acknowledge the move in kovan)", m.id, m.from.as_deref().unwrap_or("?"), m.to);
     }
     for u in &r.unmatched {
-        eprintln!("index: {} ({}) names no function: {}", u.id, u.path.as_deref().unwrap_or("callee"), u.why);
+        say!(ctl, "index: {} ({}) names no function: {}", u.id, u.path.as_deref().unwrap_or("callee"), u.why);
     }
     if !r.outside_without_id.is_empty() {
-        eprintln!("index: {} callee(s) outside the crates in scope have no known id and are left out of `callees`; index the whole workspace to include them", r.outside_without_id.len());
+        say!(ctl, "index: {} callee(s) outside the crates in scope have no known id and are left out of `callees`; index the whole workspace to include them", r.outside_without_id.len());
     }
     for (name, bytes, files, defs) in &sizes {
-        eprintln!("index: {name}/{LINKS_FILE}: {bytes} bytes, {files} files, {defs} definitions");
+        say!(ctl, "index: {name}/{LINKS_FILE}: {bytes} bytes, {files} files, {defs} definitions");
     }
     if opts.draft_upstream {
         print_drafts(&doc, &reviews);
     }
-    summarise(&changes, unchanged);
+    summarise(&changes, unchanged, ctl);
+    let mut summary = IndexSummary {
+        folders: built.folders.keys().cloned().collect(),
+        written: 0,
+        unchanged,
+    };
     if opts.check {
-        return if changes.is_empty() { Ok(()) } else { Err(IndexCmdError::CheckFailed(changes.len())) };
+        return if changes.is_empty() { Ok(summary) } else { Err(IndexCmdError::CheckFailed(changes.len())) };
     }
-    apply(&root, &changes)?;
-    Ok(())
+    ctl.check()?;
+    apply(&root, &changes, ctl)?;
+    summary.written = changes.len();
+    Ok(summary)
+}
+
+/// The commit `HEAD` names, to mint new function ids with. A repository
+/// with no commit yet (a fresh `cargo new`), or a folder outside git, has
+/// none: the all-zero id is used and the run says so (GitHub #780).
+fn head_commit(root: &Path, ctl: &RunControl) -> String {
+    match git(root, &["rev-parse", "--verify", "HEAD"]) {
+        Ok(c) => c.trim().to_string(),
+        Err(e) => {
+            say!(ctl, "index: no HEAD commit ({e}); new function ids are minted with the all-zero commit");
+            NO_COMMIT.to_string()
+        }
+    }
+}
+
+/// The commit new ids are minted with when there is no `HEAD`.
+pub const NO_COMMIT: &str = "0000000000000000000000000000000000000000";
+
+/// A git pathspec for workspace-relative folder `dir`: `.` for the root
+/// (an empty pathspec is an error in git), else the folder.
+fn pathspec(dir: &str) -> &str {
+    if dir.is_empty() {
+        "."
+    } else {
+        dir
+    }
+}
+
+/// The workspace-relative `.rs` files of member `m` (name, folder) in the
+/// folders a full run indexes: the lib and integration tests (`src/`,
+/// `tests/`), not binaries (`src/bin/`, `src/main.rs`), which are not in
+/// the call graph. Files of a member nested inside `m` are left out.
+pub fn code_files(root: &Path, members: &[(String, String)], m: &(String, String)) -> Vec<String> {
+    let pre = prefix(&m.1);
+    let (src, tests, bin, main) =
+        (format!("{pre}src/"), format!("{pre}tests/"), format!("{pre}src/bin/"), format!("{pre}src/main.rs"));
+    kovan_discovery::discover(&root.join(&m.1), &["rs"])
+        .into_iter()
+        .map(|p| rel_path(root, &p))
+        .filter(|p| owner(members, p).map(|o| &o.0) == Some(&m.0))
+        .filter(|p| p.starts_with(&src) || p.starts_with(&tests))
+        .filter(|p| !p.starts_with(&bin) && *p != main)
+        .collect()
+}
+
+/// `dir/` for a member folder, empty for a crate at the workspace root.
+fn prefix(dir: &str) -> String {
+    if dir.is_empty() {
+        String::new()
+    } else {
+        format!("{dir}/")
+    }
 }
 
 fn print_drafts(doc: &kovan_common::call_graph::CallGraphDoc, reviews: &BTreeMap<String, ReviewDocument>) {
@@ -583,12 +707,13 @@ fn print_drafts(doc: &kovan_common::call_graph::CallGraphDoc, reviews: &BTreeMap
 }
 
 /// `--refresh` (module doc).
-fn run_refresh(root: &Path, opts: &IndexOptions) -> Result<(), IndexCmdError> {
+fn run_refresh(root: &Path, opts: &IndexOptions, ctl: &RunControl) -> Result<IndexSummary, IndexCmdError> {
     let members = super::call_graph::member_dirs(root)?;
     let scope = scope_of(&members, &opts.crates)?;
     let reviews = read_reviews(root, &members, &scope);
     let claims = all_claims(&reviews);
-    let commit = git(root, &["rev-parse", "HEAD"])?.trim().to_string();
+    ctl.phase("refreshing kovan.toml files", 0);
+    let commit = head_commit(root, ctl);
     let mut changes = Vec::new();
     let mut unchanged = 0usize;
     let mut flagged = 0usize;
@@ -624,7 +749,7 @@ fn run_refresh(root: &Path, opts: &IndexOptions) -> Result<(), IndexCmdError> {
             let (fi, report) = refresh_folder(&krate, &dir, previous.as_ref(), &files, rd, &claims, &commit);
             flagged += report.out_of_date.len();
             for u in &report.unparsed {
-                eprintln!("index --refresh: {u} does not parse; its entries are kept and marked out of date");
+                say!(ctl, "index --refresh: {u} does not parse; its entries are kept and marked out of date");
             }
             let new = fi.to_toml().map_err(|e| e.to_string())?;
             match classify(Some(&text), &new) {
@@ -632,27 +757,21 @@ fn run_refresh(root: &Path, opts: &IndexOptions) -> Result<(), IndexCmdError> {
                 e => changes.push(Change::Write { rel, text: new, why: e.label() }),
             }
         }
-        let rs_dirs: BTreeSet<String> = kovan_discovery::discover(&root.join(&m.1), &["rs"])
-            .into_iter()
-            .map(|p| rel_path(root, &p))
-            .filter(|p| owner(&members, p).map(|o| &o.0) == Some(&m.0))
-            // The folders a full run indexes (lib and integration tests;
-            // binaries are not in the call graph).
-            .filter(|p| p.starts_with(&format!("{}/src/", m.1)) || p.starts_with(&format!("{}/tests/", m.1)))
-            .filter(|p| !p.contains("/src/bin/") && !p.ends_with("/src/main.rs"))
-            .map(|p| parent(&p).to_string())
-            .collect();
+        let rs_dirs: BTreeSet<String> =
+            code_files(root, &members, m).iter().map(|p| parent(p).to_string()).collect();
         for d in rs_dirs.difference(&indexed_dirs) {
-            eprintln!("index --refresh: {d} has .rs files and no kovan.toml: run `kovan-cli index`");
+            say!(ctl, "index --refresh: {d} has .rs files and no kovan.toml: run `kovan-cli index`");
         }
     }
     if flagged > 0 {
-        eprintln!("index --refresh: {flagged} function(s) marked \"index out of date: run kovan-cli index\" (new or edited; callees and reaching tests not recomputed)");
+        say!(ctl, "index --refresh: {flagged} function(s) marked \"index out of date: run kovan-cli index\" (new or edited; callees and reaching tests not recomputed)");
     }
-    summarise(&changes, unchanged);
+    summarise(&changes, unchanged, ctl);
+    let mut summary = IndexSummary { folders: indexed_dirs.into_iter().collect(), written: 0, unchanged };
     if opts.check {
-        return if changes.is_empty() { Ok(()) } else { Err(IndexCmdError::CheckFailed(changes.len())) };
+        return if changes.is_empty() { Ok(summary) } else { Err(IndexCmdError::CheckFailed(changes.len())) };
     }
-    apply(root, &changes)?;
-    Ok(())
+    apply(root, &changes, ctl)?;
+    summary.written = changes.len();
+    Ok(summary)
 }

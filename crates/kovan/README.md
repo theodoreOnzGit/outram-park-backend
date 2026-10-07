@@ -539,6 +539,9 @@ utilities base and the knowledge-management side box. Built from
 (model, `layout::layout`, `svg::render`), plain serde + std. The Pages
 build (`scripts/build-pages.sh`) writes both files for the site's
 `code-map/` page; the desktop app's **Code Map** view draws the same layout.
+Since #780 that view opens any Rust workspace or crate (untagged crates are
+greyed placeholders in the base row) and keeps a recent-workspaces list of
+its own; `kovan-cli code-map` still requires the tags.
 
 ### `call-graph` — crate → module → function call graph with source (`commands::call_graph`, GitHub #737)
 
@@ -609,6 +612,14 @@ date". `--draft-upstream` prints proposed `[upstream]` entries from
 provenance headers for a human to confirm. Formats, the id rule and the
 2026-10-07 measurements (njoy-outram-park-fork link file 0.58 MB gzipped;
 5 s from an existing index): [`docs/code-index.md`](docs/code-index.md).
+
+`--fresh --workspace <dir>` (GitHub #780) indexes ANY Rust workspace or
+single crate into that repository itself, and is what the desktop Code Map
+view's **"Index fresh…"** button runs: it also creates `kovan_root.toml`
+when missing (a valid one is kept; a corrupt one is never silently
+overwritten: `--corrupt-root restore|fresh`, the bad file kept as
+`kovan_root.toml.corrupt-<date>`) and a `review.md` skeleton in each
+indexed folder that has none. Nothing is committed.
 
 ### Determinism & offline guarantees
 

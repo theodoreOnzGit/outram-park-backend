@@ -12,6 +12,7 @@
 mod advanced_git_view;
 mod bibliography;
 mod code_map_view;
+mod index_fresh_view;
 mod box_handles;
 mod corpus_folder;
 mod csv_preview;

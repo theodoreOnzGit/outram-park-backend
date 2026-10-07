@@ -38,3 +38,11 @@ pub fn load_workspace(workspace: &Path) -> Result<CodeMap, String> {
     let json = run_cargo_metadata(workspace, false)?;
     CodeMap::from_cargo_metadata(&json).map_err(|e| e.join("\n"))
 }
+
+/// The map of ANY workspace or crate (GitHub #780): crates with no tag are
+/// untagged placeholders, named in the second value
+/// ([`CodeMap::from_cargo_metadata_allowing_untagged`]).
+pub fn load_any_workspace(workspace: &Path) -> Result<(CodeMap, Vec<String>), String> {
+    let json = run_cargo_metadata(workspace, false)?;
+    CodeMap::from_cargo_metadata_allowing_untagged(&json).map_err(|e| e.join("\n"))
+}

@@ -27,6 +27,7 @@ pub mod discover;
 pub mod gen;
 pub mod historian;
 pub mod index;
+pub mod index_control;
 pub mod kloc;
 pub mod lit;
 pub mod lsp_daemon;

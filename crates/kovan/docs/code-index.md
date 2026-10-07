@@ -10,7 +10,7 @@
 |---|---|---|---|
 | `kovan.toml` (`kind = "code_folder"`) | every folder with indexed `.rs` files | per file, per function: stable id, location, hashes, callees, reaching tests, physical interface; the folder's `[test_run]`, cached `[upstream]` and `[[review]]` list; the crate root's deleted-folder history | machine (regenerated, never hand-edited), **committed** |
 | `kovan_links.json` | each crate's folder | every identifier occurrence that links to a definition: go-to-definition and find-references without rust-analyzer (#745) | machine, ships in the crates.io package |
-| `review.md` | the folder | reviews, needs-fix, highlights, upstream confirmation | **human**: the index only reads it |
+| `review.md` | the folder | reviews, needs-fix, highlights, upstream confirmation | **human**: ~~the index only reads it~~ **CORRECTED 2026-10-07 (#780)**: a plain `kovan-cli index` only reads it; `--fresh` (below) also creates an empty skeleton where one is missing, never overwriting one |
 
 The code is `kovan_common::code_index` (pure, wasm-clean) and
 `kovan::commands::index` (the files and processes).
@@ -26,7 +26,42 @@ kovan-cli index --draft-upstream     # also print proposed [upstream] review.md 
 kovan-cli index --pin-rust-analyzer  # pin the installed version in kovan_root.toml
 kovan-cli index --refresh            # NO rust-analyzer: hashes of edited files now,
                                      # what cannot be recomputed marked "index out of date"
+kovan-cli index --fresh --workspace <dir> [--founder <id>] [--corrupt-root restore|fresh]
+                                     # ANY Rust workspace or single crate (#780), below
 ```
+
+### `--fresh`: index any Rust workspace or crate into that repository (#780)
+
+The desktop app's Code Map view has the same thing as an **"Index
+fresh…"** button (it asks first, runs in the background with progress and
+Cancel, and keeps the last good map until the run has finished). Both call
+`kovan::index_fresh::run_fresh`, which drives the indexer above; there is
+no second indexer.
+
+- **Workspace or crate** from `Cargo.toml` alone: `[workspace]` is a
+  workspace, else `[package]` is a single crate (one crate's worth of
+  index, its `kovan_links.json` at the root).
+- **`kovan_root.toml`** (Leak Before Break, `docs/kovan.md`): a valid one
+  is kept byte for byte; a missing one is created with the founder (`--founder`,
+  else the single identity in kovan's keystore, else a visible `UNSET`
+  comment; never invented), no reviewers (an empty registry and key
+  history) and `[code_review] rust_analyzer`, the installed version. A
+  corrupt one stops the run with its parse error, untouched; with
+  `--corrupt-root restore` (the newest committed version that parses) or
+  `--corrupt-root fresh`, it is first kept as
+  `kovan_root.toml.corrupt-<date>`.
+- **`review.md` skeletons**, a separate last step: each indexed folder with
+  no `review.md` gets one `note` entry (read by review as no review); an
+  existing one is never written, and one with unreadable entries is
+  reported for the redo flow.
+- **Nothing is committed or pushed.** A repository with no commit yet
+  works: new ids are minted with the all-zero commit, and the run says so.
+
+Cost: the only measured reference is outram-park-backend (48 crates):
+about 4–7 min and a 15–16 GB rust-analyzer peak. A target's own cost is not
+known in advance; the dialog says so with its crate, file and line counts.
+Measured 2026-10-07: a copy of `syn` 2.0.119 (one crate, 65 k lines) took
+about 14 s end to end.
 
 **rust-analyzer is needed only to regenerate the index**, never to use it
 (maintainer, #767): desktop kovan, web-kovan and `kovan-cli` read the

@@ -637,6 +637,22 @@ enum Command {
         /// Pin the installed rust-analyzer's version in kovan_root.toml.
         #[arg(long)]
         pin_rust_analyzer: bool,
+        /// Index ANY Rust workspace or single crate fresh (GitHub #780):
+        /// also creates `kovan_root.toml` when missing (a valid one is kept)
+        /// and a `review.md` skeleton in each indexed folder without one.
+        /// Needs `--workspace`. Nothing is committed.
+        #[arg(long, requires = "workspace", conflicts_with_all = ["refresh", "check", "crates", "pin_rust_analyzer"])]
+        fresh: bool,
+        /// With `--fresh`: the founder for a new `kovan_root.toml`
+        /// (`github:<user>`, `gitlab:`, `orcid:` or an email). Default: the
+        /// one identity in kovan's keystore, else left UNSET.
+        #[arg(long, requires = "fresh")]
+        founder: Option<String>,
+        /// With `--fresh`, when `kovan_root.toml` is corrupt: `restore` the
+        /// last committed version that parses, or start `fresh`. Either way
+        /// the bad file is kept as `kovan_root.toml.corrupt-<date>`.
+        #[arg(long, requires = "fresh", value_parser = ["restore", "fresh"])]
+        corrupt_root: Option<String>,
     },
     Test {
         /// Workspace root; found from the current directory when omitted.
@@ -924,9 +940,14 @@ fn run(command: Command) -> Result<(), String> {
             check,
             draft_upstream,
             pin_rust_analyzer,
+            fresh,
+            founder,
+            corrupt_root,
         } => {
-            let (root, _) = commands::workspace::resolve(workspace.as_deref())
-                .map_err(|error| error.to_string())?;
+            let root = kovan::index_fresh::resolve_index_root(workspace.as_deref())?;
+            if fresh {
+                return kovan::index_fresh::run_cli(&root, founder, corrupt_root.as_deref(), scip);
+            }
             let opts = commands::index::IndexOptions {
                 crates: crates
                     .as_deref()

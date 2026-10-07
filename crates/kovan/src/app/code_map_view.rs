@@ -28,6 +28,16 @@
 //! ([`crate::mindmap_view::connector_sized`]). Mobile-first: the buttons
 //! are always on screen, the strip wraps, and the details panel folds away
 //! ("« Hide" / "Details »"), folded by default under 700 px.
+//!
+//! **Any Rust workspace or crate (GitHub #780).** "Choose workspace…" takes
+//! any folder whose `Cargo.toml` declares `[workspace]` or `[package]`;
+//! crates without tags are drawn as greyed placeholders
+//! ([`CodeMap::from_cargo_metadata_allowing_untagged`]) and named in the
+//! status line. "Recent" lists the folders chosen before (their own list,
+//! [`crate::index_fresh::recent`], apart from the Home screen's libraries).
+//! "Index fresh…" indexes the folder shown into that repository itself
+//! ([`super::index_fresh_view`]); the map stays the last good one until the
+//! run has finished and the reloaded map is ready.
 
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, RwLock};
@@ -38,6 +48,9 @@ use crate::code_map::{fit_label, maturity_label, CodeMap, Fidelity};
 use crate::mindmap_layout::{Bounds, Point};
 use crate::mindmap_view::{fit_zoom, CanvasLayout};
 
+use super::index_fresh_view::{FreshEvent, FreshPanel};
+use crate::index_fresh::recent::{default_file as recent_file, RecentWorkspaces};
+
 const ZOOM_LIMITS: (f64, f64) = (0.05, 4.0);
 const ZOOM_STEP: f64 = 1.25;
 
@@ -45,7 +58,8 @@ const ZOOM_STEP: f64 = 1.25;
 enum Load {
     Idle,
     Loading(String),
-    Ready(CodeMap, String),
+    /// The map, where it came from, and the crates with no tag.
+    Ready(CodeMap, String, Vec<String>),
     Failed(String),
 }
 
@@ -68,6 +82,12 @@ struct Viewport {
 pub(crate) struct CodeMapView {
     load: Arc<RwLock<Load>>,
     shown: Option<(CodeMap, Layout, String)>,
+    /// The shown map's crates that have no tag (placeholders).
+    untagged: Vec<String>,
+    /// "Index fresh…" (#780).
+    fresh: FreshPanel,
+    /// Recently chosen workspaces (#780), most recent first.
+    recent: RecentWorkspaces,
     tried_default: bool,
     workspace: Option<PathBuf>,
     selected: Option<String>,
@@ -85,6 +105,9 @@ impl Default for CodeMapView {
         Self {
             load: Arc::new(RwLock::new(Load::Idle)),
             shown: None,
+            untagged: Vec::new(),
+            fresh: FreshPanel::default(),
+            recent: recent_file().map(|f| RecentWorkspaces::load_from(&f)).unwrap_or_default(),
             tried_default: false,
             workspace: None,
             selected: None,
@@ -120,18 +143,26 @@ fn bounds_of(r: Rect) -> Bounds {
 }
 
 impl CodeMapView {
-    /// Load the map of the workspace at `dir` on a background thread.
+    /// Load the map of the workspace or crate at `dir` on a background
+    /// thread, and remember it in the recent list (saved on that thread).
+    /// GUI glue: the loader is `code_map::load_any_workspace`, tested in
+    /// `index_fresh::tests`.
     pub(crate) fn load_workspace(&mut self, dir: PathBuf) {
         self.workspace = Some(dir.clone());
+        self.recent.push(&dir);
+        let recent = self.recent.clone();
         let slot = self.load.clone();
         if let Ok(mut l) = slot.write() {
             *l = Load::Loading(format!("running cargo metadata in {}", dir.display()));
         }
         std::thread::spawn(move || {
-            let result = crate::code_map::load_workspace(&dir);
+            if let Some(f) = recent_file() {
+                let _ = recent.save_to(&f);
+            }
+            let result = crate::code_map::load_any_workspace(&dir);
             if let Ok(mut l) = slot.write() {
                 *l = match result {
-                    Ok(map) => Load::Ready(map, dir.display().to_string()),
+                    Ok((map, untagged)) => Load::Ready(map, dir.display().to_string(), untagged),
                     Err(e) => Load::Failed(format!("{}: {e}", dir.display())),
                 };
             }
@@ -151,7 +182,7 @@ impl CodeMapView {
                 .and_then(|s| serde_json::from_str::<CodeMap>(&s).map_err(|e| e.to_string()));
             if let Ok(mut l) = slot.write() {
                 *l = match result {
-                    Ok(map) => Load::Ready(map, path.display().to_string()),
+                    Ok(map) => Load::Ready(map, path.display().to_string(), Vec::new()),
                     Err(e) => Load::Failed(format!("{}: {e}", path.display())),
                 };
             }
@@ -164,9 +195,10 @@ impl CodeMapView {
             return Some("loading\u{2026}".into());
         };
         match std::mem::replace(&mut *l, Load::Idle) {
-            Load::Ready(map, source) => {
+            Load::Ready(map, source, untagged) => {
                 let lay = layout(&map);
                 self.shown = Some((map, lay, source));
+                self.untagged = untagged;
                 self.selected = None;
                 self.vp.zoom = None;
                 self.vp.recentre = true;
@@ -233,7 +265,7 @@ impl CodeMapView {
             ui.separator();
             if ui
                 .button("Choose workspace\u{2026}")
-                .on_hover_text("A Cargo workspace whose crates carry [package.metadata.kovan] tags")
+                .on_hover_text("Any Rust workspace or crate folder (a Cargo.toml with [workspace] or [package]); crates without [package.metadata.kovan] tags are drawn as placeholders")
                 .clicked()
             {
                 request = Some(CodeMapRequest::ChooseWorkspace);
@@ -245,18 +277,54 @@ impl CodeMapView {
             {
                 request = Some(CodeMapRequest::ChooseJson);
             }
+            if !self.recent.paths.is_empty() {
+                let mut pick = None;
+                ui.menu_button("Recent \u{25be}", |ui| {
+                    for p in &self.recent.paths {
+                        if ui.button(p.display().to_string()).clicked() {
+                            pick = Some(p.clone());
+                            ui.close();
+                        }
+                    }
+                });
+                if let Some(p) = pick {
+                    self.load_workspace(p);
+                }
+            }
             if let Some(dir) = self.workspace.clone() {
                 if ui.button("Reload").on_hover_text("Run cargo metadata again").clicked() {
-                    self.load_workspace(dir);
+                    self.load_workspace(dir.clone());
+                }
+                if ui
+                    .add_enabled(!self.fresh.busy(), egui::Button::new("Index fresh\u{2026}"))
+                    .on_hover_text(
+                        "Index this workspace or crate into its own repository: kovan_root.toml, every \
+                         folder's kovan.toml, the link index and missing review.md skeletons. Asks first; \
+                         commits nothing.",
+                    )
+                    .clicked()
+                {
+                    self.fresh.start(dir);
                 }
             }
         });
+        if let Some(FreshEvent::Finished(dir)) = self.fresh.ui(ui) {
+            // Swap in the new map only once it has loaded; until then the
+            // last good one stays on screen.
+            self.load_workspace(dir);
+        }
         ui.horizontal_wrapped(|ui| {
             if let Some((map, _, source)) = &self.shown {
                 ui.weak(format!(
                     "{} crates, {} required dependencies \u{2014} {source}",
                     map.crates.len(),
                     map.edges.len()
+                ));
+            }
+            if !self.untagged.is_empty() {
+                ui.weak(format!(
+                    "{} crate(s) have no [package.metadata.kovan] tag: drawn greyed in the base row",
+                    self.untagged.len()
                 ));
             }
             if let Some(s) = &status {
@@ -287,6 +355,12 @@ impl CodeMapView {
                 .max_size((ui.available_width() * 0.85).max(200.0))
                 .show(ui, |ui| {
                     egui::ScrollArea::vertical().show(ui, |ui| {
+                        if self.selected.as_ref().is_some_and(|s| self.untagged.contains(s)) {
+                            ui.colored_label(
+                                ui.visuals().warn_fg_color,
+                                "Untagged: this crate has no [package.metadata.kovan] tag, so its row, topic and maturity are placeholders.",
+                            );
+                        }
                         details(ui, map, self.selected.as_deref(), &mut go_to);
                     });
                 });
@@ -561,4 +635,108 @@ fn is_cargo_workspace(dir: &Path) -> bool {
     std::fs::read_to_string(dir.join("Cargo.toml"))
         .map(|t| t.lines().any(|l| l.trim() == "[workspace]"))
         .unwrap_or(false)
+}
+
+#[cfg(test)]
+mod lag_tests {
+    use super::*;
+    use std::time::{Duration, Instant};
+
+    /// **No-lag check of "Index fresh" (GitHub #780, the no-lag HARD RULE).**
+    ///
+    /// **Methodology.** Headless (no window, no GPU): the Code Map view of
+    /// the crate at `KOVAN_FRESH_LAG_CRATE` (a scratch copy: the run writes
+    /// into it) is drawn in a 1200 × 800 window, frame after frame, while a
+    /// real "Index fresh" (rust-analyzer scip under nice, then parsing,
+    /// links, call graph, writing, then the map reload) runs on its worker.
+    /// Every frame feeds input: the pointer over the canvas, a scroll (pan)
+    /// and a zoom step, alternating. Each frame's UI-thread time is
+    /// `run_ui` plus `tessellate`, i.e. everything but the GPU upload.
+    /// Pass: the 99th-percentile frame under 16 ms, and the run finished.
+    /// It does not measure the GPU or the compositor.
+    ///
+    /// Ignored by default (it runs rust-analyzer); run with
+    /// `KOVAN_FRESH_LAG_CRATE=<dir> cargo test --release -p … --lib
+    /// lag_tests -- --ignored --nocapture`.
+    ///
+    /// **Result (2026-10-07, rust-analyzer 1.98.0, 16-core desktop):** a
+    /// scratch copy of `syn` 2.0.119 (one crate, 65 391 `.rs` lines, a
+    /// one-card map): 863 frames over 14.1 s, UI-thread frame time median
+    /// 0.18 ms, p99 0.94 ms, max 1.41 ms, no frame over 16 ms; the run
+    /// wrote its 8 `kovan.toml`, the link file, the root and 8 skeletons.
+    /// Not covered: a 48-crate map while indexing outram-park itself
+    /// (not run: about 15 GB), and the GPU/compositor side.
+    #[test]
+    #[ignore = "manual no-lag check (#780): needs KOVAN_FRESH_LAG_CRATE and rust-analyzer"]
+    fn frames_stay_under_a_frame_budget_while_indexing() {
+        let Some(dir) = std::env::var_os("KOVAN_FRESH_LAG_CRATE").map(PathBuf::from) else {
+            eprintln!("KOVAN_FRESH_LAG_CRATE not set: skipped");
+            return;
+        };
+        let ctx = egui::Context::default();
+        let window = egui::vec2(1200.0, 800.0);
+        let mut view = CodeMapView { tried_default: true, ..CodeMapView::default() };
+        view.load_workspace(dir.clone());
+        let mut times: Vec<Duration> = Vec::new();
+        let frame = |view: &mut CodeMapView, i: usize, times: &mut Vec<Duration>| {
+            let centre = egui::pos2(700.0, 450.0);
+            let mut events = vec![egui::Event::PointerMoved(centre)];
+            if i % 2 == 0 {
+                events.push(egui::Event::MouseWheel {
+                    unit: egui::MouseWheelUnit::Point,
+                    delta: egui::vec2(if i % 4 == 0 { 30.0 } else { -30.0 }, 20.0),
+                    modifiers: egui::Modifiers::NONE,
+                    phase: egui::TouchPhase::Move,
+                });
+            } else {
+                events.push(egui::Event::Zoom(if i % 6 < 3 { 1.05 } else { 1.0 / 1.05 }));
+            }
+            let input = egui::RawInput {
+                screen_rect: Some(egui::Rect::from_min_size(egui::Pos2::ZERO, window)),
+                events,
+                ..Default::default()
+            };
+            let t = Instant::now();
+            let out = ctx.run_ui(input, |ui| {
+                let _ = view.ui(ui);
+            });
+            let _ = ctx.tessellate(out.shapes, out.pixels_per_point);
+            times.push(t.elapsed());
+            std::thread::sleep(Duration::from_millis(16));
+        };
+        let mut i = 0;
+        while view.shown.is_none() {
+            frame(&mut view, i, &mut times);
+            i += 1;
+            assert!(i < 3000, "the map did not load");
+        }
+        times.clear();
+        let started = Instant::now();
+        view.fresh.run_now(dir.clone(), crate::index_fresh::FreshChoices::default());
+        while view.fresh.busy() {
+            frame(&mut view, i, &mut times);
+            i += 1;
+        }
+        // The map reload after the run.
+        for _ in 0..120 {
+            frame(&mut view, i, &mut times);
+            i += 1;
+        }
+        let wall = started.elapsed();
+        let mut sorted = times.clone();
+        sorted.sort();
+        let pct = |p: f64| sorted[((sorted.len() - 1) as f64 * p) as usize];
+        let over = sorted.iter().filter(|t| **t > Duration::from_millis(16)).count();
+        eprintln!(
+            "no-lag check: {} frames over {:.1} s; UI-thread frame time median {:?}, p99 {:?}, max {:?}; {} frame(s) over 16 ms",
+            sorted.len(),
+            wall.as_secs_f64(),
+            pct(0.5),
+            pct(0.99),
+            sorted[sorted.len() - 1],
+            over
+        );
+        assert!(dir.join("kovan_root.toml").is_file(), "the run did not finish");
+        assert!(pct(0.99) < Duration::from_millis(16), "p99 frame {:?}", pct(0.99));
+    }
 }
