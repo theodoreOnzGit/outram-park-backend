@@ -1,0 +1,10 @@
+{
+	"testCase00": {
+		"status": 200,
+		"output": "TY  - BOOK\r\nTI  - Stochastic biomathematical models: With applications to neuronal modeling\r\nAU  - Bachar, Mostafa\r\nT2  - Lecture notes in mathematics\r\nCY  - Heidelberg\r\nDA  - 2013/01/01/\r\nPY  - 2013\r\nVL  - 2058\r\nSP  - 206\r\nLA  - en\r\nPB  - Springer\r\nSN  - 978-3-642-32156-6\r\nER  - \r\n\r\n"
+	},
+	"csl_ranges": {
+		"status": 200,
+		"output": "TY  - JOUR\r\nTI  - A range and a circa date\r\nAU  - Smith, John\r\nAU  - Kovan Collaboration\r\nT2  - Journal of Testing\r\nDA  - 2010/03//\r\nPY  - 2010\r\nVL  - 7\r\nSP  - 1\r\nEP  - 10\r\nY2  - 2020/01/02/00:00:00\r\nER  - \r\n\r\nTY  - BOOK\r\nTI  - A literal date\r\nCY  - Singapore\r\nDA  - 2021///Spring\r\nPY  - 2021\r\nSP  - 300\r\nPB  - Kovan Press\r\nER  - \r\n\r\nTY  - CHAP\r\nTI  - A season\r\nT2  - A Book\r\nA2  - Editor, Ed\r\nDA  - 2021///Summer\r\nPY  - 2021\r\nER  - \r\n\r\n"
+	}
+}

@@ -1323,6 +1323,12 @@ mod tests {
             (Some("1999"), Some(11), Some(31))
         );
         // The `undefined` concatenation upstream performs (module docs).
+        // Confirmed by running upstream (2026-10-07, #752): RIS export of an
+        // item dated "2021 May" (RIS.js writes `year/month/day/part` for DA)
+        // from a Zotero translation-server (utilities 1dd38e27edf8, whose
+        // strToDate matches 4051881d59c6 here) gives `DA  - 2021/05//undefined`
+        // (kovan-literature tests/data/zotero/reference/export/ris/
+        // kovanProbes.json, item KPROBE22).
         assert_eq!(
             str_to_date("2021 May", &o).part.as_deref(),
             Some("undefined")

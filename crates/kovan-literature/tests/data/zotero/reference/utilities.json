@@ -1,0 +1,453 @@
+{
+	"unescapeHTML": [
+		[
+			"Smith &amp; Jones",
+			"Smith & Jones"
+		],
+		[
+			"Smith & Jones",
+			"Smith & Jones"
+		],
+		[
+			"&notit; &notin; &amp",
+			"¬it; ∉ &"
+		],
+		[
+			"<p>A <b>child</b>  note</p>",
+			"A child note"
+		],
+		[
+			"  &lt;i&gt;x",
+			"<i>x"
+		],
+		[
+			"<b>  x</b>",
+			" x"
+		],
+		[
+			"a <3 b & c",
+			"a <3 b & c"
+		],
+		[
+			"<a title='x>y'>t</a>",
+			"t"
+		],
+		[
+			"&#x80;&#0;&#65",
+			"€�A"
+		],
+		[
+			"<title>a &amp; <b></title>",
+			"a & <b>"
+		],
+		[
+			"x<!-- c -->y",
+			"xy"
+		],
+		[
+			"a\r\n<br>b",
+			"a\nb"
+		],
+		[
+			"&Tab;x",
+			"x"
+		],
+		[
+			"x&Tab;",
+			"x\t"
+		],
+		[
+			"<pre>\nfirst</pre>",
+			"first"
+		],
+		[
+			"<script>if (a < b) x();</script>after",
+			"if (a < b) x();after"
+		],
+		[
+			"<style>p{}</style>body",
+			"p{}body"
+		],
+		[
+			"<template>hidden</template>shown",
+			"shown"
+		],
+		[
+			"&AMP; &AMP &ampx &#x1F600; &#55296;",
+			"& & &x 😀 �"
+		],
+		[
+			"<!DOCTYPE html><p>d</p>",
+			"d"
+		],
+		[
+			"<?xml version='1.0'?>x",
+			"x"
+		],
+		[
+			"</ notatag>y",
+			"y"
+		],
+		[
+			"</>z",
+			"z"
+		],
+		[
+			"a</",
+			"a</"
+		],
+		[
+			"<p>unterminated <b",
+			"unterminated "
+		],
+		[
+			"&#169&copy&copy;",
+			"©©©"
+		],
+		[
+			"<textarea>\nt &lt;</textarea>",
+			"t <"
+		],
+		[
+			"1 < 2 && 3 > 2",
+			"1 < 2 && 3 > 2"
+		],
+		[
+			"<p>One</p>\n\n<p>Two</p>",
+			"One\n\nTwo"
+		],
+		[
+			"&nbsp;&nbsp;x",
+			"  x"
+		],
+		[
+			"@article{Oliveira_2009, title={USGS monitoring ecological impacts}, volume={107}, number={29}, journal={Oil & Gas Journal}, author={Oliveira, A}, year={2009}, pages={29}}",
+			"@article{Oliveira_2009, title={USGS monitoring ecological impacts}, volume={107}, number={29}, journal={Oil & Gas Journal}, author={Oliveira, A}, year={2009}, pages={29}}"
+		],
+		[
+			"file = {:C$\\backslash$:/some/path/,.$\\backslash$;'[]\\{\\}`-=\\~{}!@\\#\\$\\%\\^{}\\&()\\_+.pdf:pdf},",
+			"file = {:C$\\backslash$:/some/path/,.$\\backslash$;'[]\\{\\}`-=\\~{}!@\\#\\$\\%\\^{}\\&()\\_+.pdf:pdf},"
+		],
+		[
+			"       publisher = {Lucius \\& Lucius},",
+			"publisher = {Lucius \\& Lucius},"
+		],
+		[
+			"  url = {http://example.com/a?b=c&d=e},",
+			"url = {http://example.com/a?b=c&d=e},"
+		],
+		[
+			"AD - Consortium for Comparative Genomics, Department of Biochemistry and Molecular Genetics, University of Colorado School of Medicine, Aurora, CO 80045, USA; Department of Biology, University of Central Florida, 4000 Central Florida Blvd., Orlando, FL 32816, USA; Department of Biology & Amphibian and Reptile Diversity Research Center, The University of Texas at Arlington, Arlington, TX 76019, USA",
+			"AD - Consortium for Comparative Genomics, Department of Biochemistry and Molecular Genetics, University of Colorado School of Medicine, Aurora, CO 80045, USA; Department of Biology, University of Central Florida, 4000 Central Florida Blvd., Orlando, FL 32816, USA; Department of Biology & Amphibian and Reptile Diversity Research Center, The University of Texas at Arlington, Arlington, TX 76019, USA"
+		],
+		[
+			"N1  - <p>Child</p>",
+			"N1 - Child"
+		],
+		[
+			"TI  - Dates &amp; entities: a &lt;i&gt;kovan&lt;/i&gt; probe",
+			"TI - Dates & entities: a <i>kovan</i> probe"
+		],
+		[
+			"T2  - Journal of Testing &amp; Probing",
+			"T2 - Journal of Testing & Probing"
+		],
+		[
+			"UR  - http://example.com/a?b=c&d=e",
+			"UR - http://example.com/a?b=c&d=e"
+		],
+		[
+			"KW  - beta &amp; gamma",
+			"KW - beta & gamma"
+		],
+		[
+			"N1  - A note with <b>markup</b> &amp; an entity.",
+			"N1 - A note with markup & an entity."
+		],
+		[
+			"AB  -   Leading spaces &amp; trailing.",
+			"AB - Leading spaces & trailing."
+		]
+	],
+	"cleanAuthor": [
+		[
+			"Smith, J. R.",
+			"author",
+			true,
+			{
+				"firstName": "J. R.",
+				"lastName": "Smith",
+				"creatorType": "author"
+			}
+		],
+		[
+			"John Smith",
+			"editor",
+			false,
+			{
+				"firstName": "John",
+				"lastName": "Smith",
+				"creatorType": "editor"
+			}
+		],
+		[
+			"Smith, JR",
+			"author",
+			true,
+			{
+				"firstName": "J. R.",
+				"lastName": "Smith",
+				"creatorType": "author"
+			}
+		],
+		[
+			"Jean-Paul Sartre",
+			"author",
+			false,
+			{
+				"firstName": "Jean-Paul",
+				"lastName": "Sartre",
+				"creatorType": "author"
+			}
+		],
+		[
+			"Madonna",
+			"author",
+			false,
+			{
+				"firstName": "",
+				"lastName": "Madonna",
+				"creatorType": "author"
+			}
+		],
+		[
+			"  Smith, John.  ",
+			"author",
+			true,
+			{
+				"firstName": "John",
+				"lastName": "Smith",
+				"creatorType": "author"
+			}
+		],
+		[
+			"de la Fontaine, Jean",
+			"author",
+			true,
+			{
+				"firstName": "Jean",
+				"lastName": "de la Fontaine",
+				"creatorType": "author"
+			}
+		],
+		[
+			"J.R.R. Tolkien",
+			"author",
+			false,
+			{
+				"firstName": "J. R. R.",
+				"lastName": "Tolkien",
+				"creatorType": "author"
+			}
+		],
+		[
+			"Tolkien, J.R.R.",
+			"author",
+			true,
+			{
+				"firstName": "J. R. R.",
+				"lastName": "Tolkien",
+				"creatorType": "author"
+			}
+		],
+		[
+			"Ivan Petrov [Russia]",
+			"author",
+			false,
+			{
+				"firstName": "Ivan",
+				"lastName": "Petrov [Russia",
+				"creatorType": "author"
+			}
+		],
+		[
+			"А. Б. Иванов",
+			"author",
+			false,
+			{
+				"firstName": "А. Б.",
+				"lastName": "Иванов",
+				"creatorType": "author"
+			}
+		],
+		[
+			"Smith،Jane",
+			"author",
+			true,
+			{
+				"firstName": "Jane",
+				"lastName": "Smith",
+				"creatorType": "author"
+			}
+		],
+		[
+			"",
+			"author",
+			false,
+			{
+				"firstName": "",
+				"lastName": "",
+				"creatorType": "author"
+			}
+		],
+		[
+			"Ng, A",
+			"author",
+			true,
+			{
+				"firstName": "A.",
+				"lastName": "Ng",
+				"creatorType": "author"
+			}
+		],
+		[
+			"NG, AB",
+			"author",
+			true,
+			{
+				"firstName": "AB",
+				"lastName": "NG",
+				"creatorType": "author"
+			}
+		],
+		[
+			"Jean - Paul Sartre",
+			"author",
+			false,
+			{
+				"firstName": "Jean-Paul",
+				"lastName": "Sartre",
+				"creatorType": "author"
+			}
+		]
+	],
+	"cleanDOI": [
+		[
+			"doi:10.1234/abc.def.",
+			"10.1234/abc.def"
+		],
+		[
+			"https://doi.org/10.1234%2Fabc",
+			"10.1234/abc"
+		],
+		[
+			"(10.1234/abc)",
+			"10.1234/abc"
+		],
+		[
+			"10.1234/a(b)",
+			"10.1234/a(b)"
+		],
+		[
+			"nothing",
+			null
+		],
+		[
+			"https://doi.org/10.1234/%E0%A4%A",
+			"10.1234/%E0%A4%A"
+		],
+		[
+			"10.1002/(SICI)1097-4571(199806)49:8<693::AID-ASI4>3.0.CO;2-0",
+			"10.1002/(SICI)1097-4571(199806)49:8<693::AID-ASI4>3.0.CO;2-0"
+		],
+		[
+			"10.1002/%3CSICI%3E1097",
+			"10.1002/<SICI>1097"
+		],
+		[
+			"[see 10.1234/xyz]",
+			"10.1234/xyz"
+		],
+		[
+			"10.1234/xyz,",
+			"10.1234/xyz"
+		]
+	],
+	"text2html": [
+		[
+			"a & b\n\nc\nd",
+			false,
+			"<p>a &amp; b</p><p>c<br/>d</p>"
+		],
+		[
+			"",
+			false,
+			"<p>&nbsp;</p>"
+		],
+		[
+			"two  spaces",
+			false,
+			"<p>two&nbsp; spaces</p>"
+		],
+		[
+			"line1\nline2",
+			true,
+			"<p>line1</p><p>line2</p>"
+		],
+		[
+			"<ZOTEROBREAK/> and <ZOTEROHELLIP/> and <ZOTEROOTHER/>",
+			false,
+			"<p><br/> and &#8230; and OTHER</p>"
+		],
+		[
+			"it's \"quoted\"",
+			false,
+			"<p>it&apos;s &quot;quoted&quot;</p>"
+		]
+	],
+	"trimInternal": [
+		[
+			"  a   b  ",
+			"a b"
+		],
+		[
+			"a  b",
+			"a b"
+		],
+		[
+			"a\r\n\tb",
+			"a b"
+		],
+		[
+			"﻿ab",
+			"ab"
+		]
+	],
+	"removeDiacritics": [
+		[
+			"Müller Æsir",
+			false,
+			"Muller AEsir"
+		],
+		[
+			"Müller Æsir",
+			true,
+			"Muller Æsir"
+		],
+		[
+			"plain-ascii_09",
+			false,
+			"plain-ascii_09"
+		],
+		[
+			"Ǆemal ǅ ǆ",
+			false,
+			"DZemal Dz dz"
+		],
+		[
+			"ﬁ œ ß",
+			false,
+			"ﬁ oe s"
+		]
+	]
+}

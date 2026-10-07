@@ -1,0 +1,22 @@
+{
+	"all": {
+		"status": 200,
+		"output": "TY  - JOUR\r\nTI  - Dates & markup: a <i>kovan</i> probe\r\nAU  - Smith, John\r\nAU  - de la Fontaine, Jean\r\nAU  - Kovan Collaboration\r\nT2  - Journal of Testing & Probing\r\nA2  - Editor, Ed\r\nAB  - An abstract with \"quotes\", {braces} and 100% $pecial_chars#.\r\nDA  - 2021/05//undefined\r\nPY  - 2021\r\nDO  - 10.1234/ABC.def\r\nVL  - 12\r\nIS  - 3\r\nSP  - 101\r\nEP  - 110\r\nJ2  - J. Test.\r\nLA  - en\r\nSN  - 1234-5678\r\nUR  - http://example.com/a?b=c&d=e\r\nY2  - 2020/03/04/05:06:07\r\nN1  - <p>A <b>child</b> note &amp; an entity.</p>\r\nKW  - alpha\r\nKW  - beta gamma\r\nER  - \r\n\r\nTY  - BOOK\r\nTI  - A Second Record\r\nA3  - Editor, Ed\r\nCY  - Singapore\r\nDA  - 1999/12/31/\r\nPY  - 1999\r\nSP  - 300\r\nPB  - Kovan Press\r\nSN  - 978-3-16-148410-0 3161484100\r\nER  - \r\n\r\nTY  - THES\r\nTI  - Ranges and seasons\r\nAU  - Student, Ann\r\nCY  - Kovan\r\nDA  - 2010///2012\r\nPY  - 2010\r\nM3  - PhD Thesis\r\nPB  - Kovan University\r\nER  - \r\n\r\nTY  - CONF\r\nTI  - Summer proceedings\r\nT2  - Kovan Conference 2015\r\nC1  - Singapore\r\nC3  - Proceedings of the Kovan Conference\r\nDA  - 2015///Summer\r\nPY  - 2015\r\nSP  - 5\r\nER  - \r\n\r\n"
+	},
+	"KPROBE22": {
+		"status": 200,
+		"output": "TY  - JOUR\r\nTI  - Dates & markup: a <i>kovan</i> probe\r\nAU  - Smith, John\r\nAU  - de la Fontaine, Jean\r\nAU  - Kovan Collaboration\r\nT2  - Journal of Testing & Probing\r\nA2  - Editor, Ed\r\nAB  - An abstract with \"quotes\", {braces} and 100% $pecial_chars#.\r\nDA  - 2021/05//undefined\r\nPY  - 2021\r\nDO  - 10.1234/ABC.def\r\nVL  - 12\r\nIS  - 3\r\nSP  - 101\r\nEP  - 110\r\nJ2  - J. Test.\r\nLA  - en\r\nSN  - 1234-5678\r\nUR  - http://example.com/a?b=c&d=e\r\nY2  - 2020/03/04/05:06:07\r\nN1  - <p>A <b>child</b> note &amp; an entity.</p>\r\nKW  - alpha\r\nKW  - beta gamma\r\nER  - \r\n\r\n"
+	},
+	"KPROBE33": {
+		"status": 200,
+		"output": "TY  - BOOK\r\nTI  - A Second Record\r\nA3  - Editor, Ed\r\nCY  - Singapore\r\nDA  - 1999/12/31/\r\nPY  - 1999\r\nSP  - 300\r\nPB  - Kovan Press\r\nSN  - 978-3-16-148410-0 3161484100\r\nER  - \r\n\r\n"
+	},
+	"KPROBE44": {
+		"status": 200,
+		"output": "TY  - THES\r\nTI  - Ranges and seasons\r\nAU  - Student, Ann\r\nCY  - Kovan\r\nDA  - 2010///2012\r\nPY  - 2010\r\nM3  - PhD Thesis\r\nPB  - Kovan University\r\nER  - \r\n\r\n"
+	},
+	"KPROBE55": {
+		"status": 200,
+		"output": "TY  - CONF\r\nTI  - Summer proceedings\r\nT2  - Kovan Conference 2015\r\nC1  - Singapore\r\nC3  - Proceedings of the Kovan Conference\r\nDA  - 2015///Summer\r\nPY  - 2015\r\nSP  - 5\r\nER  - \r\n\r\n"
+	}
+}

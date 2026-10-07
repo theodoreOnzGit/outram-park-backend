@@ -154,7 +154,7 @@ fn to_int(v: &Value) -> Option<i64> {
 
 /// `cslDateToEDTF` (:68): a CSL date with a range or circa flag as EDTF, or
 /// `None`.
-fn csl_date_to_edtf(d: &Map<String, Value>) -> Option<String> {
+pub fn csl_date_to_edtf(d: &Map<String, Value>) -> Option<String> {
     if d.get("season").is_some_and(truthy) {
         return None;
     }
@@ -201,7 +201,7 @@ fn csl_date_to_edtf(d: &Map<String, Value>) -> Option<String> {
 }
 
 /// `dateExportsAsLiteral` (:134).
-fn date_exports_as_literal(s: &str, opts: &DateOptions) -> bool {
+pub fn date_exports_as_literal(s: &str, opts: &DateOptions) -> bool {
     let s = s.trim();
     quoted_date(s).is_none()
         && parse_edtf(s).is_none()
