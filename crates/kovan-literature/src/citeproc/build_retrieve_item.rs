@@ -1022,35 +1022,98 @@ pub fn retrieve_item(state: &mut State, id: &str) -> CslResult<Value> {
 // Intermediate-dump sections (scripts/csl-intermediate-reference.cjs)
 // ---------------------------------------------------------------------------
 
-/// The key `o[it.id]` / `o[I.id]` of the dump: the id as a JS property name.
-fn id_key(v: Option<&Value>) -> String {
-    v.map(js::to_js_string).unwrap_or_else(|| "undefined".to_string())
+/// A JSON tree whose objects remember their key order, for the dump sections
+/// whose outer objects are NOT key-sorted in the reference (`items`, `names`
+/// and `numbers` are built as `o[id] = ...`, so their keys follow input
+/// order, with integer-like ids first). Sub-trees the reference passes
+/// through `canon` are [`OJson::Val`] (keys sorted).
+#[derive(Debug, Clone, PartialEq)]
+pub(crate) enum OJson {
+    /// A canonical (key-sorted) JSON value.
+    Val(Value),
+    /// A JS object, keys in insertion order.
+    Obj(Vec<(String, OJson)>),
+    /// A JS array.
+    Arr(Vec<OJson>),
 }
 
-/// The `items` section: `engine.retrieveItem(id)` for every input item, in
-/// input order, as `{id: normalised item}`; also returns the normalised
-/// items (needed by the other sections). Errors are returned as
-/// `{"error": message}`, as the script's `guarded` does.
-pub(crate) fn items_section(state: &mut State, inputs: &[Value]) -> (Value, Vec<Value>) {
-    let mut out = Obj::new();
-    let mut norm = Vec::new();
-    for it in inputs {
-        let id = js::to_js_string(it.get("id").unwrap_or(&Value::Null));
-        match retrieve_item(state, &id) {
-            Ok(i) => {
-                let mut c = i.clone();
-                canon_numbers(&mut c);
-                out.insert(id_key(it.get("id")), c);
-                norm.push(i);
-            }
-            Err(e) => {
+/// Whether `k` is a JS array-index key (`"0"`, `"17"`; not `"01"`), which
+/// JS objects enumerate first, in ascending order.
+fn is_array_index(k: &str) -> bool {
+    !k.is_empty()
+        && k.bytes().all(|b| b.is_ascii_digit())
+        && (k == "0" || !k.starts_with('0'))
+        && k.parse::<u64>().map(|n| n < 4_294_967_295).unwrap_or(false)
+}
+
+/// `o[key] = value` on a JS object model: a repeated key keeps its first
+/// position and takes the new value.
+fn obj_put(pairs: &mut Vec<(String, OJson)>, key: String, value: OJson) {
+    if let Some(slot) = pairs.iter_mut().find(|p| p.0 == key) {
+        slot.1 = value;
+    } else {
+        pairs.push((key, value));
+    }
+}
+
+impl OJson {
+    /// A JS-style error record `{error: message}`.
+    fn error(message: String) -> OJson {
+        let mut o = Obj::new();
+        o.insert("error".into(), Value::String(message));
+        OJson::Val(Value::Object(o))
+    }
+
+    /// As a plain [`Value`] (object keys sorted, which is how a `Value`
+    /// compares).
+    pub(crate) fn to_value(&self) -> Value {
+        match self {
+            OJson::Val(v) => v.clone(),
+            OJson::Arr(a) => Value::Array(a.iter().map(OJson::to_value).collect()),
+            OJson::Obj(pairs) => {
                 let mut o = Obj::new();
-                o.insert("error".into(), Value::String(error_message(&e)));
-                return (Value::Object(o), norm);
+                for (k, v) in pairs {
+                    o.insert(k.clone(), v.to_value());
+                }
+                Value::Object(o)
             }
         }
     }
-    (Value::Object(out), norm)
+
+    /// `JSON.stringify(x)` of the JS value this models: compact, objects in
+    /// JS enumeration order (array-index keys ascending, then insertion
+    /// order), sorted sub-trees as given.
+    pub(crate) fn to_js_string(&self) -> String {
+        match self {
+            OJson::Val(v) => serde_json::to_string(v).unwrap_or_default(),
+            OJson::Arr(a) => {
+                format!("[{}]", a.iter().map(OJson::to_js_string).collect::<Vec<_>>().join(","))
+            }
+            OJson::Obj(pairs) => {
+                let mut idx: Vec<&(String, OJson)> =
+                    pairs.iter().filter(|p| is_array_index(&p.0)).collect();
+                idx.sort_by_key(|p| p.0.parse::<u64>().unwrap_or(0));
+                let rest = pairs.iter().filter(|p| !is_array_index(&p.0));
+                let body: Vec<String> = idx
+                    .into_iter()
+                    .chain(rest)
+                    .map(|(k, v)| {
+                        format!(
+                            "{}:{}",
+                            serde_json::to_string(k).unwrap_or_default(),
+                            v.to_js_string()
+                        )
+                    })
+                    .collect();
+                format!("{{{}}}", body.join(","))
+            }
+        }
+    }
+}
+
+/// The key `o[it.id]` / `o[I.id]` of the dump: the id as a JS property name.
+fn id_key(v: Option<&Value>) -> String {
+    v.map(js::to_js_string).unwrap_or_else(|| "undefined".to_string())
 }
 
 /// The message JS's `e.message` would carry for an engine error.
@@ -1061,22 +1124,44 @@ pub(crate) fn error_message(e: &EngineError) -> String {
     }
 }
 
+/// The `items` section: `engine.retrieveItem(id)` for every input item, in
+/// input order, as `{id: normalised item}`; also returns the normalised
+/// items (needed by the other sections). A failure is returned as
+/// `{"error": message}`, as the script's `guarded` does.
+pub(crate) fn items_section(state: &mut State, inputs: &[Value]) -> (OJson, Vec<Value>) {
+    let mut out: Vec<(String, OJson)> = Vec::new();
+    let mut norm = Vec::new();
+    for it in inputs {
+        let id = js::to_js_string(it.get("id").unwrap_or(&Value::Null));
+        match retrieve_item(state, &id) {
+            Ok(i) => {
+                let mut c = i.clone();
+                canon_numbers(&mut c);
+                obj_put(&mut out, id_key(it.get("id")), OJson::Val(c));
+                norm.push(i);
+            }
+            Err(e) => return (OJson::error(error_message(&e)), norm),
+        }
+    }
+    (OJson::Obj(out), norm)
+}
+
 /// The `names` section: for every name of every name variable of each
 /// normalised item, `{static_ordering, name}` (the input side of the name
 /// renderer), or `{error}`.
-pub(crate) fn names_section(state: &State, items: &[Value]) -> Value {
-    let mut out = Obj::new();
+pub(crate) fn names_section(state: &State, items: &[Value]) -> OJson {
+    let mut out: Vec<(String, OJson)> = Vec::new();
     for item in items {
         let ctx = NameInputCtx::from_state_item(state, item);
-        let mut per_item = Obj::new();
+        let mut per_item: Vec<(String, OJson)> = Vec::new();
         for v in NAME_VARIABLES {
             let Some(Value::Array(list)) = item.get(v) else {
                 continue;
             };
-            let recs: Vec<Value> = list
+            let recs: Vec<OJson> = list
                 .iter()
                 .map(|name| {
-                    let mut rec = Obj::new();
+                    let mut rec: Vec<(String, OJson)> = Vec::new();
                     let res: CslResult<()> = (|| {
                         let Value::Object(n) = name else {
                             return Err(EngineError::Csl(format!(
@@ -1092,34 +1177,34 @@ pub(crate) fn names_section(state: &State, items: &[Value]) -> Value {
                             }
                         }
                         let so = get_static_order(&ctx, &for_static, false)?;
-                        rec.insert("static_ordering".into(), Value::Bool(so));
+                        rec.push(("static_ordering".into(), OJson::Val(Value::Bool(so))));
                         let nm = normalize_name_input(&ctx, name)?;
                         let mut nv = Value::Object(nm);
                         canon_numbers(&mut nv);
-                        rec.insert("name".into(), nv);
+                        rec.push(("name".into(), OJson::Val(nv)));
                         Ok(())
                     })();
                     if let Err(e) = res {
-                        rec.insert("error".into(), Value::String(error_message(&e)));
+                        rec.push(("error".into(), OJson::Val(Value::String(error_message(&e)))));
                     }
-                    Value::Object(rec)
+                    OJson::Obj(rec)
                 })
                 .collect();
-            per_item.insert(v.to_string(), Value::Array(recs));
+            obj_put(&mut per_item, v.to_string(), OJson::Arr(recs));
         }
-        out.insert(id_key(item.get("id")), Value::Object(per_item));
+        obj_put(&mut out, id_key(item.get("id")), OJson::Obj(per_item));
     }
-    Value::Object(out)
+    OJson::Obj(out)
 }
 
 /// The `numbers` section: for each numeric variable (and `page-first`) an
 /// item has, `processNumber(false, Item, variable)`'s resulting
 /// `shadow_numbers` (parsed values, labels, plural / numeric / collapsible
 /// flags), or `{error}`.
-pub(crate) fn numbers_section(state: &mut State, items: &[Value]) -> Value {
-    let mut out = Obj::new();
+pub(crate) fn numbers_section(state: &mut State, items: &[Value]) -> OJson {
+    let mut out: Vec<(String, OJson)> = Vec::new();
     for item in items {
-        let mut per_item = Obj::new();
+        let mut per_item: Vec<(String, OJson)> = Vec::new();
         for v in NUMERIC_VARIABLES.iter().copied().chain(std::iter::once("page-first")) {
             if item.get(v).is_none() {
                 continue;
@@ -1131,20 +1216,16 @@ pub(crate) fn numbers_section(state: &mut State, items: &[Value]) -> Value {
                     for (k, sn) in &state.tmp.shadow_numbers {
                         o.insert(k.clone(), sn.to_value());
                     }
-                    Value::Object(o)
+                    OJson::Val(Value::Object(o))
                 }
-                Err(e) => {
-                    let mut o = Obj::new();
-                    o.insert("error".into(), Value::String(error_message(&e)));
-                    Value::Object(o)
-                }
+                Err(e) => OJson::error(error_message(&e)),
             };
-            per_item.insert(v.to_string(), val);
+            obj_put(&mut per_item, v.to_string(), val);
         }
-        out.insert(id_key(item.get("id")), Value::Object(per_item));
+        obj_put(&mut out, id_key(item.get("id")), OJson::Obj(per_item));
     }
     state.tmp.shadow_numbers = BTreeMap::new();
-    Value::Object(out)
+    OJson::Obj(out)
 }
 
 /// The `citation_items` section: for each list of citation items (a
@@ -1152,7 +1233,7 @@ pub(crate) fn numbers_section(state: &mut State, items: &[Value]) -> Value {
 /// item after the input steps `makeCitationCluster` applies (a shallow copy,
 /// `parseLocator`, `remapSectionVariable`, `locator_label_parse`), or
 /// `{error}`.
-pub(crate) fn citation_items_section(state: &mut State, lists: &[Vec<Value>]) -> Value {
+pub(crate) fn citation_items_section(state: &mut State, lists: &[Vec<Value>]) -> OJson {
     let mut out = Vec::new();
     for list in lists {
         let mut row = Vec::new();
@@ -1176,15 +1257,273 @@ pub(crate) fn citation_items_section(state: &mut State, lists: &[Vec<Value>]) ->
                 Ok(v)
             })();
             row.push(match r {
-                Ok(v) => v,
-                Err(e) => {
-                    let mut o = Obj::new();
-                    o.insert("error".into(), Value::String(error_message(&e)));
-                    Value::Object(o)
-                }
+                Ok(v) => OJson::Val(v),
+                Err(e) => OJson::error(error_message(&e)),
             });
         }
-        out.push(Value::Array(row));
+        out.push(OJson::Arr(row));
     }
-    Value::Array(out)
+    OJson::Arr(out)
+}
+
+#[cfg(test)]
+mod tests {
+    //! Verification of `retrieveItem` and the four input-side dump sections
+    //! against citeproc-js 2.4.63, by the intermediate-dump method
+    //! (`scripts/csl-intermediate-reference.cjs`, GitHub #792).
+    //!
+    //! * `sample_fixtures_and_site_sections_equal_the_full_reference`:
+    //!   the `items`, `names`, `numbers` and `citation_items` sections for
+    //!   the 12 sample fixtures and the 5 site styles are compared, value by
+    //!   value, with `tests/data/csl/intermediate_reference_full.json`.
+    //! * `all_fixture_section_digests_equal_the_reference`: for all 845
+    //!   fixtures the SHA-256 of each section's `JSON.stringify` (key order as
+    //!   JS enumerates it) equals `tests/data/csl/intermediate_reference.json`.
+    //!   Needs `vendor/csl-test-suite` (skipped, with a message, when absent).
+    //! * `retrieve_item_normalisations`: hand-written cases for the options
+    //!   no fixture turns on (`field_hack`, `main_title_from_short_title`,
+    //!   `consolidate_legal_items`, `force_jurisdiction`, ...), checked against
+    //!   values recorded from citeproc-js in `retrieve_options.json`.
+    //!
+    //! The engine state that the style builder will provide (`engine.opt`, the
+    //! locale terms read, the abbreviation cache) is replayed from
+    //! `tests/data/csl/units/fixture_contexts.json` (generator
+    //! `scripts/csl-units/fixture_contexts.cjs`), so these tests need neither
+    //! the style loader nor the locale loader.
+    use std::path::PathBuf;
+    use std::sync::Arc;
+
+    use sha2::{Digest, Sha256};
+
+    use super::*;
+
+    const CONTEXTS: &str = include_str!("../../tests/data/csl/units/fixture_contexts.json");
+    const DIGESTS: &str = include_str!("../../tests/data/csl/intermediate_reference.json");
+    const FULL: &str = include_str!("../../tests/data/csl/intermediate_reference_full.json");
+    const SITE_ITEMS: &str = include_str!("../../tests/data/csl/items.json");
+
+    const TURKISH_MONTHS: [&str; 16] = [
+        "ocak", "Şubat", "mart", "nisan", "mayıs", "haziran", "temmuz", "ağustos", "eylül",
+        "ekim", "kasım", "aralık", "bahar", "yaz", "sonbahar", "kış",
+    ];
+
+    fn fixture_dir() -> PathBuf {
+        PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .join("../../vendor/csl-test-suite/processor-tests/humans")
+    }
+
+    /// The sections of one fixture file (the runner's `fixture-parser.js`).
+    fn parse_fixture(text: &str) -> BTreeMap<String, String> {
+        let names = "CSL|KEYS|DESCRIPTION|INPUT|MODE|RESULT|NAME|PATH|ABBREVIATIONS|BIBENTRIES|BIBSECTION|CITATION-ITEMS|CITATIONS|INPUT2|LANGPARAMS|MULTIAFFIX|OPTIONS|OPTIONZ";
+        let open = Regex::new(&format!(r"^.*>>===*\s({names})\s.*=>>.*")).expect("regex");
+        let close = Regex::new(&format!(r"^.*<<===*\s({names})\s.*=<<.*")).expect("regex");
+        let mut out: BTreeMap<String, Vec<String>> = BTreeMap::new();
+        let mut section = String::new();
+        let mut state = 0u8; // 0 none, 1 opening, 2 reading, 3 closing
+        for line in text.split("\r\n").flat_map(|l| l.split('\n')) {
+            if let Some(m) = open.captures(line) {
+                section = m[1].to_string();
+                state = 1;
+            } else if close.is_match(line) {
+                state = 3;
+            } else if state == 1 {
+                out.insert(section.clone(), Vec::new());
+                state = 2;
+            } else if state == 3 {
+                state = 0;
+            }
+            if state == 2 {
+                out.entry(section.clone()).or_default().push(line.to_string());
+            }
+        }
+        out.into_iter().map(|(k, v)| (k, v.join("\n"))).collect()
+    }
+
+    fn context_state(ctx: &Value, terms: Option<&Value>, items: &[Value], abbrevs: Option<&Value>, turkish: bool) -> State {
+        let mut st = State::default();
+        st.opt = ctx["opt"].as_object().cloned().unwrap_or_default();
+        if !ctx["track"].is_null() {
+            st.bibliography.opt.insert("track_container_items".into(), ctx["track"].clone());
+        }
+        if let Some(t) = terms.and_then(Value::as_object) {
+            st.input_locale.terms =
+                t.iter().map(|(k, v)| (k.clone(), v.as_str().map(str::to_string))).collect();
+        }
+        let mut map = BTreeMap::new();
+        for it in items {
+            map.insert(js::to_js_string(it.get("id").unwrap_or(&Value::Null)), it.clone());
+        }
+        st.sys.items = Arc::new(map);
+        if let Some(a) = abbrevs.and_then(Value::as_object) {
+            for (jur, cats) in a {
+                for (cat, entries) in cats.as_object().into_iter().flatten() {
+                    for (k, v) in entries.as_object().into_iter().flatten() {
+                        if let Some(s) = v.as_str() {
+                            st.sys
+                                .abbreviations
+                                .entry(jur.clone())
+                                .or_default()
+                                .entry(cat.clone())
+                                .or_default()
+                                .insert(k.clone(), s.to_string());
+                        }
+                    }
+                }
+            }
+        }
+        if turkish {
+            let l: Vec<String> = TURKISH_MONTHS.iter().map(|s| s.to_string()).collect();
+            st.fun.dateparser.add_date_parser_months(&l);
+        }
+        st
+    }
+
+    struct Sections {
+        items: OJson,
+        names: OJson,
+        numbers: OJson,
+        citation_items: OJson,
+    }
+
+    fn run_sections(st: &mut State, inputs: &[Value], lists: &[Vec<Value>]) -> Sections {
+        let (items, norm) = items_section(st, inputs);
+        let names = names_section(st, &norm);
+        let numbers = numbers_section(st, &norm);
+        let citation_items = citation_items_section(st, lists);
+        Sections { items, names, numbers, citation_items }
+    }
+
+    fn lists_of(sections: &BTreeMap<String, String>) -> Vec<Vec<Value>> {
+        let mut lists: Vec<Vec<Value>> = Vec::new();
+        if let Some(t) = sections.get("CITATION-ITEMS") {
+            if let Ok(Value::Array(a)) = serde_json::from_str::<Value>(t) {
+                for c in a {
+                    lists.push(c.as_array().cloned().unwrap_or_default());
+                }
+            }
+        }
+        if let Some(t) = sections.get("CITATIONS") {
+            if let Ok(Value::Array(a)) = serde_json::from_str::<Value>(t) {
+                for c in a {
+                    let ci = c
+                        .get(0)
+                        .and_then(|c0| c0.get("citationItems"))
+                        .and_then(Value::as_array)
+                        .cloned()
+                        .unwrap_or_default();
+                    lists.push(ci);
+                }
+            }
+        }
+        lists
+    }
+
+    fn sha(s: &str) -> String {
+        let mut h = Sha256::new();
+        h.update(s.as_bytes());
+        h.finalize().iter().map(|b| format!("{b:02x}")).collect()
+    }
+
+    #[test]
+    fn all_fixture_section_digests_equal_the_reference() {
+        let dir = fixture_dir();
+        if !dir.exists() {
+            eprintln!("skipped: {} is absent (run scripts/csl-reference.sh)", dir.display());
+            return;
+        }
+        let ctxs: Value = serde_json::from_str(CONTEXTS).expect("contexts");
+        let digests: Value = serde_json::from_str(DIGESTS).expect("digests");
+        let mut compared = 0usize;
+        let mut bad: Vec<String> = Vec::new();
+        for name in ctxs["order"].as_array().expect("order") {
+            let name = name.as_str().unwrap_or("");
+            let text = std::fs::read_to_string(dir.join(format!("{name}.txt"))).expect("fixture");
+            let sections = parse_fixture(&text);
+            let mut input: Vec<Value> = serde_json::from_str(&sections["INPUT"]).expect("INPUT");
+            for i in input.iter_mut() {
+                canon_numbers(i);
+            }
+            let f = &ctxs["fixtures"][name];
+            let ctx = &ctxs["contexts"][f["ctx"].as_str().unwrap_or("")];
+            let mut st = context_state(ctx, f.get("terms"), &input, f.get("abbrevs"), true);
+            let lists = lists_of(&sections);
+            let got = run_sections(&mut st, &input, &lists);
+            let want = &digests["fixtures"][name];
+            for (sec, v) in [
+                ("items", &got.items),
+                ("names", &got.names),
+                ("numbers", &got.numbers),
+                ("citation_items", &got.citation_items),
+            ] {
+                compared += 1;
+                if sha(&v.to_js_string()) != want[sec].as_str().unwrap_or("") {
+                    bad.push(format!("{name}/{sec}"));
+                }
+            }
+        }
+        assert!(
+            bad.is_empty(),
+            "{} of {compared} section digests differ from citeproc-js; first: {:?}",
+            bad.len(),
+            &bad[..bad.len().min(25)]
+        );
+        assert!(compared >= 845 * 4, "{compared}");
+    }
+
+    #[test]
+    fn sample_fixtures_and_site_sections_equal_the_full_reference() {
+        let ctxs: Value = serde_json::from_str(CONTEXTS).expect("contexts");
+        let full: Value = serde_json::from_str(FULL).expect("full");
+        // site styles over items.json
+        let site_items: Vec<Value> = serde_json::from_str(SITE_ITEMS).expect("items");
+        let mut site_first: Option<(Value, Value, Value)> = None;
+        let mut n = 0;
+        for (name, s) in ctxs["site"].as_object().expect("site") {
+            let ctx = &ctxs["contexts"][s["ctx"].as_str().unwrap_or("")];
+            let mut st = context_state(ctx, Some(&s["terms"]), &site_items, None, false);
+            let got = run_sections(&mut st, &site_items, &[]);
+            let have = [
+                ("items", got.items.to_value()),
+                ("names", got.names.to_value()),
+                ("numbers", got.numbers.to_value()),
+            ];
+            for (sec, v) in have {
+                let mut want = full["site"][name.as_str()][sec].clone();
+                if want.get("same_as").is_some() {
+                    want = full["site"][want["same_as"].as_str().unwrap_or("")][sec].clone();
+                }
+                assert_eq!(v, want, "site {name} {sec}");
+                n += 1;
+            }
+            let _ = &mut site_first;
+        }
+        // sample fixtures
+        let dir = fixture_dir();
+        if !dir.exists() {
+            eprintln!("fixture part skipped: {} is absent", dir.display());
+            return;
+        }
+        for (name, want) in full["fixtures"].as_object().expect("fixtures") {
+            let text = std::fs::read_to_string(dir.join(format!("{name}.txt"))).expect("fixture");
+            let sections = parse_fixture(&text);
+            let mut input: Vec<Value> = serde_json::from_str(&sections["INPUT"]).expect("INPUT");
+            for i in input.iter_mut() {
+                canon_numbers(i);
+            }
+            let f = &ctxs["fixtures"][name.as_str()];
+            let ctx = &ctxs["contexts"][f["ctx"].as_str().unwrap_or("")];
+            let mut st = context_state(ctx, f.get("terms"), &input, f.get("abbrevs"), true);
+            let got = run_sections(&mut st, &input, &lists_of(&sections));
+            for (sec, v) in [
+                ("items", got.items.to_value()),
+                ("names", got.names.to_value()),
+                ("numbers", got.numbers.to_value()),
+                ("citation_items", got.citation_items.to_value()),
+            ] {
+                assert_eq!(v, want[sec], "fixture {name} {sec}");
+                n += 1;
+            }
+        }
+        assert!(n >= 12 * 4 + 15, "{n}");
+    }
 }
