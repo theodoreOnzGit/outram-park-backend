@@ -53,6 +53,196 @@
 //! [`serde_json::Value`]s because CSL-JSON is open-ended and citeproc-js reads
 //! and writes them as plain objects.
 
+// ---- the port's modules (PORTING.md §2): one per upstream file, plus js and exec ----
+// Internal while the port is in progress (epic #790); dead code is expected
+// until the stages that call it land.
+#[allow(dead_code)]
+pub(crate) mod api_bibliography;
+#[allow(dead_code)]
+pub(crate) mod api_cite;
+#[allow(dead_code)]
+pub(crate) mod api_control;
+#[allow(dead_code)]
+pub(crate) mod api_update;
+#[allow(dead_code)]
+pub(crate) mod attributes;
+#[allow(dead_code)]
+pub(crate) mod build;
+#[allow(dead_code)]
+pub(crate) mod disambig_citations;
+#[allow(dead_code)]
+pub(crate) mod disambig_cites;
+#[allow(dead_code)]
+pub(crate) mod disambig_names;
+#[allow(dead_code)]
+pub(crate) mod exec;
+#[allow(dead_code)]
+pub(crate) mod formats;
+#[allow(dead_code)]
+pub(crate) mod formatters;
+#[allow(dead_code)]
+pub(crate) mod js;
+#[allow(dead_code)]
+pub(crate) mod load;
+#[allow(dead_code)]
+pub(crate) mod node_alternative;
+#[allow(dead_code)]
+pub(crate) mod node_alternativetext;
+#[allow(dead_code)]
+pub(crate) mod node_bibliography;
+#[allow(dead_code)]
+pub(crate) mod node_choose;
+#[allow(dead_code)]
+pub(crate) mod node_citation;
+#[allow(dead_code)]
+pub(crate) mod node_comment;
+#[allow(dead_code)]
+pub(crate) mod node_condition;
+#[allow(dead_code)]
+pub(crate) mod node_conditions;
+#[allow(dead_code)]
+pub(crate) mod node_date;
+#[allow(dead_code)]
+pub(crate) mod node_datepart;
+#[allow(dead_code)]
+pub(crate) mod node_else;
+#[allow(dead_code)]
+pub(crate) mod node_elseif;
+#[allow(dead_code)]
+pub(crate) mod node_etal;
+#[allow(dead_code)]
+pub(crate) mod node_group;
+#[allow(dead_code)]
+pub(crate) mod node_if;
+#[allow(dead_code)]
+pub(crate) mod node_info;
+#[allow(dead_code)]
+pub(crate) mod node_institution;
+#[allow(dead_code)]
+pub(crate) mod node_institutionpart;
+#[allow(dead_code)]
+pub(crate) mod node_intext;
+#[allow(dead_code)]
+pub(crate) mod node_key;
+#[allow(dead_code)]
+pub(crate) mod node_label;
+#[allow(dead_code)]
+pub(crate) mod node_layout;
+#[allow(dead_code)]
+pub(crate) mod node_macro;
+#[allow(dead_code)]
+pub(crate) mod node_name;
+#[allow(dead_code)]
+pub(crate) mod node_namepart;
+#[allow(dead_code)]
+pub(crate) mod node_names;
+#[allow(dead_code)]
+pub(crate) mod node_number;
+#[allow(dead_code)]
+pub(crate) mod node_sort;
+#[allow(dead_code)]
+pub(crate) mod node_substitute;
+#[allow(dead_code)]
+pub(crate) mod node_text;
+#[allow(dead_code)]
+pub(crate) mod obj_ambigconfig;
+#[allow(dead_code)]
+pub(crate) mod obj_blob;
+#[allow(dead_code)]
+pub(crate) mod obj_number;
+#[allow(dead_code)]
+pub(crate) mod obj_token;
+#[allow(dead_code)]
+pub(crate) mod queue;
+#[allow(dead_code)]
+pub(crate) mod registry;
+#[allow(dead_code)]
+pub(crate) mod sort;
+#[allow(dead_code)]
+pub(crate) mod stack;
+#[allow(dead_code)]
+pub(crate) mod state;
+#[allow(dead_code)]
+pub(crate) mod system;
+#[allow(dead_code)]
+pub(crate) mod util;
+#[allow(dead_code)]
+pub(crate) mod util_citationlabel;
+#[allow(dead_code)]
+pub(crate) mod util_conditions;
+#[allow(dead_code)]
+pub(crate) mod util_date;
+#[allow(dead_code)]
+pub(crate) mod util_datenode;
+#[allow(dead_code)]
+pub(crate) mod util_dateparser;
+#[allow(dead_code)]
+pub(crate) mod util_dates;
+#[allow(dead_code)]
+pub(crate) mod util_disambig;
+#[allow(dead_code)]
+pub(crate) mod util_flipflop;
+#[allow(dead_code)]
+pub(crate) mod util_integration;
+#[allow(dead_code)]
+pub(crate) mod util_label;
+#[allow(dead_code)]
+pub(crate) mod util_locale;
+#[allow(dead_code)]
+pub(crate) mod util_locale_sniff;
+#[allow(dead_code)]
+pub(crate) mod util_modules;
+#[allow(dead_code)]
+pub(crate) mod util_name_particles;
+#[allow(dead_code)]
+pub(crate) mod util_names;
+#[allow(dead_code)]
+pub(crate) mod util_names_common;
+#[allow(dead_code)]
+pub(crate) mod util_names_constraints;
+#[allow(dead_code)]
+pub(crate) mod util_names_disambig;
+#[allow(dead_code)]
+pub(crate) mod util_names_divide;
+#[allow(dead_code)]
+pub(crate) mod util_names_etal;
+#[allow(dead_code)]
+pub(crate) mod util_names_etalconfig;
+#[allow(dead_code)]
+pub(crate) mod util_names_join;
+#[allow(dead_code)]
+pub(crate) mod util_names_output;
+#[allow(dead_code)]
+pub(crate) mod util_names_render;
+#[allow(dead_code)]
+pub(crate) mod util_names_tests;
+#[allow(dead_code)]
+pub(crate) mod util_names_truncate;
+#[allow(dead_code)]
+pub(crate) mod util_nodes;
+#[allow(dead_code)]
+pub(crate) mod util_number;
+#[allow(dead_code)]
+pub(crate) mod util_page;
+#[allow(dead_code)]
+pub(crate) mod util_parallel;
+#[allow(dead_code)]
+pub(crate) mod util_processor;
+#[allow(dead_code)]
+pub(crate) mod util_publishers;
+#[allow(dead_code)]
+pub(crate) mod util_sort;
+#[allow(dead_code)]
+pub(crate) mod util_static_locator;
+#[allow(dead_code)]
+pub(crate) mod util_substitute;
+#[allow(dead_code)]
+pub(crate) mod util_transform;
+#[allow(dead_code)]
+pub(crate) mod xmldom;
+#[allow(dead_code)]
+pub(crate) mod xmljson;
+
 use std::collections::BTreeMap;
 use std::fmt;
 use std::sync::Arc;
@@ -68,7 +258,13 @@ pub enum EngineError {
     /// The input is not what citeproc-js accepts (a citation object without a
     /// `citationID`, an item without an `id`).
     BadInput(String),
+    /// citeproc-js threw (`CSL.error(msg)`): a style error, or an internal
+    /// error upstream would also raise.
+    Csl(String),
 }
+
+/// The result of a ported function that can reach `CSL.error` (PORTING.md §3).
+pub type CslResult<T> = Result<T, EngineError>;
 
 impl fmt::Display for EngineError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
@@ -77,6 +273,7 @@ impl fmt::Display for EngineError {
                 write!(f, "citeproc: {method} is not ported yet")
             }
             EngineError::BadInput(why) => write!(f, "citeproc: bad input: {why}"),
+            EngineError::Csl(msg) => write!(f, "citeproc-js error: {msg}"),
         }
     }
 }
