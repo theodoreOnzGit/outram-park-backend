@@ -261,8 +261,21 @@ fn csl_legacy_short_title_key() {
 /// path produced (still produced today for non-EDTF strings such as
 /// "December 31, 1999", which is why the export -> import -> export test
 /// passes). The fixture predates the EDTF change; the upstream test that
-/// would have caught it is commented out. To be confirmed by running
-/// upstream (#752).
+/// would have caught it is commented out. ~~To be confirmed by running
+/// upstream (#752).~~
+///
+/// **Upstream run (2026-10-07, #752):** a Zotero translation-server
+/// (server 3a9d17614896, translators 3d1c78530f42) exporting these items to
+/// CSL JSON gives `"issued": {"date-parts": [["1999", 12, 31]]}` for every
+/// type: the string year, exactly as the fixture holds. That server bundles
+/// utilities 1dd38e27edf8, which predates the EDTF code path (its
+/// `itemToCSLJSON` goes straight to `strToDate`), so the run confirms what
+/// the fixture records for the pre-EDTF code and is consistent with the
+/// reading above; it does not execute utilities 4051881d59c6, whose integer
+/// result rests on reading the code. Recorded in kovan-literature's
+/// `tests/data/zotero/reference/export/csljson/itemJSON.json` and, as a
+/// known version-skew difference, in its
+/// `tests/data/zotero/known_differences/export_csljson.json`.
 ///
 /// **Pass (revised to the explained difference, not loosened):** for every
 /// type, the only differing key is `issued`, and it is equal once the

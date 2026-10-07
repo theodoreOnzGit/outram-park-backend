@@ -31,6 +31,7 @@ Per `src/lib.rs`:
 | `pdf_to_markdown`, `markdown_outline`, `to_bibtex` | Implemented and tested |
 | `extract_metadata` | Best-effort: the PDF Info dictionary first, then conservative text scanning. Unknown fields are left empty rather than guessed. |
 | `extract_assets` | Extracts embedded images already stored as standalone files (JPEG via `DCTDecode`, JPEG-2000 via `JPXDecode`). Images under other filters are reported as skipped, not re-encoded. |
+| `zotero` (since 2026-10-07) | Port of Zotero's translation framework and its BibTeX, BibLaTeX, RIS and CSL JSON translators (#749), compared with a running Zotero translation-server on committed reference outputs (#752; `scripts/zotero-reference.sh`, `tests/zotero_translators.rs`). AI draft, not yet human-reviewed. |
 
 The graph digitiser is **not** in this crate. It moved to `kovan` on
 2026-08-21 (`kovan::digitiser`) so this crate could stay GPL-3.0-only

@@ -55,6 +55,11 @@
 //! - [`extract_assets`] — extracts embedded raster images whose codec is already
 //!   a standalone file format (JPEG via `DCTDecode`, JPEG-2000 via `JPXDecode`).
 //!   Images stored under other filters are reported-skipped, not re-encoded.
+//! - [`zotero`] — a port of Zotero's translation framework and its BibTeX,
+//!   BibLaTeX, RIS and CSL JSON translators (GitHub #749), verified
+//!   code-to-code against a running Zotero translation-server (#752,
+//!   `tests/zotero_translators.rs`). AI draft, not yet human-reviewed.
+//!   Independent of [`to_bibtex`], kovan's own BibTeX writer.
 //!
 //! **The graph digitiser moved to the `kovan` crate on 2026-08-21** (was
 //! `[crate::digitiser]`, now `kovan::digitiser`; binaries ~~`kovan-digitise`,
