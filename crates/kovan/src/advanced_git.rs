@@ -39,6 +39,8 @@
 //! [`force_pull_in`] for "yes, can", [`abort_in_progress_in`] for "no, i
 //! manage myself". [`force_pull_in`] **destroys uncommitted and untracked
 //! work by design** — read its doc before calling it from anywhere else.
+//! Since GH issue #502 it no longer destroys unpushed *commits*: those are
+//! kept on a `kovan-kept/<commit>` branch before the reset.
 
 use std::process::Command;
 
@@ -374,13 +376,20 @@ fn is_conflict(output: &str) -> bool {
 ///
 /// # This throws work away
 ///
-/// Everything not committed **and** pushed is gone afterwards, with no undo:
+/// Everything not committed (~~committed **and** pushed~~, see below) is
+/// gone afterwards, with no undo:
 /// uncommitted edits, and — the maintainer's explicit choice, 2026-09-23 —
 /// untracked files too, so a PDF or a note dropped into the folder and never
 /// saved does not survive. Only ignored files (`git clean` without `-x`) and
-/// submodule contents (without `-ff`) are left alone. Local *commits* that
+/// submodule contents (without `-ff`) are left alone. ~~Local *commits* that
 /// were never pushed are discarded as well: `reset --hard` moves the branch
-/// to the fetched tip, it does not merge onto it.
+/// to the fetched tip, it does not merge onto it.~~ **CHANGED 2026-10-07
+/// (GH issue #502)**: that is how a saved PDF was lost — Save's push was
+/// rejected, Pull offered this prompt for "saves the remote does not have",
+/// and "yes, can" reset the save away. Local commits the fetched tip does
+/// not contain (on `HEAD` or on `branch`) are now first kept on a branch
+/// `kovan-kept/<short commit>` ([`keep_unpushed_commits_in`]), named in the
+/// returned message, so the reset moves the branch but deletes no commit.
 ///
 /// Never call this without the user having answered the prompt; the caller
 /// that does is `crate::app::advanced_git_view`.
@@ -391,6 +400,7 @@ pub fn force_pull_in(
 ) -> Result<String, RemoteError> {
     abort_in_progress_in(dir)?;
     run_git_in(dir, &["fetch", remote, branch])?;
+    let kept = keep_unpushed_commits_in(dir, branch)?;
     // FETCH_HEAD, not `<remote>/<branch>`: it is what the fetch just wrote,
     // so this works even where no remote-tracking ref exists (a folder set
     // up by `corpus_repos::clone`'s detached checkout, e.g.).
@@ -401,10 +411,55 @@ pub fn force_pull_in(
     // one just checked out, so no file changes.
     run_git_in(dir, &["checkout", "-q", "-B", branch])?;
     run_git_in(dir, &["clean", "-fd"])?;
+    let kept = if kept.is_empty() {
+        String::new()
+    } else {
+        format!(
+            "; saves that were never pushed are kept on {}",
+            kept.join(", ")
+        )
+    };
     Ok(format!(
-        "{dir} now matches {remote}/{branch} exactly",
+        "{dir} now matches {remote}/{branch} exactly{kept}",
         dir = dir.display()
     ))
+}
+
+/// Before [`force_pull_in`]'s reset: for `HEAD` and the local `branch`,
+/// whichever holds commits that `FETCH_HEAD` does not contain, create a
+/// branch `kovan-kept/<short commit>` at it (reused when it already exists
+/// at that commit). Returns the branches holding kept commits (GH #502).
+pub fn keep_unpushed_commits_in(
+    dir: &std::path::Path,
+    branch: &str,
+) -> Result<Vec<String>, RemoteError> {
+    let mut kept: Vec<String> = Vec::new();
+    for rev in ["HEAD".to_string(), format!("refs/heads/{branch}")] {
+        let Ok(commit) = run_git_in(dir, &["rev-parse", "--verify", "-q", &rev]) else {
+            continue;
+        };
+        let commit = commit.trim().to_string();
+        let ahead = run_git_in(
+            dir,
+            &["rev-list", "--count", &format!("FETCH_HEAD..{commit}")],
+        )?;
+        if ahead.trim() == "0" {
+            continue;
+        }
+        let name = format!("kovan-kept/{}", &commit[..commit.len().min(12)]);
+        if kept.contains(&name) {
+            continue;
+        }
+        let existing = run_git_in(
+            dir,
+            &["rev-parse", "--verify", "-q", &format!("refs/heads/{name}")],
+        );
+        if existing.is_err() {
+            run_git_in(dir, &["branch", &name, &commit])?;
+        }
+        kept.push(name);
+    }
+    Ok(kept)
 }
 
 /// Abort a merge or rebase a failed [`pull_in`] left in progress, putting
@@ -755,6 +810,20 @@ mod tests {
             !log.contains("mine"),
             "the discarded commit survived: {log}"
         );
+        // GH #502: but the unpushed commit is kept aside, not deleted.
+        let kept = git(
+            &ours,
+            &[
+                "branch",
+                "--list",
+                "kovan-kept/*",
+                "--format=%(refname:short)",
+            ],
+        );
+        let kept = kept.trim();
+        assert!(kept.starts_with("kovan-kept/"), "no kept branch: {kept:?}");
+        let kept_log = git(&ours, &["log", "--format=%s", "-1", kept]);
+        assert_eq!(kept_log.trim(), "mine");
 
         // Idempotent: a second forced pull on an already-matching folder is
         // a no-op, not an error.

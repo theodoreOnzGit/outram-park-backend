@@ -8,6 +8,8 @@
 //! - [`tree_layout`]: where each module card goes in the crate view, a
 //!   two-sided mind map around the crate card.
 //! - [`DeepLink`]: the page's `#…` hash, parsed and written.
+//! - [`js_map_url`], [`home_url`]: the side panel's way back to the site's
+//!   JavaScript code map and home page.
 //! - [`Facts`]: per-function lookups (stamp state, maturity, callees, the
 //!   "blocked by" list of the review bar).
 //! - [`rustdoc_module_page`], [`rustdoc_fn_pages`]: rustdoc's URL scheme.
@@ -321,6 +323,38 @@ impl DeepLink {
             DeepLink::Function { id, source: true } => format!("#src={id}"),
         }
     }
+}
+
+/// The site's JavaScript code map (`code-map/`), opened on `krate` when one
+/// is given: `code-map/#<crate>`, which that page selects and centres on
+/// load (`docs/site/code-map/index.html`). `site_root` is
+/// [`crate::data::Store::site_root`] (`"../"` on the page, the published
+/// site natively). The side panel's "Go back to JavaScript map" button
+/// (maintainer, 2026-10-07).
+pub fn js_map_url(site_root: &str, krate: Option<&str>) -> String {
+    match krate {
+        Some(c) if !c.is_empty() => format!("{site_root}code-map/#{}", percent_encode(c)),
+        _ => format!("{site_root}code-map/"),
+    }
+}
+
+/// The site's home page, for the side panel's "Go to homepage" button.
+pub fn home_url(site_root: &str) -> String {
+    format!("{site_root}index.html")
+}
+
+/// `%XX` encoding of everything but `A-Z a-z 0-9 - _ . ~`, the inverse of
+/// [`percent_decode`] (and of JavaScript's `decodeURIComponent`).
+pub fn percent_encode(s: &str) -> String {
+    let mut out = String::with_capacity(s.len());
+    for b in s.bytes() {
+        if b.is_ascii_alphanumeric() || matches!(b, b'-' | b'_' | b'.' | b'~') {
+            out.push(b as char);
+        } else {
+            out.push_str(&format!("%{b:02X}"));
+        }
+    }
+    out
 }
 
 /// The workspace crate whose folder holds `path` (a file or a function id),
@@ -754,6 +788,21 @@ mod tests {
         );
         assert_eq!(file_of("crates/x/src/a.rs::T::f"), "crates/x/src/a.rs");
         assert_eq!(short_name("crates/x/src/a.rs::T::f#2"), "T::f");
+    }
+
+    /// The side panel's links back to the site (maintainer, 2026-10-07).
+    #[test]
+    fn links_back_to_the_site() {
+        assert_eq!(js_map_url("../", Some("outram-mc-libs")), "../code-map/#outram-mc-libs");
+        assert_eq!(js_map_url("../", None), "../code-map/");
+        assert_eq!(js_map_url("../", Some("")), "../code-map/");
+        assert_eq!(
+            js_map_url(crate::data::SITE_URL, Some("boon-lay")),
+            "https://theodoreonzgit.github.io/outram-park-backend/code-map/#boon-lay"
+        );
+        assert_eq!(home_url("../"), "../index.html");
+        assert_eq!(percent_encode("a b/é"), "a%20b%2F%C3%A9");
+        assert_eq!(percent_decode(&percent_encode("a b/é#x")), "a b/é#x");
     }
 
     /// rustdoc's URL scheme: free functions, methods, module pages.

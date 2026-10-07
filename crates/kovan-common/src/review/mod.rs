@@ -15,6 +15,8 @@
 //!                                   highlights, upstream confirmation,
 //!                                   deleted-functions history,
 //!                                   architecture nodes         -> [`review_md`]
+//! data/review_wizard.toml           the wizard's questions, sources and
+//!                                   stamp gate (#769, embedded) -> [`wizard`]
 //! ```
 //!
 //! # From source to state
@@ -38,8 +40,11 @@
 //!
 //! # Not here yet
 //!
-//! - Signature cryptography (GitHub #762): [`signing`] defines the field and
-//!   the signed bytes; verification is a stub that never verifies.
+//! - ~~Signature cryptography (GitHub #762): [`signing`] defines the field and
+//!   the signed bytes; verification is a stub that never verifies.~~
+//!   **CORRECTED 2026-10-07**: #762 landed; [`signing`] verifies ed25519
+//!   stamps against the `[[reviewer]]` registry, and its native-only
+//!   `keystore` generates and encrypts keys for desktop kovan.
 //! - Hashing nested functions, constants and types (ruled stampable on #739,
 //!   2026-10-06): [`index::ItemKind`] has room for them; only functions are
 //!   hashed by [`hash`] today.
@@ -58,3 +63,4 @@ pub mod scope;
 pub mod signing;
 pub mod state;
 pub mod types;
+pub mod wizard;

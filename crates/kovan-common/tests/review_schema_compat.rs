@@ -62,3 +62,33 @@ fn every_committed_review_fixture_loads() {
     }
     assert!(versions >= 1);
 }
+
+/// **The #764 placeholder checklist keys in the v1 fixture** (GitHub #769).
+///
+/// Methodology: the v1 `review.md` was written with #764's placeholder keys
+/// `q1` and `q8`. The review must stay readable (additive schema), and the
+/// wizard's stamp gate must refuse those keys with
+/// `LegacyPlaceholderKey` naming the replacing key, never map them, and
+/// never let the placeholder `q8 = "reference_code_to_code"` open rung 4.
+///
+/// Result (2026-10-07): passes; `q1` -> `doc_matches_behaviour`, `q8` ->
+/// `vv_evidence`, rung 4 closed.
+#[test]
+fn v1_placeholder_checklist_keys_load_but_the_wizard_refuses_them() {
+    use kovan_common::review::wizard::{stamp_gate, AnswerError, Applicability, GateReason};
+    let md = std::fs::read_to_string(
+        Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures/review/v1/review.md"),
+    )
+    .unwrap();
+    let doc = parse_review_md(&md);
+    let r = doc.reviews().next().expect("the v1 fixture has a review");
+    assert_eq!(r.review.checklist.get("q8").map(String::as_str), Some("reference_code_to_code"));
+    let g = stamp_gate(&r.review.checklist, Applicability::default());
+    assert!(!g.stampable() && !g.rung4_allowed);
+    for (old, new) in [("q1", "doc_matches_behaviour"), ("q8", "vv_evidence")] {
+        assert!(g.blocked_by.contains(&GateReason::Invalid(AnswerError::LegacyPlaceholderKey {
+            key: old.into(),
+            use_instead: new.into(),
+        })));
+    }
+}

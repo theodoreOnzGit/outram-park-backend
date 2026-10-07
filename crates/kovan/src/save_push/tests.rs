@@ -213,25 +213,19 @@ fn opting_out_pushes_nothing() {
     assert_ne!(head(&prop_dir), before.0, "the save itself still committed");
 }
 
-/// A remote that has moved on is never overwritten: the push fails with
-/// "pull first", the remote keeps its commit, the local save is kept, and
-/// the Kovan repository is not pushed.
+/// GH issue #502, the observed case: another writer pushed to the corpus
+/// seconds before the Save. ~~The push fails with "pull first" and the
+/// Kovan repository is not pushed.~~ **CHANGED 2026-10-07**: the remote's
+/// commit is merged into the save and both are pushed; the remote is never
+/// overwritten, the save is never reset away (it is an ancestor of the
+/// pushed tip, so the Kovan repository's gitlink to it is fetchable), and
+/// the Kovan repository is then pushed too.
 #[test]
-fn a_diverged_remote_is_not_forced_and_says_pull_first() {
+fn a_moved_remote_is_merged_not_reset_and_the_save_is_pushed() {
     let Some(f) = fixture() else { return };
     let t = f._tmp.path();
-    let other = t.join("other-clone");
-    g(
-        t,
-        &["clone", "-q", &f.proprietary, &other.to_string_lossy()],
-    );
-    std::fs::write(other.join("papers/theirs.pdf"), b"theirs").unwrap();
-    g(&other, &["add", "."]);
-    g(&other, &["commit", "-q", "-m", "theirs"]);
-    g(&other, &["push", "-q", "origin", "main"]);
-    let theirs = head(&other);
+    let theirs = advance_remote(t, &f.proprietary, "papers/theirs.pdf");
     let branch = parent_branch(&f.root);
-    let parent_before = tip(&f.parent, &branch);
 
     let prop_dir = f.root.restricted_sources_dir();
     std::fs::write(prop_dir.join("papers/mine.pdf"), b"mine").unwrap();
@@ -239,16 +233,91 @@ fn a_diverged_remote_is_not_forced_and_says_pull_first() {
     let mine = head(&prop_dir);
 
     let report = push_after_save(&f.root);
-    match report.get(PushRepo::ProprietaryCorpus).unwrap() {
-        PushOutcome::Failed { message } => assert!(message.contains("pull first"), "{message}"),
-        other => panic!("expected a failed push, got {other:?}"),
+    assert!(!report.has_problem(), "{:?}", report.lines());
+    let entry = &report.all(PushRepo::ProprietaryCorpus)[0];
+    match &entry.outcome {
+        PushOutcome::Pushed { merged, .. } => assert_eq!(merged.as_deref(), Some(theirs.as_str())),
+        other => panic!("expected a merged push, got {other:?}"),
     }
+    assert!(entry.line().contains("merged in first"), "{}", entry.line());
+    let pushed = tip(&f.proprietary, "main");
+    let contains = |a: &str| {
+        Command::new("git")
+            .arg("-C")
+            .arg(&f.proprietary)
+            .args(["merge-base", "--is-ancestor", a, &pushed])
+            .status()
+            .unwrap()
+            .success()
+    };
+    assert!(contains(&mine), "the save is not on the remote");
+    assert!(contains(&theirs), "the remote's commit was overwritten");
+    assert!(prop_dir.join("papers/mine.pdf").exists());
+    let reflog = g(&prop_dir, &["reflog", "--format=%gs"]);
+    assert!(
+        !reflog
+            .lines()
+            .any(|l| l.starts_with("reset:") && l != "reset: moving to HEAD"),
+        "{reflog}"
+    );
+    // The Kovan repository went up, recording the save it committed.
+    assert_eq!(tip(&f.parent, &branch), head(f.root.path()));
+    assert_eq!(
+        gitlink(Path::new(&f.parent), &branch, "literature/proprietary"),
+        mine
+    );
+}
+
+/// GH issue #502, the case a merge cannot settle: the other writer changed
+/// the same file. The save stays committed locally, the corpus is clean
+/// with no merge in progress and no reset, the remote keeps its commit, the
+/// outcome is the typed [`PushOutcome::KeptLocally`], and the Kovan
+/// repository is not pushed.
+#[test]
+fn a_conflicting_remote_keeps_the_save_locally_with_a_typed_error() {
+    let Some(f) = fixture() else { return };
+    let t = f._tmp.path();
+    let theirs = advance_remote(t, &f.proprietary, "papers/same.pdf");
+    let branch = parent_branch(&f.root);
+    let parent_before = tip(&f.parent, &branch);
+
+    let prop_dir = f.root.restricted_sources_dir();
+    std::fs::write(prop_dir.join("papers/same.pdf"), b"mine, different").unwrap();
+    save_repository_with_message(&f.root, "").unwrap().unwrap();
+    let mine = head(&prop_dir);
+
+    let report = push_after_save(&f.root);
+    let entry = &report.all(PushRepo::ProprietaryCorpus)[0];
+    match &entry.outcome {
+        PushOutcome::KeptLocally {
+            error: safe_push::SafePushError::Diverged { local, remote, .. },
+        } => assert_eq!((local, remote), (&mine, &theirs)),
+        other => panic!("expected KeptLocally(Diverged), got {other:?}"),
+    }
+    assert!(
+        entry.line().contains("committed locally"),
+        "{}",
+        entry.line()
+    );
+    assert!(report.has_problem());
+    assert_eq!(head(&prop_dir), mine, "the local save was lost");
+    assert_eq!(g(&prop_dir, &["status", "--porcelain"]), "");
+    assert_eq!(
+        std::fs::read(prop_dir.join("papers/same.pdf")).unwrap(),
+        b"mine, different"
+    );
+    let reflog = g(&prop_dir, &["reflog", "--format=%gs"]);
+    assert!(
+        !reflog
+            .lines()
+            .any(|l| l.starts_with("reset:") && l != "reset: moving to HEAD"),
+        "{reflog}"
+    );
     assert_eq!(
         tip(&f.proprietary, "main"),
         theirs,
         "the remote was overwritten"
     );
-    assert_eq!(head(&prop_dir), mine, "the local save was lost");
     assert!(matches!(
         report.get(PushRepo::KovanRepository).unwrap(),
         PushOutcome::Skipped { .. }
@@ -594,10 +663,41 @@ fn a_corpus_with_local_work_is_not_overridden_without_asking() {
 
     // "yes, can": the forced pull makes the corpus match its remote and
     // leaves it on `main`.
-    crate::advanced_git::force_pull_in(&prop_dir, "origin", "main").unwrap();
+    // Since GH #502 the unpushed save is moved aside, not deleted.
+    let done = crate::advanced_git::force_pull_in(&prop_dir, "origin", "main").unwrap();
     assert_eq!(head(&prop_dir), tip(&f.proprietary, "main"));
     assert!(!prop_dir.join("papers/local.pdf").exists());
     assert_eq!(g(&prop_dir, &["symbolic-ref", "--short", "HEAD"]), "main");
+    let kept = format!("kovan-kept/{}", &prop_head[..12]);
+    assert!(done.contains(&kept), "{done}");
+    assert_eq!(g(&prop_dir, &["rev-parse", &kept]), prop_head);
+}
+
+/// Found while fixing GH #502: a corpus whose `HEAD` is detached at an
+/// older commit while its local `main` holds an unpushed save. `HEAD` alone
+/// is behind the remote, but `checkout -B main` would have moved `main`
+/// off the save; now it asks instead, and `main` keeps the save.
+#[test]
+fn a_detached_head_behind_an_unpushed_branch_is_not_followed() {
+    let Some(f) = fixture() else { return };
+    let prop_dir = f.root.restricted_sources_dir();
+    std::fs::write(prop_dir.join("papers/local.pdf"), b"only here").unwrap();
+    g(&prop_dir, &["add", "."]);
+    g(&prop_dir, &["commit", "-q", "-m", "local only"]);
+    let save = head(&prop_dir);
+    g(&prop_dir, &["checkout", "-q", "--detach", "HEAD~1"]);
+
+    let pulled = pull_corpora(&f.root);
+    let p = pulled
+        .iter()
+        .find(|p| p.corpus == CorpusKind::Proprietary)
+        .unwrap();
+    assert!(
+        matches!(p.outcome, CorpusPullOutcome::NeedsConfirmation { .. }),
+        "{}",
+        p.line()
+    );
+    assert_eq!(g(&prop_dir, &["rev-parse", "refs/heads/main"]), save);
 }
 
 /// Maintainer, 2026-09-30: *"make sure the pull button from kovan gui also
@@ -612,8 +712,15 @@ fn pulling_downloads_corpora_that_are_configured_but_not_fetched() {
     let open_dir = f.root.open_corpus_dir();
     let prop_dir = f.root.restricted_sources_dir();
     for dir in [&open_dir, &prop_dir] {
-        let rel = dir.strip_prefix(f.root.path()).unwrap().to_string_lossy().to_string();
-        g(f.root.path(), &["submodule", "deinit", "-q", "-f", "--", &rel]);
+        let rel = dir
+            .strip_prefix(f.root.path())
+            .unwrap()
+            .to_string_lossy()
+            .to_string();
+        g(
+            f.root.path(),
+            &["submodule", "deinit", "-q", "-f", "--", &rel],
+        );
         assert!(!dir.join(".git").exists(), "{rel} still checked out");
     }
 

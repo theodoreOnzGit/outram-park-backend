@@ -47,8 +47,11 @@
 //! …
 //! ```
 //!
-//! Signatures and endorsements are stored but **not verified**: the crypto is
-//! GitHub #762. [`crate::review::signing`] says so in every result.
+//! ~~Signatures and endorsements are stored but **not verified**: the crypto is
+//! GitHub #762.~~ **CORRECTED 2026-10-07 (#762)**: signatures, endorsements,
+//! admissions, revocations and un-retirements are verified by
+//! [`crate::review::signing::registry::Registry::build`]; what each one signs
+//! is in [`crate::review::signing`].
 //!
 //! `kovan::root::RootConfig` carries the same three fields (additive), so a
 //! literature-side save of `kovan_root.toml` keeps them.
@@ -78,7 +81,7 @@ pub enum Role {
 }
 
 /// A signature by one key over some bytes (an endorsement, an admission or a
-/// revocation). Not verified until #762.
+/// revocation). Verified by [`crate::review::signing::registry`] (#762).
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct KeySignature {
     /// The signing key's id.
@@ -106,6 +109,25 @@ pub struct ReviewerKey {
     /// Retired (an un-retire clears it).
     #[serde(default, skip_serializing_if = "std::ops::Not::not")]
     pub retired: bool,
+    /// The date the key was retired (#762, additive). Stamps the key signs
+    /// on or after it do not count; kept after an un-retire, so the gap
+    /// stays visible.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub retired_on: Option<String>,
+    /// The un-retirement (#762, additive): signed by **this key itself**,
+    /// which proves the old private key was unlocked (#739 signing comment).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub unretired: Option<Unretirement>,
+}
+
+/// `[reviewer.key.unretired]`: a retired key brought back (#762).
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct Unretirement {
+    /// From this date the key's stamps count again.
+    pub date: String,
+    /// Base64 signature by the un-retired key over
+    /// [`crate::review::signing::unretire_bytes`].
+    pub signature: String,
 }
 
 /// `[reviewer.revoked]`.

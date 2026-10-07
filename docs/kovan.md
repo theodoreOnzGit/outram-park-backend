@@ -78,6 +78,39 @@ A user should be able to clone KOVAN and perform all core operations offline.
 
 ---
 
+## Leak Before Break
+
+**Maintainer direction, 2026-10-07 (gh #739, #762).** Borrowed from pressure-vessel
+and piping design, where a flaw must show itself as a detectable leak long before
+it can grow into a rupture.
+
+**Every failure, inconsistency or act of tampering must become visible (leak)
+before it can silently break trust in the record (break). KOVAN never fails
+silently.** It aims to be **tamper-evident, not tamper-proof**:
+
+- History is **append-only**: key lifecycle events, moves and deletions are
+  appended, never rewritten, and current state is derived by replaying them.
+- Anything that cannot be verified is **shown, flagged and not counted**, never
+  hidden and never trusted: unverified or outside-scope stamps, unendorsed keys,
+  malformed review entries ("review unreadable", so redo).
+- Irreversible or identity-level events are **flagged permanently**, for example
+  a founder key reset.
+- Removing trust is cheap (an unsigned revocation is honoured); adding trust
+  needs a signature.
+- Degradation is **public**: stale stamps lower the maturity shown in CI and on
+  Pages, and open needs-fix notes are published ("integrity matters over how good
+  the code looks").
+- Fallbacks are allowed only when the return type reports them, never silently.
+
+Deliberate, skilled forgery is out of scope for the open repository. Tamper
+evidence is what an open repository can guarantee. Qualification to NQA-1 would
+be done on a frozen private copy.
+
+**Applying it:** for any new feature, ask what happens when its input is
+missing, corrupt or forged, and make sure the answer is "the user sees it".
+
+---
+
 ## Android First
 
 Android is a first-class platform.

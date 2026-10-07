@@ -506,6 +506,49 @@ non-commercial, scientific and educational purposes\" \
 (https://www.epa.gov/web-policies-and-procedures/epa-disclaimers, accessed 2026-09-28); \
 the report notes no copyright condition of its own. Commercial use is not granted";
 
+/// The basis for the Congressional Research Service reports (added
+/// 2026-10-07, corpus README section 9, ground 8): the notice printed on the
+/// last page of every CRS report.
+const CRS_BASIS: &str = "U.S. Government Work: \"CRS Reports, as a work of the United States \
+Government, are not subject to copyright protection in the United States. Any CRS Report may be \
+reproduced and distributed in its entirety without permission from CRS.\" (last page of the report, \
+checked 2026-10-07; corpus README section 9). Third-party material inside keeps its holder's copyright";
+
+/// The basis for the DOE Fundamentals Handbooks (added 2026-10-07, corpus
+/// README section 4): each cover's distribution statement.
+const DOE_DIST_A_BASIS: &str = "DOE handbook marked \"Distribution Statement A. Approved for public \
+release; distribution is unlimited.\" (cover, PDF page 1, checked 2026-10-07; corpus README \
+section 4)";
+
+/// The basis for DOE laboratory reports whose cover or release form reads
+/// "Approved for public release; distribution is unlimited." (added
+/// 2026-10-07, corpus README section 4). Contractor-written, so not public
+/// domain; the marking is the basis.
+const DOE_LAB_UNLIMITED_BASIS: &str = "DOE laboratory report marked \"Approved for public release; \
+distribution is unlimited.\" (PDF page 1, checked 2026-10-07; corpus README section 4). \
+Contractor-written, so not claimed as public domain under 17 U.S.C. 105";
+
+/// The basis for the two Frontiers in Energy Research articles (added
+/// 2026-10-07, corpus README section 2).
+const FRONTIERS_CC_BY_BASIS: &str = "CC BY 4.0: \"This is an open-access article distributed under \
+the terms of the Creative Commons Attribution License (CC BY).\" (PDF page 1, COPYRIGHT box; the \
+article page links CC BY 4.0; checked 2026-10-07; corpus README section 2)";
+
+/// The basis for the OpenMC documentation pages (added 2026-10-07, corpus
+/// README section 8, ground 7 as extended that day).
+const OPENMC_MIT_BASIS: &str = "OpenMC's MIT licence, which grants rights to \"this software and \
+associated documentation files\" including to \"distribute\", provided the copyright and permission \
+notice are included (LICENSE at openmc-dev/openmc commit a5bc348, checked 2026-10-07; kept beside the \
+file as openmc-docs/LICENSE; corpus README section 8)";
+
+/// The basis for the MOOSE documentation pages (added 2026-10-07, corpus
+/// README section 8, ground 7 as extended that day: the owner accepts the
+/// repository's LGPL 2.1 as covering its documentation).
+const MOOSE_LGPL_BASIS: &str = "MOOSE's GNU LGPL 2.1 (section 1: verbatim copies may be distributed \
+with the notices and a copy of the licence), owner-accepted as covering the repository's \
+documentation (#760, 2026-10-07); LICENSE and COPYRIGHT at idaholab/moose commit 21efd28 kept \
+beside the file (corpus README section 8)";
+
 /// Curated literature (#250), supplied by the maintainer on 2026-09-22 and
 /// held in [`CORPUS_REPOSITORY_URL`], plus the three EPA Federal Guidance
 /// Reports (FGR-11, 13, 15) added on 2026-09-28 (maintainer request). **Only documents in that repository's
@@ -584,7 +627,10 @@ pub const LITERATURE: &[CorpusLiterature] = &[
             "02-nuclear-safety/accident-analysis/transient-and-accident-analysis-methods/qualification-of-analytical-codes",
             "07-regulatory-framework/quality-assurance/software-quality-assurance",
         ],
-        concept_document: None,
+        // A tree document since 2026-10-07: the generic design-element
+        // concepts under SQA design and implementation cite its section 3.3
+        // (#760).
+        concept_document: Some("nureg-km-0006"),
         source_url: Some("https://www.nrc.gov/docs/ML1332/ML13325A086.pdf"),
         corpus_file: Some("kovan-standard-open-corpus/nrc/ML13325A086.pdf"),
         status: SourceStatus::VerifiedPublicDomain,
@@ -1064,8 +1110,27 @@ pub const LITERATURE: &[CorpusLiterature] = &[
             "Haeck, W.",
         ],
         year: Some(2019),
-        topics: &["02-nuclear-safety/nuclear-design/nuclear-data-processing"],
-        concept_document: None,
+        // Filed under each module's sub-concept too (maintainer,
+        // 2026-10-07); the tree cites the manual chapter by chapter, with
+        // printed and PDF pages read from the PDF (concept_proposals.toml):
+        // RECONR ch. 3, BROADR 4, UNRESR 5 and PURR 23, THERMR 7 and LEAPR
+        // 24, ACER 17, GROUPR 8, GAMINR 9, DTFR 13, CCCCR 14, MATXSR 15,
+        // POWR 18 and WIMSR 19, ERRORR 10 and COVR 11, HEATR 6. No
+        // sub-concept exists for NJOY itself (ch. 2), MODER (12), RESXSR
+        // (16), PLOTR (20), VIEWR (21), MIXR (22) or GASPR (25); those stay
+        // under the parent concept only.
+        topics: &[
+            "02-nuclear-safety/nuclear-design/nuclear-data-processing",
+            "02-nuclear-safety/nuclear-design/nuclear-data-processing/resonance-reconstruction",
+            "02-nuclear-safety/nuclear-design/nuclear-data-processing/doppler-broadening",
+            "02-nuclear-safety/nuclear-design/nuclear-data-processing/unresolved-resonance-probability-tables",
+            "02-nuclear-safety/nuclear-design/nuclear-data-processing/thermal-scattering",
+            "02-nuclear-safety/nuclear-design/nuclear-data-processing/ace-library-generation",
+            "02-nuclear-safety/nuclear-design/nuclear-data-processing/multigroup-data-generation",
+            "02-nuclear-safety/nuclear-design/nuclear-data-processing/nuclear-data-covariances",
+            "02-nuclear-safety/nuclear-design/nuclear-data-processing/heating-and-damage",
+        ],
+        concept_document: Some("la-ur-17-20093"),
         source_url: Some("https://github.com/njoy/NJOY2016-manual"),
         corpus_file: Some("kovan-standard-open-corpus/lanl/2022laur1720093.pdf"),
         status: SourceStatus::VerifiedOpenLicence,
@@ -1077,6 +1142,634 @@ pub const LITERATURE: &[CorpusLiterature] = &[
                        2026-10-07) and printed on PDF page 2; the licence text is kept beside \
                        the PDF (corpus README ground 7, section 8). The PDF is byte-identical \
                        to that commit's njoy16.pdf",
+    },
+    // Bedrock documents for the IAEA Milestones issues (#760, 2026-10-07):
+    // found by a search across the 19 issues, each re-read and its basis
+    // quoted in the corpus README (NRC: section 1; DOE: section 4; CRS and
+    // GAO: section 9, ground 8). Metadata from each document's own title
+    // pages (or, where stated, its official landing page). Hand-filed under
+    // the most specific existing concept for its issue.
+    CorpusLiterature {
+        id: "nureg-br-0500-rev4",
+        kind: LiteratureKind::Report,
+        title: "Safety Culture Policy Statement (NUREG/BR-0500, Revision 4)",
+        authors: &["U.S. Nuclear Regulatory Commission"],
+        year: Some(2018),
+        topics: &["03-management"],
+        concept_document: None,
+        source_url: Some("https://www.nrc.gov/docs/ML1813/ML18137A389.pdf"),
+        corpus_file: Some("kovan-standard-open-corpus/nrc/ML18137A389.pdf"),
+        status: SourceStatus::VerifiedPublicDomain,
+        status_basis: NRC_BASIS,
+    },
+    CorpusLiterature {
+        id: "nureg-0980-v1-n12",
+        kind: LiteratureKind::Report,
+        title: "Nuclear Regulatory Legislation, 117th Congress; 2nd Session (NUREG-0980, Vol. 1, \
+                No. 12)",
+        authors: &["U.S. Nuclear Regulatory Commission, Office of the General Counsel"],
+        year: Some(2025),
+        topics: &["05-legal-framework/nuclear-legislation"],
+        concept_document: None,
+        source_url: Some("https://www.nrc.gov/docs/ML2512/ML25120A424.pdf"),
+        corpus_file: Some("kovan-standard-open-corpus/nrc/ML25120A424.pdf"),
+        status: SourceStatus::VerifiedPublicDomain,
+        status_basis: NRC_BASIS,
+    },
+    CorpusLiterature {
+        id: "nureg-2159-rev1",
+        kind: LiteratureKind::Report,
+        title: "Acceptable Standard Format and Content for the Fundamental Nuclear Material Control \
+                Plan Required for Special Nuclear Material of Moderate Strategic Significance, \
+                Final Report (NUREG-2159, Revision 1)",
+        authors: &["Pham, T.", "Tuttle, G.", "Ani, S."],
+        year: Some(2022),
+        topics: &["06-safeguards/material-control-and-accounting"],
+        concept_document: None,
+        source_url: Some("https://www.nrc.gov/docs/ML2214/ML22143A963.pdf"),
+        corpus_file: Some("kovan-standard-open-corpus/nrc/ML22143A963.pdf"),
+        status: SourceStatus::VerifiedPublicDomain,
+        status_basis: NRC_BASIS,
+    },
+    CorpusLiterature {
+        id: "nureg-1736",
+        kind: LiteratureKind::Report,
+        title: "Consolidated Guidance: 10 CFR Part 20 - Standards for Protection Against Radiation, \
+                Final Report (NUREG-1736)",
+        authors: &[
+            "Zelac, R.E.",
+            "Cameron, J.L.",
+            "Karagiannis, H.",
+            "McGrath, J.R.",
+            "Sherbini, S.S.",
+            "Thomas, M.L.",
+            "Wigginton, J.E.",
+        ],
+        year: Some(2001),
+        topics: &["08-radiation-protection/radiation-protection/dose-limits-and-criteria"],
+        concept_document: None,
+        // ADAMS holds it in two parts (ML013330106, ML013330154); the
+        // corpus file is the two joined, as the README records.
+        source_url: Some("https://www.nrc.gov/reading-rm/doc-collections/nuregs/staff/sr1736/"),
+        corpus_file: Some("kovan-standard-open-corpus/nrc/nureg-1736-2001.pdf"),
+        status: SourceStatus::VerifiedPublicDomain,
+        status_basis: NRC_BASIS,
+    },
+    CorpusLiterature {
+        id: "nureg-1032",
+        kind: LiteratureKind::Report,
+        title: "Evaluation of Station Blackout Accidents at Nuclear Power Plants: Technical Findings \
+                Related to Unresolved Safety Issue A-44, Final Report (NUREG-1032)",
+        authors: &["Baranowsky, P.W."],
+        year: Some(1988),
+        topics: &["09-electrical-grid/electric-power/station-blackout"],
+        concept_document: None,
+        source_url: Some("https://www.osti.gov/servlets/purl/5122568"),
+        corpus_file: Some("kovan-standard-open-corpus/nrc/nureg-1032-1988.pdf"),
+        status: SourceStatus::VerifiedPublicDomain,
+        status_basis: "U.S. Government Work written by NRC staff, not subject to copyright: NRC Site \
+                       Disclaimer (https://www.nrc.gov/about-nrc/site-disclaimer); 17 U.S.C. 105. \
+                       The OSTI copy's cover is also stamped \"DISTRIBUTION OF THIS DOCUMENT IS \
+                       UNLIMITED\" (corpus README section 1)",
+    },
+    CorpusLiterature {
+        id: "nureg-br-0215-rev2",
+        kind: LiteratureKind::Report,
+        title: "Public Involvement in the Nuclear Regulatory Process (NUREG/BR-0215, Revision 2)",
+        authors: &["U.S. Nuclear Regulatory Commission, Office of Public Affairs"],
+        year: Some(2004),
+        topics: &["11-stakeholder-involvement/public-participation-in-licensing"],
+        concept_document: None,
+        source_url: Some(
+            "https://www.nrc.gov/reading-rm/doc-collections/nuregs/brochures/br0215/",
+        ),
+        corpus_file: Some("kovan-standard-open-corpus/nrc/nureg-br-0215-rev2-2004.pdf"),
+        status: SourceStatus::VerifiedPublicDomain,
+        status_basis: NRC_BASIS,
+    },
+    CorpusLiterature {
+        id: "rg-4.7-rev3",
+        kind: LiteratureKind::Report,
+        title: "General Site Suitability Criteria for Nuclear Power Stations (Regulatory Guide 4.7, \
+                Revision 3)",
+        authors: &["U.S. Nuclear Regulatory Commission, Office of Nuclear Regulatory Research"],
+        year: Some(2014),
+        topics: &["12-site-and-supporting-facilities/site-characteristics"],
+        concept_document: None,
+        source_url: Some("https://www.nrc.gov/docs/ML1218/ML12188A053.pdf"),
+        corpus_file: Some("kovan-standard-open-corpus/nrc/ML12188A053.pdf"),
+        status: SourceStatus::VerifiedPublicDomain,
+        status_basis: NRC_BASIS,
+    },
+    CorpusLiterature {
+        id: "nureg-0396",
+        kind: LiteratureKind::Report,
+        title: "Planning Basis for the Development of State and Local Government Radiological \
+                Emergency Response Plans in Support of Light Water Nuclear Power Plants \
+                (NUREG-0396, EPA 520/1-78-016)",
+        authors: &["Collins, H.E.", "Grimes, B.K.", "Galpin, F."],
+        year: Some(1978),
+        topics: &["14-emergency-planning/protective-response/plume-exposure-pathway-epz-size"],
+        concept_document: None,
+        source_url: Some("https://www.nrc.gov/docs/ML0513/ML051390356.pdf"),
+        corpus_file: Some("kovan-standard-open-corpus/nrc/ML051390356.pdf"),
+        status: SourceStatus::VerifiedPublicDomain,
+        status_basis: "U.S. Government Work, not subject to copyright: prepared by a joint NRC and \
+                       EPA task force, both U.S. Government agencies (17 U.S.C. 105); NRC Site \
+                       Disclaimer (https://www.nrc.gov/about-nrc/site-disclaimer)",
+    },
+    CorpusLiterature {
+        id: "rg-5.71-rev1",
+        kind: LiteratureKind::Report,
+        title: "Cybersecurity Programs for Nuclear Power Reactors (Regulatory Guide 5.71, \
+                Revision 1)",
+        authors: &["U.S. Nuclear Regulatory Commission"],
+        year: Some(2023),
+        topics: &["15-nuclear-security/cybersecurity/cybersecurity-program"],
+        concept_document: None,
+        source_url: Some("https://www.nrc.gov/docs/ML2225/ML22258A204.pdf"),
+        corpus_file: Some("kovan-standard-open-corpus/nrc/ML22258A204.pdf"),
+        status: SourceStatus::VerifiedPublicDomain,
+        status_basis: NRC_BASIS,
+    },
+    CorpusLiterature {
+        id: "nureg-1757-v2-rev2",
+        kind: LiteratureKind::Report,
+        title: "Consolidated Decommissioning Guidance: Characterization, Survey, and Determination \
+                of Radiological Criteria, Final Report (NUREG-1757, Volume 2, Revision 2)",
+        authors: &[
+            "Barr, C.S.",
+            "Clark, S.",
+            "Chapman, G.C.",
+            "Esh, D.W.",
+            "Fedors, R.W.",
+            "Huffert, A.M.",
+            "Kauffman, L.A.",
+            "LaFranzo, M.M.",
+            "McKenney, C.A.",
+            "Parks, L.L.",
+            "Schmidt, D.W.",
+            "Schwartzman, A.L.",
+            "Watson, B.A.",
+        ],
+        year: Some(2022),
+        topics: &["17-radioactive-waste-management/decommissioning/release-criteria-and-final-survey"],
+        concept_document: None,
+        source_url: Some("https://www.nrc.gov/docs/ML2219/ML22194A859.pdf"),
+        corpus_file: Some("kovan-standard-open-corpus/nrc/ML22194A859.pdf"),
+        status: SourceStatus::VerifiedPublicDomain,
+        status_basis: NRC_BASIS,
+    },
+    CorpusLiterature {
+        id: "rg-1.164-rev1",
+        kind: LiteratureKind::Report,
+        title: "Dedication of Commercial-Grade Items for Use in Nuclear Power Plants (Regulatory \
+                Guide 1.164, Revision 1)",
+        authors: &["U.S. Nuclear Regulatory Commission"],
+        year: Some(2024),
+        topics: &["19-procurement/supplier-quality-and-specifications"],
+        concept_document: None,
+        source_url: Some("https://www.nrc.gov/docs/ML2403/ML24038A310.pdf"),
+        corpus_file: Some("kovan-standard-open-corpus/nrc/ML24038A310.pdf"),
+        status: SourceStatus::VerifiedPublicDomain,
+        status_basis: NRC_BASIS,
+    },
+    CorpusLiterature {
+        id: "crs-r42853",
+        kind: LiteratureKind::Report,
+        title: "Nuclear Energy: Overview of Congressional Issues (CRS Report R42853, updated \
+                December 3, 2024)",
+        authors: &["Holt, M."],
+        year: Some(2024),
+        topics: &["01-national-position"],
+        concept_document: None,
+        source_url: Some("https://crsreports.congress.gov"),
+        corpus_file: Some("kovan-standard-open-corpus/us-congress/crs-r42853-2024-12-03.pdf"),
+        status: SourceStatus::VerifiedPublicDomain,
+        status_basis: CRS_BASIS,
+    },
+    CorpusLiterature {
+        id: "crs-if10821",
+        kind: LiteratureKind::Report,
+        title: "Price-Anderson Act: Nuclear Power Industry Liability Limits and Compensation to the \
+                Public After Radioactive Releases (CRS In Focus IF10821, updated February 28, 2025)",
+        authors: &["Holt, M."],
+        year: Some(2025),
+        topics: &["05-legal-framework/civil-liability-for-nuclear-damage"],
+        concept_document: None,
+        source_url: Some("https://crsreports.congress.gov"),
+        corpus_file: Some("kovan-standard-open-corpus/us-congress/crs-if10821-2025-02-28.pdf"),
+        status: SourceStatus::VerifiedPublicDomain,
+        status_basis: CRS_BASIS,
+    },
+    CorpusLiterature {
+        id: "gao-15-652",
+        kind: LiteratureKind::Report,
+        title: "Technology Assessment: Nuclear Reactors: Status and challenges in development and \
+                deployment of new commercial concepts (GAO-15-652)",
+        authors: &["U.S. Government Accountability Office"],
+        year: Some(2015),
+        topics: &["01-national-position"],
+        concept_document: None,
+        source_url: Some("https://www.gao.gov"),
+        corpus_file: Some("kovan-standard-open-corpus/us-congress/gao-15-652.pdf"),
+        status: SourceStatus::VerifiedPublicDomain,
+        status_basis: "U.S. Government Work: \"This is a work of the U.S. government and is not \
+                       subject to copyright protection in the United States. The published \
+                       product may be reproduced and distributed in its entirety without further \
+                       permission from GAO.\" (PDF page 4, checked 2026-10-07; corpus README \
+                       section 9). Third-party images inside keep their holders' copyright",
+    },
+    CorpusLiterature {
+        id: "doe-hdbk-1019-1-93",
+        kind: LiteratureKind::Report,
+        title: "DOE Fundamentals Handbook: Nuclear Physics and Reactor Theory, Volume 1 of 2 \
+                (DOE-HDBK-1019/1-93)",
+        authors: &["U.S. Department of Energy"],
+        year: Some(1993),
+        topics: &[
+            "10-human-resource-development/knowledge-management-and-education/education-and-outreach",
+            "02-nuclear-safety/nuclear-design",
+        ],
+        concept_document: None,
+        source_url: Some(
+            "https://www.energy.gov/sites/default/files/2026-04/DOE-HDBK-1019-93_VOL1.pdf",
+        ),
+        corpus_file: Some(
+            "kovan-standard-open-corpus/us-doe/doe-hdbk-1019-1-93-nuclear-physics-reactor-theory.pdf",
+        ),
+        status: SourceStatus::VerifiedOpenLicence,
+        status_basis: DOE_DIST_A_BASIS,
+    },
+    CorpusLiterature {
+        id: "doe-hdbk-1019-2-93",
+        kind: LiteratureKind::Report,
+        title: "DOE Fundamentals Handbook: Nuclear Physics and Reactor Theory, Volume 2 of 2 \
+                (DOE-HDBK-1019/2-93)",
+        authors: &["U.S. Department of Energy"],
+        year: Some(1993),
+        topics: &[
+            "10-human-resource-development/knowledge-management-and-education/education-and-outreach",
+            "02-nuclear-safety/nuclear-design",
+        ],
+        concept_document: None,
+        source_url: Some(
+            "https://www.energy.gov/sites/default/files/2026-04/DOE-HDBK-1019-93_VOL2.pdf",
+        ),
+        corpus_file: Some(
+            "kovan-standard-open-corpus/us-doe/doe-hdbk-1019-2-93-nuclear-physics-reactor-theory.pdf",
+        ),
+        status: SourceStatus::VerifiedOpenLicence,
+        status_basis: DOE_DIST_A_BASIS,
+    },
+    CorpusLiterature {
+        id: "doe-hdbk-1012-1-92",
+        kind: LiteratureKind::Report,
+        title: "DOE Fundamentals Handbook: Thermodynamics, Heat Transfer, and Fluid Flow, Volume 1 \
+                of 3 (DOE-HDBK-1012/1-92)",
+        authors: &["U.S. Department of Energy"],
+        year: Some(1992),
+        topics: &[
+            "10-human-resource-development/knowledge-management-and-education/education-and-outreach",
+            "02-nuclear-safety/thermal-hydraulic-design",
+        ],
+        concept_document: None,
+        source_url: Some(
+            "https://www.energy.gov/sites/default/files/2026-04/DOE-HDBK-1012-92_VOL1.pdf",
+        ),
+        corpus_file: Some(
+            "kovan-standard-open-corpus/us-doe/doe-hdbk-1012-1-92-thermo-heat-transfer-fluid-flow.pdf",
+        ),
+        status: SourceStatus::VerifiedOpenLicence,
+        status_basis: DOE_DIST_A_BASIS,
+    },
+    CorpusLiterature {
+        id: "doe-hdbk-1012-2-92",
+        kind: LiteratureKind::Report,
+        title: "DOE Fundamentals Handbook: Thermodynamics, Heat Transfer, and Fluid Flow, Volume 2 \
+                of 3 (DOE-HDBK-1012/2-92)",
+        authors: &["U.S. Department of Energy"],
+        year: Some(1992),
+        topics: &[
+            "10-human-resource-development/knowledge-management-and-education/education-and-outreach",
+            "02-nuclear-safety/thermal-hydraulic-design",
+        ],
+        concept_document: None,
+        source_url: Some(
+            "https://www.energy.gov/sites/default/files/2026-04/DOE-HDBK-1012-92_VOL2.pdf",
+        ),
+        corpus_file: Some(
+            "kovan-standard-open-corpus/us-doe/doe-hdbk-1012-2-92-thermo-heat-transfer-fluid-flow.pdf",
+        ),
+        status: SourceStatus::VerifiedOpenLicence,
+        status_basis: DOE_DIST_A_BASIS,
+    },
+    CorpusLiterature {
+        id: "doe-hdbk-1012-3-92",
+        kind: LiteratureKind::Report,
+        title: "DOE Fundamentals Handbook: Thermodynamics, Heat Transfer, and Fluid Flow, Volume 3 \
+                of 3 (DOE-HDBK-1012/3-92)",
+        authors: &["U.S. Department of Energy"],
+        year: Some(1992),
+        topics: &[
+            "10-human-resource-development/knowledge-management-and-education/education-and-outreach",
+            "02-nuclear-safety/thermal-hydraulic-design",
+        ],
+        concept_document: None,
+        source_url: Some(
+            "https://www.energy.gov/sites/default/files/2026-04/DOE-HDBK-1012-92_VOL3.pdf",
+        ),
+        corpus_file: Some(
+            "kovan-standard-open-corpus/us-doe/doe-hdbk-1012-3-92-thermo-heat-transfer-fluid-flow.pdf",
+        ),
+        status: SourceStatus::VerifiedOpenLicence,
+        status_basis: DOE_DIST_A_BASIS,
+    },
+    CorpusLiterature {
+        id: "nfwg-2020",
+        kind: LiteratureKind::Report,
+        title: "Restoring America's Competitive Nuclear Energy Advantage: A strategy to assure U.S. \
+                national security (U.S. Nuclear Fuel Working Group)",
+        authors: &["U.S. Department of Energy"],
+        year: Some(2020),
+        topics: &["16-nuclear-fuel-cycle"],
+        concept_document: None,
+        source_url: Some(
+            "https://www.energy.gov/downloads/restoring-americas-competitive-nuclear-energy-advantage",
+        ),
+        corpus_file: Some(
+            "kovan-standard-open-corpus/us-doe/nfwg-2020-restoring-competitive-nuclear-advantage.pdf",
+        ),
+        status: SourceStatus::VerifiedPublicDomain,
+        status_basis: "U.S. Government Work issued by DOE itself (DOE seal and name on the cover; \
+                       17 U.S.C. 105); DOE's Copyright, Restrictions and Permissions Notice \
+                       (https://www.energy.gov/web-policies): public domain, may be freely \
+                       distributed, acknowledge DOE (corpus README section 4, extended). No \
+                       copyright notice in the document (checked 2026-10-07)",
+    },
+    CorpusLiterature {
+        id: "ornl-tm-2020-1522",
+        kind: LiteratureKind::Report,
+        title: "Integrated Energy System Investigation for the Eastman Chemical Company Kingsport, \
+                Tennessee, Facility (ORNL/TM-2020/1522)",
+        authors: &[
+            "Greenwood, M.S.",
+            "Guler Yigitoglu, A.",
+            "Rader, J.D.",
+            "Tharp, W.",
+            "Poore, M.",
+            "Belles, R.",
+            "Zhang, B.",
+            "Cumberland, R.",
+            "Muhlheim, M.",
+        ],
+        year: Some(2020),
+        topics: &["18-industrial-involvement/process-heat-and-industrial-applications"],
+        concept_document: None,
+        source_url: Some("https://info.ornl.gov/sites/publications/Files/Pub139613.pdf"),
+        corpus_file: Some(
+            "kovan-standard-open-corpus/us-doe/ornl-tm-2020-1522-ies-eastman-kingsport.pdf",
+        ),
+        status: SourceStatus::VerifiedOpenLicence,
+        status_basis: "DOE laboratory report marked \"Unlimited Release\" on its cover (PDF page 1, \
+                       checked 2026-10-07; accepted by the owner as an unlimited-distribution \
+                       marking; corpus README section 4). Contractor-written, so not claimed as \
+                       public domain",
+    },
+    CorpusLiterature {
+        id: "ornl-tm-2014-88",
+        kind: LiteratureKind::Report,
+        title: "Small, Modular Advanced High-Temperature Reactor-Carbonate Thermochemical Cycle \
+                (ORNL/TM-2014/88)",
+        authors: &["Holcomb, D.E.", "Ilas, D.", "Middleton, B.", "Arrieta, M."],
+        year: Some(2014),
+        topics: &["18-industrial-involvement/process-heat-and-industrial-applications"],
+        concept_document: None,
+        source_url: Some("https://info.ornl.gov/sites/publications/Files/Pub48861.pdf"),
+        corpus_file: Some(
+            "kovan-standard-open-corpus/us-doe/ornl-tm-2014-88-smahtr-carbonate-cycle.pdf",
+        ),
+        status: SourceStatus::VerifiedOpenLicence,
+        status_basis: DOE_LAB_UNLIMITED_BASIS,
+    },
+    // Solver-pattern sources (#760, 2026-10-07): the concept tree cites
+    // them (concept_skeleton.toml `[[document]]`s), so they are filed under
+    // the nodes that cite them and carry no hand filing. Bases quoted in
+    // the corpus README: sections 4 (DOE laboratories), 2 (CC BY), 10
+    // (CC BY-SA, CC BY-NC-ND) and 8 (project documentation under its
+    // software licence).
+    CorpusLiterature {
+        id: "sand2011-2195",
+        kind: LiteratureKind::Report,
+        title: "A Theory Manual for Multi-physics Code Coupling in LIME, Version 1.0 (SAND2011-2195)",
+        authors: &[
+            "Pawlowski, R.",
+            "Bartlett, R.",
+            "Belcourt, N.",
+            "Hooper, R.",
+            "Schmidt, R.",
+        ],
+        year: Some(2011),
+        topics: &[],
+        concept_document: Some("sand2011-2195"),
+        source_url: Some("https://www.osti.gov/servlets/purl/1011710"),
+        corpus_file: Some(
+            "kovan-standard-open-corpus/us-doe/sand2011-2195-lime-coupling-theory-manual.pdf",
+        ),
+        status: SourceStatus::VerifiedOpenLicence,
+        status_basis: "Sandia report marked \"Unlimited Release\" and \"Approved for public release; \
+                       further dissemination unlimited.\" (PDF page 1, checked 2026-10-07; corpus \
+                       README section 4). Figure 3.1(b) is reprinted with permission from a third \
+                       party and keeps its holder's copyright",
+    },
+    CorpusLiterature {
+        id: "la-ur-06-7094",
+        kind: LiteratureKind::Report,
+        title: "Monte Carlo Eigenvalue Calculations (LA-UR-06-7094, lecture slides)",
+        authors: &["Brown, F."],
+        year: Some(2006),
+        topics: &[],
+        concept_document: Some("la-ur-06-7094"),
+        source_url: Some(
+            "https://mcnp.lanl.gov/pdf_files/TechReport_2006_LANL_LA-UR-06-7094_Brown.pdf",
+        ),
+        corpus_file: Some("kovan-standard-open-corpus/us-doe/la-ur-06-7094-brown-mc-eigenvalue.pdf"),
+        status: SourceStatus::VerifiedOpenLicence,
+        status_basis: DOE_LAB_UNLIMITED_BASIS,
+    },
+    CorpusLiterature {
+        id: "la-ur-09-02377",
+        kind: LiteratureKind::Report,
+        title: "A Review of Monte Carlo Criticality Calculations - Convergence, Bias, Statistics \
+                (LA-UR-09-02377, M&C 2009 slides)",
+        authors: &["Brown, F.B."],
+        year: Some(2009),
+        topics: &[],
+        concept_document: Some("la-ur-09-02377"),
+        source_url: Some(
+            "https://mcnp.lanl.gov/pdf_files/TechReport_2009_LANL_LA-UR-09-02377_Brown.pdf",
+        ),
+        corpus_file: Some(
+            "kovan-standard-open-corpus/us-doe/la-ur-09-02377-brown-mc-criticality-review.pdf",
+        ),
+        status: SourceStatus::VerifiedOpenLicence,
+        status_basis: DOE_LAB_UNLIMITED_BASIS,
+    },
+    CorpusLiterature {
+        id: "kim-2022-fenrg-859622",
+        kind: LiteratureKind::Paper,
+        title: "An iDTMC-based Monte Carlo depletion of a 3D SMR with intra-pin flux renormalization",
+        authors: &["Kim, I.", "Kim, I.", "Kim, Y."],
+        year: Some(2022),
+        topics: &[],
+        concept_document: Some("kim-2022-fenrg-859622"),
+        source_url: Some("https://doi.org/10.3389/fenrg.2022.859622"),
+        corpus_file: Some("kovan-standard-open-corpus/cc-by/kim2022-fenrg-859622-idtmc-depletion.pdf"),
+        status: SourceStatus::VerifiedOpenLicence,
+        status_basis: FRONTIERS_CC_BY_BASIS,
+    },
+    CorpusLiterature {
+        id: "zhang-2023-fenrg-1101050",
+        kind: LiteratureKind::Paper,
+        title: "Parallel Jacobian-free Newton Krylov discrete ordinates method for pin-by-pin \
+                neutron transport models",
+        authors: &["Zhang, Y.", "Zhou, X."],
+        year: Some(2023),
+        topics: &[],
+        concept_document: Some("zhang-2023-fenrg-1101050"),
+        source_url: Some("https://doi.org/10.3389/fenrg.2022.1101050"),
+        corpus_file: Some(
+            "kovan-standard-open-corpus/cc-by/zhang2023-fenrg-1101050-parallel-jfnk-sn.pdf",
+        ),
+        status: SourceStatus::VerifiedOpenLicence,
+        status_basis: FRONTIERS_CC_BY_BASIS,
+    },
+    CorpusLiterature {
+        id: "arxiv-2306.01924v2",
+        kind: LiteratureKind::Paper,
+        title: "multiRegionFoam -- A Unified Multiphysics Framework for Multi-Region Coupled \
+                Continuum-Physical Problems (arXiv:2306.01924v2)",
+        authors: &[
+            "Alkafri, H.",
+            "Habes, C.",
+            "Fadeli, M.E.",
+            "Hess, S.",
+            "Beale, S.B.",
+            "Zhang, S.",
+            "Jasak, H.",
+            "Marschall, H.",
+        ],
+        year: Some(2023),
+        topics: &[],
+        concept_document: Some("arxiv-2306.01924v2"),
+        source_url: Some("https://arxiv.org/abs/2306.01924v2"),
+        corpus_file: Some("kovan-standard-open-corpus/cc-by-sa/arxiv-2306.01924v2-multiregionfoam.pdf"),
+        status: SourceStatus::VerifiedOpenLicence,
+        status_basis: "CC BY-SA 4.0, as linked from the arXiv record of v2 \
+                       (https://arxiv.org/abs/2306.01924v2, checked 2026-10-07; corpus README \
+                       section 10, ground 9)",
+    },
+    CorpusLiterature {
+        id: "arxiv-2301.00289v3",
+        kind: LiteratureKind::Paper,
+        title: "Stability Analysis of Picard Iteration for Coupled Neutronics/Thermal-Hydraulics \
+                Simulations (arXiv:2301.00289v3)",
+        authors: &["Wang, D."],
+        year: Some(2023),
+        topics: &[],
+        concept_document: Some("arxiv-2301.00289v3"),
+        source_url: Some("https://arxiv.org/abs/2301.00289v3"),
+        corpus_file: Some(
+            "kovan-standard-open-corpus/cc-by-nc-nd/arxiv-2301.00289v3-wang-picard-stability.pdf",
+        ),
+        status: SourceStatus::VerifiedOpenLicence,
+        status_basis: "CC BY-NC-ND 4.0, as linked from the arXiv record of v3 \
+                       (https://arxiv.org/abs/2301.00289v3, checked 2026-10-07; corpus README \
+                       section 10, ground 9). Non-commercial, no derivatives",
+    },
+    CorpusLiterature {
+        id: "cosgrove-2020-pc-stability",
+        kind: LiteratureKind::Paper,
+        title: "Stability analysis of predictor-corrector schemes for coupling neutronics and \
+                depletion (accepted manuscript, Annals of Nuclear Energy)",
+        authors: &["Cosgrove, P.", "Shwageraus, E.", "Parks, G.T."],
+        year: Some(2020),
+        topics: &[],
+        concept_document: Some("cosgrove-2020-pc-stability"),
+        source_url: Some("https://doi.org/10.17863/CAM.57013"),
+        corpus_file: Some(
+            "kovan-standard-open-corpus/cc-by-nc-nd/cosgrove2020-pc-stability-cam-309913.pdf",
+        ),
+        status: SourceStatus::VerifiedOpenLicence,
+        status_basis: "CC BY-NC-ND 4.0: the University of Cambridge repository record \
+                       (https://www.repository.cam.ac.uk/handle/1810/309913, checked 2026-10-07) \
+                       states \"this item's license is described as \
+                       Attribution-NonCommercial-NoDerivatives 4.0 International\" (corpus README \
+                       section 10, ground 9). Non-commercial, no derivatives",
+    },
+    CorpusLiterature {
+        id: "openmc-docs-depletion",
+        kind: LiteratureKind::Other,
+        title: "OpenMC documentation, Methods: Depletion (depletion.rst, openmc-dev/openmc commit \
+                a5bc348)",
+        authors: &["OpenMC contributors"],
+        year: Some(2026),
+        topics: &[],
+        concept_document: Some("openmc-docs-depletion"),
+        source_url: Some(
+            "https://github.com/openmc-dev/openmc/blob/a5bc348a6ca2d2de49c8325dd3cc220e9fc55f83/docs/source/methods/depletion.rst",
+        ),
+        corpus_file: Some("kovan-standard-open-corpus/openmc-docs/depletion.rst"),
+        status: SourceStatus::VerifiedOpenLicence,
+        status_basis: OPENMC_MIT_BASIS,
+    },
+    CorpusLiterature {
+        id: "openmc-docs-eigenvalue",
+        kind: LiteratureKind::Other,
+        title: "OpenMC documentation, Methods: Eigenvalue Calculations (eigenvalue.rst, \
+                openmc-dev/openmc commit a5bc348)",
+        authors: &["OpenMC contributors"],
+        year: Some(2026),
+        topics: &[],
+        concept_document: Some("openmc-docs-eigenvalue"),
+        source_url: Some(
+            "https://github.com/openmc-dev/openmc/blob/a5bc348a6ca2d2de49c8325dd3cc220e9fc55f83/docs/source/methods/eigenvalue.rst",
+        ),
+        corpus_file: Some("kovan-standard-open-corpus/openmc-docs/eigenvalue.rst"),
+        status: SourceStatus::VerifiedOpenLicence,
+        status_basis: OPENMC_MIT_BASIS,
+    },
+    CorpusLiterature {
+        id: "moose-docs-simple",
+        kind: LiteratureKind::Other,
+        title: "MOOSE Navier-Stokes module documentation: SIMPLE executioner (SIMPLE.md, \
+                idaholab/moose commit 21efd28)",
+        authors: &["MOOSE contributors (Battelle Energy Alliance, LLC, et al.)"],
+        year: Some(2026),
+        topics: &[],
+        concept_document: Some("moose-docs-simple"),
+        source_url: Some(
+            "https://github.com/idaholab/moose/blob/21efd282277eb517ee85470371a037b89141e685/modules/navier_stokes/doc/content/source/executioners/SIMPLE.md",
+        ),
+        corpus_file: Some("kovan-standard-open-corpus/moose-docs/SIMPLE.md"),
+        status: SourceStatus::VerifiedOpenLicence,
+        status_basis: MOOSE_LGPL_BASIS,
+    },
+    CorpusLiterature {
+        id: "moose-docs-pimple",
+        kind: LiteratureKind::Other,
+        title: "MOOSE Navier-Stokes module documentation: PIMPLE executioner (PIMPLE.md, \
+                idaholab/moose commit 21efd28)",
+        authors: &["MOOSE contributors (Battelle Energy Alliance, LLC, et al.)"],
+        year: Some(2026),
+        topics: &[],
+        concept_document: Some("moose-docs-pimple"),
+        source_url: Some(
+            "https://github.com/idaholab/moose/blob/21efd282277eb517ee85470371a037b89141e685/modules/navier_stokes/doc/content/source/executioners/PIMPLE.md",
+        ),
+        corpus_file: Some("kovan-standard-open-corpus/moose-docs/PIMPLE.md"),
+        status: SourceStatus::VerifiedOpenLicence,
+        status_basis: MOOSE_LGPL_BASIS,
     },
     // Private tier: cited only. Their PDFs are in the maintainer's private
     // repository and may not be redistributed; no `corpus_file`, so Kovan
@@ -1389,11 +2082,12 @@ mod tests {
     fn literature_and_connections_point_at_real_nodes() {
         assert_eq!(
             LITERATURE.len(),
-            32,
+            66,
             "the maintainer's 2026-09-22 set, EPA FGR-11, FGR-13 and FGR-15 (2026-09-28), \
              the concept tree's 13 further documents (2026-10-06), and the software QA \
              set NUREG/BR-0167, DOE-STD-1172-2003 and DOE G 414.1-4 (2026-10-07, #760), Kendrick 2019 \
-             (private, cited only), and the NJOY2016 manual (2026-10-07, #760)"
+             (private, cited only), the NJOY2016 manual (2026-10-07, #760), and the \
+             22 IAEA-issue bedrock documents and 12 solver-pattern sources (2026-10-07, #760)"
         );
         let mut ids = HashSet::new();
         for l in LITERATURE {
@@ -1482,7 +2176,11 @@ mod tests {
         assert!(ids.contains(&"nureg-0800-4.2"), "{ids:?}");
         assert!(has_literature(fuel) && has_literature(ROOT_TOPIC));
         assert!(has_classified_literature("02-nuclear-safety"));
-        assert!(!has_classified_literature("19-procurement"));
+        // ~~19-procurement~~ until 2026-10-07, when RG 1.164 Rev. 1 was
+        // hand-filed under 19-procurement/supplier-quality-and-specifications
+        // (#760); issue 4 still has no hand-filed literature.
+        assert!(has_classified_literature("19-procurement"));
+        assert!(!has_classified_literature("04-funding-and-financing"));
         // The IAEA Milestones are cited (only) by the level-1 issues.
         let l1: Vec<&str> = literature_in("19-procurement").map(|l| l.id).collect();
         assert_eq!(l1, ["iaea-ng-g-3.1-rev1"]);

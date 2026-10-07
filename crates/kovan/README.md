@@ -35,7 +35,7 @@ plain `kovan`, the old `kovan` (CLI) was renamed to `kovan-cli` and gained a
 Digitiser tab absorbing `kovan-digitise-tui`'s interactive review screen.
 
 See [`docs/kovan.md`](../../docs/kovan.md) for KOVAN's overall design
-principles (deterministic-first, local-first, Android-first) and mission.
+principles (deterministic-first, local-first, leak-before-break, Android-first) and mission.
 
 > Unverified until validated — see the workspace root `RESPONSIBLE_USE.md`.
 > This crate is at the "Prototype" / "Unit Tested" V&V stage: wired to real

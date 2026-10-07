@@ -80,8 +80,8 @@ fn doc_of(entries: Vec<Entry>) -> String {
 fn every_entry_kind_round_trips() {
     let mut r = review("crates/t/src/steam.rs::flash", "crates/t/src/steam.rs", "github:theodoreOnzGit");
     r.review.callees.insert("crates/t/src/steam.rs::sat".into(), h('d'));
-    r.review.checklist.insert("q1".into(), "yes".into());
-    r.review.checklist.insert("q8".into(), "reference_code_to_code".into());
+    r.review.checklist.insert("doc_matches_behaviour".into(), "yes".into());
+    r.review.checklist.insert("vv_evidence".into(), "reference_code_to_code".into());
     r.review.rung = 4;
     r.review.authorship = Some(ChangeAuthorship {
         kind: AuthorshipKind::Mixed,
@@ -282,11 +282,15 @@ fn a_reviewer_has_one_standing_review_per_function() {
 /// Methodology: the signed bytes change when any certifying field changes
 /// (hash, a callee hash, a checklist answer, the change authorship) and not
 /// when the artifact id, timestamps or the comments change; verification is
-/// a stub that never answers "verified" (#762 not landed).
+/// ~~a stub that never answers "verified" (#762 not landed).~~
+/// **CORRECTED 2026-10-07 (#762)**: verification is real; an unsigned entry
+/// and a signature by a reviewer missing from the registry do not count
+/// (the full rules are tested in `signing/tests.rs`).
 ///
 /// Result (2026-10-07): passes.
 #[test]
 fn signed_bytes_cover_the_certifying_fields() {
+    use crate::review::signing::registry::Registry;
     use crate::review::signing::{signed_bytes, verify_review, SignatureCheck, UnverifiedReason};
     let base = review("crates/t/src/a.rs::f", "crates/t/src/a.rs", "github:a");
     let b0 = signed_bytes(&base);
@@ -302,7 +306,7 @@ fn signed_bytes_cover_the_certifying_fields() {
     e.review.callees.insert("x".into(), h('f'));
     edits.push(e);
     let mut e = base.clone();
-    e.review.checklist.insert("q8".into(), "analytical_case".into());
+    e.review.checklist.insert("vv_evidence".into(), "analytical_case".into());
     edits.push(e);
     let mut e = base.clone();
     e.review.authorship = Some(ChangeAuthorship {
@@ -313,8 +317,9 @@ fn signed_bytes_cover_the_certifying_fields() {
     for e in &edits {
         assert_ne!(signed_bytes(e), b0);
     }
+    let registry = Registry::build(&crate::review::root::ReviewRoot::default());
     assert_eq!(
-        verify_review(&base),
+        verify_review(&base, &registry),
         SignatureCheck::Unverified(UnverifiedReason::NoSignature)
     );
     let mut signed = base.clone();
@@ -324,8 +329,8 @@ fn signed_bytes_cover_the_certifying_fields() {
         value: "AAAA".into(),
     });
     assert_eq!(
-        verify_review(&signed),
-        SignatureCheck::Unverified(UnverifiedReason::CryptoNotImplemented)
+        verify_review(&signed, &registry),
+        SignatureCheck::Unverified(UnverifiedReason::UnknownReviewer("github:a".into()))
     );
 }
 
