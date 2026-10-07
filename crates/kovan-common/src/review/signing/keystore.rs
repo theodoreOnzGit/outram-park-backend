@@ -41,11 +41,14 @@ use serde::{Deserialize, Serialize};
 use zeroize::Zeroizing;
 
 use super::super::review_md::{ArchitectureEntry, ReviewEntry};
-use super::super::root::{KeySignature, Revocation, Reviewer, ReviewerKey, Unretirement};
+use super::super::root::{
+    KeyEvent, KeyEventKind, KeySignature, KeySigner, Revocation, Reviewer, ReviewerKey,
+};
 use super::super::types::{reviewer_id_kind, FieldError};
+use super::registry::{check_append_date, open_retirement, LifecycleError};
 use super::{
-    admission_bytes, architecture_signed_bytes, decode_fixed, encode_b64, endorsement_bytes,
-    is_date, line, revocation_bytes, signed_bytes, unretire_bytes, Signature, ALG,
+    architecture_signed_bytes, decode_fixed, encode_b64, is_date, key_event_bytes, line,
+    revocation_bytes, signed_bytes, Signature, ALG,
 };
 
 /// `format` of a key file.
@@ -135,11 +138,12 @@ pub enum SignError {
     Missing(&'static str),
     /// [`UnlockedKey::unretire`] was given another key's entry.
     WrongKey,
-    /// [`UnlockedKey::unretire`] on a key that is not retired with a date.
+    /// [`UnlockedKey::unretire`] on a key that is not retired.
     NotRetired,
-    /// A date is not `YYYY-MM-DD`, or the un-retire date precedes the
-    /// retirement.
+    /// A date is not `YYYY-MM-DD`.
     BadDate(String),
+    /// The event cannot be appended (a bad or backwards date).
+    Lifecycle(LifecycleError),
 }
 
 impl std::fmt::Display for SignError {
@@ -152,6 +156,7 @@ impl std::fmt::Display for SignError {
             Self::WrongKey => write!(f, "that is not this key's registry entry"),
             Self::NotRetired => write!(f, "the key is not retired (with a date)"),
             Self::BadDate(d) => write!(f, "bad date {d:?}"),
+            Self::Lifecycle(e) => write!(f, "{e}"),
         }
     }
 }
@@ -356,6 +361,7 @@ impl KeyFile {
             retired: false,
             retired_on: None,
             unretired: None,
+            history: vec![KeyEvent::unsigned(KeyEventKind::Created, &self.created)],
         }
     }
 
@@ -437,24 +443,55 @@ impl UnlockedKey {
         Ok(())
     }
 
-    /// Endorse `owner`'s key `k` (sets `endorsed_by`): one of the owner's
-    /// own keys for a new key, or a maintainer's key for a reset.
-    pub fn endorse(&self, owner: &str, k: &mut ReviewerKey) {
-        k.endorsed_by = Some(self.key_signature(&endorsement_bytes(owner, k)));
+    /// Append a signed event to `owner`'s key `k` (signer = this key).
+    fn sign_event(
+        &self,
+        owner: &str,
+        k: &mut ReviewerKey,
+        event: KeyEventKind,
+        date: &str,
+        retired_on: &str,
+        admission: Option<&Reviewer>,
+    ) -> Result<(), SignError> {
+        check_append_date(k, date).map_err(SignError::Lifecycle)?;
+        let mut ev = KeyEvent {
+            event,
+            date: date.into(),
+            signer: Some(KeySigner { reviewer: Some(self.reviewer.clone()), key: self.key.clone() }),
+            signature: None,
+            legacy: false,
+        };
+        ev.signature = Some(self.sign(&key_event_bytes(owner, k, &ev, retired_on, admission)));
+        k.history.push(ev);
+        Ok(())
     }
 
-    /// Admit reviewer `r` as a maintainer (sets `admitted_by`). `admitted`
-    /// and a first key must already be set: the admission covers them.
+    /// Endorse `owner`'s new key `k` from `date` with one of the owner's own
+    /// keys: appends an `endorsed` event.
+    pub fn endorse(&self, owner: &str, k: &mut ReviewerKey, date: &str) -> Result<(), SignError> {
+        self.sign_event(owner, k, KeyEventKind::Endorsed, date, "", None)
+    }
+
+    /// Vouch for `owner`'s reset key `k` (the old passphrase is lost) as a
+    /// maintainer: appends a `reset` event, shown permanently.
+    pub fn endorse_reset(&self, owner: &str, k: &mut ReviewerKey, date: &str) -> Result<(), SignError> {
+        self.sign_event(owner, k, KeyEventKind::Reset, date, "", None)
+    }
+
+    /// Admit reviewer `r` as a maintainer: appends an `admitted` event, dated
+    /// `r.admitted`, to its first key. `admitted` and a first key must
+    /// already be set: the admission covers them, its role and its scope.
     pub fn admit(&self, r: &mut Reviewer) -> Result<(), SignError> {
-        let d = r.admitted.as_deref().ok_or(SignError::Missing("admitted"))?;
-        if !is_date(d) {
-            return Err(SignError::BadDate(d.into()));
+        let d = r.admitted.clone().ok_or(SignError::Missing("admitted"))?;
+        if !is_date(&d) {
+            return Err(SignError::BadDate(d));
         }
         if r.keys.is_empty() {
             return Err(SignError::Missing("a first key"));
         }
-        r.admitted_by = Some(self.key_signature(&admission_bytes(r)));
-        Ok(())
+        let snapshot = r.clone();
+        let owner = r.id.clone();
+        self.sign_event(&owner, &mut r.keys[0], KeyEventKind::Admitted, &d, "", Some(&snapshot))
     }
 
     /// Sign a revocation of `reviewer` (`rev.by` must be this key's
@@ -465,24 +502,31 @@ impl UnlockedKey {
         Ok(())
     }
 
-    /// Un-retire **this** key's registry entry from `date`: the possession
-    /// proof (#739). `k` must be this key, retired with a `retired_on`
-    /// date not after `date`; clears `retired` and records `unretired`.
+    /// Revoke one key of `owner` from `date` (`compromised`: it leaked, and
+    /// is void from `date`): appends a signed `revoked` or `compromised`
+    /// event. Signed by a maintainer, the owner, or the key itself.
+    pub fn revoke_key(
+        &self,
+        owner: &str,
+        k: &mut ReviewerKey,
+        date: &str,
+        compromised: bool,
+    ) -> Result<(), SignError> {
+        let kind = if compromised { KeyEventKind::Compromised } else { KeyEventKind::Revoked };
+        self.sign_event(owner, k, kind, date, "", None)
+    }
+
+    /// Un-retire **this** key from `date`: the possession proof (#739),
+    /// possible only with the key unlocked from its encrypted file. Appends
+    /// an `unretired` event signed by the key itself; `k` must be this key
+    /// and retired now.
     pub fn unretire(&self, k: &mut ReviewerKey, date: &str) -> Result<(), SignError> {
         if k.id != self.key || k.public != self.public_b64() {
             return Err(SignError::WrongKey);
         }
-        let retired_on = match (&k.retired_on, k.retired) {
-            (Some(d), true) => d.clone(),
-            _ => return Err(SignError::NotRetired),
-        };
-        if !is_date(date) || date < retired_on.as_str() {
-            return Err(SignError::BadDate(date.into()));
-        }
-        let signature = self.sign(&unretire_bytes(&self.reviewer, k, date));
-        k.retired = false;
-        k.unretired = Some(Unretirement { date: date.into(), signature });
-        Ok(())
+        let retired_on = open_retirement(k).ok_or(SignError::NotRetired)?;
+        let owner = self.reviewer.clone();
+        self.sign_event(&owner, k, KeyEventKind::Unretired, date, &retired_on, None)
     }
 }
 
