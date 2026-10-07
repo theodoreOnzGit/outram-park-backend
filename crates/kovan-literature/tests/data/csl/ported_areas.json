@@ -1,0 +1,4 @@
+{
+ "note": "Fixture areas (the file-name prefix before '_') the citeproc-js port is expected to reproduce, checked by tests/citeproc_test_suite.rs. Each stage of epic #790 (#792 to #797) adds the areas it makes pass. Empty at #791 (the harness): nothing is ported.",
+ "areas": []
+}

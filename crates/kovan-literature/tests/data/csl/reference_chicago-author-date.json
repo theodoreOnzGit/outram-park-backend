@@ -1,0 +1,1350 @@
+{
+ "meta": {
+  "engine": "citeproc-js 2.4.63",
+  "node": "v12.22.9",
+  "style": "kovan-literature/data/csl/chicago-author-date.csl",
+  "locale": "kovan-literature/data/csl/locales-en-US.xml"
+ },
+ "bibliography_order": [
+  "adenis2024lagrangian",
+  "moltres_github",
+  "nature2026attribution",
+  "alansari2026large",
+  "asme_nqa1_2024",
+  "andriole2024big",
+  "anthropic2026pricing",
+  "arcuri2018experience",
+  "ardito2021rust",
+  "barba2022open",
+  "bender2021dangers",
+  "bhave2026bridging",
+  "bickel2014design",
+  "Blondeletal2008",
+  "boehm1981software",
+  "briand2006empirical",
+  "briggs2003international",
+  "brown2018endf8",
+  "cao2026distribution",
+  "castro_verification",
+  "cengel2002thermodynamics",
+  "cereijo_lingot_c_2020",
+  "Chenetal2013",
+  "choo2023criticality",
+  "choudhury2026decision",
+  "Clausetetal2004",
+  "cohen1995respiratory",
+  "cohen1996immunity",
+  "cohen1991commoncold",
+  "coles2022parametric",
+  "conlinjeremylloyd2017njoy21",
+  "Danonetal2005",
+  "de2021ai",
+  "devkota2009lagrangian",
+  "du2018investigation",
+  "ducru2017kernel",
+  "duff1989sparse",
+  "dupuis2022hyperfocus",
+  "dwyer2024monotropism",
+  "thermosyspro_github",
+  "edwards1970depressurization",
+  "ElHefni2019",
+  "annals_nuclear_energy_guide",
+  "elsevier2026genai",
+  "ema_singapore_inir_2026",
+  "eng2024will",
+  "Fabioetal2013",
+  "FabricioLiang2013",
+  "fan2020escaping",
+  "feng2024far",
+  "ferreira2021femfvm",
+  "fiorina2015gen",
+  "fischer2022nekrs",
+  "Fortunato2010",
+  "FortunatoBarthelemy2007",
+  "friant2023state",
+  "fritzson2020openmodelica",
+  "fulton2021benefits",
+  "galassi2002gnu",
+  "ganuthula_paradox_augmentation_2026",
+  "gaston2009moose",
+  "geffraye2011cathare",
+  "genfoam-repo",
+  "ghia1982high",
+  "gomez2021development",
+  "graphreader",
+  "greenshields2022notes",
+  "Gregory2011",
+  "guo2016development",
+  "guo2025thermal",
+  "gupta2025legacy",
+  "hackbarth2010assessing",
+  "hales2020bison",
+  "hall1978marviken",
+  "hassan2025agentic",
+  "Havensetal2013",
+  "higham2002accuracy",
+  "hill2011approximating",
+  "hook2009testing",
+  "hu2025sam",
+  "huang2025survey",
+  "HullermeierRifqi2009",
+  "imda_aixtech_2026",
+  "iaeatecdoc1382",
+  "jasak1996openfoamthesisphd",
+  "jasak2009openfoam",
+  "jasak2007openfoam",
+  "jiang2023fission",
+  "kabach2021intercomparison",
+  "kailasa2022mostly",
+  "kieffer1977sound",
+  "kim2008simulating",
+  "kim2005elimination",
+  "kloss2012models",
+  "LancichinettiFortunato2009",
+  "Lancichinettietal2008",
+  "leipzig2021role",
+  "leppanen2010delta",
+  "leppanen2017delta",
+  "leppanen2017use",
+  "leppanen2013development",
+  "leung2011modelling",
+  "Lietal2013",
+  "li2014melcor",
+  "li2014htr10rmc",
+  "liang2013chord",
+  "lin2025supercharging",
+  "lindsay2018introduction",
+  "linuxkernel2026cve",
+  "linuxkernel2026security",
+  "Liu2010",
+  "liu2026dive",
+  "liu_iaea_ai_assisted_operation",
+  "Liuetal2014",
+  "Louetal2013",
+  "lou2020novel",
+  "njoy2016",
+  "mahboob2026corium",
+  "mangul2019recommendations",
+  "marcondes_using_ollama_2025",
+  "marzouk2020sod",
+  "nnc261_matrixmarket",
+  "meneely2009secure",
+  "miao2025paper2agent",
+  "moody1975maximum",
+  "murphy2016problem",
+  "Nepuszetal2008",
+  "nervi2026foamfornuclear",
+  "Newman2013",
+  "NewmanGirvan2004",
+  "ningsih2023singlish",
+  "novak2023coupled",
+  "oktavian2025optimization",
+  "ong_lingot_tuner_rust_2026",
+  "ong_lingot_video_series_2026",
+  "ong2023masters",
+  "ong2024chemengprocesscontrol",
+  "ong2024digital",
+  "ong2024thermalhydraulicsrs",
+  "ong2025tehoprke",
+  "ong2026boonlay",
+  "ong2026fissionyieldsdata",
+  "ong2026openmcdepletiona",
+  "ong2026openmcdepletionb",
+  "ong2026outramparkbackend",
+  "ong2026tampinessteamtables",
+  "ong2026outrampark_arxiv",
+  "ong2026outramparkpart1",
+  "ong2026outramneutronics",
+  "ong2024tuas",
+  "ong2024tuasgithubrepo",
+  "ong2025nureth",
+  "openfoam_cavity_tutorial",
+  "orgogozo2014open",
+  "palmblad2026agentic",
+  "pessiglione2025fatigue",
+  "price2012golden",
+  "Psorakisetal2011",
+  "Raghavanetal2007",
+  "rawte2023survey",
+  "romano2015openmc",
+  "vsafarik2015speed",
+  "saha1978review",
+  "santoso2023rust",
+  "sapkota2025vibe",
+  "scarlat2012design",
+  "schappel2018modeling",
+  "schmidt_hrmfoam_github",
+  "schmidt2010hrmfoam",
+  "skerjanc2020comparison",
+  "slaughter2021code",
+  "SobolevskyCampari2014",
+  "sod1978survey",
+  "spinellis2009evaluating",
+  "steward2025neurobiology",
+  "SubeljBajec2011a",
+  "SubeljBajec2011b",
+  "SubeljBajec2012",
+  "Sunetal2011",
+  "sun2026quality",
+  "tan_mom_cos_2026",
+  "tan2025scls",
+  "tan2024rsa",
+  "tan2025semi",
+  "tangsriwong2020modeling",
+  "tarafdar2019trifecta",
+  "tarafdar2007technostress",
+  "taylor2005finite",
+  "terry2005htr10benchmark",
+  "teschner_discretise_nse",
+  "infographics_show_ai_bill_2026",
+  "toro2013riemann",
+  "trajanov2026cognitive",
+  "nrc2024ai",
+  "van2009astec",
+  "Vehlowetal2013",
+  "veseli2025navigating",
+  "veytsman2024rewrite",
+  "wagner2008international",
+  "wang2004timcoat",
+  "Wangetal2013",
+  "WangLi2013",
+  "wang2018coupled",
+  "wanlin2014research",
+  "wendt2026delta",
+  "wong_singapore_budget_2026_ai",
+  "wong2024effects",
+  "wu2022scwr",
+  "xhonneux2016full",
+  "xhonneux2014development",
+  "xie2018comprehensive",
+  "yamamoto2007numerical",
+  "yu2024release",
+  "zhang2015relap",
+  "Zhangetal2007",
+  "zhang2025mooseagent",
+  "zhang2021linear",
+  "zhang2024assessment",
+  "ZhangYeung2012",
+  "zhao2026ai",
+  "zou2021code",
+  "zou2019sam",
+  "zweibaum2015experimental"
+ ],
+ "items": {
+  "Blondeletal2008": {
+   "parenthetical": "(Blondel et al. 2008)",
+   "narrative": "Blondel et al. (2008)",
+   "bibliography": "<div class=\"csl-entry\">Blondel, V. D., J. L. Guillaume, R. Lambiotte, and E. Lefebvre. 2008. “Fast Unfolding of Communities in Large Networks.” <i>J. Stat. Mech.-Theory Exp.</i> 2008: P10008.</div>"
+  },
+  "Chenetal2013": {
+   "parenthetical": "(Chen et al. 2013)",
+   "narrative": "Chen et al. (2013)",
+   "bibliography": "<div class=\"csl-entry\">Chen, Q., T. T. Wu, and M. Fang. 2013. “Detecting Local Community Structure in Complex Networks Based on Local Degree Central Nodes.” <i>Physica A.</i> 392: 529–37.</div>"
+  },
+  "Clausetetal2004": {
+   "parenthetical": "(Clauset et al. 2004)",
+   "narrative": "Clauset et al. (2004)",
+   "bibliography": "<div class=\"csl-entry\">Clauset, A., M. E. J. Newman, and C. Moore. 2004. “Finding Community Structure in Very Large Networks.” <i>Phys. Rev. E.</i> 70: 066111.</div>"
+  },
+  "Danonetal2005": {
+   "parenthetical": "(Danon et al. 2005)",
+   "narrative": "Danon et al. (2005)",
+   "bibliography": "<div class=\"csl-entry\">Danon, L., A. Diaz-Guilera, J. Duch, and A. Arenas. 2005. “Comparing Community Structure Identification.” <i>J. Stat. Mech.-Theory Exp.</i>, P09008.</div>"
+  },
+  "ElHefni2019": {
+   "parenthetical": "(El Hefni and Bouskela 2019)",
+   "narrative": "El Hefni and Bouskela (2019)",
+   "bibliography": "<div class=\"csl-entry\">El Hefni, Baligh, and Daniel Bouskela. 2019. <i>Modeling and Simulation of Thermal Power Plants with ThermoSysPro: A Theoretical Introduction and a Practical Guide</i>. Springer International Publishing. https://doi.org/10.1007/978-3-030-05105-1.</div>"
+  },
+  "Fabioetal2013": {
+   "parenthetical": "(Fabio et al. 2013)",
+   "narrative": "Fabio et al. (2013)",
+   "bibliography": "<div class=\"csl-entry\">Fabio, D. R., D. Fabio, and P. Carlo. 2013. “Profiling Core-Periphery Network Structure by Random Walkers.” <i>Sci. Rep.</i> 3: 1467.</div>"
+  },
+  "FabricioLiang2013": {
+   "parenthetical": "(Fabricio and Liang 2013)",
+   "narrative": "Fabricio and Liang (2013)",
+   "bibliography": "<div class=\"csl-entry\">Fabricio, B., and Z. Liang. 2013. “Fuzzy Community Structure Detection by Particle Competition and Cooperation.” <i>Soft Comput.</i> 17: 659–73.</div>"
+  },
+  "Fortunato2010": {
+   "parenthetical": "(Fortunato 2010)",
+   "narrative": "Fortunato (2010)",
+   "bibliography": "<div class=\"csl-entry\">Fortunato, S. 2010. “Community Detection in Graphs.” <i>Phys. Rep.-Rev. Sec. Phys. Lett.</i> 486: 75–174.</div>"
+  },
+  "FortunatoBarthelemy2007": {
+   "parenthetical": "(Fortunato and Barthelemy 2007)",
+   "narrative": "Fortunato and Barthelemy (2007)",
+   "bibliography": "<div class=\"csl-entry\">Fortunato, S., and M. Barthelemy. 2007. “Resolution Limit in Community Detection.” <i>Proc. Natl. Acad. Sci. U. S. A.</i> 104: 36–41.</div>"
+  },
+  "Gregory2011": {
+   "parenthetical": "(Gregory 2011)",
+   "narrative": "Gregory (2011)",
+   "bibliography": "<div class=\"csl-entry\">Gregory, S. 2011. “Fuzzy Overlapping Communities in Networks.” <i>J. Stat. Mech.-Theory Exp.</i>, P02017.</div>"
+  },
+  "Havensetal2013": {
+   "parenthetical": "(Havens et al. 2013)",
+   "narrative": "Havens et al. (2013)",
+   "bibliography": "<div class=\"csl-entry\">Havens, T. C., J. C. Bezdek, C. Leckie, K. Ramamohanarao, and M. Palaniswami. 2013. “A Soft Modularity Function For Detecting Fuzzy Communities in Social Networks.” <i>IEEE Trans. Fuzzy Syst.</i> 21: 1170–75.</div>"
+  },
+  "HullermeierRifqi2009": {
+   "parenthetical": "(Hullermeier and Rifqi 2009)",
+   "narrative": "Hullermeier and Rifqi (2009)",
+   "bibliography": "<div class=\"csl-entry\">Hullermeier, E., and M. Rifqi. 2009. “A Fuzzy Variant of the Rand Index for Comparing Clustering Structures.” <i>In Proc. IFSA/EUSFLAT Conf.</i>, 1294–98.</div>"
+  },
+  "LancichinettiFortunato2009": {
+   "parenthetical": "(Lancichinetti and Fortunato 2009)",
+   "narrative": "Lancichinetti and Fortunato (2009)",
+   "bibliography": "<div class=\"csl-entry\">Lancichinetti, A., and S. Fortunato. 2009. “Benchmarks for Testing Community Detection Algorithms on Directed and Weighted Graphs with Overlapping Communities.” <i>Phys. Rev. E.</i> 80: 016118.</div>"
+  },
+  "Lancichinettietal2008": {
+   "parenthetical": "(Lancichinetti et al. 2008)",
+   "narrative": "Lancichinetti et al. (2008)",
+   "bibliography": "<div class=\"csl-entry\">Lancichinetti, A., S. Fortunato, and F. Radicchi. 2008. “Benchmark Graphs for Testing Community Detection Algorithms.” <i>Phys. Rev. E.</i> 78: 046110.</div>"
+  },
+  "Lietal2013": {
+   "parenthetical": "(J. Li et al. 2013)",
+   "narrative": "J. Li et al. (2013)",
+   "bibliography": "<div class=\"csl-entry\">Li, J., X. Wang, and J. Eustace. 2013. “Detecting Overlapping Communities by Seed Community in Weighted Complex Networks.” <i>Physica A.</i> 392: 6125–34.</div>"
+  },
+  "Liu2010": {
+   "parenthetical": "(J. Liu 2010)",
+   "narrative": "J. Liu (2010)",
+   "bibliography": "<div class=\"csl-entry\">Liu, J. 2010. “Fuzzy Modularity and Fuzzy Community Structure in Networks.” <i>Eur. Phys. J. B.</i> 77: 547–57.</div>"
+  },
+  "Liuetal2014": {
+   "parenthetical": "(W. Liu et al. 2014)",
+   "narrative": "W. Liu et al. (2014)",
+   "bibliography": "<div class=\"csl-entry\">Liu, W., M. Pellegrini, and X. Wang. 2014. “Detecting Communities Based on Network Topology.” <i>Sci. Rep.</i> 4: 5739.</div>"
+  },
+  "Louetal2013": {
+   "parenthetical": "(H. Lou et al. 2013)",
+   "narrative": "H. Lou et al. (2013)",
+   "bibliography": "<div class=\"csl-entry\">Lou, H., S. Li, and Y. Zhao. 2013. “Detecting Community Structure Using Label Propagation with Weighted Coherent Neighborhood Propinquity.” <i>Physica A.</i> 392: 3095–105.</div>"
+  },
+  "Nepuszetal2008": {
+   "parenthetical": "(Nepusz et al. 2008)",
+   "narrative": "Nepusz et al. (2008)",
+   "bibliography": "<div class=\"csl-entry\">Nepusz, T., A. Petróczi, L. Négyessy, and F. Bazsó. 2008. “Fuzzy Communities and the Concept of Bridgeness in Complex Networks.” <i>Phys. Rev. E.</i> 77: 016107.</div>"
+  },
+  "Newman2013": {
+   "parenthetical": "(Newman 2013)",
+   "narrative": "Newman (2013)",
+   "bibliography": "<div class=\"csl-entry\">Newman, M. E. J. 2013. “Network Data.” http://www-personal.umich.edu/ mejn/netdata/.</div>"
+  },
+  "NewmanGirvan2004": {
+   "parenthetical": "(Newman and Girvan 2004)",
+   "narrative": "Newman and Girvan (2004)",
+   "bibliography": "<div class=\"csl-entry\">Newman, M. E. J., and M. Girvan. 2004. “Finding and Evaluating Community Structure in Networks.” <i>Phys. Rev. E.</i> 69: 026113.</div>"
+  },
+  "Psorakisetal2011": {
+   "parenthetical": "(Psorakis et al. 2011)",
+   "narrative": "Psorakis et al. (2011)",
+   "bibliography": "<div class=\"csl-entry\">Psorakis, I., S. Roberts, M. Ebden, and B. Sheldon. 2011. “Overlapping Community Detection Using Bayesian Non-Negative Matrix Factorization.” <i>Phys. Rev. E.</i> 83: 066114.</div>"
+  },
+  "Raghavanetal2007": {
+   "parenthetical": "(Raghavan et al. 2007)",
+   "narrative": "Raghavan et al. (2007)",
+   "bibliography": "<div class=\"csl-entry\">Raghavan, U., R. Albert, and S. Kumara. 2007. “Near Linear Time Algorithm to Detect Community Structures in Large-Scale Networks.” <i>Phys. Rev E.</i> 76: 036106.</div>"
+  },
+  "SobolevskyCampari2014": {
+   "parenthetical": "(Sobolevsky and Campari 2014)",
+   "narrative": "Sobolevsky and Campari (2014)",
+   "bibliography": "<div class=\"csl-entry\">Sobolevsky, S., and R. Campari. 2014. “General Optimization Technique for High-Quality Community Detection in Complex Networks.” <i>Phys. Rev. E.</i> 90: 012811.</div>"
+  },
+  "SubeljBajec2011a": {
+   "parenthetical": "(Šubelj and Bajec 2011a)",
+   "narrative": "Šubelj and Bajec (2011a)",
+   "bibliography": "<div class=\"csl-entry\">Šubelj, L., and M. Bajec. 2011a. “Robust Network Community Detection Using Balanced Propagation.” <i>Eur. Phys. J. B.</i> 81: 353–62.</div>"
+  },
+  "SubeljBajec2011b": {
+   "parenthetical": "(Šubelj and Bajec 2011b)",
+   "narrative": "Šubelj and Bajec (2011b)",
+   "bibliography": "<div class=\"csl-entry\">Šubelj, L., and M. Bajec. 2011b. “Unfolding Communities in Large Complex Networks: Combining Defensive and Offensive Label Propagation for Core Extraction.” <i>Phys. Rev. E.</i> 83: 036103.</div>"
+  },
+  "SubeljBajec2012": {
+   "parenthetical": "(Šubelj and Bajec 2012)",
+   "narrative": "Šubelj and Bajec (2012)",
+   "bibliography": "<div class=\"csl-entry\">Šubelj, L., and M. Bajec. 2012. “Ubiquitousness of Link-Density and Link-Pattern Communities in Real-World Networks.” <i>Eur. Phys. J. B.</i> 85: 1–11.</div>"
+  },
+  "Sunetal2011": {
+   "parenthetical": "(P. Sun et al. 2011)",
+   "narrative": "P. Sun et al. (2011)",
+   "bibliography": "<div class=\"csl-entry\">Sun, P., L. Gao, and S. Han. 2011. “Identification of Overlapping and Non-Overlapping Community Structure by Fuzzy Clustering in Complex Networks.” <i>Inf. Sci.</i> 181: 1060–71.</div>"
+  },
+  "Vehlowetal2013": {
+   "parenthetical": "(Vehlow et al. 2013)",
+   "narrative": "Vehlow et al. (2013)",
+   "bibliography": "<div class=\"csl-entry\">Vehlow, C., T. Reinhardt, and D. Weiskopf. 2013. “Visualizing Fuzzy Overlapping Communities in Networks.” <i>IEEE Trans. Vis. Comput. Graph.</i> 19: 2486–95.</div>"
+  },
+  "WangLi2013": {
+   "parenthetical": "(X. Wang and Li 2013)",
+   "narrative": "X. Wang and Li (2013)",
+   "bibliography": "<div class=\"csl-entry\">Wang, X., and J. Li. 2013. “Detecting Communities by the Core-Vertex and Intimate Degree in Complex Networks.” <i>Physica A.</i> 392: 2555–63.</div>"
+  },
+  "Wangetal2013": {
+   "parenthetical": "(W. Wang et al. 2013)",
+   "narrative": "W. Wang et al. (2013)",
+   "bibliography": "<div class=\"csl-entry\">Wang, W., D. Liu, X. Liu, and L. Pan. 2013. “Fuzzy Overlapping Community Detection Based on Local Random Walk and Multidimensional Scaling.” <i>Physica A.</i> 392: 6578–86.</div>"
+  },
+  "ZhangYeung2012": {
+   "parenthetical": "(Y. Zhang and Yeung 2012)",
+   "narrative": "Y. Zhang and Yeung (2012)",
+   "bibliography": "<div class=\"csl-entry\">Zhang, Y., and D. Yeung. 2012. “Overlapping Community Detection via Bounded Nonnegative Matrix Tri-Factorization.” <i>In Proc. ACM SIGKDD Conf.</i>, 606–14.</div>"
+  },
+  "Zhangetal2007": {
+   "parenthetical": "(S. Zhang et al. 2007)",
+   "narrative": "S. Zhang et al. (2007)",
+   "bibliography": "<div class=\"csl-entry\">Zhang, S., R. Wang, and X. Zhang. 2007. “Identification of Overlapping Community Structure in Complex Networks Using Fuzzy C-Means Clustering.” <i>Physica A.</i> 374: 483–90.</div>"
+  },
+  "adenis2024lagrangian": {
+   "parenthetical": "(Adenis et al. 2024)",
+   "narrative": "Adenis et al. (2024)",
+   "bibliography": "<div class=\"csl-entry\">Adenis, Léo, Sylvain Mailler, Laurent Menut, Pascal Achim, and Sylvia Generoso. 2024. “Lagrangian and Eulerian Modelling of 106Ru Atmospheric Transport in 2017 over Northern Hemisphere.” <i>Journal of Environmental Radioactivity</i> 275: 107416.</div>"
+  },
+  "alansari2026large": {
+   "parenthetical": "(Alansari and Luqman 2026)",
+   "narrative": "Alansari and Luqman (2026)",
+   "bibliography": "<div class=\"csl-entry\">Alansari, Aisha, and Hamzah Luqman. 2026. “Large Language Models Hallucination: A Comprehensive Survey.” <i>Computer Science Review</i> 61: 100970.</div>"
+  },
+  "andriole2024big": {
+   "parenthetical": "(Andriole 2024)",
+   "narrative": "Andriole (2024)",
+   "bibliography": "<div class=\"csl-entry\">Andriole, Stephen J. 2024. “The Big Miss: AI Will Replace Just about Everything.” <i>Communications of the Association for Information Systems</i> 55 (1): 819–30.</div>"
+  },
+  "annals_nuclear_energy_guide": {
+   "parenthetical": "(Elsevier 2026a)",
+   "narrative": "Elsevier (2026a)",
+   "bibliography": "<div class=\"csl-entry\">Elsevier. 2026a. “Annals of Nuclear Energy: Guide for Authors.” https://www.sciencedirect.com/journal/annals-of-nuclear-energy/publish/guide-for-authors.</div>"
+  },
+  "anthropic2026pricing": {
+   "parenthetical": "(Anthropic 2026)",
+   "narrative": "Anthropic (2026)",
+   "bibliography": "<div class=\"csl-entry\">Anthropic. 2026. “Claude Pricing.” https://claude.com/pricing.</div>"
+  },
+  "arcuri2018experience": {
+   "parenthetical": "(Arcuri 2018)",
+   "narrative": "Arcuri (2018)",
+   "bibliography": "<div class=\"csl-entry\">Arcuri, Andrea. 2018. “An Experience Report on Applying Software Testing Academic Results in Industry: We Need Usable Automated Test Generation.” <i>Empirical Software Engineering</i> 23 (4): 1959–81.</div>"
+  },
+  "ardito2021rust": {
+   "parenthetical": "(Ardito et al. 2021)",
+   "narrative": "Ardito et al. (2021)",
+   "bibliography": "<div class=\"csl-entry\">Ardito, Luca, Luca Barbato, Marco Castelluccio, et al. 2021. “Evaluation of Rust Code Verbosity, Understandability and Complexity.” <i>PeerJ Computer Science</i> 7: e406. https://doi.org/10.7717/peerj-cs.406.</div>"
+  },
+  "asme_nqa1_2024": {
+   "parenthetical": "(American Society of Mechanical Engineers 2024)",
+   "narrative": "American Society of Mechanical Engineers (2024)",
+   "bibliography": "<div class=\"csl-entry\">American Society of Mechanical Engineers. 2024. “Quality Assurance Requirements for Nuclear Facility Applications.” ASME.</div>"
+  },
+  "barba2022open": {
+   "parenthetical": "(Barba 2022)",
+   "narrative": "Barba (2022)",
+   "bibliography": "<div class=\"csl-entry\">Barba, Lorena A. 2022. “Defining the Role of Open Source Software in Research Reproducibility.” <i>arXiv Preprint arXiv:2204.12564</i>, ahead of print. https://doi.org/10.48550/arXiv.2204.12564.</div>"
+  },
+  "bender2021dangers": {
+   "parenthetical": "(Bender et al. 2021)",
+   "narrative": "Bender et al. (2021)",
+   "bibliography": "<div class=\"csl-entry\">Bender, Emily M., Timnit Gebru, Angelina McMillan-Major, and Shmargaret Shmitchell. 2021. “On the Dangers of Stochastic Parrots: Can Language Models Be Too Big?” <i>Proceedings of the 2021 ACM Conference on Fairness, Accountability, and Transparency</i>, 610–23.</div>"
+  },
+  "bhave2026bridging": {
+   "parenthetical": "(Bhave et al. 2026)",
+   "narrative": "Bhave et al. (2026)",
+   "bibliography": "<div class=\"csl-entry\">Bhave, Chaitanya, Pierre-Clément A. Simon, Casey Icenhour, et al. 2026. “Bridging the Gap on AI-Assisted Scientific Software Development Through Transparency and Traceability.” <i>arXiv Preprint arXiv:2605.17675</i>.</div>"
+  },
+  "bickel2014design": {
+   "parenthetical": "(Bickel et al. 2014)",
+   "narrative": "Bickel et al. (2014)",
+   "bibliography": "<div class=\"csl-entry\">Bickel, Jeffrey E., Nicholas Zweibaum, and Per F. Peterson. 2014. <i>Design, Fabrication and Startup Testing in the Compact Integral Effects Test (CIET 1.0) Facility in Support of Fluoride-Salt-Cooled, High-Temperature Reactor Technology</i>. University of California, Berkeley.</div>"
+  },
+  "boehm1981software": {
+   "parenthetical": "(Boehm 1981)",
+   "narrative": "Boehm (1981)",
+   "bibliography": "<div class=\"csl-entry\">Boehm, Barry W. 1981. <i>Software Engineering Economics</i>. Prentice-Hall.</div>"
+  },
+  "briand2006empirical": {
+   "parenthetical": "(Briand and Selby 2006)",
+   "narrative": "Briand and Selby (2006)",
+   "bibliography": "<div class=\"csl-entry\">Briand, Lionel C., and Richard W. Selby. 2006. “Empirical Software Engineering: Industrial Experience Reports.” <i>Empirical Software Engineering</i> 11 (4): 613.</div>"
+  },
+  "briggs2003international": {
+   "parenthetical": "(Briggs et al. 2003)",
+   "narrative": "Briggs et al. (2003)",
+   "bibliography": "<div class=\"csl-entry\">Briggs, J. Blair, Lori Scott, and Ali Nouri. 2003. “The International Criticality Safety Benchmark Evaluation Project.” <i>Nuclear Science and Engineering</i> 145 (1): 1–10.</div>"
+  },
+  "brown2018endf8": {
+   "parenthetical": "(Brown and others 2018)",
+   "narrative": "Brown and others (2018)",
+   "bibliography": "<div class=\"csl-entry\">Brown, D. A. and others. 2018. “ENDF/B-VIII.0: The 8th Major Release of the Nuclear Reaction Data Library with CIELO-Project Cross Sections, New Standards and Thermal Scattering Data.” <i>Nuclear Data Sheets</i> 148: 1–142. https://doi.org/10.1016/j.nds.2018.02.001.</div>"
+  },
+  "cao2026distribution": {
+   "parenthetical": "(Cao and Chi 2026)",
+   "narrative": "Cao and Chi (2026)",
+   "bibliography": "<div class=\"csl-entry\">Cao, Shaozhen, and Zhuoni Chi. 2026. “Distribution of Singular Data Generated by Compact Forced Navier–Stokes Blowup.” <i>arXiv Preprint arXiv:2609.10262</i>, ahead of print. https://doi.org/10.48550/arXiv.2609.10262.</div>"
+  },
+  "castro_verification": {
+   "parenthetical": "(Castro development team 2024)",
+   "narrative": "Castro development team (2024)",
+   "bibliography": "<div class=\"csl-entry\">Castro development team. 2024. “Verification: Sod’s Problem and Other Shock Tube Problems.” https://amrex-astro.github.io/Castro/docs/Verification.html#sods-problem-and-other-shock-tube-problems.</div>"
+  },
+  "cengel2002thermodynamics": {
+   "parenthetical": "(Cengel and Boles 2002)",
+   "narrative": "Cengel and Boles (2002)",
+   "bibliography": "<div class=\"csl-entry\">Cengel, Yunus A., and Michael A. Boles. 2002. “Thermodynamics: An Engineering Approach.” <i>Sea</i> 1000 (8862): 287–93.</div>"
+  },
+  "cereijo_lingot_c_2020": {
+   "parenthetical": "(Cereijo and Chapela Martínez 2020)",
+   "narrative": "Cereijo and Chapela Martínez (2020)",
+   "bibliography": "<div class=\"csl-entry\">Cereijo, Ibán, and Jairo Chapela Martínez. 2020. “LINGOT Is Not a Guitar-Only Tuner: A Universal Musical Instrument Tuner.” http://lingot.nongnu.org/.</div>"
+  },
+  "choo2023criticality": {
+   "parenthetical": "(Choo and Xiao 2023)",
+   "narrative": "Choo and Xiao (2023)",
+   "bibliography": "<div class=\"csl-entry\">Choo, Anders Jia Yi, and Sicong Xiao. 2023. “Criticality Analysis of HTR-10 Using the High-Temperature Gas-Cooled Reactor Code Package.” <i>Vietnam Conference on Nuclear Science and Technology VINANST-15. Agenda and Abstracts</i>, no. INIS-VN–006: 11–11.</div>"
+  },
+  "choudhury2026decision": {
+   "parenthetical": "(Choudhury and Saravanan 2026)",
+   "narrative": "Choudhury and Saravanan (2026)",
+   "bibliography": "<div class=\"csl-entry\">Choudhury, Nurul Ahad, and Pratima Saravanan. 2026. “An Integrative Review on Unveiling the Causes and Effects of Decision Fatigue to Develop a Multi-Domain Conceptual Framework.” <i>Frontiers in Cognition</i> 4: 1719312. https://doi.org/10.3389/fcogn.2025.1719312.</div>"
+  },
+  "cohen1991commoncold": {
+   "parenthetical": "(Cohen et al. 1991)",
+   "narrative": "Cohen et al. (1991)",
+   "bibliography": "<div class=\"csl-entry\">Cohen, Sheldon, David A. J. Tyrrell, and Andrew P. Smith. 1991. “Psychological Stress and Susceptibility to the Common Cold.” <i>New England Journal of Medicine</i> 325 (9): 606–12. https://doi.org/10.1056/NEJM199108293250903.</div>"
+  },
+  "cohen1995respiratory": {
+   "parenthetical": "(Cohen 1995)",
+   "narrative": "Cohen (1995)",
+   "bibliography": "<div class=\"csl-entry\">Cohen, Sheldon. 1995. “Psychological Stress and Susceptibility to Upper Respiratory Infections.” <i>American Journal of Respiratory and Critical Care Medicine</i> 152 (4 Pt 2): S53–58. https://doi.org/10.1164/ajrccm/152.4_Pt_2.S53.</div>"
+  },
+  "cohen1996immunity": {
+   "parenthetical": "(Cohen 1996)",
+   "narrative": "Cohen (1996)",
+   "bibliography": "<div class=\"csl-entry\">Cohen, Sheldon. 1996. “Psychological Stress, Immunity, and Upper Respiratory Infections.” <i>Current Directions in Psychological Science</i> 5 (3): 86–89. https://doi.org/10.1111/1467-8721.ep10772808.</div>"
+  },
+  "coles2022parametric": {
+   "parenthetical": "(Coles et al. 2022)",
+   "narrative": "Coles et al. (2022)",
+   "bibliography": "<div class=\"csl-entry\">Coles, Garill A., Peter P. Lowry, Jon R. Phillips, et al. 2022. <i>Parametric Study of Factors That Affect Calculated Dose from TRISO Fueled Microreactor Transportation Accident</i>. Pacific Northwest National Laboratory (PNNL), Richland, WA (United States).</div>"
+  },
+  "conlinjeremylloyd2017njoy21": {
+   "parenthetical": "(Conlin et al. 2017)",
+   "narrative": "Conlin et al. (2017)",
+   "bibliography": "<div class=\"csl-entry\">Conlin, Jeremy Lloyd, A. C. Kahler, Austin P. McCartney, and Daniel A. Rehn. 2017. “NJOY21: Next Generation Nuclear Data Processing Capabilities.” <i>EPJ Web of Conferences</i> 146: 09040. https://doi.org/10.1051/epjconf/201714609040.</div>"
+  },
+  "de2021ai": {
+   "parenthetical": "(De Cremer and Kasparov 2021)",
+   "narrative": "De Cremer and Kasparov (2021)",
+   "bibliography": "<div class=\"csl-entry\">De Cremer, David, and Garry Kasparov. 2021. “AI Should Augment Human Intelligence, Not Replace It.” <i>Harvard Business Review</i> 18 (1): 1–8.</div>"
+  },
+  "devkota2009lagrangian": {
+   "parenthetical": "(Devkota and Imberger 2009)",
+   "narrative": "Devkota and Imberger (2009)",
+   "bibliography": "<div class=\"csl-entry\">Devkota, Bishnu H., and Jörg Imberger. 2009. “Lagrangian Modeling of Advection-Diffusion Transport in Open Channel Flow.” <i>Water Resources Research</i> 45 (12).</div>"
+  },
+  "du2018investigation": {
+   "parenthetical": "(Du et al. 2018)",
+   "narrative": "Du et al. (2018)",
+   "bibliography": "<div class=\"csl-entry\">Du, Bao-Cun, Ya-Ling He, Yu Qiu, Qi Liang, and Yi-Peng Zhou. 2018. “Investigation on Heat Transfer Characteristics of Molten Salt in a Shell-and-Tube Heat Exchanger.” <i>International Communications in Heat and Mass Transfer</i> 96: 61–68.</div>"
+  },
+  "ducru2017kernel": {
+   "parenthetical": "(Ducru et al. 2017)",
+   "narrative": "Ducru et al. (2017)",
+   "bibliography": "<div class=\"csl-entry\">Ducru, Pablo, Colin Josey, Karia Dibert, Vladimir Sobes, Benoit Forget, and Kord Smith. 2017. “Kernel Reconstruction Methods for Doppler Broadening—Temperature Interpolation by Linear Combination of Reference Cross Sections at Optimally Chosen Temperatures.” <i>Journal of Computational Physics</i> 335: 535–57.</div>"
+  },
+  "duff1989sparse": {
+   "parenthetical": "(Duff et al. 1989)",
+   "narrative": "Duff et al. (1989)",
+   "bibliography": "<div class=\"csl-entry\">Duff, Iain S., Roger G. Grimes, and John G. Lewis. 1989. “Sparse Matrix Test Problems.” <i>ACM Transactions on Mathematical Software (TOMS)</i> 15 (1): 1–14. https://doi.org/10.1145/58846.58847.</div>"
+  },
+  "dupuis2022hyperfocus": {
+   "parenthetical": "(Dupuis et al. 2022)",
+   "narrative": "Dupuis et al. (2022)",
+   "bibliography": "<div class=\"csl-entry\">Dupuis, Annie, Piyumi Mudiyanselage, Christie L. Burton, Paul D. Arnold, Jennifer Crosbie, and Russell J. Schachar. 2022. “Hyperfocus or Flow? Attentional Strengths in Autism Spectrum Disorder.” <i>Frontiers in Psychiatry</i> 13: 886692. https://doi.org/10.3389/fpsyt.2022.886692.</div>"
+  },
+  "dwyer2024monotropism": {
+   "parenthetical": "(Dwyer et al. 2024)",
+   "narrative": "Dwyer et al. (2024)",
+   "bibliography": "<div class=\"csl-entry\">Dwyer, Patrick, Zachary J. Williams, Wenn B. Lawson, and Susan M. Rivera. 2024. “A Trans-Diagnostic Investigation of Attention, Hyper-Focus, and Monotropism in Autism, Attention Dysregulation Hyperactivity Development, and the General Population.” <i>Neurodiversity</i> 2: 27546330241237883. https://doi.org/10.1177/27546330241237883.</div>"
+  },
+  "edwards1970depressurization": {
+   "parenthetical": "(Edwards and O’Brien 1970)",
+   "narrative": "Edwards and O’Brien (1970)",
+   "bibliography": "<div class=\"csl-entry\">Edwards, A. R., and T. P. O’Brien. 1970. “Studies of Phenomena Connected with the Depressurization of Water Reactors.” <i>Journal of the British Nuclear Energy Society</i>, 125–35.</div>"
+  },
+  "elsevier2026genai": {
+   "parenthetical": "(Elsevier 2026b)",
+   "narrative": "Elsevier (2026b)",
+   "bibliography": "<div class=\"csl-entry\">Elsevier. 2026b. “Generative AI Policies for Journals.” https://www.elsevier.com/about/policies-and-standards/generative-ai-policies-for-journals.</div>"
+  },
+  "ema_singapore_inir_2026": {
+   "parenthetical": "(Energy Market Authority 2026)",
+   "narrative": "Energy Market Authority (2026)",
+   "bibliography": "<div class=\"csl-entry\">Energy Market Authority. 2026. “Singapore to Undertake IAEA Review by International Experts to Assess Its Ability to Make Informed Decision on Nuclear Energy Deployment.” May 19. https://www.ema.gov.sg/news-events/news/media-releases/2026/Singapore-to-Undertake-IAEA-Review-by-International-Experts-to-Assess-Its-Ability-to-Make-Informed-Decision-on-Nuclear-Energy-Deployment.</div>"
+  },
+  "eng2024will": {
+   "parenthetical": "(Eng and Liu 2024)",
+   "narrative": "Eng and Liu (2024)",
+   "bibliography": "<div class=\"csl-entry\">Eng, Poh Hwa, and Ran Long Liu. 2024. “Will Intelligent Technologies Replace Humans in the Future? An Exploratory Study for Likelihood of Intelligent Technologies to Replace Humans in the Future.” In <i>Current and Future Trends on Intelligent Technology Adoption: Volume 2</i>. Springer.</div>"
+  },
+  "fan2020escaping": {
+   "parenthetical": "(Fan et al. 2020)",
+   "narrative": "Fan et al. (2020)",
+   "bibliography": "<div class=\"csl-entry\">Fan, Gang, Chengpeng Wang, Rongxin Wu, Xiao Xiao, Qingkai Shi, and Charles Zhang. 2020. “Escaping Dependency Hell: Finding Build Dependency Errors with the Unified Dependency Graph.” <i>Proceedings of the 29th ACM SIGSOFT International Symposium on Software Testing and Analysis</i>, 463–74.</div>"
+  },
+  "feng2024far": {
+   "parenthetical": "(Feng et al. 2024)",
+   "narrative": "Feng et al. (2024)",
+   "bibliography": "<div class=\"csl-entry\">Feng, Tao, Chuanyang Jin, Jingyu Liu, et al. 2024. “How Far Are We from Agi: Are Llms All We Need?” <i>arXiv Preprint arXiv:2405.10313</i>.</div>"
+  },
+  "ferreira2021femfvm": {
+   "parenthetical": "(Ferreira and others 2021)",
+   "narrative": "Ferreira and others (2021)",
+   "bibliography": "<div class=\"csl-entry\">Ferreira, A. and others. 2021. “Analysis of Finite Element and Finite Volume Methods for Fluid-Structure Interaction Simulation of Blood Flow in a Real Stenosed Artery.” <i>International Journal of Mechanical Sciences</i> 207: 106650. https://doi.org/10.1016/j.ijmecsci.2021.106650.</div>"
+  },
+  "fiorina2015gen": {
+   "parenthetical": "(Fiorina et al. 2015)",
+   "narrative": "Fiorina et al. (2015)",
+   "bibliography": "<div class=\"csl-entry\">Fiorina, Carlo, Ivor Clifford, Manuele Aufiero, and Konstantin Mikityuk. 2015. “GeN-Foam: A Novel OpenFOAM® Based Multi-Physics Solver for 2D/3D Transient Analysis of Nuclear Reactors.” <i>Nuclear Engineering and Design</i> 294: 24–37.</div>"
+  },
+  "fischer2022nekrs": {
+   "parenthetical": "(Fischer et al. 2022)",
+   "narrative": "Fischer et al. (2022)",
+   "bibliography": "<div class=\"csl-entry\">Fischer, Paul, Stefan Kerkemeier, Misun Min, et al. 2022. “NekRS, a GPU-Accelerated Spectral Element Navier–Stokes Solver.” <i>Parallel Computing</i> 114: 102982.</div>"
+  },
+  "friant2023state": {
+   "parenthetical": "(Friant et al. 2023)",
+   "narrative": "Friant et al. (2023)",
+   "bibliography": "<div class=\"csl-entry\">Friant, David, David Bernard, and Patrick Blaise. 2023. “State of the Art on Doppler Broadening: Modern Developments on the Fuel Temperature Coefficient.” <i>Nuclear Science and Engineering</i> 197 (8): 1991–2006.</div>"
+  },
+  "fritzson2020openmodelica": {
+   "parenthetical": "(Fritzson et al. 2020)",
+   "narrative": "Fritzson et al. (2020)",
+   "bibliography": "<div class=\"csl-entry\">Fritzson, Peter, Adrian Pop, Karim Abdelhak, et al. 2020. “The OpenModelica Integrated Environment for Modeling, Simulation, and Model-Based Development.” <i>Modeling, Identification and Control</i> 41 (4): 241–95.</div>"
+  },
+  "fulton2021benefits": {
+   "parenthetical": "(Fulton et al. 2021)",
+   "narrative": "Fulton et al. (2021)",
+   "bibliography": "<div class=\"csl-entry\">Fulton, Kelsey R., Anna Chan, Daniel Votipka, Michael Hicks, and Michelle L. Mazurek. 2021. “Benefits and Drawbacks of Adopting a Secure Programming Language: Rust as a Case Study.” <i>Seventeenth Symposium on Usable Privacy and Security (SOUPS 2021)</i>, 597–616.</div>"
+  },
+  "galassi2002gnu": {
+   "parenthetical": "(Galassi et al. 2002)",
+   "narrative": "Galassi et al. (2002)",
+   "bibliography": "<div class=\"csl-entry\">Galassi, Mark, Jim Davies, James Theiler, et al. 2002. <i>GNU Scientific Library</i>. Network Theory Limited Godalming.</div>"
+  },
+  "ganuthula_paradox_augmentation_2026": {
+   "parenthetical": "(Ganuthula and Singh 2026)",
+   "narrative": "Ganuthula and Singh (2026)",
+   "bibliography": "<div class=\"csl-entry\">Ganuthula, Venkat Ram Reddy, and Manish Kumar Singh. 2026. “The Paradox of Augmentation: A Theoretical Model of AI-Induced Skill Atrophy.” <i>Human Behavior and Emerging Technologies</i> 2026 (1). https://doi.org/10.1155/hbe2/8303770.</div>"
+  },
+  "gaston2009moose": {
+   "parenthetical": "(Gaston et al. 2009)",
+   "narrative": "Gaston et al. (2009)",
+   "bibliography": "<div class=\"csl-entry\">Gaston, Derek, Chris Newman, Glen Hansen, and Damien Lebrun-Grandie. 2009. “MOOSE: A Parallel Computational Framework for Coupled Systems of Nonlinear Equations.” <i>Nuclear Engineering and Design</i> 239 (10): 1768–78.</div>"
+  },
+  "geffraye2011cathare": {
+   "parenthetical": "(Geffraye et al. 2011)",
+   "narrative": "Geffraye et al. (2011)",
+   "bibliography": "<div class=\"csl-entry\">Geffraye, G., O. Antoni, M. Farvacque, et al. 2011. “CATHARE 2 V2. 5_2: A Single Version for Various Applications.” <i>Nuclear Engineering and Design</i> 241 (11): 4456–63.</div>"
+  },
+  "genfoam-repo": {
+   "parenthetical": "(GeN-Foam Developers 2018)",
+   "narrative": "GeN-Foam Developers (2018)",
+   "bibliography": "<div class=\"csl-entry\">GeN-Foam Developers. 2018. <i>GeN-Foam: A Multi-Physics Solver for Nuclear Reactor Analysis</i>. Released. https://gitlab.com/foam-for-nuclear/GeN-Foam.</div>"
+  },
+  "ghia1982high": {
+   "parenthetical": "(Ghia et al. 1982)",
+   "narrative": "Ghia et al. (1982)",
+   "bibliography": "<div class=\"csl-entry\">Ghia, UKNG, Kirti N. Ghia, and CT Shin. 1982. “High-Re Solutions for Incompressible Flow Using the Navier-Stokes Equations and a Multigrid Method.” <i>Journal of Computational Physics</i> 48 (3): 387–411.</div>"
+  },
+  "gomez2021development": {
+   "parenthetical": "(Gómez-Zarzuela et al. 2021)",
+   "narrative": "Gómez-Zarzuela et al. (2021)",
+   "bibliography": "<div class=\"csl-entry\">Gómez-Zarzuela, C., C. Peña-Monferrer, S. Chiva, and R. Miró. 2021. “Development and Validation of a One-Dimensional Solver in a CFD Platform for Boiling Flows in Bubbly Regimes.” <i>Progress in Nuclear Energy</i> 134: 103680.</div>"
+  },
+  "graphreader": {
+   "parenthetical": "(GraphReader, n.d.)",
+   "narrative": "GraphReader (n.d.)",
+   "bibliography": "<div class=\"csl-entry\">GraphReader. n.d. “GraphReader: Online Tool for Extracting Values from Image-Based Graphs and Plots.” https://www.graphreader.com/.</div>"
+  },
+  "greenshields2022notes": {
+   "parenthetical": "(Greenshields and Weller 2022)",
+   "narrative": "Greenshields and Weller (2022)",
+   "bibliography": "<div class=\"csl-entry\">Greenshields, Christopher J., and Henry G. Weller. 2022. <i>Notes on Computational Fluid Dynamics: General Principles</i>. First. CFD Direct Ltd. https://doc.cfd.direct/notes/cfd-general-principles.</div>"
+  },
+  "guo2016development": {
+   "parenthetical": "(Z Guo et al. 2016)",
+   "narrative": "Z Guo et al. (2016)",
+   "bibliography": "<div class=\"csl-entry\">Guo, Z, N. Zweibaum, M. Shao, LR Huddar, PF Peterson, and S. Qiu. 2016. “Development of the FHR Advanced Natural Circulation Analysis Code and Application to FHR Safety Analysis.” <i>Progress in Nuclear Energy</i> 91: 56–67.</div>"
+  },
+  "guo2025thermal": {
+   "parenthetical": "(Zhexi Guo and Xiao 2025)",
+   "narrative": "Zhexi Guo and Xiao (2025)",
+   "bibliography": "<div class=\"csl-entry\">Guo, Zhexi, and Sicong Xiao. 2025. “Thermal Hydraulic Study of NuScale iPWR Passive Containment Cooling Behaviour during Loss-of-Coolant Accident.” <i>International Journal of Advanced Nuclear Reactor Design and Technology</i> 7 (2): 100–109.</div>"
+  },
+  "gupta2025legacy": {
+   "parenthetical": "(Gupta et al. 2025)",
+   "narrative": "Gupta et al. (2025)",
+   "bibliography": "<div class=\"csl-entry\">Gupta, Sparsh, Kamalavasan Kamalakkannan, Maxim Moraru, Galen Shipman, and Patrick Diehl. 2025. “From Legacy Fortran to Portable Kokkos: An Autonomous Agentic AI Workflow.” <i>arXiv Preprint arXiv:2509.12443</i>.</div>"
+  },
+  "hackbarth2010assessing": {
+   "parenthetical": "(Hackbarth et al. 2010)",
+   "narrative": "Hackbarth et al. (2010)",
+   "bibliography": "<div class=\"csl-entry\">Hackbarth, Randy L., Audris Mockus, John Douglas Palframan, and David M. Weiss. 2010. “Assessing the State of Software in a Large Enterprise.” <i>Empirical Software Engineering</i> 15 (3): 219–49.</div>"
+  },
+  "hales2020bison": {
+   "parenthetical": "(Hales et al. 2020)",
+   "narrative": "Hales et al. (2020)",
+   "bibliography": "<div class=\"csl-entry\">Hales, Jason D., Wen Jiang, Aysenur Toptan, and Kyle A. Gamble. 2020. <i>BISON TRISO Modeling Advancements and Validation to AGR-1 Data</i>. Idaho National Lab.(INL), Idaho Falls, ID (United States).</div>"
+  },
+  "hall1978marviken": {
+   "parenthetical": "(Hall and Ericson 1978)",
+   "narrative": "Hall and Ericson (1978)",
+   "bibliography": "<div class=\"csl-entry\">Hall, Douglas G., and Leif Ericson. 1978. “The Marviken Critical Flow Test—A Description and Early Results.” <i>ENS/ANS International Topical Meeting on Nuclear Power Reactor Safety, Belgium</i>.</div>"
+  },
+  "hassan2025agentic": {
+   "parenthetical": "(Hassan et al. 2025)",
+   "narrative": "Hassan et al. (2025)",
+   "bibliography": "<div class=\"csl-entry\">Hassan, Ahmed E., Hao Li, Dayi Lin, et al. 2025. “Agentic Software Engineering: Foundational Pillars and a Research Roadmap.” <i>arXiv Preprint arXiv:2509.06216</i>.</div>"
+  },
+  "higham2002accuracy": {
+   "parenthetical": "(Higham 2002)",
+   "narrative": "Higham (2002)",
+   "bibliography": "<div class=\"csl-entry\">Higham, Nicholas J. 2002. <i>Accuracy and Stability of Numerical Algorithms</i>. 2nd ed. Society for Industrial and Applied Mathematics (SIAM).</div>"
+  },
+  "hill2011approximating": {
+   "parenthetical": "(HILL 2011)",
+   "narrative": "HILL (2011)",
+   "bibliography": "<div class=\"csl-entry\">HILL, MITCH. 2011. <i>APPROXIMATING THE RANDOM WALK USING THE CENTRAL LIMIT THEOREM</i>.</div>"
+  },
+  "hook2009testing": {
+   "parenthetical": "(Hook and Kelly 2009)",
+   "narrative": "Hook and Kelly (2009)",
+   "bibliography": "<div class=\"csl-entry\">Hook, Daniel, and Diane Kelly. 2009. “Testing for Trustworthiness in Scientific Software.” <i>2009 ICSE Workshop on Software Engineering for Computational Science and Engineering</i>, 59–64.</div>"
+  },
+  "hu2025sam": {
+   "parenthetical": "(Hu et al. 2025)",
+   "narrative": "Hu et al. (2025)",
+   "bibliography": "<div class=\"csl-entry\">Hu, Rui, Ling Zou, Daniel O’Grady, et al. 2025. “SAM: A Modern System Code for Advanced Non-LWR Safety Analysis.” <i>Nuclear Technology</i> 211 (9): 1883–902.</div>"
+  },
+  "huang2025survey": {
+   "parenthetical": "(Huang et al. 2025)",
+   "narrative": "Huang et al. (2025)",
+   "bibliography": "<div class=\"csl-entry\">Huang, Lei, Weijiang Yu, Weitao Ma, et al. 2025. “A Survey on Hallucination in Large Language Models: Principles, Taxonomy, Challenges, and Open Questions.” <i>ACM Transactions on Information Systems</i> 43 (2): 1–55.</div>"
+  },
+  "iaeatecdoc1382": {
+   "parenthetical": "(International Atomic Energy Agency 2003)",
+   "narrative": "International Atomic Energy Agency (2003)",
+   "bibliography": "<div class=\"csl-entry\">International Atomic Energy Agency. 2003. <i>Evaluation of High Temperature Gas Cooled Reactor Performance</i>. IAEA-TECDOC-1382. International Atomic Energy Agency.</div>"
+  },
+  "imda_aixtech_2026": {
+   "parenthetical": "(Infocomm Media Development Authority 2026)",
+   "narrative": "Infocomm Media Development Authority (2026)",
+   "bibliography": "<div class=\"csl-entry\">Infocomm Media Development Authority. 2026. “Major Push to Upskill 40,000 Tech Professionals over the Next Three Years and Grow the Next-Generation of Tech Leaders as IMDA Doubles Down on AI Readiness.” May 8. https://www.imda.gov.sg/resources/press-releases-factsheets-and-speeches/press-releases/2026/major-push-to-upskill-tech-professionals-and-grow-the-next-generation-of-tech-leaders.</div>"
+  },
+  "infographics_show_ai_bill_2026": {
+   "parenthetical": "(The Infographics Show 2026)",
+   "narrative": "The Infographics Show (2026)",
+   "bibliography": "<div class=\"csl-entry\">The Infographics Show. 2026. “The \\15,000 AI Bill. Your \\20 Subscription Is a DELUSION.” June. https://www.youtube.com/watch?v=UfApUobqN8Y.</div>"
+  },
+  "jasak1996openfoamthesisphd": {
+   "parenthetical": "(Jasak 1996)",
+   "narrative": "Jasak (1996)",
+   "bibliography": "<div class=\"csl-entry\">Jasak, Hrvoje. 1996. “Error Analysis and Estimation for the Finite Volume Method with Applications to Fluid Flows.” PhD Thesis, Imperial College of Science, Technology and Medicine, University of London.</div>"
+  },
+  "jasak2007openfoam": {
+   "parenthetical": "(Jasak et al. 2007)",
+   "narrative": "Jasak et al. (2007)",
+   "bibliography": "<div class=\"csl-entry\">Jasak, Hrvoje, Aleksandar Jemcov, and Željko Tuković. 2007. “OpenFOAM: A C++ Library for Complex Physics Simulations.” <i>International Workshop on Coupled Methods in Numerical Dynamics</i> (Dubrovnik, Croatia).</div>"
+  },
+  "jasak2009openfoam": {
+   "parenthetical": "(Jasak 2009)",
+   "narrative": "Jasak (2009)",
+   "bibliography": "<div class=\"csl-entry\">Jasak, Hrvoje. 2009. “OpenFOAM: Open Source CFD in Research and Industry.” <i>International Journal of Naval Architecture and Ocean Engineering</i> 1 (2): 89–94.</div>"
+  },
+  "jiang2023fission": {
+   "parenthetical": "(Jiang et al. 2023)",
+   "narrative": "Jiang et al. (2023)",
+   "bibliography": "<div class=\"csl-entry\">Jiang, Wen, Aysenur Toptan, Jason D. Hales, Benjamin W. Spencer, and Stephen R. Novascone. 2023. <i>Fission Product Transport in TRISO Particles and Pebbles</i>. Idaho National Lab.(INL), Idaho Falls, ID (United States).</div>"
+  },
+  "kabach2021intercomparison": {
+   "parenthetical": "(Kabach et al. 2021)",
+   "narrative": "Kabach et al. (2021)",
+   "bibliography": "<div class=\"csl-entry\">Kabach, Ouadie, Abdelouahed Chetaine, Abdelfettah Benchrif, and Hamid Amsil. 2021. “An Inter-Comparison between ENDF/B-VIII.0-NECP-Atlas and ENDF/B-VIII.0-NJOY Results for Criticality Safety Benchmarks and Benchmarks on the Reactivity Temperature Coefficient.” <i>Nuclear Engineering and Technology</i> 53 (8): 2445–53. https://doi.org/10.1016/j.net.2021.02.012.</div>"
+  },
+  "kailasa2022mostly": {
+   "parenthetical": "(Kailasa and Betcke 2022)",
+   "narrative": "Kailasa and Betcke (2022)",
+   "bibliography": "<div class=\"csl-entry\">Kailasa, Srinath, and Timo Betcke. 2022. “Mostly Painless Scientific Computing with Rust.” <i>SC ACM Student Research Competition Posters. The International Conference for High Performance Computing, Networking, Storage, and Analysis</i>.</div>"
+  },
+  "kieffer1977sound": {
+   "parenthetical": "(Kieffer 1977)",
+   "narrative": "Kieffer (1977)",
+   "bibliography": "<div class=\"csl-entry\">Kieffer, Susan Werner. 1977. “Sound Speed in Liquid-Gas Mixtures: Water-Air and Water-Steam.” <i>Journal of Geophysical Research</i> 82 (20): 2895–904.</div>"
+  },
+  "kim2005elimination": {
+   "parenthetical": "(Y. Kim and Baek 2005)",
+   "narrative": "Y. Kim and Baek (2005)",
+   "bibliography": "<div class=\"csl-entry\">Kim, Yonghee, and Min Baek. 2005. <i>Elimination of Double-Heterogeneity through a Reactivity-Equivalent Physical Transformation</i>.</div>"
+  },
+  "kim2008simulating": {
+   "parenthetical": "(C.-H. Kim et al. 2008)",
+   "narrative": "C.-H. Kim et al. (2008)",
+   "bibliography": "<div class=\"csl-entry\">Kim, Cheol-Hee, Chang-Keun Song, Sang-Hyun Lee, and Sang-Keun Song. 2008. “Simulating Mesoscale Transport and Diffusion of Radioactive Noble Gases Using the Lagrangian Particle Dispersion Model.” <i>Journal of Environmental Radioactivity</i> 99 (10): 1644–52.</div>"
+  },
+  "kloss2012models": {
+   "parenthetical": "(Kloss et al. 2012)",
+   "narrative": "Kloss et al. (2012)",
+   "bibliography": "<div class=\"csl-entry\">Kloss, Christoph, Christoph Goniva, Alice Hager, Stefan Amberger, and Stefan Pirker. 2012. “Models, Algorithms and Validation for Opensource DEM and CFD-DEM.” <i>Progress in Computational Fluid Dynamics, An International Journal</i> 12 (2/3): 140–52. https://doi.org/10.1504/PCFD.2012.047457.</div>"
+  },
+  "leipzig2021role": {
+   "parenthetical": "(Leipzig et al. 2021)",
+   "narrative": "Leipzig et al. (2021)",
+   "bibliography": "<div class=\"csl-entry\">Leipzig, Jeremy, Daniel Nüst, Charles Tapley Hoyt, Karthik Ram, and Jane Greenberg. 2021. “The Role of Metadata in Reproducible Computational Research.” <i>Patterns</i> 2 (9).</div>"
+  },
+  "leppanen2010delta": {
+   "parenthetical": "(Leppänen 2010)",
+   "narrative": "Leppänen (2010)",
+   "bibliography": "<div class=\"csl-entry\">Leppänen, Jaakko. 2010. “Performance of Woodcock Delta-Tracking in Lattice Physics Applications Using the Serpent Monte Carlo Reactor Physics Burnup Calculation Code.” <i>Annals of Nuclear Energy</i> 37 (5): 715–22. https://doi.org/10.1016/j.anucene.2010.01.011.</div>"
+  },
+  "leppanen2013development": {
+   "parenthetical": "(Leppänen and others 2013)",
+   "narrative": "Leppänen and others (2013)",
+   "bibliography": "<div class=\"csl-entry\">Leppänen, Jaakko and others. 2013. “Development of a Dynamic Simulation Mode in Serpent 2 Monte Carlo Code.” <i>Proceedings of M&#38;c</i>, 5–9.</div>"
+  },
+  "leppanen2017delta": {
+   "parenthetical": "(Leppänen 2017a)",
+   "narrative": "Leppänen (2017a)",
+   "bibliography": "<div class=\"csl-entry\">Leppänen, Jaakko. 2017a. “On the Use of Delta-Tracking and the Collision Flux Estimator in the Serpent 2 Monte Carlo Particle Transport Code.” <i>Annals of Nuclear Energy</i> 105: 161–67. https://doi.org/10.1016/j.anucene.2017.03.006.</div>"
+  },
+  "leppanen2017use": {
+   "parenthetical": "(Leppänen 2017b)",
+   "narrative": "Leppänen (2017b)",
+   "bibliography": "<div class=\"csl-entry\">Leppänen, Jaakko. 2017b. “On the Use of Delta-Tracking and the Collision Flux Estimator in the Serpent 2 Monte Carlo Particle Transport Code.” <i>Annals of Nuclear Energy</i> 105: 161–67.</div>"
+  },
+  "leung2011modelling": {
+   "parenthetical": "(Leung et al. 2011)",
+   "narrative": "Leung et al. (2011)",
+   "bibliography": "<div class=\"csl-entry\">Leung, Kenneth, Stephanie Langton, David Hummel, and David R. Novog. 2011. “Modelling of Flow Instabilities under Supercritical Conditions.” <i>Proceedings of the Canadian Nuclear Society</i>.</div>"
+  },
+  "li2014htr10rmc": {
+   "parenthetical": "(W. Li et al. 2014)",
+   "narrative": "W. Li et al. (2014)",
+   "bibliography": "<div class=\"csl-entry\">Li, Wanlin, Ganglin Yu, and Chunlin Wei. 2014. “Research on Benchmark Calculation and Analysis of HTR-10 with RMC Code.” <i>7th International Topical Meeting on High Temperature Reactor Technology (HTR 2014)</i> (Weihai, China), October.</div>"
+  },
+  "li2014melcor": {
+   "parenthetical": "(L. Li et al. 2014)",
+   "narrative": "L. Li et al. (2014)",
+   "bibliography": "<div class=\"csl-entry\">Li, Longze, Mingjun Wang, Wenxi Tian, Guanghui Su, and Suizheng Qiu. 2014. “Severe Accident Analysis for a Typical PWR Using the MELCOR Code.” <i>Progress in Nuclear Energy</i> 71: 30–38.</div>"
+  },
+  "liang2013chord": {
+   "parenthetical": "(Liang et al. 2013)",
+   "narrative": "Liang et al. (2013)",
+   "bibliography": "<div class=\"csl-entry\">Liang, Chao, Wei Ji, and Forrest B. Brown. 2013. “Chord Length Sampling Method for Analyzing Stochastic Distribution of Fuel Particles in Continuous Energy Simulations.” <i>Annals of Nuclear Energy</i> 53: 140–46. https://doi.org/10.1016/j.anucene.2012.09.013.</div>"
+  },
+  "lin2025supercharging": {
+   "parenthetical": "(Lin 2025)",
+   "narrative": "Lin (2025)",
+   "bibliography": "<div class=\"csl-entry\">Lin, Zhicheng. 2025. “Techniques for Supercharging Academic Writing with Generative AI.” <i>Nature Biomedical Engineering</i> 9: 426–31. https://doi.org/10.1038/s41551-024-01185-8.</div>"
+  },
+  "lindsay2018introduction": {
+   "parenthetical": "(Lindsay et al. 2018)",
+   "narrative": "Lindsay et al. (2018)",
+   "bibliography": "<div class=\"csl-entry\">Lindsay, Alexander, Gavin Ridley, Andrei Rykhlevskii, and Kathryn Huff. 2018. “Introduction to Moltres: An Application for Simulation of Molten Salt Reactors.” <i>Annals of Nuclear Energy</i> 114: 530–40.</div>"
+  },
+  "linuxkernel2026cve": {
+   "parenthetical": "(Linux Kernel Developers 2026a)",
+   "narrative": "Linux Kernel Developers (2026a)",
+   "bibliography": "<div class=\"csl-entry\">Linux Kernel Developers. 2026a. “CVEs.” https://www.kernel.org/doc/html/latest/process/cve.html.</div>"
+  },
+  "linuxkernel2026security": {
+   "parenthetical": "(Linux Kernel Developers 2026b)",
+   "narrative": "Linux Kernel Developers (2026b)",
+   "bibliography": "<div class=\"csl-entry\">Linux Kernel Developers. 2026b. “Security Bugs.” https://www.kernel.org/doc/html/latest/process/security-bugs.html.</div>"
+  },
+  "liu2026dive": {
+   "parenthetical": "(Jiacheng Liu et al. 2026)",
+   "narrative": "Jiacheng Liu et al. (2026)",
+   "bibliography": "<div class=\"csl-entry\">Liu, Jiacheng, Xiaohan Zhao, Xinyi Shang, and Zhiqiang Shen. 2026. “Dive into Claude Code: The Design Space of Today’s and Future AI Agent Systems.” <i>arXiv Preprint arXiv:2604.14228</i>.</div>"
+  },
+  "liu_iaea_ai_assisted_operation": {
+   "parenthetical": "(LIU et al., n.d.)",
+   "narrative": "LIU et al. (n.d.)",
+   "bibliography": "<div class=\"csl-entry\">LIU, RB, SC Zhou, and ZC Fan. n.d. <i>DEVELOPMENT AND EXPLORATION OF AN AI-ASSISTED DECISION-MAKING SYSTEM FOR THE CHINA EXPERIMENTAL FAST REACTOR BASED ON SIMULATOR DATA</i>.</div>"
+  },
+  "lou2020novel": {
+   "parenthetical": "(L. Lou et al. 2020)",
+   "narrative": "L. Lou et al. (2020)",
+   "bibliography": "<div class=\"csl-entry\">Lou, Lei, Dong Yao, Xiaoming Chai, et al. 2020. “A Novel Reactivity-Equivalent Physical Transformation Method for Homogenization of Double-Heterogeneous Systems.” <i>Annals of Nuclear Energy</i> 142: 107396.</div>"
+  },
+  "mahboob2026corium": {
+   "parenthetical": "(Mahboob et al. 2026)",
+   "narrative": "Mahboob et al. (2026)",
+   "bibliography": "<div class=\"csl-entry\">Mahboob, Kamran, Ahmed Alkaabi, and Yacine Addad. 2026. “Simulating Molten Corium Concrete Interaction: A Multiphase Approach with OpenFOAM.” <i>Nuclear Engineering and Technology</i>, 104357.</div>"
+  },
+  "mangul2019recommendations": {
+   "parenthetical": "(Mangul et al. 2020)",
+   "narrative": "Mangul et al. (2020)",
+   "bibliography": "<div class=\"csl-entry\">Mangul, Serghei, Lana S. Martin, Brian L. Hill, et al. 2020. “Recommendations to Enhance Rigor and Reproducibility in Biomedical Research.” <i>GigaScience</i> 9 (6). https://doi.org/10.1093/gigascience/giaa056.</div>"
+  },
+  "marcondes_using_ollama_2025": {
+   "parenthetical": "(Marcondes et al. 2025)",
+   "narrative": "Marcondes et al. (2025)",
+   "bibliography": "<div class=\"csl-entry\">Marcondes, Francisco S., Adelino Gala, Renata Magalhães, Fernando Perez de Britto, Dalila Durães, and Paulo Novais. 2025. “Using Ollama.” In <i>Natural Language Analytics with Generative Large-Language Models: A Practical Approach with Ollama and Open-Source LLMs</i>. SpringerBriefs in Computer Science. Springer Nature Switzerland. https://doi.org/10.1007/978-3-031-76631-2_3.</div>"
+  },
+  "marzouk2020sod": {
+   "parenthetical": "(Marzouk 2020)",
+   "narrative": "Marzouk (2020)",
+   "bibliography": "<div class=\"csl-entry\">Marzouk, Osama A. 2020. “The Sod Gasdynamics Problem as a Tool for Benchmarking Face Flux Construction in the Finite Volume Method.” <i>Scientific African</i> 10: e00573. https://doi.org/10.1016/j.sciaf.2020.e00573.</div>"
+  },
+  "meneely2009secure": {
+   "parenthetical": "(Meneely and Williams 2009)",
+   "narrative": "Meneely and Williams (2009)",
+   "bibliography": "<div class=\"csl-entry\">Meneely, Andrew, and Laurie Williams. 2009. “Secure Open Source Collaboration: An Empirical Study of Linus’ Law.” <i>Proceedings of the 16th ACM Conference on Computer and Communications Security</i>, 453–62. https://doi.org/10.1145/1653662.1653717.</div>"
+  },
+  "miao2025paper2agent": {
+   "parenthetical": "(Miao et al. 2025)",
+   "narrative": "Miao et al. (2025)",
+   "bibliography": "<div class=\"csl-entry\">Miao, Jiacheng, Joe R. Davis, Yaohui Zhang, Jonathan K. Pritchard, and James Zou. 2025. “Paper2agent: Reimagining Research Papers as Interactive and Reliable Ai Agents.” <i>arXiv Preprint arXiv:2509.06917</i>.</div>"
+  },
+  "moltres_github": {
+   "parenthetical": "(Advanced Reactors and Fuel Cycles Group 2026)",
+   "narrative": "Advanced Reactors and Fuel Cycles Group (2026)",
+   "bibliography": "<div class=\"csl-entry\">Advanced Reactors and Fuel Cycles Group. 2026. “Moltres: An Open-Source MOOSE Application for the Simulation of Molten Salt Reactors.” GitHub. https://github.com/arfc/moltres.</div>"
+  },
+  "moody1975maximum": {
+   "parenthetical": "(Moody 1975)",
+   "narrative": "Moody (1975)",
+   "bibliography": "<div class=\"csl-entry\">Moody, F. J. 1975. <i>Maximum Discharge Rate of Liquid-Vapor Mixtures from Vessels</i>. NEDO-21052. General Electric Co., San Jose, CA (United States). BWR Projects Dept. https://www.osti.gov/servlets/purl/7309475.</div>"
+  },
+  "murphy2016problem": {
+   "parenthetical": "(Murphy 2016)",
+   "narrative": "Murphy (2016)",
+   "bibliography": "<div class=\"csl-entry\">Murphy, Michael D. 2016. “Problem Definition.” In <i>Landscape Architecture Theory: An Ecological Approach</i>. Springer.</div>"
+  },
+  "nature2026attribution": {
+   "parenthetical": "(“AI Companies Must Work with the Research Community to Protect Attribution” 2026)",
+   "narrative": "AI Companies Must Work with the Research Community to Protect Attribution (2026)",
+   "bibliography": "<div class=\"csl-entry\">“AI Companies Must Work with the Research Community to Protect Attribution.” 2026. <i>Nature</i> 657 (September): 573. https://doi.org/10.1038/d41586-026-02886-7.</div>"
+  },
+  "nervi2026foamfornuclear": {
+   "parenthetical": "(Nervi et al. 2026)",
+   "narrative": "Nervi et al. (2026)",
+   "bibliography": "<div class=\"csl-entry\">Nervi, Giovanni, Thomas Guilbaud, Carlo Fiorina, Mathieu Hursin, and Alessandro Scolaro. 2026. “foamForNuclear: A Unified OpenFOAM Multi-Physics Platform for Nuclear Applications.” <i>Progress in Nuclear Energy</i> 193: 106250. https://doi.org/10.1016/j.pnucene.2026.106250.</div>"
+  },
+  "ningsih2023singlish": {
+   "parenthetical": "(Ningsih and Rahman 2023)",
+   "narrative": "Ningsih and Rahman (2023)",
+   "bibliography": "<div class=\"csl-entry\">Ningsih, Nourma Silvia, and Fadhlur Rahman. 2023. “Exploring the Unique Morphological and Syntactic Features of Singlish (Singapore English).” <i>Journal of English in Academic and Professional Communication</i> 9 (2): 72–80. https://doi.org/10.25047/jeapco.v9i2.3933.</div>"
+  },
+  "njoy2016": {
+   "parenthetical": "(MacFarlane et al. 2017)",
+   "narrative": "MacFarlane et al. (2017)",
+   "bibliography": "<div class=\"csl-entry\">MacFarlane, Robert E., Douglas W. Muir, Raymond M. Boicourt, Albert C. Kahler, and Jeremy L. Conlin. 2017. <i>The NJOY Nuclear Data Processing System, Version 2016</i>. Technical Report LA-UR-17-20093. Los Alamos National Laboratory. https://www.osti.gov/biblio/1338791.</div>"
+  },
+  "nnc261_matrixmarket": {
+   "parenthetical": "(Matrix Market 1995)",
+   "narrative": "Matrix Market (1995)",
+   "bibliography": "<div class=\"csl-entry\">Matrix Market. 1995. “NNC261: Nuclear Reactor Neutron Diffusion Matrix.” https://math.nist.gov/MatrixMarket/data/Harwell-Boeing/nucl/nnc261.html.</div>"
+  },
+  "novak2023coupled": {
+   "parenthetical": "(Novak et al. 2023)",
+   "narrative": "Novak et al. (2023)",
+   "bibliography": "<div class=\"csl-entry\">Novak, AJ, P. Shriwise, PK Romano, R. Rahaman, E. Merzari, and D. Gaston. 2023. “Coupled Monte Carlo Transport and Conjugate Heat Transfer for Wire-Wrapped Bundles within the MOOSE Framework.” <i>Nuclear Science and Engineering</i> 197 (10): 2561–84.</div>"
+  },
+  "nrc2024ai": {
+   "parenthetical": "(U.S. Nuclear Regulatory Commission 2024)",
+   "narrative": "U.S. Nuclear Regulatory Commission (2024)",
+   "bibliography": "<div class=\"csl-entry\">U.S. Nuclear Regulatory Commission. 2024. <i>Advancing the Use of Artificial Intelligence at the U.S. Nuclear Regulatory Commission</i>. SECY-24-0035. U.S. Nuclear Regulatory Commission. https://www.nrc.gov/docs/ML2408/ML24086A002.pdf.</div>"
+  },
+  "oktavian2025optimization": {
+   "parenthetical": "(Oktavian et al. 2025)",
+   "narrative": "Oktavian et al. (2025)",
+   "bibliography": "<div class=\"csl-entry\">Oktavian, M. Rizki, Anirudh Tunga, Amandeep Bakshi, Michael J. Mueterthies, J. Thomas Gruenwald, and Jonathan Nistor. 2025. “Optimization through In-Context Learning and Iterative LLM Prompting for Nuclear Engineering Design Problems.” <i>arXiv Preprint arXiv:2503.19620</i>.</div>"
+  },
+  "ong2023masters": {
+   "parenthetical": "(T. K. C. Ong 2023)",
+   "narrative": "T. K. C. Ong (2023)",
+   "bibliography": "<div class=\"csl-entry\">Ong, Theodore Kay Chen. 2023. <i>Development of an Isothermal-Flow Digital Twin for the Compact Integral Effects Test</i>. University of California, Berkeley.</div>"
+  },
+  "ong2024chemengprocesscontrol": {
+   "parenthetical": "(T. K. C. Ong 2024a)",
+   "narrative": "T. K. C. Ong (2024a)",
+   "bibliography": "<div class=\"csl-entry\">Ong, Theodore Kay Chen. 2024a. “Chem-Eng-Real-Time-Process-Control-Simulator: A Real-Time Process Control Simulator Library.” GitHub. https://github.com/theodoreOnzGit/chem-eng-real-time-process-control-simulator.</div>"
+  },
+  "ong2024digital": {
+   "parenthetical": "(T. K. C. Ong 2024b)",
+   "narrative": "T. K. C. Ong (2024b)",
+   "bibliography": "<div class=\"csl-entry\">Ong, Theodore Kay Chen. 2024b. <i>Digital Twins as Testbeds for Iterative Simulated Neutronics Feedback Controller Development</i>. University of California, Berkeley.</div>"
+  },
+  "ong2024thermalhydraulicsrs": {
+   "parenthetical": "(T. K. C. Ong 2024c)",
+   "narrative": "T. K. C. Ong (2024c)",
+   "bibliography": "<div class=\"csl-entry\">Ong, Theodore Kay Chen. 2024c. “Thermal_hydraulics_rs: A Thermal Hydraulics Library Primarily for the Compact Integral Effects Test (CIET) and the Fluoride Salt Cooled High Temperature Reactor (FHR).” GitHub. https://github.com/theodoreOnzGit/thermal_hydraulics_rs.</div>"
+  },
+  "ong2024tuas": {
+   "parenthetical": "(T. K. C. Ong et al. 2024a)",
+   "narrative": "T. K. C. Ong et al. (2024a)",
+   "bibliography": "<div class=\"csl-entry\">Ong, Theodore Kay Chen, Sicong Xiao, and Per F. Peterson. 2024a. “An Open-Source Thermo-Hydraulic Uniphase Advection and Convection Solver for Salt Flows (TUAS).” <i>International Journal of Advanced Nuclear Reactor Design and Technology</i> 6 (4): 281–301.</div>"
+  },
+  "ong2024tuasgithubrepo": {
+   "parenthetical": "(T. K. C. Ong et al. 2024b)",
+   "narrative": "T. K. C. Ong et al. (2024b)",
+   "bibliography": "<div class=\"csl-entry\">Ong, Theodore Kay Chen, Sicong Xiao, and Per F. Peterson. 2024b. “TUAS Boussinesq Solver.” GitHub. https://github.com/theodoreOnzGit/tuas_boussinesq_solver.</div>"
+  },
+  "ong2025nureth": {
+   "parenthetical": "(T. Ong et al. 2025)",
+   "narrative": "T. Ong et al. (2025)",
+   "bibliography": "<div class=\"csl-entry\">Ong, Theodore, Sicong Xiao, and Per Peterson. 2025. “Validation of the Open Source TUAS Using Coupled Natural Circulation Data from CIET.” August.</div>"
+  },
+  "ong2025tehoprke": {
+   "parenthetical": "(T. K. C. Ong 2025)",
+   "narrative": "T. K. C. Ong (2025)",
+   "bibliography": "<div class=\"csl-entry\">Ong, Theodore Kay Chen. 2025. “Teh-o-Prke: Point Reactor Kinetics Equations Module for the Teh-O Package.” GitHub. https://github.com/theodoreOnzGit/teh-o-prke.</div>"
+  },
+  "ong2026boonlay": {
+   "parenthetical": "(T. K. C. Ong 2026a)",
+   "narrative": "T. K. C. Ong (2026a)",
+   "bibliography": "<div class=\"csl-entry\">Ong, Theodore Kay Chen. 2026a. “Boon-Lay: BOmbardment Open Source Nuclide Simulation Laboratory Algorithm for Yields (BOON LAY).” GitHub. https://github.com/theodoreOnzGit/boon-lay.</div>"
+  },
+  "ong2026fissionyieldsdata": {
+   "parenthetical": "(T. K. C. Ong 2026b)",
+   "narrative": "T. K. C. Ong (2026b)",
+   "bibliography": "<div class=\"csl-entry\">Ong, Theodore Kay Chen. 2026b. “Fission-Yields-Data: Fission Yields for Various Nuclides Using ENDF and Other Library Data.” GitHub. https://github.com/theodoreOnzGit/fission-yields-data.</div>"
+  },
+  "ong2026openmcdepletiona": {
+   "parenthetical": "(T. K. C. Ong 2026c)",
+   "narrative": "T. K. C. Ong (2026c)",
+   "bibliography": "<div class=\"csl-entry\">Ong, Theodore Kay Chen. 2026c. “Openmc-Endf-8-Depletion-Lib-a: Rust Parser for OpenMC ENDF/B-VIII.0 Depletion Chain Data, Part One.” GitHub. https://github.com/theodoreOnzGit/openmc-endf-8-depletion-lib-a.</div>"
+  },
+  "ong2026openmcdepletionb": {
+   "parenthetical": "(T. K. C. Ong 2026d)",
+   "narrative": "T. K. C. Ong (2026d)",
+   "bibliography": "<div class=\"csl-entry\">Ong, Theodore Kay Chen. 2026d. “Openmc-Endf-8-Depletion-Lib-b: Rust Parser for OpenMC ENDF/B-VIII.0 Depletion Chain Data, Part Two.” GitHub. https://github.com/theodoreOnzGit/openmc-endf-8-depletion-lib-b.</div>"
+  },
+  "ong2026outramneutronics": {
+   "parenthetical": "(T. K. C. Ong and Xiao 2026)",
+   "narrative": "T. K. C. Ong and Xiao (2026)",
+   "bibliography": "<div class=\"csl-entry\">Ong, Theodore Kay Chen, and Sicong Xiao. 2026. “Agentic Porting, Construction and Initial Verification and Validation of Libraries within the Open Source Unified TRAnsient Multi-Physics Advanced Reactor Simulation Kit (Outram Park) Part II: Nuclear Data and Neutronics.” <i>arXiv Preprint arXiv:2609.15258</i>.</div>"
+  },
+  "ong2026outrampark_arxiv": {
+   "parenthetical": "(T. K. C. Ong et al. 2026a)",
+   "narrative": "T. K. C. Ong et al. (2026a)",
+   "bibliography": "<div class=\"csl-entry\">Ong, Theodore Kay Chen, Ethan Yew Hoe Wong, and Sicong Xiao. 2026a. “Agentic Porting, Construction and Initial Verification and Validation of Libraries within the Open Source Unified TRAnsient Multi-Phase Advanced Reactor Simulation Kit (Outram Park) Part I: Thermal Hydraulics.” https://arxiv.org/abs/2608.17504.</div>"
+  },
+  "ong2026outramparkbackend": {
+   "parenthetical": "(T. K. C. Ong 2026e)",
+   "narrative": "T. K. C. Ong (2026e)",
+   "bibliography": "<div class=\"csl-entry\">Ong, Theodore Kay Chen. 2026e. “Outram Park Backend: Open-Source TRAnsient Multi-Phase Advanced Reactor Simulator Kit.” GitHub. https://github.com/theodoreOnzGit/outram-park-backend.</div>"
+  },
+  "ong2026outramparkpart1": {
+   "parenthetical": "(T. K. C. Ong et al. 2026b)",
+   "narrative": "T. K. C. Ong et al. (2026b)",
+   "bibliography": "<div class=\"csl-entry\">Ong, Theodore Kay Chen, Ethan Yew Hoe Wong, and Sicong Xiao. 2026b. “Agentic Porting, Construction and Initial Verification and Validation of Libraries within the Open Source Unified TRAnsient Multi-Phase Advanced Reactor Simulation Kit (Outram Park) Part I: Thermal Hydraulics.” August. https://arxiv.org/abs/2608.17504.</div>"
+  },
+  "ong2026tampinessteamtables": {
+   "parenthetical": "(T. K. C. Ong 2026f)",
+   "narrative": "T. K. C. Ong (2026f)",
+   "bibliography": "<div class=\"csl-entry\">Ong, Theodore Kay Chen. 2026f. “Tampines-Steam-Tables: In House Steam Tables for the Thermo-Hydraulic Artificial Intelligence Multi-Phase INtegrated Emulator System (TAMPINES) Solver.” GitHub. https://github.com/theodoreOnzGit/tampines-steam-tables.</div>"
+  },
+  "ong_lingot_tuner_rust_2026": {
+   "parenthetical": "(K. C. T. Ong 2026a)",
+   "narrative": "K. C. T. Ong (2026a)",
+   "bibliography": "<div class=\"csl-entry\">Ong, Kay Chen Theodore. 2026a. “Lingot_tuner_rust: A Rust Rewrite of the LINGOT Musical Instrument Tuner Using Claude Code.” June. https://github.com/theodoreOnzGit/lingot_tuner_rust.</div>"
+  },
+  "ong_lingot_video_series_2026": {
+   "parenthetical": "(K. C. T. Ong 2026b)",
+   "narrative": "K. C. T. Ong (2026b)",
+   "bibliography": "<div class=\"csl-entry\">Ong, Kay Chen Theodore. 2026b. “Vibe Coding: Rewriting LINGOT in Rust with Claude Code.” June. https://www.youtube.com/watch?v=_CTuoYE0gEQ.</div>"
+  },
+  "openfoam_cavity_tutorial": {
+   "parenthetical": "(OpenCFD Ltd. 2026)",
+   "narrative": "OpenCFD Ltd. (2026)",
+   "bibliography": "<div class=\"csl-entry\">OpenCFD Ltd. 2026. “2.1 Lid-Driven Cavity Flow.” https://www.openfoam.com/documentation/tutorial-guide/2-incompressible-flow/2.1-lid-driven-cavity-flow.</div>"
+  },
+  "orgogozo2014open": {
+   "parenthetical": "(Orgogozo et al. 2014)",
+   "narrative": "Orgogozo et al. (2014)",
+   "bibliography": "<div class=\"csl-entry\">Orgogozo, L., N. Renon, C. Soulaine, et al. 2014. “An Open Source Massively Parallel Solver for Richards Equation: Mechanistic Modelling of Water Fluxes at the Watershed Scale.” <i>Computer Physics Communications</i> 185 (12): 3358–71. https://doi.org/10.1016/j.cpc.2014.08.004.</div>"
+  },
+  "palmblad2026agentic": {
+   "parenthetical": "(Palmblad et al. 2026)",
+   "narrative": "Palmblad et al. (2026)",
+   "bibliography": "<div class=\"csl-entry\">Palmblad, Magnus, Jared M. Ragland, and Benjamin A. Neely. 2026. “Agentic AI-Assisted Coding Offers a Unique Opportunity to Instill Epistemic Grounding during Software Development.” <i>arXiv Preprint arXiv:2604.21744</i>.</div>"
+  },
+  "pessiglione2025fatigue": {
+   "parenthetical": "(Pessiglione et al. 2025)",
+   "narrative": "Pessiglione et al. (2025)",
+   "bibliography": "<div class=\"csl-entry\">Pessiglione, Mathias, Bastien Blain, Antonius Wiehler, and Shruti Naik. 2025. “Origins and Consequences of Cognitive Fatigue.” <i>Trends in Cognitive Sciences</i> 29 (8): 730–49. https://doi.org/10.1016/j.tics.2025.02.005.</div>"
+  },
+  "price2012golden": {
+   "parenthetical": "(Price and Robertson 2012)",
+   "narrative": "Price and Robertson (2012)",
+   "bibliography": "<div class=\"csl-entry\">Price, CJ, and BL Robertson. 2012. “Golden Section Search.” In <i>Encyclopedia of Engineering Optimization and Heuristics</i>. Springer.</div>"
+  },
+  "rawte2023survey": {
+   "parenthetical": "(Rawte et al. 2023)",
+   "narrative": "Rawte et al. (2023)",
+   "bibliography": "<div class=\"csl-entry\">Rawte, Vipula, Amit Sheth, and Amitava Das. 2023. “A Survey of Hallucination in Large Foundation Models.” <i>arXiv Preprint arXiv:2309.05922</i>.</div>"
+  },
+  "romano2015openmc": {
+   "parenthetical": "(Romano et al. 2015)",
+   "narrative": "Romano et al. (2015)",
+   "bibliography": "<div class=\"csl-entry\">Romano, Paul K., Nicholas E. Horelik, Bryan R. Herman, Adam G. Nelson, Benoit Forget, and Kord Smith. 2015. “OpenMC: A State-of-the-Art Monte Carlo Code for Research and Development.” <i>Annals of Nuclear Energy</i> 82: 90–97.</div>"
+  },
+  "saha1978review": {
+   "parenthetical": "(Saha 1978)",
+   "narrative": "Saha (1978)",
+   "bibliography": "<div class=\"csl-entry\">Saha, P. 1978. <i>A Review of Two-Phase Steam-Water Critical Flow Models with Emphasis on Thermal Nonequilibrium</i>. NUREG/CR-0417, BNL-NUREG-50907. Brookhaven National Laboratory, Upton, NY. https://www.nrc.gov/docs/ML1925/ML19256F779.pdf.</div>"
+  },
+  "santoso2023rust": {
+   "parenthetical": "(Santoso et al. 2023)",
+   "narrative": "Santoso et al. (2023)",
+   "bibliography": "<div class=\"csl-entry\">Santoso, Oey Kevin Andrian, Catherine Kwee, William Chua, Ghinaa Zain Nabiilah, and others. 2023. “Rust’s Memory Safety Model: An Evaluation of Its Effectiveness in Preventing Common Vulnerabilities.” <i>Procedia Computer Science</i> 227: 119–27.</div>"
+  },
+  "sapkota2025vibe": {
+   "parenthetical": "(Sapkota et al. 2025)",
+   "narrative": "Sapkota et al. (2025)",
+   "bibliography": "<div class=\"csl-entry\">Sapkota, Ranjan, Konstantinos I. Roumeliotis, and Manoj Karkee. 2025. “Vibe Coding vs. Agentic Coding: Fundamentals and Practical Implications of Agentic Ai.” <i>arXiv Preprint arXiv:2505.19443</i>.</div>"
+  },
+  "scarlat2012design": {
+   "parenthetical": "(Scarlat 2012)",
+   "narrative": "Scarlat (2012)",
+   "bibliography": "<div class=\"csl-entry\">Scarlat, Raluca Olga. 2012. <i>Design of Complex Systems to Achieve Passive Safety: Natural Circulation Cooling of Liquid Salt Pebble Bed Reactors</i>. University of California, Berkeley.</div>"
+  },
+  "schappel2018modeling": {
+   "parenthetical": "(Schappel et al. 2018)",
+   "narrative": "Schappel et al. (2018)",
+   "bibliography": "<div class=\"csl-entry\">Schappel, D., K. Terrani, JJ Powers, LL Snead, and BD Wirth. 2018. “Modeling the Performance of TRISO-Based Fully Ceramic Matrix (FCM) Fuel in an LWR Environment Using BISON.” <i>Nuclear Engineering and Design</i> 335: 116–27.</div>"
+  },
+  "schmidt2010hrmfoam": {
+   "parenthetical": "(Schmidt et al. 2010)",
+   "narrative": "Schmidt et al. (2010)",
+   "bibliography": "<div class=\"csl-entry\">Schmidt, David P., S. Gopalakrishnan, and Hrvoje Jasak. 2010. “Multi-Dimensional Simulation of Thermal Non-Equilibrium Channel Flow.” <i>International Journal of Multiphase Flow</i> 36 (4): 284–92. https://doi.org/10.1016/j.ijmultiphaseflow.2009.11.012.</div>"
+  },
+  "schmidt_hrmfoam_github": {
+   "parenthetical": "(Schmidt, n.d.)",
+   "narrative": "Schmidt (n.d.)",
+   "bibliography": "<div class=\"csl-entry\">Schmidt, David P. n.d. “HRMFoam: Homogeneous Relaxation Model Solver for OpenFOAM.” Accessed July 6, 2026. https://github.com/davidpschmidt/HRMFoam.</div>"
+  },
+  "skerjanc2020comparison": {
+   "parenthetical": "(Skerjanc 2020)",
+   "narrative": "Skerjanc (2020)",
+   "bibliography": "<div class=\"csl-entry\">Skerjanc, William F. 2020. <i>Comparison of Fission Product Release Predictions Using PARFUME with Results from the AGR-2 Irradiation Experiment</i>. Idaho National Laboratory (INL), Idaho Falls, ID (United States).</div>"
+  },
+  "slaughter2021code": {
+   "parenthetical": "(Slaughter et al. 2021)",
+   "narrative": "Slaughter et al. (2021)",
+   "bibliography": "<div class=\"csl-entry\">Slaughter, Andrew E., Derek R. Gaston, Cody J. Permann, David Andrš, Jason A. Miller, and John W. Peterson. 2021. “Code Documentation, and Automation for Nuclear Quality Assurance.” <i>Nuclear Technology</i> 207 (sup1): S109–16. https://doi.org/10.1080/00295450.2021.1873215.</div>"
+  },
+  "sod1978survey": {
+   "parenthetical": "(Sod 1978)",
+   "narrative": "Sod (1978)",
+   "bibliography": "<div class=\"csl-entry\">Sod, Gary A. 1978. “A Survey of Several Finite Difference Methods for Systems of Nonlinear Hyperbolic Conservation Laws.” <i>Journal of Computational Physics</i> 27 (1): 1–31. https://doi.org/10.1016/0021-9991(78)90023-2.</div>"
+  },
+  "spinellis2009evaluating": {
+   "parenthetical": "(Spinellis et al. 2009)",
+   "narrative": "Spinellis et al. (2009)",
+   "bibliography": "<div class=\"csl-entry\">Spinellis, Diomidis, Georgios Gousios, Vassilios Karakoidas, et al. 2009. “Evaluating the Quality of Open Source Software.” <i>Electronic Notes in Theoretical Computer Science</i> 233: 5–28.</div>"
+  },
+  "steward2025neurobiology": {
+   "parenthetical": "(Steward et al. 2025)",
+   "narrative": "Steward et al. (2025)",
+   "bibliography": "<div class=\"csl-entry\">Steward, Grace, Vivian Looi, and Vikram S. Chib. 2025. “The Neurobiology of Cognitive Fatigue and Its Influence on Effort-Based Choice.” <i>The Journal of Neuroscience</i> 45 (24): e1612242025. https://doi.org/10.1523/JNEUROSCI.1612-24.2025.</div>"
+  },
+  "sun2026quality": {
+   "parenthetical": "(X. Sun et al. 2026)",
+   "narrative": "X. Sun et al. (2026)",
+   "bibliography": "<div class=\"csl-entry\">Sun, Xin, Daniel Ståhl, Kristian Sandahl, and Christoph Kessler. 2026. “Quality Assurance of LLM-Generated Code: Addressing Non-Functional Quality Characteristics.” <i>Journal of Systems and Software</i>, 112885.</div>"
+  },
+  "tan2024rsa": {
+   "parenthetical": "(Z. C. Tan et al. 2024)",
+   "narrative": "Z. C. Tan et al. (2024)",
+   "bibliography": "<div class=\"csl-entry\">Tan, Zhe Chuan, Zeyu Feng, and Kan Wang. 2024. “An Improved Parallel Random Sequential Addition Algorithm in RMC Code for Dispersion Fuel Analysis.” <i>Annals of Nuclear Energy</i> 201: 110439. https://doi.org/10.1016/j.anucene.2024.110439.</div>"
+  },
+  "tan2025scls": {
+   "parenthetical": "(Z. C. Tan et al. 2025a)",
+   "narrative": "Z. C. Tan et al. (2025a)",
+   "bibliography": "<div class=\"csl-entry\">Tan, Zhe Chuan, Zeyu Feng, Ka Yiu Chan, and Kan Wang. 2025a. “A Semi-Implicit Chord Length Sampling Method for Dispersion Fuel Analysis.” <i>Annals of Nuclear Energy</i> 219: 111436. https://doi.org/10.1016/j.anucene.2025.111436.</div>"
+  },
+  "tan2025semi": {
+   "parenthetical": "(Z. C. Tan et al. 2025b)",
+   "narrative": "Z. C. Tan et al. (2025b)",
+   "bibliography": "<div class=\"csl-entry\">Tan, Zhe Chuan, Zhi Yuan Feng, Kok Yue Chan, and Kan Wang. 2025b. “A Semi-Implicit Chord Length Sampling Method for Dispersion Fuel Analysis.” <i>Annals of Nuclear Energy</i> 219: 111436.</div>"
+  },
+  "tan_mom_cos_2026": {
+   "parenthetical": "(S. L. Tan 2026)",
+   "narrative": "S. L. Tan (2026)",
+   "bibliography": "<div class=\"csl-entry\">Tan, See Leng. 2026. “Speech by Minister for Manpower Dr Tan See Leng at Ministry of Manpower Committee of Supply 2026.” March 3. https://www.mom.gov.sg/newsroom/speeches/2026/0303-minister-speech-for-cos-2026.</div>"
+  },
+  "tangsriwong2020modeling": {
+   "parenthetical": "(Tangsriwong et al. 2020)",
+   "narrative": "Tangsriwong et al. (2020)",
+   "bibliography": "<div class=\"csl-entry\">Tangsriwong, Kwanchanok, Puttida Lapchit, Tanatip Kittijungjit, Thepparat Klamrassamee, Yanin Sukjai, and Yossapong Laoonual. 2020. “Modeling of Chemical Processes Using Commercial and Open-Source Software: A Comparison between Aspen Plus and DWSIM.” <i>IOP Conference Series: Earth and Environmental Science</i> 463 (1): 012057.</div>"
+  },
+  "tarafdar2007technostress": {
+   "parenthetical": "(Tarafdar et al. 2007)",
+   "narrative": "Tarafdar et al. (2007)",
+   "bibliography": "<div class=\"csl-entry\">Tarafdar, Monideepa, Qiang Tu, Bhanu S. Ragu-Nathan, and T. S. Ragu-Nathan. 2007. “The Impact of Technostress on Role Stress and Productivity.” <i>Journal of Management Information Systems</i> 24 (1): 301–28. https://doi.org/10.2753/MIS0742-1222240109.</div>"
+  },
+  "tarafdar2019trifecta": {
+   "parenthetical": "(Tarafdar et al. 2019)",
+   "narrative": "Tarafdar et al. (2019)",
+   "bibliography": "<div class=\"csl-entry\">Tarafdar, Monideepa, Cary L. Cooper, and Jean-François Stich. 2019. “The Technostress Trifecta — Techno Eustress, Techno Distress and Design: Theoretical Directions and an Agenda for Research.” <i>Information Systems Journal</i> 29 (1): 6–42. https://doi.org/10.1111/isj.12169.</div>"
+  },
+  "taylor2005finite": {
+   "parenthetical": "(Taylor and Zienkiewicz 2005)",
+   "narrative": "Taylor and Zienkiewicz (2005)",
+   "bibliography": "<div class=\"csl-entry\">Taylor, RL, and OC Zienkiewicz. 2005. <i>The Finite Element Method for Solid and Structural Mechanics</i>. Elsevier.</div>"
+  },
+  "terry2005htr10benchmark": {
+   "parenthetical": "(Terry et al. 2005)",
+   "narrative": "Terry et al. (2005)",
+   "bibliography": "<div class=\"csl-entry\">Terry, William K., Soon Sam Kim, Leland M. Montierth, Joshua J. Cogliati, and Abderrafi M. Ougouag. 2005. <i>Evaluation of the HTR-10 Reactor as a Benchmark for Physics Code QA</i>. Preprint INL/CON-05-00852. Idaho National Laboratory. https://www.osti.gov/servlets/purl/911178.</div>"
+  },
+  "teschner_discretise_nse": {
+   "parenthetical": "(Teschner, n.d.)",
+   "narrative": "Teschner (n.d.)",
+   "bibliography": "<div class=\"csl-entry\">Teschner, Tom-Robin. n.d. “How to Discretise the Navier–Stokes Equations.” CFD University. Accessed July 21, 2026. https://cfd.university/learn/10-key-concepts-everyone-must-understand-in-cfd/how-to-discretise-the-navier-stokes-equations/.</div>"
+  },
+  "thermosyspro_github": {
+   "parenthetical": "(EDF R&#38;D 2026)",
+   "narrative": "EDF R&#38;D (2026)",
+   "bibliography": "<div class=\"csl-entry\">EDF R&#38;D. 2026. “ThermoSysPro: Modelica Library for Thermal-Hydraulic and Power Plant Modelling.” GitHub. https://github.com/ThermoSysPro/ThermoSysPro.</div>"
+  },
+  "toro2013riemann": {
+   "parenthetical": "(Toro 2013)",
+   "narrative": "Toro (2013)",
+   "bibliography": "<div class=\"csl-entry\">Toro, Eleuterio F. 2013. <i>Riemann Solvers and Numerical Methods for Fluid Dynamics: A Practical Introduction</i>. 3rd ed. Springer Science &#38; Business Media.</div>"
+  },
+  "trajanov2026cognitive": {
+   "parenthetical": "(Trajanov and Kocarev 2026)",
+   "narrative": "Trajanov and Kocarev (2026)",
+   "bibliography": "<div class=\"csl-entry\">Trajanov, Dimitar, and Ljupco Kocarev. 2026. <i>The Cognitive Obesity Hypothesis: AI and the Risk of Mental Atrophy</i>.</div>"
+  },
+  "van2009astec": {
+   "parenthetical": "(Van Dorsselaere et al. 2009)",
+   "narrative": "Van Dorsselaere et al. (2009)",
+   "bibliography": "<div class=\"csl-entry\">Van Dorsselaere, JP, C. Seropian, P. Chatelard, et al. 2009. “The ASTEC Integral Code for Severe Accident Simulation.” <i>Nuclear Technology</i> 165 (3): 293–307.</div>"
+  },
+  "veseli2025navigating": {
+   "parenthetical": "(Veseli et al. 2025)",
+   "narrative": "Veseli et al. (2025)",
+   "bibliography": "<div class=\"csl-entry\">Veseli, Bleran, Fisnik Dalipi, Florim Idrizi, Shkurte Luma-Osmani, and Grela Ajvazi. 2025. “Navigating Career Paths: Predictive Modelling of Salary Trends of Data Engineers.” <i>Pattern Recognition and Artificial Intelligence: Selected Papers from the 6th Mediterranean Conference on Pattern Recognition and Artificial Intelligence (MedPRAI24)</i>, 377–89.</div>"
+  },
+  "veytsman2024rewrite": {
+   "parenthetical": "(Veytsman et al. 2024)",
+   "narrative": "Veytsman et al. (2024)",
+   "bibliography": "<div class=\"csl-entry\">Veytsman, Willow, Shuang Zhai, Chen Ding, and Adam B. Sefkow. 2024. “Rewrite It in Rust: A Computational Physics Case Study.” <i>arXiv Preprint arXiv:2410.19146</i>.</div>"
+  },
+  "vsafarik2015speed": {
+   "parenthetical": "(Šafarík et al. 2015)",
+   "narrative": "Šafarík et al. (2015)",
+   "bibliography": "<div class=\"csl-entry\">Šafarík, Pavel, Adam Novỳ, David Jícha, and Miroslav Hajšman. 2015. “On the Speed of Sound in Steam.” <i>Acta Polytechnica</i> 55 (6): 422–26.</div>"
+  },
+  "wagner2008international": {
+   "parenthetical": "(Wagner and Kretzschmar 2008)",
+   "narrative": "Wagner and Kretzschmar (2008)",
+   "bibliography": "<div class=\"csl-entry\">Wagner, Wolfgang, and Hans-Joachim Kretzschmar. 2008. <i>International Steam Tables: Properties of Water and Steam Based on the Industrial Formulation IAPWS-IF97</i>. Springer.</div>"
+  },
+  "wang2004timcoat": {
+   "parenthetical": "(J. Wang et al. 2004)",
+   "narrative": "J. Wang et al. (2004)",
+   "bibliography": "<div class=\"csl-entry\">Wang, Jing, Ronald G. Ballinger, and Heather J. Maclean. 2004. “TIMCOAT: An Integrated Fuel Performance Model for Coated Particle Fuel.” <i>Nuclear Technology</i> 148 (1): 68–96.</div>"
+  },
+  "wang2018coupled": {
+   "parenthetical": "(Xin Wang 2018)",
+   "narrative": "Xin Wang (2018)",
+   "bibliography": "<div class=\"csl-entry\">Wang, Xin. 2018. <i>Coupled Neutronics and Thermal-Hydraulics Modeling for Pebble-Bed Fluoride-Salt-Cooled, High-Temperature Reactor (FHR)</i>. University of California, Berkeley.</div>"
+  },
+  "wanlin2014research": {
+   "parenthetical": "(Wanlin et al. 2014)",
+   "narrative": "Wanlin et al. (2014)",
+   "bibliography": "<div class=\"csl-entry\">Wanlin, Li, Yu Ganglin, and Wei Chunlin. 2014. “Research on Benchmark Calculation and Analysis of HTR-10 with RMC Code.” <i>7th International Topical Meeting on High Temperature Reactor Technology: The Modular HTR Is Advancing towards Reality. Papers and Presentations</i>, no. INIS-CN–17M1840: 6–6.</div>"
+  },
+  "wendt2026delta": {
+   "parenthetical": "(Wendt 2026)",
+   "narrative": "Wendt (2026)",
+   "bibliography": "<div class=\"csl-entry\">Wendt, Kevin. 2026. “Delta Tracking.” https://github.com/openmc-dev/openmc/pull/3971.</div>"
+  },
+  "wong2024effects": {
+   "parenthetical": "(Y. Wong et al. 2024)",
+   "narrative": "Y. Wong et al. (2024)",
+   "bibliography": "<div class=\"csl-entry\">Wong, YH, L. Lampunio, Y. Duan, MD Eaton, and MJ Bluck. 2024. “Effects of Different Momentum Ratios and Reynolds Number in a T-Junction with an Upstream Elbow.” <i>Nuclear Engineering and Design</i> 428: 113523.</div>"
+  },
+  "wong_singapore_budget_2026_ai": {
+   "parenthetical": "(L. Wong 2026)",
+   "narrative": "L. Wong (2026)",
+   "bibliography": "<div class=\"csl-entry\">Wong, Lawrence. 2026. “Singapore Budget 2026 Statement, Section C: Harness AI as a Strategic Advantage.” February. https://singaporebudget.gov.sg.</div>"
+  },
+  "wu2022scwr": {
+   "parenthetical": "(Wu et al. 2022)",
+   "narrative": "Wu et al. (2022)",
+   "bibliography": "<div class=\"csl-entry\">Wu, Pan, Yang Ren, Mingjun Feng, Jianqiang Shan, Yanping Huang, and Wen Yang. 2022. “A Review of Existing SuperCritical Water Reactor Concepts, Safety Analysis Codes and Safety Characteristics.” <i>Progress in Nuclear Energy</i> 153: 104409. https://doi.org/10.1016/j.pnucene.2022.104409.</div>"
+  },
+  "xhonneux2014development": {
+   "parenthetical": "(Andre Xhonneux and Allelein 2014)",
+   "narrative": "Andre Xhonneux and Allelein (2014)",
+   "bibliography": "<div class=\"csl-entry\">Xhonneux, Andre, and Hans-Josef Allelein. 2014. “Development of an Integrated Fission Product Release and Transport Code for Spatially Resolved Full-Core Calculations of V/HTRs.” <i>Nuclear Engineering and Design</i> 271: 361–69.</div>"
+  },
+  "xhonneux2016full": {
+   "parenthetical": "(A Xhonneux et al. 2016)",
+   "narrative": "A Xhonneux et al. (2016)",
+   "bibliography": "<div class=\"csl-entry\">Xhonneux, A, H. J. Allelein, and K. Verfondern. 2016. <i>Full Integration of the Fission Product Release Module STACY into the HTR Code Package (HCP)-18661</i>. American Nuclear Society-ANS, 555 North Kensington Avenue, La Grange Park ….</div>"
+  },
+  "xie2018comprehensive": {
+   "parenthetical": "(Xie et al. 2018)",
+   "narrative": "Xie et al. (2018)",
+   "bibliography": "<div class=\"csl-entry\">Xie, Feng, Hong Li, Xuegang Liu, et al. 2018. “A Comprehensive Study on Source Terms in Irradiated Graphite Spheres of HTR-10.” <i>Annals of Nuclear Energy</i> 122: 352–65.</div>"
+  },
+  "yamamoto2007numerical": {
+   "parenthetical": "(Yamamoto et al. 2007)",
+   "narrative": "Yamamoto et al. (2007)",
+   "bibliography": "<div class=\"csl-entry\">Yamamoto, Akio, Masahiro Tatsumi, and Naoki Sugimura. 2007. “Numerical Solution of Stiff Burnup Equation with Short Half Lived Nuclides by the Krylov Subspace Method.” <i>Journal of Nuclear Science and Technology</i> 44 (2): 147–54.</div>"
+  },
+  "yu2024release": {
+   "parenthetical": "(Yu and Forget 2024)",
+   "narrative": "Yu and Forget (2024)",
+   "bibliography": "<div class=\"csl-entry\">Yu, Jiankai, and Benoit Forget. 2024. “Release of Windowed Multipole Library for ENDF/B-VIII. 0 in Support of OpenMC Criticality and Depletion Analysis.” <i>Progress in Nuclear Energy</i> 168: 104996.</div>"
+  },
+  "zhang2015relap": {
+   "parenthetical": "(H. Zhang et al. 2015)",
+   "narrative": "H. Zhang et al. (2015)",
+   "bibliography": "<div class=\"csl-entry\">Zhang, Hongbin, Haihua Zhao, Frederick Nathan Gleicher, et al. 2015. <i>RELAP-7 Development Updates</i>. Idaho National Laboratory (INL), Idaho Falls, ID (United States).</div>"
+  },
+  "zhang2021linear": {
+   "parenthetical": "(Ting Zhang and Brooks 2021)",
+   "narrative": "Ting Zhang and Brooks (2021)",
+   "bibliography": "<div class=\"csl-entry\">Zhang, Ting, and Caleb S. Brooks. 2021. “Linear Stability Analysis of Flashing Instability Based on the Homogeneous Equilibrium Model.” <i>Nuclear Engineering and Design</i> 373: 110994.</div>"
+  },
+  "zhang2024assessment": {
+   "parenthetical": "(Ting Zhang and Brooks 2024)",
+   "narrative": "Ting Zhang and Brooks (2024)",
+   "bibliography": "<div class=\"csl-entry\">Zhang, Ting, and Caleb S. Brooks. 2024. “Assessment of ASYST and RELAP5 for Predicting Stability and Limit Cycles of a Low-Pressure Natural Circulation Loop with Flashing Instability.” <i>Applied Thermal Engineering</i> 257: 124427.</div>"
+  },
+  "zhang2025mooseagent": {
+   "parenthetical": "(Tao Zhang et al. 2025)",
+   "narrative": "Tao Zhang et al. (2025)",
+   "bibliography": "<div class=\"csl-entry\">Zhang, Tao, Zhenhai Liu, Yong Xin, and Yongjun Jiao. 2025. “MooseAgent: A LLM Based Multi-Agent Framework for Automating MOOSE Simulation.” <i>arXiv Preprint arXiv:2504.08621</i>, ahead of print. https://doi.org/10.48550/arXiv.2504.08621.</div>"
+  },
+  "zhao2026ai": {
+   "parenthetical": "(Zhao and Cho 2026)",
+   "narrative": "Zhao and Cho (2026)",
+   "bibliography": "<div class=\"csl-entry\">Zhao, Celina, and Adrian Cho. 2026. “How an AI Math Breakthrough Ignited a Controversy.” <i>Science</i>, September. https://www.science.org/content/article/how-ai-math-breakthrough-ignited-controversy.</div>"
+  },
+  "zou2019sam": {
+   "parenthetical": "(Zou et al. 2019)",
+   "narrative": "Zou et al. (2019)",
+   "bibliography": "<div class=\"csl-entry\">Zou, Ling, Rui Hu, and Anne Charpentier. 2019. <i>SAM Code Validation Using the Compact Integral Effects Test (CIET) Experimental Data</i>. Argonne National Laboratory (ANL), Argonne, IL (United States). Advanced ….</div>"
+  },
+  "zou2021code": {
+   "parenthetical": "(Zou et al. 2021)",
+   "narrative": "Zou et al. (2021)",
+   "bibliography": "<div class=\"csl-entry\">Zou, Ling, Guojun Hu, Dan O’Grady, and Rui Hu. 2021. “Code Validation of SAM Using Natural-Circulation Experimental Data from the Compact Integral Effects Test (CIET) Facility.” <i>Nuclear Engineering and Design</i> 377: 111144.</div>"
+  },
+  "zweibaum2015experimental": {
+   "parenthetical": "(Zweibaum 2015)",
+   "narrative": "Zweibaum (2015)",
+   "bibliography": "<div class=\"csl-entry\">Zweibaum, Nicolas. 2015. <i>Experimental Validation of Passive Safety System Models: Application to Design and Optimization of Fluoride-Salt-Cooled, High-Temperature Reactors</i>. University of California, Berkeley.</div>"
+  }
+ }
+}

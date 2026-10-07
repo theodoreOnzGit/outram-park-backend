@@ -368,3 +368,58 @@ reference/<case>.json is upstream Zotero's output on those fixtures (run
 in-process, offline). extract_identifiers_inputs.json: the inputs of
 zotero/test/tests/utilities_internalTest.js `#extractIdentifiers()` (Zotero
 commit 9cbba8c4d281; AGPL-3.0-or-later) and kovan-authored probes.
+
+Upstream: citeproc-js (src/citeproc/, 2026-10-08, GitHub #790, #791)
+--------------------------------------------------------------------
+
+`src/citeproc/` is a port, in stages (#792 to #797), of citeproc-js, Zotero's
+CSL engine. #791 laid down the skeleton and the verification harness only;
+no engine code is translated yet.
+
+  citeproc-js   https://github.com/juris-m/citeproc-js
+                version 2.4.63, commit 73bc1b44bc7d54d0bfec4e070fd27f5efe024ff9
+                Copyright (c) 2009-2019 Frank Bennett
+
+The grant. `LICENSE` at that commit, and the header of the published bundle,
+say: the Common Public Attribution License Version 1.0 (CPAL-1.0) or later,
+OR the GNU Affero General Public License version 3 or later. The repository
+ships the full AGPLv3 text as its `AGPLv3` file. We take the AGPL option: the
+port is AGPL-3.0 (this crate is AGPL-3.0-only), and every ported file's header
+names the upstream file(s), version and commit, the copyright line, the
+licence, a modified-work notice with its date (AGPL-3.0 section 5a) and the
+no-warranty statement (sections 4 and 5).
+
+A metadata mismatch, recorded. The npm `package.json` of citeproc 2.4.63 says
+`"license": "CPAL-1.0 OR AGPL-1.0"`. That contradicts the licence text in the
+same package; the text governs. AGPL-1.0, the old Affero GPL, would not be
+compatible with this crate, and is not what we take.
+
+Where the port lives. Only in AGPL crates (section 5c): `src/citeproc/` of
+this crate. It never goes into a GPL-only crate or into anything published
+under another licence. The repository is public (sections 6, 13); any
+network-served use keeps the source link the kovan-web UI shows.
+
+Verification data and tools (#791):
+
+  * `scripts/csl-reference.sh` fetches, into the git-ignored `vendor/`,
+    citeproc-js at the commit above (and its pinned locales submodule,
+    https://github.com/citation-style-language/locales 6b0cb4689127,
+    CC BY-SA 3.0) and the CSL test suite
+    (https://github.com/citation-style-language/test-suite, commit
+    6eefc5b07c6969ab8999e48542acbcc131cba864), and installs npm citeproc
+    2.4.63, checked byte-identical to the build of that source
+    (`scripts/csl-verify-citeproc-build.cjs`).
+  * The test suite carries no licence file, so its fixtures (inputs, styles)
+    are NOT redistributed: they stay in `vendor/`, and the tests skip with a
+    printed reason when it is absent. What is committed is citeproc-js's
+    output on them, `tests/data/csl/test_suite_reference.json` (one string
+    per fixture, plus the fixture's expected `RESULT`, which equals the output
+    wherever citeproc-js passes), not the fixtures.
+  * `scripts/csl-testsuite-reference.cjs` and `tests/citeproc_test_suite.rs`
+    translate the parsing and driving logic of juris-m/citeproc-test-runner
+    1.1.116 (https://github.com/Juris-M/citeproc-test-runner, commit
+    b1e72d5cb136, MIT, Copyright (c) Frank Bennett: lib/fixture-parser.js,
+    sections.js, sys.js, preload.js, templateJS.js; the module order of
+    `scripts/csl-citeproc-sources.cjs` is its lib/sources.js verbatim). MIT is
+    compatible with AGPL-3.0; the files carry the attribution.
+  * CSL styles and locales: CC BY-SA 3.0, `data/csl/README.md`.

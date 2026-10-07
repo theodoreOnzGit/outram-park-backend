@@ -190,3 +190,43 @@ fn normalisation_is_the_same_for_both_engines_markup() {
         "A, B., & C. *J*, *5*. u"
     );
 }
+
+/// The five site styles' citeproc-js references (GitHub #791): apa (compared
+/// above), chicago-author-date, ieee, nature and vancouver (from
+/// nlm-citation-sequence.csl, the parent of the dependent "Vancouver - NLM"
+/// style). Every reference was made from the current `items.json`: same ids,
+/// a parenthetical, a narrative and a bibliography part for each, and a
+/// bibliography order covering every item. Only this structure is checked
+/// here; the comparison of the port against the four non-APA references is
+/// [`other_styles_match_citeproc_js_except_the_recorded_differences`].
+#[test]
+fn the_five_style_references_cover_every_item() {
+    let items: Vec<Value> = serde_json::from_str(ITEMS).unwrap();
+    let ids: Vec<&str> = items.iter().map(|i| i["id"].as_str().unwrap()).collect();
+    let references = [
+        ("apa", REFERENCE),
+        ("chicago-author-date", include_str!("data/csl/reference_chicago-author-date.json")),
+        ("ieee", include_str!("data/csl/reference_ieee.json")),
+        ("nature", include_str!("data/csl/reference_nature.json")),
+        ("vancouver", include_str!("data/csl/reference_vancouver.json")),
+    ];
+    for (style, text) in references {
+        let reference: Value = serde_json::from_str(text).unwrap();
+        assert_eq!(reference["meta"]["engine"], "citeproc-js 2.4.63", "{style}");
+        let by_id = reference["items"].as_object().unwrap();
+        assert_eq!(by_id.len(), ids.len(), "{style}: re-run scripts/csl-reference.sh");
+        for id in &ids {
+            for part in ["parenthetical", "narrative", "bibliography"] {
+                assert!(by_id[*id][part].as_str().is_some_and(|s| !s.is_empty()), "{style}: {id} has no {part}");
+            }
+        }
+        assert_eq!(reference["bibliography_order"].as_array().unwrap().len(), ids.len(), "{style}");
+    }
+}
+
+/// Port vs citeproc-js for chicago-author-date, ieee, nature and vancouver:
+/// not wired yet. hayagriva is replaced by the citeproc-js port in #797,
+/// which enables this comparison.
+#[test]
+#[ignore = "enabled in #797 (the port replaces hayagriva)"]
+fn other_styles_match_citeproc_js_except_the_recorded_differences() {}

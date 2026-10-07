@@ -92,6 +92,7 @@ use std::path::{Path, PathBuf};
 
 pub use kovan_common::{Author, DocumentType, KovanBenchmark, KovanDocument, Visibility};
 
+pub mod citeproc;
 pub mod csl;
 mod bibtex;
 pub mod concept_tree;

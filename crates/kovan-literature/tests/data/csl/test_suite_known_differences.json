@@ -1,0 +1,6 @@
+{
+ "summary": {
+  "note": "Differences between the citeproc-js port and citeproc-js 2.4.63 on the CSL test suite fixtures of the ported areas (ported_areas.json). Each entry: fixture, citeproc_js (its output), port (ours, or 'ERROR: ...'), reason. A listed difference is a recorded finding, never a tolerance. Empty at #791: no area is ported."
+ },
+ "differences": []
+}

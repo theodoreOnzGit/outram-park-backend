@@ -1,22 +1,32 @@
 #!/usr/bin/env bash
 #
 # csl-reference.sh — regenerate the citeproc-js reference that
-# kovan-literature's CSL citations (`csl`, GitHub #789) are tested against in
-# tests/csl_vs_citeproc_js.rs.
+# kovan-literature's CSL citations (`csl`, GitHub #789) and the citeproc-js
+# port (GitHub #790, #791) are tested against.
 #
 # 1. Writes the site .bib as CSL-JSON, exactly as the port produces it, to
 #    crates/kovan-literature/tests/data/csl/items.json (kovan-cli).
-# 2. Runs that CSL-JSON, apa.csl and the en-US locale through citeproc-js
-#    (Zotero's CSL engine) and writes tests/data/csl/reference_apa.json.
+# 2. Fetches (once, git-ignored vendor/) citeproc-js and the CSL test suite at
+#    their pinned commits, and checks that citeproc-js's src/ builds the same
+#    engine as npm citeproc 2.4.63 (scripts/csl-verify-citeproc-build.cjs).
+# 3. Runs that CSL-JSON, the five site styles (apa, chicago-author-date, ieee,
+#    nature, vancouver = nlm-citation-sequence) and their locales through
+#    citeproc-js (Zotero's CSL engine): tests/data/csl/reference_<style>.json
+#    (scripts/csl-reference.cjs).
+# 4. Runs the CSL test suite's processor fixtures through citeproc-js exactly
+#    as its own test runner does: tests/data/csl/test_suite_reference.json
+#    (scripts/csl-testsuite-reference.cjs).
 #
 # citeproc-js is installed with npm into target/csl-reference/ (git-ignored),
-# pinned to CITEPROC_VERSION. Needs node and npm. Review the diff before
-# committing: a changed reference means the .bib, the style or the engine
-# changed.
+# pinned to CITEPROC_VERSION. Needs node (12 is enough), npm and git. Review
+# the diff before committing: a changed reference means the .bib, a style, the
+# locales or the engine changed.
 
 set -euo pipefail
 
 CITEPROC_VERSION="${CITEPROC_VERSION:-2.4.63}"
+CITEPROC_JS_COMMIT=73bc1b44bc7d54d0bfec4e070fd27f5efe024ff9
+CSL_TEST_SUITE_COMMIT=6eefc5b07c6969ab8999e48542acbcc131cba864
 root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$root"
 
@@ -30,5 +40,20 @@ if [[ ! -f "$prefix/node_modules/citeproc/package.json" ]] ||
 	npm install --silent --no-save --prefix "$prefix" "citeproc@$CITEPROC_VERSION"
 fi
 
-CITEPROC_MODULE="$prefix/node_modules/citeproc/citeproc_commonjs.js" node scripts/csl-reference.cjs
-echo "csl-reference: wrote crates/kovan-literature/tests/data/csl/reference_apa.json"
+# vendor/ is git-ignored (workspace vendor rule).
+fetch() { # <url> <dir> <commit>
+	if [[ ! -d "$2/.git" ]]; then
+		git clone --quiet "$1" "$2"
+	fi
+	git -C "$2" checkout --quiet "$3"
+}
+fetch https://github.com/juris-m/citeproc-js vendor/citeproc-js "$CITEPROC_JS_COMMIT"
+fetch https://github.com/citation-style-language/test-suite vendor/csl-test-suite "$CSL_TEST_SUITE_COMMIT"
+# The locales citeproc-js 2.4.63 pins: the directory its test runner reads.
+git -C vendor/citeproc-js submodule update --init --quiet locale
+
+export CITEPROC_MODULE="$prefix/node_modules/citeproc/citeproc_commonjs.js"
+node scripts/csl-verify-citeproc-build.cjs
+node scripts/csl-reference.cjs
+node scripts/csl-testsuite-reference.cjs
+echo "csl-reference: wrote crates/kovan-literature/tests/data/csl/reference_*.json and test_suite_reference.json"
