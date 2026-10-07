@@ -1,0 +1,173 @@
+{
+	"kovan_library": {
+		"status": 200,
+		"translatorID": "5e3ad958-ac79-463d-812b-a86a9235c28f",
+		"items": [
+			{
+				"key": "KVN22222",
+				"version": 0,
+				"itemType": "journalArticle",
+				"creators": [
+					{
+						"firstName": "Ada",
+						"lastName": "Ng",
+						"creatorType": "author"
+					},
+					{
+						"name": "Probe Working Group",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "Eve",
+						"lastName": "Editor",
+						"creatorType": "editor"
+					},
+					{
+						"firstName": "Tam",
+						"lastName": "Translator",
+						"creatorType": "translator"
+					}
+				],
+				"tags": [
+					{
+						"tag": "manual tag",
+						"type": 1
+					},
+					{
+						"tag": "automatic tag",
+						"type": 1
+					}
+				],
+				"title": "Coupled Probes in a Library",
+				"publicationTitle": "Journal of Libraries",
+				"rights": "CC0",
+				"series": "Probe Series",
+				"seriesText": "Series text",
+				"volume": "3",
+				"issue": "2",
+				"pages": "10-19",
+				"shortTitle": "Coupled Probes",
+				"date": "2020-01-02",
+				"accessDate": "2021-02-03T04:05:06Z",
+				"url": "http://example.org/klib/1",
+				"ISSN": "0000-0019",
+				"DOI": "10.5555/klib.1",
+				"abstractNote": "An abstract.",
+				"journalAbbreviation": "J. Libr.",
+				"language": "en",
+				"extra": "Extra line one\nExtra line two",
+				"callNumber": "Z699 .P76",
+				"libraryCatalog": "Probe Catalog"
+			},
+			{
+				"itemType": "note",
+				"parentItem": "KVN22222",
+				"note": "<p>A child note &amp; <b>markup</b></p>"
+			},
+			{
+				"key": "KVN22223",
+				"version": 0,
+				"itemType": "book",
+				"creators": [
+					{
+						"firstName": "Bo",
+						"lastName": "Author",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "Sid",
+						"lastName": "Series",
+						"creatorType": "seriesEditor"
+					}
+				],
+				"tags": [],
+				"title": "A Related Book",
+				"series": "Book Series",
+				"seriesNumber": "4",
+				"edition": "2",
+				"numPages": "300",
+				"publisher": "Probe Press",
+				"place": "Kent Ridge",
+				"date": "2018",
+				"ISBN": "978-0-306-40615-7"
+			},
+			{
+				"key": "KVN22224",
+				"version": 0,
+				"itemType": "webpage",
+				"creators": [],
+				"tags": [
+					{
+						"tag": "web",
+						"type": 1
+					}
+				],
+				"title": "A Web Page",
+				"websiteTitle": "Probe Site",
+				"date": "2022-03-04 05:06:07",
+				"accessDate": "2022-03-04T05:06:07Z",
+				"url": "http://example.org/klib/page",
+				"websiteType": "Blog"
+			},
+			{
+				"key": "KVN22225",
+				"version": 0,
+				"itemType": "note",
+				"creators": [],
+				"tags": [
+					{
+						"tag": "standalone",
+						"type": 1
+					}
+				]
+			},
+			{
+				"key": "KVN22226",
+				"version": 0,
+				"itemType": "attachment",
+				"creators": [],
+				"tags": [],
+				"title": "A Linked URL",
+				"accessDate": "2022-05-06T07:08:09Z",
+				"url": "http://example.org/klib/linked"
+			},
+			{
+				"key": "KVN22227",
+				"version": 0,
+				"itemType": "letter",
+				"creators": [
+					{
+						"firstName": "Wri",
+						"lastName": "Ter",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "Rec",
+						"lastName": "One",
+						"creatorType": "recipient"
+					},
+					{
+						"firstName": "Rec",
+						"lastName": "Two",
+						"creatorType": "recipient"
+					}
+				],
+				"tags": [],
+				"date": "1901",
+				"letterType": "Postcard"
+			},
+			{
+				"key": "KVN22228",
+				"version": 0,
+				"itemType": "case",
+				"creators": [],
+				"tags": [],
+				"caseName": "Probe v. Probe",
+				"reporter": "Probe Reports",
+				"reporterVolume": "12",
+				"dateDecided": "1999-09-09",
+				"court": "Probe Court"
+			}
+		]
+	}
+}

@@ -1,0 +1,53 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- kovan-authored probe (#749): eprints, Open Graph and schema.org terms,
+     and a vCard 4 organisation. -->
+<rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#"
+         xmlns:ep="http://purl.org/eprint/terms/"
+         xmlns:og="http://ogp.me/ns#"
+         xmlns:so="http://schema.org/"
+         xmlns:dc="http://purl.org/dc/elements/1.1/"
+         xmlns:v="http://www.w3.org/2006/vcard/ns#">
+  <rdf:Description rdf:about="http://eprints.example.org/1/">
+    <ep:type>conference_item</ep:type>
+    <ep:ispublished>unpub</ep:ispublished>
+    <ep:title>An Unpublished Conference Talk</ep:title>
+    <ep:creators_name>Speaker, Sam</ep:creators_name>
+    <ep:creators_name>Second, Sue</ep:creators_name>
+    <ep:event_title>Probe Conference 2024</ep:event_title>
+    <ep:event_location>Kent Ridge</ep:event_location>
+    <ep:event_type>Keynote</ep:event_type>
+    <ep:date>2024-03-05</ep:date>
+    <ep:abstract>Talk abstract.</ep:abstract>
+    <ep:official_url>http://eprints.example.org/1/talk</ep:official_url>
+    <ep:document_url>http://eprints.example.org/1/slides.pdf</ep:document_url>
+  </rdf:Description>
+  <rdf:Description rdf:about="http://eprints.example.org/2/">
+    <ep:type>thesis</ep:type>
+    <ep:title>A Thesis from eprints</ep:title>
+    <ep:thesis_type>PhD</ep:thesis_type>
+    <ep:creators_name>Student, Stella</ep:creators_name>
+    <ep:institution>Probe University</ep:institution>
+    <ep:pages>321</ep:pages>
+    <ep:isbn>0-306-40615-2</ep:isbn>
+  </rdf:Description>
+  <rdf:Description rdf:about="http://video.example.org/clip">
+    <og:type>video.movie</og:type>
+    <og:title>A Film via Open Graph</og:title>
+    <og:description>Open Graph description.</og:description>
+    <og:site_name>Video Site</og:site_name>
+    <og:url>http://video.example.org/clip?ref=og</og:url>
+  </rdf:Description>
+  <so:BlogPosting rdf:about="http://blog.example.org/post">
+    <so:headline>A schema.org blog post</so:headline>
+    <so:author><so:Person><so:name>Writer, Will</so:name></so:Person></so:author>
+    <so:datePublished>2022-11-30</so:datePublished>
+    <so:keywords>alpha</so:keywords>
+    <so:inLanguage>en</so:inLanguage>
+    <so:publisher><so:Organization><so:name>Blog Co</so:name><so:location>Earth</so:location></so:Organization></so:publisher>
+  </so:BlogPosting>
+  <v:Organization rdf:about="http://org.example.org/">
+    <v:fn>A vCard Organisation Record</v:fn>
+    <v:tel>+65 0000 0000</v:tel>
+    <dc:type>report</dc:type>
+  </v:Organization>
+</rdf:RDF>

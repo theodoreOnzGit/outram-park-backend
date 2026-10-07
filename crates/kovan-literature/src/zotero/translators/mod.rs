@@ -53,6 +53,14 @@
 //! note with a DOM, `DOMParser` and XPath; Note Markdown also bundles
 //! turndown), which wait for the XML/DOM layer.~~ **CORRECTED 2026-10-07**:
 //! both ported on the XML/DOM layer (`framework::xml`, `framework::xpath`).
+//! | Zotero RDF | — | yes | [`zotero_rdf`] |
+//! | RDF | yes | — | [`rdf`] |
+//! | Bibliontology RDF | yes | yes | [`bibliontology`] |
+//! | Unqualified Dublin Core RDF | — | yes | [`dc_rdf`] |
+//!
+//! The four RDF translators (#749) run on the framework's RDF data mode
+//! ([`super::framework::rdf`]); [`rdf_support`] holds the JavaScript
+//! behaviour they share.
 
 pub mod biblatex;
 pub mod bibtex;
@@ -90,6 +98,13 @@ pub mod wikidata_quickstatements;
 pub mod cff;
 pub mod cff_references;
 pub mod evernote;
+// RDF translators (#749)
+pub mod bibliontology;
+pub mod dc_rdf;
+pub mod rdf;
+pub mod rdf_creator_types;
+pub mod rdf_support;
+pub mod zotero_rdf;
 
 use super::framework::options::TranslatorMetadata;
 use super::framework::{
@@ -171,6 +186,15 @@ pub enum Translator {
     NoteHtml,
     /// `Note Markdown.js` (export).
     NoteMarkdown,
+    // RDF translators (#749)
+    /// `Zotero RDF.js` (export).
+    ZoteroRdf,
+    /// `RDF.js` (import).
+    Rdf,
+    /// `Bibliontology RDF.js` (import and export).
+    BibliontologyRdf,
+    /// `Unqualified Dublin Core RDF.js` (export).
+    DcRdf,
 }
 
 impl Translator {
@@ -181,8 +205,13 @@ impl Translator {
     /// translators.js:76-104; checked with `fs.readdirSync` on
     /// vendor/translators, 2026-10-07). Export-only translators are not
     /// tried, so their place does not matter.
-    pub const ALL: [Translator; 34] = [
+    ///
+    /// The RDF translators (#749): Bibliontology RDF has priority 50 and
+    /// RDF.js 100 ("RDF.js" sorts between "PubMed XML.js" and "RIS.js");
+    /// Zotero RDF and Unqualified Dublin Core RDF are export-only.
+    pub const ALL: [Translator; 38] = [
         // Import, priority 50.
+        Translator::BibliontologyRdf,
         Translator::Mets,
         Translator::Mods,
         // Import, priority 100.
@@ -201,6 +230,7 @@ impl Translator {
         Translator::OpenAlexJson,
         Translator::PrimoNormalizedXml,
         Translator::PubMedXml,
+        Translator::Rdf,
         Translator::Ris,
         Translator::RefWorksTagged,
         Translator::Refer,
@@ -220,6 +250,8 @@ impl Translator {
         Translator::Evernote,
         Translator::NoteHtml,
         Translator::NoteMarkdown,
+        Translator::ZoteroRdf,
+        Translator::DcRdf,
     ];
 
     /// The translator's header.
@@ -260,6 +292,10 @@ impl Translator {
             Translator::Evernote => &evernote::METADATA,
             Translator::NoteHtml => &note_html::METADATA,
             Translator::NoteMarkdown => &note_markdown::METADATA,
+            Translator::ZoteroRdf => &zotero_rdf::METADATA,
+            Translator::Rdf => &rdf::METADATA,
+            Translator::BibliontologyRdf => &bibliontology::METADATA,
+            Translator::DcRdf => &dc_rdf::METADATA,
         }
     }
 
@@ -308,6 +344,11 @@ impl Translator {
             Translator::Evernote => "evernote",
             Translator::NoteHtml => "note_html",
             Translator::NoteMarkdown => "note_markdown",
+            Translator::ZoteroRdf => "rdf_zotero",
+            // RDF.js has no export format; this names its import fixtures.
+            Translator::Rdf => "rdf",
+            Translator::BibliontologyRdf => "rdf_bibliontology",
+            Translator::DcRdf => "rdf_dc",
         }
     }
 
@@ -373,6 +414,9 @@ impl Translator {
             | Translator::Evernote
             | Translator::NoteHtml
             | Translator::NoteMarkdown => false,
+            Translator::Rdf => rdf::detect_import(&mut ctx),
+            Translator::BibliontologyRdf => bibliontology::detect_import(&mut ctx),
+            Translator::ZoteroRdf | Translator::DcRdf => false,
         }
     }
 
@@ -428,6 +472,11 @@ impl Translator {
             | Translator::Evernote
             | Translator::NoteHtml
             | Translator::NoteMarkdown => unreachable!("checked can_import"),
+            Translator::Rdf => rdf::do_import(&mut ctx)?,
+            Translator::BibliontologyRdf => bibliontology::do_import(&mut ctx)?,
+            Translator::ZoteroRdf | Translator::DcRdf => {
+                unreachable!("checked can_import")
+            }
         }
         Ok(ctx.finish())
     }
@@ -439,6 +488,19 @@ impl Translator {
         items: &[JsObject],
         options: &TranslateOptions,
     ) -> Result<String, TranslateError> {
+        self.export_with_collections(items, &[], options)
+    }
+
+    /// Export items and collections (#749): the collections are what
+    /// `Zotero.nextCollection()` hands out, in Zotero's export format (see
+    /// [`ExportContext::set_collections`]); only Zotero RDF reads them.
+    /// [`Translator::export`] passes none, as the translation-server does.
+    pub fn export_with_collections(
+        self,
+        items: &[JsObject],
+        collections: &[JsObject],
+        options: &TranslateOptions,
+    ) -> Result<String, TranslateError> {
         let meta = self.metadata();
         if !meta.can_export() {
             return Err(TranslateError::Unsupported {
@@ -447,6 +509,7 @@ impl Translator {
             });
         }
         let mut ctx = ExportContext::new(items, meta, options.clone());
+        ctx.set_collections(collections.to_vec());
         match self {
             Translator::BibTeX => bibtex::do_export(&mut ctx)?,
             Translator::BibLaTeX => biblatex::do_export(&mut ctx)?,
@@ -485,6 +548,10 @@ impl Translator {
             Translator::Mab2 => unreachable!("checked can_export"),
             Translator::DataciteJson => unreachable!("checked can_export"),
             Translator::OpenAlexJson => unreachable!("checked can_export"),
+            Translator::ZoteroRdf => zotero_rdf::do_export(&mut ctx, items)?,
+            Translator::BibliontologyRdf => bibliontology::do_export(&mut ctx, items)?,
+            Translator::DcRdf => dc_rdf::do_export(&mut ctx)?,
+            Translator::Rdf => unreachable!("checked can_export"),
         }
         Ok(ctx.finish())
     }

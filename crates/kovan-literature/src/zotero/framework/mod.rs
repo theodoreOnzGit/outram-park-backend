@@ -44,6 +44,7 @@
 //! | [`xpath`] | `ZU.xpath`, `ZU.xpathText` over wicked-good-xpath's semantics, quirks included | wicked-good-xpath 1.3.1-z002, utilities.js |
 //! | [`child`] | child translators (`Zotero.loadTranslator`, METS running MODS/MARCXML) | translate.js |
 //! | [`html_dom`] | HTML documents for the note exporters: parsing (html5ever), `outerHTML`, selectors, `element.style` | jsdom, parse5 8.0.0 |
+//! | [`rdf`] | `Zotero.RDF`: an RDF store, RDF/XML parser and serializer (#749) | translate's src/rdf/ |
 //!
 //! **Adding a translator** is one module under `translators/` plus a
 //! variant of [`super::translators::Translator`]: an `import` function over
@@ -85,6 +86,8 @@ pub mod item;
 pub mod item_done;
 pub mod js;
 pub mod options;
+// RDF data mode for the RDF translators (#749).
+pub mod rdf;
 pub mod utilities;
 // XML translators (#749): DOM, parser, serializer, XPath, child translators.
 pub mod child;

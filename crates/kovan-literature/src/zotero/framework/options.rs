@@ -167,6 +167,12 @@ pub struct TranslationEnv {
     /// clock (`new Date()`; RIS import of an access date without a time).
     /// `None`: the system clock (the epoch on targets without one).
     pub now_unix_secs: Option<i64>,
+    /// The id the RDF library gives the next blank node (#749). Upstream's
+    /// counter (`Term.NextId`, translate src/rdf/term.js) is global to the
+    /// process, so a long-running Zotero hands out ids that depend on what it
+    /// did before; the ids show in RDF/XML output (`rdf:nodeID="n42"`), and
+    /// their length decides upstream's line packing. 0 by default.
+    pub first_blank_node_id: u64,
 }
 
 impl Default for TranslationEnv {
@@ -181,6 +187,7 @@ impl Default for TranslationEnv {
             },
             parent_translator: None,
             now_unix_secs: None,
+            first_blank_node_id: 0,
         }
     }
 }

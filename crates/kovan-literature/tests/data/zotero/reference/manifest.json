@@ -1,6 +1,6 @@
 {
 	"generatedBy": "scripts/zotero-reference.sh",
-	"generatedOn": "2026-10-07T01:32:17.535Z",
+	"generatedOn": "2026-10-07T01:44:35.184Z",
 	"server": "http://127.0.0.1:1969",
 	"node": "v26.10.0",
 	"utcOffsetMinutes": 480,
@@ -16,6 +16,8 @@
 		"Type/field validity on the server comes from modules/utilities/resource/zoteroTypeSchemaData.js; CSL mappings from modules/zotero-schema/schema.json.",
 		"Normalisation: /import output keys and parentItem only (see scripts/zotero-reference.mjs). Export output is verbatim.",
 		"utcOffsetMinutes is this script's zone; the server ran on the same machine.",
+		"RDF exports (#749) are verbatim; their rdf:nodeID numbers come from a counter global to the server process (see the RDF section above).",
+		"inproc/ was produced in-process from the server's own modules (scripts/zotero-reference-inproc.mjs): the saved items minus their random `id`, collections written as {name, children}.",
 		"#749 formats (every FORMATS entry with inProcess): imports run in-process with the translator forced (the server's own detection is recorded as serverTranslatorID); exports run through the server when it has a format name, else exportEndpoint.js in-process. crossChecks counts the results produced both ways; all were identical (the script stops otherwise)."
 	],
 	"crossChecks": {

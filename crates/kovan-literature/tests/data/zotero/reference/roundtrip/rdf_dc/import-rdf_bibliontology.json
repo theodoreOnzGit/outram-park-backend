@@ -1,0 +1,71 @@
+{
+	"testCase00": {
+		"status": 200,
+		"translatorID": "5e3ad958-ac79-463d-812b-a86a9235c28f",
+		"items": [
+			{
+				"key": "KVN22222",
+				"version": 0,
+				"itemType": "journalArticle",
+				"creators": [
+					{
+						"firstName": "Timotheus Chang-whae",
+						"lastName": "Kim",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "Philipp",
+						"lastName": "Zumstein",
+						"creatorType": "author"
+					}
+				],
+				"tags": [],
+				"title": "Semiautomatische Katalogisierung und Normdatenverknüpfung mit Zotero im Index Theologicus",
+				"date": "2016",
+				"ISSN": "1860-7950"
+			}
+		]
+	},
+	"bibo_chapter_and_tags.bibo": {
+		"status": 200,
+		"translatorID": "5e3ad958-ac79-463d-812b-a86a9235c28f",
+		"items": [
+			{
+				"key": "KVN22222",
+				"version": 0,
+				"itemType": "bookSection",
+				"creators": [
+					{
+						"firstName": "Ann",
+						"lastName": "Author",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "List-only",
+						"lastName": "Organisation",
+						"creatorType": "author"
+					}
+				],
+				"tags": [],
+				"title": "A Chapter",
+				"publisher": "Probe Press",
+				"date": "2018",
+				"ISBN": "9780306406157, 0306406152"
+			},
+			{
+				"key": "KVN22223",
+				"version": 0,
+				"itemType": "letter",
+				"creators": [
+					{
+						"name": "Recipient",
+						"creatorType": "author"
+					}
+				],
+				"tags": [],
+				"title": "A Letter",
+				"letterType": "letter"
+			}
+		]
+	}
+}

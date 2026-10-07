@@ -229,6 +229,9 @@ fn epoch_to_iso(secs: i64) -> String {
 #[derive(Debug, Clone)]
 pub struct ExportContext {
     items: VecDeque<TranslatorItem>,
+    /// The collections `Zotero.nextCollection()` hands out (#749; the
+    /// translation-server's item getter has none).
+    collections: VecDeque<JsObject>,
     /// The output (`Zotero.write`).
     pub output: ExportOutput,
     /// The options.
@@ -250,6 +253,7 @@ impl ExportContext {
         let prepared = prepare_export_items(items, meta.legacy_export(), export_tags);
         ExportContext {
             items: prepared.into(),
+            collections: VecDeque::new(),
             output: ExportOutput::new(),
             options,
             meta,
@@ -259,6 +263,25 @@ impl ExportContext {
     /// `Zotero.nextItem()`.
     pub fn next_item(&mut self) -> Option<TranslatorItem> {
         self.items.pop_front()
+    }
+
+    /// Give the export the collections [`ExportContext::next_collection`]
+    /// hands out, in Zotero's export format (what Zotero desktop's
+    /// `ItemGetter.nextCollection` returns: `{id, name, descendents |
+    /// children: [{type: "item", id} | {type: "collection", id, name,
+    /// children}]}`). The translation-server has none (its `nextCollection`
+    /// returns false); Zotero desktop exporting a library gives every
+    /// collection (#749).
+    pub fn set_collections(&mut self, collections: Vec<JsObject>) {
+        self.collections = collections.into();
+    }
+
+    /// `Zotero.nextCollection()` (translate.js:839-845): the next collection,
+    /// `None` when none is left. (Upstream throws when the translator does
+    /// not declare the `getCollections` config option; every caller here
+    /// declares it.)
+    pub fn next_collection(&mut self) -> Option<JsObject> {
+        self.collections.pop_front()
     }
 
     /// `Zotero.write(data)`.

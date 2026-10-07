@@ -24,6 +24,29 @@
 //   utilities.json            Zotero.Utilities helpers (unescapeHTML,
 //                             cleanAuthor, cleanDOI, ...) run directly from
 //                             the server's utilities.js on fixed inputs
+//
+//   The RDF translators (#749) add, through the same server:
+//   import/rdf.json, import/rdf_bibliontology.json
+//                             RDF.js and Bibliontology RDF.js testCases and
+//                             fixtures/import/*.rdf (*.bibo.rdf for
+//                             Bibliontology), with the translator the server
+//                             detected (it may be the other one)
+//   export_inputs_rdf/<set>.json  the items those imports produced, and the
+//                             items of fixtures/library/*.json; kept apart
+//                             from export_inputs/ so the four earlier
+//                             formats' references are unchanged
+//   export/<rdf format>/<set>.json, roundtrip/<rdf format>/<set>.json
+//                             every export_inputs/ and export_inputs_rdf/
+//                             list through rdf_zotero, rdf_bibliontology and
+//                             rdf_dc, and the text back through /import (for
+//                             the export-only formats too: that round trip is
+//                             the point of Zotero RDF)
+//   and, run in-process from the server's own modules because its endpoints
+//   cannot do it (scripts/zotero-reference-inproc.mjs, which documents it):
+//   inproc/forced_import.json  RDF.js / Bibliontology imports with the
+//                             translator forced, as Zotero's translator
+//                             tests run testCases
+//   inproc/library.json       the library round trip with collections
 //   manifest.json            server, translate, utilities, translators and
 //                             schema commits; time zone; date; normalisation
 //   chain_inputs/<format>.json, chain/<format>.json  (#749, MODS and Endnote
@@ -52,6 +75,11 @@
 //   * fixtures/export/kovan_note_items.json (kovan-authored note probes,
 //     #749), exported only by the note exporters.
 //
+// RDF exports are stored verbatim too. Their blank-node ids (rdf:nodeID="n42")
+// come from a counter global to the server process, so they differ run to
+// run; the Rust tests start the port's counter where the server's was, read
+// from the first nodeID in the output.
+//
 // NORMALISATION — exactly one thing, and only on /import output: the server's
 // itemToAPIJSON gives each item a RANDOM 8-character `key`
 // (Zotero.Utilities.generateObjectKey) and child notes a `parentItem` naming
@@ -66,6 +94,7 @@
 
 import fs from "node:fs";
 import path from "node:path";
+import { execFileSync } from "node:child_process";
 import { createRequire } from "node:module";
 
 const SERVER = process.env.ZOTERO_SERVER || "http://127.0.0.1:1969";
@@ -76,7 +105,9 @@ const VENDOR = process.env.ZOTERO_VENDOR
 	|| [path.join(REPO, "vendor"), path.resolve(REPO, "../../../vendor")]
 		.find((p) => fs.existsSync(path.join(p, "translators")));
 const DATA = path.join(REPO, "crates/kovan-literature/tests/data/zotero");
-const OUT = path.join(DATA, "reference");
+// ZOTERO_REFERENCE_OUT writes elsewhere (to compare a regeneration with the
+// committed references before replacing them).
+const OUT = process.env.ZOTERO_REFERENCE_OUT || path.join(DATA, "reference");
 
 const FORMATS = {
 	bibtex: { file: "BibTeX.js", import: true },
@@ -495,6 +526,10 @@ async function main() {
 			write(`notes/${format}.json`, out);
 		}
 	}
+	// 3b. RDF translators (#749): imports, exports and round trips through the
+	// server, then the in-process references.
+	await rdfReferences(exportInputs);
+	execFileSync(process.execPath, [path.join(path.dirname(new URL(import.meta.url).pathname), "zotero-reference-inproc.mjs"), VENDOR, DATA, OUT], { stdio: "inherit" });
 
 	// 4. Zotero.Utilities helpers the translators call, run directly from the
 	// server's own utilities.js (the code the server runs, with its jsdom), on
@@ -543,10 +578,75 @@ async function main() {
 			"Type/field validity on the server comes from modules/utilities/resource/zoteroTypeSchemaData.js; CSL mappings from modules/zotero-schema/schema.json.",
 			"Normalisation: /import output keys and parentItem only (see scripts/zotero-reference.mjs). Export output is verbatim.",
 			"utcOffsetMinutes is this script's zone; the server ran on the same machine.",
+			"RDF exports (#749) are verbatim; their rdf:nodeID numbers come from a counter global to the server process (see the RDF section above).",
+			"inproc/ was produced in-process from the server's own modules (scripts/zotero-reference-inproc.mjs): the saved items minus their random `id`, collections written as {name, children}.",
 			"#749 formats (every FORMATS entry with inProcess): imports run in-process with the translator forced (the server's own detection is recorded as serverTranslatorID); exports run through the server when it has a format name, else exportEndpoint.js in-process. crossChecks counts the results produced both ways; all were identical (the script stops otherwise).",
 		],
 		crossChecks,
 	});
+}
+
+const RDF_EXPORTS = {
+	rdf_zotero: "Zotero RDF.js",
+	rdf_bibliontology: "Bibliontology RDF.js",
+	rdf_dc: "Unqualified Dublin Core RDF.js",
+};
+const RDF_IMPORTS = {
+	rdf: ["RDF.js", (f) => f.endsWith(".rdf") && !f.endsWith(".bibo.rdf")],
+	rdf_bibliontology: ["Bibliontology RDF.js", (f) => f.endsWith(".bibo.rdf")],
+};
+
+async function rdfReferences(exportInputs) {
+	const fixtureDir = path.join(DATA, "fixtures/import");
+	const fixtureFiles = fs.readdirSync(fixtureDir).sort();
+	const rdfInputs = {};
+	for (const [format, [file, pick]] of Object.entries(RDF_IMPORTS)) {
+		const cases = [];
+		testCases(file).forEach((tc, n) => {
+			if (tc.type !== "import") return;
+			cases.push({
+				name: `testCase${String(n).padStart(2, "0")}`,
+				source: `translators/${file} testCases[${n}]`,
+				input: tc.input,
+				upstreamTestItems: tc.items,
+			});
+		});
+		for (const f of fixtureFiles.filter(pick)) {
+			cases.push({
+				name: f.replace(/\.[^.]+$/, ""),
+				source: `fixtures/import/${f}`,
+				input: fs.readFileSync(path.join(fixtureDir, f), "utf8"),
+			});
+		}
+		const inputs = {};
+		for (const c of cases) {
+			Object.assign(c, await postImport(c.input));
+			if (c.items && c.items.length) inputs[c.name] = foldChildNotes(c.items);
+		}
+		write(`import/${format}.json`, cases);
+		rdfInputs[`import-${format}`] = inputs;
+	}
+	const libDir = path.join(DATA, "fixtures/library");
+	const lib = {};
+	for (const f of fs.readdirSync(libDir).filter((f) => f.endsWith(".json")).sort()) {
+		lib[f.replace(/\.json$/, "")] = JSON.parse(fs.readFileSync(path.join(libDir, f), "utf8")).items;
+	}
+	rdfInputs.kovanLibrary = lib;
+	for (const [set, lists] of Object.entries(rdfInputs)) write(`export_inputs_rdf/${set}.json`, lists);
+
+	const allSets = { ...exportInputs, ...rdfInputs };
+	for (const format of Object.keys(RDF_EXPORTS)) {
+		for (const [set, lists] of Object.entries(allSets)) {
+			const exp = {};
+			const rt = {};
+			for (const [name, items] of Object.entries(lists)) {
+				exp[name] = await postExport(format, JSON.parse(JSON.stringify(items)));
+				if (exp[name].status === 200) rt[name] = await postImport(exp[name].output);
+			}
+			write(`export/${format}/${set}.json`, exp);
+			write(`roundtrip/${format}/${set}.json`, rt);
+		}
+	}
 }
 
 main().catch((e) => {

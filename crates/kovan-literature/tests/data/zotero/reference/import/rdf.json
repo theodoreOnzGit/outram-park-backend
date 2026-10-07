@@ -1,0 +1,889 @@
+[
+	{
+		"name": "testCase00",
+		"source": "translators/RDF.js testCases[0]",
+		"input": "<?xml version=\"1.0\" encoding=\"utf-8\" ?>\n<rdf:RDF xmlns:rdf=\"http://www.w3.org/1999/02/22-rdf-syntax-ns#\"\n         xmlns:rdfs=\"http://www.w3.org/2000/01/rdf-schema#\"\n         xmlns:bibo=\"http://purl.org/ontology/bibo/\"\n         xmlns:dc=\"http://purl.org/dc/terms/\"\n         xmlns:owl=\"http://www.w3.org/2002/07/owl#\"\n         xmlns:dc11=\"http://purl.org/dc/elements/1.1/\"\n         xmlns:ns0=\"http://rdaregistry.info/Elements/u/\"\n         xmlns:ns1=\"http://iflastandards.info/ns/isbd/elements/\"\n         xmlns:foaf=\"http://xmlns.com/foaf/0.1/\">\n\n  <bibo:Book rdf:about=\"http://d-nb.info/1054873992\">\n    <dc:medium rdf:resource=\"http://rdaregistry.info/termList/RDACarrierType/1044\"/>\n    <owl:sameAs rdf:resource=\"http://hub.culturegraph.org/resource/DNB-1054873992\"/>\n    <dc11:identifier>(DE-101)1054873992</dc11:identifier>\n    <dc11:identifier>(OCoLC)888461076</dc11:identifier>\n    <bibo:isbn13>9783658060268</bibo:isbn13>\n    <ns0:P60521>kart. : ca. EUR 39.99 (DE), ca. EUR 41.11 (AT), ca. sfr 50.00 (freier Pr.)</ns0:P60521>\n    <bibo:isbn10>3658060263</bibo:isbn10>\n    <bibo:gtin14>9783658060268</bibo:gtin14>\n    <dc:language rdf:resource=\"http://id.loc.gov/vocabulary/iso639-2/ger\"/>\n    <dc11:title>Das Adam-Smith-Projekt</dc11:title>\n    <dc:creator rdf:resource=\"http://d-nb.info/gnd/136486045\"/>\n    <dc11:publisher>Springer VS</dc11:publisher>\n    <ns0:P60163>Wiesbaden</ns0:P60163>\n    <ns0:P60333>Wiesbaden : Springer VS</ns0:P60333>\n    <ns1:P1053>447 S.</ns1:P1053>\n    <dc:isPartOf>Edition Theorie und Kritik</dc:isPartOf>\n    <ns0:P60489>Zugl. leicht überarb. Fassung von: Berlin, Freie Univ., Diss., 2012</ns0:P60489>\n    <dc:relation rdf:resource=\"http://d-nb.info/1064805604\"/>\n    <dc:subject>Smith, Adam</dc:subject>\n    <dc:subject>Liberalismus</dc:subject>\n    <dc:subject>Rechtsordnung</dc:subject>\n    <dc:subject>Foucault, Michel</dc:subject>\n    <dc:subject>Macht</dc:subject>\n    <dc:subject>Politische Philosophie</dc:subject>\n    <dc:subject rdf:resource=\"http://dewey.info/class/320.512092/e22/\"/>\n    <dc:tableOfContents rdf:resource=\"http://d-nb.info/1054873992/04\"/>\n    <dc:issued>2015</dc:issued>\n    <ns0:P60493>zur Genealogie der liberalen Gouvernementalität</ns0:P60493>\n  </bibo:Book>\n  \n  <foaf:Person rdf:about=\"http://d-nb.info/gnd/136486045\">\n    <foaf:familyName>Ronge</foaf:familyName>\n    <foaf:givenName>Bastian</foaf:givenName>\n  </foaf:Person>\n  \n\n</rdf:RDF>",
+		"upstreamTestItems": [
+			{
+				"itemType": "book",
+				"title": "Das Adam-Smith-Projekt",
+				"creators": [
+					{
+						"creatorType": "author",
+						"lastName": "Ronge",
+						"firstName": "Bastian"
+					}
+				],
+				"date": "2015",
+				"ISBN": "9783658060268",
+				"itemID": "http://d-nb.info/1054873992",
+				"language": "http://id.loc.gov/vocabulary/iso639-2/ger",
+				"publisher": "Springer VS",
+				"attachments": [],
+				"tags": [
+					{
+						"tag": "Foucault, Michel"
+					},
+					{
+						"tag": "Liberalismus"
+					},
+					{
+						"tag": "Macht"
+					},
+					{
+						"tag": "Politische Philosophie"
+					},
+					{
+						"tag": "Rechtsordnung"
+					},
+					{
+						"tag": "Smith, Adam"
+					}
+				],
+				"notes": [],
+				"seeAlso": [
+					"http://d-nb.info/1064805604"
+				]
+			}
+		],
+		"status": 200,
+		"translatorID": "14763d25-8ba0-45df-8f52-b8d1108e7ac9",
+		"items": [
+			{
+				"key": "KVN22222",
+				"version": 0,
+				"itemType": "book",
+				"creators": [],
+				"tags": [
+					{
+						"tag": "Smith, Adam",
+						"type": 1
+					},
+					{
+						"tag": "Liberalismus",
+						"type": 1
+					},
+					{
+						"tag": "Rechtsordnung",
+						"type": 1
+					},
+					{
+						"tag": "Foucault, Michel",
+						"type": 1
+					},
+					{
+						"tag": "Macht",
+						"type": 1
+					},
+					{
+						"tag": "Politische Philosophie",
+						"type": 1
+					},
+					{
+						"tag": "<http://dewey.info/class/320.512092/e22/>",
+						"type": 1
+					},
+					{
+						"tag": "Smith, Adam",
+						"type": 1
+					},
+					{
+						"tag": "Liberalismus",
+						"type": 1
+					},
+					{
+						"tag": "Rechtsordnung",
+						"type": 1
+					},
+					{
+						"tag": "Foucault, Michel",
+						"type": 1
+					},
+					{
+						"tag": "Macht",
+						"type": 1
+					},
+					{
+						"tag": "Politische Philosophie",
+						"type": 1
+					},
+					{
+						"tag": "<http://dewey.info/class/320.512092/e22/>",
+						"type": 1
+					},
+					{
+						"tag": "Smith, Adam",
+						"type": 1
+					},
+					{
+						"tag": "Liberalismus",
+						"type": 1
+					},
+					{
+						"tag": "Rechtsordnung",
+						"type": 1
+					},
+					{
+						"tag": "Foucault, Michel",
+						"type": 1
+					},
+					{
+						"tag": "Macht",
+						"type": 1
+					},
+					{
+						"tag": "Politische Philosophie",
+						"type": 1
+					},
+					{
+						"tag": "<http://dewey.info/class/320.512092/e22/>",
+						"type": 1
+					},
+					{
+						"tag": "Smith, Adam",
+						"type": 1
+					},
+					{
+						"tag": "Liberalismus",
+						"type": 1
+					},
+					{
+						"tag": "Rechtsordnung",
+						"type": 1
+					},
+					{
+						"tag": "Foucault, Michel",
+						"type": 1
+					},
+					{
+						"tag": "Macht",
+						"type": 1
+					},
+					{
+						"tag": "Politische Philosophie",
+						"type": 1
+					},
+					{
+						"tag": "<http://dewey.info/class/320.512092/e22/>",
+						"type": 1
+					}
+				],
+				"format": "<http://rdaregistry.info/termList/RDACarrierType/1044>",
+				"language": "<http://id.loc.gov/vocabulary/iso639-2/ger>",
+				"ISBN": "9783658060268, 3658060263"
+			}
+		]
+	},
+	{
+		"name": "testCase01",
+		"source": "translators/RDF.js testCases[1]",
+		"input": "<?xml version=\"1.0\" encoding=\"utf-8\"?>\n<rdf:RDF\n  xmlns:rdf=\"http://www.w3.org/1999/02/22-rdf-syntax-ns#\"\n  xmlns:schema=\"http://schema.org/\"\n>\n  <schema:ScholarlyArticle rdf:nodeID=\"N523cd27ac2f84bbca7fe726b027db6d2\">\n    <schema:pageStart>360</schema:pageStart>\n    <schema:isPartOf rdf:resource=\"http://schema.org/Article#bib-2/issue\"/>\n    <schema:about>Catalog</schema:about>\n    <schema:about>Works</schema:about>\n    <schema:pageEnd>368</schema:pageEnd>\n    <schema:author>Smiraglia, Richard P.</schema:author>\n    <schema:name>Be Careful What You Wish For: FRBR, Some Lacunae, A Review</schema:name>\n    <schema:sameAs rdf:resource=\"http://dx.doi.org/10.1080/01639374.2012.682254\"/>\n    <schema:description>The library catalog as a catalog of works was an infectious idea, which together with research led to reconceptualization in the form of the FRBR conceptual model. Two categories of lacunae emerge--the expression entity, and gaps in the model such as aggregates and dynamic documents. Evidence needed to extend the FRBR model is available in contemporary research on instantiation. The challenge for the bibliographic community is to begin to think of FRBR as a form of knowledge organization system, adding a final dimension to classification. The articles in the present special issue offer a compendium of the promise of the FRBR model.</schema:description>\n  </schema:ScholarlyArticle>\n  <schema:PublicationIssue rdf:about=\"http://schema.org/Article#bib-2/issue\">\n    <schema:isPartOf>\n      <schema:Periodical rdf:about=\"http://schema.org/Article#bib-2/periodical\">\n        <schema:volumeNumber>50</schema:volumeNumber>\n        <schema:publisher>Taylor &amp; Francis Group</schema:publisher>\n        <schema:issn>1544-4554</schema:issn>\n        <schema:issn>0163-9374</schema:issn>\n        <schema:name>Cataloging &amp; Classification Quarterly</schema:name>\n        <rdf:type rdf:resource=\"http://schema.org/PublicationVolume\"/>\n      </schema:Periodical>\n    </schema:isPartOf>\n    <schema:issueNumber>5</schema:issueNumber>\n    <schema:datePublished rdf:datatype=\"http://schema.org/Date\">2012</schema:datePublished>\n  </schema:PublicationIssue>\n</rdf:RDF>",
+		"upstreamTestItems": [
+			{
+				"itemType": "journalArticle",
+				"title": "Be Careful What You Wish For: FRBR, Some Lacunae, A Review",
+				"creators": [
+					{
+						"firstName": "Richard P.",
+						"lastName": "Smiraglia",
+						"creatorType": "author"
+					}
+				],
+				"ISSN": "1544-4554",
+				"abstractNote": "The library catalog as a catalog of works was an infectious idea, which together with research led to reconceptualization in the form of the FRBR conceptual model. Two categories of lacunae emerge--the expression entity, and gaps in the model such as aggregates and dynamic documents. Evidence needed to extend the FRBR model is available in contemporary research on instantiation. The challenge for the bibliographic community is to begin to think of FRBR as a form of knowledge organization system, adding a final dimension to classification. The articles in the present special issue offer a compendium of the promise of the FRBR model.",
+				"issue": "5",
+				"itemID": "_:n82",
+				"pages": "360-368",
+				"publicationTitle": "Cataloging & Classification Quarterly",
+				"url": "http://dx.doi.org/10.1080/01639374.2012.682254",
+				"volume": "50",
+				"attachments": [],
+				"tags": [
+					{
+						"tag": "Catalog"
+					},
+					{
+						"tag": "Works"
+					}
+				],
+				"notes": [],
+				"seeAlso": []
+			}
+		],
+		"status": 200,
+		"translatorID": "5e3ad958-ac79-463d-812b-a86a9235c28f",
+		"items": [
+			{
+				"key": "KVN22222",
+				"version": 0,
+				"itemType": "journalArticle",
+				"creators": [
+					{
+						"firstName": "Richard P.",
+						"lastName": "Smiraglia",
+						"creatorType": "author"
+					}
+				],
+				"tags": [
+					{
+						"tag": "Catalog",
+						"type": 1
+					},
+					{
+						"tag": "Works",
+						"type": 1
+					}
+				],
+				"title": "Be Careful What You Wish For: FRBR, Some Lacunae, A Review",
+				"publicationTitle": "Cataloging & Classification Quarterly",
+				"volume": "50",
+				"issue": "5",
+				"pages": "360-368",
+				"publisher": "Taylor & Francis Group",
+				"ISSN": "1544-4554",
+				"url": "http://dx.doi.org/10.1080/01639374.2012.682254",
+				"abstractNote": "The library catalog as a catalog of works was an infectious idea, which together with research led to reconceptualization in the form of the FRBR conceptual model. Two categories of lacunae emerge--the expression entity, and gaps in the model such as aggregates and dynamic documents. Evidence needed to extend the FRBR model is available in contemporary research on instantiation. The challenge for the bibliographic community is to begin to think of FRBR as a form of knowledge organization system, adding a final dimension to classification. The articles in the present special issue offer a compendium of the promise of the FRBR model."
+			}
+		]
+	},
+	{
+		"name": "testCase02",
+		"source": "translators/RDF.js testCases[2]",
+		"input": "<?xml version=\"1.0\" encoding=\"utf-8\"?>\n<rdf:RDF\n  xmlns:codemeta=\"https://codemeta.github.io/terms/\"\n  xmlns:rdf=\"http://www.w3.org/1999/02/22-rdf-syntax-ns#\"\n  xmlns:schema=\"http://schema.org/\"\n>\n  <schema:SoftwareSourceCode rdf:nodeID=\"N7272101842f544e2a9a7508327eb329b\">\n    <schema:name>CodeMeta: Minimal metadata schemas for science software and code, in JSON-LD</schema:name>\n    <schema:description>CodeMeta is a concept vocabulary that can be used to standardize the exchange of software metadata across repositories and organizations.</schema:description>\n    <schema:dateCreated rdf:datatype=\"http://schema.org/Date\">2017-06-05</schema:dateCreated>\n    <schema:datePublished rdf:datatype=\"http://schema.org/Date\">2017-06-05</schema:datePublished>\n    <schema:version>2.0</schema:version>\n    <schema:softwareVersion>2.0</schema:softwareVersion>\n    <schema:programmingLanguage>JSON-LD</schema:programmingLanguage>\n    <schema:license rdf:resource=\"https://spdx.org/licenses/Apache-2.0\"/>\n    <codemeta:developmentStatus rdf:resource=\"file:///base/data/home/apps/s%7Erdf-translator/2.408516547054015808/active\"/>\n    <codemeta:funding>National Science Foundation Award #1549758; Codemeta: A Rosetta Stone for Metadata in Scientific Software</codemeta:funding>\n    <schema:codeRepository rdf:resource=\"https://github.com/codemeta/codemeta\"/>\n    <schema:downloadUrl rdf:resource=\"https://github.com/codemeta/codemeta/archive/2.0.zip\"/>\n    <codemeta:contIntegration rdf:resource=\"https://travis-ci.org/codemeta/codemeta\"/>\n    <schema:identifier rdf:resource=\"file:///base/data/home/apps/s%7Erdf-translator/2.408516547054015808/CodeMeta\"/>\n    <codemeta:issueTracker rdf:resource=\"https://github.com/codemeta/codemeta/issues\"/>\n    <schema:keywords>software</schema:keywords>\n    <schema:keywords>metadata</schema:keywords>\n    <codemeta:maintainer rdf:resource=\"http://orcid.org/0000-0002-1642-628X\"/>\n    <schema:author rdf:resource=\"http://orcid.org/0000-0002-1642-628X\"/>\n    <schema:author rdf:resource=\"http://orcid.org/0000-0003-0077-4738\"/>\n    <schema:contributor rdf:resource=\"http://orcid.org/0000-0003-4925-7248\"/>\n    <schema:contributor rdf:resource=\"http://orcid.org/0000-0001-5636-0433\"/>\n    <schema:contributor rdf:resource=\"http://orcid.org/0000-0002-9300-5278\"/>\n    <schema:contributor rdf:resource=\"http://orcid.org/0000-0003-1419-2405\"/>\n    <schema:contributor rdf:resource=\"http://orcid.org/0000-0002-8876-7606\"/>\n    <schema:contributor rdf:resource=\"N99ac8e31c13d4ae5994cbc8669e01866\"/>\n    <schema:contributor rdf:resource=\"http://orcid.org/0000-0001-8465-8341\"/>\n    <schema:contributor rdf:resource=\"http://orcid.org/0000-0003-4741-0309\"/>\n    <schema:contributor rdf:resource=\"http://orcid.org/0000-0003-2720-0339\"/>\n    <schema:contributor rdf:resource=\"http://orcid.org/0000-0002-1642-628X\"/>\n    <schema:contributor rdf:resource=\"http://orcid.org/0000-0003-1219-2137\"/>\n    <schema:contributor rdf:resource=\"http://orcid.org/0000-0002-3957-2474\"/>\n    <schema:contributor rdf:resource=\"http://orcid.org/0000-0003-3477-2845\"/>\n    <schema:contributor rdf:resource=\"Nefd7fe71736c433db9ada28e54018b34\"/>\n    <schema:contributor rdf:resource=\"http://orcid.org/0000-0003-1304-1939\"/>\n    <schema:contributor rdf:resource=\"Nc65fe076896346a9a8859f25f5e3bca9\"/>\n    <schema:contributor rdf:resource=\"http://orcid.org/0000-0003-4425-7097\"/>\n    <schema:contributor rdf:resource=\"http://orcid.org/0000-0002-2192-403X\"/>\n  </schema:SoftwareSourceCode>\n  \n  <schema:Person rdf:about=\"http://orcid.org/0000-0003-4925-7248\">\n    <schema:familyName>Druskat</schema:familyName>\n    <schema:email>mail@sdruskat.net</schema:email>\n    <schema:givenName>Stephan</schema:givenName>\n  </schema:Person>\n  <schema:Person rdf:about=\"http://orcid.org/0000-0001-5636-0433\">\n    <schema:givenName>Ashley</schema:givenName>\n    <schema:familyName>Sands</schema:familyName>\n  </schema:Person>\n  <schema:Person rdf:about=\"http://orcid.org/0000-0002-9300-5278\">\n    <schema:givenName>Patricia</schema:givenName>\n    <schema:familyName>Cruse</schema:familyName>\n  </schema:Person>\n  <schema:Person rdf:about=\"http://orcid.org/0000-0003-1419-2405\">\n    <schema:givenName>Martin</schema:givenName>\n    <schema:familyName>Fenner</schema:familyName>\n  </schema:Person>\n  <schema:Person rdf:about=\"http://orcid.org/0000-0002-8876-7606\">\n    <schema:givenName>Neil</schema:givenName>\n    <schema:familyName>Chue Hong</schema:familyName>\n    <schema:email>n.chuehong@epcc.ed.ac.uk</schema:email>\n  </schema:Person>\n  <schema:Person rdf:nodeID=\"N99ac8e31c13d4ae5994cbc8669e01866\">\n    <schema:familyName>Nowak</schema:familyName>\n    <schema:givenName>Krzysztof</schema:givenName>\n  </schema:Person>\n  <schema:Person rdf:about=\"http://orcid.org/0000-0001-8465-8341\">\n    <schema:familyName>Gil</schema:familyName>\n    <schema:email>GIL@ISI.EDU</schema:email>\n    <schema:givenName>Yolanda</schema:givenName>\n  </schema:Person>\n  <schema:Person rdf:about=\"http://orcid.org/0000-0003-4741-0309\">\n    <schema:familyName>Hahnel</schema:familyName>\n    <schema:givenName>Mark</schema:givenName>\n  </schema:Person>\n  <schema:Person rdf:about=\"http://orcid.org/0000-0003-2720-0339\">\n    <schema:email>dskatz@illinois.edu</schema:email>\n    <schema:givenName>Dan</schema:givenName>\n    <schema:familyName>Katz</schema:familyName>\n  </schema:Person>\n  <schema:Person rdf:about=\"http://orcid.org/0000-0002-1642-628X\">\n    <schema:givenName>Carl</schema:givenName>\n    <schema:familyName>Boettiger</schema:familyName>\n    <schema:email>cboettig@gmail.com</schema:email>\n  </schema:Person>\n  <schema:Person rdf:about=\"http://orcid.org/0000-0003-1219-2137\">\n    <schema:email>carole.goble@manchester.ac.uk</schema:email>\n    <schema:familyName>Goble</schema:familyName>\n    <schema:givenName>Carole</schema:givenName>\n  </schema:Person>\n  <schema:Person rdf:about=\"http://orcid.org/0000-0002-3957-2474\">\n    <schema:familyName>Smith</schema:familyName>\n    <schema:givenName>Arfon</schema:givenName>\n    <schema:email>arfon.smith@gmail.com</schema:email>\n  </schema:Person>\n  <schema:Person rdf:about=\"http://orcid.org/0000-0003-3477-2845\">\n    <schema:givenName>Alice</schema:givenName>\n    <schema:email>aallen@ascl.net</schema:email>\n    <schema:familyName>Allen</schema:familyName>\n  </schema:Person>\n  <schema:Person rdf:nodeID=\"Nefd7fe71736c433db9ada28e54018b34\">\n    <schema:email>abbycabs@gmail.com</schema:email>\n    <schema:givenName>Abby Cabunoc</schema:givenName>\n    <schema:familyName>Mayes</schema:familyName>\n  </schema:Person>\n  <schema:Person rdf:about=\"http://orcid.org/0000-0003-1304-1939\">\n    <schema:givenName>Mercè</schema:givenName>\n    <schema:familyName>Crosas</schema:familyName>\n  </schema:Person>\n  <schema:Person rdf:about=\"Nc65fe076896346a9a8859f25f5e3bca9\">\n    <schema:email>luke.coy@rit.edu</schema:email>\n    <schema:familyName>Coy</schema:familyName>\n    <schema:givenName>Luke</schema:givenName>\n  </schema:Person>\n  <schema:Person rdf:about=\"http://orcid.org/0000-0003-4425-7097\">\n    <schema:givenName>Kyle</schema:givenName>\n    <schema:email>Kyle.Niemeyer@oregonstate.edu</schema:email>\n    <schema:familyName>Niemeyer</schema:familyName>\n  </schema:Person>\n  <schema:Person rdf:about=\"http://orcid.org/0000-0002-2192-403X\">\n    <schema:givenName>Peter</schema:givenName>\n    <schema:email>slaughter@nceas.ucsb.edu</schema:email>\n    <schema:familyName>Slaughter</schema:familyName>\n  </schema:Person>\n  <schema:Person rdf:about=\"http://orcid.org/0000-0003-0077-4738\">\n    <schema:givenName>Matthew B.</schema:givenName>\n    <schema:familyName>Jones</schema:familyName>\n    <schema:email>jones@nceas.ucsb.edu</schema:email>\n  </schema:Person>\n</rdf:RDF>",
+		"upstreamTestItems": [
+			{
+				"itemType": "computerProgram",
+				"title": "CodeMeta: Minimal metadata schemas for science software and code, in JSON-LD",
+				"creators": [
+					{
+						"creatorType": "programmer",
+						"lastName": "Boettiger",
+						"firstName": "Carl"
+					},
+					{
+						"creatorType": "programmer",
+						"lastName": "Jones",
+						"firstName": "Matthew B."
+					},
+					{
+						"creatorType": "contributor",
+						"lastName": "Druskat",
+						"firstName": "Stephan"
+					},
+					{
+						"creatorType": "contributor",
+						"lastName": "Sands",
+						"firstName": "Ashley"
+					},
+					{
+						"creatorType": "contributor",
+						"lastName": "Cruse",
+						"firstName": "Patricia"
+					},
+					{
+						"creatorType": "contributor",
+						"lastName": "Fenner",
+						"firstName": "Martin"
+					},
+					{
+						"creatorType": "contributor",
+						"lastName": "Chue Hong",
+						"firstName": "Neil"
+					},
+					{
+						"creatorType": "contributor",
+						"lastName": "Gil",
+						"firstName": "Yolanda"
+					},
+					{
+						"creatorType": "contributor",
+						"lastName": "Hahnel",
+						"firstName": "Mark"
+					},
+					{
+						"creatorType": "contributor",
+						"lastName": "Katz",
+						"firstName": "Dan"
+					},
+					{
+						"creatorType": "contributor",
+						"lastName": "Boettiger",
+						"firstName": "Carl"
+					},
+					{
+						"creatorType": "contributor",
+						"lastName": "Goble",
+						"firstName": "Carole"
+					},
+					{
+						"creatorType": "contributor",
+						"lastName": "Smith",
+						"firstName": "Arfon"
+					},
+					{
+						"creatorType": "contributor",
+						"lastName": "Allen",
+						"firstName": "Alice"
+					},
+					{
+						"creatorType": "contributor",
+						"lastName": "Crosas",
+						"firstName": "Mercè"
+					},
+					{
+						"creatorType": "contributor",
+						"lastName": "Coy",
+						"firstName": "Luke"
+					},
+					{
+						"creatorType": "contributor",
+						"lastName": "Niemeyer",
+						"firstName": "Kyle"
+					},
+					{
+						"creatorType": "contributor",
+						"lastName": "Slaughter",
+						"firstName": "Peter"
+					}
+				],
+				"date": "2017-06-05",
+				"abstractNote": "CodeMeta is a concept vocabulary that can be used to standardize the exchange of software metadata across repositories and organizations.",
+				"itemID": "_:n79",
+				"programmingLanguage": "JSON-LD",
+				"rights": "https://spdx.org/licenses/Apache-2.0",
+				"versionNumber": "2.0",
+				"attachments": [],
+				"tags": [
+					{
+						"tag": "metadata"
+					},
+					{
+						"tag": "software"
+					}
+				],
+				"notes": [],
+				"seeAlso": []
+			}
+		],
+		"status": 200,
+		"translatorID": "5e3ad958-ac79-463d-812b-a86a9235c28f",
+		"items": [
+			{
+				"key": "KVN22222",
+				"version": 0,
+				"itemType": "computerProgram",
+				"creators": [
+					{
+						"firstName": "Carl",
+						"lastName": "Boettiger",
+						"creatorType": "programmer"
+					},
+					{
+						"firstName": "Matthew B.",
+						"lastName": "Jones",
+						"creatorType": "programmer"
+					},
+					{
+						"firstName": "Stephan",
+						"lastName": "Druskat",
+						"creatorType": "contributor"
+					},
+					{
+						"firstName": "Ashley",
+						"lastName": "Sands",
+						"creatorType": "contributor"
+					},
+					{
+						"firstName": "Patricia",
+						"lastName": "Cruse",
+						"creatorType": "contributor"
+					},
+					{
+						"firstName": "Martin",
+						"lastName": "Fenner",
+						"creatorType": "contributor"
+					},
+					{
+						"firstName": "Neil",
+						"lastName": "Chue Hong",
+						"creatorType": "contributor"
+					},
+					{
+						"firstName": "Yolanda",
+						"lastName": "Gil",
+						"creatorType": "contributor"
+					},
+					{
+						"firstName": "Mark",
+						"lastName": "Hahnel",
+						"creatorType": "contributor"
+					},
+					{
+						"firstName": "Dan",
+						"lastName": "Katz",
+						"creatorType": "contributor"
+					},
+					{
+						"firstName": "Carl",
+						"lastName": "Boettiger",
+						"creatorType": "contributor"
+					},
+					{
+						"firstName": "Carole",
+						"lastName": "Goble",
+						"creatorType": "contributor"
+					},
+					{
+						"firstName": "Arfon",
+						"lastName": "Smith",
+						"creatorType": "contributor"
+					},
+					{
+						"firstName": "Alice",
+						"lastName": "Allen",
+						"creatorType": "contributor"
+					},
+					{
+						"firstName": "Mercè",
+						"lastName": "Crosas",
+						"creatorType": "contributor"
+					},
+					{
+						"firstName": "Luke",
+						"lastName": "Coy",
+						"creatorType": "contributor"
+					},
+					{
+						"firstName": "Kyle",
+						"lastName": "Niemeyer",
+						"creatorType": "contributor"
+					},
+					{
+						"firstName": "Peter",
+						"lastName": "Slaughter",
+						"creatorType": "contributor"
+					}
+				],
+				"tags": [
+					{
+						"tag": "software",
+						"type": 1
+					},
+					{
+						"tag": "metadata",
+						"type": 1
+					}
+				],
+				"title": "CodeMeta: Minimal metadata schemas for science software and code, in JSON-LD",
+				"rights": "https://spdx.org/licenses/Apache-2.0",
+				"versionNumber": "2.0",
+				"programmingLanguage": "JSON-LD",
+				"date": "2017-06-05",
+				"abstractNote": "CodeMeta is a concept vocabulary that can be used to standardize the exchange of software metadata across repositories and organizations."
+			}
+		]
+	},
+	{
+		"name": "testCase03",
+		"source": "translators/RDF.js testCases[3]",
+		"input": "<rdf:RDF\n xmlns:rdf=\"http://www.w3.org/1999/02/22-rdf-syntax-ns#\"\n xmlns:z=\"http://www.zotero.org/namespaces/export#\"\n xmlns:link=\"http://purl.org/rss/1.0/modules/link/\"\n xmlns:dc=\"http://purl.org/dc/elements/1.1/\"\n xmlns:dcterms=\"http://purl.org/dc/terms/\"\n xmlns:prism=\"http://prismstandard.org/namespaces/1.2/basic/\"\n xmlns:bib=\"http://purl.org/net/biblio#\">\n    <bib:Report rdf:about=\"#test-report\">\n        <z:itemType>report</z:itemType>\n        <prism:number>NLR-TP-96-464</prism:number>\n        <dc:title>Test</dc:title>\n    </bib:Report>\n</rdf:RDF>\n",
+		"upstreamTestItems": [
+			{
+				"itemType": "report",
+				"title": "Test",
+				"creators": [],
+				"itemID": "#test-report",
+				"reportNumber": "NLR-TP-96-464",
+				"attachments": [],
+				"tags": [],
+				"notes": [],
+				"seeAlso": []
+			}
+		],
+		"status": 200,
+		"translatorID": "5e3ad958-ac79-463d-812b-a86a9235c28f",
+		"items": [
+			{
+				"key": "KVN22222",
+				"version": 0,
+				"itemType": "report",
+				"creators": [],
+				"tags": [],
+				"title": "Test",
+				"reportNumber": "NLR-TP-96-464"
+			}
+		]
+	},
+	{
+		"name": "testCase04",
+		"source": "translators/RDF.js testCases[4]",
+		"input": "<rdf:RDF\n xmlns:rdf=\"http://www.w3.org/1999/02/22-rdf-syntax-ns#\"\n xmlns:z=\"http://www.zotero.org/namespaces/export#\"\n xmlns:dc=\"http://purl.org/dc/elements/1.1/\"\n xmlns:dcterms=\"http://purl.org/dc/terms/\"\n xmlns:bib=\"http://purl.org/net/biblio#\"\n xmlns:foaf=\"http://xmlns.com/foaf/0.1/\"\n xmlns:prism=\"http://prismstandard.org/namespaces/1.2/basic/\">\n    <rdf:Description rdf:about=\"#item_1\">\n        <z:itemType>treaty</z:itemType>\n        <dc:title>International Code for Ships Operating in Polar Waters (Polar Code)</dc:title>\n        <bib:authors>\n            <rdf:Seq>\n                <rdf:li>\n                    <foaf:Person>\n                        <foaf:surname>Int'l Mar. Org.</foaf:surname>\n                    </foaf:Person>\n                </rdf:li>\n            </rdf:Seq>\n        </bib:authors>\n        <prism:volume>34</prism:volume>\n        <bib:pages>243</bib:pages>\n        <dc:date>2017</dc:date>\n    </rdf:Description>\n</rdf:RDF>\n",
+		"upstreamTestItems": [
+			{
+				"itemType": "document",
+				"title": "International Code for Ships Operating in Polar Waters (Polar Code)",
+				"creators": [
+					{
+						"creatorType": "author",
+						"lastName": "Int'l Mar. Org.",
+						"fieldMode": 1
+					}
+				],
+				"date": "2017",
+				"extra": "Type: treaty",
+				"itemID": "#item_1",
+				"attachments": [],
+				"tags": [],
+				"notes": [],
+				"seeAlso": []
+			}
+		],
+		"status": 200,
+		"translatorID": "5e3ad958-ac79-463d-812b-a86a9235c28f",
+		"items": [
+			{
+				"key": "KVN22222",
+				"version": 0,
+				"itemType": "document",
+				"creators": [
+					{
+						"name": "Int'l Mar. Org.",
+						"creatorType": "author"
+					}
+				],
+				"tags": [],
+				"title": "International Code for Ships Operating in Polar Waters (Polar Code)",
+				"date": "2017",
+				"extra": "Type: treaty"
+			}
+		]
+	},
+	{
+		"name": "testCase05",
+		"source": "translators/RDF.js testCases[5]",
+		"input": "<rdf:RDF\n xmlns:rdf=\"http://www.w3.org/1999/02/22-rdf-syntax-ns#\"\n xmlns:z=\"http://www.zotero.org/namespaces/export#\"\n xmlns:dcterms=\"http://purl.org/dc/terms/\"\n xmlns:dc=\"http://purl.org/dc/elements/1.1/\"\n xmlns:bib=\"http://purl.org/net/biblio#\"\n xmlns:foaf=\"http://xmlns.com/foaf/0.1/\"\n xmlns:vcard=\"http://nwalsh.com/rdf/vCard#\"\n xmlns:prism=\"http://prismstandard.org/namespaces/1.2/basic/\">\n    <bib:Recording rdf:about=\"https://example.com/video\">\n        <z:itemType>videoRecording</z:itemType>\n        <z:creators>\n            <rdf:Seq>\n                <rdf:li>\n                    <foaf:Person>\n                        <foaf:surname>Lastname</foaf:surname>\n                        <foaf:givenName>Firstname</foaf:givenName>\n                    </foaf:Person>\n                </rdf:li>\n            </rdf:Seq>\n        </z:creators>\n        <dc:title>Video</dc:title>\n        <dcterms:abstract>Example video</dcterms:abstract>\n        <dc:date>2026-06-17</dc:date>\n        <z:libraryCatalog>Example.com</z:libraryCatalog>\n        <dc:identifier>\n            <dcterms:URI>\n               <rdf:value>https://example.com/video</rdf:value>\n            </dcterms:URI>\n        </dc:identifier>\n    </bib:Recording>\n</rdf:RDF>\n\n",
+		"upstreamTestItems": [
+			{
+				"itemType": "videoRecording",
+				"title": "Video",
+				"creators": [
+					{
+						"creatorType": "creator",
+						"lastName": "Lastname",
+						"firstName": "Firstname"
+					}
+				],
+				"date": "2026-06-17",
+				"abstractNote": "Example video",
+				"itemID": "https://example.com/video",
+				"libraryCatalog": "Example.com",
+				"url": "https://example.com/video",
+				"attachments": [],
+				"tags": [],
+				"notes": [],
+				"seeAlso": []
+			}
+		],
+		"status": 200,
+		"translatorID": "5e3ad958-ac79-463d-812b-a86a9235c28f",
+		"items": [
+			{
+				"key": "KVN22222",
+				"version": 0,
+				"itemType": "videoRecording",
+				"creators": [
+					{
+						"firstName": "Firstname",
+						"lastName": "Lastname",
+						"creatorType": "creator"
+					}
+				],
+				"tags": [],
+				"title": "Video",
+				"date": "2026-06-17",
+				"url": "https://example.com/video",
+				"abstractNote": "Example video",
+				"libraryCatalog": "Example.com"
+			}
+		]
+	},
+	{
+		"name": "rdf_container_hole",
+		"source": "fixtures/import/rdf_container_hole.rdf",
+		"input": "<?xml version=\"1.0\"?>\n<!-- kovan-authored probe (#749): a creator list numbered from rdf:_2, which\n     leaves a hole in upstream's array (an import error upstream). -->\n<rdf:RDF xmlns:rdf=\"http://www.w3.org/1999/02/22-rdf-syntax-ns#\"\n         xmlns:dc=\"http://purl.org/dc/elements/1.1/\"\n         xmlns:bib=\"http://purl.org/net/biblio#\"\n         xmlns:foaf=\"http://xmlns.com/foaf/0.1/\">\n  <bib:Book rdf:about=\"#holes\">\n    <dc:title>Holes</dc:title>\n    <bib:authors>\n      <rdf:Seq>\n        <rdf:_2><foaf:Person><foaf:surname>Second</foaf:surname></foaf:Person></rdf:_2>\n      </rdf:Seq>\n    </bib:authors>\n  </bib:Book>\n</rdf:RDF>\n",
+		"status": 500,
+		"translatorID": null,
+		"error": "Internal Server Error"
+	},
+	{
+		"name": "rdf_dc_prism_article",
+		"source": "fixtures/import/rdf_dc_prism_article.rdf",
+		"input": "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<!-- kovan-authored probe (#749): Dublin Core 1.1 and terms, PRISM 2.0 and\n     FOAF on a journal article with its journal as a node of its own. -->\n<rdf:RDF xmlns:rdf=\"http://www.w3.org/1999/02/22-rdf-syntax-ns#\"\n         xmlns:dc=\"http://purl.org/dc/elements/1.1/\"\n         xmlns:dcterms=\"http://purl.org/dc/terms/\"\n         xmlns:prism=\"http://prismstandard.org/namespaces/basic/2.0/\"\n         xmlns:bib=\"http://purl.org/net/biblio#\"\n         xmlns:foaf=\"http://xmlns.com/foaf/0.1/\">\n  <bib:Article rdf:about=\"http://example.org/articles/42\">\n    <dc:title>Thermal &amp; hydraulic probes: a <![CDATA[<kovan>]]> test</dc:title>\n    <dc:creator>Smith, Jane Q.</dc:creator>\n    <dc:creator>Kovan Probe Consortium</dc:creator>\n    <dc:contributor>Doe, John</dc:contributor>\n    <dcterms:isPartOf>\n      <bib:Journal rdf:about=\"urn:issn:1234-5679\">\n        <dc:title>Journal of Probes</dc:title>\n        <dcterms:alternative>J. Probes</dcterms:alternative>\n        <dc:identifier>ISSN 1234-5679</dc:identifier>\n      </bib:Journal>\n    </dcterms:isPartOf>\n    <prism:volume>7</prism:volume>\n    <prism:number>3</prism:number>\n    <prism:startingPage>11</prism:startingPage>\n    <prism:endingPage>19</prism:endingPage>\n    <dc:date>2019-02-30</dc:date>\n    <dc:identifier>DOI 10.5555/probe.42</dc:identifier>\n    <dc:identifier>\n      <dcterms:URI><rdf:value>http://example.org/articles/42</rdf:value></dcterms:URI>\n    </dc:identifier>\n    <dc:subject>thermal hydraulics</dc:subject>\n    <dc:subject>probes</dc:subject>\n    <dc:subject>\n      <dcterms:LCC><rdf:value>TK9202 .P76</rdf:value></dcterms:LCC>\n    </dc:subject>\n    <dc:language xml:lang=\"en\">en-GB</dc:language>\n    <dc:rights>CC BY 4.0</dc:rights>\n    <dcterms:abstract>An abstract, with a comma.</dcterms:abstract>\n    <dc:description>A description that is not Zotero RDF's Extra.</dc:description>\n    <dc:relation rdf:resource=\"http://example.org/articles/41\"/>\n  </bib:Article>\n  <bib:Book rdf:about=\"urn:isbn:9780306406157\">\n    <dc:title>A Book with an ISBN in its URI</dc:title>\n    <bib:authors>\n      <rdf:Seq>\n        <rdf:li><foaf:Person><foaf:surname>Author</foaf:surname><foaf:givenName>Ann</foaf:givenName></foaf:Person></rdf:li>\n        <rdf:li><foaf:Organization><foaf:name>An Organisation, Inc.</foaf:name></foaf:Organization></rdf:li>\n      </rdf:Seq>\n    </bib:authors>\n    <bib:editors>\n      <rdf:Seq><rdf:li>Editor, Ed</rdf:li></rdf:Seq>\n    </bib:editors>\n    <dc:publisher>\n      <foaf:Organization>\n        <foaf:name>Probe Press</foaf:name>\n        <vcard:adr xmlns:vcard=\"http://nwalsh.com/rdf/vCard#\"><vcard:Address><vcard:locality>Singapore</vcard:locality></vcard:Address></vcard:adr>\n      </foaf:Organization>\n    </dc:publisher>\n    <dcterms:isPartOf>\n      <bib:Series><dc:title>Probe Series</dc:title><dc:identifier>12</dc:identifier></bib:Series>\n    </dcterms:isPartOf>\n    <dc:identifier>ISBN 978-0-306-40615-7</dc:identifier>\n    <dc:date>2001</dc:date>\n  </bib:Book>\n</rdf:RDF>\n",
+		"status": 200,
+		"translatorID": "5e3ad958-ac79-463d-812b-a86a9235c28f",
+		"items": [
+			{
+				"key": "KVN22222",
+				"version": 0,
+				"itemType": "journalArticle",
+				"creators": [
+					{
+						"firstName": "Jane Q.",
+						"lastName": "Smith",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "Kovan Probe",
+						"lastName": "Consortium",
+						"creatorType": "author"
+					}
+				],
+				"tags": [
+					{
+						"tag": "thermal hydraulics",
+						"type": 1
+					},
+					{
+						"tag": "probes",
+						"type": 1
+					}
+				],
+				"publicationTitle": "Journal of Probes",
+				"rights": "CC BY 4.0",
+				"volume": "7",
+				"issue": "3",
+				"pages": "11-19",
+				"date": "2019-02-30",
+				"DOI": "10.5555/probe.42",
+				"url": "http://example.org/articles/42",
+				"ISSN": "1234-5679",
+				"abstractNote": "An abstract, with a comma.",
+				"journalAbbreviation": "J. Probes",
+				"language": "en-GB",
+				"callNumber": "TK9202 .P76"
+			},
+			{
+				"key": "KVN22223",
+				"version": 0,
+				"itemType": "book",
+				"creators": [
+					{
+						"firstName": "Ann",
+						"lastName": "Author",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "Ed",
+						"lastName": "Editor",
+						"creatorType": "editor"
+					}
+				],
+				"tags": [],
+				"title": "A Book with an ISBN in its URI",
+				"series": "Probe Series",
+				"seriesNumber": "12",
+				"publisher": "Probe Press",
+				"place": "Singapore",
+				"date": "2001",
+				"ISBN": "978-0-306-40615-7"
+			}
+		]
+	},
+	{
+		"name": "rdf_eprints_og_schema",
+		"source": "fixtures/import/rdf_eprints_og_schema.rdf",
+		"input": "<?xml version=\"1.0\" encoding=\"utf-8\"?>\n<!-- kovan-authored probe (#749): eprints, Open Graph and schema.org terms,\n     and a vCard 4 organisation. -->\n<rdf:RDF xmlns:rdf=\"http://www.w3.org/1999/02/22-rdf-syntax-ns#\"\n         xmlns:ep=\"http://purl.org/eprint/terms/\"\n         xmlns:og=\"http://ogp.me/ns#\"\n         xmlns:so=\"http://schema.org/\"\n         xmlns:dc=\"http://purl.org/dc/elements/1.1/\"\n         xmlns:v=\"http://www.w3.org/2006/vcard/ns#\">\n  <rdf:Description rdf:about=\"http://eprints.example.org/1/\">\n    <ep:type>conference_item</ep:type>\n    <ep:ispublished>unpub</ep:ispublished>\n    <ep:title>An Unpublished Conference Talk</ep:title>\n    <ep:creators_name>Speaker, Sam</ep:creators_name>\n    <ep:creators_name>Second, Sue</ep:creators_name>\n    <ep:event_title>Probe Conference 2024</ep:event_title>\n    <ep:event_location>Kent Ridge</ep:event_location>\n    <ep:event_type>Keynote</ep:event_type>\n    <ep:date>2024-03-05</ep:date>\n    <ep:abstract>Talk abstract.</ep:abstract>\n    <ep:official_url>http://eprints.example.org/1/talk</ep:official_url>\n    <ep:document_url>http://eprints.example.org/1/slides.pdf</ep:document_url>\n  </rdf:Description>\n  <rdf:Description rdf:about=\"http://eprints.example.org/2/\">\n    <ep:type>thesis</ep:type>\n    <ep:title>A Thesis from eprints</ep:title>\n    <ep:thesis_type>PhD</ep:thesis_type>\n    <ep:creators_name>Student, Stella</ep:creators_name>\n    <ep:institution>Probe University</ep:institution>\n    <ep:pages>321</ep:pages>\n    <ep:isbn>0-306-40615-2</ep:isbn>\n  </rdf:Description>\n  <rdf:Description rdf:about=\"http://video.example.org/clip\">\n    <og:type>video.movie</og:type>\n    <og:title>A Film via Open Graph</og:title>\n    <og:description>Open Graph description.</og:description>\n    <og:site_name>Video Site</og:site_name>\n    <og:url>http://video.example.org/clip?ref=og</og:url>\n  </rdf:Description>\n  <so:BlogPosting rdf:about=\"http://blog.example.org/post\">\n    <so:headline>A schema.org blog post</so:headline>\n    <so:author><so:Person><so:name>Writer, Will</so:name></so:Person></so:author>\n    <so:datePublished>2022-11-30</so:datePublished>\n    <so:keywords>alpha</so:keywords>\n    <so:inLanguage>en</so:inLanguage>\n    <so:publisher><so:Organization><so:name>Blog Co</so:name><so:location>Earth</so:location></so:Organization></so:publisher>\n  </so:BlogPosting>\n  <v:Organization rdf:about=\"http://org.example.org/\">\n    <v:fn>A vCard Organisation Record</v:fn>\n    <v:tel>+65 0000 0000</v:tel>\n    <dc:type>report</dc:type>\n  </v:Organization>\n</rdf:RDF>\n",
+		"status": 200,
+		"translatorID": "5e3ad958-ac79-463d-812b-a86a9235c28f",
+		"items": [
+			{
+				"key": "KVN22222",
+				"version": 0,
+				"itemType": "presentation",
+				"creators": [
+					{
+						"firstName": "Sam",
+						"lastName": "Speaker",
+						"creatorType": "presenter"
+					},
+					{
+						"firstName": "Sue",
+						"lastName": "Second",
+						"creatorType": "presenter"
+					}
+				],
+				"tags": [],
+				"title": "An Unpublished Conference Talk",
+				"place": "Kent Ridge",
+				"date": "2024-03-05",
+				"url": "http://eprints.example.org/1/talk",
+				"abstractNote": "Talk abstract.",
+				"presentationType": "Keynote",
+				"meetingName": "Probe Conference 2024"
+			},
+			{
+				"key": "KVN22223",
+				"version": 0,
+				"itemType": "thesis",
+				"creators": [
+					{
+						"firstName": "Stella",
+						"lastName": "Student",
+						"creatorType": "author"
+					}
+				],
+				"tags": [],
+				"title": "A Thesis from eprints",
+				"numPages": "321",
+				"university": "Probe University",
+				"ISBN": "0-306-40615-2",
+				"thesisType": "PhD"
+			},
+			{
+				"key": "KVN22224",
+				"version": 0,
+				"itemType": "videoRecording",
+				"creators": [],
+				"tags": [],
+				"title": "A Film via Open Graph",
+				"url": "http://video.example.org/clip?ref=og",
+				"abstractNote": "Open Graph description."
+			},
+			{
+				"key": "KVN22225",
+				"version": 0,
+				"itemType": "blogPost",
+				"creators": [
+					{
+						"firstName": "Will",
+						"lastName": "Writer",
+						"creatorType": "author"
+					}
+				],
+				"tags": [
+					{
+						"tag": "alpha",
+						"type": 1
+					}
+				],
+				"title": "A schema.org blog post",
+				"date": "2022-11-30",
+				"language": "en"
+			},
+			{
+				"key": "KVN22226",
+				"version": 0,
+				"itemType": "report",
+				"creators": [],
+				"tags": [],
+				"title": "A vCard Organisation Record",
+				"reportType": "report"
+			}
+		]
+	},
+	{
+		"name": "rdf_parser_quirks",
+		"source": "fixtures/import/rdf_parser_quirks.rdf",
+		"input": "<?xml version=\"1.0\"?>\n<!-- kovan-authored probe (#749): the RDF/XML parser's corners. -->\n<rdf:RDF xmlns:rdf=\"http://www.w3.org/1999/02/22-rdf-syntax-ns#\"\n         xmlns:dc=\"http://purl.org/dc/elements/1.1/\"\n         xmlns:dcterms=\"http://purl.org/dc/terms/\"\n         xmlns:z=\"http://www.zotero.org/namespaces/export#\"\n         xmlns:owl=\"http://www.w3.org/2002/07/owl#\"\n         xmlns:foaf=\"http://xmlns.com/foaf/0.1/\"\n         xmlns:bib=\"http://purl.org/net/biblio#\"\n         xml:base=\"http://example.org/base/\">\n  <!-- A typed node that also has an rdf:type attribute, a property\n       attribute, a title split by a comment, and an xml:lang. -->\n  <bib:Book rdf:ID=\"quirky\" rdf:type=\"http://purl.org/net/biblio#Thesis\" dc:publisher=\"Attribute Press\">\n    <dc:title>Split <!-- a comment --> title</dc:title>\n    <dcterms:alternative xml:lang=\"fr\">Titre court</dcterms:alternative>\n    <z:itemType>book</z:itemType>\n    <z:numPages>  250  </z:numPages>\n    <dc:date rdf:datatype=\"http://www.w3.org/2001/XMLSchema#gYear\">1999</dc:date>\n    <bib:authors rdf:parseType=\"Resource\">\n      <rdf:value>ignored</rdf:value>\n    </bib:authors>\n    <dc:description>Comes after a parseType=\"Resource\" arc.</dc:description>\n    <dc:identifier rdf:parseType=\"Literal\"><b>bold</b></dc:identifier>\n    <dc:subject rdf:nodeID=\"shared\"/>\n    <dc:subject>plain tag</dc:subject>\n    <owl:sameAs rdf:resource=\"http://example.org/zz-alias\"/>\n  </bib:Book>\n  <rdf:Description rdf:nodeID=\"shared\">\n    <rdf:type rdf:resource=\"http://www.zotero.org/namespaces/export#AutomaticTag\"/>\n    <rdf:value>automatic tag</rdf:value>\n  </rdf:Description>\n  <rdf:Description rdf:about=\"http://example.org/zz-alias\">\n    <z:shortTitle>Alias short title</z:shortTitle>\n  </rdf:Description>\n  <bib:Article rdf:about=\"#list\">\n    <dc:title>Creators in a parseType=\"Collection\"</dc:title>\n    <bib:authors rdf:parseType=\"Collection\">\n      <foaf:Person><foaf:surname>First</foaf:surname></foaf:Person>\n      <foaf:Person><foaf:surname>Second</foaf:surname></foaf:Person>\n    </bib:authors>\n    <dc:subject><![CDATA[cdata <tag>]]></dc:subject>\n    <dc:subject></dc:subject>\n  </bib:Article>\n</rdf:RDF>\n",
+		"status": 200,
+		"translatorID": "5e3ad958-ac79-463d-812b-a86a9235c28f",
+		"items": [
+			{
+				"key": "KVN22222",
+				"version": 0,
+				"itemType": "book",
+				"creators": [],
+				"tags": [
+					{
+						"tag": "automatic tag",
+						"type": 1
+					},
+					{
+						"tag": "plain tag",
+						"type": 1
+					}
+				],
+				"numPages": "250",
+				"shortTitle": "Alias short title",
+				"publisher": "Attribute Press",
+				"date": "1999",
+				"extra": "Comes after a parseType=\"Resource\" arc."
+			},
+			{
+				"key": "KVN22223",
+				"version": 0,
+				"itemType": "journalArticle",
+				"creators": [],
+				"tags": [
+					{
+						"tag": "cdata <tag>",
+						"type": 1
+					}
+				],
+				"title": "Creators in a parseType=\"Collection\""
+			}
+		]
+	},
+	{
+		"name": "rdf_zotero_library",
+		"source": "fixtures/import/rdf_zotero_library.rdf",
+		"input": "<rdf:RDF\n xmlns:rdf=\"http://www.w3.org/1999/02/22-rdf-syntax-ns#\"\n xmlns:z=\"http://www.zotero.org/namespaces/export#\"\n xmlns:dcterms=\"http://purl.org/dc/terms/\"\n xmlns:dc=\"http://purl.org/dc/elements/1.1/\"\n xmlns:bib=\"http://purl.org/net/biblio#\"\n xmlns:foaf=\"http://xmlns.com/foaf/0.1/\"\n xmlns:link=\"http://purl.org/rss/1.0/modules/link/\"\n xmlns:prism=\"http://prismstandard.org/namespaces/1.2/basic/\">\n    <!-- kovan-authored probe (#749): Zotero RDF as Zotero desktop writes a\n         library: items, a child note, an attachment, tags, a related item,\n         a standalone note and nested collections. -->\n    <bib:Article rdf:about=\"#item_1\">\n        <z:itemType>journalArticle</z:itemType>\n        <dcterms:isPartOf rdf:resource=\"urn:issn:0000-0019\"/>\n        <bib:authors>\n            <rdf:Seq>\n                <rdf:li>\n                    <foaf:Person>\n                        <foaf:surname>Ng</foaf:surname>\n                        <foaf:givenName>Ada</foaf:givenName>\n                    </foaf:Person>\n                </rdf:li>\n            </rdf:Seq>\n        </bib:authors>\n        <z:seriesEditors>\n            <rdf:Seq>\n                <rdf:li>\n                    <foaf:Person>\n                        <foaf:surname>Series</foaf:surname>\n                        <foaf:givenName>Sam</foaf:givenName>\n                    </foaf:Person>\n                </rdf:li>\n            </rdf:Seq>\n        </z:seriesEditors>\n        <dcterms:isReferencedBy rdf:resource=\"#item_2\"/>\n        <link:link rdf:resource=\"#item_3\"/>\n        <dc:relation rdf:resource=\"#item_4\"/>\n        <dc:subject>manual tag</dc:subject>\n        <dc:subject>\n           <z:AutomaticTag><rdf:value>automatic tag</rdf:value></z:AutomaticTag>\n        </dc:subject>\n        <dc:title>An Article in a Library</dc:title>\n        <dc:date>2020-01-02</dc:date>\n        <bib:pages>1-9</bib:pages>\n        <dc:description>Extra line one\nExtra line two</dc:description>\n        <z:libraryCatalog>Probe Catalog</z:libraryCatalog>\n        <z:shortTitle>Article</z:shortTitle>\n        <dc:identifier>\n            <dcterms:URI>\n               <rdf:value>http://example.org/a1</rdf:value>\n            </dcterms:URI>\n        </dc:identifier>\n        <dcterms:dateSubmitted>2021-02-03 04:05:06</dcterms:dateSubmitted>\n    </bib:Article>\n    <bib:Journal rdf:about=\"urn:issn:0000-0019\">\n        <dc:title>Journal of Libraries</dc:title>\n        <prism:volume>3</prism:volume>\n        <dc:identifier>ISSN 0000-0019</dc:identifier>\n    </bib:Journal>\n    <bib:Memo rdf:about=\"#item_2\">\n       <rdf:value>&lt;p&gt;A child note&lt;/p&gt;</rdf:value>\n       <dc:subject>note tag</dc:subject>\n    </bib:Memo>\n    <z:Attachment rdf:about=\"#item_3\">\n        <z:itemType>attachment</z:itemType>\n        <rdf:resource rdf:resource=\"files/3/paper.pdf\"/>\n        <dc:title>Full Text PDF</dc:title>\n        <dc:identifier>\n            <dcterms:URI>\n               <rdf:value>http://example.org/a1.pdf</rdf:value>\n            </dcterms:URI>\n        </dc:identifier>\n        <dcterms:dateSubmitted>2021-02-03 04:05:07</dcterms:dateSubmitted>\n        <z:linkMode>1</z:linkMode>\n        <link:type>application/pdf</link:type>\n        <dc:description>Attachment note</dc:description>\n    </z:Attachment>\n    <bib:Book rdf:about=\"#item_4\">\n        <z:itemType>book</z:itemType>\n        <dc:title>A Related Book</dc:title>\n        <dc:relation rdf:resource=\"#item_1\"/>\n    </bib:Book>\n    <bib:Memo rdf:about=\"#item_5\">\n       <rdf:value>&lt;p&gt;A standalone note&lt;/p&gt;</rdf:value>\n    </bib:Memo>\n    <z:Collection rdf:about=\"#collection_1\">\n        <dc:title>Top Collection</dc:title>\n        <dcterms:hasPart rdf:resource=\"#item_1\"/>\n        <dcterms:hasPart rdf:resource=\"#collection_2\"/>\n    </z:Collection>\n    <z:Collection rdf:about=\"#collection_2\">\n        <dc:title>Sub Collection</dc:title>\n        <dcterms:hasPart rdf:resource=\"#item_4\"/>\n        <dcterms:hasPart rdf:resource=\"#item_5\"/>\n    </z:Collection>\n</rdf:RDF>\n",
+		"status": 200,
+		"translatorID": "5e3ad958-ac79-463d-812b-a86a9235c28f",
+		"items": [
+			{
+				"key": "KVN22222",
+				"version": 0,
+				"itemType": "journalArticle",
+				"creators": [
+					{
+						"firstName": "Ada",
+						"lastName": "Ng",
+						"creatorType": "author"
+					}
+				],
+				"tags": [
+					{
+						"tag": "manual tag",
+						"type": 1
+					},
+					{
+						"tag": "automatic tag",
+						"type": 1
+					}
+				],
+				"title": "An Article in a Library",
+				"publicationTitle": "Journal of Libraries",
+				"volume": "3",
+				"pages": "1-9",
+				"shortTitle": "Article",
+				"date": "2020-01-02",
+				"accessDate": "2021-02-03T04:05:06Z",
+				"url": "http://example.org/a1",
+				"ISSN": "0000-0019",
+				"extra": "Extra line one\nExtra line two",
+				"libraryCatalog": "Probe Catalog"
+			},
+			{
+				"itemType": "note",
+				"parentItem": "KVN22222",
+				"note": "<p>A child note</p>"
+			},
+			{
+				"key": "KVN22223",
+				"version": 0,
+				"itemType": "book",
+				"creators": [],
+				"tags": [],
+				"title": "A Related Book"
+			},
+			{
+				"key": "KVN22224",
+				"version": 0,
+				"itemType": "note",
+				"creators": [],
+				"tags": []
+			}
+		]
+	}
+]
