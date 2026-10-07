@@ -47,7 +47,7 @@ the browser held to 5 logical CPUs, the machine shared with other agents.
 | quantity | prediction |
 |---|---|
 | P1. Data, the whole core, **one** worker | **3–6 min** (native 92–131 s × 1.7–2.5) |
-| P2. Data with a pool of **4** workers | **1.5–3 min**: the critical path is U-235's processing (~45 s native on this machine, × 1.7–2.1) plus each worker's own pass rebuilding all 41 slots from the tapes (I expect 10–25 % of the one-worker time) plus the majorant |
+| P2. Data with a pool of **4** workers | **1.5–3 min**: the critical path is U-235's processing (~45 s native on this machine, × 1.7–2.1) plus each worker's own pass rebuilding all ~~41~~ 38 slots (count corrected 2026-10-07 before any measurement; the predicted range is unchanged) from the tapes (I expect 10–25 % of the one-worker time) plus the majorant |
 | P3. Wasm memory per worker once ready | **250–600 MB**; the page itself under ~300 MB while products are relayed |
 | P4. Transport per history per worker | **13–35 ms** (native 8.5–14.8 ms × 1.3–2.5) |
 | P5. A **1000 × [5 + 20]** k run on 4 workers | **80–220 s**, i.e. 3–9 s per generation |

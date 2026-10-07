@@ -264,6 +264,7 @@ mod core_shell;
 pub mod explicit_bed;
 pub mod control_rod;
 pub mod data;
+pub mod data_jobs;
 pub mod materials;
 pub mod plots;
 pub mod keff_vs_height;
