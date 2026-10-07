@@ -65,6 +65,30 @@ Bookkeeping-status sign-off block) that do not belong in a library catalogue.
 > Hardcoded into Kovan as `LITERATURE` entry `la-ur-17-20093`
 > (`crates/kovan/src/corpus.rs`), filed under
 > `02-nuclear-safety/nuclear-design/nuclear-data-processing`.
+> **Also filed 2026-10-07** (maintainer request) under that concept's module
+> sub-concepts, which now cite the manual chapter by chapter with printed and
+> PDF pages (RECONR, BROADR, UNRESR/PURR, THERMR/LEAPR, ACER, GROUPR and the
+> multigroup writers, ERRORR/COVR, HEATR); NJOY, MODER, RESXSR, PLOTR, VIEWR,
+> MIXR and GASPR have no sub-concept and stay under the parent only.
+
+> **2026-10-07 — 34 documents filed into Kovan's standard corpus** (OUTRAM
+> PARK #760), each re-verified from the file or its official landing page
+> before filing; the basis of each is quoted, with where it is, the URL and
+> the SHA-256, in `reactor-literature/kovan-standard-open-corpus/README.md`.
+> 22 bedrock documents for the IAEA Milestones issues: eleven NRC
+> (`nrc/`, ground 1), CRS R42853, CRS IF10821 and GAO-15-652 (`us-congress/`,
+> new ground 8, U.S. Government works that say they are not copyrighted),
+> DOE-HDBK-1019 Vols 1–2, DOE-HDBK-1012 Vols 1–3, the Nuclear Fuel Working
+> Group report, ORNL/TM-2020/1522 and ORNL/TM-2014/88 (`us-doe/`, ground 4).
+> 12 solver-pattern sources: SAND2011-2195 (LIME), LA-UR-06-7094 and
+> LA-UR-09-02377 (`us-doe/`, ground 4); Kim et al. 2022 and Zhang & Zhou 2023
+> (`cc-by/`, ground 2); multiRegionFoam arXiv:2306.01924v2 (`cc-by-sa/`), Wang
+> arXiv:2301.00289v3 and Cosgrove et al. 2020 (`cc-by-nc-nd/`, new ground 9);
+> OpenMC `depletion.rst`/`eigenvalue.rst` and MOOSE `SIMPLE.md`/`PIMPLE.md`
+> pinned to commits with their licence files (`openmc-docs/`, `moose-docs/`,
+> ground 7 extended to project documentation under MIT/LGPL). All are
+> `LITERATURE` entries in `crates/kovan/src/corpus.rs`; the solver sources
+> are `[[document]]`s of the concept tree.
 
 > **2026-10-02 — `conlin2017njoy21` added to the public open corpus.** J.L.
 > Conlin, A.C. Kahler, A.P. McCartney, D.A. Rehn, *NJOY21: Next generation
