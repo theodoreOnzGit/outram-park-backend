@@ -215,3 +215,96 @@ pub fn cast_label(
     }
     Ok(ret)
 }
+
+#[cfg(test)]
+mod tests {
+    //! Differential tests against citeproc-js 2.4.63: reference
+    //! `tests/data/csl/units/locator.json` (generator
+    //! `scripts/csl-units/locator.cjs`), section `label_cases`: ~2,000
+    //! `CSL.evaluateLabel` calls over label terms, forms, plurals, group
+    //! label forms, strip-periods, default-locale and reverse-lookup
+    //! settings, items and locators, in three locales. Compared: the label
+    //! text, `label_static`, the node's decorations and the label fields
+    //! recorded in `shadow_numbers`. Labels asking for `capitalize-first`
+    //! reach the output formatters (not ported here) and must report
+    //! `NotYetPorted`.
+    use std::collections::BTreeMap;
+
+    use serde_json::json;
+
+    use super::*;
+    use crate::citeproc::js::Obj;
+    use crate::citeproc::obj_token::TokenType;
+
+    const REF: &str = include_str!("../../tests/data/csl/units/locator.json");
+
+    #[test]
+    fn evaluate_label_matches_citeproc_js() {
+        let r: Value = serde_json::from_str(REF).expect("json");
+        let mut n = 0;
+        let mut deferred = 0;
+        for c in r["label_cases"].as_array().expect("cases") {
+            let e = &r["label_engines"][c["engine"].as_str().unwrap_or("")];
+            let mut st = State::default();
+            st.opt = e["opt"].as_object().cloned().unwrap_or_default();
+            st.input_locale.terms = e["log"]
+                .as_object()
+                .map(|o| o.iter().map(|(k, v)| (k.clone(), v.as_str().map(str::to_string))).collect::<BTreeMap<_, _>>())
+                .unwrap_or_default();
+            let mut node = Token::new("label", TokenType::Singleton);
+            node.strings = c["node"]["strings"].as_object().cloned().unwrap_or_else(Obj::new);
+            node.decorations = c["node"]["decorations"]
+                .as_array()
+                .map(|a| {
+                    a.iter()
+                        .map(|d| Decoration::new(d[0].as_str().unwrap_or(""), d[1].as_str().unwrap_or("")))
+                        .collect()
+                })
+                .unwrap_or_default();
+            node.extra.insert("cslid".into(), c["node"]["cslid"].clone());
+            if c["node"]["default_locale"].as_bool() == Some(true) {
+                node.extra.insert("default_locale".into(), Value::Bool(true));
+            }
+            let mut ctx = LabelContext {
+                tip_label_form: c["tip_form"].as_str().map(str::to_string),
+                strip_periods: c["strip"].as_bool().unwrap_or(false),
+                ..LabelContext::default()
+            };
+            let cite = if c["cite"].is_null() { None } else { Some(&c["cite"]) };
+            let res = evaluate_label(&mut st, &mut node, &mut ctx, &c["Item"], cite);
+            n += 1;
+            let cap = node.strings.get("capitalize_if_first").map(js::truthy).unwrap_or(false);
+            match (res, c.get("error")) {
+                (Err(EngineError::NotYetPorted { .. }), _) if cap => deferred += 1,
+                (Ok(s), None) => {
+                    assert_eq!(Value::String(s), c["out"], "label {c}");
+                    assert_eq!(Value::Bool(ctx.tip_label_static), c["tip_static"], "label_static {c}");
+                    let deco: Vec<Value> = node
+                        .decorations
+                        .iter()
+                        .map(|d| match &d.extra {
+                            Some(x) => json!([d.name, d.value, x.parse::<i64>().unwrap_or(0)]),
+                            None => json!([d.name, d.value]),
+                        })
+                        .collect();
+                    assert_eq!(Value::Array(deco), c["node_decorations"], "node decorations {c}");
+                    let mut shadow = Obj::new();
+                    for (k, v) in &st.tmp.shadow_numbers {
+                        shadow.insert(k.clone(), v.to_value());
+                    }
+                    assert_eq!(Value::Object(shadow), c["shadow"], "shadow_numbers {c}");
+                }
+                (Err(e), Some(w)) => assert_eq!(
+                    w.as_str(),
+                    Some(match &e {
+                        EngineError::Csl(m) => m.as_str(),
+                        _ => "",
+                    }),
+                    "{c}"
+                ),
+                (g, w) => panic!("{c}: {g:?} vs {w:?}"),
+            }
+        }
+        assert!(n > 1500 && deferred > 0, "{n} {deferred}");
+    }
+}

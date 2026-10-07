@@ -83,12 +83,10 @@ const LEGAL_TYPES: [&str; 5] = ["bill", "gazette", "legislation", "regulation", 
 
 /// A JS string property that upstream calls `.trim()` on; a non-string
 /// value is a TypeError there.
-fn str_of(o: &Obj, key: &str) -> CslResult<String> {
+fn str_of(o: &Obj, key: &str, path: &str) -> CslResult<String> {
     match o.get(key) {
         Some(Value::String(s)) => Ok(s.clone()),
-        _ => Err(EngineError::Csl(format!(
-            "{key}.trim is not a function"
-        ))),
+        _ => Err(EngineError::Csl(format!("{path}.trim is not a function"))),
     }
 }
 
@@ -108,7 +106,7 @@ pub fn remap_section_variable_one(item_obj: &mut Obj, cite_item: &mut Obj) -> Cs
     // If a locator value exists, then leave be an overriding label at the
     // start of the locator field, defaulting to the label value.
     if js::get_truthy(cite_item, "locator") {
-        let locator = js::trim(&str_of(cite_item, "locator")?).to_string();
+        let locator = js::trim(&str_of(cite_item, "locator", "item.locator")?).to_string();
         cite_item.insert("locator".into(), Value::String(locator.clone()));
         if !STATUTE_SUBDIV_PLAIN_REGEX_FRONT.is_match(&locator) {
             let new_locator = if js::get_truthy(cite_item, "label") {
@@ -128,7 +126,7 @@ pub fn remap_section_variable_one(item_obj: &mut Obj, cite_item: &mut Obj) -> Cs
     // the section field, defaulting to sec.
     let mut section_master_label: Option<String> = None;
     if js::get_truthy(item_obj, "section") {
-        let section = js::trim(&str_of(item_obj, "section")?).to_string();
+        let section = js::trim(&str_of(item_obj, "section", "Item.section")?).to_string();
         item_obj.insert("section".into(), Value::String(section.clone()));
         match STATUTE_SUBDIV_PLAIN_REGEX_FRONT.find(&section) {
             None => {
@@ -342,4 +340,126 @@ pub fn citation_item_input(state: &State, item_obj: &mut Obj, item: &mut Obj) ->
         }
     }
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    //! Differential tests against citeproc-js 2.4.63: reference
+    //! `tests/data/csl/units/locator.json` (generator
+    //! `scripts/csl-units/locator.cjs`):
+    //!
+    //! * `remapSectionVariable` over ~2,600 (Item, cite item) pairs: legal
+    //!   and other types x sections (labelled, unlabelled, odd punctuation)
+    //!   x locators x labels;
+    //! * `setNumberLabels` (256 items, both `consolidate_legal_items`
+    //!   settings, with and without an existing entry);
+    //! * `CSL.parseLocator` (40 locators with `|date extra` forms);
+    //! * the per-citation-item input steps (`parseLocator`,
+    //!   `remapSectionVariable`, `locator_label_parse`) over ~1,000 items x
+    //!   locators x labels, in two locales and five option sets, with the
+    //!   locale terms citeproc-js read replayed.
+    use std::collections::BTreeMap;
+
+    use serde_json::json;
+
+    use super::*;
+
+    const REF: &str = include_str!("../../tests/data/csl/units/locator.json");
+
+    fn obj(v: &Value) -> Obj {
+        v.as_object().cloned().unwrap_or_default()
+    }
+
+    fn err_text(e: &EngineError) -> String {
+        match e {
+            EngineError::Csl(m) => m.clone(),
+            o => o.to_string(),
+        }
+    }
+
+    fn terms_from(log: &Value) -> BTreeMap<String, Option<String>> {
+        log.as_object()
+            .map(|o| o.iter().map(|(k, v)| (k.clone(), v.as_str().map(str::to_string))).collect())
+            .unwrap_or_default()
+    }
+
+    #[test]
+    fn remap_section_variable_matches_citeproc_js() {
+        let r: Value = serde_json::from_str(REF).expect("json");
+        let mut n = 0;
+        for c in r["remap"].as_array().expect("remap") {
+            let (mut item_obj, mut cite) = (obj(&c["Item"]), obj(&c["item"]));
+            let res = remap_section_variable_one(&mut item_obj, &mut cite);
+            n += 1;
+            match (res, c.get("error")) {
+                (Ok(()), None) => {
+                    assert_eq!(Value::Object(item_obj), c["Item_out"], "Item {c}");
+                    assert_eq!(Value::Object(cite), c["item_out"], "item {c}");
+                }
+                (Err(e), Some(w)) => assert_eq!(w.as_str(), Some(err_text(&e).as_str()), "{c}"),
+                (g, w) => panic!("{c}: {g:?} vs {w:?}"),
+            }
+        }
+        assert!(n > 2000);
+    }
+
+    #[test]
+    fn set_number_labels_matches_citeproc_js() {
+        let r: Value = serde_json::from_str(REF).expect("json");
+        for c in r["set_number_labels"].as_array().expect("cases") {
+            let mut st = State::default();
+            st.opt.insert(
+                "development_extensions".into(),
+                json!({"consolidate_legal_items": c["ext"]}),
+            );
+            if c["pre"].as_bool() == Some(true) {
+                st.tmp.shadow_numbers.insert("number".into(), ShadowNumber::default());
+            }
+            set_number_labels(&mut st, &c["Item"]);
+            let mut got = Obj::new();
+            for (k, v) in &st.tmp.shadow_numbers {
+                got.insert(k.clone(), v.to_value());
+            }
+            assert_eq!(Value::Object(got), c["out"], "{c}");
+        }
+    }
+
+    #[test]
+    fn parse_locator_matches_citeproc_js() {
+        let r: Value = serde_json::from_str(REF).expect("json");
+        for c in r["parse_locator"].as_array().expect("cases") {
+            let mut st = State::default();
+            st.opt.insert(
+                "development_extensions".into(),
+                json!({"locator_date_and_revision": c["ext"]}),
+            );
+            let mut item = obj(&c["item"]);
+            parse_locator(&st, &mut item);
+            assert_eq!(Value::Object(item), c["out"], "{c}");
+        }
+    }
+
+    #[test]
+    fn citation_item_input_matches_citeproc_js() {
+        let r: Value = serde_json::from_str(REF).expect("json");
+        let mut n = 0;
+        for c in r["citation_item_input"].as_array().expect("cases") {
+            let e = &r["cii_engines"][c["engine"].as_str().unwrap_or("")];
+            let mut st = State::default();
+            st.opt = obj(&e["opt"]);
+            st.input_locale.terms = terms_from(&e["log"]);
+            let (mut item_obj, mut item) = (obj(&c["Item"]), obj(&c["ci"]));
+            let res = citation_item_input(&st, &mut item_obj, &mut item);
+            n += 1;
+            match (res, c.get("error")) {
+                (Ok(()), None) => {
+                    assert_eq!(Value::Object(item), c["item_out"], "item {c}");
+                    assert_eq!(Value::Object(item_obj), c["Item_out"], "Item {c}");
+                }
+                (Err(e), Some(w)) => assert_eq!(w.as_str(), Some(err_text(&e).as_str()), "{c}"),
+                (g, w) => panic!("{c}: {g:?} vs {w:?}"),
+            }
+        }
+        assert!(n > 800);
+    }
 }

@@ -849,7 +849,12 @@ impl ShadowNumber {
                                 Value::String(x.value.clone()),
                             ];
                             if let Some(e) = &x.extra {
-                                a.push(Value::String(e.clone()));
+                                // the third element of `@showid` is the numeric cslid
+                                a.push(
+                                    e.parse::<i64>()
+                                        .map(Value::from)
+                                        .unwrap_or_else(|_| Value::String(e.clone())),
+                                );
                             }
                             Value::Array(a)
                         })
