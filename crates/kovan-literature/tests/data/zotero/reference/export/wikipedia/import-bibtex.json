@@ -1,0 +1,102 @@
+{
+	"testCase00": {
+		"status": 200,
+		"output": "{{Cite journal| volume = 62| pages = 493–518| last1 = Adams| first1 = Nancy K| last2 = DeSilva| first2 = Shanaka L| last3 = Self| first3 = Steven| last4 = Salas| first4 = Guido| last5 = Schubring| first5 = Steven| last6 = Permenter| first6 = Jason L| last7 = Arbesman| first7 = Kendra| title = The physical volcanology of the 1600 eruption of Huaynaputina, southern Peru| journal = Bulletin of Volcanology| date = 2001}}"
+	},
+	"testCase01": {
+		"status": 200,
+		"output": "{{Cite book| edition = ninth Dover printing, tenth GPO printing| publisher = Dover| last1 = Abramowitz| first1 = Milton| last2 = Stegun| first2 = Irene A.| title = Handbook of Mathematical Functions with Formulas, Graphs, and Mathematical Tables| location = New York| date = 1964}}\r\n{{Cite book| publisher = Doubleday| isbn = 0385527403| last1 = Torre| first1 = Joe| last2 = Verducci| first2 = Tom| title = The Yankee Years| date = 2008}}"
+	},
+	"testCase02": {
+		"status": 200,
+		"output": "{{Cite conference| pages = 330–331| last1 = Author| first1 = First| last2 = Author| first2 = Second| title = Some publication title}}\r\n{{Cite book| others = First Editor, Second Editor (eds.)| title = Proceedings of the Xth Conference on XYZ| date = 2006-10}}"
+	},
+	"testCase03": {
+		"status": 200,
+		"output": "{{Cite book| edition = 1st,| publisher = Stanford Press| isbn = 0-69-697269-4| last = von Hicks| first = Michael, III| title = Design of a Carbon Fiber Composite Grid Structure for the GLAST Spacecraft Using a Novel Manufacturing Technique| location = Palo Alto| date = 2001}}"
+	},
+	"testCase04": {
+		"status": 200,
+		"output": "{{Cite journal| volume = 107| issue = 29| pages = 29| last = Oliveira| first = A| title = USGS monitoring ecological impacts| journal = Oil & Gas Journal| date = 2009}}"
+	},
+	"testCase05": {
+		"status": 200,
+		"output": "{{Cite journal| title = non-braking space: ; accented characters: ñ and ñ; tilde operator: ∼}}"
+	},
+	"testCase06": {
+		"status": 200,
+		"output": "{{Cite journal| doi = 10.1007/s13127-011-0069-8| volume = 12| pages = 71–80| last1 = Fritz| first1 = U.| last2 = Corti| first2 = C.| last3 = Päckert| first3 = M.| title = Test of markupconversion: Italics, bold, superscript, subscript, and small caps: Mitochondrial DNA₂ sequences suggest unexpected phylogenetic position of Corso-Sardinian grass snakes (<i>Natrix cetti</i>) and <b>do not</b> support their <span style=\"small-caps\">species status</span>, with notes on phylogeography and subspecies delineation of grass snakes.| journal = Actes du 4<sup>ème</sup> Congrès Français d'Acoustique| date = 2012}}"
+	},
+	"testCase07": {
+		"status": 200,
+		"output": "{{Cite| last = Work| first = American Rights at| title = Public Service Research Foundation| access-date = 2012-07-27| date = 2012| url = http://www.americanrightsatwork.org/blogcategory-275/}}"
+	},
+	"testCase08": {
+		"status": 200,
+		"output": "{{Cite journal| title = Zotero: single attachment}}\r\n{{Cite journal| title = Zotero: multiple attachments}}\r\n{{Cite journal| title = Zotero: linked attachments (old)}}\r\n{{Cite journal| title = Zotero: linked attachments}}\r\n{{Cite journal| title = Mendeley: single attachment}}\r\n{{Cite journal| title = Mendeley: escaped characters}}\r\n{{Cite journal| title = Citavi: single attachment}}"
+	},
+	"testCase09": {
+		"status": 200,
+		"output": "{{Cite journal| title = extbackslash extbackslash{}: {}}"
+	},
+	"testCase10": {
+		"status": 200,
+		"output": "{{Cite journal| doi = 10.1161/CIR.0b013e318288b4dd| issn = 1524-4539| volume = 127| issue = 12| pages = 1342–1350| last1 = Sasson| first1 = Comilla| last2 = Meischke| first2 = Hendrika| last3 = Abella| first3 = Benjamin S| last4 = Berg| first4 = Robert A| last5 = Bobrow| first5 = Bentley J| last6 = Chan| first6 = Paul S| last7 = Root| first7 = Elisabeth Dowling| last8 = Heisler| first8 = Michele| last9 = Levy| first9 = Jerrold H| last10 = Link| first10 = Mark| last11 = Masoudi| first11 = Frederick| last12 = Ong| first12 = Marcus| last13 = Sayre| first13 = Michael R| last14 = Rumsfeld| first14 = John S| last15 = Rea| first15 = Thomas D| last16 = American Heart Association Council on Quality of Care and Outcomes Research| last17 = Emergency Cardiovascular Care Committee| last18 = Council on Cardiopulmonary, Critical Care, Perioperative and Resuscitation| last19 = Council on Clinical Cardiology| last20 = Council on Cardiovascular Surgery and Anesthesia| title = Increasing cardiopulmonary resuscitation provision in communities with low bystander cardiopulmonary resuscitation rates: a science advisory from the American Heart Association for healthcare providers, policymakers, public health departments, and community leaders| journal = Circulation| date = 2013-03| pmid = 23439512}}"
+	},
+	"testCase11": {
+		"status": 200,
+		"output": "{{Cite journal| doi = 10.12345/123456| last = Smith| first = John| title = Testing identifier import| pmc = PMC123456}}"
+	},
+	"testCase12": {
+		"status": 200,
+		"output": "{{Cite book| doi = 10.12345/123456| last = Smith| first = John| chapter = Testing identifier import chapter| pmc = PMC123456}}"
+	},
+	"testCase13": {
+		"status": 200,
+		"output": "{{Cite paper| publisher = Diplomarbeit, Universität Trier, FB IV, DBIS/DBLP| last = Hoffmann| first = Oliver| title = Regelbasierte Extraktion und asymmetrische Fusion bibliographischer Informationen| date = 2009}}\r\n{{Cite paper| publisher = University of Paderborn| last = Ackermann| first = Marcel R.| title = Algorithms for the Bregman k-Median problem| date = 2009}}"
+	},
+	"testCase14": {
+		"status": 200,
+		"output": "{{Cite conference| publisher = ACM| doi = 10.1145/1281192.1281230| isbn = 978-1-59593-609-7| pages = 330–339| last1 = Giannotti| first1 = Fosca| last2 = Nanni| first2 = Mirco| last3 = Pinelli| first3 = Fabio| last4 = Pedreschi| first4 = Dino| title = Trajectory Pattern Mining| booktitle = Proceedings of the 13th ACM SIGKDD International Conference on Knowledge Discovery and Data Mining| location = New York, NY, USA| series = KDD '07| date = 2007}}"
+	},
+	"testCase15": {
+		"status": 200,
+		"output": "{{Cite journal| publisher = Lucius & Lucius| doi = 10.1515/zfsoz-2015-0604| volume = 44| issue = 6| pages = 426–446| last1 = Naumann| first1 = Elias| last2 = Heß| first2 = Moritz| last3 = Steinkopf| first3 = Leander| title = Die Alterung der Gesellschaft und der Generationenkonflikt in Europa| journal = Zeitschrift für Soziologie : ZfS| location = Stuttgart| date = 2015}}\r\n{{Cite journal| doi = 10.1016/j.aim.2013.04.020| issn = 0001-8708| volume = 244| pages = 1–15| last1 = Eliáš| first1 = Marek| last2 = Matoušek| first2 = Jiří| title = Higher-order Erdős-Szekeres theorems| journal = Advances in Mathematics| date = 2013}}"
+	},
+	"testCase16": {
+		"status": 200,
+		"output": "{{Cite book| publisher = Félagsvísindastofnun Háskóla Íslands| pages = 36–44| last = Önnudóttir| first = Eva H.| chapter = Búsáhaldabyltingin : Pólitískt jafnræði og þátttaka almennings í mótmælum| location = Reykjavik| date = 2011}}"
+	},
+	"testCase17": {
+		"status": 200,
+		"output": "{{Cite web| last = Scholarship| first = Corporation for Digital| title = Zotero's Homepage| access-date = 2019-10-12| date = 2019| url = https://www.zotero.org/}}"
+	},
+	"testCase18": {
+		"status": 200,
+		"output": "{{Cite book| publisher = D\\ëad Po<sub>eee</sub>t Society| last1 = Swe\\ıg| first1 = Stefan| last2 = D\\écoret| first2 = Xavier| title = The impossible ℡—book| date = 1942-03}}"
+	},
+	"testCase19": {
+		"status": 200,
+		"output": "{{Cite journal| last1 = Batsis| first1 = John A.| last2 = Petersen| first2 = Curtis L.| last3 = Clark| first3 = Matthew M.| last4 = Cook| first4 = Summer B.| last5 = Kotz| first5 = David| last6 = Gooding| first6 = Tyler L.| last7 = Roderka| first7 = Meredith N.| last8 = Al-Nimr| first8 = Rima I.| last9 = Pidgeon| first9 = Dawna M.| last10 = Haedrich| first10 = Ann| last11 = Wright| first11 = K. C.| last12 = Aquila| first12 = Christina| last13 = Mackenzie| first13 = Todd A.| title = A Rural Mobile Health Obesity Wellness Intervention for Older Adults with Obesity| journal = BMC Geriatrics| date = 2020-12}}"
+	},
+	"testCase20": {
+		"status": 200,
+		"output": "{{Cite conference| publisher = Internet Engineering Task Force| last1 = jacob| first1 = sudhin| last2 = Tiruveedhula| first2 = Kishore| title = Benchmarking Methodology for EVPN and PBB-EVPN| date = 2021-06-18}}"
+	},
+	"testCase21": {
+		"status": 200,
+		"output": "{{Cite conference| publisher = Curran Associates, Inc.| volume = 22| editors = Y. Bengio, D. Schuurmans, J. Lafferty, C. Williams, A. Culotta (eds.)| last1 = Cuturi| first1 = Marco| last2 = Vert| first2 = Jean-philippe| last3 = D' aspremont| first3 = Alexandre| title = White Functionals for Anomaly Detection in Dynamical Systems| booktitle = Advances in Neural Information Processing Systems| date = 2009}}"
+	},
+	"testCase22": {
+		"status": 200,
+		"output": "{{Cite journal| doi = 10.1134/S1063778823010131| volume = 85| issue = 6| pages = 970–975| last1 = Borissov| first1 = Alexander| last2 = Solokhin| first2 = Sergei| title = Production of Σ⁰ Hyperon and Search of Σ⁰ Hypernuclei at LHC with ALICE| journal = Phys. At. Nucl.| date = 2023}}"
+	},
+	"testCase23": {
+		"status": 200,
+		"output": "{{Cite book| publisher = Stowarzyszenie Psychologia i Architektura| last1 = Derbis| first1 = Romuald| last2 = Bańka| first2 = Augustyn| title = Poczucie jakości życia a swoboda działania i odpowiedzialność| date = 1998}}"
+	},
+	"dates_and_markup": {
+		"status": 200,
+		"output": "{{Cite journal| doi = 10.1234/abc.def| volume = 12| issue = 3| pages = 101–110| last1 = Smith| first1 = John| last2 = de la Fontaine| first2 = Jean| last3 = Kovan Collaboration| title = Dates and Markup in \\emphBib\\TeX: a kovan probe| journal = Journal of Testing and Probing| date = 2021-05}}\r\n{{Cite book| publisher = Kovan Press| isbn = 978-3-16-148410-0| others = Ed Editor (ed.)| title = A Second Record| location = Singapore| date = 1999}}\r\n{{Cite| title = Date only| date = 2021-05}}"
+	}
+}

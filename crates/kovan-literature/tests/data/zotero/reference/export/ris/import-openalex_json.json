@@ -1,0 +1,34 @@
+{
+	"testCase00": {
+		"status": 200,
+		"output": "TY  - JOUR\r\nTI  - Labor Contracts as Partial Gift Exchange\r\nAU  - Akerlof, George A.\r\nT2  - The Quarterly Journal of Economics\r\nDA  - 1982/11/01/\r\nPY  - 1982\r\nDO  - 10.2307/1885099\r\nVL  - 97\r\nIS  - 4\r\nSP  - 543\r\nLA  - en\r\nPB  - Oxford University Press\r\nSN  - 0033-5533\r\nKW  - labor\r\nKW  - exchange\r\nKW  - gift\r\nER  - \r\n\r\n"
+	},
+	"testCase01": {
+		"status": 200,
+		"output": "TY  - JOUR\r\nTI  - Are Emily and Greg More Employable Than Lakisha and Jamal? A Field Experiment on Labor Market Discrimination\r\nAU  - Bertrand, Marianne\r\nAU  - Mullainathan, Sendhil\r\nT2  - The American Economic Review\r\nDA  - 2004/09/01/\r\nPY  - 2004\r\nDO  - 10.1257/0002828042002561\r\nVL  - 94\r\nIS  - 4\r\nSP  - 991\r\nEP  - 1013\r\nLA  - en\r\nPB  - American Economic Association\r\nSN  - 1944-7981\r\nKW  - labor market discrimination\r\nKW  - emily\r\nER  - \r\n\r\n"
+	},
+	"testCase02": {
+		"status": 200,
+		"output": "TY  - CHAP\r\nTI  - The Effects of Financial Incentives in Experiments: A Review and Capital-Labor-Production Framework\r\nAU  - Camerer, Colin F.\r\nAU  - Hogarth, Robin M.\r\nT2  - Springer eBooks\r\nDA  - 1999/01/01/\r\nPY  - 1999\r\nDO  - 10.1007/978-94-017-1406-8_2\r\nSP  - 7\r\nEP  - 48\r\nLA  - en\r\nPB  - Springer Nature\r\nKW  - financial incentives\r\nKW  - experiments\r\nKW  - capital-labor-production\r\nER  - \r\n\r\n"
+	},
+	"testCase03": {
+		"status": 200,
+		"output": "TY  - BOOK\r\nTI  - Clinical Labor\r\nAU  - Cooper, Melinda\r\nAU  - Waldby, Catherine\r\nDA  - 2014/01/01/\r\nPY  - 2014\r\nDO  - 10.1215/9780822377009\r\nPB  - Duke University Press\r\nKW  - labor\r\nKW  - clinical\r\nER  - \r\n\r\n"
+	},
+	"testCase04": {
+		"status": 200,
+		"output": "TY  - THES\r\nTI  - The GULag and Laogai: A Comparative Study of Forced Labor through Camp Literature\r\nAU  - Stepanic, Stanley Joseph\r\nDA  - 2017/08/09/\r\nPY  - 2017\r\nDO  - 10.18130/v3v002\r\nLA  - en\r\nPB  - University of Virginia\r\nKW  - gulag\r\nKW  - forced labor\r\nKW  - camp\r\nKW  - laogai\r\nER  - \r\n\r\n"
+	},
+	"testCase05": {
+		"status": 200,
+		"output": "TY  - JOUR\r\nTI  - On the audibility of amplifier phase distortion\r\nAU  - Wentworth, G.\r\nT2  - IEEE Transactions on Audio\r\nDA  - 1965/07/01/\r\nPY  - 1965\r\nDO  - 10.1109/tau.1965.1161805\r\nVL  - AU-13\r\nIS  - 4\r\nSP  - 99\r\nLA  - en\r\nPB  - Institute of Electrical and Electronics Engineers\r\nSN  - 1558-2663\r\nKW  - amplifier phase distortion\r\nKW  - audibility\r\nER  - \r\n\r\nTY  - JOUR\r\nTI  - Notices\r\nT2  - The New England Journal of Medicine\r\nDA  - 1983/01/13/\r\nPY  - 1983\r\nDO  - 10.1056/nejm198301133080228\r\nVL  - 308\r\nIS  - 2\r\nSP  - 112\r\nPB  - Massachusetts Medical Society\r\nSN  - 0028-4793\r\nER  - \r\n\r\nTY  - CHAP\r\nTI  - The Big Data Research Ecosystem\r\nAU  - Strydom, Moses John\r\nAU  - Buckley, Sheryl\r\nT2  - IGI Global eBooks\r\nDA  - 2020/11/27/\r\nPY  - 2020\r\nDO  - 10.4018/978-1-7998-7705-9.ch090\r\nSP  - 2027\r\nEP  - 2057\r\nLA  - en\r\nPB  - IGI Global\r\nKW  - big data research ecosystem\r\nKW  - big data\r\nER  - \r\n\r\nTY  - JOUR\r\nTI  - Relative Biological Effectiveness of High Energy Protons Affecting Cabbage Seeds\r\nAU  - Nevzgodina, L. V.\r\nAU  - Кузнецов, В. Г.\r\nAU  - Sychkov\r\nT2  - Genetika\r\nDA  - 1966/08/01/\r\nPY  - 1966\r\nLA  - de\r\nPB  - Serbian Genetics Society\r\nSN  - 1820-6069\r\nKW  - cabbage seeds\r\nKW  - high energy protons\r\nKW  - relative biological effectiveness\r\nER  - \r\n\r\nTY  - JOUR\r\nTI  - Reasons and Preventions of the Credit Risk with Village Banks\r\nAU  - Pang, Ying\r\nT2  - Journal of Shangqiu Vocational and Technical College\r\nDA  - 2012/01/01/\r\nPY  - 2012\r\nLA  - en\r\nKW  - credit risk\r\nKW  - preventions\r\nER  - \r\n\r\n"
+	},
+	"testCase06": {
+		"status": 200,
+		"output": "TY  - CONF\r\nTI  - Generalizing to Unseen Domains via Adversarial Data Augmentation\r\nAU  - Volpi, Riccardo\r\nAU  - Namkoong, Hongseok\r\nAU  - Şener, Ozan\r\nAU  - Duchi, John C.\r\nAU  - Murino, Vittorio\r\nAU  - Savarese, Silvio\r\nC3  - Neural Information Processing Systems\r\nDA  - 2018/05/01/\r\nPY  - 2018\r\nVL  - 31\r\nSP  - 5334\r\nEP  - 5344\r\nLA  - en\r\nKW  - Domain Adaptation\r\nKW  - Unsupervised Learning\r\nKW  - Adversarial Examples\r\nKW  - Transfer Learning\r\nKW  - Representation Learning\r\nER  - \r\n\r\n"
+	},
+	"testCase07": {
+		"status": 200,
+		"output": "TY  - GEN\r\nTI  - Scikit-learn: Machine Learning in Python\r\nAU  - Pedregosa, Fabián\r\nAU  - Varoquaux, Gaël\r\nAU  - Gramfort, Alexandre\r\nAU  - Michel, Vincent\r\nAU  - Thirion, Bertrand\r\nAU  - Grisel, Olivier\r\nAU  - Blondel, Mathieu\r\nAU  - Prettenhofer, Peter\r\nAU  - Weiss, Ron J.\r\nAU  - Dubourg, Vincent\r\nAU  - Vanderplas, Jake\r\nAU  - Passos, Alexandre\r\nAU  - Cournapeau, David\r\nAU  - Brucher, Matthieu\r\nAU  - Perrot, Marc de\r\nAU  - Duchesnay, Édouard\r\nDA  - 2012/01/01/\r\nPY  - 2012\r\nDO  - 10.48550/arxiv.1201.0490\r\nLA  - en\r\nPB  - Cornell University\r\nKW  - Python\r\nKW  - Robust Learning\r\nER  - \r\n\r\n"
+	}
+}

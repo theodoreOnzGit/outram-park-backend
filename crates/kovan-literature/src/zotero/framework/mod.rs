@@ -59,6 +59,9 @@ pub mod context;
 pub mod csl;
 pub mod export_items;
 pub mod html;
+// #749 additions.
+pub mod identifiers;
+pub mod title_case;
 #[rustfmt::skip]
 pub mod html_entities;
 pub mod io;

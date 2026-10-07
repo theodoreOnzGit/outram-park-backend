@@ -1,0 +1,6 @@
+{
+	"kovan_probe": {
+		"status": 200,
+		"output": "%0 Book\r\n%7 2., überarb. Aufl\r\n%T Die Kernreaktortechnik: eine Einführung\r\n%S Lehrbuchreihe Physik ; 7\r\n%C Berlin\r\n%I Springer\r\n%@ 3-540-12345-X\r\n%U http://example.org/toc.pdf\r\n%G ger\r\n%E Müller, Hans\r\n%? Schmidt, Anna\r\n%A Lee, Kim\r\n%A Deutsche Forschungsgemeinschaft\r\n%D 1999\r\n%K Kernreaktor\r\nGeschicht\r\nDeutschlan\r\n\r\n%0 Film or Broadcast\r\n%T Ein Film\r\n%A Fassbinder, Rainer Werner\r\n%D 1975\r\n\r\n%0 Unpublished Work\r\n%T Handschrift ohne Autor\r\n\r\n%0 Artwork\r\n%T Plakat\r\n%A Bauhaus\r\n\r\n"
+	}
+}

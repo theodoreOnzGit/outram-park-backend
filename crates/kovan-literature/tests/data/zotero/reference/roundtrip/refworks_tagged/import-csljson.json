@@ -1,0 +1,87 @@
+{
+	"testCase00": {
+		"status": 200,
+		"translatorID": "1a3506da-a303-4b0a-a1cd-f216e6138d86",
+		"items": [
+			{
+				"key": "KVN22222",
+				"version": 0,
+				"itemType": "book",
+				"creators": [
+					{
+						"firstName": "Mostafa",
+						"lastName": "Bachar",
+						"creatorType": "author"
+					}
+				],
+				"tags": [],
+				"title": "Stochastic biomathematical models: With applications to neuronal modeling",
+				"series": "Lecture notes in mathematics",
+				"place": "Heidelberg",
+				"date": "January 1, 2013",
+				"volume": "2058",
+				"numPages": "206",
+				"language": "en",
+				"publisher": "Springer",
+				"ISBN": "978-3-642-32156-6"
+			}
+		]
+	},
+	"csl_ranges": {
+		"status": 200,
+		"translatorID": "1a3506da-a303-4b0a-a1cd-f216e6138d86",
+		"items": [
+			{
+				"key": "KVN22222",
+				"version": 0,
+				"itemType": "journalArticle",
+				"creators": [
+					{
+						"firstName": "John",
+						"lastName": "Smith",
+						"creatorType": "author"
+					},
+					{
+						"name": "Kovan Collaboration",
+						"creatorType": "author"
+					}
+				],
+				"tags": [],
+				"title": "A range and a circa date",
+				"publicationTitle": "Journal of Testing",
+				"date": "2010-03",
+				"volume": "7",
+				"pages": "1-10",
+				"accessDate": "0:00:00 January 2, 2020"
+			},
+			{
+				"key": "KVN22223",
+				"version": 0,
+				"itemType": "book",
+				"creators": [],
+				"tags": [],
+				"title": "A literal date",
+				"place": "Singapore",
+				"date": "\"Spring 2021\"",
+				"numPages": "300",
+				"publisher": "Kovan Press"
+			},
+			{
+				"key": "KVN22224",
+				"version": 0,
+				"itemType": "bookSection",
+				"creators": [
+					{
+						"firstName": "Ed",
+						"lastName": "Editor",
+						"creatorType": "editor"
+					}
+				],
+				"tags": [],
+				"title": "A season",
+				"bookTitle": "A Book",
+				"date": "Summer 2021"
+			}
+		]
+	}
+}

@@ -1,0 +1,516 @@
+{
+	"testCase00": {
+		"status": 200,
+		"translatorID": "4e7119e0-02be-4848-86ef-79a64185aad8",
+		"items": [
+			{
+				"key": "KVN22222",
+				"version": 0,
+				"itemType": "webpage",
+				"creators": [],
+				"tags": [
+					{
+						"tag": "corporate governance",
+						"type": 1
+					},
+					{
+						"tag": "private banking",
+						"type": 1
+					}
+				],
+				"title": "An analysis of corporate governance practices in government controlled versus private banking institutions in Zimbabwe",
+				"url": "https://zenodo.org/record/2548653"
+			}
+		]
+	},
+	"testCase01": {
+		"status": 200,
+		"translatorID": "4e7119e0-02be-4848-86ef-79a64185aad8",
+		"items": [
+			{
+				"key": "KVN22222",
+				"version": 0,
+				"itemType": "webpage",
+				"creators": [],
+				"tags": [
+					{
+						"tag": "doi",
+						"type": 1
+					},
+					{
+						"tag": "metadata",
+						"type": 1
+					},
+					{
+						"tag": "crossref",
+						"type": 1
+					},
+					{
+						"tag": "datacite",
+						"type": 1
+					},
+					{
+						"tag": "schema.org",
+						"type": 1
+					},
+					{
+						"tag": "bibtex",
+						"type": 1
+					},
+					{
+						"tag": "codemeta",
+						"type": 1
+					}
+				],
+				"title": "Bolognese: a Ruby library for conversion of DOI Metadata",
+				"url": "https://github.com/datacite/bolognese"
+			}
+		]
+	},
+	"testCase02": {
+		"status": 200,
+		"translatorID": "4e7119e0-02be-4848-86ef-79a64185aad8",
+		"items": [
+			{
+				"key": "KVN22222",
+				"version": 0,
+				"itemType": "webpage",
+				"creators": [],
+				"tags": [
+					{
+						"tag": "plagiarism detection",
+						"type": 1
+					},
+					{
+						"tag": "plagiarism detection software",
+						"type": 1
+					},
+					{
+						"tag": "text matching analysis",
+						"type": 1
+					},
+					{
+						"tag": "scientific writing",
+						"type": 1
+					},
+					{
+						"tag": "forms of plagiarism",
+						"type": 1
+					},
+					{
+						"tag": "misconceptions",
+						"type": 1
+					},
+					{
+						"tag": "Plagiatsprüfung",
+						"type": 1
+					},
+					{
+						"tag": "Plagiatsprüfprogramme",
+						"type": 1
+					},
+					{
+						"tag": "Textvergleichsanalysen",
+						"type": 1
+					},
+					{
+						"tag": "wissenschaftlich Schreiben",
+						"type": 1
+					},
+					{
+						"tag": "Plagiatsformen",
+						"type": 1
+					},
+					{
+						"tag": "Falschannahmen",
+						"type": 1
+					},
+					{
+						"tag": "610 Medical sciences; Medicine",
+						"type": 1
+					}
+				],
+				"title": "Mehr Schaden als Nutzen? Problematischer Einsatz von Textvergleichsprogrammen zur vermeintlichen Plagiatsvermeidung",
+				"url": "http://www.egms.de/en/journals/mbi/2015-15/mbi000337.shtml"
+			}
+		]
+	},
+	"testCase03": {
+		"status": 200,
+		"translatorID": "4e7119e0-02be-4848-86ef-79a64185aad8",
+		"items": [
+			{
+				"key": "KVN22222",
+				"version": 0,
+				"itemType": "webpage",
+				"creators": [],
+				"tags": [
+					{
+						"tag": "101 Ancient Cultures",
+						"type": 1
+					},
+					{
+						"tag": "410-01 Building and Construction History",
+						"type": 1
+					}
+				],
+				"title": "3D model of object V 1.2-71: Structured-light Scan, Staatliche Museen zu Berlin -  Antikensammlung",
+				"url": "http://repository.edition-topoi.org/collection/MAGN/single/0012/0"
+			}
+		]
+	},
+	"testCase04": {
+		"status": 200,
+		"translatorID": "4e7119e0-02be-4848-86ef-79a64185aad8",
+		"items": [
+			{
+				"key": "KVN22222",
+				"version": 0,
+				"itemType": "webpage",
+				"creators": [],
+				"tags": [],
+				"title": "Nonverbale graphische Ressourcen bei Reparaturen in der interaktionalen informellen Schriftlichkeit am Beispiel der deutschen Chat-Kommunikation via IRC-Chat und WhatsApp",
+				"url": "https://jfml.org/article/view/6"
+			}
+		]
+	},
+	"testCase05": {
+		"status": 200,
+		"translatorID": "4e7119e0-02be-4848-86ef-79a64185aad8",
+		"items": [
+			{
+				"key": "KVN22222",
+				"version": 0,
+				"itemType": "webpage",
+				"creators": [],
+				"tags": [],
+				"title": "Universality, Modernity and Cultural Borrowing Among Vietnamese Intellectuals, 1877–1919",
+				"url": "https://heiup.uni-heidelberg.de/journals/index.php/transcultural/article/view/23812"
+			}
+		]
+	},
+	"testCase06": {
+		"status": 200,
+		"translatorID": "4e7119e0-02be-4848-86ef-79a64185aad8",
+		"items": [
+			{
+				"key": "KVN22222",
+				"version": 0,
+				"itemType": "webpage",
+				"creators": [],
+				"tags": [],
+				"title": "Overuse Cervical Dystonia: A Case Report and Literature Review",
+				"url": "https://tremorjournal.org/index.php/tremor/article/view/413"
+			}
+		]
+	},
+	"testCase07": {
+		"status": 200,
+		"translatorID": "4e7119e0-02be-4848-86ef-79a64185aad8",
+		"items": [
+			{
+				"key": "KVN22222",
+				"version": 0,
+				"itemType": "webpage",
+				"creators": [],
+				"tags": [],
+				"title": "Universality, Modernity and Cultural Borrowing Among Vietnamese Intellectuals, 1877–1919",
+				"url": "https://heiup.uni-heidelberg.de/journals/index.php/transcultural/article/view/23812"
+			}
+		]
+	},
+	"testCase08": {
+		"status": 200,
+		"translatorID": "4e7119e0-02be-4848-86ef-79a64185aad8",
+		"items": [
+			{
+				"key": "KVN22222",
+				"version": 0,
+				"itemType": "webpage",
+				"creators": [],
+				"tags": [
+					{
+						"tag": "applied epidemiology",
+						"type": 1
+					},
+					{
+						"tag": "COVID-19",
+						"type": 1
+					},
+					{
+						"tag": "SARS-CoV-2",
+						"type": 1
+					},
+					{
+						"tag": "emerging infectious disease",
+						"type": 1
+					},
+					{
+						"tag": "global health",
+						"type": 1
+					},
+					{
+						"tag": "occupational health",
+						"type": 1
+					},
+					{
+						"tag": "environmental health",
+						"type": 1
+					},
+					{
+						"tag": "pandemic",
+						"type": 1
+					},
+					{
+						"tag": "united states",
+						"type": 1
+					}
+				],
+				"title": "Non-healthcare occupational exposure to SARS-CoV-2 across industries in the United States before March 2020: a dataset generating protocol",
+				"url": "https://zenodo.org/record/5513598"
+			}
+		]
+	},
+	"testCase09": {
+		"status": 200,
+		"translatorID": "4e7119e0-02be-4848-86ef-79a64185aad8",
+		"items": [
+			{
+				"key": "KVN22222",
+				"version": 0,
+				"itemType": "webpage",
+				"creators": [],
+				"tags": [
+					{
+						"tag": "FOS: Educational sciences",
+						"type": 1
+					}
+				],
+				"title": "Mathematikapps für die Grundschule analysieren",
+				"url": "https://zmfp.de/beitraege/mathematikapps-fuer-die-grundschule-analysieren"
+			}
+		]
+	},
+	"testCase10": {
+		"status": 200,
+		"translatorID": "4e7119e0-02be-4848-86ef-79a64185aad8",
+		"items": [
+			{
+				"key": "KVN22222",
+				"version": 0,
+				"itemType": "webpage",
+				"creators": [],
+				"tags": [],
+				"title": "Sorry Miss, I Completely Forgot about It: Apologies and Vocatives in Ireland and England",
+				"url": "https://pubdata.leuphana.de/handle/20.500.14123/175"
+			}
+		]
+	},
+	"testCase11": {
+		"status": 200,
+		"translatorID": "4e7119e0-02be-4848-86ef-79a64185aad8",
+		"items": [
+			{
+				"key": "KVN22222",
+				"version": 0,
+				"itemType": "webpage",
+				"creators": [],
+				"tags": [
+					{
+						"tag": "370 Education",
+						"type": 1
+					},
+					{
+						"tag": "370 Erziehung",
+						"type": 1
+					},
+					{
+						"tag": "Schul- und Bildungswesen",
+						"type": 1
+					},
+					{
+						"tag": "Professionalität",
+						"type": 1
+					},
+					{
+						"tag": "Professionalisierung",
+						"type": 1
+					},
+					{
+						"tag": "Lehrer",
+						"type": 1
+					},
+					{
+						"tag": "Lehramtsstudent",
+						"type": 1
+					},
+					{
+						"tag": "Praxeologie",
+						"type": 1
+					},
+					{
+						"tag": "Entscheidung",
+						"type": 1
+					},
+					{
+						"tag": "Erwartung",
+						"type": 1
+					},
+					{
+						"tag": "Habitus",
+						"type": 1
+					},
+					{
+						"tag": "Norm",
+						"type": 1
+					},
+					{
+						"tag": "Standardisierung",
+						"type": 1
+					},
+					{
+						"tag": "Mathematikunterricht",
+						"type": 1
+					},
+					{
+						"tag": "Englischunterricht",
+						"type": 1
+					},
+					{
+						"tag": "Pädagogisches Handeln",
+						"type": 1
+					},
+					{
+						"tag": "Professionalism",
+						"type": 1
+					},
+					{
+						"tag": "Professionality",
+						"type": 1
+					},
+					{
+						"tag": "Professionalization",
+						"type": 1
+					},
+					{
+						"tag": "Teacher",
+						"type": 1
+					},
+					{
+						"tag": "Student teachers",
+						"type": 1
+					},
+					{
+						"tag": "Expectancy",
+						"type": 1
+					},
+					{
+						"tag": "Habits",
+						"type": 1
+					},
+					{
+						"tag": "Standard setting",
+						"type": 1
+					},
+					{
+						"tag": "Standards",
+						"type": 1
+					},
+					{
+						"tag": "Mathematics lessons",
+						"type": 1
+					},
+					{
+						"tag": "Teaching of mathematics",
+						"type": 1
+					},
+					{
+						"tag": "English language lessons",
+						"type": 1
+					},
+					{
+						"tag": "Teaching of English",
+						"type": 1
+					},
+					{
+						"tag": "Mathematics",
+						"type": 1
+					},
+					{
+						"tag": "FOS: Mathematics",
+						"type": 1
+					}
+				],
+				"title": "Die Professionalisierung von Lehrpersonen aus praxeologischer Perspektive. Professionelles Handeln als Entscheiden",
+				"url": "https://www.pedocs.de/frontdoor.php?source_opus=28324"
+			}
+		]
+	},
+	"testCase12": {
+		"status": 200,
+		"translatorID": "4e7119e0-02be-4848-86ef-79a64185aad8",
+		"items": [
+			{
+				"key": "KVN22222",
+				"version": 0,
+				"itemType": "webpage",
+				"creators": [],
+				"tags": [
+					{
+						"tag": "gnd/4054289-0",
+						"type": 1
+					},
+					{
+						"tag": "gnd/4039792-0",
+						"type": 1
+					},
+					{
+						"tag": "gnd/4031011-5",
+						"type": 1
+					}
+				],
+				"title": "Luxury in Silk. Eighteenth-Century Fashion: English summary of the book Luxus in Seide",
+				"url": "https://books.ub.uni-heidelberg.de//arthistoricum/catalog/book/1141/chapter/16127"
+			}
+		]
+	},
+	"testCase13": {
+		"status": 200,
+		"translatorID": "4e7119e0-02be-4848-86ef-79a64185aad8",
+		"items": [
+			{
+				"key": "KVN22222",
+				"version": 0,
+				"itemType": "webpage",
+				"creators": [],
+				"tags": [
+					{
+						"tag": "Climate Change",
+						"type": 1
+					},
+					{
+						"tag": "Pacific Ocean",
+						"type": 1
+					}
+				],
+				"title": "Loss and Damage: Save the Pacific, Save the World",
+				"url": "https://ir.canterbury.ac.nz/handle/10092/108154"
+			}
+		]
+	},
+	"testCase14": {
+		"status": 200,
+		"translatorID": "4e7119e0-02be-4848-86ef-79a64185aad8",
+		"items": [
+			{
+				"key": "KVN22222",
+				"version": 0,
+				"itemType": "webpage",
+				"creators": [],
+				"tags": [],
+				"title": "Determination of the thickness of BN layers on the Al2O3 substrate by FT-IR spectroscopy",
+				"url": "http://www2.ite.waw.pl//docs/imif/20210121_M_Mozdzonek_2020.pdf"
+			}
+		]
+	}
+}

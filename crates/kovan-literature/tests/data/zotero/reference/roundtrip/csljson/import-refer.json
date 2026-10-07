@@ -1,0 +1,116 @@
+{
+	"testCase00": {
+		"status": 200,
+		"translatorID": "bc03b4fe-436d-4a1f-ba59-de4d2d7a63f7",
+		"items": [
+			{
+				"key": "KVN22222",
+				"version": 0,
+				"itemType": "journalArticle",
+				"creators": [
+					{
+						"name": "余敏",
+						"creatorType": "author"
+					},
+					{
+						"name": "朱江",
+						"creatorType": "author"
+					},
+					{
+						"name": "丁照蕾",
+						"creatorType": "author"
+					}
+				],
+				"tags": [],
+				"abstractNote": "介绍了参考文献管理的基本方法,对参考文献管理工具的主要功能进行了对比,最后分析了参考文献管理的趋势.",
+				"archiveLocation": "北京万方数据股份有限公司",
+				"publicationTitle": "JOURNAL OF MODERN INFORMATION",
+				"issue": "2",
+				"language": "chi",
+				"extra": "Yu Min\nZhu Jiang\nDing Zhaolei",
+				"pages": "94-98,93",
+				"title": "参考文献管理工具研究",
+				"url": "http://d.wanfangdata.com.cn/Periodical_xdqb200902027.aspx",
+				"volume": "29",
+				"date": "2009"
+			}
+		]
+	},
+	"testCase01": {
+		"status": 200,
+		"translatorID": "bc03b4fe-436d-4a1f-ba59-de4d2d7a63f7",
+		"items": [
+			{
+				"key": "KVN22222",
+				"version": 0,
+				"itemType": "book",
+				"creators": [
+					{
+						"firstName": "Italo",
+						"lastName": "Calvino",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "Jørgen",
+						"lastName": "Stender Clausen",
+						"creatorType": "editor"
+					},
+					{
+						"firstName": "Jorunn",
+						"lastName": "Aardal",
+						"creatorType": "translator"
+					}
+				],
+				"tags": [],
+				"ISBN": "8203107354",
+				"language": "Flerspråklig, Norsk (Bokmål), Italiensk, Dansk",
+				"publisher": "Aschehoug",
+				"place": "Oslo",
+				"title": "Usynlige byer",
+				"url": "https://urn.nb.no/URN:NBN:no-nb_digibok_2016062048105",
+				"date": "1982"
+			}
+		]
+	},
+	"testCase02": {
+		"status": 200,
+		"translatorID": "bc03b4fe-436d-4a1f-ba59-de4d2d7a63f7",
+		"items": [
+			{
+				"key": "KVN22222",
+				"version": 0,
+				"itemType": "book",
+				"creators": [
+					{
+						"firstName": "W. H.",
+						"lastName": "Newman",
+						"creatorType": "author"
+					}
+				],
+				"tags": [],
+				"publisher": "Uniontown, Ala. : Canebrake Agricultural Experiment Station",
+				"title": "Corn",
+				"date": "1891"
+			}
+		]
+	},
+	"testCase03": {
+		"status": 200,
+		"translatorID": "bc03b4fe-436d-4a1f-ba59-de4d2d7a63f7",
+		"items": [
+			{
+				"key": "KVN22222",
+				"version": 0,
+				"itemType": "audioRecording",
+				"creators": [],
+				"tags": [],
+				"language": "German",
+				"label": "Studio Omega, Verein für Christliche Radioarbeit",
+				"place": "Wien",
+				"title": "Diesseits von Eden: der Podcast der katholischen Fakultäten Österreichs & Südtirols",
+				"url": "https://diesseits.theopodcast.at/home",
+				"date": "2021"
+			}
+		]
+	}
+}

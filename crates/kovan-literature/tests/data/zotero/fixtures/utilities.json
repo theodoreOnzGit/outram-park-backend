@@ -82,5 +82,36 @@
 		["plain-ascii_09", false],
 		["Ǆemal ǅ ǆ", false],
 		["ﬁ œ ß", false]
+	],
+	"capitalizeTitle": [
+		"the art of war: a new translation",
+		"THE ART OF WAR",
+		"an <i>example</i> of the title",
+		"¿qué pasa? in the city",
+		"new york",
+		"up and down the hill-side",
+		"  a  :  b  ",
+		"Some Mixed CASE word",
+		"“quoted” words from a to z",
+		"x",
+		"",
+		"état of the union/and more"
+	],
+	"cleanISBN": [
+		"978-3-16-148410-0",
+		"0-306-40615-2",
+		"ISBN 0306406153 and 9780306406157",
+		"123456789X",
+		"0-306-40615-3",
+		"isbn: 3 16 148410 x",
+		"nothing"
+	],
+	"cleanISSN": [
+		"0378-5955",
+		"ISSN 0317-8471",
+		"0000-000x",
+		"1234-5678",
+		"2049-3630 and 0378-5955",
+		"nothing"
 	]
 }

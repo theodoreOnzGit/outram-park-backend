@@ -1,0 +1,22 @@
+{
+	"all": {
+		"status": 500,
+		"error": "An error occurred during translation. Please check translation with the Zotero client."
+	},
+	"KPROBE22": {
+		"status": 200,
+		"output": "<?xml version='1.0' encoding='UTF-8'?>\n<!DOCTYPE en-export SYSTEM 'http://xml.evernote.com/pub/evernote-export.dtd'>\n<en-export application='Zotero' version='5.0.97'>\n<note>\n    <title>Dates &amp; markup: a &amp;lt;i&amp;gt;kovan&amp;lt;/i&amp;gt; probe</title>\n    <content>\n        <![CDATA[<?xml version='1.0' encoding='UTF-8'?><!DOCTYPE en-note SYSTEM 'http://xml.evernote.com/pub/enml2.dtd'>\n        <en-note>\n            <div><p>A <b>child</b> note &amp;amp; an entity.</p><br/></div>\n        </en-note>]]>\n    </content>\n    <created>20210502T110000Z</created>\n    <updated>20210502T110000ZZ</updated>\n    <tag>alpha</tag>\n    <tag>beta gamma</tag>\n    <note-attributes>\n        <source>web.clip</source>\n        <source-url>http://example.com/a?b=c&amp;d=e</source-url>\n    </note-attributes>\n</note>\n</en-export>\n"
+	},
+	"KPROBE33": {
+		"status": 500,
+		"error": "An error occurred during translation. Please check translation with the Zotero client."
+	},
+	"KPROBE44": {
+		"status": 500,
+		"error": "An error occurred during translation. Please check translation with the Zotero client."
+	},
+	"KPROBE55": {
+		"status": 500,
+		"error": "An error occurred during translation. Please check translation with the Zotero client."
+	}
+}

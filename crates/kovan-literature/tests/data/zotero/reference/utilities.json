@@ -449,5 +449,111 @@
 			false,
 			"ﬁ oe s"
 		]
+	],
+	"capitalizeTitle": [
+		[
+			"the art of war: a new translation",
+			"The Art of War: A New Translation"
+		],
+		[
+			"THE ART OF WAR",
+			"The Art of War"
+		],
+		[
+			"an <i>example</i> of the title",
+			"An <i>Example</i> of the Title"
+		],
+		[
+			"¿qué pasa? in the city",
+			"¿Qué Pasa? In the City"
+		],
+		[
+			"new york",
+			"New York"
+		],
+		[
+			"up and down the hill-side",
+			"Up and down the Hill-Side"
+		],
+		[
+			"  a  :  b  ",
+			"A: B"
+		],
+		[
+			"Some Mixed CASE word",
+			"Some Mixed CASE Word"
+		],
+		[
+			"“quoted” words from a to z",
+			"“Quoted” Words from a to Z"
+		],
+		[
+			"x",
+			"X"
+		],
+		[
+			"",
+			""
+		],
+		[
+			"état of the union/and more",
+			"État of the Union/and More"
+		]
+	],
+	"cleanISBN": [
+		[
+			"978-3-16-148410-0",
+			"9783161484100"
+		],
+		[
+			"0-306-40615-2",
+			"0306406152"
+		],
+		[
+			"ISBN 0306406153 and 9780306406157",
+			"9780306406157"
+		],
+		[
+			"123456789X",
+			"123456789X"
+		],
+		[
+			"0-306-40615-3",
+			false
+		],
+		[
+			"isbn: 3 16 148410 x",
+			"316148410X"
+		],
+		[
+			"nothing",
+			false
+		]
+	],
+	"cleanISSN": [
+		[
+			"0378-5955",
+			"0378-5955"
+		],
+		[
+			"ISSN 0317-8471",
+			"0317-8471"
+		],
+		[
+			"0000-000x",
+			false
+		],
+		[
+			"1234-5678",
+			false
+		],
+		[
+			"2049-3630 and 0378-5955",
+			"2049-3630"
+		],
+		[
+			"nothing",
+			false
+		]
 	]
 }

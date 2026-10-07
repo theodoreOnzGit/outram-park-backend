@@ -1,0 +1,18 @@
+{
+	"testCase00": {
+		"status": 200,
+		"output": "<span class='Z3988' title='url_ver=Z39.88-2004&amp;ctx_ver=Z39.88-2004&amp;rfr_id=info%3Asid%2Fzotero.org%3A2&amp;rft_val_fmt=info%3Aofi%2Ffmt%3Akev%3Amtx%3Ajournal&amp;rft.genre=article&amp;rft.atitle=%E5%8F%82%E8%80%83%E6%96%87%E7%8C%AE%E7%AE%A1%E7%90%86%E5%B7%A5%E5%85%B7%E7%A0%94%E7%A9%B6&amp;rft.jtitle=JOURNAL%20OF%20MODERN%20INFORMATION&amp;rft.volume=29&amp;rft.issue=2&amp;rft.aulast=%E4%BD%99%E6%95%8F&amp;rft.au=%E4%BD%99%E6%95%8F&amp;rft.au=%E6%9C%B1%E6%B1%9F&amp;rft.au=%E4%B8%81%E7%85%A7%E8%95%BE&amp;rft.date=2009&amp;rft.pages=94-98%2C93&amp;rft.spage=94&amp;rft.epage=98%2C93&amp;rft.language=chi'></span>\n"
+	},
+	"testCase01": {
+		"status": 200,
+		"output": "<span class='Z3988' title='url_ver=Z39.88-2004&amp;ctx_ver=Z39.88-2004&amp;rfr_id=info%3Asid%2Fzotero.org%3A2&amp;rft_id=urn%3Aisbn%3A8203107354&amp;rft_val_fmt=info%3Aofi%2Ffmt%3Akev%3Amtx%3Abook&amp;rft.genre=book&amp;rft.btitle=Usynlige%20byer&amp;rft.place=Oslo&amp;rft.publisher=Aschehoug&amp;rft.aufirst=Italo&amp;rft.aulast=Calvino&amp;rft.au=Italo%20Calvino&amp;rft.au=Jorunn%20Aardal&amp;rft.au=J%C3%B8rgen%20Stender%20Clausen&amp;rft.date=1982&amp;rft.isbn=8203107354&amp;rft.language=Flerspr%C3%A5klig%2C%20Norsk%20(Bokm%C3%A5l)%2C%20Italiensk%2C%20Dansk'></span>\n"
+	},
+	"testCase02": {
+		"status": 200,
+		"output": "<span class='Z3988' title='url_ver=Z39.88-2004&amp;ctx_ver=Z39.88-2004&amp;rfr_id=info%3Asid%2Fzotero.org%3A2&amp;rft_val_fmt=info%3Aofi%2Ffmt%3Akev%3Amtx%3Abook&amp;rft.genre=book&amp;rft.btitle=Corn&amp;rft.publisher=Uniontown%2C%20Ala.%20%3A%20Canebrake%20Agricultural%20Experiment%20Station&amp;rft.aufirst=W.%20H.&amp;rft.aulast=Newman&amp;rft.au=W.%20H.%20Newman&amp;rft.date=1891'></span>\n"
+	},
+	"testCase03": {
+		"status": 200,
+		"output": "<span class='Z3988' title='url_ver=Z39.88-2004&amp;ctx_ver=Z39.88-2004&amp;rfr_id=info%3Asid%2Fzotero.org%3A2&amp;rft_val_fmt=info%3Aofi%2Ffmt%3Akev%3Amtx%3Adc&amp;rft.type=audioRecording&amp;rft.title=Diesseits%20von%20Eden%3A%20der%20Podcast%20der%20katholischen%20Fakult%C3%A4ten%20%C3%96sterreichs%20%26%20S%C3%BCdtirols&amp;rft.publisher=Studio%20Omega%2C%20Verein%20f%C3%BCr%20Christliche%20Radioarbeit&amp;rft.identifier=https%3A%2F%2Fdiesseits.theopodcast.at%2Fhome&amp;rft.date=2021&amp;rft.language=German'></span>\n"
+	}
+}
