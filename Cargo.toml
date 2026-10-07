@@ -345,6 +345,12 @@ lopdf = "0.42"               # low-level PDF object model (metadata + assets)
 clap = { version = "4.5", features = ["derive"] }  # kovan (agent-facing CLI binary)
 which = "8.0"          # kovan's `setup`: PATH-presence check for curated external tools (pure-Rust, Android-fine)
 tempfile = "3.14"             # dev-dep: throwaway fixture trees for discovery/search tests (pure-Rust, Android-friendly)
+# Reading a Zotero data folder's zotero.sqlite (kovan-literature `zotero::local_library`,
+# GitHub #750). MIT; `bundled` compiles SQLite (public domain) from C, so it needs a C
+# compiler and is NOT Android/Termux- or wasm-clean: the one consumer declares it under
+# cfg(not(any(target_arch = "wasm32", target_os = "android"))). This is a reader of
+# Zotero's database only; kovan's own storage still uses no SQLite (docs/kovan.md).
+rusqlite = { version = "0.40", features = ["bundled"] }
 # TUI stack for the kovan-tui binary (human-facing). Pulled ONLY under a
 # `cfg(not(target_os = "android"))` table — TUI is desktop scope per the Android
 # rule; the libraries stay headless/Android-buildable. ratatui re-exports its

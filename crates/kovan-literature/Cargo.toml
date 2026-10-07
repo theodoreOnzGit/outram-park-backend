@@ -73,3 +73,21 @@ lopdf.workspace = true
 # SHA-256 of the ingested source file, recorded as provenance (DATA_POLICY.md).
 # Pure Rust, no C toolchain, so it does not compromise the Android/Termux build.
 sha2.workspace = true
+# Zotero's JSON values (`kovan_common::zotero` works in serde_json) and the
+# import's JSON output (`zotero::local_library`, GitHub #750). Pure Rust.
+serde_json.workspace = true
+
+# Reading a Zotero data folder (`zotero::local_library`, GitHub #750). SQLite is
+# compiled from C (`bundled`), so it is gated off wasm32 (no C, no files) and off
+# Android: the portability rule assumes no C toolchain in a Termux build, and
+# Zotero itself is a desktop application, so a Zotero data folder is a desktop
+# artefact. tempfile holds the private copy of the database that is read.
+[target.'cfg(not(any(target_arch = "wasm32", target_os = "android")))'.dependencies]
+rusqlite.workspace = true
+tempfile.workspace = true
+
+# The Zotero reader's tests build databases from Zotero's own schema files
+# (tests/zotero_local_library.rs); gated like the reader.
+[target.'cfg(not(any(target_arch = "wasm32", target_os = "android")))'.dev-dependencies]
+rusqlite.workspace = true
+tempfile.workspace = true

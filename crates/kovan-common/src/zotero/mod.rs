@@ -19,6 +19,7 @@
 //! | [`validate`] | schema checks and `fromJSON`'s move of invalid fields into Extra | `item.js`, `utilities_internal.js` |
 //! | [`date`] | `strToDate`, `parseEDTF`, `formatDate`, SQL/ISO dates | utilities `date.js` |
 //! | [`csl`] | CSL-JSON both ways | utilities `utilities_item.js` |
+//! | [`search`] | [`ZoteroSearch`]: a saved search, conditions as stored (added 2026-10-07, #750) | `search.js` `toJSON`/`fromJSON` |
 //! | [`kovan`] | [`ZoteroItem`] <-> [`crate::KovanDocument`], with the lossy fields listed | (kovan's own) |
 //!
 //! Every value the ports were checked against comes from upstream's own data
@@ -32,6 +33,7 @@ pub mod date;
 pub mod item;
 pub mod kovan;
 pub mod schema;
+pub mod search;
 #[rustfmt::skip]
 pub mod schema_generated;
 pub mod validate;
@@ -42,5 +44,6 @@ pub use item::{
     ZoteroCollection, ZoteroItem, ZoteroJsonError, ZoteroLibrary,
 };
 pub use schema::{ItemTypeField, ItemTypeSchema};
+pub use search::{SearchCondition, ZoteroSearch};
 pub use schema_generated::{CreatorType, Field, ItemType, SCHEMA_COMMIT, SCHEMA_VERSION};
 pub use validate::ValidationIssue;

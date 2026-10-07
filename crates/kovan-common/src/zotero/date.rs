@@ -16,7 +16,8 @@
 //! Ported: `strToDate` (date.js:272), `formatDate` (long form, :567),
 //! `strToISO` (:600), `sqlToISO8601` (:617), `parseEraYear` (:744),
 //! `looksLikeEDTF` (:766), `parseEDTF` (:799), `strToMultipart` (:902),
-//! `multipartToSQL` (:966), `isSQLDate`/`isSQLDateTime`/
+//! `multipartToSQL` (:966), `isMultipart` (:954) and `multipartToStr` (:983)
+//! (added 2026-10-07, #750), `isSQLDate`/`isSQLDateTime`/
 //! `isSQLDateTimeWithoutSeconds` (:1019-1034), `isISODate` (:235), and the
 //! ISO -> SQL and UTC -> local conversions of `isoToDate`/`dateToSQL`/
 //! `sqlToDate`.
@@ -1085,9 +1086,63 @@ pub fn multipart_to_sql(multi: &str) -> String {
     multi.chars().take(10).collect()
 }
 
+/// `Zotero.Date.isMultipart` (date.js:954): whether `s` is a multipart date
+/// (`YYYY-MM-DD <original>`), which an SQL date-time is not. Added
+/// 2026-10-07 for the Zotero database reader (GitHub #750).
+pub fn is_multipart(s: &str) -> bool {
+    if is_sql_date_time(s) || is_sql_date_time_without_seconds(s) {
+        return false;
+    }
+    // `_multipartRE` (date.js:944).
+    static R: OnceLock<Regex> = OnceLock::new();
+    re(
+        &R,
+        r"^[0-9]{4}-(0[0-9]|10|11|12)-(0[0-9]|[1-2][0-9]|30|31) ",
+    )
+    .is_match(s)
+}
+
+/// `Zotero.Date.multipartToStr` (date.js:983): the user part of a multipart
+/// date (`2006-11-03 November 3rd, 2006` -> `November 3rd, 2006`); any other
+/// string unchanged. This is how `Item#getField` turns a stored date field
+/// back into what the user typed (item.js:303). Added 2026-10-07 (#750).
+pub fn multipart_to_str(multi: &str) -> String {
+    if multi.is_empty() {
+        return String::new();
+    }
+    if !is_multipart(multi) {
+        return multi.to_owned();
+    }
+    // `multi.substr(11)`: the first 11 characters matched an ASCII regex, so
+    // the byte offset is the character offset.
+    multi[11..].to_owned()
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// `isMultipart`/`multipartToStr` on the examples of date.js's own doc
+    /// comments (:963, :981) and the SQL date-time exclusion (:955).
+    #[test]
+    fn multipart_round_trip_and_sql_exclusion() {
+        assert!(is_multipart("2006-11-03 November 3rd, 2006"));
+        assert_eq!(
+            multipart_to_str("2006-11-03 November 3rd, 2006"),
+            "November 3rd, 2006"
+        );
+        assert!(!is_multipart("2006-11-03 12:34:56"));
+        assert_eq!(
+            multipart_to_str("2006-11-03 12:34:56"),
+            "2006-11-03 12:34:56"
+        );
+        assert_eq!(multipart_to_str("November 2006"), "November 2006");
+        assert_eq!(multipart_to_str(""), "");
+        let o = DateOptions::default();
+        for s in ["1999-12-31", "March 2010", "ca. 1850", "2004-06~"] {
+            assert_eq!(multipart_to_str(&str_to_multipart(s, &o)), s, "{s}");
+        }
+    }
 
     fn opts() -> DateOptions {
         DateOptions {

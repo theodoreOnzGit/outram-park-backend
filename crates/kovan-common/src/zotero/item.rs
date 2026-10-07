@@ -979,13 +979,14 @@ impl<'de> serde::Deserialize<'de> for ZoteroCollection {
     }
 }
 
-/// A Zotero library: its collections and items (top-level and child items
+/// A Zotero library: its collections, its items (top-level and child items
 /// side by side, children pointing at parents through `parentItem`, as the
-/// Web API lists them).
+/// Web API lists them) and its saved searches.
 ///
 /// This is a container for import/export, not a port of `Zotero.Library`
 /// (which is a database handle). Serialises as
-/// `{"collections": [...], "items": [...]}`.
+/// `{"collections": [...], "items": [...]}`, plus `"searches": [...]` when
+/// there are saved searches.
 #[derive(Debug, Clone, PartialEq, Eq, Default, serde::Serialize, serde::Deserialize)]
 pub struct ZoteroLibrary {
     /// Collections.
@@ -994,6 +995,11 @@ pub struct ZoteroLibrary {
     /// Items, including child notes, attachments and annotations.
     #[serde(default)]
     pub items: Vec<ZoteroItem>,
+    /// Saved searches (search.js `toJSON`). Added 2026-10-07 (#750) for the
+    /// Zotero database reader; omitted from the JSON when empty, so a library
+    /// without searches serialises exactly as before.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub searches: Vec<super::search::ZoteroSearch>,
 }
 
 impl ZoteroLibrary {

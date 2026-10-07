@@ -139,6 +139,7 @@ Sources read (upstream code was read, not run):
              data/dataObject.js, xpcom/attachments.js, xpcom/annotations.js,
              xpcom/utilities_internal.js (itemToExportFormat,
              combineExtraFields), xpcom/schema.js (_updateGlobalSchema),
+             data/search.js (toJSON, fromJSON; src/zotero/search.rs, #750),
              resource/schema/dateFormats.json (en-US month names),
              chrome/locale/en-US/zotero/zotero.properties (date.daySuffixes)
   utilities  https://github.com/zotero/utilities   commit 4051881d59c6

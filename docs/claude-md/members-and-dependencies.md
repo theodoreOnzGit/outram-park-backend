@@ -78,7 +78,10 @@ applies: only to crates declared mature".
 
 > **KOVAN** is the deterministic *knowledge* layer (literature + semantics +
 > codegen), interfaced three ways, all binaries of the single `kovan` crate.
-> Offline / Android-first, no cloud, no Tree-sitter/SQLite/vector-store. Full
+> Offline / Android-first, no cloud, no Tree-sitter/~~SQLite~~/vector-store
+> (**CORRECTED 2026-10-07**: kovan *stores* nothing in SQLite, but
+> `kovan-literature` *reads* Zotero's `zotero.sqlite` through `rusqlite`, on
+> native desktop targets only, GitHub #750). Full
 > design spec: **`docs/kovan.md`** (+ `docs/kovan-architecture.md`). Non-GUI
 > kovan crates build for Android; only the `kovan` GUI's egui/eframe stack is
 > Android-hostile and stays behind the `gui` feature.
