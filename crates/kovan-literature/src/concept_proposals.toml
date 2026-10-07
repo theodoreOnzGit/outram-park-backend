@@ -1352,7 +1352,8 @@ path = "10-human-resource-development/knowledge-management-and-education/safety-
 title = "Safety software coding practices"
 origin = "doe"
 sources = [{ document = "doe-std-1172-2003", section = "Competency 7" }]
-cross_links = ["07-regulatory-framework/quality-assurance/software-quality-assurance/design-and-implementation"]
+note = "The #760 home of software-properties (2026-10-07); that branch sits under SQA and is cross-linked here."
+cross_links = ["07-regulatory-framework/quality-assurance/software-quality-assurance/design-and-implementation", "07-regulatory-framework/quality-assurance/software-quality-assurance/software-properties"]
 status = "approved"
 
 [[concept]]
@@ -1450,6 +1451,126 @@ path = "07-regulatory-framework/quality-assurance/software-quality-assurance/des
 title = "Interfaces and input/output"
 origin = "doe"
 sources = [{ document = "doe-g-414.1-4", section = "App. F, F.5.6 (\"interface\"; \"A description of inputs and outputs including allowable or prescribed ranges for inputs and outputs\")", page = "F-13 to F-14" }, { document = "nureg-br-0167", section = "4.3 Software Requirements Documentation, item 5 (\"External interfaces--interactions with people, hardware, and other software\"); 4.4", page = "13" }, { document = "nureg-km-0006", section = "3.3 Components of the Hierarchy of Scientific Computer Simulation (no single KM-0006 term)", page = "59-81" }]
+status = "approved"
+
+# ---- Timeless software properties under SQA, owner 2026-10-07 (#760): ten
+# properties plus an eleventh (performance, timing and scalability). The home
+# is `software-properties` under SQA, beside design-and-implementation; the
+# #760 discussion placed it at DOE-STD-1172 competency 7 (coding practices),
+# which sits in this tree under 10-human-resource-development, so the two are
+# cross-linked. Every source line below was read from the PDF (2026-10-07);
+# pages are PDF pages. ----
+
+[[concept]]
+path = "07-regulatory-framework/quality-assurance/software-quality-assurance/software-properties"
+title = "Software properties: the timeless properties of correct code"
+origin = "outram-park"
+sources = [{ document = "doe-std-1172-2003", section = "Competency 7 (safety software coding practices \"that ensure that software requirements specifications and design requirements are reflected in the source code\")", page = "7" }, { document = "btp-7-14-rev6", section = "B.3.3 Acceptance Criteria for Design Outputs (the characteristics of safety system software, by design output: accuracy, robustness, timing, style, traceability, ...)", page = "PDF pp. 51-61" }, { document = "npr-7150.2d", section = "4.4.3 [SWE-061] coding methods, standards and criteria; 4.4.4 [SWE-135] static analysis", page = "PDF p. 34" }, { document = "faa-ac-20-115d", section = "1.a-b (ED-12C/DO-178C recognised as an acceptable means of compliance for airborne software); 4.a", page = "PDF pp. 1-2" }]
+why = "#760: properties that do not go out of date (unlike practices tied to a library version), against which reviews of outram-park functions can be checked; the root CLAUDE.md rules (Rust, uom, Arc<RwLock<T>>, release-mode gates, portability gates) are this workspace's way of meeting them."
+note = "Ten properties plus an eleventh, performance, timing and scalability (owner, #760, 2026-10-07). Type safety, unit safety and portability have thin sources, as their nodes say. Cite-only, not filed: NASA-GB-8719.13, CAST papers, DOT/FAA contractor reports, DOE ASCR/ECP reports, DO-178C/DO-332."
+cross_links = ["10-human-resource-development/knowledge-management-and-education/safety-software-qa-competencies/coding-practices", "07-regulatory-framework/quality-assurance/software-quality-assurance/design-and-implementation"]
+status = "approved"
+
+[[concept]]
+path = "07-regulatory-framework/quality-assurance/software-quality-assurance/software-properties/memory-safety"
+title = "Memory safety"
+origin = "outram-park"
+sources = [{ document = "nsa-csi-software-memory-safety", section = "The memory safety problem; Memory safe languages; The path forward", page = "PDF pp. 2-5" }, { document = "nsa-cisa-memory-safe-languages-2025", section = "Memory vulnerabilities explained; Key features addressing memory safety (bounds checking, memory management, data race prevention)", page = "PDF pp. 3-5" }, { document = "cisa-case-for-memory-safe-roadmaps", section = "The Case for Memory Safe Languages", page = "PDF p. 9" }, { document = "cisa-case-for-memory-safe-roadmaps", section = "Mitigations to Reduce Prevalence; Mitigations to Reduce Impact", page = "PDF pp. 5-7" }, { document = "nistir-8397", section = "2.5 Run with Language-Provided Checks and Protection; 3.2 Supplemental: Memory-Safe Compilation", page = "PDF pp. 14, 17" }, { document = "btp-7-14-rev6", section = "B.3.3.4.2 Process Characteristics of CL, Style (\"Arrays should have a fixed, predefined length. Global variables and dynamic memory allocation should not be used.\")", page = "PDF p. 61" }, { document = "nasa-std-8739.8b", section = "Appendix A, Table 2 (\"Memory corruption, critical data variables overwritten in memory\"; \"Buffer overflows\")", page = "PDF pp. 59, 61" }]
+why = "outram-park is written in Rust, whose ownership and bounds checks are the language-level protection these sources recommend; the root CLAUDE.md design rules (owned values or Arc, no lifetimes on structs) keep simulation code in safe Rust."
+cross_links = ["07-regulatory-framework/quality-assurance/software-quality-assurance/design-and-implementation/data-structures", "07-regulatory-framework/quality-assurance/software-quality-assurance/software-properties/error-handling-and-robustness"]
+status = "approved"
+
+[[concept]]
+path = "07-regulatory-framework/quality-assurance/software-quality-assurance/software-properties/concurrency-and-data-race-freedom"
+title = "Concurrency and data-race freedom"
+origin = "outram-park"
+sources = [{ document = "nsa-cisa-memory-safe-languages-2025", section = "Technical examples of memory bugs (\"Data races\"); Key features addressing memory safety (\"Data race prevention\")", page = "PDF pp. 3, 5" }, { document = "nsa-csi-software-memory-safety", section = "The memory safety problem (race condition)", page = "PDF p. 2" }, { document = "faa-ac-20-193", section = "5.2 (note a: shared memory \"lockouts, race conditions, data starvation, deadlocks, live-locks\"); 5.4 Interference channels and resource usage; 5.5 Software verification", page = "PDF pp. 8-10" }, { document = "nasa-std-8739.8b", section = "Appendix A, Table 2 (\"Deadlock\"; \"Race Conditions\"; \"Shared resource errors\")", page = "PDF p. 60" }, { document = "btp-7-14-rev6", section = "B.3.3.4.2, Style (\"data structures should be protected so that they cannot be changed simultaneously\")", page = "PDF p. 61" }, { document = "nistir-8397", section = "2.3 Code-Based, or Static, Analysis (\"use a scanner capable of detecting race conditions\")", page = "PDF p. 13" }]
+why = "root CLAUDE.md: shared mutable simulation state is Arc<RwLock<T>>, never channels; parallel transport and the parallel TUAS runs rely on it."
+cross_links = ["07-regulatory-framework/quality-assurance/software-quality-assurance/design-and-implementation/data-structures", "07-regulatory-framework/quality-assurance/software-quality-assurance/design-and-implementation/solver-driver-and-control-flow", "07-regulatory-framework/quality-assurance/software-quality-assurance/software-properties/determinism-and-reproducibility"]
+status = "approved"
+
+[[concept]]
+path = "07-regulatory-framework/quality-assurance/software-quality-assurance/software-properties/type-safety"
+title = "Type safety"
+origin = "outram-park"
+sources = [{ document = "nsa-cisa-memory-safe-languages-2025", section = "Key features addressing memory safety, bounds checking (\"Type safety ensures the bounds and behavior of an object are known when the object is created and enforced whenever it is accessed\")", page = "PDF p. 4" }, { document = "btp-7-14-rev6", section = "B.3.3.4.2, Consistency (\"all variable names, types, locations, and array sizes are defined consistently\"; parameters consistent \"with respect to number, type, structure\")", page = "PDF pp. 60-61" }, { document = "rg-1.172-rev1", section = "C.2.b Completeness (\"data type, and data size, for each input and output variable\")", page = "PDF p. 6" }, { document = "nasa-std-8739.8b", section = "Appendix A, Table 2 (\"Case/type/conversion error/unit mismatch\")", page = "PDF p. 61" }]
+why = "outram-park relies on Rust's static types and enum dispatch (root CLAUDE.md: enums, not trait objects) to rule out whole classes of interface error at compile time."
+note = "THIN SOURCES (owner, #760): no source held here treats type safety as a property in its own right; they touch it through memory safety (NSA/CISA), consistent data types (BTP 7-14, RG 1.172) and a hazard-cause list (NASA-STD-8739.8B)."
+cross_links = ["07-regulatory-framework/quality-assurance/software-quality-assurance/design-and-implementation/data-structures", "07-regulatory-framework/quality-assurance/software-quality-assurance/design-and-implementation/interfaces-and-input-output", "07-regulatory-framework/quality-assurance/software-quality-assurance/design-and-implementation/selection-and-dispatch-between-models"]
+status = "approved"
+
+[[concept]]
+path = "07-regulatory-framework/quality-assurance/software-quality-assurance/software-properties/unit-and-dimensional-safety"
+title = "Unit (dimensional) safety"
+origin = "outram-park"
+sources = [{ document = "nasa-mco-mib-phase-1", section = "4. MCO Root Cause (thruster data in English units, lbf-s, where the Software Interface Specification required N-s)", page = "16" }, { document = "btp-7-14-rev6", section = "B.3.3.1.1 Functional Characteristics of SRS, Accuracy (\"appropriate physical units and error bounds should be supplied\"); B.3.3.4.2, Consistency (parameters consistent with respect to \"physical units\")", page = "PDF pp. 54, 61" }, { document = "rg-1.172-rev1", section = "C.2.b Completeness (\"accuracy requirements, including units, error bounds, data type, and data size\")", page = "PDF p. 6" }, { document = "nasa-std-7009b", section = "4.2.1.3 [M&S 46] record of the units and vector coordinate frames", page = "PDF p. 25" }, { document = "nasa-hdbk-7009b", section = "5.2.1.3.4 Units of Measurement and Coordinate Frames", page = "PDF p. 62" }]
+why = "root CLAUDE.md: uom everywhere a physical quantity crosses an API, so a unit mismatch is a compile error rather than a lost spacecraft."
+note = "THIN SOURCES (owner, #760): the property rests on one mishap (Mars Climate Orbiter) and on BTP 7-14's units requirements, with record-keeping requirements in NASA-STD-7009B and its handbook. No source held here prescribes checking units in the type system."
+cross_links = ["07-regulatory-framework/quality-assurance/software-quality-assurance/design-and-implementation/interfaces-and-input-output", "07-regulatory-framework/quality-assurance/software-quality-assurance/software-properties/type-safety"]
+status = "approved"
+
+[[concept]]
+path = "07-regulatory-framework/quality-assurance/software-quality-assurance/software-properties/determinism-and-reproducibility"
+title = "Determinism and reproducibility"
+origin = "outram-park"
+sources = [{ document = "rg-1.152-rev4", section = "C.1.b(1) System Integrity, 1.1 (\"predictable and repeatable\": \"a given set of input signals will always produce the same output signals\")", page = "PDF p. 8" }, { document = "rg-1.168-rev2", section = "C.2 Software Reliability (reliability goals \"predicated on deterministic criteria\")", page = "PDF p. 7" }, { document = "btp-7-14-rev6", section = "A.3 Definitions (\"Deterministic timing\"); B.3.3.1.1, Timing", page = "PDF pp. 5, 54" }, { document = "npr-7150.2d", section = "4.4.6 [SWE-186] \"unit test results are repeatable\"", page = "PDF p. 35" }, { document = "nasa-std-7009b", section = "4.2.1.2 [M&S 45] data sets and supporting software kept for \"re-creation or reproduction of the M&S\"", page = "PDF pp. 24-25" }, { document = "nasa-hdbk-7009b", section = "5.2.1.2 d.(1) \"Repeatability or determinism of results\"", page = "PDF p. 58" }, { document = "faa-order-8110.49a", section = "Ch. 1, 7.j Software Life Cycle Environment Configuration Index (\"written to aid reproduction of the hardware and software life cycle environment\")", page = "PDF p. 6" }, { document = "faa-ac-20-193", section = "5.4.3 (\"Non-deterministic behavior ... may occur due to such interference\")", page = "PDF p. 9" }, { document = "arxiv-2505.01671v1", section = "3.1 Terms and Definitions (\"Reproducibility\"); 4.1 Challenges of Experiment Packaging and Review", page = "PDF pp. 6-9" }]
+why = "root CLAUDE.md worked example: the HTR-10 bed gave a different answer every run because a neighbour grid iterated a randomly seeded HashMap (a P0 defect); a V&V number that cannot be reproduced is not evidence."
+cross_links = ["07-regulatory-framework/quality-assurance/software-quality-assurance/verification-and-validation/verification-and-validation-records", "07-regulatory-framework/quality-assurance/software-quality-assurance/configuration-management/configuration-and-accounting-records", "07-regulatory-framework/quality-assurance/software-quality-assurance/software-properties/concurrency-and-data-race-freedom"]
+status = "approved"
+
+[[concept]]
+path = "07-regulatory-framework/quality-assurance/software-quality-assurance/software-properties/numerical-robustness"
+title = "Numerical robustness (precision, round-off, convergence, overflow)"
+origin = "outram-park"
+sources = [{ document = "btp-7-14-rev6", section = "B.3.3.3.1 Functional Characteristics of SDS, Accuracy (\"All calculations should be analyzed for convergence, round-off error, precision, and accuracy\"); B.3.3.4.1 Functional Characteristics of CL, Accuracy (floating point arithmetic, round-off errors, retention of precision; accuracy of mathematical libraries)", page = "PDF pp. 58, 60" }, { document = "nasa-std-7009b", section = "4.2.4 M&S Verification Recommendations, b. (record numerical error estimates: discretization, iterative convergence, finite-precision arithmetic); E.3.3 M&S Verification Factor (solution verification)", page = "PDF pp. 28, 66-67" }, { document = "nasa-hdbk-7009b", section = "5.5.2 Model Verification (numerical errors identified, quantified and bounded; \"hard\" errors such as floating-point exceptions)", page = "PDF pp. 75-76" }, { document = "faa-ac-00-69", section = "3.3.2.1.1 (\"fixed/floating point arithmetic overflow, stack/heap overflow, division by zero, or counter and timer overrun/wrap-around\")", page = "PDF p. 2" }, { document = "nasa-std-8739.8b", section = "Appendix A, Table 2 (\"Division by zero\"; \"Overflow or underflow in the calculation\"; \"Precision mismatch\")", page = "PDF p. 61" }, { document = "nasa-tm-103863", section = "1.2.2 General rules (\"All floating point operations must be performed using 64-bit floating point arithmetic\")", page = "PDF p. 8" }]
+why = "outram-park's solvers iterate to tolerances and compare against references in f64; a non-converged or NaN state must be caught, not carried forward (workspace practice: panic rather than keep a stale non-physical state)."
+cross_links = ["07-regulatory-framework/quality-assurance/software-quality-assurance/software-properties/error-handling-and-robustness", "07-regulatory-framework/quality-assurance/software-quality-assurance/design-and-implementation/solver-driver-and-control-flow"]
+status = "approved"
+
+[[concept]]
+path = "07-regulatory-framework/quality-assurance/software-quality-assurance/software-properties/error-handling-and-robustness"
+title = "Error handling and robustness"
+origin = "outram-park"
+sources = [{ document = "rg-1.172-rev1", section = "C.6.c Robustness (behaviour under \"unexpected, incorrect, anomalous, and improper\" input, hardware or software behaviour)", page = "PDF p. 8" }, { document = "btp-7-14-rev6", section = "B.3.3.3.1, Robustness (SDS); B.3.3.4.1, Robustness (CL: \"All input data should be checked\")", page = "PDF pp. 58, 60" }, { document = "faa-ac-00-69", section = "3.3 Error Handling at Design Level", page = "PDF pp. 2-3" }, { document = "npr-7150.2d", section = "3.7.3 [SWE-134] k. \"The software provides error handling\"; 3.11.1 (\"design flaws such as inconsistent error handling\")", page = "PDF pp. 26, 30" }, { document = "nasa-std-8739.8b", section = "Appendix A, Table 2 (\"Missing software error handling\"; \"Missing or incorrect fault detection logic\")", page = "PDF pp. 59-62" }, { document = "nasa-hdbk-7009b", section = "5.4.2 Considerations in Model Construction (error detection and reporting: input range checks, pre- and post-conditions, library-call errors, floating point exceptions, M&S limits)", page = "PDF p. 71" }, { document = "faa-ac-20-193", section = "5.6 Error detection and handling, and safety nets", page = "PDF p. 12" }, { document = "faa-ac-25.1309-1b", section = "2.2 Fail-Safe Design Concept (2.2.2.11 Error Tolerance)", page = "PDF pp. 18-19" }, { document = "rg-1.152-rev4", section = "C.1.b(1) 1.2 self-diagnostics (watchdog timer; \"predetermined fail-safe state\")", page = "PDF p. 9" }]
+why = "workspace practice: fail loudly (panic on an out-of-range state rather than keep a stale one) and Kovan's Leak Before Break principle (#739/#762: never fail silently)."
+cross_links = ["07-regulatory-framework/quality-assurance/software-quality-assurance/design-and-implementation/interfaces-and-input-output", "07-regulatory-framework/quality-assurance/software-quality-assurance/software-safety", "07-regulatory-framework/quality-assurance/software-quality-assurance/software-properties/numerical-robustness"]
+status = "approved"
+
+[[concept]]
+path = "07-regulatory-framework/quality-assurance/software-quality-assurance/software-properties/portability"
+title = "Portability"
+origin = "outram-park"
+sources = [{ document = "nasa-std-7009b", section = "E.3.3 M&S Verification Factor (changes to the development environment: \"compilers, libraries, operating system, and computer hardware\"; deployment onto other platforms)", page = "PDF p. 66" }, { document = "nasa-tm-103863", section = "1.2.2 General rules (standard Fortran-77 or C; only vendor-supported extensions available to all users; no assembly)", page = "PDF pp. 7-8" }, { document = "btp-7-14-rev6", section = "B.3.3.4.2, Completeness (\"The software implementation should be compatible with the hardware environment\")", page = "PDF p. 60" }, { document = "arxiv-2311.06995v1", section = "abstract (portable execution on GPUs from three vendors); closing summary (\"performance-portable stack of 70 libraries and tools\")", page = "PDF pp. 1, 9" }, { document = "arxiv-2505.01671v1", section = "5.1 Recommendation 11 (reduce dependencies, \"including hardware dependencies where possible\")", page = "PDF p. 15" }]
+why = "root CLAUDE.md: every non-GUI library must compile for Android/Termux and in-scope crates for wasm32, checked by gates."
+note = "THIN SOURCES (owner, #760: \"portability (weak)\"): no source held here sets portability out as a requirement in its own right; it appears as a verification concern (NASA-STD-7009B), a benchmark rule (NPB) and HPC practice (ECP, reproducibility report)."
+cross_links = ["07-regulatory-framework/quality-assurance/software-quality-assurance/configuration-management"]
+status = "approved"
+
+[[concept]]
+path = "07-regulatory-framework/quality-assurance/software-quality-assurance/software-properties/traceability"
+title = "Traceability (requirements to design, code and tests)"
+origin = "nrc"
+sources = [{ document = "btp-7-14-rev6", section = "B.3.3 (\"Traceability - A Requirements Traceability Matrix\"); Traceability under B.3.3.1.2 (SRS), B.3.3.2.2 (SAD) and B.3.3.4.2 (CL)", page = "PDF pp. 53, 55, 57, 61" }, { document = "rg-1.172-rev1", section = "C.2.a Traceability and Accuracy; C.2.g Traceability (backward and forward)", page = "PDF pp. 6-7" }, { document = "rg-1.170-rev1", section = "C.5 Traceability", page = "PDF p. 9" }, { document = "rg-1.169-rev1", section = "C.4 Configuration Management (identification and control of designs and code; status accounting)", page = "PDF p. 7" }, { document = "npr-7150.2d", section = "3.12.1 [SWE-052] bi-directional traceability (Table 1)", page = "PDF p. 31" }, { document = "nasa-std-8739.8b", section = "3.12.1 (SWE-052) software bi-directional traceability", page = "PDF p. 33" }, { document = "faa-order-8110.49a", section = "Ch. 1, 7.e Sampling, (1) traceability \"from system requirements to software requirements to software design to source code to object code to test cases and procedures to test results\"", page = "PDF p. 5" }, { document = "nasa-tm-2001-210876", section = "2.2 Definition and Role of Coverage (requirements and structural coverage analysis establish traceability)", page = "PDF p. 10" }]
+cross_links = ["07-regulatory-framework/quality-assurance/software-quality-assurance/requirements-identification-and-management", "07-regulatory-framework/quality-assurance/software-quality-assurance/verification-and-validation/verification-and-validation-records", "07-regulatory-framework/quality-assurance/software-quality-assurance/configuration-management/configuration-and-accounting-records", "07-regulatory-framework/quality-assurance/software-quality-assurance/verification-and-validation/code-review"]
+status = "approved"
+
+[[concept]]
+path = "07-regulatory-framework/quality-assurance/software-quality-assurance/software-properties/maintainability"
+title = "Maintainability"
+origin = "outram-park"
+sources = [{ document = "npr-7150.2d", section = "3.7.5 [SWE-220] cyclomatic complexity of 15 or lower (\"testability, maintainability, and code quality\"); 4.4.3 [SWE-061]; 4.4.4 [SWE-135]", page = "PDF pp. 27, 34" }, { document = "btp-7-14-rev6", section = "B.3.3, Style (coding standards examined for understandability); B.3.3.4.3 Review Guidance for CL (comments so that \"future modifications of the code are facilitated\")", page = "PDF pp. 52, 61" }, { document = "rg-1.172-rev1", section = "C.2.f Modifiability", page = "PDF p. 7" }, { document = "rg-1.173-rev1", section = "C.4 New or Modified Safety System Software", page = "PDF pp. 9-10" }, { document = "rg-1.171-rev1", section = "C.3 Test Program Records (regression test materials under change control during \"software maintenance\")", page = "PDF p. 6" }, { document = "faa-ac-00-69", section = "3.1 Software Change Impact Analyses (CIA)", page = "PDF pp. 1-2" }, { document = "arxiv-2505.01671v1", section = "5.1 Recommendation 11 (\"make artifacts not only reproducible but also maintainable\")", page = "PDF p. 15" }, { document = "arxiv-2311.06995v1", section = "abstract (software quality through community policies, automated testing and continuous integration; delivery through E4S)", page = "PDF p. 1" }]
+why = "review is the bottleneck in this workspace (root CLAUDE.md, human review): code a reviewer cannot read cheaply cannot be trusted; file-size caps and code walks serve this property."
+cross_links = ["07-regulatory-framework/quality-assurance/software-quality-assurance/verification-and-validation/code-review", "07-regulatory-framework/quality-assurance/software-quality-assurance/configuration-management", "10-human-resource-development/knowledge-management-and-education/safety-software-qa-competencies/coding-practices"]
+status = "approved"
+
+[[concept]]
+path = "07-regulatory-framework/quality-assurance/software-quality-assurance/software-properties/performance-timing-and-scalability"
+title = "Performance, timing and scalability"
+origin = "outram-park"
+sources = [{ document = "nasa-tm-103863", section = "2.2 Description of the Kernels: each kernel's \"Verification Test\" (e.g. 2.2.1 EP: counts \"must agree exactly with reference values\"); 3.5.1 Verification test (maximum relative error 1e-8)", page = "PDF pp. 14, 63-64" }, { document = "faa-ac-20-193", section = "5.3 Objective MCP_Resource_Usage_1 (\"functional, performance, and timing requirements\"); 5.5.3 (WCET may increase significantly under interference)", page = "PDF pp. 8, 10" }, { document = "btp-7-14-rev6", section = "B.3.3.1.1, Timing; B.3.3.2.1, Timing (minimum and maximum execution times, margins); B.3.3.4.2, Consistency (\"Minimum and maximum execution times should be consistent with expected overall performance\")", page = "PDF pp. 54, 56, 61" }, { document = "rg-1.172-rev1", section = "C.2.b (timing requirements \"deterministic and specified for both normal and anticipated failure conditions\")", page = "PDF p. 6" }, { document = "nasa-std-7009b", section = "E.3.3 (\"Trade-offs in terms of accuracy and run-time efficiency\")", page = "PDF p. 67" }, { document = "nsa-cisa-memory-safe-languages-2025", section = "Performance and scalability considerations (\"rigorous performance testing\")", page = "PDF p. 10" }, { document = "arxiv-2311.06995v1", section = "closing summary (GPU-capable, \"performance-portable stack\")", page = "PDF p. 9" }]
+why = "root CLAUDE.md: correctness outranks runtime, and a large cost is stated with a measured number; outram-park benchmarks GPU and parallel paths."
+note = "RULE (owner, #760, 2026-10-07): a performance claim counts only next to a passing verification. The wording is the owner's; the NAS Parallel Benchmarks are the precedent: every timed benchmark there is specified together with a verification test against reference values (2.2, 3.5.1)."
+cross_links = ["07-regulatory-framework/quality-assurance/software-quality-assurance/verification-and-validation/verification-and-validation-records", "07-regulatory-framework/quality-assurance/software-quality-assurance/design-and-implementation/solver-driver-and-control-flow", "07-regulatory-framework/quality-assurance/software-quality-assurance/software-properties/determinism-and-reproducibility"]
 status = "approved"
 
 # ============================================================================
