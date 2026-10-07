@@ -68,9 +68,12 @@
 //! ([`crate::entity::EntityConfig`]) have no fenced-TOML-block mechanism —
 //! that machinery ([`crate::artifact::parse_document`],
 //! [`crate::artifact::render_artifact_block`]) exists only for artifacts
-//! inside a paper's research Markdown. So [`add_connection`] only accepts a
-//! `source` that parses as `artifact:<citekey>#<id>`
-//! ([`crate::graph::artifact_node`]'s own format). Every entry point this
+//! inside a paper's research Markdown. So [`add_connection`] ~~only accepts a
+//! `source` that parses as `artifact:<citekey>#<id>`~~ **CORRECTED
+//! 2026-10-07** (the code accepts more; found by the Zotero port, #751):
+//! accepts a `source` that belongs to a paper, i.e. `artifact:<citekey>#<id>`
+//! ([`crate::graph::artifact_node`]'s own format) or `paper:<citekey>`
+//! (`owning_paper`); a `collection:` source is refused. Every entry point this
 //! epic wires up (the PDF canvas's annotation right-click menu, op-30um.3)
 //! only ever draws a connection *from* an annotation or other page-anchored
 //! artifact, so this costs nothing in practice today. A `target`, by
@@ -214,8 +217,9 @@ pub struct UserRelation {
     /// Stable id, unique within the library. Generated once by
     /// [`add_connection`] and never recomputed.
     pub id: String,
-    /// The node this relation originates from. Always an artifact node
-    /// identity (`artifact:<citekey>#<id>`) in the current implementation —
+    /// The node this relation originates from: a node that belongs to a
+    /// paper, `artifact:<citekey>#<id>` or `paper:<citekey>` (~~always an
+    /// artifact node~~ CORRECTED 2026-10-07, `owning_paper` accepts both) —
     /// see the module docs' "Restriction accepted for v1".
     pub source: NodeId,
     /// The node this relation points at. Any node identity string —
@@ -406,8 +410,10 @@ impl std::fmt::Display for CodeTarget {
 /// Errors from the connection CRUD operations.
 #[derive(Debug)]
 pub enum RelationError {
-    /// `source` did not parse as `artifact:<citekey>#<id>` — only an
-    /// artifact node may be a relation's source (see the module docs).
+    /// `source` does not belong to a paper: it is neither
+    /// `artifact:<citekey>#<id>` nor `paper:<citekey>` (see the module docs;
+    /// ~~only an artifact node~~ CORRECTED 2026-10-07). The variant keeps its
+    /// name so callers do not break.
     SourceNotArtifact(String),
     /// `add_connection` was asked to relate a node to itself.
     SelfRelation(String),
@@ -429,7 +435,7 @@ impl std::fmt::Display for RelationError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Self::SourceNotArtifact(node) => {
-                write!(f, "{node:?} is not an artifact node (artifact:<citekey>#<id>) — only an artifact may be a relation's source")
+                write!(f, "{node:?} does not belong to a paper (artifact:<citekey>#<id> or paper:<citekey>) — only those may be a relation's source")
             }
             Self::SelfRelation(node) => write!(f, "cannot relate {node:?} to itself"),
             Self::Session(e) => write!(f, "{e}"),
