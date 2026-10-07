@@ -67,7 +67,16 @@ fn options() -> SearchOptions {
             now_unix_secs: Some(NOW),
             ..TranslationEnv::default()
         },
-        hidden_prefs: JsObject::new(),
+        // Câmara Brasileira do Livro's api-key is not in the port's source
+        // (DATA_POLICY.md: no API keys); the caller supplies it. A
+        // placeholder here: its fixture is synthetic and request headers
+        // are not compared for it.
+        hidden_prefs: [(
+            "CamaraBrasileiraDoLivro.apiKey".to_owned(),
+            Value::String("kovan-test-placeholder".to_owned()),
+        )]
+        .into_iter()
+        .collect(),
     }
 }
 
