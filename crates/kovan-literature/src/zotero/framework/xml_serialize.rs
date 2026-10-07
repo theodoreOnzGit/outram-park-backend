@@ -64,7 +64,11 @@ const VOID_ELEMENTS: [&str; 19] = [
 
 /// Serialize `node` (w3c-xmlserializer's module export): fresh prefix map
 /// with `xml`, context namespace null, prefix index 1.
-pub fn serialize(doc: &XmlDocument, node: NodeId, require_well_formed: bool) -> Result<String, String> {
+pub fn serialize(
+    doc: &XmlDocument,
+    node: NodeId,
+    require_well_formed: bool,
+) -> Result<String, String> {
     let mut st = State {
         lists: vec![vec!["xml".to_owned()]],
         idx: 1,
@@ -97,7 +101,9 @@ fn xml_serialization(
         NodeKind::Element(_) => serialize_element(doc, node, namespace, prefix_map, st, out),
         NodeKind::Document => {
             if rwf && doc.document_element().is_none() {
-                return Err("Failed to serialize XML: document does not have a document element.".into());
+                return Err(
+                    "Failed to serialize XML: document does not have a document element.".into(),
+                );
             }
             for &c in doc.children(node) {
                 xml_serialization(doc, c, namespace, prefix_map, st, out)?;
@@ -140,7 +146,10 @@ fn xml_serialization(
                 return Err("Failed to serialize XML: processing instruction node target is not well-formed.".into());
             }
             if rwf && data.contains("?>") {
-                return Err("Failed to serialize XML: processing instruction node data is not well-formed.".into());
+                return Err(
+                    "Failed to serialize XML: processing instruction node data is not well-formed."
+                        .into(),
+                );
             }
             out.push_str(&format!("<?{target} {data}?>"));
             Ok(())
@@ -154,7 +163,9 @@ fn xml_serialization(
 
 /// `serializeText`: `&`, `<`, `>` escaped.
 pub fn escape_text(s: &str) -> String {
-    s.replace('&', "&amp;").replace('<', "&lt;").replace('>', "&gt;")
+    s.replace('&', "&amp;")
+        .replace('<', "&lt;")
+        .replace('>', "&gt;")
 }
 
 /// `serializeAttributeValue`.
@@ -169,7 +180,12 @@ pub fn escape_attr(s: &str) -> String {
 }
 
 /// `preferredPrefixString`.
-fn preferred_prefix(map: &PrefixMap, lists: &Lists, ns: &str, preferred: Option<&str>) -> Option<String> {
+fn preferred_prefix(
+    map: &PrefixMap,
+    lists: &Lists,
+    ns: &str,
+    preferred: Option<&str>,
+) -> Option<String> {
     let list = map_get(map, lists, ns)?;
     if let Some(p) = preferred {
         if list.iter().any(|x| x == p) {
@@ -259,7 +275,10 @@ fn serialize_element(
         let mut candidate = preferred_prefix(&map, &st.lists, &ns_key, prefix.as_deref());
         if prefix.as_deref() == Some("xmlns") {
             if rwf {
-                return Err("Failed to serialize XML: element nodes can't have a prefix of \"xmlns\".".into());
+                return Err(
+                    "Failed to serialize XML: element nodes can't have a prefix of \"xmlns\"."
+                        .into(),
+                );
             }
             candidate = Some("xmlns".into());
         }
@@ -366,7 +385,10 @@ fn serialize_attributes(
                     return Err("The XMLNS namespace is reserved and cannot be applied as an element's namespace via XML parsing".into());
                 }
                 if rwf && a.value.is_empty() {
-                    return Err("Namespace prefix declarations cannot be used to undeclare a namespace".into());
+                    return Err(
+                        "Namespace prefix declarations cannot be used to undeclare a namespace"
+                            .into(),
+                    );
                 }
                 if a.prefix.as_deref() == Some("xmlns") {
                     candidate = Some("xmlns".into());

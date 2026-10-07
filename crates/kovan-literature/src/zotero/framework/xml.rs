@@ -624,7 +624,7 @@ impl XmlDocument {
     /// `[attr]`/`[attr="value"]`) joined by descendant combinators. In an
     /// XML document type selectors and attribute names match case-sensitively
     /// on the local name of the element and the qualified name of the
-    /// attribute (nwsapi under jsdom 29.0.1, checked 2026-10-07). Results in
+    /// attribute (jsdom 29.0.1, whose selector engine is @asamuzakjp/dom-selector, checked 2026-10-07). Results in
     /// tree order; `root` itself is never a result.
     pub fn query_selector_all(&self, root: NodeId, selector: &str) -> Vec<NodeId> {
         let compounds: Vec<Compound> = selector.split_whitespace().map(Compound::parse).collect();
@@ -785,6 +785,58 @@ impl XmlDocument {
         })
     }
 
+    /// Append to a Text or CDATA node's data (`appendData`).
+    pub fn append_text_data(&mut self, n: NodeId, s: &str) {
+        if let NodeKind::Text(t) | NodeKind::CData(t) = &mut self.nodes[n.0].kind {
+            t.push_str(s);
+        }
+    }
+
+    /// Replace a Text, CDATA or comment node's data (`node.data = s`).
+    pub fn set_text_data(&mut self, n: NodeId, s: &str) {
+        if let NodeKind::Text(t) | NodeKind::CData(t) | NodeKind::Comment(t) =
+            &mut self.nodes[n.0].kind
+        {
+            *t = s.to_owned();
+        }
+    }
+
+    /// Append an attribute as given (no lookup; the HTML parser's
+    /// `add_attrs_if_missing` has checked).
+    pub fn push_attribute(&mut self, n: NodeId, a: XmlAttr) {
+        if let Some(e) = self.element_mut(n) {
+            e.attrs.push(a);
+        }
+    }
+
+    /// Set an element's namespace (HTML `createElement`).
+    pub fn set_element_namespace(&mut self, n: NodeId, ns: Option<&str>) {
+        if let Some(e) = self.element_mut(n) {
+            e.namespace = ns.map(str::to_owned);
+        }
+    }
+
+    /// A detached deep copy of `other`'s node `n` in this document
+    /// (`importNode(n, true)`, `cloneNode(true)` when `other` is `self`).
+    pub fn import_subtree(&mut self, other: &XmlDocument, n: NodeId) -> NodeId {
+        let copy = self.push(other.kind(n).clone());
+        for &c in other.children(n) {
+            let cc = self.import_subtree(other, c);
+            self.append_child(copy, cc);
+        }
+        copy
+    }
+
+    /// `node.cloneNode(true)`: a detached deep copy.
+    pub fn clone_subtree(&mut self, n: NodeId) -> NodeId {
+        let copy = self.push(self.kind(n).clone());
+        for c in self.children(n).to_vec() {
+            let cc = self.clone_subtree(c);
+            self.append_child(copy, cc);
+        }
+        copy
+    }
+
     /// `parent.appendChild(child)` (a child with a parent is moved).
     pub fn append_child(&mut self, parent: NodeId, child: NodeId) {
         self.detach(child);
@@ -925,7 +977,11 @@ impl Compound {
             rest = r.get(end + 1..).unwrap_or("");
         }
         Compound {
-            tag: if tag.is_empty() { "*".to_owned() } else { tag.to_owned() },
+            tag: if tag.is_empty() {
+                "*".to_owned()
+            } else {
+                tag.to_owned()
+            },
             attrs,
         }
     }
@@ -954,8 +1010,14 @@ mod tests {
         assert_eq!(d.tag_name(c), "p:c");
         assert_eq!(d.get_attribute(c, "p:k"), Some("v"));
         assert_eq!(d.get_attribute_ns(c, Some("urn:p"), "k"), Some("v"));
-        assert_eq!(d.lookup_namespace_uri(d.document(), None).as_deref(), Some("urn:x"));
-        assert_eq!(d.lookup_namespace_uri(c, Some("p")).as_deref(), Some("urn:p"));
+        assert_eq!(
+            d.lookup_namespace_uri(d.document(), None).as_deref(),
+            Some("urn:x")
+        );
+        assert_eq!(
+            d.lookup_namespace_uri(c, Some("p")).as_deref(),
+            Some("urn:p")
+        );
         assert_eq!(d.attributes(a).len(), 3);
     }
 
@@ -968,8 +1030,14 @@ mod tests {
         let root = d.document();
         assert_eq!(d.query_selector_all(root, "mets").len(), 2);
         assert_eq!(d.query_selector_all(root, "fileSec file").len(), 1);
-        assert_eq!(d.query_selector_all(root, "FLocat[LOCTYPE=\"URL\"]").len(), 1);
-        assert_eq!(d.query_selector_all(root, "FLocat[loctype=\"URL\"]").len(), 0);
+        assert_eq!(
+            d.query_selector_all(root, "FLocat[LOCTYPE=\"URL\"]").len(),
+            1
+        );
+        assert_eq!(
+            d.query_selector_all(root, "FLocat[loctype=\"URL\"]").len(),
+            0
+        );
     }
 
     #[test]

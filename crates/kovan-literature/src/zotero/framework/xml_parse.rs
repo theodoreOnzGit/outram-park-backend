@@ -426,7 +426,9 @@ impl Parser {
             if t.len() == rest.len() && saw_version {
                 return fail("whitespace required.");
             }
-            let eq = t.find('=').ok_or_else(|| XmlParseError("value required.".into()))?;
+            let eq = t
+                .find('=')
+                .ok_or_else(|| XmlParseError("value required.".into()))?;
             let name = t[..eq].trim_end_matches(is_s);
             let pos = expect
                 .iter()
@@ -457,7 +459,10 @@ impl Parser {
                     }
                 }
                 "encoding" => {
-                    let ok = value.chars().next().is_some_and(|c| c.is_ascii_alphabetic())
+                    let ok = value
+                        .chars()
+                        .next()
+                        .is_some_and(|c| c.is_ascii_alphabetic())
                         && value
                             .chars()
                             .all(|c| c.is_ascii_alphanumeric() || matches!(c, '.' | '_' | '-'));
@@ -648,7 +653,11 @@ impl Parser {
         for (an, v) in raw {
             let (ap, al) = qname(&an)?;
             let (auri, eq) = if ap.is_empty() {
-                let u = if an == "xmlns" { XMLNS_NS.to_owned() } else { String::new() };
+                let u = if an == "xmlns" {
+                    XMLNS_NS.to_owned()
+                } else {
+                    String::new()
+                };
                 (u, an.clone())
             } else {
                 let u = match self.resolve(&ap, &own) {
@@ -680,7 +689,11 @@ impl Parser {
                 self.closed_root = true;
             }
         } else {
-            self.stack.push(OpenTag { node, name, ns: own });
+            self.stack.push(OpenTag {
+                node,
+                name,
+                ns: own,
+            });
         }
         Ok(())
     }
@@ -769,7 +782,8 @@ fn parse_doctype(html: &str) -> (String, String, String) {
     let t = tail.trim_start();
     let tl = tail_l.trim_start();
     let name_ok = !name.is_empty();
-    if name_ok && tl.starts_with("public") && t.len() > 6 && t[6..].starts_with(char::is_whitespace) {
+    if name_ok && tl.starts_with("public") && t.len() > 6 && t[6..].starts_with(char::is_whitespace)
+    {
         let r = t[6..].trim_start();
         if let Some((p, n)) = quoted(r) {
             let r2 = &r[n..];
@@ -782,14 +796,19 @@ fn parse_doctype(html: &str) -> (String, String, String) {
             }
         }
     }
-    if name_ok && tl.starts_with("system") && t.len() > 6 && t[6..].starts_with(char::is_whitespace) {
+    if name_ok && tl.starts_with("system") && t.len() > 6 && t[6..].starts_with(char::is_whitespace)
+    {
         if let Some((s, _)) = quoted(t[6..].trim_start()) {
             if !s.is_empty() {
                 return (name, String::new(), s);
             }
         }
     }
-    let name = if name.is_empty() { "html".to_owned() } else { name };
+    let name = if name.is_empty() {
+        "html".to_owned()
+    } else {
+        name
+    };
     (name, String::new(), String::new())
 }
 

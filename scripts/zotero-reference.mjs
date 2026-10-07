@@ -26,11 +26,21 @@
 //                             the server's utilities.js on fixed inputs
 //   manifest.json            server, translate, utilities, translators and
 //                             schema commits; time zone; date; normalisation
+//   chain_inputs/<format>.json, chain/<format>.json  (#749, MODS and Endnote
+//                             XML) each own import fixture's items exported
+//                             in the same format and re-imported
+//   notes/inputs.json, notes/<format>.json  (#749) the note probes exported
+//                             by Note HTML and Note Markdown (in-process)
+//
+// The XML translators' tests are crates/kovan-literature/tests/
+// zotero_xml_translators.rs.
 //
 // Fixtures:
 //   * every import `testCases` entry of the translators in FORMATS
 //     (vendor/translators; BibTeX.js, RIS.js, CSL JSON.js and, since #749,
-//     the tagged-text and JSON importers), input verbatim;
+//     the tagged-text, JSON and XML importers), input verbatim;
+//   * fixtures/import/<format>/* for the XML translators (#749): a DSpace
+//     document derived from DSpace's testCase, kovan-authored Citavi probes;
 //   * crates/kovan-literature/tests/data/zotero/fixtures/import/* (one
 //     upstream file, book_and_child_note.ris from zotero/test/tests/data, and
 //     kovan-authored probes);
@@ -38,6 +48,9 @@
 //     crates/kovan-common/tests/data/zotero/itemJSON.json), one list per item
 //     type plus all of them in one list; the items each import fixture
 //     produced; and fixtures/export/kovan_probe_items.json (kovan-authored).
+//     The XML import fixtures are not export sets (see FORMATS);
+//   * fixtures/export/kovan_note_items.json (kovan-authored note probes,
+//     #749), exported only by the note exporters.
 //
 // NORMALISATION — exactly one thing, and only on /import output: the server's
 // itemToAPIJSON gives each item a RANDOM 8-character `key`
@@ -458,6 +471,29 @@ async function main() {
 			if (exp.status === 200) out[name].reimport = await postImport(exp.output);
 		}
 		write(`chain/${format}.json`, out);
+	}
+
+	// 3c. Note exporters (#749): no export list above holds a top-level note
+	// (child notes are folded into their parents), so the kovan-authored
+	// note probes (fixtures/export/kovan_note_items.json: one list per item
+	// and all together) are exported by Note HTML and Note Markdown,
+	// in-process (no server format name).
+	{
+		const probes = JSON.parse(
+			fs.readFileSync(path.join(DATA, "fixtures/export/kovan_note_items.json"), "utf8")
+		);
+		const lists = { all: probes };
+		for (const it of probes) lists[it.key] = [it];
+		write("notes/inputs.json", lists);
+		for (const format of ["note_html", "note_markdown"]) {
+			const def = FORMATS[format];
+			const out = {};
+			for (const [name, items] of Object.entries(lists)) {
+				out[name] = await inProcessExport(format, translatorId(def.file), JSON.parse(JSON.stringify(items)));
+				out[name].via = "in-process (zotero-reference.mjs inProcessExport)";
+			}
+			write(`notes/${format}.json`, out);
+		}
 	}
 
 	// 4. Zotero.Utilities helpers the translators call, run directly from the

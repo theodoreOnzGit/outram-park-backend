@@ -68,6 +68,9 @@ serde.workspace = true
 # expressions. Both pure Rust, wasm- and Android-safe.
 serde_json.workspace = true
 regex.workspace = true
+# HTML parsing for the note exporters (Note HTML, Note Markdown; #749): the
+# WHATWG algorithm jsdom's parse5 implements. MIT OR Apache-2.0, pure Rust.
+html5ever.workspace = true
 toml.workspace = true
 pulldown-cmark.workspace = true
 # PDF ingestion — pure-Rust, offline, Android-buildable, MIT (GPLv3-compatible).

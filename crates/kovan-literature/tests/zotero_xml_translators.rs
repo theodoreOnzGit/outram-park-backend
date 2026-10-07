@@ -465,7 +465,11 @@ fn xml_detection_matches_upstream() {
 
 /// **MODS import**: the translator's 23 testCases (58 items upstream).
 ///
-/// **Result:** not yet run.
+/// **Prediction (before the first run, 2026-10-07):** mostly identical; a
+/// few differences in property order or creators.
+///
+/// **Result (2026-10-07):** pass, 23/23 cases identical (58 items), no
+/// recorded difference, on the first run.
 #[test]
 fn mods_import_matches_upstream() {
     let (d, n, _) = import_diffs(Translator::Mods);
@@ -475,7 +479,12 @@ fn mods_import_matches_upstream() {
 
 /// **MODS export** of every export list.
 ///
-/// **Result:** not yet run.
+/// **Prediction (before the first run, 2026-10-07):** identical apart from
+/// possible serializer edge cases.
+///
+/// **Result (2026-10-07):** pass, 145/145 lists byte-identical (each a
+/// one-line `modsCollection` document from XMLSerializer, w3c-xmlserializer
+/// 5.0.0), no recorded difference, on the first run.
 #[test]
 fn mods_export_matches_upstream() {
     let (d, n, _) = export_diffs(Translator::Mods);
@@ -485,7 +494,10 @@ fn mods_export_matches_upstream() {
 
 /// **MODS round trip**: upstream's MODS export re-imported by the port.
 ///
-/// **Result:** not yet run.
+/// **Prediction (before the first run, 2026-10-07):** as the import.
+///
+/// **Result (2026-10-07):** pass, 145/145 texts identical (853 items
+/// upstream), no recorded difference.
 #[test]
 fn mods_roundtrip_matches_upstream() {
     let (d, n) = roundtrip_diffs(Translator::Mods);
@@ -495,7 +507,10 @@ fn mods_roundtrip_matches_upstream() {
 
 /// **MODS import -> export -> import** on the 23 import fixtures.
 ///
-/// **Result:** not yet run.
+/// **Prediction (before the first run, 2026-10-07):** as export and import.
+///
+/// **Result (2026-10-07):** pass, 23/23 exports byte-identical and 23/23
+/// re-imports identical (58 items), no recorded difference.
 #[test]
 fn mods_chain_matches_upstream() {
     let (d, n) = chain_diffs(Translator::Mods);
@@ -505,7 +520,11 @@ fn mods_chain_matches_upstream() {
 
 /// **Endnote XML import**: the translator's 3 testCases (14 items).
 ///
-/// **Result:** not yet run.
+/// **Prediction (2026-10-07, before the first run):** exact, except perhaps
+/// the `<style face>` markup and the date branches.
+///
+/// **Result (2026-10-07):** pass on the first run: 3/3 cases identical (14
+/// Web API items), no recorded difference.
 #[test]
 fn endnote_xml_import_matches_upstream() {
     let (d, n, _) = import_diffs(Translator::EndnoteXml);
@@ -515,7 +534,13 @@ fn endnote_xml_import_matches_upstream() {
 
 /// **Endnote XML export** of every export list.
 ///
-/// **Result:** not yet run.
+/// **Prediction (2026-10-07, before the first run):** mostly exact; any
+/// difference in `convertZoteroMarkup` or the serializer.
+///
+/// **Result (2026-10-07):** pass on the first run: 145/145 lists
+/// byte-identical (380,687 characters of upstream output; the whole export
+/// is one line after upstream's newline -> `&#xD;` replacement), no recorded
+/// difference.
 #[test]
 fn endnote_xml_export_matches_upstream() {
     let (d, n, _) = export_diffs(Translator::EndnoteXml);
@@ -523,10 +548,12 @@ fn endnote_xml_export_matches_upstream() {
     assert_known(&["export/endnote_xml"], d);
 }
 
-/// **Endnote XML round trip** (four exports upstream cannot re-import:
+/// **Endnote XML round trip** (eight exports upstream cannot re-import:
 /// "No suitable translators found"; compared as errors).
 ///
-/// **Result:** not yet run.
+/// **Result (2026-10-07):** pass on the first run: 145/145 identical (487
+/// items; the 8 exports upstream cannot re-import fail in the port with the
+/// same "No suitable translators found"), no recorded difference.
 #[test]
 fn endnote_xml_roundtrip_matches_upstream() {
     let (d, n) = roundtrip_diffs(Translator::EndnoteXml);
@@ -536,7 +563,9 @@ fn endnote_xml_roundtrip_matches_upstream() {
 
 /// **Endnote XML import -> export -> import** on the 3 import fixtures.
 ///
-/// **Result:** not yet run.
+/// **Result (2026-10-07):** pass on the first run: 3/3 exports
+/// byte-identical and 3/3 re-imports identical (16 items), no recorded
+/// difference.
 #[test]
 fn endnote_xml_chain_matches_upstream() {
     let (d, n) = chain_diffs(Translator::EndnoteXml);
@@ -546,7 +575,14 @@ fn endnote_xml_chain_matches_upstream() {
 
 /// **TEI export** of every export list.
 ///
-/// **Result:** not yet run.
+/// **Prediction (2026-10-07, before the first run):** mostly exact; any
+/// difference in `genXMLId` (its character classes, read by JavaScript's
+/// non-Unicode regex parser as allowing U+0030-U+EFFF) or the serializer's
+/// `xml:` prefix.
+///
+/// **Result (2026-10-07):** pass on the first run: 145/145 lists
+/// byte-identical (243,211 characters of upstream output), no recorded
+/// difference.
 #[test]
 fn tei_export_matches_upstream() {
     let (d, n, _) = export_diffs(Translator::Tei);
@@ -557,7 +593,14 @@ fn tei_export_matches_upstream() {
 /// **Crossref Unixref XML import**: the translator's 12 testCases (13
 /// items upstream).
 ///
-/// **Result:** not yet run.
+/// **Prediction (before the first run, 2026-10-07):** exact; these translators only read
+/// XPath text and call `cleanAuthor`, `strToISO`, `capitalizeTitle`, `unescapeHTML`,
+/// `cleanISBN`/`cleanISSN`, all already verified, so any difference would be in the
+/// XPath/DOM engine.
+///
+/// **Result (2026-10-07):** pass, 12/12 cases identical (13 items), no
+/// recorded difference, on the first run. Exercises `innerHTML` serialization of
+/// titles, `capitalizeName` and the namespace-default name tests.
 #[test]
 fn crossref_unixref_xml_import_matches_upstream() {
     let (d, n, _) = import_diffs(Translator::CrossrefUnixrefXml);
@@ -567,7 +610,12 @@ fn crossref_unixref_xml_import_matches_upstream() {
 
 /// **MARCXML import**: the translator's 6 testCases (12 items upstream).
 ///
-/// **Result:** not yet run.
+/// **Prediction (before the first run, 2026-10-07):** exact, if MARC's
+/// record model (UTF-16 offsets, `parseInt`/`substr` with NaN) is ported
+/// faithfully; MARCXML itself only reads XPath text.
+///
+/// **Result (2026-10-07):** pass, 6/6 cases identical (12 items), no
+/// recorded difference, on the first run. Prediction confirmed.
 #[test]
 fn marcxml_import_matches_upstream() {
     let (d, n, _) = import_diffs(Translator::MarcXml);
@@ -577,7 +625,12 @@ fn marcxml_import_matches_upstream() {
 
 /// **MARC import**: the translator's 4 testCases (7 items upstream).
 ///
-/// **Result:** not yet run.
+/// **Prediction (before the first run, 2026-10-07):** exact; the risk is
+/// the directory offsets of non-ASCII records (upstream pads each non-ASCII
+/// UTF-16 unit with NULs), which the port reproduces in code units.
+///
+/// **Result (2026-10-07):** pass, 4/4 cases identical (7 items), no
+/// recorded difference, on the first run. Prediction confirmed.
 #[test]
 fn marc_import_matches_upstream() {
     let (d, n, _) = import_diffs(Translator::Marc);
@@ -588,7 +641,13 @@ fn marc_import_matches_upstream() {
 /// **PubMed XML import**: the translator's 11 testCases (13 items
 /// upstream).
 ///
-/// **Result:** not yet run.
+/// **Prediction (before the first run, 2026-10-07):** exact; these translators only read
+/// XPath text and call `cleanAuthor`, `strToISO`, `capitalizeTitle`, `unescapeHTML`,
+/// `cleanISBN`/`cleanISSN`, all already verified, so any difference would be in the
+/// XPath/DOM engine.
+///
+/// **Result (2026-10-07):** pass, 11/11 cases identical (13 items), no
+/// recorded difference, on the first run. Prediction confirmed.
 #[test]
 fn pubmed_xml_import_matches_upstream() {
     let (d, n, _) = import_diffs(Translator::PubMedXml);
@@ -599,7 +658,13 @@ fn pubmed_xml_import_matches_upstream() {
 /// **METS import**: the translator's 4 testCases (5 items upstream; MODS
 /// and MARCXML run as child translators).
 ///
-/// **Result:** not yet run.
+/// **Prediction (before the first run, 2026-10-07):** identical once MODS
+/// and MARCXML are, since METS adds only attachments and the field-count
+/// filter.
+///
+/// **Result (2026-10-07):** pass, 4/4 cases identical (5 items: three
+/// through MODS, two through MARCXML in testCase01), no recorded
+/// difference, on the first run.
 #[test]
 fn mets_import_matches_upstream() {
     let (d, n, _) = import_diffs(Translator::Mets);
@@ -610,7 +675,13 @@ fn mets_import_matches_upstream() {
 /// **Primo Normalized XML import**: the translator's 13 testCases (13
 /// items upstream).
 ///
-/// **Result:** not yet run.
+/// **Prediction (before the first run, 2026-10-07):** exact; these translators only read
+/// XPath text and call `cleanAuthor`, `strToISO`, `capitalizeTitle`, `unescapeHTML`,
+/// `cleanISBN`/`cleanISSN`, all already verified, so any difference would be in the
+/// XPath/DOM engine.
+///
+/// **Result (2026-10-07):** pass, 13/13 cases identical (13 items), no
+/// recorded difference, on the first run. Prediction confirmed.
 #[test]
 fn primo_normalized_xml_import_matches_upstream() {
     let (d, n, _) = import_diffs(Translator::PrimoNormalizedXml);
@@ -625,7 +696,14 @@ fn primo_normalized_xml_import_matches_upstream() {
 /// with the `mets:` prefix renamed `m:` so that METS does not claim it and
 /// DSpace does (1 item).
 ///
-/// **Result:** not yet run.
+/// **Prediction (before the first run, 2026-10-07):** exact; these translators only read
+/// XPath text and call `cleanAuthor`, `strToISO`, `capitalizeTitle`, `unescapeHTML`,
+/// `cleanISBN`/`cleanISSN`, all already verified, so any difference would be in the
+/// XPath/DOM engine.
+///
+/// **Result (2026-10-07):** pass, 2/2 cases identical (the METS-claimed
+/// testCase through the port's detection and METS, 0 items; the fixture, 1
+/// item), no recorded difference, on the first run. Prediction confirmed.
 #[test]
 fn dspace_intermediate_metadata_import_matches_upstream() {
     let (d, n, _) = import_diffs(Translator::DSpaceIntermediateMetadata);
@@ -639,7 +717,20 @@ fn dspace_intermediate_metadata_import_matches_upstream() {
 /// groups, categories, knowledge items, locations, tasks, a contribution in
 /// proceedings; 14 items upstream).
 ///
-/// **Result:** not yet run.
+/// **Prediction (before the first run, 2026-10-07):** exact, the risk being
+/// the order of properties and notes (itemToAPIJSON keeps the first of two
+/// fields on one slot).
+///
+/// **Result (2026-10-07):** pass, 2/2 cases identical (14 items), no
+/// recorded difference, on the first run. Prediction confirmed. ~~The probes
+/// do not exercise one upstream behaviour the port models: a container's
+/// `author` copied into a contribution becomes `bookAuthor` in the saved
+/// container too (shared creator objects)~~ **CORRECTED 2026-10-07**: the
+/// v5 probe now gives the proceedings (r4) an author (`r4;p2`), the
+/// references were regenerated, and the port matches upstream on it: the
+/// author is `bookAuthor` in both the chapter and the saved proceedings.
+/// Also covered by the unit test
+/// `translators::citavi5_xml::tests::container_authors_become_book_authors_in_both_items`.
 #[test]
 fn citavi5_xml_import_matches_upstream() {
     let (d, n, _) = import_diffs(Translator::Citavi5Xml);
@@ -650,7 +741,13 @@ fn citavi5_xml_import_matches_upstream() {
 /// **XML ContextObject import**: the translator's 2 testCases (3 items
 /// upstream).
 ///
-/// **Result:** not yet run.
+/// **Prediction (before the first run, 2026-10-07):** exact; the KEV
+/// strings round-trip through `encodeURIComponent`/`decodeURIComponent`
+/// (`+` and `%2B` read as spaces) and `parseContextObject` (ported to
+/// `framework::openurl`).
+///
+/// **Result (2026-10-07):** pass, 2/2 cases identical (3 items), no
+/// recorded difference, on the first run. Prediction confirmed.
 #[test]
 fn xml_contextobject_import_matches_upstream() {
     let (d, n, _) = import_diffs(Translator::XmlContextObject);
@@ -658,11 +755,76 @@ fn xml_contextobject_import_matches_upstream() {
     assert_known(&["import/xml_contextobject"], d);
 }
 
+/// Export the note probes (`reference/notes/inputs.json`: the
+/// kovan-authored `fixtures/export/kovan_note_items.json`, one list per item
+/// and all together) and compare with `reference/notes/<format>.json`;
+/// (diffs, lists, identical).
+fn note_probe_diffs(t: Translator) -> (Vec<Diff>, usize, usize) {
+    let fmt = t.format_name();
+    let test = format!("notes/{fmt}");
+    let refs = read_json(&format!("reference/notes/{fmt}.json"));
+    let mut diffs = Vec::new();
+    let (mut n, mut same) = (0, 0);
+    for (name, items) in export_lists("reference/notes/inputs.json") {
+        n += 1;
+        let (upstream, port) = export_one(t, &items, &refs[&name]);
+        let d = text_diff(&upstream, &port);
+        if d.is_empty() {
+            same += 1;
+        }
+        diffs.extend(d.into_iter().map(|(at, u, p)| Diff {
+            test: test.clone(),
+            case: name.clone(),
+            at,
+            upstream: u,
+            port: p,
+        }));
+    }
+    (diffs, n, same)
+}
+
+/// **Note HTML export of the note probes** (10 lists: 7 notes, an
+/// attachment note, a regular item, all together). No export list above
+/// holds a top-level note (child notes are folded into their parents), so
+/// these kovan-authored probes are what exercises the note code: ProseMirror
+/// wrapper, blockquotes, styles, annotations, citations, an empty note.
+///
+/// **Prediction (before the first run, 2026-10-07):** identical except
+/// perhaps where html5ever and parse5 build different trees.
+///
+/// **Result (2026-10-07):** 10/10 identical, byte for byte, first run (the
+/// 10th list, the `turndown` probe, added afterwards and identical too).
+#[test]
+fn note_html_probes_match_upstream() {
+    let (d, n, _) = note_probe_diffs(Translator::NoteHtml);
+    assert_eq!(n, 10);
+    assert_known(&["notes/note_html"], d);
+}
+
+/// **Note Markdown export of the note probes** (as Note HTML; Markdown has
+/// `includeAppLinks` on by default, so annotation and citation links are
+/// exercised too).
+///
+/// **Prediction (2026-10-07):** some differences in turndown's whitespace
+/// handling. **Refuted:** 10/10 identical on the first run, including the
+/// `turndown` probe (tables with and without a heading row, task lists,
+/// highlighted and fenced code with backtick runs, link titles, images,
+/// nested ordered lists with `start`, nested blockquotes, strike-through,
+/// every escape).
+#[test]
+fn note_markdown_probes_match_upstream() {
+    let (d, n, _) = note_probe_diffs(Translator::NoteMarkdown);
+    assert_eq!(n, 10);
+    assert_known(&["notes/note_markdown"], d);
+}
+
 /// **Note HTML export** of every export list (145). The translation-server
 /// has no format name for it: the references ran exportEndpoint.js
 /// in-process (`scripts/zotero-reference.mjs`, IN-PROCESS UPSTREAM).
 ///
-/// **Result:** not yet run.
+/// **Result (2026-10-07):** 145/145 identical. Every list exports the empty
+/// document (`<div class="zotero-notes"></div>`): none holds a top-level
+/// note, which is why the probes above exist.
 #[test]
 fn note_html_export_matches_upstream() {
     let (d, n, _) = export_diffs(Translator::NoteHtml);
@@ -673,7 +835,8 @@ fn note_html_export_matches_upstream() {
 /// **Note Markdown export** of every export list (145), in-process as Note
 /// HTML.
 ///
-/// **Result:** not yet run.
+/// **Result (2026-10-07):** 145/145 identical (all empty, as for Note
+/// HTML).
 #[test]
 fn note_markdown_export_matches_upstream() {
     let (d, n, _) = export_diffs(Translator::NoteMarkdown);
