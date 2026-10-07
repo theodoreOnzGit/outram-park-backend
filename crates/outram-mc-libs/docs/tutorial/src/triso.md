@@ -246,6 +246,20 @@ tracked two exact ways on the same 2.1 GHz Xeon. Surface tracking took
 **4.17–5.06 µs per history**; delta tracking, the method of the next step,
 took **0.52–0.75 µs**, 6.3–8.1 times faster, and the two agreed on the
 absorption probability to −1.0σ (0.8047 ± 0.0009 against 0.8034 ± 0.0009).
+That walk is one-speed and two-material, and both arms are written in the
+example itself, not in the library.
+
+**Watch it, one step at a time.** The demo below runs the same neutron
+through the [`triso` rung](../../demos/monte-carlo/?rung=triso&mode=watch)'s
+2D cell twice, side by side, with the library's own code: surface tracking on
+the left (on a phone, on top), delta tracking, the next step's method, on the
+right. Each tap of **Step** shows one thing each tracker did. In the surface
+pane that is a `locate`, then a distance-to-boundary query, drawn as every
+surface of the cell the query tests (faint) and the nearest (bright), then a
+crossing. A neutron leaving a kernel stops five times in under a millimetre
+before it reaches the matrix.
+
+<div class="mcw-demo" data-mc-widget="demo" data-src="../../demos/delta-tracking/" data-label="▶ Step through one neutron, surface tracking beside delta tracking (demo)"></div>
 
 <div class="predict">
 
@@ -294,6 +308,61 @@ random numbers). Send 10 000 neutrons: the sampled first-collision density
 follows the exact one. Then drag the majorant below the kernels' cross
 section and send them again: the kernels are under-sampled, and nothing tells
 you.*
+
+**The same two lessons on the real geometry, with the library's code.** The
+[step-by-step demo](../../demos/delta-tracking/) of step 3 is the illustration
+above done for real: ENDF/B-VIII.0 cross sections, the `triso` rung's TRISO
+cell, and outram-mc-libs' own flight loop
+([`fly_traced`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/physics/delta_tracking/flight.rs#@@L:crates/outram-mc-libs/src/physics/delta_tracking/flight.rs:fn=fly_traced@@),
+the loop the code walk below ends in, reporting each step to the page). Its
+delta pane shows each flight on the majorant with its random number, and each
+tentative collision as a bar: the filled part is $\Sigma_t/\Sigma_\text{maj}$,
+the tick is the random number $\xi$, and the collision is real when the tick
+falls inside the fill. Both trackers start from the same random number, so
+the first flights differ by exactly $\Sigma_t/\Sigma_\text{maj}$. **Run many**
+computes $k_\infty$ of the cell by both methods and shows the cost per
+neutron, and **Majorant too low** adds a third run on a majorant scaled down.
+
+**Measured** (2026-10-07; `cargo run --release -p dhoby-ghaut --example
+delta_tracking_web -- --headless-run 1000 10 40 784 <factor>`; 1000 neutrons ×
+[10 inactive + 40 active] per method, seed 784; Loose data tier, tolerance
+0.01; one thread per run on an i9-13900K, 16 logical cores, 62 GB, Arch
+Linux, CPU only, shared with other agents' builds, two runs at a time):
+
+| method | $k_\infty$ | time per neutron | stops per neutron | real collisions |
+|---|---|---|---|---|
+| surface tracking | 1.55197 ± 0.00653 | 6.59–6.62 ms | 1201 (each a `locate` and a distance query; 1096 are crossings) | 105.0 |
+| delta tracking | 1.55864 ± 0.00631 | 1.10–1.12 ms | 1282 (1177 virtual) | 105.2 |
+| delta, majorant × 0.25 | 1.57265 ± 0.00623 | 0.69 ms | 477, with 81 sites per neutron where $\Sigma_t > \Sigma_\text{maj}$ | 142.3 |
+| delta, majorant × 0.1 | 1.60060 ± 0.00504 | 0.62 ms | 352, with 154 such sites | 168.0 |
+
+- **Unbiased, measured.** Delta − surface = **+668 ± 908 pcm (+0.74σ)**. The
+  majorant (`Majorant::bounding`, 10 % margin, 232 974 energies) was audited
+  on these materials at 523 996 energies: worst $\Sigma_t/\Sigma_\text{maj}$ =
+  0.909, so it bounds everywhere it was checked (the demo's test
+  `the_demo_majorant_bounds_every_material`).
+- **Cost.** About **6 times** less time per neutron for delta tracking, at
+  about the same number of stops: here a surface stop costs more, because
+  this CSG model is one flat universe of 763 cells, so a query in the matrix
+  tests the 155 surfaces of the matrix cell, and a `locate` inside a particle
+  walks the cell list. A surface tracker with a lattice or a grid would close
+  some of that gap. Quote the ratio for this model only.
+- **The silent bias.** At 0.25 times the bound, $k_\infty$ is
+  **+2068 ± 902 pcm (+2.3σ)** above surface tracking; at 0.1 times,
+  **+4863 ± 825 pcm (+5.9σ)**. $k$ went **up**: the lost collisions are where
+  $\Sigma_t$ is largest, the U-238 resonances and the kernels, so resonance
+  capture is under-counted more than thermal fission. Neither run printed a
+  warning. Only the demo's count of sites above the majorant shows it. No
+  prediction of the sign was written down before these runs.
+- **In the browser** (2026-10-07, the demo's default Run many: 500 neutrons ×
+  [5 + 40] per method, seed 784, majorant × 0.1; headless Chromium at phone
+  width, pinned to 3 cores of the same i9-13900K at low priority, software
+  rendering): surface tracking **7.80 ms** per neutron, $k_\infty$ =
+  1.55691 ± 0.00849; delta tracking **1.18 ms**, 1.55430 ± 0.00982, so
+  delta − surface = **−261 ± 1298 pcm (−0.20σ)**; majorant × 0.1 **0.46 ms**,
+  1.58987 ± 0.00653, **+3296 ± 1071 pcm (+3.1σ)** above surface tracking. The
+  whole run took 278 s, and the page stayed at 60 frames a second with no
+  long task on the page's thread.
 
 **The code walk.** The fuel-zone example calls the delta-tracked power
 iteration; each history flies to its next real collision in `delta_flight`,
@@ -467,11 +536,12 @@ Unresolved calls inside the functions on this chain:
 
 </div>
 
-*Placeholder (2026-10-07): this walk's own demo, the same history
-surface-tracked and delta-tracked side by side one step at a time on the
-library's code, is being built under
-[#784](https://github.com/theodoreOnzGit/outram-park-backend/issues/784).
-The widget above is drawn by the page's own script, not by the library.*
+**See these lines run.** The [step-by-step demo](../../demos/delta-tracking/)
+steps through `fly_traced` and `classify_collision` one call at a time: each
+flight is one `sample_delta_distance`, each tentative site one
+`classify_collision`, with the random number it drew. Its surface pane runs
+the surface-tracking loop of rungs 1 to 4 (`transport_csg`) on the same
+neutron.
 
 The only geometry question delta tracking asks is "which material is at this
 point?". For the packed kernels that is
