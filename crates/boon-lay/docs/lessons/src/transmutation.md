@@ -75,7 +75,7 @@ Ensembles of these run in parallel through
 
 | Channel | Status |
 |---|---|
-| radioactive decay | wired to the real ENDF/B-VIII.0 `DecayLibrary` |
+| radioactive decay | wired to the real ENDF/B-VIII.0 [(Brown & others, 2018)](#ref-brown2018endf8) `DecayLibrary` |
 | `(n,γ)` | **one** explicit channel: a target, a rate $\phi\sigma$ folded into one frequency, a product ([`Transmutation`](../../api/boon_lay/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/depletion/enum.Transmutation.html)) |
 | `(n,2n)` | not implemented |
 | fission, with yield sampling | not implemented |
@@ -102,3 +102,10 @@ quoted; filed as gh:#539.
 No stiffness, no matrix exponential, cost linear in the number of atoms, and
 each atom can be animated. The price is statistics: a rare nuclide needs
 many histories to be seen at all (rung 2, step 5).
+
+<!-- references:begin -->
+## References
+
+<p class="csl-entry" id="ref-brown2018endf8" style="padding-left: 2em; text-indent: -2em;">Brown, D. A., & others. (2018). ENDF/B-VIII.0: The 8th Major Release of the Nuclear Reaction Data Library with CIELO-project Cross Sections, New Standards and Thermal Scattering Data. <span style="font-style: italic;">Nuclear Data Sheets</span>, <span style="font-style: italic;">148</span>, 1–142. <a href="https://doi.org/10.1016/j.nds.2018.02.001">https://doi.org/10.1016/j.nds.2018.02.001</a></p>
+
+<!-- references:end -->

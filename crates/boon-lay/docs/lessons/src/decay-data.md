@@ -12,10 +12,10 @@ used this data; this page shows where it comes from and what can go wrong.
 ## Where the numbers live
 
 - **The `Nuclide` enum** (about 3000 nuclides) comes from the crate
-  `fission-yields-data`, re-exported at the crate root.
-- **Half-lives, decay energies and branches** come from OpenMC's ENDF/B-VIII.0
+  `fission-yields-data` [(Ong, 2026a)](#ref-ong2026fissionyieldsdata), re-exported at the crate root.
+- **Half-lives, decay energies and branches** come from OpenMC's ENDF/B-VIII.0 [(Brown & others, 2018)](#ref-brown2018endf8)
   depletion chain, embedded as XML strings in the crate
-  `openmc-endf-8-depletion-lib-b` (MIT), one Rust file per element.
+  `openmc-endf-8-depletion-lib-b` (MIT) [(Ong, 2026b)](#ref-ong2026openmcdepletionb), one Rust file per element.
   `decay_xml_info_serde` is a thin re-export of its serde types
   ([`decay_xml_info_serde/mod.rs`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/decay_xml_info_serde/mod.rs)).
   An entry looks like
@@ -117,3 +117,14 @@ because the port reproduces upstream
 ([Running TRISO-ATOPS](./running-triso-atops.md)). The two halves of the
 crate therefore do not share one decay-data source, and a comparison between
 them should expect small half-life differences.
+
+<!-- references:begin -->
+## References
+
+<p class="csl-entry" id="ref-brown2018endf8" style="padding-left: 2em; text-indent: -2em;">Brown, D. A., & others. (2018). ENDF/B-VIII.0: The 8th Major Release of the Nuclear Reaction Data Library with CIELO-project Cross Sections, New Standards and Thermal Scattering Data. <span style="font-style: italic;">Nuclear Data Sheets</span>, <span style="font-style: italic;">148</span>, 1–142. <a href="https://doi.org/10.1016/j.nds.2018.02.001">https://doi.org/10.1016/j.nds.2018.02.001</a></p>
+
+<p class="csl-entry" id="ref-ong2026fissionyieldsdata" style="padding-left: 2em; text-indent: -2em;">Ong, T. K. C. (2026a,). <span style="font-style: italic;">fission-yields-data: Fission yields for various nuclides using ENDF and other library data</span>. GitHub. <a href="https://github.com/theodoreOnzGit/fission-yields-data">https://github.com/theodoreOnzGit/fission-yields-data</a></p>
+
+<p class="csl-entry" id="ref-ong2026openmcdepletionb" style="padding-left: 2em; text-indent: -2em;">Ong, T. K. C. (2026b,). <span style="font-style: italic;">openmc-endf-8-depletion-lib-b: Rust parser for OpenMC ENDF/B-VIII.0 depletion chain data, part two</span>. GitHub. <a href="https://github.com/theodoreOnzGit/openmc-endf-8-depletion-lib-b">https://github.com/theodoreOnzGit/openmc-endf-8-depletion-lib-b</a></p>
+
+<!-- references:end -->

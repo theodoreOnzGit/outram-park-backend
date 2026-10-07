@@ -12,7 +12,7 @@ many benchmarks (C5G7 among them) are written in.
 ## The code
 
 [`physics::physics_mg`](../../api/outram_mc_libs/physics/physics_mg/index.html)
-is a port of OpenMC's MG mode (`physics_mg.cpp`, `mgxs.cpp`):
+is a port of OpenMC's MG mode (`physics_mg.cpp`, `mgxs.cpp`; [Romano et al., 2015](#ref-romano2015openmc)):
 
 - [`Mgxs`](../../api/outram_mc_libs/physics/physics_mg/struct.Mgxs.html) holds one
   material's group constants (the `XSdata` analogue), with its invariants checked
@@ -82,3 +82,10 @@ guided C5G7 2-D steady state with `run_keff_mg`: pin cell → assembly → core,
 yet.** A search of the crate's source, tests, examples and docs for "C5G7" finds
 nothing. The issue records one precondition: check the NEA report's
 redistribution terms before shipping the 7-group data.
+
+<!-- references:begin -->
+## References
+
+<p class="csl-entry" id="ref-romano2015openmc" style="padding-left: 2em; text-indent: -2em;">Romano, P. K., Horelik, N. E., Herman, B. R., Nelson, A. G., Forget, B., & Smith, K. (2015). OpenMC: A state-of-the-art Monte Carlo code for research and development. <span style="font-style: italic;">Annals of Nuclear Energy</span>, <span style="font-style: italic;">82</span>, 90–97.</p>
+
+<!-- references:end -->

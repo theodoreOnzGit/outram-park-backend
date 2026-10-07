@@ -25,7 +25,7 @@ is packed into one function per material, the **thermal scattering law**
 `S(α, β)`, stored in ENDF **MF=7**. THERMR turns it into cross sections and
 outgoing energy–angle distributions; LEAPR generates `S(α, β)` from a physical
 model of the material's vibrations. The manual's one-line summaries
-(§1.1, pp. 1–2): THERMR *"produces cross sections and energy-to-energy
+(§1.1, pp. 1–2, [MacFarlane et al., 2017](#ref-njoy2016)): THERMR *"produces cross sections and energy-to-energy
 matrices for free or bound scatterers in the thermal energy range"*; LEAPR
 *"produces thermal scattering data in ENDF-6 File 7 format that can be
 processed using the THERMR module"*.
@@ -183,3 +183,10 @@ heat, in the fuel. **When a U-238 nucleus captures a neutron, which particles
 carry away the energy, and does all of it stay where the capture happened?**
 
 **Next:** [Rung 6 — HEATR and GASPR: heating, damage and gas](./heatr.md).
+
+<!-- references:begin -->
+## References
+
+<p class="csl-entry" id="ref-njoy2016" style="padding-left: 2em; text-indent: -2em;">MacFarlane, R. E., Muir, D. W., Boicourt, R. M., Kahler, A. C., & Conlin, J. L. (2017). <span style="font-style: italic;">The NJOY Nuclear Data Processing System, Version 2016</span> (Technical Report LA-UR-17-20093). Los Alamos National Laboratory. <a href="https://www.osti.gov/biblio/1338791">https://www.osti.gov/biblio/1338791</a></p>
+
+<!-- references:end -->

@@ -20,7 +20,7 @@ exactly what a temperature-coefficient study needs.
 
 In the unresolved-resonance range the same probability-table band is used for
 the flight, the nuclide choice and the reaction (GitHub #407, OpenMC's
-`calculate_urr_xs`), so the three are consistent with one another.
+`calculate_urr_xs` [Romano et al., 2015](#ref-romano2015openmc)), so the three are consistent with one another.
 
 ## What happened: one uniform, one ladder
 
@@ -106,3 +106,10 @@ had said fission-site energies came from the Watt sampler and that delayed
 neutrons were "treated as prompt". Both were true once, and the code had since
 moved on. They are corrected in place, with the old text struck rather than
 deleted, so a reader can see what changed. This book follows the same rule.
+
+<!-- references:begin -->
+## References
+
+<p class="csl-entry" id="ref-romano2015openmc" style="padding-left: 2em; text-indent: -2em;">Romano, P. K., Horelik, N. E., Herman, B. R., Nelson, A. G., Forget, B., & Smith, K. (2015). OpenMC: A state-of-the-art Monte Carlo code for research and development. <span style="font-style: italic;">Annals of Nuclear Energy</span>, <span style="font-style: italic;">82</span>, 90–97.</p>
+
+<!-- references:end -->

@@ -22,7 +22,7 @@ cross section is, why `1/√N`) will live on the separate teaching site.
 
 ## What the crate is
 
-A pure-Rust port of selected [OpenMC](https://openmc.org) kernels: random
+A pure-Rust port of selected [OpenMC](https://openmc.org) [(Romano et al., 2015)](#ref-romano2015openmc) kernels: random
 numbers, constructive solid geometry, particle tracking, collision physics,
 k-eigenvalue and fixed-source drivers, tallies, variance reduction and a
 multigroup mode, plus some work OpenMC does not have (delta tracking for pebble
@@ -67,3 +67,10 @@ naming the chapter and the link. (A structured report form is coming,
 
 Tracking issue for this track:
 [#514](https://github.com/theodoreOnzGit/outram-park-backend/issues/514).
+
+<!-- references:begin -->
+## References
+
+<p class="csl-entry" id="ref-romano2015openmc" style="padding-left: 2em; text-indent: -2em;">Romano, P. K., Horelik, N. E., Herman, B. R., Nelson, A. G., Forget, B., & Smith, K. (2015). OpenMC: A state-of-the-art Monte Carlo code for research and development. <span style="font-style: italic;">Annals of Nuclear Energy</span>, <span style="font-style: italic;">82</span>, 90–97.</p>
+
+<!-- references:end -->

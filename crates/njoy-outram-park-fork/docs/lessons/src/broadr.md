@@ -37,7 +37,7 @@ speed `v` and relative speed `v_r`:
   α = A m_n / (2 k_B T)     the inverse spread of target speeds
 ```
 
-NJOY's **SIGMA1** method makes this exact for a lin-lin table: in the
+NJOY's **SIGMA1** method [(MacFarlane et al., 2017)](#ref-njoy2016) makes this exact for a lin-lin table: in the
 variable `y = √(α E)` each panel's integral reduces to differences of
 `f_n(a) = (1/√π) ∫_a^∞ zⁿ e^(−z²) dz`, which are closed-form in `erfc`. The
 whole derivation is in the module doc of
@@ -237,3 +237,10 @@ U-238 at 50 keV, is the infinitely-dilute average cross section the right one
 to use? Higher, lower?**
 
 **Next:** [Rung 4 — UNRESR and PURR: the unresolved range](./purr.md).
+
+<!-- references:begin -->
+## References
+
+<p class="csl-entry" id="ref-njoy2016" style="padding-left: 2em; text-indent: -2em;">MacFarlane, R. E., Muir, D. W., Boicourt, R. M., Kahler, A. C., & Conlin, J. L. (2017). <span style="font-style: italic;">The NJOY Nuclear Data Processing System, Version 2016</span> (Technical Report LA-UR-17-20093). Los Alamos National Laboratory. <a href="https://www.osti.gov/biblio/1338791">https://www.osti.gov/biblio/1338791</a></p>
+
+<!-- references:end -->

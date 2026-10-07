@@ -74,8 +74,8 @@ covered in [Into the source term](./source-term.md).
 
 ## Decay data
 
-Half-lives and decay modes come from ENDF/B-VIII.0 through the
-`openmc-endf-8-depletion-lib-b` crate, parsed into a
+Half-lives and decay modes come from ENDF/B-VIII.0 [(Brown & others, 2018)](#ref-brown2018endf8) through the
+`openmc-endf-8-depletion-lib-b` crate [(Ong, 2026)](#ref-ong2026openmcdepletionb), parsed into a
 [`DecayLibrary`](../../api/boon_lay/nuclide_reaction_and_decay_data/decay_library/struct.DecayLibrary.html).
 TRISO-ATOPS carries its **own** 84-nuclide table with IAEA Live Chart
 half-lives
@@ -114,3 +114,12 @@ Both are pure `std` and print their result; neither has a GUI.
 > deterministic `--headless` mode with a regression test. At this commit none
 > of the three has one (a search of `examples/` for `headless` finds
 > nothing), so they are demonstrations, not checked artefacts.
+
+<!-- references:begin -->
+## References
+
+<p class="csl-entry" id="ref-brown2018endf8" style="padding-left: 2em; text-indent: -2em;">Brown, D. A., & others. (2018). ENDF/B-VIII.0: The 8th Major Release of the Nuclear Reaction Data Library with CIELO-project Cross Sections, New Standards and Thermal Scattering Data. <span style="font-style: italic;">Nuclear Data Sheets</span>, <span style="font-style: italic;">148</span>, 1–142. <a href="https://doi.org/10.1016/j.nds.2018.02.001">https://doi.org/10.1016/j.nds.2018.02.001</a></p>
+
+<p class="csl-entry" id="ref-ong2026openmcdepletionb" style="padding-left: 2em; text-indent: -2em;">Ong, T. K. C. (2026,). <span style="font-style: italic;">openmc-endf-8-depletion-lib-b: Rust parser for OpenMC ENDF/B-VIII.0 depletion chain data, part two</span>. GitHub. <a href="https://github.com/theodoreOnzGit/openmc-endf-8-depletion-lib-b">https://github.com/theodoreOnzGit/openmc-endf-8-depletion-lib-b</a></p>
+
+<!-- references:end -->

@@ -1784,8 +1784,7 @@ uranium is the IUPAC composition, recalled and not page-checked. Everything is
 at 296 K. The demo's Watch mode processes the data at tolerance 0.01 (NJOY's is
 0.001).
 
-**Literature.** ENDF/B-VIII.0 (Brown et al., *Nuclear Data Sheets* 148,
-2018) for every cross section and the graphite thermal scattering law. The
+**Literature.** ENDF/B-VIII.0 [(Brown & others, 2018)](#ref-brown2018endf8) for every cross section and the graphite thermal scattering law. The
 sphere's absorption probability in step 1 is the standard first-flight result
 for a sphere in an isotropic flux (checked here only by sampling it, as the
 widget does); no page-cited textbook is in the corpus yet. For multi-region
@@ -1799,3 +1798,10 @@ page is wrong:
 This page changes whenever `develop` does; it was built from
 `@@COMMIT_SHORT@@` on @@BUILD_DATE@@. Tracking issue
 [#525](https://github.com/theodoreOnzGit/outram-park-backend/issues/525).
+
+<!-- references:begin -->
+## References
+
+<p class="csl-entry" id="ref-brown2018endf8" style="padding-left: 2em; text-indent: -2em;">Brown, D. A., & others. (2018). ENDF/B-VIII.0: The 8th Major Release of the Nuclear Reaction Data Library with CIELO-project Cross Sections, New Standards and Thermal Scattering Data. <span style="font-style: italic;">Nuclear Data Sheets</span>, <span style="font-style: italic;">148</span>, 1–142. <a href="https://doi.org/10.1016/j.nds.2018.02.001">https://doi.org/10.1016/j.nds.2018.02.001</a></p>
+
+<!-- references:end -->

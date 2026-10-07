@@ -52,7 +52,7 @@ multi-neutron, continuum          H = σ [ E + Q − ȳ ⟨E'⟩ ],   ⟨E'⟩ f
 
 ## What this port does differently from NJOY's default, stated first
 
-NJOY's HEATR normally uses the **energy-balance method**: it subtracts the
+NJOY's HEATR [(MacFarlane et al., 2017)](#ref-njoy2016) normally uses the **energy-balance method**: it subtracts the
 energy carried away by the evaluation's own photons (from MF=12–15) and
 neutrons. The kinematic limit is NJOY's *check* on that result. ~~**This port
 computes the kinematic limit only**~~ **This port computes the kinematic limit**
@@ -204,3 +204,10 @@ no room for a million points; it solves for, say, 33 or 172 energy groups.
 you average σ(E) evenly over energy? Weighted by what?**
 
 **Next:** [Rung 7 — GROUPR and GAMINR: multigroup constants](./groupr.md).
+
+<!-- references:begin -->
+## References
+
+<p class="csl-entry" id="ref-njoy2016" style="padding-left: 2em; text-indent: -2em;">MacFarlane, R. E., Muir, D. W., Boicourt, R. M., Kahler, A. C., & Conlin, J. L. (2017). <span style="font-style: italic;">The NJOY Nuclear Data Processing System, Version 2016</span> (Technical Report LA-UR-17-20093). Los Alamos National Laboratory. <a href="https://www.osti.gov/biblio/1338791">https://www.osti.gov/biblio/1338791</a></p>
+
+<!-- references:end -->

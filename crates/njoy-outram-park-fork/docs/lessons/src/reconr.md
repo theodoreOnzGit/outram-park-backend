@@ -18,7 +18,7 @@ code might ask for?**
 ## The shortest answer
 
 Each resonance formalism is a formula that gives σ(E) at any one energy from
-the parameters. RECONR (NJOY's manual: it *"reconstructs pointwise
+the parameters. RECONR (NJOY's manual, [MacFarlane et al., 2017](#ref-njoy2016): it *"reconstructs pointwise
 (energy-dependent) cross sections from ENDF resonance parameters and
 interpolation schemes"*, §1.1, p. 1) evaluates that formula on an energy grid
 and **adds points until straight lines between them reproduce the formula to a
@@ -204,7 +204,7 @@ hop was read from the source and is labelled.
 
 ## Case study: Fe-57 and one wrong operand (GitHub #339)
 
-**The symptom.** Building ENDF/B-VIII.0 **Fe-57** (in the Al-6061 cladding of
+**The symptom.** Building ENDF/B-VIII.0 [(Brown & others, 2018)](#ref-brown2018endf8) **Fe-57** (in the Al-6061 cladding of
 the LCT-008 lattice) exhausted memory: `memory allocation of 1476395008 bytes
 failed` under a 14 GB cap. A profile showed 71 % of CPU in the `LRF = 7` path
 and a third of all CPU in `malloc`, which looked like a performance problem.
@@ -308,3 +308,12 @@ at 900 K and its nuclei jiggle. **Before rung 3: when the target moves, does a
 resonance peak get taller, lower, or stay the same? And the area under it?**
 
 **Next:** [Rung 3 — BROADR: temperature](./broadr.md).
+
+<!-- references:begin -->
+## References
+
+<p class="csl-entry" id="ref-brown2018endf8" style="padding-left: 2em; text-indent: -2em;">Brown, D. A., & others. (2018). ENDF/B-VIII.0: The 8th Major Release of the Nuclear Reaction Data Library with CIELO-project Cross Sections, New Standards and Thermal Scattering Data. <span style="font-style: italic;">Nuclear Data Sheets</span>, <span style="font-style: italic;">148</span>, 1–142. <a href="https://doi.org/10.1016/j.nds.2018.02.001">https://doi.org/10.1016/j.nds.2018.02.001</a></p>
+
+<p class="csl-entry" id="ref-njoy2016" style="padding-left: 2em; text-indent: -2em;">MacFarlane, R. E., Muir, D. W., Boicourt, R. M., Kahler, A. C., & Conlin, J. L. (2017). <span style="font-style: italic;">The NJOY Nuclear Data Processing System, Version 2016</span> (Technical Report LA-UR-17-20093). Los Alamos National Laboratory. <a href="https://www.osti.gov/biblio/1338791">https://www.osti.gov/biblio/1338791</a></p>
+
+<!-- references:end -->

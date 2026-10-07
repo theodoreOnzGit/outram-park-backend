@@ -23,7 +23,7 @@ from?"*. This book answers it, one processing step at a time.
 **Start here:** [Where does σ(E) come from?](./where-sigma-comes-from.md)
 
 **Live demo:** [the nuclear data demo](../../demos/nuclear-data/?rung=reconr):
-real ENDF/B-VIII.0 tapes processed in your browser by this crate, one rung at
+real ENDF/B-VIII.0 [(Brown & others, 2018)](#ref-brown2018endf8) tapes processed in your browser by this crate, one rung at
 a time (RECONR building U-238's σ(E), BROADR's temperature slider, PURR's
 bands, THERMR's thermal scattering, a group collapse). It downloads about
 11 MB and computes in a background worker, so the page stays live; each rung's
@@ -34,7 +34,7 @@ lesson links to it.
 NJOY reads **evaluated nuclear data** (ENDF-6 files: resonance parameters,
 tabulated cross sections, angular and energy distributions, thermal scattering
 laws, covariances) and turns them into the libraries transport codes read. This
-crate is a translation of NJOY2016 version 2016.79 (upstream commit `ac5adf5`)
+crate is a translation of NJOY2016 version 2016.79 [(MacFarlane et al., 2017)](#ref-njoy2016) (upstream commit `ac5adf5`)
 module by module, kept line-traceable to the Fortran so a disagreement can be
 localised to one subroutine.
 
@@ -119,3 +119,12 @@ System, Version 2016*, R. E. MacFarlane et al., LA-UR-17-20093 (revision of
 corpus (moved there 2026-10-07) at
 `crates/kovan-literature/reactor-literature/kovan-standard-open-corpus/lanl/2022laur1720093.pdf`,
 and this book quotes it by section and page.
+
+<!-- references:begin -->
+## References
+
+<p class="csl-entry" id="ref-brown2018endf8" style="padding-left: 2em; text-indent: -2em;">Brown, D. A., & others. (2018). ENDF/B-VIII.0: The 8th Major Release of the Nuclear Reaction Data Library with CIELO-project Cross Sections, New Standards and Thermal Scattering Data. <span style="font-style: italic;">Nuclear Data Sheets</span>, <span style="font-style: italic;">148</span>, 1–142. <a href="https://doi.org/10.1016/j.nds.2018.02.001">https://doi.org/10.1016/j.nds.2018.02.001</a></p>
+
+<p class="csl-entry" id="ref-njoy2016" style="padding-left: 2em; text-indent: -2em;">MacFarlane, R. E., Muir, D. W., Boicourt, R. M., Kahler, A. C., & Conlin, J. L. (2017). <span style="font-style: italic;">The NJOY Nuclear Data Processing System, Version 2016</span> (Technical Report LA-UR-17-20093). Los Alamos National Laboratory. <a href="https://www.osti.gov/biblio/1338791">https://www.osti.gov/biblio/1338791</a></p>
+
+<!-- references:end -->

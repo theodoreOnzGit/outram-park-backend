@@ -10,7 +10,7 @@
 
 <div class="mcw-demo" data-mc-widget="demo" data-src="../../demos/monte-carlo/?rung=godiva&amp;mode=watch" data-label="▶ Start the Godiva demo here (Watch mode)"></div>
 
-*The demo downloads real ENDF/B-VIII.0 nuclear data and processes it in your
+*The demo downloads real ENDF/B-VIII.0 [(Brown & others, 2018)](#ref-brown2018endf8) nuclear data and processes it in your
 browser before the first neutron flies: allow a minute or two. Each track is a
 real history from the transport code; the way they are chained one after
 another is an illustration.*
@@ -20,7 +20,7 @@ another is an illustration.*
 At Los Alamos, a bare sphere of highly enriched uranium metal, about the size
 of a grapefruit, was assembled until it was **exactly critical**: the chain
 reaction neither grew nor died away. It is catalogued as the ICSBEP benchmark
-**HEU-MET-FAST-001**, "Godiva", and the evaluation reduces it to a single
+**HEU-MET-FAST-001** [(Briggs et al., 2003)](#ref-briggs2003international), "Godiva", and the evaluation reduces it to a single
 homogeneous sphere of radius **8.7407 cm** whose multiplication factor is
 **k = 1.0000 ± 0.0010**.
 
@@ -605,7 +605,7 @@ had simply come out low (see "Later measurements" in
   experiment's own ±100 pcm. That is a check against a measurement: a
   **validation**. It does not mean "6 pcm accurate": the experiment itself is
   known only to ±100 pcm.
-- **Verification.** Beside it, **OpenMC** reading NJOY2016 data (route 1 of
+- **Verification.** Beside it, **OpenMC** [(Romano et al., 2015)](#ref-romano2015openmc) reading NJOY2016 [(MacFarlane et al., 2017)](#ref-njoy2016) data (route 1 of
   the five-route record, 32 seeds, 2026-09-30; *route 1 is OpenMC, not this
   code*) gives 1.00016 ± 0.00021, **+16 ± 21 pcm**. The difference is
   **−22 ± 22 pcm (1.0 σ)**: two codes and two data paths agree within their
@@ -1619,3 +1619,16 @@ page is wrong:
 This page changes whenever `develop` does; it was built from
 `@@COMMIT_SHORT@@` on @@BUILD_DATE@@. Tracking issue
 [#521](https://github.com/theodoreOnzGit/outram-park-backend/issues/521).
+
+<!-- references:begin -->
+## References
+
+<p class="csl-entry" id="ref-briggs2003international" style="padding-left: 2em; text-indent: -2em;">Briggs, J. B., Scott, L., & Nouri, A. (2003). The international criticality safety benchmark evaluation project. <span style="font-style: italic;">Nuclear Science and Engineering</span>, <span style="font-style: italic;">145</span>(1), 1–10.</p>
+
+<p class="csl-entry" id="ref-brown2018endf8" style="padding-left: 2em; text-indent: -2em;">Brown, D. A., & others. (2018). ENDF/B-VIII.0: The 8th Major Release of the Nuclear Reaction Data Library with CIELO-project Cross Sections, New Standards and Thermal Scattering Data. <span style="font-style: italic;">Nuclear Data Sheets</span>, <span style="font-style: italic;">148</span>, 1–142. <a href="https://doi.org/10.1016/j.nds.2018.02.001">https://doi.org/10.1016/j.nds.2018.02.001</a></p>
+
+<p class="csl-entry" id="ref-njoy2016" style="padding-left: 2em; text-indent: -2em;">MacFarlane, R. E., Muir, D. W., Boicourt, R. M., Kahler, A. C., & Conlin, J. L. (2017). <span style="font-style: italic;">The NJOY Nuclear Data Processing System, Version 2016</span> (Technical Report LA-UR-17-20093). Los Alamos National Laboratory. <a href="https://www.osti.gov/biblio/1338791">https://www.osti.gov/biblio/1338791</a></p>
+
+<p class="csl-entry" id="ref-romano2015openmc" style="padding-left: 2em; text-indent: -2em;">Romano, P. K., Horelik, N. E., Herman, B. R., Nelson, A. G., Forget, B., & Smith, K. (2015). OpenMC: A state-of-the-art Monte Carlo code for research and development. <span style="font-style: italic;">Annals of Nuclear Energy</span>, <span style="font-style: italic;">82</span>, 90–97.</p>
+
+<!-- references:end -->

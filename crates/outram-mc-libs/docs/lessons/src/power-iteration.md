@@ -32,7 +32,7 @@ from those early generations describe *that guess*, not the converged shape, so
 they are discarded. How many to discard is a question the crate answers with
 **Shannon entropy** of the fission source on a mesh: when the entropy stops
 drifting, the spatial shape has settled. It is computed from the bank **before**
-resampling, ported from OpenMC `src/eigenvalue.cpp:587`
+resampling, ported from OpenMC [(Romano et al., 2015)](#ref-romano2015openmc) `src/eigenvalue.cpp:587`
 ([`transport_csg.rs`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/physics/transport_csg.rs#L607-L626)).
 
 `k` alone is a poor convergence test. It is an integral quantity and can settle
@@ -122,3 +122,10 @@ the far field. Their real contribution is 43 mesh cells the analog arm cannot
 resolve at all. "That is the honestly-derived answer, and it is a miss against the
 hoped-for one." The same report also records a defect that had to be fixed before
 any FOM could be trusted: a relative standard deviation that was `√n` too large.
+
+<!-- references:begin -->
+## References
+
+<p class="csl-entry" id="ref-romano2015openmc" style="padding-left: 2em; text-indent: -2em;">Romano, P. K., Horelik, N. E., Herman, B. R., Nelson, A. G., Forget, B., & Smith, K. (2015). OpenMC: A state-of-the-art Monte Carlo code for research and development. <span style="font-style: italic;">Annals of Nuclear Energy</span>, <span style="font-style: italic;">82</span>, 90–97.</p>
+
+<!-- references:end -->

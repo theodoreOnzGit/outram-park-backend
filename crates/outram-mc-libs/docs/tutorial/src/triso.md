@@ -10,7 +10,7 @@
 
 <div class="mcw-demo" data-mc-widget="demo" data-src="../../demos/monte-carlo/?rung=triso&amp;mode=watch" data-label="▶ Start the TRISO pebble demo here (Watch mode)"></div>
 
-*This is the demo the tutorial opened with. It processes eleven ENDF/B-VIII.0
+*This is the demo the tutorial opened with. It processes eleven ENDF/B-VIII.0 [(Brown & others, 2018)](#ref-brown2018endf8)
 tapes in your browser, then follows one neutron at a time through a slice of
 an HTR-10 fuel pebble in its reflective cell. Each track is a real history.
 Zoom in on one of the specks: it is a TRISO particle, and the orange dot at its
@@ -52,7 +52,7 @@ explains each layer in detail. In one line each:
 | silicon carbide (SiC) | 35 µm | the pressure vessel and the main fission-product barrier |
 | outer pyrolytic carbon (OPyC) | 40 µm | protects the SiC and bonds the particle to the matrix |
 
-The dimensions are Li, Yu & Wei (2014) Table 2, as typed into
+The dimensions are [Li et al. (2014)](#ref-li2014htr10rmc) Table 2, as typed into
 [`TrisoSpec::HTR10_LI2014`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/pebble_beds/fhr_pebble.rs#@@L:crates/outram-mc-libs/src/pebble_beds/fhr_pebble.rs:const=HTR10_LI2014@@).
 An HTR-10 fuel pebble is a 6 cm graphite ball. Its inner 5 cm are the fuel
 zone, holding **8335** of these particles in graphite matrix; the outer 0.5 cm
@@ -91,7 +91,7 @@ it twice with exactly the same atoms:
   (step 7), in graphite matrix;
 - **homogenised**: the same atoms smeared evenly through the cube.
 
-The atom densities are IAEA-TECDOC-1382 Table 4-38. The difference between
+The atom densities are IAEA-TECDOC-1382 [(International Atomic Energy Agency, 2003)](#ref-iaeatecdoc1382) Table 4-38. The difference between
 the two $k_\infty$ is the worth of the first level of lumping.
 
 The example is
@@ -272,7 +272,7 @@ before it reaches the matrix.
 
 **Answer.** Pretend the whole problem is filled with a material more opaque
 than anything really in it, with total cross section $\Sigma_\text{maj}$ (the
-*majorant*). Sample flights in that fictitious material, which needs no
+*majorant*) [(Leppänen, 2010)](#ref-leppanen2010delta). Sample flights in that fictitious material, which needs no
 surfaces because it is the same everywhere. At the end of each flight, look
 up the material really there, and keep the collision with probability
 
@@ -616,10 +616,10 @@ geometry to save memory and time:
 | treatment | what it keeps | what it gives up |
 |---|---|---|
 | **delta tracking** | every particle, exactly | nothing (the reference) |
-| **chord-length sampling (CLS)** | nothing stored: particle crossings are sampled from the statistics of chord lengths as the neutron flies | memory of where the particles were; and, as applied here, the kernel is smeared through its whole particle |
-| **semi-implicit CLS (SCLS)** | CLS plus the particles met recently, inside a moving window | as CLS, with a bounded memory |
+| **chord-length sampling (CLS)** [(Liang et al., 2013)](#ref-liang2013chord) | nothing stored: particle crossings are sampled from the statistics of chord lengths as the neutron flies | memory of where the particles were; and, as applied here, the kernel is smeared through its whole particle |
+| **semi-implicit CLS (SCLS)** [(Tan et al., 2025)](#ref-tan2025scls) | CLS plus the particles met recently, inside a moving window | as CLS, with a bounded memory |
 | **naive homogenisation** | nothing: the fuel zone is one smeared material | all grain-level self-shielding |
-| **ring-RPT** | the same smeared fuel, but in a spherical shell at a fitted radius | the radial shape of the fuel |
+| **ring-RPT** ([Kim & Baek, 2005](#ref-kim2005elimination); [Lou et al., 2020](#ref-lou2020novel)) | the same smeared fuel, but in a spherical shell at a fitted radius | the radial shape of the fuel |
 
 Each is a variant of
 [`DhTreatment`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/dh_universe.rs#@@L:crates/outram-mc-libs/src/dh_universe.rs:enum=DhTreatment@@),
@@ -766,7 +766,7 @@ of the fuel zone?
 
 **Answer.** A real fuel zone's particles sit at random. This code places them
 by **random sequential addition** (RSA), a port of OpenMC's
-`_random_sequential_pack`: draw a centre uniformly in the box, reject it if
+`_random_sequential_pack` [(Romano et al., 2015)](#ref-romano2015openmc): draw a centre uniformly in the box, reject it if
 the new sphere would overlap one already placed, repeat until the requested
 number is in.
 [`pack_spheres`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/pebble_beds/sphere_packing.rs#@@L:crates/outram-mc-libs/src/pebble_beds/sphere_packing.rs:fn=pack_spheres@@)
@@ -889,7 +889,7 @@ be packed at random?
 
 **Answer.** HTR-10 is a 10 MW pebble-bed test reactor. Its first approach to
 criticality, loading a mixture of fuel and all-graphite "dummy" pebbles until
-the core went critical, is a published benchmark (IAEA-TECDOC-1382), and
+the core went critical, is a published benchmark (IAEA-TECDOC-1382; [Terry et al., 2005](#ref-terry2005htr10benchmark)), and
 other codes have computed $k_\text{eff}$ against loading height for it.
 
 > *History placeholder: when and where HTR-10 was built and first went
@@ -2880,3 +2880,28 @@ UNRESOLVED(closure): `majorant_for` at [L400](https://github.com/theodoreOnzGit/
 <!-- /code-walk -->
 
 </div>
+
+<!-- references:begin -->
+## References
+
+<p class="csl-entry" id="ref-brown2018endf8" style="padding-left: 2em; text-indent: -2em;">Brown, D. A., & others. (2018). ENDF/B-VIII.0: The 8th Major Release of the Nuclear Reaction Data Library with CIELO-project Cross Sections, New Standards and Thermal Scattering Data. <span style="font-style: italic;">Nuclear Data Sheets</span>, <span style="font-style: italic;">148</span>, 1–142. <a href="https://doi.org/10.1016/j.nds.2018.02.001">https://doi.org/10.1016/j.nds.2018.02.001</a></p>
+
+<p class="csl-entry" id="ref-iaeatecdoc1382" style="padding-left: 2em; text-indent: -2em;">International Atomic Energy Agency. (2003). <span style="font-style: italic;">Evaluation of High Temperature Gas Cooled Reactor Performance</span> (IAEA-TECDOC-1382). International Atomic Energy Agency.</p>
+
+<p class="csl-entry" id="ref-kim2005elimination" style="padding-left: 2em; text-indent: -2em;">Kim, Y., & Baek, M. (2005). <span style="font-style: italic;">Elimination of double-heterogeneity through a reactivity-equivalent physical transformation</span>.</p>
+
+<p class="csl-entry" id="ref-leppanen2010delta" style="padding-left: 2em; text-indent: -2em;">Leppänen, J. (2010). Performance of Woodcock Delta-Tracking in Lattice Physics Applications Using the Serpent Monte Carlo Reactor Physics Burnup Calculation Code. <span style="font-style: italic;">Annals of Nuclear Energy</span>, <span style="font-style: italic;">37</span>(5), 715–722. <a href="https://doi.org/10.1016/j.anucene.2010.01.011">https://doi.org/10.1016/j.anucene.2010.01.011</a></p>
+
+<p class="csl-entry" id="ref-li2014htr10rmc" style="padding-left: 2em; text-indent: -2em;">Li, W., Yu, G., & Wei, C. (2014, October). Research on Benchmark Calculation and Analysis of HTR-10 with RMC Code. <span style="font-style: italic;">7th International Topical Meeting on High Temperature Reactor Technology (HTR 2014)</span>.</p>
+
+<p class="csl-entry" id="ref-liang2013chord" style="padding-left: 2em; text-indent: -2em;">Liang, C., Ji, W., & Brown, F. B. (2013). Chord length sampling method for analyzing stochastic distribution of fuel particles in continuous energy simulations. <span style="font-style: italic;">Annals of Nuclear Energy</span>, <span style="font-style: italic;">53</span>, 140–146. <a href="https://doi.org/10.1016/j.anucene.2012.09.013">https://doi.org/10.1016/j.anucene.2012.09.013</a></p>
+
+<p class="csl-entry" id="ref-lou2020novel" style="padding-left: 2em; text-indent: -2em;">Lou, L., Yao, D., Chai, X., Peng, X., Li, M., Li, W., Yu, Y., & Wang, L. (2020). A novel reactivity-equivalent physical transformation method for homogenization of double-heterogeneous systems. <span style="font-style: italic;">Annals of Nuclear Energy</span>, <span style="font-style: italic;">142</span>, 107396.</p>
+
+<p class="csl-entry" id="ref-romano2015openmc" style="padding-left: 2em; text-indent: -2em;">Romano, P. K., Horelik, N. E., Herman, B. R., Nelson, A. G., Forget, B., & Smith, K. (2015). OpenMC: A state-of-the-art Monte Carlo code for research and development. <span style="font-style: italic;">Annals of Nuclear Energy</span>, <span style="font-style: italic;">82</span>, 90–97.</p>
+
+<p class="csl-entry" id="ref-tan2025scls" style="padding-left: 2em; text-indent: -2em;">Tan, Z. C., Feng, Z., Chan, K. Y., & Wang, K. (2025). A Semi-Implicit Chord Length Sampling Method for Dispersion Fuel Analysis. <span style="font-style: italic;">Annals of Nuclear Energy</span>, <span style="font-style: italic;">219</span>, 111436. <a href="https://doi.org/10.1016/j.anucene.2025.111436">https://doi.org/10.1016/j.anucene.2025.111436</a></p>
+
+<p class="csl-entry" id="ref-terry2005htr10benchmark" style="padding-left: 2em; text-indent: -2em;">Terry, W. K., Kim, S. S., Montierth, L. M., Cogliati, J. J., & Ougouag, A. M. (2005). <span style="font-style: italic;">Evaluation of the HTR-10 Reactor as a Benchmark for Physics Code QA</span> (Preprint Nos. INL/CON-5–852). Idaho National Laboratory. <a href="https://www.osti.gov/servlets/purl/911178">https://www.osti.gov/servlets/purl/911178</a></p>
+
+<!-- references:end -->

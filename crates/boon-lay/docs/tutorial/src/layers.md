@@ -32,8 +32,8 @@ come from, and why does it change so much between layers?
 $D$ follows an Arrhenius law in temperature, with constants measured for
 each element in each material.
 
-**The formula.** The random-walk engine uses the two-term form of Jiang et
-al. (2023, INL/EXT-21-63549 Rev. 1, table on p. 13):
+**The formula.** The random-walk engine uses the two-term form of [Jiang et al. (2023)](#ref-jiang2023fission)
+(INL/EXT-21-63549 Rev. 1, table on p. 13):
 
 $$D(T) = D_1\ e^{-Q_1/RT} + D_2\ e^{-Q_2/RT},$$
 
@@ -393,3 +393,10 @@ SiC in it, and what happens to that group if the SiC breaks?
 
 **Next:** [rung 5, when the shell breaks](./failure.md). So far every
 particle was intact. The SiC is also a pressure vessel. What if it bursts?
+
+<!-- references:begin -->
+## References
+
+<p class="csl-entry" id="ref-jiang2023fission" style="padding-left: 2em; text-indent: -2em;">Jiang, W., Toptan, A., Hales, J. D., Spencer, B. W., & Novascone, S. R. (2023). <span style="font-style: italic;">Fission product transport in TRISO particles and pebbles</span>. Idaho National Lab.(INL), Idaho Falls, ID (United States).</p>
+
+<!-- references:end -->

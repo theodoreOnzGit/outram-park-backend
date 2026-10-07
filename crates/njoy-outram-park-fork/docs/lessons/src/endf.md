@@ -20,7 +20,7 @@ anywhere: an evaluator publishes a compact description of the nucleus instead.
 An ENDF-6 file is a deck of 80-column text lines. Every line carries six
 11-character numeric fields and, in columns 67–80, three labels: the
 **material** (MAT), the **file** (MF, the kind of data) and the **section**
-(MT, the reaction). NJOY's manual describes the hierarchy in one paragraph:
+(MT, the reaction). NJOY's manual [(MacFarlane et al., 2017)](#ref-njoy2016) describes the hierarchy in one paragraph:
 
 > "ENDF “tapes" are subdivided internally into “materials” (MAT), “files” (MF),
 > and “sections” (MT). A MAT contains all data for a particular evaluation for
@@ -192,7 +192,7 @@ record is the comment above (2026-09-26) and the crate's
 "The ACE tables reproduce NJOY's".
 
 A second reading defect is recorded just above it in the same function: some
-ENDF/B-VIII.0 tapes (C-12, C-13, O-16, Li-7 MF=3) write an explicit exponent
+ENDF/B-VIII.0 [(Brown & others, 2018)](#ref-brown2018endf8) tapes (C-12, C-13, O-16, Li-7 MF=3) write an explicit exponent
 letter (`1.00000E-5`). Before the fix those fields **silently became 0.0**.
 
 ## The supporting modules
@@ -245,3 +245,12 @@ curve they describe to 0.1 %, will the code need about as many points as
 resonances, ten times as many, or a hundred times as many?**
 
 **Next:** [Rung 2 — RECONR: from resonance parameters to σ(E)](./reconr.md).
+
+<!-- references:begin -->
+## References
+
+<p class="csl-entry" id="ref-brown2018endf8" style="padding-left: 2em; text-indent: -2em;">Brown, D. A., & others. (2018). ENDF/B-VIII.0: The 8th Major Release of the Nuclear Reaction Data Library with CIELO-project Cross Sections, New Standards and Thermal Scattering Data. <span style="font-style: italic;">Nuclear Data Sheets</span>, <span style="font-style: italic;">148</span>, 1–142. <a href="https://doi.org/10.1016/j.nds.2018.02.001">https://doi.org/10.1016/j.nds.2018.02.001</a></p>
+
+<p class="csl-entry" id="ref-njoy2016" style="padding-left: 2em; text-indent: -2em;">MacFarlane, R. E., Muir, D. W., Boicourt, R. M., Kahler, A. C., & Conlin, J. L. (2017). <span style="font-style: italic;">The NJOY Nuclear Data Processing System, Version 2016</span> (Technical Report LA-UR-17-20093). Los Alamos National Laboratory. <a href="https://www.osti.gov/biblio/1338791">https://www.osti.gov/biblio/1338791</a></p>
+
+<!-- references:end -->

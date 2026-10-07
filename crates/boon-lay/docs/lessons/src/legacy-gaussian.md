@@ -20,7 +20,7 @@ This page maps it, so a reader can tell which path a piece of code is on.
 | `…::constructive_solid_geometry::chatgpt_vibe_coded_sphere_crossing` | time for a straight-line velocity to first cross a sphere (used by the Gaussian step's boundary check) | always |
 | [`central_limit_theorem`](../../api/boon_lay/lagrangian_decay_simulator/lagrangian_diffusion/central_limit_theorem/index.html) | per-component variance $\sigma^2 = nE[S^2]/3$ from $n$ isotropic steps; $E[S^2] = 2\ell^2$ for exponential steps of mean $\ell$; the Gaussian sampler; `OoRng64` | always |
 | [`isotropic_scattering`](../../api/boon_lay/lagrangian_decay_simulator/lagrangian_diffusion/isotropic_scattering/index.html) | a small `Vec3` for the isotropic random walk | always |
-| [`temperature_dependent_collisions`](../../api/boon_lay/lagrangian_decay_simulator/lagrangian_diffusion/temperature_dependent_collisions/index.html) | the Jiang `D(T)` used by **both** engines (rung 4), plus `mean_speed` (Maxwell–Boltzmann) and `expected_collisions_atomic_jumps` | always |
+| [`temperature_dependent_collisions`](../../api/boon_lay/lagrangian_decay_simulator/lagrangian_diffusion/temperature_dependent_collisions/index.html) | the Jiang `D(T)` [(Jiang et al., 2023)](#ref-jiang2023fission) used by **both** engines (rung 4), plus `mean_speed` (Maxwell–Boltzmann) and `expected_collisions_atomic_jumps` | always |
 | `chatgpt_5_*` (four files) | the first ChatGPT-assisted experiments: a distance-based and a time-based CLT simulator, a vector sampler on a shell | **tests only** (`cfg(test)`) |
 | `triso_particle_widget` | an egui drawing of the particle | tests only, and never on Android |
 
@@ -58,3 +58,10 @@ TrisoCell::try_get_diffusion_coefficient  (rung 1)
    └── WoS path:       WoSWalker::step_multilayer / hop          -> exact first-passage hops
           both -> try_get_diffusion_coeff_jiang  (rung 4)
 ```
+
+<!-- references:begin -->
+## References
+
+<p class="csl-entry" id="ref-jiang2023fission" style="padding-left: 2em; text-indent: -2em;">Jiang, W., Toptan, A., Hales, J. D., Spencer, B. W., & Novascone, S. R. (2023). <span style="font-style: italic;">Fission product transport in TRISO particles and pebbles</span>. Idaho National Lab.(INL), Idaho Falls, ID (United States).</p>
+
+<!-- references:end -->

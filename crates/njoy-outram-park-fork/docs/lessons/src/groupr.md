@@ -28,7 +28,7 @@ average:
 ```
 
 Everything difficult is in `φ(E)`, which is the answer the deterministic code
-has not computed yet. GROUPR uses a **weighting spectrum** (`iwt`: 1/E, a
+has not computed yet. GROUPR [(MacFarlane et al., 2017)](#ref-njoy2016) uses a **weighting spectrum** (`iwt`: 1/E, a
 fission plus 1/E plus Maxwellian shape, a user table, …) and, for resonance
 materials, a **self-shielded** flux that dips where σ_t peaks.
 
@@ -172,3 +172,10 @@ uncertain independently, or do the two move together? Why would it matter
 for a reactor calculation?**
 
 **Next:** [Rung 8 — ERRORR and COVR: how sure are we?](./errorr.md).
+
+<!-- references:begin -->
+## References
+
+<p class="csl-entry" id="ref-njoy2016" style="padding-left: 2em; text-indent: -2em;">MacFarlane, R. E., Muir, D. W., Boicourt, R. M., Kahler, A. C., & Conlin, J. L. (2017). <span style="font-style: italic;">The NJOY Nuclear Data Processing System, Version 2016</span> (Technical Report LA-UR-17-20093). Los Alamos National Laboratory. <a href="https://www.osti.gov/biblio/1338791">https://www.osti.gov/biblio/1338791</a></p>
+
+<!-- references:end -->

@@ -15,7 +15,7 @@ boundary, the boundary condition is applied, and the loop starts again in the ne
 cell. The module doc of
 [`transport_csg.rs`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/physics/transport_csg.rs#L12-L31)
 spells the loop out step by step, ported in structure from OpenMC's
-`transport_history_based`.
+`transport_history_based` [(Romano et al., 2015)](#ref-romano2015openmc).
 
 The surface branch of that choice is short:
 
@@ -112,3 +112,10 @@ reports it before a run if the caller asks.
 announce itself. It shows up as a believable change in leakage or `k`. The only
 defence is a test whose correct answer is known exactly (here: zero leakage), not
 a comparison with a benchmark that might absorb the error.
+
+<!-- references:begin -->
+## References
+
+<p class="csl-entry" id="ref-romano2015openmc" style="padding-left: 2em; text-indent: -2em;">Romano, P. K., Horelik, N. E., Herman, B. R., Nelson, A. G., Forget, B., & Smith, K. (2015). OpenMC: A state-of-the-art Monte Carlo code for research and development. <span style="font-style: italic;">Annals of Nuclear Energy</span>, <span style="font-style: italic;">82</span>, 90–97.</p>
+
+<!-- references:end -->

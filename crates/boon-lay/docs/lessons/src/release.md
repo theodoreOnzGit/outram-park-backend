@@ -151,7 +151,14 @@ An atom also decays, and under a neutron field it can transmute. The
 module runs these as competing exponential clocks beside each hop. If an
 event falls inside a hop's time, the atom changes nuclide (and `D`) at the
 hop's start. The histogram of identities over time is the depleted inventory,
-with no Bateman matrix. Decay uses the real ENDF/B-VIII.0 library. The neutron
+with no Bateman matrix. Decay uses the real ENDF/B-VIII.0 library [(Brown & others, 2018)](#ref-brown2018endf8). The neutron
 side is a framework with a single explicit `(n,γ)` channel; per-nuclide cross
 sections and fission yields are not wired in yet
 ([scope](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/depletion.rs#L23-L39)).
+
+<!-- references:begin -->
+## References
+
+<p class="csl-entry" id="ref-brown2018endf8" style="padding-left: 2em; text-indent: -2em;">Brown, D. A., & others. (2018). ENDF/B-VIII.0: The 8th Major Release of the Nuclear Reaction Data Library with CIELO-project Cross Sections, New Standards and Thermal Scattering Data. <span style="font-style: italic;">Nuclear Data Sheets</span>, <span style="font-style: italic;">148</span>, 1–142. <a href="https://doi.org/10.1016/j.nds.2018.02.001">https://doi.org/10.1016/j.nds.2018.02.001</a></p>
+
+<!-- references:end -->

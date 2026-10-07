@@ -10,7 +10,7 @@
 
 ## The question
 
-OpenMC does not read ACE at run time; it reads its own **HDF5** libraries,
+OpenMC [(Romano et al., 2015)](#ref-romano2015openmc) does not read ACE at run time; it reads its own **HDF5** libraries,
 converted from ACE by its Python API, plus two small XML files. **Can this
 workspace write and read those files directly, so either code can use the
 other's data?**
@@ -251,3 +251,10 @@ fissile nuclide exposed. A check built around what a component *does* is not a
 check of what it is *for*.
 
 **Next:** [Windowed multipole and the GPU path](./wmp.md).
+
+<!-- references:begin -->
+## References
+
+<p class="csl-entry" id="ref-romano2015openmc" style="padding-left: 2em; text-indent: -2em;">Romano, P. K., Horelik, N. E., Herman, B. R., Nelson, A. G., Forget, B., & Smith, K. (2015). OpenMC: A state-of-the-art Monte Carlo code for research and development. <span style="font-style: italic;">Annals of Nuclear Energy</span>, <span style="font-style: italic;">82</span>, 90–97.</p>
+
+<!-- references:end -->

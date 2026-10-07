@@ -10,7 +10,7 @@ stops at every one.
 
 ## The idea
 
-Delta (Woodcock) tracking stops asking where the surfaces are. Pick a
+Delta (Woodcock) tracking [(Leppänen, 2010)](#ref-leppanen2010delta) stops asking where the surfaces are. Pick a
 **majorant** `Σ_maj(E) ≥ Σ_t(E)` that bounds the total cross section of every
 material the neutron could be in. Then:
 
@@ -98,7 +98,7 @@ out **4175 pcm** below what the run's own `k_eff/(1−L)` balance implies, and
 **below `k_eff`**, which is impossible for a leaking system. Surface-tracking the
 same geometry closed that balance to −133 pcm. The fix is the **collision
 estimator** in delta regions, scoring `w/Σ_t` at the resolved collision site,
-where the material is known. That is what OpenMC and Serpent use in such regions.
+where the material is known. That is what OpenMC and Serpent use in such regions (for Serpent, see [Leppänen, 2017](#ref-leppanen2017delta)).
 
 Note how the defect was caught: not against a benchmark, but by a **balance the
 run must satisfy with itself**.
@@ -121,3 +121,12 @@ since both tracking methods share that offset, the cause is not boundary crossin
 flight sampling or the majorant. It is in the physics the two share. These numbers
 predate later changes to fission-bank resampling (GitHub #460, 2026-09-30) and
 have not been re-recorded since.
+
+<!-- references:begin -->
+## References
+
+<p class="csl-entry" id="ref-leppanen2010delta" style="padding-left: 2em; text-indent: -2em;">Leppänen, J. (2010). Performance of Woodcock Delta-Tracking in Lattice Physics Applications Using the Serpent Monte Carlo Reactor Physics Burnup Calculation Code. <span style="font-style: italic;">Annals of Nuclear Energy</span>, <span style="font-style: italic;">37</span>(5), 715–722. <a href="https://doi.org/10.1016/j.anucene.2010.01.011">https://doi.org/10.1016/j.anucene.2010.01.011</a></p>
+
+<p class="csl-entry" id="ref-leppanen2017delta" style="padding-left: 2em; text-indent: -2em;">Leppänen, J. (2017). On the Use of Delta-Tracking and the Collision Flux Estimator in the Serpent 2 Monte Carlo Particle Transport Code. <span style="font-style: italic;">Annals of Nuclear Energy</span>, <span style="font-style: italic;">105</span>, 161–167. <a href="https://doi.org/10.1016/j.anucene.2017.03.006">https://doi.org/10.1016/j.anucene.2017.03.006</a></p>
+
+<!-- references:end -->

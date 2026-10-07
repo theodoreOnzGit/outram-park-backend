@@ -9,7 +9,7 @@
 *Part II, extended deep dive. Modules: `wmp`, `gpu_wmp`, `gpu`. This is
 **not** a port of NJOY: windowed multipole is the work of the MIT
 Computational Reactor Physics Group, re-implemented from OpenMC's MIT-licensed
-`src/wmp.cpp`, with its own attribution in `LICENSE-WMP` and `NOTICE`.*
+`src/wmp.cpp` [(Romano et al., 2015)](#ref-romano2015openmc), with its own attribution in `LICENSE-WMP` and `NOTICE`.*
 
 ## The question
 
@@ -154,3 +154,10 @@ evaluated the real table. Issue:
 [#536](https://github.com/theodoreOnzGit/outram-park-backend/issues/536).
 
 **Next:** [The consumer surface](./consumer-surface.md).
+
+<!-- references:begin -->
+## References
+
+<p class="csl-entry" id="ref-romano2015openmc" style="padding-left: 2em; text-indent: -2em;">Romano, P. K., Horelik, N. E., Herman, B. R., Nelson, A. G., Forget, B., & Smith, K. (2015). OpenMC: A state-of-the-art Monte Carlo code for research and development. <span style="font-style: italic;">Annals of Nuclear Energy</span>, <span style="font-style: italic;">82</span>, 90–97.</p>
+
+<!-- references:end -->

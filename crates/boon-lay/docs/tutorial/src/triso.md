@@ -325,7 +325,7 @@ thermal and fuel-failure sides cannot quietly disagree.~~ **CORRECTED
 2026-10-04:** `boon-lay` cannot depend on `tampines` (the dependency runs
 the other way), and the code shows it does not: `fuel_failure::htr10`
 carries its **own** constants, transcribed from the same table
-(IAEA-TECDOC-1382 part 2, Table 4-17): kernel radius 250 µm, buffer outer
+(IAEA-TECDOC-1382 part 2, Table 4-17; [International Atomic Energy Agency, 2003](#ref-iaeatecdoc1382)): kernel radius 250 µm, buffer outer
 radius 340 µm, SiC 380–415 µm
 ([constants](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/fuel_failure/htr10/mod.rs#@@L:crates/boon-lay/src/fuel_failure/htr10/mod.rs:const=KERNEL_RADIUS_UM@@)).
 What stops the two copies drifting is a test in `sembawang`,
@@ -365,3 +365,10 @@ everything, or one that the SiC holds back?
 
 **Next:** [rung 2, an atom's clock](./decay.md). An atom born in the kernel is
 often radioactive. Before it walks anywhere, when does it decay?
+
+<!-- references:begin -->
+## References
+
+<p class="csl-entry" id="ref-iaeatecdoc1382" style="padding-left: 2em; text-indent: -2em;">International Atomic Energy Agency. (2003). <span style="font-style: italic;">Evaluation of High Temperature Gas Cooled Reactor Performance</span> (IAEA-TECDOC-1382). International Atomic Energy Agency.</p>
+
+<!-- references:end -->

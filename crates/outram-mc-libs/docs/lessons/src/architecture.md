@@ -12,7 +12,7 @@ in new work there is no upstream to read.
 ## The rule that governs the port
 
 The crate's own `CLAUDE.md` states it as a hard rule: every transport, physics
-or geometry behaviour is ported from the canonical OpenMC C++ source, the
+or geometry behaviour is ported from the canonical OpenMC C++ source [(Romano et al., 2015)](#ref-romano2015openmc), the
 reference `file:line` is cited in the doc comment, and only behaviour that is
 **genuinely absent upstream** is written fresh and labelled *NEW WORK*
 ([`CLAUDE.md`, "Porting rule"](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/CLAUDE.md#L524-L541)).
@@ -77,3 +77,10 @@ runs a whole calculation:
 - `fixed_source::run_fixed_source` — an external source, no eigenvalue.
 - `physics_mg::run_keff_mg` — the multigroup twin.
 - `pebble_beds::keff_delta` — the delta-tracking driver for pebble beds.
+
+<!-- references:begin -->
+## References
+
+<p class="csl-entry" id="ref-romano2015openmc" style="padding-left: 2em; text-indent: -2em;">Romano, P. K., Horelik, N. E., Herman, B. R., Nelson, A. G., Forget, B., & Smith, K. (2015). OpenMC: A state-of-the-art Monte Carlo code for research and development. <span style="font-style: italic;">Annals of Nuclear Energy</span>, <span style="font-style: italic;">82</span>, 90–97.</p>
+
+<!-- references:end -->

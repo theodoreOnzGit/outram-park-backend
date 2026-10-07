@@ -38,7 +38,7 @@ in the **ENDF-6** format holding a compact description of the nucleus
 (resonance parameters, tabulated smooth cross sections, angular and energy
 distributions, thermal scattering laws, covariances). A **processing code**
 then turns that description into the table a transport code reads. NJOY is
-that code, and this crate is its Rust port.
+that code [(MacFarlane et al., 2017)](#ref-njoy2016), and this crate is its Rust port.
 
 NJOY's manual puts it in one sentence:
 
@@ -230,3 +230,10 @@ to draw U-238's cross section to 0.1 % accuracy? A hundred? Ten thousand? A
 million? (Rung 2 has the recorded answer.)
 
 **Next:** [Rung 1 — ENDF: what the evaluator hands us](./endf.md).
+
+<!-- references:begin -->
+## References
+
+<p class="csl-entry" id="ref-njoy2016" style="padding-left: 2em; text-indent: -2em;">MacFarlane, R. E., Muir, D. W., Boicourt, R. M., Kahler, A. C., & Conlin, J. L. (2017). <span style="font-style: italic;">The NJOY Nuclear Data Processing System, Version 2016</span> (Technical Report LA-UR-17-20093). Los Alamos National Laboratory. <a href="https://www.osti.gov/biblio/1338791">https://www.osti.gov/biblio/1338791</a></p>
+
+<!-- references:end -->

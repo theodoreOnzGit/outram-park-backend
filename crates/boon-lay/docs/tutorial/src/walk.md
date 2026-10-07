@@ -264,7 +264,7 @@ $$\frac{M_t}{M_\infty} = 1 - \frac{6}{\pi^2}\sum_{n=1}^{\infty}\frac{1}{n^2}\exp
 [`calculate_analytical_fraction_released`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/single_particle_simulator/release_fraction_analytical_solution.rs#@@L:crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/single_particle_simulator/release_fraction_analytical_solution.rs:fn=calculate_analytical_fraction_released@@)
 (200 terms). The test
 [`monte_carlo_test.rs`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/single_particle_simulator/release_fraction_crp_6_case_1a_1b/monte_carlo_test.rs)
-calls both sides with the same `D` (the Jiang correlation for Cs in UO₂, zero
+calls both sides with the same `D` (the [Jiang et al. (2023)](#ref-jiang2023fission) correlation for Cs in UO₂, zero
 fluence, [rung 4](./layers.md)).
 
 **The check: CRP-6 Case 1, Walk-on-Spheres against Crank.** Cs-137 release
@@ -326,3 +326,10 @@ an atom arrives at the SiC? That is [rung 4](./layers.md).
   walker release times, and plot it against the Crank curve.
 
 **Next:** [rung 4, through the layers](./layers.md).
+
+<!-- references:begin -->
+## References
+
+<p class="csl-entry" id="ref-jiang2023fission" style="padding-left: 2em; text-indent: -2em;">Jiang, W., Toptan, A., Hales, J. D., Spencer, B. W., & Novascone, S. R. (2023). <span style="font-style: italic;">Fission product transport in TRISO particles and pebbles</span>. Idaho National Lab.(INL), Idaho Falls, ID (United States).</p>
+
+<!-- references:end -->

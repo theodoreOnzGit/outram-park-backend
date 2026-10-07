@@ -106,7 +106,7 @@ Longer chains, and daughters that change depletion class mid-flight, are
 
 ### Which decay constant
 
-Take decay constants from `boon-lay`. **Do not** use
+Take decay constants from `boon-lay` [(Ong, 2026)](#ref-ong2026boonlay). **Do not** use
 `flexpart::decay::decay_constant`: it reproduces upstream FLEXPART's truncated
 `0.693147` in place of `ln 2`, which is right for a code-to-code comparison and
 wrong for physics
@@ -210,3 +210,10 @@ health-assessment capability. This deep dive stops at Bq·s/m³ and Bq/m².
 2. Kr-89 (`t½` = 189 s) travels 5 km at 2 m/s. What fraction survives? Compare
    with the "roughly 80×" overstatement quoted above, which assumes a 1200 s
    puff lifetime.
+
+<!-- references:begin -->
+## References
+
+<p class="csl-entry" id="ref-ong2026boonlay" style="padding-left: 2em; text-indent: -2em;">Ong, T. K. C. (2026,). <span style="font-style: italic;">boon-lay: BOmbardment Open source Nuclide simulation Laboratory Algorithm for Yields (BOON LAY)</span>. GitHub. <a href="https://github.com/theodoreOnzGit/boon-lay">https://github.com/theodoreOnzGit/boon-lay</a></p>
+
+<!-- references:end -->

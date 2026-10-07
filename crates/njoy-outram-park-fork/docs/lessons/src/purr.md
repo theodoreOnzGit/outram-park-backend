@@ -25,7 +25,7 @@ Two different answers, for two different users:
 - **Self-shielded** (lots of U-238): fewer neutrons survive at the peaks, so
   the flux-weighted cross section is **lower** than the average. Deterministic
   codes want a table of effective σ versus background cross section σ₀
-  (UNRESR, Bondarenko method). Monte Carlo codes want **probability tables**
+  (UNRESR, Bondarenko method; [MacFarlane et al., 2017](#ref-njoy2016)). Monte Carlo codes want **probability tables**
   (PURR): "at this energy, σ_t lies in band *b* with probability *p_b*, and
   then the partials are …".
 
@@ -206,3 +206,10 @@ atom in graphite the way it would off a free carbon atom? What could be
 different?**
 
 **Next:** [Rung 5 — THERMR and LEAPR: thermal scattering](./thermr.md).
+
+<!-- references:begin -->
+## References
+
+<p class="csl-entry" id="ref-njoy2016" style="padding-left: 2em; text-indent: -2em;">MacFarlane, R. E., Muir, D. W., Boicourt, R. M., Kahler, A. C., & Conlin, J. L. (2017). <span style="font-style: italic;">The NJOY Nuclear Data Processing System, Version 2016</span> (Technical Report LA-UR-17-20093). Los Alamos National Laboratory. <a href="https://www.osti.gov/biblio/1338791">https://www.osti.gov/biblio/1338791</a></p>
+
+<!-- references:end -->

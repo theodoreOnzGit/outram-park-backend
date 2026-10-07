@@ -40,7 +40,7 @@ steps to come to rest.
 
 The workspace's DEM is
 [`outram-park-fork-liggghts`](https://github.com/theodoreOnzGit/outram-park-backend/tree/@@COMMIT@@/crates/outram-park-fork-liggghts),
-a Rust port of the LIGGGHTS discrete-element code. Its `GranularSystem`
+a Rust port of the LIGGGHTS discrete-element code [(Kloss et al., 2012)](#ref-kloss2012models). Its `GranularSystem`
 engine reproduces upstream LIGGGHTS bit for bit on single contacts, and to
 four decimals in packing fraction on the full HTR-10 core. That is a
 comparison with another code, so it is **verification**, not validation: no
@@ -187,7 +187,7 @@ per step than predicted (15–20 ms).
 |---|---|
 | pebbles | 27 554 (25 097 above the conus) |
 | whole-core filling fraction $N V / (\pi R^2 h)$ | **0.6047** |
-| published (IAEA-TECDOC-1382) | 0.61, quoted from a specification table, not measured |
+| published (IAEA-TECDOC-1382, [International Atomic Energy Agency, 2003](#ref-iaeatecdoc1382)) | 0.61, quoted from a specification table, not measured |
 | difference | −0.9 % |
 | bulk slab (4 radii from the floor and the surface excluded) | 0.6083 |
 
@@ -269,3 +269,12 @@ cargo run --release -p dhoby-ghaut --example dem_web -- --headless 4000 40000
 **Modify.** Pour with `--mu 0.4 --mu-r 0.1`, the crate's old setting.
 Predict first: does the filling fraction go up or down, and by about how
 much? Section 4.9 of the DEM crate's V&V has the answer to check against.
+
+<!-- references:begin -->
+## References
+
+<p class="csl-entry" id="ref-iaeatecdoc1382" style="padding-left: 2em; text-indent: -2em;">International Atomic Energy Agency. (2003). <span style="font-style: italic;">Evaluation of High Temperature Gas Cooled Reactor Performance</span> (IAEA-TECDOC-1382). International Atomic Energy Agency.</p>
+
+<p class="csl-entry" id="ref-kloss2012models" style="padding-left: 2em; text-indent: -2em;">Kloss, C., Goniva, C., Hager, A., Amberger, S., & Pirker, S. (2012). Models, Algorithms and Validation for Opensource DEM and CFD-DEM. <span style="font-style: italic;">Progress in Computational Fluid Dynamics, An International Journal</span>, <span style="font-style: italic;">12</span>(2/3), 140–152. <a href="https://doi.org/10.1504/PCFD.2012.047457">https://doi.org/10.1504/PCFD.2012.047457</a></p>
+
+<!-- references:end -->

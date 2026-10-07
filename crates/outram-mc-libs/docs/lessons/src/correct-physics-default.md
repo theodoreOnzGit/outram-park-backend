@@ -7,7 +7,7 @@ uses. Two examples matter for thermal and intermediate-spectrum systems:
 
 - **Unresolved-resonance (URR) self-shielding.** Above the resolved resonances
   the evaluation gives *average* resonance parameters. Probability tables
-  (NJOY's PURR) recover the self-shielding a fluctuating cross section causes.
+  (NJOY's PURR, [MacFarlane et al., 2017](#ref-njoy2016)) recover the self-shielding a fluctuating cross section causes.
 - **Resonance elastic scattering (DBRC).** A neutron scattering off a heavy
   nucleus near a resonance sees the target's thermal motion through a strongly
   energy-dependent cross section. The constant-cross-section free-gas kernel gets
@@ -18,7 +18,7 @@ The question this chapter is about: what happens to physics nobody turns on?
 
 ## What happened
 
-On 2026-09-20 a hunt for the causes of this crate's ICSBEP residuals found that
+On 2026-09-20 a hunt for the causes of this crate's ICSBEP [(Briggs et al., 2003)](#ref-briggs2003international) residuals found that
 URR and DBRC **both defaulted off**, and that **no ICSBEP benchmark example enabled
 them**. Every recorded residual for Godiva, Jemima, HST-009 and LCT-008 had been
 measured against a model missing both. Nothing had flagged it: a missing physics
@@ -96,3 +96,12 @@ changed, many seeds.
 is one. It writes down its predicted sign and magnitude **before** running, so the
 result is capable of contradicting the prediction, and it reports a **bound**
 where the statistics cannot resolve the effect, rather than a number.
+
+<!-- references:begin -->
+## References
+
+<p class="csl-entry" id="ref-briggs2003international" style="padding-left: 2em; text-indent: -2em;">Briggs, J. B., Scott, L., & Nouri, A. (2003). The international criticality safety benchmark evaluation project. <span style="font-style: italic;">Nuclear Science and Engineering</span>, <span style="font-style: italic;">145</span>(1), 1–10.</p>
+
+<p class="csl-entry" id="ref-njoy2016" style="padding-left: 2em; text-indent: -2em;">MacFarlane, R. E., Muir, D. W., Boicourt, R. M., Kahler, A. C., & Conlin, J. L. (2017). <span style="font-style: italic;">The NJOY Nuclear Data Processing System, Version 2016</span> (Technical Report LA-UR-17-20093). Los Alamos National Laboratory. <a href="https://www.osti.gov/biblio/1338791">https://www.osti.gov/biblio/1338791</a></p>
+
+<!-- references:end -->

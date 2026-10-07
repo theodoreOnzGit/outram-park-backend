@@ -228,7 +228,7 @@ to go to Tl-208, and how large would the scatter be?
 **The question.** The sampler needs $T_{1/2}$ and the branching ratios for
 any nuclide a fission might make. Where are they?
 
-**The shortest answer.** In ENDF/B-VIII.0, as OpenMC's depletion chain
+**The shortest answer.** In ENDF/B-VIII.0 [(Brown & others, 2018)](#ref-brown2018endf8), as OpenMC's depletion chain
 file, shipped inside the crate
 [`openmc-endf-8-depletion-lib-b`](https://crates.io/crates/openmc-endf-8-depletion-lib-b)
 and parsed into a
@@ -401,3 +401,10 @@ That is the [next rung](./walk.md).
   from the binomial error *before* you run it.
 
 **Next:** [rung 3, an atom's walk](./walk.md).
+
+<!-- references:begin -->
+## References
+
+<p class="csl-entry" id="ref-brown2018endf8" style="padding-left: 2em; text-indent: -2em;">Brown, D. A., & others. (2018). ENDF/B-VIII.0: The 8th Major Release of the Nuclear Reaction Data Library with CIELO-project Cross Sections, New Standards and Thermal Scattering Data. <span style="font-style: italic;">Nuclear Data Sheets</span>, <span style="font-style: italic;">148</span>, 1–142. <a href="https://doi.org/10.1016/j.nds.2018.02.001">https://doi.org/10.1016/j.nds.2018.02.001</a></p>
+
+<!-- references:end -->

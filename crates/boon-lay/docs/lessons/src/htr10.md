@@ -13,7 +13,7 @@ summarises. Tracking issue: gh:#296.
 
 ## What HTR-10 publishes, and what it does not
 
-From IAEA-TECDOC-1382 part 2 Table 4-17, the code takes the particle geometry
+From IAEA-TECDOC-1382 [(International Atomic Energy Agency, 2003)](#ref-iaeatecdoc1382) part 2 Table 4-17, the code takes the particle geometry
 (kernel radius 250 µm, buffer outer radius 340 µm, SiC 380–415 µm) and derives
 the burnup (8.51 % FIMA) and residence (1080 full-power days) from published
 design data, with one assumption (200 MeV per fission, ±2 % over the usual
@@ -91,3 +91,10 @@ HTR-10 fuel. What the page can honestly say is: the model, applied to a
 particle with HTR-10's geometry and burnup, gives numbers of a sensible order
 against the German qualification record, and it disagrees mildly with one
 compact test.
+
+<!-- references:begin -->
+## References
+
+<p class="csl-entry" id="ref-iaeatecdoc1382" style="padding-left: 2em; text-indent: -2em;">International Atomic Energy Agency. (2003). <span style="font-style: italic;">Evaluation of High Temperature Gas Cooled Reactor Performance</span> (IAEA-TECDOC-1382). International Atomic Energy Agency.</p>
+
+<!-- references:end -->

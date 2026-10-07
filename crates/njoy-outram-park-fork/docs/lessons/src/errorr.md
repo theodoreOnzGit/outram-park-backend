@@ -23,7 +23,7 @@ Modern evaluations carry **covariance files**: MF=33 for cross sections,
 MF=32 for resonance parameters, MF=31 for ν̄, MF=34 for angular and MF=35 for
 energy distributions. They are almost never independent from energy to
 energy: if a normalisation measurement was 1 % high, every energy it touched
-moves together. ERRORR collapses those covariances to a group structure, the
+moves together. ERRORR [(MacFarlane et al., 2017)](#ref-njoy2016) collapses those covariances to a group structure, the
 same way GROUPR collapses cross sections; COVR prints them as relative
 covariances or correlations (the BOXER library format) for sensitivity and
 uncertainty codes.
@@ -141,3 +141,10 @@ have to contain for a transport code to run without ever seeing the ENDF
 tape? Just σ(E)?**
 
 **Next:** [Rung 9 — ACER: what the transport code reads](./acer.md).
+
+<!-- references:begin -->
+## References
+
+<p class="csl-entry" id="ref-njoy2016" style="padding-left: 2em; text-indent: -2em;">MacFarlane, R. E., Muir, D. W., Boicourt, R. M., Kahler, A. C., & Conlin, J. L. (2017). <span style="font-style: italic;">The NJOY Nuclear Data Processing System, Version 2016</span> (Technical Report LA-UR-17-20093). Los Alamos National Laboratory. <a href="https://www.osti.gov/biblio/1338791">https://www.osti.gov/biblio/1338791</a></p>
+
+<!-- references:end -->

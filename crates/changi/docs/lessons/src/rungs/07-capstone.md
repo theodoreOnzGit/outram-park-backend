@@ -38,7 +38,7 @@ link carries the answer?**
 ## Step 1. Where does the release come from?
 
 **Short answer.** From the fuel, by diffusion out of the particles that have
-failed or will fail, computed by `boon-lay`'s port of INL's TRISO-ATOPS. That
+failed or will fail, computed by `boon-lay`'s port of INL's TRISO-ATOPS [(Ong, 2026)](#ref-ong2026boonlay). That
 physics is the [TRISO-ATOPS track](../../triso-atops/index.html) (a side path
 from here); this rung uses it as a black box with stated inputs.
 
@@ -2115,3 +2115,10 @@ UNRESOLVED(closure): `dose_at` at [L566](https://github.com/theodoreOnzGit/outra
 **Back to the start:** the [dispersion demo](../../../demos/dispersion/?rung=plume) runs the same chain,
 rung by rung. **Further:** [sembawang beyond the capstone](../ext/sembawang.md)
 compares this case with an equal-power LWR.
+
+<!-- references:begin -->
+## References
+
+<p class="csl-entry" id="ref-ong2026boonlay" style="padding-left: 2em; text-indent: -2em;">Ong, T. K. C. (2026,). <span style="font-style: italic;">boon-lay: BOmbardment Open source Nuclide simulation Laboratory Algorithm for Yields (BOON LAY)</span>. GitHub. <a href="https://github.com/theodoreOnzGit/boon-lay">https://github.com/theodoreOnzGit/boon-lay</a></p>
+
+<!-- references:end -->

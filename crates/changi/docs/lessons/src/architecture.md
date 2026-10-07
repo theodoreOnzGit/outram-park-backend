@@ -83,7 +83,7 @@ train.
 
 ## Where the numbers come from
 
-- **Half-lives and decay constants come from `boon-lay`**, never from a table
+- **Half-lives and decay constants come from `boon-lay`** [(Ong, 2026)](#ref-ong2026boonlay), never from a table
   in `changi`, so the two cannot drift
   ([`CLAUDE.md`, lines 83–95](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/changi/CLAUDE.md#L83-L95)).
 - **Published HTR-10 nuclide tables** (Liu and Cao 2002: core inventory,
@@ -94,3 +94,10 @@ train.
   ported, because `petir::specfunc::erf` already covers it and the two were
   measured to agree bit for bit
   ([`CLAUDE.md`, lines 77–81](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/changi/CLAUDE.md#L77-L81)).
+
+<!-- references:begin -->
+## References
+
+<p class="csl-entry" id="ref-ong2026boonlay" style="padding-left: 2em; text-indent: -2em;">Ong, T. K. C. (2026,). <span style="font-style: italic;">boon-lay: BOmbardment Open source Nuclide simulation Laboratory Algorithm for Yields (BOON LAY)</span>. GitHub. <a href="https://github.com/theodoreOnzGit/boon-lay">https://github.com/theodoreOnzGit/boon-lay</a></p>
+
+<!-- references:end -->

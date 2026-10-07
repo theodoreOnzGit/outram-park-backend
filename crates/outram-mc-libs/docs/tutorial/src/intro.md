@@ -44,8 +44,8 @@ that can fail, and the problem it leaves open motivates the next rung.
 
 There is **one Monte Carlo demo**, with a rung setting. Each lesson opens it
 at its own rung, and the demo's *What's happening here?* link opens the
-lesson. It runs entirely in your browser: real ENDF/B-VIII.0 nuclear data are
-downloaded and processed on your machine by the workspace's own NJOY port,
+lesson. It runs entirely in your browser: real ENDF/B-VIII.0 [(Brown & others, 2018)](#ref-brown2018endf8) nuclear data are
+downloaded and processed on your machine by the workspace's own NJOY port [(MacFarlane et al., 2017)](#ref-njoy2016),
 and the neutrons are transported by `outram-mc-libs` compiled to WebAssembly.
 
 ## Numbers
@@ -65,3 +65,12 @@ naming the page and the link (a structured form is coming,
 [#511](https://github.com/theodoreOnzGit/outram-park-backend/issues/511)).
 Tracking issues: the ladder [#520](https://github.com/theodoreOnzGit/outram-park-backend/issues/520),
 this rung [#521](https://github.com/theodoreOnzGit/outram-park-backend/issues/521).
+
+<!-- references:begin -->
+## References
+
+<p class="csl-entry" id="ref-brown2018endf8" style="padding-left: 2em; text-indent: -2em;">Brown, D. A., & others. (2018). ENDF/B-VIII.0: The 8th Major Release of the Nuclear Reaction Data Library with CIELO-project Cross Sections, New Standards and Thermal Scattering Data. <span style="font-style: italic;">Nuclear Data Sheets</span>, <span style="font-style: italic;">148</span>, 1–142. <a href="https://doi.org/10.1016/j.nds.2018.02.001">https://doi.org/10.1016/j.nds.2018.02.001</a></p>
+
+<p class="csl-entry" id="ref-njoy2016" style="padding-left: 2em; text-indent: -2em;">MacFarlane, R. E., Muir, D. W., Boicourt, R. M., Kahler, A. C., & Conlin, J. L. (2017). <span style="font-style: italic;">The NJOY Nuclear Data Processing System, Version 2016</span> (Technical Report LA-UR-17-20093). Los Alamos National Laboratory. <a href="https://www.osti.gov/biblio/1338791">https://www.osti.gov/biblio/1338791</a></p>
+
+<!-- references:end -->
