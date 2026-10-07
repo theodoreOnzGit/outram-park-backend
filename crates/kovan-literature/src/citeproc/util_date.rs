@@ -7,11 +7,214 @@
 // Licence:     AGPL-3.0, taken from upstream's "CPAL-1.0 or AGPL-3.0-or-later"
 //              (LICENSE at the commit above; see this crate's NOTICE).
 // Modified:    2026-10-08, by the OUTRAM PARK contributors. This file is a
-//              Rust translation (port) of the file named above, modified
+//              Rust translation (port) of the file(s) named above, modified
 //              from the original.
 // No warranty: this program is distributed in the hope that it will be
 //              useful, but WITHOUT ANY WARRANTY; without even the implied
 //              warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR
 //              PURPOSE. See the GNU Affero General Public License.
 
-//! Port of `src/util_date.js`. **Not yet ported** (epic #790).
+//! Port of `src/util_date.js`: `CSL.dateMacroAsSortKey`, `CSL.dateAsSortKey`
+//! and `CSL.Engine.prototype.dateParseArray`.
+//!
+//! `dateAsSortKey` appends strings to the output queue (`state.output`,
+//! `queue.js`, ported elsewhere). It is split into [`date_sort_key_parts`],
+//! which computes exactly the strings upstream appends and in what order, and
+//! [`date_as_sort_key`], which is the JS function's shape; the latter hands the
+//! parts to the queue (PORT-LATER, see its docs).
+
+use serde_json::Value;
+
+use super::js::{self, Obj};
+use super::obj_token::Token;
+use super::state::State;
+use super::util_dates;
+use super::{CslResult, EngineError};
+
+// DUP-CHECK: load.js CSL.DATE_PARTS
+const DATE_PARTS: [&str; 3] = ["year", "month", "day"];
+// DUP-CHECK: load.js CSL.DATE_PARTS_INTERNAL
+const DATE_PARTS_INTERNAL: [&str; 6] = ["year", "month", "day", "year_end", "month_end", "day_end"];
+
+/// The strings `CSL.dateAsSortKey` appends to the output queue, in order,
+/// and the flag they are appended with.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct DateSortKey {
+    /// `"empty"`, or `"macro-with-date"` for a macro when
+    /// `state.tmp.extension` is set.
+    pub macro_flag: &'static str,
+    /// One string per `state.output.append(str, macroFlag)` call.
+    pub parts: Vec<String>,
+}
+
+/// The core of `CSL.dateAsSortKey`: what it would append for variable
+/// `variable` of `item` with the date parts `dateparts` (`this.dateparts`).
+///
+/// `date_parse_array` is `state.dateParseArray`; the parser is
+/// `state.fun.dateparser`.
+pub fn date_sort_key_parts(
+    state: &State,
+    item: &Value,
+    variable: &str,
+    dateparts: &[String],
+) -> CslResult<Vec<String>> {
+    let mut dp: Obj = match item.get(variable) {
+        None => {
+            let mut o = Obj::new();
+            o.insert("date-parts".into(), serde_json::json!([[0]]));
+            o
+        }
+        Some(Value::Object(o)) => o.clone(),
+        // A non-object date: JS property reads on a string/number yield undefined.
+        Some(_) => Obj::new(),
+    };
+    if js::get_truthy(&dp, "raw") {
+        let raw = js::to_js_string(dp.get("raw").unwrap_or(&Value::Null));
+        dp = state.fun.dateparser.parse_date_to_array(&raw);
+    } else if js::get_truthy(&dp, "date-parts") {
+        dp = date_parse_array(&dp)?;
+    }
+    let mut parts = Vec::new();
+    if js::get_truthy(&dp, "year") {
+        for elem in DATE_PARTS_INTERNAL {
+            let mut value = Value::from(0);
+            let e = elem.strip_suffix("_end").unwrap_or(elem);
+            if js::get_truthy(&dp, elem) && dateparts.iter().any(|d| d == e) {
+                value = dp.get(elem).cloned().unwrap_or(Value::Null);
+            }
+            if js::slice(elem, 0, Some(4)) == "year" {
+                let mut yr = util_dates::year_numeric(&value);
+                let mut prefix = "1";
+                if yr.starts_with('-') {
+                    prefix = "0";
+                    yr = js::slice(&yr, 1, None);
+                    let n = 9999 - js::parse_int(&yr).unwrap_or(0);
+                    yr = n.to_string();
+                }
+                parts.push(util_dates::year_numeric(&Value::String(format!(
+                    "{prefix}{yr}"
+                ))));
+            } else {
+                let mut v = match e {
+                    "month" => util_dates::month_numeric_leading_zeros(&value),
+                    _ => util_dates::day_numeric_leading_zeros(&value),
+                };
+                if v.is_empty() {
+                    v = "00".to_string();
+                }
+                parts.push(v);
+            }
+        }
+    }
+    Ok(parts)
+}
+
+/// `CSL.dateAsSortKey.call(token, state, Item, isMacro)`.
+///
+/// Sets `token.dateparts` to `["year","month","day"]` when unset (as the JS
+/// does on `this`) and returns the strings to append. `tmp_extension` is
+/// `state.tmp.extension`.
+///
+/// PORT-LATER(queue.js / wave1-output): the JS then calls
+/// `state.output.append(part, macroFlag)` for each part; the caller must do
+/// that with the returned [`DateSortKey`] once `Queue::append` exists.
+pub fn date_as_sort_key(
+    state: &State,
+    token: &mut Token,
+    item: &Value,
+    is_macro: bool,
+    tmp_extension: bool,
+) -> CslResult<DateSortKey> {
+    let variable = token
+        .variables
+        .first()
+        .cloned()
+        .ok_or_else(|| EngineError::Csl("dateAsSortKey: token has no variable".into()))?;
+    let macro_flag = if is_macro && tmp_extension {
+        "macro-with-date"
+    } else {
+        "empty"
+    };
+    if !token.extra.contains_key("dateparts") {
+        token.extra.insert(
+            "dateparts".into(),
+            serde_json::json!(["year", "month", "day"]),
+        );
+    }
+    let dateparts: Vec<String> = token
+        .extra
+        .get("dateparts")
+        .and_then(Value::as_array)
+        .map(|a| a.iter().map(js::to_js_string).collect())
+        .unwrap_or_default();
+    let parts = date_sort_key_parts(state, item, &variable, &dateparts)?;
+    Ok(DateSortKey { macro_flag, parts })
+}
+
+/// `CSL.dateMacroAsSortKey.call(token, state, Item)`: [`date_as_sort_key`]
+/// with `isMacro = true`.
+pub fn date_macro_as_sort_key(
+    state: &State,
+    token: &mut Token,
+    item: &Value,
+    tmp_extension: bool,
+) -> CslResult<DateSortKey> {
+    date_as_sort_key(state, token, item, true, tmp_extension)
+}
+
+/// `CSL.Engine.prototype.dateParseArray(date_obj)`: turn a CSL-JSON date
+/// (`date-parts` arrays) into the flat internal form (`year`, `month`, `day`,
+/// `year_end`, ... as integers), copying every other field. A `date-parts`
+/// whose two halves differ in length is a `CSL.error`.
+pub fn date_parse_array(date_obj: &Obj) -> CslResult<Obj> {
+    let mut ret = Obj::new();
+    for (field, val) in date_obj {
+        if field == "date-parts" {
+            let dp: &[Value] = val.as_array().map(Vec::as_slice).unwrap_or(&[]);
+            if dp.len() > 1 {
+                let l0 = dp[0].as_array().map(Vec::len).unwrap_or(0);
+                let l1 = dp[1].as_array().map(Vec::len).unwrap_or(0);
+                if l0 != l1 {
+                    return Err(EngineError::Csl(
+                        "CSL data error: element mismatch in date range input.".to_string(),
+                    ));
+                }
+            }
+            let exts = ["", "_end"];
+            for (i, half) in dp.iter().enumerate() {
+                for (j, part) in DATE_PARTS.iter().enumerate() {
+                    let key = format!("{}{}", part, exts.get(i).copied().unwrap_or("undefined"));
+                    let cell = half.as_array().and_then(|a| a.get(j));
+                    match cell.and_then(js::parse_int_value) {
+                        Some(n) => {
+                            ret.insert(key, Value::from(n));
+                        }
+                        None => {
+                            // ret[key] = undefined: an absent key in this model.
+                            ret.remove(&key);
+                        }
+                    }
+                }
+            }
+        } else if field == "literal"
+            && val.is_object()
+            && val.get("part").map(Value::is_string).unwrap_or(false)
+        {
+            // XXXX: temporary workaround (upstream)
+            ret.insert(
+                "literal".to_string(),
+                val.get("part").cloned().unwrap_or(Value::Null),
+            );
+        } else {
+            ret.insert(field.clone(), val.clone());
+        }
+    }
+    Ok(ret)
+}
+
+impl State {
+    /// `CSL.Engine.prototype.dateParseArray`: see [`date_parse_array`].
+    pub fn date_parse_array(&self, date_obj: &Obj) -> CslResult<Obj> {
+        date_parse_array(date_obj)
+    }
+}
