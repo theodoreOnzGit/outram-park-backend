@@ -110,6 +110,7 @@ fn review(id: &str, by: &str, hash: char, callees: &[(&str, char)]) -> ReviewEnt
             path: Some(id.into()),
             by: by.into(),
             rung: 3,
+            signed_at: None,
             date: "2026-10-07".into(),
             commit: SHA.into(),
             hash: h(hash),
@@ -193,8 +194,10 @@ fn git_for(rs: &[&FolderReviews]) -> GitFacts {
                         commit: "e".repeat(40),
                         after_certified: true,
                         agent_trailer: false,
+                        committer_time: None,
                     }),
                     tests_at_review: None,
+                    reviewed_commit_time: None,
                 },
             );
         }
@@ -1011,4 +1014,60 @@ fn enforced_signatures_map_onto_states() {
     let by_r = f.reviews.iter().find(|r| r.by == R).unwrap();
     assert_eq!(by_r.state, StampState::Unverified(UnverifiedReason::Signature(SigReason::NoSignature)));
     assert_eq!(ev.functions[&fid(other)].state, StampState::OutsideScope);
+}
+
+/// `signed_at` plausibility (#783): signed before the reviewed commit,
+/// after the commit that added the stamp, or on another day than `date`
+/// raises one "implausible signing time" flag naming every problem; the
+/// stamp stays valid (a flag, never a void). A v1 stamp (no `signed_at`)
+/// and a plausible v2 stamp get no flag; git times not supplied are not
+/// judged. Times: 2026-10-07T06:03:09Z = 1791352989.
+#[test]
+fn implausible_signed_at_is_flagged_and_does_not_void() {
+    use crate::review::signed_at::SignedAtProblem;
+    let t = 1_791_352_989;
+    let at = "2026-10-07T14:03:09+08:00";
+    let idx = [folder("x", D, &[("a.rs", vec![fun(F, 'a', &[], &[])])])];
+    let flags_for = |signed_at: Option<&str>, reviewed: Option<i64>, added: Option<i64>| {
+        let mut r = review(F, M, 'a', &[]);
+        r.review.signed_at = signed_at.map(str::to_string);
+        let revs = [reviews_in("x", D, vec![r])];
+        let mut g = git_for(&[&revs[0]]);
+        let facts = g.stamps.get_mut(&ReviewKey { function: fid(F), by: M.into() }).unwrap();
+        facts.reviewed_commit_time = reviewed;
+        if let Some(a) = facts.added_in.as_mut() {
+            a.committer_time = added;
+        }
+        let ev = eval(&revs, &idx, &root(), &g, &ConceptAreas::new(), SignaturePolicy::NotChecked);
+        let f = &ev.functions[&fid(F)];
+        assert_eq!(f.state, StampState::Valid, "a timing flag never voids");
+        let rid = revs[0].doc.reviews().next().map(|r| r.kovan.id.clone()).unwrap_or_default();
+        (f.flags.clone(), rid)
+    };
+    // v1: no flag even against impossible times.
+    assert!(flags_for(None, Some(t + 99_999), Some(t - 99_999)).0.is_empty());
+    // Plausible v2.
+    assert!(flags_for(Some(at), Some(t - 3600), Some(t + 3600)).0.is_empty());
+    // Within the 5-minute skew.
+    assert!(flags_for(Some(at), Some(t + 300), Some(t - 300)).0.is_empty());
+    // Each rule, then all at once.
+    let (f, rid) = flags_for(Some(at), Some(t + 3600), None);
+    assert_eq!(
+        f,
+        vec![FunctionFlag::ImplausibleSignedAt {
+            review: rid,
+            problems: vec![SignedAtProblem::BeforeReviewedCommit { signed_at: at.into(), commit_time: t + 3600 }],
+        }]
+    );
+    assert_eq!(f[0].kind(), FlagKind::ImplausibleSigningTime);
+    assert_eq!(FlagKind::ImplausibleSigningTime.label(), "implausible signing time");
+    assert!(FlagKind::ALL.contains(&FlagKind::ImplausibleSigningTime));
+    let (f, _) = flags_for(Some(at), None, Some(t - 3600));
+    assert!(matches!(&f[..], [FunctionFlag::ImplausibleSignedAt { problems, .. }]
+        if matches!(problems[..], [SignedAtProblem::AfterStampCommit { .. }])));
+    let (f, _) = flags_for(Some("2026-10-06T14:03:09+08:00"), None, None);
+    assert!(matches!(&f[..], [FunctionFlag::ImplausibleSignedAt { problems, .. }]
+        if matches!(problems[..], [SignedAtProblem::DateMismatch { .. }])));
+    let (f, _) = flags_for(Some("2026-10-06T14:03:09+08:00"), Some(t), Some(t - 90_000));
+    assert!(matches!(&f[..], [FunctionFlag::ImplausibleSignedAt { problems, .. }] if problems.len() == 3));
 }

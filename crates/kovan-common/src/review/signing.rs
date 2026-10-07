@@ -48,12 +48,13 @@
 //! forge a line), maps sorted by key:
 //!
 //! ```text
-//! kovan-review-signature-v1
+//! kovan-review-signature-v2         ("-v1" when there is no signed_at)
 //! kind="review"
 //! target="fn:3f2a9c0d1e4b5a67"     (the stable id, #764 hybrid id)
 //! by="github:theodoreOnzGit"
 //! rung="3"
 //! date="2026-10-07"
+//! signed_at="2026-10-07T14:03:09+08:00"   (v2 only; absent in v1)
 //! commit="<sha>"
 //! hash="sha256:…"
 //! doc_hash="sha256:…"
@@ -66,6 +67,22 @@
 //! relation="<kind>" "<target>"    (one line per relation, in order)
 //! ```
 //!
+//! **v1 and v2 (GitHub #783, 2026-10-07).** A stamp with a `signed_at`
+//! (RFC 3339 to the second, with offset; [`super::signed_at`]) is signed
+//! as **v2**: the first line reads `kovan-review-signature-v2` and a
+//! `signed_at=` line follows `date=`. A stamp without one is signed as
+//! **v1**, byte for byte as before #783, so every stamp signed earlier
+//! verifies unchanged (pinned by `signing/fixtures/review_v1.md`, signed
+//! before #783, and its `.signed.txt` byte images). Both the header and the
+//! optional line change, rather than only one: removing `signed_at` from a
+//! v2 stamp gives v1 bytes the signature was not taken over, and adding one
+//! to a v1 stamp gives v2 bytes it was not taken over, so either edit reads
+//! as [`UnverifiedReason::BadSignature`]; the header also tells a reader
+//! which form a signature is over without parsing the rest. Architecture
+//! nodes follow the same rule. Whether `signed_at` is *plausible* is the
+//! staleness engine's flag ([`super::signed_at::plausibility`]), never a
+//! verification failure here.
+//!
 //! **Location is not signed (2026-10-07, with the hybrid id).** `path` and
 //! the `[[review.moved]]` records are where the function is now and how it
 //! got there; kovan rewrites them when the maintainer acknowledges a move,
@@ -76,7 +93,7 @@
 //! `kovan.toml`, so an edited `path` cannot move a stamp into scope.
 //!
 //! The artifact id, `created`/`modified`, the Markdown comments and the
-//! signature itself are not signed (the signing comment on #739 lists the
+//! signature itself are not signed (`signed_at` is: #783) (the signing comment on #739 lists the
 //! fields: target, hash, commit, `by`, date, checklist; the rest above are
 //! the review's other certifying fields). The authorship of the reviewed
 //! change is signed (maintainer, #764, 2026-10-07).
@@ -111,6 +128,10 @@ mod tests;
 #[path = "signing/history_tests.rs"]
 mod history_tests;
 
+#[cfg(all(test, not(target_arch = "wasm32")))]
+#[path = "signing/signed_at_tests.rs"]
+mod signed_at_tests;
+
 use registry::{KeyStatus, Registry};
 
 /// The only signature algorithm (#739 signing comment).
@@ -139,15 +160,32 @@ fn line(out: &mut String, key: &str, values: &[&str]) {
     out.push('\n');
 }
 
+/// The first line of a stamp's signed bytes: v1 without `signed_at`, v2
+/// with it (module doc, "v1 and v2").
+fn stamp_header(signed_at: Option<&str>) -> String {
+    match signed_at {
+        Some(_) => String::from("kovan-review-signature-v2\n"),
+        None => String::from("kovan-review-signature-v1\n"),
+    }
+}
+
+/// The `signed_at` line of a v2 stamp, right after `date`; nothing in v1.
+fn signed_at_line(out: &mut String, signed_at: Option<&str>) {
+    if let Some(t) = signed_at {
+        line(out, "signed_at", &[t]);
+    }
+}
+
 /// The bytes a review's signature is taken over (module doc).
 pub fn signed_bytes(r: &ReviewEntry) -> Vec<u8> {
     let b = &r.review;
-    let mut s = String::from("kovan-review-signature-v1\n");
+    let mut s = stamp_header(b.signed_at.as_deref());
     line(&mut s, "kind", &["review"]);
     line(&mut s, "target", &[&r.function_id()]);
     line(&mut s, "by", &[&b.by]);
     line(&mut s, "rung", &[&b.rung.to_string()]);
     line(&mut s, "date", &[&b.date]);
+    signed_at_line(&mut s, b.signed_at.as_deref());
     line(&mut s, "commit", &[&b.commit]);
     line(&mut s, "hash", &[&b.hash]);
     line(&mut s, "doc_hash", &[&b.doc_hash]);
@@ -176,16 +214,18 @@ pub fn signed_bytes(r: &ReviewEntry) -> Vec<u8> {
 }
 
 /// The bytes an architecture node's signature is taken over: the same
-/// line format, `kind="architecture"`, then by, date, commit, each member
+/// line format, `kind="architecture"`, then by, date, `signed_at` (v2
+/// only), commit, each member
 /// (sorted), the upstream's repository and commit, the pattern, and the
 /// relations.
 pub fn architecture_signed_bytes(a: &ArchitectureEntry) -> Vec<u8> {
     let b = &a.architecture;
-    let mut s = String::from("kovan-review-signature-v1\n");
+    let mut s = stamp_header(b.signed_at.as_deref());
     line(&mut s, "kind", &["architecture"]);
     line(&mut s, "id", &[&a.kovan.id]);
     line(&mut s, "by", &[&b.by]);
     line(&mut s, "date", &[&b.date]);
+    signed_at_line(&mut s, b.signed_at.as_deref());
     line(&mut s, "commit", &[&b.commit]);
     let mut members = b.members.clone();
     members.sort();
@@ -206,7 +246,6 @@ pub fn architecture_signed_bytes(a: &ArchitectureEntry) -> Vec<u8> {
     }
     s.into_bytes()
 }
-
 
 /// *v1 (legacy).* The bytes an endorsement signed: `owner`'s key `k`
 /// vouched for by an existing key (of the same reviewer, or a maintainer's

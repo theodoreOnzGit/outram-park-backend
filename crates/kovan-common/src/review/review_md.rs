@@ -44,6 +44,7 @@
 //! by = "github:theodoreOnzGit"
 //! rung = 3
 //! date = "2026-10-07"
+//! signed_at = "2026-10-07T14:03:09+08:00"   (since #783; absent on v1 stamps)
 //! commit = "<40 hex>"
 //! hash = "sha256:<64 hex>"
 //! doc_hash = "sha256:<64 hex>"
@@ -145,6 +146,11 @@ pub struct ReviewBody {
     pub rung: u8,
     /// `YYYY-MM-DD`.
     pub date: String,
+    /// When the stamp was signed: RFC 3339 to the second, with its UTC
+    /// offset (GitHub #783; [`super::signed_at`]). Signed (the v2 signed
+    /// bytes); absent on a stamp signed before #783, which stays v1.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub signed_at: Option<String>,
     /// The commit the review certifies.
     pub commit: String,
     pub hash: String,
@@ -321,6 +327,9 @@ pub struct ArchitectureBody {
     /// Who recorded it, when, and at which commit (signed like a review).
     pub by: String,
     pub date: String,
+    /// When it was signed, as a review's `signed_at` (GitHub #783).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub signed_at: Option<String>,
     pub commit: String,
     /// The stable function ids that make up the node.
     #[serde(default)]

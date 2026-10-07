@@ -13,7 +13,11 @@
 //! qualifications) loads, its ids migrated in memory to `fn:` ids; v2 (the
 //! hybrid `fn:` id with `path`, per-area qualification records, upstream
 //! tag labels) loads unchanged. Each has 1 root, 1 index and a `review.md`
-//! of 6 entries (one of each kind but `other`).
+//! of 6 entries (one of each kind but `other`). v3 (GitHub #783,
+//! 2026-10-07) is v2 plus `signed_at` on the review and the architecture
+//! node; v1 and v2 load with `signed_at` absent and still re-emit without
+//! it (`signing/signed_at_tests.rs` pins a signed v1 `review.md` byte for
+//! byte, and its signatures).
 
 use std::path::Path;
 
@@ -51,6 +55,14 @@ fn every_committed_review_fixture_loads() {
             _ => assert!(doc.migrated.is_empty(), "{}: {:?}", dir.display(), doc.migrated),
         }
         assert!(doc.reviews().all(|r| kovan_common::review::id::is_fn_id(&r.function_id())));
+        // `signed_at` (#783) exists from v3 on, and never appears from nowhere.
+        let has_signed_at = doc.reviews().any(|r| r.review.signed_at.is_some())
+            && doc.architectures().any(|a| a.architecture.signed_at.is_some());
+        let v3_or_later = !matches!(dir.file_name().and_then(|n| n.to_str()), Some("v1" | "v2"));
+        assert_eq!(has_signed_at, v3_or_later, "{}", dir.display());
+        if !v3_or_later {
+            assert!(!render_review_md(&doc.entries).unwrap().contains("signed_at"));
+        }
         let again = parse_review_md(&render_review_md(&doc.entries).unwrap());
         let strip = |d: &kovan_common::review::review_md::ReviewDocument| {
             d.entries

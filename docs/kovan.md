@@ -101,6 +101,16 @@ silently.** It aims to be **tamper-evident, not tamper-proof**:
   Pages, and open needs-fix notes are published ("integrity matters over how good
   the code looks").
 - Fallbacks are allowed only when the return type reports them, never silently.
+- Timing claims are **checked against git, and a misfit is flagged, never
+  rejected** (gh #783, 2026-10-07). Each review or architecture stamp signs
+  `date` (the day) and, since #783, `signed_at` (RFC 3339 to the second,
+  with UTC offset; a v2 signature, while v1 stamps without it verify
+  unchanged). The staleness engine flags "implausible signing time" when
+  `signed_at` is before the reviewed commit's committer time, after the
+  committer time of the commit that added the stamp, or on a different day
+  from `date`, each with 5 minutes' clock skew. Git timestamps are
+  forgeable, so this is tamper evidence, not proof; the ed25519 key is what
+  stops forgery. Details: `kovan_common::review::signed_at`.
 
 Deliberate, skilled forgery is out of scope for the open repository. Tamper
 evidence is what an open repository can guarantee. Qualification to NQA-1 would

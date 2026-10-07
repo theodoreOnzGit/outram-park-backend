@@ -12490,7 +12490,15 @@ not record interfaces, so the reviewer's own judgement is taken).
 function now but did not at the review commit ("new test reaches
 reviewed function": flagged for review, and itself unreviewed code), and
 identical copies of reviewed code ("duplicate code": the review shows on
-**every** candidate; maintainer on #765, 2026-10-07).
+**every** candidate; maintainer on #765, 2026-10-07), and an implausible
+`signed_at` ("implausible signing time", GitHub #783: signed before the
+reviewed commit, after the commit that added the stamp, or on another
+day than `date`, each with 5 minutes' clock skew;
+[`super::signed_at`]). The git times for the last come in as data
+([`StampFacts::reviewed_commit_time`], [`StampCommit::committer_time`]);
+"the commit that introduced the stamp" is [`StampFacts::added_in`], the
+same commit the authenticity rule checks. A v1 stamp (no `signed_at`) is
+never flagged.
 ~~A review's rung 4 counts only when the wizard's gate opens it,
 otherwise it counts as rung 3 and is flagged~~ **CORRECTED 2026-10-07**. A
 function is at **rung 5** when, besides its earliest valid review, a
@@ -12757,6 +12765,7 @@ pub struct StampCommit {
     pub commit: String,
     pub after_certified: bool,
     pub agent_trailer: bool,
+    pub committer_time: Option<i64>,
 }
 ```
 
@@ -12767,6 +12776,7 @@ pub struct StampCommit {
 | `commit` | `String` |  |
 | `after_certified` | `bool` | It is a strict descendant of the commit the stamp certifies. |
 | `agent_trailer` | `bool` | Its message carries `Co-Authored-By: Claude…` or `Claude-Session:`. |
+| `committer_time` | `Option<i64>` | Its committer time, seconds since the epoch (`git log -1<br>--format=%ct`), for the `signed_at` plausibility flag (#783); `None`<br>when not looked up (the check is skipped). |
 
 ##### Implementations
 
@@ -12865,6 +12875,7 @@ What git says about one stamp (computed by the caller).
 pub struct StampFacts {
     pub hash_at_commit: Option<String>,
     pub added_in: Option<StampCommit>,
+    pub reviewed_commit_time: Option<i64>,
     pub tests_at_review: Option<TestsAtReview>,
 }
 ```
@@ -12875,6 +12886,7 @@ pub struct StampFacts {
 |------|------|---------------|
 | `hash_at_commit` | `Option<String>` | The function's `hash` recomputed at the certified commit; `None` when<br>it could not be found there. |
 | `added_in` | `Option<StampCommit>` | `None` when the stamp is not committed yet. |
+| `reviewed_commit_time` | `Option<i64>` | The committer time of the commit the stamp certifies (its<br>`commit`), seconds since the epoch, for the `signed_at`<br>plausibility flag (#783); `None` when not looked up. |
 | `tests_at_review` | `Option<TestsAtReview>` | The tests that reached the function at the certified commit, with<br>git facts as of that commit; `None` when not computed (then git's<br>view is unknown: rung 3, and no new-test flags). |
 
 ##### Implementations
@@ -14593,6 +14605,10 @@ pub enum FunctionFlag {
     DuplicateCode {
         copies: Vec<String>,
     },
+    ImplausibleSignedAt {
+        review: String,
+        problems: Vec<super::signed_at::SignedAtProblem>,
+    },
 }
 ```
 
@@ -14620,6 +14636,19 @@ Fields:
 | Name | Type | Documentation |
 |------|------|---------------|
 | `copies` | `Vec<String>` |  |
+
+###### `ImplausibleSignedAt`
+
+A review's `signed_at` is implausible against git or its own `date`
+(#783, [`super::signed_at::plausibility`]): tamper evidence, never a
+void.
+
+Fields:
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `review` | `String` |  |
+| `problems` | `Vec<super::signed_at::SignedAtProblem>` |  |
 
 ##### Implementations
 
@@ -20528,6 +20557,7 @@ path = "crates/tampines/src/steam.rs::SteamTable::flash"
 by = "github:theodoreOnzGit"
 rung = 3
 date = "2026-10-07"
+signed_at = "2026-10-07T14:03:09+08:00"   (since #783; absent on v1 stamps)
 commit = "<40 hex>"
 hash = "sha256:<64 hex>"
 doc_hash = "sha256:<64 hex>"
@@ -20837,6 +20867,7 @@ pub struct ReviewBody {
     pub by: String,
     pub rung: u8,
     pub date: String,
+    pub signed_at: Option<String>,
     pub commit: String,
     pub hash: String,
     pub doc_hash: String,
@@ -20859,6 +20890,7 @@ pub struct ReviewBody {
 | `by` | `String` | `github:` / `gitlab:` / `orcid:` / email. |
 | `rung` | `u8` | 3 human reviewed, 4 human V&V (gated on `vv_evidence` and<br>`independence`: [`super::wizard::stamp_gate`]). 5 is derived. |
 | `date` | `String` | `YYYY-MM-DD`. |
+| `signed_at` | `Option<String>` | When the stamp was signed: RFC 3339 to the second, with its UTC<br>offset (GitHub #783; [`super::signed_at`]). Signed (the v2 signed<br>bytes); absent on a stamp signed before #783, which stays v1. |
 | `commit` | `String` | The commit the review certifies. |
 | `hash` | `String` |  |
 | `doc_hash` | `String` |  |
@@ -22307,6 +22339,7 @@ where
 pub struct ArchitectureBody {
     pub by: String,
     pub date: String,
+    pub signed_at: Option<String>,
     pub commit: String,
     pub members: Vec<String>,
     pub member_paths: Vec<String>,
@@ -22323,6 +22356,7 @@ pub struct ArchitectureBody {
 |------|------|---------------|
 | `by` | `String` | Who recorded it, when, and at which commit (signed like a review). |
 | `date` | `String` |  |
+| `signed_at` | `Option<String>` | When it was signed, as a review's `signed_at` (GitHub #783). |
 | `commit` | `String` |  |
 | `members` | `Vec<String>` | The stable function ids that make up the node. |
 | `member_paths` | `Vec<String>` | The members' current locations (`file.rs::item`), for display and<br>the scope check; location metadata, updated on a move acknowledge<br>and not signed (added 2026-10-07 with the hybrid id). |
@@ -26610,6 +26644,396 @@ Whether `path` is inside any of `globs`.
 pub fn in_scope(globs: &[String], path: &str) -> bool { /* ... */ }
 ```
 
+## Module `signed_at`
+
+**`signed_at`**: the full signing time of a stamp, and its plausibility
+checks (GitHub #783; maintainer, 2026-10-07, follow-up to #762 and #739
+D6).
+
+The signed `date` is day-level only. `signed_at` is an RFC 3339
+timestamp **to the second, with its UTC offset**
+(`2026-10-07T14:03:09+08:00`, or `Z` for UTC), written into the signed
+bytes ([`super::signing`], the `kovan-review-signature-v2` header). A
+stamp signed before #783 has none (v1) and is judged exactly as before.
+
+# The plausibility flags
+
+Git timestamps are forgeable, so these are **tamper evidence, not
+proof** (Leak Before Break, `docs/kovan.md`): each failure is a visible
+flag on the function ([`super::engine::FunctionFlag::ImplausibleSignedAt`]),
+never a rejection and never a void. The ed25519 key is what stops
+forgery. A stamp is flagged when
+
+1. `signed_at` is earlier than the committer time of the reviewed
+   `commit` ([`SignedAtProblem::BeforeReviewedCommit`]): the review
+   claims to predate the code it certifies;
+2. `signed_at` is later than the committer time of the commit that
+   introduced the stamp ([`SignedAtProblem::AfterStampCommit`]): the
+   stamp was committed before it was signed;
+3. the calendar date of `signed_at`, **in the offset it was written
+   with**, is not `date` ([`SignedAtProblem::DateMismatch`]);
+4. `signed_at` is present but not RFC 3339 to the second
+   ([`SignedAtProblem::Unparseable`]): nothing else can be judged.
+
+**Clock skew.** Every comparison allows [`SKEW_SECONDS`] (5 minutes)
+either way: two machines' clocks, or a commit made seconds after signing
+on a slightly slow clock, must not raise a flag. For the date check, a
+`date` that is the date of either `signed_at - 5 min` or `signed_at +
+5 min` (in the written offset) passes.
+
+A check whose git time the caller did not supply (`None`) is skipped,
+not flagged: no fact, no judgement.
+
+**No local time zone.** `std` exposes no local zone and the workspace
+carries no date crate (the reasoning in `kovan-metrics`' `date` module),
+so [`now_utc`], which [`super::signing::keystore::UnlockedKey::sign_review`]
+uses, writes UTC (`+00:00`). A caller that knows the local offset signs
+with `sign_review_at` instead; the reviewer's `date` must then be the
+date in that same offset, or flag 3 shows.
+
+```rust
+pub mod signed_at { /* ... */ }
+```
+
+### Types
+
+#### Struct `Rfc3339`
+
+A parsed `signed_at`.
+
+```rust
+pub struct Rfc3339 {
+    pub unix: i64,
+    pub offset_minutes: i32,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `unix` | `i64` | Seconds since 1970-01-01T00:00:00Z. |
+| `offset_minutes` | `i32` | The written UTC offset, in minutes (`+08:00` is 480; `Z` is 0). |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn local_date(self: &Self, shift: i64) -> String { /* ... */ }
+  ```
+  The calendar date (`YYYY-MM-DD`) of `unix + shift` seconds, in the
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Rfc3339 { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Rfc3339) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Enum `SignedAtProblem`
+
+One implausibility of a stamp's `signed_at` (module doc). Times are
+seconds since the epoch.
+
+```rust
+pub enum SignedAtProblem {
+    Unparseable {
+        signed_at: String,
+    },
+    BeforeReviewedCommit {
+        signed_at: String,
+        commit_time: i64,
+    },
+    AfterStampCommit {
+        signed_at: String,
+        commit_time: i64,
+    },
+    DateMismatch {
+        signed_at: String,
+        date: String,
+    },
+}
+```
+
+##### Variants
+
+###### `Unparseable`
+
+Not RFC 3339 to the second.
+
+Fields:
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `signed_at` | `String` |  |
+
+###### `BeforeReviewedCommit`
+
+Signed more than [`SKEW_SECONDS`] before the reviewed commit was
+committed.
+
+Fields:
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `signed_at` | `String` |  |
+| `commit_time` | `i64` |  |
+
+###### `AfterStampCommit`
+
+Signed more than [`SKEW_SECONDS`] after the commit that introduced
+the stamp was committed.
+
+Fields:
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `signed_at` | `String` |  |
+| `commit_time` | `i64` |  |
+
+###### `DateMismatch`
+
+`signed_at`'s date, in its own offset, is not `date`.
+
+Fields:
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `signed_at` | `String` |  |
+| `date` | `String` |  |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn describe(self: &Self) -> String { /* ... */ }
+  ```
+  Plain-English text for a flag tooltip or a CLI line.
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> SignedAtProblem { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &SignedAtProblem) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+### Functions
+
+#### Function `parse_rfc3339`
+
+Parse `YYYY-MM-DDTHH:MM:SS` followed by `Z` or `±HH:MM` (RFC 3339 to
+the second; no fraction, `T` and `Z` upper case as kovan writes them).
+`None` for anything else, including an impossible date or time.
+
+```rust
+pub fn parse_rfc3339(s: &str) -> Option<Rfc3339> { /* ... */ }
+```
+
+#### Function `format_utc`
+
+`unix` as RFC 3339 in UTC, to the second: `YYYY-MM-DDTHH:MM:SS+00:00`.
+
+```rust
+pub fn format_utc(unix: i64) -> String { /* ... */ }
+```
+
+#### Function `now_utc`
+
+**Attributes:**
+
+- `Other("#[attr = CfgTrace([Not(NameValue { name: \"target_arch\", value: Some(\"wasm32\"), span: crates/kovan-common/src/review/signed_at.rs:148:11: 148:33 (#0) }, crates/kovan-common/src/review/signed_at.rs:148:10: 148:34 (#0))])]")`
+
+The clock now, as [`format_utc`]. Native only (`SystemTime::now` panics
+on wasm32-unknown-unknown); a clock before 1970 reads as the epoch.
+
+```rust
+pub fn now_utc() -> String { /* ... */ }
+```
+
+#### Function `plausibility`
+
+Judge a stamp's `signed_at` (module doc). `reviewed_commit_time` is the
+committer time of the stamp's `commit`; `stamp_commit_time` that of the
+commit that introduced the stamp. A v1 stamp (`signed_at = None`) gets
+no flag.
+
+```rust
+pub fn plausibility(signed_at: Option<&str>, date: &str, reviewed_commit_time: Option<i64>, stamp_commit_time: Option<i64>) -> Vec<SignedAtProblem> { /* ... */ }
+```
+
+### Constants and Statics
+
+#### Constant `SKEW_SECONDS`
+
+The clock skew every check allows, either way (5 minutes).
+
+```rust
+pub const SKEW_SECONDS: i64 = 300;
+```
+
 ## Module `signing`
 
 **Stamp signatures** (GitHub #762; design on #739, comments "Stamp
@@ -26662,12 +27086,13 @@ value written as a JSON string (so a newline or `=` inside a value cannot
 forge a line), maps sorted by key:
 
 ```text
-kovan-review-signature-v1
+kovan-review-signature-v2         ("-v1" when there is no signed_at)
 kind="review"
 target="fn:3f2a9c0d1e4b5a67"     (the stable id, #764 hybrid id)
 by="github:theodoreOnzGit"
 rung="3"
 date="2026-10-07"
+signed_at="2026-10-07T14:03:09+08:00"   (v2 only; absent in v1)
 commit="<sha>"
 hash="sha256:…"
 doc_hash="sha256:…"
@@ -26680,6 +27105,22 @@ no_concept="…"                  (or "")
 relation="<kind>" "<target>"    (one line per relation, in order)
 ```
 
+**v1 and v2 (GitHub #783, 2026-10-07).** A stamp with a `signed_at`
+(RFC 3339 to the second, with offset; [`super::signed_at`]) is signed
+as **v2**: the first line reads `kovan-review-signature-v2` and a
+`signed_at=` line follows `date=`. A stamp without one is signed as
+**v1**, byte for byte as before #783, so every stamp signed earlier
+verifies unchanged (pinned by `signing/fixtures/review_v1.md`, signed
+before #783, and its `.signed.txt` byte images). Both the header and the
+optional line change, rather than only one: removing `signed_at` from a
+v2 stamp gives v1 bytes the signature was not taken over, and adding one
+to a v1 stamp gives v2 bytes it was not taken over, so either edit reads
+as [`UnverifiedReason::BadSignature`]; the header also tells a reader
+which form a signature is over without parsing the rest. Architecture
+nodes follow the same rule. Whether `signed_at` is *plausible* is the
+staleness engine's flag ([`super::signed_at::plausibility`]), never a
+verification failure here.
+
 **Location is not signed (2026-10-07, with the hybrid id).** `path` and
 the `[[review.moved]]` records are where the function is now and how it
 got there; kovan rewrites them when the maintainer acknowledges a move,
@@ -26690,7 +27131,7 @@ staleness engine checks scope on the function's actual location from
 `kovan.toml`, so an edited `path` cannot move a stamp into scope.
 
 The artifact id, `created`/`modified`, the Markdown comments and the
-signature itself are not signed (the signing comment on #739 lists the
+signature itself are not signed (`signed_at` is: #783) (the signing comment on #739 lists the
 fields: target, hash, commit, `by`, date, checklist; the rest above are
 the review's other certifying fields). The authorship of the reviewed
 change is signed (maintainer, #764, 2026-10-07).
@@ -29160,7 +29601,7 @@ pub fn retire_key(k: &mut super::super::root::ReviewerKey, date: &str) -> Result
 
 **Attributes:**
 
-- `Other("#[attr = CfgTrace([Not(NameValue { name: \"target_arch\", value: Some(\"wasm32\"), span: crates/kovan-common/src/review/signing.rs:103:11: 103:33 (#0) }, crates/kovan-common/src/review/signing.rs:103:10: 103:34 (#0))])]")`
+- `Other("#[attr = CfgTrace([Not(NameValue { name: \"target_arch\", value: Some(\"wasm32\"), span: crates/kovan-common/src/review/signing.rs:120:11: 120:33 (#0) }, crates/kovan-common/src/review/signing.rs:120:10: 120:34 (#0))])]")`
 
 **The keystore**: one ed25519 key per reviewer, generated inside kovan,
 its private half encrypted at rest (GitHub #762; #739 "Stamp signing
@@ -29481,6 +29922,7 @@ pub enum SignError {
     NotRetired,
     BadDate(String),
     Lifecycle(super::registry::LifecycleError),
+    BadSignedAt(String),
 }
 ```
 
@@ -29534,6 +29976,17 @@ Fields:
 | Index | Type | Documentation |
 |-------|------|---------------|
 | 0 | `super::registry::LifecycleError` |  |
+
+###### `BadSignedAt`
+
+A `signed_at` given to [`UnlockedKey::sign_review_at`] is not RFC
+3339 to the second with an offset ([`parse_rfc3339`]).
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `String` |  |
 
 ##### Implementations
 
@@ -30083,9 +30536,19 @@ pub struct UnlockedKey {
   Sign a review this reviewer wrote (`[review] by` must be this key's
 
 - ```rust
+  pub fn sign_review_at(self: &Self, r: &mut ReviewEntry, signed_at: &str) -> Result<(), SignError> { /* ... */ }
+  ```
+  [`Self::sign_review`] at a given `signed_at` (RFC 3339 to the second,
+
+- ```rust
   pub fn sign_architecture(self: &Self, a: &mut ArchitectureEntry) -> Result<(), SignError> { /* ... */ }
   ```
-  Sign an architecture node this reviewer recorded.
+  Sign an architecture node this reviewer recorded; sets `signed_at`
+
+- ```rust
+  pub fn sign_architecture_at(self: &Self, a: &mut ArchitectureEntry, signed_at: &str) -> Result<(), SignError> { /* ... */ }
+  ```
+  [`Self::sign_architecture`] at a given `signed_at`.
 
 - ```rust
   pub fn endorse(self: &Self, owner: &str, k: &mut ReviewerKey, date: &str) -> Result<(), SignError> { /* ... */ }
@@ -31192,7 +31655,8 @@ pub fn signed_bytes(r: &super::review_md::ReviewEntry) -> Vec<u8> { /* ... */ }
 #### Function `architecture_signed_bytes`
 
 The bytes an architecture node's signature is taken over: the same
-line format, `kind="architecture"`, then by, date, commit, each member
+line format, `kind="architecture"`, then by, date, `signed_at` (v2
+only), commit, each member
 (sorted), the upstream's repository and commit, the pattern, and the
 relations.
 
@@ -31715,6 +32179,7 @@ A flag on a function: shown and queued, but it never voids a stamp
 pub enum FlagKind {
     NewReachingTest,
     DuplicateCode,
+    ImplausibleSigningTime,
 }
 ```
 
@@ -31729,6 +32194,12 @@ now reaches it. Flagged for review; the test is unreviewed code.
 
 The same code exists more than once; the review shows on each copy.
 
+###### `ImplausibleSigningTime`
+
+A review's `signed_at` is implausible: before the reviewed commit,
+after the commit that added the stamp, or on another day than its
+`date` (GitHub #783). Tamper evidence; the stamp still counts.
+
 ##### Implementations
 
 ###### Methods
@@ -31740,7 +32211,7 @@ The same code exists more than once; the review shows on each copy.
 - ```rust
   pub fn needs_person(self: Self) -> bool { /* ... */ }
   ```
-  Both are in the desktop queue.
+  All are in the desktop queue.
 
 ###### Trait Implementations
 

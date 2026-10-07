@@ -44,6 +44,7 @@ use super::super::review_md::{ArchitectureEntry, ReviewEntry};
 use super::super::root::{
     KeyEvent, KeyEventKind, KeySignature, KeySigner, Revocation, Reviewer, ReviewerKey,
 };
+use super::super::signed_at::{now_utc, parse_rfc3339};
 use super::super::types::{reviewer_id_kind, FieldError};
 use super::registry::{check_append_date, open_retirement, LifecycleError};
 use super::{
@@ -144,6 +145,9 @@ pub enum SignError {
     BadDate(String),
     /// The event cannot be appended (a bad or backwards date).
     Lifecycle(LifecycleError),
+    /// A `signed_at` given to [`UnlockedKey::sign_review_at`] is not RFC
+    /// 3339 to the second with an offset ([`parse_rfc3339`]).
+    BadSignedAt(String),
 }
 
 impl std::fmt::Display for SignError {
@@ -157,11 +161,19 @@ impl std::fmt::Display for SignError {
             Self::NotRetired => write!(f, "the key is not retired (with a date)"),
             Self::BadDate(d) => write!(f, "bad date {d:?}"),
             Self::Lifecycle(e) => write!(f, "{e}"),
+            Self::BadSignedAt(t) => write!(f, "signed_at {t:?} is not RFC 3339 to the second"),
         }
     }
 }
 
 impl std::error::Error for SignError {}
+
+fn check_signed_at(signed_at: &str) -> Result<(), SignError> {
+    match parse_rfc3339(signed_at) {
+        Some(_) => Ok(()),
+        None => Err(SignError::BadSignedAt(signed_at.to_string())),
+    }
+}
 
 /// `[kdf]`.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -427,17 +439,37 @@ impl UnlockedKey {
     }
 
     /// Sign a review this reviewer wrote (`[review] by` must be this key's
-    /// reviewer); sets `[review.signature]`.
+    /// reviewer); sets `[review] signed_at` from the clock, in UTC
+    /// ([`now_utc`]; GitHub #783), and `[review.signature]` over the v2
+    /// signed bytes.
     pub fn sign_review(&self, r: &mut ReviewEntry) -> Result<(), SignError> {
+        self.sign_review_at(r, &now_utc())
+    }
+
+    /// [`Self::sign_review`] at a given `signed_at` (RFC 3339 to the second,
+    /// with offset): for a caller that knows the local offset, and for
+    /// tests. Refuses a `signed_at` that does not parse; nothing is changed
+    /// on any refusal.
+    pub fn sign_review_at(&self, r: &mut ReviewEntry, signed_at: &str) -> Result<(), SignError> {
         self.own(&r.review.by)?;
+        check_signed_at(signed_at)?;
+        r.review.signed_at = Some(signed_at.to_string());
         let value = self.sign(&signed_bytes(r));
         r.review.signature = Some(Signature { key: self.key.clone(), alg: ALG.into(), value });
         Ok(())
     }
 
-    /// Sign an architecture node this reviewer recorded.
+    /// Sign an architecture node this reviewer recorded; sets `signed_at`
+    /// from the clock as [`Self::sign_review`] does.
     pub fn sign_architecture(&self, a: &mut ArchitectureEntry) -> Result<(), SignError> {
+        self.sign_architecture_at(a, &now_utc())
+    }
+
+    /// [`Self::sign_architecture`] at a given `signed_at`.
+    pub fn sign_architecture_at(&self, a: &mut ArchitectureEntry, signed_at: &str) -> Result<(), SignError> {
         self.own(&a.architecture.by)?;
+        check_signed_at(signed_at)?;
+        a.architecture.signed_at = Some(signed_at.to_string());
         let value = self.sign(&architecture_signed_bytes(a));
         a.architecture.signature = Some(Signature { key: self.key.clone(), alg: ALG.into(), value });
         Ok(())

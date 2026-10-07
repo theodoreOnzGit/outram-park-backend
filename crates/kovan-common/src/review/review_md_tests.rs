@@ -38,6 +38,7 @@ pub(crate) fn review(function: &str, _file: &str, by: &str) -> ReviewEntry {
             by: by.into(),
             rung: 3,
             date: "2026-10-07".into(),
+            signed_at: None,
             commit: SHA.into(),
             hash: h('a'),
             doc_hash: h('b'),
@@ -170,6 +171,7 @@ fn every_entry_kind_round_trips() {
         architecture: ArchitectureBody {
             by: "github:theodoreOnzGit".into(),
             date: "2026-10-07".into(),
+            signed_at: None,
             commit: SHA.into(),
             members: vec![fid("crates/t/src/steam.rs::flash")],
             member_paths: vec!["crates/t/src/steam.rs::flash".into()],

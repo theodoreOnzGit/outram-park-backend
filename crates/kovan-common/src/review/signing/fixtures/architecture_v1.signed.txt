@@ -1,0 +1,9 @@
+kovan-review-signature-v1
+kind="architecture"
+id="arch-steam"
+by="github:founder"
+date="2026-10-07"
+commit="0123456789abcdef0123456789abcdef01234567"
+member="fn:3bbbea796e38ff70"
+upstream="" ""
+pattern="concept:flash"

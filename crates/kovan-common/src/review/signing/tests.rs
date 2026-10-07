@@ -51,6 +51,7 @@ pub(super) fn review_entry(function: &str, by: &str, date: &str) -> ReviewEntry 
             by: by.into(),
             rung: 3,
             date: date.into(),
+            signed_at: None,
             commit: SHA.into(),
             hash: h('a'),
             doc_hash: h('b'),
@@ -662,6 +663,7 @@ fn architecture_signing_and_scope() {
         architecture: ArchitectureBody {
             by: by.into(),
             date: "2026-10-08".into(),
+            signed_at: None,
             commit: SHA.into(),
             members,
             member_paths: vec![],

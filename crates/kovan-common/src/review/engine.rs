@@ -77,7 +77,15 @@
 //! function now but did not at the review commit ("new test reaches
 //! reviewed function": flagged for review, and itself unreviewed code), and
 //! identical copies of reviewed code ("duplicate code": the review shows on
-//! **every** candidate; maintainer on #765, 2026-10-07).
+//! **every** candidate; maintainer on #765, 2026-10-07), and an implausible
+//! `signed_at` ("implausible signing time", GitHub #783: signed before the
+//! reviewed commit, after the commit that added the stamp, or on another
+//! day than `date`, each with 5 minutes' clock skew;
+//! [`super::signed_at`]). The git times for the last come in as data
+//! ([`StampFacts::reviewed_commit_time`], [`StampCommit::committer_time`]);
+//! "the commit that introduced the stamp" is [`StampFacts::added_in`], the
+//! same commit the authenticity rule checks. A v1 stamp (no `signed_at`) is
+//! never flagged.
 //! ~~A review's rung 4 counts only when the wizard's gate opens it,
 //! otherwise it counts as rung 3 and is flagged~~ **CORRECTED 2026-10-07**. A
 //! function is at **rung 5** when, besides its earliest valid review, a
@@ -107,6 +115,7 @@ use super::index::{FolderIndex, FunctionIndex, Suite, TestRun};
 use super::review_md::{DeletedFunction, FixStatus, ReviewDocument, ReviewEntry};
 use super::root::{ReviewRoot, Role};
 use super::scope::in_scope;
+use super::signed_at::{plausibility, SignedAtProblem};
 use super::signing::registry::Registry;
 use super::signing::{verify_review, SignatureCheck, UnverifiedReason as SigReason};
 use super::state::FlagKind;
@@ -139,6 +148,10 @@ pub struct StampCommit {
     pub after_certified: bool,
     /// Its message carries `Co-Authored-By: Claude…` or `Claude-Session:`.
     pub agent_trailer: bool,
+    /// Its committer time, seconds since the epoch (`git log -1
+    /// --format=%ct`), for the `signed_at` plausibility flag (#783); `None`
+    /// when not looked up (the check is skipped).
+    pub committer_time: Option<i64>,
 }
 
 /// What git says about one stamp (computed by the caller).
@@ -149,6 +162,10 @@ pub struct StampFacts {
     pub hash_at_commit: Option<String>,
     /// `None` when the stamp is not committed yet.
     pub added_in: Option<StampCommit>,
+    /// The committer time of the commit the stamp certifies (its
+    /// `commit`), seconds since the epoch, for the `signed_at`
+    /// plausibility flag (#783); `None` when not looked up.
+    pub reviewed_commit_time: Option<i64>,
     /// The tests that reached the function at the certified commit, with
     /// git facts as of that commit; `None` when not computed (then git's
     /// view is unknown: rung 3, and no new-test flags).
@@ -396,6 +413,10 @@ pub enum FunctionFlag {
     /// Identical code (same hash) found more than once: the review shows on
     /// every copy; `copies` are the other candidates.
     DuplicateCode { copies: Vec<String> },
+    /// A review's `signed_at` is implausible against git or its own `date`
+    /// (#783, [`super::signed_at::plausibility`]): tamper evidence, never a
+    /// void.
+    ImplausibleSignedAt { review: String, problems: Vec<SignedAtProblem> },
 }
 
 impl FunctionFlag {
@@ -403,6 +424,7 @@ impl FunctionFlag {
         match self {
             Self::NewReachingTests { .. } => FlagKind::NewReachingTest,
             Self::DuplicateCode { .. } => FlagKind::DuplicateCode,
+            Self::ImplausibleSignedAt { .. } => FlagKind::ImplausibleSigningTime,
         }
     }
 }
@@ -805,10 +827,15 @@ pub fn evaluate(
             } else {
                 candidates.iter().filter_map(|c| current.get(c.as_str())).collect()
             };
-            let at_review = git
-                .stamps
-                .get(&ReviewKey { function: fid.clone(), by: b.by.clone() })
-                .and_then(|f| f.tests_at_review.as_ref());
+            let stamp_facts = git.stamps.get(&ReviewKey { function: fid.clone(), by: b.by.clone() });
+            let at_review = stamp_facts.and_then(|f| f.tests_at_review.as_ref());
+            // #783: flags only, judged once per review.
+            let timing = plausibility(
+                b.signed_at.as_deref(),
+                &b.date,
+                stamp_facts.and_then(|f| f.reviewed_commit_time),
+                stamp_facts.and_then(|f| f.added_in.as_ref()).and_then(|a| a.committer_time),
+            );
             for t in targets {
                 let here = t.location();
                 let tests = test_verdict(t.f, t.index.test_run.as_ref(), git);
@@ -817,6 +844,12 @@ pub fn evaluate(
                 if !candidates.is_empty() {
                     flags.entry(t.f.id.clone()).or_default().push(FunctionFlag::DuplicateCode {
                         copies: candidates.iter().filter(|c| **c != t.f.id).cloned().collect(),
+                    });
+                }
+                if !timing.is_empty() {
+                    flags.entry(t.f.id.clone()).or_default().push(FunctionFlag::ImplausibleSignedAt {
+                        review: r.kovan.id.clone(),
+                        problems: timing.clone(),
                     });
                 }
                 if let Some(at) = at_review {

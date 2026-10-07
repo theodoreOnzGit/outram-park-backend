@@ -149,19 +149,28 @@ pub enum FlagKind {
     NewReachingTest,
     /// The same code exists more than once; the review shows on each copy.
     DuplicateCode,
+    /// A review's `signed_at` is implausible: before the reviewed commit,
+    /// after the commit that added the stamp, or on another day than its
+    /// `date` (GitHub #783). Tamper evidence; the stamp still counts.
+    ImplausibleSigningTime,
 }
 
 impl FlagKind {
-    pub const ALL: [FlagKind; 2] = [Self::NewReachingTest, Self::DuplicateCode];
+    pub const ALL: [FlagKind; 3] = [
+        Self::NewReachingTest,
+        Self::DuplicateCode,
+        Self::ImplausibleSigningTime,
+    ];
 
     pub fn label(self) -> &'static str {
         match self {
             Self::NewReachingTest => "new test reaches reviewed function",
             Self::DuplicateCode => "duplicate code",
+            Self::ImplausibleSigningTime => "implausible signing time",
         }
     }
 
-    /// Both are in the desktop queue.
+    /// All are in the desktop queue.
     pub fn needs_person(self) -> bool {
         true
     }

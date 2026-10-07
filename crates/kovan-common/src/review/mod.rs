@@ -74,6 +74,7 @@ pub mod review_md;
 pub mod root;
 pub mod rust_items;
 pub mod scope;
+pub mod signed_at;
 pub mod signing;
 pub mod state;
 pub mod types;
