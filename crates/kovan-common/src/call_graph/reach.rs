@@ -112,6 +112,39 @@ fn bfs<'a>(
     seen
 }
 
+/// Every test that reaches each function through resolved calls, **all of
+/// them** (not the nearest [`REACH_CAP`]): function id -> test ids. The
+/// same walk and entry points as [`fill`] (a lower bound, module doc);
+/// test functions themselves are included as keys when another test
+/// reaches them. Used by the per-folder `kovan.toml` (#767), whose
+/// `reached_by` must be complete for the staleness engine.
+pub fn tests_reaching(doc: &CallGraphDoc) -> BTreeMap<String, BTreeSet<String>> {
+    let mut adj: BTreeMap<&str, BTreeSet<&str>> = BTreeMap::new();
+    for c in &doc.calls {
+        if c.from != c.to {
+            adj.entry(c.from.as_str())
+                .or_default()
+                .insert(c.to.as_str());
+        }
+    }
+    let mut out: BTreeMap<String, BTreeSet<String>> = BTreeMap::new();
+    let mut tests: Vec<&str> = doc
+        .functions()
+        .filter(|(_, _, f)| f.test_fn)
+        .map(|(_, _, f)| f.id.as_str())
+        .collect();
+    tests.sort();
+    tests.dedup();
+    for t in tests {
+        for (n, (d, _)) in bfs(&adj, &[t]) {
+            if d > 0 {
+                out.entry(n.to_string()).or_default().insert(t.to_string());
+            }
+        }
+    }
+    out
+}
+
 /// Fills `reached_by` on every non-test function of `doc`.
 pub fn fill(doc: &mut CallGraphDoc) {
     let mut adj: BTreeMap<&str, BTreeSet<&str>> = BTreeMap::new();
