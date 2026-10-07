@@ -33,6 +33,18 @@
 //! **The tests can fail:** with two deliberate defects in the reader (date
 //! fields returned in their stored multipart form, automatic tags read as
 //! manual) 4 of the 8 tests failed (2026-10-07); the defects were reverted.
+//!
+//! **Re-run on the pure-Rust reader (2026-10-07, same day).** The reader's
+//! engine changed from rusqlite (C SQLite, on a temporary copy) to
+//! turso_core (from memory; GitHub #750). All 8 tests above pass unchanged.
+//! Three tests were added with it, predictions in their doc comments:
+//! reading from bytes equals reading the folder; 1502 items and a 100 kB
+//! note only in the WAL, then with a half-written last WAL frame (compared
+//! with real SQLite on the same bytes); a hot rollback journal falls back to
+//! the backup. All three passed on their first run. With the WAL
+//! deliberately not handed to the engine, two of the 11 failed (the locked
+//! WAL test and the many-items test). File-format cases against real SQLite
+//! are in `src/zotero/local_library/format_tests.rs`.
 
 #![cfg(not(any(target_arch = "wasm32", target_os = "android")))]
 
@@ -42,7 +54,8 @@ use kovan_common::zotero::{ZoteroCollection, ZoteroItem};
 use kovan_common::KovanDocument;
 use kovan_literature::zotero::local_library::import::{import, write_documents, ImportOptions};
 use kovan_literature::zotero::local_library::{
-    read_data_folder, AttachmentFile, DbSource, LibraryKind, ReadOptions, ZoteroDbError,
+    read_data_folder, read_database_files, AttachmentFile, DatabaseFiles, DbSource, LibraryKind,
+    ReadOptions, ZoteroDbError,
 };
 use serde_json::{json, Value};
 use std::path::{Path, PathBuf};
@@ -697,4 +710,195 @@ fn opt_in_real_data_folder_summary() {
         imp.documents.len(),
         imp.losses.summary()
     );
+}
+
+/// **Prediction (2026-10-07, written before the run):** reading the full
+/// fixture library from bytes with `read_database_files` gives exactly the
+/// `ZoteroDataFolder` that `read_data_folder` gives, and the backup is not
+/// even asked for when the live database is good.
+///
+/// **Result (2026-10-07): pass.**
+#[test]
+fn reading_from_bytes_equals_reading_the_folder() {
+    let f = build_library(IdOrder::Forward);
+    let dir = data_dir(&f);
+    let opts = ReadOptions::default();
+    let from_folder = read_data_folder(dir, &opts).unwrap();
+    let files = DatabaseFiles::from_data_folder(dir).unwrap();
+    assert!(files.database.is_some());
+    let from_bytes =
+        read_database_files(&files, || panic!("backup not needed"), dir, &opts).unwrap();
+    assert_eq!(from_folder, from_bytes);
+    check_library(&f, &opts);
+}
+
+/// The Zotero key alphabet (`Zotero.Utilities.generateObjectKey`).
+fn key(i: usize) -> String {
+    const A: &[u8] = b"23456789ABCDEFGHIJKLMNPQRSTUVWXYZ";
+    let mut n = i;
+    let mut k = Vec::new();
+    for _ in 0..8 {
+        k.push(A[n % A.len()]);
+        n /= A.len();
+    }
+    String::from_utf8(k).unwrap()
+}
+
+/// **Prediction (2026-10-07, written before the run):** with Zotero's WAL
+/// settings and checkpointing off, 1500 books, a 100 kB HTML note and a last
+/// item, each saved in its own transaction, are all only in the `-wal`
+/// (asserted: the main file alone has no items); the reader returns all of
+/// them exactly (every title, the note byte for byte). With the WAL's last
+/// frame cut in half (a write interrupted while the folder was copied),
+/// the last item's transaction is not committed and the reader returns
+/// everything except it, as real SQLite does on the same bytes.
+///
+/// **Result (2026-10-07): pass.**
+#[test]
+fn many_items_and_a_long_note_only_in_the_wal() {
+    let tmp = tempfile::tempdir().unwrap();
+    let db = ZoteroDb::create(tmp.path(), IdOrder::Forward);
+    db.conn
+        .execute_batch(
+            "PRAGMA journal_mode=WAL; PRAGMA wal_autocheckpoint=0; \
+             PRAGMA wal_checkpoint(TRUNCATE);",
+        )
+        .unwrap();
+    let save = |v: Value| {
+        db.conn.execute_batch("BEGIN").unwrap();
+        db.save_item(1, &item(v));
+        db.conn.execute_batch("COMMIT").unwrap();
+    };
+    for i in 0..1500 {
+        save(json!({"key": key(i), "version": 1, "itemType": "book",
+            "title": format!("Book {i} – Überblick 中文"),
+            "creators": [{"creatorType": "author", "firstName": "Ada",
+                "lastName": format!("Lovelace{}", i % 7)}],
+            "tags": [], "relations": {},
+            "dateAdded": "2015-04-12T09:00:22Z", "dateModified": "2015-04-12T09:00:22Z"}));
+    }
+    let long_note = format!("<p>{}</p>", "Pebble bed – Kugelhaufen 球床 ".repeat(3200));
+    assert!(long_note.len() > 100_000);
+    save(
+        json!({"key": "LONGNOTE", "version": 1, "itemType": "note", "note": long_note,
+        "tags": [], "relations": {},
+        "dateAdded": "2015-04-12T09:00:22Z", "dateModified": "2015-04-12T09:00:22Z"}),
+    );
+    save(
+        json!({"key": "LASTITEM", "version": 1, "itemType": "book", "title": "Last",
+        "creators": [], "tags": [], "relations": {},
+        "dateAdded": "2015-04-12T09:00:22Z", "dateModified": "2015-04-12T09:00:22Z"}),
+    );
+    let files = DatabaseFiles::from_data_folder(tmp.path()).unwrap();
+    let main = files.database.clone().unwrap();
+    let wal = files.wal.clone().unwrap();
+    // The main file alone has none of the items.
+    let main_only = tmp.path().join("main-only.sqlite");
+    std::fs::write(&main_only, &main).unwrap();
+    let n: i64 = rusqlite::Connection::open(&main_only)
+        .unwrap()
+        .query_row("SELECT count(*) FROM items", [], |r| r.get(0))
+        .unwrap();
+    assert_eq!(n, 0, "the items are only in the WAL");
+
+    let opts = ReadOptions::default();
+    let folder = read_database_files(&files, || Ok(None), tmp.path(), &opts).unwrap();
+    let lib = &folder.libraries[0].contents;
+    assert_eq!(lib.items.len(), 1502);
+    for i in 0..1500 {
+        let it = lib.item(&key(i)).unwrap();
+        assert_eq!(
+            it.fields.get("title").map(String::as_str),
+            Some(format!("Book {i} – Überblick 中文").as_str())
+        );
+    }
+    assert_eq!(
+        lib.item("LONGNOTE").unwrap().note.as_deref(),
+        Some(long_note.as_str())
+    );
+    assert!(lib.item("LASTITEM").is_some());
+
+    // The last frame cut in half: real SQLite on the same bytes is the
+    // reference.
+    let frame = 24 + u32::from_be_bytes(wal[8..12].try_into().unwrap()) as usize;
+    let cut = DatabaseFiles {
+        wal: Some(wal[..wal.len() - frame / 2].to_vec()),
+        ..files.clone()
+    };
+    let copy = tmp.path().join("cut.sqlite");
+    std::fs::write(&copy, &main).unwrap();
+    std::fs::write(tmp.path().join("cut.sqlite-wal"), cut.wal.as_ref().unwrap()).unwrap();
+    let sqlite_keys: Vec<String> = rusqlite::Connection::open(&copy)
+        .unwrap()
+        .prepare("SELECT key FROM items ORDER BY key")
+        .unwrap()
+        .query_map([], |r| r.get(0))
+        .unwrap()
+        .map(Result::unwrap)
+        .collect();
+    assert_eq!(
+        sqlite_keys.len(),
+        1501,
+        "SQLite drops the uncommitted last transaction"
+    );
+    let folder = read_database_files(&cut, || Ok(None), tmp.path(), &opts).unwrap();
+    let mut keys: Vec<String> = folder.libraries[0]
+        .contents
+        .items
+        .iter()
+        .map(|i| i.key.clone().unwrap())
+        .collect();
+    keys.sort();
+    assert_eq!(keys, sqlite_keys);
+    assert!(folder.libraries[0].contents.item("LASTITEM").is_none());
+    drop(db);
+}
+
+/// **Prediction (2026-10-07, written before the run):** a live database
+/// with a hot rollback journal (a writer in rollback-journal mode with a
+/// one-page cache, mid-transaction, has spilled pages into the main file)
+/// is refused, since SQLite would roll the journal back and this reader
+/// does not; the default read falls back to `zotero.sqlite.bak` and says
+/// why; with `fall_back_to_backup = false` it is `Corrupt`.
+///
+/// **Result (2026-10-07): pass.**
+#[test]
+fn a_hot_journal_falls_back_to_the_backup() {
+    let f = build_library(IdOrder::Forward);
+    let dir = data_dir(&f);
+    std::fs::copy(dir.join("zotero.sqlite"), dir.join("zotero.sqlite.bak")).unwrap();
+    let writer = rusqlite::Connection::open(dir.join("zotero.sqlite")).unwrap();
+    writer
+        .execute_batch(
+            "PRAGMA journal_mode=DELETE; PRAGMA cache_size=1; BEGIN; \
+             CREATE TABLE kovanScratch(x); \
+             WITH RECURSIVE s(i) AS (SELECT 1 UNION ALL SELECT i+1 FROM s WHERE i < 400) \
+             INSERT INTO kovanScratch SELECT randomblob(1000) FROM s;",
+        )
+        .unwrap();
+    let journal = std::fs::read(dir.join("zotero.sqlite-journal")).unwrap();
+    assert!(
+        journal.first().is_some_and(|b| *b != 0),
+        "the journal is hot"
+    );
+    let folder = read_data_folder(dir, &ReadOptions::default()).unwrap();
+    assert_eq!(folder.source, DbSource::Backup);
+    assert!(folder
+        .report
+        .notes
+        .iter()
+        .any(|n| n.contains("zotero.sqlite.bak") && n.contains("hot rollback journal")));
+    assert_eq!(
+        folder.libraries[0].contents.items.len(),
+        f.expected_items.len()
+    );
+    let strict = ReadOptions {
+        fall_back_to_backup: false,
+        ..ReadOptions::default()
+    };
+    assert!(matches!(
+        read_data_folder(dir, &strict),
+        Err(ZoteroDbError::Corrupt(m)) if m.contains("hot rollback journal")
+    ));
+    writer.execute_batch("ROLLBACK").unwrap();
 }

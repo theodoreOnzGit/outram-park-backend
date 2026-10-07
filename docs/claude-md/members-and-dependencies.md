@@ -80,8 +80,12 @@ applies: only to crates declared mature".
 > codegen), interfaced three ways, all binaries of the single `kovan` crate.
 > Offline / Android-first, no cloud, no Tree-sitter/~~SQLite~~/vector-store
 > (**CORRECTED 2026-10-07**: kovan *stores* nothing in SQLite, but
-> `kovan-literature` *reads* Zotero's `zotero.sqlite` through `rusqlite`, on
-> native desktop targets only, GitHub #750). Full
+> `kovan-literature` *reads* Zotero's `zotero.sqlite` ~~through `rusqlite`, on
+> native desktop targets only~~, GitHub #750; **CORRECTED again 2026-10-07**:
+> through `turso_core`, Turso's pure-Rust rewrite of SQLite (MIT), from
+> memory, on every target including wasm32 and Android/Termux, with its
+> C-backed features off; real SQLite via `rusqlite` is now only a native
+> dev-dependency, the reference the reader is tested against). Full
 > design spec: **`docs/kovan.md`** (+ `docs/kovan-architecture.md`). Non-GUI
 > kovan crates build for Android; only the `kovan` GUI's egui/eframe stack is
 > Android-hostile and stays behind the `gui` feature.

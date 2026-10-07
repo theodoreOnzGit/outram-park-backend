@@ -69,8 +69,20 @@ system.sql, userdata.sql, triggers.sql (resource/schema/) and itemJSON.json
 
 Each ported file carries a header naming its upstream file(s) and commit.
 
-Dependency added with it: rusqlite (MIT) with SQLite (public domain)
-compiled in through libsqlite3-sys (MIT), native desktop targets only.
+~~Dependency added with it: rusqlite (MIT) with SQLite (public domain)
+compiled in through libsqlite3-sys (MIT), native desktop targets only.~~
+CORRECTED 2026-10-07: the reader's database engine is now turso_core
+0.8.2 (https://github.com/tursodatabase/turso, MIT, Copyright (c) the
+Turso authors), a pure-Rust reimplementation of SQLite, on every target.
+Its dependency tree (checked with `cargo tree`, 2026-10-07) is under MIT,
+Apache-2.0, BSD-2/3-Clause, ISC, Zlib, BSL-1.0 and Unicode-3.0 licences
+(each, or one option of each dual licence, compatible with AGPL-3.0).
+rusqlite (MIT) with SQLite (public domain, through libsqlite3-sys, MIT) is
+a native-only dev-dependency: the tests build Zotero databases with real
+SQLite and compare the reader against it. No SQLite C code is shipped.
+The rollback-journal "hot journal" test in src/zotero/local_library/db.rs
+follows SQLite's pager.c hasHotJournal (SQLite 3.53.2, public domain).
+
 Translators (each file's own header: AGPL-3.0-or-later; a translator without
 a licence header would be treated as AGPL-3.0, maintainer decision
 2026-10-07, #747):

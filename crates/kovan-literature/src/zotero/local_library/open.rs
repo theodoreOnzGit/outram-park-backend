@@ -9,107 +9,101 @@
 // University; (c) Corporation for Digital Scholarship, Vienna, Virginia, USA.
 // Licence: AGPL-3.0 (upstream: AGPL-3.0-or-later).
 
-//! Opening a private copy of the database, the schema versions, and which
-//! optional tables/columns the database has. See the parent module docs.
+//! Opening an in-memory snapshot of the database, the schema versions, and
+//! which optional tables/columns the database has. See the parent module
+//! docs.
 
-use super::{DbSource, ReadOptions, ReadReport, SchemaVersions, ZoteroDbError};
-use rusqlite::{Connection, OpenFlags, OptionalExtension};
-use std::path::{Path, PathBuf};
+use super::db::{is_hot_journal, Db, Param};
+use super::{DatabaseFiles, DbSource, ReadOptions, ReadReport, SchemaVersions, ZoteroDbError};
+use std::path::Path;
 
-/// The open copy; the temporary directory lives as long as the connection.
+/// The open snapshot and which file it came from.
 pub(super) struct Snapshot {
-    // Field order matters: the connection closes before the directory goes.
-    pub conn: Connection,
+    pub db: Db,
     pub source: DbSource,
-    _dir: tempfile::TempDir,
 }
 
-fn io_err(path: &Path, e: std::io::Error) -> ZoteroDbError {
-    ZoteroDbError::Io {
-        path: path.to_path_buf(),
-        message: e.to_string(),
+/// Open `main` (with its WAL) from memory and check it. `name` is the file
+/// name used in messages.
+fn open_checked(
+    name: &str,
+    main: &[u8],
+    wal: Option<&[u8]>,
+    journal: Option<&[u8]>,
+    source: DbSource,
+) -> Result<Snapshot, ZoteroDbError> {
+    // A hot rollback journal means the main file may hold half of a
+    // transaction; SQLite would roll it back first. This reader refuses
+    // the file instead (and the caller falls back to the backup).
+    if is_hot_journal(main, journal) {
+        return Err(ZoteroDbError::Corrupt(format!(
+            "{name} has a hot rollback journal ({name}-journal): it was being written \
+             when copied; SQLite would roll the journal back, this reader does not"
+        )));
     }
-}
-
-fn with_suffix(p: &Path, suffix: &str) -> PathBuf {
-    let mut s = p.as_os_str().to_owned();
-    s.push(suffix);
-    PathBuf::from(s)
-}
-
-/// Copy `db` (and its `-journal`/`-wal`, which hold committed data not yet
-/// in the main file) into a fresh temporary directory, open the copy and
-/// check it. The original files are only ever read.
-fn copy_and_open(db: &Path, source: DbSource) -> Result<Snapshot, ZoteroDbError> {
-    let dir = tempfile::Builder::new()
-        .prefix("kovan-zotero-")
-        .tempdir()
-        .map_err(|e| io_err(db, e))?;
-    let copy = dir.path().join("zotero.sqlite");
-    std::fs::copy(db, &copy).map_err(|e| io_err(db, e))?;
-    // db.js:2099 moves `-journal` and `-wal` along with a database file; the
-    // `-shm` index is rebuilt from the WAL (and Zotero keeps it in heap
-    // memory on Linux/Windows, db.js:1617), so it is not copied.
-    for suffix in ["-journal", "-wal"] {
-        let side = with_suffix(db, suffix);
-        if side.is_file() {
-            std::fs::copy(&side, with_suffix(&copy, suffix)).map_err(|e| io_err(&side, e))?;
-        }
-    }
-    // Read-write on the private copy only, so SQLite can replay the copied
-    // WAL or roll back the copied journal; then no further writes at all.
-    let conn = Connection::open_with_flags(
-        &copy,
-        OpenFlags::SQLITE_OPEN_READ_WRITE | OpenFlags::SQLITE_OPEN_NO_MUTEX,
-    )?;
-    conn.execute_batch("PRAGMA query_only = ON;")?;
-    let check: String = conn.query_row("PRAGMA quick_check", [], |r| r.get(0))?;
+    let db = Db::open(main, wal)?;
+    let check = db
+        .first_row("PRAGMA quick_check", &[])?
+        .map(|r| r.text(0))
+        .transpose()?
+        .flatten()
+        .unwrap_or_default();
     if check != "ok" {
-        return Err(ZoteroDbError::Corrupt(format!("{}: {check}", db.display())));
+        return Err(ZoteroDbError::Corrupt(format!("{name}: {check}")));
     }
-    Ok(Snapshot {
-        conn,
-        source,
-        _dir: dir,
-    })
+    Ok(Snapshot { db, source })
 }
 
 /// Open the database the options ask for, falling back to the backup when
-/// the copy of the live file is not consistent.
+/// the live database is not consistent. `backup` supplies
+/// `zotero.sqlite.bak` only when it is needed (it can be as large as the
+/// database itself).
 pub(super) fn open_snapshot(
+    files: &DatabaseFiles,
+    backup: impl FnOnce() -> Result<Option<Vec<u8>>, ZoteroDbError>,
     data_dir: &Path,
     opts: &ReadOptions,
     report: &mut ReadReport,
 ) -> Result<Snapshot, ZoteroDbError> {
-    let live = data_dir.join("zotero.sqlite");
-    let bak = data_dir.join("zotero.sqlite.bak");
     let read_backup = |report: &mut ReadReport, why: &str| {
-        if !bak.is_file() {
+        let Some(bak) = backup()? else {
             return Err(ZoteroDbError::NoDatabase(data_dir.to_path_buf()));
-        }
+        };
         report.notes.push(format!("read zotero.sqlite.bak ({why})"));
-        copy_and_open(&bak, DbSource::Backup)
+        // Zotero writes the backup as a whole closed file (db.js:2472):
+        // there is no WAL or journal to go with it.
+        open_checked("zotero.sqlite.bak", &bak, None, None, DbSource::Backup)
     };
     match opts.source {
         DbSource::Backup => read_backup(report, "asked for"),
         DbSource::LiveCopy => {
-            if !live.is_file() {
-                if opts.fall_back_to_backup && bak.is_file() {
+            let Some(main) = files.database.as_deref() else {
+                if opts.fall_back_to_backup {
                     return read_backup(report, "no zotero.sqlite");
                 }
                 return Err(ZoteroDbError::NoDatabase(data_dir.to_path_buf()));
-            }
-            match copy_and_open(&live, DbSource::LiveCopy) {
+            };
+            match open_checked(
+                "zotero.sqlite",
+                main,
+                files.wal.as_deref(),
+                files.journal.as_deref(),
+                DbSource::LiveCopy,
+            ) {
                 Ok(s) => {
                     report
                         .notes
-                        .push("read a private copy of zotero.sqlite".to_owned());
+                        .push("read a private in-memory copy of zotero.sqlite".to_owned());
                     Ok(s)
                 }
                 Err(e @ (ZoteroDbError::Corrupt(_) | ZoteroDbError::Sqlite(_)))
-                    if opts.fall_back_to_backup && bak.is_file() =>
+                    if opts.fall_back_to_backup =>
                 {
-                    read_backup(report, &format!("the copy of zotero.sqlite failed: {e}"))
+                    match read_backup(report, &format!("zotero.sqlite failed: {e}")) {
+                        // No backup to fall back to: report the live failure.
+                        Err(ZoteroDbError::NoDatabase(_)) => Err(e),
+                        other => other,
+                    }
                 }
                 Err(e) => Err(e),
             }
@@ -118,18 +112,18 @@ pub(super) fn open_snapshot(
 }
 
 /// The `version` table (schema.js `getDBVersion`).
-pub(super) fn schema_versions(conn: &Connection) -> Result<SchemaVersions, ZoteroDbError> {
-    if !table_exists(conn, "version")? {
+pub(super) fn schema_versions(db: &Db) -> Result<SchemaVersions, ZoteroDbError> {
+    if !table_exists(db, "version")? {
         return Err(ZoteroDbError::NotZotero("no version table".into()));
     }
     let get = |schema: &str| -> Result<Option<i64>, ZoteroDbError> {
-        Ok(conn
-            .query_row(
-                "SELECT version FROM version WHERE schema=?1",
-                [schema],
-                |r| r.get::<_, i64>(0),
-            )
-            .optional()?)
+        match db.first_row(
+            "SELECT version FROM version WHERE schema=?1",
+            &[Param::from(schema)],
+        )? {
+            Some(r) => Ok(Some(r.i64(0)?)),
+            None => Ok(None),
+        }
     };
     let userdata =
         get("userdata")?.ok_or_else(|| ZoteroDbError::NotZotero("no userdata version".into()))?;
@@ -141,29 +135,21 @@ pub(super) fn schema_versions(conn: &Connection) -> Result<SchemaVersions, Zoter
     })
 }
 
-pub(super) fn table_exists(conn: &Connection, name: &str) -> Result<bool, ZoteroDbError> {
-    Ok(conn
-        .query_row(
+pub(super) fn table_exists(db: &Db, name: &str) -> Result<bool, ZoteroDbError> {
+    Ok(db
+        .first_row(
             "SELECT 1 FROM sqlite_master WHERE type='table' AND name=?1 COLLATE NOCASE",
-            [name],
-            |_| Ok(()),
-        )
-        .optional()?
+            &[Param::from(name)],
+        )?
         .is_some())
 }
 
-pub(super) fn column_exists(
-    conn: &Connection,
-    table: &str,
-    column: &str,
-) -> Result<bool, ZoteroDbError> {
-    Ok(conn
-        .query_row(
+pub(super) fn column_exists(db: &Db, table: &str, column: &str) -> Result<bool, ZoteroDbError> {
+    Ok(db
+        .first_row(
             "SELECT 1 FROM pragma_table_info(?1) WHERE name=?2 COLLATE NOCASE",
-            [table, column],
-            |_| Ok(()),
-        )
-        .optional()?
+            &[Param::from(table), Param::from(column)],
+        )?
         .is_some())
 }
 
@@ -187,17 +173,16 @@ pub(super) struct Caps {
 }
 
 impl Caps {
-    pub(super) fn probe(conn: &Connection) -> Result<Caps, ZoteroDbError> {
-        let annotations = table_exists(conn, "itemAnnotations")?;
+    pub(super) fn probe(db: &Db) -> Result<Caps, ZoteroDbError> {
+        let annotations = table_exists(db, "itemAnnotations")?;
         Ok(Caps {
             annotations,
-            annotation_author: annotations && column_exists(conn, "itemAnnotations", "authorName")?,
-            publications: table_exists(conn, "publicationsItems")?,
-            deleted_collections: table_exists(conn, "deletedCollections")?,
-            deleted_searches: table_exists(conn, "deletedSearches")?,
-            last_read: column_exists(conn, "itemAttachments", "lastRead")?,
-            combined: table_exists(conn, "itemTypesCombined")?
-                && table_exists(conn, "fieldsCombined")?,
+            annotation_author: annotations && column_exists(db, "itemAnnotations", "authorName")?,
+            publications: table_exists(db, "publicationsItems")?,
+            deleted_collections: table_exists(db, "deletedCollections")?,
+            deleted_searches: table_exists(db, "deletedSearches")?,
+            last_read: column_exists(db, "itemAttachments", "lastRead")?,
+            combined: table_exists(db, "itemTypesCombined")? && table_exists(db, "fieldsCombined")?,
         })
     }
 }

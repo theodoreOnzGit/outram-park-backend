@@ -18,26 +18,8 @@
 use super::open::Caps;
 use super::{LibraryKind, ReadReport, ZoteroDbError};
 use kovan_common::zotero::{SearchCondition, ZoteroCollection, ZoteroSearch};
-use rusqlite::types::ValueRef;
-use rusqlite::{Connection, OptionalExtension};
+use super::db::{Db, Param};
 use std::collections::{BTreeMap, HashMap};
-
-/// A cell as text, the way JavaScript would stringify what mozStorage
-/// returns: text as is, an integer or real as a number string, a blob as
-/// (lossy) UTF-8; `None` for NULL.
-pub(super) fn cell_text(v: ValueRef<'_>) -> Option<String> {
-    match v {
-        ValueRef::Null => None,
-        ValueRef::Integer(i) => Some(i.to_string()),
-        ValueRef::Real(f) => Some(if f.fract() == 0.0 && f.abs() < 1e15 {
-            format!("{}", f as i64)
-        } else {
-            f.to_string()
-        }),
-        ValueRef::Text(t) => Some(String::from_utf8_lossy(t).into_owned()),
-        ValueRef::Blob(b) => Some(String::from_utf8_lossy(b).into_owned()),
-    }
-}
 
 /// The database's own id -> name tables (ids differ between databases).
 pub(super) struct Lookups {
@@ -46,19 +28,16 @@ pub(super) struct Lookups {
     pub creator_types: HashMap<i64, String>,
 }
 
-fn id_name_map(conn: &Connection, sql: &str) -> Result<HashMap<i64, String>, ZoteroDbError> {
-    let mut stmt = conn.prepare(sql)?;
-    let rows = stmt.query_map([], |r| Ok((r.get::<_, i64>(0)?, r.get::<_, String>(1)?)))?;
+fn id_name_map(conn: &Db, sql: &str) -> Result<HashMap<i64, String>, ZoteroDbError> {
     let mut m = HashMap::new();
-    for row in rows {
-        let (id, name) = row?;
-        m.insert(id, name);
+    for r in conn.rows(sql, &[])? {
+        m.insert(r.i64(0)?, r.string(1)?);
     }
     Ok(m)
 }
 
 impl Lookups {
-    pub(super) fn load(conn: &Connection, caps: &Caps) -> Result<Lookups, ZoteroDbError> {
+    pub(super) fn load(conn: &Db, caps: &Caps) -> Result<Lookups, ZoteroDbError> {
         // `itemTypesCombined`/`fieldsCombined` are what Zotero resolves ids
         // through (cachedTypes.js); they equal the plain tables plus custom
         // types, which are unused upstream.
@@ -94,20 +73,20 @@ pub(super) struct LibraryInfo {
     pub uri: String,
 }
 
-fn account_setting(conn: &Connection, key: &str) -> Result<Option<String>, ZoteroDbError> {
-    let v: Option<Option<String>> = conn
-        .query_row(
-            "SELECT value FROM settings WHERE setting='account' AND key=?1",
-            [key],
-            |r| Ok(cell_text(r.get_ref(0)?)),
-        )
-        .optional()?;
-    Ok(v.flatten().filter(|s| !s.is_empty()))
+fn account_setting(conn: &Db, key: &str) -> Result<Option<String>, ZoteroDbError> {
+    let v = match conn.first_row(
+        "SELECT value FROM settings WHERE setting='account' AND key=?1",
+        &[Param::from(key)],
+    )? {
+        Some(r) => r.text(0)?,
+        None => None,
+    };
+    Ok(v.filter(|s| !s.is_empty()))
 }
 
 /// User and group libraries, by `libraryID`; feeds skipped (noted).
 pub(super) fn libraries(
-    conn: &Connection,
+    conn: &Db,
     report: &mut ReadReport,
 ) -> Result<Vec<LibraryInfo>, ZoteroDbError> {
     // uri.js getLibraryPath: `users/<userID>` once synced, else
@@ -119,23 +98,26 @@ pub(super) fn libraries(
             account_setting(conn, "localUserKey")?.unwrap_or_default()
         ),
     };
-    let mut stmt = conn.prepare(
-        "SELECT L.libraryID, L.type, L.editable, L.filesEditable, L.version, \
+    let rows = conn
+        .rows(
+            "SELECT L.libraryID, L.type, L.editable, L.filesEditable, L.version, \
          G.groupID, G.name, G.description \
          FROM libraries L LEFT JOIN groups G USING (libraryID) ORDER BY L.libraryID",
-    )?;
-    let rows = stmt.query_map([], |r| {
-        Ok((
-            r.get::<_, i64>(0)?,
-            r.get::<_, String>(1)?,
-            r.get::<_, Option<i64>>(2)?.unwrap_or(0) != 0,
-            r.get::<_, Option<i64>>(3)?.unwrap_or(0) != 0,
-            r.get::<_, Option<i64>>(4)?.unwrap_or(0),
-            r.get::<_, Option<i64>>(5)?,
-            r.get::<_, Option<String>>(6)?,
-            r.get::<_, Option<String>>(7)?,
-        ))
-    })?;
+            &[],
+        )?
+        .into_iter()
+        .map(|r| -> Result<_, ZoteroDbError> {
+            Ok((
+                r.i64(0)?,
+                r.string(1)?,
+                r.opt_i64(2)?.unwrap_or(0) != 0,
+                r.opt_i64(3)?.unwrap_or(0) != 0,
+                r.opt_i64(4)?.unwrap_or(0),
+                r.opt_i64(5)?,
+                r.opt_string(6)?,
+                r.opt_string(7)?,
+            ))
+        });
     let mut out = Vec::new();
     let mut feeds = 0;
     for row in rows {
@@ -188,18 +170,14 @@ pub(super) fn libraries(
 /// Relations of every object of one library, keyed by the object's id
 /// (dataObjects.js `_loadRelations`).
 fn relations(
-    conn: &Connection,
+    conn: &Db,
     sql: &str,
     library_id: i64,
 ) -> Result<HashMap<i64, BTreeMap<String, Vec<String>>>, ZoteroDbError> {
-    let mut stmt = conn.prepare(sql)?;
-    let rows = stmt.query_map([library_id], |r| {
-        Ok((
-            r.get::<_, i64>(0)?,
-            r.get::<_, String>(1)?,
-            r.get::<_, String>(2)?,
-        ))
-    })?;
+    let rows = conn
+        .rows(sql, &[Param::from(library_id)])?
+        .into_iter()
+        .map(|r| -> Result<_, ZoteroDbError> { Ok((r.i64(0)?, r.string(1)?, r.string(2)?)) });
     let mut m: HashMap<i64, BTreeMap<String, Vec<String>>> = HashMap::new();
     for row in rows {
         let (id, pred, obj) = row?;
@@ -209,7 +187,7 @@ fn relations(
 }
 
 pub(super) fn item_relations(
-    conn: &Connection,
+    conn: &Db,
     library_id: i64,
 ) -> Result<HashMap<i64, BTreeMap<String, Vec<String>>>, ZoteroDbError> {
     // The PRIMARY KEY (itemID, predicateID, object) index is the order the
@@ -226,7 +204,7 @@ pub(super) fn item_relations(
 /// Collections of one library, by `collectionID` (collections.js,
 /// collection.js `toJSON`).
 pub(super) fn collections(
-    conn: &Connection,
+    conn: &Db,
     caps: &Caps,
     library_id: i64,
 ) -> Result<Vec<ZoteroCollection>, ZoteroDbError> {
@@ -254,17 +232,19 @@ pub(super) fn collections(
          LEFT JOIN collections CP ON (O.parentCollectionID=CP.collectionID) \
          WHERE O.libraryID=?1 ORDER BY O.collectionID"
     );
-    let mut stmt = conn.prepare(&sql)?;
-    let rows = stmt.query_map([library_id], |r| {
-        Ok((
-            r.get::<_, i64>(0)?,
-            cell_text(r.get_ref(1)?).unwrap_or_default(),
-            r.get::<_, String>(2)?,
-            r.get::<_, Option<i64>>(3)?.unwrap_or(0),
-            r.get::<_, Option<String>>(4)?,
-            r.get::<_, i64>(5)? != 0,
-        ))
-    })?;
+    let rows = conn
+        .rows(&sql, &[Param::from(library_id)])?
+        .into_iter()
+        .map(|r| -> Result<_, ZoteroDbError> {
+            Ok((
+                r.i64(0)?,
+                r.text(1)?.unwrap_or_default(),
+                r.string(2)?,
+                r.opt_i64(3)?.unwrap_or(0),
+                r.opt_string(4)?,
+                r.i64(5)? != 0,
+            ))
+        });
     let mut out = Vec::new();
     for row in rows {
         let (id, name, key, version, parent, is_deleted) = row?;
@@ -281,7 +261,7 @@ pub(super) fn collections(
 
 /// Saved searches of one library (searches.js, search.js `toJSON`).
 pub(super) fn searches(
-    conn: &Connection,
+    conn: &Db,
     caps: &Caps,
     lookups: &Lookups,
     library_id: i64,
@@ -298,16 +278,18 @@ pub(super) fn searches(
         "SELECT O.savedSearchID, O.savedSearchName, O.key, O.version, {deleted} \
          FROM savedSearches O {join}WHERE O.libraryID=?1 ORDER BY O.savedSearchID"
     );
-    let mut stmt = conn.prepare(&sql)?;
-    let rows = stmt.query_map([library_id], |r| {
-        Ok((
-            r.get::<_, i64>(0)?,
-            cell_text(r.get_ref(1)?).unwrap_or_default(),
-            r.get::<_, String>(2)?,
-            r.get::<_, Option<i64>>(3)?.unwrap_or(0),
-            r.get::<_, i64>(4)? != 0,
-        ))
-    })?;
+    let rows = conn
+        .rows(&sql, &[Param::from(library_id)])?
+        .into_iter()
+        .map(|r| -> Result<_, ZoteroDbError> {
+            Ok((
+                r.i64(0)?,
+                r.text(1)?.unwrap_or_default(),
+                r.string(2)?,
+                r.opt_i64(3)?.unwrap_or(0),
+                r.i64(4)? != 0,
+            ))
+        });
     let mut list: Vec<(i64, ZoteroSearch)> = Vec::new();
     for row in rows {
         let (id, name, key, version, is_deleted) = row?;
@@ -317,19 +299,22 @@ pub(super) fn searches(
         s.deleted = is_deleted.then_some(true);
         list.push((id, s));
     }
-    let mut cstmt = conn.prepare(
-        "SELECT C.savedSearchID, C.condition, C.operator, C.value \
+    let crows = conn
+        .rows(
+            "SELECT C.savedSearchID, C.condition, C.operator, C.value \
          FROM savedSearches S JOIN savedSearchConditions C USING (savedSearchID) \
          WHERE S.libraryID=?1 ORDER BY C.savedSearchID, C.searchConditionID",
-    )?;
-    let crows = cstmt.query_map([library_id], |r| {
-        Ok((
-            r.get::<_, i64>(0)?,
-            cell_text(r.get_ref(1)?).unwrap_or_default(),
-            cell_text(r.get_ref(2)?),
-            cell_text(r.get_ref(3)?),
-        ))
-    })?;
+            &[Param::from(library_id)],
+        )?
+        .into_iter()
+        .map(|r| -> Result<_, ZoteroDbError> {
+            Ok((
+                r.i64(0)?,
+                r.text(1)?.unwrap_or_default(),
+                r.text(2)?,
+                r.text(3)?,
+            ))
+        });
     let mut by_id: HashMap<i64, Vec<StoredCondition>> = HashMap::new();
     for row in crows {
         let (id, c, op, v) = row?;
