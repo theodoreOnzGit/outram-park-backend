@@ -126,7 +126,10 @@ impl UtilSubstituteExec {
                         state.tmp.element_trace.push("suppress-me".to_string());
                     }
                 } else if suppress_author {
-                    state.tmp.element_trace.push("do-not-suppress-me".to_string());
+                    state
+                        .tmp
+                        .element_trace
+                        .push("do-not-suppress-me".to_string());
                 }
                 Ok(None)
             }
@@ -211,9 +214,9 @@ pub fn substitute_start(
     token: &mut Token,
     target: &mut Vec<Token>,
 ) -> CslResult<()> {
-    token
-        .execs
-        .push(Exec::UtilSubstitute(UtilSubstituteExec::StripPeriodsIncrement));
+    token.execs.push(Exec::UtilSubstitute(
+        UtilSubstituteExec::StripPeriodsIncrement,
+    ));
     let reverse_lookup = state
         .opt
         .get("development_extensions")
@@ -251,9 +254,9 @@ pub fn substitute_start(
         if state.build.area == "bibliography" && second_field_align {
             let mut bib_first = Token::new("group", TokenType::Start);
             bib_first.decorations = vec![Decoration::new("@display", "left-margin")];
-            bib_first
-                .execs
-                .push(Exec::UtilSubstitute(UtilSubstituteExec::BibFirstSecondFieldAlign));
+            bib_first.execs.push(Exec::UtilSubstitute(
+                UtilSubstituteExec::BibFirstSecondFieldAlign,
+            ));
             target.push(bib_first);
         } else if display
             .as_deref()
@@ -283,6 +286,7 @@ pub fn substitute_start(
         //
         // Set a test of the shadow if token to skip this
         // macro if we have acquired a name value.
+        if_start.tests_defined = true;
         if_start
             .tests
             .push(Test::UtilSubstitute(UtilSubstituteTest::CanSubstitute));
@@ -329,13 +333,20 @@ pub fn substitute_end(state: &mut State, token: &Token) -> CslResult<SubstituteE
             .push(Exec::UtilSubstitute(UtilSubstituteExec::VariableEntryEnd));
     }
 
-    out.execs
-        .push(Exec::UtilSubstitute(UtilSubstituteExec::StripPeriodsDecrement));
+    out.execs.push(Exec::UtilSubstitute(
+        UtilSubstituteExec::StripPeriodsDecrement,
+    ));
 
     state.build.render_nesting_level -= 1;
     if state.build.render_nesting_level == 0 {
         let second_field_align = js::truthy_opt(state.bibliography.opt.get("second-field-align"));
-        if state.build.cls.as_deref().map(|c| !c.is_empty()).unwrap_or(false) {
+        if state
+            .build
+            .cls
+            .as_deref()
+            .map(|c| !c.is_empty())
+            .unwrap_or(false)
+        {
             out.execs
                 .push(Exec::UtilSubstitute(UtilSubstituteExec::BibFirstEnd));
             state.build.cls = None;
@@ -364,9 +375,10 @@ pub fn substitute_end(state: &mut State, token: &Token) -> CslResult<SubstituteE
     // `this.variables_real !== "title"` compares an array to a string: always
     // true upstream.
     if token.name == "names" || token.name == "text" {
-        out.execs.push(Exec::UtilSubstitute(UtilSubstituteExec::AuthorSubstitute {
-            substitution_name: token.name.clone(),
-        }));
+        out.execs
+            .push(Exec::UtilSubstitute(UtilSubstituteExec::AuthorSubstitute {
+                substitution_name: token.name.clone(),
+            }));
     }
 
     if (token.name == "text" && token.postponed_macro.is_none())

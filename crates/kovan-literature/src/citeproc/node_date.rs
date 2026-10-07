@@ -57,9 +57,9 @@ impl NodeDateExec {
                 state.tmp.dateparts = Vec::new();
                 let mut dp: Vec<String> = Vec::new();
                 let first_var = token.variables.first().cloned();
-                if let Some(var0) = first_var.filter(|v| {
-                    !(state.tmp.just_looking && v == "accessed")
-                }) {
+                if let Some(var0) =
+                    first_var.filter(|v| !(state.tmp.just_looking && v == "accessed"))
+                {
                     let date_obj: Value = match item.get(var0.as_str()) {
                         Some(v) => v.clone(),
                         None => {

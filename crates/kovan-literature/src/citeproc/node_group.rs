@@ -168,9 +168,12 @@ pub fn build(
             node_choose::build(state, choose_start, target, false)?;
 
             let mut if_start = Token::new("if", TokenType::Start);
-            if_start.tests.push(Test::NodeGroup(NodeGroupTest::InitJurisdictionMacros {
-                macro_name: juris_name.clone(),
-            }));
+            if_start.tests_defined = true;
+            if_start
+                .tests
+                .push(Test::NodeGroup(NodeGroupTest::InitJurisdictionMacros {
+                    macro_name: juris_name.clone(),
+                }));
             if_start.test = Some(util_conditions::match_test(MatchKind::Any, &if_start.tests));
             target.push(if_start);
             let mut text_node = Token::new("text", TokenType::Singleton);

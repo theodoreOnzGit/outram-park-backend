@@ -377,7 +377,11 @@ mod tests {
         let style_part = t.add("date-part", &[("name", "year"), ("suffix", ".")], &[]);
         let node = t.add(
             "date",
-            &[("form", "numeric"), ("variable", "issued"), ("date-parts", "year")],
+            &[
+                ("form", "numeric"),
+                ("variable", "issued"),
+                ("date-parts", "year"),
+            ],
             &[style_part],
         );
         let parent = t.add("macro", &[], &[node]);

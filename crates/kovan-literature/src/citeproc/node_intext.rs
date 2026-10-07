@@ -72,10 +72,7 @@ pub fn build(
         let dirs = state.citation_sort.opt.get("sort_directions").cloned();
         state.intext_sort = Default::default();
         if let Some(d) = dirs {
-            state
-                .intext_sort
-                .opt
-                .insert("sort_directions".into(), d);
+            state.intext_sort.opt.insert("sort_directions".into(), d);
         }
         state.intext.srt = state.citation.srt.clone();
     }

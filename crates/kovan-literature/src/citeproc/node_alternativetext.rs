@@ -60,9 +60,9 @@ pub fn build(
 ) -> CslResult<()> {
     if token.tokentype == TokenType::Singleton {
         // do stuff
-        token
-            .execs
-            .push(Exec::NodeAlternativetext(NodeAlternativetextExec::RefetchAndGetCite));
+        token.execs.push(Exec::NodeAlternativetext(
+            NodeAlternativetextExec::RefetchAndGetCite,
+        ));
     }
     target.push(token);
     Ok(())

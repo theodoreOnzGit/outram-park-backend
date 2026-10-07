@@ -33,10 +33,7 @@ pub fn build(
     _real_group: bool,
 ) -> CslResult<()> {
     if let Some(name) = token.string_opt("name") {
-        state
-            .build
-            .name_parts
-            .insert(name, token_to_value(&token));
+        state.build.name_parts.insert(name, token_to_value(&token));
     }
     Ok(())
 }

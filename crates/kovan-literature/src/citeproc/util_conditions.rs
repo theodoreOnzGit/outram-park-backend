@@ -210,14 +210,17 @@ pub struct ConditionsEngine {
 
 impl ConditionsEngine {
     fn token<'t>(&self, target: &'t mut [Token]) -> CslResult<&'t mut Token> {
-        target.get_mut(self.token_index).ok_or_else(|| {
-            EngineError::Csl("TypeError: conditions engine token is missing".into())
-        })
+        target
+            .get_mut(self.token_index)
+            .ok_or_else(|| EngineError::Csl("TypeError: conditions engine token is missing".into()))
     }
 
     /// `CSL.Conditions.Engine.prototype.addTest`.
     pub fn add_test(&self, target: &mut [Token], test: Test) -> CslResult<()> {
-        self.token(target)?.tests.push(test);
+        let tok = self.token(target)?;
+        // this.token.tests ? {} : this.token.tests = [];
+        tok.tests_defined = true;
+        tok.tests.push(test);
         Ok(())
     }
 
@@ -265,25 +268,21 @@ pub fn top_node(state: &mut State, token: &mut Token, target: &[Token]) -> CslRe
             token.test = Some(match_combine(token, &token.tests.clone())?);
         }
         if state.build.substitute_level.value().copied() == Some(0) {
-            token
-                .execs
-                .push(super::exec::Exec::UtilConditions(
-                    UtilConditionsExec::ConditionCounterIncrement,
-                ));
+            token.execs.push(super::exec::Exec::UtilConditions(
+                UtilConditionsExec::ConditionCounterIncrement,
+            ));
         }
     }
     if token.tokentype == TokenType::End || token.tokentype == TokenType::Singleton {
         if state.build.substitute_level.value().copied() == Some(0) {
-            token
-                .execs
-                .push(super::exec::Exec::UtilConditions(
-                    UtilConditionsExec::ConditionCounterDecrement,
-                ));
+            token.execs.push(super::exec::Exec::UtilConditions(
+                UtilConditionsExec::ConditionCounterDecrement,
+            ));
         }
         // closingjump
-        token
-            .execs
-            .push(super::exec::Exec::UtilConditions(UtilConditionsExec::ClosingJump));
+        token.execs.push(super::exec::Exec::UtilConditions(
+            UtilConditionsExec::ClosingJump,
+        ));
         if js::truthy_opt(token.extra.get("locale_default")) {
             if let Some(l) = token.extra.get("locale_default") {
                 state.opt.insert("lang".into(), l.clone());

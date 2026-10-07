@@ -46,10 +46,9 @@ impl NodeNumberExec {
         match self {
             // PORT-LATER(wave2): node_number.js:41-130, needs state.processNumber
             // (util_number.js), CSL.Util.outputNumericField, state.output.append,
-            // state.tmp.group_context. Upstream picks the formatter for the
-            // `form` at build time (`this.formatter = state.fun.romanizer` etc.);
-            // a function is not token data, so the run-time code selects it from
-            // `strings.form` ("roman" / "ordinal" / "long-ordinal").
+            // state.tmp.group_context. The formatter processNumber reads from
+            // the node is `token.extra["formatter"]` (a name: "romanizer",
+            // "ordinalizer", "long_ordinalizer") -> state.fun.<name>.
             NodeNumberExec::Render => Err(EngineError::NotYetPorted {
                 method: "node_number.js:41 closure",
             }),
@@ -68,7 +67,19 @@ pub fn build(
     //
     // This should push a rangeable object to the queue.
     //
-    // (formatter selection: see NodeNumberExec::Render)
+    // The formatter is a function upstream; the intermediate dump records its
+    // name, so the name is the token property here.
+    let formatter = match token.string_opt("form").as_deref() {
+        Some("roman") => Some("romanizer"),
+        Some("ordinal") => Some("ordinalizer"),
+        Some("long-ordinal") => Some("long_ordinalizer"),
+        _ => None,
+    };
+    if let Some(f) = formatter {
+        token
+            .extra
+            .insert("formatter".into(), serde_json::Value::String(f.to_string()));
+    }
     let layout_delimiter = area_ref(state, &state.build.area.clone())?
         .opt
         .get("layout_delimiter")
@@ -93,4 +104,3 @@ pub fn build(
     // target.push(this); CSL.Util.substituteEnd.call(this, state, target);
     util_substitute::push_with_substitute_end(state, token, target, true)
 }
-

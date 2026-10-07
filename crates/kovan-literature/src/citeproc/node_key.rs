@@ -225,8 +225,11 @@ fn build_into(state: &mut State, this: &Token, target: &mut Vec<Token>) -> CslRe
         vec![Value::from(-1), Value::from(1)]
     };
     let area = state.build.area.clone();
-    attributes::arr_entry(&mut attributes::area_mut(state, &area)?.opt, "sort_directions")
-        .push(Value::Array(sort_direction));
+    attributes::arr_entry(
+        &mut attributes::area_mut(state, &area)?.opt,
+        "sort_directions",
+    )
+    .push(Value::Array(sort_direction));
 
     if this
         .variables
@@ -272,7 +275,9 @@ fn build_into(state: &mut State, this: &Token, target: &mut Vec<Token>) -> CslRe
         } else {
             let mut single_text = Token::new("text", TokenType::Singleton);
             if let Some(sd) = this.strings.get("sort_direction") {
-                single_text.strings.insert("sort_direction".into(), sd.clone());
+                single_text
+                    .strings
+                    .insert("sort_direction".into(), sd.clone());
             }
             if let Some(dp) = this.extra.get("dateparts") {
                 single_text.extra.insert("dateparts".into(), dp.clone());
@@ -329,9 +334,14 @@ fn build_into(state: &mut State, this: &Token, target: &mut Vec<Token>) -> CslRe
         if state.build.area == "citation" && state.build.extension == "_sort" {
             // ascending sort always
             let area = state.build.area.clone();
-            attributes::arr_entry(&mut attributes::area_mut(state, &area)?.opt, "sort_directions")
-                .push(Value::Array(vec![Value::from(-1), Value::from(1)]));
-            end_key.execs.push(Exec::NodeKey(NodeKeyExec::YearSuffixKey));
+            attributes::arr_entry(
+                &mut attributes::area_mut(state, &area)?.opt,
+                "sort_directions",
+            )
+            .push(Value::Array(vec![Value::from(-1), Value::from(1)]));
+            end_key
+                .execs
+                .push(Exec::NodeKey(NodeKeyExec::YearSuffixKey));
         }
         state.build.date_key = false;
     }

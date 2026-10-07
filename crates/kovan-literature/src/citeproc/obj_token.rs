@@ -97,6 +97,12 @@ pub struct Token {
     pub execs: Vec<Exec>,
     /// `tests`: condition closures (if / else-if / substitute / group).
     pub tests: Vec<Test>,
+    /// Whether the JS `tests` property exists (`if (!this.tests) this.tests =
+    /// []` ran, or it was assigned). Upstream creates the array lazily, so a
+    /// token can have `tests: []` (the intermediate dump records `tests_n: 0`)
+    /// or no `tests` at all. Set by every code path that creates it
+    /// (attributes.js handlers, `if_start.tests = [...]`, `Conditions.Engine.addTest`).
+    pub tests_defined: bool,
     /// `test`: the evaluator combining `tests` (`match="any|all|none"`).
     pub test: Option<Test>,
     /// `next`: the index of the following token (set by configure).
@@ -139,6 +145,8 @@ impl Token {
         t.variables = self.variables.clone();
         t.execs = self.execs.clone();
         t.tests = self.tests.clone();
+        // `if (token.tests) newtok.tests = token.tests.slice()`
+        t.tests_defined = self.tests_defined;
         t
     }
 

@@ -79,7 +79,9 @@ pub fn build(
 
     token
         .execs
-        .push(Exec::NodeDatepart(NodeDatepartExec::Render { date_variable }));
+        .push(Exec::NodeDatepart(NodeDatepartExec::Render {
+            date_variable,
+        }));
     target.push(token);
     Ok(())
 }

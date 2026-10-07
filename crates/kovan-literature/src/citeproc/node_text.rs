@@ -19,8 +19,7 @@
 use serde_json::Value;
 
 use super::attributes::{
-    area_ref, expand_macro_stub, get_term_stub, CITE_FIELDS, MULTI_FIELDS, NUMERIC,
-    TRIGRAPH,
+    area_ref, expand_macro_stub, get_term_stub, CITE_FIELDS, MULTI_FIELDS, NUMERIC, TRIGRAPH,
 };
 use super::exec::Exec;
 use super::js;
@@ -205,9 +204,7 @@ pub fn build(
         // queue.
         if v0.as_deref() == Some("citation-number") {
             if state.build.root == "citation" {
-                state
-                    .opt
-                    .insert("update_mode".into(), Value::from(NUMERIC));
+                state.opt.insert("update_mode".into(), Value::from(NUMERIC));
             }
             if state.build.root == "bibliography" {
                 state.opt.insert("bib_mode".into(), Value::from(NUMERIC));
@@ -226,7 +223,9 @@ pub fn build(
             set_opt_extra(&mut token, "splice_prefix", ld);
             push(&mut token, NodeTextExec::CitationNumber);
         } else if v0.as_deref() == Some("year-suffix") {
-            state.opt.insert("has_year_suffix".into(), Value::Bool(true));
+            state
+                .opt
+                .insert("has_year_suffix".into(), Value::Bool(true));
 
             let tmp_area = state.tmp.area.clone();
             if area_opt(state, &tmp_area, "collapse")?
@@ -253,7 +252,9 @@ pub fn build(
             if state.build.root == "bibliography" {
                 state.opt.insert("bib_mode".into(), Value::from(TRIGRAPH));
             }
-            state.opt.insert("has_year_suffix".into(), Value::Bool(true));
+            state
+                .opt
+                .insert("has_year_suffix".into(), Value::Bool(true));
             push(&mut token, NodeTextExec::CitationLabel);
         }
     } else if js::truthy_opt(token.strings.get("term")) {

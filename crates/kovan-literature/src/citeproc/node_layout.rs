@@ -172,7 +172,9 @@ pub fn build(
         // rendering of variables
         //
         // initalize done vars
-        token.execs.push(Exec::NodeLayout(NodeLayoutExec::InitDoneVars));
+        token
+            .execs
+            .push(Exec::NodeLayout(NodeLayoutExec::InitDoneVars));
         // set opt delimiter
         token
             .execs
@@ -181,7 +183,9 @@ pub fn build(
         token
             .execs
             .push(Exec::NodeLayout(NodeLayoutExec::ResetNamesetCounter));
-        token.execs.push(Exec::NodeLayout(NodeLayoutExec::OpenLevel));
+        token
+            .execs
+            .push(Exec::NodeLayout(NodeLayoutExec::OpenLevel));
         target.push(token.clone());
 
         if state.build.area == "citation" {
@@ -196,7 +200,9 @@ pub fn build(
     // Cast token to be used in one of the configurations below.
     let mut my_tok = Token::new("dummy", TokenType::Start);
     if let Some(l) = &locale_raw {
-        my_tok.extra.insert("locale".into(), Value::String(l.clone()));
+        my_tok
+            .extra
+            .insert("locale".into(), Value::String(l.clone()));
         if let Some(d) = token.strings.get("delimiter") {
             my_tok.strings.insert("delimiter".into(), d.clone());
         }
@@ -345,7 +351,9 @@ pub fn build(
             }
 
             // Closes wrapper token
-            token.execs.push(Exec::NodeLayout(NodeLayoutExec::CloseLevel));
+            token
+                .execs
+                .push(Exec::NodeLayout(NodeLayoutExec::CloseLevel));
             token
                 .execs
                 .push(Exec::NodeLayout(NodeLayoutExec::CiteEntryEnd));

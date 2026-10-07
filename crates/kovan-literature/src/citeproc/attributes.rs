@@ -495,10 +495,7 @@ pub fn inherit_opt(
         Some(p) if !p.is_empty() => p,
         _ => attrname,
     };
-    let parent = area
-        .opt
-        .get("inheritedAttributes")
-        .and_then(|o| o.get(key));
+    let parent = area.opt.get("inheritedAttributes").and_then(|o| o.get(key));
     match parent {
         Some(v) => Ok(Some(v.clone())),
         None => Ok(default_value),
@@ -795,8 +792,7 @@ impl AttributesTest {
                     Some(Value::Number(n)) => n.as_i64(),
                     _ => None,
                 };
-                let pos_is_number = has_item
-                    && matches!(pos_value, None | Some(Value::Number(_)));
+                let pos_is_number = has_item && matches!(pos_value, None | Some(Value::Number(_)));
                 if pos_is_number {
                     let p = numeric_pos;
                     if p == Some(0) && *tryposition == Some(0) {
@@ -1110,11 +1106,44 @@ fn track_repeat(state: &mut State, vars: &[String]) {
     }
 }
 
+/// The attribute handlers that start with `if (!this.tests) {this.tests = []; }`.
+const TESTS_INITIALISING: [&str; 25] = [
+    "@disambiguate",
+    "@is-numeric",
+    "@is-uncertain-date",
+    "@locator",
+    "@position",
+    "@type",
+    "@variable",
+    "@page",
+    "@number",
+    "@jurisdiction",
+    "@country",
+    "@context",
+    "@has-year-only",
+    "@has-to-month-or-season",
+    "@has-day",
+    "@is-plural",
+    "@is-multiple",
+    "@locale",
+    "@alternative-node-internal",
+    "@locale-internal",
+    "@court-class",
+    "@container-multiple",
+    "@container-subsequent",
+    "@has-subunit",
+    "@cite-form",
+];
+
 /// `CSL.Attributes[key].call(token, state, "" + arg)`. Returns `Ok(false)`
 /// for an attribute upstream does not define (it only warns). Entry point
 /// called by the build loop (`CSL.XmlToToken`) and `setStyleAttributes`.
 /// `key` includes the leading `@` (`"@variable"`).
 pub fn apply(state: &mut State, token: &mut Token, key: &str, arg: &str) -> CslResult<bool> {
+    if TESTS_INITIALISING.contains(&key) {
+        // `if (!this.tests) {this.tests = []; }` at the top of the handler.
+        token.tests_defined = true;
+    }
     match key {
         "@disambiguate" => {
             if arg == "true" {
@@ -1126,7 +1155,9 @@ pub fn apply(state: &mut State, token: &mut Token, key: &str, arg: &str) -> CslR
         }
         "@is-numeric" => {
             for variable in split_ws(arg) {
-                token.tests.push(atest(AttributesTest::IsNumeric { variable }));
+                token
+                    .tests
+                    .push(atest(AttributesTest::IsNumeric { variable }));
             }
         }
         "@is-uncertain-date" => {
@@ -1139,7 +1170,9 @@ pub fn apply(state: &mut State, token: &mut Token, key: &str, arg: &str) -> CslR
         "@locator" => {
             let trylabels = arg.replacen("sub verbo", "sub-verbo", 1);
             for trylabel in split_ws(&trylabels) {
-                token.tests.push(atest(AttributesTest::Locator { trylabel }));
+                token
+                    .tests
+                    .push(atest(AttributesTest::Locator { trylabel }));
             }
         }
         "@position" => {
@@ -1173,9 +1206,10 @@ pub fn apply(state: &mut State, token: &mut Token, key: &str, arg: &str) -> CslR
                 .into_iter()
                 .map(|mytype| atest(AttributesTest::Type { mytype }))
                 .collect();
-            token
-                .tests
-                .push(util_conditions::match_test(util_conditions::MatchKind::Any, &tests));
+            token.tests.push(util_conditions::match_test(
+                util_conditions::MatchKind::Any,
+                &tests,
+            ));
         }
         "@variable" => {
             token.variables = split_ws(arg);
@@ -1195,7 +1229,9 @@ pub fn apply(state: &mut State, token: &mut Token, key: &str, arg: &str) -> CslR
                     .push(Exec::Attributes(AttributesExec::VariableCheckOutput));
             } else if ["if", "else-if", "condition"].contains(&token.name.as_str()) {
                 for variable in token.variables.clone() {
-                    token.tests.push(atest(AttributesTest::Variable { variable }));
+                    token
+                        .tests
+                        .push(atest(AttributesTest::Variable { variable }));
                 }
             }
         }
@@ -1227,7 +1263,9 @@ pub fn apply(state: &mut State, token: &mut Token, key: &str, arg: &str) -> CslR
         }
         "@has-year-only" => {
             for trydate in split_ws(arg) {
-                token.tests.push(atest(AttributesTest::HasYearOnly { trydate }));
+                token
+                    .tests
+                    .push(atest(AttributesTest::HasYearOnly { trydate }));
             }
         }
         "@has-to-month-or-season" => {
@@ -1254,12 +1292,16 @@ pub fn apply(state: &mut State, token: &mut Token, key: &str, arg: &str) -> CslR
         }
         "@locale" => apply_locale(state, token, arg)?,
         "@alternative-node-internal" => {
-            token.tests.push(atest(AttributesTest::AlternativeNodeInternal));
+            token
+                .tests
+                .push(atest(AttributesTest::AlternativeNodeInternal));
         }
         "@locale-internal" => apply_locale_internal(state, token, arg)?,
         "@court-class" => {
             for tryclass in split_ws(arg) {
-                token.tests.push(atest(AttributesTest::CourtClass { tryclass }));
+                token
+                    .tests
+                    .push(atest(AttributesTest::CourtClass { tryclass }));
             }
         }
         "@container-multiple" => {
@@ -1291,10 +1333,10 @@ pub fn apply(state: &mut State, token: &mut Token, key: &str, arg: &str) -> CslR
         }
         "@consolidate-containers" => {
             track_containers(state, arg);
-            state.bibliography.opt.insert(
-                "consolidate_containers".into(),
-                strings_vec(&split_ws(arg)),
-            );
+            state
+                .bibliography
+                .opt
+                .insert("consolidate_containers".into(), strings_vec(&split_ws(arg)));
         }
         "@track-containers" => track_containers(state, arg),
         // These are not evaluated as conditions immediately: they only
@@ -1396,7 +1438,9 @@ pub fn apply(state: &mut State, token: &mut Token, key: &str, arg: &str) -> CslR
         // Used as a flag during dates processing
         "@lingo" => {}
         "@macro-has-date" => {
-            token.extra.insert("macro-has-date".into(), Value::Bool(true));
+            token
+                .extra
+                .insert("macro-has-date".into(), Value::Bool(true));
         }
         "@suffix" => token.set_string("suffix", arg),
         "@prefix" => token.set_string("prefix", arg),
@@ -1440,9 +1484,10 @@ pub fn apply(state: &mut State, token: &mut Token, key: &str, arg: &str) -> CslR
             }
         }
         "@has-publisher-and-publisher-place" => {
-            token
-                .strings
-                .insert("has-publisher-and-publisher-place".into(), Value::Bool(true));
+            token.strings.insert(
+                "has-publisher-and-publisher-place".into(),
+                Value::Bool(true),
+            );
         }
         "@publisher-delimiter-precedes-last" => {
             token.set_string("publisher-delimiter-precedes-last", arg)
@@ -1469,9 +1514,10 @@ pub fn apply(state: &mut State, token: &mut Token, key: &str, arg: &str) -> CslR
         "@cite-group-delimiter" => {
             if !arg.is_empty() {
                 let area = state.tmp.area.clone();
-                area_mut(state, &area)?
-                    .opt
-                    .insert("cite_group_delimiter".into(), Value::String(arg.to_string()));
+                area_mut(state, &area)?.opt.insert(
+                    "cite_group_delimiter".into(),
+                    Value::String(arg.to_string()),
+                );
             }
         }
         "@names-delimiter" => set_opt(state, token, "names-delimiter", Value::String(arg.into())),
@@ -1487,7 +1533,12 @@ pub fn apply(state: &mut State, token: &mut Token, key: &str, arg: &str) -> CslR
             set_opt(state, token, "et-al-min", int_or_nan(val));
         }
         "@et-al-use-first" => {
-            set_opt(state, token, "et-al-use-first", int_or_nan(js::parse_int(arg)));
+            set_opt(
+                state,
+                token,
+                "et-al-use-first",
+                int_or_nan(js::parse_int(arg)),
+            );
         }
         "@et-al-use-last" => {
             set_opt(state, token, "et-al-use-last", Value::Bool(arg == "true"));
@@ -1516,12 +1567,18 @@ pub fn apply(state: &mut State, token: &mut Token, key: &str, arg: &str) -> CslR
                 .insert("suppress-max".into(), int_or_nan(js::parse_int(arg)));
         }
         "@and" => set_opt(state, token, "and", Value::String(arg.into())),
-        "@delimiter-precedes-last" => {
-            set_opt(state, token, "delimiter-precedes-last", Value::String(arg.into()))
-        }
-        "@delimiter-precedes-et-al" => {
-            set_opt(state, token, "delimiter-precedes-et-al", Value::String(arg.into()))
-        }
+        "@delimiter-precedes-last" => set_opt(
+            state,
+            token,
+            "delimiter-precedes-last",
+            Value::String(arg.into()),
+        ),
+        "@delimiter-precedes-et-al" => set_opt(
+            state,
+            token,
+            "delimiter-precedes-et-al",
+            Value::String(arg.into()),
+        ),
         "@initialize-with" => set_opt(state, token, "initialize-with", Value::String(arg.into())),
         "@initialize" => {
             if arg == "false" {
@@ -1539,7 +1596,12 @@ pub fn apply(state: &mut State, token: &mut Token, key: &str, arg: &str) -> CslR
                     .extra
                     .insert("name-as-sort-order".into(), Value::String(arg.into()));
             } else {
-                set_opt(state, token, "name-as-sort-order", Value::String(arg.into()));
+                set_opt(
+                    state,
+                    token,
+                    "name-as-sort-order",
+                    Value::String(arg.into()),
+                );
             }
         }
         "@sort-separator" => set_opt(state, token, "sort-separator", Value::String(arg.into())),
@@ -1574,9 +1636,10 @@ pub fn apply(state: &mut State, token: &mut Token, key: &str, arg: &str) -> CslR
         }
         "@subsequent-author-substitute" => {
             let name = token.name.clone();
-            area_mut(state, &name)?
-                .opt
-                .insert("subsequent-author-substitute".into(), Value::String(arg.into()));
+            area_mut(state, &name)?.opt.insert(
+                "subsequent-author-substitute".into(),
+                Value::String(arg.into()),
+            );
         }
         "@subsequent-author-substitute-rule" => {
             let name = token.name.clone();
@@ -1618,7 +1681,11 @@ pub fn apply(state: &mut State, token: &mut Token, key: &str, arg: &str) -> CslR
                 let name = token.name.clone();
                 area_mut(state, &name)?.opt.insert(
                     "hangingindent".into(),
-                    if legacy { Value::from(2) } else { Value::Bool(true) },
+                    if legacy {
+                        Value::from(2)
+                    } else {
+                        Value::Bool(true)
+                    },
                 );
             }
         }
@@ -1640,10 +1707,9 @@ pub fn apply(state: &mut State, token: &mut Token, key: &str, arg: &str) -> CslR
         }
         "@near-note-distance" => {
             let name = token.name.clone();
-            area_mut(state, &name)?.opt.insert(
-                "near-note-distance".into(),
-                int_or_nan(js::parse_int(arg)),
-            );
+            area_mut(state, &name)?
+                .opt
+                .insert("near-note-distance".into(), int_or_nan(js::parse_int(arg)));
         }
         "@substring" => {
             token
@@ -1655,12 +1721,8 @@ pub fn apply(state: &mut State, token: &mut Token, key: &str, arg: &str) -> CslR
                 arg: arg.to_string(),
             }));
         }
-        "@page-range-format" => {
-            set_opt_flag(state, "page-range-format", Value::String(arg.into()))
-        }
-        "@year-range-format" => {
-            set_opt_flag(state, "year-range-format", Value::String(arg.into()))
-        }
+        "@page-range-format" => set_opt_flag(state, "page-range-format", Value::String(arg.into())),
+        "@year-range-format" => set_opt_flag(state, "year-range-format", Value::String(arg.into())),
         "@default-locale" => apply_default_locale(state, token, arg)?,
         "@default-locale-sort" => {
             set_opt_flag(state, "default-locale-sort", Value::String(arg.into()))
@@ -1684,9 +1746,10 @@ pub fn apply(state: &mut State, token: &mut Token, key: &str, arg: &str) -> CslR
             }
         }
         "@substitute-use-first" => {
-            token
-                .strings
-                .insert("substitute-use-first".into(), int_or_nan(js::parse_int(arg)));
+            token.strings.insert(
+                "substitute-use-first".into(),
+                int_or_nan(js::parse_int(arg)),
+            );
         }
         "@use-first" => {
             token
@@ -1711,7 +1774,9 @@ pub fn apply(state: &mut State, token: &mut Token, key: &str, arg: &str) -> CslR
         }
         "@reverse-order" => {
             if arg == "true" {
-                token.strings.insert("reverse-order".into(), Value::Bool(true));
+                token
+                    .strings
+                    .insert("reverse-order".into(), Value::Bool(true));
             }
         }
         "@display" => {
@@ -1868,7 +1933,9 @@ fn apply_default_locale(state: &mut State, token: &mut Token, arg: &str) -> CslR
             .map(|m| {
                 let s = m.as_str();
                 // .replace(/^-x-/, "").replace(/-$/, "")
-                s.trim_start_matches("-x-").trim_end_matches('-').to_string()
+                s.trim_start_matches("-x-")
+                    .trim_end_matches('-')
+                    .to_string()
             })
             .collect();
         let lst0 = js::split(&SPLIT_RE, arg);
@@ -1893,7 +1960,492 @@ fn apply_default_locale(state: &mut State, token: &mut Token, arg: &str) -> CslR
             Value::Array(vec![Value::String(ret[0].clone())]),
         );
     } else if arg == "true" {
-        token.extra.insert("default_locale".into(), Value::Bool(true));
+        token
+            .extra
+            .insert("default_locale".into(), Value::Bool(true));
     }
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    //! Differential test of the attribute handlers and node builders against
+    //! citeproc-js 2.4.63 (`scripts/csl-units/build_tokens.cjs`, data in
+    //! `tests/data/csl/units/build_tokens.json`).
+    //!
+    //! **Method.** Each case is a tree of CSL elements. `scripts/csl-units/
+    //! build_tokens.cjs` serialises it to a style, lets citeproc-js build it
+    //! (with the XML name/institution/publisher normalisations switched off, so
+    //! the token lists are what the node builders make of exactly that tree),
+    //! and dumps the five token lists plus the options the handlers write.
+    //! This test replays the tree the way `CSL.makeBuilder` / `CSL.XmlToToken`
+    //! do (attributes applied in document order by [`apply`], then the node
+    //! builder), runs the jump-index pass (`configureTokenList`), and compares
+    //! per token: name, tokentype, `execs_n`, `tests_n` (present only when the
+    //! `tests` array exists), `has_test`, `strings`, `variables`, every other
+    //! data property, `next`/`succeed`/`fail`; plus the compared option keys,
+    //! `cite_affixes` and `date_key`. Decorations are not compared (the driver
+    //! does not run `CSL.setDecorations`).
+    //!
+    //! **Pass criterion.** Every compared case matches exactly. Cases that need
+    //! machinery outside this wave (macro expansion, locale loading, date
+    //! template merging, `getTerm`) end in `NotYetPorted` and are skipped; the
+    //! exact skip list is asserted so a newly failing case cannot hide there.
+    //!
+    //! **Results (2026-10-08).** 84 cases generated; 1 rejected by citeproc-js
+    //! itself (`intext_basic`, upstream throws); 7 skipped (see `EXPECTED_SKIPS`);
+    //! the rest match.
+    use super::*;
+    use crate::citeproc::stack::Stack;
+    use crate::citeproc::{
+        node_alternative, node_alternativetext, node_bibliography, node_choose, node_citation,
+        node_comment, node_condition, node_conditions, node_date, node_datepart, node_else,
+        node_elseif, node_etal, node_group, node_if, node_info, node_institution,
+        node_institutionpart, node_intext, node_key, node_label, node_layout, node_macro,
+        node_name, node_namepart, node_names, node_number, node_sort, node_substitute, node_text,
+    };
+    use std::sync::Arc;
+
+    const DATA: &str = include_str!("../../tests/data/csl/units/build_tokens.json");
+
+    /// Cases that end in `NotYetPorted` today, and why.
+    const EXPECTED_SKIPS: [&str; 7] = [
+        "macro_in_text",                    // CSL.expandMacro (util_nodes.js)
+        "layout_locale",                    // localeConfigure (util_locale.js)
+        "if_locale",                        // localeConfigure
+        "sort_key_macro",                   // CSL.expandMacro
+        "date_with_form",                   // CSL.Util.fixDateNode host (xmljson.js)
+        "text_collapse_citation_number",    // state.getTerm (build.js)
+        "text_collapse_year_suffix_ranged", // state.getTerm
+    ];
+
+    fn obj(v: Value) -> Obj {
+        match v {
+            Value::Object(o) => o,
+            _ => Obj::new(),
+        }
+    }
+
+    /// `CSL.Engine` constructor defaults (state.js) for the fields the
+    /// handlers and builders touch.
+    fn fresh_state(class: &str) -> CslResult<State> {
+        let mut s = State::default();
+        s.opt = obj(serde_json::json!({
+            "parallel": {"enable": false},
+            "has_disambiguate": false,
+            "inheritedAttributes": {},
+            "locale-sort": [], "locale-translit": [], "locale-translat": [],
+            "update_mode": 0, "bib_mode": 0, "sort_citations": false,
+            "has_layout_locale": false, "disable_duplicate_year_suppression": [],
+            "use_context_condition": false,
+            "initialize-with-hyphen": true,
+            "demote-non-dropping-particle": "display-and-sort",
+            "default-locale": ["en-US"], "lang": "en-US", "xclass": class,
+            "development_extensions": {},
+        }));
+        let common = |a: &mut Area| {
+            a.opt = obj(serde_json::json!({
+                "inheritedAttributes": {}, "collapse": [], "topdecor": [],
+                "layout_decorations": [], "layout_prefix": "", "layout_suffix": "",
+                "layout_delimiter": "", "sort_locales": [], "max_number_of_names": 0,
+            }));
+        };
+        common(&mut s.citation);
+        s.citation
+            .opt
+            .insert("givenname-disambiguation-rule".into(), "by-cite".into());
+        s.citation.opt.insert("near-note-distance".into(), 5.into());
+        common(&mut s.intext);
+        s.intext
+            .opt
+            .insert("givenname-disambiguation-rule".into(), "by-cite".into());
+        s.intext.opt.insert("near-note-distance".into(), 5.into());
+        common(&mut s.bibliography);
+        s.bibliography.opt.insert("line-spacing".into(), 1.into());
+        s.bibliography.opt.insert("entry-spacing".into(), 1.into());
+        for a in [&mut s.citation_sort, &mut s.bibliography_sort] {
+            a.opt = obj(serde_json::json!({"sort_directions": [], "topdecor": []}));
+        }
+        s.citation.root = "citation".into();
+        s.intext.root = "intext".into();
+        s.bibliography.root = "bibliography".into();
+        s.citation_sort.root = "citation".into();
+        s.bibliography_sort.root = "bibliography".into();
+        s.tmp.area = "citation".into();
+        s.tmp.root = Some("citation".into());
+        s.tmp.cite_affixes = obj(serde_json::json!({
+            "citation": false, "bibliography": false,
+            "citation_sort": false, "bibliography_sort": false,
+        }));
+        s.build.area = "citation".into();
+        s.build.root = "citation".into();
+        s.build.substitute_level = Stack::with(0);
+        // setStyleAttributes: class, version, default-locale of <style>.
+        let mut style = Token::new("style", TokenType::Start);
+        apply(&mut s, &mut style, "@class", class)?;
+        apply(&mut s, &mut style, "@version", "1.0")?;
+        apply(&mut s, &mut style, "@default-locale", "en-US")?;
+        // build.js:121: a style without @sort-separator gets ", ".
+        apply(&mut s, &mut style, "@sort-separator", ", ")?;
+        s.opt
+            .insert("default-locale-sort".into(), Value::String("en-US".into()));
+        Ok(s)
+    }
+
+    fn dispatch_build(state: &mut State, token: Token, target: &mut Vec<Token>) -> CslResult<()> {
+        macro_rules! go {
+            ($m:ident) => {
+                $m::build(state, token, target, true)
+            };
+        }
+        match token.name.clone().as_str() {
+            "alternative" => go!(node_alternative),
+            "alternative-text" => go!(node_alternativetext),
+            "bibliography" => go!(node_bibliography),
+            "choose" => go!(node_choose),
+            "citation" => go!(node_citation),
+            "#comment" => go!(node_comment),
+            "condition" => go!(node_condition),
+            "conditions" => go!(node_conditions),
+            "date" => go!(node_date),
+            "date-part" => go!(node_datepart),
+            "else" => go!(node_else),
+            "else-if" => go!(node_elseif),
+            "et-al" => go!(node_etal),
+            "group" => go!(node_group),
+            "if" => go!(node_if),
+            "info" => go!(node_info),
+            "institution" => go!(node_institution),
+            "institution-part" => go!(node_institutionpart),
+            "intext" => go!(node_intext),
+            "key" => go!(node_key),
+            "label" => go!(node_label),
+            "layout" => go!(node_layout),
+            "macro" => go!(node_macro),
+            "name" => go!(node_name),
+            "name-part" => go!(node_namepart),
+            "names" => go!(node_names),
+            "number" => go!(node_number),
+            "sort" => go!(node_sort),
+            "substitute" => go!(node_substitute),
+            "text" => go!(node_text),
+            other => Err(EngineError::Csl(format!(
+                "Undefined node name \"{other}\"."
+            ))),
+        }
+    }
+
+    fn dispatch_configure(state: &mut State, tokens: &mut [Token], pos: usize) -> CslResult<()> {
+        match tokens[pos].name.clone().as_str() {
+            "choose" => node_choose::configure(state, tokens, pos),
+            "else" => node_else::configure(state, tokens, pos),
+            "if" => node_if::configure(state, tokens, pos),
+            "else-if" => node_elseif::configure(state, tokens, pos),
+            "institution" => node_institution::configure(state, tokens, pos),
+            _ => Ok(()),
+        }
+    }
+
+    /// `CSL.Engine.prototype.configureTokenList`.
+    fn configure_token_list(state: &mut State, tokens: &mut [Token]) -> CslResult<()> {
+        let mut dateparts: Vec<String> = Vec::new();
+        for ppos in (0..tokens.len()).rev() {
+            if tokens[ppos].name == "date" && tokens[ppos].tokentype == TokenType::End {
+                dateparts = Vec::new();
+            }
+            if tokens[ppos].name == "date-part" && js::truthy_opt(tokens[ppos].strings.get("name"))
+            {
+                let name = tokens[ppos].string("name");
+                for part in ["year", "month", "day"] {
+                    if part == name {
+                        dateparts.push(name.clone());
+                    }
+                }
+            }
+            if tokens[ppos].name == "date" && tokens[ppos].tokentype == TokenType::Start {
+                dateparts.reverse();
+                tokens[ppos].extra.insert(
+                    "dateparts".into(),
+                    Value::Array(dateparts.iter().cloned().map(Value::String).collect()),
+                );
+            }
+            tokens[ppos].next = Some(ppos + 1);
+            dispatch_configure(state, tokens, ppos)?;
+        }
+        Ok(())
+    }
+
+    fn with_area_list<R>(
+        state: &mut State,
+        area: &str,
+        f: impl FnOnce(&mut State, &mut Vec<Token>) -> CslResult<R>,
+    ) -> CslResult<R> {
+        let mut list = std::mem::take(Arc::make_mut(&mut area_mut(state, area)?.tokens));
+        let r = f(state, &mut list);
+        *Arc::make_mut(&mut area_mut(state, area)?.tokens) = list;
+        r
+    }
+
+    /// `CSL.XmlToToken` for one element.
+    fn xml_to_token(
+        state: &mut State,
+        node: &Value,
+        tokentype: TokenType,
+        area: &str,
+        var_stack: &mut Vec<Vec<String>>,
+    ) -> CslResult<()> {
+        let name = node["n"].as_str().unwrap_or_default().to_string();
+        if let Some(skip) = state.build.skip.clone() {
+            if skip != name {
+                return Ok(());
+            }
+        }
+        let attrs: Vec<(String, String)> = node["a"]
+            .as_array()
+            .map(|a| {
+                a.iter()
+                    .map(|p| {
+                        (
+                            format!("@{}", p[0].as_str().unwrap_or_default()),
+                            p[1].as_str().unwrap_or_default().to_string(),
+                        )
+                    })
+                    .collect()
+            })
+            .unwrap_or_default();
+        let attr = |k: &str| attrs.iter().find(|(a, _)| a == k).map(|(_, v)| v.clone());
+        let mut token = Token::new(&name, tokentype);
+        if tokentype != TokenType::End || ["if", "else-if", "layout"].contains(&name.as_str()) {
+            for (key, val) in &attrs {
+                if tokentype == TokenType::End && key != "@language" && key != "@locale" {
+                    continue;
+                }
+                apply(state, &mut token, key, val)?;
+            }
+            if attr("@variable")
+                .map(|v| DATE_VARIABLES.contains(&v.as_str()))
+                .unwrap_or(false)
+            {
+                var_stack.push(token.variables.clone());
+            }
+        } else if tokentype == TokenType::End && attr("@variable").is_some() {
+            token.extra.insert("hasVariable".into(), Value::Bool(true));
+            if DATE_VARIABLES.contains(&attr("@variable").unwrap_or_default().as_str()) {
+                token.variables = var_stack.pop().unwrap_or_default();
+            }
+        }
+        with_area_list(state, area, |state, list| {
+            dispatch_build(state, token, list)
+        })
+    }
+
+    /// `buildStyle` of `CSL.makeBuilder`.
+    fn build_style(
+        state: &mut State,
+        nodes: &[Value],
+        parent: bool,
+        area: &str,
+        var_stack: &mut Vec<Vec<String>>,
+    ) -> CslResult<()> {
+        for node in nodes {
+            let name = node["n"].as_str().unwrap_or_default();
+            if parent && name == "date" {
+                // CSL.Util.fixDateNode: raises date_key; with a `form` it merges the
+                // locale template (not available here), without one it returns early.
+                state.build.date_key = true;
+                if node["a"]
+                    .as_array()
+                    .map(|a| a.iter().any(|p| p[0] == "form"))
+                    .unwrap_or(false)
+                {
+                    return Err(EngineError::NotYetPorted {
+                        method: "util_datenode.js fixDateNode host",
+                    });
+                }
+            }
+            let children = node["c"].as_array().cloned().unwrap_or_default();
+            if !children.is_empty() {
+                xml_to_token(state, node, TokenType::Start, area, var_stack)?;
+                build_style(state, &children, true, area, var_stack)?;
+                xml_to_token(state, node, TokenType::End, area, var_stack)?;
+            } else {
+                xml_to_token(state, node, TokenType::Singleton, area, var_stack)?;
+            }
+        }
+        Ok(())
+    }
+
+    fn build_case(case: &Value) -> CslResult<State> {
+        let class = case["class"].as_str().unwrap_or("in-text");
+        let mut state = fresh_state(class)?;
+        let nodes = case["nodes"].as_array().cloned().unwrap_or_default();
+        if case.get("macros").is_some() {
+            return Err(EngineError::NotYetPorted {
+                method: "util_nodes.js CSL.expandMacro",
+            });
+        }
+        for area in ["citation", "bibliography", "intext"] {
+            state.build.area = area.to_string();
+            let Some(node) = nodes.iter().find(|n| n["n"] == area) else {
+                continue;
+            };
+            let mut var_stack = Vec::new();
+            build_style(
+                &mut state,
+                std::slice::from_ref(node),
+                false,
+                area,
+                &mut var_stack,
+            )?;
+        }
+        for area in [
+            "citation",
+            "citation_sort",
+            "bibliography",
+            "bibliography_sort",
+            "intext",
+        ] {
+            let mut list = std::mem::take(Arc::make_mut(&mut area_mut(&mut state, area)?.tokens));
+            let r = configure_token_list(&mut state, &mut list);
+            *Arc::make_mut(&mut area_mut(&mut state, area)?.tokens) = list;
+            r?;
+        }
+        Ok(state)
+    }
+
+    fn strip_decorations(v: &mut Value) {
+        match v {
+            Value::Object(o) => {
+                o.remove("decorations");
+                o.values_mut().for_each(strip_decorations);
+            }
+            Value::Array(a) => a.iter_mut().for_each(strip_decorations),
+            _ => {}
+        }
+    }
+
+    fn dump_token(t: &Token) -> Value {
+        let mut v = super::super::node_names::token_to_value(t);
+        strip_decorations(&mut v);
+        if let Value::Object(o) = &mut v {
+            for (k, x) in [("next", t.next), ("succeed", t.succeed), ("fail", t.fail)] {
+                if let Some(i) = x {
+                    o.insert(k.into(), Value::from(i));
+                }
+            }
+        }
+        v
+    }
+
+    fn pick(opt: &Obj, keys: &[Value]) -> Obj {
+        let mut out = Obj::new();
+        for k in keys {
+            if let Some(k) = k.as_str() {
+                if let Some(v) = opt.get(k) {
+                    out.insert(k.to_string(), v.clone());
+                }
+            }
+        }
+        out
+    }
+
+    #[test]
+    fn token_lists_match_citeproc_js() {
+        let data: Value = serde_json::from_str(DATA).expect("build_tokens.json parses");
+        let opt_keys = data["meta"]["opt_keys"]
+            .as_array()
+            .cloned()
+            .unwrap_or_default();
+        let area_opt_keys = data["meta"]["area_opt_keys"]
+            .as_array()
+            .cloned()
+            .unwrap_or_default();
+        let cases = data["cases"].as_array().cloned().unwrap_or_default();
+        assert!(cases.len() >= 80);
+        let (mut compared, mut skipped, mut rejected) = (0, Vec::new(), 0);
+        let mut failures: Vec<String> = Vec::new();
+        for case in &cases {
+            let id = case["id"].as_str().unwrap_or("?").to_string();
+            if case.get("error").is_some() {
+                rejected += 1;
+                continue;
+            }
+            let state = match build_case(case) {
+                Ok(s) => s,
+                Err(EngineError::NotYetPorted { .. }) => {
+                    skipped.push(id);
+                    continue;
+                }
+                Err(e) => {
+                    failures.push(format!("{id}: Rust build failed: {e}"));
+                    continue;
+                }
+            };
+            compared += 1;
+            let exp = &case["expected"];
+            for area in [
+                "citation",
+                "citation_sort",
+                "bibliography",
+                "bibliography_sort",
+                "intext",
+            ] {
+                let rust: Vec<Value> = area_ref(&state, area)
+                    .map(|a| a.tokens.iter().map(dump_token).collect())
+                    .unwrap_or_default();
+                let want = exp["areas"][area]["tokens"]
+                    .as_array()
+                    .cloned()
+                    .unwrap_or_default();
+                if rust.len() != want.len() {
+                    failures.push(format!(
+                        "{id}: {area}: {} tokens, citeproc-js has {}",
+                        rust.len(),
+                        want.len()
+                    ));
+                    continue;
+                }
+                for (i, (r, w)) in rust.iter().zip(&want).enumerate() {
+                    if r != w {
+                        failures.push(format!("{id}: {area}[{i}]\n   rust {r}\n   js   {w}"));
+                    }
+                }
+                let ropt = Value::Object(pick(
+                    &area_ref(&state, area)
+                        .map(|a| a.opt.clone())
+                        .unwrap_or_default(),
+                    &area_opt_keys,
+                ));
+                if ropt != exp["areas"][area]["opt"] {
+                    failures.push(format!(
+                        "{id}: {area}.opt\n   rust {ropt}\n   js   {}",
+                        exp["areas"][area]["opt"]
+                    ));
+                }
+            }
+            let ropt = Value::Object(pick(&state.opt, &opt_keys));
+            if ropt != exp["opt"] {
+                failures.push(format!("{id}: opt\n   rust {ropt}\n   js   {}", exp["opt"]));
+            }
+            let ca = Value::Object(state.tmp.cite_affixes.clone());
+            if ca != exp["cite_affixes"] {
+                failures.push(format!(
+                    "{id}: cite_affixes\n   rust {ca}\n   js   {}",
+                    exp["cite_affixes"]
+                ));
+            }
+            if state.build.date_key != exp["date_key"].as_bool().unwrap_or(false) {
+                failures.push(format!("{id}: build.date_key differs"));
+            }
+        }
+        assert!(
+            failures.is_empty(),
+            "{} mismatches:\n{}",
+            failures.len(),
+            failures.join("\n")
+        );
+        assert_eq!(skipped, EXPECTED_SKIPS.to_vec());
+        assert_eq!(rejected, 1);
+        assert!(compared >= 75, "compared {compared}");
+    }
 }

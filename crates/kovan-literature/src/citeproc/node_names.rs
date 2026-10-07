@@ -31,10 +31,12 @@ use super::state::State;
 use super::util_substitute;
 use super::{CslResult, EngineError};
 
-/// A token as a JSON object: `name`, `tokentype`, `strings`, `decorations`,
-/// `variables`, `execs_n`, `tests_n`, `has_test`, the jump indices that are
-/// set, `postponed_macro`, and every `extra` property. (Closures are counted,
-/// as the intermediate dump does.)
+/// A token as a JSON object, in the form the intermediate dump gives a
+/// *nested* token (scripts/csl-intermediate-reference.cjs `canon`): `name`,
+/// `tokentype`, `strings`, `decorations`, `variables`, `execs_n`, `tests_n`
+/// (only when the `tests` array exists), `has_test` (only when true),
+/// `postponed_macro` and every `extra` property; jump indices are left out.
+/// (Closures are counted, not stored.)
 pub fn token_to_value(t: &Token) -> Value {
     let mut o = Obj::new();
     o.insert("name".into(), Value::String(t.name.clone()));
@@ -46,12 +48,11 @@ pub fn token_to_value(t: &Token) -> Value {
         Value::Array(t.variables.iter().cloned().map(Value::String).collect()),
     );
     o.insert("execs_n".into(), Value::from(t.execs.len()));
-    o.insert("tests_n".into(), Value::from(t.tests.len()));
-    o.insert("has_test".into(), Value::Bool(t.test.is_some()));
-    for (k, v) in [("next", t.next), ("succeed", t.succeed), ("fail", t.fail)] {
-        if let Some(i) = v {
-            o.insert(k.into(), Value::from(i));
-        }
+    if t.tests_defined {
+        o.insert("tests_n".into(), Value::from(t.tests.len()));
+    }
+    if t.test.is_some() {
+        o.insert("has_test".into(), Value::Bool(true));
     }
     if let Some(m) = &t.postponed_macro {
         o.insert("postponed_macro".into(), Value::String(m.clone()));
@@ -81,14 +82,11 @@ pub fn token_from_value(v: &Value) -> Option<Token> {
         .iter()
         .filter_map(|x| x.as_str().map(str::to_string))
         .collect();
-    t.next = o.get("next").and_then(Value::as_u64).map(|n| n as usize);
-    t.succeed = o.get("succeed").and_then(Value::as_u64).map(|n| n as usize);
-    t.fail = o.get("fail").and_then(Value::as_u64).map(|n| n as usize);
     t.postponed_macro = o
         .get("postponed_macro")
         .and_then(Value::as_str)
         .map(str::to_string);
-    const OWN: [&str; 11] = [
+    const OWN: [&str; 8] = [
         "name",
         "tokentype",
         "strings",
@@ -97,9 +95,6 @@ pub fn token_from_value(v: &Value) -> Option<Token> {
         "execs_n",
         "tests_n",
         "has_test",
-        "next",
-        "succeed",
-        "fail",
     ];
     for (k, x) in o {
         if !OWN.contains(&k.as_str()) && k != "postponed_macro" {
@@ -114,7 +109,10 @@ pub fn decorations_to_value(ds: &[Decoration]) -> Value {
     Value::Array(
         ds.iter()
             .map(|d| {
-                let mut a = vec![Value::String(d.name.clone()), Value::String(d.value.clone())];
+                let mut a = vec![
+                    Value::String(d.name.clone()),
+                    Value::String(d.value.clone()),
+                ];
                 if let Some(e) = &d.extra {
                     a.push(Value::String(e.clone()));
                 }
@@ -262,9 +260,7 @@ pub fn build(
         let label = state.build.name_label.last().ok_or_else(|| {
             EngineError::Csl("TypeError: state.build.name_label[-1] is undefined".into())
         })?;
-        token
-            .extra
-            .insert("label".into(), pairs_to_value(label));
+        token.extra.insert("label".into(), pairs_to_value(label));
         state.build.names_level -= 1;
         state.build.names_variables.pop();
         state.build.name_label.pop();
@@ -305,4 +301,3 @@ pub fn pairs_to_value(pairs: &[(String, Value)]) -> Value {
     }
     Value::Object(o)
 }
-

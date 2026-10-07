@@ -83,9 +83,7 @@ pub fn build(
     } else {
         NodeInstitutionpartExec::Undefined
     };
-    token
-        .execs
-        .push(Exec::NodeInstitutionpart(func));
+    token.execs.push(Exec::NodeInstitutionpart(func));
     target.push(token);
     Ok(())
 }

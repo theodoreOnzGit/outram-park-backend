@@ -94,6 +94,7 @@ pub fn build(
         let choose_start = Token::new("choose", TokenType::Start);
         node_choose::build(state, choose_start, target, false)?;
         let mut if_singleton = Token::new("if", TokenType::Singleton);
+        if_singleton.tests_defined = true;
         if_singleton.tests = vec![Test::NodeSubstitute(NodeSubstituteTest::ValueRendered)];
         if_singleton.test = Some(util_conditions::match_test(
             MatchKind::Any,

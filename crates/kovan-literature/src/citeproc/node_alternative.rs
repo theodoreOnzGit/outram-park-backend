@@ -84,7 +84,9 @@ pub fn build(
         attributes::apply(state, &mut if_tok, "@alternative-node-internal", "")?;
         node_if::build(state, if_tok, target, false)?;
 
-        token.execs.push(Exec::NodeAlternative(NodeAlternativeExec::Start));
+        token
+            .execs
+            .push(Exec::NodeAlternative(NodeAlternativeExec::Start));
         target.push(token);
 
         let choose_tok = Token::new("choose", TokenType::Start);
@@ -103,7 +105,9 @@ pub fn build(
         let choose_tok = Token::new("choose", TokenType::End);
         node_choose::build(state, choose_tok, target, false)?;
 
-        token.execs.push(Exec::NodeAlternative(NodeAlternativeExec::End));
+        token
+            .execs
+            .push(Exec::NodeAlternative(NodeAlternativeExec::End));
         target.push(token);
 
         let if_tok = Token::new("if", TokenType::End);
