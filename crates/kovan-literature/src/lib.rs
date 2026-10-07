@@ -78,6 +78,7 @@ pub mod concept_tree;
 mod markdown;
 mod metadata;
 mod pdf_import;
+pub mod zotero;
 
 #[cfg(test)]
 mod test_pdf;

@@ -1,0 +1,120 @@
+[
+	{
+		"name": "testCase00",
+		"source": "translators/CSL JSON.js testCases[0]",
+		"input": "[\n\t{\n\t\t\"id\": \"http://zotero.org/users/96641/items/BDQRTS3T\",\n\t\t\"type\": \"book\",\n\t\t\"title\": \"Stochastic biomathematical models: With applications to neuronal modeling\",\n\t\t\"collection-title\": \"Lecture notes in mathematics\",\n\t\t\"publisher\": \"Springer\",\n\t\t\"publisher-place\": \"Heidelberg\",\n\t\t\"volume\": \"2058\",\n\t\t\"number-of-pages\": \"206\",\n\t\t\"event-place\": \"Heidelberg\",\n\t\t\"ISBN\": \"978-3-642-32156-6\",\n\t\t\"language\": \"en\",\n\t\t\"author\": [\n\t\t\t{\n\t\t\t\t\"family\": \"Bachar\",\n\t\t\t\t\"given\": \"Mostafa\"\n\t\t\t}\n\t\t],\n\t\t\"issued\": {\n\t\t\t\"date-parts\": [\n\t\t\t\t[\n\t\t\t\t\t\"2013\",\n\t\t\t\t\t1,\n\t\t\t\t\t1\n\t\t\t\t]\n\t\t\t]\n\t\t}\n\t}\n]",
+		"upstreamTestItems": [
+			{
+				"itemType": "book",
+				"title": "Stochastic biomathematical models: With applications to neuronal modeling",
+				"creators": [
+					{
+						"lastName": "Bachar",
+						"firstName": "Mostafa",
+						"creatorType": "author"
+					}
+				],
+				"date": "January 1, 2013",
+				"ISBN": "978-3-642-32156-6",
+				"itemID": "http://zotero.org/users/96641/items/BDQRTS3T",
+				"language": "en",
+				"numPages": "206",
+				"place": "Heidelberg",
+				"publisher": "Springer",
+				"series": "Lecture notes in mathematics",
+				"volume": "2058",
+				"attachments": [],
+				"tags": [],
+				"notes": [],
+				"seeAlso": []
+			}
+		],
+		"status": 200,
+		"translatorID": "bc03b4fe-436d-4a1f-ba59-de4d2d7a63f7",
+		"items": [
+			{
+				"key": "KVN22222",
+				"version": 0,
+				"itemType": "book",
+				"creators": [
+					{
+						"firstName": "Mostafa",
+						"lastName": "Bachar",
+						"creatorType": "author"
+					}
+				],
+				"tags": [],
+				"series": "Lecture notes in mathematics",
+				"ISBN": "978-3-642-32156-6",
+				"language": "en",
+				"numPages": "206",
+				"publisher": "Springer",
+				"place": "Heidelberg",
+				"title": "Stochastic biomathematical models: With applications to neuronal modeling",
+				"volume": "2058",
+				"date": "January 1, 2013"
+			}
+		]
+	},
+	{
+		"name": "csl_ranges",
+		"source": "fixtures/import/csl_ranges.json",
+		"input": "[\n\t{\n\t\t\"id\": \"range1\",\n\t\t\"type\": \"article-journal\",\n\t\t\"title\": \"A range and a circa date\",\n\t\t\"container-title\": \"Journal of Testing\",\n\t\t\"author\": [\n\t\t\t{ \"family\": \"Smith\", \"given\": \"John\" },\n\t\t\t{ \"literal\": \"Kovan Collaboration\" }\n\t\t],\n\t\t\"issued\": { \"date-parts\": [[2010, 3], [2012, 5]] },\n\t\t\"original-date\": { \"date-parts\": [[1995]], \"circa\": true },\n\t\t\"accessed\": { \"date-parts\": [[\"2020\", 1, 2]] },\n\t\t\"page\": \"1-10\",\n\t\t\"volume\": 7,\n\t\t\"note\": \"Citation Key: smith2010\"\n\t},\n\t{\n\t\t\"id\": \"lit1\",\n\t\t\"type\": \"book\",\n\t\t\"title\": \"A literal date\",\n\t\t\"publisher\": \"Kovan Press\",\n\t\t\"publisher-place\": \"Singapore\",\n\t\t\"issued\": { \"literal\": \"Spring 2021\" },\n\t\t\"number-of-pages\": \"300\"\n\t},\n\t{\n\t\t\"id\": \"seasonal\",\n\t\t\"type\": \"chapter\",\n\t\t\"title\": \"A season\",\n\t\t\"container-title\": \"A Book\",\n\t\t\"editor\": [ { \"family\": \"Editor\", \"given\": \"Ed\" } ],\n\t\t\"issued\": { \"date-parts\": [[\"2021\"]], \"season\": \"Summer\" }\n\t}\n]\n",
+		"status": 200,
+		"translatorID": "bc03b4fe-436d-4a1f-ba59-de4d2d7a63f7",
+		"items": [
+			{
+				"key": "KVN22222",
+				"version": 0,
+				"itemType": "journalArticle",
+				"creators": [
+					{
+						"firstName": "John",
+						"lastName": "Smith",
+						"creatorType": "author"
+					},
+					{
+						"name": "Kovan Collaboration",
+						"creatorType": "author"
+					}
+				],
+				"tags": [],
+				"publicationTitle": "Journal of Testing",
+				"extra": "Citation Key: smith2010",
+				"pages": "1-10",
+				"title": "A range and a circa date",
+				"volume": "7",
+				"accessDate": "2020-01-02",
+				"date": "March 2010"
+			},
+			{
+				"key": "KVN22223",
+				"version": 0,
+				"itemType": "book",
+				"creators": [],
+				"tags": [],
+				"numPages": "300",
+				"publisher": "Kovan Press",
+				"place": "Singapore",
+				"title": "A literal date",
+				"date": "Spring 2021"
+			},
+			{
+				"key": "KVN22224",
+				"version": 0,
+				"itemType": "bookSection",
+				"creators": [
+					{
+						"firstName": "Ed",
+						"lastName": "Editor",
+						"creatorType": "editor"
+					}
+				],
+				"tags": [],
+				"bookTitle": "A Book",
+				"title": "A season",
+				"date": "Summer 2021"
+			}
+		]
+	}
+]

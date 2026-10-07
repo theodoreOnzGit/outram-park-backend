@@ -1,0 +1,102 @@
+{
+	"testCase00": {
+		"status": 200,
+		"output": "\n@article{adams_physical_2001,\n\ttitle = {The physical volcanology of the 1600 eruption of Huaynaputina, southern Peru},\n\tvolume = {62},\n\tpages = {493--518},\n\tjournaltitle = {Bulletin of Volcanology},\n\tauthor = {Adams, Nancy K and {DeSilva}, Shanaka L and Self, Steven and Salas, Guido and Schubring, Steven and Permenter, Jason L and Arbesman, Kendra},\n\tdate = {2001},\n\tkeywords = {Vulcanian eruptions, breadcrust, plinian},\n}\n"
+	},
+	"testCase01": {
+		"status": 200,
+		"output": "\n@book{abramowitz_handbook_1964,\n\tlocation = {New York},\n\tedition = {ninth Dover printing, tenth {GPO} printing},\n\ttitle = {Handbook of Mathematical Functions with Formulas, Graphs, and Mathematical Tables},\n\tpublisher = {Dover},\n\tauthor = {Abramowitz, Milton and Stegun, Irene A.},\n\tdate = {1964},\n}\n\n@book{torre_yankee_2008,\n\ttitle = {The Yankee Years},\n\tisbn = {0385527403},\n\tpublisher = {Doubleday},\n\tauthor = {Torre, Joe and Verducci, Tom},\n\tdate = {2008},\n}\n"
+	},
+	"testCase02": {
+		"status": 200,
+		"output": "\n@inproceedings{author_publication_nodate,\n\ttitle = {Some publication title},\n\tpages = {330--331},\n\tauthor = {Author, First and Author, Second},\n}\n\n@collection{editor_proceedings_2006,\n\ttitle = {Proceedings of the Xth Conference on {XYZ}},\n\teditor = {Editor, First and Editor, Second},\n\tdate = {2006-10},\n}\n"
+	},
+	"testCase03": {
+		"status": 200,
+		"output": "\n@book{von_hicks_design_2001,\n\tlocation = {Palo Alto},\n\tedition = {1st,},\n\ttitle = {Design of a Carbon Fiber Composite Grid Structure for the {GLAST} Spacecraft Using a Novel Manufacturing Technique},\n\tisbn = {0-69-697269-4},\n\tpublisher = {Stanford Press},\n\tauthor = {von Hicks, {III}, Michael},\n\tdate = {2001},\n}\n"
+	},
+	"testCase04": {
+		"status": 200,
+		"output": "\n@article{oliveira_usgs_2009,\n\ttitle = {{USGS} monitoring ecological impacts},\n\tvolume = {107},\n\tpages = {29},\n\tnumber = {29},\n\tjournaltitle = {Oil \\& Gas Journal},\n\tauthor = {Oliveira, A},\n\tdate = {2009},\n}\n"
+	},
+	"testCase05": {
+		"status": 200,
+		"output": "\n@article{noauthor_non-braking_nodate,\n\ttitle = {non-braking space: ; accented characters: ñ and ñ; tilde operator: ∼},\n}\n"
+	},
+	"testCase06": {
+		"status": 200,
+		"output": "\n@article{fritz_test_2012,\n\ttitle = {Test of markupconversion: Italics, bold, superscript, subscript, and small caps: Mitochondrial {DNA}₂ sequences suggest unexpected phylogenetic position of Corso-Sardinian grass snakes (\\textit{Natrix cetti}) and \\textbf{do not} support their \\textsc{species status}, with notes on phylogeography and subspecies delineation of grass snakes.},\n\tvolume = {12},\n\tdoi = {10.1007/s13127-011-0069-8},\n\tpages = {71--80},\n\tjournaltitle = {Actes du 4$^{\\textrm{ème}}$ Congrès Français d'Acoustique},\n\tauthor = {Fritz, U. and Corti, C. and Päckert, M.},\n\tdate = {2012},\n}\n"
+	},
+	"testCase07": {
+		"status": 200,
+		"output": "\n@misc{work_public_2012,\n\ttitle = {Public Service Research Foundation},\n\turl = {http://www.americanrightsatwork.org/blogcategory-275/},\n\tauthor = {Work, American Rights at},\n\turldate = {2012-07-27},\n\tdate = {2012},\n}\n"
+	},
+	"testCase08": {
+		"status": 200,
+		"output": "\n@article{noauthor_zotero:_nodate,\n\ttitle = {Zotero: single attachment},\n}\n\n@article{noauthor_zotero:_nodate-1,\n\ttitle = {Zotero: multiple attachments},\n}\n\n@article{noauthor_zotero:_nodate-2,\n\ttitle = {Zotero: linked attachments (old)},\n}\n\n@article{noauthor_zotero:_nodate-3,\n\ttitle = {Zotero: linked attachments},\n}\n\n@article{noauthor_mendeley:_nodate,\n\ttitle = {Mendeley: single attachment},\n\turl = {https://forums.zotero.org/discussion/28347/unable-to-get-pdfs-stored-on-computer-into-zotero-standalone/},\n}\n\n@article{noauthor_mendeley:_nodate-1,\n\ttitle = {Mendeley: escaped characters},\n}\n\n@article{noauthor_citavi:_nodate,\n\ttitle = {Citavi: single attachment},\n\turl = {https://forums.zotero.org/discussion/35909/bibtex-import-from-citavi-including-pdf-attachments/},\n}\n"
+	},
+	"testCase09": {
+		"status": 200,
+		"output": "\n@article{noauthor_extbackslash_nodate,\n\ttitle = {extbackslash extbackslash\\{\\}: \\{},\n}\n"
+	},
+	"testCase10": {
+		"status": 200,
+		"output": "\n@article{sasson_increasing_2013,\n\ttitle = {Increasing cardiopulmonary resuscitation provision in communities with low bystander cardiopulmonary resuscitation rates: a science advisory from the American Heart Association for healthcare providers, policymakers, public health departments, and community leaders},\n\tvolume = {127},\n\tissn = {1524-4539},\n\tdoi = {10.1161/CIR.0b013e318288b4dd},\n\tshorttitle = {Increasing cardiopulmonary resuscitation provision in communities with low bystander cardiopulmonary resuscitation rates},\n\tpages = {1342--1350},\n\tnumber = {12},\n\tjournaltitle = {Circulation},\n\tauthor = {Sasson, Comilla and Meischke, Hendrika and Abella, Benjamin S and Berg, Robert A and Bobrow, Bentley J and Chan, Paul S and Root, Elisabeth Dowling and Heisler, Michele and Levy, Jerrold H and Link, Mark and Masoudi, Frederick and Ong, Marcus and Sayre, Michael R and Rumsfeld, John S and Rea, Thomas D and {American Heart Association Council on Quality of Care and Outcomes Research} and {Emergency Cardiovascular Care Committee} and {Council on Cardiopulmonary, Critical Care, Perioperative and Resuscitation} and {Council on Clinical Cardiology} and {Council on Cardiovascular Surgery and Anesthesia}},\n\tdate = {2013-03},\n\tpmid = {23439512},\n\tkeywords = {Administrative Personnel, American Heart Association, Cardiopulmonary Resuscitation, Community Health Services, Health Personnel, Heart Arrest, Humans, Leadership, Public Health, United States},\n}\n"
+	},
+	"testCase11": {
+		"status": 200,
+		"output": "\n@article{smith_testing_nodate,\n\ttitle = {Testing identifier import},\n\tdoi = {10.12345/123456},\n\tauthor = {Smith, John},\n\tlccn = {L123456},\n\tmrnumber = {MR123456},\n\tzmnumber = {ZM123456},\n\tpmid = {P123456},\n\tpmcid = {PMC123456},\n\teprinttype = {arxiv},\n\teprint = {AX123456},\n}\n"
+	},
+	"testCase12": {
+		"status": 200,
+		"output": "\n@incollection{smith_testing_nodate,\n\ttitle = {Testing identifier import chapter},\n\tdoi = {10.12345/123456},\n\tauthor = {Smith, John},\n\tlccn = {L123456},\n\tmrnumber = {MR123456},\n\tzmnumber = {ZM123456},\n\tpmid = {P123456},\n\tpmcid = {PMC123456},\n\teprinttype = {arxiv},\n\teprint = {AX123456},\n}\n"
+	},
+	"testCase13": {
+		"status": 200,
+		"output": "\n@thesis{hoffmann_regelbasierte_2009,\n\ttitle = {Regelbasierte Extraktion und asymmetrische Fusion bibliographischer Informationen},\n\turl = {http://dblp.uni-trier.de/papers/DiplomarbeitOliverHoffmann.pdf},\n\tinstitution = {Diplomarbeit, Universität Trier, {FB} {IV}, {DBIS}/{DBLP}},\n\ttype = {Master's Thesis},\n\tauthor = {Hoffmann, Oliver},\n\tdate = {2009},\n}\n\n@thesis{ackermann_algorithms_2009,\n\ttitle = {Algorithms for the Bregman k-Median problem},\n\turl = {http://digital.ub.uni-paderborn.de/hs/content/titleinfo/1561},\n\tinstitution = {University of Paderborn},\n\ttype = {phdthesis},\n\tauthor = {Ackermann, Marcel R.},\n\tdate = {2009},\n}\n"
+	},
+	"testCase14": {
+		"status": 200,
+		"output": "\n@inproceedings{giannotti_trajectory_2007,\n\tlocation = {New York, {NY}, {USA}},\n\ttitle = {Trajectory Pattern Mining},\n\tisbn = {978-1-59593-609-7},\n\turl = {http://doi.acm.org/10.1145/1281192.1281230},\n\tdoi = {10.1145/1281192.1281230},\n\tseries = {{KDD} '07},\n\tpages = {330--339},\n\tbooktitle = {Proceedings of the 13th {ACM} {SIGKDD} International Conference on Knowledge Discovery and Data Mining},\n\tpublisher = {{ACM}},\n\tauthor = {Giannotti, Fosca and Nanni, Mirco and Pinelli, Fabio and Pedreschi, Dino},\n\tdate = {2007},\n\tnote = {event-place: San Jose, California, {USA}},\n\tkeywords = {spatio-temporal data mining, trajectory patterns},\n}\n"
+	},
+	"testCase15": {
+		"status": 200,
+		"output": "\n@article{naumann_alterung_2015,\n\tlocation = {Stuttgart},\n\ttitle = {Die Alterung der Gesellschaft und der Generationenkonflikt in Europa},\n\tvolume = {44},\n\turl = {https://madoc.bib.uni-mannheim.de/40756/},\n\tdoi = {10.1515/zfsoz-2015-0604},\n\tpages = {426--446},\n\tnumber = {6},\n\tjournaltitle = {Zeitschrift für Soziologie : {ZfS}},\n\tpublisher = {Lucius \\& Lucius},\n\tauthor = {Naumann, Elias and Heß, Moritz and Steinkopf, Leander},\n\tdate = {2015},\n}\n\n@article{elias_higher-order_2013,\n\ttitle = {Higher-order Erdős-Szekeres theorems},\n\tvolume = {244},\n\tissn = {0001-8708},\n\turl = {http://dx.doi.org/10.1016/j.aim.2013.04.020},\n\tdoi = {10.1016/j.aim.2013.04.020},\n\tpages = {1--15},\n\tjournaltitle = {Advances in Mathematics},\n\tshortjournal = {Adv. Math.},\n\tauthor = {Eliáš, Marek and Matoušek, Jiří},\n\tdate = {2013},\n\tmrnumber = {3077863},\n}\n"
+	},
+	"testCase16": {
+		"status": 200,
+		"output": "\n@incollection{onnudottir_busahaldabyltingin_2011,\n\tlocation = {Reykjavik},\n\ttitle = {Búsáhaldabyltingin : Pólitískt jafnræði og þátttaka almennings í mótmælum},\n\tpages = {36--44},\n\tpublisher = {Félagsvísindastofnun Háskóla Íslands},\n\tauthor = {Önnudóttir, Eva H.},\n\tdate = {2011},\n}\n"
+	},
+	"testCase17": {
+		"status": 200,
+		"output": "\n@online{scholarship_zoteros_2019,\n\ttitle = {Zotero's Homepage},\n\turl = {https://www.zotero.org/},\n\tauthor = {Scholarship, Corporation for Digital},\n\turldate = {2019-10-12},\n\tdate = {2019},\n}\n"
+	},
+	"testCase18": {
+		"status": 200,
+		"output": "\n@book{sweig_impossible_1942,\n\ttitle = {The impossible ℡—book},\n\tpublisher = {D{\\textbackslash}ëad Po$_{\\textrm{eee}}$t Society},\n\tauthor = {Swe\\{{\\textbackslash}textbackslash\\}ıg, Stefan and D\\{{\\textbackslash}textbackslash\\}écoret, Xavier},\n\tdate = {1942-03},\n}\n"
+	},
+	"testCase19": {
+		"status": 200,
+		"output": "\n@article{batsis_rural_2020,\n\ttitle = {A Rural Mobile Health Obesity Wellness Intervention for Older Adults with Obesity},\n\trights = {the authors},\n\turl = {https://www.cs.dartmouth.edu/~kotz/research/batsis-rural/index.html},\n\tjournaltitle = {{BMC} Geriatrics},\n\tauthor = {Batsis, John A. and Petersen, Curtis L. and Clark, Matthew M. and Cook, Summer B. and Kotz, David and Gooding, Tyler L. and Roderka, Meredith N. and Al-Nimr, Rima I. and Pidgeon, Dawna M. and Haedrich, Ann and Wright, K. C. and Aquila, Christina and Mackenzie, Todd A.},\n\tdate = {2020-12},\n}\n"
+	},
+	"testCase20": {
+		"status": 200,
+		"output": "\n@report{jacob_benchmarking_2021,\n\ttitle = {Benchmarking Methodology for {EVPN} and {PBB}-{EVPN}},\n\turl = {https://datatracker.ietf.org/doc/html/draft-ietf-bmwg-evpntest-09},\n\tabstract = {This document defines methodologies for benchmarking {EVPN} and {PBB}- {EVPN} performance. {EVPN} is defined in {RFC} 7432, and is being deployed in Service Provider networks. Specifically, this document defines the methodologies for benchmarking {EVPN}/{PBB}-{EVPN} convergence, data plane performance, and control plane performance.},\n\tnumber = {draft-ietf-bmwg-evpntest-09},\n\tinstitution = {Internet Engineering Task Force},\n\ttype = {Internet-Draft},\n\tauthor = {jacob, sudhin and Tiruveedhula, Kishore},\n\tdate = {2021-06-18},\n}\n"
+	},
+	"testCase21": {
+		"status": 200,
+		"output": "\n@inproceedings{cuturi_white_2009,\n\ttitle = {White Functionals for Anomaly Detection in Dynamical Systems},\n\tvolume = {22},\n\turl = {https://proceedings.neurips.cc/paper/2009/file/0188e8b8b014829e2fa0f430f0a95961-Paper.pdf},\n\tbooktitle = {Advances in Neural Information Processing Systems},\n\tpublisher = {Curran Associates, Inc.},\n\tauthor = {Cuturi, Marco and Vert, Jean-philippe and D' aspremont, Alexandre},\n\teditor = {Bengio, Y. and Schuurmans, D. and Lafferty, J. and Williams, C. and Culotta, A.},\n\tdate = {2009},\n}\n"
+	},
+	"testCase22": {
+		"status": 200,
+		"output": "\n@article{borissov_production_2023,\n\ttitle = {Production of Σ⁰ Hyperon and Search of Σ⁰ Hypernuclei at {LHC} with {ALICE}},\n\tvolume = {85},\n\turl = {https://cds.cern.ch/record/2855446},\n\tdoi = {10.1134/S1063778823010131},\n\tpages = {970--975},\n\tnumber = {6},\n\tjournaltitle = {Phys. At. Nucl.},\n\tauthor = {Borissov, Alexander and Solokhin, Sergei},\n\tdate = {2023},\n}\n"
+	},
+	"testCase23": {
+		"status": 200,
+		"output": "\n@book{derbis_poczucie_1998,\n\ttitle = {Poczucie jakości życia a swoboda działania i odpowiedzialność},\n\tpublisher = {Stowarzyszenie Psychologia i Architektura},\n\tauthor = {Derbis, Romuald and Bańka, Augustyn},\n\tdate = {1998},\n}\n"
+	},
+	"dates_and_markup": {
+		"status": 200,
+		"output": "\n@article{smith_dates_2021,\n\ttitle = {Dates and Markup in {\\textbackslash}{emphBib}{\\textbackslash}{TeX}: a kovan probe},\n\tvolume = {12},\n\turl = {http://example.com/a?b=c&d=e},\n\tdoi = {10.1234/abc.def},\n\tpages = {101--110},\n\tnumber = {3},\n\tjournaltitle = {Journal of Testing and Probing},\n\tauthor = {Smith, John and de la Fontaine, Jean and {Kovan Collaboration}},\n\tdate = {2021-05},\n\tkeywords = {alpha, beta, gamma},\n}\n\n@collection{editor_second_1999,\n\tlocation = {Singapore},\n\ttitle = {A Second Record},\n\tisbn = {978-3-16-148410-0},\n\tpublisher = {Kovan Press},\n\teditor = {Editor, Ed},\n\tdate = {1999},\n}\n\n@misc{noauthor_date_2021,\n\ttitle = {Date only},\n\tdate = {2021-05},\n}\n"
+	}
+}

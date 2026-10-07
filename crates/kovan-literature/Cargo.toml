@@ -63,6 +63,10 @@ maturity = 1
 [dependencies]
 kovan-common.workspace = true
 serde.workspace = true
+# Zotero translators (src/zotero/, GitHub #749): JSON item formats and the
+# translators' regular expressions. Both pure Rust, wasm- and Android-safe.
+serde_json.workspace = true
+regex.workspace = true
 toml.workspace = true
 pulldown-cmark.workspace = true
 # PDF ingestion — pure-Rust, offline, Android-buildable, MIT (GPLv3-compatible).

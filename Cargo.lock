@@ -5401,7 +5401,9 @@ dependencies = [
  "lopdf",
  "pdf-extract",
  "pulldown-cmark",
+ "regex",
  "serde",
+ "serde_json",
  "sha2",
  "toml",
 ]

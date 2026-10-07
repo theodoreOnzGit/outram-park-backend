@@ -1,0 +1,18 @@
+[
+	{
+		"at": "/0/date",
+		"case": "csl_ranges",
+		"port": "2010-03/2012-05",
+		"test": "import/csljson",
+		"upstream": "March 2010",
+		"reason": "Utilities version skew: the reference translation-server runs utilities 1dd38e27edf8, whose itemToCSLJSON/itemFromCSLJSON predate EDTF support; this port follows utilities 4051881d59c6 (kovan-common's port, the version #747 targets). Newer itemFromCSLJSON keeps a CSL date range as EDTF ('2010-03/2012-05', cslDateToEDTF, utilities_item.js:575); the old one formats only the first date ('March 2010')."
+	},
+	{
+		"at": "/1/date",
+		"case": "csl_ranges",
+		"port": "\"Spring 2021\"",
+		"test": "import/csljson",
+		"upstream": "Spring 2021",
+		"reason": "Utilities version skew: the reference translation-server runs utilities 1dd38e27edf8, whose itemToCSLJSON/itemFromCSLJSON predate EDTF support; this port follows utilities 4051881d59c6 (kovan-common's port, the version #747 targets). Newer itemFromCSLJSON quotes a CSL literal date that would not export as the same literal (dateExportsAsLiteral: 'Spring 2021' parses to a year), :584-586; the old one stores it bare."
+	}
+]

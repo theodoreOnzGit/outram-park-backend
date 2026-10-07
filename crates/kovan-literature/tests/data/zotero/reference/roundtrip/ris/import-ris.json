@@ -1,0 +1,5722 @@
+{
+	"testCase00": {
+		"status": 200,
+		"translatorID": "32d59d2d-b65a-4da4-b0a3-bdd3cfb979e7",
+		"items": [
+			{
+				"key": "KVN22222",
+				"version": 0,
+				"itemType": "journalArticle",
+				"creators": [
+					{
+						"firstName": "S.A.",
+						"lastName": "Baldwin",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "I.",
+						"lastName": "Fugaccia",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "D.R.",
+						"lastName": "Brown",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "L.V.",
+						"lastName": "Brown",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "S.W.",
+						"lastName": "Scheff",
+						"creatorType": "author"
+					}
+				],
+				"tags": [
+					{
+						"tag": "cortical contusion",
+						"type": 1
+					},
+					{
+						"tag": "blood-brain barrier",
+						"type": 1
+					},
+					{
+						"tag": "horseradish peroxidase",
+						"type": 1
+					},
+					{
+						"tag": "head trauma",
+						"type": 1
+					},
+					{
+						"tag": "hippocampus",
+						"type": 1
+					},
+					{
+						"tag": "rat",
+						"type": 1
+					}
+				],
+				"title": "Blood-brain barrier breach following cortical contusion in the rat",
+				"abstractNote": "Adult Fisher 344 rats were subjected to a unilateral impact to the dorsal cortex above the hippocampus at 3.5 m/sec with a 2 mm cortical depression. This caused severe cortical damage and neuronal loss in hippocampus subfields CA1, CA3 and hilus. Breakdown of the blood-brain barrier (BBB) was assessed by injecting the protein horseradish peroxidase (HRP) 5 minutes prior to or at various times following injury (5 minutes, 1, 2, 6, 12 hours, 1, 2, 5, and 10 days). Animals were killed 1 hour after HRP injection and brain sections were reacted with diaminobenzidine to visualize extravascular accumulation of the protein. Maximum staining occurred in animals injected with HRP 5 minutes prior to or 5 minutes after cortical contusion. Staining at these time points was observed in the ipsilateral hippocampus. Some modest staining occurred in the dorsal contralateral cortex near the superior sagittal sinus. Cortical HRP stain gradually decreased at increasing time intervals postinjury. By 10 days, no HRP stain was observed in any area of the brain. In the ipsilateral hippocampus, HRP stain was absent by 3 hours postinjury and remained so at the 6- and 12- hour time points. Surprisingly, HRP stain was again observed in the ipsilateral hippocampus 1 and 2 days following cortical contusion, indicating a biphasic opening of the BBB following head trauma and a possible second wave of secondary brain damage days after the contusion injury. These data indicate regions not initially destroyed by cortical impact, but evidencing BBB breach, may be accessible to neurotrophic factors administered intravenously both immediately and days after brain trauma.",
+				"date": "1996",
+				"pages": "476-481",
+				"journalAbbreviation": "J.Neurosurg.",
+				"publicationTitle": "J.Neurosurg.",
+				"volume": "85"
+			}
+		]
+	},
+	"testCase01": {
+		"status": 200,
+		"translatorID": "32d59d2d-b65a-4da4-b0a3-bdd3cfb979e7",
+		"items": [
+			{
+				"key": "KVN22222",
+				"version": 0,
+				"itemType": "patent",
+				"creators": [
+					{
+						"firstName": "D.R.",
+						"lastName": "Burger",
+						"creatorType": "inventor"
+					},
+					{
+						"firstName": "A.S.",
+						"lastName": "Goldstein",
+						"creatorType": "inventor"
+					}
+				],
+				"tags": [
+					{
+						"tag": "AIDS",
+						"type": 1
+					},
+					{
+						"tag": "virus",
+						"type": 1
+					},
+					{
+						"tag": "infection",
+						"type": 1
+					},
+					{
+						"tag": "antigens",
+						"type": 1
+					}
+				],
+				"title": "Method of detecting AIDS virus infection",
+				"issuingAuthority": "Epitope,I.",
+				"abstractNote": "A method is disclosed for detecting the presence of HTLV III infected cells in a medium. The method comprises contacting the medium with monoclonal antibodies against an antigen produced as a result of the infection and detecting the binding of the antibodies to the antigen. The antigen may be a gene product of the HTLV III virus or may be bound to such gene product. On the other hand the antigen may not be a viral gene product but may be produced as a result of the infection and may further be bound to a lymphocyte. The medium may be a human body fluid or a culture medium. A particular embodiment of the present method involves a method for determining the presence of a AIDS virus in a person. The method comprises combining a sample of a body fluid from the person with a monoclonal antibody that binds to an antigen produced as a result of the infection and detecting the binding of the monoclonal antibody to the antigen. The presence of the binding indicates the presence of a AIDS virus infection. Also disclosed are novel monoclonal antibodies, noval compositions of matter, and novel diagnostic kits",
+				"issueDate": "1990-02-27",
+				"assignee": "4,629,783",
+				"accessDate": "1986-06-23",
+				"place": "OR",
+				"applicationNumber": "G01N 33/569 G01N 33/577"
+			}
+		]
+	},
+	"testCase02": {
+		"status": 200,
+		"translatorID": "32d59d2d-b65a-4da4-b0a3-bdd3cfb979e7",
+		"items": [
+			{
+				"key": "KVN22222",
+				"version": 0,
+				"itemType": "journalArticle",
+				"creators": [
+					{
+						"firstName": "Author",
+						"lastName": "Name1",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "Author",
+						"lastName": "Name2",
+						"creatorType": "author"
+					}
+				],
+				"tags": [
+					{
+						"tag": "Keyword1, Keyword2, Keyword3",
+						"type": 1
+					},
+					{
+						"tag": "Keyword4",
+						"type": 1
+					},
+					{
+						"tag": "Keyword5",
+						"type": 1
+					}
+				],
+				"title": "Title",
+				"abstractNote": "Abstract",
+				"DOI": "10.1234/123456",
+				"libraryCatalog": "Database Provider",
+				"language": "Language",
+				"publisher": "Publisher",
+				"shortTitle": "Short Title",
+				"url": "URL",
+				"archiveLocation": "Accession Number",
+				"archive": "Name of Database",
+				"place": "Place Published"
+			},
+			{
+				"itemType": "note",
+				"parentItem": "KVN22222",
+				"note": "<p>Notes</p>"
+			},
+			{
+				"itemType": "note",
+				"parentItem": "KVN22222",
+				"note": "<p>ResearchNotes</p>"
+			},
+			{
+				"key": "KVN22223",
+				"version": 0,
+				"itemType": "journalArticle",
+				"creators": [
+					{
+						"firstName": "Author",
+						"lastName": "Name1",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "Author",
+						"lastName": "Name2",
+						"creatorType": "author"
+					},
+					{
+						"name": "Editor",
+						"creatorType": "editor"
+					},
+					{
+						"name": "Translator",
+						"creatorType": "translator"
+					}
+				],
+				"tags": [
+					{
+						"tag": "Keyword1, Keyword2, Keyword3",
+						"type": 1
+					},
+					{
+						"tag": "Keyword4",
+						"type": 1
+					},
+					{
+						"tag": "Keyword5",
+						"type": 1
+					}
+				],
+				"title": "Title",
+				"abstractNote": "Abstract",
+				"callNumber": "Call Number",
+				"libraryCatalog": "Database Provider",
+				"language": "Language",
+				"publisher": "Publisher",
+				"shortTitle": "Short Title",
+				"url": "URL",
+				"archiveLocation": "Accession Number",
+				"archive": "Name of Database",
+				"place": "Place Published"
+			},
+			{
+				"itemType": "note",
+				"parentItem": "KVN22223",
+				"note": "<p>Notes</p>"
+			},
+			{
+				"itemType": "note",
+				"parentItem": "KVN22223",
+				"note": "<p>ResearchNotes</p>"
+			},
+			{
+				"key": "KVN22224",
+				"version": 0,
+				"itemType": "artwork",
+				"creators": [
+					{
+						"name": "Artist",
+						"creatorType": "artist"
+					}
+				],
+				"tags": [
+					{
+						"tag": "Keyword1, Keyword2, Keyword3",
+						"type": 1
+					},
+					{
+						"tag": "Keyword4",
+						"type": 1
+					},
+					{
+						"tag": "Keyword5",
+						"type": 1
+					}
+				],
+				"title": "Title",
+				"abstractNote": "Abstract",
+				"artworkSize": "Size/Length",
+				"callNumber": "Call Number",
+				"libraryCatalog": "Database Provider",
+				"language": "Language",
+				"shortTitle": "Short Title",
+				"url": "URL",
+				"archiveLocation": "Accession Number",
+				"archive": "Name of Database",
+				"artworkMedium": "Type of Work"
+			},
+			{
+				"itemType": "note",
+				"parentItem": "KVN22224",
+				"note": "<p>Notes</p>"
+			},
+			{
+				"itemType": "note",
+				"parentItem": "KVN22224",
+				"note": "<p>Research Notes</p>"
+			},
+			{
+				"key": "KVN22225",
+				"version": 0,
+				"itemType": "film",
+				"creators": [
+					{
+						"firstName": "Author",
+						"lastName": "Name1",
+						"creatorType": "director"
+					},
+					{
+						"firstName": "Author",
+						"lastName": "Name2",
+						"creatorType": "director"
+					},
+					{
+						"firstName": "Series",
+						"lastName": "Editor",
+						"creatorType": "producer"
+					}
+				],
+				"tags": [
+					{
+						"tag": "Keyword1, Keyword2, Keyword3",
+						"type": 1
+					},
+					{
+						"tag": "Keyword4",
+						"type": 1
+					},
+					{
+						"tag": "Keyword5",
+						"type": 1
+					}
+				],
+				"title": "Title",
+				"abstractNote": "Abstract",
+				"videoRecordingFormat": "Format",
+				"callNumber": "Call Number",
+				"libraryCatalog": "Database Provider",
+				"language": "Language",
+				"distributor": "Publisher",
+				"shortTitle": "Short Title",
+				"url": "URL",
+				"archiveLocation": "Accession Number",
+				"archive": "Name of Database",
+				"place": "Place Published"
+			},
+			{
+				"itemType": "note",
+				"parentItem": "KVN22225",
+				"note": "<p>Notes</p>"
+			},
+			{
+				"itemType": "note",
+				"parentItem": "KVN22225",
+				"note": "<p>Research Notes</p>"
+			},
+			{
+				"key": "KVN22226",
+				"version": 0,
+				"itemType": "bill",
+				"creators": [
+					{
+						"name": "Sponsor",
+						"creatorType": "sponsor"
+					}
+				],
+				"tags": [
+					{
+						"tag": "Keyword1, Keyword2, Keyword3",
+						"type": 1
+					},
+					{
+						"tag": "Keyword4",
+						"type": 1
+					},
+					{
+						"tag": "Keyword5",
+						"type": 1
+					}
+				],
+				"title": "Title",
+				"abstractNote": "Abstract",
+				"session": "Session",
+				"codePages": "Code Pages",
+				"language": "Language",
+				"shortTitle": "Short Title",
+				"url": "URL",
+				"code": "Code",
+				"legislativeBody": "Legislative Body",
+				"codeVolume": "Code Volume",
+				"billNumber": "Bill Number",
+				"history": "History",
+				"section": "Code Section"
+			},
+			{
+				"itemType": "note",
+				"parentItem": "KVN22226",
+				"note": "<p>Notes</p>"
+			},
+			{
+				"itemType": "note",
+				"parentItem": "KVN22226",
+				"note": "<p>Research Notes</p>"
+			},
+			{
+				"key": "KVN22227",
+				"version": 0,
+				"itemType": "blogPost",
+				"creators": [
+					{
+						"firstName": "Author",
+						"lastName": "Name1",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "Author",
+						"lastName": "Name2",
+						"creatorType": "author"
+					}
+				],
+				"tags": [
+					{
+						"tag": "Keyword1, Keyword2, Keyword3",
+						"type": 1
+					},
+					{
+						"tag": "Keyword4",
+						"type": 1
+					},
+					{
+						"tag": "Keyword5",
+						"type": 1
+					}
+				],
+				"title": "Title of Entry",
+				"abstractNote": "Abstract",
+				"language": "Language",
+				"shortTitle": "Short Title",
+				"url": "URL",
+				"blogTitle": "Title of WebLog",
+				"websiteType": "Type of Medium"
+			},
+			{
+				"itemType": "note",
+				"parentItem": "KVN22227",
+				"note": "<p>Notes</p>"
+			},
+			{
+				"itemType": "note",
+				"parentItem": "KVN22227",
+				"note": "<p>Research Notes</p>"
+			},
+			{
+				"key": "KVN22228",
+				"version": 0,
+				"itemType": "book",
+				"creators": [
+					{
+						"firstName": "Author",
+						"lastName": "Name1",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "Author",
+						"lastName": "Name2",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "Series",
+						"lastName": "Editor",
+						"creatorType": "seriesEditor"
+					},
+					{
+						"name": "Editor",
+						"creatorType": "editor"
+					},
+					{
+						"name": "Translator",
+						"creatorType": "translator"
+					}
+				],
+				"tags": [
+					{
+						"tag": "Keyword1, Keyword2, Keyword3",
+						"type": 1
+					},
+					{
+						"tag": "Keyword4",
+						"type": 1
+					},
+					{
+						"tag": "Keyword5",
+						"type": 1
+					}
+				],
+				"title": "Title",
+				"abstractNote": "Abstract",
+				"callNumber": "Call Number",
+				"libraryCatalog": "Database Provider",
+				"edition": "Edition",
+				"numPages": "Number of Pages",
+				"language": "Language",
+				"publisher": "Publisher",
+				"ISBN": "ISBN",
+				"shortTitle": "Short Title",
+				"url": "URL",
+				"archiveLocation": "Accession Number",
+				"archive": "Name of Database",
+				"series": "Series Title",
+				"place": "Place Published",
+				"volume": "Volume",
+				"seriesNumber": "Series Volume",
+				"numberOfVolumes": "Number of Volumes"
+			},
+			{
+				"itemType": "note",
+				"parentItem": "KVN22228",
+				"note": "<p>Notes</p>"
+			},
+			{
+				"itemType": "note",
+				"parentItem": "KVN22228",
+				"note": "<p>Research Notes</p>"
+			},
+			{
+				"key": "KVN22229",
+				"version": 0,
+				"itemType": "bookSection",
+				"creators": [
+					{
+						"firstName": "Author",
+						"lastName": "Name1",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "Author",
+						"lastName": "Name2",
+						"creatorType": "author"
+					},
+					{
+						"name": "Editor",
+						"creatorType": "editor"
+					},
+					{
+						"firstName": "Series",
+						"lastName": "Editor",
+						"creatorType": "seriesEditor"
+					},
+					{
+						"name": "Translator",
+						"creatorType": "translator"
+					}
+				],
+				"tags": [
+					{
+						"tag": "Keyword1, Keyword2, Keyword3",
+						"type": 1
+					},
+					{
+						"tag": "Keyword4",
+						"type": 1
+					},
+					{
+						"tag": "Keyword5",
+						"type": 1
+					}
+				],
+				"title": "Title",
+				"abstractNote": "Abstract",
+				"callNumber": "Call Number",
+				"libraryCatalog": "Database Provider",
+				"edition": "Edition",
+				"pages": "Pages",
+				"language": "Language",
+				"publisher": "Publisher",
+				"ISBN": "ISBN",
+				"shortTitle": "Short Title",
+				"seriesNumber": "Series Volume",
+				"url": "URL",
+				"archiveLocation": "Accession Number",
+				"archive": "Name of Database",
+				"bookTitle": "Book Title",
+				"series": "Series Title",
+				"place": "Place Published",
+				"volume": "Volume",
+				"numberOfVolumes": "Number of Volumes"
+			},
+			{
+				"itemType": "note",
+				"parentItem": "KVN22229",
+				"note": "<p>Notes</p>"
+			},
+			{
+				"itemType": "note",
+				"parentItem": "KVN22229",
+				"note": "<p>Research Notes</p>"
+			},
+			{
+				"key": "KVN2222A",
+				"version": 0,
+				"itemType": "case",
+				"creators": [
+					{
+						"name": "Counsel",
+						"creatorType": "counsel"
+					}
+				],
+				"tags": [
+					{
+						"tag": "Keyword1, Keyword2, Keyword3",
+						"type": 1
+					},
+					{
+						"tag": "Keyword4",
+						"type": 1
+					},
+					{
+						"tag": "Keyword5",
+						"type": 1
+					}
+				],
+				"caseName": "Case Name",
+				"reporter": "Reporter",
+				"abstractNote": "Abstract",
+				"firstPage": "First Page",
+				"language": "Language",
+				"court": "Court",
+				"docketNumber": "Docket Number",
+				"url": "URL",
+				"reporterVolume": "Reporter Volume",
+				"history": "History"
+			},
+			{
+				"itemType": "note",
+				"parentItem": "KVN2222A",
+				"note": "<p>Notes</p>"
+			},
+			{
+				"itemType": "note",
+				"parentItem": "KVN2222A",
+				"note": "<p>ResearchNotes</p>"
+			},
+			{
+				"key": "KVN2222B",
+				"version": 0,
+				"itemType": "magazineArticle",
+				"creators": [
+					{
+						"firstName": "Author",
+						"lastName": "Name1",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "Author",
+						"lastName": "Name2",
+						"creatorType": "author"
+					},
+					{
+						"name": "Translator",
+						"creatorType": "translator"
+					}
+				],
+				"tags": [
+					{
+						"tag": "Keyword1, Keyword2, Keyword3",
+						"type": 1
+					},
+					{
+						"tag": "Keyword4",
+						"type": 1
+					},
+					{
+						"tag": "Keyword5",
+						"type": 1
+					}
+				],
+				"title": "Title",
+				"abstractNote": "Abstract",
+				"callNumber": "Call Number",
+				"libraryCatalog": "Database Provider",
+				"pages": "Pages",
+				"language": "Language",
+				"publisher": "Publisher",
+				"ISSN": "ISBN",
+				"shortTitle": "Short Title",
+				"url": "URL",
+				"archiveLocation": "Accession Number",
+				"archive": "Name of Database",
+				"publicationTitle": "Series Title",
+				"place": "Place Published",
+				"volume": "Volume"
+			},
+			{
+				"itemType": "note",
+				"parentItem": "KVN2222B",
+				"note": "<p>Notes</p>"
+			},
+			{
+				"itemType": "note",
+				"parentItem": "KVN2222B",
+				"note": "<p>Research Notes</p>"
+			},
+			{
+				"key": "KVN2222C",
+				"version": 0,
+				"itemType": "artwork",
+				"creators": [
+					{
+						"firstName": "Created",
+						"lastName": "By",
+						"creatorType": "artist"
+					}
+				],
+				"tags": [
+					{
+						"tag": "Keyword1, Keyword2, Keyword3",
+						"type": 1
+					},
+					{
+						"tag": "Keyword4",
+						"type": 1
+					},
+					{
+						"tag": "Keyword5",
+						"type": 1
+					}
+				],
+				"title": "Title",
+				"abstractNote": "Abstract",
+				"callNumber": "Call Number",
+				"libraryCatalog": "Database Provider",
+				"language": "Language",
+				"url": "URL",
+				"archiveLocation": "Accession Number",
+				"archive": "Name of Database",
+				"artworkMedium": "Type of Image"
+			},
+			{
+				"itemType": "note",
+				"parentItem": "KVN2222C",
+				"note": "<p>Notes</p>"
+			},
+			{
+				"itemType": "note",
+				"parentItem": "KVN2222C",
+				"note": "<p>Research Notes</p>"
+			},
+			{
+				"key": "KVN2222D",
+				"version": 0,
+				"itemType": "book",
+				"creators": [
+					{
+						"name": "Attribution",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "Series",
+						"lastName": "Editor",
+						"creatorType": "seriesEditor"
+					},
+					{
+						"name": "Translator",
+						"creatorType": "translator"
+					}
+				],
+				"tags": [
+					{
+						"tag": "Keyword1, Keyword2, Keyword3",
+						"type": 1
+					},
+					{
+						"tag": "Keyword4",
+						"type": 1
+					},
+					{
+						"tag": "Keyword5",
+						"type": 1
+					}
+				],
+				"title": "Title",
+				"abstractNote": "Abstract",
+				"callNumber": "Call Number",
+				"libraryCatalog": "Database Provider",
+				"edition": "Edition",
+				"numPages": "Number of Pages",
+				"language": "Language",
+				"publisher": "Publisher",
+				"ISBN": "ISSN/ISBN",
+				"shortTitle": "Short Title",
+				"url": "URL",
+				"archiveLocation": "Accession Number",
+				"archive": "Name of Database",
+				"series": "Series Title",
+				"place": "Place Published",
+				"volume": "Volume",
+				"seriesNumber": "Series Volume",
+				"numberOfVolumes": "Number of Volumes"
+			},
+			{
+				"itemType": "note",
+				"parentItem": "KVN2222D",
+				"note": "<p>Notes</p>"
+			},
+			{
+				"itemType": "note",
+				"parentItem": "KVN2222D",
+				"note": "<p>Research Notes</p>"
+			},
+			{
+				"key": "KVN2222E",
+				"version": 0,
+				"itemType": "computerProgram",
+				"creators": [
+					{
+						"name": "Programmer",
+						"creatorType": "programmer"
+					}
+				],
+				"tags": [
+					{
+						"tag": "Keyword1, Keyword2, Keyword3",
+						"type": 1
+					},
+					{
+						"tag": "Keyword4",
+						"type": 1
+					},
+					{
+						"tag": "Keyword5",
+						"type": 1
+					}
+				],
+				"title": "Title",
+				"abstractNote": "Abstract",
+				"callNumber": "Call Number",
+				"libraryCatalog": "Database Provider",
+				"programmingLanguage": "Language",
+				"company": "Publisher",
+				"ISBN": "ISBN",
+				"shortTitle": "Short Title",
+				"url": "URL",
+				"archiveLocation": "Accession Number",
+				"archive": "Name of Database",
+				"seriesTitle": "Series Title",
+				"place": "Place Published"
+			},
+			{
+				"itemType": "note",
+				"parentItem": "KVN2222E",
+				"note": "<p>Notes</p>"
+			},
+			{
+				"itemType": "note",
+				"parentItem": "KVN2222E",
+				"note": "<p>Research Notes</p>"
+			},
+			{
+				"key": "KVN2222F",
+				"version": 0,
+				"itemType": "conferencePaper",
+				"creators": [
+					{
+						"firstName": "Author",
+						"lastName": "Name1",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "Author",
+						"lastName": "Name2",
+						"creatorType": "author"
+					},
+					{
+						"name": "Editor",
+						"creatorType": "editor"
+					}
+				],
+				"tags": [
+					{
+						"tag": "Keyword1, Keyword2, Keyword3",
+						"type": 1
+					},
+					{
+						"tag": "Keyword4",
+						"type": 1
+					},
+					{
+						"tag": "Keyword5",
+						"type": 1
+					}
+				],
+				"title": "Title",
+				"abstractNote": "Abstract",
+				"place": "Place Published",
+				"libraryCatalog": "Database Provider",
+				"pages": "Pages",
+				"language": "Language",
+				"publisher": "Publisher",
+				"url": "URL",
+				"archiveLocation": "Accession Number",
+				"archive": "Name of Database",
+				"conferenceName": "Conference Name",
+				"volume": "Volume"
+			},
+			{
+				"itemType": "note",
+				"parentItem": "KVN2222F",
+				"note": "<p>Notes</p>"
+			},
+			{
+				"itemType": "note",
+				"parentItem": "KVN2222F",
+				"note": "<p>Research Notes</p>"
+			},
+			{
+				"key": "KVN2222G",
+				"version": 0,
+				"itemType": "conferencePaper",
+				"creators": [
+					{
+						"firstName": "Author",
+						"lastName": "Name1",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "Author",
+						"lastName": "Name2",
+						"creatorType": "author"
+					},
+					{
+						"name": "Editor",
+						"creatorType": "editor"
+					},
+					{
+						"firstName": "Series",
+						"lastName": "Editor",
+						"creatorType": "seriesEditor"
+					},
+					{
+						"name": "Sponsor",
+						"creatorType": "contributor"
+					}
+				],
+				"tags": [
+					{
+						"tag": "Keyword1, Keyword2, Keyword3",
+						"type": 1
+					},
+					{
+						"tag": "Keyword4",
+						"type": 1
+					},
+					{
+						"tag": "Keyword5",
+						"type": 1
+					}
+				],
+				"title": "Title",
+				"abstractNote": "Abstract",
+				"place": "Place Published",
+				"proceedingsTitle": "Proceedings Title",
+				"callNumber": "Call Number",
+				"libraryCatalog": "Database Provider",
+				"pages": "Pages",
+				"language": "Language",
+				"publisher": "Publisher",
+				"ISBN": "ISBN",
+				"shortTitle": "Short Title",
+				"url": "URL",
+				"archiveLocation": "Accession Number",
+				"archive": "Name of Database",
+				"conferenceName": "Conference Name",
+				"series": "Series Title",
+				"volume": "Volume",
+				"numberOfVolumes": "Number of Volumes"
+			},
+			{
+				"itemType": "note",
+				"parentItem": "KVN2222G",
+				"note": "<p>Notes</p>"
+			},
+			{
+				"itemType": "note",
+				"parentItem": "KVN2222G",
+				"note": "<p>Research Notes</p>"
+			},
+			{
+				"key": "KVN2222H",
+				"version": 0,
+				"itemType": "dataset",
+				"creators": [
+					{
+						"name": "Investigators",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "Funding",
+						"lastName": "Agency",
+						"creatorType": "contributor"
+					}
+				],
+				"tags": [
+					{
+						"tag": "Keyword1, Keyword2, Keyword3",
+						"type": 1
+					},
+					{
+						"tag": "Keyword4",
+						"type": 1
+					},
+					{
+						"tag": "Keyword5",
+						"type": 1
+					}
+				],
+				"title": "Title",
+				"abstractNote": "Abstract",
+				"callNumber": "Call Number",
+				"libraryCatalog": "Database Provider",
+				"language": "Language",
+				"repository": "Distributor",
+				"shortTitle": "Short Title",
+				"url": "URL",
+				"archiveLocation": "Accession Number",
+				"archive": "Name of Database",
+				"repositoryLocation": "Place Published",
+				"identifier": "Study Number"
+			},
+			{
+				"itemType": "note",
+				"parentItem": "KVN2222H",
+				"note": "<p>Notes</p>"
+			},
+			{
+				"itemType": "note",
+				"parentItem": "KVN2222H",
+				"note": "<p>Research Notes</p>"
+			},
+			{
+				"key": "KVN2222I",
+				"version": 0,
+				"itemType": "dictionaryEntry",
+				"creators": [
+					{
+						"firstName": "Author",
+						"lastName": "Name1",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "Author",
+						"lastName": "Name2",
+						"creatorType": "author"
+					},
+					{
+						"name": "Editor",
+						"creatorType": "editor"
+					},
+					{
+						"name": "Translator",
+						"creatorType": "translator"
+					}
+				],
+				"tags": [
+					{
+						"tag": "Keyword1, Keyword2, Keyword3",
+						"type": 1
+					},
+					{
+						"tag": "Keyword4",
+						"type": 1
+					},
+					{
+						"tag": "Keyword5",
+						"type": 1
+					}
+				],
+				"title": "Title",
+				"abstractNote": "Abstract",
+				"callNumber": "Call Number",
+				"libraryCatalog": "Database Provider",
+				"edition": "Edition",
+				"pages": "Pages",
+				"language": "Language",
+				"publisher": "Publisher",
+				"ISBN": "ISBN",
+				"shortTitle": "Short Title",
+				"url": "URL",
+				"archiveLocation": "Accession Number",
+				"archive": "Name of Database",
+				"dictionaryTitle": "Dictionary Title",
+				"place": "Place Published",
+				"volume": "Volume",
+				"numberOfVolumes": "Number of Volumes"
+			},
+			{
+				"itemType": "note",
+				"parentItem": "KVN2222I",
+				"note": "<p>Notes</p>"
+			},
+			{
+				"itemType": "note",
+				"parentItem": "KVN2222I",
+				"note": "<p>Research Notes</p>"
+			},
+			{
+				"key": "KVN2222J",
+				"version": 0,
+				"itemType": "book",
+				"creators": [
+					{
+						"firstName": "Series",
+						"lastName": "Editor",
+						"creatorType": "seriesEditor"
+					},
+					{
+						"name": "Editor",
+						"creatorType": "editor"
+					},
+					{
+						"name": "Translator",
+						"creatorType": "translator"
+					}
+				],
+				"tags": [
+					{
+						"tag": "Keyword1, Keyword2, Keyword3",
+						"type": 1
+					},
+					{
+						"tag": "Keyword4",
+						"type": 1
+					},
+					{
+						"tag": "Keyword5",
+						"type": 1
+					}
+				],
+				"title": "Title",
+				"abstractNote": "Abstract",
+				"callNumber": "Call Number",
+				"libraryCatalog": "Database Provider",
+				"edition": "Edition",
+				"numPages": "Number of Pages",
+				"language": "Language",
+				"publisher": "Publisher",
+				"ISBN": "ISBN",
+				"shortTitle": "Short Title",
+				"url": "URL",
+				"archiveLocation": "Accession Number",
+				"archive": "Name of Database",
+				"series": "Series Title",
+				"place": "Place Published",
+				"volume": "Volume",
+				"seriesNumber": "Series Volume",
+				"numberOfVolumes": "Number of Volumes"
+			},
+			{
+				"itemType": "note",
+				"parentItem": "KVN2222J",
+				"note": "<p>Notes</p>"
+			},
+			{
+				"itemType": "note",
+				"parentItem": "KVN2222J",
+				"note": "<p>Research Notes</p>"
+			},
+			{
+				"key": "KVN2222K",
+				"version": 0,
+				"itemType": "journalArticle",
+				"creators": [
+					{
+						"firstName": "Author",
+						"lastName": "Name1",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "Author",
+						"lastName": "Name2",
+						"creatorType": "author"
+					}
+				],
+				"tags": [
+					{
+						"tag": "Keyword1, Keyword2, Keyword3",
+						"type": 1
+					},
+					{
+						"tag": "Keyword4",
+						"type": 1
+					},
+					{
+						"tag": "Keyword5",
+						"type": 1
+					}
+				],
+				"title": "Title",
+				"abstractNote": "Abstract",
+				"libraryCatalog": "Database Provider",
+				"pages": "Pages",
+				"journalAbbreviation": "Periodical Title",
+				"language": "Language",
+				"publisher": "Publisher",
+				"ISSN": "ISSN",
+				"shortTitle": "Short Title",
+				"url": "URL",
+				"archiveLocation": "Accession Number",
+				"archive": "Name of Database",
+				"publicationTitle": "Periodical Title",
+				"series": "Website Title",
+				"place": "Place Published",
+				"volume": "Volume",
+				"issue": "Issue",
+				"section": "E-Pub Date"
+			},
+			{
+				"itemType": "note",
+				"parentItem": "KVN2222K",
+				"note": "<p>Notes</p>"
+			},
+			{
+				"itemType": "note",
+				"parentItem": "KVN2222K",
+				"note": "<p>Research Notes</p>"
+			},
+			{
+				"key": "KVN2222L",
+				"version": 0,
+				"itemType": "book",
+				"creators": [
+					{
+						"firstName": "Author",
+						"lastName": "Name1",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "Author",
+						"lastName": "Name2",
+						"creatorType": "author"
+					},
+					{
+						"name": "Editor",
+						"creatorType": "seriesEditor"
+					},
+					{
+						"firstName": "Series",
+						"lastName": "Editor",
+						"creatorType": "editor"
+					}
+				],
+				"tags": [
+					{
+						"tag": "Keyword1, Keyword2, Keyword3",
+						"type": 1
+					},
+					{
+						"tag": "Keyword4",
+						"type": 1
+					},
+					{
+						"tag": "Keyword5",
+						"type": 1
+					}
+				],
+				"title": "Title",
+				"abstractNote": "Abstract",
+				"callNumber": "Call Number",
+				"libraryCatalog": "Database Provider",
+				"edition": "Edition",
+				"numPages": "Number of Pages",
+				"language": "Language",
+				"publisher": "Publisher",
+				"ISBN": "ISBN",
+				"url": "URL",
+				"archiveLocation": "Accession Number",
+				"archive": "Name of Database",
+				"series": "Secondary Title",
+				"place": "Place Published",
+				"volume": "Volume",
+				"numberOfVolumes": "Version"
+			},
+			{
+				"itemType": "note",
+				"parentItem": "KVN2222L",
+				"note": "<p>Notes</p>"
+			},
+			{
+				"itemType": "note",
+				"parentItem": "KVN2222L",
+				"note": "<p>Research Notes</p>"
+			},
+			{
+				"key": "KVN2222M",
+				"version": 0,
+				"itemType": "bookSection",
+				"creators": [
+					{
+						"firstName": "Author",
+						"lastName": "Name1",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "Author",
+						"lastName": "Name2",
+						"creatorType": "author"
+					},
+					{
+						"name": "Editor",
+						"creatorType": "editor"
+					},
+					{
+						"firstName": "Series",
+						"lastName": "Editor",
+						"creatorType": "seriesEditor"
+					},
+					{
+						"name": "Translator",
+						"creatorType": "translator"
+					}
+				],
+				"tags": [
+					{
+						"tag": "Keyword1, Keyword2, Keyword3",
+						"type": 1
+					},
+					{
+						"tag": "Keyword4",
+						"type": 1
+					},
+					{
+						"tag": "Keyword5",
+						"type": 1
+					}
+				],
+				"title": "Title",
+				"abstractNote": "Abstract",
+				"callNumber": "Call Number",
+				"libraryCatalog": "Database Provider",
+				"edition": "Edition",
+				"pages": "Number-of Pages",
+				"language": "Language",
+				"publisher": "Publisher",
+				"ISBN": "ISSN/ISBN",
+				"shortTitle": "Short Title",
+				"url": "URL",
+				"archiveLocation": "Accession Number",
+				"archive": "Name of Database",
+				"bookTitle": "Book Title",
+				"series": "Series Title",
+				"place": "Place Published",
+				"volume": "Volume",
+				"numberOfVolumes": "Series Volume"
+			},
+			{
+				"itemType": "note",
+				"parentItem": "KVN2222M",
+				"note": "<p>Notes</p>"
+			},
+			{
+				"itemType": "note",
+				"parentItem": "KVN2222M",
+				"note": "<p>Research Notes</p>"
+			},
+			{
+				"key": "KVN2222N",
+				"version": 0,
+				"itemType": "encyclopediaArticle",
+				"creators": [
+					{
+						"firstName": "Author",
+						"lastName": "Name1",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "Author",
+						"lastName": "Name2",
+						"creatorType": "author"
+					},
+					{
+						"name": "Editor",
+						"creatorType": "editor"
+					},
+					{
+						"name": "Translator",
+						"creatorType": "translator"
+					}
+				],
+				"tags": [
+					{
+						"tag": "Keyword1, Keyword2, Keyword3",
+						"type": 1
+					},
+					{
+						"tag": "Keyword4",
+						"type": 1
+					},
+					{
+						"tag": "Keyword5",
+						"type": 1
+					}
+				],
+				"title": "Title",
+				"abstractNote": "Abstract",
+				"callNumber": "Call Number",
+				"libraryCatalog": "Database Provider",
+				"edition": "Edition",
+				"pages": "Pages",
+				"language": "Language",
+				"publisher": "Publisher",
+				"ISBN": "ISBN",
+				"shortTitle": "Short Title",
+				"url": "URL",
+				"archiveLocation": "Accession Number",
+				"archive": "Name of Database",
+				"encyclopediaTitle": "Encyclopedia Title",
+				"place": "Place Published",
+				"volume": "Volume",
+				"numberOfVolumes": "Number of Volumes"
+			},
+			{
+				"itemType": "note",
+				"parentItem": "KVN2222N",
+				"note": "<p>Notes</p>"
+			},
+			{
+				"itemType": "note",
+				"parentItem": "KVN2222N",
+				"note": "<p>Research Notes</p>"
+			},
+			{
+				"key": "KVN2222P",
+				"version": 0,
+				"itemType": "journalArticle",
+				"creators": [
+					{
+						"firstName": "Created",
+						"lastName": "By",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "Name of",
+						"lastName": "File",
+						"creatorType": "editor"
+					}
+				],
+				"tags": [
+					{
+						"tag": "Keyword1, Keyword2, Keyword3",
+						"type": 1
+					},
+					{
+						"tag": "Keyword4",
+						"type": 1
+					},
+					{
+						"tag": "Keyword5",
+						"type": 1
+					}
+				],
+				"title": "Title",
+				"abstractNote": "Abstract",
+				"callNumber": "Call Number",
+				"libraryCatalog": "Database Provider",
+				"language": "Language",
+				"publisher": "Publisher",
+				"url": "URL",
+				"archiveLocation": "Accession Number",
+				"archive": "Name of Database",
+				"place": "Place Published"
+			},
+			{
+				"itemType": "note",
+				"parentItem": "KVN2222P",
+				"note": "<p>Notes</p>"
+			},
+			{
+				"itemType": "note",
+				"parentItem": "KVN2222P",
+				"note": "<p>Research Notes</p>"
+			},
+			{
+				"key": "KVN2222Q",
+				"version": 0,
+				"itemType": "artwork",
+				"creators": [
+					{
+						"firstName": "Created",
+						"lastName": "By",
+						"creatorType": "artist"
+					}
+				],
+				"tags": [
+					{
+						"tag": "Keyword1, Keyword2, Keyword3",
+						"type": 1
+					},
+					{
+						"tag": "Keyword4",
+						"type": 1
+					},
+					{
+						"tag": "Keyword5",
+						"type": 1
+					}
+				],
+				"title": "Title",
+				"abstractNote": "Abstract",
+				"callNumber": "Call Number",
+				"libraryCatalog": "Database Provider",
+				"language": "Language",
+				"url": "URL",
+				"archiveLocation": "Accession Number",
+				"archive": "Name of Database",
+				"artworkMedium": "Type of Image"
+			},
+			{
+				"itemType": "note",
+				"parentItem": "KVN2222Q",
+				"note": "<p>Notes</p>"
+			},
+			{
+				"itemType": "note",
+				"parentItem": "KVN2222Q",
+				"note": "<p>Research Notes</p>"
+			},
+			{
+				"key": "KVN2222R",
+				"version": 0,
+				"itemType": "film",
+				"creators": [
+					{
+						"name": "Director",
+						"creatorType": "director"
+					},
+					{
+						"name": "Producer",
+						"creatorType": "producer"
+					},
+					{
+						"name": "Performers",
+						"creatorType": "contributor"
+					}
+				],
+				"tags": [
+					{
+						"tag": "Keyword1, Keyword2, Keyword3",
+						"type": 1
+					},
+					{
+						"tag": "Keyword4",
+						"type": 1
+					},
+					{
+						"tag": "Keyword5",
+						"type": 1
+					}
+				],
+				"title": "Title",
+				"abstractNote": "Synopsis",
+				"genre": "Genre",
+				"videoRecordingFormat": "Format",
+				"callNumber": "Call Number",
+				"libraryCatalog": "Database Provider",
+				"runningTime": "Running Time",
+				"language": "Language",
+				"distributor": "Distributor",
+				"shortTitle": "Short Title",
+				"url": "URL",
+				"archiveLocation": "Accession Number",
+				"archive": "Name of Database",
+				"place": "Place Published"
+			},
+			{
+				"itemType": "note",
+				"parentItem": "KVN2222R",
+				"note": "<p>Notes</p>"
+			},
+			{
+				"itemType": "note",
+				"parentItem": "KVN2222R",
+				"note": "<p>Research Notes</p>"
+			},
+			{
+				"key": "KVN2222S",
+				"version": 0,
+				"itemType": "journalArticle",
+				"creators": [
+					{
+						"firstName": "Author",
+						"lastName": "Name1",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "Author",
+						"lastName": "Name2",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "Secondary",
+						"lastName": "Author",
+						"creatorType": "editor"
+					},
+					{
+						"firstName": "Subsidiary",
+						"lastName": "Author",
+						"creatorType": "translator"
+					}
+				],
+				"tags": [
+					{
+						"tag": "Keyword1, Keyword2, Keyword3",
+						"type": 1
+					},
+					{
+						"tag": "Keyword4",
+						"type": 1
+					},
+					{
+						"tag": "Keyword5",
+						"type": 1
+					}
+				],
+				"title": "Title",
+				"abstractNote": "Abstract",
+				"callNumber": "Call Number",
+				"libraryCatalog": "Database Provider",
+				"pages": "Pages",
+				"journalAbbreviation": "Periodical Title",
+				"language": "Language",
+				"publisher": "Publisher",
+				"ISSN": "ISSN/ISBN",
+				"shortTitle": "Short Title",
+				"url": "URL",
+				"archiveLocation": "Accession Number",
+				"archive": "Name of Database",
+				"publicationTitle": "Secondary Title",
+				"series": "Tertiary Title",
+				"place": "Place Published",
+				"volume": "Volume",
+				"issue": "Number",
+				"section": "Section"
+			},
+			{
+				"itemType": "note",
+				"parentItem": "KVN2222S",
+				"note": "<p>Notes</p>"
+			},
+			{
+				"itemType": "note",
+				"parentItem": "KVN2222S",
+				"note": "<p>Research Notes</p>"
+			},
+			{
+				"key": "KVN2222T",
+				"version": 0,
+				"itemType": "report",
+				"creators": [
+					{
+						"firstName": "Author",
+						"lastName": "Name1",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "Author",
+						"lastName": "Name2",
+						"creatorType": "author"
+					},
+					{
+						"name": "Department",
+						"creatorType": "seriesEditor"
+					}
+				],
+				"tags": [
+					{
+						"tag": "Keyword1, Keyword2, Keyword3",
+						"type": 1
+					},
+					{
+						"tag": "Keyword4",
+						"type": 1
+					},
+					{
+						"tag": "Keyword5",
+						"type": 1
+					}
+				],
+				"title": "Title",
+				"abstractNote": "Abstract",
+				"libraryCatalog": "Database Provider",
+				"pages": "Pages",
+				"language": "Language",
+				"institution": "Publisher",
+				"reportNumber": "ISSN/ISBN",
+				"url": "URL",
+				"archiveLocation": "Accession Number",
+				"archive": "Name of Database",
+				"place": "Place Published"
+			},
+			{
+				"itemType": "note",
+				"parentItem": "KVN2222T",
+				"note": "<p>Notes</p>"
+			},
+			{
+				"itemType": "note",
+				"parentItem": "KVN2222T",
+				"note": "<p>Research Notes</p>"
+			},
+			{
+				"key": "KVN2222U",
+				"version": 0,
+				"itemType": "journalArticle",
+				"creators": [
+					{
+						"name": "Investigators",
+						"creatorType": "author"
+					},
+					{
+						"name": "Translator",
+						"creatorType": "translator"
+					}
+				],
+				"tags": [
+					{
+						"tag": "Keyword1, Keyword2, Keyword3",
+						"type": 1
+					},
+					{
+						"tag": "Keyword4",
+						"type": 1
+					},
+					{
+						"tag": "Keyword5",
+						"type": 1
+					}
+				],
+				"title": "Title of Grant",
+				"abstractNote": "Abstract",
+				"callNumber": "Call Number",
+				"libraryCatalog": "Database Provider",
+				"pages": "Pages",
+				"journalAbbreviation": "Periodical Title",
+				"language": "Language",
+				"publisher": "Sponsoring Agency",
+				"shortTitle": "Short Title",
+				"url": "URL",
+				"archiveLocation": "Accession Number",
+				"archive": "Name of Database",
+				"publicationTitle": "Periodical Title",
+				"place": "Activity Location",
+				"volume": "Amount Requested",
+				"issue": "Status",
+				"section": "Duration of Grant"
+			},
+			{
+				"itemType": "note",
+				"parentItem": "KVN2222U",
+				"note": "<p>Notes</p>"
+			},
+			{
+				"itemType": "note",
+				"parentItem": "KVN2222U",
+				"note": "<p>Research Notes</p>"
+			},
+			{
+				"key": "KVN2222V",
+				"version": 0,
+				"itemType": "hearing",
+				"creators": [],
+				"tags": [
+					{
+						"tag": "Keyword1, Keyword2, Keyword3",
+						"type": 1
+					},
+					{
+						"tag": "Keyword4",
+						"type": 1
+					},
+					{
+						"tag": "Keyword5",
+						"type": 1
+					}
+				],
+				"title": "Title",
+				"abstractNote": "Abstract",
+				"session": "Session",
+				"pages": "Pages",
+				"language": "Language",
+				"publisher": "Publisher",
+				"shortTitle": "Short Title",
+				"url": "URL",
+				"committee": "Committee",
+				"legislativeBody": "Legislative Body",
+				"place": "Place Published",
+				"documentNumber": "Document Number",
+				"numberOfVolumes": "Number of Volumes",
+				"history": "History"
+			},
+			{
+				"itemType": "note",
+				"parentItem": "KVN2222V",
+				"note": "<p>Notes</p>"
+			},
+			{
+				"itemType": "note",
+				"parentItem": "KVN2222V",
+				"note": "<p>Research Notes</p>"
+			},
+			{
+				"key": "KVN2222W",
+				"version": 0,
+				"itemType": "journalArticle",
+				"creators": [
+					{
+						"firstName": "Author",
+						"lastName": "Name1",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "Author",
+						"lastName": "Name2",
+						"creatorType": "author"
+					}
+				],
+				"tags": [],
+				"title": "Title",
+				"abstractNote": "Abstract",
+				"callNumber": "Call Number",
+				"libraryCatalog": "Database Provider",
+				"pages": "Pages",
+				"journalAbbreviation": "Periodical Title",
+				"language": "Language",
+				"ISSN": "ISSN",
+				"shortTitle": "Short Title",
+				"url": "URL",
+				"archiveLocation": "Accession Number",
+				"archive": "Name of Database",
+				"publicationTitle": "Journal",
+				"volume": "Volume",
+				"issue": "Issue",
+				"section": "Start Page"
+			},
+			{
+				"itemType": "note",
+				"parentItem": "KVN2222W",
+				"note": "<p>Research Notes</p>"
+			},
+			{
+				"key": "KVN2222X",
+				"version": 0,
+				"itemType": "case",
+				"creators": [
+					{
+						"firstName": "Author",
+						"lastName": "Name1",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "Author",
+						"lastName": "Name2",
+						"creatorType": "author"
+					}
+				],
+				"tags": [
+					{
+						"tag": "Keyword1, Keyword2, Keyword3",
+						"type": 1
+					},
+					{
+						"tag": "Keyword4",
+						"type": 1
+					},
+					{
+						"tag": "Keyword5",
+						"type": 1
+					}
+				],
+				"caseName": "Title",
+				"reporter": "Organization, Issuing",
+				"abstractNote": "Abstract",
+				"firstPage": "Pages",
+				"language": "Language",
+				"court": "Publisher",
+				"url": "URL",
+				"reporterVolume": "Rule Number",
+				"history": "History"
+			},
+			{
+				"itemType": "note",
+				"parentItem": "KVN2222X",
+				"note": "<p>Notes</p>"
+			},
+			{
+				"itemType": "note",
+				"parentItem": "KVN2222X",
+				"note": "<p>Research Notes</p>"
+			},
+			{
+				"key": "KVN2222Y",
+				"version": 0,
+				"itemType": "magazineArticle",
+				"creators": [
+					{
+						"firstName": "Author",
+						"lastName": "Name1",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "Author",
+						"lastName": "Name2",
+						"creatorType": "author"
+					}
+				],
+				"tags": [
+					{
+						"tag": "Keyword1, Keyword2, Keyword3",
+						"type": 1
+					},
+					{
+						"tag": "Keyword4",
+						"type": 1
+					},
+					{
+						"tag": "Keyword5",
+						"type": 1
+					}
+				],
+				"title": "Title",
+				"abstractNote": "Abstract",
+				"callNumber": "Call Number",
+				"libraryCatalog": "Database Provider",
+				"pages": "Pages",
+				"language": "Language",
+				"publisher": "Publisher",
+				"ISSN": "ISSN",
+				"shortTitle": "Short Title",
+				"url": "URL",
+				"archiveLocation": "Accession Number",
+				"archive": "Name of Database",
+				"publicationTitle": "Magazine",
+				"place": "Place Published",
+				"volume": "Volume"
+			},
+			{
+				"itemType": "note",
+				"parentItem": "KVN2222Y",
+				"note": "<p>Notes</p>"
+			},
+			{
+				"itemType": "note",
+				"parentItem": "KVN2222Y",
+				"note": "<p>Research Notes</p>"
+			},
+			{
+				"key": "KVN2222Z",
+				"version": 0,
+				"itemType": "manuscript",
+				"creators": [
+					{
+						"firstName": "Author",
+						"lastName": "Name1",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "Author",
+						"lastName": "Name2",
+						"creatorType": "author"
+					}
+				],
+				"tags": [
+					{
+						"tag": "Keyword1, Keyword2, Keyword3",
+						"type": 1
+					},
+					{
+						"tag": "Keyword4",
+						"type": 1
+					},
+					{
+						"tag": "Keyword5",
+						"type": 1
+					}
+				],
+				"title": "Title",
+				"abstractNote": "Abstract",
+				"callNumber": "Call Number",
+				"libraryCatalog": "Database Provider",
+				"numPages": "Pages",
+				"language": "Language",
+				"institution": "Library/Archive",
+				"shortTitle": "Short Title",
+				"url": "URL",
+				"archiveLocation": "Accession Number",
+				"archive": "Name of Database",
+				"place": "Place Published",
+				"manuscriptType": "Type of Work"
+			},
+			{
+				"itemType": "note",
+				"parentItem": "KVN2222Z",
+				"note": "<p>Notes</p>"
+			},
+			{
+				"itemType": "note",
+				"parentItem": "KVN2222Z",
+				"note": "<p>Research Notes</p>"
+			},
+			{
+				"key": "KVN22232",
+				"version": 0,
+				"itemType": "map",
+				"creators": [
+					{
+						"name": "Cartographer",
+						"creatorType": "cartographer"
+					}
+				],
+				"tags": [
+					{
+						"tag": "Keyword1, Keyword2, Keyword3",
+						"type": 1
+					},
+					{
+						"tag": "Keyword4",
+						"type": 1
+					},
+					{
+						"tag": "Keyword5",
+						"type": 1
+					}
+				],
+				"title": "Title",
+				"abstractNote": "Abstract",
+				"scale": "Scale",
+				"callNumber": "Call Number",
+				"libraryCatalog": "Database Provider",
+				"edition": "Edition",
+				"language": "Language",
+				"publisher": "Publisher",
+				"ISBN": "ISSN/ISBN",
+				"shortTitle": "Short Title",
+				"url": "URL",
+				"archiveLocation": "Accession Number",
+				"archive": "Name of Database",
+				"seriesTitle": "Series Title",
+				"place": "Place Published",
+				"mapType": "Type"
+			},
+			{
+				"itemType": "note",
+				"parentItem": "KVN22232",
+				"note": "<p>Notes</p>"
+			},
+			{
+				"itemType": "note",
+				"parentItem": "KVN22232",
+				"note": "<p>Research Notes</p>"
+			},
+			{
+				"key": "KVN22233",
+				"version": 0,
+				"itemType": "audioRecording",
+				"creators": [
+					{
+						"name": "Composer",
+						"creatorType": "composer"
+					},
+					{
+						"name": "Editor",
+						"creatorType": "performer"
+					},
+					{
+						"name": "Producer",
+						"creatorType": "translator"
+					},
+					{
+						"name": "Target Audience",
+						"creatorType": "wordsBy"
+					}
+				],
+				"tags": [
+					{
+						"tag": "Keyword1, Keyword2, Keyword3",
+						"type": 1
+					},
+					{
+						"tag": "Keyword4",
+						"type": 1
+					},
+					{
+						"tag": "Keyword5",
+						"type": 1
+					}
+				],
+				"title": "Title",
+				"abstractNote": "Abstract",
+				"audioRecordingFormat": "Accompanying Matter",
+				"callNumber": "Call Number",
+				"libraryCatalog": "Database Provider",
+				"language": "Language",
+				"label": "Publisher",
+				"ISBN": "ISBN",
+				"shortTitle": "Short Title",
+				"url": "URL",
+				"archiveLocation": "Accession Number",
+				"archive": "Name of Database",
+				"seriesTitle": "Series Title",
+				"place": "Place Published",
+				"volume": "Volume",
+				"numberOfVolumes": "Number of Volumes"
+			},
+			{
+				"itemType": "note",
+				"parentItem": "KVN22233",
+				"note": "<p>Notes</p>"
+			},
+			{
+				"itemType": "note",
+				"parentItem": "KVN22233",
+				"note": "<p>Research Notes</p>"
+			},
+			{
+				"key": "KVN22234",
+				"version": 0,
+				"itemType": "newspaperArticle",
+				"creators": [
+					{
+						"name": "Reporter",
+						"creatorType": "author"
+					}
+				],
+				"tags": [
+					{
+						"tag": "Keyword1, Keyword2, Keyword3",
+						"type": 1
+					},
+					{
+						"tag": "Keyword4",
+						"type": 1
+					},
+					{
+						"tag": "Keyword5",
+						"type": 1
+					}
+				],
+				"title": "Title",
+				"abstractNote": "Abstract",
+				"callNumber": "Call Number",
+				"libraryCatalog": "Database Provider",
+				"edition": "Edition",
+				"pages": "Pages",
+				"language": "Language",
+				"publisher": "Publisher",
+				"ISSN": "ISSN",
+				"shortTitle": "Short Title",
+				"url": "URL",
+				"archiveLocation": "Accession Number",
+				"archive": "Name of Database",
+				"publicationTitle": "Newspaper",
+				"place": "Place Published",
+				"volume": "Volume",
+				"section": "Section"
+			},
+			{
+				"itemType": "note",
+				"parentItem": "KVN22234",
+				"note": "<p>Notes</p>"
+			},
+			{
+				"itemType": "note",
+				"parentItem": "KVN22234",
+				"note": "<p>Research Notes</p>"
+			},
+			{
+				"key": "KVN22235",
+				"version": 0,
+				"itemType": "dataset",
+				"creators": [
+					{
+						"firstName": "Author",
+						"lastName": "Name1",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "Author",
+						"lastName": "Name2",
+						"creatorType": "author"
+					}
+				],
+				"tags": [
+					{
+						"tag": "Keyword1, Keyword2, Keyword3",
+						"type": 1
+					},
+					{
+						"tag": "Keyword4",
+						"type": 1
+					},
+					{
+						"tag": "Keyword5",
+						"type": 1
+					}
+				],
+				"title": "Title",
+				"abstractNote": "Abstract",
+				"libraryCatalog": "Database Provider",
+				"language": "Language",
+				"repository": "Publisher",
+				"url": "URL",
+				"archiveLocation": "Accession Number",
+				"archive": "Name of Database",
+				"repositoryLocation": "Place Published"
+			},
+			{
+				"itemType": "note",
+				"parentItem": "KVN22235",
+				"note": "<p>Notes</p>"
+			},
+			{
+				"itemType": "note",
+				"parentItem": "KVN22235",
+				"note": "<p>Research Notes</p>"
+			},
+			{
+				"key": "KVN22236",
+				"version": 0,
+				"itemType": "videoRecording",
+				"creators": [
+					{
+						"firstName": "Created",
+						"lastName": "By",
+						"creatorType": "director"
+					},
+					{
+						"name": "Year Cited",
+						"creatorType": "castMember"
+					}
+				],
+				"tags": [
+					{
+						"tag": "Keyword1, Keyword2, Keyword3",
+						"type": 1
+					},
+					{
+						"tag": "Keyword4",
+						"type": 1
+					},
+					{
+						"tag": "Keyword5",
+						"type": 1
+					}
+				],
+				"title": "Title",
+				"abstractNote": "Abstract",
+				"videoRecordingFormat": "Format/Length",
+				"libraryCatalog": "Database Provider",
+				"language": "Language",
+				"studio": "Distributor",
+				"url": "URL",
+				"archiveLocation": "Accession Number",
+				"archive": "Name of Database"
+			},
+			{
+				"itemType": "note",
+				"parentItem": "KVN22236",
+				"note": "<p>Notes</p>"
+			},
+			{
+				"itemType": "note",
+				"parentItem": "KVN22236",
+				"note": "<p>Research Notes</p>"
+			},
+			{
+				"key": "KVN22237",
+				"version": 0,
+				"itemType": "manuscript",
+				"creators": [
+					{
+						"firstName": "Author",
+						"lastName": "Name1",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "Author",
+						"lastName": "Name2",
+						"creatorType": "author"
+					},
+					{
+						"name": "Translator",
+						"creatorType": "translator"
+					}
+				],
+				"tags": [
+					{
+						"tag": "Keyword1, Keyword2, Keyword3",
+						"type": 1
+					},
+					{
+						"tag": "Keyword4",
+						"type": 1
+					},
+					{
+						"tag": "Keyword5",
+						"type": 1
+					}
+				],
+				"title": "Title",
+				"abstractNote": "Abstract",
+				"callNumber": "Call Number",
+				"libraryCatalog": "Database Provider",
+				"numPages": "Pages",
+				"language": "Language",
+				"institution": "Publisher",
+				"shortTitle": "Short Title",
+				"url": "URL",
+				"archiveLocation": "Accession Number",
+				"archive": "Name of Database",
+				"place": "Place Published",
+				"manuscriptType": "Type of Work"
+			},
+			{
+				"itemType": "note",
+				"parentItem": "KVN22237",
+				"note": "<p>Notes</p>"
+			},
+			{
+				"itemType": "note",
+				"parentItem": "KVN22237",
+				"note": "<p>Research Notes</p>"
+			},
+			{
+				"key": "KVN22238",
+				"version": 0,
+				"itemType": "patent",
+				"creators": [
+					{
+						"name": "Inventor",
+						"creatorType": "inventor"
+					},
+					{
+						"name": "Attorney/Agent",
+						"creatorType": "attorneyAgent"
+					}
+				],
+				"tags": [
+					{
+						"tag": "Keyword1, Keyword2, Keyword3",
+						"type": 1
+					},
+					{
+						"tag": "Keyword4",
+						"type": 1
+					},
+					{
+						"tag": "Keyword5",
+						"type": 1
+					}
+				],
+				"title": "Title",
+				"issuingAuthority": "Organization, Issuing",
+				"abstractNote": "Abstract",
+				"issueDate": "Year Issue",
+				"country": "Designated States",
+				"references": "References",
+				"legalStatus": "Legal Status",
+				"pages": "Pages",
+				"language": "Language",
+				"assignee": "Assignee",
+				"patentNumber": "Patent Number",
+				"shortTitle": "Short Title",
+				"url": "URL",
+				"place": "Country",
+				"applicationNumber": "Application Number",
+				"priorityNumbers": "Priority Numbers"
+			},
+			{
+				"itemType": "note",
+				"parentItem": "KVN22238",
+				"note": "<p>Notes</p>"
+			},
+			{
+				"itemType": "note",
+				"parentItem": "KVN22238",
+				"note": "<p>Research Notes</p>"
+			},
+			{
+				"key": "KVN22239",
+				"version": 0,
+				"itemType": "letter",
+				"creators": [
+					{
+						"firstName": "Author",
+						"lastName": "Name1",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "Author",
+						"lastName": "Name2",
+						"creatorType": "author"
+					},
+					{
+						"name": "Recipient",
+						"creatorType": "recipient"
+					}
+				],
+				"tags": [
+					{
+						"tag": "Keyword1, Keyword2, Keyword3",
+						"type": 1
+					},
+					{
+						"tag": "Keyword4",
+						"type": 1
+					},
+					{
+						"tag": "Keyword5",
+						"type": 1
+					}
+				],
+				"title": "Title",
+				"abstractNote": "Abstract",
+				"callNumber": "Call Number",
+				"libraryCatalog": "Database Provider",
+				"language": "Language",
+				"shortTitle": "Short Title",
+				"url": "URL",
+				"archiveLocation": "Accession Number",
+				"archive": "Name of Database",
+				"letterType": "Type"
+			},
+			{
+				"itemType": "note",
+				"parentItem": "KVN22239",
+				"note": "<p>Notes</p>"
+			},
+			{
+				"itemType": "note",
+				"parentItem": "KVN22239",
+				"note": "<p>Research Notes</p>"
+			},
+			{
+				"key": "KVN2223A",
+				"version": 0,
+				"itemType": "report",
+				"creators": [
+					{
+						"firstName": "Author",
+						"lastName": "Name1",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "Author",
+						"lastName": "Name2",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "Series",
+						"lastName": "Editor",
+						"creatorType": "seriesEditor"
+					},
+					{
+						"name": "Department/Division",
+						"creatorType": "translator"
+					}
+				],
+				"tags": [
+					{
+						"tag": "Keyword1, Keyword2, Keyword3",
+						"type": 1
+					},
+					{
+						"tag": "Keyword4",
+						"type": 1
+					},
+					{
+						"tag": "Keyword5",
+						"type": 1
+					}
+				],
+				"title": "Title",
+				"abstractNote": "Abstract",
+				"callNumber": "Call Number",
+				"libraryCatalog": "Database Provider",
+				"pages": "Pages",
+				"language": "Language",
+				"institution": "Institution",
+				"reportNumber": "Report Number",
+				"shortTitle": "Short Title",
+				"url": "URL",
+				"archiveLocation": "Accession Number",
+				"archive": "Name of Database",
+				"seriesTitle": "Series Title",
+				"place": "Place Published",
+				"reportType": "Type"
+			},
+			{
+				"itemType": "note",
+				"parentItem": "KVN2223A",
+				"note": "<p>Notes</p>"
+			},
+			{
+				"itemType": "note",
+				"parentItem": "KVN2223A",
+				"note": "<p>Research Notes</p>"
+			},
+			{
+				"key": "KVN2223B",
+				"version": 0,
+				"itemType": "book",
+				"creators": [
+					{
+						"firstName": "Author",
+						"lastName": "Name1",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "Author",
+						"lastName": "Name2",
+						"creatorType": "author"
+					},
+					{
+						"name": "Editor",
+						"creatorType": "seriesEditor"
+					},
+					{
+						"firstName": "Series",
+						"lastName": "Editor",
+						"creatorType": "editor"
+					},
+					{
+						"firstName": "Volume",
+						"lastName": "Editor",
+						"creatorType": "translator"
+					}
+				],
+				"tags": [
+					{
+						"tag": "Keyword1, Keyword2, Keyword3",
+						"type": 1
+					},
+					{
+						"tag": "Keyword4",
+						"type": 1
+					},
+					{
+						"tag": "Keyword5",
+						"type": 1
+					}
+				],
+				"title": "Title",
+				"abstractNote": "Abstract",
+				"callNumber": "Call Number",
+				"libraryCatalog": "Database Provider",
+				"edition": "Edition",
+				"numPages": "Pages",
+				"language": "Language",
+				"publisher": "Publisher",
+				"ISBN": "ISBN",
+				"shortTitle": "Short Title",
+				"url": "URL",
+				"archiveLocation": "Accession Number",
+				"archive": "Name of Database",
+				"series": "Secondary Title",
+				"place": "Place Published",
+				"volume": "Volume",
+				"seriesNumber": "Series Volume",
+				"numberOfVolumes": "Number of Volumes"
+			},
+			{
+				"itemType": "note",
+				"parentItem": "KVN2223B",
+				"note": "<p>Notes</p>"
+			},
+			{
+				"itemType": "note",
+				"parentItem": "KVN2223B",
+				"note": "<p>Research Notes</p>"
+			},
+			{
+				"key": "KVN2223C",
+				"version": 0,
+				"itemType": "report",
+				"creators": [
+					{
+						"name": "Institution",
+						"creatorType": "author"
+					}
+				],
+				"tags": [
+					{
+						"tag": "Keyword1, Keyword2, Keyword3",
+						"type": 1
+					},
+					{
+						"tag": "Keyword4",
+						"type": 1
+					},
+					{
+						"tag": "Keyword5",
+						"type": 1
+					}
+				],
+				"title": "Title",
+				"abstractNote": "Abstract",
+				"callNumber": "Call Number",
+				"libraryCatalog": "Database Provider",
+				"pages": "Pages",
+				"language": "Language",
+				"institution": "Publisher",
+				"reportNumber": "Document Number",
+				"url": "URL",
+				"archiveLocation": "Accession Number",
+				"archive": "Name of Database",
+				"seriesTitle": "Section Title",
+				"place": "Place Published",
+				"reportType": "Type of Work"
+			},
+			{
+				"itemType": "note",
+				"parentItem": "KVN2223C",
+				"note": "<p>Notes</p>"
+			},
+			{
+				"itemType": "note",
+				"parentItem": "KVN2223C",
+				"note": "<p>Research Notes</p>"
+			},
+			{
+				"key": "KVN2223D",
+				"version": 0,
+				"itemType": "statute",
+				"creators": [],
+				"tags": [
+					{
+						"tag": "Keyword1, Keyword2, Keyword3",
+						"type": 1
+					},
+					{
+						"tag": "Keyword4",
+						"type": 1
+					},
+					{
+						"tag": "Keyword5",
+						"type": 1
+					}
+				],
+				"nameOfAct": "Name of Act",
+				"abstractNote": "Abstract",
+				"session": "Session",
+				"pages": "Pages",
+				"language": "Language",
+				"url": "URL",
+				"code": "Code",
+				"codeNumber": "Code Number",
+				"publicLawNumber": "Public Law Number",
+				"history": "History",
+				"section": "Sections"
+			},
+			{
+				"itemType": "note",
+				"parentItem": "KVN2223D",
+				"note": "<p>Notes</p>"
+			},
+			{
+				"itemType": "note",
+				"parentItem": "KVN2223D",
+				"note": "<p>Research Notes</p>"
+			},
+			{
+				"key": "KVN2223E",
+				"version": 0,
+				"itemType": "thesis",
+				"creators": [
+					{
+						"firstName": "Author",
+						"lastName": "Name1",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "Author",
+						"lastName": "Name2",
+						"creatorType": "author"
+					},
+					{
+						"name": "Advisor",
+						"creatorType": "contributor"
+					}
+				],
+				"tags": [
+					{
+						"tag": "Keyword1, Keyword2, Keyword3",
+						"type": 1
+					},
+					{
+						"tag": "Keyword4",
+						"type": 1
+					},
+					{
+						"tag": "Keyword5",
+						"type": 1
+					}
+				],
+				"title": "Title",
+				"abstractNote": "Abstract",
+				"callNumber": "Call Number",
+				"libraryCatalog": "Database Provider",
+				"numPages": "Number of Pages",
+				"language": "Language",
+				"university": "University",
+				"shortTitle": "Short Title",
+				"url": "URL",
+				"archiveLocation": "Accession Number",
+				"archive": "Name of Database",
+				"place": "Place Published",
+				"thesisType": "Thesis Type"
+			},
+			{
+				"itemType": "note",
+				"parentItem": "KVN2223E",
+				"note": "<p>Notes</p>"
+			},
+			{
+				"itemType": "note",
+				"parentItem": "KVN2223E",
+				"note": "<p>Research Notes</p>"
+			},
+			{
+				"key": "KVN2223F",
+				"version": 0,
+				"itemType": "journalArticle",
+				"creators": [
+					{
+						"firstName": "Author",
+						"lastName": "Name1",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "Author",
+						"lastName": "Name2",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "Series",
+						"lastName": "Editor",
+						"creatorType": "editor"
+					}
+				],
+				"tags": [
+					{
+						"tag": "Keyword1, Keyword2, Keyword3",
+						"type": 1
+					},
+					{
+						"tag": "Keyword4",
+						"type": 1
+					},
+					{
+						"tag": "Keyword5",
+						"type": 1
+					}
+				],
+				"title": "Title of Work",
+				"abstractNote": "Abstract",
+				"libraryCatalog": "Database Provider",
+				"pages": "Pages",
+				"journalAbbreviation": "Abbreviation",
+				"language": "Language",
+				"publisher": "Institution",
+				"shortTitle": "Short Title",
+				"url": "URL",
+				"archive": "Name of Database",
+				"publicationTitle": "Series Title",
+				"series": "Department",
+				"place": "Place Published",
+				"issue": "Number"
+			},
+			{
+				"itemType": "note",
+				"parentItem": "KVN2223F",
+				"note": "<p>Notes</p>"
+			},
+			{
+				"itemType": "note",
+				"parentItem": "KVN2223F",
+				"note": "<p>Research Notes</p>"
+			},
+			{
+				"key": "KVN2223G",
+				"version": 0,
+				"itemType": "webpage",
+				"creators": [
+					{
+						"firstName": "Author",
+						"lastName": "Name1",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "Author",
+						"lastName": "Name2",
+						"creatorType": "author"
+					}
+				],
+				"tags": [
+					{
+						"tag": "Keyword1, Keyword2, Keyword3",
+						"type": 1
+					},
+					{
+						"tag": "Keyword4",
+						"type": 1
+					},
+					{
+						"tag": "Keyword5",
+						"type": 1
+					}
+				],
+				"title": "Title",
+				"abstractNote": "Abstract",
+				"language": "Language",
+				"publisher": "Publisher",
+				"shortTitle": "Short Title",
+				"url": "URL",
+				"websiteTitle": "Series Title",
+				"place": "Place Published",
+				"websiteType": "Type of Medium"
+			},
+			{
+				"itemType": "note",
+				"parentItem": "KVN2223G",
+				"note": "<p>Notes</p>"
+			},
+			{
+				"itemType": "note",
+				"parentItem": "KVN2223G",
+				"note": "<p>Research Notes</p>"
+			}
+		]
+	},
+	"testCase03": {
+		"status": 200,
+		"translatorID": "32d59d2d-b65a-4da4-b0a3-bdd3cfb979e7",
+		"items": [
+			{
+				"key": "KVN22222",
+				"version": 0,
+				"itemType": "journalArticle",
+				"creators": [
+					{
+						"firstName": "TODD A.",
+						"lastName": "CASTOE",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "ALEXANDER W.",
+						"lastName": "POOLE",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "WANJUN",
+						"lastName": "GU",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "A. P. JASON de",
+						"lastName": "KONING",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "JUAN M.",
+						"lastName": "DAZA",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "ERIC N.",
+						"lastName": "SMITH",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "DAVID D.",
+						"lastName": "POLLOCK",
+						"creatorType": "author"
+					}
+				],
+				"tags": [],
+				"title": "Rapid identification of thousands of copperhead snake (Agkistrodon contortrix) microsatellite loci from modest amounts of 454 shotgun genome sequence",
+				"abstractNote": "Optimal integration of next-generation sequencing into mainstream research requires re-evaluation of how problems can be reasonably overcome and what questions can be asked. .... The random sequencing-based approach to identify microsatellites was rapid, cost-effective and identified thousands of useful microsatellite loci in a previously unstudied species.",
+				"date": "2009",
+				"ISSN": "1755-0998",
+				"url": "http://dx.doi.org/10.1111/j.1755-0998.2009.02750.x",
+				"publicationTitle": "Molecular Ecology Resources",
+				"volume": "9999",
+				"issue": "9999"
+			},
+			{
+				"itemType": "note",
+				"parentItem": "KVN22222",
+				"note": "<p>10.1111/j.1755-0998.2009.02750.x</p>"
+			}
+		]
+	},
+	"testCase04": {
+		"status": 200,
+		"translatorID": "32d59d2d-b65a-4da4-b0a3-bdd3cfb979e7",
+		"items": [
+			{
+				"key": "KVN22222",
+				"version": 0,
+				"itemType": "bill",
+				"creators": [
+					{
+						"firstName": "Author2 Name2",
+						"lastName": "Author Name",
+						"creatorType": "author"
+					}
+				],
+				"tags": [
+					{
+						"tag": "Keywords1, Keywords2, Keywords3",
+						"type": 1
+					},
+					{
+						"tag": "Keywords4",
+						"type": 1
+					}
+				],
+				"title": "Act Name",
+				"abstractNote": "Abstract",
+				"url": "Location/URL",
+				"code": "Code",
+				"billNumber": "Bill/Res Number",
+				"history": "History",
+				"section": "Section(s)"
+			},
+			{
+				"itemType": "note",
+				"parentItem": "KVN22222",
+				"note": "<p>Notes</p>"
+			},
+			{
+				"key": "KVN22223",
+				"version": 0,
+				"itemType": "artwork",
+				"creators": [
+					{
+						"firstName": "Author2 Name2",
+						"lastName": "Author Name",
+						"creatorType": "artist"
+					}
+				],
+				"tags": [
+					{
+						"tag": "Keywords1, Keywords2, Keywords3",
+						"type": 1
+					},
+					{
+						"tag": "Keywords4",
+						"type": 1
+					}
+				],
+				"title": "Title/Subject",
+				"abstractNote": "Abstract",
+				"artworkSize": "Size",
+				"callNumber": "Call Number",
+				"url": "Location/URL",
+				"archiveLocation": "Address/Availability",
+				"artworkMedium": "Medium"
+			},
+			{
+				"itemType": "note",
+				"parentItem": "KVN22223",
+				"note": "<p>Artist Role: Artist Role</p>"
+			},
+			{
+				"itemType": "note",
+				"parentItem": "KVN22223",
+				"note": "<p>Connective Phrase: Connective Phrase</p>"
+			},
+			{
+				"itemType": "note",
+				"parentItem": "KVN22223",
+				"note": "<p>Author Role: Author Role</p>"
+			},
+			{
+				"itemType": "note",
+				"parentItem": "KVN22223",
+				"note": "<p>Title Monographic: Monographic Title</p>"
+			},
+			{
+				"itemType": "note",
+				"parentItem": "KVN22223",
+				"note": "<p>Location in Work: Location in Work</p>"
+			},
+			{
+				"itemType": "note",
+				"parentItem": "KVN22223",
+				"note": "<p>Series Title: Series Title</p>"
+			},
+			{
+				"itemType": "note",
+				"parentItem": "KVN22223",
+				"note": "<p>Connective Phrase: Connective Phrase</p>"
+			},
+			{
+				"itemType": "note",
+				"parentItem": "KVN22223",
+				"note": "<p>Notes</p>"
+			},
+			{
+				"key": "KVN22224",
+				"version": 0,
+				"itemType": "film",
+				"creators": [
+					{
+						"firstName": "Author2 Name2",
+						"lastName": "Author Name",
+						"creatorType": "director"
+					},
+					{
+						"firstName": "Subsidiary",
+						"lastName": "Author",
+						"creatorType": "producer"
+					}
+				],
+				"tags": [
+					{
+						"tag": "Keywords1, Keywords2, Keywords3",
+						"type": 1
+					},
+					{
+						"tag": "Keywords4",
+						"type": 1
+					}
+				],
+				"title": "Analytic Title",
+				"abstractNote": "Abstract",
+				"callNumber": "Call Number",
+				"distributor": "Publisher Name",
+				"url": "Location/URL",
+				"archiveLocation": "Address/Availability",
+				"place": "Place of Publication"
+			},
+			{
+				"itemType": "note",
+				"parentItem": "KVN22224",
+				"note": "<p>Author Role: Author Role</p>"
+			},
+			{
+				"itemType": "note",
+				"parentItem": "KVN22224",
+				"note": "<p>Connective Phrase: Connective Phrase</p>"
+			},
+			{
+				"itemType": "note",
+				"parentItem": "KVN22224",
+				"note": "<p>Author Role: Monographic Author Role</p>"
+			},
+			{
+				"itemType": "note",
+				"parentItem": "KVN22224",
+				"note": "<p>Title Monographic: Monographic Title</p>"
+			},
+			{
+				"itemType": "note",
+				"parentItem": "KVN22224",
+				"note": "<p>Author Role: Author Role</p>"
+			},
+			{
+				"itemType": "note",
+				"parentItem": "KVN22224",
+				"note": "<p>Location in Work: Location in Work</p>"
+			},
+			{
+				"itemType": "note",
+				"parentItem": "KVN22224",
+				"note": "<p>Extent of Work: Extent of Work</p>"
+			},
+			{
+				"itemType": "note",
+				"parentItem": "KVN22224",
+				"note": "<p>Packaging Method: Packaging Method</p>"
+			},
+			{
+				"itemType": "note",
+				"parentItem": "KVN22224",
+				"note": "<p>Size: Size</p>"
+			},
+			{
+				"itemType": "note",
+				"parentItem": "KVN22224",
+				"note": "<p>Series Editor: Series Editor</p>"
+			},
+			{
+				"itemType": "note",
+				"parentItem": "KVN22224",
+				"note": "<p>Series Editor Role: Series Editor Role</p>"
+			},
+			{
+				"itemType": "note",
+				"parentItem": "KVN22224",
+				"note": "<p>Series Title: Series Title</p>"
+			},
+			{
+				"itemType": "note",
+				"parentItem": "KVN22224",
+				"note": "<p>Series Volume ID: Series Volume ID</p>"
+			},
+			{
+				"itemType": "note",
+				"parentItem": "KVN22224",
+				"note": "<p>Series Issue ID: Series Issue ID</p>"
+			},
+			{
+				"itemType": "note",
+				"parentItem": "KVN22224",
+				"note": "<p>Connective Phrase: Connective Phrase</p>"
+			},
+			{
+				"itemType": "note",
+				"parentItem": "KVN22224",
+				"note": "<p>Notes</p>"
+			},
+			{
+				"key": "KVN22225",
+				"version": 0,
+				"itemType": "bookSection",
+				"creators": [
+					{
+						"firstName": "Author2 Name2",
+						"lastName": "Author Name",
+						"creatorType": "author"
+					},
+					{
+						"name": "Monographic Author",
+						"creatorType": "editor"
+					},
+					{
+						"name": "Series Editor",
+						"creatorType": "seriesEditor"
+					}
+				],
+				"tags": [
+					{
+						"tag": "Keywords1, Keywords2, Keywords3",
+						"type": 1
+					},
+					{
+						"tag": "Keywords4",
+						"type": 1
+					}
+				],
+				"title": "Analytic Title",
+				"abstractNote": "Abstract",
+				"callNumber": "Call Number",
+				"edition": "Edition",
+				"pages": "Page(s)",
+				"publisher": "Publisher Name",
+				"seriesNumber": "Series Volume Identification",
+				"url": "Location/URL",
+				"archiveLocation": "Address/Availability",
+				"bookTitle": "Monographic Title",
+				"series": "Series Title",
+				"place": "Place of Publication",
+				"volume": "Volume ID"
+			},
+			{
+				"itemType": "note",
+				"parentItem": "KVN22225",
+				"note": "<p>Medium Designator: Medium Designator</p>"
+			},
+			{
+				"itemType": "note",
+				"parentItem": "KVN22225",
+				"note": "<p>Connective Phrase: Connective Phrase</p>"
+			},
+			{
+				"itemType": "note",
+				"parentItem": "KVN22225",
+				"note": "<p>Author Role: Author Role</p>"
+			},
+			{
+				"itemType": "note",
+				"parentItem": "KVN22225",
+				"note": "<p>Issue ID: Issue ID</p>"
+			},
+			{
+				"itemType": "note",
+				"parentItem": "KVN22225",
+				"note": "<p>Series Editor Role: Series Editor Role</p>"
+			},
+			{
+				"itemType": "note",
+				"parentItem": "KVN22225",
+				"note": "<p>Series Issue ID: Series Issue Identification</p>"
+			},
+			{
+				"itemType": "note",
+				"parentItem": "KVN22225",
+				"note": "<p>Connective PhraseConnective Phrase</p>"
+			},
+			{
+				"itemType": "note",
+				"parentItem": "KVN22225",
+				"note": "<p>Notes</p>"
+			},
+			{
+				"key": "KVN22226",
+				"version": 0,
+				"itemType": "bookSection",
+				"creators": [
+					{
+						"firstName": "Author2 Name2",
+						"lastName": "Author Name",
+						"creatorType": "author"
+					},
+					{
+						"name": "Monographic Author",
+						"creatorType": "editor"
+					},
+					{
+						"firstName": "Subsidiary",
+						"lastName": "Author",
+						"creatorType": "seriesEditor"
+					},
+					{
+						"name": "Series Editor",
+						"creatorType": "seriesEditor"
+					}
+				],
+				"tags": [
+					{
+						"tag": "Keywords1, Keywords2, Keywords3",
+						"type": 1
+					},
+					{
+						"tag": "Keywords4",
+						"type": 1
+					}
+				],
+				"title": "Analytic Title",
+				"abstractNote": "Abstract",
+				"callNumber": "Call Number",
+				"edition": "Edition",
+				"pages": "Page(s)",
+				"publisher": "Publisher Name",
+				"ISBN": "ISBN",
+				"seriesNumber": "Series Volume ID",
+				"url": "Location/URL",
+				"archiveLocation": "Address/Availability",
+				"bookTitle": "Monographic Title",
+				"series": "Series Title",
+				"place": "Place of Publication",
+				"volume": "Volume ID"
+			},
+			{
+				"itemType": "note",
+				"parentItem": "KVN22226",
+				"note": "<p>Author Role: Author Role</p>"
+			},
+			{
+				"itemType": "note",
+				"parentItem": "KVN22226",
+				"note": "<p>Medium Designator: Medium Designator</p>"
+			},
+			{
+				"itemType": "note",
+				"parentItem": "KVN22226",
+				"note": "<p>Connective Phrase: Connective Phrase</p>"
+			},
+			{
+				"itemType": "note",
+				"parentItem": "KVN22226",
+				"note": "<p>Author Role: Author Role</p>"
+			},
+			{
+				"itemType": "note",
+				"parentItem": "KVN22226",
+				"note": "<p>Author Role: Author Role</p>"
+			},
+			{
+				"itemType": "note",
+				"parentItem": "KVN22226",
+				"note": "<p>Date of Copyright: Date of Copyright</p>"
+			},
+			{
+				"itemType": "note",
+				"parentItem": "KVN22226",
+				"note": "<p>Issue ID: Issue ID</p>"
+			},
+			{
+				"itemType": "note",
+				"parentItem": "KVN22226",
+				"note": "<p>Extent of Work: Extent of Work</p>"
+			},
+			{
+				"itemType": "note",
+				"parentItem": "KVN22226",
+				"note": "<p>Packaging Method: Packaging Method</p>"
+			},
+			{
+				"itemType": "note",
+				"parentItem": "KVN22226",
+				"note": "<p>Series Editor Role: Series Editor Role</p>"
+			},
+			{
+				"itemType": "note",
+				"parentItem": "KVN22226",
+				"note": "<p>Notes</p>"
+			},
+			{
+				"key": "KVN22227",
+				"version": 0,
+				"itemType": "journalArticle",
+				"creators": [
+					{
+						"firstName": "Author2 Name2",
+						"lastName": "Author Name",
+						"creatorType": "author"
+					}
+				],
+				"tags": [
+					{
+						"tag": "Keywords1, Keywords2, Keywords3",
+						"type": 1
+					},
+					{
+						"tag": "Keywords4",
+						"type": 1
+					}
+				],
+				"title": "Title",
+				"abstractNote": "Abstract",
+				"callNumber": "Call Number",
+				"pages": "Page(s)",
+				"url": "Location/URL",
+				"publicationTitle": "Journal Title",
+				"volume": "Volume ID",
+				"issue": "Issue ID"
+			},
+			{
+				"itemType": "note",
+				"parentItem": "KVN22227",
+				"note": "<p>Notes</p>"
+			},
+			{
+				"key": "KVN22228",
+				"version": 0,
+				"itemType": "book",
+				"creators": [
+					{
+						"name": "Monographic Author",
+						"creatorType": "author"
+					}
+				],
+				"tags": [
+					{
+						"tag": "Keywords1, Keywords2, Keywords3",
+						"type": 1
+					},
+					{
+						"tag": "Keywords4",
+						"type": 1
+					}
+				],
+				"title": "Monographic Title",
+				"abstractNote": "Abstract",
+				"callNumber": "Call Number",
+				"publisher": "Publisher Name",
+				"ISBN": "ISBN",
+				"url": "Location/URL",
+				"archiveLocation": "Address/Availability",
+				"place": "Place of Publication"
+			},
+			{
+				"itemType": "note",
+				"parentItem": "KVN22228",
+				"note": "<p>Notes</p>"
+			},
+			{
+				"key": "KVN22229",
+				"version": 0,
+				"itemType": "book",
+				"creators": [
+					{
+						"name": "Monographic Author",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "Subsidiary",
+						"lastName": "Author",
+						"creatorType": "seriesEditor"
+					},
+					{
+						"name": "Series Editor",
+						"creatorType": "editor"
+					}
+				],
+				"tags": [
+					{
+						"tag": "Keywords1, Keywords2, Keywords3",
+						"type": 1
+					},
+					{
+						"tag": "Keywords4",
+						"type": 1
+					}
+				],
+				"title": "Monographic Title",
+				"abstractNote": "Abstract",
+				"callNumber": "Call Number",
+				"edition": "Edition",
+				"publisher": "Publisher Name",
+				"ISBN": "ISBN",
+				"url": "Location/URL",
+				"archiveLocation": "Address/Availability",
+				"series": "Series Title",
+				"place": "Place of Publication",
+				"volume": "Volume ID",
+				"seriesNumber": "Series Volume ID"
+			},
+			{
+				"itemType": "note",
+				"parentItem": "KVN22229",
+				"note": "<p>Author Role: Author Role</p>"
+			},
+			{
+				"itemType": "note",
+				"parentItem": "KVN22229",
+				"note": "<p>Translated Title: Translated Title</p>"
+			},
+			{
+				"itemType": "note",
+				"parentItem": "KVN22229",
+				"note": "<p>Author Role: Author Role</p>"
+			},
+			{
+				"itemType": "note",
+				"parentItem": "KVN22229",
+				"note": "<p>Original Pub Date: Original Pub Date</p>"
+			},
+			{
+				"itemType": "note",
+				"parentItem": "KVN22229",
+				"note": "<p>Extent of Work: Extent of Work</p>"
+			},
+			{
+				"itemType": "note",
+				"parentItem": "KVN22229",
+				"note": "<p>Packaging Method: Packaging Method</p>"
+			},
+			{
+				"itemType": "note",
+				"parentItem": "KVN22229",
+				"note": "<p>Series Editor Role: Series Editor Role</p>"
+			},
+			{
+				"itemType": "note",
+				"parentItem": "KVN22229",
+				"note": "<p>Notes</p>"
+			},
+			{
+				"key": "KVN2222A",
+				"version": 0,
+				"itemType": "case",
+				"creators": [
+					{
+						"name": "Counsel",
+						"creatorType": "author"
+					}
+				],
+				"tags": [
+					{
+						"tag": "Keywords1, Keywords2, Keywords3",
+						"type": 1
+					},
+					{
+						"tag": "Keywords4",
+						"type": 1
+					}
+				],
+				"caseName": "Case Name",
+				"abstractNote": "Abstract",
+				"firstPage": "Page(s)",
+				"court": "Court",
+				"url": "Location/URL",
+				"reporterVolume": "Reporter Number"
+			},
+			{
+				"itemType": "note",
+				"parentItem": "KVN2222A",
+				"note": "<p>First Page: First Page</p>"
+			},
+			{
+				"itemType": "note",
+				"parentItem": "KVN2222A",
+				"note": "<p>Notes</p>"
+			},
+			{
+				"key": "KVN2222B",
+				"version": 0,
+				"itemType": "computerProgram",
+				"creators": [
+					{
+						"name": "Author/Programmer",
+						"creatorType": "programmer"
+					}
+				],
+				"tags": [
+					{
+						"tag": "Keywords1, Keywords2, Keywords3",
+						"type": 1
+					},
+					{
+						"tag": "Keywords4",
+						"type": 1
+					}
+				],
+				"title": "Program Title",
+				"abstractNote": "Abstract",
+				"callNumber": "Call Number",
+				"company": "Publisher Name",
+				"ISBN": "ISBN",
+				"url": "Location/URL",
+				"archiveLocation": "Address/Availability",
+				"place": "Place of Publication"
+			},
+			{
+				"itemType": "note",
+				"parentItem": "KVN2222B",
+				"note": "<p>Computer Program: Computer Program</p>"
+			},
+			{
+				"itemType": "note",
+				"parentItem": "KVN2222B",
+				"note": "<p>Connective Phrase: Connective Phrase</p>"
+			},
+			{
+				"itemType": "note",
+				"parentItem": "KVN2222B",
+				"note": "<p>Author Role: Author Role</p>"
+			},
+			{
+				"itemType": "note",
+				"parentItem": "KVN2222B",
+				"note": "<p>Title: Title</p>"
+			},
+			{
+				"itemType": "note",
+				"parentItem": "KVN2222B",
+				"note": "<p>Date of Copyright: Date of Copyright</p>"
+			},
+			{
+				"itemType": "note",
+				"parentItem": "KVN2222B",
+				"note": "<p>Report Identification: Report ID</p>"
+			},
+			{
+				"itemType": "note",
+				"parentItem": "KVN2222B",
+				"note": "<p>Extent of Work: Extent of Work</p>"
+			},
+			{
+				"itemType": "note",
+				"parentItem": "KVN2222B",
+				"note": "<p>Packaging Method: Packaging Method</p>"
+			},
+			{
+				"itemType": "note",
+				"parentItem": "KVN2222B",
+				"note": "<p>Connective Phrase: Connective Phrase</p>"
+			},
+			{
+				"itemType": "note",
+				"parentItem": "KVN2222B",
+				"note": "<p>Notes</p>"
+			},
+			{
+				"key": "KVN2222C",
+				"version": 0,
+				"itemType": "conferencePaper",
+				"creators": [
+					{
+						"firstName": "Author2 Name2",
+						"lastName": "Author Name",
+						"creatorType": "author"
+					},
+					{
+						"name": "Editor/Compiler",
+						"creatorType": "editor"
+					},
+					{
+						"name": "Series Editor",
+						"creatorType": "seriesEditor"
+					}
+				],
+				"tags": [
+					{
+						"tag": "Keywords1, Keywords2, Keywords3",
+						"type": 1
+					},
+					{
+						"tag": "Keywords4",
+						"type": 1
+					}
+				],
+				"title": "Paper/Section Title",
+				"abstractNote": "Abstract",
+				"place": "Place of Publication",
+				"proceedingsTitle": "Proceedings Title",
+				"callNumber": "Call Number",
+				"pages": "Location-in Work",
+				"publisher": "Publisher Name",
+				"ISBN": "ISBN",
+				"url": "Location/URL",
+				"archiveLocation": "Address/Availability",
+				"series": "Series Title",
+				"volume": "Volume ID"
+			},
+			{
+				"itemType": "note",
+				"parentItem": "KVN2222C",
+				"note": "<p>Author Role: Author Role</p>"
+			},
+			{
+				"itemType": "note",
+				"parentItem": "KVN2222C",
+				"note": "<p>Author Affiliation, Ana.: Author Affiliation</p>"
+			},
+			{
+				"itemType": "note",
+				"parentItem": "KVN2222C",
+				"note": "<p>Medium Designator: Medium Designator</p>"
+			},
+			{
+				"itemType": "note",
+				"parentItem": "KVN2222C",
+				"note": "<p>Connective Phrase: Connective Phrase</p>"
+			},
+			{
+				"itemType": "note",
+				"parentItem": "KVN2222C",
+				"note": "<p>Editor/Compiler Role: Editor/Compiler Role</p>"
+			},
+			{
+				"itemType": "note",
+				"parentItem": "KVN2222C",
+				"note": "<p>Place of Meeting: Place of Meeting</p>"
+			},
+			{
+				"itemType": "note",
+				"parentItem": "KVN2222C",
+				"note": "<p>Date of Copyright: Date of Copyright</p>"
+			},
+			{
+				"itemType": "note",
+				"parentItem": "KVN2222C",
+				"note": "<p>Extent of Work: Extent of Work</p>"
+			},
+			{
+				"itemType": "note",
+				"parentItem": "KVN2222C",
+				"note": "<p>Packaging Method: Packaging Method</p>"
+			},
+			{
+				"itemType": "note",
+				"parentItem": "KVN2222C",
+				"note": "<p>Series Editor Role: Series Editor Role</p>"
+			},
+			{
+				"itemType": "note",
+				"parentItem": "KVN2222C",
+				"note": "<p>Series Volume ID: Series Volume ID</p>"
+			},
+			{
+				"itemType": "note",
+				"parentItem": "KVN2222C",
+				"note": "<p>Notes</p>"
+			},
+			{
+				"key": "KVN2222D",
+				"version": 0,
+				"itemType": "dataset",
+				"creators": [],
+				"tags": [
+					{
+						"tag": "Keywords1, Keywords2, Keywords3",
+						"type": 1
+					},
+					{
+						"tag": "Keywords4",
+						"type": 1
+					}
+				],
+				"title": "Analytic Title",
+				"abstractNote": "Abstract",
+				"callNumber": "Call Number",
+				"repository": "Publisher Name",
+				"url": "Location/URL",
+				"archiveLocation": "Address/Availability",
+				"repositoryLocation": "Place of Publication"
+			},
+			{
+				"itemType": "note",
+				"parentItem": "KVN2222D",
+				"note": "<p>Medium (Data File): Medium (Data File)</p>"
+			},
+			{
+				"itemType": "note",
+				"parentItem": "KVN2222D",
+				"note": "<p>Connective Phrase: Connective Phrase</p>"
+			},
+			{
+				"itemType": "note",
+				"parentItem": "KVN2222D",
+				"note": "<p>Editor/Compiler Role: Editor/Compiler Role</p>"
+			},
+			{
+				"itemType": "note",
+				"parentItem": "KVN2222D",
+				"note": "<p>Title, Monographic: Monographic Title</p>"
+			},
+			{
+				"itemType": "note",
+				"parentItem": "KVN2222D",
+				"note": "<p>Extent of Work: Extent of Work</p>"
+			},
+			{
+				"itemType": "note",
+				"parentItem": "KVN2222D",
+				"note": "<p>Packaging Method: Packaging Method</p>"
+			},
+			{
+				"itemType": "note",
+				"parentItem": "KVN2222D",
+				"note": "<p>Series Volume ID: Series Volume ID</p>"
+			},
+			{
+				"itemType": "note",
+				"parentItem": "KVN2222D",
+				"note": "<p>Connective Phrase: Connective Phrase</p>"
+			},
+			{
+				"itemType": "note",
+				"parentItem": "KVN2222D",
+				"note": "<p>Notes</p>"
+			},
+			{
+				"key": "KVN2222E",
+				"version": 0,
+				"itemType": "thesis",
+				"creators": [
+					{
+						"firstName": "Author2 Name2",
+						"lastName": "Author Name",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "Supervisor name",
+						"lastName": "Supervisor surname",
+						"creatorType": "contributor"
+					}
+				],
+				"tags": [
+					{
+						"tag": "Keywords1, Keywords2, Keywords3",
+						"type": 1
+					},
+					{
+						"tag": "Keywords4",
+						"type": 1
+					}
+				],
+				"title": "Analytic Title",
+				"abstractNote": "Abstract",
+				"callNumber": "Call Number",
+				"numPages": "Extent of Work",
+				"university": "University",
+				"url": "Location/URL",
+				"archiveLocation": "Address/Availability",
+				"place": "Place of Publication"
+			},
+			{
+				"itemType": "note",
+				"parentItem": "KVN2222E",
+				"note": "<p>Medium Designator: Medium Designator</p>"
+			},
+			{
+				"itemType": "note",
+				"parentItem": "KVN2222E",
+				"note": "<p>Date of Copyright: Date of Copyright</p>"
+			},
+			{
+				"itemType": "note",
+				"parentItem": "KVN2222E",
+				"note": "<p>Packaging Method: Packaging Method</p>"
+			},
+			{
+				"itemType": "note",
+				"parentItem": "KVN2222E",
+				"note": "<p>Connective Phrase: Connective Phrase</p>"
+			},
+			{
+				"itemType": "note",
+				"parentItem": "KVN2222E",
+				"note": "<p>Notes</p>"
+			},
+			{
+				"key": "KVN2222F",
+				"version": 0,
+				"itemType": "webpage",
+				"creators": [
+					{
+						"firstName": "Author2 Name2",
+						"lastName": "Author Name",
+						"creatorType": "author"
+					}
+				],
+				"tags": [
+					{
+						"tag": "Keywords1, Keywords2, Keywords3",
+						"type": 1
+					},
+					{
+						"tag": "Keywords4",
+						"type": 1
+					}
+				],
+				"title": "Title",
+				"abstractNote": "Abstract",
+				"publisher": "Publisher Name",
+				"url": "Location/URL",
+				"websiteTitle": "Source"
+			},
+			{
+				"itemType": "note",
+				"parentItem": "KVN2222F",
+				"note": "<p>Volume ID: Volume ID</p>"
+			},
+			{
+				"itemType": "note",
+				"parentItem": "KVN2222F",
+				"note": "<p>Notes</p>"
+			},
+			{
+				"key": "KVN2222G",
+				"version": 0,
+				"itemType": "email",
+				"creators": [
+					{
+						"firstName": "Author2 Name2",
+						"lastName": "Author Name",
+						"creatorType": "author"
+					},
+					{
+						"name": "Recipient",
+						"creatorType": "recipient"
+					}
+				],
+				"tags": [
+					{
+						"tag": "Keywords1, Keywords2, Keywords3",
+						"type": 1
+					},
+					{
+						"tag": "Keywords4",
+						"type": 1
+					}
+				],
+				"subject": "Subject",
+				"abstractNote": "Abstract",
+				"url": "Location/URL"
+			},
+			{
+				"itemType": "note",
+				"parentItem": "KVN2222G",
+				"note": "<p>Author E-mail: Author E-mail</p>"
+			},
+			{
+				"itemType": "note",
+				"parentItem": "KVN2222G",
+				"note": "<p>Author Affiliation: Author Affiliation</p>"
+			},
+			{
+				"itemType": "note",
+				"parentItem": "KVN2222G",
+				"note": "<p>Recipient E-mail: Recipient E-mail</p>"
+			},
+			{
+				"itemType": "note",
+				"parentItem": "KVN2222G",
+				"note": "<p>Notes</p>"
+			},
+			{
+				"key": "KVN2222H",
+				"version": 0,
+				"itemType": "journalArticle",
+				"creators": [
+					{
+						"firstName": "Author2 Name2",
+						"lastName": "Author Name",
+						"creatorType": "author"
+					},
+					{
+						"name": "Monographic Author",
+						"creatorType": "editor"
+					}
+				],
+				"tags": [
+					{
+						"tag": "Keywords1, Keywords2, Keywords3",
+						"type": 1
+					},
+					{
+						"tag": "Keywords4",
+						"type": 1
+					}
+				],
+				"title": "Analytic Title",
+				"abstractNote": "Abstract",
+				"callNumber": "Call Number",
+				"pages": "Location-in Work",
+				"journalAbbreviation": "Journal Title",
+				"publisher": "Publisher Name",
+				"ISSN": "ISSN",
+				"url": "Location/URL",
+				"archiveLocation": "Address/Availability",
+				"publicationTitle": "Monographic Title",
+				"series": "Series Title",
+				"place": "Place of Publication",
+				"volume": "Volume ID",
+				"issue": "Issue ID"
+			},
+			{
+				"itemType": "note",
+				"parentItem": "KVN2222H",
+				"note": "<p>Notes</p>"
+			},
+			{
+				"key": "KVN2222I",
+				"version": 0,
+				"itemType": "hearing",
+				"creators": [
+					{
+						"firstName": "Author2 Name2",
+						"lastName": "Author Name",
+						"creatorType": "author"
+					}
+				],
+				"tags": [
+					{
+						"tag": "Keywords1, Keywords2, Keywords3",
+						"type": 1
+					},
+					{
+						"tag": "Keywords4",
+						"type": 1
+					}
+				],
+				"title": "Title",
+				"abstractNote": "Abstract",
+				"publisher": "Subcommittee",
+				"url": "Location/URL",
+				"place": "Committee"
+			},
+			{
+				"itemType": "note",
+				"parentItem": "KVN2222I",
+				"note": "<p>Author Role: Author Role</p>"
+			},
+			{
+				"itemType": "note",
+				"parentItem": "KVN2222I",
+				"note": "<p>Author Affiliation: Author Affiliation</p>"
+			},
+			{
+				"itemType": "note",
+				"parentItem": "KVN2222I",
+				"note": "<p>Medium Designator: Medium Designator</p>"
+			},
+			{
+				"itemType": "note",
+				"parentItem": "KVN2222I",
+				"note": "<p>Location in Work: Location/URL</p>"
+			},
+			{
+				"itemType": "note",
+				"parentItem": "KVN2222I",
+				"note": "<p>Notes</p>"
+			},
+			{
+				"key": "KVN2222J",
+				"version": 0,
+				"itemType": "magazineArticle",
+				"creators": [
+					{
+						"firstName": "Author2 Name2",
+						"lastName": "Author Name",
+						"creatorType": "author"
+					}
+				],
+				"tags": [
+					{
+						"tag": "Keywords1, Keywords2, Keywords3",
+						"type": 1
+					},
+					{
+						"tag": "Keywords4",
+						"type": 1
+					}
+				],
+				"title": "Article Title",
+				"abstractNote": "Abstract",
+				"callNumber": "Call Number",
+				"pages": "Page(s)",
+				"publisher": "Publisher Name",
+				"url": "Location/URL",
+				"archiveLocation": "Address/Availability",
+				"publicationTitle": "Magazine Title",
+				"place": "Place of Publication",
+				"volume": "Volume ID",
+				"issue": "Issue ID"
+			},
+			{
+				"itemType": "note",
+				"parentItem": "KVN2222J",
+				"note": "<p>Copyright Date: Date of Copyright</p>"
+			},
+			{
+				"itemType": "note",
+				"parentItem": "KVN2222J",
+				"note": "<p>Notes</p>"
+			},
+			{
+				"key": "KVN2222K",
+				"version": 0,
+				"itemType": "manuscript",
+				"creators": [
+					{
+						"firstName": "Author2 Name2",
+						"lastName": "Author Name",
+						"creatorType": "author"
+					}
+				],
+				"tags": [
+					{
+						"tag": "Keywords1, Keywords2, Keywords3",
+						"type": 1
+					},
+					{
+						"tag": "Keywords4",
+						"type": 1
+					}
+				],
+				"title": "Title",
+				"abstractNote": "Abstract",
+				"callNumber": "Call Number",
+				"url": "Location/URL",
+				"archiveLocation": "Address/Availability"
+			},
+			{
+				"itemType": "note",
+				"parentItem": "KVN2222K",
+				"note": "<p>Page(s): Page(s)</p>"
+			},
+			{
+				"itemType": "note",
+				"parentItem": "KVN2222K",
+				"note": "<p>Notes</p>"
+			},
+			{
+				"key": "KVN2222L",
+				"version": 0,
+				"itemType": "journalArticle",
+				"creators": [
+					{
+						"firstName": "Author2 Name2",
+						"lastName": "Author Name",
+						"creatorType": "author"
+					}
+				],
+				"tags": [
+					{
+						"tag": "Keywords1, Keywords2, Keywords3",
+						"type": 1
+					},
+					{
+						"tag": "Keywords4",
+						"type": 1
+					}
+				],
+				"title": "Article Title",
+				"abstractNote": "Abstract",
+				"callNumber": "Call Number",
+				"pages": "Page(s)",
+				"language": "Language",
+				"ISSN": "ISSN",
+				"url": "Location/URL",
+				"archiveLocation": "Address/Availability",
+				"publicationTitle": "Journal Title",
+				"volume": "Volume ID",
+				"issue": "Issue ID"
+			},
+			{
+				"itemType": "note",
+				"parentItem": "KVN2222L",
+				"note": "<p>Medium Designator: Medium Designator</p>"
+			},
+			{
+				"itemType": "note",
+				"parentItem": "KVN2222L",
+				"note": "<p>Connective Phrase: Connective Phrase</p>"
+			},
+			{
+				"itemType": "note",
+				"parentItem": "KVN2222L",
+				"note": "<p>Translated Title: Translated Title</p>"
+			},
+			{
+				"itemType": "note",
+				"parentItem": "KVN2222L",
+				"note": "<p>Connective Phrase: Connective Phrase</p>"
+			},
+			{
+				"itemType": "note",
+				"parentItem": "KVN2222L",
+				"note": "<p>Notes</p>"
+			},
+			{
+				"key": "KVN2222M",
+				"version": 0,
+				"itemType": "journalArticle",
+				"creators": [
+					{
+						"firstName": "Author2 Name2",
+						"lastName": "Author Name",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "Monographic",
+						"lastName": "Author",
+						"creatorType": "editor"
+					}
+				],
+				"tags": [
+					{
+						"tag": "Keywords1, Keywords2, Keywords3",
+						"type": 1
+					},
+					{
+						"tag": "Keywords4",
+						"type": 1
+					}
+				],
+				"title": "Article Title",
+				"abstractNote": "Abstract",
+				"callNumber": "Call Number",
+				"pages": "Page(s)",
+				"ISSN": "ISSN",
+				"url": "Location/URL",
+				"archiveLocation": "Address/Availability",
+				"publicationTitle": "Journal Title",
+				"volume": "Volume ID",
+				"issue": "Issue ID"
+			},
+			{
+				"itemType": "note",
+				"parentItem": "KVN2222M",
+				"note": "<p>Author Role: Author Role</p>"
+			},
+			{
+				"itemType": "note",
+				"parentItem": "KVN2222M",
+				"note": "<p>Author Affiliation: Author Affiliation</p>"
+			},
+			{
+				"itemType": "note",
+				"parentItem": "KVN2222M",
+				"note": "<p>Medium Designator: Medium Designator</p>"
+			},
+			{
+				"itemType": "note",
+				"parentItem": "KVN2222M",
+				"note": "<p>Connective Phrase: Connective Phrase</p>"
+			},
+			{
+				"itemType": "note",
+				"parentItem": "KVN2222M",
+				"note": "<p>Author Role: Author Role</p>"
+			},
+			{
+				"itemType": "note",
+				"parentItem": "KVN2222M",
+				"note": "<p>CODEN: CODEN</p>"
+			},
+			{
+				"itemType": "note",
+				"parentItem": "KVN2222M",
+				"note": "<p>Notes</p>"
+			},
+			{
+				"key": "KVN2222N",
+				"version": 0,
+				"itemType": "journalArticle",
+				"creators": [
+					{
+						"firstName": "Author2 Name2",
+						"lastName": "Author Name",
+						"creatorType": "author"
+					}
+				],
+				"tags": [
+					{
+						"tag": "Keywords1, Keywords2, Keywords3",
+						"type": 1
+					},
+					{
+						"tag": "Keywords4",
+						"type": 1
+					}
+				],
+				"title": "Analytic Title",
+				"abstractNote": "Abstract",
+				"callNumber": "Call Number",
+				"pages": "Page(s)",
+				"ISSN": "ISSN",
+				"url": "Location/URL",
+				"archiveLocation": "Address/Availability",
+				"publicationTitle": "Journal Title",
+				"volume": "Volume ID",
+				"issue": "Issue ID"
+			},
+			{
+				"itemType": "note",
+				"parentItem": "KVN2222N",
+				"note": "<p>Notes</p>"
+			},
+			{
+				"key": "KVN2222P",
+				"version": 0,
+				"itemType": "journalArticle",
+				"creators": [],
+				"tags": [
+					{
+						"tag": "Keywords1, Keywords2, Keywords3",
+						"type": 1
+					},
+					{
+						"tag": "Keywords4",
+						"type": 1
+					}
+				],
+				"abstractNote": "Abstract",
+				"callNumber": "Call Number",
+				"pages": "Extent-of Work",
+				"publisher": "Publisher Name",
+				"ISSN": "ISSN",
+				"url": "Location/URL",
+				"archiveLocation": "Address/Availability",
+				"publicationTitle": "Journal Title",
+				"place": "Place of Publication",
+				"volume": "Volume ID",
+				"issue": "Issue ID"
+			},
+			{
+				"itemType": "note",
+				"parentItem": "KVN2222P",
+				"note": "<p>Editor: Editor</p>"
+			},
+			{
+				"itemType": "note",
+				"parentItem": "KVN2222P",
+				"note": "<p>Medium Designator: Medium Designator</p>"
+			},
+			{
+				"itemType": "note",
+				"parentItem": "KVN2222P",
+				"note": "<p>Packaging Method: Packaging Method</p>"
+			},
+			{
+				"itemType": "note",
+				"parentItem": "KVN2222P",
+				"note": "<p>Frequency of Publication: Frequency of Publication</p>"
+			},
+			{
+				"itemType": "note",
+				"parentItem": "KVN2222P",
+				"note": "<p>Connective Phrase: Connective Phrase</p>"
+			},
+			{
+				"itemType": "note",
+				"parentItem": "KVN2222P",
+				"note": "<p>CODEN: CODEN</p>"
+			},
+			{
+				"itemType": "note",
+				"parentItem": "KVN2222P",
+				"note": "<p>Notes</p>"
+			},
+			{
+				"key": "KVN2222Q",
+				"version": 0,
+				"itemType": "letter",
+				"creators": [
+					{
+						"firstName": "Author2 Name2",
+						"lastName": "Author Name",
+						"creatorType": "author"
+					},
+					{
+						"name": "Recipient",
+						"creatorType": "recipient"
+					}
+				],
+				"tags": [
+					{
+						"tag": "Keywords1, Keywords2, Keywords3",
+						"type": 1
+					},
+					{
+						"tag": "Keywords4",
+						"type": 1
+					}
+				],
+				"abstractNote": "Abstract",
+				"callNumber": "Call Number",
+				"url": "Location/URL",
+				"archiveLocation": "Address/Availability"
+			},
+			{
+				"itemType": "note",
+				"parentItem": "KVN2222Q",
+				"note": "<p>Author Affiliation: Author Affiliation</p>"
+			},
+			{
+				"itemType": "note",
+				"parentItem": "KVN2222Q",
+				"note": "<p>Medium Designator: Medium Designator</p>"
+			},
+			{
+				"itemType": "note",
+				"parentItem": "KVN2222Q",
+				"note": "<p>Extent of Letter: Extent of Letter</p>"
+			},
+			{
+				"itemType": "note",
+				"parentItem": "KVN2222Q",
+				"note": "<p>Packaging Method: Packaging Method</p>"
+			},
+			{
+				"itemType": "note",
+				"parentItem": "KVN2222Q",
+				"note": "<p>Connective Phrase: Connective Phrase</p>"
+			},
+			{
+				"itemType": "note",
+				"parentItem": "KVN2222Q",
+				"note": "<p>Notes</p>"
+			},
+			{
+				"key": "KVN2222R",
+				"version": 0,
+				"itemType": "book",
+				"creators": [
+					{
+						"firstName": "Author2 Name2",
+						"lastName": "Author Name",
+						"creatorType": "author"
+					}
+				],
+				"tags": [
+					{
+						"tag": "Keywords1, Keywords2, Keywords3",
+						"type": 1
+					},
+					{
+						"tag": "Keywords4",
+						"type": 1
+					}
+				],
+				"title": "Analytic Title",
+				"abstractNote": "Abstract",
+				"callNumber": "Call Number",
+				"numPages": "Location of Work",
+				"url": "Location/URL",
+				"archiveLocation": "Address/Availability",
+				"series": "Collection Title"
+			},
+			{
+				"itemType": "note",
+				"parentItem": "KVN2222R",
+				"note": "<p>Author Role: Author Role</p>"
+			},
+			{
+				"itemType": "note",
+				"parentItem": "KVN2222R",
+				"note": "<p>Medium Designator: Medium Designator</p>"
+			},
+			{
+				"itemType": "note",
+				"parentItem": "KVN2222R",
+				"note": "<p>Connective Phrase: Connective Phrase</p>"
+			},
+			{
+				"itemType": "note",
+				"parentItem": "KVN2222R",
+				"note": "<p>Extent of Work: Extent of Work</p>"
+			},
+			{
+				"itemType": "note",
+				"parentItem": "KVN2222R",
+				"note": "<p>Packaging Method: Packaging Method</p>"
+			},
+			{
+				"itemType": "note",
+				"parentItem": "KVN2222R",
+				"note": "<p>Document Type: Document Type</p>"
+			},
+			{
+				"itemType": "note",
+				"parentItem": "KVN2222R",
+				"note": "<p>Connective Phrase: Connective Phrase</p>"
+			},
+			{
+				"itemType": "note",
+				"parentItem": "KVN2222R",
+				"note": "<p>Notes</p>"
+			},
+			{
+				"key": "KVN2222S",
+				"version": 0,
+				"itemType": "map",
+				"creators": [
+					{
+						"name": "Cartographer",
+						"creatorType": "cartographer"
+					}
+				],
+				"tags": [
+					{
+						"tag": "Keywords1, Keywords2, Keywords3",
+						"type": 1
+					},
+					{
+						"tag": "Keywords4",
+						"type": 1
+					}
+				],
+				"title": "Map Title",
+				"abstractNote": "Abstract",
+				"scale": "Scale",
+				"callNumber": "Call Number",
+				"publisher": "Publisher Name",
+				"url": "Location/URL",
+				"archiveLocation": "Address/Availability",
+				"place": "Place of Publication"
+			},
+			{
+				"itemType": "note",
+				"parentItem": "KVN2222S",
+				"note": "<p>Cartographer Role: Cartographer Role</p>"
+			},
+			{
+				"itemType": "note",
+				"parentItem": "KVN2222S",
+				"note": "<p>Medium Designator: Medium Designator</p>"
+			},
+			{
+				"itemType": "note",
+				"parentItem": "KVN2222S",
+				"note": "<p>Extent of Work: Extent of Work</p>"
+			},
+			{
+				"itemType": "note",
+				"parentItem": "KVN2222S",
+				"note": "<p>Packaging Method: Packaging Method</p>"
+			},
+			{
+				"itemType": "note",
+				"parentItem": "KVN2222S",
+				"note": "<p>Size: Size</p>"
+			},
+			{
+				"itemType": "note",
+				"parentItem": "KVN2222S",
+				"note": "<p>Series Volume ID: Series Volume ID</p>"
+			},
+			{
+				"itemType": "note",
+				"parentItem": "KVN2222S",
+				"note": "<p>Series Issue ID: Series Issue ID</p>"
+			},
+			{
+				"itemType": "note",
+				"parentItem": "KVN2222S",
+				"note": "<p>Connective Phrase: Connective Phrase</p>"
+			},
+			{
+				"itemType": "note",
+				"parentItem": "KVN2222S",
+				"note": "<p>Notes</p>"
+			},
+			{
+				"key": "KVN2222T",
+				"version": 0,
+				"itemType": "book",
+				"creators": [
+					{
+						"name": "Monographic Author",
+						"creatorType": "author"
+					}
+				],
+				"tags": [
+					{
+						"tag": "Keywords1, Keywords2, Keywords3",
+						"type": 1
+					},
+					{
+						"tag": "Keywords4",
+						"type": 1
+					}
+				],
+				"title": "Monographic Title",
+				"abstractNote": "Abstract",
+				"callNumber": "Call Number",
+				"publisher": "Publisher Name",
+				"ISBN": "ISBN",
+				"url": "Location/URL",
+				"archiveLocation": "Address/Availability",
+				"place": "Place of Publication",
+				"volume": "Edition"
+			},
+			{
+				"itemType": "note",
+				"parentItem": "KVN2222T",
+				"note": "<p>Author Role: Author Role</p>"
+			},
+			{
+				"itemType": "note",
+				"parentItem": "KVN2222T",
+				"note": "<p>Notes</p>"
+			},
+			{
+				"key": "KVN2222U",
+				"version": 0,
+				"itemType": "audioRecording",
+				"creators": [
+					{
+						"name": "Composer",
+						"creatorType": "composer"
+					},
+					{
+						"name": "Editor/Compiler",
+						"creatorType": "performer"
+					}
+				],
+				"tags": [
+					{
+						"tag": "Keywords1, Keywords2, Keywords3",
+						"type": 1
+					},
+					{
+						"tag": "Keywords4",
+						"type": 1
+					}
+				],
+				"title": "Analytic Title",
+				"abstractNote": "Abstract",
+				"callNumber": "Call Number",
+				"label": "Publisher Name",
+				"ISBN": "ISBN",
+				"url": "Location/URL",
+				"archiveLocation": "Address/Availability",
+				"seriesTitle": "Series Title",
+				"place": "Place of Publication",
+				"volume": "Edition"
+			},
+			{
+				"itemType": "note",
+				"parentItem": "KVN2222U",
+				"note": "<p>Composer Role: Composer Role</p>"
+			},
+			{
+				"itemType": "note",
+				"parentItem": "KVN2222U",
+				"note": "<p>Medium Designator: Medium Designator</p>"
+			},
+			{
+				"itemType": "note",
+				"parentItem": "KVN2222U",
+				"note": "<p>Connective Phrase: Connective Phrase</p>"
+			},
+			{
+				"itemType": "note",
+				"parentItem": "KVN2222U",
+				"note": "<p>Editor/Compiler Role: Editor/Compiler Role</p>"
+			},
+			{
+				"itemType": "note",
+				"parentItem": "KVN2222U",
+				"note": "<p>Title, Monographic: Monographic Title</p>"
+			},
+			{
+				"itemType": "note",
+				"parentItem": "KVN2222U",
+				"note": "<p>Medium Designator: Medium Designator</p>"
+			},
+			{
+				"itemType": "note",
+				"parentItem": "KVN2222U",
+				"note": "<p>Author Role: Author Role</p>"
+			},
+			{
+				"itemType": "note",
+				"parentItem": "KVN2222U",
+				"note": "<p>Copyright Date: Copyright Date</p>"
+			},
+			{
+				"itemType": "note",
+				"parentItem": "KVN2222U",
+				"note": "<p>Report Identification: Report ID</p>"
+			},
+			{
+				"itemType": "note",
+				"parentItem": "KVN2222U",
+				"note": "<p>Plate Number: Plate Number</p>"
+			},
+			{
+				"itemType": "note",
+				"parentItem": "KVN2222U",
+				"note": "<p>Location in Work: Location in Work</p>"
+			},
+			{
+				"itemType": "note",
+				"parentItem": "KVN2222U",
+				"note": "<p>Extent of Work: Extent of Work</p>"
+			},
+			{
+				"itemType": "note",
+				"parentItem": "KVN2222U",
+				"note": "<p>Packaging Method: Packaging Method</p>"
+			},
+			{
+				"itemType": "note",
+				"parentItem": "KVN2222U",
+				"note": "<p>Series Editor Role: Series Editor Role</p>"
+			},
+			{
+				"itemType": "note",
+				"parentItem": "KVN2222U",
+				"note": "<p>Series Volume ID: Series Volume ID</p>"
+			},
+			{
+				"itemType": "note",
+				"parentItem": "KVN2222U",
+				"note": "<p>Series Issue ID: Series Issue ID</p>"
+			},
+			{
+				"itemType": "note",
+				"parentItem": "KVN2222U",
+				"note": "<p>Connective Phrase: Connective Phrase</p>"
+			},
+			{
+				"itemType": "note",
+				"parentItem": "KVN2222U",
+				"note": "<p>Notes</p>"
+			},
+			{
+				"key": "KVN2222V",
+				"version": 0,
+				"itemType": "film",
+				"creators": [
+					{
+						"name": "Director",
+						"creatorType": "director"
+					}
+				],
+				"tags": [
+					{
+						"tag": "Keywords1, Keywords2, Keywords3",
+						"type": 1
+					},
+					{
+						"tag": "Keywords4",
+						"type": 1
+					}
+				],
+				"title": "Analytic Title",
+				"abstractNote": "Abstract",
+				"callNumber": "Call Number",
+				"url": "Location/URL",
+				"archiveLocation": "Address/Availability",
+				"place": "Place of Publication"
+			},
+			{
+				"itemType": "note",
+				"parentItem": "KVN2222V",
+				"note": "<p>Medium Designator: Medium Designator</p>"
+			},
+			{
+				"itemType": "note",
+				"parentItem": "KVN2222V",
+				"note": "<p>Producer: Producer</p>"
+			},
+			{
+				"itemType": "note",
+				"parentItem": "KVN2222V",
+				"note": "<p>Producer Role: Producer Role</p>"
+			},
+			{
+				"itemType": "note",
+				"parentItem": "KVN2222V",
+				"note": "<p>Director Role: Director Role</p>"
+			},
+			{
+				"itemType": "note",
+				"parentItem": "KVN2222V",
+				"note": "<p>Packaging Method: Packaging Method</p>"
+			},
+			{
+				"itemType": "note",
+				"parentItem": "KVN2222V",
+				"note": "<p>Size: Size</p>"
+			},
+			{
+				"itemType": "note",
+				"parentItem": "KVN2222V",
+				"note": "<p>Connective Phrase: Connective Phrase</p>"
+			},
+			{
+				"itemType": "note",
+				"parentItem": "KVN2222V",
+				"note": "<p>Notes</p>"
+			},
+			{
+				"key": "KVN2222W",
+				"version": 0,
+				"itemType": "newspaperArticle",
+				"creators": [
+					{
+						"firstName": "Author2 Name2",
+						"lastName": "Author Name",
+						"creatorType": "author"
+					}
+				],
+				"tags": [
+					{
+						"tag": "Keywords1, Keywords2, Keywords3",
+						"type": 1
+					},
+					{
+						"tag": "Keywords4",
+						"type": 1
+					}
+				],
+				"title": "Analytic Title",
+				"abstractNote": "Abstract",
+				"callNumber": "Call Number",
+				"pages": "Page(s)",
+				"publisher": "Publisher Name",
+				"url": "Location/URL",
+				"archiveLocation": "Address/Availability",
+				"publicationTitle": "Newspaper Name",
+				"place": "Place of Publication"
+			},
+			{
+				"itemType": "note",
+				"parentItem": "KVN2222W",
+				"note": "<p>Author Role: Author Role</p>"
+			},
+			{
+				"itemType": "note",
+				"parentItem": "KVN2222W",
+				"note": "<p>Medium Designator: Medium Designator</p>"
+			},
+			{
+				"itemType": "note",
+				"parentItem": "KVN2222W",
+				"note": "<p>Connective Phrase: Connective Phrase</p>"
+			},
+			{
+				"itemType": "note",
+				"parentItem": "KVN2222W",
+				"note": "<p>Column Number: Column Number</p>"
+			},
+			{
+				"itemType": "note",
+				"parentItem": "KVN2222W",
+				"note": "<p>Notes</p>"
+			},
+			{
+				"key": "KVN2222X",
+				"version": 0,
+				"itemType": "patent",
+				"creators": [
+					{
+						"name": "Inventor Name",
+						"creatorType": "inventor"
+					}
+				],
+				"tags": [
+					{
+						"tag": "Keywords1, Keywords2, Keywords3",
+						"type": 1
+					},
+					{
+						"tag": "Keywords4",
+						"type": 1
+					}
+				],
+				"title": "Patent Title",
+				"issuingAuthority": "Assignee",
+				"abstractNote": "Abstract",
+				"issueDate": "Date",
+				"pages": "Abstract-Journal Page(s)",
+				"language": "Language",
+				"url": "Location/URL",
+				"place": "Country",
+				"applicationNumber": "Class Code, International"
+			},
+			{
+				"itemType": "note",
+				"parentItem": "KVN2222X",
+				"note": "<p>Address: Address</p>"
+			},
+			{
+				"itemType": "note",
+				"parentItem": "KVN2222X",
+				"note": "<p>Title, Short Form: Title, Short Form</p>"
+			},
+			{
+				"itemType": "note",
+				"parentItem": "KVN2222X",
+				"note": "<p>Title, Long Form: Title, Long Form</p>"
+			},
+			{
+				"itemType": "note",
+				"parentItem": "KVN2222X",
+				"note": "<p>Abstract Journal Date: Abstract Journal Date</p>"
+			},
+			{
+				"itemType": "note",
+				"parentItem": "KVN2222X",
+				"note": "<p>Abstract Journal Title: Abstract Journal Title</p>"
+			},
+			{
+				"itemType": "note",
+				"parentItem": "KVN2222X",
+				"note": "<p>Abstract Journal Volume: Abstract Journal Volume</p>"
+			},
+			{
+				"itemType": "note",
+				"parentItem": "KVN2222X",
+				"note": "<p>Abstract Journal Issue: Abstract Journal Issue</p>"
+			},
+			{
+				"itemType": "note",
+				"parentItem": "KVN2222X",
+				"note": "<p>Extent of Work: Extent of Work</p>"
+			},
+			{
+				"itemType": "note",
+				"parentItem": "KVN2222X",
+				"note": "<p>Packaging Method: Packaging Method</p>"
+			},
+			{
+				"itemType": "note",
+				"parentItem": "KVN2222X",
+				"note": "<p>Connective Phrase: Connective Phrase</p>"
+			},
+			{
+				"itemType": "note",
+				"parentItem": "KVN2222X",
+				"note": "<p>Related Document No.: Related Document Number</p>"
+			},
+			{
+				"itemType": "note",
+				"parentItem": "KVN2222X",
+				"note": "<p>Notes</p>"
+			},
+			{
+				"itemType": "note",
+				"parentItem": "KVN2222X",
+				"note": "<p>Registry Number: Registry Number</p>"
+			},
+			{
+				"key": "KVN2222Y",
+				"version": 0,
+				"itemType": "report",
+				"creators": [
+					{
+						"firstName": "Author2 Name2",
+						"lastName": "Author Name",
+						"creatorType": "author"
+					},
+					{
+						"name": "Monographic Author",
+						"creatorType": "seriesEditor"
+					}
+				],
+				"tags": [
+					{
+						"tag": "Keywords1, Keywords2, Keywords3",
+						"type": 1
+					},
+					{
+						"tag": "Keywords4",
+						"type": 1
+					}
+				],
+				"title": "Report Title",
+				"abstractNote": "Abstract",
+				"callNumber": "Call Number",
+				"pages": "Extent-of Work",
+				"institution": "Publisher Name",
+				"url": "Location/URL",
+				"archiveLocation": "Address/Availability",
+				"place": "Place of Publication"
+			},
+			{
+				"itemType": "note",
+				"parentItem": "KVN2222Y",
+				"note": "<p>Author Role, Analytic: Author Role</p>"
+			},
+			{
+				"itemType": "note",
+				"parentItem": "KVN2222Y",
+				"note": "<p>Author Affiliation: Author Affiliation</p>"
+			},
+			{
+				"itemType": "note",
+				"parentItem": "KVN2222Y",
+				"note": "<p>Section Title: Section Title</p>"
+			},
+			{
+				"itemType": "note",
+				"parentItem": "KVN2222Y",
+				"note": "<p>Medium Designator: Medium Designator</p>"
+			},
+			{
+				"itemType": "note",
+				"parentItem": "KVN2222Y",
+				"note": "<p>Connective Phrase: Connective Phrase</p>"
+			},
+			{
+				"itemType": "note",
+				"parentItem": "KVN2222Y",
+				"note": "<p>Author Role: Author Role</p>"
+			},
+			{
+				"itemType": "note",
+				"parentItem": "KVN2222Y",
+				"note": "<p>Author Role: Author Role</p>"
+			},
+			{
+				"itemType": "note",
+				"parentItem": "KVN2222Y",
+				"note": "<p>Packaging Method: Packaging Method</p>"
+			},
+			{
+				"itemType": "note",
+				"parentItem": "KVN2222Y",
+				"note": "<p>Series Volume ID: Series Volume ID</p>"
+			},
+			{
+				"itemType": "note",
+				"parentItem": "KVN2222Y",
+				"note": "<p>Series Issue ID: Series Issue ID</p>"
+			},
+			{
+				"itemType": "note",
+				"parentItem": "KVN2222Y",
+				"note": "<p>Connective Phrase: Connective Phrase</p>"
+			},
+			{
+				"itemType": "note",
+				"parentItem": "KVN2222Y",
+				"note": "<p>CODEN: CODEN</p>"
+			},
+			{
+				"itemType": "note",
+				"parentItem": "KVN2222Y",
+				"note": "<p>Notes</p>"
+			},
+			{
+				"key": "KVN2222Z",
+				"version": 0,
+				"itemType": "audioRecording",
+				"creators": [
+					{
+						"name": "Composer",
+						"creatorType": "composer"
+					},
+					{
+						"name": "Performer",
+						"creatorType": "performer"
+					}
+				],
+				"tags": [
+					{
+						"tag": "Keywords1, Keywords2, Keywords3",
+						"type": 1
+					},
+					{
+						"tag": "Keywords4",
+						"type": 1
+					}
+				],
+				"title": "Analytic Title",
+				"abstractNote": "Abstract",
+				"callNumber": "Call Number",
+				"label": "Publisher Name",
+				"ISBN": "ISBN",
+				"url": "Location/URL",
+				"archiveLocation": "Address/Availability",
+				"seriesTitle": "Series Title",
+				"place": "Place of Publication"
+			},
+			{
+				"itemType": "note",
+				"parentItem": "KVN2222Z",
+				"note": "<p>Composer Role: Composer Role</p>"
+			},
+			{
+				"itemType": "note",
+				"parentItem": "KVN2222Z",
+				"note": "<p>Medium Designator: Medium Designator</p>"
+			},
+			{
+				"itemType": "note",
+				"parentItem": "KVN2222Z",
+				"note": "<p>Connective Phrase: Connective Phrase</p>"
+			},
+			{
+				"itemType": "note",
+				"parentItem": "KVN2222Z",
+				"note": "<p>Editor/Compiler: Editor/Compiler</p>"
+			},
+			{
+				"itemType": "note",
+				"parentItem": "KVN2222Z",
+				"note": "<p>Editor/Compiler Role: Editor/Compiler Role</p>"
+			},
+			{
+				"itemType": "note",
+				"parentItem": "KVN2222Z",
+				"note": "<p>Recording Title: Recording Title</p>"
+			},
+			{
+				"itemType": "note",
+				"parentItem": "KVN2222Z",
+				"note": "<p>Performer Role: Performer Role</p>"
+			},
+			{
+				"itemType": "note",
+				"parentItem": "KVN2222Z",
+				"note": "<p>Copyright Date: Date of Copyright</p>"
+			},
+			{
+				"itemType": "note",
+				"parentItem": "KVN2222Z",
+				"note": "<p>Acquisition Number: Acquisition Number</p>"
+			},
+			{
+				"itemType": "note",
+				"parentItem": "KVN2222Z",
+				"note": "<p>Matrix Number: Matrix Number</p>"
+			},
+			{
+				"itemType": "note",
+				"parentItem": "KVN2222Z",
+				"note": "<p>Extent of Work: Extent of Work</p>"
+			},
+			{
+				"itemType": "note",
+				"parentItem": "KVN2222Z",
+				"note": "<p>Packaging Method: Packaging Method</p>"
+			},
+			{
+				"itemType": "note",
+				"parentItem": "KVN2222Z",
+				"note": "<p>Size: Size</p>"
+			},
+			{
+				"itemType": "note",
+				"parentItem": "KVN2222Z",
+				"note": "<p>Reproduction Ratio: Reproduction Ratio</p>"
+			},
+			{
+				"itemType": "note",
+				"parentItem": "KVN2222Z",
+				"note": "<p>Notes</p>"
+			},
+			{
+				"key": "KVN22232",
+				"version": 0,
+				"itemType": "statute",
+				"creators": [
+					{
+						"firstName": "Author2 Name2",
+						"lastName": "Author Name",
+						"creatorType": "author"
+					}
+				],
+				"tags": [
+					{
+						"tag": "Keywords1, Keywords2, Keywords3",
+						"type": 1
+					},
+					{
+						"tag": "Keywords4",
+						"type": 1
+					}
+				],
+				"nameOfAct": "Statute Title",
+				"abstractNote": "Abstract",
+				"pages": "Section(s)",
+				"url": "Location/URL",
+				"codeNumber": "Title/Code Number"
+			},
+			{
+				"itemType": "note",
+				"parentItem": "KVN22232",
+				"note": "<p>Notes</p>"
+			},
+			{
+				"key": "KVN22233",
+				"version": 0,
+				"itemType": "magazineArticle",
+				"creators": [
+					{
+						"firstName": "Author2 Name2",
+						"lastName": "Author Name",
+						"creatorType": "author"
+					}
+				],
+				"tags": [
+					{
+						"tag": "Keywords1, Keywords2, Keywords3",
+						"type": 1
+					},
+					{
+						"tag": "Keywords4",
+						"type": 1
+					}
+				],
+				"title": "Catalog Title",
+				"abstractNote": "Abstract",
+				"callNumber": "Call Number",
+				"publisher": "Publisher Name",
+				"url": "Location/URL",
+				"archiveLocation": "Address/Availability",
+				"place": "Place of Publication",
+				"volume": "Edition",
+				"issue": "Catalog Number"
+			},
+			{
+				"itemType": "note",
+				"parentItem": "KVN22233",
+				"note": "<p>Medium Designator: Medium Designator</p>"
+			},
+			{
+				"itemType": "note",
+				"parentItem": "KVN22233",
+				"note": "<p>Extent of Work: Extent of Work</p>"
+			},
+			{
+				"itemType": "note",
+				"parentItem": "KVN22233",
+				"note": "<p>Packaging Method: Packaging Method</p>"
+			},
+			{
+				"itemType": "note",
+				"parentItem": "KVN22233",
+				"note": "<p>Connective Phrase: Connective Phrase</p>"
+			},
+			{
+				"itemType": "note",
+				"parentItem": "KVN22233",
+				"note": "<p>Notes</p>"
+			},
+			{
+				"key": "KVN22234",
+				"version": 0,
+				"itemType": "manuscript",
+				"creators": [
+					{
+						"firstName": "Author2 Name2",
+						"lastName": "Author Name",
+						"creatorType": "author"
+					}
+				],
+				"tags": [
+					{
+						"tag": "Keywords1, Keywords2, Keywords3",
+						"type": 1
+					},
+					{
+						"tag": "Keywords4",
+						"type": 1
+					}
+				],
+				"title": "Act Title",
+				"abstractNote": "Abstract",
+				"callNumber": "Call Number",
+				"url": "Location/URL",
+				"archiveLocation": "Address/Availability",
+				"place": "Code"
+			},
+			{
+				"itemType": "note",
+				"parentItem": "KVN22234",
+				"note": "<p>Notes</p>"
+			},
+			{
+				"key": "KVN22235",
+				"version": 0,
+				"itemType": "journalArticle",
+				"creators": [
+					{
+						"firstName": "Author2 Name2",
+						"lastName": "Author Name",
+						"creatorType": "author"
+					},
+					{
+						"name": "Editor(s)",
+						"creatorType": "editor"
+					}
+				],
+				"tags": [
+					{
+						"tag": "Keywords1, Keywords2, Keywords3",
+						"type": 1
+					},
+					{
+						"tag": "Keywords4",
+						"type": 1
+					}
+				],
+				"title": "Title",
+				"abstractNote": "Abstract",
+				"callNumber": "Call Number",
+				"url": "Location/URL",
+				"archiveLocation": "Address/Availability"
+			},
+			{
+				"itemType": "note",
+				"parentItem": "KVN22235",
+				"note": "<p>Date of Copyright: Date of Copyright</p>"
+			},
+			{
+				"itemType": "note",
+				"parentItem": "KVN22235",
+				"note": "<p>Notes</p>"
+			},
+			{
+				"key": "KVN22236",
+				"version": 0,
+				"itemType": "videoRecording",
+				"creators": [
+					{
+						"firstName": "Author2 Name2",
+						"lastName": "Author Name",
+						"creatorType": "director"
+					}
+				],
+				"tags": [
+					{
+						"tag": "Keywords1, Keywords2, Keywords3",
+						"type": 1
+					},
+					{
+						"tag": "Keywords4",
+						"type": 1
+					}
+				],
+				"title": "Analytic Title",
+				"abstractNote": "Abstract",
+				"callNumber": "Call Number",
+				"studio": "Distributor",
+				"ISBN": "ISBN",
+				"url": "Location/URL",
+				"archiveLocation": "Address/Availability",
+				"place": "Place of Publication"
+			},
+			{
+				"itemType": "note",
+				"parentItem": "KVN22236",
+				"note": "<p>Medium Designator: Medium Designator</p>"
+			},
+			{
+				"itemType": "note",
+				"parentItem": "KVN22236",
+				"note": "<p>Producer: Producer</p>"
+			},
+			{
+				"itemType": "note",
+				"parentItem": "KVN22236",
+				"note": "<p>Producer Role: Producer Role</p>"
+			},
+			{
+				"itemType": "note",
+				"parentItem": "KVN22236",
+				"note": "<p>Director: Director</p>"
+			},
+			{
+				"itemType": "note",
+				"parentItem": "KVN22236",
+				"note": "<p>Director Role: Director Role</p>"
+			},
+			{
+				"itemType": "note",
+				"parentItem": "KVN22236",
+				"note": "<p>Packaging Method: Packaging Method</p>"
+			},
+			{
+				"itemType": "note",
+				"parentItem": "KVN22236",
+				"note": "<p>Size: Size</p>"
+			},
+			{
+				"itemType": "note",
+				"parentItem": "KVN22236",
+				"note": "<p>Connective Phrase: Connective Phrase</p>"
+			},
+			{
+				"itemType": "note",
+				"parentItem": "KVN22236",
+				"note": "<p>Notes</p>"
+			},
+			{
+				"key": "KVN22237",
+				"version": 0,
+				"itemType": "webpage",
+				"creators": [
+					{
+						"firstName": "Author2 Name2",
+						"lastName": "Author Name",
+						"creatorType": "author"
+					}
+				],
+				"tags": [
+					{
+						"tag": "Keywords1, Keywords2, Keywords3",
+						"type": 1
+					},
+					{
+						"tag": "Keywords4",
+						"type": 1
+					}
+				],
+				"title": "Title",
+				"abstractNote": "Abstract",
+				"url": "Location/URL"
+			},
+			{
+				"itemType": "note",
+				"parentItem": "KVN22237",
+				"note": "<p>Author Role: Author Role</p>"
+			},
+			{
+				"itemType": "note",
+				"parentItem": "KVN22237",
+				"note": "<p>Author Affiliation: Author Affiliation</p>"
+			},
+			{
+				"itemType": "note",
+				"parentItem": "KVN22237",
+				"note": "<p>Notes</p>"
+			}
+		]
+	},
+	"testCase05": {
+		"status": 200,
+		"translatorID": "32d59d2d-b65a-4da4-b0a3-bdd3cfb979e7",
+		"items": [
+			{
+				"key": "KVN22222",
+				"version": 0,
+				"itemType": "journalArticle",
+				"creators": [
+					{
+						"firstName": "Janice",
+						"lastName": "Light",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "David",
+						"lastName": "McNaughton",
+						"creatorType": "author"
+					}
+				],
+				"tags": [],
+				"title": "From Basic to Applied Research to Improve Outcomes for Individuals Who Require Augmentative and Alternative Communication: Potential Contributions of Eye Tracking Research Methods",
+				"date": "2014-06-01",
+				"DOI": "10.3109/07434618.2014.906498",
+				"pages": "99-105",
+				"journalAbbreviation": "Augment Altern Commun",
+				"publisher": "Informa Allied Health",
+				"ISSN": "0743-4618",
+				"url": "http://dx.doi.org/10.3109/07434618.2014.906498",
+				"accessDate": "2014-12-17",
+				"publicationTitle": "Augmentative and Alternative Communication",
+				"volume": "30",
+				"issue": "2"
+			},
+			{
+				"itemType": "note",
+				"parentItem": "KVN22222",
+				"note": "<p>doi: 10.3109/07434618.2014.906498</p>"
+			}
+		]
+	},
+	"testCase06": {
+		"status": 200,
+		"translatorID": "32d59d2d-b65a-4da4-b0a3-bdd3cfb979e7",
+		"items": [
+			{
+				"key": "KVN22222",
+				"version": 0,
+				"itemType": "book",
+				"creators": [
+					{
+						"firstName": "Otto",
+						"lastName": "Depenheuer",
+						"creatorType": "author"
+					}
+				],
+				"tags": [
+					{
+						"tag": "Finanzkrise / Eigentum / Haftung / Ordnungspolitik / Aufsatzsammlung / Online-Publikation",
+						"type": 1
+					},
+					{
+						"tag": "Constitutional law",
+						"type": 1
+					},
+					{
+						"tag": "Law",
+						"type": 1
+					}
+				],
+				"title": "Eigentumsverfassung und Finanzkrise",
+				"abstractNote": "In dem Buch befinden sich einzelne Beiträge zu ...",
+				"callNumber": "300 QN 100 D419",
+				"date": "2009",
+				"DOI": "10.1007/978-3-642-00230-4",
+				"libraryCatalog": "UB Mannheim",
+				"language": "ger",
+				"publisher": "Springer Berlin Heidelberg",
+				"ISBN": "9783642002304",
+				"url": "http://dx.doi.org/10.1007/978-3-642-00230-4",
+				"series": "Bibliothek des Eigentums",
+				"place": "Berlin, Heidelberg",
+				"volume": "7"
+			}
+		]
+	},
+	"testCase07": {
+		"status": 200,
+		"translatorID": "32d59d2d-b65a-4da4-b0a3-bdd3cfb979e7",
+		"items": [
+			{
+				"key": "KVN22222",
+				"version": 0,
+				"itemType": "journalArticle",
+				"creators": [],
+				"tags": [],
+				"title": "Deprecated tag test",
+				"date": "1950-01-01"
+			},
+			{
+				"itemType": "note",
+				"parentItem": "KVN22222",
+				"note": "<p>The Y1 date tag is deprecated. Its value should not be used when DA is present, even if Y1 comes first.</p>"
+			}
+		]
+	},
+	"testCase08": {
+		"status": 200,
+		"translatorID": "32d59d2d-b65a-4da4-b0a3-bdd3cfb979e7",
+		"items": [
+			{
+				"key": "KVN22222",
+				"version": 0,
+				"itemType": "journalArticle",
+				"creators": [
+					{
+						"firstName": "Danko",
+						"lastName": "Georgiev",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "Leon",
+						"lastName": "Bello",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "Avishy",
+						"lastName": "Carmi",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "Eliahu",
+						"lastName": "Cohen",
+						"creatorType": "author"
+					}
+				],
+				"tags": [],
+				"title": "Mixed author tags"
+			},
+			{
+				"itemType": "note",
+				"parentItem": "KVN22222",
+				"note": "<p>A1 should not be treated as deprecated or authors will appear out of order.</p>"
+			}
+		]
+	},
+	"testCase09": {
+		"status": 200,
+		"translatorID": "32d59d2d-b65a-4da4-b0a3-bdd3cfb979e7",
+		"items": [
+			{
+				"key": "KVN22222",
+				"version": 0,
+				"itemType": "journalArticle",
+				"creators": [
+					{
+						"firstName": "C.J.",
+						"lastName": "Bryan",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "L.",
+						"lastName": "Wetmore-Arkader",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "T.",
+						"lastName": "Calvano",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "J.A.",
+						"lastName": "Deatrick",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "V.N.",
+						"lastName": "Giri",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "D.W.",
+						"lastName": "Bruner",
+						"creatorType": "author"
+					}
+				],
+				"tags": [],
+				"title": "Using focus groups to adapt ethnically appropriate, information-seeking and recruitment messages for a prostate cancer screening program for men at high risk",
+				"date": "2008",
+				"DOI": "10.1016/S0027-9684(15)31340-7",
+				"pages": "674-682",
+				"publicationTitle": "Journal of the National Medical Association",
+				"volume": "100",
+				"issue": "6"
+			},
+			{
+				"itemType": "note",
+				"parentItem": "KVN22222",
+				"note": "<p>Cited By :10</p>"
+			},
+			{
+				"itemType": "note",
+				"parentItem": "KVN22222",
+				"note": "<p>Export Date: 13 July 2022</p>"
+			},
+			{
+				"key": "KVN22223",
+				"version": 0,
+				"itemType": "journalArticle",
+				"creators": [],
+				"tags": [],
+				"publicationTitle": "Prostate Cancer Mortality Statistics 2015"
+			},
+			{
+				"itemType": "note",
+				"parentItem": "KVN22223",
+				"note": "<p>Cited By :1</p>"
+			},
+			{
+				"itemType": "note",
+				"parentItem": "KVN22223",
+				"note": "<p>Export Date: 13 July 2022</p>"
+			}
+		]
+	},
+	"testCase10": {
+		"status": 200,
+		"translatorID": "32d59d2d-b65a-4da4-b0a3-bdd3cfb979e7",
+		"items": [
+			{
+				"key": "KVN22222",
+				"version": 0,
+				"itemType": "dataset",
+				"creators": [
+					{
+						"firstName": "Kelsey Louise",
+						"lastName": "West",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "Catherine",
+						"lastName": "Tamis-LeMonda",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "Karen",
+						"lastName": "Adolph",
+						"creatorType": "author"
+					}
+				],
+				"tags": [],
+				"title": "Moving language: Mothers’ verbs correspond to infants’ real-time locomotion",
+				"abstractNote": "How do infants learn language? Infants can only learn the words that they hear. We tested whether infants’ actions affect the words that caregivers say—specifically whether infant locomotion influences caregivers’ language about locomotion. Compared to crawling infants, walkers travel greater distances (Adolph, et al, 2012). Does enhanced locomotion in walkers influence the verbs that caregivers say? We hypothesized that walking creates new opportunities for verb learning. To disentangle locomotor ability from age, we observed same-aged crawlers and walkers (16 13-month-old crawlers and 16 13-month-old walkers) and an older group of walkers (16 18-month-olds) during two hours of activity at home. Mothers’ language was transcribed verbatim. We then identified each “locomotor verb” (e.g., “come,” “bring”) that mothers said, and each bout of infant crawling and walking. Walkers’ enhanced locomotion indeed opened new opportunities for verb learning. Although mothers’ language overall was more frequent to older compared to younger infants, their locomotor verbs were more frequent to walkers than to crawlers. Preliminary findings show that caregivers directed more utterances to 18-month-olds (M = 2,006.00, SD = 579.02) compared to 13-month-old crawlers (M = 1,553.75, SD = 728.42) and walkers (M = 1,363.50, SD = 619.29), F (2, 31) = 3.23, p = .052. Notably, caregivers directed twice as many locomotor verbs to 13- and 18-month-old walkers (M = 53.13, SD = 15.40; M = 53.00, SD = 25.14, respectively) compared with 13-month-old crawlers (M = 25.25, SD = 12.87), F (2, 31) = 5.46, p = .01. Moreover, mothers’ locomotor verbs were related to infants’ moment-to-moment locomotion: Infants who moved more frequently received more locomotor verbs compared to infants who moved less, r(26) = .42, p = .035. Findings indicate that locomotor development leads to more advanced forms of infant activity, which consequently prompts caregivers to use more advanced language.",
+				"date": "2021",
+				"DOI": "10.17910/B7.1322",
+				"repository": "Databrary",
+				"url": "http://databrary.org/volume/1322"
+			}
+		]
+	},
+	"testCase11": {
+		"status": 200,
+		"translatorID": "32d59d2d-b65a-4da4-b0a3-bdd3cfb979e7",
+		"items": [
+			{
+				"key": "KVN22222",
+				"version": 0,
+				"itemType": "journalArticle",
+				"creators": [],
+				"tags": [
+					{
+						"tag": "Tag",
+						"type": 1
+					}
+				],
+				"title": "Citavi Item",
+				"callNumber": "Call Number"
+			}
+		]
+	},
+	"book_and_child_note": {
+		"status": 200,
+		"translatorID": "32d59d2d-b65a-4da4-b0a3-bdd3cfb979e7",
+		"items": [
+			{
+				"key": "KVN22222",
+				"version": 0,
+				"itemType": "book",
+				"creators": [],
+				"tags": [],
+				"title": "Parent"
+			},
+			{
+				"itemType": "note",
+				"parentItem": "KVN22222",
+				"note": "<p>Child</p>"
+			}
+		]
+	},
+	"dates_and_entities": {
+		"status": 200,
+		"translatorID": "32d59d2d-b65a-4da4-b0a3-bdd3cfb979e7",
+		"items": [
+			{
+				"key": "KVN22222",
+				"version": 0,
+				"itemType": "journalArticle",
+				"creators": [
+					{
+						"firstName": "John",
+						"lastName": "Smith",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "Jean",
+						"lastName": "de la Fontaine",
+						"creatorType": "author"
+					}
+				],
+				"tags": [
+					{
+						"tag": "alpha",
+						"type": 1
+					},
+					{
+						"tag": "beta & gamma",
+						"type": 1
+					}
+				],
+				"title": "Dates & entities: a kovan probe",
+				"abstractNote": "Leading spaces &amp; trailing.",
+				"date": "2021-05",
+				"DOI": "10.1234/ABC.def",
+				"pages": "101-110",
+				"journalAbbreviation": "J. Test.",
+				"url": "http://example.com/a?b=c&d=e",
+				"accessDate": "2020-03-04",
+				"publicationTitle": "Journal of Testing & Probing",
+				"volume": "12",
+				"issue": "3"
+			},
+			{
+				"itemType": "note",
+				"parentItem": "KVN22222",
+				"note": "A note with <b>markup</b> &amp; an entity."
+			},
+			{
+				"key": "KVN22223",
+				"version": 0,
+				"itemType": "book",
+				"creators": [
+					{
+						"firstName": "Ed",
+						"lastName": "Editor",
+						"creatorType": "seriesEditor"
+					}
+				],
+				"tags": [],
+				"title": "A second record",
+				"date": "1999",
+				"publisher": "Kovan Press",
+				"ISBN": "978-3-16-148410-0",
+				"place": "Singapore"
+			}
+		]
+	}
+}

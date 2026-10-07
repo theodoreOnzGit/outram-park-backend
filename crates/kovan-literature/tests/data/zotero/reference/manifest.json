@@ -1,0 +1,20 @@
+{
+	"generatedBy": "scripts/zotero-reference.sh",
+	"generatedOn": "2026-10-07T00:14:37.794Z",
+	"server": "http://127.0.0.1:1969",
+	"node": "v26.10.0",
+	"utcOffsetMinutes": 480,
+	"commits": {
+		"translation-server": "3a9d17614896fc1fea73d7b880ea79273b605275",
+		"translation-server/modules/translate": "e0fe482b8a07e42cbf83545947382008ae7ddb82",
+		"translation-server/modules/utilities": "1dd38e27edf81e9d9c4161c957b7efb7f5681ac3",
+		"translation-server/modules/zotero-schema": "70c3aa98627413d6a30dca955886eafbde085ce9",
+		"translators": "3d1c78530f42892328e08741b7cac8474ff687b8"
+	},
+	"notes": [
+		"The server was started with translatorsDirectory = vendor/translators, so the translators are the commit above, not the server's own submodule.",
+		"Type/field validity on the server comes from modules/utilities/resource/zoteroTypeSchemaData.js; CSL mappings from modules/zotero-schema/schema.json.",
+		"Normalisation: /import output keys and parentItem only (see scripts/zotero-reference.mjs). Export output is verbatim.",
+		"utcOffsetMinutes is this script's zone; the server ran on the same machine."
+	]
+}

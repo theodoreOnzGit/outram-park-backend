@@ -1,0 +1,102 @@
+{
+	"testCase00": {
+		"status": 200,
+		"output": "TY  - JOUR\r\nTI  - The physical volcanology of the 1600 eruption of Huaynaputina, southern Peru\r\nAU  - Adams, Nancy K\r\nAU  - DeSilva, Shanaka L\r\nAU  - Self, Steven\r\nAU  - Salas, Guido\r\nAU  - Schubring, Steven\r\nAU  - Permenter, Jason L\r\nAU  - Arbesman, Kendra\r\nT2  - Bulletin of Volcanology\r\nDA  - 2001///\r\nPY  - 2001\r\nVL  - 62\r\nSP  - 493\r\nEP  - 518\r\nKW  - Vulcanian eruptions\r\nKW  - breadcrust\r\nKW  - plinian\r\nER  - \r\n\r\n"
+	},
+	"testCase01": {
+		"status": 200,
+		"output": "TY  - BOOK\r\nTI  - Handbook of Mathematical Functions with Formulas, Graphs, and Mathematical Tables\r\nAU  - Abramowitz, Milton\r\nAU  - Stegun, Irene A.\r\nCY  - New York\r\nDA  - 1964///\r\nPY  - 1964\r\nET  - ninth Dover printing, tenth GPO printing\r\nPB  - Dover\r\nER  - \r\n\r\nTY  - BOOK\r\nTI  - The Yankee Years\r\nAU  - Torre, Joe\r\nAU  - Verducci, Tom\r\nDA  - 2008///\r\nPY  - 2008\r\nPB  - Doubleday\r\nSN  - 0385527403\r\nER  - \r\n\r\n"
+	},
+	"testCase02": {
+		"status": 200,
+		"output": "TY  - CONF\r\nTI  - Some publication title\r\nAU  - Author, First\r\nAU  - Author, Second\r\nSP  - 330\r\nEP  - 331\r\nER  - \r\n\r\nTY  - BOOK\r\nTI  - Proceedings of the Xth Conference on XYZ\r\nA3  - Editor, First\r\nA3  - Editor, Second\r\nDA  - 2006/10//\r\nPY  - 2006\r\nER  - \r\n\r\n"
+	},
+	"testCase03": {
+		"status": 200,
+		"output": "TY  - BOOK\r\nTI  - Design of a Carbon Fiber Composite Grid Structure for the GLAST Spacecraft Using a Novel Manufacturing Technique\r\nAU  - von Hicks, Michael, III\r\nCY  - Palo Alto\r\nDA  - 2001///\r\nPY  - 2001\r\nET  - 1st,\r\nPB  - Stanford Press\r\nSN  - 0-69-697269-4\r\nER  - \r\n\r\n"
+	},
+	"testCase04": {
+		"status": 200,
+		"output": "TY  - JOUR\r\nTI  - USGS monitoring ecological impacts\r\nAU  - Oliveira, A\r\nT2  - Oil & Gas Journal\r\nDA  - 2009///\r\nPY  - 2009\r\nVL  - 107\r\nIS  - 29\r\nSP  - 29\r\nER  - \r\n\r\n"
+	},
+	"testCase05": {
+		"status": 200,
+		"output": "TY  - JOUR\r\nTI  - non-braking space: ; accented characters: ñ and ñ; tilde operator: ∼\r\nER  - \r\n\r\n"
+	},
+	"testCase06": {
+		"status": 200,
+		"output": "TY  - JOUR\r\nTI  - Test of markupconversion: Italics, bold, superscript, subscript, and small caps: Mitochondrial DNA₂ sequences suggest unexpected phylogenetic position of Corso-Sardinian grass snakes (<i>Natrix cetti</i>) and <b>do not</b> support their <span style=\"small-caps\">species status</span>, with notes on phylogeography and subspecies delineation of grass snakes.\r\nAU  - Fritz, U.\r\nAU  - Corti, C.\r\nAU  - Päckert, M.\r\nT2  - Actes du 4<sup>ème</sup> Congrès Français d'Acoustique\r\nDA  - 2012///\r\nPY  - 2012\r\nDO  - 10.1007/s13127-011-0069-8\r\nVL  - 12\r\nSP  - 71\r\nEP  - 80\r\nER  - \r\n\r\n"
+	},
+	"testCase07": {
+		"status": 200,
+		"output": "TY  - GEN\r\nTI  - Public Service Research Foundation\r\nAU  - Work, American Rights at\r\nDA  - 2012///\r\nPY  - 2012\r\nUR  - http://www.americanrightsatwork.org/blogcategory-275/\r\nY2  - 2012/07/27/00:00:00\r\nER  - \r\n\r\n"
+	},
+	"testCase08": {
+		"status": 200,
+		"output": "TY  - JOUR\r\nTI  - Zotero: single attachment\r\nER  - \r\n\r\nTY  - JOUR\r\nTI  - Zotero: multiple attachments\r\nER  - \r\n\r\nTY  - JOUR\r\nTI  - Zotero: linked attachments (old)\r\nER  - \r\n\r\nTY  - JOUR\r\nTI  - Zotero: linked attachments\r\nER  - \r\n\r\nTY  - JOUR\r\nTI  - Mendeley: single attachment\r\nUR  - https://forums.zotero.org/discussion/28347/unable-to-get-pdfs-stored-on-computer-into-zotero-standalone/\r\nER  - \r\n\r\nTY  - JOUR\r\nTI  - Mendeley: escaped characters\r\nER  - \r\n\r\nTY  - JOUR\r\nTI  - Citavi: single attachment\r\nUR  - https://forums.zotero.org/discussion/35909/bibtex-import-from-citavi-including-pdf-attachments/\r\nER  - \r\n\r\n"
+	},
+	"testCase09": {
+		"status": 200,
+		"output": "TY  - JOUR\r\nTI  - extbackslash extbackslash{}: {\r\nER  - \r\n\r\n"
+	},
+	"testCase10": {
+		"status": 200,
+		"output": "TY  - JOUR\r\nTI  - Increasing cardiopulmonary resuscitation provision in communities with low bystander cardiopulmonary resuscitation rates: a science advisory from the American Heart Association for healthcare providers, policymakers, public health departments, and community leaders\r\nAU  - Sasson, Comilla\r\nAU  - Meischke, Hendrika\r\nAU  - Abella, Benjamin S\r\nAU  - Berg, Robert A\r\nAU  - Bobrow, Bentley J\r\nAU  - Chan, Paul S\r\nAU  - Root, Elisabeth Dowling\r\nAU  - Heisler, Michele\r\nAU  - Levy, Jerrold H\r\nAU  - Link, Mark\r\nAU  - Masoudi, Frederick\r\nAU  - Ong, Marcus\r\nAU  - Sayre, Michael R\r\nAU  - Rumsfeld, John S\r\nAU  - Rea, Thomas D\r\nAU  - American Heart Association Council on Quality of Care and Outcomes Research\r\nAU  - Emergency Cardiovascular Care Committee\r\nAU  - Council on Cardiopulmonary, Critical Care, Perioperative and Resuscitation\r\nAU  - Council on Clinical Cardiology\r\nAU  - Council on Cardiovascular Surgery and Anesthesia\r\nT2  - Circulation\r\nDA  - 2013/03//\r\nPY  - 2013\r\nDO  - 10.1161/CIR.0b013e318288b4dd\r\nVL  - 127\r\nIS  - 12\r\nSP  - 1342\r\nEP  - 1350\r\nLA  - eng\r\nSN  - 1524-4539\r\nST  - Increasing cardiopulmonary resuscitation provision in communities with low bystander cardiopulmonary resuscitation rates\r\nKW  - Administrative Personnel\r\nKW  - American Heart Association\r\nKW  - Cardiopulmonary Resuscitation\r\nKW  - Community Health Services\r\nKW  - Health Personnel\r\nKW  - Heart Arrest\r\nKW  - Humans\r\nKW  - Leadership\r\nKW  - Public Health\r\nKW  - United States\r\nER  - \r\n\r\n"
+	},
+	"testCase11": {
+		"status": 200,
+		"output": "TY  - JOUR\r\nTI  - Testing identifier import\r\nAU  - Smith, John\r\nDO  - 10.12345/123456\r\nER  - \r\n\r\n"
+	},
+	"testCase12": {
+		"status": 200,
+		"output": "TY  - CHAP\r\nTI  - Testing identifier import chapter\r\nAU  - Smith, John\r\nDO  - 10.12345/123456\r\nER  - \r\n\r\n"
+	},
+	"testCase13": {
+		"status": 200,
+		"output": "TY  - THES\r\nTI  - Regelbasierte Extraktion und asymmetrische Fusion bibliographischer Informationen\r\nAU  - Hoffmann, Oliver\r\nDA  - 2009///\r\nPY  - 2009\r\nM3  - Master's Thesis\r\nPB  - Diplomarbeit, Universität Trier, FB IV, DBIS/DBLP\r\nUR  - http://dblp.uni-trier.de/papers/DiplomarbeitOliverHoffmann.pdf\r\nER  - \r\n\r\nTY  - THES\r\nTI  - Algorithms for the Bregman k-Median problem\r\nAU  - Ackermann, Marcel R.\r\nDA  - 2009///\r\nPY  - 2009\r\nM3  - PhD Thesis\r\nPB  - University of Paderborn\r\nUR  - http://digital.ub.uni-paderborn.de/hs/content/titleinfo/1561\r\nER  - \r\n\r\n"
+	},
+	"testCase14": {
+		"status": 200,
+		"output": "TY  - CONF\r\nTI  - Trajectory Pattern Mining\r\nAU  - Giannotti, Fosca\r\nAU  - Nanni, Mirco\r\nAU  - Pinelli, Fabio\r\nAU  - Pedreschi, Dino\r\nT3  - KDD '07\r\nC1  - New York, NY, USA\r\nC3  - Proceedings of the 13th ACM SIGKDD International Conference on Knowledge Discovery and Data Mining\r\nDA  - 2007///\r\nPY  - 2007\r\nDO  - 10.1145/1281192.1281230\r\nSP  - 330\r\nEP  - 339\r\nPB  - ACM\r\nSN  - 978-1-59593-609-7\r\nUR  - http://doi.acm.org/10.1145/1281192.1281230\r\nKW  - spatio-temporal data mining\r\nKW  - trajectory patterns\r\nER  - \r\n\r\n"
+	},
+	"testCase15": {
+		"status": 200,
+		"output": "TY  - JOUR\r\nTI  - Die Alterung der Gesellschaft und der Generationenkonflikt in Europa\r\nAU  - Naumann, Elias\r\nAU  - Heß, Moritz\r\nAU  - Steinkopf, Leander\r\nT2  - Zeitschrift für Soziologie : ZfS\r\nCY  - Stuttgart\r\nDA  - 2015///\r\nPY  - 2015\r\nDO  - 10.1515/zfsoz-2015-0604\r\nVL  - 44\r\nIS  - 6\r\nSP  - 426\r\nEP  - 446\r\nLA  - Deutsch\r\nPB  - Lucius & Lucius\r\nUR  - https://madoc.bib.uni-mannheim.de/40756/\r\nER  - \r\n\r\nTY  - JOUR\r\nTI  - Higher-order Erdős-Szekeres theorems\r\nAU  - Eliáš, Marek\r\nAU  - Matoušek, Jiří\r\nT2  - Advances in Mathematics\r\nDA  - 2013///\r\nPY  - 2013\r\nDO  - 10.1016/j.aim.2013.04.020\r\nVL  - 244\r\nSP  - 1\r\nEP  - 15\r\nJ2  - Adv. Math.\r\nSN  - 0001-8708\r\nUR  - http://dx.doi.org/10.1016/j.aim.2013.04.020\r\nER  - \r\n\r\n"
+	},
+	"testCase16": {
+		"status": 200,
+		"output": "TY  - CHAP\r\nTI  - Búsáhaldabyltingin : Pólitískt jafnræði og þátttaka almennings í mótmælum\r\nAU  - Önnudóttir, Eva H.\r\nCY  - Reykjavik\r\nDA  - 2011///\r\nPY  - 2011\r\nSP  - 36\r\nEP  - 44\r\nLA  - isl\r\nPB  - Félagsvísindastofnun Háskóla Íslands\r\nER  - \r\n\r\n"
+	},
+	"testCase17": {
+		"status": 200,
+		"output": "TY  - ELEC\r\nTI  - Zotero's Homepage\r\nAU  - Scholarship, Corporation for Digital\r\nDA  - 2019///\r\nPY  - 2019\r\nUR  - https://www.zotero.org/\r\nY2  - 2019/10/12/00:00:00\r\nER  - \r\n\r\n"
+	},
+	"testCase18": {
+		"status": 200,
+		"output": "TY  - BOOK\r\nTI  - The impossible ℡—book\r\nAU  - Swe\\ıg, Stefan\r\nAU  - D\\écoret, Xavier\r\nDA  - 1942/03//\r\nPY  - 1942\r\nPB  - D\\ëad Po<sub>eee</sub>t Society\r\nER  - \r\n\r\n"
+	},
+	"testCase19": {
+		"status": 200,
+		"output": "TY  - JOUR\r\nTI  - A Rural Mobile Health Obesity Wellness Intervention for Older Adults with Obesity\r\nAU  - Batsis, John A.\r\nAU  - Petersen, Curtis L.\r\nAU  - Clark, Matthew M.\r\nAU  - Cook, Summer B.\r\nAU  - Kotz, David\r\nAU  - Gooding, Tyler L.\r\nAU  - Roderka, Meredith N.\r\nAU  - Al-Nimr, Rima I.\r\nAU  - Pidgeon, Dawna M.\r\nAU  - Haedrich, Ann\r\nAU  - Wright, K. C.\r\nAU  - Aquila, Christina\r\nAU  - Mackenzie, Todd A.\r\nT2  - BMC Geriatrics\r\nDA  - 2020/12//\r\nPY  - 2020\r\nUR  - https://www.cs.dartmouth.edu/~kotz/research/batsis-rural/index.html\r\nN1  - <p>Accepted for publication</p>\r\nER  - \r\n\r\n"
+	},
+	"testCase20": {
+		"status": 200,
+		"output": "TY  - RPRT\r\nTI  - Benchmarking Methodology for EVPN and PBB-EVPN\r\nAU  - jacob, sudhin\r\nAU  - Tiruveedhula, Kishore\r\nAB  - This document defines methodologies for benchmarking EVPN and PBB- EVPN performance. EVPN is defined in RFC 7432, and is being deployed in Service Provider networks. Specifically, this document defines the methodologies for benchmarking EVPN/PBB-EVPN convergence, data plane performance, and control plane performance.\r\nDA  - 2021/06/18/\r\nPY  - 2021\r\nM3  - Internet-Draft\r\nPB  - Internet Engineering Task Force\r\nSN  - draft-ietf-bmwg-evpntest-09\r\nUR  - https://datatracker.ietf.org/doc/html/draft-ietf-bmwg-evpntest-09\r\nN1  - <p>Work in Progress</p>\r\nER  - \r\n\r\n"
+	},
+	"testCase21": {
+		"status": 200,
+		"output": "TY  - CONF\r\nTI  - White Functionals for Anomaly Detection in Dynamical Systems\r\nAU  - Cuturi, Marco\r\nAU  - Vert, Jean-philippe\r\nAU  - D' aspremont, Alexandre\r\nA2  - Bengio, Y.\r\nA2  - Schuurmans, D.\r\nA2  - Lafferty, J.\r\nA2  - Williams, C.\r\nA2  - Culotta, A.\r\nC3  - Advances in Neural Information Processing Systems\r\nDA  - 2009///\r\nPY  - 2009\r\nVL  - 22\r\nPB  - Curran Associates, Inc.\r\nUR  - https://proceedings.neurips.cc/paper/2009/file/0188e8b8b014829e2fa0f430f0a95961-Paper.pdf\r\nER  - \r\n\r\n"
+	},
+	"testCase22": {
+		"status": 200,
+		"output": "TY  - JOUR\r\nTI  - Production of Σ⁰ Hyperon and Search of Σ⁰ Hypernuclei at LHC with ALICE\r\nAU  - Borissov, Alexander\r\nAU  - Solokhin, Sergei\r\nT2  - Phys. At. Nucl.\r\nDA  - 2023///\r\nPY  - 2023\r\nDO  - 10.1134/S1063778823010131\r\nVL  - 85\r\nIS  - 6\r\nSP  - 970\r\nEP  - 975\r\nUR  - https://cds.cern.ch/record/2855446\r\nER  - \r\n\r\n"
+	},
+	"testCase23": {
+		"status": 200,
+		"output": "TY  - BOOK\r\nTI  - Poczucie jakości życia a swoboda działania i odpowiedzialność\r\nAU  - Derbis, Romuald\r\nAU  - Bańka, Augustyn\r\nDA  - 1998///\r\nPY  - 1998\r\nPB  - Stowarzyszenie Psychologia i Architektura\r\nER  - \r\n\r\n"
+	},
+	"dates_and_markup": {
+		"status": 200,
+		"output": "TY  - JOUR\r\nTI  - Dates and Markup in \\emphBib\\TeX: a kovan probe\r\nAU  - Smith, John\r\nAU  - de la Fontaine, Jean\r\nAU  - Kovan Collaboration\r\nT2  - Journal of Testing and Probing\r\nDA  - 2021/05//\r\nPY  - 2021\r\nDO  - 10.1234/abc.def\r\nVL  - 12\r\nIS  - 3\r\nSP  - 101\r\nEP  - 110\r\nUR  - http://example.com/a?b=c&d=e\r\nN1  - <p>A note with &lt;b&gt;bold&lt;/b&gt; text</p>\r\nN1  - <p>Line one Line two</p>\r\nKW  - alpha\r\nKW  - beta\r\nKW  - gamma\r\nER  - \r\n\r\nTY  - BOOK\r\nTI  - A Second Record\r\nA3  - Editor, Ed\r\nCY  - Singapore\r\nDA  - 1999///\r\nPY  - 1999\r\nPB  - Kovan Press\r\nSN  - 978-3-16-148410-0\r\nER  - \r\n\r\nTY  - GEN\r\nTI  - Date only\r\nDA  - 2021/05//undefined\r\nPY  - 2021\r\nER  - \r\n\r\n"
+	}
+}
