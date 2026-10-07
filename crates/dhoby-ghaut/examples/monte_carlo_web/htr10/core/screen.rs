@@ -33,12 +33,17 @@ const RECORDED_TRACKS: &[u8] = include_bytes!("../data/core_tracks.bin.z");
 /// Sizes the pool.
 pub const MEASURED_WORKER_MB: f64 = 546.0;
 
-/// **The native random-bed k_eff: a slot, not a value.** Another run (#787,
-/// approved 2026-10-08: the DEM bed cut to 16 681 core pebbles, 10 000 ×
-/// [5 + 135], the record's settings) is in progress; when it is recorded,
-/// put `(k, σ, "record folder, date")` here. Until then the page says
-/// "pending" and shows no number.
-pub const DEM_NATIVE_RECORD: Option<(f64, f64, &str)> = None;
+/// **The native random-bed k_eff.** ~~A slot, not a value: the run (#787)
+/// is in progress.~~ **Filled 2026-10-08:** the DEM bed cut to 16 681 core
+/// pebbles, 10 000 × [5 + 135], the lattice record's settings
+/// (`nee_soon/verification_and_validation/htr10_dem_bed_keff_2026_10_08/`).
+/// Taken from [`crate::beds::RANDOM_K`], which a test pins to that record, so
+/// this view and the beds view quote the same numbers.
+pub const DEM_NATIVE_RECORD: Option<(f64, f64, &str)> = Some((
+    crate::beds::RANDOM_K.k,
+    crate::beds::RANDOM_K.sigma,
+    "htr10_dem_bed_keff_2026_10_08, recorded 2026-10-08, one pour",
+));
 
 /// What the page says about the random bed's live k, wherever it shows it.
 pub const DEM_CAVEAT: &str = "Random bed: a LOW-STATISTICS DEMO. At 1000 neutrons per generation σ is about 1000 pcm, so it cannot resolve a lattice-against-random difference (any likely one is a few hundred pcm). One pour, one cut; pour-to-pour scatter is not measured.";
@@ -46,7 +51,12 @@ pub const DEM_CAVEAT: &str = "Random bed: a LOW-STATISTICS DEMO. At 1000 neutron
 /// The native random-bed record as the page prints it.
 pub fn dem_record_line() -> String {
     match DEM_NATIVE_RECORD {
-        Some((k, s, src)) => format!("Native random-bed k (10 000 × [5 + 135]): {k:.6} ± {s:.6} ({src})"),
+        Some((k, s, src)) => {
+            let (d, ds) = crate::beds::random_minus_lattice_pcm();
+            format!(
+                "Native random-bed k (10 000 × [5 + 135]): {k:.6} ± {s:.6} ({src}); random − lattice {d:+.0} ± {ds:.0} pcm"
+            )
+        }
         None => "Native random-bed k (10 000 × [5 + 135]): PENDING, the run is in progress (#787); no value yet.".into(),
     }
 }
@@ -919,7 +929,17 @@ mod tests {
         let (k, sigma, rmc) = record_row(12).expect("N = 12");
         assert_eq!((k, sigma, rmc), (0.995125, 0.001055, 0.999419));
         assert!(record_row(9).is_none());
-        assert!(DEM_NATIVE_RECORD.is_none() && dem_record_line().contains("PENDING"));
+        // The live view quotes the native record the beds view quotes
+        // (`beds::tests::the_recorded_k_are_the_records` pins it to the CSV).
+        let line = dem_record_line();
+        assert_eq!(
+            DEM_NATIVE_RECORD.map(|r| (r.0, r.1)),
+            Some((crate::beds::RANDOM_K.k, crate::beds::RANDOM_K.sigma))
+        );
+        assert!(
+            line.contains("0.989293 ± 0.000962") && line.contains("-583 ± 143 pcm"),
+            "{line}"
+        );
         assert!(DEM_CAVEAT.contains("cannot resolve"));
         assert!(forced_workers().is_none() && !forced_dem());
         let recorded = decode_tracks(RECORDED_TRACKS).expect("recorded tracks");

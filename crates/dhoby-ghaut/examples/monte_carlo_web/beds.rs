@@ -207,7 +207,7 @@ impl BedsView {
                         ui.end_row();
                         ui.label("k_eff (native, recorded)");
                         for r in [LATTICE_K, RANDOM_K] {
-                            ui.label(format!("{:.5} ± {:.5} ({})", r.k, r.sigma, r.record));
+                            ui.label(format!("{:.6} ± {:.6} ({})", r.k, r.sigma, r.record));
                         }
                         ui.end_row();
                     });
@@ -274,7 +274,7 @@ impl BedsView {
                 ran_off,
                 Color32::from_rgb(200, 150, 100),
                 format!(
-                    "RANDOM (DEM pour): k {:.5} ± {:.5}, one pour",
+                    "RANDOM (DEM pour): k {:.6} ± {:.6}, one pour",
                     RANDOM_K.k, RANDOM_K.sigma
                 ),
             ),

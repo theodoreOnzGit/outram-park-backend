@@ -1070,7 +1070,9 @@ neutrons drawn are the first four of each generation of your own run.*
 (the lattice's 16 681 core pebbles from a settled pour) and the same live
 k run on it. At about 1000 pcm of σ that run cannot resolve a
 lattice-against-random difference; the native random-bed record
-(10 000 × [5 + 135], #787) is pending and has its own marked slot.*
+(10 000 × [5 + 135], #787) ~~is pending and has its own marked slot~~ was
+recorded on 2026-10-08, 0.989293 ± 0.000962, −583 ± 143 pcm from the lattice
+on one pour (see "The real bed is random" below), and the view quotes it.*
 
 **The check** (2026-10-07/08,
 [`htr10_full_core_web/`](https://github.com/theodoreOnzGit/outram-park-backend/tree/@@COMMIT@@/crates/dhoby-ghaut/verification_and_validation/htr10_full_core_web),
@@ -1121,9 +1123,9 @@ Call chain from `htr10_rmc_keff.rs::main` to `core_model.rs::assemble_explicit_t
 Unresolved calls inside the functions on this chain:
 
 - in [`htr10_rmc_keff.rs::main`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/nee_soon/examples/htr10_rmc_keff.rs#L344):
-  - UNRESOLVED(other): `clone` at [L640](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/nee_soon/examples/htr10_rmc_keff.rs#L640) (→ [`crates/outram-mc-libs/src/physics/keff.rs:123`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/physics/keff.rs#L123)) — resolves to `#[derive(Debug, Clone)]`, not a function body
-  - UNRESOLVED(closure): `at` at [L721](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/nee_soon/examples/htr10_rmc_keff.rs#L721) (→ [`crates/nee_soon/examples/htr10_rmc_keff.rs:719`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/nee_soon/examples/htr10_rmc_keff.rs#L719)) — call through a closure or fn-typed binding `at`
-  - UNRESOLVED(closure): `at` at [L722](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/nee_soon/examples/htr10_rmc_keff.rs#L722) (→ [`crates/nee_soon/examples/htr10_rmc_keff.rs:719`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/nee_soon/examples/htr10_rmc_keff.rs#L719)) — call through a closure or fn-typed binding `at`
+  - UNRESOLVED(other): `clone` at [L689](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/nee_soon/examples/htr10_rmc_keff.rs#L689) (→ [`crates/outram-mc-libs/src/physics/keff.rs:123`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/physics/keff.rs#L123)) — resolves to `#[derive(Debug, Clone)]`, not a function body
+  - UNRESOLVED(closure): `at` at [L770](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/nee_soon/examples/htr10_rmc_keff.rs#L770) (→ [`crates/nee_soon/examples/htr10_rmc_keff.rs:768`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/nee_soon/examples/htr10_rmc_keff.rs#L768)) — call through a closure or fn-typed binding `at`
+  - UNRESOLVED(closure): `at` at [L771](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/nee_soon/examples/htr10_rmc_keff.rs#L771) (→ [`crates/nee_soon/examples/htr10_rmc_keff.rs:768`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/nee_soon/examples/htr10_rmc_keff.rs#L768)) — call through a closure or fn-typed binding `at`
 <!-- /code-walk -->
 
 The bed is a hexagonal lattice of Şeker's cells, stacked in axial levels:
@@ -1180,16 +1182,16 @@ Call chain from `htr10_rmc_keff.rs::main` to `handoff.rs::fly_delta_region`: 6 h
 **1.** [`htr10_rmc_keff.rs::main`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/nee_soon/examples/htr10_rmc_keff.rs#L344)
 
 <!-- snippet-check: crates/nee_soon/examples/htr10_rmc_keff.rs:344 fn main -->
-<!-- snippet-check: crates/nee_soon/examples/htr10_rmc_keff.rs:609 run_keff_csg_hybrid -->
+<!-- snippet-check: crates/nee_soon/examples/htr10_rmc_keff.rs:658 run_keff_csg_hybrid -->
 
 ```rust,ignore
 {{#include ../../../../../crates/nee_soon/examples/htr10_rmc_keff.rs:344:344}}
     // …
-{{#include ../../../../../crates/nee_soon/examples/htr10_rmc_keff.rs:607:610}}
+{{#include ../../../../../crates/nee_soon/examples/htr10_rmc_keff.rs:656:659}}
     // … (the rest of the function: follow the link above)
 ```
 
-**2.** → [`transport_csg.rs::run_keff_csg_hybrid`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/physics/transport_csg.rs#L233) · called at [L609](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/nee_soon/examples/htr10_rmc_keff.rs#L609) — **Hybrid k-eigenvalue: delta tracking where a region asks for it, surface tracking everywhere else** (`bn:op-867c`, gh #214).
+**2.** → [`transport_csg.rs::run_keff_csg_hybrid`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/physics/transport_csg.rs#L233) · called at [L658](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/nee_soon/examples/htr10_rmc_keff.rs#L658) — **Hybrid k-eigenvalue: delta tracking where a region asks for it, surface tracking everywhere else** (`bn:op-867c`, gh #214).
 
 <!-- snippet-check: crates/outram-mc-libs/src/physics/transport_csg.rs:233 fn run_keff_csg_hybrid -->
 <!-- snippet-check: crates/outram-mc-libs/src/physics/transport_csg.rs:243 run_keff_csg_inner -->
@@ -1299,9 +1301,9 @@ Call chain from `htr10_rmc_keff.rs::main` to `handoff.rs::fly_delta_region`: 6 h
 Unresolved calls inside the functions on this chain:
 
 - in [`htr10_rmc_keff.rs::main`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/nee_soon/examples/htr10_rmc_keff.rs#L344):
-  - UNRESOLVED(other): `clone` at [L640](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/nee_soon/examples/htr10_rmc_keff.rs#L640) (→ [`crates/outram-mc-libs/src/physics/keff.rs:123`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/physics/keff.rs#L123)) — resolves to `#[derive(Debug, Clone)]`, not a function body
-  - UNRESOLVED(closure): `at` at [L721](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/nee_soon/examples/htr10_rmc_keff.rs#L721) (→ [`crates/nee_soon/examples/htr10_rmc_keff.rs:719`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/nee_soon/examples/htr10_rmc_keff.rs#L719)) — call through a closure or fn-typed binding `at`
-  - UNRESOLVED(closure): `at` at [L722](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/nee_soon/examples/htr10_rmc_keff.rs#L722) (→ [`crates/nee_soon/examples/htr10_rmc_keff.rs:719`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/nee_soon/examples/htr10_rmc_keff.rs#L719)) — call through a closure or fn-typed binding `at`
+  - UNRESOLVED(other): `clone` at [L689](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/nee_soon/examples/htr10_rmc_keff.rs#L689) (→ [`crates/outram-mc-libs/src/physics/keff.rs:123`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/physics/keff.rs#L123)) — resolves to `#[derive(Debug, Clone)]`, not a function body
+  - UNRESOLVED(closure): `at` at [L770](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/nee_soon/examples/htr10_rmc_keff.rs#L770) (→ [`crates/nee_soon/examples/htr10_rmc_keff.rs:768`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/nee_soon/examples/htr10_rmc_keff.rs#L768)) — call through a closure or fn-typed binding `at`
+  - UNRESOLVED(closure): `at` at [L771](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/nee_soon/examples/htr10_rmc_keff.rs#L771) (→ [`crates/nee_soon/examples/htr10_rmc_keff.rs:768`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/nee_soon/examples/htr10_rmc_keff.rs#L768)) — call through a closure or fn-typed binding `at`
 - in [`transport_csg.rs::run_keff_csg_seq_progress`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/physics/transport_csg.rs#L652):
   - UNRESOLVED(other): `default` at [L703](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/physics/transport_csg.rs#L703) (→ [`crates/outram-mc-libs/src/physics/transport_csg.rs:2534`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/physics/transport_csg.rs#L2534)) — resolves to `#[derive(Debug, Clone, Copy, Default)]`, not a function body
   - UNRESOLVED(closure): `on_generation` at [L774](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/physics/transport_csg.rs#L774) (→ [`crates/outram-mc-libs/src/physics/transport_csg.rs:667`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/physics/transport_csg.rs#L667)) — call through a closure or fn-typed binding `on_generation`
