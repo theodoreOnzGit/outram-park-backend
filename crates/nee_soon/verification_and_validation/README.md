@@ -78,3 +78,9 @@ example (`water_critical_point_iapws95.md`).
   the re-measurement on the bounded majorant (gh:#589). It covers 4 of the
   heights on VIII.0 and 1 on VII.0, at 10 000 × [5 + 20], and includes a
   same-code control that switches back to the old majorant.
+- [`htr10_seker_2026_10_07_10k/`](htr10_seker_2026_10_07_10k/README.md) —
+  **the current record**: all 22 points (N = 10 to 20, VIII.0 and VII.0) on
+  the bounded majorant at 10 000 × [5 + 135]. Supersedes the two above.
+- [`htr10_run_all.sh`](htr10_run_all.sh) — the reusable launcher for the
+  sweep (`htr10_run_all.sh <out_dir>`; statistics, heights, libraries and
+  slots set by environment variables listed in its header).

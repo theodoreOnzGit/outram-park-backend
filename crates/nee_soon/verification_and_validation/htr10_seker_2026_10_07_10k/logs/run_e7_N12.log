@@ -1,0 +1,98 @@
+HTR-10 core k-eff vs Li, Yu & Wei (2014), RMC 1.004288
+=========================================================
+  ENDF/B-VII.0 (the library Li, Yu & Wei state for RMC)
+  explicit TRISO, hybrid delta/surface tracking, TECDOC reflector
+
+Reconstructing cross sections:
+  rod metal: FULL: real Ni-58/60/61/62/64 and Fe-54/56/57/58
+  SiC S(a,b) not applied: ENDF/B-VII.0 has no SiC thermal evaluation
+  carbon: ENDF/B-VII.0 elemental natural carbon (MAT 600)
+  coolant: natural helium (He-3 1.343e-6 at.), ideal gas at 300.15 K and 101.33 kPa (pressure ASSUMED atmospheric, after Seker & Colak 2003 p.267)
+  helium is ENDF/B-VIII.0 in this ENDF/B-VII.0 arm: no VII.0 helium tape in reference-data/endf
+  rod metal: FULL: real Ni-58/60/61/62/64 and Fe-54/56/57/58
+  rod-metal nuclides (Fe, Cr, Ni, Mn, Ti, free Si) are ENDF/B-VIII.0 in this ENDF/B-VII.0 arm: no VII.0 tapes for them
+  U_UO2    LEAPR 21.4s
+  O_UO2    LEAPR 28.0s
+  graphite S(a,b): tsl-graphite-ENDF7.0.endf (MAT 31)
+  U235   41.7s
+  U238   52.7s
+  O16    343.6ms
+  Cnat   135.3ms
+  Cnat   135.4ms
+  Si28   573.0ms
+  B10    190.2ms
+  Cnat   135.6ms
+  Si29   481.0ms
+  Si30   359.0ms
+  B11    293.6ms
+  He3    118.5ms
+  He4    61.4ms
+  Fe54   5.5s
+  Fe56   5.0s
+  Fe57   2.2s
+  Fe58   2.1s
+  Cr50   2.0s
+  Cr52   1.8s
+  Cr53   1.5s
+  Cr54   686.0ms
+  Ni58   2.9s
+  Ni60   2.6s
+  Ni61   609.0ms
+  Ni62   832.4ms
+  Ni64   532.1ms
+  Mn55   2.5s
+  Ti46   807.9ms
+  Ti47   306.9ms
+  Ti48   818.6ms
+  Ti49   392.2ms
+  Ti50   267.9ms
+  Si28   573.5ms
+  Si29   486.5ms
+  Si30   360.0ms
+  reflector zone: 22 (C 8.8242e-2 x1.000, natural B 4.7377e-7)
+  fuel zone: explicit TRISO lattice
+  tracking: hybrid (delta bed)
+  geometry: 22974 tiles, 43445 cells, 1502 universes
+  10000 histories x [5 inactive + 135 active], seed 20260917
+
+  nuclear data processed in 189.8 s (38 items)
+
+  BALL-COUNT MATCH (gh:#472): 16681 balls in a 123.576 cm bed; Şeker's model holds that many at 122.091 cm
+
+  HEIGHT-MATCHED: bed 123.576 cm built; reference read at 122.091 cm (equal ball count, gh:#472) -> RMC(interp) = 0.999419
+  (the 1.004288 headline is RMC at 123.576 cm; difference +487 pcm is comparison point, NOT model)
+  GAUGE (not a reference): MCNP at this height, Table 3 0.998250 (-178 pcm), Table 4 0.999476 (-301 pcm)
+  dk height-matched = -295 pcm   (against 0.999419, not 1.004288)
+  k_eff        = 0.996470 +/- 0.000924
+  RMC          = 1.004288
+  difference   = -782 pcm   (our sigma 92 pcm)
+  virtual coll = 12404209982
+  histories    = 1400000 (planned 1400000)
+  collisions   = 461065488 (329.33 per history)
+  lost locate  = 0 (0.000 %)
+  stuck events = 0 (0.000 %)
+  neg distance = 0 (worst 0.0000e0 cm, level 0)
+      from lattice = 0, from surface = 0
+  leak vacuum  = 215 (0.015 %)
+  leak infinity= 0 (0.000 %)
+  wall clock   = 7648.1 s
+  generations reported: 140
+  generations with k > 0: 140
+    gen 0: k = 0.951001
+    gen 1: k = 0.999962
+    gen 2: k = 1.002459
+    gen 3: k = 0.986825
+    gen 4: k = 1.005945
+  entropy trace: 5.554 5.551 5.559 5.543 5.547 5.547 5.552 5.553 5.545 5.540 5.543 5.545 5.543 5.547
+  entropy      = 5.5541 -> 5.5465 bits (ceiling 6.0000)
+
+  Gate is 500-1000 pcm. Full-radius bed, 12 Seker layers = 123.576 cm built, reference read at 122.091 cm; VIII.0 runs carry the VIII.0-vs-VII.0 offset.
+
+  --- timing, data processing vs transport ---
+  hardware     : llvmpipe (LLVM 15.0.7, 256 bits) / Vulkan, 7 cores, linux, Intel(R) Xeon(R) W-2195 CPU @ 2.30GHz, 62.5 GiB RAM
+  nuclear data :    189.8 s
+  transport    :   7648.1 s
+  total        :   7837.9 s
+  diagnostics  : verification_and_validation/local_perf/run-htr10-rmc-keff-1791347408.md
+  peak RSS     = 395364 kB (VmHWM, sampled every 20 s)
+  cpus         = 28-34 (taskset), exit code 0

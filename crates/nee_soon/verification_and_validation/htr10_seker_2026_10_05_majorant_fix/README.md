@@ -6,6 +6,14 @@
 > not for any operational use. AI-assisted run and write-up, not yet reviewed
 > by the maintainer.
 
+> **SUPERSEDED 2026-10-07** by
+> [`../htr10_seker_2026_10_07_10k/`](../htr10_seker_2026_10_07_10k/README.md):
+> all 22 points on the bounded majorant at the full 10 000 × [5 + 135]. The
+> five points here agree with it (χ² = 4.2 for 5 points); the one point this
+> record found outside ±1000 pcm of RMC (VIII.0 N = 10, −1075 ± 260) is
+> −656 ± 108 pcm there, inside the band. This record's same-code control
+> remains the evidence that only the majorant moved k.
+
 ![k vs height, new (filled) against the superseded record (hollow)](keff_vs_height_endf8_endf7.png)
 
 **Generated:** runs 2026-10-05 11:25 to 15:13 UTC. **Commit:** `develop`

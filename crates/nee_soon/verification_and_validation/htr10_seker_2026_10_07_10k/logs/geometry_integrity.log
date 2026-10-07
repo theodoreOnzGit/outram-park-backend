@@ -1,0 +1,5 @@
+test the_tile_assignment_agrees_with_the_continuum_split ... ok
+test the_triso_array_matches_the_adjudicated_geometry ... ok
+
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.12s
+

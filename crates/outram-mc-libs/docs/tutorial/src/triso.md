@@ -809,8 +809,13 @@ generations (the reference paper's own statistics), one seed per point.
 > **Re-measured 2026-10-05, at 5 of the 22 points**: see the table after this
 > one. The shift came out far smaller than the −500 to −3000 pcm predicted:
 > −263 ± 147 pcm on average on VIII.0. The table below is left as measured on
-> the under-bound majorant. For the 17 points not re-measured, read each k as
-> about 300 pcm too high, a shift known only to about ±150 pcm.
+> the under-bound majorant. ~~For the 17 points not re-measured, read each k as
+> about 300 pcm too high, a shift known only to about ±150 pcm.~~
+> **Re-measured at all 22 points 2026-10-07** (commit `dbb9e26e`, same
+> 10 000 × [5 + 135] statistics,
+> [`htr10_seker_2026_10_07_10k/`](https://github.com/theodoreOnzGit/outram-park-backend/tree/@@COMMIT@@/crates/nee_soon/verification_and_validation/htr10_seker_2026_10_07_10k)): the shift is **−233 ± 45 pcm** on
+> VIII.0 and **−310 ± 44 pcm** on VII.0, flat in height (χ²/dof 11.0/10 and
+> 6.3/10). That record supersedes the table below.
 
 ![k_eff against loading height, both libraries, with RMC and MCNP](https://raw.githubusercontent.com/theodoreOnzGit/outram-park-backend/@@COMMIT@@/crates/nee_soon/verification_and_validation/htr10_seker_2026_10_01_10k/keff_vs_height_endf8_endf7.png)
 
@@ -865,19 +870,27 @@ comes back. No other change since 2026-10-01 moved k measurably.
   more than 2σ. **On size, the prediction missed.** A majorant 14× too low
   turned out to cost few collisions here: real collisions per neutron changed
   by under 0.5 % at every height.
-- **The fix moved VIII.0 at N = 10 to −1075 ± 260 pcm from RMC**, just
-  outside the ±1000 pcm band. It is the one re-measured point outside it.
+- ~~**The fix moved VIII.0 at N = 10 to −1075 ± 260 pcm from RMC**, just
+  outside the ±1000 pcm band. It is the one re-measured point outside it.~~
+  **Corrected 2026-10-07:** at full statistics that point is
+  **−656 ± 108 pcm**, inside the band (the two agree at 1.5σ).
 
 - ~~**All 22 points are within ±1000 pcm of RMC**, the crate's acceptance
   band, and 18 of 22 within ±500 pcm.~~ **Corrected 2026-10-05 (#589):**
   that held on the under-bound majorant. On the bounded one, VIII.0 at
   N = 10 sits at −1075 ± 260 pcm, outside the band; the other 4 re-measured
-  points are inside ±500 pcm.
+  points are inside ±500 pcm. **Re-measured 2026-10-07 at all 22 points on
+  the bounded majorant: all 22 are within ±1000 pcm, 19 of 22 within
+  ±500 pcm.**
 - **The misses are real, and shown.** 5 of 11 VIII.0 points and 7 of 11 VII.0
   points sit 3σ or more from RMC, up to 6.3σ. With σ now about 100 pcm, the
-  residual is not noise.
+  residual is not noise. **On the bounded majorant (2026-10-07):** 3 of 11 on
+  each library, all at N = 10 to 12 (the bottom of the bed), up to 8.3σ
+  (VII.0, N = 10); from N = 13 up every point is within 3σ.
 - **There is a drift with height:** +8.3 pcm/cm on VIII.0 and +11.4 pcm/cm
   on VII.0 against RMC, low at the bottom and high at the top
+  (**2026-10-07, bounded majorant, same unweighted fit: +7.1 and
+  +10.5 pcm/cm**; against MCNP's helium column −5.8 and −2.4 pcm/cm)
   ([gh:#218](https://github.com/theodoreOnzGit/outram-park-backend/issues/218)).
   Against MCNP's helium column it is −4.7 and −1.6 pcm/cm. Part of it is
   therefore a difference between the two references themselves; which one is

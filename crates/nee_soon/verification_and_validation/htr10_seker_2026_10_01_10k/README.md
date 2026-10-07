@@ -20,9 +20,13 @@
 > than the −500 to −3000 pcm predicted. The same-code control, VIII.0 N = 14
 > on today's code with the old majorant, reproduces this record's k
 > (+139 ± 268 pcm), so no other change since this record moved k
-> measurably. The numbers below are left as measured on the under-bound majorant. At the 17 points not re-measured,
+> measurably. The numbers below are left as measured on the under-bound majorant. ~~At the 17 points not re-measured,
 > read them as carrying a shift of about −300 pcm, known only to about
-> ±150 pcm.
+> ±150 pcm.~~ **SUPERSEDED 2026-10-07:** all 22 points were re-measured at
+> this record's statistics on the bounded majorant in
+> [`../htr10_seker_2026_10_07_10k/`](../htr10_seker_2026_10_07_10k/README.md).
+> The shift is −233 ± 45 pcm (VIII.0) and −310 ± 44 pcm (VII.0), flat in
+> height. Quote that record, not this one.
 
 ![k vs height, both libraries](keff_vs_height_endf8_endf7.png)
 
