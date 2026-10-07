@@ -26,6 +26,7 @@ pub mod cost;
 pub mod discover;
 pub mod gen;
 pub mod historian;
+pub mod index;
 pub mod kloc;
 pub mod lit;
 pub mod lsp_daemon;

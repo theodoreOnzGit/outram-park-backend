@@ -599,9 +599,45 @@ enum Command {
     /// `--no-fail-fast`) and records the passing set, the commit and the
     /// Cargo.lock hash as test evidence (GitHub #766). Extra arguments go to
     /// cargo (`-j 1`, `-p x`, `-- filter`); anything that narrows the run
-    /// records it as PARTIAL, never counted. Counted runs write
-    /// `kovan_test_evidence.toml`; others `target/kovan/test_evidence_last.toml`.
+    /// records it as PARTIAL, never counted. ~~Counted runs write
+    /// `kovan_test_evidence.toml`~~ (corrected 2026-10-07): a counted run is
+    /// written into every folder's `kovan.toml` `[test_run]`; every run's
+    /// raw record goes to `target/kovan/test_evidence_last.toml`.
     /// The full suite takes hours (long tests are on by default).
+    /// Builds the code index (GitHub #767): one `rust-analyzer scip` run
+    /// (about 3-4 min, or `--scip <file>`) becomes every folder's
+    /// `kovan.toml` (function ids, hashes, callees, reaching tests; the
+    /// `[test_run]` is carried over) and each crate's `kovan_links.json`
+    /// (go-to-definition and references without rust-analyzer). Missing,
+    /// malformed, conflicted, stale or hand-edited `kovan.toml` files are
+    /// regenerated, orphans removed, `review.md` never written.
+    /// `--refresh` needs no rust-analyzer: it updates hashes of edited files
+    /// and marks what it cannot recompute "index out of date".
+    Index {
+        /// Workspace root; found from the current directory when omitted.
+        #[arg(long)]
+        workspace: Option<PathBuf>,
+        /// Comma-separated crate names; every member when omitted.
+        #[arg(long)]
+        crates: Option<String>,
+        /// Use this SCIP index instead of running `rust-analyzer scip`.
+        #[arg(long)]
+        scip: Option<PathBuf>,
+        /// No rust-analyzer: refresh the existing kovan.toml files from the
+        /// source with the syn hasher.
+        #[arg(long, conflicts_with = "scip")]
+        refresh: bool,
+        /// Write nothing; fail when any file would change (CI).
+        #[arg(long)]
+        check: bool,
+        /// Also print proposed `[upstream]` review.md entries from the
+        /// files' provenance headers, for a human to confirm (never written).
+        #[arg(long)]
+        draft_upstream: bool,
+        /// Pin the installed rust-analyzer's version in kovan_root.toml.
+        #[arg(long)]
+        pin_rust_analyzer: bool,
+    },
     Test {
         /// Workspace root; found from the current directory when omitted.
         #[arg(long)]
@@ -879,6 +915,30 @@ fn run(command: Command) -> Result<(), String> {
             let (root, _) = commands::workspace::resolve(root.as_deref())
                 .map_err(|error| error.to_string())?;
             commands::test_evidence::run(&root, &cargo_args, allow_dirty, out)
+        }
+        Command::Index {
+            workspace,
+            crates,
+            scip,
+            refresh,
+            check,
+            draft_upstream,
+            pin_rust_analyzer,
+        } => {
+            let (root, _) = commands::workspace::resolve(workspace.as_deref())
+                .map_err(|error| error.to_string())?;
+            let opts = commands::index::IndexOptions {
+                crates: crates
+                    .as_deref()
+                    .map(commands::call_graph::parse_crates)
+                    .unwrap_or_default(),
+                scip,
+                refresh,
+                check,
+                draft_upstream,
+                pin_rust_analyzer,
+            };
+            commands::index::run(&root, &opts).map_err(|e| e.to_string())
         }
         Command::LspDaemonServe { root } => commands::lsp_daemon::serve(root),
         Command::LspDaemonStop { root } => commands::lsp_daemon::stop(root),

@@ -9,22 +9,29 @@
 //!
 //! # Where the evidence lives
 //!
+//! ~~`<workspace>/kovan_test_evidence.toml` holds counted evidence, and
+//! `kovan.toml`'s `[test_run]` is a re-projectable copy of it.~~
+//! **CORRECTED 2026-10-07** (maintainer, on #766: "test evidence lives IN
+//! kovan.toml, and the kovan.toml files ARE committed"; the separate file is
+//! dropped):
+//!
 //! ```text
-//! <workspace>/kovan_test_evidence.toml       counted evidence: full suite,
-//!                                            clean tree, every binary finished
+//! <folder>/kovan.toml  [test_run]           a COUNTED run (full suite, clean
+//!                                           tree, every binary finished),
+//!                                           mapped to test ids and restricted
+//!                                           to the folder's tests
+//!                                           (crate::code_index::test_run)
 //! <workspace>/target/kovan/test_evidence_last.toml
-//!                                            anything else (a `-p` run, a
-//!                                            dirty tree, a crashed binary):
-//!                                            kept for reading, never counted
+//!                                           the raw record of the last run,
+//!                                           counted or not; never counted by
+//!                                           itself
 //! ```
 //!
-//! The evidence file is **not** `kovan.toml`. `kovan.toml` is a disposable
-//! cache (maintainer, 2026-10-07) and its `[test_run]` table
-//! ([`super::index::TestRun`]) is a **projection** of this file onto test
-//! ids ([`map::to_test_run`]), so regenerating `kovan.toml` loses nothing:
-//! the indexer re-projects from the evidence file. The evidence is the one
-//! costly input (about 2.5 h for the whole workspace), which is why it sits
-//! in its own file rather than inside the cache.
+//! Because the evidence is the one costly input (about 2.5 h for the whole
+//! workspace), `kovan-cli index` **carries** each folder's `[test_run]`
+//! over when it regenerates a `kovan.toml`, recovers it from the last
+//! committed version when the file on disk is malformed, and otherwise
+//! leaves it absent (pending, never passed).
 //!
 //! # The file
 //!
@@ -89,11 +96,16 @@ use serde::{Deserialize, Serialize};
 
 use super::types::{check_commit, check_hash, FieldError};
 
-/// The counted evidence file, at the workspace root (next to `Cargo.lock`).
+/// ~~The counted evidence file, at the workspace root (next to
+/// `Cargo.lock`).~~ **CORRECTED 2026-10-07**: no longer written; counted
+/// evidence goes into each folder's `kovan.toml` (module doc). The name is
+/// kept for error messages about an evidence document.
 pub const EVIDENCE_FILE: &str = "kovan_test_evidence.toml";
 
-/// Where a run that does not count is written, workspace-relative (under
-/// the gitignored `target/`).
+/// Where every run's raw record is written, workspace-relative (under the
+/// gitignored `target/`). ~~Only runs that do not count.~~ **CORRECTED
+/// 2026-10-07**: every run; a counted one is also written into the
+/// `kovan.toml` files.
 pub const UNCOUNTED_FILE: &str = "target/kovan/test_evidence_last.toml";
 
 /// `kind = "test_evidence"`: a code-folder `kovan.toml` reader refuses it.
@@ -360,15 +372,13 @@ impl TestEvidence {
         }
     }
 
-    /// The workspace-relative path this run is written to: [`EVIDENCE_FILE`]
-    /// when it counts, else [`UNCOUNTED_FILE`], so a partial or broken run
-    /// never replaces counted evidence.
+    /// The workspace-relative path this run's raw record is written to:
+    /// [`UNCOUNTED_FILE`] for every run. ~~[`EVIDENCE_FILE`] when it
+    /// counts~~ **CORRECTED 2026-10-07**: a counted run is written into the
+    /// `kovan.toml` files (`crate::code_index::test_run::write_counted`), so a
+    /// partial or broken run still never replaces counted evidence.
     pub fn destination(&self) -> &'static str {
-        if self.counted().is_ok() {
-            EVIDENCE_FILE
-        } else {
-            UNCOUNTED_FILE
-        }
+        UNCOUNTED_FILE
     }
 
     /// Read an evidence file.

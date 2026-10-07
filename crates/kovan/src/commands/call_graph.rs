@@ -346,18 +346,7 @@ pub fn build_using(
                 Some(p) => p.clone(),
                 None => generate_scip(&root)?,
             };
-            let t = Instant::now();
-            let ix = crate::scip::ScipIndex::read(&path)?;
-            eprintln!(
-                "call-graph: read {} in {:.1} s: {} documents, {} occurrences, {} symbols, written by {} {}",
-                path.display(),
-                t.elapsed().as_secs_f64(),
-                ix.documents.len(),
-                ix.occurrence_count(),
-                ix.symbol_count(),
-                ix.tool_name,
-                ix.tool_version
-            );
+            let ix = read_scip(&path)?;
             let installed = rust_analyzer_version();
             if ix.tool_version.is_empty() || !installed.contains(&ix.tool_version) {
                 eprintln!(
@@ -365,13 +354,7 @@ pub fn build_using(
                     ix.tool_name, ix.tool_version
                 );
             }
-            let generator = Generator {
-                backend: Backend::Scip,
-                rust_analyzer: format!("{} {}", ix.tool_name, ix.tool_version)
-                    .trim()
-                    .to_string(),
-            };
-            (Workspace::open_scip(&root, ix)?, generator)
+            scip_workspace(&root, ix)?
         }
     };
     let result = build_with(&mut ws, &all, &selected, map.as_ref(), started);
@@ -379,6 +362,81 @@ pub fn build_using(
     let mut doc = result?;
     doc.generator = Some(generator);
     Ok(doc)
+}
+
+/// Reads a SCIP index and says what it holds.
+pub fn read_scip(path: &Path) -> Result<crate::scip::ScipIndex, String> {
+    let t = Instant::now();
+    let ix = crate::scip::ScipIndex::read(path)?;
+    eprintln!(
+        "call-graph: read {} in {:.1} s: {} documents, {} occurrences, {} symbols, written by {} {}",
+        path.display(),
+        t.elapsed().as_secs_f64(),
+        ix.documents.len(),
+        ix.occurrence_count(),
+        ix.symbol_count(),
+        ix.tool_name,
+        ix.tool_version
+    );
+    Ok(ix)
+}
+
+fn scip_workspace(root: &Path, ix: crate::scip::ScipIndex) -> Result<(Workspace, Generator), String> {
+    let generator = Generator {
+        backend: Backend::Scip,
+        rust_analyzer: format!("{} {}", ix.tool_name, ix.tool_version)
+            .trim()
+            .to_string(),
+    };
+    Ok((Workspace::open_scip(root, ix)?, generator))
+}
+
+/// Builds the call graph of `scope` (every member when `None`) from an
+/// already decoded SCIP index (`kovan-cli index`, #767, which also reads
+/// the index for the link files and so decodes it once).
+pub fn build_from_scip(
+    root: &Path,
+    scope: Option<&[String]>,
+    ix: crate::scip::ScipIndex,
+) -> Result<CallGraphDoc, String> {
+    let started = Instant::now();
+    let root =
+        std::fs::canonicalize(root).map_err(|e| format!("resolving {}: {e}", root.display()))?;
+    let json = crate::code_map::run_cargo_metadata(&root, false)?;
+    let all = members(&root, &json)?;
+    let map = CodeMap::from_cargo_metadata(&json).ok();
+    let selected: Vec<&Member> = match scope {
+        None => all.iter().collect(),
+        Some(names) => {
+            let mut v = Vec::new();
+            for n in names {
+                v.push(all.iter().find(|m| &m.name == n).ok_or_else(|| {
+                    format!("`{n}` is not a member of the workspace at {}", root.display())
+                })?);
+            }
+            v.sort_by(|a, b| a.name.cmp(&b.name));
+            v.dedup_by(|a, b| a.name == b.name);
+            v
+        }
+    };
+    let (mut ws, generator) = scip_workspace(&root, ix)?;
+    let result = build_with(&mut ws, &all, &selected, map.as_ref(), started);
+    ws.close();
+    let mut doc = result?;
+    doc.generator = Some(generator);
+    Ok(doc)
+}
+
+/// Every workspace member's (name, folder), folders workspace-relative,
+/// sorted by name (`cargo metadata --no-deps`).
+pub fn member_dirs(root: &Path) -> Result<Vec<(String, String)>, String> {
+    let root =
+        std::fs::canonicalize(root).map_err(|e| format!("resolving {}: {e}", root.display()))?;
+    let json = crate::code_map::run_cargo_metadata(&root, false)?;
+    Ok(members(&root, &json)?
+        .into_iter()
+        .map(|m| (m.name, m.dir))
+        .collect())
 }
 
 fn build_with(

@@ -20,10 +20,13 @@
 //!
 //! # Where it writes
 //!
-//! Counted runs replace `<workspace>/kovan_test_evidence.toml`; every other
-//! run (partial, dirty, incomplete) goes to
-//! `<workspace>/target/kovan/test_evidence_last.toml`, so it can never
-//! overwrite counted evidence. `--out` overrides both.
+//! ~~Counted runs replace `<workspace>/kovan_test_evidence.toml`~~
+//! **CORRECTED 2026-10-07** (maintainer, #766: test evidence lives in the
+//! committed `kovan.toml`): a counted run is written into every
+//! code-folder `kovan.toml`'s `[test_run]` ([`write_into_kovan_tomls`]);
+//! every run's raw record, counted or not, goes to
+//! `<workspace>/target/kovan/test_evidence_last.toml` (`--out` overrides
+//! it), so a partial, dirty or incomplete run never touches `kovan.toml`.
 
 use std::io::{BufRead, BufReader, Write};
 use std::path::{Path, PathBuf};
@@ -64,6 +67,49 @@ fn lock_hash(root: &Path) -> Result<String, String> {
     let bytes = std::fs::read(root.join("Cargo.lock"))
         .map_err(|e| format!("{}: {e}", root.join("Cargo.lock").display()))?;
     Ok(sha256_tagged(&bytes))
+}
+
+/// Write a counted run into every code-folder `kovan.toml` of the workspace
+/// (`[test_run]`, restricted to each folder's tests:
+/// [`kovan_common::code_index::test_run::write_counted`]). Returns how many
+/// `kovan.toml` files hold it. Every file is computed before any is written.
+pub fn write_into_kovan_tomls(root: &Path, evidence: &TestEvidence) -> Result<usize, String> {
+    use kovan_common::review::index::FolderIndex;
+    let mut found: Vec<(PathBuf, FolderIndex)> = Vec::new();
+    for p in kovan_discovery::discover(root, &["toml"]) {
+        if p.file_name().and_then(|f| f.to_str()) != Some(super::index::KOVAN_TOML) {
+            continue;
+        }
+        let Ok(text) = std::fs::read_to_string(&p) else { continue };
+        let Ok(fi) = FolderIndex::parse(&text) else { continue };
+        // Only an index written for the folder it is in (not a fixture copy).
+        let dir = p
+            .parent()
+            .and_then(|d| d.strip_prefix(root).ok())
+            .map(|d| d.to_string_lossy().replace('\\', "/"))
+            .unwrap_or_default();
+        if fi.dir == dir {
+            found.push((p, fi));
+        }
+    }
+    let mut folders: Vec<FolderIndex> = found.iter().map(|(_, f)| f.clone()).collect();
+    let unmapped = kovan_common::code_index::test_run::write_counted(evidence, &mut folders)
+        .map_err(|why| why.iter().map(|w| w.to_string()).collect::<Vec<_>>().join("; "))?;
+    if !unmapped.is_empty() {
+        println!(
+            "kovan-cli test: {} test name(s) did not map to one test id (not in any kovan.toml, or ambiguous); run `kovan-cli index` if tests were added",
+            unmapped.len()
+        );
+    }
+    let mut texts = Vec::new();
+    for ((p, _), fi) in found.iter().zip(&folders) {
+        texts.push((p.clone(), fi.to_toml().map_err(|e| e.to_string())?));
+    }
+    for (p, t) in &texts {
+        std::fs::write(p, t).map_err(|e| format!("{}: {e}", p.display()))?;
+    }
+    println!("kovan-cli test: recorded in {} kovan.toml file(s)", texts.len());
+    Ok(texts.len())
 }
 
 /// Run `kovan-cli test` in workspace `root` with the user's `extra` cargo
@@ -163,7 +209,17 @@ pub fn run(
         &evidence.cargo_lock[..evidence.cargo_lock.len().min(19)],
     );
     match evidence.counted() {
-        Ok(()) => println!("kovan-cli test: COUNTED as full-suite evidence"),
+        Ok(()) => {
+            println!("kovan-cli test: COUNTED as full-suite evidence");
+            let n = write_into_kovan_tomls(root, &evidence)?;
+            if n == 0 {
+                println!(
+                    "kovan-cli test: no code-folder kovan.toml found to record it in: run \
+                     `kovan-cli index` first; the raw record is in {}",
+                    path.display()
+                );
+            }
+        }
         Err(why) => {
             for w in why {
                 println!("kovan-cli test: NOT counted: {w}");

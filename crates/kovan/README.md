@@ -592,6 +592,24 @@ recorded); schema-2 documents still load and merge. `kovan-cli
 call-graph-diff A B` compares two documents edge by edge. Agreement with the
 LSP backend and the timings: `docs/call-graph-scip-vs-lsp.md`.
 
+### `index` — per-folder `kovan.toml` and per-crate link index (`commands::index`, GitHub #767)
+
+One `rust-analyzer scip` run (or `--scip <file>`) becomes every folder's
+`kovan.toml` (stable `fn:` ids recovered from `review.md`, hashes, callees,
+every reaching test, `physical_interface`, the carried-over `[test_run]`)
+and each crate's `kovan_links.json` (go-to-definition and references
+without rust-analyzer). Missing, malformed, conflicted, stale or
+hand-edited `kovan.toml` files are regenerated and orphans removed, each
+listed with its reason; `review.md` is never written. The output is
+byte-identical for the same inputs (`--check` fails when anything would
+change). rust-analyzer is needed only to regenerate: without it the
+command stops with a typed error and `--refresh` updates hashes of edited
+files with the `syn` hasher, marking what it cannot recompute "index out of
+date". `--draft-upstream` prints proposed `[upstream]` entries from
+provenance headers for a human to confirm. Formats, the id rule and the
+2026-10-07 measurements (njoy-outram-park-fork link file 0.58 MB gzipped;
+5 s from an existing index): [`docs/code-index.md`](docs/code-index.md).
+
 ### Determinism & offline guarantees
 
 Every `kovan-cli` subcommand **except `setup`** is deterministic and fully
