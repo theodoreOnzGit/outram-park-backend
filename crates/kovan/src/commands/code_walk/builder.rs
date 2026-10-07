@@ -71,6 +71,9 @@ pub(crate) struct ScipResolver {
     /// 0-based body lines of the function being expanded: a same-file
     /// collision prefers the definition nested inside it.
     body: Option<(u32, u32)>,
+    /// 0-based body lines of the other functions in its file: items nested
+    /// there are out of the reference's scope.
+    hidden: Vec<(u32, u32)>,
 }
 
 /// A reference in a body that no call-shaped token covers: an operator or a
@@ -137,6 +140,7 @@ impl ScipResolver {
             index,
             lines: HashMap::new(),
             body: None,
+            hidden: Vec::new(),
         }
     }
 
@@ -168,7 +172,7 @@ impl ScipResolver {
                 let text = cached_line(&mut self.lines, &self.root, rel, d.line);
                 Some((self.root.join(rel), d.line, doc.encoding.char_col_of_units(&text, d.start)))
             }
-            Sym::Global(_) => match ix.nearest_definition(sym, rel, line, self.body, lead) {
+            Sym::Global(_) => match ix.nearest_definition(sym, rel, line, self.body, &self.hidden, lead) {
                 Some(d) => {
                     let doc = &ix.documents[d.doc as usize];
                     let text = cached_line(&mut self.lines, &self.root, &doc.path, d.line);
@@ -542,6 +546,13 @@ impl Workspace {
         self.queries += positions.len();
         if let Resolver::Scip(s) = &mut self.resolver {
             s.body = decl.body;
+            let (a, b) = decl.body.unwrap_or((decl.line, decl.line));
+            s.hidden = self.files[&file]
+                .fns
+                .iter()
+                .filter_map(|f| f.body)
+                .filter(|&(x, y)| !(x <= a && b <= y))
+                .collect();
         }
         let answers = if positions.is_empty() {
             Vec::new()
