@@ -3157,20 +3157,20 @@ Everything `crates/njoy-outram-park-fork/src/purr/tables.rs::UrrProbabilityTable
 
 <div class="cw-node" style="margin-left:0.9em">
 
-[`tables.rs::urr_energy_grid`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/njoy-outram-park-fork/src/purr/tables.rs#L776) `fn urr_energy_grid(range: &UnresolvedRange) -> Vec<f64>` — The unresolved-range energy grid, built the way NJOY builds it — a port of the node logic of `rdunf2` (`unresr.f90:426-748`). · called at [L315](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/njoy-outram-park-fork/src/purr/tables.rs#L315)
+[`tables.rs::urr_energy_grid`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/njoy-outram-park-fork/src/purr/tables.rs#L894) `fn urr_energy_grid(range: &UnresolvedRange) -> Vec<f64>` — The unresolved-range energy grid, built the way NJOY builds it — a port of the node logic of `rdunf2` (`unresr.f90:426-748`). · called at [L315](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/njoy-outram-park-fork/src/purr/tables.rs#L315)
 
 <details><summary>code</summary>
 
-<!-- snippet-check: crates/njoy-outram-park-fork/src/purr/tables.rs:776 fn urr_energy_grid -->
-<!-- snippet-check: crates/njoy-outram-park-fork/src/purr/tables.rs:794 ilist -->
-<!-- snippet-check: crates/njoy-outram-park-fork/src/purr/tables.rs:808 sigfig -->
+<!-- snippet-check: crates/njoy-outram-park-fork/src/purr/tables.rs:894 fn urr_energy_grid -->
+<!-- snippet-check: crates/njoy-outram-park-fork/src/purr/tables.rs:912 ilist -->
+<!-- snippet-check: crates/njoy-outram-park-fork/src/purr/tables.rs:926 sigfig -->
 
 ```rust,ignore
-{{#include ../../../../../crates/njoy-outram-park-fork/src/purr/tables.rs:776:776}}
+{{#include ../../../../../crates/njoy-outram-park-fork/src/purr/tables.rs:894:894}}
     // …
-{{#include ../../../../../crates/njoy-outram-park-fork/src/purr/tables.rs:792:795}}
+{{#include ../../../../../crates/njoy-outram-park-fork/src/purr/tables.rs:910:913}}
     // …
-{{#include ../../../../../crates/njoy-outram-park-fork/src/purr/tables.rs:806:809}}
+{{#include ../../../../../crates/njoy-outram-park-fork/src/purr/tables.rs:924:927}}
     // … (the rest of the function: follow the link above)
 ```
 
@@ -3179,14 +3179,14 @@ Everything `crates/njoy-outram-park-fork/src/purr/tables.rs::UrrProbabilityTable
 
 <div class="cw-node" style="margin-left:1.8em">
 
-[`tables.rs::ilist`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/njoy-outram-park-fork/src/purr/tables.rs#L794) `fn ilist(e: f64, list: &mut Vec<f64>)` · called at [L794](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/njoy-outram-park-fork/src/purr/tables.rs#L794) · *(calls below the depth limit not shown)*
+[`tables.rs::ilist`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/njoy-outram-park-fork/src/purr/tables.rs#L912) `fn ilist(e: f64, list: &mut Vec<f64>)` · called at [L912](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/njoy-outram-park-fork/src/purr/tables.rs#L912) · *(calls below the depth limit not shown)*
 
 <details><summary>code</summary>
 
-<!-- snippet-check: crates/njoy-outram-park-fork/src/purr/tables.rs:794 fn ilist -->
+<!-- snippet-check: crates/njoy-outram-park-fork/src/purr/tables.rs:912 fn ilist -->
 
 ```rust,ignore
-{{#include ../../../../../crates/njoy-outram-park-fork/src/purr/tables.rs:794:800}}
+{{#include ../../../../../crates/njoy-outram-park-fork/src/purr/tables.rs:912:918}}
 ```
 
 </details>
@@ -3194,7 +3194,7 @@ Everything `crates/njoy-outram-park-fork/src/purr/tables.rs::UrrProbabilityTable
 
 <div class="cw-node" style="margin-left:1.8em">
 
-[`mix.rs::sigfig`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/njoy-outram-park-fork/src/mixr/mix.rs#L66) `pub fn sigfig(x: f64, ndig: i32, idig: i32) -> f64` — Adjust `x` to have `ndig` significant figures, optionally shading it up or down by `idig` in the last digit. · called at [L808](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/njoy-outram-park-fork/src/purr/tables.rs#L808) · *(calls below the depth limit not shown)*
+[`mix.rs::sigfig`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/njoy-outram-park-fork/src/mixr/mix.rs#L66) `pub fn sigfig(x: f64, ndig: i32, idig: i32) -> f64` — Adjust `x` to have `ndig` significant figures, optionally shading it up or down by `idig` in the last digit. · called at [L926](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/njoy-outram-park-fork/src/purr/tables.rs#L926) · *(calls below the depth limit not shown)*
 
 <details><summary>code</summary>
 
@@ -3436,25 +3436,25 @@ UNRESOLVED(closure): `x_at` at [L221](https://github.com/theodoreOnzGit/outram-p
 
 <div class="cw-node" style="margin-left:0.9em">
 
-[`tables.rs::competition_flags`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/njoy-outram-park-fork/src/purr/tables.rs#L629) `fn competition_flags(tape: &Tape, mat: i32, eunr: &[f64], sb: &[[f64; 4]]) -> (i32, i32)` — PURR's **competition flags** for an unresolved range — a port of the `icx`/`iinel`/`iabso` block of `purr.f90` (`:1110-1192`, `rdf3un`). · called at [L341](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/njoy-outram-park-fork/src/purr/tables.rs#L341)
+[`tables.rs::competition_flags`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/njoy-outram-park-fork/src/purr/tables.rs#L747) `fn competition_flags(tape: &Tape, mat: i32, eunr: &[f64], sb: &[[f64; 4]]) -> (i32, i32)` — PURR's **competition flags** for an unresolved range — a port of the `icx`/`iinel`/`iabso` block of `purr.f90` (`:1110-1192`, `rdf3un`). · called at [L341](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/njoy-outram-park-fork/src/purr/tables.rs#L341)
 
 <details><summary>code</summary>
 
-<!-- snippet-check: crates/njoy-outram-park-fork/src/purr/tables.rs:629 fn competition_flags -->
-<!-- snippet-check: crates/njoy-outram-park-fork/src/purr/tables.rs:661 sections -->
-<!-- snippet-check: crates/njoy-outram-park-fork/src/purr/tables.rs:665 kept -->
-<!-- snippet-check: crates/njoy-outram-park-fork/src/purr/tables.rs:674 section -->
-<!-- snippet-check: crates/njoy-outram-park-fork/src/purr/tables.rs:677 new -->
-<!-- snippet-check: crates/njoy-outram-park-fork/src/purr/tables.rs:678 read_cont -->
-<!-- snippet-check: crates/njoy-outram-park-fork/src/purr/tables.rs:681 read_tab1 -->
-<!-- snippet-check: crates/njoy-outram-park-fork/src/purr/tables.rs:684 new -->
+<!-- snippet-check: crates/njoy-outram-park-fork/src/purr/tables.rs:747 fn competition_flags -->
+<!-- snippet-check: crates/njoy-outram-park-fork/src/purr/tables.rs:779 sections -->
+<!-- snippet-check: crates/njoy-outram-park-fork/src/purr/tables.rs:783 kept -->
+<!-- snippet-check: crates/njoy-outram-park-fork/src/purr/tables.rs:792 section -->
+<!-- snippet-check: crates/njoy-outram-park-fork/src/purr/tables.rs:795 new -->
+<!-- snippet-check: crates/njoy-outram-park-fork/src/purr/tables.rs:796 read_cont -->
+<!-- snippet-check: crates/njoy-outram-park-fork/src/purr/tables.rs:799 read_tab1 -->
+<!-- snippet-check: crates/njoy-outram-park-fork/src/purr/tables.rs:802 new -->
 
 ```rust,ignore
-{{#include ../../../../../crates/njoy-outram-park-fork/src/purr/tables.rs:629:634}}
+{{#include ../../../../../crates/njoy-outram-park-fork/src/purr/tables.rs:747:752}}
     // …
-{{#include ../../../../../crates/njoy-outram-park-fork/src/purr/tables.rs:659:666}}
+{{#include ../../../../../crates/njoy-outram-park-fork/src/purr/tables.rs:777:784}}
     // …
-{{#include ../../../../../crates/njoy-outram-park-fork/src/purr/tables.rs:672:685}}
+{{#include ../../../../../crates/njoy-outram-park-fork/src/purr/tables.rs:790:803}}
     // … (the rest of the function: follow the link above)
 ```
 
@@ -3463,7 +3463,7 @@ UNRESOLVED(closure): `x_at` at [L221](https://github.com/theodoreOnzGit/outram-p
 
 <div class="cw-node" style="margin-left:1.8em">
 
-[`tape.rs::Tape::sections`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/njoy-outram-park-fork/src/endf/tape.rs#L234) `pub fn sections(&self) -> &[Section]` — All sections in file order. · called at [L661](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/njoy-outram-park-fork/src/purr/tables.rs#L661) · *(calls below the depth limit not shown)*
+[`tape.rs::Tape::sections`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/njoy-outram-park-fork/src/endf/tape.rs#L234) `pub fn sections(&self) -> &[Section]` — All sections in file order. · called at [L779](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/njoy-outram-park-fork/src/purr/tables.rs#L779) · *(calls below the depth limit not shown)*
 
 <details><summary>code</summary>
 
@@ -3478,37 +3478,37 @@ UNRESOLVED(closure): `x_at` at [L221](https://github.com/theodoreOnzGit/outram-p
 
 <div class="cw-node" style="margin-left:1.8em">
 
-UNRESOLVED(closure): `kept` at [L665](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/njoy-outram-park-fork/src/purr/tables.rs#L665) (→ [`crates/njoy-outram-park-fork/src/purr/tables.rs:648`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/njoy-outram-park-fork/src/purr/tables.rs#L648)) — call through a closure or fn-typed binding `kept`
+UNRESOLVED(closure): `kept` at [L783](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/njoy-outram-park-fork/src/purr/tables.rs#L783) (→ [`crates/njoy-outram-park-fork/src/purr/tables.rs:766`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/njoy-outram-park-fork/src/purr/tables.rs#L766)) — call through a closure or fn-typed binding `kept`
 
 </div>
 
 <div class="cw-node" style="margin-left:1.8em">
 
-`tape.rs::Tape::section` *(expanded elsewhere in this walk)* · called at [L674](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/njoy-outram-park-fork/src/purr/tables.rs#L674)
+`tape.rs::Tape::section` *(expanded elsewhere in this walk)* · called at [L792](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/njoy-outram-park-fork/src/purr/tables.rs#L792)
 
 </div>
 
 <div class="cw-node" style="margin-left:1.8em">
 
-`records.rs::SectionCursor::new` *(expanded elsewhere in this walk)* · called at [L677](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/njoy-outram-park-fork/src/purr/tables.rs#L677)
+`records.rs::SectionCursor::new` *(expanded elsewhere in this walk)* · called at [L795](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/njoy-outram-park-fork/src/purr/tables.rs#L795)
 
 </div>
 
 <div class="cw-node" style="margin-left:1.8em">
 
-`records.rs::SectionCursor::read_cont` *(expanded elsewhere in this walk)* · called at [L678](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/njoy-outram-park-fork/src/purr/tables.rs#L678)
+`records.rs::SectionCursor::read_cont` *(expanded elsewhere in this walk)* · called at [L796](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/njoy-outram-park-fork/src/purr/tables.rs#L796)
 
 </div>
 
 <div class="cw-node" style="margin-left:1.8em">
 
-`records.rs::SectionCursor::read_tab1` *(expanded elsewhere in this walk)* · called at [L681](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/njoy-outram-park-fork/src/purr/tables.rs#L681)
+`records.rs::SectionCursor::read_tab1` *(expanded elsewhere in this walk)* · called at [L799](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/njoy-outram-park-fork/src/purr/tables.rs#L799)
 
 </div>
 
 <div class="cw-node" style="margin-left:1.8em">
 
-[`gety1.rs::Gety1::new`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/njoy-outram-park-fork/src/endf/gety1.rs#L80) `pub fn new(t: &Tab1) -> Self` — Upstream's `x = 0` call: read the table and position at the first point the zero-extension scan retains (`endf.f90:1491-1530`). · called at [L684](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/njoy-outram-park-fork/src/purr/tables.rs#L684) · *(calls below the depth limit not shown)*
+[`gety1.rs::Gety1::new`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/njoy-outram-park-fork/src/endf/gety1.rs#L80) `pub fn new(t: &Tab1) -> Self` — Upstream's `x = 0` call: read the table and position at the first point the zero-extension scan retains (`endf.f90:1491-1530`). · called at [L802](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/njoy-outram-park-fork/src/purr/tables.rs#L802) · *(calls below the depth limit not shown)*
 
 <details><summary>code</summary>
 
@@ -3524,7 +3524,7 @@ UNRESOLVED(closure): `kept` at [L665](https://github.com/theodoreOnzGit/outram-p
 
 <div class="cw-node" style="margin-left:1.8em">
 
-[`gety1.rs::Gety1::get`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/njoy-outram-park-fork/src/endf/gety1.rs#L137) `pub fn get(&mut self, x: f64) -> Gety1Value` — Retrieve `y(x)`. · called at [L684](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/njoy-outram-park-fork/src/purr/tables.rs#L684) · *(calls below the depth limit not shown)*
+[`gety1.rs::Gety1::get`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/njoy-outram-park-fork/src/endf/gety1.rs#L137) `pub fn get(&mut self, x: f64) -> Gety1Value` — Retrieve `y(x)`. · called at [L802](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/njoy-outram-park-fork/src/purr/tables.rs#L802) · *(calls below the depth limit not shown)*
 
 <details><summary>code</summary>
 
@@ -3628,14 +3628,14 @@ UNRESOLVED(closure): `kept` at [L665](https://github.com/theodoreOnzGit/outram-p
 
 <div class="cw-node" style="margin-left:0.9em">
 
-[`tables.rs::lssf_reduced_background`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/njoy-outram-park-fork/src/purr/tables.rs#L708) `fn lssf_reduced_background(bkg: [f64; 4], e: f64, competes: bool, ecomp: Option<f64>) -> [f64; 4]` — PURR's `LSSF>0` background rule (`purr.f90:1195-1230`): the partial backgrounds are zeroed and the total keeps only the competition remainder `total - elastic - fission - capture`. · called at [L354](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/njoy-outram-park-fork/src/purr/tables.rs#L354)
+[`tables.rs::lssf_reduced_background`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/njoy-outram-park-fork/src/purr/tables.rs#L826) `fn lssf_reduced_background(bkg: [f64; 4], e: f64, competes: bool, ecomp: Option<f64>) -> [f64; 4]` — PURR's `LSSF>0` background rule (`purr.f90:1195-1230`): the partial backgrounds are zeroed and the total keeps only the competition remainder `total - elastic - fission - capture`. · called at [L354](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/njoy-outram-park-fork/src/purr/tables.rs#L354)
 
 <details><summary>code</summary>
 
-<!-- snippet-check: crates/njoy-outram-park-fork/src/purr/tables.rs:708 fn lssf_reduced_background -->
+<!-- snippet-check: crates/njoy-outram-park-fork/src/purr/tables.rs:826 fn lssf_reduced_background -->
 
 ```rust,ignore
-{{#include ../../../../../crates/njoy-outram-park-fork/src/purr/tables.rs:708:723}}
+{{#include ../../../../../crates/njoy-outram-park-fork/src/purr/tables.rs:826:841}}
 ```
 
 </details>
@@ -7780,14 +7780,14 @@ UNRESOLVED(closure): `rt` at [L186](https://github.com/theodoreOnzGit/outram-par
 
 <div class="cw-node" style="margin-left:1.8em">
 
-[`tables.rs::urr_energy_grid`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/njoy-outram-park-fork/src/purr/tables.rs#L776) `fn urr_energy_grid(range: &UnresolvedRange) -> Vec<f64>` — The unresolved-range energy grid, built the way NJOY builds it — a port of the node logic of `rdunf2` (`unresr.f90:426-748`). · called at [L315](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/njoy-outram-park-fork/src/purr/tables.rs#L315) · *(calls below the depth limit not shown)*
+[`tables.rs::urr_energy_grid`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/njoy-outram-park-fork/src/purr/tables.rs#L894) `fn urr_energy_grid(range: &UnresolvedRange) -> Vec<f64>` — The unresolved-range energy grid, built the way NJOY builds it — a port of the node logic of `rdunf2` (`unresr.f90:426-748`). · called at [L315](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/njoy-outram-park-fork/src/purr/tables.rs#L315) · *(calls below the depth limit not shown)*
 
 <details><summary>code</summary>
 
-<!-- snippet-check: crates/njoy-outram-park-fork/src/purr/tables.rs:776 fn urr_energy_grid -->
+<!-- snippet-check: crates/njoy-outram-park-fork/src/purr/tables.rs:894 fn urr_energy_grid -->
 
 ```rust,ignore
-{{#include ../../../../../crates/njoy-outram-park-fork/src/purr/tables.rs:776:815}}
+{{#include ../../../../../crates/njoy-outram-park-fork/src/purr/tables.rs:894:933}}
     // … (the rest of the function: follow the link above)
 ```
 
@@ -7908,14 +7908,14 @@ UNRESOLVED(other): `clone` at [L333](https://github.com/theodoreOnzGit/outram-pa
 
 <div class="cw-node" style="margin-left:1.8em">
 
-[`tables.rs::competition_flags`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/njoy-outram-park-fork/src/purr/tables.rs#L629) `fn competition_flags(tape: &Tape, mat: i32, eunr: &[f64], sb: &[[f64; 4]]) -> (i32, i32)` — PURR's **competition flags** for an unresolved range — a port of the `icx`/`iinel`/`iabso` block of `purr.f90` (`:1110-1192`, `rdf3un`). · called at [L341](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/njoy-outram-park-fork/src/purr/tables.rs#L341) · *(calls below the depth limit not shown)*
+[`tables.rs::competition_flags`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/njoy-outram-park-fork/src/purr/tables.rs#L747) `fn competition_flags(tape: &Tape, mat: i32, eunr: &[f64], sb: &[[f64; 4]]) -> (i32, i32)` — PURR's **competition flags** for an unresolved range — a port of the `icx`/`iinel`/`iabso` block of `purr.f90` (`:1110-1192`, `rdf3un`). · called at [L341](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/njoy-outram-park-fork/src/purr/tables.rs#L341) · *(calls below the depth limit not shown)*
 
 <details><summary>code</summary>
 
-<!-- snippet-check: crates/njoy-outram-park-fork/src/purr/tables.rs:629 fn competition_flags -->
+<!-- snippet-check: crates/njoy-outram-park-fork/src/purr/tables.rs:747 fn competition_flags -->
 
 ```rust,ignore
-{{#include ../../../../../crates/njoy-outram-park-fork/src/purr/tables.rs:629:668}}
+{{#include ../../../../../crates/njoy-outram-park-fork/src/purr/tables.rs:747:786}}
     // … (the rest of the function: follow the link above)
 ```
 
@@ -7940,14 +7940,14 @@ UNRESOLVED(other): `clone` at [L333](https://github.com/theodoreOnzGit/outram-pa
 
 <div class="cw-node" style="margin-left:1.8em">
 
-[`tables.rs::lssf_reduced_background`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/njoy-outram-park-fork/src/purr/tables.rs#L708) `fn lssf_reduced_background(bkg: [f64; 4], e: f64, competes: bool, ecomp: Option<f64>) -> [f64; 4]` — PURR's `LSSF>0` background rule (`purr.f90:1195-1230`): the partial backgrounds are zeroed and the total keeps only the competition remainder `total - elastic - fission - capture`. · called at [L354](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/njoy-outram-park-fork/src/purr/tables.rs#L354) · *(calls below the depth limit not shown)*
+[`tables.rs::lssf_reduced_background`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/njoy-outram-park-fork/src/purr/tables.rs#L826) `fn lssf_reduced_background(bkg: [f64; 4], e: f64, competes: bool, ecomp: Option<f64>) -> [f64; 4]` — PURR's `LSSF>0` background rule (`purr.f90:1195-1230`): the partial backgrounds are zeroed and the total keeps only the competition remainder `total - elastic - fission - capture`. · called at [L354](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/njoy-outram-park-fork/src/purr/tables.rs#L354) · *(calls below the depth limit not shown)*
 
 <details><summary>code</summary>
 
-<!-- snippet-check: crates/njoy-outram-park-fork/src/purr/tables.rs:708 fn lssf_reduced_background -->
+<!-- snippet-check: crates/njoy-outram-park-fork/src/purr/tables.rs:826 fn lssf_reduced_background -->
 
 ```rust,ignore
-{{#include ../../../../../crates/njoy-outram-park-fork/src/purr/tables.rs:708:723}}
+{{#include ../../../../../crates/njoy-outram-park-fork/src/purr/tables.rs:826:841}}
 ```
 
 </details>

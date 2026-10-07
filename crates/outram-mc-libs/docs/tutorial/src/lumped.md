@@ -201,19 +201,19 @@ against OpenMC in `verification_and_validation/white_boundary/`):
 
 Call chain from `transport_csg.rs::transport_history_vr` to `mod.rs::SurfaceKind::diffuse_reflect`: 3 hops, 1 shortest chain. Each step shows its code; the name links to it on GitHub.
 
-**1.** [`transport_csg.rs::transport_history_vr`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/physics/transport_csg.rs#L1308) — One history of the CSG k-eigenvalue kernel, with an explicit variance-reduction configuration.
+**1.** [`transport_csg.rs::transport_history_vr`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/physics/transport_csg.rs#L1314) — One history of the CSG k-eigenvalue kernel, with an explicit variance-reduction configuration.
 
-<!-- snippet-check: crates/outram-mc-libs/src/physics/transport_csg.rs:1308 fn transport_history_vr -->
-<!-- snippet-check: crates/outram-mc-libs/src/physics/transport_csg.rs:2360 cross_surface_in_frame -->
+<!-- snippet-check: crates/outram-mc-libs/src/physics/transport_csg.rs:1314 fn transport_history_vr -->
+<!-- snippet-check: crates/outram-mc-libs/src/physics/transport_csg.rs:2366 cross_surface_in_frame -->
 
 ```rust,ignore
-{{#include ../../../../../crates/outram-mc-libs/src/physics/transport_csg.rs:1308:1315}}
+{{#include ../../../../../crates/outram-mc-libs/src/physics/transport_csg.rs:1314:1321}}
     // …
-{{#include ../../../../../crates/outram-mc-libs/src/physics/transport_csg.rs:2358:2361}}
+{{#include ../../../../../crates/outram-mc-libs/src/physics/transport_csg.rs:2364:2367}}
     // … (the rest of the function: follow the link above)
 ```
 
-**2.** → [`mod.rs::Geometry::cross_surface_in_frame`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/geometry/crossing/mod.rs#L563) · called at [L2360](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/physics/transport_csg.rs#L2360)
+**2.** → [`mod.rs::Geometry::cross_surface_in_frame`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/geometry/crossing/mod.rs#L563) · called at [L2366](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/physics/transport_csg.rs#L2366)
 
 <!-- snippet-check: crates/outram-mc-libs/src/geometry/crossing/mod.rs:563 fn cross_surface_in_frame -->
 <!-- snippet-check: crates/outram-mc-libs/src/geometry/crossing/mod.rs:574 cross_surface -->
@@ -245,37 +245,37 @@ Call chain from `transport_csg.rs::transport_history_vr` to `mod.rs::SurfaceKind
 
 Unresolved calls inside the functions on this chain:
 
-- in [`transport_csg.rs::transport_history_vr`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/physics/transport_csg.rs#L1308):
-  - UNRESOLVED(closure): `observe` at [L1536](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/physics/transport_csg.rs#L1536) (→ [`crates/outram-mc-libs/src/physics/transport_csg.rs:1356`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/physics/transport_csg.rs#L1356)) — call through a closure or fn-typed binding `observe`
-  - UNRESOLVED(no-definition): `Some` at [L1574](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/physics/transport_csg.rs#L1574) — rust-analyzer returned no definition
-  - UNRESOLVED(no-definition): `as_deref_mut` at [L1574](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/physics/transport_csg.rs#L1574) — rust-analyzer returned no definition
-  - UNRESOLVED(no-definition): `record` at [L1575](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/physics/transport_csg.rs#L1575) — rust-analyzer returned no definition
-  - UNRESOLVED(no-definition): `observe` at [L1577](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/physics/transport_csg.rs#L1577) — rust-analyzer returned no definition
-  - UNRESOLVED(no-definition): `State` at [L1577](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/physics/transport_csg.rs#L1577) — rust-analyzer returned no definition
-  - UNRESOLVED(no-definition): `Some` at [L1591](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/physics/transport_csg.rs#L1591) — rust-analyzer returned no definition
-  - UNRESOLVED(no-definition): `as_ref` at [L1591](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/physics/transport_csg.rs#L1591) — rust-analyzer returned no definition
-  - UNRESOLVED(no-definition): `Some` at [L1592](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/physics/transport_csg.rs#L1592) — rust-analyzer returned no definition
-  - UNRESOLVED(no-definition): `look_up` at [L1592](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/physics/transport_csg.rs#L1592) — rust-analyzer returned no definition
-  - UNRESOLVED(no-definition): `apply_window` at [L1593](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/physics/transport_csg.rs#L1593) — rust-analyzer returned no definition
-  - UNRESOLVED(no-definition): `future_seed` at [L1612](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/physics/transport_csg.rs#L1612) — rust-analyzer returned no definition
-  - UNRESOLVED(no-definition): `push` at [L1613](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/physics/transport_csg.rs#L1613) — rust-analyzer returned no definition
-  - UNRESOLVED(no-definition): `Some` at [L1621](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/physics/transport_csg.rs#L1621) — rust-analyzer returned no definition
-  - UNRESOLVED(macro): `track!` at [L1653](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/physics/transport_csg.rs#L1653) (→ [`crates/outram-mc-libs/src/physics/transport_csg.rs:1562`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/physics/transport_csg.rs#L1562)) — workspace macro; its expansion is not followed
-  - UNRESOLVED(macro): `track!` at [L1662](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/physics/transport_csg.rs#L1662) (→ [`crates/outram-mc-libs/src/physics/transport_csg.rs:1562`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/physics/transport_csg.rs#L1562)) — workspace macro; its expansion is not followed
-  - UNRESOLVED(closure): `observe` at [L1687](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/physics/transport_csg.rs#L1687) (→ [`crates/outram-mc-libs/src/physics/transport_csg.rs:1356`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/physics/transport_csg.rs#L1356)) — call through a closure or fn-typed binding `observe`
-  - UNRESOLVED(closure): `observe` at [L1733](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/physics/transport_csg.rs#L1733) (→ [`crates/outram-mc-libs/src/physics/transport_csg.rs:1356`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/physics/transport_csg.rs#L1356)) — call through a closure or fn-typed binding `observe`
-  - UNRESOLVED(closure): `observe` at [L1893](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/physics/transport_csg.rs#L1893) (→ [`crates/outram-mc-libs/src/physics/transport_csg.rs:1356`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/physics/transport_csg.rs#L1356)) — call through a closure or fn-typed binding `observe`
-  - UNRESOLVED(macro): `track!` at [L1968](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/physics/transport_csg.rs#L1968) (→ [`crates/outram-mc-libs/src/physics/transport_csg.rs:1562`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/physics/transport_csg.rs#L1562)) — workspace macro; its expansion is not followed
-  - UNRESOLVED(macro): `track!` at [L2026](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/physics/transport_csg.rs#L2026) (→ [`crates/outram-mc-libs/src/physics/transport_csg.rs:1562`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/physics/transport_csg.rs#L1562)) — workspace macro; its expansion is not followed
-  - UNRESOLVED(macro): `track!` at [L2029](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/physics/transport_csg.rs#L2029) (→ [`crates/outram-mc-libs/src/physics/transport_csg.rs:1562`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/physics/transport_csg.rs#L1562)) — workspace macro; its expansion is not followed
-  - UNRESOLVED(macro): `track!` at [L2314](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/physics/transport_csg.rs#L2314) (→ [`crates/outram-mc-libs/src/physics/transport_csg.rs:1562`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/physics/transport_csg.rs#L1562)) — workspace macro; its expansion is not followed
-  - UNRESOLVED(macro): `weight_window_checkpoint!` at [L2319](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/physics/transport_csg.rs#L2319) (→ [`crates/outram-mc-libs/src/physics/transport_csg.rs:1589`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/physics/transport_csg.rs#L1589)) — workspace macro; its expansion is not followed
-  - UNRESOLVED(macro): `track!` at [L2320](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/physics/transport_csg.rs#L2320) (→ [`crates/outram-mc-libs/src/physics/transport_csg.rs:1562`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/physics/transport_csg.rs#L1562)) — workspace macro; its expansion is not followed
-  - UNRESOLVED(macro): `track!` at [L2366](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/physics/transport_csg.rs#L2366) (→ [`crates/outram-mc-libs/src/physics/transport_csg.rs:1562`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/physics/transport_csg.rs#L1562)) — workspace macro; its expansion is not followed
-  - UNRESOLVED(macro): `track!` at [L2375](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/physics/transport_csg.rs#L2375) (→ [`crates/outram-mc-libs/src/physics/transport_csg.rs:1562`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/physics/transport_csg.rs#L1562)) — workspace macro; its expansion is not followed
-  - UNRESOLVED(macro): `weight_window_checkpoint!` at [L2391](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/physics/transport_csg.rs#L2391) (→ [`crates/outram-mc-libs/src/physics/transport_csg.rs:1589`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/physics/transport_csg.rs#L1589)) — workspace macro; its expansion is not followed
-  - UNRESOLVED(macro): `track!` at [L2392](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/physics/transport_csg.rs#L2392) (→ [`crates/outram-mc-libs/src/physics/transport_csg.rs:1562`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/physics/transport_csg.rs#L1562)) — workspace macro; its expansion is not followed
-  - UNRESOLVED(macro): `track!` at [L2404](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/physics/transport_csg.rs#L2404) (→ [`crates/outram-mc-libs/src/physics/transport_csg.rs:1562`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/physics/transport_csg.rs#L1562)) — workspace macro; its expansion is not followed
+- in [`transport_csg.rs::transport_history_vr`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/physics/transport_csg.rs#L1314):
+  - UNRESOLVED(closure): `observe` at [L1542](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/physics/transport_csg.rs#L1542) (→ [`crates/outram-mc-libs/src/physics/transport_csg.rs:1362`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/physics/transport_csg.rs#L1362)) — call through a closure or fn-typed binding `observe`
+  - UNRESOLVED(no-definition): `Some` at [L1580](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/physics/transport_csg.rs#L1580) — rust-analyzer returned no definition
+  - UNRESOLVED(no-definition): `as_deref_mut` at [L1580](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/physics/transport_csg.rs#L1580) — rust-analyzer returned no definition
+  - UNRESOLVED(no-definition): `record` at [L1581](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/physics/transport_csg.rs#L1581) — rust-analyzer returned no definition
+  - UNRESOLVED(no-definition): `observe` at [L1583](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/physics/transport_csg.rs#L1583) — rust-analyzer returned no definition
+  - UNRESOLVED(no-definition): `State` at [L1583](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/physics/transport_csg.rs#L1583) — rust-analyzer returned no definition
+  - UNRESOLVED(no-definition): `Some` at [L1597](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/physics/transport_csg.rs#L1597) — rust-analyzer returned no definition
+  - UNRESOLVED(no-definition): `as_ref` at [L1597](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/physics/transport_csg.rs#L1597) — rust-analyzer returned no definition
+  - UNRESOLVED(no-definition): `Some` at [L1598](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/physics/transport_csg.rs#L1598) — rust-analyzer returned no definition
+  - UNRESOLVED(no-definition): `look_up` at [L1598](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/physics/transport_csg.rs#L1598) — rust-analyzer returned no definition
+  - UNRESOLVED(no-definition): `apply_window` at [L1599](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/physics/transport_csg.rs#L1599) — rust-analyzer returned no definition
+  - UNRESOLVED(no-definition): `future_seed` at [L1618](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/physics/transport_csg.rs#L1618) — rust-analyzer returned no definition
+  - UNRESOLVED(no-definition): `push` at [L1619](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/physics/transport_csg.rs#L1619) — rust-analyzer returned no definition
+  - UNRESOLVED(no-definition): `Some` at [L1627](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/physics/transport_csg.rs#L1627) — rust-analyzer returned no definition
+  - UNRESOLVED(macro): `track!` at [L1659](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/physics/transport_csg.rs#L1659) (→ [`crates/outram-mc-libs/src/physics/transport_csg.rs:1568`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/physics/transport_csg.rs#L1568)) — workspace macro; its expansion is not followed
+  - UNRESOLVED(macro): `track!` at [L1668](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/physics/transport_csg.rs#L1668) (→ [`crates/outram-mc-libs/src/physics/transport_csg.rs:1568`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/physics/transport_csg.rs#L1568)) — workspace macro; its expansion is not followed
+  - UNRESOLVED(closure): `observe` at [L1693](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/physics/transport_csg.rs#L1693) (→ [`crates/outram-mc-libs/src/physics/transport_csg.rs:1362`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/physics/transport_csg.rs#L1362)) — call through a closure or fn-typed binding `observe`
+  - UNRESOLVED(closure): `observe` at [L1739](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/physics/transport_csg.rs#L1739) (→ [`crates/outram-mc-libs/src/physics/transport_csg.rs:1362`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/physics/transport_csg.rs#L1362)) — call through a closure or fn-typed binding `observe`
+  - UNRESOLVED(closure): `observe` at [L1899](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/physics/transport_csg.rs#L1899) (→ [`crates/outram-mc-libs/src/physics/transport_csg.rs:1362`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/physics/transport_csg.rs#L1362)) — call through a closure or fn-typed binding `observe`
+  - UNRESOLVED(macro): `track!` at [L1974](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/physics/transport_csg.rs#L1974) (→ [`crates/outram-mc-libs/src/physics/transport_csg.rs:1568`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/physics/transport_csg.rs#L1568)) — workspace macro; its expansion is not followed
+  - UNRESOLVED(macro): `track!` at [L2032](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/physics/transport_csg.rs#L2032) (→ [`crates/outram-mc-libs/src/physics/transport_csg.rs:1568`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/physics/transport_csg.rs#L1568)) — workspace macro; its expansion is not followed
+  - UNRESOLVED(macro): `track!` at [L2035](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/physics/transport_csg.rs#L2035) (→ [`crates/outram-mc-libs/src/physics/transport_csg.rs:1568`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/physics/transport_csg.rs#L1568)) — workspace macro; its expansion is not followed
+  - UNRESOLVED(macro): `track!` at [L2320](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/physics/transport_csg.rs#L2320) (→ [`crates/outram-mc-libs/src/physics/transport_csg.rs:1568`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/physics/transport_csg.rs#L1568)) — workspace macro; its expansion is not followed
+  - UNRESOLVED(macro): `weight_window_checkpoint!` at [L2325](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/physics/transport_csg.rs#L2325) (→ [`crates/outram-mc-libs/src/physics/transport_csg.rs:1595`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/physics/transport_csg.rs#L1595)) — workspace macro; its expansion is not followed
+  - UNRESOLVED(macro): `track!` at [L2326](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/physics/transport_csg.rs#L2326) (→ [`crates/outram-mc-libs/src/physics/transport_csg.rs:1568`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/physics/transport_csg.rs#L1568)) — workspace macro; its expansion is not followed
+  - UNRESOLVED(macro): `track!` at [L2372](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/physics/transport_csg.rs#L2372) (→ [`crates/outram-mc-libs/src/physics/transport_csg.rs:1568`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/physics/transport_csg.rs#L1568)) — workspace macro; its expansion is not followed
+  - UNRESOLVED(macro): `track!` at [L2381](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/physics/transport_csg.rs#L2381) (→ [`crates/outram-mc-libs/src/physics/transport_csg.rs:1568`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/physics/transport_csg.rs#L1568)) — workspace macro; its expansion is not followed
+  - UNRESOLVED(macro): `weight_window_checkpoint!` at [L2397](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/physics/transport_csg.rs#L2397) (→ [`crates/outram-mc-libs/src/physics/transport_csg.rs:1595`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/physics/transport_csg.rs#L1595)) — workspace macro; its expansion is not followed
+  - UNRESOLVED(macro): `track!` at [L2398](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/physics/transport_csg.rs#L2398) (→ [`crates/outram-mc-libs/src/physics/transport_csg.rs:1568`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/physics/transport_csg.rs#L1568)) — workspace macro; its expansion is not followed
+  - UNRESOLVED(macro): `track!` at [L2410](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/physics/transport_csg.rs#L2410) (→ [`crates/outram-mc-libs/src/physics/transport_csg.rs:1568`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/physics/transport_csg.rs#L1568)) — workspace macro; its expansion is not followed
 <!-- /code-walk -->
 
 </div>
@@ -1393,14 +1393,14 @@ UNRESOLVED(other): `default` at [L619](https://github.com/theodoreOnzGit/outram-
 
 <div class="cw-node" style="margin-left:2.7em">
 
-[`transport_csg.rs::run_keff_csg_reactor_physics`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/physics/transport_csg.rs#L572) `pub fn run_keff_csg_reactor_physics(geom: &Geometry, materials: &[Material], nuclides: &[Nuclide], source_box: SourceBox, settings: &KeffSettings, tally: &mut Tally, leak_edges: &[f64], leak_bins: &mut Vec<TallyBin>) -> KeffResult` — Like `run_keff_csg`, but also accumulates a **leakage spectrum** on the energy grid `leak_edges` into `leak_bins` — one `TallyBin` per energy bin, one Monte-Carlo realization per active generation, exactly like the track- length `tally`. · called at [L622](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/physics/reactor_physics.rs#L622) · *(calls below the depth limit not shown)*
+[`transport_csg.rs::run_keff_csg_reactor_physics`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/physics/transport_csg.rs#L578) `pub fn run_keff_csg_reactor_physics(geom: &Geometry, materials: &[Material], nuclides: &[Nuclide], source_box: SourceBox, settings: &KeffSettings, tally: &mut Tally, leak_edges: &[f64], leak_bins: &mut Vec<TallyBin>) -> KeffResult` — Like `run_keff_csg`, but also accumulates a **leakage spectrum** on the energy grid `leak_edges` into `leak_bins` — one `TallyBin` per energy bin, one Monte-Carlo realization per active generation, exactly like the track- length `tally`. · called at [L622](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/physics/reactor_physics.rs#L622) · *(calls below the depth limit not shown)*
 
 <details><summary>code</summary>
 
-<!-- snippet-check: crates/outram-mc-libs/src/physics/transport_csg.rs:572 fn run_keff_csg_reactor_physics -->
+<!-- snippet-check: crates/outram-mc-libs/src/physics/transport_csg.rs:578 fn run_keff_csg_reactor_physics -->
 
 ```rust,ignore
-{{#include ../../../../../crates/outram-mc-libs/src/physics/transport_csg.rs:572:611}}
+{{#include ../../../../../crates/outram-mc-libs/src/physics/transport_csg.rs:578:617}}
     // … (the rest of the function: follow the link above)
 ```
 
@@ -1517,16 +1517,16 @@ UNRESOLVED(other): `clone` at [L192](https://github.com/theodoreOnzGit/outram-pa
 
 <div class="cw-node" style="margin-left:1.8em">
 
-[`nuclide.rs::Nuclide::xs_at_energy`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/material/nuclide.rs#L3038) `pub fn xs_at_energy(&self, e: f64, temp_k: f64) -> MicroXS` · called at [L211](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/examples/common/ugraphite_common.rs#L211)
+[`nuclide.rs::Nuclide::xs_at_energy`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/material/nuclide.rs#L3106) `pub fn xs_at_energy(&self, e: f64, temp_k: f64) -> MicroXS` · called at [L211](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/examples/common/ugraphite_common.rs#L211)
 
 <details><summary>code</summary>
 
-<!-- snippet-check: crates/outram-mc-libs/src/material/nuclide.rs:3038 fn xs_at_energy -->
-<!-- snippet-check: crates/outram-mc-libs/src/material/nuclide.rs:3039 base_xs_at_energy -->
-<!-- snippet-check: crates/outram-mc-libs/src/material/nuclide.rs:3053 total_xs -->
+<!-- snippet-check: crates/outram-mc-libs/src/material/nuclide.rs:3106 fn xs_at_energy -->
+<!-- snippet-check: crates/outram-mc-libs/src/material/nuclide.rs:3107 base_xs_at_energy -->
+<!-- snippet-check: crates/outram-mc-libs/src/material/nuclide.rs:3121 total_xs -->
 
 ```rust,ignore
-{{#include ../../../../../crates/outram-mc-libs/src/material/nuclide.rs:3038:3054}}
+{{#include ../../../../../crates/outram-mc-libs/src/material/nuclide.rs:3106:3122}}
     // … (the rest of the function: follow the link above)
 ```
 
@@ -1535,14 +1535,14 @@ UNRESOLVED(other): `clone` at [L192](https://github.com/theodoreOnzGit/outram-pa
 
 <div class="cw-node" style="margin-left:2.7em">
 
-[`nuclide.rs::Nuclide::base_xs_at_energy`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/material/nuclide.rs#L3157) `fn base_xs_at_energy(&self, e: f64, temp_k: f64) -> MicroXS` · called at [L3039](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/material/nuclide.rs#L3039) · *(calls below the depth limit not shown)*
+[`nuclide.rs::Nuclide::base_xs_at_energy`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/material/nuclide.rs#L3225) `fn base_xs_at_energy(&self, e: f64, temp_k: f64) -> MicroXS` · called at [L3107](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/material/nuclide.rs#L3107) · *(calls below the depth limit not shown)*
 
 <details><summary>code</summary>
 
-<!-- snippet-check: crates/outram-mc-libs/src/material/nuclide.rs:3157 fn base_xs_at_energy -->
+<!-- snippet-check: crates/outram-mc-libs/src/material/nuclide.rs:3225 fn base_xs_at_energy -->
 
 ```rust,ignore
-{{#include ../../../../../crates/outram-mc-libs/src/material/nuclide.rs:3157:3196}}
+{{#include ../../../../../crates/outram-mc-libs/src/material/nuclide.rs:3225:3264}}
     // … (the rest of the function: follow the link above)
 ```
 
@@ -1551,7 +1551,7 @@ UNRESOLVED(other): `clone` at [L192](https://github.com/theodoreOnzGit/outram-pa
 
 <div class="cw-node" style="margin-left:2.7em">
 
-[`thermal.rs::ThermalScattering::total_xs`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/material/thermal.rs#L1040) `pub fn total_xs(&self, e: f64) -> f64` — Total bound-atom thermal cross section \[barn per principal atom\] at incident energy `e` \[eV\] — σ_inel(E) + σ_el(E). · called at [L3053](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/material/nuclide.rs#L3053) · *(calls below the depth limit not shown)*
+[`thermal.rs::ThermalScattering::total_xs`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/material/thermal.rs#L1040) `pub fn total_xs(&self, e: f64) -> f64` — Total bound-atom thermal cross section \[barn per principal atom\] at incident energy `e` \[eV\] — σ_inel(E) + σ_el(E). · called at [L3121](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-mc-libs/src/material/nuclide.rs#L3121) · *(calls below the depth limit not shown)*
 
 <details><summary>code</summary>
 

@@ -243,6 +243,14 @@ impl PoolState {
                                         busy_s: run.gen_busy_s,
                                     };
                                     run.gens.push(s.clone());
+                                    // Full precision in the console, so runs on
+                                    // different pool sizes can be compared bit for bit.
+                                    log::info!(
+                                        "htr10 core: generation {} k = {:e} ({} workers)",
+                                        s.gen.index,
+                                        s.gen.k,
+                                        self.workers
+                                    );
                                     notes.push(Note::Generation(s));
                                     run.expected = 0;
                                     run.gen_busy_s = 0.0;

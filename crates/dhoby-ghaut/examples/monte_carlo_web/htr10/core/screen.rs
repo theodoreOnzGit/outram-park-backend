@@ -31,7 +31,7 @@ const RECORDED_TRACKS: &[u8] = include_bytes!("../data/core_tracks.bin.z");
 /// Memory one worker holds once its model is built, MB: measured in headless
 /// Chromium, 2026-10-07 (`verification_and_validation/htr10_full_core_web/`).
 /// Sizes the pool.
-pub const MEASURED_WORKER_MB: f64 = 600.0;
+pub const MEASURED_WORKER_MB: f64 = 546.0;
 
 /// One N's row of the record: `(k, σ, RMC at equal ball count)`.
 pub fn record_row(n: usize) -> Option<(f64, f64, f64)> {
@@ -199,6 +199,23 @@ pub fn decode_tracks(z: &[u8]) -> Result<Vec<(usize, usize, Track)>, String> {
     Ok(out)
 }
 
+/// `?workers=N` as the page was opened (the app rewrites the query once it
+/// starts, so this is read at start-up: [`remember_query`]).
+static FORCED_WORKERS: std::sync::OnceLock<Option<usize>> = std::sync::OnceLock::new();
+
+/// Read `?workers=N` before the app rewrites the URL. Call once at start-up.
+pub fn remember_query() -> Option<usize> {
+    *FORCED_WORKERS.get_or_init(|| {
+        let q = dhoby_ghaut::web_demo::platform::query_pairs();
+        dhoby_ghaut::web_demo::platform::query_value(&q, "workers").and_then(|v| v.parse().ok())
+    })
+}
+
+/// The pool size asked for in the URL, if any.
+pub fn forced_workers() -> Option<usize> {
+    remember_query()
+}
+
 /// The view's state.
 pub struct CoreScreen {
     pub slicer: Slicer,
@@ -224,10 +241,12 @@ impl CoreScreen {
     /// `info` is the rung's raster info (its first ladder step, the side view
     /// of the core, is the background); `speed` the rung's default.
     pub fn new(info: RasterInfo, speed: f64, autostart: bool) -> Self {
-        let q = dhoby_ghaut::web_demo::platform::query_pairs();
-        let forced = dhoby_ghaut::web_demo::platform::query_value(&q, "workers")
-            .and_then(|v| v.parse().ok());
-        let side: Preset = info.ladder[0];
+        let forced = forced_workers();
+        // The side view, fitted to the whole model height (610 cm) rather than the ladder's 400 cm window.
+        let side = Preset {
+            half: 310.0,
+            ..info.ladder[0]
+        };
         let info = RasterInfo {
             ladder: vec![side],
             start: 0,
@@ -469,7 +488,7 @@ impl CoreScreen {
                 .text("speed at 1 eV (cm/s)")
                 .custom_formatter(|v, _| fmt_speed(v)),
         );
-        ui.weak(format!("= {} at 0.0253 eV (thermal). v ∝ √E: a fission neutron crosses the core in a moment, a thermal one crawls.", fmt_speed(animated_speed(0.0253, self.speed))));
+        ui.weak(format!("= {} at 0.0253 eV (thermal). v is proportional to √E: a fission neutron crosses the core in a moment, a thermal one crawls.", fmt_speed(animated_speed(0.0253, self.speed))));
         legend_markers(ui, true);
         energy_bar(ui);
         ui.separator();
@@ -478,7 +497,7 @@ impl CoreScreen {
         match self.pool.as_mut() {
             None => {
                 ui.label(format!(
-                    "Processes all 38 nuclides of the recorded model (31 ENDF/B-VIII.0 tapes, 5 thermal laws, about 60 MB to download) in a pool of Web Workers, each nuclide once, then runs a low-statistics k_eff of the whole core. Pool: {}.",
+                    "Processes all 38 nuclides of the recorded model (31 ENDF/B-VIII.0 tapes, 5 thermal laws, about 35 MB to download) in a pool of Web Workers, each nuclide once, then runs a low-statistics k_eff of the whole core. Pool: {}.",
                     self.plan.reason
                 ));
                 if self.forced.is_none() {
@@ -494,7 +513,7 @@ impl CoreScreen {
             Some(p) => pool_panel(ui, p, &mut self.cfg, &mut self.layers),
         }
         ui.separator();
-        egui::CollapsingHeader::new("What this is, and is not")
+        egui::CollapsingHeader::new("The whole-core view: what it is, and is not")
             .default_open(false)
             .show(ui, |ui| {
                 for l in NOTES {
@@ -532,7 +551,15 @@ fn status_lines(p: &CorePool) -> Vec<(String, Color32)> {
         PoolPhase::Ready => {
             let data = s.data_ready_s.map_or(0.0, |t| t - s.started_s);
             v.push((
-                format!("Data ready in {data:.0} s ({} workers)", s.workers),
+                format!(
+                    "Data ready in {data:.0} s ({} workers, up to {:.0} MB of wasm memory each)",
+                    s.workers,
+                    s.assembled
+                        .iter()
+                        .flatten()
+                        .map(|a| a.memory_mb)
+                        .fold(0.0, f64::max)
+                ),
                 white,
             ));
             if let Some(run) = &s.run {
@@ -709,26 +736,31 @@ fn draw_k(
             rect.bottom() - 6.0 - (rect.height() - 22.0) * ((k - lo) / (hi - lo)) as f32,
         )
     };
-    let hline = |k: f64, c: Color32, label: &str| {
+    // RMC labelled at the left end, the record at the right: they are close.
+    let hline = |k: f64, c: Color32, label: &str, right: bool| {
         painter.line_segment([p(0.0, k), p(total - 1.0, k)], Stroke::new(1.5, c));
-        painter.text(
-            p(0.0, k) + Vec2::new(2.0, -2.0),
-            egui::Align2::LEFT_BOTTOM,
-            label,
-            egui::FontId::proportional(10.5),
-            c,
-        );
+        let (at, align) = if right {
+            (
+                p(total - 1.0, k) + Vec2::new(-2.0, 2.0),
+                egui::Align2::RIGHT_TOP,
+            )
+        } else {
+            (p(0.0, k) + Vec2::new(2.0, -2.0), egui::Align2::LEFT_BOTTOM)
+        };
+        painter.text(at, align, label, egui::FontId::proportional(10.5), c);
     };
     if let Some((k, _, rmc)) = record {
         hline(
             rmc,
             Color32::from_rgb(235, 235, 235),
             &format!("RMC {rmc:.4}"),
+            false,
         );
         hline(
             k,
             Color32::from_rgb(120, 170, 255),
             &format!("recorded {k:.4}"),
+            true,
         );
     }
     let x0 = p(cfg.n_inactive as f64 - 0.5, lo).x;
@@ -813,6 +845,7 @@ mod tests {
         let (k, sigma, rmc) = record_row(12).expect("N = 12");
         assert_eq!((k, sigma, rmc), (0.995125, 0.001055, 0.999419));
         assert!(record_row(9).is_none());
+        assert!(forced_workers().is_none());
         let recorded = decode_tracks(RECORDED_TRACKS).expect("recorded tracks");
         assert!(!recorded.is_empty());
         assert!(recorded

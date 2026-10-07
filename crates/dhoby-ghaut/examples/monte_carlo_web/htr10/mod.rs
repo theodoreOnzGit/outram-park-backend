@@ -12,11 +12,17 @@
 //!   cube with the kernels resolved or homogenised (#549's `kinf_case`), the
 //!   double-heterogeneity worth by hand.
 //!
-//! **No neutron tracks and no k_eff of the core in the browser**: the recorded
+//! ~~**No neutron tracks and no k_eff of the core in the browser**: the recorded
 //! runs took 2379–4137 s of transport for 1.4 M histories on 5 threads (about
 //! 8.5–14.8 ms of CPU per history, gh:#528), i.e. hours on one browser thread,
 //! and tracks through the core would need every core material's data. The
-//! layers view shows the recorded results instead.
+//! layers view shows the recorded results instead.~~ **CORRECTED 2026-10-08
+//! (gh:#786):** the **whole core** view ([`core`]) loads every core
+//! material's data on a pool of Web Workers (67–128 s measured on 2–4
+//! workers of a desktop) and runs a low-statistics k_eff of the core
+//! (1000 × [5 + 20] in 75–150 s), with its neutrons drawn; the record's
+//! statistics are still hours, so the layers view keeps the recorded results.
+//! Measurements: `verification_and_validation/htr10_full_core_web/`.
 
 pub mod core;
 pub mod model;
@@ -114,7 +120,7 @@ impl McRung for Htr10 {
             "Geometry: the HTR-10 core exactly as nee_soon assembles it for the recorded runs (assemble_explicit_triso, 14 rings, N Şeker layers): every slice is the material Geometry::locate finds at each pixel, drawn in this tab's worker. Nothing is re-modelled for the picture.",
             "Layers: recorded results only (ENDF/B-VIII.0 and VII.0: 10 000 × [5 + 135] per point, all 22 points measured 2026-10-07 on the bounded delta-tracking majorant, #589) against RMC (Li, Yu & Wei 2014) and MCNP (Şeker & Çolak 2003). Nothing is computed in this tab. All 22 points are within ±1000 pcm of RMC, 19 of 22 within ±500; the 6 points at N = 10–12 sit 3 to 8σ low. The earlier record (2026-10-01), measured on a majorant under-bound 14× at 661 eV, read 233 ± 45 pcm (VIII.0) and 310 ± 44 pcm (VII.0) higher on average; it is superseded and not shown.",
             "Fuel-zone k∞: a real single-threaded power iteration in this tab's worker, on ENDF/B-VIII.0 processed here at NJOY's tolerance, with delta tracking. A fuel-zone cube, not the reactor.",
-            "No k_eff of the core and no neutron tracks here: the recorded core runs took about 9–15 ms of CPU per history (hours for one browser thread) and would need every core material's data.",
+            "Whole core (since 2026-10-08, gh:#786): every core material's data processed on a pool of Web Workers, then a low-statistics k_eff of the whole core (σ about 1000 pcm at 1000 neutrons per generation) with its neutrons drawn. The record's statistics (10 000 × [5 + 135]) would still take hours here.",
             "Education and research only. Not for reactor operation, licensing or safety decisions.",
         ]
     }

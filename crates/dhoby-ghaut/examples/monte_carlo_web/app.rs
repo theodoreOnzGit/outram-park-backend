@@ -492,6 +492,8 @@ impl McApp {
         };
         #[cfg(target_arch = "wasm32")]
         let link = dhoby_ghaut::web_demo::link::start_web::<Request, Event>(cc.egui_ctx.clone(), "./worker.js", Event::Error);
+        // `?workers=` (gh:#786), read before `switch` rewrites the URL.
+        let _ = crate::htr10::core::screen::remember_query();
         let mut app = Self {
             link: None,
             rung,
