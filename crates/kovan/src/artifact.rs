@@ -104,7 +104,7 @@ use serde::{Deserialize, Serialize};
 /// runs to the line before the next `#`. Deeper headings inside that span
 /// are the operator's own prose structure, not boundaries (maintainer
 /// direction, GH issue #35, 2026-09-08).
-pub const ARTIFACT_LEVEL: u8 = 1;
+pub const ARTIFACT_LEVEL: u8 = kovan_common::artifact::ARTIFACT_LEVEL;
 
 /// The kinds of artifact §14 defines, plus the four GH issue #743 added for
 /// lessons, walkthroughs, code walks and recipes (2026-10-06, added for the
@@ -766,15 +766,6 @@ impl ParsedDocument {
     }
 }
 
-/// 1-based line number of `byte_offset` within `text`.
-fn line_of(text: &str, byte_offset: usize) -> usize {
-    text[..byte_offset.min(text.len())]
-        .bytes()
-        .filter(|b| *b == b'\n')
-        .count()
-        + 1
-}
-
 /// Scan a Markdown document for Kovan artifacts (§13).
 ///
 /// Recognises a heading immediately followed by a fenced `toml` block whose
@@ -782,136 +773,49 @@ fn line_of(text: &str, byte_offset: usize) -> usize {
 /// the fence is the next block in the document — blank lines between them are
 /// Markdown whitespace and do not count as intervening content.
 ///
+/// The Markdown half moved to [`kovan_common::artifact::scan_blocks`] on
+/// 2026-10-07 (GitHub #764, placement decided on #743) so that web-kovan and
+/// code review read artifacts with the same scanner; this function supplies
+/// the literature reader (the [`ArtifactToml`] schema and the `[source]`
+/// anchor check). Behaviour is unchanged: every test below runs through it.
+///
 /// Never fails: see [`ParsedDocument`] and the module docs.
 pub fn parse_document(markdown: &str) -> ParsedDocument {
-    use pulldown_cmark::{CodeBlockKind, Event, Options, Parser, Tag, TagEnd};
-
-    let mut out = ParsedDocument::default();
-
-    // (heading text, level, byte offset of the heading)
-    let mut pending: Option<(String, u8, usize)> = None;
-    let mut heading_text = String::new();
-    let mut in_heading = false;
-    let mut heading_start = 0usize;
-    let mut heading_level = 1u8;
-
-    // Set while inside a fenced `toml` block that directly follows a heading.
-    let mut toml_buf: Option<String> = None;
-    let mut fence_end = 0usize;
-
-    let parser = Parser::new_ext(
-        markdown,
-        Options::ENABLE_TABLES | Options::ENABLE_STRIKETHROUGH,
-    );
-    for (event, range) in parser.into_offset_iter() {
-        match event {
-            Event::Start(Tag::Heading { level, .. }) => {
-                // Only a level-1 heading closes the previous artifact: `##`
-                // and below are the operator's own subdivisions *inside* an
-                // artifact's prose and belong to its body (maintainer
-                // direction, GH issue #35, 2026-09-08 — "can be subdivided
-                // by ## or ### or any markdown ... till the next artifact
-                // denoted by #").
-                if level as u8 == ARTIFACT_LEVEL {
-                    if let Some(a) = out.artifacts.last_mut() {
-                        if a.body.is_empty() && fence_end > 0 && fence_end <= range.start {
-                            a.body = markdown[fence_end..range.start].trim().to_string();
-                        }
+    let scan = kovan_common::artifact::scan_blocks(markdown, |heading, line, text| {
+        match toml::from_str::<ArtifactToml>(text) {
+            Ok(parsed) => {
+                if let Some(anchor) = &parsed.source {
+                    if let Err(message) = anchor.validate() {
+                        return Err(ArtifactError::BadAnchor {
+                            heading: heading.to_string(),
+                            line,
+                            message,
+                        });
                     }
                 }
-                in_heading = true;
-                heading_text.clear();
-                heading_start = range.start;
-                heading_level = level as u8;
+                Ok(parsed)
             }
-            Event::Text(t) | Event::Code(t) if in_heading => heading_text.push_str(&t),
-            Event::End(TagEnd::Heading(_)) => {
-                in_heading = false;
-                // Only a level-1 heading can open an artifact, so a `##`
-                // followed by a ```toml fence stays ordinary prose.
-                pending = (heading_level == ARTIFACT_LEVEL).then(|| {
-                    (
-                        heading_text.trim().to_string(),
-                        heading_level,
-                        heading_start,
-                    )
-                });
-            }
-            Event::Start(Tag::CodeBlock(CodeBlockKind::Fenced(lang)))
-                if pending.is_some() && lang.split(',').next().unwrap_or("").trim() == "toml" =>
-            {
-                toml_buf = Some(String::new());
-            }
-            Event::Text(t) if toml_buf.is_some() => {
-                if let Some(buf) = toml_buf.as_mut() {
-                    buf.push_str(&t);
-                }
-            }
-            Event::End(TagEnd::CodeBlock) => {
-                if let (Some(buf), Some((heading, level, offset))) =
-                    (toml_buf.take(), pending.take())
-                {
-                    let line = line_of(markdown, offset);
-                    // §13: no `[kovan]` table means an ordinary code example.
-                    // Checked structurally, not by substring match, so a
-                    // string value containing "[kovan]" is not mistaken for one.
-                    let is_artifact = toml::from_str::<toml::Value>(&buf)
-                        .ok()
-                        .and_then(|v| v.get("kovan").cloned())
-                        .is_some();
-                    if is_artifact {
-                        match toml::from_str::<ArtifactToml>(&buf) {
-                            Ok(parsed) => {
-                                if let Some(anchor) = &parsed.source {
-                                    if let Err(message) = anchor.validate() {
-                                        out.problems.push(ArtifactError::BadAnchor {
-                                            heading: heading.clone(),
-                                            line,
-                                            message,
-                                        });
-                                        continue;
-                                    }
-                                }
-                                fence_end = range.end;
-                                out.artifacts.push(Artifact {
-                                    heading,
-                                    level,
-                                    line,
-                                    toml: parsed,
-                                    body: String::new(),
-                                });
-                            }
-                            Err(e) => out.problems.push(ArtifactError::Malformed {
-                                heading,
-                                line,
-                                message: e.to_string(),
-                            }),
-                        }
-                    }
-                }
-            }
-            // Any other block between a heading and a fence breaks the
-            // "immediately followed by" rule (§13).
-            Event::Start(Tag::Paragraph)
-            | Event::Start(Tag::BlockQuote(_))
-            | Event::Start(Tag::List(_))
-            | Event::Start(Tag::Table(_))
-                if toml_buf.is_none() =>
-            {
-                pending = None;
-            }
-            _ => {}
+            Err(e) => Err(ArtifactError::Malformed {
+                heading: heading.to_string(),
+                line,
+                message: e.to_string(),
+            }),
         }
+    });
+    ParsedDocument {
+        artifacts: scan
+            .blocks
+            .into_iter()
+            .map(|b| Artifact {
+                heading: b.heading,
+                level: b.level,
+                line: b.line,
+                toml: b.payload,
+                body: b.body,
+            })
+            .collect(),
+        problems: scan.problems,
     }
-
-    // The final artifact's body runs to the end of the document.
-    if let Some(a) = out.artifacts.last_mut() {
-        if a.body.is_empty() && fence_end > 0 && fence_end <= markdown.len() {
-            a.body = markdown[fence_end..].trim().to_string();
-        }
-    }
-
-    out
 }
 
 /// Wrap `csv_data` — the header row plus data rows, and nothing else — as a
@@ -1076,17 +980,10 @@ pub fn render_artifact_block(
     payload: &ArtifactToml,
     body: &str,
 ) -> Result<String, String> {
-    let level = level.clamp(1, 6);
-    let hashes = "#".repeat(level as usize);
     let toml_text = toml::to_string_pretty(payload).map_err(|e| e.to_string())?;
-    let mut out = format!("{hashes} {heading}\n\n```toml\n{toml_text}```\n");
-    let body = body.trim();
-    if !body.is_empty() {
-        out.push('\n');
-        out.push_str(body);
-        out.push('\n');
-    }
-    Ok(out)
+    Ok(kovan_common::artifact::render_block(
+        level, heading, &toml_text, body,
+    ))
 }
 
 /// The 0-based, end-exclusive line range of `artifact`'s whole Markdown
@@ -1108,32 +1005,8 @@ pub fn block_span(md: &str, artifact: &Artifact) -> std::ops::Range<usize> {
 /// heading delimits a block, readable or not, so this also spans a block
 /// [`parse_document`] could not read (an [`ArtifactError`]).
 pub fn heading_span(md: &str, line: usize, level: u8) -> std::ops::Range<usize> {
-    let start = line.saturating_sub(1);
-    let lines: Vec<&str> = md.lines().collect();
-    let mut end = lines.len();
-    // Fence tracking is not optional here. A `#` at the start of a line
-    // inside a ```csv or ```toml block is data or a TOML comment, not a
-    // heading — and a digitised artifact's CSV used to begin with
-    // `# kovan digitiser dataset (schema v1)`. Without this, deleting such
-    // an artifact truncated its span at that line and left the rest of the
-    // block orphaned in the document: the "delete annotation isn't working
-    // properly" report (GH issue #35, 2026-09-08).
-    let mut in_fence = false;
-    for (i, line) in lines.iter().enumerate().skip(start + 1) {
-        if line.trim_start().starts_with("```") {
-            in_fence = !in_fence;
-            continue;
-        }
-        if in_fence {
-            continue;
-        }
-        let hashes = line.chars().take_while(|c| *c == '#').count();
-        if hashes >= 1 && hashes <= level as usize && line.chars().nth(hashes) == Some(' ') {
-            end = i;
-            break;
-        }
-    }
-    start..end
+    // Moved to kovan-common with the scanner (GitHub #764, 2026-10-07).
+    kovan_common::artifact::heading_span(md, line, level)
 }
 
 #[cfg(test)]

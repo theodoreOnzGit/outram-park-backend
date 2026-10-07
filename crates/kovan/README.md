@@ -515,7 +515,9 @@ kovan-cli stamps-levels tampines-steam-tables # which rung-3/4 tags stamps suppo
 
 - The hash covers the function's code tokens (parsed with `syn`) and its
   `///` doc text; `//` comments, whitespace and the function's position do
-  not count. The exact rule is in `src/review_stamps/parse.rs`.
+  not count. The exact rule is in ~~`src/review_stamps/parse.rs`~~
+  `crates/kovan-common/src/review/rust_items.rs` (moved 2026-10-07, #764;
+  `review_stamps::parse` re-exports it).
 - `stamps-check` prints `VALID`, or `VOID` with the reason (code changed, doc
   comment changed, function not found, …) and the stamped permalink, and
   exits non-zero on any `VOID`. It never edits the file.

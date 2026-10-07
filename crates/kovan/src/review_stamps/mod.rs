@@ -94,7 +94,7 @@ pub const TEMPLATE: &str = "\
 # Fields: function (code-walk path) OR artifact (file.md#id, not checked
 # yet), file, lines = [start, end] and commit
 # (the permalink to the stamped code), hash (sha256 of the function's code
-# tokens and /// doc text; see crates/kovan/src/review_stamps/parse.rs),
+# tokens and /// doc text; see crates/kovan-common/src/review/rust_items.rs),
 # rung (3 human reviewed, 4 human V&V), reviewer, date, note, and an
 # optional walkthrough link (review/walks/<file>.md#step-N).
 ";
