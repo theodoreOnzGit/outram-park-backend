@@ -163,7 +163,7 @@ fn a_complete_full_run_with_failures_counts_and_round_trips() {
         e.binaries,
     );
     assert_eq!(e.counted(), Ok(()));
-    assert_eq!(e.destination(), EVIDENCE_FILE);
+    assert_eq!(e.destination(), UNCOUNTED_FILE);
     let text = e.to_toml().unwrap();
     assert_eq!(TestEvidence::parse(&text).unwrap(), e);
     assert!(text.contains("kind = \"test_evidence\"") && text.contains("[[binary]]"));

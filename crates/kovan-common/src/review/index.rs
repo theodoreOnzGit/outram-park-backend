@@ -159,9 +159,12 @@ pub enum Suite {
     Quick,
 }
 
-/// `[test_run]`: the evidence `kovan-cli test` recorded (D4), projected onto
-/// test ids from the workspace's `kovan_test_evidence.toml` by
-/// [`super::evidence::map::to_test_run`] (only counted, full-suite runs).
+/// `[test_run]`: the evidence `kovan-cli test` recorded (D4), mapped onto
+/// test ids by [`super::evidence::map::to_test_run`] (only counted,
+/// full-suite runs) and written here by
+/// [`crate::code_index::test_run::write_counted`]. ~~Projected from the
+/// workspace's `kovan_test_evidence.toml`~~ **CORRECTED 2026-10-07**: this
+/// table is the record (maintainer, #766); regeneration carries it over.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct TestRun {
     pub commit: String,

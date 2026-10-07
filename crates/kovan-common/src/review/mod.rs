@@ -19,9 +19,11 @@
 //!                                   stamp gate (#769, embedded) -> [`wizard`]
 //! ```
 //!
-//! Test evidence (#766) is a fourth, workspace-level file,
-//! `kovan_test_evidence.toml`, written by `kovan-cli test`; `kovan.toml`'s
-//! `[test_run]` is projected from it -> [`evidence`].
+//! ~~Test evidence (#766) is a fourth, workspace-level file,
+//! `kovan_test_evidence.toml`~~ **CORRECTED 2026-10-07** (maintainer, #766):
+//! test evidence lives in each folder's `kovan.toml` `[test_run]`, written
+//! by `kovan-cli test` from a counted run -> [`evidence`],
+//! [`crate::code_index::test_run`].
 //!
 //! # From source to state
 //!
@@ -52,7 +54,10 @@
 //! - Hashing nested functions, constants and types (ruled stampable on #739,
 //!   2026-10-06): [`index::ItemKind`] has room for them; only functions are
 //!   hashed by [`hash`] today.
-//! - Building `kovan.toml` from SCIP (#757) and the git side (kovan-discovery).
+//! - ~~Building `kovan.toml` from SCIP (#757) and the git side
+//!   (kovan-discovery).~~ **CORRECTED 2026-10-07**: [`crate::code_index`]
+//!   builds it (#767, `kovan-cli index`); the git facts the engine takes
+//!   ([`engine::GitFacts`]) are still built by the caller.
 //! - ~~The staleness engine itself (#765): `engine::evaluate` in the picture
 //!   above is the next step and is not in this module yet.~~ **CORRECTED
 //!   2026-10-07**: [`engine::evaluate`] is here (#765), with the state
