@@ -13,6 +13,9 @@ use std::collections::BTreeMap;
 use crate::review::index::DeletedFolder;
 use crate::review::review_md::{parse_review_md, DeletedFunction, Entry};
 
+/// (path, (date, commit) of the latest review, reviewers).
+type Row = (String, (String, String), Vec<String>);
+
 /// The history of folder `dir`, whose `review.md` was deleted in
 /// `deleted_commit` and last read `old_review_md`: one row per reviewed
 /// function (its last review's commit and every reviewer), plus the rows
@@ -20,7 +23,7 @@ use crate::review::review_md::{parse_review_md, DeletedFunction, Entry};
 pub fn deleted_folder(dir: &str, deleted_commit: &str, old_review_md: &str) -> DeletedFolder {
     let doc = parse_review_md(old_review_md);
     // function -> (path, last review commit by date, reviewers)
-    let mut rows: BTreeMap<String, (String, (String, String), Vec<String>)> = BTreeMap::new();
+    let mut rows: BTreeMap<String, Row> = BTreeMap::new();
     let mut functions = Vec::new();
     for e in &doc.entries {
         match &e.entry {

@@ -240,8 +240,8 @@ pub fn assign_ids(fns: &[Located], claims: &[Claim], priors: &[Prior], commit: &
         }
         if hits.len() == 1 {
             let i = hits.into_iter().next().unwrap_or_default();
-            if !taken.contains_key(&i) {
-                taken.insert(i, id.to_string());
+            if let std::collections::btree_map::Entry::Vacant(v) = taken.entry(i) {
+                v.insert(id.to_string());
                 used.insert(id.to_string());
             }
         }
@@ -255,8 +255,8 @@ pub fn assign_ids(fns: &[Located], claims: &[Claim], priors: &[Prior], commit: &
             continue;
         }
         if let Some(i) = (0..fns.len()).find(|&i| fns[i].path_id == p.path_id) {
-            if !taken.contains_key(&i) {
-                taken.insert(i, p.id.clone());
+            if let std::collections::btree_map::Entry::Vacant(v) = taken.entry(i) {
+                v.insert(p.id.clone());
                 used.insert(p.id.clone());
             }
         }

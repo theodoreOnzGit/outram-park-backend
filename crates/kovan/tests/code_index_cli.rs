@@ -14,10 +14,12 @@
 //!    `--check` passes; `--draft-upstream` prints a draft `[upstream]` entry
 //!    from `util.rs`'s provenance header (noting the abbreviated commit) and
 //!    writes no `review.md`.
-//! 3b. **Test evidence in `kovan.toml`**: `kovan-cli test` (the real suite of
-//!    the fixture) writes `[test_run]` into both folders' `kovan.toml`
-//!    (`t_twice` in `src/`, `it_leaf` in `tests/`), and a regeneration
-//!    carries it over (`--check` passes). The files are then committed.
+//!
+//!    Step 3b, **test evidence in `kovan.toml`**: `kovan-cli test` (the
+//!    real suite of the fixture) writes `[test_run]` into both folders'
+//!    `kovan.toml` (`t_twice` in `src/`, `it_leaf` in `tests/`), and a
+//!    regeneration carries it over (`--check` passes). The files are then
+//!    committed.
 //! 4. **Self-healing**: a hand-edited `src/kovan.toml`, a conflict-marked
 //!    `tests/kovan.toml` and an orphan written for a folder with no code are
 //!    caught by `--check` (fails, writes nothing), then regenerated or

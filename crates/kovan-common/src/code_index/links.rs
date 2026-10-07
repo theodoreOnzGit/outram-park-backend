@@ -230,12 +230,12 @@ impl LinkIndex {
             return Err(LinksError::NewerSchema(ix.schema));
         }
         let nfiles = (ix.files.len() + ix.ext.len()) as u32;
-        if ix.defs.len() % 3 != 0 || ix.defs.chunks(3).any(|d| d[0] >= nfiles) {
+        if !ix.defs.len().is_multiple_of(3) || ix.defs.chunks(3).any(|d| d[0] >= nfiles) {
             return Err(LinksError::OutOfRange("defs file"));
         }
         let ndefs = (ix.defs.len() / 3) as u32;
         for f in &ix.files {
-            if f.occ.len() % 4 != 0 || f.occ.chunks(4).any(|o| o[3] >= ndefs) {
+            if !f.occ.len().is_multiple_of(4) || f.occ.chunks(4).any(|o| o[3] >= ndefs) {
                 return Err(LinksError::OutOfRange("occ definition"));
             }
         }

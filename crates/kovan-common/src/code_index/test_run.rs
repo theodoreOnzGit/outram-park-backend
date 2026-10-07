@@ -46,12 +46,15 @@ fn test_fn(id: String, name: &str) -> Function {
     }
 }
 
+/// (crate, target kind, target name).
+type TargetKey = (String, TargetKind, String);
+
 /// The part of a call graph the libtest-name mapping reads (targets, their
 /// root files, module paths and test functions), rebuilt from `kovan.toml`
 /// files. Example targets are skipped (their tests are not in the suite).
 pub fn graph_from_folders(folders: &[FolderIndex]) -> CallGraphDoc {
     // (crate, kind, target name) -> modules; root file per target.
-    let mut targets: BTreeMap<(String, TargetKind, String), (Option<String>, Vec<Module>)> = BTreeMap::new();
+    let mut targets: BTreeMap<TargetKey, (Option<String>, Vec<Module>)> = BTreeMap::new();
     for fi in folders {
         for (file, m) in &fi.modules {
             let (kind, name, path) = if let Some(rest) = m.path.strip_prefix("test:") {

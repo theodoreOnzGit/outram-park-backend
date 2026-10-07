@@ -28,7 +28,9 @@ that lives in the respective feature crate. The one exception is
 [`zotero`] (2026-10-07, GitHub #748): Zotero's item model comes with the
 conversions that define it (schema validation, CSL-JSON both ways, dates),
 placed here by maintainer direction so every kovan crate can read and
-write Zotero libraries.
+write Zotero libraries. Likewise [`review`] (2026-10-07, GitHub #764):
+the code-review schema comes with its function hash and validation,
+placed here by the #743 decision so web-kovan computes the same states.
 
 ## Module map
 
@@ -42,6 +44,11 @@ write Zotero libraries.
   out of `kovan` on 2026-10-06 so the wasm web view (`kovan-web`, GitHub
   #736) can use them. Plain `serde` + `std`; `kovan` re-exports each one
   under its old path.
+- [`artifact`] — the kovan Markdown artifact scanner and the relation
+  (anchor) types, moved out of `kovan` on 2026-10-07 (GitHub #764).
+- [`review`] — code review's data model: `kovan_root.toml` reviewer
+  sections, per-folder `kovan.toml`, `review.md` entries, the function
+  hash and the signed-bytes encoding (GitHub #764).
 - [`zotero`] — Zotero's item model, schema, CSL-JSON conversion and the
   [`KovanDocument`] mapping (GitHub #748), ported from Zotero (AGPL-3.0).
 
@@ -149,6 +156,15 @@ where
 
 - **DeserializeOwned**
 - **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
 - **Freeze**
 - **From**
   - ```rust
@@ -173,6 +189,7 @@ where
     ```
 
 - **RefUnwindSafe**
+- **Same**
 - **Send**
 - **Serialize**
   - ```rust
@@ -298,6 +315,15 @@ where
 
 - **DeserializeOwned**
 - **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
 - **Freeze**
 - **From**
   - ```rust
@@ -322,6 +348,7 @@ where
     ```
 
 - **RefUnwindSafe**
+- **Same**
 - **Send**
 - **Serialize**
   - ```rust
@@ -422,6 +449,15 @@ where
 
 - **DeserializeOwned**
 - **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
 - **Freeze**
 - **From**
   - ```rust
@@ -441,6 +477,7 @@ where
     ```
 
 - **RefUnwindSafe**
+- **Same**
 - **Send**
 - **Serialize**
   - ```rust
@@ -613,6 +650,15 @@ where
 
 - **DeserializeOwned**
 - **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
 - **Freeze**
 - **From**
   - ```rust
@@ -632,6 +678,7 @@ where
     ```
 
 - **RefUnwindSafe**
+- **Same**
 - **Send**
 - **Serialize**
   - ```rust
@@ -855,6 +902,7 @@ pub struct KovanDocumentBuilder {
     Calls `U::from(self)`.
 
 - **RefUnwindSafe**
+- **Same**
 - **Send**
 - **Sync**
 - **ToOwned**
@@ -958,6 +1006,15 @@ where
 
 - **DeserializeOwned**
 - **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
 - **Freeze**
 - **From**
   - ```rust
@@ -977,6 +1034,7 @@ where
     ```
 
 - **RefUnwindSafe**
+- **Same**
 - **Send**
 - **Serialize**
   - ```rust
@@ -1072,6 +1130,15 @@ where
 
 - **DeserializeOwned**
 - **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
 - **Freeze**
 - **From**
   - ```rust
@@ -1091,6 +1158,7 @@ where
     ```
 
 - **RefUnwindSafe**
+- **Same**
 - **Send**
 - **Serialize**
   - ```rust
@@ -1197,6 +1265,15 @@ where
 
 - **DeserializeOwned**
 - **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
 - **Freeze**
 - **From**
   - ```rust
@@ -1216,6 +1293,7 @@ where
     ```
 
 - **RefUnwindSafe**
+- **Same**
 - **Send**
 - **Serialize**
   - ```rust
@@ -1320,6 +1398,15 @@ where
 
 - **DeserializeOwned**
 - **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
 - **Freeze**
 - **From**
   - ```rust
@@ -1339,6 +1426,7 @@ where
     ```
 
 - **RefUnwindSafe**
+- **Same**
 - **Send**
 - **Serialize**
   - ```rust
@@ -1479,6 +1567,15 @@ where
     ```
 
 - **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
 - **Freeze**
 - **From**
   - ```rust
@@ -1503,6 +1600,7 @@ where
     ```
 
 - **RefUnwindSafe**
+- **Same**
 - **Send**
 - **Serialize**
   - ```rust
@@ -1616,6 +1714,15 @@ where
 
 - **DeserializeOwned**
 - **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
 - **Freeze**
 - **From**
   - ```rust
@@ -1635,6 +1742,7 @@ where
     ```
 
 - **RefUnwindSafe**
+- **Same**
 - **Send**
 - **Serialize**
   - ```rust
@@ -1730,6 +1838,15 @@ where
 
 - **DeserializeOwned**
 - **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
 - **Freeze**
 - **From**
   - ```rust
@@ -1749,6 +1866,7 @@ where
     ```
 
 - **RefUnwindSafe**
+- **Same**
 - **Send**
 - **Serialize**
   - ```rust
@@ -1987,6 +2105,11 @@ Reserved for #743's `[[relation]] to = "code:…"` links; not emitted.
     unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
     ```
 
+- **Comparable**
+  - ```rust
+    fn compare(self: &Self, key: &K) -> Ordering { /* ... */ }
+    ```
+
 - **Copy**
 - **Debug**
   - ```rust
@@ -2002,6 +2125,15 @@ where
 
 - **DeserializeOwned**
 - **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
 - **Freeze**
 - **From**
   - ```rust
@@ -2031,6 +2163,7 @@ where
     ```
 
 - **RefUnwindSafe**
+- **Same**
 - **Send**
 - **Serialize**
   - ```rust
@@ -2116,6 +2249,11 @@ pub struct Citation {
     unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
     ```
 
+- **Comparable**
+  - ```rust
+    fn compare(self: &Self, key: &K) -> Ordering { /* ... */ }
+    ```
+
 - **Debug**
   - ```rust
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
@@ -2130,6 +2268,15 @@ where
 
 - **DeserializeOwned**
 - **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
 - **Freeze**
 - **From**
   - ```rust
@@ -2159,6 +2306,7 @@ where
     ```
 
 - **RefUnwindSafe**
+- **Same**
 - **Send**
 - **Serialize**
   - ```rust
@@ -2259,12 +2407,26 @@ Fields:
     unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
     ```
 
+- **Comparable**
+  - ```rust
+    fn compare(self: &Self, key: &K) -> Ordering { /* ... */ }
+    ```
+
 - **Debug**
   - ```rust
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
     ```
 
 - **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
 - **Freeze**
 - **From**
   - ```rust
@@ -2294,6 +2456,7 @@ Fields:
     ```
 
 - **RefUnwindSafe**
+- **Same**
 - **Send**
 - **StructuralPartialEq**
 - **Sync**
@@ -2374,6 +2537,15 @@ pub struct PageRefs {
     ```
 
 - **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
 - **Freeze**
 - **From**
   - ```rust
@@ -2393,6 +2565,7 @@ pub struct PageRefs {
     ```
 
 - **RefUnwindSafe**
+- **Same**
 - **Send**
 - **StructuralPartialEq**
 - **Sync**
@@ -2569,6 +2742,15 @@ pub struct EdgeCounts {
     ```
 
 - **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
 - **Freeze**
 - **From**
   - ```rust
@@ -2588,6 +2770,7 @@ pub struct EdgeCounts {
     ```
 
 - **RefUnwindSafe**
+- **Same**
 - **Send**
 - **StructuralPartialEq**
 - **Sync**
@@ -2671,12 +2854,26 @@ pub struct EdgeOnly {
     unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
     ```
 
+- **Comparable**
+  - ```rust
+    fn compare(self: &Self, key: &K) -> Ordering { /* ... */ }
+    ```
+
 - **Debug**
   - ```rust
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
     ```
 
 - **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
 - **Freeze**
 - **From**
   - ```rust
@@ -2706,6 +2903,7 @@ pub struct EdgeOnly {
     ```
 
 - **RefUnwindSafe**
+- **Same**
 - **Send**
 - **StructuralPartialEq**
 - **Sync**
@@ -2791,6 +2989,15 @@ pub struct UnresolvedCounts {
     ```
 
 - **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
 - **Freeze**
 - **From**
   - ```rust
@@ -2810,6 +3017,7 @@ pub struct UnresolvedCounts {
     ```
 
 - **RefUnwindSafe**
+- **Same**
 - **Send**
 - **StructuralPartialEq**
 - **Sync**
@@ -2930,6 +3138,7 @@ pub struct Comparison {
     ```
 
 - **RefUnwindSafe**
+- **Same**
 - **Send**
 - **StructuralPartialEq**
 - **Sync**
@@ -3059,6 +3268,15 @@ where
 
 - **DeserializeOwned**
 - **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
 - **Freeze**
 - **From**
   - ```rust
@@ -3078,6 +3296,7 @@ where
     ```
 
 - **RefUnwindSafe**
+- **Same**
 - **Send**
 - **Serialize**
   - ```rust
@@ -3237,6 +3456,15 @@ pub struct ModDecl {
     ```
 
 - **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
 - **Freeze**
 - **From**
   - ```rust
@@ -3256,6 +3484,7 @@ pub struct ModDecl {
     ```
 
 - **RefUnwindSafe**
+- **Same**
 - **Send**
 - **StructuralPartialEq**
 - **Sync**
@@ -3339,6 +3568,15 @@ pub struct FileModules {
     ```
 
 - **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
 - **Freeze**
 - **From**
   - ```rust
@@ -3358,6 +3596,7 @@ pub struct FileModules {
     ```
 
 - **RefUnwindSafe**
+- **Same**
 - **Send**
 - **StructuralPartialEq**
 - **Sync**
@@ -3536,6 +3775,15 @@ where
 
 - **DeserializeOwned**
 - **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
 - **Freeze**
 - **From**
   - ```rust
@@ -3555,6 +3803,7 @@ where
     ```
 
 - **RefUnwindSafe**
+- **Same**
 - **Send**
 - **Serialize**
   - ```rust
@@ -3632,6 +3881,11 @@ pub struct TestReach {
     unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
     ```
 
+- **Comparable**
+  - ```rust
+    fn compare(self: &Self, key: &K) -> Ordering { /* ... */ }
+    ```
+
 - **Debug**
   - ```rust
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
@@ -3646,6 +3900,15 @@ where
 
 - **DeserializeOwned**
 - **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
 - **Freeze**
 - **From**
   - ```rust
@@ -3675,6 +3938,7 @@ where
     ```
 
 - **RefUnwindSafe**
+- **Same**
 - **Send**
 - **Serialize**
   - ```rust
@@ -3756,6 +4020,11 @@ pub struct ExampleReach {
     unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
     ```
 
+- **Comparable**
+  - ```rust
+    fn compare(self: &Self, key: &K) -> Ordering { /* ... */ }
+    ```
+
 - **Debug**
   - ```rust
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
@@ -3770,6 +4039,15 @@ where
 
 - **DeserializeOwned**
 - **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
 - **Freeze**
 - **From**
   - ```rust
@@ -3799,6 +4077,7 @@ where
     ```
 
 - **RefUnwindSafe**
+- **Same**
 - **Send**
 - **Serialize**
   - ```rust
@@ -3832,6 +4111,19 @@ where
 - **UnsafeUnpin**
 - **UnwindSafe**
 ### Functions
+
+#### Function `tests_reaching`
+
+Every test that reaches each function through resolved calls, **all of
+them** (not the nearest [`REACH_CAP`]): function id -> test ids. The
+same walk and entry points as [`fill`] (a lower bound, module doc);
+test functions themselves are included as keys when another test
+reaches them. Used by the per-folder `kovan.toml` (#767), whose
+`reached_by` must be complete for the staleness engine.
+
+```rust
+pub fn tests_reaching(doc: &super::CallGraphDoc) -> std::collections::BTreeMap<String, std::collections::BTreeSet<String>> { /* ... */ }
+```
 
 #### Function `fill`
 
@@ -3971,6 +4263,15 @@ where
 
 - **DeserializeOwned**
 - **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
 - **Freeze**
 - **From**
   - ```rust
@@ -3990,6 +4291,7 @@ where
     ```
 
 - **RefUnwindSafe**
+- **Same**
 - **Send**
 - **Serialize**
   - ```rust
@@ -4091,6 +4393,15 @@ where
 
 - **DeserializeOwned**
 - **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
 - **Freeze**
 - **From**
   - ```rust
@@ -4110,6 +4421,7 @@ where
     ```
 
 - **RefUnwindSafe**
+- **Same**
 - **Send**
 - **Serialize**
   - ```rust
@@ -4217,6 +4529,15 @@ where
 
 - **DeserializeOwned**
 - **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
 - **Freeze**
 - **From**
   - ```rust
@@ -4236,6 +4557,7 @@ where
     ```
 
 - **RefUnwindSafe**
+- **Same**
 - **Send**
 - **Serialize**
   - ```rust
@@ -4329,6 +4651,15 @@ where
 
 - **DeserializeOwned**
 - **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
 - **Freeze**
 - **From**
   - ```rust
@@ -4348,6 +4679,7 @@ where
     ```
 
 - **RefUnwindSafe**
+- **Same**
 - **Send**
 - **Serialize**
   - ```rust
@@ -4447,6 +4779,15 @@ where
 
 - **DeserializeOwned**
 - **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
 - **Freeze**
 - **From**
   - ```rust
@@ -4466,6 +4807,7 @@ where
     ```
 
 - **RefUnwindSafe**
+- **Same**
 - **Send**
 - **Serialize**
   - ```rust
@@ -4561,6 +4903,15 @@ where
 
 - **DeserializeOwned**
 - **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
 - **Freeze**
 - **From**
   - ```rust
@@ -4580,6 +4931,7 @@ where
     ```
 
 - **RefUnwindSafe**
+- **Same**
 - **Send**
 - **Serialize**
   - ```rust
@@ -4681,6 +5033,15 @@ where
 
 - **DeserializeOwned**
 - **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
 - **Freeze**
 - **From**
   - ```rust
@@ -4700,6 +5061,7 @@ where
     ```
 
 - **RefUnwindSafe**
+- **Same**
 - **Send**
 - **Serialize**
   - ```rust
@@ -4746,6 +5108,7 @@ pub struct StampState {
     pub date: String,
     pub note: String,
     pub permalink: String,
+    pub state: Option<crate::review::state::StateKind>,
 }
 ```
 
@@ -4761,8 +5124,16 @@ pub struct StampState {
 | `date` | `String` | `YYYY-MM-DD`. |
 | `note` | `String` |  |
 | `permalink` | `String` | The code as it was stamped. |
+| `state` | `Option<crate::review::state::StateKind>` | The full state from the staleness engine (#765,<br>[`crate::review::state::StateKind`]); absent in data built from the<br>first-version `review/stamps.toml` checker, which only knows<br>valid/stale ([`StampState::kind`] maps those). Additive. |
 
 ##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn kind(self: &Self) -> crate::review::state::StateKind { /* ... */ }
+  ```
+  The state kind: `state` when present, else `verdict` read as valid
 
 ###### Trait Implementations
 
@@ -4805,6 +5176,15 @@ where
 
 - **DeserializeOwned**
 - **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
 - **Freeze**
 - **From**
   - ```rust
@@ -4824,6 +5204,7 @@ where
     ```
 
 - **RefUnwindSafe**
+- **Same**
 - **Send**
 - **Serialize**
   - ```rust
@@ -4929,6 +5310,15 @@ where
 
 - **DeserializeOwned**
 - **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
 - **Freeze**
 - **From**
   - ```rust
@@ -4948,6 +5338,7 @@ where
     ```
 
 - **RefUnwindSafe**
+- **Same**
 - **Send**
 - **Serialize**
   - ```rust
@@ -5039,6 +5430,15 @@ where
 
 - **DeserializeOwned**
 - **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
 - **Freeze**
 - **From**
   - ```rust
@@ -5058,6 +5458,7 @@ where
     ```
 
 - **RefUnwindSafe**
+- **Same**
 - **Send**
 - **Serialize**
   - ```rust
@@ -5150,6 +5551,15 @@ where
 
 - **DeserializeOwned**
 - **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
 - **Freeze**
 - **From**
   - ```rust
@@ -5169,6 +5579,7 @@ where
     ```
 
 - **RefUnwindSafe**
+- **Same**
 - **Send**
 - **Serialize**
   - ```rust
@@ -5357,6 +5768,11 @@ pub enum HeaderStyle {
     unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
     ```
 
+- **Comparable**
+  - ```rust
+    fn compare(self: &Self, key: &K) -> Ordering { /* ... */ }
+    ```
+
 - **Copy**
 - **Debug**
   - ```rust
@@ -5372,6 +5788,15 @@ where
 
 - **DeserializeOwned**
 - **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
 - **Freeze**
 - **From**
   - ```rust
@@ -5401,6 +5826,7 @@ where
     ```
 
 - **RefUnwindSafe**
+- **Same**
 - **Send**
 - **Serialize**
   - ```rust
@@ -5510,6 +5936,15 @@ where
 
 - **DeserializeOwned**
 - **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
 - **Freeze**
 - **From**
   - ```rust
@@ -5529,6 +5964,7 @@ where
     ```
 
 - **RefUnwindSafe**
+- **Same**
 - **Send**
 - **Serialize**
   - ```rust
@@ -5633,6 +6069,15 @@ Fields:
     ```
 
 - **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
 - **Freeze**
 - **From**
   - ```rust
@@ -5652,6 +6097,7 @@ Fields:
     ```
 
 - **RefUnwindSafe**
+- **Same**
 - **Send**
 - **StructuralPartialEq**
 - **Sync**
@@ -5805,6 +6251,11 @@ pub struct CallGraphDoc {
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
     ```
 
+- **Default**
+  - ```rust
+    fn default() -> CallGraphDoc { /* ... */ }
+    ```
+
 - **Deserialize**
   - ```rust
     fn deserialize<__D>(__deserializer: __D) -> _serde::__private228::Result<Self, <__D as >::Error>
@@ -5814,6 +6265,15 @@ where
 
 - **DeserializeOwned**
 - **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
 - **Freeze**
 - **From**
   - ```rust
@@ -5833,6 +6293,7 @@ where
     ```
 
 - **RefUnwindSafe**
+- **Same**
 - **Send**
 - **Serialize**
   - ```rust
@@ -5926,6 +6387,15 @@ where
 
 - **DeserializeOwned**
 - **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
 - **Freeze**
 - **From**
   - ```rust
@@ -5945,6 +6415,7 @@ where
     ```
 
 - **RefUnwindSafe**
+- **Same**
 - **Send**
 - **Serialize**
   - ```rust
@@ -6031,6 +6502,11 @@ One `rust-analyzer scip` index of the workspace (#757).
     unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
     ```
 
+- **Comparable**
+  - ```rust
+    fn compare(self: &Self, key: &K) -> Ordering { /* ... */ }
+    ```
+
 - **Copy**
 - **Debug**
   - ```rust
@@ -6046,6 +6522,15 @@ where
 
 - **DeserializeOwned**
 - **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
 - **Freeze**
 - **From**
   - ```rust
@@ -6075,6 +6560,7 @@ where
     ```
 
 - **RefUnwindSafe**
+- **Same**
 - **Send**
 - **Serialize**
   - ```rust
@@ -6172,6 +6658,15 @@ where
 
 - **DeserializeOwned**
 - **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
 - **Freeze**
 - **From**
   - ```rust
@@ -6191,6 +6686,7 @@ where
     ```
 
 - **RefUnwindSafe**
+- **Same**
 - **Send**
 - **Serialize**
   - ```rust
@@ -6276,6 +6772,11 @@ Schema 2: an integration-test target; only in `CrateGraph::tests`.
     unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
     ```
 
+- **Comparable**
+  - ```rust
+    fn compare(self: &Self, key: &K) -> Ordering { /* ... */ }
+    ```
+
 - **Copy**
 - **Debug**
   - ```rust
@@ -6291,6 +6792,15 @@ where
 
 - **DeserializeOwned**
 - **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
 - **Freeze**
 - **From**
   - ```rust
@@ -6320,6 +6830,7 @@ where
     ```
 
 - **RefUnwindSafe**
+- **Same**
 - **Send**
 - **Serialize**
   - ```rust
@@ -6415,6 +6926,15 @@ where
 
 - **DeserializeOwned**
 - **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
 - **Freeze**
 - **From**
   - ```rust
@@ -6434,6 +6954,7 @@ where
     ```
 
 - **RefUnwindSafe**
+- **Same**
 - **Send**
 - **Serialize**
   - ```rust
@@ -6543,6 +7064,15 @@ where
 
 - **DeserializeOwned**
 - **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
 - **Freeze**
 - **From**
   - ```rust
@@ -6562,6 +7092,7 @@ where
     ```
 
 - **RefUnwindSafe**
+- **Same**
 - **Send**
 - **Serialize**
   - ```rust
@@ -6656,6 +7187,11 @@ A trait's own declaration (with or without a default body).
     unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
     ```
 
+- **Comparable**
+  - ```rust
+    fn compare(self: &Self, key: &K) -> Ordering { /* ... */ }
+    ```
+
 - **Copy**
 - **Debug**
   - ```rust
@@ -6671,6 +7207,15 @@ where
 
 - **DeserializeOwned**
 - **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
 - **Freeze**
 - **From**
   - ```rust
@@ -6700,6 +7245,7 @@ where
     ```
 
 - **RefUnwindSafe**
+- **Same**
 - **Send**
 - **Serialize**
   - ```rust
@@ -6821,6 +7367,15 @@ where
 
 - **DeserializeOwned**
 - **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
 - **Freeze**
 - **From**
   - ```rust
@@ -6840,6 +7395,7 @@ where
     ```
 
 - **RefUnwindSafe**
+- **Same**
 - **Send**
 - **Serialize**
   - ```rust
@@ -6924,6 +7480,11 @@ pub struct Unresolved {
     unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
     ```
 
+- **Comparable**
+  - ```rust
+    fn compare(self: &Self, key: &K) -> Ordering { /* ... */ }
+    ```
+
 - **Debug**
   - ```rust
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
@@ -6938,6 +7499,15 @@ where
 
 - **DeserializeOwned**
 - **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
 - **Freeze**
 - **From**
   - ```rust
@@ -6967,6 +7537,7 @@ where
     ```
 
 - **RefUnwindSafe**
+- **Same**
 - **Send**
 - **Serialize**
   - ```rust
@@ -7057,6 +7628,11 @@ to a workspace `impl` of the operator trait (SCIP backend only).
     unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
     ```
 
+- **Comparable**
+  - ```rust
+    fn compare(self: &Self, key: &K) -> Ordering { /* ... */ }
+    ```
+
 - **Copy**
 - **Debug**
   - ```rust
@@ -7072,6 +7648,15 @@ where
 
 - **DeserializeOwned**
 - **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
 - **Freeze**
 - **From**
   - ```rust
@@ -7101,6 +7686,7 @@ where
     ```
 
 - **RefUnwindSafe**
+- **Same**
 - **Send**
 - **Serialize**
   - ```rust
@@ -7198,6 +7784,15 @@ where
 
 - **DeserializeOwned**
 - **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
 - **Freeze**
 - **From**
   - ```rust
@@ -7217,6 +7812,7 @@ where
     ```
 
 - **RefUnwindSafe**
+- **Same**
 - **Send**
 - **Serialize**
   - ```rust
@@ -7314,6 +7910,15 @@ where
 
 - **DeserializeOwned**
 - **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
 - **Freeze**
 - **From**
   - ```rust
@@ -7333,6 +7938,7 @@ where
     ```
 
 - **RefUnwindSafe**
+- **Same**
 - **Send**
 - **Serialize**
   - ```rust
@@ -7430,6 +8036,15 @@ where
 
 - **DeserializeOwned**
 - **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
 - **Freeze**
 - **From**
   - ```rust
@@ -7449,6 +8064,7 @@ where
     ```
 
 - **RefUnwindSafe**
+- **Same**
 - **Send**
 - **Serialize**
   - ```rust
@@ -7583,6 +8199,15 @@ where
 
 - **DeserializeOwned**
 - **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
 - **Freeze**
 - **From**
   - ```rust
@@ -7602,6 +8227,7 @@ where
     ```
 
 - **RefUnwindSafe**
+- **Same**
 - **Send**
 - **Serialize**
   - ```rust
@@ -7691,6 +8317,15 @@ pub struct RawCall {
     ```
 
 - **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
 - **Freeze**
 - **From**
   - ```rust
@@ -7710,6 +8345,7 @@ pub struct RawCall {
     ```
 
 - **RefUnwindSafe**
+- **Same**
 - **Send**
 - **StructuralPartialEq**
 - **Sync**
@@ -7980,6 +8616,7 @@ where
     ```
 
 - **RefUnwindSafe**
+- **Same**
 - **Send**
 - **Serialize**
   - ```rust
@@ -8083,6 +8720,15 @@ where
 
 - **DeserializeOwned**
 - **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
 - **Freeze**
 - **From**
   - ```rust
@@ -8102,6 +8748,7 @@ where
     ```
 
 - **RefUnwindSafe**
+- **Same**
 - **Send**
 - **Serialize**
   - ```rust
@@ -8217,6 +8864,7 @@ where
     ```
 
 - **RefUnwindSafe**
+- **Same**
 - **Send**
 - **Serialize**
   - ```rust
@@ -8330,6 +8978,7 @@ where
     ```
 
 - **RefUnwindSafe**
+- **Same**
 - **Send**
 - **Serialize**
   - ```rust
@@ -8446,6 +9095,7 @@ where
     ```
 
 - **RefUnwindSafe**
+- **Same**
 - **Send**
 - **Serialize**
   - ```rust
@@ -8570,6 +9220,7 @@ where
     ```
 
 - **RefUnwindSafe**
+- **Same**
 - **Send**
 - **Serialize**
   - ```rust
@@ -8928,6 +9579,11 @@ pub enum Topic {
     unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
     ```
 
+- **Comparable**
+  - ```rust
+    fn compare(self: &Self, key: &K) -> Ordering { /* ... */ }
+    ```
+
 - **Copy**
 - **Debug**
   - ```rust
@@ -8943,6 +9599,15 @@ where
 
 - **DeserializeOwned**
 - **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
 - **Freeze**
 - **From**
   - ```rust
@@ -8977,6 +9642,7 @@ where
     ```
 
 - **RefUnwindSafe**
+- **Same**
 - **Send**
 - **Serialize**
   - ```rust
@@ -9114,6 +9780,15 @@ where
 
 - **DeserializeOwned**
 - **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
 - **Freeze**
 - **From**
   - ```rust
@@ -9133,6 +9808,7 @@ where
     ```
 
 - **RefUnwindSafe**
+- **Same**
 - **Send**
 - **Serialize**
   - ```rust
@@ -9228,6 +9904,15 @@ where
 
 - **DeserializeOwned**
 - **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
 - **Freeze**
 - **From**
   - ```rust
@@ -9247,6 +9932,7 @@ where
     ```
 
 - **RefUnwindSafe**
+- **Same**
 - **Send**
 - **Serialize**
   - ```rust
@@ -9379,6 +10065,7 @@ where
     ```
 
 - **RefUnwindSafe**
+- **Same**
 - **Send**
 - **Serialize**
   - ```rust
@@ -9458,6 +10145,11 @@ pub struct Edge {
     unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
     ```
 
+- **Comparable**
+  - ```rust
+    fn compare(self: &Self, key: &K) -> Ordering { /* ... */ }
+    ```
+
 - **Debug**
   - ```rust
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
@@ -9472,6 +10164,15 @@ where
 
 - **DeserializeOwned**
 - **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
 - **Freeze**
 - **From**
   - ```rust
@@ -9501,6 +10202,7 @@ where
     ```
 
 - **RefUnwindSafe**
+- **Same**
 - **Send**
 - **Serialize**
   - ```rust
@@ -9641,6 +10343,7 @@ where
     ```
 
 - **RefUnwindSafe**
+- **Same**
 - **Send**
 - **Serialize**
   - ```rust
@@ -9805,6 +10508,7 @@ pub struct Point {
     ```
 
 - **RefUnwindSafe**
+- **Same**
 - **Send**
 - **StructuralPartialEq**
 - **Sync**
@@ -9924,6 +10628,7 @@ pub struct Bounds {
     ```
 
 - **RefUnwindSafe**
+- **Same**
 - **Send**
 - **StructuralPartialEq**
 - **Sync**
@@ -10104,6 +10809,7 @@ pub struct StarLayout {
     ```
 
 - **RefUnwindSafe**
+- **Same**
 - **Send**
 - **StructuralPartialEq**
 - **Sync**
@@ -10233,6 +10939,7 @@ pub struct CanvasLayout {
     ```
 
 - **RefUnwindSafe**
+- **Same**
 - **Send**
 - **StructuralPartialEq**
 - **Sync**
@@ -10491,6 +11198,27277 @@ radius a real star needs.
 pub const MAX_RING_GROWTH_STEPS: usize = 200;
 ```
 
+## Module `artifact`
+
+The kovan Markdown artifact scanner and the relation (anchor) types,
+moved here from `kovan::artifact` / `kovan::relation` on 2026-10-07
+(GitHub #743, #764); `kovan` re-exports them.
+The **kovan Markdown artifact** block scanner, shared by desktop kovan
+(literature notes, lessons, walkthroughs) and by code review's
+`review.md` (GitHub #743, #764).
+
+# What an artifact is
+
+> A **`#` Markdown heading** immediately followed by a **fenced `toml`
+> block containing a `[kovan]` table**.
+
+The body runs from the end of that fence to the next `#` heading (or the
+end of the document). `##` and deeper headings are prose inside the
+artifact. A `toml` fence with no `[kovan]` table is an ordinary code
+example, never an artifact and never a problem. Blank lines between the
+heading and the fence are fine; a paragraph, quote, list or table between
+them breaks the "immediately followed by" rule.
+
+# Why the scanner is generic
+
+Moved here from `kovan::artifact::parse_document` on 2026-10-07 (GitHub
+#764; placement decided on #743, 2026-10-06: "the artifact, relation and
+stamp types and the Markdown artifact parser" belong in kovan-common,
+which builds for wasm). The literature payload type (`ArtifactToml`) still
+lives in `kovan`, because it carries `kovan`'s classification and anchor
+types; moving those is a separate step. So [`scan_blocks`] does the
+Markdown half and hands each candidate block's TOML text to a reader
+closure the caller supplies: `kovan::artifact::parse_document` passes its
+literature reader, [`crate::review::review_md`] passes the code-review
+reader. One scanner, so the two can never disagree about where an artifact
+starts or what its body is.
+
+**Behaviour is unchanged by the move**, quirks included: a block's body is
+only assigned while it is still empty, so an artifact whose body is blank
+keeps absorbing text up to the next accepted block. `kovan`'s own artifact
+tests (35 of them, the backwards-compatibility fixtures among them) run
+through this scanner since the move.
+
+# Parsing is total
+
+A block the reader rejects is returned in [`Scan::problems`]; every other
+block is still returned. One broken entry never hides the rest.
+
+```rust
+pub mod artifact { /* ... */ }
+```
+
+### Modules
+
+## Module `relation`
+
+The **relation** records of the kovan artifact schema: a relation
+artifact's single `[relation]` table, and the `[[relation]]` anchors any
+artifact carries (GitHub #35, #743), including `code:` targets.
+
+Moved here from `kovan::relation` on 2026-10-07 (GitHub #764; placement
+decided on #743) so that code-review `review.md` artifacts, read in the
+wasm web view too, use the same anchor type as literature notes.
+`kovan::relation` re-exports every item, so existing callers and the
+on-disk form are unchanged. Node ids are plain strings here (`kovan`'s
+`NodeId` is an alias of `String`).
+
+```rust
+pub mod relation { /* ... */ }
+```
+
+### Types
+
+#### Enum `RelationKind`
+
+**Attributes:**
+
+- `Other("#[serde(rename_all = \"snake_case\")]")`
+
+What kind of relationship a `kovan::relation::UserRelation` records between two nodes
+(the layer-1 prototype's `RelationKind`, ported verbatim).
+
+Deliberately not exhaustive of every scientific-argument shape a user
+might want — it is the fixed vocabulary the prototype dogfooded and
+agreed on; widening it is a future decision, not something this module
+pre-empts by adding a catch-all variant.
+
+```rust
+pub enum RelationKind {
+    RelatedTo,
+    Supports,
+    Contradicts,
+    DerivedFrom,
+    UsesDataFrom,
+    Validates,
+    VerifiedAgainst,
+    Implements,
+    PartOf,
+}
+```
+
+##### Variants
+
+###### `RelatedTo`
+
+A generic, otherwise-unclassified relationship.
+
+###### `Supports`
+
+The source's argument or data supports the target's.
+
+###### `Contradicts`
+
+The source's argument or data contradicts the target's.
+
+###### `DerivedFrom`
+
+The source was derived from the target (e.g. a fit derived from a
+digitised dataset).
+
+###### `UsesDataFrom`
+
+The source uses data owned by the target (e.g. a model that consumes
+a digitised graph's CSV payload).
+
+###### `Validates`
+
+The source validates the target against reality/experiment.
+
+###### `VerifiedAgainst`
+
+The source was checked against the target as a verification
+reference (numerics/implementation correctness, not physical
+validity — see `VERIFICATION_AND_VALIDATION.md`'s verification vs.
+validation distinction).
+
+###### `Implements`
+
+The source implements a method/model the target describes (an
+equation or a method; unchanged meaning).
+
+###### `PartOf`
+
+The source is a part of the target: a function's review links the
+architecture node or artifact it belongs to (maintainer, #764,
+2026-10-07). Added 2026-10-07; additive, so every relation written
+before reads unchanged.
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn label(self: Self) -> &'static str { /* ... */ }
+  ```
+  A short, lower-case, human-readable label, e.g. `"supports"` — reads
+
+- ```rust
+  pub fn next(self: Self) -> Self { /* ... */ }
+  ```
+  The next variant in [`Self::ALL`]'s fixed order, wrapping back to the
+
+- ```rust
+  pub fn as_str(self: Self) -> &'static str { /* ... */ }
+  ```
+  The snake_case wire name, as written in a relation artifact's
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> RelationKind { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Deserialize**
+  - ```rust
+    fn deserialize<__D>(__deserializer: __D) -> _serde::__private228::Result<Self, <__D as >::Error>
+where
+    __D: _serde::Deserializer<''de> { /* ... */ }
+    ```
+
+- **DeserializeOwned**
+- **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &RelationKind) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **Serialize**
+  - ```rust
+    fn serialize<__S>(self: &Self, __serializer: __S) -> _serde::__private228::Result<<__S as >::Ok, <__S as >::Error>
+where
+    __S: _serde::Serializer { /* ... */ }
+    ```
+
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Struct `RelationRecord`
+
+The `[relation]` table of a relation artifact.
+
+Both endpoints are explicit: a relation is its own artifact now, not a
+record nested inside the thing it starts from, so nothing about it is
+implied by where it is written. The id lives in `[kovan] id`, like every
+other artifact's.
+
+The same record is also an **anchor** (GH issue #743): a `[[relation]]`
+table on a lesson, walk-step or any other artifact, naming the code it
+explains or the literature it cites. An anchor omits `source` (it is the
+artifact the table is in) and may carry `page`, `quote` and `commit`.
+Every one of those is optional and skipped when absent, so a relation
+written before #743 re-serialises byte for byte.
+
+```rust
+pub struct RelationRecord {
+    pub source: String,
+    pub target: String,
+    pub kind: RelationKind,
+    pub page: Option<u32>,
+    pub quote: Option<String>,
+    pub commit: Option<String>,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `source` | `String` | The node this relation starts at. Empty in an anchor, where it is<br>implicitly the artifact the `[[relation]]` table belongs to. |
+| `target` | `String` | The node this relation points at: a graph id (`paper:`, `artifact:`,<br>`collection:`), a typed `kovan::node_id::NodeId` string, or a<br>`code:` target ([`CodeTarget`]). |
+| `kind` | `RelationKind` | What kind of relationship this is. |
+| `page` | `Option<u32>` | The 1-based page of a literature target the anchor points at. |
+| `quote` | `Option<String>` | A short quotation from the target, as the reader would search for it. |
+| `commit` | `Option<String>` | The git commit a `code:` target was read at, so a later reader can<br>see the code the claim was made about. |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn new</* synthetic */ impl Into<String>: Into<String>, /* synthetic */ impl Into<String>: Into<String>>(source: impl Into<String>, target: impl Into<String>, kind: RelationKind) -> Self { /* ... */ }
+  ```
+  A record with only `source`, `target` and `kind`: the shape every
+
+- ```rust
+  pub fn code_target(self: &Self) -> Option<CodeTarget> { /* ... */ }
+  ```
+  The `code:` target, when the target is one.
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> RelationRecord { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Deserialize**
+  - ```rust
+    fn deserialize<__D>(__deserializer: __D) -> _serde::__private228::Result<Self, <__D as >::Error>
+where
+    __D: _serde::Deserializer<''de> { /* ... */ }
+    ```
+
+- **DeserializeOwned**
+- **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &RelationRecord) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **Serialize**
+  - ```rust
+    fn serialize<__S>(self: &Self, __serializer: __S) -> _serde::__private228::Result<<__S as >::Ok, <__S as >::Error>
+where
+    __S: _serde::Serializer { /* ... */ }
+    ```
+
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Enum `Relations`
+
+**Attributes:**
+
+- `Other("#[serde(untagged)]")`
+
+An artifact's `relation` key, in the shape it was written
+(`kovan::artifact::ArtifactToml::relation`).
+
+Untagged, so each shape reads from and writes back to its own TOML form:
+a single `[relation]` table, or an array of `[[relation]]` tables.
+
+```rust
+pub enum Relations {
+    One(RelationRecord),
+    Many(Vec<RelationRecord>),
+}
+```
+
+##### Variants
+
+###### `One`
+
+`[relation]`: the body of a `kind = "relation"` artifact.
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `RelationRecord` |  |
+
+###### `Many`
+
+`[[relation]]`: an artifact's anchors (GH issue #743).
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `Vec<RelationRecord>` |  |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn records(self: &Self) -> &[RelationRecord] { /* ... */ }
+  ```
+  The records, in file order.
+
+- ```rust
+  pub fn records_mut(self: &mut Self) -> &mut [RelationRecord] { /* ... */ }
+  ```
+  The records, mutably.
+
+- ```rust
+  pub fn one(self: &Self) -> Option<&RelationRecord> { /* ... */ }
+  ```
+  The single record of a relation artifact; `None` for the array form.
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Relations { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Deserialize**
+  - ```rust
+    fn deserialize<__D>(__deserializer: __D) -> _serde::__private228::Result<Self, <__D as >::Error>
+where
+    __D: _serde::Deserializer<''de> { /* ... */ }
+    ```
+
+- **DeserializeOwned**
+- **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Relations) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **Serialize**
+  - ```rust
+    fn serialize<__S>(self: &Self, __serializer: __S) -> _serde::__private228::Result<<__S as >::Ok, <__S as >::Error>
+where
+    __S: _serde::Serializer { /* ... */ }
+    ```
+
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Struct `CodeTarget`
+
+A `code:` relation target (GH issue #743), in the code-walk path form:
+
+```text
+code:<path/to/file.rs>::<Type::name>[@L<line>]
+code:crates/boon-lay/src/release.rs::FuelParticle::release_fraction
+code:crates/kovan/src/artifact.rs::parse_document@L640
+```
+
+`@L<line>` is optional and only disambiguates two items with the same
+path in one file, such as `cfg` twins (GH issue #739). The path is
+repo-relative. Kovan does not resolve the target yet; desktop kovan shows
+it as a link card with no navigation, which arrives with web-kovan.
+
+```rust
+pub struct CodeTarget {
+    pub file: String,
+    pub item: String,
+    pub line: Option<u32>,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `file` | `String` | The repo-relative file path, e.g. `crates/kovan/src/artifact.rs`. |
+| `item` | `String` | The item path inside the file, e.g. `Artifact::csv_block`. |
+| `line` | `Option<u32>` | The 1-based line that disambiguates same-named items, if given. |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn parse(target: &str) -> Option<Self> { /* ... */ }
+  ```
+  Read `code:<file>::<item>[@L<line>]`. `None` for anything else,
+
+- ```rust
+  pub fn is_code(target: &str) -> bool { /* ... */ }
+  ```
+  Whether `target` is in the `code:` namespace at all (well-formed or
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> CodeTarget { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Display**
+  - ```rust
+    fn fmt(self: &Self, f: &mut std::fmt::Formatter<''_>) -> std::fmt::Result { /* ... */ }
+    ```
+
+- **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &CodeTarget) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **ToString**
+  - ```rust
+    fn to_string(self: &Self) -> String { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+### Constants and Statics
+
+#### Constant `CODE_PREFIX`
+
+The prefix of a code target.
+
+```rust
+pub const CODE_PREFIX: &str = "code:";
+```
+
+### Types
+
+#### Struct `ScannedBlock`
+
+One block the reader accepted.
+
+```rust
+pub struct ScannedBlock<T> {
+    pub heading: String,
+    pub level: u8,
+    pub line: usize,
+    pub payload: T,
+    pub body: String,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `heading` | `String` | The heading text, trimmed, exactly as written otherwise. |
+| `level` | `u8` | Heading depth (always [`ARTIFACT_LEVEL`] today). |
+| `line` | `usize` | 1-based line of the heading. |
+| `payload` | `T` | What the reader made of the TOML block. |
+| `body` | `String` | Everything after the fence up to the next `#` heading, trimmed. |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> ScannedBlock<T> { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &ScannedBlock<T>) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Struct `Scan`
+
+The result of [`scan_blocks`]: accepted blocks in document order, and the
+reader's errors for the rest.
+
+```rust
+pub struct Scan<T, E> {
+    pub blocks: Vec<ScannedBlock<T>>,
+    pub problems: Vec<E>,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `blocks` | `Vec<ScannedBlock<T>>` |  |
+| `problems` | `Vec<E>` |  |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Scan<T, E> { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Scan<T, E>) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Enum `UnparseableFence`
+
+What to do with a `toml` fence right after a `#` heading whose text is
+not TOML at all (so it cannot be known whether it holds `[kovan]`).
+
+```rust
+pub enum UnparseableFence {
+    Ignore,
+    Report,
+}
+```
+
+##### Variants
+
+###### `Ignore`
+
+Treat it as an ordinary code example (the literature rule, §13).
+
+###### `Report`
+
+Hand it to the reader, which reports it. `review.md` uses this: a
+broken review entry must show as unreadable, never vanish
+(maintainer, #739, 2026-10-07).
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> UnparseableFence { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &UnparseableFence) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+### Functions
+
+#### Function `line_of`
+
+1-based line number of `byte_offset` within `text`.
+
+```rust
+pub fn line_of(text: &str, byte_offset: usize) -> usize { /* ... */ }
+```
+
+#### Function `has_kovan_table`
+
+Whether `toml_text` parses as TOML and holds a top-level `kovan` key
+(checked structurally, so a string value that mentions `[kovan]` is not
+mistaken for one).
+
+```rust
+pub fn has_kovan_table(toml_text: &str) -> bool { /* ... */ }
+```
+
+#### Function `scan_blocks`
+
+Scan `markdown` for artifact blocks (module doc). For each `#` heading
+immediately followed by a `toml` fence holding `[kovan]`, `read` is called
+with the heading, its 1-based line and the fence's TOML text; `Ok` keeps
+the block, `Err` records a problem and skips it.
+
+Never fails as a whole and never panics.
+
+```rust
+pub fn scan_blocks<T, E, /* synthetic */ impl FnMut(&str, usize, &str) -> Result<T, E>: FnMut(&str, usize, &str) -> Result<T, E>>(markdown: &str, read: impl FnMut(&str, usize, &str) -> Result<T, E>) -> Scan<T, E> { /* ... */ }
+```
+
+#### Function `scan_blocks_with`
+
+[`scan_blocks`] with the choice of what to do with an unparseable fence.
+
+```rust
+pub fn scan_blocks_with<T, E, /* synthetic */ impl FnMut(&str, usize, &str) -> Result<T, E>: FnMut(&str, usize, &str) -> Result<T, E>>(markdown: &str, unparseable: UnparseableFence, read: impl FnMut(&str, usize, &str) -> Result<T, E>) -> Scan<T, E> { /* ... */ }
+```
+
+#### Function `render_block`
+
+One artifact block as Markdown: `{#…} {heading}`, a blank line, the
+```` ```toml ```` fence holding `toml_text`, and the body when non-empty.
+`level` is clamped to 1..=6. The inverse of [`scan_blocks`].
+
+```rust
+pub fn render_block(level: u8, heading: &str, toml_text: &str, body: &str) -> String { /* ... */ }
+```
+
+#### Function `heading_span`
+
+The 0-based, end-exclusive line range from the heading on 1-based `line`
+up to the next heading of depth `<= level` outside a fence, or the end of
+the document. Every `#` heading delimits a block, readable or not.
+
+Fence tracking matters: a `#` at the start of a line inside a ```` ```csv
+```` or ```` ```toml ```` block is data or a TOML comment, not a heading
+(GitHub #35, 2026-09-08).
+
+```rust
+pub fn heading_span(md: &str, line: usize, level: u8) -> std::ops::Range<usize> { /* ... */ }
+```
+
+### Constants and Statics
+
+#### Constant `ARTIFACT_LEVEL`
+
+The Markdown heading depth that delimits one artifact from the next: a
+single `#` (maintainer direction, GitHub #35, 2026-09-08).
+
+```rust
+pub const ARTIFACT_LEVEL: u8 = 1;
+```
+
+## Module `review`
+
+Code review: `kovan_root.toml` reviewer sections, per-folder `kovan.toml`,
+`review.md` entries and the function hash (GitHub #764).
+**Code review data model and staleness engine** (GitHub #764, #765;
+design decided on #739 and #740, 2026-10-06/07). Pure data and pure
+functions: no filesystem, no git, no clock. Builds for wasm, so desktop
+kovan, web-kovan and CI compute the same states from the same inputs.
+
+# The three files
+
+```text
+<workspace>/kovan_root.toml       reviewers and keys, pinned rust-analyzer,
+                                  deleted-crate history       -> [`root`]
+<folder>/kovan.toml               machine-owned, disposable cache: per file
+                                  and function id, hash, doc_hash, callees,
+                                  reaching tests, test evidence -> [`index`]
+<folder>/review.md                human-owned: reviews, needs-fix,
+                                  highlights, upstream confirmation,
+                                  deleted-functions history,
+                                  architecture nodes         -> [`review_md`]
+data/review_wizard.toml           the wizard's questions, sources and
+                                  stamp gate (#769, embedded) -> [`wizard`]
+```
+
+~~Test evidence (#766) is a fourth, workspace-level file,
+`kovan_test_evidence.toml`~~ **CORRECTED 2026-10-07** (maintainer, #766):
+test evidence lives in each folder's `kovan.toml` `[test_run]`, written
+by `kovan-cli test` from a counted run -> [`evidence`],
+[`crate::code_index::test_run`].
+
+# From source to state
+
+```text
+  source .rs ──[rust_items + hash]──> FnHashes ──┐
+                                                 ├──> FolderIndex (kovan.toml)
+  call graph / SCIP (#757) ──> callees, tests ───┘            │
+                                                              v
+  review.md ──[review_md]──> ReviewDocument ──> engine::evaluate ──> per-function StampState
+                                                              ^
+  git (kovan-discovery) ──> GitFacts (as data) ───────────────┘
+```
+
+# AI agents never stamp
+
+A review entry records that **a human** reviewed a function. This module
+reads and writes the format; nothing here creates a review on anyone's
+behalf, and the engine shows any stamp whose commit carries the agent
+attribution trailer as unverified.
+
+# Not here yet
+
+- ~~Signature cryptography (GitHub #762): [`signing`] defines the field and
+  the signed bytes; verification is a stub that never verifies.~~
+  **CORRECTED 2026-10-07**: #762 landed; [`signing`] verifies ed25519
+  stamps against the `[[reviewer]]` registry, and its native-only
+  `keystore` generates and encrypts keys for desktop kovan.
+- Hashing nested functions, constants and types (ruled stampable on #739,
+  2026-10-06): [`index::ItemKind`] has room for them; only functions are
+  hashed by [`hash`] today.
+- ~~Building `kovan.toml` from SCIP (#757) and the git side
+  (kovan-discovery).~~ **CORRECTED 2026-10-07**: [`crate::code_index`]
+  builds it (#767, `kovan-cli index`); the git facts the engine takes
+  ([`engine::GitFacts`]) are still built by the caller.
+- ~~The staleness engine itself (#765): `engine::evaluate` in the picture
+  above is the next step and is not in this module yet.~~ **CORRECTED
+  2026-10-07**: [`engine::evaluate`] is here (#765), with the state
+  vocabulary in [`state`].
+- Resolving a function's concept areas (for rung 5) from its review's
+  `implements` relations: [`engine::evaluate`] takes them as data.
+
+```rust
+pub mod review { /* ... */ }
+```
+
+### Modules
+
+## Module `engine`
+
+The **staleness engine** (GitHub #765): a pure function from the folders'
+`review.md` entries, the current `kovan.toml` indexes, the reviewer
+registry and git facts **passed in as data** to each function's stamp
+state. No filesystem, no git, no clock: desktop kovan, web-kovan and CI
+call it with the same inputs and get the same answer.
+
+# The rules (#739 D6 and the 2026-10-07 comments, #740 U4/U5)
+
+Each standing review is judged on its own, in this order; the first rule
+that applies gives its state.
+
+1. **Find the function.** By the review's stable id; failing that, by
+   hash among current functions that no review claims by id (a rename or
+   move whose id the index did not keep). One candidate: found, and the
+   match is reported in [`Evaluation::id_matches`]. Several: moved, with
+   the candidates, for the maintainer to say which is the original.
+   None: **deleted** (a rename and edit in one commit lands here: the old
+   review goes to history and the function itself is **new**).
+2. **Authenticity** ([`UnverifiedReason`]). The git facts for the stamp
+   must exist; the commit that added it must not carry the agent
+   attribution trailer; it must come after the commit it certifies; and
+   the function's hash recomputed **at that certified commit** must equal
+   the recorded hash (time-bound stamps). The reviewer must be registered
+   in `kovan_root.toml`, and the stamp dated before any revocation (or
+   compromise). With [`SignaturePolicy::Enforce`] the signature must
+   verify against the registry (#762): a scope refusal there is **outside
+   scope**, a revocation or compromise is unverified with that reason,
+   anything else unverified with the signature's reason.
+3. **Scope.** A `reviewer` (not a `maintainer`) must have the function's
+   file in scope, else **outside scope**. Reviewer and key state are
+   read only through the #762 [`Registry`].
+3b. **Rung.** The recorded rung must equal the derived one (see
+   **Rungs** below), else **invalid**: shown, never counted.
+4. **Own code.** Hash changed: **directly stale**. Same hash but the
+   resolved callees differ from those recorded: also directly stale (a
+   callee resolving differently, #739 decision 14).
+5. **Location.** Found somewhere other than the review's `path`:
+   **moved**, carrying the reaching-test verdict for the acknowledge.
+6. **Callees.** A recorded callee's hash differs now (or it is gone):
+   **inherited stale**, one level only. It always needs a human
+   re-confirm; the re-confirm is **blocked** unless the reaching tests
+   pass (or none reach it, which is the separate "untested" flag).
+7. **Doc.** Only `doc_hash` changed: **doc changed**.
+8. **Cargo.lock.** The review recorded a different lock: **pending
+   workspace test**, until a full run at the current lock; then **valid**
+   if no reaching test failed, else inherited stale (blocked).
+9. Otherwise **valid**.
+
+Per function, **a concern beats an approval**: an open needs-fix gives
+**needs fix** while the hash is the one it was raised against and
+**fixed** once the code changed, whatever the reviews say. Otherwise the
+function is valid if any review is, else it takes the most actionable
+review state ([`AGGREGATE_ORDER`]), else **new**. An unreadable entry is
+no review: it only shows as **review unreadable** when nothing else
+stands.
+
+**Rungs.** A stamp's rung is **derived, never chosen** (maintainer,
+#769, 2026-10-07; [`crate::review::wizard::derived_rung`]): 4 when the
+V&V answers qualify, the V&V case was written and verified by hand, and
+git shows no agent trailer on the commits that added the tests that
+reached the function **at the review commit**, with git facts as of that
+commit ([`StampFacts::tests_at_review`]; maintainer on #765, 2026-10-07).
+~~the tests reaching the function now (`GitFacts::test_commit_messages`)~~
+**CORRECTED 2026-10-07**: today's reach would let a later test change a
+past review's rung. Else 3. The engine recomputes it on read, and a
+recorded `rung` that differs makes the review **invalid**: shown, never
+counted (Leak Before Break).
+
+**The wizard gate is re-run on read** (maintainer on #765, 2026-10-07):
+a stamp whose answers the gate now blocks (an unanswered applicable
+question, a blocking answer, a legacy or unknown key) is **invalid**.
+Applicability: a port when the folder's upstream says so; a physical
+interface when the review answered `units_documented` (the index does
+not record interfaces, so the reviewer's own judgement is taken).
+
+**Flags** ([`FunctionFlag`]) never void a stamp: a test that reaches the
+function now but did not at the review commit ("new test reaches
+reviewed function": flagged for review, and itself unreviewed code), and
+identical copies of reviewed code ("duplicate code": the review shows on
+**every** candidate; maintainer on #765, 2026-10-07).
+~~A review's rung 4 counts only when the wizard's gate opens it,
+otherwise it counts as rung 3 and is flagged~~ **CORRECTED 2026-10-07**. A
+function is at **rung 5** when, besides its earliest valid review, a
+valid review exists by a different reviewer who is not one of the code's
+authors (from git), whose wizard answer to `independence` is
+`someone_else` ([`ReviewReport::independent`]; maintainer on #769,
+2026-10-07: independence gates rung 5, not rung 4) **and** who holds a
+qualification covering every concept
+area of the function ([`ConceptAreas`]; maintainer, #739, 2026-10-07:
+"only rung 5 enforces qualification"). A function with no known concept
+area cannot reach rung 5. Below rung 5 qualification is shown
+([`ReviewReport::qualifications`]) and never enforced; scope is.
+
+**Test evidence** is the folder's `[test_run]`, judged by #766's
+[`reach_verdict`] (full suite only, current `Cargo.lock`, edited tests
+never count as passes), plus the engine's own check that the function's
+hash at the run's commit is its hash now ([`GitFacts::hashes_at_test_run`];
+[`TestVerdict::ChangedSinceRun`] otherwise). ~~A run "the caller says is
+current" counts~~ **CORRECTED 2026-10-07**: the check is per function.
+
+```rust
+pub mod engine { /* ... */ }
+```
+
+### Types
+
+#### Struct `FolderReviews`
+
+One folder's `review.md`, with where it is.
+
+```rust
+pub struct FolderReviews {
+    pub krate: String,
+    pub dir: String,
+    pub doc: super::review_md::ReviewDocument,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `krate` | `String` |  |
+| `dir` | `String` | Workspace-relative folder. |
+| `doc` | `super::review_md::ReviewDocument` |  |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> FolderReviews { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &FolderReviews) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Struct `ReviewKey`
+
+A standing review's key: one per reviewer per function.
+
+```rust
+pub struct ReviewKey {
+    pub function: String,
+    pub by: String,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `function` | `String` |  |
+| `by` | `String` |  |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> ReviewKey { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Comparable**
+  - ```rust
+    fn compare(self: &Self, key: &K) -> Ordering { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **Ord**
+  - ```rust
+    fn cmp(self: &Self, other: &ReviewKey) -> $crate::cmp::Ordering { /* ... */ }
+    ```
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &ReviewKey) -> bool { /* ... */ }
+    ```
+
+- **PartialOrd**
+  - ```rust
+    fn partial_cmp(self: &Self, other: &ReviewKey) -> $crate::option::Option<$crate::cmp::Ordering> { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Struct `StampCommit`
+
+The commit that added a stamp to `review.md`.
+
+```rust
+pub struct StampCommit {
+    pub commit: String,
+    pub after_certified: bool,
+    pub agent_trailer: bool,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `commit` | `String` |  |
+| `after_certified` | `bool` | It is a strict descendant of the commit the stamp certifies. |
+| `agent_trailer` | `bool` | Its message carries `Co-Authored-By: Claude…` or `Claude-Session:`. |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> StampCommit { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &StampCommit) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Struct `StampFacts`
+
+What git says about one stamp (computed by the caller).
+
+```rust
+pub struct StampFacts {
+    pub hash_at_commit: Option<String>,
+    pub added_in: Option<StampCommit>,
+    pub tests_at_review: Option<TestsAtReview>,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `hash_at_commit` | `Option<String>` | The function's `hash` recomputed at the certified commit; `None` when<br>it could not be found there. |
+| `added_in` | `Option<StampCommit>` | `None` when the stamp is not committed yet. |
+| `tests_at_review` | `Option<TestsAtReview>` | The tests that reached the function at the certified commit, with<br>git facts as of that commit; `None` when not computed (then git's<br>view is unknown: rung 3, and no new-test flags). |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> StampFacts { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &StampFacts) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Struct `TestsAtReview`
+
+The tests reaching a function at its review commit (maintainer on #765,
+2026-10-07: "judge the rung from the tests that reached the function at
+the review commit").
+
+```rust
+pub struct TestsAtReview {
+    pub reached_by: Vec<String>,
+    pub commit_messages: std::collections::BTreeMap<String, Vec<String>>,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `reached_by` | `Vec<String>` | Test ids (the call graph's reach at that commit). |
+| `commit_messages` | `std::collections::BTreeMap<String, Vec<String>>` | Test id -> the messages of the commits, up to the review commit, that<br>added or changed it. |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn authorship(self: &Self) -> TestAuthorship { /* ... */ }
+  ```
+  Git's view of who wrote these tests: human when every one has commit
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> TestsAtReview { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Default**
+  - ```rust
+    fn default() -> TestsAtReview { /* ... */ }
+    ```
+
+- **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &TestsAtReview) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Struct `PublishRecord`
+
+A publish-time verification record (#773, not built yet): what a
+crates.io copy carries instead of git history. Read into
+[`GitFacts::publish_records`]; until #773 defines and checks it, a stamp
+that has only a record is [`UnverifiedReason::PublishRecordNotChecked`].
+
+```rust
+pub struct PublishRecord {
+    pub published_from: String,
+    pub raw: String,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `published_from` | `String` | The commit the package was published from. |
+| `raw` | `String` | The record as stored, opaque until #773. |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> PublishRecord { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &PublishRecord) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Struct `GitFacts`
+
+Git, as data.
+
+```rust
+pub struct GitFacts {
+    pub head: String,
+    pub cargo_lock: String,
+    pub hashes_at_test_run: std::collections::BTreeMap<String, String>,
+    pub stamps: std::collections::BTreeMap<ReviewKey, StampFacts>,
+    pub code_authors: std::collections::BTreeMap<String, std::collections::BTreeSet<String>>,
+    pub deleted_in: std::collections::BTreeMap<String, String>,
+    pub publish_records: std::collections::BTreeMap<ReviewKey, PublishRecord>,
+    pub previous_root: Option<super::root::ReviewRoot>,
+    pub tag_commits: std::collections::BTreeMap<(String, String), String>,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `head` | `String` |  |
+| `cargo_lock` | `String` | `sha256:` hash of the current `Cargo.lock`. |
+| `hashes_at_test_run` | `std::collections::BTreeMap<String, String>` | Function id -> its hash at the `[test_run]` commit (#766: "the engine<br>still checks that the function hash is unchanged since the evidence<br>commit"). A function missing here is treated as changed: the run<br>does not speak for it. |
+| `stamps` | `std::collections::BTreeMap<ReviewKey, StampFacts>` |  |
+| `code_authors` | `std::collections::BTreeMap<String, std::collections::BTreeSet<String>>` | Function id -> the reviewer ids of the people who wrote its code. |
+| `deleted_in` | `std::collections::BTreeMap<String, String>` | Deleted function id -> the commit that deleted it. |
+| `publish_records` | `std::collections::BTreeMap<ReviewKey, PublishRecord>` | ~~`test_commit_messages`: test id -> commit messages, for today's<br>reaching tests~~ **CORRECTED 2026-10-07**: replaced by<br>[`StampFacts::tests_at_review`], as of the review commit.<br><br>Publish-time verification records for copies without git (#773). |
+| `previous_root` | `Option<super::root::ReviewRoot>` | The previous committed `kovan_root.toml` (parsed), for the<br>append-only check of key histories ([`HistoryWarning`]). `None` when<br>there is no earlier commit of it. |
+| `tag_commits` | `std::collections::BTreeMap<(String, String), String>` | (repository URL, tag) -> the commit the tag points at now, for the<br>tags the caller could look up (local or vendored clone, `git<br>ls-remote`). Offline, it is empty and tags show as unchecked. |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> GitFacts { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Default**
+  - ```rust
+    fn default() -> GitFacts { /* ... */ }
+    ```
+
+- **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &GitFacts) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Struct `UpstreamTagReport`
+
+An upstream tag label, checked (#764, 2026-10-07: "a tag moved state").
+
+```rust
+pub struct UpstreamTagReport {
+    pub dir: String,
+    pub architecture: Option<String>,
+    pub repository: Option<String>,
+    pub tag: String,
+    pub commit: String,
+    pub check: super::types::TagCheck,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `dir` | `String` | The folder whose `review.md` holds it. |
+| `architecture` | `Option<String>` | The architecture entry it is on; `None` for the folder's upstream. |
+| `repository` | `Option<String>` |  |
+| `tag` | `String` |  |
+| `commit` | `String` |  |
+| `check` | `super::types::TagCheck` |  |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> UpstreamTagReport { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &UpstreamTagReport) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Type Alias `ConceptAreas`
+
+Function id -> the concept-tree areas it implements (resolved by the
+caller from the review's `implements` relations, #739 decision 21).
+
+```rust
+pub type ConceptAreas = std::collections::BTreeMap<String, std::collections::BTreeSet<String>>;
+```
+
+#### Enum `SignaturePolicy`
+
+Whether signatures are required.
+
+```rust
+pub enum SignaturePolicy {
+    Enforce,
+    NotChecked,
+}
+```
+
+##### Variants
+
+###### `Enforce`
+
+A stamp counts only with a signature that verifies against the
+`kovan_root.toml` registry (#762). The normal setting.
+
+###### `NotChecked`
+
+Signatures are not checked; every other authenticity rule (git
+facts, trailer, time-bound, registered and unrevoked reviewer) still
+applies. ~~`AwaitingCrypto`, until #762 lands~~ **CORRECTED
+2026-10-07**: #762 has landed; this is for tools and tests that judge
+staleness alone, and its results must not be shown as reviewed.
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> SignaturePolicy { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &SignaturePolicy) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Struct `Location`
+
+Where a function is.
+
+```rust
+pub struct Location {
+    pub file: String,
+    pub qual: String,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `file` | `String` | Workspace-relative file. |
+| `qual` | `String` | `name` or `Type::name`. |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Location { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Comparable**
+  - ```rust
+    fn compare(self: &Self, key: &K) -> Ordering { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **Ord**
+  - ```rust
+    fn cmp(self: &Self, other: &Location) -> $crate::cmp::Ordering { /* ... */ }
+    ```
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Location) -> bool { /* ... */ }
+    ```
+
+- **PartialOrd**
+  - ```rust
+    fn partial_cmp(self: &Self, other: &Location) -> $crate::option::Option<$crate::cmp::Ordering> { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Enum `UnverifiedReason`
+
+Why a stamp's authenticity does not hold.
+
+```rust
+pub enum UnverifiedReason {
+    NoGitFacts,
+    NotCommitted,
+    AgentTrailer,
+    NotAfterCertifiedCommit,
+    HashMismatchAtCommit {
+        at_commit: Option<String>,
+    },
+    UnknownReviewer,
+    Revoked,
+    Compromised,
+    PublishRecordNotChecked,
+    Signature(super::signing::UnverifiedReason),
+}
+```
+
+##### Variants
+
+###### `NoGitFacts`
+
+No git facts for the stamp (a copy without history, or not looked up).
+
+###### `NotCommitted`
+
+Not committed yet.
+
+###### `AgentTrailer`
+
+Added in a commit with the agent attribution trailer ("AI never
+stamps").
+
+###### `NotAfterCertifiedCommit`
+
+Added in, or before, the commit it certifies.
+
+###### `HashMismatchAtCommit`
+
+The function at the certified commit does not hash to the recorded
+hash (an edit copied into a stamp, or the wrong commit).
+
+Fields:
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `at_commit` | `Option<String>` |  |
+
+###### `UnknownReviewer`
+
+`by` is not a `[[reviewer]]` of `kovan_root.toml`.
+
+###### `Revoked`
+
+Dated on or after the reviewer's revocation.
+
+###### `Compromised`
+
+Dated on or after the key's compromise date.
+
+###### `PublishRecordNotChecked`
+
+No git facts, but a publish-time record (#773) that this engine
+cannot check yet.
+
+###### `Signature`
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `super::signing::UnverifiedReason` |  |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> UnverifiedReason { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &UnverifiedReason) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Enum `TestVerdict`
+
+The reaching-test verdict for one function.
+
+```rust
+pub enum TestVerdict {
+    Reach(super::evidence::verdict::ReachVerdict),
+    ChangedSinceRun,
+}
+```
+
+##### Variants
+
+###### `Reach`
+
+#766's verdict ([`reach_verdict`]), for a function whose hash is
+unchanged since the run.
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `super::evidence::verdict::ReachVerdict` |  |
+
+###### `ChangedSinceRun`
+
+The function's hash at the run's commit differs from now, or is not
+known: the recorded run cannot speak for it (pending).
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn allows_reconfirm(self: &Self) -> bool { /* ... */ }
+  ```
+  Whether a re-confirm may be given: every counting reaching test
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> TestVerdict { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &TestVerdict) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Enum `StaleWhy`
+
+Why a review is directly stale.
+
+```rust
+pub enum StaleWhy {
+    CodeChanged {
+        reviewed: String,
+        now: String,
+    },
+    CalleesResolveDifferently {
+        added: Vec<String>,
+        removed: Vec<String>,
+    },
+}
+```
+
+##### Variants
+
+###### `CodeChanged`
+
+Fields:
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `reviewed` | `String` |  |
+| `now` | `String` |  |
+
+###### `CalleesResolveDifferently`
+
+Same code, but callees resolve differently.
+
+Fields:
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `added` | `Vec<String>` |  |
+| `removed` | `Vec<String>` |  |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> StaleWhy { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &StaleWhy) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Enum `InheritedCause`
+
+What made a review inherited-stale.
+
+```rust
+pub enum InheritedCause {
+    Callees(Vec<String>),
+    LockTestFailed,
+}
+```
+
+##### Variants
+
+###### `Callees`
+
+These callees' hashes changed (or they are gone).
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `Vec<String>` |  |
+
+###### `LockTestFailed`
+
+A reaching test failed at the new `Cargo.lock`.
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> InheritedCause { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &InheritedCause) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Enum `StampState`
+
+A state with its details.
+
+```rust
+pub enum StampState {
+    Valid,
+    DirectlyStale(StaleWhy),
+    DocChanged,
+    InheritedStale {
+        cause: InheritedCause,
+        tests: TestVerdict,
+        blocked: bool,
+    },
+    Moved {
+        from: Option<Location>,
+        to: Location,
+        tests: TestVerdict,
+        candidates: Vec<String>,
+    },
+    Deleted,
+    New,
+    NeedsFixOpen {
+        entry: String,
+        note: String,
+    },
+    Fixed {
+        entry: String,
+        note: String,
+    },
+    Unverified(UnverifiedReason),
+    OutsideScope,
+    Unreadable {
+        message: String,
+    },
+    PendingWorkspaceTest {
+        reviewed_lock: String,
+        current_lock: String,
+    },
+    Invalid(InvalidReason),
+}
+```
+
+##### Variants
+
+###### `Valid`
+
+###### `DirectlyStale`
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `StaleWhy` |  |
+
+###### `DocChanged`
+
+###### `InheritedStale`
+
+Fields:
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `cause` | `InheritedCause` |  |
+| `tests` | `TestVerdict` |  |
+| `blocked` | `bool` | Re-confirm is disabled until the reaching tests pass. |
+
+###### `Moved`
+
+Fields:
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `from` | `Option<Location>` |  |
+| `to` | `Location` |  |
+| `tests` | `TestVerdict` |  |
+| `candidates` | `Vec<String>` | More than one identical candidate: which is the original? |
+
+###### `Deleted`
+
+###### `New`
+
+###### `NeedsFixOpen`
+
+Fields:
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `entry` | `String` |  |
+| `note` | `String` |  |
+
+###### `Fixed`
+
+Fields:
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `entry` | `String` |  |
+| `note` | `String` |  |
+
+###### `Unverified`
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `UnverifiedReason` |  |
+
+###### `OutsideScope`
+
+###### `Unreadable`
+
+Fields:
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `message` | `String` |  |
+
+###### `PendingWorkspaceTest`
+
+Fields:
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `reviewed_lock` | `String` |  |
+| `current_lock` | `String` |  |
+
+###### `Invalid`
+
+The entry reads but contradicts what can be derived: shown, never
+counted (Leak Before Break).
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `InvalidReason` |  |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn kind(self: &Self) -> StateKind { /* ... */ }
+  ```
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> StampState { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &StampState) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Enum `InvalidReason`
+
+Why a readable review is invalid.
+
+```rust
+pub enum InvalidReason {
+    RungMismatch {
+        recorded: u8,
+        derived: u8,
+        tests: super::wizard::TestAuthorship,
+    },
+    GateBlocked(Vec<super::wizard::GateReason>),
+}
+```
+
+##### Variants
+
+###### `RungMismatch`
+
+`[review] rung` is not the rung derived from the answers and git.
+
+Fields:
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `recorded` | `u8` |  |
+| `derived` | `u8` |  |
+| `tests` | `super::wizard::TestAuthorship` |  |
+
+###### `GateBlocked`
+
+The wizard gate, re-run on read, blocks the recorded answers.
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `Vec<super::wizard::GateReason>` |  |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> InvalidReason { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &InvalidReason) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Enum `FunctionFlag`
+
+A flag on a function: shown, queued for a person, never voids a stamp.
+
+```rust
+pub enum FunctionFlag {
+    NewReachingTests {
+        review: String,
+        tests: Vec<String>,
+    },
+    DuplicateCode {
+        copies: Vec<String>,
+    },
+}
+```
+
+##### Variants
+
+###### `NewReachingTests`
+
+Tests reaching the function now that did not reach it at a review's
+commit: flagged for review, and themselves unreviewed code.
+
+Fields:
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `review` | `String` |  |
+| `tests` | `Vec<String>` |  |
+
+###### `DuplicateCode`
+
+Identical code (same hash) found more than once: the review shows on
+every copy; `copies` are the other candidates.
+
+Fields:
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `copies` | `Vec<String>` |  |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn kind(self: &Self) -> FlagKind { /* ... */ }
+  ```
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> FunctionFlag { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &FunctionFlag) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Struct `NewReachingTest`
+
+A test function that started reaching a reviewed function after its
+review (an engine output, for the queue and for the test's own review).
+
+```rust
+pub struct NewReachingTest {
+    pub test: String,
+    pub function: String,
+    pub review: String,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `test` | `String` |  |
+| `function` | `String` |  |
+| `review` | `String` |  |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> NewReachingTest { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Comparable**
+  - ```rust
+    fn compare(self: &Self, key: &K) -> Ordering { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **Ord**
+  - ```rust
+    fn cmp(self: &Self, other: &NewReachingTest) -> $crate::cmp::Ordering { /* ... */ }
+    ```
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &NewReachingTest) -> bool { /* ... */ }
+    ```
+
+- **PartialOrd**
+  - ```rust
+    fn partial_cmp(self: &Self, other: &NewReachingTest) -> $crate::option::Option<$crate::cmp::Ordering> { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Struct `ReviewReport`
+
+One review, judged.
+
+```rust
+pub struct ReviewReport {
+    pub by: String,
+    pub artifact: Option<String>,
+    pub date: Option<String>,
+    pub state: StampState,
+    pub rung: Option<u8>,
+    pub qualifications: Vec<String>,
+    pub independent: bool,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `by` | `String` |  |
+| `artifact` | `Option<String>` | The `review.md` artifact id (`None` for an unreadable entry). |
+| `date` | `Option<String>` |  |
+| `state` | `StampState` |  |
+| `rung` | `Option<u8>` | The rung recorded (3 or 4); it counts only when it equals the<br>derived rung (else the state is invalid). |
+| `qualifications` | `Vec<String>` | The reviewer's qualification labels, shown beside the stamp<br>(self-declared ones say so). |
+| `independent` | `bool` | The wizard says the reviewer is independent of the code<br>(`independence = "someone_else"`): may be rung 5's second review. |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> ReviewReport { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &ReviewReport) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Struct `FunctionReport`
+
+One function, judged.
+
+```rust
+pub struct FunctionReport {
+    pub id: String,
+    pub location: Option<Location>,
+    pub state: StampState,
+    pub reviews: Vec<ReviewReport>,
+    pub rung: Option<u8>,
+    pub untested: bool,
+    pub blocked_by: Vec<String>,
+    pub flags: Vec<FunctionFlag>,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `id` | `String` |  |
+| `location` | `Option<Location>` | Where it is now (`None` for a deleted function). |
+| `state` | `StampState` |  |
+| `reviews` | `Vec<ReviewReport>` |  |
+| `rung` | `Option<u8>` | 3, 4 or 5 when valid. |
+| `untested` | `bool` | The standing "no test reaches this function" flag. |
+| `blocked_by` | `Vec<String>` | Workspace callees whose own state does not count (bottom-up). |
+| `flags` | `Vec<FunctionFlag>` | Flags that never void a stamp ([`FunctionFlag`]). |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> FunctionReport { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &FunctionReport) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Enum `HistoryPlacement`
+
+Where a deleted function's history row goes (#739 D6).
+
+```rust
+pub enum HistoryPlacement {
+    FolderReviewMd {
+        dir: String,
+    },
+    CrateIndex {
+        krate: String,
+        dir: String,
+        deleted_folder: String,
+    },
+    WorkspaceRoot {
+        krate: String,
+        dir: String,
+    },
+}
+```
+
+##### Variants
+
+###### `FolderReviewMd`
+
+The folder still exists: its `review.md` deleted-functions table.
+
+Fields:
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `dir` | `String` |  |
+
+###### `CrateIndex`
+
+The folder is gone, the crate is not: the crate root `kovan.toml`.
+
+Fields:
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `krate` | `String` |  |
+| `dir` | `String` |  |
+| `deleted_folder` | `String` |  |
+
+###### `WorkspaceRoot`
+
+The crate is gone: `kovan_root.toml`.
+
+Fields:
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `krate` | `String` |  |
+| `dir` | `String` |  |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> HistoryPlacement { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Comparable**
+  - ```rust
+    fn compare(self: &Self, key: &K) -> Ordering { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **Ord**
+  - ```rust
+    fn cmp(self: &Self, other: &HistoryPlacement) -> $crate::cmp::Ordering { /* ... */ }
+    ```
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &HistoryPlacement) -> bool { /* ... */ }
+    ```
+
+- **PartialOrd**
+  - ```rust
+    fn partial_cmp(self: &Self, other: &HistoryPlacement) -> $crate::option::Option<$crate::cmp::Ordering> { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Struct `HistoryRow`
+
+A deleted function's history row and where it goes.
+
+```rust
+pub struct HistoryRow {
+    pub placement: HistoryPlacement,
+    pub row: super::review_md::DeletedFunction,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `placement` | `HistoryPlacement` |  |
+| `row` | `super::review_md::DeletedFunction` |  |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> HistoryRow { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &HistoryRow) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Struct `IdMatch`
+
+A review id matched back to a current function by hash.
+
+```rust
+pub struct IdMatch {
+    pub review_function: String,
+    pub current_id: String,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `review_function` | `String` |  |
+| `current_id` | `String` |  |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> IdMatch { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Comparable**
+  - ```rust
+    fn compare(self: &Self, key: &K) -> Ordering { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **Ord**
+  - ```rust
+    fn cmp(self: &Self, other: &IdMatch) -> $crate::cmp::Ordering { /* ... */ }
+    ```
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &IdMatch) -> bool { /* ... */ }
+    ```
+
+- **PartialOrd**
+  - ```rust
+    fn partial_cmp(self: &Self, other: &IdMatch) -> $crate::option::Option<$crate::cmp::Ordering> { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Struct `OrphanUnreadable`
+
+An unreadable entry that names no current function.
+
+```rust
+pub struct OrphanUnreadable {
+    pub dir: String,
+    pub heading: String,
+    pub line: usize,
+    pub message: String,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `dir` | `String` |  |
+| `heading` | `String` |  |
+| `line` | `usize` |  |
+| `message` | `String` |  |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> OrphanUnreadable { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &OrphanUnreadable) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Struct `Evaluation`
+
+The engine's result.
+
+```rust
+pub struct Evaluation {
+    pub functions: std::collections::BTreeMap<String, FunctionReport>,
+    pub deleted: Vec<FunctionReport>,
+    pub history: Vec<HistoryRow>,
+    pub id_matches: Vec<IdMatch>,
+    pub orphan_unreadable: Vec<OrphanUnreadable>,
+    pub upstream_tags: Vec<UpstreamTagReport>,
+    pub history_warnings: Vec<HistoryWarning>,
+    pub new_reaching_tests: Vec<NewReachingTest>,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `functions` | `std::collections::BTreeMap<String, FunctionReport>` | Every current function, by current id. |
+| `deleted` | `Vec<FunctionReport>` | Functions whose reviews remain but which are gone. |
+| `history` | `Vec<HistoryRow>` |  |
+| `id_matches` | `Vec<IdMatch>` |  |
+| `orphan_unreadable` | `Vec<OrphanUnreadable>` |  |
+| `upstream_tags` | `Vec<UpstreamTagReport>` | Every upstream tag label with its check; informational only, the<br>commit pin is what counts. |
+| `history_warnings` | `Vec<HistoryWarning>` | Key-history entries that were committed before and are now gone or<br>changed: loud warnings (append-only check against git). |
+| `new_reaching_tests` | `Vec<NewReachingTest>` | Tests that started reaching a reviewed function after its review. |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn move_batches(self: &Self) -> BTreeMap<(String, String), Vec<String>> { /* ... */ }
+  ```
+  Moves awaiting acknowledge, grouped by (from folder, to folder), for
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Evaluation { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Default**
+  - ```rust
+    fn default() -> Evaluation { /* ... */ }
+    ```
+
+- **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Evaluation) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Enum `HistoryWarning`
+
+A breach of the append-only key history (#762 follow-up, 2026-10-07):
+the file alone cannot show that its LAST entry was deleted, so the
+previous committed `kovan_root.toml` is compared. Loud; it does not by
+itself change a stamp's state.
+
+```rust
+pub enum HistoryWarning {
+    ReviewerRemoved {
+        reviewer: String,
+    },
+    KeyRemoved {
+        reviewer: String,
+        key: String,
+    },
+    EntryRemoved {
+        reviewer: String,
+        key: String,
+        index: usize,
+    },
+    EntryChanged {
+        reviewer: String,
+        key: String,
+        index: usize,
+    },
+}
+```
+
+##### Variants
+
+###### `ReviewerRemoved`
+
+A reviewer committed before is gone.
+
+Fields:
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `reviewer` | `String` |  |
+
+###### `KeyRemoved`
+
+A key committed before is gone.
+
+Fields:
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `reviewer` | `String` |  |
+| `key` | `String` |  |
+
+###### `EntryRemoved`
+
+History entry `index` (0-based) of the key is gone.
+
+Fields:
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `reviewer` | `String` |  |
+| `key` | `String` |  |
+| `index` | `usize` |  |
+
+###### `EntryChanged`
+
+History entry `index` was changed.
+
+Fields:
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `reviewer` | `String` |  |
+| `key` | `String` |  |
+| `index` | `usize` |  |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> HistoryWarning { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &HistoryWarning) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+### Functions
+
+#### Function `history_append_only`
+
+Compare the previous committed root with the current one: every
+reviewer, key and key-history entry present before must be present now,
+unchanged, at the same position (appending is the only change allowed).
+
+```rust
+pub fn history_append_only(previous: &super::root::ReviewRoot, current: &super::root::ReviewRoot) -> Vec<HistoryWarning> { /* ... */ }
+```
+
+#### Function `test_verdict`
+
+The reaching-test verdict of `f` from its folder's `test_run`: #766's
+[`reach_verdict`], unless a run exists and `f`'s hash at the run's commit
+is not its hash now.
+
+```rust
+pub fn test_verdict(f: &super::index::FunctionIndex, run: Option<&super::index::TestRun>, git: &GitFacts) -> TestVerdict { /* ... */ }
+```
+
+#### Function `evaluate`
+
+Judge every review and function (module doc). Pure and deterministic.
+
+```rust
+pub fn evaluate(reviews: &[FolderReviews], indexes: &[super::index::FolderIndex], root: &super::root::ReviewRoot, git: &GitFacts, concepts: &ConceptAreas, policy: SignaturePolicy) -> Evaluation { /* ... */ }
+```
+
+### Constants and Statics
+
+#### Constant `AGGREGATE_ORDER`
+
+When no review is valid, the function shows the first of these its
+reviews have.
+
+```rust
+pub const AGGREGATE_ORDER: [super::state::StateKind; 11] = _;
+```
+
+## Module `evidence`
+
+**Full-suite test evidence** (GitHub #766; decided on #739, D4 and
+"external dependency updates", 2026-10-07).
+
+`kovan-cli test` runs `cargo test --workspace --lib --tests --release`,
+streams its output through [`output::OutputParser`] and writes one
+[`TestEvidence`] file. This module is the pure half of that: no process,
+no filesystem, no git, no clock, so it builds for wasm and CI and the
+desktop compute the same answers from the same file.
+
+# Where the evidence lives
+
+~~`<workspace>/kovan_test_evidence.toml` holds counted evidence, and
+`kovan.toml`'s `[test_run]` is a re-projectable copy of it.~~
+**CORRECTED 2026-10-07** (maintainer, on #766: "test evidence lives IN
+kovan.toml, and the kovan.toml files ARE committed"; the separate file is
+dropped):
+
+```text
+<folder>/kovan.toml  [test_run]           a COUNTED run (full suite, clean
+                                          tree, every binary finished),
+                                          mapped to test ids and restricted
+                                          to the folder's tests
+                                          (crate::code_index::test_run)
+<workspace>/target/kovan/test_evidence_last.toml
+                                          the raw record of the last run,
+                                          counted or not; never counted by
+                                          itself
+```
+
+Because the evidence is the one costly input (about 2.5 h for the whole
+workspace), `kovan-cli index` **carries** each folder's `[test_run]`
+over when it regenerates a `kovan.toml`, recovers it from the last
+committed version when the file on disk is malformed, and otherwise
+leaves it absent (pending, never passed).
+
+# The file
+
+```toml
+schema_version = 1
+kind = "test_evidence"
+commit = "<HEAD sha>"
+dirty = false                 # tracked/untracked .rs, Cargo.toml, Cargo.lock
+cargo_lock = "sha256:…"       # Cargo.lock at the run
+date = "2026-10-07T12:00:00Z"
+rustc = "rustc 1.98.0 (88d9e12ae 2026-08-18)"
+cargo = "cargo 1.98.0 (797e8a9bc 2026-08-05)"
+command = ["cargo", "test", "--lib", …]
+scope = "full"                # or "partial", with partial_reasons
+exit_code = 0
+complete = true               # every test binary printed its summary
+[totals]
+passed = 8123
+failed = 0
+ignored = 41
+
+[[binary]]
+package = "kovan-common"
+kind = "lib"                  # lib | bin | test
+target = "kovan_common"
+src = "crates/kovan-common/src/lib.rs"
+expected = 173                # "running 173 tests"
+complete = true
+passed = ["review::index::tests::index_round_trips…", …]   # libtest names
+failed = []
+ignored = []
+[binary.summary]              # libtest's own "test result:" line
+passed = 173
+…
+```
+
+Test names are stored **as libtest printed them**, per binary. Mapping
+them to the call graph's test ids ([`crate::call_graph::reach`]) is a
+separate, re-runnable step ([`map`]), because the observation should not
+depend on the indexer's naming.
+
+# What counts
+
+[`TestEvidence::counted`]: the full suite (no package selection, filter or
+feature change; [`args`]), a clean tree, and every binary finished with
+its summary matching the lines parsed. A full run **with failures** counts:
+a failing test at the current `Cargo.lock` is exactly the evidence that
+makes the functions it reaches inherited-stale.
+
+# Not here
+
+Whether a function's hash is unchanged since `commit` (needs git) is the
+staleness engine's job (#765); [`verdict::reach_verdict`] answers only
+what the recorded run says about the tests that reach it.
+
+```rust
+pub mod evidence { /* ... */ }
+```
+
+### Modules
+
+## Module `args`
+
+Build the `cargo test` command from the user's extra arguments, and
+decide whether it is still the **full** suite.
+
+The base command is always
+
+```text
+cargo test --workspace --lib --tests --release --no-fail-fast \
+    --message-format=json-render-diagnostics
+```
+
+`--no-fail-fast` is added so one failing binary does not stop the rest
+of a 2.5-hour run (the results of every binary are evidence);
+`--message-format=json-render-diagnostics` only changes how cargo reports
+the *build* (diagnostics stay human-readable on stderr) and gives the
+exact package and source file of every test binary ([`super::output`]).
+`--workspace` is left out when a package is selected (`-p`), which makes
+the run partial anyway.
+
+# Result-neutral extras (the run stays full)
+
+cargo: `-j N`/`--jobs N`, `--release`, `--lib`, `--tests`, `--workspace`,
+`--all`, `--no-fail-fast`, `--offline`, `--locked`, `--frozen`,
+`-v`/`-vv`/`--verbose`, `--color X`, `--target-dir X`.
+After `--` (libtest): `--test-threads N`, `--show-output`,
+`--include-ignored` (runs more, never fewer).
+
+# Refused (the output could not be parsed)
+
+`-q`/`--quiet` (terse libtest output), `--message-format`, and after
+`--`: `--format`, `-q`/`--quiet`, `-Z`, `--list`, `--logfile`,
+`--nocapture`/`--no-capture` (test output interleaves with result lines).
+
+# Everything else makes the run partial
+
+`-p`, `--exclude`, `--features`, `--no-default-features` (switches the
+long tests off), `--test X`, test-name filters, `--skip`, `--exact`,
+`--ignored`, …: recorded as `partial_reasons`, never counted. The
+classification is deliberately conservative: an unknown argument is
+partial, not neutral.
+
+```rust
+pub mod args { /* ... */ }
+```
+
+### Types
+
+#### Struct `Plan`
+
+The planned command.
+
+```rust
+pub struct Plan {
+    pub args: Vec<String>,
+    pub partial_reasons: Vec<String>,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `args` | `Vec<String>` | The arguments after `cargo`. |
+| `partial_reasons` | `Vec<String>` | Why the run is not the full suite; empty when it is. |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Plan { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Plan) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Struct `Refused`
+
+Why the extra arguments cannot be run.
+
+```rust
+pub struct Refused(pub String);
+```
+
+##### Fields
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `String` |  |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Refused { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Display**
+  - ```rust
+    fn fmt(self: &Self, f: &mut std::fmt::Formatter<''_>) -> std::fmt::Result { /* ... */ }
+    ```
+
+- **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+- **Error**
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Refused) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **ToString**
+  - ```rust
+    fn to_string(self: &Self) -> String { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+### Functions
+
+#### Function `plan`
+
+Plan `cargo test` with the user's `extra` arguments (module doc).
+
+```rust
+pub fn plan(extra: &[String]) -> Result<Plan, Refused> { /* ... */ }
+```
+
+## Module `map`
+
+Map libtest names to the call graph's **test ids**, and project counted
+evidence onto `kovan.toml`'s `[test_run]` ([`TestRun`]).
+
+A test id is the call graph's function id ([`crate::call_graph`] module
+doc, [`crate::call_graph::reach`]): `crates/x/src/steam.rs::flash_works`,
+with **inline modules flattened** and `#k` appended when the name is not
+unique in its file. libtest prints the full module path from the target
+root: `steam::tests::flash_works`.
+
+# The rule
+
+1. The binary's `src` (workspace-relative root file) selects the call
+   graph target whose `root` is the same file (lib targets and
+   integration-test targets; bin targets are not in the call graph).
+2. The **longest file-module path** of that target that prefixes the
+   libtest name (`steam`, or `steam::tests` when `tests` is its own file)
+   selects the file; the root module has the empty path.
+3. The last segment is the function name. Exactly one test function
+   (`test_fn`) with that name in that file → its id.
+
+Zero candidates is [`Mapped::NoFunction`]; several (the same name in two
+inline modules of one file, ids ending `#k`) is [`Mapped::Ambiguous`]. In
+[`to_test_run`] an ambiguous **failure** marks every candidate failed
+(a failure is never dropped), an ambiguous pass marks none passed.
+
+```rust
+pub mod map { /* ... */ }
+```
+
+### Types
+
+#### Enum `Mapped`
+
+How one libtest name maps.
+
+```rust
+pub enum Mapped {
+    Id(String),
+    NoTarget,
+    NoFunction,
+    Ambiguous(Vec<String>),
+}
+```
+
+##### Variants
+
+###### `Id`
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `String` |  |
+
+###### `NoTarget`
+
+No call-graph target has this root file.
+
+###### `NoFunction`
+
+The target has no test function of that name where the path says.
+
+###### `Ambiguous`
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `Vec<String>` |  |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Mapped { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Mapped) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Struct `TestIdMap`
+
+The lookup built from one call graph.
+
+```rust
+pub struct TestIdMap {
+    // Some fields omitted
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| *private fields* | ... | *Some fields have been omitted* |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn from_graph(doc: &CallGraphDoc) -> TestIdMap { /* ... */ }
+  ```
+
+- ```rust
+  pub fn map(self: &Self, src: &str, name: &str) -> Mapped { /* ... */ }
+  ```
+  Map the libtest name `name` of the binary rooted at `src`.
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> TestIdMap { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Default**
+  - ```rust
+    fn default() -> TestIdMap { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Struct `Unmapped`
+
+A libtest name that did not map to one test id.
+
+```rust
+pub struct Unmapped {
+    pub src: String,
+    pub name: String,
+    pub why: Mapped,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `src` | `String` |  |
+| `name` | `String` |  |
+| `why` | `Mapped` |  |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Unmapped { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Unmapped) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+### Functions
+
+#### Function `to_test_run`
+
+The `[test_run]` table for `kovan.toml`, from **counted** evidence only
+(a partial, dirty or incomplete run gives its reasons instead, and the
+engine shows "test evidence pending"). Also returns the names that did
+not map to exactly one id.
+
+```rust
+pub fn to_test_run(evidence: &super::TestEvidence, map: &TestIdMap) -> Result<(super::super::index::TestRun, Vec<Unmapped>), Vec<super::NotCounted>> { /* ... */ }
+```
+
+#### Function `restrict`
+
+`run` restricted to the tests in `wanted` (one folder's `reached_by`),
+so a folder's `kovan.toml` carries only the evidence it uses.
+
+```rust
+pub fn restrict(run: &super::super::index::TestRun, wanted: &std::collections::BTreeSet<&str>) -> super::super::index::TestRun { /* ... */ }
+```
+
+## Module `output`
+
+Parse `cargo test` output, one line at a time, as it streams.
+
+Only **stable** formats are read: libtest's default human output and
+cargo's `--message-format=json-render-diagnostics` build messages. The
+unstable libtest JSON (`-Z unstable-options --format json`) is not used.
+
+```text
+{"reason":"compiler-artifact",…,"executable":"…/deps/x-hash"}   cargo, stdout
+     Running unittests src/lib.rs (target/release/deps/x-hash)   cargo, stderr
+running 3 tests                                                  libtest
+test a::b ... ok | FAILED | ignored[, reason]
+test c - should panic ... ok
+failures: / successes:            (detail sections, not parsed)
+test result: FAILED. 2 passed; 1 failed; 0 ignored; 0 measured; 0 filtered out; …
+```
+
+cargo's stderr and the test binaries' stdout must arrive **in one stream,
+in order** (the CLI gives both the same pipe), because the `Running` line
+is what says which binary the following results belong to.
+
+The JSON artifact message names the package and the target's root file
+exactly; it is matched to a `Running` line by the executable's file name.
+Without it (plain output) the package is left empty and the source path is
+taken, package-relative, from the `Running` line.
+
+Result lines are read only between `running N tests` and the first
+`failures:`/`successes:` section or the summary, so a test's captured
+output that happens to look like a result line is not mistaken for one.
+
+```rust
+pub mod output { /* ... */ }
+```
+
+### Types
+
+#### Enum `LineKind`
+
+What a line was, so the caller can decide what to echo.
+
+```rust
+pub enum LineKind {
+    Json,
+    Text,
+}
+```
+
+##### Variants
+
+###### `Json`
+
+A cargo JSON message: consumed, not for the terminal.
+
+###### `Text`
+
+Anything else: show it.
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> LineKind { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &LineKind) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Struct `OutputParser`
+
+The streaming parser.
+
+```rust
+pub struct OutputParser {
+    // Some fields omitted
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| *private fields* | ... | *Some fields have been omitted* |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn new(workspace_root: &str) -> OutputParser { /* ... */ }
+  ```
+  `workspace_root` is the absolute path that source paths are made
+
+- ```rust
+  pub fn feed(self: &mut Self, line: &str) -> LineKind { /* ... */ }
+  ```
+  Feed one line (without its newline).
+
+- ```rust
+  pub fn finish(self: Self) -> ParsedRun { /* ... */ }
+  ```
+  Everything parsed so far.
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> OutputParser { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Struct `ParsedRun`
+
+What the parser found.
+
+```rust
+pub struct ParsedRun {
+    pub binaries: Vec<super::BinaryResults>,
+    pub build_ok: bool,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `binaries` | `Vec<super::BinaryResults>` |  |
+| `build_ok` | `bool` | cargo's `build-finished` message said success (absent counts as<br>success only if at least one binary ran). |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> ParsedRun { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &ParsedRun) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+## Module `verdict`
+
+What the recorded run says about **one function**, from the tests that
+reach it (`kovan.toml` `reached_by`, [`crate::call_graph::reach`]) and
+the `[test_run]` table ([`TestRun`]). Called by the staleness engine
+(#765).
+
+# The rule, in order
+
+1. No test reaches the function → [`ReachVerdict::NoReachingTests`].
+2. No recorded run → pending ([`Pending::NoEvidence`]).
+3. A `quick` run → pending ([`Pending::QuickSuite`]): only the full suite
+   counts (#739 decision 12).
+4. The run's `Cargo.lock` hash differs from the current one → pending
+   ([`Pending::CargoLockChanged`]): "pending workspace test" until a full
+   pass at the new lock (#739, external dependency updates).
+5. Any reaching test failed → [`ReachVerdict::Failed`] (the engine makes
+   the function inherited-stale and blocks re-confirm).
+6. At least one reaching test passed → [`ReachVerdict::Passed`], listing
+   the reaching tests that did not run (`#[ignore]`d, newer than the run,
+   or edited in the change).
+7. Otherwise → [`ReachVerdict::NoneRan`].
+
+Tests listed in `edited` never count as passes (#739: tests edited in the
+change under test are not evidence); their failures still count.
+
+**Not decided here:** whether the function's hash is unchanged since the
+run's commit. That needs git, and is the engine's check: a verdict is
+only meaningful for a function the engine has found unchanged.
+
+```rust
+pub mod verdict { /* ... */ }
+```
+
+### Types
+
+#### Enum `Pending`
+
+Why the run cannot speak for the function yet.
+
+```rust
+pub enum Pending {
+    NoEvidence,
+    QuickSuite,
+    CargoLockChanged {
+        recorded: String,
+        current: String,
+    },
+}
+```
+
+##### Variants
+
+###### `NoEvidence`
+
+###### `QuickSuite`
+
+###### `CargoLockChanged`
+
+Fields:
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `recorded` | `String` |  |
+| `current` | `String` |  |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Pending { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Pending) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Enum `ReachVerdict`
+
+Rule list in the module doc.
+
+```rust
+pub enum ReachVerdict {
+    NoReachingTests,
+    Pending(Pending),
+    Failed {
+        failed: Vec<String>,
+    },
+    Passed {
+        passed: Vec<String>,
+        not_run: Vec<String>,
+    },
+    NoneRan {
+        not_run: Vec<String>,
+    },
+}
+```
+
+##### Variants
+
+###### `NoReachingTests`
+
+###### `Pending`
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `Pending` |  |
+
+###### `Failed`
+
+Fields:
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `failed` | `Vec<String>` |  |
+
+###### `Passed`
+
+Fields:
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `passed` | `Vec<String>` |  |
+| `not_run` | `Vec<String>` |  |
+
+###### `NoneRan`
+
+Fields:
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `not_run` | `Vec<String>` |  |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> ReachVerdict { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &ReachVerdict) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+### Functions
+
+#### Function `reach_verdict`
+
+The verdict for a function reached by `reached_by` (module doc).
+
+```rust
+pub fn reach_verdict(reached_by: &[String], run: Option<&super::super::index::TestRun>, current_cargo_lock: &str) -> ReachVerdict { /* ... */ }
+```
+
+### Types
+
+#### Enum `Scope`
+
+**Attributes:**
+
+- `Other("#[serde(rename_all = \"snake_case\")]")`
+
+Was the run the whole suite?
+
+```rust
+pub enum Scope {
+    Full,
+    Partial,
+}
+```
+
+##### Variants
+
+###### `Full`
+
+`cargo test --workspace --lib --tests --release`, with only
+result-neutral extras (`-j N`, `--test-threads N`, …; [`args`]).
+
+###### `Partial`
+
+Anything narrower or different; never counted.
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Scope { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Deserialize**
+  - ```rust
+    fn deserialize<__D>(__deserializer: __D) -> _serde::__private228::Result<Self, <__D as >::Error>
+where
+    __D: _serde::Deserializer<''de> { /* ... */ }
+    ```
+
+- **DeserializeOwned**
+- **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Scope) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **Serialize**
+  - ```rust
+    fn serialize<__S>(self: &Self, __serializer: __S) -> _serde::__private228::Result<<__S as >::Ok, <__S as >::Error>
+where
+    __S: _serde::Serializer { /* ... */ }
+    ```
+
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Enum `BinaryKind`
+
+**Attributes:**
+
+- `Other("#[serde(rename_all = \"snake_case\")]")`
+
+The kind of a test binary.
+
+```rust
+pub enum BinaryKind {
+    Lib,
+    Bin,
+    Test,
+    Other,
+}
+```
+
+##### Variants
+
+###### `Lib`
+
+A library's unit tests.
+
+###### `Bin`
+
+A binary target's unit tests.
+
+###### `Test`
+
+An integration-test target (`tests/*.rs`).
+
+###### `Other`
+
+Anything else cargo ran.
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> BinaryKind { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Comparable**
+  - ```rust
+    fn compare(self: &Self, key: &K) -> Ordering { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Deserialize**
+  - ```rust
+    fn deserialize<__D>(__deserializer: __D) -> _serde::__private228::Result<Self, <__D as >::Error>
+where
+    __D: _serde::Deserializer<''de> { /* ... */ }
+    ```
+
+- **DeserializeOwned**
+- **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **Ord**
+  - ```rust
+    fn cmp(self: &Self, other: &BinaryKind) -> $crate::cmp::Ordering { /* ... */ }
+    ```
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &BinaryKind) -> bool { /* ... */ }
+    ```
+
+- **PartialOrd**
+  - ```rust
+    fn partial_cmp(self: &Self, other: &BinaryKind) -> $crate::option::Option<$crate::cmp::Ordering> { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **Serialize**
+  - ```rust
+    fn serialize<__S>(self: &Self, __serializer: __S) -> _serde::__private228::Result<<__S as >::Ok, <__S as >::Error>
+where
+    __S: _serde::Serializer { /* ... */ }
+    ```
+
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Struct `Summary`
+
+libtest's `test result:` line for one binary.
+
+```rust
+pub struct Summary {
+    pub ok: bool,
+    pub passed: u32,
+    pub failed: u32,
+    pub ignored: u32,
+    pub measured: u32,
+    pub filtered_out: u32,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `ok` | `bool` |  |
+| `passed` | `u32` |  |
+| `failed` | `u32` |  |
+| `ignored` | `u32` |  |
+| `measured` | `u32` |  |
+| `filtered_out` | `u32` |  |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Summary { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Default**
+  - ```rust
+    fn default() -> Summary { /* ... */ }
+    ```
+
+- **Deserialize**
+  - ```rust
+    fn deserialize<__D>(__deserializer: __D) -> _serde::__private228::Result<Self, <__D as >::Error>
+where
+    __D: _serde::Deserializer<''de> { /* ... */ }
+    ```
+
+- **DeserializeOwned**
+- **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Summary) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **Serialize**
+  - ```rust
+    fn serialize<__S>(self: &Self, __serializer: __S) -> _serde::__private228::Result<<__S as >::Ok, <__S as >::Error>
+where
+    __S: _serde::Serializer { /* ... */ }
+    ```
+
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Struct `BinaryResults`
+
+The results of one test binary.
+
+```rust
+pub struct BinaryResults {
+    pub package: String,
+    pub kind: BinaryKind,
+    pub target: String,
+    pub src: String,
+    pub expected: Option<u32>,
+    pub summary: Option<Summary>,
+    pub complete: bool,
+    pub passed: Vec<String>,
+    pub failed: Vec<String>,
+    pub ignored: Vec<String>,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `package` | `String` | The Cargo package name; empty when the build messages did not say. |
+| `kind` | `BinaryKind` |  |
+| `target` | `String` | The Cargo target name. |
+| `src` | `String` | The target's root file, workspace-relative, `/`-separated. |
+| `expected` | `Option<u32>` | From `running N tests`. |
+| `summary` | `Option<Summary>` |  |
+| `complete` | `bool` | The summary was printed and matches the result lines parsed. |
+| `passed` | `Vec<String>` |  |
+| `failed` | `Vec<String>` |  |
+| `ignored` | `Vec<String>` |  |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn summary_matches(self: &Self) -> bool { /* ... */ }
+  ```
+  Whether the summary line agrees with the result lines parsed.
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> BinaryResults { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Deserialize**
+  - ```rust
+    fn deserialize<__D>(__deserializer: __D) -> _serde::__private228::Result<Self, <__D as >::Error>
+where
+    __D: _serde::Deserializer<''de> { /* ... */ }
+    ```
+
+- **DeserializeOwned**
+- **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &BinaryResults) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **Serialize**
+  - ```rust
+    fn serialize<__S>(self: &Self, __serializer: __S) -> _serde::__private228::Result<<__S as >::Ok, <__S as >::Error>
+where
+    __S: _serde::Serializer { /* ... */ }
+    ```
+
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Struct `Totals`
+
+Counts over every binary.
+
+```rust
+pub struct Totals {
+    pub passed: usize,
+    pub failed: usize,
+    pub ignored: usize,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `passed` | `usize` |  |
+| `failed` | `usize` |  |
+| `ignored` | `usize` |  |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Totals { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Default**
+  - ```rust
+    fn default() -> Totals { /* ... */ }
+    ```
+
+- **Deserialize**
+  - ```rust
+    fn deserialize<__D>(__deserializer: __D) -> _serde::__private228::Result<Self, <__D as >::Error>
+where
+    __D: _serde::Deserializer<''de> { /* ... */ }
+    ```
+
+- **DeserializeOwned**
+- **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Totals) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **Serialize**
+  - ```rust
+    fn serialize<__S>(self: &Self, __serializer: __S) -> _serde::__private228::Result<<__S as >::Ok, <__S as >::Error>
+where
+    __S: _serde::Serializer { /* ... */ }
+    ```
+
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Struct `TestEvidence`
+
+One `kovan-cli test` run (module doc).
+
+```rust
+pub struct TestEvidence {
+    pub schema_version: u32,
+    pub kind: String,
+    pub commit: String,
+    pub dirty: bool,
+    pub dirty_paths: Vec<String>,
+    pub cargo_lock: String,
+    pub date: String,
+    pub rustc: String,
+    pub cargo: String,
+    pub command: Vec<String>,
+    pub scope: Scope,
+    pub partial_reasons: Vec<String>,
+    pub exit_code: Option<i32>,
+    pub complete: bool,
+    pub totals: Totals,
+    pub binaries: Vec<BinaryResults>,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `schema_version` | `u32` |  |
+| `kind` | `String` |  |
+| `commit` | `String` | `git rev-parse HEAD` at the run. |
+| `dirty` | `bool` | Uncommitted changes to `.rs`, `Cargo.toml`, `Cargo.lock` or cargo<br>config, before or after the run: the results then do not describe<br>`commit`, and the run is never counted. |
+| `dirty_paths` | `Vec<String>` |  |
+| `cargo_lock` | `String` | `sha256:` of `Cargo.lock`'s bytes at the run. |
+| `date` | `String` | UTC, ISO 8601. |
+| `rustc` | `String` |  |
+| `cargo` | `String` |  |
+| `command` | `Vec<String>` | The exact command run, `cargo` first. |
+| `scope` | `Scope` |  |
+| `partial_reasons` | `Vec<String>` |  |
+| `exit_code` | `Option<i32>` | cargo's exit code; `None` when it was killed by a signal. |
+| `complete` | `bool` | The build succeeded and every binary is complete. |
+| `totals` | `Totals` |  |
+| `binaries` | `Vec<BinaryResults>` |  |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn new(commit: String, dirty_paths: Vec<String>, cargo_lock: String, date: String, rustc: String, cargo: String, command: Vec<String>, plan_reasons: Vec<String>, exit_code: Option<i32>, build_ok: bool, binaries: Vec<BinaryResults>) -> TestEvidence { /* ... */ }
+  ```
+  Assemble a run's evidence. `complete` and `totals` are derived from
+
+- ```rust
+  pub fn counted(self: &Self) -> Result<(), Vec<NotCounted>> { /* ... */ }
+  ```
+  `Ok` when the run is full-suite evidence (module doc, What counts);
+
+- ```rust
+  pub fn destination(self: &Self) -> &'static str { /* ... */ }
+  ```
+  The workspace-relative path this run's raw record is written to:
+
+- ```rust
+  pub fn parse(text: &str) -> Result<TestEvidence, EvidenceError> { /* ... */ }
+  ```
+  Read an evidence file.
+
+- ```rust
+  pub fn to_toml(self: &Self) -> Result<String, EvidenceError> { /* ... */ }
+  ```
+  The file's text (deterministic for the same data).
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> TestEvidence { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Deserialize**
+  - ```rust
+    fn deserialize<__D>(__deserializer: __D) -> _serde::__private228::Result<Self, <__D as >::Error>
+where
+    __D: _serde::Deserializer<''de> { /* ... */ }
+    ```
+
+- **DeserializeOwned**
+- **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &TestEvidence) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **Serialize**
+  - ```rust
+    fn serialize<__S>(self: &Self, __serializer: __S) -> _serde::__private228::Result<<__S as >::Ok, <__S as >::Error>
+where
+    __S: _serde::Serializer { /* ... */ }
+    ```
+
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Enum `NotCounted`
+
+Why a run does not count as full-suite evidence.
+
+```rust
+pub enum NotCounted {
+    Partial(Vec<String>),
+    Dirty(Vec<String>),
+    Incomplete(Vec<String>),
+}
+```
+
+##### Variants
+
+###### `Partial`
+
+Not the whole suite; the reasons.
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `Vec<String>` |  |
+
+###### `Dirty`
+
+Uncommitted changes; the paths.
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `Vec<String>` |  |
+
+###### `Incomplete`
+
+The build failed, or these binaries did not finish (crashed, killed)
+or printed a summary that disagrees with their result lines.
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `Vec<String>` |  |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> NotCounted { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Display**
+  - ```rust
+    fn fmt(self: &Self, f: &mut std::fmt::Formatter<''_>) -> std::fmt::Result { /* ... */ }
+    ```
+
+- **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &NotCounted) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **ToString**
+  - ```rust
+    fn to_string(self: &Self) -> String { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Enum `EvidenceError`
+
+Why an evidence file could not be read.
+
+```rust
+pub enum EvidenceError {
+    Toml(String),
+    NotEvidence {
+        kind: String,
+    },
+    NewerSchema(u32),
+    Field(super::types::FieldError),
+}
+```
+
+##### Variants
+
+###### `Toml`
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `String` |  |
+
+###### `NotEvidence`
+
+Fields:
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `kind` | `String` |  |
+
+###### `NewerSchema`
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `u32` |  |
+
+###### `Field`
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `super::types::FieldError` |  |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> EvidenceError { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Display**
+  - ```rust
+    fn fmt(self: &Self, f: &mut std::fmt::Formatter<''_>) -> std::fmt::Result { /* ... */ }
+    ```
+
+- **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+- **Error**
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &EvidenceError) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **ToString**
+  - ```rust
+    fn to_string(self: &Self) -> String { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+### Functions
+
+#### Function `is_build_input`
+
+A file whose uncommitted change can change what `cargo test` builds:
+Rust source, a manifest, the lock file, cargo config, the toolchain pin.
+
+```rust
+pub fn is_build_input(path: &str) -> bool { /* ... */ }
+```
+
+#### Function `dirty_build_inputs`
+
+The build inputs among `git status --porcelain --untracked-files=all`
+lines (tracked changes and untracked files alike: an untracked
+`tests/*.rs` is a new test target). Both sides of a rename are listed.
+
+```rust
+pub fn dirty_build_inputs(porcelain: &str) -> Vec<String> { /* ... */ }
+```
+
+### Constants and Statics
+
+#### Constant `EVIDENCE_FILE`
+
+~~The counted evidence file, at the workspace root (next to
+`Cargo.lock`).~~ **CORRECTED 2026-10-07**: no longer written; counted
+evidence goes into each folder's `kovan.toml` (module doc). The name is
+kept for error messages about an evidence document.
+
+```rust
+pub const EVIDENCE_FILE: &str = "kovan_test_evidence.toml";
+```
+
+#### Constant `UNCOUNTED_FILE`
+
+Where every run's raw record is written, workspace-relative (under the
+gitignored `target/`). ~~Only runs that do not count.~~ **CORRECTED
+2026-10-07**: every run; a counted one is also written into the
+`kovan.toml` files.
+
+```rust
+pub const UNCOUNTED_FILE: &str = "target/kovan/test_evidence_last.toml";
+```
+
+#### Constant `EVIDENCE_KIND`
+
+`kind = "test_evidence"`: a code-folder `kovan.toml` reader refuses it.
+
+```rust
+pub const EVIDENCE_KIND: &str = "test_evidence";
+```
+
+#### Constant `EVIDENCE_SCHEMA_VERSION`
+
+The `schema_version` written; additive changes never bump it.
+
+```rust
+pub const EVIDENCE_SCHEMA_VERSION: u32 = 1;
+```
+
+## Module `hash`
+
+The **function hash** of code review (maintainer, #739, 2026-10-07; data
+walkthrough U5 on #740).
+
+- `hash` covers the **normalised tokens of the signature and body**:
+  whitespace, formatting, plain `//` and `/* */` comments and the
+  function's **own name** are excluded. Renaming a function alone keeps
+  its hash (the review follows it); any other token change, a variable
+  rename included, changes it.
+- `doc_hash` covers the `///` doc comment separately, so editing it raises
+  the lighter "doc changed" flag rather than a full re-review.
+
+Both are `sha256:` + 64 lowercase hex digits over a domain-separated
+input, so a code text can never collide with a doc text:
+
+```text
+hash     = sha256("kovan-fn-code-v1\n" + code_without_name)
+doc_hash = sha256("kovan-fn-doc-v1\n"  + normalised doc)
+```
+
+The normalisation itself (which tokens, how a doc paragraph is
+re-wrapped) is [`super::rust_items`]' and is reused, not repeated: the
+code text is [`FnEntry::code_without_name`], the doc text
+[`FnEntry::doc`]. Pure Rust (`syn`, `sha2`), so it runs in web-kovan too.
+
+```rust
+pub mod hash { /* ... */ }
+```
+
+### Types
+
+#### Struct `FnHashes`
+
+A function's two hashes.
+
+```rust
+pub struct FnHashes {
+    pub hash: String,
+    pub doc_hash: String,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `hash` | `String` | Signature and body, name excluded. |
+| `doc_hash` | `String` | The `///` doc comment. |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> FnHashes { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Comparable**
+  - ```rust
+    fn compare(self: &Self, key: &K) -> Ordering { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **Ord**
+  - ```rust
+    fn cmp(self: &Self, other: &FnHashes) -> $crate::cmp::Ordering { /* ... */ }
+    ```
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &FnHashes) -> bool { /* ... */ }
+    ```
+
+- **PartialOrd**
+  - ```rust
+    fn partial_cmp(self: &Self, other: &FnHashes) -> $crate::option::Option<$crate::cmp::Ordering> { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Struct `HashedFn`
+
+One function of a file with its hashes.
+
+```rust
+pub struct HashedFn {
+    pub entry: super::rust_items::FnEntry,
+    pub hashes: FnHashes,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `entry` | `super::rust_items::FnEntry` |  |
+| `hashes` | `FnHashes` |  |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> HashedFn { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &HashedFn) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Struct `HashError`
+
+The source text does not parse as Rust.
+
+```rust
+pub struct HashError(pub String);
+```
+
+##### Fields
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `String` |  |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> HashError { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Display**
+  - ```rust
+    fn fmt(self: &Self, f: &mut std::fmt::Formatter<''_>) -> std::fmt::Result { /* ... */ }
+    ```
+
+- **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+- **Error**
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &HashError) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **ToString**
+  - ```rust
+    fn to_string(self: &Self) -> String { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+### Functions
+
+#### Function `sha256_tagged`
+
+`sha256:` + lowercase hex of SHA-256 over `bytes`.
+
+```rust
+pub fn sha256_tagged(bytes: &[u8]) -> String { /* ... */ }
+```
+
+#### Function `code_hash`
+
+`hash` of a normalised, name-free code text.
+
+```rust
+pub fn code_hash(code_without_name: &str) -> String { /* ... */ }
+```
+
+#### Function `doc_hash`
+
+`doc_hash` of a normalised doc text.
+
+```rust
+pub fn doc_hash(doc: &str) -> String { /* ... */ }
+```
+
+#### Function `fn_hashes`
+
+Both hashes of one parsed function.
+
+```rust
+pub fn fn_hashes(f: &super::rust_items::FnEntry) -> FnHashes { /* ... */ }
+```
+
+#### Function `hash_functions`
+
+Every function of a Rust source file, in source order, with its hashes.
+
+```rust
+pub fn hash_functions(source: &str) -> Result<Vec<HashedFn>, HashError> { /* ... */ }
+```
+
+## Module `id`
+
+**Stable function ids** (maintainer, #764, 2026-10-07: "the stable id is
+a hybrid").
+
+- `target = "fn:<opaque>"` in a `review.md` entry's `[kovan]` table is the
+  **join key**. It never changes: not on a rename, a file move or a
+  folder move.
+- `path` (`file.rs::Type::name`) is an attribute holding the current
+  location; kovan updates it when the maintainer acknowledges a move, and
+  the move is recorded as `[[review.moved]]` (from, to, commit).
+
+# Minting
+
+At first index (or first review) a function's id is minted from three
+things that are fixed at that moment:
+
+```text
+fn:<first 16 hex digits of sha256("kovan-fn-id-v1\n" + first path + "\n"
+                                   + first hash + "\n" + first-seen commit)>
+```
+
+16 hex digits (64 bits) keep ids short in `review.md` while a collision
+among a workspace's ~10^5 functions stays below 10^-9. The inputs are
+recorded nowhere else; the id is opaque afterwards.
+
+# The first-version form
+
+Before 2026-10-07 an entry named its function by the call-graph key
+(`[review] function = "file.rs::Type::name"`, `[kovan] target =
+"code:…"`). Nothing on disk uses it yet, but it still reads:
+[`super::review_md::parse_review_md`] migrates it in memory
+([`super::review_md::ReviewDocument::migrated`]), minting the id from the
+key, the review's hash and its commit, so the next save writes the new
+form.
+
+```rust
+pub mod id { /* ... */ }
+```
+
+### Functions
+
+#### Function `mint_fn_id`
+
+Mint an id (module doc).
+
+```rust
+pub fn mint_fn_id(first_path: &str, first_hash: &str, first_commit: &str) -> String { /* ... */ }
+```
+
+#### Function `is_fn_id`
+
+Whether `s` is `fn:` + 16 lowercase hex digits.
+
+```rust
+pub fn is_fn_id(s: &str) -> bool { /* ... */ }
+```
+
+#### Function `is_fn_path`
+
+Whether `path` looks like `file.rs::item` (a current location).
+
+```rust
+pub fn is_fn_path(path: &str) -> bool { /* ... */ }
+```
+
+### Constants and Statics
+
+#### Constant `FN_ID_PREFIX`
+
+The prefix of a function id.
+
+```rust
+pub const FN_ID_PREFIX: &str = "fn:";
+```
+
+## Module `index`
+
+The per-folder code-review **`kovan.toml`** (maintainer, #739 decisions
+2, 8, 10, 11, 13 and "kovan.toml is a disposable cache", 2026-10-07).
+
+One per folder, covering every `.rs` file in it. Machine-owned: generated
+deterministically from the source, `review.md` and git, never
+hand-edited, and **fully rebuildable**. A missing, malformed,
+hand-edited or conflicted one is regenerated silently by the caller; this
+module only reads and writes it and reports, with [`IndexError`], why a
+file could not be read.
+
+It is a **new kind** of `kovan.toml` (`kind = "code_folder"`), so the
+literature entity `kovan.toml` files (`kind = "paper"`, …) are untouched,
+and [`FolderIndex::parse`] refuses one of those with
+[`IndexError::NotACodeFolder`] rather than misreading it.
+
+```toml
+schema_version = 1
+kind = "code_folder"
+crate = "tampines"
+dir = "crates/tampines/src"
+commit = "<sha>"                  # optional; `kovan-cli index` leaves it out (#767: it would change every file on every commit)
+
+[module."steam.rs"]
+path = "crate::steam"
+
+[[module."steam.rs".function]]
+id = "fn:3f2a9c0d1e4b5a67"       # stable join key (`super::id`)
+name = "flash"                    # display only
+qual = "SteamTable::flash"        # the code-walk path today
+lines = [120, 158]
+hash = "sha256:…"
+doc_hash = "sha256:…"
+callees = ["fn:0a1b2c3d4e5f6071"]
+reached_by = ["crates/tampines/tests/flash.rs::flash_matches_iapws"]
+
+[test_run]                        # last `kovan-cli test` evidence
+commit = "<sha>"
+cargo_lock = "sha256:…"
+suite = "full"
+passed = ["…"]
+failed = []
+edited = []                       # tests edited in the change: never count
+
+[upstream]                        # cached from review.md
+…
+
+[[review]]                        # cached list of review.md's reviews
+function = "…"
+by = "github:…"
+artifact = "review-…"
+
+[[deleted_folder]]                # crate root folder only (#739 D6)
+dir = "crates/tampines/src/old"
+[[deleted_folder.function]]
+…
+```
+
+# Stable ids
+
+~~A function's `id` is the call graph's key at first index~~
+**CORRECTED 2026-10-07** (hybrid id, #764): a function's `id` is the
+opaque `fn:<16 hex>` of [`super::id`], minted at first index from (first
+path, first hash, first-seen commit) and kept through renames and moves.
+The indexer matches ids back from `review.md` (an entry's `target`), and
+for a function no entry names it may reuse the previous `kovan.toml`'s
+id for the same path and hash or mint a new one: nothing outside
+`review.md` refers to an unreviewed function's id, so a new id for it is
+harmless. `qual` and the folder/file say where it is now.
+
+# Determinism
+
+Modules are a `BTreeMap` keyed by file name; [`FolderIndex::to_toml`]
+sorts functions by first line then id, and every list it owns.
+
+```rust
+pub mod index { /* ... */ }
+```
+
+### Types
+
+#### Enum `ItemKind`
+
+**Attributes:**
+
+- `Other("#[serde(rename_all = \"snake_case\")]")`
+
+What kind of item an entry is. Functions are hashed today; the
+maintainer ruled (#739, 2026-10-06) that nested functions, constants and
+types are stamped too, which later indexers add without a schema change.
+
+```rust
+pub enum ItemKind {
+    Fn,
+    Const,
+    Static,
+    Type,
+}
+```
+
+##### Variants
+
+###### `Fn`
+
+###### `Const`
+
+###### `Static`
+
+###### `Type`
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> ItemKind { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Comparable**
+  - ```rust
+    fn compare(self: &Self, key: &K) -> Ordering { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Default**
+  - ```rust
+    fn default() -> ItemKind { /* ... */ }
+    ```
+
+- **Deserialize**
+  - ```rust
+    fn deserialize<__D>(__deserializer: __D) -> _serde::__private228::Result<Self, <__D as >::Error>
+where
+    __D: _serde::Deserializer<''de> { /* ... */ }
+    ```
+
+- **DeserializeOwned**
+- **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **Ord**
+  - ```rust
+    fn cmp(self: &Self, other: &ItemKind) -> $crate::cmp::Ordering { /* ... */ }
+    ```
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &ItemKind) -> bool { /* ... */ }
+    ```
+
+- **PartialOrd**
+  - ```rust
+    fn partial_cmp(self: &Self, other: &ItemKind) -> $crate::option::Option<$crate::cmp::Ordering> { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **Serialize**
+  - ```rust
+    fn serialize<__S>(self: &Self, __serializer: __S) -> _serde::__private228::Result<<__S as >::Ok, <__S as >::Error>
+where
+    __S: _serde::Serializer { /* ... */ }
+    ```
+
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Struct `FunctionIndex`
+
+One function (item) of a file.
+
+```rust
+pub struct FunctionIndex {
+    pub id: String,
+    pub name: String,
+    pub qual: String,
+    pub item: ItemKind,
+    pub lines: [u32; 2],
+    pub hash: String,
+    pub doc_hash: String,
+    pub callees: Vec<String>,
+    pub reached_by: Vec<String>,
+    pub test: bool,
+    pub index_out_of_date: bool,
+    pub physical_interface: bool,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `id` | `String` | The stable join key, `fn:<opaque>` (module doc). A first-version<br>file holds call-graph keys here; the cache is regenerated, so they<br>are never migrated. |
+| `name` | `String` | Display only. |
+| `qual` | `String` | The code-walk path within the file (`name` or `Type::name`). |
+| `item` | `ItemKind` |  |
+| `lines` | `[u32; 2]` | 1-based inclusive line range, doc comment included. |
+| `hash` | `String` |  |
+| `doc_hash` | `String` |  |
+| `callees` | `Vec<String>` | Resolved workspace callees, by stable id (std, external and<br>unresolved calls are not listed). |
+| `reached_by` | `Vec<String>` | Every test that reaches the function (by test id). |
+| `test` | `bool` | A test function, or inside `#[cfg(test)]`. |
+| `index_out_of_date` | `bool` | Added 2026-10-07 (#767, additive): written by the rust-analyzer-free<br>refresh ([`crate::code_index::refresh`]) when the function is new or<br>its code changed since the last full `kovan-cli index`, so its<br>`callees` and `reached_by` could not be recomputed. Shown as "index<br>out of date: run kovan-cli index", never silently trusted. |
+| `physical_interface` | `bool` | Added 2026-10-07 (#767, additive): a physical quantity (a `uom`<br>type or a workspace alias of one) crosses the signature, so the<br>review wizard's units question applies<br>([`crate::code_index::physical`]). |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> FunctionIndex { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Deserialize**
+  - ```rust
+    fn deserialize<__D>(__deserializer: __D) -> _serde::__private228::Result<Self, <__D as >::Error>
+where
+    __D: _serde::Deserializer<''de> { /* ... */ }
+    ```
+
+- **DeserializeOwned**
+- **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &FunctionIndex) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **Serialize**
+  - ```rust
+    fn serialize<__S>(self: &Self, __serializer: __S) -> _serde::__private228::Result<<__S as >::Ok, <__S as >::Error>
+where
+    __S: _serde::Serializer { /* ... */ }
+    ```
+
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Struct `ModuleIndex`
+
+`[module."<file>.rs"]`.
+
+```rust
+pub struct ModuleIndex {
+    pub path: String,
+    pub functions: Vec<FunctionIndex>,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `path` | `String` | The module path, `crate::steam`. |
+| `functions` | `Vec<FunctionIndex>` |  |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> ModuleIndex { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Default**
+  - ```rust
+    fn default() -> ModuleIndex { /* ... */ }
+    ```
+
+- **Deserialize**
+  - ```rust
+    fn deserialize<__D>(__deserializer: __D) -> _serde::__private228::Result<Self, <__D as >::Error>
+where
+    __D: _serde::Deserializer<''de> { /* ... */ }
+    ```
+
+- **DeserializeOwned**
+- **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &ModuleIndex) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **Serialize**
+  - ```rust
+    fn serialize<__S>(self: &Self, __serializer: __S) -> _serde::__private228::Result<<__S as >::Ok, <__S as >::Error>
+where
+    __S: _serde::Serializer { /* ... */ }
+    ```
+
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Enum `Suite`
+
+**Attributes:**
+
+- `Other("#[serde(rename_all = \"snake_case\")]")`
+
+Which suite produced the evidence (#739 decision 12: only the full suite
+counts).
+
+```rust
+pub enum Suite {
+    Full,
+    Quick,
+}
+```
+
+##### Variants
+
+###### `Full`
+
+`cargo test --workspace --lib --tests --release`, long tests included.
+
+###### `Quick`
+
+`cargo quick-test`: recorded, never counted.
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Suite { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Deserialize**
+  - ```rust
+    fn deserialize<__D>(__deserializer: __D) -> _serde::__private228::Result<Self, <__D as >::Error>
+where
+    __D: _serde::Deserializer<''de> { /* ... */ }
+    ```
+
+- **DeserializeOwned**
+- **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Suite) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **Serialize**
+  - ```rust
+    fn serialize<__S>(self: &Self, __serializer: __S) -> _serde::__private228::Result<<__S as >::Ok, <__S as >::Error>
+where
+    __S: _serde::Serializer { /* ... */ }
+    ```
+
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Struct `TestRun`
+
+`[test_run]`: the evidence `kovan-cli test` recorded (D4), mapped onto
+test ids by [`super::evidence::map::to_test_run`] (only counted,
+full-suite runs) and written here by
+[`crate::code_index::test_run::write_counted`]. ~~Projected from the
+workspace's `kovan_test_evidence.toml`~~ **CORRECTED 2026-10-07**: this
+table is the record (maintainer, #766); regeneration carries it over.
+
+```rust
+pub struct TestRun {
+    pub commit: String,
+    pub cargo_lock: String,
+    pub suite: Suite,
+    pub passed: Vec<String>,
+    pub failed: Vec<String>,
+    pub edited: Vec<String>,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `commit` | `String` |  |
+| `cargo_lock` | `String` | Hash of `Cargo.lock` at the run. |
+| `suite` | `Suite` |  |
+| `passed` | `Vec<String>` |  |
+| `failed` | `Vec<String>` |  |
+| `edited` | `Vec<String>` | Tests edited in the change under test: never counted as evidence. |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> TestRun { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Deserialize**
+  - ```rust
+    fn deserialize<__D>(__deserializer: __D) -> _serde::__private228::Result<Self, <__D as >::Error>
+where
+    __D: _serde::Deserializer<''de> { /* ... */ }
+    ```
+
+- **DeserializeOwned**
+- **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &TestRun) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **Serialize**
+  - ```rust
+    fn serialize<__S>(self: &Self, __serializer: __S) -> _serde::__private228::Result<<__S as >::Ok, <__S as >::Error>
+where
+    __S: _serde::Serializer { /* ... */ }
+    ```
+
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Struct `CachedReview`
+
+`[[review]]`: the cached list of `review.md`'s reviews, so a deleted
+`review.md` is noticed (kovan then asks before restoring it from git).
+
+```rust
+pub struct CachedReview {
+    pub function: String,
+    pub by: String,
+    pub artifact: String,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `function` | `String` |  |
+| `by` | `String` |  |
+| `artifact` | `String` |  |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> CachedReview { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Comparable**
+  - ```rust
+    fn compare(self: &Self, key: &K) -> Ordering { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Deserialize**
+  - ```rust
+    fn deserialize<__D>(__deserializer: __D) -> _serde::__private228::Result<Self, <__D as >::Error>
+where
+    __D: _serde::Deserializer<''de> { /* ... */ }
+    ```
+
+- **DeserializeOwned**
+- **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **Ord**
+  - ```rust
+    fn cmp(self: &Self, other: &CachedReview) -> $crate::cmp::Ordering { /* ... */ }
+    ```
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &CachedReview) -> bool { /* ... */ }
+    ```
+
+- **PartialOrd**
+  - ```rust
+    fn partial_cmp(self: &Self, other: &CachedReview) -> $crate::option::Option<$crate::cmp::Ordering> { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **Serialize**
+  - ```rust
+    fn serialize<__S>(self: &Self, __serializer: __S) -> _serde::__private228::Result<<__S as >::Ok, <__S as >::Error>
+where
+    __S: _serde::Serializer { /* ... */ }
+    ```
+
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Struct `DeletedFolder`
+
+`[[deleted_folder]]`: a deleted folder's review history, kept in the
+crate root folder's `kovan.toml` (#739 D6).
+
+```rust
+pub struct DeletedFolder {
+    pub dir: String,
+    pub deleted_commit: Option<String>,
+    pub functions: Vec<super::review_md::DeletedFunction>,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `dir` | `String` |  |
+| `deleted_commit` | `Option<String>` |  |
+| `functions` | `Vec<super::review_md::DeletedFunction>` |  |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> DeletedFolder { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Deserialize**
+  - ```rust
+    fn deserialize<__D>(__deserializer: __D) -> _serde::__private228::Result<Self, <__D as >::Error>
+where
+    __D: _serde::Deserializer<''de> { /* ... */ }
+    ```
+
+- **DeserializeOwned**
+- **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &DeletedFolder) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **Serialize**
+  - ```rust
+    fn serialize<__S>(self: &Self, __serializer: __S) -> _serde::__private228::Result<<__S as >::Ok, <__S as >::Error>
+where
+    __S: _serde::Serializer { /* ... */ }
+    ```
+
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Struct `FolderIndex`
+
+One folder's `kovan.toml`.
+
+```rust
+pub struct FolderIndex {
+    pub schema_version: u32,
+    pub kind: String,
+    pub krate: String,
+    pub dir: String,
+    pub crate_root: bool,
+    pub commit: Option<String>,
+    pub modules: std::collections::BTreeMap<String, ModuleIndex>,
+    pub test_run: Option<TestRun>,
+    pub upstream: Option<super::review_md::UpstreamTable>,
+    pub reviews: Vec<CachedReview>,
+    pub deleted_folders: Vec<DeletedFolder>,
+    pub test_ids: Vec<String>,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `schema_version` | `u32` |  |
+| `kind` | `String` |  |
+| `krate` | `String` |  |
+| `dir` | `String` | The folder, workspace-relative, `/`-separated. |
+| `crate_root` | `bool` | Whether this is the crate's root folder (the one holding `lib.rs` or<br>`main.rs`); only that one keeps `deleted_folder` history. |
+| `commit` | `Option<String>` |  |
+| `modules` | `std::collections::BTreeMap<String, ModuleIndex>` |  |
+| `test_run` | `Option<TestRun>` |  |
+| `upstream` | `Option<super::review_md::UpstreamTable>` |  |
+| `reviews` | `Vec<CachedReview>` |  |
+| `deleted_folders` | `Vec<DeletedFolder>` |  |
+| `test_ids` | `Vec<String>` | Added 2026-10-07 (#767, additive; **on disk only**): the folder's<br>test-id table. [`FolderIndex::to_toml`] writes every test id once<br>here and each `reached_by` / `[test_run]` list entry as `"#<index>"`<br>into it; [`FolderIndex::parse`] expands them back and leaves this<br>empty, so in memory the lists always hold full test ids. Measured on<br>`njoy-outram-park-fork/src/reconr` (2026-10-07): the full ids made<br>1.54 MB of a 1.59 MB file. A file without the table (the first<br>version) reads as before. |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn new</* synthetic */ impl Into<String>: Into<String>, /* synthetic */ impl Into<String>: Into<String>>(krate: impl Into<String>, dir: impl Into<String>) -> FolderIndex { /* ... */ }
+  ```
+  An empty index of `dir` in `krate`.
+
+- ```rust
+  pub fn parse(text: &str) -> Result<FolderIndex, IndexError> { /* ... */ }
+  ```
+  Read a `kovan.toml`, checking that it is a code-folder index and that
+
+- ```rust
+  pub fn functions(self: &Self) -> impl Iterator<Item = (&str, &FunctionIndex)> { /* ... */ }
+  ```
+  Every function with its file name, in file then line order.
+
+- ```rust
+  pub fn file_path(self: &Self, file: &str) -> String { /* ... */ }
+  ```
+  The workspace-relative path of `file` in this folder.
+
+- ```rust
+  pub fn normalise(self: &mut Self) { /* ... */ }
+  ```
+  Sort everything this module owns (module doc, Determinism).
+
+- ```rust
+  pub fn to_toml(self: &Self) -> Result<String, IndexError> { /* ... */ }
+  ```
+  The `kovan.toml` text, normalised first, so the same data gives the
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> FolderIndex { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Deserialize**
+  - ```rust
+    fn deserialize<__D>(__deserializer: __D) -> _serde::__private228::Result<Self, <__D as >::Error>
+where
+    __D: _serde::Deserializer<''de> { /* ... */ }
+    ```
+
+- **DeserializeOwned**
+- **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &FolderIndex) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **Serialize**
+  - ```rust
+    fn serialize<__S>(self: &Self, __serializer: __S) -> _serde::__private228::Result<<__S as >::Ok, <__S as >::Error>
+where
+    __S: _serde::Serializer { /* ... */ }
+    ```
+
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Enum `IndexError`
+
+Why a `kovan.toml` could not be read as a code-review folder index.
+
+```rust
+pub enum IndexError {
+    Toml(String),
+    NotACodeFolder {
+        kind: String,
+    },
+    NewerSchema(u32),
+    Field(super::types::FieldError),
+    DuplicateId(String),
+}
+```
+
+##### Variants
+
+###### `Toml`
+
+Not TOML, or not this schema (the caller regenerates).
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `String` |  |
+
+###### `NotACodeFolder`
+
+A `kovan.toml` of another kind (a literature entity): not ours.
+
+Fields:
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `kind` | `String` |  |
+
+###### `NewerSchema`
+
+Written by a newer kovan than this one.
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `u32` |  |
+
+###### `Field`
+
+A hash or commit field is malformed.
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `super::types::FieldError` |  |
+
+###### `DuplicateId`
+
+Two functions share an id.
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `String` |  |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> IndexError { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Display**
+  - ```rust
+    fn fmt(self: &Self, f: &mut std::fmt::Formatter<''_>) -> std::fmt::Result { /* ... */ }
+    ```
+
+- **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+- **Error**
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &IndexError) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **ToString**
+  - ```rust
+    fn to_string(self: &Self) -> String { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+### Constants and Statics
+
+#### Constant `INDEX_SCHEMA_VERSION`
+
+The `schema_version` this module writes. Additive changes never bump it
+(decision 11); readers accept any version up to this one.
+
+```rust
+pub const INDEX_SCHEMA_VERSION: u32 = 1;
+```
+
+#### Constant `CODE_FOLDER_KIND`
+
+`kind = "code_folder"`.
+
+```rust
+pub const CODE_FOLDER_KIND: &str = "code_folder";
+```
+
+## Module `review_md`
+
+**`review.md`**: the human-owned review record of one folder (maintainer,
+#739 decisions 6, 7, 10 and later comments, 2026-10-07), in the shared
+kovan artifact format (#743): every entry is a `#` heading followed by a
+```` ```toml ```` block holding `[kovan]`, read with
+[`crate::artifact::scan_blocks`].
+
+# Entry kinds (`[kovan] kind`)
+
+| kind | table | what it is |
+|---|---|---|
+| `review` | `[review]` | one reviewer's standing review of one function; at most one per (function, reviewer) |
+| `needs_fix` | `[needs_fix]` | an open or resolved concern; an open one blocks the function whatever its stamps |
+| `annotation` | `[annotation]` | a highlight in the function's source, anchored with Hypothesis selectors (#754) |
+| `upstream` | `[upstream]` | the folder-level upstream confirmation: is it a port, of what, at which commit |
+| `deleted_functions` | `[[deleted]]` | the deleted-functions history table (#740 U5) |
+| `architecture` | `[architecture]` | an architecture node, in a crate-level `review.md`: its member functions, the upstream it follows (commit-pinned) and the generic pattern it is (maintainer, #764, 2026-10-07); signed like a review. Members' reviews point at it with a `part_of` relation |
+
+Any other kind (a `note`, say) is kept as [`Entry::Other`] and ignored by
+review.
+
+**Which function** (maintainer, #764, 2026-10-07, the hybrid id;
+[`super::id`]): `[kovan] target = "fn:<opaque>"` is the join key and
+never changes; `path` in the entry's own table (`file.rs::Type::name`)
+is the current location, updated when a move is acknowledged, and each
+acknowledged move appends `[[review.moved]]` (from, to, commit).
+~~The join key is `[review] function`, the call-graph key, with `target`
+a `code:` link~~ **CORRECTED 2026-10-07**: that first-version form still
+reads and is migrated in memory ([`ReviewDocument::migrated`]).
+
+````markdown
+# Review: SteamTable::flash (github:theodoreOnzGit)
+
+```toml
+[kovan]
+id = "review-flash-theodoreonzgit"
+kind = "review"
+origin = "human"
+created = "2026-10-07T10:00:00+08:00"
+modified = "2026-10-07T10:00:00+08:00"
+target = "fn:3f2a9c0d1e4b5a67"
+
+[review]
+path = "crates/tampines/src/steam.rs::SteamTable::flash"
+by = "github:theodoreOnzGit"
+rung = 3
+date = "2026-10-07"
+commit = "<40 hex>"
+hash = "sha256:<64 hex>"
+doc_hash = "sha256:<64 hex>"
+cargo_lock = "sha256:<64 hex>"
+
+[review.callees]
+"crates/tampines/src/steam.rs::saturation" = "sha256:<64 hex>"
+
+[review.checklist]
+doc_matches_behaviour = "yes"
+vv_evidence = "reference_code_to_code"
+
+[review.authorship]
+kind = "agent"
+sessions = ["https://claude.ai/code/session_…"]
+
+[[relation]]
+target = "artifact:iapws-if97#eq-7"
+kind = "implements"
+```
+
+## Comments
+
+## Sign-off
+````
+
+# Parsing is per entry
+
+A malformed entry (bad TOML, a missing field, a bad hash, an unpinned
+upstream link, a second standing review by the same reviewer of the same
+function) is an [`Unreadable`] entry, which counts as **no review**
+(maintainer, 2026-10-07: "just redo"); every other entry still loads.
+What can still be read of a malformed entry (its function and reviewer)
+is kept so the function goes back into the queue and the wizard can
+pre-fill.
+
+```rust
+pub mod review_md { /* ... */ }
+```
+
+### Types
+
+#### Struct `EntryMeta`
+
+The `[kovan]` table of a review entry: the shared artifact identity, plus
+`target`. Unknown keys are tolerated (additive schema).
+
+```rust
+pub struct EntryMeta {
+    pub id: String,
+    pub kind: String,
+    pub origin: Option<String>,
+    pub created: String,
+    pub modified: String,
+    pub target: Option<String>,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `id` | `String` |  |
+| `kind` | `String` |  |
+| `origin` | `Option<String>` | `human` for reviews ("AI never stamps"); kept as written. |
+| `created` | `String` |  |
+| `modified` | `String` |  |
+| `target` | `Option<String>` | The function's stable id, `fn:<opaque>` ([`super::id`]); folder-level<br>entries have none. A first-version entry has a `code:` target here<br>(migrated on read). |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> EntryMeta { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Deserialize**
+  - ```rust
+    fn deserialize<__D>(__deserializer: __D) -> _serde::__private228::Result<Self, <__D as >::Error>
+where
+    __D: _serde::Deserializer<''de> { /* ... */ }
+    ```
+
+- **DeserializeOwned**
+- **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &EntryMeta) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **Serialize**
+  - ```rust
+    fn serialize<__S>(self: &Self, __serializer: __S) -> _serde::__private228::Result<<__S as >::Ok, <__S as >::Error>
+where
+    __S: _serde::Serializer { /* ... */ }
+    ```
+
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Struct `MoveRecord`
+
+`[[review.moved]]`: a machine-written record that the review was moved
+with its function (#739 decision 14).
+
+```rust
+pub struct MoveRecord {
+    pub from: String,
+    pub to: Option<String>,
+    pub commit: String,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `from` | `String` | The function's previous path. |
+| `to` | `Option<String>` | Its path after the move (added 2026-10-07 with the hybrid id;<br>optional so a first-version record still reads). |
+| `commit` | `String` | The commit the move was acknowledged at. |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> MoveRecord { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Deserialize**
+  - ```rust
+    fn deserialize<__D>(__deserializer: __D) -> _serde::__private228::Result<Self, <__D as >::Error>
+where
+    __D: _serde::Deserializer<''de> { /* ... */ }
+    ```
+
+- **DeserializeOwned**
+- **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &MoveRecord) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **Serialize**
+  - ```rust
+    fn serialize<__S>(self: &Self, __serializer: __S) -> _serde::__private228::Result<<__S as >::Ok, <__S as >::Error>
+where
+    __S: _serde::Serializer { /* ... */ }
+    ```
+
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Struct `ReviewBody`
+
+`[review]`.
+
+```rust
+pub struct ReviewBody {
+    pub function: Option<String>,
+    pub path: Option<String>,
+    pub by: String,
+    pub rung: u8,
+    pub date: String,
+    pub commit: String,
+    pub hash: String,
+    pub doc_hash: String,
+    pub cargo_lock: Option<String>,
+    pub callees: std::collections::BTreeMap<String, String>,
+    pub checklist: std::collections::BTreeMap<String, String>,
+    pub no_concept: Option<String>,
+    pub authorship: Option<super::types::ChangeAuthorship>,
+    pub moved: Vec<MoveRecord>,
+    pub signature: Option<super::signing::Signature>,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `function` | `Option<String>` | First-version join key (the call-graph key); only on an entry<br>written before the hybrid id, and cleared by the migration. |
+| `path` | `Option<String>` | The function's current location, `file.rs::Type::name`. |
+| `by` | `String` | `github:` / `gitlab:` / `orcid:` / email. |
+| `rung` | `u8` | 3 human reviewed, 4 human V&V (gated on `vv_evidence` and<br>`independence`: [`super::wizard::stamp_gate`]). 5 is derived. |
+| `date` | `String` | `YYYY-MM-DD`. |
+| `commit` | `String` | The commit the review certifies. |
+| `hash` | `String` |  |
+| `doc_hash` | `String` |  |
+| `cargo_lock` | `Option<String>` | `Cargo.lock` hash at review time (external dependency updates, #739). |
+| `callees` | `std::collections::BTreeMap<String, String>` | Each workspace callee's id and its hash at review time. |
+| `checklist` | `std::collections::BTreeMap<String, String>` | Wizard answers by question key (`doc_matches_behaviour`, …; the set<br>and the stamp gate are [`super::wizard`], #769). Parsing accepts any<br>key; #764's placeholder keys `q1` … `q10` are refused by the wizard,<br>not here, so an entry holding them stays readable. |
+| `no_concept` | `Option<String>` | The "no concept" reason, when the function links no concept. |
+| `authorship` | `Option<super::types::ChangeAuthorship>` | Who authored the change reviewed (#764, from #771, 2026-10-07). |
+| `moved` | `Vec<MoveRecord>` |  |
+| `signature` | `Option<super::signing::Signature>` | Ed25519 over [`super::signing::signed_bytes`]; checked by<br>[`super::signing::verify_review`] (#762). |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> ReviewBody { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Deserialize**
+  - ```rust
+    fn deserialize<__D>(__deserializer: __D) -> _serde::__private228::Result<Self, <__D as >::Error>
+where
+    __D: _serde::Deserializer<''de> { /* ... */ }
+    ```
+
+- **DeserializeOwned**
+- **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &ReviewBody) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **Serialize**
+  - ```rust
+    fn serialize<__S>(self: &Self, __serializer: __S) -> _serde::__private228::Result<<__S as >::Ok, <__S as >::Error>
+where
+    __S: _serde::Serializer { /* ... */ }
+    ```
+
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Struct `ReviewEntry`
+
+A `review` entry.
+
+```rust
+pub struct ReviewEntry {
+    pub kovan: EntryMeta,
+    pub review: ReviewBody,
+    pub relations: Vec<crate::artifact::relation::RelationRecord>,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `kovan` | `EntryMeta` |  |
+| `review` | `ReviewBody` |  |
+| `relations` | `Vec<crate::artifact::relation::RelationRecord>` |  |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn function_id(self: &Self) -> String { /* ... */ }
+  ```
+  The join key: `[kovan] target` when it is an `fn:` id, else
+
+- ```rust
+  pub fn path(self: &Self) -> Option<String> { /* ... */ }
+  ```
+  The current location, `file.rs::Type::name`.
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> ReviewEntry { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Deserialize**
+  - ```rust
+    fn deserialize<__D>(__deserializer: __D) -> _serde::__private228::Result<Self, <__D as >::Error>
+where
+    __D: _serde::Deserializer<''de> { /* ... */ }
+    ```
+
+- **DeserializeOwned**
+- **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &ReviewEntry) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **Serialize**
+  - ```rust
+    fn serialize<__S>(self: &Self, __serializer: __S) -> _serde::__private228::Result<<__S as >::Ok, <__S as >::Error>
+where
+    __S: _serde::Serializer { /* ... */ }
+    ```
+
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Enum `FixStatus`
+
+**Attributes:**
+
+- `Other("#[serde(rename_all = \"snake_case\")]")`
+
+Open or resolved.
+
+```rust
+pub enum FixStatus {
+    Open,
+    Resolved,
+}
+```
+
+##### Variants
+
+###### `Open`
+
+###### `Resolved`
+
+Closed by a re-review stamp (`resolved_by`), kept for history.
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> FixStatus { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Deserialize**
+  - ```rust
+    fn deserialize<__D>(__deserializer: __D) -> _serde::__private228::Result<Self, <__D as >::Error>
+where
+    __D: _serde::Deserializer<''de> { /* ... */ }
+    ```
+
+- **DeserializeOwned**
+- **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &FixStatus) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **Serialize**
+  - ```rust
+    fn serialize<__S>(self: &Self, __serializer: __S) -> _serde::__private228::Result<<__S as >::Ok, <__S as >::Error>
+where
+    __S: _serde::Serializer { /* ... */ }
+    ```
+
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Struct `NeedsFixBody`
+
+`[needs_fix]`.
+
+```rust
+pub struct NeedsFixBody {
+    pub function: Option<String>,
+    pub path: Option<String>,
+    pub by: String,
+    pub date: String,
+    pub commit: String,
+    pub hash: String,
+    pub note: String,
+    pub status: FixStatus,
+    pub resolved_by: Option<String>,
+    pub highlights: Vec<String>,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `function` | `Option<String>` | First-version join key (the call-graph key); only on an entry<br>written before the hybrid id, and cleared by the migration. |
+| `path` | `Option<String>` | The function's current location, `file.rs::Type::name`. |
+| `by` | `String` |  |
+| `date` | `String` |  |
+| `commit` | `String` | The commit and hash the concern was raised against: an edit after it<br>turns ⛔ into ✏ ("fixed"). |
+| `hash` | `String` |  |
+| `note` | `String` | One line, at least two characters (#740 U4). |
+| `status` | `FixStatus` |  |
+| `resolved_by` | `Option<String>` | The review entry id that resolved it. |
+| `highlights` | `Vec<String>` | Ids of the annotation entries marking where. |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> NeedsFixBody { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Deserialize**
+  - ```rust
+    fn deserialize<__D>(__deserializer: __D) -> _serde::__private228::Result<Self, <__D as >::Error>
+where
+    __D: _serde::Deserializer<''de> { /* ... */ }
+    ```
+
+- **DeserializeOwned**
+- **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &NeedsFixBody) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **Serialize**
+  - ```rust
+    fn serialize<__S>(self: &Self, __serializer: __S) -> _serde::__private228::Result<<__S as >::Ok, <__S as >::Error>
+where
+    __S: _serde::Serializer { /* ... */ }
+    ```
+
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Struct `NeedsFixEntry`
+
+A `needs_fix` entry.
+
+```rust
+pub struct NeedsFixEntry {
+    pub kovan: EntryMeta,
+    pub needs_fix: NeedsFixBody,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `kovan` | `EntryMeta` |  |
+| `needs_fix` | `NeedsFixBody` |  |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn function_id(self: &Self) -> String { /* ... */ }
+  ```
+  The join key: `[kovan] target` when it is an `fn:` id, else
+
+- ```rust
+  pub fn path(self: &Self) -> Option<String> { /* ... */ }
+  ```
+  The current location, `file.rs::Type::name`.
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> NeedsFixEntry { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Deserialize**
+  - ```rust
+    fn deserialize<__D>(__deserializer: __D) -> _serde::__private228::Result<Self, <__D as >::Error>
+where
+    __D: _serde::Deserializer<''de> { /* ... */ }
+    ```
+
+- **DeserializeOwned**
+- **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &NeedsFixEntry) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **Serialize**
+  - ```rust
+    fn serialize<__S>(self: &Self, __serializer: __S) -> _serde::__private228::Result<<__S as >::Ok, <__S as >::Error>
+where
+    __S: _serde::Serializer { /* ... */ }
+    ```
+
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Struct `AnnotationBody`
+
+`[annotation]`: a highlight in a function's source.
+
+```rust
+pub struct AnnotationBody {
+    pub function: Option<String>,
+    pub path: Option<String>,
+    pub by: String,
+    pub commit: String,
+    pub selector: Vec<crate::anchoring::selector::Selector>,
+    pub needs_fix: Option<String>,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `function` | `Option<String>` | First-version join key (the call-graph key); only on an entry<br>written before the hybrid id, and cleared by the migration. |
+| `path` | `Option<String>` | The function's current location, `file.rs::Type::name`. |
+| `by` | `String` |  |
+| `commit` | `String` | The commit whose source the selectors were taken on. |
+| `selector` | `Vec<crate::anchoring::selector::Selector>` | W3C/Hypothesis selectors (#754), positions relative to the<br>function's source text. |
+| `needs_fix` | `Option<String>` | The needs-fix entry this highlight belongs to, if any. |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> AnnotationBody { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Deserialize**
+  - ```rust
+    fn deserialize<__D>(__deserializer: __D) -> _serde::__private228::Result<Self, <__D as >::Error>
+where
+    __D: _serde::Deserializer<''de> { /* ... */ }
+    ```
+
+- **DeserializeOwned**
+- **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &AnnotationBody) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **Serialize**
+  - ```rust
+    fn serialize<__S>(self: &Self, __serializer: __S) -> _serde::__private228::Result<<__S as >::Ok, <__S as >::Error>
+where
+    __S: _serde::Serializer { /* ... */ }
+    ```
+
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Struct `AnnotationEntry`
+
+An `annotation` entry.
+
+```rust
+pub struct AnnotationEntry {
+    pub kovan: EntryMeta,
+    pub annotation: AnnotationBody,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `kovan` | `EntryMeta` |  |
+| `annotation` | `AnnotationBody` |  |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn function_id(self: &Self) -> String { /* ... */ }
+  ```
+  The join key: `[kovan] target` when it is an `fn:` id, else
+
+- ```rust
+  pub fn path(self: &Self) -> Option<String> { /* ... */ }
+  ```
+  The current location, `file.rs::Type::name`.
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> AnnotationEntry { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Deserialize**
+  - ```rust
+    fn deserialize<__D>(__deserializer: __D) -> _serde::__private228::Result<Self, <__D as >::Error>
+where
+    __D: _serde::Deserializer<''de> { /* ... */ }
+    ```
+
+- **DeserializeOwned**
+- **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &AnnotationEntry) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **Serialize**
+  - ```rust
+    fn serialize<__S>(self: &Self, __serializer: __S) -> _serde::__private228::Result<<__S as >::Ok, <__S as >::Error>
+where
+    __S: _serde::Serializer { /* ... */ }
+    ```
+
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Struct `UpstreamTable`
+
+`[upstream]`: the folder's upstream confirmation (#740 wizard; cached in
+`kovan.toml`). Every link must be pinned ([`check_pinned_url`]).
+
+```rust
+pub struct UpstreamTable {
+    pub is_port: bool,
+    pub repository: Option<String>,
+    pub commit: Option<String>,
+    pub tag: Option<String>,
+    pub files: std::collections::BTreeMap<String, String>,
+    pub routines: std::collections::BTreeMap<String, String>,
+    pub confirmed_by: String,
+    pub date: String,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `is_port` | `bool` | Whether the folder ports upstream code. |
+| `repository` | `Option<String>` | Repository URL (a port). |
+| `commit` | `Option<String>` | The upstream commit ported from (a port: required). The only key. |
+| `tag` | `Option<String>` | The tag that pointed at `commit` when it was recorded, shown beside<br>it (`v2016.53 (9a2951f)`, [`super::types::display_pin`]).<br>Informational and never used to resolve (#764, 2026-10-07). |
+| `files` | `std::collections::BTreeMap<String, String>` | Our file name -> the upstream file (path or pinned URL). |
+| `routines` | `std::collections::BTreeMap<String, String>` | Function id -> upstream routine (name or pinned URL). |
+| `confirmed_by` | `String` |  |
+| `date` | `String` |  |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> UpstreamTable { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Deserialize**
+  - ```rust
+    fn deserialize<__D>(__deserializer: __D) -> _serde::__private228::Result<Self, <__D as >::Error>
+where
+    __D: _serde::Deserializer<''de> { /* ... */ }
+    ```
+
+- **DeserializeOwned**
+- **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &UpstreamTable) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **Serialize**
+  - ```rust
+    fn serialize<__S>(self: &Self, __serializer: __S) -> _serde::__private228::Result<<__S as >::Ok, <__S as >::Error>
+where
+    __S: _serde::Serializer { /* ... */ }
+    ```
+
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Struct `UpstreamEntry`
+
+An `upstream` entry.
+
+```rust
+pub struct UpstreamEntry {
+    pub kovan: EntryMeta,
+    pub upstream: UpstreamTable,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `kovan` | `EntryMeta` |  |
+| `upstream` | `UpstreamTable` |  |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> UpstreamEntry { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Deserialize**
+  - ```rust
+    fn deserialize<__D>(__deserializer: __D) -> _serde::__private228::Result<Self, <__D as >::Error>
+where
+    __D: _serde::Deserializer<''de> { /* ... */ }
+    ```
+
+- **DeserializeOwned**
+- **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &UpstreamEntry) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **Serialize**
+  - ```rust
+    fn serialize<__S>(self: &Self, __serializer: __S) -> _serde::__private228::Result<<__S as >::Ok, <__S as >::Error>
+where
+    __S: _serde::Serializer { /* ... */ }
+    ```
+
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Struct `DeletedFunction`
+
+One deleted function's history row (#740 U5): enough to find its last
+review in git.
+
+```rust
+pub struct DeletedFunction {
+    pub function: String,
+    pub path: String,
+    pub deleted_commit: Option<String>,
+    pub branch: Option<String>,
+    pub last_review_commit: String,
+    pub reviewers: Vec<String>,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `function` | `String` |  |
+| `path` | `String` | The code-walk path it had. |
+| `deleted_commit` | `Option<String>` |  |
+| `branch` | `Option<String>` |  |
+| `last_review_commit` | `String` | The commit of its last review. |
+| `reviewers` | `Vec<String>` |  |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> DeletedFunction { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Comparable**
+  - ```rust
+    fn compare(self: &Self, key: &K) -> Ordering { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Deserialize**
+  - ```rust
+    fn deserialize<__D>(__deserializer: __D) -> _serde::__private228::Result<Self, <__D as >::Error>
+where
+    __D: _serde::Deserializer<''de> { /* ... */ }
+    ```
+
+- **DeserializeOwned**
+- **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **Ord**
+  - ```rust
+    fn cmp(self: &Self, other: &DeletedFunction) -> $crate::cmp::Ordering { /* ... */ }
+    ```
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &DeletedFunction) -> bool { /* ... */ }
+    ```
+
+- **PartialOrd**
+  - ```rust
+    fn partial_cmp(self: &Self, other: &DeletedFunction) -> $crate::option::Option<$crate::cmp::Ordering> { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **Serialize**
+  - ```rust
+    fn serialize<__S>(self: &Self, __serializer: __S) -> _serde::__private228::Result<<__S as >::Ok, <__S as >::Error>
+where
+    __S: _serde::Serializer { /* ... */ }
+    ```
+
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Struct `DeletedFunctionsEntry`
+
+A `deleted_functions` entry.
+
+```rust
+pub struct DeletedFunctionsEntry {
+    pub kovan: EntryMeta,
+    pub deleted: Vec<DeletedFunction>,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `kovan` | `EntryMeta` |  |
+| `deleted` | `Vec<DeletedFunction>` |  |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> DeletedFunctionsEntry { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Deserialize**
+  - ```rust
+    fn deserialize<__D>(__deserializer: __D) -> _serde::__private228::Result<Self, <__D as >::Error>
+where
+    __D: _serde::Deserializer<''de> { /* ... */ }
+    ```
+
+- **DeserializeOwned**
+- **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &DeletedFunctionsEntry) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **Serialize**
+  - ```rust
+    fn serialize<__S>(self: &Self, __serializer: __S) -> _serde::__private228::Result<<__S as >::Ok, <__S as >::Error>
+where
+    __S: _serde::Serializer { /* ... */ }
+    ```
+
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Struct `ArchitectureBody`
+
+`[architecture]`: an architecture node (maintainer, #764, 2026-10-07).
+
+```rust
+pub struct ArchitectureBody {
+    pub by: String,
+    pub date: String,
+    pub commit: String,
+    pub members: Vec<String>,
+    pub member_paths: Vec<String>,
+    pub upstream: Option<crate::call_graph::upstream::Upstream>,
+    pub upstream_tag: Option<String>,
+    pub pattern: Option<String>,
+    pub signature: Option<super::signing::Signature>,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `by` | `String` | Who recorded it, when, and at which commit (signed like a review). |
+| `date` | `String` |  |
+| `commit` | `String` |  |
+| `members` | `Vec<String>` | The stable function ids that make up the node. |
+| `member_paths` | `Vec<String>` | The members' current locations (`file.rs::item`), for display and<br>the scope check; location metadata, updated on a move acknowledge<br>and not signed (added 2026-10-07 with the hybrid id). |
+| `upstream` | `Option<crate::call_graph::upstream::Upstream>` | The upstream structure it follows, as the existing attribution type<br>([`Upstream`]); its `commit` is required and any `url` pinned. |
+| `upstream_tag` | `Option<String>` | The tag label of the upstream commit (informational, unsigned). |
+| `pattern` | `Option<String>` | For a generic node: the concept id of the pattern it is. |
+| `signature` | `Option<super::signing::Signature>` |  |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> ArchitectureBody { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Deserialize**
+  - ```rust
+    fn deserialize<__D>(__deserializer: __D) -> _serde::__private228::Result<Self, <__D as >::Error>
+where
+    __D: _serde::Deserializer<''de> { /* ... */ }
+    ```
+
+- **DeserializeOwned**
+- **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &ArchitectureBody) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **Serialize**
+  - ```rust
+    fn serialize<__S>(self: &Self, __serializer: __S) -> _serde::__private228::Result<<__S as >::Ok, <__S as >::Error>
+where
+    __S: _serde::Serializer { /* ... */ }
+    ```
+
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Struct `ArchitectureEntry`
+
+An `architecture` entry.
+
+```rust
+pub struct ArchitectureEntry {
+    pub kovan: EntryMeta,
+    pub architecture: ArchitectureBody,
+    pub relations: Vec<crate::artifact::relation::RelationRecord>,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `kovan` | `EntryMeta` |  |
+| `architecture` | `ArchitectureBody` |  |
+| `relations` | `Vec<crate::artifact::relation::RelationRecord>` |  |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> ArchitectureEntry { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Deserialize**
+  - ```rust
+    fn deserialize<__D>(__deserializer: __D) -> _serde::__private228::Result<Self, <__D as >::Error>
+where
+    __D: _serde::Deserializer<''de> { /* ... */ }
+    ```
+
+- **DeserializeOwned**
+- **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &ArchitectureEntry) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **Serialize**
+  - ```rust
+    fn serialize<__S>(self: &Self, __serializer: __S) -> _serde::__private228::Result<<__S as >::Ok, <__S as >::Error>
+where
+    __S: _serde::Serializer { /* ... */ }
+    ```
+
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Enum `Entry`
+
+One readable entry.
+
+```rust
+pub enum Entry {
+    Review(ReviewEntry),
+    NeedsFix(NeedsFixEntry),
+    Annotation(AnnotationEntry),
+    Upstream(UpstreamEntry),
+    DeletedFunctions(DeletedFunctionsEntry),
+    Architecture(ArchitectureEntry),
+    Other {
+        kind: String,
+        toml: String,
+    },
+}
+```
+
+##### Variants
+
+###### `Review`
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `ReviewEntry` |  |
+
+###### `NeedsFix`
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `NeedsFixEntry` |  |
+
+###### `Annotation`
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `AnnotationEntry` |  |
+
+###### `Upstream`
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `UpstreamEntry` |  |
+
+###### `DeletedFunctions`
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `DeletedFunctionsEntry` |  |
+
+###### `Architecture`
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `ArchitectureEntry` |  |
+
+###### `Other`
+
+Any other kind; ignored by review, kept verbatim.
+
+Fields:
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `kind` | `String` |  |
+| `toml` | `String` |  |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn kind(self: &Self) -> &str { /* ... */ }
+  ```
+  The wire kind.
+
+- ```rust
+  pub fn to_toml(self: &Self) -> Result<String, ReviewMdError> { /* ... */ }
+  ```
+  The entry's TOML text, as [`render_review_md`] writes it.
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Entry { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Entry) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Struct `ParsedEntry`
+
+One entry with its place in the file.
+
+```rust
+pub struct ParsedEntry {
+    pub heading: String,
+    pub line: usize,
+    pub entry: Entry,
+    pub body: String,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `heading` | `String` |  |
+| `line` | `usize` |  |
+| `entry` | `Entry` |  |
+| `body` | `String` |  |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> ParsedEntry { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &ParsedEntry) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Struct `Unreadable`
+
+An entry that could not be read: it counts as no review.
+
+```rust
+pub struct Unreadable {
+    pub heading: String,
+    pub line: usize,
+    pub message: String,
+    pub kind: Option<String>,
+    pub function: Option<String>,
+    pub by: Option<String>,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `heading` | `String` |  |
+| `line` | `usize` |  |
+| `message` | `String` |  |
+| `kind` | `Option<String>` | `[kovan] kind`, when it could be read. |
+| `function` | `Option<String>` | The function, when it could be read: the `[kovan] target` (an<br>`fn:` id), else `path`, else a first-version `function` key. |
+| `by` | `Option<String>` | The reviewer, when it could be read. |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Unreadable { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Unreadable) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Struct `ReviewDocument`
+
+A whole `review.md`.
+
+```rust
+pub struct ReviewDocument {
+    pub entries: Vec<ParsedEntry>,
+    pub unreadable: Vec<Unreadable>,
+    pub migrated: Vec<(String, String)>,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `entries` | `Vec<ParsedEntry>` |  |
+| `unreadable` | `Vec<Unreadable>` |  |
+| `migrated` | `Vec<(String, String)>` | First-version keys migrated on read: (call-graph key, minted id).<br>Non-empty means the next save rewrites the file in the new form. |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn reviews(self: &Self) -> impl Iterator<Item = &ReviewEntry> { /* ... */ }
+  ```
+  The review entries, in file order.
+
+- ```rust
+  pub fn needs_fixes(self: &Self) -> impl Iterator<Item = &NeedsFixEntry> { /* ... */ }
+  ```
+  The needs-fix entries.
+
+- ```rust
+  pub fn architectures(self: &Self) -> impl Iterator<Item = &ArchitectureEntry> { /* ... */ }
+  ```
+  The architecture nodes (crate-level `review.md`).
+
+- ```rust
+  pub fn upstream(self: &Self) -> Option<&UpstreamTable> { /* ... */ }
+  ```
+  The folder's upstream confirmation, if any.
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> ReviewDocument { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Default**
+  - ```rust
+    fn default() -> ReviewDocument { /* ... */ }
+    ```
+
+- **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &ReviewDocument) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Enum `ReviewMdError`
+
+Why writing `review.md` failed.
+
+```rust
+pub enum ReviewMdError {
+    Emit(String),
+}
+```
+
+##### Variants
+
+###### `Emit`
+
+TOML serialisation failed (not expected for these field types).
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `String` |  |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> ReviewMdError { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Display**
+  - ```rust
+    fn fmt(self: &Self, f: &mut std::fmt::Formatter<''_>) -> std::fmt::Result { /* ... */ }
+    ```
+
+- **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+- **Error**
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &ReviewMdError) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **ToString**
+  - ```rust
+    fn to_string(self: &Self) -> String { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+### Functions
+
+#### Function `validate_review`
+
+Field-level validation of one review.
+
+```rust
+pub fn validate_review(r: &ReviewEntry) -> Result<(), super::types::FieldError> { /* ... */ }
+```
+
+#### Function `validate_upstream`
+
+Field-level validation of an upstream table: a port names its commit, and
+every link is pinned (#764, 2026-10-07).
+
+```rust
+pub fn validate_upstream(u: &UpstreamTable) -> Result<(), super::types::FieldError> { /* ... */ }
+```
+
+#### Function `validate_architecture`
+
+Field-level validation of an architecture node: reviewer, commit, at
+least one member or a pattern, and a commit-pinned upstream.
+
+```rust
+pub fn validate_architecture(a: &ArchitectureEntry) -> Result<(), super::types::FieldError> { /* ... */ }
+```
+
+#### Function `validate_upstream_ref`
+
+An [`Upstream`] used in review data must name its commit, and its `url`,
+when present, must be pinned (#764, 2026-10-07).
+
+```rust
+pub fn validate_upstream_ref(u: &crate::call_graph::upstream::Upstream) -> Result<(), super::types::FieldError> { /* ... */ }
+```
+
+#### Function `parse_review_md`
+
+Read a whole `review.md` (module doc). Never fails as a whole.
+
+```rust
+pub fn parse_review_md(markdown: &str) -> ReviewDocument { /* ... */ }
+```
+
+#### Function `sign_off`
+
+The generated last `##` of a review: its sign-off line (#743: generated
+from the stamp, excluded from any content hash).
+
+```rust
+pub fn sign_off(r: &ReviewBody) -> String { /* ... */ }
+```
+
+#### Function `render_review_md`
+
+Write entries back as a `review.md`, each as `# heading`, its TOML block
+and its body, separated by a blank line. Unreadable entries are not
+written by this function: `review.md` is never auto-fixed, so a caller
+that rewrites a file holding unreadable entries must splice its changes
+in place instead (see [`crate::artifact::heading_span`]).
+
+```rust
+pub fn render_review_md(entries: &[ParsedEntry]) -> Result<String, ReviewMdError> { /* ... */ }
+```
+
+## Module `root`
+
+The code-review sections of the workspace's **`kovan_root.toml`**
+(maintainer, #739 decision 18 and the signing / many-maintainers
+comments, 2026-10-07).
+
+`kovan_root.toml` is the literature library marker that `kovan::root`
+already reads (`schema_version`, `[library]`, `[paths]`, …). Code review
+adds three **top-level, optional** sections; nothing existing changes, and
+a literature library without them reads as before:
+
+```toml
+[code_review]
+rust_analyzer = "0.3.2645"       # pinned version; a mismatch re-indexes
+founder = "github:theodoreOnzGit" # the founding maintainer (#762)
+
+[[reviewer]]
+id = "github:theodoreOnzGit"     # github:/gitlab:/orcid: or an email
+name = "Theodore Ong"            # display only
+role = "maintainer"              # maintainer | reviewer
+scope = ["crates/**"]            # path globs; see `scope`
+admitted = "2026-10-07"
+
+[[reviewer.qualification]]       # one per area; enforced only at rung 5
+area = "concept:thermal-hydraulics"
+basis = "degree"                  # degree | publications | track_record | self_study | endorsement
+evidence = ["https://doi.org/…"]
+endorsed_by = { by = "github:…" } # optional
+self_declared = false             # must be true for self_study
+# (the first-version form, qualification = ["concept:…"], still reads)
+
+[[reviewer.key]]
+id = "k1"
+alg = "ed25519"
+public = "<base64>"
+created = "2026-10-07"
+
+[[reviewer.key.history]]          # append-only lifecycle (#762); state is replayed
+event = "created"
+date = "2026-10-07"
+[[reviewer.key.history]]
+event = "endorsed"                # created|endorsed|reset|admitted|retired|unretired|revoked|compromised
+date = "2026-10-07"
+signer = { reviewer = "github:theodoreOnzGit", key = "k0" }
+signature = "<base64>"
+# v1 fields (endorsed_by, reset, retired, retired_on, unretired, and the
+# reviewer's admitted_by) still load: ReviewRoot::migrate_key_history
+
+[reviewer.revoked]                # optional: revokes the person
+date = "2026-12-01"
+compromised_from = "2026-11-20"  # optional: void stamps from this date
+by = "github:theodoreOnzGit"
+
+[[deleted_crate]]                 # a crate renamed or deleted (#739 D6)
+name = "old-crate"
+dir = "crates/old-crate"
+deleted_commit = "<sha>"
+[[deleted_crate.function]]        # its review history, as review.md keeps it
+function = "crates/old-crate/src/lib.rs::f"
+…
+```
+
+~~Signatures and endorsements are stored but **not verified**: the crypto is
+GitHub #762.~~ **CORRECTED 2026-10-07 (#762)**: signatures, endorsements,
+admissions, revocations and un-retirements are verified by
+[`crate::review::signing::registry::Registry::build`]; what each one signs
+is in [`crate::review::signing`].
+
+`kovan::root::RootConfig` carries the same three fields (additive), so a
+literature-side save of `kovan_root.toml` keeps them.
+
+```rust
+pub mod root { /* ... */ }
+```
+
+### Types
+
+#### Struct `CodeReviewSettings`
+
+`[code_review]`.
+
+```rust
+pub struct CodeReviewSettings {
+    pub rust_analyzer: Option<String>,
+    pub founder: Option<String>,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `rust_analyzer` | `Option<String>` | The pinned rust-analyzer version (D4): a mismatch warns and<br>regenerates the index. |
+| `founder` | `Option<String>` | The founding maintainer's reviewer id (#762, additive; maintainer,<br>2026-10-07): the one reviewer whose first key is trusted on first<br>use. Absent or unknown means no founder, so nothing is trusted<br>([`crate::review::signing::registry::FounderProblem`]). |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> CodeReviewSettings { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Default**
+  - ```rust
+    fn default() -> CodeReviewSettings { /* ... */ }
+    ```
+
+- **Deserialize**
+  - ```rust
+    fn deserialize<__D>(__deserializer: __D) -> _serde::__private228::Result<Self, <__D as >::Error>
+where
+    __D: _serde::Deserializer<''de> { /* ... */ }
+    ```
+
+- **DeserializeOwned**
+- **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &CodeReviewSettings) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **Serialize**
+  - ```rust
+    fn serialize<__S>(self: &Self, __serializer: __S) -> _serde::__private228::Result<<__S as >::Ok, <__S as >::Error>
+where
+    __S: _serde::Serializer { /* ... */ }
+    ```
+
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Enum `Role`
+
+**Attributes:**
+
+- `Other("#[serde(rename_all = \"snake_case\")]")`
+
+A reviewer's role.
+
+```rust
+pub enum Role {
+    Maintainer,
+    Reviewer,
+}
+```
+
+##### Variants
+
+###### `Maintainer`
+
+Admits and revokes reviewers, and stamps anywhere.
+
+###### `Reviewer`
+
+Stamps only, within `scope`.
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Role { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Deserialize**
+  - ```rust
+    fn deserialize<__D>(__deserializer: __D) -> _serde::__private228::Result<Self, <__D as >::Error>
+where
+    __D: _serde::Deserializer<''de> { /* ... */ }
+    ```
+
+- **DeserializeOwned**
+- **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Role) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **Serialize**
+  - ```rust
+    fn serialize<__S>(self: &Self, __serializer: __S) -> _serde::__private228::Result<<__S as >::Ok, <__S as >::Error>
+where
+    __S: _serde::Serializer { /* ... */ }
+    ```
+
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Struct `KeySignature`
+
+A signature by one key over some bytes (an endorsement, an admission or a
+revocation). Verified by [`crate::review::signing::registry`] (#762).
+
+```rust
+pub struct KeySignature {
+    pub key: String,
+    pub signature: String,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `key` | `String` | The signing key's id. |
+| `signature` | `String` | Base64 signature. |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> KeySignature { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Deserialize**
+  - ```rust
+    fn deserialize<__D>(__deserializer: __D) -> _serde::__private228::Result<Self, <__D as >::Error>
+where
+    __D: _serde::Deserializer<''de> { /* ... */ }
+    ```
+
+- **DeserializeOwned**
+- **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &KeySignature) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **Serialize**
+  - ```rust
+    fn serialize<__S>(self: &Self, __serializer: __S) -> _serde::__private228::Result<<__S as >::Ok, <__S as >::Error>
+where
+    __S: _serde::Serializer { /* ... */ }
+    ```
+
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Struct `ReviewerKey`
+
+`[[reviewer.key]]`: one public key.
+
+**Its lifecycle is the append-only `history`** (maintainer, #762,
+2026-10-07): trust, retirement and revocation are derived by replaying
+it ([`crate::review::signing::registry`]). The fields marked *legacy*
+below are the #764/#762 v1 form; they still load, and
+[`ReviewRoot::migrate_key_history`] moves them into `history`.
+
+```rust
+pub struct ReviewerKey {
+    pub id: String,
+    pub alg: String,
+    pub public: String,
+    pub created: String,
+    pub endorsed_by: Option<KeySignature>,
+    pub reset: bool,
+    pub retired: bool,
+    pub retired_on: Option<String>,
+    pub unretired: Option<Unretirement>,
+    pub history: Vec<KeyEvent>,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `id` | `String` |  |
+| `alg` | `String` | `ed25519` (#739 signing comment). |
+| `public` | `String` | Base64 public key. |
+| `created` | `String` |  |
+| `endorsed_by` | `Option<KeySignature>` | *Legacy.* The existing key of the same reviewer that endorsed this<br>one; absent only for a reviewer's first key. |
+| `reset` | `bool` | *Legacy.* A deliberate key reset (shown permanently). |
+| `retired` | `bool` | *Legacy.* Retired (an un-retire clears it). |
+| `retired_on` | `Option<String>` | *Legacy* (#762 v1). The date the key was retired. |
+| `unretired` | `Option<Unretirement>` | *Legacy* (#762 v1). The un-retirement, signed by this key itself. |
+| `history` | `Vec<KeyEvent>` | `[[reviewer.key.history]]`: every lifecycle event of this key, in the<br>order it happened. Append-only: entries are never edited or deleted. |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> ReviewerKey { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Deserialize**
+  - ```rust
+    fn deserialize<__D>(__deserializer: __D) -> _serde::__private228::Result<Self, <__D as >::Error>
+where
+    __D: _serde::Deserializer<''de> { /* ... */ }
+    ```
+
+- **DeserializeOwned**
+- **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &ReviewerKey) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **Serialize**
+  - ```rust
+    fn serialize<__S>(self: &Self, __serializer: __S) -> _serde::__private228::Result<<__S as >::Ok, <__S as >::Error>
+where
+    __S: _serde::Serializer { /* ... */ }
+    ```
+
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Enum `KeyEventKind`
+
+**Attributes:**
+
+- `Other("#[serde(rename_all = \"snake_case\")]")`
+
+What happened to a key.
+
+```rust
+pub enum KeyEventKind {
+    Created,
+    Endorsed,
+    Reset,
+    Admitted,
+    Retired,
+    Unretired,
+    Revoked,
+    Compromised,
+}
+```
+
+##### Variants
+
+###### `Created`
+
+The key was generated (unsigned; its date is `created`).
+
+###### `Endorsed`
+
+Vouched for by a trusted key of the same reviewer.
+
+###### `Reset`
+
+A deliberate reset (the old passphrase is lost): vouched for by a
+maintainer, or unsigned for the founding maintainer. Shown forever.
+
+###### `Admitted`
+
+The reviewer's admission by a maintainer; only on the first key.
+
+###### `Retired`
+
+Retired from `date` (unsigned: retiring only takes trust away).
+
+###### `Unretired`
+
+Back from `date`; signed by **the key itself** (possession proof).
+
+###### `Revoked`
+
+Revoked from `date` by a maintainer or the key's own reviewer.
+
+###### `Compromised`
+
+Compromised from `date`: void from then on.
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn as_str(self: Self) -> &'static str { /* ... */ }
+  ```
+  The wire name.
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> KeyEventKind { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Comparable**
+  - ```rust
+    fn compare(self: &Self, key: &K) -> Ordering { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Deserialize**
+  - ```rust
+    fn deserialize<__D>(__deserializer: __D) -> _serde::__private228::Result<Self, <__D as >::Error>
+where
+    __D: _serde::Deserializer<''de> { /* ... */ }
+    ```
+
+- **DeserializeOwned**
+- **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **Ord**
+  - ```rust
+    fn cmp(self: &Self, other: &KeyEventKind) -> $crate::cmp::Ordering { /* ... */ }
+    ```
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &KeyEventKind) -> bool { /* ... */ }
+    ```
+
+- **PartialOrd**
+  - ```rust
+    fn partial_cmp(self: &Self, other: &KeyEventKind) -> $crate::option::Option<$crate::cmp::Ordering> { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **Serialize**
+  - ```rust
+    fn serialize<__S>(self: &Self, __serializer: __S) -> _serde::__private228::Result<<__S as >::Ok, <__S as >::Error>
+where
+    __S: _serde::Serializer { /* ... */ }
+    ```
+
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Struct `KeySigner`
+
+Who signed a key event.
+
+```rust
+pub struct KeySigner {
+    pub reviewer: Option<String>,
+    pub key: String,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `reviewer` | `Option<String>` | The signer's reviewer id. Absent only on events migrated from the<br>legacy fields, which did not record it (the eligible signers are<br>then searched). |
+| `key` | `String` | The signer's key id. |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> KeySigner { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Deserialize**
+  - ```rust
+    fn deserialize<__D>(__deserializer: __D) -> _serde::__private228::Result<Self, <__D as >::Error>
+where
+    __D: _serde::Deserializer<''de> { /* ... */ }
+    ```
+
+- **DeserializeOwned**
+- **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &KeySigner) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **Serialize**
+  - ```rust
+    fn serialize<__S>(self: &Self, __serializer: __S) -> _serde::__private228::Result<<__S as >::Ok, <__S as >::Error>
+where
+    __S: _serde::Serializer { /* ... */ }
+    ```
+
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Struct `KeyEvent`
+
+`[[reviewer.key.history]]`: one lifecycle event.
+
+```toml
+[[reviewer.key.history]]
+event = "unretired"
+date = "2026-10-15"
+signer = { reviewer = "github:theodoreOnzGit", key = "k1" }
+signature = "<base64>"
+```
+
+```rust
+pub struct KeyEvent {
+    pub event: KeyEventKind,
+    pub date: String,
+    pub signer: Option<KeySigner>,
+    pub signature: Option<String>,
+    pub legacy: bool,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `event` | `KeyEventKind` |  |
+| `date` | `String` | `YYYY-MM-DD`. |
+| `signer` | `Option<KeySigner>` |  |
+| `signature` | `Option<String>` | Base64 signature over<br>[`crate::review::signing::key_event_bytes`] (or, with `legacy`, over<br>the v1 statement bytes the migrated field was signed over). |
+| `legacy` | `bool` | Migrated from a legacy field: the signature is over the v1 bytes. |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn unsigned(event: KeyEventKind, date: &str) -> KeyEvent { /* ... */ }
+  ```
+  An unsigned event.
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> KeyEvent { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Deserialize**
+  - ```rust
+    fn deserialize<__D>(__deserializer: __D) -> _serde::__private228::Result<Self, <__D as >::Error>
+where
+    __D: _serde::Deserializer<''de> { /* ... */ }
+    ```
+
+- **DeserializeOwned**
+- **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &KeyEvent) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **Serialize**
+  - ```rust
+    fn serialize<__S>(self: &Self, __serializer: __S) -> _serde::__private228::Result<<__S as >::Ok, <__S as >::Error>
+where
+    __S: _serde::Serializer { /* ... */ }
+    ```
+
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Struct `LegacyConflict`
+
+A key whose legacy fields were left alone because it already has a
+`history` (the history wins; the registry lists it as a warning).
+
+```rust
+pub struct LegacyConflict {
+    pub reviewer: String,
+    pub key: String,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `reviewer` | `String` |  |
+| `key` | `String` |  |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> LegacyConflict { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &LegacyConflict) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Struct `Unretirement`
+
+`[reviewer.key.unretired]`: a retired key brought back (#762).
+
+```rust
+pub struct Unretirement {
+    pub date: String,
+    pub signature: String,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `date` | `String` | From this date the key's stamps count again. |
+| `signature` | `String` | Base64 signature by the un-retired key over<br>[`crate::review::signing::unretire_bytes`]. |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Unretirement { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Deserialize**
+  - ```rust
+    fn deserialize<__D>(__deserializer: __D) -> _serde::__private228::Result<Self, <__D as >::Error>
+where
+    __D: _serde::Deserializer<''de> { /* ... */ }
+    ```
+
+- **DeserializeOwned**
+- **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Unretirement) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **Serialize**
+  - ```rust
+    fn serialize<__S>(self: &Self, __serializer: __S) -> _serde::__private228::Result<<__S as >::Ok, <__S as >::Error>
+where
+    __S: _serde::Serializer { /* ... */ }
+    ```
+
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Struct `Revocation`
+
+`[reviewer.revoked]`.
+
+```rust
+pub struct Revocation {
+    pub date: String,
+    pub compromised_from: Option<String>,
+    pub by: String,
+    pub signature: Option<KeySignature>,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `date` | `String` | Stamps dated before this stay valid. |
+| `compromised_from` | `Option<String>` | For a compromised key: stamps from this date on are void. |
+| `by` | `String` | The maintainer who revoked. |
+| `signature` | `Option<KeySignature>` |  |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Revocation { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Deserialize**
+  - ```rust
+    fn deserialize<__D>(__deserializer: __D) -> _serde::__private228::Result<Self, <__D as >::Error>
+where
+    __D: _serde::Deserializer<''de> { /* ... */ }
+    ```
+
+- **DeserializeOwned**
+- **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Revocation) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **Serialize**
+  - ```rust
+    fn serialize<__S>(self: &Self, __serializer: __S) -> _serde::__private228::Result<<__S as >::Ok, <__S as >::Error>
+where
+    __S: _serde::Serializer { /* ... */ }
+    ```
+
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Enum `QualificationBasis`
+
+**Attributes:**
+
+- `Other("#[serde(rename_all = \"snake_case\")]")`
+
+What a qualification rests on (maintainer, #739, 2026-10-07: "demonstrated
+competence in an area, with evidence. A degree title is not required").
+
+```rust
+pub enum QualificationBasis {
+    Degree,
+    Publications,
+    TrackRecord,
+    SelfStudy,
+    Endorsement,
+}
+```
+
+##### Variants
+
+###### `Degree`
+
+A degree or thesis.
+
+###### `Publications`
+
+###### `TrackRecord`
+
+A repository track record.
+
+###### `SelfStudy`
+
+Self-study with evidence: always labelled self-declared.
+
+###### `Endorsement`
+
+Another person vouches (see `endorsed_by`).
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn label(self: Self) -> &'static str { /* ... */ }
+  ```
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> QualificationBasis { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Deserialize**
+  - ```rust
+    fn deserialize<__D>(__deserializer: __D) -> _serde::__private228::Result<Self, <__D as >::Error>
+where
+    __D: _serde::Deserializer<''de> { /* ... */ }
+    ```
+
+- **DeserializeOwned**
+- **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &QualificationBasis) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **Serialize**
+  - ```rust
+    fn serialize<__S>(self: &Self, __serializer: __S) -> _serde::__private228::Result<<__S as >::Ok, <__S as >::Error>
+where
+    __S: _serde::Serializer { /* ... */ }
+    ```
+
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Struct `QualificationEndorsement`
+
+Who endorsed a qualification.
+
+```rust
+pub struct QualificationEndorsement {
+    pub by: String,
+    pub signature: Option<KeySignature>,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `by` | `String` | The endorser's reviewer id. |
+| `signature` | `Option<KeySignature>` | Not verified until #762. |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> QualificationEndorsement { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Deserialize**
+  - ```rust
+    fn deserialize<__D>(__deserializer: __D) -> _serde::__private228::Result<Self, <__D as >::Error>
+where
+    __D: _serde::Deserializer<''de> { /* ... */ }
+    ```
+
+- **DeserializeOwned**
+- **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &QualificationEndorsement) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **Serialize**
+  - ```rust
+    fn serialize<__S>(self: &Self, __serializer: __S) -> _serde::__private228::Result<<__S as >::Ok, <__S as >::Error>
+where
+    __S: _serde::Serializer { /* ... */ }
+    ```
+
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Struct `QualificationRecord`
+
+`[[reviewer.qualification]]`: competence in one concept-tree area.
+
+```rust
+pub struct QualificationRecord {
+    pub area: String,
+    pub basis: QualificationBasis,
+    pub evidence: Vec<String>,
+    pub endorsed_by: Option<QualificationEndorsement>,
+    pub self_declared: bool,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `area` | `String` | The concept-tree node, e.g. `concept:thermal-hydraulics`. Covers the<br>node and everything under it. |
+| `basis` | `QualificationBasis` |  |
+| `evidence` | `Vec<String>` | Links kovan can resolve (theses, papers, repositories). |
+| `endorsed_by` | `Option<QualificationEndorsement>` |  |
+| `self_declared` | `bool` | Must be `true` for a self-study basis (the label is shown on the<br>stamp and in the registry). |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> QualificationRecord { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Deserialize**
+  - ```rust
+    fn deserialize<__D>(__deserializer: __D) -> _serde::__private228::Result<Self, <__D as >::Error>
+where
+    __D: _serde::Deserializer<''de> { /* ... */ }
+    ```
+
+- **DeserializeOwned**
+- **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &QualificationRecord) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **Serialize**
+  - ```rust
+    fn serialize<__S>(self: &Self, __serializer: __S) -> _serde::__private228::Result<<__S as >::Ok, <__S as >::Error>
+where
+    __S: _serde::Serializer { /* ... */ }
+    ```
+
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Enum `Qualification`
+
+**Attributes:**
+
+- `Other("#[serde(untagged)]")`
+
+One qualification entry, in either form (additive: the first-version
+bare string still reads).
+
+```rust
+pub enum Qualification {
+    Record(QualificationRecord),
+    Cited(String),
+}
+```
+
+##### Variants
+
+###### `Record`
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `QualificationRecord` |  |
+
+###### `Cited`
+
+First-version form: a concept path with no basis or evidence. Shown,
+but never counts for rung 5.
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `String` |  |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn area(self: &Self) -> &str { /* ... */ }
+  ```
+  The area, in either form.
+
+- ```rust
+  pub fn qualifies_for(self: &Self, concept: &str) -> bool { /* ... */ }
+  ```
+  Whether it counts for rung 5 in `concept`: a record with evidence
+
+- ```rust
+  pub fn label(self: &Self) -> String { /* ... */ }
+  ```
+  The public label, e.g. `thermal-hydraulics (degree/thesis)` or
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Qualification { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Deserialize**
+  - ```rust
+    fn deserialize<__D>(__deserializer: __D) -> _serde::__private228::Result<Self, <__D as >::Error>
+where
+    __D: _serde::Deserializer<''de> { /* ... */ }
+    ```
+
+- **DeserializeOwned**
+- **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Qualification) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **Serialize**
+  - ```rust
+    fn serialize<__S>(self: &Self, __serializer: __S) -> _serde::__private228::Result<<__S as >::Ok, <__S as >::Error>
+where
+    __S: _serde::Serializer { /* ... */ }
+    ```
+
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Struct `Reviewer`
+
+`[[reviewer]]`.
+
+```rust
+pub struct Reviewer {
+    pub id: String,
+    pub name: Option<String>,
+    pub role: Role,
+    pub scope: Vec<String>,
+    pub qualification: Vec<Qualification>,
+    pub admitted: Option<String>,
+    pub admitted_by: Option<KeySignature>,
+    pub keys: Vec<ReviewerKey>,
+    pub revoked: Option<Revocation>,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `id` | `String` |  |
+| `name` | `Option<String>` |  |
+| `role` | `Role` |  |
+| `scope` | `Vec<String>` | Path globs a `reviewer` may stamp in ([`super::scope`]). Ignored for<br>a maintainer. |
+| `qualification` | `Vec<Qualification>` | Demonstrated competence, one per area ([`Qualification`]). Either the<br>first-version form, a bare concept path<br>(`qualification = ["concept:…"]`), or since 2026-10-07 one<br>`[[reviewer.qualification]]` table per area with basis and evidence.<br>Shown beside every stamp; enforced only at rung 5. |
+| `admitted` | `Option<String>` |  |
+| `admitted_by` | `Option<KeySignature>` | The maintainer signature that admitted this reviewer; absent for the<br>founding maintainer (trusted on first use). |
+| `keys` | `Vec<ReviewerKey>` |  |
+| `revoked` | `Option<Revocation>` |  |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Reviewer { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Deserialize**
+  - ```rust
+    fn deserialize<__D>(__deserializer: __D) -> _serde::__private228::Result<Self, <__D as >::Error>
+where
+    __D: _serde::Deserializer<''de> { /* ... */ }
+    ```
+
+- **DeserializeOwned**
+- **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Reviewer) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **Serialize**
+  - ```rust
+    fn serialize<__S>(self: &Self, __serializer: __S) -> _serde::__private228::Result<<__S as >::Ok, <__S as >::Error>
+where
+    __S: _serde::Serializer { /* ... */ }
+    ```
+
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Struct `DeletedCrate`
+
+`[[deleted_crate]]`: a crate renamed or deleted, with its review history
+(#739 D6). Rebuildable from git; kept for copies without git.
+
+```rust
+pub struct DeletedCrate {
+    pub name: String,
+    pub dir: String,
+    pub deleted_commit: Option<String>,
+    pub renamed_to: Option<String>,
+    pub functions: Vec<super::review_md::DeletedFunction>,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `name` | `String` |  |
+| `dir` | `String` |  |
+| `deleted_commit` | `Option<String>` |  |
+| `renamed_to` | `Option<String>` | For a rename, the new crate name. |
+| `functions` | `Vec<super::review_md::DeletedFunction>` |  |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> DeletedCrate { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Deserialize**
+  - ```rust
+    fn deserialize<__D>(__deserializer: __D) -> _serde::__private228::Result<Self, <__D as >::Error>
+where
+    __D: _serde::Deserializer<''de> { /* ... */ }
+    ```
+
+- **DeserializeOwned**
+- **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &DeletedCrate) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **Serialize**
+  - ```rust
+    fn serialize<__S>(self: &Self, __serializer: __S) -> _serde::__private228::Result<<__S as >::Ok, <__S as >::Error>
+where
+    __S: _serde::Serializer { /* ... */ }
+    ```
+
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Struct `ReviewRoot`
+
+The code-review sections of `kovan_root.toml`.
+
+```rust
+pub struct ReviewRoot {
+    pub code_review: Option<CodeReviewSettings>,
+    pub reviewers: Vec<Reviewer>,
+    pub deleted_crates: Vec<DeletedCrate>,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `code_review` | `Option<CodeReviewSettings>` |  |
+| `reviewers` | `Vec<Reviewer>` |  |
+| `deleted_crates` | `Vec<DeletedCrate>` |  |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn parse(text: &str) -> Result<ReviewRoot, RootError> { /* ... */ }
+  ```
+  Read the review sections from a whole `kovan_root.toml`; every other
+
+- ```rust
+  pub fn reviewer(self: &Self, id: &str) -> Option<&Reviewer> { /* ... */ }
+  ```
+  The reviewer registered under `id`.
+
+- ```rust
+  pub fn migrate_key_history(self: &mut Self) -> Vec<LegacyConflict> { /* ... */ }
+  ```
+  Move the legacy key fields (`endorsed_by`, `reset`, `retired`,
+
+- ```rust
+  pub fn write_into(self: &Self, existing: &str) -> Result<String, RootError> { /* ... */ }
+  ```
+  `existing` (a whole `kovan_root.toml`) with this module's sections
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> ReviewRoot { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Default**
+  - ```rust
+    fn default() -> ReviewRoot { /* ... */ }
+    ```
+
+- **Deserialize**
+  - ```rust
+    fn deserialize<__D>(__deserializer: __D) -> _serde::__private228::Result<Self, <__D as >::Error>
+where
+    __D: _serde::Deserializer<''de> { /* ... */ }
+    ```
+
+- **DeserializeOwned**
+- **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &ReviewRoot) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **Serialize**
+  - ```rust
+    fn serialize<__S>(self: &Self, __serializer: __S) -> _serde::__private228::Result<<__S as >::Ok, <__S as >::Error>
+where
+    __S: _serde::Serializer { /* ... */ }
+    ```
+
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Enum `RootError`
+
+Why `kovan_root.toml`'s review sections cannot be read or written.
+
+```rust
+pub enum RootError {
+    Toml(String),
+    Field(super::types::FieldError),
+    DuplicateReviewer(String),
+    UnlabelledSelfDeclared {
+        reviewer: String,
+        area: String,
+    },
+    SelfStudyWithoutEvidence {
+        reviewer: String,
+        area: String,
+    },
+}
+```
+
+##### Variants
+
+###### `Toml`
+
+Not TOML, or a review section does not match the schema.
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `String` |  |
+
+###### `Field`
+
+A reviewer id is not acceptable.
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `super::types::FieldError` |  |
+
+###### `DuplicateReviewer`
+
+Two `[[reviewer]]` entries share an id.
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `String` |  |
+
+###### `UnlabelledSelfDeclared`
+
+A self-study qualification not labelled `self_declared = true`, or
+one with no evidence (maintainer, #739, 2026-10-07).
+
+Fields:
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `reviewer` | `String` |  |
+| `area` | `String` |  |
+
+###### `SelfStudyWithoutEvidence`
+
+Fields:
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `reviewer` | `String` |  |
+| `area` | `String` |  |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> RootError { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Display**
+  - ```rust
+    fn fmt(self: &Self, f: &mut std::fmt::Formatter<''_>) -> std::fmt::Result { /* ... */ }
+    ```
+
+- **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+- **Error**
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &RootError) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **ToString**
+  - ```rust
+    fn to_string(self: &Self) -> String { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+### Functions
+
+#### Function `area_covers`
+
+Whether area `area` covers concept `concept`: the same node or one under
+it.
+
+```rust
+pub fn area_covers(area: &str, concept: &str) -> bool { /* ... */ }
+```
+
+### Constants and Statics
+
+#### Constant `ROOT_KEYS`
+
+The keys this module owns in `kovan_root.toml`.
+
+```rust
+pub const ROOT_KEYS: [&str; 3] = _;
+```
+
+## Module `rust_items`
+
+Finding a function in one Rust source file with a real parser (`syn`),
+and the normalised text a stamp's hash is taken over.
+
+Moved here from `kovan::review_stamps::parse` on 2026-10-07 (GitHub #764;
+placement decided on #743: stamp types in kovan-common, which builds for
+wasm). `kovan::review_stamps::parse` re-exports this module unchanged.
+The one addition is [`FnEntry::code_without_name`], the code text with the
+function's own name left out, which the #764 function hash
+([`super::hash`]) is taken over; [`stamp_hash`] (the 2026-10-06 `kovan`
+stamp hash, name and doc included) is kept for `kovan`'s
+`review/stamps.toml` until that file is retired.
+
+# Which functions exist
+
+Every `fn` item the parser sees at item level: free functions, methods in
+`impl` blocks, and trait methods (with or without a default body), at any
+depth of inline `mod name { ... }`. A function nested inside another
+function's body is part of that function's code, not an item of its own,
+so it cannot be stamped by itself. (`code-walk`'s text scanner does see
+nested `fn`s; that is the one place the two differ.)
+
+# How a path names one
+
+Exactly as `kovan-cli code-walk` names it (`commands/code_walk/source.rs`
+`FileIndex::find`): `name` matches every function so named in the file;
+`Owner::name` matches a method whose `impl` self type, or whose trait,
+has the last path segment `Owner` (generics and references dropped), or a
+method declared in `trait Owner`. More than one match is an ambiguity, and
+the caller is told to qualify the path.
+
+# The normalisation the hash is taken over
+
+A function's stamp text has two parts, built from the parsed item:
+
+- **Doc**: the item's own outer doc attributes, in order — every `///`
+  line and `/** */` block (the compiler turns both into
+  `#[doc = "..."]`), and any `#[doc = "literal"]` written out. The text of
+  all of them is split into lines; a line that is blank after trimming is
+  a paragraph break; within a paragraph the words are joined by single
+  spaces. So re-wrapping or re-indenting a doc paragraph keeps the text,
+  while changing, adding, removing or reordering a word, or adding or
+  removing a paragraph break, changes it.
+- **Code**: every other token of the item — its other attributes
+  (`#[inline]`, `#[cfg(...)]`, a non-literal `#[doc = ...]`), visibility,
+  signature and body — as the parser's token trees, each written as its
+  text followed by one space: identifiers and literals as written
+  (`1.0` and `1.` differ, as do `"a"` and `r"a"`), punctuation one
+  character at a time with its joint/alone spacing dropped, and groups as
+  their delimiter, contents, closing delimiter. Ordinary comments (`//`,
+  `/* */`) never reach the token stream, and neither does any whitespace
+  or line break, so rustfmt-style reformatting and comment edits leave the
+  code text unchanged; changing any token changes it. Doc comments on
+  items *nested inside the body* stay as `#[doc = "..."]` tokens of the
+  code.
+
+Neither part depends on where the function sits in the file, so moving a
+function keeps its stamp; the line numbers are reported separately.
+
+```rust
+pub mod rust_items { /* ... */ }
+```
+
+### Types
+
+#### Enum `Container`
+
+The block a function is declared in.
+
+```rust
+pub enum Container {
+    Free,
+    Impl {
+        self_ty: String,
+        trait_name: Option<String>,
+    },
+    Trait {
+        name: String,
+    },
+}
+```
+
+##### Variants
+
+###### `Free`
+
+A free function, at file level or inside an inline `mod`.
+
+###### `Impl`
+
+Inside `impl Type` or `impl Trait for Type`.
+
+Fields:
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `self_ty` | `String` |  |
+| `trait_name` | `Option<String>` |  |
+
+###### `Trait`
+
+Declared in `trait Name { ... }`.
+
+Fields:
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `name` | `String` |  |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Container { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Container) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Struct `FnEntry`
+
+One function found in a file.
+
+```rust
+pub struct FnEntry {
+    pub name: String,
+    pub container: Container,
+    pub lines: [u32; 2],
+    pub doc: String,
+    pub code: String,
+    pub code_without_name: String,
+    pub is_test: bool,
+    pub inline_parents: Vec<String>,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `name` | `String` |  |
+| `container` | `Container` |  |
+| `lines` | `[u32; 2]` | 1-based inclusive line range, from the first outer attribute (doc<br>comments included) to the closing brace or `;`. |
+| `doc` | `String` | The normalised doc text (module doc above). |
+| `code` | `String` | The normalised code text (module doc above). |
+| `code_without_name` | `String` | [`Self::code`] with the function's own name left out: the `fn`<br>keyword is followed directly by the generics or the parameter list<br>(GitHub #764, maintainer 2026-10-07: renaming alone must not change<br>the hash). Only the declaration's name is dropped; the same<br>identifier anywhere else (a recursive call, a nested item) stays. |
+| `is_test` | `bool` | Inside a `#[cfg(test)]` module, or itself `#[test]` / `#[cfg(test)]`. |
+| `inline_parents` | `Vec<String>` | Inline modules enclosing the function, outermost first. |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn qualname(self: &Self) -> String { /* ... */ }
+  ```
+  `Type::name` for a method, `Trait::name` for a trait declaration,
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> FnEntry { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &FnEntry) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Struct `ModDecl`
+
+A `mod name;` declaration (no inline body) found in a file.
+
+```rust
+pub struct ModDecl {
+    pub inline_parents: Vec<String>,
+    pub name: String,
+    pub is_test: bool,
+    pub has_path_attr: bool,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `inline_parents` | `Vec<String>` | Inline modules enclosing the declaration, outermost first. |
+| `name` | `String` |  |
+| `is_test` | `bool` | Under `#[cfg(test)]` (directly or through an enclosing module). |
+| `has_path_attr` | `bool` | Carries a `#[path = ...]` attribute, which this module does not follow. |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> ModDecl { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &ModDecl) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Struct `ParsedFile`
+
+Everything parsed out of one file.
+
+```rust
+pub struct ParsedFile {
+    pub fns: Vec<FnEntry>,
+    pub mods: Vec<ModDecl>,
+    pub inline_mods: Vec<Vec<String>>,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `fns` | `Vec<FnEntry>` |  |
+| `mods` | `Vec<ModDecl>` |  |
+| `inline_mods` | `Vec<Vec<String>>` | Every inline `mod name { ... }`, as its full inline path. |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> ParsedFile { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Default**
+  - ```rust
+    fn default() -> ParsedFile { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Enum `LocateError`
+
+Why a path did not name exactly one function.
+
+```rust
+pub enum LocateError {
+    Parse(String),
+    NotFound,
+    Ambiguous(Vec<String>),
+}
+```
+
+##### Variants
+
+###### `Parse`
+
+The file is not valid Rust as far as `syn` can tell.
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `String` |  |
+
+###### `NotFound`
+
+###### `Ambiguous`
+
+Several functions match; their qualified names and first lines.
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `Vec<String>` |  |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> LocateError { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Display**
+  - ```rust
+    fn fmt(self: &Self, f: &mut std::fmt::Formatter<''_>) -> std::fmt::Result { /* ... */ }
+    ```
+
+- **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &LocateError) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **ToString**
+  - ```rust
+    fn to_string(self: &Self) -> String { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+### Functions
+
+#### Function `parse_file`
+
+Parse `text` and list its functions and `mod name;` declarations.
+
+```rust
+pub fn parse_file(text: &str) -> Result<ParsedFile, String> { /* ... */ }
+```
+
+#### Function `locate`
+
+The one function `qual` (`name` or `Owner::name`) names in `text`.
+
+```rust
+pub fn locate(text: &str, qual: &str) -> Result<FnEntry, LocateError> { /* ... */ }
+```
+
+#### Function `matches`
+
+`code-walk`'s matching rule (module doc).
+
+```rust
+pub fn matches(f: &FnEntry, qual: &str) -> bool { /* ... */ }
+```
+
+#### Function `stamp_hash`
+
+The stamp hash of a function's normalised doc and code text:
+`sha256:` and the lowercase hex SHA-256 of
+`"kovan-review-stamp-v1\ndoc\n" + doc + "\ncode\n" + code`.
+
+```rust
+pub fn stamp_hash(doc: &str, code: &str) -> String { /* ... */ }
+```
+
+#### Function `normalise_doc`
+
+Paragraphs of single-spaced words, separated by a blank line.
+
+```rust
+pub fn normalise_doc(docs: &[String]) -> String { /* ... */ }
+```
+
+## Module `scope`
+
+Reviewer **scope** globs (maintainer, #739 "many maintainers",
+2026-10-07): a stamp outside its reviewer's scope shows "outside scope"
+and does not count.
+
+The glob language is deliberately small, over `/`-separated
+workspace-relative paths: `*` matches within one path segment, `**`
+matches any number of whole segments (including none), `?` one character
+other than `/`. Everything else is literal. No external glob crate: the
+rule has to run in web-kovan (wasm) and is a few lines.
+
+```rust
+pub mod scope { /* ... */ }
+```
+
+### Functions
+
+#### Function `glob_match`
+
+Whether `path` matches `glob`.
+
+```rust
+pub fn glob_match(glob: &str, path: &str) -> bool { /* ... */ }
+```
+
+#### Function `in_scope`
+
+Whether `path` is inside any of `globs`.
+
+```rust
+pub fn in_scope(globs: &[String], path: &str) -> bool { /* ... */ }
+```
+
+## Module `signing`
+
+**Stamp signatures** (GitHub #762; design on #739, comments "Stamp
+signing inside kovan", "Many maintainers" and "D6", 2026-10-07): the
+stored field, the exact bytes that get signed, and verification.
+
+~~The cryptography itself is GitHub #762 and is **not here**:
+[`verify_review`] and [`verify_architecture`] always answer
+[`SignatureCheck::Unverified`], with the reason, until #762 lands.~~
+**CORRECTED 2026-10-07 (#762)**: [`verify_review`] and
+[`verify_architecture`] check the ed25519 signature against the
+`[[reviewer]]` registry ([`registry::Registry`]) and answer
+[`SignatureCheck::Verified`] only when every rule below holds.
+
+# Who does what
+
+```text
+  desktop kovan (native only)              everywhere (desktop, web-kovan wasm, CI)
+  ───────────────────────────              ────────────────────────────────────────
+  keystore::generate ──> KeyFile (argon2id + AES-256-GCM, kovan config dir)
+  KeyFile::unlock(passphrase) ──> UnlockedKey (memory only, while the app is open)
+  UnlockedKey::sign_review ──> [review.signature] ──> verify_review(entry, &Registry)
+  UnlockedKey::endorse/admit/revoke/unretire ──> kovan_root.toml ──> Registry::build
+```
+
+`kovan-cli` has no signing command; `keystore` does not exist on wasm.
+
+# What a verified stamp needs
+
+1. a signature, `alg = "ed25519"`, by a key listed under the stamp's
+   `by` reviewer, that verifies over [`signed_bytes`] (any edit to a
+   signed field, or another key, fails: [`UnverifiedReason::BadSignature`]);
+2. a reviewer admitted by the registry, and a trusted key
+   ([`registry::KeyStatus`]): an unendorsed key's signatures do not count;
+3. a stamp `date` before the reviewer's revocation, and before the
+   compromise date of a compromised one; outside the key's retired window;
+4. for a `reviewer` (not a `maintainer`), every path it certifies inside
+   its `scope` globs ([`super::scope`]).
+
+**Time-bound stamps (#739 D6):** `commit` and `hash` are signed fields.
+Checking that the function's hash *at that commit* is `hash`, and that the
+stamp arrived in a later commit, is the staleness engine's job (#765);
+this module only proves the reviewer signed those values. The agent
+trailer stays a secondary signal ([`super::types::agent_trailer`]).
+
+# The signed bytes
+
+A UTF-8 text, one `key=value` line per field, in a fixed order, each
+value written as a JSON string (so a newline or `=` inside a value cannot
+forge a line), maps sorted by key:
+
+```text
+kovan-review-signature-v1
+kind="review"
+target="fn:3f2a9c0d1e4b5a67"     (the stable id, #764 hybrid id)
+by="github:theodoreOnzGit"
+rung="3"
+date="2026-10-07"
+commit="<sha>"
+hash="sha256:…"
+doc_hash="sha256:…"
+cargo_lock="sha256:…"          (or "" when absent)
+authorship="agent"              (or "" when absent)
+session="https://…"            (one line per session, sorted)
+callee="<id>" "<hash>"          (one line per callee, sorted by id)
+checklist="<q>" "<answer>"      (one line per answer, sorted)
+no_concept="…"                  (or "")
+relation="<kind>" "<target>"    (one line per relation, in order)
+```
+
+**Location is not signed (2026-10-07, with the hybrid id).** `path` and
+the `[[review.moved]]` records are where the function is now and how it
+got there; kovan rewrites them when the maintainer acknowledges a move,
+and a stamp by another reviewer must survive that without a re-sign.
+~~`function="<call-graph key>"` and `moved="<from>" "<commit>"` lines~~
+**CORRECTED 2026-10-07**: the stable `target` id is signed instead. The
+staleness engine checks scope on the function's actual location from
+`kovan.toml`, so an edited `path` cannot move a stamp into scope.
+
+The artifact id, `created`/`modified`, the Markdown comments and the
+signature itself are not signed (the signing comment on #739 lists the
+fields: target, hash, commit, `by`, date, checklist; the rest above are
+the review's other certifying fields). The authorship of the reviewed
+change is signed (maintainer, #764, 2026-10-07).
+
+The registry statements ([`key_event_bytes`] for every signed
+`[[reviewer.key.history]]` event, [`revocation_bytes`] for a reviewer's
+revocation; and the v1 [`endorsement_bytes`], [`admission_bytes`],
+[`unretire_bytes`] that migrated `legacy` events were signed over) use
+the same line format, each
+under its own first line, so a signature over one kind of statement can
+never be replayed as another.
+
+```rust
+pub mod signing { /* ... */ }
+```
+
+### Modules
+
+## Module `registry`
+
+**The reviewer registry, checked** (GitHub #762; rules from #739, comments
+"Stamp signing inside kovan" and "Many maintainers", and the maintainer's
+answers on #762, 2026-10-07).
+
+[`Registry::build`] reads the `[[reviewer]]` entries of `kovan_root.toml`
+([`ReviewRoot`]) and works out, with the signatures checked, which
+reviewers are admitted, which keys are trusted and when each key was
+active. It never fails: every "no" is a typed status on the reviewer or
+key, and [`Registry::warnings`] lists all of them for the loud display
+(unendorsed keys, resets, tampered history entries, unverified
+revocations, …).
+
+# A key's life is its append-only history
+
+Each `[[reviewer.key]]` carries `[[reviewer.key.history]]`: one entry per
+lifecycle event, in order, never edited or deleted (maintainer, #762,
+2026-10-07). The key's state is **derived by replaying it**:
+
+```text
+  [[reviewer.key]] id = "k1"
+    history: created ─ endorsed ─ retired ─ unretired ─ retired ─ unretired ─ compromised
+             (date)    (signed)   (date)    (signed by     (date)  (signed by    (signed)
+                                            k1 itself)             k1 itself)
+  active:    ─────────────────────┤ void   ├────────────────┤ void ├───────────┤ void ──>
+```
+
+**Why per key, not a top-level `[[key_history]]` log.** Every event
+concerns exactly one key, so it sits under that key: a reader sees one
+key's whole life in one place, and an entry cannot name a key or
+reviewer that does not exist (a top-level log would have to repeat both
+ids on every line and validate them). Events that need another
+reviewer's authority name it in `signer`.
+
+The v1 fields (`endorsed_by`, `reset`, `retired`, `retired_on`,
+`unretired`, the reviewer's `admitted_by`) still load:
+[`ReviewRoot::migrate_key_history`] turns them into history events
+(signed ones marked `legacy`, verified over the v1 bytes), and
+[`Registry::build`] runs it on a copy first.
+
+# The trust rules
+
+```text
+  [code_review] founder = "<id>"  ->  [[reviewer]] <id> (a maintainer, no admission)
+       │  founding maintainer: its first key is trusted on first use
+       ├── key k2  history: endorsed by k1                  same reviewer's trusted key
+       ├── key k3  history: reset, unsigned                 founder only: trusted, flagged forever
+       └─ admits ─> [[reviewer]] #2, key a1 history: admitted, signed by the founder's k1
+                        (signed over id, role, admitted date, scope, FIRST key)
+                        ├── key a2   endorsed by a1
+                        └── key a3   reset, signed by a maintainer's key
+```
+
+- **Founder.** Named by `[code_review] founder` (maintainer, #762 Q1);
+  entry order never matters. It must be a listed maintainer with no
+  admission; a missing or unknown founder is a [`FounderProblem`] and
+  nothing is trusted. Its first key is trusted on first use.
+- **Admission.** Every other reviewer's first key needs an `admitted`
+  event signed by an admitted maintainer's trusted key (dated the
+  reviewer's `admitted`; the maintainer must not be revoked by then).
+- **Endorsement.** Every later key needs an `endorsed` event signed by a
+  trusted key of the **same** reviewer, else [`KeyProblem::Unendorsed`]:
+  loud, and its signatures do not count.
+- **Reset.** A `reset` event (the old passphrase is lost) is signed by
+  an admitted maintainer's trusted key; the founder may reset unsigned
+  ([`KeyStatus::ResetTrustedOnFirstUse`]). Shown forever (#762 Q2).
+- **Retirement.** A key is void from each `retired` event until the next
+  `unretired` event, which must be signed by **the key itself** (the
+  possession proof: only someone who unlocked its encrypted file can make
+  it). Retire, un-retire, retire, un-retire works; every gap stays void.
+- **Key revocation.** A `revoked` or `compromised` event voids the key
+  from its date, permanently. It is honoured even if unsigned or badly
+  signed (it only takes trust away) and listed as a warning; it is
+  signed by a maintainer or by the key's own reviewer.
+- **Inactive keys sign nothing** (maintainer, #762 Q4): a key void at a
+  statement's date (retired, revoked, compromised) cannot sign an
+  endorsement, admission or revocation then
+  ([`SignerProblem::SignerRetired`], [`SignerProblem::SignerKeyRevoked`]);
+  its own un-retirement is the one exception.
+- **Reviewer revocation.** `[reviewer.revoked]` revokes the person:
+  honoured whether or not its signature verifies (#762 Q3), listed as a
+  warning if it does not. Stamps dated before `date` stay valid; with
+  `compromised_from`, stamps from that date are void.
+- **Tampering.** Every signed event is checked on its own; one that does
+  not verify is a [`HistoryProblem::BadEventSignature`] warning even when
+  another event already made the key trusted. Dates must not go
+  backwards ([`HistoryProblem::OutOfOrder`]). A deleted *trailing*
+  `retired` entry cannot be seen without git; a deleted one followed by
+  its `unretired` can ([`HistoryProblem::UnretiredWhileActive`]).
+
+Trust is computed to a fixed point, so the order of entries does not
+matter, and an endorsement cycle never becomes trusted.
+
+```rust
+pub mod registry { /* ... */ }
+```
+
+### Types
+
+#### Enum `FounderProblem`
+
+Why the registry has no founding maintainer (then nothing is trusted).
+
+```rust
+pub enum FounderProblem {
+    NotDeclared,
+    Unknown(String),
+    NotMaintainer(String),
+    HasAdmission(String),
+}
+```
+
+##### Variants
+
+###### `NotDeclared`
+
+`[code_review] founder` is not set.
+
+###### `Unknown`
+
+`founder` names no `[[reviewer]]`.
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `String` |  |
+
+###### `NotMaintainer`
+
+The founder's `[[reviewer]]` is not a maintainer.
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `String` |  |
+
+###### `HasAdmission`
+
+The founder carries an admission (an `admitted` event, or a v1
+`admitted_by`).
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `String` |  |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> FounderProblem { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &FounderProblem) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Enum `SignerProblem`
+
+Why a signature by another key (an admission, an endorsement, a
+revocation) does not count.
+
+```rust
+pub enum SignerProblem {
+    Unsigned,
+    NotEligible(String),
+    UnknownKey {
+        key: String,
+    },
+    NotTrusted {
+        key: String,
+    },
+    Malformed(super::CryptoError),
+    BadSignature,
+    SignerRevoked {
+        signer: String,
+        date: String,
+    },
+    SignerRetired {
+        signer: String,
+        key: String,
+    },
+    SignerKeyRevoked {
+        signer: String,
+        key: String,
+    },
+}
+```
+
+##### Variants
+
+###### `Unsigned`
+
+There is no signature (or no `signer`).
+
+###### `NotEligible`
+
+`signer.reviewer` is not one of the reviewers allowed to sign this.
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `String` |  |
+
+###### `UnknownKey`
+
+No eligible signer has a key with this id.
+
+Fields:
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `key` | `String` |  |
+
+###### `NotTrusted`
+
+Eligible keys with this id exist, but none is trusted.
+
+Fields:
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `key` | `String` |  |
+
+###### `Malformed`
+
+The signature cannot be decoded.
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `super::CryptoError` |  |
+
+###### `BadSignature`
+
+No trusted key with this id verifies it.
+
+###### `SignerRevoked`
+
+The signer was revoked (or compromised) on `date`, on or before the
+statement's date.
+
+Fields:
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `signer` | `String` |  |
+| `date` | `String` |  |
+
+###### `SignerRetired`
+
+The signing key was retired at the statement's date (#762 Q4).
+
+Fields:
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `signer` | `String` |  |
+| `key` | `String` |  |
+
+###### `SignerKeyRevoked`
+
+The signing key was revoked or compromised (key history) at the
+statement's date.
+
+Fields:
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `signer` | `String` |  |
+| `key` | `String` |  |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> SignerProblem { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &SignerProblem) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Enum `AdmissionProblem`
+
+Why a reviewer is not admitted.
+
+```rust
+pub enum AdmissionProblem {
+    Unadmitted,
+    Undated,
+    BadDate(String),
+    NoKey,
+    DateMismatch {
+        event: String,
+        admitted: String,
+    },
+    Signer(SignerProblem),
+}
+```
+
+##### Variants
+
+###### `Unadmitted`
+
+Not the founder, and no `admitted` event on the first key.
+
+###### `Undated`
+
+An admission without the reviewer's `admitted` date.
+
+###### `BadDate`
+
+`admitted` is not `YYYY-MM-DD`.
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `String` |  |
+
+###### `NoKey`
+
+No key: an admission sits on, and covers, the first key.
+
+###### `DateMismatch`
+
+The `admitted` event's date is not the reviewer's `admitted` date.
+
+Fields:
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `event` | `String` |  |
+| `admitted` | `String` |  |
+
+###### `Signer`
+
+The admission signature does not count.
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `SignerProblem` |  |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> AdmissionProblem { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &AdmissionProblem) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Enum `Admission`
+
+How a reviewer is admitted.
+
+```rust
+pub enum Admission {
+    Founder,
+    Admitted {
+        by: String,
+        key: String,
+    },
+    NotAdmitted(AdmissionProblem),
+}
+```
+
+##### Variants
+
+###### `Founder`
+
+The founding maintainer, trusted on first use.
+
+###### `Admitted`
+
+Admitted by maintainer `by`'s key `key`.
+
+Fields:
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `by` | `String` |  |
+| `key` | `String` |  |
+
+###### `NotAdmitted`
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `AdmissionProblem` |  |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Admission { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Admission) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Enum `KeyProblem`
+
+Why a key is not trusted.
+
+```rust
+pub enum KeyProblem {
+    UnsupportedAlgorithm(String),
+    BadPublicKey(super::CryptoError),
+    BadCreatedDate(String),
+    DuplicateId,
+    ReviewerNotAdmitted,
+    Unendorsed,
+    Endorsement(SignerProblem),
+}
+```
+
+##### Variants
+
+###### `UnsupportedAlgorithm`
+
+`alg` is not `ed25519`.
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `String` |  |
+
+###### `BadPublicKey`
+
+`public` cannot be decoded.
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `super::CryptoError` |  |
+
+###### `BadCreatedDate`
+
+`created` is not `YYYY-MM-DD`.
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `String` |  |
+
+###### `DuplicateId`
+
+Two keys of this reviewer share the id: neither is trusted.
+
+###### `ReviewerNotAdmitted`
+
+The reviewer is not admitted.
+
+###### `Unendorsed`
+
+Not the first key and no `endorsed`/`reset` event (a non-founder
+reset needs a maintainer's signature too).
+
+###### `Endorsement`
+
+The endorsement does not count.
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `SignerProblem` |  |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> KeyProblem { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &KeyProblem) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Enum `KeyStatus`
+
+How a key is trusted.
+
+```rust
+pub enum KeyStatus {
+    TrustedOnFirstUse,
+    Admitted,
+    Endorsed {
+        by_reviewer: String,
+        by_key: String,
+    },
+    ResetTrustedOnFirstUse,
+    Untrusted(KeyProblem),
+}
+```
+
+##### Variants
+
+###### `TrustedOnFirstUse`
+
+The founding maintainer's first key.
+
+###### `Admitted`
+
+A reviewer's first key, covered by its admission.
+
+###### `Endorsed`
+
+Endorsed by `by_key` of reviewer `by_reviewer` (the same reviewer, or
+a maintainer for a reset).
+
+Fields:
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `by_reviewer` | `String` |  |
+| `by_key` | `String` |  |
+
+###### `ResetTrustedOnFirstUse`
+
+A founding-maintainer reset with no signature: trusted, and flagged
+in [`Registry::warnings`] forever.
+
+###### `Untrusted`
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `KeyProblem` |  |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn is_trusted(self: &Self) -> bool { /* ... */ }
+  ```
+  Whether signatures by the key can count.
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> KeyStatus { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &KeyStatus) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Enum `HistoryProblem`
+
+Something wrong in a key's history (`index` is the entry's position).
+
+```rust
+pub enum HistoryProblem {
+    MissingCreated,
+    CreatedNotFirst {
+        index: usize,
+    },
+    BadDate {
+        index: usize,
+        date: String,
+    },
+    OutOfOrder {
+        index: usize,
+    },
+    RetiredWhileRetired {
+        index: usize,
+    },
+    UnretiredWhileActive {
+        index: usize,
+    },
+    AdmittedNotOnFirstKey {
+        index: usize,
+    },
+    BadEventSignature {
+        index: usize,
+        event: super::super::root::KeyEventKind,
+        problem: SignerProblem,
+    },
+    LegacyFieldsIgnored,
+}
+```
+
+##### Variants
+
+###### `MissingCreated`
+
+The history does not start with `created`.
+
+###### `CreatedNotFirst`
+
+A second `created` entry.
+
+Fields:
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `index` | `usize` |  |
+
+###### `BadDate`
+
+A date is not `YYYY-MM-DD` (a malformed retirement or revocation
+voids the key from the start).
+
+Fields:
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `index` | `usize` |  |
+| `date` | `String` |  |
+
+###### `OutOfOrder`
+
+A date earlier than the entry before it.
+
+Fields:
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `index` | `usize` |  |
+
+###### `RetiredWhileRetired`
+
+`retired` while already retired (the first retirement stands).
+
+Fields:
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `index` | `usize` |  |
+
+###### `UnretiredWhileActive`
+
+`unretired` with no open retirement before it.
+
+Fields:
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `index` | `usize` |  |
+
+###### `AdmittedNotOnFirstKey`
+
+`admitted` on a key other than the reviewer's first.
+
+Fields:
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `index` | `usize` |  |
+
+###### `BadEventSignature`
+
+A signed event whose signature does not count (tampered, wrong
+signer, unsigned where a signature is required, or an unsigned
+revocation, which is honoured anyway).
+
+Fields:
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `index` | `usize` |  |
+| `event` | `super::super::root::KeyEventKind` |  |
+| `problem` | `SignerProblem` |  |
+
+###### `LegacyFieldsIgnored`
+
+The key has both a history and v1 legacy fields: the history is used
+and the legacy fields are ignored.
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> HistoryProblem { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &HistoryProblem) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Enum `InactiveKind`
+
+Why a key was void for a while.
+
+```rust
+pub enum InactiveKind {
+    Retired,
+    Revoked,
+    Compromised,
+}
+```
+
+##### Variants
+
+###### `Retired`
+
+###### `Revoked`
+
+###### `Compromised`
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> InactiveKind { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &InactiveKind) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Struct `Window`
+
+A span in which the key is void: from `from` (`None`: malformed date,
+so from the start) until `to` (`None`: still).
+
+```rust
+pub struct Window {
+    pub kind: InactiveKind,
+    pub from: Option<String>,
+    pub to: Option<String>,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `kind` | `InactiveKind` |  |
+| `from` | `Option<String>` |  |
+| `to` | `Option<String>` |  |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Window { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Window) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Struct `KeyTrust`
+
+One key, decoded, replayed and judged.
+
+```rust
+pub struct KeyTrust {
+    pub id: String,
+    pub public: Result<ed25519_dalek::VerifyingKey, super::CryptoError>,
+    pub status: KeyStatus,
+    pub reset: bool,
+    pub windows: Vec<Window>,
+    pub history: Vec<HistoryProblem>,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `id` | `String` |  |
+| `public` | `Result<ed25519_dalek::VerifyingKey, super::CryptoError>` |  |
+| `status` | `KeyStatus` |  |
+| `reset` | `bool` | A `reset` event is in the history (shown permanently). |
+| `windows` | `Vec<Window>` | Every span in which the key is void, from the history. |
+| `history` | `Vec<HistoryProblem>` | Problems found in the history. |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn inactive_at(self: &Self, date: &str) -> Option<UnverifiedReason> { /* ... */ }
+  ```
+  Why something the key signed, dated `date`, does not count; `None`
+
+- ```rust
+  pub fn is_retired(self: &Self) -> bool { /* ... */ }
+  ```
+  Whether the key is retired now (an open retirement window).
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> KeyTrust { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &KeyTrust) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Enum `RevocationProblem`
+
+Why a revocation's signature does not count. The revocation is honoured
+anyway; this is a warning.
+
+```rust
+pub enum RevocationProblem {
+    BadDate(String),
+    SignerNotMaintainer(String),
+    Signer(SignerProblem),
+}
+```
+
+##### Variants
+
+###### `BadDate`
+
+`date` or `compromised_from` is not `YYYY-MM-DD` (then every stamp of
+the reviewer is void).
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `String` |  |
+
+###### `SignerNotMaintainer`
+
+`by` is not an admitted maintainer.
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `String` |  |
+
+###### `Signer`
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `SignerProblem` |  |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> RevocationProblem { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &RevocationProblem) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Struct `RevocationTrust`
+
+`[reviewer.revoked]`, judged.
+
+```rust
+pub struct RevocationTrust {
+    pub date: String,
+    pub compromised_from: Option<String>,
+    pub by: String,
+    pub signed: Result<String, RevocationProblem>,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `date` | `String` |  |
+| `compromised_from` | `Option<String>` |  |
+| `by` | `String` |  |
+| `signed` | `Result<String, RevocationProblem>` | The signing key id, or why the signature does not count. |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn cutoff(self: &Self, date: &str) -> Option<UnverifiedReason> { /* ... */ }
+  ```
+  The cut-off that voids something dated `date`, if any: the
+
+- ```rust
+  pub fn check(self: &Self, date: &str) -> Result<(), UnverifiedReason> { /* ... */ }
+  ```
+  `Err` when a stamp dated `date` is void by this revocation.
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> RevocationTrust { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &RevocationTrust) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Struct `ReviewerTrust`
+
+One reviewer, judged.
+
+```rust
+pub struct ReviewerTrust {
+    pub id: String,
+    pub role: super::super::root::Role,
+    pub scope: Vec<String>,
+    pub admission: Admission,
+    pub keys: Vec<KeyTrust>,
+    pub revocation: Option<RevocationTrust>,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `id` | `String` |  |
+| `role` | `super::super::root::Role` |  |
+| `scope` | `Vec<String>` |  |
+| `admission` | `Admission` |  |
+| `keys` | `Vec<KeyTrust>` |  |
+| `revocation` | `Option<RevocationTrust>` |  |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn key(self: &Self, id: &str) -> Option<&KeyTrust> { /* ... */ }
+  ```
+  The key with this id.
+
+- ```rust
+  pub fn is_admitted(self: &Self) -> bool { /* ... */ }
+  ```
+  Whether the reviewer is admitted (founder or by a maintainer).
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> ReviewerTrust { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &ReviewerTrust) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Enum `Warning`
+
+Everything the loud display must show.
+
+```rust
+pub enum Warning {
+    NoFounder(FounderProblem),
+    ReviewerNotAdmitted {
+        reviewer: String,
+        problem: AdmissionProblem,
+    },
+    KeyNotTrusted {
+        reviewer: String,
+        key: String,
+        problem: KeyProblem,
+    },
+    KeyReset {
+        reviewer: String,
+        key: String,
+        status: KeyStatus,
+    },
+    KeyHistory {
+        reviewer: String,
+        key: String,
+        problem: HistoryProblem,
+    },
+    RevocationUnverified {
+        reviewer: String,
+        problem: RevocationProblem,
+    },
+}
+```
+
+##### Variants
+
+###### `NoFounder`
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `FounderProblem` |  |
+
+###### `ReviewerNotAdmitted`
+
+Fields:
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `reviewer` | `String` |  |
+| `problem` | `AdmissionProblem` |  |
+
+###### `KeyNotTrusted`
+
+Fields:
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `reviewer` | `String` |  |
+| `key` | `String` |  |
+| `problem` | `KeyProblem` |  |
+
+###### `KeyReset`
+
+A reset key, trusted or not: shown permanently.
+
+Fields:
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `reviewer` | `String` |  |
+| `key` | `String` |  |
+| `status` | `KeyStatus` |  |
+
+###### `KeyHistory`
+
+A problem in a key's history (a tampered entry, an unsigned
+revocation, an out-of-order date, …).
+
+Fields:
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `reviewer` | `String` |  |
+| `key` | `String` |  |
+| `problem` | `HistoryProblem` |  |
+
+###### `RevocationUnverified`
+
+A reviewer revocation honoured although its signature does not count.
+
+Fields:
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `reviewer` | `String` |  |
+| `problem` | `RevocationProblem` |  |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Warning { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Warning) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Enum `LifecycleError`
+
+Why a lifecycle event cannot be appended ([`retire_key`],
+`keystore::UnlockedKey::unretire`).
+
+```rust
+pub enum LifecycleError {
+    BadDate(String),
+    AlreadyRetired,
+    NotRetired,
+}
+```
+
+##### Variants
+
+###### `BadDate`
+
+The date is not `YYYY-MM-DD`, or is before the history's last entry.
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `String` |  |
+
+###### `AlreadyRetired`
+
+[`retire_key`] on a key already retired.
+
+###### `NotRetired`
+
+Un-retiring a key that is not retired.
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> LifecycleError { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Display**
+  - ```rust
+    fn fmt(self: &Self, f: &mut std::fmt::Formatter<''_>) -> std::fmt::Result { /* ... */ }
+    ```
+
+- **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+- **Error**
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &LifecycleError) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **ToString**
+  - ```rust
+    fn to_string(self: &Self) -> String { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Struct `Registry`
+
+The judged registry.
+
+```rust
+pub struct Registry {
+    pub founder: Result<String, FounderProblem>,
+    pub reviewers: Vec<ReviewerTrust>,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `founder` | `Result<String, FounderProblem>` |  |
+| `reviewers` | `Vec<ReviewerTrust>` |  |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn build(root: &ReviewRoot) -> Registry { /* ... */ }
+  ```
+  Judge every reviewer and key in `root` (module doc). The v1 legacy
+
+- ```rust
+  pub fn reviewer(self: &Self, id: &str) -> Option<&ReviewerTrust> { /* ... */ }
+  ```
+  The reviewer registered under `id`.
+
+- ```rust
+  pub fn warnings(self: &Self) -> Vec<Warning> { /* ... */ }
+  ```
+  Every problem and every reset, for the loud display.
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Registry { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Registry) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+### Functions
+
+#### Function `open_retirement`
+
+The date of `k`'s open retirement (replaying `retired`/`unretired` only,
+signatures unchecked), if it is retired now.
+
+```rust
+pub fn open_retirement(k: &super::super::root::ReviewerKey) -> Option<String> { /* ... */ }
+```
+
+#### Function `check_append_date`
+
+Check that `date` can be appended to `k`'s history.
+
+```rust
+pub fn check_append_date(k: &super::super::root::ReviewerKey, date: &str) -> Result<(), LifecycleError> { /* ... */ }
+```
+
+#### Function `retire_key`
+
+Append a `retired` event (unsigned: retiring only takes trust away; no
+private key needed, so a lost key can be retired).
+
+```rust
+pub fn retire_key(k: &mut super::super::root::ReviewerKey, date: &str) -> Result<(), LifecycleError> { /* ... */ }
+```
+
+## Module `keystore`
+
+**Attributes:**
+
+- `Other("#[attr = CfgTrace([Not(NameValue { name: \"target_arch\", value: Some(\"wasm32\"), span: crates/kovan-common/src/review/signing.rs:103:11: 103:33 (#0) }, crates/kovan-common/src/review/signing.rs:103:10: 103:34 (#0))])]")`
+
+**The keystore**: one ed25519 key per reviewer, generated inside kovan,
+its private half encrypted at rest (GitHub #762; #739 "Stamp signing
+inside kovan", 2026-10-07). **Native only**: this module does not exist
+on wasm32, and `kovan-cli` never calls it (the CLI has no signing
+command).
+
+```text
+  passphrase ──argon2id(salt, m, t, p)──> 32-byte key ──┐
+  ed25519 seed (32 bytes, OS entropy) ──AES-256-GCM(nonce, AAD = header)──> ciphertext
+
+  <kovan config dir>/keys/<reviewer>--<key>.kovankey      (TOML, mode 0600 on unix)
+    format, reviewer, key, public, created   <- the header, bound in as AAD
+    [kdf]    alg = "argon2id", m_cost, t_cost, p_cost, salt
+    [cipher] alg = "aes-256-gcm", nonce, ciphertext
+```
+
+The config dir is the one kovan already uses
+(`directories::ProjectDirs::from("org", "OUTRAM PARK", "kovan")`, as in
+`kovan::app::setup` and `kovan::corpus_repos`).
+
+**The passphrase and the unlocked key live in memory only**:
+[`KeyFile::unlock`] returns an [`UnlockedKey`] the desktop app holds while
+it is open. Nothing here writes either to disk or to an OS keyring; the
+signing key is zeroised when the [`UnlockedKey`] is dropped
+(`ed25519-dalek`'s `ZeroizeOnDrop`), and the derived AES key and the
+decrypted seed are zeroised after use.
+
+An [`UnlockedKey`] signs stamps ([`UnlockedKey::sign_review`],
+[`UnlockedKey::sign_architecture`]) and registry statements
+([`UnlockedKey::endorse`], [`UnlockedKey::admit`],
+[`UnlockedKey::revoke`], [`UnlockedKey::unretire`]); what each one
+signs is in [`super`].
+
+```rust
+pub mod keystore { /* ... */ }
+```
+
+### Types
+
+#### Enum `KeystoreError`
+
+Why the keystore cannot do what was asked.
+
+```rust
+pub enum KeystoreError {
+    Io {
+        path: std::path::PathBuf,
+        message: String,
+    },
+    Parse {
+        path: Option<std::path::PathBuf>,
+        message: String,
+    },
+    Unsupported(String),
+    BadField(String),
+    Kdf(String),
+    Field(super::super::types::FieldError),
+    BadKeyId(String),
+    BadDate(String),
+    EmptyPassphrase,
+    WrongPassphrase,
+    KeyMismatch,
+    Random(String),
+    NoConfigDir,
+    AlreadyExists(std::path::PathBuf),
+    WrongFile {
+        path: std::path::PathBuf,
+    },
+}
+```
+
+##### Variants
+
+###### `Io`
+
+A file or folder could not be read or written.
+
+Fields:
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `path` | `std::path::PathBuf` |  |
+| `message` | `String` |  |
+
+###### `Parse`
+
+The key file is not TOML of the expected shape.
+
+Fields:
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `path` | `Option<std::path::PathBuf>` |  |
+| `message` | `String` |  |
+
+###### `Unsupported`
+
+`format` is not [`KEY_FILE_FORMAT`], or a `[kdf]`/`[cipher]` `alg`
+is not argon2id / aes-256-gcm.
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `String` |  |
+
+###### `BadField`
+
+A base64 field of the file does not decode to the right length.
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `String` |  |
+
+###### `Kdf`
+
+The argon2 parameters are out of range (or above [`ARGON2_M_COST_MAX`]).
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `String` |  |
+
+###### `Field`
+
+The reviewer id is not acceptable.
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `super::super::types::FieldError` |  |
+
+###### `BadKeyId`
+
+A key id must be 1 to 64 of `[A-Za-z0-9_-]` (it is part of a file name).
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `String` |  |
+
+###### `BadDate`
+
+A date is not `YYYY-MM-DD`.
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `String` |  |
+
+###### `EmptyPassphrase`
+
+The passphrase is empty.
+
+###### `WrongPassphrase`
+
+Decryption failed: a wrong passphrase, or the file was altered (the
+two cannot be told apart, by design of the AEAD).
+
+###### `KeyMismatch`
+
+The decrypted key does not match the file's `public` key.
+
+###### `Random`
+
+The OS entropy source failed.
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `String` |  |
+
+###### `NoConfigDir`
+
+The platform reports no home directory for kovan's config folder.
+
+###### `AlreadyExists`
+
+A key file for this reviewer and key id already exists; nothing is
+overwritten.
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `std::path::PathBuf` |  |
+
+###### `WrongFile`
+
+The file holds another reviewer's or key's key than the one asked for.
+
+Fields:
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `path` | `std::path::PathBuf` |  |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> KeystoreError { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Display**
+  - ```rust
+    fn fmt(self: &Self, f: &mut std::fmt::Formatter<''_>) -> std::fmt::Result { /* ... */ }
+    ```
+
+- **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+- **Error**
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &KeystoreError) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **ToString**
+  - ```rust
+    fn to_string(self: &Self) -> String { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Enum `SignError`
+
+Why an [`UnlockedKey`] refuses to sign.
+
+```rust
+pub enum SignError {
+    WrongReviewer {
+        expected: String,
+        signer: String,
+    },
+    Missing(&'static str),
+    WrongKey,
+    NotRetired,
+    BadDate(String),
+    Lifecycle(super::registry::LifecycleError),
+}
+```
+
+##### Variants
+
+###### `WrongReviewer`
+
+The statement names reviewer `expected`, but this key is `signer`'s.
+
+Fields:
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `expected` | `String` |  |
+| `signer` | `String` |  |
+
+###### `Missing`
+
+A field the statement needs is absent (`admitted`, a first key, …).
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `&'static str` |  |
+
+###### `WrongKey`
+
+[`UnlockedKey::unretire`] was given another key's entry.
+
+###### `NotRetired`
+
+[`UnlockedKey::unretire`] on a key that is not retired.
+
+###### `BadDate`
+
+A date is not `YYYY-MM-DD`.
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `String` |  |
+
+###### `Lifecycle`
+
+The event cannot be appended (a bad or backwards date).
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `super::registry::LifecycleError` |  |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> SignError { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Display**
+  - ```rust
+    fn fmt(self: &Self, f: &mut std::fmt::Formatter<''_>) -> std::fmt::Result { /* ... */ }
+    ```
+
+- **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+- **Error**
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &SignError) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **ToString**
+  - ```rust
+    fn to_string(self: &Self) -> String { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Struct `KdfParams`
+
+`[kdf]`.
+
+```rust
+pub struct KdfParams {
+    pub alg: String,
+    pub m_cost: u32,
+    pub t_cost: u32,
+    pub p_cost: u32,
+    pub salt: String,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `alg` | `String` |  |
+| `m_cost` | `u32` |  |
+| `t_cost` | `u32` |  |
+| `p_cost` | `u32` |  |
+| `salt` | `String` | Base64, 16 bytes. |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> KdfParams { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Deserialize**
+  - ```rust
+    fn deserialize<__D>(__deserializer: __D) -> _serde::__private228::Result<Self, <__D as >::Error>
+where
+    __D: _serde::Deserializer<''de> { /* ... */ }
+    ```
+
+- **DeserializeOwned**
+- **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &KdfParams) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **Serialize**
+  - ```rust
+    fn serialize<__S>(self: &Self, __serializer: __S) -> _serde::__private228::Result<<__S as >::Ok, <__S as >::Error>
+where
+    __S: _serde::Serializer { /* ... */ }
+    ```
+
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Struct `CipherBlob`
+
+`[cipher]`.
+
+```rust
+pub struct CipherBlob {
+    pub alg: String,
+    pub nonce: String,
+    pub ciphertext: String,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `alg` | `String` |  |
+| `nonce` | `String` | Base64, 12 bytes. |
+| `ciphertext` | `String` | Base64: the 32-byte ed25519 seed plus the 16-byte GCM tag. |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> CipherBlob { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Deserialize**
+  - ```rust
+    fn deserialize<__D>(__deserializer: __D) -> _serde::__private228::Result<Self, <__D as >::Error>
+where
+    __D: _serde::Deserializer<''de> { /* ... */ }
+    ```
+
+- **DeserializeOwned**
+- **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &CipherBlob) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **Serialize**
+  - ```rust
+    fn serialize<__S>(self: &Self, __serializer: __S) -> _serde::__private228::Result<<__S as >::Ok, <__S as >::Error>
+where
+    __S: _serde::Serializer { /* ... */ }
+    ```
+
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Struct `KeyFile`
+
+One encrypted key file. Holds nothing secret in the clear.
+
+```rust
+pub struct KeyFile {
+    pub format: String,
+    pub reviewer: String,
+    pub key: String,
+    pub public: String,
+    pub created: String,
+    pub kdf: KdfParams,
+    pub cipher: CipherBlob,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `format` | `String` |  |
+| `reviewer` | `String` |  |
+| `key` | `String` |  |
+| `public` | `String` | Base64 ed25519 public key (what goes in `[[reviewer.key]] public`). |
+| `created` | `String` |  |
+| `kdf` | `KdfParams` |  |
+| `cipher` | `CipherBlob` |  |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn unlock(self: &Self, passphrase: &str) -> Result<UnlockedKey, KeystoreError> { /* ... */ }
+  ```
+  Decrypt with `passphrase`. The result lives in memory only.
+
+- ```rust
+  pub fn reviewer_key(self: &Self) -> ReviewerKey { /* ... */ }
+  ```
+  The `[[reviewer.key]]` entry for this key (no endorsement yet).
+
+- ```rust
+  pub fn to_toml(self: &Self) -> Result<String, KeystoreError> { /* ... */ }
+  ```
+  The file's TOML text.
+
+- ```rust
+  pub fn from_toml(text: &str) -> Result<KeyFile, KeystoreError> { /* ... */ }
+  ```
+  Read a key file's TOML text.
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> KeyFile { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Deserialize**
+  - ```rust
+    fn deserialize<__D>(__deserializer: __D) -> _serde::__private228::Result<Self, <__D as >::Error>
+where
+    __D: _serde::Deserializer<''de> { /* ... */ }
+    ```
+
+- **DeserializeOwned**
+- **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &KeyFile) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **Serialize**
+  - ```rust
+    fn serialize<__S>(self: &Self, __serializer: __S) -> _serde::__private228::Result<<__S as >::Ok, <__S as >::Error>
+where
+    __S: _serde::Serializer { /* ... */ }
+    ```
+
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Struct `UnlockedKey`
+
+An unlocked key, in memory only. Not `Clone`; `Debug` never prints the
+secret; zeroised on drop.
+
+```rust
+pub struct UnlockedKey {
+    // Some fields omitted
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| *private fields* | ... | *Some fields have been omitted* |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn reviewer(self: &Self) -> &str { /* ... */ }
+  ```
+  The reviewer id this key belongs to.
+
+- ```rust
+  pub fn key_id(self: &Self) -> &str { /* ... */ }
+  ```
+  The key id.
+
+- ```rust
+  pub fn public_b64(self: &Self) -> String { /* ... */ }
+  ```
+  The base64 public key.
+
+- ```rust
+  pub fn sign_review(self: &Self, r: &mut ReviewEntry) -> Result<(), SignError> { /* ... */ }
+  ```
+  Sign a review this reviewer wrote (`[review] by` must be this key's
+
+- ```rust
+  pub fn sign_architecture(self: &Self, a: &mut ArchitectureEntry) -> Result<(), SignError> { /* ... */ }
+  ```
+  Sign an architecture node this reviewer recorded.
+
+- ```rust
+  pub fn endorse(self: &Self, owner: &str, k: &mut ReviewerKey, date: &str) -> Result<(), SignError> { /* ... */ }
+  ```
+  Endorse `owner`'s new key `k` from `date` with one of the owner's own
+
+- ```rust
+  pub fn endorse_reset(self: &Self, owner: &str, k: &mut ReviewerKey, date: &str) -> Result<(), SignError> { /* ... */ }
+  ```
+  Vouch for `owner`'s reset key `k` (the old passphrase is lost) as a
+
+- ```rust
+  pub fn admit(self: &Self, r: &mut Reviewer) -> Result<(), SignError> { /* ... */ }
+  ```
+  Admit reviewer `r` as a maintainer: appends an `admitted` event, dated
+
+- ```rust
+  pub fn revoke(self: &Self, reviewer: &str, rev: &mut Revocation) -> Result<(), SignError> { /* ... */ }
+  ```
+  Sign a revocation of `reviewer` (`rev.by` must be this key's
+
+- ```rust
+  pub fn revoke_key(self: &Self, owner: &str, k: &mut ReviewerKey, date: &str, compromised: bool) -> Result<(), SignError> { /* ... */ }
+  ```
+  Revoke one key of `owner` from `date` (`compromised`: it leaked, and
+
+- ```rust
+  pub fn unretire(self: &Self, k: &mut ReviewerKey, date: &str) -> Result<(), SignError> { /* ... */ }
+  ```
+  Un-retire **this** key from `date`: the possession proof (#739),
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut std::fmt::Formatter<''_>) -> std::fmt::Result { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **Sync**
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Struct `Keystore`
+
+The folder holding key files.
+
+```rust
+pub struct Keystore {
+    // Some fields omitted
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| *private fields* | ... | *Some fields have been omitted* |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn at</* synthetic */ impl Into<PathBuf>: Into<PathBuf>>(dir: impl Into<PathBuf>) -> Keystore { /* ... */ }
+  ```
+  A keystore in `dir` (created on the first save).
+
+- ```rust
+  pub fn default_location() -> Result<Keystore, KeystoreError> { /* ... */ }
+  ```
+  `<kovan config dir>/keys`. Creates nothing.
+
+- ```rust
+  pub fn dir(self: &Self) -> &Path { /* ... */ }
+  ```
+  The folder.
+
+- ```rust
+  pub fn path_for(self: &Self, reviewer: &str, key: &str) -> PathBuf { /* ... */ }
+  ```
+  Where the key file of `reviewer`'s key `key` lives.
+
+- ```rust
+  pub fn save(self: &Self, file: &KeyFile) -> Result<PathBuf, KeystoreError> { /* ... */ }
+  ```
+  Write a new key file (owner-only permissions on unix). Never
+
+- ```rust
+  pub fn load(self: &Self, reviewer: &str, key: &str) -> Result<KeyFile, KeystoreError> { /* ... */ }
+  ```
+  Read `reviewer`'s key `key` (still encrypted).
+
+- ```rust
+  pub fn list(self: &Self) -> Result<Vec<KeyFile>, KeystoreError> { /* ... */ }
+  ```
+  Every key file in the folder, sorted by file name (none when the
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Keystore { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Keystore) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+### Functions
+
+#### Function `generate`
+
+Generate a new key for `reviewer`, encrypted under `passphrase`. Returns
+the file to save ([`Keystore::save`]) and the unlocked key. The new
+key's registry entry is [`KeyFile::reviewer_key`]; it still needs an
+admission (first key) or an endorsement (later keys).
+
+```rust
+pub fn generate(reviewer: &str, key_id: &str, created: &str, passphrase: &str) -> Result<(KeyFile, UnlockedKey), KeystoreError> { /* ... */ }
+```
+
+### Constants and Statics
+
+#### Constant `KEY_FILE_FORMAT`
+
+`format` of a key file.
+
+```rust
+pub const KEY_FILE_FORMAT: &str = "kovan-ed25519-key-v1";
+```
+
+#### Constant `KEY_FILE_EXT`
+
+The key file extension.
+
+```rust
+pub const KEY_FILE_EXT: &str = "kovankey";
+```
+
+#### Constant `ARGON2_M_COST`
+
+argon2id memory cost (KiB) for new keys: argon2's default, 19 MiB
+(OWASP's minimum recommendation for argon2id, t = 2, p = 1).
+
+```rust
+pub const ARGON2_M_COST: u32 = Params::DEFAULT_M_COST;
+```
+
+#### Constant `ARGON2_T_COST`
+
+argon2id passes for new keys.
+
+```rust
+pub const ARGON2_T_COST: u32 = Params::DEFAULT_T_COST;
+```
+
+#### Constant `ARGON2_P_COST`
+
+argon2id lanes for new keys.
+
+```rust
+pub const ARGON2_P_COST: u32 = Params::DEFAULT_P_COST;
+```
+
+#### Constant `ARGON2_M_COST_MAX`
+
+The largest memory cost a key file may ask for (1 GiB): a damaged or
+hostile file cannot make unlocking exhaust memory.
+
+```rust
+pub const ARGON2_M_COST_MAX: u32 = _;
+```
+
+### Types
+
+#### Struct `Signature`
+
+`[review.signature]` / `[architecture.signature]`.
+
+```rust
+pub struct Signature {
+    pub key: String,
+    pub alg: String,
+    pub value: String,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `key` | `String` | The reviewer key id (`[[reviewer.key]] id` in `kovan_root.toml`). |
+| `alg` | `String` | `ed25519`. |
+| `value` | `String` | Base64 signature over [`signed_bytes`]. |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Signature { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Deserialize**
+  - ```rust
+    fn deserialize<__D>(__deserializer: __D) -> _serde::__private228::Result<Self, <__D as >::Error>
+where
+    __D: _serde::Deserializer<''de> { /* ... */ }
+    ```
+
+- **DeserializeOwned**
+- **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Signature) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **Serialize**
+  - ```rust
+    fn serialize<__S>(self: &Self, __serializer: __S) -> _serde::__private228::Result<<__S as >::Ok, <__S as >::Error>
+where
+    __S: _serde::Serializer { /* ... */ }
+    ```
+
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Enum `CryptoError`
+
+Why a key or signature cannot even be decoded or checked.
+
+```rust
+pub enum CryptoError {
+    BadBase64 {
+        field: &'static str,
+    },
+    BadLength {
+        field: &'static str,
+        len: usize,
+    },
+    BadPublicKey,
+    Mismatch,
+}
+```
+
+##### Variants
+
+###### `BadBase64`
+
+Not standard base64 (`field` names what was being decoded).
+
+Fields:
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `field` | `&'static str` |  |
+
+###### `BadLength`
+
+Decoded to the wrong number of bytes (32 for a key, 64 for a signature).
+
+Fields:
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `field` | `&'static str` |  |
+| `len` | `usize` |  |
+
+###### `BadPublicKey`
+
+32 bytes that are not a valid ed25519 public key.
+
+###### `Mismatch`
+
+Well formed, but does not verify over these bytes with this key.
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> CryptoError { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Display**
+  - ```rust
+    fn fmt(self: &Self, f: &mut std::fmt::Formatter<''_>) -> std::fmt::Result { /* ... */ }
+    ```
+
+- **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+- **Error**
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &CryptoError) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **ToString**
+  - ```rust
+    fn to_string(self: &Self) -> String { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Struct `VerifiedStamp`
+
+A signature that counts.
+
+```rust
+pub struct VerifiedStamp {
+    pub reviewer: String,
+    pub key: String,
+    pub key_status: registry::KeyStatus,
+    pub reset: bool,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `reviewer` | `String` | The reviewer (`by`). |
+| `key` | `String` | The key id that signed. |
+| `key_status` | `registry::KeyStatus` | How that key is trusted; a reset key stays visible here forever. |
+| `reset` | `bool` | The key is a deliberate reset (shown permanently). |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> VerifiedStamp { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &VerifiedStamp) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Enum `UnverifiedReason`
+
+Why a signature does not count. Every variant is a "no": nothing here is
+ever read as a valid review.
+
+```rust
+pub enum UnverifiedReason {
+    NoSignature,
+    UnsupportedAlgorithm(String),
+    UnknownReviewer(String),
+    UnknownKey {
+        reviewer: String,
+        key: String,
+    },
+    Malformed(CryptoError),
+    BadSignature,
+    BadDate(String),
+    ReviewerNotAdmitted {
+        reviewer: String,
+        problem: registry::AdmissionProblem,
+    },
+    KeyNotTrusted {
+        reviewer: String,
+        key: String,
+        problem: registry::KeyProblem,
+    },
+    Revoked {
+        date: String,
+    },
+    Compromised {
+        from: String,
+    },
+    KeyRetired {
+        key: String,
+        since: Option<String>,
+    },
+    KeyRevoked {
+        key: String,
+        date: Option<String>,
+    },
+    KeyCompromised {
+        key: String,
+        from: Option<String>,
+    },
+    OutsideScope {
+        reviewer: String,
+        path: String,
+    },
+}
+```
+
+##### Variants
+
+###### `NoSignature`
+
+The entry carries no signature.
+
+###### `UnsupportedAlgorithm`
+
+`alg` is not `ed25519`.
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `String` |  |
+
+###### `UnknownReviewer`
+
+`by` is not a `[[reviewer]]` in `kovan_root.toml`.
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `String` |  |
+
+###### `UnknownKey`
+
+The reviewer has no key with this id.
+
+Fields:
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `reviewer` | `String` |  |
+| `key` | `String` |  |
+
+###### `Malformed`
+
+The public key or the signature cannot be decoded.
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `CryptoError` |  |
+
+###### `BadSignature`
+
+The signature does not verify: a signed field changed after signing,
+or another key signed it.
+
+###### `BadDate`
+
+The stamp's `date` is not `YYYY-MM-DD`.
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `String` |  |
+
+###### `ReviewerNotAdmitted`
+
+The reviewer is not admitted ([`registry::Admission`]).
+
+Fields:
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `reviewer` | `String` |  |
+| `problem` | `registry::AdmissionProblem` |  |
+
+###### `KeyNotTrusted`
+
+The key is not trusted, e.g. unendorsed (loud: [`Registry::warnings`]).
+
+Fields:
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `reviewer` | `String` |  |
+| `key` | `String` |  |
+| `problem` | `registry::KeyProblem` |  |
+
+###### `Revoked`
+
+Dated on or after the reviewer's revocation date.
+
+Fields:
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `date` | `String` |  |
+
+###### `Compromised`
+
+Dated on or after a compromised reviewer's compromise date.
+
+Fields:
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `from` | `String` |  |
+
+###### `KeyRetired`
+
+Dated inside the key's retired window (`since = None`: no valid
+retirement date, so no stamp of the key counts).
+
+Fields:
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `key` | `String` |  |
+| `since` | `Option<String>` |  |
+
+###### `KeyRevoked`
+
+Dated on or after a `revoked` event in the key's history (`date =
+None`: the event's date is malformed, so nothing counts).
+
+Fields:
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `key` | `String` |  |
+| `date` | `Option<String>` |  |
+
+###### `KeyCompromised`
+
+Dated on or after a `compromised` event in the key's history.
+
+Fields:
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `key` | `String` |  |
+| `from` | `Option<String>` |  |
+
+###### `OutsideScope`
+
+A `reviewer` certified a path outside its `scope` (or an architecture
+node with no member paths: `path` is empty).
+
+Fields:
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `reviewer` | `String` |  |
+| `path` | `String` |  |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> UnverifiedReason { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &UnverifiedReason) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Enum `SignatureCheck`
+
+The result of checking an entry's signature.
+
+```rust
+pub enum SignatureCheck {
+    Verified(VerifiedStamp),
+    Unverified(UnverifiedReason),
+}
+```
+
+##### Variants
+
+###### `Verified`
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `VerifiedStamp` |  |
+
+###### `Unverified`
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `UnverifiedReason` |  |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn is_verified(self: &Self) -> bool { /* ... */ }
+  ```
+  Whether the stamp counts.
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> SignatureCheck { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &SignatureCheck) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+### Functions
+
+#### Function `signed_bytes`
+
+The bytes a review's signature is taken over (module doc).
+
+```rust
+pub fn signed_bytes(r: &super::review_md::ReviewEntry) -> Vec<u8> { /* ... */ }
+```
+
+#### Function `architecture_signed_bytes`
+
+The bytes an architecture node's signature is taken over: the same
+line format, `kind="architecture"`, then by, date, commit, each member
+(sorted), the upstream's repository and commit, the pattern, and the
+relations.
+
+```rust
+pub fn architecture_signed_bytes(a: &super::review_md::ArchitectureEntry) -> Vec<u8> { /* ... */ }
+```
+
+#### Function `endorsement_bytes`
+
+*v1 (legacy).* The bytes an endorsement signed: `owner`'s key `k`
+vouched for by an existing key (of the same reviewer, or a maintainer's
+for a reset). Used only to verify migrated `legacy` events.
+
+```rust
+pub fn endorsement_bytes(owner: &str, k: &super::root::ReviewerKey) -> Vec<u8> { /* ... */ }
+```
+
+#### Function `admission_bytes`
+
+The bytes a maintainer signs to admit reviewer `r` (as the v1
+`admitted_by`, and inside an `admitted` [`key_event_bytes`]): its id, role,
+admission date, every scope glob (in order) and its **first key**, so the
+admission is also what makes that key trusted. Widening a scope or
+changing the role needs a new admission signature; `qualification` and
+`name` are citations and display, not authority, and are not signed.
+
+```rust
+pub fn admission_bytes(r: &super::root::Reviewer) -> Vec<u8> { /* ... */ }
+```
+
+#### Function `revocation_bytes`
+
+The bytes a maintainer signs to revoke reviewer `reviewer`.
+
+```rust
+pub fn revocation_bytes(reviewer: &str, rev: &super::root::Revocation) -> Vec<u8> { /* ... */ }
+```
+
+#### Function `unretire_bytes`
+
+*v1 (legacy).* The bytes a retired key signed **itself** to come back
+from `date`, retired since `retired_on`. Used only to verify migrated
+`legacy` events.
+
+```rust
+pub fn unretire_bytes(owner: &str, k: &super::root::ReviewerKey, retired_on: &str, date: &str) -> Vec<u8> { /* ... */ }
+```
+
+#### Function `key_event_bytes`
+
+The bytes a signed `[[reviewer.key.history]]` event signs: the key
+(owner, id, alg, public, created), the event kind, its date and its
+signer. An `unretired` event also signs the date of the retirement it
+ends (so moving that `retired` entry breaks it); an `admitted` event
+also signs the [`admission_bytes`] of `admission` (role, admitted date,
+scope, first key).
+
+```rust
+pub fn key_event_bytes(owner: &str, k: &super::root::ReviewerKey, ev: &super::root::KeyEvent, retired_on: &str, admission: Option<&super::root::Reviewer>) -> Vec<u8> { /* ... */ }
+```
+
+#### Function `event_signed_bytes`
+
+What an event's signature is checked over: [`key_event_bytes`], or for a
+`legacy` (migrated v1) event the v1 statement it was signed as.
+
+```rust
+pub fn event_signed_bytes(owner: &str, k: &super::root::ReviewerKey, ev: &super::root::KeyEvent, retired_on: &str, admission: Option<&super::root::Reviewer>) -> Vec<u8> { /* ... */ }
+```
+
+#### Function `is_date`
+
+Whether `s` is a calendar date `YYYY-MM-DD` (the stamp and registry date
+format; compared as text, which orders correctly in this form).
+
+```rust
+pub fn is_date(s: &str) -> bool { /* ... */ }
+```
+
+#### Function `encode_b64`
+
+Base64 (standard alphabet, padded), the encoding of every key and
+signature in the schema.
+
+```rust
+pub fn encode_b64(bytes: &[u8]) -> String { /* ... */ }
+```
+
+#### Function `decode_public`
+
+Decode a `[[reviewer.key]] public` value.
+
+```rust
+pub fn decode_public(b64: &str) -> Result<ed25519_dalek::VerifyingKey, CryptoError> { /* ... */ }
+```
+
+#### Function `verify_bytes`
+
+Check a base64 signature over `msg` with `key`. Strict ed25519
+(`verify_strict`): rejects small-order keys and malleable signatures.
+
+```rust
+pub fn verify_bytes(key: &ed25519_dalek::VerifyingKey, msg: &[u8], sig_b64: &str) -> Result<(), CryptoError> { /* ... */ }
+```
+
+#### Function `verify_review`
+
+Check a review's signature against the registry (module doc, "What a
+verified stamp needs"). Scope is checked on the file of the entry's
+`path` (its recorded location; the engine checks the actual one).
+
+```rust
+pub fn verify_review(r: &super::review_md::ReviewEntry, registry: &registry::Registry) -> SignatureCheck { /* ... */ }
+```
+
+#### Function `verify_architecture`
+
+Check an architecture node's signature against the registry. Scope is
+checked on the file of every member; a `reviewer` (not a maintainer)
+cannot sign a node with no members.
+
+```rust
+pub fn verify_architecture(a: &super::review_md::ArchitectureEntry, registry: &registry::Registry) -> SignatureCheck { /* ... */ }
+```
+
+### Constants and Statics
+
+#### Constant `ALG`
+
+The only signature algorithm (#739 signing comment).
+
+```rust
+pub const ALG: &str = "ed25519";
+```
+
+## Module `state`
+
+The **stamp states** of code review (GitHub #765), shared by the
+staleness engine ([`super::engine`]), desktop kovan and web-kovan's bottom
+bar, so every view names a state the same way.
+
+```rust
+pub mod state { /* ... */ }
+```
+
+### Types
+
+#### Enum `StateKind`
+
+**Attributes:**
+
+- `Other("#[serde(rename_all = \"snake_case\")]")`
+
+What a function's (or one review's) state is. The plain kind; the
+engine's [`super::engine::StampState`] carries the details.
+
+```rust
+pub enum StateKind {
+    Valid,
+    DirectlyStale,
+    DocChanged,
+    InheritedStale,
+    Moved,
+    Deleted,
+    New,
+    NeedsFixOpen,
+    Fixed,
+    Unverified,
+    OutsideScope,
+    Unreadable,
+    PendingWorkspaceTest,
+    Invalid,
+}
+```
+
+##### Variants
+
+###### `Valid`
+
+Reviewed, and nothing it rests on has changed. The only kind that
+counts towards maturity.
+
+###### `DirectlyStale`
+
+Its own code changed since the review (or a callee now resolves
+differently): human re-review.
+
+###### `DocChanged`
+
+Only its `///` doc changed: a quick look.
+
+###### `InheritedStale`
+
+A callee changed: human re-confirm, blocked while a reaching test
+fails (#739 D6, corrected 2026-10-07).
+
+###### `Moved`
+
+Found at a new place (rename, file or folder move) with the same
+hash and callees: awaiting acknowledge.
+
+###### `Deleted`
+
+Its function is gone; the review goes to the deleted history.
+
+###### `New`
+
+No review at all (including a function renamed and edited at once).
+
+###### `NeedsFixOpen`
+
+An open needs-fix: blocks the function whatever its stamps.
+
+###### `Fixed`
+
+Edited after a needs-fix: ready for re-review.
+
+###### `Unverified`
+
+The stamp's authenticity does not hold (agent trailer, time-bound
+check, unregistered or revoked reviewer, signature).
+
+###### `OutsideScope`
+
+The reviewer's scope does not cover the function.
+
+###### `Unreadable`
+
+The `review.md` entry cannot be read: no review.
+
+###### `PendingWorkspaceTest`
+
+`Cargo.lock` changed since the review: a full workspace test at the
+new lock clears it, no re-confirm.
+
+###### `Invalid`
+
+The entry reads but contradicts what is derived (e.g. a recorded
+rung the answers and git do not give): shown, never counted.
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn label(self: Self) -> &'static str { /* ... */ }
+  ```
+  Plain-English label.
+
+- ```rust
+  pub fn counts(self: Self) -> bool { /* ... */ }
+  ```
+  Whether the state counts as reviewed for maturity (only valid).
+
+- ```rust
+  pub fn needs_person(self: Self) -> bool { /* ... */ }
+  ```
+  Whether it belongs in the desktop ⚑ queue (#740 U1).
+
+- ```rust
+  pub fn tone(self: Self) -> Tone { /* ... */ }
+  ```
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> StateKind { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Comparable**
+  - ```rust
+    fn compare(self: &Self, key: &K) -> Ordering { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Deserialize**
+  - ```rust
+    fn deserialize<__D>(__deserializer: __D) -> _serde::__private228::Result<Self, <__D as >::Error>
+where
+    __D: _serde::Deserializer<''de> { /* ... */ }
+    ```
+
+- **DeserializeOwned**
+- **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Hash**
+  - ```rust
+    fn hash<__H: $crate::hash::Hasher>(self: &Self, state: &mut __H) { /* ... */ }
+    ```
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **Ord**
+  - ```rust
+    fn cmp(self: &Self, other: &StateKind) -> $crate::cmp::Ordering { /* ... */ }
+    ```
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &StateKind) -> bool { /* ... */ }
+    ```
+
+- **PartialOrd**
+  - ```rust
+    fn partial_cmp(self: &Self, other: &StateKind) -> $crate::option::Option<$crate::cmp::Ordering> { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **Serialize**
+  - ```rust
+    fn serialize<__S>(self: &Self, __serializer: __S) -> _serde::__private228::Result<<__S as >::Ok, <__S as >::Error>
+where
+    __S: _serde::Serializer { /* ... */ }
+    ```
+
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Enum `Tone`
+
+How a view should colour a state.
+
+```rust
+pub enum Tone {
+    Good,
+    Attention,
+    Blocked,
+    Neutral,
+}
+```
+
+##### Variants
+
+###### `Good`
+
+Valid.
+
+###### `Attention`
+
+Needs a person (stale, moved, doc changed, fixed, pending).
+
+###### `Blocked`
+
+Blocks the function or does not count at all (needs-fix,
+unverified, outside scope, unreadable, deleted).
+
+###### `Neutral`
+
+Never reviewed.
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Tone { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Tone) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Enum `FlagKind`
+
+**Attributes:**
+
+- `Other("#[serde(rename_all = \"snake_case\")]")`
+
+A flag on a function: shown and queued, but it never voids a stamp
+(maintainer on #765, 2026-10-07). The engine's
+`engine::FunctionFlag` carries the details.
+
+```rust
+pub enum FlagKind {
+    NewReachingTest,
+    DuplicateCode,
+}
+```
+
+##### Variants
+
+###### `NewReachingTest`
+
+"New test reaches reviewed function": a test added after the review
+now reaches it. Flagged for review; the test is unreviewed code.
+
+###### `DuplicateCode`
+
+The same code exists more than once; the review shows on each copy.
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn label(self: Self) -> &'static str { /* ... */ }
+  ```
+
+- ```rust
+  pub fn needs_person(self: Self) -> bool { /* ... */ }
+  ```
+  Both are in the desktop queue.
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> FlagKind { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Comparable**
+  - ```rust
+    fn compare(self: &Self, key: &K) -> Ordering { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Deserialize**
+  - ```rust
+    fn deserialize<__D>(__deserializer: __D) -> _serde::__private228::Result<Self, <__D as >::Error>
+where
+    __D: _serde::Deserializer<''de> { /* ... */ }
+    ```
+
+- **DeserializeOwned**
+- **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Hash**
+  - ```rust
+    fn hash<__H: $crate::hash::Hasher>(self: &Self, state: &mut __H) { /* ... */ }
+    ```
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **Ord**
+  - ```rust
+    fn cmp(self: &Self, other: &FlagKind) -> $crate::cmp::Ordering { /* ... */ }
+    ```
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &FlagKind) -> bool { /* ... */ }
+    ```
+
+- **PartialOrd**
+  - ```rust
+    fn partial_cmp(self: &Self, other: &FlagKind) -> $crate::option::Option<$crate::cmp::Ordering> { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **Serialize**
+  - ```rust
+    fn serialize<__S>(self: &Self, __serializer: __S) -> _serde::__private228::Result<<__S as >::Ok, <__S as >::Error>
+where
+    __S: _serde::Serializer { /* ... */ }
+    ```
+
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+## Module `types`
+
+Small shared values of the code-review schema and their validation:
+reviewer identifiers, hashes, commits, pinned upstream URLs and the
+authorship of a reviewed change.
+
+Every validator returns a typed error ([`FieldError`]). A value that
+fails validation makes the whole entry unreadable (= no review, maintainer
+2026-10-07 on #739); nothing is guessed or repaired.
+
+```rust
+pub mod types { /* ... */ }
+```
+
+### Types
+
+#### Enum `FieldError`
+
+Why one field of an entry is not acceptable.
+
+```rust
+pub enum FieldError {
+    BadHash {
+        field: String,
+        value: String,
+    },
+    BadCommit {
+        field: String,
+        value: String,
+    },
+    BadReviewerId(String),
+    BadRung(u8),
+    TooShort {
+        field: String,
+    },
+    UnpinnedUrl(UrlPinError),
+    BadTarget(String),
+    BadDate {
+        field: String,
+        value: String,
+    },
+}
+```
+
+##### Variants
+
+###### `BadHash`
+
+`field` is not `sha256:` followed by 64 lowercase hex digits.
+
+Fields:
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `field` | `String` |  |
+| `value` | `String` |  |
+
+###### `BadCommit`
+
+`field` is not a full or abbreviated git commit id (7 to 40, or 64,
+lowercase hex digits).
+
+Fields:
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `field` | `String` |  |
+| `value` | `String` |  |
+
+###### `BadReviewerId`
+
+Not `github:<user>`, `gitlab:<user>`, `orcid:<iD>` or an email.
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `String` |  |
+
+###### `BadRung`
+
+A rung other than 3 or 4 recorded in a review (5 is derived, never
+written).
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `u8` |  |
+
+###### `TooShort`
+
+A free-text field that must hold at least two characters.
+
+Fields:
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `field` | `String` |  |
+
+###### `UnpinnedUrl`
+
+An upstream link is not pinned to a commit hash.
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `UrlPinError` |  |
+
+###### `BadTarget`
+
+The function reference is not `fn:<id>` with a `path`, nor a
+first-version call-graph key.
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `String` |  |
+
+###### `BadDate`
+
+`field` is not an ISO date `YYYY-MM-DD` (Q9, #764, 2026-10-07).
+
+Fields:
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `field` | `String` |  |
+| `value` | `String` |  |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> FieldError { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Display**
+  - ```rust
+    fn fmt(self: &Self, f: &mut std::fmt::Formatter<''_>) -> std::fmt::Result { /* ... */ }
+    ```
+
+- **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+- **Error**
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &FieldError) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **ToString**
+  - ```rust
+    fn to_string(self: &Self) -> String { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Enum `ReviewerIdKind`
+
+How a reviewer is identified (#740 U4, corrected 2026-10-07): a GitHub or
+GitLab username or an ORCID iD first, an email as the fallback.
+
+```rust
+pub enum ReviewerIdKind {
+    GitHub,
+    GitLab,
+    Orcid,
+    Email,
+}
+```
+
+##### Variants
+
+###### `GitHub`
+
+###### `GitLab`
+
+###### `Orcid`
+
+###### `Email`
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> ReviewerIdKind { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Comparable**
+  - ```rust
+    fn compare(self: &Self, key: &K) -> Ordering { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **Ord**
+  - ```rust
+    fn cmp(self: &Self, other: &ReviewerIdKind) -> $crate::cmp::Ordering { /* ... */ }
+    ```
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &ReviewerIdKind) -> bool { /* ... */ }
+    ```
+
+- **PartialOrd**
+  - ```rust
+    fn partial_cmp(self: &Self, other: &ReviewerIdKind) -> $crate::option::Option<$crate::cmp::Ordering> { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Enum `AuthorshipKind`
+
+**Attributes:**
+
+- `Other("#[serde(rename_all = \"snake_case\")]")`
+
+Who authored the change a review certifies, read from the commits'
+trailers (maintainer, #764/#771, 2026-10-07).
+
+```rust
+pub enum AuthorshipKind {
+    Agent,
+    Human,
+    Mixed,
+}
+```
+
+##### Variants
+
+###### `Agent`
+
+Every commit of the change carries the agent attribution trailer.
+
+###### `Human`
+
+No commit carries it.
+
+###### `Mixed`
+
+Some do and some do not.
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn as_str(self: Self) -> &'static str { /* ... */ }
+  ```
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> AuthorshipKind { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Deserialize**
+  - ```rust
+    fn deserialize<__D>(__deserializer: __D) -> _serde::__private228::Result<Self, <__D as >::Error>
+where
+    __D: _serde::Deserializer<''de> { /* ... */ }
+    ```
+
+- **DeserializeOwned**
+- **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &AuthorshipKind) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **Serialize**
+  - ```rust
+    fn serialize<__S>(self: &Self, __serializer: __S) -> _serde::__private228::Result<<__S as >::Ok, <__S as >::Error>
+where
+    __S: _serde::Serializer { /* ... */ }
+    ```
+
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Struct `ChangeAuthorship`
+
+`[review.authorship]`: the authorship of the reviewed change, with the
+agent session links found in its trailers. Signed with the stamp.
+
+```rust
+pub struct ChangeAuthorship {
+    pub kind: AuthorshipKind,
+    pub sessions: Vec<String>,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `kind` | `AuthorshipKind` |  |
+| `sessions` | `Vec<String>` | `Claude-Session:` links, sorted and de-duplicated. |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> ChangeAuthorship { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Deserialize**
+  - ```rust
+    fn deserialize<__D>(__deserializer: __D) -> _serde::__private228::Result<Self, <__D as >::Error>
+where
+    __D: _serde::Deserializer<''de> { /* ... */ }
+    ```
+
+- **DeserializeOwned**
+- **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &ChangeAuthorship) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **Serialize**
+  - ```rust
+    fn serialize<__S>(self: &Self, __serializer: __S) -> _serde::__private228::Result<<__S as >::Ok, <__S as >::Error>
+where
+    __S: _serde::Serializer { /* ... */ }
+    ```
+
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Enum `UrlPin`
+
+What a pinned upstream URL is pinned to.
+
+```rust
+pub enum UrlPin {
+    Commit(String),
+    NotARepositoryLink,
+}
+```
+
+##### Variants
+
+###### `Commit`
+
+A commit id (7 to 40 hex digits, or 64).
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `String` |  |
+
+###### `NotARepositoryLink`
+
+Not a GitHub or GitLab file/tree link, so there is no ref to check
+(a paper's DOI, a project home page). Reported, not hidden.
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> UrlPin { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &UrlPin) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Enum `UrlPinError`
+
+Why an upstream URL is refused (maintainer, #764, 2026-10-07: upstream
+links are pinned to a commit hash only).
+
+```rust
+pub enum UrlPinError {
+    BranchRef {
+        url: String,
+        branch: String,
+    },
+    NotACommit {
+        url: String,
+        reference: String,
+    },
+    NoRef {
+        url: String,
+    },
+}
+```
+
+##### Variants
+
+###### `BranchRef`
+
+The ref is a known branch name (`main`, `master`, `develop`, …): the
+link moves when the branch does.
+
+Fields:
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `url` | `String` |  |
+| `branch` | `String` |  |
+
+###### `NotACommit`
+
+The ref is not a commit id: a tag or another branch. Tags move too;
+use the commit the tag points at (the tag may be kept as a label,
+see [`display_pin`]).
+
+Fields:
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `url` | `String` |  |
+| `reference` | `String` |  |
+
+###### `NoRef`
+
+A GitHub/GitLab repository link with no ref at all.
+
+Fields:
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `url` | `String` |  |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> UrlPinError { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Display**
+  - ```rust
+    fn fmt(self: &Self, f: &mut std::fmt::Formatter<''_>) -> std::fmt::Result { /* ... */ }
+    ```
+
+- **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &UrlPinError) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **ToString**
+  - ```rust
+    fn to_string(self: &Self) -> String { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Enum `TagCheck`
+
+Whether a recorded tag label still points at the recorded commit, as a
+later check (CLI/UI, from a local or vendored clone or `git ls-remote`)
+found it. The schema stores only the label; looking it up is not here.
+
+```rust
+pub enum TagCheck {
+    Matches,
+    Moved {
+        now: String,
+    },
+    Unchecked,
+}
+```
+
+##### Variants
+
+###### `Matches`
+
+The tag resolves to the recorded commit.
+
+###### `Moved`
+
+The tag now points elsewhere: the label is stale, the commit pin
+still holds.
+
+Fields:
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `now` | `String` |  |
+
+###### `Unchecked`
+
+Not looked up (offline, no clone): nothing is claimed.
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> TagCheck { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &TagCheck) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+### Functions
+
+#### Function `check_hash`
+
+`sha256:` + 64 lowercase hex digits.
+
+```rust
+pub fn check_hash(field: &str, value: &str) -> Result<(), FieldError> { /* ... */ }
+```
+
+#### Function `is_commit_id`
+
+A git commit id: 7 to 40 lowercase hex digits (SHA-1, possibly
+abbreviated) or 64 (SHA-256 repositories).
+
+```rust
+pub fn is_commit_id(value: &str) -> bool { /* ... */ }
+```
+
+#### Function `check_commit`
+
+[`is_commit_id`] as a field check.
+
+```rust
+pub fn check_commit(field: &str, value: &str) -> Result<(), FieldError> { /* ... */ }
+```
+
+#### Function `check_date`
+
+An ISO 8601 calendar date, `YYYY-MM-DD`, with a real month and day
+(dates stay strings, validated; Q9, #764, 2026-10-07).
+
+```rust
+pub fn check_date(field: &str, value: &str) -> Result<(), FieldError> { /* ... */ }
+```
+
+#### Function `check_text`
+
+At least two characters after trimming (the wizard's `Other: ____` rule
+and the needs-fix note, #740 U3/U4).
+
+```rust
+pub fn check_text(field: &str, value: &str) -> Result<(), FieldError> { /* ... */ }
+```
+
+#### Function `reviewer_id_kind`
+
+Classify and check a reviewer id (`github:theodoreOnzGit`,
+`gitlab:someone`, `orcid:0000-0002-1825-0097`, `someone@example.org`).
+
+```rust
+pub fn reviewer_id_kind(id: &str) -> Result<ReviewerIdKind, FieldError> { /* ... */ }
+```
+
+#### Function `agent_trailer`
+
+Whether one commit message carries the agent attribution trailer
+(`Co-Authored-By: Claude…` or `Claude-Session:`), and the session link
+when there is one. Case-insensitive on the trailer key.
+
+```rust
+pub fn agent_trailer(message: &str) -> (bool, Option<String>) { /* ... */ }
+```
+
+#### Function `authorship_from_messages`
+
+The authorship of a change made of the commits with these messages:
+agent if all carry the trailer, human if none does, mixed otherwise.
+`None` for an empty change (nothing to attribute).
+
+```rust
+pub fn authorship_from_messages(messages: &[String]) -> Option<ChangeAuthorship> { /* ... */ }
+```
+
+#### Function `check_pinned_url`
+
+Check that a GitHub or GitLab link is pinned to a **commit hash**
+(maintainer, #764, 2026-10-07; tags were first accepted, then ruled out
+the same day): the ref after `/blob/`, `/tree/`, `/raw/`, `/commit/`,
+`/-/blob/`, `/-/tree/`, `/-/raw/` (or the third path segment of
+`raw.githubusercontent.com`) must be 7 to 40 (or 64) hex digits. Branches
+and tags are refused with a typed error; a repository link with no ref
+(`https://github.com/o/r`) is refused. Any other URL is not a repository
+file link and is reported as such.
+
+```rust
+pub fn check_pinned_url(url: &str) -> Result<UrlPin, UrlPinError> { /* ... */ }
+```
+
+#### Function `display_pin`
+
+How a pinned commit is shown, with its optional tag label (maintainer,
+#764, 2026-10-07): `v2016.53 (9a2951f)`, or the short commit alone. The
+tag is **informational and unsigned**: the commit is the only key,
+used for resolution and verification.
+
+```rust
+pub fn display_pin(commit: &str, tag: Option<&str>) -> String { /* ... */ }
+```
+
+#### Function `check_tag`
+
+Compare a recorded commit with what the tag resolves to now (`None` when
+the lookup was not possible). Abbreviated ids match by prefix.
+
+```rust
+pub fn check_tag(recorded_commit: &str, resolved_now: Option<&str>) -> TagCheck { /* ... */ }
+```
+
+### Constants and Statics
+
+#### Constant `HASH_PREFIX`
+
+The prefix of every hash in the schema.
+
+```rust
+pub const HASH_PREFIX: &str = "sha256:";
+```
+
+#### Constant `BRANCH_NAMES`
+
+Branch names named as such in the error ([`UrlPinError::BranchRef`]);
+every other non-commit ref is [`UrlPinError::NotACommit`].
+
+```rust
+pub const BRANCH_NAMES: &[&str] = _;
+```
+
+## Module `wizard`
+
+**The review wizard's question set and the stamp gate** (GitHub #769;
+wizard rules decided on #740, maintainer 2026-10-07).
+
+The questions live in `data/review_wizard.toml`, embedded with
+`include_str!` ([`WIZARD_TOML`]) so desktop kovan, web-kovan (wasm) and CI
+read the same set. Each question carries its source clauses in the
+kovan standard corpus, exactly as recorded on #769, or names the
+workspace rule it rests on.
+
+# Answers on disk
+
+`review.md`'s `[review.checklist]` maps a question key to an answer:
+
+```toml
+[review.checklist]
+doc_matches_behaviour = "yes"
+error_handling = "panics_justified: the table is compiled in and tested"
+vv_evidence = "analytical_case"
+```
+
+An answer is an option key, or `"<option key>: <text>"` for an option
+that `requires_text` (`Other: ____`, a justification); the text needs at
+least two characters (#740 U3).
+
+# The gate
+
+[`stamp_gate`] is a pure function of the answers and of the context
+([`Applicability`]: which conditional questions apply, and what git says
+about who wrote the tests reaching the function):
+
+```text
+  answers ─┬─ unknown / legacy q1..q10 / not-applicable / bad text ──> blocked_by: Invalid
+           ├─ applicable question unanswered ──────────────────────> blocked_by: Unanswered
+           ├─ option effect = block ───────────────────────────────> blocked_by: Answer
+           ├─ option effect = prompt_needs_fix ────────────────────> prompts ("Mark as Needs fix instead?")
+           ├─ option effect = flag ────────────────────────────────> flags (needs improvement; never blocks)
+           ├─ rung4_allowed = some gate_rung4 answer (vv_evidence)
+           │    AND a gate_rung4_author answer (vv_case_author =
+           │    human_wrote_and_verified; added 2026-10-07)
+           │    (~~AND no no_rung4 answer (self-check)~~ CORRECTED
+           │     2026-10-07, maintainer on #769: independence gates
+           │     rung 5, not rung 4)
+           ├─ independent = independence answered, no not_independent
+           │    answer (self-check / other): may be rung 5's second review
+           └─ rung = derived_rung(answers, git): 4 when rung4_allowed AND
+                git shows no agent trailer on the reaching tests' commits,
+                else 3. The reviewer never chooses it (maintainer, #769,
+                2026-10-07). ~~rung = rung_4 while !rung4_allowed ->
+                blocked_by: Rung4NotOpen~~ CORRECTED 2026-10-07: the
+                `rung` question is gone, and a `rung` answer is refused
+                ([`AnswerError::RungIsDerived`]).
+```
+
+# The #764 placeholder keys
+
+#764 wrote `q1` … `q10` as placeholders. They are **rejected cleanly**, not
+mapped: [`AnswerError::LegacyPlaceholderKey`] names the key that replaces
+each one ([`LEGACY_PLACEHOLDER_KEYS`]). Their placeholder answers
+(`"yes"`) are not answers to the new questions, so mapping them would
+certify questions nobody was asked. A `review.md` holding them still
+parses (the entry is readable); only the wizard refuses them.
+
+```rust
+pub mod wizard { /* ... */ }
+```
+
+### Types
+
+#### Enum `Rung`
+
+The rung a stamp gives, derived, never chosen (maintainer, #769,
+2026-10-07). Rung 5 is not a stamp's rung: it is two independent
+stamps, derived by the staleness engine.
+
+```rust
+pub enum Rung {
+    Three,
+    Four,
+}
+```
+
+##### Variants
+
+###### `Three`
+
+Human reviewed.
+
+###### `Four`
+
+Human V&V: a qualifying V&V case written and verified by hand,
+without AI agents, and git agrees about the writing.
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn as_u8(self: Self) -> u8 { /* ... */ }
+  ```
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Rung { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Comparable**
+  - ```rust
+    fn compare(self: &Self, key: &K) -> Ordering { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Default**
+  - ```rust
+    fn default() -> Self { /* ... */ }
+    ```
+
+- **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **Ord**
+  - ```rust
+    fn cmp(self: &Self, other: &Rung) -> $crate::cmp::Ordering { /* ... */ }
+    ```
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Rung) -> bool { /* ... */ }
+    ```
+
+- **PartialOrd**
+  - ```rust
+    fn partial_cmp(self: &Self, other: &Rung) -> $crate::option::Option<$crate::cmp::Ordering> { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Enum `TestAuthorship`
+
+What git says about who wrote the tests reaching the function (the
+commits that added them, read with [`super::types::agent_trailer`]).
+Passed in as data.
+
+```rust
+pub enum TestAuthorship {
+    Human,
+    Agent,
+    Unknown,
+}
+```
+
+##### Variants
+
+###### `Human`
+
+No commit carries the agent trailer.
+
+###### `Agent`
+
+At least one commit does.
+
+###### `Unknown`
+
+Not known: no reaching test, or no commit facts.
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn from_messages(messages: &[String]) -> TestAuthorship { /* ... */ }
+  ```
+  From the messages of the commits that added the reaching tests.
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> TestAuthorship { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Default**
+  - ```rust
+    fn default() -> TestAuthorship { /* ... */ }
+    ```
+
+- **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &TestAuthorship) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Struct `ReviewWizard`
+
+**Attributes:**
+
+- `Other("#[serde(deny_unknown_fields)]")`
+
+The whole question set.
+
+```rust
+pub struct ReviewWizard {
+    pub version: u32,
+    pub questions: Vec<Question>,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `version` | `u32` |  |
+| `questions` | `Vec<Question>` |  |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn parse(text: &str) -> Result<Self, WizardError> { /* ... */ }
+  ```
+  Parse and validate a question set.
+
+- ```rust
+  pub fn embedded() -> &'static Self { /* ... */ }
+  ```
+  The embedded set ([`WIZARD_TOML`]), parsed once.
+
+- ```rust
+  pub fn validate(self: &Self) -> Result<(), WizardError> { /* ... */ }
+  ```
+  Unique keys, an `other` option requiring text on every question,
+
+- ```rust
+  pub fn question(self: &Self, key: &str) -> Option<&Question> { /* ... */ }
+  ```
+
+- ```rust
+  pub fn applicable(self: &Self, ctx: Applicability) -> impl Iterator<Item = &Question> { /* ... */ }
+  ```
+  The questions asked for this function, in order.
+
+- ```rust
+  pub fn cited_documents(self: &Self) -> BTreeSet<&str> { /* ... */ }
+  ```
+  Every standard-corpus id cited (for the corpus check in `kovan`).
+
+- ```rust
+  pub fn check_answer(self: &Self, question: &str, raw: &str, ctx: Applicability) -> Result<&WizardOption, AnswerError> { /* ... */ }
+  ```
+  Check one answer; on success, the option chosen.
+
+- ```rust
+  pub fn stamp_gate(self: &Self, answers: &BTreeMap<String, String>, ctx: Applicability) -> GateResult { /* ... */ }
+  ```
+  The stamp gate over this question set (see the module docs).
+
+- ```rust
+  pub fn prefill(self: &Self, previous: &BTreeMap<String, String>, ctx: Applicability) -> BTreeMap<String, String> { /* ... */ }
+  ```
+  Starting answers for a re-review (#740: "re-reviews start from the
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> ReviewWizard { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Deserialize**
+  - ```rust
+    fn deserialize<__D>(__deserializer: __D) -> _serde::__private228::Result<Self, <__D as >::Error>
+where
+    __D: _serde::Deserializer<''de> { /* ... */ }
+    ```
+
+- **DeserializeOwned**
+- **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &ReviewWizard) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **Serialize**
+  - ```rust
+    fn serialize<__S>(self: &Self, __serializer: __S) -> _serde::__private228::Result<<__S as >::Ok, <__S as >::Error>
+where
+    __S: _serde::Serializer { /* ... */ }
+    ```
+
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Enum `AppliesWhen`
+
+**Attributes:**
+
+- `Other("#[serde(rename_all = \"snake_case\")]")`
+
+When a question is asked (#740: some questions appear only when they apply).
+
+```rust
+pub enum AppliesWhen {
+    Always,
+    Port,
+    PhysicalInterface,
+}
+```
+
+##### Variants
+
+###### `Always`
+
+###### `Port`
+
+The function is a declared port (`[upstream]` in `kovan.toml`).
+
+###### `PhysicalInterface`
+
+A physical quantity crosses the function's interface.
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> AppliesWhen { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Deserialize**
+  - ```rust
+    fn deserialize<__D>(__deserializer: __D) -> _serde::__private228::Result<Self, <__D as >::Error>
+where
+    __D: _serde::Deserializer<''de> { /* ... */ }
+    ```
+
+- **DeserializeOwned**
+- **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &AppliesWhen) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **Serialize**
+  - ```rust
+    fn serialize<__S>(self: &Self, __serializer: __S) -> _serde::__private228::Result<<__S as >::Ok, <__S as >::Error>
+where
+    __S: _serde::Serializer { /* ... */ }
+    ```
+
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Enum `Prefill`
+
+**Attributes:**
+
+- `Other("#[serde(rename_all = \"snake_case\")]")`
+
+Where a question's starting answer comes from.
+
+```rust
+pub enum Prefill {
+    GitAuthorship,
+    GitTestAuthorship,
+}
+```
+
+##### Variants
+
+###### `GitAuthorship`
+
+Commit author plus agent trailer ([`independence_prefill`]).
+
+###### `GitTestAuthorship`
+
+The agent trailer on the commits that added the tests reaching the
+function ([`vv_case_author_prefill`]).
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Prefill { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Deserialize**
+  - ```rust
+    fn deserialize<__D>(__deserializer: __D) -> _serde::__private228::Result<Self, <__D as >::Error>
+where
+    __D: _serde::Deserializer<''de> { /* ... */ }
+    ```
+
+- **DeserializeOwned**
+- **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Prefill) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **Serialize**
+  - ```rust
+    fn serialize<__S>(self: &Self, __serializer: __S) -> _serde::__private228::Result<<__S as >::Ok, <__S as >::Error>
+where
+    __S: _serde::Serializer { /* ... */ }
+    ```
+
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Enum `Effect`
+
+**Attributes:**
+
+- `Other("#[serde(rename_all = \"snake_case\")]")`
+
+What choosing an option does to the stamp.
+
+```rust
+pub enum Effect {
+    None,
+    PromptNeedsFix,
+    Block,
+    Flag,
+    GateRung4,
+    GateRung4Author,
+    NotIndependent,
+}
+```
+
+##### Variants
+
+###### `None`
+
+###### `PromptNeedsFix`
+
+"Mark as Needs fix instead?"; the stamp stays allowed.
+
+###### `Block`
+
+The stamp is refused.
+
+###### `Flag`
+
+Needs improvement; never blocks.
+
+###### `GateRung4`
+
+Qualifying V&V evidence: half of opening rung 4.
+
+###### `GateRung4Author`
+
+The V&V case was written and verified by hand, without AI agents:
+the other half (maintainer, #769, 2026-10-07).
+
+###### `NotIndependent`
+
+The reviewer is not independent of the code: the stamp still counts
+at rung 3 or 4, but cannot be rung 5's independent second review.
+~~`NoRung4`: rung 4 is closed whatever else is answered~~
+**CORRECTED 2026-10-07** (maintainer, #769). `no_rung4` still reads.
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Effect { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Deserialize**
+  - ```rust
+    fn deserialize<__D>(__deserializer: __D) -> _serde::__private228::Result<Self, <__D as >::Error>
+where
+    __D: _serde::Deserializer<''de> { /* ... */ }
+    ```
+
+- **DeserializeOwned**
+- **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Effect) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **Serialize**
+  - ```rust
+    fn serialize<__S>(self: &Self, __serializer: __S) -> _serde::__private228::Result<<__S as >::Ok, <__S as >::Error>
+where
+    __S: _serde::Serializer { /* ... */ }
+    ```
+
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Enum `OptionAction`
+
+**Attributes:**
+
+- `Other("#[serde(rename_all = \"snake_case\")]")`
+
+A UI action an option offers.
+
+```rust
+pub enum OptionAction {
+    DocumentDeviation,
+}
+```
+
+##### Variants
+
+###### `DocumentDeviation`
+
+"Document it now": open kvim at the doc comment with a deviation
+template (#740).
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> OptionAction { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Deserialize**
+  - ```rust
+    fn deserialize<__D>(__deserializer: __D) -> _serde::__private228::Result<Self, <__D as >::Error>
+where
+    __D: _serde::Deserializer<''de> { /* ... */ }
+    ```
+
+- **DeserializeOwned**
+- **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &OptionAction) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **Serialize**
+  - ```rust
+    fn serialize<__S>(self: &Self, __serializer: __S) -> _serde::__private228::Result<<__S as >::Ok, <__S as >::Error>
+where
+    __S: _serde::Serializer { /* ... */ }
+    ```
+
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Struct `Question`
+
+**Attributes:**
+
+- `Other("#[serde(deny_unknown_fields)]")`
+
+One question.
+
+```rust
+pub struct Question {
+    pub key: String,
+    pub text: String,
+    pub applies_when: AppliesWhen,
+    pub workspace_rule: Option<String>,
+    pub prefill: Option<Prefill>,
+    pub options: Vec<WizardOption>,
+    pub sources: Vec<Source>,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `key` | `String` |  |
+| `text` | `String` |  |
+| `applies_when` | `AppliesWhen` |  |
+| `workspace_rule` | `Option<String>` | The workspace rule the question rests on, where #769 records one. |
+| `prefill` | `Option<Prefill>` |  |
+| `options` | `Vec<WizardOption>` |  |
+| `sources` | `Vec<Source>` |  |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn option(self: &Self, key: &str) -> Option<&WizardOption> { /* ... */ }
+  ```
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Question { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Deserialize**
+  - ```rust
+    fn deserialize<__D>(__deserializer: __D) -> _serde::__private228::Result<Self, <__D as >::Error>
+where
+    __D: _serde::Deserializer<''de> { /* ... */ }
+    ```
+
+- **DeserializeOwned**
+- **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Question) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **Serialize**
+  - ```rust
+    fn serialize<__S>(self: &Self, __serializer: __S) -> _serde::__private228::Result<<__S as >::Ok, <__S as >::Error>
+where
+    __S: _serde::Serializer { /* ... */ }
+    ```
+
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Struct `WizardOption`
+
+**Attributes:**
+
+- `Other("#[serde(deny_unknown_fields)]")`
+
+One option of a question.
+
+```rust
+pub struct WizardOption {
+    pub key: String,
+    pub label: String,
+    pub effect: Effect,
+    pub requires_text: bool,
+    pub action: Option<OptionAction>,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `key` | `String` |  |
+| `label` | `String` |  |
+| `effect` | `Effect` |  |
+| `requires_text` | `bool` |  |
+| `action` | `Option<OptionAction>` |  |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> WizardOption { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Deserialize**
+  - ```rust
+    fn deserialize<__D>(__deserializer: __D) -> _serde::__private228::Result<Self, <__D as >::Error>
+where
+    __D: _serde::Deserializer<''de> { /* ... */ }
+    ```
+
+- **DeserializeOwned**
+- **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &WizardOption) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **Serialize**
+  - ```rust
+    fn serialize<__S>(self: &Self, __serializer: __S) -> _serde::__private228::Result<<__S as >::Ok, <__S as >::Error>
+where
+    __S: _serde::Serializer { /* ... */ }
+    ```
+
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Struct `Source`
+
+**Attributes:**
+
+- `Other("#[serde(deny_unknown_fields)]")`
+
+A clause in the kovan standard corpus that justifies a question (#769).
+
+```rust
+pub struct Source {
+    pub document: String,
+    pub section: Option<String>,
+    pub page: Option<String>,
+    pub quote: Option<String>,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `document` | `String` | The standard-corpus id (`kovan::corpus::LITERATURE`). |
+| `section` | `Option<String>` |  |
+| `page` | `Option<String>` |  |
+| `quote` | `Option<String>` | Quoted wording, only where #769 records it. |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Source { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Deserialize**
+  - ```rust
+    fn deserialize<__D>(__deserializer: __D) -> _serde::__private228::Result<Self, <__D as >::Error>
+where
+    __D: _serde::Deserializer<''de> { /* ... */ }
+    ```
+
+- **DeserializeOwned**
+- **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Source) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **Serialize**
+  - ```rust
+    fn serialize<__S>(self: &Self, __serializer: __S) -> _serde::__private228::Result<<__S as >::Ok, <__S as >::Error>
+where
+    __S: _serde::Serializer { /* ... */ }
+    ```
+
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Enum `WizardError`
+
+Why the question set itself is not acceptable.
+
+```rust
+pub enum WizardError {
+    Toml(String),
+    BadKey(String),
+    DuplicateQuestion(String),
+    DuplicateOption {
+        question: String,
+        option: String,
+    },
+    NoOther(String),
+    EmptyText {
+        question: String,
+        option: Option<String>,
+    },
+    Unsourced(String),
+    BadSource {
+        question: String,
+    },
+    NoRung4Gate,
+}
+```
+
+##### Variants
+
+###### `Toml`
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `String` |  |
+
+###### `BadKey`
+
+A key that is not lowercase `[a-z0-9_]+` (the answer format splits
+on `:`).
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `String` |  |
+
+###### `DuplicateQuestion`
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `String` |  |
+
+###### `DuplicateOption`
+
+Fields:
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `question` | `String` |  |
+| `option` | `String` |  |
+
+###### `NoOther`
+
+A question without an `other` option that requires text (#740 U3).
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `String` |  |
+
+###### `EmptyText`
+
+Empty question text or option label.
+
+Fields:
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `question` | `String` |  |
+| `option` | `Option<String>` |  |
+
+###### `Unsourced`
+
+A question with neither a source nor a workspace rule (#740: such a
+question is dropped or marked as a workspace rule).
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `String` |  |
+
+###### `BadSource`
+
+A source with an empty document id, or with neither section nor page.
+
+Fields:
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `question` | `String` |  |
+
+###### `NoRung4Gate`
+
+No option with `gate_rung4` or none with `gate_rung4_author`: rung 4
+could never be derived. (~~`NoRungQuestion`~~ CORRECTED 2026-10-07:
+the rung is no longer a question.)
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> WizardError { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Display**
+  - ```rust
+    fn fmt(self: &Self, f: &mut std::fmt::Formatter<''_>) -> std::fmt::Result { /* ... */ }
+    ```
+
+- **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+- **Error**
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &WizardError) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **ToString**
+  - ```rust
+    fn to_string(self: &Self) -> String { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Struct `Applicability`
+
+Which conditional questions apply to the function under review.
+
+```rust
+pub struct Applicability {
+    pub is_port: bool,
+    pub physical_interface: bool,
+    pub tests: TestAuthorship,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `is_port` | `bool` |  |
+| `physical_interface` | `bool` |  |
+| `tests` | `TestAuthorship` | Git's view of who wrote the reaching tests (for the derived rung). |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn applies(self: Self, when: AppliesWhen) -> bool { /* ... */ }
+  ```
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Applicability { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Default**
+  - ```rust
+    fn default() -> Applicability { /* ... */ }
+    ```
+
+- **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Applicability) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Enum `AnswerError`
+
+Why one checklist answer is not acceptable.
+
+```rust
+pub enum AnswerError {
+    LegacyPlaceholderKey {
+        key: String,
+        use_instead: String,
+    },
+    UnknownQuestion(String),
+    RungIsDerived(String),
+    NotApplicable(String),
+    UnknownOption {
+        question: String,
+        option: String,
+    },
+    TextRequired {
+        question: String,
+        option: String,
+    },
+    UnexpectedText {
+        question: String,
+        option: String,
+    },
+}
+```
+
+##### Variants
+
+###### `LegacyPlaceholderKey`
+
+One of #764's `q1` … `q10` placeholders; write `use_instead`.
+
+Fields:
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `key` | `String` |  |
+| `use_instead` | `String` |  |
+
+###### `UnknownQuestion`
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `String` |  |
+
+###### `RungIsDerived`
+
+A rung given as an answer (`rung`, or #764's `q10`): the rung is
+derived, never chosen (maintainer, #769, 2026-10-07).
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `String` |  |
+
+###### `NotApplicable`
+
+Answered, but the question does not apply (e.g. upstream fidelity for
+a function that is not a port).
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `String` |  |
+
+###### `UnknownOption`
+
+Fields:
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `question` | `String` |  |
+| `option` | `String` |  |
+
+###### `TextRequired`
+
+The option needs text of at least 2 characters.
+
+Fields:
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `question` | `String` |  |
+| `option` | `String` |  |
+
+###### `UnexpectedText`
+
+Text given for an option that takes none.
+
+Fields:
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `question` | `String` |  |
+| `option` | `String` |  |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> AnswerError { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Display**
+  - ```rust
+    fn fmt(self: &Self, f: &mut std::fmt::Formatter<''_>) -> std::fmt::Result { /* ... */ }
+    ```
+
+- **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+- **Error**
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &AnswerError) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **ToString**
+  - ```rust
+    fn to_string(self: &Self) -> String { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Struct `Choice`
+
+A chosen option.
+
+```rust
+pub struct Choice {
+    pub question: String,
+    pub option: String,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `question` | `String` |  |
+| `option` | `String` |  |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Choice { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Comparable**
+  - ```rust
+    fn compare(self: &Self, key: &K) -> Ordering { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **Ord**
+  - ```rust
+    fn cmp(self: &Self, other: &Choice) -> $crate::cmp::Ordering { /* ... */ }
+    ```
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Choice) -> bool { /* ... */ }
+    ```
+
+- **PartialOrd**
+  - ```rust
+    fn partial_cmp(self: &Self, other: &Choice) -> $crate::option::Option<$crate::cmp::Ordering> { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Enum `GateReason`
+
+Why the stamp is refused.
+
+```rust
+pub enum GateReason {
+    Answer(Choice),
+    Unanswered(String),
+    Invalid(AnswerError),
+}
+```
+
+##### Variants
+
+###### `Answer`
+
+An answer whose effect is `block`.
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `Choice` |  |
+
+###### `Unanswered`
+
+An applicable question with no answer.
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `String` |  |
+
+###### `Invalid`
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `AnswerError` |  |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> GateReason { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &GateReason) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Struct `GateResult`
+
+What the answers allow.
+
+```rust
+pub struct GateResult {
+    pub blocked_by: Vec<GateReason>,
+    pub prompts: Vec<Choice>,
+    pub flags: Vec<Choice>,
+    pub rung4_allowed: bool,
+    pub independent: bool,
+    pub rung: Rung,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `blocked_by` | `Vec<GateReason>` | Empty = the stamp may be given. |
+| `prompts` | `Vec<Choice>` | Answers that ask "Mark as Needs fix instead?". |
+| `flags` | `Vec<Choice>` | Needs-improvement flags (never block). |
+| `rung4_allowed` | `bool` | A `gate_rung4` answer and a `gate_rung4_author` answer (~~and no<br>`no_rung4` answer~~ CORRECTED 2026-10-07: independence does not close<br>rung 4; the hand-written V&V case opens it with the evidence). |
+| `independent` | `bool` | `independence` is answered and no answer is `not_independent`: this<br>stamp may be the independent second review for rung 5. |
+| `rung` | `Rung` | The rung the stamp gives ([`derived_rung`]). |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn stampable(self: &Self) -> bool { /* ... */ }
+  ```
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> GateResult { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Default**
+  - ```rust
+    fn default() -> GateResult { /* ... */ }
+    ```
+
+- **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &GateResult) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+### Functions
+
+#### Function `parse_answer`
+
+Split an on-disk answer into its option key and optional text.
+
+```rust
+pub fn parse_answer(raw: &str) -> (&str, Option<&str>) { /* ... */ }
+```
+
+#### Function `format_answer`
+
+The on-disk form of an answer (inverse of [`parse_answer`]).
+
+```rust
+pub fn format_answer(option: &str, text: Option<&str>) -> String { /* ... */ }
+```
+
+#### Function `derived_rung`
+
+The rung a stamp gives, derived (maintainer, #769, 2026-10-07: the user
+never chooses it): **4** when `vv_evidence` is a qualifying answer AND
+`vv_case_author = human_wrote_and_verified` AND git shows no agent
+trailer on the commits that added the tests reaching the function;
+otherwise **3** (a half-done V&V case gives 3). Pure: the answers and
+git's [`TestAuthorship`] in, the rung out.
+
+```rust
+pub fn derived_rung(answers: &std::collections::BTreeMap<String, String>, tests: TestAuthorship) -> Rung { /* ... */ }
+```
+
+#### Function `stamp_gate`
+
+[`ReviewWizard::stamp_gate`] over the embedded question set.
+
+```rust
+pub fn stamp_gate(answers: &std::collections::BTreeMap<String, String>, ctx: Applicability) -> GateResult { /* ... */ }
+```
+
+#### Function `vv_case_author_prefill`
+
+The pre-filled answer to `vv_case_author` from the messages of the
+commits that added the tests reaching the function (maintainer, #769,
+2026-10-07): any agent trailer -> `agent_wrote_or_cowrote`; none ->
+`human_wrote_and_verified`, which the reviewer still confirms (git sees
+only who wrote the case, not that its result was verified by hand). No
+commits known -> no pre-fill.
+
+```rust
+pub fn vv_case_author_prefill(test_commit_messages: &[String]) -> Option<&'static str> { /* ... */ }
+```
+
+#### Function `independence_prefill`
+
+The pre-filled answer to `independence` (#769, 2026-10-07: "pre-filled
+from git (commit author plus agent trailer)"):
+
+- every commit of the change carries the agent trailer → `someone_else`
+  (an AI agent wrote it);
+- otherwise, if the reviewer authored any of the commits →
+  `self_check` (conservative for a mixed change);
+- otherwise → `someone_else`.
+
+The reviewer can change it; this is only the starting answer.
+
+```rust
+pub fn independence_prefill(reviewer_is_author: bool, authorship: super::types::AuthorshipKind) -> &'static str { /* ... */ }
+```
+
+### Constants and Statics
+
+#### Constant `WIZARD_TOML`
+
+The question set, embedded at compile time (works in wasm).
+
+```rust
+pub const WIZARD_TOML: &str = "# The kovan code-review wizard\'s question set (GitHub #769; wizard rules on\n# #740, maintainer 2026-10-07). Read by `kovan_common::review::wizard`, which\n# embeds this file with `include_str!` so desktop kovan, web-kovan (wasm) and\n# CI ask the same questions and apply the same stamp gate.\n#\n# Keys are STABLE: they are written into review.md (`[review.checklist]`) and\n# must never be renamed. Add a question or an option; never repurpose a key.\n#\n# applies_when: always | port | physical_interface\n#   port               the folder\'s kovan.toml [upstream] table (or the\n#                      wizard\'s \"Is this a port?\") declares the function a port\n#   physical_interface a physical quantity crosses the function\'s interface\n#\n# effect (what choosing the option does to the stamp):\n#   none              no effect\n#   prompt_needs_fix  asks \"Mark as Needs fix instead?\"; the stamp is allowed\n#   block             the stamp is refused\n#   flag              recorded as \"needs improvement\"; never blocks\n#   gate_rung4        V&V evidence of the qualifying kinds: one half of\n#                     opening rung 4\n#   gate_rung4_author the V&V case was written and verified by hand by a\n#                     human, without AI agents: the other half. Rung 4 opens\n#                     only with both (maintainer, #769/#739, 2026-10-07:\n#                     \"rung 4 = writing AND verifying a V&V case by hand\").\n#                     (~~gate_rung4 alone opens rung 4~~ CORRECTED 2026-10-07)\n#   not_independent   the reviewer is not independent of the code: the stamp\n#                     counts at rung 3 or 4 but cannot be the independent\n#                     second review for rung 5. (~~no_rung4: rung 4 is not\n#                     available whatever else is answered~~ CORRECTED\n#                     2026-10-07, maintainer on #769: independence gates\n#                     rung 5, not rung 4.)\n#   (~~needs_rung4_gate  choosing it is refused unless rung 4 is open~~\n#    CORRECTED 2026-10-07, maintainer on #769: the user never chooses the\n#    rung; it is derived from vv_evidence, vv_case_author and git, so the\n#    `rung` question and this effect are gone. See `wizard::derived_rung`.)\n#\n# requires_text: the option must carry text of at least 2 characters\n# (`Other: ____`, a justification). On disk the answer is `\"<option>\"`, or\n# `\"<option>: <text>\"` for these options.\n#\n# Sources: ONLY the clauses recorded on #769 (research agent, 2026-10-07; every\n# cited page was read). `document` is the kovan standard-corpus id\n# (crates/kovan/src/corpus.rs), checked by kovan\'s tests/review_wizard_sources.rs.\n# `quote` is filled only where #769 records quoted wording. A question or\n# option that rests on a workspace rule names it in `workspace_rule` instead of\n# a citation.\n#\n# Abbreviations on #769: BR = NUREG/BR-0167 (nureg-br-0167); DOEG = DOE G\n# 414.1-4 (doe-g-414.1-4); STD = DOE-STD-1172-2003 (doe-std-1172-2003); KM =\n# NUREG/KM-0006 (nureg-km-0006); AppB = 10 CFR 50 App. B (10cfr50).\n\nversion = 1\n\n# ---------------------------------------------------------------- 1\n[[question]]\nkey = \"doc_matches_behaviour\"\ntext = \"Does the function do what its doc comment says it does?\"\napplies_when = \"always\"\n\n[[question.option]]\nkey = \"yes\"\nlabel = \"Yes\"\neffect = \"none\"\n\n[[question.option]]\nkey = \"partly\"\nlabel = \"Partly: some of the doc is wrong or out of date\"\neffect = \"prompt_needs_fix\"\n\n[[question.option]]\nkey = \"no\"\nlabel = \"No\"\neffect = \"block\"\n\n[[question.option]]\nkey = \"no_doc\"\nlabel = \"There is no doc comment\"\neffect = \"prompt_needs_fix\"\n\n[[question.option]]\nkey = \"other\"\nlabel = \"Other: ____\"\neffect = \"none\"\nrequires_text = true\n\n[[question.source]]\ndocument = \"nureg-br-0167\"\nsection = \"\u{a7}4.5\"\npage = \"13\"\n\n[[question.source]]\ndocument = \"nureg-br-0167\"\nsection = \"\u{a7}3.2.2.5\"\npage = \"10\"\n\n[[question.source]]\ndocument = \"doe-g-414.1-4\"\nsection = \"F.5.6, criterion 2\"\npage = \"F-14\"\n\n# ---------------------------------------------------------------- 2\n[[question]]\nkey = \"upstream_fidelity\"\ntext = \"Does it do what the upstream routine does?\"\napplies_when = \"port\"\nworkspace_rule = \"Debugging a port: read upstream first (HARD RULE)\"\n\n[[question.option]]\nkey = \"matches\"\nlabel = \"Yes, it matches upstream\"\neffect = \"none\"\n\n[[question.option]]\nkey = \"deviation_documented\"\nlabel = \"It deviates, and the deviation is documented and justified in its doc comment\"\neffect = \"none\"\n\n[[question.option]]\nkey = \"deviation_not_documented\"\nlabel = \"It deviates, and the deviation is not documented\"\neffect = \"block\"\naction = \"document_deviation\"\n\n[[question.option]]\nkey = \"other\"\nlabel = \"Other: ____\"\neffect = \"none\"\nrequires_text = true\n\n[[question.source]]\ndocument = \"10cfr50\"\nsection = \"Appendix B, Criterion III\"\n\n[[question.source]]\ndocument = \"doe-g-414.1-4\"\nsection = \"\u{a7}3.3.2\"\npage = \"11\"\n\n[[question.source]]\ndocument = \"doe-g-414.1-4\"\nsection = \"\u{a7}5.2.6\"\npage = \"24-25\"\n\n# ---------------------------------------------------------------- 3\n[[question]]\nkey = \"limits_and_guards\"\ntext = \"Are the allowable input ranges guarded, and what happens outside them?\"\napplies_when = \"always\"\nworkspace_rule = \"Error handling: Result is preferred to panics (maintainer, #740, 2026-10-07; not yet a CLAUDE.md rule)\"\n\n[[question.option]]\nkey = \"guarded_returns_result\"\nlabel = \"Guarded: out-of-range input returns a Result error (preferred)\"\neffect = \"none\"\n\n[[question.option]]\nkey = \"guarded_panics_justified\"\nlabel = \"Guarded: out-of-range input panics, justified: ____\"\neffect = \"none\"\nrequires_text = true\n\n[[question.option]]\nkey = \"guard_present_range_undocumented\"\nlabel = \"A guard is present, but the range is not documented\"\neffect = \"prompt_needs_fix\"\n\n[[question.option]]\nkey = \"guard_missing\"\nlabel = \"A guard is missing\"\neffect = \"block\"\n\n[[question.option]]\nkey = \"no_limits\"\nlabel = \"No limits apply, explained: ____\"\neffect = \"none\"\nrequires_text = true\n\n[[question.option]]\nkey = \"other\"\nlabel = \"Other: ____\"\neffect = \"none\"\nrequires_text = true\n\n[[question.source]]\ndocument = \"doe-g-414.1-4\"\nsection = \"F.5.6\"\npage = \"F-14\"\nquote = \"allowable input/output ranges\"\n\n[[question.source]]\ndocument = \"nureg-km-0006\"\npage = \"64-65\"\n\n[[question.source]]\ndocument = \"nureg-br-0167\"\nsection = \"\u{a7}3.2.4.1\"\npage = \"11\"\n\n# ---------------------------------------------------------------- 4\n# Narrowed on #769 (2026-10-07) to whether units are documented; the `uom`\n# half moved to coding_standards.\n[[question]]\nkey = \"units_documented\"\ntext = \"Are the units of every physical quantity at its interface documented?\"\napplies_when = \"physical_interface\"\n\n[[question.option]]\nkey = \"yes\"\nlabel = \"Yes\"\neffect = \"none\"\n\n[[question.option]]\nkey = \"not_documented\"\nlabel = \"No, some units are not documented\"\neffect = \"prompt_needs_fix\"\n\n[[question.option]]\nkey = \"other\"\nlabel = \"Other: ____\"\neffect = \"none\"\nrequires_text = true\n\n[[question.source]]\ndocument = \"nureg-km-0006\"\npage = \"64\"\n\n[[question.source]]\ndocument = \"doe-g-414.1-4\"\nsection = \"F.5.6\"\n\n# ---------------------------------------------------------------- 5\n[[question]]\nkey = \"error_handling\"\ntext = \"What does it do when something goes wrong?\"\napplies_when = \"always\"\nworkspace_rule = \"Error handling: Result is preferred to panics (maintainer, #740, 2026-10-07; not yet a CLAUDE.md rule)\"\n\n[[question.option]]\nkey = \"returns_result\"\nlabel = \"Returns a Result (preferred)\"\neffect = \"none\"\n\n[[question.option]]\nkey = \"panics_justified\"\nlabel = \"Panics, justified: ____\"\neffect = \"none\"\nrequires_text = true\n\n[[question.option]]\nkey = \"falls_back_reported\"\nlabel = \"Falls back and reports it through the return type (a Result, or an outcome enum with a fallback variant)\"\neffect = \"none\"\n\n[[question.option]]\nkey = \"falls_back_silently\"\nlabel = \"Falls back with no signal to the caller\"\neffect = \"block\"\n\n[[question.option]]\nkey = \"cannot_happen\"\nlabel = \"Nothing can go wrong, explained: ____\"\neffect = \"none\"\nrequires_text = true\n\n[[question.option]]\nkey = \"other\"\nlabel = \"Other: ____\"\neffect = \"none\"\nrequires_text = true\n\n[[question.source]]\ndocument = \"doe-g-414.1-4\"\nsection = \"F.5.6\"\n\n[[question.source]]\ndocument = \"doe-g-414.1-4\"\nsection = \"\u{a7}5.2.7\"\npage = \"26\"\n\n[[question.source]]\ndocument = \"nureg-br-0167\"\nsection = \"\u{a7}2.2\"\npage = \"5\"\n\n[[question.source]]\ndocument = \"nureg-br-0167\"\npage = \"11\"\n\n[[question.source]]\ndocument = \"doe-g-414.1-4\"\npage = \"27\"\nquote = \"detect and report\"\n\n# ---------------------------------------------------------------- 6\n[[question]]\nkey = \"numerical_hazards\"\ntext = \"Are there numerical hazards (division by zero, cancellation, overflow, NaN, an iteration that may not converge)?\"\napplies_when = \"always\"\n\n[[question.option]]\nkey = \"none_found\"\nlabel = \"None found\"\neffect = \"none\"\n\n[[question.option]]\nkey = \"handled\"\nlabel = \"Yes, and each is handled\"\neffect = \"none\"\n\n[[question.option]]\nkey = \"tolerance_not_justified\"\nlabel = \"An iteration or convergence tolerance is not justified\"\neffect = \"block\"\n\n[[question.option]]\nkey = \"possible_problem\"\nlabel = \"Yes, a possible problem is not handled\"\neffect = \"block\"\n\n[[question.option]]\nkey = \"other\"\nlabel = \"Other: ____\"\neffect = \"none\"\nrequires_text = true\n\n[[question.source]]\ndocument = \"nureg-km-0006\"\nsection = \"\u{a7}5.4.2.2 (VR-4, VR-5)\"\npage = \"170-171\"\n\n[[question.source]]\ndocument = \"doe-g-414.1-4\"\npage = \"26\"\n\n# ---------------------------------------------------------------- 7\n[[question]]\nkey = \"test_reach\"\ntext = \"Does a test reach this function?\"\napplies_when = \"always\"\n\n[[question.option]]\nkey = \"reached_and_checked\"\nlabel = \"Yes, and a test checks what it returns\"\neffect = \"none\"\n\n[[question.option]]\nkey = \"reached_not_checked\"\nlabel = \"A test reaches it but checks nothing it returns\"\neffect = \"flag\"\n\n[[question.option]]\nkey = \"no_test_reaches\"\nlabel = \"No test reaches it (needs improvement)\"\neffect = \"flag\"\n\n[[question.option]]\nkey = \"other\"\nlabel = \"Other: ____\"\neffect = \"none\"\nrequires_text = true\n\n[[question.source]]\ndocument = \"nureg-br-0167\"\nsection = \"\u{a7}3.2.4\"\npage = \"10\"\n\n[[question.source]]\ndocument = \"doe-g-414.1-4\"\nsection = \"\u{a7}5.2.8\"\npage = \"28\"\n\n# The non-blocking flag is tailoring (#769).\n[[question.source]]\ndocument = \"nureg-br-0167\"\nsection = \"\u{a7}2.1 (tailoring)\"\npage = \"5\"\n\n# ---------------------------------------------------------------- 8\n[[question]]\nkey = \"vv_evidence\"\ntext = \"What verification and validation evidence covers this function?\"\napplies_when = \"always\"\n\n[[question.option]]\nkey = \"reference_code_to_code\"\nlabel = \"Comparison against a reference or another code (code-to-code)\"\neffect = \"gate_rung4\"\n\n[[question.option]]\nkey = \"analytical_case\"\nlabel = \"An analytical (closed-form or manufactured) case\"\neffect = \"gate_rung4\"\n\n[[question.option]]\nkey = \"convergence_order_study\"\nlabel = \"A convergence / order-of-accuracy study\"\neffect = \"gate_rung4\"\n\n[[question.option]]\nkey = \"unit_tests_only\"\nlabel = \"Unit tests only\"\neffect = \"none\"\n\n[[question.option]]\nkey = \"none_yet\"\nlabel = \"None yet\"\neffect = \"none\"\n\n[[question.option]]\nkey = \"other\"\nlabel = \"Other: ____\"\neffect = \"none\"\nrequires_text = true\n\n[[question.source]]\ndocument = \"nureg-km-0006\"\nsection = \"Table 5-11\"\npage = \"145\"\n\n[[question.source]]\ndocument = \"10cfr50\"\nsection = \"Appendix B, Criterion III\"\n\n# ---------------------------------------------------------------- 8b\n# Who wrote the V&V case (maintainer, #769/#739, 2026-10-07). Pre-filled from\n# git: the commits that added the tests reaching the function, read with\n# `types::agent_trailer` (`wizard::vv_case_author_prefill`). Git can check\n# only the writing; \"verified by hand\" is the reviewer\'s signed attestation.\n# The engine refuses rung 4 when git shows an agent trailer on those commits.\n[[question]]\nkey = \"vv_case_author\"\ntext = \"Who wrote the V&V case?\"\napplies_when = \"always\"\nworkspace_rule = \"Rung 4 is a V&V case written and verified by hand by a human, without AI agents; LSP/IDE tooling allowed (maintainer, #769/#739, 2026-10-07)\"\nprefill = \"git_test_authorship\"\n\n[[question.option]]\nkey = \"human_wrote_and_verified\"\nlabel = \"A human wrote the V&V case and verified its result by hand, without AI agents (LSP/IDE tooling allowed)\"\neffect = \"gate_rung4_author\"\n\n[[question.option]]\nkey = \"agent_wrote_or_cowrote\"\nlabel = \"An AI agent wrote or co-wrote it\"\neffect = \"none\"\n\n[[question.option]]\nkey = \"other\"\nlabel = \"Other: ____\"\neffect = \"none\"\nrequires_text = true\n\n# ---------------------------------------------------------------- 9\n[[question]]\nkey = \"maintainability\"\ntext = \"Could a future maintainer read and change it safely?\"\napplies_when = \"always\"\n\n[[question.option]]\nkey = \"yes\"\nlabel = \"Yes\"\neffect = \"none\"\n\n[[question.option]]\nkey = \"too_complex_split\"\nlabel = \"Too complex; it should be split\"\neffect = \"prompt_needs_fix\"\n\n[[question.option]]\nkey = \"other\"\nlabel = \"Other: ____\"\neffect = \"none\"\nrequires_text = true\n\n[[question.source]]\ndocument = \"doe-g-414.1-4\"\nsection = \"\u{a7}5.2.6\"\npage = \"25\"\n\n[[question.source]]\ndocument = \"doe-std-1172-2003\"\nsection = \"competency 9\"\npage = \"9\"\n\n[[question.source]]\ndocument = \"nureg-br-0167\"\nsection = \"\u{a7}4.3\"\npage = \"13\"\n\n# ---------------------------------------------------------------- 10\n# Pre-filled from git (commit author plus agent trailer); see\n# `wizard::independence_prefill`.\n[[question]]\nkey = \"independence\"\ntext = \"Who wrote this function?\"\napplies_when = \"always\"\nprefill = \"git_authorship\"\n\n[[question.option]]\nkey = \"someone_else\"\nlabel = \"Someone else, or an AI agent\"\neffect = \"none\"\n\n[[question.option]]\nkey = \"self_check\"\nlabel = \"I wrote it (self-check)\"\neffect = \"not_independent\"\n\n# An unstated author cannot show independence, so it cannot be the\n# independent review for rung 5 (~~cannot open rung 4~~ CORRECTED\n# 2026-10-07).\n[[question.option]]\nkey = \"other\"\nlabel = \"Other: ____\"\neffect = \"not_independent\"\nrequires_text = true\n\n[[question.source]]\ndocument = \"10cfr50\"\nsection = \"Appendix B, Criterion III\"\n\n[[question.source]]\ndocument = \"doe-g-414.1-4\"\nsection = \"F.5.8, criterion 5\"\npage = \"F-15\"\n\n[[question.source]]\ndocument = \"doe-std-1172-2003\"\npage = \"8\"\n\n[[question.source]]\ndocument = \"nureg-km-0006\"\nsection = \"PCMM-3\"\n\n# ---------------------------------------------------------------- 11\n[[question]]\nkey = \"unintended_function\"\ntext = \"Does it do anything beyond what its doc says?\"\napplies_when = \"always\"\n\n[[question.option]]\nkey = \"no\"\nlabel = \"No\"\neffect = \"none\"\n\n[[question.option]]\nkey = \"yes_documented\"\nlabel = \"Yes, and it is documented\"\neffect = \"none\"\n\n[[question.option]]\nkey = \"yes_undocumented\"\nlabel = \"Yes, and it is not documented\"\neffect = \"block\"\n\n[[question.option]]\nkey = \"other\"\nlabel = \"Other: ____\"\neffect = \"none\"\nrequires_text = true\n\n[[question.source]]\ndocument = \"doe-g-414.1-4\"\nsection = \"F.5.8, objective\"\npage = \"F-15\"\n\n[[question.source]]\ndocument = \"doe-g-414.1-4\"\npage = \"24-25\"\n\n# ---------------------------------------------------------------- 12\n[[question]]\nkey = \"coding_standards\"\ntext = \"Does it follow the workspace coding rules (enums not dyn, no Box, no lifetimes, uom where a physical quantity crosses an API)?\"\napplies_when = \"always\"\nworkspace_rule = \"Rust design rules (mandatory)\"\n\n[[question.option]]\nkey = \"yes\"\nlabel = \"Yes\"\neffect = \"none\"\n\n[[question.option]]\nkey = \"deviates_justified\"\nlabel = \"Deviates, justified: ____\"\neffect = \"none\"\nrequires_text = true\n\n[[question.option]]\nkey = \"deviates_not_justified\"\nlabel = \"Deviates, not justified\"\neffect = \"prompt_needs_fix\"\n\n[[question.option]]\nkey = \"other\"\nlabel = \"Other: ____\"\neffect = \"none\"\nrequires_text = true\n\n[[question.source]]\ndocument = \"nureg-br-0167\"\nsection = \"\u{a7}2.4\"\npage = \"5\"\n\n[[question.source]]\ndocument = \"nureg-br-0167\"\nsection = \"\u{a7}5.2.3\"\npage = \"18\"\n\n# ---------------------------------------------------------------- 13\n# ~~The rung the stamp gives (3 human reviewed, 4 human V&V), a question~~\n# CORRECTED 2026-10-07 (maintainer, #769): the user never chooses the rung.\n# It is derived (`wizard::derived_rung`): 4 when vv_evidence is qualifying\n# AND vv_case_author = human_wrote_and_verified AND git shows no agent\n# trailer on the reaching tests\' commits; otherwise 3. review.md\'s `rung`\n# stores the derived value and the engine recomputes it on read.\n";
+```
+
+#### Constant `LEGACY_PLACEHOLDER_KEYS`
+
+#764's placeholder keys and the question each one became (#769 table
+order). Used only to make the rejection say what to write instead.
+
+```rust
+pub const LEGACY_PLACEHOLDER_KEYS: &[(&str, &str)] = _;
+```
+
+#### Constant `LEGACY_RUNG_KEYS`
+
+Keys that once held the rung as an answer: #764's `q10` and the #769
+`rung` question (removed 2026-10-07: the rung is derived,
+[`derived_rung`]). Refused with [`AnswerError::RungIsDerived`].
+
+```rust
+pub const LEGACY_RUNG_KEYS: &[&str] = _;
+```
+
+## Module `code_index`
+
+Building the code index (GitHub #767): per-folder `kovan.toml` from one
+SCIP run, the rust-analyzer-free refresh, self-healing, and the
+per-crate compact link index.
+**Building the code index** (GitHub #767): the per-folder `kovan.toml`
+files and the per-crate compact link index, from one rust-analyzer SCIP
+run (#757), the source, `review.md` and git. Pure: the I/O (reading
+files, running `rust-analyzer scip` and `git`) is `kovan-cli index` in
+the `kovan` crate (`commands::index`).
+
+```text
+ rust-analyzer scip ──> SCIP index ──┬──> call graph (#757) ──┐
+                                     │                        ├─[folders::build]──> <folder>/kovan.toml
+ source .rs ──[review::hash]─────────┼────────────────────────┤      ^ ids: [ids] from review.md + previous kovan.toml
+ review.md (read only) ──────────────┼────────────────────────┘      ^ [test_run] carried over (evidence)
+ git log -D review.md ──[deleted]────┘──> crate root kovan.toml [[deleted_folder]]
+                                     └──[links::build]──> <crate>/kovan_links.json
+
+ no rust-analyzer: source .rs ──[refresh]──> kovan.toml (hashes now; callees kept or
+                                              flagged "index out of date")
+```
+
+- [`ids`]: stable `fn:` ids (claims from `review.md`, the previous index,
+  minting with [`crate::review::id::mint_fn_id`]).
+- [`folders`]: the full build of every folder's index.
+- [`refresh`]: the rust-analyzer-free path (maintainer, #767).
+- [`heal`]: when a `kovan.toml` on disk is rewritten or removed.
+- [`deleted`]: deleted folders' review history from git.
+- [`links`]: the per-crate link index format (definitions and
+  references for web-kovan's go-to-definition, #745).
+- [`upstream_draft`]: proposed `[upstream]` entries from provenance
+  headers, printed for a human to confirm (never written).
+
+`review.md` is human-owned: nothing here writes it.
+
+```rust
+pub mod code_index { /* ... */ }
+```
+
+### Modules
+
+## Module `deleted`
+
+A **deleted folder's** review history for the crate root `kovan.toml`
+(#739 D6: "Whole folder deleted: its history goes into the crate's
+`kovan.toml` ... rebuildable from git, `git log --diff-filter=D` on
+`review.md` files").
+
+The caller lists the `review.md` files git deleted under the crate (the
+newest deletion of each path, skipping folders that have a `review.md`
+again) and reads each one's last content (`git show <commit>^:<path>`);
+[`deleted_folder`] turns that text into the history row. Pure.
+
+```rust
+pub mod deleted { /* ... */ }
+```
+
+### Functions
+
+#### Function `deleted_folder`
+
+The history of folder `dir`, whose `review.md` was deleted in
+`deleted_commit` and last read `old_review_md`: one row per reviewed
+function (its last review's commit and every reviewer), plus the rows
+its own `deleted_functions` table already held.
+
+```rust
+pub fn deleted_folder(dir: &str, deleted_commit: &str, old_review_md: &str) -> crate::review::index::DeletedFolder { /* ... */ }
+```
+
+#### Function `deleted_review_mds`
+
+From `git log --diff-filter=D --name-only --format=%x00%H` output (a
+`\0` then the commit on its own line, then the deleted paths; newest
+first): the newest deletion commit of each `review.md` under `crate_dir`,
+as (folder, commit), skipping folders in `still_reviewed`.
+
+```rust
+pub fn deleted_review_mds(log: &str, crate_dir: &str, still_reviewed: &std::collections::BTreeSet<String>) -> Vec<(String, String)> { /* ... */ }
+```
+
+## Module `folders`
+
+Build every folder's `kovan.toml` ([`FolderIndex`]) from one call graph
+(SCIP backend, #757), the per-file function hashes, the folders'
+`review.md`, the previous `kovan.toml` files and the counted test
+evidence (#766). Pure: the caller reads the files and runs the tools.
+
+# Which functions
+
+Every function of the call graph (lib modules, examples, integration
+tests: the files Cargo compiles for those targets) that the `syn`
+hasher ([`crate::review::hash`]) also finds, joined by name and closing
+line (and first line when that is not unique). A function the hasher
+does not list (a `fn` nested in another's body, one generated inside a
+`macro_rules!`) has no hash yet (#764 deferred nested items) and is left
+out; it is counted in [`BuildReport::unhashed`]. Its calls are not
+lost: `callees` looks **through** it (below).
+
+# Fields
+
+- `id`: [`super::ids`].
+- `qual`: the call graph's id without the `file::` prefix (`#k` kept).
+- `lines`: the hasher's line range (first outer attribute or doc line to
+  the closing brace), so the rust-analyzer-free refresh
+  ([`super::refresh`]) writes the same numbers.
+- `callees`: the resolved workspace callees by id, looking through
+  functions that are not indexed (a nested helper's callees are its
+  outer function's). A callee outside a scoped run's crates is listed
+  only when a claim or the previous index names its path
+  ([`super::ids::id_outside`]); otherwise it is counted in
+  [`BuildReport::outside_without_id`]. A whole-workspace run has none.
+- `reached_by`: **every** test that reaches the function
+  ([`crate::call_graph::reach::tests_reaching`]), by **test id**, the
+  call graph's path id of the test function, as `kovan-cli test`'s
+  evidence names tests (#766); not the opaque id. Test functions list
+  none.
+- `[test_run]`: **carried over** from the folder's previous
+  `kovan.toml` (maintainer, #766, 2026-10-07: test evidence lives in
+  the committed `kovan.toml`, written there by `kovan-cli test`). The
+  caller recovers it from the last committed version when the file on
+  disk is malformed, and passes none (pending, never passed) when that
+  fails too.
+- `physical_interface`: a uom quantity or a workspace alias of one in the
+  signature ([`super::physical`], aliases learned by the caller from the
+  sources in scope).
+- `[upstream]` and `[[review]]`: cached from the folder's `review.md`.
+- `[[deleted_folder]]`: the crate root folder only, from git
+  ([`super::deleted`]).
+- `commit` is left out: writing the commit an index was built at into
+  every `kovan.toml` would change every file on every commit (and
+  committing them would change it again), so diffs would carry no
+  information. The commit is used only to mint new ids.
+
+The module key of a file is `crate::<path>` for the library,
+`example:<name>::<path>` and `test:<name>::<path>` for example and
+integration-test targets (`crate`, `example:<name>`, `test:<name>` for a
+target's root file).
+
+```rust
+pub mod folders { /* ... */ }
+```
+
+### Types
+
+#### Struct `BuildInput`
+
+Everything [`build`] reads, owned (no borrowed struct: workspace Rust
+rules).
+
+```rust
+pub struct BuildInput {
+    pub doc: crate::call_graph::CallGraphDoc,
+    pub hashed: std::collections::BTreeMap<String, Vec<crate::review::hash::HashedFn>>,
+    pub reviews: std::collections::BTreeMap<String, crate::review::review_md::ReviewDocument>,
+    pub previous: std::collections::BTreeMap<String, crate::review::index::FolderIndex>,
+    pub test_runs: std::collections::BTreeMap<String, crate::review::index::TestRun>,
+    pub deleted: std::collections::BTreeMap<String, Vec<crate::review::index::DeletedFolder>>,
+    pub commit: String,
+    pub quantities: super::physical::QuantityNames,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `doc` | `crate::call_graph::CallGraphDoc` |  |
+| `hashed` | `std::collections::BTreeMap<String, Vec<crate::review::hash::HashedFn>>` | Workspace-relative file -> its hashed functions. A file missing here<br>(it did not parse) contributes no functions; the caller reports it. |
+| `reviews` | `std::collections::BTreeMap<String, crate::review::review_md::ReviewDocument>` | Workspace-relative `review.md` path -> parsed. |
+| `previous` | `std::collections::BTreeMap<String, crate::review::index::FolderIndex>` | Folder -> its previous, readable `kovan.toml`. |
+| `test_runs` | `std::collections::BTreeMap<String, crate::review::index::TestRun>` | Folder -> its carried-over `[test_run]` (module doc). |
+| `deleted` | `std::collections::BTreeMap<String, Vec<crate::review::index::DeletedFolder>>` | Crate name -> its deleted folders' history. |
+| `commit` | `String` | The commit the index is built at (minting only). |
+| `quantities` | `super::physical::QuantityNames` | uom's quantity names plus the aliases learned from the sources<br>([`super::physical`]), for `physical_interface`. |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> BuildInput { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Default**
+  - ```rust
+    fn default() -> BuildInput { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Struct `BuildReport`
+
+What [`build`] could not do cleanly, for the caller to print.
+
+```rust
+pub struct BuildReport {
+    pub unhashed: Vec<String>,
+    pub moved: Vec<super::ids::Moved>,
+    pub unmatched: Vec<super::ids::Unmatched>,
+    pub outside_without_id: Vec<String>,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `unhashed` | `Vec<String>` | Call-graph functions with no `syn` hash (nested or macro-made). |
+| `moved` | `Vec<super::ids::Moved>` |  |
+| `unmatched` | `Vec<super::ids::Unmatched>` |  |
+| `outside_without_id` | `Vec<String>` | Out-of-scope callees with no known id (scoped runs). |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> BuildReport { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Default**
+  - ```rust
+    fn default() -> BuildReport { /* ... */ }
+    ```
+
+- **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &BuildReport) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Struct `Built`
+
+The folders' indexes and the report.
+
+```rust
+pub struct Built {
+    pub folders: std::collections::BTreeMap<String, crate::review::index::FolderIndex>,
+    pub report: BuildReport,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `folders` | `std::collections::BTreeMap<String, crate::review::index::FolderIndex>` | Folder -> its `kovan.toml`. |
+| `report` | `BuildReport` |  |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Built { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Default**
+  - ```rust
+    fn default() -> Built { /* ... */ }
+    ```
+
+- **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Built) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+### Functions
+
+#### Function `parent`
+
+The folder part of a workspace-relative path.
+
+```rust
+pub fn parent(path: &str) -> &str { /* ... */ }
+```
+
+#### Function `build`
+
+Build every folder's index (module doc).
+
+```rust
+pub fn build(input: &BuildInput) -> Built { /* ... */ }
+```
+
+## Module `heal`
+
+**Self-healing** of `kovan.toml` (#739: "kovan.toml is a disposable
+cache"; #767). `kovan-cli index` regenerates every folder's file and
+writes it **without asking** when it is missing, malformed, hand-edited,
+stale or holds merge-conflict markers, and removes an orphan (a
+code-folder `kovan.toml` whose folder no longer has indexed `.rs`
+files). "Silently" means no prompt, not no trace: every write and
+removal is counted by reason in the run's summary (Leak Before Break,
+`docs/kovan.md`).
+
+Two cases are **never** touched, only reported:
+
+- a `kovan.toml` of another kind (a literature entity, `kind = "paper"`)
+  in an indexed folder ([`Existing::Foreign`]);
+- a code-folder `kovan.toml` that was not written for the folder it is
+  in (its `dir` names another folder: a test fixture, a copy). Only a
+  file that says `dir = "<its own folder>"` is ever removed as an orphan
+  ([`is_own_orphan`]).
+
+`review.md` is human-owned and is never written here.
+
+```rust
+pub mod heal { /* ... */ }
+```
+
+### Types
+
+#### Enum `Existing`
+
+What is on disk where a folder's `kovan.toml` goes, compared with the
+freshly generated text.
+
+```rust
+pub enum Existing {
+    Missing,
+    Conflicted,
+    Malformed(String),
+    Foreign {
+        kind: String,
+    },
+    Changed,
+    Unchanged,
+}
+```
+
+##### Variants
+
+###### `Missing`
+
+###### `Conflicted`
+
+Holds `<<<<<<<` / `=======` / `>>>>>>>` lines.
+
+###### `Malformed`
+
+Not readable as a code-folder index (the reason).
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `String` |  |
+
+###### `Foreign`
+
+A `kovan.toml` of another kind: left alone.
+
+Fields:
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `kind` | `String` |  |
+
+###### `Changed`
+
+Readable, but not the bytes this run generates (stale or edited by
+hand; the two cannot be told apart, and both are regenerated).
+
+###### `Unchanged`
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn write(self: &Self) -> bool { /* ... */ }
+  ```
+  Whether the generated text is written.
+
+- ```rust
+  pub fn label(self: &Self) -> &'static str { /* ... */ }
+  ```
+  A short label for the summary.
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Existing { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Existing) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+### Functions
+
+#### Function `has_conflict_markers`
+
+Whether `text` holds git merge-conflict markers.
+
+```rust
+pub fn has_conflict_markers(text: &str) -> bool { /* ... */ }
+```
+
+#### Function `classify`
+
+Classify the file on disk (`None` when absent) against `generated`.
+
+```rust
+pub fn classify(existing: Option<&str>, generated: &str) -> Existing { /* ... */ }
+```
+
+#### Function `is_own_orphan`
+
+Whether `text`, found at `dir/kovan.toml` in a folder with no indexed
+`.rs` file, is an orphan this tool wrote for that folder (and so may be
+removed). Read line by line, so a conflicted file is still recognised.
+
+```rust
+pub fn is_own_orphan(text: &str, dir: &str) -> bool { /* ... */ }
+```
+
+## Module `ids`
+
+**Stable function ids** for `kovan.toml` (#764 Q1, #767): recovered from
+`review.md` and the previous `kovan.toml`, minted otherwise with
+[`crate::review::id::mint_fn_id`].
+
+The id is the join key between a folder's `kovan.toml` and its
+`review.md` (`[kovan] target = "fn:…"`), and a review's
+`[review.callees]` names its callees by id too, so an unreviewed
+callee's id must also survive a regeneration. The rule, in this order
+(each id is given to at most one function, each function gets one id):
+
+1. **Claims by path.** Every `review.md` entry that names a function
+   (`review`, `needs_fix`, `annotation`, and an unreadable one whose id
+   can still be read) is a [`Claim`]: its id
+   ([`crate::review::review_md::ReviewEntry::function_id`]), its `path`
+   and its hash. A `review.md` speaks only for **its own folder**: an
+   entry whose path is in another folder is ignored, with its callees (a
+   copied fixture must not capture the functions it names). Each claimed
+   id, in sorted order, takes the one function its path names today
+   (`file::qual`, or one of the `file::qual#k` twins, picked by an `@L`
+   line when the path carries one).
+2. **The previous `kovan.toml` by path** ([`Prior`]): an unclaimed
+   function keeps the id the previous index gave the same path.
+3. **Claims by hash.** An id still unplaced (an entry's, or a key of a
+   review's `[review.callees]`, which records the callee's hash) takes
+   the one unassigned function whose code `hash` equals the claim's: the
+   function moved or was renamed without an edit. Several candidates is
+   ambiguous and nothing is taken (reported, never guessed). Renamed
+   **and** edited matches nothing: the function starts from new, as #739
+   D6 decided.
+4. **The previous `kovan.toml` by hash**, the same way.
+5. **Minted**: `mint_fn_id(path id, hash, commit)` with the commit the
+   index is built at (its first-seen commit).
+
+# Rebuildable and deterministic
+
+Steps 1 and 3 use only `review.md`, so every id a review depends on (its
+function's and its callees') is recovered from `review.md` alone when
+every `kovan.toml` is lost, as long as the code is unchanged; an edited
+callee whose cache is lost gets a new id, and the review then shows its
+callees resolving differently (directly stale, never silently valid).
+Steps 2 and 4 keep unreviewed functions' ids stable while the cache
+exists. The same inputs (source, `review.md`, previous `kovan.toml`,
+commit) give the same ids, in any input order.
+
+```rust
+pub mod ids { /* ... */ }
+```
+
+### Types
+
+#### Struct `Claim`
+
+One function named by a `review.md` entry (or a review's callee map).
+
+```rust
+pub struct Claim {
+    pub id: String,
+    pub path: Option<String>,
+    pub line: Option<u32>,
+    pub hash: Option<String>,
+    pub source: String,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `id` | `String` | The join key, `fn:…`. |
+| `path` | `Option<String>` | `file::item` (absent for a callee key). |
+| `line` | `Option<u32>` | An `@L` line in the path, if any. |
+| `hash` | `Option<String>` | The code hash the entry was taken at. |
+| `source` | `String` | The `review.md` it came from. |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Claim { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Comparable**
+  - ```rust
+    fn compare(self: &Self, key: &K) -> Ordering { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **Ord**
+  - ```rust
+    fn cmp(self: &Self, other: &Claim) -> $crate::cmp::Ordering { /* ... */ }
+    ```
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Claim) -> bool { /* ... */ }
+    ```
+
+- **PartialOrd**
+  - ```rust
+    fn partial_cmp(self: &Self, other: &Claim) -> $crate::option::Option<$crate::cmp::Ordering> { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Struct `Prior`
+
+A function as the previous `kovan.toml` recorded it.
+
+```rust
+pub struct Prior {
+    pub id: String,
+    pub path_id: String,
+    pub hash: String,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `id` | `String` |  |
+| `path_id` | `String` | `file::qual` (workspace-relative file). |
+| `hash` | `String` |  |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Prior { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Comparable**
+  - ```rust
+    fn compare(self: &Self, key: &K) -> Ordering { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **Ord**
+  - ```rust
+    fn cmp(self: &Self, other: &Prior) -> $crate::cmp::Ordering { /* ... */ }
+    ```
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Prior) -> bool { /* ... */ }
+    ```
+
+- **PartialOrd**
+  - ```rust
+    fn partial_cmp(self: &Self, other: &Prior) -> $crate::option::Option<$crate::cmp::Ordering> { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Struct `Located`
+
+One function to give an id: its path id and where it is.
+
+```rust
+pub struct Located {
+    pub path_id: String,
+    pub lines: [u32; 2],
+    pub hash: String,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `path_id` | `String` | The call graph's id, `file::qual[#k]`. |
+| `lines` | `[u32; 2]` |  |
+| `hash` | `String` |  |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Located { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Located) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Struct `Moved`
+
+A claimed id that found its function by hash, somewhere else.
+
+```rust
+pub struct Moved {
+    pub id: String,
+    pub from: Option<String>,
+    pub to: String,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `id` | `String` |  |
+| `from` | `Option<String>` | Where `review.md` says it was (none for a callee key). |
+| `to` | `String` | Where it is now. |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Moved { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Comparable**
+  - ```rust
+    fn compare(self: &Self, key: &K) -> Ordering { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **Ord**
+  - ```rust
+    fn cmp(self: &Self, other: &Moved) -> $crate::cmp::Ordering { /* ... */ }
+    ```
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Moved) -> bool { /* ... */ }
+    ```
+
+- **PartialOrd**
+  - ```rust
+    fn partial_cmp(self: &Self, other: &Moved) -> $crate::option::Option<$crate::cmp::Ordering> { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Struct `Unmatched`
+
+A claimed id that found no function.
+
+```rust
+pub struct Unmatched {
+    pub id: String,
+    pub path: Option<String>,
+    pub why: String,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `id` | `String` |  |
+| `path` | `Option<String>` |  |
+| `why` | `String` | `deleted, or renamed and edited`, or `ambiguous: k functions share its hash`. |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Unmatched { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Comparable**
+  - ```rust
+    fn compare(self: &Self, key: &K) -> Ordering { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **Ord**
+  - ```rust
+    fn cmp(self: &Self, other: &Unmatched) -> $crate::cmp::Ordering { /* ... */ }
+    ```
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Unmatched) -> bool { /* ... */ }
+    ```
+
+- **PartialOrd**
+  - ```rust
+    fn partial_cmp(self: &Self, other: &Unmatched) -> $crate::option::Option<$crate::cmp::Ordering> { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Struct `Assignment`
+
+The outcome of [`assign_ids`].
+
+```rust
+pub struct Assignment {
+    pub ids: std::collections::BTreeMap<String, String>,
+    pub moved: Vec<Moved>,
+    pub unmatched: Vec<Unmatched>,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `ids` | `std::collections::BTreeMap<String, String>` | path id -> id, for every located function. |
+| `moved` | `Vec<Moved>` |  |
+| `unmatched` | `Vec<Unmatched>` |  |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Assignment { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Default**
+  - ```rust
+    fn default() -> Assignment { /* ... */ }
+    ```
+
+- **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Assignment) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+### Functions
+
+#### Function `claims_from_review_md`
+
+The claims in one `review.md` (workspace-relative path `review_md`).
+
+```rust
+pub fn claims_from_review_md(review_md: &str, doc: &crate::review::review_md::ReviewDocument) -> Vec<Claim> { /* ... */ }
+```
+
+#### Function `priors_of`
+
+Every function of a previous, readable `kovan.toml`.
+
+```rust
+pub fn priors_of(idx: &crate::review::index::FolderIndex) -> Vec<Prior> { /* ... */ }
+```
+
+#### Function `assign_ids`
+
+Give every located function an id (module doc). `commit` is the commit
+the index is built at, used only for minting.
+
+```rust
+pub fn assign_ids(fns: &[Located], claims: &[Claim], priors: &[Prior], commit: &str) -> Assignment { /* ... */ }
+```
+
+#### Function `id_outside`
+
+The id of a function outside the indexed scope (a cross-crate callee of
+a scoped run): the one claim or prior whose path names it exactly, else
+`None` (the callee is then left out of `callees`, and the run reports
+it). A whole-workspace run has no outside functions.
+
+```rust
+pub fn id_outside(path_id: &str, claims: &[Claim], priors: &[Prior]) -> Option<String> { /* ... */ }
+```
+
+## Module `links`
+
+The per-crate **compact link index**, `<crate>/kovan_links.json` (#745,
+#767): every identifier occurrence in the crate's source that links to a
+definition, so web-kovan and desktop kovan can offer go-to-definition
+and find-references **without rust-analyzer** (maintainer, #767). It is
+small enough to ship in the crates.io package (#739 D4).
+
+# Format (schema 1)
+
+```json
+{
+  "schema": 1,
+  "kind": "kovan_links",
+  "crate": "tampines",
+  "dir": "crates/tampines",
+  "generator": "rust-analyzer 1.98.0",
+  "encoding": "utf8",
+  "files": [ { "path": "src/lib.rs", "hash": "sha256:…", "occ": [0, 4, 5, 2,  1, 8, 3, 0] } ],
+  "ext":   [ "crates/other/src/x.rs" ],
+  "defs":  [ 0, 3, 7,   1, 10, 4 ]
+}
+```
+
+- `files`: the crate's own source files, crate-relative, sorted. `hash`
+  is `sha256:` of the file text the occurrences were taken from: a
+  reader compares it with the file it has and shows "links out of date"
+  for an edited file (the rust-analyzer-free refresh never rewrites
+  this index, [`super::refresh`]).
+- `occ`: the file's linking occurrences as a flat list of quadruples
+  `[line delta, column, length, definition]`, sorted by position: the
+  line is 0-based and delta-coded from the previous occurrence's (the
+  first from 0), the column and length are in `encoding` units (SCIP's:
+  UTF-8 bytes for rust-analyzer), and `definition` indexes `defs`.
+  Occurrences that **are** definitions are not listed (the definition
+  site is in `defs`), nor references to std or dependencies (no site in
+  the workspace). Local variables are included.
+- `ext`: workspace-relative files outside the crate that hold a
+  definition referenced here, sorted.
+- `defs`: the definition sites, a flat list of triples `[file, line,
+  column]`, sorted; `file < files.len()` is `files[file]`, otherwise
+  `ext[file - files.len()]`.
+
+**References** to a definition are the occurrences whose `definition`
+points at it: all of them within this crate; from other crates, in their
+own link index (a reader loads those it needs).
+
+A symbol with several definitions (rust-analyzer gives a library item and
+an example's same-path copy one symbol) links to the one nearest the
+reference (`kovan::scip::ScipIndex::nearest_definition`). JSON was chosen
+over a binary layout so web-kovan reads it with `serde_json` and a diff
+stays readable; integers only, so it compresses well (the crates.io
+package is gzipped).
+
+```rust
+pub mod links { /* ... */ }
+```
+
+### Types
+
+#### Struct `LinkFile`
+
+One own file.
+
+```rust
+pub struct LinkFile {
+    pub path: String,
+    pub hash: String,
+    pub occ: Vec<u32>,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `path` | `String` | Crate-relative. |
+| `hash` | `String` | `sha256:` of the text. |
+| `occ` | `Vec<u32>` | Flat `[line delta, column, length, definition]` quadruples. |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> LinkFile { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Deserialize**
+  - ```rust
+    fn deserialize<__D>(__deserializer: __D) -> _serde::__private228::Result<Self, <__D as >::Error>
+where
+    __D: _serde::Deserializer<''de> { /* ... */ }
+    ```
+
+- **DeserializeOwned**
+- **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &LinkFile) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **Serialize**
+  - ```rust
+    fn serialize<__S>(self: &Self, __serializer: __S) -> _serde::__private228::Result<<__S as >::Ok, <__S as >::Error>
+where
+    __S: _serde::Serializer { /* ... */ }
+    ```
+
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Struct `LinkIndex`
+
+One crate's link index (module doc).
+
+```rust
+pub struct LinkIndex {
+    pub schema: u32,
+    pub kind: String,
+    pub krate: String,
+    pub dir: String,
+    pub generator: String,
+    pub encoding: String,
+    pub files: Vec<LinkFile>,
+    pub ext: Vec<String>,
+    pub defs: Vec<u32>,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `schema` | `u32` |  |
+| `kind` | `String` |  |
+| `krate` | `String` |  |
+| `dir` | `String` |  |
+| `generator` | `String` |  |
+| `encoding` | `String` |  |
+| `files` | `Vec<LinkFile>` |  |
+| `ext` | `Vec<String>` |  |
+| `defs` | `Vec<u32>` |  |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn to_json(self: &Self) -> String { /* ... */ }
+  ```
+  The JSON text (compact, one trailing newline).
+
+- ```rust
+  pub fn parse(text: &str) -> Result<LinkIndex, LinksError> { /* ... */ }
+  ```
+  Read and check an index.
+
+- ```rust
+  pub fn occurrences(self: &Self, path: &str) -> Vec<(u32, u32, u32, u32)> { /* ... */ }
+  ```
+  The occurrences of own file `path` (crate-relative), decoded:
+
+- ```rust
+  pub fn definition_at(self: &Self, path: &str, line: u32, col: u32) -> Option<Site> { /* ... */ }
+  ```
+  Go to definition: the definition of the identifier covering
+
+- ```rust
+  pub fn references(self: &Self, site: &Site) -> Vec<Site> { /* ... */ }
+  ```
+  Find references: every occurrence in this crate linking to `site`.
+
+- ```rust
+  pub fn is_current(self: &Self, path: &str, text: &str) -> bool { /* ... */ }
+  ```
+  Whether own file `path`'s links were taken from `text` (else they
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> LinkIndex { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Deserialize**
+  - ```rust
+    fn deserialize<__D>(__deserializer: __D) -> _serde::__private228::Result<Self, <__D as >::Error>
+where
+    __D: _serde::Deserializer<''de> { /* ... */ }
+    ```
+
+- **DeserializeOwned**
+- **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &LinkIndex) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **Serialize**
+  - ```rust
+    fn serialize<__S>(self: &Self, __serializer: __S) -> _serde::__private228::Result<<__S as >::Ok, <__S as >::Error>
+where
+    __S: _serde::Serializer { /* ... */ }
+    ```
+
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Struct `Site`
+
+A position: workspace-relative file, 0-based line and column.
+
+```rust
+pub struct Site {
+    pub path: String,
+    pub line: u32,
+    pub col: u32,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `path` | `String` |  |
+| `line` | `u32` |  |
+| `col` | `u32` |  |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Site { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Comparable**
+  - ```rust
+    fn compare(self: &Self, key: &K) -> Ordering { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Hash**
+  - ```rust
+    fn hash<__H: $crate::hash::Hasher>(self: &Self, state: &mut __H) { /* ... */ }
+    ```
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **Ord**
+  - ```rust
+    fn cmp(self: &Self, other: &Site) -> $crate::cmp::Ordering { /* ... */ }
+    ```
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Site) -> bool { /* ... */ }
+    ```
+
+- **PartialOrd**
+  - ```rust
+    fn partial_cmp(self: &Self, other: &Site) -> $crate::option::Option<$crate::cmp::Ordering> { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Struct `Occ`
+
+One occurrence handed to [`build`].
+
+```rust
+pub struct Occ {
+    pub line: u32,
+    pub col: u32,
+    pub len: u32,
+    pub def: Site,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `line` | `u32` |  |
+| `col` | `u32` |  |
+| `len` | `u32` |  |
+| `def` | `Site` |  |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Occ { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Comparable**
+  - ```rust
+    fn compare(self: &Self, key: &K) -> Ordering { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **Ord**
+  - ```rust
+    fn cmp(self: &Self, other: &Occ) -> $crate::cmp::Ordering { /* ... */ }
+    ```
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Occ) -> bool { /* ... */ }
+    ```
+
+- **PartialOrd**
+  - ```rust
+    fn partial_cmp(self: &Self, other: &Occ) -> $crate::option::Option<$crate::cmp::Ordering> { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Struct `FileOccs`
+
+One own file handed to [`build`]: workspace-relative path, its text, its
+occurrences.
+
+```rust
+pub struct FileOccs {
+    pub path: String,
+    pub text: String,
+    pub occs: Vec<Occ>,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `path` | `String` |  |
+| `text` | `String` |  |
+| `occs` | `Vec<Occ>` |  |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> FileOccs { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &FileOccs) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Enum `LinksError`
+
+Why a link index could not be read.
+
+```rust
+pub enum LinksError {
+    Json(String),
+    NotLinks(String),
+    NewerSchema(u32),
+    OutOfRange(&'static str),
+}
+```
+
+##### Variants
+
+###### `Json`
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `String` |  |
+
+###### `NotLinks`
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `String` |  |
+
+###### `NewerSchema`
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `u32` |  |
+
+###### `OutOfRange`
+
+An index points outside its tables.
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `&'static str` |  |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> LinksError { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Display**
+  - ```rust
+    fn fmt(self: &Self, f: &mut std::fmt::Formatter<''_>) -> std::fmt::Result { /* ... */ }
+    ```
+
+- **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+- **Error**
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &LinksError) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **ToString**
+  - ```rust
+    fn to_string(self: &Self) -> String { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+### Functions
+
+#### Function `build`
+
+Build crate `krate`'s index (folder `dir`, workspace-relative) from its
+files' occurrences. Deterministic: everything is sorted, in any input
+order.
+
+```rust
+pub fn build(krate: &str, dir: &str, generator: &str, encoding: &str, files: &[FileOccs]) -> LinkIndex { /* ... */ }
+```
+
+### Constants and Statics
+
+#### Constant `LINKS_FILE`
+
+The file name, at the crate's root folder.
+
+```rust
+pub const LINKS_FILE: &str = "kovan_links.json";
+```
+
+#### Constant `LINKS_SCHEMA`
+
+The schema written.
+
+```rust
+pub const LINKS_SCHEMA: u32 = 1;
+```
+
+#### Constant `LINKS_KIND`
+
+`kind`.
+
+```rust
+pub const LINKS_KIND: &str = "kovan_links";
+```
+
+## Module `physical`
+
+**Physical interface** of a function (asked by the #765 engine for the
+review wizard's units question, 2026-10-07): `true` when a physical
+quantity crosses the function's signature, so the question applies
+deterministically.
+
+Decided from the signature's tokens only (cheap, no type checking):
+
+- the path segment `uom`, or `Quantity` (uom's generic quantity type);
+- a quantity name of `uom::si` ([`UOM_QUANTITIES`]: `Length`, `Pressure`,
+  `ThermodynamicTemperature`, …);
+- a **workspace alias** of any of those: `type X = …;` whose right-hand
+  side names one, found by [`QuantityNames::learn`] over the sources
+  indexed, to a fixed point (an alias of an alias counts).
+
+Known limits, by design of a token test: a workspace type that happens
+to share a uom quantity's name (a `struct Length`) counts as physical; a
+quantity wrapped in a struct the signature names only by the struct's
+name does not. The signature is the tokens from `fn` to the body's `{`
+(or the `;` of a declaration), parameters and return type included.
+
+```rust
+pub mod physical { /* ... */ }
+```
+
+### Types
+
+#### Struct `QuantityNames`
+
+The names that make a signature physical: uom's and the workspace's
+aliases of them.
+
+```rust
+pub struct QuantityNames {
+    // Some fields omitted
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| *private fields* | ... | *Some fields have been omitted* |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn contains(self: &Self, name: &str) -> bool { /* ... */ }
+  ```
+  Whether `name` is a quantity name.
+
+- ```rust
+  pub fn learn<''s, /* synthetic */ impl Iterator<Item = &'s str> + Clone: Iterator<Item = &'s str> + Clone>(self: &mut Self, sources: impl Iterator<Item = &'s str> + Clone) { /* ... */ }
+  ```
+  Learn the `type X = …;` aliases of quantities in `sources`, to a
+
+- ```rust
+  pub fn is_physical(self: &Self, code: &str) -> bool { /* ... */ }
+  ```
+  Whether the function whose normalised code text (the hasher's
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> QuantityNames { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Default**
+  - ```rust
+    fn default() -> Self { /* ... */ }
+    ```
+
+- **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &QuantityNames) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+### Constants and Statics
+
+#### Constant `UOM_QUANTITIES`
+
+The quantity type names of `uom::si` (uom 0.36), plus `Quantity`.
+
+```rust
+pub const UOM_QUANTITIES: &[&str] = _;
+```
+
+## Module `refresh`
+
+The **rust-analyzer-free refresh** of a folder's `kovan.toml`
+(maintainer requirement on #767, 2026-10-07: "locally, kovan must NOT
+rely on rust-analyzer").
+
+The committed index (every `kovan.toml` plus each crate's link index) is
+enough for desktop kovan and `kovan-cli` to work without rust-analyzer;
+rust-analyzer is needed only to **regenerate** it (`kovan-cli index`, or
+CI). Between regenerations, edited files are refreshed here with the
+pure-Rust `syn` hasher only:
+
+- every function's `lines`, `hash` and `doc_hash` are recomputed from the
+  current source, and its id is kept by the same rule as a full run
+  ([`super::ids`], the previous `kovan.toml` serving as the priors);
+- a function whose code is **unchanged** (same id, same hash as the
+  previous index) keeps its committed `callees` and `reached_by`, and
+  its previous `index_out_of_date` flag;
+- a function that is **new or edited** cannot have its callees or
+  reaching tests recomputed without rust-analyzer: it keeps the previous
+  lists (an edited one) or none (a new one) and is marked
+  `index_out_of_date = true`, shown as "index out of date: run kovan-cli
+  index", never silently trusted (Leak Before Break);
+- a file that no longer parses keeps its previous entries, every one
+  marked out of date;
+- `[test_run]`, `crate_root` and `[[deleted_folder]]` are kept;
+  `[upstream]` and `[[review]]` are re-read from `review.md` when the
+  caller passes it.
+
+A new file's module key is unknown without the module tree (the call
+graph): it is written as `?` until the next full index.
+
+The link index is not rewritten by a refresh: each file in it carries
+the hash of the text it was built from ([`super::links`]), so a reader
+sees which files' links are out of date.
+
+```rust
+pub mod refresh { /* ... */ }
+```
+
+### Types
+
+#### Struct `RefreshReport`
+
+What a refresh did to one folder.
+
+```rust
+pub struct RefreshReport {
+    pub out_of_date: Vec<String>,
+    pub unparsed: Vec<String>,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `out_of_date` | `Vec<String>` | `file::qual` of every function marked out of date. |
+| `unparsed` | `Vec<String>` | Files that did not parse (kept from the previous index). |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> RefreshReport { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Default**
+  - ```rust
+    fn default() -> RefreshReport { /* ... */ }
+    ```
+
+- **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &RefreshReport) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+### Functions
+
+#### Function `refresh_folder`
+
+Refresh folder `dir` of crate `krate`. `files` maps every `.rs` file name
+in the folder to its text; `previous` is the readable committed index,
+if any; `review_md` the folder's parsed `review.md`, if any; `claims`
+every claim of the run (so ids match what a full run gives); `commit`
+is used only to mint new ids.
+
+```rust
+pub fn refresh_folder(krate: &str, dir: &str, previous: Option<&crate::review::index::FolderIndex>, files: &std::collections::BTreeMap<String, String>, review_md: Option<&crate::review::review_md::ReviewDocument>, claims: &[super::ids::Claim], commit: &str) -> (crate::review::index::FolderIndex, RefreshReport) { /* ... */ }
+```
+
+#### Function `all_claims`
+
+[`claims_from_review_md`] over every `review.md` of a run.
+
+```rust
+pub fn all_claims(reviews: &std::collections::BTreeMap<String, crate::review::review_md::ReviewDocument>) -> Vec<super::ids::Claim> { /* ... */ }
+```
+
+## Module `test_run`
+
+Write a counted `kovan-cli test` run into every folder's `kovan.toml`
+`[test_run]` (maintainer, #766, 2026-10-07: "test evidence lives IN
+kovan.toml, and the kovan.toml files ARE committed"; the separate
+`kovan_test_evidence.toml` is dropped).
+
+libtest names are mapped to test ids with #766's rule
+([`crate::review::evidence::map`]) over a call graph rebuilt **from the
+`kovan.toml` files themselves** ([`graph_from_folders`]): each module's
+key gives its target (`crate` / `test:<name>`) and module path, and each
+function marked `test` is a candidate. So `kovan-cli test` needs no
+rust-analyzer. (A `#[cfg(test)]` helper is marked `test` too, so a
+helper sharing a test's name in the same module makes the mapping
+ambiguous; ambiguous names are reported, a failure among them marks
+every candidate failed, as #766 decided.)
+
+Each folder gets the run [`restrict`]ed to the tests it uses: its
+functions' `reached_by` and its own tests. A run that does not count
+(partial, dirty, incomplete) is never written here.
+
+```rust
+pub mod test_run { /* ... */ }
+```
+
+### Functions
+
+#### Function `graph_from_folders`
+
+The part of a call graph the libtest-name mapping reads (targets, their
+root files, module paths and test functions), rebuilt from `kovan.toml`
+files. Example targets are skipped (their tests are not in the suite).
+
+```rust
+pub fn graph_from_folders(folders: &[crate::review::index::FolderIndex]) -> crate::call_graph::CallGraphDoc { /* ... */ }
+```
+
+#### Function `write_counted`
+
+Write counted `evidence` into every folder's `[test_run]`, restricted to
+the tests it uses. Returns the libtest names that did not map to one
+test id; refuses (with the reasons) a run that does not count.
+
+```rust
+pub fn write_counted(evidence: &crate::review::evidence::TestEvidence, folders: &mut [crate::review::index::FolderIndex]) -> Result<Vec<crate::review::evidence::map::Unmapped>, Vec<crate::review::evidence::NotCounted>> { /* ... */ }
+```
+
+## Module `upstream_draft`
+
+**Draft `[upstream]` entries** from provenance headers (#767), for a
+human to confirm: `kovan-cli index --draft-upstream` prints them and
+never writes `review.md` (human-owned; the upstream confirmation is a
+human statement, #740).
+
+For a folder whose `review.md` has no `upstream` entry, the attribution
+headers of its files ([`crate::call_graph::upstream`], already parsed
+into the call graph's `Module::upstream`) are folded into one
+[`UpstreamTable`]: the repository and commit most of the files record
+(ties broken by the smaller value), and `files` mapping each of our
+files to its upstream file(s). Anything a human must settle is a
+**note**: files that disagree on the repository or commit, a commit
+recorded abbreviated (resolve it to the full hash in a clone: #764 Q7
+takes commit hashes only), no repository URL recorded, files of the
+folder with no header. `confirmed_by` is left as a placeholder the
+reviewer replaces.
+
+```rust
+pub mod upstream_draft { /* ... */ }
+```
+
+### Types
+
+#### Struct `Draft`
+
+A proposed entry and what the human must check.
+
+```rust
+pub struct Draft {
+    pub dir: String,
+    pub table: crate::review::review_md::UpstreamTable,
+    pub notes: Vec<String>,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `dir` | `String` |  |
+| `table` | `crate::review::review_md::UpstreamTable` |  |
+| `notes` | `Vec<String>` |  |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn to_markdown(self: &Self) -> String { /* ... */ }
+  ```
+  The proposed `review.md` entry, as Markdown, preceded by the notes
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Draft { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Draft) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+### Functions
+
+#### Function `draft`
+
+The draft for folder `dir` from its files' headers (`file name ->
+parsed header`; `all_files` lists every `.rs` file of the folder).
+`None` when no file has a header.
+
+```rust
+pub fn draft(dir: &str, headers: &std::collections::BTreeMap<String, crate::call_graph::upstream::Upstream>, all_files: &[String], date: &str) -> Option<Draft> { /* ... */ }
+```
+
+### Constants and Statics
+
+#### Constant `CONFIRM_PLACEHOLDER`
+
+The placeholder put in `confirmed_by`.
+
+```rust
+pub const CONFIRM_PLACEHOLDER: &str = "github:REPLACE-WITH-YOUR-ID";
+```
+
 ## Module `anchoring`
 
 Hypothesis-style robust annotation anchoring (W3C selectors, fuzzy re-anchoring; GitHub #754).
@@ -10629,6 +38607,15 @@ pub struct Match {
     ```
 
 - **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
 - **Freeze**
 - **From**
   - ```rust
@@ -10648,6 +38635,7 @@ pub struct Match {
     ```
 
 - **RefUnwindSafe**
+- **Same**
 - **Send**
 - **StructuralPartialEq**
 - **Sync**
@@ -10796,6 +38784,7 @@ pub struct QuoteMatch {
     ```
 
 - **RefUnwindSafe**
+- **Same**
 - **Send**
 - **StructuralPartialEq**
 - **Sync**
@@ -10881,6 +38870,15 @@ pub struct QuoteContext {
     ```
 
 - **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
 - **Freeze**
 - **From**
   - ```rust
@@ -10900,6 +38898,7 @@ pub struct QuoteContext {
     ```
 
 - **RefUnwindSafe**
+- **Same**
 - **Send**
 - **StructuralPartialEq**
 - **Sync**
@@ -11150,6 +39149,15 @@ where
 
 - **DeserializeOwned**
 - **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
 - **Freeze**
 - **From**
   - ```rust
@@ -11169,6 +39177,7 @@ where
     ```
 
 - **RefUnwindSafe**
+- **Same**
 - **Send**
 - **Serialize**
   - ```rust
@@ -11264,6 +39273,15 @@ where
 
 - **DeserializeOwned**
 - **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
 - **Freeze**
 - **From**
   - ```rust
@@ -11283,6 +39301,7 @@ where
     ```
 
 - **RefUnwindSafe**
+- **Same**
 - **Send**
 - **Serialize**
   - ```rust
@@ -11376,6 +39395,15 @@ where
 
 - **DeserializeOwned**
 - **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
 - **Freeze**
 - **From**
   - ```rust
@@ -11395,6 +39423,7 @@ where
     ```
 
 - **RefUnwindSafe**
+- **Same**
 - **Send**
 - **Serialize**
   - ```rust
@@ -11535,6 +39564,15 @@ where
 
 - **DeserializeOwned**
 - **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
 - **Freeze**
 - **From**
   - ```rust
@@ -11554,6 +39592,7 @@ where
     ```
 
 - **RefUnwindSafe**
+- **Same**
 - **Send**
 - **Serialize**
   - ```rust
@@ -11741,6 +39780,15 @@ An approximate occurrence of the quote.
     ```
 
 - **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
 - **Freeze**
 - **From**
   - ```rust
@@ -11760,6 +39808,7 @@ An approximate occurrence of the quote.
     ```
 
 - **RefUnwindSafe**
+- **Same**
 - **Send**
 - **StructuralPartialEq**
 - **Sync**
@@ -11863,6 +39912,7 @@ pub struct Anchor {
     ```
 
 - **RefUnwindSafe**
+- **Same**
 - **Send**
 - **StructuralPartialEq**
 - **Sync**
@@ -11945,6 +39995,15 @@ The selectors were usable but nothing in the text matches them.
     ```
 
 - **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
 - **Freeze**
 - **From**
   - ```rust
@@ -11964,6 +40023,7 @@ The selectors were usable but nothing in the text matches them.
     ```
 
 - **RefUnwindSafe**
+- **Same**
 - **Send**
 - **StructuralPartialEq**
 - **Sync**
@@ -12083,6 +40143,7 @@ Fields:
     ```
 
 - **RefUnwindSafe**
+- **Same**
 - **Send**
 - **StructuralPartialEq**
 - **Sync**
@@ -12325,6 +40386,15 @@ Fields:
     ```
 
 - **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
 - **Error**
 - **Freeze**
 - **From**
@@ -12345,6 +40415,7 @@ Fields:
     ```
 
 - **RefUnwindSafe**
+- **Same**
 - **Send**
 - **StructuralPartialEq**
 - **Sync**
@@ -12577,6 +40648,15 @@ pub struct DateOptions {
     The Zotero client in en-US, UTC, with `current_year` from the system
 
 - **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
 - **Freeze**
 - **From**
   - ```rust
@@ -12596,6 +40676,7 @@ pub struct DateOptions {
     ```
 
 - **RefUnwindSafe**
+- **Same**
 - **Send**
 - **StructuralPartialEq**
 - **Sync**
@@ -12694,6 +40775,15 @@ pub struct StrDate {
     ```
 
 - **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
 - **Freeze**
 - **From**
   - ```rust
@@ -12713,6 +40803,7 @@ pub struct StrDate {
     ```
 
 - **RefUnwindSafe**
+- **Same**
 - **Send**
 - **StructuralPartialEq**
 - **Sync**
@@ -12794,6 +40885,15 @@ pub struct EdtfParts {
     ```
 
 - **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
 - **Freeze**
 - **From**
   - ```rust
@@ -12813,6 +40913,7 @@ pub struct EdtfParts {
     ```
 
 - **RefUnwindSafe**
+- **Same**
 - **Send**
 - **StructuralPartialEq**
 - **Sync**
@@ -12894,6 +40995,15 @@ pub struct EdtfDate {
     ```
 
 - **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
 - **Freeze**
 - **From**
   - ```rust
@@ -12913,6 +41023,7 @@ pub struct EdtfDate {
     ```
 
 - **RefUnwindSafe**
+- **Same**
 - **Send**
 - **StructuralPartialEq**
 - **Sync**
@@ -13236,6 +41347,15 @@ pub enum LinkMode {
     ```
 
 - **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
 - **Freeze**
 - **From**
   - ```rust
@@ -13260,6 +41380,7 @@ pub enum LinkMode {
     ```
 
 - **RefUnwindSafe**
+- **Same**
 - **Send**
 - **StructuralPartialEq**
 - **Sync**
@@ -13375,6 +41496,15 @@ pub enum AnnotationType {
     ```
 
 - **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
 - **Freeze**
 - **From**
   - ```rust
@@ -13399,6 +41529,7 @@ pub enum AnnotationType {
     ```
 
 - **RefUnwindSafe**
+- **Same**
 - **Send**
 - **StructuralPartialEq**
 - **Sync**
@@ -13498,6 +41629,15 @@ Fields:
     ```
 
 - **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
 - **Freeze**
 - **From**
   - ```rust
@@ -13522,6 +41662,7 @@ Fields:
     ```
 
 - **RefUnwindSafe**
+- **Same**
 - **Send**
 - **StructuralPartialEq**
 - **Sync**
@@ -13612,6 +41753,15 @@ pub struct Creator {
     ```
 
 - **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
 - **Freeze**
 - **From**
   - ```rust
@@ -13636,6 +41786,7 @@ pub struct Creator {
     ```
 
 - **RefUnwindSafe**
+- **Same**
 - **Send**
 - **StructuralPartialEq**
 - **Sync**
@@ -13722,6 +41873,15 @@ pub struct Tag {
     ```
 
 - **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
 - **Freeze**
 - **From**
   - ```rust
@@ -13746,6 +41906,7 @@ pub struct Tag {
     ```
 
 - **RefUnwindSafe**
+- **Same**
 - **Send**
 - **StructuralPartialEq**
 - **Sync**
@@ -13841,6 +42002,15 @@ pub struct AttachmentData {
     ```
 
 - **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
 - **Freeze**
 - **From**
   - ```rust
@@ -13860,6 +42030,7 @@ pub struct AttachmentData {
     ```
 
 - **RefUnwindSafe**
+- **Same**
 - **Send**
 - **StructuralPartialEq**
 - **Sync**
@@ -13955,6 +42126,15 @@ pub struct AnnotationData {
     ```
 
 - **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
 - **Freeze**
 - **From**
   - ```rust
@@ -13974,6 +42154,7 @@ pub struct AnnotationData {
     ```
 
 - **RefUnwindSafe**
+- **Same**
 - **Send**
 - **StructuralPartialEq**
 - **Sync**
@@ -14146,6 +42327,15 @@ pub struct ZoteroItem {
 
 - **DeserializeOwned**
 - **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
 - **Freeze**
 - **From**
   - ```rust
@@ -14165,6 +42355,7 @@ pub struct ZoteroItem {
     ```
 
 - **RefUnwindSafe**
+- **Same**
 - **Send**
 - **Serialize**
   - ```rust
@@ -14316,6 +42507,15 @@ A collection has no `name` (collection.js:812).
     ```
 
 - **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
 - **Error**
 - **Freeze**
 - **From**
@@ -14336,6 +42536,7 @@ A collection has no `name` (collection.js:812).
     ```
 
 - **RefUnwindSafe**
+- **Same**
 - **Send**
 - **StructuralPartialEq**
 - **Sync**
@@ -14452,6 +42653,15 @@ pub struct ZoteroCollection {
 
 - **DeserializeOwned**
 - **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
 - **Freeze**
 - **From**
   - ```rust
@@ -14471,6 +42681,7 @@ pub struct ZoteroCollection {
     ```
 
 - **RefUnwindSafe**
+- **Same**
 - **Send**
 - **Serialize**
   - ```rust
@@ -14598,6 +42809,15 @@ where
 
 - **DeserializeOwned**
 - **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
 - **Freeze**
 - **From**
   - ```rust
@@ -14617,6 +42837,7 @@ where
     ```
 
 - **RefUnwindSafe**
+- **Same**
 - **Send**
 - **Serialize**
   - ```rust
@@ -14821,6 +43042,15 @@ pub struct ItemTypeField {
     ```
 
 - **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
 - **Freeze**
 - **From**
   - ```rust
@@ -14840,6 +43070,7 @@ pub struct ItemTypeField {
     ```
 
 - **RefUnwindSafe**
+- **Same**
 - **Send**
 - **StructuralPartialEq**
 - **Sync**
@@ -14924,6 +43155,15 @@ pub struct ItemTypeSchema {
     ```
 
 - **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
 - **Freeze**
 - **From**
   - ```rust
@@ -14943,6 +43183,7 @@ pub struct ItemTypeSchema {
     ```
 
 - **RefUnwindSafe**
+- **Same**
 - **Send**
 - **StructuralPartialEq**
 - **Sync**
@@ -15136,6 +43377,15 @@ pub struct SearchCondition {
     ```
 
 - **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
 - **Freeze**
 - **From**
   - ```rust
@@ -15155,6 +43405,7 @@ pub struct SearchCondition {
     ```
 
 - **RefUnwindSafe**
+- **Same**
 - **Send**
 - **StructuralPartialEq**
 - **Sync**
@@ -15264,6 +43515,15 @@ pub struct ZoteroSearch {
 
 - **DeserializeOwned**
 - **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
 - **Freeze**
 - **From**
   - ```rust
@@ -15283,6 +43543,7 @@ pub struct ZoteroSearch {
     ```
 
 - **RefUnwindSafe**
+- **Same**
 - **Send**
 - **Serialize**
   - ```rust
@@ -15604,6 +43865,11 @@ pub enum ItemType {
     unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
     ```
 
+- **Comparable**
+  - ```rust
+    fn compare(self: &Self, key: &K) -> Ordering { /* ... */ }
+    ```
+
 - **Copy**
 - **Debug**
   - ```rust
@@ -15611,6 +43877,15 @@ pub enum ItemType {
     ```
 
 - **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
 - **Freeze**
 - **From**
   - ```rust
@@ -15645,6 +43920,7 @@ pub enum ItemType {
     ```
 
 - **RefUnwindSafe**
+- **Same**
 - **Send**
 - **StructuralPartialEq**
 - **Sync**
@@ -16354,6 +44630,11 @@ pub enum Field {
     unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
     ```
 
+- **Comparable**
+  - ```rust
+    fn compare(self: &Self, key: &K) -> Ordering { /* ... */ }
+    ```
+
 - **Copy**
 - **Debug**
   - ```rust
@@ -16361,6 +44642,15 @@ pub enum Field {
     ```
 
 - **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
 - **Freeze**
 - **From**
   - ```rust
@@ -16395,6 +44685,7 @@ pub enum Field {
     ```
 
 - **RefUnwindSafe**
+- **Same**
 - **Send**
 - **StructuralPartialEq**
 - **Sync**
@@ -16669,6 +44960,11 @@ pub enum CreatorType {
     unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
     ```
 
+- **Comparable**
+  - ```rust
+    fn compare(self: &Self, key: &K) -> Ordering { /* ... */ }
+    ```
+
 - **Copy**
 - **Debug**
   - ```rust
@@ -16676,6 +44972,15 @@ pub enum CreatorType {
     ```
 
 - **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
 - **Freeze**
 - **From**
   - ```rust
@@ -16710,6 +45015,7 @@ pub enum CreatorType {
     ```
 
 - **RefUnwindSafe**
+- **Same**
 - **Send**
 - **StructuralPartialEq**
 - **Sync**
@@ -16943,6 +45249,15 @@ An annotation without `parentItem`.
     ```
 
 - **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
 - **Freeze**
 - **From**
   - ```rust
@@ -16962,6 +45277,7 @@ An annotation without `parentItem`.
     ```
 
 - **RefUnwindSafe**
+- **Same**
 - **Send**
 - **StructuralPartialEq**
 - **Sync**

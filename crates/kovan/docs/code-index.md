@@ -186,7 +186,7 @@ difference is three trait-method declarations with multi-line signatures
 in `outram-mc-libs/src/geometry/crossing/mod.rs` that the call graph's
 source scanner does not list (so the full run leaves them out) and the
 `syn` hasher does (so a refresh adds them, marked out of date). Tracked
-as a call-graph scanner gap.
+as a call-graph scanner gap, #781.
 
 Also reported by that run: 25 functions with no hash (nested in another
 `fn` or made by a macro; their calls count for the enclosing function) and
