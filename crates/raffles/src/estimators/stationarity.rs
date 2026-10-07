@@ -313,8 +313,23 @@ mod tests {
     /// 5 % of the time for a fixed seed; the seed is fixed so the test is
     /// deterministic, and a failure is a prompt to inspect, not to reseed).
     ///
-    /// **Result:** NOT YET MEASURED (testing deferred by maintainer,
-    /// 2026-10-03).
+    /// ~~**Result:** NOT YET MEASURED (testing deferred by maintainer,
+    /// 2026-10-03).~~ **Result, measured 2026-10-07 (release, rustc 1.98):
+    /// FAILS on the last assertion, and the inspection says the premise is
+    /// wrong, not the estimators.** MSER-5 truncates at 85 (inside the band,
+    /// in the first half) and Geweke flags the untruncated trace, as
+    /// required. On the tail, Geweke gives `z = 2.332` (> 1.96). The tail
+    /// still carries the transient: `5 e^{-85/20} = 0.071` (0.7 noise-σ) at
+    /// the cut, a mean of `0.0159` (0.16 σ) over Geweke's first window
+    /// against a window SEM of `0.0124`. Subtracting the known transient
+    /// from the same tail gives `z = 0.92`. Over seeds 1..=400 (an
+    /// independent Python replica of this trace, MSER-5 and Geweke, which
+    /// reproduces `z = 2.331655990228743` for seed 496 exactly) the tail is
+    /// flagged **14.5 %** of the time, against **4.5 %** with the transient
+    /// removed: the "fails 5 % of the time" premise does not hold, because
+    /// MSER trades bias for variance (as its doc says) and Geweke sees the
+    /// bias it leaves. The assertion is left unchanged and failing for the
+    /// maintainer to decide (gh:#778).
     #[test]
     fn transient_is_found_and_tail_passes() {
         let x = trace(1000, 5.0, 20.0, 496);
