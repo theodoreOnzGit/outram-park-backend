@@ -368,3 +368,78 @@ mod tests {
         assert!(arena.push(child, parent).is_err());
     }
 }
+
+/// Test support shared by the differential tests of the output side:
+/// serialise a blob tree exactly as `scripts/csl-units/common.cjs`'s `ser`
+/// does, so Rust results can be compared with citeproc-js's.
+#[cfg(test)]
+pub(crate) mod testing {
+    use super::*;
+    use serde_json::json;
+
+    fn decor_json(d: &Decoration) -> Value {
+        json!([d.name, d.value])
+    }
+
+    /// `ser(blob, {alldecor})` of the generator scripts.
+    pub(crate) fn ser_blob(blobs: &Blobs, id: BlobId, alldecor: bool) -> Value {
+        let b = blobs.get(id);
+        let mut o = serde_json::Map::new();
+        o.insert("s".into(), Value::Object(b.strings.clone()));
+        o.insert(
+            "d".into(),
+            Value::Array(b.decorations.iter().map(decor_json).collect()),
+        );
+        if alldecor {
+            o.insert(
+                "a".into(),
+                Value::Array(
+                    b.alldecor
+                        .iter()
+                        .map(|set| Value::Array(set.iter().map(decor_json).collect()))
+                        .collect(),
+                ),
+            );
+        }
+        match &b.blobs {
+            BlobContent::Text(t) => {
+                o.insert("t".into(), Value::String(t.clone()));
+            }
+            BlobContent::List(l) => {
+                o.insert(
+                    "t".into(),
+                    Value::Array(l.iter().map(|c| ser_child(blobs, c, alldecor)).collect()),
+                );
+            }
+        }
+        if b.has_num() {
+            match (b.num, &b.num_text) {
+                (Some(n), _) => {
+                    o.insert("num".into(), json!(n));
+                }
+                (None, Some(t)) => {
+                    o.insert("num".into(), json!(t));
+                }
+                _ => {}
+            }
+            if let Some(st) = b.status {
+                o.insert("status".into(), json!(st));
+            }
+        }
+        if let Some(p) = b.punctuation_in_quote {
+            o.insert("piq".into(), json!(p));
+        }
+        if let Some(p) = b.particle.as_ref().filter(|p| !p.is_empty()) {
+            o.insert("particle".into(), json!(p));
+        }
+        Value::Object(o)
+    }
+
+    /// Serialise a list child.
+    pub(crate) fn ser_child(blobs: &Blobs, c: &BlobChild, alldecor: bool) -> Value {
+        match c {
+            BlobChild::Str(s) => json!({ "str": s }),
+            BlobChild::Blob(id) => ser_blob(blobs, *id, alldecor),
+        }
+    }
+}
