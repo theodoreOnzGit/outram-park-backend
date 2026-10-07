@@ -948,6 +948,10 @@ though Git frames it as missing configuration rather than a conflict: the folder
   **Untracked files are wiped too** — the maintainer's explicit choice when
   asked, the folder being meant to end up an exact mirror of the remote. Ignored
   files and submodule contents survive (`clean` without `-x`, without `-ff`).
+  **Since 2026-10-07 (GH #502)** local commits that `FETCH_HEAD` does not
+  contain (on `HEAD` or the branch) are first kept on a
+  `kovan-kept/<commit>` branch (`advanced_git::keep_unpushed_commits_in`),
+  named in the result: the reset had silently dropped a just-saved PDF.
 - **"no, i manage myself"** → `advanced_git::abort_in_progress_in`: restore the
   pre-pull state, also the maintainer's choice when asked. The alternative —
   leaving Git's half-applied merge in place for the user to resolve by hand — was
@@ -1681,8 +1685,13 @@ column alignment, images (shown as links — no image loaders are installed).
   file first so a stale in-memory root cannot revert other settings).
   **Safety rules**, each pinned by a test in `src/save_push/tests.rs`
   (temp repos, local bare remotes): never forced (refspec
-  `refs/heads/B:refs/heads/B`, no `+`, no `--force`), so a remote that moved
-  on fails as "pull first" with the local commit kept; never from a detached
+  `refs/heads/B:refs/heads/B`, no `+`, no `--force`), so ~~a remote that moved
+  on fails as "pull first" with the local commit kept~~ **CHANGED 2026-10-07
+  (GH #502)**: a remote that moved on is fetched and merged into the save,
+  then pushed again (`save_push::safe_push::push_keeping_local`); a merge
+  that conflicts is aborted and reported as `PushOutcome::KeptLocally`, the
+  save still committed locally, never reset — "pull first" had led to the
+  forced pull that reset a saved PDF away; never from a detached
   HEAD — the commit is put on the tracked branch (`.gitmodules` `branch =`,
   else `refs/remotes/origin/HEAD`, else `ls-remote --symref`) only if that
   branch's local and remote-tracking tips are ancestors (a fast-forward),

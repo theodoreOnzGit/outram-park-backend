@@ -624,10 +624,12 @@ impl AdvancedGitState {
                     // like the pull did not work. (True of an ordinary
                     // successful pull too — this is the loudest case, not a
                     // new one.)
-                    Ok(_) => self.set_status(format!(
-                        "{}: pulled by force — the folder now matches {}/{}. Reopen the folder \
-                         from Home so the rest of Kovan reads the new files.",
-                        prompt.label, prompt.remote, prompt.branch
+                    // `done` names any `kovan-kept/…` branch the unpushed
+                    // saves were moved onto (GH #502), so it is shown.
+                    Ok(done) => self.set_status(format!(
+                        "{}: pulled by force — {done}. Reopen the folder from Home so the rest \
+                         of Kovan reads the new files.",
+                        prompt.label
                     )),
                     Err(e) => {
                         self.set_error(format!("{}: could not force the pull: {e}", prompt.label))
@@ -725,8 +727,9 @@ impl AdvancedGitState {
     /// answered with **yes, can** or **no, i manage myself**.
     ///
     /// - **yes, can** — [`advanced_git::force_pull_in`]: the folder becomes
-    ///   an exact copy of the remote, and everything not saved *and* pushed
-    ///   is destroyed. The dialog says so before the button is reachable;
+    ///   an exact copy of the remote, and everything not saved is destroyed
+    ///   (~~not saved *and* pushed~~ — since GH #502 unpushed saves are kept
+    ///   on a `kovan-kept/…` branch). The dialog says so before the button is reachable;
     ///   this is the one place in the tab that can lose work.
     /// - **no, i manage myself** — [`advanced_git::abort_in_progress_in`]:
     ///   the folder goes back to how it was before Pull was pressed, so
@@ -758,8 +761,9 @@ impl AdvancedGitState {
                     ui.visuals().warn_fg_color,
                     format!(
                         "\u{26a0} \"yes, can\" replaces this folder with {}/{}. Anything not \
-                         saved and pushed is gone for good — edits in progress, files you \
-                         added but never saved, and saves that were never pushed.",
+                         saved is gone for good — edits in progress and files you added but \
+                         never saved. Saves that were never pushed are moved aside onto a \
+                         kovan-kept/… branch (named once the pull is done), not deleted.",
                         prompt.remote, prompt.branch
                     ),
                 );
@@ -1045,6 +1049,40 @@ mod tests {
         );
     }
 
+    /// GH #502: a forced pull that moved unpushed saves onto a
+    /// `kovan-kept/…` branch says so in the status line, rather than a
+    /// fixed "now matches" that hides where the saves went.
+    #[test]
+    fn a_forced_pull_names_the_branch_the_unpushed_saves_were_kept_on() {
+        let dir = tempfile::tempdir().unwrap();
+        let root = KovanRoot::create(dir.path(), crate::root::RootConfig::new("lib", "Lib"), true)
+            .unwrap();
+        let mut state = AdvancedGitState::default();
+        state.record_job(
+            GitJobDone::ForcePull {
+                prompt: ForcePullPrompt {
+                    label: "Open corpus".into(),
+                    dir: PathBuf::from("/k/open"),
+                    remote: "origin".into(),
+                    branch: "main".into(),
+                    git_says: String::new(),
+                    follow_corpora: false,
+                },
+                result: Ok("/k/open now matches origin/main exactly; saves that were never \
+                            pushed are kept on kovan-kept/f7352f5abcde"
+                    .into()),
+                corpora: None,
+            },
+            &root,
+        );
+        assert!(!state.message_is_error, "{}", state.message);
+        assert!(
+            state.message.contains("kovan-kept/f7352f5abcde"),
+            "{}",
+            state.message
+        );
+    }
+
     /// The panel pushes to `origin`, or to the only remote there is; with
     /// several and no `origin` it does not guess.
     #[test]
@@ -1104,6 +1142,7 @@ mod tests {
                         remote_url: "https://example.com/private.git".into(),
                         branch: "main".into(),
                         attached: true,
+                        merged: None,
                     },
                 },
                 RepoPush {

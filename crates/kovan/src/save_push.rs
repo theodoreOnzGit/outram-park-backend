@@ -40,8 +40,17 @@
 //!
 //! - **Never forced.** The refspec is `refs/heads/B:refs/heads/B` with no
 //!   `+` and no `--force`, so Git itself refuses anything but a
-//!   fast-forward. A remote that has moved on is reported as "pull first";
-//!   the local commit is kept.
+//!   fast-forward.
+//! - **A remote that has moved on is merged, never reset to** (GH issue
+//!   #502). ~~A remote that has moved on is reported as "pull first"; the
+//!   local commit is kept.~~ **CHANGED 2026-10-07:** "pull first" sent the
+//!   user to Pull, whose forced pull then `reset --hard` the save away. Now
+//!   [`safe_push::push_keeping_local`] fetches, merges the remote's tip into
+//!   the save and pushes again; if the two do not merge cleanly the merge
+//!   is aborted, the save stays committed locally, and the outcome is
+//!   [`PushOutcome::KeptLocally`] with a typed
+//!   [`safe_push::SafePushError`]. Merge rather than rebase so the commit a
+//!   Save's gitlink records stays on the pushed history.
 //! - **Never from a detached `HEAD`.** `git submodule update` leaves a
 //!   submodule detached, and a Save then commits onto no branch. Before
 //!   pushing, the commit is put on the submodule's tracked branch
@@ -83,6 +92,9 @@ use std::process::{Command, Output};
 use crate::corpus_tiers::{CorpusRepo, RepoOrigin, Tier};
 use crate::root::KovanRoot;
 
+pub mod safe_push;
+use safe_push::{BranchRule, SafePushError, SafePushOk};
+
 /// One of the repositories a Save pushes.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum PushRepo {
@@ -122,11 +134,14 @@ impl PushRepo {
 pub enum PushOutcome {
     /// New commits were pushed to `remote_url`'s `branch`.
     /// `attached` is set when the commit was on a detached `HEAD` and was
-    /// first put on `branch` (a fast-forward of that branch).
+    /// first put on `branch` (a fast-forward of that branch). `merged` is
+    /// the remote's tip merged into the save first because the remote had
+    /// moved on (GH issue #502), or `None` for a plain fast-forward.
     Pushed {
         remote_url: String,
         branch: String,
         attached: bool,
+        merged: Option<String>,
     },
     /// The remote already had everything: nothing to push.
     UpToDate { branch: String },
@@ -135,16 +150,23 @@ pub enum PushOutcome {
     Skipped { reason: String },
     /// Refused by a safety rule before anything was sent.
     Refused { reason: String },
-    /// `git push` ran and failed: a remote that has moved on ("pull first"),
-    /// an authentication failure, the network — with Git's own words.
+    /// `git push` ran and failed: an authentication failure, the network —
+    /// with Git's own words.
     Failed { message: String },
+    /// The remote has moved on and could not be combined with the save
+    /// automatically (GH issue #502): the save is **committed locally**,
+    /// nothing was reset or discarded, and `error` says what to resolve.
+    KeptLocally { error: SafePushError },
 }
 
 impl PushOutcome {
     /// Whether this blocks the Kovan repository's push (and should be shown
     /// as a problem).
     pub fn is_problem(&self) -> bool {
-        matches!(self, Self::Refused { .. } | Self::Failed { .. })
+        matches!(
+            self,
+            Self::Refused { .. } | Self::Failed { .. } | Self::KeptLocally { .. }
+        )
     }
 }
 
@@ -167,18 +189,28 @@ impl RepoPush {
                 remote_url,
                 branch,
                 attached,
+                merged,
             } => {
                 let attached = if *attached {
                     " (the save was on a detached HEAD; it was put on this branch first)"
                 } else {
                     ""
                 };
-                format!("pushed {branch} to {remote_url}{attached}")
+                let merged = match merged {
+                    Some(tip) => format!(
+                        " (the remote had moved on; its {} was merged in first, nothing was \
+                         discarded)",
+                        tip.chars().take(7).collect::<String>()
+                    ),
+                    None => String::new(),
+                };
+                format!("pushed {branch} to {remote_url}{attached}{merged}")
             }
             PushOutcome::UpToDate { branch } => format!("nothing to push ({branch} is up to date)"),
             PushOutcome::Skipped { reason } => format!("not pushed — {reason}"),
             PushOutcome::Refused { reason } => format!("REFUSED — {reason}"),
             PushOutcome::Failed { message } => format!("push FAILED — {message}"),
+            PushOutcome::KeptLocally { error } => format!("NOT pushed — {error}"),
         };
         if self.name.is_empty() {
             format!("{}: {what}", self.repo.label())
@@ -479,41 +511,26 @@ fn push_repo(
         },
     };
 
-    let refspec = format!("refs/heads/{branch}:refs/heads/{branch}");
-    let out = match git(dir, &["push", "--porcelain", &remote, &refspec]) {
-        Ok(o) => o,
-        Err(message) => return PushOutcome::Failed { message },
-    };
-    let stdout = String::from_utf8_lossy(&out.stdout).to_string();
-    let stderr = String::from_utf8_lossy(&out.stderr).trim().to_string();
-    let flag = stdout
-        .lines()
-        .find(|l| l.contains(&refspec))
-        .and_then(|l| l.chars().next());
+    // GH issue #502: a remote that moved on is merged into the save and
+    // pushed again, never reset to; see `safe_push`.
     let remote_url = urls[0].clone();
-    match (out.status.success(), flag) {
-        (true, Some('=')) => PushOutcome::UpToDate { branch },
-        (true, _) => PushOutcome::Pushed {
+    match safe_push::push_keeping_local(dir, &remote, &branch, BranchRule::AnyBranch) {
+        Ok(SafePushOk::UpToDate) => PushOutcome::UpToDate { branch },
+        Ok(SafePushOk::Pushed { merged }) => PushOutcome::Pushed {
             remote_url,
             branch,
             attached,
+            merged,
         },
-        (false, _) => {
-            let said = format!("{}\n{stderr}", stdout.trim()).trim().to_string();
-            let lowered = said.to_ascii_lowercase();
-            let message = if flag == Some('!')
-                || lowered.contains("non-fast-forward")
-                || lowered.contains("fetch first")
-            {
-                format!(
-                    "the remote has commits this folder does not have — pull first. Nothing \
-                     was overwritten and your saved commit is kept. Git said: {said}"
-                )
-            } else {
-                format!("Git said: {said}")
-            };
-            PushOutcome::Failed { message }
+        Err(e @ (SafePushError::MainRefused { .. } | SafePushError::NotOnBranch { .. })) => {
+            PushOutcome::Refused {
+                reason: e.to_string(),
+            }
         }
+        Err(SafePushError::Git { message }) => PushOutcome::Failed {
+            message: format!("Git said: {message}"),
+        },
+        Err(error) => PushOutcome::KeptLocally { error },
     }
 }
 
@@ -771,8 +788,9 @@ impl CorpusPull {
 /// fetch the tracked branch (`.gitmodules` `branch =`, else the remote's
 /// default — the same rule the push uses), then
 ///
-/// - **nothing local would be lost** (a clean tree, `HEAD` an ancestor of
-///   the fetched tip): `git checkout -B <branch> FETCH_HEAD`. The corpus is
+/// - **nothing local would be lost** (a clean tree, `HEAD` and the local
+///   branch both ancestors of the fetched tip): `git checkout -B <branch>
+///   FETCH_HEAD`. The corpus is
 ///   left *on the branch*, not detached, so the next save pushes cleanly.
 /// - **something would be lost** (uncommitted or untracked files, or commits
 ///   the remote does not have): nothing is touched, and the outcome is
@@ -914,8 +932,11 @@ fn pull_one_corpus(root: &KovanRoot, dir: &Path, branch_hint: Option<&str>) -> C
 }
 
 /// Fetch `branch` from `remote` into the repository at `dir` and move it
-/// there, **only when nothing local would be lost**: a clean tree and a
-/// `HEAD` that is an ancestor of the fetched tip. Otherwise nothing is
+/// there, **only when nothing local would be lost**: a clean tree, and a
+/// `HEAD` and local `branch` that are both ancestors of the fetched tip
+/// (~~`HEAD` only~~ **CORRECTED 2026-10-07, GH #502**: the local branch was
+/// not checked, so a detached `HEAD` behind an unpushed branch let
+/// `checkout -B` drop that branch's commits). Otherwise nothing is
 /// touched and the outcome is [`CorpusPullOutcome::NeedsConfirmation`].
 /// [`pull_one_corpus`]'s second half, shared with
 /// [`crate::corpus_repos::update_standard_corpus`].
@@ -935,9 +956,18 @@ pub(crate) fn follow_branch(dir: &Path, remote: String, branch: String) -> Corpu
         Ok(s) => !s.trim().is_empty(),
         Err(message) => return CorpusPullOutcome::Failed { message },
     };
-    let behind_only = head.as_deref().is_none_or(|h| {
-        git_ok(dir, &["merge-base", "--is-ancestor", h, &fetched]).is_ok()
-    });
+    // Both `HEAD` and the local `branch` must be contained in the fetched
+    // tip: `checkout -B` below moves `branch`, so a branch with commits the
+    // remote lacks — while `HEAD` is detached somewhere older — would
+    // otherwise lose them from the branch silently (found for GH #502).
+    let local_branch = format!("refs/heads/{branch}");
+    let branch_tip = git_ok(dir, &["rev-parse", "--verify", "-q", &local_branch])
+        .map(|s| s.trim().to_string())
+        .ok();
+    let behind_only = [head.as_deref(), branch_tip.as_deref()]
+        .into_iter()
+        .flatten()
+        .all(|h| git_ok(dir, &["merge-base", "--is-ancestor", h, &fetched]).is_ok());
     if dirty || !behind_only {
         let reason = match (dirty, behind_only) {
             (true, false) => "it has unsaved files and saves the remote does not have",
