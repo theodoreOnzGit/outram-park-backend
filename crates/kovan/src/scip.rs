@@ -430,10 +430,11 @@ impl ScipIndex {
     }
 
     /// The definition of `sym` nearest to a reference at 0-based line
-    /// `from_line` of file `from`: the same file first (there, the nearest
-    /// line: two helpers nested in different functions of one file share a
-    /// symbol), then the most shared leading folders, then the first by
-    /// `(path, line)`. `lead` is the first segment of the path the
+    /// `from_line` of file `from`: the same file first (there, one inside
+    /// `within`, the 0-based line range of the function making the
+    /// reference, then the nearest line: two helpers nested in different
+    /// functions of one file share a symbol), then the most shared leading
+    /// folders, then the first by `(path, line)`. `lead` is the first segment of the path the
     /// reference is written with (`my_crate` in `my_crate::a::f`), if any:
     /// when it is the symbol's own package's library name, only library
     /// definitions are candidates. `None` when it has none in the index.
@@ -442,6 +443,7 @@ impl ScipIndex {
         sym: Sym,
         from: &str,
         from_line: u32,
+        within: Option<(u32, u32)>,
         lead: Option<&str>,
     ) -> Option<DefSite> {
         let all = self.definitions(sym);
@@ -468,12 +470,13 @@ impl ScipIndex {
                 .take_while(|(a, b)| a == b)
                 .count();
             let same = p == from;
+            let inside = same && within.is_some_and(|(a, b)| a <= d.line && d.line <= b);
             let closeness = if same {
                 u32::MAX - d.line.abs_diff(from_line)
             } else {
                 0
             };
-            (same, shared, closeness)
+            (same, inside, shared, closeness)
         };
         // max_by_key keeps the LAST maximum; iterate reversed so the first
         // (smallest path, line) wins a tie.
@@ -667,14 +670,14 @@ mod tests {
         // From the example, the example's own definition; from elsewhere in
         // src, the library's.
         let near = ix
-            .nearest_definition(r.symbol, "crates/app/examples/x/main.rs", 0, None)
+            .nearest_definition(r.symbol, "crates/app/examples/x/main.rs", 0, None, None)
             .unwrap();
         assert_eq!(
             (ix.documents[near.doc as usize].path.as_str(), near.line),
             ("crates/app/examples/x/m.rs", 3)
         );
         let near = ix
-            .nearest_definition(r.symbol, "crates/app/src/lib.rs", 0, None)
+            .nearest_definition(r.symbol, "crates/app/src/lib.rs", 0, None, None)
             .unwrap();
         assert_eq!(
             (ix.documents[near.doc as usize].path.as_str(), near.line),
@@ -683,11 +686,23 @@ mod tests {
         // Written through the library's crate name from the example: the
         // library's, although the example's own copy is nearer.
         let near = ix
-            .nearest_definition(r.symbol, "crates/app/examples/x/main.rs", 0, Some("app"))
+            .nearest_definition(
+                r.symbol,
+                "crates/app/examples/x/main.rs",
+                0,
+                None,
+                Some("app"),
+            )
             .unwrap();
         assert_eq!(ix.documents[near.doc as usize].path, "crates/app/src/m.rs");
         let near = ix
-            .nearest_definition(r.symbol, "crates/app/examples/x/main.rs", 0, Some("crate"))
+            .nearest_definition(
+                r.symbol,
+                "crates/app/examples/x/main.rs",
+                0,
+                None,
+                Some("crate"),
+            )
             .unwrap();
         assert_eq!(
             ix.documents[near.doc as usize].path,
@@ -770,13 +785,16 @@ mod tests {
         let n = ix.document("n.rs").unwrap();
         let r = n.at(44, 4).next().unwrap();
         assert_eq!(
-            ix.nearest_definition(r.symbol, "n.rs", 44, None)
+            ix.nearest_definition(r.symbol, "n.rs", 44, None, None)
                 .unwrap()
                 .line,
             40
         );
+        // Inside the calling function's body beats nearer elsewhere.
+        let inner = ix.nearest_definition(r.symbol, "n.rs", 44, Some((0, 10)), None);
+        assert_eq!(inner.unwrap().line, 3);
         assert_eq!(
-            ix.nearest_definition(r.symbol, "n.rs", 5, None)
+            ix.nearest_definition(r.symbol, "n.rs", 5, None, None)
                 .unwrap()
                 .line,
             3

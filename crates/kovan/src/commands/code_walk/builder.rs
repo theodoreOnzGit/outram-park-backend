@@ -68,6 +68,9 @@ pub(crate) struct ScipResolver {
     root: PathBuf,
     index: crate::scip::ScipIndex,
     lines: HashMap<String, Vec<String>>,
+    /// 0-based body lines of the function being expanded: a same-file
+    /// collision prefers the definition nested inside it.
+    body: Option<(u32, u32)>,
 }
 
 /// A reference in a body that no call-shaped token covers: an operator or a
@@ -133,6 +136,7 @@ impl ScipResolver {
             root: root.to_path_buf(),
             index,
             lines: HashMap::new(),
+            body: None,
         }
     }
 
@@ -164,7 +168,7 @@ impl ScipResolver {
                 let text = cached_line(&mut self.lines, &self.root, rel, d.line);
                 Some((self.root.join(rel), d.line, doc.encoding.char_col_of_units(&text, d.start)))
             }
-            Sym::Global(_) => match ix.nearest_definition(sym, rel, line, lead) {
+            Sym::Global(_) => match ix.nearest_definition(sym, rel, line, self.body, lead) {
                 Some(d) => {
                     let doc = &ix.documents[d.doc as usize];
                     let text = cached_line(&mut self.lines, &self.root, &doc.path, d.line);
@@ -536,6 +540,9 @@ impl Workspace {
         let positions: Vec<[u32; 2]> = ask.iter().map(|&i| [cands[i].line, cands[i].character]).collect();
         let abs = self.root.join(&file);
         self.queries += positions.len();
+        if let Resolver::Scip(s) = &mut self.resolver {
+            s.body = decl.body;
+        }
         let answers = if positions.is_empty() {
             Vec::new()
         } else {
