@@ -162,6 +162,24 @@ pub struct StampState {
     pub note: String,
     /// The code as it was stamped.
     pub permalink: String,
+    /// The full state from the staleness engine (#765,
+    /// [`crate::review::state::StateKind`]); absent in data built from the
+    /// first-version `review/stamps.toml` checker, which only knows
+    /// valid/stale ([`StampState::kind`] maps those). Additive.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub state: Option<crate::review::state::StateKind>,
+}
+
+impl StampState {
+    /// The state kind: `state` when present, else `verdict` read as valid
+    /// or directly stale.
+    pub fn kind(&self) -> crate::review::state::StateKind {
+        use crate::review::state::StateKind;
+        self.state.unwrap_or(match self.verdict {
+            StampVerdict::Valid => StateKind::Valid,
+            StampVerdict::Stale => StateKind::DirectlyStale,
+        })
+    }
 }
 
 /// `search.json`: names and paths of everything, for the search bar.

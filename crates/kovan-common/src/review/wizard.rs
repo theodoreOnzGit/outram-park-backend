@@ -24,8 +24,9 @@
 //!
 //! # The gate
 //!
-//! [`stamp_gate`] is a pure function of the answers and of which
-//! conditional questions apply ([`Applicability`]):
+//! [`stamp_gate`] is a pure function of the answers and of the context
+//! ([`Applicability`]: which conditional questions apply, and what git says
+//! about who wrote the tests reaching the function):
 //!
 //! ```text
 //!   answers ─┬─ unknown / legacy q1..q10 / not-applicable / bad text ──> blocked_by: Invalid
@@ -33,9 +34,21 @@
 //!            ├─ option effect = block ───────────────────────────────> blocked_by: Answer
 //!            ├─ option effect = prompt_needs_fix ────────────────────> prompts ("Mark as Needs fix instead?")
 //!            ├─ option effect = flag ────────────────────────────────> flags (needs improvement; never blocks)
-//!            └─ rung4_allowed = some gate_rung4 answer (vv_evidence)
-//!                               AND no no_rung4 answer (self-check)
-//!               rung = rung_4 while !rung4_allowed ──────────────────> blocked_by: Rung4NotOpen
+//!            ├─ rung4_allowed = some gate_rung4 answer (vv_evidence)
+//!            │    AND a gate_rung4_author answer (vv_case_author =
+//!            │    human_wrote_and_verified; added 2026-10-07)
+//!            │    (~~AND no no_rung4 answer (self-check)~~ CORRECTED
+//!            │     2026-10-07, maintainer on #769: independence gates
+//!            │     rung 5, not rung 4)
+//!            ├─ independent = independence answered, no not_independent
+//!            │    answer (self-check / other): may be rung 5's second review
+//!            └─ rung = derived_rung(answers, git): 4 when rung4_allowed AND
+//!                 git shows no agent trailer on the reaching tests' commits,
+//!                 else 3. The reviewer never chooses it (maintainer, #769,
+//!                 2026-10-07). ~~rung = rung_4 while !rung4_allowed ->
+//!                 blocked_by: Rung4NotOpen~~ CORRECTED 2026-10-07: the
+//!                 `rung` question is gone, and a `rung` answer is refused
+//!                 ([`AnswerError::RungIsDerived`]).
 //! ```
 //!
 //! # The #764 placeholder keys
@@ -69,11 +82,58 @@ pub const LEGACY_PLACEHOLDER_KEYS: &[(&str, &str)] = &[
     ("q7", "test_reach"),
     ("q8", "vv_evidence"),
     ("q9", "maintainability"),
-    ("q10", "rung"),
 ];
 
-/// The key of the rung question.
-pub const RUNG_QUESTION: &str = "rung";
+/// Keys that once held the rung as an answer: #764's `q10` and the #769
+/// `rung` question (removed 2026-10-07: the rung is derived,
+/// [`derived_rung`]). Refused with [`AnswerError::RungIsDerived`].
+pub const LEGACY_RUNG_KEYS: &[&str] = &["q10", "rung"];
+
+/// The rung a stamp gives, derived, never chosen (maintainer, #769,
+/// 2026-10-07). Rung 5 is not a stamp's rung: it is two independent
+/// stamps, derived by the staleness engine.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+pub enum Rung {
+    /// Human reviewed.
+    Three,
+    /// Human V&V: a qualifying V&V case written and verified by hand,
+    /// without AI agents, and git agrees about the writing.
+    Four,
+}
+
+impl Rung {
+    pub fn as_u8(self) -> u8 {
+        match self {
+            Self::Three => 3,
+            Self::Four => 4,
+        }
+    }
+}
+
+/// What git says about who wrote the tests reaching the function (the
+/// commits that added them, read with [`super::types::agent_trailer`]).
+/// Passed in as data.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub enum TestAuthorship {
+    /// No commit carries the agent trailer.
+    Human,
+    /// At least one commit does.
+    Agent,
+    /// Not known: no reaching test, or no commit facts.
+    #[default]
+    Unknown,
+}
+
+impl TestAuthorship {
+    /// From the messages of the commits that added the reaching tests.
+    pub fn from_messages(messages: &[String]) -> TestAuthorship {
+        match super::types::authorship_from_messages(messages).map(|a| a.kind) {
+            Some(AuthorshipKind::Human) => Self::Human,
+            Some(_) => Self::Agent,
+            None => Self::Unknown,
+        }
+    }
+}
 
 /// The whole question set.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -101,6 +161,9 @@ pub enum AppliesWhen {
 pub enum Prefill {
     /// Commit author plus agent trailer ([`independence_prefill`]).
     GitAuthorship,
+    /// The agent trailer on the commits that added the tests reaching the
+    /// function ([`vv_case_author_prefill`]).
+    GitTestAuthorship,
 }
 
 /// What choosing an option does to the stamp.
@@ -114,12 +177,17 @@ pub enum Effect {
     Block,
     /// Needs improvement; never blocks.
     Flag,
-    /// Opens rung 4.
+    /// Qualifying V&V evidence: half of opening rung 4.
     GateRung4,
-    /// Rung 4 is closed whatever else is answered.
-    NoRung4,
-    /// Refused unless rung 4 is open.
-    NeedsRung4Gate,
+    /// The V&V case was written and verified by hand, without AI agents:
+    /// the other half (maintainer, #769, 2026-10-07).
+    GateRung4Author,
+    /// The reviewer is not independent of the code: the stamp still counts
+    /// at rung 3 or 4, but cannot be rung 5's independent second review.
+    /// ~~`NoRung4`: rung 4 is closed whatever else is answered~~
+    /// **CORRECTED 2026-10-07** (maintainer, #769). `no_rung4` still reads.
+    #[serde(alias = "no_rung4")]
+    NotIndependent,
 }
 
 /// A UI action an option offers.
@@ -203,8 +271,10 @@ pub enum WizardError {
     BadSource {
         question: String,
     },
-    /// No `rung` question, or it lacks `rung_3` / `rung_4`.
-    NoRungQuestion,
+    /// No option with `gate_rung4` or none with `gate_rung4_author`: rung 4
+    /// could never be derived. (~~`NoRungQuestion`~~ CORRECTED 2026-10-07:
+    /// the rung is no longer a question.)
+    NoRung4Gate,
 }
 
 impl std::fmt::Display for WizardError {
@@ -228,7 +298,7 @@ impl std::fmt::Display for WizardError {
                     "{question}: a source without a document, section or page"
                 )
             }
-            Self::NoRungQuestion => write!(f, "no `rung` question with rung_3 and rung_4"),
+            Self::NoRung4Gate => write!(f, "no gate_rung4 and gate_rung4_author options: rung 4 cannot be derived"),
         }
     }
 }
@@ -240,6 +310,8 @@ impl std::error::Error for WizardError {}
 pub struct Applicability {
     pub is_port: bool,
     pub physical_interface: bool,
+    /// Git's view of who wrote the reaching tests (for the derived rung).
+    pub tests: TestAuthorship,
 }
 
 impl Applicability {
@@ -261,6 +333,9 @@ pub enum AnswerError {
         use_instead: String,
     },
     UnknownQuestion(String),
+    /// A rung given as an answer (`rung`, or #764's `q10`): the rung is
+    /// derived, never chosen (maintainer, #769, 2026-10-07).
+    RungIsDerived(String),
     /// Answered, but the question does not apply (e.g. upstream fidelity for
     /// a function that is not a port).
     NotApplicable(String),
@@ -290,6 +365,10 @@ impl std::fmt::Display for AnswerError {
                 )
             }
             Self::UnknownQuestion(q) => write!(f, "no question {q:?}"),
+            Self::RungIsDerived(k) => write!(
+                f,
+                "{k}: the rung is derived from the V&V answers and git, never answered"
+            ),
             Self::NotApplicable(q) => write!(f, "question {q} does not apply to this function"),
             Self::UnknownOption { question, option } => {
                 write!(f, "{question}: no option {option:?}")
@@ -324,8 +403,6 @@ pub enum GateReason {
     /// An applicable question with no answer.
     Unanswered(String),
     Invalid(AnswerError),
-    /// `rung = "rung_4"` while rung 4 is not open.
-    Rung4NotOpen,
 }
 
 /// What the answers allow.
@@ -337,8 +414,21 @@ pub struct GateResult {
     pub prompts: Vec<Choice>,
     /// Needs-improvement flags (never block).
     pub flags: Vec<Choice>,
-    /// A `gate_rung4` answer and no `no_rung4` answer.
+    /// A `gate_rung4` answer and a `gate_rung4_author` answer (~~and no
+    /// `no_rung4` answer~~ CORRECTED 2026-10-07: independence does not close
+    /// rung 4; the hand-written V&V case opens it with the evidence).
     pub rung4_allowed: bool,
+    /// `independence` is answered and no answer is `not_independent`: this
+    /// stamp may be the independent second review for rung 5.
+    pub independent: bool,
+    /// The rung the stamp gives ([`derived_rung`]).
+    pub rung: Rung,
+}
+
+impl Default for Rung {
+    fn default() -> Self {
+        Rung::Three
+    }
 }
 
 impl GateResult {
@@ -443,12 +533,14 @@ impl ReviewWizard {
                 }
             }
         }
-        let rung_ok = self.question(RUNG_QUESTION).is_some_and(|q| {
-            q.option("rung_3").is_some()
-                && q.option("rung_4")
-                    .is_some_and(|o| o.effect == Effect::NeedsRung4Gate)
-        });
-        rung_ok.then_some(()).ok_or(WizardError::NoRungQuestion)
+        let has = |e: Effect| {
+            self.questions
+                .iter()
+                .any(|q| q.options.iter().any(|o| o.effect == e))
+        };
+        (has(Effect::GateRung4) && has(Effect::GateRung4Author))
+            .then_some(())
+            .ok_or(WizardError::NoRung4Gate)
     }
 
     pub fn question(&self, key: &str) -> Option<&Question> {
@@ -477,6 +569,9 @@ impl ReviewWizard {
         raw: &str,
         ctx: Applicability,
     ) -> Result<&WizardOption, AnswerError> {
+        if LEGACY_RUNG_KEYS.contains(&question) {
+            return Err(AnswerError::RungIsDerived(question.to_string()));
+        }
         let Some(q) = self.question(question) else {
             return Err(
                 match LEGACY_PLACEHOLDER_KEYS.iter().find(|(k, _)| *k == question) {
@@ -515,8 +610,8 @@ impl ReviewWizard {
     pub fn stamp_gate(&self, answers: &BTreeMap<String, String>, ctx: Applicability) -> GateResult {
         let mut g = GateResult::default();
         let mut opens = false;
-        let mut closes = false;
-        let mut wants_rung4 = false;
+        let mut opens_author = false;
+        let mut not_independent = false;
         for (q, raw) in answers {
             let o = match self.check_answer(q, raw, ctx) {
                 Ok(o) => o,
@@ -535,8 +630,8 @@ impl ReviewWizard {
                 Effect::PromptNeedsFix => g.prompts.push(c),
                 Effect::Flag => g.flags.push(c),
                 Effect::GateRung4 => opens = true,
-                Effect::NoRung4 => closes = true,
-                Effect::NeedsRung4Gate => wants_rung4 = true,
+                Effect::GateRung4Author => opens_author = true,
+                Effect::NotIndependent => not_independent = true,
             }
         }
         for q in self.applicable(ctx) {
@@ -544,18 +639,18 @@ impl ReviewWizard {
                 g.blocked_by.push(GateReason::Unanswered(q.key.clone()));
             }
         }
-        g.rung4_allowed = opens && !closes;
-        if wants_rung4 && !g.rung4_allowed {
-            g.blocked_by.push(GateReason::Rung4NotOpen);
-        }
+        g.rung4_allowed = opens && opens_author;
+        g.independent = answers.contains_key("independence") && !not_independent;
+        g.rung = rung_from(g.rung4_allowed, ctx.tests);
         g
     }
 
     /// Starting answers for a re-review (#740: "re-reviews start from the
     /// previous answers"): the previous answers that are still valid for
     /// this question set and applicability. Anything else is dropped, so
-    /// the reviewer is asked again. The rung is never carried over: it is
-    /// chosen afresh after the gate is known.
+    /// the reviewer is asked again. ~~The rung is never carried over: it is
+    /// chosen afresh after the gate is known.~~ **CORRECTED 2026-10-07**: the
+    /// rung is not an answer at all; it is derived ([`derived_rung`]).
     pub fn prefill(
         &self,
         previous: &BTreeMap<String, String>,
@@ -563,9 +658,7 @@ impl ReviewWizard {
     ) -> BTreeMap<String, String> {
         previous
             .iter()
-            .filter(|(q, raw)| {
-                q.as_str() != RUNG_QUESTION && self.check_answer(q, raw, ctx).is_ok()
-            })
+            .filter(|(q, raw)| self.check_answer(q, raw, ctx).is_ok())
             .map(|(q, raw)| (q.clone(), raw.clone()))
             .collect()
     }
@@ -577,9 +670,52 @@ impl Question {
     }
 }
 
+fn rung_from(rung4_allowed: bool, tests: TestAuthorship) -> Rung {
+    if rung4_allowed && tests == TestAuthorship::Human {
+        Rung::Four
+    } else {
+        Rung::Three
+    }
+}
+
+/// The rung a stamp gives, derived (maintainer, #769, 2026-10-07: the user
+/// never chooses it): **4** when `vv_evidence` is a qualifying answer AND
+/// `vv_case_author = human_wrote_and_verified` AND git shows no agent
+/// trailer on the commits that added the tests reaching the function;
+/// otherwise **3** (a half-done V&V case gives 3). Pure: the answers and
+/// git's [`TestAuthorship`] in, the rung out.
+pub fn derived_rung(answers: &BTreeMap<String, String>, tests: TestAuthorship) -> Rung {
+    let w = ReviewWizard::embedded();
+    let mut opens = false;
+    let mut opens_author = false;
+    for (q, raw) in answers {
+        let Some(question) = w.question(q) else { continue };
+        let (key, _) = parse_answer(raw);
+        match question.option(key).map(|o| o.effect) {
+            Some(Effect::GateRung4) => opens = true,
+            Some(Effect::GateRung4Author) => opens_author = true,
+            _ => {}
+        }
+    }
+    rung_from(opens && opens_author, tests)
+}
+
 /// [`ReviewWizard::stamp_gate`] over the embedded question set.
 pub fn stamp_gate(answers: &BTreeMap<String, String>, ctx: Applicability) -> GateResult {
     ReviewWizard::embedded().stamp_gate(answers, ctx)
+}
+
+/// The pre-filled answer to `vv_case_author` from the messages of the
+/// commits that added the tests reaching the function (maintainer, #769,
+/// 2026-10-07): any agent trailer -> `agent_wrote_or_cowrote`; none ->
+/// `human_wrote_and_verified`, which the reviewer still confirms (git sees
+/// only who wrote the case, not that its result was verified by hand). No
+/// commits known -> no pre-fill.
+pub fn vv_case_author_prefill(test_commit_messages: &[String]) -> Option<&'static str> {
+    super::types::authorship_from_messages(test_commit_messages).map(|a| match a.kind {
+        AuthorshipKind::Human => "human_wrote_and_verified",
+        AuthorshipKind::Agent | AuthorshipKind::Mixed => "agent_wrote_or_cowrote",
+    })
 }
 
 /// The pre-filled answer to `independence` (#769, 2026-10-07: "pre-filled
@@ -621,21 +757,23 @@ mod tests {
             ("numerical_hazards", "none_found"),
             ("test_reach", "reached_and_checked"),
             ("vv_evidence", "unit_tests_only"),
+            ("vv_case_author", "agent_wrote_or_cowrote"),
             ("maintainability", "yes"),
             ("independence", "someone_else"),
             ("unintended_function", "no"),
             ("coding_standards", "yes"),
-            ("rung", "rung_3"),
         ])
     }
 
     const NONE: Applicability = Applicability {
         is_port: false,
         physical_interface: false,
+        tests: TestAuthorship::Unknown,
     };
     const BOTH: Applicability = Applicability {
         is_port: true,
         physical_interface: true,
+        tests: TestAuthorship::Unknown,
     };
 
     /// Methodology: the embedded `data/review_wizard.toml` parses and passes
@@ -645,7 +783,9 @@ mod tests {
     /// conditional questions are the decided ones; and the four options
     /// added on #769 are present with their decided effects.
     ///
-    /// Result (2026-10-07): passes; 13 questions, 11 always asked.
+    /// Result (2026-10-07): passes; 13 questions, 11 always asked. Since the
+    /// `vv_case_author` question and without the `rung` question
+    /// (2026-10-07, later the same day): 13 questions, 11 always asked.
     #[test]
     fn embedded_question_set_is_valid() {
         let w = ReviewWizard::embedded();
@@ -661,11 +801,11 @@ mod tests {
                 "numerical_hazards",
                 "test_reach",
                 "vv_evidence",
+                "vv_case_author",
                 "maintainability",
                 "independence",
                 "unintended_function",
                 "coding_standards",
-                "rung",
             ]
         );
         assert_eq!(w.applicable(NONE).count(), 11);
@@ -711,7 +851,7 @@ mod tests {
             eff("coding_standards", "deviates_not_justified"),
             Effect::PromptNeedsFix
         );
-        assert_eq!(eff("independence", "self_check"), Effect::NoRung4);
+        assert_eq!(eff("independence", "self_check"), Effect::NotIndependent);
         assert_eq!(
             w.question("upstream_fidelity")
                 .unwrap()
@@ -739,26 +879,29 @@ mod tests {
     /// Methodology: each validation rule rejects a set built to break it
     /// (bad key, duplicate question, duplicate option, missing Other, Other
     /// without text, empty label, empty question text, unsourced question,
-    /// source with no section/page, no rung question, bad TOML), and a
+    /// source with no section/page, no way to derive rung 4 (~~no rung
+    /// question~~, CORRECTED 2026-10-07), bad TOML), and a
     /// workspace-rule-only question is accepted.
     ///
     /// Result (2026-10-07): passes.
     #[test]
     fn validation_rejects_each_defect() {
+        // The minimum for rung 4 to be derivable (since 2026-10-07; was a
+        // `rung` question).
         let rung = r#"
 [[question]]
-key = "rung"
-text = "Rung?"
+key = "vv"
+text = "V&V?"
 applies_when = "always"
 workspace_rule = "r"
 [[question.option]]
-key = "rung_3"
-label = "3"
-effect = "none"
+key = "case"
+label = "A case"
+effect = "gate_rung4"
 [[question.option]]
-key = "rung_4"
-label = "4"
-effect = "needs_rung4_gate"
+key = "by_hand"
+label = "By hand"
+effect = "gate_rung4_author"
 [[question.option]]
 key = "other"
 label = "Other"
@@ -779,7 +922,7 @@ requires_text = true
             "{}[[question.source]]\ndocument = \"nureg-br-0167\"\npage = \"5\"\n",
             q("x", "X?", &format!("{yes}{other}"), "")
         );
-        // A [[question.source]] after the rung question attaches to it; the
+        // A [[question.source]] after the vv question attaches to it; the
         // `x` question is then unsourced.
         assert_eq!(
             ReviewWizard::parse(&cited),
@@ -792,7 +935,7 @@ requires_text = true
         );
         assert_eq!(
             err(format!("{good}\n{}", &rung)),
-            WizardError::DuplicateQuestion("rung".into())
+            WizardError::DuplicateQuestion("vv".into())
         );
         assert!(matches!(
             err(q("x", "X?", &format!("{yes}{yes}{other}"), ws)),
@@ -844,7 +987,7 @@ requires_text = true
             }
         );
         let no_rung = format!("version = 1\n[[question]]\nkey = \"x\"\ntext = \"X?\"\napplies_when = \"always\"\n{ws}\n{other}");
-        assert_eq!(err(no_rung), WizardError::NoRungQuestion);
+        assert_eq!(err(no_rung), WizardError::NoRung4Gate);
         assert!(matches!(
             err("version = 1\nquestion = 3".into()),
             WizardError::Toml(_)
@@ -871,7 +1014,7 @@ requires_text = true
             WizardError::BadSource {
                 question: "q".into(),
             },
-            WizardError::NoRungQuestion,
+            WizardError::NoRung4Gate,
         ] {
             assert!(!e.to_string().is_empty());
         }
@@ -911,7 +1054,9 @@ requires_text = true
     /// without blocking: each is substituted into the clean set in turn,
     /// driven from the data so a new option is covered automatically.
     ///
-    /// Result (2026-10-07): passes (8 block options, 6 prompt, 2 flag).
+    /// Result (2026-10-07): passes (8 block options, 6 prompt, 2 flag);
+    /// 7 block options since the `rung` question (whose Other blocked) was
+    /// removed the same day.
     #[test]
     fn effects_block_prompt_and_flag() {
         let w = ReviewWizard::embedded();
@@ -947,17 +1092,23 @@ requires_text = true
                 }
             }
         }
-        assert_eq!(counts, [8, 6, 2]);
+        assert_eq!(counts, [7, 6, 2]);
     }
 
-    /// Methodology: the rung-4 gate (#740 U4, widened on #769): each of the
-    /// three qualifying V&V answers opens rung 4, the others do not; a
-    /// self-check (or an unstated author) closes it; asking for rung 4
-    /// while it is closed blocks with `Rung4NotOpen`.
+    /// Methodology: the derived rung (maintainer, #769, 2026-10-07: "the
+    /// user never chooses the rung"). Each of the three qualifying V&V
+    /// answers, with `vv_case_author = human_wrote_and_verified` and git
+    /// showing no agent trailer, gives rung 4; the others give rung 3 and
+    /// still stamp. Git saying an agent wrote the tests, or not knowing,
+    /// gives rung 3. A self-check leaves rung 4 open and only marks the
+    /// stamp not independent (no rung 5). A `rung` (or `q10`) answer is
+    /// refused as derived. ~~asking for rung 4 while it is closed blocks
+    /// with `Rung4NotOpen`~~ CORRECTED 2026-10-07: there is no rung answer.
     ///
     /// Result (2026-10-07): passes.
     #[test]
     fn rung4_gate() {
+        let human = Applicability { tests: TestAuthorship::Human, ..NONE };
         for (vv, open) in [
             ("reference_code_to_code", true),
             ("analytical_case", true),
@@ -968,33 +1119,49 @@ requires_text = true
         ] {
             let mut m = clean();
             m.insert("vv_evidence".into(), vv.into());
-            m.insert("rung".into(), "rung_4".into());
-            let g = stamp_gate(&m, NONE);
+            m.insert("vv_case_author".into(), "human_wrote_and_verified".into());
+            let g = stamp_gate(&m, human);
             assert_eq!(g.rung4_allowed, open, "{vv}");
-            assert_eq!(g.stampable(), open, "{vv}");
-            if !open {
-                assert_eq!(g.blocked_by, [GateReason::Rung4NotOpen]);
-            }
+            assert!(g.stampable(), "{vv}");
+            let want = if open { Rung::Four } else { Rung::Three };
+            assert_eq!(g.rung, want, "{vv}");
+            assert_eq!(derived_rung(&m, TestAuthorship::Human), want, "{vv}");
+            assert_eq!(derived_rung(&m, TestAuthorship::Agent), Rung::Three, "{vv}");
+            assert_eq!(derived_rung(&m, TestAuthorship::Unknown), Rung::Three, "{vv}");
         }
         for who in ["self_check", "other: pair-programmed"] {
             let mut m = clean();
             m.insert("vv_evidence".into(), "analytical_case".into());
+            m.insert("vv_case_author".into(), "human_wrote_and_verified".into());
             m.insert("independence".into(), who.into());
-            assert!(!stamp_gate(&m, NONE).rung4_allowed, "{who}");
-            assert!(
-                stamp_gate(&m, NONE).stampable(),
-                "rung 3 stays available: {who}"
+            let g = stamp_gate(&m, human);
+            assert!(g.rung4_allowed, "independence does not close rung 4: {who}");
+            assert_eq!(g.rung, Rung::Four, "{who}");
+            assert!(!g.independent, "{who}");
+            assert!(g.stampable(), "{who}");
+        }
+        for k in LEGACY_RUNG_KEYS {
+            let mut m = clean();
+            m.insert(k.to_string(), "rung_3".into());
+            assert_eq!(
+                stamp_gate(&m, NONE).blocked_by,
+                [GateReason::Invalid(AnswerError::RungIsDerived(k.to_string()))]
             );
         }
-        let mut m = clean();
-        m.insert("rung".into(), "other: rung 3.5".into());
+        // Rung 4 needs the hand-written case too (maintainer, #769).
+        for author in ["agent_wrote_or_cowrote", "other: pair-programmed with an agent"] {
+            let mut m = clean();
+            m.insert("vv_evidence".into(), "analytical_case".into());
+            m.insert("vv_case_author".into(), author.into());
+            assert!(!stamp_gate(&m, NONE).rung4_allowed, "{author}");
+        }
+        let msgs = |t: &[&str]| t.iter().map(|s| s.to_string()).collect::<Vec<_>>();
+        assert_eq!(vv_case_author_prefill(&msgs(&["add test"])), Some("human_wrote_and_verified"));
         assert_eq!(
-            stamp_gate(&m, NONE).blocked_by,
-            [GateReason::Answer(Choice {
-                question: "rung".into(),
-                option: "other".into()
-            })]
+            vv_case_author_prefill(&msgs(&["add test", "x\n\nClaude-Session: https://claude.ai/code/s"])),
+            Some("agent_wrote_or_cowrote")
         );
+        assert_eq!(vv_case_author_prefill(&[]), None);
     }
 
     /// Methodology: malformed answers block as `Invalid` with a typed
@@ -1112,7 +1279,8 @@ requires_text = true
     }
 
     /// Methodology: re-review pre-fill keeps the previous valid answers,
-    /// drops invalid, legacy and no-longer-applicable ones and the rung;
+    /// drops invalid, legacy and no-longer-applicable ones (~~and the
+    /// rung~~: the rung is no longer an answer, CORRECTED 2026-10-07);
     /// the independence pre-fill from git follows the documented table.
     ///
     /// Result (2026-10-07): passes.
@@ -1126,7 +1294,7 @@ requires_text = true
         let p = w.prefill(&prev, NONE);
         assert!(!p.contains_key("upstream_fidelity") && !p.contains_key("q3"));
         assert!(!p.contains_key("doc_matches_behaviour") && !p.contains_key("rung"));
-        assert_eq!(p.len(), clean().len() - 2);
+        assert_eq!(p.len(), clean().len() - 1, "the rung is no longer an answer (2026-10-07)");
         assert!(w.prefill(&prev, BOTH).contains_key("upstream_fidelity"));
         assert_eq!(
             independence_prefill(true, AuthorshipKind::Agent),

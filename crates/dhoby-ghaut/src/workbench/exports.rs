@@ -73,7 +73,9 @@ pub fn spectra_csv(spectra: &[Spectrum]) -> String {
 
 fn artifact(id: &str, heading: &str, body: &str, timestamp: &str) -> Result<String, RecipeError> {
     let payload = kovan::artifact::ArtifactToml {
+        extra: Default::default(),
         kovan: kovan::artifact::ArtifactMeta {
+            extra: Default::default(),
             id: id.to_string(),
             kind: kovan::artifact::ArtifactKind::Note,
             created: timestamp.to_string(),

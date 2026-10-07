@@ -163,7 +163,13 @@ pub fn artifact_accent(kind: ArtifactKind, theme: GuiTheme) -> egui::Color32 {
         | ArtifactKind::LessonSection
         | ArtifactKind::WalkStep
         | ArtifactKind::CodeWalk
-        | ArtifactKind::RecipeStep => {
+        | ArtifactKind::RecipeStep
+        // The code-review kinds (#764) are text records too.
+        | ArtifactKind::Review
+        | ArtifactKind::NeedsFix
+        | ArtifactKind::Upstream
+        | ArtifactKind::DeletedFunctions
+        | ArtifactKind::Architecture => {
             if dark {
                 GRUVBOX_BRIGHT_YELLOW
             } else {

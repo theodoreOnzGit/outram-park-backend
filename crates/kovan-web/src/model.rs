@@ -16,7 +16,10 @@
 
 use std::collections::{BTreeMap, BTreeSet};
 
-use kovan_common::call_graph::split::{CrateSlice, StampState, StampVerdict};
+use kovan_common::call_graph::split::{CrateSlice, StampState};
+#[cfg(test)]
+use kovan_common::call_graph::split::StampVerdict;
+use kovan_common::review::state::StateKind;
 use kovan_common::call_graph::{CrateGraph, FnKind, Function, Module, TargetKind};
 use kovan_common::code_map::CodeMap;
 use kovan_common::geometry::Point;
@@ -385,24 +388,32 @@ pub fn short_name(id: &str) -> &str {
     rest.split('#').next().unwrap_or(rest)
 }
 
-/// A function's review state as the bar shows it.
+/// A function's review state as the bar shows it, in the staleness
+/// engine's vocabulary ([`StateKind`], #765). ~~`Valid` / `Stale`~~
+/// **CORRECTED 2026-10-07**: the two-state model gave way to the engine's
+/// states so the web and desktop name a state the same way.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Review {
     Unreviewed,
-    Valid(StampState),
-    Stale(StampState),
+    Stamped(StateKind, StampState),
 }
 
 impl Review {
     pub fn label(&self) -> &'static str {
         match self {
-            Review::Unreviewed => "unreviewed",
-            Review::Valid(_) => "valid",
-            Review::Stale(_) => "stale",
+            Review::Unreviewed => StateKind::New.label(),
+            Review::Stamped(k, _) => k.label(),
         }
     }
+    /// Whether the state counts as reviewed (only valid does).
     pub fn is_valid(&self) -> bool {
-        matches!(self, Review::Valid(_))
+        matches!(self, Review::Stamped(k, _) if k.counts())
+    }
+    pub fn kind(&self) -> StateKind {
+        match self {
+            Review::Unreviewed => StateKind::New,
+            Review::Stamped(k, _) => *k,
+        }
     }
 }
 
@@ -421,8 +432,7 @@ impl Facts {
     pub fn review(&self, id: &str) -> Review {
         match self.stamps.get(id) {
             None => Review::Unreviewed,
-            Some(s) if s.verdict == StampVerdict::Valid => Review::Valid(s.clone()),
-            Some(s) => Review::Stale(s.clone()),
+            Some(s) => Review::Stamped(s.kind(), s.clone()),
         }
     }
 
@@ -902,6 +912,7 @@ mod tests {
             date: "2026-10-06".into(),
             note: String::new(),
             permalink: String::new(),
+            state: None,
         };
         let facts = Facts::new(&[stamp(&a, StampVerdict::Valid), stamp("crates/other/src/lib.rs::z", StampVerdict::Stale)]);
         assert_eq!(facts.blocked_by(&map, &slice, &b), vec!["crates/other/src/lib.rs::z".to_string()]);

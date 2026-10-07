@@ -339,6 +339,11 @@ fn icon(node: &MapNode) -> &'static str {
         MapNodeKind::Artifact(ArtifactKind::WalkStep) => "STEP",
         MapNodeKind::Artifact(ArtifactKind::CodeWalk) => "WALK",
         MapNodeKind::Artifact(ArtifactKind::RecipeStep) => "RECIPE",
+        MapNodeKind::Artifact(ArtifactKind::Review) => "REVIEW",
+        MapNodeKind::Artifact(ArtifactKind::NeedsFix) => "FIX",
+        MapNodeKind::Artifact(ArtifactKind::Upstream) => "UPSTREAM",
+        MapNodeKind::Artifact(ArtifactKind::DeletedFunctions) => "DELETED",
+        MapNodeKind::Artifact(ArtifactKind::Architecture) => "ARCH",
     }
 }
 

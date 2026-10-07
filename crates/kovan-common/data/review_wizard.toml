@@ -16,9 +16,23 @@
 #   prompt_needs_fix  asks "Mark as Needs fix instead?"; the stamp is allowed
 #   block             the stamp is refused
 #   flag              recorded as "needs improvement"; never blocks
-#   gate_rung4        opens rung 4 (V&V evidence of the qualifying kinds)
-#   no_rung4          rung 4 is not available whatever else is answered
-#   needs_rung4_gate  choosing it is refused unless rung 4 is open
+#   gate_rung4        V&V evidence of the qualifying kinds: one half of
+#                     opening rung 4
+#   gate_rung4_author the V&V case was written and verified by hand by a
+#                     human, without AI agents: the other half. Rung 4 opens
+#                     only with both (maintainer, #769/#739, 2026-10-07:
+#                     "rung 4 = writing AND verifying a V&V case by hand").
+#                     (~~gate_rung4 alone opens rung 4~~ CORRECTED 2026-10-07)
+#   not_independent   the reviewer is not independent of the code: the stamp
+#                     counts at rung 3 or 4 but cannot be the independent
+#                     second review for rung 5. (~~no_rung4: rung 4 is not
+#                     available whatever else is answered~~ CORRECTED
+#                     2026-10-07, maintainer on #769: independence gates
+#                     rung 5, not rung 4.)
+#   (~~needs_rung4_gate  choosing it is refused unless rung 4 is open~~
+#    CORRECTED 2026-10-07, maintainer on #769: the user never chooses the
+#    rung; it is derived from vv_evidence, vv_case_author and git, so the
+#    `rung` question and this effect are gone. See `wizard::derived_rung`.)
 #
 # requires_text: the option must carry text of at least 2 characters
 # (`Other: ____`, a justification). On disk the answer is `"<option>"`, or
@@ -407,6 +421,35 @@ page = "145"
 document = "10cfr50"
 section = "Appendix B, Criterion III"
 
+# ---------------------------------------------------------------- 8b
+# Who wrote the V&V case (maintainer, #769/#739, 2026-10-07). Pre-filled from
+# git: the commits that added the tests reaching the function, read with
+# `types::agent_trailer` (`wizard::vv_case_author_prefill`). Git can check
+# only the writing; "verified by hand" is the reviewer's signed attestation.
+# The engine refuses rung 4 when git shows an agent trailer on those commits.
+[[question]]
+key = "vv_case_author"
+text = "Who wrote the V&V case?"
+applies_when = "always"
+workspace_rule = "Rung 4 is a V&V case written and verified by hand by a human, without AI agents; LSP/IDE tooling allowed (maintainer, #769/#739, 2026-10-07)"
+prefill = "git_test_authorship"
+
+[[question.option]]
+key = "human_wrote_and_verified"
+label = "A human wrote the V&V case and verified its result by hand, without AI agents (LSP/IDE tooling allowed)"
+effect = "gate_rung4_author"
+
+[[question.option]]
+key = "agent_wrote_or_cowrote"
+label = "An AI agent wrote or co-wrote it"
+effect = "none"
+
+[[question.option]]
+key = "other"
+label = "Other: ____"
+effect = "none"
+requires_text = true
+
 # ---------------------------------------------------------------- 9
 [[question]]
 key = "maintainability"
@@ -461,13 +504,15 @@ effect = "none"
 [[question.option]]
 key = "self_check"
 label = "I wrote it (self-check)"
-effect = "no_rung4"
+effect = "not_independent"
 
-# An unstated author cannot show independence, so it cannot open rung 4.
+# An unstated author cannot show independence, so it cannot be the
+# independent review for rung 5 (~~cannot open rung 4~~ CORRECTED
+# 2026-10-07).
 [[question.option]]
 key = "other"
 label = "Other: ____"
-effect = "no_rung4"
+effect = "not_independent"
 requires_text = true
 
 [[question.source]]
@@ -563,33 +608,9 @@ section = "§5.2.3"
 page = "18"
 
 # ---------------------------------------------------------------- 13
-# The rung the stamp gives (3 human reviewed, 4 human V&V). Rung 4 is
-# offered only when rung 4 is open: a gate_rung4 answer to vv_evidence and
-# no no_rung4 answer (#740 U4). review.md's `rung` field must agree.
-[[question]]
-key = "rung"
-text = "Which rung does this review give?"
-applies_when = "always"
-workspace_rule = "Crate maturity gate (HARD RULE)"
-
-[[question.option]]
-key = "rung_3"
-label = "Rung 3: human reviewed"
-effect = "none"
-
-[[question.option]]
-key = "rung_4"
-label = "Rung 4: human V&V"
-effect = "needs_rung4_gate"
-
-# A stamp records rung 3 or 4, so a free-text rung cannot be stamped.
-[[question.option]]
-key = "other"
-label = "Other: ____"
-effect = "block"
-requires_text = true
-
-[[question.source]]
-document = "nureg-km-0006"
-section = "Table 5-11"
-page = "145"
+# ~~The rung the stamp gives (3 human reviewed, 4 human V&V), a question~~
+# CORRECTED 2026-10-07 (maintainer, #769): the user never chooses the rung.
+# It is derived (`wizard::derived_rung`): 4 when vv_evidence is qualifying
+# AND vv_case_author = human_wrote_and_verified AND git shows no agent
+# trailer on the reaching tests' commits; otherwise 3. review.md's `rung`
+# stores the derived value and the engine recomputes it on read.

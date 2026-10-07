@@ -469,7 +469,9 @@ mod tests {
             points: Vec::new(),
         };
         let toml = crate::artifact::ArtifactToml {
+            extra: Default::default(),
             kovan: crate::artifact::ArtifactMeta {
+                extra: Default::default(),
                 id: "graph-7".into(),
                 kind: crate::artifact::ArtifactKind::DigitisedGraph,
                 created: "2026-09-28T00:00:00Z".into(),

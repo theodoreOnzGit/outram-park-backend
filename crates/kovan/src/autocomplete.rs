@@ -213,6 +213,11 @@ fn artifact_kind_label(kind: ArtifactKind) -> &'static str {
         ArtifactKind::WalkStep => "walk step",
         ArtifactKind::CodeWalk => "code walk",
         ArtifactKind::RecipeStep => "recipe step",
+        ArtifactKind::Review => "review",
+        ArtifactKind::NeedsFix => "needs fix",
+        ArtifactKind::Upstream => "upstream",
+        ArtifactKind::DeletedFunctions => "deleted functions",
+        ArtifactKind::Architecture => "architecture",
     }
 }
 

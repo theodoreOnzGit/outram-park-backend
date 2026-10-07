@@ -50,8 +50,7 @@
 //! ```text
 //! kovan-review-signature-v1
 //! kind="review"
-//! target="code:crates/x/src/a.rs::f"
-//! function="crates/x/src/a.rs::f"
+//! target="fn:3f2a9c0d1e4b5a67"     (the stable id, #764 hybrid id)
 //! by="github:theodoreOnzGit"
 //! rung="3"
 //! date="2026-10-07"
@@ -64,9 +63,17 @@
 //! callee="<id>" "<hash>"          (one line per callee, sorted by id)
 //! checklist="<q>" "<answer>"      (one line per answer, sorted)
 //! no_concept="…"                  (or "")
-//! moved="<from>" "<commit>"       (one line per move, in order)
 //! relation="<kind>" "<target>"    (one line per relation, in order)
 //! ```
+//!
+//! **Location is not signed (2026-10-07, with the hybrid id).** `path` and
+//! the `[[review.moved]]` records are where the function is now and how it
+//! got there; kovan rewrites them when the maintainer acknowledges a move,
+//! and a stamp by another reviewer must survive that without a re-sign.
+//! ~~`function="<call-graph key>"` and `moved="<from>" "<commit>"` lines~~
+//! **CORRECTED 2026-10-07**: the stable `target` id is signed instead. The
+//! staleness engine checks scope on the function's actual location from
+//! `kovan.toml`, so an edited `path` cannot move a stamp into scope.
 //!
 //! The artifact id, `created`/`modified`, the Markdown comments and the
 //! signature itself are not signed (the signing comment on #739 lists the
@@ -137,8 +144,7 @@ pub fn signed_bytes(r: &ReviewEntry) -> Vec<u8> {
     let b = &r.review;
     let mut s = String::from("kovan-review-signature-v1\n");
     line(&mut s, "kind", &["review"]);
-    line(&mut s, "target", &[r.kovan.target.as_deref().unwrap_or("")]);
-    line(&mut s, "function", &[&b.function]);
+    line(&mut s, "target", &[&r.function_id()]);
     line(&mut s, "by", &[&b.by]);
     line(&mut s, "rung", &[&b.rung.to_string()]);
     line(&mut s, "date", &[&b.date]);
@@ -163,9 +169,6 @@ pub fn signed_bytes(r: &ReviewEntry) -> Vec<u8> {
         line(&mut s, "checklist", &[k, v]);
     }
     line(&mut s, "no_concept", &[b.no_concept.as_deref().unwrap_or("")]);
-    for m in &b.moved {
-        line(&mut s, "moved", &[&m.from, &m.commit]);
-    }
     for rel in &r.relations {
         line(&mut s, "relation", &[rel.kind.as_str(), &rel.target]);
     }
@@ -476,18 +479,19 @@ impl SignatureCheck {
     }
 }
 
-/// The workspace path of a stable function id (`<path>::<item>`).
+/// The file part of a function path (`<file>.rs::<item>`).
 fn path_of(function: &str) -> &str {
     function.split("::").next().unwrap_or(function)
 }
 
 /// Check a review's signature against the registry (module doc, "What a
-/// verified stamp needs"). Scope is checked on the file of
-/// `[review] function`.
+/// verified stamp needs"). Scope is checked on the file of the entry's
+/// `path` (its recorded location; the engine checks the actual one).
 pub fn verify_review(r: &ReviewEntry, registry: &Registry) -> SignatureCheck {
     let b = &r.review;
     let msg = signed_bytes(r);
-    let paths = [path_of(&b.function)];
+    let location = r.path().unwrap_or_default();
+    let paths = [path_of(&location)];
     verify_stamp(registry, &b.by, &b.date, b.signature.as_ref(), &msg, &paths)
 }
 
@@ -497,7 +501,10 @@ pub fn verify_review(r: &ReviewEntry, registry: &Registry) -> SignatureCheck {
 pub fn verify_architecture(a: &ArchitectureEntry, registry: &Registry) -> SignatureCheck {
     let b = &a.architecture;
     let msg = architecture_signed_bytes(a);
-    let paths: Vec<&str> = b.members.iter().map(|m| path_of(m)).collect();
+    // Members are stable `fn:` ids; their locations are `member_paths`
+    // (first-version nodes listed paths as members).
+    let located = if b.member_paths.is_empty() { &b.members } else { &b.member_paths };
+    let paths: Vec<&str> = located.iter().map(|m| path_of(m)).collect();
     verify_stamp(registry, &b.by, &b.date, b.signature.as_ref(), &msg, &paths)
 }
 
