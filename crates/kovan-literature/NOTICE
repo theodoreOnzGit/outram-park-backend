@@ -248,9 +248,6 @@ of per process. The notice, as rdfparser.js gives it:
   written prior permission. Title to copyright in this software and any
   associated documentation will at all times remain with copyright holders.
 
-Dependency added with the RDF translators: xml-rs (MIT), the XML parse under
-the RDF/XML parser.
-
 The XML/DOM layer (#749; src/zotero/framework/xml*.rs, xpath.rs,
 html_dom.rs) ports the behaviour of the JavaScript the translation-server
 runs translators on, all MIT-licensed (compatible with AGPL-3.0):

@@ -153,13 +153,21 @@ impl Parser<'_> {
                     frame.lang = attrs.remove(i).value;
                 }
                 let mut x = attrs.len();
+                let mut prefixes = Vec::new();
                 while x > 0 {
                     x -= 1;
-                    if attrs[x].node_name().starts_with("xml") {
-                        // An "xmlns:" prefix would be registered here; this
-                        // DOM has no xmlns attributes (see `dom`).
+                    let name = attrs[x].node_name();
+                    if name.starts_with("xml") {
+                        // `xmlns:p` registers p (the parser's base is "",
+                        // so the URI is not joined with it).
+                        if let Some(p) = name.strip_prefix("xmlns:") {
+                            prefixes.push((p.to_owned(), attrs[x].value.clone()));
+                        }
                         attrs.remove(x);
                     }
+                }
+                for (p, u) in prefixes {
+                    self.store.set_prefix_for_uri(&p, &u);
                 }
             }
         }

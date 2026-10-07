@@ -16,7 +16,7 @@
 //! Bibliontology RDF, Unqualified Dublin Core RDF).
 //!
 //! ```text
-//! import:  text --dom (xml-rs)--> DOM --parser (rdfparser.js)--> Store
+//! import:  text --dom (framework::xml)--> DOM --parser (rdfparser.js)--> Store
 //!          translator <--Zotero.RDF (sandbox)--> Store
 //! export:  translator --Zotero.RDF--> Store --serializer (serialize.js)--> text
 //! ```
@@ -25,7 +25,7 @@
 //! |---|---|---|
 //! | [`term`] | terms (symbol, blank node, literal, collection) and their order | term.js |
 //! | [`store`] | `IndexedFormula`: statements, indexes, `owl:sameAs` smushing | identity.js |
-//! | [`dom`] | the XML DOM the parser walks (minimal, on xml-rs; see its docs) | translate.js `parseDOMXML` + jsdom |
+//! | [`dom`] | the XML DOM the parser walks (a mutable copy of the framework XML layer's parse) | translate.js `parseDOMXML` + jsdom |
 //! | [`parser`] | RDF/XML to triples | rdfparser.js |
 //! | [`serializer`] | triples to RDF/XML, byte for byte | serialize.js `statementsToXML` |
 //! | [`uri`] | `Util.uri.join` | uri.js |

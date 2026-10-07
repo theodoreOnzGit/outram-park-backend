@@ -3,8 +3,8 @@
 // Upstream: ECMA-262 `encodeURI` (19.2.6.4) and `for-in` key order; Zotero
 //   utilities, https://github.com/zotero/utilities (commit 4051881d59c6):
 //   utilities_item.js `itemToLegacyExportFormat` :1179-1240 (the order its
-//   `uniqueFields` object gets its keys), utilities.js `cleanISBN` :532-568
-//   and `cleanISSN` :603-627; cachedTypes.js `getBaseIDFromTypeAndField`.
+//   `uniqueFields` object gets its keys); cachedTypes.js
+//   `getBaseIDFromTypeAndField`.
 // Copyright (c) Corporation for Digital Scholarship, Vienna, Virginia, USA.
 // Licence: AGPL-3.0 (upstream: AGPL-3.0-or-later).
 
@@ -180,134 +180,6 @@ pub fn item_unique_fields_order(item: &TranslatorItem, original: Option<&JsObjec
     unique_fields_order(&item.item_type, original.unwrap_or(&item.props), uf)
 }
 
-fn is_dash(c: char) -> bool {
-    matches!(
-        c,
-        '\u{2D}' | '\u{AD}' | '\u{2010}'..='\u{2015}' | '\u{2043}' | '\u{2212}'
-    )
-}
-
-fn is_word(c: char) -> bool {
-    c.is_ascii_alphanumeric() || c == '_'
-}
-
-fn boundary(chars: &[char], i: usize) -> bool {
-    let before = i > 0 && is_word(chars[i - 1]);
-    let after = i < chars.len() && is_word(chars[i]);
-    before != after
-}
-
-fn is_js_space(c: char) -> bool {
-    crate::zotero::framework::js::is_space(c)
-}
-
-/// `(?:\d\s*){n}` then `last` at `p`: the end of the match.
-fn digits_then(
-    chars: &[char],
-    mut i: usize,
-    n: usize,
-    last: impl Fn(char) -> bool,
-) -> Option<usize> {
-    for _ in 0..n {
-        if !chars.get(i).is_some_and(|c| c.is_ascii_digit()) {
-            return None;
-        }
-        i += 1;
-        while i < chars.len() && is_js_space(chars[i]) {
-            i += 1;
-        }
-    }
-    match chars.get(i) {
-        Some(&c) if last(c) => Some(i + 1),
-        _ => None,
-    }
-}
-
-fn digit(c: u8) -> u32 {
-    (c - b'0') as u32
-}
-
-/// `Zotero.Utilities.cleanISBN(isbnStr)` (validating). Ported after
-/// kovan-semantics' `zotero::text::clean_isbn` (the same upstream function;
-/// kovan-literature cannot depend on that crate, which is not wasm-clean).
-pub fn clean_isbn(isbn_str: &str) -> Option<String> {
-    let chars: Vec<char> = isbn_str
-        .to_uppercase()
-        .chars()
-        .filter(|c| !is_dash(*c))
-        .collect();
-    for p in 0..chars.len() {
-        if !boundary(&chars, p) {
-            continue;
-        }
-        // 97[89]\s*(?:\d\s*){9}\d  |  (?:\d\s*){9}[\dX]
-        let thirteen = (|| {
-            if chars.get(p) != Some(&'9') || chars.get(p + 1) != Some(&'7') {
-                return None;
-            }
-            if !matches!(chars.get(p + 2), Some('8' | '9')) {
-                return None;
-            }
-            let mut i = p + 3;
-            while i < chars.len() && is_js_space(chars[i]) {
-                i += 1;
-            }
-            digits_then(&chars, i, 9, |c| c.is_ascii_digit())
-        })()
-        .filter(|&e| boundary(&chars, e));
-        let end = thirteen.or_else(|| {
-            digits_then(&chars, p, 9, |c| c.is_ascii_digit() || c == 'X')
-                .filter(|&e| boundary(&chars, e))
-        });
-        let Some(end) = end else { continue };
-        let isbn: String = chars[p..end].iter().filter(|c| !is_js_space(**c)).collect();
-        let b = isbn.as_bytes();
-        let ok = if b.len() == 10 {
-            let mut sum: u32 = (0..9).map(|i| digit(b[i]) * (10 - i as u32)).sum();
-            sum += if b[9] == b'X' { 10 } else { digit(b[9]) };
-            sum % 11 == 0
-        } else {
-            let mut sum: u32 = (0..12)
-                .map(|i| digit(b[i]) * if i % 2 == 1 { 3 } else { 1 })
-                .sum();
-            sum += digit(b[12]);
-            sum % 10 == 0
-        };
-        if ok {
-            return Some(isbn);
-        }
-    }
-    None
-}
-
-/// `Zotero.Utilities.cleanISSN(issnStr)`: the first `\b(?:\d\s*){7}[\dX]\b`
-/// with a valid check digit, as `NNNN-NNNN`.
-pub fn clean_issn(issn_str: &str) -> Option<String> {
-    let chars: Vec<char> = issn_str
-        .to_uppercase()
-        .chars()
-        .filter(|c| !is_dash(*c))
-        .collect();
-    for p in 0..chars.len() {
-        if !boundary(&chars, p) {
-            continue;
-        }
-        let Some(end) = digits_then(&chars, p, 7, |c| c.is_ascii_digit() || c == 'X')
-            .filter(|&e| boundary(&chars, e))
-        else {
-            continue;
-        };
-        let issn: String = chars[p..end].iter().filter(|c| !is_js_space(**c)).collect();
-        let b = issn.as_bytes();
-        let mut sum: u32 = (0..7).map(|i| digit(b[i]) * (8 - i as u32)).sum();
-        sum += if b[7] == b'X' { 10 } else { digit(b[7]) };
-        if sum % 11 == 0 {
-            return Some(format!("{}-{}", &issn[..4], &issn[4..]));
-        }
-    }
-    None
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -318,18 +190,6 @@ mod tests {
         assert_eq!(encode_uri("a/b?c=d#e"), "a/b?c=d#e");
         assert_eq!(encode_uri("é"), "%C3%A9");
         assert_eq!(encode_uri("[x]"), "%5Bx%5D");
-    }
-
-    #[test]
-    fn isbn_and_issn() {
-        assert_eq!(
-            clean_isbn("978-1-234-56789-7").as_deref(),
-            Some("9781234567897")
-        );
-        assert_eq!(clean_isbn("0134685997").as_deref(), Some("0134685997"));
-        assert_eq!(clean_isbn("0134685998"), None);
-        assert_eq!(clean_issn("ISSN 1234-5679").as_deref(), Some("1234-5679"));
-        assert_eq!(clean_issn("1234-5678"), None);
     }
 
     #[test]

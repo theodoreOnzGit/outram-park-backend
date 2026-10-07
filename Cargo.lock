@@ -5696,7 +5696,6 @@ dependencies = [
  "tempfile",
  "toml",
  "turso_core",
- "xml-rs",
 ]
 
 [[package]]

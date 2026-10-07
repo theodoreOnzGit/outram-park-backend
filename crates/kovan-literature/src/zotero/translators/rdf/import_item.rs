@@ -21,7 +21,7 @@ use crate::zotero::framework::{
     JsObject, TranslateError, TranslatorItem, TranslatorNote, TranslatorTag,
 };
 use crate::zotero::translators::rdf_creator_types::server_creators_for_type;
-use crate::zotero::translators::rdf_support::{clean_isbn, clean_issn};
+use crate::zotero::framework::identifiers::{clean_isbn, clean_issn};
 use serde_json::Value;
 
 /// Property URIs from `(namespace, local name)` pairs.
@@ -525,7 +525,7 @@ impl Rdf<'_> {
                         item.set("ISSN", rest(5).to_uppercase());
                     } else if before == "DOI" {
                         item.set("DOI", rest(4));
-                    } else if let Some(isbn) = clean_isbn(s) {
+                    } else if let Some(isbn) = clean_isbn(s, false) {
                         item.set("ISBN", isbn);
                     } else if let Some(issn) = clean_issn(s) {
                         item.set("ISSN", issn);

@@ -3,34 +3,30 @@
 // Upstream: Zotero translate, https://github.com/zotero/translate (commit
 //   dd524aea9a55): src/translation/translate.js
 //   `Zotero.Translate.IO.parseDOMXML` :2860-2885 (DOMParser "text/xml",
-//   reject a document with a <parsererror>, `normalize()`); the DOMParser is
-//   jsdom's in the translation-server (src/translation/translate.js :89 of
-//   https://github.com/zotero/translation-server).
+//   reject a document with a <parsererror>, `normalize()`), which
+//   `IO.String._initRDF` :2919-2934 hands to the RDF parser; the DOMParser
+//   is jsdom's in the translation-server.
 // Copyright (c) Corporation for Digital Scholarship, Vienna, Virginia, USA.
 // Licence: AGPL-3.0 (upstream: AGPL-3.0-or-later).
 
 //! The XML DOM the RDF parser walks: what `parseDOMXML` gives it.
 //!
-//! **XML layer: a minimal choice, local to the RDF code.** Another part of
-//! the port is adding a general XML layer (`framework/xml.rs`); until the two
-//! are reconciled this module builds its DOM with `xml-rs` (already in the
-//! workspace's lock file; pure Rust, MIT). It keeps exactly what the RDF
-//! parser can observe of jsdom's document after `normalize()`: element
-//! namespaces, local names and prefixes; attributes in document order with
-//! their namespaces (`xmlns` declarations are not attributes here, see
-//! below); text nodes merged as `normalize()` merges them and never empty;
-//! CDATA sections, comments and processing instructions as nodes of their
-//! own, because they count in `childNodes.length`.
+//! Upstream's RDF data mode parses with the same `parseDOMXML` as the XML
+//! translators' `Zotero.getXML()`, so the document comes from the framework's
+//! XML layer ([`super::super::xml::XmlDocument::parse`]: saxes as jsdom
+//! drives it, the `parsererror` check, `normalize()`). This module copies it
+//! into a small arena the RDF parser can mutate as upstream's does (it
+//! removes attributes as it consumes them): element namespaces, prefixes and
+//! local names; attributes in document order, `xmlns` declarations included
+//! (the parser registers and removes them, as upstream's `buildFrame` does);
+//! text, CDATA, comments and processing instructions as nodes of their own,
+//! since they count in `childNodes.length`.
 //!
-//! Differences from jsdom that cannot reach a translator's output: `xmlns`
-//! attributes are dropped (the parser removes them after registering their
-//! prefixes, which only matter to a serializer; import never serializes), and
-//! the doctype is not a node (the parser looks only for the first element).
-//! Well-formedness is xml-rs's judgement, where jsdom uses saxes; both are
-//! conforming XML 1.0 parsers, so they reject the same malformed input except
-//! in corners (DTD-declared entities, which neither expands).
+//! ~~This module built its DOM with xml-rs until the XML layer existed.~~
+//! **CHANGED 2026-10-07** (merge with develop dbb9e26eb1): the XML layer is
+//! the one parser; the RDF references were identical with both.
 
-use xml::reader::{ParserConfig, XmlEvent};
+use crate::zotero::framework::xml::{NodeId as XNodeId, NodeKind as XKind, XmlDocument};
 
 /// A DOM node's index in [`Dom::nodes`].
 pub type NodeId = usize;
@@ -82,6 +78,8 @@ pub enum NodeKind {
     ProcessingInstruction,
     /// A comment (nodeType 8).
     Comment,
+    /// A document type (nodeType 10).
+    DocumentType,
 }
 
 /// A node and its children.
@@ -103,6 +101,7 @@ impl DomNode {
             NodeKind::ProcessingInstruction => 7,
             NodeKind::Comment => 8,
             NodeKind::Document => 9,
+            NodeKind::DocumentType => 10,
         }
     }
 }
@@ -115,105 +114,45 @@ pub struct Dom {
 }
 
 impl Dom {
-    /// `parseDOMXML(input)`: parse, reject a document containing a
-    /// `parsererror` element (what jsdom produces for malformed XML, and what
-    /// upstream checks for), and normalise text.
+    /// `parseDOMXML(input)` ([`XmlDocument::parse`]), copied into the arena.
     pub fn parse(input: &str) -> Result<Dom, String> {
-        let config = ParserConfig::new()
-            .trim_whitespace(false)
-            .whitespace_to_characters(true)
-            .cdata_to_characters(false)
-            .ignore_comments(false)
-            .coalesce_characters(true)
-            .ignore_root_level_whitespace(true);
-        let mut reader = config.create_reader(input.as_bytes());
-        let mut dom = Dom {
-            nodes: vec![DomNode {
-                kind: NodeKind::Document,
-                children: Vec::new(),
-            }],
-        };
-        let mut stack: Vec<NodeId> = vec![0];
-        loop {
-            let ev = reader.next().map_err(|e| {
-                format!("DOMParser error: loading data into data store failed ({e})")
-            })?;
-            let parent = *stack.last().unwrap_or(&0);
-            match ev {
-                XmlEvent::StartDocument { .. } => {}
-                XmlEvent::EndDocument => break,
-                XmlEvent::ProcessingInstruction { .. } => {
-                    dom.push(parent, NodeKind::ProcessingInstruction);
-                }
-                XmlEvent::StartElement {
-                    name, attributes, ..
-                } => {
-                    // `getElementsByTagName("parsererror")` matches the
-                    // qualified name.
-                    let qualified = match &name.prefix {
-                        Some(p) => format!("{p}:{}", name.local_name),
-                        None => name.local_name.clone(),
-                    };
-                    if qualified == "parsererror" {
-                        return Err(
-                            "DOMParser error: loading data into data store failed".to_owned()
-                        );
-                    }
-                    let attrs = attributes
-                        .into_iter()
-                        .map(|a| Attr {
-                            namespace: a.name.namespace.filter(|n| !n.is_empty()),
-                            local_name: a.name.local_name,
-                            prefix: a.name.prefix,
-                            value: a.value,
-                        })
-                        .collect();
-                    let id = dom.push(
-                        parent,
-                        NodeKind::Element {
-                            namespace: name.namespace.filter(|n| !n.is_empty()),
-                            local_name: name.local_name,
-                            prefix: name.prefix,
-                            attrs,
-                        },
-                    );
-                    stack.push(id);
-                }
-                XmlEvent::EndElement { .. } => {
-                    stack.pop();
-                }
-                XmlEvent::CData(s) => {
-                    dom.push(parent, NodeKind::CData(s));
-                }
-                XmlEvent::Comment(_) => {
-                    dom.push(parent, NodeKind::Comment);
-                }
-                XmlEvent::Characters(s) | XmlEvent::Whitespace(s) => {
-                    if parent == 0 || s.is_empty() {
-                        continue;
-                    }
-                    // `normalize()`: adjacent text nodes merge.
-                    let last = dom.nodes[parent].children.last().copied();
-                    if let Some(l) = last {
-                        if let NodeKind::Text(t) = &mut dom.nodes[l].kind {
-                            t.push_str(&s);
-                            continue;
-                        }
-                    }
-                    dom.push(parent, NodeKind::Text(s));
-                }
-            }
-        }
+        let doc = XmlDocument::parse(input).map_err(|e| e.0)?;
+        let mut dom = Dom { nodes: Vec::new() };
+        dom.copy(&doc, doc.document());
         Ok(dom)
     }
 
-    fn push(&mut self, parent: NodeId, kind: NodeKind) -> NodeId {
+    fn copy(&mut self, doc: &XmlDocument, n: XNodeId) -> NodeId {
+        let kind = match doc.kind(n) {
+            XKind::Document => NodeKind::Document,
+            XKind::DocumentType { .. } => NodeKind::DocumentType,
+            XKind::Element(e) => NodeKind::Element {
+                namespace: e.namespace.clone(),
+                local_name: e.local.clone(),
+                prefix: e.prefix.clone(),
+                attrs: e
+                    .attrs
+                    .iter()
+                    .map(|a| Attr {
+                        namespace: a.namespace.clone(),
+                        local_name: a.local.clone(),
+                        prefix: a.prefix.clone(),
+                        value: a.value.clone(),
+                    })
+                    .collect(),
+            },
+            XKind::Text(t) => NodeKind::Text(t.clone()),
+            XKind::CData(t) => NodeKind::CData(t.clone()),
+            XKind::Comment(_) => NodeKind::Comment,
+            XKind::Pi { .. } => NodeKind::ProcessingInstruction,
+        };
         let id = self.nodes.len();
         self.nodes.push(DomNode {
             kind,
             children: Vec::new(),
         });
-        self.nodes[parent].children.push(id);
+        let children: Vec<NodeId> = doc.children(n).iter().map(|&c| self.copy(doc, c)).collect();
+        self.nodes[id].children = children;
         id
     }
 
@@ -264,7 +203,11 @@ mod tests {
     fn attribute_namespaces() {
         let d = Dom::parse(r#"<r:a xmlns:r="urn:r" r:x="1" y="2"/>"#).unwrap();
         let root = d.node(0).children[0];
-        let a = d.attrs(root);
+        let a: Vec<&Attr> = d
+            .attrs(root)
+            .iter()
+            .filter(|a| !a.node_name().starts_with("xmlns"))
+            .collect();
         assert_eq!(a.len(), 2);
         assert_eq!(a[0].namespace.as_deref(), Some("urn:r"));
         assert_eq!(a[1].namespace, None);
