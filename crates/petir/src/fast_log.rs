@@ -709,7 +709,11 @@ fn ln_inner(x: f64) -> core::result::Result<f64, (PetirError, f64)> {
         }
         // x is subnormal: normalise it.
         ix = (x * f64::from_bits(0x4330000000000000)).to_bits(); // 0x1p52
-        ix -= 52u64 << 52;
+
+        // Wraps ON PURPOSE (#761): upstream's `uint64_t` subtraction
+        // (`log.c:111`) is modular, leaving a "negative" exponent field that
+        // the arithmetic shift for `k` below recovers.
+        ix = ix.wrapping_sub(52u64 << 52);
     }
 
     // x = 2^k z, with z in [OFF, 2*OFF) and exact. The range is split into N

@@ -617,6 +617,14 @@ to 5.2 GB for identical results. `cargo install`, `cargo publish` and
 `cargo fmt` need nothing — the first two build in release already, the third
 builds nothing.
 
+**Release runs with integer overflow checks ON** (GitHub #761, maintainer
+approval 2026-10-07): an integer overflow panics instead of wrapping silently.
+Measured cost: +8.3 % on NJOY RECONR+BROADR, +2.7 % on Edwards, under 1 % on
+the CFD smoke target and on MC transport, with identical results. Code that
+wraps on purpose (LCG/PCG state, hashes) must use `wrapping_*` or
+`Wrapping<T>`; any other overflow panic is a bug to fix, never to silence.
+Table and protocol: the `[profile.release]` comment in the root `Cargo.toml`.
+
 **Historical records stay as they were run**
 (`verification_and_validation/generated/`, `debug_markdowns/`, the
 `docs/<crate>-api.md` mirrors, the V&V logs). Fix the instruction, never the

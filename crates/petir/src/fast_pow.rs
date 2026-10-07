@@ -859,7 +859,9 @@ fn powf_inner(x: f64, y: f64) -> core::result::Result<f64, (PetirError, f64)> {
             // Normalise subnormal x so its exponent becomes negative.
             ix = (x * f64::from_bits(0x4330000000000000)).to_bits(); // 0x1p52
             ix &= 0x7fff_ffff_ffff_ffff;
-            ix -= 52u64 << 52;
+            // Wraps ON PURPOSE (#761): upstream's `uint64_t` subtraction
+            // (`pow.c:328`) is modular; the exponent is meant to go negative.
+            ix = ix.wrapping_sub(52u64 << 52);
         }
     }
 

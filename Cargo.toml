@@ -567,6 +567,40 @@ outram-park-fork-cfmesh = { path = "crates/outram-park-fork-cfmesh", version = "
 [profile.dev.package."*"]
 opt-level = 2
 
+# Integer overflow checks ON in release (GitHub #761, maintainer approval
+# 2026-10-07: "have them on then, though sometimes the LCG does integer
+# overflow intentionally").
+#
+# Rust's release profile defaults to `overflow-checks = false`, and the
+# workspace rule is "everything is release", so before this line every build,
+# test and V&V run here wrapped integer overflow silently (two's complement)
+# instead of panicking. An overflowing index, counter or size then gives a
+# wrong value rather than an error -- a defect a V&V number can absorb unseen.
+# With checks on, integer `+ - *`, `pow`, unary `-` on MIN, and a shift by at
+# least the bit width panic. `as` casts still truncate silently (checks do not
+# cover them) and floats are unaffected.
+#
+# Code that wraps ON PURPOSE (LCG/PCG state, hashes, checksums) must say so
+# with `wrapping_*` or `std::num::Wrapping<T>`; the checks then enforce that
+# every other wrap is a bug. A panic under this setting is a finding to fix,
+# never to silence.
+#
+# Measured cost (2026-10-07, 16-core desktop, RAYON_NUM_THREADS=6, 3 runs
+# each, median wall time off -> on; full table in #761):
+#   NJOY RECONR+BROADR (U-234/235/238, smoke Godiva)  35.1 s -> 38.0 s  +8.3 %
+#   Godiva HIGH smoke test, whole                     37.8 s -> 40.7 s  +7.7 %
+#   Edwards blowdown (tampines drift flux)            15.8 s -> 16.2 s  +2.7 %
+#   outram-foam cavity + Sod smoke target             12.0 s -> 12.1 s  +0.8 %
+#   MC transport (Godiva HIGH 2.6 s; LOW ex. 0.58 s)  unchanged at 0.1 s / 0.01 s
+# Run-to-run spread was <= 0.15 s on every case, and every printed result
+# (k_eff, RMSE, plateau) was identical with the checks on. The cost is
+# largest on NJOY reconstruction and negligible on the transport and CFD loops.
+#
+# Every other profile that `inherits = "release"` (e.g. `profiling` below)
+# inherits this too, so a profile is always of the checked program.
+[profile.release]
+overflow-checks = true
+
 # Profiling: RELEASE codegen with symbols, for `perf` / `cargo flamegraph`.
 #
 # This is NOT a debug profile and does not relax the workspace's "everything is
@@ -593,6 +627,10 @@ opt-level = 2
 # flamegraph, but not for `perf annotate` on a hot loop.
 [profile.profiling]
 inherits = "release"
+# Stated explicitly although `inherits = "release"` already carries it (#761,
+# 2026-10-07): a profile of the program with the checks removed would not be
+# a profile of the program the workspace runs.
+overflow-checks = true
 debug = 2
 strip = "none"
 # Inlining is what makes release fast and flamegraphs confusing: an inlined

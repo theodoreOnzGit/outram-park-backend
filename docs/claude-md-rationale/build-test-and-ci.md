@@ -101,6 +101,65 @@ instruction, never the receipt.
 **`cargo install`, `cargo publish` and `cargo fmt` need nothing** — the first
 two build in release already, the third builds nothing.
 
+### Release runs with integer overflow checks ON (GitHub #761)
+
+**Maintainer approval, 2026-10-07:** *"have them on then, though sometimes the
+LCG does integer overflow intentionally".* Rust's release profile defaults to
+`overflow-checks = false`; with "everything is release", that meant no build,
+test or V&V run here had ever checked integer overflow. The root `Cargo.toml`
+now sets `overflow-checks = true` in `[profile.release]` and, explicitly, in
+`[profile.profiling]`. Deliberate wraps must be written `wrapping_*` or
+`Wrapping<T>`; any other overflow panic is a defect to fix, not to silence.
+
+**Methodology.** Four existing release targets, each run 3 times back to back
+with the same binary, wall time from the shell, `RAYON_NUM_THREADS=6` on the
+16-core desktop (other work sharing the machine; load average 1.6–3.5). The
+checks-off binaries were built into a separate target directory from the same
+commit before the profile change, so only the flag differs.
+
+**Results (2026-10-07), median (min–max) wall time:**
+
+| case | checks off | checks on | change |
+|---|---|---|---|
+| Godiva HIGH smoke test (`ci_smoke`), whole | 37.77 s (37.58–37.82) | 40.66 s (40.56–40.72) | **+7.7 %** |
+| — of which RECONR+BROADR, U-234/235/238 (printed) | 35.1 s (34.9–35.2) | 38.0 s (38.0–38.1) | **+8.3 %** |
+| — of which MC transport (printed) | 2.6 s | 2.6 s | 0 (at 0.1 s resolution) |
+| Edwards blowdown, tampines drift flux (`ci_smoke`) | 15.77 s (15.74–15.78) | 16.19 s (16.17–16.26) | +2.7 % |
+| outram-foam cavity + Sod (`ci_smoke`, 8 tests) | 11.98 s (11.95–12.09) | 12.07 s (12.01–12.09) | +0.8 % |
+| `godiva_keff` example (LOW tier, transport only) | 0.58 s | 0.58 s | 0 |
+
+**Interpretation.** Every printed physics result was identical with checks on
+(Godiva HIGH `k = 0.99689 ± 0.00178`, LOW `1.00934 ± 0.00171`, Edwards RMSE
+29.0 psia and plateau 354.3 psia), so on these paths no overflow had been
+wrapping silently. The cost is real but small, and largest on NJOY
+reconstruction; correctness outranks it.
+
+**Full suite with checks on (2026-10-07,** `cargo test --workspace --lib
+--tests --release -j 6 --no-fail-fast -- --test-threads=6`, 2 h 31 min, both
+submodules fetched**):** 485 test binaries, 12,243 passed, 20 failed, 155
+ignored, no timeouts. **Four failures were overflow panics**, all from two
+lines of `petir`, which wraps on purpose:
+
+- `src/fast_log.rs` and `src/fast_pow.rs` normalise a subnormal argument with
+  `ix -= 52 << 52`. Upstream (ARM optimized-routines `math/log.c:111`,
+  `math/pow.c:328`) does this on `uint64_t`, which C defines as modular, and
+  the arithmetic shift that follows recovers the negative exponent. Both lines
+  are now `wrapping_sub` with a comment. Values are unchanged:
+  `tests/fast_{log,pow}_vs_arm_optimized_routines.rs`, which pin bit-identity
+  with upstream, pass again.
+
+The other 16 failures fail identically with checks off on the same commit
+(rebuilt with `CARGO_PROFILE_RELEASE_OVERFLOW_CHECKS=false`), so #761 caused
+none of them, and every one was already tracked: #584 (two `outram-mc-libs`
+stats tests; also `raffles` stationarity, `offbeat` viscochab and eight
+NVIDIA-specific `petir` `wgsl_gpu` pins, in its comments), #466 (GPU Langevin
+inverse), #578 (`fhr_explicit_triso_delta` fingerprint; the same bits with
+checks off), and #293 (`petir` `gsl_tables_audit`, which needs the gitignored
+vendored GSL source). The LCG stream tests
+(`rng::lcg::tests::moved_stream_is_pinned`,
+`init_seed_matches_openmc_golden_values`) pass: the LCG already used
+`wrapping_*` throughout.
+
 ### TUAS natural-circulation tests are VERY long running — run them in parallel
 
 **HARD RULE.** The CIET coupled-DRACS natural-circulation regression tests and
