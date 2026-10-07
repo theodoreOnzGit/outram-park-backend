@@ -403,3 +403,141 @@ fn a_liggghts_bed_builds_with_one_cell_per_point() {
     );
     assert_eq!((lost, ambiguous), (0, 0));
 }
+
+#[test]
+fn a_dem_csv_is_read_and_cut_to_a_ball_count() {
+    let text = "id,x,y,z,vx,vy,vz\n\
+                3,0.0,0.0,0.30,0,0,0\n\
+                1,0.1,0.0,-0.20,0,0,0\n\
+                \n\
+                2,0.2,0.0,0.10,0,0,0\n\
+                4,-0.1,0.0,0.10,0,0,0\n\
+                5,0.0,0.3,0.0,0,0,0\n";
+    let c = read_dem_centres_csv(text).expect("a well-formed CSV");
+    assert_eq!(c.len(), 5);
+    assert!((c[1][2].get::<meter>() + 0.20).abs() < 1e-15);
+    // The floor (z <= 0) is kept whatever the count, in input order; above
+    // it the lowest two, ties in z broken by x.
+    let cut = trim_to_core_balls(&c, 2).expect("enough balls");
+    let z: Vec<[f64; 3]> = cut.iter().map(|p| p.map(|v| v.get::<meter>())).collect();
+    assert_eq!(
+        z,
+        vec![
+            [0.1, 0.0, -0.20],
+            [0.0, 0.3, 0.0],
+            [-0.1, 0.0, 0.10],
+            [0.2, 0.0, 0.10]
+        ]
+    );
+    assert_eq!(
+        trim_to_core_balls(&c, 4),
+        Err(DemBedError::TooFewBalls {
+            available: 3,
+            wanted: 4
+        })
+    );
+    assert!(matches!(
+        read_dem_centres_csv("x,y,z\n1,2,3\n"),
+        Err(DemBedError::Header(_))
+    ));
+    assert!(matches!(
+        read_dem_centres_csv("id,x,y,z\n1,2,oops,3\n"),
+        Err(DemBedError::Row { line: 2, .. })
+    ));
+    assert!(matches!(
+        read_dem_centres_csv("id,x,y,z\n1,2,3\n"),
+        Err(DemBedError::Row { line: 2, .. })
+    ));
+}
+
+/// gh:#787: the committed gh:#216 bed cut to the lattice's ball count at
+/// N = 12 builds a core with that many balls above the floor, and the cut is
+/// the one the web beds view draws. That view cuts the bed after quantising
+/// every coordinate to u16 over the bed's extent, which cannot change WHICH
+/// balls are kept as long as no centre sits within one step of the floor and
+/// the last kept and first dropped heights are more than one step apart.
+/// Prints the conus and tube ball counts of both beds (the record's list of
+/// differences besides the packing).
+#[test]
+fn the_dem_bed_cut_to_the_lattice_ball_count_is_the_beds_view_cut() {
+    let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("../../reference-data/liggghts/htr10_conus_presettled_mu10_mur00.csv");
+    let text = std::fs::read_to_string(&path).expect("the committed DEM bed");
+    let all = read_dem_centres_csv(&text).expect("a well-formed bed");
+    assert_eq!(all.len(), 27_554);
+
+    let lattice = assemble_explicit_triso(14, 12, 0);
+    let lb = lattice.bed.as_ref().expect("a ball list");
+    let n_core = lb.core_balls().expect("Şeker's bed counts its balls");
+    assert_eq!(n_core, 16_681, "the lattice's ball count at N = 12");
+
+    let cut = trim_to_core_balls(&all, n_core).expect("enough balls");
+    let fuel = paper_fuel_assignment(&cut);
+    let core = assemble_explicit_triso_from_centres(&cut, &fuel, 14, 0);
+    let Some(PebbleBed::Explicit(eb)) = core.bed.as_ref() else {
+        panic!("an explicit bed")
+    };
+    assert_eq!(eb.core_balls(), n_core);
+    let (e, f) = eb.eligible_and_fuel_balls();
+
+    // Robust to the view's quantisation.
+    let z: Vec<f64> = all.iter().map(|c| c[2].get::<meter>()).collect();
+    let (lo, hi) = z
+        .iter()
+        .fold((f64::INFINITY, f64::NEG_INFINITY), |(a, b), &v| {
+            (a.min(v), b.max(v))
+        });
+    let step = (hi - lo) / 65_535.0;
+    let mut above: Vec<f64> = z.iter().copied().filter(|&v| v > 0.0).collect();
+    above.sort_by(f64::total_cmp);
+    let gap = above[n_core] - above[n_core - 1];
+    let near_floor = z.iter().map(|v| v.abs()).fold(f64::INFINITY, f64::min);
+    assert!(
+        gap > step,
+        "cut gap {gap:.3e} m within one u16 step {step:.3e} m"
+    );
+    assert!(
+        near_floor > step,
+        "a centre {near_floor:.3e} m from the floor"
+    );
+
+    // Conus (floor to conus floor) and tube balls of both beds.
+    let (l_floor, l_conus) = (lb.bed_bottom(), lattice.conus_floor);
+    let (mut l_cone, mut l_tube) = (0, 0);
+    for b in lb.all_balls().into_iter().filter(|b| lb.is_present(*b)) {
+        let zc = lb.centre(b)[2];
+        if zc <= l_floor && zc > l_conus {
+            l_cone += 1;
+        } else if zc <= l_conus {
+            l_tube += 1;
+        }
+    }
+    let (mut d_cone, mut d_tube_dem, mut d_filler) = (0, 0, 0);
+    for (c, s) in eb.centres.iter().zip(&eb.source) {
+        match s {
+            ExplicitBallSource::TubeFiller => d_filler += 1,
+            ExplicitBallSource::Dem(_) if c[2] <= eb.bed_bottom && c[2] > eb.conus_floor => {
+                d_cone += 1;
+            }
+            ExplicitBallSource::Dem(_) if c[2] <= eb.conus_floor => d_tube_dem += 1,
+            ExplicitBallSource::Dem(_) => {}
+        }
+    }
+    println!(
+        "lattice N = 12: {n_core} core balls, bed {:.3} cm, conus {l_cone}, tube {l_tube}",
+        2.0 * lattice.bed_half_height
+    );
+    println!(
+        "DEM cut: {} core balls (fuel {f} of {e}), bed {:.3} cm (p99 surface {:.3} cm), \
+         conus {d_cone}, tube {d_tube_dem} DEM + {d_filler} filler (gap {:.3} cm), \
+         {} lens pairs (fraction {:.3e}), max wall penetration {:.4} cm; \
+         u16 step {step:.3e} m, cut gap {gap:.3e} m, nearest to floor {near_floor:.3e} m",
+        eb.core_balls(),
+        2.0 * core.bed_half_height,
+        eb.surface_height,
+        eb.tube_gap,
+        eb.overlaps.len(),
+        eb.lens_volume_fraction,
+        eb.max_wall_penetration
+    );
+}

@@ -867,6 +867,105 @@ pub fn assemble_explicit_triso_from_centres_with(
     )
 }
 
+/// Why a DEM bed could not be read or cut ([`read_dem_centres_csv`],
+/// [`trim_to_core_balls`]).
+#[derive(Debug, Clone, PartialEq, thiserror::Error)]
+pub enum DemBedError {
+    /// The first line is not the `id,x,y,z,...` header of
+    /// `reference-data/liggghts/`.
+    #[error("unexpected DEM CSV header {0:?} (want `id,x,y,z,...`)")]
+    Header(String),
+    /// A row has too few fields or a field is not a number.
+    #[error("DEM CSV line {line}: {why}")]
+    Row { line: usize, why: String },
+    /// The bed holds fewer balls above the floor than were asked for.
+    #[error("the bed holds {available} balls above the floor, {wanted} were asked for")]
+    TooFewBalls { available: usize, wanted: usize },
+}
+
+/// Pebble centres, DEM frame, from the text of an `id,x,y,z,...` CSV (the
+/// `reference-data/liggghts/` format, SI metres, e.g.
+/// `htr10_conus_presettled_mu10_mur00.csv`), in file order.
+///
+/// # Errors
+/// [`DemBedError::Header`] or [`DemBedError::Row`] on a malformed file.
+pub fn read_dem_centres_csv(text: &str) -> Result<Vec<[Length; 3]>, DemBedError> {
+    let mut lines = text.lines();
+    let header = lines.next().unwrap_or_default();
+    if !header.starts_with("id,x,y,z") {
+        return Err(DemBedError::Header(header.to_string()));
+    }
+    let mut out = Vec::new();
+    for (i, l) in lines.enumerate() {
+        if l.trim().is_empty() {
+            continue;
+        }
+        let f: Vec<f64> = l
+            .split(',')
+            .skip(1)
+            .take(3)
+            .map(|v| v.trim().parse::<f64>())
+            .collect::<Result<_, _>>()
+            .map_err(|e| DemBedError::Row {
+                line: i + 2,
+                why: e.to_string(),
+            })?;
+        if f.len() < 3 {
+            return Err(DemBedError::Row {
+                line: i + 2,
+                why: format!("{} coordinates, need 3", f.len()),
+            });
+        }
+        out.push([f[0], f[1], f[2]].map(Length::new::<uom::si::length::meter>));
+    }
+    Ok(out)
+}
+
+/// **A poured bed cut to a ball count** (gh:#787): every centre at or below
+/// the bed floor (`z <= 0`, DEM frame: the conus and the tube) is kept, and of
+/// the centres above it the lowest `core_balls`, ordered by height, then `x`,
+/// then `y`. This is the rule of the web demo's beds view
+/// (`dhoby-ghaut/examples/common/htr10_beds.rs`, `Bed::trimmed_to_core`), so a
+/// `k` computed on the result is the `k` of the bed that view draws. The top
+/// of the cut bed is a flat cut through the packing, not a poured surface.
+///
+/// Returned in that order: the kept floor-and-below centres in input order,
+/// then the core centres from the floor up.
+///
+/// # Errors
+/// [`DemBedError::TooFewBalls`] if fewer than `core_balls` centres lie above
+/// the floor.
+pub fn trim_to_core_balls(
+    centres: &[[Length; 3]],
+    core_balls: usize,
+) -> Result<Vec<[Length; 3]>, DemBedError> {
+    let mut below: Vec<[Length; 3]> = centres
+        .iter()
+        .copied()
+        .filter(|c| c[2].value <= 0.0)
+        .collect();
+    let mut above: Vec<[Length; 3]> = centres
+        .iter()
+        .copied()
+        .filter(|c| c[2].value > 0.0)
+        .collect();
+    if above.len() < core_balls {
+        return Err(DemBedError::TooFewBalls {
+            available: above.len(),
+            wanted: core_balls,
+        });
+    }
+    above.sort_by(|a, b| {
+        a[2].value
+            .total_cmp(&b[2].value)
+            .then(a[0].value.total_cmp(&b[0].value))
+            .then(a[1].value.total_cmp(&b[1].value))
+    });
+    above.truncate(core_balls);
+    below.extend(above);
+    Ok(below)
+}
+
 #[cfg(test)]
 #[path = "explicit_bed_tests.rs"]
 mod tests;
