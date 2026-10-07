@@ -374,6 +374,7 @@ impl CodeReview {
         let pw = (width * 0.85).min(360.0);
         egui::Panel::left("kw_side").default_size(pw).resizable(true).show_collapsible(ui, &mut open, |ui| {
             egui::ScrollArea::vertical().show(ui, |ui| {
+                self.site_buttons(ui);
                 ui.horizontal(|ui| {
                     ui.heading(self.panel_title());
                     ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
@@ -623,6 +624,45 @@ impl CodeReview {
 
     // ---- side panel -------------------------------------------------------
 
+    /// The crate on screen: the crate view's, or the module view's crate.
+    /// `None` on the code map.
+    pub(crate) fn focused_crate(&self) -> Option<&str> {
+        match &self.place.level {
+            Level::Map => None,
+            Level::Crate(c) | Level::Module { krate: c, .. } => Some(c),
+        }
+    }
+
+    /// The two big buttons at the top of the side panel (maintainer,
+    /// 2026-10-07): back to the site's JavaScript code map, on the crate on
+    /// screen, and to the home page. Web only: desktop kovan is not a page
+    /// of the site. GUI drawing; the URLs are `model::js_map_url` /
+    /// `model::home_url`, tested there.
+    fn site_buttons(&self, ui: &mut egui::Ui) {
+        if self.mode != Mode::Web {
+            return;
+        }
+        let root = self.store.site_root();
+        let w = ui.available_width();
+        let big = |ui: &mut egui::Ui, text: &str, tip: String| {
+            ui.add_sized([w, 44.0], egui::Button::new(RichText::new(text).size(17.0).strong()).fill(Color32::from_rgb(31, 92, 100)))
+                .on_hover_text(tip)
+                .clicked()
+        };
+        let map = model::js_map_url(&root, self.focused_crate());
+        let tip = match self.focused_crate() {
+            Some(c) => format!("The site's JavaScript code map, on {c}"),
+            None => "The site's JavaScript code map".to_string(),
+        };
+        if big(ui, "Go back to JavaScript map", tip) {
+            ui.ctx().open_url(egui::OpenUrl::same_tab(map));
+        }
+        if big(ui, "Go to homepage", "The OUTRAM PARK site's home page".into()) {
+            ui.ctx().open_url(egui::OpenUrl::same_tab(model::home_url(&root)));
+        }
+        ui.add_space(6.0);
+    }
+
     fn side_panel(&mut self, ui: &mut egui::Ui, snap: &Snap) {
         if let Some(s) = self.status.clone() {
             ui.horizontal_wrapped(|ui| {
@@ -798,5 +838,23 @@ impl CodeReview {
         if set.contains(page) {
             ui.add(egui::Hyperlink::from_label_and_url("API", format!("{base}{page}{frag}")).open_in_new_tab(true));
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// The crate the side panel's "Go back to JavaScript map" opens on.
+    #[test]
+    fn focused_crate_follows_the_view() {
+        let src = DataSource::Dir { data: std::env::temp_dir(), workspace: ".".into() };
+        let mut r = CodeReview::new(Mode::Web, src);
+        assert_eq!(r.focused_crate(), None);
+        r.go(Place::at(Level::Crate("boon-lay".into())));
+        assert_eq!(r.focused_crate(), Some("boon-lay"));
+        r.go(Place::at(Level::Module { krate: "petir".into(), file: "crates/petir/src/lib.rs".into() }));
+        assert_eq!(r.focused_crate(), Some("petir"));
+        assert_eq!(model::js_map_url(&r.store.site_root(), r.focused_crate()), format!("{}code-map/#petir", crate::data::SITE_URL));
     }
 }

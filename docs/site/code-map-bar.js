@@ -16,7 +16,7 @@
 //
 // Collapsed: a toggle, one chip per topic box (the current page's crate named
 // in its topic's chip), and "Full map". Expanded: the SVG in its own box with
-// + / - / Fit, drag to pan; tapping a crate goes to its deep dive, else its
+// + / - / Fit, drag to pan, pinch to zoom; tapping a crate goes to its deep dive, else its
 // API reference, else code-map/#<crate>. The open/closed state is remembered
 // per viewer in localStorage when it is available.
 //
@@ -218,10 +218,14 @@
     vb = { x: x, y: cy - h / 2, w: w, h: h };
     apply();
   }
-  function zoom(f) {
-    var cx = vb.x + vb.w / 2, cy = vb.y + vb.h / 2;
+  // Zoom by f keeping the map point under (sx, sy) (box pixels; default the
+  // middle) fixed, clamped to 150 map units across and two whole maps.
+  function zoom(f, sx, sy) {
+    var r = box.getBoundingClientRect();
+    if (sx === undefined) { sx = r.width / 2; sy = r.height / 2; }
+    var px = vb.x + vb.w * sx / r.width, py = vb.y + vb.h * sy / r.height;
     var w = Math.min(Math.max(vb.w / f, 150), whole.w * 2), h = vb.h * w / vb.w;
-    vb = { x: cx - w / 2, y: cy - h / 2, w: w, h: h };
+    vb = { x: px - (px - vb.x) * w / vb.w, y: py - (py - vb.y) * h / vb.h, w: w, h: h };
     apply();
   }
   function home() { if (hereCrates.length) focus(hereCrates); else fit(); }
@@ -246,13 +250,35 @@
     box.appendChild(status);
     wrap.appendChild(box);
 
-    var drag = null;
+    // One finger (or the mouse) drags; two fingers pinch-zoom about the point
+    // between them and pan as it moves, as on code-map/index.html. A pinch
+    // never ends in a tap (which would leave the page).
+    var drag = null, pts = {}, pinch = null;
+    function pinchAt() {
+      var k = Object.keys(pts);
+      if (k.length < 2) return null;
+      var a = pts[k[0]], b = pts[k[1]], r = box.getBoundingClientRect();
+      return { d: Math.hypot(a.x - b.x, a.y - b.y), x: (a.x + b.x) / 2 - r.left, y: (a.y + b.y) / 2 - r.top };
+    }
     box.addEventListener("pointerdown", function (e) {
       if (!svg || e.target.closest("button")) return;
-      drag = { x: e.clientX, y: e.clientY, vb: { x: vb.x, y: vb.y }, moved: false };
+      pts[e.pointerId] = { x: e.clientX, y: e.clientY };
       box.setPointerCapture(e.pointerId);
+      pinch = pinchAt();
+      if (pinch) { drag = null; box.classList.remove("op-drag"); return; }
+      drag = { x: e.clientX, y: e.clientY, vb: { x: vb.x, y: vb.y }, moved: false };
     });
     box.addEventListener("pointermove", function (e) {
+      if (pts[e.pointerId]) pts[e.pointerId] = { x: e.clientX, y: e.clientY };
+      if (pinch) {
+        var n = pinchAt();
+        if (!n) return;
+        var r = box.getBoundingClientRect();
+        vb.x -= (n.x - pinch.x) * vb.w / r.width; vb.y -= (n.y - pinch.y) * vb.h / r.height;
+        if (pinch.d > 0 && n.d > 0) zoom(n.d / pinch.d, n.x, n.y); else apply();
+        pinch = n;
+        return;
+      }
       if (!drag) return;
       var dx = e.clientX - drag.x, dy = e.clientY - drag.y;
       if (Math.abs(dx) + Math.abs(dy) > 5) { drag.moved = true; box.classList.add("op-drag"); }
@@ -262,6 +288,13 @@
       apply();
     });
     box.addEventListener("pointerup", function (e) {
+      delete pts[e.pointerId];
+      if (pinch) {
+        pinch = null;
+        var k = Object.keys(pts);
+        if (k.length) drag = { x: pts[k[0]].x, y: pts[k[0]].y, vb: { x: vb.x, y: vb.y }, moved: true };
+        return;
+      }
       if (!drag) return;
       var moved = drag.moved; drag = null; box.classList.remove("op-drag");
       if (moved) return;
@@ -274,7 +307,17 @@
       status.textContent = "Opening " + c.name + (p ? " (" + p.what + ")" : " on the full map") + "…";
       location.href = hrefOf(c);
     });
-    box.addEventListener("pointercancel", function () { drag = null; box.classList.remove("op-drag"); });
+    box.addEventListener("pointercancel", function (e) {
+      delete pts[e.pointerId]; pinch = null; drag = null; box.classList.remove("op-drag");
+    });
+    // A trackpad pinch (or ctrl+wheel) zooms about the pointer; a plain
+    // wheel is left to scroll the page, which this strip sits inside.
+    box.addEventListener("wheel", function (e) {
+      if (!svg || !e.ctrlKey) return;
+      e.preventDefault();
+      var r = box.getBoundingClientRect();
+      zoom(Math.exp(-e.deltaY * 0.01), e.clientX - r.left, e.clientY - r.top);
+    }, { passive: false });
 
     fetch(new URL("code_map.svg", mapDir).href).then(function (r) {
       if (!r.ok) throw new Error("code_map.svg: " + r.status);
@@ -294,7 +337,7 @@
           if (hereCrates.indexOf(c.name) >= 0) cards[i].classList.add("op-here");
           if (pageOf(c)) cards[i].classList.add("op-has-page");
         }
-        status.textContent = "Tap a crate: its deep dive (underlined), else its API or its place on the full map. Drag to pan.";
+        status.textContent = "Tap a crate: its deep dive (underlined), else its API or its place on the full map. Drag to pan, pinch to zoom.";
         if (pendingFocus) { focus(pendingFocus); pendingFocus = null; } else home();
       });
     }).catch(function (err) { status.textContent = "Could not load the map: " + err.message; });

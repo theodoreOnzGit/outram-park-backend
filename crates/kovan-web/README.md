@@ -43,6 +43,11 @@ reviewed first?**
   commit the site was built from; pop-out to a new tab on a deep link
   (`code-review/#<function id>`); a full-screen sheet on a phone.
 - **Search bar:** crates, modules and functions by name and path fragments.
+- **Back to the site (web only, 2026-10-07):** two big buttons at the top of
+  the side panel, "Go back to JavaScript map" (`code-map/#<crate>` on the
+  crate on screen) and "Go to homepage". The JavaScript map's details panel
+  has the way in: a big "Go to Code Review map" button that opens
+  `code-review/#crate=<crate>` for the selected crate, or the map with none.
 
 `Mode::Desktop` is reserved and **not implemented**.
 
