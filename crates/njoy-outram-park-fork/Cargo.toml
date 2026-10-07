@@ -25,6 +25,11 @@ keywords = ["nuclear", "endf", "cross-sections", "reconr", "neutronics"]
 # then refuses to package a "dirty" tree). Leading "/" anchors to the crate root.
 include = [
     "src/**",
+    # build.rs stamps NJOY_OP_GIT_SHA / NJOY_OP_BUILD_DATE into every ACE
+    # table's hk field; without it the packaged crate does not compile
+    # (found by `cargo publish` verify, 2026-10-07). It degrades to "unknown"
+    # when there is no .git, as on crates.io.
+    "/build.rs",
     "docs/**",
     "/LICENSE*",
     "/NOTICE",
