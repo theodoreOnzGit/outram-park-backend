@@ -10,9 +10,11 @@
 //!   `nee_soon`'s DEM-bed builder does.
 //!
 //! Both are baked into `examples/common/htr10_beds.zz` (see
-//! [`crate::htr10_beds`]); nothing is computed in the worker and **no k_eff of
-//! the random bed is shown or implied**: none has been measured (a 15 000-
-//! history smoke run in `nee_soon` only shows the core transports).
+//! [`crate::htr10_beds`]); nothing is computed in the worker. ~~**No k_eff of
+//! the random bed is shown or implied**: none has been measured.~~ **Since
+//! 2026-10-08 (gh:#787)** the panel shows both recorded k, [`LATTICE_K`] and
+//! [`RANDOM_K`], each from its native record; one pour, so the scatter
+//! between pours is unmeasured.
 
 use crate::htr10_beds::{self, draw, Bed, BedStats};
 use dhoby_ghaut::web_demo::view::View;
@@ -33,6 +35,39 @@ pub enum CutKind {
     Side,
     /// A horizontal plane at a height the reader picks.
     Plan,
+}
+
+/// A recorded native k_eff: value, 1σ, and the record it is read from.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct RecordedK {
+    pub k: f64,
+    pub sigma: f64,
+    pub record: &'static str,
+}
+
+/// The lattice at N = 12 on ENDF/B-VIII.0, 10 000 × [5 + 135], recorded
+/// 2026-10-07 (`nee_soon/verification_and_validation/htr10_seker_2026_10_07_10k/`).
+pub const LATTICE_K: RecordedK = RecordedK {
+    k: 0.995125,
+    sigma: 0.001055,
+    record: "2026-10-07",
+};
+
+/// This random bed (the gh:#216 pour cut to the lattice's 16 681 balls),
+/// same driver and statistics, recorded 2026-10-08
+/// (`nee_soon/verification_and_validation/htr10_dem_bed_keff_2026_10_08/`).
+pub const RANDOM_K: RecordedK = RecordedK {
+    k: 0.989293,
+    sigma: 0.000962,
+    record: "2026-10-08",
+};
+
+/// `(random − lattice)` in pcm and its σ.
+pub fn random_minus_lattice_pcm() -> (f64, f64) {
+    (
+        1.0e5 * (RANDOM_K.k - LATTICE_K.k),
+        1.0e5 * RANDOM_K.sigma.hypot(LATTICE_K.sigma),
+    )
 }
 
 /// The two beds, decoded once, at equal ball count.
@@ -170,11 +205,17 @@ impl BedsView {
                         ui.label(format!("{:.4}", b.lattice_stats.phi_whole_core));
                         ui.label(format!("{:.4}", b.random_stats.phi_whole_core));
                         ui.end_row();
-                        ui.label("k_eff");
-                        ui.label("recorded (layers view)");
-                        ui.colored_label(Color32::from_rgb(255, 170, 120), "none: not run");
+                        ui.label("k_eff (native, recorded)");
+                        for r in [LATTICE_K, RANDOM_K] {
+                            ui.label(format!("{:.5} ± {:.5} ({})", r.k, r.sigma, r.record));
+                        }
                         ui.end_row();
                     });
+                let (d, s) = random_minus_lattice_pcm();
+                ui.label(format!(
+                    "Random − lattice: {d:+.0} ± {s:.0} pcm ({:+.1}σ). One pour: the scatter between pours is not measured, so this is not yet the arrangement's worth.",
+                    d / s
+                ));
                 ui.label(format!(
                     "The random bed is the lowest {} balls of the {}-pebble pour, whose whole-core φ is {:.4} against the published 0.61 (gh:#216).",
                     b.random_stats.core, b.poured_stats.total, b.poured_stats.phi_whole_core
@@ -232,7 +273,10 @@ impl BedsView {
                 &b.random,
                 ran_off,
                 Color32::from_rgb(200, 150, 100),
-                "RANDOM (DEM pour): no k_eff has been run".to_string(),
+                format!(
+                    "RANDOM (DEM pour): k {:.5} ± {:.5}, one pour",
+                    RANDOM_K.k, RANDOM_K.sigma
+                ),
             ),
         ];
         for (bed, off, colour, label) in beds {
@@ -318,7 +362,7 @@ pub const NOTES: [&str; 4] = [
     "Every recorded HTR-10 k (the layers view) is on the lattice: it is the bed both reference models use, so the comparison with them is like for like, but not with the reactor, whose bed is random.",
     "The random bed here is the LIGGGHTS port's GranularSystem pour of gh:#216 (µ = 0.1 graphite-on-graphite friction from the literature, not fitted), re-run on 2026-10-07 and byte-identical. Verification against LIGGGHTS, not validation: no measured bed is compared.",
     "At the same ball count the two beds stand at almost the same height; what differs is the arrangement: rows and gaps in the lattice, none in the random bed.",
-    "What the random arrangement does to k has not been measured. No k for the random bed is shown here, and none should be read into the picture.",
+    "~~What the random arrangement does to k has not been measured.~~ Measured 2026-10-08 on this one pour, natively at 10 000 × [5 + 135]: the random bed is about 580 pcm below the lattice at 4σ. One pour is one arrangement; how much pours scatter is not measured yet.",
 ];
 
 #[cfg(test)]
@@ -334,6 +378,38 @@ mod tests {
         assert_eq!(b.poured_stats.total, 27_554);
         assert!((b.random_stats.surface_m - b.lattice_stats.surface_m).abs() < 0.05);
         assert!(b.lattice.side_cut(0.0).len() > 100 && b.random.side_cut(0.0).len() > 100);
+    }
+
+    /// The two k the panel shows are the ones in the native records.
+    #[test]
+    fn the_recorded_k_are_the_records() {
+        let vv = concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/../nee_soon/verification_and_validation/"
+        );
+        let lat =
+            std::fs::read_to_string(format!("{vv}htr10_seker_2026_10_07_10k/results_table.csv"))
+                .expect("the lattice record");
+        let row: Vec<&str> = lat
+            .lines()
+            .find(|l| l.starts_with("VIII.0,12,"))
+            .expect("N = 12 on VIII.0")
+            .split(',')
+            .collect();
+        assert_eq!((row[4], row[5]), ("0.995125", "0.001055"));
+        assert_eq!(LATTICE_K.k, 0.995125);
+        assert_eq!(LATTICE_K.sigma, 0.001055);
+        let dem = std::fs::read_to_string(format!("{vv}htr10_dem_bed_keff_2026_10_08/results.csv"))
+            .expect("the DEM-bed record");
+        let row: Vec<&str> = dem.lines().nth(1).expect("one row").split(',').collect();
+        assert_eq!((row[3], row[4], row[5]), ("16681", "0.989293", "0.000962"));
+        assert_eq!(RANDOM_K.k, 0.989293);
+        assert_eq!(RANDOM_K.sigma, 0.000962);
+        let (d, s) = random_minus_lattice_pcm();
+        assert!(
+            (d + 583.2).abs() < 0.1 && (s - 142.8).abs() < 0.1,
+            "{d} ± {s}"
+        );
     }
 
     #[test]
